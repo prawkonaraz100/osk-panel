@@ -1,0 +1,53 @@
+meta:
+  project: osk-biz-feature-map
+  audited_target: https://biz.prawo-jazdy-360.pl/
+  audited_at: 2026-09-05
+  method: clean-room functional mapping
+
+modules:
+  auth:
+    confidence: CONFIRMED
+    actions: [register, login, logout, social_login, password_reset]
+  organization:
+    confidence: CONFIRMED
+    actions: [view, edit, public_profile]
+  pkk:
+    confidence: CONFIRMED
+    actions: [fetch, view, update_training, return_school, return_authority, return_expired, history]
+    audit_required: true
+  students:
+    confidence: CONFIRMED
+    actions: [create, edit, archive, assign_course, assign_license, assign_exam, view_progress]
+  staff:
+    confidence: INFERRED
+    actions: [create, edit, deactivate, assign_role, availability]
+  vehicles:
+    confidence: INFERRED
+    actions: [create, edit, archive, assign_to_lesson, reminders]
+  calendar:
+    confidence: CONFIRMED
+    actions: [create_event, reschedule, cancel, assign_instructor, assign_vehicle, publish_slot, book_slot]
+  licenses:
+    confidence: CONFIRMED
+    states: [inventory, assigned, activated, expired]
+    actions: [purchase, assign, revoke_before_activation, activate, progress, payment_history]
+  internal_exams:
+    confidence: CONFIRMED
+    states: [available, assigned, started, finished, consumed]
+    actions: [purchase, generate, generate_link, start_local, start, submit, result, card_pdf, history]
+  lectures:
+    confidence: CONFIRMED
+    actions: [list, open, present, assign, progress]
+  finance:
+    confidence: CONFIRMED
+    actions: [order, payment, payment_history, invoice, refund]
+  ranking:
+    confidence: CONFIRMED
+    actions: [edit_profile, preview_profile, reviews]
+  advertising:
+    confidence: CONFIRMED
+    actions: [campaign, placement, region, creative, bid, payment, history]
+  impersonation:
+    confidence: INDEXED
+    actions: [start_student_view, stop_student_view]
+    audit_required: true
