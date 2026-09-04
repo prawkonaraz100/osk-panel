@@ -1,0 +1,133 @@
+meta:
+  screen: vehicle_detail
+  route_pattern: /pojazdy/{vehicle_uuid}
+  confidence: USER_CONFIRMED_AUTH_SCREEN
+  audited_at: 2026-09-05
+
+layout:
+  breadcrumb: [Panel główny, Pojazdy, vehicle_name]
+  sections:
+    - vehicle_details
+    - validity
+    - embedded_calendar
+
+header:
+  confirmed_elements:
+    - back_to_vehicle_list
+    - vehicle_photo
+    - vehicle_name
+  confirmed_actions:
+    - archive_vehicle
+    - delete_vehicle
+
+vehicle_details:
+  confirmed_action: edit_vehicle_details
+  data_fields:
+    - make_model
+    - registration_number
+    - side_number
+    - vin
+    - engine_capacity_cm3
+    - production_year
+    - categories
+    - created_date
+  observed_nullable_or_empty_fields:
+    - vin
+    - categories
+  created_date_anomaly:
+    observed_pattern: 01-01-0001
+    classification: SENTINEL_OR_DEMO_DATA_ANOMALY
+    parity_requirement: false
+    own_product_rule: use_real_timestamp_or_null_not_min_date
+
+validity:
+  confirmed_types:
+    - technical_inspection
+    - oc_insurance
+    - ac_insurance
+  independent_dates: true
+  warning_indicator_observed: true
+  confirmed_or_supported_state:
+    - expired_or_attention_required
+  unresolved:
+    - exact_labels_for_valid_state
+    - expiring_soon_threshold
+    - whether_ac_is_optional_in_form
+
+embedded_calendar:
+  confirmed_actions:
+    - open_full_calendar
+    - add_event
+    - previous_period
+    - next_period
+    - today
+    - view_month
+    - view_week
+    - view_day
+  confirmed_views:
+    - month
+    - week
+    - day
+  observed_active_view: month
+  full_calendar_route: /kalendarz
+  unresolved:
+    - whether_full_calendar_preserves_vehicle_context
+    - whether_add_event_prefills_vehicle
+    - event_form_fields
+    - conflict_behavior
+
+relationships_confirmed:
+  - vehicle_photo_asset
+  - vehicle_has_many_validity_records
+  - vehicle_calendar_context
+  - vehicle_categories_field_present
+
+archive_delete:
+  archive_confirmed: true
+  delete_confirmed: true
+  unresolved:
+    - archive_confirmation
+    - archive_restore
+    - archive_effect_on_future_events
+    - delete_confirmation
+    - delete_semantics_hard_vs_soft
+    - delete_dependency_rules
+
+model_recommendation:
+  vehicle_fields:
+    - id_uuid
+    - organization_id
+    - make
+    - model
+    - registration_number
+    - side_number_nullable
+    - vin_nullable_until_validation_confirmed
+    - engine_capacity_cm3_nullable
+    - production_year_nullable
+    - photo_asset_id_nullable
+    - created_at
+    - archived_at_nullable
+  validity_records:
+    - technical_inspection
+    - oc_insurance
+    - ac_insurance
+
+security_requirements:
+  - tenant_isolation
+  - authorize_vehicle_route_by_organization
+  - authorize_calendar_context_by_organization
+  - preserve_historical_event_integrity_on_archive_delete
+
+remaining_gaps:
+  - create_vehicle_form
+  - edit_vehicle_form
+  - exact_required_fields
+  - field_validations
+  - categories_selector_and_multiplicity
+  - photo_upload_remove_behavior
+  - location_relation
+  - archive_lifecycle
+  - delete_lifecycle
+  - add_event_form
+  - save_success_and_error_messages
+  - list_filters_search_sorting
