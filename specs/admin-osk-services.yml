@@ -117,12 +117,14 @@ service_groups:
       confidence: USER_CONFIRMED_AUTH_SCREEN
       screen_specs:
         list: specs/screens/vehicles.yml
+        create: specs/screens/vehicle-create.yml
         detail: specs/screens/vehicle-detail.yml
         edit: specs/screens/vehicle-edit.yml
       docs:
         - docs/20-vehicles-screen.md
         - docs/25-vehicle-detail-screen.md
         - docs/26-vehicle-edit-form.md
+        - docs/27-vehicle-create-form.md
       confirmed_columns:
         - photo
         - registration_number
@@ -144,7 +146,7 @@ service_groups:
         - ac_valid_until
         - photo
         - created_date
-      required_by_visible_edit_marker:
+      required_by_visible_create_and_edit_marker:
         - registration_number
         - make
         - model
@@ -157,6 +159,16 @@ service_groups:
         - delete_vehicle
         - view_vehicle_details
         - calendar_for_vehicle
+      confirmed_create_actions:
+        - save_new_vehicle
+        - cancel_vehicle_create
+        - close_vehicle_create_drawer
+        - select_vehicle_categories
+        - select_vehicle_locations
+        - pick_next_inspection_date
+        - pick_oc_valid_until
+        - pick_ac_valid_until
+        - select_vehicle_photo
       confirmed_detail_actions:
         - edit_vehicle_details
         - open_full_calendar
@@ -178,6 +190,10 @@ service_groups:
         - pick_ac_valid_until
         - select_or_replace_vehicle_photo
         - remove_vehicle_photo_from_form
+      create_edit_parity:
+        same_business_fields: true
+        create_empty_values: true
+        create_photo_initial_state: choose_file
       calendar_filter:
         query_param: v
         identifier: vehicle_uuid
@@ -210,9 +226,13 @@ service_groups:
         - preserve_history_on_archive_delete
         - do_not_render_min_date_sentinel_as_business_date
       remaining_unknowns:
-        - create_vehicle_form_and_exact_parity_with_edit
         - exact_backend_field_validations
         - exact_category_dictionary
+        - duplicate_registration_behavior
+        - vin_validation
+        - production_year_range
+        - engine_capacity_range
+        - photo_file_rules
         - photo_removal_commit_behavior
         - archive_confirmation_restore_and_effects
         - delete_confirmation_and_semantics
@@ -559,7 +579,7 @@ remaining_button_level_gaps:
   - dashboard
   - students
   - location_add_edit_form_and_validation
-  - vehicle_create_validation_archive_delete_and_event_form
+  - vehicle_validation_archive_delete_and_event_form
   - staff_panel_access_account_provisioning_exact_types_validation_archive_delete_and_event_form
   - calendar_main_screen_and_event_form
   - pkk_ui
