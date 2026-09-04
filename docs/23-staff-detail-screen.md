@@ -41,7 +41,7 @@ Prowadzi do:
 `/pracownicy`
 
 ### `Archiwizuj`
-Potwierdzona akcja rekordu.
+Potwierdzona widoczna akcja rekordu.
 
 Wniosek dla naszego systemu:
 - archiwizacja jest osobnym stanem/procesem od trwałego usunięcia,
@@ -49,7 +49,7 @@ Wniosek dla naszego systemu:
 - dokładny modal potwierdzający i skutek dla kalendarza pozostają do sprawdzenia.
 
 ### `Usuń`
-Potwierdzona osobna akcja rekordu.
+Potwierdzona osobna widoczna akcja rekordu.
 
 Nie zakładamy jeszcze:
 - czy jest to hard delete,
@@ -63,7 +63,7 @@ Dla naszego systemu rekomendacja: preferować archiwizację/soft-delete tam, gdz
 
 ## 3. Sekcja `Szczegóły pracownika`
 
-Posiada osobną akcję:
+Posiada działającą akcję:
 - `Edytuj`
 
 ### Podsekcja `Dane`
@@ -151,7 +151,7 @@ Nie łączymy tych trzech terminów w jeden status pracownika.
 
 ## 6. Sekcja `Dostęp do panelu`
 
-Posiada osobną akcję:
+Sekcja pokazuje element tekstowy/sterujący:
 - `Edytuj`
 
 ### Potwierdzone pole informacyjne
@@ -166,7 +166,28 @@ To potwierdza rozdzielenie:
 
 Formularz edycji danych pracownika dodatkowo potwierdził możliwość późniejszego uruchomienia procesu `Utwórz konto do logowania`.
 
-Do dalszego audytu po kliknięciu `Edytuj` w tej sekcji:
+### Ważna korekta audytu — `Edytuj` jest widoczne, ale nie udało się go uruchomić
+
+W bieżącym obserwowanym stanie użytkownik próbował otworzyć `Edytuj` w sekcji `Dostęp do panelu`, ale kontrolka **nie uruchomiła żadnego widoku ani formularza**.
+
+Status tej kontrolki:
+- `VISIBLE_BUT_NOT_ACTIONABLE`
+- `REASON_UNKNOWN`
+
+Na ekranie widoczny jest jednocześnie banner `Przeglądasz panel demonstracyjny`, dlatego jedną z możliwych przyczyn może być ograniczenie trybu demo. Nie zapisujemy tego jednak jako faktu, ponieważ brak bezpośredniego potwierdzenia.
+
+Nie można też wykluczyć innych przyczyn, np.:
+- brak uprawnienia,
+- nieaktywna/niezaimplementowana akcja w tym stanie rekordu,
+- ograniczenie zależne od braku konta pracownika,
+- błąd frontendu.
+
+Wniosek dokumentacyjny:
+- **nie traktujemy `edit_panel_access` jako potwierdzonej działającej akcji**, tylko jako widoczny element UI;
+- nie znamy osobnego ekranu edycji dostępu do panelu;
+- jedyny faktycznie potwierdzony działający punkt rozpoczęcia tworzenia konta to `Utwórz konto do logowania` w formularzu dodawania/edycji pracownika.
+
+Do dalszego audytu, jeśli kiedyś będzie możliwy na koncie poza tym ograniczeniem:
 - włączenie/wyłączenie dostępu,
 - login/e-mail konta,
 - hasło lub zaproszenie,
@@ -221,13 +242,11 @@ Do audytu po kliknięciu:
 
 ## 8. Potwierdzone akcje ekranu szczegółów
 
+Działające/potwierdzone:
 - back_to_staff_list
-- archive_staff
-- delete_staff
 - edit_staff_details
 - save_staff_changes
 - cancel_staff_edit
-- edit_panel_access
 - request_create_login_account_from_staff_edit
 - open_full_calendar
 - add_calendar_event
@@ -237,6 +256,13 @@ Do audytu po kliknięciu:
 - calendar_view_month
 - calendar_view_week
 - calendar_view_day
+
+Widoczne, ale lifecycle/skutek niezweryfikowany:
+- archive_staff
+- delete_staff
+
+Widoczne, ale **nieuruchamialne w obserwowanym stanie**:
+- edit_panel_access (`VISIBLE_BUT_NOT_ACTIONABLE`, `REASON_UNKNOWN`)
 
 ---
 
@@ -280,13 +306,15 @@ Model naszego produktu rozdziela:
 
 `Pracownik biurowy` / `office_worker` nie oznacza automatycznie pełnego dostępu administracyjnego.
 
+Ponieważ osobna kontrolka `Dostęp do panelu -> Edytuj` nie dała się uruchomić, **nie odtwarzamy na tej podstawie żadnego nieznanego mechanizmu RBAC konkurenta**.
+
 ---
 
 ## 11. Czego nadal nie znamy
 
 Po zweryfikowaniu szczegółów i formularza edycji w module Pracownicy pozostają głównie:
-- ekran `Edytuj` w sekcji `Dostęp do panelu`,
-- zachowanie po zaznaczeniu `Utwórz konto do logowania`,
+- rzeczywisty flow provisioningu konta po zaznaczeniu `Utwórz konto do logowania`,
+- czy istnieje działający osobny ekran zarządzania `Dostępem do panelu` poza obserwowanym stanem,
 - pełny słownik `Rodzaj pracownika`,
 - dokładny lifecycle archiwizacji,
 - dokładny lifecycle usuwania,
@@ -304,14 +332,14 @@ Po zweryfikowaniu szczegółów i formularza edycji w module Pracownicy pozostaj
 ### AC-STF-DET-01 — szczegóły
 Po wejściu na `/pracownicy/{id}` administrator widzi profil pracownika, terminy dokumentów, stan dostępu do panelu i kalendarz.
 
-### AC-STF-DET-02 — niezależna edycja konta
-Edycja danych pracownika i edycja dostępu do panelu są osobnymi procesami.
+### AC-STF-DET-02 — konto opcjonalne
+Dane pracownika są niezależne od opcjonalnego konta do logowania.
 
 ### AC-STF-DET-03 — archiwizacja
-Administrator ma osobną akcję archiwizacji pracownika niezależną od usunięcia.
+Administrator widzi osobną akcję archiwizacji pracownika niezależną od usunięcia; dokładny skutek pozostaje do potwierdzenia.
 
 ### AC-STF-DET-04 — usunięcie
-Administrator ma osobną akcję usunięcia; nasza implementacja chroni integralność historycznych danych i zależności.
+Administrator widzi osobną akcję usunięcia; nasza implementacja chroni integralność historycznych danych i zależności.
 
 ### AC-STF-DET-05 — dokumenty
 Każdy z trzech terminów ważności jest prezentowany i edytowany niezależnie.
@@ -324,3 +352,6 @@ Z poziomu szczegółów pracownika dostępna jest akcja utworzenia wydarzenia ka
 
 ### AC-STF-DET-08 — późniejszy provisioning konta
 Istniejący pracownik bez dostępu do panelu może z formularza edycji rozpocząć proces utworzenia konta do logowania.
+
+### AC-STF-DET-09 — nieudokumentowana kontrolka dostępu
+Widoczna, ale nieuruchamialna kontrolka `Dostęp do panelu -> Edytuj` nie może być traktowana jako potwierdzony działający workflow konkurenta bez dalszego dowodu.
