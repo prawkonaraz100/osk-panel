@@ -1,38 +1,48 @@
 # 01. Mapa funkcjonalności
 
+> Druga weryfikacja publicznych źródeł: 2026-09-05. Szczegółowy protokół: `14-reverification-audit-2026-09-05.md`.
+>
+> Klasy pewności: `CURRENT_CONFIRMED`, `RULES_CONFIRMED`, `HISTORICAL_INDEX`, `INFERRED`, `TO_VERIFY_AUTH`, `SOURCE_CONFLICT`.
+
 ## 1. Uwierzytelnianie i konto OSK
 
-**Status:** `CONFIRMED`
+**Status:** `CURRENT_CONFIRMED`
 
 ### Funkcje
 - logowanie e-mail + hasło,
 - „nie wylogowuj mnie”,
-- reset hasła,
+- reset hasła przyjmujący **e-mail lub login**,
 - logowanie społecznościowe: Google, Apple, Facebook,
 - rejestracja właściciela/OSK,
 - dane osoby: imię, nazwisko, e-mail, hasło,
 - dane firmy: nazwa, NIP, adres, telefon,
 - akceptacja regulaminu,
 - opcjonalna zgoda marketingowa,
-- powiadomienia e-mail/telefoniczne związane z kontem.
+- zachowanie `ReturnUrl` przy wejściu na chroniony ekran przed logowaniem,
+- wylogowanie,
+- możliwość zgłoszenia żądania zamknięcia konta,
+- możliwość blokady konta przy naruszeniach regulaminu.
 
 ### Akcje
-`register`, `login`, `social_login`, `logout`, `request_password_reset`, `reset_password`, `update_account`, `update_company`, `withdraw_marketing_consent`.
+`register`, `login`, `social_login`, `logout`, `request_password_reset_by_email_or_login`, `reset_password`, `resume_return_url_after_auth`, `update_account`, `update_company`, `withdraw_marketing_consent`, `request_account_closure`.
+
+### Ważna reguła sesji
+Regulamin potwierdza dla opłaconego konta użytkownika zasadę jednej aktywnej sesji — uruchomienie kolejnej powoduje wylogowanie wcześniejszej. Zakres tej zasady dla kont pracowników OSK jest `TO_VERIFY_AUTH`; nie należy automatycznie rozszerzać jej na cały personel.
 
 ---
 
 ## 2. Organizacja OSK i profil firmy
 
-**Status:** `CONFIRMED / INDEXED`
+**Status:** `CURRENT_CONFIRMED / HISTORICAL_INDEX`
 
 ### Funkcje
 - dane identyfikacyjne OSK,
 - profil publiczny/wizytówka,
-- edycja profilu w rankingu,
+- edycja profilu w rankingu (`HISTORICAL_INDEX` dla dokładnego ekranu),
 - podgląd publicznego profilu,
 - powiązanie profilu z opiniami,
 - dane kontaktowe i lokalizacja,
-- konfiguracja widoczności.
+- konfiguracja widoczności (`TO_VERIFY_AUTH` dla pól i zakresu).
 
 ### Akcje
 `edit_school_profile`, `preview_school_profile`, `publish_school_profile`, `view_reviews`, `report_review`.
@@ -41,7 +51,7 @@
 
 ## 3. Integracja PKK
 
-**Status:** `CONFIRMED`
+**Status:** `CURRENT_CONFIRMED`
 
 ### Funkcje
 - pobranie Profilu Kandydata na Kierowcę,
@@ -54,181 +64,219 @@
 
 ### Wymagana logika projektowa
 - każda operacja PKK musi być audytowalna,
-- operacja powinna posiadać status (`requested`, `processing`, `success`, `failed`),
-- zapisywać aktora, timestamp, payload wejściowy i bezpieczną odpowiedź,
-- operacje zewnętrzne muszą być idempotentne.
+- status operacji: `requested`, `processing`, `success`, `failed`,
+- zapis aktora, timestampu, payloadu wejściowego oraz bezpiecznej odpowiedzi,
+- operacje zewnętrzne idempotentne,
+- kontrolowany retry i rozróżnienie błędów walidacji od błędów integracji.
 
 ### Akcje
-`fetch_pkk`, `view_pkk`, `update_pkk_training`, `return_pkk_to_school`, `return_pkk_to_authority`, `return_expired_pkk`, `view_pkk_history`, `retry_failed_pkk_operation`.
+`fetch_pkk`, `view_pkk`, `update_pkk_training`, `return_pkk_to_school`, `return_pkk_to_authority`, `return_expired_pkk`, `view_pkk_history`, `retry_failed_pkk_operation` (`retry` jest `INFERRED` jako wymaganie architektoniczne).
 
 ---
 
 ## 4. Kursanci
 
-**Status:** `CONFIRMED / INFERRED`
+**Status:** `CURRENT_CONFIRMED / TO_VERIFY_AUTH`
 
-### Funkcje
-- tworzenie kursanta,
-- przypisywanie kursanta do kursu,
-- tworzenie dostępu przez e-mail lub login/hasło,
+### Funkcje potwierdzone
+- tworzenie kursanta/konta dostępowego w kontekście licencji,
+- dwa sposoby dostępu kursanta:
+  1. przez jego adres e-mail,
+  2. przez login i hasło nadane przez OSK,
 - przypisywanie licencji,
 - przypisywanie jazd,
 - przypisywanie wykładów,
 - przypisywanie egzaminu wewnętrznego,
 - monitoring postępów,
-- archiwizacja/zakończenie relacji.
+- wybór języka przy generowaniu dostępu — historyczna aktualizacja produktu potwierdza jawny wybór zamiast automatycznego PL.
+
+### Szczegóły nadal do weryfikacji
+- komplet pól kartoteki kursanta,
+- statusy formalne kartoteki,
+- masowe akcje,
+- archiwizacja i skutki archiwizacji poza opisanymi w regulaminie statystykami.
 
 ### Akcje
-`create_student`, `edit_student`, `archive_student`, `enroll_student`, `assign_license`, `assign_lecture`, `schedule_drive`, `assign_internal_exam`, `view_student_progress`, `impersonate_student_view`.
+`create_student`, `edit_student` (`TO_VERIFY_AUTH`), `archive_student` (`TO_VERIFY_AUTH`), `enroll_student`, `create_student_access_by_email`, `create_student_access_by_credentials`, `select_license_language`, `assign_license`, `assign_lecture`, `schedule_drive`, `assign_internal_exam`, `view_student_progress`, `impersonate_student_view` (`HISTORICAL_INDEX`).
 
 ---
 
-## 5. Pracownicy / instruktorzy / administracja
+## 5. Pracownicy / instruktorzy / biuro / kadry
 
-**Status:** `CONFIRMED / INFERRED`
+**Status:** `CURRENT_CONFIRMED / TO_VERIFY_AUTH`
 
-Marketing serwisu wskazuje pracowników, instruktorów, wykładowców, administrację oraz współdzielenie kalendarza.
+Publiczna oferta potwierdza co najmniej konteksty: właściciel, instruktor, wykładowca, pracownik, biuro obsługi, kadrowa/HR i kursant. Nie przesądza to jeszcze, czy są to sztywne role techniczne, czy zestawy uprawnień.
 
-### Funkcje
-- tworzenie kont pracowników,
-- role i uprawnienia,
-- przypisanie instruktora do jazd i kursantów,
-- dostęp do kalendarza,
+### Funkcje potwierdzone publicznie
+- wspólny kalendarz,
+- umawianie jazdy sobie lub innemu pracownikowi,
+- podgląd aktywności instruktorów,
 - ewidencja czasu pracy,
-- przypomnienia o badaniach/terminach pracowniczych,
-- ograniczenie dostępu do danych finansowych i administracyjnych.
+- przypomnienia o terminach pracowniczych/badaniach.
+
+### Funkcje projektowe do weryfikacji
+- tworzenie kont pracowników,
+- granularne role i uprawnienia,
+- dostępność pracownika,
+- przypisanie instruktora do kursantów,
+- ograniczenia finansowe/administracyjne.
 
 ### Akcje
-`create_staff`, `edit_staff`, `deactivate_staff`, `assign_role`, `set_availability`, `view_staff_calendar`, `record_work_time`, `set_employee_reminder`.
+`create_staff`, `edit_staff`, `deactivate_staff`, `assign_role`, `set_availability`, `view_staff_calendar`, `record_work_time`, `set_employee_reminder` — dokładne formularze/uprawnienia są `TO_VERIFY_AUTH`.
 
 ---
 
 ## 6. Pojazdy
 
-**Status:** `CONFIRMED / INFERRED`
+**Status:** `CURRENT_CONFIRMED / TO_VERIFY_AUTH`
 
-Publiczna oferta wymienia centralny podgląd pojazdów i przypomnienia o ubezpieczeniach.
+### Funkcje potwierdzone
+- centralny podgląd pojazdów,
+- przypomnienia m.in. o ubezpieczeniu,
+- użycie pojazdu jako zasobu organizacyjnego OSK.
 
-### Funkcje
-- ewidencja pojazdów,
-- kategoria/uprawnienia pojazdu,
-- status aktywny/serwis/wycofany,
-- terminy ubezpieczenia,
-- terminy badania technicznego,
-- przypisanie do jazd,
-- blokowanie rezerwacji pojazdu w konflikcie.
+### Funkcje projektowe wymagające potwierdzenia panelowego
+- formularz pojazdu,
+- kategorie/uprawnienia,
+- statusy aktywny/serwis/wycofany,
+- badania techniczne,
+- blokowanie rezerwacji konfliktowych,
+- dokumenty pojazdu.
 
-### Akcje
-`create_vehicle`, `edit_vehicle`, `archive_vehicle`, `assign_vehicle_to_drive`, `set_vehicle_reminder`, `mark_vehicle_unavailable`.
+### Akcje projektowe
+`create_vehicle`, `edit_vehicle`, `archive_vehicle`, `assign_vehicle_to_drive`, `set_vehicle_reminder`, `mark_vehicle_unavailable` — `TO_VERIFY_AUTH` dla dokładnego zachowania panelu.
 
 ---
 
 ## 7. Kalendarz i organizacja jazd
 
-**Status:** `CONFIRMED`
+**Status:** `CURRENT_CONFIRMED`
 
 ### Funkcje
-- kalendarz widoczny dla właściciela, pracownika/biura i innych uprawnionych osób,
-- umawianie jazd kursanta dla siebie lub pracownika,
-- udostępnienie kursantowi możliwości zapisu,
+- kalendarz dostępny w zależności od uprawnień dla pracownika, biura obsługi, kadrowej/HR i właściciela,
+- umawianie jazd kursanta dla siebie lub innego pracownika,
+- udostępnienie kursantowi możliwości samodzielnego zapisu,
 - szybki podgląd aktywności instruktorów,
 - ewidencja czasu pracy,
 - współdzielenie kalendarza z instruktorami i kursantami.
 
-### Wymagana logika
-- wykrywanie konfliktu instruktora,
-- wykrywanie konfliktu kursanta,
-- wykrywanie konfliktu pojazdu,
+### Wymagana logika własnego rozwiązania
+- konflikty instruktora, kursanta i pojazdu,
 - strefa czasowa,
-- statusy: `draft`, `reserved`, `confirmed`, `completed`, `cancelled`, `no_show`,
-- historia zmian terminu.
+- historia zmian terminu,
+- statusy operacyjne (`draft`, `reserved`, `confirmed`, `completed`, `cancelled`, `no_show`) są `INFERRED` — nie traktować ich jako skopiowanych statusów 360 bez panelowej weryfikacji.
 
-### Akcje
+### Akcje potwierdzone na poziomie biznesowym
+`schedule_drive_for_self`, `schedule_drive_for_employee`, `publish_student_self_booking`, `view_instructor_activity`, `record_work_time`.
+
+### Akcje implementacyjne własnego systemu
 `create_calendar_event`, `move_event`, `cancel_event`, `confirm_event`, `complete_event`, `publish_slot`, `book_slot`, `assign_instructor`, `assign_vehicle`.
 
 ---
 
-## 8. Kursy i wykłady
+## 8. Kursy, wykłady i szkolenie z instruktorem
 
-**Status:** `CONFIRMED`
+**Status:** `CURRENT_CONFIRMED`
 
-### Funkcje
-- tworzenie kursów,
-- wszystkie kategorie prawa jazdy,
-- wykłady online,
+### Wykłady / kurs
+- wszystkie obsługiwane kategorie prawa jazdy,
 - zasoby slajdowe/animacje/filmy,
 - szkolenie online z instruktorem i ratownikami,
-- przypisywanie kursantów do wykładów,
-- statystyki postępu.
+- monitorowanie postępu,
+- zawartość zależna od kategorii.
+
+### Osobny moduł „Szkolenie z instruktorem” — potwierdzony aktualnością 15.01.2026
+- lista lekcji w działach,
+- materiał wideo,
+- pasek postępu lekcji / całego szkolenia,
+- pytania kontrolne na końcu działu,
+- wielokrotne rozwiązywanie pytań kontrolnych,
+- możliwość pominięcia pytań kontrolnych i przejścia dalej,
+- treść oraz liczba części zależne od kategorii,
+- możliwość zmiany kategorii konta.
+
+### Reguła kategorii
+Wybrana kategoria może być kategorią domyślną konta dla testu, kursu i statystyk; pakiet może obejmować wszystkie kategorie, a użytkownik może przełączać kategorię. Projektować jako preferencję użytkownika, nie niezmienną cechę konta.
 
 ### Akcje
-`create_course`, `edit_course`, `assign_students`, `open_lecture`, `present_lecture`, `track_lecture_progress`, `complete_lecture_module`.
+`create_course` (`TO_VERIFY_AUTH`), `edit_course` (`TO_VERIFY_AUTH`), `assign_students`, `open_lecture`, `present_lecture`, `track_lecture_progress`, `open_instructor_training`, `play_training_lesson`, `record_training_progress`, `start_control_questions`, `retry_control_questions`, `skip_control_questions`, `change_default_driving_category`.
+
+### Uwaga o liczbach
+Publiczne źródła podają różne liczby działów/slajdów w różnych datach. Nie hardkodować liczby działów, godzin, slajdów ani materiałów — powinny być konfiguracją/CMS.
 
 ---
 
 ## 9. Licencje dla kursantów
 
-**Status:** `CONFIRMED / INDEXED`
+**Status:** `CURRENT_CONFIRMED / RULES_CONFIRMED`
 
 ### Funkcje
 - zakup licencji,
-- pakiety czasowe,
+- pakiety czasowe — publiczny cennik pokazuje 1, 3 i 6 miesięcy,
 - licznik dostępnych licencji,
+- sztuki w puli OSK nie tracą ważności przed wykorzystaniem według aktualnej strony,
 - przydzielenie licencji kursantowi,
+- utworzenie dostępu e-mail albo login/hasło,
+- jawny wybór języka przy generowaniu dostępu (potwierdzenie historyczną aktualizacją produktu; aktualna lista języków per moduł może się zmieniać),
 - aktywacja przez kursanta,
-- usunięcie nieaktywowanej licencji i zwrot do puli,
-- historia płatności,
-- zarządzanie licencjami,
-- postępy w nauce.
+- usunięcie nieaktywowanej licencji i **automatyczny zwrot sztuki do puli**,
+- po aktywacji licencja jest wykorzystana,
+- monitoring postępu,
+- historia płatności była widoczna w starszym indeksie panelu (`HISTORICAL_INDEX`).
 
-### Stany licencji
-`inventory -> assigned -> activated -> expired`
+### Stany domenowe
+Dla inventory OSK:
+`inventory -> assigned -> activated/consumed -> expired`
 
-Dodatkowo:
-- `assigned` ale nieaktywowaną można cofnąć do `inventory`,
-- po aktywacji licencja jest traktowana jako wykorzystana.
+Odwracalna gałąź:
+`assigned + not_activated -> deleted/revoked -> inventory`
+
+Nie utożsamiać okresu pakietu użytkownika z ważnością niewykorzystanej sztuki inventory.
 
 ### Akcje
-`purchase_licenses`, `assign_license`, `revoke_unactivated_license`, `activate_license`, `view_license_inventory`, `view_license_history`, `view_learning_progress`.
+`purchase_licenses`, `assign_license`, `create_student_access_by_email`, `create_student_access_by_credentials`, `select_license_language`, `delete_unactivated_assignment_and_restore_inventory`, `activate_license`, `view_license_inventory`, `view_license_history` (`HISTORICAL_INDEX` dla dokładnego widoku), `view_learning_progress`.
 
 ---
 
 ## 10. Postępy w nauce i statystyki
 
-**Status:** `CONFIRMED / INDEXED`
+**Status:** `CURRENT_CONFIRMED / HISTORICAL_INDEX`
 
 ### Funkcje
 - postęp w wykładach,
 - postęp w podręczniku,
 - liczba rozwiązanych pytań,
 - statystyki kursanta,
-- filtrowanie po kursancie/kursie/kategorii,
-- podgląd przez instruktora/OSK.
+- podgląd przez OSK/instruktora,
+- zindeksowany historycznie osobny ekran „Postępy w nauce”.
 
 ### Akcje
-`view_progress_dashboard`, `view_student_progress`, `filter_progress`, `export_progress`.
+`view_progress_dashboard`, `view_student_progress`, `filter_progress` (`TO_VERIFY_AUTH` dla dokładnych filtrów), `export_progress` (`INFERRED` — brak publicznego potwierdzenia eksportu).
 
 ---
 
 ## 11. Egzaminy wewnętrzne
 
-**Status:** `CONFIRMED / INDEXED`
+**Status:** `CURRENT_CONFIRMED / RULES_CONFIRMED / HISTORICAL_INDEX`
 
 ### Funkcje
 - zakup puli egzaminów,
 - zarządzanie dostępną pulą,
 - wygenerowanie egzaminu dla kursanta,
 - wygenerowanie linku do egzaminu,
-- rozpoczęcie egzaminu stacjonarnie,
+- osobny stacjonarny start przez `Rozpocznij egzamin wewnętrzny`,
+- zużycie egzaminu po przeprowadzeniu,
 - zapis przeprowadzonego egzaminu,
-- historia przeprowadzonych egzaminów,
 - cyfrowa karta przebiegu,
-- wydruk karty przebiegu,
-- historia płatności,
-- miesięczna pula darmowych egzaminów wg oferty handlowej.
+- możliwość wydruku karty przebiegu,
+- historycznie zindeksowane: `Wykup`, `Zarządzaj`, `Przeprowadzone`, `Historia płatności`,
+- oferta publiczna wskazuje pulę darmowych egzaminów w ramach modelu handlowego.
 
-### Stany
-`available -> assigned/generated -> started -> finished -> consumed`
+### Języki
+Aktualność z 2024 r. potwierdzała egzaminy PL/EN/DE/UA/RU i raport po polsku. Bieżący zakres języków egzaminu jest `TO_VERIFY_AUTH`, bo aktualne publiczne materiały nie są całkowicie spójne.
+
+### Stany implementacyjne
+`available -> generated/assigned -> started -> finished -> consumed`.
 
 ### Akcje
 `purchase_exams`, `generate_exam`, `generate_exam_link`, `start_local_exam`, `start_exam`, `submit_exam`, `finish_exam`, `view_exam_result`, `download_exam_card`, `print_exam_card`, `view_exam_history`.
@@ -237,130 +285,236 @@ Dodatkowo:
 
 ## 12. Widok kursanta / impersonacja
 
-**Status:** `INDEXED / CONFIRMED`
+**Status:** `HISTORICAL_INDEX / TO_VERIFY_AUTH`
 
-### Funkcje
-- „Przeglądaj jako kursant”,
-- dostęp kursanta do platformy WWW,
-- aplikacje mobilne,
-- testy,
-- kurs,
-- podręcznik,
-- wykłady,
-- statystyki,
-- wiele języków.
+### Potwierdzenie
+W starszym indeksie panelu występowała pozycja `Przeglądaj jako kursant`. Bieżący zakres tego trybu wymaga zalogowania.
 
-### Wymagania bezpieczeństwa
-- impersonacja musi być wyraźnie oznaczona,
-- brak możliwości wykonywania nieodwracalnych działań jako kursant bez dodatkowej autoryzacji,
-- rozpoczęcie/koniec impersonacji w logu audytowym.
+### Własne wymagania bezpieczeństwa
+- wyraźny banner impersonacji,
+- osobne uprawnienie,
+- start/stop w audycie,
+- ograniczenie działań nieodwracalnych.
+
+### Akcje
+`start_student_view`, `stop_student_view`.
 
 ---
 
-## 13. Profil OSK i ranking szkół
+## 13. Profil OSK, opinie i ranking szkół
 
-**Status:** `CONFIRMED / INDEXED`
+**Status:** `CURRENT_CONFIRMED / RULES_CONFIRMED / HISTORICAL_INDEX`
 
-### Funkcje
-- edycja wizytówki,
-- publiczny podgląd,
-- opinie użytkowników,
-- moderacja opinii po stronie operatora rankingu,
-- mechanizmy antyspamowe,
-- ranking zależny od ocen, liczby opinii, aktualności i aktywności.
+### Funkcje potwierdzone
+- publiczna wizytówka OSK,
+- opinie użytkowników w skali 1–5,
+- liczba i aktualność opinii wpływają na wynik,
+- uśrednianie bayesowskie,
+- okresowe przeliczenie rankingu,
+- zamknięte OSK bez pozycji,
+- moderacja opinii,
+- możliwość zgłoszenia opinii przez OSK do ponownej analizy,
+- brak możliwości zakupu wyższej **organicznej** pozycji rankingu.
 
-W naszym produkcie ranking powinien być osobnym modułem od zarządzania formalnym OSK.
+### Historycznie zindeksowane
+- `Edytuj profil`,
+- `Zobacz profil`,
+- `Ranking szkół`.
+
+### Akcje
+`edit_school_profile`, `preview_school_profile`, `view_reviews`, `report_review`, `view_ranking`.
 
 ---
 
 ## 14. Reklamy i promocja OSK
 
-**Status:** `CONFIRMED / INDEXED`
+**Status:** `CURRENT_CONFIRMED / RULES_CONFIRMED`
 
-### Typy reklam widoczne w źródłach
+### Aktualnie eksponowane placementy
 - pozycja 0,
 - boczna górna,
 - boczna dolna,
 - reklama w teście i kursie,
-- pełnoekranowa,
-- rejonizacja lokalna,
-- historia płatności,
-- licytacja wybranych emisji,
-- artykuł sponsorowany.
+- reklama pełnoekranowa,
+- wybór miejscowości/rejonizacji,
+- `Wizytówka premium` — **COMING_SOON**, nie traktować jako działającej funkcji.
 
-### Akcje
-`create_ad_order`, `select_placement`, `select_region`, `upload_creative`, `bid_for_slot`, `pay_order`, `activate_campaign`, `pause_campaign`, `view_campaign_history`.
+### Mechanizm aukcyjny
+- licytować może zarejestrowane OSK,
+- aukcja ma start, koniec, stawkę początkową i minimalne przebicie,
+- kliknięcie `Licytuj` składa wiążącą ofertę,
+- wygrywa najwyższa oferta co najmniej równa minimum,
+- przy remisie decyduje wcześniejsza oferta,
+- wygrana potwierdzana e-mailem,
+- płatność w terminie określonym regulaminem (publiczny regulamin wskazuje 3 dni robocze),
+- kreacja również przekazywana w terminie (3 dni robocze),
+- brak kreacji może uruchomić wariant tekstowy,
+- możliwe odpłatne przygotowanie/modyfikowanie kreacji,
+- operator moderuje/akceptuje kreację,
+- emisja dopiero po płatności,
+- historia licytacji pokazuje nazwę OSK, z możliwością wniosku o jej ukrycie,
+- oferent może poprosić operatora o odrzucenie złożonej oferty.
+
+### Akcje klienta
+`select_ad_city`, `select_placement`, `view_auction_terms`, `place_binding_bid`, `request_bid_rejection`, `view_bid_history`, `request_bidder_name_hiding`, `pay_ad_order`, `upload_desktop_creative`, `upload_mobile_creative`, `request_creative_service`, `activate_text_fallback`, `view_campaign_history` (`HISTORICAL_INDEX` dla dokładnego panelu).
+
+### Akcje operatora
+`approve_creative`, `reject_creative`, `remove_bid_on_request`, `activate_paid_campaign`, `schedule_campaign`, `end_campaign`.
+
+`pause_campaign` nie jest publicznie potwierdzone jako akcja klienta.
+
+### Konflikt źródeł
+Czas reklamy pełnoekranowej jest opisany niespójnie (10 s vs 30 s w różnych publicznych materiałach). Powinien być wartością konfigurowalną, nie hardkodowaną.
 
 ---
 
-## 15. Płatności, zamówienia i faktury
+## 15. Artykuł sponsorowany
 
-**Status:** `CONFIRMED / INDEXED`
+**Status:** `RULES_CONFIRMED`
+
+To osobny produkt promocyjny, nie zwykły placement banerowy.
 
 ### Funkcje
-- koszyk/wybór liczby licencji,
-- zakup egzaminów,
-- zakup reklam,
-- szybkie płatności,
-- karta,
-- przelew bankowy,
-- historia płatności,
-- faktury,
-- jednorazowe płatności,
-- VAT,
-- aktywacja zakupionego pakietu po płatności.
+- klient może przekazać własny materiał do redakcji,
+- operator może przygotować treść,
+- moderacja/redakcja materiału,
+- obsługa zdjęć,
+- czasowa ekspozycja sponsorowana,
+- późniejsza obecność w archiwum aktualności.
 
 ### Akcje
-`create_order`, `add_order_item`, `calculate_total`, `start_payment`, `confirm_payment`, `upload_transfer_confirmation`, `activate_package`, `view_payment_history`, `download_invoice`.
+`order_sponsored_article`, `submit_article_content`, `submit_article_assets`, `request_copywriting`, `moderate_article`, `approve_article`, `publish_article`, `archive_article`.
 
 ---
 
-## 16. Powiadomienia i przypomnienia
+## 16. Baner partnerski „na twoją stronę”
 
-**Status:** `CONFIRMED / INFERRED`
+**Status:** `RULES_CONFIRMED / HISTORICAL_INDEX`
 
-### Przykłady
-- koniec ubezpieczenia pojazdu,
-- badanie techniczne,
-- badanie pracownika,
+### Funkcje
+- pobranie gotowego materiału,
+- użycie bez modyfikowania grafiki,
+- link DoFollow do wskazanego serwisu,
+- opcjonalna pomoc operatora przy wdrożeniu HTML/grafiki.
+
+### Akcje
+`download_partner_banner`, `request_banner_implementation_help`.
+
+---
+
+## 17. Płatności, zamówienia i aktywacja dostępu
+
+**Status:** `CURRENT_CONFIRMED / RULES_CONFIRMED`
+
+### Funkcje
+- płatności jednorazowe, nie subskrypcja,
+- zakup licencji, egzaminów i reklam,
+- szybki przelew internetowy,
+- karta,
+- przelew bankowy,
+- regulamin opisuje również przekaz/przelew pocztowy,
+- możliwość przesłania potwierdzenia przelewu,
+- ceny brutto/VAT,
+- po zaksięgowaniu płatności może pojawić się osobna akcja **`Aktywuj dostęp`**.
+
+### Ważny lifecycle usługi cyfrowej
+`ordered -> paid -> activation_available -> activated -> expired`
+
+Nie wolno traktować `paid` jako automatycznie równoważnego `activated`, jeśli dany produkt korzysta z jawnej aktywacji.
+
+### Faktury
+Pozycja `Faktury` występowała w starszym indeksie panelu, ale stara publiczna trasa `/faktury` obecnie zwraca 404. Status: `HISTORICAL_INDEX / TO_VERIFY_AUTH`, a nie bieżąco potwierdzona funkcja.
+
+### Akcje
+`create_order`, `add_order_item`, `calculate_total`, `start_payment`, `confirm_payment`, `upload_transfer_confirmation`, `make_access_activation_available`, `activate_access`, `view_payment_history` (`HISTORICAL_INDEX` dla dokładnych paneli), `download_invoice` (`HISTORICAL_INDEX / TO_VERIFY_AUTH`).
+
+`refund` nie jest potwierdzoną akcją panelu klienta; reklamacje/odstąpienie istnieją jako proces regulaminowy.
+
+---
+
+## 18. Powiadomienia i przypomnienia
+
+**Status:** `CURRENT_CONFIRMED / INFERRED`
+
+### Potwierdzone konteksty
+- ubezpieczenie pojazdu,
+- terminy/badania pracowników,
+- e-mail po wygranej licytacji.
+
+### Własny system powinien dodatkowo obsługiwać
 - termin jazdy,
-- zmiana terminu,
-- nowy przydzielony egzamin,
-- aktywacja licencji,
+- zmianę terminu,
+- przydzielenie egzaminu,
+- aktywację licencji,
 - płatność,
 - błąd integracji PKK.
 
-Kanały: in-app + e-mail; SMS jako opcjonalna integracja.
+Kanały dodatkowe poza potwierdzonymi publicznie wymagają projektowej decyzji; SMS nie jest traktowany jako pewnik badanego panelu.
 
 ---
 
-## 17. Obsługa i kontakt
+## 19. Obsługa, reklamacje i kontakt
 
-**Status:** `CONFIRMED`
+**Status:** `CURRENT_CONFIRMED / RULES_CONFIRMED`
 
 ### Funkcje
 - formularz kontaktowy,
 - załącznik,
 - captcha/kod weryfikacyjny,
 - zgoda informacyjna RODO,
-- zgłoszenie problemu,
-- kontakt telefoniczny/e-mail.
+- kontakt telefoniczny/e-mail,
+- reklamacja,
+- wniosek o zamknięcie konta,
+- kontakt w sprawach aukcji (np. odrzucenie oferty / ukrycie nazwy oferenta).
+
+### Akcje
+`submit_contact_request`, `submit_complaint`, `request_account_closure`, `request_bid_rejection`, `request_bidder_name_hiding`.
 
 ---
 
-## 18. Analityka, audyt i bezpieczeństwo
+## 20. Usługi komercyjne: pozycjonowanie / strona WWW
 
-**Status:** `CONFIRMED / INFERRED`
+**Status:** `CURRENT_CONFIRMED`
 
-Serwis deklaruje utrzymywanie sesji, analitykę zachowania oraz analizę aktywności. Dla naszego systemu wymagamy:
+Publiczna oferta zawiera usługę wykraczającą poza rdzeń panelu OSK:
+- audyt strony,
+- optymalizacja,
+- SEO,
+- Google Ads,
+- stworzenie strony WWW i panelu treści,
+- bonusy handlowe (np. licencje/egzaminy/artykuły sponsorowane zależnie od oferty).
 
+W naszym produkcie traktować jako osobny moduł `commercial_services / lead_generation`, nie jako warunek MVP panelu operacyjnego.
+
+### Akcje
+`view_commercial_offer`, `request_seo_contact`, `request_website_contact`.
+
+---
+
+## 21. Analityka, audyt i bezpieczeństwo
+
+**Status:** `RULES_CONFIRMED / INFERRED`
+
+Serwis opisuje utrzymywanie sesji, cookies/analitykę oraz analizę aktywności. Dla naszego systemu wymagamy:
 - audit log krytycznych operacji,
 - logowanie operacji PKK,
-- logowanie przydziału licencji,
+- logowanie przydziału/cofnięcia licencji,
 - logowanie egzaminów,
 - logowanie zmian w kalendarzu,
 - logowanie zmian ról,
 - rejestr zgód,
 - monitoring błędów integracji,
-- limit aktywnych sesji w obszarach ryzyka,
-- mechanizm wykrywania nienaturalnego współdzielenia kont.
+- wykrywanie nienaturalnego współdzielenia kont,
+- jawne rozróżnienie blokady konta, zakończenia sesji i zamknięcia konta.
+
+---
+
+## 22. Konflikty źródeł — obowiązkowo konfigurowalne
+
+| Obszar | Niespójność | Zasada implementacyjna |
+|---|---|---|
+| języki | marketing mówi „5”, bieżący cennik licencji pokazuje 4, aktualność egzaminów z 2024 r. podaje 5 | macierz języków per produkt/moduł |
+| szkolenie | różne publiczne materiały podają różną liczbę działów | CMS/config |
+| slajdy | różne liczby w zależności od daty publikacji | CMS/config |
+| pełnoekranowa reklama | 10 s vs 30 s | parametr kampanii/placementu |
+| faktury | stary indeks menu vs obecne 404 starej trasy | `HISTORICAL_INDEX / TO_VERIFY_AUTH` |
