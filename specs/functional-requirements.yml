@@ -1,53 +1,437 @@
 meta:
-  project: osk-biz-feature-map
+  project: osk-panel
   audited_target: https://biz.prawo-jazdy-360.pl/
   audited_at: 2026-09-05
+  reverification_at: 2026-09-05
   method: clean-room functional mapping
+  confidence_levels:
+    - CURRENT_CONFIRMED
+    - RULES_CONFIRMED
+    - HISTORICAL_INDEX
+    - INFERRED
+    - TO_VERIFY_AUTH
+    - SOURCE_CONFLICT
+
+principles:
+  do_not_copy_source_code: true
+  do_not_copy_protected_assets: true
+  do_not_guess_authenticated_ui: true
+  configurable_instead_of_hardcoded:
+    - languages_per_product
+    - driving_categories
+    - training_sections
+    - training_lessons
+    - ad_placement_parameters
+    - fullscreen_ad_duration
+    - auction_parameters
 
 modules:
   auth:
-    confidence: CONFIRMED
-    actions: [register, login, logout, social_login, password_reset]
+    confidence: CURRENT_CONFIRMED
+    actions:
+      - register
+      - login
+      - logout
+      - social_login
+      - remember_me
+      - request_password_reset_by_email_or_login
+      - reset_password
+      - resume_return_url_after_auth
+      - request_account_closure
+    notes:
+      - ReturnUrl must be validated against open redirects in our implementation.
+      - Single-session behavior is RULES_CONFIRMED for a paid user account, exact staff scope is TO_VERIFY_AUTH.
+
   organization:
-    confidence: CONFIRMED
-    actions: [view, edit, public_profile]
+    confidence: CURRENT_CONFIRMED
+    actions:
+      - view
+      - edit
+      - public_profile
+      - view_reviews
+      - report_review
+
   pkk:
-    confidence: CONFIRMED
-    actions: [fetch, view, update_training, return_school, return_authority, return_expired, history]
+    confidence: CURRENT_CONFIRMED
+    actions:
+      - fetch
+      - view
+      - update_training
+      - return_school
+      - return_authority
+      - return_expired
+      - history
     audit_required: true
+    idempotency_required_for_mutations: true
+
   students:
-    confidence: CONFIRMED
-    actions: [create, edit, archive, assign_course, assign_license, assign_exam, view_progress]
+    confidence: CURRENT_CONFIRMED
+    ui_confidence: TO_VERIFY_AUTH
+    actions:
+      - create
+      - edit
+      - archive
+      - assign_course
+      - assign_license
+      - assign_exam
+      - view_progress
+      - create_access_by_email
+      - create_access_by_generated_credentials
+      - select_license_language
+
   staff:
-    confidence: INFERRED
-    actions: [create, edit, deactivate, assign_role, availability]
+    confidence: TO_VERIFY_AUTH
+    public_role_contexts:
+      - owner
+      - employee
+      - office
+      - hr
+      - instructor
+      - lecturer
+    actions:
+      - create
+      - edit
+      - deactivate
+      - assign_role
+      - assign_permissions
+      - availability
+      - view_calendar
+      - work_time
+    note: Exact technical RBAC of audited product is not publicly confirmed.
+
   vehicles:
-    confidence: INFERRED
-    actions: [create, edit, archive, assign_to_lesson, reminders]
+    confidence: CURRENT_CONFIRMED
+    ui_confidence: TO_VERIFY_AUTH
+    confirmed_capabilities:
+      - central_overview
+      - reminders
+    design_actions:
+      - create
+      - edit
+      - archive
+      - assign_to_lesson
+      - mark_unavailable
+      - reminders
+
   calendar:
-    confidence: CONFIRMED
-    actions: [create_event, reschedule, cancel, assign_instructor, assign_vehicle, publish_slot, book_slot]
+    confidence: CURRENT_CONFIRMED
+    confirmed_actions:
+      - schedule_drive_for_self
+      - schedule_drive_for_employee
+      - publish_student_self_booking
+      - student_book_slot
+      - view_instructor_activity
+      - record_work_time
+    design_actions:
+      - create_event
+      - reschedule
+      - cancel
+      - assign_instructor
+      - assign_vehicle
+      - resource_conflict_check
+
   licenses:
-    confidence: CONFIRMED
-    states: [inventory, assigned, activated, expired]
-    actions: [purchase, assign, revoke_before_activation, activate, progress, payment_history]
+    confidence: RULES_CONFIRMED
+    product_confidence: CURRENT_CONFIRMED
+    inventory_states:
+      - inventory
+      - assigned
+      - activated
+      - expired
+    access_modes:
+      - email
+      - generated_credentials
+    actions:
+      - purchase
+      - assign
+      - create_access_by_email
+      - create_access_by_generated_credentials
+      - select_language
+      - delete_unactivated_assignment_and_restore_inventory
+      - activate
+      - view_inventory
+      - view_progress
+    invariants:
+      - revoke_before_activation_must_restore_exactly_one_inventory_item
+      - activated_assignment_cannot_use_unactivated_revoke_flow
+      - inventory_item_validity_is_distinct_from_active_package_duration
+
+  learning_preferences:
+    confidence: CURRENT_CONFIRMED
+    actions:
+      - get_default_driving_category
+      - change_default_driving_category
+    affects:
+      - test
+      - course
+      - statistics
+      - instructor_training
+
+  instructor_training:
+    confidence: CURRENT_CONFIRMED
+    evidence_date: 2026-01-15
+    actions:
+      - list_program_sections
+      - open_lesson
+      - play_lesson_video
+      - record_progress
+      - start_control_questions
+      - retry_control_questions
+      - skip_control_questions
+    configurable:
+      - section_count
+      - lesson_count
+      - category_specific_content
+      - language_availability
+
   internal_exams:
-    confidence: CONFIRMED
-    states: [available, assigned, started, finished, consumed]
-    actions: [purchase, generate, generate_link, start_local, start, submit, result, card_pdf, history]
+    confidence: RULES_CONFIRMED
+    inventory_states:
+      - available
+      - assigned
+      - started
+      - finished
+      - consumed
+    actions:
+      - purchase
+      - generate
+      - generate_link
+      - start_local
+      - start_by_link
+      - submit
+      - result
+      - save_card_digitally
+      - card_pdf
+      - print_card
+      - history
+    language_confidence: TO_VERIFY_AUTH
+    historical_language_evidence:
+      - pl
+      - en
+      - de
+      - ua
+      - ru
+    notes:
+      - Link TTL/revocation details are our security design unless later confirmed in authenticated audit.
+
   lectures:
-    confidence: CONFIRMED
-    actions: [list, open, present, assign, progress]
-  finance:
-    confidence: CONFIRMED
-    actions: [order, payment, payment_history, invoice, refund]
+    confidence: CURRENT_CONFIRMED
+    actions:
+      - list
+      - open
+      - present
+      - assign
+      - progress
+    ui_confidence: TO_VERIFY_AUTH
+
+  orders_and_payments:
+    confidence: RULES_CONFIRMED
+    recurring_subscription: false
+    payment_methods_publicly_described:
+      - fast_online_payment
+      - card
+      - bank_transfer
+      - postal_transfer
+    entitlement_states:
+      - ordered
+      - paid
+      - activation_available
+      - activated
+      - expired
+    actions:
+      - create_order
+      - start_payment
+      - confirm_payment
+      - upload_transfer_confirmation
+      - make_activation_available
+      - activate_access
+      - payment_history
+    invariants:
+      - paid_is_not_automatically_activated_when_activation_mode_is_explicit
+      - activation_is_idempotent
+
+  invoices:
+    confidence: HISTORICAL_INDEX
+    ui_confidence: TO_VERIFY_AUTH
+    old_route_status: 404
+    design_optional: true
+    actions:
+      - list
+      - download_pdf
+
+  refunds:
+    confidence: INFERRED
+    panel_action_confirmed: false
+    note: Regulations describe complaints/withdrawal processes, not a confirmed customer-panel refund action.
+
   ranking:
-    confidence: CONFIRMED
-    actions: [edit_profile, preview_profile, reviews]
+    confidence: RULES_CONFIRMED
+    actions:
+      - view_profile
+      - view_reviews
+      - report_review
+      - view_ranking
+    rules_publicly_described:
+      - rating_scale_1_to_5
+      - number_of_reviews_matters
+      - recency_matters
+      - bayesian_averaging
+      - periodic_recalculation
+      - closed_school_no_position
+      - review_moderation
+      - organic_position_not_directly_buyable
+
   advertising:
-    confidence: CONFIRMED
-    actions: [campaign, placement, region, creative, bid, payment, history]
+    confidence: RULES_CONFIRMED
+    public_offer_confidence: CURRENT_CONFIRMED
+    placements:
+      - position_zero
+      - side_top
+      - side_bottom
+      - test_and_course
+      - fullscreen
+    coming_soon:
+      - premium_business_card
+    auction_actions:
+      - select_city
+      - select_placement
+      - view_auction_terms
+      - place_binding_bid
+      - view_bid_history
+      - request_bid_rejection
+      - request_bidder_name_hiding
+      - settle_auction
+    winning_campaign_actions:
+      - pay_order
+      - upload_desktop_creative
+      - upload_mobile_creative
+      - request_creative_service
+      - creative_review
+      - text_fallback_when_allowed
+      - activate_paid_campaign
+    operator_actions:
+      - approve_creative
+      - reject_creative
+      - remove_bid_on_request
+      - activate_campaign
+    auction_rules:
+      - has_start_and_end
+      - opening_bid
+      - minimum_increment
+      - highest_valid_bid_wins
+      - earlier_bid_wins_equal_amount_tie
+      - winning_email
+      - payment_deadline_described_as_3_business_days_in_current_rules
+      - creative_deadline_described_as_3_business_days_in_current_rules
+      - campaign_requires_payment_before_emission
+    not_confirmed_actions:
+      - customer_pause_campaign
+    source_conflicts:
+      fullscreen_duration:
+        status: SOURCE_CONFLICT
+        values_seen_seconds: [10, 30]
+        implementation: configurable
+
+  sponsored_articles:
+    confidence: RULES_CONFIRMED
+    actions:
+      - order
+      - submit_customer_content
+      - submit_assets
+      - request_copywriting
+      - editorial_review
+      - approve
+      - publish
+      - archive_after_promotion
+
+  partner_banner:
+    confidence: RULES_CONFIRMED
+    historical_menu: true
+    actions:
+      - download_ready_asset
+      - request_implementation_help
+    rules:
+      - do_not_modify_provided_asset
+      - required_dofollow_link
+
+  commercial_services:
+    confidence: CURRENT_CONFIRMED
+    core_mvp: false
+    services:
+      - website_audit
+      - seo
+      - google_ads
+      - website_build
+      - cms
+    actions:
+      - request_contact
+      - request_seo_contact
+      - request_website_contact
+
   impersonation:
-    confidence: INDEXED
-    actions: [start_student_view, stop_student_view]
+    confidence: HISTORICAL_INDEX
+    ui_confidence: TO_VERIFY_AUTH
+    actions:
+      - start_student_view
+      - stop_student_view
     audit_required: true
+    design_security:
+      - persistent_banner
+      - separate_permission
+      - block_irreversible_actions_by_default
+
+  notifications:
+    confidence: CURRENT_CONFIRMED
+    publicly_confirmed_contexts:
+      - vehicle_insurance_reminder
+      - employee_medical_or_term_reminder
+      - auction_win_email
+    design_additions:
+      - lesson_reminder
+      - lesson_change
+      - license_activation
+      - exam_assignment
+      - payment
+      - pkk_error
+
+source_conflicts:
+  languages:
+    status: SOURCE_CONFLICT
+    evidence:
+      - marketing_claim_5_languages
+      - current_license_pricing_shows_pl_en_de_ua
+      - historical_exam_update_shows_pl_en_de_ua_ru
+    decision: configure per product/module
+  training_section_count:
+    status: SOURCE_CONFLICT
+    decision: CMS/config
+  slide_count:
+    status: SOURCE_CONFLICT
+    decision: CMS/config
+  fullscreen_ad_duration:
+    status: SOURCE_CONFLICT
+    decision: configurable placement parameter
+  invoices:
+    status: SOURCE_CONFLICT
+    evidence:
+      - historical_index_menu
+      - old_route_currently_404
+    decision: HISTORICAL_INDEX_TO_VERIFY_AUTH
+
+open_authenticated_gaps:
+  - dashboard_widgets_and_kpis
+  - student_form_fields_statuses_bulk_actions
+  - exact_staff_rbac
+  - exact_vehicle_form_and_statuses
+  - calendar_views_conflict_ui_and_statuses
+  - pkk_form_fields_errors_and_integration_messages
+  - license_columns_filters_bulk_actions
+  - current_language_matrix_per_product
+  - progress_metrics_filters_and_export
+  - exam_configuration_link_lifecycle_result_and_card_fields
+  - current_payment_history_routes
+  - current_invoice_location_or_removal
+  - impersonation_scope
+  - post_auction_campaign_management_ui
+  - notification_center_and_channels
+  - exact_staff_single_session_scope
