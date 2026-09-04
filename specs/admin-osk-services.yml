@@ -51,6 +51,16 @@ service_groups:
     - id: calendar
       route: /kalendarz
       confidence: CURRENT_CONFIRMED_TO_VERIFY_UI
+      confirmed_from_staff_detail:
+        - embedded_month_view
+        - view_month
+        - view_week
+        - view_day
+        - today
+        - previous_period
+        - next_period
+        - add_event
+        - open_full_calendar
       required_capabilities:
         - create_drive
         - assign_student
@@ -84,17 +94,9 @@ service_groups:
       route: /lokalizacje
       confidence: USER_CONFIRMED_AUTH_SCREEN
       screen_spec: specs/screens/locations.yml
-      confirmed_columns:
-        - type
-        - name
-        - address
-      confirmed_types:
-        - lecture_room
-        - maneuvering_area
-      confirmed_actions:
-        - add_location
-        - edit_location
-        - calendar_for_location
+      confirmed_columns: [type, name, address]
+      confirmed_types: [lecture_room, maneuvering_area]
+      confirmed_actions: [add_location, edit_location, calendar_for_location]
       calendar_filter:
         query_param: b
         identifier: location_uuid
@@ -127,10 +129,8 @@ service_groups:
       calendar_filter:
         query_param: v
         identifier: vehicle_uuid
-      confirmed_document_states:
-        - expired
-      confirmed_document_types:
-        - technical_inspection
+      confirmed_document_states: [expired]
+      confirmed_document_types: [technical_inspection]
       requirements:
         - vehicle_as_calendar_resource
         - vehicle_documents
@@ -150,18 +150,25 @@ service_groups:
     - id: staff
       route: /pracownicy
       confidence: USER_CONFIRMED_AUTH_SCREEN
-      screen_spec: specs/screens/staff.yml
-      create_screen_spec: specs/screens/staff-create.yml
+      screen_specs:
+        list: specs/screens/staff.yml
+        create: specs/screens/staff-create.yml
+        detail: specs/screens/staff-detail.yml
+        edit: specs/screens/staff-edit.yml
       docs:
         - docs/21-staff-screen.md
         - docs/22-staff-create-form.md
+        - docs/23-staff-detail-screen.md
+        - docs/24-staff-edit-form.md
+
       confirmed_columns:
         - photo
         - full_name
         - email
         - documents
         - login_account
-      confirmed_create_fields:
+
+      confirmed_profile_fields:
         - email
         - first_name
         - last_name
@@ -176,19 +183,57 @@ service_groups:
         - psychological_exam_valid_until
         - photo
         - create_login_account
+
+      required_by_visible_edit_marker:
+        - email
+        - first_name
+        - last_name
+        - staff_type_ids
+
       confirmed_multi_selects:
         - staff_type_ids
         - category_ids
         - location_ids
-      confirmed_actions:
+
+      confirmed_staff_type_observations:
+        technical_or_detail_value: OfficeWorker
+        edit_ui_label: Pracownik biurowy
+        modeling_decision: separate_code_from_localized_label
+
+      confirmed_global_actions:
         - add_staff
-        - save_staff
-        - cancel_create_staff
-        - calendar_for_staff
+        - archive_staff
+        - delete_staff
         - view_staff_details
+        - calendar_for_staff
+
+      confirmed_detail_actions:
+        - edit_staff_details
+        - edit_panel_access
+        - open_full_calendar
+        - add_calendar_event
+        - calendar_previous_period
+        - calendar_next_period
+        - calendar_today
+        - calendar_view_month
+        - calendar_view_week
+        - calendar_view_day
+
+      confirmed_edit_actions:
+        - save_staff_changes
+        - cancel_staff_edit
+        - close_staff_edit
+        - select_staff_types
+        - select_categories
+        - select_locations
+        - select_or_replace_photo
+        - remove_photo_from_form
+        - request_create_login_account
+
       calendar_filter:
         query_param: w
         identifier: staff_uuid
+
       confirmed_document_types:
         - card_or_license
         - medical_exam
@@ -196,18 +241,27 @@ service_groups:
       confirmed_document_states:
         - valid
         - expired
-      confirmed_login_account_state:
+
+      confirmed_login_account_states:
         - false
+      confirmed_account_behavior:
+        - staff_can_exist_without_login_account
+        - login_account_can_be_requested_later_from_edit_form
+        - panel_access_has_separate_edit_section
+
       confirmed_relationships:
         - staff_many_to_many_staff_types
         - staff_many_to_many_categories
         - staff_many_to_many_locations
         - staff_optional_user_account
         - staff_has_many_documents
+        - staff_calendar_context
+
       requirements:
         - staff_profile_separate_from_user_account
         - optional_login_account
         - explicit_create_login_account_control
+        - permissions_separate_from_staff_type
         - multiple_independent_documents
         - staff_as_calendar_resource
         - photo_optional
@@ -215,15 +269,20 @@ service_groups:
         - protect_pesel
         - tenant_validate_location_ids
         - tenant_isolation
-      explicitly_not_confirmed:
-        - delete_staff
-        - deactivate_staff
-        - exact_staff_type_values
-        - required_fields
-        - field_validations
-        - account_invitation_or_password_flow
+
+      remaining_unknowns:
+        - exact_staff_type_dictionary
+        - panel_access_edit_screen
+        - account_provisioning_flow
+        - invitation_vs_generated_password
         - default_account_permissions
         - password_reset
+        - exact_backend_field_validations
+        - archive_confirmation_and_effects
+        - delete_confirmation_and_effects
+        - calendar_add_event_form
+        - photo_removal_commit_behavior
+        - save_success_and_error_messages
         - filters
         - search
         - sorting
@@ -347,11 +406,7 @@ service_groups:
       route: /ustawienia
       confidence: USER_CONFIRMED_AUTH_SCREEN
       screen_spec: specs/screens/settings.yml
-      sections:
-        - basic_data
-        - company_data
-        - pkk_api_data
-        - terms
+      sections: [basic_data, company_data, pkk_api_data, terms]
       confirmed_fields:
         - first_name
         - last_name
@@ -366,9 +421,7 @@ service_groups:
         - pkk_school_name
         - pkk_osk_registry_number
         - pkk_external_osk_login
-      confirmed_actions:
-        - save
-        - view_versioned_terms
+      confirmed_actions: [save, view_versioned_terms]
       explicitly_not_observed_on_screen:
         - nip
         - password_change
@@ -393,10 +446,8 @@ service_groups:
         - booked_at
         - gross_amount
         - status
-      confirmed_statuses:
-        - unpaid
-      confirmed_actions:
-        - pay_unpaid_order
+      confirmed_statuses: [unpaid]
+      confirmed_actions: [pay_unpaid_order]
       confirmed_page_sizes: [10, 25, 50, 100]
       confirmed_product_examples:
         - internal_exams
@@ -442,8 +493,8 @@ remaining_button_level_gaps:
   - students
   - location_add_edit_form_and_validation
   - vehicle_add_details_edit_documents_and_categories
-  - staff_details_edit_exact_types_account_provisioning_permissions_and_validation
-  - calendar
+  - staff_panel_access_account_provisioning_exact_types_validation_archive_delete_and_event_form
+  - calendar_main_screen_and_event_form
   - pkk_ui
   - license_management_ui
   - internal_exam_management_ui
