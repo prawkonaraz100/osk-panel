@@ -1,0 +1,148 @@
+screen:
+  id: students
+  scope: admin_osk
+  route: /kursanci
+  title: Kursanci
+  confidence: USER_CONFIRMED_AUTH_SCREEN
+  verified_at: 2026-09-05
+  doc: docs/29-students-list-screen.md
+
+header:
+  title: Twoi kursanci
+  confirmed_elements:
+    - result_count
+    - add_student_from_pkk
+    - add_student_manual
+
+result_count:
+  pattern: "Wyszukano <N> kursantów"
+
+controls:
+  search:
+    confirmed: true
+    placeholder: "Szukaj kursanta..."
+  filter:
+    confirmed: true
+    label: Filtruj
+    options: TO_VERIFY
+  sort:
+    confirmed: true
+    label: Sortuj
+    options: TO_VERIFY
+
+list:
+  columns:
+    - full_name
+    - learning_login_data
+    - courses
+    - phone
+    - created_date
+    - internal_exam
+    - row_actions
+
+learning_login_data:
+  confirmed_parts:
+    - language_indicator
+    - username_or_login
+  observed_language_codes:
+    - PL
+    - EN
+    - UK
+  not_confirmed:
+    - password
+    - account_email
+    - password_reset
+    - language_edit_from_list
+
+courses_column:
+  observed_course_card_fields:
+    - category
+    - training_type
+    - pkk_reference
+    - last_pkk_operation
+  observed_values:
+    training_type:
+      - Teoria
+    last_pkk_operation:
+      - Brak operacji
+  multiplicity: TO_VERIFY
+  note: column label is plural but multiple simultaneous cards for one student were not observed
+
+internal_exam_column:
+  confirmed: true
+  observed_presentations:
+    - dash
+    - red_x_visual_indicator
+  red_x_semantics: TO_VERIFY
+  do_not_assume:
+    - failed_exam
+    - missing_exam
+    - unavailable_exam
+    - not_started_exam
+
+row_actions:
+  - action: preview_student
+    label: Podgląd
+    behavior: TO_VERIFY
+  - action: open_student_details
+    label: Przejdź do
+    route_pattern: /kursanci/<student_id>
+
+create_flows:
+  - id: add_student_from_pkk
+    confirmed_entry: true
+    form: TO_VERIFY
+  - id: add_student_manual
+    confirmed_entry: true
+    form: TO_VERIFY
+
+entity_model:
+  student_profile_separate_from_learning_account: true
+  suggested_entities:
+    - students
+    - student_learning_accounts
+    - student_courses_or_enrollments
+    - pkk_profiles_and_operation_history
+    - internal_exam_attempts_or_assignments
+
+relationships_confirmed_or_supported_by_projection:
+  - student_has_learning_login_projection
+  - student_has_course_or_enrollment_projection
+  - course_can_reference_pkk
+  - student_has_internal_exam_projection
+
+confirmed_actions:
+  - add_student_from_pkk
+  - add_student_manual
+  - search_students
+  - open_student_filters
+  - open_student_sort
+  - preview_student_visible_behavior_unknown
+  - open_student_details
+
+security_requirements:
+  - tenant_isolation
+  - authorize_student_route_by_organization
+  - tenant_scope_search_filter_sort
+  - protect_pkk_reference
+  - protect_learning_credentials
+  - do_not_use_username_as_resource_authorization
+
+remaining_gaps:
+  - add_student_manual_form
+  - add_student_from_pkk_flow
+  - preview_behavior
+  - student_detail_screen
+  - student_edit
+  - filter_options
+  - sort_options
+  - pagination
+  - internal_exam_red_x_semantics
+  - course_multiplicity
+  - course_statuses
+  - learning_account_management
+  - license_and_learning_progress
+  - internal_exam_management_from_student
+  - archive_delete
+  - validations
+  - success_error_messages
