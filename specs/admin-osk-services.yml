@@ -118,24 +118,39 @@ service_groups:
       screen_specs:
         list: specs/screens/vehicles.yml
         detail: specs/screens/vehicle-detail.yml
+        edit: specs/screens/vehicle-edit.yml
       docs:
         - docs/20-vehicles-screen.md
         - docs/25-vehicle-detail-screen.md
+        - docs/26-vehicle-edit-form.md
       confirmed_columns:
         - photo
         - registration_number
         - make_model
         - categories
         - documents
-      confirmed_detail_fields:
-        - make_model
+      confirmed_profile_fields:
         - registration_number
         - side_number
-        - vin
-        - engine_capacity_cm3
+        - make
+        - model
         - production_year
-        - categories
+        - engine_capacity_cm3
+        - vin
+        - category_ids
+        - location_ids
+        - next_inspection_at
+        - oc_valid_until
+        - ac_valid_until
+        - photo
         - created_date
+      required_by_visible_edit_marker:
+        - registration_number
+        - make
+        - model
+      confirmed_multi_selects:
+        - category_ids
+        - location_ids
       confirmed_global_actions:
         - add_vehicle
         - archive_vehicle
@@ -152,6 +167,17 @@ service_groups:
         - calendar_view_month
         - calendar_view_week
         - calendar_view_day
+      confirmed_edit_actions:
+        - save_vehicle_changes
+        - cancel_vehicle_edit
+        - close_vehicle_edit_drawer
+        - select_vehicle_categories
+        - select_vehicle_locations
+        - pick_next_inspection_date
+        - pick_oc_valid_until
+        - pick_ac_valid_until
+        - select_or_replace_vehicle_photo
+        - remove_vehicle_photo_from_form
       calendar_filter:
         query_param: v
         identifier: vehicle_uuid
@@ -170,23 +196,24 @@ service_groups:
         - vehicle_photo_asset
         - vehicle_documents_or_validities
         - vehicle_calendar_context
-        - vehicle_categories_field_present
+        - vehicle_many_to_many_categories
+        - vehicle_many_to_many_locations
       requirements:
         - vehicle_as_calendar_resource
         - multiple_independent_vehicle_validities
         - expiry_alerts
+        - photo_optional
         - photo_asset_reference
+        - tenant_validate_category_ids
+        - tenant_validate_location_ids
         - tenant_isolation
         - preserve_history_on_archive_delete
         - do_not_render_min_date_sentinel_as_business_date
       remaining_unknowns:
-        - create_vehicle_form
-        - edit_vehicle_form
-        - exact_required_fields
-        - exact_field_validations
-        - category_selector_and_multiplicity
-        - photo_upload_remove_behavior
-        - vehicle_location_relation
+        - create_vehicle_form_and_exact_parity_with_edit
+        - exact_backend_field_validations
+        - exact_category_dictionary
+        - photo_removal_commit_behavior
         - archive_confirmation_restore_and_effects
         - delete_confirmation_and_semantics
         - calendar_add_event_form
@@ -532,7 +559,7 @@ remaining_button_level_gaps:
   - dashboard
   - students
   - location_add_edit_form_and_validation
-  - vehicle_create_edit_validation_categories_photo_location_archive_delete_and_event_form
+  - vehicle_create_validation_archive_delete_and_event_form
   - staff_panel_access_account_provisioning_exact_types_validation_archive_delete_and_event_form
   - calendar_main_screen_and_event_form
   - pkk_ui
