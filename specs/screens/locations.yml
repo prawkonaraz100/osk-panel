@@ -1,0 +1,65 @@
+screen:
+  id: locations
+  scope: admin_osk
+  route: /lokalizacje
+  title: Lokalizacje
+  confidence: USER_CONFIRMED_AUTH_SCREEN
+  verified_at: 2026-09-05
+
+list:
+  primary_action:
+    label: Dodaj lokalizacje
+    action: create_location
+  columns:
+    - type
+    - name
+    - address
+  row_actions:
+    - action: open_location_calendar
+      label: Kalendarz
+      route_pattern: /kalendarz?b=<location_uuid>
+    - action: edit_location
+      label: Edytuj
+  confirmed_types:
+    - key: lecture_room
+      label: Sala wykładowa
+    - key: maneuvering_area
+      label: Plac manewrowy
+
+location_entity:
+  confirmed_visible_fields:
+    - type
+    - name
+    - display_address
+  identifier:
+    external_ui_pattern: uuid
+    note: exact identifiers from audited account must not be persisted in documentation
+
+relationships:
+  confirmed:
+    - calendar_filter_context
+  to_verify:
+    - staff
+    - vehicles
+    - business_cards
+    - students_or_courses
+
+api_recommendation:
+  - GET /api/v1/locations
+  - POST /api/v1/locations
+  - GET /api/v1/locations/{location}
+  - PATCH /api/v1/locations/{location}
+  - GET /api/v1/calendar/events?location_id={location}
+
+not_confirmed:
+  - delete_location
+  - archive_location
+  - deactivate_location
+  - filters
+  - sorting
+  - pagination
+  - all_location_types
+  - exact_address_form_fields
+  - required_fields
+  - validations
+  - behavior_when_location_has_calendar_events
