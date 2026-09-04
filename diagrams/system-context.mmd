@@ -1,0 +1,11 @@
+flowchart LR
+Owner[Owner OSK] --> App[OSK Biz Platform]
+Admin[Administracja] --> App
+Instructor[Instruktor] --> App
+Lecturer[Wykładowca] --> App
+Student[Kursant] --> App
+App --> PKK[System PKK / adapter]
+App --> Pay[Operator płatności]
+App --> Mail[E-mail/SMS]
+App --> Store[Object Storage]
+App --> Public[Publiczny profil/ranking]
