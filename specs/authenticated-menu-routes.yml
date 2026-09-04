@@ -1,0 +1,125 @@
+meta:
+  project: osk-panel
+  source: current_authenticated_menu_observation
+  audited_at: 2026-09-05
+  note: Exact internal controls remain TO_VERIFY_AUTH unless independently confirmed.
+
+routes:
+  - key: dashboard
+    label: Panel główny
+    path: /
+    group: root
+    status: [USER_CONFIRMED_AUTH_MENU, TO_VERIFY_AUTH]
+
+  - key: pkk
+    label: Integracja PKK
+    path: /integracja-pkk
+    group: root
+    status: [USER_CONFIRMED_AUTH_MENU, PUBLIC_CONFIRMED]
+    confirmed_actions: [fetch_pkk, view_pkk, update_training, return_to_other_school, return_to_authority, return_expired, view_history]
+
+  - key: calendar
+    label: Kalendarz
+    path: /kalendarz
+    group: root
+    status: [USER_CONFIRMED_AUTH_MENU, PUBLIC_CONFIRMED, HELP_CONFIRMED, TO_VERIFY_AUTH]
+    confirmed_actions: [schedule_for_self, schedule_for_employee, enable_student_booking, view_instructor_activity, record_work_time]
+
+  - key: students
+    label: Kursanci
+    path: /kursanci
+    group: root
+    status: [USER_CONFIRMED_AUTH_MENU, PUBLIC_CONFIRMED, HELP_CONFIRMED, TO_VERIFY_AUTH]
+
+  - key: licenses_purchase
+    label: Wykup licencje
+    path: /licencje/wykup
+    group: Licencje
+    status: [USER_CONFIRMED_AUTH_MENU, PUBLIC_CONFIRMED, RULES_CONFIRMED, HELP_CONFIRMED, TO_VERIFY_AUTH]
+
+  - key: licenses_panel
+    label: Panel - Generuj licencje
+    path: /licencje/panel
+    group: Licencje
+    status: [USER_CONFIRMED_AUTH_MENU, RULES_CONFIRMED, TO_VERIFY_AUTH]
+    confirmed_actions: [assign_license, create_access_by_email, create_access_by_credentials, select_language, delete_unactivated_and_restore_inventory]
+
+  - key: exams_purchase
+    label: Wykup egzaminy
+    path: /egzamin-wewnetrzny/wykup
+    group: Egzamin wewnętrzny
+    status: [USER_CONFIRMED_AUTH_MENU, PUBLIC_CONFIRMED, RULES_CONFIRMED, TO_VERIFY_AUTH]
+
+  - key: exams_panel
+    label: Panel - Generuj egzamin
+    path: /egzamin-wewnetrzny/panel
+    group: Egzamin wewnętrzny
+    status: [USER_CONFIRMED_AUTH_MENU, RULES_CONFIRMED, TO_VERIFY_AUTH]
+    confirmed_actions: [generate_exam, generate_exam_link, start_local_exam, finish_exam, save_exam_card, print_exam_card]
+
+  - key: business_cards
+    label: Moje wizytówki
+    path: /wizytowki
+    group: root
+    status: [USER_CONFIRMED_AUTH_MENU, PUBLIC_CONFIRMED, RULES_CONFIRMED, HELP_CONFIRMED, TO_VERIFY_AUTH]
+
+  - key: ads
+    label: Moje reklamy
+    path: null
+    group: root
+    status: [USER_CONFIRMED_AUTH_MENU, PUBLIC_CONFIRMED, RULES_CONFIRMED, TO_VERIFY_AUTH]
+    note: Child menu routes still need capture from authenticated navigation.
+
+  - key: lectures
+    label: Wykłady
+    path: /wyklady
+    group: root
+    status: [USER_CONFIRMED_AUTH_MENU, PUBLIC_CONFIRMED, TO_VERIFY_AUTH]
+
+  - key: instructor_training
+    label: Szkolenie z instruktorem
+    path: /szkolenie-z-instruktorem
+    group: root
+    status: [USER_CONFIRMED_AUTH_MENU, PUBLIC_CONFIRMED, TO_VERIFY_AUTH]
+
+  - key: locations
+    label: Lokalizacje
+    path: /lokalizacje
+    group: Moja szkoła
+    status: [USER_CONFIRMED_AUTH_MENU, HELP_CONFIRMED, TO_VERIFY_AUTH]
+
+  - key: vehicles
+    label: Pojazdy
+    path: /pojazdy
+    group: Moja szkoła
+    status: [USER_CONFIRMED_AUTH_MENU, PUBLIC_CONFIRMED, HELP_CONFIRMED, TO_VERIFY_AUTH]
+
+  - key: employees
+    label: Pracownicy
+    path: /pracownicy
+    group: Moja szkoła
+    status: [USER_CONFIRMED_AUTH_MENU, PUBLIC_CONFIRMED, HELP_CONFIRMED, TO_VERIFY_AUTH]
+
+  - key: settings
+    label: Ustawienia
+    path: /ustawienia
+    group: Konto OSK
+    status: [USER_CONFIRMED_AUTH_MENU, TO_VERIFY_AUTH]
+
+  - key: purchase_history
+    label: Historia zakupów
+    path: /historia-zakupow
+    group: Konto OSK
+    status: [USER_CONFIRMED_AUTH_MENU, TO_VERIFY_AUTH]
+
+coverage:
+  total_menu_items_mapped: 17
+  known_missing_internal_detail:
+    - dashboard widgets and actions
+    - students fields and contextual actions
+    - locations CRUD fields and relations
+    - business card collection fields and relation to locations
+    - ads child menu routes and campaign management controls
+    - settings tabs and editable fields
+    - purchase history columns filters and actions
+    - exact current exam configuration and language matrix
