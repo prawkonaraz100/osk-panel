@@ -3,19 +3,19 @@
 Data weryfikacji: 2026-09-05
 
 **Route:** `/pracownicy`  
-**Źródło:** bieżący zalogowany ekran przekazany podczas audytu  
+**Źródło:** bieżące zalogowane ekrany listy i formularza tworzenia przekazane podczas audytu  
 **Status:** `USER_CONFIRMED_AUTH_SCREEN`
 
-Dokument opisuje potwierdzony ekran listy pracowników panelu OSK. Dane osobowe, adresy e-mail i identyfikatory rekordów z audytowanego konta nie są zapisywane w dokumentacji.
+Dokument opisuje potwierdzony ekran listy pracowników panelu OSK. Formularz tworzenia jest szczegółowo opisany w `docs/22-staff-create-form.md`. Dane osobowe, adresy e-mail i identyfikatory rekordów z audytowanego konta nie są zapisywane w dokumentacji.
 
 ## 1. Cel ekranu
 
 `Pracownicy` jest centralną ewidencją osób pracujących dla OSK i używanych jako zasoby operacyjne co najmniej w kalendarzu.
 
-Ekran potwierdza również bardzo ważne rozdzielenie domenowe:
-
+Ekrany potwierdzają ważne rozdzielenie domenowe:
 - rekord pracownika może istnieć bez konta do logowania,
 - konto użytkownika aplikacji jest opcjonalnym powiązaniem pracownika,
+- utworzenie konta jest jawną opcją formularza `Dodaj pracownika`,
 - pracownik nie może być modelowany jako ten sam rekord co `user`.
 
 ## 2. Akcja główna
@@ -23,12 +23,29 @@ Ekran potwierdza również bardzo ważne rozdzielenie domenowe:
 Potwierdzona akcja:
 - `Dodaj pracownika`.
 
-Dokładny formularz dodawania pozostaje do zweryfikowania.
+Formularz jest już zmapowany i obejmuje:
+- E-mail,
+- Imię,
+- Nazwisko,
+- Rodzaj pracownika — wielokrotny wybór,
+- PESEL,
+- Telefon,
+- Numer uprawnień,
+- Kategorie — wielokrotny wybór,
+- Lokalizacje — wielokrotny wybór,
+- Ważność legitymacji,
+- Ważność badań lekarskich,
+- Ważność badań psychologicznych,
+- opcjonalne zdjęcie,
+- `Utwórz konto do logowania`,
+- `Zapisz`,
+- `Anuluj`.
+
+Szczegóły i acceptance criteria: `docs/22-staff-create-form.md`.
 
 ## 3. Potwierdzone kolumny listy
 
 Na ekranie występują:
-
 1. `Zdjęcie`
 2. `Imię i nazwisko`
 3. `Email`
@@ -41,28 +58,44 @@ Dodatkowo każdy rekord posiada akcje prowadzące do kalendarza i ekranu szczeg�
 
 ### Zdjęcie
 - pracownik może posiadać zdjęcie,
+- formularz potwierdza, że zdjęcie jest opcjonalne,
 - zdjęcie jest powiązane z identyfikatorem rekordu,
 - u nas przechowujemy referencję do assetu/object storage, nie blob w tabeli pracownika.
 
 ### Imię i nazwisko
-- prezentowane jako jedna kolumna,
-- w modelu danych rekomendowane osobne `first_name` i `last_name`.
+- prezentowane na liście jako jedna kolumna,
+- formularz potwierdza osobne pola `Imię` i `Nazwisko`.
 
 ### Email
 - osobne pole pracownika,
 - samo posiadanie adresu e-mail nie oznacza posiadania konta do logowania.
 
+### PESEL
+- potwierdzony w formularzu tworzenia,
+- nie jest wyświetlany na liście,
+- wymaga ochrony jako dana osobowa.
+
+### Telefon
+- potwierdzony w formularzu tworzenia.
+
+### Numer uprawnień
+- potwierdzony jako osobne pole formularza,
+- nie utożsamiamy go z datą ważności legitymacji.
+
 ### Konto do logowania
-Potwierdzony stan:
+Potwierdzony stan na liście:
 - `Nie`.
+
+Formularz potwierdza opcję:
+- `Utwórz konto do logowania`.
 
 To dowodzi, że:
 - `staff_profile` i `user` są osobnymi encjami,
 - `staff_profile.user_id` powinno być nullable albo relacja powinna być realizowana przez membership/invitation,
 - pracownik może być używany w kalendarzu i ewidencji bez dostępu do panelu,
-- nadanie konta do logowania powinno być osobnym procesem, nie skutkiem ubocznym utworzenia pracownika.
+- provisioning konta jest kontrolowaną decyzją administratora przy tworzeniu pracownika.
 
-Stan `Tak` nie został jeszcze zaobserwowany, ale model musi go obsłużyć jako logiczne przeciwieństwo kolumny boolean.
+Stan `Tak` nie został jeszcze zaobserwowany na liście, ale system musi go obsługiwać jako rezultat utworzenia/powiązania konta.
 
 ## 5. Dokumenty pracownika
 
@@ -72,6 +105,8 @@ Potwierdzone typy/etykiety:
 - `Legitymacja`,
 - `Badania lekarskie`,
 - `Badania psychologiczne`.
+
+Formularz potwierdza osobne daty ważności dla wszystkich trzech typów.
 
 Potwierdzone komunikaty stanów:
 - `<dokument> wygasła/wygasły <data>`,
@@ -104,14 +139,38 @@ Potwierdzone wartości domenowe `type` powinny odpowiadać co najmniej:
 - `medical_exam`,
 - `psychological_exam`.
 
-Nie zakładamy, że `Legitymacja` zawsze oznacza legitymację instruktora, dopóki nie zobaczymy formularza/szczegółów.
+Nie zakładamy, że `Legitymacja` zawsze oznacza legitymację instruktora, dopóki nie zobaczymy formularza/szczegółów rodzaju pracownika i dokumentu.
 
-## 6. Potwierdzone akcje wiersza
+## 6. Rodzaje pracownika, kategorie i lokalizacje
+
+Formularz potwierdza trzy relacje wielokrotne.
+
+### Rodzaj pracownika
+UI: `Wybierz dowolną ilość`.
+
+Wniosek:
+- pracownik może posiadać wiele rodzajów/funkcji,
+- nie używamy pojedynczego `staff.type`.
+
+### Kategorie
+UI: `Wybierz dowolną ilość kategorii`.
+
+Potwierdza relację many-to-many:
+- `staff <-> driving_categories`.
+
+### Lokalizacje
+UI: `Wybierz dowolną ilość lokalizacji`.
+
+Potwierdza relację many-to-many:
+- `staff <-> locations`.
+
+Każde `location_id` musi być tenant-scoped i zweryfikowane server-side.
+
+## 7. Potwierdzone akcje wiersza
 
 ### `Kalendarz`
 
 Wzorzec trasy:
-
 `/kalendarz?w=<staff_uuid>`
 
 Znaczenie:
@@ -120,11 +179,9 @@ Znaczenie:
 - ten sam pracownik może istnieć bez konta do logowania, a mimo to mieć własny kontekst kalendarza.
 
 W naszym odpowiedniku:
-
 `GET /calendar?staff_id=<uuid>`
 
 oraz API:
-
 `GET /api/v1/calendar/events?staff_id=<uuid>`.
 
 Każda operacja musi sprawdzać tenant ownership.
@@ -132,23 +189,17 @@ Każda operacja musi sprawdzać tenant ownership.
 ### `Zobacz`
 
 Wzorzec trasy:
-
 `/pracownicy/<staff_uuid>`
 
 Potwierdza osobny ekran szczegółów pracownika.
 
-Do dalszego audytu:
-- wszystkie pola pracownika,
-- role/funkcje,
-- kategorie uprawnień,
-- dokumenty i ich edycja,
-- zdjęcie,
-- kontakt,
-- lokalizacje,
-- uprawnienia do logowania,
-- sposób tworzenia konta użytkownika,
-- dostępność/kalendarz,
-- ewentualna dezaktywacja/usunięcie.
+Do dalszego audytu tego ekranu:
+- sposób edycji wszystkich pól,
+- dokładna lista rodzajów pracownika,
+- szczegóły konta do logowania i permissions,
+- sposób aktualizacji dokumentów,
+- ewentualna dezaktywacja/usunięcie,
+- historia zmian.
 
 ### `Podgląd`
 
@@ -156,7 +207,7 @@ Po `Zobacz` w przekazanym tekście występuje również `Podgląd`. Bez obrazu/D
 
 Status: `TO_VERIFY_VISUAL`.
 
-## 7. Identyfikacja pracownika
+## 8. Identyfikacja pracownika
 
 UUID-like identifier występuje co najmniej w:
 - `/pracownicy/<uuid>`,
@@ -168,7 +219,7 @@ Rekomendacja:
 - każda encja ma `organization_id`,
 - publiczny identyfikator nie może zastępować sprawdzenia tenant ownership.
 
-## 8. Kluczowe rozdzielenie: Staff vs User
+## 9. Kluczowe rozdzielenie: Staff vs User
 
 ### `staff_profiles`
 Reprezentuje osobę zatrudnioną/współpracującą z OSK:
@@ -176,7 +227,10 @@ Reprezentuje osobę zatrudnioną/współpracującą z OSK:
 - `organization_id`
 - `first_name`
 - `last_name`
-- `email` nullable
+- `email`
+- `pesel`
+- `phone`
+- `authorization_number`
 - `photo_asset_id` nullable
 - `user_id` nullable / alternatywnie relation przez membership
 - `created_at`
@@ -185,38 +239,27 @@ Reprezentuje osobę zatrudnioną/współpracującą z OSK:
 ### `users`
 Reprezentuje konto uwierzytelniające w aplikacji.
 
-Proces nadania dostępu powinien być osobny:
+Proces potwierdzony koncepcyjnie przez formularz:
+`create staff -> optional create_login_account -> linked user/membership`.
 
-`staff_without_login -> invitation/account_creation -> linked_user_account`.
-
-Nie należy automatycznie tworzyć loginu dla każdej osoby dodanej do ewidencji pracowników.
-
-## 9. Dokumenty i alerty
-
-Dla naszego produktu wymagane są co najmniej:
-- alert przed końcem ważności dokumentu,
-- alert po wygaśnięciu,
-- prezentacja wielu alertów dla jednego pracownika,
-- możliwość filtrowania/raportowania terminów jako funkcja własna; filtr nie jest jeszcze potwierdzony na tym ekranie.
-
-Publiczny ekran potwierdza automatyczną ocenę terminów, ale nie potwierdza progu `expiring_soon` ani kanałów powiadomień.
+Dokładna metoda provisioningowa konkurencyjnego systemu — zaproszenie, hasło generowane lub inny mechanizm — pozostaje do sprawdzenia.
 
 ## 10. Potwierdzone relacje
 
-- `staff -> photo`
+- `staff -> photo` opcjonalne
 - `staff -> email/contact`
 - `staff -> documents[]`
 - `staff -> optional login account`
 - `staff -> calendar context`
 - `staff -> details screen`
+- `staff <-> staff_types` many-to-many
+- `staff <-> driving_categories` many-to-many
+- `staff <-> locations` many-to-many
 
 Do potwierdzenia:
-- `staff -> roles`
-- `staff -> driving categories`
-- `staff -> locations`
 - `staff -> vehicles`
 - `staff -> availability`
-- `staff -> account permissions`
+- dokładny model `roles/permissions` konta logowania.
 
 ## 11. Rekomendowane API
 
@@ -227,29 +270,34 @@ Do potwierdzenia:
 - `GET /api/v1/staff/{staff}/documents`
 - `GET /api/v1/calendar/events?staff_id={staff}`
 
-Dla konta logowania projektowo:
-- `POST /api/v1/staff/{staff}/account-invitation`
-- `DELETE /api/v1/staff/{staff}/account-access` — tylko jeśli polityka naszego produktu to dopuści.
+`POST /api/v1/staff` powinien przyjmować m.in.:
+- `staff_type_ids[]`
+- `category_ids[]`
+- `location_ids[]`
+- trzy daty dokumentów,
+- opcjonalne zdjęcie,
+- `create_login_account`.
 
-Te endpointy dostępu są decyzją naszego produktu; dokładne akcje 360 trzeba potwierdzić na ekranie szczegółów.
+Szczegóły provisioning konta pozostają do dalszego audytu.
 
-## 12. Czego lista NIE potwierdza
+## 12. Czego nadal nie potwierdziliśmy
 
 Nie uznajemy jeszcze za parytet 360:
 - usuwania/dezaktywacji pracownika,
 - resetowania hasła pracownika,
-- edycji ról z listy,
-- filtrowania/sortowania/wyszukiwania,
+- dokładnej listy rodzajów pracownika,
+- szczegółów roles/permissions konta,
+- filtrowania/sortowania/wyszukiwania listy,
 - akcji zbiorczych,
-- przypisania lokalizacji,
-- przypisania kategorii,
-- szczegółów uprawnień konta,
+- wymaganych pól formularza,
+- walidacji PESEL/email/telefonu/numeru uprawnień,
+- sposobu utworzenia hasła lub zaproszenia,
 - progu przypomnienia przed wygaśnięciem dokumentu.
 
 ## 13. Acceptance criteria
 
 ### AC-STF-01 — pracownik bez konta
-**Given** administrator tworzy pracownika bez dostępu do panelu  
+**Given** administrator tworzy pracownika z wyłączonym `Utwórz konto do logowania`  
 **Then** pracownik istnieje w ewidencji i może być używany w kalendarzu, ale nie posiada aktywnego konta uwierzytelniającego.
 
 ### AC-STF-02 — dokumenty niezależne
@@ -272,3 +320,11 @@ Nie uznajemy jeszcze za parytet 360:
 ### AC-STF-06 — ekran szczegółów
 **Given** administrator wybiera `Zobacz`  
 **Then** otwierany jest osobny ekran szczegółów pracownika.
+
+### AC-STF-07 — relacje wielokrotne
+**Given** administrator tworzy pracownika  
+**Then** może przypisać wiele rodzajów pracownika, wiele kategorii i wiele lokalizacji.
+
+### AC-STF-08 — konto opcjonalne
+**Given** formularz zawiera `Utwórz konto do logowania`  
+**Then** provisioning konta jest oddzielnym efektem sterowanym tą opcją, a nie automatyczną konsekwencją utworzenia pracownika.
