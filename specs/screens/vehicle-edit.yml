@@ -1,0 +1,129 @@
+screen:
+  id: vehicle_edit
+  scope: admin_osk
+  context: edit_from_vehicle_detail
+  confidence: USER_CONFIRMED_AUTH_SCREEN
+  verified_at: 2026-09-05
+
+presentation:
+  type: side_drawer
+  title_pattern: "Pojazd: <registration_number>"
+  actions:
+    - close
+    - save
+    - cancel
+
+fields:
+  - key: registration_number
+    label: Nr rejestracyjny
+    required_marker: true
+  - key: side_number
+    label: Numer boczny
+    required_marker: false
+  - key: make
+    label: Marka
+    required_marker: true
+  - key: model
+    label: Model
+    required_marker: true
+  - key: production_year
+    label: Rok produkcji
+    required_marker: false
+  - key: engine_capacity_cm3
+    label: Pojemność (w cm³)
+    required_marker: false
+  - key: next_inspection_at
+    label: Następny przegląd
+    control: date_picker
+    required_marker: false
+  - key: vin
+    label: Numer VIN
+    required_marker: false
+  - key: oc_valid_until
+    label: Ważność OC
+    control: date_picker
+    required_marker: false
+  - key: ac_valid_until
+    label: Ważność AC
+    control: date_picker
+    required_marker: false
+  - key: category_ids
+    label: Wybierz kategorie obsługiwane przez pojazd
+    control: multi_select
+    placeholder: Wybierz dowolną ilość kategorii
+  - key: location_ids
+    label: Lokalizacje
+    control: multi_select
+    placeholder: Wybierz dowolną ilość lokalizacji
+  - key: photo
+    label: Dodaj zdjęcie (opcjonalnie)
+    control: file_with_existing_preview
+    optional_label: true
+
+confirmed_required_by_visible_marker:
+  - registration_number
+  - make
+  - model
+
+confirmed_relationships:
+  - vehicle_many_to_many_categories
+  - vehicle_many_to_many_locations
+  - vehicle_has_independent_validity_records
+
+confirmed_validity_types:
+  - technical_inspection
+  - oc_insurance
+  - ac_insurance
+
+photo_behavior:
+  existing_file_name_visible: true
+  existing_thumbnail_visible: true
+  remove_control_visible: true
+  removal_commit_timing: TO_VERIFY
+
+confirmed_actions:
+  - save_vehicle_changes
+  - cancel_vehicle_edit
+  - close_vehicle_edit_drawer
+  - select_vehicle_categories
+  - select_vehicle_locations
+  - pick_next_inspection_date
+  - pick_oc_valid_until
+  - pick_ac_valid_until
+  - select_or_replace_vehicle_photo
+  - remove_vehicle_photo_from_form
+
+recommended_api:
+  method: PATCH
+  path: /api/v1/vehicles/{vehicle}
+  payload:
+    - registration_number
+    - side_number
+    - make
+    - model
+    - production_year
+    - engine_capacity_cm3
+    - next_inspection_at
+    - vin
+    - oc_valid_until
+    - ac_valid_until
+    - category_ids[]
+    - location_ids[]
+    - photo_asset_id
+
+security_requirements:
+  - tenant_isolation
+  - validate_category_ids_belong_to_organization
+  - validate_location_ids_belong_to_organization
+  - audit_validity_changes
+  - preserve_calendar_history
+
+remaining_gaps:
+  - exact_backend_validations
+  - create_vehicle_form_parity
+  - full_category_dictionary
+  - save_success_error_messages
+  - photo_removal_commit_behavior
+  - archive_lifecycle
+  - delete_lifecycle
+  - add_event_form
