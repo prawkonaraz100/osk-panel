@@ -1,0 +1,146 @@
+meta:
+  screen_id: admin_osk_purchase_history
+  route: /historia-zakupow
+  verified_at: 2026-09-05
+  confidence: USER_CONFIRMED_AUTH_SCREEN
+  source: authenticated_screen_content_supplied_during_audit
+
+scope:
+  purpose: unified_order_history_for_osk
+  confirmed_product_types:
+    - internal_exams
+    - student_licenses
+
+columns:
+  - key: display_number
+    label_observed: Number
+    confirmed: true
+  - key: order_items
+    label_observed: Zamówienie
+    confirmed: true
+    multi_item: true
+  - key: ordered_at
+    label_observed: Data
+    confirmed: true
+  - key: booked_at
+    label_observed: Data księgowania
+    confirmed: true
+    nullable_for_unpaid: true
+  - key: gross_total
+    label_observed: Kwota
+    confirmed: true
+    currency_observed: PLN
+  - key: payment_status
+    label_observed: Status
+    confirmed: true
+
+confirmed_order_item_variants:
+  - type: internal_exam
+    observed_label_pattern: "Egzaminy wewnętrzne, ilość:{quantity}"
+  - type: license
+    duration_days: 31
+    observed_label_pattern: "Licencje 31 dni, ilość:{quantity}"
+  - type: license
+    duration_days: 90
+    observed_label_pattern: "Licencje 90 dni, ilość:{quantity}"
+  - type: license
+    duration_days: 180
+    observed_label_pattern: "Licencje 180 dni, ilość:{quantity}"
+
+confirmed_statuses:
+  - unpaid:
+      observed_label: Nieopłacone
+      booked_at: null
+      row_actions:
+        - pay
+
+actions:
+  pay:
+    observed_label: Opłać
+    target_pattern: "/transakcja?pid=<opaque_payment_id>"
+    preconditions:
+      - order_belongs_to_current_organization
+      - order_has_payable_balance
+      - payment_status_allows_payment_attempt
+    security_requirements:
+      - opaque_unpredictable_public_payment_reference
+      - tenant_authorization_server_side
+      - idempotent_payment_processing
+      - no_idor_by_order_number
+
+pagination:
+  confirmed: true
+  per_page_options: [10, 25, 50, 100]
+  page_number_control_exact_rendering: TO_VERIFY_AUTH
+
+model_requirements:
+  order:
+    fields:
+      - organization_id
+      - display_number
+      - ordered_at
+      - booked_at_nullable
+      - currency
+      - gross_total_minor
+      - payment_status
+  order_item:
+    fields:
+      - order_id
+      - product_type
+      - product_variant
+      - display_name_snapshot
+      - quantity
+      - unit_price_minor
+      - line_total_minor
+  payment_attempt:
+    fields:
+      - organization_id
+      - order_id
+      - public_payment_reference
+      - provider
+      - status
+      - amount_minor
+      - started_at
+      - confirmed_at_nullable
+      - failed_at_nullable
+
+business_rules:
+  - one_order_can_contain_multiple_order_items
+  - one_order_can_mix_multiple_license_duration_variants
+  - unpaid_orders_persist_and_can_be_paid_later
+  - booking_date_is_distinct_from_order_date
+  - historical_product_name_and_price_are_snapshotted
+  - money_must_not_use_floating_point
+
+recommended_api:
+  - "GET /api/v1/purchases"
+  - "GET /api/v1/purchases/{order}"
+  - "POST /api/v1/purchases/{order}/payment-attempts"
+  - "GET /api/v1/purchases/{order}/payment-attempts"
+  - "POST /api/v1/payments/webhooks/{provider}"
+
+acceptance_criteria:
+  - id: AC-PUR-01
+    requirement: licenses_and_internal_exams_share_one_purchase_history
+  - id: AC-PUR-02
+    requirement: multiple_order_items_render_under_one_order_number
+  - id: AC-PUR-03
+    requirement: unpaid_order_has_null_booked_at_and_pay_action
+  - id: AC-PUR-04
+    requirement: pay_action_is_tenant_authorized_and_uses_opaque_reference
+  - id: AC-PUR-05
+    requirement: reliable_payment_confirmation_sets_booked_at_idempotently
+  - id: AC-PUR-06
+    requirement: per_page_supports_10_25_50_100
+
+remaining_unknowns:
+  - sorting
+  - search
+  - filters
+  - labels_for_other_payment_statuses
+  - actions_for_paid_orders
+  - invoice_or_document_download
+  - unpaid_order_cancellation
+  - transaction_screen_details
+  - whether_ads_and_other_services_appear_in_this_history
+  - exact_page_number_pagination_rendering
