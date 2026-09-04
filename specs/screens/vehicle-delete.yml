@@ -1,0 +1,74 @@
+meta:
+  screen: vehicle_delete_confirmation
+  scope: admin_osk
+  confidence: USER_CONFIRMED_AUTH_SCREEN
+  audited_at: 2026-09-05
+  source_context: vehicle_detail_delete_action
+
+ui:
+  title: Usuwanie pojazdu
+  close_control: true
+  confirmation_message_semantics: confirm_removal_from_organization
+  identity_fields:
+    - registration_number
+    - make_model
+    - categories
+  observed_label_issue:
+    raw: Maria i model
+    semantic: Marka i model
+    classification: PRESENTATION_TYPO_OR_EXTRACTION_ERROR
+
+confirmed_actions:
+  - action: confirm_delete_vehicle
+    label: Tak, usuń
+  - action: cancel_delete_vehicle
+    label: Nie, anuluj
+  - action: close_delete_vehicle_modal
+    label: X
+
+flow:
+  - vehicle_detail
+  - click_delete
+  - delete_confirmation
+  - confirm_or_cancel
+
+behavior_confirmed:
+  confirmation_required_before_delete: true
+  destructive_action_not_immediate: true
+  cancel_leaves_record_unchanged: EXPECTED_BY_UI_SEMANTICS
+
+backend_semantics:
+  status: TO_VERIFY_AFTER_CONFIRM
+  unknowns:
+    - hard_delete
+    - soft_delete
+    - detach_from_organization
+    - dependency_blocking
+    - auto_archive
+    - future_event_handling
+    - historical_event_handling
+    - success_message
+    - error_message
+    - restore_capability
+
+our_product_requirements:
+  - tenant_isolation
+  - dependency_check_before_delete
+  - preserve_historical_calendar_events
+  - preserve_audit_history
+  - explicit_confirmation
+  - audit_destructive_operation
+
+acceptance_criteria:
+  - id: AC-VEH-DEL-01
+    rule: delete_requires_confirmation
+  - id: AC-VEH-DEL-02
+    rule: confirmation_displays_vehicle_identity
+  - id: AC-VEH-DEL-03
+    rule: cancel_or_close_does_not_modify_vehicle
+  - id: AC-VEH-DEL-04
+    rule: confirm_triggers_delete_operation
+  - id: AC-VEH-DEL-05
+    rule: deletion_checks_vehicle_belongs_to_current_osk
+  - id: AC-VEH-DEL-06
+    rule: historical_integrity_must_be_preserved_in_our_implementation
