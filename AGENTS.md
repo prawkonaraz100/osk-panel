@@ -21,14 +21,26 @@ Obowiązkowo przed implementacją:
 1. `README.md`
 2. `docs/15-current-authenticated-menu-map.md`
 3. `docs/16-admin-osk-service-catalog.md`
-4. `specs/admin-osk-services.yml`
-5. `docs/01-feature-map.md`
-6. `docs/03-user-flows.md`
-7. `docs/10-gap-register.md`
-8. `docs/12-action-matrix.md`
-9. `docs/13-acceptance-criteria.md`
-10. `docs/14-reverification-audit-2026-09-05.md`
-11. `specs/functional-requirements.yml`
+4. wszystkie istniejące `docs/17-...` i późniejsze pliki screen-level dla implementowanego modułu,
+5. `specs/admin-osk-services.yml`
+6. wszystkie istniejące `specs/screens/*.yml` dla implementowanego modułu,
+7. `docs/01-feature-map.md`
+8. `docs/03-user-flows.md`
+9. `docs/10-gap-register.md`
+10. `docs/12-action-matrix.md`
+11. `docs/13-acceptance-criteria.md`
+12. `docs/14-reverification-audit-2026-09-05.md`
+13. `specs/functional-requirements.yml`
+
+## Pierwszeństwo dokumentacji
+
+Dokumentacja jest rozwijana iteracyjnie podczas audytu zalogowanego panelu.
+
+Jeżeli starszy dokument ogólny oznacza element jako `TO_VERIFY_AUTH`, ale nowszy dokument konkretnego ekranu (`docs/17-...` lub późniejszy) zawiera dane przekazane z zalogowanego widoku, **nowszy screen-level document ma pierwszeństwo** dla tego ekranu.
+
+Analogicznie `specs/screens/*.yml` ma pierwszeństwo nad starszym ogólnym wpisem w `specs/admin-osk-services.yml` w zakresie konkretnego zweryfikowanego ekranu.
+
+Nie usuwaj historycznego kontekstu tylko dlatego, że szczegół został później zweryfikowany; aktualizuj status poprzez nowszą specyfikację.
 
 ## Definicja kompletnego mapowania admina
 
@@ -56,6 +68,7 @@ Pełne mapowanie wymaga co najmniej:
 
 ## Poziomy pewności
 
+- `USER_CONFIRMED_AUTH_SCREEN` — szczegóły ekranu przekazane z bieżącego zalogowanego panelu podczas audytu.
 - `CURRENT_CONFIRMED` — aktualne publiczne potwierdzenie.
 - `RULES_CONFIRMED` — aktualny regulamin potwierdza zachowanie.
 - `HISTORICAL_INDEX` — historyczny ślad; **nie zakładaj, że nadal istnieje**.
@@ -78,12 +91,12 @@ Pełne mapowanie wymaga co najmniej:
 11. Nie usuwaj historii formalnych operacji; stosuj status/archiwizację oraz immutable/audit records.
 12. Języki, kategorie, liczba lekcji/działów, parametry placementów i czasy emisji są config/data — nie hard-code.
 13. Dla każdej funkcji dodaj testy polityk i krytyczny test integracyjny.
-14. Każda zmiana zakresu powinna aktualizować dokumentację oraz oba pliki YAML w `specs/`.
+14. Każda zmiana zakresu powinna aktualizować dokumentację i odpowiednie pliki YAML w `specs/`.
 
 ## Szczególne pułapki
 
 - `Faktury`: `HISTORICAL_INDEX / TO_VERIFY_AUTH`; nie zakładaj aktualnego modułu tylko dlatego, że był w starym menu.
-- `Historia zakupów`: aktualna osobna pozycja panelu; traktuj ją jako wspólny ledger zakupów OSK, nie alias faktur.
+- `Historia zakupów`: aktualna osobna pozycja panelu; traktuj ją jako wspólny ledger zakupów OSK, nie alias faktur. Szczegóły potwierdzone w `docs/17-history-purchases-screen.md` i `specs/screens/purchase-history.yml`.
 - `Lokalizacje`: osobny zasób panelu; nie redukuj go do jednego adresu organizacji.
 - `Moje wizytówki`: model kolekcji, nie zakładaj jednej wizytówki na tenant.
 - `export_progress`: `INFERRED`, nie potwierdzone.
@@ -95,7 +108,7 @@ Pełne mapowanie wymaga co najmniej:
 
 ## Kolejność pracy
 
-Najpierw zamykaj `remaining_button_level_gaps` z `specs/admin-osk-services.yml`. Dopiero po ich zweryfikowaniu przechodź do implementacji modułu jako funkcjonalnie kompletnego.
+Najpierw zamykaj `remaining_button_level_gaps` z `specs/admin-osk-services.yml`, ale pomijaj elementy, które zostały już zamknięte nowszym plikiem `specs/screens/*.yml`. Dopiero po ich zweryfikowaniu przechodź do implementacji modułu jako funkcjonalnie kompletnego.
 
 ## Format PR
 
