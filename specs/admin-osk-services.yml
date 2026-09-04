@@ -151,14 +151,39 @@ service_groups:
       route: /pracownicy
       confidence: USER_CONFIRMED_AUTH_SCREEN
       screen_spec: specs/screens/staff.yml
+      create_screen_spec: specs/screens/staff-create.yml
+      docs:
+        - docs/21-staff-screen.md
+        - docs/22-staff-create-form.md
       confirmed_columns:
         - photo
         - full_name
         - email
         - documents
         - login_account
+      confirmed_create_fields:
+        - email
+        - first_name
+        - last_name
+        - staff_type_ids
+        - pesel
+        - phone
+        - authorization_number
+        - category_ids
+        - location_ids
+        - card_valid_until
+        - medical_exam_valid_until
+        - psychological_exam_valid_until
+        - photo
+        - create_login_account
+      confirmed_multi_selects:
+        - staff_type_ids
+        - category_ids
+        - location_ids
       confirmed_actions:
         - add_staff
+        - save_staff
+        - cancel_create_staff
         - calendar_for_staff
         - view_staff_details
       calendar_filter:
@@ -173,19 +198,31 @@ service_groups:
         - expired
       confirmed_login_account_state:
         - false
+      confirmed_relationships:
+        - staff_many_to_many_staff_types
+        - staff_many_to_many_categories
+        - staff_many_to_many_locations
+        - staff_optional_user_account
+        - staff_has_many_documents
       requirements:
         - staff_profile_separate_from_user_account
         - optional_login_account
+        - explicit_create_login_account_control
         - multiple_independent_documents
         - staff_as_calendar_resource
+        - photo_optional
         - photo_asset_reference
+        - protect_pesel
+        - tenant_validate_location_ids
         - tenant_isolation
       explicitly_not_confirmed:
         - delete_staff
         - deactivate_staff
-        - roles_permissions_ui
-        - category_assignment
-        - location_assignment
+        - exact_staff_type_values
+        - required_fields
+        - field_validations
+        - account_invitation_or_password_flow
+        - default_account_permissions
         - password_reset
         - filters
         - search
@@ -405,7 +442,7 @@ remaining_button_level_gaps:
   - students
   - location_add_edit_form_and_validation
   - vehicle_add_details_edit_documents_and_categories
-  - staff_add_details_edit_account_and_permissions
+  - staff_details_edit_exact_types_account_provisioning_permissions_and_validation
   - calendar
   - pkk_ui
   - license_management_ui
