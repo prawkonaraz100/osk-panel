@@ -1,0 +1,122 @@
+screen:
+  id: staff_edit
+  source: authenticated_user_screen
+  confidence: USER_CONFIRMED_AUTH_SCREEN
+  context_route: /pracownicy/{staff_uuid}
+  opened_by: edit_staff_details
+
+layout:
+  presentation: side_drawer
+  actions:
+    - close
+    - save
+    - cancel
+
+fields:
+  - id: email
+    label: E-mail
+    required_marker: true
+  - id: first_name
+    label: Imię
+    required_marker: true
+  - id: last_name
+    label: Nazwisko
+    required_marker: true
+  - id: staff_type_ids
+    label: Rodzaj pracownika
+    required_marker: true
+    control: multi_select
+    confirmed_selected_label: Pracownik biurowy
+    related_observed_detail_value: OfficeWorker
+    modeling_note: separate technical code from localized label
+  - id: pesel
+    label: Pesel
+    required_marker: false
+    sensitive: true
+  - id: phone
+    label: Telefon
+    required_marker: false
+  - id: authorization_number
+    label: Numer uprawnień
+    required_marker: false
+  - id: category_ids
+    label: Kategorie
+    required_marker: false
+    control: multi_select
+    placeholder: Wybierz dowolną ilość kategorii
+  - id: location_ids
+    label: Lokalizacje
+    required_marker: false
+    control: multi_select
+    placeholder: Wybierz dowolną ilość lokalizacji
+  - id: card_valid_until
+    label: Ważność legitymacji
+    required_marker: false
+    control: date
+  - id: medical_exam_valid_until
+    label: Ważność badań lekarskich
+    required_marker: false
+    control: date
+  - id: psychological_exam_valid_until
+    label: Ważność badań psychologicznych
+    required_marker: false
+    control: date
+  - id: photo
+    label: Dodaj zdjęcie (opcjonalnie)
+    optional_explicitly: true
+    existing_photo_preview: true
+    existing_file_removal_control: true
+  - id: create_login_account
+    label: Utwórz konto do logowania
+    control: boolean
+    confirmed_context: staff_currently_without_panel_access
+
+confirmed_relationships:
+  - staff_many_to_many_staff_types
+  - staff_many_to_many_categories
+  - staff_many_to_many_locations
+  - staff_optional_user_account
+
+confirmed_actions:
+  - close_edit_drawer
+  - save_staff_changes
+  - cancel_staff_edit
+  - remove_selected_staff_type
+  - select_staff_types
+  - select_categories
+  - select_locations
+  - pick_card_valid_until
+  - pick_medical_exam_valid_until
+  - pick_psychological_exam_valid_until
+  - select_or_replace_photo
+  - remove_photo_from_form
+  - request_create_login_account
+
+required_by_visible_ui_marker:
+  - email
+  - first_name
+  - last_name
+  - staff_type_ids
+
+security_requirements:
+  - protect_pesel
+  - validate_tenant_for_location_ids
+  - validate_tenant_for_related_ids
+  - audit_login_account_provisioning
+  - do_not_derive_permissions_solely_from_staff_type
+  - do_not_implicitly_sync_staff_email_and_user_email
+
+remaining_unknowns:
+  - exact_backend_requiredness_for_unstarred_fields
+  - exact_staff_type_dictionary
+  - provisioning_flow_after_create_login_account_selected
+  - invitation_vs_generated_password
+  - default_account_permissions
+  - email_validation_rules
+  - pesel_validation_rules
+  - phone_validation_rules
+  - authorization_number_validation_rules
+  - date_validation_rules
+  - save_success_message
+  - save_error_messages
+  - exact_photo_removal_commit_behavior
