@@ -1,0 +1,118 @@
+meta:
+  screen: vehicle_create
+  confidence: USER_CONFIRMED_AUTH_SCREEN
+  audited_at: 2026-09-05
+  context: create_vehicle_from_vehicle_list
+
+ui:
+  container: side_drawer
+  title: Dodaj pojazd
+  actions:
+    - close
+    - save
+    - cancel
+
+fields:
+  - key: registration_number
+    label: Nr rejestracyjny
+    required_visible: true
+  - key: side_number
+    label: Numer boczny
+    required_visible: false
+  - key: make
+    label: Marka
+    required_visible: true
+  - key: model
+    label: Model
+    required_visible: true
+  - key: production_year
+    label: Rok produkcji
+    required_visible: false
+  - key: engine_capacity_cm3
+    label: Pojemność (w cm³)
+    required_visible: false
+  - key: next_inspection_at
+    label: Następny przegląd
+    control: date_picker
+    placeholder: dd.mm.rrrr
+  - key: vin
+    label: Numer VIN
+    required_visible: false
+  - key: oc_valid_until
+    label: Ważność OC
+    control: date_picker
+    placeholder: dd.mm.rrrr
+  - key: ac_valid_until
+    label: Ważność AC
+    control: date_picker
+    placeholder: dd.mm.rrrr
+  - key: category_ids
+    label: Wybierz kategorie obsługiwane przez pojazd
+    control: multi_select
+    placeholder: Wybierz dowolną ilość kategorii
+  - key: location_ids
+    label: Lokalizacje
+    control: multi_select
+    placeholder: Wybierz dowolną ilość lokalizacji
+  - key: photo
+    label: Dodaj zdjęcie (opcjonalnie)
+    control: file_upload
+    optional_visible: true
+    initial_label: Wybierz zdjęcie...
+
+confirmed_required_fields:
+  - registration_number
+  - make
+  - model
+
+confirmed_relationships:
+  - vehicle_many_to_many_categories
+  - vehicle_many_to_many_locations
+
+confirmed_validity_fields:
+  - technical_inspection
+  - oc_insurance
+  - ac_insurance
+
+confirmed_actions:
+  - close_vehicle_create_drawer
+  - save_new_vehicle
+  - cancel_vehicle_create
+  - select_vehicle_categories
+  - select_vehicle_locations
+  - pick_next_inspection_date
+  - pick_oc_valid_until
+  - pick_ac_valid_until
+  - select_vehicle_photo
+
+create_edit_parity:
+  same_business_fields_as_edit: true
+  differences:
+    - create_fields_start_empty
+    - create_date_fields_show_placeholders
+    - create_photo_has_no_existing_thumbnail
+
+api_recommendation:
+  method: POST
+  path: /api/v1/vehicles
+  transactional_relations:
+    - categories
+    - locations
+    - validity_records
+    - photo_reference
+
+remaining_unknowns:
+  - backend_validation_rules
+  - duplicate_registration_behavior
+  - vin_validation
+  - production_year_range
+  - engine_capacity_range
+  - category_dictionary
+  - photo_file_rules
+  - success_error_messages
+
+security_requirements:
+  - tenant_validate_category_ids
+  - tenant_validate_location_ids
+  - tenant_isolation
+  - safe_file_upload
