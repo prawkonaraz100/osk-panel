@@ -1,0 +1,98 @@
+meta:
+  screen: staff_detail
+  route_pattern: /pracownicy/{staff_uuid}
+  confidence: USER_CONFIRMED_AUTH_SCREEN
+  audited_at: 2026-09-05
+
+layout:
+  breadcrumb: [Panel główny, Pracownicy, staff_name]
+  sections:
+    - staff_details
+    - panel_access
+    - embedded_calendar
+
+header:
+  confirmed_elements:
+    - back_to_staff_list
+    - staff_photo
+    - staff_full_name
+  confirmed_actions:
+    - archive_staff
+    - delete_staff
+
+staff_details:
+  confirmed_action: edit_staff_details
+  data_fields:
+    - full_name
+    - staff_types
+    - email
+    - phone
+    - pesel
+    - authorization_number
+    - categories
+    - created_date
+  confirmed_staff_type_values:
+    - OfficeWorker
+  validity_fields:
+    - card_valid_until
+    - medical_exam_valid_until
+    - psychological_exam_valid_until
+  expired_indicator: true
+
+panel_access:
+  confirmed_action: edit_panel_access
+  confirmed_field:
+    key: has_panel_access
+    observed_value: false
+  domain_rule: staff_profile_separate_from_user_account
+
+embedded_calendar:
+  confirmed_actions:
+    - open_full_calendar
+    - add_event
+    - previous_period
+    - next_period
+    - today
+    - view_month
+    - view_week
+    - view_day
+  confirmed_views:
+    - month
+    - week
+    - day
+  observed_active_view: month
+  full_calendar_route: /kalendarz
+  unresolved:
+    - whether_full_calendar_preserves_staff_filter
+    - whether_add_event_prefills_staff
+    - event_form_fields
+    - conflict_behavior
+
+relationships_confirmed:
+  - staff_many_to_many_staff_types
+  - staff_many_to_many_categories
+  - staff_many_to_many_locations
+  - staff_has_many_validity_records
+  - staff_optional_panel_account
+  - staff_calendar_context
+
+archive_delete:
+  archive_confirmed: true
+  delete_confirmed: true
+  unresolved:
+    - archive_confirmation
+    - archive_effect_on_future_events
+    - delete_confirmation
+    - delete_semantics_hard_vs_soft
+    - delete_dependency_rules
+
+remaining_gaps:
+  - edit_staff_form_and_validation
+  - panel_access_edit_flow
+  - exact_staff_type_dictionary
+  - account_provisioning_credentials_or_invitation
+  - account_permissions
+  - archive_lifecycle
+  - delete_lifecycle
+  - add_event_form
+  - validation_and_success_error_messages
