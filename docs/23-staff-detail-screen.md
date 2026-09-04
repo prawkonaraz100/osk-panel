@@ -3,10 +3,13 @@
 Data weryfikacji: 2026-09-05
 
 **Route pattern:** `/pracownicy/<staff_uuid>`  
-**Źródło:** bieżący zalogowany ekran + screenshot przekazany podczas audytu  
+**Źródło:** bieżący zalogowany ekran + screenshoty przekazane podczas audytu  
 **Status:** `USER_CONFIRMED_AUTH_SCREEN`
 
-Ten dokument opisuje aktualny ekran szczegółów pracownika i uzupełnia `docs/21-staff-screen.md` oraz `docs/22-staff-create-form.md`.
+Ten dokument opisuje aktualny ekran szczegółów pracownika i uzupełnia:
+- `docs/21-staff-screen.md`
+- `docs/22-staff-create-form.md`
+- `docs/24-staff-edit-form.md`
 
 Dane osobowe i UUID z audytowanego konta nie są przepisywane do dokumentacji.
 
@@ -24,7 +27,7 @@ Ekran składa się z:
 6. sekcji `Dostęp do panelu`,
 7. sekcji `Kalendarz`.
 
-To potwierdza rozdzielenie trzech obszarów domenowych:
+Potwierdza to rozdzielenie trzech obszarów domenowych:
 - profil/ewidencja pracownika,
 - konto i autoryzacja,
 - planowanie pracy.
@@ -54,7 +57,7 @@ Nie zakładamy jeszcze:
 - czy usunięcie jest blokowane przy istniejących powiązaniach,
 - jaki komunikat potwierdzenia jest używany.
 
-Dla naszego systemu rekomendacja bezpieczeństwa danych: preferować soft-delete/archiwizację, a trwałe usunięcie dopuszczać tylko gdy polityka i zależności na to pozwalają.
+Dla naszego systemu rekomendacja: preferować archiwizację/soft-delete tam, gdzie istnieją dane historyczne.
 
 ---
 
@@ -77,21 +80,61 @@ Potwierdzone pola prezentowane w szczegółach:
 Na obserwowanym rekordzie część pól może być pusta.
 
 ### `Rodzaj pracownika`
-Potwierdzona konkretna wartość techniczna/etykieta:
+Na ekranie szczegółów obserwowana jest wartość:
 - `OfficeWorker`
 
-To jest pierwszy dokładnie zaobserwowany typ pracownika. Nie traktujemy go jeszcze jako pełnej listy słownika.
+Na formularzu edycji tego samego typu wyświetlana jest etykieta:
+- `Pracownik biurowy`
+
+Wniosek: konkurencyjny system posiada co najmniej techniczną wartość/kod oraz etykietę użytkową albo niespójnie renderuje enum. W naszym systemie rozdzielamy:
+- `staff_type.code`, np. `office_worker`,
+- lokalizowaną etykietę, np. `Pracownik biurowy`.
+
+Nie pokazujemy użytkownikowi surowego enuma technicznego.
 
 ### `Data dodania`
 Potwierdzone, że system zachowuje i pokazuje datę utworzenia rekordu pracownika.
 
-W naszym modelu:
-- `created_at` jako timestamp,
-- warstwa prezentacji może pokazywać tylko datę.
+---
+
+## 4. Formularz `Edytuj` szczegółów — potwierdzony
+
+Formularz został zweryfikowany osobnym screenshotem i jest szczegółowo opisany w:
+`docs/24-staff-edit-form.md`.
+
+### Widocznie wymagane pola
+- E-mail,
+- Imię,
+- Nazwisko,
+- Rodzaj pracownika.
+
+### Pozostałe potwierdzone pola
+- Pesel,
+- Telefon,
+- Numer uprawnień,
+- Kategorie — multi-select,
+- Lokalizacje — multi-select,
+- Ważność legitymacji,
+- Ważność badań lekarskich,
+- Ważność badań psychologicznych,
+- opcjonalne zdjęcie,
+- `Utwórz konto do logowania`.
+
+### Potwierdzone akcje formularza
+- Zapisz,
+- Anuluj,
+- zamknięcie `X`,
+- zmiana/usunięcie zdjęcia z formularza,
+- wybór wielu rodzajów pracownika,
+- wybór wielu kategorii,
+- wybór wielu lokalizacji,
+- wybór trzech niezależnych dat ważności.
+
+Najważniejszy wniosek: istniejący pracownik bez konta może zostać później oznaczony do utworzenia konta podczas edycji.
 
 ---
 
-## 4. Sekcja `Ważność`
+## 5. Sekcja `Ważność`
 
 Potwierdzone pozycje:
 - Legitymacji,
@@ -102,13 +145,11 @@ Każda prezentuje własną datę ważności.
 
 Na obserwowanym ekranie przeterminowane terminy są oznaczone ikoną ostrzegawczą.
 
-Potwierdza to wcześniejszy model niezależnych `staff_documents` / terminów ważności.
-
 Nie łączymy tych trzech terminów w jeden status pracownika.
 
 ---
 
-## 5. Sekcja `Dostęp do panelu`
+## 6. Sekcja `Dostęp do panelu`
 
 Posiada osobną akcję:
 - `Edytuj`
@@ -119,13 +160,13 @@ Posiada osobną akcję:
 Zaobserwowana wartość:
 - `Nie`
 
-To ostatecznie potwierdza rozdzielenie:
+To potwierdza rozdzielenie:
 - `staff_profile`
 - opcjonalnego `user/account`.
 
-Osobna akcja `Edytuj` oznacza, że dostęp do panelu ma własny lifecycle niezależny od edycji danych pracownika.
+Formularz edycji danych pracownika dodatkowo potwierdził możliwość późniejszego uruchomienia procesu `Utwórz konto do logowania`.
 
-Do dalszego audytu po kliknięciu `Edytuj`:
+Do dalszego audytu po kliknięciu `Edytuj` w tej sekcji:
 - włączenie/wyłączenie dostępu,
 - login/e-mail konta,
 - hasło lub zaproszenie,
@@ -137,7 +178,7 @@ Do dalszego audytu po kliknięciu `Edytuj`:
 
 ---
 
-## 6. Wbudowany `Kalendarz`
+## 7. Wbudowany `Kalendarz`
 
 Ekran szczegółów zawiera osadzony kalendarz pracownika.
 
@@ -153,18 +194,14 @@ Potwierdzone elementy:
   - `Dzień`,
 - widok miesięczny z siatką dni.
 
-Na screenshotcie aktywny jest widok `Miesiąc`.
-
 ### `Pełny kalendarz`
 Potwierdzony link:
 `/kalendarz`
 
-Nie przesądzamy jeszcze, czy po przejściu zachowany jest filtr konkretnego pracownika, ponieważ przekazany URL nie zawiera `?w=<uuid>`.
+Nie przesądzamy jeszcze, czy po przejściu zachowany jest filtr konkretnego pracownika.
 
 ### `Dodaj wydarzenie`
 Potwierdzona akcja z poziomu szczegółów pracownika.
-
-Bardzo prawdopodobne jest wstępne powiązanie wydarzenia z pracownikiem, ale bez otwarcia formularza nie oznaczamy tego jako potwierdzone.
 
 Do audytu po kliknięciu:
 - formularz wydarzenia,
@@ -182,13 +219,16 @@ Do audytu po kliknięciu:
 
 ---
 
-## 7. Potwierdzone akcje ekranu szczegółów
+## 8. Potwierdzone akcje ekranu szczegółów
 
 - back_to_staff_list
 - archive_staff
 - delete_staff
 - edit_staff_details
+- save_staff_changes
+- cancel_staff_edit
 - edit_panel_access
+- request_create_login_account_from_staff_edit
 - open_full_calendar
 - add_calendar_event
 - calendar_previous_period
@@ -200,7 +240,7 @@ Do audytu po kliknięciu:
 
 ---
 
-## 8. Aktualizacja modelu domenowego
+## 9. Aktualizacja modelu domenowego
 
 ### `staff_profiles`
 Minimalnie:
@@ -208,16 +248,17 @@ Minimalnie:
 - organization_id
 - first_name
 - last_name
-- email nullable
+- email
 - phone nullable
 - pesel nullable
 - authorization_number nullable
+- photo_asset_id nullable
 - created_at
-- archived_at nullable — uzasadnione potwierdzoną akcją `Archiwizuj`
-- deleted_at nullable — rekomendowane dla naszego systemu, dokładna implementacja 360 niepotwierdzona
+- archived_at nullable
+- deleted_at nullable — decyzja naszej implementacji
 
 ### relacje
-Potwierdzone przez formularz i szczegóły:
+Potwierdzone:
 - staff <-> staff_types many-to-many
 - staff <-> categories many-to-many
 - staff <-> locations many-to-many
@@ -227,37 +268,38 @@ Potwierdzone przez formularz i szczegóły:
 
 ---
 
-## 9. Wnioski dla RBAC
+## 10. Wnioski dla RBAC
 
-Ponieważ `Dostęp do panelu` ma własną sekcję i osobną akcję `Edytuj`, permissions nie powinny być skutkiem samego typu pracownika.
+Permissions nie powinny być skutkiem samego typu pracownika.
 
-Model naszego produktu powinien rozdzielać:
+Model naszego produktu rozdziela:
 - funkcję biznesową pracownika (`staff_types`),
 - konto uwierzytelniające (`user`),
 - membership w organizacji,
 - role/permissions.
 
-Przykład: `OfficeWorker` nie powinien automatycznie oznaczać pełnego dostępu administracyjnego bez osobnej polityki uprawnień.
+`Pracownik biurowy` / `office_worker` nie oznacza automatycznie pełnego dostępu administracyjnego.
 
 ---
 
-## 10. Czego nadal nie znamy
+## 11. Czego nadal nie znamy
 
-Po tym ekranie w module Pracownicy pozostają głównie:
-- formularz `Edytuj` szczegółów i jego walidacje,
-- ekran `Edytuj` w `Dostęp do panelu`,
+Po zweryfikowaniu szczegółów i formularza edycji w module Pracownicy pozostają głównie:
+- ekran `Edytuj` w sekcji `Dostęp do panelu`,
+- zachowanie po zaznaczeniu `Utwórz konto do logowania`,
 - pełny słownik `Rodzaj pracownika`,
 - dokładny lifecycle archiwizacji,
 - dokładny lifecycle usuwania,
 - formularz `Dodaj wydarzenie`,
 - wpływ archiwizacji/usunięcia na przyszłe wydarzenia,
 - permissions po utworzeniu konta,
-- walidacje PESEL/e-mail/numeru uprawnień,
-- komunikaty success/error.
+- dokładne walidacje PESEL/e-mail/telefonu/numeru uprawnień,
+- komunikaty success/error,
+- dokładne zachowanie usuwania zdjęcia.
 
 ---
 
-## 11. Acceptance criteria
+## 12. Acceptance criteria
 
 ### AC-STF-DET-01 — szczegóły
 Po wejściu na `/pracownicy/{id}` administrator widzi profil pracownika, terminy dokumentów, stan dostępu do panelu i kalendarz.
@@ -269,13 +311,16 @@ Edycja danych pracownika i edycja dostępu do panelu są osobnymi procesami.
 Administrator ma osobną akcję archiwizacji pracownika niezależną od usunięcia.
 
 ### AC-STF-DET-04 — usunięcie
-Administrator ma osobną akcję usunięcia; nasza implementacja musi chronić integralność historycznych danych i zależności.
+Administrator ma osobną akcję usunięcia; nasza implementacja chroni integralność historycznych danych i zależności.
 
 ### AC-STF-DET-05 — dokumenty
-Każdy z trzech terminów ważności jest prezentowany niezależnie i może być oznaczony alertem po wygaśnięciu.
+Każdy z trzech terminów ważności jest prezentowany i edytowany niezależnie.
 
 ### AC-STF-DET-06 — calendar views
 Kalendarz na karcie pracownika obsługuje co najmniej widoki miesiąc/tydzień/dzień oraz nawigację poprzedni/następny/dzisiaj.
 
 ### AC-STF-DET-07 — add event
 Z poziomu szczegółów pracownika dostępna jest akcja utworzenia wydarzenia kalendarza.
+
+### AC-STF-DET-08 — późniejszy provisioning konta
+Istniejący pracownik bez dostępu do panelu może z formularza edycji rozpocząć proces utworzenia konta do logowania.
