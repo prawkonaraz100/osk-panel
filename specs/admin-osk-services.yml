@@ -34,6 +34,7 @@ service_groups:
       route: /
       confidence: TO_VERIFY_AUTH
       required_capabilities: [operational_summary, alerts, quick_actions]
+
     - id: pkk
       route: /integracja-pkk
       confidence: CURRENT_CONFIRMED
@@ -46,6 +47,7 @@ service_groups:
         - return_expired_profile
         - operation_history
       requirements: [audit, idempotency, retry]
+
     - id: calendar
       route: /kalendarz
       confidence: CURRENT_CONFIRMED_TO_VERIFY_UI
@@ -58,6 +60,7 @@ service_groups:
         - employee_activity_view
         - work_time_tracking
         - conflict_detection
+
     - id: students
       route: /kursanci
       confidence: CURRENT_CONFIRMED_TO_VERIFY_UI
@@ -76,52 +79,125 @@ service_groups:
         - assign_lecture
         - view_progress
         - archive
+
     - id: locations
       route: /lokalizacje
-      confidence: AUTH_MENU_HELP_CONFIRMED_TO_VERIFY_UI
-      required_capabilities:
+      confidence: USER_CONFIRMED_AUTH_SCREEN
+      screen_spec: specs/screens/locations.yml
+      confirmed_columns:
+        - type
+        - name
+        - address
+      confirmed_types:
+        - lecture_room
+        - maneuvering_area
+      confirmed_actions:
+        - add_location
+        - edit_location
+        - calendar_for_location
+      calendar_filter:
+        query_param: b
+        identifier: location_uuid
+      requirements:
         - multi_location
-        - create
-        - edit
-        - deactivate
-        - contact_data
-        - staff_assignment
-        - business_card_assignment
-        - calendar_relation
+        - location_as_calendar_resource
+        - tenant_isolation
+      explicitly_not_confirmed:
+        - delete_location
+        - deactivate_location
+        - filters
+        - search
+        - sorting
+        - bulk_actions
+
     - id: vehicles
       route: /pojazdy
-      confidence: CURRENT_CONFIRMED_HELP_CONFIRMED_TO_VERIFY_UI
-      required_capabilities:
-        - create
-        - edit
-        - archive
-        - category
+      confidence: USER_CONFIRMED_AUTH_SCREEN
+      screen_spec: specs/screens/vehicles.yml
+      confirmed_columns:
+        - photo
+        - registration_number
+        - make_model
+        - categories
         - documents
-        - insurance_expiry
-        - technical_inspection_expiry
-        - reminders
-        - unavailable_service_state
-        - calendar_assignment
+      confirmed_actions:
+        - add_vehicle
+        - calendar_for_vehicle
+        - view_vehicle_details
+      calendar_filter:
+        query_param: v
+        identifier: vehicle_uuid
+      confirmed_document_states:
+        - expired
+      confirmed_document_types:
+        - technical_inspection
+      requirements:
+        - vehicle_as_calendar_resource
+        - vehicle_documents
+        - expiry_alerts
+        - photo_asset_reference
+        - tenant_isolation
+      explicitly_not_confirmed:
+        - delete_vehicle
+        - archive_vehicle
+        - service_state
+        - location_relation
+        - filters
+        - search
+        - sorting
+        - bulk_actions
+
     - id: staff
       route: /pracownicy
-      confidence: CURRENT_CONFIRMED_HELP_CONFIRMED_TO_VERIFY_UI
-      required_capabilities:
-        - create
-        - edit
-        - deactivate
-        - roles_permissions
-        - instructor_categories
-        - availability
-        - locations
+      confidence: USER_CONFIRMED_AUTH_SCREEN
+      screen_spec: specs/screens/staff.yml
+      confirmed_columns:
+        - photo
+        - full_name
+        - email
         - documents
-        - medical_exam_expiry
-        - reminders
+        - login_account
+      confirmed_actions:
+        - add_staff
+        - calendar_for_staff
+        - view_staff_details
+      calendar_filter:
+        query_param: w
+        identifier: staff_uuid
+      confirmed_document_types:
+        - card_or_license
+        - medical_exam
+        - psychological_exam
+      confirmed_document_states:
+        - valid
+        - expired
+      confirmed_login_account_state:
+        - false
+      requirements:
+        - staff_profile_separate_from_user_account
+        - optional_login_account
+        - multiple_independent_documents
+        - staff_as_calendar_resource
+        - photo_asset_reference
+        - tenant_isolation
+      explicitly_not_confirmed:
+        - delete_staff
+        - deactivate_staff
+        - roles_permissions_ui
+        - category_assignment
+        - location_assignment
+        - password_reset
+        - filters
+        - search
+        - sorting
+        - bulk_actions
 
   education_sales:
     - id: license_purchase
       route: /licencje/wykup
       confidence: CURRENT_CONFIRMED
       required_capabilities: [select_duration, quantity, order, payment, inventory]
+
     - id: license_management
       route: /licencje/panel
       confidence: RULES_CONFIRMED_TO_VERIFY_UI
@@ -134,13 +210,16 @@ service_groups:
         - revoke_before_activation
         - restore_inventory
         - view_progress
+
     - id: learning_progress
       confidence: CURRENT_CONFIRMED_TO_VERIFY_UI
       required_capabilities: [student_progress, question_stats, learning_activity]
+
     - id: internal_exam_purchase
       route: /egzamin-wewnetrzny/wykup
       confidence: CURRENT_CONFIRMED
       required_capabilities: [purchase_inventory, free_grants, balance, payment]
+
     - id: internal_exam_management
       route: /egzamin-wewnetrzny/panel
       confidence: RULES_CONFIRMED_TO_VERIFY_UI
@@ -153,10 +232,12 @@ service_groups:
         - consume_inventory
         - digital_exam_card
         - print_exam_card
+
     - id: lectures
       route: /wyklady
       confidence: CURRENT_CONFIRMED_TO_VERIFY_UI
       required_capabilities: [category_selector, materials_catalog, presentation_mode]
+
     - id: instructor_training
       route: /szkolenie-z-instruktorem
       confidence: CURRENT_CONFIRMED_TO_VERIFY_ADMIN_ACTIONS
@@ -184,6 +265,7 @@ service_groups:
         - photos
         - reviews
         - report_review
+
     - id: ads
       confidence: CURRENT_CONFIRMED_RULES_CONFIRMED_TO_VERIFY_AUTH_MENU_CHILDREN
       placements:
@@ -206,15 +288,19 @@ service_groups:
         - moderation
         - text_fallback
         - campaign_activation
+
     - id: ranking_reviews
       confidence: RULES_CONFIRMED
       required_capabilities: [public_profile, ratings_1_5, moderation, report_review, ranking_score]
+
     - id: sponsored_article
       confidence: RULES_CONFIRMED
       required_capabilities: [purchase, client_content_or_copywriting, images, moderation, publication, archive]
+
     - id: partner_banner
       confidence: RULES_CONFIRMED
       required_capabilities: [download_asset, implementation_instructions]
+
     - id: commercial_services
       confidence: CURRENT_CONFIRMED
       services: [seo_audit, seo_optimization, google_ads, website_build, cms]
@@ -258,6 +344,7 @@ service_groups:
         - audit_pkk_settings_changes
         - external_osk_login_must_not_be_application_login
         - preserve_terms_version_history
+
     - id: purchase_history
       route: /historia-zakupow
       confidence: USER_CONFIRMED_AUTH_SCREEN
@@ -285,6 +372,7 @@ service_groups:
         - nullable_booked_at_before_payment
         - secure_payment_reference
         - idempotent_payment_confirmation
+
     - id: invoices
       confidence: HISTORICAL_INDEX_TO_VERIFY_AUTH
       implementation_decision: documents_available_from_purchase_history
@@ -315,9 +403,9 @@ business_offer_parity:
 remaining_button_level_gaps:
   - dashboard
   - students
-  - locations
-  - vehicles
-  - staff
+  - location_add_edit_form_and_validation
+  - vehicle_add_details_edit_documents_and_categories
+  - staff_add_details_edit_account_and_permissions
   - calendar
   - pkk_ui
   - license_management_ui
