@@ -1,0 +1,75 @@
+screen:
+  id: osk_settings
+  route: /ustawienia
+  menu_path: [Konto OSK, Ustawienia]
+  title: Ustawienia konta
+  confidence: USER_CONFIRMED_AUTH_SCREEN
+
+primary_action:
+  label: Zapisz
+  action: update_osk_account_settings
+
+sections:
+  - id: basic_data
+    label: Dane podstawowe
+    fields:
+      - {name: first_name, label: Imię, domain: user}
+      - {name: last_name, label: Nazwisko, domain: user}
+      - {name: email, label: Email, domain: user}
+
+  - id: company_data
+    label: Dane firmy
+    fields:
+      - {name: company_name, label: Nazwa firmy, domain: organization}
+      - {name: street, label: Ulica, domain: organization_address}
+      - {name: house_number, label: Nr domu, domain: organization_address}
+      - {name: unit_number, label: Nr lokalu, domain: organization_address}
+      - {name: city, label: Miejscowość, domain: organization_address}
+      - {name: postal_code, label: Kod pocztowy, domain: organization_address}
+      - {name: phone, label: Telefon, domain: organization}
+    explicitly_not_observed:
+      - nip
+      - billing_data
+
+  - id: pkk_api_data
+    label: Dane API PKK
+    audit_required: true
+    fields:
+      - {name: school_name, label: Nazwa szkoły, domain: pkk_integration_settings}
+      - {name: osk_registry_number, label: Numer ewidencyjny OSK, domain: pkk_integration_settings}
+      - name: external_osk_login
+        label: Login OSK
+        domain: pkk_integration_settings
+        semantics: external_pkk_integration_identifier_not_application_login
+        help_text_semantics: login przekazany przez starostę/wydział komunikacji i znajdujący się na zaświadczeniu rejestracyjnym OSK
+
+  - id: terms
+    label: Regulamin
+    actions:
+      - label: Zobacz mój regulamin
+        route_pattern: /regulamin?v=<regulation_version>
+        semantics: open_versioned_terms_associated_with_account
+
+not_observed_on_screen:
+  - password_change
+  - session_management
+  - mfa
+  - notification_settings
+  - marketing_consents
+  - roles_management
+
+unknowns:
+  - required_vs_optional_fields
+  - exact_validation_messages
+  - save_request_shape
+  - success_message
+  - failure_message
+  - whether_email_change_requires_reverification
+  - whether_pkk_changes_require_reauthentication
+
+implementation_requirements:
+  - tenant_isolation
+  - audit_pkk_settings_changes
+  - keep_external_osk_login_separate_from_application_identity
+  - persist_terms_acceptance_version_and_history
+  - do_not_assume_nip_is_editable_here
