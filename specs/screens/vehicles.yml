@@ -1,0 +1,106 @@
+screen:
+  id: vehicles
+  scope: admin_osk
+  route: /pojazdy
+  title: Pojazdy
+  confidence: USER_CONFIRMED_AUTH_SCREEN
+  verified_at: 2026-09-05
+
+list:
+  primary_action:
+    label: Dodaj pojazd
+    action: create_vehicle
+  columns:
+    - photo
+    - registration_number
+    - make_model
+    - categories
+    - documents
+  row_actions:
+    - action: open_vehicle_calendar
+      label: Kalendarz
+      route_pattern: /kalendarz?v=<vehicle_uuid>
+    - action: open_vehicle_details
+      label: Zobacz
+      route_pattern: /pojazdy/<vehicle_uuid>
+  ambiguous_text:
+    - text: Podgląd
+      status: TO_VERIFY_VISUAL
+      possibilities: [separate_action, tooltip, accessible_label, description_of_view_action]
+
+vehicle_entity:
+  identifier:
+    type: uuid
+    reused_in:
+      - details_route
+      - calendar_filter
+      - image_asset_path
+    note: exact UUID values from audited account must not be persisted
+  confirmed_visible_fields:
+    - photo
+    - registration_number
+    - make
+    - model
+    - categories_column
+    - document_status
+
+column_notes:
+  make_model:
+    observed_header_text: Maria i model
+    semantic_field: Marka i model
+    status: TO_VERIFY_VISUAL
+  categories:
+    present: true
+    values_observed: false
+    multiplicity: TO_VERIFY
+  documents:
+    confirmed_message_pattern: "Przegląd wygasł <date>"
+
+documents:
+  confirmed_types:
+    - technical_inspection
+  confirmed_states:
+    - expired
+  inferred_configurable_states:
+    - valid
+    - expiring_soon
+  reminder_threshold: CONFIGURABLE_TO_VERIFY
+
+relationships:
+  confirmed:
+    - photo_asset
+    - documents
+    - calendar_filter_context
+    - details_screen
+  to_verify:
+    - location
+    - instructors
+    - categories_many_to_many
+    - service_unavailability
+
+api_recommendation:
+  - GET /api/v1/vehicles
+  - POST /api/v1/vehicles
+  - GET /api/v1/vehicles/{vehicle}
+  - PATCH /api/v1/vehicles/{vehicle}
+  - GET /api/v1/vehicles/{vehicle}/documents
+  - GET /api/v1/calendar/events?vehicle_id={vehicle}
+
+not_confirmed:
+  - delete_vehicle
+  - archive_vehicle
+  - deactivate_vehicle
+  - edit_vehicle_from_list
+  - filters
+  - sorting
+  - pagination
+  - insurance_fields_on_this_screen
+  - exact_category_values
+  - exact_photo_rules
+  - registration_number_validation
+  - meaning_of_preview_text
+
+security_requirements:
+  - tenant_isolation
+  - verify_vehicle_ownership_on_details
+  - verify_vehicle_ownership_on_calendar_filter
