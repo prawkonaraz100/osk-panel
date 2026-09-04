@@ -6,22 +6,20 @@ Data weryfikacji: 2026-09-05
 **Źródło:** bieżący zalogowany ekran + screenshot przekazany podczas audytu  
 **Status:** `USER_CONFIRMED_AUTH_SCREEN`
 
-Dokument uzupełnia `docs/20-vehicles-screen.md`. Konkretny UUID, numer rejestracyjny i inne dane demonstracyjne nie są przepisywane jako dane referencyjne produktu.
+Dokument uzupełnia `docs/20-vehicles-screen.md`. Formularz edycji jest opisany szczegółowo w `docs/26-vehicle-edit-form.md` i ma pierwszeństwo dla pól edytowalnych, wymaganych markerów oraz relacji Kategorie/Lokalizacje.
 
 ---
 
 ## 1. Struktura ekranu
 
 Ekran szczegółów zawiera:
-
 1. breadcrumb `Panel główny / Pojazdy / <pojazd>`,
-2. akcję `Powrót`,
-3. zdjęcie pojazdu i nazwę/markę-model,
+2. `Powrót`,
+3. zdjęcie i nazwę pojazdu,
 4. globalne akcje `Archiwizuj` i `Usuń`,
-5. sekcję `Szczegóły pojazdu` z akcją `Edytuj`,
-6. podsekcję `Dane`,
-7. podsekcję `Ważność`,
-8. osadzony `Kalendarz`.
+5. sekcję `Szczegóły pojazdu` z `Edytuj`,
+6. podsekcje `Dane` i `Ważność`,
+7. osadzony `Kalendarz`.
 
 Wzorzec jest analogiczny do karty pracownika: profil zasobu, terminy formalne i planowanie są rozdzielone logicznie.
 
@@ -29,162 +27,100 @@ Wzorzec jest analogiczny do karty pracownika: profil zasobu, terminy formalne i 
 
 ## 2. Potwierdzone akcje globalne
 
-### `Powrót`
-Prowadzi do `/pojazdy`.
+- `Powrót` -> `/pojazdy`
+- `Archiwizuj`
+- `Usuń`
+- `Edytuj`
 
-### `Archiwizuj`
-Potwierdzona osobna akcja rekordu pojazdu.
-
-Nie znamy jeszcze:
-- modala potwierdzającego,
-- wpływu archiwizacji na przyszłe wydarzenia kalendarza,
-- możliwości przywrócenia pojazdu.
-
-### `Usuń`
-Potwierdzona osobna akcja rekordu.
-
-Nie znamy jeszcze semantyki hard-delete/soft-delete ani reguł zależności. W naszym systemie historyczne wydarzenia, dokumenty i audyt nie mogą zostać utracone przez przypadkowe usunięcie pojazdu.
+Nie znamy jeszcze dokładnych modali, semantyki hard/soft delete, wpływu archiwizacji na przyszłe wydarzenia ani możliwości przywrócenia.
 
 ---
 
-## 3. Sekcja `Szczegóły pojazdu`
+## 3. Potwierdzone pola danych
 
-Potwierdzona akcja:
-- `Edytuj`.
+Na szczegółach widoczne są:
+- Marka i model,
+- Nr rejestracyjny,
+- Nr boczny,
+- VIN,
+- Pojemność (w cm³),
+- Rok produkcji,
+- Kategorie,
+- Data dodania.
 
-### Pola w podsekcji `Dane`
-
-Potwierdzone pola prezentowane na ekranie:
-- `Marka i model`,
-- `Nr rejestracyjny`,
-- `Nr boczny`,
-- `Vin`,
-- `Pojemność (w cm³)`,
-- `Rok produkcji`,
-- `Kategorie`,
-- `Data dodania`.
-
-Część pól może być pusta w obserwowanym rekordzie (`Vin`, `Kategorie`). Nie oznacza to jeszcze, że pola są zawsze opcjonalne — wymagania formularza trzeba sprawdzić na `Edytuj` / `Dodaj pojazd`.
-
-### `Nr boczny`
-To osobne pole od numeru rejestracyjnego. Dla naszego modelu odpowiada wewnętrznemu numerowi/flotowemu oznaczeniu pojazdu, np. `fleet_number` / `side_number`.
-
-### `Pojemność (w cm³)`
-Pole jest prezentowane jako liczba. Dokładna walidacja i dopuszczalne zakresy pozostają do sprawdzenia.
+Formularz edycji potwierdził osobne pola `Marka` i `Model`, a także:
+- wielokrotny wybór kategorii,
+- wielokrotny wybór lokalizacji,
+- widocznie wymagane: Nr rejestracyjny, Marka, Model.
 
 ### `Data dodania`
 Na obserwowanym rekordzie UI pokazuje `01-01-0001`.
 
-Traktujemy to jako **anomalię/sentinel/default date danych demonstracyjnych**, a nie prawidłową wartość biznesową do odwzorowania.
+Klasyfikacja: `SENTINEL_OR_DEMO_DATA_ANOMALY`.
 
-W naszym systemie:
-- `created_at` ma rzeczywistą datę utworzenia,
-- brak wartości historycznej powinien być `null`/`unknown`, nie rokiem `0001`,
-- warstwa UI nie może prezentować technicznej wartości minimalnej daty jako realnej daty biznesowej.
+Nie kopiujemy tego zachowania. U nas brak historycznej daty powinien być `null/unknown`, a nie rokiem 0001.
 
 ---
 
-## 4. Sekcja `Ważność`
+## 4. Ważność / dokumenty
 
-Potwierdzone trzy niezależne pozycje:
+Potwierdzone trzy niezależne terminy:
 - `Przegląd`,
 - `OC`,
 - `AC`.
 
-Każda ma osobną datę ważności. Na przekazanym ekranie przy wszystkich trzech widoczna jest ikona ostrzegawcza, a daty są wcześniejsze niż data audytu.
+Formularz edycji potwierdził osobne date pickery:
+- `Następny przegląd`,
+- `Ważność OC`,
+- `Ważność AC`.
 
-Wniosek domenowy:
-- przegląd techniczny, OC i AC są niezależnymi terminami,
-- każdy musi mieć własny rekord/status,
-- ekran potrafi sygnalizować stan wymagający uwagi.
-
-Potwierdzone typy `vehicle_documents` / validity records:
+Potwierdzone typy domenowe:
 - `technical_inspection`,
 - `oc_insurance`,
 - `ac_insurance`.
 
-Nie łączymy ich w jedno pole `vehicle_document_status`.
-
-### Minimalny model terminów
-
-`vehicle_validities` / `vehicle_documents`:
-- `id`,
-- `organization_id`,
-- `vehicle_id`,
-- `type`,
-- `valid_until`,
-- `status`,
-- `document_number` nullable,
-- `file_id` nullable,
-- timestamps.
-
-`AC` może być opcjonalne biznesowo w naszym produkcie; sam ekran konkurenta potwierdza obsługę tego typu terminu, nie obowiązek posiadania AC przez każdy pojazd.
+Każdy termin ma własny lifecycle i status. Nie łączymy ich w jeden `vehicle_document_status`.
 
 ---
 
-## 5. Osadzony `Kalendarz`
+## 5. Potwierdzone relacje
 
-Karta pojazdu zawiera osadzony kalendarz.
+Po audycie szczegółów i formularza edycji potwierdzamy:
+- `vehicle -> photo asset`,
+- `vehicle -> validity/documents`,
+- `vehicle <-> categories` many-to-many,
+- `vehicle <-> locations` many-to-many,
+- `vehicle -> calendar/events context`.
+
+Do sprawdzenia pozostają ewentualne bezpośrednie relacje z instruktorami oraz okresy serwisowe/niedostępności.
+
+---
+
+## 6. Osadzony Kalendarz
 
 Potwierdzone elementy:
 - `Pełny kalendarz`,
 - `Dodaj wydarzenie`,
-- poprzedni okres,
-- następny okres,
+- poprzedni/następny okres,
 - `Dzisiaj`,
-- widoki `Miesiąc`, `Tydzień`, `Dzień`,
-- miesięczna siatka kalendarza.
+- widoki `Miesiąc`, `Tydzień`, `Dzień`.
 
-### `Pełny kalendarz`
-Potwierdzony URL z przekazanego tekstu:
-- `/kalendarz`
+Karta pojazdu i karta pracownika korzystają z tego samego wzorca kalendarza. Nasza architektura powinna więc używać jednego silnika wydarzeń i konfliktów zasobów.
 
-Nie wiadomo, czy filtr pojazdu jest zachowywany w stanie aplikacji mimo braku `?v=` w pokazanym linku.
-
-### `Dodaj wydarzenie`
-Akcja jest dostępna bezpośrednio z karty pojazdu.
-
-Do sprawdzenia po otwarciu formularza:
-- czy pojazd jest wstępnie wybrany,
-- typ wydarzenia,
-- data/czas,
-- pracownik/instruktor,
-- kursant,
-- lokalizacja,
-- konflikty zasobów,
-- notatki,
-- powtarzalność,
-- zapis/anulowanie.
+Do sprawdzenia pozostaje formularz `Dodaj wydarzenie` i to, czy pojazd jest w nim automatycznie preselected.
 
 ---
 
-## 6. Potwierdzone akcje ekranu szczegółów
-
-- `back_to_vehicle_list`
-- `archive_vehicle`
-- `delete_vehicle`
-- `edit_vehicle_details`
-- `open_full_calendar`
-- `add_calendar_event`
-- `calendar_previous_period`
-- `calendar_next_period`
-- `calendar_today`
-- `calendar_view_month`
-- `calendar_view_week`
-- `calendar_view_day`
-
----
-
-## 7. Aktualizacja modelu `vehicles`
+## 7. Model pojazdu
 
 Minimalnie:
 - `id` UUID,
 - `organization_id`,
-- `make`,
-- `model`,
 - `registration_number`,
 - `side_number` nullable,
-- `vin` nullable / wymagalność do sprawdzenia,
+- `make`,
+- `model`,
+- `vin` nullable,
 - `engine_capacity_cm3` nullable,
 - `production_year` nullable,
 - `photo_asset_id` nullable,
@@ -192,71 +128,59 @@ Minimalnie:
 - `archived_at` nullable,
 - `deleted_at` nullable — decyzja naszej implementacji.
 
-Potwierdzone relacje:
-- vehicle -> photo,
-- vehicle -> validity/documents,
-- vehicle -> categories (obecność pola potwierdzona, multiplicity nadal do potwierdzenia formularzem),
-- vehicle -> calendar/events context.
+Relacje:
+- `vehicle_categories(vehicle_id, category_id)`,
+- `vehicle_locations(vehicle_id, location_id)`,
+- `vehicle_validities` / `vehicle_documents`,
+- calendar events.
 
 ---
 
-## 8. Wspólny model zasobów kalendarza
+## 8. Czego nadal brakuje w module Pojazdy
 
-Pracownik i pojazd mają na swoich kartach ten sam wzorzec kalendarza. Dla naszej architektury oznacza to, że wydarzenie powinno łączyć niezależne zasoby, np.:
-
-- `staff_id`,
-- `vehicle_id`,
-- `location_id`,
-- `student_id`.
-
-Konflikty powinny być sprawdzane per zasób w tym samym przedziale czasu. Nie budujemy osobnego silnika kalendarza dla pojazdów i pracowników.
-
----
-
-## 9. Czego nadal brakuje w module Pojazdy
-
-Po tym ekranie pozostają głównie:
-- formularz `Dodaj pojazd`,
-- formularz `Edytuj`,
-- wymagane/optional pola i walidacje,
-- sposób wyboru kategorii i ich multiplicity,
-- upload/usuwanie zdjęcia,
-- dokładny lifecycle `Archiwizuj`,
-- dokładny lifecycle `Usuń`,
-- relacja pojazd <-> lokalizacja, jeśli występuje,
+Po zweryfikowaniu listy, szczegółów i edycji pozostają głównie:
+- formularz `Dodaj pojazd` i potwierdzenie, czy jest równoważny edycji,
+- dokładne backendowe walidacje pól,
+- pełny słownik kategorii,
+- lifecycle `Archiwizuj`,
+- lifecycle `Usuń`,
 - formularz `Dodaj wydarzenie`,
+- komunikaty success/error,
 - filtry/wyszukiwanie/sortowanie listy,
-- komunikaty success/error.
+- dokładne zachowanie usuwania zdjęcia po `Zapisz`.
 
 Nie jest już luką:
 - ekran szczegółów,
-- OC,
-- AC,
-- `Nr boczny`,
+- pola edycji,
+- Nr boczny,
+- VIN,
 - pojemność,
 - rok produkcji,
-- archiwizacja jako dostępna akcja,
-- usuwanie jako dostępna akcja,
-- kalendarz osadzony na karcie pojazdu.
+- Przegląd/OC/AC,
+- wielokrotne Kategorie,
+- wielokrotne Lokalizacje,
+- relacja pojazd <-> lokalizacje,
+- archiwizacja i usuwanie jako dostępne akcje,
+- osadzony kalendarz.
 
 ---
 
-## 10. Acceptance criteria
+## 9. Acceptance criteria
 
-### AC-VEH-DET-01 — szczegóły
-Administrator widzi na karcie pojazdu podstawowe dane techniczno-ewidencyjne oraz terminy formalne.
+### AC-VEH-DET-01
+Administrator widzi dane techniczno-ewidencyjne pojazdu i trzy niezależne terminy formalne.
 
-### AC-VEH-DET-02 — trzy terminy
-Przegląd, OC i AC są przechowywane i oceniane niezależnie.
+### AC-VEH-DET-02
+Pojazd może być przypisany do wielu kategorii i wielu lokalizacji OSK.
 
-### AC-VEH-DET-03 — archiwizacja i usuwanie
-UI udostępnia oddzielne akcje `Archiwizuj` i `Usuń`.
+### AC-VEH-DET-03
+UI udostępnia oddzielne akcje `Archiwizuj`, `Usuń` i `Edytuj`.
 
-### AC-VEH-DET-04 — embedded calendar
-Karta pojazdu udostępnia kalendarz z widokami miesiąc/tydzień/dzień oraz akcją `Dodaj wydarzenie`.
+### AC-VEH-DET-04
+Karta pojazdu udostępnia kalendarz z widokami miesiąc/tydzień/dzień i akcją `Dodaj wydarzenie`.
 
-### AC-VEH-DET-05 — data sentinel
-System nie prezentuje technicznej wartości minimalnej daty jako prawidłowej `Daty dodania`; brak danych historycznych jest reprezentowany jawnie jako brak/nieznane.
+### AC-VEH-DET-05
+System nie prezentuje technicznej minimalnej daty jako prawidłowej daty biznesowej.
 
-### AC-VEH-DET-06 — tenant isolation
-UUID pojazdu i wszystkie operacje na jego dokumentach/kalendarzu są autoryzowane względem bieżącego OSK.
+### AC-VEH-DET-06
+Wszystkie operacje i relacje Kategorie/Lokalizacje są autoryzowane względem bieżącego OSK.
