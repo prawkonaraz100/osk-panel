@@ -222,30 +222,69 @@ service_groups:
   account_and_finance:
     - id: settings
       route: /ustawienia
-      confidence: AUTH_MENU_TO_VERIFY_UI
-      required_capabilities:
-        - user_data
-        - organization_data
+      confidence: USER_CONFIRMED_AUTH_SCREEN
+      screen_spec: specs/screens/settings.yml
+      sections:
+        - basic_data
+        - company_data
+        - pkk_api_data
+        - terms
+      confirmed_fields:
+        - first_name
+        - last_name
+        - email
+        - company_name
+        - street
+        - house_number
+        - unit_number
+        - city
+        - postal_code
+        - phone
+        - pkk_school_name
+        - pkk_osk_registry_number
+        - pkk_external_osk_login
+      confirmed_actions:
+        - save
+        - view_versioned_terms
+      explicitly_not_observed_on_screen:
+        - nip
+        - password_change
+        - session_management
+        - notification_settings
         - billing_data
-        - password_auth
-        - consents
-        - sessions_security
-        - notifications
-        - organization_preferences
+        - marketing_consents
+      requirements:
+        - tenant_isolation
+        - audit_pkk_settings_changes
+        - external_osk_login_must_not_be_application_login
+        - preserve_terms_version_history
     - id: purchase_history
       route: /historia-zakupow
-      confidence: AUTH_MENU_TO_VERIFY_UI
-      required_capabilities:
+      confidence: USER_CONFIRMED_AUTH_SCREEN
+      screen_spec: specs/screens/purchase-history.yml
+      confirmed_columns:
+        - display_number
+        - order_items
+        - ordered_at
+        - booked_at
+        - gross_amount
+        - status
+      confirmed_statuses:
+        - unpaid
+      confirmed_actions:
+        - pay_unpaid_order
+      confirmed_page_sizes: [10, 25, 50, 100]
+      confirmed_product_examples:
+        - internal_exams
+        - license_31_days
+        - license_90_days
+        - license_180_days
+      requirements:
         - unified_orders
-        - licenses
-        - exams
-        - ads
-        - sponsored_articles
-        - order_status
-        - payment_status
-        - gross_net_vat
-        - payment_method
-        - documents
+        - multiple_order_items
+        - nullable_booked_at_before_payment
+        - secure_payment_reference
+        - idempotent_payment_confirmation
     - id: invoices
       confidence: HISTORICAL_INDEX_TO_VERIFY_AUTH
       implementation_decision: documents_available_from_purchase_history
@@ -287,5 +326,5 @@ remaining_button_level_gaps:
   - ads_submenu_and_campaign_management
   - lectures_ui
   - instructor_training_admin_actions
-  - settings
-  - purchase_history
+  - settings_validation_and_save_behavior
+  - purchase_history_paid_state_filters_and_documents
