@@ -6,259 +6,192 @@ Data weryfikacji: 2026-09-05
 **Źródło:** bieżący zalogowany ekran przekazany podczas audytu  
 **Status:** `USER_CONFIRMED_AUTH_SCREEN`
 
-Ten dokument zastępuje wcześniejsze ogólne założenie, że znamy tylko istnienie zasobu pojazdów. Lista, podstawowe pola, alert dokumentu i dwie główne akcje są już potwierdzone.
+Dokument opisuje listę pojazdów. Ekran szczegółów jest zmapowany osobno w `docs/25-vehicle-detail-screen.md`.
 
 ## 1. Cel ekranu
 
 `Pojazdy` jest centralną listą pojazdów OSK wykorzystywanych operacyjnie w szkoleniu i kalendarzu.
 
-Każdy rekord posiada własny identyfikator UUID używany co najmniej do:
-- ekranu szczegółów pojazdu,
-- filtrowania kalendarza po pojeździe,
-- powiązania zdjęcia pojazdu.
+Każdy rekord posiada UUID używany co najmniej do:
+- ekranu szczegółów,
+- filtrowania kalendarza,
+- powiązania zdjęcia.
 
-Konkretnych UUID, numerów rejestracyjnych ani danych z audytowanego konta nie zapisujemy w dokumentacji.
+Konkretnych UUID i danych demonstracyjnych nie zapisujemy w dokumentacji.
 
 ## 2. Akcja główna
 
-Potwierdzona akcja:
-- `Dodaj pojazd` — uruchamia proces tworzenia nowego pojazdu.
+Potwierdzona:
+- `Dodaj pojazd`.
 
-Dokładny formularz dodawania pozostaje do zweryfikowania.
+Formularz dodawania nadal wymaga audytu.
 
 ## 3. Potwierdzone kolumny listy
 
-Na ekranie występują:
-
 1. `Zdjęcie`
 2. `Nr rejestracyjny`
-3. nagłówek przekazany jako `Maria i model`
+3. `Marka i model` — wcześniejsza ekstrakcja tekstowa zwróciła `Maria i model`; screenshot szczegółów potwierdza prawidłową semantykę `Marka i model`
 4. `Kategorie`
 5. `Dokumenty`
 
-### Uwaga do nagłówka `Maria i model`
+## 4. Dane i dokumenty widoczne na liście
 
-Semantyka danych w rekordach jednoznacznie wskazuje na **markę i model** pojazdu. Nie wiemy, czy `Maria i model` jest literówką w bieżącym UI, błędem ekstrakcji tekstu czy rzeczywistą etykietą. W naszym modelu używamy pola `make_model` / osobnych `make` i `model`. Etykietę UI 360 oznaczamy `TO_VERIFY_VISUAL`.
+Potwierdzone:
+- zdjęcie,
+- numer rejestracyjny,
+- marka/model,
+- kolumna kategorii,
+- komunikat `Przegląd wygasł <data>`.
 
-## 4. Potwierdzone dane pojazdu
+Lista potwierdza automatyczną ocenę terminu przeglądu i prezentację alertu po wygaśnięciu.
 
-### Zdjęcie
-- rekord może posiadać fotografię pojazdu,
-- zdjęcie jest hostowane w domenie assetowej operatora,
-- ścieżka obrazu zawiera identyfikator UUID odpowiadający pojazdowi w obserwowanym widoku.
+Ekran szczegółów dodatkowo potwierdził obsługę terminów:
+- Przegląd,
+- OC,
+- AC.
 
-W naszym systemie obraz powinien być przechowywany jako osobny asset/object storage reference, nie jako blob w tabeli pojazdu.
-
-### Numer rejestracyjny
-- osobne pole prezentowane na liście,
-- powinno być wyszukiwalne projektowo, ale wyszukiwarka nie została jeszcze potwierdzona na ekranie.
-
-### Marka i model
-- lista pokazuje nazwę producenta i model pojazdu,
-- przykłady obejmują różne typy pojazdów, więc model nie może zakładać wyłącznie samochodów osobowych.
-
-### Kategorie
-- kolumna jest obecna,
-- w przekazanych rekordach nie otrzymaliśmy wartości kategorii,
-- dokładny format i wielokrotność kategorii pozostają do weryfikacji.
-
-Nazwa kolumny w liczbie mnogiej sugeruje możliwość wielu kategorii, ale nie oznaczamy tego jako potwierdzonego zachowania bez danych z rekordu/formularza.
-
-### Dokumenty
-Potwierdzony komunikat stanu:
-- `Przegląd wygasł <data>`.
-
-Wnioski:
-- pojazd ma co najmniej termin przeglądu/badania technicznego,
-- system porównuje termin z bieżącą datą,
-- potrafi wyświetlić alert przeterminowania,
-- data wygaśnięcia jest częścią prezentowanego komunikatu.
-
-To potwierdza potrzebę oddzielnego modelu dokumentów/terminów pojazdu.
+Szczegóły: `docs/25-vehicle-detail-screen.md`.
 
 ## 5. Potwierdzone akcje wiersza
 
 ### `Kalendarz`
-
-Wzorzec trasy:
-
+Wzorzec:
 `/kalendarz?v=<vehicle_uuid>`
 
-Znaczenie:
-- kalendarz może działać w kontekście konkretnego pojazdu,
-- pojazd jest zasobem kalendarzowym,
-- parametr `v` identyfikuje pojazd.
-
-W naszym systemie rekomendowany odpowiednik:
-
-`GET /calendar?vehicle_id=<uuid>`
-
-lub API:
-
-`GET /api/v1/calendar/events?vehicle_id=<uuid>`.
-
-Kalendarz powinien weryfikować tenant ownership pojazdu i wykorzystywać filtr również do wykrywania konfliktów rezerwacji.
+Pojazd jest pełnoprawnym zasobem kalendarza.
 
 ### `Zobacz`
-
-Wzorzec trasy:
-
+Wzorzec:
 `/pojazdy/<vehicle_uuid>`
 
-To potwierdza osobny ekran szczegółów pojazdu.
-
-Do dalszego audytu na ekranie szczegółów:
-- pełne dane pojazdu,
-- wszystkie dokumenty,
-- edycja,
-- zdjęcie/zmiana zdjęcia,
-- historia terminów,
-- ubezpieczenie,
-- badanie techniczne,
-- przypisane kategorie,
-- ewentualna lokalizacja,
-- status dostępności/serwisu,
-- usuwanie/dezaktywacja.
+Ekran szczegółów jest już zweryfikowany.
 
 ### `Podgląd`
+Tekst występujący po `Zobacz` pozostaje `TO_VERIFY_VISUAL` — może być tooltipem/accessibility label, nie uznajemy go za osobną akcję.
 
-W przekazanym tekście po linku `Zobacz` występuje również słowo `Podgląd`. Bez obrazu/DOM nie rozstrzygamy, czy jest to:
-- osobna akcja,
-- tooltip,
-- accessible label ikony,
-- opis linku `Zobacz`.
+## 6. Potwierdzone akcje z ekranu szczegółów
 
-Status: `TO_VERIFY_VISUAL`.
+Dzięki audytowi `/pojazdy/<uuid>` potwierdzono również:
+- `Archiwizuj`,
+- `Usuń`,
+- `Edytuj`,
+- `Pełny kalendarz`,
+- `Dodaj wydarzenie`,
+- kalendarz Miesiąc/Tydzień/Dzień,
+- Dzisiaj,
+- poprzedni/następny okres.
 
-## 6. Identyfikacja pojazdu
+Dokładny lifecycle archiwizacji i usuwania nadal wymaga sprawdzenia.
 
-Ten sam UUID-like identifier jest obserwowany w:
-- URL szczegółów `/pojazdy/<uuid>`,
-- filtrze kalendarza `/kalendarz?v=<uuid>`,
-- ścieżce zdjęcia.
+## 7. Identyfikacja i tenant isolation
 
-W naszym modelu:
-- `vehicles.id` powinno być UUID,
-- publiczne route param może używać tego UUID lub osobnego public ID,
-- każda operacja musi sprawdzać `organization_id` server-side.
+UUID pojazdu jest używany w:
+- szczegółach `/pojazdy/<uuid>`,
+- filtrze `/kalendarz?v=<uuid>`,
+- ścieżce assetu zdjęcia.
 
-## 7. Model dokumentów pojazdu
+Każda operacja musi server-side sprawdzać `organization_id`; sam UUID nie jest mechanizmem autoryzacji.
 
-Potwierdzone minimum:
+## 8. Model pojazdu — potwierdzone minimum
 
-### `vehicle_documents`
-- `id`
-- `organization_id`
-- `vehicle_id`
-- `type`
-- `valid_from` nullable
-- `valid_until`
-- `status`
-- `document_number` nullable
-- `file_id` nullable
-- `created_at`
-- `updated_at`
+Po audycie listy i szczegółów model powinien obsługiwać co najmniej:
+- `id` UUID,
+- `organization_id`,
+- `make`,
+- `model`,
+- `registration_number`,
+- `side_number` nullable,
+- `vin` nullable do czasu potwierdzenia walidacji,
+- `engine_capacity_cm3` nullable,
+- `production_year` nullable,
+- `photo_asset_id` nullable,
+- `created_at`,
+- `archived_at` nullable.
 
-Potwierdzony typ/termin:
-- badanie techniczne / przegląd.
+Pole `Data dodania` na rekordzie demonstracyjnym pokazało `01-01-0001`; traktujemy to jako anomalię/sentinel danych demo, nie wartość do odwzorowania.
 
-Publiczna oferta systemu wspomina również przypomnienia o ubezpieczeniu, ale dokładne pola i prezentacja ubezpieczenia na tym ekranie nie zostały potwierdzone przez przekazany widok.
+## 9. Terminy/dokumenty pojazdu
 
-### Rekomendowane stany dokumentu
+Potwierdzone typy:
+- `technical_inspection` — Przegląd,
+- `oc_insurance` — OC,
+- `ac_insurance` — AC.
 
-Projektowo:
-- `valid`
-- `expiring_soon`
-- `expired`
+Każdy ma niezależny `valid_until` i status. Nie używamy jednego statusu dla wszystkich dokumentów pojazdu.
 
-`expired` jest funkcjonalnie potwierdzony komunikatem `Przegląd wygasł ...`. Pozostałe etykiety/stany 360 wymagają dalszego audytu.
+Rekomendowany model:
+- `vehicle_documents` albo `vehicle_validities`,
+- `vehicle_id`, `type`, `valid_until`, `status`, opcjonalnie numer dokumentu i plik.
 
-## 8. Minimalny model pojazdu
+## 10. Relacje
 
-### `vehicles`
-- `id` UUID
-- `organization_id`
-- `registration_number`
-- `make`
-- `model`
-- `photo_asset_id` nullable
-- `is_active` — decyzja projektowa, niepotwierdzona akcją listy
-- `created_at`
-- `updated_at`
-
-### Kategorie
-Do czasu audytu szczegółów nie przesądzamy schematu. Nasz model powinien jednak być gotowy na relację many-to-many:
-- `vehicle_categories(vehicle_id, category_id)`.
-
-## 9. Potwierdzone relacje
-
-- `vehicle -> photo`
-- `vehicle -> documents`
-- `vehicle -> calendar context`
-- `vehicle -> details screen`
+Potwierdzone:
+- vehicle -> photo,
+- vehicle -> validity/documents,
+- vehicle -> calendar context,
+- vehicle -> details screen,
+- pole `Kategorie` istnieje.
 
 Do potwierdzenia:
-- `vehicle -> location`
-- `vehicle -> employees/instructors`
-- `vehicle -> categories` jako many-to-many
-- `vehicle -> service/unavailability periods`
+- multiplicity kategorii poprzez formularz,
+- vehicle -> location,
+- vehicle -> instructors,
+- okresy serwisowe/niedostępności.
 
-## 10. Rekomendowane API
+## 11. Rekomendowane API
 
 - `GET /api/v1/vehicles`
 - `POST /api/v1/vehicles`
 - `GET /api/v1/vehicles/{vehicle}`
 - `PATCH /api/v1/vehicles/{vehicle}`
+- `POST /api/v1/vehicles/{vehicle}/archive`
 - `GET /api/v1/vehicles/{vehicle}/documents`
 - `GET /api/v1/calendar/events?vehicle_id={vehicle}`
 
-Nie dodajemy jeszcze do parytetu endpointu `DELETE /vehicles/{vehicle}` ani `archive`, bo bieżąca lista nie potwierdza takich akcji.
-
-## 11. Alerty i przypomnienia
-
-Dla naszego produktu dokument pojazdu powinien generować:
-- alert przed upływem terminu,
-- alert po wygaśnięciu,
-- odpowiednie powiadomienie do uprawnionych pracowników,
-- widoczny status na liście pojazdów.
-
-Dokładny próg ostrzegania przed terminem w 360 jest nieznany i powinien być konfigurowalny.
+Akcja trwałego/soft usunięcia jest w UI potwierdzona jako `Usuń`, ale dokładną semantykę endpointu ustalimy po zbadaniu lifecycle.
 
 ## 12. Acceptance criteria
 
 ### AC-VEH-01 — lista
-**Given** OSK posiada pojazdy  
-**When** administrator otworzy `/pojazdy`  
-**Then** widzi zdjęcie, numer rejestracyjny, markę/model, kolumnę kategorii oraz stan dokumentów.
+Administrator widzi zdjęcie, numer rejestracyjny, markę/model, kategorie i stan dokumentów.
 
-### AC-VEH-02 — przeterminowany przegląd
-**Given** termin przeglądu minął  
-**When** pojazd jest wyświetlany na liście  
-**Then** system oznacza przegląd jako wygasły i pokazuje datę wygaśnięcia.
+### AC-VEH-02 — termin
+Przeterminowany przegląd jest oznaczany wraz z datą.
 
 ### AC-VEH-03 — kalendarz
-**Given** administrator kliknie `Kalendarz` przy pojeździe  
-**Then** kalendarz otwiera się z aktywnym kontekstem wskazanego pojazdu.
+`Kalendarz` otwiera kontekst wskazanego pojazdu.
 
 ### AC-VEH-04 — szczegóły
-**Given** administrator kliknie `Zobacz`  
-**Then** otwiera się ekran `/pojazdy/{uuid}` dla pojazdu należącego do jego OSK.
+`Zobacz` otwiera `/pojazdy/{uuid}`.
 
 ### AC-VEH-05 — tenant isolation
-Podmiana UUID w adresie nie może pozwolić na odczyt pojazdu innego OSK.
+Podmiana UUID nie daje dostępu do pojazdu innego OSK.
+
+### AC-VEH-06 — niezależne terminy
+Przegląd, OC i AC są modelowane niezależnie.
 
 ## 13. Pozostałe luki
 
-Do pełnego zamknięcia `Pojazdy` potrzebujemy:
-- ekranu `Dodaj pojazd`,
-- ekranu `/pojazdy/{uuid}`,
-- formularza edycji,
-- dokładnych typów dokumentów,
-- sposobu obsługi ubezpieczenia,
-- listy kategorii i sposobu ich wyboru,
-- potwierdzenia relacji z lokalizacją,
-- walidacji numeru rejestracyjnego,
-- zasad zdjęcia (format, rozmiar, crop),
-- informacji o usuwaniu/dezaktywacji,
-- filtrowania/sortowania/paginacji,
-- dokładnego znaczenia `Podgląd`.
+Do pełnego zamknięcia `Pojazdy` pozostają:
+- `Dodaj pojazd`,
+- formularz `Edytuj`,
+- wymagane pola i walidacje,
+- selector/multiplicity kategorii,
+- upload/usuwanie zdjęcia,
+- relacja z lokalizacją, jeśli występuje,
+- lifecycle `Archiwizuj`,
+- lifecycle `Usuń`,
+- formularz `Dodaj wydarzenie`,
+- filtry/wyszukiwanie/sortowanie listy,
+- komunikaty success/error.
+
+Nie są już luką:
+- ekran szczegółów,
+- Przegląd/OC/AC,
+- Nr boczny,
+- VIN jako pole,
+- pojemność,
+- rok produkcji,
+- archiwizacja jako dostępna akcja,
+- usuwanie jako dostępna akcja,
+- osadzony kalendarz.
