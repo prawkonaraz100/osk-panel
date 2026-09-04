@@ -5,6 +5,8 @@ screen:
   title: Pojazdy
   confidence: USER_CONFIRMED_AUTH_SCREEN
   verified_at: 2026-09-05
+  detail_screen_spec: specs/screens/vehicle-detail.yml
+  detail_doc: docs/25-vehicle-detail-screen.md
 
 list:
   primary_action:
@@ -26,7 +28,7 @@ list:
   ambiguous_text:
     - text: Podgląd
       status: TO_VERIFY_VISUAL
-      possibilities: [separate_action, tooltip, accessible_label, description_of_view_action]
+      possibilities: [tooltip, accessible_label, description_of_view_action]
 
 vehicle_entity:
   identifier:
@@ -36,42 +38,74 @@ vehicle_entity:
       - calendar_filter
       - image_asset_path
     note: exact UUID values from audited account must not be persisted
-  confirmed_visible_fields:
+  confirmed_visible_fields_from_list:
     - photo
     - registration_number
     - make
     - model
     - categories_column
     - document_status
+  confirmed_visible_fields_from_detail:
+    - make_model
+    - registration_number
+    - side_number
+    - vin
+    - engine_capacity_cm3
+    - production_year
+    - categories
+    - created_date
 
 column_notes:
   make_model:
-    observed_header_text: Maria i model
     semantic_field: Marka i model
-    status: TO_VERIFY_VISUAL
+    previous_text_extraction_typo: Maria i model
+    status: SEMANTICS_CONFIRMED_BY_DETAIL_SCREEN
   categories:
     present: true
-    values_observed: false
-    multiplicity: TO_VERIFY
+    multiplicity: TO_VERIFY_FORM
   documents:
     confirmed_message_pattern: "Przegląd wygasł <date>"
 
 documents:
   confirmed_types:
     - technical_inspection
+    - oc_insurance
+    - ac_insurance
   confirmed_states:
-    - expired
+    - expired_or_attention_required
+  independent_valid_until: true
   inferred_configurable_states:
     - valid
     - expiring_soon
   reminder_threshold: CONFIGURABLE_TO_VERIFY
 
+detail_screen:
+  confirmed_global_actions:
+    - archive_vehicle
+    - delete_vehicle
+  confirmed_section_actions:
+    - edit_vehicle_details
+  confirmed_calendar_actions:
+    - open_full_calendar
+    - add_event
+    - previous_period
+    - next_period
+    - today
+    - view_month
+    - view_week
+    - view_day
+  created_date_anomaly:
+    observed_pattern: 01-01-0001
+    classification: SENTINEL_OR_DEMO_DATA_ANOMALY
+    parity_requirement: false
+
 relationships:
   confirmed:
     - photo_asset
-    - documents
+    - documents_or_validities
     - calendar_filter_context
     - details_screen
+    - categories_field_present
   to_verify:
     - location
     - instructors
@@ -83,24 +117,30 @@ api_recommendation:
   - POST /api/v1/vehicles
   - GET /api/v1/vehicles/{vehicle}
   - PATCH /api/v1/vehicles/{vehicle}
+  - POST /api/v1/vehicles/{vehicle}/archive
   - GET /api/v1/vehicles/{vehicle}/documents
   - GET /api/v1/calendar/events?vehicle_id={vehicle}
 
 not_confirmed:
-  - delete_vehicle
-  - archive_vehicle
-  - deactivate_vehicle
-  - edit_vehicle_from_list
+  - create_vehicle_form_fields
+  - edit_vehicle_form_fields
+  - exact_required_fields
+  - exact_validations
+  - archive_restore_or_effects
+  - delete_semantics
   - filters
   - sorting
   - pagination
-  - insurance_fields_on_this_screen
   - exact_category_values
+  - category_multiplicity
   - exact_photo_rules
   - registration_number_validation
-  - meaning_of_preview_text
+  - vehicle_location_relation
+  - add_event_form
 
 security_requirements:
   - tenant_isolation
   - verify_vehicle_ownership_on_details
   - verify_vehicle_ownership_on_calendar_filter
+  - preserve_historical_event_integrity_on_archive_delete
+  - do_not_treat_min_date_sentinel_as_real_business_date
