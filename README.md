@@ -7,7 +7,8 @@ Dokumentacja clean-room do zbudowania systemu klasy **OSK Business Management Pl
 ## Status audytu
 
 Pierwsze mapowanie: **2026-09-05**  
-Ponowna niezależna weryfikacja: **2026-09-05**
+Ponowna niezależna weryfikacja: **2026-09-05**  
+Audyt dokładnego menu zalogowanego panelu: **2026-09-05**
 
 Źródła:
 - aktualna publiczna strona BIZ,
@@ -17,11 +18,15 @@ Ponowna niezależna weryfikacja: **2026-09-05**
 - aktualna publiczna oferta reklam,
 - aktualności produktowe operatora,
 - zachowanie aktualnych chronionych tras i `ReturnUrl`,
+- aktualne menu zalogowanego panelu przekazane podczas audytu,
+- oficjalne materiały pomocy operatora dotyczące m.in. kursantów, kalendarza, lokalizacji, pojazdów, pracowników, wizytówki i licencji,
 - starsze publicznie zindeksowane menu panelu — wyłącznie jako materiał historyczny.
 
 ## Oznaczenia pewności
 
 - `CURRENT_CONFIRMED` — potwierdzone w aktualnej publicznej stronie/trasie/ofercie.
+- `USER_CONFIRMED_AUTH_MENU` — pozycja lub trasa widoczna w aktualnym menu zalogowanego panelu przekazanym podczas audytu.
+- `HELP_CONFIRMED` — istnieje aktualny oficjalny materiał pomocy operatora dotyczący danego ekranu.
 - `RULES_CONFIRMED` — potwierdzone w aktualnie publikowanym regulaminie.
 - `HISTORICAL_INDEX` — widoczne w starszym indeksie/menu/aktualności; nie oznacza automatycznie funkcji istniejącej dziś.
 - `INFERRED` — nasza logiczna/architektoniczna funkcja potrzebna do zbudowania solidnego odpowiednika.
@@ -50,12 +55,15 @@ Jeśli funkcjonalność jest potrzebna naszemu produktowi, implementujemy własn
 12. [12-action-matrix.md](docs/12-action-matrix.md) — akcja -> warunek -> skutek -> audit -> notification.
 13. [13-acceptance-criteria.md](docs/13-acceptance-criteria.md) — kryteria akceptacji krytycznych flow.
 14. [14-reverification-audit-2026-09-05.md](docs/14-reverification-audit-2026-09-05.md) — raport różnic znalezionych w drugim audycie.
-15. [functional-requirements.yml](specs/functional-requirements.yml) — wymagania w formacie maszynowym dla agentów.
+15. [15-current-authenticated-menu-map.md](docs/15-current-authenticated-menu-map.md) — dokładna mapa bieżących pozycji menu i tras panelu, z brakami do audytu wewnętrznego.
+16. [functional-requirements.yml](specs/functional-requirements.yml) — główne wymagania w formacie maszynowym dla agentów.
+17. [authenticated-menu-routes.yml](specs/authenticated-menu-routes.yml) — maszynowa mapa 17 aktualnych pozycji menu i ich tras.
 
 ## Docelowy zakres produktu
 
 System powinien obejmować:
 - konto i organizację OSK,
+- wiele lokalizacji OSK,
 - pracowników, permissions, biuro i HR,
 - kursantów i provisionowanie dostępu,
 - integrację PKK,
@@ -67,7 +75,8 @@ System powinien obejmować:
 - zmienną kategorię domyślną użytkownika,
 - egzaminy wewnętrzne linkiem i stacjonarnie,
 - płatności oraz jawne `Aktywuj dostęp` dla produktów, które tego wymagają,
-- publiczną wizytówkę, opinie i ranking,
+- wspólną historię zakupów OSK,
+- kolekcję wizytówek OSK, publiczne profile, opinie i ranking,
 - reklamy z rejonizacją i aukcjami,
 - kreacje reklamowe i moderację,
 - artykuły sponsorowane,
@@ -79,7 +88,8 @@ System powinien obejmować:
 - aktualny moduł faktur — starszy indeks go zawierał, ale stara trasa obecnie zwraca 404; `HISTORICAL_INDEX / TO_VERIFY_AUTH`,
 - eksport postępów — `INFERRED`,
 - klientowe pauzowanie kampanii — `TO_VERIFY_AUTH`,
-- panelowy refund — niepotwierdzony; proces reklamacji/odstąpienia nie jest tym samym co przycisk refund.
+- panelowy refund — niepotwierdzony; proces reklamacji/odstąpienia nie jest tym samym co przycisk refund,
+- dokładne podmenu `Moje reklamy` — nagłówek menu jest aktualny, ale jego wszystkie child-routes nadal wymagają przechwycenia z zalogowanej sesji.
 
 ## Zasada implementacyjna
 
