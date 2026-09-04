@@ -1,0 +1,95 @@
+screen:
+  id: staff_create
+  title: Dodaj pracownika
+  parent_route: /pracownicy
+  confidence: USER_CONFIRMED_AUTH_SCREEN
+  audited_at: 2026-09-05
+
+fields:
+  - key: email
+    label: E-mail
+    type: email
+  - key: first_name
+    label: Imię
+    type: text
+  - key: last_name
+    label: Nazwisko
+    type: text
+  - key: staff_type_ids
+    label: Rodzaj pracownika
+    type: multi_select
+    multiple: true
+    helper: Wybierz dowolną ilość
+  - key: pesel
+    label: Pesel
+    type: text
+    sensitive: true
+  - key: phone
+    label: Telefon
+    type: text
+  - key: authorization_number
+    label: Numer uprawnień
+    type: text
+  - key: category_ids
+    label: Kategorie
+    type: multi_select
+    multiple: true
+    helper: Wybierz dowolną ilość kategorii
+  - key: location_ids
+    label: Lokalizacje
+    type: multi_select
+    multiple: true
+    helper: Wybierz dowolną ilość lokalizacji
+    tenant_scoped: true
+  - key: card_valid_until
+    label: Ważność legitymacji
+    type: date
+  - key: medical_exam_valid_until
+    label: Ważność badań lekarskich
+    type: date
+  - key: psychological_exam_valid_until
+    label: Ważność badań psychologicznych
+    type: date
+  - key: photo
+    label: Dodaj zdjęcie (opcjonalnie)
+    type: file
+    optional_confirmed: true
+  - key: create_login_account
+    label: Utwórz konto do logowania
+    type: boolean
+    confirms_optional_user_account: true
+
+actions:
+  - save
+  - cancel
+
+confirmed_relationships:
+  - staff_many_to_many_staff_types
+  - staff_many_to_many_categories
+  - staff_many_to_many_locations
+  - staff_has_many_documents
+  - staff_optional_user_account
+
+confirmed_document_types:
+  - card_or_license
+  - medical_exam
+  - psychological_exam
+
+security_requirements:
+  - tenant_validate_location_ids
+  - protect_pesel
+  - secure_file_upload
+  - do_not_auto_create_user_when_create_login_account_false
+
+not_confirmed:
+  - required_fields
+  - exact_staff_type_values
+  - field_validations
+  - create_route
+  - account_invitation_flow
+  - generated_password_flow
+  - default_account_permissions
+  - image_limits
+  - success_message
+  - error_messages
+  - unsaved_changes_warning
