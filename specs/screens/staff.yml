@@ -1,0 +1,74 @@
+screen:
+  id: staff_list
+  route: /pracownicy
+  scope: admin_osk
+  confidence: USER_CONFIRMED_AUTH_SCREEN
+  verified_at: 2026-09-05
+  primary_action:
+    - add_staff
+  columns:
+    - photo
+    - full_name
+    - email
+    - documents
+    - login_account
+  row_actions:
+    - calendar_for_staff
+    - view_staff_details
+  uncertain_row_labels:
+    - preview
+  calendar_filter:
+    query_param: w
+    identifier: staff_uuid
+  details_route_pattern: /pracownicy/<staff_uuid>
+  confirmed_document_types:
+    - ui_label: Legitymacja
+      domain_type: card_or_license
+      semantics: TO_VERIFY_DETAILS
+    - ui_label: Badania lekarskie
+      domain_type: medical_exam
+    - ui_label: Badania psychologiczne
+      domain_type: psychological_exam
+  confirmed_document_states:
+    - valid
+    - expired
+  confirmed_document_messages:
+    - '<document> wygasła/wygasły <date>'
+    - 'Legitymacja ważna do <date>'
+  login_account:
+    confirmed_value_observed: false
+    field_type: boolean_or_derived_state
+    architectural_requirement: staff_record_must_exist_without_user_account
+  model_requirements:
+    - separate_staff_profile_from_user_account
+    - optional_staff_to_user_link
+    - multiple_staff_documents
+    - independent_document_expiry_state
+    - photo_asset_reference
+    - tenant_isolation
+    - staff_as_calendar_resource
+  recommended_entities:
+    - staff_profiles
+    - staff_documents
+    - users
+    - organization_memberships
+  explicitly_not_confirmed:
+    - delete_staff
+    - deactivate_staff
+    - role_editing_from_list
+    - password_reset_from_list
+    - filters
+    - search
+    - sorting
+    - bulk_actions
+    - location_assignment
+    - category_assignment
+    - account_permission_details
+    - expiring_soon_threshold
+  acceptance_criteria:
+    - staff_can_exist_without_login_account
+    - each_document_has_independent_status
+    - expired_document_shows_expiry_alert
+    - valid_document_can_show_valid_until_date
+    - calendar_opens_in_staff_context
+    - details_open_in_separate_screen
