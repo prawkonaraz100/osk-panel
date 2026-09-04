@@ -16,12 +16,14 @@ header:
     - back_to_staff_list
     - staff_photo
     - staff_full_name
-  confirmed_actions:
+  visible_actions:
     - archive_staff
     - delete_staff
+  archive_delete_effects_verified: false
 
 staff_details:
   confirmed_action: edit_staff_details
+  action_state: ACTIONABLE
   data_fields:
     - full_name
     - staff_types
@@ -33,6 +35,8 @@ staff_details:
     - created_date
   confirmed_staff_type_values:
     - OfficeWorker
+  localized_staff_type_observations:
+    OfficeWorker: Pracownik biurowy
   validity_fields:
     - card_valid_until
     - medical_exam_valid_until
@@ -40,11 +44,30 @@ staff_details:
   expired_indicator: true
 
 panel_access:
-  confirmed_action: edit_panel_access
+  visible_control: edit_panel_access
+  control_state: VISIBLE_BUT_NOT_ACTIONABLE
+  failure_observation: clicking_did_not_open_view_or_form
+  reason: UNKNOWN
+  possible_but_unconfirmed_causes:
+    - demo_mode_restriction
+    - permission_restriction
+    - unavailable_for_staff_without_account
+    - frontend_issue
   confirmed_field:
     key: has_panel_access
     observed_value: false
   domain_rule: staff_profile_separate_from_user_account
+  independently_confirmed_account_entry_point:
+    source: staff_create_and_edit_forms
+    control: create_login_account
+    actionable: true
+  unresolved:
+    - whether_separate_panel_access_editor_exists_in_other_state
+    - account_provisioning_flow
+    - credentials_or_invitation
+    - role_and_permission_assignment
+    - access_revocation
+    - password_reset
 
 embedded_calendar:
   confirmed_actions:
@@ -77,8 +100,8 @@ relationships_confirmed:
   - staff_calendar_context
 
 archive_delete:
-  archive_confirmed: true
-  delete_confirmed: true
+  archive_visible: true
+  delete_visible: true
   unresolved:
     - archive_confirmation
     - archive_effect_on_future_events
@@ -87,12 +110,12 @@ archive_delete:
     - delete_dependency_rules
 
 remaining_gaps:
-  - edit_staff_form_and_validation
-  - panel_access_edit_flow
   - exact_staff_type_dictionary
-  - account_provisioning_credentials_or_invitation
+  - account_provisioning_flow_after_create_login_account
+  - whether_panel_access_edit_is_actionable_outside_observed_state
   - account_permissions
   - archive_lifecycle
   - delete_lifecycle
   - add_event_form
-  - validation_and_success_error_messages
+  - backend_validations
+  - success_error_messages
