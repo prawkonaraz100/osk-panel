@@ -1,0 +1,291 @@
+meta:
+  project: osk-panel
+  scope: admin_osk_only
+  audited_at: 2026-09-05
+  goal: functional_service_parity_without_copying_ui_or_code
+  source_system: https://biz.prawo-jazdy-360.pl/
+
+mapping_definition:
+  complete_when:
+    - route_known
+    - screens_known
+    - fields_known
+    - table_columns_known
+    - filters_and_search_known
+    - all_actions_known
+    - bulk_actions_known
+    - validations_known
+    - modals_known
+    - statuses_known
+    - state_transitions_known
+    - permissions_known
+    - cross_module_dependencies_known
+    - finance_effects_known
+    - notifications_known
+    - documents_and_print_known
+    - integrations_known
+    - error_and_retry_states_known
+    - audit_requirements_known
+    - acceptance_criteria_written
+
+service_groups:
+  core_osk:
+    - id: dashboard
+      route: /
+      confidence: TO_VERIFY_AUTH
+      required_capabilities: [operational_summary, alerts, quick_actions]
+    - id: pkk
+      route: /integracja-pkk
+      confidence: CURRENT_CONFIRMED
+      required_capabilities:
+        - fetch_profile
+        - view_profile
+        - update_training
+        - return_to_other_school
+        - return_to_authority
+        - return_expired_profile
+        - operation_history
+      requirements: [audit, idempotency, retry]
+    - id: calendar
+      route: /kalendarz
+      confidence: CURRENT_CONFIRMED_TO_VERIFY_UI
+      required_capabilities:
+        - create_drive
+        - assign_student
+        - assign_employee
+        - assign_vehicle
+        - self_booking
+        - employee_activity_view
+        - work_time_tracking
+        - conflict_detection
+    - id: students
+      route: /kursanci
+      confidence: CURRENT_CONFIRMED_TO_VERIFY_UI
+      required_capabilities:
+        - create
+        - edit
+        - search
+        - filter
+        - details
+        - assign_course
+        - link_pkk
+        - assign_license
+        - create_access
+        - assign_exam
+        - assign_drive
+        - assign_lecture
+        - view_progress
+        - archive
+    - id: locations
+      route: /lokalizacje
+      confidence: AUTH_MENU_HELP_CONFIRMED_TO_VERIFY_UI
+      required_capabilities:
+        - multi_location
+        - create
+        - edit
+        - deactivate
+        - contact_data
+        - staff_assignment
+        - business_card_assignment
+        - calendar_relation
+    - id: vehicles
+      route: /pojazdy
+      confidence: CURRENT_CONFIRMED_HELP_CONFIRMED_TO_VERIFY_UI
+      required_capabilities:
+        - create
+        - edit
+        - archive
+        - category
+        - documents
+        - insurance_expiry
+        - technical_inspection_expiry
+        - reminders
+        - unavailable_service_state
+        - calendar_assignment
+    - id: staff
+      route: /pracownicy
+      confidence: CURRENT_CONFIRMED_HELP_CONFIRMED_TO_VERIFY_UI
+      required_capabilities:
+        - create
+        - edit
+        - deactivate
+        - roles_permissions
+        - instructor_categories
+        - availability
+        - locations
+        - documents
+        - medical_exam_expiry
+        - reminders
+
+  education_sales:
+    - id: license_purchase
+      route: /licencje/wykup
+      confidence: CURRENT_CONFIRMED
+      required_capabilities: [select_duration, quantity, order, payment, inventory]
+    - id: license_management
+      route: /licencje/panel
+      confidence: RULES_CONFIRMED_TO_VERIFY_UI
+      states: [inventory, assigned, activated, expired]
+      required_capabilities:
+        - assign_to_student
+        - create_by_email
+        - create_by_generated_credentials
+        - select_language
+        - revoke_before_activation
+        - restore_inventory
+        - view_progress
+    - id: learning_progress
+      confidence: CURRENT_CONFIRMED_TO_VERIFY_UI
+      required_capabilities: [student_progress, question_stats, learning_activity]
+    - id: internal_exam_purchase
+      route: /egzamin-wewnetrzny/wykup
+      confidence: CURRENT_CONFIRMED
+      required_capabilities: [purchase_inventory, free_grants, balance, payment]
+    - id: internal_exam_management
+      route: /egzamin-wewnetrzny/panel
+      confidence: RULES_CONFIRMED_TO_VERIFY_UI
+      states: [available, generated, started, finished, consumed]
+      required_capabilities:
+        - generate_for_student
+        - generate_link
+        - start_local_exam
+        - save_result
+        - consume_inventory
+        - digital_exam_card
+        - print_exam_card
+    - id: lectures
+      route: /wyklady
+      confidence: CURRENT_CONFIRMED_TO_VERIFY_UI
+      required_capabilities: [category_selector, materials_catalog, presentation_mode]
+    - id: instructor_training
+      route: /szkolenie-z-instruktorem
+      confidence: CURRENT_CONFIRMED_TO_VERIFY_ADMIN_ACTIONS
+      required_capabilities:
+        - sections
+        - video_lessons
+        - progress
+        - control_questions
+        - retry_questions
+        - skip_questions
+        - category_specific_content
+
+  marketing:
+    - id: business_cards
+      route: /wizytowki
+      confidence: AUTH_MENU_HELP_CONFIRMED_TO_VERIFY_UI
+      collection_model: true
+      required_capabilities:
+        - list
+        - create
+        - edit
+        - link_location
+        - public_preview
+        - publication_status
+        - photos
+        - reviews
+        - report_review
+    - id: ads
+      confidence: CURRENT_CONFIRMED_RULES_CONFIRMED_TO_VERIFY_AUTH_MENU_CHILDREN
+      placements:
+        - position_zero
+        - side_top
+        - side_bottom
+        - test_and_course
+        - fullscreen
+      coming_soon: [premium_business_card]
+      required_capabilities:
+        - select_city
+        - select_placement
+        - auction_view
+        - binding_bid
+        - bid_history
+        - winner
+        - payment
+        - desktop_creative
+        - mobile_creative
+        - moderation
+        - text_fallback
+        - campaign_activation
+    - id: ranking_reviews
+      confidence: RULES_CONFIRMED
+      required_capabilities: [public_profile, ratings_1_5, moderation, report_review, ranking_score]
+    - id: sponsored_article
+      confidence: RULES_CONFIRMED
+      required_capabilities: [purchase, client_content_or_copywriting, images, moderation, publication, archive]
+    - id: partner_banner
+      confidence: RULES_CONFIRMED
+      required_capabilities: [download_asset, implementation_instructions]
+    - id: commercial_services
+      confidence: CURRENT_CONFIRMED
+      services: [seo_audit, seo_optimization, google_ads, website_build, cms]
+
+  account_and_finance:
+    - id: settings
+      route: /ustawienia
+      confidence: AUTH_MENU_TO_VERIFY_UI
+      required_capabilities:
+        - user_data
+        - organization_data
+        - billing_data
+        - password_auth
+        - consents
+        - sessions_security
+        - notifications
+        - organization_preferences
+    - id: purchase_history
+      route: /historia-zakupow
+      confidence: AUTH_MENU_TO_VERIFY_UI
+      required_capabilities:
+        - unified_orders
+        - licenses
+        - exams
+        - ads
+        - sponsored_articles
+        - order_status
+        - payment_status
+        - gross_net_vat
+        - payment_method
+        - documents
+    - id: invoices
+      confidence: HISTORICAL_INDEX_TO_VERIFY_AUTH
+      implementation_decision: documents_available_from_purchase_history
+
+system_services:
+  - rbac
+  - tenant_isolation
+  - notifications_and_reminders
+  - audit_log
+  - document_retention
+  - payment_ledger
+  - integration_logs
+
+business_offer_parity:
+  - osk_management_panel
+  - pkk_integration
+  - student_elearning_licenses
+  - student_learning_monitoring
+  - internal_exams
+  - lecture_materials
+  - instructor_training
+  - business_cards_and_ranking
+  - local_advertising
+  - sponsored_content
+  - purchase_history_and_billing
+  - optional_seo_web_ads_services
+
+remaining_button_level_gaps:
+  - dashboard
+  - students
+  - locations
+  - vehicles
+  - staff
+  - calendar
+  - pkk_ui
+  - license_management_ui
+  - internal_exam_management_ui
+  - business_cards
+  - ads_submenu_and_campaign_management
+  - lectures_ui
+  - instructor_training_admin_actions
+  - settings
+  - purchase_history
