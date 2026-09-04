@@ -80,16 +80,22 @@ relationships_confirmed:
   - vehicle_photo_asset
   - vehicle_has_many_validity_records
   - vehicle_calendar_context
-  - vehicle_categories_field_present
+  - vehicle_categories_many_to_many
+  - vehicle_locations_many_to_many
 
 archive_delete:
   archive_confirmed: true
+  archive_ui_state:
+    observed_status: DEMO_BLOCKED
+    observed_behavior: clicking_archive_shows_demo_restriction_message
+    message_semantics: demo_version_cannot_archive
+    interpretation: feature_exists_but_cannot_be_executed_in_demo
   delete_confirmed: true
+  delete_confirmation_confirmed: true
   unresolved:
-    - archive_confirmation
+    - archive_confirmation_in_non_demo
     - archive_restore
     - archive_effect_on_future_events
-    - delete_confirmation
     - delete_semantics_hard_vs_soft
     - delete_dependency_rules
 
@@ -119,15 +125,13 @@ security_requirements:
   - preserve_historical_event_integrity_on_archive_delete
 
 remaining_gaps:
-  - create_vehicle_form
-  - edit_vehicle_form
-  - exact_required_fields
-  - field_validations
-  - categories_selector_and_multiplicity
-  - photo_upload_remove_behavior
-  - location_relation
-  - archive_lifecycle
-  - delete_lifecycle
+  - exact_backend_field_validations
+  - exact_category_dictionary
+  - photo_file_rules
+  - archive_lifecycle_in_non_demo
+  - archive_restore_behavior
+  - archive_effect_on_future_events
+  - delete_backend_semantics
   - add_event_form
   - save_success_and_error_messages
   - list_filters_search_sorting
