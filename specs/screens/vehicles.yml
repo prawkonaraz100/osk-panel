@@ -6,7 +6,9 @@ screen:
   confidence: USER_CONFIRMED_AUTH_SCREEN
   verified_at: 2026-09-05
   detail_screen_spec: specs/screens/vehicle-detail.yml
+  edit_screen_spec: specs/screens/vehicle-edit.yml
   detail_doc: docs/25-vehicle-detail-screen.md
+  edit_doc: docs/26-vehicle-edit-form.md
 
 list:
   primary_action:
@@ -38,22 +40,41 @@ vehicle_entity:
       - calendar_filter
       - image_asset_path
     note: exact UUID values from audited account must not be persisted
-  confirmed_visible_fields_from_list:
+  confirmed_fields:
     - photo
+    - registration_number
+    - side_number
+    - make
+    - model
+    - production_year
+    - engine_capacity_cm3
+    - vin
+    - category_ids
+    - location_ids
+    - next_inspection_at
+    - oc_valid_until
+    - ac_valid_until
+    - created_date
+
+edit_form:
+  required_by_visible_marker:
     - registration_number
     - make
     - model
-    - categories_column
-    - document_status
-  confirmed_visible_fields_from_detail:
-    - make_model
-    - registration_number
-    - side_number
-    - vin
-    - engine_capacity_cm3
-    - production_year
-    - categories
-    - created_date
+  multi_selects:
+    - category_ids
+    - location_ids
+  date_pickers:
+    - next_inspection_at
+    - oc_valid_until
+    - ac_valid_until
+  photo_optional: true
+  existing_photo_preview: true
+  existing_photo_remove_control: true
+  actions:
+    - save_vehicle_changes
+    - cancel_vehicle_edit
+    - close_vehicle_edit_drawer
 
 column_notes:
   make_model:
@@ -62,7 +83,7 @@ column_notes:
     status: SEMANTICS_CONFIRMED_BY_DETAIL_SCREEN
   categories:
     present: true
-    multiplicity: TO_VERIFY_FORM
+    multiplicity: MULTI_SELECT_CONFIRMED
   documents:
     confirmed_message_pattern: "Przegląd wygasł <date>"
 
@@ -71,12 +92,12 @@ documents:
     - technical_inspection
     - oc_insurance
     - ac_insurance
-  confirmed_states:
-    - expired_or_attention_required
   independent_valid_until: true
+  confirmed_attention_state: true
   inferred_configurable_states:
     - valid
     - expiring_soon
+    - expired
   reminder_threshold: CONFIGURABLE_TO_VERIFY
 
 detail_screen:
@@ -105,11 +126,10 @@ relationships:
     - documents_or_validities
     - calendar_filter_context
     - details_screen
-    - categories_field_present
+    - vehicle_many_to_many_categories
+    - vehicle_many_to_many_locations
   to_verify:
-    - location
     - instructors
-    - categories_many_to_many
     - service_unavailability
 
 api_recommendation:
@@ -122,25 +142,26 @@ api_recommendation:
   - GET /api/v1/calendar/events?vehicle_id={vehicle}
 
 not_confirmed:
-  - create_vehicle_form_fields
-  - edit_vehicle_form_fields
-  - exact_required_fields
-  - exact_validations
+  - create_vehicle_form_fields_or_exact_parity_with_edit
+  - exact_backend_validations
   - archive_restore_or_effects
   - delete_semantics
   - filters
+  - search
   - sorting
   - pagination
-  - exact_category_values
-  - category_multiplicity
-  - exact_photo_rules
+  - exact_category_dictionary
+  - exact_photo_file_rules
   - registration_number_validation
-  - vehicle_location_relation
+  - vin_validation
   - add_event_form
+  - save_success_error_messages
 
 security_requirements:
   - tenant_isolation
   - verify_vehicle_ownership_on_details
   - verify_vehicle_ownership_on_calendar_filter
+  - validate_category_ids_belong_to_organization
+  - validate_location_ids_belong_to_organization
   - preserve_historical_event_integrity_on_archive_delete
   - do_not_treat_min_date_sentinel_as_real_business_date
