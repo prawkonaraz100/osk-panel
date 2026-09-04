@@ -3,10 +3,10 @@
 Data weryfikacji: 2026-09-05
 
 **Route pattern:** `/pojazdy/<vehicle_uuid>`  
-**Źródło:** bieżący zalogowany ekran + screenshot przekazany podczas audytu  
+**Źródło:** bieżący zalogowany ekran + screenshoty i obserwacje przekazane podczas audytu  
 **Status:** `USER_CONFIRMED_AUTH_SCREEN`
 
-Dokument uzupełnia `docs/20-vehicles-screen.md`. Formularz edycji jest opisany szczegółowo w `docs/26-vehicle-edit-form.md` i ma pierwszeństwo dla pól edytowalnych, wymaganych markerów oraz relacji Kategorie/Lokalizacje.
+Dokument uzupełnia `docs/20-vehicles-screen.md`, `docs/26-vehicle-edit-form.md`, `docs/27-vehicle-create-form.md` oraz `docs/28-vehicle-delete-confirmation.md`.
 
 ---
 
@@ -21,18 +21,40 @@ Ekran szczegółów zawiera:
 6. podsekcje `Dane` i `Ważność`,
 7. osadzony `Kalendarz`.
 
-Wzorzec jest analogiczny do karty pracownika: profil zasobu, terminy formalne i planowanie są rozdzielone logicznie.
-
 ---
 
-## 2. Potwierdzone akcje globalne
+## 2. Akcje globalne
 
-- `Powrót` -> `/pojazdy`
-- `Archiwizuj`
-- `Usuń`
-- `Edytuj`
+### `Powrót`
+Prowadzi do `/pojazdy`.
 
-Nie znamy jeszcze dokładnych modali, semantyki hard/soft delete, wpływu archiwizacji na przyszłe wydarzenia ani możliwości przywrócenia.
+### `Usuń`
+Akcja działa do etapu potwierdzenia i została opisana osobno w `docs/28-vehicle-delete-confirmation.md`.
+
+Potwierdzony jest modal z:
+- identyfikacją pojazdu,
+- `Tak, usuń`,
+- `Nie, anuluj`,
+- zamknięciem `X`.
+
+Semantyka backendowa po potwierdzeniu pozostaje nieznana.
+
+### `Archiwizuj`
+Akcja jest widoczna i po kliknięciu zwraca komunikat, że **wersja demo nie może archiwizować**.
+
+Status audytowy:
+- `DEMO_BLOCKED`
+- akcja istnieje,
+- ograniczenie jest jawnie związane z trybem demonstracyjnym,
+- brak możliwości sprawdzenia dalszego flow nie oznacza błędu ani braku funkcji.
+
+Nie znamy jeszcze zachowania poza trybem demo:
+- czy pojawia się modal potwierdzający,
+- czy można przywrócić z archiwum,
+- co dzieje się z przyszłymi wydarzeniami,
+- gdzie trafia zarchiwizowany pojazd.
+
+Dla naszej implementacji archiwizacja powinna być oddzielnym, odwracalnym stanem zasobu, o ile nie ma przeciwwskazań formalnych.
 
 ---
 
@@ -48,14 +70,13 @@ Na szczegółach widoczne są:
 - Kategorie,
 - Data dodania.
 
-Formularz edycji potwierdził osobne pola `Marka` i `Model`, a także:
+Formularze create/edit potwierdzają:
 - wielokrotny wybór kategorii,
 - wielokrotny wybór lokalizacji,
 - widocznie wymagane: Nr rejestracyjny, Marka, Model.
 
 ### `Data dodania`
 Na obserwowanym rekordzie UI pokazuje `01-01-0001`.
-
 Klasyfikacja: `SENTINEL_OR_DEMO_DATA_ANOMALY`.
 
 Nie kopiujemy tego zachowania. U nas brak historycznej daty powinien być `null/unknown`, a nie rokiem 0001.
@@ -69,7 +90,7 @@ Potwierdzone trzy niezależne terminy:
 - `OC`,
 - `AC`.
 
-Formularz edycji potwierdził osobne date pickery:
+Formularze potwierdzają osobne date pickery:
 - `Następny przegląd`,
 - `Ważność OC`,
 - `Ważność AC`.
@@ -79,20 +100,17 @@ Potwierdzone typy domenowe:
 - `oc_insurance`,
 - `ac_insurance`.
 
-Każdy termin ma własny lifecycle i status. Nie łączymy ich w jeden `vehicle_document_status`.
+Każdy termin ma własny lifecycle i status.
 
 ---
 
 ## 5. Potwierdzone relacje
 
-Po audycie szczegółów i formularza edycji potwierdzamy:
 - `vehicle -> photo asset`,
 - `vehicle -> validity/documents`,
 - `vehicle <-> categories` many-to-many,
 - `vehicle <-> locations` many-to-many,
 - `vehicle -> calendar/events context`.
-
-Do sprawdzenia pozostają ewentualne bezpośrednie relacje z instruktorami oraz okresy serwisowe/niedostępności.
 
 ---
 
@@ -105,9 +123,7 @@ Potwierdzone elementy:
 - `Dzisiaj`,
 - widoki `Miesiąc`, `Tydzień`, `Dzień`.
 
-Karta pojazdu i karta pracownika korzystają z tego samego wzorca kalendarza. Nasza architektura powinna więc używać jednego silnika wydarzeń i konfliktów zasobów.
-
-Do sprawdzenia pozostaje formularz `Dodaj wydarzenie` i to, czy pojazd jest w nim automatycznie preselected.
+Karta pojazdu i karta pracownika korzystają z tego samego wzorca kalendarza.
 
 ---
 
@@ -138,30 +154,26 @@ Relacje:
 
 ## 8. Czego nadal brakuje w module Pojazdy
 
-Po zweryfikowaniu listy, szczegółów i edycji pozostają głównie:
-- formularz `Dodaj pojazd` i potwierdzenie, czy jest równoważny edycji,
+Po zweryfikowaniu listy, create, detail, edit i modala delete pozostają głównie:
 - dokładne backendowe walidacje pól,
 - pełny słownik kategorii,
-- lifecycle `Archiwizuj`,
-- lifecycle `Usuń`,
+- lifecycle `Archiwizuj` poza trybem demo,
+- backendowa semantyka `Usuń`,
 - formularz `Dodaj wydarzenie`,
 - komunikaty success/error,
 - filtry/wyszukiwanie/sortowanie listy,
 - dokładne zachowanie usuwania zdjęcia po `Zapisz`.
 
 Nie jest już luką:
-- ekran szczegółów,
-- pola edycji,
-- Nr boczny,
-- VIN,
-- pojemność,
-- rok produkcji,
+- lista,
+- dodawanie,
+- szczegóły,
+- edycja,
+- relacje Kategorie/Lokalizacje,
 - Przegląd/OC/AC,
-- wielokrotne Kategorie,
-- wielokrotne Lokalizacje,
-- relacja pojazd <-> lokalizacje,
-- archiwizacja i usuwanie jako dostępne akcje,
-- osadzony kalendarz.
+- potwierdzenie usuwania,
+- istnienie archiwizacji,
+- informacja, że archiwizacja jest blokowana w trybie demo.
 
 ---
 
@@ -175,6 +187,9 @@ Pojazd może być przypisany do wielu kategorii i wielu lokalizacji OSK.
 
 ### AC-VEH-DET-03
 UI udostępnia oddzielne akcje `Archiwizuj`, `Usuń` i `Edytuj`.
+
+### AC-VEH-ARCH-01
+W trybie demo kliknięcie `Archiwizuj` nie wykonuje archiwizacji i pokazuje komunikat o ograniczeniu wersji demonstracyjnej.
 
 ### AC-VEH-DET-04
 Karta pojazdu udostępnia kalendarz z widokami miesiąc/tydzień/dzień i akcją `Dodaj wydarzenie`.
