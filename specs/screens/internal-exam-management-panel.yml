@@ -7,107 +7,72 @@ screen:
   verified_at: 2026-09-05
   doc: docs/60-internal-exam-management-panel.md
   expanded_attempts_spec: specs/screens/internal-exam-expanded-attempts.yml
-  expanded_attempts_doc: docs/61-internal-exam-expanded-attempt-history.md
   answer_sheet_pdf_spec: specs/screens/internal-exam-answer-sheet-pdf.yml
-  answer_sheet_pdf_doc: docs/62-internal-exam-answer-sheet-pdf.md
   result_details_spec: specs/screens/internal-exam-result-details.yml
-  result_details_doc: docs/63-internal-exam-result-details-screen.md
   question_review_spec: specs/screens/internal-exam-question-review.yml
-  question_review_doc: docs/64-internal-exam-question-review.md
   generation_access_spec: specs/screens/internal-exam-generation-access.yml
-  generation_access_doc: docs/65-internal-exam-generation-access-flow.md
+  edit_candidate_data_spec: specs/screens/internal-exam-edit-candidate-data.yml
+  filtering_spec: specs/screens/internal-exam-filtering.yml
+  legal_rules: specs/legal/training-theory-exemptions.yml
 
 inventory:
   projections:
     free_monthly:
       label: Darmowe
       observed_available: 10
-      observed_description: Egzaminy darmowe w tym miesiącu
     paid:
       label: Opłacone
       observed_available: 150
     total:
       label: Wszystkie
       observed_available: 160
-  arithmetic_snapshot_consistent: true
   source_aware_inventory_required: true
 
-purchase_action:
-  label: Dokup egzaminy
-  route: /egzamin-wewnetrzny/wykup
-
 assigned_exams_section:
-  title: Przydzielone egzaminy wewnętrzne
   controls:
-    standalone_generate_exam_button_visible: true
-    standalone_generate_exam_button_flow_confirmed: true
-    select_student_row: true
-    selected_state_label_observed: ZAZNACZONE (1)
-    generate_exam_for_selected_label_observed: Generuj egzaminy (1)
-    selected_generation_exact_behavior: open_single_candidate_generation_drawer
-    multi_student_batch_generation: false
-    target_cardinality: exactly_one_candidate
-    hide_finished_exams_toggle: true
+    standalone_generate_exam_button: true
+    select_exactly_one_student_row: true
+    selected_state_label: ZAZNACZONE (1)
+    selected_generate_label: Generuj egzaminy (1)
+    hide_finished_toggle: true
     search: true
     filter: true
     sort: true
+  multi_student_batch_generation: false
+
+formal_osk_constraints:
+  student_id_required: true
+  course_enrollment_id_required: true
+  ephemeral_ad_hoc_candidate_allowed: false
+  exam_part_must_be_required_by_rule_engine: true
+  requirement_context_can_be_corrected_later_with_audit: true
 
 generation_flow:
-  confidence: USER_CONFIRMED_AUTH_SCREEN
-  spec: specs/screens/internal-exam-generation-access.yml
-  doc: docs/65-internal-exam-generation-access-flow.md
-  drawer_title: Generuj dostęp do egzaminu wewnętrznego
-  observed_available_exam_count: 160
   entry_points:
-    selected_student:
-      confirmed: true
-      opens_with_candidate_selected: true
-    standalone_button:
-      confirmed: true
-      opens_without_candidate: true
-      choices:
-        - search_existing_student
-        - enter_ad_hoc_candidate
-  empty_state_search_fields:
-    - first_name
-    - last_name
-    - email
-    - login
-    - pesel
-  ad_hoc_candidate_fields:
+    - selected_existing_student
+    - standalone_generate_button
+  own_product_new_student_behavior:
+    create_persistent_student_first: true
+    create_or_attach_course_enrollment_first: true
+    return_to_exam_flow_after_persistence: true
+  candidate_fields:
     - exam_category
     - exam_language
     - first_name
     - last_name
+    - pesel_or_date_of_birth_own_product
     - registry_or_pkk_number
-    - pesel
     - email
-  ad_hoc_candidate_persistence_to_student_module: TO_VERIFY
-  selected_candidate_fields:
-    - category
-    - language
-    - first_name
-    - last_name
-    - pkk
-    - pesel
-    - email
+  edit_candidate_data_confirmed: true
   launch_modes:
-    remote_link:
-      label: Udostępnij link do egzaminu
-      sends_link_to_candidate_email: true
-      candidate_can_take_anywhere_with_internet: true
-    local_station:
-      label: Rozpocznij egzamin teraz
-      starts_on_current_computer_station: true
-      concurrent_candidate_limit: 1
-      observed_message: Dostępne tylko dla 1 kursanta jednocześnie.
+    - remote_link
+    - local_station
+  one_candidate_at_a_time: true
 
 row_granularity:
-  primary_projection: student_or_exam_access_with_latest_attempt_summary
+  primary_projection: student_with_latest_attempt_summary
   one_row_is_not_one_attempt: true
-  attempt_count_visible: true
-  one_student_many_attempts_confirmed: true
-  expanded_attempt_count_matches_parent_count_confirmed: true
+  one_student_many_attempts: true
 
 columns:
   - email_or_login
@@ -120,119 +85,92 @@ columns:
   - row_actions
 
 status_projection:
-  red_x_maps_to_not_passed_for_observed_ala_row: true
-  passed_visual: TO_VERIFY
-  pending_visual: TO_VERIFY
-  in_progress_visual: TO_VERIFY
+  failed:
+    panel_visual_observed: red_x
+    expanded_label_observed: Niezaliczony
+  passed:
+    existence_confirmed_by_filter: true
+    panel_visual: TO_VERIFY
+  unassigned:
+    filter_label_confirmed: Brak przypisanego
+  not_conducted:
+    filter_label_confirmed: Nie przeprowadzony
+  unassigned_and_not_conducted_are_distinct_ui_states: true
+
+filtering:
+  spec: specs/screens/internal-exam-filtering.yml
+  course_category:
+    control: multi_select
+  status:
+    control: multi_checkbox
+    options:
+      - unassigned
+      - failed
+      - not_conducted
+      - passed
+  own_product_requirement_aware_filtering: true
+  theory_not_required_must_not_be_reported_as_unassigned_gap: true
 
 expanded_history:
-  confidence: USER_CONFIRMED_AUTH_SCREEN
-  screen_spec: specs/screens/internal-exam-expanded-attempts.yml
-  screen_doc: docs/61-internal-exam-expanded-attempt-history.md
   row_entity: internal_exam_attempt
-  duplicate_displayed_minute_confirmed: true
-  displayed_datetime_is_unique_identifier: false
+  stable_attempt_id_required: true
+  displayed_timestamp_is_not_identity: true
+
+result_and_review:
+  tokenized_result_route: /egzamin-wewnetrzny?pid=<opaque_token>
+  question_count: 32
+  basic_question_count: 20
+  specialized_question_count: 12
+  per_question_review_confirmed: true
+  immutable_attempt_snapshot_required: true
 
 answer_sheet_pdf:
-  confidence: USER_CONFIRMED_DOWNLOADED_DOCUMENT
-  screen_spec: specs/screens/internal-exam-answer-sheet-pdf.yml
-  screen_doc: docs/62-internal-exam-answer-sheet-pdf.md
-  observed_pages: 1
+  per_attempt: true
   observed_question_count: 32
-  observed_basic_question_count: 20
-  observed_specialized_question_count: 12
-  observed_failed_pdf_result_label: NEGATYWNY
-  immutable_attempt_question_snapshot_required_for_own_product: true
+  signatures_present: true
+  immutable_snapshot_required: true
 
-result_details:
-  confidence: USER_CONFIRMED_AUTH_RESULT_SCREEN
-  screen_spec: specs/screens/internal-exam-result-details.yml
-  screen_doc: docs/63-internal-exam-result-details-screen.md
-  host: www.prawo-jazdy-360.pl
-  route_pattern: /egzamin-wewnetrzny?pid=<opaque_token>
-  question_navigation:
-    basic: 1-20
-    specialized: 21-32
-    total_count: 32
-  clicked_question_review_content_confirmed: true
-
-own_product_model:
-  inventory_ledger_sources:
-    - free_monthly
-    - paid
-  entities:
-    - internal_exam_inventory_ledger
-    - internal_exam_accesses
-    - internal_exam_attempts
-    - internal_exam_attempt_questions
-    - internal_exam_launches
-    - internal_exam_launch_tokens
-    - internal_exam_results
-    - internal_exam_documents
-  candidate_sources:
-    - existing_student
-    - ad_hoc_candidate
-  student_id_nullable_for_ad_hoc_candidate: true
-  one_student_many_attempts: true
-  stable_attempt_id_required: true
-  timestamp_not_attempt_identity: true
-  snapshot_historical_candidate_data_per_attempt: true
-  snapshot_exam_question_set_per_attempt: true
-  snapshot_scoring_per_attempt_question: true
-  immutable_result_projection: true
-  attempt_and_launch_separate: true
-  launch_modes:
-    - remote_link
-    - local_station
+own_product_entities:
+  - internal_exam_inventory_ledger
+  - internal_exam_attempts
+  - internal_exam_attempt_questions
+  - internal_exam_launches
+  - internal_exam_launch_tokens
+  - internal_exam_results
+  - internal_exam_documents
 
 confirmed_actions:
   - open_internal_exam_management_panel
-  - view_free_exam_inventory
-  - view_paid_exam_inventory
-  - view_total_exam_inventory
+  - view_exam_inventory
   - open_exam_purchase
   - open_standalone_generate_exam_drawer
   - search_existing_student_for_exam
-  - enter_ad_hoc_exam_candidate
   - select_one_student_for_exam_generation
-  - open_generate_exam_for_selected_student
-  - view_candidate_exam_generation_data
+  - edit_candidate_exam_data
   - share_exam_link_by_email
   - start_exam_on_current_station
   - toggle_hide_finished_exams
   - search_exam_rows
   - open_exam_filters
+  - filter_by_multiple_course_categories
+  - filter_by_exam_status
   - open_exam_sorting
   - expand_exam_history
   - collapse_exam_history
-  - view_specific_exam_attempt_history_rows
-  - view_not_passed_attempt_status
   - open_exam_details
-  - redirect_to_tokenized_exam_result_frontend
-  - view_completed_exam_score_and_statistics
-  - navigate_completed_exam_question_numbers
   - review_specific_exam_question
   - download_exam_printout
-  - download_exam_answer_sheet_pdf
 
 remaining_gaps:
-  - candidate_data_edit_drawer
-  - exact_required_candidate_fields
   - exam_category_options
   - exam_language_options
-  - ad_hoc_candidate_persistence_behavior
-  - filter_options
   - sort_options
   - exact_search_fields
-  - passed_status_presentation
-  - positive_result_pdf_label
-  - pending_in_progress_statuses
+  - passed_status_table_visual
   - exact_displayed_datetime_semantics
   - free_vs_paid_consumption_order
   - free_monthly_reset_policy
   - exact_exam_unit_consumption_moment
   - exam_duration
-  - pagination
-  - empty_states
-  - success_error_messages
   - remote_link_ttl_revocation_and_resend
+  - success_error_states
