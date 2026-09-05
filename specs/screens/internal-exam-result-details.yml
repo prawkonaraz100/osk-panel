@@ -7,6 +7,8 @@ screen:
   confidence: USER_CONFIRMED_AUTH_RESULT_SCREEN
   verified_at: 2026-09-05
   doc: docs/63-internal-exam-result-details-screen.md
+  question_review_spec: specs/screens/internal-exam-question-review.yml
+  question_review_doc: docs/64-internal-exam-question-review.md
 
 purpose:
   - present_completed_attempt_result
@@ -14,11 +16,14 @@ purpose:
   - present_answer_statistics
 
 result_header:
-  observed:
-    score: 0
-    max_score: 74
-    result: failed
-    message: Niestety nie udało Ci się, spróbuj ponownie rozwiązać test.
+  observed_examples:
+    - score: 0
+      max_score: 74
+      result: failed
+    - score: 9
+      max_score: 74
+      result: failed
+  failed_message: Niestety nie udało Ci się, spróbuj ponownie rozwiązać test.
   passing_threshold: TO_VERIFY
 
 question_navigation:
@@ -33,24 +38,41 @@ question_navigation:
     count: 12
   total_count: 32
   each_question_number_is_review_navigation: true
-  observed_all_question_markers_failed_state: true
-  clicked_question_review_content: TO_VERIFY
+  marker_semantics:
+    green: correct
+    red: incorrect
+    dark_selected: currently_open_question
+  observed_9_point_state:
+    current_question: 1
+    green_questions: [2, 3, 4]
+    red_questions_range: 5-32
+
+question_review:
+  confidence: USER_CONFIRMED_RESULT_REVIEW_SCREEN
+  spec: specs/screens/internal-exam-question-review.yml
+  media_rendering_confirmed: true
+  question_text_confirmed: true
+  point_value_confirmed: true
+  category_confirmed: true
+  correct_answer_presentation_confirmed: true
+  selected_answer_presentation_confirmed: true
+  incorrect_feedback_confirmed: true
 
 statistics:
   cards:
     - id: basic
-      correct: 0
-      incorrect: 20
+      fields: [correct, incorrect]
       chart: donut
     - id: specialized
-      correct: 0
-      incorrect: 12
+      fields: [correct, incorrect]
       chart: donut
     - id: all
-      correct: 0
-      incorrect: 32
+      fields: [correct, incorrect]
       chart: donut
-  arithmetic_consistent: true
+  observed_zero_score_counts:
+    basic: {correct: 0, incorrect: 20}
+    specialized: {correct: 0, incorrect: 12}
+    all: {correct: 0, incorrect: 32}
 
 relationship_to_answer_sheet_pdf:
   same_attempt_snapshot: true
@@ -60,6 +82,7 @@ relationship_to_answer_sheet_pdf:
 own_product_requirements:
   immutable_attempt_result_projection: true
   do_not_recalculate_historical_result_from_current_question_bank: true
+  immutable_attempt_question_review_projection: true
   fields:
     - score
     - max_score
@@ -85,13 +108,20 @@ confirmed_actions:
   - view_basic_answer_statistics
   - view_specialized_answer_statistics
   - view_total_answer_statistics
+  - render_exam_question_media
+  - render_exam_question_text
+  - render_exam_question_point_value
+  - render_exam_question_category
+  - render_correct_answer
+  - render_candidate_selected_answer
+  - render_incorrect_answer_state
 
 remaining_gaps:
-  - clicked_question_review_content
-  - submitted_vs_correct_answer_presentation
-  - question_media_in_review
-  - explanation_in_review
+  - correctly_answered_question_review
+  - unanswered_question_review
+  - abc_answer_type_review
+  - image_question_review
+  - explanation_below_current_viewport
   - positive_result_screen
   - passing_threshold_display
-  - retry_action_presence
   - historical_result_token_ttl_and_revocation
