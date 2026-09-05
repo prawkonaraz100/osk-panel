@@ -1,0 +1,132 @@
+screen:
+  id: internal_exam_generation_access
+  scope: admin_osk
+  parent_route: /egzamin-wewnetrzny/panel
+  title: Generuj dostęp do egzaminu wewnętrznego
+  confidence: USER_CONFIRMED_AUTH_SCREEN
+  verified_at: 2026-09-05
+  doc: docs/65-internal-exam-generation-access-flow.md
+
+entry_points:
+  selected_student_row:
+    confirmed: true
+    steps:
+      - select_exactly_one_student_row
+      - UI_shows_ZAZNACZONE_1
+      - click_Generuj_egzaminy_1
+      - open_generation_drawer
+  standalone_generate_exam_button:
+    visible: true
+    exact_flow: TO_VERIFY
+  student_profile_entry:
+    previously_observed_equivalent_generation_drawer: true
+
+cardinality:
+  target_students_per_generation_flow: 1
+  batch_multi_student_generation_confirmed: false
+  user_confirmed_one_at_a_time: true
+
+inventory:
+  available_exam_count_visible: true
+  observed_available: 160
+
+candidate_card:
+  observed_student: Ala Nowak
+  fields:
+    category:
+      observed: B
+      editable_control: true
+    language:
+      observed: Polski
+      editable_control: true
+    first_name:
+      observed: Ala
+    last_name:
+      observed: Nowak
+    pkk:
+      observed: null
+    pesel:
+      observed: "000000000000"
+    email:
+      observed: alanowak@prawo-jazdy-360.pl
+  warning:
+    text: Uzupełnij dane kursanta
+    exact_trigger: TO_VERIFY
+  actions:
+    - remove_candidate_from_current_form
+    - edit_candidate_data
+
+launch_modes:
+  remote_link:
+    button_label: Udostępnij link do egzaminu
+    confirmed_behavior:
+      - generate_exam_link
+      - candidate_can_take_exam_anywhere_with_internet
+      - send_link_to_candidate_email
+    tokenized_link_required_for_own_product: true
+    ttl: TO_DECIDE
+    revocation: OWN_PRODUCT_REQUIRED
+  local_station:
+    button_label: Rozpocznij egzamin teraz
+    confirmed_behavior:
+      - start_internal_exam_on_current_computer_station
+    concurrent_candidate_limit_message: Dostępne tylko dla 1 kursanta jednocześnie.
+    concurrent_candidates_in_this_flow: 1
+
+own_product_model:
+  attempt_and_launch_separate: true
+  entities:
+    - internal_exam_attempt
+    - internal_exam_launch
+  launch_modes:
+    - remote_link
+    - local_station
+  launch_fields:
+    - id
+    - organization_id
+    - internal_exam_attempt_id
+    - mode
+    - token_or_session_reference
+    - created_at
+    - expires_at_nullable
+    - launched_at_nullable
+    - revoked_at_nullable
+    - created_by
+    - station_metadata_nullable
+
+own_product_validations:
+  - exactly_one_student_selected
+  - available_exam_inventory_greater_than_zero
+  - category_present
+  - language_present
+  - required_candidate_identity_data_present
+  - authorized_operator
+  - tenant_scope
+  - valid_email_required_for_remote_email_delivery
+
+confirmed_actions:
+  - select_one_student_for_exam_generation
+  - open_generate_exam_for_selected_student
+  - view_available_exam_inventory_in_generation_drawer
+  - view_candidate_exam_data
+  - change_exam_category
+  - change_exam_language
+  - remove_candidate_from_generation_form
+  - open_candidate_data_edit
+  - share_exam_link_by_email
+  - start_exam_on_current_station
+
+remaining_gaps:
+  - standalone_generate_exam_button_flow
+  - candidate_data_edit_drawer
+  - exact_required_candidate_fields
+  - validation_messages
+  - remote_link_success_state
+  - email_template
+  - local_station_transition_screen
+  - remote_link_ttl
+  - remote_link_revoke_behavior
+  - resend_link_behavior
+  - unused_link_behavior
+  - exact_inventory_consumption_moment
+  - free_vs_paid_inventory_consumption_order
