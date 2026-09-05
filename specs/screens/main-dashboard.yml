@@ -1,0 +1,132 @@
+screen:
+  id: main_dashboard
+  scope: admin_osk
+  route: /
+  title: Panel główny
+  confidence: USER_CONFIRMED_AUTH_SCREEN
+  verified_at: 2026-09-05
+  doc: docs/74-main-dashboard.md
+
+layout:
+  desktop_cards:
+    - licenses
+    - internal_exams
+    - notifications
+    - calendar
+
+licenses_card:
+  metrics:
+    - active_licenses
+    - available_licenses
+  observed_snapshot:
+    active_licenses: 15
+    available_licenses: 93
+  actions:
+    - more_to_license_panel
+    - assign_license
+    - buy_license
+  values_dynamic: true
+
+internal_exams_card:
+  metrics:
+    - available_exams
+  observed_snapshot:
+    available_exams: 160
+  actions:
+    - more_to_exam_panel
+    - conduct_exam
+    - buy_exam
+  values_dynamic: true
+
+notifications_card:
+  semantic_role: organization_activity_feed
+  scrollable: true
+  item_fields:
+    - event_type
+    - occurred_at
+    - summary
+    - actor
+    - optional_target_link
+    - optional_expand_action
+    - optional_payment_link
+  observed_event_types:
+    students:
+      - student_added
+      - student_changed
+      - student_archived
+      - student_restored
+    courses:
+      - course_added
+      - course_changed
+      - course_deleted
+    student_payments:
+      - student_payment_added
+      - student_installment_added
+      - student_payment_deleted
+    licenses:
+      - license_added
+      - license_deleted
+      - license_purchase_started
+    internal_exams:
+      - internal_exam_added
+      - internal_exam_completed
+      - internal_exam_purchase_started
+    calendar:
+      - calendar_event_added
+      - calendar_event_changed
+      - calendar_event_deleted
+    ads:
+      - ad_changed
+  activity_event_model_required: true
+  recommended_entity: organization_activity_events
+  changed_events_should_support_diff: true
+
+calendar_card:
+  source: shared_calendar_module
+  embedded: true
+  resource_sidebar_visible: false
+  controls:
+    - previous_period
+    - next_period
+    - today
+    - month_view
+    - week_view
+    - day_view
+    - full_calendar
+    - add_event
+  observed_default_capture: month_view
+
+architecture:
+  dashboard_is_projection_not_source_of_truth: true
+  source_modules:
+    - licenses
+    - internal_exam_inventory
+    - organization_activity_events
+    - calendar
+  optional_read_model: dashboard_summary
+
+confirmed_actions:
+  - open_main_dashboard
+  - view_active_license_count
+  - view_available_license_count
+  - open_license_management_from_dashboard
+  - assign_license_from_dashboard
+  - buy_license_from_dashboard
+  - view_available_exam_count
+  - open_exam_management_from_dashboard
+  - conduct_exam_from_dashboard
+  - buy_exam_from_dashboard
+  - view_organization_activity_feed
+  - open_linked_activity_entity
+  - open_activity_payment
+  - view_embedded_calendar
+  - open_full_calendar_from_dashboard
+  - add_calendar_event_from_dashboard
+  - switch_dashboard_calendar_view
+  - navigate_dashboard_calendar_period
+
+remaining_gaps:
+  - activity_expand_content
+  - activity_feed_pagination_or_lazy_loading
+  - role_based_widget_visibility
+  - empty_error_loading_states
