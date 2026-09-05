@@ -3,7 +3,7 @@
 Data weryfikacji: 2026-09-05
 
 **Kontekst:** `/kalendarz` -> `Dodaj wydarzenie`  
-**Źródło:** bieżący zalogowany ekran + screenshoty rozwiniętych selektorów przekazane podczas audytu  
+**Źródło:** bieżący zalogowany ekran + screenshoty rozwiniętych selektorów + ręczne przełączenie rodzaju `Wydarzenie` / `Jazda` podczas audytu  
 **Status:** `USER_CONFIRMED_AUTH_SCREEN`
 
 ---
@@ -19,14 +19,39 @@ Zaobserwowane ręcznie tworzone rodzaje:
 `Ważne daty` są widoczne jako filtr na głównym kalendarzu, ale **nie występują w selektorze rodzaju tego formularza**.
 
 Wniosek:
-- `important_date` nie powinno być traktowane jako zwykły ręczny event tworzony tym formularzem,
+- `important_date` nie jest zwykłym ręcznym eventem tworzonym tym formularzem,
 - dokładne źródło `Ważnych dat` pozostaje `TO_VERIFY`.
 
 ---
 
-## 2. Pola formularza
+## 2. Zachowanie po wyborze rodzaju
 
-### 2.1. Rodzaj wydarzenia *
+### Potwierdzone 2026-09-05
+
+Po wybraniu `Jazda`:
+- formularz **nie zmienia układu**,
+- nie pojawiają się dodatkowe pola,
+- nie znikają żadne pola,
+- etykiety `Kursant (opcjonalnie)`, `Instruktor (opcjonalnie)`, `Pojazd (opcjonalnie)` i `Miejsce spotkania (opcjonalnie)` pozostają bez zmian.
+
+To samo oznacza, że z punktu widzenia obserwowanego UI `Wydarzenie` i `Jazda` korzystają z **jednego wspólnego formularza**, a `Rodzaj wydarzenia` jest dyskryminatorem typu rekordu.
+
+### Ważna granica
+
+Nie potwierdzono zachowania backendu po kliknięciu `Zapisz` dla typu `Jazda`.
+
+Nie wolno więc automatycznie zakładać, że backend konkurenta:
+- nie ma dodatkowych walidacji,
+- nie sprawdza wymaganych zasobów,
+- nie stosuje innej logiki po zapisie.
+
+Potwierdzamy tylko **parytet widocznego formularza**.
+
+---
+
+## 3. Pola formularza
+
+### 3.1. Rodzaj wydarzenia *
 
 Kontrolka:
 - single select.
@@ -37,11 +62,11 @@ Potwierdzone opcje:
 
 Pole oznaczone `*`.
 
-### 2.2. Nazwa wydarzenia (opcjonalnie)
+### 3.2. Nazwa wydarzenia (opcjonalnie)
 
 Pole tekstowe.
 
-### 2.3. Data rozpoczęcia *
+### 3.3. Data rozpoczęcia *
 
 Dwie kontrolki:
 - data (`dd.mm.rrrr`),
@@ -52,7 +77,7 @@ Pole oznaczone `*`.
 Potwierdzony model czasu:
 - start ma datę i godzinę.
 
-### 2.4. Ilość godzin
+### 3.4. Ilość godzin
 
 Kontrolka czasu/trwania (`--:--`).
 
@@ -69,7 +94,7 @@ Dla naszego modelu rekomendowane:
 
 Dokładna walidacja i możliwość pustej wartości pozostają `TO_VERIFY`.
 
-### 2.5. Kursant (opcjonalnie)
+### 3.5. Kursant (opcjonalnie)
 
 Searchable single select.
 
@@ -82,7 +107,7 @@ Przykłady:
 - Paweł Kowalski + `pawelkowalskiprawojazdy360`,
 - Ala Nowak + `alanowakprawojazdy360`.
 
-### 2.6. Instruktor (opcjonalnie)
+### 3.6. Instruktor (opcjonalnie)
 
 Searchable single select.
 
@@ -96,18 +121,11 @@ Potwierdzone ostrzeżenia w dropdownie:
 - `Badania lekarskie wygasły <data>`,
 - `Badania psychologiczne wygasły <data>`.
 
-Przykłady:
-- Anna Nowak,
-- Jan Nowak.
-
-### Ważny wniosek
-Wybór instruktora pokazuje operatorowi ryzyko formalne **już w momencie planowania wydarzenia**.
-
 Nie potwierdzono jeszcze, czy wygasły dokument:
 - tylko ostrzega,
 - czy blokuje zapis jazdy.
 
-### 2.7. Pojazd (opcjonalnie)
+### 3.7. Pojazd (opcjonalnie)
 
 Searchable single select.
 
@@ -121,16 +139,9 @@ Potwierdzone ostrzeżenia:
 - `OC wygasło <data>`,
 - `Przegląd wygasł <data>`.
 
-Przykłady:
-- Yamaha MT-07 / PO XYZ360,
-- Hyundai i20 / PO XYZ321.
-
-### Ważny wniosek
-Wybór pojazdu pokazuje ważność dokumentów już w flow planowania.
-
 Nie potwierdzono, czy pojazd z wygasłym OC/przeglądem jest tylko ostrzegany czy technicznie blokowany.
 
-### 2.8. Miejsce spotkania (opcjonalnie)
+### 3.8. Miejsce spotkania (opcjonalnie)
 
 Single select.
 
@@ -143,11 +154,11 @@ Zaobserwowane grupy i wpisy:
 Widoczna jest także akcja/link:
 - `Inne?`
 
-Zachowanie `Inne?` pozostaje `TO_VERIFY` — najprawdopodobniej pozwala podać niestandardowe miejsce spotkania, ale nie zapisujemy tego jako potwierdzony fakt bez otwarcia kontrolki.
+Zachowanie `Inne?` pozostaje `TO_VERIFY`.
 
 ---
 
-## 3. Akcje
+## 4. Akcje
 
 Potwierdzone:
 - `Zapisz`,
@@ -156,7 +167,7 @@ Potwierdzone:
 
 ---
 
-## 4. Kardynalność zasobów
+## 5. Kardynalność zasobów
 
 Na tym formularzu każdy selektor jest pojedynczy:
 - max 1 kursant,
@@ -166,11 +177,11 @@ Na tym formularzu każdy selektor jest pojedynczy:
 
 To potwierdza kardynalność **dla pojedynczego ręcznie tworzonego eventu w tym ekranie**.
 
-Nie oznacza to, że cały model domenowy nigdy nie będzie potrzebował wielu uczestników (np. wykład grupowy). W naszym projekcie warto zachować możliwość rozszerzenia eventu o wielu uczestników bez łamania modelu.
+Nie oznacza to, że cały model domenowy nigdy nie będzie potrzebował wielu uczestników, np. dla wykładu grupowego.
 
 ---
 
-## 5. Ostrzeżenia compliance w selektorach
+## 6. Ostrzeżenia compliance w selektorach
 
 Formularz integruje dane z modułów:
 - `Pracownicy`,
@@ -186,7 +197,7 @@ Dla naszego produktu wymagane:
 
 ---
 
-## 6. Własny model wydarzenia
+## 7. Własny model wydarzenia
 
 Rekomendowany rdzeń:
 
@@ -204,11 +215,17 @@ Rekomendowany rdzeń:
   - `created_by`,
   - audit timestamps.
 
-`ends_at` może być wyliczane jako `starts_at + duration_minutes` lub utrzymywane jako wartość pochodna z odpowiednią spójnością.
+### Decyzja implementacyjna
+
+`Wydarzenie` i `Jazda` powinny korzystać z jednego komponentu formularza i jednego głównego modelu `calendar_events`, z polem `type` jako dyskryminatorem.
+
+Nie budujemy dwóch niemal identycznych formularzy.
+
+Backend naszego produktu może jednak nakładać własne, sensowne reguły biznesowe zależne od `type`, bez zmiany struktury formularza.
 
 ---
 
-## 7. Conflict/compliance engine dla naszego produktu
+## 8. Conflict/compliance engine dla naszego produktu
 
 Przed zapisem server powinien sprawdzić co najmniej:
 - konflikt instruktora,
@@ -224,7 +241,7 @@ UI może pokazać ostrzeżenie przed zapisem, ale walidacja krytyczna musi być 
 
 ---
 
-## 8. Potwierdzone akcje
+## 9. Potwierdzone akcje
 
 - `open_add_calendar_event_drawer`
 - `select_calendar_event_type`
@@ -243,15 +260,13 @@ UI może pokazać ostrzeżenie przed zapisem, ale walidacja krytyczna musi być 
 
 ---
 
-## 9. Pozostałe niewiadome
+## 10. Pozostałe niewiadome
 
 Najważniejsze:
-- czy wybranie `Jazda` zmienia/rozszerza pola formularza,
-- czy wybranie `Wydarzenie` zmienia pola formularza,
 - zachowanie `Inne?`,
 - dokładna semantyka `Ilość godzin`,
 - minimalny/maksymalny czas trwania,
-- czy kursant/instruktor/pojazd stają się wymagani dla typu `Jazda`,
+- czy backend wymaga kursanta/instruktora/pojazdu dla typu `Jazda` mimo braku zmiany UI,
 - czy system blokuje wygasłe dokumenty czy tylko ostrzega,
 - conflict messages,
 - recurrence,
