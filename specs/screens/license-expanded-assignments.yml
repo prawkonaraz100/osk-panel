@@ -1,0 +1,97 @@
+screen:
+  id: license_expanded_assignments
+  scope: admin_osk
+  parent_route: /licencje/panel
+  parent_screen: license_management_panel
+  trigger_action: expand_assigned_licenses
+  confidence: USER_CONFIRMED_AUTH_SCREEN
+  verified_at: 2026-09-05
+  doc: docs/54-license-expanded-assignments.md
+
+row_parent:
+  entity: learning_access
+  observed_assigned_license_count: 5
+  expanded_rows_observed: 5
+  count_matches_rows: true
+
+columns:
+  - learning_login_data
+  - assigned_at
+  - expires_at
+  - remaining_time
+  - status
+  - row_actions
+
+learning_login_projection:
+  - language_indicator
+  - learning_identifier
+
+observed_assignment_state:
+  state: assigned_not_activated
+  label: Nie aktywowano
+  expires_at_visible_value: null
+  remaining_time_visible_value: null
+  delete_action_visible: true
+
+observed_assigned_at_values:
+  - 2026-01-23T10:04
+  - 2026-01-23T08:41
+  - 2026-01-22T13:22
+  - 2026-01-22T13:04
+  - 2026-01-21T14:02
+
+newest_license_projection:
+  parent_row_timestamp_matches_newest_expanded_assignment: true
+  observed_parent_timestamp: 2026-01-23T10:04
+  interpretation: parent_newest_license_is_projection_of_latest_assignment
+
+confirmed_actions:
+  - expand_learning_access_license_assignments
+  - collapse_learning_access_license_assignments
+  - view_assignment_created_at
+  - view_assignment_expiry_date_column
+  - view_assignment_remaining_time_column
+  - view_assignment_status
+  - delete_unactivated_license_assignment
+
+own_product_model:
+  assignment_entity_required: true
+  fields:
+    - id
+    - organization_id
+    - learning_access_id
+    - inventory_entry_id
+    - license_product_id
+    - assigned_at
+    - activated_at_nullable
+    - expires_at_nullable
+    - state
+    - revoked_at_nullable
+    - revoked_by_nullable
+  lifecycle:
+    - assigned_not_activated
+    - active
+    - expired
+    - revoked
+  own_policy:
+    expires_at_set_on_activation: true
+    expires_at_formula: activated_at_plus_product_duration
+    remaining_time_derived: true
+    hard_delete_assignment_history: false
+    revoke_unactivated_returns_one_inventory_unit: true
+
+security_requirements:
+  - tenant_isolation
+  - authorize_assignment_view
+  - authorize_assignment_revoke
+  - transactional_inventory_restore
+  - audit_assignment_revoke
+  - prevent_revoke_of_states_not_allowed_by_policy
+
+remaining_gaps:
+  - active_assignment_expanded_row
+  - expired_assignment_expanded_row
+  - exact_expires_at_display_format
+  - exact_remaining_time_display_format
+  - product_duration_visibility_in_expanded_row
+  - mixed_state_ordering
