@@ -1,0 +1,135 @@
+screen:
+  id: student_add_course
+  scope: admin_osk
+  parent: student_detail
+  title: Dodaj kurs
+  confidence: USER_CONFIRMED_AUTH_SCREEN
+  verified_at: 2026-09-05
+  doc: docs/35-student-add-course-form.md
+
+fields:
+  training_type:
+    required_visible_marker: true
+    control: single_select
+    observed_options:
+      - basic_training
+      - supplementary_training
+    ui_labels:
+      basic_training: Szkolenie podstawowe
+      supplementary_training: Szkolenie uzupełniające
+
+  category:
+    required_visible_marker: true
+    control: single_select
+    observed_options:
+      - A
+      - B
+      - C
+      - D
+      - T
+      - A1
+      - B1
+      - C1
+      - D1
+      - AM
+      - A2
+      - B+E
+      - C1+E
+      - C+E
+      - D1+E
+      - D+E
+      - PT
+
+  pkk:
+    required_visible_marker: true
+    control: text_input
+
+  starts_at:
+    required_visible_marker: true
+    controls:
+      - date_picker
+      - time_picker
+
+  cost:
+    required_visible_marker: false
+    control: input
+
+  theory_hours:
+    required_visible_marker: false
+    control: input
+
+  theory_hours_external_school:
+    required_visible_marker: false
+    control: input
+
+  practice_hours:
+    required_visible_marker: true
+    control: input
+
+  practice_hours_external_school:
+    required_visible_marker: false
+    control: input
+
+  instructor_id:
+    required_visible_marker: true
+    control: searchable_single_select
+    placeholder: Zacznij wpisywać by wyszukać
+
+  location_id:
+    required_visible_marker: false
+    control: single_select
+    source: organization_locations
+
+actions:
+  - save_student_course
+  - cancel_student_course_create
+  - close_student_course_drawer
+
+confirmed_behavior:
+  course_is_separate_entity: true
+  course_has_single_category: true
+  course_has_training_type: true
+  course_can_have_location: true
+  course_requires_instructor_by_visible_ui: true
+  course_distinguishes_internal_and_external_training_hours: true
+  adding_course_is_prerequisite_for_training_stage_edit: true
+
+domain_model:
+  entity: student_courses_or_enrollments
+  suggested_fields:
+    - organization_id
+    - student_id
+    - training_type
+    - category_id
+    - pkk_reference
+    - starts_at
+    - course_cost
+    - theory_hours_planned
+    - theory_hours_external
+    - practice_hours_planned
+    - practice_hours_external
+    - instructor_id
+    - location_id
+    - training_stage
+
+security_requirements:
+  - tenant_isolation
+  - validate_student_belongs_to_organization
+  - validate_instructor_belongs_to_organization
+  - validate_location_belongs_to_organization
+  - validate_category_against_supported_dictionary
+  - protect_pkk_reference
+
+remaining_gaps:
+  - exact_backend_validations
+  - pkk_format_validation
+  - numeric_hour_constraints
+  - fractional_hour_support
+  - cost_currency_and_precision
+  - automatic_student_charge_creation_from_cost
+  - instructor_filtering_by_category
+  - location_filtering_by_type
+  - multiple_active_courses_behavior
+  - duplicate_course_pkk_behavior
+  - post_save_state
+  - success_error_messages
