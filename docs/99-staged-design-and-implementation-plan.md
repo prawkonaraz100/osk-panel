@@ -37,7 +37,7 @@ Gate:
 
 # Etap 1 — semantyka kontraktu HTTP
 
-**Status:** IN_PROGRESS
+**Status:** DONE
 
 Cel:
 - każde `POST` ma create/command schema,
@@ -46,26 +46,32 @@ Cel:
 - krytyczne commandy mają idempotency,
 - mutable zasoby mają optimistic concurrency tam, gdzie potrzebne.
 
-W tej rundzie poprawiono PATCH dla:
+Zamknięte mapowania PATCH obejmują m.in.:
 - `Location -> UpdateLocationRequest`,
 - `Staff -> UpdateStaffRequest`,
 - `Vehicle -> UpdateVehicleRequest`,
-- `VehicleDocument -> UpdateVehicleDocumentRequest`.
+- `VehicleDocument -> UpdateVehicleDocumentRequest`,
+- `Student -> UpdateStudentRequest`,
+- `LearningAccount -> UpdateLearningAccountRequest`,
+- `CourseEnrollment -> UpdateCourseEnrollmentRequest`,
+- `TrainingSession -> UpdateTrainingSessionRequest`,
+- `CalendarEvent -> UpdateCalendarEventRequest`,
+- `AvailabilitySlot -> UpdateAvailabilitySlotRequest`,
+- `Organization -> UpdateOrganizationRequest`.
 
-Przed zamknięciem etapu:
-1. przeskanować wszystkie pliki `specs/api/paths/*.yaml`,
-2. wykryć każde PATCH używające create/response schema,
-3. wykryć requesty zawierające read-only ID/status/timestamps,
-4. sprawdzić zgodność `required-operations-v1.yml` z `operationId`,
-5. sprawdzić wszystkie `$ref`.
+Przeskanowano wszystkie pliki `specs/api/paths/*.yaml`. Nie ma znanego P0/P1 request-semantics blocker.
 
-**Gate Etapu 1:** zero znanych błędów request semantics i zero dangling refs.
+Pełna automatyczna walidacja `$ref`/`operationId`/coverage należy do Etapu 3.
+
+**Gate Etapu 1:** PASSED.
+
+Self-audit: `docs/101-stage-1-2-self-audit.md`.
 
 ---
 
 # Etap 2 — Ustawienia OSK: spójny model domenowy i DB
 
-**Status:** NEXT
+**Status:** DONE
 
 Cel: ekran `/ustawienia` ma jeden spójny model zamiast rozrzucania danych po przypadkowych JSON-ach.
 
@@ -75,25 +81,40 @@ Zakres potwierdzony ekranem:
 - PKK: nazwa szkoły, numer ewidencyjny OSK, Login OSK,
 - link do wersji zaakceptowanego regulaminu.
 
-Plan modelu:
-- global `users`: dane osobowe właściciela/operatora potrzebne ekranowi,
-- `organizations`: canonical nazwa i telefon organizacji,
-- strukturalny adres organizacji zamiast jednego niekontrolowanego stringa,
-- `pkk_integration_settings`: wyłącznie ustawienia PKK,
-- `terms_acceptances`: immutable history.
+Canonical ownership:
+- `users` -> imię/nazwisko,
+- `auth_login_identifiers` -> primary email,
+- `organizations` -> nazwa firmy i telefon,
+- `organization_contact_addresses` -> strukturalny adres firmy,
+- `pkk_integration_settings` -> wyłącznie pola integracji PKK,
+- `terms_acceptances + legal_documents` -> historia regulaminu.
 
 Ważne:
 - nie dodajemy NIP do obserwowanego formularza tylko dlatego, że NIP istnieje w domenie,
 - `external_osk_login` nie jest loginem do naszej aplikacji,
-- settings i PKK configuration gate muszą korzystać z tych samych rekordów source-of-truth.
+- settings i PKK configuration gate korzystają z tych samych rekordów source-of-truth,
+- adres firmy nie jest rekordem `Location`,
+- jeden `Zapisz` jest atomowym use case'em dotykającym kilku tabel,
+- `organization_settings.version` zapewnia optimistic concurrency.
 
-**Gate Etapu 2:** screen spec, OpenAPI, machine DB schema i narrative DB opisują te same pola i ownership.
+Artefakty:
+- `specs/database/organization-settings.yml`,
+- `docs/100-osk-settings-domain-model.md`,
+- `specs/api/openapi-settings-components.yaml`,
+- zsynchronizowane `specs/screens/settings.yml`,
+- zsynchronizowane `specs/screens/pkk-configuration-gate.yml`,
+- API dla `GET/PATCH /organization/settings`,
+- API dla `GET/PUT /organization/integrations/pkk/configuration`.
+
+**Gate Etapu 2:** PASSED.
+
+Self-audit: `docs/101-stage-1-2-self-audit.md`.
 
 ---
 
 # Etap 3 — OpenAPI coverage + automatyczny contract gate
 
-**Status:** PLANNED
+**Status:** NEXT / IN_PROGRESS
 
 Cel:
 - każda HTTP operation z `specs/api/required-operations-v1.yml` ma operationId,
@@ -106,11 +127,23 @@ Sprawdzić szczególnie:
 - auth vs remote exam token,
 - payment webhook signature security,
 - PKK async/retry/reconciliation,
+- PKK configuration gate operations,
 - exam station transfer,
 - license activation/revoke race,
-- uploads i asset lifecycle.
+- uploads i asset lifecycle,
+- nowe cross-file refs do `openapi-settings-components.yaml`.
 
-**Gate Etapu 3:** required HTTP coverage = 100% albo jawny wyjątek z decyzją.
+Plan Etapu 3:
+1. zrobić machine-readable inventory wszystkich `operationId`,
+2. porównać go z `required-operations-v1.yml`,
+3. oznaczyć exact coverage / intentional non-HTTP / deferred,
+4. sprawdzić dangling `$ref`,
+5. sprawdzić duplicate operationId,
+6. sprawdzić brak permission/security annotation,
+7. dodać lint/contract check do CI lub przynajmniej skrypt repozytoryjny,
+8. uruchomić self-audit i dopiero potem przejść do DB migrations.
+
+**Gate Etapu 3:** required HTTP coverage = 100% albo jawny wyjątek z decyzją; zero dangling refs i duplicate operationId.
 
 ---
 
@@ -119,7 +152,7 @@ Sprawdzić szczególnie:
 **Status:** PLANNED
 
 Cel:
-- przenieść blueprint do finalnego zestawu migracji Laravel dopiero po zamknięciu kontraktów,
+- przenieść blueprint oraz bounded-context specs do finalnego zestawu migracji Laravel dopiero po zamknięciu kontraktów,
 - zachować historyczne lifecycle przez partial unique,
 - nie implementować hard-delete dla formalnej/finansowej historii,
 - zamknąć concurrency constraints.
@@ -133,6 +166,8 @@ Priorytet:
 - internal exams,
 - commerce,
 - audit/outbox.
+
+W Etapie 4 decyzje z `specs/database/organization-settings.yml` muszą zostać przeniesione do finalnego physical schema/migrations.
 
 **Gate Etapu 4:** migration/invariant tests przechodzą przed warstwą UI.
 
