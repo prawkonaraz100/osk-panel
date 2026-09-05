@@ -6,6 +6,9 @@ Data weryfikacji: 2026-09-05
 **Źródło:** bieżący zalogowany ekran + screenshot przekazany podczas audytu  
 **Status:** `USER_CONFIRMED_AUTH_SCREEN`
 
+Powiązany dokument konkretnej próby:
+- `docs/62-internal-exam-answer-sheet-pdf.md` — potwierdzony PDF `Pobierz wydruk`.
+
 ---
 
 ## 1. Znaczenie
@@ -137,7 +140,22 @@ Zaobserwowane endpointy mają wzorzec:
 
 Różne próby mają różne `exam_id` (np. 72479, 72478, 72468 itd.).
 
-Format i zawartość wydruku należy zmapować z pobranego dokumentu.
+Format i zawartość wydruku są już potwierdzone na rzeczywistym pobranym PDF-ie i opisane w:
+- `docs/62-internal-exam-answer-sheet-pdf.md`,
+- `specs/screens/internal-exam-answer-sheet-pdf.yml`.
+
+Potwierdzony wydruk zawiera m.in.:
+- dane kandydata,
+- datę i kategorię egzaminu,
+- wszystkie pozycje testowe,
+- identyfikatory pytań,
+- punktację per pytanie,
+- udzielone odpowiedzi,
+- punkty uzyskane,
+- sumę punktów,
+- wynik,
+- miejsce na podpis kursanta,
+- miejsce na podpis i pieczątkę osoby egzaminującej.
 
 ---
 
@@ -163,6 +181,8 @@ Format i zawartość wydruku należy zmapować z pobranego dokumentu.
 - `created_by`,
 - audit metadata.
 
+Dodatkowo, po potwierdzeniu wydruku, próba musi posiadać kolekcję niezmiennych pozycji egzaminu (`internal_exam_attempt_questions`) z identyfikatorem pytania, punktacją, odpowiedzią i punktami uzyskanymi.
+
 Wiersz główny panelu jest projekcją/agregatem nad próbami kursanta, a nie źródłem prawdy.
 
 ---
@@ -178,6 +198,7 @@ Wiersz główny panelu jest projekcją/agregatem nad próbami kursanta, a nie ź
 - `view_exam_attempt_language`
 - `open_specific_exam_attempt_details`
 - `download_specific_exam_attempt_printout`
+- `download_specific_exam_answer_sheet_pdf`
 
 ---
 
@@ -186,11 +207,13 @@ Wiersz główny panelu jest projekcją/agregatem nad próbami kursanta, a nie ź
 - każdy egzamin/próba ma własny stabilny ID,
 - timestamp nie jest identyfikatorem,
 - historyczne dane egzaminu są snapshotowane,
+- zestaw/kolejność pytań i odpowiedzi próby są snapshotowane,
 - statusy są jawne tekstowo w szczegółach/historii,
 - wiersz główny może używać ikony jako skrótu, ale musi mieć dostępny tekst statusu dla accessibility,
 - dokument i szczegóły są przypięte do konkretnego attemptu,
 - tenant isolation i autoryzacja per attempt,
-- wynik ukończonego egzaminu nie jest nadpisywany przez kolejną próbę.
+- wynik ukończonego egzaminu nie jest nadpisywany przez kolejną próbę,
+- ponowne wygenerowanie arkusza historycznego nie może zależeć od aktualnej wersji profilu kursanta ani aktualnej wersji pytań.
 
 ---
 
@@ -199,9 +222,9 @@ Wiersz główny panelu jest projekcją/agregatem nad próbami kursanta, a nie ź
 - wygląd/stany `Zaliczony`,
 - statusy egzaminu przed wykonaniem,
 - zachowanie egzaminu rozpoczętego i niedokończonego,
-- scoring/wynik punktowy,
 - czas trwania egzaminu,
 - zawartość `Szczegóły`,
-- zawartość `Pobierz wydruk`,
 - dokładne znaczenie pola `Data` (wygenerowanie/start/zakończenie) — ekran sam tego nie opisuje,
-- moment zużycia jednostki inventory.
+- moment zużycia jednostki inventory,
+- wygląd arkusza dla wyniku pozytywnego,
+- sposób renderowania rzeczywiście udzielonych odpowiedzi (`TAK/NIE`, `A/B/C` itd.).
