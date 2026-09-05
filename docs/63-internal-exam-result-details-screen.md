@@ -4,8 +4,12 @@ Data weryfikacji: 2026-09-05
 
 **Wejście:** `/egzamin-wewnetrzny/panel` -> konkretna próba -> `Szczegóły`  
 **Frontend:** `https://www.prawo-jazdy-360.pl/egzamin-wewnetrzny?pid=<opaque_token>`  
-**Źródło:** bieżący screenshot strony wynikowej przekazany podczas audytu  
+**Źródło:** bieżące screenshoty strony wynikowej przekazane podczas audytu  
 **Status:** `USER_CONFIRMED_AUTH/RESULT_SCREEN`
+
+Powiązany review konkretnego pytania:
+- `docs/64-internal-exam-question-review.md`
+- `specs/screens/internal-exam-question-review.yml`
 
 ---
 
@@ -26,20 +30,17 @@ Ekran pełni funkcje:
 
 ## 2. Wynik główny
 
-Zaobserwowany ekran pokazuje:
-- nagłówek `Twój wynik`,
-- wynik `0 z 74 pkt.`,
-- komunikat negatywny: `Niestety nie udało Ci się, spróbuj ponownie rozwiązać test.`
+Zaobserwowano m.in. dwa historyczne stany prób:
+- `0 z 74 pkt.` — wynik negatywny,
+- `9 z 74 pkt.` — wynik negatywny.
 
-To potwierdza maksymalną punktację prezentowaną przez ten egzamin:
+Potwierdzona maksymalna punktacja prezentowana przez ten egzamin:
 - `74 pkt.`
 
-W obserwowanym przypadku:
-- `score = 0`,
-- `max_score = 74`,
-- rezultat = negatywny / niezaliczony.
+Komunikat dla wyniku negatywnego:
+- `Niestety nie udało Ci się, spróbuj ponownie rozwiązać test.`
 
-Nie potwierdzono jeszcze progu zaliczenia z tego ekranu; nie hardkodujemy go na podstawie samego screena.
+Nie potwierdzono jeszcze progu zaliczenia z samego ekranu; nie hardkodujemy go na podstawie screena.
 
 ---
 
@@ -52,27 +53,27 @@ Numery są podzielone na:
 - `Pytania podstawowe`: 1–20,
 - `Pytania specjalistyczne`: 21–32.
 
-W obserwowanym negatywnym przypadku wszystkie przyciski 1–32 są oznaczone kolorem błędu.
-
 Potwierdzone:
 - 20 pytań podstawowych,
 - 12 pytań specjalistycznych,
 - 32 pytania łącznie,
 - każdy numer jest oddzielnym elementem nawigacyjnym.
 
-### Ważna granica
+### Semantyka stanów numerów pytań
 
-Na podstawie tego screena nie potwierdzono jeszcze zawartości widoku po kliknięciu konkretnego numeru pytania.
+Na ekranie wyniku `9/74` zaobserwowano:
+- pytanie 1 jako aktualnie otwarte — ciemny stan zaznaczenia,
+- pytania 2–4 — zielone,
+- pytania 5–32 — czerwone.
 
-Nie wiemy jeszcze, czy pokazuje:
-- pełną treść pytania,
-- media,
-- odpowiedź kursanta,
-- poprawną odpowiedź,
-- punktację,
-- wyjaśnienie.
+Po otwarciu pytania 1 potwierdzono, że było ono rozwiązane niepoprawnie.
 
-To wymaga kolejnego capture po kliknięciu numeru pytania.
+Wniosek:
+- zielony = poprawna odpowiedź,
+- czerwony = niepoprawna odpowiedź,
+- ciemny = aktualnie otwarte pytanie.
+
+Pełne mapowanie review pojedynczego pytania: `docs/64-internal-exam-question-review.md`.
 
 ---
 
@@ -81,26 +82,57 @@ To wymaga kolejnego capture po kliknięciu numeru pytania.
 Sekcja `Twoje statystyki` ma trzy karty:
 
 ### Pytania podstawowe
-- Poprawne: `0`,
-- Niepoprawne: `20`.
+- liczba poprawnych,
+- liczba niepoprawnych,
+- wykres pierścieniowy.
 
 ### Pytania specjalistyczne
-- Poprawne: `0`,
-- Niepoprawne: `12`.
+- liczba poprawnych,
+- liczba niepoprawnych,
+- wykres pierścieniowy.
 
 ### Wszystkie
-- Poprawne: `0`,
-- Niepoprawne: `32`.
+- liczba poprawnych,
+- liczba niepoprawnych,
+- wykres pierścieniowy.
 
-Każda karta zawiera wykres pierścieniowy/donut będący wizualną projekcją proporcji poprawnych i niepoprawnych odpowiedzi.
-
-W tym przypadku statystyki są arytmetycznie spójne:
-- `20 + 12 = 32`,
-- `0 poprawnych + 32 niepoprawne = 32`.
+Dla obserwowanego przypadku `0/74`:
+- podstawowe: 0 poprawnych / 20 niepoprawnych,
+- specjalistyczne: 0 poprawnych / 12 niepoprawnych,
+- wszystkie: 0 poprawnych / 32 niepoprawne.
 
 ---
 
-## 5. Relacja do PDF „Arkusz odpowiedzi”
+## 5. Review konkretnego pytania — potwierdzone
+
+Kliknięcie numeru pytania otwiera pełną historyczną pozycję egzaminu.
+
+Potwierdzone elementy:
+- media pytania; obserwowany przypadek zawiera wideo,
+- pełna treść pytania,
+- wartość punktowa pytania,
+- kategoria,
+- warianty odpowiedzi,
+- poprawna odpowiedź,
+- odpowiedź wybrana przez kursanta,
+- komunikat poprawności.
+
+W obserwowanym pytaniu:
+- wartość: 3 pkt,
+- kategoria: B,
+- typ: TAK/NIE,
+- poprawna odpowiedź: `Tak`,
+- kursant wybrał: `Nie`,
+- wybrana odpowiedź ma etykietę `WYBRANO`,
+- wynik: `Niepoprawna odpowiedź`.
+
+Poprawna odpowiedź jest oznaczona na zielono, błędnie wybrana odpowiedź na czerwono.
+
+Pełna specyfikacja: `specs/screens/internal-exam-question-review.yml`.
+
+---
+
+## 6. Relacja do PDF „Arkusz odpowiedzi”
 
 Ekran wynikowy i PDF reprezentują ten sam historyczny attempt, ale mają różne przeznaczenie:
 
@@ -109,7 +141,7 @@ Ekran wynikowy i PDF reprezentują ten sam historyczny attempt, ale mają różn
 - wynik punktowy,
 - nawigacja po pytaniach,
 - statystyki,
-- możliwość interaktywnego przeglądu odpowiedzi.
+- interaktywny przegląd odpowiedzi i treści pytania.
 
 ### PDF `Arkusz odpowiedzi`
 - dokument do druku/archiwizacji,
@@ -122,7 +154,7 @@ Oba widoki muszą korzystać z tego samego niezmiennego snapshotu próby.
 
 ---
 
-## 6. Model naszego produktu
+## 7. Model naszego produktu
 
 Dla zakończonego `internal_exam_attempt` frontend wyniku powinien pobierać immutable result projection:
 - `score`,
@@ -136,11 +168,13 @@ Dla zakończonego `internal_exam_attempt` frontend wyniku powinien pobierać imm
 - `total_incorrect_count`,
 - uporządkowaną listę `attempt_questions`.
 
+Każdy `attempt_question` musi zachować dane potrzebne do późniejszego review: treść/wersję pytania, media lub versioned reference, warianty odpowiedzi, odpowiedź poprawną, odpowiedź kursanta i scoring.
+
 Nie przeliczamy starego wyniku ponownie na podstawie aktualnej bazy pytań.
 
 ---
 
-## 7. Tokenized frontend
+## 8. Tokenized frontend
 
 Ekran jest dostępny przez:
 
@@ -158,7 +192,7 @@ Dla historycznego wyniku możemy mieć osobną politykę tokenu niż dla linku u
 
 ---
 
-## 8. Potwierdzone akcje
+## 9. Potwierdzone akcje
 
 - `open_completed_exam_result_details`
 - `view_exam_score`
@@ -170,16 +204,21 @@ Dla historycznego wyniku możemy mieć osobną politykę tokenu niż dla linku u
 - `view_basic_answer_statistics`
 - `view_specialized_answer_statistics`
 - `view_total_answer_statistics`
+- `render_exam_question_media`
+- `render_exam_question_text`
+- `render_correct_answer`
+- `render_candidate_selected_answer`
+- `render_incorrect_answer_state`
 
 ---
 
-## 9. Pozostałe niewiadome
+## 10. Pozostałe niewiadome
 
-- ekran po kliknięciu konkretnego numeru pytania,
-- sposób pokazania poprawnej vs udzielonej odpowiedzi,
-- media pytania w review,
-- czy pokazuje wyjaśnienie,
+- review pytania odpowiedzianego poprawnie,
+- review pytania bez odpowiedzi,
+- wariant A/B/C,
+- obraz zamiast wideo,
+- czy istnieje wyjaśnienie odpowiedzi niżej poza aktualnym viewportem,
 - wygląd wyniku pozytywnego,
 - próg zaliczenia prezentowany w UI,
-- możliwość ponownego uruchomienia egzaminu bezpośrednio z tego ekranu,
 - lifecycle/TTL tokenu dla historycznego wyniku.
