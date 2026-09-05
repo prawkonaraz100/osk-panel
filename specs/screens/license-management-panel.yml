@@ -10,6 +10,7 @@ screen:
   expanded_assignments_doc: docs/54-license-expanded-assignments.md
   generate_access_spec: specs/screens/license-generate-access.yml
   generate_access_doc: docs/55-license-generate-access-form.md
+  selected_existing_student_doc: docs/56-license-existing-student-selected-state.md
 
 inventory_cards:
   products:
@@ -37,7 +38,7 @@ primary_access_action:
   screen_spec: specs/screens/license-generate-access.yml
   confirmed_fields:
     - license_product_duration
-    - language
+    - language_for_new_access
     - new_learning_identifier_or_existing_student
   confirmed_product_options:
     - one_month
@@ -56,17 +57,26 @@ primary_access_action:
     - contact_email
     - learning_login
     - pesel
+  target_cardinality: exactly_one
+  multiple_search_results_select_one: true
+  bulk_assignment_supported: false
+  correction_note: earlier interpretation of three results as three selected targets was incorrect
 
 assigned_licenses_section:
   title: Przydzielone licencje
-  controls:
+  visible_controls:
     add_new_student: true
     select_visible: true
-    bulk_download_accesses: true
-    bulk_assign_license: true
+    download_accesses: true
+    assign_license: true
     hide_finished_licenses_toggle: true
     search: true
     sort: true
+  multi_row_selection_semantics: TO_VERIFY
+  download_accesses_multi_selection_semantics: TO_VERIFY
+  assign_license_semantics:
+    target_cardinality: exactly_one
+    multi_target_batch: false
 
 row_granularity:
   primary_entity: learning_access
@@ -146,11 +156,10 @@ row_actions:
   - action: expand_assigned_licenses
     label: Rozwiń
 
-bulk_behavior:
-  actions_disabled_without_selection_observed: true
-  selection_count_projection_observed: true
-  exact_selected_scope: visible_rows
-  exact_bulk_result: TO_VERIFY
+selection_behavior:
+  select_visible_control_observed: true
+  exact_multi_selection_purpose: TO_VERIFY
+  do_not_infer_bulk_assignment_from_selection: true
 
 finished_license_filter:
   label: Ukryj licencje zakończone
@@ -184,6 +193,7 @@ own_product_model:
   revoke_unactivated_restores_inventory: true
   active_assignment_normal_revoke_disabled: true
   common_assignment_service_across_entry_points: true
+  assignment_target_cardinality: one
   language_catalog_capability_driven: true
   target_modes_for_generate_access:
     - new_learning_access
@@ -195,15 +205,13 @@ confirmed_actions:
   - open_license_purchase_from_inventory_card
   - generate_student_learning_access
   - select_license_product_duration_for_generation
-  - select_language_for_generation
+  - select_language_for_new_access
   - enter_new_learning_identifier
   - search_existing_student_for_license
-  - select_existing_student_for_license
-  - submit_license_assignment
+  - select_one_existing_student_for_license
+  - submit_single_target_license_assignment
   - add_new_student_from_license_panel
   - select_visible_learning_accesses
-  - bulk_download_access_credentials
-  - bulk_assign_license
   - toggle_hide_finished_licenses
   - search_license_accesses
   - open_license_sorting
@@ -231,15 +239,14 @@ security_requirements:
   - audit_license_revoke
   - audit_credential_download
   - authorize_student_profile_cross_link_by_organization
-  - bulk_actions_must_validate_every_selected_resource
 
 remaining_gaps:
   - expired_assignment_expanded_row
   - sort_options
   - exact_search_fields_main_table
   - active_inventory_exact_semantics
-  - bulk_assign_license_flow
-  - bulk_download_output
+  - exact_multi_row_selection_purpose
+  - download_accesses_multi_selection_behavior
   - finished_license_filter_mixed_history_behavior
   - exact_stack_rule_exceptions
   - expired_access_extension_behavior
