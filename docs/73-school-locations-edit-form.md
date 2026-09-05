@@ -57,10 +57,19 @@ Ważna obserwacja:
 - akcja ta jest widoczna również dla rekordu typu `Sala wykładowa`,
 - dlatego etykietę `Archiwizuj filie` traktujemy jako niespójność/ogólną etykietę konkurenta, a nie jako dowód, że archiwizować można wyłącznie typ `Filia`.
 
-Dla własnego produktu używamy neutralnej nazwy:
-- `Archiwizuj lokalizację`.
+Podczas audytu próba użycia archiwizacji w trybie demonstracyjnym była niedostępna / zablokowana. Nie możemy więc potwierdzić dokładnego modala konkurenta ani skutków tej operacji.
 
-Dokładny modal potwierdzenia i skutki archiwizacji pozostają `TO_VERIFY_AUTH` do chwili kliknięcia tej akcji.
+**Decyzja dla własnego produktu:** ten brak nie blokuje implementacji. Używamy neutralnej nazwy `Archiwizuj lokalizację` i projektujemy bezpieczny soft-archive.
+
+Rekomendowany własny flow:
+1. kliknięcie `Archiwizuj lokalizację`,
+2. modal potwierdzenia z nazwą i adresem lokalizacji,
+3. informacja, że historyczne wydarzenia i dokumenty nie zostaną usunięte,
+4. potwierdzenie archiwizacji,
+5. `status = archived`,
+6. lokalizacja znika z domyślnych list do nowych przypisań,
+7. może być pokazana po włączeniu filtra `Pokaż zarchiwizowane`,
+8. opcjonalna akcja `Przywróć lokalizację`.
 
 ## 6. Model naszego produktu
 
@@ -72,13 +81,14 @@ Edycja aktualizuje bieżący `school_location`, ale historia zmian ważnych pól
 - actor,
 - timestamp.
 
-Archiwizacja powinna być soft-state:
+Archiwizacja jest soft-state:
 - `status = archived`,
 - bez fizycznego kasowania historycznych relacji,
 - istniejące wydarzenia/kursy/dokumenty zachowują historyczny snapshot lub referencję,
-- zarchiwizowana lokalizacja nie powinna być domyślnie proponowana do nowych przypisań.
+- zarchiwizowana lokalizacja nie jest domyślnie proponowana do nowych przypisań,
+- przywrócenie może ustawić `status = active` z audytem.
 
-## 7. Potwierdzone akcje
+## 7. Potwierdzone akcje konkurenta
 
 - `open_edit_school_location_drawer`
 - `edit_school_location_type`
@@ -89,11 +99,14 @@ Archiwizacja powinna być soft-state:
 - `save_school_location_changes`
 - `cancel_school_location_edit`
 - `archive_school_location_action_visible`
+- `archive_action_blocked_in_demo`
 
-## 8. Pozostałe niewiadome
+## 8. Nieobserwowalne szczegóły konkurenta
 
-- modal po kliknięciu `Archiwizuj filie`,
-- czy archiwizację można cofnąć,
-- gdzie wyświetlane są zarchiwizowane lokalizacje,
-- zachowanie powiązań z kalendarzem, pojazdami, pracownikami i kursantami,
-- exact komunikaty sukcesu/błędu.
+Z powodu blokady demo nie znamy:
+- dokładnego modala potwierdzenia,
+- czy konkurent pozwala cofnąć archiwizację,
+- gdzie pokazuje zarchiwizowane rekordy,
+- dokładnych komunikatów sukcesu/błędu.
+
+Te elementy projektujemy elastycznie we własnym systemie zgodnie z decyzją powyżej i nie traktujemy ich jako blokady mapowania modułu.
