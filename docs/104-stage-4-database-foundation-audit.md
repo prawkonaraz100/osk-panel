@@ -2,7 +2,7 @@
 
 Data: 2026-09-05
 
-**Status:** `IN_PROGRESS / DB-FOUND-001 PASS / DB-FOUND-002 PASS / FOUNDATION_GATE_FAIL`
+**Status:** `IN_PROGRESS / DB-FOUND-001 PASS / DB-FOUND-002 PASS / DB-FOUND-003 PASS / FOUNDATION_GATE_FAIL`
 
 ## Cel
 
@@ -64,12 +64,6 @@ Global/non-tenant scope:
 - unique `(operation_key, idempotency_key)`
 - where `organization_id IS NULL`.
 
-Skutek:
-- retry w tym samym OSK nie może podwójnie wykonać tego samego commandu,
-- globalny command nie może zostać claimed dwa razy tylko dlatego, że `organization_id=NULL`,
-- ten sam client-generated key może poprawnie istnieć w dwóch różnych OSK,
-- globalny namespace jest oddzielony od tenantowych namespace'ów.
-
 ### `account_closure_requests`
 
 Organization-specific pending request:
@@ -80,49 +74,59 @@ Global pending request:
 - unique `(user_id)`
 - where `status='pending' AND organization_id IS NULL`.
 
-Skutek:
-- jeden user może mieć najwyżej jeden globalny pending closure request,
-- jeden user może mieć najwyżej jeden pending request dla danego OSK,
-- requesty tego samego usera dotyczące dwóch różnych OSK nie kolidują.
-
-Nie wymagamy PostgreSQL `NULLS NOT DISTINCT`; jawne partial indexes są bardziej przenośne w ramach naszego założonego schematu i wyraźnie dokumentują dwa różne namespace'y.
-
 Do obowiązkowych migration/invariant tests dodano osobne przypadki dla globalnego scope, tenantowego scope i rozdzielenia scope'ów.
 
 **Gate DB-FOUND-002: PASS.**
 
-## DB-FOUND-003 — OPEN: `organization_contact_addresses` nie jest w core inventory
+## DB-FOUND-003 — PASS: `organization_contact_addresses` ma canonical physical target
 
-Etap 2 prawidłowo ustalił, że adres firmy:
-- nie jest `Location`,
-- ma osobny canonical owner,
-- powinien być zapisany w `organization_contact_addresses`.
+Problem został zamknięty bez scalania pozostałych pól Ustawień.
 
-Jednak `core-schema.yml` nadal nie ma tej tabeli w `core_tables`, a `docs/87-physical-database-schema.md` nadal nie definiuje jej fizycznie. Migracje wygenerowane wyłącznie ze starego core blueprintu zgubiłyby potwierdzony ekran Ustawień.
+`organization_contact_addresses` jest teraz:
+- jawnie wpisane do `core_tables.identity` w `specs/database/core-schema.yml`,
+- jawnie opisane w `organization_model`,
+- fizycznie zdefiniowane w `docs/87-physical-database-schema.md`,
+- one-to-one z `organizations` przez `organization_id uuid PK/FK`,
+- odseparowane od `locations`, które pozostaje zasobem szkoleniowym.
 
-To jest **następny i jedyny** problem do rozwiązania.
+Physical shape zachowuje ustalenia z Etapu 2:
+- `street`,
+- `house_number`,
+- `unit_number`,
+- `postal_code`,
+- `city_name`,
+- `city_reference`,
+- `voivodeship_name`,
+- `country_code`,
+- timestampy.
 
-## DB-FOUND-004 — OPEN: Stage-2 settings nie zostały jeszcze scalone do physical core
+Dodano też migration/invariant obligations:
+- najwyżej jeden structured company/contact address na Organization,
+- zapis/edycja adresu firmy nie tworzy rekordu `locations`.
 
-Do physical blueprintu trzeba jawnie przenieść m.in.:
+W tym kroku **celowo nie przenoszono** jeszcze `users.first_name/last_name`, `organizations.phone`, primary-email flag, settings version ani finalnego PKK settings shape. To należy wyłącznie do DB-FOUND-004.
+
+**Gate DB-FOUND-003: PASS.**
+
+## DB-FOUND-004 — OPEN: Stage-2 settings nie zostały jeszcze w pełni scalone do physical core
+
+Do physical blueprintu trzeba teraz jawnie przenieść pozostałe elementy z Etapu 2:
 - `users.first_name`,
 - `users.last_name`,
 - `organizations.phone`,
 - `auth_login_identifiers.is_primary_for_type`,
 - partial unique dla bieżącego primary email,
 - `organization_settings.version`,
-- pełny `organization_contact_addresses`,
-- finalny physical shape `pkk_integration_settings` wynikający z Etapu 2.
+- finalny physical shape `pkk_integration_settings` wynikający z `specs/database/organization-settings.yml`.
+
+`organization_contact_addresses` jest już zamknięte przez DB-FOUND-003 i nie jest ponownie projektowane w tym kroku.
 
 Nie tworzymy dla tych danych alternatywnych JSONB ani duplicate shadow columns.
 
-Nie naprawiono tego jeszcze.
-
-## Czego celowo nie naprawiono w tym kroku
+## Czego celowo nie naprawiono w DB-FOUND-003
 
 Nie dotykaliśmy:
-- `organization_contact_addresses`,
-- Stage-2 settings merge poza nullable uniqueness,
+- pozostałego Stage-2 settings merge,
 - tenant-safe FK dla staff/location/vehicle/course,
 - constraintów kalendarza,
 - ledgerów czasu,
@@ -136,18 +140,18 @@ Nie dotykaliśmy:
 
 Każdy z tych obszarów dostaje osobny slice i gate.
 
-## Gate po Stage 4.3
+## Gate po Stage 4.4
 
-Foundation gate jako całość pozostaje `FAIL`, ponieważ dwa P1 są nadal otwarte. To jest oczekiwane i nie blokuje uznania DB-FOUND-002 za zamknięty.
+Foundation gate jako całość pozostaje `FAIL`, ponieważ jeden P1 jest nadal otwarty. To jest oczekiwane i nie blokuje uznania DB-FOUND-003 za zamknięty.
 
 Aktualny wynik:
 - `DB-FOUND-001` — **PASS**,
 - `DB-FOUND-002` — **PASS**,
-- `DB-FOUND-003` — **FAIL / OPEN**,
+- `DB-FOUND-003` — **PASS**,
 - `DB-FOUND-004` — **FAIL / OPEN**.
 
 Następny pojedynczy krok:
 
-**DB-FOUND-003 — dodać `organization_contact_addresses` do canonical core inventory i physical blueprint, bez scalania pozostałych pól settings z DB-FOUND-004.**
+**DB-FOUND-004 — scalić pozostałe canonical pola i constrainty Ustawień OSK z Etapu 2 do physical core.**
 
-Dopiero po jego PASS przechodzimy do pełnego Stage-2 settings merge.
+Dopiero po jego PASS kończymy foundation slice i przechodzimy do `DB4_2_IDENTITY_TENANT_RBAC`.
