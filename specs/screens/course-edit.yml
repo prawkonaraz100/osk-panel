@@ -1,0 +1,116 @@
+screen:
+  id: course_edit
+  scope: admin_osk
+  context: student_profile_course_pkk
+  confidence: USER_CONFIRMED_AUTH_SCREEN
+  verified_at: 2026-09-05
+  doc: docs/78-course-edit-form.md
+
+header:
+  pattern: "Kurs: {pkk_number}"
+
+fields:
+  training_type:
+    required: true
+    control: select
+    options_confirmed:
+      - basic
+      - supplementary
+    labels:
+      basic: Szkolenie podstawowe
+      supplementary: Szkolenie uzupełniające
+  license_category:
+    required: true
+    control: select
+    options_confirmed:
+      - A
+      - B
+      - C
+      - D
+      - T
+      - A1
+      - B1
+      - C1
+      - D1
+      - AM
+      - A2
+      - B+E
+      - C1+E
+      - C+E
+      - D1+E
+      - D+E
+      - PT
+  pkk_number:
+    required: true
+  started_at:
+    required: true
+    control: datetime
+  course_cost:
+    control: readonly
+    editing_location: payments_section
+  theory_hours_current_osk:
+    required: false
+  theory_hours_previous_osk:
+    required: false
+  practice_hours_current_osk:
+    required: true
+  practice_hours_previous_osk:
+    required: false
+  lead_instructor:
+    required: true
+    control: searchable_select
+  location:
+    required: false
+    control: select
+
+actions:
+  - save
+  - cancel
+  - close
+
+observed_example:
+  training_type: basic
+  license_category: A
+  pkk_number: "445645645646455"
+  started_at: "2026-01-27T15:40:00"
+  course_cost: 4000.00
+  theory_hours_current_osk: 10
+  theory_hours_previous_osk: 20
+  practice_hours_current_osk: 30
+  practice_hours_previous_osk: 0
+  lead_instructor: Anna Nowak
+  location: Plan nauki jazdy
+
+business_rules:
+  course_cost:
+    editable_here: false
+    edit_via: student_payments
+  hours:
+    separate_current_and_previous_school: true
+    own_product_source_of_truth: training_sessions_plus_recognized_external_hours
+  editing:
+    allowed_after_creation: true
+    preserve_history: true
+    recalculate_requirements_after_change: true
+    closed_course_changes_require_correction_mode: true
+
+confirmed_actions:
+  - open_course_edit_drawer
+  - edit_training_type
+  - edit_license_category
+  - edit_pkk_number
+  - edit_course_start_datetime
+  - edit_theory_hours
+  - edit_theory_hours_from_previous_school
+  - edit_practice_hours
+  - edit_practice_hours_from_previous_school
+  - change_lead_instructor
+  - change_course_location
+  - save_course_changes
+  - cancel_course_edit
+
+remaining_gaps:
+  - exact_pkk_change_validation
+  - category_change_after_completed_training
+  - conflicts_with_existing_internal_exam
+  - exact_success_error_messages
