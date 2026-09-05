@@ -1,0 +1,222 @@
+paths:
+  /license-products:
+    get:
+      tags: [Licenses]
+      operationId: licenseProductsList
+      x-requirement-id: license_products.list
+      x-permission: licenses.view
+      responses:
+        '200':
+          description: Configured license products and duration variants
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '../openapi-components-v1.yaml#/components/schemas/LicenseProduct' } }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /license-products/{productId}/languages:
+    get:
+      tags: [Licenses]
+      operationId: licenseProductsLanguages
+      x-requirement-id: license_products.languages
+      x-permission: licenses.view
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/ProductId' }
+      responses:
+        '200':
+          description: Languages supported by this product; do not infer from global language dictionary
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '../openapi-components-v1.yaml#/components/schemas/LanguageCapability' } }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /license-inventory:
+    get:
+      tags: [Licenses]
+      operationId: licenseInventoryList
+      x-requirement-id: license_inventory.list
+      x-permission: licenses.view
+      parameters:
+        - name: product_id
+          in: query
+          schema: { type: string, format: uuid }
+        - name: status
+          in: query
+          schema: { type: array, items: { type: string } }
+          style: form
+          explode: true
+      responses:
+        '200':
+          description: OSK license inventory; each row is one unit
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '../openapi-components-v1.yaml#/components/schemas/LicenseInventoryEntry' } }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /license-orders:
+    post:
+      tags: [Licenses]
+      operationId: licenseOrdersCreate
+      x-requirement-id: license_orders.create
+      x-permission: licenses.purchase
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/LicenseOrderRequest' }
+      responses:
+        '201':
+          description: License order created; inventory grant occurs only after payment confirmation/grant rule
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/Order' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /license-assignments:
+    get:
+      tags: [Licenses]
+      operationId: licenseAssignmentsList
+      x-requirement-id: license_assignments.list
+      x-permission: licenses.view
+      x-covers-requirements:
+        - license_management.search
+        - license_management.sort
+        - license_management.hide_finished
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/Page' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/PerPage' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/Search' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/Sort' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/Direction' }
+        - name: hide_finished
+          in: query
+          schema: { type: boolean, default: false }
+        - name: status
+          in: query
+          schema: { type: array, items: { type: string } }
+          style: form
+          explode: true
+        - name: student_id
+          in: query
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: License management rows with active/history projections
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: '../openapi-components-v1.yaml#/components/schemas/LicenseAssignment' } }
+                  meta: { $ref: '../openapi-components-v1.yaml#/components/schemas/PaginationMeta' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+    post:
+      tags: [Licenses]
+      operationId: licenseAssignmentsCreate
+      x-requirement-id: license_assignments.create
+      x-permission: licenses.assign
+      x-invariant: exactly_one_target_per_assignment_command
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/CreateLicenseAssignmentRequest' }
+      responses:
+        '201':
+          description: Inventory unit assigned to exactly one learning account target
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/LicenseAssignment' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /license-assignments/{assignmentId}:
+    get:
+      tags: [Licenses]
+      operationId: licenseAssignmentsGet
+      x-requirement-id: license_assignments.get
+      x-permission: licenses.view
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/AssignmentId' }
+      responses:
+        '200':
+          description: License assignment
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/LicenseAssignment' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /license-assignments/{assignmentId}/activate:
+    post:
+      tags: [Licenses]
+      operationId: licenseAssignmentsActivate
+      x-requirement-id: license_assignments.activate
+      x-permission: licenses.activate
+      x-invariant: activation_and_entitlement_extension_exactly_once_under_lock
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/AssignmentId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+      responses:
+        '200':
+          description: License activated; effective period is stacked atomically after current entitlement where applicable
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/LicenseActivation' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /license-assignments/{assignmentId}/revoke-unactivated:
+    post:
+      tags: [Licenses]
+      operationId: licenseAssignmentsRevokeUnactivated
+      x-requirement-id: license_assignments.revoke_unactivated
+      x-permission: licenses.revoke_unactivated
+      x-invariant: revoke_and_restore_exactly_one_inventory_entry_atomically
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/AssignmentId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/ReasonRequest' }
+      responses:
+        '200': { description: Unactivated assignment revoked and exactly one inventory unit restored }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /students/{studentId}/learning-accounts/{accountId}/license-assignments:
+    get:
+      tags: [Licenses]
+      operationId: licenseAssignmentsHistoryForLearningAccount
+      x-requirement-id: license_management.expand_history
+      x-permission: licenses.view
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/StudentId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/AccountId' }
+      responses:
+        '200':
+          description: Historical license assignments including revoked and expired periods
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '../openapi-components-v1.yaml#/components/schemas/LicenseAssignment' } }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /learning-accesses/bulk-access-document:
+    post:
+      tags: [Licenses, StudentAccess]
+      operationId: licenseCredentialsBulkPdf
+      x-requirement-id: license_credentials.bulk_pdf
+      x-permission: licenses.access_documents.download
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [learning_account_ids]
+              properties:
+                learning_account_ids:
+                  type: array
+                  minItems: 1
+                  items: { type: string, format: uuid }
+                regenerate_credentials_when_required: { type: boolean, default: false }
+      responses:
+        '200':
+          description: Bulk access PDF; old plaintext passwords are never recovered
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
