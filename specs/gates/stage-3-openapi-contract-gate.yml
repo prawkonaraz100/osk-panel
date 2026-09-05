@@ -3,8 +3,9 @@ meta:
   stage: 3
   name: openapi_coverage_and_contract_gate
   branch: docs-consolidation-2026-09-05
-  status: IN_PROGRESS
+  status: PASS
   started_at: 2026-09-05
+  completed_at: 2026-09-05
   rule: stage_4_must_not_start_until_this_gate_is_PASS
 
 scope:
@@ -145,16 +146,6 @@ quality_checks:
   every_component_and_schema_ref_resolves:
     status: PASS
     stage_step: STAGE3_STEP_8
-    audit_scope:
-      - specs/api/paths/auth-organization.yaml
-      - specs/api/paths/students-courses.yaml
-      - specs/api/paths/pkk-calendar.yaml
-      - specs/api/paths/resources.yaml
-      - specs/api/paths/licenses.yaml
-      - specs/api/paths/internal-exams.yaml
-      - specs/api/paths/commerce-dashboard.yaml
-      - specs/api/openapi-components-v1.yaml
-      - specs/api/openapi-settings-components.yaml
     result:
       dangling_parameter_refs: 0
       dangling_response_refs: 0
@@ -181,24 +172,21 @@ quality_checks:
         - request_schema_readOnly_rejection
     ci:
       workflow: .github/workflows/api-contract-gate.yml
-      triggers:
-        - pull_request_for_contract_files
-        - push_for_contract_files
       permissions: contents_read_only
       python: '3.12'
       dependency: PyYAML_6_0_2
     static_audit: PASS
-    runtime_note: >-
-      No pull-request-triggered workflow run is currently observable for the new
-      workflow on this isolated branch. This does not reopen CI-001 because the
-      Stage-3 plan permits an executable repository validator as the minimum gate;
-      the workflow is additionally wired so the same command becomes CI-enforced
-      when GitHub runs the workflow. The first observed CI execution remains a
-      pre-merge check, not permission to skip the repository validator.
+    first_observed_CI_run_required_before_merge: true
 
   final_stage_3_contract_convergence:
-    status: PENDING_STATUS_FREEZE_AND_SELF_AUDIT
+    status: PASS
     stage_step: STAGE3_STEP_11
+    evidence:
+      - specs/api/required-operations-v1.yml coverage_status is frozen to PASS
+      - docs/99-staged-design-and-implementation-plan.md marks Stage 3 DONE and Stage 4 NEXT_NOT_STARTED
+      - docs/103-stage-3-final-contract-audit.md records the final self-audit
+      - no Stage-3 P0/P1 blocker remains open
+      - reverse-engineering capability preservation remains mandatory
 
 resolved_blockers:
   - id: TRACE-001
@@ -226,15 +214,13 @@ gate_definition:
     - traceability_is_synchronized
     - executable_contract_lint_exists_and_is_wired_to_CI_or_explicit_repo_command
     - final_statuses_and_stage_self_audit_are_synchronized
-  current_result: FAIL_PENDING_FINAL_STATUS_FREEZE
-  may_start_stage_4: false
+  current_result: PASS
+  may_start_stage_4: true
 
-next_single_step:
-  id: STAGE3_STEP_11
-  action: freeze_stage_3_coverage_status_write_final_self_audit_and_close_stage_3_only
-  allowed_scope:
-    - specs/api/required-operations-v1.yml
-    - specs/gates/stage-3-openapi-contract-gate.yml
-    - docs/99-staged-design-and-implementation-plan.md
-    - docs/103-stage-3-final-contract-audit.md
-  scope_lock: do_not_modify_database_domain_UI_or_start_stage_4_until_this_final_gate_is_PASS
+next_stage:
+  id: STAGE_4
+  name: database_invariants_and_migration_design
+  status: NOT_STARTED
+  first_rule: >-
+    Start with diagnosis/inventory only. Do not edit all database areas at once.
+    Establish a Stage-4 gate and close one database-invariant slice at a time.
