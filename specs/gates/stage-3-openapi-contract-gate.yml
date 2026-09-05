@@ -1,0 +1,117 @@
+meta:
+  project: osk-panel
+  stage: 3
+  name: openapi_coverage_and_contract_gate
+  branch: docs-consolidation-2026-09-05
+  status: IN_PROGRESS
+  started_at: 2026-09-05
+  rule: stage_4_must_not_start_until_this_gate_is_PASS
+
+scope:
+  only:
+    - specs/api/openapi-v1.yaml
+    - specs/api/openapi-components-v1.yaml
+    - specs/api/openapi-settings-components.yaml
+    - specs/api/paths/*.yaml
+    - specs/api/required-operations-v1.yml
+    - specs/traceability/core-v1.yml
+  explicitly_out_of_scope_for_this_stage:
+    - new_database_migration_design
+    - calendar_overlap_ADR
+    - encryption_key_rotation_ADR
+    - legal_category_PT_resolution
+    - UI_implementation
+    - Laravel_code
+
+quality_checks:
+  stage_1_patch_semantics_preserved:
+    status: PASS
+    evidence:
+      - Location PATCH uses UpdateLocationRequest
+      - Staff PATCH uses UpdateStaffRequest
+      - Vehicle PATCH uses UpdateVehicleRequest
+      - VehicleDocument PATCH uses UpdateVehicleDocumentRequest
+      - AvailabilitySlot PATCH uses UpdateAvailabilitySlotRequest
+
+  pkk_configuration_gate_in_required_inventory:
+    status: PASS
+    required_operations:
+      - pkk.configuration_gate.get
+      - pkk.configuration_gate.save_and_continue
+
+  pkk_configuration_gate_in_openapi_root:
+    status: PASS
+    path: /organization/integrations/pkk/configuration
+
+  pkk_configuration_gate_path_contract:
+    status: PASS
+    operations:
+      - GET organizationPkkConfigurationGateGet
+      - PUT organizationPkkConfigurationGateSave
+    properties:
+      - same_source_of_truth_as_organization_settings
+      - atomic_save_of_user_names_and_PKK_configuration
+      - If-Match_concurrency
+      - Idempotency-Key_on_save
+
+  traceability_matches_required_inventory:
+    status: FAIL
+    blocker_id: TRACE-001
+    details: >-
+      specs/traceability/core-v1.yml still lists PKK settings operations but does
+      not yet list pkk.configuration_gate.get and
+      pkk.configuration_gate.save_and_continue. The organization_settings module
+      also needs the Stage-2 canonical ownership tables/spec added explicitly.
+
+  every_required_http_operation_has_openapi_operationId:
+    status: PENDING_FULL_SCAN
+
+  every_openapi_path_ref_resolves:
+    status: PENDING_FULL_SCAN
+
+  operationIds_are_unique:
+    status: PENDING_FULL_SCAN
+
+  every_nonpublic_operation_has_explicit_or_inherited_security:
+    status: PENDING_FULL_SCAN
+
+  public_security_exceptions_are_explicit:
+    status: PENDING_FULL_SCAN
+    high_risk_examples:
+      - auth endpoints
+      - payment provider webhook
+      - remote internal exam access token
+
+  every_mutating_critical_command_has_idempotency_where_required:
+    status: PENDING_FULL_SCAN
+
+  request_schemas_do_not_accept_read_only_response_fields:
+    status: PENDING_FULL_SCAN
+
+blockers:
+  - id: TRACE-001
+    severity: P1
+    description: Traceability does not yet include the new PKK configuration-gate operations and canonical Stage-2 settings ownership.
+    required_fix_before_gate_pass:
+      - add pkk.configuration_gate.get to PKK api_requirements
+      - add pkk.configuration_gate.save_and_continue to PKK api_requirements
+      - preserve configuration-gate onboarding capability in PKK traceability
+      - add Stage-2 settings evidence/docs to organization_settings
+      - add users, auth_login_identifiers and organization_contact_addresses where ownership requires them
+      - add tests proving settings screen and PKK configuration gate use the same source records
+
+gate_definition:
+  PASS_requires:
+    - no_open_P0_or_P1_blockers
+    - every_quality_check_is_PASS_or_EXPLICIT_CONDITIONAL_PROVIDER_BLOCKER
+    - required_operations_and_OpenAPI_are_bidirectionally_accounted_for
+    - no_dangling_refs
+    - no_duplicate_operationIds
+    - traceability_is_synchronized
+  current_result: FAIL
+  may_start_stage_4: false
+
+next_single_step:
+  id: STAGE3_STEP_1
+  action: fix_TRACE-001_in_specs_traceability_core_v1_only
+  after_action: rerun_this_gate_before_any_other_stage_work
