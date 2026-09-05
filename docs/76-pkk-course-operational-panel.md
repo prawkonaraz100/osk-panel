@@ -48,6 +48,13 @@ Potwierdzone akcje:
 - `Edytuj`,
 - `Usuń`.
 
+W aktualnym stanie ekran prezentuje również skróconą plakietkę kursu u góry sekcji, np.:
+- kategoria `A`,
+- oznaczenie `PKK`,
+- numer profilu.
+
+Sekcja posiada globalną akcję `Dodaj kurs`, co potwierdza obsługę wielu kursów jednego kursanta.
+
 ## 4. Historia operacji PKK
 
 Pod kartą znajduje się osobna sekcja:
@@ -73,6 +80,11 @@ Potwierdzone akcje w tym obszarze:
 - `Podgląd PKK`,
 - `Pobierz PKK`,
 - `Aktualizuj i zwróć PKK`.
+
+Układ potwierdzony na najnowszym screenie:
+- `Podgląd PKK` znajduje się przy nagłówku obszaru danych,
+- `Pobierz PKK` i `Aktualizuj i zwróć PKK` są głównymi akcjami po prawej stronie,
+- przed pierwszym pobraniem panel pokazuje jawny empty state zamiast pustej tabeli.
 
 `Pobierz PKK` jest więc pierwszą operacją synchronizującą dane profilu z systemem zewnętrznym dla danego kursu.
 
@@ -103,6 +115,7 @@ Nie utożsamiamy `Ostatnia operacja PKK` z ogólnym stanem kursu. To tylko skró
 ## 8. Potwierdzone akcje
 
 - `select_course`
+- `add_course`
 - `open_manage_pkk`
 - `edit_course`
 - `delete_course`
