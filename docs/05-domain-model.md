@@ -1,10 +1,26 @@
-# 05. Model domenowy
+# 05. Model domenowy — core OSK v1
 
-> Model po drugiej weryfikacji funkcji publicznych i audycie formalnych wymagań OSK. Celem jest odwzorowanie zachowań biznesowych własną architekturą, bez kopiowania implementacji badanego serwisu.
+Data konsolidacji: 2026-09-05
 
-## Główne encje
+> Canonical naming znajduje się w `docs/82-canonical-domain-glossary.md`. Jeżeli starszy dokument używa innej nazwy dla tego samego pojęcia, nowa implementacja używa nazw canonical.
 
-### Tenant i użytkownicy
+## Zasady nadrzędne
+
+1. System jest multi-tenant po `organization_id`.
+2. Formalny przebieg jest **course-first**:
+   `Organization -> Student -> CourseEnrollment -> Training/PKK/InternalExam`.
+3. `Student` nie jest kontem logowania.
+4. PKK należy do konkretnego `CourseEnrollment`, nie do całego `Student` jako jedynego ownera.
+5. Godziny bieżącego OSK wynikają z ewidencji zajęć/ledgera.
+6. Godziny uznane z innego OSK są osobnymi audytowalnymi rekordami.
+7. Płatności kursanta za szkolenie są oddzielone od zakupów OSK na platformie.
+8. Formalna i finansowa historia nie jest hard-delete.
+
+---
+
+# 1. Identity / tenant
+
+Canonical encje:
 - `organizations`
 - `users`
 - `organization_memberships`
@@ -15,89 +31,149 @@
 - `sessions`
 - `account_closure_requests`
 - `account_blocks`
-- `user_learning_preferences`
 
-`user_learning_preferences` powinno zawierać m.in. `default_driving_category_id`, ponieważ kategoria może być przełączana i wpływać na test/kurs/statystyki/szkolenie.
+`organization_membership` jest technicznym połączeniem użytkownika z tenantem i jego permissions.
 
-### OSK
-- `school_profiles`
+Nie zakładamy, że `staff_type` = role/permission.
+
+---
+
+# 2. Pracownicy OSK
+
+Canonical encje:
 - `staff_profiles`
-- `vehicles`
-- `vehicle_documents`
-- `reminders`
-- `work_time_entries`
+- `staff_types`
+- `staff_type_assignments`
+- `staff_category_assignments`
+- `staff_location_assignments`
+- `staff_documents`
+- `staff_user_links`
 
-### Kursanci i formalne szkolenie
+`StaffProfile` może istnieć bez konta do logowania.
+
+Dopiero `staff_user_link` / membership wiąże pracownika z `User`.
+
+Dokumenty pracownika mogą obejmować niezależne terminy, np.:
+- legitymacja/uprawnienie,
+- badanie lekarskie,
+- badanie psychologiczne.
+
+---
+
+# 3. Kursanci i learning access
+
+Canonical encje:
 - `students`
-- `student_accounts`
-- `student_access_credentials`
-- `courses`
-- `course_editions`
+- `student_learning_accounts`
+- `student_access_handoffs`
+
+`Student` przechowuje formalną kartotekę osoby szkolonej w OSK.
+
+`StudentLearningAccount` przechowuje kontekst dostępu do produktu edukacyjnego, m.in.:
+- identyfikator logowania/e-mail,
+- język,
+- link do identity/auth,
+- status.
+
+Hasła nie są przechowywane w plaintext ani w odwracalnej formie.
+
+`StudentAccessHandoff` zapisuje fakt wygenerowania/przekazania PDF/danych dostępowych bez utrwalania starego jawnego hasła.
+
+---
+
+# 4. Formalny kurs / CourseEnrollment
+
+Canonical encje:
 - `course_enrollments`
-- `course_requirement_profiles`
+- `training_requirement_profiles`
 - `course_exemption_decisions`
+- `recognized_external_training`
 - `training_sessions`
 - `training_session_attendance`
-- `training_hour_ledger`
+- `training_hour_ledger_entries`
 - `training_completion_records`
-- `lectures`
-- `lecture_assignments`
-- `training_programs`
-- `training_sections`
-- `training_lessons`
-- `training_control_question_sets`
-- `training_control_attempts`
-- `learning_progress`
-- `question_stats`
 
-`student_access_credentials` musi obsłużyć co najmniej dwa kanały: `email_account` oraz `osk_generated_credentials`. Hasła nigdy nie są przechowywane w plaintext.
+`CourseEnrollment` oznacza **konkretne formalne szkolenie konkretnego kursanta**.
 
-#### Formalna ewidencja osoby szkolonej
+Minimalnie zawiera:
+- `organization_id`,
+- `student_id`,
+- `training_type`,
+- `driving_category_id`,
+- `started_at`,
+- `lead_instructor_id`,
+- `location_id nullable`,
+- `training_stage`,
+- `requirements_profile_id`,
+- `completed_at nullable`,
+- `interrupted_at nullable`,
+- `created_by_user_id`.
 
-Dla formalnego kursu OSK `student` nie jest opcjonalnym CRM-em. Jest trwałym rekordem osoby szkolonej, na którym opiera się dokumentacja kursu.
+## 4.1. Etap szkolenia
 
-Relacja źródłowa:
+Etap szkolenia jest stanem `CourseEnrollment`, niezależnym od:
+- licencji,
+- aktywacji konta edukacyjnego,
+- egzaminu,
+- płatności.
 
-`organization -> student -> course_enrollment -> training_sessions -> training_hour_ledger -> completion/internal exams`
+Potwierdzone UI etapy mogą być odwzorowane jako dictionary/config, np.:
+- `unassigned`,
+- `theory`,
+- `practice`,
+- `documentation`,
+- `word_exam`,
+- `supplementary_training`,
+- `training_completed`.
 
-Formalny `course_enrollment` powinien zawierać co najmniej:
-- kategorię,
-- rodzaj szkolenia (`basic` / `supplementary`),
-- PKK / identyfikację formalną,
-- instruktora prowadzącego,
-- datę rozpoczęcia,
-- stan szkolenia,
-- podstawę ewentualnego zwolnienia z teorii,
-- wymaganą i wykonaną teorię/praktykę,
-- datę zakończenia albo przerwania.
+Nie zakładamy, że kolejność/warunki przejść są tylko frontendowym selectem — backend musi walidować reguły formalne i biznesowe.
 
-#### Sesje i godziny szkolenia
+## 4.2. Source of truth godzin
 
-Nie przechowujemy tylko ręcznej liczby `liczba_godzin` wpisanej na końcu kursu. Źródłem prawdy są sesje szkoleniowe.
+### Bieżący OSK
 
-`training_session` powinien zawierać m.in.:
+Źródłem prawdy jest:
+
+`TrainingSession -> attendance -> TrainingHourLedgerEntry -> projection totals`
+
+`TrainingSession` zawiera co najmniej:
 - `organization_id`,
 - `course_enrollment_id`,
-- `session_type = theory | practical | first_aid | other`,
-- `started_at`,
-- `ended_at`,
+- `session_type`,
+- `starts_at`,
+- `ends_at` lub `duration_minutes`,
 - `instructor_id`,
 - `vehicle_id nullable`,
 - `location_id nullable`,
-- potwierdzenie udziału / status,
-- źródło wpisu i audyt.
+- status/attendance,
+- źródło i actor.
 
-`training_hour_ledger` jest niezmiennym księgowaniem formalnie zaliczanego czasu wyliczanego z sesji oraz dopuszczalnych korekt audytowych.
+`TrainingHourLedgerEntry` jest audytowalnym księgowaniem czasu formalnie zaliczanego.
 
-Dla reguł szkoleniowych:
-- godzina teorii = 45 minut,
-- godzina praktyki = 60 minut.
+### Szkolenie z innego OSK
 
-#### Rule engine wymagań kursu
+Nie zapisujemy tego jako zwykłego ręcznego nadpisania bieżącego licznika.
 
-Wymagania nie mogą być wyłącznie ręcznymi checkboxami administratora.
+Używamy `RecognizedExternalTraining` z polami typu:
+- `course_enrollment_id`,
+- `training_part`,
+- `recognized_minutes`,
+- `source_school_reference nullable`,
+- `evidence_reference nullable`,
+- `reason`,
+- `approved_by_user_id`,
+- `approved_at`.
 
-`course_requirement_profiles` + wersjonowany rule engine powinny wyliczać:
+### Konwersja godzin
+
+- teoria: 1 godzina = 45 minut,
+- praktyka: 1 godzina = 60 minut.
+
+Przechowujemy minuty jako canonical amount czasu. UI może prezentować godziny szkoleniowe.
+
+## 4.3. Rule engine wymagań
+
+`training_requirement_profiles` + wersjonowany rule engine wylicza:
 - `theory_training_required`,
 - `minimum_theory_minutes`,
 - `internal_theory_exam_required`,
@@ -106,17 +182,50 @@ Wymagania nie mogą być wyłącznie ręcznymi checkboxami administratora.
 - `internal_practical_exam_required`,
 - `exemption_basis_code`.
 
-`course_exemption_decisions` zapisuje:
-- podstawę zwolnienia/uznania,
-- dowód/odnośnik do uprawnienia lub wyniku,
-- kto i kiedy zatwierdził,
-- wersję reguły prawnej.
+`course_exemption_decisions` przechowuje podstawę, dowód, actor, timestamp i wersję reguły.
 
-Przykładowo C+E po C nie wymaga teorii, ale nadal jest formalnym enrollmentem z wymaganym szkoleniem praktycznym i ewidencją godzin.
+Manual override nie może służyć dowolnemu obniżaniu ustawowych minimów. Może korygować fakty/podstawę prawną i wymaga audytu.
 
-Pełny opis: `docs/66-formal-student-record-and-theory-exemptions.md` oraz `specs/legal/training-theory-exemptions.yml`.
+Szczegóły:
+- `docs/66-formal-student-record-and-theory-exemptions.md`,
+- `docs/67-editable-training-requirements-and-theory-exemption.md`,
+- `specs/legal/*.yml`.
 
-### Kalendarz
+---
+
+# 5. PKK
+
+Canonical encje:
+- `pkk_profiles`
+- `pkk_operations`
+- `pkk_operation_attempts`
+- `pkk_integration_settings`
+
+## Kluczowa relacja
+
+`CourseEnrollment ||--o| PkkProfile`
+
+Jeden `Student` może mieć wiele `CourseEnrollment` w czasie, więc API i baza nie mogą zakładać jednego globalnego PKK na osobę.
+
+`PkkOperation` przechowuje:
+- `organization_id`,
+- `course_enrollment_id`,
+- `pkk_profile_id nullable`,
+- typ commandu,
+- actor,
+- request/correlation id,
+- status biznesowy,
+- timestampy.
+
+`PkkOperationAttempt` przechowuje techniczną próbę integracji i jej znormalizowany rezultat.
+
+Sekrety integracji nie są przechowywane w repo ani logowane w audit payloadach.
+
+---
+
+# 6. Kalendarz i zasoby
+
+Canonical encje:
 - `calendar_events`
 - `driving_lessons`
 - `availability_slots`
@@ -125,68 +234,158 @@ Pełny opis: `docs/66-formal-student-record-and-theory-exemptions.md` oraz `spec
 - `event_change_logs`
 - `work_time_entries`
 
-### PKK
-- `pkk_profiles`
-- `pkk_operations`
-- `pkk_operation_attempts`
+Zasoby powiązane:
+- `staff_profiles`,
+- `students`,
+- `vehicles`,
+- `locations`.
 
-### Licencje
+`CalendarEvent` ma canonical time model:
+- `starts_at`,
+- `duration_minutes`,
+- `ends_at` wyliczane lub utrzymywane spójnie,
+- timezone organizacji.
+
+Konflikty zasobów sprawdza backend.
+
+`Important dates` mogą być projekcją systemową z terminów dokumentów, a nie ręcznym `CalendarEvent`.
+
+---
+
+# 7. Lokalizacje
+
+Canonical encje:
+- `locations`
+
+Potwierdzone typy startowe:
+- `branch`,
+- `lecture_room`,
+- `maneuvering_area`.
+
+Typy są dictionary/config, nie enum zamkniętym na zawsze.
+
+Relacje:
+- staff <-> locations,
+- vehicles <-> locations,
+- course_enrollment -> location nullable,
+- calendar_event -> location nullable.
+
+Archiwizacja nie usuwa historycznych referencji.
+
+---
+
+# 8. Pojazdy
+
+Canonical encje:
+- `vehicles`
+- `vehicle_category_assignments`
+- `vehicle_location_assignments`
+- `vehicle_documents`
+- `vehicle_assets`
+
+Ważności dokumentów są niezależne, np.:
+- badanie techniczne,
+- OC,
+- AC.
+
+Nie używać daty sentinel `0001-01-01` jako realnej daty biznesowej.
+
+---
+
+# 9. Student finance
+
+Canonical encje:
+- `student_charges`
+- `student_payments`
+
+`StudentCharge` = należność kursanta wobec OSK.
+
+`StudentPayment` = wpłata do należności.
+
+Saldo jest projekcją:
+`charge.original_amount - valid payments`.
+
+Money przechowujemy jako minor units lub decimal, nigdy float.
+
+Student finance NIE jest częścią `orders/payments` operatora platformy.
+
+Spec: `specs/design/student-finance-ledger.yml`.
+
+---
+
+# 10. Licencje / learning entitlement
+
+Canonical encje:
 - `license_products`
-- `license_inventory`
+- `license_inventory_entries`
 - `license_assignments`
 - `license_activations`
-- `license_languages` / relacja produkt-język
+- `license_product_languages`
 
-#### Rozróżnienie krytyczne
-- `license_inventory` = niewykorzystana sztuka należąca do OSK,
-- `license_assignment` = przydzielenie konkretnej sztuki,
-- `license_activation` = moment nieodwracalnego rozpoczęcia wykorzystania,
-- `license_product.duration` = okres aktywnego dostępu, a nie termin ważności niewykorzystanej sztuki inventory.
+Rozróżnienie:
+- inventory entry = jedna niewykorzystana sztuka OSK,
+- assignment = przydział do learning account,
+- activation = start wykorzystania,
+- product duration = okres aktywnego dostępu.
 
-Stan:
-`inventory -> assigned -> activated/consumed -> expired`
+Lifecycle:
 
-Odwracalnie tylko przed aktywacją:
-`assigned + not_activated -> revoked/deleted -> inventory`.
+`inventory -> assigned -> activated -> expired`
 
-### Egzaminy wewnętrzne
-- `exam_products`
-- `exam_inventory`
+Odwracalna gałąź:
+
+`assigned + not_activated -> revoked -> inventory`
+
+Cofnięcie assignmentu musi być atomowe i przywraca dokładnie jedną sztukę.
+
+---
+
+# 11. Egzamin wewnętrzny
+
+Canonical encje:
+- `internal_exam_inventory_entries`
+- `internal_exam_reservations`
+- `internal_exam_accesses`
 - `internal_exam_attempts`
 - `internal_exam_attempt_questions`
-- `internal_exam_launches`
-- `internal_exam_launch_tokens`
 - `internal_exam_results`
 - `internal_exam_documents`
 - `internal_practical_exam_sheets`
+- `exam_stations`
 - `exam_language_capabilities`
 
-Nie hardkodować globalnej listy języków. Dostępność języka powinna należeć do produktu/modułu i być wersjonowalna.
+## Formalne powiązanie
 
-#### Formalne powiązanie egzaminu z kursem
-
-Formalny `internal_exam_attempt` nie może być niezależnym egzaminem osoby spoza ewidencji OSK.
-
-Wymagane:
+`InternalExamAttempt` wymaga:
+- `organization_id`,
 - `student_id NOT NULL`,
 - `course_enrollment_id NOT NULL`,
-- `organization_id`,
-- `exam_part = theory | practical`,
-- kategoria i dane kandydata w snapshotach,
-- `requirement_basis` / podstawa tego, że dana część jest wymagana,
-- audyt operatora.
+- `exam_part`,
+- category snapshot,
+- candidate snapshot,
+- `requirement_basis`,
+- actor/audit.
 
-Nie dopuszczamy własnego `ad_hoc_candidate` dla formalnego egzaminu OSK. Szybka akcja „Dodaj kursanta” w flow egzaminu może istnieć, ale najpierw tworzy trwałego `student` i formalny `course_enrollment`.
+Nie obsługujemy formalnego `ad_hoc_candidate` bez trwałego kursanta i kursu.
 
-Przed generowaniem teoretycznego egzaminu system pyta rule engine, czy `internal_theory_exam_required = true`.
+## Inventory lifecycle core v1
 
-`internal_exam_launch` opisuje sposób dostarczenia jednej próby:
-- `remote_link`,
-- `local_station`.
+Źródło prawdy: `specs/design/internal-exam-lifecycle.yml`.
 
-Launch nie jest osobnym egzaminem i nie zastępuje `internal_exam_attempt`.
+Domyślnie:
+- access creation -> reserve inventory,
+- exam start -> consume inventory atomically,
+- cancel/expire/revoke przed startem -> release reservation,
+- technical abort po starcie nie zwraca automatycznie sztuki,
+- przywrócenie po starcie tylko przez audytowaną korektę.
 
-### Zamówienia, płatności i aktywacja usługi
+Attempt lifecycle jest oddzielny od inventory lifecycle.
+
+---
+
+# 12. Zakupy OSK na platformie
+
+Canonical encje:
 - `orders`
 - `order_items`
 - `payments`
@@ -195,16 +394,29 @@ Launch nie jest osobnym egzaminem i nie zastępuje `internal_exam_attempt`.
 - `service_activations`
 - `transfer_confirmations`
 
-#### Lifecycle entitlement
+Lifecycle entitlementu:
+
 `ordered -> paid -> activation_available -> activated -> expired`
 
-Nie każdy produkt musi używać ręcznej aktywacji, dlatego `activation_mode = automatic | explicit` powinno należeć do konfiguracji produktu.
+Dla `activation_mode=explicit` webhook płatności nie może automatycznie rozpocząć okresu usługi.
 
-### Faktury / refundy
-- `invoices` — **opcjonalna encja naszego produktu**, ponieważ faktury były `HISTORICAL_INDEX`, ale stara trasa obecnie nie potwierdza bieżącego modułu,
-- `refunds` — encja projektowa procesu finansowego, nie dowód istnienia panelowego przycisku refund w 360.
+Historyczna zmiana ceny nie może zmieniać starego zamówienia; snapshot ceny/VAT należy do `order_item`.
 
-### Ranking i opinie
+## Faktury
+
+`invoices` są opcjonalną funkcją własnego produktu. Nie są wymaganiem parytetu core v1.
+
+## Refundy
+
+`refunds` mogą istnieć jako własny proces finansowy; nie są dowodem potwierdzonego przycisku konkurenta.
+
+---
+
+# 13. Ranking / opinie / reklamy
+
+Pozostają poza core implementacyjnym v1, ale zachowujemy model domenowy do późniejszego rozszerzenia.
+
+Ranking/opinie:
 - `school_public_profiles`
 - `reviews`
 - `review_moderations`
@@ -212,9 +424,7 @@ Nie każdy produkt musi używać ręcznej aktywacji, dlatego `activation_mode = 
 - `ranking_snapshots`
 - `ranking_scores`
 
-`ranking_scores` powinno pozwalać przechowywać wersjonowany wynik/agregat zamiast przeliczać historyczne rankingi z aktualnego algorytmu.
-
-### Reklamy / aukcje
+Reklamy:
 - `ad_placements`
 - `ad_regions`
 - `ad_auctions`
@@ -227,97 +437,82 @@ Nie każdy produkt musi używać ręcznej aktywacji, dlatego `activation_mode = 
 - `ad_creative_reviews`
 - `ad_campaign_schedules`
 
-#### Stany aukcji
-`scheduled -> open -> closed -> settled`
+Nie implementować ich jako dependency core OSK.
 
-#### Stany zwycięskiej kampanii
-`won -> awaiting_payment -> awaiting_creative -> creative_review -> ready -> active -> completed`
+---
 
-Dodatkowe gałęzie:
-- `creative_rejected -> awaiting_creative`,
-- `creative_missing -> text_fallback` jeśli produkt/reguły na to pozwalają,
-- brak emisji przed spełnieniem wymogu płatności.
+# 14. Audyt i komunikacja
 
-### Artykuły sponsorowane
-- `sponsored_article_orders`
-- `sponsored_articles`
-- `sponsored_article_assets`
-- `sponsored_article_reviews`
-- `sponsored_article_publications`
-
-Stan:
-`ordered -> content_pending -> editorial_review -> approved -> promoted -> archived`.
-
-### Partner banner / usługi handlowe
-- `partner_banner_assets`
-- `implementation_help_requests`
-- `commercial_service_leads`
-
-### Audyt i komunikacja
+Canonical encje:
 - `audit_logs`
 - `notifications`
 - `integration_logs`
+- `outbox_messages`
 - `complaints`
 - `contact_requests`
 
-## Kluczowe relacje
+Krytyczne domenowe mutacje publikują event do outbox po tej samej transakcji DB.
+
+---
+
+# 15. Kluczowe relacje
 
 ```mermaid
 erDiagram
 ORGANIZATION ||--o{ ORGANIZATION_MEMBERSHIP : has
-USER ||--o{ ORGANIZATION_MEMBERSHIP : belongs
-USER ||--o| USER_LEARNING_PREFERENCE : configures
+USER ||--o{ ORGANIZATION_MEMBERSHIP : joins
+ORGANIZATION ||--o{ STAFF_PROFILE : employs
+STAFF_PROFILE o|--o| USER : may_login_as
 ORGANIZATION ||--o{ STUDENT : trains
-ORGANIZATION ||--o{ VEHICLE : owns
-ORGANIZATION ||--o{ COURSE_EDITION : runs
-STUDENT ||--o{ COURSE_ENROLLMENT : has
-COURSE_EDITION ||--o{ COURSE_ENROLLMENT : contains
-COURSE_ENROLLMENT ||--o{ TRAINING_SESSION : records
-TRAINING_SESSION ||--o{ TRAINING_HOUR_LEDGER : credits
+STUDENT ||--o{ STUDENT_LEARNING_ACCOUNT : may_have
+STUDENT ||--o{ COURSE_ENROLLMENT : enrolls
+COURSE_ENROLLMENT ||--o| PKK_PROFILE : has
+PKK_PROFILE ||--o{ PKK_OPERATION : records
+COURSE_ENROLLMENT ||--o{ TRAINING_SESSION : contains
+TRAINING_SESSION ||--o{ TRAINING_HOUR_LEDGER_ENTRY : credits
+COURSE_ENROLLMENT ||--o{ RECOGNIZED_EXTERNAL_TRAINING : recognizes
 COURSE_ENROLLMENT ||--o{ COURSE_EXEMPTION_DECISION : applies
-STUDENT ||--o{ LICENSE_ASSIGNMENT : receives
-LICENSE_INVENTORY ||--o| LICENSE_ASSIGNMENT : allocated_as
+STUDENT ||--o{ STUDENT_CHARGE : owes
+STUDENT_CHARGE ||--o{ STUDENT_PAYMENT : receives
+STUDENT_LEARNING_ACCOUNT ||--o{ LICENSE_ASSIGNMENT : receives
+LICENSE_INVENTORY_ENTRY ||--o| LICENSE_ASSIGNMENT : allocated_as
 LICENSE_ASSIGNMENT ||--o| LICENSE_ACTIVATION : activates
-STUDENT ||--o{ INTERNAL_EXAM_ATTEMPT : takes
-COURSE_ENROLLMENT ||--o{ INTERNAL_EXAM_ATTEMPT : requires
+COURSE_ENROLLMENT ||--o{ INTERNAL_EXAM_ATTEMPT : has
 INTERNAL_EXAM_ATTEMPT ||--o{ INTERNAL_EXAM_ATTEMPT_QUESTION : snapshots
-INTERNAL_EXAM_ATTEMPT ||--o{ INTERNAL_EXAM_LAUNCH : launched_as
-STUDENT ||--o{ DRIVING_LESSON : attends
-VEHICLE ||--o{ DRIVING_LESSON : used_in
-USER ||--o{ DRIVING_LESSON : instructs
-STUDENT ||--o| PKK_PROFILE : linked
-PKK_PROFILE ||--o{ PKK_OPERATION : logs
+INTERNAL_EXAM_ATTEMPT ||--o| INTERNAL_EXAM_RESULT : results_in
+INTERNAL_EXAM_ATTEMPT ||--o{ INTERNAL_EXAM_ACCESS : launched_as
+INTERNAL_EXAM_INVENTORY_ENTRY ||--o{ INTERNAL_EXAM_RESERVATION : reserves
 ORDER ||--o{ ORDER_ITEM : contains
 ORDER ||--o{ PAYMENT : paid_by
-ORDER ||--o{ SERVICE_ENTITLEMENT : grants
-SERVICE_ENTITLEMENT ||--o| SERVICE_ACTIVATION : starts
-AD_AUCTION ||--o{ AD_BID : receives
-AD_AUCTION ||--o| AD_ORDER : settles_to
-AD_ORDER ||--o| AD_CAMPAIGN : creates
-AD_CAMPAIGN ||--o{ AD_CREATIVE : uses
-SPONSORED_ARTICLE_ORDER ||--o| SPONSORED_ARTICLE : creates
-REVIEW ||--o{ REVIEW_REPORT : can_be_reported
 ```
 
-## Multi-tenancy
+---
 
-Każda encja biznesowa OSK ma `organization_id` tam, gdzie zasób należy do OSK. Dodatkowo:
-- global scopes w Eloquent są pomocnicze, ale nie mogą być jedyną ochroną,
-- Policy/Gate weryfikuje membership i permission,
-- identyfikatory publiczne nie zastępują autoryzacji,
-- testy integracyjne muszą sprawdzać, że tenant A nie odczyta ani nie zmieni tenant B po ręcznej zmianie ID,
-- aukcje/placementy/ranking mogą być zasobami globalnymi operatora, ale bid/order/campaign muszą być jednoznacznie przypisane do tenant/organization.
+# 16. Multi-tenancy
 
-## Dane konfigurowalne zamiast hard-code
+Każda encja należąca do OSK posiada lub dziedziczy jednoznaczny `organization_id`.
 
-Ze względu na rozbieżności w publicznych źródłach oraz zmiany prawne jako dane/CMS/config przechowywać:
-- języki dostępne dla każdego produktu/modułu,
+Wymagania:
+- Policy/Gate na backendzie,
+- global scope Eloquent jest pomocniczy, nie jedyny,
+- publiczny UUID nie zastępuje autoryzacji,
+- testy cross-tenant dla read/write,
+- relacyjne ID z requestu zawsze weryfikowane względem organizacji.
+
+---
+
+# 17. Dane konfigurowalne zamiast hard-code
+
+Jako config/dictionary/versioned rules:
 - kategorie prawa jazdy,
-- wersjonowane reguły wymagań szkolenia i zwolnień,
-- minimalne czasy szkolenia per kategoria/tryb,
-- liczbę sekcji/lekcji szkolenia,
-- okresy pakietów,
-- parametry placementów reklamowych,
-- czas ekspozycji reklamy pełnoekranowej,
-- parametry aukcji,
-- teksty i limity produktów handlowych.
+- języki per produkt/moduł,
+- training requirements,
+- minimalne minuty per kategoria/tryb,
+- staff types,
+- location types,
+- license products/durations,
+- exam capabilities,
+- ceny/VAT,
+- ad placement parameters.
+
+Szczególny punkt do ujednolicenia w kolejnej partii: canonical code dla `PT` / pozwolenia na kierowanie tramwajem.
