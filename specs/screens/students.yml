@@ -20,6 +20,8 @@ screen:
   add_course_doc: docs/35-student-add-course-form.md
   pkk_configuration_gate_spec: specs/screens/pkk-configuration-gate.yml
   pkk_configuration_gate_doc: docs/37-pkk-configuration-gate.md
+  assign_license_screen_spec: specs/screens/student-assign-license.yml
+  assign_license_doc: docs/38-student-assign-license-form.md
 
 header:
   title: Twoi kursanci
@@ -196,6 +198,28 @@ add_course_form_confirmed:
   location_is_optional_single_select: true
   external_training_hours_are_separate: true
 
+assign_license_form_confirmed:
+  confidence: USER_CONFIRMED_AUTH_SCREEN
+  screen_spec: specs/screens/student-assign-license.yml
+  license_variant_selector: true
+  available_inventory_count_visible: true
+  existing_learning_access_selection: true
+  existing_learning_access_projection:
+    - learning_identifier
+    - language
+  create_new_learning_access: true
+  new_access_fields:
+    - learning_identifier_email_or_login
+    - language_code
+  confirmed_branches:
+    - assign_to_existing_access
+    - create_new_access_and_assign
+  confirmed_business_rules:
+    - learning_access_separate_from_license_assignment
+    - existing_learning_access_can_receive_license
+    - new_learning_access_can_be_created_during_assignment
+    - student_contact_email_separate_from_learning_identifier
+
 detail_screen_confirmed:
   tabs:
     - student_profile
@@ -327,10 +351,14 @@ entity_model:
   exam_inventory_separate_from_attempt_history: true
   manual_create_orchestrates_multiple_domains: true
   pkk_configuration_reuses_user_and_integration_settings: true
+  learning_access_separate_from_license_assignment: true
   suggested_entities:
     - students
     - student_learning_accounts
     - student_licenses
+    - license_inventory_entries
+    - license_assignments
+    - license_activations
     - student_courses_or_enrollments
     - pkk_profiles_and_operation_history
     - pkk_integration_settings
@@ -358,6 +386,7 @@ relationships_confirmed_or_supported_by_projection:
   - manual_student_create_can_optionally_assign_license
   - add_student_from_pkk_requires_pkk_configuration_when_incomplete
   - pkk_configuration_fields_are_reused_in_account_settings
+  - license_assignment_targets_existing_or_new_learning_access
 
 confirmed_actions:
   - add_student_from_pkk
@@ -386,6 +415,11 @@ confirmed_actions:
   - conduct_internal_exam
   - download_student_access_credentials
   - assign_student_license
+  - select_student_license_variant
+  - select_existing_student_learning_access
+  - select_create_new_student_learning_access
+  - set_new_student_learning_identifier
+  - select_new_student_learning_language
   - delete_unactivated_student_license
   - add_student_payment
   - select_progress_learning_account
@@ -423,6 +457,10 @@ security_requirements:
   - validate_license_inventory_against_organization
   - audit_pkk_configuration_changes
   - keep_pkk_external_login_separate_from_application_login
+  - authorize_learning_access_by_student_and_organization
+  - atomically_validate_and_consume_license_inventory
+  - prevent_double_license_assignment
+  - audit_license_assignment
 
 remaining_gaps:
   - add_student_from_pkk_post_configuration_flow
@@ -441,8 +479,13 @@ remaining_gaps:
   - internal_exam_populated_history
   - internal_exam_exact_statuses_and_results
   - internal_exam_card_print_pdf
-  - assign_license_form
+  - license_exact_variant_options
+  - license_exact_language_options
+  - license_learning_identifier_validation
+  - license_password_or_invitation_flow
   - license_delete_effect_and_inventory_restore
+  - license_exact_activation_point
+  - license_renewal_vs_additional_period_behavior
   - access_download_format
   - add_payment_form
   - partial_payment_behavior
