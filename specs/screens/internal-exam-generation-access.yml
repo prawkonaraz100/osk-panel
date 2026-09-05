@@ -14,15 +14,18 @@ entry_points:
       - select_exactly_one_student_row
       - UI_shows_ZAZNACZONE_1
       - click_Generuj_egzaminy_1
-      - open_generation_drawer
+      - open_generation_drawer_with_candidate_selected
   standalone_generate_exam_button:
-    visible: true
-    exact_flow: TO_VERIFY
+    confirmed: true
+    steps:
+      - click_large_Generuj_egzamin_button
+      - open_generation_drawer_without_candidate
+      - choose_existing_student_or_enter_ad_hoc_candidate
   student_profile_entry:
     previously_observed_equivalent_generation_drawer: true
 
 cardinality:
-  target_students_per_generation_flow: 1
+  target_candidates_per_generation_flow: 1
   batch_multi_student_generation_confirmed: false
   user_confirmed_one_at_a_time: true
 
@@ -30,7 +33,29 @@ inventory:
   available_exam_count_visible: true
   observed_available: 160
 
-candidate_card:
+empty_candidate_state:
+  existing_student_search:
+    enabled: true
+    search_fields_confirmed:
+      - first_name
+      - last_name
+      - email
+      - login
+      - pesel
+  ad_hoc_candidate_form:
+    label: Dodaj nowego kursanta
+    fields:
+      - exam_category
+      - exam_language
+      - first_name
+      - last_name
+      - registry_or_pkk_number
+      - pesel
+      - email
+    email_ui_note: do wysłania linku egzminu (opcjonalnie)
+    creates_persistent_student_profile: TO_VERIFY
+
+candidate_selected_state:
   observed_student: Ala Nowak
   fields:
     category:
@@ -63,6 +88,7 @@ launch_modes:
       - generate_exam_link
       - candidate_can_take_exam_anywhere_with_internet
       - send_link_to_candidate_email
+    email_required_at_action_time: OWN_PRODUCT_RECOMMENDATION
     tokenized_link_required_for_own_product: true
     ttl: TO_DECIDE
     revocation: OWN_PRODUCT_REQUIRED
@@ -72,9 +98,14 @@ launch_modes:
       - start_internal_exam_on_current_computer_station
     concurrent_candidate_limit_message: Dostępne tylko dla 1 kursanta jednocześnie.
     concurrent_candidates_in_this_flow: 1
+    email_required: false_for_own_product
 
 own_product_model:
   attempt_and_launch_separate: true
+  candidate_sources:
+    - existing_student
+    - ad_hoc_candidate
+  student_id_nullable_for_ad_hoc_candidate: true
   entities:
     - internal_exam_attempt
     - internal_exam_launch
@@ -95,16 +126,19 @@ own_product_model:
     - station_metadata_nullable
 
 own_product_validations:
-  - exactly_one_student_selected
+  - exactly_one_candidate
   - available_exam_inventory_greater_than_zero
   - category_present
   - language_present
   - required_candidate_identity_data_present
   - authorized_operator
   - tenant_scope
-  - valid_email_required_for_remote_email_delivery
+  - valid_email_required_only_when_remote_email_delivery_selected
 
 confirmed_actions:
+  - open_standalone_generate_exam_drawer
+  - search_existing_student_for_exam
+  - enter_ad_hoc_exam_candidate
   - select_one_student_for_exam_generation
   - open_generate_exam_for_selected_student
   - view_available_exam_inventory_in_generation_drawer
@@ -117,9 +151,11 @@ confirmed_actions:
   - start_exam_on_current_station
 
 remaining_gaps:
-  - standalone_generate_exam_button_flow
   - candidate_data_edit_drawer
   - exact_required_candidate_fields
+  - exam_category_options
+  - exam_language_options
+  - ad_hoc_candidate_persistence_behavior
   - validation_messages
   - remote_link_success_state
   - email_template
