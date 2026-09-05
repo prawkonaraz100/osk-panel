@@ -6,6 +6,8 @@ Data: 2026-09-05
 
 Cel: usunąć wieloznaczne nazwy encji przed migracjami i implementacją. Jeżeli starszy dokument używa innej nazwy dla tego samego pojęcia, implementacja używa nazw z tego glossary, chyba że późniejszy ADR jawnie je zmieni.
 
+Ten glossary nie zastępuje szczegółowych screen specs. Zakres reverse-engineered jest chroniony przez `docs/96-reverse-engineering-preservation-contract.md`.
+
 ## Identity / Tenant
 
 ### `Organization`
@@ -16,13 +18,26 @@ Klucz: `organization_id`.
 ### `User`
 Globalna tożsamość osoby mogącej logować się do aplikacji. Nie oznacza automatycznie pracownika ani kursanta.
 
+Jedna osoba może być powiązana z więcej niż jednym OSK przez osobne `OrganizationMembership`.
+
 ### `OrganizationMembership`
 Powiązanie `User <-> Organization`, zawierające stan członkostwa i permissions/role assignment.
 
 ### `StaffProfile`
-Profil pracownika OSK. Może istnieć bez konta `User`.
+Profil pracownika OSK. Może istnieć bez konta `User` i bez aktywnego `OrganizationMembership`.
 
 **Nie utożsamiać:** `staff_type` z permissions.
+
+### `StaffMembershipLink`
+Historyczne/audytowalne powiązanie `StaffProfile <-> OrganizationMembership`.
+
+Dlaczego nie zwykłe `StaffProfile -> User unique`:
+- `User` jest globalny,
+- ta sama osoba może pracować w dwóch OSK,
+- permission scope należy do membership w konkretnym tenantcie,
+- odłączenie dostępu panelowego nie może usuwać profilu pracownika ani jego historii.
+
+W danej chwili `StaffProfile` ma najwyżej jeden aktywny link do membership swojej organizacji, ale historyczne linki pozostają zachowane.
 
 ---
 
@@ -65,13 +80,16 @@ To nie jest ogólny katalog treści. Zawiera m.in.:
 - instruktora prowadzącego,
 - lokalizację,
 - etap/status szkolenia,
-- snapshot/rule profile wymagań,
 - zakończenie/przerwanie.
 
 **W core v1 używamy `CourseEnrollment`, a nie ogólnego `Course`, gdy mówimy o kursie konkretnego kursanta.**
 
+Zaobserwowany formularz nadal posiada pola godzin teorii/praktyki i godzin odbytych w innej szkole. Nie usuwamy ich z UI tylko dlatego, że canonical backend rozdziela źródła prawdy. Mapowanie opisuje preservation manifest.
+
 ### `TrainingRequirementProfile`
 Wersjonowany wynik rule engine dla `CourseEnrollment`.
+
+Canonical current profile = najnowszy rekord, którego `superseded_at IS NULL`. Nie wymagamy dwukierunkowego/circular FK z `course_enrollments` do „current profile”.
 
 ### `CourseExemptionDecision`
 Audytowalna podstawa zwolnienia/uznania teorii lub innego wymogu.
@@ -84,6 +102,8 @@ Niezmienny/audytowalny zapis formalnie zaliczanego czasu wynikający z `Training
 
 ### `RecognizedExternalTraining`
 Audytowalny rekord godzin/zakresu szkolenia uznanego z innego OSK.
+
+Początkowe wartości wpisane podczas tworzenia/edycji kursu mogą być zmaterializowane jako rekordy `RecognizedExternalTraining` ze źródłem `course_form_initial`. Późniejsze zmiany nie nadpisują historii bez śladu — używają nowego rekordu/reversal/correction zgodnie z lifecycle.
 
 **Source of truth:**
 - bieżące OSK -> `TrainingSession` + `TrainingHourLedgerEntry`,
@@ -129,6 +149,13 @@ Osobny zasób organizacji: `branch`, `lecture_room`, `maneuvering_area` i ewentu
 ### `Vehicle`
 Pojazd OSK będący zasobem kalendarza.
 
+### Assignment tables dla zasobów
+Relacje many-to-many zaobserwowane w formularzach nie są przechowywane w JSON:
+- `StaffCategoryAssignment`,
+- `StaffLocationAssignment`,
+- `VehicleCategoryAssignment`,
+- `VehicleLocationAssignment`.
+
 ---
 
 # Student finance
@@ -152,10 +179,12 @@ Konfigurowalny produkt/licencja.
 Jedna dostępna sztuka należąca do OSK.
 
 ### `LicenseAssignment`
-Przypisanie konkretnej sztuki do `StudentLearningAccount`/kursanta.
+Historyczny fakt przypisania konkretnej sztuki do `StudentLearningAccount`/kursanta.
+
+Jedna sztuka inventory może mieć **wiele historycznych assignmentów** w czasie, jeżeli wcześniejsze przypisanie zostało cofnięte przed aktywacją i sztuka wróciła do puli. Constraint zabrania dwóch równoczesnych/current assignmentów, a nie historii.
 
 ### `LicenseActivation`
-Jednorazowy moment rozpoczęcia wykorzystania licencji.
+Jednorazowy moment rozpoczęcia wykorzystania konkretnego `LicenseAssignment`.
 
 Canonical lifecycle:
 
@@ -173,7 +202,9 @@ Gałąź odwracalna wyłącznie przed aktywacją:
 Jedna sztuka/credit egzaminu w puli OSK.
 
 ### `InternalExamReservation`
-Rezerwacja sztuki dla planowanej próby/dostępu przed rozpoczęciem.
+Historyczna rezerwacja sztuki dla planowanej próby/dostępu przed rozpoczęciem.
+
+Inventory może mieć wiele historycznych reservation records, ale najwyżej jedną aktywną rezerwację w danej chwili. To samo dotyczy jednej próby.
 
 ### `InternalExamAccess`
 Sposób udostępnienia konkretnej próby: remote link albo local station.
@@ -215,6 +246,9 @@ Pozycja zamówienia ze snapshotem ceny/VAT/produktu.
 ### `Payment`
 Płatność za `Order`.
 
+### `PaymentEvent`
+Niezmienny event od providera płatności. Deduplikacja canonical: `(provider, provider_event_id)`.
+
 ### `ServiceEntitlement`
 Prawo do usługi wynikające z zakupu/grantu.
 
@@ -250,6 +284,7 @@ Techniczny rekord gwarantujący publikację krytycznych zdarzeń po commit DB.
 | wykonany egzamin | `InternalExamAttempt` |
 | PKK kursanta | `PkkProfile` należący do `CourseEnrollment` |
 | godziny kursu | projekcja z ledgeru + recognized external training |
+| dostęp pracownika do panelu | `OrganizationMembership` powiązany przez `StaffMembershipLink` |
 
 ## Reguła migracji dokumentacji
 
