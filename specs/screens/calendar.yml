@@ -6,6 +6,8 @@ screen:
   confidence: USER_CONFIRMED_AUTH_SCREEN
   verified_at: 2026-09-05
   doc: docs/48-calendar-main-screen.md
+  add_event_screen_spec: specs/screens/calendar-add-event.yml
+  add_event_doc: docs/49-calendar-add-event-form.md
 
 event_type_filters:
   control: checkbox
@@ -18,6 +20,7 @@ event_type_filters:
     driving_lesson: Jazda
     important_date: Ważne daty
   important_date_exact_semantics: TO_VERIFY
+  important_date_present_in_manual_create_selector: false
 
 primary_action:
   label: Dodaj wydarzenie
@@ -80,6 +83,44 @@ calendar_navigation:
   observed_view: month
   observed_period_label: wrzesień 2026
 
+add_event_form_confirmed:
+  confidence: USER_CONFIRMED_AUTH_SCREEN
+  screen_spec: specs/screens/calendar-add-event.yml
+  manual_types:
+    - general_event
+    - driving_lesson
+  fields:
+    - event_type
+    - event_name
+    - start_date
+    - start_time
+    - duration
+    - student_id
+    - instructor_id
+    - vehicle_id
+    - meeting_location_id
+  required_by_visible_marker:
+    - event_type
+    - start_date
+    - start_time
+  optional_by_visible_label:
+    - event_name
+    - student_id
+    - instructor_id
+    - vehicle_id
+    - meeting_location_id
+  resource_cardinality_for_form:
+    student: zero_or_one
+    instructor: zero_or_one
+    vehicle: zero_or_one
+    meeting_location: zero_or_one
+  start_plus_duration_model_supported: true
+  instructor_selector_projects_expired_documents: true
+  vehicle_selector_projects_expired_documents: true
+  meeting_location_grouped_by_type: true
+  other_meeting_place_control_visible: true
+  other_meeting_place_behavior: TO_VERIFY
+
 confirmed_actions:
   - open_calendar
   - toggle_general_event_filter
@@ -101,12 +142,30 @@ confirmed_actions:
   - calendar_view_month
   - calendar_view_week
   - calendar_view_day
+  - select_calendar_event_type
+  - set_calendar_event_name
+  - set_calendar_event_start_date
+  - set_calendar_event_start_time
+  - set_calendar_event_duration
+  - search_and_select_student
+  - search_and_select_instructor
+  - search_and_select_vehicle
+  - select_meeting_location
+  - save_calendar_event
+  - cancel_calendar_event_create
+  - close_calendar_event_drawer
 
 confirmed_cross_module_relationships:
   - staff_has_calendar_context
   - vehicle_has_calendar_context
   - location_has_calendar_context
   - main_calendar_aggregates_staff_vehicles_locations
+  - add_event_can_reference_student
+  - add_event_can_reference_instructor
+  - add_event_can_reference_vehicle
+  - add_event_can_reference_location
+  - instructor_selector_projects_staff_document_validity
+  - vehicle_selector_projects_vehicle_document_validity
 
 own_product_model:
   single_calendar_engine: true
@@ -119,7 +178,12 @@ own_product_model:
     - calendar_event_vehicles
     - calendar_event_locations
     - calendar_event_students
+  event_time_model:
+    - starts_at
+    - duration_minutes
+    - derived_or_consistent_ends_at
   resource_conflict_detection_required: true
+  compliance_checks_required: true
   timezone_per_organization_required: true
   audit_event_changes: true
 
@@ -131,15 +195,18 @@ security_requirements:
   - validate_location_resources_by_organization
   - validate_student_resources_by_organization_when_used
   - prevent_cross_tenant_resource_assignment
+  - server_side_resource_conflict_detection
+  - server_side_critical_compliance_validation
   - audit_event_create_update_cancel
 
 remaining_gaps:
-  - add_event_form
   - driving_lesson_conditional_fields
+  - general_event_conditional_fields
   - important_date_exact_semantics
-  - student_selection
-  - resource_assignment_cardinality
-  - starts_at_and_ends_at_behavior
+  - other_meeting_place_behavior
+  - duration_exact_validation
+  - driving_lesson_required_resources
+  - warning_vs_hard_block_for_expired_resources
   - recurrence
   - event_statuses
   - cancel_move_behavior
@@ -149,7 +216,7 @@ remaining_gaps:
   - event_detail_edit
   - self_booking
   - employee_work_time_tracking_ui
-  - warning_indicator_semantics
+  - main_resource_warning_indicator_exact_semantics
   - colors_and_legend
   - permissions
   - resource_selection_persistence
