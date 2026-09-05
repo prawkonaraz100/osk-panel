@@ -1,0 +1,81 @@
+screen:
+  id: internal_exam_sorting
+  scope: admin_osk
+  parent_route: /egzamin-wewnetrzny/panel
+  title: Sortowanie
+  confidence: USER_CONFIRMED_AUTH_SCREEN
+  verified_at: 2026-09-05
+  doc: docs/70-internal-exam-sorting.md
+
+sort_direction:
+  control: select
+  options:
+    - asc
+    - desc
+  labels:
+    asc: Rosnąco
+    desc: Malejąco
+  observed_state: asc
+  observed_state_is_global_default: false
+
+sort_column:
+  control: single_radio
+  options:
+    - key: email_or_login
+      label: Email lub login
+    - key: student_full_name
+      label: Imię i nazwisko
+    - key: latest_exam_category
+      label: Kat.
+    - key: latest_exam_status
+      label: Status
+    - key: latest_exam_at
+      label: Data
+    - key: latest_exam_language
+      label: Język
+    - key: exam_count
+      label: Liczba egzaminów
+  observed_state: latest_exam_at
+  observed_state_is_global_default: false
+
+apply_action:
+  label: Sortuj
+
+sorting_scope:
+  target: main_student_exam_projection_rows
+  expanded_attempt_history_sorting_confirmed: false
+
+own_product_api:
+  allowed_directions:
+    - asc
+    - desc
+  allowed_fields:
+    - identity_or_login
+    - student_full_name
+    - latest_exam_category
+    - latest_exam_status
+    - latest_exam_at
+    - latest_exam_language
+    - exam_count
+  stable_secondary_sort_required: true
+  recommended_secondary_key: student_id
+
+confirmed_actions:
+  - open_internal_exam_sort_drawer
+  - sort_internal_exam_rows_ascending
+  - sort_internal_exam_rows_descending
+  - sort_by_email_or_login
+  - sort_by_student_name
+  - sort_by_latest_exam_category
+  - sort_by_latest_exam_status
+  - sort_by_latest_exam_date
+  - sort_by_latest_exam_language
+  - sort_by_exam_count
+  - apply_internal_exam_sort
+
+remaining_gaps:
+  - actual_default_sort_on_fresh_page_load
+  - null_value_ordering
+  - exact_datetime_semantics_of_Data_column
+  - persistence_in_url_or_session
+  - pagination_interaction
