@@ -1,0 +1,266 @@
+paths:
+  /orders:
+    get:
+      tags: [Purchases]
+      operationId: ordersList
+      x-requirement-id: orders.list
+      x-permission: purchases.view
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/Page' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/PerPage' }
+        - name: status
+          in: query
+          schema: { type: array, items: { type: string } }
+          style: form
+          explode: true
+      responses:
+        '200':
+          description: Platform orders for this OSK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: '../openapi-components-v1.yaml#/components/schemas/Order' } }
+                  meta: { $ref: '../openapi-components-v1.yaml#/components/schemas/PaginationMeta' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /orders/{orderId}:
+    get:
+      tags: [Purchases]
+      operationId: ordersGet
+      x-requirement-id: orders.get
+      x-permission: purchases.view
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/OrderId' }
+      responses:
+        '200':
+          description: Order with immutable item price/VAT snapshots
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/Order' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /orders/{orderId}/payments:
+    post:
+      tags: [Purchases]
+      operationId: orderPaymentsCreate
+      x-requirement-id: order_payments.create
+      x-covers-requirement: purchase_history.pay_unpaid
+      x-permission: purchases.pay
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/OrderId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/CreateOrderPaymentRequest' }
+      responses:
+        '201':
+          description: Payment initiation created
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/Payment' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /payments:
+    get:
+      tags: [Purchases]
+      operationId: paymentsList
+      x-requirement-id: payments.list
+      x-permission: purchases.view
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/Page' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/PerPage' }
+      responses:
+        '200':
+          description: Platform payment ledger
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: '../openapi-components-v1.yaml#/components/schemas/Payment' } }
+                  meta: { $ref: '../openapi-components-v1.yaml#/components/schemas/PaginationMeta' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /payment-webhooks/{provider}:
+    post:
+      tags: [Purchases]
+      operationId: paymentWebhookReceive
+      x-requirement-id: payment_webhook.receive
+      x-permission: provider_signature_verified
+      security: []
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/Provider' }
+        - name: X-Provider-Signature
+          in: header
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/GenericObject' }
+      responses:
+        '202': { description: Webhook accepted after signature validation and provider/event deduplication }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /purchase-history:
+    get:
+      tags: [Purchases]
+      operationId: purchaseHistoryList
+      x-requirement-id: purchase_history.list
+      x-permission: purchases.view
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/Page' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/PerPage' }
+        - name: status
+          in: query
+          schema: { type: array, items: { type: string } }
+          style: form
+          explode: true
+      responses:
+        '200':
+          description: Common OSK purchase history, separate from student finance
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: '../openapi-components-v1.yaml#/components/schemas/PurchaseHistoryItem' } }
+                  meta: { $ref: '../openapi-components-v1.yaml#/components/schemas/PaginationMeta' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /service-entitlements:
+    get:
+      tags: [Purchases]
+      operationId: serviceEntitlementsList
+      x-requirement-id: service_entitlements.list
+      x-permission: purchases.view
+      responses:
+        '200':
+          description: Service entitlements granted by purchase or operator grant
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '../openapi-components-v1.yaml#/components/schemas/ServiceEntitlement' } }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /service-entitlements/{entitlementId}/activate:
+    post:
+      tags: [Purchases]
+      operationId: serviceEntitlementsActivate
+      x-requirement-id: service_entitlements.activate
+      x-permission: purchases.create
+      x-condition: activation_mode_explicit
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/EntitlementId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+      responses:
+        '200':
+          description: Explicit entitlement activation recorded exactly once
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/ServiceEntitlement' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+
+  /dashboard:
+    get:
+      tags: [Dashboard]
+      operationId: dashboardGet
+      x-requirement-id: dashboard.get
+      x-permission: active_membership
+      responses:
+        '200':
+          description: Operational dashboard projection with license widget, exam widget, safe activity preview and embedded calendar
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/DashboardProjection' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /activity:
+    get:
+      tags: [Dashboard]
+      operationId: activityList
+      x-requirement-id: activity.list
+      x-permission: active_membership
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/Page' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/PerPage' }
+        - name: event_type
+          in: query
+          schema: { type: array, items: { type: string } }
+          style: form
+          explode: true
+      responses:
+        '200':
+          description: Allow-listed organization activity projection; never raw audit before/after payloads
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: '../openapi-components-v1.yaml#/components/schemas/ActivityEvent' } }
+                  meta: { $ref: '../openapi-components-v1.yaml#/components/schemas/PaginationMeta' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /notifications:
+    get:
+      tags: [Dashboard]
+      operationId: notificationsList
+      x-requirement-id: notifications.list
+      x-permission: active_membership
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/Page' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/PerPage' }
+        - name: unread_only
+          in: query
+          schema: { type: boolean, default: false }
+      responses:
+        '200':
+          description: User/organization notifications projection
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: '../openapi-components-v1.yaml#/components/schemas/Notification' } }
+                  meta: { $ref: '../openapi-components-v1.yaml#/components/schemas/PaginationMeta' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /notifications/{notificationId}/read:
+    post:
+      tags: [Dashboard]
+      operationId: notificationsMarkRead
+      x-requirement-id: notifications.mark_read
+      x-permission: active_membership_own_notification
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/NotificationId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+      responses:
+        '200':
+          description: Notification marked read for authorized user/scope
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/Notification' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /audit-logs:
+    get:
+      tags: [Audit]
+      operationId: auditLogsList
+      x-requirement-id: audit_logs.list
+      x-permission: organization.audit.view
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/Page' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/PerPage' }
+        - name: entity_type
+          in: query
+          schema: { type: string }
+        - name: entity_id
+          in: query
+          schema: { type: string }
+        - name: request_id
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: Restricted technical/business audit projection with sensitive data redacted according to policy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: '../openapi-components-v1.yaml#/components/schemas/AuditLogEntry' } }
+                  meta: { $ref: '../openapi-components-v1.yaml#/components/schemas/PaginationMeta' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
