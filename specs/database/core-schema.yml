@@ -18,7 +18,8 @@ conventions:
   postgres_enum_for_evolving_business_state: false
   jsonb_for:
     - immutable_snapshots
-    - metadata
+    - redacted_safe_projection_payloads
+    - noncritical_metadata
   jsonb_as_replacement_for_core_relational_model: false
   tenant_owned_tables_have_organization_id_when_practical: true
   history_preservation_over_destructive_uniqueness: true
@@ -33,18 +34,37 @@ sensitive_identifier_pattern:
     ciphertext_column: pkk_number_ciphertext
     exact_lookup_column: pkk_lookup_hash
     lookup_hash: HMAC_SHA_256_or_equivalent_secret_keyed_hash
+  external_credentials:
+    ciphertext_or_secret_reference_required: true
+    plaintext_after_save_forbidden: true
 
 core_tables:
   identity:
     - organizations
+    - organization_settings
     - users
+    - auth_login_identifiers
+    - auth_social_accounts
     - organization_memberships
     - permissions
     - membership_permissions
+    - legal_documents
+    - terms_acceptances
+
+  infrastructure_assets:
+    - file_assets
+    - idempotency_records
+
+  dictionaries:
+    - languages
+    - driving_categories
+    - location_types
+    - staff_types
+    - internal_exam_capabilities
+    - internal_exam_capability_languages
 
   staff:
     - staff_profiles
-    - staff_types
     - staff_type_assignments
     - staff_category_assignments
     - staff_location_assignments
@@ -57,7 +77,6 @@ core_tables:
     - vehicle_documents
     - vehicle_category_assignments
     - vehicle_location_assignments
-    - driving_categories
 
   students:
     - students
@@ -99,10 +118,11 @@ core_tables:
     - internal_exam_attempts
     - internal_exam_reservations
     - internal_exam_accesses
+    - exam_stations
+    - internal_exam_station_sessions
     - internal_exam_attempt_questions
     - internal_exam_results
     - internal_exam_documents
-    - exam_stations
 
   commerce:
     - orders
@@ -110,13 +130,115 @@ core_tables:
     - payments
     - payment_events
 
-  infrastructure:
+  infrastructure_events:
     - audit_logs
+    - organization_activity_events
     - outbox_messages
     - notifications
 
+identity_model:
+  users:
+    global_person_or_auth_principal: true
+    local_password_hash_on_user: true
+  auth_login_identifiers:
+    purpose: resolve_generic_login_without_tenant_selector
+    fields:
+      - id
+      - user_id
+      - identifier_type_email_or_username
+      - identifier_normalized
+      - verified_at
+      - created_at
+      - revoked_at
+    global_unique_current_identifier: true
+    partial_unique:
+      columns: [identifier_normalized]
+      where: revoked_at_is_null
+    rule: same_visible_login_string_must_not_resolve_to_two_users
+  auth_social_accounts:
+    fields:
+      - id
+      - user_id
+      - provider
+      - provider_subject
+      - created_at
+      - revoked_at
+    unique_current_provider_subject: true
+  organization_memberships:
+    same_user_multiple_organizations_supported: true
+
+organization_model:
+  organization_settings:
+    one_to_one_with_organization: true
+    typed_fields_should_be_added_when_business_semantics_stabilize: true
+    noncritical_preferences_jsonb_allowed: true
+  legal_documents:
+    immutable_versions: true
+    fields:
+      - document_type
+      - version
+      - content_hash
+      - published_at
+      - effective_from
+  terms_acceptances:
+    append_only: true
+    fields:
+      - organization_id
+      - user_id
+      - legal_document_id
+      - accepted_at
+      - ip_hash
+      - user_agent
+      - request_id
+    unique_acceptance_per_org_user_document: true
+
+asset_model:
+  file_assets:
+    tenant_scoped_when_owned_by_organization: true
+    fields:
+      - id
+      - organization_id_nullable_for_platform_asset
+      - storage_disk
+      - storage_key
+      - original_filename_sanitized
+      - mime_type_declared
+      - mime_type_detected
+      - size_bytes
+      - sha256
+      - purpose
+      - status_pending_uploaded_scanning_ready_rejected_deleted
+      - created_by_user_id
+      - created_at
+      - ready_at
+      - deleted_at
+    storage_key_unique: true
+    ready_required_before_business_attachment: true
+    malware_or_content_scan_status_required_for_risky_uploads: true
+
+idempotency_model:
+  idempotency_records:
+    fields:
+      - id
+      - organization_id_nullable_for_non_tenant_auth_flow
+      - operation_key
+      - idempotency_key
+      - request_hash
+      - status_processing_completed_failed
+      - result_resource_type_nullable
+      - result_resource_id_nullable
+      - response_status_nullable
+      - safe_response_snapshot_nullable
+      - created_at
+      - completed_at
+      - expires_at
+    unique_scope: [organization_id, operation_key, idempotency_key]
+    same_key_different_request_hash: reject_conflict
+    plaintext_secret_in_response_snapshot_forbidden: true
+    transaction_or_atomic_claim_required: true
+
 critical_relations:
   - organization_has_many_students
+  - user_has_many_auth_login_identifiers
   - user_has_many_organization_memberships
   - staff_profile_belongs_to_exactly_one_organization
   - staff_profile_can_exist_without_login_membership
@@ -128,6 +250,7 @@ critical_relations:
   - vehicle_has_many_categories_via_assignment
   - vehicle_has_many_locations_via_assignment
   - student_has_many_course_enrollments
+  - student_learning_account_resolves_to_global_user_and_primary_login_identifier
   - course_enrollment_has_zero_or_one_pkk_profile
   - course_enrollment_has_many_versioned_requirement_profiles
   - current_requirement_profile_is_latest_non_superseded_not_required_pointer_on_course_row
@@ -138,12 +261,21 @@ critical_relations:
   - learning_account_receives_license_assignments
   - license_inventory_entry_has_many_historical_assignments_but_at_most_one_current_assignment
   - license_assignment_has_at_most_one_activation
+  - license_activation_has_effective_entitlement_period
   - course_enrollment_has_many_internal_exam_attempts
   - internal_exam_inventory_entry_has_many_historical_reservations_but_at_most_one_active_reservation
   - internal_exam_attempt_has_at_most_one_active_reservation
+  - internal_exam_attempt_has_many_historical_station_sessions_but_at_most_one_active
+  - exam_station_has_at_most_one_active_station_session
   - internal_exam_attempt_has_one_result_when_finished
 
 structural_decisions:
+  student_learning_login:
+    primary_auth_identifier_reference_required_when_login_provisioned: true
+    login_identifier_cached_on_learning_account_for_projection_only: true
+    canonical_login_resolution: auth_login_identifiers
+    reason: generic_login_page_has_no_organization_selector
+    allow_same_email_to_reuse_same_global_user_across_organizations: true
   staff_login_link:
     table: staff_membership_links
     target: organization_membership_id
@@ -178,17 +310,58 @@ structural_decisions:
     inventory_entry_global_unique_across_all_history: false
     current_assignment_unique: true
     current_definition: revoked_at_is_null_and_status_in_current_states
+  license_activation_periods:
+    fields:
+      - activated_at
+      - effective_from
+      - effective_to
+    activation_serialization_lock: student_learning_account
+    effective_from_rule: max(now_current_entitlement_end)
+    effective_to_rule: effective_from_plus_license_product_duration
+    current_access_expiry_projection: max_nonrevoked_effective_to
+    multiple_active_historical_rows_supported: true
+    concurrent_extension_must_not_lose_time: true
   exam_reservation_history:
     global_unique_inventory_entry_across_all_history: false
     active_inventory_reservation_unique: true
     active_attempt_reservation_unique: true
     active_definition: status_reserved
+  exam_station_concurrency:
+    local_start_requires_resolved_station_identity: true
+    active_station_session_table: internal_exam_station_sessions
+    max_one_active_attempt_per_station: true
+    max_one_active_station_session_per_attempt: true
+    pre_start_rebind_allowed_after_revoke: true
+    post_start_failover_requires_technical_transfer_with_audit: true
   payment_webhook_dedup:
     unique_scope: [provider, provider_event_id]
+  pkk_sensitive_snapshots:
+    profile_full_snapshot_storage: encrypted_ciphertext_or_minimized_normalized_columns
+    redacted_ui_snapshot_jsonb_allowed: true
+    provider_full_response_storage: encrypted_only_if_business_need
+    integration_log_payloads_redacted: true
+  activity_feed:
+    source: domain_events_or_outbox_projection
+    table: organization_activity_events
+    raw_audit_log_as_ui_feed_forbidden: true
+    payload_allowlist_required: true
+    pesel_pkk_tokens_secrets_forbidden_in_safe_payload: true
 
 critical_constraints:
+  auth_login_identifier_global_current_unique:
+    type: partial_unique
+    columns: [identifier_normalized]
+    where: revoked_at_is_null
+  social_provider_subject_unique:
+    columns: [provider, provider_subject]
   membership_unique:
     columns: [organization_id, user_id]
+  terms_acceptance_unique:
+    columns: [organization_id, user_id, legal_document_id]
+  file_asset_storage_key_unique:
+    columns: [storage_key]
+  idempotency_unique:
+    columns: [organization_id, operation_key, idempotency_key]
   staff_type_assignment_unique:
     columns: [staff_profile_id, staff_type_code]
   staff_category_assignment_unique:
@@ -220,6 +393,8 @@ critical_constraints:
     note: do_not_make_inventory_entry_unique_across_historical_revoked_assignments
   license_activation_unique:
     columns: [license_assignment_id]
+  license_effective_period_valid:
+    check: effective_to_gt_effective_from
   payment_provider_event_deduplicated:
     columns: [provider, provider_event_id]
   exam_active_reservation_unique_per_inventory_entry:
@@ -230,6 +405,14 @@ critical_constraints:
     type: partial_unique
     columns: [internal_exam_attempt_id]
     where: status_equals_reserved
+  exam_active_station_session_unique_per_station:
+    type: partial_unique
+    columns: [exam_station_id]
+    where: ended_at_is_null
+  exam_active_station_session_unique_per_attempt:
+    type: partial_unique
+    columns: [internal_exam_attempt_id]
+    where: ended_at_is_null
   exam_inventory_consume_exactly_once: true
   exam_attempt_result_unique: true
   session_end_after_start: true
@@ -237,6 +420,9 @@ critical_constraints:
   non_negative_money_and_minutes: true
 
 transactional_invariants:
+  create_or_reset_login_credentials:
+    lock_or_unique_claim_auth_identifier: true
+    plaintext_password_persistence_forbidden: true
   revoke_unactivated_license:
     lock:
       - license_assignment
@@ -246,24 +432,51 @@ transactional_invariants:
       - revoke_assignment
       - restore_exactly_one_inventory_entry_to_available
       - write_audit
+  activate_or_extend_license:
+    lock:
+      - student_learning_account
+      - license_assignment
+      - license_inventory_entry
+    transaction:
+      - verify_assignment_not_revoked_and_not_activated
+      - compute_current_entitlement_end
+      - create_activation_with_effective_period
+      - consume_inventory_exactly_once
+      - write_audit
+    retry_safe: true
   exam_start:
     lock:
       - internal_exam_access
       - internal_exam_attempt
       - internal_exam_reservation
       - internal_exam_inventory_entry
+      - exam_station_if_local
     transaction:
       - verify_access_startable
       - verify_reservation_active
+      - verify_station_available_if_local
       - consume_inventory_exactly_once
       - mark_reservation_consumed
       - mark_attempt_in_progress
+      - create_active_station_session_if_local
+      - write_audit
+  exam_station_failover_after_start:
+    elevated_or_technical_recovery_flow: true
+    transaction:
+      - close_old_station_session_with_reason
+      - verify_new_station_available
+      - create_new_station_session_with_transfer_reference
+      - do_not_consume_exam_inventory_again
       - write_audit
   payment_webhook:
     dedupe_before_business_effect: true
   calendar_conflict:
     enforcement_strategy: pending_ADR
     server_side_required: true
+  idempotent_command:
+    claim_key_before_effect: true
+    same_key_different_payload_rejected: true
+    completed_retry_returns_same_business_result_without_reapplying_effect: true
 
 foreign_key_policy:
   formal_and_financial_default: RESTRICT
@@ -280,22 +493,41 @@ foreign_key_policy:
     - internal_exam_attempts
     - student_charges
 
+security_storage_rules:
+  audit_log:
+    before_after_payloads_must_be_redacted_or_allowlisted: true
+    plaintext_passwords_forbidden: true
+    auth_tokens_forbidden: true
+    full_pesel_forbidden_by_default: true
+    full_pkk_forbidden_by_default: true
+  organization_activity_events:
+    ui_safe_payload_only: true
+    derived_from_committed_domain_event: true
+  pkk:
+    full_provider_payload_in_plain_jsonb_forbidden: true
+  idempotency:
+    one_time_plaintext_password_response_snapshot_forbidden: true
+
 migration_order:
-  - identity_and_organization
-  - dictionaries
+  - identity_organization_and_auth_identifiers
+  - legal_documents_terms_and_settings
+  - dictionaries_and_capabilities
+  - file_assets_and_idempotency
   - staff_locations_vehicles_and_assignment_tables
   - students_learning_accounts
   - course_enrollments_requirements
   - training_and_calendar
   - pkk
   - student_finance
-  - license_inventory
-  - internal_exam_inventory_and_attempts
+  - license_inventory_assignments_and_activations
+  - internal_exam_inventory_attempts_stations_and_station_sessions
   - orders_and_payments
-  - audit_outbox_notifications
+  - audit_activity_outbox_notifications
   - final_partial_indexes_and_cross_table_constraints
 
 migration_tests_required:
+  - generic_login_identifier_resolves_to_at_most_one_current_user
+  - revoked_login_identifier_can_be_reissued_only_by_explicit_policy
   - same_user_can_have_memberships_in_two_organizations
   - staff_can_exist_without_membership_link
   - staff_can_have_multiple_categories_and_locations
@@ -304,15 +536,24 @@ migration_tests_required:
   - revoked_license_assignment_allows_same_inventory_entry_to_be_reassigned_later
   - two_current_license_assignments_for_same_inventory_entry_are_rejected
   - second_activation_for_same_license_assignment_is_rejected
+  - concurrent_license_extensions_do_not_lose_entitlement_days
+  - license_effective_periods_do_not_overlap_incorrectly_for_same_serialized_activation_sequence
   - released_exam_reservation_allows_inventory_entry_to_be_reserved_again
   - two_active_exam_reservations_for_same_inventory_entry_are_rejected
   - two_active_exam_reservations_for_same_attempt_are_rejected
+  - two_active_local_exam_sessions_on_same_station_are_rejected
+  - same_attempt_cannot_have_two_active_station_sessions
+  - failover_does_not_consume_second_exam_credit
   - duplicate_provider_event_with_same_provider_is_rejected
   - same_provider_event_id_from_different_provider_does_not_collide
   - only_one_non_superseded_requirement_profile_per_course
+  - duplicate_idempotency_key_same_request_does_not_repeat_business_effect
+  - duplicate_idempotency_key_different_request_is_rejected
+  - activity_safe_payload_rejects_or_redacts_sensitive_fields
 
 pending_ADRs:
   - uuid_vs_ulid_physical_type
-  - sensitive_identifier_application_encryption
+  - sensitive_identifier_application_encryption_and_key_rotation
   - calendar_overlap_constraint_strategy
   - immutable_snapshot_hash_canonicalization
+  - auth_identifier_email_verification_and_account_merge_policy
