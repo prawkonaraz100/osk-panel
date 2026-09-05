@@ -68,9 +68,34 @@ fields:
     optional_label_visible: true
     control: grouped_single_select
     grouped_by_location_type: true
-    other_control_visible: true
-    other_control_label: Inne?
-    other_control_behavior: TO_VERIFY
+    mode: saved_location
+  - name: custom_meeting_place
+    label: Miejsce spotkania
+    optional_label_visible: true
+    control: text
+    mode: custom_text
+    visible_when: custom_meeting_place_mode
+
+meeting_place_mode:
+  modes:
+    - saved_location
+    - custom_text
+  default_observed_mode: saved_location
+  toggle_to_custom:
+    label: Inne?
+    action: switch_to_custom_meeting_place
+    effect:
+      - hide_saved_location_select
+      - show_custom_text_input
+      - change_toggle_label_to_back
+  toggle_back:
+    label: Wróć
+    action: switch_back_to_saved_meeting_location
+    effect:
+      - hide_custom_text_input
+      - show_saved_location_select
+  fields_mutually_exclusive: true
+  persistence_when_switching_back: TO_VERIFY
 
 manual_event_types:
   confirmed:
@@ -91,7 +116,9 @@ resource_cardinality_for_this_form:
   student: zero_or_one
   instructor: zero_or_one
   vehicle: zero_or_one
-  meeting_location: zero_or_one
+  saved_meeting_location: zero_or_one
+  custom_meeting_place: zero_or_one
+  meeting_place_source_rule: saved_location_xor_custom_text
 
 resource_warning_behavior:
   staff_document_expiry_projected_in_selector: true
@@ -121,7 +148,9 @@ confirmed_actions:
   - search_and_select_instructor
   - search_and_select_vehicle
   - select_meeting_location
-  - open_other_meeting_place_control_visible_behavior_unknown
+  - switch_to_custom_meeting_place
+  - set_custom_meeting_place_text
+  - switch_back_to_saved_meeting_location
   - save_calendar_event
   - cancel_calendar_event_create
   - close_calendar_event_drawer
@@ -131,6 +160,8 @@ own_product_requirements:
   - use_single_form_for_general_event_and_driving_lesson
   - use_event_type_as_domain_discriminator
   - allow_type_specific_backend_business_rules_without_duplicate_forms
+  - support_saved_or_custom_meeting_place
+  - enforce_mutual_exclusion_between_location_id_and_custom_meeting_place
   - server_side_resource_conflict_detection
   - validate_student_by_organization
   - validate_instructor_by_organization
@@ -142,7 +173,6 @@ own_product_requirements:
   - audit_event_creation_and_changes
 
 remaining_gaps:
-  - other_meeting_place_behavior
   - duration_exact_validation
   - driving_lesson_backend_required_resources
   - warning_vs_hard_block_for_expired_resources
@@ -151,3 +181,4 @@ remaining_gaps:
   - notifications
   - event_status_after_save
   - event_detail_edit_flow
+  - custom_meeting_place_value_persistence_when_switching_modes
