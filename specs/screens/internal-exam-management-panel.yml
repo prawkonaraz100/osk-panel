@@ -41,6 +41,16 @@ assigned_exams_section:
     sort: true
   multi_student_batch_generation: false
 
+searching:
+  confirmed: true
+  match_mode: partial_text_confirmed_by_user
+  fields_confirmed:
+    - first_name
+    - last_name
+    - email
+    - login
+  pesel_on_main_list_search: TO_VERIFY
+
 formal_osk_constraints:
   student_id_required: true
   course_enrollment_id_required: true
@@ -177,6 +187,10 @@ confirmed_actions:
   - start_exam_on_current_station
   - toggle_hide_finished_exams
   - search_exam_rows
+  - search_exam_rows_by_first_name
+  - search_exam_rows_by_last_name
+  - search_exam_rows_by_email
+  - search_exam_rows_by_login
   - open_exam_filters
   - filter_by_multiple_course_categories
   - filter_by_exam_status
@@ -199,7 +213,7 @@ confirmed_actions:
 remaining_gaps:
   - exam_category_options
   - exam_language_options
-  - exact_search_fields
+  - main_list_search_by_pesel
   - passed_status_table_visual
   - exact_displayed_datetime_semantics
   - sort_null_value_ordering
