@@ -1,0 +1,144 @@
+screen:
+  id: calendar_add_event
+  scope: admin_osk
+  parent_route: /kalendarz
+  entry_action: add_calendar_event
+  title: Dodaj wydarzenie
+  confidence: USER_CONFIRMED_AUTH_SCREEN
+  verified_at: 2026-09-05
+  doc: docs/49-calendar-add-event-form.md
+
+fields:
+  - name: event_type
+    label: Rodzaj wydarzenia
+    control: single_select
+    required_by_visible_marker: true
+    observed_options:
+      - general_event
+      - driving_lesson
+    observed_labels:
+      general_event: Wydarzenie
+      driving_lesson: Jazda
+  - name: event_name
+    label: Nazwa wydarzenia
+    optional_label_visible: true
+    control: text
+  - name: start_date
+    label: Data rozpoczęcia
+    required_by_visible_marker: true
+    control: date
+  - name: start_time
+    label: Data rozpoczęcia
+    required_by_visible_marker: true
+    control: time
+  - name: duration
+    label: Ilość godzin
+    control: time_duration
+    required_by_visible_marker: false
+    exact_semantics: STRONGLY_SUPPORTED_AS_DURATION
+  - name: student_id
+    label: Kursant
+    optional_label_visible: true
+    control: searchable_single_select
+    projection:
+      - full_name
+      - learning_identifier
+  - name: instructor_id
+    label: Instruktor
+    optional_label_visible: true
+    control: searchable_single_select
+    projection:
+      - full_name
+      - email
+      - expired_card_or_license_warning
+      - expired_medical_exam_warning
+      - expired_psychological_exam_warning
+  - name: vehicle_id
+    label: Pojazd
+    optional_label_visible: true
+    control: searchable_single_select
+    projection:
+      - make_model
+      - registration_number
+      - expired_ac_warning
+      - expired_oc_warning
+      - expired_inspection_warning
+  - name: meeting_location_id
+    label: Miejsce spotkania
+    optional_label_visible: true
+    control: grouped_single_select
+    grouped_by_location_type: true
+    other_control_visible: true
+    other_control_label: Inne?
+    other_control_behavior: TO_VERIFY
+
+manual_event_types:
+  confirmed:
+    - general_event
+    - driving_lesson
+  important_date_present_in_create_selector: false
+  important_date_source: TO_VERIFY
+
+resource_cardinality_for_this_form:
+  student: zero_or_one
+  instructor: zero_or_one
+  vehicle: zero_or_one
+  meeting_location: zero_or_one
+
+resource_warning_behavior:
+  staff_document_expiry_projected_in_selector: true
+  vehicle_document_expiry_projected_in_selector: true
+  exact_warning_vs_block_policy: TO_VERIFY
+
+primary_action:
+  label: Zapisz
+  action: save_calendar_event
+
+secondary_action:
+  label: Anuluj
+  action: cancel_calendar_event_create
+
+close_control:
+  label: X
+  action: close_calendar_event_drawer
+
+confirmed_actions:
+  - open_add_calendar_event_drawer
+  - select_calendar_event_type
+  - set_calendar_event_name
+  - set_calendar_event_start_date
+  - set_calendar_event_start_time
+  - set_calendar_event_duration
+  - search_and_select_student
+  - search_and_select_instructor
+  - search_and_select_vehicle
+  - select_meeting_location
+  - open_other_meeting_place_control_visible_behavior_unknown
+  - save_calendar_event
+  - cancel_calendar_event_create
+  - close_calendar_event_drawer
+
+own_product_requirements:
+  - tenant_isolation
+  - server_side_resource_conflict_detection
+  - validate_student_by_organization
+  - validate_instructor_by_organization
+  - validate_vehicle_by_organization
+  - validate_location_by_organization
+  - project_document_expiry_warnings_from_source_domains
+  - enforce_critical_compliance_rules_server_side
+  - store_start_and_duration_or_consistent_derived_end
+  - audit_event_creation_and_changes
+
+remaining_gaps:
+  - conditional_fields_after_selecting_driving_lesson
+  - conditional_fields_after_selecting_general_event
+  - other_meeting_place_behavior
+  - duration_exact_validation
+  - driving_lesson_required_resources
+  - warning_vs_hard_block_for_expired_resources
+  - conflict_messages
+  - recurrence
+  - notifications
+  - event_status_after_save
+  - event_detail_edit_flow
