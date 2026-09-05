@@ -12,6 +12,10 @@ screen:
   answer_sheet_pdf_doc: docs/62-internal-exam-answer-sheet-pdf.md
   result_details_spec: specs/screens/internal-exam-result-details.yml
   result_details_doc: docs/63-internal-exam-result-details-screen.md
+  question_review_spec: specs/screens/internal-exam-question-review.yml
+  question_review_doc: docs/64-internal-exam-question-review.md
+  generation_access_spec: specs/screens/internal-exam-generation-access.yml
+  generation_access_doc: docs/65-internal-exam-generation-access-flow.md
 
 inventory:
   projections:
@@ -38,14 +42,46 @@ purchase_action:
 assigned_exams_section:
   title: Przydzielone egzaminy wewnętrzne
   controls:
-    generate_exam: true
-    select_visible: true
-    generate_exams_selected_action_visible: true
-    generate_exams_selected_exact_behavior: TO_VERIFY
+    standalone_generate_exam_button_visible: true
+    standalone_generate_exam_button_exact_initial_flow: TO_VERIFY
+    select_student_row: true
+    selected_state_label_observed: ZAZNACZONE (1)
+    generate_exam_for_selected_label_observed: Generuj egzaminy (1)
+    selected_generation_exact_behavior: open_single_student_generation_drawer
+    multi_student_batch_generation: false
+    target_cardinality: exactly_one_student
     hide_finished_exams_toggle: true
     search: true
     filter: true
     sort: true
+
+generation_flow:
+  confidence: USER_CONFIRMED_AUTH_SCREEN
+  spec: specs/screens/internal-exam-generation-access.yml
+  doc: docs/65-internal-exam-generation-access-flow.md
+  drawer_title: Generuj dostęp do egzaminu wewnętrznego
+  observed_available_exam_count: 160
+  candidate_fields:
+    - category
+    - language
+    - first_name
+    - last_name
+    - pkk
+    - pesel
+    - email
+  candidate_actions:
+    - remove_from_current_generation_form
+    - edit_candidate_data
+  launch_modes:
+    remote_link:
+      label: Udostępnij link do egzaminu
+      sends_link_to_candidate_email: true
+      candidate_can_take_anywhere_with_internet: true
+    local_station:
+      label: Rozpocznij egzamin teraz
+      starts_on_current_computer_station: true
+      concurrent_candidate_limit: 1
+      observed_message: Dostępne tylko dla 1 kursanta jednocześnie.
 
 row_granularity:
   primary_projection: student_or_exam_access_with_latest_attempt_summary
@@ -113,27 +149,10 @@ answer_sheet_pdf:
   screen_spec: specs/screens/internal-exam-answer-sheet-pdf.yml
   screen_doc: docs/62-internal-exam-answer-sheet-pdf.md
   observed_pages: 1
-  fields_confirmed:
-    - registry_or_pkk_number
-    - candidate_last_name
-    - candidate_first_name
-    - candidate_pesel
-    - exam_date
-    - category
-    - question_positions
-    - question_identifiers
-    - max_points_per_question
-    - submitted_answers
-    - awarded_points
-    - total_score
-    - final_result
-    - candidate_signature_line
-    - examiner_signature_and_stamp_line
   observed_question_count: 32
   observed_basic_question_count: 20
   observed_specialized_question_count: 12
   observed_failed_pdf_result_label: NEGATYWNY
-  observed_panel_failed_status_label: Niezaliczony
   immutable_attempt_question_snapshot_required_for_own_product: true
 
 result_details:
@@ -142,20 +161,20 @@ result_details:
   screen_doc: docs/63-internal-exam-result-details-screen.md
   host: www.prawo-jazdy-360.pl
   route_pattern: /egzamin-wewnetrzny?pid=<opaque_token>
-  observed_completed_failed_attempt:
-    score: 0
-    max_score: 74
-    basic_correct: 0
-    basic_incorrect: 20
-    specialized_correct: 0
-    specialized_incorrect: 12
-    total_correct: 0
-    total_incorrect: 32
   question_navigation:
     basic: 1-20
     specialized: 21-32
     total_count: 32
-  clicked_question_review_content: TO_VERIFY
+  clicked_question_review_content_confirmed: true
+  question_review_spec: specs/screens/internal-exam-question-review.yml
+  question_review_confirms:
+    - question_media
+    - question_text
+    - question_point_value
+    - category
+    - correct_answer_highlight
+    - selected_answer_highlight
+    - incorrect_answer_message
 
 row_actions:
   - action: expand_exam_history
@@ -165,11 +184,9 @@ row_actions:
     route_host_observed: www.prawo-jazdy-360.pl
     route_pattern: /egzamin-wewnetrzny?pid=<token>
     semantics: completed_attempt_result_and_answer_review_for_observed_attempt
-    details_spec: specs/screens/internal-exam-result-details.yml
   - action: download_exam_printout
     label: Pobierz wydruk
     route_pattern: /exam/download?id=<exam_id>
-    document_spec: specs/screens/internal-exam-answer-sheet-pdf.yml
 
 finished_filter:
   label: Ukryj egzaminy zakończone
@@ -180,15 +197,12 @@ own_product_model:
   inventory_ledger_sources:
     - free_monthly
     - paid
-  projections:
-    - free_available
-    - paid_available
-    - total_available
   entities:
     - internal_exam_inventory_ledger
     - internal_exam_accesses
     - internal_exam_attempts
     - internal_exam_attempt_questions
+    - internal_exam_launches
     - internal_exam_launch_tokens
     - internal_exam_results
     - internal_exam_documents
@@ -199,13 +213,10 @@ own_product_model:
   snapshot_exam_question_set_per_attempt: true
   snapshot_scoring_per_attempt_question: true
   immutable_result_projection: true
-  row_projection_fields:
-    - latest_attempt_id
-    - latest_attempt_category
-    - latest_attempt_status
-    - latest_attempt_at
-    - latest_attempt_language
-    - attempt_count
+  attempt_and_launch_separate: true
+  launch_modes:
+    - remote_link
+    - local_station
 
 confirmed_actions:
   - open_internal_exam_management_panel
@@ -213,8 +224,11 @@ confirmed_actions:
   - view_paid_exam_inventory
   - view_total_exam_inventory
   - open_exam_purchase
-  - open_generate_exam_flow
-  - select_visible_exam_rows
+  - select_one_student_for_exam_generation
+  - open_generate_exam_for_selected_student
+  - view_candidate_exam_generation_data
+  - share_exam_link_by_email
+  - start_exam_on_current_station
   - toggle_hide_finished_exams
   - search_exam_rows
   - open_exam_filters
@@ -227,17 +241,17 @@ confirmed_actions:
   - redirect_to_tokenized_exam_result_frontend
   - view_completed_exam_score_and_statistics
   - navigate_completed_exam_question_numbers
+  - review_specific_exam_question
   - download_exam_printout
   - download_exam_answer_sheet_pdf
-  - view_exam_question_ids_and_scores_in_pdf
 
 remaining_gaps:
-  - generate_exam_panel_form
-  - selected_rows_generate_exams_behavior
+  - standalone_generate_exam_button_flow
+  - candidate_data_edit_drawer
+  - exact_required_candidate_fields
   - filter_options
   - sort_options
   - exact_search_fields
-  - clicked_question_review_content
   - passed_status_presentation
   - positive_result_pdf_label
   - pending_in_progress_statuses
@@ -246,7 +260,7 @@ remaining_gaps:
   - free_monthly_reset_policy
   - exact_exam_unit_consumption_moment
   - exam_duration
-  - positive_or_partial_answer_rendering
   - pagination
   - empty_states
   - success_error_messages
+  - remote_link_ttl_revocation_and_resend
