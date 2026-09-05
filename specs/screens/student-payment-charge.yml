@@ -35,7 +35,7 @@ parent_table_context:
   total_summary: total_balance
 
 business_semantics:
-  exact_competitor_semantics: TO_VERIFY
+  exact_competitor_semantics: COMPETITOR_UNVERIFIED_NONBLOCKING
   strongest_interpretation: create_student_charge_or_receivable
   confidence: STRONGLY_INFERRED_FROM_TABLE_STRUCTURE
   reason:
@@ -45,25 +45,18 @@ business_semantics:
   do_not_claim_as_competitor_fact_until_populated_record_observed: true
 
 own_product_model:
+  decision_status: ACCEPTED
+  design_doc: docs/41-own-student-finance-ledger.md
+  design_spec: specs/design/student-finance-ledger.yml
   separate_student_charge_from_student_payment: true
-  charge_fields:
-    - title
-    - original_amount
-    - currency
-    - outstanding_amount_projection
-    - status
-  payment_fields:
-    - charge_id
-    - amount
-    - paid_at
-    - payment_method_optional
-    - note_optional
-    - received_by
   installments_supported: true
   balance_is_projection_not_manual_field: true
   recommended_ui_labels:
     create_charge: Dodaj należność
     record_payment: Dodaj wpłatę
+  mvp_overpayment_policy: reject_above_remaining
+  corrections_use_reversal_not_delete: true
+  optional_course_link_for_charge: true
 
 security_requirements:
   - tenant_isolation
@@ -73,14 +66,14 @@ security_requirements:
   - audit_corrections_and_refunds
   - never_mutate_balance_without_ledger_event
 
-remaining_gaps:
+remaining_competitor_unknowns_nonblocking:
   - exact_competitor_charge_vs_payment_semantics
   - populated_payment_row
-  - payment_installment_entry_flow
-  - partial_payment_behavior
-  - overpayment_behavior
-  - correction_and_refund_flow
-  - payment_method
-  - payment_date
-  - relation_to_course_cost
-  - success_error_messages
+  - competitor_payment_installment_entry_flow
+  - competitor_partial_payment_behavior
+  - competitor_overpayment_behavior
+  - competitor_correction_and_refund_flow
+  - competitor_payment_method
+  - competitor_payment_date
+  - competitor_relation_to_course_cost
+  - competitor_success_error_messages
