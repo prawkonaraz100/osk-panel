@@ -31,9 +31,6 @@ inventory:
       observed_available: 160
   arithmetic_snapshot_consistent: true
   source_aware_inventory_required: true
-  recommended_sources:
-    - free_monthly
-    - paid
 
 purchase_action:
   label: Dokup egzaminy
@@ -43,13 +40,13 @@ assigned_exams_section:
   title: Przydzielone egzaminy wewnętrzne
   controls:
     standalone_generate_exam_button_visible: true
-    standalone_generate_exam_button_exact_initial_flow: TO_VERIFY
+    standalone_generate_exam_button_flow_confirmed: true
     select_student_row: true
     selected_state_label_observed: ZAZNACZONE (1)
     generate_exam_for_selected_label_observed: Generuj egzaminy (1)
-    selected_generation_exact_behavior: open_single_student_generation_drawer
+    selected_generation_exact_behavior: open_single_candidate_generation_drawer
     multi_student_batch_generation: false
-    target_cardinality: exactly_one_student
+    target_cardinality: exactly_one_candidate
     hide_finished_exams_toggle: true
     search: true
     filter: true
@@ -61,7 +58,32 @@ generation_flow:
   doc: docs/65-internal-exam-generation-access-flow.md
   drawer_title: Generuj dostęp do egzaminu wewnętrznego
   observed_available_exam_count: 160
-  candidate_fields:
+  entry_points:
+    selected_student:
+      confirmed: true
+      opens_with_candidate_selected: true
+    standalone_button:
+      confirmed: true
+      opens_without_candidate: true
+      choices:
+        - search_existing_student
+        - enter_ad_hoc_candidate
+  empty_state_search_fields:
+    - first_name
+    - last_name
+    - email
+    - login
+    - pesel
+  ad_hoc_candidate_fields:
+    - exam_category
+    - exam_language
+    - first_name
+    - last_name
+    - registry_or_pkk_number
+    - pesel
+    - email
+  ad_hoc_candidate_persistence_to_student_module: TO_VERIFY
+  selected_candidate_fields:
     - category
     - language
     - first_name
@@ -69,9 +91,6 @@ generation_flow:
     - pkk
     - pesel
     - email
-  candidate_actions:
-    - remove_from_current_generation_form
-    - edit_candidate_data
   launch_modes:
     remote_link:
       label: Udostępnij link do egzaminu
@@ -100,25 +119,6 @@ columns:
   - exam_count
   - row_actions
 
-observed_rows:
-  - student: Ala Nowak
-    email_or_login: alanowak@prawo-jazdy-360.pl
-    latest_category: B
-    latest_status_visual: red_x
-    latest_status_semantics: not_passed
-    latest_status_label_in_expanded_history: Niezaliczony
-    latest_at: 2026-01-26T15:43
-    latest_language: PL
-    exam_count: 7
-  - student: Paweł Kowalski
-    email_or_login: pawelkowalski@prawo-jazdy-360.pl
-    latest_category: B
-    latest_status_visual: red_x
-    latest_status_semantics: strongly_supported_as_not_passed_by_same_ui_pattern
-    latest_at: 2026-01-23T12:56
-    latest_language: PL
-    exam_count: 2
-
 status_projection:
   red_x_maps_to_not_passed_for_observed_ala_row: true
   passed_visual: TO_VERIFY
@@ -129,18 +129,7 @@ expanded_history:
   confidence: USER_CONFIRMED_AUTH_SCREEN
   screen_spec: specs/screens/internal-exam-expanded-attempts.yml
   screen_doc: docs/61-internal-exam-expanded-attempt-history.md
-  title: Egzaminy
   row_entity: internal_exam_attempt
-  columns:
-    - candidate_full_name
-    - category
-    - status
-    - registry_or_pkk_number
-    - displayed_datetime
-    - language
-    - row_actions
-  ala_observed_attempt_count: 7
-  all_ala_observed_statuses: not_passed
   duplicate_displayed_minute_confirmed: true
   displayed_datetime_is_unique_identifier: false
 
@@ -166,32 +155,6 @@ result_details:
     specialized: 21-32
     total_count: 32
   clicked_question_review_content_confirmed: true
-  question_review_spec: specs/screens/internal-exam-question-review.yml
-  question_review_confirms:
-    - question_media
-    - question_text
-    - question_point_value
-    - category
-    - correct_answer_highlight
-    - selected_answer_highlight
-    - incorrect_answer_message
-
-row_actions:
-  - action: expand_exam_history
-    label: Rozwiń
-  - action: open_exam_details
-    label: Szczegóły
-    route_host_observed: www.prawo-jazdy-360.pl
-    route_pattern: /egzamin-wewnetrzny?pid=<token>
-    semantics: completed_attempt_result_and_answer_review_for_observed_attempt
-  - action: download_exam_printout
-    label: Pobierz wydruk
-    route_pattern: /exam/download?id=<exam_id>
-
-finished_filter:
-  label: Ukryj egzaminy zakończone
-  control: toggle
-  completed_status_membership: TO_VERIFY
 
 own_product_model:
   inventory_ledger_sources:
@@ -206,6 +169,10 @@ own_product_model:
     - internal_exam_launch_tokens
     - internal_exam_results
     - internal_exam_documents
+  candidate_sources:
+    - existing_student
+    - ad_hoc_candidate
+  student_id_nullable_for_ad_hoc_candidate: true
   one_student_many_attempts: true
   stable_attempt_id_required: true
   timestamp_not_attempt_identity: true
@@ -224,6 +191,9 @@ confirmed_actions:
   - view_paid_exam_inventory
   - view_total_exam_inventory
   - open_exam_purchase
+  - open_standalone_generate_exam_drawer
+  - search_existing_student_for_exam
+  - enter_ad_hoc_exam_candidate
   - select_one_student_for_exam_generation
   - open_generate_exam_for_selected_student
   - view_candidate_exam_generation_data
@@ -246,9 +216,11 @@ confirmed_actions:
   - download_exam_answer_sheet_pdf
 
 remaining_gaps:
-  - standalone_generate_exam_button_flow
   - candidate_data_edit_drawer
   - exact_required_candidate_fields
+  - exam_category_options
+  - exam_language_options
+  - ad_hoc_candidate_persistence_behavior
   - filter_options
   - sort_options
   - exact_search_fields
