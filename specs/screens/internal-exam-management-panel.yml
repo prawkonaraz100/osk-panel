@@ -8,6 +8,8 @@ screen:
   doc: docs/60-internal-exam-management-panel.md
   expanded_attempts_spec: specs/screens/internal-exam-expanded-attempts.yml
   expanded_attempts_doc: docs/61-internal-exam-expanded-attempt-history.md
+  answer_sheet_pdf_spec: specs/screens/internal-exam-answer-sheet-pdf.yml
+  answer_sheet_pdf_doc: docs/62-internal-exam-answer-sheet-pdf.md
 
 inventory:
   projections:
@@ -104,6 +106,34 @@ expanded_history:
   duplicate_displayed_minute_confirmed: true
   displayed_datetime_is_unique_identifier: false
 
+answer_sheet_pdf:
+  confidence: USER_CONFIRMED_DOWNLOADED_DOCUMENT
+  screen_spec: specs/screens/internal-exam-answer-sheet-pdf.yml
+  screen_doc: docs/62-internal-exam-answer-sheet-pdf.md
+  observed_pages: 1
+  fields_confirmed:
+    - registry_or_pkk_number
+    - candidate_last_name
+    - candidate_first_name
+    - candidate_pesel
+    - exam_date
+    - category
+    - question_positions
+    - question_identifiers
+    - max_points_per_question
+    - submitted_answers
+    - awarded_points
+    - total_score
+    - final_result
+    - candidate_signature_line
+    - examiner_signature_and_stamp_line
+  observed_question_count: 32
+  observed_basic_question_count: 20
+  observed_specialized_question_count: 12
+  observed_failed_pdf_result_label: NEGATYWNY
+  observed_panel_failed_status_label: Niezaliczony
+  immutable_attempt_question_snapshot_required_for_own_product: true
+
 row_actions:
   - action: expand_exam_history
     label: Rozwiń
@@ -114,6 +144,7 @@ row_actions:
   - action: download_exam_printout
     label: Pobierz wydruk
     route_pattern: /exam/download?id=<exam_id>
+    document_spec: specs/screens/internal-exam-answer-sheet-pdf.yml
 
 finished_filter:
   label: Ukryj egzaminy zakończone
@@ -132,6 +163,7 @@ own_product_model:
     - internal_exam_inventory_ledger
     - internal_exam_accesses
     - internal_exam_attempts
+    - internal_exam_attempt_questions
     - internal_exam_launch_tokens
     - internal_exam_results
     - internal_exam_documents
@@ -139,6 +171,8 @@ own_product_model:
   stable_attempt_id_required: true
   timestamp_not_attempt_identity: true
   snapshot_historical_candidate_data_per_attempt: true
+  snapshot_exam_question_set_per_attempt: true
+  snapshot_scoring_per_attempt_question: true
   row_projection_fields:
     - latest_attempt_id
     - latest_attempt_category
@@ -165,6 +199,8 @@ confirmed_actions:
   - view_not_passed_attempt_status
   - open_exam_details
   - download_exam_printout
+  - download_exam_answer_sheet_pdf
+  - view_exam_question_ids_and_scores_in_pdf
 
 remaining_gaps:
   - generate_exam_panel_form
@@ -172,15 +208,16 @@ remaining_gaps:
   - filter_options
   - sort_options
   - exact_search_fields
-  - printout_format
   - details_screen_semantics
   - passed_status_presentation
+  - positive_result_pdf_label
   - pending_in_progress_statuses
   - exact_displayed_datetime_semantics
   - free_vs_paid_consumption_order
   - free_monthly_reset_policy
   - exact_exam_unit_consumption_moment
-  - scoring_and_duration
+  - exam_duration
+  - positive_or_partial_answer_rendering
   - pagination
   - empty_states
   - success_error_messages
