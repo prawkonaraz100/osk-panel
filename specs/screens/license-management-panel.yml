@@ -8,6 +8,8 @@ screen:
   doc: docs/53-license-management-panel.md
   expanded_assignments_spec: specs/screens/license-expanded-assignments.yml
   expanded_assignments_doc: docs/54-license-expanded-assignments.md
+  generate_access_spec: specs/screens/license-generate-access.yml
+  generate_access_doc: docs/55-license-generate-access-form.md
 
 inventory_cards:
   products:
@@ -31,7 +33,29 @@ inventory_cards:
 primary_access_action:
   label: Generuj dostęp dla kursanta do prawo-jazdy-360.pl
   action: generate_student_learning_access
-  exact_form: TO_VERIFY
+  exact_form: USER_CONFIRMED_AUTH_SCREEN
+  screen_spec: specs/screens/license-generate-access.yml
+  confirmed_fields:
+    - license_product_duration
+    - language
+    - new_learning_identifier_or_existing_student
+  confirmed_product_options:
+    - one_month
+    - three_months
+    - six_months
+  confirmed_language_options:
+    - pl
+    - en
+    - de
+    - ru
+    - uk
+  source_conflict_purchase_marketing_omits_ru: true
+  existing_student_search_fields:
+    - first_name
+    - last_name
+    - contact_email
+    - learning_login
+    - pesel
 
 assigned_licenses_section:
   title: Przydzielone licencje
@@ -159,12 +183,23 @@ own_product_model:
   remaining_days_derived_from_current_or_assignment_expiry: true
   revoke_unactivated_restores_inventory: true
   active_assignment_normal_revoke_disabled: true
+  common_assignment_service_across_entry_points: true
+  language_catalog_capability_driven: true
+  target_modes_for_generate_access:
+    - new_learning_access
+    - existing_student
 
 confirmed_actions:
   - open_license_management_panel
   - view_license_inventory_by_duration
   - open_license_purchase_from_inventory_card
   - generate_student_learning_access
+  - select_license_product_duration_for_generation
+  - select_language_for_generation
+  - enter_new_learning_identifier
+  - search_existing_student_for_license
+  - select_existing_student_for_license
+  - submit_license_assignment
   - add_new_student_from_license_panel
   - select_visible_learning_accesses
   - bulk_download_access_credentials
@@ -189,6 +224,8 @@ security_requirements:
   - atomic_entitlement_extension
   - prevent_negative_inventory
   - prevent_double_application_of_same_inventory_entry
+  - tenant_scope_student_search
+  - do_not_expose_pesel_in_logs_unnecessarily
   - audit_license_assignment
   - audit_license_activation
   - audit_license_revoke
@@ -198,9 +235,8 @@ security_requirements:
 
 remaining_gaps:
   - expired_assignment_expanded_row
-  - generate_access_form
   - sort_options
-  - exact_search_fields
+  - exact_search_fields_main_table
   - active_inventory_exact_semantics
   - bulk_assign_license_flow
   - bulk_download_output
@@ -208,6 +244,10 @@ remaining_gaps:
   - exact_stack_rule_exceptions
   - expired_access_extension_behavior
   - multiple_unactivated_activation_order
+  - new_identifier_validation
+  - duplicate_login_email_behavior
+  - new_path_student_profile_vs_access_only
+  - russian_full_content_availability
   - pagination
   - empty_states
   - validations
