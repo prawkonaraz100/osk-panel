@@ -1,0 +1,71 @@
+requirement_editing:
+  status: OWN_PRODUCT_DECISION
+  legal_basis_doc: docs/66-formal-student-record-and-theory-exemptions.md
+  product_doc: docs/67-editable-training-requirements-and-theory-exemption.md
+
+principle:
+  requirements_are_recalculable: true
+  lock_at_course_creation: false
+  preserve_history: true
+  destructive_retroactive_rewrite: false
+
+editable_inputs:
+  - target_category
+  - held_categories
+  - state_theory_passed
+  - exemption_basis_code
+  - evidence_reference
+
+allowed_stages:
+  - course_created
+  - theory_in_progress
+  - before_practice
+  - practice_in_progress
+  - before_internal_exam
+  - correction_after_wrong_initial_setup
+
+closed_course_policy:
+  normal_inline_edit: false
+  correction_mode_required: true
+  audit_required: true
+  regenerate_derived_documents_when_needed: true
+
+rule_engine_outputs:
+  - theory_training_required
+  - minimum_theory_minutes
+  - internal_theory_exam_required
+  - practical_training_required
+  - minimum_practical_minutes
+  - internal_practical_exam_required
+
+historical_data_policy:
+  delete_existing_training_sessions_on_exemption_change: false
+  delete_existing_attendance_on_exemption_change: false
+  delete_existing_exam_attempts_on_exemption_change: false
+  keep_completed_activity_as_history: true
+  stop_requiring_future_theory_when_exempt: true
+  restore_missing_requirements_when_exemption_removed: true
+
+ui:
+  section_label: Wymagania szkolenia / Zwolnienia
+  direct_unqualified_exemption_checkbox: false
+  require_basis_selection: true
+  show_calculated_requirements: true
+  allow_late_correction: true
+
+manual_override:
+  allowed: true
+  requires_permission: true
+  requires_reason: true
+  audit_before_after: true
+  actor_required: true
+  timestamp_required: true
+  evidence_reference_optional: true
+
+example_c_plus_e:
+  target_category: C+E
+  held_category: C
+  after_recalculation:
+    theory_training_required: false
+    internal_theory_exam_required: false
+    internal_practical_exam_required: true
