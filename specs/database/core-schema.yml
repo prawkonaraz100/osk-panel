@@ -45,6 +45,12 @@ conventions:
   jsonb_as_replacement_for_core_relational_model: false
   tenant_owned_tables_have_organization_id_when_practical: true
   history_preservation_over_destructive_uniqueness: true
+  nullable_scope_uniqueness:
+    strategy: separate_partial_unique_indexes_for_null_and_non_null_scope
+    postgres_NULLS_NOT_DISTINCT_required: false
+    rationale: >-
+      Avoid depending on version-specific NULLS NOT DISTINCT behavior and make
+      tenant versus global uniqueness semantics explicit in migrations and tests.
 
 sensitive_identifier_pattern:
   pesel:
@@ -221,6 +227,15 @@ identity_model:
       - request_id
     history_preserved: true
     one_pending_request_per_scope: true
+    pending_uniqueness:
+      organization_scope:
+        type: partial_unique
+        columns: [user_id, organization_id]
+        where: status_equals_pending_and_organization_id_is_not_null
+      global_user_scope:
+        type: partial_unique
+        columns: [user_id]
+        where: status_equals_pending_and_organization_id_is_null
   organization_memberships:
     same_user_multiple_organizations_supported: true
 
@@ -288,8 +303,18 @@ idempotency_model:
       - created_at
       - completed_at
       - expires_at
-    unique_scope: [organization_id, operation_key, idempotency_key]
-    same_key_different_request_hash: reject_conflict
+    uniqueness:
+      organization_scope:
+        type: partial_unique
+        columns: [organization_id, operation_key, idempotency_key]
+        where: organization_id_is_not_null
+      global_scope:
+        type: partial_unique
+        columns: [operation_key, idempotency_key]
+        where: organization_id_is_null
+    same_key_different_request_hash: reject_conflict_within_same_scope
+    same_key_may_exist_in_different_organizations: true
+    global_scope_is_distinct_from_each_tenant_scope: true
     plaintext_secret_in_response_snapshot_forbidden: true
     transaction_or_atomic_claim_required: true
 
@@ -449,18 +474,28 @@ critical_constraints:
     columns: [provider, provider_subject]
   auth_session_token_hash_unique:
     columns: [token_or_framework_session_hash]
-  account_closure_one_pending_per_scope:
+  account_closure_pending_unique_organization_scope:
     type: partial_unique
     columns: [user_id, organization_id]
-    where: status_equals_pending
+    where: status_equals_pending_and_organization_id_is_not_null
+  account_closure_pending_unique_global_scope:
+    type: partial_unique
+    columns: [user_id]
+    where: status_equals_pending_and_organization_id_is_null
   membership_unique:
     columns: [organization_id, user_id]
   terms_acceptance_unique:
     columns: [organization_id, user_id, legal_document_id]
   file_asset_storage_key_unique:
     columns: [storage_key]
-  idempotency_unique:
+  idempotency_unique_organization_scope:
+    type: partial_unique
     columns: [organization_id, operation_key, idempotency_key]
+    where: organization_id_is_not_null
+  idempotency_unique_global_scope:
+    type: partial_unique
+    columns: [operation_key, idempotency_key]
+    where: organization_id_is_null
   staff_type_assignment_unique:
     columns: [staff_profile_id, staff_type_code]
   staff_category_assignment_unique:
@@ -650,7 +685,9 @@ migration_tests_required:
   - generic_login_identifier_resolves_to_at_most_one_current_user
   - revoked_login_identifier_can_be_reissued_only_by_explicit_policy
   - auth_session_can_be_listed_and_revoked_without_exposing_raw_secret
-  - duplicate_pending_account_closure_request_same_scope_is_rejected_or_idempotent
+  - duplicate_pending_account_closure_request_same_organization_scope_is_rejected_or_idempotent
+  - duplicate_pending_global_account_closure_request_for_same_user_is_rejected_or_idempotent
+  - pending_account_closure_for_two_different_organizations_does_not_collide
   - same_user_can_have_memberships_in_two_organizations
   - staff_can_exist_without_membership_link
   - staff_can_have_multiple_categories_and_locations
@@ -672,8 +709,10 @@ migration_tests_required:
   - duplicate_provider_event_with_same_provider_is_rejected
   - same_provider_event_id_from_different_provider_does_not_collide
   - only_one_non_superseded_requirement_profile_per_course
-  - duplicate_idempotency_key_same_request_does_not_repeat_business_effect
-  - duplicate_idempotency_key_different_request_is_rejected
+  - duplicate_tenant_idempotency_key_same_scope_same_request_does_not_repeat_business_effect
+  - duplicate_global_idempotency_key_same_scope_same_request_does_not_repeat_business_effect
+  - same_idempotency_key_in_different_organizations_does_not_collide
+  - duplicate_idempotency_key_same_scope_different_request_is_rejected
   - activity_safe_payload_rejects_or_redacts_sensitive_fields
 
 pending_ADRs:
