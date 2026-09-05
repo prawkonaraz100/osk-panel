@@ -28,10 +28,26 @@ fields:
   - name: no_pesel_declared
     label: Kursant nie posiada numeru PESEL
     control: checkbox_or_toggle
+  - name: birth_date
+    label: Data urodzenia
+    control: date
+    conditional_visibility_or_requirement: no_pesel_declared_true
+    required_when: no_pesel_declared_true
   - name: location_id
     label: Lokalizacja
     control: single_select
     required_by_visible_marker: false
+
+conditional_rules:
+  has_pesel:
+    when: no_pesel_declared_false
+    pesel_expected: true
+    manual_birth_date_required: false
+    exact_birth_date_source: TO_VERIFY
+  no_pesel:
+    when: no_pesel_declared_true
+    pesel: null
+    birth_date_required: true
 
 primary_action:
   label: Zapisz kursanta
@@ -43,7 +59,6 @@ close_control:
 
 explicitly_not_observed:
   - cancel_button
-  - birth_date_field
   - pkk_field
   - course_fields
   - training_stage
@@ -61,8 +76,10 @@ confirmed_model_behavior:
   student_profile_edit_is_separate_from_internal_exam: true
   contact_email_separate_from_learning_identifier: true
   student_without_pesel_supported: true
+  birth_date_required_for_student_without_pesel: true
   location_is_single_select: true
-  birth_date_visible_on_detail_but_not_editable_here: true
+  birth_date_visible_on_detail: true
+  birth_date_manual_entry_is_conditional: true
 
 confirmed_actions:
   - open_student_edit_drawer
@@ -72,6 +89,7 @@ confirmed_actions:
   - set_student_contact_email
   - set_student_pesel
   - toggle_student_no_pesel
+  - set_student_birth_date_when_no_pesel
   - select_student_location
   - save_student_changes
   - close_student_edit_drawer
@@ -81,6 +99,7 @@ security_requirements:
   - authorize_student_by_organization
   - validate_location_by_organization
   - protect_pesel
+  - validate_identity_branch_pesel_or_no_pesel_with_birth_date
   - audit_identity_changes
   - keep_contact_email_separate_from_learning_identity
   - profile_endpoint_must_not_mutate_course_pkk_license_or_exam
@@ -89,9 +108,10 @@ remaining_gaps:
   - phone_validation
   - contact_email_validation
   - pesel_validation
-  - pesel_change_behavior
+  - exact_birth_date_source_when_pesel_present
+  - pesel_to_no_pesel_transition_behavior
+  - no_pesel_to_pesel_transition_behavior
   - duplicate_student_detection
   - location_change_side_effects
-  - birth_date_source_and_edit_flow
   - unsaved_changes_close_behavior
   - success_error_messages
