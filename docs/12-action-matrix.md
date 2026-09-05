@@ -1,112 +1,204 @@
-# 12. Macierz akcji i skutków ubocznych
+# 12. Macierz akcji i skutków ubocznych — core v1
 
-> `Źródło`: `CURRENT` = bieżąca publiczna oferta/route, `RULES` = regulamin, `HIST` = starszy indeks/aktualność, `DESIGN` = nasz wymóg projektowy. Nie traktować `DESIGN` jako dowodu zachowania 360.
+Data konsolidacji: 2026-09-05
 
-| Moduł | Akcja | Źródło | Warunek | Skutek biznesowy / zapis | Audit | Powiadomienie |
-|---|---|---|---|---|---:|---:|
-| Auth | register | CURRENT | poprawne dane + regulamin | user + organization | tak | e-mail wg implementacji |
-| Auth | login | CURRENT | poprawne credentials | session | security log | - |
-| Auth | social login | CURRENT | provider callback | identity + session | security log | - |
-| Auth | remember me | CURRENT | user opt-in | dłuższa sesja wg polityki | security log | - |
-| Auth | request password reset by email/login | CURRENT | istniejący identyfikator lub neutralna odpowiedź | reset request/token | security log | e-mail |
-| Auth | resume ReturnUrl | CURRENT | poprawne logowanie + bezpieczny lokalny return URL | redirect do pierwotnej trasy | - | - |
-| Account | request closure | RULES | użytkownik składa żądanie | closure request | tak | potwierdzenie |
-| Account | block | RULES/DESIGN | naruszenie/polityka operatora | account blocked | tak | zależnie od polityki |
-| Session | replace prior session | RULES | nowa sesja przy polityce single-session | poprzednia sesja revoked | tak | opcjonalnie |
-| Student | create | CURRENT context / AUTH verify UI | staff permission | student | tak | opcjonalnie |
-| Student | create access by email | RULES | student/email + license assignment | account invitation/access | tak | e-mail |
-| Student | create access by credentials | RULES | student + generated login/password | student credential provisioning | tak, bez hasła | przekazanie danych wg kanału |
-| Student | change default category | CURRENT/HIST 2026 | dozwolona kategoria | learning preference changed | tak | - |
-| PKK | fetch | CURRENT | permission + profile data | pkk_profile | tak | przy błędzie |
-| PKK | view details | CURRENT | linked/accessible PKK | read only | read log opcjonalny | - |
-| PKK | update training | CURRENT | linked PKK | external + local state | tak | przy błędzie |
-| PKK | return to school | CURRENT | elevated permission | external status change | tak | tak/recommended |
-| PKK | return to authority | CURRENT | elevated permission | external status change | tak | tak/recommended |
-| PKK | return expired | CURRENT | profile condition | external status change | tak | tak/recommended |
-| PKK | history | CURRENT | permission | show operation history | read log opcjonalny | - |
-| License | purchase | CURRENT/RULES | order paid | inventory +N | tak | tak |
-| License | select language | HIST product update | supported language | assignment config | tak | - |
-| License | assign | RULES | inventory > 0 | inventory -1 + assignment | tak | tak |
-| License | delete/revoke unactivated | RULES | assignment not activated | assignment ended + inventory +1 atomically | tak | tak |
-| License | activate | RULES | valid assignment | consumed/activated + start access | tak | tak |
-| License | view progress | CURRENT | assigned/authorized | read learning stats | read log optional | - |
-| Entitlement | payment confirmed | RULES | trusted payment confirmation | status paid | tak | tak |
-| Entitlement | make activation available | RULES/DESIGN | paid + explicit activation product | activation_available | tak | UI/e-mail optional |
-| Entitlement | activate access | RULES | activation_available | activated_at + access period begins | tak | tak |
-| Calendar | schedule for self | CURRENT | permission | lesson/event | tak | tak/recommended |
-| Calendar | schedule for employee | CURRENT | permission + employee | lesson/event assigned | tak | tak/recommended |
-| Calendar | publish self-book slot | CURRENT | permission | student-bookable availability | tak | optional |
-| Calendar | student book slot | CURRENT business capability | available slot + authorized student | booking/event | tak | tak |
-| Calendar | view instructor activity | CURRENT | authorized staff | read activity | optional | - |
-| Work time | record/view | CURRENT | role permission | work-time entry/summary | tak for changes | - |
-| Vehicle | mark unavailable | DESIGN | staff permission | blocks booking in our design | tak | opcjonalnie |
-| Training | open instructor training | CURRENT/HIST 2026 | entitlement | load category program | - | - |
-| Training | play lesson | CURRENT/HIST 2026 | assigned/entitled | lesson session | progress log | - |
-| Training | record progress | CURRENT/HIST 2026 | lesson activity | learning_progress | tak/system | - |
-| Training | start control questions | CURRENT/HIST 2026 | end/availability of section | attempt starts | system | - |
-| Training | retry control questions | CURRENT/HIST 2026 | previous/current attempt | new attempt | system | - |
-| Training | skip control questions | CURRENT/HIST 2026 | user chooses skip | move forward without attempt completion | system | - |
-| Exam | purchase | CURRENT/RULES | order paid | exam inventory +N | tak | tak |
-| Exam | generate/link | RULES | inventory > 0 | assignment/link | tak | tak |
-| Exam | start local | RULES | available assigned exam | local exam session | tak | - |
-| Exam | start by link | RULES | valid exam access | started | tak | - |
-| Exam | finish | RULES | started | result + exam consumed | tak | tak |
-| Exam | save card digitally | RULES | finished | exam_card persisted | tak | - |
-| Exam | print/download card | RULES | card/result available | document generated | tak | - |
-| Payment | create/start | CURRENT/RULES | valid order | payment attempt | tak | - |
-| Payment | confirm webhook | DESIGN | valid signature + idempotency | paid | tak | tak |
-| Payment | upload transfer confirmation | RULES | bank transfer path | attachment/request for verification | tak | tak/operator |
-| Invoice | view/download | HIST/TO_VERIFY | invoice exists | document read | read log optional | - |
-| Ranking | view reviews/ranking | CURRENT/RULES | public/authorized | read | - | - |
-| Ranking | report review | RULES | OSK disputes review | moderation request | tak | operator |
-| Impersonation | start | HIST/DESIGN | explicit permission | impersonation session | tak | persistent banner |
-| Impersonation | stop | HIST/DESIGN | active impersonation | restore actor context | tak | - |
-| Ad | select city | CURRENT | region exists | auction catalog filtered | - | - |
-| Ad | select placement | CURRENT | placement available | offer/auction context | - | - |
-| Ad | view auction terms | RULES/CURRENT | auction visible | read opening/min increment/deadline | - | - |
-| Ad | place binding bid | RULES | auction open + valid minimum/increment | immutable bid recorded | tak | optional immediate |
-| Ad | request bid rejection | RULES | bidder requests operator action | rejection request | tak | operator |
-| Ad | view bid history | RULES | allowed visibility | bids/history | read log optional | - |
-| Ad | request bidder name hiding | RULES | bidder/OSK request | privacy request | tak | operator |
-| Ad | auction settle | RULES/DESIGN | auction ended | winner selected, tie by earlier bid | tak | winner e-mail |
-| Ad | pay winning order | RULES | auction won | payment state | tak | tak |
-| Ad | upload desktop creative | RULES | winning/order/campaign state | creative version | tak | operator review |
-| Ad | upload mobile creative | RULES | placement requires/mobile variant | creative version | tak | operator review |
-| Ad | request creative service | RULES | customer requests paid help | service request/order | tak | operator |
-| Ad | approve creative | RULES | operator review | creative approved | tak | customer |
-| Ad | reject creative | RULES | invalid/noncompliant creative | creative rejected + revision needed | tak | customer |
-| Ad | activate text fallback | RULES | missing creative + rules permit | text creative/fallback | tak | customer/operator |
-| Ad | activate campaign | RULES/DESIGN | paid + accepted/fallback creative | campaign active | tak | tak |
-| Sponsored article | order | RULES | valid commercial order | article order | tak | tak |
-| Sponsored article | submit own content | RULES | order exists | draft/content | tak | editorial |
-| Sponsored article | request copywriting | RULES | order exists | editorial service task | tak | editorial |
-| Sponsored article | submit assets | RULES | order/draft | assets | tak | editorial |
-| Sponsored article | moderate/edit | RULES | editorial permission | revised draft/status | tak | customer as needed |
-| Sponsored article | publish | RULES | approved + commercial conditions | promoted publication | tak | tak |
-| Sponsored article | archive after promotion | RULES | promotion ended | archived/current-news state | system | - |
-| Partner banner | download | RULES/HIST | available asset | asset delivered | optional | - |
-| Partner banner | request implementation help | RULES | customer asks | support/lead ticket | tak | support |
-| Commercial services | request SEO/WWW contact | CURRENT | form/lead data | commercial lead | tak | sales/support |
+> Ten dokument opisuje skutki biznesowe naszego produktu. Nowsze `specs/legal`, `specs/design` i `specs/screens` mają pierwszeństwo. Dla egzaminów źródłem prawdy jest `specs/design/internal-exam-lifecycle.yml`.
 
-## Akcje, których nie uznajemy już za potwierdzone
+## Oznaczenia
 
-| Akcja | Status | Powód |
-|---|---|---|
-| `export_progress` | DESIGN/INFERRED | brak publicznego dowodu eksportu postępów |
-| `pause_campaign` | TO_VERIFY_AUTH | brak publicznego dowodu klientowego przycisku pauzy |
-| `refund` | DESIGN/process | regulamin opisuje reklamacje/odstąpienie, nie panelowy refund |
-| `download_invoice` jako bieżący moduł | HISTORICAL_INDEX / TO_VERIFY_AUTH | stary indeks Faktury, stara trasa obecnie 404 |
+- `AUTH_SCREEN` — potwierdzone na bieżącym ekranie zalogowanym,
+- `LEGAL` — wynika z formalnych reguł własnego produktu,
+- `DESIGN` — jawna decyzja własnego produktu,
+- `PUBLIC/RULES` — kontekst funkcji potwierdzony publicznie/regulaminowo.
 
-## Krytyczne transakcje atomowe
+---
 
-### Cofnięcie licencji
-`check not activated -> revoke assignment -> restore inventory -> audit -> commit`
+# Identity / tenant
 
-### Jawna aktywacja
-`check paid + activation_available -> create activation once -> start entitlement -> audit -> commit`
+| Akcja | Źródło | Warunek | Skutek | Audit |
+|---|---|---|---|---:|
+| register | PUBLIC | poprawne dane | `User + Organization + Membership` | tak |
+| login | PUBLIC | credentials | session | security log |
+| logout | PUBLIC | session | revoke session | security log |
+| password reset | PUBLIC | e-mail/login | reset token/process | security log |
+| change permissions | DESIGN | permission | membership/permission update | **tak** |
+| deactivate staff login | DESIGN | permission | membership/session revoke | **tak** |
 
-### Bid
-`lock auction -> validate open/minimum/increment -> persist server timestamped bid -> commit`
+---
 
-### Settlement aukcji
-`close auction -> rank valid bids by amount DESC, sequence ASC -> select winner -> create winning order -> audit -> notify`
+# Kursant
+
+| Akcja | Źródło | Warunek | Skutek | Audit |
+|---|---|---|---|---:|
+| create student | AUTH_SCREEN | tenant permission | `Student` | tak |
+| edit student | AUTH_SCREEN | tenant permission | update kartoteki | tak |
+| archive student | AUTH_SCREEN/DESIGN | brak zakazującego procesu | archived state, historia zachowana | **tak** |
+| delete student visible action | AUTH_SCREEN | confirmation | u nas nie hard-delete historii formalnej | **tak** |
+| create learning account | AUTH_SCREEN/DESIGN | student exists | `StudentLearningAccount` | tak |
+| generate access handoff/PDF | AUTH_SCREEN/DESIGN | learning account | `StudentAccessHandoff` | **tak** |
+| reset learner password | DESIGN | permission | nowy hash, starego hasła nie odtwarzamy | **tak** |
+
+---
+
+# CourseEnrollment / formalne szkolenie
+
+| Akcja | Źródło | Warunek | Skutek | Audit |
+|---|---|---|---|---:|
+| create course enrollment | AUTH_SCREEN/LEGAL | student + wymagane dane | `CourseEnrollment` + requirement profile | **tak** |
+| edit enrollment | AUTH_SCREEN/DESIGN | permission | update dopuszczalnych danych | **tak** |
+| change training stage | AUTH_SCREEN/DESIGN | backend transition rules | stage changed | **tak** |
+| delete/cancel course visible action | AUTH_SCREEN/DESIGN | confirmation | u nas `cancel/archive`, nie hard-delete formalnej historii | **tak** |
+| recognize external training | AUTH_SCREEN/LEGAL/DESIGN | podstawa/dowód | `RecognizedExternalTraining` | **tak** |
+| add training session | DESIGN/LEGAL | enrollment | `TrainingSession` | **tak** |
+| credit training time | LEGAL/DESIGN | valid attendance/session | `TrainingHourLedgerEntry` | **tak** |
+| correct credited time | DESIGN | elevated permission + reason | immutable correction entry | **tak** |
+
+### Source of truth godzin
+
+Bieżące OSK:
+`TrainingSession -> TrainingHourLedgerEntry -> totals`
+
+Inne OSK:
+`RecognizedExternalTraining -> totals`
+
+Nie zapisujemy ręcznego agregatu bieżącego OSK jako niezależnego źródła prawdy.
+
+---
+
+# PKK
+
+| Akcja | Źródło | Warunek | Skutek | Audit |
+|---|---|---|---|---:|
+| fetch PKK | AUTH_SCREEN/PUBLIC | `CourseEnrollment` + integration config | snapshot `PkkProfile` | **tak** |
+| view PKK | AUTH_SCREEN | authorized enrollment | read | optional read log |
+| update training and return | AUTH_SCREEN/PUBLIC | valid state | external command + local operation record | **tak** |
+| return to other OSK | PUBLIC | elevated permission | external status change | **tak** |
+| return to authority | PUBLIC | elevated permission | external status change | **tak** |
+| return expired profile | PUBLIC | rule permits | external status change | **tak** |
+| retry safe failed operation | DESIGN | retryable class | new `PkkOperationAttempt` | **tak** |
+
+Wszystkie mutacje PKK odnoszą się do `course_enrollment_id`, nie wyłącznie do `student_id`.
+
+---
+
+# Kalendarz
+
+| Akcja | Źródło | Warunek | Skutek | Audit |
+|---|---|---|---|---:|
+| create event | AUTH_SCREEN | permission + valid resources | `CalendarEvent` | tak |
+| create driving lesson | AUTH_SCREEN/DESIGN | valid enrollment/resources | event + lesson relation | **tak** |
+| reschedule | DESIGN | no hard conflict | timestamps changed | **tak** |
+| cancel | DESIGN | allowed state | cancelled | **tak** |
+| complete | DESIGN | allowed state | completed | **tak** |
+| publish self-book slot | PUBLIC/DESIGN | permission | `AvailabilitySlot` | tak |
+| book slot | PUBLIC/DESIGN | available + atomic lock | reservation/event | **tak** |
+
+Backend sprawdza konflikty instruktora, kursanta i pojazdu.
+
+---
+
+# Lokalizacje / pojazdy / pracownicy
+
+| Akcja | Źródło | Skutek | Audit |
+|---|---|---|---:|
+| create/update location | AUTH_SCREEN | `Location` | tak |
+| archive location | DESIGN, UI visible/demo blocked | archived, history preserved | **tak** |
+| restore location | DESIGN | active again | **tak** |
+| create/update vehicle | AUTH_SCREEN | `Vehicle` | tak |
+| archive vehicle | DESIGN, UI visible/demo blocked | unavailable for new assignments, history preserved | **tak** |
+| create/update staff | AUTH_SCREEN | `StaffProfile` | tak |
+| create staff login | AUTH_SCREEN/DESIGN | User/Membership link | **tak** |
+| deactivate staff | DESIGN | account/resources state changed | **tak** |
+
+---
+
+# Student finance
+
+| Akcja | Źródło | Warunek | Skutek | Audit |
+|---|---|---|---|---:|
+| add charge | AUTH_SCREEN/DESIGN | valid student/course | `StudentCharge` | **tak** |
+| record payment | DESIGN | amount valid | `StudentPayment`, balance projection | **tak** |
+| reverse payment | DESIGN | elevated permission + reason | reversal record | **tak** |
+| cancel charge | DESIGN | allowed | charge cancelled, history preserved | **tak** |
+
+No hard-delete po wystąpieniu aktywności finansowej.
+
+---
+
+# Licencje
+
+| Akcja | Źródło | Warunek | Skutek | Audit |
+|---|---|---|---|---:|
+| purchase | AUTH_SCREEN/RULES | payment confirmed | inventory grant | **tak** |
+| assign | AUTH_SCREEN/RULES | inventory available | inventory reserved/allocated + assignment | **tak** |
+| create/access existing learning account | AUTH_SCREEN | valid student | assignment target selected | tak |
+| select language | AUTH_SCREEN | capability supports language | assignment/account config | tak |
+| revoke unactivated | AUTH_SCREEN/RULES | `activated_at IS NULL` | assignment revoked + **exactly one** inventory restored | **tak** |
+| activate | AUTH_SCREEN/DESIGN | valid assignment | one `LicenseActivation`, period starts | **tak** |
+| expire | SYSTEM | end date | expired | system audit/event |
+
+### Krytyczna transakcja
+
+`lock assignment + inventory -> verify not activated -> revoke -> restore exactly one -> audit -> commit`
+
+Race `activate vs revoke`: tylko jeden request może zakończyć się sukcesem.
+
+---
+
+# Egzamin wewnętrzny
+
+## Inventory/access lifecycle
+
+Źródło prawdy: `specs/design/internal-exam-lifecycle.yml`.
+
+| Akcja | Źródło | Warunek | Skutek | Audit |
+|---|---|---|---|---:|
+| purchase/grant exam credit | AUTH_SCREEN/DESIGN | grant/payment | `InternalExamInventoryEntry` | **tak** |
+| create exam access | AUTH_SCREEN/DESIGN | formal student + course + available inventory | reserve one inventory entry + create attempt/access draft | **tak** |
+| send/share remote link | AUTH_SCREEN | access ready | delivery event | **tak** |
+| revoke unused access | DESIGN | not started | reservation released | **tak** |
+| expire unused access | SYSTEM | TTL reached, not started | reservation released | system audit |
+| **start exam** | AUTH_SCREEN/DESIGN | valid access/reservation + no active conflict | **inventory consumed atomically** + attempt `in_progress` | **tak** |
+| submit/finish exam | AUTH_SCREEN | attempt in progress | result + immutable answer snapshot + attempt passed/failed | **tak** |
+| technical abort | DESIGN | attempt started | `technical_abort`; inventory remains consumed | **tak** |
+| restore credit after technical incident | DESIGN | elevated audited correction | compensating inventory ledger entry | **tak** |
+| generate/download answer sheet PDF | AUTH_SCREEN | completed/recorded attempt | immutable document snapshot | **tak** |
+
+### Zasada rozstrzygająca konflikt starszych dokumentów
+
+**Egzamin jest konsumowany przy starcie, nie przy finish.**
+
+`finish` zapisuje wynik i dokumentację, ale nie jest momentem pierwszego zużycia inventory.
+
+---
+
+# Platform orders / payments
+
+| Akcja | Źródło | Warunek | Skutek | Audit |
+|---|---|---|---|---:|
+| create order | AUTH_SCREEN | valid cart | `Order + OrderItems` | tak |
+| start payment | AUTH_SCREEN | order payable | payment attempt | tak |
+| confirm webhook | DESIGN | valid signature + idempotency | `Payment confirmed` | **tak** |
+| make explicit activation available | DESIGN | paid + product explicit mode | entitlement `activation_available` | **tak** |
+| activate entitlement | DESIGN | activation available | single activation/start period | **tak** |
+
+`paid != activated` dla produktów z `activation_mode=explicit`.
+
+---
+
+# Historia zakupów
+
+`/historia-zakupow` prezentuje zakupy OSK u platformy.
+
+Nie jest tym samym co:
+- `StudentCharge`,
+- `StudentPayment`,
+- historyczna trasa Faktury.
+
+---
+
+# Moduły odłożone
+
+Reklamy, wizytówki, wykłady i szkolenie z instruktorem pozostają w starszej dokumentacji domenowej, ale nie są dependency core v1.
+
+Nie usuwamy zasad integralności już ustalonych dla reklam, lecz nie powinny blokować implementacji core.
