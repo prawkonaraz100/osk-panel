@@ -16,13 +16,21 @@ Akcja `Generuj dostęp dla kursanta do prawo-jazdy-360.pl` otwiera drawer zatytu
 
 Formularz jednocześnie:
 - wybiera wariant licencji,
-- wybiera język dostępu,
-- wskazuje docelowego kursanta/dostęp,
+- wybiera język dostępu dla nowego accessu,
+- wskazuje **jeden** docelowy kursant/dostęp,
 - zużywa jedną jednostkę odpowiedniej puli po skutecznym przydzieleniu.
 
 UI wspiera dwie ścieżki wyboru celu:
 1. minimalne utworzenie nowego dostępu przez `Email lub login`,
 2. wyszukanie istniejącego kursanta.
+
+### Kardynalność
+
+Jedno zatwierdzenie formularza dotyczy **jednego kursanta/dostępu**.
+
+Lista kilku znalezionych kursantów jest listą wyników do wyboru, a nie listą wielu zaznaczonych odbiorców.
+
+`1 submit -> 1 target`.
 
 ---
 
@@ -72,6 +80,8 @@ Wnioski:
 - dla parytetu widocznego panelu administracyjnego `Rosyjski` jest `USER_CONFIRMED_AUTH_SCREEN` jako dostępna opcja selektora,
 - nie wyciągamy z samego selektora wniosku, że cała zawartość każdego modułu w języku rosyjskim jest kompletna.
 
+Dla istniejącego learning access język jest pokazywany na karcie wybranego kursanta i nie jest wybierany ponownie.
+
 ---
 
 ## 4. Ścieżka A — „Dodaj nowego kursanta”
@@ -111,7 +121,7 @@ Sekcja:
 - `Wyszukaj kursanta`.
 
 Kontrolka:
-- searchable single select.
+- searchable **single select**.
 
 Tekst pomocniczy potwierdza wyszukiwanie po:
 - imieniu,
@@ -129,6 +139,10 @@ Przykłady:
 - Paweł Kowalski / `pawelkowalskiprawojazdy360`,
 - Ala Nowak / `alanowakprawojazdy360`.
 
+Te trzy rekordy były **trzema opcjami do wyboru**. Operator wybiera jedną z nich.
+
+Po wyborze jednego kursanta wyszukiwarka jest zastępowana kartą tego jednego celu.
+
 ---
 
 ## 6. Relacja dwóch ścieżek
@@ -136,15 +150,13 @@ Przykłady:
 Między sekcjami widoczny jest separator:
 - `lub`.
 
-Semantyka UI: operator wybiera albo nowy identyfikator dostępu, albo istniejącego kursanta.
-
-Nie potwierdzono zachowania przy jednoczesnym wypełnieniu obu kontrolek.
+Semantyka UI: operator wybiera albo nowy identyfikator dostępu, albo jednego istniejącego kursanta.
 
 Dla naszego produktu wymagamy jawnego `target_mode`:
 - `new_learning_access`,
 - `existing_student`.
 
-Backend powinien odrzucać payload wskazujący oba cele jednocześnie.
+Backend odrzuca payload wskazujący oba cele jednocześnie lub więcej niż jeden target.
 
 ---
 
@@ -152,6 +164,8 @@ Backend powinien odrzucać payload wskazujący oba cele jednocześnie.
 
 Potwierdzony przycisk:
 - `Przydziel licencje`.
+
+Mimo liczby mnogiej w etykiecie przycisku flow dotyczy **jednego docelowego kursanta na jedno zatwierdzenie**.
 
 Widoczne jest również zamknięcie drawera przez `X`.
 
@@ -164,7 +178,7 @@ Nie można w demo potwierdzić:
 
 Dla naszego produktu assignment musi być transakcyjny:
 1. lock/select dostępnej jednostki inventory,
-2. validate target,
+2. validate exactly one target,
 3. create/reuse learning access,
 4. create license assignment,
 5. mark inventory assigned,
@@ -183,7 +197,7 @@ Wcześniej zmapowany `Przydziel licencje` z profilu kursanta pozwala:
 
 Bieżący formularz z `/licencje/panel` działa od drugiej strony:
 - zaczynamy od produktu/licencji,
-- następnie wskazujemy nowego identyfikatora albo istniejącego kursanta.
+- następnie wskazujemy nowego identyfikatora albo jednego istniejącego kursanta.
 
 Oba flow powinny korzystać z tego samego backendowego command/service, aby uniknąć różnic w logice inventory i aktywacji.
 
@@ -194,7 +208,7 @@ Oba flow powinny korzystać z tego samego backendowego command/service, aby unik
 - `open_generate_license_access_drawer`
 - `select_license_product_duration`
 - `view_available_inventory_count`
-- `select_learning_access_language`
+- `select_learning_access_language_for_new_access`
 - `enter_new_learning_identifier`
 - `search_existing_student_for_license`
 - `search_student_by_name`
@@ -202,8 +216,8 @@ Oba flow powinny korzystać z tego samego backendowego command/service, aby unik
 - `search_student_by_email`
 - `search_student_by_login`
 - `search_student_by_pesel`
-- `select_existing_student`
-- `submit_license_assignment`
+- `select_one_existing_student`
+- `submit_single_target_license_assignment`
 - `close_license_assignment_drawer`
 
 ---
@@ -211,6 +225,7 @@ Oba flow powinny korzystać z tego samego backendowego command/service, aby unik
 ## 10. Wymagania dla naszego produktu
 
 - wspólny service/command do przydzielania licencji niezależnie od entry pointu,
+- dokładnie jeden target na assignment request,
 - tenant isolation,
 - atomic inventory decrement/assignment,
 - brak zejścia inventory poniżej zera,
