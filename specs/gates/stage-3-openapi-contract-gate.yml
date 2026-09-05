@@ -121,7 +121,26 @@ quality_checks:
       are deliberately not promoted into this completed check.
 
   operationIds_are_unique:
-    status: PENDING_FULL_SCAN
+    status: PASS
+    stage_step: STAGE3_STEP_4
+    audit_scope: all_canonical_HTTP_operations_in_modular_path_files
+    counts:
+      canonical_http_operations: 158
+      unique_operationIds: 158
+      duplicate_operationIds: 0
+    module_operation_counts:
+      auth_organization: 20
+      students_courses_and_student_finance: 42
+      pkk_calendar: 20
+      resources: 32
+      licenses: 11
+      internal_exams: 20
+      commerce_dashboard: 13
+    validation_rule: >-
+      Every path/method operation has exactly one operationId and no operationId
+      is reused by another canonical HTTP operation. Capability aliases from the
+      required-operations inventory remain mapped with covered_by_operationId and
+      do not create duplicate OpenAPI operations.
 
   every_nonpublic_operation_has_explicit_or_inherited_security:
     status: PENDING_FULL_SCAN
@@ -163,7 +182,7 @@ gate_definition:
   may_start_stage_4: false
 
 next_single_step:
-  id: STAGE3_STEP_4
-  action: scan_operationId_uniqueness_only_across_all_158_canonical_HTTP_operations
-  scope_lock: do_not_scan_security_idempotency_request_schema_or_stage_4_until_operationId_uniqueness_step_is_audited
-  after_action: rerun_this_gate_and_record_PASS_or_new_blocker_for_operationId_uniqueness
+  id: STAGE3_STEP_5
+  action: audit_authentication_security_inheritance_and_explicit_public_or_exam_token_exceptions_only
+  scope_lock: do_not_scan_idempotency_request_schema_or_stage_4_until_security_step_is_audited
+  after_action: rerun_this_gate_and_record_PASS_or_new_blocker_for_security_contract
