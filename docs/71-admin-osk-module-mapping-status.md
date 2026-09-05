@@ -26,7 +26,7 @@ Cel: szybka macierz pokazująca, które moduły bieżącego panelu OSK są już 
 | Moje reklamy | `NOT_SCREEN_MAPPED` | Zmapowana domena aukcji/reklam z publicznych źródeł, brak aktualnego zalogowanego podmenu i bieżących ekranów kampanii. |
 | Wykłady | `NOT_SCREEN_MAPPED` | Znany produkt/funkcja, brak audytu bieżącego zalogowanego UI. |
 | Szkolenie z instruktorem | `NOT_SCREEN_MAPPED` | Znana struktura produktu i ogólne działanie, brak audytu bieżącego zalogowanego UI. |
-| Moja szkoła — Lokalizacje | `PARTIAL` | Lista, typ, nazwa, adres, powiązanie z kalendarzem i edycją. Brakuje pełnego formularza dodaj/edytuj oraz zachowania usuwania/archiwizacji. |
+| Moja szkoła — Lokalizacje | `PARTIAL` | Lista lokalizacji, rodzaj/nazwa/adres, link do kalendarza oraz pełny formularz `Dodaj Lokalizacje`: typy `Filia`, `Sala wykładowa`, `Plac manewrowy`; wymagane nazwa, ulica i nr, kod pocztowy, miejscowość; miejscowość wybierana z wyszukiwanego katalogu z województwem. Brakuje formularza edycji i zachowania usuń/archiwizuj. |
 | Moja szkoła — Pojazdy | `READY_FOR_IMPLEMENTATION` | Lista, szczegóły, dodaj, edytuj, usuń, archiwizacja obserwowana jako zablokowana w demo, rejestracja/nr boczny/marka/model/rok/pojemność/VIN/przegląd/OC/AC/kategorie/lokalizacje/zdjęcie, kalendarz. |
 | Moja szkoła — Pracownicy | `READY_FOR_IMPLEMENTATION` | Lista, szczegóły, dodaj, edytuj, usuń/archiwizuj, rodzaj pracownika, PESEL, telefon, nr uprawnień, kategorie, lokalizacje, ważność legitymacji/badań, zdjęcie, konto do logowania, dostęp do panelu, kalendarz. |
 | Konto OSK — Ustawienia | `READY_FOR_IMPLEMENTATION` | Dane podstawowe, dane firmy, dane API PKK, nazwa szkoły, nr ewidencyjny OSK, login OSK, link do zaakceptowanego regulaminu. |
@@ -36,4 +36,6 @@ Cel: szybka macierz pokazująca, które moduły bieżącego panelu OSK są już 
 
 Największy rdzeń operacyjny OSK jest już zmapowany: `Kursanci + Kalendarz + Licencje + Egzamin wewnętrzny + Pojazdy + Pracownicy + Ustawienia + Historia zakupów`.
 
-Najbliższe brakujące audyty ekranowe: `Panel główny`, `Integracja PKK`, `Lokalizacje` (dokończenie CRUD), `Moje wizytówki`, `Moje reklamy`, `Wykłady`, `Szkolenie z instruktorem`.
+`Lokalizacje` mają już zmapowaną listę i pełny create flow. Do domknięcia modułu pozostaje `Edytuj` oraz `Usuń/Archiwizuj` wraz z zachowaniem powiązań.
+
+Po domknięciu `Lokalizacji` kolejnym audytem zgodnie z ustaloną kolejnością jest `Panel główny`.
