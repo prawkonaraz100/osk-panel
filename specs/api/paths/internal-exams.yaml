@@ -315,12 +315,16 @@ paths:
       tags: [InternalExams]
       operationId: internalExamAttemptsResult
       x-requirement-id: exam_attempts.result
-      x-permission: exams.results.view
+      x-permission: exams.results.view_or_finished_exam_access_token
+      x-condition: exam_access_token_allowed_only_for_matching_finished_attempt_result_scope
+      security:
+        - sessionCookie: []
+        - examAccessToken: []
       parameters:
         - { $ref: '../openapi-components-v1.yaml#/components/parameters/AttemptId' }
       responses:
         '200':
-          description: Exam result
+          description: Exam result for authorized OSK user or the matching finished-attempt result token
           content:
             application/json:
               schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/InternalExamResult' }
@@ -330,13 +334,17 @@ paths:
       tags: [InternalExams]
       operationId: internalExamAttemptsQuestions
       x-requirement-id: exam_attempts.questions
-      x-permission: exams.results.view
+      x-permission: exams.results.view_or_finished_exam_access_token
       x-covers-requirement: exam_result.question_review
+      x-condition: exam_access_token_allowed_only_for_matching_finished_attempt_result_scope
+      security:
+        - sessionCookie: []
+        - examAccessToken: []
       parameters:
         - { $ref: '../openapi-components-v1.yaml#/components/parameters/AttemptId' }
       responses:
         '200':
-          description: Immutable question review snapshot including basic/specialized groups and media references
+          description: Immutable post-finish question review snapshot including basic/specialized groups and media references
           content:
             application/json:
               schema: { type: array, items: { $ref: '../openapi-components-v1.yaml#/components/schemas/ExamQuestionSnapshot' } }
