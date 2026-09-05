@@ -8,11 +8,19 @@ screen:
   verified_at: 2026-09-05
   doc: docs/54-license-expanded-assignments.md
 
+observed_parents:
+  - student: Jan Nowak
+    assigned_license_count: 5
+    expanded_rows_observed: 5
+    states_observed: [assigned_not_activated]
+  - student: Ala Nowak
+    assigned_license_count: 2
+    expanded_rows_observed: 2
+    states_observed: [active]
+
 row_parent:
   entity: learning_access
-  observed_assigned_license_count: 5
-  expanded_rows_observed: 5
-  count_matches_rows: true
+  one_to_many_assignments_confirmed: true
 
 columns:
   - learning_login_data
@@ -26,23 +34,49 @@ learning_login_projection:
   - language_indicator
   - learning_identifier
 
-observed_assignment_state:
+observed_not_activated_state:
   state: assigned_not_activated
   label: Nie aktywowano
   expires_at_visible_value: null
   remaining_time_visible_value: null
   delete_action_visible: true
+  observed_assigned_at_values:
+    - 2026-01-23T10:04
+    - 2026-01-23T08:41
+    - 2026-01-22T13:22
+    - 2026-01-22T13:04
+    - 2026-01-21T14:02
 
-observed_assigned_at_values:
-  - 2026-01-23T10:04
-  - 2026-01-23T08:41
-  - 2026-01-22T13:22
-  - 2026-01-22T13:04
-  - 2026-01-21T14:02
+observed_active_state:
+  state: active
+  label: Aktywna
+  rows:
+    - assigned_at: 2026-01-23T08:41
+      expires_at: 2027-01-22T23:37
+      remaining_days: 139
+    - assigned_at: 2026-01-21T12:36
+      expires_at: 2026-12-22T23:37
+      remaining_days: 108
+  delete_action_visible_in_provided_capture: false
+
+stacking_extension_evidence:
+  confidence: STRONGLY_SUPPORTED_BY_OBSERVATION
+  expiry_difference_days: 31
+  remaining_days_difference: 31
+  interpretation: subsequent_license_can_extend_existing_access_expiry
+  exact_product_identity_for_rows: TO_VERIFY
+  competitor_absolute_rule_always_stacks: TO_VERIFY
 
 newest_license_projection:
-  parent_row_timestamp_matches_newest_expanded_assignment: true
-  observed_parent_timestamp: 2026-01-23T10:04
+  parent_row_matches_newest_expanded_assignment: true
+  observed_examples:
+    - student: Jan Nowak
+      parent_timestamp: 2026-01-23T10:04
+      parent_status: not_activated
+    - student: Ala Nowak
+      parent_timestamp: 2026-01-23T08:41
+      parent_status: active_with_remaining_days
+      parent_remaining_days: 139
   interpretation: parent_newest_license_is_projection_of_latest_assignment
 
 confirmed_actions:
@@ -53,9 +87,12 @@ confirmed_actions:
   - view_assignment_remaining_time_column
   - view_assignment_status
   - delete_unactivated_license_assignment
+  - view_active_assignment_expiry
+  - view_active_assignment_remaining_days
 
 own_product_model:
   assignment_entity_required: true
+  access_current_expiry_projection_required: true
   fields:
     - id
     - organization_id
@@ -64,34 +101,46 @@ own_product_model:
     - license_product_id
     - assigned_at
     - activated_at_nullable
-    - expires_at_nullable
+    - effective_at_nullable
+    - duration_days
+    - expiry_before_nullable
+    - expiry_after_nullable
     - state
     - revoked_at_nullable
     - revoked_by_nullable
+  learning_access_fields:
+    - current_expires_at_nullable
+    - status
   lifecycle:
     - assigned_not_activated
     - active
     - expired
     - revoked
   own_policy:
-    expires_at_set_on_activation: true
-    expires_at_formula: activated_at_plus_product_duration
+    first_activation_base: activated_at
+    active_extension_base: current_access_expires_at
+    expiry_formula: max(effective_activation_time,current_access_expires_at)_plus_product_duration
     remaining_time_derived: true
     hard_delete_assignment_history: false
     revoke_unactivated_returns_one_inventory_unit: true
+    active_assignment_revoke_by_normal_ui: false
 
 security_requirements:
   - tenant_isolation
   - authorize_assignment_view
   - authorize_assignment_revoke
   - transactional_inventory_restore
+  - transactional_access_expiry_extension
+  - audit_assignment_activation
   - audit_assignment_revoke
   - prevent_revoke_of_states_not_allowed_by_policy
+  - prevent_double_application_of_same_inventory_entry
 
 remaining_gaps:
-  - active_assignment_expanded_row
+  - exact_first_activation_timestamp_for_active_access
+  - exact_product_duration_per_observed_active_row
   - expired_assignment_expanded_row
-  - exact_expires_at_display_format
-  - exact_remaining_time_display_format
-  - product_duration_visibility_in_expanded_row
+  - always_stack_vs_conditional_stack_rule
+  - assigning_to_already_expired_access_behavior
+  - multiple_unactivated_assignment_activation_order
   - mixed_state_ordering
