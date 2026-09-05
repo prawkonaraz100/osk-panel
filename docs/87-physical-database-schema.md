@@ -61,10 +61,13 @@ Analogicznie:
 - `id uuid PK`
 - `name varchar(255) not null`
 - `nip varchar(16) null`
+- `phone varchar(40) null`
 - `timezone varchar(64) not null default 'Europe/Warsaw'`
 - `status varchar(32) not null`
 - `created_at timestamptz`
 - `updated_at timestamptz`
+
+`name` jest canonical company name. `nip` może pozostać polem domenowym, ale nie jest częścią potwierdzonego formularza Ustawień i nie wolno go przez to formularz wymuszać.
 
 Indexes:
 - `(status)`.
@@ -76,10 +79,13 @@ One-to-one z `organizations`.
 - `organization_id uuid PK/FK`
 - `default_language_code varchar(16) null`
 - `preferences jsonb null` — tylko niekrytyczne UI/preferences,
+- `version integer not null default 1 check (version >= 1)`,
 - `created_at`
 - `updated_at`
 
-Krytyczne ustawienia domenowe nie trafiają bezrefleksyjnie do `preferences`; np. PKK ma własną tabelę.
+`version` jest aggregate version dla `ETag/If-Match` i optimistic concurrency ekranu Ustawień oraz PKK configuration gate. Udany atomowy zapis zwiększa wersję dokładnie raz.
+
+Krytyczne ustawienia domenowe nie trafiają do `preferences`. W szczególności zabronione są tam: company address, company phone, PKK credentials/configuration, owner name i primary email.
 
 ## `organization_contact_addresses`
 
@@ -101,37 +107,43 @@ Inwariant:
 - najwyżej jeden bieżący structured company/contact address na `Organization`, wymuszony przez `organization_id` jako PK,
 - `organization_contact_addresses` i `locations` są odrębnymi konceptami; aktualizacja adresu firmy nie tworzy/edytuje lokalizacji szkoleniowej.
 
-Tabela zachowuje dokładny physical shape ustalony w `specs/database/organization-settings.yml`. Pozostałe pola Ustawień OSK są scalane do physical core osobno w `DB-FOUND-004`; ten krok nie zmienia jeszcze `users`, `organizations`, `auth_login_identifiers`, `organization_settings` ani `pkk_integration_settings` poza dodaniem tej tabeli.
-
 ## `users`
 
 Globalna tożsamość auth.
 
 - `id uuid PK`
+- `first_name varchar(120) null podczas technicznego/pre-onboarding stanu; wymagane dla human user po onboardingu`
+- `last_name varchar(120) null podczas technicznego/pre-onboarding stanu; wymagane dla human user po onboardingu`
 - `password_hash varchar(255) null`
 - `status varchar(32) not null`
 - `last_login_at timestamptz null`
 - `created_at`
 - `updated_at`
 
-E-mail/login nie musi być jedyną kolumną w `users`; resolver loginu jest w `auth_login_identifiers`.
+Imię i nazwisko są globalnymi polami tożsamości użytkownika. Nie duplikujemy ich per OSK ani w `pkk_integration_settings`.
+
+E-mail/login nie jest kanoniczną kolumną w `users`; resolver loginu jest w `auth_login_identifiers`.
 
 ## `auth_login_identifiers`
 
-Obsługuje generic login page bez wyboru OSK.
+Obsługuje generic login page bez wyboru OSK i historię zmian identyfikatorów.
 
 - `id uuid PK`
 - `user_id uuid FK users`
 - `identifier_type varchar(32)` — `email|username`
 - `identifier_normalized varchar(320) not null`
+- `is_primary_for_type boolean not null default false`
 - `verified_at timestamptz null`
 - `created_at`
 - `revoked_at timestamptz null`
 
 Partial unique:
-- `(identifier_normalized)` where `revoked_at is null`.
+- `(identifier_normalized)` where `revoked_at is null`,
+- `(user_id, identifier_type)` where `revoked_at is null AND is_primary_for_type=true`.
 
-Inwariant: jedna widoczna bieżąca wartość loginu rozwiązuje się do najwyżej jednego `User`.
+Pierwszy constraint gwarantuje jednoznaczne rozwiązywanie logowania. Drugi gwarantuje najwyżej jeden bieżący primary identifier danego typu na użytkownika. E-mail na ekranie Ustawień jest projekcją bieżącego, nieodwołanego `identifier_type='email'` z `is_primary_for_type=true`.
+
+Zmiana e-maila musi zachowywać historię identyfikatorów zgodnie z finalnym ADR weryfikacji/recovery; nie projektujemy mutowania zweryfikowanej identity „w miejscu”, jeśli finalny flow wymaga pending nowego identyfikatora.
 
 ## `auth_social_accounts`
 
@@ -759,12 +771,28 @@ Import istniejącego kursu może utworzyć `opening_balance` tylko w jawnej mode
 
 ## `pkk_integration_settings`
 
-- `organization_id uuid PK/FK`
-- `school_name varchar(255)`
-- `osk_registry_number varchar(128)`
-- `external_login_ciphertext text null`
-- `credential_secret_reference varchar(255) null`
-- `updated_at`.
+Canonical one-to-one konfiguracja PKK dla organizacji, wspólna dla `/ustawienia` i configuration gate.
+
+- `organization_id uuid PK/FK organizations`
+- `school_name varchar(255) null`
+- `osk_registry_number varchar(128) null`
+- `external_osk_login_ciphertext text null`
+- `external_osk_login_lookup_hash char(64) null` — tylko jeśli finalnie potrzebny exact lookup,
+- `readiness_status varchar(32) not null default 'not_configured'`
+- `updated_at timestamptz`
+
+`readiness_status`:
+- `not_configured`,
+- `configured_unverified`,
+- `verified`,
+- `requires_attention`.
+
+Reguły:
+- plaintext `external_osk_login` nie jest przechowywany po zapisie,
+- pełna wartość nie trafia do audit/log/activity payload,
+- `external_osk_login` nie jest loginem do naszej aplikacji,
+- imię i nazwisko operatora nie są duplikowane w tej tabeli — należą do `users`,
+- provider-specific secret/credential storage, jeżeli finalny kontrakt providera go wymaga, dostaje osobny secret reference/adapter contract i nie zmienia canonical pól obserwowanego ekranu.
 
 ## `pkk_profiles`
 
@@ -1352,6 +1380,11 @@ Nie tworzymy „indeksu na każdą kolumnę”; indeks powstaje pod faktyczne sc
 - generowane przez system synthetic domain IDs są UUIDv7 i są przechowywane jako natywny PostgreSQL `uuid`,
 - `organization_contact_addresses.organization_id` zapewnia najwyżej jeden structured company/contact address per Organization,
 - company/contact address nie jest tworzony jako rekord `locations`,
+- settings projection czyta `first_name/last_name` z `users`,
+- settings projection czyta e-mail z bieżącego primary `auth_login_identifier`,
+- nie można mieć dwóch bieżących primary identifiers tego samego typu dla jednego usera,
+- `organization_settings.version >= 1` i udany atomowy zapis settings zwiększa wersję dokładnie raz,
+- PKK `external_osk_login` nie zmienia application login i plaintext nie jest persistowany,
 - generic login resolves to at most one current user,
 - auth session jest listowalna/revokowalna bez ujawnienia raw secretu,
 - tylko jedno pending account closure request w tym samym scope,
@@ -1403,7 +1436,8 @@ Nie tworzymy „indeksu na każdą kolumnę”; indeks powstaje pod faktyczne sc
 # 25. Zamknięte i oczekujące decyzje techniczne
 
 Zamknięte:
-- synthetic domain ID: UUIDv7 generowany application-side, przechowywany jako natywny PostgreSQL `uuid`.
+- synthetic domain ID: UUIDv7 generowany application-side, przechowywany jako natywny PostgreSQL `uuid`,
+- physical ownership Ustawień OSK: names → `users`, primary email → `auth_login_identifiers`, company phone → `organizations`, address → `organization_contact_addresses`, concurrency version → `organization_settings`, PKK configuration → `pkk_integration_settings`.
 
 Nadal wymagają osobnego etapu/ADR przed produkcyjnymi migracjami odpowiednich modułów:
 - application encryption + key rotation dla PESEL/PKK/provider snapshots,
