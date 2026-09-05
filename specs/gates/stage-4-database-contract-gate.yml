@@ -28,6 +28,13 @@ sources:
   bounded_context_overrides:
     - specs/database/organization-settings.yml
     - docs/100-osk-settings-domain-model.md
+  identity_tenant_rbac:
+    - docs/04-roles-permissions.md
+    - docs/08-security-compliance.md
+    - docs/05-domain-model.md
+    - docs/82-canonical-domain-glossary.md
+    - specs/security/permissions.yml
+    - docs/105-stage-4-identity-tenant-rbac-audit.md
   cross_layer_contract:
     - specs/api/common-contract.yml
     - specs/api/required-operations-v1.yml
@@ -45,7 +52,9 @@ stage_4_slices:
       - Stage_2_settings_schema_merge
     result: PASS
   - id: DB4_2_IDENTITY_TENANT_RBAC
-    status: NEXT_DIAGNOSIS
+    status: IN_PROGRESS_WITH_BLOCKERS
+    diagnosis: COMPLETE
+    result: FAIL_WITH_5_P1_BLOCKERS
   - id: DB4_3_STAFF_LOCATIONS_VEHICLES
     status: NOT_STARTED
   - id: DB4_4_STUDENTS_COURSES_TRAINING_LEDGER
@@ -72,72 +81,95 @@ quality_checks:
   physical_primary_key_type_is_final:
     status: PASS
     resolved_blocker_id: DB-FOUND-001
-    decision:
-      physical_type: postgresql_native_uuid
-      generated_domain_id_version: UUIDv7
-      generation_owner: application_before_insert
-      database_UUIDv7_default_required: false
-      external_provider_identifiers_as_primary_keys: forbidden
-      silent_UUIDv4_fallback: forbidden
 
   nullable_scope_unique_constraints_are_null_safe:
     status: PASS
     resolved_blocker_id: DB-FOUND-002
-    decision:
-      strategy: separate_partial_unique_indexes_for_null_and_non_null_scope
-      postgres_NULLS_NOT_DISTINCT_required: false
 
   stage_2_settings_tables_are_present_in_core_inventory:
     status: PASS
     resolved_blocker_id: DB-FOUND-003
-    canonical_table: organization_contact_addresses
-    relation_to_training_locations: separate_concept
 
   stage_2_settings_fields_and_constraints_are_merged_into_physical_blueprint:
     status: PASS
     resolved_blocker_id: DB-FOUND-004
-    merged:
-      - users.first_name
-      - users.last_name
-      - organizations.phone
-      - auth_login_identifiers.is_primary_for_type
-      - primary_current_identifier_partial_unique_constraint
-      - organization_settings.version
-      - organization_contact_addresses
-      - canonical_pkk_integration_settings_shape
-    ownership:
-      user_names: users
-      primary_email: auth_login_identifiers
-      company_name_and_phone: organizations
-      company_address: organization_contact_addresses
-      settings_concurrency_version: organization_settings
-      pkk_configuration: pkk_integration_settings
-    evidence:
-      - specs/database/core-schema.yml contains the same ownership and constraints
-      - docs/87-physical-database-schema.md documents the same physical fields
-      - specs/database/organization-settings.yml remains the bounded-context source
-      - migration/invariant tests cover primary email, settings version and PKK login isolation
-    preservation_rule: >-
-      The confirmed Settings and PKK configuration-gate fields have canonical
-      relational owners; no confirmed field was dropped or moved into an opaque
-      preferences JSONB shortcut.
 
   foundation_slice_gate:
     status: PASS
-    resolved_blockers:
-      - DB-FOUND-001
-      - DB-FOUND-002
-      - DB-FOUND-003
-      - DB-FOUND-004
     open_foundation_P0_P1: 0
     may_start_next_stage4_slice: true
 
-  cross_tenant_relation_integrity_strategy:
-    status: PENDING_DB4_2
-    note: >-
-      The next slice must decide database/transactional tenant-integrity rules
-      for identity, memberships, RBAC and their links before resource-domain
-      relations are designed.
+  identity_rbac_effective_permission_resolution:
+    status: FAIL
+    blocker_id: DB-IAM-001
+    evidence:
+      - organization_memberships contains role_template_code
+      - membership_permissions contains permission_code plus granted boolean
+      - specs/security/permissions.yml defines role templates as permission bundles
+      - docs/04-roles-permissions.md says role template is only a convenient starting permission package
+    unresolved:
+      - whether membership_permissions is a full snapshot or template override set
+      - whether template changes affect existing memberships
+      - precedence of explicit granted_false versus template permission
+      - whether role_template_code is runtime authorization input or provenance only
+    impact: effective_permissions_can_be_implemented_in_multiple_incompatible_ways
+
+  identity_rbac_data_scope_physical_contract:
+    status: FAIL
+    blocker_id: DB-IAM-002
+    evidence:
+      - organization_memberships currently has one data_scope varchar
+      - canonical scopes include own assigned_students assigned_locations organization
+      - authorization order evaluates data scope after permission
+    unresolved:
+      - default_scope_vs_per_permission_scope
+      - how_concrete_location_restrictions_are_resolved
+      - how_assigned_students_are_derived
+      - whether_scope_can_expand_or_only_restrict_a_permission
+    impact: query_scope_could_be_inconsistent_across_modules_or_accidentally_tenant_wide
+
+  auth_session_membership_integrity:
+    status: FAIL
+    blocker_id: DB-IAM-003
+    evidence:
+      - auth_sessions has user_id FK
+      - auth_sessions has separate nullable organization_membership_id FK
+      - security policy requires active membership and tenant context
+    unresolved: >-
+      Current simple foreign keys do not guarantee that the selected membership
+      belongs to the same user as auth_sessions.user_id. A composite constrained
+      relation or an equally strong transactional invariant is required.
+    impact: malformed_session_context_can_cross_user_or_tenant_boundary
+
+  identity_owner_and_privilege_management_invariants:
+    status: FAIL
+    blocker_id: DB-IAM-004
+    evidence:
+      - docs/04 requires last active Owner protection
+      - specs/security/permissions.yml requires last_owner_cannot_be_removed_without_transfer
+      - permission changes are elevated and audited
+    unresolved:
+      - canonical owner marker
+      - last_owner_counting_rule_with_custom_permissions
+      - self_escalation_rule
+      - grant_ceiling_rule_for_permission_administrators
+      - active_session_effect_after_elevated_permission_revoke
+    impact: organization_lockout_or_privilege_escalation_is_possible_if_implemented_naively
+
+  membership_and_permission_mutation_lifecycle:
+    status: FAIL
+    blocker_id: DB-IAM-005
+    evidence:
+      - organization_memberships has generic status varchar and unique organization_id_user_id
+      - membership_permissions is mutable by membership_id_permission_code
+      - security docs require permission revoke behavior and audit
+    unresolved:
+      - exact_membership_states_and_transitions
+      - durable_reactivation_vs_multiple_membership_period_rows
+      - revoke_suspend_session_invalidation_semantics
+      - permission_change_concurrency_and_lost_update_prevention
+      - audit_actor_reason_version_semantics
+    impact: destructive_delete_or_stale_authorization_behavior_could_be_implemented
 
   calendar_overlap_database_strategy:
     status: PENDING_LATER_STAGE4_SLICE
@@ -156,7 +188,22 @@ resolved_blockers:
     severity: P1
     resolution: remaining_Stage_2_settings_ownership_fields_and_constraints_are_merged_into_core_physical_blueprint
 
-open_blockers: []
+open_blockers:
+  - id: DB-IAM-001
+    severity: P1
+    description: Effective permission resolution and role-template semantics are not physically deterministic.
+  - id: DB-IAM-002
+    severity: P1
+    description: Current single data_scope column does not define a complete canonical scope-resolution contract.
+  - id: DB-IAM-003
+    severity: P1
+    description: Auth session user and selected organization membership can be physically inconsistent under simple independent foreign keys.
+  - id: DB-IAM-004
+    severity: P1
+    description: Last-owner and privilege-escalation safety rules are policy-only and lack canonical physical/transaction invariants.
+  - id: DB-IAM-005
+    severity: P1
+    description: Membership and explicit-permission mutation lifecycle/concurrency/session effects are under-specified.
 
 gate_definition:
   PASS_requires:
@@ -166,21 +213,21 @@ gate_definition:
     - migration_order_is_dependency_safe
     - database_invariant_test_matrix_exists
     - reverse_engineering_preservation_is_traceable_to_schema_or_use_case
-  current_result: IN_PROGRESS_FOUNDATION_PASS
+  current_result: FAIL_DB4_2_WITH_OPEN_P1_BLOCKERS
   may_start_stage_5: false
   may_start_UI_or_feature_implementation: false
+  may_start_DB4_3: false
 
 next_single_step:
-  id: DB4_2_STEP_1
-  action: diagnose_identity_tenant_RBAC_physical_invariants_only
+  id: DB4_2_STEP_2
+  blocker: DB-IAM-001
+  action: resolve_effective_permission_and_role_template_semantics_only
   allowed_scope:
     - specs/database/core-schema.yml
     - docs/87-physical-database-schema.md
     - docs/04-roles-permissions.md
-    - docs/82-domain-glossary-and-data-dictionary.md
-    - docs/88-rbac-policy-matrix.md
-    - specs/traceability/core-v1.yml
-    - specs/gates/stage-4-database-contract-gate.yml
+    - specs/security/permissions.yml
     - docs/105-stage-4-identity-tenant-rbac-audit.md
-  scope_lock: do_not_fix_staff_resources_students_calendar_or_other_domain_slices_during_DB4_2_diagnosis
-  after_action: record_DB4_2_blockers_and_fix_them_one_at_a_time_with_gate_rerun_after_each
+    - specs/gates/stage-4-database-contract-gate.yml
+  scope_lock: do_not_fix_data_scope_session_membership_owner_or_lifecycle_blockers_in_the_same_step
+  after_action: rerun_DB4_2_gate_and_record_DB_IAM_001_PASS_or_new_blocker_before_DB_IAM_002
