@@ -32,9 +32,9 @@ paths:
       tags: [Auth]
       operationId: authLogout
       x-requirement-id: auth.logout
-      x-permission: active_membership
+      x-permission: authenticated_session
       responses:
-        '204': { description: Session closed }
+        '204': { description: Session closed even if organization membership was later deactivated }
         default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
   /auth/password/forgot:
     post:
@@ -93,13 +93,15 @@ paths:
       tags: [Auth]
       operationId: authRequestAccountClosure
       x-requirement-id: auth.account_closure_request
-      x-permission: active_membership
+      x-permission: authenticated_user
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
       requestBody:
         content:
           application/json:
             schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/AccountClosureRequest' }
       responses:
-        '202': { description: Closure request recorded }
+        '202': { description: Closure request recorded; formal and financial retention rules still apply }
         default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
   /auth/social/{provider}/redirect:
     get:
@@ -123,8 +125,17 @@ paths:
       security: []
       parameters:
         - { $ref: '../openapi-components-v1.yaml#/components/parameters/Provider' }
+        - name: code
+          in: query
+          schema: { type: string }
+        - name: state
+          in: query
+          schema: { type: string }
+        - name: error
+          in: query
+          schema: { type: string }
       responses:
-        '302': { description: Authenticated and redirected to validated local ReturnUrl }
+        '302': { description: Authenticated and redirected to validated local ReturnUrl, or to a local safe error route }
         default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
 
   /organization:
@@ -151,7 +162,7 @@ paths:
         required: true
         content:
           application/json:
-            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/Organization' }
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/UpdateOrganizationRequest' }
       responses:
         '200':
           description: Organization updated
@@ -165,29 +176,33 @@ paths:
       operationId: organizationSettingsGet
       x-requirement-id: organization.settings.get
       x-permission: organization.view
+      x-screen-spec: specs/screens/settings.yml
       responses:
         '200':
-          description: Organization settings
+          description: Settings projection matching observed sections Dane podstawowe, Dane firmy and Dane API PKK
           content:
             application/json:
-              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/OrganizationSettings' }
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/OskSettingsProjection' }
         default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
     patch:
       tags: [Organization]
       operationId: organizationSettingsUpdate
       x-requirement-id: organization.settings.update
       x-permission: organization.settings.manage
+      x-screen-spec: specs/screens/settings.yml
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
       requestBody:
         required: true
         content:
           application/json:
-            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/OrganizationSettings' }
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/UpdateOskSettingsRequest' }
       responses:
         '200':
-          description: Settings updated
+          description: Settings updated using the same source records as PKK configuration gate
           content:
             application/json:
-              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/OrganizationSettings' }
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/OskSettingsProjection' }
         default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
   /organization/accepted-terms:
     get:
@@ -208,9 +223,10 @@ paths:
       operationId: organizationPkkSettingsGet
       x-requirement-id: pkk.settings.get
       x-permission: pkk.view
+      x-screen-specs: [specs/screens/pkk-configuration-gate.yml, specs/screens/settings.yml]
       responses:
         '200':
-          description: PKK integration settings without persisted secrets
+          description: Observed PKK integration fields; provider secrets are not inferred from the screen
           content:
             application/json:
               schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/PkkIntegrationSettings' }
@@ -220,14 +236,22 @@ paths:
       operationId: organizationPkkSettingsUpdate
       x-requirement-id: pkk.settings.update
       x-permission: organization.integrations.manage
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
       requestBody:
         required: true
         content:
           application/json:
-            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/PkkIntegrationSettings' }
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                school_name: { type: string }
+                osk_registry_number: { type: string }
+                external_osk_login: { type: string }
       responses:
         '200':
-          description: PKK integration settings updated
+          description: PKK integration fields updated and audited
           content:
             application/json:
               schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/PkkIntegrationSettings' }
@@ -240,5 +264,5 @@ paths:
       x-permission: organization.integrations.manage
       x-condition: provider_supports_safe_test_connection
       responses:
-        '200': { description: Connection test result }
+        '200': { description: Connection test result; this capability remains conditional until provider contract confirms it }
         default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
