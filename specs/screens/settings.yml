@@ -50,6 +50,22 @@ sections:
         route_pattern: /regulamin?v=<regulation_version>
         semantics: open_versioned_terms_associated_with_account
 
+pkk_configuration_gate_relation:
+  confirmed: true
+  screen_spec: specs/screens/pkk-configuration-gate.yml
+  doc: docs/37-pkk-configuration-gate.md
+  message_on_gate_confirms_editable_later_in_settings: true
+  shared_fields:
+    pkk_integration_settings:
+      - school_name
+      - osk_registry_number
+      - external_osk_login
+    user_basic_data:
+      - first_name
+      - last_name
+  requirement: single_source_of_truth_no_duplicate_unsynchronized_configuration
+  note: all_five_fields_are_required_by_visible_marker_on_the_configuration_gate_but_requiredness_on_the_general_settings_screen_remains_separately_unverified
+
 not_observed_on_screen:
   - password_change
   - session_management
@@ -59,13 +75,14 @@ not_observed_on_screen:
   - roles_management
 
 unknowns:
-  - required_vs_optional_fields
+  - required_vs_optional_fields_on_general_settings_screen
   - exact_validation_messages
   - save_request_shape
   - success_message
   - failure_message
   - whether_email_change_requires_reverification
   - whether_pkk_changes_require_reauthentication
+  - whether_pkk_changes_run_connection_verification
 
 implementation_requirements:
   - tenant_isolation
@@ -73,3 +90,4 @@ implementation_requirements:
   - keep_external_osk_login_separate_from_application_identity
   - persist_terms_acceptance_version_and_history
   - do_not_assume_nip_is_editable_here
+  - reuse_same_user_and_pkk_configuration_records_in_settings_and_pkk_onboarding_gate
