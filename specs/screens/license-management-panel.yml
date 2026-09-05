@@ -11,6 +11,8 @@ screen:
   generate_access_spec: specs/screens/license-generate-access.yml
   generate_access_doc: docs/55-license-generate-access-form.md
   selected_existing_student_doc: docs/56-license-existing-student-selected-state.md
+  sorting_spec: specs/screens/license-sorting.yml
+  sorting_doc: docs/57-license-list-sorting.md
 
 inventory_cards:
   products:
@@ -94,6 +96,25 @@ columns:
 learning_login_projection:
   - language_indicator
   - learning_identifier
+
+sorting:
+  confidence: USER_CONFIRMED_AUTH_SCREEN
+  screen_spec: specs/screens/license-sorting.yml
+  screen_doc: docs/57-license-list-sorting.md
+  directions:
+    - asc
+    - desc
+  columns:
+    - learning_identifier
+    - student_full_name
+    - latest_license_generated_at
+    - learning_access_language
+    - latest_license_status
+    - assigned_license_count
+  observed_state:
+    direction: desc
+    column: latest_license_generated_at
+  observed_state_is_global_default: TO_VERIFY
 
 observed_status_presentations:
   - not_activated
@@ -215,6 +236,9 @@ confirmed_actions:
   - toggle_hide_finished_licenses
   - search_license_accesses
   - open_license_sorting
+  - select_license_sort_direction
+  - select_license_sort_column
+  - apply_license_list_sorting
   - expand_assigned_licenses
   - collapse_assigned_licenses
   - view_individual_license_assignments
@@ -242,7 +266,6 @@ security_requirements:
 
 remaining_gaps:
   - expired_assignment_expanded_row
-  - sort_options
   - exact_search_fields_main_table
   - active_inventory_exact_semantics
   - exact_multi_row_selection_purpose
