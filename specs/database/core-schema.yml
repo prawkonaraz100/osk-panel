@@ -1,0 +1,168 @@
+meta:
+  project: osk-panel
+  scope: postgresql_core_v1
+  status: IMPLEMENTATION_BLUEPRINT
+  decided_at: 2026-09-05
+  doc: docs/87-physical-database-schema.md
+
+conventions:
+  primary_key: uuid_pending_final_ADR
+  timestamp: timestamptz
+  canonical_timezone: UTC
+  organization_timezone: IANA
+  money:
+    amount: bigint_minor_units
+    currency: char_3_ISO_4217
+  business_state: varchar_plus_application_enum_or_check
+  postgres_enum_for_evolving_business_state: false
+  jsonb_for:
+    - immutable_snapshots
+    - metadata
+  jsonb_as_replacement_for_core_relational_model: false
+  tenant_owned_tables_have_organization_id_when_practical: true
+
+sensitive_identifier_pattern:
+  pesel:
+    ciphertext_column: pesel_ciphertext
+    exact_lookup_column: pesel_lookup_hash
+    lookup_hash: HMAC_SHA_256_or_equivalent_secret_keyed_hash
+    plain_global_sha256_for_lookup_forbidden: true
+
+core_tables:
+  identity:
+    - organizations
+    - users
+    - organization_memberships
+    - permissions
+    - membership_permissions
+
+  staff:
+    - staff_profiles
+    - staff_types
+    - staff_type_assignments
+    - staff_user_links
+    - staff_documents
+
+  resources:
+    - locations
+    - vehicles
+    - vehicle_documents
+    - vehicle_location_assignments
+    - driving_categories
+
+  students:
+    - students
+    - student_learning_accounts
+    - student_access_handoffs
+
+  training:
+    - course_enrollments
+    - training_requirement_profiles
+    - course_exemption_decisions
+    - recognized_external_training
+    - training_sessions
+    - training_session_attendance
+    - training_hour_ledger_entries
+
+  pkk:
+    - pkk_integration_settings
+    - pkk_profiles
+    - pkk_operations
+    - pkk_operation_attempts
+
+  calendar:
+    - calendar_events
+    - availability_slots
+
+  student_finance:
+    - student_charges
+    - student_payments
+
+  licenses:
+    - license_products
+    - license_product_languages
+    - license_inventory_entries
+    - license_assignments
+    - license_activations
+
+  internal_exams:
+    - internal_exam_inventory_entries
+    - internal_exam_attempts
+    - internal_exam_reservations
+    - internal_exam_accesses
+    - internal_exam_attempt_questions
+    - internal_exam_results
+    - internal_exam_documents
+    - exam_stations
+
+  commerce:
+    - orders
+    - order_items
+    - payments
+    - payment_events
+
+  infrastructure:
+    - audit_logs
+    - outbox_messages
+    - notifications
+
+critical_relations:
+  - organization_has_many_students
+  - student_has_many_course_enrollments
+  - course_enrollment_has_zero_or_one_pkk_profile
+  - course_enrollment_has_many_training_sessions
+  - training_session_credits_training_hour_ledger_entries
+  - course_enrollment_has_many_recognized_external_training_records
+  - student_has_many_learning_accounts
+  - learning_account_receives_license_assignments
+  - license_inventory_entry_has_at_most_one_current_assignment
+  - license_assignment_has_at_most_one_activation
+  - course_enrollment_has_many_internal_exam_attempts
+  - internal_exam_attempt_has_inventory_reservation
+  - internal_exam_attempt_has_one_result_when_finished
+
+critical_constraints:
+  membership_unique:
+    columns: [organization_id, user_id]
+  pkk_profile_unique_per_course_enrollment:
+    columns: [course_enrollment_id]
+  license_inventory_assignment_unique:
+    columns: [license_inventory_entry_id]
+  license_activation_unique:
+    columns: [license_assignment_id]
+  payment_provider_event_deduplicated: true
+  exam_inventory_consume_exactly_once: true
+  exam_attempt_result_unique: true
+  session_end_after_start: true
+  non_negative_money_and_minutes: true
+
+foreign_key_policy:
+  formal_and_financial_default: RESTRICT
+  optional_noncritical_relation: SET_NULL_only_if_history_preserved
+  cascade: technical_children_only
+  never_cascade_student_to:
+    - course_enrollments
+    - internal_exam_attempts
+    - student_payments
+    - pkk_operations
+
+migration_order:
+  - identity_and_organization
+  - dictionaries
+  - staff_locations_vehicles
+  - students_learning_accounts
+  - course_enrollments_requirements
+  - training_and_calendar
+  - pkk
+  - student_finance
+  - license_inventory
+  - internal_exam_inventory_and_attempts
+  - orders_and_payments
+  - audit_outbox_notifications
+  - final_indexes_and_cross_table_constraints
+
+pending_ADRs:
+  - uuid_vs_ulid_physical_type
+  - sensitive_identifier_application_encryption
+  - calendar_overlap_constraint_strategy
+  - immutable_snapshot_hash_canonicalization
