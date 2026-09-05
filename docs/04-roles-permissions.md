@@ -30,6 +30,18 @@ To nie jest twierdzenie, że 360 ma identyczne techniczne role.
 
 Owner może modyfikować permissions w granicach polityki bezpieczeństwa.
 
+### 2.1. Template nie jest runtime źródłem prawa
+
+Role template jest wyłącznie:
+- presetem podczas nadawania dostępu,
+- provenance dla UI/audytu.
+
+Backend w czasie requestu nie autoryzuje na podstawie `role_template_code`.
+
+Przy zastosowaniu template materializujemy bieżące decyzje do `membership_permissions`. Zmiana definicji template w przyszłości nie zmienia istniejących membershipów automatycznie.
+
+Nowy permission dodany po utworzeniu membership jest domyślnie `DENY`, dopóki nie zostanie jawnie nadany albo template nie zostanie jawnie ponownie zastosowany.
+
 ## 3. Permission groups
 
 ### Organization
@@ -182,26 +194,155 @@ Owner może modyfikować permissions w granicach polityki bezpieczeństwa.
 - permissions wysokiego ryzyka mogą wymagać re-auth/MFA,
 - `exams.inventory.adjust`, `training_hours.correct`, `student_finance.reverse_payment`, `staff.permissions.manage`, PKK return commands są elevated.
 
-## 6. Scope danych
+## 6. Data scope — canonical model
 
-Niektóre permissions wymagają dodatkowego data scope:
-- `own`,
+### 6.1. Scope jest przypisany do permission, nie do całego membership
+
+Stare uproszczenie:
+
+`OrganizationMembership.data_scope`
+
+jest **SUPERSEDED** i nie może być użyte jako runtime authorization shortcut.
+
+Powód: jedna osoba może mieć np.:
+- pełny dostęp do kalendarza własnego,
+- dostęp do przypisanych kursantów,
+- pełny dostęp do zakupów OSK,
+- brak prawa do edycji pracowników.
+
+Jedna wartość scope na całym membership nie potrafi tego opisać bez nadmiernego rozszerzenia praw.
+
+Canonical model:
+
+`OrganizationMembership -> membership_permissions -> membership_permission_scopes`
+
+Każde `granted=true` musi mieć co najmniej jeden legalny scope. Brak scope dla przyznanego permission = **DENY fail-closed**.
+
+### 6.2. Canonical scope codes
+
+- `organization` — cały zasób danej organizacji po wcześniejszej walidacji tenantu,
+- `own` — tylko zasób należący do bieżącego `User` albo `StaffProfile` aktywnie połączonego z membership,
+- `assigned_students` — tylko zasoby rozwiązywane do kursantów przypisanych temu pracownikowi,
+- `assigned_locations` — tylko zasoby rozwiązywane do lokalizacji przypisanych temu pracownikowi.
+
+Scope nigdy nie rozszerza permission. Najpierw musi istnieć przyznana capability, dopiero potem scope ogranicza rekordy/komendę.
+
+### 6.3. Fizyczne tabele scope
+
+`data_scopes`
+- katalog dozwolonych scope codes.
+
+`permission_scope_options`
+- whitelist legalnych par `permission_code + scope_code`,
+- zawiera `resolver_code`,
+- blokuje np. próbę nadania `organization` do permission, które jest z definicji `own-only`.
+
+`membership_permission_scopes`
+- current scope rows dla konkretnego `membership_id + permission_code`,
+- wiele rekordów dla jednego permission jest dozwolone,
+- wiele scope'ów łączy się przez **OR**, ale dopiero po walidacji tego samego tenant.
+
+Przykład instruktora:
+
+`training_sessions.edit = granted`
+
+może mieć jednocześnie:
 - `assigned_students`,
-- `assigned_locations`,
-- `organization`.
+- `own`.
 
-Przykład:
-`calendar.manage.own` nie pozwala automatycznie edytować wydarzeń innego instruktora.
+Wtedy backend pozwala edytować zajęcia własne **lub** dotyczące przypisanego kursanta, o ile nadal są w tym samym OSK i domain state pozwala na edycję.
+
+### 6.4. `organization`
+
+Nie znaczy „globalnie”.
+
+Warunek:
+
+`target.organization_id == active_membership.organization_id`
+
+musi być sprawdzony **przed** scope resolverem.
+
+`organization` nie może ominąć tenant isolation.
+
+### 6.5. `own`
+
+Nie istnieje jeden magiczny `owner_id` dla wszystkich domen.
+
+Permission-specific resolver musi udowodnić:
+- `resource.user_id == current_user.id`, albo
+- relację do `StaffProfile` aktywnie połączonego z membership.
+
+Jeżeli domena nie ma canonical ownership relation, `own` zwraca false. Nie wolno fallbackować do `organization`.
+
+### 6.6. `assigned_locations`
+
+Canonical ścieżka:
+
+`OrganizationMembership -> active StaffMembershipLink -> StaffProfile -> StaffLocationAssignments`
+
+Target musi przez permission-specific adapter rozwiązać się do jednej z tych lokalizacji.
+
+Jeżeli membership nie ma aktywnego profilu pracownika albo nie ma pasującej lokalizacji: **DENY / pusty zbiór**.
+
+Physical FK/constraint tej ścieżki zostanie dopięty w slice `DB4_3`, ale znaczenie scope jest już zamrożone i DB4_3 nie może go zmienić bez ponownego otwarcia gate RBAC.
+
+### 6.7. `assigned_students`
+
+Canonical ścieżka zaczyna się tak samo:
+
+`OrganizationMembership -> active StaffMembershipLink -> StaffProfile`
+
+Kursant jest przypisany temu pracownikowi, jeżeli istnieje:
+1. nieanulowany/niezarchiwizowany `CourseEnrollment`, w którym `lead_instructor_id` wskazuje ten `StaffProfile`, **lub**
+2. nieanulowany `TrainingSession` dla kursu tego kursanta, gdzie `instructor_id` wskazuje ten `StaffProfile`.
+
+Zasoby PKK, egzaminu, licencji, płatności lub postępu najpierw rozwiązują canonical `Student/CourseEnrollment`, a następnie stosują powyższy predykat.
+
+Brak aktywnego staff linku = pusty assigned-student set.
+
+FK i dokładne lifecycle stanów relacji dopinamy w `DB4_3`/`DB4_4`; sama semantyka przypisania jest już zamrożona.
+
+### 6.8. Create / update / list / export
+
+Scope nie może być stosowany tylko na zwykłej liście.
+
+Ten sam policy predicate obowiązuje dla:
+- list,
+- GET by id,
+- search,
+- counts,
+- update/cancel/archive,
+- bulk actions,
+- eksportów,
+- PDF.
+
+Filtrowanie po pobraniu danych w Vue **nie jest zabezpieczeniem**.
+
+Dla create:
+- jeśli istnieje canonical parent/subject, scope sprawdzamy na nim,
+- jeśli nie istnieje jeszcze żaden scoped subject, `own/assigned_*` nie może być zgadywane; operacja wymaga scope profilu dopuszczającego `organization`.
+
+### 6.9. Materializacja przez role template
+
+Template zapisuje nie tylko `membership_permissions`, ale także scope rows dla przyznanych permissions.
+
+Przykładowo:
+- `Owner`/`OfficeAdmin` dostają `organization`, gdy dany permission to dopuszcza,
+- permission typu `*.own` dostaje `own`,
+- `Instructor`/`Lecturer` dla student-scoped permissions dostają `assigned_students`,
+- dla odpowiednich training/calendar permissions mogą dostać jednocześnie `assigned_students + own`.
+
+Explicit grant bez jawnego, dozwolonego scope jest niedozwolony.
 
 ## 7. Backend policy order
 
-Przykładowa kolejność:
+Kolejność:
 
 1. authenticated user,
 2. active organization membership,
 3. tenant ownership / relation validation,
-4. permission,
-5. data scope,
+4. authoritative `membership_permissions` decision,
+5. `membership_permission_scopes` + permission-specific resolver,
 6. domain rule/state,
 7. optional re-auth/MFA for high-risk action.
 
@@ -222,10 +363,13 @@ Dla każdej zmiany zapisujemy:
 - target staff/user,
 - old permissions,
 - new permissions,
+- old/new scope set,
 - role template jeśli użyto,
 - reason opcjonalnie/wymagane dla elevated changes,
 - request_id,
 - timestamp.
+
+Szczegółowy model historii/version/concurrency zamykamy w `DB-IAM-005`.
 
 ## 10. Testy obowiązkowe
 
@@ -233,5 +377,12 @@ Dla każdej grupy permissions:
 - allow test,
 - deny test,
 - cross-tenant deny,
-- scope deny (`own` vs `organization`),
-- revoked permission takes effect immediately lub zgodnie z jasno udokumentowaną polityką cache/session.
+- scope deny,
+- granted permission bez scope -> deny,
+- unsupported permission/scope pair -> reject,
+- list i GET-by-id dają ten sam zakres danych,
+- `own` bez ownership relation -> deny,
+- `assigned_students` bez staff link -> pusty zbiór,
+- `assigned_locations` bez staff link -> pusty zbiór,
+- wiele scope rows dla jednego permission działa jako OR,
+- revoked permission takes effect immediately lub zgodnie z jasno udokumentowaną polityką cache/session zamykaną w `DB-IAM-005`.
