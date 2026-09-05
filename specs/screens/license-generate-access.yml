@@ -8,6 +8,8 @@ screen:
   confidence: USER_CONFIRMED_AUTH_SCREEN
   verified_at: 2026-09-05
   doc: docs/55-license-generate-access-form.md
+  selected_existing_student_state_spec: specs/screens/license-existing-student-selected.yml
+  selected_existing_student_state_doc: docs/56-license-existing-student-selected-state.md
 
 fields:
   - name: license_product_duration
@@ -39,6 +41,8 @@ fields:
       ru: Rosyjski
       uk: Ukraiński
     source_conflict_with_purchase_marketing_copy: true
+    visible_in_initial_form: true
+    visible_after_existing_student_selection: false
 
   - name: new_learning_identifier
     label: Email lub login
@@ -68,6 +72,22 @@ alternative_target_modes:
     - existing_student
   mutually_exclusive_by_ui_semantics: true
   simultaneous_payload_behavior_competitor: TO_VERIFY
+
+existing_student_selected_state:
+  confidence: USER_CONFIRMED_AUTH_SCREEN
+  screen_state_spec: specs/screens/license-existing-student-selected.yml
+  behavior:
+    - replace_search_with_selected_student_summary
+    - display_existing_learning_access_language
+    - hide_global_language_selector
+    - expose_clear_selected_target_action
+  selected_card_fields_observed:
+    - student_full_name
+    - learning_identifier_shown_under_email_label
+    - language
+    - pesel_optional
+  language_rule_supported: existing_learning_access_language_is_inherited
+  multiple_targets_confirmed_by_this_state: false
 
 language_conflict:
   status: SOURCE_CONFLICT
@@ -105,6 +125,9 @@ confirmed_actions:
   - search_student_by_login
   - search_student_by_pesel
   - select_existing_student
+  - show_selected_student_summary
+  - inherit_existing_learning_access_language
+  - clear_selected_student_target_visible_action
   - submit_license_assignment
   - close_license_assignment_drawer
 
@@ -117,6 +140,9 @@ own_product_requirements:
   - tenant_scope_existing_student_search
   - capability_driven_languages
   - separate_student_profile_from_learning_access
+  - preserve_existing_learning_access_language_when_assigning_to_existing_access
+  - keep_contact_email_separate_from_learning_identifier
+  - clear_target_action_must_not_delete_student
   - audit_assignment
   - use_secret_policy_defined_for_osk_secretariat_workflow
 
@@ -124,6 +150,9 @@ remaining_gaps:
   - new_identifier_validation
   - duplicate_login_email_behavior
   - whether_new_path_creates_minimal_student_profile_or_learning_access_only
+  - exact_clear_selected_target_ui_result
+  - behavior_for_student_with_multiple_learning_accesses
+  - batch_assignment_flow_for_multiple_selected_rows
   - success_error_messages
   - exact_competitor_inventory_commit_timing
   - russian_full_content_availability
