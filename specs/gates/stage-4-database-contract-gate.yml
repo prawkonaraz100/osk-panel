@@ -43,7 +43,7 @@ stage_4_slices:
       - primary_key_physical_type
       - nullable_scope_unique_constraints
       - Stage_2_settings_schema_merge
-    result: FAIL_WITH_3_REMAINING_BLOCKERS
+    result: FAIL_WITH_2_REMAINING_BLOCKERS
   - id: DB4_2_IDENTITY_TENANT_RBAC
     status: NOT_STARTED
   - id: DB4_3_STAFF_LOCATIONS_VEHICLES
@@ -88,21 +88,39 @@ quality_checks:
       physical decision does not require reopening the frozen HTTP contract.
 
   nullable_scope_unique_constraints_are_null_safe:
-    status: FAIL
-    blocker_id: DB-FOUND-002
-    affected_constraints:
-      - idempotency_records.organization_id_operation_key_idempotency_key
-      - account_closure_requests.user_id_organization_id_pending
-    evidence: >-
-      organization_id is nullable in both scopes, but the current blueprint uses a
-      normal PostgreSQL unique/partial-unique key including organization_id. In
-      PostgreSQL, ordinary UNIQUE semantics treat NULL values as distinct, so more
-      than one global/non-tenant row can bypass the intended uniqueness rule.
-    required_design: >-
-      Define explicit tenant and global uniqueness strategies, for example separate
-      partial unique indexes for organization_id IS NOT NULL and organization_id IS
-      NULL, or an equally explicit PostgreSQL NULLS NOT DISTINCT strategy if the
-      chosen server/version and migration policy guarantee it.
+    status: PASS
+    resolved_blocker_id: DB-FOUND-002
+    decision:
+      strategy: separate_partial_unique_indexes_for_null_and_non_null_scope
+      postgres_NULLS_NOT_DISTINCT_required: false
+    idempotency_records:
+      organization_scope:
+        columns: [organization_id, operation_key, idempotency_key]
+        where: organization_id_is_not_null
+      global_scope:
+        columns: [operation_key, idempotency_key]
+        where: organization_id_is_null
+    account_closure_requests:
+      organization_scope:
+        columns: [user_id, organization_id]
+        where: status_equals_pending_and_organization_id_is_not_null
+      global_scope:
+        columns: [user_id]
+        where: status_equals_pending_and_organization_id_is_null
+    evidence:
+      - specs/database/core-schema.yml declares nullable_scope_uniqueness strategy explicitly
+      - specs/database/core-schema.yml defines separate tenant/global idempotency indexes
+      - specs/database/core-schema.yml defines separate tenant/global pending account closure indexes
+      - docs/87-physical-database-schema.md documents the same physical indexes and namespace semantics
+      - migration/invariant test obligations cover global duplicate rejection, tenant duplicate rejection and cross-scope independence
+    invariants:
+      - same_idempotency_key_same_operation_same_organization_cannot_be_claimed_twice
+      - same_global_idempotency_key_same_operation_cannot_be_claimed_twice_when_organization_id_is_null
+      - same_idempotency_key_may_exist_in_different_organizations
+      - global_and_tenant_idempotency_namespaces_are_distinct
+      - one_global_pending_account_closure_per_user
+      - one_pending_account_closure_per_user_per_organization
+      - same_user_may_have_pending_account_closure_requests_for_different_organizations
 
   stage_2_settings_tables_are_present_in_core_inventory:
     status: FAIL
@@ -147,11 +165,15 @@ resolved_blockers:
       Synthetic domain identifiers use application-generated UUIDv7 stored in
       native PostgreSQL uuid columns. Matching foreign keys use uuid; provider and
       import identifiers remain separate external-reference fields.
-
-open_blockers:
   - id: DB-FOUND-002
     severity: P1
-    description: Nullable organization scopes make two intended unique constraints unsafe under ordinary PostgreSQL NULL semantics.
+    resolution: >-
+      Nullable organization scopes no longer rely on ordinary UNIQUE semantics.
+      Idempotency and pending account-closure uniqueness are implemented as
+      separate partial unique indexes for organization_id IS NOT NULL and
+      organization_id IS NULL, with migration tests for both namespaces.
+
+open_blockers:
   - id: DB-FOUND-003
     severity: P1
     description: organization_contact_addresses is authoritative in Stage 2 but absent from the aggregate core table inventory.
@@ -172,12 +194,12 @@ gate_definition:
   may_start_UI_or_feature_implementation: false
 
 next_single_step:
-  id: STAGE4_STEP_3
-  action: resolve_DB_FOUND_002_nullable_scope_uniqueness_only
+  id: STAGE4_STEP_4
+  action: resolve_DB_FOUND_003_organization_contact_addresses_inventory_and_physical_table_only
   allowed_scope:
     - specs/database/core-schema.yml
     - docs/87-physical-database-schema.md
     - docs/104-stage-4-database-foundation-audit.md
     - specs/gates/stage-4-database-contract-gate.yml
-  scope_lock: do_not_fix_organization_contact_addresses_or_settings_merge_or_other_database_slices_in_the_same_step
-  after_action: rerun_foundation_gate_before_DB_FOUND_003
+  scope_lock: do_not_merge_other_stage_2_settings_fields_or_start_other_database_slices_in_the_same_step
+  after_action: rerun_foundation_gate_before_DB_FOUND_004
