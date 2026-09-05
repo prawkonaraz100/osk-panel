@@ -143,14 +143,48 @@ quality_checks:
       do not create duplicate OpenAPI operations.
 
   every_nonpublic_operation_has_explicit_or_inherited_security:
-    status: PENDING_FULL_SCAN
+    status: PASS
+    stage_step: STAGE3_STEP_5
+    root_default_security: sessionCookie
+    counts:
+      canonical_http_operations: 158
+      explicit_public_auth_operations: 6
+      provider_signed_webhook_operations_without_session: 1
+      explicit_session_or_exam_token_operations: 4
+      operations_inheriting_sessionCookie: 147
+      operations_without_security_contract: 0
+    validation_rule: >-
+      The root OpenAPI sessionCookie requirement protects every operation unless
+      an operation explicitly overrides it. Public authentication entrypoints use
+      security: []; payment webhook intentionally has no user session and instead
+      requires provider signature verification; remote exam start, submit, result
+      and post-finish question review accept either OSK session or opaque exam
+      access token according to operation conditions.
 
   public_security_exceptions_are_explicit:
-    status: PENDING_FULL_SCAN
-    high_risk_examples:
-      - auth endpoints
-      - payment provider webhook
-      - remote internal exam access token
+    status: PASS
+    stage_step: STAGE3_STEP_5
+    explicit_public_auth_operations:
+      - authRegister
+      - authLogin
+      - authPasswordForgot
+      - authPasswordReset
+      - authSocialRedirect
+      - authSocialCallback
+    provider_callback_exception:
+      operationId: paymentWebhookReceive
+      session_security: none
+      compensating_security: provider_signature_verification_plus_provider_event_dedup
+    exam_token_operations:
+      - internalExamAccessesStart
+      - internalExamAttemptsSubmit
+      - internalExamAttemptsResult
+      - internalExamAttemptsQuestions
+    exam_result_review_rule: >-
+      Result and question-review endpoints may use examAccessToken only for the
+      matching finished attempt and result-review scope. A raw/predictable attempt
+      identifier alone never authorizes access and question review is not exposed
+      to an active unfinished exam token.
 
   every_mutating_critical_command_has_idempotency_where_required:
     status: PENDING_FULL_SCAN
@@ -167,6 +201,14 @@ resolved_blockers:
       canonical settings database specification and declares the same-source-of-
       truth ownership and test obligations for /organization/settings and the PKK
       configuration gate.
+  - id: SEC-001
+    severity: P1
+    resolution: >-
+      The reverse-engineered external exam result flow uses an opaque result/access
+      token, but result and question-review API operations previously inherited
+      OSK-session-only authentication. They now explicitly support sessionCookie
+      OR examAccessToken, restricted to the matching finished attempt and
+      result-review scope so the token cannot reveal answer review before finish.
 
 open_blockers: []
 
@@ -182,7 +224,7 @@ gate_definition:
   may_start_stage_4: false
 
 next_single_step:
-  id: STAGE3_STEP_5
-  action: audit_authentication_security_inheritance_and_explicit_public_or_exam_token_exceptions_only
-  scope_lock: do_not_scan_idempotency_request_schema_or_stage_4_until_security_step_is_audited
-  after_action: rerun_this_gate_and_record_PASS_or_new_blocker_for_security_contract
+  id: STAGE3_STEP_6
+  action: audit_idempotency_and_concurrency_headers_for_critical_mutating_commands_only
+  scope_lock: do_not_scan_request_response_schema_or_stage_4_until_idempotency_step_is_audited
+  after_action: rerun_this_gate_and_record_PASS_or_new_blocker_for_idempotency_contract
