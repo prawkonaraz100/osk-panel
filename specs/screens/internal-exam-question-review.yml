@@ -1,0 +1,87 @@
+screen:
+  id: internal_exam_question_review
+  scope: exam_frontend
+  route_pattern: /egzamin-wewnetrzny?pid=<opaque_token>
+  entry_point: completed_attempt_result_question_number
+  confidence: USER_CONFIRMED_RESULT_REVIEW_SCREEN
+  verified_at: 2026-09-05
+  doc: docs/64-internal-exam-question-review.md
+
+observed_result_context:
+  score: 9
+  max_score: 74
+  result: failed
+
+question_navigation_state:
+  current_question: 1
+  current_marker_style: dark_selected
+  correct_markers_observed: [2, 3, 4]
+  incorrect_markers_observed_range: 5-32
+  marker_semantics:
+    green: correct
+    red: incorrect
+    dark_selected: currently_open_question
+
+question_review:
+  observed_question_number: 1
+  media:
+    type: video
+    player_present: true
+  point_value: 3
+  category: B
+  answer_type: yes_no
+  answer_options:
+    - Tak
+    - Nie
+  correct_answer: Tak
+  selected_answer: Nie
+  selected_answer_marker: WYBRANO
+  correctness: incorrect
+  feedback_label: Niepoprawna odpowiedź
+
+answer_presentation:
+  correct_answer_style: green_with_check
+  selected_wrong_answer_style: red
+  selected_wrong_answer_has_selected_label: true
+
+own_product_requirements:
+  immutable_attempt_question_snapshot: true
+  review_must_not_depend_on_current_question_bank_content: true
+  support_media_types:
+    - none
+    - image
+    - video
+  attempt_question_fields:
+    - position
+    - section
+    - question_id_snapshot
+    - question_version_or_content_snapshot
+    - question_text_snapshot
+    - media_snapshot_or_version_reference
+    - answer_type_snapshot
+    - answer_options_snapshot
+    - correct_answer_snapshot
+    - selected_answer
+    - max_points
+    - awarded_points
+    - is_correct
+    - category_snapshot
+
+confirmed_actions:
+  - select_exam_question_for_review
+  - render_exam_question_media
+  - render_exam_question_text
+  - render_exam_question_point_value
+  - render_exam_question_category
+  - render_correct_answer
+  - render_candidate_selected_answer
+  - render_incorrect_answer_state
+  - navigate_between_exam_questions_by_number
+
+remaining_gaps:
+  - correctly_answered_question_review
+  - unanswered_question_review
+  - abc_answer_type_review
+  - image_question_review
+  - explanation_below_current_viewport
+  - previous_next_navigation
