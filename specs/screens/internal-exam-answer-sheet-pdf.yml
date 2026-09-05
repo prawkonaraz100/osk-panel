@@ -1,0 +1,151 @@
+document:
+  id: internal_exam_answer_sheet_pdf
+  scope: admin_osk
+  source_action: download_specific_exam_attempt_printout
+  source_route_pattern: /exam/download?id=<exam_id>
+  format: pdf
+  observed_pages: 1
+  confidence: USER_CONFIRMED_DOWNLOADED_DOCUMENT
+  verified_at: 2026-09-05
+  doc: docs/62-internal-exam-answer-sheet-pdf.md
+
+header:
+  title: ARKUSZ ODPOWIEDZI
+  subtitle_present: true
+
+candidate_section:
+  fields_observed:
+    - registry_or_pkk_number
+    - last_name
+    - first_name
+    - pesel
+  values_are_attempt_snapshot: REQUIRED_FOR_OWN_PRODUCT
+
+exam_section:
+  fields_observed:
+    - exam_date
+    - category
+  exact_time_rendered: false
+
+question_structure:
+  observed_total_questions: 32
+  observed_sections:
+    basic:
+      positions: 1-20
+      rendered_blocks:
+        - 1-12
+        - 13-20
+    specialized:
+      positions: 21-32
+  hardcode_globally: false
+  own_product_rule: exam_definition_version_driven
+
+per_question_projection:
+  fields_observed:
+    - position
+    - question_identifier
+    - max_points
+    - submitted_answer
+    - awarded_points
+  observed_point_values:
+    - 1
+    - 2
+    - 3
+
+observed_attempt:
+  all_answers: BRAK
+  total_score: 0
+  result_pdf_label: NEGATYWNY
+  admin_panel_status_label: Niezaliczony
+  result_mapping_supported:
+    failed:
+      panel: Niezaliczony
+      pdf: NEGATYWNY
+
+footer:
+  total_score_visible: true
+  result_visible: true
+  signature_lines:
+    - candidate_signature
+    - examiner_signature_and_stamp
+
+explicitly_not_observed:
+  - question_text
+  - answer_option_text
+  - correct_answer
+  - exam_start_time
+  - exam_end_time
+  - duration
+  - osk_name
+  - examiner_identity
+  - pass_threshold
+  - inventory_source
+  - technical_attempt_id
+
+own_product_entities:
+  - internal_exam_attempts
+  - internal_exam_attempt_questions
+  - internal_exam_documents
+
+own_product_snapshot_requirements:
+  attempt:
+    - candidate_first_name_snapshot
+    - candidate_last_name_snapshot
+    - candidate_pesel_snapshot
+    - registry_or_pkk_snapshot
+    - category_snapshot
+    - exam_definition_version
+    - score_total
+    - result
+  question_row:
+    - position
+    - section
+    - question_id_snapshot
+    - question_version_reference
+    - max_points_snapshot
+    - answer_snapshot
+    - awarded_points
+    - is_correct
+  document:
+    - template_version
+    - generated_at
+    - generated_by
+    - content_hash
+
+immutability:
+  completed_attempt_business_record_immutable: true
+  later_student_edit_must_not_change_old_document: true
+  later_question_edit_must_not_change_old_document: true
+  corrections_as_audited_events: true
+
+security_requirements:
+  - tenant_isolation
+  - permission_scope_internal_exam_documents
+  - authorize_attempt_before_download
+  - audit_document_download
+  - avoid_exposing_pesel_outside_authorized_document_flow
+
+confirmed_actions:
+  - download_exam_answer_sheet_pdf
+  - render_candidate_identity_snapshot
+  - render_exam_date_and_category
+  - render_exam_questions_table
+  - render_question_identifier_per_position
+  - render_points_per_question
+  - render_submitted_answer
+  - render_awarded_points
+  - render_total_score
+  - render_exam_result
+  - render_candidate_signature_line
+  - render_examiner_signature_and_stamp_line
+
+remaining_gaps:
+  - positive_result_document
+  - positive_result_exact_label
+  - other_category_layouts
+  - partial_answer_rendering
+  - answer_value_rendering_yes_no_abc
+  - pre_completion_download_behavior
+  - dynamic_vs_stored_pdf_behavior
+  - competitor_template_versioning
+  - signed_scan_upload_behavior
