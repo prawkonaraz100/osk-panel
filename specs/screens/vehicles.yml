@@ -4,11 +4,21 @@ screen:
   route: /pojazdy
   title: Pojazdy
   confidence: USER_CONFIRMED_AUTH_SCREEN
+  status: READY_FOR_IMPLEMENTATION
   verified_at: 2026-09-05
-  detail_screen_spec: specs/screens/vehicle-detail.yml
-  edit_screen_spec: specs/screens/vehicle-edit.yml
-  detail_doc: docs/25-vehicle-detail-screen.md
-  edit_doc: docs/26-vehicle-edit-form.md
+
+source_specs:
+  create: specs/screens/vehicle-create.yml
+  detail: specs/screens/vehicle-detail.yml
+  edit: specs/screens/vehicle-edit.yml
+  delete_confirmation: specs/screens/vehicle-delete.yml
+
+source_docs:
+  list: docs/20-vehicles-screen.md
+  detail: docs/25-vehicle-detail-screen.md
+  edit: docs/26-vehicle-edit-form.md
+  create: docs/27-vehicle-create-form.md
+  delete: docs/28-vehicle-delete-confirmation.md
 
 list:
   primary_action:
@@ -27,78 +37,84 @@ list:
     - action: open_vehicle_details
       label: Zobacz
       route_pattern: /pojazdy/<vehicle_uuid>
-  ambiguous_text:
-    - text: Podgląd
-      status: TO_VERIFY_VISUAL
-      possibilities: [tooltip, accessible_label, description_of_view_action]
+  calendar_filter:
+    query_param: v
+    identifier: vehicle_uuid
 
-vehicle_entity:
-  identifier:
-    type: uuid
-    reused_in:
-      - details_route
-      - calendar_filter
-      - image_asset_path
-    note: exact UUID values from audited account must not be persisted
-  confirmed_fields:
-    - photo
-    - registration_number
-    - side_number
-    - make
-    - model
-    - production_year
-    - engine_capacity_cm3
-    - vin
-    - category_ids
-    - location_ids
-    - next_inspection_at
-    - oc_valid_until
-    - ac_valid_until
-    - created_date
+confirmed_profile_fields:
+  - registration_number
+  - side_number
+  - make
+  - model
+  - production_year
+  - engine_capacity_cm3
+  - vin
+  - category_ids
+  - location_ids
+  - next_inspection_at
+  - oc_valid_until
+  - ac_valid_until
+  - photo
+  - created_date
 
-edit_form:
-  required_by_visible_marker:
-    - registration_number
-    - make
-    - model
-  multi_selects:
-    - category_ids
-    - location_ids
-  date_pickers:
-    - next_inspection_at
-    - oc_valid_until
-    - ac_valid_until
-  photo_optional: true
-  existing_photo_preview: true
-  existing_photo_remove_control: true
-  actions:
-    - save_vehicle_changes
-    - cancel_vehicle_edit
-    - close_vehicle_edit_drawer
+required_by_visible_create_and_edit_marker:
+  - registration_number
+  - make
+  - model
 
-column_notes:
-  make_model:
-    semantic_field: Marka i model
-    previous_text_extraction_typo: Maria i model
-    status: SEMANTICS_CONFIRMED_BY_DETAIL_SCREEN
-  categories:
-    present: true
-    multiplicity: MULTI_SELECT_CONFIRMED
-  documents:
-    confirmed_message_pattern: "Przegląd wygasł <date>"
+multi_selects:
+  - category_ids
+  - location_ids
 
 documents:
   confirmed_types:
     - technical_inspection
     - oc_insurance
     - ac_insurance
-  independent_valid_until: true
+  independent_validity_dates: true
   confirmed_attention_state: true
-  inferred_configurable_states:
+  configurable_status_projection:
     - valid
     - expiring_soon
     - expired
-  reminder_threshold: CONFIGURABLE_TO_VERIFY
+
+create_flow:
+  confirmed: true
+  initial_values_empty: true
+  photo_initial_state: choose_file
+  actions:
+    - open_vehicle_create
+    - set_registration_number
+    - set_side_number
+    - set_make
+    - set_model
+    - set_production_year
+    - set_engine_capacity
+    - set_vin
+    - select_categories
+    - select_locations
+    - set_next_inspection_date
+    - set_oc_valid_until
+    - set_ac_valid_until
+    - select_photo
+    - save_new_vehicle
+    - cancel_vehicle_create
+    - close_vehicle_create
+
+edit_flow:
+  confirmed: true
+  same_business_fields_as_create: true
+  actions:
+    - open_vehicle_edit
+    - edit_vehicle_fields
+    - select_categories
+    - select_locations
+    - update_document_validity_dates
+    - select_or_replace_photo
+    - remove_photo_from_form
+    - save_vehicle_changes
+    - cancel_vehicle_edit
+    - close_vehicle_edit
 
 detail_screen:
   confirmed_global_actions:
@@ -106,62 +122,66 @@ detail_screen:
     - delete_vehicle
   confirmed_section_actions:
     - edit_vehicle_details
-  confirmed_calendar_actions:
-    - open_full_calendar
-    - add_event
-    - previous_period
-    - next_period
-    - today
-    - view_month
-    - view_week
-    - view_day
-  created_date_anomaly:
-    observed_pattern: 01-01-0001
-    classification: SENTINEL_OR_DEMO_DATA_ANOMALY
-    parity_requirement: false
+  embedded_calendar:
+    views:
+      - month
+      - week
+      - day
+    actions:
+      - open_full_calendar
+      - add_event
+      - previous_period
+      - next_period
+      - today
+
+archive_delete:
+  archive_visible: true
+  archive_demo_status: DEMO_BLOCKED
+  delete_confirmation_confirmed: true
+  own_product_policy:
+    source: specs/design/core-lifecycle.yml
+    default: archive
+    restore_supported: true
+    hard_delete_after_historical_use: false
+    preserve_historical_calendar_references: true
+
+created_date_anomaly:
+  observed_pattern: 01-01-0001
+  classification: SENTINEL_OR_DEMO_DATA_ANOMALY
+  parity_requirement: false
+  own_product_rule: null_or_unknown_date_must_not_render_as_business_date
 
 relationships:
   confirmed:
     - photo_asset
-    - documents_or_validities
-    - calendar_filter_context
-    - details_screen
+    - independent_document_validities
     - vehicle_many_to_many_categories
     - vehicle_many_to_many_locations
-  to_verify:
-    - instructors
-    - service_unavailability
-
-api_recommendation:
-  - GET /api/v1/vehicles
-  - POST /api/v1/vehicles
-  - GET /api/v1/vehicles/{vehicle}
-  - PATCH /api/v1/vehicles/{vehicle}
-  - POST /api/v1/vehicles/{vehicle}/archive
-  - GET /api/v1/vehicles/{vehicle}/documents
-  - GET /api/v1/calendar/events?vehicle_id={vehicle}
-
-not_confirmed:
-  - create_vehicle_form_fields_or_exact_parity_with_edit
-  - exact_backend_validations
-  - archive_restore_or_effects
-  - delete_semantics
-  - filters
-  - search
-  - sorting
-  - pagination
-  - exact_category_dictionary
-  - exact_photo_file_rules
-  - registration_number_validation
-  - vin_validation
-  - add_event_form
-  - save_success_error_messages
+    - vehicle_calendar_context
 
 security_requirements:
   - tenant_isolation
-  - verify_vehicle_ownership_on_details
-  - verify_vehicle_ownership_on_calendar_filter
-  - validate_category_ids_belong_to_organization
-  - validate_location_ids_belong_to_organization
-  - preserve_historical_event_integrity_on_archive_delete
+  - authorize_vehicle_by_organization
+  - validate_category_ids_against_dictionary
+  - validate_location_ids_by_organization
+  - preserve_history_on_archive_delete_visible_flow
+  - archived_vehicle_not_assignable_to_new_events
   - do_not_treat_min_date_sentinel_as_real_business_date
+  - audit_create_update_archive_restore
+
+remaining_real_gaps:
+  competitor_nonblocking:
+    - exact_archive_confirmation_and_effects
+    - exact_list_search_filter_sort_controls_if_any
+    - exact_expiring_soon_threshold
+  own_product_decisions_or_validations:
+    - registration_number_validation
+    - duplicate_registration_policy
+    - vin_validation
+    - production_year_range
+    - engine_capacity_range
+    - photo_file_rules
+    - photo_removal_commit_behavior
+    - archived_vehicle_future_event_resolution
+    - exact_category_dictionary
+    - success_error_messages
