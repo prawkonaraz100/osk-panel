@@ -1,14 +1,14 @@
 # 107. Stage 4 — Staff / Locations / Vehicles physical invariant audit
 
-Data: 2026-09-05
+Data: 2026-09-06
 
-**Status:** `DB4_3 DIAGNOSIS COMPLETE / FAIL WITH 6 P1 BLOCKERS`
+**Status:** `DB4_3 IN PROGRESS / DB-RES-001 PASS / 5 P1 BLOCKERS OPEN`
 
 ## Cel
 
-Ten krok jest wyłącznie diagnozą `DB4_3_STAFF_LOCATIONS_VEHICLES`.
+Pracujemy nad `DB4_3_STAFF_LOCATIONS_VEHICLES` ściśle blocker po blockerze.
 
-Nie naprawiamy wykrytych problemów w tym samym kroku, nie wchodzimy w Student/Course/Calendar i nie generujemy migracji Laravel.
+Nie wchodzimy w Student/Course/Calendar i nie generujemy migracji Laravel. Każdy blocker ma osobną decyzję, machine-readable spec, self-audit i gate.
 
 Zasada:
 
@@ -30,9 +30,12 @@ Zasada:
 - `specs/screens/vehicle-delete.yml`,
 - `specs/database/core-schema.yml`,
 - `specs/database/identity-rbac.yml`,
+- `specs/database/staff-locations-vehicles.yml`,
 - `specs/security/permissions.yml`,
 - `specs/traceability/core-v1.yml`,
 - `docs/87-physical-database-schema.md`.
+
+Podczas zamykania DB4_3 bounded-context source `specs/database/staff-locations-vehicles.yml` jest autorytatywny dla nowych decyzji tego slice'u. Aggregate `core-schema.yml` i `docs/87` zostaną zsynchronizowane przed finalnym PASS całego DB4_3 i przed generowaniem migracji.
 
 ---
 
@@ -77,221 +80,185 @@ Staff/Vehicle/Location posiadają archiwizację i wymaganie zachowania historycz
 
 ---
 
-# Blockery DB4_3
+# DB-RES-001 — PASS: `StaffMembershipLink` same-organization integrity
 
-## DB-RES-001 — P1 SECURITY: `StaffMembershipLink` nie gwarantuje same-organization integrity
-
-### Stan
+## Problem
 
 `staff_membership_links` posiada:
 - `organization_id`,
 - `staff_profile_id`,
-- `organization_membership_id`,
+- `organization_membership_id`.
 
-ale physical narrative mówi tylko, że backend sprawdza zgodność organizacji.
-
-DB4_2 zamroził resolver:
+Przy samych niezależnych FK możliwy byłby fizycznie rekord łączący `StaffProfile` z OSK A z `OrganizationMembership` z OSK B. To jest krytyczne, ponieważ DB4_2 zamroził ścieżkę:
 
 `OrganizationMembership -> active StaffMembershipLink -> StaffProfile`
 
-jako podstawę `own`, `assigned_locations` i `assigned_students`.
+jako podstawę resolverów `own`, `assigned_locations` i `assigned_students`.
 
-### Problem
+## Decyzja canonical
 
-Proste niezależne FK pozwalają fizycznie utworzyć link:
-- `organization_id = OSK A`,
-- `staff_profile_id` z OSK A,
-- `organization_membership_id` należący do OSK B,
+`StaffMembershipLink.organization_id` pozostaje obowiązkowym tenant key i jest fizycznie związany z obiema stronami relacji przez dwa composite FK.
 
-albo analogiczną inną kombinację.
+Wymagane candidate keys:
+- `staff_profiles UNIQUE(organization_id,id)`,
+- `organization_memberships UNIQUE(organization_id,id)`.
 
-Taki rekord może podważyć cały resolver scope.
+Wymagane FK:
 
-### Wymagane rozstrzygnięcie
+`staff_membership_links(organization_id,staff_profile_id)`
+`-> staff_profiles(organization_id,id)`
 
-Potrzebny composite same-organization contract albo równie mocny physical invariant dla:
-- link.organization_id + staff_profile_id,
-- link.organization_id + organization_membership_id.
+oraz:
 
-Active-link uniqueness per StaffProfile i per OrganizationMembership ma zostać zachowane.
+`staff_membership_links(organization_id,organization_membership_id)`
+`-> organization_memberships(organization_id,id)`.
 
-**Nie naprawiamy w diagnozie.**
+Oba używają `ON UPDATE RESTRICT / ON DELETE RESTRICT`. Dzięki temu DB, a nie tylko backend, blokuje cross-tenant link.
+
+## Tenant ownership
+
+Dla tej relacji tenant ownership jest historyczną częścią tożsamości:
+- `StaffMembershipLink.organization_id` nie jest zmieniany po utworzeniu,
+- `OrganizationMembership.organization_id` nie jest przepisywany do innego OSK,
+- istniejącego `StaffProfile` z historycznymi relacjami nie „przenosimy” do innego OSK przez zmianę `organization_id`.
+
+Jeżeli biznesowo potrzebna będzie relacja w innym OSK, powstaje właściwy tenant resource/membership/link lifecycle zamiast przepisywania historii.
+
+## Active-link uniqueness pozostaje bez zmian
+
+Nadal obowiązuje:
+- najwyżej jeden aktywny link na `staff_profile_id`,
+- najwyżej jeden aktywny link na `organization_membership_id`,
+- aktywny = `unlinked_at IS NULL`.
+
+Composite FK jest dodatkową granicą bezpieczeństwa; nie zastępuje tych partial unique indexes.
+
+## Historia
+
+Normalne odłączenie nie usuwa `StaffMembershipLink`. Ustawia `unlinked_at` i actor, zachowując tenant identity rekordu. Suspend/revoke membership nie przepisuje historycznego tenant linku.
+
+Wpływ archiwizacji StaffProfile na aktywny link i membership pozostaje świadomie poza tym krokiem — to `DB-RES-006`.
+
+## Migration precheck
+
+Przed utworzeniem constraintów migracja musi wykryć:
+- link, którego `organization_id` nie pasuje do `StaffProfile.organization_id`,
+- link, którego `organization_id` nie pasuje do `OrganizationMembership.organization_id`,
+- naruszenia istniejącej active-link uniqueness.
+
+Nie wolno automatycznie „naprawić” security mismatch przez przepięcie rekordu do innego użytkownika/OSK. Migracja failuje albo wymaga jawnej remediacji.
+
+## Test obligations DB-RES-001
+
+- same-organization StaffProfile + membership -> accepted,
+- StaffProfile OSK A + Membership OSK B -> rejected by DB,
+- link.organization A + StaffProfile B -> rejected by DB,
+- link.organization A + Membership B -> rejected by DB,
+- drugi aktywny link dla tego samego StaffProfile -> rejected,
+- drugi aktywny link dla tego samego OrganizationMembership -> rejected,
+- unlinked history pozostaje zachowana,
+- suspend/revoke membership nie zmienia historycznego tenant identity linku,
+- RBAC traversal przez StaffMembershipLink nie może przekroczyć organizacji.
+
+Machine source: `specs/database/staff-locations-vehicles.yml`.
+
+**Gate DB-RES-001: PASS.**
 
 ---
 
-## DB-RES-002 — P1 SECURITY: Staff/Vehicle ↔ Location join tables mogą tworzyć cross-tenant assignment
+# DB-RES-002 — OPEN P1 SECURITY: Staff/Vehicle ↔ Location join tables mogą tworzyć cross-tenant assignment
 
-### Stan
+`staff_location_assignments(staff_profile_id,location_id)` i `vehicle_location_assignments(vehicle_id,location_id)` nie mają jeszcze jawnego tenant key/composite same-organization constraint.
 
-`staff_location_assignments(staff_profile_id,location_id)` i `vehicle_location_assignments(vehicle_id,location_id)` nie mają jawnego tenant key.
-
-Jednocześnie `assigned_locations` z DB-IAM-002 opiera authorization na `StaffLocationAssignments`.
-
-### Problem
-
-Dwa proste FK nie udowadniają, że parent i location należą do tego samego OSK.
-
-Błąd importu/bug backendu mógłby przypisać pracownikowi OSK A lokalizację OSK B, a następnie resolver RBAC potraktowałby to jako legalny assigned-location scope.
-
-Vehicle-location cross-tenant relation analogicznie łamie zasady resource isolation i calendar filters.
-
-### Wymagane rozstrzygnięcie
+To jest szczególnie istotne dla `StaffLocationAssignments`, ponieważ `assigned_locations` z DB-IAM-002 używa tej relacji jako security resolvera.
 
 Potrzebny tenant-aware join shape i same-organization FK/invariant dla obu join tables.
 
-**Nie naprawiamy w diagnozie.**
+**To jest następny i jedyny blocker do naprawy.**
 
 ---
 
-## DB-RES-003 — P1 SECURITY: Staff/Vehicle document i photo `FileAsset` nie mają zamkniętego same-tenant ownership contract
+# DB-RES-003 — OPEN P1 SECURITY: Staff/Vehicle document i photo `FileAsset`
 
-### Stan
+Staff/Vehicle posiadają `photo_asset_id`, a dokumenty `asset_id`. Sam FK do `file_assets.id` nie zabrania przypięcia assetu z innego OSK albo platformowego assetu jako prywatnego dokumentu.
 
-Staff/Vehicle posiadają `photo_asset_id`, a dokumenty mogą posiadać `asset_id`. `FileAsset.organization_id` może być nullable dla platformowych/global assets.
-
-### Problem
-
-Samo FK do `file_assets.id` nie zabrania:
-- przypięcia zdjęcia należącego do innego OSK,
-- przypięcia dokumentu z innego OSK,
-- przypadkowego użycia platformowego assetu jako prywatnego dokumentu pracownika/pojazdu.
-
-Upload security mówi, że business entity może przypiąć asset dopiero po `ready`, ale physical resource contract nie definiuje jeszcze wymaganej zgodności tenant + purpose dla tych czterech ścieżek.
-
-### Wymagane rozstrzygnięcie
-
-Należy ustalić same-tenant/purpose-ready attach invariant dla:
+Do zamknięcia pozostaje same-tenant + purpose + ready attachment contract dla:
 - StaffProfile.photo,
 - StaffDocument.asset,
 - Vehicle.photo,
 - VehicleDocument.asset.
 
-**Nie naprawiamy w diagnozie.**
+Nie naprawiamy jeszcze.
 
 ---
 
-## DB-RES-004 — P1: current document validity projection jest niejednoznaczny
+# DB-RES-004 — OPEN P1: current document validity projection
 
-### Stan
+UI ma po jednej bieżącej dacie dla każdego typu dokumentu, ale `staff_documents` i `vehicle_documents` dopuszczają wiele rekordów tego samego typu bez current/superseded semantics.
 
-UI ma dokładnie po jednym bieżącym polu daty dla każdego typu:
-
-Staff:
-- card/license,
-- medical exam,
-- psychological exam.
-
-Vehicle:
-- technical inspection,
-- OC,
-- AC.
-
-Physical tables `staff_documents` i `vehicle_documents` pozwalają jednak tworzyć wiele rekordów tego samego `document_type` dla jednego parenta i nie definiują current/superseded semantics.
-
-### Problem
-
-Bez rozstrzygnięcia dwóch agentów mogą wdrożyć różne zachowania:
-- update jednego current row,
-- append history bez current marker,
-- wybór najnowszego `created_at`,
-- przypadkowe dwa równoległe current records.
-
-To wpływa na ekran detalu, expired/attention projection i calendar important-date projection.
-
-### Wymagane rozstrzygnięcie
-
-Wybrać jedną physical semantics:
-- jedna current row per `(parent,document_type)` + audit history,
-- albo versioned/superseded history z partial unique current row.
-
-Historyczne wymagania nie mogą być realizowane przez nieokreślone „najświeższy rekord wygrywa”.
-
-**Nie naprawiamy w diagnozie.**
+Trzeba wybrać jednoznaczny history-safe model current row/versioning. Nie naprawiamy jeszcze.
 
 ---
 
-## DB-RES-005 — P1: identity uniqueness lifecycle Staff/Vehicle nie jest finalny
+# DB-RES-005 — OPEN P1: identity uniqueness lifecycle Staff/Vehicle
 
-### Staff
+Do finalnego rozstrzygnięcia pozostają:
+- Staff PESEL uniqueness, gdy podany,
+- Vehicle registration number uniqueness przez archive/restore,
+- Vehicle VIN uniqueness, gdy podany.
 
-`pesel_lookup_hash` ma tylko rekomendowaną/optional partial uniqueness. Nie jest rozstrzygnięte, czy jeden PESEL może tworzyć dwa trwałe StaffProfile w tym samym OSK zamiast restore istniejącego profilu.
-
-### Vehicle
-
-Blueprint wymienia unique registration number, ale jednocześnie pozostawia „finalną politykę reuse po archiwizacji” do decyzji. VIN uniqueness jest również optional.
-
-### Problem
-
-Migracja musi wiedzieć, czy uniqueness jest:
-- across full durable history,
-- only current/non-archived,
-- albo nie jest constraintem.
-
-W przeciwnym razie archive/restore może powodować niemożliwy restore albo duplikaty tożsamości zasobu.
-
-### Wymagane rozstrzygnięcie
-
-Zamknąć history-safe identity rules osobno dla:
-- Staff PESEL gdy podany,
-- Vehicle registration number,
-- Vehicle VIN gdy podany.
-
-**Nie naprawiamy w diagnozie.**
+Migracje muszą wiedzieć, czy constraint obejmuje całą trwałą historię czy tylko current rows. Nie naprawiamy jeszcze.
 
 ---
 
-## DB-RES-006 — P1 SECURITY: archiwizacja StaffProfile nie ma zamkniętego skutku dla panel access
+# DB-RES-006 — OPEN P1 SECURITY: archiwizacja StaffProfile vs panel access
 
-### Stan
+Jeżeli StaffProfile zostanie zarchiwizowany bez zmiany aktywnego StaffMembershipLink/OrganizationMembership, były pracownik może zachować panel access. Z kolei bezwarunkowy revoke membership może zepsuć restore i last-owner guard.
 
-Staff może mieć osobny aktywny `StaffMembershipLink -> OrganizationMembership`. Screen potwierdza archive/delete Staff i osobny panel-access context.
-
-DB4_2 mówi, że tylko active OrganizationMembership może autoryzować.
-
-### Problem
-
-Jeżeli `StaffProfile.archived_at` zostanie ustawione bez zmiany linked membership, osoba usunięta z aktywnej kadry może nadal mieć aktywny dostęp do panelu.
-
-Z drugiej strony automatyczny hard revoke membership przy archive utrudni bezpieczne restore i może naruszyć last-owner invariant.
-
-### Wymagane rozstrzygnięcie
-
-Potrzebna jawna, atomowa own-product policy dla:
-- archive StaffProfile z aktywnym panel account,
-- restore StaffProfile,
-- Owner being archived,
-- relacji do `suspended|revoked` membership,
-- zachowania historycznego StaffMembershipLink.
-
-Policy musi respektować last-owner guard z DB-IAM-004 i nie może usuwać membership history.
-
-**Nie naprawiamy w diagnozie.**
+Potrzebna jawna atomowa policy respektująca DB-IAM-004/005. Nie naprawiamy jeszcze.
 
 ---
 
 # Nie są blockerami DB4_3 na tym etapie
 
 - dokładny próg `expiring_soon` — projection/config, nie physical integrity blocker,
-- exact future-event behavior po archive Location/Vehicle — będzie zamykane z Calendar, przy zachowaniu historycznych refs,
-- exact course behavior po archive Location/Staff — będzie zamykane z Course/Training, bez utraty historii,
+- exact future-event behavior po archive Location/Vehicle — zamyka DB4_5,
+- exact course behavior po archive Location/Staff — zamyka DB4_4,
 - exact validator polskiego numeru rejestracyjnego/VIN/telefonu — application validation, chyba że późniejszy gate wymaga DB check,
-- source katalogu miejscowości — może pozostać adapter/dictionary decision, o ile `city_reference + snapshot` zachowuje dane,
-- category assignment tenant FK — driving category jest globalnym dictionary, nie tenant resource,
+- source katalogu miejscowości — adapter/dictionary decision,
+- category assignment tenant FK — driving category jest globalnym dictionary,
 - competitor archive/delete backend semantics — nieobserwowalne; own product stosuje bezpieczny lifecycle z equivalent capability.
 
 ---
 
-# Wynik diagnozy
+# Quality gate po DB-RES-001
 
-`DB4_3_STAFF_LOCATIONS_VEHICLES` ma obecnie **6 otwartych blockerów P1**:
+Sprawdzono:
+- czy obie strony StaffMembershipLink muszą należeć do `link.organization_id` — **PASS**,
+- czy DB ma fizyczne composite FK, a nie tylko backend check — **PASS**,
+- czy istnieją wymagane candidate keys parentów — **PASS DESIGN**,
+- czy active-link uniqueness pozostało zachowane — **PASS**,
+- czy historia unlink pozostaje zachowana — **PASS**,
+- czy resolver RBAC nie może dostać cross-tenant bridge — **PASS**,
+- czy migration precheck zabrania silent reassignment — **PASS**,
+- czy nie rozwiązano przy okazji DB-RES-002..006 — **PASS**,
+- czy nie rozpoczęto DB4_4 ani migracji Laravel — **PASS**.
 
-1. `DB-RES-001` — StaffMembershipLink same-organization integrity,
-2. `DB-RES-002` — Staff/Vehicle location assignment tenant integrity,
-3. `DB-RES-003` — Staff/Vehicle FileAsset same-tenant/purpose attachment,
-4. `DB-RES-004` — current document validity cardinality/history semantics,
-5. `DB-RES-005` — Staff/Vehicle identity uniqueness lifecycle,
-6. `DB-RES-006` — Staff archive vs panel-access membership lifecycle.
+Nie znaleziono nowego P0/P1 wynikającego z decyzji DB-RES-001.
 
-Nie rozpoczęto żadnej z tych napraw.
+Aggregate `core-schema.yml` i `docs/87` nie są jeszcze finalnie zsynchronizowane z nowym composite-link contract. To jest jawnie kontrolowane przez bounded-context authority rule i zostanie wykonane przed **finalnym DB4_3 PASS**, nie między pojedynczymi blockerami.
 
-**Następny pojedynczy krok: tylko `DB-RES-001`.**
+---
+
+# Wynik po DB4_3_STEP_2
+
+- `DB-RES-001` — **PASS**,
+- `DB-RES-002` — **OPEN P1**,
+- `DB-RES-003` — **OPEN P1**,
+- `DB-RES-004` — **OPEN P1**,
+- `DB-RES-005` — **OPEN P1**,
+- `DB-RES-006` — **OPEN P1**.
+
+DB4_3 jako całość nadal ma **FAIL / IN_PROGRESS**. DB4_4 pozostaje zablokowany.
+
+**Następny pojedynczy krok: tylko `DB-RES-002` — tenant integrity dla Staff/Vehicle ↔ Location assignments.**
