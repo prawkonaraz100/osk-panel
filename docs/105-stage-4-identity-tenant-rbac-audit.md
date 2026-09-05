@@ -2,7 +2,7 @@
 
 Data: 2026-09-05
 
-**Status:** `IN_PROGRESS / DB-IAM-001 PASS / DB-IAM-002 PASS / 3 P1 BLOCKERS OPEN`
+**Status:** `IN_PROGRESS / DB-IAM-001 PASS / DB-IAM-002 PASS / DB-IAM-003 PASS / 2 P1 BLOCKERS OPEN`
 
 ## Cel slice'u
 
@@ -40,77 +40,19 @@ Reverse engineering nie jest upraszczany. Techniczny RBAC własnego produktu mo�
 
 # DB-IAM-001 — PASS: effective permissions / role template semantics
 
-## Problem
-
-Poprzedni model miał jednocześnie:
-- `organization_memberships.role_template_code`,
-- `membership_permissions(permission_code, granted)`,
-- role templates w `specs/security/permissions.yml`,
-
-ale nie określał, czy template jest runtime source permissions, czy tylko presetem. To pozwalało na kilka niekompatybilnych implementacji.
-
-## Decyzja canonical
-
-**Role template jest wyłącznie assignment-time presetem + provenance. Nie jest runtime authorization dependency.**
+Role template jest wyłącznie assignment-time presetem + provenance. Nie jest runtime authorization dependency.
 
 Runtime source of truth:
 
 `active OrganizationMembership -> membership_permissions -> permission decision`
 
-Backend przy request nie sprawdza `role_template_code`.
-
-## Materializacja template
-
-`specs/security/permissions.yml` ma wersjonowany katalog template'ów.
-
-Przy pierwszym zastosowaniu template:
-1. resolve exact template catalog version,
-2. enumeruj wszystkie znane w tej wersji core permissions,
-3. dla każdego permission utwórz/update current `membership_permissions` decision,
-4. permission w template -> `granted=true`,
-5. permission spoza template -> `granted=false`,
-6. zapisz `role_template_code` + `role_template_catalog_version` jako provenance,
-7. audit snapshot.
-
-Zmiana/reapply template jest osobnym explicit commandem i atomowo materializuje nowy snapshot dla wszystkich znanych permissions.
-
-## Runtime effective permission
-
-- `granted=true` -> capability może przejść do następnych warstw policy,
-- `granted=false` -> deny,
-- brak row -> **deny**,
-- template code/version -> nie bierze udziału w runtime authorization.
-
-Dzięki temu nowy permission dodany w przyszłości jest dla istniejącego membership domyślnie **DENY**. Zmiana definicji template nie rozszerza po cichu praw istniejących użytkowników.
-
-## Physical contract
-
-`specs/database/identity-rbac.yml` jest bounded-context machine-readable source dla DB4_2. Do finalnego PASS całego DB4_2 zostanie zsynchronizowany z aggregate `core-schema.yml` i `docs/87`.
-
-`OrganizationMembership` przechowuje provenance:
-- `role_template_code nullable`,
-- `role_template_catalog_version nullable`.
-
-`membership_permissions` pozostaje authoritative current decision table:
-- `membership_id`,
-- `permission_code`,
-- `granted`,
-- unique `(membership_id, permission_code)`.
-
-Historię actor/reason/version i concurrency dla permission mutations zamykamy osobno w `DB-IAM-005`; nie mieszamy tego do tej naprawy.
-
-## Test obligations DB-IAM-001
-
-- template materializuje decyzję dla każdego permission znanego w danej wersji katalogu,
-- included -> true,
-- nonincluded -> false,
-- missing row -> deny,
-- template definition change nie zmienia istniejącego membership,
-- nowy permission -> deny do explicit grant/reapply,
-- explicit permission decision wygrywa nad starym template provenance,
-- runtime authorization nie czyta `role_template_code`,
-- template reapply jest atomowy,
-- provenance przechowuje code + exact catalog version.
+Najważniejsze inwarianty:
+- `role_template_code` i `role_template_catalog_version` są metadata/provenance,
+- template materializuje jawny current permission snapshot,
+- brak permission row -> deny,
+- nowy permission dodany później -> deny do explicit grant/reapply,
+- zmiana definicji template nie zmienia po cichu istniejących membershipów,
+- template reapply/change jest explicit atomic commandem.
 
 **Gate DB-IAM-001: PASS.**
 
@@ -118,172 +60,124 @@ Historię actor/reason/version i concurrency dla permission mutations zamykamy o
 
 # DB-IAM-002 — PASS: canonical per-permission data scope
 
-## Problem
-
-Poprzedni blueprint miał jeden:
-
-`organization_memberships.data_scope varchar(64)`
-
-To jest za mało precyzyjne. Ten sam pracownik może mieć różny zakres dla różnych capabilities, np. własny kalendarz, przypisanych kursantów i jednocześnie pełny tenantowy dostęp do zakupów.
-
-Jedna wartość membership-wide tworzyłaby ryzyko przypadkowego rozszerzenia danych w całym systemie.
-
-## Decyzja canonical
-
-**Scope jest materializowany per permission. Nie jest globalnym polem membership.**
+Scope jest materializowany per permission, a nie jako jeden globalny string membership.
 
 Canonical runtime chain:
 
 `OrganizationMembership -> membership_permissions -> membership_permission_scopes -> resolver`
 
-`organization_memberships.data_scope` otrzymuje status `SUPERSEDED_BY_PER_PERMISSION_SCOPE_ROWS` i ma zostać usunięte z aggregate physical blueprint przed finalnym DB4_2 PASS/migracjami.
-
-Nie jest dozwolone używanie starego stringa jako fallbacku.
-
-## Fizyczny model
-
-### `data_scopes`
-
-Katalog canonical scope codes:
+Katalog scope:
 - `organization`,
 - `own`,
 - `assigned_students`,
 - `assigned_locations`.
 
-### `permission_scope_options`
+Fizyczne elementy:
+- `data_scopes`,
+- `permission_scope_options`,
+- `membership_permission_scopes`.
 
-Whitelist par:
+Najważniejsze inwarianty:
+- granted permission bez legalnego scope -> deny fail-closed,
+- unsupported permission/scope pair -> reject,
+- wiele scope rows dla jednego permission -> OR po same-tenant validation,
+- `organization` nigdy nie omija tenant isolation,
+- list/get/search/count/export/PDF używają tej samej policy,
+- frontend post-fetch filtering nie jest security boundary,
+- `assigned_locations` i `assigned_students` mają zamrożone resolver contracts dla kolejnych slice'ów.
 
-`permission_code + scope_code`
-
-oraz `resolver_code`.
-
-To oznacza, że baza/config nie pozwala materializować dowolnej kombinacji permission/scope. Przykładowo permission typu `own_only` nie dostanie przez pomyłkę `organization`.
-
-### `membership_permission_scopes`
-
-Klucz:
-
-`membership_id + permission_code + scope_code`
-
-FK:
-- do konkretnej decyzji `membership_permissions`,
-- do dozwolonej pary `permission_scope_options`.
-
-Reguły:
-- `granted=true` wymaga co najmniej jednego scope row,
-- `granted=false` ma zero aktywnych scope rows,
-- brak scope mimo `granted=true` -> **DENY fail-closed**,
-- wiele scope rows dla jednego permission -> logiczne **OR**.
-
-Nie rozwiązujemy tutaj historii/concurrency tych mutacji; to pozostaje `DB-IAM-005`.
-
-## Runtime order
-
-1. authenticated user,
-2. active membership,
-3. **same-tenant target validation**,
-4. `membership_permissions.granted=true`,
-5. load scope rows,
-6. evaluate registered resolver dla każdej scope row,
-7. allow scope layer, gdy co najmniej jeden resolver pasuje,
-8. domain state,
-9. elevated re-auth/MFA jeśli wymagane.
-
-`organization` nigdy nie oznacza globalnego dostępu. Tenant validation jest wcześniejszą i niezależną warstwą.
-
-## Resolver `own`
-
-Permission-specific adapter musi udowodnić, że target należy do:
-- bieżącego `User`, albo
-- `StaffProfile` aktywnie powiązanego z membership.
-
-Jeśli dana domena nie ma canonical ownership relation, resolver zwraca false. Nie ma fallbacku do `organization`.
-
-## Resolver `assigned_locations`
-
-Zamrożona ścieżka:
-
-`OrganizationMembership -> active StaffMembershipLink -> StaffProfile -> StaffLocationAssignments`
-
-Target musi rozwiązać się przez permission-specific adapter do jednej z tych lokalizacji.
-
-Brak aktywnego staff linku lub brak dopasowania = pusty zbiór / deny.
-
-Physical FK i szczegóły zasobów dopnie `DB4_3`, ale nie może już zmienić znaczenia scope bez ponownego otwarcia gate RBAC.
-
-## Resolver `assigned_students`
-
-Zamrożona ścieżka zaczyna się od:
-
-`OrganizationMembership -> active StaffMembershipLink -> StaffProfile`
-
-Student należy do assigned set, gdy istnieje scope-eligible relacja:
-- `CourseEnrollment.lead_instructor_id == StaffProfile.id`, albo
-- `TrainingSession.instructor_id == StaffProfile.id` dla kursu tego studenta.
-
-Relacja anulowana/zarchiwizowana/nieaktywna z punktu widzenia scope nie może rozszerzać dostępu. Exact lifecycle-to-scope mapping zostanie fizycznie zapisany w `DB4_4`, ale źródła relacji są już zamrożone.
-
-PKK, exam, license, finance, progress i training resources najpierw rozwiązują canonical Student/CourseEnrollment, potem stosują assigned-student predicate.
-
-Brak active staff link = pusty zbiór.
-
-## Query/command safety
-
-Scope musi być stosowany tak samo dla:
-- list,
-- GET by id,
-- search,
-- count,
-- update/cancel/archive,
-- bulk,
-- export,
-- PDF.
-
-Filtrowanie danych po pobraniu ich do Vue jest zabronione jako security boundary.
-
-Dla create:
-- jeśli istnieje parent/subject, scope sprawdzamy na nim,
-- jeśli nie istnieje scoped subject, `own/assigned_*` nie jest zgadywane; wymagany jest legalny `organization` scope.
-
-## Role template scope materialization
-
-Template materializuje jednocześnie permission decisions i scope rows:
-- Owner/OfficeAdmin -> `organization`, gdy permission profile to dopuszcza,
-- `*.own` -> `own`,
-- Instructor/Lecturer student-scoped -> `assigned_students`,
-- odpowiednie training/calendar -> `assigned_students + own`.
-
-Explicit grant bez jawnego legalnego scope set jest niedozwolony.
-
-## Test obligations DB-IAM-002
-
-- granted permission bez scope -> deny,
-- denied permission ze stale scope -> deny + consistency failure,
-- unsupported permission/scope pair -> reject przez composite relation,
-- organization scope nie przepuszcza cross-tenant target,
-- wiele scope rows działa jako OR,
-- own bez ownership relation -> deny,
-- assigned_locations bez staff link -> pusty zbiór,
-- assigned_students bez staff link -> pusty zbiór,
-- assigned student przez lead instructor relation -> match,
-- assigned student przez non-cancelled training-session instructor relation -> match,
-- relacja anulowana/zarchiwizowana nie rozszerza scope,
-- list i GET-by-id mają równoważny scope predicate,
-- template materializuje scope tylko dla granted permissions,
-- explicit grant wymaga legalnego scope set.
+`organization_memberships.data_scope` jest superseded i zostanie usunięty z aggregate blueprint przed finalnym DB4_2 PASS/migracjami.
 
 **Gate DB-IAM-002: PASS.**
 
 ---
 
-# DB-IAM-003 — OPEN P1 SECURITY: auth session ↔ membership integrity
+# DB-IAM-003 — PASS: auth session ↔ membership same-user integrity
 
-`auth_sessions.user_id` i `organization_membership_id` są obecnie niezależnymi FK. Sama baza nie zabrania wskazania membership należącego do innego Usera.
+## Problem
 
-Potrzebny composite/constrained relation albo równie mocny transactional invariant + test.
+Poprzedni physical shape posiadał dwa niezależne FK:
 
-**To jest następny i jedyny blocker do naprawy.**
+- `auth_sessions.user_id -> users.id`,
+- `auth_sessions.organization_membership_id -> organization_memberships.id`.
+
+Taki model nie zabraniał fizycznie stanu, w którym sesja `User A` wskazuje membership należący do `User B`.
+
+To jest niedopuszczalne dla tenant security boundary.
+
+## Decyzja canonical
+
+Wprowadzamy **composite same-user foreign key**.
+
+`organization_memberships` musi posiadać unique candidate key:
+
+`UNIQUE(id, user_id)`
+
+A tenant context w `auth_sessions` jest chroniony przez:
+
+`FOREIGN KEY (organization_membership_id, user_id)`
+`REFERENCES organization_memberships(id, user_id)`
+
+z `MATCH SIMPLE`, `ON UPDATE RESTRICT`, `ON DELETE RESTRICT`.
+
+Efekt:
+- jeśli `organization_membership_id` jest ustawiony, membership musi należeć dokładnie do tego samego `user_id`, co sesja,
+- session User A nie może wskazać membership User B nawet przy błędzie aplikacji,
+- membership nie może być „przepisywany” na innego Usera; poprawa takiej sytuacji odbywa się przez właściwy membership/lifecycle, nie przez zmianę `user_id` istniejącego membership.
+
+## Global / pre-tenant session
+
+`organization_membership_id` pozostaje nullable.
+
+To jest celowe dla:
+- zalogowanej sesji przed wyborem tenant context,
+- globalnych flow konta/security, które nie wymagają OSK context.
+
+`MATCH SIMPLE` powoduje, że przy `organization_membership_id IS NULL` composite FK nie wymaga membership row.
+
+Jednocześnie każda operacja tenant-owned wymaga non-null membership context po stronie backend policy.
+
+## Wybór / zmiana tenant context
+
+Canonical flow:
+1. wczytaj sesję bez ujawniania raw session secret,
+2. rozwiąż requested membership,
+3. potwierdź, że membership należy do `auth_sessions.user_id`,
+4. potwierdź, że membership jest dozwolony przez aktualny lifecycle policy,
+5. zapisz `organization_membership_id`,
+6. composite FK jest ostatnią fizyczną granicą integralności.
+
+Nie przyjmujemy client-supplied `organization_id` jako źródła autoryzacji. Aktywna organizacja wynika z wybranego membership.
+
+## Granica tego rozwiązania
+
+Composite FK rozwiązuje **identity integrity**, ale nie rozwiązuje jeszcze:
+- kiedy membership jest `active/suspended/revoked`,
+- kiedy revoke/suspend unieważnia istniejące sesje,
+- cache/version semantics po zmianie permissions.
+
+To pozostaje świadomie w `DB-IAM-005`.
+
+## Migration gate
+
+Przed dodaniem constraintu migracja musi:
+- przeskanować istniejące `auth_sessions` z non-null membership,
+- wykryć przypadki `session.user_id != membership.user_id`,
+- zatrzymać migrację lub poddać rekord explicit security remediation,
+- **nie** naprawiać takiego rekordu automatycznie przez przepisanie go na inną osobę,
+- następnie dodać `UNIQUE(id, user_id)` i composite FK.
+
+## Test obligations DB-IAM-003
+
+- session + membership tego samego usera -> accepted,
+- session User A + membership User B -> rejected przez DB,
+- null membership -> dozwolony dla global/pre-tenant session,
+- tenant-owned request z null membership -> denied przez backend policy,
+- ten sam User może przełączyć się między swoimi membershipami w dwóch OSK,
+- `organization_memberships.user_id` nie może być reassigned,
+- migration precheck wykrywa historyczne cross-user session rows.
+
+**Gate DB-IAM-003: PASS.**
 
 ---
 
@@ -296,7 +190,7 @@ Policy wymaga last-owner protection i audytowanych elevated permission changes, 
 - grant ceiling,
 - session effect po odebraniu elevated permission.
 
-Nie naprawiamy jeszcze.
+**To jest następny i jedyny blocker do naprawy.**
 
 ---
 
@@ -314,34 +208,32 @@ Nie naprawiamy jeszcze.
 
 ---
 
-# Quality gate DB4_2_STEP_3
+# Quality gate DB4_2_STEP_4
 
 Sprawdzono:
-- czy scope jest per-permission zamiast membership-wide — **PASS**,
-- czy permission i scope są dwiema osobnymi warstwami — **PASS**,
-- czy unsupported scope pair jest blokowane — **PASS**,
-- czy brak scope failuje zamknięcie — **PASS**,
-- czy wiele scope'ów ma jednoznaczną semantykę OR — **PASS**,
-- czy `organization` nadal podlega tenant isolation — **PASS**,
-- czy `own`, `assigned_students`, `assigned_locations` mają zamrożone resolvery — **PASS**,
-- czy list/get/search/export używają tej samej security policy — **PASS**,
-- czy downstream DB4_3/DB4_4 ma jawne obligations zamiast prawa do redefinicji scope — **PASS**,
-- czy nie naprawiono przy okazji DB-IAM-003/004/005 — **PASS**.
+- czy non-null tenant session context może wskazać membership innego usera — **NIE / PASS**, composite FK blokuje,
+- czy FK jest wykonalny fizycznie w PostgreSQL — **PASS**, target ma jawny unique `(id,user_id)`,
+- czy global/pre-tenant session pozostaje możliwy — **PASS**, nullable membership + MATCH SIMPLE,
+- czy tenant-owned request bez membership jest dozwolony — **NIE / PASS**, backend deny,
+- czy organizacja jest wyprowadzana z membership zamiast client-supplied organization ID — **PASS**,
+- czy migracja posiada precheck dla istniejących niespójnych rekordów — **PASS**,
+- czy rozwiązanie nie próbuje przy okazji definiować owner/escalation — **PASS**, nadal DB-IAM-004,
+- czy rozwiązanie nie próbuje przy okazji definiować revoke/suspend/session invalidation lifecycle — **PASS**, nadal DB-IAM-005.
 
-Nie znaleziono nowego P0/P1 wynikającego z decyzji DB-IAM-002.
+Nie znaleziono nowego P0/P1 wynikającego z decyzji DB-IAM-003.
 
-Aggregate `core-schema.yml` i `docs/87` nadal zawierają stary `data_scope` i zostaną zsynchronizowane przed **finalnym DB4_2 PASS**, zgodnie z bounded-context authority rule. Nie generujemy jeszcze migracji.
+Aggregate `core-schema.yml` i `docs/87` zostaną zsynchronizowane dopiero przed finalnym DB4_2 PASS. Migracje nadal są zablokowane.
 
 ---
 
-# Wynik po DB4_2_STEP_3
+# Wynik po DB4_2_STEP_4
 
 - `DB-IAM-001` — **PASS**,
 - `DB-IAM-002` — **PASS**,
-- `DB-IAM-003` — **OPEN P1**,
+- `DB-IAM-003` — **PASS**,
 - `DB-IAM-004` — **OPEN P1**,
 - `DB-IAM-005` — **OPEN P1**.
 
 DB4_2 jako całość nadal ma **FAIL**. `DB4_3` pozostaje zablokowany.
 
-**Następny pojedynczy krok: `DB-IAM-003` — wyłącznie integralność `auth_sessions.user_id <-> organization_membership_id`.**
+**Następny pojedynczy krok: `DB-IAM-004` — wyłącznie last-owner i privilege-escalation invariants.**
