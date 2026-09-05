@@ -8,10 +8,21 @@ screen:
   verified_at: 2026-09-05
   doc: docs/33-student-internal-exam-access-flow.md
 
+own_product_design:
+  policy_spec: specs/design/internal-exam-lifecycle.yml
+  policy_doc: docs/34-own-internal-exam-lifecycle-policy.md
+  principle: competitor_unverified_details_do_not_block_implementation
+
 inventory:
   available_exam_count_visible: true
   scope: osk_exam_inventory
-  consumption_point: TO_VERIFY
+  competitor_consumption_point: COMPETITOR_UNVERIFIED
+  own_product_default_consumption_policy: consume_on_start
+  own_product_accounting_model:
+    - available
+    - reserved
+    - consumed
+    - released
 
 candidate_context:
   warning_state_observed: Uzupełnij dane kursanta
@@ -39,13 +50,19 @@ launch_modes:
       - generate_exam_link
       - candidate_can_take_exam_remotely_with_internet
       - send_link_to_candidate_email
-    unresolved:
+    competitor_unresolved:
       - token_ttl
       - single_use
       - resend
       - revoke
       - inventory_consumption_point
       - email_validation_behavior
+    own_product_policy:
+      - reserve_inventory_on_access_creation
+      - consume_inventory_on_exam_start
+      - release_reservation_on_unused_expiry_or_revoke
+      - secure_opaque_expiring_token
+      - resend_same_access_without_new_reservation
 
   local_workstation:
     confirmed: true
@@ -53,7 +70,17 @@ launch_modes:
     behavior:
       - start_exam_on_current_workstation
     concurrency_message: Dostępne tylko dla 1 kursanta jednocześnie
-    concurrency_scope: TO_VERIFY
+    competitor_concurrency_scope: COMPETITOR_UNVERIFIED
+    own_product_policy:
+      - one_active_attempt_per_exam_station
+      - no_global_one_student_per_osk_limit
+      - atomic_inventory_consume_on_start
+
+  assigned_exam_station:
+    competitor_confirmed: false
+    own_product_extension: true
+    purpose: reception_can_start_exam_on_registered_exam_station
+    policy_spec: specs/design/internal-exam-lifecycle.yml
 
 confirmed_actions:
   - open_generate_internal_exam_access
@@ -71,6 +98,8 @@ model_requirements:
   - exam_station_session_or_equivalent_local_lock
   - idempotent_inventory_accounting
   - audit_exam_access_generation_and_start
+  - inventory_ledger_not_simple_counter_as_source_of_truth
+  - own_product_supports_reservation_release_before_start
 
 security_requirements:
   - tenant_isolation
@@ -80,7 +109,7 @@ security_requirements:
   - prevent_double_inventory_consumption
   - audit_link_generation_delivery_start_finish_cancel
 
-remaining_gaps:
+competitor_remaining_gaps_non_blocking_for_own_product:
   - exact_required_candidate_fields
   - exact_category_options
   - exact_language_options
@@ -92,3 +121,13 @@ remaining_gaps:
   - interruption_and_cancel_behavior
   - remove_action_semantics
   - success_error_messages
+
+own_product_resolved_design_questions:
+  - inventory_use_reservation_ledger
+  - default_consume_on_start
+  - unused_remote_access_can_release_inventory
+  - remote_link_can_be_revoked_before_start
+  - local_concurrency_is_per_exam_station
+  - multiple_exam_stations_per_osk_supported
+  - assigned_exam_station_supported_as_extension
+  - technical_abort_has_audited_recovery_flow
