@@ -5,6 +5,7 @@ meta:
   decided_at: 2026-09-05
   doc: docs/87-physical-database-schema.md
   preservation_contract: docs/96-reverse-engineering-preservation-contract.md
+  traceability: specs/traceability/core-v1.yml
 
 conventions:
   primary_key: uuid_pending_final_ADR
@@ -45,6 +46,8 @@ core_tables:
     - users
     - auth_login_identifiers
     - auth_social_accounts
+    - auth_sessions
+    - account_closure_requests
     - organization_memberships
     - permissions
     - membership_permissions
@@ -129,6 +132,8 @@ core_tables:
     - order_items
     - payments
     - payment_events
+    - service_entitlements
+    - service_activations
 
   infrastructure_events:
     - audit_logs
@@ -164,6 +169,37 @@ identity_model:
       - created_at
       - revoked_at
     unique_current_provider_subject: true
+  auth_sessions:
+    purpose: session_listing_and_revocation_for_security_ui
+    fields:
+      - id
+      - user_id
+      - organization_membership_id_nullable
+      - token_or_framework_session_hash
+      - created_at
+      - last_seen_at
+      - revoked_at
+      - revoke_reason_nullable
+      - ip_hash_nullable
+      - user_agent_nullable
+    raw_session_secret_storage_forbidden: true
+    revoke_is_state_change_not_history_delete: true
+    framework_session_store_may_implement_physical_storage_if_contract_is_preserved: true
+  account_closure_requests:
+    purpose: auditable_user_or_organization_account_closure_workflow
+    fields:
+      - id
+      - user_id
+      - organization_id_nullable
+      - requested_at
+      - reason_nullable
+      - status_pending_approved_rejected_completed_cancelled
+      - resolved_at_nullable
+      - resolved_by_user_id_nullable
+      - resolution_note_nullable
+      - request_id
+    history_preserved: true
+    one_pending_request_per_scope: true
   organization_memberships:
     same_user_multiple_organizations_supported: true
 
@@ -236,9 +272,39 @@ idempotency_model:
     plaintext_secret_in_response_snapshot_forbidden: true
     transaction_or_atomic_claim_required: true
 
+commerce_entitlement_model:
+  service_entitlements:
+    purpose: generic_paid_or_granted_service_right_when_product_is_not_modeled_as_license_or_exam_inventory
+    fields:
+      - id
+      - organization_id
+      - service_type
+      - source_order_item_id_nullable
+      - source_grant_reference_nullable
+      - activation_mode_immediate_or_explicit
+      - status_granted_available_activated_expired_revoked
+      - granted_at
+      - expires_at_nullable
+      - created_at
+    note: license_and_internal_exam_inventory_keep_their_specialized_models
+  service_activations:
+    fields:
+      - id
+      - organization_id
+      - service_entitlement_id
+      - activated_by_user_id_nullable
+      - activated_at
+      - effective_from
+      - effective_to_nullable
+      - created_at
+    unique_activation_per_entitlement: true
+    explicit_activation_is_exactly_once: true
+
 critical_relations:
   - organization_has_many_students
   - user_has_many_auth_login_identifiers
+  - user_has_many_auth_sessions
+  - user_has_many_account_closure_requests
   - user_has_many_organization_memberships
   - staff_profile_belongs_to_exactly_one_organization
   - staff_profile_can_exist_without_login_membership
@@ -268,6 +334,8 @@ critical_relations:
   - internal_exam_attempt_has_many_historical_station_sessions_but_at_most_one_active
   - exam_station_has_at_most_one_active_station_session
   - internal_exam_attempt_has_one_result_when_finished
+  - order_item_can_grant_service_entitlement
+  - service_entitlement_has_at_most_one_activation
 
 structural_decisions:
   student_learning_login:
@@ -335,6 +403,10 @@ structural_decisions:
     post_start_failover_requires_technical_transfer_with_audit: true
   payment_webhook_dedup:
     unique_scope: [provider, provider_event_id]
+  service_entitlement_activation:
+    explicit_mode_payment_success_is_not_activation: true
+    activation_exactly_once: true
+    payment_or_grant_creates_entitlement_before_explicit_activation: true
   pkk_sensitive_snapshots:
     profile_full_snapshot_storage: encrypted_ciphertext_or_minimized_normalized_columns
     redacted_ui_snapshot_jsonb_allowed: true
@@ -354,6 +426,12 @@ critical_constraints:
     where: revoked_at_is_null
   social_provider_subject_unique:
     columns: [provider, provider_subject]
+  auth_session_token_hash_unique:
+    columns: [token_or_framework_session_hash]
+  account_closure_one_pending_per_scope:
+    type: partial_unique
+    columns: [user_id, organization_id]
+    where: status_equals_pending
   membership_unique:
     columns: [organization_id, user_id]
   terms_acceptance_unique:
@@ -395,6 +473,8 @@ critical_constraints:
     columns: [license_assignment_id]
   license_effective_period_valid:
     check: effective_to_gt_effective_from
+  service_activation_unique:
+    columns: [service_entitlement_id]
   payment_provider_event_deduplicated:
     columns: [provider, provider_event_id]
   exam_active_reservation_unique_per_inventory_entry:
@@ -423,6 +503,12 @@ transactional_invariants:
   create_or_reset_login_credentials:
     lock_or_unique_claim_auth_identifier: true
     plaintext_password_persistence_forbidden: true
+  revoke_auth_session:
+    revoke_is_idempotent: true
+    raw_session_secret_never_returned: true
+  create_account_closure_request:
+    one_pending_per_scope: true
+    audit_required: true
   revoke_unactivated_license:
     lock:
       - license_assignment
@@ -468,6 +554,16 @@ transactional_invariants:
       - create_new_station_session_with_transfer_reference
       - do_not_consume_exam_inventory_again
       - write_audit
+  activate_service_entitlement:
+    lock:
+      - service_entitlement
+    transaction:
+      - verify_activation_mode_explicit
+      - verify_not_already_activated
+      - create_service_activation_exactly_once
+      - update_entitlement_projection
+      - write_audit
+    retry_safe: true
   payment_webhook:
     dedupe_before_business_effect: true
   calendar_conflict:
@@ -494,6 +590,9 @@ foreign_key_policy:
     - student_charges
 
 security_storage_rules:
+  auth_sessions:
+    raw_cookie_or_bearer_secret_forbidden: true
+    token_hash_or_framework_opaque_id_only: true
   audit_log:
     before_after_payloads_must_be_redacted_or_allowlisted: true
     plaintext_passwords_forbidden: true
@@ -509,7 +608,7 @@ security_storage_rules:
     one_time_plaintext_password_response_snapshot_forbidden: true
 
 migration_order:
-  - identity_organization_and_auth_identifiers
+  - identity_organization_auth_identifiers_sessions_and_closure_requests
   - legal_documents_terms_and_settings
   - dictionaries_and_capabilities
   - file_assets_and_idempotency
@@ -521,13 +620,15 @@ migration_order:
   - student_finance
   - license_inventory_assignments_and_activations
   - internal_exam_inventory_attempts_stations_and_station_sessions
-  - orders_and_payments
+  - orders_payments_service_entitlements_and_activations
   - audit_activity_outbox_notifications
   - final_partial_indexes_and_cross_table_constraints
 
 migration_tests_required:
   - generic_login_identifier_resolves_to_at_most_one_current_user
   - revoked_login_identifier_can_be_reissued_only_by_explicit_policy
+  - auth_session_can_be_listed_and_revoked_without_exposing_raw_secret
+  - duplicate_pending_account_closure_request_same_scope_is_rejected_or_idempotent
   - same_user_can_have_memberships_in_two_organizations
   - staff_can_exist_without_membership_link
   - staff_can_have_multiple_categories_and_locations
@@ -544,6 +645,8 @@ migration_tests_required:
   - two_active_local_exam_sessions_on_same_station_are_rejected
   - same_attempt_cannot_have_two_active_station_sessions
   - failover_does_not_consume_second_exam_credit
+  - explicit_service_entitlement_activation_is_exactly_once
+  - payment_success_does_not_activate_explicit_mode_entitlement_early
   - duplicate_provider_event_with_same_provider_is_rejected
   - same_provider_event_id_from_different_provider_does_not_collide
   - only_one_non_superseded_requirement_profile_per_course
