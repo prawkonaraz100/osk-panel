@@ -1,0 +1,94 @@
+screen:
+  id: student_internal_exam_access
+  scope: admin_osk
+  parent: student_internal_exam
+  entry_action: start_student_internal_exam
+  title: Generuj dostęp do egzaminu wewnętrznego
+  confidence: USER_CONFIRMED_AUTH_SCREEN
+  verified_at: 2026-09-05
+  doc: docs/33-student-internal-exam-access-flow.md
+
+inventory:
+  available_exam_count_visible: true
+  scope: osk_exam_inventory
+  consumption_point: TO_VERIFY
+
+candidate_context:
+  warning_state_observed: Uzupełnij dane kursanta
+  fields:
+    - full_name
+    - category
+    - language
+    - first_name
+    - last_name
+    - pkk
+    - pesel
+    - email
+  controls:
+    category_select: true
+    language_select: true
+  actions:
+    - edit_candidate_data
+    - remove_candidate_context_visible_semantics_to_verify
+
+launch_modes:
+  remote_link:
+    confirmed: true
+    label: Udostępnij link do egzaminu
+    behavior:
+      - generate_exam_link
+      - candidate_can_take_exam_remotely_with_internet
+      - send_link_to_candidate_email
+    unresolved:
+      - token_ttl
+      - single_use
+      - resend
+      - revoke
+      - inventory_consumption_point
+      - email_validation_behavior
+
+  local_workstation:
+    confirmed: true
+    label: Rozpocznij egzamin teraz
+    behavior:
+      - start_exam_on_current_workstation
+    concurrency_message: Dostępne tylko dla 1 kursanta jednocześnie
+    concurrency_scope: TO_VERIFY
+
+confirmed_actions:
+  - open_generate_internal_exam_access
+  - select_exam_category
+  - select_exam_language
+  - edit_student_exam_data
+  - share_internal_exam_link
+  - start_internal_exam_on_current_workstation
+  - close_exam_access_drawer
+
+model_requirements:
+  - exam_inventory_separate_from_student_attempt_history
+  - same_exam_engine_can_support_remote_and_local_launch
+  - secure_remote_access_token
+  - exam_station_session_or_equivalent_local_lock
+  - idempotent_inventory_accounting
+  - audit_exam_access_generation_and_start
+
+security_requirements:
+  - tenant_isolation
+  - authorize_student_and_category_by_organization
+  - opaque_remote_access_tokens
+  - server_side_concurrency_enforcement
+  - prevent_double_inventory_consumption
+  - audit_link_generation_delivery_start_finish_cancel
+
+remaining_gaps:
+  - exact_required_candidate_fields
+  - exact_category_options
+  - exact_language_options
+  - inventory_consumption_point
+  - remote_link_post_action_state
+  - remote_link_ttl_and_revoke
+  - local_concurrency_scope
+  - local_exam_next_screen
+  - interruption_and_cancel_behavior
+  - remove_action_semantics
+  - success_error_messages
