@@ -319,7 +319,7 @@ components:
         student_id: { type: string, format: uuid }
         login_identifier: { type: string }
         language_code: { type: string }
-        status: { type: string }
+        status: { type: string, readOnly: true }
     CreateLearningAccountRequest:
       type: object
       required: [login_identifier, language_code]
@@ -329,10 +329,11 @@ components:
         initial_password: { type: [string, 'null'], format: password, description: One-time input; never stored recoverably. }
     UpdateLearningAccountRequest:
       type: object
+      additionalProperties: false
+      minProperties: 1
       properties:
         login_identifier: { type: string }
         language_code: { type: string }
-        status: { type: string }
     LearningAccountHandoff:
       type: object
       required: [id, account_id, created_at]
