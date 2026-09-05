@@ -55,7 +55,7 @@ stage_4_slices:
   - id: DB4_2_IDENTITY_TENANT_RBAC
     status: IN_PROGRESS_WITH_BLOCKERS
     diagnosis: COMPLETE
-    result: FAIL_WITH_3_P1_BLOCKERS
+    result: FAIL_WITH_2_P1_BLOCKERS
   - id: DB4_3_STAFF_LOCATIONS_VEHICLES
     status: NOT_STARTED
   - id: DB4_4_STUDENTS_COURSES_TRAINING_LEDGER
@@ -152,32 +152,52 @@ quality_checks:
     narrative_source:
       - docs/04-roles-permissions.md
       - docs/105-stage-4-identity-tenant-rbac-audit.md
-    tests:
-      - granted_without_scope_denied
-      - unsupported_permission_scope_pair_rejected
-      - organization_scope_cross_tenant_denied
-      - multiple_scopes_are_OR
-      - own_without_owner_relation_denied
-      - assigned_students_without_active_staff_link_empty
-      - assigned_locations_without_active_staff_link_empty
-      - list_and_fetch_by_id_equivalent_scope
     aggregate_sync_note: >-
       core-schema.yml and docs/87 still contain the superseded membership data_scope
       field. This is intentionally deferred until final DB4_2 synchronization; the
       bounded-context contract is authoritative meanwhile and migrations remain blocked.
 
   auth_session_membership_integrity:
-    status: FAIL
-    blocker_id: DB-IAM-003
-    evidence:
-      - auth_sessions has user_id FK
-      - auth_sessions has separate nullable organization_membership_id FK
-      - security policy requires active membership and tenant context
-    unresolved: >-
-      Current simple foreign keys do not guarantee that the selected membership
-      belongs to the same user as auth_sessions.user_id. A composite constrained
-      relation or an equally strong transactional invariant is required.
-    impact: malformed_session_context_can_cross_user_or_tenant_boundary
+    status: PASS
+    resolved_blocker_id: DB-IAM-003
+    decision:
+      session_user_id: authenticated_global_identity
+      organization_membership_id: nullable_selected_tenant_context
+      same_user_database_enforcement: composite_foreign_key
+      source_columns:
+        - auth_sessions.organization_membership_id
+        - auth_sessions.user_id
+      target_unique_candidate_key:
+        table: organization_memberships
+        columns: [id, user_id]
+      target_columns: [id, user_id]
+      match_semantics: MATCH_SIMPLE
+      on_update: RESTRICT
+      on_delete: RESTRICT
+      membership_user_reassignment: forbidden
+      null_membership_context_allowed_for_global_or_pre_tenant_flow: true
+      tenant_owned_operation_without_membership_context: deny
+      selected_organization_source: organization_membership_not_client_supplied_organization_id
+      active_membership_request_recheck: required
+      membership_state_and_session_invalidation_semantics: deferred_to_DB_IAM_005
+    migration_precheck:
+      required: true
+      invalid_cross_user_rows: fail_or_explicit_security_remediation_never_silent_reassignment
+    tests:
+      - same_user_session_membership_accepted
+      - cross_user_session_membership_rejected_by_database
+      - null_membership_global_session_allowed
+      - tenant_request_without_membership_denied
+      - same_user_can_switch_between_own_memberships_in_two_organizations
+      - membership_user_id_reassignment_forbidden
+      - migration_detects_preexisting_cross_user_session_membership_rows
+    machine_source:
+      - specs/database/identity-rbac.yml
+    narrative_source:
+      - docs/105-stage-4-identity-tenant-rbac-audit.md
+    aggregate_sync_note: >-
+      core-schema.yml and docs/87 still have the earlier simple FK shape. They are
+      synchronized before final DB4_2 PASS; migrations remain blocked until then.
 
   identity_owner_and_privilege_management_invariants:
     status: FAIL
@@ -239,11 +259,15 @@ resolved_blockers:
       whitelist of legal permission/scope pairs and fail-closed resolver rows.
       Multiple scopes are OR-ed after same-tenant validation; the old membership-wide
       data_scope string is superseded and forbidden at runtime.
-
-open_blockers:
   - id: DB-IAM-003
     severity: P1
-    description: Auth session user and selected organization membership can be physically inconsistent under simple independent foreign keys.
+    resolution: >-
+      Non-null auth session tenant context is protected by a composite FK from
+      (organization_membership_id,user_id) to organization_memberships(id,user_id),
+      preventing a session from selecting another user's membership while keeping
+      null membership valid for explicit global/pre-tenant flows.
+
+open_blockers:
   - id: DB-IAM-004
     severity: P1
     description: Last-owner and privilege-escalation safety rules are policy-only and lack canonical physical/transaction invariants.
@@ -259,19 +283,21 @@ gate_definition:
     - migration_order_is_dependency_safe
     - database_invariant_test_matrix_exists
     - reverse_engineering_preservation_is_traceable_to_schema_or_use_case
-  current_result: FAIL_DB4_2_WITH_3_OPEN_P1_BLOCKERS
+  current_result: FAIL_DB4_2_WITH_2_OPEN_P1_BLOCKERS
   may_start_stage_5: false
   may_start_UI_or_feature_implementation: false
   may_start_DB4_3: false
 
 next_single_step:
-  id: DB4_2_STEP_4
-  blocker: DB-IAM-003
-  action: resolve_auth_session_user_membership_integrity_only
+  id: DB4_2_STEP_5
+  blocker: DB-IAM-004
+  action: resolve_last_owner_and_privilege_escalation_invariants_only
   allowed_scope:
     - specs/database/identity-rbac.yml
+    - docs/04-roles-permissions.md
     - docs/08-security-compliance.md
+    - specs/security/permissions.yml
     - docs/105-stage-4-identity-tenant-rbac-audit.md
     - specs/gates/stage-4-database-contract-gate.yml
-  scope_lock: do_not_fix_owner_privilege_or_membership_permission_lifecycle_blockers_in_the_same_step
-  after_action: rerun_DB4_2_gate_and_record_DB_IAM_003_PASS_or_new_blocker_before_DB_IAM_004
+  scope_lock: do_not_fix_membership_permission_mutation_lifecycle_or_aggregate_sync_in_the_same_step
+  after_action: rerun_DB4_2_gate_and_record_DB_IAM_004_PASS_or_new_blocker_before_DB_IAM_005
