@@ -6,7 +6,9 @@ Data weryfikacji: 2026-09-05
 **Źródło:** bieżące zalogowane ekrany + screenshoty przekazane podczas audytu  
 **Status:** `USER_CONFIRMED_AUTH_SCREEN`
 
-Pełne rozwinięcie pojedynczego dostępu opisano w `docs/54-license-expanded-assignments.md`.
+Powiązane szczegóły:
+- rozwinięcie pojedynczego dostępu: `docs/54-license-expanded-assignments.md`,
+- formularz `Generuj dostęp dla kursanta`: `docs/55-license-generate-access-form.md`.
 
 ---
 
@@ -50,12 +52,47 @@ Nie utożsamiamy automatycznie `active_count` z `assigned_count`; dokładna agre
 
 ---
 
-## 3. Główna akcja
+## 3. Główna akcja — `Generuj dostęp dla kursanta`
 
-Potwierdzona akcja:
-- `Generuj dostęp dla kursanta do prawo-jazdy-360.pl`.
+Formularz po kliknięciu został już potwierdzony.
 
-Dokładny formularz po kliknięciu pozostaje do osobnego capture.
+Drawer nosi tytuł:
+- `Przydzielanie licencji`.
+
+Potwierdzone pola/elementy:
+- wybór wariantu `1 miesiąc / 3 miesiące / 6 miesięcy`,
+- licznik `Dostępne: N`,
+- wybór języka,
+- ścieżka `Dodaj nowego kursanta` -> `Email lub login`,
+- separator `lub`,
+- ścieżka `Wyszukaj kursanta`,
+- przycisk `Przydziel licencje`.
+
+Wyszukiwanie istniejącego kursanta obsługuje:
+- imię,
+- nazwisko,
+- email,
+- login,
+- PESEL.
+
+Wyniki pokazują:
+- imię i nazwisko,
+- login/dostęp.
+
+### Języki — SOURCE_CONFLICT
+
+Bieżący zalogowany formularz przydzielania licencji pokazuje:
+- Polski,
+- Angielski,
+- Niemiecki,
+- Rosyjski,
+- Ukraiński.
+
+Publiczny/zakupowy opis licencji mówi natomiast o 4 językach bez rosyjskiego.
+
+Nie hardkodujemy globalnej listy. Własny produkt używa capability-driven language catalog.
+
+Pełna specyfikacja: `specs/screens/license-generate-access.yml`.
 
 ---
 
@@ -98,7 +135,7 @@ Jeden dostęp może mieć wiele licencji — zaobserwowano liczniki `5`, `2`, `2
 
 ## 6. Rozwinięcie `Rozwiń`
 
-To zachowanie jest już potwierdzone dla dwóch stanów: nieaktywowanego i aktywnego.
+To zachowanie jest potwierdzone dla dwóch stanów: nieaktywowanego i aktywnego.
 
 ### Jan Nowak — 5 nieaktywowanych licencji
 Potwierdzone kolumny rozwinięcia:
@@ -144,20 +181,17 @@ Potwierdzone obserwacje:
 - przydzielenie i aktywacja są oddzielne,
 - jeden dostęp może mieć wiele assignmentów.
 
-### Nowe ważne ustalenie
 Dwie aktywne licencje Ali mają daty końca różniące się dokładnie o **31 dni**:
 
 `22-12-2026 23:37 -> 22-01-2027 23:37`
 
 oraz pozostały czas:
 
-`108 dni -> 139 dni`
+`108 dni -> 139 dni`.
 
-Również różnica **31 dni**.
+To bardzo mocno wspiera model, w którym kolejna licencja przedłuża istniejący aktywny dostęp.
 
-To bardzo mocno wspiera model, w którym kolejna licencja **przedłuża istniejący aktywny dostęp**, zamiast uruchamiać niezależny równoległy zegar.
-
-Dla naszego produktu przyjmujemy zatem model entitlement ledger:
+Dla naszego produktu przyjmujemy entitlement ledger:
 
 ### pierwsza aktywacja
 `new_expiry = activation_time + product_duration`
@@ -171,12 +205,12 @@ Uogólnienie:
 
 `new_expiry = base + product_duration`
 
-Każda zastosowana licencja powinna audytowo przechowywać:
+Każda zastosowana licencja przechowuje audytowo:
 - `expiry_before`,
 - `expiry_after`,
 - `duration_days`.
 
-Dokładny produkt przypisany do każdego z aktywnych rekordów Ali nie jest widoczny na ekranie, więc nie zapisujemy jako faktu, że nowszy rekord był produktem 31-dniowym; mechanizm przedłużenia jest jednak bardzo silnie wsparty danymi.
+Dokładny produkt przypisany do każdego z aktywnych rekordów Ali nie jest widoczny na ekranie, więc nie zapisujemy jako faktu, że nowszy rekord był produktem 31-dniowym.
 
 ---
 
@@ -225,21 +259,24 @@ Każdy assignment powinien mieć co najmniej:
 
 `learning_access` przechowuje lub materializuje aktualną projekcję `current_expires_at`.
 
+Przydzielenie licencji z różnych entry pointów (`profil kursanta`, `panel licencji`, batch) powinno trafiać do jednego wspólnego backendowego command/service.
+
 ---
 
 ## 11. Pozostałe niewiadome
 
 Do dalszego capture:
 - rozwinięcie zakończonej licencji,
-- formularz `Generuj dostęp dla kursanta`,
 - dokładne opcje `Sortuj`,
-- exact search fields,
+- exact search fields głównej tabeli,
 - exact semantics `Aktywne` w kartach inventory,
 - batch `Przydziel licencje`,
 - batch `Pobierz dostępy`,
 - zachowanie `Ukryj licencje zakończone` dla mixed-history account,
 - kolejność aktywowania kilku oczekujących licencji,
 - zachowanie przy przedłużaniu już wygasłego dostępu,
+- czy `Dodaj nowego kursanta` w drawerze tworzy pełny minimalny profil czy wyłącznie learning access,
+- walidacja duplikatów email/login,
 - pagination,
 - empty states,
 - success/error messages.
