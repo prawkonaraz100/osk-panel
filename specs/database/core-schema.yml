@@ -48,9 +48,6 @@ conventions:
   nullable_scope_uniqueness:
     strategy: separate_partial_unique_indexes_for_null_and_non_null_scope
     postgres_NULLS_NOT_DISTINCT_required: false
-    rationale: >-
-      Avoid depending on version-specific NULLS NOT DISTINCT behavior and make
-      tenant versus global uniqueness semantics explicit in migrations and tests.
 
 sensitive_identifier_pattern:
   pesel:
@@ -79,6 +76,9 @@ core_tables:
     - organization_memberships
     - permissions
     - membership_permissions
+    - data_scopes
+    - permission_scope_options
+    - membership_permission_scopes
     - legal_documents
     - terms_acceptances
 
@@ -187,6 +187,7 @@ identity_model:
     human_user_after_onboarding_requires_names: true
     pre_onboarding_or_system_principal_nullability_may_be_supported: true
     names_are_global_identity_fields_not_duplicated_per_organization: true
+
   auth_login_identifiers:
     purpose: resolve_generic_login_without_tenant_selector
     fields:
@@ -209,6 +210,7 @@ identity_model:
       where: revoked_at_is_null_and_is_primary_for_type_true
     settings_email_projection: current_nonrevoked_identifier_type_email_and_primary_true
     rule: same_visible_login_string_must_not_resolve_to_two_users
+
   auth_social_accounts:
     fields:
       - id
@@ -218,8 +220,121 @@ identity_model:
       - created_at
       - revoked_at
     unique_current_provider_subject: true
+
+  organization_memberships:
+    purpose: durable_tenant_authorization_aggregate_root
+    same_user_multiple_organizations_supported: true
+    unique_membership_per_organization_user: true
+    hard_delete: forbidden
+    user_id_mutation: forbidden
+    fields:
+      - id
+      - organization_id
+      - user_id
+      - status
+      - is_owner
+      - role_template_code_nullable
+      - role_template_catalog_version_nullable
+      - version
+      - authorization_version
+      - created_at
+      - updated_at
+    status_values:
+      - active
+      - suspended
+      - revoked
+    status_semantics:
+      active: authorization_eligible
+      suspended: authorization_ineligible_permissions_scopes_retained
+      revoked: authorization_ineligible_owner_false_permissions_denied_scopes_removed
+    version:
+      type: bigint
+      default: 1
+      minimum: 1
+      purpose: optimistic_concurrency_for_membership_permission_scope_owner_status_aggregate
+    authorization_version:
+      type: bigint
+      default: 1
+      minimum: 1
+      purpose: security_epoch_for_authorization_affecting_changes_and_cache_invalidation
+    is_owner:
+      type: boolean
+      default: false
+      authorization_shortcut: false
+    role_template_runtime_dependency: false
+    role_template_fields_are_provenance_only: true
+    reactivation:
+      suspended_to_active_retains_permission_scope_config: true
+      revoked_to_active_requires_fresh_permission_or_template_provisioning: true
+      revoked_to_active_restores_owner_implicitly: false
+    owner_protected_permission_baseline:
+      organization.view: organization
+      organization.members.manage: organization
+      staff.permissions.manage: organization
+      sessions.manage.organization: organization
+
+  permissions:
+    fields:
+      - code
+      - description
+    primary_key: code
+    catalog_source: specs/security/permissions.yml
+
+  membership_permissions:
+    purpose: authoritative_current_permission_decision
+    fields:
+      - membership_id
+      - permission_code
+      - granted
+      - created_at
+    unique: [membership_id, permission_code]
+    missing_row: deny
+    role_template_code_consulted_at_runtime: false
+    independent_mutation_version: false
+    concurrency_root: organization_memberships.version
+
+  data_scopes:
+    purpose: canonical_scope_catalog
+    fields:
+      - code
+      - description
+    primary_key: code
+    codes:
+      - organization
+      - own
+      - assigned_students
+      - assigned_locations
+
+  permission_scope_options:
+    purpose: whitelist_legal_permission_scope_pairs_and_resolvers
+    fields:
+      - permission_code
+      - scope_code
+      - resolver_code
+    primary_key: [permission_code, scope_code]
+    foreign_keys:
+      permission_code: permissions.code
+      scope_code: data_scopes.code
+
+  membership_permission_scopes:
+    purpose: authoritative_current_scope_predicates_for_granted_permission
+    fields:
+      - membership_id
+      - permission_code
+      - scope_code
+      - created_at
+    primary_key: [membership_id, permission_code, scope_code]
+    foreign_keys:
+      membership_permission_pair: membership_permissions[membership_id,permission_code]
+      allowed_permission_scope_pair: permission_scope_options[permission_code,scope_code]
+    multiple_rows_same_permission_semantics: logical_OR_after_tenant_validation
+    granted_permission_without_scope: deny_fail_closed
+    denied_permission_requires_zero_scope_rows: transactional_invariant
+    independent_mutation_version: false
+    concurrency_root: organization_memberships.version
+
   auth_sessions:
-    purpose: session_listing_and_revocation_for_security_ui
+    purpose: session_listing_revocation_and_selected_tenant_context
     fields:
       - id
       - user_id
@@ -234,6 +349,18 @@ identity_model:
     raw_session_secret_storage_forbidden: true
     revoke_is_state_change_not_history_delete: true
     framework_session_store_may_implement_physical_storage_if_contract_is_preserved: true
+    same_user_tenant_context_integrity:
+      source_columns: [organization_membership_id, user_id]
+      target_table: organization_memberships
+      target_columns: [id, user_id]
+      match: MATCH_SIMPLE
+      on_update: RESTRICT
+      on_delete: RESTRICT
+      target_candidate_key_required: [id, user_id]
+    null_membership_context_allowed_for_global_or_pre_tenant_flow: true
+    tenant_owned_operation_without_membership_context: deny
+    selected_organization_is_derived_from_membership: true
+
   account_closure_requests:
     purpose: auditable_user_or_organization_account_closure_workflow
     fields:
@@ -258,8 +385,6 @@ identity_model:
         type: partial_unique
         columns: [user_id]
         where: status_equals_pending_and_organization_id_is_null
-  organization_memberships:
-    same_user_multiple_organizations_supported: true
 
 organization_model:
   organizations:
@@ -436,6 +561,10 @@ critical_relations:
   - user_has_many_auth_sessions
   - user_has_many_account_closure_requests
   - user_has_many_organization_memberships
+  - auth_session_selected_membership_must_belong_to_same_user
+  - organization_membership_is_durable_authorization_aggregate_root
+  - membership_permission_has_many_scope_rows
+  - permission_scope_pair_must_be_whitelisted
   - staff_profile_belongs_to_exactly_one_organization
   - staff_profile_can_exist_without_login_membership
   - staff_profile_can_have_at_most_one_active_membership_link_in_its_organization
@@ -468,6 +597,29 @@ critical_relations:
   - service_entitlement_has_at_most_one_activation
 
 structural_decisions:
+  identity_tenant_rbac:
+    bounded_context_source: specs/database/identity-rbac.yml
+    role_template_runtime_authorization_dependency: false
+    role_template_is_assignment_preset_and_provenance: true
+    runtime_permission_source: membership_permissions
+    per_permission_scope_tables:
+      - permission_scope_options
+      - membership_permission_scopes
+    membership_wide_data_scope_string: forbidden
+    owner_marker: organization_memberships.is_owner
+    owner_marker_grants_permission_implicitly: false
+    owner_protected_baseline_required: true
+    last_owner_serialization_lock: organization_row_or_equivalent
+    normal_self_escalation: forbidden
+    grant_ceiling_required: true
+    membership_version_is_concurrency_root: true
+    authorization_version_is_security_epoch: true
+    membership_hard_delete: forbidden
+    suspended_membership_keeps_permission_snapshot: true
+    revoked_membership_clears_runtime_permission_snapshot: true
+    revoked_reactivation_requires_fresh_provisioning: true
+    suspend_or_revoke_clears_bound_session_tenant_contexts: true
+    authorization_changes_write_audit_and_outbox_same_transaction: true
   student_learning_login:
     primary_auth_identifier_reference_required_when_login_provisioned: true
     login_identifier_cached_on_learning_account_for_projection_only: true
@@ -564,6 +716,28 @@ critical_constraints:
     columns: [provider, provider_subject]
   auth_session_token_hash_unique:
     columns: [token_or_framework_session_hash]
+  organization_membership_unique_org_user:
+    columns: [organization_id, user_id]
+  organization_membership_candidate_key_id_user:
+    columns: [id, user_id]
+    purpose: composite_auth_session_same_user_FK_target
+  organization_membership_version_minimum:
+    check: version_gte_1
+  organization_membership_authorization_version_minimum:
+    check: authorization_version_gte_1
+  auth_session_membership_same_user_composite_FK:
+    source_columns: [organization_membership_id, user_id]
+    target_table: organization_memberships
+    target_columns: [id, user_id]
+    match: MATCH_SIMPLE
+    on_update: RESTRICT
+    on_delete: RESTRICT
+  membership_permission_unique:
+    columns: [membership_id, permission_code]
+  permission_scope_option_unique:
+    columns: [permission_code, scope_code]
+  membership_permission_scope_unique:
+    columns: [membership_id, permission_code, scope_code]
   account_closure_pending_unique_organization_scope:
     type: partial_unique
     columns: [user_id, organization_id]
@@ -572,8 +746,6 @@ critical_constraints:
     type: partial_unique
     columns: [user_id]
     where: status_equals_pending_and_organization_id_is_null
-  membership_unique:
-    columns: [organization_id, user_id]
   terms_acceptance_unique:
     columns: [organization_id, user_id, legal_document_id]
   file_asset_storage_key_unique:
@@ -652,6 +824,54 @@ transactional_invariants:
   revoke_auth_session:
     revoke_is_idempotent: true
     raw_session_secret_never_returned: true
+  select_session_tenant_context:
+    require_membership_same_user_as_session: true
+    require_membership_status_active: true
+    selected_organization_derived_from_membership: true
+    database_composite_FK_is_final_same_user_boundary: true
+  mutate_membership_permissions_or_scopes:
+    concurrency_root: organization_memberships
+    expected_membership_version_required: true
+    lock_target_membership: true
+    stale_version: conflict_without_partial_write
+    grant_ceiling_and_self_escalation_rules_required: true
+    permission_and_scope_rows_changed_atomically: true
+    granted_permission_requires_legal_scope: true
+    denied_permission_has_no_scope_rows: true
+    increment_membership_version_once: true
+    increment_authorization_version_once_if_effective_authorization_changed: true
+    write_audit_and_outbox_same_transaction: true
+  change_owner_governance:
+    lock_organization_governance_boundary: true
+    post_transaction_active_owner_count_minimum: 1
+    owner_protected_permission_baseline_required: true
+    normal_self_promotion: forbidden
+    owner_transfer_atomic: true
+    increment_target_membership_and_authorization_versions: true
+    write_audit_and_outbox_same_transaction: true
+  transition_membership_status:
+    hard_delete: forbidden
+    expected_membership_version_required: true
+    lock_target_membership: true
+    active_to_suspended:
+      keep_permission_scope_config: true
+      clear_all_bound_auth_session_membership_contexts_same_transaction: true
+    suspended_to_active:
+      keep_permission_scope_config: true
+      old_sessions_auto_rebind: false
+    active_or_suspended_to_revoked:
+      set_is_owner_false_subject_to_last_owner_guard: true
+      set_all_membership_permissions_granted_false: true
+      remove_all_membership_permission_scopes: true
+      clear_all_bound_auth_session_membership_contexts_same_transaction: true
+    revoked_to_active:
+      fresh_template_or_permission_scope_provisioning_required: true
+      old_owner_or_permission_snapshot_auto_restore: false
+      old_sessions_auto_rebind: false
+    increment_membership_version_once: true
+    increment_authorization_version_once: true
+    invalidate_membership_scoped_elevation_or_reauth_proofs: true
+    write_audit_and_outbox_same_transaction: true
   create_account_closure_request:
     one_pending_per_scope: true
     audit_required: true
@@ -745,6 +965,7 @@ security_storage_rules:
   auth_sessions:
     raw_cookie_or_bearer_secret_forbidden: true
     token_hash_or_framework_opaque_id_only: true
+    permission_snapshot_as_authority_forbidden: true
   audit_log:
     before_after_payloads_must_be_redacted_or_allowlisted: true
     plaintext_passwords_forbidden: true
@@ -761,7 +982,7 @@ security_storage_rules:
     one_time_plaintext_password_response_snapshot_forbidden: true
 
 migration_order:
-  - identity_organization_auth_identifiers_sessions_and_closure_requests
+  - identity_organization_auth_identifiers_memberships_permissions_scopes_sessions_and_closure_requests
   - legal_documents_terms_and_settings
   - dictionaries_and_capabilities
   - file_assets_and_idempotency
@@ -789,6 +1010,38 @@ migration_tests_required:
   - generic_login_identifier_resolves_to_at_most_one_current_user
   - revoked_login_identifier_can_be_reissued_only_by_explicit_policy
   - auth_session_can_be_listed_and_revoked_without_exposing_raw_secret
+  - session_with_membership_of_different_user_is_rejected_by_composite_FK
+  - session_with_null_membership_is_valid_only_for_global_or_pre_tenant_context
+  - tenant_request_without_membership_context_is_denied
+  - same_user_can_switch_between_own_memberships_in_two_organizations
+  - organization_membership_user_id_is_immutable
+  - role_template_code_is_not_runtime_authorization_source
+  - future_permission_defaults_to_denied_for_existing_membership
+  - granted_permission_without_scope_is_denied
+  - unsupported_permission_scope_pair_is_rejected
+  - organization_scope_never_bypasses_cross_tenant_validation
+  - own_scope_without_canonical_owner_relation_is_denied
+  - assigned_student_or_location_scope_without_active_staff_link_is_empty
+  - owner_marker_alone_does_not_grant_permissions
+  - owner_requires_materialized_protected_permission_baseline
+  - normal_admin_self_promotion_self_grant_and_scope_broadening_are_rejected
+  - actor_cannot_grant_permission_or_scope_above_own_ceiling
+  - transaction_leaving_zero_active_owners_is_rejected
+  - concurrent_owner_demotions_cannot_both_commit_if_result_would_be_zero_owners
+  - owner_transfer_is_atomic
+  - elevated_permission_revoke_changes_authorization_version_and_stale_cache_cannot_authorize
+  - membership_hard_delete_is_not_used_for_suspend_or_revoke
+  - suspended_membership_cannot_authorize_even_with_retained_permission_rows
+  - revoked_membership_has_no_granted_permission_or_scope_rows_after_commit
+  - revoked_reactivation_requires_fresh_permission_or_template_provisioning
+  - revoked_reactivation_does_not_restore_owner_or_old_session_binding
+  - two_admins_same_expected_membership_version_cannot_both_overwrite_authorization_config
+  - stale_membership_version_conflict_has_no_partial_permission_or_scope_write
+  - logical_authorization_mutation_increments_membership_version_once
+  - authorization_affecting_mutation_increments_authorization_version_once
+  - suspend_or_revoke_clears_all_bound_session_tenant_contexts_same_transaction
+  - suspend_or_revoke_does_not_remove_other_organization_memberships_for_same_global_user
+  - audit_and_outbox_commit_atomically_with_membership_authorization_mutation
   - duplicate_pending_account_closure_request_same_organization_scope_is_rejected_or_idempotent
   - duplicate_pending_global_account_closure_request_for_same_user_is_rejected_or_idempotent
   - pending_account_closure_for_two_different_organizations_does_not_collide
