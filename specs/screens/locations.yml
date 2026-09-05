@@ -5,6 +5,13 @@ screen:
   title: Lokalizacje
   confidence: USER_CONFIRMED_AUTH_SCREEN
   verified_at: 2026-09-05
+  docs:
+    list: docs/19-locations-screen.md
+    create: docs/72-school-locations-create-form.md
+    edit: docs/73-school-locations-edit-form.md
+  screen_specs:
+    create: specs/screens/school-locations-create.yml
+    edit: specs/screens/school-locations-edit.yml
 
 list:
   primary_action:
@@ -20,46 +27,130 @@ list:
       route_pattern: /kalendarz?b=<location_uuid>
     - action: edit_location
       label: Edytuj
-  confirmed_types:
+
+location_types:
+  confirmed:
+    - key: branch
+      label: Filia
     - key: lecture_room
       label: Sala wykładowa
     - key: maneuvering_area
       label: Plac manewrowy
+  configurable_dictionary_required: true
 
 location_entity:
-  confirmed_visible_fields:
+  confirmed_fields:
+    - type
+    - name
+    - street_and_number
+    - postal_code
+    - city_id_or_city_reference
+  display_projection:
     - type
     - name
     - display_address
+  required_by_visible_marker:
+    - type
+    - name
+    - street_and_number
+    - postal_code
+    - city_id_or_city_reference
   identifier:
-    external_ui_pattern: uuid
+    own_product: uuid_or_ulid
+    external_ui_pattern_observed: uuid
     note: exact identifiers from audited account must not be persisted in documentation
+
+city_selector:
+  confirmed: true
+  searchable: true
+  result_projection:
+    - city_name
+    - voivodeship_name
+  implementation_decision:
+    source_dictionary: TO_DECIDE
+    store_stable_city_reference_when_available: true
+    allow_normalized_display_name: true
+
+create_flow:
+  confirmed: true
+  actions:
+    - open_create_drawer
+    - select_location_type
+    - enter_location_name
+    - enter_street_and_number
+    - enter_postal_code
+    - search_city
+    - select_city
+    - save_location
+    - cancel_create
+    - close_create_drawer
+
+edit_flow:
+  confirmed: true
+  fields_same_business_shape_as_create: true
+  actions:
+    - open_edit_drawer
+    - change_location_type
+    - edit_location_name
+    - edit_street_and_number
+    - edit_postal_code
+    - search_city
+    - select_city
+    - save_location_changes
+    - cancel_edit
+    - close_edit_drawer
+  archive_action:
+    visible: true
+    observed_label: Archiwizuj filie
+    demo_status: DEMO_BLOCKED
+    exact_competitor_confirmation_flow: UNOBSERVABLE_IN_DEMO_NONBLOCKING
 
 relationships:
   confirmed:
     - calendar_filter_context
-  to_verify:
-    - staff
-    - vehicles
+  supported_by_other_verified_screens:
+    - staff_many_to_many_locations
+    - vehicle_many_to_many_locations
+    - course_optional_location
+  to_verify_or_own_design:
     - business_cards
-    - students_or_courses
+
+calendar_filter:
+  query_param: b
+  identifier: location_uuid
+
+own_product_lifecycle:
+  delete_model: soft_archive_preferred
+  preserve_historical_references: true
+  restore_supported: true
+  audit_archive_and_restore: true
+  archived_location_not_selectable_for_new_assignments: true
+  historical_courses_events_keep_reference: true
+  future_event_policy: TO_DECIDE
 
 api_recommendation:
   - GET /api/v1/locations
   - POST /api/v1/locations
   - GET /api/v1/locations/{location}
   - PATCH /api/v1/locations/{location}
+  - POST /api/v1/locations/{location}/archive
+  - POST /api/v1/locations/{location}/restore
   - GET /api/v1/calendar/events?location_id={location}
 
-not_confirmed:
-  - delete_location
-  - archive_location
-  - deactivate_location
-  - filters
-  - sorting
-  - pagination
-  - all_location_types
-  - exact_address_form_fields
-  - required_fields
-  - validations
-  - behavior_when_location_has_calendar_events
+security_requirements:
+  - tenant_isolation
+  - authorize_location_by_organization
+  - validate_city_reference_server_side
+  - audit_create_update_archive_restore
+  - prevent_cross_tenant_calendar_filter_access
+
+remaining_gaps:
+  - exact_backend_validations
+  - exact_city_dictionary_source
+  - postal_code_validation_policy
+  - archive_confirmation_ui
+  - archive_effect_on_future_calendar_events
+  - archive_effect_on_active_courses
+  - archive_effect_on_staff_and_vehicle_assignments
+  - success_error_messages
+  - pagination_behavior_for_large_location_sets
