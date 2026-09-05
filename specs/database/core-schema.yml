@@ -70,6 +70,7 @@ core_tables:
   identity:
     - organizations
     - organization_settings
+    - organization_contact_addresses
     - users
     - auth_login_identifiers
     - auth_social_accounts
@@ -244,6 +245,24 @@ organization_model:
     one_to_one_with_organization: true
     typed_fields_should_be_added_when_business_semantics_stabilize: true
     noncritical_preferences_jsonb_allowed: true
+  organization_contact_addresses:
+    purpose: one_structured_company_contact_address_for_observed_settings_screen
+    one_to_one_with_organization: true
+    primary_key_and_foreign_key: organization_id
+    fields:
+      - organization_id
+      - street
+      - house_number
+      - unit_number_nullable
+      - postal_code
+      - city_name
+      - city_reference_nullable
+      - voivodeship_name_nullable
+      - country_code_default_PL
+      - created_at
+      - updated_at
+    relation_to_training_locations: separate_concept_do_not_reuse_locations_table
+    canonical_source: specs/database/organization-settings.yml
   legal_documents:
     immutable_versions: true
     fields:
@@ -347,6 +366,7 @@ commerce_entitlement_model:
     explicit_activation_is_exactly_once: true
 
 critical_relations:
+  - organization_has_one_contact_address
   - organization_has_many_students
   - user_has_many_auth_login_identifiers
   - user_has_many_auth_sessions
@@ -682,6 +702,8 @@ migration_order:
 
 migration_tests_required:
   - generated_synthetic_domain_ids_are_UUIDv7_and_stored_as_native_uuid
+  - organization_contact_address_has_exactly_one_row_per_organization_when_present
+  - company_contact_address_is_not_a_training_location_record
   - generic_login_identifier_resolves_to_at_most_one_current_user
   - revoked_login_identifier_can_be_reissued_only_by_explicit_policy
   - auth_session_can_be_listed_and_revoked_without_exposing_raw_secret
