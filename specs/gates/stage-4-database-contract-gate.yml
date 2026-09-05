@@ -28,6 +28,7 @@ sources:
   bounded_context_overrides:
     - specs/database/organization-settings.yml
     - docs/100-osk-settings-domain-model.md
+    - specs/database/identity-rbac.yml
   identity_tenant_rbac:
     - docs/04-roles-permissions.md
     - docs/08-security-compliance.md
@@ -54,7 +55,7 @@ stage_4_slices:
   - id: DB4_2_IDENTITY_TENANT_RBAC
     status: IN_PROGRESS_WITH_BLOCKERS
     diagnosis: COMPLETE
-    result: FAIL_WITH_5_P1_BLOCKERS
+    result: FAIL_WITH_4_P1_BLOCKERS
   - id: DB4_3_STAFF_LOCATIONS_VEHICLES
     status: NOT_STARTED
   - id: DB4_4_STUDENTS_COURSES_TRAINING_LEDGER
@@ -78,41 +79,43 @@ quality_checks:
   stage_3_contract_is_frozen_before_DB_design:
     status: PASS
 
-  physical_primary_key_type_is_final:
-    status: PASS
-    resolved_blocker_id: DB-FOUND-001
-
-  nullable_scope_unique_constraints_are_null_safe:
-    status: PASS
-    resolved_blocker_id: DB-FOUND-002
-
-  stage_2_settings_tables_are_present_in_core_inventory:
-    status: PASS
-    resolved_blocker_id: DB-FOUND-003
-
-  stage_2_settings_fields_and_constraints_are_merged_into_physical_blueprint:
-    status: PASS
-    resolved_blocker_id: DB-FOUND-004
-
   foundation_slice_gate:
     status: PASS
+    resolved_blockers:
+      - DB-FOUND-001
+      - DB-FOUND-002
+      - DB-FOUND-003
+      - DB-FOUND-004
     open_foundation_P0_P1: 0
-    may_start_next_stage4_slice: true
 
   identity_rbac_effective_permission_resolution:
-    status: FAIL
-    blocker_id: DB-IAM-001
-    evidence:
-      - organization_memberships contains role_template_code
-      - membership_permissions contains permission_code plus granted boolean
-      - specs/security/permissions.yml defines role templates as permission bundles
-      - docs/04-roles-permissions.md says role template is only a convenient starting permission package
-    unresolved:
-      - whether membership_permissions is a full snapshot or template override set
-      - whether template changes affect existing memberships
-      - precedence of explicit granted_false versus template permission
-      - whether role_template_code is runtime authorization input or provenance only
-    impact: effective_permissions_can_be_implemented_in_multiple_incompatible_ways
+    status: PASS
+    resolved_blocker_id: DB-IAM-001
+    decision:
+      role_template_runtime_dependency: false
+      role_template_semantics: assignment_time_preset_plus_provenance
+      runtime_source_of_truth: membership_permissions
+      missing_permission_row: deny
+      new_permission_for_existing_membership: deny_until_explicit_action
+      template_definition_change_affects_existing_membership_automatically: false
+      template_reapply_or_change: explicit_atomic_command
+    provenance:
+      - organization_memberships.role_template_code
+      - organization_memberships.role_template_catalog_version
+    machine_source:
+      - specs/security/permissions.yml
+      - specs/database/identity-rbac.yml
+    tests:
+      - materialize_every_known_permission_decision_on_template_application
+      - template_included_true_nonincluded_false
+      - missing_row_denied
+      - template_catalog_change_does_not_silently_change_existing_member
+      - future_permission_defaults_denied
+      - runtime_never_authorizes_from_role_template_code
+    aggregate_sync_note: >-
+      identity-rbac.yml is the authoritative bounded-context source during DB4_2.
+      Aggregate core-schema.yml and docs/87 are synchronized before final DB4_2 PASS;
+      this does not block the individual DB-IAM-001 decision gate.
 
   identity_rbac_data_scope_physical_contract:
     status: FAIL
@@ -149,7 +152,7 @@ quality_checks:
       - specs/security/permissions.yml requires last_owner_cannot_be_removed_without_transfer
       - permission changes are elevated and audited
     unresolved:
-      - canonical owner marker
+      - canonical_owner_marker
       - last_owner_counting_rule_with_custom_permissions
       - self_escalation_rule
       - grant_ceiling_rule_for_permission_administrators
@@ -187,11 +190,15 @@ resolved_blockers:
   - id: DB-FOUND-004
     severity: P1
     resolution: remaining_Stage_2_settings_ownership_fields_and_constraints_are_merged_into_core_physical_blueprint
-
-open_blockers:
   - id: DB-IAM-001
     severity: P1
-    description: Effective permission resolution and role-template semantics are not physically deterministic.
+    resolution: >-
+      Role templates are versioned assignment-time presets only. Exact current
+      permission decisions are materialized into membership_permissions; absent
+      and future permissions default deny, and backend runtime authorization never
+      consults role_template_code.
+
+open_blockers:
   - id: DB-IAM-002
     severity: P1
     description: Current single data_scope column does not define a complete canonical scope-resolution contract.
@@ -213,21 +220,20 @@ gate_definition:
     - migration_order_is_dependency_safe
     - database_invariant_test_matrix_exists
     - reverse_engineering_preservation_is_traceable_to_schema_or_use_case
-  current_result: FAIL_DB4_2_WITH_OPEN_P1_BLOCKERS
+  current_result: FAIL_DB4_2_WITH_4_OPEN_P1_BLOCKERS
   may_start_stage_5: false
   may_start_UI_or_feature_implementation: false
   may_start_DB4_3: false
 
 next_single_step:
-  id: DB4_2_STEP_2
-  blocker: DB-IAM-001
-  action: resolve_effective_permission_and_role_template_semantics_only
+  id: DB4_2_STEP_3
+  blocker: DB-IAM-002
+  action: resolve_data_scope_physical_and_query_resolution_contract_only
   allowed_scope:
-    - specs/database/core-schema.yml
-    - docs/87-physical-database-schema.md
+    - specs/database/identity-rbac.yml
     - docs/04-roles-permissions.md
     - specs/security/permissions.yml
     - docs/105-stage-4-identity-tenant-rbac-audit.md
     - specs/gates/stage-4-database-contract-gate.yml
-  scope_lock: do_not_fix_data_scope_session_membership_owner_or_lifecycle_blockers_in_the_same_step
-  after_action: rerun_DB4_2_gate_and_record_DB_IAM_001_PASS_or_new_blocker_before_DB_IAM_002
+  scope_lock: do_not_fix_session_membership_owner_or_membership_lifecycle_blockers_in_the_same_step
+  after_action: rerun_DB4_2_gate_and_record_DB_IAM_002_PASS_or_new_blocker_before_DB_IAM_003
