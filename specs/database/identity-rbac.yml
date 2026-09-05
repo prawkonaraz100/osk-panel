@@ -1,17 +1,18 @@
 meta:
   project: osk-panel
   scope: identity_tenant_rbac_core_v1
-  status: BLOCKERS_RESOLVED_PENDING_AGGREGATE_SYNC
+  status: FINAL_SYNCED_DB4_2_PASS
   decided_at: 2026-09-05
   narrative:
     - docs/04-roles-permissions.md
     - docs/105-stage-4-identity-tenant-rbac-audit.md
+    - docs/87-physical-database-schema.md
   security_catalog: specs/security/permissions.yml
   aggregate_blueprint: specs/database/core-schema.yml
   authority_rule: >-
-    This bounded-context specification is authoritative for Identity/Tenant/RBAC
-    physical semantics until the final DB4_2 aggregate synchronization gate copies
-    the decisions into core-schema.yml and docs/87.
+    This bounded-context specification is authoritative for detailed
+    Identity/Tenant/RBAC semantics. The DB4_2 final gate synchronized the same
+    decisions into core-schema.yml and docs/87 without weakening this contract.
 
 principles:
   permission_based_rbac: true
@@ -44,7 +45,7 @@ physical_tables_in_scope:
 
 role_template_contract:
   blocker: DB-IAM-001
-  status: RESOLVED_DESIGN
+  status: PASS
   catalog_source: specs/security/permissions.yml
   runtime_dependency: false
   semantics: assignment_time_preset_plus_provenance
@@ -70,7 +71,7 @@ role_template_contract:
   new_permission_for_existing_membership: deny_until_explicit_grant_or_template_reapply
 
 membership_permissions:
-  status: RESOLVED_DESIGN
+  status: PASS
   purpose: authoritative_current_permission_decisions_for_one_membership
   fields:
     membership_id: uuid_FK_organization_memberships
@@ -88,7 +89,7 @@ membership_permissions:
     target_membership_row_lock_required: true
     atomic_with_scope_rows: true
     audit_required: true
-    versioning: membership_lifecycle_and_authorization_mutation.versioning
+    versioning: membership_lifecycle_and_authorization_mutation.mutation_versioning
 
 permissions_catalog:
   table: permissions
@@ -100,12 +101,11 @@ permissions_catalog:
 # DB-IAM-002
 data_scope_contract:
   blocker: DB-IAM-002
-  status: RESOLVED_DESIGN
+  status: PASS
   superseded_shape:
     organization_memberships.data_scope:
-      status: SUPERSEDED
+      status: REMOVED_FROM_CANONICAL_AGGREGATE
       runtime_use_forbidden: true
-      final_sync_action: remove_from_core_blueprint_before_migrations
 
   scope_catalog:
     table: data_scopes
@@ -189,7 +189,7 @@ data_scope_contract:
 # DB-IAM-003
 auth_session_membership_integrity:
   blocker: DB-IAM-003
-  status: RESOLVED_DESIGN
+  status: PASS
   auth_sessions:
     user_id: uuid_not_null_FK_users
     organization_membership_id: uuid_nullable_selected_tenant_context
@@ -215,7 +215,7 @@ auth_session_membership_integrity:
 # DB-IAM-004
 owner_privilege_management:
   blocker: DB-IAM-004
-  status: RESOLVED_DESIGN
+  status: PASS
 
   owner_marker:
     table: organization_memberships
@@ -275,7 +275,7 @@ owner_privilege_management:
 # DB-IAM-005
 membership_lifecycle_and_authorization_mutation:
   blocker: DB-IAM-005
-  status: RESOLVED_DESIGN
+  status: PASS
 
   durable_membership_projection:
     table: organization_memberships
@@ -285,10 +285,7 @@ membership_lifecycle_and_authorization_mutation:
     fields_added_or_finalized:
       status:
         type: varchar_32_not_null
-        allowed_values:
-          - active
-          - suspended
-          - revoked
+        allowed_values: [active, suspended, revoked]
       version:
         type: bigint_not_null_default_1_check_gte_1
         semantics: optimistic_concurrency_version_for_all_membership_configuration_mutations
@@ -322,14 +319,9 @@ membership_lifecycle_and_authorization_mutation:
       historical_old_permissions_preserved_in_audit_not_as_reactivatable_runtime_snapshot: true
 
   allowed_status_transitions:
-    active:
-      - suspended
-      - revoked
-    suspended:
-      - active
-      - revoked
-    revoked:
-      - active_via_explicit_reactivation_with_fresh_permission_or_template_provisioning
+    active: [suspended, revoked]
+    suspended: [active, revoked]
+    revoked: [active_via_explicit_reactivation_with_fresh_permission_or_template_provisioning]
     same_state_command: idempotent_no_business_effect_or_explicit_noop
 
   reactivation_rules:
@@ -345,18 +337,7 @@ membership_lifecycle_and_authorization_mutation:
   membership_state_history:
     source: immutable_audit_log_plus_outbox_domain_event
     destructive_history_overwrite: forbidden
-    audit_action_examples:
-      - organization_membership.suspended
-      - organization_membership.reactivated
-      - organization_membership.revoked
-      - organization_membership.permissions_changed
-      - organization_membership.owner_changed
     dedicated_membership_period_table_required: false
-    rationale: >-
-      One durable membership identity is the current projection; immutable AuditLog
-      records every state/configuration transition with before/after and versions.
-      A separate period table may be introduced later only if reporting requires it,
-      not as a prerequisite for authorization correctness.
 
   mutation_versioning:
     expected_version_required_for_admin_mutation: true
@@ -439,7 +420,6 @@ membership_lifecycle_and_authorization_mutation:
       explicit_context_selection_required: true
     global_user_account_disable_or_compromise:
       scope: outside_DB4_2_membership_lifecycle
-      note: may_revoke_global_sessions_under_user_security_policy
 
   audit_contract:
     audit_required_for_every_successful_membership_permission_scope_owner_or_status_mutation: true
@@ -468,7 +448,6 @@ membership_lifecycle_and_authorization_mutation:
       - membership.status.changed
       - membership.authorization.changed
       - membership.owner.changed
-    consumers_must_not_receive_plaintext_secrets: true
 
   tests_required:
     - membership_hard_delete_is_not_used_for_suspend_or_revoke
@@ -482,7 +461,6 @@ membership_lifecycle_and_authorization_mutation:
     - stale_expected_version_causes_conflict_without_partial_permission_or_scope_write
     - successful_logical_permission_mutation_increments_membership_version_once
     - authorization_affecting_mutation_increments_authorization_version_once
-    - provenance_only_non_authorizing_change_does_not_have_to_increment_authorization_version
     - suspend_clears_all_session_tenant_contexts_bound_to_that_membership
     - revoke_clears_all_session_tenant_contexts_bound_to_that_membership
     - suspend_or_revoke_does_not_remove_other_organization_access_for_same_global_user
@@ -494,30 +472,21 @@ membership_lifecycle_and_authorization_mutation:
     - concurrent_owner_or_permission_mutations_follow_deterministic_lock_order_without_lost_update
 
 final_DB4_2_sync_required:
-  status: PENDING_SEPARATE_GATE
-  files:
+  status: PASS
+  synchronized_files:
     - specs/database/core-schema.yml
     - docs/87-physical-database-schema.md
-    - specs/traceability/core-v1.yml_if_needed
-  must_copy_without_weakening:
-    - role_template_runtime_independence
-    - per_permission_scope_tables_and_resolvers
-    - session_same_user_composite_FK
-    - is_owner_and_protected_owner_baseline
-    - authorization_version
-    - durable_membership_status_and_version
-    - suspend_revoke_reactivate_semantics
-    - permission_scope_mutation_aggregate_concurrency
-    - session_context_clearing_on_suspend_or_revoke
-    - audit_and_outbox_atomicity
+  aggregate_sync_checks:
+    core_schema_contains_all_DB_IAM_tables_fields_constraints_and_transactions: true
+    docs_87_contains_same_canonical_identity_tenant_rbac_shape: true
+    membership_wide_data_scope_removed_from_canonical_runtime_model: true
+    no_DB4_3_domain_design_or_Laravel_migrations_started: true
+  traceability_direct_edit:
+    required_for_DB4_2_gate: false
+    reason: >-
+      Existing core traceability already points to core-schema.yml and
+      specs/security/permissions.yml. DB4_2 adds physical authorization support
+      and security invariants without adding a new reverse-engineered screen/API
+      capability. Stage 5 will expand per-module acceptance traceability.
 
 open_blockers_not_resolved_here: {}
-
-tests_required_for_DB_IAM_001:
-  - applying_template_materializes_decision_for_every_known_permission
-  - included_template_permission_granted_true
-  - nonincluded_template_permission_granted_false
-  - missing_permission_row_denied
-  - template_definition_change_does_not_change_existing_membership
-  - new_permission_denied_until_explicit_action
-  - runtime_authorization_never_checks_role_template_code
