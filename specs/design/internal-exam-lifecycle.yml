@@ -1,0 +1,145 @@
+meta:
+  scope: own_product_design
+  project: osk-panel
+  decided_at: 2026-09-05
+  source: product_architecture_decision
+  competitor_behavior_required: false
+  doc: docs/34-own-internal-exam-lifecycle-policy.md
+
+inventory_policy:
+  source_of_truth: ledger
+  default_consumption_policy: consume_on_start
+  supported_policies:
+    - consume_on_start
+    - consume_on_access_creation
+    - consume_on_completion
+  states:
+    - available
+    - reserved
+    - consumed
+    - released
+  default_flow:
+    - available_to_reserved_on_access_creation
+    - reserved_to_consumed_on_exam_start
+    - reserved_to_released_on_expire_cancel_or_revoke_before_start
+
+launch_modes:
+  - remote_link
+  - local_current_workstation
+  - assigned_exam_station
+
+remote_link:
+  reserve_inventory_on_create: true
+  consume_inventory_on_start: true
+  release_inventory_if_unused_and_expired: true
+  resend_same_access_without_new_reservation: true
+  revoke_before_start: true
+  secure_opaque_token: true
+  expiry_required: true
+  prevent_parallel_double_start: true
+
+local_current_workstation:
+  consume_atomically_on_start: true
+  one_active_attempt_per_station: true
+
+assigned_exam_station:
+  own_product_extension: true
+  purpose: reception_can_start_exam_on_registered_exam_station
+  one_active_attempt_per_station: true
+  multi_station_per_osk: true
+  station_states:
+    - online
+    - offline
+    - available
+    - occupied
+    - disabled
+
+access_states:
+  - draft
+  - ready
+  - delivered_or_assigned
+  - opened
+  - started
+  - completed
+  - cancelled
+  - expired
+  - revoked
+  - technical_abort
+  - invalidated
+
+attempt_states:
+  - created
+  - in_progress
+  - passed
+  - failed
+  - technical_abort
+  - invalidated
+
+candidate_validation:
+  contextual_by_launch_mode: true
+  remote_link:
+    required:
+      - student
+      - category
+      - language
+      - valid_email
+      - formal_exam_identity_fields_as_applicable
+  local_modes:
+    required:
+      - student
+      - category
+      - language
+      - formal_exam_identity_fields_as_applicable
+    email_always_required: false
+  pkk_always_required: false
+  pkk_rule: validate_by_course_category_and_legal_context
+
+failure_recovery:
+  before_start:
+    inventory_consumed: false
+    reservation_can_be_released_or_reassigned: true
+  after_start:
+    inventory_consumed: true
+    technical_abort_supported: true
+    restore_inventory_only_by_audited_adjustment: true
+
+concurrency:
+  global_one_student_per_osk_limit: false
+  one_active_attempt_per_exam_station: true
+  prevent_same_access_parallel_start: true
+  server_side_enforcement: true
+
+ledger_events:
+  - exam_credit_granted
+  - exam_credit_purchased
+  - exam_credit_reserved
+  - exam_credit_released
+  - exam_credit_consumed
+  - exam_credit_adjusted
+
+entities:
+  - exam_inventory_entries
+  - exam_reservations
+  - internal_exam_accesses
+  - internal_exam_attempts
+  - exam_stations
+
+mvp:
+  required:
+    - consume_on_start
+    - remote_link
+    - local_current_workstation
+    - reservation_release_on_unused_expiry
+    - revoke_remote_link_before_start
+    - multi_attempt_history
+    - audit_inventory_and_attempt_lifecycle
+  prepare_domain_for:
+    - assigned_exam_station
+
+competitor_unverified_but_non_blocking:
+  - exact_inventory_consumption_point
+  - exact_link_ttl
+  - exact_resend_behavior
+  - exact_revoke_behavior
+  - exact_concurrency_scope
+  - exact_failure_recovery
