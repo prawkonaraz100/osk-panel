@@ -1,0 +1,155 @@
+screen:
+  id: calendar
+  scope: admin_osk
+  route: /kalendarz
+  title: Kalendarz
+  confidence: USER_CONFIRMED_AUTH_SCREEN
+  verified_at: 2026-09-05
+  doc: docs/48-calendar-main-screen.md
+
+event_type_filters:
+  control: checkbox
+  confirmed_options:
+    - general_event
+    - driving_lesson
+    - important_date
+  observed_labels:
+    general_event: Wydarzenie
+    driving_lesson: Jazda
+    important_date: Ważne daty
+  important_date_exact_semantics: TO_VERIFY
+
+primary_action:
+  label: Dodaj wydarzenie
+  action: add_calendar_event
+
+resource_filters:
+  staff:
+    multi_select_by_checkbox: true
+    select_all: true
+    projection_fields:
+      - full_name
+      - category_labels_optional
+      - warning_indicator_optional
+    observed_resources:
+      - label: Jan Kowalski
+        category_labels: [A, B]
+      - label: Jan Nowak
+      - label: Anna Nowak
+    add_action: add_staff_from_calendar
+    warning_indicator_semantics: TO_VERIFY
+  vehicles:
+    multi_select_by_checkbox: true
+    select_all: true
+    projection_fields:
+      - make_model
+      - category_labels_optional
+      - warning_indicator_optional
+    observed_resources:
+      - label: Hyundai i20
+        category_labels: [B]
+      - label: Yamaha MT-07
+    add_action: add_vehicle_from_calendar
+    warning_indicator_semantics: TO_VERIFY
+  locations:
+    multi_select_by_checkbox: true
+    select_all: true
+    grouped_by_location_type: true
+    projection_fields:
+      - location_type
+      - name
+      - address
+    observed_groups:
+      - lecture_room
+      - maneuvering_area
+    observed_resources:
+      - name: Sala wykładowa
+        address: Bielerzewskiej 4B
+      - name: Plan nauki jazdy
+        address: Bielerzewskiej 4B
+    add_action: add_location_from_calendar
+
+calendar_navigation:
+  confirmed:
+    - previous_period
+    - next_period
+    - today
+    - month_view
+    - week_view
+    - day_view
+  observed_view: month
+  observed_period_label: wrzesień 2026
+
+confirmed_actions:
+  - open_calendar
+  - toggle_general_event_filter
+  - toggle_driving_lesson_filter
+  - toggle_important_date_filter
+  - add_calendar_event
+  - toggle_staff_resource
+  - select_all_staff_resources
+  - add_staff_from_calendar
+  - toggle_vehicle_resource
+  - select_all_vehicle_resources
+  - add_vehicle_from_calendar
+  - toggle_location_resource
+  - select_all_location_resources
+  - add_location_from_calendar
+  - calendar_previous_period
+  - calendar_next_period
+  - calendar_today
+  - calendar_view_month
+  - calendar_view_week
+  - calendar_view_day
+
+confirmed_cross_module_relationships:
+  - staff_has_calendar_context
+  - vehicle_has_calendar_context
+  - location_has_calendar_context
+  - main_calendar_aggregates_staff_vehicles_locations
+
+own_product_model:
+  single_calendar_engine: true
+  suggested_event_types:
+    - general_event
+    - driving_lesson
+    - important_date
+  suggested_relationships:
+    - calendar_event_staff
+    - calendar_event_vehicles
+    - calendar_event_locations
+    - calendar_event_students
+  resource_conflict_detection_required: true
+  timezone_per_organization_required: true
+  audit_event_changes: true
+
+security_requirements:
+  - tenant_isolation
+  - authorize_calendar_by_organization
+  - validate_staff_resources_by_organization
+  - validate_vehicle_resources_by_organization
+  - validate_location_resources_by_organization
+  - validate_student_resources_by_organization_when_used
+  - prevent_cross_tenant_resource_assignment
+  - audit_event_create_update_cancel
+
+remaining_gaps:
+  - add_event_form
+  - driving_lesson_conditional_fields
+  - important_date_exact_semantics
+  - student_selection
+  - resource_assignment_cardinality
+  - starts_at_and_ends_at_behavior
+  - recurrence
+  - event_statuses
+  - cancel_move_behavior
+  - conflict_resolution
+  - notifications
+  - drag_and_drop
+  - event_detail_edit
+  - self_booking
+  - employee_work_time_tracking_ui
+  - warning_indicator_semantics
+  - colors_and_legend
+  - permissions
+  - resource_selection_persistence
