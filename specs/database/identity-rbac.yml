@@ -25,6 +25,8 @@ principles:
   tenant_validation_always_precedes_scope_resolution: true
   missing_or_unresolvable_scope_fails_closed: true
   tenant_session_membership_must_belong_to_same_user_as_session: true
+  owner_marker_is_governance_state_not_runtime_permission_shortcut: true
+  self_privilege_escalation_via_normal_admin_flow_forbidden: true
 
 physical_tables_in_scope:
   - users
@@ -251,7 +253,7 @@ data_scope_contract:
     post_fetch_frontend_filtering_as_security_boundary: forbidden
     count_export_pdf_and_search_endpoints_must_apply_same_scope: true
     cross_tenant_union_before_filtering: forbidden
-    cache_key_must_include_membership_permission_scope_version_or_equivalent_invalidation: PENDING_DB_IAM_005
+    cache_key_must_include_membership_permission_scope_version_or_equivalent_invalidation: authorization_version
 
   downstream_slice_obligations:
     DB4_3:
@@ -362,10 +364,159 @@ auth_session_membership_integrity:
     - organization_membership_user_id_cannot_be_reassigned_to_another_user
     - migration_detects_preexisting_cross_user_session_membership_rows_before_constraint_creation
 
+# DB-IAM-004 canonical owner / privilege-management contract.
+owner_privilege_management:
+  blocker: DB-IAM-004
+  status: RESOLVED_DESIGN
+
+  owner_marker:
+    table: organization_memberships
+    field:
+      name: is_owner
+      type: boolean_not_null_default_false
+    runtime_permission_shortcut: false
+    semantics: >-
+      is_owner is a governance/responsibility marker used for owner-transfer,
+      last-owner and elevated-administration invariants. Backend capability checks
+      still resolve through membership_permissions and membership_permission_scopes.
+
+  authorization_epoch:
+    field_on_organization_memberships:
+      name: authorization_version
+      type: bigint_not_null_default_1_check_gte_1
+    increments_on:
+      - permission_grant_or_revoke
+      - permission_scope_change
+      - owner_promotion_or_demotion
+      - any_membership_state_change_that_changes_authorization_eligibility
+    purpose:
+      - invalidate_or_version_authorization_cache
+      - make_elevated_revocation_effective_on_next_request
+    session_permission_snapshot_storage: forbidden
+    request_rule: current_authorization_version_must_be_observed_before_authorizing_tenant_request
+    exact_mutation_concurrency_protocol: PENDING_DB_IAM_005
+
+  owner_protected_permission_baseline:
+    required_while_is_owner_true:
+      organization.view: [organization]
+      organization.members.manage: [organization]
+      staff.permissions.manage: [organization]
+      sessions.manage.organization: [organization]
+    runtime_source_remains_membership_permissions: true
+    invariant: >-
+      Owner status itself does not grant permissions. Instead, the owner mutation
+      transaction must materialize and preserve these explicit permission/scope
+      rows while is_owner=true. Removing a protected permission requires demoting
+      the membership from owner in the same serialized transaction.
+
+  active_owner_predicate:
+    conditions:
+      - is_owner_true
+      - membership_is_currently_authorization_eligible
+      - owner_protected_permission_baseline_is_materialized
+    exact_membership_status_codes: PENDING_DB_IAM_005
+    rule: >-
+      DB-IAM-005 may name the lifecycle states, but it may not weaken the rule that
+      a governance-counted owner must actually be eligible to authorize requests
+      and retain the protected management baseline.
+
+  owner_mutation_transaction:
+    serialization_lock: organization_row_FOR_UPDATE_or_equivalent_single_tenant_governance_lock
+    ordinary_actor_requirements:
+      - actor_membership_same_organization
+      - actor_is_active_owner
+      - actor_has_organization_members_manage_with_organization_scope
+      - actor_has_staff_permissions_manage_with_organization_scope
+      - recent_reauthentication_required
+      - MFA_required_when_account_policy_or_tenant_policy_requires_it
+    initial_organization_bootstrap_exception:
+      allowed: true
+      only_when: organization_and_first_owner_membership_are_created_atomically_by_trusted_onboarding_flow
+      normal_admin_endpoint_may_use_exception: false
+    promote_owner:
+      self_promotion_in_normal_flow: forbidden
+      transaction:
+        - lock_organization_governance_boundary
+        - validate_actor_requirements
+        - validate_target_membership_same_organization_and_authorization_eligible
+        - materialize_owner_protected_permission_baseline
+        - set_target_is_owner_true
+        - increment_target_authorization_version
+        - write_redacted_audit_before_after_with_actor_and_request_id
+    demote_suspend_or_remove_owner_effect:
+      transaction:
+        - lock_organization_governance_boundary
+        - compute_post_transaction_active_owner_count
+        - require_post_transaction_active_owner_count_gte_1
+        - apply_requested_owner_or_membership_change
+        - increment_affected_authorization_version
+        - write_redacted_audit_before_after_with_actor_and_reason_when_required
+    atomic_transfer:
+      supported: true
+      semantics: promote_successor_and_demote_predecessor_in_one_serialized_transaction
+      intermediate_zero_owner_state_visible_after_commit: false
+
+  self_escalation_policy:
+    ordinary_admin_flow:
+      actor_may_grant_new_permission_to_self: false
+      actor_may_broaden_own_scope: false
+      actor_may_set_self_is_owner_true: false
+      actor_may_reapply_template_to_self_if_it_expands_privileges: false
+    self_restriction:
+      allowed: true
+      constraints:
+        - cannot_break_owner_protected_baseline_while_is_owner_true
+        - cannot_reduce_post_transaction_active_owner_count_below_one
+    break_glass:
+      normal_product_UI_or_API: forbidden
+      operational_recovery_if_ever_added: separate_high_assurance_procedure_with_security_audit_not_this_admin_flow
+
+  grant_ceiling:
+    applies_to_permission_and_scope_grants: true
+    base_rule: actor_cannot_grant_a_capability_the_actor_does_not_currently_possess_in_same_organization
+    scope_rule:
+      organization_scope: actor_with_organization_scope_for_same_permission_may_delegate_any_narrower_allowed_scope_for_that_permission
+      non_organization_scope: actor_may_delegate_only_scope_codes_the_actor_currently_holds_for_same_permission
+      unknown_or_incomparable_scope_relation: deny
+    elevated_permission_rule:
+      elevated_catalog_source: specs/security/permissions.yml
+      grant_or_scope_broadening_requires_active_owner_actor: true
+    owner_marker_change_requires_active_owner_actor: true
+    target_tenant_must_equal_actor_tenant: true
+
+  active_session_effect:
+    permission_and_scope_checked_from_authoritative_current_rows_each_request: true
+    authorization_cache_if_used:
+      key_or_validation_must_include_current_authorization_version: true
+      stale_version: reload_or_deny_before_business_action
+    elevated_permission_revoke:
+      effective_no_later_than_next_authorized_request: true
+      stale_elevation_or_reauth_proof_invalidated: true
+      session_authentication_may_remain_valid: true
+      note: >-
+        Revoking an elevated permission does not have to log the user out merely
+        to make the revoke effective. The session may remain authenticated, but
+        authorization is recalculated against the incremented authorization_version.
+        Full suspend/revoke session lifecycle is finalized in DB-IAM-005.
+
+  tests_required:
+    - role_template_owner_label_alone_never_authorizes_request
+    - is_owner_true_without_materialized_protected_baseline_is_rejected_by_consistency_check
+    - normal_admin_cannot_promote_self_to_owner
+    - normal_admin_cannot_grant_self_new_permission
+    - normal_admin_cannot_broaden_own_scope
+    - non_owner_permission_admin_cannot_grant_elevated_permission
+    - actor_cannot_grant_permission_the_actor_does_not_have
+    - actor_cannot_delegate_scope_broader_than_own_scope_for_same_permission
+    - owner_promotion_materializes_protected_permissions_and_organization_scopes_atomically
+    - transaction_that_would_leave_zero_active_owners_is_rejected
+    - concurrent_owner_demotions_cannot_both_commit_and_leave_zero_active_owners
+    - owner_transfer_promote_and_demote_is_atomic
+    - protected_owner_permission_cannot_be_revoked_without_owner_demotion_same_transaction
+    - elevated_permission_revoke_increments_authorization_version
+    - stale_authorization_cache_or_proof_cannot_authorize_after_version_increment
+
 open_blockers_not_resolved_here:
-  DB-IAM-004:
-    status: OPEN
-    topic: owner_and_privilege_escalation_invariants
   DB-IAM-005:
     status: OPEN
     topic: membership_and_permission_mutation_lifecycle_concurrency
