@@ -68,7 +68,34 @@ quality_checks:
       - aggregate version protects concurrent settings/configuration-gate writes
 
   every_required_http_operation_has_openapi_operationId:
-    status: PENDING_FULL_SCAN
+    status: PASS
+    stage_step: STAGE3_STEP_2
+    audit_method: >-
+      Every HTTP requirement row in specs/api/required-operations-v1.yml was
+      compared against the canonical OpenAPI path/method operation. Requirements
+      that intentionally share an HTTP operation are explicitly mapped with
+      covered_by_operationId instead of inventing duplicate endpoints.
+    counts:
+      http_requirement_rows: 169
+      unique_openapi_path_method_operations_required: 158
+      shared_capability_rows_reusing_existing_operationId: 11
+      unmapped_http_requirements: 0
+    shared_operation_mappings:
+      students.list_filters: studentsList
+      students.list_sort: studentsList
+      calendar.events.important_dates_projection: calendarEventsList
+      license_management.search: licenseAssignmentsList
+      license_management.sort: licenseAssignmentsList
+      license_management.hide_finished: licenseAssignmentsList
+      license_credentials.single_pdf: learningAccountsDownloadHandoffPdf
+      exam_management.search: internalExamSubjectsList
+      exam_management.filter: internalExamSubjectsList
+      exam_management.sort: internalExamSubjectsList
+      purchase_history.pay_unpaid: orderPaymentsCreate
+    reverse_engineering_preservation_note: >-
+      Shared mappings do not remove observed capabilities. They only state that
+      one canonical HTTP operation exposes multiple confirmed filters, sorting,
+      projection or entry capabilities from the reverse-engineered UI.
 
   every_openapi_path_ref_resolves:
     status: PENDING_FULL_SCAN
@@ -116,7 +143,7 @@ gate_definition:
   may_start_stage_4: false
 
 next_single_step:
-  id: STAGE3_STEP_2
-  action: scan_every_required_HTTP_operation_against_OpenAPI_method_path_and_operationId
-  scope_lock: do_not_start_ref_security_idempotency_or_stage_4_work_until_this_step_is_audited
-  after_action: rerun_this_gate_and_record_PASS_or_new_blocker_for_operation_coverage
+  id: STAGE3_STEP_3
+  action: scan_every_openapi_path_ref_for_resolution_only
+  scope_lock: do_not_scan_operationId_uniqueness_security_idempotency_request_schema_or_stage_4_until_ref_resolution_step_is_audited
+  after_action: rerun_this_gate_and_record_PASS_or_new_blocker_for_ref_resolution
