@@ -9,7 +9,11 @@ Data weryfikacji: 2026-09-05
 
 Powiązane:
 - zakup egzaminów: `docs/59-internal-exam-purchase-screen.md`,
-- rozwinięta historia prób: `docs/61-internal-exam-expanded-attempt-history.md`.
+- rozwinięta historia prób: `docs/61-internal-exam-expanded-attempt-history.md`,
+- arkusz odpowiedzi PDF: `docs/62-internal-exam-answer-sheet-pdf.md`,
+- szczegóły/wynik próby: `docs/63-internal-exam-result-details-screen.md`,
+- review pojedynczego pytania: `docs/64-internal-exam-question-review.md`,
+- generowanie dostępu/uruchomienie: `docs/65-internal-exam-generation-access-flow.md`.
 
 ---
 
@@ -18,7 +22,7 @@ Powiązane:
 `Zarządzaj egzaminami` jest centralnym panelem operacyjnym OSK do:
 - podglądu puli egzaminów,
 - rozróżnienia puli darmowej i opłaconej,
-- generowania egzaminów,
+- generowania egzaminów dla pojedynczego kursanta,
 - przeglądania historii prób kursantów,
 - filtrowania, sortowania i wyszukiwania,
 - przechodzenia do szczegółów konkretnej próby,
@@ -46,19 +50,59 @@ Wniosek dla naszego modelu: inventory musi zachowywać źródło jednostki (`fre
 ## 3. Sekcja `Przydzielone egzaminy wewnętrzne`
 
 Potwierdzone kontrolki:
-- `Generuj egzamin`,
-- `Zaznacz widoczne`,
-- `Generuj egzaminy` — widoczny przycisk nad tabelą, exact selected-row behavior nadal do sprawdzenia,
+- zielony `Generuj egzamin`,
+- wybór wiersza kursanta checkboxem,
+- stan `ZAZNACZONE (1)`,
+- `Generuj egzaminy (1)` dla wybranego kursanta,
 - `Ukryj egzaminy zakończone`,
 - wyszukiwarka,
 - `Filtruj`,
 - `Sortuj`.
 
-Nie zakładamy batch generation bez obejrzenia właściwego flow.
+### `Generuj egzaminy (1)` — zachowanie potwierdzone
+
+Po zaznaczeniu jednego kursanta i kliknięciu `Generuj egzaminy (1)` otwiera się drawer:
+- `Generuj dostęp do egzaminu wewnętrznego`.
+
+Użytkownik potwierdził, że generowanie jest **jednoosobowe** — wybiera się jednego kursanta na raz. Nie traktujemy tej funkcji jako batch generation wielu kursantów.
+
+Pełny flow: `docs/65-internal-exam-generation-access-flow.md`.
+
+Zielony przycisk `Generuj egzamin` bez wcześniejszego wyboru kursanta jest widoczny, ale exact pierwszy stan tego wariantu nadal wymaga osobnego capture.
 
 ---
 
-## 4. Granularność wiersza głównego
+## 4. Drawer generowania dostępu
+
+Zaobserwowany stan dla Ali Nowak pokazuje:
+- `Dostępne egzaminy: 160`,
+- kategorię `B` z możliwością zmiany,
+- język `Polski` z możliwością zmiany,
+- imię,
+- nazwisko,
+- PKK,
+- PESEL,
+- email,
+- akcje `Usuń` i `Edytuj dane`.
+
+Widoczny jest komunikat `Uzupełnij dane kursanta`; exact trigger pozostaje do sprawdzenia.
+
+Potwierdzone są dwa tryby uruchomienia:
+
+### `Udostępnij link do egzaminu`
+- generuje link egzaminacyjny,
+- kursant może wykonać egzamin zdalnie z dostępem do Internetu,
+- link zostaje wysłany na email kursanta.
+
+### `Rozpocznij egzamin teraz`
+- uruchamia egzamin na bieżącym stanowisku komputerowym,
+- UI informuje: `Dostępne tylko dla 1 kursanta jednocześnie.`
+
+Dla własnego produktu są to dwa tryby `internal_exam_launch`, nie dwa różne typy egzaminu.
+
+---
+
+## 5. Granularność wiersza głównego
 
 Jeden wiersz reprezentuje kursanta / kontekst egzaminacyjny wraz z agregatem jego prób, a nie pojedynczy egzamin.
 
@@ -81,16 +125,14 @@ Dla Ali rozwinięcie rzeczywiście pokazuje 7 konkretnych rekordów, więc `Licz
 
 ---
 
-## 5. Status najnowszego egzaminu
+## 6. Status najnowszego egzaminu
 
 W wierszu Ali status najnowszego egzaminu jest pokazany jako czerwony `x`.
 
 Po `Rozwiń` wszystkie 7 widocznych prób Ali mają tekstowy status:
 - `Niezaliczony`.
 
-Najświeższe rekordy mają tę samą wyświetlaną datę `26-01-2026 15:43`, którą pokazuje parent row.
-
-Dla obserwowanego wiersza potwierdzamy więc mapping:
+Dla obserwowanego wiersza potwierdzamy mapping:
 
 `Niezaliczony -> czerwony x`
 
@@ -98,7 +140,7 @@ Wygląd statusów `Zaliczony`, oczekujący, rozpoczęty itd. pozostaje do dalsze
 
 ---
 
-## 6. `Rozwiń` — historia konkretnych prób
+## 7. `Rozwiń` — historia konkretnych prób
 
 Rozwinięcie ma tytuł `Egzaminy` i kolumny:
 - `Imię i nazwisko`,
@@ -109,90 +151,84 @@ Rozwinięcie ma tytuł `Egzaminy` i kolumny:
 - `Język`,
 - akcje.
 
-Dla Ali widocznych jest 7 prób. Wszystkie mają:
-- `Ala Nowak`,
-- kat. `B`,
-- `Niezaliczony`,
-- `Nr ewidencyjny/PKK = 445645645646465`,
-- `PL`.
+Dla Ali widocznych jest 7 prób. Wszystkie mają status `Niezaliczony`.
 
-Daty/godziny:
-- 26-01-2026 15:43,
-- 26-01-2026 15:43,
-- 26-01-2026 14:07,
-- 26-01-2026 14:02,
-- 26-01-2026 13:15,
-- 26-01-2026 13:15,
-- 21-01-2026 12:44.
-
-Dwa rekordy mogą mieć tę samą minutę, więc timestamp wyświetlany w UI nie może być identyfikatorem próby.
+Dwa rekordy mogą mieć tę samą wyświetlaną minutę, więc timestamp nie może być identyfikatorem próby.
 
 Pełna specyfikacja: `docs/61-internal-exam-expanded-attempt-history.md` oraz `specs/screens/internal-exam-expanded-attempts.yml`.
 
 ---
 
-## 7. Akcje
+## 8. `Szczegóły` i wynik próby
 
-Wiersz główny:
-- `Rozwiń` / `Zwiń`,
-- `Szczegóły`,
-- `Pobierz wydruk`.
+`Szczegóły` prowadzi do tokenizowanego frontu:
 
-Każdy rekord po rozwinięciu również ma osobne:
-- `Szczegóły`,
-- `Pobierz wydruk`.
+`/egzamin-wewnetrzny?pid=<opaque_token>`
 
-`Szczegóły` prowadzi do `/egzamin-wewnetrzny?pid=<token>` na froncie egzaminowym.
+Dla zakończonej próby pokazuje:
+- wynik punktowy,
+- rezultat,
+- nawigację po 32 pytaniach,
+- statystyki,
+- review pytanie-po-pytaniu.
 
-`Pobierz wydruk` używa `/exam/download?id=<exam_id>`.
+Review pytania pokazuje m.in. media, treść, wartość punktową, kategorię, odpowiedź poprawną i odpowiedź wybraną przez kursanta.
 
-To potwierdza, że szczegóły i dokument są per konkretna próba.
-
----
-
-## 8. Historyczny snapshot danych egzaminu
-
-Ponieważ przy każdej próbie UI osobno pokazuje:
-- imię i nazwisko,
-- kategorię,
-- nr ewidencyjny/PKK,
-- język,
-
-dla naszego produktu egzamin powinien zachowywać historyczny snapshot tych danych. Późniejsza zmiana profilu kursanta nie może przepisać historii wykonanego egzaminu.
+Szczegóły: `docs/63-internal-exam-result-details-screen.md` i `docs/64-internal-exam-question-review.md`.
 
 ---
 
-## 9. Model naszego produktu
+## 9. `Pobierz wydruk`
+
+`Pobierz wydruk` generuje per-attempt PDF `Arkusz odpowiedzi` z:
+- danymi kandydata,
+- datą i kategorią,
+- 32 pozycjami egzaminu,
+- identyfikatorami pytań,
+- punktacją,
+- odpowiedziami,
+- punktami uzyskanymi,
+- sumą i wynikiem,
+- miejscami na podpisy.
+
+Pełny opis: `docs/62-internal-exam-answer-sheet-pdf.md`.
+
+---
+
+## 10. Model naszego produktu
 
 Encje:
 - `internal_exam_inventory_ledger`,
 - `internal_exam_accesses`,
 - `internal_exam_attempts`,
+- `internal_exam_attempt_questions`,
+- `internal_exam_launches`,
 - `internal_exam_launch_tokens`,
 - `internal_exam_results`,
 - `internal_exam_documents`.
 
-Wiersz główny to projekcja:
-- `latest_attempt_id`,
-- `latest_attempt_category`,
-- `latest_attempt_status`,
-- `latest_attempt_at`,
-- `latest_attempt_language`,
-- `attempt_count`.
+Wiersz główny to projekcja najnowszej próby i liczby prób.
 
-Źródłem prawdy jest `internal_exam_attempt` z własnym stabilnym ID.
+`internal_exam_attempt` jest źródłem prawdy dla konkretnego egzaminu, a `internal_exam_launch` opisuje sposób uruchomienia:
+- `remote_link`,
+- `local_station`.
+
+Każdy zakończony attempt zachowuje immutable snapshot danych kandydata, pytań, kolejności, punktacji, odpowiedzi i wyniku.
 
 ---
 
-## 10. Potwierdzone akcje
+## 11. Potwierdzone akcje
 
 - `open_internal_exam_management_panel`
 - `view_free_exam_inventory`
 - `view_paid_exam_inventory`
 - `view_total_exam_inventory`
 - `open_exam_purchase`
-- `open_generate_exam_flow`
-- `select_visible_exam_rows`
+- `select_one_student_for_exam_generation`
+- `open_generate_exam_for_selected_student`
+- `view_candidate_exam_generation_data`
+- `share_exam_link_by_email`
+- `start_exam_on_current_station`
 - `toggle_hide_finished_exams`
 - `search_exam_rows`
 - `open_exam_filters`
@@ -202,23 +238,24 @@ Wiersz główny to projekcja:
 - `view_exam_attempt_history`
 - `view_not_passed_exam_status`
 - `open_specific_exam_attempt_details`
+- `review_specific_exam_questions`
 - `download_specific_exam_attempt_printout`
 
 ---
 
-## 11. Pozostałe niewiadome
+## 12. Pozostałe niewiadome
 
 Do dalszego capture:
-- formularz `Generuj egzamin`,
-- zachowanie `Generuj egzaminy` dla zaznaczonych wierszy,
+- pierwszy stan zielonego `Generuj egzamin` bez zaznaczenia kursanta,
+- `Edytuj dane` w drawerze generowania egzaminu,
 - `Filtruj`,
 - `Sortuj`,
 - exact search fields,
-- `Szczegóły` konkretnej próby,
-- format `Pobierz wydruk`,
 - status `Zaliczony` i statusy przed wykonaniem,
-- dokładne znaczenie kolumny `Data` (wygenerowanie/start/zakończenie),
-- scoring i czas trwania,
+- dokładne znaczenie kolumny `Data`,
+- czas trwania egzaminu,
 - kolejność konsumpcji darmowej/opłaconej puli,
 - reset darmowej puli,
-- moment konsumpcji jednostki egzaminu.
+- moment konsumpcji jednostki egzaminu,
+- TTL/revocation zdalnego linku,
+- stany sukcesu/błędu po wygenerowaniu linku i uruchomieniu lokalnym.
