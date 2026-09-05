@@ -13,6 +13,8 @@ screen:
   selected_existing_student_doc: docs/56-license-existing-student-selected-state.md
   sorting_spec: specs/screens/license-sorting.yml
   sorting_doc: docs/57-license-list-sorting.md
+  bulk_access_pdf_spec: specs/screens/license-bulk-access-pdf.yml
+  bulk_access_pdf_doc: docs/58-license-bulk-access-pdf.md
 
 inventory_cards:
   products:
@@ -62,7 +64,6 @@ primary_access_action:
   target_cardinality: exactly_one
   multiple_search_results_select_one: true
   bulk_assignment_supported: false
-  correction_note: earlier interpretation of three results as three selected targets was incorrect
 
 assigned_licenses_section:
   title: Przydzielone licencje
@@ -74,11 +75,34 @@ assigned_licenses_section:
     hide_finished_licenses_toggle: true
     search: true
     sort: true
-  multi_row_selection_semantics: TO_VERIFY
-  download_accesses_multi_selection_semantics: TO_VERIFY
   assign_license_semantics:
     target_cardinality: exactly_one
     multi_target_batch: false
+  multi_row_selection:
+    supported: true
+    confirmed_use_case: download_access_credentials
+    do_not_infer_bulk_assignment: true
+
+bulk_access_download:
+  confidence: USER_CONFIRMED_DOWNLOADED_DOCUMENT
+  screen_spec: specs/screens/license-bulk-access-pdf.yml
+  multiple_selected_accesses_supported: true
+  observed_selected_count: 3
+  output:
+    format: pdf
+    single_combined_file: true
+    observed_pages: 4
+    index_page: true
+    one_page_per_selected_access: true
+    localized_per_access: true
+  observed_locales:
+    - pl
+    - uk
+    - en
+  confirmed_actions:
+    - select_multiple_learning_access_rows
+    - download_selected_access_credentials
+    - generate_single_combined_access_pdf
 
 row_granularity:
   primary_entity: learning_access
@@ -100,7 +124,6 @@ learning_login_projection:
 sorting:
   confidence: USER_CONFIRMED_AUTH_SCREEN
   screen_spec: specs/screens/license-sorting.yml
-  screen_doc: docs/57-license-list-sorting.md
   directions:
     - asc
     - desc
@@ -119,10 +142,6 @@ sorting:
 observed_status_presentations:
   - not_activated
   - active_with_remaining_days
-
-observed_status_examples:
-  not_activated: Nie aktywowano
-  active_with_remaining_days: Aktywna, pozostało 139 dni
 
 assigned_license_collection:
   multiple_per_learning_access_confirmed: true
@@ -157,7 +176,6 @@ assigned_license_collection:
       expires_at: 2026-12-22T23:37
       remaining_days: 108
       status: active
-  newest_parent_row_matches_latest_assignment_timestamp: true
 
 license_extension_behavior:
   confidence: STRONGLY_SUPPORTED_BY_OBSERVATION
@@ -166,21 +184,6 @@ license_extension_behavior:
   interpretation: subsequent_assignment_can_extend_existing_active_access
   exact_product_identity_for_observed_rows: TO_VERIFY
   always_stack_rule_for_competitor: TO_VERIFY
-
-row_actions:
-  - action: download_student_access_credentials
-    label: Dostęp
-    route_pattern: /licencje/pobierz?guid=<student_id>
-  - action: open_student_profile_from_license_panel
-    label: Profil
-    route_pattern: /kursanci/<student_id>
-  - action: expand_assigned_licenses
-    label: Rozwiń
-
-selection_behavior:
-  select_visible_control_observed: true
-  exact_multi_selection_purpose: TO_VERIFY
-  do_not_infer_bulk_assignment_from_selection: true
 
 finished_license_filter:
   label: Ukryj licencje zakończone
@@ -196,29 +199,12 @@ own_product_model:
     - license_activation_events
   one_learning_access_has_many_license_assignments: true
   assignment_separate_from_activation: true
-  assignment_has_own_assigned_at: true
-  unactivated_assignment_has_null_activated_at: true
-  unactivated_assignment_has_null_expires_at: true
-  access_has_current_expiry_projection: true
-  entitlement_extension_ledger: true
-  extension_rule:
-    first_activation_base: activated_at
-    active_access_extension_base: current_expires_at
-    generalized_base: max(effective_activation_time,current_expires_at)
-    result: base_plus_product_duration
-  assignment_audit_fields:
-    - duration_days
-    - expiry_before
-    - expiry_after
-  remaining_days_derived_from_current_or_assignment_expiry: true
-  revoke_unactivated_restores_inventory: true
-  active_assignment_normal_revoke_disabled: true
-  common_assignment_service_across_entry_points: true
   assignment_target_cardinality: one
+  entitlement_extension_ledger: true
+  bulk_credentials_export_supported: true
+  bulk_credentials_export_single_pdf: true
+  bulk_credentials_export_localized_per_access: true
   language_catalog_capability_driven: true
-  target_modes_for_generate_access:
-    - new_learning_access
-    - existing_student
 
 confirmed_actions:
   - open_license_management_panel
@@ -232,7 +218,9 @@ confirmed_actions:
   - select_one_existing_student_for_license
   - submit_single_target_license_assignment
   - add_new_student_from_license_panel
-  - select_visible_learning_accesses
+  - select_multiple_learning_access_rows
+  - download_selected_access_credentials
+  - generate_single_combined_access_pdf
   - toggle_hide_finished_licenses
   - search_license_accesses
   - open_license_sorting
@@ -257,19 +245,19 @@ security_requirements:
   - prevent_negative_inventory
   - prevent_double_application_of_same_inventory_entry
   - tenant_scope_student_search
-  - do_not_expose_pesel_in_logs_unnecessarily
+  - permission_check_every_bulk_export_item
+  - audit_bulk_credential_export
   - audit_license_assignment
   - audit_license_activation
   - audit_license_revoke
   - audit_credential_download
-  - authorize_student_profile_cross_link_by_organization
 
 remaining_gaps:
   - expired_assignment_expanded_row
   - exact_search_fields_main_table
   - active_inventory_exact_semantics
-  - exact_multi_row_selection_purpose
-  - download_accesses_multi_selection_behavior
+  - select_visible_current_page_vs_full_filtered_result_scope
+  - bulk_access_export_max_count
   - finished_license_filter_mixed_history_behavior
   - exact_stack_rule_exceptions
   - expired_access_extension_behavior
