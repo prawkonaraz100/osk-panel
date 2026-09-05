@@ -347,14 +347,22 @@ operations:
       requirement: formal_financial_pkk_exam_license_role_changes_create_immutable_audit_records_without_plaintext_secrets
 
 coverage_status:
-  stage3_step_2_operation_coverage: PASS
+  stage3_contract_gate: PASS
+  frozen_at: 2026-09-05
+  validator_command: python scripts/contract-validation/validate_openapi_contract.py
+  ci_workflow: .github/workflows/api-contract-gate.yml
   http_requirement_rows: 169
   unique_openapi_path_method_operations_required: 158
   shared_capability_rows_reusing_existing_operationId: 11
   direct_and_shared_http_requirements_with_operationId_mapping: 169
   direct_and_shared_http_requirements_without_operationId_mapping: 0
-  openapi_complete_against_this_inventory: pending_remaining_stage3_contract_gates
+  openapi_complete_against_this_inventory: true
   operationIds_present_for_all_http_requirements: true
+  dangling_root_path_refs: 0
+  dangling_component_schema_parameter_response_refs: 0
+  duplicate_operationIds: 0
+  coverage_may_not_regress: true
+  reverse_engineering_capabilities_may_not_be_dropped: true
   shared_operation_mappings:
     students.list_filters: studentsList
     students.list_sort: studentsList
@@ -379,5 +387,4 @@ coverage_status:
     - specs/api/openapi-components-v1.yaml
     - specs/api/openapi-settings-components.yaml
   schema_detail_may_evolve_during_module_implementation: true
-  coverage_may_not_regress: true
-  ci_gate_required: true
+  schema_changes_must_keep_validator_green: true
