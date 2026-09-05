@@ -123,11 +123,40 @@ Zmiana danych kursanta po egzaminie nie powinna zmieniać dokumentacji historycz
 
 ## 7. Akcja `Szczegóły`
 
-Każda konkretna próba ma osobny link `Szczegóły` z własnym tokenem/parametrem `pid` prowadzącym do modułu egzaminu wewnętrznego.
+Każda konkretna próba ma osobny link `Szczegóły`.
 
-Potwierdza to, że szczegóły są per-attempt, a nie tylko per-student.
+Potwierdzone zachowanie po kliknięciu:
+- użytkownik opuszcza panel BIZ/admin OSK,
+- następuje przejście do serwisu egzaminacyjnego na host `www.prawo-jazdy-360.pl`,
+- route ma postać `/egzamin-wewnetrzny?pid=<opaque_token>`,
+- `pid` jest długim nieprzewidywalnym tokenem, a nie prostym numerycznym ID próby.
 
-Nie potwierdzono jeszcze zawartości widoku po wejściu w `Szczegóły`.
+Zaobserwowany wzorzec:
+
+`https://www.prawo-jazdy-360.pl/egzamin-wewnetrzny?pid=<opaque_token>`
+
+### Wniosek
+
+`Szczegóły` nie otwiera klasycznego adminowego widoku `exam/{id}` w panelu OSK. Jest to przejście do osobnego frontowego modułu egzaminu z tokenizowanym dostępem do konkretnej próby/kontekstu egzaminacyjnego.
+
+To potwierdza potrzebę rozdzielenia:
+- `internal_exam_attempt.id` — stabilne wewnętrzne ID,
+- `internal_exam_launch/view_token` — zewnętrzny, nieprzewidywalny token używany w URL.
+
+Nie potwierdzono jeszcze zawartości strony po przekierowaniu — wymaga osobnego capture ekranu.
+
+### Własny produkt
+
+U nas nie powinniśmy wystawiać przewidywalnego `attempt_id` w linku dostępowym dla kursanta/stanowiska egzaminacyjnego.
+
+Rekomendowane:
+- opaque random token,
+- token związany z konkretną próbą,
+- możliwość unieważnienia,
+- opcjonalny TTL zależny od rodzaju linku,
+- audyt użycia,
+- brak danych osobowych w URL,
+- osobne uprawnienia dla administratora OSK i dla tokenowego frontu egzaminacyjnego.
 
 ---
 
@@ -183,6 +212,8 @@ Potwierdzony wydruk zawiera m.in.:
 
 Dodatkowo, po potwierdzeniu wydruku, próba musi posiadać kolekcję niezmiennych pozycji egzaminu (`internal_exam_attempt_questions`) z identyfikatorem pytania, punktacją, odpowiedzią i punktami uzyskanymi.
 
+Token/link nie jest identyfikatorem domenowym próby. Powinien być przechowywany osobno np. jako `internal_exam_access_token` / `launch_token` z relacją do attemptu.
+
 Wiersz główny panelu jest projekcją/agregatem nad próbami kursanta, a nie źródłem prawdy.
 
 ---
@@ -197,6 +228,7 @@ Wiersz główny panelu jest projekcją/agregatem nad próbami kursanta, a nie ź
 - `view_exam_attempt_datetime`
 - `view_exam_attempt_language`
 - `open_specific_exam_attempt_details`
+- `redirect_to_tokenized_exam_frontend`
 - `download_specific_exam_attempt_printout`
 - `download_specific_exam_answer_sheet_pdf`
 
@@ -211,6 +243,8 @@ Wiersz główny panelu jest projekcją/agregatem nad próbami kursanta, a nie ź
 - statusy są jawne tekstowo w szczegółach/historii,
 - wiersz główny może używać ikony jako skrótu, ale musi mieć dostępny tekst statusu dla accessibility,
 - dokument i szczegóły są przypięte do konkretnego attemptu,
+- token zewnętrzny jest oddzielony od domenowego ID próby,
+- token jest nieprzewidywalny i możliwy do unieważnienia,
 - tenant isolation i autoryzacja per attempt,
 - wynik ukończonego egzaminu nie jest nadpisywany przez kolejną próbę,
 - ponowne wygenerowanie arkusza historycznego nie może zależeć od aktualnej wersji profilu kursanta ani aktualnej wersji pytań.
@@ -223,8 +257,9 @@ Wiersz główny panelu jest projekcją/agregatem nad próbami kursanta, a nie ź
 - statusy egzaminu przed wykonaniem,
 - zachowanie egzaminu rozpoczętego i niedokończonego,
 - czas trwania egzaminu,
-- zawartość `Szczegóły`,
+- zawartość strony otwieranej przez `Szczegóły`,
 - dokładne znaczenie pola `Data` (wygenerowanie/start/zakończenie) — ekran sam tego nie opisuje,
 - moment zużycia jednostki inventory,
 - wygląd arkusza dla wyniku pozytywnego,
-- sposób renderowania rzeczywiście udzielonych odpowiedzi (`TAK/NIE`, `A/B/C` itd.).
+- sposób renderowania rzeczywiście udzielonych odpowiedzi (`TAK/NIE`, `A/B/C` itd.),
+- lifecycle/TTL/revocation tokenu `pid` u konkurenta.
