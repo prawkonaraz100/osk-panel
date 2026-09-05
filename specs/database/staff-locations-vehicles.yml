@@ -18,12 +18,13 @@ principles:
   staff_profile_is_separate_from_organization_membership: true
   staff_membership_link_history_is_preserved: true
   cross_tenant_staff_membership_link_is_forbidden: true
+  cross_tenant_location_assignment_is_forbidden: true
   aggregate_sync_deferred_until_final_DB4_3_gate: true
 
-# DB-RES-001 only. Later DB4_3 blockers remain intentionally open.
+# DB-RES-001
 staff_membership_link_same_organization_integrity:
   blocker: DB-RES-001
-  status: RESOLVED_DESIGN
+  status: PASS
   goal: >-
     A StaffMembershipLink must be incapable of linking a StaffProfile from one
     organization to an OrganizationMembership from another organization.
@@ -93,15 +94,9 @@ staff_membership_link_same_organization_integrity:
       type: partial_unique
       columns: [organization_membership_id]
       where: unlinked_at_is_null
-    note: >-
-      The composite tenant FKs are additive security constraints. They do not
-      weaken or replace the already required at-most-one-active-link invariants.
 
   creation_and_resolution:
     backend_precheck_required: true
-    backend_precheck:
-      - requested_staff_profile_belongs_to_active_request_organization
-      - requested_organization_membership_belongs_to_same_organization
     database_is_final_same_tenant_boundary: true
     rbac_resolver_dependency: >-
       own, assigned_locations and assigned_students may only traverse an active
@@ -116,12 +111,6 @@ staff_membership_link_same_organization_integrity:
       - every_existing_link_organization_matches_organization_membership_organization
       - existing_active_link_uniqueness_is_valid
     invalid_row_policy: fail_migration_or_explicit_security_remediation_never_silent_cross_tenant_reassignment
-    creation_order:
-      - add_or_verify_unique_staff_profiles_organization_id_id
-      - add_or_verify_unique_organization_memberships_organization_id_id
-      - add_staff_membership_link_staff_profile_composite_FK
-      - add_staff_membership_link_membership_composite_FK
-      - verify_existing_partial_active_link_unique_indexes
 
   tests_required:
     - same_organization_staff_profile_and_membership_link_is_accepted
@@ -134,10 +123,136 @@ staff_membership_link_same_organization_integrity:
     - organization_membership_suspend_or_revoke_does_not_rewrite_historical_link_tenant_identity
     - RBAC_staff_link_resolution_cannot_cross_organization_boundary
 
+# DB-RES-002
+location_assignment_same_organization_integrity:
+  blocker: DB-RES-002
+  status: RESOLVED_DESIGN
+  goal: >-
+    StaffProfile-to-Location and Vehicle-to-Location assignments must be unable to
+    connect tenant-owned resources from different organizations, including when a
+    backend bug or malformed import bypasses application-level validation.
+
+  parent_candidate_keys_required:
+    staff_profiles:
+      columns: [organization_id, id]
+      unique_constraint_required: true
+      source: DB-RES-001
+    vehicles:
+      columns: [organization_id, id]
+      unique_constraint_required: true
+      purpose: composite_same_organization_FK_target
+    locations:
+      columns: [organization_id, id]
+      unique_constraint_required: true
+      purpose: composite_same_organization_FK_target
+
+  staff_location_assignments:
+    tenant_key:
+      column: organization_id
+      nullable: false
+      foreign_key: organizations.id
+      mutation_after_create: forbidden
+    fields:
+      - organization_id
+      - staff_profile_id
+      - location_id
+    primary_key: [organization_id, staff_profile_id, location_id]
+    composite_foreign_keys:
+      staff_profile_same_organization:
+        source_columns: [organization_id, staff_profile_id]
+        target_table: staff_profiles
+        target_columns: [organization_id, id]
+        on_update: RESTRICT
+        on_delete: RESTRICT
+      location_same_organization:
+        source_columns: [organization_id, location_id]
+        target_table: locations
+        target_columns: [organization_id, id]
+        on_update: RESTRICT
+        on_delete: RESTRICT
+    duplicate_assignment_same_tenant: rejected_by_primary_key
+    cross_tenant_assignment: impossible_after_constraints
+
+  vehicle_location_assignments:
+    tenant_key:
+      column: organization_id
+      nullable: false
+      foreign_key: organizations.id
+      mutation_after_create: forbidden
+    fields:
+      - organization_id
+      - vehicle_id
+      - location_id
+    primary_key: [organization_id, vehicle_id, location_id]
+    composite_foreign_keys:
+      vehicle_same_organization:
+        source_columns: [organization_id, vehicle_id]
+        target_table: vehicles
+        target_columns: [organization_id, id]
+        on_update: RESTRICT
+        on_delete: RESTRICT
+      location_same_organization:
+        source_columns: [organization_id, location_id]
+        target_table: locations
+        target_columns: [organization_id, id]
+        on_update: RESTRICT
+        on_delete: RESTRICT
+    duplicate_assignment_same_tenant: rejected_by_primary_key
+    cross_tenant_assignment: impossible_after_constraints
+
+  parent_tenant_ownership:
+    staff_profile_organization_id: immutable_for_historical_tenant_resource
+    vehicle_organization_id: immutable_for_historical_tenant_resource
+    location_organization_id: immutable_for_historical_tenant_resource
+    moving_existing_resource_by_rewriting_organization_id: forbidden
+
+  authorization_and_query_effect:
+    assigned_locations_resolver:
+      path: OrganizationMembership_to_active_StaffMembershipLink_to_StaffProfile_to_StaffLocationAssignment_to_Location
+      every_tenant_boundary_physically_constrained_after_DB_RES_001_and_DB_RES_002: true
+      query_must_include_active_membership_organization_context: true
+      cross_tenant_location_can_never_expand_scope: true
+    vehicle_calendar_location_filter:
+      cross_tenant_assignment_can_never_create_false_resource_relationship: true
+    frontend_filtering_as_security_boundary: forbidden
+
+  category_assignments_not_changed_here:
+    staff_category_assignments: global_driving_category_dictionary_no_tenant_key_required_on_category
+    vehicle_category_assignments: global_driving_category_dictionary_no_tenant_key_required_on_category
+
+  migration_precheck:
+    required_before_constraints: true
+    checks:
+      - every_existing_staff_location_pair_has_equal_parent_and_location_organization
+      - every_existing_vehicle_location_pair_has_equal_parent_and_location_organization
+      - duplicate_existing_pairs_are_resolved_explicitly_before_primary_key_creation
+    invalid_row_policy: fail_migration_or_explicit_security_remediation_never_silent_location_reassignment
+    creation_order:
+      - add_or_verify_unique_staff_profiles_organization_id_id
+      - add_unique_vehicles_organization_id_id
+      - add_unique_locations_organization_id_id
+      - add_and_backfill_staff_location_assignments_organization_id_from_verified_staff_parent
+      - verify_staff_location_parent_and_location_tenant_match
+      - replace_simple_pair_shape_with_tenant_aware_composite_FKs_and_primary_key
+      - add_and_backfill_vehicle_location_assignments_organization_id_from_verified_vehicle_parent
+      - verify_vehicle_location_parent_and_location_tenant_match
+      - replace_simple_pair_shape_with_tenant_aware_composite_FKs_and_primary_key
+
+  tests_required:
+    - same_tenant_staff_location_assignment_is_accepted
+    - staff_org_A_to_location_org_B_is_rejected_by_database
+    - staff_assignment_tenant_key_mismatch_is_rejected_by_database
+    - duplicate_staff_location_assignment_is_rejected
+    - same_tenant_vehicle_location_assignment_is_accepted
+    - vehicle_org_A_to_location_org_B_is_rejected_by_database
+    - vehicle_assignment_tenant_key_mismatch_is_rejected_by_database
+    - duplicate_vehicle_location_assignment_is_rejected
+    - assigned_locations_RBAC_query_cannot_return_location_from_other_organization
+    - vehicle_location_calendar_filter_cannot_cross_organization
+    - migration_precheck_detects_existing_cross_tenant_staff_location_pair
+    - migration_precheck_detects_existing_cross_tenant_vehicle_location_pair
+
 open_blockers_not_resolved_here:
-  DB-RES-002:
-    status: OPEN
-    topic: staff_vehicle_location_assignment_tenant_integrity
   DB-RES-003:
     status: OPEN
     topic: staff_vehicle_file_asset_attachment_integrity
