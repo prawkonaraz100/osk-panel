@@ -81,6 +81,30 @@ errors:
   localized_message_allowed: true
   cross_tenant_existence_leak_forbidden: true
 
+request_validation:
+  server_owned_fields_never_mass_assigned: true
+  response_identifiers_timestamps_versions_and_derived_statuses_are_not_generic_write_inputs: true
+  unknown_client_fields_must_be_rejected_by_backend_validation: true
+  direct_lifecycle_status_write_forbidden_unless_a_dedicated_requirement_explicitly_allows_it: true
+  command_side_effects_must_be_explicitly_declared_by_the_request_contract: true
+  shared_value_objects_allowed_in_requests_only_when_they_contain_no_server_owned_fields: true
+  examples_of_safe_shared_value_objects:
+    - Money
+    - PermissionSet
+  explicitly_opaque_boundaries:
+    - id: pkk_provider_normalized_payload
+      rule: validate_and_map_inside_provider_adapter_never_mass_assign_to_domain_entity
+    - id: payment_provider_webhook_payload
+      rule: verify_signature_parse_provider_contract_and_never_mass_assign_to_domain_entity
+    - id: internal_exam_question_engine_answer_payload
+      rule: validate_against_attempt_question_snapshot_contract_before_persistence
+    - id: internal_exam_candidate_snapshot_payload
+      rule: whitelist_candidate_fields_before_snapshot_update
+  implementation_rule: >-
+    Laravel FormRequest or equivalent use-case validation must whitelist accepted
+    fields. Eloquent fill() / mass assignment from raw request payloads is forbidden
+    for tenant, formal, financial, PKK, license and exam aggregates.
+
 idempotency:
   header: Idempotency-Key
   key_type: uuid_recommended
