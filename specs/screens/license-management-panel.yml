@@ -1,0 +1,147 @@
+screen:
+  id: license_management_panel
+  scope: admin_osk
+  route: /licencje/panel
+  title: Generowanie dostępu
+  confidence: USER_CONFIRMED_AUTH_SCREEN
+  verified_at: 2026-09-05
+  doc: docs/53-license-management-panel.md
+
+inventory_cards:
+  products:
+    - duration_days: 31
+      observed_available: 1
+      observed_active: 9
+    - duration_days: 90
+      observed_available: 36
+      observed_active: 4
+    - duration_days: 180
+      observed_available: 56
+      observed_active: 4
+  observed_counts_are_snapshot_only: true
+  fields:
+    - available_count
+    - active_count
+  purchase_more_action:
+    label: Dokup licencje
+    route: /licencje/wykup
+
+primary_access_action:
+  label: Generuj dostęp dla kursanta do prawo-jazdy-360.pl
+  action: generate_student_learning_access
+  exact_form: TO_VERIFY
+
+assigned_licenses_section:
+  title: Przydzielone licencje
+  controls:
+    add_new_student: true
+    select_visible: true
+    bulk_download_accesses: true
+    bulk_assign_license: true
+    hide_finished_licenses_toggle: true
+    search: true
+    sort: true
+
+row_granularity:
+  primary_entity: learning_access
+  not_single_license_row: true
+
+columns:
+  - learning_login_data
+  - student_full_name
+  - newest_license_generated_at
+  - newest_license_language
+  - newest_license_status
+  - assigned_license_count
+  - row_actions
+
+learning_login_projection:
+  - language_indicator
+  - learning_identifier
+
+observed_status_presentations:
+  - not_activated
+  - active_with_remaining_days
+
+observed_status_examples:
+  not_activated: Nie aktywowano
+  active_with_remaining_days: Aktywna, pozostało 139 dni
+
+assigned_license_collection:
+  multiple_per_learning_access_confirmed: true
+  observed_counts: [5, 2, 2]
+  expand_action:
+    label: Rozwiń
+    content: TO_VERIFY
+
+row_actions:
+  - action: download_student_access_credentials
+    label: Dostęp
+    route_pattern: /licencje/pobierz?guid=<student_id>
+  - action: open_student_profile_from_license_panel
+    label: Profil
+    route_pattern: /kursanci/<student_id>
+  - action: expand_assigned_licenses
+    label: Rozwiń
+
+bulk_behavior:
+  actions_disabled_without_selection_observed: true
+  exact_selected_scope: visible_rows
+  exact_bulk_result: TO_VERIFY
+
+finished_license_filter:
+  label: Ukryj licencje zakończone
+  control: toggle
+  exact_mixed_history_behavior: TO_VERIFY
+
+own_product_model:
+  entities:
+    - license_products
+    - license_inventory_entries
+    - learning_accesses
+    - license_assignments
+    - license_activations
+  one_learning_access_has_many_license_assignments: true
+  assignment_separate_from_activation: true
+  remaining_days_derived_from_expires_at: true
+
+confirmed_actions:
+  - open_license_management_panel
+  - view_license_inventory_by_duration
+  - open_license_purchase_from_inventory_card
+  - generate_student_learning_access
+  - add_new_student_from_license_panel
+  - select_visible_learning_accesses
+  - bulk_download_access_credentials
+  - bulk_assign_license
+  - toggle_hide_finished_licenses
+  - search_license_accesses
+  - open_license_sorting
+  - expand_assigned_licenses
+  - download_student_access_credentials
+  - open_student_profile_from_license_panel
+
+security_requirements:
+  - tenant_isolation
+  - permission_scope_license_inventory
+  - permission_scope_learning_access_management
+  - atomic_inventory_assignment
+  - prevent_negative_inventory
+  - audit_license_assignment
+  - audit_credential_download
+  - authorize_student_profile_cross_link_by_organization
+  - bulk_actions_must_validate_every_selected_resource
+
+remaining_gaps:
+  - expanded_license_rows
+  - generate_access_form
+  - sort_options
+  - exact_search_fields
+  - active_inventory_exact_semantics
+  - bulk_assign_license_flow
+  - bulk_download_output
+  - finished_license_filter_mixed_history_behavior
+  - pagination
+  - empty_states
+  - validations
+  - success_error_messages
