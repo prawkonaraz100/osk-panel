@@ -1,0 +1,86 @@
+screen:
+  id: student_payment_charge_create
+  scope: admin_osk
+  parent_route_pattern: /kursanci/<student_id>
+  entry_action: add_student_payment
+  title: Dodaj płatność
+  confidence: USER_CONFIRMED_AUTH_SCREEN_WITH_DOMAIN_INTERPRETATION
+  verified_at: 2026-09-05
+  doc: docs/40-student-payment-charge-form.md
+
+fields:
+  - name: title
+    label: Tytuł
+    required_by_visible_marker: true
+  - name: amount
+    label: Kwota
+    required_by_visible_marker: true
+    visible_currency: PLN
+
+confirmed_actions:
+  - open_add_student_payment_drawer
+  - set_payment_or_charge_title
+  - set_payment_or_charge_amount
+  - save_payment_or_charge
+  - cancel_payment_or_charge
+  - close_payment_or_charge_drawer
+
+parent_table_context:
+  columns:
+    - title
+    - amount
+    - remaining
+    - payments
+    - added_date
+  total_summary: total_balance
+
+business_semantics:
+  exact_competitor_semantics: TO_VERIFY
+  strongest_interpretation: create_student_charge_or_receivable
+  confidence: STRONGLY_INFERRED_FROM_TABLE_STRUCTURE
+  reason:
+    - parent table separates original amount from remaining amount
+    - parent table has a separate payments column
+    - create form only asks for title and amount
+  do_not_claim_as_competitor_fact_until_populated_record_observed: true
+
+own_product_model:
+  separate_student_charge_from_student_payment: true
+  charge_fields:
+    - title
+    - original_amount
+    - currency
+    - outstanding_amount_projection
+    - status
+  payment_fields:
+    - charge_id
+    - amount
+    - paid_at
+    - payment_method_optional
+    - note_optional
+    - received_by
+  installments_supported: true
+  balance_is_projection_not_manual_field: true
+  recommended_ui_labels:
+    create_charge: Dodaj należność
+    record_payment: Dodaj wpłatę
+
+security_requirements:
+  - tenant_isolation
+  - authorize_student_finance_by_organization
+  - audit_charge_creation
+  - audit_payment_creation
+  - audit_corrections_and_refunds
+  - never_mutate_balance_without_ledger_event
+
+remaining_gaps:
+  - exact_competitor_charge_vs_payment_semantics
+  - populated_payment_row
+  - payment_installment_entry_flow
+  - partial_payment_behavior
+  - overpayment_behavior
+  - correction_and_refund_flow
+  - payment_method
+  - payment_date
+  - relation_to_course_cost
+  - success_error_messages
