@@ -16,6 +16,8 @@ scope:
     - specs/api/required-operations-v1.yml
     - specs/api/common-contract.yml
     - specs/traceability/core-v1.yml
+    - scripts/contract-validation/*
+    - .github/workflows/api-contract-gate.yml
   explicitly_out_of_scope_for_this_stage:
     - new_database_migration_design
     - calendar_overlap_ADR
@@ -71,28 +73,11 @@ quality_checks:
   every_required_http_operation_has_openapi_operationId:
     status: PASS
     stage_step: STAGE3_STEP_2
-    audit_method: >-
-      Every HTTP requirement row in specs/api/required-operations-v1.yml was
-      compared against the canonical OpenAPI path/method operation. Requirements
-      that intentionally share an HTTP operation are explicitly mapped with
-      covered_by_operationId instead of inventing duplicate endpoints.
     counts:
       http_requirement_rows: 169
       unique_openapi_path_method_operations_required: 158
       shared_capability_rows_reusing_existing_operationId: 11
       unmapped_http_requirements: 0
-    shared_operation_mappings:
-      students.list_filters: studentsList
-      students.list_sort: studentsList
-      calendar.events.important_dates_projection: calendarEventsList
-      license_management.search: licenseAssignmentsList
-      license_management.sort: licenseAssignmentsList
-      license_management.hide_finished: licenseAssignmentsList
-      license_credentials.single_pdf: learningAccountsDownloadHandoffPdf
-      exam_management.search: internalExamSubjectsList
-      exam_management.filter: internalExamSubjectsList
-      exam_management.sort: internalExamSubjectsList
-      purchase_history.pay_unpaid: orderPaymentsCreate
     reverse_engineering_preservation_note: >-
       Shared mappings do not remove observed capabilities. They only state that
       one canonical HTTP operation exposes multiple confirmed filters, sorting,
@@ -101,45 +86,19 @@ quality_checks:
   every_openapi_path_ref_resolves:
     status: PASS
     stage_step: STAGE3_STEP_3
-    audit_scope: root_paths_refs_to_modular_path_files_only
     counts:
       root_path_refs: 129
       referenced_module_path_keys: 129
       dangling_root_path_refs: 0
       unreferenced_module_path_keys: 0
-    module_path_counts:
-      auth_organization: 16
-      students_courses_and_student_finance: 32
-      pkk_calendar: 17
-      resources: 23
-      licenses: 10
-      internal_exams: 18
-      commerce_dashboard: 13
-    validation_rule: >-
-      Each root path in specs/api/openapi-v1.yaml points to an existing path key
-      in exactly one declared module file using JSON Pointer slash escaping (~1).
 
   operationIds_are_unique:
     status: PASS
     stage_step: STAGE3_STEP_4
-    audit_scope: all_canonical_HTTP_operations_in_modular_path_files
     counts:
       canonical_http_operations: 158
       unique_operationIds: 158
       duplicate_operationIds: 0
-    module_operation_counts:
-      auth_organization: 20
-      students_courses_and_student_finance: 42
-      pkk_calendar: 20
-      resources: 32
-      licenses: 11
-      internal_exams: 20
-      commerce_dashboard: 13
-    validation_rule: >-
-      Every path/method operation has exactly one operationId and no operationId
-      is reused by another canonical HTTP operation. Capability aliases from the
-      required-operations inventory remain mapped with covered_by_operationId and
-      do not create duplicate OpenAPI operations.
 
   every_nonpublic_operation_has_explicit_or_inherited_security:
     status: PASS
@@ -152,33 +111,10 @@ quality_checks:
       explicit_session_or_exam_token_operations: 4
       operations_inheriting_sessionCookie: 147
       operations_without_security_contract: 0
-    validation_rule: >-
-      The root OpenAPI sessionCookie requirement protects every operation unless
-      an operation explicitly overrides it. Public authentication entrypoints use
-      security: []; payment webhook intentionally has no user session and instead
-      requires provider signature verification; remote exam start, submit, result
-      and post-finish question review accept either OSK session or opaque exam
-      access token according to operation conditions.
 
   public_security_exceptions_are_explicit:
     status: PASS
     stage_step: STAGE3_STEP_5
-    explicit_public_auth_operations:
-      - authRegister
-      - authLogin
-      - authPasswordForgot
-      - authPasswordReset
-      - authSocialRedirect
-      - authSocialCallback
-    provider_callback_exception:
-      operationId: paymentWebhookReceive
-      session_security: none
-      compensating_security: provider_signature_verification_plus_provider_event_dedup
-    exam_token_operations:
-      - internalExamAccessesStart
-      - internalExamAttemptsSubmit
-      - internalExamAttemptsResult
-      - internalExamAttemptsQuestions
     exam_result_review_rule: >-
       Result and question-review endpoints may use examAccessToken only for the
       matching finished attempt and result-review scope. A raw/predictable attempt
@@ -189,117 +125,18 @@ quality_checks:
     status: PASS
     stage_step: STAGE3_STEP_6
     contract_source: specs/api/common-contract.yml
-    required_idempotency_families:
-      pkk_mutations:
-        status: PASS
-        operations:
-          - organizationPkkSettingsUpdate
-          - organizationPkkConfigurationGateSave
-          - pkkFetch
-          - pkkUpdateAndReturn
-          - pkkReturnToSchool
-          - pkkReturnToAuthority
-          - pkkReturnExpired
-          - pkkOperationsRetry
-      retryable_order_or_payment_creation:
-        status: PASS
-        operations:
-          - licenseOrdersCreate
-          - internalExamOrdersCreate
-          - orderPaymentsCreate
-          - serviceEntitlementsActivate
-      license_assignment_lifecycle:
-        status: PASS
-        operations:
-          - licenseAssignmentsCreate
-          - licenseAssignmentsActivate
-          - licenseAssignmentsRevokeUnactivated
-      internal_exam_access_and_start:
-        status: PASS
-        operations:
-          - internalExamAttemptsCreate
-          - internalExamAccessesCreate
-          - internalExamAccessesStart
-          - internalExamAttemptsSubmit
-          - internalExamAttemptsTechnicalAbort
-          - internalExamAttemptStationTransfer
-      student_finance_and_corrections:
-        status: PASS
-        operations:
-          - studentChargesCreate
-          - studentChargesCancel
-          - studentPaymentsRecord
-          - studentPaymentsReverse
-          - trainingHoursCorrect
     provider_webhook_exception:
       operationId: paymentWebhookReceive
       idempotency_header_required: false
       reason: provider_plus_provider_event_id_is_the_authoritative_deduplication_key
-    concurrency_contract:
-      direct_resource_edits_use_If_Match:
-        status: PASS
-        examples:
-          - organizationUpdate
-          - organizationSettingsUpdate
-          - organizationPkkSettingsUpdate
-          - organizationPkkConfigurationGateSave
-          - studentsUpdate
-          - learningAccountsUpdate
-          - courseEnrollmentsUpdate
-          - trainingSessionsUpdate
-          - calendarEventsUpdate
-          - availabilitySlotsUpdate
-          - locationsUpdate
-          - staffUpdate
-          - vehiclesUpdate
-          - vehicleDocumentsUpdate
-          - internalExamAttemptsEditCandidateSnapshot
-      command_state_transitions:
-        status: PASS
-        rule: >-
-          Command-style transitions do not rely on optimistic headers alone. They
-          must combine Idempotency-Key with server-side state validation and the
-          domain transaction/row-lock invariants already declared for license,
-          exam, PKK and financial flows. Repeating a command cannot create a
-          second business effect.
-    audit_result: >-
-      No command in a common-contract required idempotency family is missing the
-      Idempotency-Key contract. Provider webhook correctly uses provider-event
-      deduplication instead of a client idempotency header. Direct PATCH/aggregate
-      edits that can lose updates carry If-Match; command transitions are guarded
-      by idempotency plus server-side state/locking semantics.
+    command_state_transition_rule: >-
+      Command transitions combine Idempotency-Key where required with server-side
+      state validation and transaction/row-lock invariants.
 
   request_schemas_do_not_accept_read_only_response_fields:
     status: PASS
     stage_step: STAGE3_STEP_7
     resolved_blocker_id: REQ-001
-    findings:
-      - >-
-        StudentLearningAccount.status is a derived lifecycle projection and was
-        incorrectly accepted by UpdateLearningAccountRequest. The response field
-        is now readOnly and the update request accepts only login_identifier and
-        language_code with additionalProperties:false.
-      - >-
-        Staff edit preserves the confirmed create_login_account action from the
-        reverse-engineered screen. This is not treated as a writable
-        has_login_account response field: it remains an explicit orchestration
-        input and account provisioning is still audited through the dedicated
-        staff-account use case.
-      - >-
-        One-time plaintext password and one-time remote exam URL remain response-
-        only secrets and are never accepted back as persistence fields.
-      - >-
-        Settings and PKK configuration already use dedicated write schemas that
-        exclude readiness/version/accepted-terms projections.
-    shared_value_objects_safe_for_request_and_response:
-      - Money
-      - PermissionSet
-    opaque_request_boundaries:
-      contract: specs/api/common-contract.yml#request_validation
-      rule: >-
-        Provider/question-engine opaque payloads are adapter/snapshot boundaries,
-        never generic mass-assignment input. Candidate fields and exam answers are
-        whitelisted against their attempt/snapshot contract before persistence.
     backend_validation_rule: >-
       Raw request payloads may not be mass-assigned to domain models. Laravel
       FormRequest/use-case validation whitelists accepted fields and rejects
@@ -318,51 +155,54 @@ quality_checks:
       - specs/api/paths/commerce-dashboard.yaml
       - specs/api/openapi-components-v1.yaml
       - specs/api/openapi-settings-components.yaml
-    target_documents:
-      main_components: specs/api/openapi-components-v1.yaml
-      settings_components: specs/api/openapi-settings-components.yaml
     result:
       dangling_parameter_refs: 0
       dangling_response_refs: 0
       dangling_schema_refs: 0
       dangling_local_component_refs: 0
-    validation_rule: >-
-      Every component parameter, shared response and schema reference used by all
-      seven path modules resolves to an existing target. Local schema references
-      inside both component documents were also checked. Stage 3.8 is ref
-      integrity only; it does not change reverse-engineered capabilities or begin
-      database design.
+
+  executable_contract_lint:
+    status: FAIL
+    stage_step: STAGE3_STEP_9
+    blocker_id: CI-001
+    evidence:
+      - docs/99-staged-design-and-implementation-plan.md requires contract lint in CI or at minimum a repository validation script before Stage 3 can pass
+      - current branch root contains only .gitignore, AGENTS.md, README.md, diagrams, docs and specs
+      - no scripts directory exists
+      - no .github/workflows directory exists
+    required_fix: >-
+      Add a deterministic repository validator for the machine-readable OpenAPI
+      contract and wire it into a GitHub Actions workflow. The validator must at
+      minimum parse the contract YAML, resolve path/component refs, enforce unique
+      operationIds, verify required-operations bidirectional coverage, validate
+      security scheme references/permission annotations and reject request schemas
+      that expose readOnly fields.
 
   final_stage_3_contract_convergence:
-    status: PENDING_FINAL_GATE
+    status: FAIL_BLOCKED_BY_CI_001
+    stage_step: STAGE3_STEP_9
 
 resolved_blockers:
   - id: TRACE-001
     severity: P1
-    resolution: >-
-      specs/traceability/core-v1.yml now preserves the PKK configuration-gate
-      onboarding flow, includes both required API operations, links the Stage-2
-      canonical settings database specification and declares the same-source-of-
-      truth ownership and test obligations for /organization/settings and the PKK
-      configuration gate.
+    resolution: PKK configuration-gate traceability synchronized with Stage-2 canonical settings ownership.
   - id: SEC-001
     severity: P1
-    resolution: >-
-      The reverse-engineered external exam result flow uses an opaque result/access
-      token, but result and question-review API operations previously inherited
-      OSK-session-only authentication. They now explicitly support sessionCookie
-      OR examAccessToken, restricted to the matching finished attempt and
-      result-review scope so the token cannot reveal answer review before finish.
+    resolution: External exam result/review now supports scoped opaque exam access token without exposing unfinished answer review.
   - id: REQ-001
     severity: P1
-    resolution: >-
-      Direct client writes to StudentLearningAccount.status were removed. The
-      status is now a read-only lifecycle projection; the observed editable access
-      fields remain login/language, while server-owned lifecycle effects use
-      explicit domain commands. Common request-validation rules now prohibit raw
-      mass assignment and server-owned field writes without a dedicated contract.
+    resolution: Direct client writes to StudentLearningAccount.status removed and request mass-assignment policy hardened.
 
-open_blockers: []
+open_blockers:
+  - id: CI-001
+    severity: P1
+    description: Stage-3 contract rules are documented but not yet executable in repository CI or a validation script.
+    allowed_scope_for_fix:
+      - scripts/contract-validation/*
+      - .github/workflows/api-contract-gate.yml
+      - specs/gates/stage-3-openapi-contract-gate.yml
+      - specs/api/required-operations-v1.yml
+      - docs/99-staged-design-and-implementation-plan.md
 
 gate_definition:
   PASS_requires:
@@ -372,11 +212,12 @@ gate_definition:
     - no_dangling_refs
     - no_duplicate_operationIds
     - traceability_is_synchronized
-  current_result: FAIL_PENDING_FINAL_STAGE_3_CONVERGENCE
+    - executable_contract_lint_exists_and_is_wired_to_CI_or_explicit_repo_command
+  current_result: FAIL
   may_start_stage_4: false
 
 next_single_step:
-  id: STAGE3_STEP_9
-  action: run_final_stage_3_contract_convergence_audit_only
-  scope_lock: do_not_start_stage_4_until_all_prior_stage_3_checks_are_reconfirmed_and_coverage_status_is_frozen
-  after_action: set_stage_3_PASS_only_if_no_new_P0_or_P1_and_all_contract_inventories_remain_bidirectionally_consistent
+  id: STAGE3_STEP_10
+  action: fix_CI_001_only_by_adding_executable_contract_validator_and_CI_workflow
+  scope_lock: do_not_start_stage_4_or_modify_domain_database_or_UI_files
+  after_action: run_or_statically_audit_the_validator_contract_then_rerun_final_stage_3_gate
