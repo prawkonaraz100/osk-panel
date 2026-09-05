@@ -12,9 +12,9 @@ Data: 2026-09-05
 
 - syntetyczny primary key i odpowiadające mu foreign keys: natywny PostgreSQL `uuid`,
 - identyfikatory domenowe generowane przez naszą aplikację: **UUIDv7**, generowany przed `INSERT`; nie wolno po cichu używać UUIDv4,
-- nie wymagamy DB-default do generowania UUIDv7 — dzięki temu physical schema nie zależy od wersji PostgreSQL ani rozszerzenia udostępniającego generator UUIDv7,
+- nie wymagamy DB-default do generowania UUIDv7,
 - zewnętrzne identyfikatory providerów/importów pozostają osobnymi polami i nie są używane jako nasze primary keys,
-- czyste tabele join/dictionary mogą zachować jawnie zaprojektowany klucz naturalny/composite, jeśli nie potrzebują własnej historycznej tożsamości rekordu,
+- czyste tabele join/dictionary mogą zachować jawnie zaprojektowany klucz naturalny/composite,
 - wszystkie timestampy: `timestamptz`,
 - storage czasu: UTC,
 - timezone prezentacji: IANA timezone organizacji, domyślnie `Europe/Warsaw`,
@@ -26,7 +26,7 @@ Data: 2026-09-05
 - tenant-owned table ma `organization_id` tam, gdzie upraszcza autoryzację i indeksy,
 - constraint dla stanu bieżącego nie może niszczyć historii; używamy partial unique tam, gdzie rekord może być revoked/released i ponownie użyty.
 
-Decyzja UUIDv7 dotyczy naszego synthetic domain ID. Publiczne API nadal przekazuje UUID jako string, więc zamknięcie tej decyzji nie wymaga zmiany Stage-3 kontraktu HTTP.
+Decyzja UUIDv7 dotyczy naszego synthetic domain ID. Publiczne API nadal przekazuje UUID jako string.
 
 ---
 
@@ -67,10 +67,7 @@ Analogicznie:
 - `created_at timestamptz`
 - `updated_at timestamptz`
 
-`name` jest canonical company name. `nip` może pozostać polem domenowym, ale nie jest częścią potwierdzonego formularza Ustawień i nie wolno go przez to formularz wymuszać.
-
-Indexes:
-- `(status)`.
+`name` jest canonical company name. `nip` może pozostać polem domenowym, ale nie jest częścią potwierdzonego formularza Ustawień.
 
 ## `organization_settings`
 
@@ -85,7 +82,7 @@ One-to-one z `organizations`.
 
 `version` jest aggregate version dla `ETag/If-Match` i optimistic concurrency ekranu Ustawień oraz PKK configuration gate. Udany atomowy zapis zwiększa wersję dokładnie raz.
 
-Krytyczne ustawienia domenowe nie trafiają do `preferences`. W szczególności zabronione są tam: company address, company phone, PKK credentials/configuration, owner name i primary email.
+Krytyczne ustawienia domenowe nie trafiają do `preferences`.
 
 ## `organization_contact_addresses`
 
@@ -103,30 +100,24 @@ Canonical structured company/contact address z ekranu Ustawień OSK. To **nie je
 - `created_at timestamptz`
 - `updated_at timestamptz`
 
-Inwariant:
-- najwyżej jeden bieżący structured company/contact address na `Organization`, wymuszony przez `organization_id` jako PK,
-- `organization_contact_addresses` i `locations` są odrębnymi konceptami; aktualizacja adresu firmy nie tworzy/edytuje lokalizacji szkoleniowej.
+`organization_contact_addresses` i `locations` są odrębnymi konceptami.
 
 ## `users`
 
 Globalna tożsamość auth.
 
 - `id uuid PK`
-- `first_name varchar(120) null podczas technicznego/pre-onboarding stanu; wymagane dla human user po onboardingu`
-- `last_name varchar(120) null podczas technicznego/pre-onboarding stanu; wymagane dla human user po onboardingu`
+- `first_name varchar(120) null` podczas technicznego/pre-onboarding stanu; wymagane dla human user po onboardingu,
+- `last_name varchar(120) null` analogicznie,
 - `password_hash varchar(255) null`
 - `status varchar(32) not null`
 - `last_login_at timestamptz null`
 - `created_at`
 - `updated_at`
 
-Imię i nazwisko są globalnymi polami tożsamości użytkownika. Nie duplikujemy ich per OSK ani w `pkk_integration_settings`.
-
-E-mail/login nie jest kanoniczną kolumną w `users`; resolver loginu jest w `auth_login_identifiers`.
+Imię i nazwisko są globalnymi polami tożsamości użytkownika. E-mail/login nie jest kanoniczną kolumną w `users`.
 
 ## `auth_login_identifiers`
-
-Obsługuje generic login page bez wyboru OSK i historię zmian identyfikatorów.
 
 - `id uuid PK`
 - `user_id uuid FK users`
@@ -141,10 +132,6 @@ Partial unique:
 - `(identifier_normalized)` where `revoked_at is null`,
 - `(user_id, identifier_type)` where `revoked_at is null AND is_primary_for_type=true`.
 
-Pierwszy constraint gwarantuje jednoznaczne rozwiązywanie logowania. Drugi gwarantuje najwyżej jeden bieżący primary identifier danego typu na użytkownika. E-mail na ekranie Ustawień jest projekcją bieżącego, nieodwołanego `identifier_type='email'` z `is_primary_for_type=true`.
-
-Zmiana e-maila musi zachowywać historię identyfikatorów zgodnie z finalnym ADR weryfikacji/recovery; nie projektujemy mutowania zweryfikowanej identity „w miejscu”, jeśli finalny flow wymaga pending nowego identyfikatora.
-
 ## `auth_social_accounts`
 
 - `id uuid PK`
@@ -154,16 +141,122 @@ Zmiana e-maila musi zachowywać historię identyfikatorów zgodnie z finalnym AD
 - `created_at`
 - `revoked_at timestamptz null`
 
-Unique:
-- `(provider, provider_subject)` dla aktywnej identity.
+Unique `(provider, provider_subject)` dla aktywnej identity.
+
+## `organization_memberships`
+
+To trwały tenant authorization aggregate root. Jeden row na `(organization_id,user_id)`; nie hard-delete.
+
+- `id uuid PK`
+- `organization_id uuid FK organizations`
+- `user_id uuid FK users` — immutable po utworzeniu membership,
+- `status varchar(32) not null` — `active|suspended|revoked`,
+- `is_owner boolean not null default false`,
+- `role_template_code varchar(64) null` — provenance/UI only,
+- `role_template_catalog_version varchar(64) null` — provenance/UI only,
+- `version bigint not null default 1 check (version >= 1)`,
+- `authorization_version bigint not null default 1 check (authorization_version >= 1)`,
+- `created_at`,
+- `updated_at`.
+
+Unique/candidate keys:
+- `UNIQUE(organization_id,user_id)`,
+- `UNIQUE(id,user_id)` — potrzebne jako target composite FK sesji.
+
+Stare `data_scope varchar(64)` jest **usunięte z canonical physical model**. Scope jest per permission.
+
+`version` = optimistic-concurrency version całego membership authorization aggregate.
+
+`authorization_version` = security epoch. Wzrasta przy zmianie permission/scope/Owner lub statusu wpływającego na authorization eligibility.
+
+Status:
+- `active` — może autoryzować po permission + scope,
+- `suspended` — nie autoryzuje, ale zachowuje current permission/scope config do jawnego wznowienia,
+- `revoked` — nie autoryzuje, `is_owner=false`, current permission rows są `granted=false`, scope rows są usunięte.
+
+Reactivation:
+- `suspended -> active` zachowuje config, ale nie wiąże starych sesji automatycznie,
+- `revoked -> active` wymaga świeżego template/permission+scope provisioning; stary Owner i stare prawa nie wracają automatycznie.
+
+## `permissions`
+
+- `code varchar(128) PK`
+- `description varchar(255)`.
+
+Katalog synchronizowany ze `specs/security/permissions.yml`.
+
+## `membership_permissions`
+
+Current runtime source of truth dla capability:
+- `membership_id uuid FK organization_memberships`
+- `permission_code varchar(128) FK permissions`
+- `granted boolean not null`
+- `created_at`.
+
+Unique `(membership_id,permission_code)`.
+
+Brak row = DENY. `role_template_code` nie jest konsultowany runtime. Permission rows nie mają niezależnego version — concurrency root to `organization_memberships.version`.
+
+## `data_scopes`
+
+Katalog:
+- `code varchar(64) PK`
+- `description varchar(255)`.
+
+Canonical codes:
+- `organization`,
+- `own`,
+- `assigned_students`,
+- `assigned_locations`.
+
+## `permission_scope_options`
+
+Whitelist legalnych permission/scope + resolver:
+- `permission_code varchar(128) FK permissions`,
+- `scope_code varchar(64) FK data_scopes`,
+- `resolver_code varchar(96) not null`.
+
+PK `(permission_code,scope_code)`.
+
+## `membership_permission_scopes`
+
+Current scope predicates dla granted permission:
+- `membership_id uuid`,
+- `permission_code varchar(128)`,
+- `scope_code varchar(64)`,
+- `created_at timestamptz`.
+
+PK `(membership_id,permission_code,scope_code)`.
+
+Composite FK:
+- `(membership_id,permission_code)` -> `membership_permissions`,
+- `(permission_code,scope_code)` -> `permission_scope_options`.
+
+Reguły:
+- granted permission wymaga co najmniej jednego legalnego scope,
+- denied permission ma zero scope rows,
+- brak scope przy `granted=true` = fail-closed DENY,
+- wiele scope rows dla jednego permission = logiczne OR po wcześniejszej tenant validation.
+
+## Owner governance
+
+`is_owner` jest governance markerem, nie skrótem autoryzacyjnym.
+
+Owner musi mieć jawnie materializowany protected baseline z `organization` scope:
+- `organization.view`,
+- `organization.members.manage`,
+- `staff.permissions.manage`,
+- `sessions.manage.organization`.
+
+Zmiana Ownera jest serializowana per organizacja. Post-transaction active Owner count musi być `>= 1`. Transfer Ownera = promotion successor + demotion predecessor w jednej transakcji.
+
+Normal admin flow blokuje self-promotion, self-grant i self-scope-broadening. Administrator nie może delegować permission/scope ponad własny effective grant ceiling. Elevated grant/broadening wymaga aktywnego Ownera.
 
 ## `auth_sessions`
 
-Trwała projekcja/store sesji potrzebna przez `GET /auth/sessions` i revoke. Może być fizycznie oparta na własnej tabeli albo bezpiecznym frameworkowym session store, ale kontrakt musi pozostać ten sam.
-
 - `id uuid PK`
 - `user_id uuid FK users`
-- `organization_membership_id uuid null FK organization_memberships`
+- `organization_membership_id uuid null`
 - `token_or_framework_session_hash varchar(255) unique not null`
 - `created_at timestamptz`
 - `last_seen_at timestamptz null`
@@ -172,11 +265,29 @@ Trwała projekcja/store sesji potrzebna przez `GET /auth/sessions` i revoke. Mo�
 - `ip_hash varchar(128) null`
 - `user_agent varchar(512) null`.
 
-Nie zapisujemy raw cookie/bearer secret. Revoke jest zmianą stanu, nie kasowaniem historii bezpieczeństwa.
+Same-user tenant integrity:
+
+`FOREIGN KEY (organization_membership_id,user_id)`
+`REFERENCES organization_memberships(id,user_id)`
+`MATCH SIMPLE ON UPDATE RESTRICT ON DELETE RESTRICT`.
+
+Gdy `organization_membership_id IS NULL`, sesja może być global/pre-tenant. Tenant-owned request bez aktywnego membership context = DENY.
+
+Selected organization wynika z membership, nigdy z client-supplied `organization_id` jako authority.
+
+Przed dodaniem composite FK migracja skanuje istniejące session rows i nie naprawia cross-user mismatch automatycznie przez przepięcie do innej osoby.
+
+## Membership mutation / session effects
+
+Każdy admin mutation przyjmuje expected membership version, lockuje target row i po locku porównuje version. Stale version -> conflict bez partial write.
+
+Permission/scope mutation jest atomowa, stosuje self-escalation/grant-ceiling/Owner rules i zwiększa `version` raz oraz `authorization_version` raz, jeżeli effective authorization się zmieniła. Audit + outbox powstają w tej samej transakcji.
+
+Przy `active -> suspended` lub `active|suspended -> revoked` wszystkie `auth_sessions.organization_membership_id` wskazujące membership są ustawiane na `NULL` w tej samej transakcji. Globalna session identity może pozostać zalogowana, więc inne OSK tego samego Usera nie są automatycznie odbierane.
+
+Permission revoke przy nadal `active` membership nie wymaga logoutu; `authorization_version` unieważnia stare cache/elevation proof najpóźniej przed następną biznesową autoryzacją.
 
 ## `account_closure_requests`
-
-Audytowalny workflow dla żądania zamknięcia konta.
 
 - `id uuid PK`
 - `user_id uuid FK users`
@@ -189,47 +300,9 @@ Audytowalny workflow dla żądania zamknięcia konta.
 - `resolution_note text null`
 - `request_id varchar(64)`.
 
-Partial unique — dwa jawne scope'y:
-- `(user_id, organization_id)` where `status='pending' AND organization_id IS NOT NULL`,
+Partial unique:
+- `(user_id,organization_id)` where `status='pending' AND organization_id IS NOT NULL`,
 - `(user_id)` where `status='pending' AND organization_id IS NULL`.
-
-Semantyka:
-- użytkownik może mieć po jednym pending request osobno dla różnych OSK,
-- użytkownik może mieć najwyżej jeden globalny pending request,
-- globalny request (`organization_id IS NULL`) nie omija constraintu przez semantykę PostgreSQL `NULL != NULL` dla zwykłego UNIQUE.
-
-Żądanie nie oznacza automatycznego hard-delete danych formalnych/finansowych.
-
-## `organization_memberships`
-
-- `id uuid PK`
-- `organization_id uuid FK`
-- `user_id uuid FK`
-- `status varchar(32)`
-- `role_template_code varchar(64) null`
-- `data_scope varchar(64) null`
-- `created_at`
-- `updated_at`
-
-Unique:
-- `(organization_id, user_id)`.
-
-Jedna osoba może mieć membership w wielu OSK.
-
-## `permissions`
-
-- `code varchar(128) PK`
-- `description varchar(255)`.
-
-## `membership_permissions`
-
-- `membership_id uuid FK`
-- `permission_code varchar(128) FK`
-- `granted boolean not null`
-- `created_at`
-
-Unique:
-- `(membership_id, permission_code)`.
 
 ---
 
@@ -240,7 +313,7 @@ Unique:
 Immutable versions.
 
 - `id uuid PK`
-- `document_type varchar(64)` — np. `terms_of_service`,
+- `document_type varchar(64)`
 - `version varchar(64)`
 - `content_hash char(64)`
 - `storage_asset_id uuid null FK file_assets`
@@ -248,8 +321,7 @@ Immutable versions.
 - `effective_from timestamptz null`
 - `created_at`
 
-Unique:
-- `(document_type, version)`.
+Unique `(document_type,version)`.
 
 ## `terms_acceptances`
 
@@ -264,10 +336,7 @@ Append-only.
 - `user_agent varchar(512) null`
 - `request_id varchar(64)`
 
-Unique:
-- `(organization_id, user_id, legal_document_id)`.
-
-To pozwala UI pokazać konkretną zaakceptowaną wersję regulaminu zamiast tylko „aktualnego dokumentu”.
+Unique `(organization_id,user_id,legal_document_id)`.
 
 ---
 
@@ -275,13 +344,11 @@ To pozwala UI pokazać konkretną zaakceptowaną wersję regulaminu zamiast tylk
 
 ## `file_assets`
 
-Wspólny record dla zdjęć, PDF, podpisanych XML i dokumentów.
-
 - `id uuid PK`
-- `organization_id uuid null FK` — null tylko dla platformowego/global asset,
+- `organization_id uuid null FK`
 - `storage_disk varchar(64)`
 - `storage_key varchar(512) not null`
-- `original_filename varchar(255) null` — sanitized display only,
+- `original_filename varchar(255) null`
 - `mime_type_declared varchar(128) null`
 - `mime_type_detected varchar(128) null`
 - `size_bytes bigint not null`
@@ -293,10 +360,7 @@ Wspólny record dla zdjęć, PDF, podpisanych XML i dokumentów.
 - `ready_at timestamptz null`
 - `deleted_at timestamptz null`
 
-Unique:
-- `storage_key`.
-
-Business entity przypina plik dopiero po `ready`. Storage key nie pochodzi wprost z user filename.
+Unique `storage_key`.
 
 ---
 
@@ -318,18 +382,11 @@ Business entity przypina plik dopiero po `ready`. Storage key nie pochodzi wpros
 - `completed_at timestamptz null`
 - `expires_at timestamptz null`
 
-Partial unique — dwa jawne namespace'y:
-- tenant: `(organization_id, operation_key, idempotency_key)` where `organization_id IS NOT NULL`,
-- global/non-tenant: `(operation_key, idempotency_key)` where `organization_id IS NULL`.
+Partial unique:
+- tenant `(organization_id,operation_key,idempotency_key)` where `organization_id IS NOT NULL`,
+- global `(operation_key,idempotency_key)` where `organization_id IS NULL`.
 
-Reguły:
-- claim key przed business effect,
-- same key + same hash w tym samym scope -> ten sam efekt/result,
-- same key + different hash w tym samym scope -> conflict,
-- ten sam `idempotency_key` może poprawnie wystąpić w dwóch różnych OSK,
-- globalny scope jest odrębnym namespace od każdego tenantowego scope,
-- wiele globalnych rekordów o tym samym `(operation_key, idempotency_key)` jest blokowane mimo `organization_id IS NULL`,
-- one-time plaintext password/token nie trafia do `safe_response_snapshot`.
+Same key + different request hash w tym samym scope = conflict. One-time plaintext password/token nie trafia do snapshotu.
 
 ---
 
@@ -361,10 +418,7 @@ Zaobserwowany słownik kursów: `A, B, C, D, T, A1, B1, C1, D1, AM, A2, B+E, C1+
 - `label_key varchar(128)`
 - `active boolean`.
 
-Start:
-- `branch`,
-- `lecture_room`,
-- `maneuvering_area`.
+Start: `branch`, `lecture_room`, `maneuvering_area`.
 
 ## `staff_types`
 
@@ -384,17 +438,12 @@ Start:
 - `valid_to date null`
 - `metadata jsonb null`.
 
-Unique current capability zależnie od lifecycle/versioning.
-
 ## `internal_exam_capability_languages`
 
 - `internal_exam_capability_id uuid FK`
 - `language_code varchar(16) FK languages`
 
-Unique:
-- `(internal_exam_capability_id, language_code)`.
-
-Języki i kategorie są capability/config, nie stałą w Vue.
+Unique `(internal_exam_capability_id,language_code)`.
 
 ---
 
@@ -418,30 +467,30 @@ Języki i kategorie są capability/config, nie stałą w Vue.
 - `updated_at`.
 
 Indexes:
-- `(organization_id, archived_at)`,
-- `(organization_id, last_name, first_name)`,
-- optional partial unique `(organization_id, pesel_lookup_hash)` where not null.
+- `(organization_id,archived_at)`,
+- `(organization_id,last_name,first_name)`,
+- optional partial unique `(organization_id,pesel_lookup_hash)` where not null.
 
 ## `staff_type_assignments`
 
 - `staff_profile_id uuid FK`
 - `staff_type_code varchar(64) FK`
 
-Unique `(staff_profile_id, staff_type_code)`.
+Unique `(staff_profile_id,staff_type_code)`.
 
 ## `staff_category_assignments`
 
 - `staff_profile_id uuid FK`
 - `driving_category_id uuid FK`
 
-Unique `(staff_profile_id, driving_category_id)`.
+Unique `(staff_profile_id,driving_category_id)`.
 
 ## `staff_location_assignments`
 
 - `staff_profile_id uuid FK`
 - `location_id uuid FK`
 
-Unique `(staff_profile_id, location_id)`.
+Unique `(staff_profile_id,location_id)`.
 
 ## `staff_membership_links`
 
@@ -474,14 +523,7 @@ Backend sprawdza zgodność organization po obu stronach.
 - `created_at`
 - `updated_at`.
 
-Startowe typy z UI:
-- `card_or_authorization`,
-- `medical_exam`,
-- `psychological_exam`.
-
-Indexes:
-- `(organization_id, document_type, valid_until)`,
-- `(staff_profile_id, document_type)`.
+Startowe typy: `card_or_authorization`, `medical_exam`, `psychological_exam`.
 
 ---
 
@@ -502,12 +544,6 @@ Indexes:
 - `archived_by_user_id uuid null`
 - `created_at`
 - `updated_at`.
-
-Indexes:
-- `(organization_id, archived_at)`,
-- `(organization_id, type_code)`.
-
-Wyszukiwany katalog miejscowości może być zewnętrznym providerem lub lokalnym słownikiem; `city_reference` zachowuje stabilny identyfikator, jeśli provider go daje.
 
 ---
 
@@ -530,9 +566,7 @@ Wyszukiwany katalog miejscowości może być zewnętrznym providerem lub lokalny
 - `created_at`
 - `updated_at`.
 
-Unique:
-- `(organization_id, registration_number_normalized)` zgodnie z finalną polityką reuse po archiwizacji,
-- optional `(organization_id, vin_normalized)` where not null.
+Unique `(organization_id,registration_number_normalized)` zgodnie z finalną polityką reuse po archiwizacji; optional `(organization_id,vin_normalized)` where not null.
 
 ## `vehicle_documents`
 
@@ -545,24 +579,21 @@ Unique:
 - `created_at`
 - `updated_at`.
 
-Typy:
-- `technical_inspection`,
-- `oc_insurance`,
-- `ac_insurance`.
+Typy: `technical_inspection`, `oc_insurance`, `ac_insurance`.
 
 ## `vehicle_category_assignments`
 
 - `vehicle_id uuid FK`
 - `driving_category_id uuid FK`
 
-Unique `(vehicle_id, driving_category_id)`.
+Unique `(vehicle_id,driving_category_id)`.
 
 ## `vehicle_location_assignments`
 
 - `vehicle_id uuid FK`
 - `location_id uuid FK`
 
-Unique `(vehicle_id, location_id)`.
+Unique `(vehicle_id,location_id)`.
 
 ---
 
@@ -585,17 +616,9 @@ Unique `(vehicle_id, location_id)`.
 - `created_at`
 - `updated_at`.
 
-Validation:
-- branch z PESEL albo formalny branch bez PESEL + birth date.
-
-Indexes:
-- `(organization_id, archived_at, last_name, first_name)`,
-- `(organization_id, contact_email_normalized)`,
-- optional partial unique `(organization_id, pesel_lookup_hash)` where not null.
+Validation: branch z PESEL albo formalny branch bez PESEL + birth date.
 
 ## `student_learning_accounts`
-
-Tenantowy kontekst dostępu edukacyjnego.
 
 - `id uuid PK`
 - `organization_id uuid FK`
@@ -608,8 +631,6 @@ Tenantowy kontekst dostępu edukacyjnego.
 - `created_at`
 - `updated_at`.
 
-Login resolution canonical = `auth_login_identifiers`; projection służy tabelom/adminowi.
-
 ## `student_access_handoffs`
 
 - `id uuid PK`
@@ -620,7 +641,7 @@ Login resolution canonical = `auth_login_identifiers`; projection służy tabelo
 - `document_asset_id uuid null FK file_assets`
 - `created_at`.
 
-Nie ma kolumny plaintext password. Plaintext może istnieć tylko w jednorazowym response/handoff przy create/reset.
+Nie ma kolumny plaintext password.
 
 ---
 
@@ -648,14 +669,7 @@ Nie ma kolumny plaintext password. Plaintext może istnieć tylko w jednorazowym
 - `created_at`
 - `updated_at`.
 
-`declared_*` zachowują zaobserwowane pola „Godzin teorii/praktyki” jako plan/deklarację. **Nie są zaliczonym formalnym czasem.**
-
-Current requirement profile nie jest pointerem na row; to latest `training_requirement_profiles` with `superseded_at IS NULL`.
-
-Indexes:
-- `(organization_id, student_id, started_at desc)`,
-- `(organization_id, training_stage)`,
-- `(lead_instructor_id, started_at)`.
+`declared_*` zachowują zaobserwowane pola jako plan/deklarację. **Nie są zaliczonym formalnym czasem.**
 
 ## `training_requirement_profiles`
 
@@ -674,8 +688,7 @@ Indexes:
 - `calculated_at timestamptz`
 - `superseded_at timestamptz null`.
 
-Partial unique:
-- `(course_enrollment_id)` where `superseded_at is null`.
+Partial unique `(course_enrollment_id)` where `superseded_at is null`.
 
 ## `course_exemption_decisions`
 
@@ -689,8 +702,6 @@ Partial unique:
 - `rule_set_version varchar(64)`
 - `created_at`
 - `revoked_at timestamptz null`.
-
-Nie służy do dowolnego obniżania wymogów prawnych; operator koryguje fakty/podstawę, a rule engine wylicza wynik.
 
 ## `recognized_external_training`
 
@@ -708,8 +719,6 @@ Nie służy do dowolnego obniżania wymogów prawnych; operator koryguje fakty/p
 - `revoked_at timestamptz null`
 - `revoked_by_user_id uuid null`
 - `reversal_reason text null`.
-
-Pola „Teoria/Praktyka odbyta w innej szkole” tworzą/aktualizują te rekordy poprzez audited lifecycle.
 
 ---
 
@@ -743,7 +752,7 @@ Check `ends_at > starts_at`.
 - `confirmed_by_user_id uuid null`
 - `confirmed_at timestamptz null`.
 
-Unique `(training_session_id, student_id)`.
+Unique `(training_session_id,student_id)`.
 
 ## `training_hour_ledger_entries`
 
@@ -763,8 +772,6 @@ Immutable.
 
 Formalny credited time bieżącego OSK = ledger projection.
 
-Import istniejącego kursu może utworzyć `opening_balance` tylko w jawnej mode z reason/audit. Zwykła edycja `declared_*` nie zwiększa formalnych godzin.
-
 ---
 
 # 14. PKK
@@ -777,22 +784,11 @@ Canonical one-to-one konfiguracja PKK dla organizacji, wspólna dla `/ustawienia
 - `school_name varchar(255) null`
 - `osk_registry_number varchar(128) null`
 - `external_osk_login_ciphertext text null`
-- `external_osk_login_lookup_hash char(64) null` — tylko jeśli finalnie potrzebny exact lookup,
+- `external_osk_login_lookup_hash char(64) null`
 - `readiness_status varchar(32) not null default 'not_configured'`
 - `updated_at timestamptz`
 
-`readiness_status`:
-- `not_configured`,
-- `configured_unverified`,
-- `verified`,
-- `requires_attention`.
-
-Reguły:
-- plaintext `external_osk_login` nie jest przechowywany po zapisie,
-- pełna wartość nie trafia do audit/log/activity payload,
-- `external_osk_login` nie jest loginem do naszej aplikacji,
-- imię i nazwisko operatora nie są duplikowane w tej tabeli — należą do `users`,
-- provider-specific secret/credential storage, jeżeli finalny kontrakt providera go wymaga, dostaje osobny secret reference/adapter contract i nie zmienia canonical pól obserwowanego ekranu.
+`readiness_status`: `not_configured|configured_unverified|verified|requires_attention`.
 
 ## `pkk_profiles`
 
@@ -806,8 +802,6 @@ Reguły:
 - `profile_snapshot_redacted jsonb null`
 - `fetched_at timestamptz null`
 - `updated_at`.
-
-Plain full provider payload w JSONB jest zabroniony.
 
 ## `pkk_operations`
 
@@ -825,8 +819,6 @@ Plain full provider payload w JSONB jest zabroniony.
 - `created_at`
 - `completed_at timestamptz null`.
 
-Partial unique/idempotency policy zgodna ze wspólnym idempotency store.
-
 ## `pkk_operation_attempts`
 
 - `id uuid PK`
@@ -842,7 +834,7 @@ Partial unique/idempotency policy zgodna ze wspólnym idempotency store.
 - `started_at`
 - `finished_at timestamptz null`.
 
-Unique `(pkk_operation_id, attempt_no)`.
+Unique `(pkk_operation_id,attempt_no)`.
 
 ---
 
@@ -885,8 +877,6 @@ Backend waliduje konflikt zasobów. Strategia DB exclusion constraint vs transac
 - `booked_at timestamptz null`
 - `version integer default 1`.
 
-Important dates mogą być event_type/projection z dokumentów i terminów; nie wymagają duplikowania źródłowych dat.
-
 ---
 
 # 16. Student finance
@@ -926,7 +916,7 @@ Important dates mogą być event_type/projection z dokumentów i terminów; nie 
 - `reversal_reason text null`
 - `created_at`.
 
-Balance/`Pozostało` = projection z charge - nieodwrócone payments.
+Balance = charge - nieodwrócone payments.
 
 ---
 
@@ -946,13 +936,9 @@ Balance/`Pozostało` = projection z charge - nieodwrócone payments.
 - `license_product_id uuid FK`
 - `language_code varchar(16) FK languages`
 
-Unique `(license_product_id, language_code)`.
-
-Zaobserwowany generator zawierał PL/EN/DE/RU/UK, a publiczna oferta miała inny zakres — capability per product, nie globalny hardcode.
+Unique `(license_product_id,language_code)`.
 
 ## `license_inventory_entries`
-
-Jedna sztuka = jeden row.
 
 - `id uuid PK`
 - `organization_id uuid FK`
@@ -962,11 +948,7 @@ Jedna sztuka = jeden row.
 - `granted_at timestamptz`
 - `created_at`.
 
-Index `(organization_id, license_product_id, status)`.
-
 ## `license_assignments`
-
-Historyczny fakt przypisania.
 
 - `id uuid PK`
 - `organization_id uuid FK`
@@ -982,10 +964,7 @@ Historyczny fakt przypisania.
 - `revoke_reason text null`
 - `version integer default 1`.
 
-Partial unique:
-- `(license_inventory_entry_id)` where current/not revoked.
-
-Nie ma globalnego UNIQUE po inventory przez całą historię.
+Partial unique `(license_inventory_entry_id)` where current/not revoked.
 
 ## `license_activations`
 
@@ -1000,20 +979,7 @@ Nie ma globalnego UNIQUE po inventory przez całą historię.
 
 Check `effective_to > effective_from`.
 
-Stacking:
-1. lock `StudentLearningAccount`,
-2. validate assignment/inventory,
-3. `current_end = max(existing effective_to)` dla aktywnego entitlementu,
-4. `effective_from = max(now, current_end)`,
-5. `effective_to = effective_from + product duration`,
-6. consume inventory,
-7. audit/outbox,
-8. commit.
-
-Dwa równoległe extensiony nie mogą zgubić czasu.
-
-Revoke nieaktywowanej:
-`lock -> verify no activation -> revoke -> restore exactly one inventory -> audit -> commit`.
+Stacking i revoke pozostają zgodne z `specs/database/core-schema.yml`.
 
 ---
 
@@ -1039,7 +1005,7 @@ Revoke nieaktywowanej:
 - `driving_category_id uuid FK`
 - `language_code varchar(16)`
 - `requirement_basis varchar(128)`
-- `candidate_snapshot jsonb not null` — sanitized immutable snapshot,
+- `candidate_snapshot jsonb not null`
 - `status varchar(32)`
 - `started_at timestamptz null`
 - `finished_at timestamptz null`
@@ -1048,8 +1014,6 @@ Revoke nieaktywowanej:
 - `created_at`.
 
 ## `internal_exam_reservations`
-
-Historyczny fakt rezerwacji.
 
 - `id uuid PK`
 - `organization_id uuid FK`
@@ -1065,8 +1029,6 @@ Historyczny fakt rezerwacji.
 Partial unique:
 - `(internal_exam_inventory_entry_id)` where `status='reserved'`,
 - `(internal_exam_attempt_id)` where `status='reserved'`.
-
-Released history nie blokuje ponownej rezerwacji inventory.
 
 ## `internal_exam_accesses`
 
@@ -1084,11 +1046,7 @@ Released history nie blokuje ponownej rezerwacji inventory.
 - `created_at`
 - `version integer default 1`.
 
-Raw remote token nie jest później odzyskiwalny z DB.
-
 ## `exam_stations`
-
-Stabilne stanowisko OSK.
 
 - `id uuid PK`
 - `organization_id uuid FK`
@@ -1100,8 +1058,6 @@ Stabilne stanowisko OSK.
 - `updated_at`.
 
 ## `internal_exam_station_sessions`
-
-Historia powiązania rozpoczętej próby ze stanowiskiem.
 
 - `id uuid PK`
 - `organization_id uuid FK`
@@ -1119,11 +1075,8 @@ Partial unique:
 - `(exam_station_id)` where `ended_at is null`,
 - `(internal_exam_attempt_id)` where `ended_at is null`.
 
-Failover po starcie zamyka starą session i tworzy nową z `technical_transfer`; inventory nie jest konsumowane drugi raz.
-
 ## `internal_exam_attempt_questions`
 
-Immutable snapshot:
 - `id uuid PK`
 - `internal_exam_attempt_id uuid FK`
 - `ordinal smallint`
@@ -1133,7 +1086,7 @@ Immutable snapshot:
 - `points_awarded integer null`
 - `answered_at timestamptz null`.
 
-Unique `(internal_exam_attempt_id, ordinal)`.
+Unique `(internal_exam_attempt_id,ordinal)`.
 
 ## `internal_exam_results`
 
@@ -1155,21 +1108,7 @@ Unique `(internal_exam_attempt_id, ordinal)`.
 - `snapshot_hash char(64)`
 - `created_at`.
 
-Observed answer-sheet PDF/signature requirement maps here.
-
-### Start transaction
-
-1. lock access + attempt + reservation + inventory + station (if local),
-2. validate startability,
-3. verify station available if local,
-4. consume inventory exactly once,
-5. reservation -> consumed,
-6. attempt -> in_progress,
-7. create active station session if local,
-8. audit/outbox,
-9. commit.
-
-Finish nie konsumuje inventory ponownie.
+Start transaction: lock access + attempt + reservation + inventory + station(if local), validate, consume inventory exactly once, create station session if local, audit/outbox, commit. Finish nie konsumuje ponownie.
 
 ---
 
@@ -1211,7 +1150,7 @@ Finish nie konsumuje inventory ponownie.
 - `created_at`
 - `confirmed_at timestamptz null`.
 
-Unique `(provider, provider_payment_id)` where not null.
+Unique `(provider,provider_payment_id)` where not null.
 
 ## `payment_events`
 
@@ -1225,13 +1164,9 @@ Immutable:
 - `received_at timestamptz`
 - `processed_at timestamptz null`.
 
-Unique `(provider, provider_event_id)`.
-
-Dedupe następuje przed business effect.
+Unique `(provider,provider_event_id)`.
 
 ## `service_entitlements`
-
-Generic entitlement dla opłaconej/przyznanej usługi, kiedy produkt nie ma wyspecjalizowanego inventory jak licencja lub egzamin.
 
 - `id uuid PK`
 - `organization_id uuid FK`
@@ -1255,7 +1190,7 @@ Generic entitlement dla opłaconej/przyznanej usługi, kiedy produkt nie ma wysp
 - `effective_to timestamptz null`
 - `created_at`.
 
-Dla `activation_mode=explicit` potwierdzenie płatności tworzy entitlement, ale **nie jest jeszcze aktywacją**. Aktywacja jest exactly-once, idempotentna i audytowana.
+Dla `activation_mode=explicit` payment success nie jest aktywacją.
 
 ---
 
@@ -1278,11 +1213,9 @@ Append-only:
 - `user_agent varchar(512) null`
 - `created_at`.
 
-Audit nie zawiera plaintext password/token/full PESEL/full PKK domyślnie.
+Dla membership authorization mutation audit musi dodatkowo zawierać logicznie `membership_version before/after` i `authorization_version before/after` w bezpiecznym domain diff/snapshot.
 
 ## `organization_activity_events`
-
-Bezpieczna projekcja dla dashboardowego feedu.
 
 - `id uuid PK`
 - `organization_id uuid FK`
@@ -1296,13 +1229,6 @@ Bezpieczna projekcja dla dashboardowego feedu.
 - `source_event_id varchar(128) null`
 - `created_at`.
 
-Indexes:
-- `(organization_id, occurred_at desc)`,
-- `(organization_id, event_type, occurred_at desc)`,
-- `(related_student_id, occurred_at desc)`.
-
-`safe_payload` jest allow-listed i nie zawiera danych wrażliwych. Dashboard nie renderuje raw audit before/after.
-
 ## `outbox_messages`
 
 - `id uuid PK`
@@ -1315,6 +1241,8 @@ Indexes:
 - `published_at timestamptz null`
 - `attempts integer default 0`
 - `last_error text null`.
+
+Membership permission/scope/status/Owner mutation zapisuje outbox w tej samej transakcji co current state + audit.
 
 ## `notifications`
 
@@ -1331,31 +1259,23 @@ Indexes:
 # 21. Foreign-key delete policy
 
 Preferowane:
-- `RESTRICT` dla danych formalnych/finansowych,
+- `RESTRICT` dla danych formalnych/finansowych i membership identity,
 - `SET NULL` tylko dla optional relation, gdy historia nadal ma sens,
 - `CASCADE` tylko dla technicznych child rows bez samodzielnej wartości historycznej.
 
-Nigdy cascade-delete z `Student` do:
-- course enrollment history,
-- exam history,
-- payment history,
-- PKK operation history.
+`organization_memberships` nie jest hard-delete. Suspend/revoke są lifecycle state changes.
 
-Nigdy cascade-delete z `CourseEnrollment` do:
-- PKK operations,
-- training hour ledger,
-- internal exam attempts,
-- student charges.
-
-FileAsset lifecycle jest niezależny od przypadkowego hard-delete parenta.
+Nigdy cascade-delete z `Student` do course enrollment, exam, payment ani PKK operation history. Nigdy cascade-delete z `CourseEnrollment` do PKK operations, training hour ledger, internal exam attempts ani student charges.
 
 ---
 
 # 22. Indeksy tenantowe i query-driven indexing
 
-Każda większa lista panelowa ma indeks zaczynający się od `organization_id` tam, gdzie to praktyczne.
-
 Minimum pod obserwowane query:
+- organization_memberships: `(organization_id,status)`, `(user_id,status)`,
+- membership_permissions: `(membership_id,permission_code)`,
+- membership_permission_scopes: `(membership_id,permission_code)`,
+- auth_sessions: `(user_id,revoked_at,last_seen_at)` i lookup po `organization_membership_id`,
 - students: archived + created/name/search projection,
 - staff: archived + name + document expiry,
 - vehicles: archived + registration + document expiry,
@@ -1364,58 +1284,65 @@ Minimum pod obserwowane query:
 - calendar_events: time range + resource IDs,
 - student_charges/payments: student + date/status,
 - license inventory: product/status,
-- license assignments: learning account + status/date,
 - exam attempts: course/student/date/status/language/category,
 - activity events: organization + occurred_at,
-- orders: organization + status/date,
-- service_entitlements: organization + service_type + status,
-- auth_sessions: user + revoked_at + last_seen_at.
-
-Nie tworzymy „indeksu na każdą kolumnę”; indeks powstaje pod faktyczne screen/API query.
+- orders: organization + status/date.
 
 ---
 
 # 23. Obowiązkowe migration/invariant tests
 
-- generowane przez system synthetic domain IDs są UUIDv7 i są przechowywane jako natywny PostgreSQL `uuid`,
-- `organization_contact_addresses.organization_id` zapewnia najwyżej jeden structured company/contact address per Organization,
-- company/contact address nie jest tworzony jako rekord `locations`,
-- settings projection czyta `first_name/last_name` z `users`,
-- settings projection czyta e-mail z bieżącego primary `auth_login_identifier`,
-- nie można mieć dwóch bieżących primary identifiers tego samego typu dla jednego usera,
-- `organization_settings.version >= 1` i udany atomowy zapis settings zwiększa wersję dokładnie raz,
-- PKK `external_osk_login` nie zmienia application login i plaintext nie jest persistowany,
-- generic login resolves to at most one current user,
-- auth session jest listowalna/revokowalna bez ujawnienia raw secretu,
-- tylko jedno pending account closure request w tym samym scope,
-- same global User może mieć membership w dwóch OSK,
-- staff może istnieć bez panel account,
-- staff ma wiele categories/locations,
-- vehicle ma wiele categories/locations,
-- tylko jeden current TrainingRequirementProfile per course,
-- declared hours nie zwiększają credited time bez ledger entry,
-- revoked license assignment pozwala reuse tej samej inventory sztuki,
-- dwa current assignmenty tej samej inventory sztuki są odrzucone,
-- jedna activation per assignment,
+Identity / Tenant / RBAC:
+- role template nie jest runtime authorization source,
+- future permission dla istniejącego membership domyślnie DENY,
+- granted permission bez legalnego scope = DENY,
+- unsupported permission/scope pair jest odrzucone,
+- `organization` scope nie omija cross-tenant validation,
+- `own` bez canonical owner relation = DENY,
+- assigned scope bez aktywnego staff linku = pusty zbiór,
+- session User A + membership User B jest odrzucone przez composite FK,
+- null membership jest dozwolone dla global/pre-tenant session, ale tenant request = DENY,
+- membership `user_id` jest immutable,
+- Owner marker sam nie daje permissions,
+- Owner bez protected baseline jest consistency failure,
+- self-promotion/self-grant/self-scope-broadening są odrzucone,
+- actor nie deleguje permission/scope ponad własny grant ceiling,
+- transakcja zostawiająca zero active Ownerów jest odrzucona,
+- concurrent Owner demotions nie mogą oba przejść, jeśli wynik byłby zero Ownerów,
+- Owner transfer jest atomowy,
+- stale membership `version` nie może nadpisać nowej konfiguracji,
+- membership mutation zwiększa `version` dokładnie raz,
+- authorization-affecting mutation zwiększa `authorization_version` dokładnie raz,
+- suspend nie autoryzuje mimo zachowanych permission rows,
+- revoke pozostawia zero granted permissions/scope rows,
+- revoked reactivation wymaga fresh provisioning i nie przywraca Ownera,
+- suspend/revoke czyści wszystkie session tenant contexts dla membership w tej samej transakcji,
+- suspend/revoke jednego OSK nie usuwa membershipów tego samego Usera w innych OSK,
+- permission revoke przy aktywnym membership jest skuteczny najpóźniej przy następnym autoryzowanym request bez obowiązkowego logoutu,
+- audit + outbox commitują atomowo z membership mutation.
+
+Pozostałe obowiązkowe testy:
+- generated synthetic IDs są UUIDv7/native uuid,
+- organization contact address jest 1:1 i nie jest `locations`,
+- settings projection czyta user names + primary email z canonical owners,
+- organization_settings version jest >=1 i zwiększa się raz,
+- PKK external login nie zmienia application login i plaintext nie jest persistowany,
+- account closure nullable-scope uniqueness działa dla global i tenant,
+- staff/vehicle multi-category/multi-location działa,
+- declared course hours nie zwiększają credited ledger time,
+- historical license assignment reuse + one current assignment,
 - concurrent license extensions nie gubią czasu,
-- released exam reservation pozwala ponownie użyć inventory,
-- dwa active reservation per inventory/attempt są odrzucone,
-- jedno active local exam per station,
-- jedna active station session per attempt,
-- failover nie konsumuje drugiego egzaminu,
+- exam reservation/station concurrency działa i failover nie konsumuje drugiego creditu,
 - explicit service entitlement activation jest exactly-once,
-- payment success nie aktywuje przedwcześnie entitlementu z `activation_mode=explicit`,
-- duplicate payment event same provider jest odrzucony,
-- ten sam provider_event_id u dwóch providerów nie koliduje,
-- same idempotency key + same request nie duplikuje effect,
-- same key + different request -> conflict,
-- activity safe payload nie przepuszcza PESEL/PKK/password/token.
+- payment event dedupe jest `(provider,provider_event_id)`,
+- idempotency działa osobno dla global i tenant scope,
+- safe activity payload nie przepuszcza sensitive fields.
 
 ---
 
 # 24. Kolejność migracji high-level
 
-1. organizations/users/auth identifiers/sessions/account closure,
+1. organizations/users/auth identifiers + organization memberships + permissions + scope catalogs + membership permission/scope rows + sessions + account closure,
 2. organization settings + company contact address + legal documents/terms acceptance,
 3. dictionaries/capabilities,
 4. file assets + idempotency,
@@ -1436,12 +1363,13 @@ Nie tworzymy „indeksu na każdą kolumnę”; indeks powstaje pod faktyczne sc
 # 25. Zamknięte i oczekujące decyzje techniczne
 
 Zamknięte:
-- synthetic domain ID: UUIDv7 generowany application-side, przechowywany jako natywny PostgreSQL `uuid`,
-- physical ownership Ustawień OSK: names → `users`, primary email → `auth_login_identifiers`, company phone → `organizations`, address → `organization_contact_addresses`, concurrency version → `organization_settings`, PKK configuration → `pkk_integration_settings`.
+- synthetic domain ID: UUIDv7 application-side -> PostgreSQL `uuid`,
+- physical ownership Ustawień OSK,
+- Identity/Tenant/RBAC DB4_2: materialized runtime permissions, per-permission scope, same-user composite session FK, durable membership lifecycle `active|suspended|revoked`, `is_owner` governance marker, last-owner guard, grant ceiling, `version` + `authorization_version`, atomic audit/outbox i session-context clearing na suspend/revoke.
 
 Nadal wymagają osobnego etapu/ADR przed produkcyjnymi migracjami odpowiednich modułów:
 - application encryption + key rotation dla PESEL/PKK/provider snapshots,
-- calendar overlap enforcement: exclusion constraint vs transaction locks,
+- calendar overlap enforcement,
 - immutable snapshot canonicalization/hash,
 - auth account merge/recovery/email verification policy.
 
@@ -1449,24 +1377,6 @@ Nadal wymagają osobnego etapu/ADR przed produkcyjnymi migracjami odpowiednich m
 
 # 26. Reverse-engineering compatibility rule
 
-Schema ma wspierać wszystkie potwierdzone relacje i flow z `specs/reverse-engineering-manifest.yml`, w tym:
-- quick preview kursanta,
-- search/filter/sort,
-- wiele kursów jednego kursanta,
-- wszystkie cztery pola godzinowe kursu,
-- raty i saldo kursanta,
-- PKK per course + operation history,
-- staff/vehicle multi-category i multi-location,
-- dokumenty ważności i alerty,
-- calendar resource filters/custom meeting place,
-- wiele historycznych licencji i stacking,
-- bulk/single credential PDF,
-- wiele prób egzaminu, result review i answer-sheet PDF,
-- dwa entry pointy generowania egzaminu,
-- local station concurrency/failover,
-- dashboard activity feed,
-- listę/revoke sesji konta,
-- audytowalne żądanie zamknięcia konta,
-- zakup -> entitlement -> osobna aktywacja dla usług z activation mode explicit.
+Schema ma wspierać wszystkie potwierdzone relacje i flow z `specs/reverse-engineering-manifest.yml`, w tym quick preview, search/filter/sort, wiele kursów, wszystkie pola godzinowe, finanse, PKK per course, staff/vehicle multi assignments, calendar resources, licencje, credential PDF, internal exams, local station concurrency/failover, dashboard activity, listę/revoke sesji, account closure i purchase entitlement activation.
 
 Jeżeli screen spec lub canonical API wymaga capability, której aktualny schema nie potrafi zapisać, **rozszerzamy schema — nie usuwamy capability ze scope'u**.
