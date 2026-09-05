@@ -1,0 +1,80 @@
+screen:
+  id: pkk_configuration_gate
+  scope: admin_osk
+  entry_contexts:
+    - add_student_from_pkk
+  title: Konfiguracja PKK
+  confidence: USER_CONFIRMED_AUTH_SCREEN
+  verified_at: 2026-09-05
+  doc: docs/37-pkk-configuration-gate.md
+
+trigger:
+  condition: pkk_configuration_incomplete
+  behavior: block_pkk_operation_and_open_configuration
+
+message:
+  semantics:
+    - complete_required_data_to_use_pkk
+    - data_can_be_changed_later_in_account_settings
+
+fields:
+  - name: school_name
+    label: Nazwa szkoły
+    required_by_visible_marker: true
+    domain: pkk_integration_settings
+  - name: osk_registry_number
+    label: Numer ewidencyjny OSK
+    required_by_visible_marker: true
+    domain: pkk_integration_settings
+  - name: external_osk_login
+    label: Login OSK
+    required_by_visible_marker: true
+    domain: pkk_integration_settings
+    semantics: login_received_from_starosty_or_communication_department_not_application_login
+  - name: first_name
+    label: Imię
+    required_by_visible_marker: true
+    domain: user
+  - name: last_name
+    label: Nazwisko
+    required_by_visible_marker: true
+    domain: user
+
+actions:
+  primary:
+    id: save_pkk_configuration_and_continue
+    label: Zapisz i kontynuuj
+  secondary:
+    - close_pkk_configuration_gate
+
+settings_reuse:
+  confirmed: true
+  pkk_fields_match_settings:
+    - school_name
+    - osk_registry_number
+    - external_osk_login
+  user_fields_match_settings:
+    - first_name
+    - last_name
+  requirement: single_source_of_truth_no_duplicate_unsynchronized_values
+
+model_requirements:
+  - pkk_integration_settings_separate_from_application_login
+  - pkk_configuration_can_aggregate_fields_from_user_and_integration_domains
+  - explicit_pkk_configuration_readiness_status
+  - audit_pkk_configuration_changes
+  - tenant_isolation
+
+recommended_own_product_states:
+  - not_configured
+  - configured_unverified
+  - verified
+  - requires_attention
+
+remaining_gaps:
+  - next_screen_after_save_and_continue
+  - exact_osk_registry_number_validation
+  - exact_external_osk_login_validation
+  - connection_test_behavior
+  - authorization_required_to_change_pkk_configuration
+  - success_error_messages
