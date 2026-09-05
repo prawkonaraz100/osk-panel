@@ -1,789 +1,181 @@
 openapi: 3.1.0
 info:
   title: PrawkoNaRaz OSK API
-  version: 0.1.0
+  version: 0.2.0
   description: |
-    Implementation blueprint for core OSK v1. This is our own API contract,
-    not a reverse-engineered competitor API. Canonical domain terminology is
-    defined in docs/82-canonical-domain-glossary.md.
+    Canonical implementation contract for core OSK v1. This is our own clean-room
+    API design, not a reverse-engineered competitor API. Confirmed screen/business
+    capabilities are preserved through specs/reverse-engineering-manifest.yml and
+    specs/api/required-operations-v1.yml. Path details are split into module files
+    so coverage can grow without compressing or dropping observed flows.
 servers:
   - url: /api/v1
 security:
   - sessionCookie: []
 
 tags:
-  - name: Students
-  - name: Courses
-  - name: Training
-  - name: PKK
-  - name: Calendar
-  - name: Locations
-  - name: Staff
-  - name: Vehicles
-  - name: StudentFinance
-  - name: Licenses
-  - name: InternalExams
-  - name: Purchases
-  - name: Dashboard
+  - { name: Auth }
+  - { name: Organization }
+  - { name: Students }
+  - { name: StudentAccess }
+  - { name: Courses }
+  - { name: Training }
+  - { name: PKK }
+  - { name: Calendar }
+  - { name: Locations }
+  - { name: Staff }
+  - { name: Vehicles }
+  - { name: Dictionaries }
+  - { name: Uploads }
+  - { name: StudentFinance }
+  - { name: Licenses }
+  - { name: InternalExams }
+  - { name: Purchases }
+  - { name: Dashboard }
+  - { name: Audit }
 
 paths:
-  /students:
-    get:
-      tags: [Students]
-      summary: List students
-      parameters:
-        - $ref: '#/components/parameters/Page'
-        - $ref: '#/components/parameters/PerPage'
-        - $ref: '#/components/parameters/Search'
-        - $ref: '#/components/parameters/Sort'
-        - $ref: '#/components/parameters/Direction'
-      responses:
-        '200':
-          description: Student list
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PaginatedStudents'
-        default:
-          $ref: '#/components/responses/Error'
-    post:
-      tags: [Students]
-      summary: Create student
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateStudentRequest'
-      responses:
-        '201':
-          description: Student created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Student'
-        default:
-          $ref: '#/components/responses/Error'
+  /auth/register: { $ref: './paths/auth-organization.yaml#/paths/~1auth~1register' }
+  /auth/login: { $ref: './paths/auth-organization.yaml#/paths/~1auth~1login' }
+  /auth/logout: { $ref: './paths/auth-organization.yaml#/paths/~1auth~1logout' }
+  /auth/password/forgot: { $ref: './paths/auth-organization.yaml#/paths/~1auth~1password~1forgot' }
+  /auth/password/reset: { $ref: './paths/auth-organization.yaml#/paths/~1auth~1password~1reset' }
+  /auth/sessions: { $ref: './paths/auth-organization.yaml#/paths/~1auth~1sessions' }
+  /auth/sessions/{sessionId}: { $ref: './paths/auth-organization.yaml#/paths/~1auth~1sessions~1{sessionId}' }
+  /auth/account-closure-requests: { $ref: './paths/auth-organization.yaml#/paths/~1auth~1account-closure-requests' }
+  /auth/social/{provider}/redirect: { $ref: './paths/auth-organization.yaml#/paths/~1auth~1social~1{provider}~1redirect' }
+  /auth/social/{provider}/callback: { $ref: './paths/auth-organization.yaml#/paths/~1auth~1social~1{provider}~1callback' }
 
-  /students/{studentId}:
-    parameters:
-      - $ref: '#/components/parameters/StudentId'
-    get:
-      tags: [Students]
-      summary: Get student
-      responses:
-        '200':
-          description: Student
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Student'
-        default:
-          $ref: '#/components/responses/Error'
-    patch:
-      tags: [Students]
-      summary: Update student
-      parameters:
-        - $ref: '#/components/parameters/IfMatch'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/UpdateStudentRequest'
-      responses:
-        '200':
-          description: Updated student
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Student'
-        default:
-          $ref: '#/components/responses/Error'
+  /organization: { $ref: './paths/auth-organization.yaml#/paths/~1organization' }
+  /organization/settings: { $ref: './paths/auth-organization.yaml#/paths/~1organization~1settings' }
+  /organization/accepted-terms: { $ref: './paths/auth-organization.yaml#/paths/~1organization~1accepted-terms' }
+  /organization/integrations/pkk: { $ref: './paths/auth-organization.yaml#/paths/~1organization~1integrations~1pkk' }
+  /organization/integrations/pkk/test-connection: { $ref: './paths/auth-organization.yaml#/paths/~1organization~1integrations~1pkk~1test-connection' }
 
-  /students/{studentId}/archive:
-    post:
-      tags: [Students]
-      summary: Archive student
-      parameters:
-        - $ref: '#/components/parameters/StudentId'
-        - $ref: '#/components/parameters/IdempotencyKey'
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ReasonRequest'
-      responses:
-        '200':
-          description: Student archived
-        default:
-          $ref: '#/components/responses/Error'
+  /students: { $ref: './paths/students-courses.yaml#/paths/~1students' }
+  /students/{studentId}: { $ref: './paths/students-courses.yaml#/paths/~1students~1{studentId}' }
+  /students/{studentId}/preview: { $ref: './paths/students-courses.yaml#/paths/~1students~1{studentId}~1preview' }
+  /students/{studentId}/archive: { $ref: './paths/students-courses.yaml#/paths/~1students~1{studentId}~1archive' }
+  /students/{studentId}/restore: { $ref: './paths/students-courses.yaml#/paths/~1students~1{studentId}~1restore' }
+  /students/{studentId}/learning-accounts: { $ref: './paths/students-courses.yaml#/paths/~1students~1{studentId}~1learning-accounts' }
+  /students/{studentId}/learning-accounts/{accountId}: { $ref: './paths/students-courses.yaml#/paths/~1students~1{studentId}~1learning-accounts~1{accountId}' }
+  /students/{studentId}/learning-accounts/{accountId}/password-reset: { $ref: './paths/students-courses.yaml#/paths/~1students~1{studentId}~1learning-accounts~1{accountId}~1password-reset' }
+  /students/{studentId}/learning-accounts/{accountId}/access-handoffs: { $ref: './paths/students-courses.yaml#/paths/~1students~1{studentId}~1learning-accounts~1{accountId}~1access-handoffs' }
+  /students/{studentId}/learning-accounts/{accountId}/access-handoffs/{handoffId}/pdf: { $ref: './paths/students-courses.yaml#/paths/~1students~1{studentId}~1learning-accounts~1{accountId}~1access-handoffs~1{handoffId}~1pdf' }
+  /students/{studentId}/progress: { $ref: './paths/students-courses.yaml#/paths/~1students~1{studentId}~1progress' }
 
-  /students/{studentId}/learning-accounts:
-    get:
-      tags: [Students]
-      summary: List student learning accounts
-      parameters:
-        - $ref: '#/components/parameters/StudentId'
-      responses:
-        '200':
-          description: Learning accounts
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/StudentLearningAccount'
-        default:
-          $ref: '#/components/responses/Error'
-    post:
-      tags: [Students]
-      summary: Create learning account
-      parameters:
-        - $ref: '#/components/parameters/StudentId'
-        - $ref: '#/components/parameters/IdempotencyKey'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateLearningAccountRequest'
-      responses:
-        '201':
-          description: Learning account created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/LearningAccountCreateResponse'
-        default:
-          $ref: '#/components/responses/Error'
+  /students/{studentId}/course-enrollments: { $ref: './paths/students-courses.yaml#/paths/~1students~1{studentId}~1course-enrollments' }
+  /course-enrollments/{courseEnrollmentId}: { $ref: './paths/students-courses.yaml#/paths/~1course-enrollments~1{courseEnrollmentId}' }
+  /course-enrollments/{courseEnrollmentId}/cancel: { $ref: './paths/students-courses.yaml#/paths/~1course-enrollments~1{courseEnrollmentId}~1cancel' }
+  /course-enrollments/{courseEnrollmentId}/restore: { $ref: './paths/students-courses.yaml#/paths/~1course-enrollments~1{courseEnrollmentId}~1restore' }
+  /course-enrollments/{courseEnrollmentId}/stage-transitions: { $ref: './paths/students-courses.yaml#/paths/~1course-enrollments~1{courseEnrollmentId}~1stage-transitions' }
+  /course-enrollments/{courseEnrollmentId}/requirements: { $ref: './paths/students-courses.yaml#/paths/~1course-enrollments~1{courseEnrollmentId}~1requirements' }
+  /course-enrollments/{courseEnrollmentId}/requirement-context: { $ref: './paths/students-courses.yaml#/paths/~1course-enrollments~1{courseEnrollmentId}~1requirement-context' }
+  /course-enrollments/{courseEnrollmentId}/exemption-decisions: { $ref: './paths/students-courses.yaml#/paths/~1course-enrollments~1{courseEnrollmentId}~1exemption-decisions' }
+  /course-enrollments/{courseEnrollmentId}/training-sessions: { $ref: './paths/students-courses.yaml#/paths/~1course-enrollments~1{courseEnrollmentId}~1training-sessions' }
+  /training-sessions/{sessionId}: { $ref: './paths/students-courses.yaml#/paths/~1training-sessions~1{sessionId}' }
+  /training-sessions/{sessionId}/complete: { $ref: './paths/students-courses.yaml#/paths/~1training-sessions~1{sessionId}~1complete' }
+  /training-sessions/{sessionId}/cancel: { $ref: './paths/students-courses.yaml#/paths/~1training-sessions~1{sessionId}~1cancel' }
+  /course-enrollments/{courseEnrollmentId}/training-hours: { $ref: './paths/students-courses.yaml#/paths/~1course-enrollments~1{courseEnrollmentId}~1training-hours' }
+  /course-enrollments/{courseEnrollmentId}/training-hour-corrections: { $ref: './paths/students-courses.yaml#/paths/~1course-enrollments~1{courseEnrollmentId}~1training-hour-corrections' }
+  /course-enrollments/{courseEnrollmentId}/recognized-external-training: { $ref: './paths/students-courses.yaml#/paths/~1course-enrollments~1{courseEnrollmentId}~1recognized-external-training' }
+  /course-enrollments/{courseEnrollmentId}/recognized-external-training/{recordId}/revoke: { $ref: './paths/students-courses.yaml#/paths/~1course-enrollments~1{courseEnrollmentId}~1recognized-external-training~1{recordId}~1revoke' }
 
-  /students/{studentId}/course-enrollments:
-    get:
-      tags: [Courses]
-      summary: List course enrollments for student
-      parameters:
-        - $ref: '#/components/parameters/StudentId'
-      responses:
-        '200':
-          description: Course enrollments
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/CourseEnrollment'
-        default:
-          $ref: '#/components/responses/Error'
-    post:
-      tags: [Courses]
-      summary: Create course enrollment
-      parameters:
-        - $ref: '#/components/parameters/StudentId'
-        - $ref: '#/components/parameters/IdempotencyKey'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateCourseEnrollmentRequest'
-      responses:
-        '201':
-          description: Course enrollment created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CourseEnrollment'
-        default:
-          $ref: '#/components/responses/Error'
+  /course-enrollments/{courseEnrollmentId}/pkk: { $ref: './paths/pkk-calendar.yaml#/paths/~1course-enrollments~1{courseEnrollmentId}~1pkk' }
+  /course-enrollments/{courseEnrollmentId}/pkk/fetch: { $ref: './paths/pkk-calendar.yaml#/paths/~1course-enrollments~1{courseEnrollmentId}~1pkk~1fetch' }
+  /course-enrollments/{courseEnrollmentId}/pkk/update-and-return: { $ref: './paths/pkk-calendar.yaml#/paths/~1course-enrollments~1{courseEnrollmentId}~1pkk~1update-and-return' }
+  /course-enrollments/{courseEnrollmentId}/pkk/return-to-school: { $ref: './paths/pkk-calendar.yaml#/paths/~1course-enrollments~1{courseEnrollmentId}~1pkk~1return-to-school' }
+  /course-enrollments/{courseEnrollmentId}/pkk/return-to-authority: { $ref: './paths/pkk-calendar.yaml#/paths/~1course-enrollments~1{courseEnrollmentId}~1pkk~1return-to-authority' }
+  /course-enrollments/{courseEnrollmentId}/pkk/return-expired: { $ref: './paths/pkk-calendar.yaml#/paths/~1course-enrollments~1{courseEnrollmentId}~1pkk~1return-expired' }
+  /course-enrollments/{courseEnrollmentId}/pkk/operations: { $ref: './paths/pkk-calendar.yaml#/paths/~1course-enrollments~1{courseEnrollmentId}~1pkk~1operations' }
+  /course-enrollments/{courseEnrollmentId}/pkk/operations/{operationId}: { $ref: './paths/pkk-calendar.yaml#/paths/~1course-enrollments~1{courseEnrollmentId}~1pkk~1operations~1{operationId}' }
+  /course-enrollments/{courseEnrollmentId}/pkk/operations/{operationId}/retry: { $ref: './paths/pkk-calendar.yaml#/paths/~1course-enrollments~1{courseEnrollmentId}~1pkk~1operations~1{operationId}~1retry' }
 
-  /course-enrollments/{courseEnrollmentId}:
-    parameters:
-      - $ref: '#/components/parameters/CourseEnrollmentId'
-    get:
-      tags: [Courses]
-      summary: Get course enrollment
-      responses:
-        '200':
-          description: Course enrollment
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CourseEnrollment'
-        default:
-          $ref: '#/components/responses/Error'
-    patch:
-      tags: [Courses]
-      summary: Update course enrollment
-      parameters:
-        - $ref: '#/components/parameters/IfMatch'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/UpdateCourseEnrollmentRequest'
-      responses:
-        '200':
-          description: Updated enrollment
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CourseEnrollment'
-        default:
-          $ref: '#/components/responses/Error'
+  /calendar/events: { $ref: './paths/pkk-calendar.yaml#/paths/~1calendar~1events' }
+  /calendar/events/{eventId}: { $ref: './paths/pkk-calendar.yaml#/paths/~1calendar~1events~1{eventId}' }
+  /calendar/events/{eventId}/cancel: { $ref: './paths/pkk-calendar.yaml#/paths/~1calendar~1events~1{eventId}~1cancel' }
+  /calendar/events/{eventId}/complete: { $ref: './paths/pkk-calendar.yaml#/paths/~1calendar~1events~1{eventId}~1complete' }
+  /availability-slots: { $ref: './paths/pkk-calendar.yaml#/paths/~1availability-slots' }
+  /availability-slots/{slotId}: { $ref: './paths/pkk-calendar.yaml#/paths/~1availability-slots~1{slotId}' }
+  /availability-slots/{slotId}/book: { $ref: './paths/pkk-calendar.yaml#/paths/~1availability-slots~1{slotId}~1book' }
+  /availability-slots/{slotId}/cancel: { $ref: './paths/pkk-calendar.yaml#/paths/~1availability-slots~1{slotId}~1cancel' }
 
-  /course-enrollments/{courseEnrollmentId}/stage-transitions:
-    post:
-      tags: [Courses]
-      summary: Change training stage
-      parameters:
-        - $ref: '#/components/parameters/CourseEnrollmentId'
-        - $ref: '#/components/parameters/IdempotencyKey'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [target_stage]
-              properties:
-                target_stage:
-                  type: string
-                reason:
-                  type: [string, 'null']
-      responses:
-        '200':
-          description: Stage changed
-        default:
-          $ref: '#/components/responses/Error'
+  /locations: { $ref: './paths/resources.yaml#/paths/~1locations' }
+  /locations/{locationId}: { $ref: './paths/resources.yaml#/paths/~1locations~1{locationId}' }
+  /locations/{locationId}/archive: { $ref: './paths/resources.yaml#/paths/~1locations~1{locationId}~1archive' }
+  /locations/{locationId}/restore: { $ref: './paths/resources.yaml#/paths/~1locations~1{locationId}~1restore' }
+  /location-types: { $ref: './paths/resources.yaml#/paths/~1location-types' }
+  /geography/cities: { $ref: './paths/resources.yaml#/paths/~1geography~1cities' }
+  /driving-categories: { $ref: './paths/resources.yaml#/paths/~1driving-categories' }
+  /languages: { $ref: './paths/resources.yaml#/paths/~1languages' }
 
-  /course-enrollments/{courseEnrollmentId}/requirements:
-    get:
-      tags: [Courses]
-      summary: Get calculated training requirements
-      parameters:
-        - $ref: '#/components/parameters/CourseEnrollmentId'
-      responses:
-        '200':
-          description: Requirement profile
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TrainingRequirementProfile'
-        default:
-          $ref: '#/components/responses/Error'
+  /staff: { $ref: './paths/resources.yaml#/paths/~1staff' }
+  /staff/{staffId}: { $ref: './paths/resources.yaml#/paths/~1staff~1{staffId}' }
+  /staff/{staffId}/archive: { $ref: './paths/resources.yaml#/paths/~1staff~1{staffId}~1archive' }
+  /staff/{staffId}/restore: { $ref: './paths/resources.yaml#/paths/~1staff~1{staffId}~1restore' }
+  /staff/{staffId}/user-account: { $ref: './paths/resources.yaml#/paths/~1staff~1{staffId}~1user-account' }
+  /staff/{staffId}/permissions: { $ref: './paths/resources.yaml#/paths/~1staff~1{staffId}~1permissions' }
+  /staff-types: { $ref: './paths/resources.yaml#/paths/~1staff-types' }
 
-  /course-enrollments/{courseEnrollmentId}/training-sessions:
-    get:
-      tags: [Training]
-      summary: List training sessions
-      parameters:
-        - $ref: '#/components/parameters/CourseEnrollmentId'
-      responses:
-        '200':
-          description: Training sessions
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/TrainingSession'
-        default:
-          $ref: '#/components/responses/Error'
-    post:
-      tags: [Training]
-      summary: Create training session
-      parameters:
-        - $ref: '#/components/parameters/CourseEnrollmentId'
-        - $ref: '#/components/parameters/IdempotencyKey'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateTrainingSessionRequest'
-      responses:
-        '201':
-          description: Training session created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TrainingSession'
-        default:
-          $ref: '#/components/responses/Error'
+  /vehicles: { $ref: './paths/resources.yaml#/paths/~1vehicles' }
+  /vehicles/{vehicleId}: { $ref: './paths/resources.yaml#/paths/~1vehicles~1{vehicleId}' }
+  /vehicles/{vehicleId}/archive: { $ref: './paths/resources.yaml#/paths/~1vehicles~1{vehicleId}~1archive' }
+  /vehicles/{vehicleId}/restore: { $ref: './paths/resources.yaml#/paths/~1vehicles~1{vehicleId}~1restore' }
+  /vehicles/{vehicleId}/documents: { $ref: './paths/resources.yaml#/paths/~1vehicles~1{vehicleId}~1documents' }
+  /vehicles/{vehicleId}/documents/{documentId}: { $ref: './paths/resources.yaml#/paths/~1vehicles~1{vehicleId}~1documents~1{documentId}' }
 
-  /course-enrollments/{courseEnrollmentId}/training-hours:
-    get:
-      tags: [Training]
-      summary: Get formal training time projection
-      parameters:
-        - $ref: '#/components/parameters/CourseEnrollmentId'
-      responses:
-        '200':
-          description: Training totals
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TrainingHoursProjection'
-        default:
-          $ref: '#/components/responses/Error'
+  /uploads/presign: { $ref: './paths/resources.yaml#/paths/~1uploads~1presign' }
+  /uploads/{uploadId}/complete: { $ref: './paths/resources.yaml#/paths/~1uploads~1{uploadId}~1complete' }
 
-  /course-enrollments/{courseEnrollmentId}/recognized-external-training:
-    post:
-      tags: [Training]
-      summary: Recognize training completed in another OSK
-      parameters:
-        - $ref: '#/components/parameters/CourseEnrollmentId'
-        - $ref: '#/components/parameters/IdempotencyKey'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/RecognizeExternalTrainingRequest'
-      responses:
-        '201':
-          description: External training recognized
-        default:
-          $ref: '#/components/responses/Error'
+  /students/{studentId}/charges: { $ref: './paths/students-courses.yaml#/paths/~1students~1{studentId}~1charges' }
+  /students/{studentId}/charges/{chargeId}/cancel: { $ref: './paths/students-courses.yaml#/paths/~1students~1{studentId}~1charges~1{chargeId}~1cancel' }
+  /students/{studentId}/payments: { $ref: './paths/students-courses.yaml#/paths/~1students~1{studentId}~1payments' }
+  /students/{studentId}/payments/{paymentId}/reverse: { $ref: './paths/students-courses.yaml#/paths/~1students~1{studentId}~1payments~1{paymentId}~1reverse' }
+  /students/{studentId}/finance-summary: { $ref: './paths/students-courses.yaml#/paths/~1students~1{studentId}~1finance-summary' }
 
-  /course-enrollments/{courseEnrollmentId}/pkk:
-    get:
-      tags: [PKK]
-      summary: Get PKK snapshot for course enrollment
-      parameters:
-        - $ref: '#/components/parameters/CourseEnrollmentId'
-      responses:
-        '200':
-          description: PKK profile
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PkkProfile'
-        default:
-          $ref: '#/components/responses/Error'
+  /license-products: { $ref: './paths/licenses.yaml#/paths/~1license-products' }
+  /license-products/{productId}/languages: { $ref: './paths/licenses.yaml#/paths/~1license-products~1{productId}~1languages' }
+  /license-inventory: { $ref: './paths/licenses.yaml#/paths/~1license-inventory' }
+  /license-orders: { $ref: './paths/licenses.yaml#/paths/~1license-orders' }
+  /license-assignments: { $ref: './paths/licenses.yaml#/paths/~1license-assignments' }
+  /license-assignments/{assignmentId}: { $ref: './paths/licenses.yaml#/paths/~1license-assignments~1{assignmentId}' }
+  /license-assignments/{assignmentId}/activate: { $ref: './paths/licenses.yaml#/paths/~1license-assignments~1{assignmentId}~1activate' }
+  /license-assignments/{assignmentId}/revoke-unactivated: { $ref: './paths/licenses.yaml#/paths/~1license-assignments~1{assignmentId}~1revoke-unactivated' }
+  /students/{studentId}/learning-accounts/{accountId}/license-assignments: { $ref: './paths/licenses.yaml#/paths/~1students~1{studentId}~1learning-accounts~1{accountId}~1license-assignments' }
+  /learning-accesses/bulk-access-document: { $ref: './paths/licenses.yaml#/paths/~1learning-accesses~1bulk-access-document' }
 
-  /course-enrollments/{courseEnrollmentId}/pkk/fetch:
-    post:
-      tags: [PKK]
-      summary: Fetch PKK
-      parameters:
-        - $ref: '#/components/parameters/CourseEnrollmentId'
-        - $ref: '#/components/parameters/IdempotencyKey'
-      responses:
-        '200':
-          description: PKK fetched
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PkkOperation'
-        default:
-          $ref: '#/components/responses/Error'
+  /internal-exam/inventory: { $ref: './paths/internal-exams.yaml#/paths/~1internal-exam~1inventory' }
+  /internal-exam/orders: { $ref: './paths/internal-exams.yaml#/paths/~1internal-exam~1orders' }
+  /internal-exam/subjects: { $ref: './paths/internal-exams.yaml#/paths/~1internal-exam~1subjects' }
+  /internal-exam/capabilities: { $ref: './paths/internal-exams.yaml#/paths/~1internal-exam~1capabilities' }
+  /internal-exam/inventory-adjustments: { $ref: './paths/internal-exams.yaml#/paths/~1internal-exam~1inventory-adjustments' }
+  /course-enrollments/{courseEnrollmentId}/internal-exam-attempts: { $ref: './paths/internal-exams.yaml#/paths/~1course-enrollments~1{courseEnrollmentId}~1internal-exam-attempts' }
+  /internal-exam-attempts/{attemptId}: { $ref: './paths/internal-exams.yaml#/paths/~1internal-exam-attempts~1{attemptId}' }
+  /internal-exam-attempts/{attemptId}/accesses: { $ref: './paths/internal-exams.yaml#/paths/~1internal-exam-attempts~1{attemptId}~1accesses' }
+  /internal-exam-accesses/{accessId}/send: { $ref: './paths/internal-exams.yaml#/paths/~1internal-exam-accesses~1{accessId}~1send' }
+  /internal-exam-accesses/{accessId}/revoke: { $ref: './paths/internal-exams.yaml#/paths/~1internal-exam-accesses~1{accessId}~1revoke' }
+  /internal-exam-accesses/{accessId}/start: { $ref: './paths/internal-exams.yaml#/paths/~1internal-exam-accesses~1{accessId}~1start' }
+  /internal-exam-attempts/{attemptId}/submit: { $ref: './paths/internal-exams.yaml#/paths/~1internal-exam-attempts~1{attemptId}~1submit' }
+  /internal-exam-attempts/{attemptId}/technical-abort: { $ref: './paths/internal-exams.yaml#/paths/~1internal-exam-attempts~1{attemptId}~1technical-abort' }
+  /internal-exam-attempts/{attemptId}/result: { $ref: './paths/internal-exams.yaml#/paths/~1internal-exam-attempts~1{attemptId}~1result' }
+  /internal-exam-attempts/{attemptId}/questions: { $ref: './paths/internal-exams.yaml#/paths/~1internal-exam-attempts~1{attemptId}~1questions' }
+  /internal-exam-attempts/{attemptId}/documents/answer-sheet.pdf: { $ref: './paths/internal-exams.yaml#/paths/~1internal-exam-attempts~1{attemptId}~1documents~1answer-sheet.pdf' }
+  /exam-stations: { $ref: './paths/internal-exams.yaml#/paths/~1exam-stations' }
+  /internal-exam-attempts/{attemptId}/station-transfer: { $ref: './paths/internal-exams.yaml#/paths/~1internal-exam-attempts~1{attemptId}~1station-transfer' }
 
-  /course-enrollments/{courseEnrollmentId}/pkk/update-and-return:
-    post:
-      tags: [PKK]
-      summary: Update training data and return PKK
-      parameters:
-        - $ref: '#/components/parameters/CourseEnrollmentId'
-        - $ref: '#/components/parameters/IdempotencyKey'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: true
-              description: Provider-normalized update payload, finalized when provider contract is available.
-      responses:
-        '202':
-          description: Operation accepted
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PkkOperation'
-        default:
-          $ref: '#/components/responses/Error'
-
-  /calendar/events:
-    get:
-      tags: [Calendar]
-      summary: List calendar events
-      parameters:
-        - $ref: '#/components/parameters/From'
-        - $ref: '#/components/parameters/To'
-        - name: student_id
-          in: query
-          schema: { type: string, format: uuid }
-        - name: staff_id
-          in: query
-          schema: { type: string, format: uuid }
-        - name: vehicle_id
-          in: query
-          schema: { type: string, format: uuid }
-        - name: location_id
-          in: query
-          schema: { type: string, format: uuid }
-      responses:
-        '200':
-          description: Calendar events
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/CalendarEvent'
-        default:
-          $ref: '#/components/responses/Error'
-    post:
-      tags: [Calendar]
-      summary: Create calendar event
-      parameters:
-        - $ref: '#/components/parameters/IdempotencyKey'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateCalendarEventRequest'
-      responses:
-        '201':
-          description: Calendar event created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CalendarEvent'
-        default:
-          $ref: '#/components/responses/Error'
-
-  /locations:
-    get:
-      tags: [Locations]
-      summary: List locations
-      responses:
-        '200':
-          description: Locations
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Location'
-        default:
-          $ref: '#/components/responses/Error'
-    post:
-      tags: [Locations]
-      summary: Create location
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateLocationRequest'
-      responses:
-        '201':
-          description: Location created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Location'
-        default:
-          $ref: '#/components/responses/Error'
-
-  /staff:
-    get:
-      tags: [Staff]
-      summary: List staff
-      responses:
-        '200':
-          description: Staff list
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/StaffProfile'
-        default:
-          $ref: '#/components/responses/Error'
-
-  /vehicles:
-    get:
-      tags: [Vehicles]
-      summary: List vehicles
-      responses:
-        '200':
-          description: Vehicle list
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Vehicle'
-        default:
-          $ref: '#/components/responses/Error'
-
-  /students/{studentId}/charges:
-    post:
-      tags: [StudentFinance]
-      summary: Create student charge
-      parameters:
-        - $ref: '#/components/parameters/StudentId'
-        - $ref: '#/components/parameters/IdempotencyKey'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateChargeRequest'
-      responses:
-        '201':
-          description: Charge created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/StudentCharge'
-        default:
-          $ref: '#/components/responses/Error'
-
-  /students/{studentId}/payments:
-    post:
-      tags: [StudentFinance]
-      summary: Record student payment
-      parameters:
-        - $ref: '#/components/parameters/StudentId'
-        - $ref: '#/components/parameters/IdempotencyKey'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/RecordStudentPaymentRequest'
-      responses:
-        '201':
-          description: Payment recorded
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/StudentPayment'
-        default:
-          $ref: '#/components/responses/Error'
-
-  /license-inventory:
-    get:
-      tags: [Licenses]
-      summary: Get OSK license inventory
-      responses:
-        '200':
-          description: License inventory
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/LicenseInventoryEntry'
-        default:
-          $ref: '#/components/responses/Error'
-
-  /license-assignments:
-    post:
-      tags: [Licenses]
-      summary: Assign license
-      parameters:
-        - $ref: '#/components/parameters/IdempotencyKey'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateLicenseAssignmentRequest'
-      responses:
-        '201':
-          description: License assigned
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/LicenseAssignment'
-        default:
-          $ref: '#/components/responses/Error'
-
-  /license-assignments/{assignmentId}/activate:
-    post:
-      tags: [Licenses]
-      summary: Activate license assignment
-      parameters:
-        - $ref: '#/components/parameters/AssignmentId'
-        - $ref: '#/components/parameters/IdempotencyKey'
-      responses:
-        '200':
-          description: License activated
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/LicenseActivation'
-        default:
-          $ref: '#/components/responses/Error'
-
-  /license-assignments/{assignmentId}/revoke-unactivated:
-    post:
-      tags: [Licenses]
-      summary: Revoke unactivated assignment and restore exactly one inventory entry
-      parameters:
-        - $ref: '#/components/parameters/AssignmentId'
-        - $ref: '#/components/parameters/IdempotencyKey'
-      responses:
-        '200':
-          description: Assignment revoked
-        default:
-          $ref: '#/components/responses/Error'
-
-  /internal-exam/inventory:
-    get:
-      tags: [InternalExams]
-      summary: Get internal exam inventory
-      responses:
-        '200':
-          description: Exam inventory
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/InternalExamInventoryEntry'
-        default:
-          $ref: '#/components/responses/Error'
-
-  /course-enrollments/{courseEnrollmentId}/internal-exam-attempts:
-    post:
-      tags: [InternalExams]
-      summary: Create formal internal exam attempt and reserve inventory
-      parameters:
-        - $ref: '#/components/parameters/CourseEnrollmentId'
-        - $ref: '#/components/parameters/IdempotencyKey'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateInternalExamAttemptRequest'
-      responses:
-        '201':
-          description: Attempt created and inventory reserved
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/InternalExamAttempt'
-        default:
-          $ref: '#/components/responses/Error'
-
-  /internal-exam-attempts/{attemptId}/accesses:
-    post:
-      tags: [InternalExams]
-      summary: Create remote or local exam access
-      parameters:
-        - $ref: '#/components/parameters/AttemptId'
-        - $ref: '#/components/parameters/IdempotencyKey'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateExamAccessRequest'
-      responses:
-        '201':
-          description: Access created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/InternalExamAccess'
-        default:
-          $ref: '#/components/responses/Error'
-
-  /internal-exam-accesses/{accessId}/start:
-    post:
-      tags: [InternalExams]
-      summary: Start exam and consume inventory exactly once
-      parameters:
-        - $ref: '#/components/parameters/AccessId'
-        - $ref: '#/components/parameters/IdempotencyKey'
-      responses:
-        '200':
-          description: Exam started
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/InternalExamAttempt'
-        default:
-          $ref: '#/components/responses/Error'
-
-  /internal-exam-attempts/{attemptId}/submit:
-    post:
-      tags: [InternalExams]
-      summary: Submit/finish exam without consuming inventory again
-      parameters:
-        - $ref: '#/components/parameters/AttemptId'
-        - $ref: '#/components/parameters/IdempotencyKey'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [answers]
-              properties:
-                answers:
-                  type: array
-                  items:
-                    type: object
-                    additionalProperties: true
-      responses:
-        '200':
-          description: Exam finished
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/InternalExamResult'
-        default:
-          $ref: '#/components/responses/Error'
-
-  /purchase-history:
-    get:
-      tags: [Purchases]
-      summary: List OSK platform purchases
-      parameters:
-        - $ref: '#/components/parameters/Page'
-        - $ref: '#/components/parameters/PerPage'
-      responses:
-        '200':
-          description: Purchase history
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [data, meta]
-                properties:
-                  data:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/PurchaseHistoryItem'
-                  meta:
-                    $ref: '#/components/schemas/PaginationMeta'
-        default:
-          $ref: '#/components/responses/Error'
-
-  /dashboard:
-    get:
-      tags: [Dashboard]
-      summary: Get dashboard projection
-      responses:
-        '200':
-          description: Dashboard projection
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DashboardProjection'
-        default:
-          $ref: '#/components/responses/Error'
+  /orders: { $ref: './paths/commerce-dashboard.yaml#/paths/~1orders' }
+  /orders/{orderId}: { $ref: './paths/commerce-dashboard.yaml#/paths/~1orders~1{orderId}' }
+  /orders/{orderId}/payments: { $ref: './paths/commerce-dashboard.yaml#/paths/~1orders~1{orderId}~1payments' }
+  /payments: { $ref: './paths/commerce-dashboard.yaml#/paths/~1payments' }
+  /payment-webhooks/{provider}: { $ref: './paths/commerce-dashboard.yaml#/paths/~1payment-webhooks~1{provider}' }
+  /purchase-history: { $ref: './paths/commerce-dashboard.yaml#/paths/~1purchase-history' }
+  /service-entitlements: { $ref: './paths/commerce-dashboard.yaml#/paths/~1service-entitlements' }
+  /service-entitlements/{entitlementId}/activate: { $ref: './paths/commerce-dashboard.yaml#/paths/~1service-entitlements~1{entitlementId}~1activate' }
+  /dashboard: { $ref: './paths/commerce-dashboard.yaml#/paths/~1dashboard' }
+  /activity: { $ref: './paths/commerce-dashboard.yaml#/paths/~1activity' }
+  /notifications: { $ref: './paths/commerce-dashboard.yaml#/paths/~1notifications' }
+  /notifications/{notificationId}/read: { $ref: './paths/commerce-dashboard.yaml#/paths/~1notifications~1{notificationId}~1read' }
+  /audit-logs: { $ref: './paths/commerce-dashboard.yaml#/paths/~1audit-logs' }
 
 components:
   securitySchemes:
@@ -791,565 +183,23 @@ components:
       type: apiKey
       in: cookie
       name: session
-      description: Logical session cookie; concrete framework cookie name is deployment-configured.
+      description: Logical authenticated OSK session; concrete Laravel cookie name is environment-configured.
+    examAccessToken:
+      type: http
+      scheme: bearer
+      bearerFormat: opaque-exam-access-token
+      description: One-time/short-lived exam access token. Raw token is not stored recoverably.
 
-  parameters:
-    Page:
-      name: page
-      in: query
-      schema: { type: integer, minimum: 1, default: 1 }
-    PerPage:
-      name: per_page
-      in: query
-      schema: { type: integer, minimum: 1, maximum: 100, default: 25 }
-    Search:
-      name: q
-      in: query
-      schema: { type: string }
-    Sort:
-      name: sort
-      in: query
-      schema: { type: string }
-    Direction:
-      name: direction
-      in: query
-      schema:
-        type: string
-        enum: [asc, desc]
-    From:
-      name: from
-      in: query
-      schema: { type: string, format: date-time }
-    To:
-      name: to
-      in: query
-      schema: { type: string, format: date-time }
-    IdempotencyKey:
-      name: Idempotency-Key
-      in: header
-      required: true
-      schema: { type: string, format: uuid }
-    IfMatch:
-      name: If-Match
-      in: header
-      required: false
-      schema: { type: string }
-    StudentId:
-      name: studentId
-      in: path
-      required: true
-      schema: { type: string, format: uuid }
-    CourseEnrollmentId:
-      name: courseEnrollmentId
-      in: path
-      required: true
-      schema: { type: string, format: uuid }
-    AssignmentId:
-      name: assignmentId
-      in: path
-      required: true
-      schema: { type: string, format: uuid }
-    AttemptId:
-      name: attemptId
-      in: path
-      required: true
-      schema: { type: string, format: uuid }
-    AccessId:
-      name: accessId
-      in: path
-      required: true
-      schema: { type: string, format: uuid }
-
-  responses:
-    Error:
-      description: Error response
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorEnvelope'
-
-  schemas:
-    PaginationMeta:
-      type: object
-      required: [page, per_page, total, last_page]
-      properties:
-        page: { type: integer }
-        per_page: { type: integer }
-        total: { type: integer }
-        last_page: { type: integer }
-
-    ErrorEnvelope:
-      type: object
-      required: [error]
-      properties:
-        error:
-          type: object
-          required: [code, message, request_id]
-          properties:
-            code: { type: string }
-            message: { type: string }
-            fields:
-              type: object
-              additionalProperties:
-                type: array
-                items: { type: string }
-            request_id: { type: string }
-
-    Money:
-      type: object
-      required: [amount_minor, currency]
-      properties:
-        amount_minor: { type: integer, format: int64 }
-        currency: { type: string, minLength: 3, maxLength: 3 }
-
-    ReasonRequest:
-      type: object
-      properties:
-        reason: { type: string }
-
-    Student:
-      type: object
-      required: [id, first_name, last_name, version]
-      properties:
-        id: { type: string, format: uuid }
-        first_name: { type: string }
-        last_name: { type: string }
-        birth_date: { type: [string, 'null'], format: date }
-        contact_email: { type: [string, 'null'], format: email }
-        phone: { type: [string, 'null'] }
-        archived_at: { type: [string, 'null'], format: date-time }
-        version: { type: integer }
-
-    CreateStudentRequest:
-      type: object
-      required: [first_name, last_name]
-      properties:
-        first_name: { type: string }
-        last_name: { type: string }
-        pesel: { type: [string, 'null'] }
-        birth_date: { type: [string, 'null'], format: date }
-        contact_email: { type: [string, 'null'], format: email }
-        phone: { type: [string, 'null'] }
-        location_id: { type: [string, 'null'], format: uuid }
-
-    UpdateStudentRequest:
-      allOf:
-        - $ref: '#/components/schemas/CreateStudentRequest'
-
-    PaginatedStudents:
-      type: object
-      required: [data, meta]
-      properties:
-        data:
-          type: array
-          items:
-            $ref: '#/components/schemas/Student'
-        meta:
-          $ref: '#/components/schemas/PaginationMeta'
-
-    StudentLearningAccount:
-      type: object
-      required: [id, login_identifier, language_code, status]
-      properties:
-        id: { type: string, format: uuid }
-        login_identifier: { type: string }
-        language_code: { type: string }
-        status: { type: string }
-
-    CreateLearningAccountRequest:
-      type: object
-      required: [login_identifier, language_code]
-      properties:
-        login_identifier: { type: string }
-        language_code: { type: string }
-        initial_password:
-          type: [string, 'null']
-          description: May be accepted in OSK-managed flow but is never persisted in recoverable form.
-
-    LearningAccountCreateResponse:
-      type: object
-      required: [account]
-      properties:
-        account:
-          $ref: '#/components/schemas/StudentLearningAccount'
-        one_time_plaintext_password:
-          type: [string, 'null']
-          description: Returned only in the secure create/reset handoff flow.
-
-    CourseEnrollment:
-      type: object
-      required: [id, student_id, training_type, driving_category_code, started_at, training_stage, version]
-      properties:
-        id: { type: string, format: uuid }
-        student_id: { type: string, format: uuid }
-        training_type: { type: string }
-        driving_category_code: { type: string }
-        pkk_reference_masked: { type: [string, 'null'] }
-        started_at: { type: string, format: date-time }
-        lead_instructor_id: { type: string, format: uuid }
-        location_id: { type: [string, 'null'], format: uuid }
-        training_stage: { type: string }
-        version: { type: integer }
-
-    CreateCourseEnrollmentRequest:
-      type: object
-      required: [training_type, driving_category_code, pkk_number, started_at, lead_instructor_id]
-      properties:
-        training_type: { type: string }
-        driving_category_code: { type: string }
-        pkk_number: { type: string }
-        started_at: { type: string, format: date-time }
-        lead_instructor_id: { type: string, format: uuid }
-        location_id: { type: [string, 'null'], format: uuid }
-        initial_cost:
-          anyOf:
-            - $ref: '#/components/schemas/Money'
-            - type: 'null'
-        recognized_external_theory_minutes: { type: integer, minimum: 0, default: 0 }
-        recognized_external_practical_minutes: { type: integer, minimum: 0, default: 0 }
-
-    UpdateCourseEnrollmentRequest:
-      type: object
-      properties:
-        training_type: { type: string }
-        driving_category_code: { type: string }
-        started_at: { type: string, format: date-time }
-        lead_instructor_id: { type: string, format: uuid }
-        location_id: { type: [string, 'null'], format: uuid }
-
-    TrainingRequirementProfile:
-      type: object
-      required:
-        - rule_set_version
-        - theory_training_required
-        - minimum_theory_minutes
-        - internal_theory_exam_required
-        - practical_training_required
-        - minimum_practical_minutes
-        - internal_practical_exam_required
-      properties:
-        rule_set_version: { type: string }
-        theory_training_required: { type: boolean }
-        minimum_theory_minutes: { type: integer }
-        internal_theory_exam_required: { type: boolean }
-        practical_training_required: { type: boolean }
-        minimum_practical_minutes: { type: integer }
-        internal_practical_exam_required: { type: boolean }
-        exemption_basis_code: { type: [string, 'null'] }
-
-    TrainingSession:
-      type: object
-      required: [id, course_enrollment_id, session_type, starts_at, ends_at, status]
-      properties:
-        id: { type: string, format: uuid }
-        course_enrollment_id: { type: string, format: uuid }
-        session_type: { type: string }
-        starts_at: { type: string, format: date-time }
-        ends_at: { type: string, format: date-time }
-        instructor_id: { type: string, format: uuid }
-        vehicle_id: { type: [string, 'null'], format: uuid }
-        location_id: { type: [string, 'null'], format: uuid }
-        status: { type: string }
-
-    CreateTrainingSessionRequest:
-      type: object
-      required: [session_type, starts_at, ends_at, instructor_id]
-      properties:
-        session_type: { type: string }
-        starts_at: { type: string, format: date-time }
-        ends_at: { type: string, format: date-time }
-        instructor_id: { type: string, format: uuid }
-        vehicle_id: { type: [string, 'null'], format: uuid }
-        location_id: { type: [string, 'null'], format: uuid }
-
-    TrainingHoursProjection:
-      type: object
-      required: [current_osk, recognized_external, totals]
-      properties:
-        current_osk:
-          type: object
-          properties:
-            theory_minutes: { type: integer }
-            practical_minutes: { type: integer }
-        recognized_external:
-          type: object
-          properties:
-            theory_minutes: { type: integer }
-            practical_minutes: { type: integer }
-        totals:
-          type: object
-          properties:
-            theory_minutes: { type: integer }
-            practical_minutes: { type: integer }
-
-    RecognizeExternalTrainingRequest:
-      type: object
-      required: [training_part, recognized_minutes, reason]
-      properties:
-        training_part:
-          type: string
-          enum: [theory, practical]
-        recognized_minutes: { type: integer, minimum: 0 }
-        source_school_reference: { type: [string, 'null'] }
-        evidence_reference: { type: [string, 'null'] }
-        reason: { type: string }
-
-    PkkProfile:
-      type: object
-      properties:
-        id: { type: string, format: uuid }
-        course_enrollment_id: { type: string, format: uuid }
-        status: { type: [string, 'null'] }
-        fetched_at: { type: [string, 'null'], format: date-time }
-        profile_snapshot:
-          type: [object, 'null']
-          additionalProperties: true
-
-    PkkOperation:
-      type: object
-      required: [id, operation_type, business_status, request_id]
-      properties:
-        id: { type: string, format: uuid }
-        operation_type: { type: string }
-        business_status: { type: string }
-        request_id: { type: string }
-
-    CalendarEvent:
-      type: object
-      required: [id, event_type, starts_at, ends_at, status, version]
-      properties:
-        id: { type: string, format: uuid }
-        event_type: { type: string }
-        name: { type: [string, 'null'] }
-        starts_at: { type: string, format: date-time }
-        ends_at: { type: string, format: date-time }
-        student_id: { type: [string, 'null'], format: uuid }
-        instructor_id: { type: [string, 'null'], format: uuid }
-        vehicle_id: { type: [string, 'null'], format: uuid }
-        location_id: { type: [string, 'null'], format: uuid }
-        custom_meeting_place: { type: [string, 'null'] }
-        status: { type: string }
-        version: { type: integer }
-
-    CreateCalendarEventRequest:
-      type: object
-      required: [event_type, starts_at, ends_at]
-      properties:
-        event_type: { type: string }
-        name: { type: [string, 'null'] }
-        starts_at: { type: string, format: date-time }
-        ends_at: { type: string, format: date-time }
-        student_id: { type: [string, 'null'], format: uuid }
-        instructor_id: { type: [string, 'null'], format: uuid }
-        vehicle_id: { type: [string, 'null'], format: uuid }
-        location_id: { type: [string, 'null'], format: uuid }
-        custom_meeting_place: { type: [string, 'null'] }
-
-    Location:
-      type: object
-      required: [id, type_code, name, street_and_number, postal_code, city_name]
-      properties:
-        id: { type: string, format: uuid }
-        type_code: { type: string }
-        name: { type: string }
-        street_and_number: { type: string }
-        postal_code: { type: string }
-        city_name: { type: string }
-        voivodeship_name: { type: [string, 'null'] }
-
-    CreateLocationRequest:
-      type: object
-      required: [type_code, name, street_and_number, postal_code, city_reference]
-      properties:
-        type_code: { type: string }
-        name: { type: string }
-        street_and_number: { type: string }
-        postal_code: { type: string }
-        city_reference: { type: string }
-
-    StaffProfile:
-      type: object
-      required: [id, first_name, last_name]
-      properties:
-        id: { type: string, format: uuid }
-        first_name: { type: string }
-        last_name: { type: string }
-        archived_at: { type: [string, 'null'], format: date-time }
-
-    Vehicle:
-      type: object
-      required: [id, registration_number, make, model]
-      properties:
-        id: { type: string, format: uuid }
-        registration_number: { type: string }
-        make: { type: string }
-        model: { type: string }
-        archived_at: { type: [string, 'null'], format: date-time }
-
-    CreateChargeRequest:
-      type: object
-      required: [title, amount]
-      properties:
-        title: { type: string }
-        amount:
-          $ref: '#/components/schemas/Money'
-        course_enrollment_id: { type: [string, 'null'], format: uuid }
-        due_at: { type: [string, 'null'], format: date }
-
-    StudentCharge:
-      type: object
-      required: [id, title, original_amount, status]
-      properties:
-        id: { type: string, format: uuid }
-        title: { type: string }
-        original_amount:
-          $ref: '#/components/schemas/Money'
-        status: { type: string }
-
-    RecordStudentPaymentRequest:
-      type: object
-      required: [charge_id, amount, paid_at]
-      properties:
-        charge_id: { type: string, format: uuid }
-        amount:
-          $ref: '#/components/schemas/Money'
-        paid_at: { type: string, format: date-time }
-        payment_method: { type: [string, 'null'] }
-        note: { type: [string, 'null'] }
-
-    StudentPayment:
-      type: object
-      required: [id, charge_id, amount, paid_at]
-      properties:
-        id: { type: string, format: uuid }
-        charge_id: { type: string, format: uuid }
-        amount:
-          $ref: '#/components/schemas/Money'
-        paid_at: { type: string, format: date-time }
-        reversed_at: { type: [string, 'null'], format: date-time }
-
-    LicenseInventoryEntry:
-      type: object
-      required: [id, product_code, status]
-      properties:
-        id: { type: string, format: uuid }
-        product_code: { type: string }
-        status: { type: string }
-
-    CreateLicenseAssignmentRequest:
-      type: object
-      required: [license_inventory_entry_id, student_id, student_learning_account_id, language_code]
-      properties:
-        license_inventory_entry_id: { type: string, format: uuid }
-        student_id: { type: string, format: uuid }
-        student_learning_account_id: { type: string, format: uuid }
-        language_code: { type: string }
-
-    LicenseAssignment:
-      type: object
-      required: [id, status, student_id, student_learning_account_id]
-      properties:
-        id: { type: string, format: uuid }
-        status: { type: string }
-        student_id: { type: string, format: uuid }
-        student_learning_account_id: { type: string, format: uuid }
-
-    LicenseActivation:
-      type: object
-      required: [id, license_assignment_id, activated_at, expires_at]
-      properties:
-        id: { type: string, format: uuid }
-        license_assignment_id: { type: string, format: uuid }
-        activated_at: { type: string, format: date-time }
-        expires_at: { type: string, format: date-time }
-
-    InternalExamInventoryEntry:
-      type: object
-      required: [id, source_type, status]
-      properties:
-        id: { type: string, format: uuid }
-        source_type: { type: string }
-        status: { type: string }
-
-    CreateInternalExamAttemptRequest:
-      type: object
-      required: [exam_part, language_code]
-      properties:
-        exam_part:
-          type: string
-          enum: [theory, practical]
-        language_code: { type: string }
-
-    InternalExamAttempt:
-      type: object
-      required: [id, student_id, course_enrollment_id, exam_part, status, version]
-      properties:
-        id: { type: string, format: uuid }
-        student_id: { type: string, format: uuid }
-        course_enrollment_id: { type: string, format: uuid }
-        exam_part: { type: string }
-        status: { type: string }
-        started_at: { type: [string, 'null'], format: date-time }
-        finished_at: { type: [string, 'null'], format: date-time }
-        version: { type: integer }
-
-    CreateExamAccessRequest:
-      type: object
-      required: [mode]
-      properties:
-        mode:
-          type: string
-          enum: [remote_link, local_current_workstation, assigned_exam_station]
-        station_id: { type: [string, 'null'], format: uuid }
-
-    InternalExamAccess:
-      type: object
-      required: [id, internal_exam_attempt_id, mode, status]
-      properties:
-        id: { type: string, format: uuid }
-        internal_exam_attempt_id: { type: string, format: uuid }
-        mode: { type: string }
-        status: { type: string }
-        expires_at: { type: [string, 'null'], format: date-time }
-        one_time_remote_url:
-          type: [string, 'null']
-          description: Returned only when creating a remote access; raw token is not later recoverable.
-
-    InternalExamResult:
-      type: object
-      required: [attempt_id, passed, score, max_score]
-      properties:
-        attempt_id: { type: string, format: uuid }
-        passed: { type: boolean }
-        score: { type: integer }
-        max_score: { type: integer }
-
-    PurchaseHistoryItem:
-      type: object
-      required: [order_id, status, total, created_at]
-      properties:
-        order_id: { type: string, format: uuid }
-        status: { type: string }
-        total:
-          $ref: '#/components/schemas/Money'
-        created_at: { type: string, format: date-time }
-        booked_at: { type: [string, 'null'], format: date-time }
-
-    DashboardProjection:
-      type: object
-      required: [licenses, internal_exams, activity, calendar]
-      properties:
-        licenses:
-          type: object
-          additionalProperties: true
-        internal_exams:
-          type: object
-          additionalProperties: true
-        activity:
-          type: array
-          items:
-            type: object
-            additionalProperties: true
-        calendar:
-          type: object
-          additionalProperties: true
+x-contract-files:
+  common: ./common-contract.yml
+  components: ./openapi-components-v1.yaml
+  required_operations: ./required-operations-v1.yml
+  reverse_engineering_manifest: ../reverse-engineering-manifest.yml
+  path_modules:
+    - ./paths/auth-organization.yaml
+    - ./paths/students-courses.yaml
+    - ./paths/pkk-calendar.yaml
+    - ./paths/resources.yaml
+    - ./paths/licenses.yaml
+    - ./paths/internal-exams.yaml
+    - ./paths/commerce-dashboard.yaml
