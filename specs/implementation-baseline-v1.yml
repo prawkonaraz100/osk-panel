@@ -11,19 +11,30 @@ precedence:
     - specs/legal/*.yml
   own_product_decisions:
     - specs/design/*.yml
+  security_contracts:
+    - specs/security/*.yml
+  api_contracts:
+    - specs/api/common-contract.yml
+    - specs/api/openapi-v1.yaml
+  database_blueprint:
+    - specs/database/core-schema.yml
   verified_screens:
     - specs/screens/*.yml
   implementation_baseline:
     - specs/implementation-baseline-v1.yml
   module_status:
     - docs/71-admin-osk-module-mapping-status.md
-  legacy_aggregates:
+  canonical_naming:
+    - docs/82-canonical-domain-glossary.md
+  lifecycle_policy:
+    - docs/83-core-lifecycle-policy.md
+  legacy_or_summary_aggregates:
     - specs/admin-osk-services.yml
     - specs/functional-requirements.yml
     - docs/01-feature-map.md
     - docs/02-screen-inventory.md
     - docs/10-gap-register.md
-  rule: newer_screen_or_legal_or_design_spec_wins_over_legacy_aggregate
+  rule: legal_design_security_api_database_screen_specs_override_legacy_aggregates
 
 confidence_levels:
   - USER_CONFIRMED_AUTH_SCREEN
@@ -63,6 +74,7 @@ core_modules:
       - idempotent_irreversible_commands
       - provider_adapter
       - retry_matrix
+      - reconciliation_for_unknown_external_state
 
   students:
     status: READY_FOR_IMPLEMENTATION
@@ -88,7 +100,7 @@ core_modules:
 
   courses:
     status: READY_FOR_IMPLEMENTATION
-    owner: student_course_enrollment
+    canonical_entity: course_enrollment
     specs:
       - specs/screens/course-create.yml
       - specs/screens/course-edit.yml
@@ -130,7 +142,7 @@ core_modules:
     required_architecture:
       - multi_location
       - location_as_calendar_resource
-      - soft_archive_preserve_history
+      - archive_restore_preserve_history
 
   vehicles:
     status: READY_FOR_IMPLEMENTATION
@@ -150,6 +162,7 @@ core_modules:
       - specs/screens/staff-create.yml
       - specs/screens/staff-detail.yml
       - specs/screens/staff-edit.yml
+    rbac: specs/security/permissions.yml
     required_architecture:
       - staff_profile_separate_from_user_account
       - optional_login_account
@@ -177,6 +190,15 @@ core_modules:
       - activated_assignment_cannot_use_unactivated_revoke_flow
       - plaintext_password_never_persisted
 
+  student_finance:
+    status: READY_FOR_IMPLEMENTATION
+    design_spec: specs/design/student-finance-ledger.yml
+    invariants:
+      - charge_separate_from_payment
+      - balance_is_projection
+      - correction_uses_reversal
+      - no_hard_delete_after_financial_activity
+
   internal_exam_purchase:
     status: READY_FOR_IMPLEMENTATION
     route: /egzamin-wewnetrzny/wykup
@@ -192,6 +214,7 @@ core_modules:
     rules:
       - reserve_on_access_creation
       - consume_atomically_on_exam_start
+      - finish_does_not_consume_again
       - release_unused_reservation_on_expire_cancel_or_revoke_before_start
       - technical_abort_does_not_auto_restore_inventory
       - restore_after_start_only_by_audited_adjustment
@@ -229,6 +252,7 @@ formal_rules:
 
 cross_cutting_invariants:
   - every_tenant_owned_resource_authorized_by_organization
+  - relation_ids_tenant_validated_server_side
   - formal_financial_pkk_exam_license_and_role_changes_are_audited
   - money_uses_decimal_or_minor_units_never_float
   - external_webhooks_are_idempotent
@@ -236,15 +260,36 @@ cross_cutting_invariants:
   - configurable_product_capabilities_not_hardcoded
   - no_hard_delete_of_formal_or_financial_history
   - secrets_never_committed_to_repository
+  - request_correlation_propagated_to_audit_integration_and_outbox
 
-p0_consolidation_remaining:
+consolidation_completed:
   - canonical_domain_glossary
   - course_first_pkk_api_contract
-  - synchronize_exam_consumption_semantics_in_legacy_docs_and_acceptance_criteria
-  - formalize_training_hours_source_of_truth_in_domain_model_and_api
-  - define_common_archive_delete_cancel_correction_policy
-  - define_common_api_error_pagination_money_datetime_idempotency_contract
-  - prepare_openapi_3_1
+  - exam_consumption_semantics_normalized_to_consume_on_start
+  - training_hours_source_of_truth_formalized
+  - common_archive_cancel_revoke_reverse_correct_invalidate_policy
+  - common_api_error_pagination_money_datetime_idempotency_contract
+  - permission_based_rbac_contract
+  - physical_database_schema_blueprint
+  - test_strategy
+  - production_operations_baseline
+  - openapi_3_1_initial_blueprint
+  - legacy_aggregates_synchronized
+
+remaining_preimplementation_or_preproduction_decisions:
+  high_risk_before_related_production_data:
+    - legal_category_dictionary_reverification_including_PT_tram_mapping
+    - final_sensitive_identifier_encryption_and_key_rotation_ADR
+    - calendar_overlap_enforcement_ADR
+  before_production_go_live:
+    - privacy_and_retention_schedule
+    - RPO_RTO_business_approval
+    - restore_drill
+    - provider_reconciliation_jobs
+  during_module_implementation:
+    - complete_openapi_request_response_schemas_for_each_implemented_module
+    - enable_openapi_validation_in_CI
+    - choose_final_public_id_strategy_UUIDv7_or_ULID
 
 deferred_non_core_modules:
   business_cards:
