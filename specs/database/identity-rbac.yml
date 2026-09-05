@@ -1,0 +1,130 @@
+meta:
+  project: osk-panel
+  scope: identity_tenant_rbac_core_v1
+  status: IN_PROGRESS_WITH_OPEN_BLOCKERS
+  decided_at: 2026-09-05
+  narrative:
+    - docs/04-roles-permissions.md
+    - docs/105-stage-4-identity-tenant-rbac-audit.md
+  security_catalog: specs/security/permissions.yml
+  aggregate_blueprint: specs/database/core-schema.yml
+  authority_rule: >-
+    This bounded-context specification is authoritative for Identity/Tenant/RBAC
+    physical semantics while DB4_2 is being closed. It augments the aggregate
+    core schema; the aggregate blueprint is synchronized before DB4_2 final PASS.
+
+principles:
+  permission_based_rbac: true
+  staff_type_is_not_authorization_role: true
+  organization_membership_is_tenant_authorization_context: true
+  backend_runtime_must_not_authorize_from_role_template_code: true
+  default_deny: true
+  future_permission_default_for_existing_membership: denied
+
+physical_tables_in_scope:
+  - users
+  - organization_memberships
+  - permissions
+  - membership_permissions
+  - auth_sessions
+
+role_template_contract:
+  blocker: DB-IAM-001
+  status: RESOLVED_DESIGN
+  catalog_source: specs/security/permissions.yml
+  catalog_version_source: meta.role_template_catalog_version
+  runtime_dependency: false
+  semantics: assignment_time_preset_plus_provenance
+  organization_membership_provenance_fields:
+    role_template_code:
+      type: varchar_64_nullable
+      semantics: last_explicitly_applied_template_code_for_UI_and_audit_only
+    role_template_catalog_version:
+      type: varchar_64_nullable
+      semantics: exact_catalog_version_used_for_last_template_materialization
+  template_application:
+    initial:
+      transaction:
+        - resolve_template_against_exact_catalog_version
+        - enumerate_every_known_core_permission_code_in_that_catalog
+        - materialize_one_membership_permissions_decision_per_known_permission
+        - set_granted_true_for_template_included_permissions
+        - set_granted_false_for_nonincluded_permissions
+        - store_template_code_and_catalog_version_as_provenance
+        - write_audit_snapshot
+    reapply_or_change:
+      explicit_command_only: true
+      transaction:
+        - resolve_selected_template_against_current_catalog
+        - replace_decisions_for_every_known_core_permission_atomically
+        - update_template_provenance
+        - audit_before_after
+  template_definition_change:
+    automatically_changes_existing_memberships: false
+    reason: prevent_silent_privilege_expansion_or_revocation
+  new_permission_after_membership_creation:
+    effective_default: denied
+    becomes_available_by:
+      - explicit_permission_grant
+      - explicit_template_reapplication_or_upgrade
+
+membership_permissions:
+  blocker: DB-IAM-001
+  status: RESOLVED_DESIGN
+  purpose: authoritative_current_permission_decisions_for_one_membership
+  fields:
+    membership_id: uuid_FK_organization_memberships
+    permission_code: varchar_128_FK_permissions
+    granted: boolean_not_null
+    created_at: timestamptz
+  unique:
+    columns: [membership_id, permission_code]
+  effective_permission_algorithm:
+    prerequisites:
+      - authenticated_user
+      - active_membership
+      - tenant_validation
+    lookup: membership_id_plus_permission_code
+    granted_true: allow_capability_subject_to_data_scope_domain_state_and_elevated_checks
+    granted_false: deny
+    missing_row: deny
+    role_template_code_consulted_at_runtime: false
+  explicit_change:
+    changes_current_decision: true
+    role_template_provenance_overrides_explicit_change: false
+    audit_required: true
+  concurrency_and_history: PENDING_DB_IAM_005
+
+permissions_catalog:
+  table: permissions
+  primary_key: code
+  source: specs/security/permissions.yml
+  seed_or_sync_required: true
+  unknown_permission_code_in_membership_permissions: rejected_by_FK
+  deleting_permission_code_with_historical_audit_dependency: forbidden_without_migration_policy
+
+open_blockers_not_resolved_here:
+  DB-IAM-002:
+    status: OPEN
+    topic: data_scope_physical_contract
+  DB-IAM-003:
+    status: OPEN
+    topic: auth_session_membership_same_user_integrity
+  DB-IAM-004:
+    status: OPEN
+    topic: owner_and_privilege_escalation_invariants
+  DB-IAM-005:
+    status: OPEN
+    topic: membership_and_permission_mutation_lifecycle_concurrency
+
+tests_required_for_DB_IAM_001:
+  - applying_template_materializes_a_decision_for_every_permission_known_in_that_catalog_version
+  - included_template_permission_is_granted_true
+  - nonincluded_template_permission_is_granted_false
+  - missing_permission_row_is_denied
+  - changing_template_definition_does_not_change_existing_membership_permissions
+  - new_permission_added_to_catalog_is_denied_for_existing_membership_until_explicit_action
+  - explicit_permission_change_overrides_previous_materialized_template_decision
+  - runtime_authorization_never_checks_role_template_code
+  - template_reapply_replaces_known_permission_decisions_atomically
+  - template_code_and_catalog_version_are_provenance_not_authorization_shortcut
