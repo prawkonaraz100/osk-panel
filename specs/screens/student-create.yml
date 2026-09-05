@@ -1,0 +1,154 @@
+screen:
+  id: student_create
+  scope: admin_osk
+  parent_route: /kursanci
+  entry_action: add_student_manual
+  title: Dodaj kursanta
+  confidence: USER_CONFIRMED_AUTH_SCREEN
+  verified_at: 2026-09-05
+  doc: docs/36-student-create-form.md
+
+student_profile:
+  fields:
+    - id: first_name
+      label: Imię
+      required_by_visible_marker: true
+    - id: last_name
+      label: Nazwisko
+      required_by_visible_marker: true
+    - id: phone
+      label: Telefon
+      required_by_visible_marker: false
+    - id: contact_email
+      label: Email do kontaktu
+      required_by_visible_marker: false
+    - id: pesel
+      label: Pesel
+      required_by_visible_marker: false
+    - id: no_pesel
+      label: Kursant nie posiada numeru PESEL
+      control: checkbox_or_toggle
+  confirmed_behavior:
+    - student_without_pesel_supported
+  unresolved:
+    - no_pesel_checkbox_disable_clear_behavior
+    - duplicate_pesel_behavior
+    - phone_validation
+    - contact_email_validation
+
+optional_course_pkk:
+  confirmed_optional: true
+  label: Kurs (PKK)
+  fields:
+    - id: pkk_reference
+      label: PKK
+      required_by_visible_marker: false
+    - id: category_id
+      label: Kategoria
+      control: single_select
+      required_by_visible_marker: false
+      placeholder: Wybierz kategorię...
+  behavior:
+    - student_can_be_created_without_course
+    - student_can_be_created_without_pkk
+  unresolved:
+    - dependency_pkk_category_validation
+    - category_options_on_this_form
+    - partial_course_data_save_behavior
+
+location:
+  field:
+    id: location_id
+    label: Lokalizacja
+    control: single_select
+    required_by_visible_marker: false
+  source: organization_locations
+  unresolved:
+    - whether_relation_is_student_or_enrollment_level
+    - no_locations_behavior
+
+license_assignment:
+  toggle_visible: true
+  observed_active: true
+  label_semantics: assign_license_to_learning_platform
+  fields_when_active:
+    - id: license_product_or_duration
+      label: Wybierz rodzaj licencji
+      control: single_select
+      observed_value: 1_miesiac
+      exhaustive_options: false
+    - id: available_inventory
+      label_pattern: "Dostępne: <N>"
+      projection: dynamic_inventory_count
+    - id: learning_identifier
+      label: Email lub login
+      required_by_visible_marker: true
+    - id: language_code
+      label: Język
+      control: single_select
+      required_by_visible_marker: true
+      placeholder: Wybierz język...
+  confirmed_semantics:
+    - contact_email_separate_from_learning_identifier
+    - learning_identifier_accepts_email_or_login_semantics
+    - available_license_inventory_visible
+    - license_can_be_assigned_during_student_creation
+  unresolved:
+    - behavior_when_toggle_disabled
+    - full_license_product_options
+    - full_language_options
+    - identifier_format_detection
+    - generated_password_or_invitation_behavior
+    - inventory_allocation_moment
+
+requiredness:
+  always_visible_required:
+    - first_name
+    - last_name
+  conditionally_required_when_license_enabled:
+    - learning_identifier
+    - language_code
+  backend_validation: TO_DEFINE_FOR_OWN_PRODUCT
+
+confirmed_actions:
+  - save_student
+  - close_student_create_drawer
+  - toggle_no_pesel
+  - select_optional_course_category
+  - select_location
+  - toggle_license_assignment
+  - select_license_product_or_duration
+  - set_learning_identifier
+  - select_learning_language
+
+orchestration:
+  command_recommendation: CreateStudentWithOptionalCourseAndLicense
+  separate_domain_entities:
+    - students
+    - student_courses_or_enrollments
+    - student_learning_accounts
+    - student_license_assignments
+    - locations
+  atomicity_required: true
+  do_not_flatten_to_single_students_record: true
+
+security_requirements:
+  - tenant_isolation
+  - protect_pesel
+  - validate_location_in_organization
+  - validate_category_from_allowed_dictionary
+  - validate_license_inventory_for_organization
+  - protect_learning_identifier
+  - prevent_inventory_race_conditions
+  - audit_student_course_and_license_creation
+
+remaining_gaps:
+  - add_student_from_pkk_flow
+  - toggle_license_disabled_state
+  - exact_license_variant_options
+  - exact_language_options
+  - learning_password_or_invitation_flow
+  - pkk_category_validation
+  - duplicate_detection
+  - success_error_messages
+  - post_save_navigation
