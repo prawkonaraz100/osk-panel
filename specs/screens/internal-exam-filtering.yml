@@ -1,0 +1,62 @@
+screen:
+  id: internal_exam_filtering
+  scope: admin_osk
+  parent_route: /egzamin-wewnetrzny/panel
+  title: Filtrowanie
+  confidence: USER_CONFIRMED_AUTH_SCREEN
+  verified_at: 2026-09-05
+  doc: docs/69-internal-exam-filtering.md
+
+filters:
+  course_category:
+    control: multi_select
+    placeholder: Wybierz dowolną ilość kategorii
+    options_source: configurable_driving_category_catalog
+  exam_status:
+    control: multi_checkbox
+    options:
+      - id: unassigned
+        label: Brak przypisanego
+      - id: failed
+        label: Niezaliczony
+      - id: not_conducted
+        label: Nie przeprowadzony
+      - id: passed
+        label: Zaliczony
+
+apply_action:
+  label: Filtruj
+
+status_semantics:
+  failed:
+    confirmed: true
+    meaning: completed_with_negative_result
+  passed:
+    existence_confirmed_by_filter: true
+    exact_table_visual: TO_VERIFY
+  unassigned_vs_not_conducted:
+    distinct_ui_states_confirmed: true
+    semantic_interpretation: strongly_supported_as_no_exam_assigned_vs_exam_prepared_but_not_completed
+    exact_competitor_internal_lifecycle: TO_VERIFY
+
+own_product_rules:
+  status_filter_should_use_formal_course_requirement_projection: true
+  theory_exam_not_required_must_not_appear_as_unassigned_gap: true
+  recommended_status_or_semantics_within_multi_select: OR
+  lifecycle_can_be_richer_than_public_filter_labels: true
+
+confirmed_actions:
+  - open_internal_exam_filter_drawer
+  - filter_by_multiple_course_categories
+  - filter_by_unassigned_exam
+  - filter_by_failed_exam
+  - filter_by_not_conducted_exam
+  - filter_by_passed_exam
+  - apply_internal_exam_filters
+
+remaining_gaps:
+  - exact_category_option_list_in_this_drawer
+  - exact_multi_status_boolean_semantics
+  - filter_reset_behavior
+  - persisted_query_state
+  - active_filter_count
