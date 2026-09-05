@@ -1,235 +1,278 @@
-# 03. Główne przepływy użytkownika
+# 03. Główne przepływy użytkownika — core OSK v1
 
-> Stan po ponownej weryfikacji 2026-09-05. Tam, gdzie nie znamy dokładnego UI panelu, opisujemy potwierdzony rezultat biznesowy, a nie wymyślony przycisk.
+Data konsolidacji: 2026-09-05
 
-## Flow A — założenie OSK
+> Szczegóły ekranowe są w `specs/screens/*.yml`. Ten dokument opisuje przepływy biznesowe naszego produktu. Canonical lifecycle egzaminu: `specs/design/internal-exam-lifecycle.yml`.
+
+---
+
+# Flow A — wejście do panelu
 
 ```mermaid
 flowchart TD
-A[Rejestracja] --> B[Dane właściciela]
-B --> C[Dane firmy]
-C --> D[Akceptacja regulaminu]
-D --> E[Utworzenie organizacji]
-E --> F[Logowanie / panel]
-F --> G[Uzupełnij profil / zasoby]
+A[Chroniony URL] --> B{Zalogowany?}
+B -->|Tak| C[Autoryzacja tenant + permission]
+B -->|Nie| D[Logowanie z bezpiecznym ReturnUrl]
+D --> C
+C -->|OK| E[Docelowy ekran]
+C -->|Brak dostępu| F[403/404 wg polityki]
 ```
 
-## Flow A2 — wejście na chronioną trasę
+ReturnUrl przyjmuje wyłącznie lokalne/dozwolone ścieżki.
+
+---
+
+# Flow B — nowy pracownik
 
 ```mermaid
 flowchart TD
-A[Użytkownik otwiera chroniony URL] --> B{Zalogowany?}
-B -->|Tak| C[Otwórz docelowy ekran]
-B -->|Nie| D[Logowanie z ReturnUrl]
-D --> E[Poprawne uwierzytelnienie]
-E --> C
+A[Dodaj pracownika] --> B[StaffProfile]
+B --> C{Potrzebuje loginu?}
+C -->|Nie| D[Pracownik bez konta]
+C -->|Tak| E[Utwórz User/Membership]
+E --> F[Wybierz role template / permissions]
+F --> G[Aktywny dostęp panelowy]
 ```
 
-`ReturnUrl` jest obserwowalny na aktualnych chronionych trasach publicznie przekierowujących do logowania.
+`staff_type` nie nadaje automatycznie permissions.
 
-## Flow A3 — reset hasła
+---
 
-1. Użytkownik otwiera przypomnienie hasła.
-2. Podaje **e-mail albo login**.
-3. System inicjuje proces zmiany hasła i wysyła wiadomość zgodnie z aktualnym komunikatem strony.
-4. Użytkownik może wrócić do logowania.
-
-## Flow B — nowy kursant + licencja
+# Flow C — nowy kursant
 
 ```mermaid
 flowchart TD
-A[Wybierz / dodaj kursanta] --> B{Licencja w puli?}
-B -->|Nie| C[Zakup licencje]
-C --> D[Licencja dostępna w inventory]
-B -->|Tak| D
-D --> E[Wybierz okres / produkt]
-E --> F[Jawnie wybierz język]
-F --> G{Sposób utworzenia dostępu}
-G -->|E-mail kursanta| H[Utwórz dostęp przez e-mail]
-G -->|Login + hasło OSK| I[Wygeneruj / nadaj dane logowania]
-H --> J[Przypisz licencję]
+A[Dodaj kursanta] --> B[Student]
+B --> C{Dodaj kurs od razu?}
+C -->|Tak| D[CourseEnrollment]
+C -->|Nie| E[Sam profil kursanta]
+D --> F[Rule engine wymagań]
+F --> G[PKK / zajęcia / egzamin zależnie od kursu]
+```
+
+Student może istnieć bez learning account i bez licencji.
+
+---
+
+# Flow D — dodanie formalnego kursu
+
+1. Otwórz kursanta.
+2. `Dodaj kurs`.
+3. Wybierz rodzaj szkolenia i kategorię.
+4. Podaj PKK, datę rozpoczęcia, instruktora i opcjonalną lokalizację.
+5. Podaj/uznaj dane wejściowe dotyczące wcześniejszego szkolenia, jeżeli dotyczą.
+6. Backend tworzy `CourseEnrollment`.
+7. Rule engine zapisuje `TrainingRequirementProfile`.
+8. Jeżeli podano koszt, StudentFinance może utworzyć powiązaną należność zgodnie z polityką produktu.
+
+Pola godzin widoczne w audytowanym formularzu nie oznaczają, że ręczny agregat ma być source of truth w naszym systemie.
+
+---
+
+# Flow E — ewidencja zajęć i godzin
+
+```mermaid
+flowchart TD
+A[Zaplanuj zajęcia] --> B[CalendarEvent / TrainingSession]
+B --> C[Realizacja + attendance]
+C --> D{Zaliczone formalnie?}
+D -->|Tak| E[TrainingHourLedgerEntry]
+D -->|Nie| F[Brak credit]
+E --> G[Course totals projection]
+```
+
+Dla czasu uznanego z innego OSK:
+
+`RecognizedExternalTraining -> course totals projection`
+
+Teoria: 45 min / godzina szkoleniowa.  
+Praktyka: 60 min / godzina szkoleniowa.
+
+---
+
+# Flow F — zmiana podstawy zwolnienia / wymagań
+
+1. Użytkownik zmienia fakty wejściowe lub podstawę zwolnienia.
+2. System zapisuje actor/reason/evidence.
+3. Rule engine przelicza requirement profile.
+4. Wykonane wcześniej zajęcia nie są niszczone.
+5. Przyszłe wymagania są aktualizowane.
+6. Closed course wymaga correction mode.
+
+Nie ma dowolnego checkboxa „zwolnij z teorii” omijającego reguły.
+
+---
+
+# Flow G — PKK
+
+Operacja zawsze w kontekście kursu:
+
+`Student -> CourseEnrollment -> PKK`
+
+```mermaid
+flowchart TD
+A[Otwórz kurs] --> B[PKK panel]
+B --> C[Wybierz command]
+C --> D[Authorize + validate + Idempotency]
+D --> E[Zapis PkkOperation intent]
+E --> F[Provider call]
+F --> G{Rezultat}
+G -->|Success| H[Persist normalized state + audit]
+G -->|Retryable failure| I[Operation failed/retryable]
+G -->|Business error| J[Operation failed/non-retryable]
+I --> K[Kontrolowany retry -> new attempt]
+```
+
+Historia nie miesza operacji kilku kursów tego samego kursanta.
+
+---
+
+# Flow H — learning account + licencja
+
+```mermaid
+flowchart TD
+A[Student] --> B{Learning account istnieje?}
+B -->|Nie| C[Utwórz StudentLearningAccount]
+B -->|Tak| D[Wybierz istniejący]
+C --> E[Ustaw/generuj credentials]
+E --> F[Opcjonalny AccessHandoff/PDF]
+D --> G[Wybierz license product]
+F --> G
+G --> H{Inventory dostępne?}
+H -->|Nie| I[Zakup/grant inventory]
+H -->|Tak| J[Assign]
 I --> J
-J --> K[Status: assigned / not activated]
-K --> L{Kursant aktywował?}
-L -->|Tak| M[Status: activated / consumed]
-L -->|Nie| N[OSK może skasować nieaktywny przydział]
-N --> O[Sztuka automatycznie wraca do inventory]
-M --> P[Monitoring postępu]
+J --> K[assigned / not activated]
+K --> L{Aktywacja}
+L -->|Tak| M[LicenseActivation -> active period]
+L -->|Nie| N[Można revoke unactivated]
+N --> O[Dokładnie 1 sztuka wraca do inventory]
 ```
 
-### Reguły
-- niewykorzystana sztuka w puli OSK i okres aktywnego pakietu użytkownika to dwa różne pojęcia,
-- języka nie należy ustawiać „na sztywno” jako PL,
-- obecna dokładna macierz języków zależy od modułu i wymaga konfiguracji.
+Hasło jawne może być pokazane jednorazowo w handoff flow, ale nie jest później odzyskiwalne.
 
-## Flow C — cofnięcie nieaktywowanej licencji
+---
 
-1. OSK wybiera nieaktywowany przydział.
-2. System potwierdza, że dostęp nie został aktywowany.
-3. OSK usuwa/cofa przydział.
-4. Assignment zostaje anulowany/skasowany.
-5. Sztuka licencji **automatycznie wraca do puli**.
-6. Operacja trafia do audytu własnego systemu.
-
-Po aktywacji nie wolno stosować tego flow jako zwykłego „undo”.
-
-## Flow D — zakup usługi cyfrowej z jawną aktywacją
-
-```mermaid
-stateDiagram-v2
-[*] --> ordered
-ordered --> paid: potwierdzona płatność
-paid --> activation_available: udostępnij CTA
-activation_available --> activated: Aktywuj dostęp
-activated --> expired: koniec okresu
-```
-
-1. Użytkownik wybiera produkt i wariant.
-2. Powstaje zamówienie.
-3. Użytkownik płaci online/kartą albo przelewem.
-4. Po zaksięgowaniu płatności system może udostępnić `Aktywuj dostęp`.
-5. Dopiero jawna aktywacja rozpoczyna dostęp dla produktów korzystających z tego mechanizmu.
-
-Nie należy bezwarunkowo robić `payment_success == access_started`.
-
-## Flow E — egzamin wewnętrzny linkiem
-
-1. OSK posiada dostępny egzamin w puli.
-2. Wybiera kursanta i wymagane parametry.
-3. Generuje egzamin/link.
-4. Kursant otwiera otrzymany link.
-5. Po rozpoczęciu tworzona jest aktywna sesja egzaminu.
-6. Po zakończeniu zapisujemy wynik/przebieg.
-7. Egzamin zostaje wykorzystany.
-8. Karta przebiegu może być przechowywana cyfrowo i drukowana.
-
-Dokładne TTL tokena, możliwość unieważnienia linku i konfiguracja testu są `TO_VERIFY_AUTH`; nie należy ich przypisywać konkurencyjnemu systemowi bez dowodu.
-
-## Flow F — egzamin stacjonarny
-
-1. OSK wybiera funkcję stacjonarnego rozpoczęcia (`Rozpocznij egzamin wewnętrzny` jest potwierdzone regulaminem).
-2. Uruchamia egzamin na stanowisku lokalnym.
-3. Kursant wykonuje test.
-4. System zapisuje wynik/przebieg.
-5. Egzamin zostaje wykorzystany.
-6. Karta przebiegu jest dostępna cyfrowo/do druku.
-
-## Flow G — szkolenie z instruktorem
+# Flow I — student finance
 
 ```mermaid
 flowchart TD
-A[Otwórz Szkolenie z instruktorem] --> B[Wybierz / użyj domyślnej kategorii]
-B --> C[Lista działów i lekcji]
-C --> D[Odtwarzaj materiał wideo]
-D --> E[Zapisuj postęp szkolenia]
-E --> F[Pytania kontrolne na końcu działu]
-F --> G{Decyzja użytkownika}
-G -->|Rozwiązuj| H[Zapis próby]
-H --> I{Chce ponowić?}
-I -->|Tak| H
-I -->|Nie| J[Następna lekcja]
-G -->|Pomiń| J
-J --> C
+A[StudentCharge] --> B[Saldo należności]
+B --> C[Record StudentPayment]
+C --> D{Pozostało > 0?}
+D -->|Tak| E[partially_paid]
+D -->|Nie| F[paid]
+C --> G{Korekta wpłaty?}
+G -->|Tak| H[Reverse payment]
+H --> I[Nowy poprawny payment jeśli potrzebny]
 ```
 
-Zmiana kategorii konta może zmienić zawartość/strukturę szkolenia oraz domyślne filtrowanie testu, kursu i statystyk.
+Płatności kursanta nie są zakupami OSK na platformie.
 
-## Flow H — zmiana domyślnej kategorii
+---
 
-1. Użytkownik otwiera wybór kategorii.
-2. Wybiera inną obsługiwaną kategorię.
-3. System zapisuje `default_category` jako preferencję.
-4. Test, kurs i statystyki automatycznie pokazują dane dla tej kategorii.
-5. Moduł szkolenia ładuje odpowiednią treść dla wybranej kategorii.
+# Flow J — kalendarz / jazda
 
-Nie modelować tego jako jednorazowego, niezmiennego przypisania kategorii do użytkownika.
+1. Użytkownik otwiera kalendarz.
+2. Tworzy `Wydarzenie` albo `Jazdę`.
+3. Wybiera datę/czas/duration.
+4. Opcjonalnie wskazuje kursanta, instruktora, pojazd, lokalizację/miejsce własne.
+5. Backend waliduje tenant oraz konflikty zasobów.
+6. Zapis jest audytowany.
+7. Późniejszy move/cancel działa według własnego lifecycle.
 
-## Flow I — jazda w kalendarzu
+Self-booking używa atomowo rezerwowanych `AvailabilitySlot`.
+
+---
+
+# Flow K — zakup licencji/egzaminów przez OSK
 
 ```mermaid
 flowchart TD
-A[Nowa jazda] --> B[Wybór kursanta]
-B --> C{Dla kogo planuje pracownik?}
-C -->|Dla siebie| D[Przypisz siebie]
-C -->|Dla innego pracownika| E[Wybierz pracownika]
-D --> F[Data i czas]
-E --> F
-F --> G[Opcjonalnie pojazd / zasoby]
-G --> H[Zapis]
-H --> I[Widoczność w kalendarzu]
+A[Wybór produktu/ilości] --> B[Order + OrderItems]
+B --> C[Payment]
+C --> D{Potwierdzona?}
+D -->|Nie| E[pending/failed]
+D -->|Tak| F[Grant inventory/entitlement]
+F --> G[Historia zakupów]
 ```
 
-Potwierdzone biznesowo są także:
-- publikacja możliwości samodzielnego zapisu kursanta,
-- podgląd aktywności instruktorów,
-- ewidencja czasu pracy,
-- dostęp do kalendarza w zależności od roli/uprawnień, w tym biuro i kadry/HR.
+Cena/VAT są snapshotowane na `OrderItem`.
 
-Konflikty zasobów i szczegółowe statusy to wymagania naszego systemu, a nie publicznie potwierdzony model 360.
+---
 
-## Flow J — operacja PKK
-
-Każda własna integracja powinna używać wzorca:
-
-`request -> validation -> authorization -> audit_start -> external_call -> normalize_response -> persist -> audit_end -> notify`
-
-Potwierdzone rodzaje operacji biznesowych:
-- pobierz profil,
-- pokaż szczegóły,
-- aktualizuj szkolenie,
-- zwróć do innego OSK,
-- zwróć do urzędu,
-- zwróć profil przedawniony,
-- pokaż historię operacji.
-
-## Flow K — licytacja reklamy
+# Flow L — egzamin wewnętrzny remote
 
 ```mermaid
 flowchart TD
-A[Wybierz miejscowość] --> B[Wybierz placement]
-B --> C[Zobacz warunki aukcji]
-C --> D[Podaj ofertę]
-D --> E[Licytuj - oferta wiążąca]
-E --> F{Koniec aukcji}
-F -->|Przegrana| G[Brak zamówienia emisji]
-F -->|Wygrana| H[E-mail z potwierdzeniem]
-H --> I[Zapłać w terminie]
-I --> J[Prześlij kreacje desktop/mobile]
-J --> K{Kreacja zaakceptowana?}
-K -->|Tak| L[Zaplanuj / aktywuj emisję]
-K -->|Nie| M[Popraw / zleć modyfikację]
-M --> J
-J --> N{Brak grafiki w terminie?}
-N -->|Tak| O[Możliwa reklama tekstowa wg zasad]
+A[CourseEnrollment] --> B{Rule engine: część wymagana?}
+B -->|Nie| C[Brak generowania tej części]
+B -->|Tak| D[Create InternalExamAttempt]
+D --> E[Reserve 1 exam inventory]
+E --> F[Create remote access/token]
+F --> G[Wyślij/udostępnij link]
+G --> H{Kursant startuje?}
+H -->|Nie, access wygasa/cofnięty| I[Release reservation]
+H -->|Tak| J[Atomowo consume inventory + attempt in_progress]
+J --> K[Odpowiedzi]
+K --> L[Submit/finish]
+L --> M[Result + immutable snapshot + PDF]
 ```
 
-### Dodatkowe akcje aukcji
-- obejrzenie historii ofert,
-- wniosek o ukrycie nazwy OSK w historii,
-- prośba do operatora o odrzucenie własnej wiążącej oferty,
-- przy remisie ofert decyduje wcześniejsze złożenie,
-- emisja wymaga płatności.
+**Inventory jest konsumowane przy start, nie przy finish.**
 
-## Flow L — artykuł sponsorowany
+---
 
-1. Klient zamawia usługę.
-2. Wybiera: własna treść do redakcji albo przygotowanie tekstu przez operatora.
-3. Przekazuje treść i materiały graficzne.
-4. Materiał przechodzi moderację/redakcję.
-5. Po akceptacji zostaje opublikowany i czasowo promowany.
-6. Po zakończeniu okresu promocji może pozostać w archiwum aktualności.
+# Flow M — egzamin lokalny
 
-## Flow M — ranking/opinia
+1. Wybierz kursanta i `CourseEnrollment`.
+2. Rule engine potwierdza wymaganą część.
+3. Utwórz attempt/access i reservation.
+4. Użytkownik uruchamia egzamin na stanowisku.
+5. Start atomowo konsumuje inventory.
+6. Kursant wykonuje egzamin.
+7. Submit zapisuje wynik i snapshot.
+8. PDF/dokument powstaje z historycznego snapshotu.
 
-1. Użytkownik wystawia ocenę 1–5 i/lub opinię zgodnie z zasadami serwisu.
-2. Treść podlega moderacji.
-3. Oceny, ich liczba i aktualność wpływają na ranking; mechanizm opisuje uśrednianie bayesowskie i okresowe przeliczenie.
-4. OSK może zgłosić opinię do ponownej analizy administratora.
-5. Organicznej pozycji rankingu nie traktujemy jako kupowalnej reklamy.
+---
 
-## Flow N — zamknięcie / blokada konta
+# Flow N — awaria egzaminu po starcie
 
-- użytkownik może złożyć żądanie zamknięcia konta,
-- operator może blokować konto/adresy przy naruszeniach,
-- dla opłaconych kont użytkowników regulamin opisuje pojedynczą aktywną sesję; nowa sesja kończy poprzednią,
-- szczegółowe skutki dla kont personelu OSK: `TO_VERIFY_AUTH`.
+1. Attempt jest już `in_progress`.
+2. Występuje awaria techniczna.
+3. Attempt -> `technical_abort`.
+4. Inventory pozostaje consumed.
+5. Jeżeli biznes decyduje o zwrocie sztuki, uprawniony użytkownik tworzy audytowaną compensating adjustment.
+
+Brak automatycznego „oddania sztuki” po zamknięciu przeglądarki.
+
+---
+
+# Flow O — archiwizacja zasobu
+
+Dla student/staff/location/vehicle:
+
+1. sprawdź permission,
+2. sprawdź aktywne zależności,
+3. pokaż konsekwencje,
+4. ustaw archived state,
+5. zablokuj nowe przypisania,
+6. zachowaj historię,
+7. rozwiąż przyszłe wydarzenia jawnie,
+8. audit.
+
+Szczegóły: `docs/83-core-lifecycle-policy.md`.
+
+---
+
+# Flow P — dashboard
+
+Dashboard jest projekcją, nie source of truth.
+
+Agreguje:
+- licencje,
+- egzaminy,
+- activity feed,
+- kalendarz.
+
+Kliknięcia prowadzą do właściwych bounded contexts; dashboard nie implementuje duplikatu ich logiki.
