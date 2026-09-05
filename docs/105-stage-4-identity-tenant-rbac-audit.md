@@ -2,17 +2,15 @@
 
 Data: 2026-09-05
 
-**Status:** `IN_PROGRESS / DB-IAM-001 PASS / DB-IAM-002 PASS / DB-IAM-003 PASS / 2 P1 BLOCKERS OPEN`
+**Status:** `IN_PROGRESS / DB-IAM-001..004 PASS / 1 P1 BLOCKER OPEN`
 
 ## Cel slice'u
 
-Nie projektujemy jeszcze Staff/Locations/Vehicles, Student/Course, Calendar ani innych bounded contexts. Nie generujemy migracji Laravel. Identity/Tenant/RBAC zamykamy blocker po blockerze.
+Identity/Tenant/RBAC zamykamy blocker po blockerze. Nie projektujemy jeszcze Staff/Locations/Vehicles, Student/Course, Calendar ani innych bounded contexts i nie generujemy migracji Laravel.
 
 Zasada:
 
 `canonical RBAC -> physical ownership -> tenant constraint -> effective permission resolution -> lifecycle transaction -> invariant test`
-
-Reverse engineering nie jest upraszczany. Techniczny RBAC własnego produktu może być bezpieczniejszy od konkurenta, ale nie może usuwać potwierdzonych funkcji biznesowych.
 
 ## Źródła
 
@@ -26,214 +24,175 @@ Reverse engineering nie jest upraszczany. Techniczny RBAC własnego produktu mo�
 - `docs/87-physical-database-schema.md`,
 - `specs/gates/stage-4-database-contract-gate.yml`.
 
-## Co było poprawne już przed naprawami
+---
 
-- globalny `User` jest oddzielony od tenantowego `OrganizationMembership`,
-- jedna osoba może należeć do wielu OSK,
-- `StaffProfile` nie jest auth identity,
-- `staff_type != role_template != permission`,
-- backend authorization order zaczyna się od auth + active membership + tenant validation,
-- `AuthLoginIdentifier` rozwiązuje login, ale nie autoryzuje tenant resource,
-- permission changes i elevated operations wymagają audytu.
+# DB-IAM-001 — PASS
+
+Role template jest tylko assignment-time presetem + provenance. Runtime source of truth to `membership_permissions`; brak row i nowe future permissions domyślnie dają DENY.
 
 ---
 
-# DB-IAM-001 — PASS: effective permissions / role template semantics
+# DB-IAM-002 — PASS
 
-Role template jest wyłącznie assignment-time presetem + provenance. Nie jest runtime authorization dependency.
+Data scope jest per permission przez:
 
-Runtime source of truth:
+`membership_permissions -> membership_permission_scopes -> resolver`
 
-`active OrganizationMembership -> membership_permissions -> permission decision`
-
-Najważniejsze inwarianty:
-- `role_template_code` i `role_template_catalog_version` są metadata/provenance,
-- template materializuje jawny current permission snapshot,
-- brak permission row -> deny,
-- nowy permission dodany później -> deny do explicit grant/reapply,
-- zmiana definicji template nie zmienia po cichu istniejących membershipów,
-- template reapply/change jest explicit atomic commandem.
-
-**Gate DB-IAM-001: PASS.**
+Scope codes: `organization`, `own`, `assigned_students`, `assigned_locations`. Brak scope dla granted permission = fail-closed DENY. Stary membership-wide `data_scope` jest superseded.
 
 ---
 
-# DB-IAM-002 — PASS: canonical per-permission data scope
+# DB-IAM-003 — PASS
 
-Scope jest materializowany per permission, a nie jako jeden globalny string membership.
+Non-null tenant session context jest chroniony composite FK:
 
-Canonical runtime chain:
+`auth_sessions(organization_membership_id, user_id)`
 
-`OrganizationMembership -> membership_permissions -> membership_permission_scopes -> resolver`
+->
 
-Katalog scope:
-- `organization`,
-- `own`,
-- `assigned_students`,
-- `assigned_locations`.
+`organization_memberships(id, user_id)`.
 
-Fizyczne elementy:
-- `data_scopes`,
-- `permission_scope_options`,
-- `membership_permission_scopes`.
-
-Najważniejsze inwarianty:
-- granted permission bez legalnego scope -> deny fail-closed,
-- unsupported permission/scope pair -> reject,
-- wiele scope rows dla jednego permission -> OR po same-tenant validation,
-- `organization` nigdy nie omija tenant isolation,
-- list/get/search/count/export/PDF używają tej samej policy,
-- frontend post-fetch filtering nie jest security boundary,
-- `assigned_locations` i `assigned_students` mają zamrożone resolver contracts dla kolejnych slice'ów.
-
-`organization_memberships.data_scope` jest superseded i zostanie usunięty z aggregate blueprint przed finalnym DB4_2 PASS/migracjami.
-
-**Gate DB-IAM-002: PASS.**
+Sesja jednego Usera nie może wskazać membership innego Usera. Null membership pozostaje dozwolony wyłącznie dla global/pre-tenant flow; tenant-owned request bez membership jest odrzucany.
 
 ---
 
-# DB-IAM-003 — PASS: auth session ↔ membership same-user integrity
+# DB-IAM-004 — PASS: last-owner / privilege escalation
 
 ## Problem
 
-Poprzedni physical shape posiadał dwa niezależne FK:
-
-- `auth_sessions.user_id -> users.id`,
-- `auth_sessions.organization_membership_id -> organization_memberships.id`.
-
-Taki model nie zabraniał fizycznie stanu, w którym sesja `User A` wskazuje membership należący do `User B`.
-
-To jest niedopuszczalne dla tenant security boundary.
+Wcześniejsza dokumentacja mówiła, że ostatni Owner musi być chroniony i że permission changes są elevated, ale nie było jednoznacznego modelu:
+- czym fizycznie jest Owner,
+- jak liczyć ostatniego Ownera,
+- jak blokować self-escalation,
+- jaki jest grant ceiling,
+- co dzieje się z aktywną sesją po odebraniu elevated permission.
 
 ## Decyzja canonical
 
-Wprowadzamy **composite same-user foreign key**.
+### Owner marker
 
-`organization_memberships` musi posiadać unique candidate key:
+`organization_memberships.is_owner boolean not null default false`.
 
-`UNIQUE(id, user_id)`
+To jest governance marker, nie runtime authorization shortcut. Backend nadal autoryzuje przez `membership_permissions` + scope.
 
-A tenant context w `auth_sessions` jest chroniony przez:
+### Protected owner baseline
 
-`FOREIGN KEY (organization_membership_id, user_id)`
-`REFERENCES organization_memberships(id, user_id)`
+Membership z `is_owner=true` musi mieć jawnie materializowane:
+- `organization.view` / `organization`,
+- `organization.members.manage` / `organization`,
+- `staff.permissions.manage` / `organization`,
+- `sessions.manage.organization` / `organization`.
 
-z `MATCH SIMPLE`, `ON UPDATE RESTRICT`, `ON DELETE RESTRICT`.
+Nie można odebrać tych praw pozostawiając membership jako Ownera. Demotion i zmiana protected baseline należą do jednej transakcji.
 
-Efekt:
-- jeśli `organization_membership_id` jest ustawiony, membership musi należeć dokładnie do tego samego `user_id`, co sesja,
-- session User A nie może wskazać membership User B nawet przy błędzie aplikacji,
-- membership nie może być „przepisywany” na innego Usera; poprawa takiej sytuacji odbywa się przez właściwy membership/lifecycle, nie przez zmianę `user_id` istniejącego membership.
+### Last-owner invariant
 
-## Global / pre-tenant session
+Zmiana Ownera jest serializowana per organizacja przez lock organizacji lub równoważny governance lock.
 
-`organization_membership_id` pozostaje nullable.
+Każda transakcja, która degraduje, zawiesza lub usuwa owner-capable membership, liczy **post-transaction active owners** i wymaga wyniku `>= 1`.
 
-To jest celowe dla:
-- zalogowanej sesji przed wyborem tenant context,
-- globalnych flow konta/security, które nie wymagają OSK context.
+Transfer Ownera jest atomowy: successor promotion + predecessor demotion w jednej transakcji. Nie może być widoczny commit z zerem Ownerów.
 
-`MATCH SIMPLE` powoduje, że przy `organization_membership_id IS NULL` composite FK nie wymaga membership row.
+Exact membership lifecycle status names pozostają do zamknięcia w `DB-IAM-005`, ale nie mogą osłabić tej reguły.
 
-Jednocześnie każda operacja tenant-owned wymaga non-null membership context po stronie backend policy.
+### Self-escalation
 
-## Wybór / zmiana tenant context
+Zwykły admin flow nie może:
+- nadać sobie nowego permission,
+- poszerzyć własnego scope,
+- samemu ustawić `is_owner=true`,
+- zastosować sobie template'u, który rozszerza privileges.
 
-Canonical flow:
-1. wczytaj sesję bez ujawniania raw session secret,
-2. rozwiąż requested membership,
-3. potwierdź, że membership należy do `auth_sessions.user_id`,
-4. potwierdź, że membership jest dozwolony przez aktualny lifecycle policy,
-5. zapisz `organization_membership_id`,
-6. composite FK jest ostatnią fizyczną granicą integralności.
+Self-restriction jest możliwe tylko jeśli nie łamie last-owner i protected owner baseline.
 
-Nie przyjmujemy client-supplied `organization_id` jako źródła autoryzacji. Aktywna organizacja wynika z wybranego membership.
+### Grant ceiling
 
-## Granica tego rozwiązania
+Administrator może delegować tylko capability, które sam aktualnie posiada w tej samej organizacji.
 
-Composite FK rozwiązuje **identity integrity**, ale nie rozwiązuje jeszcze:
-- kiedy membership jest `active/suspended/revoked`,
-- kiedy revoke/suspend unieważnia istniejące sesje,
-- cache/version semantics po zmianie permissions.
+Scope nie może być szerszy niż scope aktora dla tego samego permission:
+- aktor z `organization` może delegować legalny węższy scope,
+- aktor z non-organization scope może delegować tylko posiadane scope codes,
+- scope nieznany/nieporównywalny -> DENY.
 
-To pozostaje świadomie w `DB-IAM-005`.
+Grant lub broadening elevated permission wymaga aktywnego Ownera jako aktora oraz permission management capabilities.
 
-## Migration gate
+### Authorization version / session effect
 
-Przed dodaniem constraintu migracja musi:
-- przeskanować istniejące `auth_sessions` z non-null membership,
-- wykryć przypadki `session.user_id != membership.user_id`,
-- zatrzymać migrację lub poddać rekord explicit security remediation,
-- **nie** naprawiać takiego rekordu automatycznie przez przepisanie go na inną osobę,
-- następnie dodać `UNIQUE(id, user_id)` i composite FK.
+`organization_memberships.authorization_version bigint >= 1` jest security epoch.
 
-## Test obligations DB-IAM-003
+Wzrasta przy:
+- permission grant/revoke,
+- scope change,
+- owner promotion/demotion,
+- membership state change wpływającym na authorization eligibility.
 
-- session + membership tego samego usera -> accepted,
-- session User A + membership User B -> rejected przez DB,
-- null membership -> dozwolony dla global/pre-tenant session,
-- tenant-owned request z null membership -> denied przez backend policy,
-- ten sam User może przełączyć się między swoimi membershipami w dwóch OSK,
-- `organization_memberships.user_id` nie może być reassigned,
-- migration precheck wykrywa historyczne cross-user session rows.
+Sesja nie może przechowywać trwałego permission snapshotu jako źródła praw. Jeżeli istnieje cache, musi być związany z bieżącym `authorization_version`.
 
-**Gate DB-IAM-003: PASS.**
+Odebranie elevated permission jest skuteczne najpóźniej przy następnym autoryzowanym request. Sama sesja może pozostać zalogowana; stale permission/elevation proof nie może być użyty po zmianie version.
+
+Pełny suspend/revoke/session invalidation lifecycle pozostaje `DB-IAM-005`.
+
+## Test obligations DB-IAM-004
+
+- role template `Owner` sam nie autoryzuje requestu,
+- Owner bez protected baseline jest consistency failure,
+- self-promotion do Ownera jest blokowane,
+- self-grant i self-scope-broadening są blokowane,
+- non-owner nie może grantować elevated permission,
+- actor nie może grantować permission, którego sam nie ma,
+- actor nie może delegować scope szerszego niż własny,
+- promotion Ownera materializuje baseline atomowo,
+- transaction zostawiający zero active owners jest odrzucany,
+- dwa równoległe demotiony Ownerów nie mogą oba przejść,
+- transfer Ownera jest atomowy,
+- protected permission nie może zostać revoked bez owner demotion w tej samej transakcji,
+- elevated revoke zwiększa `authorization_version`,
+- stale authorization cache/proof nie autoryzuje po zmianie version.
+
+**Gate DB-IAM-004: PASS.**
 
 ---
 
-# DB-IAM-004 — OPEN P1 SECURITY: last-owner / privilege escalation
+# DB-IAM-005 — OPEN P1: membership + permission mutation lifecycle
 
-Policy wymaga last-owner protection i audytowanych elevated permission changes, ale nadal brak canonical physical/transactional odpowiedzi dla:
-- owner marker,
-- liczenia active owners,
-- self-escalation,
-- grant ceiling,
-- session effect po odebraniu elevated permission.
+Pozostaje zamknięcie jednego ostatniego blockera DB4_2:
+- dokładne membership states/transitions,
+- suspend/revoke/reactivate vs hard delete,
+- durable membership row vs history periods,
+- session invalidation po suspend/revoke,
+- permission mutation concurrency/lost update,
+- actor/reason/version/audit semantics,
+- finalna relacja pomiędzy lifecycle `version` i `authorization_version`.
 
 **To jest następny i jedyny blocker do naprawy.**
 
 ---
 
-# DB-IAM-005 — OPEN P1: membership i permission mutation lifecycle
-
-Nadal trzeba zamknąć:
-- membership states/transitions,
-- suspend/revoke/reactivate vs delete,
-- trwały membership row vs historyczne membership periods,
-- session invalidation po revoke/suspend,
-- permission change concurrency,
-- actor/reason/version/audit semantics.
-
-Nie naprawiamy jeszcze.
-
----
-
-# Quality gate DB4_2_STEP_4
+# Quality gate DB4_2_STEP_5
 
 Sprawdzono:
-- czy non-null tenant session context może wskazać membership innego usera — **NIE / PASS**, composite FK blokuje,
-- czy FK jest wykonalny fizycznie w PostgreSQL — **PASS**, target ma jawny unique `(id,user_id)`,
-- czy global/pre-tenant session pozostaje możliwy — **PASS**, nullable membership + MATCH SIMPLE,
-- czy tenant-owned request bez membership jest dozwolony — **NIE / PASS**, backend deny,
-- czy organizacja jest wyprowadzana z membership zamiast client-supplied organization ID — **PASS**,
-- czy migracja posiada precheck dla istniejących niespójnych rekordów — **PASS**,
-- czy rozwiązanie nie próbuje przy okazji definiować owner/escalation — **PASS**, nadal DB-IAM-004,
-- czy rozwiązanie nie próbuje przy okazji definiować revoke/suspend/session invalidation lifecycle — **PASS**, nadal DB-IAM-005.
+- owner marker nie jest runtime permission shortcut — **PASS**,
+- owner ma protected materialized permission baseline — **PASS**,
+- last-owner count jest serializowany i oceniany po planowanej transakcji — **PASS**,
+- normal self-escalation jest zakazana — **PASS**,
+- grant ceiling nie pozwala delegować prawa/scope ponad aktora — **PASS**,
+- elevated grant wymaga Ownera — **PASS**,
+- revoke elevated permission nie pozostawia stale session authorization — **PASS** przez `authorization_version`,
+- nie zamknięto przy okazji pełnego membership/session lifecycle — **PASS**, nadal DB-IAM-005,
+- nie wykonano aggregate sync/migracji — **PASS**.
 
-Nie znaleziono nowego P0/P1 wynikającego z decyzji DB-IAM-003.
-
-Aggregate `core-schema.yml` i `docs/87` zostaną zsynchronizowane dopiero przed finalnym DB4_2 PASS. Migracje nadal są zablokowane.
+Nie znaleziono nowego P0/P1 wynikającego z decyzji DB-IAM-004.
 
 ---
 
-# Wynik po DB4_2_STEP_4
+# Wynik po DB4_2_STEP_5
 
 - `DB-IAM-001` — **PASS**,
 - `DB-IAM-002` — **PASS**,
 - `DB-IAM-003` — **PASS**,
-- `DB-IAM-004` — **OPEN P1**,
+- `DB-IAM-004` — **PASS**,
 - `DB-IAM-005` — **OPEN P1**.
 
-DB4_2 jako całość nadal ma **FAIL**. `DB4_3` pozostaje zablokowany.
+DB4_2 jako całość nadal ma **FAIL**, więc `DB4_3` pozostaje zablokowany.
 
-**Następny pojedynczy krok: `DB-IAM-004` — wyłącznie last-owner i privilege-escalation invariants.**
+**Następny pojedynczy krok: tylko `DB-IAM-005`.**
