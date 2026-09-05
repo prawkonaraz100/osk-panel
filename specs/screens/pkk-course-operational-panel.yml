@@ -1,0 +1,93 @@
+screen:
+  id: pkk_course_operational_panel
+  scope: admin_osk
+  context: student_course
+  confidence: USER_CONFIRMED_AUTH_SCREEN
+  verified_at: 2026-09-05
+  doc: docs/76-pkk-course-operational-panel.md
+
+entity_scope:
+  pkk_attached_to: course_enrollment
+  history_scope: course_enrollment
+  supports_multiple_courses_per_student: true
+
+observed_course:
+  student_name: Paweł Kowalski
+  pkk: '445645645646455'
+  category: A
+  training_type: basic
+  training_type_label: Szkolenie podstawowe
+  start_date: '2026-01-27'
+  last_pkk_operation: none
+
+course_card:
+  fields:
+    - pkk
+    - category
+    - training_type
+    - start_date
+    - last_pkk_operation
+  actions:
+    - manage_pkk
+    - edit_course
+    - delete_course
+
+pkk_history:
+  visible: true
+  observed_count: 0
+  empty_state: Brak operacji PKK
+  own_product_event_fields:
+    - id
+    - course_enrollment_id
+    - operation_type
+    - status
+    - requested_at
+    - completed_at
+    - actor_id
+    - request_snapshot
+    - response_snapshot
+    - error_code
+    - error_message
+
+fetched_pkk_data_panel:
+  title: DANE POBRANE Z PKK
+  observed_state: not_fetched
+  empty_message: Brak pobranych danych PKK dla tego kursu. Użyj „Pobierz PKK”, aby je pobrać.
+  actions:
+    - preview_pkk
+    - fetch_pkk
+    - update_and_return_pkk
+
+own_product_state_model:
+  profile_sync_state:
+    - not_fetched
+    - fetched
+  operation_status:
+    - pending
+    - success
+    - failed
+  rule: last_pkk_operation_is_projection_not_course_status
+
+confirmed_actions:
+  - select_course
+  - open_manage_pkk
+  - edit_course
+  - delete_course
+  - open_pkk_preview
+  - fetch_pkk
+  - start_update_and_return_pkk
+  - view_pkk_operation_history
+
+remaining_gaps:
+  - manage_pkk_drawer_or_modal
+  - preview_pkk_contents
+  - fetched_profile_fields
+  - fetch_required_identifiers
+  - success_error_states
+  - retry_behavior
+  - update_and_return_flow
+  - xml_signature_flow
+  - return_to_other_osk
+  - return_to_authority
+  - return_expired_profile
+  - history_entry_details
