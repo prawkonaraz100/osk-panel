@@ -43,8 +43,10 @@ routes:
     label: Panel - Generuj licencje
     path: /licencje/panel
     group: Licencje
-    status: [USER_CONFIRMED_AUTH_MENU, RULES_CONFIRMED, TO_VERIFY_AUTH]
-    confirmed_actions: [assign_license, create_access_by_email, create_access_by_credentials, select_language, delete_unactivated_and_restore_inventory]
+    status: [USER_CONFIRMED_AUTH_MENU, RULES_CONFIRMED, USER_CONFIRMED_AUTH_SCREEN]
+    screen_spec: specs/screens/license-management-panel.yml
+    screen_doc: docs/53-license-management-panel.md
+    confirmed_actions: [view_inventory_by_duration, generate_student_access, add_new_student, bulk_download_accesses, bulk_assign_license, hide_finished_licenses, search_accesses, sort_accesses, expand_assigned_licenses, download_access_document, open_student_profile]
 
   - key: exams_purchase
     label: Wykup egzaminy
@@ -120,7 +122,7 @@ coverage:
     - dashboard widgets and actions
     - add_student_from_pkk post-configuration flow
     - exact current event details/edit behavior blocked by demo
-    - license panel inventory/list controls
+    - license panel expanded assigned-license rows and sort options
     - business card collection fields and relation to locations
     - ads child menu routes and campaign management controls
     - exact current exam configuration and language matrix
