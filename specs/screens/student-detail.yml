@@ -4,6 +4,8 @@ meta:
   confidence: USER_CONFIRMED_AUTH_SCREEN
   audited_at: 2026-09-05
   doc: docs/30-student-detail-screen.md
+  progress_screen_spec: specs/screens/student-progress.yml
+  internal_exam_screen_spec: specs/screens/student-internal-exam.yml
 
 header:
   confirmed_elements:
@@ -17,7 +19,10 @@ tabs:
   - student_profile
   - internal_exam
   - progress
-  observed_active_tab: student_profile
+  verified_tabs:
+    - student_profile
+    - internal_exam
+    - progress
 
 training_stage:
   course_required_before_change: true
@@ -111,6 +116,35 @@ payments:
   domain_separation:
     student_finance_is_separate_from_osk_purchase_history: true
 
+progress_tab:
+  verified: true
+  screen_spec: specs/screens/student-progress.yml
+  confirmed_high_level_capabilities:
+    - learning_account_selector
+    - category_selector
+    - test_stats
+    - question_stats
+    - handbook_progress
+    - lecture_progress
+    - basic_question_topic_breakdown
+    - specialized_question_topic_breakdown
+
+internal_exam_tab:
+  verified: true
+  screen_spec: specs/screens/student-internal-exam.yml
+  confirmed_high_level_capabilities:
+    - last_exam_projection
+    - start_exam
+    - pass_rate
+    - passed_exam_count
+    - failed_exam_count
+    - attempt_history
+  history_columns:
+    - date_time
+    - category
+    - status
+  observed_empty_state: no_exam_conducted
+
 confirmed_actions:
   - back_to_students
   - archive_student
@@ -121,6 +155,7 @@ confirmed_actions:
   - add_student_course
   - edit_student_details
   - conduct_internal_exam
+  - start_student_internal_exam
   - download_student_access_credentials
   - assign_student_license
   - delete_unactivated_student_license
@@ -133,10 +168,11 @@ entity_model:
     - student_licenses
     - student_courses_or_enrollments
     - pkk_profiles_and_operations
-    - internal_exams
+    - internal_exam_attempts
     - student_charges_and_payments
     - locations
   do_not_use_single_student_status: true
+  do_not_use_single_exam_boolean: true
 
 security_requirements:
   - tenant_isolation
@@ -145,8 +181,10 @@ security_requirements:
   - protect_pkk_reference
   - authorize_license_actions_by_organization
   - authorize_payment_actions_by_organization
+  - authorize_internal_exam_actions_by_organization
   - audit_training_stage_changes
   - audit_credential_downloads
+  - audit_internal_exam_start_and_result
 
 remaining_gaps:
   - student_edit_form
@@ -154,9 +192,8 @@ remaining_gaps:
   - add_student_from_pkk_flow
   - add_course_form
   - training_stage_transition_behavior
-  - internal_exam_tab
-  - progress_tab
-  - conduct_internal_exam_flow
+  - conduct_internal_exam_flow_after_start
+  - populated_internal_exam_history_and_results
   - assign_license_form
   - license_delete_effect_and_inventory_restore
   - access_download_format
