@@ -7,6 +7,7 @@ meta:
   progress_screen_spec: specs/screens/student-progress.yml
   internal_exam_screen_spec: specs/screens/student-internal-exam.yml
   add_course_screen_spec: specs/screens/student-add-course.yml
+  assign_license_screen_spec: specs/screens/student-assign-license.yml
 
 header:
   confirmed_elements:
@@ -69,6 +70,9 @@ access:
 
 licenses:
   confirmed_action: assign_student_license
+  assign_form_verified: true
+  assign_form_spec: specs/screens/student-assign-license.yml
+  assign_form_doc: docs/38-student-assign-license-form.md
   visible_headers:
     - added_date
     - ending
@@ -83,8 +87,15 @@ licenses:
   presentation_ambiguity:
     description: value EN is visible but its exact column/header mapping is unclear in the observed UI
     status: TO_VERIFY
+  confirmed_assignment_behavior:
+    - license_variant_selector
+    - available_inventory_count_visible
+    - assign_to_existing_learning_access
+    - create_new_learning_access_during_assignment
+    - new_learning_access_requires_email_or_login_and_language_controls
+    - learning_access_is_separate_from_license_assignment
   confirmed_semantics:
-    - license_has_language
+    - license_has_language_context
     - license_has_activation_status
     - unactivated_license_has_delete_action
   to_verify:
@@ -93,6 +104,8 @@ licenses:
     - active_status
     - expired_status
     - ending_date_semantics
+    - exact_activation_point
+    - renewal_vs_additional_period_behavior
 
 courses_pkk:
   confirmed_action: add_student_course
@@ -202,6 +215,11 @@ confirmed_actions:
   - start_student_internal_exam
   - download_student_access_credentials
   - assign_student_license
+  - select_license_variant
+  - select_existing_learning_access
+  - select_create_new_learning_access
+  - set_new_learning_identifier_email_or_login
+  - select_new_learning_access_language
   - delete_unactivated_student_license
   - add_student_payment
 
@@ -210,6 +228,8 @@ entity_model:
     - students
     - student_learning_accounts
     - student_licenses
+    - license_inventory
+    - license_assignments
     - student_courses_or_enrollments
     - pkk_profiles_and_operations
     - internal_exam_attempts
@@ -217,6 +237,7 @@ entity_model:
     - locations
   do_not_use_single_student_status: true
   do_not_use_single_exam_boolean: true
+  learning_access_separate_from_license_assignment: true
   course_model_notes:
     - course_has_own_training_type_category_pkk_and_start
     - course_has_instructor
@@ -230,6 +251,9 @@ security_requirements:
   - protect_learning_credentials
   - protect_pkk_reference
   - authorize_license_actions_by_organization
+  - atomically_validate_license_inventory
+  - prevent_double_license_assignment
+  - audit_license_assignment
   - authorize_payment_actions_by_organization
   - authorize_internal_exam_actions_by_organization
   - authorize_course_student_instructor_and_location_by_organization
@@ -239,13 +263,16 @@ security_requirements:
 
 remaining_gaps:
   - student_edit_form
-  - add_student_manual_form
-  - add_student_from_pkk_flow
+  - add_student_from_pkk_post_configuration_flow
   - exact_training_stage_transition_behavior
   - conduct_internal_exam_flow_after_start
   - populated_internal_exam_history_and_results
-  - assign_license_form
+  - license_exact_options_and_languages
+  - license_learning_identifier_validation
+  - license_password_or_invitation_flow
   - license_delete_effect_and_inventory_restore
+  - license_exact_activation_point
+  - license_renewal_vs_additional_period_behavior
   - access_download_format
   - add_payment_form
   - partial_payment_behavior
