@@ -15,7 +15,9 @@ Cel: jednoznacznie wskazać developerowi, który dokument wygrywa przy konflikci
 | Wymagana kompletność API | `specs/api/required-operations-v1.yml` | każde potwierdzone flow ma capability |
 | API paths/schemas | `specs/api/openapi-v1.yaml` + `docs/06` | course-first PKK |
 | Physical DB blueprint | `specs/database/core-schema.yml` | relacje, partial unique, constraints |
+| Settings bounded-context DB detail | `specs/database/organization-settings.yml` | ownership pól `/ustawienia`, adres firmy, primary email, PKK settings |
 | Narrative DB | `docs/87` | opis tabel; machine spec wygrywa przy rozjeździe |
+| Settings narrative model | `docs/100-osk-settings-domain-model.md` | transakcja ustawień, ownership i concurrency |
 | Gotowość modułu | `docs/71` + implementation baseline | READY_FOR_IMPLEMENTATION |
 | Canonical naming | `docs/82` | CourseEnrollment |
 | Cross-module summary | `specs/implementation-baseline-v1.yml` | core invariants |
@@ -34,6 +36,16 @@ Jeżeli użytkownik zaobserwował filtr, sortowanie, PDF, drugi entry point albo
 Na pytanie **„jak to bezpiecznie i poprawnie zbudować?”** odpowiadają legal/design/security/domain/API/DB contracts.
 
 Możemy więc zachować widoczną zdolność biznesową, ale wdrożyć ją inaczej wewnętrznie.
+
+## Zasada bounded-context detail
+
+Jeżeli istnieje dedykowany machine-readable spec dla konkretnego bounded contextu, np. `specs/database/organization-settings.yml`, to:
+- rozszerza on ogólny `core-schema.yml`,
+- wygrywa w szczegółach tego bounded contextu,
+- nie może usuwać żadnej capability z reverse-engineering manifest,
+- przed migracjami jego decyzje muszą zostać przeniesione do finalnego physical schema/migrations.
+
+To nie jest obejście niespójności. To kontrolowany sposób etapowego projektowania bez przepisywania całego dużego blueprintu po każdej małej decyzji.
 
 ## Conflict examples
 
@@ -63,6 +75,17 @@ Nie wolno uznać akcji za zbędną. `specs/api/required-operations-v1.yml` wskaz
 
 ### DB ma globalne UNIQUE, które blokuje historyczny flow
 Historyczne lifecycle ma pierwszeństwo. Przykład: cofnięta nieaktywna licencja zwraca inventory do puli, więc jedna sztuka może mieć wiele historycznych assignmentów. Constraint ma blokować tylko **dwa bieżące przypisania**, nie całą historię.
+
+### Ekran Ustawienia łączy dane użytkownika, firmy i PKK
+Nie tworzymy jednego JSON-a ani duplikatów. `specs/database/organization-settings.yml` wskazuje canonical ownership:
+- imię/nazwisko -> `users`,
+- email -> primary `auth_login_identifiers`,
+- firma/telefon -> `organizations`,
+- adres firmy -> `organization_contact_addresses`,
+- dane PKK -> `pkk_integration_settings`,
+- regulamin -> `terms_acceptances + legal_documents`.
+
+UI nadal ma jeden formularz i jeden `Zapisz`; backend realizuje to atomową transakcją agregatu.
 
 ## Zasada końcowa
 
