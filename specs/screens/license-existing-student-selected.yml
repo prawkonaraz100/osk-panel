@@ -1,0 +1,72 @@
+screen_state:
+  id: license_existing_student_selected
+  parent_screen: license_generate_access
+  parent_route: /licencje/panel
+  confidence: USER_CONFIRMED_AUTH_SCREEN
+  verified_at: 2026-09-05
+  doc: docs/56-license-existing-student-selected-state.md
+
+context:
+  entry_flow: generate_student_learning_access
+  selected_target_mode: existing_student
+
+observed_state:
+  selected_license_product_label: 1 miesiąc
+  available_inventory_count: 1
+  selected_student_name: Jan Nowak
+  selected_learning_identifier: jannowakprawojazdy360
+  selected_learning_access_language: EN
+  pesel_visible: true
+  pesel_value_observed: null
+
+selected_student_card:
+  projections:
+    - student_full_name
+    - learning_identifier_or_email_labelled_value
+    - learning_access_language
+    - pesel_optional
+    - full_name_repeated
+  visible_remove_action:
+    label: Usuń
+    safest_semantics: clear_selected_target
+    exact_competitor_effect: TO_VERIFY
+
+language_behavior:
+  global_language_selector_visible_after_existing_student_selection: false
+  selected_existing_access_language_displayed: true
+  interpretation: existing_learning_access_language_is_inherited
+  own_product_rule: license_assignment_to_existing_access_does_not_mutate_language
+
+identifier_label_anomaly:
+  observed_ui_label: Email
+  observed_value: jannowakprawojazdy360
+  value_looks_like_login_not_email: true
+  own_product_rule: present_semantically_correct_learning_identifier_label
+
+primary_action:
+  label: Przydziel licencje
+  action: submit_license_assignment
+
+batch_scope:
+  multiple_targets_confirmed_by_this_screen: false
+  note: This screen only proves the selected state for one existing student. Bulk assignment remains separate.
+
+confirmed_actions:
+  - select_existing_student_for_license
+  - show_selected_student_summary
+  - inherit_existing_learning_access_language
+  - clear_selected_student_target_visible_action
+  - submit_license_assignment
+
+own_product_requirements:
+  - tenant_scope_selected_student
+  - preserve_existing_learning_access_language
+  - keep_contact_email_separate_from_learning_identifier
+  - clear_target_action_must_not_delete_student
+  - atomic_license_assignment
+  - audit_assignment
+
+remaining_gaps:
+  - exact_clear_target_ui_result
+  - behavior_for_student_with_multiple_learning_accesses
+  - batch_assignment_flow_for_multiple_selected_rows
