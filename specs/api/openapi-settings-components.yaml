@@ -1,0 +1,141 @@
+openapi: 3.1.0
+info:
+  title: PrawkoNaRaz OSK settings API components
+  version: 0.1.0
+components:
+  schemas:
+    UserBasicData:
+      type: object
+      additionalProperties: false
+      required: [first_name, last_name, email]
+      properties:
+        first_name: { type: string }
+        last_name: { type: string }
+        email: { type: string, format: email }
+
+    OrganizationCompanyData:
+      type: object
+      additionalProperties: false
+      required: [company_name, street, house_number, city, postal_code]
+      properties:
+        company_name: { type: string }
+        street: { type: string }
+        house_number: { type: string }
+        unit_number: { type: [string, 'null'] }
+        city: { type: string }
+        postal_code: { type: string }
+        phone: { type: [string, 'null'] }
+
+    PkkIntegrationSettings:
+      type: object
+      additionalProperties: false
+      properties:
+        school_name: { type: [string, 'null'] }
+        osk_registry_number: { type: [string, 'null'] }
+        external_osk_login:
+          type: [string, 'null']
+          description: Authorized projection of the external PKK/OSK identifier; never the application login.
+        readiness_status:
+          type: string
+          readOnly: true
+          enum: [not_configured, configured_unverified, verified, requires_attention]
+      description: >-
+        Canonical PKK integration settings observed in /ustawienia and the PKK
+        configuration gate. User first/last name are deliberately excluded;
+        they belong to the User identity domain.
+
+    TermsAcceptanceProjection:
+      type: object
+      required: [version, accepted_at]
+      properties:
+        version: { type: string }
+        accepted_at: { type: string, format: date-time }
+        accepted_by_user_id: { type: string, format: uuid }
+        document_url:
+          type: [string, 'null']
+          readOnly: true
+          description: Local/versioned route resolving the exact accepted legal document.
+
+    OskSettingsProjection:
+      type: object
+      additionalProperties: false
+      required: [version, basic_data, company_data, pkk_api_data, accepted_terms]
+      properties:
+        version:
+          type: integer
+          minimum: 1
+          readOnly: true
+          description: organization_settings.version used for optimistic concurrency / ETag.
+        basic_data: { $ref: '#/components/schemas/UserBasicData' }
+        company_data: { $ref: '#/components/schemas/OrganizationCompanyData' }
+        pkk_api_data: { $ref: '#/components/schemas/PkkIntegrationSettings' }
+        accepted_terms:
+          type: array
+          items: { $ref: '#/components/schemas/TermsAcceptanceProjection' }
+
+    UpdateOskSettingsRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        basic_data:
+          type: object
+          additionalProperties: false
+          minProperties: 1
+          properties:
+            first_name: { type: string }
+            last_name: { type: string }
+            email: { type: string, format: email }
+        company_data:
+          type: object
+          additionalProperties: false
+          minProperties: 1
+          properties:
+            company_name: { type: string }
+            street: { type: string }
+            house_number: { type: string }
+            unit_number: { type: [string, 'null'] }
+            city: { type: string }
+            postal_code: { type: string }
+            phone: { type: [string, 'null'] }
+        pkk_api_data:
+          type: object
+          additionalProperties: false
+          minProperties: 1
+          properties:
+            school_name: { type: string }
+            osk_registry_number: { type: string }
+            external_osk_login: { type: string }
+
+    UpdatePkkIntegrationSettingsRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        school_name: { type: string }
+        osk_registry_number: { type: string }
+        external_osk_login: { type: string }
+
+    PkkConfigurationGateProjection:
+      type: object
+      additionalProperties: false
+      required: [version, first_name, last_name, pkk_api_data]
+      properties:
+        version:
+          type: integer
+          minimum: 1
+          readOnly: true
+        first_name: { type: string }
+        last_name: { type: string }
+        pkk_api_data: { $ref: '#/components/schemas/PkkIntegrationSettings' }
+
+    SavePkkConfigurationGateRequest:
+      type: object
+      additionalProperties: false
+      required: [first_name, last_name, school_name, osk_registry_number, external_osk_login]
+      properties:
+        first_name: { type: string }
+        last_name: { type: string }
+        school_name: { type: string }
+        osk_registry_number: { type: string }
+        external_osk_login: { type: string }
