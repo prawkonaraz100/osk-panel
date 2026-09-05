@@ -1,0 +1,71 @@
+screen:
+  id: license_sorting
+  scope: admin_osk
+  parent_route: /licencje/panel
+  parent_screen: license_management_panel
+  trigger_action: open_license_sorting
+  title: Sortowanie
+  confidence: USER_CONFIRMED_AUTH_SCREEN
+  verified_at: 2026-09-05
+  doc: docs/57-license-list-sorting.md
+
+controls:
+  direction:
+    label: Kierunek sortowania
+    control: single_select
+    options:
+      - key: asc
+        label: Rosnąco
+      - key: desc
+        label: Malejąco
+    observed_selected: desc
+    observed_selected_is_global_default: TO_VERIFY
+
+  column:
+    label: Kolumna
+    control: single_choice
+    options:
+      - key: learning_identifier
+        label: Dane logowania prawo-jazdy-360.pl
+      - key: student_full_name
+        label: Imię i nazwisko
+      - key: latest_license_generated_at
+        label: Data wygenerowania
+      - key: learning_access_language
+        label: Język
+      - key: latest_license_status
+        label: Status
+      - key: assigned_license_count
+        label: Przypisane licencje
+    observed_selected: latest_license_generated_at
+    observed_selected_is_global_default: TO_VERIFY
+
+primary_action:
+  label: Sortuj
+  action: apply_license_list_sorting
+
+close_control:
+  label: X
+  action: close_license_sorting_drawer
+
+own_product_requirements:
+  - server_side_sorting
+  - whitelist_sort_fields
+  - stable_secondary_sort_for_pagination
+  - tenant_isolation
+  - sort_status_by_domain_value_not_translated_label
+  - assigned_license_count_is_query_projection
+
+confirmed_actions:
+  - open_license_list_sorting
+  - select_license_sort_direction
+  - select_license_sort_column
+  - apply_license_list_sorting
+  - close_license_sorting_drawer
+
+remaining_gaps:
+  - true_initial_default_sort
+  - sort_persistence
+  - null_value_sorting
+  - exact_status_sort_order
+  - pagination_interaction
