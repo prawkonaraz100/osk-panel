@@ -6,9 +6,12 @@ Data weryfikacji: 2026-09-05
 **Źródło:** bieżące zalogowane ekrany + opis użytkownika podczas audytu  
 **Status:** `USER_CONFIRMED_AUTH_SCREEN`
 
-Powiązana decyzja prawna dla naszego produktu:
+Powiązane:
 - `docs/66-formal-student-record-and-theory-exemptions.md`,
-- `specs/legal/training-theory-exemptions.yml`.
+- `specs/legal/training-theory-exemptions.yml`,
+- `docs/67-editable-training-requirements-and-theory-exemption.md`,
+- `docs/68-internal-exam-edit-candidate-data.md`,
+- `specs/screens/internal-exam-edit-candidate-data.yml`.
 
 ---
 
@@ -82,7 +85,7 @@ Nie ustalono, czy konkurent tworzy z tego trwały rekord w module `Kursanci`. Dl
 
 ## 4. Stan z wybranym kursantem
 
-Zaobserwowana karta Ali Nowak pokazuje:
+Zaobserwowana karta kursanta pokazuje:
 - kategorię,
 - język,
 - imię,
@@ -93,12 +96,28 @@ Zaobserwowana karta Ali Nowak pokazuje:
 
 Akcje:
 - `Usuń` — usuwa kursanta z bieżącego formularza,
-- `Edytuj dane` — edycja danych potrzebnych do egzaminu.
+- `Edytuj dane` — przełącza kartę do trybu edycji danych potrzebnych do egzaminu.
 
-Widoczny komunikat:
-- `Uzupełnij dane kursanta`.
+### `Edytuj dane` — stan potwierdzony
 
-Exact trigger komunikatu pozostaje do sprawdzenia.
+Po kliknięciu `Edytuj dane` w tym samym drawerze pojawia się formularz z polami:
+- `Kategoria egzaminu` — select,
+- `Język egzaminu` — select,
+- `Imię`,
+- `Nazwisko`,
+- `Pesel`,
+- `PKK`,
+- `Email`.
+
+Akcje formularza:
+- `Anuluj`,
+- `Zapisz dane`.
+
+Przy emailu nadal widoczna jest informacja, że służy do wysłania linku egzaminacyjnego i jest opcjonalny w samym formularzu.
+
+Dokładny opis: `docs/68-internal-exam-edit-candidate-data.md`.
+
+Nie potwierdzono jeszcze, czy `Zapisz dane` u konkurenta aktualizuje główny trwały profil kursanta, czy tylko dane bieżącego kontekstu egzaminu.
 
 ---
 
@@ -142,7 +161,9 @@ Przykład:
 - teoretyczny egzamin wewnętrzny nie jest wymagany,
 - wymagany jest praktyczny przebieg szkolenia i praktyczny egzamin wewnętrzny.
 
-Zatem frontend nie może pokazywać przycisku `Generuj teoretyczny egzamin wewnętrzny`, jeśli reguły formalne dla konkretnego enrollmentu wskazują `internal_theory_exam_required = false`.
+Frontend nie może pokazywać przycisku `Generuj teoretyczny egzamin wewnętrzny`, jeśli reguły formalne dla konkretnego enrollmentu wskazują `internal_theory_exam_required = false`.
+
+Wymagania kursu pozostają edytowalne i przeliczalne zgodnie z `docs/67-editable-training-requirements-and-theory-exemption.md`; korekta później nie kasuje historii.
 
 ---
 
@@ -171,6 +192,8 @@ Zatem frontend nie może pokazywać przycisku `Generuj teoretyczny egzamin wewn�
 - created_by,
 - station/device metadata nullable.
 
+Dane tożsamości poprawiane przed utworzeniem próby powinny pochodzić z formalnego profilu kursanta/kursu. Po utworzeniu próby zapisujemy immutable snapshot historyczny.
+
 ---
 
 ## 8. Walidacje naszego produktu
@@ -184,6 +207,11 @@ Przed generowaniem formalnego egzaminu:
 - wymagane dane identyfikacyjne są kompletne,
 - operator ma uprawnienie,
 - tenant scope jest poprawny.
+
+Dodatkowo:
+- kategoria egzaminu musi odpowiadać właściwemu enrollmentowi/kursowi,
+- zmiana kategorii powinna wymusić ponowne rozstrzygnięcie wymagań szkolenia,
+- osoba bez PESEL musi być obsłużona przez regułę `brak PESEL -> data urodzenia`, nawet jeśli konkurencyjny drawer tego nie pokazuje.
 
 Dla remote link:
 - poprawny email w chwili wysyłki.
@@ -206,6 +234,15 @@ Dla local station:
 - `change_exam_language`
 - `remove_candidate_from_generation_form`
 - `open_candidate_data_edit`
+- `edit_exam_category`
+- `edit_exam_language`
+- `edit_candidate_first_name`
+- `edit_candidate_last_name`
+- `edit_candidate_pesel`
+- `edit_candidate_pkk`
+- `edit_candidate_email`
+- `cancel_candidate_edit`
+- `save_candidate_edit`
 - `share_exam_link_by_email`
 - `start_exam_on_current_station`
 
@@ -213,10 +250,10 @@ Dla local station:
 
 ## 10. Pozostałe niewiadome
 
-- drawer `Edytuj dane`,
 - pełna lista kategorii/języków,
 - exact persistence zachowania `Dodaj nowego kursanta` u konkurenta,
-- komunikaty walidacji,
+- exact persistence `Zapisz dane` względem głównego profilu kursanta,
+- walidacje PESEL/PKK/email i osoba bez PESEL w tym drawerze konkurenta,
 - sukces/błąd po wysłaniu linku,
 - email template,
 - ekran przejścia do local station,
