@@ -53,9 +53,9 @@ stage_4_slices:
   - id: DB4_3_STAFF_LOCATIONS_VEHICLES
     status: IN_PROGRESS_WITH_BLOCKERS
     diagnosis: COMPLETE
-    blockers_resolved: 2
-    open_P0_P1: 4
-    result: FAIL_WITH_4_P1_BLOCKERS
+    blockers_resolved: 3
+    open_P0_P1: 3
+    result: FAIL_WITH_3_P1_BLOCKERS
   - id: DB4_4_STUDENTS_COURSES_TRAINING_LEDGER
     status: NOT_STARTED
   - id: DB4_5_CALENDAR
@@ -112,7 +112,6 @@ quality_checks:
     resolved_blocker_id: DB-RES-002
     severity: P1
     machine_source: specs/database/staff-locations-vehicles.yml
-    narrative_source: docs/107-stage-4-staff-locations-vehicles-audit.md
     decision:
       staff_location_assignment_tenant_key: organization_id
       staff_location_assignment_primary_key: [organization_id, staff_profile_id, location_id]
@@ -132,46 +131,50 @@ quality_checks:
         - source: [organization_id, location_id]
           target_table: locations
           target: [organization_id, id]
-      required_candidate_keys:
-        - staff_profiles[organization_id,id]
-        - vehicles[organization_id,id]
-        - locations[organization_id,id]
-      parent_tenant_key_rewrite: forbidden
-      duplicate_assignment: rejected
-      category_assignments_changed: false
       assigned_locations_RBAC_cross_tenant_expansion_possible_after_constraints: false
-    migration_precheck:
-      - detect_existing_cross_tenant_staff_location_pairs
-      - detect_existing_cross_tenant_vehicle_location_pairs
-      - detect_duplicates_before_primary_key_creation
-      - backfill_assignment_organization_id_only_from_verified_parent_then_verify_other_parent
-      - fail_or_explicit_security_remediation_never_silent_reassignment
-    tests:
-      - same_tenant_staff_location_accepted
-      - cross_tenant_staff_location_rejected
-      - staff_assignment_tenant_key_mismatch_rejected
-      - duplicate_staff_location_rejected
-      - same_tenant_vehicle_location_accepted
-      - cross_tenant_vehicle_location_rejected
-      - vehicle_assignment_tenant_key_mismatch_rejected
-      - duplicate_vehicle_location_rejected
-      - assigned_locations_RBAC_query_cannot_cross_tenant
-      - vehicle_location_calendar_filter_cannot_cross_tenant
-    aggregate_sync_note: >-
-      DB4_3 bounded-context decisions are accumulated in
-      specs/database/staff-locations-vehicles.yml and synchronized into
-      core-schema.yml/docs87 before final DB4_3 PASS and before migrations.
 
   staff_vehicle_file_asset_attachment_integrity:
-    status: FAIL
-    blocker_id: DB-RES-003
+    status: PASS
+    resolved_blocker_id: DB-RES-003
     severity: P1
-    unresolved:
-      - StaffProfile_photo_same_tenant_ready_purpose_contract
-      - StaffDocument_asset_same_tenant_ready_purpose_contract
-      - Vehicle_photo_same_tenant_ready_purpose_contract
-      - VehicleDocument_asset_same_tenant_ready_purpose_contract
-    impact: private_or_foreign_asset_can_be_attached_to_wrong_tenant_resource_if_backend_bug_occurs
+    machine_source: specs/database/staff-locations-vehicles.yml
+    narrative_source: docs/107-stage-4-staff-locations-vehicles-audit.md
+    decision:
+      file_asset_candidate_key: [organization_id, id]
+      private_attachment_platform_asset_allowed: false
+      same_tenant_composite_FKs:
+        - staff_profiles[organization_id,photo_asset_id]_to_file_assets[organization_id,id]
+        - staff_documents[organization_id,asset_id]_to_file_assets[organization_id,id]
+        - vehicles[organization_id,photo_asset_id]_to_file_assets[organization_id,id]
+        - vehicle_documents[organization_id,asset_id]_to_file_assets[organization_id,id]
+      purpose_mapping:
+        staff_profile_photo: staff_photo
+        staff_document_asset: staff_document
+        vehicle_photo: vehicle_photo
+        vehicle_document_asset: vehicle_document
+      required_status_at_attachment_commit: ready
+      purpose_mutation_after_upload_commit: forbidden
+      purpose_and_ready_final_boundary: database_constraint_trigger_or_equivalent_DB_trigger
+      asset_row_lock_during_attachment_validation: FOR_SHARE
+      application_precheck_required_for_UX: true
+      later_nonready_asset_business_reference_preserved: true
+      later_nonready_asset_download_allowed_without_recheck: false
+      replacement_auto_deletes_old_asset: false
+    migration_precheck:
+      - detect_foreign_tenant_attachments
+      - detect_platform_assets_attached_to_private_staff_or_vehicle_resources
+      - detect_wrong_purpose_attachments
+      - detect_nonready_attachments_requiring_explicit_remediation
+      - never_silently_reassign_tenant_or_rewrite_purpose_to_pass_migration
+    tests:
+      - same_tenant_ready_correct_purpose_attachment_accepted_for_all_four_paths
+      - foreign_tenant_asset_rejected
+      - platform_asset_rejected_for_private_attachment
+      - wrong_purpose_asset_rejected
+      - nonready_asset_rejected_at_attach
+      - status_change_vs_attach_race_serialized
+      - later_nonready_asset_not_served_without_current_state_check
+      - attachment_replacement_does_not_auto_delete_old_asset
 
   staff_vehicle_document_current_projection:
     status: FAIL
@@ -226,10 +229,9 @@ resolved_blockers:
   - DB-IAM-005
   - DB-RES-001
   - DB-RES-002
+  - DB-RES-003
 
 open_blockers_current_diagnosed_scope:
-  - id: DB-RES-003
-    severity: P1
   - id: DB-RES-004
     severity: P1
   - id: DB-RES-005
@@ -245,7 +247,7 @@ gate_definition:
     - migration_order_dependency_safe
     - database_invariant_test_matrix_exists
     - reverse_engineering_preservation_traceable
-  current_result: FAIL_DB4_3_WITH_4_OPEN_P1_BLOCKERS
+  current_result: FAIL_DB4_3_WITH_3_OPEN_P1_BLOCKERS
   DB4_2_result: PASS
   DB4_3_result: FAIL
   may_start_DB4_3_fixes: true
@@ -254,19 +256,18 @@ gate_definition:
   may_start_UI_or_feature_implementation: false
 
 next_single_step:
-  id: DB4_3_STEP_4
-  blocker: DB-RES-003
-  action: resolve_Staff_and_Vehicle_FileAsset_same_tenant_purpose_ready_attachment_integrity_only
+  id: DB4_3_STEP_5
+  blocker: DB-RES-004
+  action: resolve_history_safe_current_document_validity_projection_only
   allowed_scope:
     - specs/database/staff-locations-vehicles.yml
     - specs/database/core-schema.yml
-    - docs/08-security-compliance.md
     - docs/87-physical-database-schema.md
     - docs/107-stage-4-staff-locations-vehicles-audit.md
     - specs/gates/stage-4-database-contract-gate.yml
   scope_lock: >-
-    Do not fix document-current identity-uniqueness or staff-archive blockers in
-    the same step. Do not enter DB4_4 or create Laravel migrations. Aggregate
-    core-schema/docs87 sync remains deferred until final DB4_3 PASS unless a
-    blocker cannot be expressed safely without immediate sync.
-  after_action: rerun_DB4_3_gate_and_record_DB_RES_003_PASS_or_new_blocker_before_DB_RES_004
+    Do not fix identity-uniqueness or staff-archive blockers in the same step. Do
+    not enter DB4_4 or create Laravel migrations. Aggregate core-schema/docs87 sync
+    remains deferred until final DB4_3 PASS unless a blocker cannot be expressed
+    safely without immediate sync.
+  after_action: rerun_DB4_3_gate_and_record_DB_RES_004_PASS_or_new_blocker_before_DB_RES_005
