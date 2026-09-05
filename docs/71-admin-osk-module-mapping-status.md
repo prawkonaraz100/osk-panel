@@ -14,7 +14,7 @@ Cel: szybka macierz pokazująca, które moduły bieżącego panelu OSK są już 
 
 | Moduł | Status | Co mamy |
 |---|---|---|
-| Panel główny | `NOT_SCREEN_MAPPED` | Potwierdzone menu/trasa, brak pełnego dashboardu, KPI, alertów i skrótów. |
+| Panel główny | `READY_FOR_IMPLEMENTATION` | Cztery główne widgety: Licencje, Egzaminy wewnętrzne, Powiadomienia/activity feed i osadzony Kalendarz. Licencje pokazują aktywne/dostępne oraz skróty do przydzielenia/zakupu; egzaminy pokazują dostępną pulę i skróty do przeprowadzenia/zakupu; activity feed rejestruje operacje na kursantach, kursach, płatnościach, licencjach, egzaminach, wydarzeniach i reklamach wraz z czasem, aktorem i linkami; kalendarz ma dzień/tydzień/miesiąc, nawigację, pełny kalendarz i dodanie wydarzenia. |
 | Integracja PKK | `PARTIAL` | Potwierdzone funkcje biznesowe PKK i konfiguracja danych OSK; brak pełnego audytu operacyjnego ekranu `/integracja-pkk`. |
 | Kalendarz | `READY_FOR_IMPLEMENTATION` | Widok kalendarza, zasoby: pracownicy/pojazdy/lokalizacje, typy Wydarzenie/Jazda/Ważne daty, formularz dodania wydarzenia, własne miejsce spotkania, powiązania z kursantem/instruktorem/pojazdem/lokalizacją. Nieobserwowalne operacje po utworzeniu projektujemy elastycznie. |
 | Kursanci | `READY_FOR_IMPLEMENTATION` | Lista, podgląd, dodawanie, edycja, PESEL/data urodzenia, filtry, sortowanie, etapy szkolenia, profil, kursy/PKK, licencje, dostępy, płatności, postępy, egzamin wewnętrzny, archiwizacja/usuwanie. |
@@ -34,8 +34,8 @@ Cel: szybka macierz pokazująca, które moduły bieżącego panelu OSK są już 
 
 ## Wniosek
 
-Największy rdzeń operacyjny OSK jest już zmapowany: `Kursanci + Kalendarz + Licencje + Egzamin wewnętrzny + Lokalizacje + Pojazdy + Pracownicy + Ustawienia + Historia zakupów`.
+Największy rdzeń operacyjny OSK jest już zmapowany: `Panel główny + Kursanci + Kalendarz + Licencje + Egzamin wewnętrzny + Lokalizacje + Pojazdy + Pracownicy + Ustawienia + Historia zakupów`.
 
-`Lokalizacje` są uznane za `READY_FOR_IMPLEMENTATION`. Jedynym nieobserwowalnym detalem jest dokładny konkurencyjny flow archiwizacji, ponieważ akcja jest zablokowana w trybie demo; projektujemy go bezpiecznie po swojemu.
+`Lokalizacje` i `Panel główny` są uznane za `READY_FOR_IMPLEMENTATION`. W dashboardzie szczególnie ważny jest wspólny `organization_activity_events` / activity feed zamiast ręcznie budowanych komunikatów per moduł.
 
-Kolejny audyt zgodnie z ustaloną kolejnością: `Panel główny`.
+Najbliższe moduły wymagające dalszego audytu ekranowego: `Integracja PKK`, `Moje wizytówki`, `Moje reklamy`, `Wykłady`, `Szkolenie z instruktorem`.
