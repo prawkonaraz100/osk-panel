@@ -1,0 +1,89 @@
+document:
+  id: license_bulk_access_pdf
+  scope: admin_osk
+  parent_route: /licencje/panel
+  source_action: download_selected_access_credentials
+  confidence: USER_CONFIRMED_DOWNLOADED_DOCUMENT
+  verified_at: 2026-09-05
+  doc: docs/58-license-bulk-access-pdf.md
+
+selection:
+  multiple_learning_accesses_supported: true
+  confirmed_use_case: download_access_credentials
+  does_not_confirm_bulk_license_assignment: true
+
+output:
+  format: pdf
+  single_combined_file: true
+  zip: false
+  one_file_per_student: false
+  observed_selected_accesses: 3
+  observed_pages: 4
+
+page_structure:
+  cover_or_index_page:
+    page_number: 1
+    fields_per_entry:
+      - language
+      - learning_identifier
+      - target_page_number
+  access_pages:
+    one_per_selected_learning_access: true
+    localized_per_learning_access: true
+    observed:
+      - language: pl
+        page_number: 2
+      - language: uk
+        page_number: 3
+      - language: en
+        page_number: 4
+
+individual_access_page:
+  fields:
+    - learning_identifier
+    - password_state_or_generated_password
+    - login_url
+    - login_instructions
+    - activation_instructions
+  marketing_section_present_in_competitor: true
+
+localization:
+  mixed_languages_in_single_export_supported: true
+  locale_source: learning_access_language
+  observed_languages:
+    - pl
+    - uk
+    - en
+  competitor_anomalies:
+    mixed_polish_password_state_text_on_non_pl_pages: true
+    ukrainian_login_path_observed_as_lohin: true
+  own_product_requirement: full_localization_and_valid_locale_urls
+
+own_product_command:
+  name: GenerateSelectedLearningAccessCredentialsPdf
+  input:
+    - organization_id
+    - learning_access_ids
+    - requested_by_user_id
+  requirements:
+    - tenant_scope_every_selected_access
+    - permission_check_every_selected_access
+    - render_index_page
+    - render_one_localized_page_per_access
+    - merge_to_single_pdf
+    - audit_export
+
+confirmed_actions:
+  - select_multiple_learning_access_rows
+  - download_selected_access_credentials
+  - generate_single_combined_access_pdf
+  - render_access_index_page
+  - render_localized_access_page_per_selected_access
+
+remaining_gaps:
+  - max_selected_count
+  - large_export_behavior
+  - select_visible_page_vs_full_filtered_result_scope
+  - ordering_rules
+  - expired_access_export_behavior
+  - generated_filename_rule
