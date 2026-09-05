@@ -1,0 +1,140 @@
+screen:
+  id: license_purchase
+  scope: admin_osk
+  route: /licencje/wykup
+  title: Wykup licencje
+  confidence: USER_CONFIRMED_AUTH_SCREEN
+  verified_at: 2026-09-05
+  doc: docs/52-license-purchase-screen.md
+
+products:
+  observed_variants:
+    - key: one_month
+      label: 1 miesiąc
+      observed_base_price_gross: 29.00
+      observed_discounted_price_gross: 14.50
+    - key: three_months
+      label: 3 miesiące
+      observed_base_price_gross: 38.00
+      observed_discounted_price_gross: 19.00
+    - key: six_months
+      label: 6 miesięcy
+      observed_base_price_gross: 59.00
+      observed_discounted_price_gross: 29.50
+  price_values_are_contextual_not_hardcoded: true
+  quantity_per_variant: true
+  quantity_control:
+    numeric_input: true
+    slider_like_control_visible: true
+    exact_min_max_step: TO_VERIFY
+  multiple_variants_in_single_order_supported: true
+
+summary:
+  confirmed_fields:
+    - package_count
+    - gross_price_with_vat
+    - discount_percent
+    - discount_value
+    - amount_due
+  observed_discount_percent: 50.00
+  discount_is_contextual_not_hardcoded: true
+  server_side_calculation_required_for_own_product: true
+
+payment_methods:
+  control: radio
+  confirmed:
+    - online_payu
+    - direct_bank_transfer
+  labels:
+    online_payu: Płatności online PayU
+    direct_bank_transfer: Przelew bezpośredni
+
+primary_action:
+  label: Kup teraz
+  action: submit_license_purchase
+
+license_scope_marketing_projection:
+  observed_features:
+    - full_question_database
+    - mobile_apps
+    - official_tests_course_statistics
+    - online_instructor_and_paramedic_training
+    - student_handbook_with_narrator
+    - lectures_with_narrator_and_statistics
+    - word_exam_equivalent_questions
+  observed_categories:
+    - A
+    - B
+    - C
+    - D
+    - T
+    - AM
+    - A1
+    - A2
+    - B1
+    - C1
+    - D1
+  observed_languages:
+    - PL
+    - EN
+    - DE
+    - UK
+  marketing_counts_are_dynamic_catalog_content: true
+
+large_volume_sales:
+  contact_box_visible: true
+  purpose: increase_license_volume_or_key_account_sales
+  exact_self_service_limit: TO_VERIFY
+  individualized_pricing_supported_by_business_context: SUPPORTED_NOT_UI_EXACT
+
+confirmed_actions:
+  - open_license_purchase
+  - set_one_month_license_quantity
+  - set_three_month_license_quantity
+  - set_six_month_license_quantity
+  - view_order_summary
+  - select_online_payment
+  - select_direct_bank_transfer
+  - submit_license_purchase
+
+own_product_model:
+  separate_purchase_from_assignment_and_activation: true
+  lifecycle:
+    - order_created
+    - payment_pending
+    - payment_confirmed
+    - inventory_credited
+    - later_assignment
+    - later_activation
+  suggested_entities:
+    - license_products
+    - price_lists
+    - organization_price_rules
+    - discount_rules
+    - orders
+    - order_items
+    - payments
+    - license_inventory_entries
+  store_order_item_price_vat_discount_snapshot: true
+  inventory_credit_exactly_once: true
+
+security_and_consistency:
+  - tenant_scope_order
+  - calculate_prices_server_side
+  - validate_current_price_list_server_side
+  - idempotent_order_creation
+  - idempotent_payment_callback
+  - idempotent_inventory_credit
+  - audit_order_and_payment_transitions
+  - do_not_credit_inventory_on_unconfirmed_online_payment
+
+remaining_gaps:
+  - exact_quantity_limits
+  - slider_min_max_step
+  - exact_discount_rules
+  - post_purchase_payu_flow
+  - direct_transfer_instructions
+  - order_statuses_in_checkout
+  - order_cancel_behavior
+  - bank_transfer_inventory_credit_timing
+  - invoice_or_sales_document_flow
