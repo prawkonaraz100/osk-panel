@@ -1,0 +1,71 @@
+screen:
+  id: school_locations_edit
+  scope: admin_osk
+  parent_route: /lokalizacje
+  title: Edycja lokalizacji
+  confidence: USER_CONFIRMED_AUTH_SCREEN
+  verified_at: 2026-09-05
+  doc: docs/73-school-locations-edit-form.md
+
+fields:
+  type:
+    required: true
+    control: select
+    options_confirmed:
+      - branch
+      - lecture_room
+      - maneuvering_area
+    labels:
+      branch: Filia
+      lecture_room: Sala wykładowa
+      maneuvering_area: Plac manewrowy
+  name:
+    required: true
+  street_and_number:
+    required: true
+  postal_code:
+    required: true
+  locality:
+    required: true
+    control: searchable_catalog_select
+
+observed_example:
+  type: lecture_room
+  name: Sala wykładowa
+  street_and_number: Bielerzewskiej 4B
+  postal_code: 61-369
+  locality: Kowary
+
+actions:
+  - save
+  - cancel
+  - close
+  - archive
+
+archive:
+  competitor_label_observed: Archiwizuj filie
+  visible_on_non_branch_location: true
+  own_product_label: Archiwizuj lokalizację
+  exact_confirmation_flow: TO_VERIFY
+  own_product_recommendation:
+    mode: soft_archive
+    retain_historical_relations: true
+    exclude_from_new_assignments_by_default: true
+
+confirmed_actions:
+  - open_edit_school_location_drawer
+  - edit_school_location_type
+  - edit_school_location_name
+  - edit_school_location_street_and_number
+  - edit_school_location_postal_code
+  - edit_school_location_locality
+  - save_school_location_changes
+  - cancel_school_location_edit
+  - archive_school_location_action_visible
+
+remaining_gaps:
+  - archive_confirmation_modal
+  - unarchive_behavior
+  - archived_locations_listing
+  - relation_behavior_after_archive
+  - success_error_messages
