@@ -8,7 +8,28 @@ meta:
   traceability: specs/traceability/core-v1.yml
 
 conventions:
-  primary_key: uuid_pending_final_ADR
+  primary_key:
+    physical_type: postgresql_uuid
+    generated_domain_id_version: UUIDv7
+    generation_owner: application_before_insert
+    database_default_required: false
+    foreign_key_physical_type: postgresql_uuid
+    external_provider_identifiers_must_not_be_reused_as_primary_keys: true
+    rationale:
+      - native_16_byte_PostgreSQL_uuid_storage_and_indexes
+      - time_ordered_UUIDv7_improves_index_locality_vs_random_UUIDv4
+      - globally_unique_without_central_sequence
+      - avoids_ULID_string_collation_and_char_26_storage_semantics
+      - does_not_depend_on_database_version_specific_UUIDv7_generator
+    implementation_rule: >-
+      Laravel/domain code supplies a UUIDv7 before insert for rows using a
+      synthetic domain identifier. Do not silently fall back to UUIDv4. Pure
+      join/dictionary tables may continue to use their explicitly designed
+      composite/natural keys where the table contract does not require a
+      synthetic row identity.
+    api_compatibility: >-
+      Public API identifiers remain UUID strings. Existing Stage-3 API contracts
+      are compatible because UUID is already an allowed public resource identifier.
   timestamp: timestamptz
   canonical_timezone: UTC
   organization_timezone: IANA
@@ -625,6 +646,7 @@ migration_order:
   - final_partial_indexes_and_cross_table_constraints
 
 migration_tests_required:
+  - generated_synthetic_domain_ids_are_UUIDv7_and_stored_as_native_uuid
   - generic_login_identifier_resolves_to_at_most_one_current_user
   - revoked_login_identifier_can_be_reissued_only_by_explicit_policy
   - auth_session_can_be_listed_and_revoked_without_exposing_raw_secret
@@ -655,7 +677,6 @@ migration_tests_required:
   - activity_safe_payload_rejects_or_redacts_sensitive_fields
 
 pending_ADRs:
-  - uuid_vs_ulid_physical_type
   - sensitive_identifier_application_encryption_and_key_rotation
   - calendar_overlap_constraint_strategy
   - immutable_snapshot_hash_canonicalization
