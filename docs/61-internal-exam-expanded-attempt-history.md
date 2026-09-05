@@ -6,8 +6,9 @@ Data weryfikacji: 2026-09-05
 **Źródło:** bieżący zalogowany ekran + screenshot przekazany podczas audytu  
 **Status:** `USER_CONFIRMED_AUTH_SCREEN`
 
-Powiązany dokument konkretnej próby:
-- `docs/62-internal-exam-answer-sheet-pdf.md` — potwierdzony PDF `Pobierz wydruk`.
+Powiązane materiały konkretnej próby:
+- `docs/62-internal-exam-answer-sheet-pdf.md` — potwierdzony PDF `Pobierz wydruk`,
+- `docs/63-internal-exam-result-details-screen.md` — potwierdzony ekran `Szczegóły` zakończonej próby.
 
 ---
 
@@ -129,25 +130,28 @@ Potwierdzone zachowanie po kliknięciu:
 - użytkownik opuszcza panel BIZ/admin OSK,
 - następuje przejście do serwisu egzaminacyjnego na host `www.prawo-jazdy-360.pl`,
 - route ma postać `/egzamin-wewnetrzny?pid=<opaque_token>`,
-- `pid` jest długim nieprzewidywalnym tokenem, a nie prostym numerycznym ID próby.
+- `pid` jest długim nieprzewidywalnym tokenem, a nie prostym numerycznym ID próby,
+- dla zakończonej próby strona pokazuje ekran wyniku i przeglądu odpowiedzi.
 
-Zaobserwowany wzorzec:
+Potwierdzony ekran zakończonej próby zawiera:
+- wynik punktowy (`0 z 74 pkt.` w obserwowanym przykładzie),
+- komunikat wyniku negatywnego,
+- nawigację po 32 pytaniach: 1–20 podstawowe, 21–32 specjalistyczne,
+- statystyki poprawnych/niepoprawnych odpowiedzi dla pytań podstawowych, specjalistycznych i wszystkich.
 
-`https://www.prawo-jazdy-360.pl/egzamin-wewnetrzny?pid=<opaque_token>`
+Szczegółowe mapowanie: `docs/63-internal-exam-result-details-screen.md`.
 
 ### Wniosek
 
-`Szczegóły` nie otwiera klasycznego adminowego widoku `exam/{id}` w panelu OSK. Jest to przejście do osobnego frontowego modułu egzaminu z tokenizowanym dostępem do konkretnej próby/kontekstu egzaminacyjnego.
+`Szczegóły` nie jest klasycznym adminowym `exam/{id}`. To osobny front wynikowy/przeglądowy konkretnej próby, dostępny przez token.
 
-To potwierdza potrzebę rozdzielenia:
+Rozdzielamy:
 - `internal_exam_attempt.id` — stabilne wewnętrzne ID,
-- `internal_exam_launch/view_token` — zewnętrzny, nieprzewidywalny token używany w URL.
-
-Nie potwierdzono jeszcze zawartości strony po przekierowaniu — wymaga osobnego capture ekranu.
+- `internal_exam_launch/view_token` — zewnętrzny opaque token.
 
 ### Własny produkt
 
-U nas nie powinniśmy wystawiać przewidywalnego `attempt_id` w linku dostępowym dla kursanta/stanowiska egzaminacyjnego.
+U nas nie wystawiamy przewidywalnego `attempt_id` jako sekretu dostępowego.
 
 Rekomendowane:
 - opaque random token,
@@ -156,7 +160,7 @@ Rekomendowane:
 - opcjonalny TTL zależny od rodzaju linku,
 - audyt użycia,
 - brak danych osobowych w URL,
-- osobne uprawnienia dla administratora OSK i dla tokenowego frontu egzaminacyjnego.
+- osobne polityki dla linku do rozpoczęcia egzaminu i historycznego wyniku.
 
 ---
 
@@ -167,9 +171,9 @@ Każda konkretna próba ma osobny `Pobierz wydruk`.
 Zaobserwowane endpointy mają wzorzec:
 - `/exam/download?id=<exam_id>`.
 
-Różne próby mają różne `exam_id` (np. 72479, 72478, 72468 itd.).
+Różne próby mają różne `exam_id`.
 
-Format i zawartość wydruku są już potwierdzone na rzeczywistym pobranym PDF-ie i opisane w:
+Format i zawartość wydruku są potwierdzone w:
 - `docs/62-internal-exam-answer-sheet-pdf.md`,
 - `specs/screens/internal-exam-answer-sheet-pdf.yml`.
 
@@ -204,15 +208,16 @@ Potwierdzony wydruk zawiera m.in.:
 - `started_at nullable`,
 - `completed_at nullable`,
 - `score nullable`,
+- `max_score nullable`,
 - `result nullable`,
 - `inventory_source`,
 - `inventory_ledger_entry_id`,
 - `created_by`,
 - audit metadata.
 
-Dodatkowo, po potwierdzeniu wydruku, próba musi posiadać kolekcję niezmiennych pozycji egzaminu (`internal_exam_attempt_questions`) z identyfikatorem pytania, punktacją, odpowiedzią i punktami uzyskanymi.
+Próba posiada kolekcję niezmiennych pozycji `internal_exam_attempt_questions` z identyfikatorem pytania, kolejnością, punktacją, odpowiedzią i punktami uzyskanymi.
 
-Token/link nie jest identyfikatorem domenowym próby. Powinien być przechowywany osobno np. jako `internal_exam_access_token` / `launch_token` z relacją do attemptu.
+Token/link nie jest identyfikatorem domenowym próby. Jest osobnym zasobem z relacją do attemptu.
 
 Wiersz główny panelu jest projekcją/agregatem nad próbami kursanta, a nie źródłem prawdy.
 
@@ -229,6 +234,9 @@ Wiersz główny panelu jest projekcją/agregatem nad próbami kursanta, a nie ź
 - `view_exam_attempt_language`
 - `open_specific_exam_attempt_details`
 - `redirect_to_tokenized_exam_frontend`
+- `view_completed_exam_result`
+- `view_exam_result_question_navigation`
+- `view_exam_result_statistics`
 - `download_specific_exam_attempt_printout`
 - `download_specific_exam_answer_sheet_pdf`
 
@@ -241,13 +249,11 @@ Wiersz główny panelu jest projekcją/agregatem nad próbami kursanta, a nie ź
 - historyczne dane egzaminu są snapshotowane,
 - zestaw/kolejność pytań i odpowiedzi próby są snapshotowane,
 - statusy są jawne tekstowo w szczegółach/historii,
-- wiersz główny może używać ikony jako skrótu, ale musi mieć dostępny tekst statusu dla accessibility,
-- dokument i szczegóły są przypięte do konkretnego attemptu,
+- dokument i ekran wyniku korzystają z tego samego immutable attempt snapshot,
 - token zewnętrzny jest oddzielony od domenowego ID próby,
-- token jest nieprzewidywalny i możliwy do unieważnienia,
 - tenant isolation i autoryzacja per attempt,
 - wynik ukończonego egzaminu nie jest nadpisywany przez kolejną próbę,
-- ponowne wygenerowanie arkusza historycznego nie może zależeć od aktualnej wersji profilu kursanta ani aktualnej wersji pytań.
+- ponowne wygenerowanie arkusza/historycznego wyniku nie zależy od aktualnego profilu kursanta ani aktualnej bazy pytań.
 
 ---
 
@@ -257,9 +263,9 @@ Wiersz główny panelu jest projekcją/agregatem nad próbami kursanta, a nie ź
 - statusy egzaminu przed wykonaniem,
 - zachowanie egzaminu rozpoczętego i niedokończonego,
 - czas trwania egzaminu,
-- zawartość strony otwieranej przez `Szczegóły`,
-- dokładne znaczenie pola `Data` (wygenerowanie/start/zakończenie) — ekran sam tego nie opisuje,
+- widok po kliknięciu konkretnego numeru pytania na ekranie wyniku,
+- dokładne znaczenie pola `Data`,
 - moment zużycia jednostki inventory,
 - wygląd arkusza dla wyniku pozytywnego,
-- sposób renderowania rzeczywiście udzielonych odpowiedzi (`TAK/NIE`, `A/B/C` itd.),
+- sposób renderowania rzeczywiście udzielonych odpowiedzi,
 - lifecycle/TTL/revocation tokenu `pid` u konkurenta.
