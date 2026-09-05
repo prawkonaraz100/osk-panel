@@ -1,0 +1,54 @@
+screen:
+  id: student_list_sorting
+  scope: admin_osk
+  parent_route: /kursanci
+  entry_action: open_student_sort
+  title: Sortowanie
+  confidence: USER_CONFIRMED_AUTH_SCREEN
+  verified_at: 2026-09-05
+  doc: docs/47-student-list-sorting.md
+
+sort_direction:
+  control: select
+  options:
+    - asc
+    - desc
+  labels:
+    asc: Rosnąco
+    desc: Malejąco
+  observed_selected: desc
+  observed_selected_is_confirmed_default: false
+
+sort_column:
+  control: single_radio
+  options:
+    - id: full_name
+      label: Imię i Nazwisko
+    - id: learning_identifier
+      label: Dane logowania prawo-jazdy-360.pl
+    - id: phone
+      label: Telefon
+    - id: created_at
+      label: Data dodania
+    - id: internal_exam
+      label: Egzamin wewnętrzny
+  observed_selected: created_at
+  observed_selected_is_confirmed_default: false
+
+actions:
+  - apply_sort
+  - close_sort_drawer
+
+own_product_requirements:
+  - whitelist_sort_fields_server_side
+  - tenant_scope_before_sort
+  - stable_tiebreaker
+  - define_internal_exam_status_sort_order
+  - support_asc_desc
+  - do_not_accept_raw_sql_column_from_client
+
+remaining_gaps:
+  - true_default_sort
+  - internal_exam_sort_semantics
+  - null_value_sorting
+  - persistence_of_sort_state
