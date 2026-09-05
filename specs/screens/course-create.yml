@@ -1,0 +1,81 @@
+screen:
+  id: course_create
+  module: students_courses_pkk
+  title: Dodaj kurs
+  status: USER_CONFIRMED_AUTH_SCREEN
+  entrypoint: Kursanci -> Profil kursanta -> Kursy (PKK) -> Dodaj kurs
+
+fields:
+  - id: training_type
+    label: Rodzaj
+    type: select
+    required: true
+    options:
+      - Szkolenie podstawowe
+      - Szkolenie uzupełniające
+  - id: license_category
+    label: Kategoria
+    type: select
+    required: true
+    observed_options: [A, B, C, D, T, A1, B1, C1, D1, AM, A2, B+E, C1+E, C+E, D1+E, D+E, PT]
+  - id: pkk_number
+    label: PKK
+    type: text
+    required: true
+  - id: started_at_date
+    label: Data rozpoczęcia
+    type: date
+    required: true
+  - id: started_at_time
+    label: Godzina rozpoczęcia
+    type: time
+    required: true
+  - id: cost
+    label: Koszt
+    type: money
+    required: false
+  - id: theory_hours_current_osk
+    label: Godzin teorii
+    type: number
+    required: false
+  - id: theory_hours_previous_osk
+    label: Teoria odbyta w innej szkole
+    type: number
+    required: false
+  - id: practice_hours_current_osk
+    label: Godzin praktyki
+    type: number
+    required: true
+  - id: practice_hours_previous_osk
+    label: Praktyka odbyta w innej szkole
+    type: number
+    required: false
+  - id: lead_instructor_id
+    label: Instruktor
+    type: searchable_select
+    required: true
+  - id: location_id
+    label: Lokalizacja
+    type: select
+    required: false
+
+actions:
+  - save_course
+  - cancel_course_creation
+  - close_drawer
+
+product_decisions:
+  payment_boundary:
+    rule: cost may initialize a course receivable, but later financial edits belong to Payments
+  training_hours:
+    rule: current-OSK hours and recognized previous-OSK hours must remain separate and auditable
+  requirements_engine:
+    rule: after training type/category selection, calculate legal requirements; secretary can later correct the exemption basis without deleting history
+  pkk_scope:
+    rule: PKK belongs to the course enrollment, not globally to the student
+
+unobserved:
+  - exact PKK validation
+  - duplicate PKK/category behavior
+  - numeric min/max validation
+  - success/error messages
