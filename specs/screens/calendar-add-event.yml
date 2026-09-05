@@ -79,6 +79,14 @@ manual_event_types:
   important_date_present_in_create_selector: false
   important_date_source: TO_VERIFY
 
+form_behavior_by_type:
+  shared_form_component_supported: true
+  selecting_driving_lesson_changes_visible_fields: false
+  selecting_driving_lesson_changes_visible_optional_labels: false
+  selecting_general_event_changes_visible_fields: false
+  visible_form_parity_confirmed: true
+  backend_type_specific_validation: TO_VERIFY
+
 resource_cardinality_for_this_form:
   student: zero_or_one
   instructor: zero_or_one
@@ -120,6 +128,9 @@ confirmed_actions:
 
 own_product_requirements:
   - tenant_isolation
+  - use_single_form_for_general_event_and_driving_lesson
+  - use_event_type_as_domain_discriminator
+  - allow_type_specific_backend_business_rules_without_duplicate_forms
   - server_side_resource_conflict_detection
   - validate_student_by_organization
   - validate_instructor_by_organization
@@ -131,11 +142,9 @@ own_product_requirements:
   - audit_event_creation_and_changes
 
 remaining_gaps:
-  - conditional_fields_after_selecting_driving_lesson
-  - conditional_fields_after_selecting_general_event
   - other_meeting_place_behavior
   - duration_exact_validation
-  - driving_lesson_required_resources
+  - driving_lesson_backend_required_resources
   - warning_vs_hard_block_for_expired_resources
   - conflict_messages
   - recurrence
