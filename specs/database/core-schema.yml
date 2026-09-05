@@ -4,6 +4,7 @@ meta:
   status: IMPLEMENTATION_BLUEPRINT
   decided_at: 2026-09-05
   doc: docs/87-physical-database-schema.md
+  preservation_contract: docs/96-reverse-engineering-preservation-contract.md
 
 conventions:
   primary_key: uuid_pending_final_ADR
@@ -20,6 +21,7 @@ conventions:
     - metadata
   jsonb_as_replacement_for_core_relational_model: false
   tenant_owned_tables_have_organization_id_when_practical: true
+  history_preservation_over_destructive_uniqueness: true
 
 sensitive_identifier_pattern:
   pesel:
@@ -27,6 +29,10 @@ sensitive_identifier_pattern:
     exact_lookup_column: pesel_lookup_hash
     lookup_hash: HMAC_SHA_256_or_equivalent_secret_keyed_hash
     plain_global_sha256_for_lookup_forbidden: true
+  pkk:
+    ciphertext_column: pkk_number_ciphertext
+    exact_lookup_column: pkk_lookup_hash
+    lookup_hash: HMAC_SHA_256_or_equivalent_secret_keyed_hash
 
 core_tables:
   identity:
@@ -40,13 +46,16 @@ core_tables:
     - staff_profiles
     - staff_types
     - staff_type_assignments
-    - staff_user_links
+    - staff_category_assignments
+    - staff_location_assignments
+    - staff_membership_links
     - staff_documents
 
   resources:
     - locations
     - vehicles
     - vehicle_documents
+    - vehicle_category_assignments
     - vehicle_location_assignments
     - driving_categories
 
@@ -108,33 +117,140 @@ core_tables:
 
 critical_relations:
   - organization_has_many_students
+  - user_has_many_organization_memberships
+  - staff_profile_belongs_to_exactly_one_organization
+  - staff_profile_can_exist_without_login_membership
+  - staff_profile_can_have_at_most_one_active_membership_link_in_its_organization
+  - same_global_user_can_have_memberships_in_multiple_organizations
+  - staff_has_many_types_via_assignment
+  - staff_has_many_categories_via_assignment
+  - staff_has_many_locations_via_assignment
+  - vehicle_has_many_categories_via_assignment
+  - vehicle_has_many_locations_via_assignment
   - student_has_many_course_enrollments
   - course_enrollment_has_zero_or_one_pkk_profile
+  - course_enrollment_has_many_versioned_requirement_profiles
+  - current_requirement_profile_is_latest_non_superseded_not_required_pointer_on_course_row
   - course_enrollment_has_many_training_sessions
   - training_session_credits_training_hour_ledger_entries
   - course_enrollment_has_many_recognized_external_training_records
   - student_has_many_learning_accounts
   - learning_account_receives_license_assignments
-  - license_inventory_entry_has_at_most_one_current_assignment
+  - license_inventory_entry_has_many_historical_assignments_but_at_most_one_current_assignment
   - license_assignment_has_at_most_one_activation
   - course_enrollment_has_many_internal_exam_attempts
-  - internal_exam_attempt_has_inventory_reservation
+  - internal_exam_inventory_entry_has_many_historical_reservations_but_at_most_one_active_reservation
+  - internal_exam_attempt_has_at_most_one_active_reservation
   - internal_exam_attempt_has_one_result_when_finished
+
+structural_decisions:
+  staff_login_link:
+    table: staff_membership_links
+    target: organization_membership_id
+    reason: >-
+      A global User may work in more than one OSK. Linking StaffProfile to an
+      OrganizationMembership preserves tenant context and does not incorrectly
+      make user_id globally unique across staff records.
+    history_preserved: true
+    active_link_uniqueness: partial_unique
+  requirement_profile:
+    course_enrollment_current_pointer_required: false
+    current_projection: latest_where_superseded_at_is_null
+    reason: avoid_unnecessary_circular_fk
+  recognized_external_training:
+    supports_initial_course_form_values: true
+    initial_import_source: course_form_initial
+    subsequent_changes: audited_records_or_reversal
+  license_assignment_history:
+    inventory_entry_global_unique_across_all_history: false
+    current_assignment_unique: true
+    current_definition: revoked_at_is_null_and_status_in_current_states
+  exam_reservation_history:
+    global_unique_inventory_entry_across_all_history: false
+    active_inventory_reservation_unique: true
+    active_attempt_reservation_unique: true
+    active_definition: status_reserved
+  payment_webhook_dedup:
+    unique_scope: [provider, provider_event_id]
 
 critical_constraints:
   membership_unique:
     columns: [organization_id, user_id]
+  staff_type_assignment_unique:
+    columns: [staff_profile_id, staff_type_code]
+  staff_category_assignment_unique:
+    columns: [staff_profile_id, driving_category_id]
+  staff_location_assignment_unique:
+    columns: [staff_profile_id, location_id]
+  staff_active_membership_link_unique_per_profile:
+    type: partial_unique
+    columns: [staff_profile_id]
+    where: unlinked_at_is_null
+  staff_active_membership_link_unique_per_membership:
+    type: partial_unique
+    columns: [organization_membership_id]
+    where: unlinked_at_is_null
+  vehicle_category_assignment_unique:
+    columns: [vehicle_id, driving_category_id]
+  vehicle_location_assignment_unique:
+    columns: [vehicle_id, location_id]
   pkk_profile_unique_per_course_enrollment:
     columns: [course_enrollment_id]
-  license_inventory_assignment_unique:
+  training_requirement_only_one_current_per_course:
+    type: partial_unique
+    columns: [course_enrollment_id]
+    where: superseded_at_is_null
+  license_current_assignment_unique_per_inventory_entry:
+    type: partial_unique
     columns: [license_inventory_entry_id]
+    where: revoked_at_is_null
+    note: do_not_make_inventory_entry_unique_across_historical_revoked_assignments
   license_activation_unique:
     columns: [license_assignment_id]
-  payment_provider_event_deduplicated: true
+  payment_provider_event_deduplicated:
+    columns: [provider, provider_event_id]
+  exam_active_reservation_unique_per_inventory_entry:
+    type: partial_unique
+    columns: [internal_exam_inventory_entry_id]
+    where: status_equals_reserved
+  exam_active_reservation_unique_per_attempt:
+    type: partial_unique
+    columns: [internal_exam_attempt_id]
+    where: status_equals_reserved
   exam_inventory_consume_exactly_once: true
   exam_attempt_result_unique: true
   session_end_after_start: true
+  calendar_event_end_after_start: true
   non_negative_money_and_minutes: true
+
+transactional_invariants:
+  revoke_unactivated_license:
+    lock:
+      - license_assignment
+      - license_inventory_entry
+    transaction:
+      - verify_not_activated
+      - revoke_assignment
+      - restore_exactly_one_inventory_entry_to_available
+      - write_audit
+  exam_start:
+    lock:
+      - internal_exam_access
+      - internal_exam_attempt
+      - internal_exam_reservation
+      - internal_exam_inventory_entry
+    transaction:
+      - verify_access_startable
+      - verify_reservation_active
+      - consume_inventory_exactly_once
+      - mark_reservation_consumed
+      - mark_attempt_in_progress
+      - write_audit
+  payment_webhook:
+    dedupe_before_business_effect: true
+  calendar_conflict:
+    enforcement_strategy: pending_ADR
+    server_side_required: true
 
 foreign_key_policy:
   formal_and_financial_default: RESTRICT
@@ -145,11 +261,16 @@ foreign_key_policy:
     - internal_exam_attempts
     - student_payments
     - pkk_operations
+  never_cascade_course_enrollment_to:
+    - pkk_operations
+    - training_hour_ledger_entries
+    - internal_exam_attempts
+    - student_charges
 
 migration_order:
   - identity_and_organization
   - dictionaries
-  - staff_locations_vehicles
+  - staff_locations_vehicles_and_assignment_tables
   - students_learning_accounts
   - course_enrollments_requirements
   - training_and_calendar
@@ -159,7 +280,22 @@ migration_order:
   - internal_exam_inventory_and_attempts
   - orders_and_payments
   - audit_outbox_notifications
-  - final_indexes_and_cross_table_constraints
+  - final_partial_indexes_and_cross_table_constraints
+
+migration_tests_required:
+  - same_user_can_have_memberships_in_two_organizations
+  - staff_can_exist_without_membership_link
+  - staff_can_have_multiple_categories_and_locations
+  - vehicle_can_have_multiple_categories_and_locations
+  - revoked_license_assignment_allows_same_inventory_entry_to_be_reassigned_later
+  - two_current_license_assignments_for_same_inventory_entry_are_rejected
+  - second_activation_for_same_license_assignment_is_rejected
+  - released_exam_reservation_allows_inventory_entry_to_be_reserved_again
+  - two_active_exam_reservations_for_same_inventory_entry_are_rejected
+  - two_active_exam_reservations_for_same_attempt_are_rejected
+  - duplicate_provider_event_with_same_provider_is_rejected
+  - same_provider_event_id_from_different_provider_does_not_collide
+  - only_one_non_superseded_requirement_profile_per_course
 
 pending_ADRs:
   - uuid_vs_ulid_physical_type
