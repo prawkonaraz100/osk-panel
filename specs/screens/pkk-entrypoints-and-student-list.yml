@@ -1,0 +1,59 @@
+screen:
+  id: pkk_entrypoints_student_list
+  scope: admin_osk
+  route_context:
+    info_page: /integracja-pkk
+    students: /kursanci
+  confidence: USER_CONFIRMED_AUTH_SCREEN
+  verified_at: 2026-09-05
+  doc: docs/75-pkk-entrypoints-and-student-list.md
+
+architecture:
+  global_pkk_page_role: informational_or_status_hub
+  operational_context: course_enrollment
+  relation: student -> course_enrollment -> pkk_profile
+  operation_history_scope: course_enrollment
+
+student_list_entrypoints:
+  - action: add_student_with_pkk
+    label: Dodaj kursanta z PKK
+  - action: open_existing_student_course
+    route_pattern: /kursanci/{student_guid}
+
+course_summary_confirmed_fields:
+  - category
+  - stage_or_course_label
+  - pkk_number
+  - latest_pkk_operation
+
+observed_example:
+  student_name: Paweł Kowalski
+  category: A
+  stage_or_course_label: Teoria
+  pkk_number: '445645645646455'
+  latest_pkk_operation: Brak operacji
+
+info_page_confirmed_capabilities:
+  - fetch_candidate_profile
+  - view_profile_details
+  - update_training_and_return_profile
+  - return_profile_to_other_osk
+  - return_profile_to_authority
+  - return_expired_profile
+  - view_operation_history
+
+update_training_signature_flow:
+  observed_description:
+    - download_xml
+    - sign_on_podpis_gov_pl
+    - upload_signed_xml
+
+remaining_gaps:
+  - add_student_with_pkk_form
+  - manage_pkk_screen
+  - fetch_identifiers
+  - profile_details_fields
+  - update_training_exact_fields
+  - pkk_api_statuses_and_errors
+  - return_flows
+  - operation_history_columns
