@@ -11,6 +11,12 @@ screen:
   selected_existing_student_state_spec: specs/screens/license-existing-student-selected.yml
   selected_existing_student_state_doc: docs/56-license-existing-student-selected-state.md
 
+target_cardinality:
+  per_submit: exactly_one
+  multiple_search_results_are_options_not_targets: true
+  batch_assignment: false
+  correction_note: three observed students were three selectable search results, not three selected assignment targets
+
 fields:
   - name: license_product_duration
     label: Wybierz rodzaj licencji
@@ -55,6 +61,7 @@ fields:
     section_label: Wyszukaj kursanta
     control: searchable_single_select
     target_mode: existing_student
+    selection_cardinality: one
     search_fields_confirmed:
       - first_name
       - last_name
@@ -64,6 +71,8 @@ fields:
     result_projection:
       - full_name
       - learning_identifier
+    observed_result_count_example: 3
+    observed_results_meaning: three_options_choose_one
 
 alternative_target_modes:
   separator_label: lub
@@ -71,7 +80,7 @@ alternative_target_modes:
     - new_learning_access
     - existing_student
   mutually_exclusive_by_ui_semantics: true
-  simultaneous_payload_behavior_competitor: TO_VERIFY
+  exactly_one_target_required: true
 
 existing_student_selected_state:
   confidence: USER_CONFIRMED_AUTH_SCREEN
@@ -106,7 +115,7 @@ language_conflict:
 
 primary_action:
   label: Przydziel licencje
-  action: submit_license_assignment
+  action: submit_single_target_license_assignment
 
 close_control:
   label: X
@@ -116,7 +125,7 @@ confirmed_actions:
   - open_generate_license_access_drawer
   - select_license_product_duration
   - view_available_inventory_count
-  - select_learning_access_language
+  - select_learning_access_language_for_new_access
   - enter_new_learning_identifier
   - search_existing_student_for_license
   - search_student_by_name
@@ -124,19 +133,21 @@ confirmed_actions:
   - search_student_by_email
   - search_student_by_login
   - search_student_by_pesel
-  - select_existing_student
+  - select_one_existing_student
   - show_selected_student_summary
   - inherit_existing_learning_access_language
   - clear_selected_student_target_visible_action
-  - submit_license_assignment
+  - submit_single_target_license_assignment
   - close_license_assignment_drawer
 
 own_product_requirements:
   - tenant_isolation
+  - exactly_one_assignment_target_per_submit
   - atomic_inventory_assignment
   - common_assignment_service_for_license_panel_and_student_profile_entry_points
   - prevent_negative_inventory
   - validate_target_mode_exclusive
+  - reject_multiple_targets
   - tenant_scope_existing_student_search
   - capability_driven_languages
   - separate_student_profile_from_learning_access
@@ -152,7 +163,6 @@ remaining_gaps:
   - whether_new_path_creates_minimal_student_profile_or_learning_access_only
   - exact_clear_selected_target_ui_result
   - behavior_for_student_with_multiple_learning_accesses
-  - batch_assignment_flow_for_multiple_selected_rows
   - success_error_messages
   - exact_competitor_inventory_commit_timing
   - russian_full_content_availability
