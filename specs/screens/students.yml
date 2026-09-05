@@ -10,6 +10,8 @@ screen:
   detail_doc: docs/30-student-detail-screen.md
   progress_screen_spec: specs/screens/student-progress.yml
   progress_doc: docs/31-student-progress-screen.md
+  internal_exam_screen_spec: specs/screens/student-internal-exam.yml
+  internal_exam_doc: docs/32-student-internal-exam-screen.md
 
 header:
   title: Twoi kursanci
@@ -192,11 +194,31 @@ progress_tab_confirmed:
     questions: Brak danych
     tests: Brak danych
 
+internal_exam_tab_confirmed:
+  confidence: USER_CONFIRMED_AUTH_SCREEN
+  last_exam_section:
+    empty_state: Brak przeprowadzenego egzaminu
+    action: start_student_internal_exam
+  aggregate_metrics:
+    - pass_rate_percent
+    - passed_exam_count
+    - failed_exam_count
+  history_columns:
+    - date_time
+    - category
+    - status
+  observed_empty_snapshot:
+    pass_rate_percent: 0
+    passed_exam_count: 0
+    failed_exam_count: 0
+  multiple_attempts_supported: true
+
 entity_model:
   student_profile_separate_from_learning_account: true
   student_finance_separate_from_osk_purchase_history: true
   training_stage_separate_from_license_and_exam_status: true
   learning_progress_contextual_by_account_and_category: true
+  internal_exam_history_separate_from_student_profile: true
   suggested_entities:
     - students
     - student_learning_accounts
@@ -215,6 +237,7 @@ relationships_confirmed_or_supported_by_projection:
   - student_has_course_or_enrollment_collection
   - course_can_reference_pkk
   - student_has_internal_exam_projection
+  - student_has_internal_exam_attempt_history
   - student_has_licenses
   - student_has_financial_account
   - student_can_have_location
@@ -245,6 +268,9 @@ confirmed_actions:
   - view_test_progress
   - view_handbook_progress
   - view_lecture_progress
+  - start_student_internal_exam
+  - view_internal_exam_pass_rate
+  - view_internal_exam_history
 
 security_requirements:
   - tenant_isolation
@@ -257,6 +283,7 @@ security_requirements:
   - audit_training_stage_changes
   - audit_credential_downloads
   - authorize_progress_context_by_student_and_organization
+  - authorize_internal_exam_by_student_and_organization
 
 remaining_gaps:
   - add_student_manual_form
@@ -265,8 +292,10 @@ remaining_gaps:
   - student_edit_form
   - add_course_form
   - training_stage_transition_behavior
-  - internal_exam_tab
   - conduct_internal_exam_flow
+  - internal_exam_populated_history
+  - internal_exam_exact_statuses_and_results
+  - internal_exam_card_print_pdf
   - assign_license_form
   - license_delete_effect_and_inventory_restore
   - access_download_format
