@@ -10,7 +10,11 @@ Data: 2026-09-05
 
 # 1. Konwencje DB
 
-- primary key: docelowo UUIDv7/ULID — finalizuje ADR; w tym blueprintcie zapisujemy `uuid`,
+- syntetyczny primary key i odpowiadające mu foreign keys: natywny PostgreSQL `uuid`,
+- identyfikatory domenowe generowane przez naszą aplikację: **UUIDv7**, generowany przed `INSERT`; nie wolno po cichu używać UUIDv4,
+- nie wymagamy DB-default do generowania UUIDv7 — dzięki temu physical schema nie zależy od wersji PostgreSQL ani rozszerzenia udostępniającego generator UUIDv7,
+- zewnętrzne identyfikatory providerów/importów pozostają osobnymi polami i nie są używane jako nasze primary keys,
+- czyste tabele join/dictionary mogą zachować jawnie zaprojektowany klucz naturalny/composite, jeśli nie potrzebują własnej historycznej tożsamości rekordu,
 - wszystkie timestampy: `timestamptz`,
 - storage czasu: UTC,
 - timezone prezentacji: IANA timezone organizacji, domyślnie `Europe/Warsaw`,
@@ -21,6 +25,8 @@ Data: 2026-09-05
 - immutable ledger/event: brak zwykłego `updated_at`,
 - tenant-owned table ma `organization_id` tam, gdzie upraszcza autoryzację i indeksy,
 - constraint dla stanu bieżącego nie może niszczyć historii; używamy partial unique tam, gdzie rekord może być revoked/released i ponownie użyty.
+
+Decyzja UUIDv7 dotyczy naszego synthetic domain ID. Publiczne API nadal przekazuje UUID jako string, więc zamknięcie tej decyzji nie wymaga zmiany Stage-3 kontraktu HTTP.
 
 ---
 
@@ -1311,6 +1317,7 @@ Nie tworzymy „indeksu na każdą kolumnę”; indeks powstaje pod faktyczne sc
 
 # 23. Obowiązkowe migration/invariant tests
 
+- generowane przez system synthetic domain IDs są UUIDv7 i są przechowywane jako natywny PostgreSQL `uuid`,
 - generic login resolves to at most one current user,
 - auth session jest listowalna/revokowalna bez ujawnienia raw secretu,
 - tylko jedno pending account closure request w tym samym scope,
@@ -1359,10 +1366,12 @@ Nie tworzymy „indeksu na każdą kolumnę”; indeks powstaje pod faktyczne sc
 
 ---
 
-# 25. Pending ADRs
+# 25. Zamknięte i oczekujące decyzje techniczne
 
-Przed produkcyjnymi migracjami krytycznych modułów:
-- UUIDv7 vs ULID physical/public ID,
+Zamknięte:
+- synthetic domain ID: UUIDv7 generowany application-side, przechowywany jako natywny PostgreSQL `uuid`.
+
+Nadal wymagają osobnego etapu/ADR przed produkcyjnymi migracjami odpowiednich modułów:
 - application encryption + key rotation dla PESEL/PKK/provider snapshots,
 - calendar overlap enforcement: exclusion constraint vs transaction locks,
 - immutable snapshot canonicalization/hash,
