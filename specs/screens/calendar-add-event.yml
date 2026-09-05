@@ -95,7 +95,7 @@ meeting_place_mode:
       - hide_custom_text_input
       - show_saved_location_select
   fields_mutually_exclusive: true
-  persistence_when_switching_back: TO_VERIFY
+  persistence_when_switching_back: TO_VERIFY_NONBLOCKING
 
 manual_event_types:
   confirmed:
@@ -110,7 +110,7 @@ form_behavior_by_type:
   selecting_driving_lesson_changes_visible_optional_labels: false
   selecting_general_event_changes_visible_fields: false
   visible_form_parity_confirmed: true
-  backend_type_specific_validation: TO_VERIFY
+  backend_type_specific_validation: TO_VERIFY_NONBLOCKING
 
 resource_cardinality_for_this_form:
   student: zero_or_one
@@ -123,7 +123,7 @@ resource_cardinality_for_this_form:
 resource_warning_behavior:
   staff_document_expiry_projected_in_selector: true
   vehicle_document_expiry_projected_in_selector: true
-  exact_warning_vs_block_policy: TO_VERIFY
+  exact_warning_vs_block_policy: TO_VERIFY_NONBLOCKING
 
 primary_action:
   label: Zapisz
@@ -136,6 +136,21 @@ secondary_action:
 close_control:
   label: X
   action: close_calendar_event_drawer
+
+post_save_competitor_behavior:
+  demo_allows_creation: false
+  exact_behavior_observable: false
+  status: UNOBSERVABLE_IN_DEMO_NONBLOCKING
+  unobservable_items:
+    - event_status_after_save
+    - event_detail_click
+    - event_edit
+    - event_cancel
+    - event_move_or_reschedule
+    - event_delete
+    - drag_and_drop
+    - post_save_conflict_messages
+  own_product_policy: docs/50-own-calendar-event-lifecycle.md
 
 confirmed_actions:
   - open_add_calendar_event_drawer
@@ -151,7 +166,7 @@ confirmed_actions:
   - switch_to_custom_meeting_place
   - set_custom_meeting_place_text
   - switch_back_to_saved_meeting_location
-  - save_calendar_event
+  - save_calendar_event_visible_action
   - cancel_calendar_event_create
   - close_calendar_event_drawer
 
@@ -171,14 +186,19 @@ own_product_requirements:
   - enforce_critical_compliance_rules_server_side
   - store_start_and_duration_or_consistent_derived_end
   - audit_event_creation_and_changes
+  - implement_own_event_lifecycle_instead_of_guessing_competitor_post_save_behavior
 
 remaining_gaps:
   - duration_exact_validation
   - driving_lesson_backend_required_resources
   - warning_vs_hard_block_for_expired_resources
-  - conflict_messages
   - recurrence
   - notifications
+  - custom_meeting_place_value_persistence_when_switching_modes
+
+nonblocking_competitor_unknowns:
   - event_status_after_save
   - event_detail_edit_flow
-  - custom_meeting_place_value_persistence_when_switching_modes
+  - cancel_move_behavior
+  - drag_and_drop
+  - conflict_messages
