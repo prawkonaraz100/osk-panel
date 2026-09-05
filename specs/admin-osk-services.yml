@@ -1,737 +1,299 @@
 meta:
   project: osk-panel
-  scope: admin_osk_only
-  audited_at: 2026-09-05
-  goal: functional_service_parity_without_copying_ui_or_code
-  source_system: https://biz.prawo-jazdy-360.pl/
-
-mapping_definition:
-  complete_when:
-    - route_known
-    - screens_known
-    - fields_known
-    - table_columns_known
-    - filters_and_search_known
-    - all_actions_known
-    - bulk_actions_known
-    - validations_known
-    - modals_known
-    - statuses_known
-    - state_transitions_known
-    - permissions_known
-    - cross_module_dependencies_known
-    - finance_effects_known
-    - notifications_known
-    - documents_and_print_known
-    - integrations_known
-    - error_and_retry_states_known
-    - audit_requirements_known
-    - acceptance_criteria_written
+  scope: admin_osk_service_catalog
+  status: CONSOLIDATED
+  consolidated_at: 2026-09-05
+  authoritative_baseline: specs/implementation-baseline-v1.yml
+  note: >-
+    This aggregate summarizes admin services only. Screen-level implementation
+    details live in specs/screens. Legal/design/security/api specs override this file.
 
 service_groups:
   core_osk:
-    - id: dashboard
+    dashboard:
       route: /
-      confidence: TO_VERIFY_AUTH
-      required_capabilities: [operational_summary, alerts, quick_actions]
+      status: READY_FOR_IMPLEMENTATION
+      capabilities:
+        - license_summary
+        - exam_inventory_summary
+        - activity_feed
+        - calendar_preview
+        - quick_actions
 
-    - id: pkk
+    pkk:
       route: /integracja-pkk
-      confidence: CURRENT_CONFIRMED
-      required_capabilities:
+      operational_owner: course_enrollment
+      status: READY_FOR_IMPLEMENTATION
+      capabilities:
         - fetch_profile
-        - view_profile
-        - update_training
+        - preview_profile
+        - update_training_and_return
         - return_to_other_school
         - return_to_authority
         - return_expired_profile
         - operation_history
-      requirements: [audit, idempotency, retry]
+      requirements:
+        - provider_adapter
+        - audit
+        - idempotency
+        - retry_classification
+        - reconciliation
 
-    - id: calendar
-      route: /kalendarz
-      confidence: CURRENT_CONFIRMED_TO_VERIFY_UI
-      confirmed_from_embedded_resource_calendars:
-        - embedded_month_view
-        - view_month
-        - view_week
-        - view_day
-        - today
-        - previous_period
-        - next_period
-        - add_event
-        - open_full_calendar
-      required_capabilities:
-        - create_drive
-        - assign_student
-        - assign_employee
-        - assign_vehicle
-        - self_booking
-        - employee_activity_view
-        - work_time_tracking
-        - conflict_detection
-
-    - id: students
+    students:
       route: /kursanci
-      confidence: USER_CONFIRMED_AUTH_SCREEN
-      screen_specs:
-        list: specs/screens/students.yml
-        detail: specs/screens/student-detail.yml
-        progress: specs/screens/student-progress.yml
-      docs:
-        - docs/29-students-list-screen.md
-        - docs/30-student-detail-screen.md
-        - docs/31-student-progress-screen.md
-      confirmed_list_capabilities:
+      status: READY_FOR_IMPLEMENTATION
+      capabilities:
+        - list
         - search
-        - filter_control
-        - sort_control
-        - add_student_manual_entry
-        - add_student_from_pkk_entry
-        - preview_control
-        - open_details
-        - learning_login_projection
-        - course_pkk_projection
-        - internal_exam_projection
-      confirmed_detail_capabilities:
-        - edit_student
-        - archive_student
-        - delete_student
-        - manage_training_stage
-        - add_course
-        - conduct_internal_exam
-        - download_access_credentials
-        - assign_license
-        - remove_unactivated_license
-        - add_student_payment
-      confirmed_training_stages:
-        - unassigned
-        - theory
-        - practice
-        - documentation
-        - word_exam
-        - supplementary_training
-        - training_completed
-      training_stage_course_prerequisite: true
-      confirmed_profile_fields:
-        - full_name
-        - birth_date
-        - pesel
-        - contact_email
-        - phone
-        - created_date
-        - location_projection
-      confirmed_detail_sections:
-        - student_details
-        - access
+        - filter
+        - sort
+        - preview
+        - create
+        - edit
+        - archive
+        - learning_access
+        - course_enrollments
         - licenses
-        - courses_pkk
-        - payments
-      confirmed_tabs:
-        - student_profile
-        - internal_exam
+        - student_finance
         - progress
-      confirmed_finance_behavior:
-        student_payments_are_separate_from_osk_purchase_history: true
-        columns: [title, amount, remaining, payments, added_date]
-        summary: total_balance
-      confirmed_progress_capabilities:
-        - select_learning_account_context
-        - select_category_context
-        - passed_tests_count_and_percent
-        - failed_tests_count_and_percent
-        - answered_questions_over_total
-        - correct_answers_percent
-        - incorrect_answers_percent
-        - handbook_progress
-        - handbook_completed_sections
-        - handbook_control_questions_percent
-        - lecture_progress
-        - lecture_completed_units_counter
-        - lecture_control_questions_percent
-        - question_progress_by_basic_topic
-        - question_progress_by_specialized_topic
-      observed_progress_context:
-        account_language: EN
-        selected_category: B
-        question_total: 2185
-        basic_topic_count: 20
-        specialized_topic_count: 11
-        topic_total: 31
-        handbook_total_sections: 13
-        lecture_total_counter_as_rendered: 774
-      progress_rules:
-        totals_dynamic_not_hardcoded: true
-        taxonomy_translatable_independent_from_admin_ui_locale: true
-        lecture_774_unit_semantics: TO_VERIFY
-      requirements:
-        - student_profile_separate_from_learning_account
-        - student_course_or_enrollment_collection
-        - training_stage_separate_from_license_exam_and_learning_progress
-        - student_finance_separate_from_platform_purchase_ledger
-        - progress_contextual_by_student_learning_account_category
-        - dynamic_question_bank_totals
-        - translatable_question_taxonomy
-        - protect_pesel
-        - protect_learning_credentials
-        - tenant_isolation
-      remaining_unknowns:
-        - add_student_manual_form
-        - add_student_from_pkk_flow
-        - preview_behavior
-        - student_edit_form
-        - add_course_form
-        - exact_training_stage_transition_behavior
-        - internal_exam_tab
-        - conduct_internal_exam_flow
-        - assign_license_form
-        - license_delete_inventory_restore_effect
-        - access_download_format
-        - add_payment_form
-        - partial_payment_behavior
-        - archive_delete_lifecycle
-        - filter_options
-        - sort_options
-        - pagination
-        - internal_exam_red_x_semantics
-        - populated_progress_question_analysis
-        - populated_progress_test_analysis
-        - exact_progress_percentage_formulas
-        - progress_learning_time_and_activity_history
-        - exact_lecture_774_unit_semantics
-        - validations
-        - success_error_messages
+        - internal_exams
+        - access_document
 
-    - id: locations
+    course_enrollments:
+      status: READY_FOR_IMPLEMENTATION
+      capabilities:
+        - create
+        - edit
+        - cancel
+        - training_stage
+        - rule_engine_requirements
+        - exemption_corrections
+        - recognized_external_training
+        - training_sessions
+        - training_hour_ledger_projection
+        - pkk_context
+        - internal_exam_context
+      source_of_truth:
+        current_osk_hours: training_session_and_hour_ledger
+        external_hours: recognized_external_training
+
+    calendar:
+      route: /kalendarz
+      status: READY_FOR_IMPLEMENTATION
+      capabilities:
+        - month_week_day
+        - create_event
+        - create_driving_lesson
+        - staff_resource
+        - vehicle_resource
+        - location_resource
+        - student_resource
+        - custom_meeting_place
+        - server_side_conflict_detection
+        - important_date_projection
+      planned_extensions:
+        - self_booking
+        - work_time
+        - notifications
+
+    locations:
       route: /lokalizacje
-      confidence: USER_CONFIRMED_AUTH_SCREEN
-      screen_spec: specs/screens/locations.yml
-      confirmed_columns: [type, name, address]
-      confirmed_types: [lecture_room, maneuvering_area]
-      confirmed_actions: [add_location, edit_location, calendar_for_location]
-      calendar_filter:
-        query_param: b
-        identifier: location_uuid
-      requirements:
-        - multi_location
-        - location_as_calendar_resource
-        - tenant_isolation
-      explicitly_not_confirmed:
-        - delete_location
-        - deactivate_location
-        - filters
-        - search
-        - sorting
-        - bulk_actions
-
-    - id: vehicles
-      route: /pojazdy
-      confidence: USER_CONFIRMED_AUTH_SCREEN
-      screen_specs:
-        list: specs/screens/vehicles.yml
-        create: specs/screens/vehicle-create.yml
-        detail: specs/screens/vehicle-detail.yml
-        edit: specs/screens/vehicle-edit.yml
-        delete: specs/screens/vehicle-delete.yml
-      docs:
-        - docs/20-vehicles-screen.md
-        - docs/25-vehicle-detail-screen.md
-        - docs/26-vehicle-edit-form.md
-        - docs/27-vehicle-create-form.md
-        - docs/28-vehicle-delete-confirmation.md
-      confirmed_columns:
-        - photo
-        - registration_number
-        - make_model
-        - categories
-        - documents
-      confirmed_profile_fields:
-        - registration_number
-        - side_number
-        - make
-        - model
-        - production_year
-        - engine_capacity_cm3
-        - vin
-        - category_ids
-        - location_ids
-        - next_inspection_at
-        - oc_valid_until
-        - ac_valid_until
-        - photo
-        - created_date
-      required_by_visible_create_and_edit_marker:
-        - registration_number
-        - make
-        - model
-      confirmed_multi_selects:
-        - category_ids
-        - location_ids
-      confirmed_global_actions:
-        - add_vehicle
-        - archive_vehicle
-        - delete_vehicle
-        - view_vehicle_details
-        - calendar_for_vehicle
-      confirmed_create_actions:
-        - save_new_vehicle
-        - cancel_vehicle_create
-        - close_vehicle_create_drawer
-        - select_vehicle_categories
-        - select_vehicle_locations
-        - pick_next_inspection_date
-        - pick_oc_valid_until
-        - pick_ac_valid_until
-        - select_vehicle_photo
-      confirmed_detail_actions:
-        - edit_vehicle_details
-        - open_full_calendar
-        - add_calendar_event
-        - calendar_previous_period
-        - calendar_next_period
-        - calendar_today
-        - calendar_view_month
-        - calendar_view_week
-        - calendar_view_day
-      confirmed_edit_actions:
-        - save_vehicle_changes
-        - cancel_vehicle_edit
-        - close_vehicle_edit_drawer
-        - select_vehicle_categories
-        - select_vehicle_locations
-        - pick_next_inspection_date
-        - pick_oc_valid_until
-        - pick_ac_valid_until
-        - select_or_replace_vehicle_photo
-        - remove_vehicle_photo_from_form
-      confirmed_delete_flow:
-        - open_delete_confirmation
-        - confirm_delete_vehicle
-        - cancel_delete_vehicle
-      archive_ui_state:
-        observed_status: DEMO_BLOCKED
-        observed_behavior: demo_restriction_message
-      create_edit_parity:
-        same_business_fields: true
-        create_empty_values: true
-        create_photo_initial_state: choose_file
-      calendar_filter:
-        query_param: v
-        identifier: vehicle_uuid
-      confirmed_document_types:
-        - technical_inspection
-        - oc_insurance
-        - ac_insurance
-      confirmed_document_behavior:
-        - independent_validity_dates
-        - expired_or_attention_indicator
-      created_date_anomaly:
-        observed_pattern: 01-01-0001
-        classification: SENTINEL_OR_DEMO_DATA_ANOMALY
-        parity_requirement: false
-      confirmed_relationships:
-        - vehicle_photo_asset
-        - vehicle_documents_or_validities
-        - vehicle_calendar_context
-        - vehicle_many_to_many_categories
-        - vehicle_many_to_many_locations
-      requirements:
-        - vehicle_as_calendar_resource
-        - multiple_independent_vehicle_validities
-        - expiry_alerts
-        - photo_optional
-        - photo_asset_reference
-        - tenant_validate_category_ids
-        - tenant_validate_location_ids
-        - tenant_isolation
-        - preserve_history_on_archive_delete
-        - do_not_render_min_date_sentinel_as_business_date
-      remaining_unknowns:
-        - exact_backend_field_validations
-        - exact_category_dictionary
-        - duplicate_registration_behavior
-        - vin_validation
-        - production_year_range
-        - engine_capacity_range
-        - photo_file_rules
-        - photo_removal_commit_behavior
-        - archive_lifecycle_in_non_demo
-        - archive_restore_and_effects
-        - delete_backend_semantics
-        - calendar_add_event_form
-        - save_success_and_error_messages
-        - filters
-        - search
-        - sorting
-        - bulk_actions
-
-    - id: staff
-      route: /pracownicy
-      confidence: USER_CONFIRMED_AUTH_SCREEN
-      screen_specs:
-        list: specs/screens/staff.yml
-        create: specs/screens/staff-create.yml
-        detail: specs/screens/staff-detail.yml
-        edit: specs/screens/staff-edit.yml
-      docs:
-        - docs/21-staff-screen.md
-        - docs/22-staff-create-form.md
-        - docs/23-staff-detail-screen.md
-        - docs/24-staff-edit-form.md
-      confirmed_columns:
-        - photo
-        - full_name
-        - email
-        - documents
-        - login_account
-      confirmed_profile_fields:
-        - email
-        - first_name
-        - last_name
-        - staff_type_ids
-        - pesel
-        - phone
-        - authorization_number
-        - category_ids
-        - location_ids
-        - card_valid_until
-        - medical_exam_valid_until
-        - psychological_exam_valid_until
-        - photo
-        - create_login_account
-      required_by_visible_edit_marker:
-        - email
-        - first_name
-        - last_name
-        - staff_type_ids
-      confirmed_multi_selects:
-        - staff_type_ids
-        - category_ids
-        - location_ids
-      confirmed_staff_type_observations:
-        technical_or_detail_value: OfficeWorker
-        edit_ui_label: Pracownik biurowy
-        modeling_decision: separate_code_from_localized_label
-      confirmed_global_actions:
-        - add_staff
-        - archive_staff
-        - delete_staff
-        - view_staff_details
-        - calendar_for_staff
-      confirmed_detail_actions:
-        - edit_staff_details
-        - open_full_calendar
-        - add_calendar_event
-        - calendar_previous_period
-        - calendar_next_period
-        - calendar_today
-        - calendar_view_month
-        - calendar_view_week
-        - calendar_view_day
-      panel_access_ui:
-        visible_control_label: Edytuj
-        observed_status: VISIBLE_BUT_NOT_ACTIONABLE
-        reason: UNKNOWN
-        possible_demo_restriction: UNCONFIRMED
-      confirmed_edit_actions:
-        - save_staff_changes
-        - cancel_staff_edit
-        - close_staff_edit
-        - select_staff_types
-        - select_categories
-        - select_locations
-        - select_or_replace_photo
-        - remove_photo_from_form
-        - request_create_login_account
-      calendar_filter:
-        query_param: w
-        identifier: staff_uuid
-      confirmed_document_types:
-        - card_or_license
-        - medical_exam
-        - psychological_exam
-      confirmed_document_states:
-        - valid
-        - expired
-      confirmed_login_account_states:
-        - false
-      confirmed_account_behavior:
-        - staff_can_exist_without_login_account
-        - login_account_can_be_requested_later_from_edit_form
-        - panel_access_section_exists
-        - panel_access_edit_control_not_verified_as_working
-      confirmed_relationships:
-        - staff_many_to_many_staff_types
-        - staff_many_to_many_categories
-        - staff_many_to_many_locations
-        - staff_optional_user_account
-        - staff_has_many_documents
-        - staff_calendar_context
-      requirements:
-        - staff_profile_separate_from_user_account
-        - optional_login_account
-        - explicit_create_login_account_control
-        - permissions_separate_from_staff_type
-        - multiple_independent_documents
-        - staff_as_calendar_resource
-        - photo_optional
-        - photo_asset_reference
-        - protect_pesel
-        - tenant_validate_location_ids
-        - tenant_isolation
-      remaining_unknowns:
-        - exact_staff_type_dictionary
-        - panel_access_edit_screen_or_reason_unavailable
-        - account_provisioning_flow
-        - invitation_vs_generated_password
-        - default_account_permissions
-        - password_reset
-        - exact_backend_field_validations
-        - archive_confirmation_and_effects
-        - delete_confirmation_and_effects
-        - calendar_add_event_form
-        - photo_removal_commit_behavior
-        - save_success_and_error_messages
-        - filters
-        - search
-        - sorting
-        - bulk_actions
-
-  education_sales:
-    - id: license_purchase
-      route: /licencje/wykup
-      confidence: CURRENT_CONFIRMED
-      required_capabilities: [select_duration, quantity, order, payment, inventory]
-
-    - id: license_management
-      route: /licencje/panel
-      confidence: RULES_CONFIRMED_TO_VERIFY_UI
-      states: [inventory, assigned, activated, expired]
-      required_capabilities:
-        - assign_to_student
-        - create_by_email
-        - create_by_generated_credentials
-        - select_language
-        - revoke_before_activation
-        - restore_inventory
-        - view_progress
-
-    - id: learning_progress
-      confidence: USER_CONFIRMED_AUTH_SCREEN
-      screen_spec: specs/screens/student-progress.yml
-      doc: docs/31-student-progress-screen.md
-      confirmed_capabilities:
-        - student_progress
-        - passed_failed_test_stats
-        - question_answer_stats
-        - question_taxonomy_topic_stats
-        - handbook_progress
-        - lecture_progress
-        - control_question_progress
-        - learning_account_selector
-        - category_selector
-      requirements:
-        - contextual_by_student_learning_account_category
-        - dynamic_question_totals
-        - taxonomy_translations
-      remaining_unknowns:
-        - populated_test_analysis
-        - populated_question_analysis
-        - learning_time
-        - activity_history
-        - exact_percentage_formulas
-        - date_filters
-
-    - id: internal_exam_purchase
-      route: /egzamin-wewnetrzny/wykup
-      confidence: CURRENT_CONFIRMED
-      required_capabilities: [purchase_inventory, free_grants, balance, payment]
-
-    - id: internal_exam_management
-      route: /egzamin-wewnetrzny/panel
-      confidence: RULES_CONFIRMED_TO_VERIFY_UI
-      states: [available, generated, started, finished, consumed]
-      required_capabilities:
-        - generate_for_student
-        - generate_link
-        - start_local_exam
-        - save_result
-        - consume_inventory
-        - digital_exam_card
-        - print_exam_card
-
-    - id: lectures
-      route: /wyklady
-      confidence: CURRENT_CONFIRMED_TO_VERIFY_UI
-      required_capabilities: [category_selector, materials_catalog, presentation_mode]
-
-    - id: instructor_training
-      route: /szkolenie-z-instruktorem
-      confidence: CURRENT_CONFIRMED_TO_VERIFY_ADMIN_ACTIONS
-      required_capabilities:
-        - sections
-        - video_lessons
-        - progress
-        - control_questions
-        - retry_questions
-        - skip_questions
-        - category_specific_content
-
-  marketing:
-    - id: business_cards
-      route: /wizytowki
-      confidence: AUTH_MENU_HELP_CONFIRMED_TO_VERIFY_UI
-      collection_model: true
-      required_capabilities:
+      status: READY_FOR_IMPLEMENTATION
+      confirmed_types:
+        - branch
+        - lecture_room
+        - maneuvering_area
+      capabilities:
         - list
         - create
         - edit
-        - link_location
-        - public_preview
-        - publication_status
-        - photos
-        - reviews
-        - report_review
+        - calendar_context
+        - archive_restore_own_policy
 
-    - id: ads
-      confidence: CURRENT_CONFIRMED_RULES_CONFIRMED_TO_VERIFY_AUTH_MENU_CHILDREN
-      placements:
-        - position_zero
-        - side_top
-        - side_bottom
-        - test_and_course
-        - fullscreen
-      coming_soon: [premium_business_card]
-      required_capabilities:
-        - select_city
-        - select_placement
-        - auction_view
-        - binding_bid
-        - bid_history
-        - winner
-        - payment
-        - desktop_creative
-        - mobile_creative
-        - moderation
-        - text_fallback
-        - campaign_activation
+    vehicles:
+      route: /pojazdy
+      status: READY_FOR_IMPLEMENTATION
+      capabilities:
+        - list
+        - create
+        - detail
+        - edit
+        - archive_restore
+        - photo
+        - categories
+        - locations
+        - technical_inspection
+        - oc
+        - ac
+        - calendar_context
 
-    - id: ranking_reviews
-      confidence: RULES_CONFIRMED
-      required_capabilities: [public_profile, ratings_1_5, moderation, report_review, ranking_score]
+    staff:
+      route: /pracownicy
+      status: READY_FOR_IMPLEMENTATION
+      capabilities:
+        - list
+        - create
+        - detail
+        - edit
+        - archive_restore
+        - staff_types
+        - categories
+        - locations
+        - documents
+        - optional_user_account
+        - permissions
+        - calendar_context
+      rbac: specs/security/permissions.yml
 
-    - id: sponsored_article
-      confidence: RULES_CONFIRMED
-      required_capabilities: [purchase, client_content_or_copywriting, images, moderation, publication, archive]
-
-    - id: partner_banner
-      confidence: RULES_CONFIRMED
-      required_capabilities: [download_asset, implementation_instructions]
-
-    - id: commercial_services
-      confidence: CURRENT_CONFIRMED
-      services: [seo_audit, seo_optimization, google_ads, website_build, cms]
-
-  account_and_finance:
-    - id: settings
+    settings:
       route: /ustawienia
-      confidence: USER_CONFIRMED_AUTH_SCREEN
-      screen_spec: specs/screens/settings.yml
-      sections: [basic_data, company_data, pkk_api_data, terms]
-      confirmed_fields:
-        - first_name
-        - last_name
-        - email
-        - company_name
-        - street
-        - house_number
-        - unit_number
-        - city
-        - postal_code
-        - phone
-        - pkk_school_name
-        - pkk_osk_registry_number
-        - pkk_external_osk_login
-      confirmed_actions: [save, view_versioned_terms]
-      explicitly_not_observed_on_screen:
-        - nip
-        - password_change
-        - session_management
-        - notification_settings
-        - billing_data
-        - marketing_consents
-      requirements:
-        - tenant_isolation
-        - audit_pkk_settings_changes
-        - external_osk_login_must_not_be_application_login
-        - preserve_terms_version_history
+      status: READY_FOR_IMPLEMENTATION
+      capabilities:
+        - basic_account_data
+        - company_data
+        - pkk_integration_settings
+        - school_name
+        - osk_registry_number
+        - osk_login
+        - accepted_terms
 
-    - id: purchase_history
+    purchase_history:
       route: /historia-zakupow
-      confidence: USER_CONFIRMED_AUTH_SCREEN
-      screen_spec: specs/screens/purchase-history.yml
-      confirmed_columns:
-        - display_number
+      status: READY_FOR_IMPLEMENTATION
+      capabilities:
+        - order_list
         - order_items
-        - ordered_at
-        - booked_at
-        - gross_amount
+        - amount
         - status
-      confirmed_statuses: [unpaid]
-      confirmed_actions: [pay_unpaid_order]
-      confirmed_page_sizes: [10, 25, 50, 100]
-      confirmed_product_examples:
-        - internal_exams
-        - license_31_days
-        - license_90_days
-        - license_180_days
-      requirements:
-        - unified_orders
-        - multiple_order_items
-        - nullable_booked_at_before_payment
-        - secure_payment_reference
-        - idempotent_payment_confirmation
+        - created_date
+        - booked_date
+        - pay_unpaid_order
+        - pagination
+      invariant: separate_from_student_finance
 
-    - id: invoices
-      confidence: HISTORICAL_INDEX_TO_VERIFY_AUTH
-      implementation_decision: documents_available_from_purchase_history
+  education_sales:
+    license_purchase:
+      route: /licencje/wykup
+      status: READY_FOR_IMPLEMENTATION
+      capabilities:
+        - 31_day_product
+        - 90_day_product
+        - 180_day_product
+        - quantity
+        - mixed_cart
+        - dynamic_price_discount
+        - online_payment
+        - bank_transfer
+        - inventory_grant
 
-system_services:
-  - rbac
-  - tenant_isolation
-  - notifications_and_reminders
-  - audit_log
-  - document_retention
-  - payment_ledger
-  - integration_logs
+    license_management:
+      route: /licencje/panel
+      status: READY_FOR_IMPLEMENTATION
+      capabilities:
+        - inventory
+        - assign_to_student_learning_account
+        - create_or_select_learning_account
+        - language_capability
+        - activate
+        - revoke_unactivated
+        - restore_exactly_one_inventory_entry
+        - history
+        - sort
+        - access_pdf
+        - progress
 
-business_offer_parity:
-  - osk_management_panel
-  - pkk_integration
-  - student_elearning_licenses
-  - student_learning_monitoring
-  - internal_exams
-  - lecture_materials
-  - instructor_training
-  - business_cards_and_ranking
-  - local_advertising
-  - sponsored_content
-  - purchase_history_and_billing
-  - optional_seo_web_ads_services
+    internal_exam_purchase:
+      route: /egzamin-wewnetrzny/wykup
+      status: READY_FOR_IMPLEMENTATION
+      capabilities:
+        - paid_inventory
+        - free_inventory_grant
+        - purchase
+        - payment
 
-remaining_button_level_gaps:
-  - dashboard
-  - students_create_edit_pkk_course_exam_license_payment_archive_delete_filters_and_populated_progress_details
-  - location_add_edit_form_and_validation
-  - vehicle_validation_archive_non_demo_delete_backend_and_event_form
-  - staff_panel_access_account_provisioning_exact_types_validation_archive_delete_and_event_form
-  - calendar_main_screen_and_event_form
-  - pkk_ui
-  - license_management_ui
-  - internal_exam_management_ui
-  - business_cards
-  - ads_submenu_and_campaign_management
-  - lectures_ui
-  - instructor_training_admin_actions
-  - settings_validation_and_save_behavior
-  - purchase_history_paid_state_filters_and_documents
+    internal_exam_management:
+      route: /egzamin-wewnetrzny/panel
+      status: READY_FOR_IMPLEMENTATION
+      capabilities:
+        - search
+        - filter
+        - sort
+        - create_attempt_for_course
+        - reserve_inventory
+        - remote_access
+        - local_station_access
+        - edit_candidate_snapshot_before_start
+        - consume_inventory_on_start
+        - history
+        - result
+        - question_review
+        - answer_sheet_pdf
+        - technical_abort
+        - audited_inventory_adjustment
+      invariants:
+        - student_required
+        - course_enrollment_required
+        - exam_part_must_be_required_by_rule_engine
+        - finish_does_not_consume_inventory_again
+
+    learning_progress:
+      status: READY_FOR_IMPLEMENTATION
+      location: student_detail
+      capabilities:
+        - account_context
+        - category_context
+        - test_stats
+        - question_stats
+        - topic_progress
+        - handbook_progress
+        - lecture_progress
+
+  finance:
+    student_finance:
+      status: READY_FOR_IMPLEMENTATION
+      capabilities:
+        - charge
+        - partial_payment
+        - full_payment
+        - balance
+        - reversal
+        - cancel_charge
+      design: specs/design/student-finance-ledger.yml
+
+    platform_orders:
+      status: READY_FOR_IMPLEMENTATION
+      capabilities:
+        - order
+        - order_items_price_vat_snapshot
+        - payment
+        - webhook_idempotency
+        - reconciliation
+        - purchase_history
+
+  deferred_non_core:
+    business_cards:
+      route: /wizytowki
+      status: NOT_SCREEN_MAPPED
+    advertising:
+      status: NOT_SCREEN_MAPPED
+    lectures:
+      route: /wyklady
+      status: NOT_SCREEN_MAPPED
+    instructor_training:
+      route: /szkolenie-z-instruktorem
+      status: NOT_SCREEN_MAPPED
+
+cross_cutting:
+  canonical_domain_glossary: docs/82-canonical-domain-glossary.md
+  lifecycle_policy: specs/design/core-lifecycle.yml
+  api_contract: specs/api/common-contract.yml
+  rbac: specs/security/permissions.yml
+  testing: docs/84-test-strategy.md
+  production_operations: docs/85-production-operations.md
+
+remaining_nonblocking_or_preimplementation_gaps:
+  - openapi_3_1
+  - physical_db_schema
+  - architecture_decision_records
+  - legal_category_dictionary_reverification
+  - privacy_retention_schedule
