@@ -24,9 +24,12 @@ Data: 2026-09-05
 - mutable row: `created_at`, `updated_at`,
 - immutable ledger/event: brak zwykłego `updated_at`,
 - tenant-owned table ma `organization_id` tam, gdzie upraszcza autoryzację i indeksy,
-- constraint dla stanu bieżącego nie może niszczyć historii; używamy partial unique tam, gdzie rekord może być revoked/released i ponownie użyty.
+- constraint dla stanu bieżącego nie może niszczyć historii; używamy partial unique tam, gdzie rekord może być revoked/released i ponownie użyty,
+- gdy `organization_id` jest nullable i ma być częścią logicznego scope unikalności, nie opieramy się na zwykłym `UNIQUE(..., organization_id, ...)`; tenant scope i globalny scope dostają osobne partial unique indexes.
 
 Decyzja UUIDv7 dotyczy naszego synthetic domain ID. Publiczne API nadal przekazuje UUID jako string, więc zamknięcie tej decyzji nie wymaga zmiany Stage-3 kontraktu HTTP.
+
+Dla nullable tenant/global scope nie wymagamy PostgreSQL `NULLS NOT DISTINCT`. Jawne dwa partial unique indexes są czytelniejsze w migracjach, nie zależą od tej funkcji i pozwalają testować oba namespace'y osobno.
 
 ---
 
@@ -155,8 +158,14 @@ Audytowalny workflow dla żądania zamknięcia konta.
 - `resolution_note text null`
 - `request_id varchar(64)`.
 
-Partial unique:
-- `(user_id, organization_id)` where `status='pending'`.
+Partial unique — dwa jawne scope'y:
+- `(user_id, organization_id)` where `status='pending' AND organization_id IS NOT NULL`,
+- `(user_id)` where `status='pending' AND organization_id IS NULL`.
+
+Semantyka:
+- użytkownik może mieć po jednym pending request osobno dla różnych OSK,
+- użytkownik może mieć najwyżej jeden globalny pending request,
+- globalny request (`organization_id IS NULL`) nie omija constraintu przez semantykę PostgreSQL `NULL != NULL` dla zwykłego UNIQUE.
 
 Żądanie nie oznacza automatycznego hard-delete danych formalnych/finansowych.
 
@@ -278,13 +287,17 @@ Business entity przypina plik dopiero po `ready`. Storage key nie pochodzi wpros
 - `completed_at timestamptz null`
 - `expires_at timestamptz null`
 
-Unique:
-- `(organization_id, operation_key, idempotency_key)`.
+Partial unique — dwa jawne namespace'y:
+- tenant: `(organization_id, operation_key, idempotency_key)` where `organization_id IS NOT NULL`,
+- global/non-tenant: `(operation_key, idempotency_key)` where `organization_id IS NULL`.
 
 Reguły:
 - claim key przed business effect,
-- same key + same hash -> ten sam efekt/result,
-- same key + different hash -> conflict,
+- same key + same hash w tym samym scope -> ten sam efekt/result,
+- same key + different hash w tym samym scope -> conflict,
+- ten sam `idempotency_key` może poprawnie wystąpić w dwóch różnych OSK,
+- globalny scope jest odrębnym namespace od każdego tenantowego scope,
+- wiele globalnych rekordów o tym samym `(operation_key, idempotency_key)` jest blokowane mimo `organization_id IS NULL`,
 - one-time plaintext password/token nie trafia do `safe_response_snapshot`.
 
 ---
@@ -1320,7 +1333,13 @@ Nie tworzymy „indeksu na każdą kolumnę”; indeks powstaje pod faktyczne sc
 - generowane przez system synthetic domain IDs są UUIDv7 i są przechowywane jako natywny PostgreSQL `uuid`,
 - generic login resolves to at most one current user,
 - auth session jest listowalna/revokowalna bez ujawnienia raw secretu,
-- tylko jedno pending account closure request w tym samym scope,
+- drugi globalny pending `account_closure_request` dla tego samego usera jest odrzucony,
+- dwa pending `account_closure_request` dla tego samego usera i tego samego OSK są odrzucone,
+- pending `account_closure_request` tego samego usera w dwóch różnych OSK może istnieć równolegle,
+- ten sam tenantowy idempotency key w tej samej operacji i tym samym OSK nie może zostać claimed dwa razy,
+- ten sam globalny idempotency key w tej samej operacji nie może zostać claimed dwa razy mimo `organization_id IS NULL`,
+- ten sam idempotency key i operation key mogą istnieć równolegle w dwóch różnych OSK,
+- globalny i tenantowy namespace idempotency są rozdzielone,
 - same global User może mieć membership w dwóch OSK,
 - staff może istnieć bez panel account,
 - staff ma wiele categories/locations,
@@ -1369,7 +1388,8 @@ Nie tworzymy „indeksu na każdą kolumnę”; indeks powstaje pod faktyczne sc
 # 25. Zamknięte i oczekujące decyzje techniczne
 
 Zamknięte:
-- synthetic domain ID: UUIDv7 generowany application-side, przechowywany jako natywny PostgreSQL `uuid`.
+- synthetic domain ID: UUIDv7 generowany application-side, przechowywany jako natywny PostgreSQL `uuid`,
+- nullable tenant/global uniqueness: osobne partial unique indexes dla `organization_id IS NOT NULL` oraz `organization_id IS NULL`.
 
 Nadal wymagają osobnego etapu/ADR przed produkcyjnymi migracjami odpowiednich modułów:
 - application encryption + key rotation dla PESEL/PKK/provider snapshots,
