@@ -57,7 +57,7 @@ paths:
         required: true
         content:
           application/json:
-            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/CreateLocationRequest' }
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/UpdateLocationRequest' }
       responses:
         '200':
           description: Location updated
@@ -216,7 +216,7 @@ paths:
         required: true
         content:
           application/json:
-            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/UpsertStaffRequest' }
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/UpdateStaffRequest' }
       responses:
         '200':
           description: Staff profile updated
@@ -391,7 +391,7 @@ paths:
         required: true
         content:
           application/json:
-            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/UpsertVehicleRequest' }
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/UpdateVehicleRequest' }
       responses:
         '200':
           description: Vehicle updated
@@ -476,7 +476,7 @@ paths:
         required: true
         content:
           application/json:
-            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/UpsertVehicleDocumentRequest' }
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/UpdateVehicleDocumentRequest' }
       responses:
         '200':
           description: Vehicle document updated
