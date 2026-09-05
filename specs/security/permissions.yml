@@ -4,14 +4,49 @@ meta:
   status: ACTIVE
   decided_at: 2026-09-05
   doc: docs/04-roles-permissions.md
+  role_template_catalog_version: core-v1-2026-09-05
 
 principles:
   permission_based_rbac: true
   staff_type_equals_permission: false
   role_template_equals_permission_set: true
+  role_template_is_runtime_authorization_dependency: false
+  role_template_is_assignment_time_preset_and_provenance: true
+  membership_permissions_are_authoritative_current_effective_permission_decisions: true
+  permission_absence_defaults_to_denied: true
+  future_permissions_default_to_denied_for_existing_memberships: true
   backend_enforcement_required: true
   tenant_scope_independent_from_permission: true
   data_scope_supported: true
+
+permission_materialization:
+  source_catalog: this_file
+  catalog_version: core-v1-2026-09-05
+  on_initial_template_assignment:
+    - resolve_template_against_current_permission_catalog
+    - materialize_one_membership_permission_decision_for_every_known_core_permission
+    - included_permissions_get_granted_true
+    - nonincluded_permissions_get_granted_false
+    - persist_role_template_code_and_catalog_version_as_provenance
+    - audit_materialized_permission_snapshot
+  on_template_reapply_or_change:
+    - explicit_command_only
+    - resolve_selected_template_against_current_catalog
+    - replace_current_permission_decisions_for_all_known_core_permissions_atomically
+    - persist_new_template_code_and_catalog_version_as_provenance
+    - audit_before_after_permission_snapshot
+  on_individual_permission_change:
+    - update_authoritative_membership_permission_decision
+    - role_template_provenance_does_not_override_explicit_current_decision
+    - audit_change
+  runtime_effective_permission_rule: >-
+    Effective permission is read only from the current membership_permissions
+    decision for the active OrganizationMembership. role_template_code and
+    role_template_catalog_version are provenance/UI metadata and are never
+    consulted by backend authorization at request time.
+  missing_permission_row_rule: denied
+  new_permission_after_membership_creation: denied_until_explicitly_granted_or_template_reapplied
+  template_definition_change_rule: existing_memberships_do_not_change_automatically
 
 permission_groups:
   organization:
@@ -154,7 +189,7 @@ elevated_permissions:
 
 role_templates:
   Owner:
-    strategy: all_core_permissions_except_explicitly_disabled_future_permissions
+    strategy: all_core_permissions_known_in_this_catalog_version
   OfficeAdmin:
     includes_groups:
       - students
@@ -219,7 +254,7 @@ backend_authorization_order:
   - authenticated_user
   - active_membership
   - tenant_ownership_or_relation_validation
-  - permission
+  - authoritative_membership_permission_decision
   - data_scope
   - domain_state_rule
   - elevated_reauth_or_mfa_when_configured
@@ -229,3 +264,5 @@ safety_rules:
   permission_changes_audited: true
   staff_login_creation_requires_explicit_permissions_or_template: true
   permission_revocation_effect_must_be_defined_for_active_sessions: true
+  template_definition_change_must_not_silently_expand_existing_member_privileges: true
+  role_template_code_must_not_be_used_as_backend_authorization_shortcut: true
