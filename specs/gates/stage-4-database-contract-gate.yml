@@ -9,7 +9,6 @@ meta:
 
 prerequisite:
   stage_3_openapi_contract_gate:
-    source: specs/gates/stage-3-openapi-contract-gate.yml
     required_result: PASS
     observed_result: PASS
     status: PASS
@@ -32,30 +31,16 @@ sources:
   identity_tenant_rbac:
     - docs/04-roles-permissions.md
     - docs/08-security-compliance.md
-    - docs/05-domain-model.md
-    - docs/82-canonical-domain-glossary.md
     - specs/security/permissions.yml
     - docs/105-stage-4-identity-tenant-rbac-audit.md
-  cross_layer_contract:
-    - specs/api/common-contract.yml
-    - specs/api/required-operations-v1.yml
-    - specs/traceability/core-v1.yml
-  preservation:
-    - docs/96-reverse-engineering-preservation-contract.md
-    - specs/reverse-engineering-manifest.yml
 
 stage_4_slices:
   - id: DB4_1_FOUNDATION_DIAGNOSIS
     status: PASS
-    scope:
-      - primary_key_physical_type
-      - nullable_scope_unique_constraints
-      - Stage_2_settings_schema_merge
-    result: PASS
   - id: DB4_2_IDENTITY_TENANT_RBAC
-    status: IN_PROGRESS_WITH_BLOCKERS
+    status: BLOCKERS_RESOLVED_FINAL_SYNC_PENDING
     diagnosis: COMPLETE
-    result: FAIL_WITH_1_P1_BLOCKER
+    result: NO_OPEN_DB_IAM_BLOCKERS_FINAL_AGGREGATE_SYNC_REQUIRED
   - id: DB4_3_STAFF_LOCATIONS_VEHICLES
     status: NOT_STARTED
   - id: DB4_4_STUDENTS_COURSES_TRAINING_LEDGER
@@ -76,156 +61,91 @@ stage_4_slices:
     status: NOT_STARTED
 
 quality_checks:
-  stage_3_contract_is_frozen_before_DB_design:
-    status: PASS
-
   foundation_slice_gate:
     status: PASS
-    resolved_blockers:
-      - DB-FOUND-001
-      - DB-FOUND-002
-      - DB-FOUND-003
-      - DB-FOUND-004
-    open_foundation_P0_P1: 0
 
-  identity_rbac_effective_permission_resolution:
+  DB_IAM_001_effective_permission_resolution:
     status: PASS
-    resolved_blocker_id: DB-IAM-001
+  DB_IAM_002_per_permission_data_scope:
+    status: PASS
+  DB_IAM_003_session_membership_same_user_integrity:
+    status: PASS
+  DB_IAM_004_owner_and_privilege_management:
+    status: PASS
+  DB_IAM_005_membership_and_permission_lifecycle:
+    status: PASS
     decision:
-      role_template_runtime_dependency: false
-      runtime_source_of_truth: membership_permissions
-      missing_permission_row: deny
-      future_permission_default: deny_until_explicit_action
+      durable_membership_row_per_org_user: true
+      hard_delete_membership: forbidden
+      statuses: [active, suspended, revoked]
+      suspended_keeps_permission_scope_config: true
+      revoked_clears_owner_permission_scope_runtime_privileges: true
+      revoked_reactivation_requires_fresh_provisioning: true
+      membership_version_is_concurrency_root: true
+      authorization_version_is_security_epoch: true
+      stale_expected_version_conflicts_without_partial_write: true
+      suspend_or_revoke_clears_bound_session_tenant_contexts_same_transaction: true
+      other_organization_memberships_for_same_user_untouched: true
+      permission_revoke_while_active_effective_next_request_without_forced_logout: true
+      audit_and_outbox_same_transaction: true
+    machine_source: specs/database/identity-rbac.yml
+    narrative_source: docs/105-stage-4-identity-tenant-rbac-audit.md
 
-  identity_rbac_data_scope_physical_contract:
-    status: PASS
-    resolved_blocker_id: DB-IAM-002
-    decision:
-      membership_wide_data_scope_string: superseded_and_runtime_forbidden
-      scope_binding: per_membership_permission
-      physical_tables:
+  DB4_2_final_aggregate_sync:
+    status: FAIL_PENDING_SYNC
+    reason: >-
+      The bounded-context Identity/Tenant/RBAC contract is now internally closed,
+      but aggregate core-schema.yml and docs/87 still contain older shapes such as
+      membership-wide data_scope and do not yet contain all final fields/tables/FKs.
+    required_sync:
+      core_tables_identity_add:
         - data_scopes
         - permission_scope_options
         - membership_permission_scopes
-      granted_permission_without_scope: deny_fail_closed
-      unsupported_permission_scope_pair: rejected
-      organization_scope_bypasses_tenant_validation: false
-
-  auth_session_membership_integrity:
-    status: PASS
-    resolved_blocker_id: DB-IAM-003
-    decision:
-      same_user_database_enforcement: composite_foreign_key
-      source_columns: [organization_membership_id, user_id]
-      target_table: organization_memberships
-      target_columns: [id, user_id]
-      null_membership_context_allowed_for_global_or_pre_tenant_flow: true
-      tenant_owned_operation_without_membership_context: deny
-      membership_user_reassignment: forbidden
-
-  identity_owner_and_privilege_management_invariants:
-    status: PASS
-    resolved_blocker_id: DB-IAM-004
-    decision:
-      owner_marker:
-        table: organization_memberships
-        column: is_owner
-        authorization_shortcut: false
-      owner_protected_permission_baseline:
-        organization.view: organization
-        organization.members.manage: organization
-        staff.permissions.manage: organization
-        sessions.manage.organization: organization
-      last_owner_guard:
-        serialization: organization_row_lock_or_equivalent_governance_lock
-        post_transaction_active_owner_count_minimum: 1
-        atomic_owner_transfer_supported: true
-      self_escalation:
-        self_grant_new_permission: forbidden
-        self_scope_broadening: forbidden
-        self_owner_promotion: forbidden
-        self_template_reapply_that_expands_privilege: forbidden
-      grant_ceiling:
-        actor_must_hold_permission_being_delegated: true
-        delegated_scope_cannot_be_broader_than_actor_scope: true
-        elevated_grant_or_scope_broadening_requires_active_owner_actor: true
-      authorization_version:
-        table: organization_memberships
-        column: authorization_version
-        minimum: 1
-        increment_on_permission_scope_owner_or_authorization_eligibility_change: true
-        stale_authorization_cache_or_elevation_proof: invalid
-      elevated_revoke_effective_by_next_authorized_request: true
-      session_authentication_need_not_be_terminated_only_to_apply_permission_revoke: true
-      full_suspend_revoke_session_lifecycle: deferred_to_DB_IAM_005
-    tests:
-      - owner_marker_alone_does_not_authorize
-      - owner_without_protected_baseline_fails_consistency
-      - self_promotion_and_self_grant_are_denied
-      - actor_cannot_grant_permission_or_scope_above_own_ceiling
-      - zero_owner_post_transaction_state_is_rejected
-      - concurrent_owner_demotions_cannot_leave_zero_owners
-      - owner_transfer_is_atomic
-      - protected_owner_permission_cannot_be_revoked_without_same_transaction_demotion
-      - elevated_revoke_increments_authorization_version
-      - stale_authorization_cache_cannot_authorize_after_version_change
-    machine_source:
-      - specs/database/identity-rbac.yml
-    narrative_source:
-      - docs/04-roles-permissions.md
-      - docs/105-stage-4-identity-tenant-rbac-audit.md
-    aggregate_sync_note: >-
-      core-schema.yml and docs/87 are synchronized only at final DB4_2 closure.
-      Migrations remain blocked until then.
-
-  membership_and_permission_mutation_lifecycle:
-    status: FAIL
-    blocker_id: DB-IAM-005
-    unresolved:
-      - exact_membership_states_and_transitions
-      - durable_reactivation_vs_multiple_membership_period_rows
-      - revoke_suspend_session_invalidation_semantics
-      - permission_change_concurrency_and_lost_update_prevention
-      - audit_actor_reason_version_semantics
-      - relationship_between_mutation_version_and_authorization_version
-    impact: destructive_delete_stale_authorization_or_lost_update_behavior_could_be_implemented
+      organization_memberships:
+        remove:
+          - data_scope
+        add_or_finalize:
+          - is_owner
+          - version
+          - authorization_version
+          - role_template_catalog_version
+          - status_active_suspended_revoked
+          - unique_id_user_id_candidate_key
+      auth_sessions:
+        add_composite_FK:
+          source: [organization_membership_id, user_id]
+          target: organization_memberships[id,user_id]
+      permission_and_scope_model:
+        - role_template_is_provenance_only
+        - membership_permissions_runtime_source
+        - permission_scope_options_whitelist
+        - membership_permission_scopes_current_scope_rows
+      lifecycle_and_transactions:
+        - suspend_revoke_reactivate_semantics
+        - owner_protected_baseline_and_last_owner_serialization
+        - expected_membership_version_and_locking
+        - authorization_version_invalidation
+        - session_context_clear_on_suspend_or_revoke
+        - audit_outbox_atomicity
+      migration_tests:
+        - DB_IAM_001_through_DB_IAM_005_obligations
 
   calendar_overlap_database_strategy:
     status: PENDING_LATER_STAGE4_SLICE
 
 resolved_blockers:
-  - id: DB-FOUND-001
-    severity: P1
-    resolution: application_generated_UUIDv7_in_native_PostgreSQL_uuid
-  - id: DB-FOUND-002
-    severity: P1
-    resolution: separate_partial_unique_indexes_for_global_and_tenant_nullable_scopes
-  - id: DB-FOUND-003
-    severity: P1
-    resolution: organization_contact_addresses_is_canonical_one_to_one_physical_table
-  - id: DB-FOUND-004
-    severity: P1
-    resolution: remaining_Stage_2_settings_ownership_fields_and_constraints_are_merged_into_core_physical_blueprint
-  - id: DB-IAM-001
-    severity: P1
-    resolution: materialized_membership_permission_snapshot_and_runtime_template_independence
-  - id: DB-IAM-002
-    severity: P1
-    resolution: per_permission_scope_rows_with_fail_closed_resolvers
-  - id: DB-IAM-003
-    severity: P1
-    resolution: composite_session_membership_same_user_foreign_key
-  - id: DB-IAM-004
-    severity: P1
-    resolution: >-
-      Explicit is_owner governance marker plus protected materialized permission
-      baseline, serialized last-owner transactions, self-escalation prohibition,
-      grant ceiling and authorization_version invalidation semantics.
+  - DB-FOUND-001
+  - DB-FOUND-002
+  - DB-FOUND-003
+  - DB-FOUND-004
+  - DB-IAM-001
+  - DB-IAM-002
+  - DB-IAM-003
+  - DB-IAM-004
+  - DB-IAM-005
 
-open_blockers:
-  - id: DB-IAM-005
-    severity: P1
-    description: Membership and explicit-permission mutation lifecycle/concurrency/session effects are under-specified.
+open_blockers: []
 
 gate_definition:
   PASS_requires:
@@ -235,21 +155,20 @@ gate_definition:
     - migration_order_is_dependency_safe
     - database_invariant_test_matrix_exists
     - reverse_engineering_preservation_is_traceable_to_schema_or_use_case
-  current_result: FAIL_DB4_2_WITH_1_OPEN_P1_BLOCKER
+  current_result: FAIL_DB4_2_FINAL_AGGREGATE_SYNC_PENDING
   may_start_stage_5: false
   may_start_UI_or_feature_implementation: false
   may_start_DB4_3: false
 
 next_single_step:
-  id: DB4_2_STEP_6
-  blocker: DB-IAM-005
-  action: resolve_membership_and_permission_mutation_lifecycle_concurrency_and_session_effects_only
+  id: DB4_2_FINAL_SYNC
+  action: synchronize_identity_tenant_RBAC_bounded_context_into_aggregate_physical_blueprint_only
   allowed_scope:
+    - specs/database/core-schema.yml
+    - docs/87-physical-database-schema.md
+    - specs/traceability/core-v1.yml_if_needed
     - specs/database/identity-rbac.yml
-    - docs/04-roles-permissions.md
-    - docs/08-security-compliance.md
-    - specs/security/permissions.yml
     - docs/105-stage-4-identity-tenant-rbac-audit.md
     - specs/gates/stage-4-database-contract-gate.yml
-  scope_lock: do_not_start_DB4_3_or_generate_migrations_or_sync_other_domain_slices_in_the_same_step
-  after_action: rerun_DB4_2_gate_and_if_DB_IAM_005_PASS_then_perform_separate_final_DB4_2_aggregate_sync_gate_before_DB4_3
+  scope_lock: do_not_start_DB4_3_or_generate_Laravel_migrations_in_the_same_step
+  after_action: rerun_final_DB4_2_gate_and_only_if_PASS_mark_DB4_3_as_NEXT_DIAGNOSIS
