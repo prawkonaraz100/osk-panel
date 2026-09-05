@@ -8,7 +8,8 @@ Data weryfikacji: 2026-09-05
 
 Powiązane szczegóły:
 - rozwinięcie pojedynczego dostępu: `docs/54-license-expanded-assignments.md`,
-- formularz `Generuj dostęp dla kursanta`: `docs/55-license-generate-access-form.md`.
+- formularz `Generuj dostęp dla kursanta`: `docs/55-license-generate-access-form.md`,
+- stan po wybraniu istniejącego kursanta: `docs/56-license-existing-student-selected-state.md`.
 
 ---
 
@@ -54,7 +55,7 @@ Nie utożsamiamy automatycznie `active_count` z `assigned_count`; dokładna agre
 
 ## 3. Główna akcja — `Generuj dostęp dla kursanta`
 
-Formularz po kliknięciu został już potwierdzony.
+Formularz po kliknięciu został potwierdzony.
 
 Drawer nosi tytuł:
 - `Przydzielanie licencji`.
@@ -62,7 +63,7 @@ Drawer nosi tytuł:
 Potwierdzone pola/elementy:
 - wybór wariantu `1 miesiąc / 3 miesiące / 6 miesięcy`,
 - licznik `Dostępne: N`,
-- wybór języka,
+- wybór języka dla nowego dostępu,
 - ścieżka `Dodaj nowego kursanta` -> `Email lub login`,
 - separator `lub`,
 - ścieżka `Wyszukaj kursanta`,
@@ -75,9 +76,22 @@ Wyszukiwanie istniejącego kursanta obsługuje:
 - login,
 - PESEL.
 
-Wyniki pokazują:
-- imię i nazwisko,
-- login/dostęp.
+Wyniki pokazują wiele pasujących kursantów, ale operator **wybiera dokładnie jednego kursanta na jedno przydzielenie licencji**.
+
+### Korekta audytu — brak batch assignmentu
+
+Wcześniejsza interpretacja, że widok trzech wyników oznacza trzy zaznaczone cele do masowego przydzielenia, była błędna.
+
+Potwierdzone przez operatora panelu:
+- trzy osoby były trzema wynikami wyszukiwania do wyboru,
+- z listy wybiera się jedną osobę,
+- licencję przydziela się jednemu kursantowi na raz.
+
+Dla naszego produktu również przyjmujemy podstawową kardynalność:
+
+`1 submit -> 1 target learning_access/student`
+
+Masowe przydzielanie nie jest wymaganiem parytetowym.
 
 ### Języki — SOURCE_CONFLICT
 
@@ -100,16 +114,22 @@ Pełna specyfikacja: `specs/screens/license-generate-access.yml`.
 
 Wiersz główny reprezentuje **learning access**, a nie pojedynczą licencję.
 
-Potwierdzone kontrolki:
+Potwierdzone kontrolki widoczne w tabeli:
 - `Dodaj nowego kursanta`,
 - `Zaznacz widoczne`,
-- batch `Pobierz dostępy`,
-- batch `Przydziel licencje`,
+- `Pobierz dostępy`,
+- `Przydziel licencje`,
 - `Ukryj licencje zakończone`,
 - wyszukiwarka,
 - `Sortuj`.
 
-Po zaznaczeniu rekordów panel pokazuje licznik zaznaczenia i aktywuje akcje batch.
+### Ważna granica
+
+Sama obecność `Zaznacz widoczne` i przycisków nad tabelą nie jest podstawą do stwierdzenia, że licencję można przydzielić wielu kursantom jednocześnie.
+
+Na podstawie dalszej obserwacji flow `Przydziel licencje` traktujemy jako **single-target assignment**.
+
+Możliwość zaznaczania wielu wierszy może służyć innym operacjom, np. pobraniu dostępów, ale dokładna semantyka wielokrotnego zaznaczenia pozostaje do potwierdzenia.
 
 ---
 
@@ -259,7 +279,7 @@ Każdy assignment powinien mieć co najmniej:
 
 `learning_access` przechowuje lub materializuje aktualną projekcję `current_expires_at`.
 
-Przydzielenie licencji z różnych entry pointów (`profil kursanta`, `panel licencji`, batch) powinno trafiać do jednego wspólnego backendowego command/service.
+Przydzielenie licencji z różnych entry pointów (`profil kursanta`, `panel licencji`) powinno trafiać do jednego wspólnego backendowego command/service.
 
 ---
 
@@ -270,8 +290,7 @@ Do dalszego capture:
 - dokładne opcje `Sortuj`,
 - exact search fields głównej tabeli,
 - exact semantics `Aktywne` w kartach inventory,
-- batch `Przydziel licencje`,
-- batch `Pobierz dostępy`,
+- dokładna semantyka wielokrotnego zaznaczania wierszy / `Pobierz dostępy`,
 - zachowanie `Ukryj licencje zakończone` dla mixed-history account,
 - kolejność aktywowania kilku oczekujących licencji,
 - zachowanie przy przedłużaniu już wygasłego dostępu,
