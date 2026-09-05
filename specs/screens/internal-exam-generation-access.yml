@@ -6,6 +6,7 @@ screen:
   confidence: USER_CONFIRMED_AUTH_SCREEN
   verified_at: 2026-09-05
   doc: docs/65-internal-exam-generation-access-flow.md
+  legal_rules: specs/legal/training-theory-exemptions.yml
 
 entry_points:
   selected_student_row:
@@ -17,17 +18,27 @@ entry_points:
       - open_generation_drawer_with_candidate_selected
   standalone_generate_exam_button:
     confirmed: true
-    steps:
+    competitor_observed_steps:
       - click_large_Generuj_egzamin_button
       - open_generation_drawer_without_candidate
-      - choose_existing_student_or_enter_ad_hoc_candidate
+      - choose_existing_student_or_use_Dodaj_nowego_kursanta_form
+    own_product_behavior:
+      - choose_existing_formal_student_or_create_persistent_student_and_enrollment
+      - return_to_exam_generation_after_persistent_record_exists
   student_profile_entry:
     previously_observed_equivalent_generation_drawer: true
 
 cardinality:
-  target_candidates_per_generation_flow: 1
+  target_students_per_generation_flow: 1
   batch_multi_student_generation_confirmed: false
   user_confirmed_one_at_a_time: true
+
+formal_osk_constraints:
+  student_id_required: true
+  course_enrollment_id_required: true
+  ephemeral_ad_hoc_candidate_allowed: false
+  exam_is_course_context_action: true
+  theory_part_availability_must_follow_legal_rule_engine: true
 
 inventory:
   available_exam_count_visible: true
@@ -42,9 +53,9 @@ empty_candidate_state:
       - email
       - login
       - pesel
-  ad_hoc_candidate_form:
+  competitor_new_student_form:
     label: Dodaj nowego kursanta
-    fields:
+    observed_fields:
       - exam_category
       - exam_language
       - first_name
@@ -53,7 +64,11 @@ empty_candidate_state:
       - pesel
       - email
     email_ui_note: do wysłania linku egzminu (opcjonalnie)
-    creates_persistent_student_profile: TO_VERIFY
+    exact_competitor_persistence_behavior: TO_VERIFY
+  own_product_new_student_action:
+    must_create_persistent_student: true
+    must_create_or_attach_formal_course_enrollment: true
+    must_not_create_ephemeral_exam_only_candidate: true
 
 candidate_selected_state:
   observed_student: Ala Nowak
@@ -104,8 +119,9 @@ own_product_model:
   attempt_and_launch_separate: true
   candidate_sources:
     - existing_student
-    - ad_hoc_candidate
-  student_id_nullable_for_ad_hoc_candidate: true
+    - newly_created_persistent_student
+  student_id_nullable: false
+  course_enrollment_id_nullable: false
   entities:
     - internal_exam_attempt
     - internal_exam_launch
@@ -126,7 +142,10 @@ own_product_model:
     - station_metadata_nullable
 
 own_product_validations:
-  - exactly_one_candidate
+  - exactly_one_student
+  - persistent_student_exists
+  - formal_course_enrollment_exists
+  - exam_part_is_required_for_course_under_legal_rule_engine
   - available_exam_inventory_greater_than_zero
   - category_present
   - language_present
@@ -138,7 +157,7 @@ own_product_validations:
 confirmed_actions:
   - open_standalone_generate_exam_drawer
   - search_existing_student_for_exam
-  - enter_ad_hoc_exam_candidate
+  - competitor_enter_new_student_data_in_drawer
   - select_one_student_for_exam_generation
   - open_generate_exam_for_selected_student
   - view_available_exam_inventory_in_generation_drawer
@@ -155,7 +174,7 @@ remaining_gaps:
   - exact_required_candidate_fields
   - exam_category_options
   - exam_language_options
-  - ad_hoc_candidate_persistence_behavior
+  - competitor_new_student_persistence_behavior
   - validation_messages
   - remote_link_success_state
   - email_template
