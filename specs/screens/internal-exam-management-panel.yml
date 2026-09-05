@@ -13,6 +13,7 @@ screen:
   generation_access_spec: specs/screens/internal-exam-generation-access.yml
   edit_candidate_data_spec: specs/screens/internal-exam-edit-candidate-data.yml
   filtering_spec: specs/screens/internal-exam-filtering.yml
+  sorting_spec: specs/screens/internal-exam-sorting.yml
   legal_rules: specs/legal/training-theory-exemptions.yml
 
 inventory:
@@ -111,6 +112,31 @@ filtering:
   own_product_requirement_aware_filtering: true
   theory_not_required_must_not_be_reported_as_unassigned_gap: true
 
+sorting:
+  spec: specs/screens/internal-exam-sorting.yml
+  direction:
+    control: select
+    options:
+      - asc
+      - desc
+    labels:
+      asc: Rosnąco
+      desc: Malejąco
+  field:
+    control: single_radio
+    options:
+      - email_or_login
+      - student_full_name
+      - latest_exam_category
+      - latest_exam_status
+      - latest_exam_at
+      - latest_exam_language
+      - exam_count
+  observed_state:
+    direction: asc
+    field: latest_exam_at
+    confirmed_as_global_default: false
+
 expanded_history:
   row_entity: internal_exam_attempt
   stable_attempt_id_required: true
@@ -155,6 +181,15 @@ confirmed_actions:
   - filter_by_multiple_course_categories
   - filter_by_exam_status
   - open_exam_sorting
+  - sort_internal_exam_rows_ascending
+  - sort_internal_exam_rows_descending
+  - sort_by_email_or_login
+  - sort_by_student_name
+  - sort_by_latest_exam_category
+  - sort_by_latest_exam_status
+  - sort_by_latest_exam_date
+  - sort_by_latest_exam_language
+  - sort_by_exam_count
   - expand_exam_history
   - collapse_exam_history
   - open_exam_details
@@ -164,10 +199,10 @@ confirmed_actions:
 remaining_gaps:
   - exam_category_options
   - exam_language_options
-  - sort_options
   - exact_search_fields
   - passed_status_table_visual
   - exact_displayed_datetime_semantics
+  - sort_null_value_ordering
   - free_vs_paid_consumption_order
   - free_monthly_reset_policy
   - exact_exam_unit_consumption_moment
