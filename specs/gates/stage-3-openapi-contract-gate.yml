@@ -14,6 +14,7 @@ scope:
     - specs/api/openapi-settings-components.yaml
     - specs/api/paths/*.yaml
     - specs/api/required-operations-v1.yml
+    - specs/api/common-contract.yml
     - specs/traceability/core-v1.yml
   explicitly_out_of_scope_for_this_stage:
     - new_database_migration_design
@@ -118,7 +119,7 @@ quality_checks:
       Each root path in specs/api/openapi-v1.yaml points to an existing path key
       in exactly one declared module file using JSON Pointer slash escaping (~1).
       This step checks path-item reference resolution only; component/schema refs
-      are deliberately not promoted into this completed check.
+      are deliberately handled by a later Stage-3 step.
 
   operationIds_are_unique:
     status: PASS
@@ -271,6 +272,42 @@ quality_checks:
       by idempotency plus server-side state/locking semantics.
 
   request_schemas_do_not_accept_read_only_response_fields:
+    status: PASS
+    stage_step: STAGE3_STEP_7
+    resolved_blocker_id: REQ-001
+    findings:
+      - >-
+        StudentLearningAccount.status is a derived lifecycle projection and was
+        incorrectly accepted by UpdateLearningAccountRequest. The response field
+        is now readOnly and the update request accepts only login_identifier and
+        language_code with additionalProperties:false.
+      - >-
+        Staff edit preserves the confirmed create_login_account action from the
+        reverse-engineered screen. This is not treated as a writable
+        has_login_account response field: it remains an explicit orchestration
+        input and account provisioning is still audited through the dedicated
+        staff-account use case.
+      - >-
+        One-time plaintext password and one-time remote exam URL remain response-
+        only secrets and are never accepted back as persistence fields.
+      - >-
+        Settings and PKK configuration already use dedicated write schemas that
+        exclude readiness/version/accepted-terms projections.
+    shared_value_objects_safe_for_request_and_response:
+      - Money
+      - PermissionSet
+    opaque_request_boundaries:
+      contract: specs/api/common-contract.yml#request_validation
+      rule: >-
+        Provider/question-engine opaque payloads are adapter/snapshot boundaries,
+        never generic mass-assignment input. Candidate fields and exam answers are
+        whitelisted against their attempt/snapshot contract before persistence.
+    backend_validation_rule: >-
+      Raw request payloads may not be mass-assigned to domain models. Laravel
+      FormRequest/use-case validation whitelists accepted fields and rejects
+      server-owned identifiers, timestamps, versions and derived statuses.
+
+  every_component_and_schema_ref_resolves:
     status: PENDING_FULL_SCAN
 
 resolved_blockers:
@@ -290,6 +327,14 @@ resolved_blockers:
       OSK-session-only authentication. They now explicitly support sessionCookie
       OR examAccessToken, restricted to the matching finished attempt and
       result-review scope so the token cannot reveal answer review before finish.
+  - id: REQ-001
+    severity: P1
+    resolution: >-
+      Direct client writes to StudentLearningAccount.status were removed. The
+      status is now a read-only lifecycle projection; the observed editable access
+      fields remain login/language, while server-owned lifecycle effects use
+      explicit domain commands. Common request-validation rules now prohibit raw
+      mass assignment and server-owned field writes without a dedicated contract.
 
 open_blockers: []
 
@@ -305,7 +350,7 @@ gate_definition:
   may_start_stage_4: false
 
 next_single_step:
-  id: STAGE3_STEP_7
-  action: audit_request_schemas_vs_response_schemas_and_read_only_field_acceptance_only
-  scope_lock: do_not_start_stage_4_or_other_architecture_work_until_request_schema_step_is_audited
-  after_action: rerun_this_gate_and_record_PASS_or_new_blocker_for_request_schema_contract
+  id: STAGE3_STEP_8
+  action: audit_component_parameter_response_and_schema_refs_only_across_all_OpenAPI_files
+  scope_lock: do_not_start_stage_4_or_other_architecture_work_until_component_ref_step_is_audited
+  after_action: rerun_this_gate_and_record_PASS_or_new_blocker_for_component_ref_integrity
