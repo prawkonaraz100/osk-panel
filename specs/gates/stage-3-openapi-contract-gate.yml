@@ -187,7 +187,88 @@ quality_checks:
       to an active unfinished exam token.
 
   every_mutating_critical_command_has_idempotency_where_required:
-    status: PENDING_FULL_SCAN
+    status: PASS
+    stage_step: STAGE3_STEP_6
+    contract_source: specs/api/common-contract.yml
+    required_idempotency_families:
+      pkk_mutations:
+        status: PASS
+        operations:
+          - organizationPkkSettingsUpdate
+          - organizationPkkConfigurationGateSave
+          - pkkFetch
+          - pkkUpdateAndReturn
+          - pkkReturnToSchool
+          - pkkReturnToAuthority
+          - pkkReturnExpired
+          - pkkOperationsRetry
+      retryable_order_or_payment_creation:
+        status: PASS
+        operations:
+          - licenseOrdersCreate
+          - internalExamOrdersCreate
+          - orderPaymentsCreate
+          - serviceEntitlementsActivate
+      license_assignment_lifecycle:
+        status: PASS
+        operations:
+          - licenseAssignmentsCreate
+          - licenseAssignmentsActivate
+          - licenseAssignmentsRevokeUnactivated
+      internal_exam_access_and_start:
+        status: PASS
+        operations:
+          - internalExamAttemptsCreate
+          - internalExamAccessesCreate
+          - internalExamAccessesStart
+          - internalExamAttemptsSubmit
+          - internalExamAttemptsTechnicalAbort
+          - internalExamAttemptStationTransfer
+      student_finance_and_corrections:
+        status: PASS
+        operations:
+          - studentChargesCreate
+          - studentChargesCancel
+          - studentPaymentsRecord
+          - studentPaymentsReverse
+          - trainingHoursCorrect
+    provider_webhook_exception:
+      operationId: paymentWebhookReceive
+      idempotency_header_required: false
+      reason: provider_plus_provider_event_id_is_the_authoritative_deduplication_key
+    concurrency_contract:
+      direct_resource_edits_use_If_Match:
+        status: PASS
+        examples:
+          - organizationUpdate
+          - organizationSettingsUpdate
+          - organizationPkkSettingsUpdate
+          - organizationPkkConfigurationGateSave
+          - studentsUpdate
+          - learningAccountsUpdate
+          - courseEnrollmentsUpdate
+          - trainingSessionsUpdate
+          - calendarEventsUpdate
+          - availabilitySlotsUpdate
+          - locationsUpdate
+          - staffUpdate
+          - vehiclesUpdate
+          - vehicleDocumentsUpdate
+          - internalExamAttemptsEditCandidateSnapshot
+      command_state_transitions:
+        status: PASS
+        rule: >-
+          Command-style transitions do not rely on optimistic headers alone. They
+          must combine Idempotency-Key with server-side state validation and the
+          domain transaction/row-lock invariants already declared for license,
+          exam, PKK and financial flows. Repeating a command cannot create a
+          second business effect.
+    audit_result: >-
+      No command in a common-contract required idempotency family is missing the
+      Idempotency-Key contract. Provider webhook correctly uses provider-event
+      deduplication instead of a client idempotency header. Direct PATCH/aggregate
+      edits that can lose updates carry If-Match; command transitions are guarded
+      by idempotency plus server-side state/locking semantics.
 
   request_schemas_do_not_accept_read_only_response_fields:
     status: PENDING_FULL_SCAN
@@ -224,7 +305,7 @@ gate_definition:
   may_start_stage_4: false
 
 next_single_step:
-  id: STAGE3_STEP_6
-  action: audit_idempotency_and_concurrency_headers_for_critical_mutating_commands_only
-  scope_lock: do_not_scan_request_response_schema_or_stage_4_until_idempotency_step_is_audited
-  after_action: rerun_this_gate_and_record_PASS_or_new_blocker_for_idempotency_contract
+  id: STAGE3_STEP_7
+  action: audit_request_schemas_vs_response_schemas_and_read_only_field_acceptance_only
+  scope_lock: do_not_start_stage_4_or_other_architecture_work_until_request_schema_step_is_audited
+  after_action: rerun_this_gate_and_record_PASS_or_new_blocker_for_request_schema_contract
