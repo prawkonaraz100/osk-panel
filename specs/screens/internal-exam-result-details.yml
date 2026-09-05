@@ -1,0 +1,97 @@
+screen:
+  id: internal_exam_result_details
+  scope: exam_frontend
+  route_pattern: /egzamin-wewnetrzny?pid=<opaque_token>
+  source_host_observed: www.prawo-jazdy-360.pl
+  entry_point: internal_exam_management_panel_specific_attempt_details
+  confidence: USER_CONFIRMED_AUTH_RESULT_SCREEN
+  verified_at: 2026-09-05
+  doc: docs/63-internal-exam-result-details-screen.md
+
+purpose:
+  - present_completed_attempt_result
+  - navigate_attempt_questions_for_review
+  - present_answer_statistics
+
+result_header:
+  observed:
+    score: 0
+    max_score: 74
+    result: failed
+    message: Niestety nie udało Ci się, spróbuj ponownie rozwiązać test.
+  passing_threshold: TO_VERIFY
+
+question_navigation:
+  prompt: Wybierz numer pytania, aby sprawdzić odpowiedzi
+  basic:
+    from: 1
+    to: 20
+    count: 20
+  specialized:
+    from: 21
+    to: 32
+    count: 12
+  total_count: 32
+  each_question_number_is_review_navigation: true
+  observed_all_question_markers_failed_state: true
+  clicked_question_review_content: TO_VERIFY
+
+statistics:
+  cards:
+    - id: basic
+      correct: 0
+      incorrect: 20
+      chart: donut
+    - id: specialized
+      correct: 0
+      incorrect: 12
+      chart: donut
+    - id: all
+      correct: 0
+      incorrect: 32
+      chart: donut
+  arithmetic_consistent: true
+
+relationship_to_answer_sheet_pdf:
+  same_attempt_snapshot: true
+  interactive_screen_and_print_document_are_distinct_projections: true
+  answer_sheet_spec: specs/screens/internal-exam-answer-sheet-pdf.yml
+
+own_product_requirements:
+  immutable_attempt_result_projection: true
+  do_not_recalculate_historical_result_from_current_question_bank: true
+  fields:
+    - score
+    - max_score
+    - result
+    - basic_correct_count
+    - basic_incorrect_count
+    - specialized_correct_count
+    - specialized_incorrect_count
+    - total_correct_count
+    - total_incorrect_count
+    - ordered_attempt_questions
+  tokenized_external_access: true
+  internal_attempt_id_not_exposed_as_access_secret: true
+
+confirmed_actions:
+  - open_completed_exam_result_details
+  - view_exam_score
+  - view_exam_max_score
+  - view_failed_exam_message
+  - view_basic_question_navigation
+  - view_specialized_question_navigation
+  - select_question_number_for_answer_review
+  - view_basic_answer_statistics
+  - view_specialized_answer_statistics
+  - view_total_answer_statistics
+
+remaining_gaps:
+  - clicked_question_review_content
+  - submitted_vs_correct_answer_presentation
+  - question_media_in_review
+  - explanation_in_review
+  - positive_result_screen
+  - passing_threshold_display
+  - retry_action_presence
+  - historical_result_token_ttl_and_revocation
