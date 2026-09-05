@@ -1,0 +1,121 @@
+screen_state:
+  id: internal_exam_expanded_attempt_history
+  parent_route: /egzamin-wewnetrzny/panel
+  parent_screen: internal_exam_management_panel
+  trigger_action: expand_exam_history
+  confidence: USER_CONFIRMED_AUTH_SCREEN
+  verified_at: 2026-09-05
+  doc: docs/61-internal-exam-expanded-attempt-history.md
+
+parent_row:
+  primary_entity: student_exam_aggregate
+  observed_student: Ala Nowak
+  latest_exam_projection:
+    category: B
+    status_icon: red_x
+    status_semantics: not_passed
+    displayed_at: 2026-01-26T15:43
+    language: PL
+  attempt_count: 7
+
+expanded_table:
+  title: Egzaminy
+  row_entity: internal_exam_attempt
+  columns:
+    - candidate_full_name
+    - category
+    - status
+    - registry_or_pkk_number
+    - displayed_datetime
+    - language
+    - row_actions
+
+observed_attempts:
+  common_fields:
+    candidate_full_name: Ala Nowak
+    category: B
+    status: not_passed
+    status_label: Niezaliczony
+    registry_or_pkk_number: "445645645646465"
+    language: PL
+  displayed_datetimes:
+    - 2026-01-26T15:43
+    - 2026-01-26T15:43
+    - 2026-01-26T14:07
+    - 2026-01-26T14:02
+    - 2026-01-26T13:15
+    - 2026-01-26T13:15
+    - 2026-01-21T12:44
+  duplicate_displayed_minute_confirmed: true
+  displayed_datetime_is_unique_identifier: false
+
+status_projection:
+  red_x_maps_to_not_passed: true
+  other_status_icons: TO_VERIFY
+
+row_actions:
+  - action: open_specific_exam_attempt_details
+    label: Szczegóły
+    route_pattern: https://www.prawo-jazdy-360.pl/egzamin-wewnetrzny?pid=<token>
+  - action: download_specific_exam_attempt_printout
+    label: Pobierz wydruk
+    route_pattern: /exam/download?id=<exam_id>
+
+history_snapshot_requirement_supported:
+  fields_visible_per_attempt:
+    - candidate_full_name
+    - category
+    - registry_or_pkk_number
+    - language
+  own_product_snapshot_fields:
+    - candidate_full_name_snapshot
+    - category_snapshot
+    - pkk_or_registry_number_snapshot
+    - language_snapshot
+
+own_product_model:
+  parent_row_is_projection: true
+  source_of_truth: internal_exam_attempts
+  stable_attempt_id_required: true
+  timestamp_not_identity: true
+  attempt_fields:
+    - id
+    - organization_id
+    - student_id
+    - exam_access_id
+    - category
+    - language
+    - candidate_full_name_snapshot
+    - pkk_or_registry_number_snapshot
+    - status
+    - generated_at
+    - started_at
+    - completed_at
+    - score
+    - result
+    - inventory_source
+    - inventory_ledger_entry_id
+    - created_by
+  preserve_historical_attempt_result: true
+
+confirmed_actions:
+  - expand_student_exam_attempt_history
+  - collapse_student_exam_attempt_history
+  - view_exam_attempt_category
+  - view_exam_attempt_status_text
+  - view_exam_attempt_pkk_or_registry_number
+  - view_exam_attempt_datetime
+  - view_exam_attempt_language
+  - open_specific_exam_attempt_details
+  - download_specific_exam_attempt_printout
+
+remaining_gaps:
+  - passed_status_presentation
+  - pre_execution_statuses
+  - in_progress_interrupted_statuses
+  - exact_displayed_datetime_semantics
+  - scoring
+  - duration
+  - details_screen_content
+  - printout_content
+  - inventory_consumption_moment
