@@ -3,7 +3,7 @@
 Data weryfikacji: 2026-09-05
 
 **Kontekst:** `/kalendarz` -> `Dodaj wydarzenie`  
-**Źródło:** bieżący zalogowany ekran + screenshoty rozwiniętych selektorów + ręczne przełączenie rodzaju `Wydarzenie` / `Jazda` podczas audytu  
+**Źródło:** bieżący zalogowany ekran + screenshoty rozwiniętych selektorów + ręczne przełączenie rodzaju `Wydarzenie` / `Jazda` + otwarcie trybu `Inne?` przy miejscu spotkania podczas audytu  
 **Status:** `USER_CONFIRMED_AUTH_SCREEN`
 
 ---
@@ -143,7 +143,11 @@ Nie potwierdzono, czy pojazd z wygasłym OC/przeglądem jest tylko ostrzegany cz
 
 ### 3.8. Miejsce spotkania (opcjonalnie)
 
-Single select.
+Pole ma dwa potwierdzone tryby.
+
+#### Tryb A — zapisana lokalizacja OSK
+
+Domyślnie renderowany jest single select.
 
 Lista jest grupowana według typu lokalizacji.
 
@@ -151,10 +155,31 @@ Zaobserwowane grupy i wpisy:
 - `Sala wykładowa` -> `Sala wykładowa`,
 - `Plac manewrowy` -> `Plan nauki jazdy`.
 
-Widoczna jest także akcja/link:
+Widoczna akcja/link:
 - `Inne?`
 
-Zachowanie `Inne?` pozostaje `TO_VERIFY`.
+#### Tryb B — niestandardowe miejsce tekstowe
+
+Po kliknięciu `Inne?`:
+- select zapisanych lokalizacji znika,
+- w jego miejscu pojawia się zwykłe pole tekstowe,
+- link `Inne?` zmienia etykietę na `Wróć`,
+- operator może wpisać dowolny tekst jako miejsce spotkania.
+
+Po kliknięciu `Wróć` należy oczekiwać powrotu do trybu wyboru zapisanej lokalizacji; samo istnienie tego przełącznika zostało potwierdzone w UI, natomiast zachowanie z zachowaniem/wyczyszczeniem wcześniej wpisanej wartości nie było dalej testowane.
+
+### Potwierdzona semantyka domenowa
+
+Pojedynczy event może wskazywać:
+- `meeting_location_id` **albo**
+- `custom_meeting_place`.
+
+Nie powinny być jednocześnie aktywne w tym samym formularzu.
+
+Dla naszego produktu rekomendacja:
+- traktować te pola jako wzajemnie wykluczające się,
+- przy przełączeniu trybu jawnie czyścić lub potwierdzać zmianę, aby nie zapisać dwóch sprzecznych źródeł miejsca,
+- `custom_meeting_place` przechowywać jako tekst użytkownika, nie tworzyć z niego automatycznie stałej lokalizacji OSK.
 
 ---
 
@@ -163,7 +188,9 @@ Zachowanie `Inne?` pozostaje `TO_VERIFY`.
 Potwierdzone:
 - `Zapisz`,
 - `Anuluj`,
-- zamknięcie `X`.
+- zamknięcie `X`,
+- `Inne?` — przejście z zapisanej lokalizacji do pola tekstowego,
+- `Wróć` — kontrolka powrotu z trybu tekstowego do trybu lokalizacji.
 
 ---
 
@@ -174,6 +201,10 @@ Na tym formularzu każdy selektor jest pojedynczy:
 - max 1 instruktor,
 - max 1 pojazd,
 - max 1 miejsce spotkania.
+
+Miejsce spotkania może być reprezentowane jako:
+- 1 zapisana lokalizacja,
+- albo 1 niestandardowy tekst.
 
 To potwierdza kardynalność **dla pojedynczego ręcznie tworzonego eventu w tym ekranie**.
 
@@ -210,10 +241,14 @@ Rekomendowany rdzeń:
   - `instructor_id nullable`,
   - `vehicle_id nullable`,
   - `location_id nullable`,
-  - `custom_meeting_place nullable` (jeżeli potwierdzimy `Inne?`),
+  - `custom_meeting_place nullable`,
   - `status`,
   - `created_by`,
   - audit timestamps.
+
+Constraint domenowy:
+- `location_id` i `custom_meeting_place` są alternatywnymi źródłami miejsca spotkania,
+- formularz nie powinien zapisywać obu naraz.
 
 ### Decyzja implementacyjna
 
@@ -239,6 +274,8 @@ Przed zapisem server powinien sprawdzić co najmniej:
 
 UI może pokazać ostrzeżenie przed zapisem, ale walidacja krytyczna musi być wykonywana również server-side.
 
+Dla `custom_meeting_place` nie wykonujemy konfliktu zasobu lokalizacji, bo nie jest to zarządzany zasób OSK.
+
 ---
 
 ## 9. Potwierdzone akcje
@@ -253,7 +290,9 @@ UI może pokazać ostrzeżenie przed zapisem, ale walidacja krytyczna musi być 
 - `search_and_select_instructor`
 - `search_and_select_vehicle`
 - `select_meeting_location`
-- `open_other_meeting_place_control_visible_behavior_unknown`
+- `switch_to_custom_meeting_place`
+- `set_custom_meeting_place_text`
+- `switch_back_to_saved_meeting_location`
 - `save_calendar_event`
 - `cancel_calendar_event_create`
 - `close_calendar_event_drawer`
@@ -263,7 +302,6 @@ UI może pokazać ostrzeżenie przed zapisem, ale walidacja krytyczna musi być 
 ## 10. Pozostałe niewiadome
 
 Najważniejsze:
-- zachowanie `Inne?`,
 - dokładna semantyka `Ilość godzin`,
 - minimalny/maksymalny czas trwania,
 - czy backend wymaga kursanta/instruktora/pojazdu dla typu `Jazda` mimo braku zmiany UI,
@@ -272,4 +310,5 @@ Najważniejsze:
 - recurrence,
 - notifications,
 - status po zapisie,
-- edit/detail flow po utworzeniu.
+- edit/detail flow po utworzeniu,
+- czy `Wróć` zachowuje czy czyści wcześniej wpisane niestandardowe miejsce.
