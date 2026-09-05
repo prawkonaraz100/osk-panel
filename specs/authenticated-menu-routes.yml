@@ -22,20 +22,22 @@ routes:
     label: Kalendarz
     path: /kalendarz
     group: root
-    status: [USER_CONFIRMED_AUTH_MENU, PUBLIC_CONFIRMED, HELP_CONFIRMED, TO_VERIFY_AUTH]
-    confirmed_actions: [schedule_for_self, schedule_for_employee, enable_student_booking, view_instructor_activity, record_work_time]
+    status: [USER_CONFIRMED_AUTH_MENU, PUBLIC_CONFIRMED, HELP_CONFIRMED, USER_CONFIRMED_AUTH_SCREEN]
 
   - key: students
     label: Kursanci
     path: /kursanci
     group: root
-    status: [USER_CONFIRMED_AUTH_MENU, PUBLIC_CONFIRMED, HELP_CONFIRMED, TO_VERIFY_AUTH]
+    status: [USER_CONFIRMED_AUTH_MENU, PUBLIC_CONFIRMED, HELP_CONFIRMED, USER_CONFIRMED_AUTH_SCREEN]
 
   - key: licenses_purchase
     label: Wykup licencje
     path: /licencje/wykup
     group: Licencje
-    status: [USER_CONFIRMED_AUTH_MENU, PUBLIC_CONFIRMED, RULES_CONFIRMED, HELP_CONFIRMED, TO_VERIFY_AUTH]
+    status: [USER_CONFIRMED_AUTH_MENU, PUBLIC_CONFIRMED, RULES_CONFIRMED, HELP_CONFIRMED, USER_CONFIRMED_AUTH_SCREEN]
+    screen_spec: specs/screens/license-purchase.yml
+    screen_doc: docs/52-license-purchase-screen.md
+    confirmed_actions: [set_license_quantities, view_order_summary, select_online_payu, select_direct_bank_transfer, submit_license_purchase]
 
   - key: licenses_panel
     label: Panel - Generuj licencje
@@ -116,10 +118,9 @@ coverage:
   total_menu_items_mapped: 17
   known_missing_internal_detail:
     - dashboard widgets and actions
-    - students fields and contextual actions
-    - locations CRUD fields and relations
+    - add_student_from_pkk post-configuration flow
+    - exact current event details/edit behavior blocked by demo
+    - license panel inventory/list controls
     - business card collection fields and relation to locations
     - ads child menu routes and campaign management controls
-    - settings tabs and editable fields
-    - purchase history columns filters and actions
     - exact current exam configuration and language matrix
