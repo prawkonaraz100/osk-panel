@@ -1,0 +1,1081 @@
+meta:
+  project: osk-panel
+  scope: admin_osk_core_v1_cross_layer_traceability
+  status: ACTIVE_DOCUMENTATION_GATE
+  created_at: 2026-09-05
+  implementation_status: NOT_IMPLEMENTED_BY_THIS_DOCUMENTATION_BRANCH
+  purpose: >-
+    Link preserved clean-room reverse-engineering evidence to required backend
+    capabilities, canonical data structures, permissions and mandatory tests.
+    This matrix proves coverage between layers; it NEVER replaces detailed
+    screen specs, evidence docs or legal/design rules.
+
+sources_of_truth:
+  preservation_contract: docs/96-reverse-engineering-preservation-contract.md
+  preservation_manifest: specs/reverse-engineering-manifest.yml
+  screen_specs: specs/screens/*.yml
+  legal_rules: specs/legal/*.yml
+  design_rules: specs/design/*.yml
+  security: specs/security/permissions.yml
+  api_inventory: specs/api/required-operations-v1.yml
+  openapi: specs/api/openapi-v1.yaml
+  database: specs/database/core-schema.yml
+  tests: docs/84-test-strategy.md
+  baseline: specs/implementation-baseline-v1.yml
+
+global_rules:
+  detail_preservation:
+    - no_confirmed_field_option_action_filter_sort_toggle_pdf_or_entrypoint_may_be_dropped
+    - a_shorter_summary_never_overrides_a_detailed_screen_spec
+    - unknown_reference_backend_behavior_must_not_be_invented_as_competitor_fact
+    - own_safe_implementation_may_replace_reference_internal_semantics_only_with_equivalent_user_capability
+  api:
+    - every_http_requirement_has_method_path_and_unique_operationId
+    - public_webhook_or_exam_token_security_exceptions_are_explicit
+    - tenant_relation_ids_are_authorized_server_side
+    - critical_retryable_mutations_use_idempotency
+  data:
+    - no_hard_delete_of_formal_or_financial_history
+    - history_preservation_uses_archive_cancel_revoke_reverse_correct_or_invalidate
+    - sensitive_plaintext_credentials_tokens_pesel_pkk_are_not_written_to_logs_or_safe_projections
+  completion:
+    module_done_requires:
+      - every_preserved_screen_element_accounted_for
+      - api_and_use_case_coverage
+      - domain_and_database_coverage
+      - permission_coverage
+      - audit_effects_where_required
+      - contract_policy_integration_and_representative_e2e_tests
+
+modules:
+  auth_identity:
+    documentation_status: CONTRACT_READY
+    evidence:
+      - docs/01-feature-map.md
+      - docs/08-security-compliance.md
+      - docs/06-api-contract.md
+    preserved_capabilities:
+      - register_owner_and_organization
+      - login_by_email_or_login
+      - remember_session_option
+      - password_reset_by_email_or_login
+      - social_login_google_apple_facebook_when_provider_enabled
+      - validated_return_url_after_auth
+      - logout
+      - list_and_revoke_sessions
+      - request_account_closure
+    api_requirements:
+      - auth.register
+      - auth.login
+      - auth.logout
+      - auth.password_forgot
+      - auth.password_reset
+      - auth.sessions_list
+      - auth.session_revoke
+      - auth.account_closure_request
+      - auth.social_redirect
+      - auth.social_callback
+      - auth.return_url_validation
+    database:
+      - organizations
+      - users
+      - auth_login_identifiers
+      - auth_social_accounts
+      - auth_sessions
+      - account_closure_requests
+      - organization_memberships
+      - permissions
+      - membership_permissions
+      - legal_documents
+      - terms_acceptances
+    permissions:
+      - active_membership
+      - sessions.manage.own
+      - sessions.manage.organization
+    invariants:
+      - generic_login_resolves_to_at_most_one_current_user
+      - same_user_may_belong_to_multiple_organizations
+      - raw_session_secret_is_not_persisted_or_returned
+      - account_closure_does_not_destroy_formal_or_financial_history
+      - return_url_is_local_allowlisted_path
+    test_obligations:
+      - login_identifier_normalization_and_uniqueness
+      - social_identity_uniqueness_and_safe_linking
+      - session_list_revoke_without_secret_exposure
+      - cross_tenant_membership_isolation
+      - account_closure_pending_request_idempotency
+      - open_redirect_rejection
+
+  dashboard_activity:
+    documentation_status: CONTRACT_READY
+    evidence:
+      - specs/screens/main-dashboard.yml
+      - docs/74-main-dashboard.md
+    preserved_capabilities:
+      - license_inventory_widget
+      - internal_exam_inventory_widget
+      - embedded_calendar_preview
+      - safe_activity_feed
+      - quick_actions
+    api_requirements:
+      - dashboard.get
+      - activity.list
+      - dashboard.safe_activity_projection
+      - notifications.list
+      - notifications.mark_read
+    database:
+      - organization_activity_events
+      - notifications
+      - outbox_messages
+      - audit_logs
+      - license_inventory_entries
+      - internal_exam_inventory_entries
+      - calendar_events
+    permissions:
+      - active_membership
+    invariants:
+      - dashboard_is_projection_not_source_of_truth
+      - activity_feed_uses_safe_allowlisted_payload_not_raw_audit_before_after
+    test_obligations:
+      - projection_counts_match_underlying_ledgers
+      - sensitive_fields_rejected_or_redacted_from_activity_payload
+      - dashboard_cross_tenant_isolation
+      - quick_action_routes_map_to_preserved_flows
+
+  students_learning_access:
+    documentation_status: CONTRACT_READY
+    evidence:
+      - specs/screens/students.yml
+      - specs/screens/student-create.yml
+      - specs/screens/student-detail.yml
+      - specs/screens/student-edit.yml
+      - specs/screens/student-preview.yml
+      - specs/screens/student-filters.yml
+      - specs/screens/student-sorting.yml
+      - specs/screens/student-progress.yml
+      - specs/screens/student-access-credentials-pdf.yml
+      - docs/29-students-list-screen.md
+      - docs/30-student-detail-screen.md
+      - docs/31-student-progress-screen.md
+    preserved_capabilities:
+      - list_search_filter_sort
+      - include_archived
+      - add_student_manual
+      - add_student_from_pkk_entrypoint
+      - quick_preview
+      - full_detail
+      - edit
+      - safe_archive_restore_lifecycle
+      - access_account_projection
+      - generated_login_or_email_access
+      - password_reset_handoff
+      - single_access_pdf
+      - progress_by_learning_account_and_category
+      - course_license_exam_payment_sections
+    api_requirements:
+      - students.list
+      - students.list_filters
+      - students.list_sort
+      - students.create
+      - students.get
+      - students.update
+      - students.preview
+      - students.archive
+      - students.restore
+      - learning_accounts.list
+      - learning_accounts.create
+      - learning_accounts.update
+      - learning_accounts.reset_password
+      - learning_accounts.create_handoff
+      - learning_accounts.download_handoff_pdf
+      - students.progress
+      - learning_accounts.password_security
+    database:
+      - students
+      - student_learning_accounts
+      - student_access_handoffs
+      - users
+      - auth_login_identifiers
+      - file_assets
+    permissions:
+      - students.view
+      - students.create
+      - students.edit
+      - students.archive
+      - students.restore
+      - students.progress.view
+      - student_access.view
+      - student_access.create
+      - student_access.manage_credentials
+      - student_access.reset_password
+      - student_access.download_credentials_pdf
+    invariants:
+      - Student_is_not_StudentLearningAccount
+      - plaintext_password_never_persisted
+      - old_password_never_recovered_for_pdf
+      - PESEL_protected_and_masked_where_full_value_not_needed
+      - archive_does_not_delete_related_formal_history
+    test_obligations:
+      - all_confirmed_list_filters_and_sort_controls
+      - manual_and_PKK_entrypoints_remain_available
+      - preview_and_detail_projection_parity
+      - no_PESEL_branch_validation
+      - credentials_create_reset_and_pdf_security
+      - progress_account_category_context
+      - cross_tenant_student_and_relation_ids
+
+  course_enrollment_training:
+    documentation_status: CONTRACT_READY_WITH_LEGAL_DICTIONARY_BLOCKER_FOR_PRODUCTION
+    evidence:
+      - specs/screens/student-add-course.yml
+      - specs/screens/course-create.yml
+      - specs/screens/course-edit.yml
+      - specs/screens/course-delete.yml
+      - docs/35-student-add-course-form.md
+      - docs/78-course-edit-form.md
+      - docs/79-course-delete-confirmation.md
+      - docs/80-course-create-form.md
+      - docs/66-formal-student-record-and-theory-exemptions.md
+      - docs/67-editable-training-requirements-and-theory-exemption.md
+    legal:
+      - specs/legal/training-theory-exemptions.yml
+      - specs/legal/editable-training-requirements.yml
+    preserved_capabilities:
+      - training_type_basic_or_supplementary
+      - driving_category_selector_with_observed_values_preserved_as_evidence
+      - PKK_field
+      - start_date_and_time
+      - cost_context
+      - theory_hours_current_osk_field
+      - theory_hours_previous_osk_field
+      - practice_hours_current_osk_field
+      - practice_hours_previous_osk_field
+      - lead_instructor_search
+      - location_selector
+      - create_edit_cancel_close
+      - stage_transition
+      - multiple_courses_per_student
+    api_requirements:
+      - course_enrollments.list_for_student
+      - course_enrollments.create
+      - course_enrollments.get
+      - course_enrollments.update
+      - course_enrollments.cancel
+      - course_enrollments.restore
+      - course_enrollments.change_stage
+      - course_requirements.get
+      - course_requirements.update_context
+      - course_requirements.add_exemption_decision
+      - training_sessions.list
+      - training_sessions.create
+      - training_sessions.get
+      - training_sessions.update
+      - training_sessions.complete
+      - training_sessions.cancel
+      - training_hours.get
+      - training_hours.correct
+      - external_training.list
+      - external_training.create
+      - external_training.revoke
+      - course_observed_hour_fields
+    database:
+      - course_enrollments
+      - training_requirement_profiles
+      - course_exemption_decisions
+      - recognized_external_training
+      - training_sessions
+      - training_session_attendance
+      - training_hour_ledger_entries
+      - student_charges
+    permissions:
+      - courses.view
+      - courses.create
+      - courses.edit
+      - courses.cancel
+      - courses.restore
+      - courses.stage.change
+      - course_requirements.correct
+      - training_sessions.view
+      - training_sessions.create
+      - training_sessions.edit
+      - training_sessions.cancel
+      - training_hours.correct
+      - external_training.recognize
+    invariants:
+      - current_osk_credited_time_comes_from_training_hour_ledger
+      - declared_current_osk_hours_preserve_UI_field_but_do_not_self_credit_formal_time
+      - previous_osk_hours_create_auditable_recognized_external_training_records
+      - requirement_profile_is_versioned_and_rule_engine_derived
+      - theory_hour_is_45_minutes_and_practical_hour_is_60_minutes_per_current_legal_spec
+      - formal_history_is_not_hard_deleted
+    production_blockers:
+      - legal_category_dictionary_reverification_including_PT_mapping
+    test_obligations:
+      - preserve_all_observed_course_form_fields_and_options
+      - legal_rule_matrix_and_snapshot_version
+      - declared_vs_credited_time
+      - opening_balance_requires_explicit_audit_mode
+      - external_training_reversal_history
+      - category_or_training_type_change_recalculates_requirements
+
+  pkk:
+    documentation_status: CONTRACT_READY_PROVIDER_SCHEMA_PENDING
+    evidence:
+      - specs/screens/pkk-configuration-gate.yml
+      - specs/screens/pkk-entrypoints-and-student-list.yml
+      - specs/screens/pkk-course-operational-panel.yml
+      - docs/37-pkk-configuration-gate.md
+      - docs/75-pkk-entrypoints-and-student-list.md
+      - docs/76-pkk-course-operational-panel.md
+      - docs/77-pkk-management-flow-fallback-design.md
+    preserved_capabilities:
+      - configure_integration
+      - fetch_profile
+      - preview_profile
+      - update_training_and_return
+      - return_to_other_school
+      - return_to_authority
+      - return_expired_profile
+      - operation_history
+      - retry_safe_error_classes
+      - signed_xml_handoff_when_provider_requires_it
+    api_requirements:
+      - pkk.settings.get
+      - pkk.settings.update
+      - pkk.settings.test_connection
+      - pkk.get
+      - pkk.fetch
+      - pkk.update_and_return
+      - pkk.return_to_school
+      - pkk.return_to_authority
+      - pkk.return_expired
+      - pkk.operations.list
+      - pkk.operations.get
+      - pkk.operations.retry
+      - pkk.signed_xml_handoff
+      - pkk.sensitive_snapshot_policy
+    database:
+      - pkk_integration_settings
+      - pkk_profiles
+      - pkk_operations
+      - pkk_operation_attempts
+      - file_assets
+      - idempotency_records
+      - audit_logs
+    permissions:
+      - pkk.view
+      - pkk.fetch
+      - pkk.training.update_and_return
+      - pkk.return.school
+      - pkk.return.authority
+      - pkk.return.expired
+      - pkk.retry
+      - organization.integrations.manage
+    invariants:
+      - PkkProfile_belongs_to_CourseEnrollment
+      - irreversible_provider_commands_are_idempotent
+      - business_validation_failure_is_not_blindly_retried
+      - timeout_unknown_state_requires_reconciliation_before_replay
+      - full_provider_payload_not_stored_in_plain_audit_or_activity
+    production_blockers:
+      - final_provider_contract_and_exact_request_response_schemas
+      - encryption_and_key_rotation_ADR_for_sensitive_snapshots
+    test_obligations:
+      - fake_provider_success_business_error_timeout_5xx_unknown_state
+      - each_confirmed_return_path
+      - operation_history_and_attempt_numbers
+      - retry_matrix
+      - redaction_and_encryption_boundary
+
+  calendar:
+    documentation_status: CONTRACT_READY_OVERLAP_ADR_PENDING
+    evidence:
+      - specs/screens/calendar.yml
+      - specs/screens/calendar-add-event.yml
+      - docs/50-own-calendar-event-lifecycle.md
+    preserved_capabilities:
+      - month_week_day_views
+      - today_previous_next_navigation
+      - add_event
+      - driving_lesson
+      - student_staff_vehicle_location_resources
+      - custom_meeting_place
+      - filters_by_resources
+      - self_booking_slots
+      - important_date_projection
+    api_requirements:
+      - calendar.events.list
+      - calendar.events.create
+      - calendar.events.get
+      - calendar.events.update
+      - calendar.events.cancel
+      - calendar.events.complete
+      - calendar.events.custom_meeting_place
+      - calendar.events.important_dates_projection
+      - availability.list
+      - availability.create
+      - availability.update
+      - availability.book
+      - availability.cancel
+      - calendar.server_conflict_detection
+    database:
+      - calendar_events
+      - availability_slots
+      - students
+      - staff_profiles
+      - vehicles
+      - locations
+    permissions:
+      - calendar.view
+      - calendar.manage.own
+      - calendar.manage.organization
+      - calendar.publish_student_slots
+      - calendar.book_for_student
+      - worktime.view.own
+      - worktime.view.organization
+      - worktime.manage
+    invariants:
+      - conflict_detection_is_server_side
+      - all_relation_ids_belong_to_same_tenant
+      - times_are_stored_UTC_and_rendered_in_organization_timezone
+      - self_booking_is_atomic
+    production_blockers:
+      - calendar_overlap_enforcement_ADR
+    test_obligations:
+      - all_resource_filter_entrypoints
+      - overlapping_instructor_vehicle_student_conflicts
+      - double_booking_race
+      - timezone_boundaries
+      - custom_meeting_place_vs_location
+
+  locations:
+    documentation_status: CONTRACT_READY
+    evidence:
+      - specs/screens/locations.yml
+      - specs/screens/school-locations-create.yml
+      - specs/screens/school-locations-edit.yml
+    preserved_capabilities:
+      - list
+      - create
+      - edit
+      - branch
+      - lecture_room
+      - maneuvering_area
+      - address_and_city_search
+      - calendar_context
+      - safe_archive_restore
+    api_requirements:
+      - locations.list
+      - locations.create
+      - locations.get
+      - locations.update
+      - locations.archive
+      - locations.restore
+      - location_types.list
+      - geography.cities.search
+    database:
+      - locations
+      - location_types
+    permissions:
+      - locations.view
+      - locations.create
+      - locations.edit
+      - locations.archive
+      - locations.restore
+    invariants:
+      - multi_location_supported
+      - archived_location_history_remains_resolvable
+      - location_is_calendar_resource
+    test_obligations:
+      - all_observed_location_types
+      - create_edit_field_parity
+      - city_search_reference
+      - archive_restore_with_existing_calendar_history
+
+  staff:
+    documentation_status: CONTRACT_READY
+    evidence:
+      - specs/screens/staff.yml
+      - specs/screens/staff-create.yml
+      - specs/screens/staff-detail.yml
+      - specs/screens/staff-edit.yml
+      - docs/21-staff-screen.md
+      - docs/22-staff-create-form.md
+      - docs/23-staff-detail-screen.md
+      - docs/24-staff-edit-form.md
+    preserved_capabilities:
+      - list_create_detail_edit
+      - photo
+      - email_first_name_last_name
+      - staff_types_multi_select
+      - pesel_phone_authorization_number
+      - categories_multi_select
+      - locations_multi_select
+      - card_medical_psychological_validity
+      - optional_panel_login_account
+      - permission_management
+      - calendar_context
+      - archive_restore
+    api_requirements:
+      - staff.list
+      - staff.create
+      - staff.get
+      - staff.update
+      - staff.archive
+      - staff.restore
+      - staff.account.create
+      - staff.account.revoke
+      - staff.permissions.get
+      - staff.permissions.replace
+      - staff_types.list
+      - staff.document_expiry_projection
+      - staff.calendar_context
+      - staff.login_tenant_identity
+    database:
+      - staff_profiles
+      - staff_type_assignments
+      - staff_category_assignments
+      - staff_location_assignments
+      - staff_membership_links
+      - staff_documents
+      - organization_memberships
+      - membership_permissions
+      - file_assets
+    permissions:
+      - staff.view
+      - staff.create
+      - staff.edit
+      - staff.archive
+      - staff.restore
+      - staff.accounts.manage
+      - staff.permissions.manage
+    invariants:
+      - staff_type_is_not_permission
+      - staff_profile_may_exist_without_login
+      - login_is_scoped_through_organization_membership
+      - same_global_user_can_work_for_multiple_OSK
+      - independent_document_validities_are_not_collapsed
+    test_obligations:
+      - observed_form_fields_and_multiselects
+      - panel_account_optional_then_later_create
+      - two_OSK_same_user_memberships
+      - document_expiry_projection
+      - permission_allow_deny_and_cross_tenant
+
+  vehicles:
+    documentation_status: CONTRACT_READY
+    evidence:
+      - specs/screens/vehicles.yml
+      - specs/screens/vehicle-create.yml
+      - specs/screens/vehicle-detail.yml
+      - specs/screens/vehicle-edit.yml
+      - specs/screens/vehicle-delete.yml
+      - docs/20-vehicles-screen.md
+      - docs/25-vehicle-detail-screen.md
+      - docs/26-vehicle-edit-form.md
+      - docs/27-vehicle-create-form.md
+      - docs/28-vehicle-delete-confirmation.md
+    preserved_capabilities:
+      - list_create_detail_edit
+      - photo
+      - registration_and_side_number
+      - make_model_year_engine_capacity_vin
+      - categories_multi_select
+      - locations_multi_select
+      - technical_inspection_validity
+      - OC_validity
+      - AC_validity
+      - calendar_context
+      - safe_archive_restore_or_delete_equivalent
+    api_requirements:
+      - vehicles.list
+      - vehicles.create
+      - vehicles.get
+      - vehicles.update
+      - vehicles.archive
+      - vehicles.restore
+      - vehicle_documents.list
+      - vehicle_documents.create
+      - vehicle_documents.update
+      - vehicles.validity_projection
+      - vehicles.calendar_context
+    database:
+      - vehicles
+      - vehicle_documents
+      - vehicle_category_assignments
+      - vehicle_location_assignments
+      - file_assets
+    permissions:
+      - vehicles.view
+      - vehicles.create
+      - vehicles.edit
+      - vehicles.archive
+      - vehicles.restore
+    invariants:
+      - independent_OC_AC_inspection_validities
+      - vehicle_is_calendar_resource
+      - historical_use_is_preserved_after_archive
+      - demo_sentinel_dates_are_not_business_requirements
+    test_obligations:
+      - observed_create_edit_fields
+      - photo_upload_remove_flow
+      - category_location_tenant_validation
+      - document_expiry_projection
+      - archive_restore_with_calendar_history
+
+  student_finance:
+    documentation_status: CONTRACT_READY
+    evidence:
+      - specs/screens/student-payment-charge.yml
+      - specs/design/student-finance-ledger.yml
+    preserved_capabilities:
+      - charge_title_amount_remaining_payments_added_date
+      - add_payment
+      - partial_payment
+      - full_payment
+      - total_balance
+      - safe_correction_reversal
+    api_requirements:
+      - charges.list
+      - charges.create
+      - charges.cancel
+      - student_payments.list
+      - student_payments.record
+      - student_payments.reverse
+      - student_finance.summary
+      - student_finance.separate_ledger
+    database:
+      - student_charges
+      - student_payments
+    permissions:
+      - student_finance.view
+      - student_finance.create_charge
+      - student_finance.record_payment
+      - student_finance.cancel_charge
+      - student_finance.reverse_payment
+    invariants:
+      - student_finance_is_separate_from_platform_orders
+      - balance_is_server_projection
+      - payment_history_is_not_destructively_edited
+      - money_never_float
+    test_obligations:
+      - partial_full_payment
+      - overpayment_policy
+      - reversal_and_cancel
+      - precision
+      - tenant_and_student_course_relation_validation
+
+  licenses:
+    documentation_status: CONTRACT_READY
+    evidence:
+      - specs/screens/license-purchase.yml
+      - specs/screens/license-management-panel.yml
+      - specs/screens/license-expanded-assignments.yml
+      - specs/screens/license-generate-access.yml
+      - specs/screens/license-existing-student-selected.yml
+      - specs/screens/license-sorting.yml
+      - specs/screens/license-bulk-access-pdf.yml
+      - specs/screens/student-license-delete.yml
+      - specs/screens/student-assign-license.yml
+      - specs/screens/student-access-credentials-pdf.yml
+    preserved_capabilities:
+      - product_variants_and_quantity
+      - mixed_cart
+      - dynamic_price_discount
+      - online_payment_and_bank_transfer
+      - inventory_pool
+      - search_sort_hide_finished
+      - assign_existing_or_new_learning_account
+      - select_language_per_product_capability
+      - activation
+      - revoke_unactivated
+      - exact_one_inventory_restore
+      - expanded_assignment_history
+      - single_and_bulk_access_PDF
+      - progress_entrypoint
+      - entitlement_extension_stacking
+    api_requirements:
+      - license_products.list
+      - license_products.languages
+      - license_inventory.list
+      - license_orders.create
+      - license_assignments.list
+      - license_assignments.create
+      - license_assignments.get
+      - license_assignments.revoke_unactivated
+      - license_assignments.activate
+      - license_management.search
+      - license_management.sort
+      - license_management.hide_finished
+      - license_management.expand_history
+      - license_credentials.single_pdf
+      - license_credentials.bulk_pdf
+      - license_assignment.target_cardinality
+      - license_inventory.reuse_after_revoke
+      - license_activation.stacking
+    database:
+      - license_products
+      - license_product_languages
+      - license_inventory_entries
+      - license_assignments
+      - license_activations
+      - student_learning_accounts
+      - student_access_handoffs
+      - orders
+      - order_items
+      - payments
+    permissions:
+      - licenses.view
+      - licenses.purchase
+      - licenses.assign
+      - licenses.activate
+      - licenses.revoke_unactivated
+      - licenses.progress.view
+      - licenses.access_documents.download
+    invariants:
+      - one_inventory_row_per_unit
+      - at_most_one_current_assignment_per_inventory_unit
+      - revoked_historical_assignment_does_not_block_reuse
+      - revoke_before_activation_restores_exactly_one_unit_atomically
+      - activation_and_revoke_race_has_one_winner
+      - extension_periods_stack_without_lost_time
+      - language_availability_is_per_product_capability
+    test_obligations:
+      - observed_purchase_variants_and_cart
+      - assignment_existing_vs_new_account
+      - search_sort_hide_finished
+      - revoke_restore_race
+      - activation_stacking_concurrency
+      - single_bulk_pdf_password_security
+      - source_conflict_language_capability_not_hardcoded
+
+  internal_exams:
+    documentation_status: CONTRACT_READY_WITH_PROVIDER_QUESTION_ENGINE_INTEGRATION_PENDING
+    evidence:
+      - specs/screens/internal-exam-purchase.yml
+      - specs/screens/internal-exam-management-panel.yml
+      - specs/screens/internal-exam-generation-access.yml
+      - specs/screens/internal-exam-edit-candidate-data.yml
+      - specs/screens/internal-exam-expanded-attempts.yml
+      - specs/screens/internal-exam-filtering.yml
+      - specs/screens/internal-exam-answer-sheet-pdf.yml
+      - specs/screens/student-internal-exam.yml
+      - specs/design/internal-exam-lifecycle.yml
+    preserved_capabilities:
+      - paid_and_free_inventory
+      - management_search_filter_sort
+      - selected_student_entrypoint
+      - standalone_generation_entrypoint
+      - formal_existing_student_and_course_required
+      - edit_candidate_snapshot_before_start
+      - remote_link
+      - local_current_workstation
+      - assigned_exam_station
+      - start_consume_once
+      - result
+      - expanded_attempt_history
+      - immutable_question_review_basic_and_specialized
+      - answer_sheet_PDF
+      - technical_abort
+      - audited_inventory_adjustment
+      - station_single_active_attempt
+      - technical_station_failover_without_second_credit
+    api_requirements:
+      - exam_inventory.get
+      - exam_orders.create
+      - exam_management.list
+      - exam_management.search
+      - exam_management.filter
+      - exam_management.sort
+      - exam_attempts.list_for_course
+      - exam_attempts.create_and_reserve
+      - exam_attempts.get
+      - exam_attempts.edit_candidate_before_start
+      - exam_accesses.create
+      - exam_accesses.send_remote
+      - exam_accesses.revoke
+      - exam_accesses.start
+      - exam_attempts.submit
+      - exam_attempts.technical_abort
+      - exam_attempts.result
+      - exam_attempts.questions
+      - exam_attempts.answer_sheet_pdf
+      - exam_inventory.adjust
+      - exam_capabilities.get
+      - exam_stations.list
+      - exam_station.transfer_after_technical_failure
+      - exam_generation.selected_student_entry
+      - exam_generation.standalone_entry
+      - exam_result.question_review
+      - exam_inventory.consume_on_start
+      - exam_station.single_active_attempt
+    database:
+      - internal_exam_inventory_entries
+      - internal_exam_attempts
+      - internal_exam_reservations
+      - internal_exam_accesses
+      - exam_stations
+      - internal_exam_station_sessions
+      - internal_exam_attempt_questions
+      - internal_exam_results
+      - internal_exam_documents
+      - internal_exam_capabilities
+      - internal_exam_capability_languages
+      - file_assets
+    permissions:
+      - exams.view
+      - exams.purchase
+      - exams.generate
+      - exams.access.send
+      - exams.start.local
+      - exams.results.view
+      - exams.documents.download
+      - exams.inventory.adjust
+      - exams.attempt.invalidate
+    invariants:
+      - formal_attempt_requires_student_and_course
+      - reserve_before_start
+      - consume_exactly_once_on_start
+      - finish_never_consumes_again
+      - revoke_or_expire_before_start_releases_unused_reservation
+      - technical_abort_after_start_does_not_auto_restore
+      - one_active_station_session_per_station_and_attempt
+      - station_failover_never_consumes_second_credit
+      - question_and_candidate_snapshots_are_immutable_after_start
+    production_blockers:
+      - exact_question_engine_contract_and_snapshot_schema
+      - final_language_category_capability_data
+    test_obligations:
+      - both_generation_entrypoints
+      - management_search_filter_sort
+      - reserve_start_submit_lifecycle
+      - remote_token_and_local_session_security
+      - double_start_race
+      - station_concurrency_and_failover
+      - question_review_snapshot
+      - answer_sheet_PDF
+      - technical_abort_and_manual_adjustment
+
+  organization_settings:
+    documentation_status: CONTRACT_READY
+    evidence:
+      - specs/screens/settings.yml
+      - docs/18-settings-screen.md
+    preserved_capabilities:
+      - account_and_company_data
+      - OSK_name_and_registry_number
+      - login_context
+      - PKK_integration_configuration
+      - accepted_terms_history
+    api_requirements:
+      - organization.get
+      - organization.update
+      - organization.settings.get
+      - organization.settings.update
+      - organization.accepted_terms.get
+      - pkk.settings.get
+      - pkk.settings.update
+    database:
+      - organizations
+      - organization_settings
+      - pkk_integration_settings
+      - legal_documents
+      - terms_acceptances
+    permissions:
+      - organization.view
+      - organization.edit
+      - organization.settings.manage
+      - organization.integrations.manage
+    invariants:
+      - persisted_provider_secrets_are_write_only_or_secret_references
+      - accepted_terms_history_is_append_only
+    test_obligations:
+      - observed_settings_fields
+      - secret_write_without_readback
+      - terms_version_history
+      - permission_denials
+
+  commerce_purchase_history:
+    documentation_status: CONTRACT_READY
+    evidence:
+      - specs/screens/purchase-history.yml
+      - docs/17-history-purchases-screen.md
+      - specs/screens/license-purchase.yml
+      - specs/screens/internal-exam-purchase.yml
+    preserved_capabilities:
+      - order_list
+      - order_items
+      - amount
+      - status
+      - created_date
+      - booked_date
+      - pay_unpaid_order
+      - pagination
+      - license_and_exam_purchase_flows
+      - generic_explicit_service_entitlement_activation_when_product_requires_it
+    api_requirements:
+      - orders.list
+      - orders.get
+      - order_payments.create
+      - payments.list
+      - payment_webhook.receive
+      - purchase_history.list
+      - purchase_history.pay_unpaid
+      - service_entitlements.list
+      - service_entitlements.activate
+      - payment_webhook.dedup
+    database:
+      - orders
+      - order_items
+      - payments
+      - payment_events
+      - service_entitlements
+      - service_activations
+    permissions:
+      - purchases.view
+      - purchases.create
+      - purchases.pay
+    invariants:
+      - platform_purchase_history_is_separate_from_student_finance
+      - item_price_and_VAT_are_snapshotted
+      - webhook_signature_verified_before_processing
+      - provider_event_dedup_before_business_effect
+      - payment_success_is_not_automatic_activation_for_explicit_mode_service
+    production_blockers:
+      - final_payment_provider_signature_and_payload_contract
+    test_obligations:
+      - unpaid_payment_CTA
+      - provider_webhook_signature_failure
+      - webhook_duplicate_event
+      - product_grant_once
+      - explicit_service_activation_exactly_once
+
+  uploads_assets:
+    documentation_status: CONTRACT_READY
+    evidence:
+      - docs/08-security-compliance.md
+      - docs/06-api-contract.md
+    preserved_capabilities:
+      - staff_photo
+      - vehicle_photo
+      - formal_documents
+      - generated_PDF_assets
+      - provider_signed_XML_when_required
+    api_requirements:
+      - uploads.presign
+      - uploads.complete
+      - uploads.file_validation
+    database:
+      - file_assets
+    permissions:
+      - active_membership_plus_parent_domain_permission
+    invariants:
+      - tenant_owned
+      - purpose_bound
+      - MIME_and_real_content_sniffed
+      - size_limited
+      - risky_files_scanned_before_ready
+      - user_filename_never_becomes_storage_key_directly
+    test_obligations:
+      - cross_tenant_asset_attachment_denied
+      - declared_vs_detected_MIME_mismatch
+      - rejected_size_or_executable_content
+      - pending_asset_cannot_attach_to_business_entity
+
+  dictionaries:
+    documentation_status: CONTRACT_READY_WITH_LEGAL_CATEGORY_BLOCKER
+    evidence:
+      - specs/screens/course-create.yml
+      - specs/screens/course-edit.yml
+      - specs/screens/license-generate-access.yml
+      - specs/screens/internal-exam-generation-access.yml
+      - specs/screens/staff-create.yml
+      - specs/screens/vehicle-create.yml
+    preserved_capabilities:
+      - driving_categories
+      - languages
+      - location_types
+      - staff_types
+      - product_language_capabilities
+      - exam_language_category_capabilities
+    api_requirements:
+      - dictionaries.driving_categories.list
+      - dictionaries.languages.list
+      - location_types.list
+      - staff_types.list
+      - license_products.languages
+      - exam_capabilities.get
+    database:
+      - driving_categories
+      - languages
+      - location_types
+      - staff_types
+      - license_product_languages
+      - internal_exam_capabilities
+      - internal_exam_capability_languages
+    invariants:
+      - dictionaries_are_not_hardcoded_only_in_Vue
+      - source_conflicts_are_preserved_and_resolved_by_capability_data
+    production_blockers:
+      - legal_category_dictionary_reverification_including_PT_mapping
+    test_obligations:
+      - dictionary_validity_periods
+      - product_specific_language_matrix
+      - exam_specific_language_category_matrix
+
+  audit_notifications:
+    documentation_status: CONTRACT_READY
+    evidence:
+      - docs/08-security-compliance.md
+      - docs/84-test-strategy.md
+    preserved_capabilities:
+      - restricted_audit_history
+      - safe_activity_projection
+      - user_notifications
+      - mark_notification_read
+    api_requirements:
+      - audit_logs.list
+      - audit.append_only
+      - activity.list
+      - notifications.list
+      - notifications.mark_read
+    database:
+      - audit_logs
+      - organization_activity_events
+      - notifications
+      - outbox_messages
+    permissions:
+      - organization.audit.view
+      - active_membership
+    invariants:
+      - audit_append_only
+      - critical_mutations_write_audit
+      - activity_safe_payload_is_allowlisted
+      - plaintext_password_tokens_full_PESEL_full_PKK_absent_from_audit_activity
+    test_obligations:
+      - audit_created_for_finance_PKK_exam_license_role_changes
+      - safe_projection_redaction
+      - audit_access_permission_and_tenant_scope
+      - notification_own_scope
+
+cross_layer_gaps_after_scan_4:
+  resolved:
+    - partial_openapi_core_coverage
+    - missing_auth_http_operations_in_inventory
+    - missing_upload_http_operations_in_inventory
+    - missing_audit_http_operation_in_inventory
+    - missing_service_entitlement_http_operations_and_database_model
+    - missing_auth_session_and_account_closure_persistence_model
+    - missing_exam_station_failover_http_contract
+    - unsafe_global_session_security_assumption_for_payment_webhook_and_remote_exam
+  still_blocking_related_production:
+    - legal_category_dictionary_reverification_including_PT_mapping
+    - sensitive_identifier_encryption_and_key_rotation_ADR
+    - calendar_overlap_enforcement_ADR
+    - privacy_and_retention_schedule
+    - final_PKK_provider_contract_and_schema
+    - final_payment_provider_webhook_signature_and_payload_schema
+  implementation_time_requirements:
+    - exact_request_response_schemas_may_be_tightened_without_reducing_capabilities
+    - OpenAPI_dereference_and_coverage_validation_must_run_in_CI
+    - each_module_PR_updates_traceability_implementation_status_and_tests
