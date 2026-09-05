@@ -98,7 +98,27 @@ quality_checks:
       projection or entry capabilities from the reverse-engineered UI.
 
   every_openapi_path_ref_resolves:
-    status: PENDING_FULL_SCAN
+    status: PASS
+    stage_step: STAGE3_STEP_3
+    audit_scope: root_paths_refs_to_modular_path_files_only
+    counts:
+      root_path_refs: 129
+      referenced_module_path_keys: 129
+      dangling_root_path_refs: 0
+      unreferenced_module_path_keys: 0
+    module_path_counts:
+      auth_organization: 16
+      students_courses_and_student_finance: 32
+      pkk_calendar: 17
+      resources: 23
+      licenses: 10
+      internal_exams: 18
+      commerce_dashboard: 13
+    validation_rule: >-
+      Each root path in specs/api/openapi-v1.yaml points to an existing path key
+      in exactly one declared module file using JSON Pointer slash escaping (~1).
+      This step checks path-item reference resolution only; component/schema refs
+      are deliberately not promoted into this completed check.
 
   operationIds_are_unique:
     status: PENDING_FULL_SCAN
@@ -143,7 +163,7 @@ gate_definition:
   may_start_stage_4: false
 
 next_single_step:
-  id: STAGE3_STEP_3
-  action: scan_every_openapi_path_ref_for_resolution_only
-  scope_lock: do_not_scan_operationId_uniqueness_security_idempotency_request_schema_or_stage_4_until_ref_resolution_step_is_audited
-  after_action: rerun_this_gate_and_record_PASS_or_new_blocker_for_ref_resolution
+  id: STAGE3_STEP_4
+  action: scan_operationId_uniqueness_only_across_all_158_canonical_HTTP_operations
+  scope_lock: do_not_scan_security_idempotency_request_schema_or_stage_4_until_operationId_uniqueness_step_is_audited
+  after_action: rerun_this_gate_and_record_PASS_or_new_blocker_for_operationId_uniqueness
