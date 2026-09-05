@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: PrawkoNaRaz OSK API shared components
-  version: 0.2.0
+  version: 0.2.1
 components:
   parameters:
     Page:
@@ -174,15 +174,40 @@ components:
       type: object
       required: [id, name, timezone, status]
       properties:
-        id: { type: string, format: uuid }
+        id: { type: string, format: uuid, readOnly: true }
         name: { type: string }
         nip: { type: [string, 'null'] }
+        phone: { type: [string, 'null'] }
         timezone: { type: string }
-        status: { type: string }
+        status: { type: string, readOnly: true }
         osk_registry_number: { type: [string, 'null'] }
-    OrganizationSettings:
+    UpdateOrganizationRequest:
       type: object
-      additionalProperties: true
+      additionalProperties: false
+      properties:
+        name: { type: string }
+        nip: { type: [string, 'null'] }
+        phone: { type: [string, 'null'] }
+        timezone: { type: string }
+        osk_registry_number: { type: [string, 'null'] }
+    UserBasicData:
+      type: object
+      required: [first_name, last_name, email]
+      properties:
+        first_name: { type: string }
+        last_name: { type: string }
+        email: { type: string, format: email }
+    OrganizationCompanyData:
+      type: object
+      required: [company_name, street, house_number, city, postal_code]
+      properties:
+        company_name: { type: string }
+        street: { type: string }
+        house_number: { type: string }
+        unit_number: { type: [string, 'null'] }
+        city: { type: string }
+        postal_code: { type: string }
+        phone: { type: [string, 'null'] }
     PkkIntegrationSettings:
       type: object
       properties:
@@ -191,8 +216,47 @@ components:
         external_osk_login: { type: string }
         operator_first_name: { type: string }
         operator_last_name: { type: string }
-        configured: { type: boolean }
-      description: Secrets are write-only and never returned after persistence.
+        configured: { type: boolean, readOnly: true }
+      description: Observed PKK configuration fields; future provider secrets, if any, are separate write-only/secret references and must not be invented from the observed screen.
+    OskSettingsProjection:
+      type: object
+      required: [basic_data, company_data, pkk_api_data]
+      properties:
+        basic_data: { $ref: '#/components/schemas/UserBasicData' }
+        company_data: { $ref: '#/components/schemas/OrganizationCompanyData' }
+        pkk_api_data: { $ref: '#/components/schemas/PkkIntegrationSettings' }
+        accepted_terms:
+          type: array
+          items: { $ref: '#/components/schemas/TermsAcceptance' }
+    UpdateOskSettingsRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        basic_data:
+          type: object
+          additionalProperties: false
+          properties:
+            first_name: { type: string }
+            last_name: { type: string }
+            email: { type: string, format: email }
+        company_data:
+          type: object
+          additionalProperties: false
+          properties:
+            company_name: { type: string }
+            street: { type: string }
+            house_number: { type: string }
+            unit_number: { type: [string, 'null'] }
+            city: { type: string }
+            postal_code: { type: string }
+            phone: { type: [string, 'null'] }
+        pkk_api_data:
+          type: object
+          additionalProperties: false
+          properties:
+            school_name: { type: string }
+            osk_registry_number: { type: string }
+            external_osk_login: { type: string }
     TermsAcceptance:
       type: object
       required: [version, accepted_at]
@@ -276,7 +340,11 @@ components:
         id: { type: string, format: uuid }
         account_id: { type: string, format: uuid }
         created_at: { type: string, format: date-time }
-        one_time_plaintext_password: { type: [string, 'null'], writeOnly: true }
+        one_time_plaintext_password:
+          type: [string, 'null']
+          readOnly: true
+          x-one-time-secret: true
+          description: May be returned once in a secure create/reset response and is never recoverable later.
     StudentProgress:
       type: object
       properties:
@@ -386,7 +454,15 @@ components:
         vehicle_id: { type: [string, 'null'], format: uuid }
         location_id: { type: [string, 'null'], format: uuid }
     UpdateTrainingSessionRequest:
-      allOf: [{ $ref: '#/components/schemas/CreateTrainingSessionRequest' }]
+      type: object
+      additionalProperties: false
+      properties:
+        session_type: { type: string }
+        starts_at: { type: string, format: date-time }
+        ends_at: { type: string, format: date-time }
+        instructor_id: { type: string, format: uuid }
+        vehicle_id: { type: [string, 'null'], format: uuid }
+        location_id: { type: [string, 'null'], format: uuid }
     TrainingHoursProjection:
       type: object
       properties:
@@ -471,7 +547,18 @@ components:
         location_id: { type: [string, 'null'], format: uuid }
         custom_meeting_place: { type: [string, 'null'] }
     UpdateCalendarEventRequest:
-      allOf: [{ $ref: '#/components/schemas/CreateCalendarEventRequest' }]
+      type: object
+      additionalProperties: false
+      properties:
+        event_type: { type: string }
+        name: { type: [string, 'null'] }
+        starts_at: { type: string, format: date-time }
+        ends_at: { type: string, format: date-time }
+        student_id: { type: [string, 'null'], format: uuid }
+        instructor_id: { type: [string, 'null'], format: uuid }
+        vehicle_id: { type: [string, 'null'], format: uuid }
+        location_id: { type: [string, 'null'], format: uuid }
+        custom_meeting_place: { type: [string, 'null'] }
     AvailabilitySlot:
       type: object
       required: [id, starts_at, ends_at, status, version]
@@ -488,6 +575,15 @@ components:
     CreateAvailabilitySlotRequest:
       type: object
       required: [starts_at, ends_at]
+      properties:
+        instructor_id: { type: [string, 'null'], format: uuid }
+        vehicle_id: { type: [string, 'null'], format: uuid }
+        location_id: { type: [string, 'null'], format: uuid }
+        starts_at: { type: string, format: date-time }
+        ends_at: { type: string, format: date-time }
+    UpdateAvailabilitySlotRequest:
+      type: object
+      additionalProperties: false
       properties:
         instructor_id: { type: [string, 'null'], format: uuid }
         vehicle_id: { type: [string, 'null'], format: uuid }
@@ -515,6 +611,15 @@ components:
     CreateLocationRequest:
       type: object
       required: [type_code, name, street_and_number, postal_code, city_reference]
+      properties:
+        type_code: { type: string }
+        name: { type: string }
+        street_and_number: { type: string }
+        postal_code: { type: string }
+        city_reference: { type: string }
+    UpdateLocationRequest:
+      type: object
+      additionalProperties: false
       properties:
         type_code: { type: string }
         name: { type: string }
@@ -587,6 +692,24 @@ components:
         psychological_exam_valid_until: { type: [string, 'null'], format: date }
         photo_asset_id: { type: [string, 'null'], format: uuid }
         create_login_account: { type: boolean, default: false }
+    UpdateStaffRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        email: { type: string, format: email }
+        first_name: { type: string }
+        last_name: { type: string }
+        staff_type_codes: { type: array, minItems: 1, items: { type: string } }
+        pesel: { type: [string, 'null'] }
+        phone: { type: [string, 'null'] }
+        authorization_number: { type: [string, 'null'] }
+        category_ids: { type: array, items: { type: string, format: uuid } }
+        location_ids: { type: array, items: { type: string, format: uuid } }
+        card_valid_until: { type: [string, 'null'], format: date }
+        medical_exam_valid_until: { type: [string, 'null'], format: date }
+        psychological_exam_valid_until: { type: [string, 'null'], format: date }
+        photo_asset_id: { type: [string, 'null'], format: uuid }
+        create_login_account: { type: boolean }
     PermissionSet:
       type: object
       required: [permissions]
@@ -635,6 +758,23 @@ components:
         oc_valid_until: { type: [string, 'null'], format: date }
         ac_valid_until: { type: [string, 'null'], format: date }
         photo_asset_id: { type: [string, 'null'], format: uuid }
+    UpdateVehicleRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        registration_number: { type: string }
+        side_number: { type: [string, 'null'] }
+        make: { type: string }
+        model: { type: string }
+        production_year: { type: [integer, 'null'] }
+        engine_capacity_cm3: { type: [integer, 'null'] }
+        vin: { type: [string, 'null'] }
+        category_ids: { type: array, items: { type: string, format: uuid } }
+        location_ids: { type: array, items: { type: string, format: uuid } }
+        next_inspection_at: { type: [string, 'null'], format: date }
+        oc_valid_until: { type: [string, 'null'], format: date }
+        ac_valid_until: { type: [string, 'null'], format: date }
+        photo_asset_id: { type: [string, 'null'], format: uuid }
     VehicleDocument:
       type: object
       required: [id, document_type]
@@ -646,6 +786,13 @@ components:
     UpsertVehicleDocumentRequest:
       type: object
       required: [document_type]
+      properties:
+        document_type: { type: string }
+        valid_until: { type: [string, 'null'], format: date }
+        asset_id: { type: [string, 'null'], format: uuid }
+    UpdateVehicleDocumentRequest:
+      type: object
+      additionalProperties: false
       properties:
         document_type: { type: string }
         valid_until: { type: [string, 'null'], format: date }
@@ -727,15 +874,18 @@ components:
         version: { type: integer }
     CreateLicenseAssignmentRequest:
       type: object
+      additionalProperties: false
       required: [license_inventory_entry_id, target, language_code]
       properties:
         license_inventory_entry_id: { type: string, format: uuid }
         target:
           oneOf:
             - type: object
+              additionalProperties: false
               required: [existing_learning_account_id]
               properties: { existing_learning_account_id: { type: string, format: uuid } }
             - type: object
+              additionalProperties: false
               required: [student_id, new_learning_account]
               properties:
                 student_id: { type: string, format: uuid }
@@ -816,7 +966,11 @@ components:
         mode: { type: string }
         status: { type: string }
         expires_at: { type: [string, 'null'], format: date-time }
-        one_time_remote_url: { type: [string, 'null'], writeOnly: true }
+        one_time_remote_url:
+          type: [string, 'null']
+          readOnly: true
+          x-one-time-secret: true
+          description: May be returned once when creating remote access; raw token is never recoverable later.
     InternalExamResult:
       type: object
       required: [attempt_id, passed, score, max_score]
@@ -879,13 +1033,16 @@ components:
       allOf: [{ $ref: '#/components/schemas/Order' }]
     ServiceEntitlement:
       type: object
-      required: [id, service_type, status]
+      required: [id, service_type, status, activation_mode]
       properties:
         id: { type: string, format: uuid }
         service_type: { type: string }
         status: { type: string }
-        activation_mode: { type: string }
+        activation_mode: { type: string, enum: [immediate, explicit] }
+        granted_at: { type: [string, 'null'], format: date-time }
         activated_at: { type: [string, 'null'], format: date-time }
+        effective_from: { type: [string, 'null'], format: date-time }
+        effective_to: { type: [string, 'null'], format: date-time }
 
     DashboardProjection:
       type: object
