@@ -4,113 +4,68 @@ Data weryfikacji: 2026-09-05
 
 **Route:** `/egzamin-wewnetrzny/panel`  
 **Kontekst:** `Egzamin wewnętrzny -> Panel - Generuj egzamin`  
-**Źródło:** bieżący zalogowany ekran + screenshot przekazany podczas audytu  
+**Źródło:** bieżące zalogowane ekrany + screenshoty przekazane podczas audytu  
 **Status:** `USER_CONFIRMED_AUTH_SCREEN`
+
+Powiązane:
+- zakup egzaminów: `docs/59-internal-exam-purchase-screen.md`,
+- rozwinięta historia prób: `docs/61-internal-exam-expanded-attempt-history.md`.
 
 ---
 
 ## 1. Znaczenie ekranu
 
 `Zarządzaj egzaminami` jest centralnym panelem operacyjnym OSK do:
-- podglądu dostępnej puli egzaminów,
+- podglądu puli egzaminów,
 - rozróżnienia puli darmowej i opłaconej,
-- generowania egzaminów dla kursantów,
-- przeglądania egzaminów już przypisanych/utworzonych,
+- generowania egzaminów,
+- przeglądania historii prób kursantów,
 - filtrowania, sortowania i wyszukiwania,
-- przechodzenia do szczegółów egzaminu,
-- pobierania wydruku egzaminu.
+- przechodzenia do szczegółów konkretnej próby,
+- pobierania wydruku konkretnego egzaminu.
 
 ---
 
-## 2. Dostępne egzaminy wewnętrzne
+## 2. Inventory egzaminów
 
-Panel pokazuje trzy agregaty:
+Panel pokazuje:
+- `Darmowe` — obserwowane 10, opis `Egzaminy darmowe w tym miesiącu`,
+- `Opłacone` — obserwowane 150,
+- `Wszystkie` — obserwowane 160.
 
-### Darmowe
-- etykieta: `Darmowe`,
-- opis: `Egzaminy darmowe w tym miesiącu`,
-- obserwowany licznik: `10`.
+Snapshot jest spójny:
 
-Dodatkowy komunikat sugeruje możliwość indywidualnego zwiększenia darmowej miesięcznej puli po kontakcie z obsługą.
+`10 + 150 = 160`
 
-### Opłacone
-- etykieta: `Opłacone`,
-- obserwowany licznik: `150`.
+Wniosek dla naszego modelu: inventory musi zachowywać źródło jednostki (`free_monthly`, `paid`), a `total_available` jest projekcją.
 
-### Wszystkie
-- etykieta: `Wszystkie`,
-- obserwowany licznik: `160`.
-
-Obserwacja jest arytmetycznie spójna:
-
-`10 darmowych + 150 opłaconych = 160 wszystkich`
-
-### Wniosek domenowy
-
-Pula egzaminów ma co najmniej dwa źródła:
-- `free_monthly`,
-- `paid`.
-
-Nie powinniśmy modelować egzaminów wyłącznie jako jednego pola `available_exams` bez źródła/provenance.
-
-Dla naszego produktu rekomendowany jest ledger inventory, gdzie każda jednostka lub partia ma źródło.
+`Dokup egzaminy` prowadzi do `/egzamin-wewnetrzny/wykup`.
 
 ---
 
-## 3. Dokup egzaminy
-
-Potwierdzona akcja:
-- `Dokup egzaminy` -> `/egzamin-wewnetrzny/wykup`.
-
-Zakup puli jest osobnym flow opisanym w `docs/59-internal-exam-purchase-screen.md`.
-
----
-
-## 4. Sekcja „Przydzielone egzaminy wewnętrzne”
+## 3. Sekcja `Przydzielone egzaminy wewnętrzne`
 
 Potwierdzone kontrolki:
 - `Generuj egzamin`,
 - `Zaznacz widoczne`,
-- `Generuj egzaminy` (przycisk nad tabelą; w obserwowanym stanie nieaktywny bez wyboru),
+- `Generuj egzaminy` — widoczny przycisk nad tabelą, exact selected-row behavior nadal do sprawdzenia,
 - `Ukryj egzaminy zakończone`,
 - wyszukiwarka,
 - `Filtruj`,
 - `Sortuj`.
 
-### Ważna granica
-
-Sama obecność checkboxów i przycisku `Generuj egzaminy` sugeruje operację na zaznaczonych rekordach, ale dokładna kardynalność i zachowanie batch flow nie są jeszcze potwierdzone.
-
-Nie wpisujemy batch generation jako potwierdzonej funkcji dopóki nie zobaczymy formularza po zaznaczeniu kilku rekordów.
+Nie zakładamy batch generation bez obejrzenia właściwego flow.
 
 ---
 
-## 5. Granularność wiersza
+## 4. Granularność wiersza głównego
 
-Wiersz główny reprezentuje kursanta / dostęp egzaminacyjny z agregatem jego egzaminów, a nie pojedynczą próbę.
-
-Wskazuje na to kolumna:
-- `Liczba egzaminów`
-
-oraz akcja:
-- `Rozwiń`.
-
-Zaobserwowano:
-- Ala Nowak -> `7`,
-- Paweł Kowalski -> `2`.
-
-To bardzo mocno wspiera model:
-
-`student/internal_exam_access -> many internal_exam_attempts`
-
----
-
-## 6. Kolumny tabeli
+Jeden wiersz reprezentuje kursanta / kontekst egzaminacyjny wraz z agregatem jego prób, a nie pojedynczy egzamin.
 
 Potwierdzone kolumny:
 - `Email lub login`,
 - `Imię i nazwisko`,
-- grupa `Najnowszy egzamin`:
+- `Najnowszy egzamin`:
   - `Kat.`,
   - `Status`,
   - `Data`,
@@ -118,114 +73,106 @@ Potwierdzone kolumny:
 - `Liczba egzaminów`,
 - akcje.
 
-Zaobserwowane przykłady:
+Zaobserwowano:
+- Ala Nowak — 7 egzaminów,
+- Paweł Kowalski — 2 egzaminy.
 
-### Ala Nowak
-- email/login: `alanowak@prawo-jazdy-360.pl`,
-- kategoria: `B`,
-- status: czerwony symbol `x` bez tekstowej etykiety,
-- data: `26-01-2026 15:43`,
-- język: `PL`,
-- liczba egzaminów: `7`.
-
-### Paweł Kowalski
-- email/login: `pawelkowalski@prawo-jazdy-360.pl`,
-- kategoria: `B`,
-- status: czerwony symbol `x` bez tekstowej etykiety,
-- data: `23-01-2026 12:56`,
-- język: `PL`,
-- liczba egzaminów: `2`.
-
-### Status `x`
-
-Nie interpretujemy jeszcze czerwonego `x` jako `niezdany`, `nieukończony` albo inny konkretny stan. Na samym ekranie brak legendy/tekstu.
-
-Status pozostaje `TO_VERIFY` do czasu rozwinięcia lub szczegółów egzaminu.
+Dla Ali rozwinięcie rzeczywiście pokazuje 7 konkretnych rekordów, więc `Liczba egzaminów` odpowiada historii prób.
 
 ---
 
-## 7. Akcje wiersza
+## 5. Status najnowszego egzaminu
 
-Potwierdzone:
+W wierszu Ali status najnowszego egzaminu jest pokazany jako czerwony `x`.
+
+Po `Rozwiń` wszystkie 7 widocznych prób Ali mają tekstowy status:
+- `Niezaliczony`.
+
+Najświeższe rekordy mają tę samą wyświetlaną datę `26-01-2026 15:43`, którą pokazuje parent row.
+
+Dla obserwowanego wiersza potwierdzamy więc mapping:
+
+`Niezaliczony -> czerwony x`
+
+Wygląd statusów `Zaliczony`, oczekujący, rozpoczęty itd. pozostaje do dalszego capture.
+
+---
+
+## 6. `Rozwiń` — historia konkretnych prób
+
+Rozwinięcie ma tytuł `Egzaminy` i kolumny:
+- `Imię i nazwisko`,
+- `Kategoria`,
+- `Status`,
+- `Nr ewidencyjny/PKK`,
+- `Data`,
+- `Język`,
+- akcje.
+
+Dla Ali widocznych jest 7 prób. Wszystkie mają:
+- `Ala Nowak`,
+- kat. `B`,
+- `Niezaliczony`,
+- `Nr ewidencyjny/PKK = 445645645646465`,
+- `PL`.
+
+Daty/godziny:
+- 26-01-2026 15:43,
+- 26-01-2026 15:43,
+- 26-01-2026 14:07,
+- 26-01-2026 14:02,
+- 26-01-2026 13:15,
+- 26-01-2026 13:15,
+- 21-01-2026 12:44.
+
+Dwa rekordy mogą mieć tę samą minutę, więc timestamp wyświetlany w UI nie może być identyfikatorem próby.
+
+Pełna specyfikacja: `docs/61-internal-exam-expanded-attempt-history.md` oraz `specs/screens/internal-exam-expanded-attempts.yml`.
+
+---
+
+## 7. Akcje
+
+Wiersz główny:
 - `Rozwiń` / `Zwiń`,
 - `Szczegóły`,
 - `Pobierz wydruk`.
 
-### Szczegóły
+Każdy rekord po rozwinięciu również ma osobne:
+- `Szczegóły`,
+- `Pobierz wydruk`.
 
-Link prowadzi do publicznego/frontowego modułu egzaminu wewnętrznego z parametrem `pid`.
+`Szczegóły` prowadzi do `/egzamin-wewnetrzny?pid=<token>` na froncie egzaminowym.
 
-Nie przesądzamy jeszcze, czy otwierany widok jest:
-- szczegółami wykonanego egzaminu,
-- ekranem uruchomienia,
-- wynikiem,
-- linkiem egzaminacyjnym.
+`Pobierz wydruk` używa `/exam/download?id=<exam_id>`.
 
-Wymaga osobnego capture.
-
-### Pobierz wydruk
-
-Potwierdzony endpoint wzorca:
-- `/exam/download?id=<exam_id>`.
-
-Format i zawartość dokumentu pozostają do zbadania poprzez pobrany plik.
+To potwierdza, że szczegóły i dokument są per konkretna próba.
 
 ---
 
-## 8. Filtr „Ukryj egzaminy zakończone”
+## 8. Historyczny snapshot danych egzaminu
 
-Potwierdzony toggle:
-- `Ukryj egzaminy zakończone`.
+Ponieważ przy każdej próbie UI osobno pokazuje:
+- imię i nazwisko,
+- kategorię,
+- nr ewidencyjny/PKK,
+- język,
 
-To potwierdza istnienie lifecycle z co najmniej stanem/projekcją `finished/completed`.
-
-Nie potwierdzono:
-- jakie dokładnie statusy są uznawane za zakończone,
-- czy `zdany` i `niezdany` są osobnymi zakończonymi stanami,
-- jak zachowuje się mixed history jednego kursanta.
+dla naszego produktu egzamin powinien zachowywać historyczny snapshot tych danych. Późniejsza zmiana profilu kursanta nie może przepisać historii wykonanego egzaminu.
 
 ---
 
-## 9. Model inventory dla naszego produktu
+## 9. Model naszego produktu
 
-Rekomendowane źródła puli:
-- `free_monthly`,
-- `paid`,
-- opcjonalnie `manual_adjustment/promo` w przyszłości.
-
-Rekomendowane pola ledgeru:
-- `organization_id`,
-- `source`,
-- `quantity_delta`,
-- `effective_at`,
-- `expires_at nullable` dla puli darmowej, jeśli reset miesięczny jest realizowany przez wygasanie,
-- `order_id nullable`,
-- `reason`,
-- `created_by`.
-
-### Projekcje
-
-- `free_available`,
-- `paid_available`,
-- `total_available`.
-
-Nie hardkodujemy miesięcznego resetu implementacyjnie bez osobnej polityki; może to być quota projection zamiast fizycznych rekordów jednostkowych.
-
----
-
-## 10. Model egzaminu dla naszego produktu
-
-Rekomendowane encje:
-- `internal_exam_accesses` / kontekst kursanta,
-- `internal_exam_attempts`,
+Encje:
 - `internal_exam_inventory_ledger`,
+- `internal_exam_accesses`,
+- `internal_exam_attempts`,
 - `internal_exam_launch_tokens`,
 - `internal_exam_results`,
 - `internal_exam_documents`.
 
-Jeden kursant może mieć wiele prób egzaminu.
-
-Wiersz panelu może przechowywać/materializować projekcję:
+Wiersz główny to projekcja:
 - `latest_attempt_id`,
 - `latest_attempt_category`,
 - `latest_attempt_status`,
@@ -233,9 +180,11 @@ Wiersz panelu może przechowywać/materializować projekcję:
 - `latest_attempt_language`,
 - `attempt_count`.
 
+Źródłem prawdy jest `internal_exam_attempt` z własnym stabilnym ID.
+
 ---
 
-## 11. Potwierdzone akcje
+## 10. Potwierdzone akcje
 
 - `open_internal_exam_management_panel`
 - `view_free_exam_inventory`
@@ -249,26 +198,27 @@ Wiersz panelu może przechowywać/materializować projekcję:
 - `open_exam_filters`
 - `open_exam_sorting`
 - `expand_exam_history`
-- `open_exam_details`
-- `download_exam_printout`
+- `collapse_exam_history`
+- `view_exam_attempt_history`
+- `view_not_passed_exam_status`
+- `open_specific_exam_attempt_details`
+- `download_specific_exam_attempt_printout`
 
 ---
 
-## 12. Pozostałe niewiadome
+## 11. Pozostałe niewiadome
 
 Do dalszego capture:
-- `Rozwiń` przy kursancie — historia prób,
-- znaczenie czerwonego `x`,
-- dokładny formularz `Generuj egzamin` z poziomu panelu,
-- zachowanie `Generuj egzaminy` po zaznaczeniu rekordów,
-- filtry,
-- sortowanie,
+- formularz `Generuj egzamin`,
+- zachowanie `Generuj egzaminy` dla zaznaczonych wierszy,
+- `Filtruj`,
+- `Sortuj`,
 - exact search fields,
+- `Szczegóły` konkretnej próby,
 - format `Pobierz wydruk`,
-- ekran `Szczegóły`,
-- kolejność zużywania puli darmowej vs opłaconej,
-- reset/odnowienie darmowej puli,
-- moment konsumpcji jednostki egzaminu,
-- pagination,
-- empty states,
-- success/error messages.
+- status `Zaliczony` i statusy przed wykonaniem,
+- dokładne znaczenie kolumny `Data` (wygenerowanie/start/zakończenie),
+- scoring i czas trwania,
+- kolejność konsumpcji darmowej/opłaconej puli,
+- reset darmowej puli,
+- moment konsumpcji jednostki egzaminu.
