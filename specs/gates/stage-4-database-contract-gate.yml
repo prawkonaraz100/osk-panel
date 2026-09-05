@@ -1,0 +1,173 @@
+meta:
+  project: osk-panel
+  stage: 4
+  name: database_invariants_and_migration_design_gate
+  branch: docs-consolidation-2026-09-05
+  status: IN_PROGRESS
+  started_at: 2026-09-05
+  rule: stage_5_and_UI_or_Laravel_feature_implementation_must_not_start_until_stage_4_is_PASS
+
+prerequisite:
+  stage_3_openapi_contract_gate:
+    source: specs/gates/stage-3-openapi-contract-gate.yml
+    required_result: PASS
+    observed_result: PASS
+    status: PASS
+
+stage_4_working_rule:
+  one_database_slice_at_a_time: true
+  migration_files_not_generated_until_foundation_decisions_are_closed: true
+  reverse_engineering_capabilities_may_not_be_dropped_to_simplify_schema: true
+  formal_financial_and_audit_history_may_not_be_hard_deleted: true
+  every_cross_tenant_relation_requires_database_or_transactional_tenant_integrity: true
+
+sources:
+  aggregate_blueprint:
+    - specs/database/core-schema.yml
+    - docs/87-physical-database-schema.md
+  bounded_context_overrides:
+    - specs/database/organization-settings.yml
+    - docs/100-osk-settings-domain-model.md
+  cross_layer_contract:
+    - specs/api/common-contract.yml
+    - specs/api/required-operations-v1.yml
+    - specs/traceability/core-v1.yml
+  preservation:
+    - docs/96-reverse-engineering-preservation-contract.md
+    - specs/reverse-engineering-manifest.yml
+
+stage_4_slices:
+  - id: DB4_1_FOUNDATION_DIAGNOSIS
+    status: COMPLETE_WITH_BLOCKERS
+    scope:
+      - primary_key_physical_type
+      - nullable_scope_unique_constraints
+      - Stage_2_settings_schema_merge
+    result: FAIL
+  - id: DB4_2_IDENTITY_TENANT_RBAC
+    status: NOT_STARTED
+  - id: DB4_3_STAFF_LOCATIONS_VEHICLES
+    status: NOT_STARTED
+  - id: DB4_4_STUDENTS_COURSES_TRAINING_LEDGER
+    status: NOT_STARTED
+  - id: DB4_5_CALENDAR
+    status: NOT_STARTED
+  - id: DB4_6_LICENSES_LEARNING_ACCESS
+    status: NOT_STARTED
+  - id: DB4_7_INTERNAL_EXAMS
+    status: NOT_STARTED
+  - id: DB4_8_PKK
+    status: NOT_STARTED
+  - id: DB4_9_STUDENT_FINANCE_COMMERCE
+    status: NOT_STARTED
+  - id: DB4_10_AUDIT_OUTBOX_NOTIFICATIONS
+    status: NOT_STARTED
+  - id: DB4_11_FINAL_MIGRATION_ORDER_AND_INVARIANT_TEST_MATRIX
+    status: NOT_STARTED
+
+quality_checks:
+  stage_3_contract_is_frozen_before_DB_design:
+    status: PASS
+
+  physical_primary_key_type_is_final:
+    status: FAIL
+    blocker_id: DB-FOUND-001
+    evidence:
+      - specs/database/core-schema.yml still declares primary_key as uuid_pending_final_ADR
+      - docs/87-physical-database-schema.md says UUIDv7_or_ULID is finalized by a later ADR
+    impact: >-
+      Foreign-key types, Laravel model generation, ordered identifier generation and
+      migration helpers cannot be treated as final while the physical identifier
+      strategy remains undecided.
+
+  nullable_scope_unique_constraints_are_null_safe:
+    status: FAIL
+    blocker_id: DB-FOUND-002
+    affected_constraints:
+      - idempotency_records.organization_id_operation_key_idempotency_key
+      - account_closure_requests.user_id_organization_id_pending
+    evidence: >-
+      organization_id is nullable in both scopes, but the current blueprint uses a
+      normal PostgreSQL unique/partial-unique key including organization_id. In
+      PostgreSQL, ordinary UNIQUE semantics treat NULL values as distinct, so more
+      than one global/non-tenant row can bypass the intended uniqueness rule.
+    required_design: >-
+      Define explicit tenant and global uniqueness strategies, for example separate
+      partial unique indexes for organization_id IS NOT NULL and organization_id IS
+      NULL, or an equally explicit PostgreSQL NULLS NOT DISTINCT strategy if the
+      chosen server/version and migration policy guarantee it.
+
+  stage_2_settings_tables_are_present_in_core_inventory:
+    status: FAIL
+    blocker_id: DB-FOUND-003
+    evidence:
+      - specs/database/organization-settings.yml requires organization_contact_addresses
+      - specs/database/core-schema.yml core_tables does not list organization_contact_addresses
+      - docs/87-physical-database-schema.md identity/organization section does not define organization_contact_addresses
+    impact: company_address_would_have_no_canonical_migration_target
+
+  stage_2_settings_fields_and_constraints_are_merged_into_physical_blueprint:
+    status: FAIL
+    blocker_id: DB-FOUND-004
+    missing_or_not_yet_merged:
+      - users.first_name
+      - users.last_name
+      - organizations.phone
+      - auth_login_identifiers.is_primary_for_type
+      - primary_current_email_partial_unique_constraint
+      - organization_settings.version
+      - organization_contact_addresses_fields_and_constraints
+      - canonical_PKK_settings_fields_from_specs_database_organization_settings
+    rule: >-
+      Stage-2 bounded-context ownership is authoritative. Physical migrations may
+      not silently fall back to the older generic core table shapes.
+
+  cross_tenant_relation_integrity_strategy:
+    status: PENDING_LATER_STAGE4_SLICE
+    note: >-
+      Simple UUID foreign keys plus application checks are not yet accepted as the
+      final strategy for staff/location/vehicle/course relations. This will be
+      closed per bounded context rather than mixed into the foundation fix.
+
+  calendar_overlap_database_strategy:
+    status: PENDING_LATER_STAGE4_SLICE
+    note: keep separate from foundation; existing server-side requirement remains mandatory
+
+resolved_blockers: []
+
+open_blockers:
+  - id: DB-FOUND-001
+    severity: P1
+    description: Physical primary-key strategy remains unresolved.
+  - id: DB-FOUND-002
+    severity: P1
+    description: Nullable organization scopes make two intended unique constraints unsafe under ordinary PostgreSQL NULL semantics.
+  - id: DB-FOUND-003
+    severity: P1
+    description: organization_contact_addresses is authoritative in Stage 2 but absent from the aggregate core table inventory.
+  - id: DB-FOUND-004
+    severity: P1
+    description: Stage-2 settings fields/constraints are not yet merged into the physical core blueprint.
+
+gate_definition:
+  PASS_requires:
+    - no_open_P0_or_P1_blockers
+    - every_stage_4_slice_is_PASS_or_explicitly_deferred_by_a_separate_production_gate
+    - physical_schema_and_narrative_schema_are_synchronized
+    - migration_order_is_dependency_safe
+    - database_invariant_test_matrix_exists
+    - reverse_engineering_preservation_is_traceable_to_schema_or_use_case
+  current_result: FAIL
+  may_start_stage_5: false
+  may_start_UI_or_feature_implementation: false
+
+next_single_step:
+  id: STAGE4_STEP_2
+  action: resolve_DB_FOUND_001_primary_key_physical_strategy_only
+  allowed_scope:
+    - specs/database/core-schema.yml
+    - docs/87-physical-database-schema.md
+    - docs/104-stage-4-database-foundation-audit.md
+    - specs/gates/stage-4-database-contract-gate.yml
+  scope_lock: do_not_fix_nullable_uniqueness_settings_merge_or_other_database_slices_in_the_same_step
+  after_action: rerun_foundation_gate_before_DB_FOUND_002
