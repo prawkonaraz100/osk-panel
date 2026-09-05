@@ -1,0 +1,127 @@
+meta:
+  scope: own_product_design
+  domain: student_finance
+  status: OWN_PRODUCT_DESIGN_DECISION
+  decided_at: 2026-09-05
+  doc: docs/41-own-student-finance-ledger.md
+
+principles:
+  separate_charge_from_payment: true
+  balance_is_projection: true
+  installment_payments_supported: true
+  hard_delete_financial_history: false
+  tenant_isolation: true
+
+entities:
+  student_charges:
+    fields:
+      - id
+      - organization_id
+      - student_id
+      - course_id_nullable
+      - title
+      - original_amount
+      - currency
+      - due_at_nullable
+      - status
+      - created_by
+      - created_at
+      - cancelled_at_nullable
+    statuses:
+      - open
+      - partially_paid
+      - paid
+      - cancelled
+      - overdue_optional
+
+  student_payments:
+    fields:
+      - id
+      - organization_id
+      - student_id
+      - charge_id
+      - amount
+      - paid_at
+      - payment_method_nullable
+      - note_nullable
+      - received_by
+      - created_at
+      - reversed_at_nullable
+      - reversal_reason_nullable
+
+calculations:
+  paid_amount: sum(valid_payments_for_charge)
+  remaining_amount: original_amount_minus_paid_amount
+  total_due: sum(active_student_charges)
+  total_paid: sum(valid_student_payments)
+  total_remaining: total_due_minus_total_paid
+
+mvp_ui:
+  summary:
+    - total_due
+    - total_paid
+    - total_remaining
+  actions:
+    - add_charge
+    - record_payment
+    - view_payment_history
+    - reverse_payment
+    - cancel_charge
+  charge_form:
+    fields:
+      - title_required
+      - amount_required
+      - course_optional
+      - due_date_optional
+  payment_form:
+    fields:
+      - charge_required
+      - amount_required
+      - paid_at_required_default_now
+      - payment_method_optional
+      - note_optional
+
+payment_methods:
+  recommended_defaults:
+    - cash
+    - bank_transfer
+    - card
+    - other
+  configurable: true
+
+overpayment_policy:
+  mvp: reject_payment_above_remaining_amount
+  future_extension: student_credit
+
+course_cost_integration:
+  support_create_charge_from_course_cost: true
+  user_controlled_or_configurable: true
+  require_idempotency: true
+
+permissions:
+  - student_finance.view
+  - student_finance.create_charge
+  - student_finance.record_payment
+  - student_finance.reverse_payment
+  - student_finance.cancel_charge
+
+audit_events:
+  - student_charge_created
+  - student_charge_cancelled
+  - student_payment_recorded
+  - student_payment_reversed
+
+security_requirements:
+  - use_decimal_or_minor_units_not_float
+  - server_side_balance_calculation
+  - transactional_mutations
+  - idempotency_for_create_and_payment_operations
+  - no_hard_delete_after_financial_activity
+  - authorize_student_and_course_by_organization
+
+competitor_unknowns_nonblocking:
+  - exact_charge_vs_payment_semantics
+  - installment_entry_location
+  - partial_payment_behavior
+  - balance_calculation
+  - correction_behavior
