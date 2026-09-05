@@ -6,6 +6,8 @@ screen:
   confidence: USER_CONFIRMED_AUTH_SCREEN
   verified_at: 2026-09-05
   doc: docs/29-students-list-screen.md
+  detail_screen_spec: specs/screens/student-detail.yml
+  detail_doc: docs/30-student-detail-screen.md
 
 header:
   title: Twoi kursanci
@@ -48,8 +50,12 @@ learning_login_data:
     - PL
     - EN
     - UK
+  confirmed_by_detail_screen:
+    - learning_username
+    - language_code
+    - downloadable_access_credentials
   not_confirmed:
-    - password
+    - password_on_screen
     - account_email
     - password_reset
     - language_edit_from_list
@@ -65,8 +71,8 @@ courses_column:
       - Teoria
     last_pkk_operation:
       - Brak operacji
-  multiplicity: TO_VERIFY
-  note: column label is plural but multiple simultaneous cards for one student were not observed
+  detail_screen_confirms_collection: true
+  note: detail screen contains section Kursy (PKK) and action Dodaj kurs
 
 internal_exam_column:
   confirmed: true
@@ -74,7 +80,11 @@ internal_exam_column:
     - dash
     - red_x_visual_indicator
   red_x_semantics: TO_VERIFY
-  do_not_assume:
+  detail_screen_confirmed_statuses:
+    - not_conducted
+  detail_screen_confirmed_action:
+    - conduct_internal_exam
+  do_not_assume_red_x_means:
     - failed_exam
     - missing_exam
     - unavailable_exam
@@ -96,20 +106,69 @@ create_flows:
     confirmed_entry: true
     form: TO_VERIFY
 
+detail_screen_confirmed:
+  tabs:
+    - student_profile
+    - internal_exam
+    - progress
+  global_actions:
+    - archive_student
+    - delete_student
+  training_stages:
+    - unassigned
+    - theory
+    - practice
+    - documentation
+    - word_exam
+    - supplementary_training
+    - training_completed
+  course_required_before_training_stage_change: true
+  sections:
+    - student_details
+    - access
+    - licenses
+    - courses_pkk
+    - payments
+  student_detail_fields:
+    - full_name
+    - birth_date
+    - pesel
+    - contact_email
+    - phone
+    - created_date
+    - location_projection
+  license_statuses_observed:
+    - not_activated
+  student_payment_columns:
+    - title
+    - amount
+    - remaining
+    - payments
+    - added_date
+  student_payment_summary:
+    - total_balance
+
 entity_model:
   student_profile_separate_from_learning_account: true
+  student_finance_separate_from_osk_purchase_history: true
+  training_stage_separate_from_license_and_exam_status: true
   suggested_entities:
     - students
     - student_learning_accounts
+    - student_licenses
     - student_courses_or_enrollments
     - pkk_profiles_and_operation_history
     - internal_exam_attempts_or_assignments
+    - student_charges_and_payments
 
 relationships_confirmed_or_supported_by_projection:
   - student_has_learning_login_projection
-  - student_has_course_or_enrollment_projection
+  - student_has_course_or_enrollment_collection
   - course_can_reference_pkk
   - student_has_internal_exam_projection
+  - student_has_licenses
+  - student_has_financial_account
+  - student_can_have_location
 
 confirmed_actions:
   - add_student_from_pkk
@@ -119,6 +178,17 @@ confirmed_actions:
   - open_student_sort
   - preview_student_visible_behavior_unknown
   - open_student_details
+  - archive_student
+  - delete_student
+  - open_internal_exam_tab
+  - open_progress_tab
+  - add_student_course
+  - edit_student_details
+  - conduct_internal_exam
+  - download_student_access_credentials
+  - assign_student_license
+  - delete_unactivated_student_license
+  - add_student_payment
 
 security_requirements:
   - tenant_isolation
@@ -126,23 +196,30 @@ security_requirements:
   - tenant_scope_search_filter_sort
   - protect_pkk_reference
   - protect_learning_credentials
+  - protect_pesel
   - do_not_use_username_as_resource_authorization
+  - audit_training_stage_changes
+  - audit_credential_downloads
 
 remaining_gaps:
   - add_student_manual_form
   - add_student_from_pkk_flow
   - preview_behavior
-  - student_detail_screen
-  - student_edit
+  - student_edit_form
+  - add_course_form
+  - training_stage_transition_behavior
+  - internal_exam_tab
+  - progress_tab
+  - conduct_internal_exam_flow
+  - assign_license_form
+  - license_delete_effect_and_inventory_restore
+  - access_download_format
+  - add_payment_form
+  - partial_payment_behavior
+  - archive_delete_lifecycle
   - filter_options
   - sort_options
   - pagination
   - internal_exam_red_x_semantics
-  - course_multiplicity
-  - course_statuses
-  - learning_account_management
-  - license_and_learning_progress
-  - internal_exam_management_from_student
-  - archive_delete
   - validations
   - success_error_messages
