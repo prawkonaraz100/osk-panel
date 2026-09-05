@@ -20,12 +20,19 @@ principles:
   backend_runtime_must_not_authorize_from_role_template_code: true
   default_deny: true
   future_permission_default_for_existing_membership: denied
+  scope_is_per_permission_not_global_membership_flag: true
+  scope_can_only_restrict_an_already_granted_permission: true
+  tenant_validation_always_precedes_scope_resolution: true
+  missing_or_unresolvable_scope_fails_closed: true
 
 physical_tables_in_scope:
   - users
   - organization_memberships
   - permissions
   - membership_permissions
+  - data_scopes
+  - permission_scope_options
+  - membership_permission_scopes
   - auth_sessions
 
 role_template_contract:
@@ -50,6 +57,8 @@ role_template_contract:
         - materialize_one_membership_permissions_decision_per_known_permission
         - set_granted_true_for_template_included_permissions
         - set_granted_false_for_nonincluded_permissions
+        - materialize_scope_rows_for_each_granted_permission_from_template_scope_policy
+        - persist_no_scope_rows_for_denied_permissions
         - store_template_code_and_catalog_version_as_provenance
         - write_audit_snapshot
     reapply_or_change:
@@ -57,6 +66,7 @@ role_template_contract:
       transaction:
         - resolve_selected_template_against_current_catalog
         - replace_decisions_for_every_known_core_permission_atomically
+        - replace_scope_rows_for_every_known_core_permission_atomically
         - update_template_provenance
         - audit_before_after
   template_definition_change:
@@ -65,7 +75,7 @@ role_template_contract:
   new_permission_after_membership_creation:
     effective_default: denied
     becomes_available_by:
-      - explicit_permission_grant
+      - explicit_permission_grant_with_explicit_scope
       - explicit_template_reapplication_or_upgrade
 
 membership_permissions:
@@ -85,13 +95,15 @@ membership_permissions:
       - active_membership
       - tenant_validation
     lookup: membership_id_plus_permission_code
-    granted_true: allow_capability_subject_to_data_scope_domain_state_and_elevated_checks
+    granted_true: proceed_to_scope_resolution_then_domain_state_and_elevated_checks
     granted_false: deny
     missing_row: deny
     role_template_code_consulted_at_runtime: false
   explicit_change:
     changes_current_decision: true
     role_template_provenance_overrides_explicit_change: false
+    grant_requires_explicit_valid_scope_set: true
+    deny_removes_or_deactivates_all_scope_rows_in_same_transaction: true
     audit_required: true
   concurrency_and_history: PENDING_DB_IAM_005
 
@@ -103,10 +115,171 @@ permissions_catalog:
   unknown_permission_code_in_membership_permissions: rejected_by_FK
   deleting_permission_code_with_historical_audit_dependency: forbidden_without_migration_policy
 
+# DB-IAM-002 canonical physical/query contract.
+data_scope_contract:
+  blocker: DB-IAM-002
+  status: RESOLVED_DESIGN
+
+  superseded_shape:
+    organization_memberships_data_scope_column:
+      status: SUPERSEDED_BY_PER_PERMISSION_SCOPE_ROWS
+      runtime_use_forbidden: true
+      final_DB4_2_aggregate_sync_action: remove_from_core_blueprint_before_migrations
+      reason: one_membership_wide_string_cannot_express_different_scopes_per_permission_or_scope_union
+
+  scope_catalog:
+    table: data_scopes
+    fields:
+      code: varchar_64_primary_key
+      description: varchar_255_not_null
+    canonical_codes:
+      - organization
+      - own
+      - assigned_students
+      - assigned_locations
+    extensibility: new_scope_requires_catalog_change_policy_resolver_tests_and_migration_seed
+
+  permission_scope_options:
+    table: permission_scope_options
+    purpose: whitelist_which_scope_codes_are_legal_for_each_permission
+    fields:
+      permission_code: varchar_128_FK_permissions
+      scope_code: varchar_64_FK_data_scopes
+      resolver_code: varchar_96_not_null
+    primary_key: [permission_code, scope_code]
+    source: specs/security/permissions.yml_permission_scope_profiles
+    invariant: unsupported_permission_scope_pair_cannot_be_materialized
+
+  membership_permission_scopes:
+    table: membership_permission_scopes
+    purpose: authoritative_current_scope_predicates_for_one_granted_membership_permission
+    fields:
+      membership_id: uuid
+      permission_code: varchar_128
+      scope_code: varchar_64
+      created_at: timestamptz
+    primary_key: [membership_id, permission_code, scope_code]
+    foreign_keys:
+      permission_decision:
+        columns: [membership_id, permission_code]
+        references: membership_permissions_membership_id_permission_code
+        on_delete: cascade_only_within_authorization_configuration_record_not_business_history
+      allowed_scope_pair:
+        columns: [permission_code, scope_code]
+        references: permission_scope_options_permission_code_scope_code
+    granted_permission_requires_at_least_one_scope_row: transactional_invariant
+    denied_permission_requires_zero_scope_rows: transactional_invariant
+    multiple_scope_rows_for_same_permission:
+      allowed: true
+      combination: logical_OR_within_that_permission_after_tenant_validation
+      example: instructor_may_receive_own_OR_assigned_students
+    no_scope_rows_for_granted_permission: deny_fail_closed_even_if_data_is_temporarily_inconsistent
+
+  runtime_algorithm:
+    order:
+      - authenticate_user
+      - resolve_active_organization_membership
+      - validate_target_resource_or_proposed_relation_belongs_to_same_organization
+      - load_membership_permission_decision
+      - require_granted_true
+      - load_membership_permission_scope_rows
+      - require_at_least_one_scope_row
+      - evaluate_each_scope_with_registered_permission_scope_resolver
+      - allow_scope_layer_if_any_resolver_matches
+      - evaluate_domain_state_rule
+      - evaluate_elevated_reauth_or_MFA_when_configured
+    organization_scope_never_bypasses_tenant_validation: true
+    permission_without_scope_match: deny
+    unknown_resolver_code: deny_and_configuration_error
+    scope_may_expand_permission_capability: false
+    scope_semantics: scope_is_row_level_constraint_after_capability_grant
+
+  resolver_registry:
+    organization:
+      resolver_code: tenant_resource
+      rule: target_or_proposed_resource_organization_id_equals_active_membership_organization_id
+    own:
+      resolver_code: permission_target_owner
+      rule: >-
+        Permission-specific resolver must prove that the target belongs to the
+        current User or to the StaffProfile actively linked to this membership.
+        If the target domain has no canonical ownership relation, own evaluates false.
+      unresolved_owner_relation: deny
+    assigned_locations:
+      resolver_code: permission_target_assigned_location
+      rule: >-
+        Resolve the active StaffProfile linked to the membership, then resolve its
+        current staff_location_assignments. The target resource must map through
+        the permission-specific adapter to one of those locations. No active staff
+        link or no matching location means deny.
+      physical_dependency_to_finalize_in: DB4_3_STAFF_LOCATIONS_VEHICLES
+      dependency_contract_fixed_here: staff_membership_link_to_staff_profile_then_staff_location_assignments
+    assigned_students:
+      resolver_code: permission_target_assigned_student
+      rule: >-
+        Resolve the active StaffProfile linked to the membership. A student is in
+        the assigned set when a non-cancelled/non-archived CourseEnrollment for
+        that student has lead_instructor_id equal to that StaffProfile OR when a
+        non-cancelled TrainingSession for that student's CourseEnrollment has
+        instructor_id equal to that StaffProfile. Permission-specific adapters for
+        course, PKK, exam, license, finance or training resources resolve their
+        canonical student/course first and then apply this predicate.
+      no_active_staff_link: deny_empty_set
+      physical_dependency_to_finalize_in:
+        - DB4_3_STAFF_LOCATIONS_VEHICLES
+        - DB4_4_STUDENTS_COURSES_TRAINING_LEDGER
+      dependency_contract_fixed_here:
+        - active_staff_membership_link_is_required
+        - lead_instructor_relation_counts_as_assignment
+        - instructor_training_session_relation_counts_as_assignment
+        - cancelled_or_archived_relations_do_not_grant_scope
+
+  command_scope_rules:
+    read_command: evaluate_scope_on_existing_target
+    update_or_delete_like_command: evaluate_scope_on_existing_target_before_domain_transition
+    create_command_with_existing_parent: evaluate_scope_on_canonical_existing_parent_or_subject
+    create_command_without_preexisting_scoped_subject:
+      rule: only_a_scope_profile_explicitly_allowing_organization_may_authorize
+      reason: assigned_or_own_cannot_be_proven_before_a_canonical_subject_exists
+    bulk_command: every_target_must_match_scope_or_command_uses_explicit_partial_success_contract
+    background_job: execute_under_recorded_actor_or_system_service_policy_never_inherit_unbounded_scope_from_missing_membership
+
+  query_policy:
+    list_endpoints_must_apply_scope_in_database_query: true
+    fetch_by_id_must_apply_same_scope_predicate: true
+    post_fetch_frontend_filtering_as_security_boundary: forbidden
+    count_export_pdf_and_search_endpoints_must_apply_same_scope: true
+    cross_tenant_union_before_filtering: forbidden
+    cache_key_must_include_membership_permission_scope_version_or_equivalent_invalidation: PENDING_DB_IAM_005
+
+  downstream_slice_obligations:
+    DB4_3:
+      - materialize_staff_membership_link_and_staff_location_assignment_constraints_compatible_with_resolvers
+      - prove_assigned_locations_fail_closed_without_active_staff_link
+    DB4_4:
+      - materialize_course_lead_instructor_and_training_session_instructor_relations_compatible_with_assigned_students
+      - prove_cancelled_or_archived_course_or_session_does_not_expand_assigned_students
+    DB4_5:
+      - define_permission_specific_calendar_owner_location_student_adapters_without_changing_scope_semantics
+    rule: downstream_slices_may_implement_adapters_but_may_not_redefine_scope_meaning_without_new_ADR_and_gate_reopen
+
+  tests_required:
+    - granted_permission_without_scope_rows_is_denied
+    - denied_permission_with_stale_scope_rows_is_denied_and_consistency_check_fails
+    - unsupported_permission_scope_pair_is_rejected_by_composite_FK
+    - organization_scope_still_rejects_cross_tenant_resource
+    - multiple_scope_rows_are_OR_not_AND
+    - own_scope_does_not_fall_back_to_organization_when_owner_relation_is_missing
+    - assigned_locations_without_active_staff_link_returns_empty_set
+    - assigned_students_without_active_staff_link_returns_empty_set
+    - assigned_students_matches_lead_instructor_course_relation
+    - assigned_students_matches_non_cancelled_training_session_instructor_relation
+    - cancelled_or_archived_assignment_relation_does_not_grant_student_scope
+    - list_and_fetch_by_id_apply_equivalent_scope_predicate
+    - explicit_permission_grant_requires_explicit_allowed_scope_set
+    - template_application_materializes_scopes_only_for_granted_permissions
+
 open_blockers_not_resolved_here:
-  DB-IAM-002:
-    status: OPEN
-    topic: data_scope_physical_contract
   DB-IAM-003:
     status: OPEN
     topic: auth_session_membership_same_user_integrity
