@@ -1,0 +1,181 @@
+screen:
+  id: student_progress
+  scope: admin_osk
+  parent_route_pattern: /kursanci/<student_id>
+  tab: progress
+  title: Postępy kursanta
+  confidence: USER_CONFIRMED_AUTH_SCREEN
+  verified_at: 2026-09-05
+  doc: docs/31-student-progress-screen.md
+
+context_selectors:
+  learning_account:
+    confirmed: true
+    visible_parts:
+      - username
+      - language_code
+    observed_language_code: EN
+  category:
+    confirmed: true
+    observed_selected: B
+    observed_options:
+      - A
+      - B
+      - C
+      - D
+      - T
+      - A1
+      - B1
+      - C1
+      - D1
+      - AM
+      - A2
+    exhaustive_dictionary: false
+
+summary_kpis:
+  tests:
+    - passed_tests_count
+    - passed_tests_percent
+    - failed_tests_count
+    - failed_tests_percent
+  questions:
+    - answered_count
+    - available_count
+    - correct_percent
+    - incorrect_percent
+  observed_question_total_for_selected_context: 2185
+  hardcode_total: false
+
+analysis_sections:
+  questions:
+    description_semantics:
+      - answer_correctness
+      - solved_question_count
+    empty_state_observed: Brak danych
+  tests:
+    description_semantics:
+      - completed_test_count
+      - test_correctness_or_results
+    empty_state_observed: Brak danych
+
+handbook_progress:
+  confirmed: true
+  fields:
+    - overall_progress_percent
+    - completed_sections_count
+    - total_sections_count
+    - control_questions_percent
+  observed_snapshot:
+    progress_percent: 0
+    completed_sections: 0
+    total_sections: 13
+    control_questions_percent: 0
+
+lectures_with_narrator_progress:
+  confirmed: true
+  fields:
+    - overall_progress_percent
+    - completed_units_counter
+    - total_units_counter
+    - control_questions_percent
+  observed_snapshot:
+    progress_percent: 0
+    completed_units: 0
+    total_units_as_rendered: 774
+    control_questions_percent: 0
+  rendered_counter_label: Zaliczone działy
+  unit_semantics: TO_VERIFY
+  do_not_assume: 774_sections
+
+question_taxonomy_breakdown:
+  confirmed: true
+  groups:
+    - basic
+    - specialized
+  counter_pattern: answered/available
+  labels_observed_language: EN
+  localization_behavior:
+    admin_ui_language: PL
+    content_taxonomy_language: EN
+    correlation_with_learning_account_language: SUPPORTED_BY_OBSERVATION
+
+  basic_topics:
+    - {key: warning_signs, available: 113}
+    - {key: prohibition_and_mandatory_signs, available: 102}
+    - {key: additional_information_direction_location_signs, available: 82}
+    - {key: horizontal_road_signs, available: 113}
+    - {key: light_signals_and_traffic_controller, available: 93}
+    - {key: merging_into_traffic_equal_intersections, available: 86}
+    - {key: priority_sign_crossroads, available: 127}
+    - {key: traffic_light_crossroads, available: 59}
+    - {key: controlled_crossings_and_public_transport_stops, available: 27}
+    - {key: road_position_intersections_stopping_parking, available: 145}
+    - {key: changing_lane_and_direction, available: 148}
+    - {key: overtaking, available: 164}
+    - {key: avoiding_passing_reversing, available: 62}
+    - {key: exterior_lights_and_vehicle_signals, available: 54}
+    - {key: special_care_and_securing_vehicle, available: 61}
+    - {key: pedestrians_and_reduced_mobility, available: 105}
+    - {key: cyclists_and_children, available: 42}
+    - {key: railway_and_tram_crossings, available: 97}
+    - {key: breakdown_accident_first_aid, available: 60}
+    - {key: perception_decision_fatigue_substances, available: 45}
+
+  specialized_topics:
+    - {key: permissible_speeds_and_restrictions, available: 41}
+    - {key: safety_equipment_seat_belts_headrests_seats, available: 22}
+    - {key: vehicle_spacing_and_braking, available: 46}
+    - {key: road_condition_risk_factors, available: 38}
+    - {key: driver_fields_of_vision, available: 21}
+    - {key: driving_technique, available: 31}
+    - {key: vehicle_cargo_passenger_safety, available: 88}
+    - {key: owner_obligations_insurance_documents, available: 30}
+    - {key: mechanical_road_safety_aspects, available: 56}
+    - {key: rescue_operations, available: 26}
+    - {key: driving_with_trailer, available: 1}
+
+  observed_available_sum: 2185
+  sum_matches_summary_total: true
+  totals_dynamic: true
+
+confirmed_capabilities:
+  - open_progress_tab
+  - select_learning_account_context
+  - select_category_context
+  - view_passed_tests
+  - view_failed_tests
+  - view_answer_stats
+  - view_handbook_progress
+  - view_lecture_progress
+  - view_basic_topic_progress
+  - view_specialized_topic_progress
+
+not_observed:
+  - manual_progress_edit
+  - date_range_filter
+  - last_learning_activity
+  - learning_time
+  - per_test_detail
+  - question_history_detail
+
+model_requirements:
+  - progress_is_contextual_by_student_learning_account_category
+  - separate_test_question_handbook_lecture_metrics
+  - translatable_question_taxonomy
+  - dynamic_question_bank_totals
+  - do_not_use_display_labels_as_domain_keys
+
+security_requirements:
+  - tenant_isolation
+  - authorize_student_progress_by_organization
+  - protect_learning_account_identifiers
+
+remaining_gaps:
+  - populated_questions_analysis_rendering
+  - populated_tests_analysis_rendering
+  - exact_percentage_formulas
+  - learning_time_tracking_on_this_screen
+  - activity_history
+  - date_filters
+  - exact_lecture_774_unit_semantics
+  - multiple_learning_account_behavior
