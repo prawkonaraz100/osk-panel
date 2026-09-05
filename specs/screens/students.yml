@@ -18,6 +18,8 @@ screen:
   create_doc: docs/36-student-create-form.md
   add_course_screen_spec: specs/screens/student-add-course.yml
   add_course_doc: docs/35-student-add-course-form.md
+  pkk_configuration_gate_spec: specs/screens/pkk-configuration-gate.yml
+  pkk_configuration_gate_doc: docs/37-pkk-configuration-gate.md
 
 header:
   title: Twoi kursanci
@@ -112,7 +114,19 @@ row_actions:
 create_flows:
   - id: add_student_from_pkk
     confirmed_entry: true
-    form: TO_VERIFY
+    first_observed_step:
+      condition: pkk_configuration_incomplete
+      screen: pkk_configuration_gate
+      screen_spec: specs/screens/pkk-configuration-gate.yml
+      required_fields_by_visible_marker:
+        - pkk_school_name
+        - pkk_osk_registry_number
+        - pkk_external_osk_login
+        - user_first_name
+        - user_last_name
+      primary_action: save_pkk_configuration_and_continue
+      settings_reuse_confirmed: true
+    post_configuration_flow: TO_VERIFY
   - id: add_student_manual
     confirmed_entry: true
     form: USER_CONFIRMED_AUTH_SCREEN
@@ -312,12 +326,14 @@ entity_model:
   internal_exam_history_separate_from_student_profile: true
   exam_inventory_separate_from_attempt_history: true
   manual_create_orchestrates_multiple_domains: true
+  pkk_configuration_reuses_user_and_integration_settings: true
   suggested_entities:
     - students
     - student_learning_accounts
     - student_licenses
     - student_courses_or_enrollments
     - pkk_profiles_and_operation_history
+    - pkk_integration_settings
     - internal_exam_attempts_or_assignments
     - internal_exam_access_tokens
     - internal_exam_station_sessions
@@ -340,9 +356,14 @@ relationships_confirmed_or_supported_by_projection:
   - student_has_progress_projection_per_learning_account_and_category
   - manual_student_create_can_optionally_create_course
   - manual_student_create_can_optionally_assign_license
+  - add_student_from_pkk_requires_pkk_configuration_when_incomplete
+  - pkk_configuration_fields_are_reused_in_account_settings
 
 confirmed_actions:
   - add_student_from_pkk
+  - open_pkk_configuration_gate
+  - save_pkk_configuration_and_continue
+  - close_pkk_configuration_gate
   - add_student_manual
   - save_student_manual
   - toggle_student_no_pesel
@@ -400,9 +421,11 @@ security_requirements:
   - atomic_manual_student_create_with_optional_course_and_license
   - validate_create_location_against_organization
   - validate_license_inventory_against_organization
+  - audit_pkk_configuration_changes
+  - keep_pkk_external_login_separate_from_application_login
 
 remaining_gaps:
-  - add_student_from_pkk_flow
+  - add_student_from_pkk_post_configuration_flow
   - preview_behavior
   - student_edit_form
   - training_stage_transition_behavior
@@ -412,6 +435,8 @@ remaining_gaps:
   - manual_create_learning_password_or_invitation_flow
   - manual_create_pkk_category_validation
   - manual_create_duplicate_detection
+  - pkk_configuration_connection_test_behavior
+  - pkk_configuration_authorization
   - internal_exam_exact_required_candidate_fields
   - internal_exam_populated_history
   - internal_exam_exact_statuses_and_results
