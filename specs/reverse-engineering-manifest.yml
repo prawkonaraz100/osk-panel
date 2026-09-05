@@ -1,0 +1,943 @@
+meta:
+  project: osk-panel
+  purpose: preserve_all_confirmed_reverse_engineered_capabilities
+  audited_at: 2026-09-05
+  status: AUTHORITATIVE_TRACEABILITY_MANIFEST
+  clean_room: true
+  preservation_contract: docs/96-reverse-engineering-preservation-contract.md
+
+rules:
+  confirmed_screen_element_is_requirement_for_core: true
+  aggregate_summary_may_not_drop_screen_requirement: true
+  legal_rule_can_override_observed_behavior: true
+  own_product_decision_can_change_implementation_not_business_capability: true
+  source_conflicts_must_be_configuration_or_capability_driven: true
+  demo_values_are_not_business_defaults: true
+  unobservable_demo_behavior_requires_explicit_own_product_decision: true
+  pixel_perfect_copy_required: false
+  proprietary_code_copy_allowed: false
+
+traceability_gate:
+  required_chain:
+    - evidence
+    - requirement
+    - domain_or_projection
+    - api_or_use_case
+    - permission
+    - ui
+    - acceptance_test
+  done_requires_all_confirmed_elements_accounted_for: true
+
+core:
+  dashboard:
+    status: READY_FOR_IMPLEMENTATION
+    route: /
+    docs:
+      - docs/74-main-dashboard.md
+    specs:
+      - specs/screens/main-dashboard.yml
+    confirmed_sections:
+      - licenses_widget
+      - internal_exams_widget
+      - notifications_or_activity_feed
+      - embedded_calendar
+    confirmed_license_widget:
+      fields:
+        - active_license_count
+        - available_license_count
+      actions:
+        - assign_license
+        - buy_license
+        - open_more
+    confirmed_exam_widget:
+      fields:
+        - available_exam_count
+      actions:
+        - conduct_exam
+        - buy_exam
+        - open_more
+    activity_feed:
+      requirement: organization_activity_log_projection
+      observed_event_examples:
+        - course_removed
+        - student_payment_or_charge_removed
+        - course_changed
+        - student_payment_recorded
+        - internal_exam_added
+        - internal_exam_conducted
+        - calendar_event_removed
+        - license_operation
+      observed_metadata:
+        - timestamp
+        - actor
+        - related_student_or_entity
+        - description
+        - optional_expand_for_change_details
+      do_not_reduce_to_ephemeral_toast_only: true
+    embedded_calendar:
+      actions:
+        - open_full_calendar
+        - add_event
+        - previous_period
+        - next_period
+        - today
+        - view_month
+        - view_week
+        - view_day
+
+  students:
+    status: READY_FOR_IMPLEMENTATION
+    route: /kursanci
+    docs:
+      - docs/29-students-list-screen.md
+      - docs/30-student-detail-screen.md
+      - docs/31-student-progress-screen.md
+      - docs/32-student-internal-exam-screen.md
+      - docs/33-student-internal-exam-access-flow.md
+      - docs/35-student-add-course-form.md
+      - docs/36-student-create-form.md
+      - docs/38-student-assign-license-form.md
+      - docs/39-student-license-delete-confirmation.md
+      - docs/40-student-payment-charge-form.md
+      - docs/42-student-edit-form.md
+      - docs/43-student-access-credentials-pdf.md
+      - docs/45-student-preview-drawer.md
+      - docs/46-student-list-filters.md
+      - docs/47-student-list-sorting.md
+    specs:
+      - specs/screens/students.yml
+      - specs/screens/student-detail.yml
+      - specs/screens/student-progress.yml
+      - specs/screens/student-internal-exam.yml
+      - specs/screens/student-internal-exam-access.yml
+      - specs/screens/student-add-course.yml
+      - specs/screens/student-create.yml
+      - specs/screens/student-assign-license.yml
+      - specs/screens/student-license-delete.yml
+      - specs/screens/student-payment-charge.yml
+      - specs/screens/student-edit.yml
+      - specs/screens/student-access-credentials-pdf.yml
+      - specs/screens/student-preview.yml
+      - specs/screens/student-filters.yml
+      - specs/screens/student-sorting.yml
+    list:
+      columns:
+        - full_name
+        - learning_login_data
+        - courses
+        - phone
+        - created_date
+        - internal_exam
+        - row_actions
+      actions:
+        - add_student_from_pkk
+        - add_student_manual
+        - search
+        - open_filters
+        - open_sort
+        - preview_student
+        - open_student_details
+      preview:
+        presentation: side_drawer
+        read_only: true
+        fields:
+          - full_name
+          - birth_date
+          - pesel
+          - contact_email
+          - phone
+          - created_date
+          - courses_summary
+          - payments_summary
+    filters:
+      course_category:
+        control: multi_select
+      training_stage:
+        control: multi_checkbox
+        options:
+          - unassigned
+          - theory
+          - practice
+          - documentation
+          - word_exam
+          - supplementary_training
+          - training_completed
+      internal_exam_not_passed:
+        control: switch
+      include_archived:
+        control: switch
+    sorting:
+      directions: [asc, desc]
+      fields:
+        - full_name
+        - learning_identifier
+        - phone
+        - created_at
+        - internal_exam
+    create:
+      profile_fields:
+        - first_name_required
+        - last_name_required
+        - phone_optional
+        - contact_email_optional
+        - pesel_optional_branch
+        - no_pesel_control
+        - birth_date_required_when_no_pesel
+        - location_optional
+      optional_course_block:
+        fields:
+          - pkk_reference
+          - category
+      optional_license_block:
+        fields:
+          - license_variant
+          - available_inventory_count
+          - learning_identifier_email_or_login
+          - language
+    edit:
+      fields:
+        - first_name_required
+        - last_name_required
+        - phone
+        - contact_email
+        - pesel
+        - no_pesel_control
+        - conditional_birth_date
+        - location
+    detail:
+      tabs:
+        - student_profile
+        - internal_exam
+        - progress
+      global_actions:
+        - archive_student
+        - delete_student_visible_in_reference_ui
+      own_delete_semantics: non_destructive_lifecycle
+      training_stages:
+        - unassigned
+        - theory
+        - practice
+        - documentation
+        - word_exam
+        - supplementary_training
+        - training_completed
+      sections:
+        - student_details
+        - learning_accesses
+        - licenses
+        - courses_pkk
+        - payments
+    credentials:
+      competitor_download_pdf_observed: true
+      own_product_modes:
+        - osk_managed_credentials
+        - learner_self_service
+      osk_managed_required_capabilities:
+        - set_or_generate_initial_password
+        - show_plaintext_only_before_save_or_at_reset_handoff
+        - print_initial_or_reset_password
+        - safe_qr_without_plaintext_password
+        - activate_license_for_student
+        - reset_password_and_reprint
+      recoverable_plaintext_password_storage: false
+    progress:
+      selectors:
+        - learning_account
+        - driving_category
+      metrics:
+        - passed_tests_count_and_percent
+        - failed_tests_count_and_percent
+        - answered_questions_over_total
+        - correct_answer_percent
+        - incorrect_answer_percent
+        - handbook_overall_progress
+        - handbook_completed_sections
+        - handbook_control_questions_percent
+        - lectures_overall_progress
+        - lectures_completed_units
+        - lectures_control_questions_percent
+        - question_topic_progress_basic
+        - question_topic_progress_specialized
+      totals_dynamic: true
+      taxonomy_translatable: true
+
+  courses:
+    status: READY_FOR_IMPLEMENTATION
+    canonical_entity: course_enrollment
+    docs:
+      - docs/35-student-add-course-form.md
+      - docs/66-formal-student-record-and-theory-exemptions.md
+      - docs/67-editable-training-requirements-and-theory-exemption.md
+      - docs/78-course-edit-form.md
+      - docs/79-course-delete-confirmation.md
+      - docs/80-course-create-form.md
+    specs:
+      - specs/screens/student-add-course.yml
+      - specs/screens/course-create.yml
+      - specs/screens/course-edit.yml
+      - specs/screens/course-delete.yml
+      - specs/legal/training-theory-exemptions.yml
+      - specs/legal/editable-training-requirements.yml
+    create_and_edit_observed_fields:
+      - training_type_required
+      - category_required
+      - pkk_required
+      - start_date_time_required
+      - cost
+      - theory_hours
+      - theory_hours_in_other_school
+      - practice_hours_required_in_observed_form
+      - practice_hours_in_other_school
+      - lead_instructor_required
+      - location_optional
+    training_type_options:
+      - basic_training
+      - supplementary_training
+    observed_category_options:
+      - A
+      - B
+      - C
+      - D
+      - T
+      - A1
+      - B1
+      - C1
+      - D1
+      - AM
+      - A2
+      - B+E
+      - C1+E
+      - C+E
+      - D1+E
+      - D+E
+      - PT
+    edit_behavior:
+      cost_read_only_here: true
+      cost_edit_location: student_finance_section
+      training_type_editable: true
+      category_editable: true
+      pkk_editable: true
+      start_datetime_editable: true
+      instructor_editable: true
+      location_editable: true
+    delete_confirmation_observed:
+      displays:
+        - pkk
+        - training_type
+        - assigned_charge_amount
+        - payments_summary
+      own_backend_semantics: cancel_or_soft_lifecycle_preserving_history
+    formal_time_model:
+      current_osk_source_of_truth: training_sessions_and_hour_ledger
+      external_source_of_truth: recognized_external_training_records
+      observed_form_hour_fields_remain_supported_as_ui_input_or_projection: true
+
+  pkk:
+    status: READY_FOR_IMPLEMENTATION
+    informational_route: /integracja-pkk
+    operational_owner: course_enrollment
+    docs:
+      - docs/37-pkk-configuration-gate.md
+      - docs/75-pkk-entrypoints-and-student-list.md
+      - docs/76-pkk-course-operational-panel.md
+      - docs/77-pkk-management-flow-fallback-design.md
+    specs:
+      - specs/screens/pkk-configuration-gate.yml
+      - specs/screens/pkk-entrypoints-and-student-list.yml
+      - specs/screens/pkk-course-operational-panel.yml
+    informational_page_confirmed_actions:
+      - open_students
+      - open_how_to_start
+    confirmed_business_operations:
+      - fetch_profile
+      - view_profile_details
+      - update_training_and_return
+      - return_to_other_school
+      - return_to_authority
+      - return_expired_profile
+      - view_operation_history
+    configuration_gate_fields:
+      - school_name_required
+      - osk_registry_number_required
+      - external_osk_login_required
+      - operator_first_name_required
+      - operator_last_name_required
+    course_panel:
+      fields:
+        - pkk
+        - category
+        - training_type
+        - start_date
+        - last_pkk_operation
+      actions:
+        - manage_pkk
+        - edit_course
+        - delete_course_visible_in_reference_ui
+        - preview_pkk
+        - fetch_pkk
+        - update_and_return_pkk
+      history_section: true
+      fetched_data_section: true
+      empty_state_before_fetch: true
+    update_signing_observation:
+      competitor_flow_mentions_xml_download_sign_at_podpis_gov_pl_and_upload_back: true
+      exact_manage_drawer: UPSTREAM_ERROR_UNOBSERVABLE
+    own_requirements:
+      - provider_adapter
+      - idempotency
+      - audit
+      - retry_classification
+      - reconciliation
+      - no_invented_competitor_drawer_details
+
+  calendar:
+    status: READY_FOR_IMPLEMENTATION
+    route: /kalendarz
+    docs:
+      - docs/48-calendar-main-screen.md
+      - docs/49-calendar-add-event-form.md
+      - docs/50-own-calendar-event-lifecycle.md
+      - docs/51-calendar-important-dates.md
+    specs:
+      - specs/screens/calendar.yml
+      - specs/screens/calendar-add-event.yml
+    views:
+      - month
+      - week
+      - day
+    top_filters_or_types:
+      - event
+      - driving_lesson
+      - important_dates
+    resource_panels:
+      staff:
+        - select_all
+        - individual_checkboxes
+        - document_expiry_warnings
+        - add_staff
+      vehicles:
+        - select_all
+        - individual_checkboxes
+        - document_expiry_warnings
+        - add_vehicle
+      locations:
+        - select_all
+        - individual_checkboxes
+        - grouped_location_types
+        - add_location
+    navigation:
+      - previous_period
+      - next_period
+      - today
+    add_event_fields:
+      - event_type_required
+      - optional_event_name
+      - start_date_time_required
+      - duration
+      - optional_student_search
+      - optional_instructor_search
+      - optional_vehicle_search
+      - optional_meeting_place
+    observed_event_type_options:
+      - event
+      - driving_lesson
+    custom_meeting_place_flow:
+      trigger_label: Inne?
+      alternate_label: Wróć
+      behavior: replace_location_select_with_free_text
+    selecting_driving_lesson_changes_form_fields: false
+    important_dates:
+      no_records_observed: true
+      projection_required: true
+
+  locations:
+    status: READY_FOR_IMPLEMENTATION
+    route: /lokalizacje
+    docs:
+      - docs/19-locations-screen.md
+      - docs/72-school-locations-create-form.md
+      - docs/73-school-locations-edit-form.md
+    specs:
+      - specs/screens/locations.yml
+      - specs/screens/school-locations-create.yml
+      - specs/screens/school-locations-edit.yml
+    types:
+      - branch
+      - lecture_room
+      - maneuvering_area
+    fields:
+      - type_required
+      - name_required
+      - street_and_number_required
+      - postal_code_required
+      - city_required
+    city_control:
+      searchable_catalog: true
+      result_displays_voivodeship: true
+    actions:
+      - create
+      - edit
+      - open_calendar_context
+      - archive_visible_in_edit
+    archive_competitor_behavior: DEMO_BLOCKED
+    own_archive_behavior:
+      - soft_archive
+      - preserve_history
+      - include_archived_filter
+      - restore
+
+  vehicles:
+    status: READY_FOR_IMPLEMENTATION
+    route: /pojazdy
+    docs:
+      - docs/20-vehicles-screen.md
+      - docs/25-vehicle-detail-screen.md
+      - docs/26-vehicle-edit-form.md
+      - docs/27-vehicle-create-form.md
+      - docs/28-vehicle-delete-confirmation.md
+    specs:
+      - specs/screens/vehicles.yml
+      - specs/screens/vehicle-detail.yml
+      - specs/screens/vehicle-edit.yml
+      - specs/screens/vehicle-create.yml
+      - specs/screens/vehicle-delete.yml
+    fields:
+      - registration_number_required
+      - side_number
+      - make_required
+      - model_required
+      - production_year
+      - engine_capacity_cm3
+      - next_technical_inspection
+      - vin
+      - oc_valid_until
+      - ac_valid_until
+      - categories_multi_select
+      - locations_multi_select
+      - optional_photo
+    detail:
+      sections:
+        - vehicle_details
+        - validity
+        - embedded_calendar
+      actions:
+        - edit
+        - archive
+        - delete
+        - open_full_calendar
+        - add_event
+    validity_types:
+      - technical_inspection
+      - oc_insurance
+      - ac_insurance
+    delete_confirmation_observed:
+      displays:
+        - registration_number
+        - make_model
+        - categories
+    archive_reference_behavior: DEMO_BLOCKED
+    created_date_sentinel_observed: '01-01-0001'
+    sentinel_is_requirement: false
+
+  staff:
+    status: READY_FOR_IMPLEMENTATION
+    route: /pracownicy
+    docs:
+      - docs/21-staff-screen.md
+      - docs/22-staff-create-form.md
+      - docs/23-staff-detail-screen.md
+      - docs/24-staff-edit-form.md
+    specs:
+      - specs/screens/staff.yml
+      - specs/screens/staff-create.yml
+      - specs/screens/staff-detail.yml
+      - specs/screens/staff-edit.yml
+    fields:
+      - email_required
+      - first_name_required
+      - last_name_required
+      - staff_types_required
+      - pesel
+      - phone
+      - authorization_number
+      - categories_multi_select
+      - locations_multi_select
+      - card_valid_until
+      - medical_exam_valid_until
+      - psychological_exam_valid_until
+      - optional_photo
+      - create_login_account_control
+    observed_staff_type:
+      code_or_technical_value: OfficeWorker
+      ui_label: Pracownik biurowy
+    detail:
+      sections:
+        - staff_details
+        - panel_access
+        - embedded_calendar
+      actions:
+        - edit
+        - archive
+        - delete
+        - open_full_calendar
+        - add_event
+    panel_access:
+      section_exists: true
+      edit_control_visible: true
+      observed_control_action: VISIBLE_BUT_NOT_ACTIONABLE
+      staff_profile_must_exist_without_user_account: true
+      create_login_account_control_on_form_actionable: true
+    document_types:
+      - staff_card_or_authorization
+      - medical_exam
+      - psychological_exam
+    warnings:
+      - expired_card
+      - expired_medical_exam
+      - expired_psychological_exam
+    rbac_model: permission_based_not_staff_type_based
+
+  student_finance:
+    status: READY_FOR_IMPLEMENTATION
+    docs:
+      - docs/40-student-payment-charge-form.md
+      - docs/41-own-student-finance-ledger.md
+    specs:
+      - specs/screens/student-payment-charge.yml
+      - specs/design/student-finance-ledger.yml
+    observed_create_form:
+      fields:
+        - title_required
+        - amount_required
+    observed_parent_table:
+      columns:
+        - title
+        - amount
+        - remaining
+        - payments
+        - added_date
+      summary:
+        - total_balance
+    own_domain_split:
+      - student_charge
+      - student_payment
+    required_capabilities:
+      - create_charge
+      - record_partial_payment
+      - record_full_payment
+      - calculate_remaining_balance
+      - reverse_payment
+      - cancel_charge
+      - preserve_ledger_history
+
+  licenses:
+    status: READY_FOR_IMPLEMENTATION
+    purchase_route: /licencje/wykup
+    management_route: /licencje/panel
+    docs:
+      - docs/38-student-assign-license-form.md
+      - docs/39-student-license-delete-confirmation.md
+      - docs/43-student-access-credentials-pdf.md
+      - docs/44-own-student-access-document-policy.md
+      - docs/52-license-purchase-screen.md
+      - docs/53-license-management-panel.md
+      - docs/54-license-expanded-assignments.md
+      - docs/55-license-generate-access-form.md
+      - docs/56-license-existing-student-selected-state.md
+      - docs/57-license-list-sorting.md
+      - docs/58-license-bulk-access-pdf.md
+    specs:
+      - specs/screens/student-assign-license.yml
+      - specs/screens/student-license-delete.yml
+      - specs/screens/student-access-credentials-pdf.yml
+      - specs/screens/license-purchase.yml
+      - specs/screens/license-management-panel.yml
+      - specs/screens/license-expanded-assignments.yml
+      - specs/screens/license-generate-access.yml
+      - specs/screens/license-existing-student-selected.yml
+      - specs/screens/license-sorting.yml
+      - specs/screens/license-bulk-access-pdf.yml
+    purchase:
+      variants_observed:
+        - 1_month
+        - 3_months
+        - 6_months
+      quantity_per_variant: true
+      mixed_cart: true
+      discount_summary: true
+      payment_methods:
+        - online_PayU
+        - direct_bank_transfer
+    management_inventory:
+      durations_days_observed:
+        - 31
+        - 90
+        - 180
+      counters:
+        - available
+        - active
+      buy_more_action: true
+    main_list:
+      columns:
+        - learning_login_data
+        - student_full_name
+        - latest_license_generated_at
+        - latest_license_language
+        - latest_license_status
+        - assigned_license_count
+        - row_actions
+      actions:
+        - select_visible
+        - download_selected_accesses
+        - assign_license
+        - hide_finished_toggle
+        - search
+        - sort
+        - expand_row
+        - download_individual_access
+        - open_student_profile
+    assignment_cardinality:
+      target: exactly_one_student_or_learning_access
+      multiple_search_results_then_select_one: true
+      bulk_assignment: false
+    assignment_paths:
+      - select_existing_learning_access
+      - create_new_learning_access
+      - search_existing_student_from_global_generation
+      - create_or_identify_new_access
+    generator_language_options_observed:
+      - Polish
+      - English
+      - German
+      - Russian
+      - Ukrainian
+    language_source_conflict: true
+    language_model: capability_driven
+    expanded_history:
+      columns:
+        - learning_login_data
+        - assigned_at
+        - expires_at
+        - remaining
+        - status
+        - row_actions
+      unactivated_delete_visible: true
+      active_expiry_visible: true
+      multiple_assignments_per_learning_access: true
+      stacking_or_extension_observed: true
+    unactivated_revoke:
+      confirmation_modal: true
+      restore_exactly_one_inventory_entry_atomically: true
+    bulk_pdf:
+      one_combined_file: true
+      index_page: true
+      one_page_per_selected_access: true
+      localized_per_access: true
+    access_credentials_own_policy:
+      visible_initial_or_reset_password_on_handoff: true
+      recoverable_password_storage: false
+      qr_may_prefill_login_not_password: true
+
+  internal_exams:
+    status: READY_FOR_IMPLEMENTATION
+    purchase_route: /egzamin-wewnetrzny/wykup
+    management_route: /egzamin-wewnetrzny/panel
+    docs:
+      - docs/32-student-internal-exam-screen.md
+      - docs/33-student-internal-exam-access-flow.md
+      - docs/34-own-internal-exam-lifecycle-policy.md
+      - docs/59-internal-exam-purchase-screen.md
+      - docs/60-internal-exam-management-panel.md
+      - docs/61-internal-exam-expanded-attempt-history.md
+      - docs/62-internal-exam-answer-sheet-pdf.md
+      - docs/63-internal-exam-result-details-screen.md
+      - docs/64-internal-exam-question-review.md
+      - docs/65-internal-exam-generation-access-flow.md
+      - docs/68-internal-exam-edit-candidate-data.md
+      - docs/69-internal-exam-filtering.md
+      - docs/70-internal-exam-sorting.md
+    specs:
+      - specs/screens/student-internal-exam.yml
+      - specs/screens/student-internal-exam-access.yml
+      - specs/screens/internal-exam-purchase.yml
+      - specs/screens/internal-exam-management-panel.yml
+      - specs/screens/internal-exam-expanded-attempts.yml
+      - specs/screens/internal-exam-answer-sheet-pdf.yml
+      - specs/screens/internal-exam-result-details.yml
+      - specs/screens/internal-exam-question-review.yml
+      - specs/screens/internal-exam-generation-access.yml
+      - specs/screens/internal-exam-edit-candidate-data.yml
+      - specs/screens/internal-exam-filtering.yml
+      - specs/screens/internal-exam-sorting.yml
+    purchase:
+      arbitrary_or_slider_quantity: true
+      dynamic_price: true
+      payment_methods:
+        - online_PayU
+        - direct_bank_transfer
+    inventory:
+      buckets:
+        - free_monthly
+        - paid
+        - total
+    management_list:
+      aggregate_row_is_student_latest_attempt_summary: true
+      one_row_not_equal_one_attempt: true
+      columns:
+        - email_or_login
+        - student_full_name
+        - latest_category
+        - latest_status
+        - latest_date
+        - latest_language
+        - exam_count
+        - row_actions
+      actions:
+        - select_exactly_one_student
+        - generate_from_selection
+        - standalone_generate
+        - hide_finished_toggle
+        - search
+        - filter
+        - sort
+        - expand_attempt_history
+        - open_details
+        - download_printout
+    search_fields_confirmed:
+      - first_name
+      - last_name
+      - email
+      - login
+    filters:
+      category_multi_select: true
+      status_options:
+        - unassigned
+        - failed
+        - not_conducted
+        - passed
+    sorting:
+      directions: [asc, desc]
+      fields:
+        - email_or_login
+        - student_full_name
+        - category
+        - status
+        - date
+        - language
+        - exam_count
+    generation_entry_points:
+      - selected_existing_student_row
+      - standalone_generate_button
+    formal_constraint:
+      persistent_student_required: true
+      course_enrollment_required: true
+      ad_hoc_formal_candidate_for_own_product: false
+    candidate_fields:
+      - exam_category
+      - exam_language
+      - first_name
+      - last_name
+      - pesel_or_birth_date_own_product
+      - pkk_or_registry_number
+      - email_optional_for_remote_delivery
+    launch_modes:
+      - remote_link
+      - local_current_workstation
+    local_observation:
+      one_candidate_at_a_time_message: true
+    result:
+      max_points_observed: 74
+      question_count_observed: 32
+      basic_questions: 20
+      specialized_questions: 12
+      per_question_review: true
+      media_question_review: true
+      correct_incorrect_visual_state: true
+      statistics_cards: true
+      immutable_attempt_snapshot_required: true
+    answer_sheet_pdf:
+      per_attempt: true
+      signatures_present: true
+      immutable_snapshot_required: true
+    lifecycle_own_product:
+      reserve_on_access_creation: true
+      consume_on_start: true
+      release_unused_before_start: true
+      finish_consumes_again: false
+      technical_abort_auto_restore: false
+      post_start_restore_requires_audited_adjustment: true
+
+  settings:
+    status: READY_FOR_IMPLEMENTATION
+    route: /ustawienia
+    docs:
+      - docs/18-settings-screen.md
+      - docs/37-pkk-configuration-gate.md
+    specs:
+      - specs/screens/settings.yml
+      - specs/screens/pkk-configuration-gate.yml
+    confirmed_areas:
+      - basic_account_data
+      - company_data
+      - pkk_integration_settings
+      - school_name
+      - osk_registry_number
+      - external_osk_login
+      - accepted_terms_access
+
+  purchase_history:
+    status: READY_FOR_IMPLEMENTATION
+    route: /historia-zakupow
+    docs:
+      - docs/17-history-purchases-screen.md
+    specs:
+      - specs/screens/purchase-history.yml
+    confirmed_columns_or_fields:
+      - order_or_item
+      - created_date
+      - booked_or_accounted_date
+      - amount
+      - status
+    confirmed_actions:
+      - pay_unpaid_order
+      - pagination_or_page_size_navigation
+    separate_from_student_finance: true
+
+deferred_evidence_preserved:
+  business_cards:
+    route: /wizytowki
+    current_scope: NOT_SCREEN_MAPPED
+    preserve_existing_public_and_help_evidence: true
+    docs:
+      - docs/01-feature-map.md
+      - docs/14-reverification-audit-2026-09-05.md
+      - docs/15-current-authenticated-menu-map.md
+      - docs/16-admin-osk-service-catalog.md
+  advertising:
+    current_scope: NOT_SCREEN_MAPPED
+    preserve_auction_and_campaign_evidence: true
+    docs:
+      - docs/01-feature-map.md
+      - docs/11-source-evidence.md
+      - docs/14-reverification-audit-2026-09-05.md
+      - docs/15-current-authenticated-menu-map.md
+      - docs/16-admin-osk-service-catalog.md
+  lectures:
+    route: /wyklady
+    current_scope: NOT_SCREEN_MAPPED
+    preserve_existing_product_evidence: true
+  instructor_training:
+    route: /szkolenie-z-instruktorem
+    current_scope: NOT_SCREEN_MAPPED
+    preserve_existing_product_evidence: true
+
+explicit_non_requirements:
+  - competitor_branding
+  - competitor_marketing_copy
+  - competitor_assets
+  - competitor_source_code
+  - competitor_private_endpoint_shapes
+  - pixel_perfect_competitor_layout
+  - demo_specific_people_or_ids
+  - demo_snapshot_counts_as_defaults
+  - sentinel_date_01_01_0001
