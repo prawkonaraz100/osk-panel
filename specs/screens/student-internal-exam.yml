@@ -1,0 +1,84 @@
+screen:
+  id: student_internal_exam
+  scope: admin_osk
+  parent_route_pattern: /kursanci/<student_id>
+  tab: internal_exam
+  title: Egzaminy wewnętrzne
+  confidence: USER_CONFIRMED_AUTH_SCREEN
+  verified_at: 2026-09-05
+  doc: docs/32-student-internal-exam-screen.md
+
+last_exam:
+  section_title: Ostatni egzamin wewnętrzny
+  empty_state_observed: Brak przeprowadzenego egzaminu
+  confirmed_action:
+    id: start_student_internal_exam
+    label: Rozpocznij egzamin
+
+summary:
+  section_title: Wszystkie egzaminy
+  metrics:
+    - pass_rate_percent
+    - passed_exam_count
+    - failed_exam_count
+  observed_empty_snapshot:
+    pass_rate_percent: 0
+    passed_exam_count: 0
+    failed_exam_count: 0
+
+history:
+  title: Wszystkie egzaminy
+  columns:
+    - date_time
+    - category
+    - status
+  empty_state_observed: true
+  row_actions: TO_VERIFY
+
+confirmed_model_behavior:
+  multiple_attempts_supported: true
+  aggregate_metrics_derived_from_attempt_history: true
+  internal_exam_not_boolean_on_student: true
+
+confirmed_actions:
+  - open_student_internal_exam_tab
+  - start_student_internal_exam
+  - view_internal_exam_pass_rate
+  - view_passed_internal_exam_count
+  - view_failed_internal_exam_count
+  - view_internal_exam_history
+
+suggested_entities:
+  - internal_exam_attempts
+
+suggested_attempt_fields:
+  - id
+  - organization_id
+  - student_id
+  - category_id
+  - started_at
+  - finished_at
+  - status
+  - result
+  - created_at
+
+security_requirements:
+  - tenant_isolation
+  - authorize_student_exam_by_organization
+  - audit_exam_start_and_result
+
+remaining_gaps:
+  - start_exam_flow
+  - category_selection
+  - language_selection
+  - local_vs_link_start_mode
+  - inventory_consumption_behavior
+  - exact_attempt_statuses
+  - populated_history_row
+  - passed_exam_details
+  - failed_exam_details
+  - score_or_points
+  - exam_card_print_or_pdf
+  - retry_behavior
+  - interrupted_attempt_behavior
+  - success_error_messages
