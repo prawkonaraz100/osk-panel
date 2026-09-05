@@ -5,6 +5,7 @@ screen:
   confidence: USER_CONFIRMED_AUTH_SCREEN
   verified_at: 2026-09-05
   doc: docs/78-course-edit-form.md
+  preservation_manifest: specs/reverse-engineering-manifest.yml#core.courses
 
 header:
   pattern: "Kurs: {pkk_number}"
@@ -50,12 +51,16 @@ fields:
     editing_location: payments_section
   theory_hours_current_osk:
     required: false
+    observed_field_must_be_preserved: true
   theory_hours_previous_osk:
     required: false
+    observed_field_must_be_preserved: true
   practice_hours_current_osk:
     required: true
+    observed_field_must_be_preserved: true
   practice_hours_previous_osk:
     required: false
+    observed_field_must_be_preserved: true
   lead_instructor:
     required: true
     control: searchable_select
@@ -69,6 +74,7 @@ actions:
   - close
 
 observed_example:
+  note: DEMO_SNAPSHOT_NOT_BUSINESS_DEFAULT
   training_type: basic
   license_category: A
   pkk_number: "445645645646455"
@@ -84,15 +90,33 @@ observed_example:
 business_rules:
   course_cost:
     editable_here: false
-    edit_via: student_payments
+    edit_via: student_finance
   hours:
     separate_current_and_previous_school: true
-    own_product_source_of_truth: training_sessions_plus_recognized_external_hours
+    preserve_all_four_observed_fields_in_own_workflow: true
+    current_osk_credit_source_of_truth: training_session_plus_training_hour_ledger
+    previous_osk_source_of_truth: recognized_external_training
+    current_osk_field_default_semantics: declared_or_planned_training_hours
+    current_osk_declared_storage:
+      - declared_theory_minutes
+      - declared_practical_minutes
+    credited_hours_change:
+      never_by_plain_overwrite_of_aggregate: true
+      correction_or_import_mode_creates_ledger_entries: true
+      reason_and_audit_required: true
+    previous_osk_change:
+      create_or_revoke_recognized_external_training_records: true
+      preserve_history: true
   editing:
     allowed_after_creation: true
     preserve_history: true
     recalculate_requirements_after_change: true
     closed_course_changes_require_correction_mode: true
+    category_or_training_type_change_must_revalidate:
+      - legal_requirement_profile
+      - pkk_context
+      - existing_internal_exam_compatibility
+      - recognized_external_training_compatibility
 
 confirmed_actions:
   - open_course_edit_drawer
@@ -112,5 +136,6 @@ confirmed_actions:
 remaining_gaps:
   - exact_pkk_change_validation
   - category_change_after_completed_training
-  - conflicts_with_existing_internal_exam
+  - conflicts_with_existing_internal_exam_exact_ui
+  - exact_competitor_semantics_of_current_osk_hour_fields
   - exact_success_error_messages
