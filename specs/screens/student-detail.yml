@@ -8,6 +8,7 @@ meta:
   internal_exam_screen_spec: specs/screens/student-internal-exam.yml
   add_course_screen_spec: specs/screens/student-add-course.yml
   assign_license_screen_spec: specs/screens/student-assign-license.yml
+  payment_charge_screen_spec: specs/screens/student-payment-charge.yml
 
 header:
   confirmed_elements:
@@ -162,6 +163,16 @@ courses_pkk:
 
 payments:
   confirmed_action: add_student_payment
+  add_form_verified: true
+  add_form_spec: specs/screens/student-payment-charge.yml
+  add_form_doc: docs/40-student-payment-charge-form.md
+  add_form_fields:
+    - title
+    - amount
+  required_by_visible_add_form_marker:
+    - title
+    - amount
+  visible_currency: PLN
   columns:
     - title
     - amount
@@ -172,6 +183,14 @@ payments:
   confirmed_summary: total_balance
   domain_separation:
     student_finance_is_separate_from_osk_purchase_history: true
+  competitor_semantics:
+    exact_charge_vs_payment_meaning: TO_VERIFY
+    strongest_interpretation: create_student_charge_or_receivable
+    confidence: STRONGLY_INFERRED_FROM_TABLE_STRUCTURE
+  own_product_model:
+    separate_charge_and_payment_records: true
+    installments_supported: true
+    balance_calculated_from_ledger: true
 
 progress_tab:
   verified: true
@@ -222,6 +241,9 @@ confirmed_actions:
   - select_new_learning_access_language
   - delete_unactivated_student_license
   - add_student_payment
+  - set_student_payment_or_charge_title
+  - set_student_payment_or_charge_amount
+  - save_student_payment_or_charge
 
 entity_model:
   separate_entities:
@@ -233,11 +255,13 @@ entity_model:
     - student_courses_or_enrollments
     - pkk_profiles_and_operations
     - internal_exam_attempts
-    - student_charges_and_payments
+    - student_charges
+    - student_payments
     - locations
   do_not_use_single_student_status: true
   do_not_use_single_exam_boolean: true
   learning_access_separate_from_license_assignment: true
+  student_charge_separate_from_actual_payment: true
   course_model_notes:
     - course_has_own_training_type_category_pkk_and_start
     - course_has_instructor
@@ -255,6 +279,8 @@ security_requirements:
   - prevent_double_license_assignment
   - audit_license_assignment
   - authorize_payment_actions_by_organization
+  - audit_student_charge_and_payment_events
+  - calculate_student_balance_from_ledger
   - authorize_internal_exam_actions_by_organization
   - authorize_course_student_instructor_and_location_by_organization
   - audit_training_stage_changes
@@ -274,8 +300,11 @@ remaining_gaps:
   - license_exact_activation_point
   - license_renewal_vs_additional_period_behavior
   - access_download_format
-  - add_payment_form
+  - student_payment_exact_charge_vs_payment_semantics
+  - student_payment_populated_row
+  - student_payment_installment_entry_flow
   - partial_payment_behavior
+  - student_payment_correction_refund_behavior
   - archive_lifecycle
   - delete_lifecycle
   - add_course_exact_backend_validations
