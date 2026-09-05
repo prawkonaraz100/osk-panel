@@ -1,0 +1,79 @@
+screen:
+  id: internal_exam_edit_candidate_data
+  scope: admin_osk
+  parent: internal_exam_generation_access
+  title: Edytuj dane kursanta w flow egzaminu
+  confidence: USER_CONFIRMED_AUTH_SCREEN
+  verified_at: 2026-09-05
+  doc: docs/68-internal-exam-edit-candidate-data.md
+
+entry:
+  action: Edytuj dane
+  from_state: candidate_selected_in_internal_exam_generation_drawer
+  remains_in_same_drawer: true
+
+inventory_banner:
+  visible: true
+  observed_available_exams: 160
+
+fields:
+  exam_category:
+    control: select
+    editable: true
+    observed: B
+  exam_language:
+    control: select
+    editable: true
+    observed: Polski
+  first_name:
+    control: input
+    editable: true
+    observed: Paweł
+  last_name:
+    control: input
+    editable: true
+    observed: Kowalski
+  pesel:
+    control: input
+    editable: true
+    observed: "030303030030"
+  pkk:
+    control: input
+    editable: true
+    observed: "445645645646455"
+  email:
+    control: input
+    editable: true
+    observed: pawelkowalski@prawo-jazdy-360.pl
+    ui_note: do wysłania linku egzminu (opcjonalnie)
+
+actions:
+  - cancel_candidate_edit
+  - save_candidate_edit
+
+buttons:
+  cancel: Anuluj
+  save: Zapisz dane
+
+launch_actions_still_visible_below_form:
+  - Udostępnij link do egzaminu
+  - Rozpocznij egzamin teraz
+
+competitor_unknowns:
+  save_updates_persistent_student_profile: TO_VERIFY
+  save_updates_exam_context_only: TO_VERIFY
+  no_pesel_birth_date_alternative_in_this_drawer: NOT_OBSERVED
+  field_validation_rules: TO_VERIFY
+
+own_product_rules:
+  formal_student_required: true
+  formal_course_enrollment_required: true
+  source_identity_data_should_not_diverge_from_student_profile: true
+  identity_changes_from_exam_flow_must_be_audited: true
+  attempt_snapshot_is_immutable_after_attempt_creation: true
+  pesel_or_birth_date_rule_required: true
+  exam_category_must_match_or_resolve_to_formal_course_enrollment: true
+  category_change_recalculates_training_requirements: true
+  theory_exam_must_be_blocked_when_rule_engine_marks_theory_not_required: true
+  email_required_for_remote_link_only: true
+  email_not_required_for_local_station: true
