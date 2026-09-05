@@ -353,7 +353,7 @@ paths:
         required: true
         content:
           application/json:
-            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/CreateAvailabilitySlotRequest' }
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/UpdateAvailabilitySlotRequest' }
       responses:
         '200':
           description: Availability slot updated
