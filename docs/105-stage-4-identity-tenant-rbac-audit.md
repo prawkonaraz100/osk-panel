@@ -2,197 +2,158 @@
 
 Data: 2026-09-05
 
-**Status:** `IN_PROGRESS / DB-IAM-001..004 PASS / 1 P1 BLOCKER OPEN`
+**Status:** `ALL DB-IAM BLOCKERS PASS / FINAL AGGREGATE SYNC PENDING`
 
 ## Cel slice'u
 
-Identity/Tenant/RBAC zamykamy blocker po blockerze. Nie projektujemy jeszcze Staff/Locations/Vehicles, Student/Course, Calendar ani innych bounded contexts i nie generujemy migracji Laravel.
-
-Zasada:
-
-`canonical RBAC -> physical ownership -> tenant constraint -> effective permission resolution -> lifecycle transaction -> invariant test`
-
-## Źródła
-
-- `docs/04-roles-permissions.md`,
-- `docs/08-security-compliance.md`,
-- `docs/05-domain-model.md`,
-- `docs/82-canonical-domain-glossary.md`,
-- `specs/security/permissions.yml`,
-- `specs/database/identity-rbac.yml`,
-- `specs/database/core-schema.yml`,
-- `docs/87-physical-database-schema.md`,
-- `specs/gates/stage-4-database-contract-gate.yml`.
+Identity/Tenant/RBAC zamykamy blocker po blockerze. Nie generujemy migracji Laravel ani nie przechodzimy do DB4_3 przed końcową synchronizacją aggregate blueprintu.
 
 ---
 
 # DB-IAM-001 — PASS
 
-Role template jest tylko assignment-time presetem + provenance. Runtime source of truth to `membership_permissions`; brak row i nowe future permissions domyślnie dają DENY.
-
----
+Role template jest wyłącznie assignment-time presetem/provenance. Runtime source of truth to `membership_permissions`; brak/future permission = DENY.
 
 # DB-IAM-002 — PASS
 
-Data scope jest per permission przez:
-
-`membership_permissions -> membership_permission_scopes -> resolver`
-
-Scope codes: `organization`, `own`, `assigned_students`, `assigned_locations`. Brak scope dla granted permission = fail-closed DENY. Stary membership-wide `data_scope` jest superseded.
-
----
+Data scope jest per permission przez `membership_permission_scopes`; granted permission bez legalnego scope = fail-closed DENY. Stary membership-wide `data_scope` jest superseded.
 
 # DB-IAM-003 — PASS
 
-Non-null tenant session context jest chroniony composite FK:
+Tenant session context jest chroniony composite FK `(organization_membership_id,user_id) -> organization_memberships(id,user_id)`. Sesja nie może wskazać membership innego Usera.
 
-`auth_sessions(organization_membership_id, user_id)`
+# DB-IAM-004 — PASS
 
-->
-
-`organization_memberships(id, user_id)`.
-
-Sesja jednego Usera nie może wskazać membership innego Usera. Null membership pozostaje dozwolony wyłącznie dla global/pre-tenant flow; tenant-owned request bez membership jest odrzucany.
+Owner jest governance markerem `is_owner`, nie skrótem permission. Obowiązuje protected owner baseline, serializowany last-owner guard, self-escalation ban, grant ceiling i `authorization_version` dla natychmiastowej utraty stale privileges.
 
 ---
 
-# DB-IAM-004 — PASS: last-owner / privilege escalation
+# DB-IAM-005 — PASS: membership + permission mutation lifecycle
 
-## Problem
+## Durable membership
 
-Wcześniejsza dokumentacja mówiła, że ostatni Owner musi być chroniony i że permission changes są elevated, ale nie było jednoznacznego modelu:
-- czym fizycznie jest Owner,
-- jak liczyć ostatniego Ownera,
-- jak blokować self-escalation,
-- jaki jest grant ceiling,
-- co dzieje się z aktywną sesją po odebraniu elevated permission.
+Jeden trwały `organization_memberships` na `(organization_id,user_id)`. Membership nie jest hard-delete.
 
-## Decyzja canonical
+Canonical statusy:
+- `active`,
+- `suspended`,
+- `revoked`.
 
-### Owner marker
+`user_id` membership jest immutable.
 
-`organization_memberships.is_owner boolean not null default false`.
+## Status semantics
 
-To jest governance marker, nie runtime authorization shortcut. Backend nadal autoryzuje przez `membership_permissions` + scope.
+`active`:
+- może autoryzować po permission + scope,
+- może być wybrany jako session tenant context.
 
-### Protected owner baseline
+`suspended`:
+- nie może autoryzować,
+- permission/scope snapshot pozostaje zachowany do wznowienia,
+- aktywne session tenant contexts dla tego membership są czyszczone do `NULL` w tej samej transakcji,
+- globalna sesja Usera nie musi być wylogowana, więc dostęp do innego OSK tego samego Usera pozostaje niezależny.
 
-Membership z `is_owner=true` musi mieć jawnie materializowane:
-- `organization.view` / `organization`,
-- `organization.members.manage` / `organization`,
-- `staff.permissions.manage` / `organization`,
-- `sessions.manage.organization` / `organization`.
+`revoked`:
+- nie może autoryzować,
+- `is_owner=false`,
+- wszystkie current permission decisions po commit mają `granted=false`,
+- wszystkie current scope rows są usunięte,
+- stare uprawnienia pozostają wyłącznie w immutable audycie, nie jako automatycznie reaktywowalny snapshot.
 
-Nie można odebrać tych praw pozostawiając membership jako Ownera. Demotion i zmiana protected baseline należą do jednej transakcji.
+## Reactivation
 
-### Last-owner invariant
+`suspended -> active` zachowuje istniejący permission/scope config, ale nie przywraca automatycznie starych session bindings.
 
-Zmiana Ownera jest serializowana per organizacja przez lock organizacji lub równoważny governance lock.
+`revoked -> active` jest explicit reactivation i wymaga świeżego template/permission+scope snapshotu w tej samej transakcji. Nie przywraca historycznych praw ani Ownera automatycznie.
 
-Każda transakcja, która degraduje, zawiesza lub usuwa owner-capable membership, liczy **post-transaction active owners** i wymaga wyniku `>= 1`.
+## Versioning i concurrency
 
-Transfer Ownera jest atomowy: successor promotion + predecessor demotion w jednej transakcji. Nie może być widoczny commit z zerem Ownerów.
+`organization_memberships.version bigint >= 1` jest optimistic-concurrency version całego authorization aggregate.
 
-Exact membership lifecycle status names pozostają do zamknięcia w `DB-IAM-005`, ale nie mogą osłabić tej reguły.
+Każdy admin mutation wymaga expected version. Backend:
+1. lockuje membership,
+2. porównuje expected version,
+3. wykonuje permission/scope/status/owner mutation atomowo,
+4. zwiększa `version` dokładnie raz,
+5. jeśli zmiana wpływa na authorization — zwiększa `authorization_version` dokładnie raz,
+6. zapisuje audit i outbox w tej samej transakcji.
 
-### Self-escalation
+`membership_permissions` i scope rows nie mają niezależnych wersji. `OrganizationMembership` jest single concurrency aggregate root.
 
-Zwykły admin flow nie może:
-- nadać sobie nowego permission,
-- poszerzyć własnego scope,
-- samemu ustawić `is_owner=true`,
-- zastosować sobie template'u, który rozszerza privileges.
+Dwa równoległe zapisy z tym samym expected version nie mogą oba nadpisać konfiguracji. Jeden kończy się conflict bez partial write.
 
-Self-restriction jest możliwe tylko jeśli nie łamie last-owner i protected owner baseline.
+## Lock order
 
-### Grant ceiling
+Dla permission/scope mutation:
+1. organization row — tylko jeśli dotykamy governance/Owner invariant,
+2. actor membership — jeśli potrzebny do grant ceiling,
+3. target membership.
 
-Administrator może delegować tylko capability, które sam aktualnie posiada w tej samej organizacji.
+Przy wielu membershipach tej samej klasy lockujemy deterministycznie po UUID, żeby ograniczyć deadlock race.
 
-Scope nie może być szerszy niż scope aktora dla tego samego permission:
-- aktor z `organization` może delegować legalny węższy scope,
-- aktor z non-organization scope może delegować tylko posiadane scope codes,
-- scope nieznany/nieporównywalny -> DENY.
+## Suspend / revoke i sesje
 
-Grant lub broadening elevated permission wymaga aktywnego Ownera jako aktora oraz permission management capabilities.
+Jeśli status przestaje być authorization-eligible:
+- wszystkie `auth_sessions.organization_membership_id` wskazujące ten membership są ustawiane na `NULL` w tej samej transakcji,
+- membership-scoped reauth/elevation proof jest unieważniany,
+- globalna identity session pozostaje domyślnie aktywna,
+- inne membershipy Usera nie są naruszane.
 
-### Authorization version / session effect
+Po reactivation stara sesja nie wraca automatycznie do tego OSK; wymagany jest explicit context selection.
 
-`organization_memberships.authorization_version bigint >= 1` jest security epoch.
+Permission/scope revoke przy nadal aktywnym membership nie wymaga logoutu. `authorization_version` gwarantuje, że stare prawo nie przeżyje kolejnego autoryzowanego requestu.
 
-Wzrasta przy:
-- permission grant/revoke,
-- scope change,
-- owner promotion/demotion,
-- membership state change wpływającym na authorization eligibility.
+## Audit/history
 
-Sesja nie może przechowywać trwałego permission snapshotu jako źródła praw. Jeżeli istnieje cache, musi być związany z bieżącym `authorization_version`.
+Nie dodajemy osobnej tabeli membership periods jako warunku poprawności. Current projection to durable membership row, a pełna historia zmian jest append-only w `AuditLog` + outbox domain events.
 
-Odebranie elevated permission jest skuteczne najpóźniej przy następnym autoryzowanym request. Sama sesja może pozostać zalogowana; stale permission/elevation proof nie może być użyty po zmianie version.
+Audit dla każdej mutation zawiera co najmniej:
+- actor,
+- organization,
+- target membership,
+- action,
+- request_id,
+- `version before/after`,
+- `authorization_version before/after`,
+- bezpieczny before/after lub domain diff,
+- timestamp.
 
-Pełny suspend/revoke/session invalidation lifecycle pozostaje `DB-IAM-005`.
+Reason jest obowiązkowe m.in. dla revoke, Owner promotion/demotion, elevated grant/revoke i security remediation.
 
-## Test obligations DB-IAM-004
-
-- role template `Owner` sam nie autoryzuje requestu,
-- Owner bez protected baseline jest consistency failure,
-- self-promotion do Ownera jest blokowane,
-- self-grant i self-scope-broadening są blokowane,
-- non-owner nie może grantować elevated permission,
-- actor nie może grantować permission, którego sam nie ma,
-- actor nie może delegować scope szerszego niż własny,
-- promotion Ownera materializuje baseline atomowo,
-- transaction zostawiający zero active owners jest odrzucany,
-- dwa równoległe demotiony Ownerów nie mogą oba przejść,
-- transfer Ownera jest atomowy,
-- protected permission nie może zostać revoked bez owner demotion w tej samej transakcji,
-- elevated revoke zwiększa `authorization_version`,
-- stale authorization cache/proof nie autoryzuje po zmianie version.
-
-**Gate DB-IAM-004: PASS.**
-
----
-
-# DB-IAM-005 — OPEN P1: membership + permission mutation lifecycle
-
-Pozostaje zamknięcie jednego ostatniego blockera DB4_2:
-- dokładne membership states/transitions,
-- suspend/revoke/reactivate vs hard delete,
-- durable membership row vs history periods,
-- session invalidation po suspend/revoke,
-- permission mutation concurrency/lost update,
-- actor/reason/version/audit semantics,
-- finalna relacja pomiędzy lifecycle `version` i `authorization_version`.
-
-**To jest następny i jedyny blocker do naprawy.**
-
----
-
-# Quality gate DB4_2_STEP_5
+## Quality gate DB-IAM-005
 
 Sprawdzono:
-- owner marker nie jest runtime permission shortcut — **PASS**,
-- owner ma protected materialized permission baseline — **PASS**,
-- last-owner count jest serializowany i oceniany po planowanej transakcji — **PASS**,
-- normal self-escalation jest zakazana — **PASS**,
-- grant ceiling nie pozwala delegować prawa/scope ponad aktora — **PASS**,
-- elevated grant wymaga Ownera — **PASS**,
-- revoke elevated permission nie pozostawia stale session authorization — **PASS** przez `authorization_version`,
-- nie zamknięto przy okazji pełnego membership/session lifecycle — **PASS**, nadal DB-IAM-005,
-- nie wykonano aggregate sync/migracji — **PASS**.
+- brak hard-delete membership — **PASS**,
+- exact lifecycle states/transitions — **PASS**,
+- suspend zachowuje config, revoke zeruje runtime privileges — **PASS**,
+- revoked reactivation wymaga fresh provisioning — **PASS**,
+- stale expected version nie może nadpisać nowej konfiguracji — **PASS**,
+- permission+scope mutation jest jednym atomic aggregate write — **PASS**,
+- `version` i `authorization_version` mają rozdzielone znaczenie — **PASS**,
+- suspend/revoke natychmiast usuwa tenant context ze wszystkich związanych sesji — **PASS**,
+- inne OSK tego samego globalnego Usera pozostają niezależne — **PASS**,
+- audit + outbox są w tej samej transakcji — **PASS**,
+- last-owner/self-escalation/grant-ceiling pozostają obowiązujące podczas lifecycle transitions — **PASS**.
 
-Nie znaleziono nowego P0/P1 wynikającego z decyzji DB-IAM-004.
+Nie znaleziono nowego P0/P1 wynikającego z decyzji DB-IAM-005.
+
+**Gate DB-IAM-005: PASS.**
 
 ---
 
-# Wynik po DB4_2_STEP_5
+# Stan DB4_2 po zamknięciu blockerów
 
-- `DB-IAM-001` — **PASS**,
-- `DB-IAM-002` — **PASS**,
-- `DB-IAM-003` — **PASS**,
-- `DB-IAM-004` — **PASS**,
-- `DB-IAM-005` — **OPEN P1**.
+- `DB-IAM-001` — PASS,
+- `DB-IAM-002` — PASS,
+- `DB-IAM-003` — PASS,
+- `DB-IAM-004` — PASS,
+- `DB-IAM-005` — PASS.
 
-DB4_2 jako całość nadal ma **FAIL**, więc `DB4_3` pozostaje zablokowany.
+Nie oznacza to jeszcze finalnego `DB4_2 PASS`, ponieważ bounded-context `specs/database/identity-rbac.yml` musi zostać osobnym krokiem zsynchronizowany z:
+- `specs/database/core-schema.yml`,
+- `docs/87-physical-database-schema.md`,
+- traceability, jeśli wymaga aktualizacji.
 
-**Następny pojedynczy krok: tylko `DB-IAM-005`.**
+To jest **osobna końcowa bramka**, nie część naprawy DB-IAM-005.
+
+**Następny pojedynczy krok: DB4_2 FINAL AGGREGATE SYNC GATE.**
