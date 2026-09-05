@@ -1,0 +1,113 @@
+screen:
+  id: internal_exam_purchase
+  scope: admin_osk
+  route: /egzamin-wewnetrzny/wykup
+  title: Wykup egzaminy wewnętrzne
+  confidence: USER_CONFIRMED_AUTH_SCREEN
+  verified_at: 2026-09-05
+  doc: docs/59-internal-exam-purchase-screen.md
+
+quantity:
+  label: Ile egzaminów potrzebujesz?
+  controls:
+    numeric_input: true
+    slider: true
+  observed_value: 51
+  min: TO_VERIFY
+  max: TO_VERIFY
+  slider_step: TO_VERIFY
+
+pricing:
+  observed_total_gross_pln: 62.73
+  observed_quantity: 51
+  derived_observed_unit_price_pln: 1.23
+  unit_price_is_fixed_global_rule: false
+  price_calculation_must_be_server_side: true
+  discount_ui_visible: false
+  vat_breakdown_visible: false
+  exact_pricing_rules: TO_VERIFY
+
+summary:
+  fields:
+    - exam_quantity
+    - amount_due
+  observed:
+    exam_quantity: 51
+    amount_due_pln: 62.73
+
+payment_methods:
+  - id: payu_online
+    label: Płatności online PayU
+  - id: direct_bank_transfer
+    label: Przelew bezpośredni
+
+primary_action:
+  label: Kup teraz
+  action: submit_internal_exam_purchase
+
+large_volume_sales:
+  key_account_contact_box_visible: true
+  self_service_limit_exact: TO_VERIFY
+  account_specific_pricing_possible: INFERRED_SUPPORTED_BY_SALES_FLOW
+
+product_semantics:
+  type: consumable_unit_inventory
+  not_duration_based: true
+  purchase_separate_from_exam_generation: true
+  purchase_separate_from_exam_attempt: true
+
+own_product_model:
+  entities:
+    - internal_exam_products
+    - orders
+    - order_items
+    - payments
+    - internal_exam_inventory_ledger
+    - internal_exam_accesses
+    - internal_exam_attempts
+  order_item_snapshot_fields:
+    - quantity
+    - unit_price_gross
+    - vat_rate
+    - discount_snapshot
+    - total_gross
+  inventory_rules:
+    - grant_inventory_exactly_once_after_payment_policy_is_satisfied
+    - prevent_negative_available_inventory
+    - audit_every_inventory_change
+    - use_idempotency_for_payment_and_inventory_grant
+  suggested_lifecycle:
+    commerce:
+      - ordered
+      - awaiting_payment
+      - paid
+      - inventory_granted
+    unit_usage:
+      - available
+      - allocated_or_reserved
+      - exam_started
+      - exam_completed
+      - consumed
+
+confirmed_actions:
+  - open_internal_exam_purchase
+  - set_internal_exam_quantity
+  - adjust_internal_exam_quantity_with_slider
+  - view_internal_exam_order_total
+  - select_online_payment
+  - select_direct_bank_transfer
+  - submit_internal_exam_purchase
+
+remaining_gaps:
+  - minimum_quantity
+  - maximum_self_service_quantity
+  - slider_step
+  - pricing_tiers
+  - discount_rules
+  - payu_checkout_result
+  - direct_transfer_instructions
+  - payment_pending_states
+  - exact_inventory_grant_timing
+  - invoice_or_sales_document_flow
+  - order_cancellation
+  - success_error_messages
