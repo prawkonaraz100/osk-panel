@@ -24,12 +24,9 @@ Data: 2026-09-05
 - mutable row: `created_at`, `updated_at`,
 - immutable ledger/event: brak zwykłego `updated_at`,
 - tenant-owned table ma `organization_id` tam, gdzie upraszcza autoryzację i indeksy,
-- constraint dla stanu bieżącego nie może niszczyć historii; używamy partial unique tam, gdzie rekord może być revoked/released i ponownie użyty,
-- gdy `organization_id` jest nullable i ma być częścią logicznego scope unikalności, nie opieramy się na zwykłym `UNIQUE(..., organization_id, ...)`; tenant scope i globalny scope dostają osobne partial unique indexes.
+- constraint dla stanu bieżącego nie może niszczyć historii; używamy partial unique tam, gdzie rekord może być revoked/released i ponownie użyty.
 
 Decyzja UUIDv7 dotyczy naszego synthetic domain ID. Publiczne API nadal przekazuje UUID jako string, więc zamknięcie tej decyzji nie wymaga zmiany Stage-3 kontraktu HTTP.
-
-Dla nullable tenant/global scope nie wymagamy PostgreSQL `NULLS NOT DISTINCT`. Jawne dwa partial unique indexes są czytelniejsze w migracjach, nie zależą od tej funkcji i pozwalają testować oba namespace'y osobno.
 
 ---
 
@@ -83,6 +80,28 @@ One-to-one z `organizations`.
 - `updated_at`
 
 Krytyczne ustawienia domenowe nie trafiają bezrefleksyjnie do `preferences`; np. PKK ma własną tabelę.
+
+## `organization_contact_addresses`
+
+Canonical structured company/contact address z ekranu Ustawień OSK. To **nie jest** zasób szkoleniowy i nie może być zapisywany jako rekord w `locations`.
+
+- `organization_id uuid PK/FK organizations`
+- `street varchar(255) not null`
+- `house_number varchar(32) not null`
+- `unit_number varchar(32) null`
+- `postal_code varchar(20) not null`
+- `city_name varchar(160) not null`
+- `city_reference varchar(128) null`
+- `voivodeship_name varchar(160) null`
+- `country_code char(2) not null default 'PL'`
+- `created_at timestamptz`
+- `updated_at timestamptz`
+
+Inwariant:
+- najwyżej jeden bieżący structured company/contact address na `Organization`, wymuszony przez `organization_id` jako PK,
+- `organization_contact_addresses` i `locations` są odrębnymi konceptami; aktualizacja adresu firmy nie tworzy/edytuje lokalizacji szkoleniowej.
+
+Tabela zachowuje dokładny physical shape ustalony w `specs/database/organization-settings.yml`. Pozostałe pola Ustawień OSK są scalane do physical core osobno w `DB-FOUND-004`; ten krok nie zmienia jeszcze `users`, `organizations`, `auth_login_identifiers`, `organization_settings` ani `pkk_integration_settings` poza dodaniem tej tabeli.
 
 ## `users`
 
@@ -1331,15 +1350,11 @@ Nie tworzymy „indeksu na każdą kolumnę”; indeks powstaje pod faktyczne sc
 # 23. Obowiązkowe migration/invariant tests
 
 - generowane przez system synthetic domain IDs są UUIDv7 i są przechowywane jako natywny PostgreSQL `uuid`,
+- `organization_contact_addresses.organization_id` zapewnia najwyżej jeden structured company/contact address per Organization,
+- company/contact address nie jest tworzony jako rekord `locations`,
 - generic login resolves to at most one current user,
 - auth session jest listowalna/revokowalna bez ujawnienia raw secretu,
-- drugi globalny pending `account_closure_request` dla tego samego usera jest odrzucony,
-- dwa pending `account_closure_request` dla tego samego usera i tego samego OSK są odrzucone,
-- pending `account_closure_request` tego samego usera w dwóch różnych OSK może istnieć równolegle,
-- ten sam tenantowy idempotency key w tej samej operacji i tym samym OSK nie może zostać claimed dwa razy,
-- ten sam globalny idempotency key w tej samej operacji nie może zostać claimed dwa razy mimo `organization_id IS NULL`,
-- ten sam idempotency key i operation key mogą istnieć równolegle w dwóch różnych OSK,
-- globalny i tenantowy namespace idempotency są rozdzielone,
+- tylko jedno pending account closure request w tym samym scope,
 - same global User może mieć membership w dwóch OSK,
 - staff może istnieć bez panel account,
 - staff ma wiele categories/locations,
@@ -1368,7 +1383,7 @@ Nie tworzymy „indeksu na każdą kolumnę”; indeks powstaje pod faktyczne sc
 # 24. Kolejność migracji high-level
 
 1. organizations/users/auth identifiers/sessions/account closure,
-2. organization settings + legal documents/terms acceptance,
+2. organization settings + company contact address + legal documents/terms acceptance,
 3. dictionaries/capabilities,
 4. file assets + idempotency,
 5. staff/locations/vehicles + assignment tables,
@@ -1388,8 +1403,7 @@ Nie tworzymy „indeksu na każdą kolumnę”; indeks powstaje pod faktyczne sc
 # 25. Zamknięte i oczekujące decyzje techniczne
 
 Zamknięte:
-- synthetic domain ID: UUIDv7 generowany application-side, przechowywany jako natywny PostgreSQL `uuid`,
-- nullable tenant/global uniqueness: osobne partial unique indexes dla `organization_id IS NOT NULL` oraz `organization_id IS NULL`.
+- synthetic domain ID: UUIDv7 generowany application-side, przechowywany jako natywny PostgreSQL `uuid`.
 
 Nadal wymagają osobnego etapu/ADR przed produkcyjnymi migracjami odpowiednich modułów:
 - application encryption + key rotation dla PESEL/PKK/provider snapshots,
