@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: PrawkoNaRaz OSK API
-  version: 0.2.0
+  version: 0.2.1
   description: |
     Canonical implementation contract for core OSK v1. This is our own clean-room
     API design, not a reverse-engineered competitor API. Confirmed screen/business
@@ -50,6 +50,7 @@ paths:
   /organization/settings: { $ref: './paths/auth-organization.yaml#/paths/~1organization~1settings' }
   /organization/accepted-terms: { $ref: './paths/auth-organization.yaml#/paths/~1organization~1accepted-terms' }
   /organization/integrations/pkk: { $ref: './paths/auth-organization.yaml#/paths/~1organization~1integrations~1pkk' }
+  /organization/integrations/pkk/configuration: { $ref: './paths/auth-organization.yaml#/paths/~1organization~1integrations~1pkk~1configuration' }
   /organization/integrations/pkk/test-connection: { $ref: './paths/auth-organization.yaml#/paths/~1organization~1integrations~1pkk~1test-connection' }
 
   /students: { $ref: './paths/students-courses.yaml#/paths/~1students' }
@@ -193,6 +194,7 @@ components:
 x-contract-files:
   common: ./common-contract.yml
   components: ./openapi-components-v1.yaml
+  settings_components: ./openapi-settings-components.yaml
   required_operations: ./required-operations-v1.yml
   reverse_engineering_manifest: ../reverse-engineering-manifest.yml
   path_modules:
