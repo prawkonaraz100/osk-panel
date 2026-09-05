@@ -14,6 +14,10 @@ screen:
   internal_exam_doc: docs/32-student-internal-exam-screen.md
   internal_exam_access_spec: specs/screens/student-internal-exam-access.yml
   internal_exam_access_doc: docs/33-student-internal-exam-access-flow.md
+  create_screen_spec: specs/screens/student-create.yml
+  create_doc: docs/36-student-create-form.md
+  add_course_screen_spec: specs/screens/student-add-course.yml
+  add_course_doc: docs/35-student-add-course-form.md
 
 header:
   title: Twoi kursanci
@@ -78,6 +82,7 @@ courses_column:
     last_pkk_operation:
       - Brak operacji
   detail_screen_confirms_collection: true
+  add_course_form_verified: true
   note: detail screen contains section Kursy (PKK) and action Dodaj kurs
 
 internal_exam_column:
@@ -110,7 +115,72 @@ create_flows:
     form: TO_VERIFY
   - id: add_student_manual
     confirmed_entry: true
-    form: TO_VERIFY
+    form: USER_CONFIRMED_AUTH_SCREEN
+    screen_spec: specs/screens/student-create.yml
+    confirmed_profile_fields:
+      - first_name
+      - last_name
+      - phone
+      - contact_email
+      - pesel
+      - no_pesel_control
+    required_by_visible_marker:
+      - first_name
+      - last_name
+    optional_course_pkk:
+      confirmed: true
+      fields:
+        - pkk_reference
+        - category_id
+    location_select:
+      confirmed: true
+      required_by_visible_marker: false
+    optional_license_assignment:
+      confirmed: true
+      visible_inventory_count: true
+      fields:
+        - license_product_or_duration
+        - learning_identifier_email_or_login
+        - language_code
+      conditional_required_by_visible_marker:
+        - learning_identifier_email_or_login
+        - language_code
+    confirmed_business_rules:
+      - student_can_be_created_without_pkk_or_course
+      - student_without_pesel_supported
+      - contact_email_is_separate_from_learning_login_identifier
+      - license_can_be_assigned_during_student_creation
+      - license_inventory_is_visible_during_assignment
+
+add_course_form_confirmed:
+  confidence: USER_CONFIRMED_AUTH_SCREEN
+  screen_spec: specs/screens/student-add-course.yml
+  fields:
+    - training_type
+    - category_id
+    - pkk_reference
+    - starts_at
+    - cost
+    - theory_hours
+    - theory_hours_external
+    - practice_hours
+    - practice_hours_external
+    - instructor_id
+    - location_id
+  required_by_visible_marker:
+    - training_type
+    - category_id
+    - pkk_reference
+    - starts_at
+    - practice_hours
+    - instructor_id
+  observed_training_types:
+    - basic_training
+    - supplementary_training
+  category_is_single_select: true
+  instructor_is_searchable_select: true
+  location_is_optional_single_select: true
+  external_training_hours_are_separate: true
 
 detail_screen_confirmed:
   tabs:
@@ -230,8 +300,9 @@ internal_exam_tab_confirmed:
       - local_workstation
     remote_link_delivery: email
     local_workstation_message: one_candidate_at_a_time
-    exact_inventory_consumption_point: TO_VERIFY
-    exact_local_concurrency_scope: TO_VERIFY
+    exact_competitor_inventory_consumption_point: COMPETITOR_UNVERIFIED_NONBLOCKING
+    exact_competitor_local_concurrency_scope: COMPETITOR_UNVERIFIED_NONBLOCKING
+    own_product_lifecycle_policy: docs/34-own-internal-exam-lifecycle-policy.md
 
 entity_model:
   student_profile_separate_from_learning_account: true
@@ -240,6 +311,7 @@ entity_model:
   learning_progress_contextual_by_account_and_category: true
   internal_exam_history_separate_from_student_profile: true
   exam_inventory_separate_from_attempt_history: true
+  manual_create_orchestrates_multiple_domains: true
   suggested_entities:
     - students
     - student_learning_accounts
@@ -266,10 +338,19 @@ relationships_confirmed_or_supported_by_projection:
   - student_has_financial_account
   - student_can_have_location
   - student_has_progress_projection_per_learning_account_and_category
+  - manual_student_create_can_optionally_create_course
+  - manual_student_create_can_optionally_assign_license
 
 confirmed_actions:
   - add_student_from_pkk
   - add_student_manual
+  - save_student_manual
+  - toggle_student_no_pesel
+  - select_student_location_on_create
+  - toggle_student_license_assignment_on_create
+  - select_student_license_variant_on_create
+  - set_student_learning_identifier_on_create
+  - select_student_learning_language_on_create
   - search_students
   - open_student_filters
   - open_student_sort
@@ -316,19 +397,22 @@ security_requirements:
   - secure_remote_exam_tokens
   - idempotent_exam_inventory_accounting
   - server_side_exam_station_concurrency
+  - atomic_manual_student_create_with_optional_course_and_license
+  - validate_create_location_against_organization
+  - validate_license_inventory_against_organization
 
 remaining_gaps:
-  - add_student_manual_form
   - add_student_from_pkk_flow
   - preview_behavior
   - student_edit_form
-  - add_course_form
   - training_stage_transition_behavior
+  - manual_create_license_toggle_disabled_state
+  - manual_create_exact_license_options
+  - manual_create_exact_language_options
+  - manual_create_learning_password_or_invitation_flow
+  - manual_create_pkk_category_validation
+  - manual_create_duplicate_detection
   - internal_exam_exact_required_candidate_fields
-  - internal_exam_inventory_consumption_point
-  - internal_exam_remote_link_ttl_resend_revoke
-  - internal_exam_local_concurrency_scope
-  - internal_exam_local_next_screen
   - internal_exam_populated_history
   - internal_exam_exact_statuses_and_results
   - internal_exam_card_print_pdf
