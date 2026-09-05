@@ -6,20 +6,32 @@ meta:
   status: ACTIVE_IMPLEMENTATION_BASELINE
   goal: build_own_functional_equivalent_without_copying_ui_or_code
 
+preservation:
+  contract: docs/96-reverse-engineering-preservation-contract.md
+  manifest: specs/reverse-engineering-manifest.yml
+  all_confirmed_core_screen_elements_must_be_accounted_for: true
+  aggregate_summary_may_not_reduce_scope: true
+  traceability_required_before_module_done: true
+
 precedence:
   legal_rules:
     - specs/legal/*.yml
   own_product_decisions:
     - specs/design/*.yml
+  reverse_engineering_preservation:
+    - docs/96-reverse-engineering-preservation-contract.md
+    - specs/reverse-engineering-manifest.yml
+  verified_screens:
+    - specs/screens/*.yml
+    - docs/17-80
   security_contracts:
     - specs/security/*.yml
   api_contracts:
     - specs/api/common-contract.yml
+    - specs/api/required-operations-v1.yml
     - specs/api/openapi-v1.yaml
   database_blueprint:
     - specs/database/core-schema.yml
-  verified_screens:
-    - specs/screens/*.yml
   implementation_baseline:
     - specs/implementation-baseline-v1.yml
   module_status:
@@ -34,7 +46,11 @@ precedence:
     - docs/01-feature-map.md
     - docs/02-screen-inventory.md
     - docs/10-gap-register.md
-  rule: legal_design_security_api_database_screen_specs_override_legacy_aggregates
+  rule: >-
+    legal_and_explicit_design_rules_control_implementation_semantics; confirmed
+    screen evidence controls required user capabilities; security/api/database
+    contracts must be expanded when they do not yet cover confirmed evidence,
+    never by deleting the confirmed capability.
 
 confidence_levels:
   - USER_CONFIRMED_AUTH_SCREEN
@@ -49,12 +65,31 @@ confidence_levels:
   - DEMO_BLOCKED
   - UNOBSERVABLE_IN_DEMO_NONBLOCKING
 
+module_done_gate:
+  required:
+    - reverse_engineering_traceability_complete
+    - all_confirmed_actions_accounted_for
+    - all_confirmed_fields_and_options_accounted_for
+    - filters_sorting_search_and_documents_accounted_for
+    - domain_model_present
+    - required_api_operations_present
+    - permissions_present
+    - audit_effects_present
+    - acceptance_tests_present
+    - policy_tests_present
+  allowed_exceptions:
+    - SUPERSEDED_BY_LEGAL_RULE
+    - SUPERSEDED_BY_OWN_PRODUCT_DECISION_WITH_EQUIVALENT_CAPABILITY
+    - DEFERRED_OUTSIDE_CORE_WITH_EXPLICIT_DECISION
+    - NOT_A_REQUIREMENT_DEMO_ANOMALY
+
 core_modules:
   dashboard:
     status: READY_FOR_IMPLEMENTATION
     route: /
     spec: specs/screens/main-dashboard.yml
     doc: docs/74-main-dashboard.md
+    preservation_manifest_key: core.dashboard
 
   pkk:
     status: READY_FOR_IMPLEMENTATION
@@ -65,6 +100,7 @@ core_modules:
       - specs/screens/pkk-course-operational-panel.yml
       - specs/screens/pkk-configuration-gate.yml
     docs:
+      - docs/37-pkk-configuration-gate.md
       - docs/75-pkk-entrypoints-and-student-list.md
       - docs/76-pkk-course-operational-panel.md
       - docs/77-pkk-management-flow-fallback-design.md
@@ -75,6 +111,7 @@ core_modules:
       - provider_adapter
       - retry_matrix
       - reconciliation_for_unknown_external_state
+    preservation_manifest_key: core.pkk
 
   students:
     status: READY_FOR_IMPLEMENTATION
@@ -97,17 +134,20 @@ core_modules:
       - student_finance_separate_from_platform_purchase_ledger
       - protect_pesel
       - tenant_isolation
+    preservation_manifest_key: core.students
 
   courses:
     status: READY_FOR_IMPLEMENTATION
     canonical_entity: course_enrollment
     specs:
+      - specs/screens/student-add-course.yml
       - specs/screens/course-create.yml
       - specs/screens/course-edit.yml
       - specs/screens/course-delete.yml
       - specs/legal/training-theory-exemptions.yml
       - specs/legal/editable-training-requirements.yml
     docs:
+      - docs/35-student-add-course-form.md
       - docs/78-course-edit-form.md
       - docs/79-course-delete-confirmation.md
       - docs/80-course-create-form.md
@@ -117,6 +157,8 @@ core_modules:
       current_osk_training: training_session_and_training_hour_ledger
       previous_osk_training: recognized_external_training_records
       manual_aggregate_current_osk_hours_as_primary_source: false
+      observed_hour_fields_must_still_be_supported_in_ui_or_projection: true
+    preservation_manifest_key: core.courses
 
   calendar:
     status: READY_FOR_IMPLEMENTATION
@@ -131,6 +173,7 @@ core_modules:
       - server_side_conflict_detection
       - timezone_per_organization
       - audit_event_changes
+    preservation_manifest_key: core.calendar
 
   locations:
     status: READY_FOR_IMPLEMENTATION
@@ -143,6 +186,7 @@ core_modules:
       - multi_location
       - location_as_calendar_resource
       - archive_restore_preserve_history
+    preservation_manifest_key: core.locations
 
   vehicles:
     status: READY_FOR_IMPLEMENTATION
@@ -153,6 +197,7 @@ core_modules:
       - specs/screens/vehicle-detail.yml
       - specs/screens/vehicle-edit.yml
       - specs/screens/vehicle-delete.yml
+    preservation_manifest_key: core.vehicles
 
   staff:
     status: READY_FOR_IMPLEMENTATION
@@ -166,8 +211,10 @@ core_modules:
     required_architecture:
       - staff_profile_separate_from_user_account
       - optional_login_account
+      - organization_membership_scopes_panel_access
       - permission_based_rbac
       - staff_type_not_equal_permission
+    preservation_manifest_key: core.staff
 
   licenses_purchase:
     status: READY_FOR_IMPLEMENTATION
@@ -185,10 +232,14 @@ core_modules:
       - specs/screens/license-sorting.yml
       - specs/screens/license-bulk-access-pdf.yml
       - specs/screens/student-license-delete.yml
+      - specs/screens/student-access-credentials-pdf.yml
     invariants:
+      - revoked_historical_assignment_does_not_block_reuse_of_restored_inventory_entry
+      - at_most_one_current_assignment_per_inventory_entry
       - revoke_unactivated_assignment_restores_exactly_one_inventory_item_atomically
       - activated_assignment_cannot_use_unactivated_revoke_flow
       - plaintext_password_never_persisted
+    preservation_manifest_key: core.licenses
 
   student_finance:
     status: READY_FOR_IMPLEMENTATION
@@ -198,6 +249,7 @@ core_modules:
       - balance_is_projection
       - correction_uses_reversal
       - no_hard_delete_after_financial_activity
+    preservation_manifest_key: core.student_finance
 
   internal_exam_purchase:
     status: READY_FOR_IMPLEMENTATION
@@ -212,6 +264,9 @@ core_modules:
     legal_rules: specs/legal/training-theory-exemptions.yml
     inventory_consumption_policy: consume_on_start
     rules:
+      - inventory_entry_may_have_historical_released_reservations
+      - at_most_one_active_reservation_per_inventory_entry
+      - at_most_one_active_reservation_per_attempt
       - reserve_on_access_creation
       - consume_atomically_on_exam_start
       - finish_does_not_consume_again
@@ -219,12 +274,14 @@ core_modules:
       - technical_abort_does_not_auto_restore_inventory
       - restore_after_start_only_by_audited_adjustment
       - formal_exam_requires_student_and_course_enrollment
+    preservation_manifest_key: core.internal_exams
 
   settings:
     status: READY_FOR_IMPLEMENTATION
     route: /ustawienia
     spec: specs/screens/settings.yml
     doc: docs/18-settings-screen.md
+    preservation_manifest_key: core.settings
 
   purchase_history:
     status: READY_FOR_IMPLEMENTATION
@@ -232,6 +289,7 @@ core_modules:
     spec: specs/screens/purchase-history.yml
     doc: docs/17-history-purchases-screen.md
     separate_from_student_finance: true
+    preservation_manifest_key: core.purchase_history
 
 formal_rules:
   training_hour_minutes:
@@ -261,22 +319,30 @@ cross_cutting_invariants:
   - no_hard_delete_of_formal_or_financial_history
   - secrets_never_committed_to_repository
   - request_correlation_propagated_to_audit_integration_and_outbox
+  - reverse_engineered_confirmed_capabilities_cannot_be_dropped_by_aggregate_refactor
 
 consolidation_completed:
   - canonical_domain_glossary
+  - reverse_engineering_preservation_contract
+  - exhaustive_reverse_engineering_manifest
   - course_first_pkk_api_contract
   - exam_consumption_semantics_normalized_to_consume_on_start
   - training_hours_source_of_truth_formalized
   - common_archive_cancel_revoke_reverse_correct_invalidate_policy
   - common_api_error_pagination_money_datetime_idempotency_contract
   - permission_based_rbac_contract
-  - physical_database_schema_blueprint
+  - database_historical_uniqueness_and_assignment_constraints_fixed_in_machine_schema
   - test_strategy
   - production_operations_baseline
   - openapi_3_1_initial_blueprint
-  - legacy_aggregates_synchronized
+  - required_api_operations_inventory
+  - legacy_aggregates_synchronized_for_core_status
 
 remaining_preimplementation_or_preproduction_decisions:
+  before_module_done:
+    - expand_openapi_until_all_http_operations_in_specs_api_required_operations_v1_have_operationIds_and_schemas
+    - synchronize_docs_87_narrative_with_machine_database_constraint_fixes
+    - generate_or_update_acceptance_traceability_for_each_module_as_implemented
   high_risk_before_related_production_data:
     - legal_category_dictionary_reverification_including_PT_tram_mapping
     - final_sensitive_identifier_encryption_and_key_rotation_ADR
@@ -287,7 +353,6 @@ remaining_preimplementation_or_preproduction_decisions:
     - restore_drill
     - provider_reconciliation_jobs
   during_module_implementation:
-    - complete_openapi_request_response_schemas_for_each_implemented_module
     - enable_openapi_validation_in_CI
     - choose_final_public_id_strategy_UUIDv7_or_ULID
 
@@ -295,14 +360,18 @@ deferred_non_core_modules:
   business_cards:
     status: NOT_SCREEN_MAPPED
     route: /wizytowki
+    evidence_must_be_preserved: true
   advertising:
     status: NOT_SCREEN_MAPPED
+    evidence_must_be_preserved: true
   lectures:
     status: NOT_SCREEN_MAPPED
     route: /wyklady
+    evidence_must_be_preserved: true
   instructor_training:
     status: NOT_SCREEN_MAPPED
     route: /szkolenie-z-instruktorem
+    evidence_must_be_preserved: true
 
 historical_or_optional:
   invoices:
