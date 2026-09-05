@@ -4,7 +4,7 @@ Data: 2026-09-05
 
 **Status:** `IMPLEMENTATION_BLUEPRINT`
 
-> To nie są jeszcze migracje Laravel. To fizyczny blueprint tabel, indeksów, constraintów i najważniejszych transakcji zgodny z canonical domain model. Machine-readable odpowiednik: `specs/database/core-schema.yml`. Przy konflikcie machine spec + późniejszy ADR wygrywa. Reverse-engineered scope chronią `docs/96-reverse-engineering-preservation-contract.md` i `specs/reverse-engineering-manifest.yml`.
+> To nie są jeszcze migracje Laravel. To fizyczny blueprint tabel, indeksów, constraintów i najważniejszych transakcji zgodny z canonical domain model. Machine-readable odpowiednik: `specs/database/core-schema.yml`. Przy konflikcie machine spec + późniejszy ADR wygrywa. Reverse-engineered scope chronią `docs/96-reverse-engineering-preservation-contract.md` i `specs/reverse-engineering-manifest.yml`. Cross-layer kompletność kontroluje `specs/traceability/core-v1.yml`.
 
 ---
 
@@ -116,6 +116,43 @@ Inwariant: jedna widoczna bieżąca wartość loginu rozwiązuje się do najwyż
 
 Unique:
 - `(provider, provider_subject)` dla aktywnej identity.
+
+## `auth_sessions`
+
+Trwała projekcja/store sesji potrzebna przez `GET /auth/sessions` i revoke. Może być fizycznie oparta na własnej tabeli albo bezpiecznym frameworkowym session store, ale kontrakt musi pozostać ten sam.
+
+- `id uuid PK`
+- `user_id uuid FK users`
+- `organization_membership_id uuid null FK organization_memberships`
+- `token_or_framework_session_hash varchar(255) unique not null`
+- `created_at timestamptz`
+- `last_seen_at timestamptz null`
+- `revoked_at timestamptz null`
+- `revoke_reason varchar(255) null`
+- `ip_hash varchar(128) null`
+- `user_agent varchar(512) null`.
+
+Nie zapisujemy raw cookie/bearer secret. Revoke jest zmianą stanu, nie kasowaniem historii bezpieczeństwa.
+
+## `account_closure_requests`
+
+Audytowalny workflow dla żądania zamknięcia konta.
+
+- `id uuid PK`
+- `user_id uuid FK users`
+- `organization_id uuid null FK organizations`
+- `requested_at timestamptz`
+- `reason text null`
+- `status varchar(32)` — `pending|approved|rejected|completed|cancelled`
+- `resolved_at timestamptz null`
+- `resolved_by_user_id uuid null`
+- `resolution_note text null`
+- `request_id varchar(64)`.
+
+Partial unique:
+- `(user_id, organization_id)` where `status='pending'`.
+
+Żądanie nie oznacza automatycznego hard-delete danych formalnych/finansowych.
 
 ## `organization_memberships`
 
@@ -1126,6 +1163,34 @@ Unique `(provider, provider_event_id)`.
 
 Dedupe następuje przed business effect.
 
+## `service_entitlements`
+
+Generic entitlement dla opłaconej/przyznanej usługi, kiedy produkt nie ma wyspecjalizowanego inventory jak licencja lub egzamin.
+
+- `id uuid PK`
+- `organization_id uuid FK`
+- `service_type varchar(64)`
+- `source_order_item_id uuid null FK order_items`
+- `source_grant_reference varchar(128) null`
+- `activation_mode varchar(32)` — `immediate|explicit`
+- `status varchar(32)` — `granted|available|activated|expired|revoked`
+- `granted_at timestamptz`
+- `expires_at timestamptz null`
+- `created_at`.
+
+## `service_activations`
+
+- `id uuid PK`
+- `organization_id uuid FK`
+- `service_entitlement_id uuid unique FK service_entitlements`
+- `activated_by_user_id uuid null`
+- `activated_at timestamptz`
+- `effective_from timestamptz`
+- `effective_to timestamptz null`
+- `created_at`.
+
+Dla `activation_mode=explicit` potwierdzenie płatności tworzy entitlement, ale **nie jest jeszcze aktywacją**. Aktywacja jest exactly-once, idempotentna i audytowana.
+
 ---
 
 # 20. Audit / activity / outbox / notifications
@@ -1236,7 +1301,9 @@ Minimum pod obserwowane query:
 - license assignments: learning account + status/date,
 - exam attempts: course/student/date/status/language/category,
 - activity events: organization + occurred_at,
-- orders: organization + status/date.
+- orders: organization + status/date,
+- service_entitlements: organization + service_type + status,
+- auth_sessions: user + revoked_at + last_seen_at.
 
 Nie tworzymy „indeksu na każdą kolumnę”; indeks powstaje pod faktyczne screen/API query.
 
@@ -1245,6 +1312,8 @@ Nie tworzymy „indeksu na każdą kolumnę”; indeks powstaje pod faktyczne sc
 # 23. Obowiązkowe migration/invariant tests
 
 - generic login resolves to at most one current user,
+- auth session jest listowalna/revokowalna bez ujawnienia raw secretu,
+- tylko jedno pending account closure request w tym samym scope,
 - same global User może mieć membership w dwóch OSK,
 - staff może istnieć bez panel account,
 - staff ma wiele categories/locations,
@@ -1260,6 +1329,8 @@ Nie tworzymy „indeksu na każdą kolumnę”; indeks powstaje pod faktyczne sc
 - jedno active local exam per station,
 - jedna active station session per attempt,
 - failover nie konsumuje drugiego egzaminu,
+- explicit service entitlement activation jest exactly-once,
+- payment success nie aktywuje przedwcześnie entitlementu z `activation_mode=explicit`,
 - duplicate payment event same provider jest odrzucony,
 - ten sam provider_event_id u dwóch providerów nie koliduje,
 - same idempotency key + same request nie duplikuje effect,
@@ -1270,7 +1341,7 @@ Nie tworzymy „indeksu na każdą kolumnę”; indeks powstaje pod faktyczne sc
 
 # 24. Kolejność migracji high-level
 
-1. organizations/users/auth identifiers,
+1. organizations/users/auth identifiers/sessions/account closure,
 2. organization settings + legal documents/terms acceptance,
 3. dictionaries/capabilities,
 4. file assets + idempotency,
@@ -1282,7 +1353,7 @@ Nie tworzymy „indeksu na każdą kolumnę”; indeks powstaje pod faktyczne sc
 10. student finance,
 11. license inventory/assignment/activation periods,
 12. internal exam inventory/attempt/access/stations/station sessions,
-13. orders/payments,
+13. orders/payments/service entitlements/activations,
 14. audit/activity/outbox/notifications,
 15. final partial indexes/cross-table constraints.
 
@@ -1316,6 +1387,9 @@ Schema ma wspierać wszystkie potwierdzone relacje i flow z `specs/reverse-engin
 - wiele prób egzaminu, result review i answer-sheet PDF,
 - dwa entry pointy generowania egzaminu,
 - local station concurrency/failover,
-- dashboard activity feed.
+- dashboard activity feed,
+- listę/revoke sesji konta,
+- audytowalne żądanie zamknięcia konta,
+- zakup -> entitlement -> osobna aktywacja dla usług z activation mode explicit.
 
-Jeżeli screen spec wymaga capability, której aktualny schema nie potrafi zapisać, **rozszerzamy schema — nie usuwamy capability ze scope'u**.
+Jeżeli screen spec lub canonical API wymaga capability, której aktualny schema nie potrafi zapisać, **rozszerzamy schema — nie usuwamy capability ze scope'u**.
