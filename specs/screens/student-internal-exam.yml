@@ -7,6 +7,8 @@ screen:
   confidence: USER_CONFIRMED_AUTH_SCREEN
   verified_at: 2026-09-05
   doc: docs/32-student-internal-exam-screen.md
+  access_flow_spec: specs/screens/student-internal-exam-access.yml
+  access_flow_doc: docs/33-student-internal-exam-access-flow.md
 
 last_exam:
   section_title: Ostatni egzamin wewnętrzny
@@ -14,6 +16,7 @@ last_exam:
   confirmed_action:
     id: start_student_internal_exam
     label: Rozpocznij egzamin
+    opens: student_internal_exam_access
 
 summary:
   section_title: Wszystkie egzaminy
@@ -35,10 +38,40 @@ history:
   empty_state_observed: true
   row_actions: TO_VERIFY
 
+access_generation_flow_confirmed:
+  inventory_count_visible: true
+  candidate_fields:
+    - full_name
+    - category
+    - language
+    - first_name
+    - last_name
+    - pkk
+    - pesel
+    - email
+  incomplete_candidate_warning_observed: true
+  selectable_fields:
+    - category
+    - language
+  launch_modes:
+    - remote_link
+    - local_workstation
+  remote_link_behavior:
+    - generate_exam_link
+    - send_link_to_candidate_email
+    - candidate_can_take_exam_remotely_with_internet
+  local_workstation_behavior:
+    - start_exam_on_current_workstation
+    - one_candidate_at_a_time_message_observed
+  inventory_consumption_point: TO_VERIFY
+  local_concurrency_scope: TO_VERIFY
+
 confirmed_model_behavior:
   multiple_attempts_supported: true
   aggregate_metrics_derived_from_attempt_history: true
   internal_exam_not_boolean_on_student: true
+  exam_inventory_separate_from_attempt_history: true
+  remote_and_local_launch_modes_supported: true
 
 confirmed_actions:
   - open_student_internal_exam_tab
@@ -47,15 +80,25 @@ confirmed_actions:
   - view_passed_internal_exam_count
   - view_failed_internal_exam_count
   - view_internal_exam_history
+  - select_exam_category
+  - select_exam_language
+  - edit_student_exam_data
+  - share_internal_exam_link
+  - start_internal_exam_on_current_workstation
 
 suggested_entities:
   - internal_exam_attempts
+  - exam_inventory_or_ledger
+  - exam_access_tokens
+  - exam_station_sessions
 
 suggested_attempt_fields:
   - id
   - organization_id
   - student_id
   - category_id
+  - language_code
+  - launch_mode
   - started_at
   - finished_at
   - status
@@ -66,13 +109,18 @@ security_requirements:
   - tenant_isolation
   - authorize_student_exam_by_organization
   - audit_exam_start_and_result
+  - secure_remote_access_tokens
+  - server_side_local_concurrency_enforcement
+  - idempotent_inventory_accounting
 
 remaining_gaps:
-  - start_exam_flow
-  - category_selection
-  - language_selection
-  - local_vs_link_start_mode
-  - inventory_consumption_behavior
+  - exact_required_candidate_fields
+  - exact_category_dictionary
+  - exact_language_dictionary
+  - inventory_consumption_point
+  - remote_link_ttl_resend_revoke_behavior
+  - local_concurrency_scope
+  - local_exam_next_screen
   - exact_attempt_statuses
   - populated_history_row
   - passed_exam_details
