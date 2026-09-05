@@ -1,0 +1,60 @@
+screen:
+  id: student_license_delete_confirmation
+  scope: admin_osk
+  parent_route_pattern: /kursanci/<student_id>
+  entry_action: delete_unactivated_student_license
+  title: Usuwanie licencji
+  confidence: USER_CONFIRMED_AUTH_SCREEN
+  verified_at: 2026-09-05
+  doc: docs/39-student-license-delete-confirmation.md
+
+confirmation:
+  message: Czy na pewno chcesz usunąć licencje?
+  actions:
+    confirm:
+      label: Tak, usuń
+      action: confirm_delete_unactivated_license
+    cancel:
+      label: Nie, anuluj
+      action: cancel_delete_unactivated_license
+    close:
+      control: X
+      action: close_delete_unactivated_license_confirmation
+
+confirmed_ui_behavior:
+  immediate_delete_without_confirmation: false
+  destructive_action_requires_confirmation: true
+  cancel_is_non_mutating: true
+  backend_effect_after_confirm: TO_VERIFY
+
+own_product_design:
+  recommended_assignment_state_after_confirm: revoked_before_activation
+  preserve_assignment_history: true
+  restore_exactly_one_inventory_credit: true
+  atomic_revoke_and_restore: true
+  keep_learning_access_independent: true
+  hard_delete_not_required: true
+
+security_requirements:
+  - tenant_isolation
+  - authorize_license_assignment_by_student_and_organization
+  - server_side_verify_assignment_not_activated
+  - atomic_revoke_and_inventory_restore
+  - idempotent_confirmation
+  - prevent_double_inventory_restore
+  - audit_license_revocation
+
+confirmed_actions:
+  - open_delete_unactivated_license_confirmation
+  - confirm_delete_unactivated_license
+  - cancel_delete_unactivated_license
+  - close_delete_unactivated_license_confirmation
+
+remaining_gaps:
+  - exact_competitor_backend_delete_semantics
+  - exact_competitor_inventory_restore_effect
+  - success_message
+  - error_message
+  - immediate_inventory_refresh_behavior
+  - revoked_assignment_history_visibility
+  - race_behavior_if_activation_occurs_concurrently
