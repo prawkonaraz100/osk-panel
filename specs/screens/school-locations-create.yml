@@ -1,0 +1,70 @@
+screen:
+  id: school_locations_create
+  scope: admin_osk
+  parent_route: /lokalizacje
+  title: Dodaj Lokalizacje
+  confidence: USER_CONFIRMED_AUTH_SCREEN
+  verified_at: 2026-09-05
+  doc: docs/72-school-locations-create-form.md
+
+fields:
+  type:
+    required: true
+    control: select
+    observed_options:
+      - branch
+      - lecture_room
+      - maneuvering_area
+    labels:
+      branch: Filia
+      lecture_room: Sala wykładowa
+      maneuvering_area: Plac manewrowy
+  name:
+    required: true
+    control: text
+  street_and_number:
+    required: true
+    control: text
+  postal_code:
+    required: true
+    control: text
+  locality:
+    required: true
+    control: searchable_catalog_select
+    result_metadata_observed:
+      - locality_name
+      - voivodeship
+
+actions:
+  - save_school_location
+  - cancel_school_location_creation
+  - close_drawer
+
+own_product_model:
+  entity: school_location
+  fields:
+    - id
+    - organization_id
+    - type
+    - name
+    - street_and_number
+    - postal_code
+    - locality_id_nullable
+    - locality_name_snapshot
+    - voivodeship_snapshot
+    - status
+    - created_at
+    - updated_at
+  relations_confirmed_from_other_screens:
+    - calendar
+    - employees
+    - vehicles
+    - students_or_course_context
+
+remaining_gaps:
+  - edit_location_form
+  - delete_or_archive_location
+  - delete_confirmation
+  - relation_cleanup_or_blocking_rules
+  - exact_validation_messages
+  - locality_catalog_source
