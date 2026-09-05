@@ -29,6 +29,7 @@ sources:
   bounded_contexts:
     - specs/database/organization-settings.yml
     - specs/database/identity-rbac.yml
+    - specs/database/staff-locations-vehicles.yml
   security:
     - specs/security/permissions.yml
     - docs/04-roles-permissions.md
@@ -52,7 +53,9 @@ stage_4_slices:
   - id: DB4_3_STAFF_LOCATIONS_VEHICLES
     status: IN_PROGRESS_WITH_BLOCKERS
     diagnosis: COMPLETE
-    result: FAIL_WITH_6_P1_BLOCKERS
+    blockers_resolved: 1
+    open_P0_P1: 5
+    result: FAIL_WITH_5_P1_BLOCKERS
   - id: DB4_4_STUDENTS_COURSES_TRAINING_LEDGER
     status: NOT_STARTED
   - id: DB4_5_CALENDAR
@@ -85,18 +88,50 @@ quality_checks:
     Laravel_migrations_created: false
 
   staff_membership_link_same_organization_integrity:
-    status: FAIL
-    blocker_id: DB-RES-001
+    status: PASS
+    resolved_blocker_id: DB-RES-001
     severity: P1
-    evidence:
-      - staff_membership_links_contains_organization_id_staff_profile_id_organization_membership_id
-      - current_blueprint_relies_on_backend_same_organization_check
-      - DB_IAM_002_assigned_scope_resolvers_depend_on_active_staff_membership_link
-    unresolved: >-
-      Independent simple FKs do not physically prove that the StaffProfile and
-      OrganizationMembership referenced by one StaffMembershipLink both belong to
-      the link's organization.
-    impact: malformed_link_can_poison_RBAC_own_assigned_locations_and_assigned_students_resolution
+    machine_source: specs/database/staff-locations-vehicles.yml
+    narrative_source: docs/107-stage-4-staff-locations-vehicles-audit.md
+    decision:
+      link_tenant_key: staff_membership_links.organization_id
+      staff_profile_candidate_key: [organization_id, id]
+      organization_membership_candidate_key: [organization_id, id]
+      staff_profile_composite_FK:
+        source_columns: [organization_id, staff_profile_id]
+        target_table: staff_profiles
+        target_columns: [organization_id, id]
+        on_update: RESTRICT
+        on_delete: RESTRICT
+      organization_membership_composite_FK:
+        source_columns: [organization_id, organization_membership_id]
+        target_table: organization_memberships
+        target_columns: [organization_id, id]
+        on_update: RESTRICT
+        on_delete: RESTRICT
+      link_organization_id_mutable_after_create: false
+      cross_tenant_link_possible_after_constraints: false
+      active_link_uniqueness_preserved: true
+      unlink_history_preserved: true
+      staff_archive_membership_effect_defined_here: false
+    migration_precheck:
+      - detect_link_vs_staff_profile_organization_mismatch
+      - detect_link_vs_organization_membership_organization_mismatch
+      - detect_active_link_uniqueness_violation
+      - fail_or_explicit_security_remediation_never_silent_reassignment
+    tests:
+      - same_organization_link_accepted
+      - cross_organization_staff_membership_pair_rejected
+      - link_tenant_vs_staff_tenant_mismatch_rejected
+      - link_tenant_vs_membership_tenant_mismatch_rejected
+      - second_active_link_per_staff_rejected
+      - second_active_link_per_membership_rejected
+      - unlink_history_preserved
+      - RBAC_staff_link_resolution_cannot_cross_tenant
+    aggregate_sync_note: >-
+      The DB4_3 bounded-context spec is authoritative for this resolved invariant.
+      core-schema.yml and docs/87 are synchronized once, before final DB4_3 PASS
+      and before migrations, instead of rewriting aggregates after every blocker.
 
   staff_vehicle_location_assignment_tenant_integrity:
     status: FAIL
@@ -169,10 +204,9 @@ resolved_blockers:
   - DB-IAM-003
   - DB-IAM-004
   - DB-IAM-005
+  - DB-RES-001
 
 open_blockers_current_diagnosed_scope:
-  - id: DB-RES-001
-    severity: P1
   - id: DB-RES-002
     severity: P1
   - id: DB-RES-003
@@ -192,7 +226,7 @@ gate_definition:
     - migration_order_dependency_safe
     - database_invariant_test_matrix_exists
     - reverse_engineering_preservation_traceable
-  current_result: FAIL_DB4_3_WITH_6_OPEN_P1_BLOCKERS
+  current_result: FAIL_DB4_3_WITH_5_OPEN_P1_BLOCKERS
   DB4_2_result: PASS
   DB4_3_result: FAIL
   may_start_DB4_3_fixes: true
@@ -201,17 +235,19 @@ gate_definition:
   may_start_UI_or_feature_implementation: false
 
 next_single_step:
-  id: DB4_3_STEP_2
-  blocker: DB-RES-001
-  action: resolve_StaffMembershipLink_same_organization_integrity_only
+  id: DB4_3_STEP_3
+  blocker: DB-RES-002
+  action: resolve_Staff_and_Vehicle_location_assignment_tenant_integrity_only
   allowed_scope:
+    - specs/database/staff-locations-vehicles.yml
     - specs/database/core-schema.yml
     - specs/database/identity-rbac.yml
     - docs/87-physical-database-schema.md
     - docs/107-stage-4-staff-locations-vehicles-audit.md
     - specs/gates/stage-4-database-contract-gate.yml
   scope_lock: >-
-    Do not fix StaffLocationAssignment VehicleLocationAssignment FileAsset
-    attachment document-current identity-uniqueness or staff-archive blockers in
-    the same step. Do not enter DB4_4 or create Laravel migrations.
-  after_action: rerun_DB4_3_gate_and_record_DB_RES_001_PASS_or_new_blocker_before_DB_RES_002
+    Do not fix FileAsset attachment document-current identity-uniqueness or
+    staff-archive blockers in the same step. Do not enter DB4_4 or create Laravel
+    migrations. Aggregate core-schema/docs87 sync remains deferred until final
+    DB4_3 PASS unless a blocker cannot be expressed safely without immediate sync.
+  after_action: rerun_DB4_3_gate_and_record_DB_RES_002_PASS_or_new_blocker_before_DB_RES_003
