@@ -2,7 +2,7 @@
 
 Data: 2026-09-05
 
-**Status:** `IN_PROGRESS / DB-FOUND-001 PASS / DB-FOUND-002 PASS / DB-FOUND-003 PASS / FOUNDATION_GATE_FAIL`
+**Status:** `FOUNDATION_PASS / READY_FOR_DB4_2_IDENTITY_TENANT_RBAC`
 
 ## Cel
 
@@ -25,133 +25,121 @@ Nie upraszczamy modelu tylko dlatego, że łatwiej byłoby wygenerować CRUD.
 
 ## Wynik foundation scan
 
-Foundation scan wykrył cztery konkretne P1 przed uznaniem physical schema za bazę do migracji. Naprawiamy je pojedynczo i po każdym uruchamiamy bramkę ponownie.
+Foundation scan wykrył cztery P1. Zostały naprawione **pojedynczo**, z osobnym gate po każdym kroku. Foundation slice nie zawiera już otwartego P0/P1.
 
 ## DB-FOUND-001 — PASS: finalny physical primary-key strategy
 
-Decyzja została zamknięta:
-
-- synthetic domain PK/FK używa natywnego PostgreSQL `uuid`,
-- nasze generowane identyfikatory domenowe są **UUIDv7**,
-- UUIDv7 jest generowany application-side przed `INSERT`,
-- nie wymagamy DB-default ani wersjozależnej funkcji PostgreSQL do generowania UUIDv7,
-- backend nie może po cichu przełączyć się na UUIDv4,
-- zewnętrzne/provider/import identifiers pozostają osobnymi polami i nie stają się naszym PK,
-- czyste join/dictionary tables mogą zachować jawnie zaprojektowany composite/natural key, jeśli nie potrzebują własnej tożsamości historycznej.
-
-Stage-3 API nie wymaga ponownego otwarcia: publiczne resource IDs są już kompatybilne z UUID string.
+- synthetic domain PK/FK: native PostgreSQL `uuid`,
+- nasze generowane domain IDs: UUIDv7,
+- generation owner: application przed `INSERT`,
+- brak silent fallback do UUIDv4,
+- provider/import IDs nie są naszym PK.
 
 **Gate DB-FOUND-001: PASS.**
 
-## DB-FOUND-002 — PASS: NULL-safe uniqueness dla tenant/global scope
+## DB-FOUND-002 — PASS: NULL-safe uniqueness
 
-Problem polegał na tym, że zwykły PostgreSQL `UNIQUE` nie traktuje wielu wartości `NULL` jak tej samej wartości. Dwa logiczne scope'y mogły więc zostać błędnie zapisane:
-
-1. `idempotency_records.organization_id` jest nullable,
-2. `account_closure_requests.organization_id` jest nullable.
-
-Nie używamy tutaj pojedynczego `UNIQUE` obejmującego nullable `organization_id`. Przyjęto jedną wspólną zasadę:
-
-**tenant scope i globalny scope mają osobne partial unique indexes.**
-
-### `idempotency_records`
-
-Tenant scope:
-- unique `(organization_id, operation_key, idempotency_key)`
-- where `organization_id IS NOT NULL`.
-
-Global/non-tenant scope:
-- unique `(operation_key, idempotency_key)`
-- where `organization_id IS NULL`.
-
-### `account_closure_requests`
-
-Organization-specific pending request:
-- unique `(user_id, organization_id)`
-- where `status='pending' AND organization_id IS NOT NULL`.
-
-Global pending request:
-- unique `(user_id)`
-- where `status='pending' AND organization_id IS NULL`.
-
-Do obowiązkowych migration/invariant tests dodano osobne przypadki dla globalnego scope, tenantowego scope i rozdzielenia scope'ów.
+`idempotency_records` i `account_closure_requests` mają jawnie rozdzielone partial unique indexes dla scope tenantowego i globalnego. Nie polegamy na zwykłym UNIQUE z nullable `organization_id`.
 
 **Gate DB-FOUND-002: PASS.**
 
-## DB-FOUND-003 — PASS: `organization_contact_addresses` ma canonical physical target
+## DB-FOUND-003 — PASS: canonical company contact address
 
-Problem został zamknięty bez scalania pozostałych pól Ustawień.
-
-`organization_contact_addresses` jest teraz:
-- jawnie wpisane do `core_tables.identity` w `specs/database/core-schema.yml`,
-- jawnie opisane w `organization_model`,
-- fizycznie zdefiniowane w `docs/87-physical-database-schema.md`,
-- one-to-one z `organizations` przez `organization_id uuid PK/FK`,
-- odseparowane od `locations`, które pozostaje zasobem szkoleniowym.
-
-Physical shape zachowuje ustalenia z Etapu 2:
-- `street`,
-- `house_number`,
-- `unit_number`,
-- `postal_code`,
-- `city_name`,
-- `city_reference`,
-- `voivodeship_name`,
-- `country_code`,
-- timestampy.
-
-Dodano też migration/invariant obligations:
-- najwyżej jeden structured company/contact address na Organization,
-- zapis/edycja adresu firmy nie tworzy rekordu `locations`.
-
-W tym kroku **celowo nie przenoszono** jeszcze `users.first_name/last_name`, `organizations.phone`, primary-email flag, settings version ani finalnego PKK settings shape. To należy wyłącznie do DB-FOUND-004.
+`organization_contact_addresses` jest obecne w core inventory i physical blueprint jako one-to-one `organization_id PK/FK`. Adres firmy pozostaje odrębnym konceptem od szkoleniowego `Location`.
 
 **Gate DB-FOUND-003: PASS.**
 
-## DB-FOUND-004 — OPEN: Stage-2 settings nie zostały jeszcze w pełni scalone do physical core
+## DB-FOUND-004 — PASS: Stage-2 Settings scalone do physical core
 
-Do physical blueprintu trzeba teraz jawnie przenieść pozostałe elementy z Etapu 2:
-- `users.first_name`,
-- `users.last_name`,
-- `organizations.phone`,
-- `auth_login_identifiers.is_primary_for_type`,
-- partial unique dla bieżącego primary email,
-- `organization_settings.version`,
-- finalny physical shape `pkk_integration_settings` wynikający z `specs/database/organization-settings.yml`.
+Pozostałe ownership i physical fields z Etapu 2 zostały scalone bez tworzenia shadow JSONB/duplicate columns.
 
-`organization_contact_addresses` jest już zamknięte przez DB-FOUND-003 i nie jest ponownie projektowane w tym kroku.
+### `users`
 
-Nie tworzymy dla tych danych alternatywnych JSONB ani duplicate shadow columns.
+Physical core zawiera:
+- `first_name varchar(120)`,
+- `last_name varchar(120)`.
 
-## Czego celowo nie naprawiono w DB-FOUND-003
+Są to globalne pola human identity. System może wspierać przejściowy stan techniczny/pre-onboarding, ale human user po onboardingu musi mieć oba pola. Imię/nazwisko nie są duplikowane per OSK ani w PKK settings.
 
-Nie dotykaliśmy:
-- pozostałego Stage-2 settings merge,
-- tenant-safe FK dla staff/location/vehicle/course,
-- constraintów kalendarza,
-- ledgerów czasu,
-- licencji,
-- egzaminów,
-- PKK operations,
-- finansów,
-- audit/outbox,
-- szyfrowania/key rotation,
-- legalnego mapowania `PT`.
+### `organizations`
 
-Każdy z tych obszarów dostaje osobny slice i gate.
+Dodano:
+- `phone varchar(40) null`.
 
-## Gate po Stage 4.4
+`organizations.name` pozostaje canonical company name. `nip` nie został dodany do potwierdzonego formularza Ustawień tylko dlatego, że istnieje w domenie.
 
-Foundation gate jako całość pozostaje `FAIL`, ponieważ jeden P1 jest nadal otwarty. To jest oczekiwane i nie blokuje uznania DB-FOUND-003 za zamknięty.
+### `auth_login_identifiers`
+
+Dodano:
+- `is_primary_for_type boolean default false`,
+- partial unique `(user_id, identifier_type)` dla bieżącego `is_primary_for_type=true` i `revoked_at IS NULL`.
+
+Settings email jest projekcją primary current email identifier, a nie osobną kolumną `users.email`.
+
+### `organization_settings`
+
+Dodano:
+- `version integer not null default 1 check >= 1`.
+
+Wersja jest źródłem optimistic concurrency dla settings i PKK configuration gate. Jeden udany atomowy zapis zwiększa ją dokładnie raz.
+
+Krytyczne dane nie trafiają do `preferences jsonb`.
+
+### `pkk_integration_settings`
+
+Canonical physical shape jest zgodny ze Stage 2:
+- `organization_id PK/FK`,
+- `school_name`,
+- `osk_registry_number`,
+- `external_osk_login_ciphertext`,
+- opcjonalny `external_osk_login_lookup_hash`,
+- `readiness_status`,
+- `updated_at`.
+
+`external_osk_login`:
+- nie jest application login,
+- plaintext nie jest utrwalany po zapisie,
+- operator first/last name nie jest duplikowany w tej tabeli.
+
+Provider-specific sekrety, jeżeli finalny provider ich wymaga, dostają osobny secret/adapter contract i nie zmieniają ownership obserwowanego formularza.
+
+### Atomic settings use case
+
+Physical blueprint zachowuje Stage-2 transakcję:
+- lock `organization_settings`,
+- validate `If-Match/version`,
+- update właściwych owner tables,
+- recalculate PKK readiness,
+- increment version dokładnie raz,
+- redacted audit,
+- commit.
+
+Do migration/invariant test matrix dodano testy dla names, primary email, version i PKK external login isolation.
+
+**Gate DB-FOUND-004: PASS.**
+
+## Foundation gate — PASS
 
 Aktualny wynik:
 - `DB-FOUND-001` — **PASS**,
 - `DB-FOUND-002` — **PASS**,
 - `DB-FOUND-003` — **PASS**,
-- `DB-FOUND-004` — **FAIL / OPEN**.
+- `DB-FOUND-004` — **PASS**.
 
-Następny pojedynczy krok:
+Foundation nie generuje jeszcze migracji aplikacyjnych dla całego systemu. Oznacza tylko, że wspólne decyzje fizyczne są wystarczająco spójne, aby przejść do następnego **jednego** slice'u DB.
 
-**DB-FOUND-004 — scalić pozostałe canonical pola i constrainty Ustawień OSK z Etapu 2 do physical core.**
+## Następny etap
 
-Dopiero po jego PASS kończymy foundation slice i przechodzimy do `DB4_2_IDENTITY_TENANT_RBAC`.
+**DB4_2_IDENTITY_TENANT_RBAC**.
+
+Najpierw wykonujemy wyłącznie diagnozę:
+- tenant isolation na poziomie physical FK/constraints,
+- membership lifecycle,
+- staff membership link semantics,
+- permission grant/deny model,
+- role template vs explicit permissions,
+- session-to-membership scoping,
+- owner/last-owner invariants,
+- cross-organization write prevention.
+
+Dopiero po zapisaniu blockerów DB4_2 naprawiamy je jeden po drugim. Nie rozpoczynamy równolegle staff/resources ani kolejnych bounded contexts.
