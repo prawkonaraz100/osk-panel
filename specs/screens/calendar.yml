@@ -9,6 +9,7 @@ screen:
   add_event_screen_spec: specs/screens/calendar-add-event.yml
   add_event_doc: docs/49-calendar-add-event-form.md
   own_event_lifecycle_policy: docs/50-own-calendar-event-lifecycle.md
+  important_dates_doc: docs/51-calendar-important-dates.md
 
 event_type_filters:
   control: checkbox
@@ -20,8 +21,11 @@ event_type_filters:
     general_event: Wydarzenie
     driving_lesson: Jazda
     important_date: Ważne daty
-  important_date_exact_semantics: TO_VERIFY
   important_date_present_in_manual_create_selector: false
+  important_date_observed_in_calendar_data: false
+  important_date_competitor_exact_source: UNOBSERVABLE_IN_DEMO_NONBLOCKING
+  important_date_competitor_exact_rendering: UNOBSERVABLE_IN_DEMO_NONBLOCKING
+  important_date_strongest_supported_interpretation: separate_calendar_projection_or_system_generated_item
 
 primary_action:
   label: Dodaj wydarzenie
@@ -132,6 +136,22 @@ post_save_behavior:
   competitor_drag_and_drop: UNOBSERVABLE_IN_DEMO_NONBLOCKING
   own_product_policy: docs/50-own-calendar-event-lifecycle.md
 
+important_dates_own_product:
+  model: system_generated_calendar_items
+  stored_as_manual_calendar_event: false
+  source_domains_may_include:
+    - staff_document_expiry
+    - staff_medical_expiry
+    - staff_psychological_expiry
+    - vehicle_inspection_expiry
+    - vehicle_oc_expiry
+    - vehicle_ac_expiry
+  source_date_remains_authoritative_in_source_domain: true
+  render_in_same_calendar_grid: true
+  filtered_by_important_dates_checkbox: true
+  manual_edit_like_general_event: false
+  click_should_open_source_object_or_source_detail: true
+
 confirmed_actions:
   - open_calendar
   - toggle_general_event_filter
@@ -186,6 +206,7 @@ own_product_model:
   suggested_event_types:
     - general_event
     - driving_lesson
+  system_projection_types:
     - important_date
   suggested_relationships:
     - calendar_event_staff
@@ -219,7 +240,6 @@ security_requirements:
   - audit_event_create_update_cancel
 
 remaining_gaps:
-  - important_date_exact_semantics
   - duration_exact_validation
   - driving_lesson_backend_required_resources
   - warning_vs_hard_block_for_expired_resources
@@ -233,6 +253,8 @@ remaining_gaps:
   - resource_selection_persistence
 
 nonblocking_competitor_unknowns:
+  - important_date_exact_source
+  - important_date_exact_rendering
   - event_status_after_save
   - event_detail_edit
   - cancel_move_behavior
