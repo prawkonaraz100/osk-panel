@@ -7,6 +7,8 @@ screen:
   verified_at: 2026-09-05
   doc: docs/65-internal-exam-generation-access-flow.md
   legal_rules: specs/legal/training-theory-exemptions.yml
+  candidate_edit_spec: specs/screens/internal-exam-edit-candidate-data.yml
+  candidate_edit_doc: docs/68-internal-exam-edit-candidate-data.md
 
 entry_points:
   selected_student_row:
@@ -39,6 +41,7 @@ formal_osk_constraints:
   ephemeral_ad_hoc_candidate_allowed: false
   exam_is_course_context_action: true
   theory_part_availability_must_follow_legal_rule_engine: true
+  training_requirement_context_editable_later: true
 
 inventory:
   available_exam_count_visible: true
@@ -71,30 +74,47 @@ empty_candidate_state:
     must_not_create_ephemeral_exam_only_candidate: true
 
 candidate_selected_state:
-  observed_student: Ala Nowak
   fields:
-    category:
-      observed: B
-      editable_control: true
-    language:
-      observed: Polski
-      editable_control: true
-    first_name:
-      observed: Ala
-    last_name:
-      observed: Nowak
-    pkk:
-      observed: null
-    pesel:
-      observed: "000000000000"
-    email:
-      observed: alanowak@prawo-jazdy-360.pl
-  warning:
-    text: Uzupełnij dane kursanta
-    exact_trigger: TO_VERIFY
+    - category
+    - language
+    - first_name
+    - last_name
+    - pkk
+    - pesel
+    - email
   actions:
     - remove_candidate_from_current_form
     - edit_candidate_data
+  edit_state:
+    confirmed: true
+    spec: specs/screens/internal-exam-edit-candidate-data.yml
+    fields:
+      exam_category:
+        editable: true
+        control: select
+      exam_language:
+        editable: true
+        control: select
+      first_name:
+        editable: true
+        control: input
+      last_name:
+        editable: true
+        control: input
+      pesel:
+        editable: true
+        control: input
+      pkk:
+        editable: true
+        control: input
+      email:
+        editable: true
+        control: input
+        ui_note: do wysłania linku egzminu (opcjonalnie)
+    actions:
+      - cancel_candidate_edit
+      - save_candidate_edit
+    competitor_persistence_to_main_student_profile: TO_VERIFY
 
 launch_modes:
   remote_link:
@@ -122,24 +142,15 @@ own_product_model:
     - newly_created_persistent_student
   student_id_nullable: false
   course_enrollment_id_nullable: false
+  source_identity_data_bound_to_formal_student_profile: true
+  identity_change_from_exam_flow_requires_audit: true
+  attempt_snapshot_immutable_after_creation: true
   entities:
     - internal_exam_attempt
     - internal_exam_launch
   launch_modes:
     - remote_link
     - local_station
-  launch_fields:
-    - id
-    - organization_id
-    - internal_exam_attempt_id
-    - mode
-    - token_or_session_reference
-    - created_at
-    - expires_at_nullable
-    - launched_at_nullable
-    - revoked_at_nullable
-    - created_by
-    - station_metadata_nullable
 
 own_product_validations:
   - exactly_one_student
@@ -148,8 +159,11 @@ own_product_validations:
   - exam_part_is_required_for_course_under_legal_rule_engine
   - available_exam_inventory_greater_than_zero
   - category_present
+  - category_matches_or_resolves_to_course_enrollment
+  - category_change_recalculates_training_requirements
   - language_present
   - required_candidate_identity_data_present
+  - pesel_or_birth_date_rule
   - authorized_operator
   - tenant_scope
   - valid_email_required_only_when_remote_email_delivery_selected
@@ -166,16 +180,26 @@ confirmed_actions:
   - change_exam_language
   - remove_candidate_from_generation_form
   - open_candidate_data_edit
+  - edit_exam_category
+  - edit_exam_language
+  - edit_candidate_first_name
+  - edit_candidate_last_name
+  - edit_candidate_pesel
+  - edit_candidate_pkk
+  - edit_candidate_email
+  - cancel_candidate_edit
+  - save_candidate_edit
   - share_exam_link_by_email
   - start_exam_on_current_station
 
 remaining_gaps:
-  - candidate_data_edit_drawer
   - exact_required_candidate_fields
   - exam_category_options
   - exam_language_options
   - competitor_new_student_persistence_behavior
+  - competitor_save_candidate_data_persistence_behavior
   - validation_messages
+  - no_pesel_birth_date_handling_in_competitor_exam_drawer
   - remote_link_success_state
   - email_template
   - local_station_transition_screen
