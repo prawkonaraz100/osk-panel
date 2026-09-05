@@ -170,6 +170,7 @@ paths:
             application/json:
               schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/Organization' }
         default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+
   /organization/settings:
     get:
       tags: [Organization]
@@ -183,7 +184,7 @@ paths:
           description: Settings projection matching observed sections Dane podstawowe, Dane firmy and Dane API PKK; response carries aggregate version/ETag semantics from organization_settings.version
           content:
             application/json:
-              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/OskSettingsProjection' }
+              schema: { $ref: '../openapi-settings-components.yaml#/components/schemas/OskSettingsProjection' }
         default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
     patch:
       tags: [Organization]
@@ -199,14 +200,15 @@ paths:
         required: true
         content:
           application/json:
-            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/UpdateOskSettingsRequest' }
+            schema: { $ref: '../openapi-settings-components.yaml#/components/schemas/UpdateOskSettingsRequest' }
       responses:
         '200':
           description: Settings updated atomically using the same source records as PKK configuration gate; aggregate version increments on success
           content:
             application/json:
-              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/OskSettingsProjection' }
+              schema: { $ref: '../openapi-settings-components.yaml#/components/schemas/OskSettingsProjection' }
         default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+
   /organization/accepted-terms:
     get:
       tags: [Organization]
@@ -218,8 +220,9 @@ paths:
           description: Immutable terms acceptance history
           content:
             application/json:
-              schema: { type: array, items: { $ref: '../openapi-components-v1.yaml#/components/schemas/TermsAcceptance' } }
+              schema: { type: array, items: { $ref: '../openapi-settings-components.yaml#/components/schemas/TermsAcceptanceProjection' } }
         default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+
   /organization/integrations/pkk:
     get:
       tags: [Organization, PKK]
@@ -230,10 +233,10 @@ paths:
       x-canonical-db-spec: specs/database/organization-settings.yml
       responses:
         '200':
-          description: Observed PKK integration fields; provider secrets are not inferred from the screen
+          description: Canonical PKK integration settings only; user first/last name are deliberately not stored in this object
           content:
             application/json:
-              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/PkkIntegrationSettings' }
+              schema: { $ref: '../openapi-settings-components.yaml#/components/schemas/PkkIntegrationSettings' }
         default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
     patch:
       tags: [Organization, PKK]
@@ -248,20 +251,53 @@ paths:
         required: true
         content:
           application/json:
-            schema:
-              type: object
-              additionalProperties: false
-              properties:
-                school_name: { type: string }
-                osk_registry_number: { type: string }
-                external_osk_login: { type: string }
+            schema: { $ref: '../openapi-settings-components.yaml#/components/schemas/UpdatePkkIntegrationSettingsRequest' }
       responses:
         '200':
           description: PKK integration fields updated, readiness recalculated, settings aggregate version incremented and audit redacted
           content:
             application/json:
-              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/PkkIntegrationSettings' }
+              schema: { $ref: '../openapi-settings-components.yaml#/components/schemas/PkkIntegrationSettings' }
         default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+
+  /organization/integrations/pkk/configuration:
+    get:
+      tags: [Organization, PKK]
+      operationId: organizationPkkConfigurationGateGet
+      x-requirement-id: pkk.configuration_gate.get
+      x-permission: organization.integrations.manage
+      x-screen-spec: specs/screens/pkk-configuration-gate.yml
+      x-canonical-db-spec: specs/database/organization-settings.yml
+      responses:
+        '200':
+          description: PKK onboarding configuration projection combining user names and PKK integration fields without duplicating storage
+          content:
+            application/json:
+              schema: { $ref: '../openapi-settings-components.yaml#/components/schemas/PkkConfigurationGateProjection' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+    put:
+      tags: [Organization, PKK]
+      operationId: organizationPkkConfigurationGateSave
+      x-requirement-id: pkk.configuration_gate.save_and_continue
+      x-permission: organization.integrations.manage
+      x-screen-spec: specs/screens/pkk-configuration-gate.yml
+      x-canonical-db-spec: specs/database/organization-settings.yml
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IfMatch' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../openapi-settings-components.yaml#/components/schemas/SavePkkConfigurationGateRequest' }
+      responses:
+        '200':
+          description: User names and PKK configuration saved atomically using the same source records as /organization/settings; readiness and settings version updated
+          content:
+            application/json:
+              schema: { $ref: '../openapi-settings-components.yaml#/components/schemas/PkkConfigurationGateProjection' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+
   /organization/integrations/pkk/test-connection:
     post:
       tags: [Organization, PKK]
