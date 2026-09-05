@@ -45,12 +45,17 @@ actions:
 archive:
   competitor_label_observed: Archiwizuj filie
   visible_on_non_branch_location: true
+  competitor_action_execution_in_demo: BLOCKED
+  exact_competitor_confirmation_flow: UNOBSERVABLE_DEMO
   own_product_label: Archiwizuj lokalizację
-  exact_confirmation_flow: TO_VERIFY
-  own_product_recommendation:
+  own_product_behavior:
     mode: soft_archive
+    confirmation_required: true
     retain_historical_relations: true
     exclude_from_new_assignments_by_default: true
+    archived_filter_supported: true
+    restore_supported: true
+    audit_required: true
 
 confirmed_actions:
   - open_edit_school_location_drawer
@@ -62,10 +67,12 @@ confirmed_actions:
   - save_school_location_changes
   - cancel_school_location_edit
   - archive_school_location_action_visible
+  - archive_action_blocked_in_demo
 
-remaining_gaps:
-  - archive_confirmation_modal
-  - unarchive_behavior
-  - archived_locations_listing
-  - relation_behavior_after_archive
-  - success_error_messages
+remaining_competitor_unknowns_non_blocking:
+  - exact_archive_confirmation_modal
+  - competitor_unarchive_behavior
+  - competitor_archived_locations_listing
+  - exact_success_error_messages
+
+implementation_readiness: READY_FOR_IMPLEMENTATION
