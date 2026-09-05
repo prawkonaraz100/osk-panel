@@ -6,6 +6,8 @@ screen:
   confidence: USER_CONFIRMED_AUTH_SCREEN
   verified_at: 2026-09-05
   doc: docs/60-internal-exam-management-panel.md
+  expanded_attempts_spec: specs/screens/internal-exam-expanded-attempts.yml
+  expanded_attempts_doc: docs/61-internal-exam-expanded-attempt-history.md
 
 inventory:
   projections:
@@ -45,7 +47,8 @@ row_granularity:
   primary_projection: student_or_exam_access_with_latest_attempt_summary
   one_row_is_not_one_attempt: true
   attempt_count_visible: true
-  one_student_many_attempts_supported_by_observation: true
+  one_student_many_attempts_confirmed: true
+  expanded_attempt_count_matches_parent_count_confirmed: true
 
 columns:
   - email_or_login
@@ -62,7 +65,8 @@ observed_rows:
     email_or_login: alanowak@prawo-jazdy-360.pl
     latest_category: B
     latest_status_visual: red_x
-    latest_status_semantics: TO_VERIFY
+    latest_status_semantics: not_passed
+    latest_status_label_in_expanded_history: Niezaliczony
     latest_at: 2026-01-26T15:43
     latest_language: PL
     exam_count: 7
@@ -70,10 +74,35 @@ observed_rows:
     email_or_login: pawelkowalski@prawo-jazdy-360.pl
     latest_category: B
     latest_status_visual: red_x
-    latest_status_semantics: TO_VERIFY
+    latest_status_semantics: strongly_supported_as_not_passed_by_same_ui_pattern
     latest_at: 2026-01-23T12:56
     latest_language: PL
     exam_count: 2
+
+status_projection:
+  red_x_maps_to_not_passed_for_observed_ala_row: true
+  passed_visual: TO_VERIFY
+  pending_visual: TO_VERIFY
+  in_progress_visual: TO_VERIFY
+
+expanded_history:
+  confidence: USER_CONFIRMED_AUTH_SCREEN
+  screen_spec: specs/screens/internal-exam-expanded-attempts.yml
+  screen_doc: docs/61-internal-exam-expanded-attempt-history.md
+  title: Egzaminy
+  row_entity: internal_exam_attempt
+  columns:
+    - candidate_full_name
+    - category
+    - status
+    - registry_or_pkk_number
+    - displayed_datetime
+    - language
+    - row_actions
+  ala_observed_attempt_count: 7
+  all_ala_observed_statuses: not_passed
+  duplicate_displayed_minute_confirmed: true
+  displayed_datetime_is_unique_identifier: false
 
 row_actions:
   - action: expand_exam_history
@@ -107,6 +136,9 @@ own_product_model:
     - internal_exam_results
     - internal_exam_documents
   one_student_many_attempts: true
+  stable_attempt_id_required: true
+  timestamp_not_attempt_identity: true
+  snapshot_historical_candidate_data_per_attempt: true
   row_projection_fields:
     - latest_attempt_id
     - latest_attempt_category
@@ -128,12 +160,13 @@ confirmed_actions:
   - open_exam_filters
   - open_exam_sorting
   - expand_exam_history
+  - collapse_exam_history
+  - view_specific_exam_attempt_history_rows
+  - view_not_passed_attempt_status
   - open_exam_details
   - download_exam_printout
 
 remaining_gaps:
-  - expanded_attempt_history
-  - red_x_status_semantics
   - generate_exam_panel_form
   - selected_rows_generate_exams_behavior
   - filter_options
@@ -141,9 +174,13 @@ remaining_gaps:
   - exact_search_fields
   - printout_format
   - details_screen_semantics
+  - passed_status_presentation
+  - pending_in_progress_statuses
+  - exact_displayed_datetime_semantics
   - free_vs_paid_consumption_order
   - free_monthly_reset_policy
   - exact_exam_unit_consumption_moment
+  - scoring_and_duration
   - pagination
   - empty_states
   - success_error_messages
