@@ -5,43 +5,54 @@ screen:
   title: Ustawienia konta
   confidence: USER_CONFIRMED_AUTH_SCREEN
 
+canonical_model:
+  machine_db: specs/database/organization-settings.yml
+  narrative: docs/100-osk-settings-domain-model.md
+  api_paths: specs/api/paths/auth-organization.yaml
+  rule: each_visible_field_has_exactly_one_canonical_domain_owner
+
 primary_action:
   label: Zapisz
   action: update_osk_account_settings
+  semantics: atomic_multi_table_settings_aggregate_save
+  optimistic_concurrency: organization_settings_version
 
 sections:
   - id: basic_data
     label: Dane podstawowe
     fields:
-      - {name: first_name, label: Imię, domain: user}
-      - {name: last_name, label: Nazwisko, domain: user}
-      - {name: email, label: Email, domain: user}
+      - {name: first_name, label: Imię, domain: user, canonical: users.first_name}
+      - {name: last_name, label: Nazwisko, domain: user, canonical: users.last_name}
+      - {name: email, label: Email, domain: user, canonical: auth_login_identifiers.primary_current_email}
 
   - id: company_data
     label: Dane firmy
     fields:
-      - {name: company_name, label: Nazwa firmy, domain: organization}
-      - {name: street, label: Ulica, domain: organization_address}
-      - {name: house_number, label: Nr domu, domain: organization_address}
-      - {name: unit_number, label: Nr lokalu, domain: organization_address}
-      - {name: city, label: Miejscowość, domain: organization_address}
-      - {name: postal_code, label: Kod pocztowy, domain: organization_address}
-      - {name: phone, label: Telefon, domain: organization}
+      - {name: company_name, label: Nazwa firmy, domain: organization, canonical: organizations.name}
+      - {name: street, label: Ulica, domain: organization_address, canonical: organization_contact_addresses.street}
+      - {name: house_number, label: Nr domu, domain: organization_address, canonical: organization_contact_addresses.house_number}
+      - {name: unit_number, label: Nr lokalu, domain: organization_address, canonical: organization_contact_addresses.unit_number}
+      - {name: city, label: Miejscowość, domain: organization_address, canonical: organization_contact_addresses.city_name}
+      - {name: postal_code, label: Kod pocztowy, domain: organization_address, canonical: organization_contact_addresses.postal_code}
+      - {name: phone, label: Telefon, domain: organization, canonical: organizations.phone}
     explicitly_not_observed:
       - nip
       - billing_data
+    important_model_rule: company_address_is_not_a_training_location
 
   - id: pkk_api_data
     label: Dane API PKK
     audit_required: true
     fields:
-      - {name: school_name, label: Nazwa szkoły, domain: pkk_integration_settings}
-      - {name: osk_registry_number, label: Numer ewidencyjny OSK, domain: pkk_integration_settings}
+      - {name: school_name, label: Nazwa szkoły, domain: pkk_integration_settings, canonical: pkk_integration_settings.school_name}
+      - {name: osk_registry_number, label: Numer ewidencyjny OSK, domain: pkk_integration_settings, canonical: pkk_integration_settings.osk_registry_number}
       - name: external_osk_login
         label: Login OSK
         domain: pkk_integration_settings
+        canonical: pkk_integration_settings.external_osk_login_ciphertext
         semantics: external_pkk_integration_identifier_not_application_login
         help_text_semantics: login przekazany przez starostę/wydział komunikacji i znajdujący się na zaświadczeniu rejestracyjnym OSK
+        security: encrypted_at_rest_redacted_in_audit
 
   - id: terms
     label: Regulamin
@@ -49,6 +60,7 @@ sections:
       - label: Zobacz mój regulamin
         route_pattern: /regulamin?v=<regulation_version>
         semantics: open_versioned_terms_associated_with_account
+        canonical: terms_acceptances_join_legal_documents
 
 pkk_configuration_gate_relation:
   confirmed: true
@@ -77,7 +89,6 @@ not_observed_on_screen:
 unknowns:
   - required_vs_optional_fields_on_general_settings_screen
   - exact_validation_messages
-  - save_request_shape
   - success_message
   - failure_message
   - whether_email_change_requires_reverification
@@ -86,8 +97,12 @@ unknowns:
 
 implementation_requirements:
   - tenant_isolation
-  - audit_pkk_settings_changes
+  - atomic_save_across_user_organization_address_and_pkk_records
+  - optimistic_concurrency_using_organization_settings_version
+  - audit_pkk_settings_changes_without_full_external_login
   - keep_external_osk_login_separate_from_application_identity
   - persist_terms_acceptance_version_and_history
   - do_not_assume_nip_is_editable_here
   - reuse_same_user_and_pkk_configuration_records_in_settings_and_pkk_onboarding_gate
+  - reject_unknown_mass_assignment_fields
+  - do_not_store_company_address_in_locations_table
