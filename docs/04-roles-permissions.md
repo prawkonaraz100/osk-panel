@@ -204,14 +204,6 @@ Stare uproszczenie:
 
 jest **SUPERSEDED** i nie może być użyte jako runtime authorization shortcut.
 
-Powód: jedna osoba może mieć np.:
-- pełny dostęp do kalendarza własnego,
-- dostęp do przypisanych kursantów,
-- pełny dostęp do zakupów OSK,
-- brak prawa do edycji pracowników.
-
-Jedna wartość scope na całym membership nie potrafi tego opisać bez nadmiernego rozszerzenia praw.
-
 Canonical model:
 
 `OrganizationMembership -> membership_permissions -> membership_permission_scopes`
@@ -234,45 +226,20 @@ Scope nigdy nie rozszerza permission. Najpierw musi istnieć przyznana capabilit
 
 `permission_scope_options`
 - whitelist legalnych par `permission_code + scope_code`,
-- zawiera `resolver_code`,
-- blokuje np. próbę nadania `organization` do permission, które jest z definicji `own-only`.
+- zawiera `resolver_code`.
 
 `membership_permission_scopes`
 - current scope rows dla konkretnego `membership_id + permission_code`,
 - wiele rekordów dla jednego permission jest dozwolone,
 - wiele scope'ów łączy się przez **OR**, ale dopiero po walidacji tego samego tenant.
 
-Przykład instruktora:
-
-`training_sessions.edit = granted`
-
-może mieć jednocześnie:
-- `assigned_students`,
-- `own`.
-
-Wtedy backend pozwala edytować zajęcia własne **lub** dotyczące przypisanego kursanta, o ile nadal są w tym samym OSK i domain state pozwala na edycję.
-
 ### 6.4. `organization`
 
-Nie znaczy „globalnie”.
-
-Warunek:
-
-`target.organization_id == active_membership.organization_id`
-
-musi być sprawdzony **przed** scope resolverem.
-
-`organization` nie może ominąć tenant isolation.
+Nie znaczy „globalnie”. Warunek `target.organization_id == active_membership.organization_id` musi być sprawdzony przed scope resolverem.
 
 ### 6.5. `own`
 
-Nie istnieje jeden magiczny `owner_id` dla wszystkich domen.
-
-Permission-specific resolver musi udowodnić:
-- `resource.user_id == current_user.id`, albo
-- relację do `StaffProfile` aktywnie połączonego z membership.
-
-Jeżeli domena nie ma canonical ownership relation, `own` zwraca false. Nie wolno fallbackować do `organization`.
+Permission-specific resolver musi udowodnić relację do bieżącego `User` albo `StaffProfile`. Jeśli domena nie ma canonical ownership relation, `own` zwraca false.
 
 ### 6.6. `assigned_locations`
 
@@ -280,59 +247,57 @@ Canonical ścieżka:
 
 `OrganizationMembership -> active StaffMembershipLink -> StaffProfile -> StaffLocationAssignments`
 
-Target musi przez permission-specific adapter rozwiązać się do jednej z tych lokalizacji.
-
-Jeżeli membership nie ma aktywnego profilu pracownika albo nie ma pasującej lokalizacji: **DENY / pusty zbiór**.
-
-Physical FK/constraint tej ścieżki zostanie dopięty w slice `DB4_3`, ale znaczenie scope jest już zamrożone i DB4_3 nie może go zmienić bez ponownego otwarcia gate RBAC.
+Brak aktywnego staff linku lub pasującej lokalizacji = DENY / pusty zbiór.
 
 ### 6.7. `assigned_students`
 
-Canonical ścieżka zaczyna się tak samo:
+Canonical ścieżka zaczyna się od:
 
 `OrganizationMembership -> active StaffMembershipLink -> StaffProfile`
 
-Kursant jest przypisany temu pracownikowi, jeżeli istnieje:
-1. nieanulowany/niezarchiwizowany `CourseEnrollment`, w którym `lead_instructor_id` wskazuje ten `StaffProfile`, **lub**
-2. nieanulowany `TrainingSession` dla kursu tego kursanta, gdzie `instructor_id` wskazuje ten `StaffProfile`.
-
-Zasoby PKK, egzaminu, licencji, płatności lub postępu najpierw rozwiązują canonical `Student/CourseEnrollment`, a następnie stosują powyższy predykat.
-
-Brak aktywnego staff linku = pusty assigned-student set.
-
-FK i dokładne lifecycle stanów relacji dopinamy w `DB4_3`/`DB4_4`; sama semantyka przypisania jest już zamrożona.
+Kursant jest przypisany, gdy istnieje scope-eligible `CourseEnrollment` z pasującym `lead_instructor_id` albo scope-eligible `TrainingSession` z pasującym `instructor_id`.
 
 ### 6.8. Create / update / list / export
 
-Scope nie może być stosowany tylko na zwykłej liście.
-
-Ten sam policy predicate obowiązuje dla:
-- list,
-- GET by id,
-- search,
-- counts,
-- update/cancel/archive,
-- bulk actions,
-- eksportów,
-- PDF.
-
-Filtrowanie po pobraniu danych w Vue **nie jest zabezpieczeniem**.
-
-Dla create:
-- jeśli istnieje canonical parent/subject, scope sprawdzamy na nim,
-- jeśli nie istnieje jeszcze żaden scoped subject, `own/assigned_*` nie może być zgadywane; operacja wymaga scope profilu dopuszczającego `organization`.
+Ten sam scope policy obowiązuje dla list, GET by id, search, count, update/cancel/archive, bulk, eksportów i PDF. Filtrowanie po pobraniu danych w Vue nie jest zabezpieczeniem.
 
 ### 6.9. Materializacja przez role template
 
-Template zapisuje nie tylko `membership_permissions`, ale także scope rows dla przyznanych permissions.
+Template zapisuje `membership_permissions` oraz scope rows dla granted permissions. Explicit grant bez jawnego, dozwolonego scope jest niedozwolony.
 
-Przykładowo:
-- `Owner`/`OfficeAdmin` dostają `organization`, gdy dany permission to dopuszcza,
-- permission typu `*.own` dostaje `own`,
-- `Instructor`/`Lecturer` dla student-scoped permissions dostają `assigned_students`,
-- dla odpowiednich training/calendar permissions mogą dostać jednocześnie `assigned_students + own`.
+### 6.10. Owner governance i privilege escalation
 
-Explicit grant bez jawnego, dozwolonego scope jest niedozwolony.
+`Owner` jako role template oraz **owner governance marker** to dwie różne rzeczy.
+
+Canonical membership posiada `is_owner`. Jest to znacznik odpowiedzialności/governance, a nie skrót autoryzacyjny. Backend nadal sprawdza materializowane `membership_permissions` i `membership_permission_scopes`.
+
+Membership z `is_owner=true` musi zachowywać jawny protected baseline:
+- `organization.view` + `organization`,
+- `organization.members.manage` + `organization`,
+- `staff.permissions.manage` + `organization`,
+- `sessions.manage.organization` + `organization`.
+
+Nie wolno odebrać tych praw pozostawiając `is_owner=true`. Jeżeli mają zostać odebrane, demotion Ownera musi nastąpić w tej samej serializowanej transakcji.
+
+Zmiany Ownera są serializowane per organizacja. Transakcja, która po commit zostawiłaby zero aktywnych Ownerów, jest odrzucana. Transfer Ownera jest jednym atomowym flow: najpierw następca otrzymuje owner marker + protected baseline, a poprzednik jest degradowany w tej samej transakcji.
+
+Normalny panel administracyjny nie pozwala na self-escalation:
+- nie można samemu nadać sobie nowego permission,
+- nie można rozszerzyć własnego scope,
+- nie można samemu ustawić `is_owner=true`,
+- nie można zastosować sobie template'u, jeśli zwiększyłby privileges.
+
+Self-restriction jest dozwolone tylko, jeśli nie łamie protected owner baseline ani last-owner invariant.
+
+Grant ceiling:
+- administrator nie może nadać permission, którego sam aktualnie nie posiada w tym OSK,
+- nie może delegować scope szerszego niż własny scope dla tego samego permission,
+- `organization` może delegować dozwolony węższy scope; scope nieporównywalny lub nieznany -> DENY,
+- grant/broadening elevated permission wymaga aktywnego Ownera jako aktora.
+
+Każda zmiana permission/scope/owner zwiększa `organization_memberships.authorization_version`. Runtime nie przechowuje trwałego snapshotu permissions w sesji. Jeżeli używany jest cache, musi być związany z bieżącym `authorization_version`.
+
+Dzięki temu odebranie elevated permission jest skuteczne najpóźniej przy następnym autoryzowanym request. Sesja może nadal być zalogowana, ale nie zachowuje starego prawa. Pełny suspend/revoke/session invalidation lifecycle zamyka osobno `DB-IAM-005`.
 
 ## 7. Backend policy order
 
@@ -365,6 +330,7 @@ Dla każdej zmiany zapisujemy:
 - new permissions,
 - old/new scope set,
 - role template jeśli użyto,
+- owner marker before/after jeśli dotyczy,
 - reason opcjonalnie/wymagane dla elevated changes,
 - request_id,
 - timestamp.
@@ -385,4 +351,9 @@ Dla każdej grupy permissions:
 - `assigned_students` bez staff link -> pusty zbiór,
 - `assigned_locations` bez staff link -> pusty zbiór,
 - wiele scope rows dla jednego permission działa jako OR,
-- revoked permission takes effect immediately lub zgodnie z jasno udokumentowaną polityką cache/session zamykaną w `DB-IAM-005`.
+- normal admin self-escalation jest blokowane,
+- grant ponad własny permission/scope ceiling jest blokowany,
+- nie da się pozostawić organizacji bez aktywnego Ownera,
+- concurrent owner demotions nie mogą oba zakończyć się powodzeniem,
+- stale authorization cache nie przeżywa zmiany `authorization_version`,
+- revoke elevated permission obowiązuje najpóźniej przy następnym autoryzowanym request.
