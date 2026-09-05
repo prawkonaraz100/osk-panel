@@ -1,0 +1,60 @@
+screen:
+  id: student_quick_preview
+  scope: admin_osk
+  parent_route: /kursanci
+  entry_action: preview_student
+  presentation: side_drawer
+  mode: read_only
+  confidence: USER_CONFIRMED_AUTH_SCREEN
+  verified_at: 2026-09-05
+  doc: docs/45-student-preview-drawer.md
+
+fields:
+  - full_name
+  - birth_date
+  - pesel
+  - contact_email
+  - phone
+  - created_date
+  - courses_summary
+  - payments_summary
+
+observed_empty_states:
+  courses: Brak
+  payments: Brak
+  empty_scalar_fields_render_blank: true
+
+confirmed_actions:
+  - open_student_quick_preview
+  - close_student_quick_preview
+
+explicitly_not_observed:
+  - edit_student
+  - archive_student
+  - delete_student
+  - add_course
+  - assign_license
+  - add_payment
+  - start_internal_exam
+  - view_learning_progress
+
+behavior:
+  navigation_to_full_detail_on_open: false
+  mutating_actions_present: false
+  purpose: fast_read_only_summary_from_list
+
+own_product_recommendation:
+  preserve_quick_preview_pattern: true
+  optional_open_full_profile_link: true
+  do_not_duplicate_domain_data: true
+  projection_sources:
+    - student_profile
+    - student_courses
+    - student_finance
+
+security_requirements:
+  - tenant_isolation
+  - authorize_student_preview_by_organization
+  - protect_pesel
+  - do_not_show_learning_passwords
+  - no_mutations_from_preview
