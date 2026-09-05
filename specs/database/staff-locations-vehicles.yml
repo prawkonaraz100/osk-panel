@@ -1,0 +1,152 @@
+meta:
+  project: osk-panel
+  scope: staff_locations_vehicles_core_v1
+  status: IN_PROGRESS_WITH_OPEN_BLOCKERS
+  stage: DB4_3_STAFF_LOCATIONS_VEHICLES
+  created_at: 2026-09-06
+  narrative: docs/107-stage-4-staff-locations-vehicles-audit.md
+  aggregate_blueprint: specs/database/core-schema.yml
+  identity_dependency: specs/database/identity-rbac.yml
+  authority_rule: >-
+    This bounded-context specification is authoritative for Staff/Locations/Vehicles
+    physical semantics while DB4_3 is being closed. It augments the aggregate core
+    schema. Aggregate core-schema.yml and docs/87 are synchronized before final
+    DB4_3 PASS and before migrations are generated.
+
+principles:
+  tenant_owned_resource_relation_must_be_physically_or_transactionally_same_tenant: true
+  staff_profile_is_separate_from_organization_membership: true
+  staff_membership_link_history_is_preserved: true
+  cross_tenant_staff_membership_link_is_forbidden: true
+  aggregate_sync_deferred_until_final_DB4_3_gate: true
+
+# DB-RES-001 only. Later DB4_3 blockers remain intentionally open.
+staff_membership_link_same_organization_integrity:
+  blocker: DB-RES-001
+  status: RESOLVED_DESIGN
+  goal: >-
+    A StaffMembershipLink must be incapable of linking a StaffProfile from one
+    organization to an OrganizationMembership from another organization.
+
+  link_table:
+    name: staff_membership_links
+    fields:
+      - id
+      - organization_id
+      - staff_profile_id
+      - organization_membership_id
+      - linked_at
+      - linked_by_user_id_nullable
+      - unlinked_at_nullable
+      - unlinked_by_user_id_nullable
+    organization_id:
+      nullable: false
+      foreign_key: organizations.id
+      semantics: canonical_tenant_key_for_the_link
+      mutation_after_create: forbidden
+    historical_row_deletion_for_normal_unlink: forbidden
+    unlink_semantics: set_unlinked_at_and_actor_preserve_row
+
+  parent_candidate_keys_required:
+    staff_profiles:
+      columns: [organization_id, id]
+      unique_constraint_required: true
+      purpose: composite_same_organization_FK_target
+    organization_memberships:
+      columns: [organization_id, id]
+      unique_constraint_required: true
+      purpose: composite_same_organization_FK_target
+
+  composite_foreign_keys:
+    staff_profile_same_organization:
+      source_table: staff_membership_links
+      source_columns: [organization_id, staff_profile_id]
+      target_table: staff_profiles
+      target_columns: [organization_id, id]
+      match: MATCH_SIMPLE
+      on_update: RESTRICT
+      on_delete: RESTRICT
+    organization_membership_same_organization:
+      source_table: staff_membership_links
+      source_columns: [organization_id, organization_membership_id]
+      target_table: organization_memberships
+      target_columns: [organization_id, id]
+      match: MATCH_SIMPLE
+      on_update: RESTRICT
+      on_delete: RESTRICT
+
+  tenant_ownership_mutation:
+    staff_profile_organization_id_after_creation: immutable_for_linked_or_historical_resource
+    organization_membership_organization_id_after_creation: immutable
+    moving_staff_between_organizations_by_updating_organization_id: forbidden
+    rule: >-
+      Cross-organization movement is represented by the appropriate new tenant
+      resource/membership/link lifecycle; existing historical tenant ownership is
+      not rewritten.
+
+  active_link_uniqueness_preserved:
+    per_staff_profile:
+      type: partial_unique
+      columns: [staff_profile_id]
+      where: unlinked_at_is_null
+    per_organization_membership:
+      type: partial_unique
+      columns: [organization_membership_id]
+      where: unlinked_at_is_null
+    note: >-
+      The composite tenant FKs are additive security constraints. They do not
+      weaken or replace the already required at-most-one-active-link invariants.
+
+  creation_and_resolution:
+    backend_precheck_required: true
+    backend_precheck:
+      - requested_staff_profile_belongs_to_active_request_organization
+      - requested_organization_membership_belongs_to_same_organization
+    database_is_final_same_tenant_boundary: true
+    rbac_resolver_dependency: >-
+      own, assigned_locations and assigned_students may only traverse an active
+      StaffMembershipLink that satisfies these composite tenant constraints.
+    membership_status_eligibility: governed_by_DB4_2_and_DB_RES_006_not_redefined_here
+    staff_archive_effect_on_link_or_membership: deferred_to_DB_RES_006
+
+  migration_precheck:
+    required_before_constraints: true
+    checks:
+      - every_existing_link_organization_matches_staff_profile_organization
+      - every_existing_link_organization_matches_organization_membership_organization
+      - existing_active_link_uniqueness_is_valid
+    invalid_row_policy: fail_migration_or_explicit_security_remediation_never_silent_cross_tenant_reassignment
+    creation_order:
+      - add_or_verify_unique_staff_profiles_organization_id_id
+      - add_or_verify_unique_organization_memberships_organization_id_id
+      - add_staff_membership_link_staff_profile_composite_FK
+      - add_staff_membership_link_membership_composite_FK
+      - verify_existing_partial_active_link_unique_indexes
+
+  tests_required:
+    - same_organization_staff_profile_and_membership_link_is_accepted
+    - staff_profile_from_org_A_with_membership_from_org_B_is_rejected_by_database
+    - link_organization_A_with_staff_profile_from_org_B_is_rejected_by_database
+    - link_organization_A_with_membership_from_org_B_is_rejected_by_database
+    - second_active_link_for_same_staff_profile_is_rejected
+    - second_active_link_for_same_organization_membership_is_rejected
+    - historical_unlinked_row_is_preserved
+    - organization_membership_suspend_or_revoke_does_not_rewrite_historical_link_tenant_identity
+    - RBAC_staff_link_resolution_cannot_cross_organization_boundary
+
+open_blockers_not_resolved_here:
+  DB-RES-002:
+    status: OPEN
+    topic: staff_vehicle_location_assignment_tenant_integrity
+  DB-RES-003:
+    status: OPEN
+    topic: staff_vehicle_file_asset_attachment_integrity
+  DB-RES-004:
+    status: OPEN
+    topic: staff_vehicle_document_current_projection
+  DB-RES-005:
+    status: OPEN
+    topic: staff_vehicle_identity_uniqueness_lifecycle
+  DB-RES-006:
+    status: OPEN
+    topic: staff_archive_panel_access_lifecycle
