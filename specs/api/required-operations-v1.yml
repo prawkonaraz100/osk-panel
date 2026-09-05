@@ -97,6 +97,8 @@ operations:
   pkk:
     - { id: pkk.settings.get, method: GET, path: /organization/integrations/pkk }
     - { id: pkk.settings.update, method: PATCH, path: /organization/integrations/pkk }
+    - { id: pkk.configuration_gate.get, method: GET, path: /organization/integrations/pkk/configuration, source: specs/screens/pkk-configuration-gate.yml }
+    - { id: pkk.configuration_gate.save_and_continue, method: PUT, path: /organization/integrations/pkk/configuration, source: specs/screens/pkk-configuration-gate.yml }
     - { id: pkk.settings.test_connection, method: POST, path: /organization/integrations/pkk/test-connection, condition: provider_supports_safe_test_connection }
     - { id: pkk.get, method: GET, path: '/course-enrollments/{courseEnrollmentId}/pkk' }
     - { id: pkk.fetch, method: POST, path: '/course-enrollments/{courseEnrollmentId}/pkk/fetch' }
@@ -330,8 +332,8 @@ operations:
       requirement: formal_financial_pkk_exam_license_role_changes_create_immutable_audit_records_without_plaintext_secrets
 
 coverage_status:
-  openapi_complete_against_this_inventory: true
-  operationIds_present_for_all_http_operations: true
+  openapi_complete_against_this_inventory: pending_stage3_contract_gate
+  operationIds_present_for_all_http_operations: pending_stage3_contract_gate
   modular_path_files:
     - specs/api/paths/auth-organization.yaml
     - specs/api/paths/students-courses.yaml
@@ -340,7 +342,9 @@ coverage_status:
     - specs/api/paths/licenses.yaml
     - specs/api/paths/internal-exams.yaml
     - specs/api/paths/commerce-dashboard.yaml
-  shared_components: specs/api/openapi-components-v1.yaml
+  shared_components:
+    - specs/api/openapi-components-v1.yaml
+    - specs/api/openapi-settings-components.yaml
   schema_detail_may_evolve_during_module_implementation: true
   coverage_may_not_regress: true
   ci_gate_required: true
