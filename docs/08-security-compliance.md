@@ -16,6 +16,12 @@ Nie kopiujemy:
 
 Mapujemy procesy biznesowe, wymagania formalne i zachowania użytkowe.
 
+Pełny reverse-engineered scope jest chroniony przez:
+- `docs/96-reverse-engineering-preservation-contract.md`,
+- `specs/reverse-engineering-manifest.yml`.
+
+Security design może zmienić sposób wykonania operacji, ale nie może po cichu usunąć potwierdzonej funkcji biznesowej.
+
 ## 2. Tenant isolation
 
 Najważniejsza granica bezpieczeństwa aplikacji.
@@ -42,10 +48,14 @@ Wymagane:
 - rejestr naruszeń,
 - szyfrowanie w tranzycie i backupów.
 
-PESEL i inne dane wrażliwe operacyjnie:
+PESEL, PKK i inne dane wrażliwe operacyjnie:
+- szyfrować aplikacyjnie tam, gdzie pełna wartość musi być odtwarzalna,
+- exact lookup realizować przez keyed HMAC lub równoważny mechanizm, nie zwykły SHA,
 - maskować tam, gdzie pełna wartość nie jest potrzebna,
 - nie logować w całości bez potrzeby,
 - ograniczać permissionami.
+
+Przed produkcją wymagany jest jawny retention schedule per data class.
 
 ## 4. Auth / sesje
 
@@ -64,7 +74,20 @@ MFA/re-auth:
 
 Dokładnej polityki jednej sesji konkurenta nie kopiujemy jako obowiązkowej dla całego staff.
 
-## 5. ReturnUrl / OAuth
+## 5. Login identity — globalna jednoznaczność
+
+Zaobserwowany workflow drukuje kursantowi `login lub e-mail` i prowadzi do ogólnej strony logowania bez jawnego wyboru OSK.
+
+Dlatego canonical auth layer używa globalnego `User` i `AuthLoginIdentifier`:
+- jeden bieżący `identifier_normalized` rozwiązuje się do najwyżej jednego `User`,
+- ten sam `User` może być powiązany z wieloma OSK,
+- `StudentLearningAccount` pozostaje tenantowym kontekstem produktu, ale login resolution nie zależy od zgadywania tenant ID,
+- custom username i email korzystają z tej samej przestrzeni resolution lub równoważnego jednoznacznego resolvera,
+- revoked identifier nie jest automatycznie przejmowany przez inną osobę bez jawnej policy/reverification.
+
+Nie ufamy samemu loginowi do autoryzacji zasobu — po loginie nadal obowiązuje membership/ownership/policy.
+
+## 6. ReturnUrl / OAuth
 
 Return URL:
 - tylko lokalna/dozwolona ścieżka,
@@ -72,12 +95,18 @@ Return URL:
 - whitelist/normalization przed redirect,
 - ta sama ochrona po OAuth/social callback.
 
-## 6. Hasła i learning accounts
+Social identity:
+- provider subject jest unikalny w scope providera,
+- linking istniejącego konta wymaga bezpiecznej weryfikacji,
+- nie łączymy kont wyłącznie po niezweryfikowanym e-mailu.
+
+## 7. Hasła i learning accounts
 
 Canonical model:
 - `Student`,
 - `StudentLearningAccount`,
-- auth identity/hash,
+- globalny `User/AuthLoginIdentifier`,
+- hash hasła,
 - `StudentAccessHandoff`.
 
 Reguły:
@@ -86,11 +115,12 @@ Reguły:
 - nie istnieje `show old password`,
 - audit zapisuje fakt resetu, nie wartość hasła,
 - access handoff/PDF jest audytowany,
-- ponowny PDF z hasłem wymaga nowego hasła.
+- ponowny PDF z hasłem wymaga nowego hasła,
+- generic idempotency store nie przechowuje one-time plaintext password response.
 
 QR nie zawiera plaintext password.
 
-## 7. Permission-based RBAC
+## 8. Permission-based RBAC
 
 Źródło: `docs/04-roles-permissions.md`, `specs/security/permissions.yml`.
 
@@ -105,7 +135,9 @@ Backend policy order:
 
 Zmiana staff type nie może omijać permissions.
 
-## 8. Operacje wysokiego ryzyka
+`StaffProfile` nie jest kontem logowania. Dostęp pracownika do panelu jest wiązany przez `OrganizationMembership`, dzięki czemu ten sam globalny `User` może legalnie pracować w kilku OSK bez mieszania tenant scope.
+
+## 9. Operacje wysokiego ryzyka
 
 Wymagają rozszerzonego audytu; część może wymagać re-auth/MFA:
 - zmiana Ownera/permissions,
@@ -117,10 +149,11 @@ Wymagają rozszerzonego audytu; część może wymagać re-auth/MFA:
 - aktywacja/cofnięcie licencji,
 - exam inventory adjustment,
 - invalidation exam attempt,
+- techniczny transfer rozpoczętego egzaminu na inne stanowisko,
 - reversal student payment,
 - manual payment/order correction.
 
-## 9. Lifecycle zamiast destrukcyjnego delete
+## 10. Lifecycle zamiast destrukcyjnego delete
 
 Źródło: `docs/83-core-lifecycle-policy.md`, `specs/design/core-lifecycle.yml`.
 
@@ -135,11 +168,12 @@ zamiast hard-delete.
 
 Audit history pozostaje immutable.
 
-## 10. Licencje — integralność inventory
+## 11. Licencje — integralność inventory i stacking
 
-Revoke przed aktywacją:
+### Revoke przed aktywacją
+
 1. lock assignment/inventory,
-2. sprawdź `activated_at IS NULL`,
+2. sprawdź brak `LicenseActivation`,
 3. revoke assignment,
 4. restore dokładnie jedną sztukę,
 5. audit/outbox,
@@ -149,13 +183,27 @@ Race activation vs revoke musi dać jeden zwycięski stan.
 
 Po aktywacji ta ścieżka jest zabroniona.
 
-## 11. Egzamin — bezpieczeństwo i inventory
+### Historyczne assignmenty
+
+Ta sama sztuka inventory może mieć wiele **historycznych** assignmentów, jeżeli wcześniejsze nieaktywowane przypisanie zostało cofnięte. Constraint blokuje tylko więcej niż jeden bieżący assignment.
+
+### Przedłużanie / stacking
+
+Zaobserwowano wiele aktywnych okresów przypisanych do jednego learning access. Własny model zapisuje przy aktywacji:
+- `activated_at`,
+- `effective_from`,
+- `effective_to`.
+
+Aktywacja/przedłużenie blokuje `StudentLearningAccount`, oblicza current entitlement end i dopiero wtedy wyznacza kolejny okres. Dwa równoległe przedłużenia nie mogą zgubić dni dostępu.
+
+## 12. Egzamin — bezpieczeństwo, inventory i stanowisko
 
 Źródło prawdy: `specs/design/internal-exam-lifecycle.yml`.
 
 Remote access:
 - opaque cryptographically strong token,
 - token nie zawiera PII,
+- raw token przechowywany co najwyżej jednorazowo w response/handoff, DB trzyma hash,
 - expiry,
 - revoke przed startem,
 - brak parallel double start.
@@ -164,8 +212,21 @@ Inventory:
 - reserve przy access creation,
 - **consume atomowo przy start**,
 - release przed startem po revoke/expiry/cancel,
+- released reservation nie blokuje późniejszego wykorzystania tej samej sztuki,
 - po start technical_abort nie oddaje automatycznie sztuki,
 - correction po starcie tylko z elevated permission + reason + audit.
+
+### Stanowisko lokalne
+
+Zaobserwowany panel komunikuje, że lokalny egzamin jest dostępny dla jednego kursanta jednocześnie.
+
+Własny model:
+- lokalny start rozwiązuje stabilne `ExamStation`,
+- jedno stanowisko ma najwyżej jedną aktywną `InternalExamStationSession`,
+- jedna próba ma najwyżej jedną aktywną station session,
+- awaria przed startem może skutkować revoke/reissue na inne stanowisko,
+- failover **po starcie** wymaga jawnego `technical_transfer`, zamknięcia starej station session, otwarcia nowej i pełnego audytu,
+- transfer nie konsumuje drugiej sztuki egzaminu.
 
 Attempt snapshot:
 - pytania,
@@ -176,23 +237,31 @@ Attempt snapshot:
 - wynik
 muszą zachować historyczną integralność.
 
-## 12. PKK
+## 13. PKK — payloady i integracja
 
 PKK jest course-first.
 
 Wymagania:
 - credentials/secrets poza repo,
+- pełny numer PKK szyfrowany, exact lookup przez keyed hash,
 - minimalizacja payload logging,
+- `profile_snapshot` z danymi osobowymi nie może być bezrefleksyjnie trzymany jako plaintext JSONB,
+- preferowany model: minimalne normalizowane pola + encrypted full snapshot tylko, jeśli jest biznesowo potrzebny,
+- UI może korzystać z redacted/minimized projection,
+- provider response w integration logu jest redacted,
+- encrypted raw response tylko, gdy retencja jest uzasadniona,
 - idempotency dla mutacji,
 - operation + attempt model,
 - retry matrix,
 - request/correlation ID,
 - reconciliation po timeout/unknown state,
-- audit wszystkich rezultatów.
+- audit wszystkich rezultatów bez kopiowania wrażliwego provider payloadu do audit log.
 
 Błąd walidacji/biznesowy nie jest automatycznie retryowany jak timeout.
 
-## 13. Student finance
+Flow wymagający podpisania XML może posiadać bezpieczny handoff `download -> external signature -> upload`, ale szczegóły nieobserwowalnego konkurencyjnego drawera nie są odtwarzane jako fakt.
+
+## 14. Student finance
 
 - money decimal/minor units,
 - server-side balance,
@@ -202,20 +271,38 @@ Błąd walidacji/biznesowy nie jest automatycznie retryowany jak timeout.
 - tenant/course/student relation validation,
 - elevated permission dla reversal.
 
-## 14. Platform payments
+## 15. Platform payments
 
 - brak danych kart w aplikacji,
 - provider tokenization,
 - webhook signature verification,
 - idempotent event handling,
-- provider event ID uniqueness,
+- provider event dedup po `(provider, provider_event_id)`,
+- event zapisany/deduplicated przed business effect,
 - reconciliation job,
 - order item price/VAT snapshot,
 - audyt manual adjustments.
 
 Dla `activation_mode=explicit` payment success nie oznacza automatycznej aktywacji usługi.
 
-## 15. Kalendarz
+## 16. Wspólna idempotency persistence
+
+Sam nagłówek `Idempotency-Key` nie wystarcza.
+
+Wymagany store, np. `idempotency_records`:
+- tenant/operation/key,
+- request hash,
+- processing/completed state,
+- bezpieczny result reference,
+- expiry/retention.
+
+Reguły:
+- pierwszy request atomowo claimuje key,
+- ten sam key + ten sam payload nie powtarza skutku biznesowego,
+- ten sam key + inny payload -> conflict,
+- response snapshot nie zawiera plaintext password, tokenów ani pełnych danych wrażliwych.
+
+## 17. Kalendarz
 
 Backend waliduje:
 - tenant resources,
@@ -228,19 +315,24 @@ Self-booking:
 
 Nieważny dokument pracownika/pojazdu może być warning albo hard block zależnie od formalnej reguły/config — decyzja musi być jawna, nie wyłącznie frontendowa.
 
-## 16. Uploads
+## 18. Uploads / FileAsset
 
 Dla zdjęć/PDF/załączników:
-- presigned upload,
-- whitelist MIME,
-- real content sniffing,
+- `FileAsset` jest osobnym tenant-aware rekordem,
+- storage key jest niezgadywalny i nie jest nazwą pliku od użytkownika,
+- presigned upload tam, gdzie stosowany,
+- whitelist MIME + real content sniffing,
 - size limits,
-- tenant ownership,
 - purpose-bound upload,
-- malware scan tam, gdzie uzasadnione,
-- brak wykonywalnych plików z user content.
+- malware/content scan tam, gdzie uzasadnione,
+- business entity może przypiąć plik dopiero w stanie `ready`,
+- brak wykonywalnych plików z user content,
+- download zawsze przechodzi authorization albo krótkotrwały signed URL,
+- usunięcie business entity nie może przypadkiem skasować formalnego dokumentu wymagającego retencji.
 
-## 17. Audit log
+## 19. Audit log vs dashboard activity feed
+
+### AuditLog
 
 Minimum:
 - `actor_user_id`,
@@ -248,7 +340,7 @@ Minimum:
 - `action`,
 - `entity_type`,
 - `entity_id`,
-- before/after lub domain-specific diff,
+- redacted/allow-listed before/after lub domain-specific diff,
 - `request_id`,
 - reason dla elevated correction,
 - IP/hash zgodnie z polityką,
@@ -257,10 +349,26 @@ Minimum:
 
 Audit:
 - nie jest edytowalny przez zwykły panel,
-- nie zawiera plaintext passwords/secrets,
+- nie zawiera plaintext passwords/secrets/tokens,
+- pełny PESEL/PKK jest domyślnie zabroniony,
 - ma retencję zgodną z legal/privacy policy.
 
-## 18. Logs / observability privacy
+### OrganizationActivityEvent
+
+Dashboardowy activity feed **nie czyta surowego audit payloadu bezpośrednio**.
+
+Wymagamy osobnej safe projection:
+- allow-listed `event_type`,
+- actor,
+- subject/related student/entity,
+- bezpieczny opis,
+- safe metadata,
+- timestamp,
+- opcjonalny redacted before/after dla zaobserwowanego `Rozwiń`.
+
+Projection jest tworzona z committed domain/outbox eventu. PESEL, PKK, hasła, tokeny i provider secrets są zabronione w safe payload.
+
+## 20. Logs / observability privacy
 
 Application logs nie są drugim audit logiem i nie powinny zawierać pełnych payloadów osobowych.
 
@@ -270,7 +378,17 @@ Maskować/tokenizować:
 - PKK/identyfikatory wrażliwe według potrzeb,
 - tokens.
 
-## 19. Secrets / config
+Provider request/response logging używa redaction policy.
+
+## 21. Organization settings i accepted terms
+
+- ustawienia organizacji są osobnym tenant-owned rekordem/projekcją,
+- wersje dokumentów prawnych mają immutable hash/version,
+- akceptacja regulaminu tworzy append-only `TermsAcceptance`,
+- zmiana aktualnego regulaminu nie nadpisuje historii starej akceptacji,
+- UI może pobrać/wyświetlić konkretną zaakceptowaną wersję.
+
+## 22. Secrets / config
 
 - żadnych `.env` z sekretami w repo,
 - secret manager / secure environment injection,
@@ -278,7 +396,7 @@ Maskować/tokenizować:
 - osobne secrets per environment,
 - provider credentials z least privilege.
 
-## 20. Backup / DR
+## 23. Backup / DR
 
 Przed produkcją:
 - automatyczne backupy,
@@ -289,7 +407,7 @@ Przed produkcją:
 
 Szczegóły: `docs/85-production-operations.md`.
 
-## 21. Elementy regulaminowe konkurenta, których nie kopiujemy bez własnej decyzji
+## 24. Elementy regulaminowe konkurenta, których nie kopiujemy bez własnej decyzji
 
 - dokładne terminy zwrotów/reklamacji,
 - retencja konkurenta,
