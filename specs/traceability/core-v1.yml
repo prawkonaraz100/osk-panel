@@ -20,6 +20,7 @@ sources_of_truth:
   api_inventory: specs/api/required-operations-v1.yml
   openapi: specs/api/openapi-v1.yaml
   database: specs/database/core-schema.yml
+  organization_settings_database: specs/database/organization-settings.yml
   tests: docs/84-test-strategy.md
   baseline: specs/implementation-baseline-v1.yml
 
@@ -328,8 +329,12 @@ modules:
       - docs/75-pkk-entrypoints-and-student-list.md
       - docs/76-pkk-course-operational-panel.md
       - docs/77-pkk-management-flow-fallback-design.md
+      - docs/100-osk-settings-domain-model.md
     preserved_capabilities:
       - configure_integration
+      - configuration_gate_onboarding_get
+      - configuration_gate_save_and_continue
+      - configuration_gate_and_settings_share_canonical_source_records
       - fetch_profile
       - preview_profile
       - update_training_and_return
@@ -342,6 +347,8 @@ modules:
     api_requirements:
       - pkk.settings.get
       - pkk.settings.update
+      - pkk.configuration_gate.get
+      - pkk.configuration_gate.save_and_continue
       - pkk.settings.test_connection
       - pkk.get
       - pkk.fetch
@@ -355,6 +362,11 @@ modules:
       - pkk.signed_xml_handoff
       - pkk.sensitive_snapshot_policy
     database:
+      - users
+      - auth_login_identifiers
+      - organizations
+      - organization_settings
+      - organization_contact_addresses
       - pkk_integration_settings
       - pkk_profiles
       - pkk_operations
@@ -362,6 +374,9 @@ modules:
       - file_assets
       - idempotency_records
       - audit_logs
+    database_specs:
+      - specs/database/core-schema.yml
+      - specs/database/organization-settings.yml
     permissions:
       - pkk.view
       - pkk.fetch
@@ -373,6 +388,9 @@ modules:
       - organization.integrations.manage
     invariants:
       - PkkProfile_belongs_to_CourseEnrollment
+      - configuration_gate_and_settings_use_same_users_organization_and_pkk_records
+      - external_osk_login_is_not_application_login
+      - user_names_are_not_duplicated_inside_pkk_integration_settings
       - irreversible_provider_commands_are_idempotent
       - business_validation_failure_is_not_blindly_retried
       - timeout_unknown_state_requires_reconciliation_before_replay
@@ -381,6 +399,11 @@ modules:
       - final_provider_contract_and_exact_request_response_schemas
       - encryption_and_key_rotation_ADR_for_sensitive_snapshots
     test_obligations:
+      - configuration_gate_reads_same_source_records_as_organization_settings
+      - configuration_gate_save_updates_user_and_pkk_records_atomically
+      - settings_edit_is_visible_in_configuration_gate_without_data_copy
+      - configuration_gate_edit_is_visible_in_settings_without_data_copy
+      - concurrent_settings_or_configuration_gate_edit_respects_aggregate_version
       - fake_provider_success_business_error_timeout_5xx_unknown_state
       - each_confirmed_return_path
       - operation_history_and_attempt_numbers
@@ -857,15 +880,24 @@ modules:
       - technical_abort_and_manual_adjustment
 
   organization_settings:
-    documentation_status: CONTRACT_READY
+    documentation_status: CONTRACT_READY_STAGE_2_SYNCHRONIZED
     evidence:
       - specs/screens/settings.yml
+      - specs/screens/pkk-configuration-gate.yml
       - docs/18-settings-screen.md
+      - docs/37-pkk-configuration-gate.md
+      - docs/100-osk-settings-domain-model.md
+    database_specs:
+      - specs/database/organization-settings.yml
+      - specs/database/core-schema.yml
     preserved_capabilities:
-      - account_and_company_data
-      - OSK_name_and_registry_number
-      - login_context
+      - basic_user_first_name_last_name_and_email
+      - company_name_structured_address_and_phone
+      - OSK_school_name_and_registry_number
+      - external_OSK_login_context
       - PKK_integration_configuration
+      - PKK_configuration_gate_save_and_continue
+      - settings_and_configuration_gate_share_same_source_records
       - accepted_terms_history
     api_requirements:
       - organization.get
@@ -875,22 +907,44 @@ modules:
       - organization.accepted_terms.get
       - pkk.settings.get
       - pkk.settings.update
+      - pkk.configuration_gate.get
+      - pkk.configuration_gate.save_and_continue
     database:
+      - users
+      - auth_login_identifiers
       - organizations
       - organization_settings
+      - organization_contact_addresses
       - pkk_integration_settings
       - legal_documents
       - terms_acceptances
+    ownership:
+      basic_user_names: users
+      primary_email: auth_login_identifiers
+      company_name_and_phone: organizations
+      company_structured_address: organization_contact_addresses
+      settings_concurrency_version: organization_settings
+      pkk_school_name_registry_and_external_login: pkk_integration_settings
+      terms_history: terms_acceptances_plus_legal_documents
     permissions:
       - organization.view
       - organization.edit
       - organization.settings.manage
       - organization.integrations.manage
     invariants:
+      - settings_screen_and_PKK_configuration_gate_do_not_duplicate_business_data
+      - PKK_configuration_gate_and_settings_share_same_source_records
+      - external_osk_login_is_not_application_auth_identifier
+      - structured_company_address_is_not_training_location
       - persisted_provider_secrets_are_write_only_or_secret_references
       - accepted_terms_history_is_append_only
+      - aggregate_version_prevents_silent_lost_update_between_settings_and_configuration_gate
     test_obligations:
       - observed_settings_fields
+      - configuration_gate_reads_same_source_records_as_settings
+      - settings_update_is_visible_in_configuration_gate_without_copy_sync
+      - configuration_gate_update_is_visible_in_settings_without_copy_sync
+      - concurrent_settings_and_configuration_gate_update_returns_conflict_instead_of_lost_update
       - secret_write_without_readback
       - terms_version_history
       - permission_denials
@@ -1068,6 +1122,7 @@ cross_layer_gaps_after_scan_4:
     - missing_auth_session_and_account_closure_persistence_model
     - missing_exam_station_failover_http_contract
     - unsafe_global_session_security_assumption_for_payment_webhook_and_remote_exam
+    - stage_3_TRACE_001_PKK_configuration_gate_traceability_gap
   still_blocking_related_production:
     - legal_category_dictionary_reverification_including_PT_mapping
     - sensitive_identifier_encryption_and_key_rotation_ADR
