@@ -19,6 +19,9 @@ principles:
   staff_membership_link_history_is_preserved: true
   cross_tenant_staff_membership_link_is_forbidden: true
   cross_tenant_location_assignment_is_forbidden: true
+  private_staff_vehicle_asset_attachment_requires_same_tenant: true
+  private_staff_vehicle_asset_attachment_requires_ready_state_at_attach: true
+  private_staff_vehicle_asset_attachment_is_purpose_bound: true
   aggregate_sync_deferred_until_final_DB4_3_gate: true
 
 # DB-RES-001
@@ -126,7 +129,7 @@ staff_membership_link_same_organization_integrity:
 # DB-RES-002
 location_assignment_same_organization_integrity:
   blocker: DB-RES-002
-  status: RESOLVED_DESIGN
+  status: PASS
   goal: >-
     StaffProfile-to-Location and Vehicle-to-Location assignments must be unable to
     connect tenant-owned resources from different organizations, including when a
@@ -252,10 +255,139 @@ location_assignment_same_organization_integrity:
     - migration_precheck_detects_existing_cross_tenant_staff_location_pair
     - migration_precheck_detects_existing_cross_tenant_vehicle_location_pair
 
+# DB-RES-003
+file_asset_attachment_integrity:
+  blocker: DB-RES-003
+  status: RESOLVED_DESIGN
+  goal: >-
+    Staff and Vehicle photos/documents may only attach an asset owned by the same
+    organization, uploaded for the exact attachment purpose, and in ready state at
+    the moment the business attachment is committed.
+
+  file_asset_candidate_key_required:
+    table: file_assets
+    columns: [organization_id, id]
+    unique_constraint_required: true
+    note: >-
+      file_assets.id remains globally unique. The composite candidate key exists so
+      tenant-owned business tables can use a same-organization composite FK. A
+      platform asset with organization_id NULL cannot satisfy a non-null tenant
+      attachment FK.
+
+  attachment_paths:
+    staff_profile_photo:
+      source_table: staff_profiles
+      source_columns: [organization_id, photo_asset_id]
+      target_table: file_assets
+      target_columns: [organization_id, id]
+      nullable_asset_reference: true
+      required_asset_purpose: staff_photo
+      required_asset_status_at_attach: ready
+    staff_document_asset:
+      source_table: staff_documents
+      source_columns: [organization_id, asset_id]
+      target_table: file_assets
+      target_columns: [organization_id, id]
+      nullable_asset_reference: true
+      required_asset_purpose: staff_document
+      required_asset_status_at_attach: ready
+    vehicle_photo:
+      source_table: vehicles
+      source_columns: [organization_id, photo_asset_id]
+      target_table: file_assets
+      target_columns: [organization_id, id]
+      nullable_asset_reference: true
+      required_asset_purpose: vehicle_photo
+      required_asset_status_at_attach: ready
+    vehicle_document_asset:
+      source_table: vehicle_documents
+      source_columns: [organization_id, asset_id]
+      target_table: file_assets
+      target_columns: [organization_id, id]
+      nullable_asset_reference: true
+      required_asset_purpose: vehicle_document
+      required_asset_status_at_attach: ready
+
+  composite_foreign_key_policy:
+    match: MATCH_SIMPLE
+    on_update: RESTRICT
+    on_delete: RESTRICT
+    effect:
+      - foreign_organization_asset_rejected_by_database
+      - platform_global_asset_rejected_for_private_staff_vehicle_attachment
+      - null_optional_asset_reference_remains_allowed
+
+  purpose_and_ready_database_boundary:
+    enforcement: reusable_BEFORE_INSERT_OR_UPDATE_constraint_trigger_or_equivalent_database_trigger
+    trigger_scope:
+      - insert_when_asset_reference_non_null
+      - update_when_asset_reference_or_organization_id_changes
+    trigger_contract:
+      - load_same_tenant_file_asset_row
+      - lock_file_asset_row_FOR_SHARE_until_attachment_transaction_commits
+      - require_exact_expected_purpose_for_attachment_path
+      - require_status_ready
+      - reject_missing_foreign_platform_wrong_purpose_or_nonready_asset
+    reason: >-
+      PostgreSQL foreign keys can prove tenant ownership but cannot safely express
+      a dynamic cross-row ready-state/purpose predicate without duplicating mutable
+      status into business rows. The constraint trigger is therefore part of the
+      canonical database boundary rather than relying only on Laravel validation.
+    application_precheck_also_required: true
+    database_trigger_is_final_attachment_boundary: true
+
+  file_asset_lifecycle_after_attachment:
+    purpose_mutation_after_upload_commit: forbidden
+    ready_to_nonready_security_transition:
+      may_exist_for_quarantine_rejection_or_controlled_deletion: true
+      business_reference_history_preserved: true
+      download_or_delivery_requires_current_asset_state_allowed_by_file_policy: true
+      nonready_asset_must_not_be_served_merely_because_business_reference_exists: true
+    replacing_attachment:
+      old_asset_auto_delete: forbidden
+      reason: asset_retention_and_other_historical_references_are_separate_lifecycle_concerns
+
+  document_type_vs_asset_purpose:
+    staff_document_business_type_stays_on_staff_documents: true
+    vehicle_document_business_type_stays_on_vehicle_documents: true
+    file_asset_purpose_is_attachment_class_not_document_type: true
+    examples:
+      staff_medical_exam: staff_document
+      vehicle_oc_insurance: vehicle_document
+
+  migration_precheck:
+    required_before_constraints_and_triggers: true
+    checks:
+      - every_existing_nonnull_staff_photo_asset_matches_staff_organization
+      - every_existing_nonnull_staff_document_asset_matches_staff_document_organization
+      - every_existing_nonnull_vehicle_photo_asset_matches_vehicle_organization
+      - every_existing_nonnull_vehicle_document_asset_matches_vehicle_document_organization
+      - every_existing_attached_asset_has_expected_attachment_purpose
+      - every_existing_attachment_was_or_is_in_policy_acceptable_ready_state_for_migration
+    invalid_row_policy: fail_migration_or_explicit_security_remediation_never_silent_asset_reassignment_or_purpose_rewrite
+    creation_order:
+      - add_or_verify_unique_file_assets_organization_id_id
+      - add_four_same_tenant_composite_FKs
+      - install_reusable_attachment_constraint_trigger_with_path_specific_expected_purpose
+      - run_integrity_verification_query_after_constraints
+
+  tests_required:
+    - same_tenant_ready_staff_photo_with_staff_photo_purpose_is_accepted
+    - staff_photo_from_other_organization_is_rejected_by_database
+    - platform_asset_cannot_be_attached_as_private_staff_photo
+    - staff_photo_with_wrong_purpose_is_rejected
+    - staff_photo_in_nonready_state_is_rejected
+    - same_tenant_ready_staff_document_with_staff_document_purpose_is_accepted
+    - staff_document_foreign_wrong_purpose_and_nonready_assets_are_rejected
+    - same_tenant_ready_vehicle_photo_with_vehicle_photo_purpose_is_accepted
+    - vehicle_photo_foreign_platform_wrong_purpose_and_nonready_assets_are_rejected
+    - same_tenant_ready_vehicle_document_with_vehicle_document_purpose_is_accepted
+    - vehicle_document_foreign_wrong_purpose_and_nonready_assets_are_rejected
+    - concurrent_asset_status_change_and_attachment_cannot_commit_an_unvalidated_race
+    - attachment_replacement_does_not_auto_delete_old_asset
+    - nonready_asset_after_later_security_transition_is_not_downloadable_via_business_reference
+
 open_blockers_not_resolved_here:
-  DB-RES-003:
-    status: OPEN
-    topic: staff_vehicle_file_asset_attachment_integrity
   DB-RES-004:
     status: OPEN
     topic: staff_vehicle_document_current_projection
