@@ -1,0 +1,118 @@
+legal_rule_set:
+  id: formal_osk_training_theory_exemptions
+  jurisdiction: PL
+  verified_at: 2026-09-05
+  status: LEGAL_VERIFIED
+  doc: docs/66-formal-student-record-and-theory-exemptions.md
+
+formal_student_record:
+  required_for_formal_training: true
+  required_for_formal_internal_exam: true
+  student_id_nullable_for_formal_exam: false
+  course_enrollment_required_for_formal_exam: true
+  ad_hoc_ephemeral_exam_candidate_allowed: false
+
+recordkeeping:
+  trainee_register_required: true
+  lesson_card_or_teleinformatic_equivalent_required: true
+  lead_instructor_required: true
+  record_theory_hours: true
+  record_practical_hours: true
+  record_completion_or_interruption_date: true
+  practical_hour_minutes: 60
+  theory_hour_minutes: 45
+
+state_theory_exam_categories:
+  required_categories:
+    - AM
+    - A1
+    - A2
+    - A
+    - B1
+    - B
+    - C1
+    - C
+    - D1
+    - D
+    - T
+  no_state_theory_categories:
+    - B+E
+    - C1+E
+    - C+E
+    - D1+E
+    - D+E
+
+plus_e_standard_training:
+  B+E:
+    minimum_practical_hours: 15
+    theory_training_required: false
+    internal_theory_exam_required: false
+    internal_practical_exam_required: true
+  C1+E:
+    minimum_practical_hours: 20
+    theory_training_required: false
+    internal_theory_exam_required: false
+    internal_practical_exam_required: true
+  C+E:
+    minimum_practical_hours: 25
+    theory_training_required: false
+    internal_theory_exam_required: false
+    internal_practical_exam_required: true
+  D1+E:
+    minimum_practical_hours: 20
+    theory_training_required: false
+    internal_theory_exam_required: false
+    internal_practical_exam_required: true
+  D+E:
+    minimum_practical_hours: 25
+    theory_training_required: false
+    internal_theory_exam_required: false
+    internal_practical_exam_required: true
+
+state_theory_passed_before_course:
+  legal_basis: art_23a
+  effect:
+    theory_training_required: false
+    internal_theory_exam_required: false
+  practical_requirements_remain: true
+  formal_student_record_remains_required: true
+
+recognized_prior_theory:
+  - target: A2
+    prior: [A1]
+  - target: A
+    prior: [A1, A2]
+  - target: B
+    prior: [B1]
+  - target: C
+    prior: [C1]
+  - target: D
+    prior: [D1]
+  effect:
+    state_theory_result_considered_positive: true
+    theory_training_minimum_not_required: true
+    internal_theory_exam_required: false
+
+rule_engine_required: true
+rule_engine_outputs:
+  - theory_training_required
+  - minimum_theory_minutes
+  - internal_theory_exam_required
+  - practical_training_required
+  - minimum_practical_minutes
+  - internal_practical_exam_required
+  - exemption_basis_code
+  - exemption_evidence_reference
+
+formal_exam_model:
+  required_fields:
+    - organization_id
+    - student_id
+    - course_enrollment_id
+    - category
+    - exam_part
+    - requirement_basis
+  must_reject:
+    - formal_exam_without_student
+    - formal_exam_without_course_enrollment
+    - theory_exam_when_rule_engine_marks_not_required
