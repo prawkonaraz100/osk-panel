@@ -1,0 +1,149 @@
+screen:
+  id: internal_exam_management_panel
+  scope: admin_osk
+  route: /egzamin-wewnetrzny/panel
+  title: Zarządzaj egzaminami
+  confidence: USER_CONFIRMED_AUTH_SCREEN
+  verified_at: 2026-09-05
+  doc: docs/60-internal-exam-management-panel.md
+
+inventory:
+  projections:
+    free_monthly:
+      label: Darmowe
+      observed_available: 10
+      observed_description: Egzaminy darmowe w tym miesiącu
+    paid:
+      label: Opłacone
+      observed_available: 150
+    total:
+      label: Wszystkie
+      observed_available: 160
+  arithmetic_snapshot_consistent: true
+  source_aware_inventory_required: true
+  recommended_sources:
+    - free_monthly
+    - paid
+
+purchase_action:
+  label: Dokup egzaminy
+  route: /egzamin-wewnetrzny/wykup
+
+assigned_exams_section:
+  title: Przydzielone egzaminy wewnętrzne
+  controls:
+    generate_exam: true
+    select_visible: true
+    generate_exams_selected_action_visible: true
+    generate_exams_selected_exact_behavior: TO_VERIFY
+    hide_finished_exams_toggle: true
+    search: true
+    filter: true
+    sort: true
+
+row_granularity:
+  primary_projection: student_or_exam_access_with_latest_attempt_summary
+  one_row_is_not_one_attempt: true
+  attempt_count_visible: true
+  one_student_many_attempts_supported_by_observation: true
+
+columns:
+  - email_or_login
+  - student_full_name
+  - latest_exam_category
+  - latest_exam_status
+  - latest_exam_at
+  - latest_exam_language
+  - exam_count
+  - row_actions
+
+observed_rows:
+  - student: Ala Nowak
+    email_or_login: alanowak@prawo-jazdy-360.pl
+    latest_category: B
+    latest_status_visual: red_x
+    latest_status_semantics: TO_VERIFY
+    latest_at: 2026-01-26T15:43
+    latest_language: PL
+    exam_count: 7
+  - student: Paweł Kowalski
+    email_or_login: pawelkowalski@prawo-jazdy-360.pl
+    latest_category: B
+    latest_status_visual: red_x
+    latest_status_semantics: TO_VERIFY
+    latest_at: 2026-01-23T12:56
+    latest_language: PL
+    exam_count: 2
+
+row_actions:
+  - action: expand_exam_history
+    label: Rozwiń
+  - action: open_exam_details
+    label: Szczegóły
+    route_host_observed: www.prawo-jazdy-360.pl
+    route_pattern: /egzamin-wewnetrzny?pid=<token>
+  - action: download_exam_printout
+    label: Pobierz wydruk
+    route_pattern: /exam/download?id=<exam_id>
+
+finished_filter:
+  label: Ukryj egzaminy zakończone
+  control: toggle
+  completed_status_membership: TO_VERIFY
+
+own_product_model:
+  inventory_ledger_sources:
+    - free_monthly
+    - paid
+  projections:
+    - free_available
+    - paid_available
+    - total_available
+  entities:
+    - internal_exam_inventory_ledger
+    - internal_exam_accesses
+    - internal_exam_attempts
+    - internal_exam_launch_tokens
+    - internal_exam_results
+    - internal_exam_documents
+  one_student_many_attempts: true
+  row_projection_fields:
+    - latest_attempt_id
+    - latest_attempt_category
+    - latest_attempt_status
+    - latest_attempt_at
+    - latest_attempt_language
+    - attempt_count
+
+confirmed_actions:
+  - open_internal_exam_management_panel
+  - view_free_exam_inventory
+  - view_paid_exam_inventory
+  - view_total_exam_inventory
+  - open_exam_purchase
+  - open_generate_exam_flow
+  - select_visible_exam_rows
+  - toggle_hide_finished_exams
+  - search_exam_rows
+  - open_exam_filters
+  - open_exam_sorting
+  - expand_exam_history
+  - open_exam_details
+  - download_exam_printout
+
+remaining_gaps:
+  - expanded_attempt_history
+  - red_x_status_semantics
+  - generate_exam_panel_form
+  - selected_rows_generate_exams_behavior
+  - filter_options
+  - sort_options
+  - exact_search_fields
+  - printout_format
+  - details_screen_semantics
+  - free_vs_paid_consumption_order
+  - free_monthly_reset_policy
+  - exact_exam_unit_consumption_moment
+  - pagination
+  - empty_states
+  - success_error_messages
