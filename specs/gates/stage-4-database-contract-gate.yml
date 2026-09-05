@@ -38,14 +38,14 @@ sources:
 
 stage_4_slices:
   - id: DB4_1_FOUNDATION_DIAGNOSIS
-    status: IN_PROGRESS
+    status: PASS
     scope:
       - primary_key_physical_type
       - nullable_scope_unique_constraints
       - Stage_2_settings_schema_merge
-    result: FAIL_WITH_1_REMAINING_BLOCKER
+    result: PASS
   - id: DB4_2_IDENTITY_TENANT_RBAC
-    status: NOT_STARTED
+    status: NEXT_DIAGNOSIS
   - id: DB4_3_STAFF_LOCATIONS_VEHICLES
     status: NOT_STARTED
   - id: DB4_4_STUDENTS_COURSES_TRAINING_LEDGER
@@ -79,10 +79,6 @@ quality_checks:
       database_UUIDv7_default_required: false
       external_provider_identifiers_as_primary_keys: forbidden
       silent_UUIDv4_fallback: forbidden
-    evidence:
-      - specs/database/core-schema.yml conventions.primary_key is finalized
-      - docs/87-physical-database-schema.md documents the same UUIDv7/native-uuid decision
-      - migration test obligation verifies UUIDv7 generation for synthetic domain IDs
 
   nullable_scope_unique_constraints_are_null_safe:
     status: PASS
@@ -90,103 +86,77 @@ quality_checks:
     decision:
       strategy: separate_partial_unique_indexes_for_null_and_non_null_scope
       postgres_NULLS_NOT_DISTINCT_required: false
-    idempotency_records:
-      organization_scope:
-        columns: [organization_id, operation_key, idempotency_key]
-        where: organization_id_is_not_null
-      global_scope:
-        columns: [operation_key, idempotency_key]
-        where: organization_id_is_null
-    account_closure_requests:
-      organization_scope:
-        columns: [user_id, organization_id]
-        where: status_equals_pending_and_organization_id_is_not_null
-      global_scope:
-        columns: [user_id]
-        where: status_equals_pending_and_organization_id_is_null
 
   stage_2_settings_tables_are_present_in_core_inventory:
     status: PASS
     resolved_blocker_id: DB-FOUND-003
-    decision:
-      canonical_table: organization_contact_addresses
-      ownership: one_structured_company_contact_address_per_organization
-      relation_to_training_locations: separate_concept
-    physical_shape:
-      organization_id: uuid_PK_FK_organizations
-      street: varchar_255_not_null
-      house_number: varchar_32_not_null
-      unit_number: varchar_32_nullable
-      postal_code: varchar_20_not_null
-      city_name: varchar_160_not_null
-      city_reference: varchar_128_nullable
-      voivodeship_name: varchar_160_nullable
-      country_code: char_2_not_null_default_PL
-      created_at: timestamptz
-      updated_at: timestamptz
-    evidence:
-      - specs/database/core-schema.yml core_tables.identity lists organization_contact_addresses
-      - specs/database/core-schema.yml organization_model defines its canonical role and fields
-      - docs/87-physical-database-schema.md defines the physical table
-      - specs/database/organization-settings.yml remains the bounded-context source for the same shape
-      - migration/invariant tests require one address per organization and forbid reusing locations
-    preservation_rule: >-
-      Company/contact address from the confirmed Settings screen is preserved
-      without turning it into a training Location or a JSONB preference.
+    canonical_table: organization_contact_addresses
+    relation_to_training_locations: separate_concept
 
   stage_2_settings_fields_and_constraints_are_merged_into_physical_blueprint:
-    status: FAIL
-    blocker_id: DB-FOUND-004
-    missing_or_not_yet_merged:
+    status: PASS
+    resolved_blocker_id: DB-FOUND-004
+    merged:
       - users.first_name
       - users.last_name
       - organizations.phone
       - auth_login_identifiers.is_primary_for_type
-      - primary_current_email_partial_unique_constraint
+      - primary_current_identifier_partial_unique_constraint
       - organization_settings.version
-      - canonical_PKK_settings_fields_from_specs_database_organization_settings
-    already_merged_and_not_to_be_redesigned:
       - organization_contact_addresses
-    rule: >-
-      Stage-2 bounded-context ownership is authoritative. Physical migrations may
-      not silently fall back to the older generic core table shapes.
+      - canonical_pkk_integration_settings_shape
+    ownership:
+      user_names: users
+      primary_email: auth_login_identifiers
+      company_name_and_phone: organizations
+      company_address: organization_contact_addresses
+      settings_concurrency_version: organization_settings
+      pkk_configuration: pkk_integration_settings
+    evidence:
+      - specs/database/core-schema.yml contains the same ownership and constraints
+      - docs/87-physical-database-schema.md documents the same physical fields
+      - specs/database/organization-settings.yml remains the bounded-context source
+      - migration/invariant tests cover primary email, settings version and PKK login isolation
+    preservation_rule: >-
+      The confirmed Settings and PKK configuration-gate fields have canonical
+      relational owners; no confirmed field was dropped or moved into an opaque
+      preferences JSONB shortcut.
+
+  foundation_slice_gate:
+    status: PASS
+    resolved_blockers:
+      - DB-FOUND-001
+      - DB-FOUND-002
+      - DB-FOUND-003
+      - DB-FOUND-004
+    open_foundation_P0_P1: 0
+    may_start_next_stage4_slice: true
 
   cross_tenant_relation_integrity_strategy:
-    status: PENDING_LATER_STAGE4_SLICE
+    status: PENDING_DB4_2
     note: >-
-      Simple UUID foreign keys plus application checks are not yet accepted as the
-      final strategy for staff/location/vehicle/course relations. This will be
-      closed per bounded context rather than mixed into the foundation fix.
+      The next slice must decide database/transactional tenant-integrity rules
+      for identity, memberships, RBAC and their links before resource-domain
+      relations are designed.
 
   calendar_overlap_database_strategy:
     status: PENDING_LATER_STAGE4_SLICE
-    note: keep separate from foundation; existing server-side requirement remains mandatory
 
 resolved_blockers:
   - id: DB-FOUND-001
     severity: P1
-    resolution: >-
-      Synthetic domain identifiers use application-generated UUIDv7 stored in
-      native PostgreSQL uuid columns. Matching foreign keys use uuid; provider and
-      import identifiers remain separate external-reference fields.
+    resolution: application_generated_UUIDv7_in_native_PostgreSQL_uuid
   - id: DB-FOUND-002
     severity: P1
-    resolution: >-
-      Nullable organization scopes no longer rely on ordinary UNIQUE semantics.
-      Idempotency and pending account-closure uniqueness are implemented as
-      separate partial unique indexes for organization_id IS NOT NULL and
-      organization_id IS NULL, with migration tests for both namespaces.
+    resolution: separate_partial_unique_indexes_for_global_and_tenant_nullable_scopes
   - id: DB-FOUND-003
     severity: P1
-    resolution: >-
-      organization_contact_addresses is now an explicit canonical core table and
-      physical one-to-one organization address target. It is deliberately distinct
-      from training locations and preserves the confirmed Settings address fields.
-
-open_blockers:
+    resolution: organization_contact_addresses_is_canonical_one_to_one_physical_table
   - id: DB-FOUND-004
     severity: P1
-    description: Remaining Stage-2 settings fields/constraints are not yet merged into the physical core blueprint.
+    resolution: remaining_Stage_2_settings_ownership_fields_and_constraints_are_merged_into_core_physical_blueprint
+
+open_blockers: []
 
 gate_definition:
   PASS_requires:
@@ -196,19 +166,21 @@ gate_definition:
     - migration_order_is_dependency_safe
     - database_invariant_test_matrix_exists
     - reverse_engineering_preservation_is_traceable_to_schema_or_use_case
-  current_result: FAIL
+  current_result: IN_PROGRESS_FOUNDATION_PASS
   may_start_stage_5: false
   may_start_UI_or_feature_implementation: false
 
 next_single_step:
-  id: STAGE4_STEP_5
-  action: resolve_DB_FOUND_004_merge_remaining_stage_2_settings_fields_and_constraints_only
+  id: DB4_2_STEP_1
+  action: diagnose_identity_tenant_RBAC_physical_invariants_only
   allowed_scope:
     - specs/database/core-schema.yml
     - docs/87-physical-database-schema.md
-    - specs/database/organization-settings.yml
-    - docs/100-osk-settings-domain-model.md
-    - docs/104-stage-4-database-foundation-audit.md
+    - docs/04-roles-permissions.md
+    - docs/82-domain-glossary-and-data-dictionary.md
+    - docs/88-rbac-policy-matrix.md
+    - specs/traceability/core-v1.yml
     - specs/gates/stage-4-database-contract-gate.yml
-  scope_lock: do_not_start_identity_tenant_RBAC_or_other_database_slices_until_foundation_gate_is_rerun
-  after_action: rerun_foundation_gate_and_only_if_PASS_start_DB4_2_IDENTITY_TENANT_RBAC
+    - docs/105-stage-4-identity-tenant-rbac-audit.md
+  scope_lock: do_not_fix_staff_resources_students_calendar_or_other_domain_slices_during_DB4_2_diagnosis
+  after_action: record_DB4_2_blockers_and_fix_them_one_at_a_time_with_gate_rerun_after_each
