@@ -11,6 +11,8 @@ meta:
 rules:
   every_operation_must_have_backend_use_case: true
   every_http_operation_must_have_openapi_operationId: true
+  shared_http_capability_may_reference_existing_operationId_when_same_method_and_path_serve_multiple_preserved_capabilities: true
+  shared_http_capability_requires_covered_by_operationId: true
   every_http_operation_must_have_security_or_explicit_public_security_override: true
   every_http_operation_must_have_request_response_schema_or_explicit_no_body_contract: true
   frontend_only_projection_action_may_reference_existing_read_endpoint: true
@@ -52,10 +54,12 @@ operations:
     - id: students.list_filters
       method: GET
       path: /students
+      covered_by_operationId: studentsList
       requirement: support_category_stage_internal_exam_archived_filters
     - id: students.list_sort
       method: GET
       path: /students
+      covered_by_operationId: studentsList
       requirement: support_confirmed_sort_fields_and_directions
     - { id: learning_accounts.list, method: GET, path: '/students/{studentId}/learning-accounts' }
     - { id: learning_accounts.create, method: POST, path: '/students/{studentId}/learning-accounts' }
@@ -130,6 +134,7 @@ operations:
     - id: calendar.events.important_dates_projection
       method: GET
       path: /calendar/events
+      covered_by_operationId: calendarEventsList
       requirement: event_type_or_projection_supports_important_dates
     - { id: availability.list, method: GET, path: /availability-slots }
     - { id: availability.create, method: POST, path: /availability-slots }
@@ -223,20 +228,26 @@ operations:
     - id: license_management.search
       method: GET
       path: /license-assignments
+      covered_by_operationId: licenseAssignmentsList
       requirement: search_learning_access_or_student_rows
     - id: license_management.sort
       method: GET
       path: /license-assignments
+      covered_by_operationId: licenseAssignmentsList
       requirement: support_confirmed_sort_fields_and_direction
     - id: license_management.hide_finished
       method: GET
       path: /license-assignments
+      covered_by_operationId: licenseAssignmentsList
       requirement: finished_visibility_filter
     - id: license_management.expand_history
       method: GET
       path: '/students/{studentId}/learning-accounts/{accountId}/license-assignments'
       requirement: return_individual_assignment_history
-    - { id: license_credentials.single_pdf, method: GET, path: '/students/{studentId}/learning-accounts/{accountId}/access-handoffs/{handoffId}/pdf' }
+    - id: license_credentials.single_pdf
+      method: GET
+      path: '/students/{studentId}/learning-accounts/{accountId}/access-handoffs/{handoffId}/pdf'
+      covered_by_operationId: learningAccountsDownloadHandoffPdf
     - { id: license_credentials.bulk_pdf, method: POST, path: /learning-accesses/bulk-access-document }
     - id: license_assignment.target_cardinality
       type: invariant
@@ -255,14 +266,17 @@ operations:
     - id: exam_management.search
       method: GET
       path: /internal-exam/subjects
+      covered_by_operationId: internalExamSubjectsList
       requirement: partial_search_by_first_name_last_name_email_login
     - id: exam_management.filter
       method: GET
       path: /internal-exam/subjects
+      covered_by_operationId: internalExamSubjectsList
       requirement: filter_by_multiple_categories_and_confirmed_statuses
     - id: exam_management.sort
       method: GET
       path: /internal-exam/subjects
+      covered_by_operationId: internalExamSubjectsList
       requirement: confirmed_sort_fields_and_asc_desc
     - { id: exam_attempts.list_for_course, method: GET, path: '/course-enrollments/{courseEnrollmentId}/internal-exam-attempts' }
     - { id: exam_attempts.create_and_reserve, method: POST, path: '/course-enrollments/{courseEnrollmentId}/internal-exam-attempts' }
@@ -314,6 +328,7 @@ operations:
     - id: purchase_history.pay_unpaid
       method: POST
       path: '/orders/{orderId}/payments'
+      covered_by_operationId: orderPaymentsCreate
       requirement: supports_observed_pay_action_for_unpaid_order
     - { id: service_entitlements.list, method: GET, path: /service-entitlements }
     - { id: service_entitlements.activate, method: POST, path: '/service-entitlements/{entitlementId}/activate' }
@@ -332,8 +347,26 @@ operations:
       requirement: formal_financial_pkk_exam_license_role_changes_create_immutable_audit_records_without_plaintext_secrets
 
 coverage_status:
-  openapi_complete_against_this_inventory: pending_stage3_contract_gate
-  operationIds_present_for_all_http_operations: pending_stage3_contract_gate
+  stage3_step_2_operation_coverage: PASS
+  http_requirement_rows: 169
+  unique_openapi_path_method_operations_required: 158
+  shared_capability_rows_reusing_existing_operationId: 11
+  direct_and_shared_http_requirements_with_operationId_mapping: 169
+  direct_and_shared_http_requirements_without_operationId_mapping: 0
+  openapi_complete_against_this_inventory: pending_remaining_stage3_contract_gates
+  operationIds_present_for_all_http_requirements: true
+  shared_operation_mappings:
+    students.list_filters: studentsList
+    students.list_sort: studentsList
+    calendar.events.important_dates_projection: calendarEventsList
+    license_management.search: licenseAssignmentsList
+    license_management.sort: licenseAssignmentsList
+    license_management.hide_finished: licenseAssignmentsList
+    license_credentials.single_pdf: learningAccountsDownloadHandoffPdf
+    exam_management.search: internalExamSubjectsList
+    exam_management.filter: internalExamSubjectsList
+    exam_management.sort: internalExamSubjectsList
+    purchase_history.pay_unpaid: orderPaymentsCreate
   modular_path_files:
     - specs/api/paths/auth-organization.yaml
     - specs/api/paths/students-courses.yaml
