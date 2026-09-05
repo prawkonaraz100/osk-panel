@@ -3,19 +3,21 @@
 Data weryfikacji: 2026-09-05
 
 **Route:** `/licencje/panel`  
-**Źródło:** bieżące zalogowane ekrany + screenshoty przekazane podczas audytu  
+**Źródło:** bieżące zalogowane ekrany, screenshoty oraz pobrane PDF-y przekazane podczas audytu  
 **Status:** `USER_CONFIRMED_AUTH_SCREEN`
 
 Powiązane szczegóły:
 - rozwinięcie pojedynczego dostępu: `docs/54-license-expanded-assignments.md`,
 - formularz `Generuj dostęp dla kursanta`: `docs/55-license-generate-access-form.md`,
-- stan po wybraniu istniejącego kursanta: `docs/56-license-existing-student-selected-state.md`.
+- stan po wybraniu istniejącego kursanta: `docs/56-license-existing-student-selected-state.md`,
+- sortowanie: `docs/57-license-list-sorting.md`,
+- wielokrotny eksport dostępów: `docs/58-license-bulk-access-pdf.md`.
 
 ---
 
 ## 1. Znaczenie modułu
 
-`Panel - Generuj licencje` jest centralnym ekranem operacyjnym OSK do zarządzania:
+`Panel - Generuj licencje` jest centralnym ekranem OSK do zarządzania:
 - pulą zakupionych licencji,
 - dostępami kursantów do platformy,
 - licencjami przypisanymi do poszczególnych dostępów,
@@ -23,51 +25,46 @@ Powiązane szczegóły:
 - pobieraniem danych dostępowych,
 - przejściem do profilu kursanta.
 
-Ekran rozdziela wyraźnie:
-1. **inventory OSK** — ile licencji danego wariantu jest dostępnych/aktywnych,
+Ekran rozdziela:
+1. **inventory OSK** — dostępne/aktywne licencje per wariant,
 2. **learning access / kursant** — konto/login,
-3. **license assignments** — kolekcja konkretnych licencji przypisanych do danego dostępu.
+3. **license assignments** — konkretne licencje przypisane do danego dostępu.
 
 ---
 
 ## 2. Sekcja „Dostępne licencje”
 
-Potwierdzone trzy warianty:
+Potwierdzone warianty:
 - `Licencje na 31 dni`,
 - `Licencje na 90 dni`,
 - `Licencje na 180 dni`.
 
-Każda karta pokazuje osobno:
+Każda karta pokazuje:
 - `Dostępne`,
 - `Aktywne`,
-- akcję `Dokup licencje` prowadzącą do `/licencje/wykup`.
+- `Dokup licencje` -> `/licencje/wykup`.
 
-Zaobserwowany snapshot demo:
+Snapshot demo:
 - 31 dni: dostępne 1, aktywne 9,
 - 90 dni: dostępne 36, aktywne 4,
 - 180 dni: dostępne 56, aktywne 4.
 
-Te liczby są danymi konta/demo, nie wartościami stałymi produktu.
-
-Nie utożsamiamy automatycznie `active_count` z `assigned_count`; dokładna agregacja konkurenta nadal nie jest potwierdzona.
+Liczby są danymi konta/demo. Dokładna semantyka agregatu `Aktywne` pozostaje do potwierdzenia.
 
 ---
 
-## 3. Główna akcja — `Generuj dostęp dla kursanta`
+## 3. Generowanie/przydzielanie dostępu
 
-Formularz po kliknięciu został potwierdzony.
+Drawer `Przydzielanie licencji` został potwierdzony.
 
-Drawer nosi tytuł:
-- `Przydzielanie licencji`.
-
-Potwierdzone pola/elementy:
-- wybór wariantu `1 miesiąc / 3 miesiące / 6 miesięcy`,
-- licznik `Dostępne: N`,
-- wybór języka dla nowego dostępu,
-- ścieżka `Dodaj nowego kursanta` -> `Email lub login`,
-- separator `lub`,
-- ścieżka `Wyszukaj kursanta`,
-- przycisk `Przydziel licencje`.
+Pola/elementy:
+- wariant `1 miesiąc / 3 miesiące / 6 miesięcy`,
+- `Dostępne: N`,
+- język dla nowego dostępu,
+- `Dodaj nowego kursanta` -> `Email lub login`,
+- `lub`,
+- `Wyszukaj kursanta`,
+- `Przydziel licencje`.
 
 Wyszukiwanie istniejącego kursanta obsługuje:
 - imię,
@@ -76,45 +73,32 @@ Wyszukiwanie istniejącego kursanta obsługuje:
 - login,
 - PESEL.
 
-Wyniki pokazują wiele pasujących kursantów, ale operator **wybiera dokładnie jednego kursanta na jedno przydzielenie licencji**.
+### Kardynalność
 
-### Korekta audytu — brak batch assignmentu
-
-Wcześniejsza interpretacja, że widok trzech wyników oznacza trzy zaznaczone cele do masowego przydzielenia, była błędna.
-
-Potwierdzone przez operatora panelu:
-- trzy osoby były trzema wynikami wyszukiwania do wyboru,
-- z listy wybiera się jedną osobę,
-- licencję przydziela się jednemu kursantowi na raz.
-
-Dla naszego produktu również przyjmujemy podstawową kardynalność:
+Wyniki wyszukiwania mogą pokazać wiele osób, ale operator wybiera **dokładnie jednego kursanta** na jedno przydzielenie.
 
 `1 submit -> 1 target learning_access/student`
 
-Masowe przydzielanie nie jest wymaganiem parytetowym.
+Masowe przydzielanie licencji nie jest potwierdzone i nie jest wymaganiem parytetowym.
 
 ### Języki — SOURCE_CONFLICT
 
-Bieżący zalogowany formularz przydzielania licencji pokazuje:
+Zalogowany formularz przydzielania pokazuje:
 - Polski,
 - Angielski,
 - Niemiecki,
 - Rosyjski,
 - Ukraiński.
 
-Publiczny/zakupowy opis licencji mówi natomiast o 4 językach bez rosyjskiego.
-
-Nie hardkodujemy globalnej listy. Własny produkt używa capability-driven language catalog.
-
-Pełna specyfikacja: `specs/screens/license-generate-access.yml`.
+Ekran zakupu opisuje 4 języki bez rosyjskiego. Lista języków w naszym produkcie jest capability-driven i konfigurowalna.
 
 ---
 
 ## 4. Sekcja „Przydzielone licencje”
 
-Wiersz główny reprezentuje **learning access**, a nie pojedynczą licencję.
+Wiersz główny reprezentuje **learning access**, nie pojedynczą licencję.
 
-Potwierdzone kontrolki widoczne w tabeli:
+Potwierdzone kontrolki:
 - `Dodaj nowego kursanta`,
 - `Zaznacz widoczne`,
 - `Pobierz dostępy`,
@@ -123,13 +107,27 @@ Potwierdzone kontrolki widoczne w tabeli:
 - wyszukiwarka,
 - `Sortuj`.
 
-### Ważna granica
+### Wielokrotne zaznaczanie — potwierdzony cel
 
-Sama obecność `Zaznacz widoczne` i przycisków nad tabelą nie jest podstawą do stwierdzenia, że licencję można przydzielić wielu kursantom jednocześnie.
+Wielokrotne zaznaczenie jest potwierdzone co najmniej dla **`Pobierz dostępy`**.
 
-Na podstawie dalszej obserwacji flow `Przydziel licencje` traktujemy jako **single-target assignment**.
+Dla 3 wybranych dostępów system wygenerował **jeden 4-stronicowy PDF**:
+- strona 1 — spis dostępów z językiem, loginem i numerem strony,
+- strona 2 — karta PL,
+- strona 3 — karta UK,
+- strona 4 — karta EN.
 
-Możliwość zaznaczania wielu wierszy może służyć innym operacjom, np. pobraniu dostępów, ale dokładna semantyka wielokrotnego zaznaczenia pozostaje do potwierdzenia.
+Każda karta jest lokalizowana według języka danego `learning_access`.
+
+To potwierdza:
+- `select_multiple_learning_access_rows`,
+- `download_selected_access_credentials`,
+- jeden combined PDF,
+- index page + one page per selected access.
+
+**Nie oznacza to batch assignmentu licencji.** `Przydziel licencje` pozostaje single-target.
+
+Pełny opis: `docs/58-license-bulk-access-pdf.md`.
 
 ---
 
@@ -138,7 +136,7 @@ Możliwość zaznaczania wielu wierszy może służyć innym operacjom, np. pobr
 Potwierdzone:
 - `Dane logowania prawo-jazdy-360.pl`,
 - `Imię i nazwisko`,
-- grupa `Najnowsza licencja`:
+- `Najnowsza licencja`:
   - `Data wygenerowania`,
   - `Język`,
   - `Status`,
@@ -153,113 +151,101 @@ Jeden dostęp może mieć wiele licencji — zaobserwowano liczniki `5`, `2`, `2
 
 ---
 
-## 6. Rozwinięcie `Rozwiń`
+## 6. Sortowanie
 
-To zachowanie jest potwierdzone dla dwóch stanów: nieaktywowanego i aktywnego.
+Potwierdzone kierunki:
+- Rosnąco,
+- Malejąco.
 
-### Jan Nowak — 5 nieaktywowanych licencji
-Potwierdzone kolumny rozwinięcia:
-- `Dane logowania prawo-jazdy-360.pl`,
+Potwierdzone kolumny sortowania:
+- dane logowania,
+- imię i nazwisko,
+- data wygenerowania,
+- język,
+- status,
+- przypisane licencje.
+
+Zaobserwowany stan `Malejąco + Data wygenerowania` nie jest automatycznie traktowany jako globalny default.
+
+---
+
+## 7. Rozwinięcie przypisanych licencji
+
+Potwierdzone kolumny:
+- dane logowania,
 - `Data dodania`,
 - `Data do`,
 - `Pozostało`,
 - `Status`,
-- akcja `Usuń`.
+- akcje.
 
-Dla 5 nieaktywowanych pozycji:
+### Nieaktywowane
+
+Dla nieaktywowanych:
 - `Data do` pusta,
 - `Pozostało` puste,
 - `Status = Nie aktywowano`,
 - `Usuń` dostępne.
 
-### Ala Nowak — 2 aktywne licencje
-Zaobserwowane rekordy:
+### Aktywne
 
-1. nowszy:
-   - `Data dodania`: `23-01-2026 08:41`,
-   - `Data do`: `22-01-2027 23:37`,
-   - `Pozostało`: `139 dni`,
-   - `Status`: `Aktywna`;
+Dla Ali Nowak:
+- `23-01-2026 08:41` -> `22-01-2027 23:37`, `139 dni`, `Aktywna`,
+- `21-01-2026 12:36` -> `22-12-2026 23:37`, `108 dni`, `Aktywna`.
 
-2. starszy:
-   - `Data dodania`: `21-01-2026 12:36`,
-   - `Data do`: `22-12-2026 23:37`,
-   - `Pozostało`: `108 dni`,
-   - `Status`: `Aktywna`.
-
-Dla aktywnych pozycji w przekazanym widoku nie było widocznej akcji `Usuń`.
-
-Wiersz nadrzędny Ali pokazuje najnowszy stan: `Aktywna, pozostało 139 dni`, co odpowiada najnowszemu rekordowi z rozwinięcia.
+Dla aktywnych pozycji nie było widocznego `Usuń`.
 
 ---
 
-## 7. Aktywacja i kumulowanie czasu
+## 8. Aktywacja i przedłużanie
 
 Potwierdzone obserwacje:
-- nieaktywna licencja nie ma `Data do` ani `Pozostało`,
-- aktywna licencja ma konkretną datę końca i pozostały czas,
-- przydzielenie i aktywacja są oddzielne,
-- jeden dostęp może mieć wiele assignmentów.
+- przydzielenie != aktywacja,
+- przed aktywacją brak daty końca,
+- po aktywacji widoczna data końca i pozostały czas,
+- kolejne licencje mogą przedłużać istniejący dostęp.
 
-Dwie aktywne licencje Ali mają daty końca różniące się dokładnie o **31 dni**:
+Dwie aktywne pozycje Ali różnią się dokładnie o 31 dni w `Data do` i `Pozostało`, co silnie wspiera stacking/extension.
 
-`22-12-2026 23:37 -> 22-01-2027 23:37`
-
-oraz pozostały czas:
-
-`108 dni -> 139 dni`.
-
-To bardzo mocno wspiera model, w którym kolejna licencja przedłuża istniejący aktywny dostęp.
-
-Dla naszego produktu przyjmujemy entitlement ledger:
-
-### pierwsza aktywacja
-`new_expiry = activation_time + product_duration`
-
-### kolejna licencja przy aktywnym dostępie
-`new_expiry = current_expiry + product_duration`
-
-Uogólnienie:
+Dla naszego produktu:
 
 `base = max(effective_activation_time, current_expiry)`
 
 `new_expiry = base + product_duration`
 
-Każda zastosowana licencja przechowuje audytowo:
+Audit per assignment:
+- `duration_days`,
 - `expiry_before`,
-- `expiry_after`,
-- `duration_days`.
-
-Dokładny produkt przypisany do każdego z aktywnych rekordów Ali nie jest widoczny na ekranie, więc nie zapisujemy jako faktu, że nowszy rekord był produktem 31-dniowym.
+- `expiry_after`.
 
 ---
 
-## 8. Usuwanie nieaktywowanej licencji
+## 9. Usuwanie nieaktywowanej licencji
 
 Każda nieaktywna pozycja ma osobne `Usuń`.
 
-Dla naszego produktu:
-- nie robimy hard-delete historii,
-- assignment przechodzi do `revoked`,
+U nas:
+- brak hard-delete,
+- assignment -> `revoked`,
 - dokładnie jedna jednostka wraca do inventory,
-- operacja jest transakcyjna i audytowana.
+- transakcja i audit.
 
 Aktywnej licencji nie cofamy zwykłą akcją administracyjną.
 
 ---
 
-## 9. Akcje wiersza
+## 10. Akcje wiersza
 
 Potwierdzone:
 - `Dostęp` -> `/licencje/pobierz?guid=<student_id>`,
 - `Profil` -> `/kursanci/<student_id>`,
-- `Rozwiń` / `Zwiń`.
+- `Rozwiń / Zwiń`.
 
 ---
 
-## 10. Model naszego produktu
+## 11. Model naszego produktu
 
-Rekomendowane encje:
+Encje:
 - `license_products`,
 - `license_inventory_entries`,
 - `learning_accesses`,
@@ -268,33 +254,24 @@ Rekomendowane encje:
 
 Jeden `learning_access` ma wiele `license_assignments`.
 
-Każdy assignment powinien mieć co najmniej:
-- `assigned_at`,
-- `activated_at/effective_at nullable`,
-- `duration_days`,
-- `expiry_before nullable`,
-- `expiry_after nullable`,
-- `state`,
-- provenance z inventory/order.
+Przydzielanie z profilu kursanta i panelu licencji korzysta z jednego backendowego command/service.
 
-`learning_access` przechowuje lub materializuje aktualną projekcję `current_expires_at`.
-
-Przydzielenie licencji z różnych entry pointów (`profil kursanta`, `panel licencji`) powinno trafiać do jednego wspólnego backendowego command/service.
+Eksport wielu dostępów korzysta z osobnego commandu:
+`GenerateSelectedLearningAccessCredentialsPdf`.
 
 ---
 
-## 11. Pozostałe niewiadome
+## 12. Pozostałe niewiadome
 
-Do dalszego capture:
 - rozwinięcie zakończonej licencji,
-- dokładne opcje `Sortuj`,
 - exact search fields głównej tabeli,
 - exact semantics `Aktywne` w kartach inventory,
-- dokładna semantyka wielokrotnego zaznaczania wierszy / `Pobierz dostępy`,
+- czy `Zaznacz widoczne` obejmuje aktualną stronę czy cały wynik filtrowania,
+- maksymalny rozmiar batch PDF,
 - zachowanie `Ukryj licencje zakończone` dla mixed-history account,
 - kolejność aktywowania kilku oczekujących licencji,
-- zachowanie przy przedłużaniu już wygasłego dostępu,
-- czy `Dodaj nowego kursanta` w drawerze tworzy pełny minimalny profil czy wyłącznie learning access,
+- zachowanie przy przedłużaniu wygasłego dostępu,
+- czy `Dodaj nowego kursanta` tworzy pełny minimalny profil czy wyłącznie learning access,
 - walidacja duplikatów email/login,
 - pagination,
 - empty states,
