@@ -4,6 +4,7 @@ screen:
   title: Dodaj kurs
   status: USER_CONFIRMED_AUTH_SCREEN
   entrypoint: Kursanci -> Profil kursanta -> Kursy (PKK) -> Dodaj kurs
+  preservation_manifest: specs/reverse-engineering-manifest.yml#core.courses
 
 fields:
   - id: training_type
@@ -38,18 +39,22 @@ fields:
     label: Godzin teorii
     type: number
     required: false
+    observed_field_must_be_preserved: true
   - id: theory_hours_previous_osk
     label: Teoria odbyta w innej szkole
     type: number
     required: false
+    observed_field_must_be_preserved: true
   - id: practice_hours_current_osk
     label: Godzin praktyki
     type: number
     required: true
+    observed_field_must_be_preserved: true
   - id: practice_hours_previous_osk
     label: Praktyka odbyta w innej szkole
     type: number
     required: false
+    observed_field_must_be_preserved: true
   - id: lead_instructor_id
     label: Instruktor
     type: searchable_select
@@ -66,16 +71,47 @@ actions:
 
 product_decisions:
   payment_boundary:
-    rule: cost may initialize a course receivable, but later financial edits belong to Payments
+    rule: >-
+      Cost may atomically initialize a StudentCharge linked to the enrollment,
+      but the course table is not the financial source of truth and later
+      financial edits belong to Student Finance.
   training_hours:
-    rule: current-OSK hours and recognized previous-OSK hours must remain separate and auditable
+    preserve_observed_fields: true
+    current_osk_credit_source_of_truth: training_session_plus_training_hour_ledger
+    previous_osk_source_of_truth: recognized_external_training
+    current_osk_field_mapping:
+      default_new_course_semantics: declared_or_planned_training_hours
+      stored_as:
+        - course_enrollment.declared_theory_minutes
+        - course_enrollment.declared_practical_minutes
+      never_directly_means: credited_formal_hours_without_ledger_entry
+      optional_existing_course_import_mode:
+        allowed: true
+        effect: create_audited_opening_balance_ledger_entries
+        reason_required: true
+        evidence_optional_or_policy_driven: true
+    previous_osk_field_mapping:
+      effect: create_recognized_external_training_records
+      initial_source_kind: course_form_initial
+      preserve_history_on_later_change: true
   requirements_engine:
     rule: after training type/category selection, calculate legal requirements; secretary can later correct the exemption basis without deleting history
   pkk_scope:
     rule: PKK belongs to the course enrollment, not globally to the student
 
+backend_orchestration:
+  recommended_command: CreateCourseEnrollment
+  atomic_side_effects_when_present:
+    - create_course_enrollment
+    - create_initial_student_charge_from_cost
+    - create_recognized_external_training_records
+    - create_opening_balance_ledger_only_in_explicit_import_mode
+    - calculate_training_requirement_profile
+    - write_audit
+
 unobserved:
   - exact PKK validation
   - duplicate PKK/category behavior
   - numeric min/max validation
+  - exact competitor semantics of current-OSK hour fields
   - success/error messages
