@@ -1,0 +1,130 @@
+screen:
+  id: license_generate_access
+  scope: admin_osk
+  parent_route: /licencje/panel
+  parent_screen: license_management_panel
+  trigger_action: generate_student_learning_access
+  title: Przydzielanie licencji
+  confidence: USER_CONFIRMED_AUTH_SCREEN
+  verified_at: 2026-09-05
+  doc: docs/55-license-generate-access-form.md
+
+fields:
+  - name: license_product_duration
+    label: Wybierz rodzaj licencji
+    control: single_select
+    observed_options:
+      - one_month
+      - three_months
+      - six_months
+    observed_labels:
+      one_month: 1 miesiąc
+      three_months: 3 miesiące
+      six_months: 6 miesięcy
+    inventory_available_count_visible: true
+
+  - name: language
+    label: Język
+    control: single_select
+    observed_options:
+      - pl
+      - en
+      - de
+      - ru
+      - uk
+    observed_labels:
+      pl: Polski
+      en: Angielski
+      de: Niemiecki
+      ru: Rosyjski
+      uk: Ukraiński
+    source_conflict_with_purchase_marketing_copy: true
+
+  - name: new_learning_identifier
+    label: Email lub login
+    section_label: Dodaj nowego kursanta
+    control: text
+    target_mode: new_learning_access
+
+  - name: existing_student_id
+    label: Wyszukaj kursanta
+    section_label: Wyszukaj kursanta
+    control: searchable_single_select
+    target_mode: existing_student
+    search_fields_confirmed:
+      - first_name
+      - last_name
+      - contact_email
+      - learning_login
+      - pesel
+    result_projection:
+      - full_name
+      - learning_identifier
+
+alternative_target_modes:
+  separator_label: lub
+  modes:
+    - new_learning_access
+    - existing_student
+  mutually_exclusive_by_ui_semantics: true
+  simultaneous_payload_behavior_competitor: TO_VERIFY
+
+language_conflict:
+  status: SOURCE_CONFLICT
+  authenticated_assignment_selector_languages:
+    - pl
+    - en
+    - de
+    - ru
+    - uk
+  purchase_screen_marketing_languages:
+    - pl
+    - en
+    - de
+    - uk
+  own_product_rule: capability_driven_language_catalog
+
+primary_action:
+  label: Przydziel licencje
+  action: submit_license_assignment
+
+close_control:
+  label: X
+  action: close_license_assignment_drawer
+
+confirmed_actions:
+  - open_generate_license_access_drawer
+  - select_license_product_duration
+  - view_available_inventory_count
+  - select_learning_access_language
+  - enter_new_learning_identifier
+  - search_existing_student_for_license
+  - search_student_by_name
+  - search_student_by_surname
+  - search_student_by_email
+  - search_student_by_login
+  - search_student_by_pesel
+  - select_existing_student
+  - submit_license_assignment
+  - close_license_assignment_drawer
+
+own_product_requirements:
+  - tenant_isolation
+  - atomic_inventory_assignment
+  - common_assignment_service_for_license_panel_and_student_profile_entry_points
+  - prevent_negative_inventory
+  - validate_target_mode_exclusive
+  - tenant_scope_existing_student_search
+  - capability_driven_languages
+  - separate_student_profile_from_learning_access
+  - audit_assignment
+  - use_secret_policy_defined_for_osk_secretariat_workflow
+
+remaining_gaps:
+  - new_identifier_validation
+  - duplicate_login_email_behavior
+  - whether_new_path_creates_minimal_student_profile_or_learning_access_only
+  - success_error_messages
+  - exact_competitor_inventory_commit_timing
+  - russian_full_content_availability
+  - zero_inventory_behavior
