@@ -1,0 +1,72 @@
+screen:
+  id: student_list_filters
+  scope: admin_osk
+  parent_route: /kursanci
+  entry_action: open_student_filters
+  title: Filtrowanie
+  confidence: USER_CONFIRMED_AUTH_SCREEN
+  verified_at: 2026-09-05
+  doc: docs/46-student-list-filters.md
+
+filters:
+  course_category_ids:
+    label: Kategoria kursu
+    control: multi_select
+    multiple: true
+    exact_option_dictionary: REUSE_COURSE_CATEGORY_DICTIONARY
+  training_stage_ids:
+    label: Etap szkolenia
+    control: checkbox_group
+    multiple: true
+    options:
+      - unassigned
+      - theory
+      - practice
+      - documentation
+      - word_exam
+      - supplementary_training
+      - training_completed
+  internal_exam_not_passed:
+    section: Egzamin wewnętrzny
+    label: Pokaż tylko niezaliczone
+    control: switch
+    observed_default: false
+    exact_backend_semantics: TO_DEFINE_IN_OWN_PRODUCT
+  include_archived:
+    label: Pokaż zarchiwizowane
+    control: switch
+    observed_default: false
+
+primary_action:
+  label: Filtruj
+  action: apply_student_filters
+
+close_control:
+  label: X
+  action: close_student_filter_drawer
+
+confirmed_actions:
+  - open_student_filters
+  - select_student_course_categories_filter
+  - toggle_student_training_stage_filter
+  - toggle_student_internal_exam_not_passed_filter
+  - toggle_include_archived_students
+  - apply_student_filters
+  - close_student_filter_drawer
+
+own_product_requirements:
+  - filters_are_composable
+  - server_side_filtering
+  - tenant_scoped_queries
+  - archived_students_hidden_by_default
+  - course_category_filter_supports_many_values
+  - training_stage_filter_supports_many_values
+
+remaining_gaps:
+  - filter_state_persistence_across_navigation
+  - reset_filters_control_if_any
+  - result_count_update_behavior
+  - exact_internal_exam_not_passed_semantics
+  - query_parameter_or_api_contract
+  - empty_result_state
+  - success_error_messages
