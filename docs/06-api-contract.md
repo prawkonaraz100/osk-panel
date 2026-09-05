@@ -1,292 +1,553 @@
-# 06. Projekt API
+# 06. API Contract — core OSK v1
 
-Prefiks: `/api/v1`
+Data konsolidacji: 2026-09-05
 
-> To kontrakt naszego odpowiednika funkcjonalnego. Nazwy endpointów nie są reverse-engineered z badanego serwisu. Są projektowane na podstawie zweryfikowanych akcji biznesowych.
+Prefix: `/api/v1`
 
-## Auth
+> To jest kontrakt **naszego produktu**, nie reverse-engineered API konkurenta. Nazwy endpointów wynikają z canonical domain model (`docs/82-canonical-domain-glossary.md`).
+
+---
+
+# 1. Wspólne konwencje
+
+## 1.1. Identyfikatory
+
+- publiczne ID: UUID/ULID jako string,
+- brak sekwencyjnego ID jako mechanizmu bezpieczeństwa,
+- każdy tenant-owned resource jest dodatkowo autoryzowany przez `organization_id`.
+
+## 1.2. Daty i czas
+
+- canonical storage: UTC,
+- API: ISO-8601 z offsetem / `Z`,
+- organizacja ma `timezone` w formacie IANA, np. `Europe/Warsaw`,
+- kalendarz wykonuje konwersję strefy jawnie.
+
+Przykład:
+`2026-09-05T12:30:00Z`
+
+## 1.3. Money
+
+Nigdy float.
+
+API money object:
+
+```json
+{
+  "amount_minor": 400000,
+  "currency": "PLN"
+}
+```
+
+## 1.4. Pagination
+
+Standard list:
+- `page` — >= 1,
+- `per_page` — domyślnie 25, max 100.
+
+Odpowiedź:
+
+```json
+{
+  "data": [],
+  "meta": {
+    "page": 1,
+    "per_page": 25,
+    "total": 0,
+    "last_page": 1
+  }
+}
+```
+
+## 1.5. Sorting
+
+- `sort=<field>`
+- `direction=asc|desc`
+
+Backend whitelistuje pola per endpoint.
+
+## 1.6. Filtering/search
+
+- `q=<text>` dla search,
+- jawne query params dla filtrów, np. `status=active`,
+- multi-select jako powtarzalny param albo CSV zgodnie z OpenAPI; nie mieszać obu stylów.
+
+## 1.7. Error envelope
+
+```json
+{
+  "error": {
+    "code": "VALIDATION_FAILED",
+    "message": "Nie udało się zapisać danych.",
+    "fields": {
+      "pkk_number": ["Nieprawidłowy numer PKK."]
+    },
+    "request_id": "01J..."
+  }
+}
+```
+
+Wymagane klasy HTTP:
+- `400` malformed request,
+- `401` unauthenticated,
+- `403` forbidden,
+- `404` not found in authorized scope,
+- `409` state/version conflict,
+- `422` validation/business validation,
+- `429` rate limit,
+- `502/503` external dependency unavailable, jeśli właściwe.
+
+Nie ujawniać istnienia cross-tenant resource przez różnicowanie komunikatów.
+
+## 1.8. Idempotency
+
+Dla operacji, które mogą zostać bezpiecznie powtórzone przez klienta/network retry:
+
+Header:
+`Idempotency-Key: <uuid>`
+
+Obowiązkowo dla m.in.:
+- PKK mutations,
+- create order/payment initiation,
+- license assignment/activation/revoke,
+- exam access/start,
+- student payment recording,
+- krytycznych korekt finansowych.
+
+## 1.9. Optimistic concurrency
+
+Encje podatne na konkurencyjną edycję zwracają `version`.
+
+PATCH może wymagać:
+`If-Match: "<version>"`
+
+Konflikt:
+`409 RESOURCE_VERSION_CONFLICT`.
+
+Dotyczy co najmniej:
+- calendar event,
+- course enrollment,
+- license assignment,
+- exam access/attempt state,
+- finance correction.
+
+## 1.10. Request ID
+
+Każda odpowiedź zawiera lub koreluje `request_id`.
+
+Ten sam ID trafia do:
+- application logs,
+- audit log,
+- integration logs,
+- outbox events.
+
+---
+
+# 2. Auth / identity
+
 - `POST /auth/register`
 - `POST /auth/login`
 - `POST /auth/logout`
-- `POST /auth/password/forgot` — payload `identifier` = e-mail lub login
+- `POST /auth/password/forgot`
 - `POST /auth/password/reset`
+- `GET /auth/sessions`
+- `DELETE /auth/sessions/{sessionId}`
+- `POST /auth/account-closure-requests`
+
+Social:
 - `GET /auth/social/{provider}/redirect`
 - `GET /auth/social/{provider}/callback`
-- `POST /auth/account-closure-requests`
-- `GET /auth/sessions`
-- `DELETE /auth/sessions/{id}`
 
-Frontend zachowuje bezpieczny `return_url` dla chronionych tras. Return URL musi być walidowany jako lokalny/dozwolony, aby uniknąć open redirect.
+`return_url` musi być lokalną/dozwoloną ścieżką.
 
-## Organization
+---
+
+# 3. Organization / settings
+
 - `GET /organization`
 - `PATCH /organization`
-- `GET /organization/profile`
-- `PATCH /organization/profile`
-- `GET /organization/reviews`
-- `POST /organization/reviews/{reviewId}/reports`
+- `GET /organization/settings`
+- `PATCH /organization/settings`
+- `GET /organization/accepted-terms`
 
-## Staff / permissions
+PKK integration settings:
+- `GET /organization/integrations/pkk`
+- `PATCH /organization/integrations/pkk`
+- `POST /organization/integrations/pkk/test-connection` — jeśli provider bezpiecznie to wspiera.
+
+Nigdy nie zwracamy sekretów w plaintext po zapisaniu.
+
+---
+
+# 4. Staff / RBAC
+
+Staff profiles:
 - `GET /staff`
 - `POST /staff`
-- `GET /staff/{id}`
-- `PATCH /staff/{id}`
-- `DELETE /staff/{id}`
-- `POST /staff/{id}/roles`
-- `POST /staff/{id}/permissions`
-- `GET /staff/{id}/calendar`
-- `GET /work-time`
-- `POST /work-time`
+- `GET /staff/{staffId}`
+- `PATCH /staff/{staffId}`
+- `POST /staff/{staffId}/archive`
+- `POST /staff/{staffId}/restore`
 
-Dokładne role 360 są `TO_VERIFY_AUTH`; API naszego produktu powinno opierać się o permissions.
+Login/account:
+- `POST /staff/{staffId}/user-account`
+- `DELETE /staff/{staffId}/user-account`
 
-## Students
-- `GET /students`
-- `POST /students`
-- `GET /students/{id}`
-- `PATCH /students/{id}`
-- `POST /students/{id}/archive`
-- `GET /students/{id}/progress`
-- `POST /students/{id}/access/email`
-- `POST /students/{id}/access/credentials`
+Permissions:
+- `GET /staff/{staffId}/permissions`
+- `PUT /staff/{staffId}/permissions`
 
-### Learning preference / category
-- `GET /learning/preferences`
-- `PATCH /learning/preferences` — np. `default_driving_category_id`
-- `GET /learning/categories`
+Dictionaries:
+- `GET /staff-types`
 
-## PKK
-- `POST /students/{id}/pkk/fetch`
-- `GET /students/{id}/pkk`
-- `POST /students/{id}/pkk/training-update`
-- `POST /students/{id}/pkk/return-school`
-- `POST /students/{id}/pkk/return-authority`
-- `POST /students/{id}/pkk/return-expired`
-- `GET /students/{id}/pkk/operations`
+Nie używać `DELETE /staff/{id}` do niszczenia historii formalnej.
 
-Dla operacji nieodwracalnych wymagany `Idempotency-Key`.
+---
 
-## Calendar
-- `GET /calendar/events`
-- `POST /calendar/events`
-- `PATCH /calendar/events/{id}`
-- `DELETE /calendar/events/{id}`
-- `POST /calendar/events/{id}/complete`
-- `GET /availability`
-- `POST /availability`
-- `POST /availability/student-bookable-slots`
-- `POST /availability/student-bookable-slots/{id}/book`
-- `GET /calendar/instructors/activity`
+# 5. Locations
 
-## Vehicles
+- `GET /locations`
+- `POST /locations`
+- `GET /locations/{locationId}`
+- `PATCH /locations/{locationId}`
+- `POST /locations/{locationId}/archive`
+- `POST /locations/{locationId}/restore`
+
+Dictionaries/search:
+- `GET /location-types`
+- `GET /geography/cities?q=...`
+
+Potwierdzone typy startowe:
+- branch,
+- lecture_room,
+- maneuvering_area.
+
+---
+
+# 6. Vehicles
+
 - `GET /vehicles`
 - `POST /vehicles`
-- `PATCH /vehicles/{id}`
-- `POST /vehicles/{id}/unavailable`
-- `POST /vehicles/{id}/reminders`
+- `GET /vehicles/{vehicleId}`
+- `PATCH /vehicles/{vehicleId}`
+- `POST /vehicles/{vehicleId}/archive`
+- `POST /vehicles/{vehicleId}/restore`
 
-Dokładne pola/statusy panelu pojazdów są `TO_VERIFY_AUTH`.
+Dokumenty/ważności mogą być częścią PATCH albo osobnym subresource, jeśli historia zmian tego wymaga:
+- `GET /vehicles/{vehicleId}/documents`
+- `POST /vehicles/{vehicleId}/documents`
+- `PATCH /vehicles/{vehicleId}/documents/{documentId}`
 
-## Licenses
-- `GET /licenses/products`
-- `GET /licenses/inventory`
-- `POST /licenses/orders`
-- `GET /licenses/assignments`
-- `POST /licenses/assignments`
-  - `student_id`
-  - `license_inventory_id` / product selection
-  - `language`
-  - `access_mode: email | generated_credentials`
-- `DELETE /licenses/assignments/{id}` — wyłącznie przed aktywacją; operacja ma przywrócić inventory
-- `POST /licenses/assignments/{id}/activate`
-- `GET /licenses/languages?product_id=...`
+---
 
-### Inwariant
-`DELETE assignment` przed aktywacją musi być transakcją atomową: assignment -> revoked/deleted oraz inventory +1.
+# 7. Students
+
+- `GET /students`
+- `POST /students`
+- `GET /students/{studentId}`
+- `PATCH /students/{studentId}`
+- `POST /students/{studentId}/archive`
+- `POST /students/{studentId}/restore`
+
+Lista obsługuje:
+- `q`,
+- filters,
+- sort,
+- pagination.
+
+## Learning accounts
+
+- `GET /students/{studentId}/learning-accounts`
+- `POST /students/{studentId}/learning-accounts`
+- `PATCH /students/{studentId}/learning-accounts/{accountId}`
+- `POST /students/{studentId}/learning-accounts/{accountId}/password-reset`
+- `POST /students/{studentId}/learning-accounts/{accountId}/access-handoffs`
+- `GET /students/{studentId}/learning-accounts/{accountId}/access-handoffs/{handoffId}/pdf`
+
+Password-reset response może jednorazowo zwrócić plaintext tylko do bezpiecznego handoff flow; plaintext nie jest później odtwarzalny.
 
 ## Progress
-- `GET /progress`
-- `GET /progress/students/{id}`
 
-`GET /progress/export` jest opcjonalnym endpointem własnego produktu (`INFERRED`), nie potwierdzoną funkcją 360.
+- `GET /students/{studentId}/progress?learning_account_id=&category=`
 
-## Training with instructor
-- `GET /training/programs`
-- `GET /training/programs/{id}/sections`
-- `GET /training/lessons/{id}`
-- `POST /training/lessons/{id}/progress`
-- `GET /training/sections/{id}/control-questions`
-- `POST /training/sections/{id}/control-attempts`
-- `POST /training/sections/{id}/control-questions/skip`
+Metryki są dynamiczne i wersjonowane względem aktualnej bazy/treści.
 
-Próby pytań kontrolnych powinny być wielokrotne. Struktura programu ma wynikać z kategorii/config, nie z hard-code.
+---
 
-## Exams
-- `GET /internal-exams/products`
-- `GET /internal-exams/inventory`
-- `POST /internal-exams/orders`
-- `POST /internal-exams/assignments`
-- `POST /internal-exams/{id}/link`
-- `POST /internal-exams/{id}/start-local`
-- `POST /internal-exams/{id}/start`
-- `POST /internal-exams/{id}/submit`
-- `GET /internal-exams/{id}/result`
-- `GET /internal-exams/{id}/card.pdf`
-- `GET /internal-exams/history`
-- `GET /internal-exams/languages`
+# 8. CourseEnrollments
 
-Aktualna lista języków ma być danymi konfiguracyjnymi; publiczne źródła są niespójne w czasie.
+- `GET /students/{studentId}/course-enrollments`
+- `POST /students/{studentId}/course-enrollments`
+- `GET /course-enrollments/{courseEnrollmentId}`
+- `PATCH /course-enrollments/{courseEnrollmentId}`
+- `POST /course-enrollments/{courseEnrollmentId}/cancel`
+- `POST /course-enrollments/{courseEnrollmentId}/restore` — jeżeli polityka dopuszcza.
 
-## Orders / payments / service activation
+Training stage:
+- `POST /course-enrollments/{courseEnrollmentId}/stage-transitions`
+
+Request nie ustawia dowolnie flag prawnych; backend odpala rule engine.
+
+## Requirements / exemptions
+
+- `GET /course-enrollments/{courseEnrollmentId}/requirements`
+- `POST /course-enrollments/{courseEnrollmentId}/requirement-context`
+- `POST /course-enrollments/{courseEnrollmentId}/exemption-decisions`
+
+Manual correction wymaga reason/permission/audit.
+
+---
+
+# 9. Training sessions / hours
+
+## Bieżące OSK
+
+- `GET /course-enrollments/{courseEnrollmentId}/training-sessions`
+- `POST /course-enrollments/{courseEnrollmentId}/training-sessions`
+- `GET /training-sessions/{sessionId}`
+- `PATCH /training-sessions/{sessionId}`
+- `POST /training-sessions/{sessionId}/complete`
+- `POST /training-sessions/{sessionId}/cancel`
+
+Ledger:
+- `GET /course-enrollments/{courseEnrollmentId}/training-hours`
+- `POST /course-enrollments/{courseEnrollmentId}/training-hour-corrections`
+
+Nie udostępniać zwykłego `PATCH total_hours` jako primary source of truth.
+
+## Uznanie zewnętrznego szkolenia
+
+- `GET /course-enrollments/{courseEnrollmentId}/recognized-external-training`
+- `POST /course-enrollments/{courseEnrollmentId}/recognized-external-training`
+- `POST /course-enrollments/{courseEnrollmentId}/recognized-external-training/{recordId}/revoke`
+
+---
+
+# 10. PKK — course-first
+
+**Stare endpointy `/students/{id}/pkk/...` są zdeprecjonowane jako model projektowy.**
+
+Canonical:
+- `GET /course-enrollments/{courseEnrollmentId}/pkk`
+- `POST /course-enrollments/{courseEnrollmentId}/pkk/fetch`
+- `POST /course-enrollments/{courseEnrollmentId}/pkk/update-and-return`
+- `POST /course-enrollments/{courseEnrollmentId}/pkk/return-to-school`
+- `POST /course-enrollments/{courseEnrollmentId}/pkk/return-to-authority`
+- `POST /course-enrollments/{courseEnrollmentId}/pkk/return-expired`
+- `GET /course-enrollments/{courseEnrollmentId}/pkk/operations`
+- `GET /course-enrollments/{courseEnrollmentId}/pkk/operations/{operationId}`
+- `POST /course-enrollments/{courseEnrollmentId}/pkk/operations/{operationId}/retry`
+
+Mutacje wymagają `Idempotency-Key`.
+
+Retry endpoint akceptuje tylko operation/error class oznaczone jako retryable.
+
+---
+
+# 11. Calendar
+
+- `GET /calendar/events`
+- `POST /calendar/events`
+- `GET /calendar/events/{eventId}`
+- `PATCH /calendar/events/{eventId}`
+- `POST /calendar/events/{eventId}/cancel`
+- `POST /calendar/events/{eventId}/complete`
+
+Filters:
+- `staff_id`,
+- `vehicle_id`,
+- `location_id`,
+- `student_id`,
+- `event_type`,
+- `from`, `to`.
+
+Availability/self-booking:
+- `GET /availability-slots`
+- `POST /availability-slots`
+- `PATCH /availability-slots/{slotId}`
+- `POST /availability-slots/{slotId}/book`
+- `POST /availability-slots/{slotId}/cancel`
+
+Conflict returns `409 RESOURCE_SCHEDULE_CONFLICT` z bezpiecznym opisem konfliktu.
+
+---
+
+# 12. Student finance
+
+Charges:
+- `GET /students/{studentId}/charges`
+- `POST /students/{studentId}/charges`
+- `POST /students/{studentId}/charges/{chargeId}/cancel`
+
+Payments:
+- `GET /students/{studentId}/payments`
+- `POST /students/{studentId}/payments`
+- `POST /students/{studentId}/payments/{paymentId}/reverse`
+
+Summary:
+- `GET /students/{studentId}/finance-summary`
+
+Payment/charge mutations wymagają idempotency i audytu.
+
+---
+
+# 13. Licenses
+
+Catalog/inventory:
+- `GET /license-products`
+- `GET /license-inventory`
+
+Orders:
+- `POST /license-orders`
+
+Assignments:
+- `GET /license-assignments`
+- `POST /license-assignments`
+- `GET /license-assignments/{assignmentId}`
+- `POST /license-assignments/{assignmentId}/revoke-unactivated`
+- `POST /license-assignments/{assignmentId}/activate`
+
+Nie używamy zwykłego `DELETE` dla historycznego assignmentu.
+
+Inwariant revoke:
+`not activated -> revoke + restore exactly one inventory entry atomically`.
+
+Capabilities:
+- `GET /license-products/{productId}/languages`
+
+---
+
+# 14. Internal exams
+
+Inventory:
+- `GET /internal-exam/inventory`
+- `POST /internal-exam/orders`
+
+Formal attempt/access creation:
+- `POST /course-enrollments/{courseEnrollmentId}/internal-exam-attempts`
+- `GET /course-enrollments/{courseEnrollmentId}/internal-exam-attempts`
+- `GET /internal-exam-attempts/{attemptId}`
+
+Access:
+- `POST /internal-exam-attempts/{attemptId}/accesses`
+- `POST /internal-exam-accesses/{accessId}/send`
+- `POST /internal-exam-accesses/{accessId}/revoke`
+- `POST /internal-exam-accesses/{accessId}/start`
+
+Start jest krytyczną transakcją:
+- validate reservation,
+- lock inventory/reservation/access,
+- consume inventory once,
+- set attempt `in_progress`,
+- audit,
+- commit.
+
+Attempt:
+- `POST /internal-exam-attempts/{attemptId}/submit`
+- `POST /internal-exam-attempts/{attemptId}/technical-abort`
+- `GET /internal-exam-attempts/{attemptId}/result`
+- `GET /internal-exam-attempts/{attemptId}/questions`
+- `GET /internal-exam-attempts/{attemptId}/documents/answer-sheet.pdf`
+
+Inventory correction after start:
+- `POST /internal-exam/inventory-adjustments`
+
+Tylko elevated permission + reason + audit.
+
+Capabilities:
+- `GET /internal-exam/capabilities?category=&part=`
+
+---
+
+# 15. Orders / payments / purchase history
+
 - `GET /orders`
-- `GET /orders/{id}`
-- `POST /orders/{id}/payment`
-- `POST /payments/webhooks/{provider}`
-- `POST /payments/{id}/transfer-confirmation`
+- `GET /orders/{orderId}`
+- `POST /orders/{orderId}/payments`
 - `GET /payments`
-- `GET /entitlements`
-- `POST /entitlements/{id}/activate`
+- `POST /payment-webhooks/{provider}`
 
-### Lifecycle
-`ordered -> paid -> activation_available -> activated -> expired`
+Historia zakupów:
+- `GET /purchase-history`
 
-Webhook płatności nie powinien automatycznie aktywować usługi, jeżeli `activation_mode = explicit`.
+To osobny ledger od student finance.
 
-### Faktury
-Opcjonalne dla naszego produktu:
-- `GET /invoices`
-- `GET /invoices/{id}.pdf`
+Entitlements:
+- `GET /service-entitlements`
+- `POST /service-entitlements/{entitlementId}/activate`
 
-Status źródłowy odpowiednika w 360: `HISTORICAL_INDEX / TO_VERIFY_AUTH`.
+---
 
-## Ads — katalog / aukcje
-- `GET /ads/placements`
-- `GET /ads/regions`
-- `GET /ads/auctions?region_id=&placement_id=`
-- `GET /ads/auctions/{id}`
-- `GET /ads/auctions/{id}/bids`
-- `POST /ads/auctions/{id}/bids`
-- `POST /ads/bids/{id}/rejection-request`
-- `POST /ads/bids/{id}/privacy-request`
+# 16. Dashboard / activity / notifications
 
-### Wymagania bid API
-- atomowe sprawdzanie minimalnego przebicia,
-- timestamp serwerowy,
-- przy remisie kolejność po `created_at`/sekwencji serwerowej,
-- po zamknięciu aukcji brak nowych ofert,
-- oferta jest wiążąca; „odrzucenie” jest osobnym requestem do operatora, nie samodzielnym delete przez klienta.
+Dashboard:
+- `GET /dashboard`
 
-## Ads — wygrana / kampania / kreacje
-- `GET /ads/orders`
-- `GET /ads/campaigns`
-- `POST /ads/orders/{id}/payment`
-- `POST /ads/campaigns/{id}/creatives` — wariant desktop/mobile
-- `POST /ads/campaigns/{id}/creative-service-request`
-- `GET /ads/campaigns/{id}/creative-review`
-- `POST /ads/campaigns/{id}/text-fallback`
+Minimalny response:
+- license counters,
+- exam counters,
+- activity feed preview,
+- calendar preview.
 
-Operator/admin:
-- `POST /operator/ads/creatives/{id}/approve`
-- `POST /operator/ads/creatives/{id}/reject`
-- `POST /operator/ads/bids/{id}/remove`
-- `POST /operator/ads/campaigns/{id}/activate`
+Activity:
+- `GET /activity`
 
-Nie definiujemy klientowego `pause_campaign` jako odwzorowanej funkcji, bo brak publicznego potwierdzenia.
+Notifications:
+- `GET /notifications`
+- `POST /notifications/{notificationId}/read`
 
-## Sponsored articles
-- `POST /sponsored-articles/orders`
-- `POST /sponsored-articles/{id}/content`
-- `POST /sponsored-articles/{id}/assets`
-- `POST /sponsored-articles/{id}/copywriting-request`
-- `GET /sponsored-articles/{id}`
+Dokładne rozdzielenie activity vs notification jest własną decyzją UX; backend może używać wspólnego event source z oddzielnymi projekcjami.
 
-Operator:
-- `POST /operator/sponsored-articles/{id}/approve`
-- `POST /operator/sponsored-articles/{id}/request-changes`
-- `POST /operator/sponsored-articles/{id}/publish`
-- `POST /operator/sponsored-articles/{id}/archive`
+---
 
-## Partner banner / commercial services
-- `GET /partner-banners`
-- `POST /partner-banners/implementation-help`
-- `POST /commercial-services/leads`
+# 17. Uploads / assets
 
-## Contact / complaints
-- `POST /contact`
-- `POST /complaints`
+Preferowany flow dla zdjęć/PDF/załączników:
+- `POST /uploads/presign`
+- direct upload do object storage,
+- `POST /uploads/{uploadId}/complete`.
 
-## Impersonation — własny bezpieczny odpowiednik
-- `POST /impersonation/students/{id}/start`
-- `POST /impersonation/stop`
+Backend waliduje:
+- owner/tenant,
+- MIME/content sniff,
+- size,
+- purpose.
 
-Historyczne źródło potwierdza istnienie pozycji `Przeglądaj jako kursant`; dokładny zakres bieżącego ekranu jest `TO_VERIFY_AUTH`.
+---
 
-## Audit
-- `GET /audit`
+# 18. Audit
 
-To wymaganie naszego systemu; nie twierdzimy, że badany panel wystawia użytkownikowi identyczny ekran audytu.
+- `GET /audit-logs` — tylko dla uprawnionych ról i scope.
 
-## Zdarzenia domenowe
+Nie każdy użytkownik musi mieć UI audytu, ale backend musi utrzymywać audit records.
 
-### Auth / account
-- `PasswordResetRequested`
-- `AccountClosureRequested`
-- `AccountBlocked`
-- `SessionRevoked`
+---
 
-### Student / license
-- `StudentCreated`
-- `StudentAccessCreated`
-- `LicenseAssigned`
-- `LicenseLanguageSelected`
-- `LicenseActivated`
-- `LicenseAssignmentDeletedBeforeActivation`
-- `LicenseInventoryRestored`
+# 19. Domenowe kody błędów — minimum
 
-### PKK
-- `PkkFetched`
-- `PkkTrainingUpdated`
-- `PkkReturned`
-- `PkkOperationFailed`
+- `VALIDATION_FAILED`
+- `FORBIDDEN`
+- `RESOURCE_NOT_FOUND`
+- `RESOURCE_VERSION_CONFLICT`
+- `RESOURCE_SCHEDULE_CONFLICT`
+- `COURSE_REQUIREMENT_VIOLATION`
+- `PKK_OPERATION_NOT_RETRYABLE`
+- `PKK_PROVIDER_UNAVAILABLE`
+- `LICENSE_INVENTORY_EMPTY`
+- `LICENSE_ALREADY_ACTIVATED`
+- `LICENSE_ASSIGNMENT_ALREADY_REVOKED`
+- `EXAM_INVENTORY_EMPTY`
+- `EXAM_ACCESS_EXPIRED`
+- `EXAM_ACCESS_REVOKED`
+- `EXAM_ALREADY_STARTED`
+- `EXAM_REQUIREMENT_NOT_APPLICABLE`
+- `PAYMENT_ALREADY_PROCESSED`
+- `IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_PAYLOAD`
 
-### Training
-- `TrainingLessonProgressed`
-- `ControlQuestionsAttempted`
-- `ControlQuestionsSkipped`
-- `DefaultDrivingCategoryChanged`
+Kody są stabilne dla frontendu/testów; komunikaty są lokalizowalne.
 
-### Exams
-- `InternalExamGenerated`
-- `InternalExamStarted`
-- `InternalExamFinished`
-- `ExamCardGenerated`
+---
 
-### Calendar
-- `CalendarEventCreated`
-- `CalendarEventRescheduled`
-- `StudentBookableSlotPublished`
-- `StudentBookedSlot`
-- `VehicleDocumentExpiring`
-- `EmployeeDocumentExpiring`
+# 20. Następny krok techniczny
 
-### Finance / activation
-- `PaymentConfirmed`
-- `ServiceActivationAvailable`
-- `ServiceActivated`
-- `TransferConfirmationUploaded`
-- `InvoiceIssued` — własna opcjonalna funkcja finansowa
-
-### Ads
-- `AdBidPlaced`
-- `AdAuctionWon`
-- `AdBidRejectionRequested`
-- `AdBidPrivacyRequested`
-- `AdCreativeUploaded`
-- `AdCreativeApproved`
-- `AdCreativeRejected`
-- `AdCampaignActivated`
-
-### Sponsored content
-- `SponsoredArticleSubmitted`
-- `SponsoredArticleApproved`
-- `SponsoredArticlePublished`
+Na podstawie tego dokumentu należy wygenerować/utrzymywać `OpenAPI 3.1` jako machine-readable contract. Implementacja Laravel i klient Vue mają być testowane względem tego samego kontraktu.
