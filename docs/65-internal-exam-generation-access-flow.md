@@ -2,130 +2,163 @@
 
 Data weryfikacji: 2026-09-05
 
-**Kontekst:** `/egzamin-wewnetrzny/panel` -> wybór kursanta -> `Generuj egzaminy (1)` -> drawer `Generuj dostęp do egzaminu wewnętrznego`  
+**Kontekst:** `/egzamin-wewnetrzny/panel` -> drawer `Generuj dostęp do egzaminu wewnętrznego`  
 **Źródło:** bieżące zalogowane ekrany + opis użytkownika podczas audytu  
 **Status:** `USER_CONFIRMED_AUTH_SCREEN`
 
 ---
 
-## 1. Wejście z listy egzaminów
+## 1. Dwa potwierdzone wejścia do tego samego flow
 
-Jedna z potwierdzonych ścieżek uruchomienia flow:
-1. operator zaznacza jednego kursanta w tabeli `Przydzielone egzaminy wewnętrzne`,
+Drawer `Generuj dostęp do egzaminu wewnętrznego` można otworzyć na dwa sposoby.
+
+### A. Z wcześniej zaznaczonym kursantem
+
+1. operator zaznacza dokładnie jednego kursanta w tabeli `Przydzielone egzaminy wewnętrzne`,
 2. UI pokazuje `ZAZNACZONE (1)`,
 3. aktywuje się przycisk `Generuj egzaminy (1)`,
-4. po kliknięciu otwiera się drawer `Generuj dostęp do egzaminu wewnętrznego`.
+4. po kliknięciu otwiera się drawer z już wybranym kandydatem.
+
+### B. Bez wcześniejszego zaznaczenia kursanta
+
+1. operator klika duży zielony przycisk `Generuj egzamin`,
+2. otwiera się ten sam drawer,
+3. operator może:
+   - wyszukać istniejącego kursanta,
+   - albo wprowadzić dane nowego kandydata bezpośrednio w formularzu.
+
+Oba warianty kończą się tym samym etapem: przygotowaniem jednej osoby do jednego flow wygenerowania/uruchomienia egzaminu.
 
 ### Kardynalność
 
-Użytkownik potwierdził, że w tym flow wybiera się tylko jednego kursanta naraz.
-
-Nie traktujemy kontrolki `Generuj egzaminy (1)` jako batch generation wielu egzaminów dla wielu kursantów.
-
-Dla naszego produktu:
-- `target_cardinality = exactly_one_student_per_generation_flow`.
-
-Checkbox/select UI może być zachowane dla wygody wyboru w tabeli, ale logika uruchomienia egzaminu jest jednoosobowa.
+Potwierdzone:
+- `target_cardinality = exactly_one_candidate_per_generation_flow`,
+- brak potwierdzonego batch generation wielu kursantów,
+- komunikat UI: `Dostępne tylko dla 1 kursanta jednocześnie.`
 
 ---
 
-## 2. Drawer `Generuj dostęp do egzaminu wewnętrznego`
+## 2. Licznik dostępnych egzaminów
 
-Nagłówek:
-- `Generuj dostęp do egzaminu wewnętrznego`.
-
-Na górze widoczny jest licznik:
+Na górze drawera widoczny jest licznik:
 - `Dostępne egzaminy: 160` w obserwowanym stanie.
 
-Licznik odpowiada dostępnej puli egzaminów widocznej wcześniej w panelu (`Darmowe + Opłacone = Wszystkie`).
+Jest to projekcja wspólnej dostępnej puli egzaminów widocznej wcześniej w panelu.
 
 ---
 
-## 3. Karta kursanta
+## 3. Stan bez wybranego kursanta
 
-Zaobserwowany kursant:
-- `Ala Nowak`.
+Po wejściu przez duży zielony `Generuj egzamin` drawer pokazuje dwie alternatywne ścieżki.
+
+### 3.1. `Wyszukaj kursanta`
+
+Pole wyszukiwania z instrukcją:
+- `Wpisz imię, nazwisko, email, login lub pesel kursanta.`
+
+Potwierdzone pola wyszukiwania:
+- imię,
+- nazwisko,
+- email,
+- login,
+- PESEL.
+
+Po wybraniu istniejącego kursanta formularz przechodzi do stanu karty kandydata opisanego w sekcji 4.
+
+### 3.2. `Dodaj nowego kursanta`
+
+Formularz zawiera:
+- `Kategoria egzaminu`,
+- `Język egzaminu`,
+- `Imię`,
+- `Nazwisko`,
+- `Numer ewidencyjny/PKK`,
+- `Pesel`,
+- `Email`.
+
+Przy emailu widoczna jest informacja:
+- `do wysłania linku egzminu (opcjonalnie)`.
+
+### Ważna granica domenowa
+
+Etykieta `Dodaj nowego kursanta` nie potwierdza jeszcze, czy ten formularz tworzy pełny trwały profil kursanta w module `Kursanci`, czy tylko tymczasowy/kontekstowy profil kandydata do egzaminu.
+
+Dla naszego produktu rekomendowane rozdzielenie:
+- istniejący `student_profile` można wyszukać i wykorzystać,
+- kandydat egzaminacyjny może również zostać wprowadzony ad hoc,
+- utworzenie trwałego profilu kursanta powinno być świadomą decyzją biznesową, a nie ukrytym skutkiem wygenerowania egzaminu.
+
+---
+
+## 4. Stan z wybranym kandydatem
+
+Zaobserwowany kandydat: `Ala Nowak`.
 
 Karta pokazuje:
-- `Kategoria` — w obserwowanym stanie `B`, kontrolka wyboru,
-- `Język` — w obserwowanym stanie `Polski`, kontrolka wyboru,
+- `Kategoria` — obserwowane `B`, kontrolka wyboru,
+- `Język` — obserwowane `Polski`, kontrolka wyboru,
 - `Imię` — `Ala`,
 - `Nazwisko` — `Nowak`,
-- `PKK` — w obserwowanym stanie puste,
-- `Pesel` — `000000000000`,
-- `Email` — `alanowak@prawo-jazdy-360.pl`.
+- `PKK`,
+- `Pesel`,
+- `Email`.
 
-Dostępne akcje na karcie:
-- `Usuń` — usuwa kursanta z bieżącego flow/formularza; nie interpretujemy jako usunięcia profilu kursanta,
-- `Edytuj dane` — pozwala poprawić dane potrzebne do egzaminu.
+Dostępne akcje:
+- `Usuń` — usuwa kandydata z bieżącego formularza,
+- `Edytuj dane` — otwiera edycję danych potrzebnych do egzaminu.
 
-Nad kartą widoczny jest czerwony komunikat:
+Widoczny był komunikat:
 - `Uzupełnij dane kursanta`.
 
-Nie przesądzamy z samego screena, które dokładnie pole powoduje ten komunikat ani czy jest to komunikat stały/instrukcyjny.
+Nie potwierdzono jeszcze dokładnej walidacji, która wywołuje ten komunikat.
 
 ---
 
-## 4. Dwa tryby uruchomienia egzaminu
+## 5. Dwa tryby uruchomienia egzaminu
 
-Drawer potwierdza dwa różne tryby realizacji tej samej próby egzaminacyjnej.
+### A. `Udostępnij link do egzaminu`
 
-### A. Zdalny link do egzaminu
+Opis UI potwierdza:
+- wygenerowanie linku do egzaminu wewnętrznego,
+- możliwość wykonania egzaminu w dowolnym miejscu z Internetem,
+- wysłanie linku na adres email kandydata.
 
-Opis UI:
-- przycisk generuje link do egzaminu wewnętrznego,
-- kursant może wykonać egzamin w dowolnym miejscu z dostępem do Internetu,
-- link zostaje przesłany na adres e-mail kursanta.
+Dla naszego produktu:
+- `launch.mode = remote_link`,
+- token jest nieprzewidywalny i oddzielony od `attempt.id`,
+- wysyłka email jest audytowana,
+- email może być opcjonalny na etapie wpisywania danych, ale musi zostać zwalidowany, jeśli użytkownik wybierze wysyłkę linku mailem.
 
-Akcja:
-- `Udostępnij link do egzaminu`.
+### B. `Rozpocznij egzamin teraz`
 
-Model dla naszego produktu:
-- tworzony jest tokenowany `internal_exam_launch_link`,
-- link jest powiązany z konkretnym kandydatem/próbą,
-- wysyłka e-mail jest osobnym zdarzeniem/audytem,
-- link nie powinien zawierać prostego/przewidywalnego `attempt_id`.
+Opis UI potwierdza:
+- uruchomienie egzaminu na bieżącym stanowisku komputerowym,
+- ograniczenie do jednej osoby jednocześnie.
 
-Dokładny TTL, możliwość ponownej wysyłki i moment zużycia jednostki inventory pozostają do własnej decyzji / dalszej weryfikacji.
-
-### B. Egzamin na bieżącym stanowisku
-
-Opis UI:
-- przycisk rozpoczyna egzamin wewnętrzny przy tym stanowisku komputerowym.
-
-Akcja:
-- `Rozpocznij egzamin teraz`.
-
-Dodatkowy komunikat:
-- `Dostępne tylko dla 1 kursanta jednocześnie.`
-
-To potwierdza lokalny/stacjonarny workflow:
-- pracownik OSK przygotowuje egzamin,
-- uruchamia go na aktualnym komputerze/stanowisku,
-- jedno stanowisko obsługuje w tym flow jednego kursanta jednocześnie.
-
-Dla naszego produktu ten wariant jest szczególnie ważny dla scenariusza sekretariat + komputer egzaminacyjny.
+Dla naszego produktu:
+- `launch.mode = local_station`,
+- email nie powinien być wymagany do lokalnego uruchomienia,
+- stanowisko/sesja musi być audytowalne.
 
 ---
 
-## 5. Wspólny model domenowy
+## 6. Wspólny model domenowy
 
-Oba przyciski nie powinny tworzyć dwóch różnych typów egzaminu domenowo. To dwa tryby dostarczenia/uruchomienia tej samej klasy `internal_exam_attempt`.
-
-Rekomendowane rozdzielenie:
+Obie ścieżki wejścia i oba tryby uruchomienia prowadzą do tej samej klasy próby egzaminacyjnej.
 
 `internal_exam_attempt`
 - candidate/student snapshot,
 - category,
 - language,
-- PKK/registry snapshot,
+- registry/PKK snapshot,
+- PESEL snapshot nullable zgodnie z polityką,
 - status,
 - question set snapshot,
 - score/result.
 
 `internal_exam_launch`
 - `mode = remote_link | local_station`,
-- token/session,
+- token/session reference,
 - created_at,
 - expires_at nullable,
 - launched_at nullable,
@@ -133,9 +166,17 @@ Rekomendowane rozdzielenie:
 - created_by,
 - station/device metadata nullable.
 
+### Źródło kandydata
+
+Dla naszego modelu warto zapisać:
+- `candidate_source = existing_student | ad_hoc_candidate`,
+- `student_id nullable`.
+
+Dzięki temu egzamin może być przeprowadzony także dla osoby, której nie chcemy automatycznie tworzyć jako pełnego kursanta w CRM OSK.
+
 ---
 
-## 6. Rekomendowany lifecycle własnego produktu
+## 7. Rekomendowany lifecycle własnego produktu
 
 Próba:
 
@@ -145,39 +186,41 @@ Alternatywne końce:
 - `cancelled`,
 - `expired` dla niewykorzystanego linku, jeśli wdrożymy TTL.
 
-Launch:
-
-### Remote
+Launch remote:
 `created -> sent -> opened -> started -> consumed/closed`
 
-### Local station
+Launch local:
 `created -> started_on_station -> consumed/closed`
 
-Nie hardkodujemy jeszcze, kiedy dokładnie zmniejsza się inventory egzaminów; ta reguła musi być atomowa i audytowana.
+Moment konsumpcji jednostki inventory pozostaje osobną decyzją i musi być atomowy oraz audytowany.
 
 ---
 
-## 7. Walidacje dla naszego produktu
+## 8. Walidacje dla naszego produktu
 
-Przed wygenerowaniem/uruchomieniem:
-- organizacja ma co najmniej 1 dostępną jednostkę egzaminu,
-- wybrany jest dokładnie 1 kursant,
-- kategoria jest ustawiona,
-- język jest ustawiony,
-- wymagane dane identyfikacyjne są kompletne zgodnie z naszymi zasadami formalnymi,
-- operator ma uprawnienie `internal_exam.generate` / `internal_exam.launch`,
-- operacja jest tenant-scoped.
+Wspólne:
+- dostępna co najmniej 1 jednostka egzaminu,
+- dokładnie 1 kandydat,
+- kategoria ustawiona,
+- język ustawiony,
+- wymagane dane identyfikacyjne kompletne,
+- operator ma odpowiednie uprawnienie,
+- tenant scope.
 
-Dla `remote_link` dodatkowo:
-- poprawny e-mail, jeśli system ma wysłać link mailem.
+Dla `remote_link`:
+- poprawny email wymagany w chwili wysyłki linku.
 
 Dla `local_station`:
-- blokada równoległego uruchomienia więcej niż jednego kursanta w tej samej sesji/stanowisku zgodnie z wybraną polityką.
+- brak konieczności emaila,
+- brak równoległego egzaminu na tym samym stanowisku zgodnie z polityką.
 
 ---
 
-## 8. Potwierdzone akcje
+## 9. Potwierdzone akcje
 
+- `open_standalone_generate_exam_drawer`
+- `search_existing_student_for_exam`
+- `enter_ad_hoc_exam_candidate`
 - `select_one_student_for_exam_generation`
 - `open_generate_exam_for_selected_student`
 - `view_available_exam_inventory_in_generation_drawer`
@@ -191,17 +234,19 @@ Dla `local_station`:
 
 ---
 
-## 9. Pozostałe niewiadome / kolejne capture
+## 10. Pozostałe niewiadome / kolejne capture
 
-- druga ścieżka wejścia przez zielony przycisk `Generuj egzamin` bez wcześniejszego wyboru kursanta — czy otwiera wyszukiwarkę/dodawanie kursanta i kończy się tym samym drawerem,
 - dokładny drawer `Edytuj dane`,
-- wymagane vs opcjonalne pola przed uruchomieniem,
+- pełna lista kategorii egzaminu,
+- pełna lista języków egzaminu,
+- dokładne wymagane vs opcjonalne pola,
+- czy `Dodaj nowego kursanta` tworzy trwały rekord w module `Kursanci`,
 - komunikaty walidacji,
 - ekran po `Udostępnij link do egzaminu`,
-- format i treść wysłanego e-maila,
+- format i treść wysłanego emaila,
 - ekran tuż przed/po `Rozpocznij egzamin teraz`,
 - TTL/revocation linku,
-- możliwość ponownej wysyłki linku,
+- możliwość ponownej wysyłki,
 - zachowanie niewykorzystanego linku,
 - dokładny moment konsumpcji jednostki egzaminu,
 - priorytet konsumpcji puli darmowej vs opłaconej.
