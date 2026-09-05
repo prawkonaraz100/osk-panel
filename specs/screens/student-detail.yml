@@ -1,0 +1,168 @@
+meta:
+  screen: student_detail
+  route_pattern: /kursanci/{student_id}
+  confidence: USER_CONFIRMED_AUTH_SCREEN
+  audited_at: 2026-09-05
+  doc: docs/30-student-detail-screen.md
+
+header:
+  confirmed_elements:
+    - back_to_students
+    - student_full_name
+  confirmed_global_actions:
+    - archive_student
+    - delete_student
+
+tabs:
+  - student_profile
+  - internal_exam
+  - progress
+  observed_active_tab: student_profile
+
+training_stage:
+  course_required_before_change: true
+  confirmed_message_semantics: add_course_before_editing_training_stage
+  confirmed_action: add_student_course
+  stages:
+    - unassigned
+    - theory
+    - practice
+    - documentation
+    - word_exam
+    - supplementary_training
+    - training_completed
+  observed_stage: unassigned
+  transition_rules: TO_VERIFY
+  history_required_for_own_product: true
+
+student_details:
+  confirmed_action: edit_student_details
+  fields:
+    - full_name
+    - birth_date
+    - pesel
+    - contact_email
+    - phone
+    - created_date
+  location:
+    field_present: true
+    observed_empty_state: no_location_assigned
+    multiplicity: TO_VERIFY
+  internal_exam_projection:
+    observed_status: not_conducted
+    confirmed_action: conduct_internal_exam
+
+access:
+  fields:
+    - learning_username
+    - language_code
+  confirmed_action:
+    id: download_student_access_credentials
+    route_pattern: /licencje/pobierz?guid=<student_id>
+  downloaded_artifact_format: TO_VERIFY
+
+licenses:
+  confirmed_action: assign_student_license
+  visible_headers:
+    - added_date
+    - ending
+    - status
+  observed_values:
+    language_codes:
+      - EN
+    statuses:
+      - not_activated
+  row_actions:
+    - delete_unactivated_license
+  presentation_ambiguity:
+    description: value EN is visible but its exact column/header mapping is unclear in the observed UI
+    status: TO_VERIFY
+  confirmed_semantics:
+    - license_has_language
+    - license_has_activation_status
+    - unactivated_license_has_delete_action
+  to_verify:
+    - restore_to_inventory_after_delete
+    - duration
+    - active_status
+    - expired_status
+    - ending_date_semantics
+
+courses_pkk:
+  confirmed_action: add_student_course
+  observed_empty_state: no_courses_assigned
+  collection: true
+  fields_supported_by_list_projection:
+    - category
+    - training_type
+    - pkk_reference
+    - last_pkk_operation
+
+payments:
+  confirmed_action: add_student_payment
+  columns:
+    - title
+    - amount
+    - remaining
+    - payments
+    - added_date
+  observed_empty_state: no_payments
+  confirmed_summary: total_balance
+  domain_separation:
+    student_finance_is_separate_from_osk_purchase_history: true
+
+confirmed_actions:
+  - back_to_students
+  - archive_student
+  - delete_student
+  - open_student_profile_tab
+  - open_internal_exam_tab
+  - open_progress_tab
+  - add_student_course
+  - edit_student_details
+  - conduct_internal_exam
+  - download_student_access_credentials
+  - assign_student_license
+  - delete_unactivated_student_license
+  - add_student_payment
+
+entity_model:
+  separate_entities:
+    - students
+    - student_learning_accounts
+    - student_licenses
+    - student_courses_or_enrollments
+    - pkk_profiles_and_operations
+    - internal_exams
+    - student_charges_and_payments
+    - locations
+  do_not_use_single_student_status: true
+
+security_requirements:
+  - tenant_isolation
+  - protect_pesel
+  - protect_learning_credentials
+  - protect_pkk_reference
+  - authorize_license_actions_by_organization
+  - authorize_payment_actions_by_organization
+  - audit_training_stage_changes
+  - audit_credential_downloads
+
+remaining_gaps:
+  - student_edit_form
+  - add_student_manual_form
+  - add_student_from_pkk_flow
+  - add_course_form
+  - training_stage_transition_behavior
+  - internal_exam_tab
+  - progress_tab
+  - conduct_internal_exam_flow
+  - assign_license_form
+  - license_delete_effect_and_inventory_restore
+  - access_download_format
+  - add_payment_form
+  - partial_payment_behavior
+  - archive_lifecycle
+  - delete_lifecycle
+  - validations
+  - success_error_messages
