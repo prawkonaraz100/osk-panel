@@ -12,6 +12,8 @@ screen:
   progress_doc: docs/31-student-progress-screen.md
   internal_exam_screen_spec: specs/screens/student-internal-exam.yml
   internal_exam_doc: docs/32-student-internal-exam-screen.md
+  internal_exam_access_spec: specs/screens/student-internal-exam-access.yml
+  internal_exam_access_doc: docs/33-student-internal-exam-access-flow.md
 
 header:
   title: Twoi kursanci
@@ -212,6 +214,24 @@ internal_exam_tab_confirmed:
     passed_exam_count: 0
     failed_exam_count: 0
   multiple_attempts_supported: true
+  access_generation:
+    available_exam_inventory_visible: true
+    candidate_data_warning_supported: true
+    candidate_fields:
+      - category
+      - language
+      - first_name
+      - last_name
+      - pkk
+      - pesel
+      - email
+    launch_modes:
+      - remote_link
+      - local_workstation
+    remote_link_delivery: email
+    local_workstation_message: one_candidate_at_a_time
+    exact_inventory_consumption_point: TO_VERIFY
+    exact_local_concurrency_scope: TO_VERIFY
 
 entity_model:
   student_profile_separate_from_learning_account: true
@@ -219,6 +239,7 @@ entity_model:
   training_stage_separate_from_license_and_exam_status: true
   learning_progress_contextual_by_account_and_category: true
   internal_exam_history_separate_from_student_profile: true
+  exam_inventory_separate_from_attempt_history: true
   suggested_entities:
     - students
     - student_learning_accounts
@@ -226,6 +247,8 @@ entity_model:
     - student_courses_or_enrollments
     - pkk_profiles_and_operation_history
     - internal_exam_attempts_or_assignments
+    - internal_exam_access_tokens
+    - internal_exam_station_sessions
     - student_charges_and_payments
     - student_question_stats
     - student_test_stats
@@ -238,6 +261,7 @@ relationships_confirmed_or_supported_by_projection:
   - course_can_reference_pkk
   - student_has_internal_exam_projection
   - student_has_internal_exam_attempt_history
+  - student_internal_exam_can_launch_remote_or_local
   - student_has_licenses
   - student_has_financial_account
   - student_can_have_location
@@ -271,6 +295,11 @@ confirmed_actions:
   - start_student_internal_exam
   - view_internal_exam_pass_rate
   - view_internal_exam_history
+  - select_internal_exam_category
+  - select_internal_exam_language
+  - edit_internal_exam_candidate_data
+  - share_internal_exam_link
+  - start_internal_exam_on_current_workstation
 
 security_requirements:
   - tenant_isolation
@@ -284,6 +313,9 @@ security_requirements:
   - audit_credential_downloads
   - authorize_progress_context_by_student_and_organization
   - authorize_internal_exam_by_student_and_organization
+  - secure_remote_exam_tokens
+  - idempotent_exam_inventory_accounting
+  - server_side_exam_station_concurrency
 
 remaining_gaps:
   - add_student_manual_form
@@ -292,7 +324,11 @@ remaining_gaps:
   - student_edit_form
   - add_course_form
   - training_stage_transition_behavior
-  - conduct_internal_exam_flow
+  - internal_exam_exact_required_candidate_fields
+  - internal_exam_inventory_consumption_point
+  - internal_exam_remote_link_ttl_resend_revoke
+  - internal_exam_local_concurrency_scope
+  - internal_exam_local_next_screen
   - internal_exam_populated_history
   - internal_exam_exact_statuses_and_results
   - internal_exam_card_print_pdf
