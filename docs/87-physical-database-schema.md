@@ -4,7 +4,7 @@ Data: 2026-09-05
 
 **Status:** `IMPLEMENTATION_BLUEPRINT`
 
-> To nie są jeszcze migracje Laravel. To fizyczny blueprint tabel, typów, indeksów i constraintów zgodny z canonical domain model. Przed wdrożeniem migracje mogą doprecyzować nazwy techniczne bez zmiany semantyki domeny.
+> To nie są jeszcze migracje Laravel. To fizyczny blueprint tabel, typów, indeksów i constraintów zgodny z canonical domain model. Machine-readable odpowiednik: `specs/database/core-schema.yml`. Przy konflikcie machine spec + nowszy ADR wygrywa. Reverse-engineered scope chroni `docs/96-reverse-engineering-preservation-contract.md`.
 
 ## 1. Konwencje DB
 
@@ -17,7 +17,8 @@ Data: 2026-09-05
 - JSONB tylko dla snapshotów/metadata,
 - `created_at`, `updated_at` tam, gdzie rekord jest mutowalny,
 - immutable ledger/audit rows nie wymagają `updated_at`,
-- tenant-owned tables mają `organization_id` bezpośrednio tam, gdzie ułatwia to autoryzację/indeksowanie.
+- tenant-owned tables mają `organization_id` bezpośrednio tam, gdzie ułatwia to autoryzację/indeksowanie,
+- historyczny rekord nie może być blokowany przez constraint zaprojektowany wyłącznie dla stanu bieżącego; dla lifecycle używamy partial unique tam, gdzie to konieczne.
 
 ## 2. Dane osobowe o wysokiej wrażliwości
 
@@ -25,6 +26,11 @@ Dla PESEL preferowany model:
 - `pesel_ciphertext text null` — szyfrowane aplikacyjnie,
 - `pesel_lookup_hash char(64) null` — HMAC do exact-match/duplicate detection,
 - nigdy zwykły globalny SHA-256 bez secret key.
+
+Dla numeru PKK analogicznie:
+- `pkk_number_ciphertext text null`,
+- `pkk_lookup_hash char(64) null`,
+- exact lookup po keyed hash, nie po plaintext.
 
 Analogiczny wzorzec można stosować do innych identyfikatorów wymagających exact lookup, jeżeli uzasadnia to threat model.
 
@@ -75,6 +81,8 @@ Unique:
 Indexes:
 - `(user_id, status)`
 - `(organization_id, status)`
+
+Jedna globalna tożsamość `User` może mieć membership w wielu OSK.
 
 ## `permissions`
 
@@ -131,11 +139,44 @@ Indexes:
 Unique:
 - `(staff_profile_id, staff_type_code)`
 
-## `staff_user_links`
+## `staff_category_assignments`
 
-- `staff_profile_id uuid unique FK`
-- `user_id uuid unique FK`
-- `created_at`
+Zaobserwowany formularz pozwala przypisać wiele kategorii.
+
+- `staff_profile_id uuid FK`
+- `driving_category_id uuid FK`
+
+Unique:
+- `(staff_profile_id, driving_category_id)`
+
+## `staff_location_assignments`
+
+Zaobserwowany formularz pozwala przypisać wiele lokalizacji.
+
+- `staff_profile_id uuid FK`
+- `location_id uuid FK`
+
+Unique:
+- `(staff_profile_id, location_id)`
+
+## `staff_membership_links`
+
+Nie linkujemy pracownika przez globalnie unikalne `user_id`, bo ta sama osoba może pracować w kilku OSK. Link wskazuje membership w konkretnym tenantcie i zachowuje historię odłączania dostępu.
+
+- `id uuid PK`
+- `organization_id uuid FK`
+- `staff_profile_id uuid FK`
+- `organization_membership_id uuid FK`
+- `linked_at timestamptz not null`
+- `linked_by_user_id uuid null`
+- `unlinked_at timestamptz null`
+- `unlinked_by_user_id uuid null`
+
+Partial unique:
+- `(staff_profile_id)` where `unlinked_at is null`,
+- `(organization_membership_id)` where `unlinked_at is null`.
+
+Backend dodatkowo sprawdza, że `staff_profile.organization_id == membership.organization_id`.
 
 ## `staff_documents`
 
@@ -148,6 +189,11 @@ Unique:
 - `asset_id uuid null`
 - `created_at`
 - `updated_at`
+
+Startowe typy wynikające z zaobserwowanego UI:
+- `card_or_authorization`,
+- `medical_exam`,
+- `psychological_exam`.
 
 Indexes:
 - `(organization_id, document_type, valid_until)`
@@ -172,6 +218,11 @@ Indexes:
 - `archived_by_user_id uuid null`
 - `created_at`
 - `updated_at`
+
+Potwierdzone typy startowe:
+- `branch`,
+- `lecture_room`,
+- `maneuvering_area`.
 
 Indexes:
 - `(organization_id, archived_at)`
@@ -199,7 +250,7 @@ Indexes:
 - `updated_at`
 
 Unique:
-- `(organization_id, registration_number_normalized)` dla aktywnych/całej historii zgodnie z polityką,
+- `(organization_id, registration_number_normalized)` zgodnie z ostateczną polityką reuse numeru po archiwizacji,
 - optional `(organization_id, vin_normalized)` where not null.
 
 ## `vehicle_documents`
@@ -217,6 +268,16 @@ Document types startowe:
 - `technical_inspection`,
 - `oc_insurance`,
 - `ac_insurance`.
+
+## `vehicle_category_assignments`
+
+Zaobserwowany formularz pozwala przypisać wiele kategorii obsługiwanych przez pojazd.
+
+- `vehicle_id uuid FK`
+- `driving_category_id uuid FK`
+
+Unique:
+- `(vehicle_id, driving_category_id)`
 
 ## `vehicle_location_assignments`
 
@@ -240,7 +301,7 @@ Unique:
 - `valid_to date null`
 - `metadata jsonb null`
 
-Nie hardkodować listy wyłącznie w frontendzie.
+Nie hardkodować listy wyłącznie w frontendzie. Zaobserwowany słownik kursów obejmuje m.in. `A, B, C, D, T, A1, B1, C1, D1, AM, A2, B+E, C1+E, C+E, D1+E, D+E, PT`; legal mapping `PT` wymaga końcowej re-weryfikacji przed produkcją.
 
 ---
 
@@ -263,8 +324,8 @@ Nie hardkodować listy wyłącznie w frontendzie.
 - `created_at`
 - `updated_at`
 
-Constraint:
-- PESEL albo birth_date zgodnie z formalnym przypadkiem; exact rule w validatorze/rule set.
+Constraint/application validation:
+- PESEL albo formalna gałąź bez PESEL z datą urodzenia zgodnie z validator/rule set.
 
 Indexes:
 - `(organization_id, archived_at, last_name, first_name)`
@@ -296,7 +357,7 @@ Unique:
 - `document_asset_id uuid null`
 - `created_at timestamptz`
 
-Nie ma kolumny plaintext password.
+Nie ma kolumny plaintext password. Plaintext initial/reset password może istnieć wyłącznie w jednorazowym handoff response / generowanym dokumencie zgodnie z polityką dostępu.
 
 ---
 
@@ -313,7 +374,6 @@ Nie ma kolumny plaintext password.
 - `lead_instructor_id uuid FK staff_profiles`
 - `location_id uuid null FK locations`
 - `training_stage varchar(64) not null`
-- `requirements_profile_id uuid null`
 - `completed_at timestamptz null`
 - `interrupted_at timestamptz null`
 - `cancelled_at timestamptz null`
@@ -322,6 +382,8 @@ Nie ma kolumny plaintext password.
 - `version integer not null default 1`
 - `created_at`
 - `updated_at`
+
+Nie utrzymujemy `requirements_profile_id` jako obowiązkowego pointera z powrotem do profilu wymagań. Current requirement profile to najnowszy rekord `training_requirement_profiles` z `superseded_at IS NULL`; eliminuje to zbędny circular FK.
 
 Indexes:
 - `(organization_id, student_id, started_at desc)`
@@ -345,8 +407,9 @@ Indexes:
 - `calculated_at timestamptz`
 - `superseded_at timestamptz null`
 
-Index:
-- `(course_enrollment_id, calculated_at desc)`
+Indexes/constraints:
+- `(course_enrollment_id, calculated_at desc)`,
+- partial unique `(course_enrollment_id)` where `superseded_at is null`.
 
 ## `course_exemption_decisions`
 
@@ -366,14 +429,19 @@ Index:
 - `id uuid PK`
 - `organization_id uuid FK`
 - `course_enrollment_id uuid FK`
-- `training_part varchar(32)`
+- `training_part varchar(32)` — `theory|practical`
 - `recognized_minutes integer not null check (recognized_minutes >= 0)`
+- `source_kind varchar(32)` — np. `course_form_initial|documented_transfer|correction`
 - `source_school_reference varchar(255) null`
 - `evidence_reference varchar(255) null`
-- `reason text not null`
+- `reason text null`
 - `approved_by_user_id uuid`
 - `created_at timestamptz`
 - `revoked_at timestamptz null`
+- `revoked_by_user_id uuid null`
+- `reversal_reason text null`
+
+Zaobserwowane pola „teoria/praktyka odbyta w innej szkole” są obsługiwane. Przy pierwszym zapisie formularza backend może utworzyć rekord `source_kind=course_form_initial`; późniejsze korekty są audytowalne zamiast destrukcyjnego nadpisania historii.
 
 ---
 
@@ -437,6 +505,8 @@ No `updated_at`.
 Indexes:
 - `(course_enrollment_id, training_part, created_at)`
 - `(training_session_id)`
+
+Formalny czas bieżącego OSK jest projekcją ledgeru. Zaobserwowane pola godzin w formularzu kursu pozostają w UX jako wejście/projekcja/kontekst zgodnie z preservation manifest, ale nie tworzą drugiego niezależnego mutable total.
 
 ---
 
@@ -520,13 +590,17 @@ Unique:
 - `created_at`
 - `updated_at`
 
+Checks:
+- `ends_at > starts_at`,
+- location/custom meeting place combination validated by application rule.
+
 Indexes:
 - `(organization_id, starts_at, ends_at)`
 - `(instructor_id, starts_at, ends_at)`
 - `(vehicle_id, starts_at, ends_at)`
 - `(student_id, starts_at, ends_at)`.
 
-Conflict detection może wymagać exclusion constraints lub transakcyjnego query+lock; decyzję finalizuje ADR.
+Conflict detection może wymagać exclusion constraints lub transakcyjnego query+lock; decyzję finalizuje ADR. Server-side conflict detection jest obowiązkowe.
 
 ## `availability_slots`
 
@@ -559,6 +633,8 @@ Conflict detection może wymagać exclusion constraints lub transakcyjnego query
 - `status varchar(32)`
 - `created_by_user_id uuid`
 - `cancelled_at timestamptz null`
+- `cancelled_by_user_id uuid null`
+- `cancellation_reason text null`
 - `created_at`
 
 ## `student_payments`
@@ -582,6 +658,8 @@ Conflict detection może wymagać exclusion constraints lub transakcyjnego query
 Unique:
 - `(organization_id, idempotency_key)` where not null.
 
+Balance/`Pozostało` jest projection z należności minus nieodwrócone wpłaty, a nie ręcznie edytowaną kolumną.
+
 ---
 
 # 14. Licenses
@@ -603,6 +681,8 @@ Unique:
 Unique:
 - `(license_product_id, language_code)`
 
+Języki są capability per produkt. Zaobserwowany generator zawierał PL/EN/DE/RU/UK; marketing miał inny zakres, więc nie hardkodujemy globalnej listy w UI.
+
 ## `license_inventory_entries`
 
 Jedna sztuka = jeden row.
@@ -620,9 +700,11 @@ Indexes:
 
 ## `license_assignments`
 
+Historyczny fakt przypisania. **Nie** ma globalnego UNIQUE na `license_inventory_entry_id`, bo cofnięte nieaktywowane przypisanie zwraca sztukę do puli i ta sama sztuka może później zostać przypisana ponownie.
+
 - `id uuid PK`
 - `organization_id uuid FK`
-- `license_inventory_entry_id uuid unique FK`
+- `license_inventory_entry_id uuid FK`
 - `student_id uuid FK`
 - `student_learning_account_id uuid FK`
 - `language_code varchar(16)`
@@ -630,7 +712,14 @@ Indexes:
 - `assigned_by_user_id uuid`
 - `assigned_at timestamptz`
 - `revoked_at timestamptz null`
+- `revoked_by_user_id uuid null`
+- `revoke_reason text null`
 - `version integer default 1`
+
+Partial unique:
+- `(license_inventory_entry_id)` where `revoked_at is null`.
+
+Dodatkowe application/DB checks pilnują, że inventory `available` może wejść do bieżącego assignmentu tylko raz.
 
 ## `license_activations`
 
@@ -642,7 +731,10 @@ Indexes:
 - `expires_at timestamptz`
 - `created_at`
 
-Unique assignment activation zapewnia exactly-once activation.
+Unique assignment activation zapewnia exactly-once activation konkretnego assignmentu.
+
+Revoke-before-activation to jedna transakcja:
+`verify not activated -> revoke assignment -> restore exactly one inventory entry -> audit -> commit`.
 
 ---
 
@@ -685,6 +777,8 @@ Indexes:
 
 ## `internal_exam_reservations`
 
+Historyczny fakt rezerwacji. Inventory może mieć wiele historycznych rezerwacji, jeżeli poprzednie zostały zwolnione przed startem.
+
 - `id uuid PK`
 - `organization_id uuid FK`
 - `internal_exam_inventory_entry_id uuid FK`
@@ -696,9 +790,11 @@ Indexes:
 - `idempotency_key uuid null`
 - `version integer default 1`
 
-Unique:
-- one current reservation per inventory entry,
-- one active reservation per attempt.
+Partial unique:
+- `(internal_exam_inventory_entry_id)` where `status = 'reserved'`,
+- `(internal_exam_attempt_id)` where `status = 'reserved'`.
+
+Start egzaminu blokuje reservation + inventory + access + attempt i konsumuje dokładnie raz. Finish nie konsumuje ponownie.
 
 ## `internal_exam_accesses`
 
@@ -812,14 +908,17 @@ Unique:
 Immutable:
 - `id uuid PK`
 - `payment_id uuid FK`
-- `provider_event_id varchar(128)`
+- `provider varchar(32) not null`
+- `provider_event_id varchar(128) not null`
 - `event_type varchar(64)`
 - `payload_hash char(64)`
 - `received_at timestamptz`
 - `processed_at timestamptz null`
 
 Unique:
-- `(provider_event_id)` scoped/provider as needed.
+- `(provider, provider_event_id)`.
+
+Deduplikacja jest wykonywana **przed** zastosowaniem skutku biznesowego webhooka.
 
 ---
 
@@ -847,6 +946,8 @@ Indexes:
 - `(organization_id, created_at desc)`
 - `(entity_type, entity_id, created_at desc)`
 - `(request_id)`.
+
+Dashboard activity feed może być projekcją z domenowych/audytowych eventów, ale nie powinien wymagać duplikowania źródła prawdy w każdym module.
 
 ## `outbox_messages`
 
@@ -883,7 +984,17 @@ Preferowane:
 - `SET NULL` tylko dla niekrytycznych optional relations, jeżeli utrata relacji nie niszczy historii,
 - `CASCADE` tylko dla czysto technicznych child rows, które nie mają niezależnej wartości historycznej.
 
-Nigdy cascade-delete z `Student` do course/exam/payment history.
+Nigdy cascade-delete z `Student` do:
+- course enrollment history,
+- exam history,
+- payment history,
+- PKK operation history.
+
+Nigdy cascade-delete z `CourseEnrollment` do:
+- PKK operations,
+- training hour ledger,
+- internal exam attempts,
+- student charges.
 
 ---
 
@@ -903,16 +1014,32 @@ Każda większa lista panelowa powinna mieć indeks zaczynający się od `organi
 
 Indeks projektujemy pod faktyczne query z ekranów, nie „indeks na każdą kolumnę”.
 
+Dodatkowo indeksy listowe powinny odpowiadać potwierdzonym filtrom/sortowaniu, np.:
+- students: `(organization_id, archived_at, created_at)`, nazwisko/imię, training stage projection,
+- license management: latest generated/status projections lub query plan umożliwiający potwierdzone sortowanie,
+- internal exams: course/student/date/status/language,
+- document expiry: `valid_until`.
+
 ---
 
 # 20. Constraints do testów migracyjnych
 
 Minimum:
+- membership unique `(organization_id, user_id)`,
+- ta sama globalna osoba może mieć membership w dwóch organizacjach,
+- staff może istnieć bez konta panelowego,
+- staff ma M:N categories i locations,
+- vehicle ma M:N categories i locations,
+- one current `StaffMembershipLink` per staff profile,
+- one current membership link per organization membership,
+- one current `TrainingRequirementProfile` per course enrollment,
 - one `LicenseActivation` per assignment,
-- one inventory entry cannot be assigned twice,
-- exam reservation/inventory consume exactly once,
-- payment provider event dedup,
-- membership unique organization+user,
+- jedna sztuka inventory nie może mieć dwóch bieżących license assignmentów,
+- cofnięte historyczne assignment nie blokuje ponownego użycia tej samej sztuki,
+- exam reservation: najwyżej jedna aktywna per inventory i per attempt,
+- released reservation nie blokuje ponownej rezerwacji inventory,
+- exam inventory consume exactly once,
+- payment provider event dedup po `(provider, provider_event_id)`,
 - learning login unique w wymaganym scope,
 - non-negative money/minutes where appropriate,
 - start < end for sessions/events.
@@ -923,25 +1050,76 @@ Minimum:
 
 1. identity/organization,
 2. dictionaries,
-3. staff/locations/vehicles,
+3. staff/locations/vehicles + assignment tables,
 4. students/learning accounts,
 5. course enrollments/requirements,
 6. training/calendar,
 7. PKK,
 8. student finance,
-9. license inventory,
-10. exam inventory/attempts,
+9. license inventory/assignments,
+10. exam inventory/reservations/attempts,
 11. orders/payments,
 12. audit/outbox/notifications,
-13. indexes/constraints requiring full relation graph.
+13. partial unique indexes i constraints wymagające pełnego graphu relacji.
 
 ---
 
-# 22. Elementy do ADR
+# 22. Transakcje krytyczne
+
+## Revoke nieaktywowanej licencji
+
+W jednej transakcji i z lockiem:
+1. lock assignment + inventory entry,
+2. sprawdź brak activation,
+3. oznacz assignment jako revoked,
+4. przywróć **dokładnie jedną** sztukę do available,
+5. audit,
+6. commit.
+
+## Start egzaminu
+
+W jednej transakcji:
+1. lock access + attempt + reservation + inventory,
+2. validate startability,
+3. consume inventory exactly once,
+4. reservation -> consumed,
+5. attempt -> in_progress,
+6. audit,
+7. commit.
+
+## Webhook płatności
+
+1. dedupe `(provider, provider_event_id)`,
+2. zapisz immutable event,
+3. dopiero potem wykonaj business effect,
+4. outbox/audit,
+5. retry bez podwójnego naliczenia.
+
+---
+
+# 23. Elementy do ADR
 
 Przed migracjami produkcyjnymi rozstrzygnąć:
 - UUID vs ULID physical type,
-- application-level encryption mechanism dla PESEL/PKK,
+- application-level encryption mechanism i key rotation dla PESEL/PKK,
 - calendar overlap implementation: exclusion constraint vs transactional query locks,
 - JSON snapshot hashing/canonicalization,
 - partitioning audit log dopiero przy realnej potrzebie skali.
+
+---
+
+# 24. Reguła zgodności z reverse-engineeringiem
+
+Schema ma wspierać wszystkie potwierdzone relacje z `specs/reverse-engineering-manifest.yml`, w tym:
+- multi-category i multi-location dla staff/vehicle,
+- student quick preview i pełny detail,
+- wiele kursów jednego kursanta,
+- wiele historycznych licencji jednego learning access,
+- wiele prób egzaminacyjnych jednego kursanta/kursu,
+- activity feed,
+- dokumenty ważności,
+- PKK per course,
+- student finance z ratami,
+- calendar resource filters.
+
+Jeżeli późniejszy screen spec wymaga relacji, której nie da się zapisać w tym modelu, rozszerzamy schema — nie usuwamy funkcji ze scope'u.
