@@ -1,21 +1,27 @@
 meta:
   project: osk-panel
   scope: compatibility_aggregate
-  status: CONSOLIDATED
+  status: CONSOLIDATED_INDEX_ONLY
   consolidated_at: 2026-09-05
   authoritative_baseline: specs/implementation-baseline-v1.yml
+  preservation_contract: docs/96-reverse-engineering-preservation-contract.md
+  preservation_manifest: specs/reverse-engineering-manifest.yml
   note: >-
-    This file is a compatibility aggregate only. For implementation details,
-    legal rules, own-product decisions and verified screens use the referenced
-    authoritative specs. Older TO_VERIFY_AUTH states were removed from this
-    aggregate after the authenticated screen audit.
+    This file is a compatibility aggregate only. It may summarize but MUST NOT
+    reduce confirmed reverse-engineered scope. Detailed implementation requirements
+    live in screen specs and the preservation manifest.
 
 authority_order:
   - specs/legal/*.yml
   - specs/design/*.yml
-  - specs/security/*.yml
-  - specs/api/*.yml
+  - docs/96-reverse-engineering-preservation-contract.md
+  - specs/reverse-engineering-manifest.yml
   - specs/screens/*.yml
+  - specs/security/*.yml
+  - specs/api/common-contract.yml
+  - specs/api/required-operations-v1.yml
+  - specs/api/openapi-v1.yaml
+  - specs/database/core-schema.yml
   - specs/implementation-baseline-v1.yml
   - docs/71-admin-osk-module-mapping-status.md
   - this_file
@@ -37,12 +43,14 @@ principles:
   clean_room: true
   do_not_copy_source_code: true
   do_not_copy_protected_assets_or_trade_dress: true
+  do_not_drop_confirmed_screen_capabilities_during_consolidation: true
   tenant_isolation: true
   permission_based_rbac: true
   course_first_formal_model: true
   pkk_owned_by_course_enrollment: true
   current_osk_training_time_source: training_sessions_and_hour_ledger
   external_training_time_source: recognized_external_training
+  observed_course_hour_fields_remain_supported_in_ui_or_projection: true
   formal_exam_requires_student_and_course_enrollment: true
   exam_inventory_default_consumption: consume_on_start
   no_hard_delete_formal_or_financial_history: true
@@ -62,6 +70,7 @@ core_modules:
     status: READY_FOR_IMPLEMENTATION
     route: /
     spec: specs/screens/main-dashboard.yml
+    manifest: core.dashboard
 
   pkk:
     status: READY_FOR_IMPLEMENTATION
@@ -71,21 +80,25 @@ core_modules:
       - specs/screens/pkk-configuration-gate.yml
       - specs/screens/pkk-entrypoints-and-student-list.yml
       - specs/screens/pkk-course-operational-panel.yml
+    manifest: core.pkk
 
   students:
     status: READY_FOR_IMPLEMENTATION
     route: /kursanci
     aggregate_spec: specs/screens/students.yml
+    manifest: core.students
 
   course_enrollments:
     status: READY_FOR_IMPLEMENTATION
     specs:
+      - specs/screens/student-add-course.yml
       - specs/screens/course-create.yml
       - specs/screens/course-edit.yml
       - specs/screens/course-delete.yml
     legal_rules:
       - specs/legal/training-theory-exemptions.yml
       - specs/legal/editable-training-requirements.yml
+    manifest: core.courses
 
   calendar:
     status: READY_FOR_IMPLEMENTATION
@@ -93,6 +106,7 @@ core_modules:
     specs:
       - specs/screens/calendar.yml
       - specs/screens/calendar-add-event.yml
+    manifest: core.calendar
 
   locations:
     status: READY_FOR_IMPLEMENTATION
@@ -101,17 +115,20 @@ core_modules:
       - specs/screens/locations.yml
       - specs/screens/school-locations-create.yml
       - specs/screens/school-locations-edit.yml
+    manifest: core.locations
 
   vehicles:
     status: READY_FOR_IMPLEMENTATION
     route: /pojazdy
     aggregate_spec: specs/screens/vehicles.yml
+    manifest: core.vehicles
 
   staff:
     status: READY_FOR_IMPLEMENTATION
     route: /pracownicy
     aggregate_spec: specs/screens/staff.yml
     rbac: specs/security/permissions.yml
+    manifest: core.staff
 
   licenses_purchase:
     status: READY_FOR_IMPLEMENTATION
@@ -122,10 +139,12 @@ core_modules:
     status: READY_FOR_IMPLEMENTATION
     route: /licencje/panel
     spec: specs/screens/license-management-panel.yml
+    manifest: core.licenses
 
   student_finance:
     status: READY_FOR_IMPLEMENTATION
     design: specs/design/student-finance-ledger.yml
+    manifest: core.student_finance
 
   internal_exam_purchase:
     status: READY_FOR_IMPLEMENTATION
@@ -137,19 +156,27 @@ core_modules:
     route: /egzamin-wewnetrzny/panel
     spec: specs/screens/internal-exam-management-panel.yml
     lifecycle: specs/design/internal-exam-lifecycle.yml
+    manifest: core.internal_exams
 
   settings:
     status: READY_FOR_IMPLEMENTATION
     route: /ustawienia
     spec: specs/screens/settings.yml
+    manifest: core.settings
 
   purchase_history:
     status: READY_FOR_IMPLEMENTATION
     route: /historia-zakupow
     spec: specs/screens/purchase-history.yml
+    manifest: core.purchase_history
 
 cross_cutting_specs:
+  preservation_contract: docs/96-reverse-engineering-preservation-contract.md
+  preservation_manifest: specs/reverse-engineering-manifest.yml
   api_common_contract: specs/api/common-contract.yml
+  api_required_operations: specs/api/required-operations-v1.yml
+  openapi: specs/api/openapi-v1.yaml
+  database: specs/database/core-schema.yml
   lifecycle: specs/design/core-lifecycle.yml
   rbac: specs/security/permissions.yml
   implementation_baseline: specs/implementation-baseline-v1.yml
@@ -159,35 +186,48 @@ critical_invariants:
   - pkk_commands_require_course_enrollment_context
   - current_osk_hours_are_derived_from_training_ledger
   - external_hours_are_auditable_separate_records
+  - revoked_license_assignment_history_does_not_block_reuse_of_restored_inventory
+  - at_most_one_current_license_assignment_per_inventory_entry
   - revoke_unactivated_license_restores_exactly_one_inventory_entry_atomically
   - formal_exam_access_reserves_inventory
+  - at_most_one_active_exam_reservation_per_inventory_entry
   - formal_exam_start_consumes_inventory_exactly_once
   - formal_exam_finish_does_not_consume_inventory_again
   - technical_abort_after_exam_start_does_not_auto_restore_inventory
   - student_finance_is_separate_from_platform_purchase_history
   - staff_type_is_separate_from_permissions
+  - staff_panel_access_is_scoped_by_organization_membership
   - passwords_are_not_recoverably_stored
 
 remaining_implementation_gaps:
-  - machine_readable_openapi_3_1
-  - physical_database_schema_and_indexes
-  - ADRs_for_critical_architecture_decisions
-  - legal_category_dictionary_reverification_including_PT_tram_mapping
-  - privacy_retention_schedule
-  - RPO_RTO_business_approval
+  blocking_before_module_done:
+    - complete_openapi_coverage_against_specs_api_required_operations_v1
+    - complete_reverse_engineering_traceability_for_module_PR
+  before_related_production_data:
+    - legal_category_dictionary_reverification_including_PT_tram_mapping
+    - sensitive_identifier_encryption_and_key_rotation_ADR
+    - calendar_overlap_enforcement_ADR
+  before_production_go_live:
+    - privacy_retention_schedule
+    - RPO_RTO_business_approval
+    - restore_drill
 
 deferred_non_core:
   business_cards:
     route: /wizytowki
     status: NOT_SCREEN_MAPPED
+    evidence_preserved: true
   advertising:
     status: NOT_SCREEN_MAPPED
+    evidence_preserved: true
   lectures:
     route: /wyklady
     status: NOT_SCREEN_MAPPED
+    evidence_preserved: true
   instructor_training:
     route: /szkolenie-z-instruktorem
     status: NOT_SCREEN_MAPPED
+    evidence_preserved: true
 
 historical_or_optional:
   invoices:
