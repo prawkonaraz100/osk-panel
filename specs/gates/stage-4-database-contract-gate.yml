@@ -50,7 +50,9 @@ stage_4_slices:
     final_aggregate_sync: PASS
     result: PASS
   - id: DB4_3_STAFF_LOCATIONS_VEHICLES
-    status: NEXT_DIAGNOSIS
+    status: IN_PROGRESS_WITH_BLOCKERS
+    diagnosis: COMPLETE
+    result: FAIL_WITH_6_P1_BLOCKERS
   - id: DB4_4_STUDENTS_COURSES_TRAINING_LEDGER
     status: NOT_STARTED
   - id: DB4_5_CALENDAR
@@ -69,98 +71,90 @@ stage_4_slices:
     status: NOT_STARTED
 
 quality_checks:
-  stage_3_contract_is_frozen_before_DB_design:
-    status: PASS
-
   DB4_1_foundation:
     status: PASS
-    resolved:
-      DB-FOUND-001: application_generated_UUIDv7_in_native_PostgreSQL_uuid
-      DB-FOUND-002: null_safe_partial_unique_indexes_for_global_and_tenant_scopes
-      DB-FOUND-003: organization_contact_addresses_canonical_table
-      DB-FOUND-004: Stage_2_settings_ownership_merged_into_physical_blueprint
-
   DB4_2_identity_tenant_rbac:
     status: PASS
-    machine_source: specs/database/identity-rbac.yml
-    aggregate_machine_source: specs/database/core-schema.yml
-    aggregate_narrative_source: docs/87-physical-database-schema.md
-    audit_source: docs/105-stage-4-identity-tenant-rbac-audit.md
+    source: docs/105-stage-4-identity-tenant-rbac-audit.md
 
-    DB_IAM_001:
-      status: PASS
-      decision:
-        role_template_runtime_dependency: false
-        runtime_permission_source: membership_permissions
-        missing_or_future_permission_default: deny
-        template_reapply: explicit_atomic_command
+  DB4_3_diagnosis:
+    status: PASS_DIAGNOSIS_COMPLETE
+    source: docs/107-stage-4-staff-locations-vehicles-audit.md
+    fixes_started_during_diagnosis: false
+    later_domain_slices_entered: false
+    Laravel_migrations_created: false
 
-    DB_IAM_002:
-      status: PASS
-      decision:
-        membership_wide_data_scope: removed_from_canonical_runtime_model
-        scope_binding: per_membership_permission
-        tables:
-          - data_scopes
-          - permission_scope_options
-          - membership_permission_scopes
-        granted_without_scope: deny_fail_closed
-        tenant_validation_precedes_scope: true
+  staff_membership_link_same_organization_integrity:
+    status: FAIL
+    blocker_id: DB-RES-001
+    severity: P1
+    evidence:
+      - staff_membership_links_contains_organization_id_staff_profile_id_organization_membership_id
+      - current_blueprint_relies_on_backend_same_organization_check
+      - DB_IAM_002_assigned_scope_resolvers_depend_on_active_staff_membership_link
+    unresolved: >-
+      Independent simple FKs do not physically prove that the StaffProfile and
+      OrganizationMembership referenced by one StaffMembershipLink both belong to
+      the link's organization.
+    impact: malformed_link_can_poison_RBAC_own_assigned_locations_and_assigned_students_resolution
 
-    DB_IAM_003:
-      status: PASS
-      decision:
-        auth_session_same_user_membership_integrity: composite_FK
-        source: auth_sessions[organization_membership_id,user_id]
-        target: organization_memberships[id,user_id]
-        null_membership_global_or_pre_tenant_flow: allowed
-        tenant_operation_without_active_membership: deny
-        membership_user_id_reassignment: forbidden
+  staff_vehicle_location_assignment_tenant_integrity:
+    status: FAIL
+    blocker_id: DB-RES-002
+    severity: P1
+    unresolved: >-
+      staff_location_assignments and vehicle_location_assignments do not physically
+      prove same-organization parent/location ownership.
+    impact: cross_tenant_assignment_can_expand_RBAC_or_calendar_resource_scope
 
-    DB_IAM_004:
-      status: PASS
-      decision:
-        owner_marker: organization_memberships.is_owner
-        owner_marker_is_permission_shortcut: false
-        protected_owner_baseline_required: true
-        last_owner_post_transaction_minimum: 1
-        owner_mutations_serialized_per_organization: true
-        normal_self_escalation: forbidden
-        grant_ceiling: required
-        authorization_version_security_epoch: required
+  staff_vehicle_file_asset_attachment_integrity:
+    status: FAIL
+    blocker_id: DB-RES-003
+    severity: P1
+    unresolved:
+      - StaffProfile_photo_same_tenant_ready_purpose_contract
+      - StaffDocument_asset_same_tenant_ready_purpose_contract
+      - Vehicle_photo_same_tenant_ready_purpose_contract
+      - VehicleDocument_asset_same_tenant_ready_purpose_contract
+    impact: private_or_foreign_asset_can_be_attached_to_wrong_tenant_resource_if_backend_bug_occurs
 
-    DB_IAM_005:
-      status: PASS
-      decision:
-        durable_membership_row_per_organization_user: true
-        hard_delete: forbidden
-        statuses: [active, suspended, revoked]
-        membership_version_concurrency_root: true
-        authorization_version_security_epoch: true
-        suspended_retains_permission_scope_config: true
-        revoked_clears_runtime_owner_permission_scope: true
-        revoked_reactivation_requires_fresh_provisioning: true
-        suspend_or_revoke_clears_bound_session_tenant_contexts_same_transaction: true
-        permission_revoke_while_active_effective_next_request_without_forced_logout: true
-        audit_and_outbox_same_transaction: true
+  staff_vehicle_document_current_projection:
+    status: FAIL
+    blocker_id: DB-RES-004
+    severity: P1
+    unresolved: >-
+      Physical document tables allow multiple rows per parent/document_type but do
+      not define one current row or version/supersede semantics, while verified UI
+      exposes one current validity date per type.
+    impact: detail_expiry_and_important_date_projection_are_ambiguous
 
-    final_aggregate_sync:
-      status: PASS
-      checks:
-        core_schema_contains_DB_IAM_001_through_005: true
-        docs_87_contains_same_canonical_RBAC_shape: true
-        bounded_context_status_final_synced: true
-        membership_wide_data_scope_not_runtime_authority: true
-        DB_IAM_migration_test_obligations_recorded: true
-        Laravel_migrations_created_in_this_slice: false
-        DB4_3_design_started_during_sync: false
-      traceability_direct_edit_required: false
-      traceability_reason: >-
-        Existing traceability already references core-schema.yml and the security
-        permission catalog. DB4_2 adds internal physical authorization/integrity
-        mechanisms rather than a new observed UI/API capability. Stage 5 expands
-        acceptance traceability per module.
-      preservation_check: PASS
+  staff_vehicle_identity_uniqueness_lifecycle:
+    status: FAIL
+    blocker_id: DB-RES-005
+    severity: P1
+    unresolved:
+      - staff_PESEL_uniqueness_across_archive_restore_when_present
+      - vehicle_registration_uniqueness_across_archive_restore
+      - vehicle_VIN_uniqueness_when_present
+    impact: migration_constraints_and_restore_behavior_can_conflict_or_allow_duplicate_resource_identity
+
+  staff_archive_panel_access_lifecycle:
+    status: FAIL
+    blocker_id: DB-RES-006
+    severity: P1
+    unresolved: >-
+      Archiving StaffProfile does not yet define the atomic effect on active
+      StaffMembershipLink and OrganizationMembership. Leaving membership active can
+      preserve panel access for archived staff; destructive revoke can break safe
+      restore and last-owner invariants.
+    impact: archived_staff_may_retain_access_or_restore_may_become_inconsistent
+
+  DB4_3_nonblockers_deferred_to_dependent_slices:
+    - future_calendar_event_behavior_after_resource_archive_to_DB4_5
+    - active_course_behavior_after_staff_or_location_archive_to_DB4_4
+    - exact_expiring_soon_threshold_projection_config
+    - city_dictionary_provider_choice
+    - competitor_unobservable_delete_backend_semantics
 
   calendar_overlap_database_strategy:
     status: PENDING_DB4_5
@@ -176,7 +170,19 @@ resolved_blockers:
   - DB-IAM-004
   - DB-IAM-005
 
-open_blockers_current_diagnosed_scope: []
+open_blockers_current_diagnosed_scope:
+  - id: DB-RES-001
+    severity: P1
+  - id: DB-RES-002
+    severity: P1
+  - id: DB-RES-003
+    severity: P1
+  - id: DB-RES-004
+    severity: P1
+  - id: DB-RES-005
+    severity: P1
+  - id: DB-RES-006
+    severity: P1
 
 gate_definition:
   PASS_requires_for_entire_stage_4:
@@ -186,55 +192,26 @@ gate_definition:
     - migration_order_dependency_safe
     - database_invariant_test_matrix_exists
     - reverse_engineering_preservation_traceable
-  current_result: IN_PROGRESS_DB4_2_PASS_DB4_3_NEXT_DIAGNOSIS
+  current_result: FAIL_DB4_3_WITH_6_OPEN_P1_BLOCKERS
   DB4_2_result: PASS
-  may_start_DB4_3_diagnosis: true
-  may_start_DB4_3_fixes_before_diagnosis_gate: false
+  DB4_3_result: FAIL
+  may_start_DB4_3_fixes: true
+  may_start_DB4_4: false
   may_start_stage_5: false
   may_start_UI_or_feature_implementation: false
 
 next_single_step:
-  id: DB4_3_STEP_1
-  action: diagnose_staff_locations_vehicles_physical_invariants_only
+  id: DB4_3_STEP_2
+  blocker: DB-RES-001
+  action: resolve_StaffMembershipLink_same_organization_integrity_only
   allowed_scope:
-    - specs/screens/staff.yml
-    - specs/screens/staff-create.yml
-    - specs/screens/staff-detail.yml
-    - specs/screens/staff-edit.yml
-    - specs/screens/locations.yml
-    - specs/screens/school-locations-create.yml
-    - specs/screens/school-locations-edit.yml
-    - specs/screens/vehicles.yml
-    - specs/screens/vehicle-create.yml
-    - specs/screens/vehicle-detail.yml
-    - specs/screens/vehicle-edit.yml
-    - specs/screens/vehicle-delete.yml
-    - docs/20-vehicles-screen.md
-    - docs/21-staff-screen.md
-    - docs/22-staff-create-form.md
-    - docs/23-staff-detail-screen.md
-    - docs/24-staff-edit-form.md
-    - docs/25-vehicle-detail-screen.md
-    - docs/26-vehicle-edit-form.md
-    - docs/27-vehicle-create-form.md
-    - docs/28-vehicle-delete-confirmation.md
     - specs/database/core-schema.yml
     - specs/database/identity-rbac.yml
-    - specs/security/permissions.yml
-    - specs/traceability/core-v1.yml
     - docs/87-physical-database-schema.md
-    - specs/gates/stage-4-database-contract-gate.yml
     - docs/107-stage-4-staff-locations-vehicles-audit.md
-  diagnosis_questions:
-    - do_staff_membership_links_physically_guarantee_same_organization_for_staff_and_membership
-    - do_staff_location_assignments_physically_support_assigned_locations_scope_without_cross_tenant_links
-    - do_staff_category_assignments_enforce_tenant_consistency
-    - do_vehicle_location_and_category_assignments_enforce_tenant_consistency
-    - do_document_asset_links_preserve_tenant_and_retention_invariants
-    - do_archive_restore_rules_preserve_calendar_and_formal_history
-    - are_registration_VIN_and_optional_PSEL_uniqueness_lifecycles_null_safe_and_history_safe
-    - are_document_expiry_fields_independent_and_free_from_demo_sentinel_date_semantics
-    - do_location_company_address_and_training_location_models_remain_separate
-    - are all observed create_edit_detail_multi_select_capabilities representable_without_JSON_shortcuts
-  scope_lock: diagnosis_only_do_not_fix_detected_DB4_3_blockers_and_do_not_enter_students_courses_calendar_or_later_slices
-  after_action: record_all_DB4_3_P0_P1_blockers_then_fix_one_at_a_time_with_gate_rerun_after_each
+    - specs/gates/stage-4-database-contract-gate.yml
+  scope_lock: >-
+    Do not fix StaffLocationAssignment VehicleLocationAssignment FileAsset
+    attachment document-current identity-uniqueness or staff-archive blockers in
+    the same step. Do not enter DB4_4 or create Laravel migrations.
+  after_action: rerun_DB4_3_gate_and_record_DB_RES_001_PASS_or_new_blocker_before_DB_RES_002
