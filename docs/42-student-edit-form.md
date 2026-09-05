@@ -3,14 +3,14 @@
 Data weryfikacji: 2026-09-05
 
 **Kontekst:** karta kursanta -> `Szczegóły kursanta` -> `Edytuj`  
-**Źródło:** bieżący zalogowany ekran + screenshot przekazany podczas audytu  
+**Źródło:** bieżący zalogowany ekran + screenshot + potwierdzone zachowanie interakcyjne przekazane podczas audytu  
 **Status:** `USER_CONFIRMED_AUTH_SCREEN`
 
 ---
 
 ## 1. Znaczenie ekranu
 
-Drawer `Edycja kursanta` edytuje wyłącznie podstawowy profil kursanta.
+Drawer `Edycja kursanta` edytuje podstawowy profil kursanta.
 
 Formularz nie zawiera kontrolek kursu, PKK, licencji, egzaminu ani dostępu do nauki. Potwierdza to rozdzielenie domen:
 - profil kursanta,
@@ -24,6 +24,8 @@ Formularz nie zawiera kontrolek kursu, PKK, licencji, egzaminu ani dostępu do n
 
 ## 2. Potwierdzone pola
 
+W stanie, gdy kursant ma ścieżkę z PESEL, widoczne są:
+
 1. `Imię *`
 2. `Nazwisko *`
 3. `Telefon`
@@ -31,6 +33,9 @@ Formularz nie zawiera kontrolek kursu, PKK, licencji, egzaminu ani dostępu do n
 5. `Pesel`
 6. kontrolka `Kursant nie posiada numeru PESEL`
 7. `Lokalizacja` — pojedynczy select
+
+Po zaznaczeniu `Kursant nie posiada numeru PESEL` system wymaga dodatkowo:
+8. `Data urodzenia` — pole warunkowe, wymagane dla kursanta bez PESEL.
 
 Potwierdzona akcja główna:
 - `Zapisz kursanta`
@@ -42,29 +47,45 @@ Na obserwowanym ekranie nie było osobnego przycisku `Anuluj`.
 
 ---
 
-## 3. Wymagane pola według markerów UI
+## 3. Wymagane pola i walidacja warunkowa
 
-Widoczną gwiazdką oznaczono:
+Zawsze wymagane według widocznych markerów UI:
 - Imię,
 - Nazwisko.
 
-Pozostałe pola nie miały widocznego markera `*`.
+Dodatkowa potwierdzona reguła biznesowa:
+- jeśli kursant **nie posiada PESEL**, trzeba podać `Datę urodzenia`.
 
-To jest potwierdzenie na poziomie UI. Dokładne walidacje backendu pozostają do weryfikacji.
+Model walidacji powinien więc obsługiwać co najmniej dwa warianty:
+
+### Wariant A — kursant posiada PESEL
+- `pesel` podany,
+- ręczne pole `birth_date` nie jest wymagane w obserwowanym stanie formularza.
+
+### Wariant B — kursant nie posiada PESEL
+- `no_pesel_declared = true`,
+- `pesel = null`,
+- `birth_date` jest wymagane.
+
+Nie potwierdzono jeszcze technicznie, czy przy wariancie A data urodzenia jest automatycznie wyliczana z PESEL, pobierana z PKK czy pochodzi z innego mechanizmu. Nie przypisujemy konkurentowi konkretnej implementacji bez dalszej obserwacji.
 
 ---
 
-## 4. PESEL
+## 4. PESEL i data urodzenia
 
 Formularz wspiera dwa jawne przypadki:
 - kursant posiada PESEL,
-- kursant nie posiada numeru PESEL.
+- kursant nie posiada numeru PESEL i wtedy podaje datę urodzenia ręcznie.
 
-Własny model nie powinien wymuszać sztucznej wartości PESEL dla osoby, która go nie posiada.
-
-Rekomendowane pola:
+Własny model powinien wspierać:
 - `pesel nullable`,
-- `no_pesel_declared boolean`.
+- `no_pesel_declared boolean`,
+- `birth_date date` z walidacją warunkową.
+
+Rekomendowana reguła własnego produktu:
+- wymagaj `pesel` albo jawnego `no_pesel_declared=true`,
+- jeśli `no_pesel_declared=true`, wymagaj `birth_date`,
+- nie zapisuj sztucznych numerów PESEL.
 
 PESEL musi być chroniony i nie powinien trafiać do zwykłych logów aplikacyjnych.
 
@@ -82,17 +103,16 @@ Nie należy z tego ekranu wnioskować many-to-many dla profilu kursanta.
 
 ---
 
-## 6. Ważna różnica względem ekranu szczegółów
+## 6. Relacja z ekranem szczegółów
 
-Na karcie kursanta w sekcji danych widoczna jest także `Data urodzenia`, ale pole to **nie występuje** w formularzu `Edycja kursanta`.
+Na karcie kursanta w sekcji danych widoczna jest `Data urodzenia`.
 
-Dlatego:
-- `birth_date` jest potwierdzone jako pole prezentowane na szczegółach,
-- ale nie jest potwierdzone jako edytowalne w tym formularzu.
+Po korekcie audytu wiemy już, że data urodzenia **może być edytowana/wprowadzana warunkowo**:
+- pole pojawia się lub staje się wymagane, gdy zaznaczono brak PESEL.
 
-Możliwe źródło pochodzenia tej wartości (PESEL, PKK, import lub inny ekran) pozostaje `TO_VERIFY`.
+To wyjaśnia, dlaczego pole nie było widoczne na przesłanym podstawowym stanie formularza.
 
-Nie dodajemy własnej logiki wyliczania daty urodzenia bez osobnej decyzji projektowej.
+Nadal nie znamy dokładnego źródła `birth_date` dla kursanta posiadającego PESEL.
 
 ---
 
@@ -122,6 +142,7 @@ Te obszary są zarządzane osobnymi flow i encjami.
 - `set_student_contact_email`
 - `set_student_pesel`
 - `toggle_student_no_pesel`
+- `set_student_birth_date_when_no_pesel`
 - `select_student_location`
 - `save_student_changes`
 - `close_student_edit_drawer`
@@ -136,7 +157,8 @@ Te obszary są zarządzane osobnymi flow i encjami.
 - kontaktowy e-mail oddzielony od loginu/e-maila dostępu do nauki,
 - audyt zmian kluczowych danych identyfikacyjnych,
 - brak możliwości zmiany kursu/licencji/PKK przez endpoint profilu,
-- obsługa kursanta bez PESEL.
+- obsługa kursanta bez PESEL,
+- warunkowa walidacja `birth_date` dla kursanta bez PESEL.
 
 ---
 
@@ -145,10 +167,10 @@ Te obszary są zarządzane osobnymi flow i encjami.
 - dokładne walidacje telefonu,
 - dokładne walidacje e-maila kontaktowego,
 - reguły walidacji PESEL,
-- zachowanie przy zmianie PESEL,
+- zachowanie przy zmianie z `ma PESEL` na `brak PESEL` i odwrotnie,
 - duplikaty kursantów,
 - czy zmiana lokalizacji wpływa na istniejące kursy/wydarzenia,
-- źródło i sposób edycji daty urodzenia,
+- źródło daty urodzenia dla kursanta posiadającego PESEL,
 - success/error messages,
 - zachowanie przy zamknięciu `X` z niezapisanymi zmianami.
 
@@ -165,8 +187,11 @@ Imię i nazwisko są wymagane.
 ### AC-STUDENT-EDIT-03 — no PESEL
 System wspiera kursanta bez numeru PESEL bez stosowania sztucznych wartości.
 
-### AC-STUDENT-EDIT-04 — location scope
+### AC-STUDENT-EDIT-04 — conditional birth date
+Jeśli kursant nie posiada PESEL, data urodzenia jest wymagana.
+
+### AC-STUDENT-EDIT-05 — location scope
 Wybrana lokalizacja musi należeć do bieżącego OSK.
 
-### AC-STUDENT-EDIT-05 — contact separation
+### AC-STUDENT-EDIT-06 — contact separation
 `Email do kontaktu` nie jest automatycznie loginem/e-mailem konta do nauki.
