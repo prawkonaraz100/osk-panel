@@ -17,7 +17,8 @@ Powiązane:
 - formalna ewidencja i zwolnienia z teorii: `docs/66-formal-student-record-and-theory-exemptions.md`,
 - edytowalne wymagania kursu: `docs/67-editable-training-requirements-and-theory-exemption.md`,
 - edycja danych przed egzaminem: `docs/68-internal-exam-edit-candidate-data.md`,
-- filtrowanie: `docs/69-internal-exam-filtering.md`.
+- filtrowanie: `docs/69-internal-exam-filtering.md`,
+- sortowanie: `docs/70-internal-exam-sorting.md`.
 
 ---
 
@@ -151,7 +152,28 @@ Szczegóły: `docs/69-internal-exam-filtering.md`.
 
 ---
 
-## 8. `Rozwiń` — historia prób
+## 8. Sortowanie
+
+Drawer `Sortowanie` potwierdza dwa kierunki:
+- `Rosnąco`,
+- `Malejąco`.
+
+Można sortować po jednej z siedmiu kolumn:
+- `Email lub login`,
+- `Imię i nazwisko`,
+- `Kat.`,
+- `Status`,
+- `Data`,
+- `Język`,
+- `Liczba egzaminów`.
+
+Na obserwowanym ekranie zaznaczone były `Rosnąco` oraz `Data`, ale nie traktujemy tego jako potwierdzonego globalnego defaultu.
+
+Szczegóły: `docs/70-internal-exam-sorting.md`.
+
+---
+
+## 9. `Rozwiń` — historia prób
 
 Każda próba jest osobnym rekordem z:
 - imieniem i nazwiskiem,
@@ -167,7 +189,7 @@ Timestamp nie jest identyfikatorem próby — zaobserwowano różne rekordy z t�
 
 ---
 
-## 9. `Szczegóły` i review wyniku
+## 10. `Szczegóły` i review wyniku
 
 `Szczegóły` prowadzi do tokenizowanego frontu `/egzamin-wewnetrzny?pid=<opaque_token>`.
 
@@ -182,7 +204,7 @@ Review pokazuje media, treść pytania, wartość punktową, kategorię, poprawn
 
 ---
 
-## 10. `Pobierz wydruk`
+## 11. `Pobierz wydruk`
 
 Generuje per-attempt PDF `Arkusz odpowiedzi` zawierający:
 - dane kandydata,
@@ -197,7 +219,7 @@ Generuje per-attempt PDF `Arkusz odpowiedzi` zawierający:
 
 ---
 
-## 11. Model naszego produktu
+## 12. Model naszego produktu
 
 Encje:
 - `internal_exam_inventory_ledger`,
@@ -222,7 +244,7 @@ Wymagania teorii/praktyki są edytowalne na różnych etapach kursu i przeliczan
 
 ---
 
-## 12. Potwierdzone akcje
+## 13. Potwierdzone akcje
 
 - `open_internal_exam_management_panel`
 - `view_free_exam_inventory`
@@ -244,6 +266,15 @@ Wymagania teorii/praktyki są edytowalne na różnych etapach kursu i przeliczan
 - `filter_by_multiple_course_categories`
 - `filter_by_exam_status`
 - `open_exam_sorting`
+- `sort_internal_exam_rows_ascending`
+- `sort_internal_exam_rows_descending`
+- `sort_by_email_or_login`
+- `sort_by_student_name`
+- `sort_by_latest_exam_category`
+- `sort_by_latest_exam_status`
+- `sort_by_latest_exam_date`
+- `sort_by_latest_exam_language`
+- `sort_by_exam_count`
 - `expand_exam_history`
 - `collapse_exam_history`
 - `view_exam_attempt_history`
@@ -254,14 +285,14 @@ Wymagania teorii/praktyki są edytowalne na różnych etapach kursu i przeliczan
 
 ---
 
-## 13. Pozostałe niewiadome
+## 14. Pozostałe niewiadome
 
 Do dalszego capture:
 - pełna lista kategorii i języków egzaminu,
-- `Sortuj`,
 - exact search fields,
 - wizualizacja statusu `Zaliczony` w tabeli,
 - dokładne znaczenie kolumny `Data`,
+- zachowanie sortowania dla pustych wartości,
 - czas trwania egzaminu,
 - kolejność konsumpcji darmowej/opłaconej puli,
 - reset darmowej puli,
