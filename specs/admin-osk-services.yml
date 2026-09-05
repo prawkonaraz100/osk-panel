@@ -73,22 +73,134 @@ service_groups:
 
     - id: students
       route: /kursanci
-      confidence: CURRENT_CONFIRMED_TO_VERIFY_UI
-      required_capabilities:
-        - create
-        - edit
+      confidence: USER_CONFIRMED_AUTH_SCREEN
+      screen_specs:
+        list: specs/screens/students.yml
+        detail: specs/screens/student-detail.yml
+        progress: specs/screens/student-progress.yml
+      docs:
+        - docs/29-students-list-screen.md
+        - docs/30-student-detail-screen.md
+        - docs/31-student-progress-screen.md
+      confirmed_list_capabilities:
         - search
-        - filter
-        - details
-        - assign_course
-        - link_pkk
+        - filter_control
+        - sort_control
+        - add_student_manual_entry
+        - add_student_from_pkk_entry
+        - preview_control
+        - open_details
+        - learning_login_projection
+        - course_pkk_projection
+        - internal_exam_projection
+      confirmed_detail_capabilities:
+        - edit_student
+        - archive_student
+        - delete_student
+        - manage_training_stage
+        - add_course
+        - conduct_internal_exam
+        - download_access_credentials
         - assign_license
-        - create_access
-        - assign_exam
-        - assign_drive
-        - assign_lecture
-        - view_progress
-        - archive
+        - remove_unactivated_license
+        - add_student_payment
+      confirmed_training_stages:
+        - unassigned
+        - theory
+        - practice
+        - documentation
+        - word_exam
+        - supplementary_training
+        - training_completed
+      training_stage_course_prerequisite: true
+      confirmed_profile_fields:
+        - full_name
+        - birth_date
+        - pesel
+        - contact_email
+        - phone
+        - created_date
+        - location_projection
+      confirmed_detail_sections:
+        - student_details
+        - access
+        - licenses
+        - courses_pkk
+        - payments
+      confirmed_tabs:
+        - student_profile
+        - internal_exam
+        - progress
+      confirmed_finance_behavior:
+        student_payments_are_separate_from_osk_purchase_history: true
+        columns: [title, amount, remaining, payments, added_date]
+        summary: total_balance
+      confirmed_progress_capabilities:
+        - select_learning_account_context
+        - select_category_context
+        - passed_tests_count_and_percent
+        - failed_tests_count_and_percent
+        - answered_questions_over_total
+        - correct_answers_percent
+        - incorrect_answers_percent
+        - handbook_progress
+        - handbook_completed_sections
+        - handbook_control_questions_percent
+        - lecture_progress
+        - lecture_completed_units_counter
+        - lecture_control_questions_percent
+        - question_progress_by_basic_topic
+        - question_progress_by_specialized_topic
+      observed_progress_context:
+        account_language: EN
+        selected_category: B
+        question_total: 2185
+        basic_topic_count: 20
+        specialized_topic_count: 11
+        topic_total: 31
+        handbook_total_sections: 13
+        lecture_total_counter_as_rendered: 774
+      progress_rules:
+        totals_dynamic_not_hardcoded: true
+        taxonomy_translatable_independent_from_admin_ui_locale: true
+        lecture_774_unit_semantics: TO_VERIFY
+      requirements:
+        - student_profile_separate_from_learning_account
+        - student_course_or_enrollment_collection
+        - training_stage_separate_from_license_exam_and_learning_progress
+        - student_finance_separate_from_platform_purchase_ledger
+        - progress_contextual_by_student_learning_account_category
+        - dynamic_question_bank_totals
+        - translatable_question_taxonomy
+        - protect_pesel
+        - protect_learning_credentials
+        - tenant_isolation
+      remaining_unknowns:
+        - add_student_manual_form
+        - add_student_from_pkk_flow
+        - preview_behavior
+        - student_edit_form
+        - add_course_form
+        - exact_training_stage_transition_behavior
+        - internal_exam_tab
+        - conduct_internal_exam_flow
+        - assign_license_form
+        - license_delete_inventory_restore_effect
+        - access_download_format
+        - add_payment_form
+        - partial_payment_behavior
+        - archive_delete_lifecycle
+        - filter_options
+        - sort_options
+        - pagination
+        - internal_exam_red_x_semantics
+        - populated_progress_question_analysis
+        - populated_progress_test_analysis
+        - exact_progress_percentage_formulas
+        - progress_learning_time_and_activity_history
+        - exact_lecture_774_unit_semantics
+        - validations
+        - success_error_messages
 
     - id: locations
       route: /lokalizacje
@@ -120,11 +232,13 @@ service_groups:
         create: specs/screens/vehicle-create.yml
         detail: specs/screens/vehicle-detail.yml
         edit: specs/screens/vehicle-edit.yml
+        delete: specs/screens/vehicle-delete.yml
       docs:
         - docs/20-vehicles-screen.md
         - docs/25-vehicle-detail-screen.md
         - docs/26-vehicle-edit-form.md
         - docs/27-vehicle-create-form.md
+        - docs/28-vehicle-delete-confirmation.md
       confirmed_columns:
         - photo
         - registration_number
@@ -190,6 +304,13 @@ service_groups:
         - pick_ac_valid_until
         - select_or_replace_vehicle_photo
         - remove_vehicle_photo_from_form
+      confirmed_delete_flow:
+        - open_delete_confirmation
+        - confirm_delete_vehicle
+        - cancel_delete_vehicle
+      archive_ui_state:
+        observed_status: DEMO_BLOCKED
+        observed_behavior: demo_restriction_message
       create_edit_parity:
         same_business_fields: true
         create_empty_values: true
@@ -234,8 +355,9 @@ service_groups:
         - engine_capacity_range
         - photo_file_rules
         - photo_removal_commit_behavior
-        - archive_confirmation_restore_and_effects
-        - delete_confirmation_and_semantics
+        - archive_lifecycle_in_non_demo
+        - archive_restore_and_effects
+        - delete_backend_semantics
         - calendar_add_event_form
         - save_success_and_error_messages
         - filters
@@ -395,8 +517,30 @@ service_groups:
         - view_progress
 
     - id: learning_progress
-      confidence: CURRENT_CONFIRMED_TO_VERIFY_UI
-      required_capabilities: [student_progress, question_stats, learning_activity]
+      confidence: USER_CONFIRMED_AUTH_SCREEN
+      screen_spec: specs/screens/student-progress.yml
+      doc: docs/31-student-progress-screen.md
+      confirmed_capabilities:
+        - student_progress
+        - passed_failed_test_stats
+        - question_answer_stats
+        - question_taxonomy_topic_stats
+        - handbook_progress
+        - lecture_progress
+        - control_question_progress
+        - learning_account_selector
+        - category_selector
+      requirements:
+        - contextual_by_student_learning_account_category
+        - dynamic_question_totals
+        - taxonomy_translations
+      remaining_unknowns:
+        - populated_test_analysis
+        - populated_question_analysis
+        - learning_time
+        - activity_history
+        - exact_percentage_formulas
+        - date_filters
 
     - id: internal_exam_purchase
       route: /egzamin-wewnetrzny/wykup
@@ -577,9 +721,9 @@ business_offer_parity:
 
 remaining_button_level_gaps:
   - dashboard
-  - students
+  - students_create_edit_pkk_course_exam_license_payment_archive_delete_filters_and_populated_progress_details
   - location_add_edit_form_and_validation
-  - vehicle_validation_archive_delete_and_event_form
+  - vehicle_validation_archive_non_demo_delete_backend_and_event_form
   - staff_panel_access_account_provisioning_exact_types_validation_archive_delete_and_event_form
   - calendar_main_screen_and_event_form
   - pkk_ui
