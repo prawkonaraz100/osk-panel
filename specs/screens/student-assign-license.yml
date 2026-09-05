@@ -1,0 +1,98 @@
+screen:
+  id: student_assign_license
+  scope: admin_osk
+  parent_route_pattern: /kursanci/<student_id>
+  entry_action: assign_student_license
+  title: Przydzielanie licencji
+  confidence: USER_CONFIRMED_AUTH_SCREEN
+  verified_at: 2026-09-05
+  doc: docs/38-student-assign-license-form.md
+
+license_variant:
+  selector: true
+  observed_options:
+    - one_month
+  exact_full_option_list: TO_VERIFY
+  available_inventory_count_visible: true
+
+learning_accesses:
+  section_title: Dostępy do prawo-jazdy-360.pl
+  existing_access_selection:
+    confirmed: true
+    control: radio
+    visible_projection:
+      - learning_identifier
+      - language_label
+  create_new_access:
+    confirmed: true
+    label: Dodaj nowy dostęp
+    expanded_section_title: Wprowadź dane dostępu
+    fields:
+      - learning_identifier_email_or_login
+      - language_code
+
+primary_action:
+  label: Przydziel licencje
+  action: assign_license
+
+confirmed_branching:
+  assign_to_existing_access:
+    steps:
+      - select_license_variant
+      - select_existing_learning_access
+      - assign_license
+  create_new_access_and_assign:
+    steps:
+      - select_license_variant
+      - select_create_new_learning_access
+      - set_learning_identifier_email_or_login
+      - select_language
+      - assign_license
+
+confirmed_model_behavior:
+  learning_access_separate_from_license_assignment: true
+  existing_learning_access_can_receive_license: true
+  new_learning_access_can_be_created_during_assignment: true
+  inventory_is_scoped_by_license_variant: true
+  student_contact_email_separate_from_learning_identifier: true
+
+suggested_entities:
+  - license_products
+  - license_inventory_entries
+  - student_learning_accesses
+  - license_assignments
+  - license_activations
+
+confirmed_actions:
+  - open_assign_license_drawer
+  - select_license_variant
+  - select_existing_learning_access
+  - select_create_new_learning_access
+  - set_new_learning_identifier_email_or_login
+  - select_new_learning_access_language
+  - assign_license
+  - close_assign_license_drawer
+
+security_requirements:
+  - tenant_isolation
+  - authorize_student_by_organization
+  - authorize_existing_learning_access_by_student_and_organization
+  - atomically_validate_and_consume_available_license_inventory
+  - prevent_double_assignment
+  - idempotent_assignment_request
+  - audit_license_assignment
+  - protect_learning_credentials
+
+remaining_gaps:
+  - exact_license_variant_options
+  - exact_language_options
+  - learning_identifier_validation
+  - global_or_tenant_uniqueness_rules
+  - invitation_or_password_generation_flow
+  - assignment_success_message
+  - assignment_error_messages
+  - race_behavior_when_inventory_reaches_zero
+  - multiple_existing_access_selection_rules
+  - exact_assignment_creation_point
+  - exact_activation_point
+  - renewal_vs_additional_period_behavior
