@@ -1,0 +1,231 @@
+meta:
+  project: osk-panel
+  scope: core_v1_rbac
+  status: ACTIVE
+  decided_at: 2026-09-05
+  doc: docs/04-roles-permissions.md
+
+principles:
+  permission_based_rbac: true
+  staff_type_equals_permission: false
+  role_template_equals_permission_set: true
+  backend_enforcement_required: true
+  tenant_scope_independent_from_permission: true
+  data_scope_supported: true
+
+permission_groups:
+  organization:
+    - organization.view
+    - organization.edit
+    - organization.settings.manage
+    - organization.integrations.manage
+    - organization.members.manage
+    - organization.audit.view
+
+  students:
+    - students.view
+    - students.create
+    - students.edit
+    - students.archive
+    - students.restore
+    - students.progress.view
+
+  student_access:
+    - student_access.view
+    - student_access.create
+    - student_access.manage_credentials
+    - student_access.reset_password
+    - student_access.download_credentials_pdf
+
+  courses_and_training:
+    - courses.view
+    - courses.create
+    - courses.edit
+    - courses.cancel
+    - courses.restore
+    - courses.stage.change
+    - training_sessions.view
+    - training_sessions.create
+    - training_sessions.edit
+    - training_sessions.cancel
+    - training_hours.correct
+    - external_training.recognize
+    - course_requirements.correct
+
+  pkk:
+    - pkk.view
+    - pkk.fetch
+    - pkk.training.update_and_return
+    - pkk.return.school
+    - pkk.return.authority
+    - pkk.return.expired
+    - pkk.retry
+
+  calendar:
+    - calendar.view
+    - calendar.manage.own
+    - calendar.manage.organization
+    - calendar.publish_student_slots
+    - calendar.book_for_student
+    - worktime.view.own
+    - worktime.view.organization
+    - worktime.manage
+
+  locations:
+    - locations.view
+    - locations.create
+    - locations.edit
+    - locations.archive
+    - locations.restore
+
+  vehicles:
+    - vehicles.view
+    - vehicles.create
+    - vehicles.edit
+    - vehicles.archive
+    - vehicles.restore
+
+  staff:
+    - staff.view
+    - staff.create
+    - staff.edit
+    - staff.archive
+    - staff.restore
+    - staff.accounts.manage
+    - staff.permissions.manage
+
+  licenses:
+    - licenses.view
+    - licenses.purchase
+    - licenses.assign
+    - licenses.activate
+    - licenses.revoke_unactivated
+    - licenses.progress.view
+    - licenses.access_documents.download
+
+  exams:
+    - exams.view
+    - exams.purchase
+    - exams.generate
+    - exams.access.send
+    - exams.start.local
+    - exams.results.view
+    - exams.documents.download
+    - exams.inventory.adjust
+    - exams.attempt.invalidate
+
+  student_finance:
+    - student_finance.view
+    - student_finance.create_charge
+    - student_finance.cancel_charge
+    - student_finance.record_payment
+    - student_finance.reverse_payment
+
+  platform_purchases:
+    - purchases.view
+    - purchases.create
+    - purchases.pay
+
+  security_support:
+    - sessions.manage.own
+    - sessions.manage.organization
+    - impersonation.start
+
+data_scopes:
+  - own
+  - assigned_students
+  - assigned_locations
+  - organization
+
+elevated_permissions:
+  - organization.members.manage
+  - organization.integrations.manage
+  - staff.permissions.manage
+  - training_hours.correct
+  - course_requirements.correct
+  - pkk.training.update_and_return
+  - pkk.return.school
+  - pkk.return.authority
+  - pkk.return.expired
+  - licenses.activate
+  - exams.inventory.adjust
+  - exams.attempt.invalidate
+  - student_finance.reverse_payment
+
+role_templates:
+  Owner:
+    strategy: all_core_permissions_except_explicitly_disabled_future_permissions
+  OfficeAdmin:
+    includes_groups:
+      - students
+      - student_access
+      - courses_and_training
+      - calendar
+      - locations
+      - vehicles
+      - licenses
+      - exams
+    conditional:
+      - pkk
+      - student_finance
+      - platform_purchases
+  HR:
+    includes:
+      - staff.view
+      - staff.edit
+      - worktime.view.organization
+      - worktime.manage
+      - locations.view
+  Instructor:
+    data_scope_default: own_or_assigned_students
+    includes:
+      - students.view
+      - students.progress.view
+      - courses.view
+      - training_sessions.view
+      - training_sessions.create
+      - training_sessions.edit
+      - calendar.view
+      - calendar.manage.own
+      - worktime.view.own
+    conditional:
+      - courses.stage.change
+      - pkk.view
+      - pkk.fetch
+      - exams.generate
+      - exams.start.local
+  Lecturer:
+    data_scope_default: own_or_assigned_students
+    includes:
+      - students.view
+      - students.progress.view
+      - courses.view
+      - training_sessions.view
+      - calendar.view
+      - worktime.view.own
+  Accounting:
+    includes:
+      - organization.view
+      - student_finance.view
+      - student_finance.create_charge
+      - student_finance.record_payment
+      - purchases.view
+      - purchases.create
+      - purchases.pay
+    conditional:
+      - student_finance.reverse_payment
+
+backend_authorization_order:
+  - authenticated_user
+  - active_membership
+  - tenant_ownership_or_relation_validation
+  - permission
+  - data_scope
+  - domain_state_rule
+  - elevated_reauth_or_mfa_when_configured
+
+safety_rules:
+  last_owner_cannot_be_removed_without_transfer: true
+  permission_changes_audited: true
+  staff_login_creation_requires_explicit_permissions_or_template: true
+  permission_revocation_effect_must_be_defined_for_active_sessions: true
