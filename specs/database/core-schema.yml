@@ -173,6 +173,20 @@ identity_model:
   users:
     global_person_or_auth_principal: true
     local_password_hash_on_user: true
+    fields:
+      - id
+      - first_name
+      - last_name
+      - password_hash_nullable
+      - status
+      - last_login_at_nullable
+      - created_at
+      - updated_at
+    first_name_type: varchar_120
+    last_name_type: varchar_120
+    human_user_after_onboarding_requires_names: true
+    pre_onboarding_or_system_principal_nullability_may_be_supported: true
+    names_are_global_identity_fields_not_duplicated_per_organization: true
   auth_login_identifiers:
     purpose: resolve_generic_login_without_tenant_selector
     fields:
@@ -180,13 +194,20 @@ identity_model:
       - user_id
       - identifier_type_email_or_username
       - identifier_normalized
+      - is_primary_for_type
       - verified_at
       - created_at
       - revoked_at
+    is_primary_for_type_default: false
     global_unique_current_identifier: true
     partial_unique:
       columns: [identifier_normalized]
       where: revoked_at_is_null
+    primary_current_identifier_uniqueness:
+      type: partial_unique
+      columns: [user_id, identifier_type]
+      where: revoked_at_is_null_and_is_primary_for_type_true
+    settings_email_projection: current_nonrevoked_identifier_type_email_and_primary_true
     rule: same_visible_login_string_must_not_resolve_to_two_users
   auth_social_accounts:
     fields:
@@ -241,10 +262,33 @@ identity_model:
     same_user_multiple_organizations_supported: true
 
 organization_model:
+  organizations:
+    company_name_column: name
+    phone_column:
+      type: varchar_40
+      nullable: true
+    nip_remains_domain_field_but_not_part_of_observed_settings_form: true
   organization_settings:
     one_to_one_with_organization: true
-    typed_fields_should_be_added_when_business_semantics_stabilize: true
+    fields:
+      - organization_id
+      - default_language_code_nullable
+      - preferences_jsonb_nullable
+      - version
+      - created_at
+      - updated_at
+    version:
+      type: integer
+      default: 1
+      minimum: 1
+      purpose: aggregate_version_for_settings_ETag_and_optimistic_concurrency
     noncritical_preferences_jsonb_allowed: true
+    business_fields_in_preferences_forbidden:
+      - company_address
+      - company_phone
+      - pkk_credentials
+      - owner_name
+      - primary_email
   organization_contact_addresses:
     purpose: one_structured_company_contact_address_for_observed_settings_screen
     one_to_one_with_organization: true
@@ -262,6 +306,26 @@ organization_model:
       - created_at
       - updated_at
     relation_to_training_locations: separate_concept_do_not_reuse_locations_table
+    canonical_source: specs/database/organization-settings.yml
+  pkk_integration_settings:
+    one_to_one_with_organization: true
+    canonical_fields:
+      - organization_id
+      - school_name_nullable
+      - osk_registry_number_nullable
+      - external_osk_login_ciphertext_nullable
+      - external_osk_login_lookup_hash_optional
+      - readiness_status
+      - updated_at
+    readiness_status_values:
+      - not_configured
+      - configured_unverified
+      - verified
+      - requires_attention
+    readiness_status_default: not_configured
+    operator_name_columns_forbidden: true
+    application_auth_login_reuse_forbidden: true
+    plaintext_external_osk_login_after_save_forbidden: true
     canonical_source: specs/database/organization-settings.yml
   legal_documents:
     immutable_versions: true
@@ -490,6 +554,12 @@ critical_constraints:
     type: partial_unique
     columns: [identifier_normalized]
     where: revoked_at_is_null
+  auth_login_identifier_primary_current_unique_per_user_type:
+    type: partial_unique
+    columns: [user_id, identifier_type]
+    where: revoked_at_is_null_and_is_primary_for_type_true
+  organization_settings_version_minimum:
+    check: version_gte_1
   social_provider_subject_unique:
     columns: [provider, provider_subject]
   auth_session_token_hash_unique:
@@ -585,6 +655,12 @@ transactional_invariants:
   create_account_closure_request:
     one_pending_per_scope: true
     audit_required: true
+  update_osk_settings:
+    lock_organization_settings_row: true
+    optimistic_version_check_required: true
+    update_owned_tables_atomically: true
+    increment_settings_version_once: true
+    redacted_audit_required: true
   revoke_unactivated_license:
     lock:
       - license_assignment
@@ -680,6 +756,7 @@ security_storage_rules:
     derived_from_committed_domain_event: true
   pkk:
     full_provider_payload_in_plain_jsonb_forbidden: true
+    external_osk_login_plaintext_after_save_forbidden: true
   idempotency:
     one_time_plaintext_password_response_snapshot_forbidden: true
 
@@ -704,6 +781,11 @@ migration_tests_required:
   - generated_synthetic_domain_ids_are_UUIDv7_and_stored_as_native_uuid
   - organization_contact_address_has_exactly_one_row_per_organization_when_present
   - company_contact_address_is_not_a_training_location_record
+  - settings_projection_reads_user_names_from_users
+  - settings_projection_reads_primary_email_from_current_primary_auth_identifier
+  - two_current_primary_identifiers_of_same_type_for_one_user_are_rejected
+  - organization_settings_version_is_at_least_one_and_increments_once_per_successful_atomic_settings_write
+  - pkk_settings_external_login_is_not_application_login_and_plaintext_is_not_persisted
   - generic_login_identifier_resolves_to_at_most_one_current_user
   - revoked_login_identifier_can_be_reissued_only_by_explicit_policy
   - auth_session_can_be_listed_and_revoked_without_exposing_raw_secret
