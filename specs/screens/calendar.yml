@@ -8,6 +8,7 @@ screen:
   doc: docs/48-calendar-main-screen.md
   add_event_screen_spec: specs/screens/calendar-add-event.yml
   add_event_doc: docs/49-calendar-add-event-form.md
+  own_event_lifecycle_policy: docs/50-own-calendar-event-lifecycle.md
 
 event_type_filters:
   control: checkbox
@@ -89,6 +90,7 @@ add_event_form_confirmed:
   manual_types:
     - general_event
     - driving_lesson
+  same_visible_form_for_general_event_and_driving_lesson: true
   fields:
     - event_type
     - event_name
@@ -98,7 +100,7 @@ add_event_form_confirmed:
     - student_id
     - instructor_id
     - vehicle_id
-    - meeting_location_id
+    - meeting_location_id_or_custom_meeting_place
   required_by_visible_marker:
     - event_type
     - start_date
@@ -108,18 +110,27 @@ add_event_form_confirmed:
     - student_id
     - instructor_id
     - vehicle_id
-    - meeting_location_id
+    - meeting_place
   resource_cardinality_for_form:
     student: zero_or_one
     instructor: zero_or_one
     vehicle: zero_or_one
-    meeting_location: zero_or_one
+    meeting_place: zero_or_one
   start_plus_duration_model_supported: true
   instructor_selector_projects_expired_documents: true
   vehicle_selector_projects_expired_documents: true
   meeting_location_grouped_by_type: true
-  other_meeting_place_control_visible: true
-  other_meeting_place_behavior: TO_VERIFY
+  meeting_place_modes:
+    - saved_location
+    - custom_text
+  custom_meeting_place_toggle_confirmed: true
+
+post_save_behavior:
+  competitor_creation_blocked_in_demo: true
+  competitor_event_detail_edit_flow: UNOBSERVABLE_IN_DEMO_NONBLOCKING
+  competitor_cancel_move_delete_flow: UNOBSERVABLE_IN_DEMO_NONBLOCKING
+  competitor_drag_and_drop: UNOBSERVABLE_IN_DEMO_NONBLOCKING
+  own_product_policy: docs/50-own-calendar-event-lifecycle.md
 
 confirmed_actions:
   - open_calendar
@@ -150,8 +161,11 @@ confirmed_actions:
   - search_and_select_student
   - search_and_select_instructor
   - search_and_select_vehicle
-  - select_meeting_location
-  - save_calendar_event
+  - select_saved_meeting_location
+  - switch_to_custom_meeting_place
+  - set_custom_meeting_place_text
+  - switch_back_to_saved_meeting_location
+  - save_calendar_event_visible_action
   - cancel_calendar_event_create
   - close_calendar_event_drawer
 
@@ -163,7 +177,7 @@ confirmed_cross_module_relationships:
   - add_event_can_reference_student
   - add_event_can_reference_instructor
   - add_event_can_reference_vehicle
-  - add_event_can_reference_location
+  - add_event_can_reference_location_or_custom_meeting_place
   - instructor_selector_projects_staff_document_validity
   - vehicle_selector_projects_vehicle_document_validity
 
@@ -186,6 +200,11 @@ own_product_model:
   compliance_checks_required: true
   timezone_per_organization_required: true
   audit_event_changes: true
+  event_lifecycle:
+    - scheduled
+    - completed
+    - cancelled
+  event_detail_edit_cancel_behavior_defined_by_own_policy: true
 
 security_requirements:
   - tenant_isolation
@@ -200,23 +219,22 @@ security_requirements:
   - audit_event_create_update_cancel
 
 remaining_gaps:
-  - driving_lesson_conditional_fields
-  - general_event_conditional_fields
   - important_date_exact_semantics
-  - other_meeting_place_behavior
   - duration_exact_validation
-  - driving_lesson_required_resources
+  - driving_lesson_backend_required_resources
   - warning_vs_hard_block_for_expired_resources
   - recurrence
-  - event_statuses
-  - cancel_move_behavior
-  - conflict_resolution
   - notifications
-  - drag_and_drop
-  - event_detail_edit
   - self_booking
   - employee_work_time_tracking_ui
   - main_resource_warning_indicator_exact_semantics
   - colors_and_legend
   - permissions
   - resource_selection_persistence
+
+nonblocking_competitor_unknowns:
+  - event_status_after_save
+  - event_detail_edit
+  - cancel_move_behavior
+  - drag_and_drop
+  - post_save_conflict_messages
