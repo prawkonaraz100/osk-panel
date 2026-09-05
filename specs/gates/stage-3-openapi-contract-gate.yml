@@ -162,25 +162,43 @@ quality_checks:
       dangling_local_component_refs: 0
 
   executable_contract_lint:
-    status: FAIL
-    stage_step: STAGE3_STEP_9
-    blocker_id: CI-001
-    evidence:
-      - docs/99-staged-design-and-implementation-plan.md requires contract lint in CI or at minimum a repository validation script before Stage 3 can pass
-      - current branch root contains only .gitignore, AGENTS.md, README.md, diagrams, docs and specs
-      - no scripts directory exists
-      - no .github/workflows directory exists
-    required_fix: >-
-      Add a deterministic repository validator for the machine-readable OpenAPI
-      contract and wire it into a GitHub Actions workflow. The validator must at
-      minimum parse the contract YAML, resolve path/component refs, enforce unique
-      operationIds, verify required-operations bidirectional coverage, validate
-      security scheme references/permission annotations and reject request schemas
-      that expose readOnly fields.
+    status: PASS
+    stage_step: STAGE3_STEP_10
+    resolved_blocker_id: CI-001
+    validator:
+      file: scripts/contract-validation/validate_openapi_contract.py
+      dependency_lock: scripts/contract-validation/requirements.txt
+      command: python scripts/contract-validation/validate_openapi_contract.py
+      checks:
+        - YAML_parse
+        - recursive_ref_resolution
+        - root_vs_module_path_parity
+        - unique_operationId
+        - required_operations_bidirectional_coverage
+        - frozen_169_requirement_and_158_operation_counts
+        - security_scheme_resolution
+        - nonpublic_permission_annotations
+        - request_schema_readOnly_rejection
+    ci:
+      workflow: .github/workflows/api-contract-gate.yml
+      triggers:
+        - pull_request_for_contract_files
+        - push_for_contract_files
+      permissions: contents_read_only
+      python: '3.12'
+      dependency: PyYAML_6_0_2
+    static_audit: PASS
+    runtime_note: >-
+      No pull-request-triggered workflow run is currently observable for the new
+      workflow on this isolated branch. This does not reopen CI-001 because the
+      Stage-3 plan permits an executable repository validator as the minimum gate;
+      the workflow is additionally wired so the same command becomes CI-enforced
+      when GitHub runs the workflow. The first observed CI execution remains a
+      pre-merge check, not permission to skip the repository validator.
 
   final_stage_3_contract_convergence:
-    status: FAIL_BLOCKED_BY_CI_001
-    stage_step: STAGE3_STEP_9
+    status: PENDING_STATUS_FREEZE_AND_SELF_AUDIT
+    stage_step: STAGE3_STEP_11
 
 resolved_blockers:
   - id: TRACE-001
@@ -188,21 +206,15 @@ resolved_blockers:
     resolution: PKK configuration-gate traceability synchronized with Stage-2 canonical settings ownership.
   - id: SEC-001
     severity: P1
-    resolution: External exam result/review now supports scoped opaque exam access token without exposing unfinished answer review.
+    resolution: External exam result/review supports scoped opaque exam access token without exposing unfinished answer review.
   - id: REQ-001
     severity: P1
     resolution: Direct client writes to StudentLearningAccount.status removed and request mass-assignment policy hardened.
-
-open_blockers:
   - id: CI-001
     severity: P1
-    description: Stage-3 contract rules are documented but not yet executable in repository CI or a validation script.
-    allowed_scope_for_fix:
-      - scripts/contract-validation/*
-      - .github/workflows/api-contract-gate.yml
-      - specs/gates/stage-3-openapi-contract-gate.yml
-      - specs/api/required-operations-v1.yml
-      - docs/99-staged-design-and-implementation-plan.md
+    resolution: Executable repository contract validator added and wired to read-only GitHub Actions workflow.
+
+open_blockers: []
 
 gate_definition:
   PASS_requires:
@@ -213,11 +225,16 @@ gate_definition:
     - no_duplicate_operationIds
     - traceability_is_synchronized
     - executable_contract_lint_exists_and_is_wired_to_CI_or_explicit_repo_command
-  current_result: FAIL
+    - final_statuses_and_stage_self_audit_are_synchronized
+  current_result: FAIL_PENDING_FINAL_STATUS_FREEZE
   may_start_stage_4: false
 
 next_single_step:
-  id: STAGE3_STEP_10
-  action: fix_CI_001_only_by_adding_executable_contract_validator_and_CI_workflow
-  scope_lock: do_not_start_stage_4_or_modify_domain_database_or_UI_files
-  after_action: run_or_statically_audit_the_validator_contract_then_rerun_final_stage_3_gate
+  id: STAGE3_STEP_11
+  action: freeze_stage_3_coverage_status_write_final_self_audit_and_close_stage_3_only
+  allowed_scope:
+    - specs/api/required-operations-v1.yml
+    - specs/gates/stage-3-openapi-contract-gate.yml
+    - docs/99-staged-design-and-implementation-plan.md
+    - docs/103-stage-3-final-contract-audit.md
+  scope_lock: do_not_modify_database_domain_UI_or_start_stage_4_until_this_final_gate_is_PASS
