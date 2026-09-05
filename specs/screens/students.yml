@@ -8,6 +8,8 @@ screen:
   doc: docs/29-students-list-screen.md
   detail_screen_spec: specs/screens/student-detail.yml
   detail_doc: docs/30-student-detail-screen.md
+  progress_screen_spec: specs/screens/student-progress.yml
+  progress_doc: docs/31-student-progress-screen.md
 
 header:
   title: Twoi kursanci
@@ -148,10 +150,53 @@ detail_screen_confirmed:
   student_payment_summary:
     - total_balance
 
+progress_tab_confirmed:
+  confidence: USER_CONFIRMED_AUTH_SCREEN
+  context_selectors:
+    - learning_account_with_language
+    - category
+  summary_metrics:
+    - passed_tests_count_and_percent
+    - failed_tests_count_and_percent
+    - answered_questions_count_over_total
+    - correct_answers_percent
+    - incorrect_answers_percent
+  analysis_sections:
+    - questions
+    - tests
+  content_progress_sections:
+    - handbook
+    - lectures_with_narrator
+  handbook_metrics:
+    - overall_progress_percent
+    - completed_sections_count
+    - total_sections_count
+    - control_questions_percent
+  lecture_metrics:
+    - overall_progress_percent
+    - completed_units_counter
+    - control_questions_percent
+  question_taxonomy_groups:
+    - basic
+    - specialized
+  observed_topic_count:
+    basic: 20
+    specialized: 11
+    total: 31
+  observed_question_total_for_selected_category_b: 2185
+  totals_are_dynamic: true
+  content_taxonomy_translation_required: true
+  observed_admin_ui_language: PL
+  observed_taxonomy_language_for_en_account: EN
+  empty_states_observed:
+    questions: Brak danych
+    tests: Brak danych
+
 entity_model:
   student_profile_separate_from_learning_account: true
   student_finance_separate_from_osk_purchase_history: true
   training_stage_separate_from_license_and_exam_status: true
+  learning_progress_contextual_by_account_and_category: true
   suggested_entities:
     - students
     - student_learning_accounts
@@ -160,6 +205,10 @@ entity_model:
     - pkk_profiles_and_operation_history
     - internal_exam_attempts_or_assignments
     - student_charges_and_payments
+    - student_question_stats
+    - student_test_stats
+    - student_content_progress
+    - question_taxonomy_and_translations
 
 relationships_confirmed_or_supported_by_projection:
   - student_has_learning_login_projection
@@ -169,6 +218,7 @@ relationships_confirmed_or_supported_by_projection:
   - student_has_licenses
   - student_has_financial_account
   - student_can_have_location
+  - student_has_progress_projection_per_learning_account_and_category
 
 confirmed_actions:
   - add_student_from_pkk
@@ -189,6 +239,12 @@ confirmed_actions:
   - assign_student_license
   - delete_unactivated_student_license
   - add_student_payment
+  - select_progress_learning_account
+  - select_progress_category
+  - view_question_progress_by_topic
+  - view_test_progress
+  - view_handbook_progress
+  - view_lecture_progress
 
 security_requirements:
   - tenant_isolation
@@ -200,6 +256,7 @@ security_requirements:
   - do_not_use_username_as_resource_authorization
   - audit_training_stage_changes
   - audit_credential_downloads
+  - authorize_progress_context_by_student_and_organization
 
 remaining_gaps:
   - add_student_manual_form
@@ -209,7 +266,6 @@ remaining_gaps:
   - add_course_form
   - training_stage_transition_behavior
   - internal_exam_tab
-  - progress_tab
   - conduct_internal_exam_flow
   - assign_license_form
   - license_delete_effect_and_inventory_restore
@@ -221,5 +277,10 @@ remaining_gaps:
   - sort_options
   - pagination
   - internal_exam_red_x_semantics
+  - populated_progress_questions_analysis
+  - populated_progress_tests_analysis
+  - exact_progress_percentage_formulas
+  - progress_activity_history_and_learning_time
+  - exact_lecture_counter_unit_semantics
   - validations
   - success_error_messages
