@@ -55,7 +55,7 @@ stage_4_slices:
   - id: DB4_2_IDENTITY_TENANT_RBAC
     status: IN_PROGRESS_WITH_BLOCKERS
     diagnosis: COMPLETE
-    result: FAIL_WITH_4_P1_BLOCKERS
+    result: FAIL_WITH_3_P1_BLOCKERS
   - id: DB4_3_STAFF_LOCATIONS_VEHICLES
     status: NOT_STARTED
   - id: DB4_4_STUDENTS_COURSES_TRAINING_LEDGER
@@ -105,31 +105,66 @@ quality_checks:
     machine_source:
       - specs/security/permissions.yml
       - specs/database/identity-rbac.yml
-    tests:
-      - materialize_every_known_permission_decision_on_template_application
-      - template_included_true_nonincluded_false
-      - missing_row_denied
-      - template_catalog_change_does_not_silently_change_existing_member
-      - future_permission_defaults_denied
-      - runtime_never_authorizes_from_role_template_code
     aggregate_sync_note: >-
       identity-rbac.yml is the authoritative bounded-context source during DB4_2.
-      Aggregate core-schema.yml and docs/87 are synchronized before final DB4_2 PASS;
-      this does not block the individual DB-IAM-001 decision gate.
+      Aggregate core-schema.yml and docs/87 are synchronized before final DB4_2 PASS.
 
   identity_rbac_data_scope_physical_contract:
-    status: FAIL
-    blocker_id: DB-IAM-002
-    evidence:
-      - organization_memberships currently has one data_scope varchar
-      - canonical scopes include own assigned_students assigned_locations organization
-      - authorization order evaluates data scope after permission
-    unresolved:
-      - default_scope_vs_per_permission_scope
-      - how_concrete_location_restrictions_are_resolved
-      - how_assigned_students_are_derived
-      - whether_scope_can_expand_or_only_restrict_a_permission
-    impact: query_scope_could_be_inconsistent_across_modules_or_accidentally_tenant_wide
+    status: PASS
+    resolved_blocker_id: DB-IAM-002
+    decision:
+      membership_wide_data_scope_string: superseded_and_runtime_forbidden
+      scope_binding: per_membership_permission
+      scope_catalog:
+        - organization
+        - own
+        - assigned_students
+        - assigned_locations
+      physical_tables:
+        - data_scopes
+        - permission_scope_options
+        - membership_permission_scopes
+      granted_permission_without_scope: deny_fail_closed
+      denied_permission_with_scope_rows: deny_and_consistency_failure
+      multiple_scope_rows_for_one_permission: logical_OR_after_tenant_validation
+      unsupported_permission_scope_pair: rejected
+      organization_scope_bypasses_tenant_validation: false
+      list_and_get_by_id_share_scope_policy: true
+      frontend_post_fetch_filter_as_security_boundary: forbidden
+    resolver_contracts:
+      own: permission_specific_owner_relation_or_deny
+      assigned_locations: active_staff_membership_link_to_staff_profile_to_staff_location_assignments
+      assigned_students:
+        - active_staff_membership_link_to_staff_profile
+        - scope_eligible_course_enrollment_where_lead_instructor_matches
+        - scope_eligible_training_session_where_instructor_matches
+    downstream_physical_dependencies:
+      DB4_3:
+        - staff_membership_links
+        - staff_location_assignments
+      DB4_4:
+        - course_enrollment_lead_instructor_relation
+        - training_session_instructor_relation
+      rule: downstream_slices_implement_FKs_and_adapters_but_may_not_redefine_scope_semantics_without_gate_reopen
+    machine_source:
+      - specs/database/identity-rbac.yml
+      - specs/security/permissions.yml
+    narrative_source:
+      - docs/04-roles-permissions.md
+      - docs/105-stage-4-identity-tenant-rbac-audit.md
+    tests:
+      - granted_without_scope_denied
+      - unsupported_permission_scope_pair_rejected
+      - organization_scope_cross_tenant_denied
+      - multiple_scopes_are_OR
+      - own_without_owner_relation_denied
+      - assigned_students_without_active_staff_link_empty
+      - assigned_locations_without_active_staff_link_empty
+      - list_and_fetch_by_id_equivalent_scope
+    aggregate_sync_note: >-
+      core-schema.yml and docs/87 still contain the superseded membership data_scope
+      field. This is intentionally deferred until final DB4_2 synchronization; the
+      bounded-context contract is authoritative meanwhile and migrations remain blocked.
 
   auth_session_membership_integrity:
     status: FAIL
@@ -197,11 +232,15 @@ resolved_blockers:
       permission decisions are materialized into membership_permissions; absent
       and future permissions default deny, and backend runtime authorization never
       consults role_template_code.
-
-open_blockers:
   - id: DB-IAM-002
     severity: P1
-    description: Current single data_scope column does not define a complete canonical scope-resolution contract.
+    resolution: >-
+      Data scope is materialized per granted membership permission through a
+      whitelist of legal permission/scope pairs and fail-closed resolver rows.
+      Multiple scopes are OR-ed after same-tenant validation; the old membership-wide
+      data_scope string is superseded and forbidden at runtime.
+
+open_blockers:
   - id: DB-IAM-003
     severity: P1
     description: Auth session user and selected organization membership can be physically inconsistent under simple independent foreign keys.
@@ -220,20 +259,19 @@ gate_definition:
     - migration_order_is_dependency_safe
     - database_invariant_test_matrix_exists
     - reverse_engineering_preservation_is_traceable_to_schema_or_use_case
-  current_result: FAIL_DB4_2_WITH_4_OPEN_P1_BLOCKERS
+  current_result: FAIL_DB4_2_WITH_3_OPEN_P1_BLOCKERS
   may_start_stage_5: false
   may_start_UI_or_feature_implementation: false
   may_start_DB4_3: false
 
 next_single_step:
-  id: DB4_2_STEP_3
-  blocker: DB-IAM-002
-  action: resolve_data_scope_physical_and_query_resolution_contract_only
+  id: DB4_2_STEP_4
+  blocker: DB-IAM-003
+  action: resolve_auth_session_user_membership_integrity_only
   allowed_scope:
     - specs/database/identity-rbac.yml
-    - docs/04-roles-permissions.md
-    - specs/security/permissions.yml
+    - docs/08-security-compliance.md
     - docs/105-stage-4-identity-tenant-rbac-audit.md
     - specs/gates/stage-4-database-contract-gate.yml
-  scope_lock: do_not_fix_session_membership_owner_or_membership_lifecycle_blockers_in_the_same_step
-  after_action: rerun_DB4_2_gate_and_record_DB_IAM_002_PASS_or_new_blocker_before_DB_IAM_003
+  scope_lock: do_not_fix_owner_privilege_or_membership_permission_lifecycle_blockers_in_the_same_step
+  after_action: rerun_DB4_2_gate_and_record_DB_IAM_003_PASS_or_new_blocker_before_DB_IAM_004
