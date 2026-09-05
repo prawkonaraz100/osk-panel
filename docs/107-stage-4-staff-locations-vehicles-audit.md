@@ -2,7 +2,7 @@
 
 Data: 2026-09-06
 
-**Status:** `DB4_3 IN PROGRESS / DB-RES-001 PASS / DB-RES-002 PASS / DB-RES-003 PASS / 3 P1 BLOCKERS OPEN`
+**Status:** `DB4_3 IN PROGRESS / DB-RES-001..004 PASS / 2 P1 BLOCKERS OPEN`
 
 ## Cel
 
@@ -43,39 +43,7 @@ Podczas zamykania DB4_3 `specs/database/staff-locations-vehicles.yml` jest autor
 
 # DB-RES-001 — PASS: StaffMembershipLink same-organization integrity
 
-## Problem
-
-Przy samych prostych FK `staff_membership_links` mógł połączyć StaffProfile z OSK A z OrganizationMembership z OSK B. To podważałoby bazę resolverów `own`, `assigned_locations` i `assigned_students`.
-
-## Decyzja
-
-`staff_membership_links.organization_id` jest obowiązkowym tenant key.
-
-Candidate keys:
-- `staff_profiles UNIQUE(organization_id,id)`,
-- `organization_memberships UNIQUE(organization_id,id)`.
-
-Composite FK:
-- `(organization_id,staff_profile_id) -> staff_profiles(organization_id,id)`,
-- `(organization_id,organization_membership_id) -> organization_memberships(organization_id,id)`.
-
-`ON UPDATE RESTRICT / ON DELETE RESTRICT`.
-
-Active-link uniqueness pozostaje:
-- najwyżej jeden `unlinked_at IS NULL` na StaffProfile,
-- najwyżej jeden `unlinked_at IS NULL` na OrganizationMembership.
-
-Normalny unlink zachowuje historyczny link. Tenant identity istniejącej historii nie jest przepisywana.
-
-Wpływ archive Staff na membership pozostaje `DB-RES-006`.
-
-## Gate
-
-- cross-tenant StaffMembershipLink niemożliwy po constraintach — PASS,
-- active-link uniqueness zachowane — PASS,
-- history unlink zachowana — PASS,
-- migration precheck bez silent reassignment — PASS,
-- nie ruszono pozostałych blockerów — PASS.
+`staff_membership_links.organization_id` jest obowiązkowym tenant key. Composite FK spinają link z `staff_profiles(organization_id,id)` oraz `organization_memberships(organization_id,id)`. Active-link uniqueness i historyczny unlink pozostają zachowane.
 
 **Gate DB-RES-001: PASS.**
 
@@ -83,68 +51,7 @@ Wpływ archive Staff na membership pozostaje `DB-RES-006`.
 
 # DB-RES-002 — PASS: Staff/Vehicle ↔ Location tenant integrity
 
-## Problem
-
-Dotychczas `staff_location_assignments(staff_profile_id,location_id)` oraz `vehicle_location_assignments(vehicle_id,location_id)` miały tylko niezależne FK. Błąd aplikacji/importu mógł więc połączyć zasób OSK A z Location OSK B.
-
-Dla Staff było to dodatkowo krytyczne, ponieważ `assigned_locations` z DB-IAM-002 opiera się właśnie na StaffLocationAssignments.
-
-## Decyzja canonical
-
-Obie join tables dostają jawny `organization_id` i stają się tenant-aware.
-
-### StaffLocationAssignment
-
-`PRIMARY KEY (organization_id,staff_profile_id,location_id)`
-
-Composite FK:
-- `(organization_id,staff_profile_id) -> staff_profiles(organization_id,id)`,
-- `(organization_id,location_id) -> locations(organization_id,id)`.
-
-### VehicleLocationAssignment
-
-`PRIMARY KEY (organization_id,vehicle_id,location_id)`
-
-Composite FK:
-- `(organization_id,vehicle_id) -> vehicles(organization_id,id)`,
-- `(organization_id,location_id) -> locations(organization_id,id)`.
-
-Wymagane candidate keys:
-- `staff_profiles(organization_id,id)`,
-- `vehicles UNIQUE(organization_id,id)`,
-- `locations UNIQUE(organization_id,id)`.
-
-Wszystkie composite FK używają `ON UPDATE RESTRICT / ON DELETE RESTRICT`.
-
-## Tenant ownership
-
-`organization_id` w assignment jest immutable po utworzeniu. StaffProfile, Vehicle i Location z historycznymi relacjami nie są przenoszone do innego OSK przez przepisanie tenant key.
-
-To nie zmienia assignmentów kategorii, ponieważ `driving_categories` jest globalnym słownikiem.
-
-## Skutek dla RBAC
-
-Po DB-RES-001 + DB-RES-002 resolver:
-
-`OrganizationMembership -> active StaffMembershipLink -> StaffProfile -> StaffLocationAssignment -> Location`
-
-ma zamknięte tenant boundaries.
-
-## Migration precheck
-
-Przed constraintami należy wykryć cross-tenant pary i duplikaty, backfillować `organization_id` wyłącznie z wcześniej zweryfikowanego parenta i ponownie udowodnić zgodność drugiej strony. Nie ma silent reassignment.
-
-## Quality gate DB-RES-002
-
-- tenant-aware join tables — **PASS**,
-- composite same-tenant FK — **PASS**,
-- candidate keys — **PASS DESIGN**,
-- duplicate assignment jednoznacznie blokowany — **PASS**,
-- `assigned_locations` nie może użyć cross-tenant relation — **PASS**,
-- Vehicle↔Location równie chronione — **PASS**,
-- category assignments poza zakresem zmiany — **PASS**,
-- migration precheck bez silent reassignment — **PASS**,
-- nie rozpoczęto kolejnych blockerów — **PASS**.
+`staff_location_assignments` i `vehicle_location_assignments` są tenant-aware i posiadają `organization_id`. Composite FK wymuszają zgodność Staff/Vehicle z Location w tym samym OSK. `assigned_locations` nie może rozszerzyć RBAC przez cross-tenant join.
 
 **Gate DB-RES-002: PASS.**
 
@@ -152,102 +59,137 @@ Przed constraintami należy wykryć cross-tenant pary i duplikaty, backfillować
 
 # DB-RES-003 — PASS: Staff/Vehicle FileAsset same-tenant + purpose + ready attachment
 
-## Problem
-
-Staff/Vehicle mają `photo_asset_id`, a `staff_documents` i `vehicle_documents` mogą wskazywać `asset_id`.
-
-Prosty FK do `file_assets.id` nie chronił przed:
-- assetem z innego OSK,
-- platformowym/global assetem (`organization_id IS NULL`) użytym jako prywatny dokument lub zdjęcie,
-- assetem o złym `purpose`,
-- assetem, który nie osiągnął stanu `ready`.
-
-To było sprzeczne z upload security, według którego business entity może przypiąć plik dopiero po bezpiecznym zakończeniu upload/scan.
-
-## Decyzja canonical — tenant boundary
-
-`file_assets` dostaje wymagany candidate key:
-
-`UNIQUE(organization_id,id)`.
-
-Cztery ścieżki używają composite FK:
-- `staff_profiles(organization_id,photo_asset_id) -> file_assets(organization_id,id)`,
-- `staff_documents(organization_id,asset_id) -> file_assets(organization_id,id)`,
-- `vehicles(organization_id,photo_asset_id) -> file_assets(organization_id,id)`,
-- `vehicle_documents(organization_id,asset_id) -> file_assets(organization_id,id)`.
-
-`MATCH SIMPLE / ON UPDATE RESTRICT / ON DELETE RESTRICT`.
-
-Asset reference pozostaje nullable tam, gdzie UI dopuszcza brak pliku. Gdy reference jest nie-null, tenant-owned source ma nie-null `organization_id`, więc platformowy asset z `file_assets.organization_id IS NULL` nie może spełnić FK.
-
-## Purpose mapping
-
-Dokładne klasy attachment:
-- StaffProfile.photo → `staff_photo`,
-- StaffDocument.asset → `staff_document`,
-- Vehicle.photo → `vehicle_photo`,
-- VehicleDocument.asset → `vehicle_document`.
-
-Business `document_type` nadal należy do `staff_documents` / `vehicle_documents`. `FileAsset.purpose` opisuje klasę attachmentu, a nie np. `medical_exam` czy `oc_insurance`.
-
-## Ready + purpose jako DB boundary
-
-Same-tenant integralność jest wymuszana composite FK. Dynamicznego `status='ready'` i właściwego `purpose` nie próbujemy modelować przez kopiowanie mutable statusu do czterech tabel biznesowych.
-
-Canonical physical design używa wspólnego `BEFORE INSERT OR UPDATE` constraint triggera (lub równoważnego DB triggera) dla zmian asset reference/tenant key. Trigger:
-1. ładuje wskazany same-tenant `FileAsset`,
-2. blokuje rekord `FOR SHARE` do końca transakcji attachmentu,
-3. sprawdza dokładny expected purpose dla danej ścieżki,
-4. wymaga `status='ready'`,
-5. odrzuca missing/foreign/platform/wrong-purpose/non-ready asset.
-
-Laravel nadal wykonuje wcześniejszą walidację dla dobrego UX, ale **DB trigger jest finalną granicą attachmentu**. Dzięki lockowi status nie może zmienić się między walidacją a commitem attachmentu.
-
-## Lifecycle po attachment
-
-`FileAsset.purpose` jest immutable po zakończeniu uploadu.
-
-Późniejszy kontrolowany security transition assetu do stanu non-ready może zachować historyczny business reference, ale taki asset nie może być serwowany/downloadowany tylko dlatego, że referencja nadal istnieje. Download ponownie sprawdza aktualną politykę/stage assetu.
-
-Zmiana zdjęcia lub dokumentu nie kasuje automatycznie poprzedniego FileAsset. Retencja i bezpieczne usuwanie assetu są osobnym lifecycle.
-
-## Migration precheck
-
-Przed constraintami/triggerem trzeba wykryć:
-- foreign-tenant attachments,
-- platform asset użyty jako prywatny attachment,
-- wrong-purpose attachments,
-- non-ready attachments wymagające jawnej remediacji.
-
-Nie wolno automatycznie przepinać assetu do innego OSK ani po cichu przepisywać purpose tylko po to, żeby migracja przeszła.
-
-## Quality gate DB-RES-003
-
-Sprawdzono:
-- same-tenant na wszystkich czterech ścieżkach — **PASS**,
-- platform/global asset nie może wejść do prywatnego Staff/Vehicle attachmentu — **PASS**,
-- purpose mapping jest jawny i oddzielony od document type — **PASS**,
-- `ready` jest wymagane przy attachment commit — **PASS**,
-- race `status change ↔ attach` jest serializowany lockiem — **PASS DESIGN**,
-- późniejszy non-ready stan nie daje prawa do downloadu — **PASS**,
-- replacement nie usuwa automatycznie starego assetu — **PASS**,
-- migration precheck nie robi silent tenant/purpose repair — **PASS**,
-- DB-RES-004..006 nie zostały naprawione w tym kroku — **PASS**,
-- nie rozpoczęto DB4_4 ani migracji Laravel — **PASS**.
-
-Nie znaleziono nowego P0/P1 wynikającego z decyzji DB-RES-003.
-
-Machine source: `specs/database/staff-locations-vehicles.yml`.
+Cztery prywatne ścieżki attachmentu używają same-tenant composite FK do `file_assets(organization_id,id)`. Purpose jest jawny (`staff_photo`, `staff_document`, `vehicle_photo`, `vehicle_document`), a DB trigger wymaga `status='ready'` i serializuje race asset-state ↔ attachment. Platformowy asset nie może być użyty jako prywatny Staff/Vehicle attachment.
 
 **Gate DB-RES-003: PASS.**
 
 ---
 
-# DB-RES-004 — OPEN P1: current document validity projection
+# DB-RES-004 — PASS: history-safe current document validity projection
 
-UI ma po jednej bieżącej dacie dla każdego typu dokumentu, ale `staff_documents` i `vehicle_documents` dopuszczają wiele rekordów tego samego typu bez current/superseded semantics.
+## Problem
 
-Trzeba wybrać jednoznaczny history-safe model current row/versioning. **To jest następny i jedyny blocker do naprawy.**
+Zweryfikowane ekrany pokazują po jednej bieżącej wartości ważności dla każdego rodzaju dokumentu, natomiast dotychczasowy physical blueprint dopuszczał wiele `staff_documents` / `vehicle_documents` tego samego typu bez definicji rekordu bieżącego.
+
+Nie można było jednoznacznie odpowiedzieć, czy backend ma:
+- nadpisywać rekord,
+- wybierać `MAX(created_at)`,
+- przechowywać historię i arbitralnie wybierać jedną wersję,
+- czy blokować dwa równoległe current records.
+
+To było niezgodne z wymaganiem zachowania historii oraz z jednoznaczną projekcją detail/expiry.
+
+## Decyzja canonical
+
+Wybrany został **versioned/superseded history model**.
+
+Current row:
+
+`superseded_at IS NULL`
+
+Dla jednego parenta i `document_type` może istnieć **zero albo dokładnie jeden** bieżący rekord.
+
+Staff:
+
+`UNIQUE (organization_id, staff_profile_id, document_type) WHERE superseded_at IS NULL`
+
+Vehicle:
+
+`UNIQUE (organization_id, vehicle_id, document_type) WHERE superseded_at IS NULL`
+
+Nie stosujemy zasady „najnowszy `created_at` wygrywa”.
+
+## Pola wersji
+
+Do `staff_documents` dochodzą semantycznie:
+- `created_by_user_id nullable`,
+- `superseded_at nullable`,
+- `superseded_by_user_id nullable`,
+- `supersession_reason nullable`.
+
+Analogicznie dla `vehicle_documents`.
+
+`valid_until` pozostaje nullable. W Staff nadal istnieje `document_number`; asset nadal podlega DB-RES-003.
+
+## Edycja dokumentu
+
+Zwykła edycja ważności/numeru/assetu **nie mutuje business fields starej wersji w miejscu**.
+
+Transakcja replacement:
+1. lock parent resource,
+2. pobierz current row danego typu `FOR UPDATE`, jeśli istnieje,
+3. zwaliduj tenant i nowy asset,
+4. oznacz stary current jako superseded,
+5. wstaw nową current version,
+6. zapisz audit/outbox,
+7. commit.
+
+Partial unique index jest finalnym zabezpieczeniem przed dwoma current rows przy concurrency.
+
+Jeżeli payload nie zmienia business state, nowa wersja nie jest wymagana.
+
+## Clear semantics
+
+Usunięcie dokumentu z bieżącej projekcji oznacza:
+- supersede current row,
+- brak replacement,
+- zero current rows,
+- historia pozostaje.
+
+Jeżeli użytkownik usuwa tylko datę ważności, ale dokument jako taki pozostaje, powstaje nowa wersja z `valid_until = NULL`.
+
+Hard-delete nie jest używany do zwykłej edycji ani czyszczenia.
+
+## Immutability historii
+
+Po supersede business fields historycznego dokumentu są immutable.
+
+Na istniejącym current row dozwolona jest jedynie kontrolowana jednorazowa zmiana pól supersession. Canonical DB design wymaga triggera albo równoważnego constraint policy, aby późniejsza poprawka nie przepisała historii.
+
+## Projection rules
+
+Detail Staff/Vehicle czyta wyłącznie `superseded_at IS NULL`.
+
+- brak current row → brak bieżącej wartości dokumentu,
+- current row z `valid_until IS NULL` → dokument bez daty ważności,
+- `expired` liczymy wyłącznie z bieżącego `valid_until`, względem lokalnej daty organizacji,
+- próg `expiring_soon` pozostaje konfiguracją/projekcją, nie częścią DB-RES-004.
+
+Dla późniejszego DB4_5 Calendar wejściem do important-date projection są wyłącznie current rows z `valid_until IS NOT NULL`. Superseded rows nie mogą emitować bieżących alertów terminowych.
+
+## Relacja z DB-RES-003
+
+Każda nowa wersja dokumentu z `asset_id` ponownie przechodzi same-tenant + purpose + ready attachment gate z DB-RES-003.
+
+Supersede dokumentu nie kasuje starego FileAsset. Historyczna referencja pozostaje zgodnie z polityką retencji i security delivery assetu.
+
+## Migration precheck
+
+Przed utworzeniem partial unique indexes należy pogrupować istniejące dokumenty per parent/type i wykryć grupy z więcej niż jednym kandydatem na current.
+
+**Nie wolno automatycznie wybrać `MAX(created_at)` ani `MAX(id)`.** Ambiguous history wymaga jawnego one-time mapping/remediation opartego na źródłowych danych albo audytowalnej decyzji migracyjnej.
+
+## Quality gate DB-RES-004
+
+Sprawdzono:
+- current predicate jest jednoznaczny — **PASS**,
+- zero-or-one current row per parent/type jest chronione partial unique — **PASS**,
+- normalna edycja zachowuje poprzednią wersję — **PASS**,
+- concurrency nie może pozostawić dwóch current rows — **PASS DESIGN**,
+- clear nie hard-delete'uje historii — **PASS**,
+- historyczne business fields są immutable — **PASS DESIGN**,
+- detail/expiry czytają wyłącznie current row — **PASS**,
+- superseded row nie emituje current important-date input — **PASS**,
+- DB-RES-003 pozostaje obowiązujący dla każdego nowego attachmentu — **PASS**,
+- migration precheck nie stosuje arbitralnego `latest wins` — **PASS**,
+- DB-RES-005 i DB-RES-006 nie zostały rozwiązane w tym kroku — **PASS**,
+- nie rozpoczęto DB4_4 ani migracji Laravel — **PASS**.
+
+Nie znaleziono nowego P0/P1 wynikającego z decyzji DB-RES-004.
+
+Machine source: `specs/database/staff-locations-vehicles.yml`.
+
+**Gate DB-RES-004: PASS.**
 
 ---
 
@@ -258,7 +200,7 @@ Do finalnego rozstrzygnięcia pozostają:
 - Vehicle registration number uniqueness przez archive/restore,
 - Vehicle VIN uniqueness, gdy podany.
 
-Nie naprawiamy jeszcze.
+**To jest następny i jedyny blocker do naprawy.**
 
 ---
 
@@ -282,17 +224,17 @@ Potrzebna jawna atomowa policy respektująca DB-IAM-004/005. Nie naprawiamy jesz
 
 ---
 
-# Wynik po DB4_3_STEP_4
+# Wynik po DB4_3_STEP_5
 
 - `DB-RES-001` — **PASS**,
 - `DB-RES-002` — **PASS**,
 - `DB-RES-003` — **PASS**,
-- `DB-RES-004` — **OPEN P1**,
+- `DB-RES-004` — **PASS**,
 - `DB-RES-005` — **OPEN P1**,
 - `DB-RES-006` — **OPEN P1**.
 
-DB4_3 jako całość nadal ma **FAIL / IN_PROGRESS** z 3 blockerami P1. DB4_4 pozostaje zablokowany.
+DB4_3 jako całość nadal ma **FAIL / IN_PROGRESS** z 2 blockerami P1. DB4_4 pozostaje zablokowany.
 
-Aggregate `core-schema.yml` i `docs/87` zostaną zsynchronizowane przed finalnym DB4_3 PASS, po zamknięciu blockerów bounded-contextu.
+Aggregate `core-schema.yml` i `docs/87` zostaną zsynchronizowane dopiero przed finalnym DB4_3 PASS, po zamknięciu blockerów bounded-contextu.
 
-**Następny pojedynczy krok: tylko `DB-RES-004` — history-safe current document validity projection.**
+**Następny pojedynczy krok: tylko `DB-RES-005` — Staff/Vehicle identity uniqueness lifecycle.**
