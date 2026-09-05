@@ -171,7 +171,7 @@ Self-audit: `docs/103-stage-3-final-contract-audit.md`.
 
 # Etap 4 — DB invariants + migracje projektowe
 
-**Status:** NEXT / NOT_STARTED
+**Status:** IN_PROGRESS — FOUNDATION_GATE_FAIL
 
 Cel:
 - przenieść blueprint oraz bounded-context specs do finalnego zestawu migracji Laravel dopiero po zamknięciu kontraktów,
@@ -179,19 +179,32 @@ Cel:
 - nie implementować hard-delete dla formalnej/finansowej historii,
 - zamknąć concurrency constraints.
 
-Priorytet:
+Pierwszy slice `DB4_1_FOUNDATION_DIAGNOSIS` został wykonany bez generowania migracji. Gate wykrył cztery P1, które muszą zostać rozwiązane kolejno:
+- `DB-FOUND-001` — finalny physical primary-key strategy,
+- `DB-FOUND-002` — nullable-scope uniqueness dla idempotency i account closure,
+- `DB-FOUND-003` — brak `organization_contact_addresses` w aggregate core inventory,
+- `DB-FOUND-004` — Stage-2 settings fields/constraints nie są jeszcze scalone do physical core blueprint.
+
+Nie naprawiamy ich wszystkich naraz. Następny pojedynczy krok dotyczy wyłącznie `DB-FOUND-001`.
+
+Priorytet dalszych slice'ów:
 - identity/tenant/RBAC,
 - staff/locations/vehicles,
 - students/course,
 - ledger czasu,
+- calendar,
 - licenses,
 - internal exams,
+- PKK,
 - commerce,
 - audit/outbox.
 
 W Etapie 4 decyzje z `specs/database/organization-settings.yml` muszą zostać przeniesione do finalnego physical schema/migrations.
 
-**Gate Etapu 4:** migration/invariant tests przechodzą przed warstwą UI.
+Machine-readable gate: `specs/gates/stage-4-database-contract-gate.yml`.
+Foundation audit: `docs/104-stage-4-database-foundation-audit.md`.
+
+**Gate Etapu 4:** FAIL / IN_PROGRESS. Stage 5 i implementacja feature/UI pozostają zablokowane.
 
 ---
 
