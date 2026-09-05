@@ -10,6 +10,8 @@ screen:
   expanded_attempts_doc: docs/61-internal-exam-expanded-attempt-history.md
   answer_sheet_pdf_spec: specs/screens/internal-exam-answer-sheet-pdf.yml
   answer_sheet_pdf_doc: docs/62-internal-exam-answer-sheet-pdf.md
+  result_details_spec: specs/screens/internal-exam-result-details.yml
+  result_details_doc: docs/63-internal-exam-result-details-screen.md
 
 inventory:
   projections:
@@ -134,6 +136,27 @@ answer_sheet_pdf:
   observed_panel_failed_status_label: Niezaliczony
   immutable_attempt_question_snapshot_required_for_own_product: true
 
+result_details:
+  confidence: USER_CONFIRMED_AUTH_RESULT_SCREEN
+  screen_spec: specs/screens/internal-exam-result-details.yml
+  screen_doc: docs/63-internal-exam-result-details-screen.md
+  host: www.prawo-jazdy-360.pl
+  route_pattern: /egzamin-wewnetrzny?pid=<opaque_token>
+  observed_completed_failed_attempt:
+    score: 0
+    max_score: 74
+    basic_correct: 0
+    basic_incorrect: 20
+    specialized_correct: 0
+    specialized_incorrect: 12
+    total_correct: 0
+    total_incorrect: 32
+  question_navigation:
+    basic: 1-20
+    specialized: 21-32
+    total_count: 32
+  clicked_question_review_content: TO_VERIFY
+
 row_actions:
   - action: expand_exam_history
     label: Rozwiń
@@ -141,6 +164,8 @@ row_actions:
     label: Szczegóły
     route_host_observed: www.prawo-jazdy-360.pl
     route_pattern: /egzamin-wewnetrzny?pid=<token>
+    semantics: completed_attempt_result_and_answer_review_for_observed_attempt
+    details_spec: specs/screens/internal-exam-result-details.yml
   - action: download_exam_printout
     label: Pobierz wydruk
     route_pattern: /exam/download?id=<exam_id>
@@ -173,6 +198,7 @@ own_product_model:
   snapshot_historical_candidate_data_per_attempt: true
   snapshot_exam_question_set_per_attempt: true
   snapshot_scoring_per_attempt_question: true
+  immutable_result_projection: true
   row_projection_fields:
     - latest_attempt_id
     - latest_attempt_category
@@ -198,6 +224,9 @@ confirmed_actions:
   - view_specific_exam_attempt_history_rows
   - view_not_passed_attempt_status
   - open_exam_details
+  - redirect_to_tokenized_exam_result_frontend
+  - view_completed_exam_score_and_statistics
+  - navigate_completed_exam_question_numbers
   - download_exam_printout
   - download_exam_answer_sheet_pdf
   - view_exam_question_ids_and_scores_in_pdf
@@ -208,7 +237,7 @@ remaining_gaps:
   - filter_options
   - sort_options
   - exact_search_fields
-  - details_screen_semantics
+  - clicked_question_review_content
   - passed_status_presentation
   - positive_result_pdf_label
   - pending_in_progress_statuses
