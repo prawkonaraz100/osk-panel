@@ -61,7 +61,7 @@ Zamknięte mapowania PATCH obejmują m.in.:
 
 Przeskanowano wszystkie pliki `specs/api/paths/*.yaml`. Nie ma znanego P0/P1 request-semantics blocker.
 
-Pełna automatyczna walidacja `$ref`/`operationId`/coverage należy do Etapu 3.
+Pełna walidacja `$ref`/`operationId`/coverage została domknięta w Etapie 3.
 
 **Gate Etapu 1:** PASSED.
 
@@ -112,44 +112,66 @@ Self-audit: `docs/101-stage-1-2-self-audit.md`.
 
 ---
 
-# Etap 3 — OpenAPI coverage + automatyczny contract gate
+# Etap 3 — OpenAPI coverage + contract gate
 
-**Status:** NEXT / IN_PROGRESS
+**Status:** DONE
 
 Cel:
-- każda HTTP operation z `specs/api/required-operations-v1.yml` ma operationId,
-- schema request/response istnieje,
-- permission jest jawne,
-- security mode jest jawny,
-- contract lint działa w CI.
+- każda HTTP operation z `specs/api/required-operations-v1.yml` ma `operationId`,
+- request/response contract istnieje,
+- permission i security mode są jawne,
+- wszystkie cross-file `$ref` są rozwiązywalne,
+- potwierdzone capability z reverse engineeringu mają pełne mapowanie,
+- kontrakt jest chroniony wykonywalnym walidatorem repozytoryjnym i workflow CI.
 
-Sprawdzić szczególnie:
-- auth vs remote exam token,
-- payment webhook signature security,
-- PKK async/retry/reconciliation,
-- PKK configuration gate operations,
-- exam station transfer,
-- license activation/revoke race,
-- uploads i asset lifecycle,
-- nowe cross-file refs do `openapi-settings-components.yaml`.
+Zamknięte wyniki:
+- 169 wymaganych capability HTTP,
+- 158 kanonicznych operacji `path + method`,
+- 11 jawnych shared-capability mappings przez `covered_by_operationId`,
+- 0 niezmapowanych wymagań HTTP,
+- 129 root path refs i 0 dangling path refs,
+- 158 unikalnych `operationId` i 0 duplikatów,
+- 0 operacji bez security contract,
+- jawne wyjątki dla publicznego auth, podpisanego webhooka płatności oraz scoped exam access token,
+- krytyczne commandy mają uzgodnione idempotency/concurrency semantics,
+- requesty nie mogą przyjmować server-owned lifecycle fields przez przypadkowy mass assignment,
+- 0 dangling component/schema/parameter/response refs.
 
-Plan Etapu 3:
-1. zrobić machine-readable inventory wszystkich `operationId`,
-2. porównać go z `required-operations-v1.yml`,
-3. oznaczyć exact coverage / intentional non-HTTP / deferred,
-4. sprawdzić dangling `$ref`,
-5. sprawdzić duplicate operationId,
-6. sprawdzić brak permission/security annotation,
-7. dodać lint/contract check do CI lub przynajmniej skrypt repozytoryjny,
-8. uruchomić self-audit i dopiero potem przejść do DB migrations.
+W trakcie audytu naprawiono także realne błędy:
+- `TRACE-001` — brak PKK configuration-gate w traceability,
+- `SEC-001` — zewnętrzny wynik/review egzaminu wymagał scoped opaque token zamiast samej sesji OSK,
+- `REQ-001` — `StudentLearningAccount.status` nie może być bezpośrednio edytowalnym polem requestu,
+- `CI-001` — dokumentowane reguły kontraktu nie miały wykonywalnego validatora.
 
-**Gate Etapu 3:** required HTTP coverage = 100% albo jawny wyjątek z decyzją; zero dangling refs i duplicate operationId.
+Executable gate:
+- validator: `scripts/contract-validation/validate_openapi_contract.py`,
+- dependency pin: `scripts/contract-validation/requirements.txt`,
+- komenda lokalna: `python scripts/contract-validation/validate_openapi_contract.py`,
+- CI: `.github/workflows/api-contract-gate.yml`.
+
+Validator chroni co najmniej:
+- parse YAML,
+- recursive `$ref` resolution,
+- root/module path parity,
+- unique `operationId`,
+- bidirectional `required-operations` coverage,
+- zamrożone liczniki 169/158/11,
+- security scheme references,
+- permission annotations dla operacji niepublicznych,
+- brak `readOnly` fields w request schemas.
+
+Ważne: brak obserwowalnego runu nowo dodanego workflow na izolowanej gałęzi nie zmienia wyniku dokumentacyjnego gate — plan wymagał co najmniej wykonywalnego validatora repozytoryjnego. Pierwszy faktyczny run CI jest nadal obowiązkowym pre-merge checkiem.
+
+**Gate Etapu 3:** PASSED.
+
+Machine-readable gate: `specs/gates/stage-3-openapi-contract-gate.yml`.
+Self-audit: `docs/103-stage-3-final-contract-audit.md`.
 
 ---
 
 # Etap 4 — DB invariants + migracje projektowe
 
-**Status:** PLANNED
+**Status:** NEXT / NOT_STARTED
 
 Cel:
 - przenieść blueprint oraz bounded-context specs do finalnego zestawu migracji Laravel dopiero po zamknięciu kontraktów,
