@@ -1,12 +1,16 @@
 meta:
   project: osk-panel
   scope: admin_osk_service_catalog
-  status: CONSOLIDATED
+  status: CONSOLIDATED_INDEX_ONLY
   consolidated_at: 2026-09-05
   authoritative_baseline: specs/implementation-baseline-v1.yml
+  preservation_contract: docs/96-reverse-engineering-preservation-contract.md
+  preservation_manifest: specs/reverse-engineering-manifest.yml
   note: >-
-    This aggregate summarizes admin services only. Screen-level implementation
-    details live in specs/screens. Legal/design/security/api specs override this file.
+    This aggregate is a navigation/index document only. It MUST NOT be used to
+    reduce screen-level requirements. Every confirmed field, option, action,
+    filter, sorting choice, PDF, state and entry flow listed in screen specs or
+    the preservation manifest remains required for core v1.
 
 service_groups:
   core_osk:
@@ -16,15 +20,18 @@ service_groups:
       capabilities:
         - license_summary
         - exam_inventory_summary
-        - activity_feed
-        - calendar_preview
+        - activity_feed_with_actor_timestamp_entity_and_change_details
+        - embedded_calendar_month_week_day
         - quick_actions
+      details: specs/reverse-engineering-manifest.yml#core.dashboard
 
     pkk:
       route: /integracja-pkk
       operational_owner: course_enrollment
       status: READY_FOR_IMPLEMENTATION
       capabilities:
+        - informational_onboarding_page
+        - pkk_configuration_gate
         - fetch_profile
         - preview_profile
         - update_training_and_return
@@ -32,39 +39,45 @@ service_groups:
         - return_to_authority
         - return_expired_profile
         - operation_history
+        - safe_retry_and_reconciliation
+        - provider_signed_xml_handoff_when_required
       requirements:
         - provider_adapter
         - audit
         - idempotency
         - retry_classification
         - reconciliation
+      details: specs/reverse-engineering-manifest.yml#core.pkk
 
     students:
       route: /kursanci
       status: READY_FOR_IMPLEMENTATION
       capabilities:
-        - list
-        - search
-        - filter
-        - sort
-        - preview
-        - create
+        - list_with_confirmed_columns
+        - partial_text_search
+        - confirmed_filters
+        - confirmed_sort
+        - read_only_quick_preview_drawer
+        - create_manual
+        - add_student_from_pkk_entry
         - edit
         - archive
+        - safe_delete_equivalent
         - learning_access
+        - credentials_pdf
         - course_enrollments
         - licenses
         - student_finance
         - progress
         - internal_exams
-        - access_document
+      details: specs/reverse-engineering-manifest.yml#core.students
 
     course_enrollments:
       status: READY_FOR_IMPLEMENTATION
       capabilities:
-        - create
-        - edit
-        - cancel
+        - create_with_all_observed_fields
+        - edit_with_all_observed_fields
+        - cancel_or_safe_delete_equivalent
         - training_stage
         - rule_engine_requirements
         - exemption_corrections
@@ -73,28 +86,36 @@ service_groups:
         - training_hour_ledger_projection
         - pkk_context
         - internal_exam_context
+        - student_finance_context
       source_of_truth:
         current_osk_hours: training_session_and_hour_ledger
         external_hours: recognized_external_training
+        observed_form_hour_fields_are_preserved: true
+      details: specs/reverse-engineering-manifest.yml#core.courses
 
     calendar:
       route: /kalendarz
       status: READY_FOR_IMPLEMENTATION
       capabilities:
         - month_week_day
+        - event_type_filter
+        - driving_lesson_filter
+        - important_dates_filter_and_projection
+        - staff_resource_panel_with_document_warnings
+        - vehicle_resource_panel_with_document_warnings
+        - location_resource_panel
         - create_event
         - create_driving_lesson
-        - staff_resource
-        - vehicle_resource
-        - location_resource
-        - student_resource
-        - custom_meeting_place
+        - optional_student
+        - optional_instructor
+        - optional_vehicle
+        - location_or_custom_meeting_place
         - server_side_conflict_detection
-        - important_date_projection
-      planned_extensions:
+      extensions_from_public_business_evidence:
         - self_booking
         - work_time
         - notifications
+      details: specs/reverse-engineering-manifest.yml#core.calendar
 
     locations:
       route: /lokalizacje
@@ -105,10 +126,12 @@ service_groups:
         - maneuvering_area
       capabilities:
         - list
-        - create
+        - create_with_type_name_street_postal_city
+        - searchable_city_catalog_with_voivodeship
         - edit
         - calendar_context
         - archive_restore_own_policy
+      details: specs/reverse-engineering-manifest.yml#core.locations
 
     vehicles:
       route: /pojazdy
@@ -119,13 +142,16 @@ service_groups:
         - detail
         - edit
         - archive_restore
+        - safe_delete_equivalent
         - photo
-        - categories
-        - locations
+        - categories_multi_select
+        - locations_multi_select
         - technical_inspection
         - oc
         - ac
-        - calendar_context
+        - expiry_alerts
+        - embedded_calendar
+      details: specs/reverse-engineering-manifest.yml#core.vehicles
 
     staff:
       route: /pracownicy
@@ -136,14 +162,20 @@ service_groups:
         - detail
         - edit
         - archive_restore
-        - staff_types
-        - categories
-        - locations
-        - documents
-        - optional_user_account
+        - safe_delete_equivalent
+        - staff_types_multi_select
+        - categories_multi_select
+        - locations_multi_select
+        - card_validity
+        - medical_exam_validity
+        - psychological_exam_validity
+        - expiry_alerts
+        - optional_photo
+        - optional_panel_account
         - permissions
-        - calendar_context
+        - embedded_calendar
       rbac: specs/security/permissions.yml
+      details: specs/reverse-engineering-manifest.yml#core.staff
 
     settings:
       route: /ustawienia
@@ -156,6 +188,7 @@ service_groups:
         - osk_registry_number
         - osk_login
         - accepted_terms
+      details: specs/reverse-engineering-manifest.yml#core.settings
 
     purchase_history:
       route: /historia-zakupow
@@ -168,65 +201,84 @@ service_groups:
         - created_date
         - booked_date
         - pay_unpaid_order
-        - pagination
+        - pagination_or_page_size
       invariant: separate_from_student_finance
+      details: specs/reverse-engineering-manifest.yml#core.purchase_history
 
   education_sales:
     license_purchase:
       route: /licencje/wykup
       status: READY_FOR_IMPLEMENTATION
       capabilities:
-        - 31_day_product
-        - 90_day_product
-        - 180_day_product
-        - quantity
+        - one_three_six_month_variants
+        - quantity_per_variant
         - mixed_cart
         - dynamic_price_discount
-        - online_payment
-        - bank_transfer
+        - online_payment_PayU
+        - direct_bank_transfer
         - inventory_grant
+      details: specs/reverse-engineering-manifest.yml#core.licenses
 
     license_management:
       route: /licencje/panel
       status: READY_FOR_IMPLEMENTATION
       capabilities:
-        - inventory
-        - assign_to_student_learning_account
+        - inventory_31_90_180_day_cards
+        - available_and_active_counts
+        - assigned_learning_access_list
+        - search
+        - confirmed_sort
+        - hide_finished_toggle
+        - select_visible
+        - bulk_credentials_pdf
+        - assign_exactly_one_target
         - create_or_select_learning_account
-        - language_capability
+        - capability_driven_language_selection
+        - expand_assignment_history
         - activate
         - revoke_unactivated
         - restore_exactly_one_inventory_entry
-        - history
-        - sort
+        - active_expiry_and_remaining_days
         - access_pdf
         - progress
+      lifecycle_invariants:
+        - inventory_entry_can_be_reused_after_historical_revoked_assignment
+        - at_most_one_current_assignment_per_inventory_entry
+      details: specs/reverse-engineering-manifest.yml#core.licenses
 
     internal_exam_purchase:
       route: /egzamin-wewnetrzny/wykup
       status: READY_FOR_IMPLEMENTATION
       capabilities:
+        - quantity_selection
+        - dynamic_price
         - paid_inventory
         - free_inventory_grant
-        - purchase
-        - payment
+        - online_payment_PayU
+        - direct_bank_transfer
 
     internal_exam_management:
       route: /egzamin-wewnetrzny/panel
       status: READY_FOR_IMPLEMENTATION
       capabilities:
-        - search
-        - filter
-        - sort
-        - create_attempt_for_course
+        - free_paid_total_inventory
+        - aggregate_student_latest_attempt_list
+        - partial_search_first_last_email_login
+        - confirmed_filters
+        - confirmed_sort
+        - hide_finished_toggle
+        - selected_exactly_one_student_generation_entry
+        - standalone_generation_entry
+        - formal_attempt_for_persistent_student_and_course
         - reserve_inventory
         - remote_access
         - local_station_access
         - edit_candidate_snapshot_before_start
         - consume_inventory_on_start
-        - history
-        - result
-        - question_review
+        - expanded_attempt_history
+        - result_score_and_pass_state
+        - immutable_question_review
+        - media_question_review
         - answer_sheet_pdf
         - technical_abort
         - audited_inventory_adjustment
@@ -235,6 +287,8 @@ service_groups:
         - course_enrollment_required
         - exam_part_must_be_required_by_rule_engine
         - finish_does_not_consume_inventory_again
+        - released_historical_reservation_does_not_block_future_reuse
+      details: specs/reverse-engineering-manifest.yml#core.internal_exams
 
     learning_progress:
       status: READY_FOR_IMPLEMENTATION
@@ -244,20 +298,23 @@ service_groups:
         - category_context
         - test_stats
         - question_stats
-        - topic_progress
+        - topic_progress_basic_and_specialized
         - handbook_progress
         - lecture_progress
+        - control_question_progress
+      details: specs/reverse-engineering-manifest.yml#core.students
 
   finance:
     student_finance:
       status: READY_FOR_IMPLEMENTATION
       capabilities:
-        - charge
+        - create_charge
         - partial_payment
         - full_payment
-        - balance
+        - remaining_balance_projection
         - reversal
         - cancel_charge
+        - preserve_history
       design: specs/design/student-finance-ledger.yml
 
     platform_orders:
@@ -274,26 +331,38 @@ service_groups:
     business_cards:
       route: /wizytowki
       status: NOT_SCREEN_MAPPED
+      evidence_preserved: true
     advertising:
       status: NOT_SCREEN_MAPPED
+      evidence_preserved: true
     lectures:
       route: /wyklady
       status: NOT_SCREEN_MAPPED
+      evidence_preserved: true
     instructor_training:
       route: /szkolenie-z-instruktorem
       status: NOT_SCREEN_MAPPED
+      evidence_preserved: true
 
 cross_cutting:
+  preservation_contract: docs/96-reverse-engineering-preservation-contract.md
+  preservation_manifest: specs/reverse-engineering-manifest.yml
   canonical_domain_glossary: docs/82-canonical-domain-glossary.md
   lifecycle_policy: specs/design/core-lifecycle.yml
   api_contract: specs/api/common-contract.yml
+  required_api_operations: specs/api/required-operations-v1.yml
+  openapi: specs/api/openapi-v1.yaml
+  database_blueprint: specs/database/core-schema.yml
   rbac: specs/security/permissions.yml
   testing: docs/84-test-strategy.md
   production_operations: docs/85-production-operations.md
 
-remaining_nonblocking_or_preimplementation_gaps:
-  - openapi_3_1
-  - physical_db_schema
-  - architecture_decision_records
-  - legal_category_dictionary_reverification
-  - privacy_retention_schedule
+remaining_preimplementation_work:
+  blocking_before_module_done:
+    - complete_openapi_coverage_against_required_operations_inventory
+    - sync_docs_87_narrative_with_machine_db_constraint_fixes
+    - generate_module_traceability_acceptance_checklist_during_implementation
+  high_risk_before_related_production_data:
+    - legal_category_dictionary_reverification_including_PT
+    - sensitive_identifier_encryption_key_rotation_ADR
+    - calendar_overlap_enforcement_ADR
