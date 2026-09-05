@@ -18,6 +18,11 @@ principles:
   backend_enforcement_required: true
   tenant_scope_independent_from_permission: true
   data_scope_supported: true
+  data_scope_is_per_permission: true
+  one_global_membership_data_scope_is_forbidden: true
+  scope_only_restricts_already_granted_permission: true
+  missing_scope_for_granted_permission_fails_closed: true
+  multiple_scopes_for_same_permission_are_OR: true
 
 permission_materialization:
   source_catalog: this_file
@@ -27,16 +32,21 @@ permission_materialization:
     - materialize_one_membership_permission_decision_for_every_known_core_permission
     - included_permissions_get_granted_true
     - nonincluded_permissions_get_granted_false
+    - materialize_template_scope_rows_for_every_granted_permission
+    - denied_permissions_have_no_scope_rows
     - persist_role_template_code_and_catalog_version_as_provenance
-    - audit_materialized_permission_snapshot
+    - audit_materialized_permission_and_scope_snapshot
   on_template_reapply_or_change:
     - explicit_command_only
     - resolve_selected_template_against_current_catalog
     - replace_current_permission_decisions_for_all_known_core_permissions_atomically
+    - replace_current_scope_rows_for_all_known_core_permissions_atomically
     - persist_new_template_code_and_catalog_version_as_provenance
-    - audit_before_after_permission_snapshot
+    - audit_before_after_permission_and_scope_snapshot
   on_individual_permission_change:
     - update_authoritative_membership_permission_decision
+    - granting_requires_explicit_scope_set_allowed_for_that_permission
+    - denying_removes_scope_rows_in_same_transaction
     - role_template_provenance_does_not_override_explicit_current_decision
     - audit_change
   runtime_effective_permission_rule: >-
@@ -44,8 +54,14 @@ permission_materialization:
     decision for the active OrganizationMembership. role_template_code and
     role_template_catalog_version are provenance/UI metadata and are never
     consulted by backend authorization at request time.
+  runtime_scope_rule: >-
+    A granted permission is still denied unless at least one materialized
+    membership_permission_scope for that permission matches the target through
+    its registered resolver. Multiple scope rows are OR-ed only after the target
+    has passed same-organization validation.
   missing_permission_row_rule: denied
-  new_permission_after_membership_creation: denied_until_explicitly_granted_or_template_reapplied
+  missing_scope_row_for_granted_permission_rule: denied
+  new_permission_after_membership_creation: denied_until_explicitly_granted_with_scope_or_template_reapplied
   template_definition_change_rule: existing_memberships_do_not_change_automatically
 
 permission_groups:
@@ -167,29 +183,174 @@ permission_groups:
     - impersonation.start
 
 data_scopes:
-  - own
-  - assigned_students
-  - assigned_locations
-  - organization
+  organization:
+    semantics: every_target_inside_active_membership_organization_after_tenant_validation
+    resolver_base: tenant_resource
+  own:
+    semantics: target_owned_by_current_user_or_staff_profile_linked_to_active_membership
+    resolver_base: permission_target_owner
+    missing_owner_relation: deny
+  assigned_students:
+    semantics: target_resolves_to_student_assigned_to_staff_profile_linked_to_active_membership
+    resolver_base: permission_target_assigned_student
+    assignment_sources:
+      - non_cancelled_course_enrollment_where_lead_instructor_matches_staff_profile
+      - non_cancelled_training_session_where_instructor_matches_staff_profile
+    missing_active_staff_link: deny_empty_set
+  assigned_locations:
+    semantics: target_resolves_to_location_in_current_staff_profile_location_assignments
+    resolver_base: permission_target_assigned_location
+    assignment_source: staff_location_assignments
+    missing_active_staff_link: deny_empty_set
 
-elevated_permissions:
-  - organization.members.manage
-  - organization.integrations.manage
-  - staff.permissions.manage
-  - training_hours.correct
-  - course_requirements.correct
-  - pkk.training.update_and_return
-  - pkk.return.school
-  - pkk.return.authority
-  - pkk.return.expired
-  - licenses.activate
-  - exams.inventory.adjust
-  - exams.attempt.invalidate
-  - student_finance.reverse_payment
+scope_profiles:
+  organization_only:
+    allowed_scopes: [organization]
+  own_only:
+    allowed_scopes: [own]
+  organization_or_own:
+    allowed_scopes: [organization, own]
+  student_scoped:
+    allowed_scopes: [organization, assigned_students]
+  student_or_own_scoped:
+    allowed_scopes: [organization, assigned_students, own]
+  location_scoped:
+    allowed_scopes: [organization, assigned_locations]
+  calendar_scoped:
+    allowed_scopes: [organization, assigned_students, assigned_locations, own]
+
+permission_scope_profile_by_code:
+  organization.view: organization_only
+  organization.edit: organization_only
+  organization.settings.manage: organization_only
+  organization.integrations.manage: organization_only
+  organization.members.manage: organization_only
+  organization.audit.view: organization_only
+
+  students.view: student_scoped
+  students.create: organization_only
+  students.edit: student_scoped
+  students.archive: student_scoped
+  students.restore: student_scoped
+  students.progress.view: student_scoped
+
+  student_access.view: student_scoped
+  student_access.create: student_scoped
+  student_access.manage_credentials: student_scoped
+  student_access.reset_password: student_scoped
+  student_access.download_credentials_pdf: student_scoped
+
+  courses.view: student_scoped
+  courses.create: organization_only
+  courses.edit: student_scoped
+  courses.cancel: student_scoped
+  courses.restore: student_scoped
+  courses.stage.change: student_scoped
+  training_sessions.view: student_or_own_scoped
+  training_sessions.create: student_or_own_scoped
+  training_sessions.edit: student_or_own_scoped
+  training_sessions.cancel: student_or_own_scoped
+  training_hours.correct: student_scoped
+  external_training.recognize: student_scoped
+  course_requirements.correct: student_scoped
+
+  pkk.view: student_scoped
+  pkk.fetch: student_scoped
+  pkk.training.update_and_return: student_scoped
+  pkk.return.school: student_scoped
+  pkk.return.authority: student_scoped
+  pkk.return.expired: student_scoped
+  pkk.retry: student_scoped
+
+  calendar.view: calendar_scoped
+  calendar.manage.own: own_only
+  calendar.manage.organization: organization_only
+  calendar.publish_student_slots: organization_or_own
+  calendar.book_for_student: student_scoped
+  worktime.view.own: own_only
+  worktime.view.organization: organization_only
+  worktime.manage: organization_only
+
+  locations.view: location_scoped
+  locations.create: organization_only
+  locations.edit: organization_only
+  locations.archive: organization_only
+  locations.restore: organization_only
+
+  vehicles.view: location_scoped
+  vehicles.create: organization_only
+  vehicles.edit: organization_only
+  vehicles.archive: organization_only
+  vehicles.restore: organization_only
+
+  staff.view: location_scoped
+  staff.create: organization_only
+  staff.edit: organization_only
+  staff.archive: organization_only
+  staff.restore: organization_only
+  staff.accounts.manage: organization_only
+  staff.permissions.manage: organization_only
+
+  licenses.view: student_scoped
+  licenses.purchase: organization_only
+  licenses.assign: student_scoped
+  licenses.activate: student_scoped
+  licenses.revoke_unactivated: student_scoped
+  licenses.progress.view: student_scoped
+  licenses.access_documents.download: student_scoped
+
+  exams.view: student_scoped
+  exams.purchase: organization_only
+  exams.generate: student_scoped
+  exams.access.send: student_scoped
+  exams.start.local: student_scoped
+  exams.results.view: student_scoped
+  exams.documents.download: student_scoped
+  exams.inventory.adjust: organization_only
+  exams.attempt.invalidate: student_scoped
+
+  student_finance.view: student_scoped
+  student_finance.create_charge: student_scoped
+  student_finance.cancel_charge: student_scoped
+  student_finance.record_payment: student_scoped
+  student_finance.reverse_payment: student_scoped
+
+  purchases.view: organization_only
+  purchases.create: organization_only
+  purchases.pay: organization_only
+
+  sessions.manage.own: own_only
+  sessions.manage.organization: organization_only
+  impersonation.start: organization_only
+
+scope_materialization_rules:
+  physical_catalog_tables:
+    - data_scopes
+    - permission_scope_options
+    - membership_permission_scopes
+  expand_scope_profiles_into_permission_scope_options: true
+  unsupported_permission_scope_pair: reject
+  granted_permission_requires_one_or_more_scope_rows: true
+  denied_permission_requires_zero_scope_rows: true
+  multiple_scope_rows_for_same_permission: logical_OR
+  organization_scope_bypasses_tenant_validation: false
+  unknown_scope_resolver: deny_and_configuration_error
+  query_enforcement_required_for:
+    - list
+    - get_by_id
+    - search
+    - counts
+    - exports
+    - PDFs
+    - bulk_actions
 
 role_templates:
   Owner:
     strategy: all_core_permissions_known_in_this_catalog_version
+    scope_strategy:
+      organization_when_profile_allows_it: true
+      own_when_permission_profile_is_own_only: true
+      do_not_add_assigned_scopes_by_default: true
   OfficeAdmin:
     includes_groups:
       - students
@@ -204,6 +365,9 @@ role_templates:
       - pkk
       - student_finance
       - platform_purchases
+    scope_strategy:
+      organization_when_profile_allows_it: true
+      own_when_permission_profile_is_own_only: true
   HR:
     includes:
       - staff.view
@@ -211,8 +375,9 @@ role_templates:
       - worktime.view.organization
       - worktime.manage
       - locations.view
+    scope_strategy:
+      organization_for_all_granted_permissions: true
   Instructor:
-    data_scope_default: own_or_assigned_students
     includes:
       - students.view
       - students.progress.view
@@ -229,8 +394,13 @@ role_templates:
       - pkk.fetch
       - exams.generate
       - exams.start.local
+    scope_strategy:
+      student_scoped: [assigned_students]
+      student_or_own_scoped: [assigned_students, own]
+      calendar_scoped: [assigned_students, own]
+      own_only: [own]
+      organization_only: explicit_grant_requires_explicit_organization_scope
   Lecturer:
-    data_scope_default: own_or_assigned_students
     includes:
       - students.view
       - students.progress.view
@@ -238,6 +408,12 @@ role_templates:
       - training_sessions.view
       - calendar.view
       - worktime.view.own
+    scope_strategy:
+      student_scoped: [assigned_students]
+      student_or_own_scoped: [assigned_students, own]
+      calendar_scoped: [assigned_students, own]
+      own_only: [own]
+      organization_only: explicit_grant_requires_explicit_organization_scope
   Accounting:
     includes:
       - organization.view
@@ -249,15 +425,32 @@ role_templates:
       - purchases.pay
     conditional:
       - student_finance.reverse_payment
+    scope_strategy:
+      organization_when_profile_allows_it: true
 
 backend_authorization_order:
   - authenticated_user
   - active_membership
   - tenant_ownership_or_relation_validation
   - authoritative_membership_permission_decision
-  - data_scope
+  - membership_permission_scope_resolution
   - domain_state_rule
   - elevated_reauth_or_mfa_when_configured
+
+scope_resolver_contract:
+  assigned_locations:
+    fixed_dependency: active_staff_membership_link_to_staff_profile_to_staff_location_assignments
+    physical_completion_stage: DB4_3
+  assigned_students:
+    fixed_dependencies:
+      - active_staff_membership_link_to_staff_profile
+      - course_enrollment_lead_instructor_relation
+      - training_session_instructor_relation
+    physical_completion_stages: [DB4_3, DB4_4]
+  downstream_rule: >-
+    Later DB slices implement foreign keys and permission-specific adapters but
+    may not silently redefine the meaning of own, assigned_students,
+    assigned_locations or organization without reopening the RBAC gate.
 
 safety_rules:
   last_owner_cannot_be_removed_without_transfer: true
@@ -266,3 +459,6 @@ safety_rules:
   permission_revocation_effect_must_be_defined_for_active_sessions: true
   template_definition_change_must_not_silently_expand_existing_member_privileges: true
   role_template_code_must_not_be_used_as_backend_authorization_shortcut: true
+  membership_data_scope_string_must_not_be_used_as_backend_authorization_shortcut: true
+  granted_permission_without_scope_must_fail_closed: true
+  scope_must_not_expand_beyond_active_tenant: true
