@@ -24,6 +24,7 @@ principles:
   scope_can_only_restrict_an_already_granted_permission: true
   tenant_validation_always_precedes_scope_resolution: true
   missing_or_unresolvable_scope_fails_closed: true
+  tenant_session_membership_must_belong_to_same_user_as_session: true
 
 physical_tables_in_scope:
   - users
@@ -279,10 +280,89 @@ data_scope_contract:
     - explicit_permission_grant_requires_explicit_allowed_scope_set
     - template_application_materializes_scopes_only_for_granted_permissions
 
+# DB-IAM-003 canonical session/membership integrity contract.
+auth_session_membership_integrity:
+  blocker: DB-IAM-003
+  status: RESOLVED_DESIGN
+  goal: prevent_a_session_for_one_user_from_selecting_another_users_organization_membership
+
+  session_shape:
+    auth_sessions_user_id:
+      nullable: false
+      foreign_key: users_id
+      semantics: authenticated_global_user_identity
+    auth_sessions_organization_membership_id:
+      nullable: true
+      semantics: selected_tenant_context_when_present
+    null_membership_context:
+      allowed: true
+      use_cases:
+        - authenticated_pre_tenant_selection
+        - global_account_or_security_flow_not_requiring_organization_context
+      tenant_owned_operation_allowed_without_membership: false
+
+  organization_membership_reference_key:
+    required_unique_constraint:
+      table: organization_memberships
+      columns: [id, user_id]
+      reason: PostgreSQL_composite_FK_target_for_same_user_session_context
+    membership_user_id_mutation:
+      allowed: false
+      rule: a_membership_is_never_reassigned_to_another_user_mutate_status_or_create_correct_membership_instead
+
+  same_user_composite_foreign_key:
+    source_table: auth_sessions
+    source_columns: [organization_membership_id, user_id]
+    target_table: organization_memberships
+    target_columns: [id, user_id]
+    match_semantics: MATCH_SIMPLE
+    on_update: RESTRICT
+    on_delete: RESTRICT
+    effect: >-
+      When organization_membership_id is non-null, PostgreSQL must prove that the
+      referenced membership row has the same user_id as the session. A membership
+      belonging to User B cannot be selected by a session whose user_id is User A.
+      When organization_membership_id is null, the composite FK is intentionally
+      not applicable and the session remains a global/pre-tenant session.
+
+  context_selection_transaction:
+    requirements:
+      - load_session_by_non_secret_session_identifier
+      - resolve_requested_membership
+      - require_requested_membership_user_id_equals_session_user_id
+      - require_membership_is_eligible_for_tenant_context_under_current_lifecycle_policy
+      - update_auth_sessions_organization_membership_id
+      - rely_on_composite_FK_as_final_database_integrity_boundary
+    client_supplied_organization_id_as_authority: forbidden
+    selected_organization_is_derived_from_membership: true
+
+  runtime_authorization:
+    tenant_owned_request_requires_non_null_membership_context: true
+    membership_same_user_is_guaranteed_by_database_when_context_is_non_null: true
+    active_membership_still_rechecked_at_request_time: true
+    note: >-
+      The composite FK solves identity integrity only. Membership state transitions,
+      suspension/revocation and session invalidation timing remain DB-IAM-005 and
+      are intentionally not defined by this blocker.
+
+  migration_and_existing_data_gate:
+    before_adding_composite_FK:
+      - scan_for_auth_sessions_with_non_null_membership_whose_membership_user_id_differs_from_session_user_id
+      - fail_migration_or_quarantine_invalid_security_records_do_not_silently_repair_to_another_user
+      - add_unique_organization_memberships_id_user_id
+      - add_composite_auth_sessions_membership_user_FK
+    invalid_existing_row_policy: security_error_requires_explicit_remediation
+
+  tests_required:
+    - session_with_membership_belonging_to_same_user_is_accepted
+    - session_with_membership_belonging_to_different_user_is_rejected_by_database
+    - session_with_null_membership_is_allowed_for_global_or_pre_tenant_context
+    - tenant_owned_operation_with_null_membership_context_is_denied_by_backend_policy
+    - same_user_can_switch_session_context_between_memberships_in_two_different_organizations
+    - organization_membership_user_id_cannot_be_reassigned_to_another_user
+    - migration_detects_preexisting_cross_user_session_membership_rows_before_constraint_creation
+
 open_blockers_not_resolved_here:
-  DB-IAM-003:
-    status: OPEN
-    topic: auth_session_membership_same_user_integrity
   DB-IAM-004:
     status: OPEN
     topic: owner_and_privilege_escalation_invariants
