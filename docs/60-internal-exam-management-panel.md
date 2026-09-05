@@ -20,51 +20,34 @@ Powiązane:
 - filtrowanie: `docs/69-internal-exam-filtering.md`,
 - sortowanie: `docs/70-internal-exam-sorting.md`.
 
----
-
 ## 1. Znaczenie ekranu
 
-`Zarządzaj egzaminami` jest centralnym panelem operacyjnym OSK do:
-- podglądu puli egzaminów,
-- rozróżnienia puli darmowej i opłaconej,
-- generowania egzaminu dla jednego kursanta,
-- przeglądania historii prób,
-- filtrowania, sortowania i wyszukiwania,
-- przechodzenia do wyniku/szczegółów konkretnej próby,
-- pobierania formalnego wydruku próby.
+`Zarządzaj egzaminami` jest centralnym panelem operacyjnym OSK do podglądu puli egzaminów, generowania egzaminu dla jednego kursanta, przeglądania historii prób, wyszukiwania, filtrowania, sortowania, przechodzenia do szczegółów oraz pobierania wydruku.
 
-Dla naszego produktu egzamin jest funkcją istniejącego kursanta i formalnego `course_enrollment`, a nie niezależnym narzędziem dla osoby ad hoc.
-
----
+Dla naszego produktu egzamin jest funkcją istniejącego kursanta i formalnego `course_enrollment`.
 
 ## 2. Inventory egzaminów
 
 Panel pokazuje:
-- `Darmowe` — obserwowane 10, opis `Egzaminy darmowe w tym miesiącu`,
+- `Darmowe` — obserwowane 10,
 - `Opłacone` — obserwowane 150,
 - `Wszystkie` — obserwowane 160.
 
-Snapshot: `10 + 150 = 160`.
-
 Własny model zachowuje źródło jednostki (`free_monthly`, `paid`), a `total_available` jest projekcją.
-
-`Dokup egzaminy` prowadzi do `/egzamin-wewnetrzny/wykup`.
-
----
 
 ## 3. Lista `Przydzielone egzaminy wewnętrzne`
 
 Potwierdzone kontrolki:
-- zielony `Generuj egzamin`,
+- `Generuj egzamin`,
 - wybór dokładnie jednego wiersza kursanta,
-- stan `ZAZNACZONE (1)`,
+- `ZAZNACZONE (1)`,
 - `Generuj egzaminy (1)`,
 - `Ukryj egzaminy zakończone`,
 - wyszukiwarka,
 - `Filtruj`,
 - `Sortuj`.
 
-Jeden wiersz jest agregatem kursanta i jego prób, nie pojedynczą próbą.
+Jeden wiersz jest agregatem kursanta i jego prób.
 
 Potwierdzone kolumny:
 - `Email lub login`,
@@ -73,35 +56,29 @@ Potwierdzone kolumny:
 - `Liczba egzaminów`,
 - akcje.
 
-Zaobserwowano m.in.:
-- Ala Nowak — 7 egzaminów,
-- Paweł Kowalski — 2 egzaminy.
+## 4. Wyszukiwanie
 
----
+Użytkownik potwierdził działanie wyszukiwarki na głównej liście dla fragmentów danych kursanta.
 
-## 4. Generowanie egzaminu
+Potwierdzone pola wyszukiwania:
+- imię,
+- nazwisko,
+- email,
+- login.
 
-Są dwa wejścia do tego samego drawera `Generuj dostęp do egzaminu wewnętrznego`:
+Wyszukiwanie po PESEL w tym konkretnym polu głównej listy nie zostało osobno potwierdzone.
 
-### A. Z zaznaczonym kursantem
-`zaznacz 1 -> ZAZNACZONE (1) -> Generuj egzaminy (1)`
+## 5. Generowanie egzaminu
 
-Drawer otwiera się z gotowym kursantem.
+Są dwa wejścia do drawera `Generuj dostęp do egzaminu wewnętrznego`:
+- zaznaczenie jednego kursanta i `Generuj egzaminy (1)`,
+- duży `Generuj egzamin` bez wcześniejszego zaznaczenia.
 
-### B. Bez zaznaczenia
-`Generuj egzamin`
+Dla naszego produktu formalny egzamin wymaga trwałego `student_id` i `course_enrollment_id`.
 
-Konkurent pozwala wtedy wyszukać istniejącego kursanta albo użyć sekcji `Dodaj nowego kursanta`.
+## 6. Dane egzaminacyjne i edycja
 
-**Decyzja naszego produktu:** formalny egzamin wymaga trwałego `student_id` i `course_enrollment_id`. Jeśli sekretarka dodaje osobę z poziomu egzaminu, najpierw tworzymy trwałego kursanta/kurs, a dopiero potem wracamy do generowania.
-
-Pełny flow: `docs/65-internal-exam-generation-access-flow.md`.
-
----
-
-## 5. Dane egzaminacyjne i edycja
-
-Zaobserwowane dane kursanta w flow:
+Zaobserwowane pola:
 - kategoria egzaminu,
 - język egzaminu,
 - imię,
@@ -110,186 +87,65 @@ Zaobserwowane dane kursanta w flow:
 - PKK / nr ewidencyjny,
 - email.
 
-`Edytuj dane` otwiera edytowalny formularz tych pól z akcjami `Anuluj` i `Zapisz dane`.
+`Edytuj dane` otwiera edytowalny formularz tych pól z `Anuluj` i `Zapisz dane`.
 
-Dla naszego produktu dane formalne są źródłowo powiązane z profilem kursanta i enrollmentem, a konkretna utworzona próba dostaje immutable snapshot.
+## 7. Tryby uruchomienia
 
----
+`Udostępnij link do egzaminu` — generuje link i wysyła go na email.
 
-## 6. Dwa tryby uruchomienia
+`Rozpocznij egzamin teraz` — uruchamia egzamin na bieżącym stanowisku, dla jednego kursanta jednocześnie.
 
-### `Udostępnij link do egzaminu`
-- generuje link,
-- pozwala wykonać egzamin zdalnie,
-- link jest wysyłany na email.
+## 8. Statusy i filtrowanie
 
-### `Rozpocznij egzamin teraz`
-- uruchamia egzamin na bieżącym stanowisku,
-- UI informuje: `Dostępne tylko dla 1 kursanta jednocześnie.`
+Potwierdzone statusy filtra:
+- `Brak przypisanego`,
+- `Niezaliczony`,
+- `Nie przeprowadzony`,
+- `Zaliczony`.
 
-Własny model: dwa tryby `internal_exam_launch` (`remote_link`, `local_station`), nie dwa typy egzaminu.
+`Niezaliczony` odpowiada czerwonemu `x` w obserwowanym wierszu głównym.
 
----
+## 9. Sortowanie
 
-## 7. Statusy i filtrowanie
-
-Potwierdzony mapping z historii:
-- `Niezaliczony` -> czerwony `x` w wierszu głównym.
-
-Drawer `Filtrowanie` zawiera:
-- `Kategoria kursu` — multi-select,
-- statusy:
-  - `Brak przypisanego`,
-  - `Niezaliczony`,
-  - `Nie przeprowadzony`,
-  - `Zaliczony`.
-
-To potwierdza, że `Brak przypisanego` oraz `Nie przeprowadzony` są dwoma odrębnymi stanami UI. Dokładny wewnętrzny lifecycle konkurenta pozostaje nieobserwowany.
-
-W naszym produkcie `Brak przypisanego` nie może oznaczać braku teoretycznego egzaminu tam, gdzie teoria zgodnie z rule engine nie jest wymagana (np. właściwy przebieg C+E).
-
-Szczegóły: `docs/69-internal-exam-filtering.md`.
-
----
-
-## 8. Sortowanie
-
-Drawer `Sortowanie` potwierdza dwa kierunki:
+Kierunki:
 - `Rosnąco`,
 - `Malejąco`.
 
-Można sortować po jednej z siedmiu kolumn:
-- `Email lub login`,
-- `Imię i nazwisko`,
-- `Kat.`,
-- `Status`,
-- `Data`,
-- `Język`,
-- `Liczba egzaminów`.
+Pola:
+- Email lub login,
+- Imię i nazwisko,
+- Kat.,
+- Status,
+- Data,
+- Język,
+- Liczba egzaminów.
 
-Na obserwowanym ekranie zaznaczone były `Rosnąco` oraz `Data`, ale nie traktujemy tego jako potwierdzonego globalnego defaultu.
+## 10. Historia prób
 
-Szczegóły: `docs/70-internal-exam-sorting.md`.
+`Rozwiń` pokazuje każdą próbę osobno z kategorią, statusem, PKK/nr ewidencyjnym, datą, językiem, `Szczegóły` i `Pobierz wydruk`.
 
----
+## 11. Szczegóły i review
 
-## 9. `Rozwiń` — historia prób
+`Szczegóły` prowadzi do tokenizowanego frontu `/egzamin-wewnetrzny?pid=<opaque_token>` z wynikiem, statystykami i review 32 pytań.
 
-Każda próba jest osobnym rekordem z:
-- imieniem i nazwiskiem,
-- kategorią,
-- statusem,
-- nr ewidencyjnym/PKK,
-- datą,
-- językiem,
-- `Szczegóły`,
-- `Pobierz wydruk`.
+## 12. Wydruk
 
-Timestamp nie jest identyfikatorem próby — zaobserwowano różne rekordy z tą samą minutą.
+`Pobierz wydruk` generuje per-attempt PDF `Arkusz odpowiedzi` z pełnym snapshotem próby i miejscami na podpisy.
 
----
-
-## 10. `Szczegóły` i review wyniku
-
-`Szczegóły` prowadzi do tokenizowanego frontu `/egzamin-wewnetrzny?pid=<opaque_token>`.
-
-Dla zakończonej próby pokazuje:
-- wynik punktowy,
-- rezultat,
-- nawigację po 32 pytaniach,
-- statystyki,
-- review pytanie po pytaniu.
-
-Review pokazuje media, treść pytania, wartość punktową, kategorię, poprawną odpowiedź i odpowiedź wybraną przez kursanta.
-
----
-
-## 11. `Pobierz wydruk`
-
-Generuje per-attempt PDF `Arkusz odpowiedzi` zawierający:
-- dane kandydata,
-- datę i kategorię,
-- 32 pozycje egzaminu,
-- identyfikatory pytań,
-- punktację,
-- odpowiedzi,
-- punkty uzyskane,
-- sumę i wynik,
-- miejsca na podpisy.
-
----
-
-## 12. Model naszego produktu
-
-Encje:
-- `internal_exam_inventory_ledger`,
-- `internal_exam_attempts`,
-- `internal_exam_attempt_questions`,
-- `internal_exam_launches`,
-- `internal_exam_launch_tokens`,
-- `internal_exam_results`,
-- `internal_exam_documents`.
+## 13. Model naszego produktu
 
 Formalny attempt wymaga:
 - `organization_id`,
 - `student_id`,
 - `course_enrollment_id`,
-- części egzaminu wymaganej przez aktualny rule engine,
+- wymaganej części egzaminu,
 - snapshotu danych kursanta/kursu,
 - dla teorii immutable snapshotu pytań, kolejności, odpowiedzi i punktacji.
-
-Nie dopuszczamy w naszym formalnym workflow `student_id = null` ani ephemeral `ad_hoc_candidate`.
-
-Wymagania teorii/praktyki są edytowalne na różnych etapach kursu i przeliczane na podstawie faktów formalnych, z pełnym audytem.
-
----
-
-## 13. Potwierdzone akcje
-
-- `open_internal_exam_management_panel`
-- `view_free_exam_inventory`
-- `view_paid_exam_inventory`
-- `view_total_exam_inventory`
-- `open_exam_purchase`
-- `open_standalone_generate_exam_drawer`
-- `search_existing_student_for_exam`
-- `competitor_enter_new_student_data_in_drawer`
-- `select_one_student_for_exam_generation`
-- `open_generate_exam_for_selected_student`
-- `view_candidate_exam_generation_data`
-- `edit_candidate_exam_data`
-- `share_exam_link_by_email`
-- `start_exam_on_current_station`
-- `toggle_hide_finished_exams`
-- `search_exam_rows`
-- `open_exam_filters`
-- `filter_by_multiple_course_categories`
-- `filter_by_exam_status`
-- `open_exam_sorting`
-- `sort_internal_exam_rows_ascending`
-- `sort_internal_exam_rows_descending`
-- `sort_by_email_or_login`
-- `sort_by_student_name`
-- `sort_by_latest_exam_category`
-- `sort_by_latest_exam_status`
-- `sort_by_latest_exam_date`
-- `sort_by_latest_exam_language`
-- `sort_by_exam_count`
-- `expand_exam_history`
-- `collapse_exam_history`
-- `view_exam_attempt_history`
-- `view_not_passed_exam_status`
-- `open_specific_exam_attempt_details`
-- `review_specific_exam_questions`
-- `download_specific_exam_attempt_printout`
-
----
 
 ## 14. Pozostałe niewiadome
 
 Do dalszego capture:
 - pełna lista kategorii i języków egzaminu,
-- exact search fields,
 - wizualizacja statusu `Zaliczony` w tabeli,
 - dokładne znaczenie kolumny `Data`,
 - zachowanie sortowania dla pustych wartości,
