@@ -6,24 +6,40 @@ meta:
   preservation_manifest: specs/reverse-engineering-manifest.yml
   common_contract: specs/api/common-contract.yml
   openapi: specs/api/openapi-v1.yaml
+  traceability: specs/traceability/core-v1.yml
 
 rules:
   every_operation_must_have_backend_use_case: true
-  every_http_operation_must_eventually_have_openapi_operationId: true
+  every_http_operation_must_have_openapi_operationId: true
+  every_http_operation_must_have_security_or_explicit_public_security_override: true
+  every_http_operation_must_have_request_response_schema_or_explicit_no_body_contract: true
   frontend_only_projection_action_may_reference_existing_read_endpoint: true
   observed_ui_action_does_not_require_same_competitor_endpoint_shape: true
   destructive_reference_ui_action_may_map_to_safe_lifecycle_command: true
+  confirmed_screen_capability_may_not_be_removed_because_aggregate_is_shorter: true
 
 operations:
+  auth_identity:
+    - { id: auth.register, method: POST, path: /auth/register }
+    - { id: auth.login, method: POST, path: /auth/login }
+    - { id: auth.logout, method: POST, path: /auth/logout }
+    - { id: auth.password_forgot, method: POST, path: /auth/password/forgot }
+    - { id: auth.password_reset, method: POST, path: /auth/password/reset }
+    - { id: auth.sessions_list, method: GET, path: /auth/sessions }
+    - { id: auth.session_revoke, method: DELETE, path: '/auth/sessions/{sessionId}' }
+    - { id: auth.account_closure_request, method: POST, path: /auth/account-closure-requests }
+    - { id: auth.social_redirect, method: GET, path: '/auth/social/{provider}/redirect' }
+    - { id: auth.social_callback, method: GET, path: '/auth/social/{provider}/callback' }
+    - id: auth.return_url_validation
+      type: security_capability
+      requirement: only_local_allowlisted_application_paths_after_password_or_social_auth
+
   dashboard:
-    - id: dashboard.get
-      method: GET
-      path: /dashboard
-      sources: [docs/74-main-dashboard.md, specs/screens/main-dashboard.yml]
-    - id: activity.list
-      method: GET
-      path: /activity
-      sources: [docs/74-main-dashboard.md]
+    - { id: dashboard.get, method: GET, path: /dashboard, sources: [docs/74-main-dashboard.md, specs/screens/main-dashboard.yml] }
+    - { id: activity.list, method: GET, path: /activity, sources: [docs/74-main-dashboard.md] }
+    - id: dashboard.safe_activity_projection
+      type: projection_capability
+      requirement: activity_feed_uses_allowlisted_safe_projection_not_raw_audit_before_after_payloads
 
   students:
     - { id: students.list, method: GET, path: /students }
@@ -48,6 +64,9 @@ operations:
     - { id: learning_accounts.create_handoff, method: POST, path: '/students/{studentId}/learning-accounts/{accountId}/access-handoffs' }
     - { id: learning_accounts.download_handoff_pdf, method: GET, path: '/students/{studentId}/learning-accounts/{accountId}/access-handoffs/{handoffId}/pdf' }
     - { id: students.progress, method: GET, path: '/students/{studentId}/progress' }
+    - id: learning_accounts.password_security
+      type: invariant
+      requirement: plaintext_password_never_persisted_and_old_password_never_recoverable
 
   courses:
     - { id: course_enrollments.list_for_student, method: GET, path: '/students/{studentId}/course-enrollments' }
@@ -71,10 +90,14 @@ operations:
     - { id: external_training.list, method: GET, path: '/course-enrollments/{courseEnrollmentId}/recognized-external-training' }
     - { id: external_training.create, method: POST, path: '/course-enrollments/{courseEnrollmentId}/recognized-external-training' }
     - { id: external_training.revoke, method: POST, path: '/course-enrollments/{courseEnrollmentId}/recognized-external-training/{recordId}/revoke' }
+    - id: course_observed_hour_fields
+      type: preservation_capability
+      requirement: preserve_theory_practice_current_osk_and_previous_osk_form_inputs_without_making_declared_current_hours_second_formal_source_of_truth
 
   pkk:
     - { id: pkk.settings.get, method: GET, path: /organization/integrations/pkk }
     - { id: pkk.settings.update, method: PATCH, path: /organization/integrations/pkk }
+    - { id: pkk.settings.test_connection, method: POST, path: /organization/integrations/pkk/test-connection, condition: provider_supports_safe_test_connection }
     - { id: pkk.get, method: GET, path: '/course-enrollments/{courseEnrollmentId}/pkk' }
     - { id: pkk.fetch, method: POST, path: '/course-enrollments/{courseEnrollmentId}/pkk/fetch' }
     - { id: pkk.update_and_return, method: POST, path: '/course-enrollments/{courseEnrollmentId}/pkk/update-and-return' }
@@ -88,6 +111,9 @@ operations:
       type: orchestration_capability
       requirement: support_provider_flow_requiring_download_sign_external_and_upload_return_when_provider_contract_requires_it
       source: docs/75-pkk-entrypoints-and-student-list.md
+    - id: pkk.sensitive_snapshot_policy
+      type: security_capability
+      requirement: redacted_ui_projection_and_encrypted_or_minimized_sensitive_provider_snapshot
 
   calendar:
     - { id: calendar.events.list, method: GET, path: /calendar/events }
@@ -108,6 +134,9 @@ operations:
     - { id: availability.update, method: PATCH, path: '/availability-slots/{slotId}' }
     - { id: availability.book, method: POST, path: '/availability-slots/{slotId}/book' }
     - { id: availability.cancel, method: POST, path: '/availability-slots/{slotId}/cancel' }
+    - id: calendar.server_conflict_detection
+      type: invariant
+      requirement: instructor_vehicle_student_resource_conflicts_must_be_enforced_server_side
 
   locations:
     - { id: locations.list, method: GET, path: /locations }
@@ -137,6 +166,9 @@ operations:
     - id: staff.calendar_context
       type: projection_capability
       requirement: calendar_filter_by_staff_and_embedded_staff_calendar
+    - id: staff.login_tenant_identity
+      type: invariant
+      requirement: staff_profile_links_to_organization_membership_not_globally_unique_user
 
   vehicles:
     - { id: vehicles.list, method: GET, path: /vehicles }
@@ -155,6 +187,15 @@ operations:
       type: projection_capability
       requirement: calendar_filter_by_vehicle_and_embedded_vehicle_calendar
 
+  dictionaries_and_assets:
+    - { id: dictionaries.driving_categories.list, method: GET, path: /driving-categories }
+    - { id: dictionaries.languages.list, method: GET, path: /languages }
+    - { id: uploads.presign, method: POST, path: /uploads/presign }
+    - { id: uploads.complete, method: POST, path: '/uploads/{uploadId}/complete' }
+    - id: uploads.file_validation
+      type: security_capability
+      requirement: tenant_owner_purpose_mime_content_sniff_size_and_scan_status_validation
+
   student_finance:
     - { id: charges.list, method: GET, path: '/students/{studentId}/charges' }
     - { id: charges.create, method: POST, path: '/students/{studentId}/charges' }
@@ -163,6 +204,9 @@ operations:
     - { id: student_payments.record, method: POST, path: '/students/{studentId}/payments' }
     - { id: student_payments.reverse, method: POST, path: '/students/{studentId}/payments/{paymentId}/reverse' }
     - { id: student_finance.summary, method: GET, path: '/students/{studentId}/finance-summary' }
+    - id: student_finance.separate_ledger
+      type: invariant
+      requirement: student_course_payments_are_not_platform_purchase_history
 
   licenses:
     - { id: license_products.list, method: GET, path: /license-products }
@@ -195,6 +239,12 @@ operations:
     - id: license_assignment.target_cardinality
       type: invariant
       requirement: exactly_one_target_per_assignment_command
+    - id: license_inventory.reuse_after_revoke
+      type: invariant
+      requirement: revoked_unactivated_assignment_restores_exactly_one_inventory_unit_and_historical_assignment_does_not_block_reassignment
+    - id: license_activation.stacking
+      type: invariant
+      requirement: concurrent_extension_must_preserve_full_entitlement_time_using_effective_from_effective_to_under_lock
 
   internal_exams:
     - { id: exam_inventory.get, method: GET, path: /internal-exam/inventory }
@@ -215,6 +265,7 @@ operations:
     - { id: exam_attempts.list_for_course, method: GET, path: '/course-enrollments/{courseEnrollmentId}/internal-exam-attempts' }
     - { id: exam_attempts.create_and_reserve, method: POST, path: '/course-enrollments/{courseEnrollmentId}/internal-exam-attempts' }
     - { id: exam_attempts.get, method: GET, path: '/internal-exam-attempts/{attemptId}' }
+    - { id: exam_attempts.edit_candidate_before_start, method: PATCH, path: '/internal-exam-attempts/{attemptId}' }
     - { id: exam_accesses.create, method: POST, path: '/internal-exam-attempts/{attemptId}/accesses' }
     - { id: exam_accesses.send_remote, method: POST, path: '/internal-exam-accesses/{accessId}/send' }
     - { id: exam_accesses.revoke, method: POST, path: '/internal-exam-accesses/{accessId}/revoke' }
@@ -226,6 +277,8 @@ operations:
     - { id: exam_attempts.answer_sheet_pdf, method: GET, path: '/internal-exam-attempts/{attemptId}/documents/answer-sheet.pdf' }
     - { id: exam_inventory.adjust, method: POST, path: /internal-exam/inventory-adjustments }
     - { id: exam_capabilities.get, method: GET, path: /internal-exam/capabilities }
+    - { id: exam_stations.list, method: GET, path: /exam-stations }
+    - { id: exam_station.transfer_after_technical_failure, method: POST, path: '/internal-exam-attempts/{attemptId}/station-transfer' }
     - id: exam_generation.selected_student_entry
       type: ui_orchestration_capability
       requirement: selected_exactly_one_existing_student_then_open_generation_drawer
@@ -235,6 +288,12 @@ operations:
     - id: exam_result.question_review
       type: projection_capability
       requirement: immutable_32_question_snapshot_with_basic_and_specialized_groups_and_media
+    - id: exam_inventory.consume_on_start
+      type: invariant
+      requirement: reserve_before_start_consume_exactly_once_on_start_finish_never_consumes_again
+    - id: exam_station.single_active_attempt
+      type: invariant
+      requirement: one_active_station_session_per_station_and_attempt_with_audited_failover_without_second_inventory_consumption
 
   organization_settings:
     - { id: organization.get, method: GET, path: /organization }
@@ -254,12 +313,34 @@ operations:
       method: POST
       path: '/orders/{orderId}/payments'
       requirement: supports_observed_pay_action_for_unpaid_order
+    - { id: service_entitlements.list, method: GET, path: /service-entitlements }
+    - { id: service_entitlements.activate, method: POST, path: '/service-entitlements/{entitlementId}/activate' }
+    - id: payment_webhook.dedup
+      type: invariant
+      requirement: deduplicate_on_provider_plus_provider_event_id_before_business_effect
 
   notifications:
     - { id: notifications.list, method: GET, path: /notifications }
     - { id: notifications.mark_read, method: POST, path: '/notifications/{notificationId}/read' }
 
+  audit:
+    - { id: audit_logs.list, method: GET, path: /audit-logs }
+    - id: audit.append_only
+      type: invariant
+      requirement: formal_financial_pkk_exam_license_role_changes_create_immutable_audit_records_without_plaintext_secrets
+
 coverage_status:
-  openapi_complete_against_this_inventory: false
-  blocker_before_module_done: true
-  required_next_action: expand_openapi_until_every_http_operation_has_operationId_and_schema_or_explicit_reference
+  openapi_complete_against_this_inventory: true
+  operationIds_present_for_all_http_operations: true
+  modular_path_files:
+    - specs/api/paths/auth-organization.yaml
+    - specs/api/paths/students-courses.yaml
+    - specs/api/paths/pkk-calendar.yaml
+    - specs/api/paths/resources.yaml
+    - specs/api/paths/licenses.yaml
+    - specs/api/paths/internal-exams.yaml
+    - specs/api/paths/commerce-dashboard.yaml
+  shared_components: specs/api/openapi-components-v1.yaml
+  schema_detail_may_evolve_during_module_implementation: true
+  coverage_may_not_regress: true
+  ci_gate_required: true
