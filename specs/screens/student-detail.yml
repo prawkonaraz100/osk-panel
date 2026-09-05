@@ -6,6 +6,7 @@ meta:
   doc: docs/30-student-detail-screen.md
   progress_screen_spec: specs/screens/student-progress.yml
   internal_exam_screen_spec: specs/screens/student-internal-exam.yml
+  add_course_screen_spec: specs/screens/student-add-course.yml
 
 header:
   confirmed_elements:
@@ -95,13 +96,56 @@ licenses:
 
 courses_pkk:
   confirmed_action: add_student_course
+  add_course_form_verified: true
+  add_course_screen_spec: specs/screens/student-add-course.yml
   observed_empty_state: no_courses_assigned
   collection: true
-  fields_supported_by_list_projection:
-    - category
+  confirmed_create_fields:
     - training_type
-    - pkk_reference
-    - last_pkk_operation
+    - category
+    - pkk
+    - starts_at_date_and_time
+    - cost
+    - theory_hours
+    - theory_hours_external_school
+    - practice_hours
+    - practice_hours_external_school
+    - instructor_id
+    - location_id
+  required_by_visible_create_marker:
+    - training_type
+    - category
+    - pkk
+    - starts_at
+    - practice_hours
+    - instructor_id
+  confirmed_training_types:
+    - basic_training
+    - supplementary_training
+  confirmed_category_options_observed:
+    - A
+    - B
+    - C
+    - D
+    - T
+    - A1
+    - B1
+    - C1
+    - D1
+    - AM
+    - A2
+    - B+E
+    - C1+E
+    - C+E
+    - D1+E
+    - D+E
+    - PT
+  confirmed_semantics:
+    - single_category_per_course
+    - searchable_instructor_selector
+    - optional_location_selector
+    - separate_theory_and_practice_hours
+    - separate_external_school_theory_and_practice_hours
 
 payments:
   confirmed_action: add_student_payment
@@ -173,6 +217,12 @@ entity_model:
     - locations
   do_not_use_single_student_status: true
   do_not_use_single_exam_boolean: true
+  course_model_notes:
+    - course_has_own_training_type_category_pkk_and_start
+    - course_has_instructor
+    - course_can_have_location
+    - course_distinguishes_theory_and_practice_hours
+    - course_distinguishes_external_school_hours
 
 security_requirements:
   - tenant_isolation
@@ -182,6 +232,7 @@ security_requirements:
   - authorize_license_actions_by_organization
   - authorize_payment_actions_by_organization
   - authorize_internal_exam_actions_by_organization
+  - authorize_course_student_instructor_and_location_by_organization
   - audit_training_stage_changes
   - audit_credential_downloads
   - audit_internal_exam_start_and_result
@@ -190,8 +241,7 @@ remaining_gaps:
   - student_edit_form
   - add_student_manual_form
   - add_student_from_pkk_flow
-  - add_course_form
-  - training_stage_transition_behavior
+  - exact_training_stage_transition_behavior
   - conduct_internal_exam_flow_after_start
   - populated_internal_exam_history_and_results
   - assign_license_form
@@ -201,5 +251,8 @@ remaining_gaps:
   - partial_payment_behavior
   - archive_lifecycle
   - delete_lifecycle
+  - add_course_exact_backend_validations
+  - add_course_cost_to_payment_behavior
+  - add_course_post_save_state
   - validations
   - success_error_messages
