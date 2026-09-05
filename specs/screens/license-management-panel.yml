@@ -87,7 +87,30 @@ assigned_license_collection:
     expires_at_blank: true
     remaining_time_blank: true
     delete_action_visible: true
+  active_assignment_projection:
+    expires_at_visible: true
+    remaining_days_visible: true
+    delete_action_not_visible_in_provided_capture: true
+  observed_active_rows:
+    - student: Ala Nowak
+      assigned_at: 2026-01-23T08:41
+      expires_at: 2027-01-22T23:37
+      remaining_days: 139
+      status: active
+    - student: Ala Nowak
+      assigned_at: 2026-01-21T12:36
+      expires_at: 2026-12-22T23:37
+      remaining_days: 108
+      status: active
   newest_parent_row_matches_latest_assignment_timestamp: true
+
+license_extension_behavior:
+  confidence: STRONGLY_SUPPORTED_BY_OBSERVATION
+  observed_expiry_delta_days: 31
+  observed_remaining_days_delta: 31
+  interpretation: subsequent_assignment_can_extend_existing_active_access
+  exact_product_identity_for_observed_rows: TO_VERIFY
+  always_stack_rule_for_competitor: TO_VERIFY
 
 row_actions:
   - action: download_student_access_credentials
@@ -116,15 +139,26 @@ own_product_model:
     - license_inventory_entries
     - learning_accesses
     - license_assignments
-    - license_activations
+    - license_activation_events
   one_learning_access_has_many_license_assignments: true
   assignment_separate_from_activation: true
   assignment_has_own_assigned_at: true
   unactivated_assignment_has_null_activated_at: true
   unactivated_assignment_has_null_expires_at: true
-  expires_at_set_on_activation: true
-  remaining_days_derived_from_expires_at: true
+  access_has_current_expiry_projection: true
+  entitlement_extension_ledger: true
+  extension_rule:
+    first_activation_base: activated_at
+    active_access_extension_base: current_expires_at
+    generalized_base: max(effective_activation_time,current_expires_at)
+    result: base_plus_product_duration
+  assignment_audit_fields:
+    - duration_days
+    - expiry_before
+    - expiry_after
+  remaining_days_derived_from_current_or_assignment_expiry: true
   revoke_unactivated_restores_inventory: true
+  active_assignment_normal_revoke_disabled: true
 
 confirmed_actions:
   - open_license_management_panel
@@ -141,6 +175,8 @@ confirmed_actions:
   - expand_assigned_licenses
   - collapse_assigned_licenses
   - view_individual_license_assignments
+  - view_active_license_expiry
+  - view_active_license_remaining_days
   - delete_unactivated_license_assignment
   - download_student_access_credentials
   - open_student_profile_from_license_panel
@@ -150,15 +186,17 @@ security_requirements:
   - permission_scope_license_inventory
   - permission_scope_learning_access_management
   - atomic_inventory_assignment
+  - atomic_entitlement_extension
   - prevent_negative_inventory
+  - prevent_double_application_of_same_inventory_entry
   - audit_license_assignment
+  - audit_license_activation
   - audit_license_revoke
   - audit_credential_download
   - authorize_student_profile_cross_link_by_organization
   - bulk_actions_must_validate_every_selected_resource
 
 remaining_gaps:
-  - active_assignment_expanded_row
   - expired_assignment_expanded_row
   - generate_access_form
   - sort_options
@@ -167,6 +205,9 @@ remaining_gaps:
   - bulk_assign_license_flow
   - bulk_download_output
   - finished_license_filter_mixed_history_behavior
+  - exact_stack_rule_exceptions
+  - expired_access_extension_behavior
+  - multiple_unactivated_activation_order
   - pagination
   - empty_states
   - validations
