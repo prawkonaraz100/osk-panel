@@ -1,0 +1,57 @@
+screen:
+  id: course_delete_confirmation
+  title: Usuwanie kursu
+  context: student_profile_course
+  status: USER_CONFIRMED_AUTH_SCREEN
+
+trigger:
+  action: delete_course
+  location: Kursy (PKK)
+
+content:
+  question: "Czy na pewno chcesz usunąć kurs z kursanta?"
+  fields:
+    - key: pkk
+      label: PKK
+    - key: training_type
+      label: Rodzaj
+    - key: assigned_payment
+      label: Przypisana płatność
+    - key: installments
+      label: Wpłaty
+
+observed_example:
+  pkk: "445645645646455"
+  training_type: "Szkolenie podstawowe"
+  assigned_payment: "4000 zł"
+  installments: "Brak"
+
+actions:
+  - id: confirm_delete
+    label: "Tak, usuń"
+    destructive: true
+  - id: cancel
+    label: "Nie, anuluj"
+
+our_product_policy:
+  deletion_mode: logical_or_controlled
+  preserve:
+    - audit_history
+    - payments
+    - installments
+    - pkk_operations
+    - training_hours
+    - formal_history
+  record:
+    - actor
+    - timestamp
+    - reason_when_required
+  safeguards:
+    - show_dependencies_before_confirmation
+    - no_cascade_delete_of_financial_or_formal_records
+    - if_formal_history_exists_consider_correction_or_cancellation_flow
+
+unknown_competitor_behavior:
+  - exact_post_confirmation_effect
+  - whether_course_can_be_restored
+  - exact_effect_on_linked_payment
