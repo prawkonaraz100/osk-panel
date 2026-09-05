@@ -1,98 +1,140 @@
-# OSK Biz — mapa funkcjonalna i dokumentacja odtworzeniowa
+# OSK Panel — clean-room functional specification
 
-Dokumentacja clean-room do zbudowania systemu klasy **OSK Business Management Platform** o funkcjonalności porównywalnej z publicznie dostępnymi, regulaminowo opisanymi i historycznie zindeksowanymi funkcjami serwisu `biz.prawo-jazdy-360.pl`.
+Repozytorium dokumentacji i specyfikacji dla własnego panelu administracyjnego OSK PrawkoNaRaz.
 
-> Cel: odtworzyć **funkcjonalność, logikę biznesową, role, przepływy i architekturę**, a nie kopiować kod źródłowy, branding, teksty marketingowe, grafiki ani chroniony układ wizualny konkurencyjnego serwisu.
+Celem projektu jest zbudowanie własnego produktu realizującego tę samą **klasę procesów biznesowych** co analizowane rozwiązania rynkowe, bez kopiowania ich kodu, layoutu, assetów, tekstów ani chronionej implementacji.
 
-## Status audytu
+## Aktualny stan
 
-Pierwsze mapowanie: **2026-09-05**  
-Ponowna niezależna weryfikacja: **2026-09-05**  
-Audyt dokładnego menu zalogowanego panelu: **2026-09-05**
+Core administratora OSK jest wystarczająco zmapowany do implementacji:
 
-Źródła:
-- aktualna publiczna strona BIZ,
-- logowanie, rejestracja i reset hasła,
-- aktualny cennik,
-- publiczny regulamin i polityka prywatności,
-- aktualna publiczna oferta reklam,
-- aktualności produktowe operatora,
-- zachowanie aktualnych chronionych tras i `ReturnUrl`,
-- aktualne menu zalogowanego panelu przekazane podczas audytu,
-- oficjalne materiały pomocy operatora dotyczące m.in. kursantów, kalendarza, lokalizacji, pojazdów, pracowników, wizytówki i licencji,
-- starsze publicznie zindeksowane menu panelu — wyłącznie jako materiał historyczny.
+- Panel główny,
+- Integracja PKK,
+- Kursanci,
+- Kursy (PKK) / formalny course enrollment,
+- Kalendarz,
+- Lokalizacje,
+- Pojazdy,
+- Pracownicy,
+- Licencje,
+- Egzaminy wewnętrzne,
+- Ustawienia,
+- Historia zakupów.
 
-## Oznaczenia pewności
+Status modułów: `docs/71-admin-osk-module-mapping-status.md`.
 
-- `CURRENT_CONFIRMED` — potwierdzone w aktualnej publicznej stronie/trasie/ofercie.
-- `USER_CONFIRMED_AUTH_MENU` — pozycja lub trasa widoczna w aktualnym menu zalogowanego panelu przekazanym podczas audytu.
-- `HELP_CONFIRMED` — istnieje aktualny oficjalny materiał pomocy operatora dotyczący danego ekranu.
-- `RULES_CONFIRMED` — potwierdzone w aktualnie publikowanym regulaminie.
-- `HISTORICAL_INDEX` — widoczne w starszym indeksie/menu/aktualności; nie oznacza automatycznie funkcji istniejącej dziś.
-- `INFERRED` — nasza logiczna/architektoniczna funkcja potrzebna do zbudowania solidnego odpowiednika.
-- `TO_VERIFY_AUTH` — dokładne zachowanie wymaga legalnego wejścia do aktualnego panelu OSK.
-- `SOURCE_CONFLICT` — publiczne materiały podają różne wartości; implementacja ma używać konfiguracji zamiast hard-code.
+Moduły marketingowe (`Moje wizytówki`, `Moje reklamy`, `Wykłady`, `Szkolenie z instruktorem`) nie blokują core v1.
 
-## Najważniejsza zasada
+## Najważniejszy plik przed implementacją
 
-**Codex nie może traktować `HISTORICAL_INDEX`, `INFERRED` ani `TO_VERIFY_AUTH` jako dowodu na aktualny ekran lub akcję konkurencyjnego panelu.**
+**`specs/implementation-baseline-v1.yml`** jest aktywnym baseline implementacyjnym.
 
-Jeśli funkcjonalność jest potrzebna naszemu produktowi, implementujemy własne rozwiązanie i opisujemy ją jako decyzję projektową.
+Jeżeli starszy dokument lub agregat przeczy nowszemu screen/legal/design spec, obowiązuje kolejność opisana w `AGENTS.md` i baseline.
 
-## Dokumenty
+Trwa konsolidacja developerska dokumentacji: `docs/81-developer-consolidation-plan.md`.
 
-1. [01-feature-map.md](docs/01-feature-map.md) — pełna mapa modułów i akcji po ponownej weryfikacji.
-2. [02-screen-inventory.md](docs/02-screen-inventory.md) — ekrany, stany oraz poziom pewności.
-3. [03-user-flows.md](docs/03-user-flows.md) — przepływy użytkownika i state transitions.
-4. [04-roles-permissions.md](docs/04-roles-permissions.md) — RBAC i zakres dostępu.
-5. [05-domain-model.md](docs/05-domain-model.md) — model danych i relacje.
-6. [06-api-contract.md](docs/06-api-contract.md) — projekt API i zdarzeń domenowych.
-7. [07-architecture.md](docs/07-architecture.md) — architektura techniczna Laravel + Vue.
-8. [08-security-compliance.md](docs/08-security-compliance.md) — bezpieczeństwo, audyt, RODO i integralność operacji.
-9. [09-roadmap.md](docs/09-roadmap.md) — kolejność implementacji.
-10. [10-gap-register.md](docs/10-gap-register.md) — elementy nadal wymagające zalogowanego audytu.
-11. [11-source-evidence.md](docs/11-source-evidence.md) — źródła i materiał dowodowy.
-12. [12-action-matrix.md](docs/12-action-matrix.md) — akcja -> warunek -> skutek -> audit -> notification.
-13. [13-acceptance-criteria.md](docs/13-acceptance-criteria.md) — kryteria akceptacji krytycznych flow.
-14. [14-reverification-audit-2026-09-05.md](docs/14-reverification-audit-2026-09-05.md) — raport różnic znalezionych w drugim audycie.
-15. [15-current-authenticated-menu-map.md](docs/15-current-authenticated-menu-map.md) — dokładna mapa bieżących pozycji menu i tras panelu, z brakami do audytu wewnętrznego.
-16. [functional-requirements.yml](specs/functional-requirements.yml) — główne wymagania w formacie maszynowym dla agentów.
-17. [authenticated-menu-routes.yml](specs/authenticated-menu-routes.yml) — maszynowa mapa 17 aktualnych pozycji menu i ich tras.
+## Struktura repo
 
-## Docelowy zakres produktu
+### `specs/legal/`
+Reguły formalne/prawne zweryfikowane dla własnego produktu, m.in.:
+- ewidencja kursanta,
+- 45 min teorii / 60 min praktyki,
+- zwolnienia z teorii,
+- wymagania egzaminu wewnętrznego.
 
-System powinien obejmować:
-- konto i organizację OSK,
-- wiele lokalizacji OSK,
-- pracowników, permissions, biuro i HR,
-- kursantów i provisionowanie dostępu,
-- integrację PKK,
-- pojazdy i terminy formalne,
-- kalendarz jazd, self-booking i ewidencję czasu,
-- licencje e-learningowe z inventory/przydziałem/aktywacją,
-- monitoring postępów,
-- kurs, wykłady i szkolenie z instruktorem,
-- zmienną kategorię domyślną użytkownika,
-- egzaminy wewnętrzne linkiem i stacjonarnie,
-- płatności oraz jawne `Aktywuj dostęp` dla produktów, które tego wymagają,
-- wspólną historię zakupów OSK,
-- kolekcję wizytówek OSK, publiczne profile, opinie i ranking,
-- reklamy z rejonizacją i aukcjami,
-- kreacje reklamowe i moderację,
-- artykuły sponsorowane,
-- historycznie obserwowany widok kursanta/impersonację jako funkcję wymagającą dalszej weryfikacji,
-- obsługę wielu języków per moduł,
-- audyt operacji, powiadomienia i bezpieczeństwo.
+### `specs/design/`
+Jawne decyzje naszego produktu w miejscach, gdzie nie kopiujemy nieobserwowalnego zachowania konkurenta, np.:
+- lifecycle egzaminu,
+- student finance ledger.
 
-### Niepewne / opcjonalne
-- aktualny moduł faktur — starszy indeks go zawierał, ale stara trasa obecnie zwraca 404; `HISTORICAL_INDEX / TO_VERIFY_AUTH`,
-- eksport postępów — `INFERRED`,
-- klientowe pauzowanie kampanii — `TO_VERIFY_AUTH`,
-- panelowy refund — niepotwierdzony; proces reklamacji/odstąpienia nie jest tym samym co przycisk refund,
-- dokładne podmenu `Moje reklamy` — nagłówek menu jest aktualny, ale jego wszystkie child-routes nadal wymagają przechwycenia z zalogowanej sesji.
+### `specs/screens/`
+Najbardziej szczegółowe machine-readable mapy bieżących ekranów audytowanego panelu.
 
-## Zasada implementacyjna
+### `docs/17-...` i późniejsze
+Dokumenty screen-level i decyzje architektoniczne wynikające z audytu.
 
-Każdy moduł implementujemy jako niezależny bounded context z własną polityką uprawnień, logiem audytowym oraz API. Nie wiążemy krytycznej logiki formalnej z UI. Dzięki temu można wymieniać interfejs bez ryzyka naruszenia logiki kursu, egzaminu, rozliczeń, aukcji, licencji lub PKK.
+### `docs/01-16`
+Starsze dokumenty ogólne i historyczny kontekst. Nie są nadrzędne wobec nowszych screen/legal/design specs.
 
-Wartości zmienne w czasie — języki, kategorie, liczba lekcji, parametry reklam, okresy produktów — muszą być danymi konfiguracyjnymi/CMS, nie stałymi zaszytymi w kodzie.
+## Zasady clean-room
+
+Nie kopiujemy:
+- kodu HTML/CSS/JS,
+- backendu/API konkurenta,
+- logo,
+- grafik,
+- treści marketingowych,
+- layoutu pixel-perfect,
+- chronionych assetów.
+
+Mapujemy:
+- usługi biznesowe,
+- role i uprawnienia,
+- ekrany i przepływy,
+- pola/akcje/statusy,
+- state machines,
+- zależności między modułami,
+- wymagania bezpieczeństwa i zgodności.
+
+## Architektura docelowa
+
+- Backend: Laravel,
+- Frontend: Vue,
+- DB: PostgreSQL,
+- Cache/queue: Redis,
+- Storage: S3-compatible,
+- background jobs: Laravel Queue,
+- frontend server-state: Vue Query/TanStack Query,
+- frontend local state: Pinia.
+
+Architektura domenowa musi pozostać niezależna od komponentów Vue.
+
+## Fundamentalne inwarianty
+
+- pełna tenant isolation po `organization_id`,
+- permission-based RBAC egzekwowany na backendzie,
+- krytyczne operacje audytowane,
+- brak hard-delete historii formalnej/finansowej,
+- PKK powiązane z konkretnym `course_enrollment`,
+- godziny bieżącego OSK wynikają z ewidencji zajęć/ledgera,
+- formalny egzamin wymaga trwałego kursanta i kursu,
+- egzamin core v1 konsumuje sztukę przy rozpoczęciu zgodnie z `specs/design/internal-exam-lifecycle.yml`,
+- cofnięcie nieaktywowanej licencji atomowo przywraca dokładnie jedną sztukę inventory,
+- money nigdy jako float,
+- zmienne języki/kategorie/ceny/parametry są konfiguracją, nie hard-code.
+
+## Dokumenty startowe dla developera/Codex
+
+1. `AGENTS.md`
+2. `specs/implementation-baseline-v1.yml`
+3. właściwy `specs/legal/*.yml`
+4. właściwy `specs/design/*.yml`
+5. właściwe `specs/screens/*.yml`
+6. `docs/71-admin-osk-module-mapping-status.md`
+7. `docs/05-domain-model.md`
+8. `docs/06-api-contract.md`
+9. `docs/07-architecture.md`
+10. `docs/08-security-compliance.md`
+11. `docs/13-acceptance-criteria.md`
+
+## Dokumenty statusowe
+
+- `docs/02-screen-inventory.md` — skonsolidowany inwentarz ekranów,
+- `docs/10-gap-register.md` — aktualne realne luki, nie historyczna lista braków,
+- `docs/71-admin-osk-module-mapping-status.md` — gotowość modułów,
+- `docs/81-developer-consolidation-plan.md` — plan porządkowania repo.
+
+## Ważne rozdzielenia domen
+
+- `student` ≠ `learning account`,
+- `course enrollment` ≠ licencja,
+- `course enrollment` ≠ egzamin,
+- `student finance` ≠ zakupy OSK na platformie,
+- `license inventory` ≠ `license assignment` ≠ `license activation`,
+- `exam inventory/reservation` ≠ `exam attempt`,
+- typ pracownika ≠ permission,
+- lokalizacja ≠ adres organizacji.
+
+## Zasada dla dalszej pracy
+
+Każda kolejna zmiana powinna aktualizować najbliższy właściwy spec (`legal`, `design`, `screen`) oraz baseline, jeżeli zmienia inwariant core. Nie dopisujemy nowych wymagań wyłącznie do starego dokumentu agregującego.
