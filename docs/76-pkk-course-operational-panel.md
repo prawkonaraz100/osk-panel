@@ -76,7 +76,7 @@ Potwierdzone akcje w tym obszarze:
 
 `Pobierz PKK` jest więc pierwszą operacją synchronizującą dane profilu z systemem zewnętrznym dla danego kursu.
 
-Nie zakładamy jeszcze dokładnego zestawu pól, które pojawią się po pobraniu, dopóki nie zobaczymy stanu po udanej operacji lub podglądu.
+Nie zakładamy dokładnego zestawu pól po pobraniu bez obserwacji udanej operacji.
 
 ## 6. Relacja z danymi kursanta
 
@@ -87,7 +87,7 @@ Na tym samym profilu widoczne są dane osobowe kursanta, w tym:
 - e-mail,
 - telefon.
 
-Strona informacyjna Integracji PKK wcześniej wskazała, że przed rozpoczęciem operacji należy upewnić się, że kursant ma uzupełniony PESEL.
+Strona informacyjna Integracji PKK wskazuje, że przed rozpoczęciem operacji należy upewnić się, że kursant ma uzupełniony PESEL.
 
 Dla naszego produktu dane źródłowe kursanta i kursu powinny być walidowane przed wywołaniem operacji PKK, natomiast odpowiedź PKK powinna być przechowywana jako osobny snapshot integracyjny, bez bezpośredniego nadpisywania danych bez świadomej akcji operatora.
 
@@ -111,17 +111,24 @@ Nie utożsamiamy `Ostatnia operacja PKK` z ogólnym stanem kursu. To tylko skró
 - `start_update_and_return_pkk`
 - `view_pkk_operation_history`
 
-## 9. Pozostałe niewiadome
+## 9. Ograniczenie audytu konkurenta
 
-- zawartość `Zarządzaj PKK`,
-- ekran `Podgląd PKK`,
-- dokładne dane po `Pobierz PKK`,
-- wymagane dane/identyfikatory przy pobraniu,
-- komunikaty sukcesu i błędów,
-- retry,
-- dokładny flow `Aktualizuj i zwróć PKK`,
-- podpis XML,
-- zwrot do innego OSK,
-- zwrot do urzędu,
-- zwrot profilu przedawnionego,
+Przycisk `Zarządzaj PKK` jest widoczny, ale podczas audytu jego zawartość nie otwierała się poprawnie z powodu błędu/zawieszania strony konkurenta.
+
+Status tego detalu:
+- `UNOBSERVABLE_UPSTREAM_ERROR`.
+
+Nie blokuje to projektu, bo zakres operacji został potwierdzony na bieżącej stronie informacyjnej Integracji PKK oraz w samym panelu kursu.
+
+Własny flow dla tego nieobserwowalnego drawera opisuje:
+- `docs/77-pkk-management-flow-fallback-design.md`.
+
+## 10. Pozostałe niewiadome konkurencyjne
+
+- exact wygląd drawera `Zarządzaj PKK`,
+- exact ekran `Podgląd PKK`,
+- dokładny zestaw pól pobranych z PKK,
+- exact komunikaty sukcesu/błędu,
 - struktura pojedynczego wpisu historii operacji.
+
+Powyższe nie są blockerami implementacji własnego modułu PKK.
