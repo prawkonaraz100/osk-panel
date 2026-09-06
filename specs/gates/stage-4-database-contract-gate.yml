@@ -61,9 +61,9 @@ stage_4_slices:
   - id: DB4_4_STUDENTS_COURSES_TRAINING_LEDGER
     status: IN_PROGRESS_WITH_BLOCKERS
     diagnosis: COMPLETE
-    blockers_resolved: 4
-    open_P0_P1: 4
-    result: FAIL_WITH_4_P1_BLOCKERS
+    blockers_resolved: 5
+    open_P0_P1: 3
+    result: FAIL_WITH_3_P1_BLOCKERS
   - id: DB4_5_CALENDAR
     status: NOT_STARTED
   - id: DB4_6_LICENSES_LEARNING_ACCESS
@@ -436,14 +436,69 @@ quality_checks:
       UI_or_feature_implementation_started: false
 
   requirement_context_profile_reproducibility:
-    status: FAIL
-    blocker_id: DB-TRN-005
+    status: PASS
+    resolved_blocker_id: DB-TRN-005
     severity: P1
-    unresolved: >-
-      Editable source facts and each rule-engine recalculation are not yet modeled
-      as a complete durable context plus reproducible immutable decision history
-      with rule-set version, actor, reason and before/output evidence.
-    impact: cannot_deterministically_reconstruct_why_formal_requirements_changed
+    machine_source: specs/database/students-courses-training.yml
+    audit_source: docs/108-stage-4-students-courses-training-ledger-audit.md
+    decision:
+      target_category_canonical_owner: course_enrollments.driving_category_id
+      duplicate_current_target_category_in_context: forbidden
+      concurrency_root: course_enrollments.version
+      requirements_revision:
+        type: bigint
+        nullable: false
+        minimum: 1
+        purpose: requirement_projection_freshness_epoch_not_second_concurrency_root
+      current_context_table: course_requirement_contexts
+      current_held_categories_table: course_requirement_context_held_categories
+      immutable_rule_set_catalog: training_requirement_rule_sets
+      rule_set_content_hash_required: true
+      rule_set_version_reuse_for_different_content: forbidden
+      current_exemption_decision_unique_per_course: true
+      exemption_history_preserved_by_revoke_and_replace: true
+      current_manual_override_unique_per_course: true
+      manual_override_requires_permission_reason_actor_and_allowlisted_outputs: true
+      base_rule_engine_output_preserved_before_override: true
+      requirement_profiles_are_immutable_decision_history: true
+      profile_input_snapshot_required: true
+      profile_base_output_snapshot_required: true
+      profile_effective_output_snapshot_required: true
+      one_profile_per_requirements_revision: true
+      at_most_one_current_profile_per_course: true
+      current_profile_revision_must_equal_course_requirements_revision: true
+      current_profile_rule_set_must_reference_immutable_hashed_rule_set: true
+      source_fact_change_requires_profile_recalculation_same_transaction: true
+      requirement_affecting_command_course_version_increment: exactly_once
+      terminal_course_requirement_change_requires_DB_TRN_004_correction_mode: true
+      recalculation_deletes_or_rewrites_training_attendance_exam_history: false
+      completion_profile_freshness_guard_closed: true
+      required_minutes_satisfaction: deferred_to_DB_TRN_006
+      internal_exam_satisfaction: deferred_to_DB4_7
+      exact_HTTP_requirement_schema_expected_version_and_errors: Stage5_acceptance_contract_sync
+    checks:
+      target_category_has_single_canonical_current_owner: PASS
+      durable_noncourse_source_fact_owner_defined: PASS
+      held_categories_normalized: PASS
+      explicit_exemption_current_and_history_owner_defined: PASS
+      manual_override_is_explicit_auditable_and_non_silent: PASS
+      rule_set_identity_is_immutable_and_hashed: PASS
+      requirements_revision_proves_current_projection_freshness: PASS
+      requirements_revision_is_not_second_concurrency_root: PASS
+      every_requirement_affecting_change_creates_one_new_current_profile: PASS
+      input_base_output_effective_output_snapshots_are_preserved: PASS
+      category_context_exemption_override_and_rule_refresh_races_serialize_on_course: PASS
+      stale_source_fact_change_cannot_commit_with_old_current_profile: PASS
+      closed_course_correction_preserves_prior_requirement_profiles_and_formal_history: PASS
+      profile_snapshot_excludes_unneeded_PESEL_and_PKK: PASS
+      migration_does_not_infer_source_facts_from_effective_outputs: PASS
+      unreconstructible_legacy_requirement_context_requires_explicit_remediation: PASS
+      DB_TRN_006_through_DB_TRN_008_not_fixed_in_DB_TRN_005_step: PASS
+      aggregate_core_schema_modified_in_step: false
+      aggregate_docs87_modified_in_step: false
+      later_domain_slices_entered: false
+      Laravel_migrations_created: false
+      UI_or_feature_implementation_started: false
 
   training_attendance_ledger_exactly_once:
     status: FAIL
@@ -486,6 +541,7 @@ quality_checks:
     - exact_PESEL_format_checksum_validation_to_application_validation_and_security_tests
     - exact_HTTP_If_Match_required_marker_and_428_acceptance_sync_to_Stage5
     - exact_HTTP_course_lifecycle_expected_version_marker_and_error_code_sync_to_Stage5
+    - exact_HTTP_requirement_context_exemption_override_schema_expected_version_and_error_sync_to_Stage5
     - competitor_unobservable_delete_backend_semantics
 
   calendar_overlap_database_strategy:
@@ -511,10 +567,9 @@ resolved_blockers:
   - DB-TRN-002
   - DB-TRN-003
   - DB-TRN-004
+  - DB-TRN-005
 
 open_blockers_current_diagnosed_scope:
-  - id: DB-TRN-005
-    severity: P1
   - id: DB-TRN-006
     severity: P1
   - id: DB-TRN-007
@@ -530,7 +585,7 @@ gate_definition:
     - migration_order_dependency_safe
     - database_invariant_test_matrix_exists
     - reverse_engineering_preservation_traceable
-  current_result: FAIL_DB4_4_WITH_4_OPEN_P1_BLOCKERS
+  current_result: FAIL_DB4_4_WITH_3_OPEN_P1_BLOCKERS
   DB4_1_result: PASS
   DB4_2_result: PASS
   DB4_3_result: PASS
@@ -539,6 +594,7 @@ gate_definition:
   DB4_4_DB_TRN_002_result: PASS
   DB4_4_DB_TRN_003_result: PASS
   DB4_4_DB_TRN_004_result: PASS
+  DB4_4_DB_TRN_005_result: PASS
   DB4_4_result: FAIL
   may_start_DB4_4_fixes: true
   may_start_DB4_5: false
@@ -546,16 +602,16 @@ gate_definition:
   may_start_UI_or_feature_implementation: false
 
 next_single_step:
-  id: DB4_4_STEP_6
-  blocker: DB-TRN-005
-  action: resolve_requirement_context_profile_reproducibility_only
+  id: DB4_4_STEP_7
+  blocker: DB-TRN-006
+  action: resolve_training_attendance_ledger_exactly_once_only
   allowed_scope:
     - specs/database/students-courses-training.yml
     - docs/108-stage-4-students-courses-training-ledger-audit.md
     - specs/gates/stage-4-database-contract-gate.yml
   scope_lock: >-
-    Resolve only DB-TRN-005. Do not fix DB-TRN-006 through DB-TRN-008 in the same
-    step. Do not enter DB4_5 or later slices, do not create Laravel migrations and
-    do not start UI/feature implementation. Keep aggregate core-schema.yml and
-    docs/87 synchronization deferred until the final DB4_4 aggregate sync gate.
-  after_action: rerun_DB4_4_gate_and_record_DB_TRN_005_PASS_or_new_blocker_then_stop_before_DB_TRN_006
+    Resolve only DB-TRN-006. Do not fix DB-TRN-007 or DB-TRN-008 in the same step.
+    Do not enter DB4_5 or later slices, do not create Laravel migrations and do not
+    start UI/feature implementation. Keep aggregate core-schema.yml and docs/87
+    synchronization deferred until the final DB4_4 aggregate sync gate.
+  after_action: rerun_DB4_4_gate_and_record_DB_TRN_006_PASS_or_new_blocker_then_stop_before_DB_TRN_007
