@@ -13,7 +13,7 @@ meta:
 working_rule:
   diagnosis_only: false
   fixes_applied_in_this_step: true
-  current_step: DB4_6_STEP_2_DB_LIC_002
+  current_step: DB4_6_STEP_3_DB_LIC_003
   one_blocker_per_followup_step: true
   Laravel_migrations_created: false
   Stage5_started: false
@@ -447,6 +447,205 @@ resolved_contracts:
       - DB-LIC-006_activation_stacking_entitlement_history_and_reproducibility
       - DB-LIC-007_language_capability_assignment_snapshot_and_management_projection_rules
 
+  DB-LIC-003:
+    status: PASS
+    resolved_at: 2026-09-06
+    scope: learning_account_lifecycle_optimistic_concurrency_and_student_archive_effect_only
+    physical_model:
+      version:
+        field: student_learning_accounts.version
+        type: bigint
+        nullable: false
+        default: 1
+        check: version_gte_1
+        purpose: optimistic_concurrency_root_for_learning_account_configuration_and_explicit_account_state
+      status:
+        field: student_learning_accounts.status
+        type: varchar_32_not_null
+        allowed_values: [active, suspended]
+        initial_value: active
+        expiry_is_status_value: false
+        reason: license_or_entitlement_expiry_is_not_learning_account_lifecycle_state
+      immutable_normal_relations:
+        organization_id: true
+        student_id: true
+        user_id: true
+      generic_PATCH_may_change_status: false
+      normal_hard_delete: forbidden
+    version_semantics:
+      concurrency_root: student_learning_accounts.version
+      material_fields_covered:
+        - auth_login_identifier_id
+        - language_code
+        - explicit_status_transition
+      successful_material_change_increments_version_once: true
+      semantic_noop_increments_version: false
+      stale_expected_version_partial_write: forbidden
+      version_returned_in_learning_account_projection: required_for_optimistic_client_contract
+      current_Stage3_PATCH_uses_If_Match: true
+      exact_HTTP_required_marker_and_error_code_sync: Stage5_acceptance_contract_sync
+      password_hash_or_secret_handoff_version_semantics: deferred_to_DB_LIC_004
+      assignment_version_semantics: deferred_to_DB_LIC_005
+      activation_and_entitlement_serialization: deferred_to_DB_LIC_006
+    account_status_lifecycle:
+      active_to_suspended:
+        allowed: explicit_dedicated_domain_or_security_command_only
+        generic_PATCH: forbidden
+        requires_reason_and_actor_in_audit: true
+      suspended_to_active:
+        allowed: explicit_resume_command_only
+        generic_PATCH: forbidden
+        requires_actor_in_audit: true
+      same_state_command:
+        effect: idempotent_noop
+        version_increment: false
+      dedicated_public_suspend_resume_HTTP_observed: false
+      DB4_6_invents_new_UI_or_HTTP_capability: false
+      history_source_until_DB4_10_finalization: audit_log_plus_outbox_domain_event
+      dedicated_learning_account_lifecycle_history_table_required: false
+      status_change_without_audit_outbox: forbidden
+    effective_operational_eligibility:
+      persisted_second_status_projection: false
+      predicate:
+        - student_learning_accounts.status_equals_active
+        - linked_students.archived_at_is_null
+        - referenced_auth_login_identifier_is_current_per_DB_LIC_002
+        - global_User_authentication_eligibility_is_checked_by_identity_security_domain
+      student_archive_is_persisted_into_learning_account_status: false
+      student_archive_is_separate_parent_state_input: true
+      consumers_requiring_eligibility:
+        - learner_learning_context_or_progress_access
+        - create_new_license_assignment_targeting_existing_learning_account
+        - activate_license_for_learning_account
+        - credential_reset_or_new_secret_generation
+        - create_sensitive_access_handoff
+        - credential_PDF_or_bulk_credential_export
+      admin_historical_read_of_account_assignment_activation_history:
+        requires_operational_eligibility: false
+        still_requires_tenant_permission_scope: true
+      normal_learning_account_configuration_PATCH:
+        allowed_statuses: [active, suspended]
+        linked_student_must_be_nonarchived: true
+        archived_student_exception: explicit_audited_data_correction_command_only_not_generic_PATCH
+    creation_contract:
+      lock_student_row_before_create: FOR_UPDATE
+      after_lock_require_student_archived_at_null: true
+      after_lock_require_same_tenant_DB_LIC_001: true
+      create_status: active
+      create_version: 1
+      identifier_binding_must_pass_DB_LIC_002: true
+      archive_vs_create_race_serialized_on_student_row: true
+    shared_state_dependent_lock_prefix:
+      order:
+        - students_row_FOR_UPDATE
+        - student_learning_accounts_row_FOR_UPDATE_when_existing
+      after_student_lock_require_archived_at_null_for_new_operational_effect: true
+      after_account_lock_require_status_active_for_new_operational_effect: true
+      account_configuration_PATCH_checks_expected_version_after_account_lock: true
+      downstream_license_assignment_command_extends_lock_order_after_this_prefix: DB_LIC_005
+      downstream_activation_command_extends_lock_order_after_this_prefix: DB_LIC_006
+      credential_reset_handoff_secret_lock_extension: DB_LIC_004
+      reason: Student_archive_restore_and_state_dependent_learning_access_commands_must_linearize_on_the_same_Student_parent_boundary
+    student_archive_effect:
+      upstream_archive_transaction: DB_TRN_003
+      archive_may_hard_delete_learning_account: false
+      archive_may_change_learning_account_status: false
+      archive_may_increment_learning_account_version: false
+      archive_may_revoke_license_assignment: false
+      archive_may_restore_inventory: false
+      archive_may_delete_or_rewrite_activation_history: false
+      archive_may_pause_active_entitlement_clock: false
+      archive_may_extend_entitlement_end: false
+      operational_eligibility_after_archive_commit: false
+      existing_unactivated_assignment_history_preserved: true
+      existing_activation_period_continues_to_age_by_wall_clock: true
+      global_user_or_global_auth_identifier_revoked_as_side_effect: false
+      global_auth_session_for_same_user_revoked_as_side_effect: false
+      authorization_or_access_cache_must_not_outlive_parent_state_change:
+        recheck_inputs: [students.version, student_learning_accounts.version, student_learning_accounts.status]
+        archive_students_version_increment_from_DB_TRN_003_invalidates_cached_eligibility: true
+      rationale: >-
+        Student archive disables this tenant-owned learning context without turning a
+        parent archive into a hidden license revoke, inventory adjustment, entitlement
+        pause, credential rewrite or global User logout.
+    student_restore_effect:
+      upstream_restore_transaction: DB_TRN_003
+      restore_may_change_learning_account_status: false
+      restore_may_increment_learning_account_version: false
+      restore_may_recreate_or_unrevoke_assignment: false
+      restore_may_recreate_activation: false
+      restore_may_extend_expired_entitlement: false
+      previously_active_learning_account_becomes_operationally_eligible_again: true_subject_to_current_license_entitlement_and_global_auth_rules
+      explicitly_suspended_learning_account_remains_suspended: true
+      expired_entitlement_remains_expired: true
+      revoked_unactivated_assignment_remains_revoked: true
+      same_durable_learning_account_rows_reused: true
+      rationale: >-
+        Restore removes only the parent archive gate. It must not guess whether an
+        independently suspended access or ended/revoked license should be revived.
+    archive_restore_race_semantics:
+      archive_vs_learning_account_create:
+        shared_lock: students_row
+        create_first: archive_may_commit_after_create_and_new_account_then_becomes_ineligible
+        archive_first: create_rejected_after_lock
+      archive_vs_account_PATCH:
+        shared_prefix: students_then_learning_account
+        PATCH_first: archive_may_commit_after_PATCH_and_then_disables_operational_context
+        archive_first: normal_PATCH_rejected_for_archived_student
+        stale_expected_version_cannot_overwrite_account_state: true
+      archive_vs_assignment_activation_or_credential_effect:
+        shared_first_lock: students_row
+        effect_first: archive_may_commit_after_effect_without_reversing_or_pausing_that_effect
+        archive_first: new_effect_rejected_after_student_lock
+      restore_vs_explicit_account_resume:
+        shared_prefix: students_then_learning_account
+        restore_does_not_perform_resume: true
+        explicit_resume_still_requires_its_own_authorized_command_and_current_state
+    migration_design:
+      order:
+        - precheck_existing_learning_account_status_values
+        - fail_on_unknown_or_null_status_without_reviewed_mapping_evidence
+        - add_version_bigint_not_null_default_1_check_gte_1
+        - add_closed_status_check_active_or_suspended
+        - enforce_normal_immutability_of_organization_student_and_user_relations
+        - wire_learning_account_PATCH_to_expected_version_lock_and_increment_once
+        - wire_create_and_state_dependent_operations_to_student_then_learning_account_lock_prefix
+        - make_operational_queries_and_commands_consume_effective_operational_eligibility
+        - add_archive_restore_race_and_cache_invalidation_tests
+      unknown_legacy_status_auto_map_to_active: forbidden
+      archived_student_learning_accounts_auto_suspend_in_migration: forbidden
+      archived_student_assignments_auto_revoke_in_migration: forbidden
+      archived_student_entitlements_auto_pause_or_extend_in_migration: forbidden
+      unresolved_legacy_status: fail_migration_and_require_reviewed_remediation
+    required_integration_tests:
+      - new_learning_account_starts_active_with_version_one
+      - invalid_learning_account_status_is_rejected
+      - learning_account_PATCH_with_current_expected_version_increments_once
+      - learning_account_PATCH_with_stale_expected_version_is_rejected_without_partial_write
+      - two_learning_account_PATCH_commands_with_same_expected_version_cannot_both_commit
+      - semantic_noop_PATCH_does_not_increment_version
+      - generic_PATCH_cannot_change_learning_account_status
+      - active_to_suspended_and_suspended_to_active_require_explicit_lifecycle_command
+      - learning_account_create_for_archived_student_is_rejected_after_student_lock
+      - archive_does_not_mutate_learning_account_status_or_version
+      - archive_does_not_revoke_assignment_restore_inventory_or_rewrite_activation
+      - archive_blocks_new_assignment_activation_reset_handoff_export_and_learning_context_after_commit
+      - active_entitlement_time_continues_while_student_is_archived_and_is_not_automatically_extended
+      - restore_does_not_reactivate_explicitly_suspended_learning_account
+      - restore_does_not_unrevoke_assignment_or_extend_expired_entitlement
+      - restore_allows_previously_active_account_to_become_eligible_again_subject_to_current_entitlement
+      - archive_and_learning_account_create_race_is_linearizable_on_student_lock
+      - archive_and_learning_account_PATCH_race_is_linearizable_without_lost_update
+      - archive_and_assignment_or_activation_race_has_one_serial_order_and_no_hidden_compensation
+      - same_global_user_learning_context_in_other_organization_is_not_globally_revoked_by_student_archive
+      - cached_learning_eligibility_rechecks_student_version_and_learning_account_version_status
+      - migration_does_not_guess_unknown_status_or_auto_suspend_child_rows_from_parent_archive
+    explicitly_not_solved_in_this_step:
+      - DB-LIC-004_one_time_password_reset_secret_handoff_PDF_and_credential_epoch
+      - DB-LIC-005_inventory_assignment_state_equivalence_exactly_once_revoke_and_assignment_concurrency
+      - DB-LIC-006_activation_stacking_entitlement_period_history_and_reproducibility
+      - DB-LIC-007_language_capability_assignment_snapshot_and_management_projection_rules
+
 blockers:
   - id: DB-LIC-001
     severity: P1
@@ -484,7 +683,8 @@ blockers:
   - id: DB-LIC-003
     severity: P1
     title: learning_account_lifecycle_optimistic_concurrency_and_student_archive_effect
-    status: OPEN
+    status: RESOLVED
+    resolution_ref: resolved_contracts.DB-LIC-003
     diagnosis:
       - learning-account PATCH already exposes If-Match but student_learning_accounts currently has no explicit version column in the physical blueprint
       - status exists as an unconstrained string without a closed lifecycle or state-field matrix
@@ -539,7 +739,7 @@ blockers:
       - aggregate intends to serialize activation on StudentLearningAccount and create one activation period per assignment but final current-entitlement integrity is not DB-closed
       - concurrent extensions must not lose days and must produce deterministic nonoverwriting history
       - historical effect must remain reproducible if LicenseProduct duration or metadata changes later
-      - current activation row lacks explicit duration snapshot and expiry_before expiry_after provenance called for by the product evidence
+      - current activation row lacks explicit duration snapshot and expiry_before_after provenance called for by the product evidence
       - activated_by_user_id nullable does not yet distinguish learner self-activation from OSK-managed activation semantics
     required_outcome_for_future_fix:
       - immutable exactly-once activation effect per assignment
@@ -574,11 +774,11 @@ diagnosis_summary:
   result: FAIL_WITH_7_P1_BLOCKERS
 
 current_gate_summary:
-  blockers_resolved_after_diagnosis: 2
-  open_P0_P1: 5
-  result: FAIL_WITH_5_P1_BLOCKERS
-  resolved_blockers: [DB-LIC-001, DB-LIC-002]
-  next_blocker: DB-LIC-003
+  blockers_resolved_after_diagnosis: 3
+  open_P0_P1: 4
+  result: FAIL_WITH_4_P1_BLOCKERS
+  resolved_blockers: [DB-LIC-001, DB-LIC-002, DB-LIC-003]
+  next_blocker: DB-LIC-004
 
 nonblockers_and_deferred_questions:
   - exact_public_prices_discounts_VAT_and_payment_provider_flow_belong_to_DB4_9
@@ -620,6 +820,14 @@ preservation_checks:
   heuristic_merge_or_rebind_from_typed_identifier_or_student_fields_forbidden: PASS
   DB4_2_global_login_uniqueness_and_verification_authority_preserved: PASS
   DB_LIC_003_through_DB_LIC_007_not_fixed_in_DB_LIC_002_step: PASS
+  learning_account_version_concurrency_root_defined: PASS
+  learning_account_status_catalog_closed_without_inventing_expiry_state: PASS
+  student_archive_disables_operational_learning_context_without_child_status_rewrite: PASS
+  student_restore_does_not_resume_explicitly_suspended_access_or_restore_license_effects: PASS
+  active_entitlement_not_paused_or_extended_by_student_archive: PASS
+  archive_restore_and_state_dependent_access_commands_share_student_lock_boundary: PASS
+  global_User_and_other_organization_learning_context_not_revoked_by_local_student_archive: PASS
+  DB_LIC_004_through_DB_LIC_007_not_fixed_in_DB_LIC_003_step: PASS
   purchase_payment_scope_not_accidentally_solved_in_DB4_6: PASS
   DB4_7_or_later_scope_not_entered: PASS
   aggregate_core_schema_modified_in_diagnosis: false
@@ -630,16 +838,16 @@ preservation_checks:
   UI_or_feature_implementation_started: false
 
 next_single_step:
-  id: DB4_6_STEP_3
-  blocker: DB-LIC-003
-  action: resolve_learning_account_lifecycle_optimistic_concurrency_and_student_archive_effect_only
+  id: DB4_6_STEP_4
+  blocker: DB-LIC-004
+  action: resolve_one_time_credentials_handoff_PDF_and_secret_non_persistence_only
   allowed_files:
     - specs/database/licenses-learning-access.yml
     - docs/110-stage-4-licenses-learning-access-audit.md
     - specs/gates/stage-4-database-contract-gate.yml
   scope_lock: >-
-    Resolve only DB-LIC-003. Do not fix DB-LIC-004 through DB-LIC-007, do not
+    Resolve only DB-LIC-004. Do not fix DB-LIC-005 through DB-LIC-007, do not
     synchronize specs/database/core-schema.yml or docs/87-physical-database-schema.md
     until the final DB4_6 aggregate sync, do not enter DB4_7 or later slices, do
     not create Laravel migrations, do not start Stage 5 and do not implement UI/features.
-  after_action: rerun_DB4_6_gate_and_STOP_before_DB_LIC_004
+  after_action: rerun_DB4_6_gate_and_STOP_before_DB_LIC_005
