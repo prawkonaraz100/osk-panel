@@ -2,7 +2,7 @@
 
 Data: 2026-09-06
 
-**Status:** `DB4_4 IN PROGRESS / DB-TRN-001 PASS / DB-TRN-002 PASS / DB-TRN-003 PASS / DB-TRN-004 PASS / DB-TRN-005 PASS / DB-TRN-006 PASS / 2 P1 BLOCKERS OPEN`
+**Status:** `DB4_4 IN PROGRESS / DB-TRN-001 PASS / DB-TRN-002 PASS / DB-TRN-003 PASS / DB-TRN-004 PASS / DB-TRN-005 PASS / DB-TRN-006 PASS / DB-TRN-007 PASS / 1 P1 BLOCKER OPEN`
 
 ## Cel i zasada pracy
 
@@ -1387,6 +1387,256 @@ Self-audit:
 
 **FINAL GATE DB-TRN-006: PASS.**
 
+---
+
+# DB-TRN-007 — PASS: deterministic previous-OSK projection + additive documented history
+
+## Problem z diagnozy
+
+Potwierdzony Course create/edit pokazuje dokładnie po jednej wartości „teoria odbyta w innej szkole” i „praktyka odbyta w innej szkole”. Jednocześnie Stage-3 API ma list/create/revoke dla `RecognizedExternalTraining`, więc domena musi obsłużyć także wiele niezależnie udokumentowanych wpisów.
+
+Bez jawnego rozdzielenia ról dwa poprawne biznesowo zachowania były mieszane:
+- edycja jednej scalar wartości formularza powinna **zastępować** poprzednią wersję,
+- kolejne udokumentowane transfery mogą być **addytywne**.
+
+Reguła typu „weź najnowszy rekord” byłaby niedeterministyczna i niszczyłaby formalną historię korekt.
+
+## Decyzja canonical — `record_role` oddziela semantykę od provenance
+
+`recognized_external_training` pozostaje jednym trwałym historycznym ownerem, ale dostaje jawny `record_role`:
+- `course_form_projection` — wersjonowana scalar wartość formularza dla danego `Course + training_part`,
+- `documented_transfer` — niezależny udokumentowany transfer, który jest addytywny.
+
+`source_kind` nie określa już tego, czy rekord jest sumowany czy zastępowany. Jest wyłącznie provenance:
+- `course_form_initial`,
+- `course_form_revision`,
+- `documented_transfer`,
+- `correction`,
+- `context_revalidation`.
+
+Dzięki temu nie ma heuristic `latest(created_at)` ani zależności od kolejności ID.
+
+## Current / superseded / revoked
+
+Canonical current row:
+
+`superseded_at IS NULL AND revoked_at IS NULL`.
+
+Row może być tylko:
+- current,
+- superseded,
+- revoked.
+
+Nie może być jednocześnie superseded i revoked.
+
+Business fields są immutable po insert. Replacement/korekta nie przepisuje starego `recognized_minutes`; stary row dostaje `superseded_at`, a nowa wartość powstaje jako successor. Revoke zachowuje business row i ustawia actor/time/reason.
+
+Runtime revoke wymaga actor + reason. Jeżeli stary legacy row był już revoked bez kompletnej historycznej metadaty, migracja nie fabrykuje nieznanego aktora ani powodu.
+
+## Linear lineage
+
+Każdy successor może wskazać `supersedes_record_id`. Composite self-FK obejmuje:
+- tenant,
+- CourseEnrollment,
+- `training_part`,
+- `record_role`.
+
+Nie da się więc skorygować rekordu z innego OSK, kursu, części szkolenia ani innej roli.
+
+Partial unique na `supersedes_record_id` daje maksymalnie jednego successor dla source. Self-reference i cycles są zabronione. Source musi być current przed replacement, a w tej samej transakcji przestaje być current.
+
+Historia jest liniowa, bez branchowania i bez source+successor double count.
+
+## Scalar course-form projection
+
+Dla `record_role=course_form_projection` obowiązuje partial unique:
+
+`at most one current row per organization + course + training_part`.
+
+Brak current row oznacza `0` minut. Nie tworzymy sztucznego current row z zerem.
+
+Course create:
+- dodatnia wartość teorii/praktyki -> dokładnie jeden `course_form_initial` row dla tej części,
+- `0` albo brak -> brak row, projekcja 0,
+- snapshot category/training type pochodzi z tworzonego Course.
+
+Course edit dla aktywnego kursu:
+- ta sama wartość -> semantic no-op,
+- `0 -> positive` -> nowy root `course_form_revision`,
+- `positive -> positive` -> stary row superseded + nowy successor,
+- `positive -> 0` -> revoke current, bez zero-successora.
+
+Cały Course edit ma **jeden** Course version bump i jeden DB-TRN-004 `updated` event, nawet jeżeli równocześnie zmienia pole kursu i external scalar. Sama zmiana external minutes nie zwiększa `requirements_revision`.
+
+Dla terminalnego Course obowiązuje DB-TRN-004 correction mode z actor + human reason i `closed_course_corrected`; nie otwieramy kursu ponownie.
+
+## Additive documented transfers
+
+Standalone `POST .../recognized-external-training` tworzy `record_role=documented_transfer`.
+
+Każdy taki current root jest niezależny i jest sumowany. Wymagamy:
+- dodatnich minut,
+- reason,
+- permission,
+- Idempotency-Key,
+- świeżej Course version,
+- Course lock przed insertem,
+- category/training type snapshot z lockowanego Course.
+
+Dwa poprawne niezależne current documented transfers dla tej samej części są więc **oba** liczone. Nie zastępują scalar course-form projection.
+
+## Korekta external training — replacement, nie signed delta
+
+Tutaj świadomie nie kopiujemy semantyki `TrainingHourLedger correction`. External recognition jest wersjonowaną decyzją o wartości uznanej, więc korekta to **pełna nowa wartość**, nie addytywny signed delta.
+
+Dla dodatniej poprawionej wartości:
+1. lock Course,
+2. lock current source row,
+3. mark source superseded,
+4. insert successor `source_kind=correction`,
+5. zachowaj role + part,
+6. snapshot aktualnego Course context.
+
+Wartość `0` kieruje do revoke semantics.
+
+Source business row nie jest przepisywany. Course version rośnie raz, history event jest `updated` albo `closed_course_corrected`.
+
+## Revoke
+
+Istniejący Stage-3 endpoint revoke pozostaje canonical operacją usunięcia bieżącego efektu bez usunięcia historii.
+
+Revoke:
+- działa tylko na current row,
+- weryfikuje tenant i path Course,
+- ustawia `revoked_at`, `revoked_by_user_id`, `revocation_reason`,
+- zwiększa Course version raz,
+- zapisuje DB-TRN-004 event + audit/outbox.
+
+Fresh revoke superseded/already revoked row jest konfliktem. Retry tego samego Idempotency-Key nie nakłada drugiego efektu.
+
+## Snapshot category/training type i revalidation
+
+Potwierdzony ekran Course edit wymaga rewalidacji external training przy zmianie category/training type. Brakowało jednak fizycznej gwarancji, że stary external credit nie pozostanie current po zmianie kontekstu.
+
+Każdy nowy/current contributing row przechowuje:
+- `recognized_for_driving_category_id`,
+- `recognized_for_training_type`.
+
+Deferrable guard wymaga, aby current contributing row odpowiadał **finalnemu** category/training type Course.
+
+Zmiana category/training type musi więc w tej samej transakcji podjąć jawny domain decision:
+- kompatybilny -> supersede current row + `context_revalidation` successor z nowym context,
+- niekompatybilny -> revoke/clear current effect z zachowaniem historii.
+
+DB-TRN-007 **nie wymyśla** niezweryfikowanej macierzy legalnej kompatybilności. Screen potwierdza obowiązek revalidation, nie dokładny wynik dla każdej pary kategorii. DB wymusza tylko, że po decyzji nie może zostać current stale-context row.
+
+Historical noncurrent row może zachować dawny kontekst. Legacy row o nieznanym kontekście może pozostać tylko jako noncontributing history.
+
+## Deterministyczna external projection
+
+Dla każdej części szkolenia:
+
+`external = current course-form projection (0 lub 1 row) + SUM(current documented transfers)`.
+
+Current filter wymaga:
+- `superseded_at IS NULL`,
+- `revoked_at IS NULL`,
+- context snapshot zgodny z aktualnym Course.
+
+Nie liczymy:
+- starych course-form revisions,
+- superseded wersji transferów,
+- revoked rows,
+- stale/unknown-context history.
+
+Correction successor liczy się tylko, jeżeli jest current. Nie ma source+successor double count i nie ma cross-part substitution.
+
+## Połączenie z current-OSK ledger
+
+`GET .../training-hours` może teraz deterministycznie policzyć:
+- current OSK theory/practical — z DB-TRN-006 Ledger,
+- recognized external theory/practical — z DB-TRN-007,
+- total theory = current OSK theory + external theory,
+- total practical = current OSK practical + external practical.
+
+Declared current-OSK form fields nadal nie są formalnym credited time. External rows nigdy nie są przepisywane do current-OSK ledger.
+
+## Completion minute gate po DB-TRN-007
+
+Po tym blockerze combined minute satisfaction jest fizycznie określone:
+- current requirement profile musi być fresh (DB-TRN-005),
+- current OSK minutes pochodzą z DB-TRN-006,
+- recognized external minutes pochodzą z DB-TRN-007,
+- teoria porównuje tylko total theory z `minimum_theory_minutes`,
+- praktyka porównuje tylko total practical z `minimum_practical_minutes`.
+
+Theory minutes nie mogą spełniać practical minimum ani odwrotnie.
+
+**Combined current-OSK + recognized-external minute satisfaction jest po DB-TRN-007 zamknięte.** Internal exam satisfaction nadal pozostaje DB4_7, więc to jeszcze nie oznacza pełnej Course completion eligibility.
+
+## Concurrency
+
+Wszystkie materialne external mutations używają `course_enrollments.version` jako jedynego concurrency root i lockują Course najpierw.
+
+Dwa commandy z tym samym expected Course version nie mogą oba wygrać, również:
+- form edit vs documented transfer create,
+- revoke vs correction,
+- category/type PATCH vs external mutation.
+
+Partial unique current form projection oraz one-successor-per-source są końcowymi DB race boundaries. Idempotency chroni retry transportowe, nie stale business intent.
+
+## Migration design
+
+Migracja DB-TRN-007 nie może „uporządkować” starych danych heurystycznie.
+
+Kolejność:
+1. dodać role/context/lineage/supersede/revoke metadata najpierw jako nullable,
+2. `course_form_initial` klasyfikować jako form role tylko gdy jednoznaczne,
+3. `documented_transfer` klasyfikować jako documented role tylko gdy jednoznaczne,
+4. każdy legacy `correction` zbadać pod kątem źródła i roli,
+5. active correction o nieznanej semantyce -> migration FAIL / explicit reviewed remediation,
+6. wykryć wiele active form candidates per Course+part,
+7. **nie** wybierać `MAX(created_at)` ani „latest row”,
+8. ambiguity -> jawna reviewed remediation,
+9. active contributing row musi mieć udowodniony bieżący category/training context,
+10. nie kopiować ślepo aktualnego Course context do całej historii,
+11. nie fabrykować actor/reason dla legacy revoke,
+12. dopiero potem dodać self-FK, partial uniques, lifecycle checks i current-context guard.
+
+Nie generujemy jeszcze migracji Laravel.
+
+## Quality gate DB-TRN-007
+
+Sprawdzono:
+- scalar previous-OSK form value ma maksymalnie jeden deterministic current row per part — **PASS DESIGN**,
+- nie ma `latest row wins` heuristic — **PASS**,
+- documented transfers są addytywne i oddzielone od form revisions — **PASS DESIGN**,
+- replacement/correction zachowuje source history bez double count — **PASS DESIGN**,
+- external correction ma jednoznaczną semantykę full replacement — **PASS**,
+- revoke usuwa current effect bez hard-delete — **PASS**,
+- lineage jest same tenant + same Course + same part + same role i nie branchuje — **PASS DESIGN**,
+- current row nie może przeżyć category/training-type change bez revalidation — **PASS DESIGN**,
+- nie wymyślono niepotwierdzonej macierzy legalnej kompatybilności — **PASS SCOPE**,
+- potwierdzone course create/edit fields dla poprzedniego OSK są zachowane — **PASS PRESERVATION**,
+- standalone external list/create/revoke API capability pozostaje zachowane — **PASS PRESERVATION**,
+- external theory/practical totals są deterministyczne — **PASS**,
+- current-OSK Ledger pozostaje oddzielnym source of truth — **PASS**,
+- combined current+external minute minimum jest teraz zamknięte — **PASS DESIGN**,
+- external mutations używają Course version + DB-TRN-004 history — **PASS DESIGN**,
+- terminal course external change wymaga correction mode i nie reopenuje Course — **PASS**,
+- migracja nie zgaduje latest row, lineage, context ani actor — **PASS**,
+- DB-TRN-008 nie został naprawiony przy okazji — **PASS SCOPE**,
+- pełny wcześniejszy machine contract DB-TRN-001..006 został zachowany — **PASS PRESERVATION**,
+- pełna wcześniejsza narracja DB-TRN-001..006 została zachowana — **PASS PRESERVATION**,
+- `specs/database/core-schema.yml` bez zmian — **PASS**,
+- `docs/87-physical-database-schema.md` bez zmian — **PASS**,
+- DB4_5+ bez zmian — **PASS**,
+- migracje Laravel/UI/feature implementation — **NIE ROZPOCZĘTO**.
+
+**GATE DB-TRN-007: PASS.**
+
+---
+
 ## Aktualna kolejność napraw
 
 1. `DB-TRN-001` — **PASS**.
@@ -1395,7 +1645,7 @@ Self-audit:
 4. `DB-TRN-004` — **PASS**.
 5. `DB-TRN-005` — **PASS**.
 6. `DB-TRN-006` — **PASS**.
-7. `DB-TRN-007` — external training projection/history — **NEXT**.
-8. `DB-TRN-008` — course PKK persistence boundary.
+7. `DB-TRN-007` — **PASS**.
+8. `DB-TRN-008` — course PKK persistence boundary — **NEXT**.
 
-**Następny pojedynczy krok: tylko `DB-TRN-007` -> self-audit -> gate -> STOP przed `DB-TRN-008`.**
+**Następny pojedynczy krok: tylko `DB-TRN-008` -> self-audit -> gate -> STOP przed finalnym DB4_4 aggregate sync.**
