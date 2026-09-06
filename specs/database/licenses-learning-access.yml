@@ -683,8 +683,9 @@ resolved_contracts:
           OSK_password_set_or_reset_allowed_only_for_matching_organization: true
       relation_to_global_user_password:
         password_hash_null_allows_credential_version_zero: true
+        password_hash_null_may_have_credential_version_gt_zero_after_explicit_local_password_disable: true
         password_hash_nonnull_requires_credential_version_gte_1: true
-        credential_version_gte_1_requires_password_hash_nonnull: true
+        local_password_disable_if_supported_must_increment_version_and_preserve_monotonic_epoch: true
         enforcement: DEFERRABLE_INITIALLY_DEFERRED_constraint_trigger_or_equivalent_transactional_DB_guard_across_users_and_management_row
       authority_transfer_or_self_service_claim:
         hidden_side_effect_of_learning_account_create_update_reset: forbidden
@@ -781,7 +782,7 @@ resolved_contracts:
           allowed_values: [initial_credentials, password_reset, credentials_document]
         credential_version_snapshot: bigint_not_null_check_gte_0
         contains_fresh_secret: boolean_not_null_default_false
-        fresh_secret_generated_at: timestamptz_nullable
+        fresh_secret_issued_at: timestamptz_nullable
         batch_id: uuid_nullable_FK_student_access_export_batches
         batch_ordinal: integer_nullable_check_gt_0
         document_asset_id: existing_nullable_same_tenant_FK_from_DB_LIC_001
@@ -789,10 +790,10 @@ resolved_contracts:
         contains_fresh_secret_true:
           handoff_type_allowed: [initial_credentials, password_reset]
           credential_version_snapshot_must_be_gte_1: true
-          fresh_secret_generated_at_required: true
+          fresh_secret_issued_at_required: true
           document_asset_id_must_be_null: true
         contains_fresh_secret_false:
-          fresh_secret_generated_at_must_be_null: true
+          fresh_secret_issued_at_must_be_null: true
           document_asset_id_may_be_null_or_secret_free_asset: true
       batch_matrix:
         batch_id_null_requires_batch_ordinal_null: true
@@ -963,7 +964,7 @@ resolved_contracts:
         - create_unclassified_management_row_for_each_existing_user_without_inferring_an_OSK_manager
         - initialize_credential_version_zero_when_password_hash_null_and_one_when_nonnull_as_migration_epoch_not_historical_reset_count
         - leave_password_changed_at_null_when_original_change_time_is_unknown
-        - add_users_password_hash_vs_credential_version_deferred_final_state_guard
+        - add_users_password_hash_nonnull_requires_credential_version_gte_1_deferred_final_state_guard
         - add_organization_managed_exclusive_principal_deferred_guards_across_memberships_learning_accounts_and_social_accounts
         - add_student_access_export_batches
         - add_handoff_credential_version_secret_metadata_batch_fields_and_checks
@@ -990,6 +991,7 @@ resolved_contracts:
       - initial_password_for_new_OSK_managed_exclusive_user_initializes_authority_atomically
       - reset_with_current_expected_credential_version_changes_hash_and_increments_epoch_once
       - self_service_or_other_auth_password_change_also_increments_same_credential_version_once
+      - explicit_local_password_disable_if_identity_flow_supports_it_sets_hash_null_and_increments_same_credential_version_without_resetting_epoch
       - reset_with_stale_expected_credential_version_is_rejected_without_partial_effect
       - two_resets_with_same_expected_credential_version_cannot_both_commit
       - plaintext_password_is_absent_from_relational_tables_audit_outbox_logs_and_idempotency_snapshot
@@ -1208,6 +1210,7 @@ preservation_checks:
   organization_managed_password_authority_is_exclusive_learner_principal_not_cross_tenant_staff_or_social_identity: PASS
   same_global_User_cross_organization_nonmanager_password_takeover_blocked: PASS
   credential_version_serializes_global_password_mutation_without_reusing_learning_account_version: PASS
+  credential_version_remains_monotonic_when_local_password_is_explicitly_disabled: PASS
   plaintext_secret_never_persisted_in_DB_audit_outbox_idempotency_FileAsset_or_QR: PASS
   secret_bearing_PDF_is_immediate_memory_only_and_later_reprint_cannot_recover_old_secret: PASS
   nonsecret_reprint_and_secret_free_cached_PDF_capability_preserved: PASS
