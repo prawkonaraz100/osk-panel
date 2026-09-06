@@ -1,7 +1,7 @@
 meta:
   project: osk-panel
   scope: students_courses_training_core_v1
-  status: DB_TRN_001_002_003_004_005_006_PASS_2_P1_BLOCKERS_OPEN
+  status: DB_TRN_001_002_003_004_005_006_007_PASS_1_P1_BLOCKER_OPEN
   stage: DB4_4_STUDENTS_COURSES_TRAINING_LEDGER
   created_at: 2026-09-06
   narrative: docs/108-stage-4-students-courses-training-ledger-audit.md
@@ -39,10 +39,13 @@ principles:
   one_completed_present_session_may_create_at_most_one_base_credit: true
   cancelled_session_may_never_create_formal_base_credit: true
   training_hour_ledger_is_append_only_and_corrections_are_compensating_entries: true
-  current_step_scope: attendance_verified_session_to_ledger_exactly_once_only
+  external_form_projection_has_at_most_one_current_value_per_course_part: true
+  external_documented_transfers_are_additive_current_records: true
+  external_training_history_is_versioned_without_latest_row_guess: true
+  external_current_credit_must_match_current_course_category_and_training_type: true
+  current_step_scope: recognized_external_training_projection_history_only
 
 open_blockers_after_this_step:
-  - DB-TRN-007
   - DB-TRN-008
 
 # DB-TRN-001
@@ -2238,6 +2241,460 @@ training_attendance_ledger_exactly_once:
     current_OSK_projection_is_deterministic_signed_sum_and_never_uses_declared_hours: PASS
     theory_45_and_practical_60_are_not_misused_as_rounding_blocks: PASS
     DB_TRN_007_and_DB_TRN_008_not_fixed: PASS
+    aggregate_core_schema_not_modified_in_this_step: PASS
+    aggregate_docs87_not_modified_in_this_step: PASS
+    Laravel_migrations_created: false
+    later_DB4_slices_entered: false
+
+# DB-TRN-007
+recognized_external_training_projection_history:
+  blocker: DB-TRN-007
+  status: PASS
+  goal: >-
+    Make previous-OSK hours deterministic without collapsing formal history. The
+    single theory/practice values shown by the course form become a versioned current
+    projection, while independently documented external transfers remain additive.
+    Replacements, corrections and revocations preserve lineage, serialize on the
+    CourseEnrollment concurrency root and cannot double count an old and new version.
+
+  authority_and_preservation:
+    create_screen: specs/screens/course-create.yml
+    edit_screen: specs/screens/course-edit.yml
+    API_paths: specs/api/paths/students-courses.yaml
+    API_schema: specs/api/openapi-components-v1.yaml
+    aggregate_blueprint_reference_only: specs/database/core-schema.yml
+    aggregate_narrative_reference_only: docs/87-physical-database-schema.md
+    course_form_fields_preserved:
+      - recognized_external_theory_minutes
+      - recognized_external_practical_minutes
+    observed_single_value_per_course_part: true
+    standalone_external_training_list_create_and_revoke_capabilities_preserved: true
+    previous_OSK_source_of_truth: recognized_external_training
+    current_OSK_ledger_remains_separate: true
+    canonical_storage_unit: minutes
+    exact_legal_compatibility_matrix_for_category_or_training_type_change_observed: false
+
+  role_and_provenance_model:
+    record_role:
+      values: [course_form_projection, documented_transfer]
+      purpose: current_projection_semantics_not_audit_provenance
+    source_kind:
+      values:
+        - course_form_initial
+        - course_form_revision
+        - documented_transfer
+        - correction
+        - context_revalidation
+      purpose: provenance_of_how_this_immutable_business_version_was_created
+    source_kind_does_not_define_additive_or_form_semantics: true
+    no_latest_created_at_or_max_id_projection_rule: true
+
+  recognized_external_training_strengthening:
+    existing_table: recognized_external_training
+    add_or_require_fields:
+      - record_role_varchar_32_nullable_only_during_migration
+      - recognized_for_driving_category_id_uuid_nullable_only_for_noncurrent_legacy_unknown_history
+      - recognized_for_training_type_varchar_32_nullable_only_for_noncurrent_legacy_unknown_history
+      - supersedes_record_id_uuid_nullable
+      - superseded_at_timestamptz_nullable
+      - revoked_by_user_id_uuid_nullable
+      - revocation_reason_text_nullable
+    existing_fields_preserved:
+      - id
+      - organization_id
+      - course_enrollment_id
+      - training_part
+      - recognized_minutes
+      - source_kind
+      - source_school_reference
+      - evidence_reference
+      - reason
+      - approved_by_user_id
+      - created_at
+      - revoked_at
+    training_part_values: [theory, practical]
+    recognized_minutes:
+      type: integer_minutes
+      runtime_current_row_minimum: 1
+      zero_current_row_forbidden: true
+      zero_form_value_representation: absence_of_current_form_projection_row
+    business_fields_immutable_after_insert:
+      - organization_id
+      - course_enrollment_id
+      - training_part
+      - recognized_minutes
+      - record_role
+      - source_kind
+      - source_school_reference
+      - evidence_reference
+      - reason
+      - approved_by_user_id
+      - recognized_for_driving_category_id
+      - recognized_for_training_type
+      - supersedes_record_id
+      - created_at
+    lifecycle_markers_mutable_only_by_governed_commands:
+      - superseded_at
+      - revoked_at
+      - revoked_by_user_id
+      - revocation_reason
+    hard_delete_normal_lifecycle: forbidden
+    organization_or_course_rebind_after_insert: forbidden
+
+  row_lifecycle_matrix:
+    current: superseded_at_is_null_and_revoked_at_is_null
+    superseded: superseded_at_is_not_null_and_revoked_at_is_null
+    revoked: revoked_at_is_not_null_and_superseded_at_is_null
+    both_superseded_and_revoked: forbidden
+    runtime_revoke_pair:
+      rule: >-
+        For rows revoked by the new runtime contract, revoked_at, revoked_by_user_id
+        and revocation_reason are all non-null.
+    legacy_revoked_missing_actor_or_reason:
+      migration_may_preserve_as_historical_noncurrent_row: true
+      fabricate_actor_or_reason: forbidden
+    reactivate_same_row_after_revoke_or_supersede: forbidden
+    restore_business_effect: create_new_record_with_history_not_clear_old_marker
+
+  lineage_integrity:
+    target_candidate_key:
+      columns: [organization_id, id, course_enrollment_id, training_part, record_role]
+    supersedes_same_tenant_course_part_role_FK:
+      source_columns: [organization_id, supersedes_record_id, course_enrollment_id, training_part, record_role]
+      target_table: recognized_external_training
+      target_columns: [organization_id, id, course_enrollment_id, training_part, record_role]
+      match: MATCH_SIMPLE
+      on_update: RESTRICT
+      on_delete: RESTRICT
+    at_most_one_successor_per_source:
+      type: partial_unique
+      columns: [organization_id, supersedes_record_id]
+      where: supersedes_record_id_is_not_null
+    source_must_preexist_successor: true
+    source_must_be_current_before_replacement: true
+    replacement_sets_source_superseded_at_same_transaction: true
+    self_reference: forbidden
+    cycles: forbidden
+    lineage_is_linear_not_branching: true
+    source_and_current_successor_may_not_both_contribute: true
+
+  course_form_projection:
+    role: course_form_projection
+    meaning: >-
+      The one scalar previous-school value edited in the Course create/edit form for
+      a training part. It is versioned history, not an independently additive set.
+    current_predicate: record_role_course_form_projection_and_superseded_at_null_and_revoked_at_null
+    at_most_one_current_per_course_part:
+      type: partial_unique
+      columns: [organization_id, course_enrollment_id, training_part]
+      where: record_role_course_form_projection_and_superseded_at_null_and_revoked_at_null
+    no_current_row_projects_minutes: 0
+    create_course_positive_initial_value:
+      source_kind: course_form_initial
+      supersedes_record_id: null
+      category_and_training_type_snapshot_from_new_course: required
+      creates_exactly_one_row_for_each_positive_part: true
+    create_course_zero_or_omitted_value:
+      creates_zero_minute_row: false
+      projected_value: 0
+    edit_active_course_value_change:
+      lock_course_enrollment_FOR_UPDATE: true
+      expected_course_version_required: true
+      lock_current_form_projection_row_when_present: FOR_UPDATE
+      same_value: semantic_noop_for_external_history
+      zero_to_positive:
+        insert_new_root_row: true
+        source_kind: course_form_revision
+      positive_to_positive:
+        supersede_old_then_insert_successor: true
+        source_kind: course_form_revision
+      positive_to_zero:
+        revoke_current_without_zero_successor: true
+        normal_active_edit_reason_code_may_be_system_course_form_value_cleared: true
+      one_course_version_increment_for_whole_edit_command: true
+      DB_TRN_004_history_event: updated
+      requirements_revision_increment_due_only_to_external_minutes_change: false
+    terminal_course_form_value_change:
+      DB_TRN_004_correction_mode_required: true
+      human_reason_and_actor_required: true
+      lifecycle_state_unchanged: true
+      DB_TRN_004_history_event: closed_course_corrected
+    exact_HTTP_course_PATCH_external_field_orchestration: Stage5_acceptance_contract_sync
+
+  documented_transfer_projection:
+    role: documented_transfer
+    meaning: independently_recognized_documented_external_training_that_is_additive
+    current_rows_may_be_multiple_per_course_part: true
+    current_predicate: record_role_documented_transfer_and_superseded_at_null_and_revoked_at_null
+    create_operation: POST_/course-enrollments/{courseEnrollmentId}/recognized-external-training
+    create_semantics:
+      idempotency_key_required: true
+      permission: external_training.recognize
+      expected_course_version_required_for_fresh_command: true
+      lock_course_enrollment_FOR_UPDATE: true
+      recognized_minutes_must_be_positive: true
+      reason_required: true
+      record_role: documented_transfer
+      source_kind: documented_transfer
+      supersedes_record_id: null
+      category_and_training_type_snapshot_from_locked_course: required
+      course_version_increment: exactly_once
+      DB_TRN_004_history_event_if_active: updated
+      DB_TRN_004_history_event_if_terminal: closed_course_corrected
+      audit_and_outbox_same_transaction: true
+    independent_current_transfer_rows_are_summed: true
+
+  correction_replacement_semantics:
+    correction_is_signed_delta: false
+    correction_is_full_replacement_value: true
+    source_may_be_role: [course_form_projection, documented_transfer]
+    operation_surface_for_standalone_external_record_correction: Stage5_acceptance_contract_sync
+    required:
+      - permission
+      - reason
+      - expected_course_version
+      - source_record_id
+    fixed_lock_order:
+      - course_enrollment_FOR_UPDATE
+      - source_external_training_row_FOR_UPDATE
+    source_preconditions:
+      - source_is_current
+      - source_belongs_to_path_course_and_tenant
+      - source_role_and_part_preserved
+    corrected_positive_value:
+      - mark_source_superseded_at
+      - insert_successor_with_source_kind_correction
+      - set_successor_supersedes_record_id_to_source
+      - preserve_role_and_training_part
+      - snapshot_current_course_category_and_training_type
+    corrected_zero_value:
+      route_to: revoke_semantics
+    source_business_fields_mutated: false
+    course_version_increment: exactly_once
+    DB_TRN_004_history_event_if_active: updated
+    DB_TRN_004_history_event_if_terminal: closed_course_corrected
+    same_idempotency_key_retry: return_prior_result_without_second_successor
+
+  revoke_semantics:
+    operation: POST_/course-enrollments/{courseEnrollmentId}/recognized-external-training/{recordId}/revoke
+    idempotency_key_required: true
+    permission: external_training.recognize
+    expected_course_version_required_for_fresh_command: true
+    reason_required: true
+    fixed_lock_order:
+      - course_enrollment_FOR_UPDATE
+      - target_external_training_row_FOR_UPDATE
+    target_must_be_current: true
+    target_must_belong_to_path_tenant_and_course: true
+    set:
+      - revoked_at_authoritative_server_time
+      - revoked_by_user_id_actor
+      - revocation_reason
+    preserve_business_fields_and_lineage: true
+    fresh_revoke_of_superseded_or_already_revoked: conflict_not_current
+    same_idempotency_key_retry: return_prior_result_without_second_effect
+    course_version_increment: exactly_once
+    DB_TRN_004_history_event_if_active: updated
+    DB_TRN_004_history_event_if_terminal: closed_course_corrected
+    hard_delete: false
+
+  course_context_compatibility_guard:
+    current_contributing_row_must_have_context_snapshot: true
+    current_row_context_fields:
+      - recognized_for_driving_category_id
+      - recognized_for_training_type
+    new_row_context_is_derived_from_locked_course_not_client_authority: true
+    final_transaction_invariant: >-
+      Every current contributing RecognizedExternalTraining row must have
+      recognized_for_driving_category_id = course_enrollments.driving_category_id
+      and recognized_for_training_type = course_enrollments.training_type.
+    enforcement: deferrable_constraint_trigger_or_equivalent_transactional_database_guard
+    category_or_training_type_change_requires_external_revalidation_same_transaction: true
+    revalidation_domain_decision:
+      compatible:
+        - supersede_each_affected_current_row
+        - insert_context_revalidation_successor_with_final_course_context
+        - preserve_recognized_minutes_unless_authorized_domain_decision_explicitly_adjusts_value
+      incompatible:
+        - revoke_or_clear_current_row_without_deleting_history
+    exact_legal_compatibility_matrix_hardcoded_in_DB_TRN_007: false
+    reason: >-
+      The confirmed edit contract requires revalidation, but the exact legal mapping
+      was not observed. Database enforces freshness after the domain decision and
+      must not invent category-transfer law as a structural constraint.
+    historical_noncurrent_rows_may_retain_old_context: true
+    legacy_unknown_context_allowed_only_for_noncurrent_noncontributing_history: true
+
+  projection_contract:
+    current_form_component_per_part: one_current_course_form_projection_row_or_zero
+    current_documented_component_per_part: sum_all_current_documented_transfer_rows
+    recognized_external_theory_minutes: form_theory_plus_documented_theory
+    recognized_external_practical_minutes: form_practical_plus_documented_practical
+    contributing_row_filter:
+      - superseded_at_is_null
+      - revoked_at_is_null
+      - context_snapshot_matches_current_course
+    excludes:
+      - prior_course_form_revisions
+      - superseded_documented_transfer_versions
+      - revoked_rows
+      - historical_rows_with_unknown_or_stale_course_context
+    correction_successor_contributes_only_when_current: true
+    no_latest_created_at_heuristic: true
+    no_source_plus_successor_double_count: true
+    no_theory_practical_cross_substitution: true
+    nonnegative_by_positive_current_rows: true
+
+  combined_training_hours_projection:
+    operation: GET_/course-enrollments/{courseEnrollmentId}/training-hours
+    current_OSK_theory_minutes: DB_TRN_006_ledger_projection_theory
+    current_OSK_practical_minutes: DB_TRN_006_ledger_projection_practical
+    recognized_external_theory_minutes: DB_TRN_007_projection_theory
+    recognized_external_practical_minutes: DB_TRN_007_projection_practical
+    total_theory_minutes: current_OSK_theory_plus_recognized_external_theory
+    total_practical_minutes: current_OSK_practical_plus_recognized_external_practical
+    declared_current_OSK_course_fields_excluded_from_formal_total: true
+    recognized_external_rows_are_never_inserted_into_current_OSK_ledger: true
+
+  completion_minute_gate:
+    fresh_requirement_profile_required_from_DB_TRN_005: true
+    current_OSK_component_from_DB_TRN_006: true
+    recognized_external_component_from_DB_TRN_007: true
+    theory_when_required: total_theory_minutes_gte_current_profile_minimum_theory_minutes
+    practical_when_required: total_practical_minutes_gte_current_profile_minimum_practical_minutes
+    training_part_cross_substitution: forbidden
+    combined_current_OSK_plus_external_minute_satisfaction: CLOSED_BY_DB_TRN_007
+    internal_exam_satisfaction_remains: DB4_7
+
+  course_version_and_concurrency:
+    concurrency_root: course_enrollments.version
+    every_material_external_training_mutation_locks_course_first: true
+    same_expected_course_version_between_competing_external_commands: at_most_one_commits
+    form_edit_vs_documented_transfer_create_same_expected_version: at_most_one_commits
+    documented_transfer_revoke_vs_correction_same_expected_version: at_most_one_commits
+    category_or_training_type_PATCH_vs_external_mutation_same_expected_version: at_most_one_commits
+    partial_unique_current_form_projection_is_final_race_boundary: true
+    partial_unique_one_successor_per_source_is_final_race_boundary: true
+    idempotency_handles_transport_retry_not_stale_business_intent: true
+    material_external_change_course_version_increment: exactly_once
+    material_external_change_requires_DB_TRN_004_history_event: true
+    external_only_minute_change_does_not_increment_requirements_revision: true
+    combined_course_field_plus_external_projection_edit_uses_one_course_version_increment_total: true
+
+  closed_course_integration:
+    normal_external_mutation_on_terminal_course: forbidden_without_DB_TRN_004_correction_mode
+    correction_mode_requires_reason_actor_expected_version: true
+    lifecycle_state_and_terminal_timestamps_unchanged: true
+    event_type: closed_course_corrected
+    existing_sessions_attendance_current_OSK_ledger_and_exam_history_unchanged: true
+    formal_total_change_marks_dependent_documents_for_regeneration: true
+    exact_document_regeneration_signing_delivery_pipeline: later_document_audit_slice
+
+  migration_design:
+    migrations_not_generated_in_this_step: true
+    steps_when_later_generated:
+      - add_record_role_context_lineage_superseded_and_revocation_metadata_columns_as_nullable_for_legacy_prechecks
+      - classify_source_kind_course_form_initial_as_course_form_projection_when_unambiguous
+      - classify_source_kind_documented_transfer_as_documented_transfer_when_unambiguous
+      - inspect_every_legacy_source_kind_correction_row_for_provable_source_role_and_lineage
+      - fail_or_require_explicit_reviewed_remediation_for_active_correction_with_unknown_role_or_source_never_guess_additive_semantics
+      - detect_more_than_one_active_course_form_candidate_per_course_and_part
+      - never_choose_latest_created_at_to_resolve_multiple_form_candidates
+      - require_explicit_reviewed_remediation_for_ambiguous_multiple_active_form_rows
+      - validate_each_active_contributing_row_against_current_course_category_and_training_type_from_provable_evidence
+      - never_blindly_copy_current_course_context_into_historical_rows
+      - allow_unknown_context_only_on_noncurrent_noncontributing_history
+      - active_row_with_unprovable_context_requires_explicit_reviewed_remediation_before_constraints
+      - preserve_legacy_revoked_rows_without_fabricating_missing_actor_or_reason
+      - add_candidate_key_for_lineage_target
+      - add_same_tenant_same_course_same_part_same_role_self_FK
+      - add_partial_unique_one_successor_per_source
+      - add_partial_unique_one_current_course_form_projection_per_course_part
+      - add_row_lifecycle_matrix_checks
+      - add_deferrable_current_context_freshness_guard
+      - wire_course_form_edit_external_create_correction_revoke_and_course_context_revalidation_to_course_lock_version_history
+      - add_projection_lineage_migration_race_and_completion_minute_tests
+    legacy_latest_row_guess_policy: forbidden
+    legacy_correction_additive_guess_policy: forbidden
+    legacy_context_fabrication_policy: forbidden
+
+  tests_required:
+    - initial_positive_course_form_theory_creates_one_current_course_form_projection
+    - initial_positive_course_form_practical_creates_one_current_course_form_projection
+    - initial_zero_or_omitted_course_form_value_projects_zero_without_zero_row
+    - second_current_course_form_projection_same_course_part_is_rejected
+    - course_form_positive_to_positive_supersedes_old_and_counts_only_successor
+    - course_form_zero_to_positive_creates_new_root_projection
+    - course_form_positive_to_zero_revokes_current_and_projects_zero
+    - course_form_same_value_edit_is_external_history_noop
+    - previous_course_form_revisions_never_add_to_current_form_value
+    - documented_transfer_create_is_positive_reasoned_current_additive_record
+    - two_independent_documented_transfers_same_part_are_both_counted
+    - documented_transfer_does_not_replace_course_form_projection
+    - correction_is_full_replacement_not_signed_additive_delta
+    - positive_correction_supersedes_source_and_only_successor_counts
+    - zero_correction_routes_to_revoke_and_removes_source_from_current_projection
+    - correction_successor_preserves_tenant_course_part_and_record_role
+    - source_and_successor_cannot_both_remain_current
+    - one_source_cannot_have_two_successors
+    - self_reference_or_lineage_cycle_is_rejected
+    - revoke_marks_current_row_noncontributing_without_hard_delete
+    - fresh_revoke_of_superseded_or_revoked_row_conflicts
+    - same_revoke_idempotency_key_retry_has_no_second_effect
+    - runtime_revoke_requires_actor_reason_and_timestamp
+    - legacy_revoked_row_missing_actor_or_reason_is_not_fabricated_during_migration
+    - current_external_row_snapshots_course_category_and_training_type
+    - current_external_row_with_stale_category_or_training_type_is_rejected_by_final_guard
+    - category_change_cannot_commit_with_unrevalidated_current_external_rows
+    - training_type_change_cannot_commit_with_unrevalidated_current_external_rows
+    - compatible_context_revalidation_versions_rows_and_preserves_history
+    - incompatible_context_revalidation_revokes_current_effect_without_history_delete
+    - DB_TRN_007_does_not_invent_unverified_legal_compatibility_matrix
+    - standalone_external_create_increments_course_version_once_and_appends_history
+    - standalone_external_correction_increments_course_version_once_and_appends_history
+    - standalone_external_revoke_increments_course_version_once_and_appends_history
+    - combined_course_edit_and_form_external_change_increments_course_version_only_once
+    - external_only_minute_change_does_not_increment_requirements_revision
+    - two_external_mutations_same_expected_course_version_cannot_both_commit
+    - external_mutation_and_category_PATCH_same_expected_course_version_cannot_both_commit
+    - terminal_course_external_change_requires_closed_course_correction_mode
+    - terminal_course_external_correction_does_not_reopen_course
+    - recognized_external_theory_equals_current_form_theory_plus_current_documented_theory
+    - recognized_external_practical_equals_current_form_practical_plus_current_documented_practical
+    - total_theory_equals_current_OSK_theory_plus_recognized_external_theory
+    - total_practical_equals_current_OSK_practical_plus_recognized_external_practical
+    - declared_current_OSK_fields_do_not_change_formal_combined_totals
+    - recognized_external_rows_never_pollute_current_OSK_ledger_projection
+    - theory_external_minutes_cannot_satisfy_practical_minimum_or_reverse
+    - completion_checks_current_profile_minimum_against_combined_same_part_total
+    - migration_never_uses_latest_created_at_or_fabricated_lineage_context_actor_to_resolve_ambiguity
+
+  intentionally_not_solved_by_DB_TRN_007:
+    course_required_PKK_atomic_persistence_boundary: DB-TRN-008
+    internal_exam_attempt_compatibility_and_satisfaction: DB4_7
+    exact_document_regeneration_signing_delivery_pipeline: later_document_audit_slice
+    exact_external_evidence_mandatory_policy_if_future_legal_verification_requires_it: legal_product_policy
+    exact_HTTP_course_edit_external_correction_If_Match_and_error_codes: Stage5_acceptance_contract_sync
+
+  self_audit:
+    course_form_previous_OSK_fields_have_one_deterministic_current_value_per_part: PASS
+    course_form_projection_never_uses_latest_row_heuristic: PASS
+    documented_transfers_are_additive_and_separate_from_form_revisions: PASS
+    replacement_and_correction_preserve_source_history_without_double_count: PASS
+    correction_is_full_replacement_not_ambiguous_delta: PASS
+    revoke_removes_current_effect_without_deleting_history: PASS
+    lineage_is_same_tenant_same_course_same_part_same_role_and_nonbranching: PASS
+    current_external_credit_cannot_survive_category_or_training_type_change_without_revalidation: PASS
+    unverified_legal_compatibility_matrix_not_invented: PASS
+    confirmed_course_create_edit_previous_school_fields_preserved: PASS
+    standalone_external_list_create_revoke_capabilities_preserved: PASS
+    recognized_external_totals_are_deterministic_per_training_part: PASS
+    current_OSK_ledger_remains_separate_from_external_recognition: PASS
+    combined_current_OSK_plus_external_minimum_check_is_now_closed: PASS
+    external_mutations_use_course_version_and_DB_TRN_004_history: PASS
+    terminal_course_external_change_requires_correction_mode: PASS
+    migration_does_not_guess_latest_row_lineage_context_or_actor: PASS
+    DB_TRN_008_not_fixed: PASS
     aggregate_core_schema_not_modified_in_this_step: PASS
     aggregate_docs87_not_modified_in_this_step: PASS
     Laravel_migrations_created: false
