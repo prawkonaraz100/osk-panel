@@ -3,15 +3,14 @@
 Data: 2026-09-06
 
 **Etap:** `DB4_5_CALENDAR`  
-**Aktualny krok:** `DB-CAL-001`  
-**Status:** `DB-CAL-001 PASS / 6 P1 OPEN`
+**Aktualny krok:** `DB-CAL-002`  
+**Status:** `DB-CAL-001..002 PASS / 5 P1 OPEN`
 
 ## 1. Zasada pracy
 
-DB4_5 jest prowadzony pojedynczymi blockerami. Diagnoza wykazała 7 P1. W tym kroku rozwiązano **wyłącznie `DB-CAL-001` — same-tenant resource integrity**.
+DB4_5 jest prowadzony pojedynczymi blockerami. Diagnoza wykazała 7 P1. Po wcześniejszym zamknięciu `DB-CAL-001` w tym kroku rozwiązano **wyłącznie `DB-CAL-002` — granicę ręcznych CalendarEvent vs systemowej projekcji `important_date` oraz invariant miejsca spotkania**.
 
 Nie zmieniono:
-- `DB-CAL-002` manual event vs system projection,
 - `DB-CAL-003` overlap/conflict concurrency,
 - `DB-CAL-004` lifecycle eventu,
 - `DB-CAL-005` `calendar.manage.own`,
@@ -22,15 +21,9 @@ Nie zmieniono też aggregate `specs/database/core-schema.yml` ani `docs/87-physi
 
 Machine-readable kontrakt: `specs/database/calendar.yml`.
 
-## 2. Źródła i istniejące zależności
+## 2. Źródła i zachowane wymagania
 
-DB-CAL-001 korzysta z już zamkniętych granic wcześniejszych slice:
-- `students (organization_id,id)` — candidate key z DB-TRN-001,
-- `staff_profiles (organization_id,id)` — candidate key z DB-RES-001,
-- `vehicles (organization_id,id)` — candidate key z DB-RES-002,
-- `locations (organization_id,id)` — candidate key z DB-RES-002.
-
-Źródła funkcjonalne i kontraktowe pozostają:
+Źródła funkcjonalne i kontraktowe:
 - `docs/48-calendar-main-screen.md`,
 - `docs/49-calendar-add-event-form.md`,
 - `docs/50-own-calendar-event-lifecycle.md`,
@@ -44,28 +37,21 @@ DB-CAL-001 korzysta z już zamkniętych granic wcześniejszych slice:
 - `specs/database/staff-locations-vehicles.yml`,
 - `specs/database/students-courses-training.yml`.
 
-## 3. Zachowane wymagania Calendar
+Potwierdzony ręczny formularz ma dwa typy:
+- `general_event` / „Wydarzenie”,
+- `driving_lesson` / „Jazda”.
 
-Naprawa same-tenant integrity nie redukuje produktu. Nadal zachowujemy:
-- jeden centralny kalendarz,
-- widoki miesiąc / tydzień / dzień,
-- `general_event`, `driving_lesson` i systemową projekcję `important_date`,
-- filtry Staff / Vehicle / Location,
-- opcjonalnego Studenta, Instruktora, Pojazd i zarządzaną lokalizację,
-- custom meeting place,
-- availability/self-booking,
-- server-side conflict detection,
-- history-preserving lifecycle,
-- timezone organizacji,
-- audyt.
+`Ważne daty` są filtrem systemowym i nie występują w selektorze ręcznego tworzenia. Dla naszego produktu zostały wcześniej jawnie ustalone jako systemowa projekcja źródłowych terminów, nie drugi ręczny rekord kalendarza.
 
-DB-CAL-001 nie rozstrzyga jeszcze, które zasoby są biznesowo aktywne/kwalifikowane ani czy wygasły dokument jest warningiem czy hard-blockiem. Ten krok odpowiada tylko na pytanie: **czy wskazany tenant-owned resource należy do tej samej organizacji co event/slot**.
+Formularz miejsca spotkania ma dwa wzajemnie wykluczające się tryby:
+- zapisana `Location`,
+- dowolny `custom_meeting_place`.
 
-## 4. DB-CAL-001 — problem
+Miejsce jest opcjonalne, więc poprawny jest także stan bez obu wartości.
 
-Przed tym krokiem `calendar_events` i `availability_slots` miały `organization_id`, ale relacje do tenant-owned zasobów były opisane jedynie przez zwykłe resource IDs.
+## 3. DB-CAL-001 — zachowany PASS
 
-Dotyczyło to:
+DB-CAL-001 pozostaje bez zmian i nadal wymusza same-tenant composite FK dla:
 - `calendar_events.student_id`,
 - `calendar_events.instructor_id`,
 - `calendar_events.vehicle_id`,
@@ -75,112 +61,184 @@ Dotyczyło to:
 - `availability_slots.location_id`,
 - `availability_slots.booked_student_id`.
 
-Sama aplikacyjna walidacja `resource.organization_id == event.organization_id` nie jest wystarczającą finalną granicą. Błąd backendu, import albo późniejszy kod mógłby zapisać event OSK A wskazujący zasób OSK B.
+Relacje opcjonalne używają `MATCH SIMPLE`, historyczne odwołania `RESTRICT`, a globalny `created_by_user_id` nie jest sztucznie tenant-scoped.
 
-## 5. DB-CAL-001 — decyzja fizyczna
+DB-CAL-002 nie osłabia żadnej z tych granic.
 
-### 5.1 `calendar_events`
+## 4. DB-CAL-002 — problem A: ręczny event vs `important_date`
 
-Każda opcjonalna relacja tenant-owned otrzymuje composite FK:
+Przed tym krokiem fizyczny blueprint miał wolne `event_type varchar`. Sam fakt, że UI ręcznie pokazuje tylko dwa typy, nie chronił bazy przed zapisaniem np.:
+- `important_date`,
+- innego systemowego typu,
+- nieznanej wartości omijającej kontrakt formularza.
 
-- `(organization_id, student_id) -> students(organization_id,id)`,
-- `(organization_id, instructor_id) -> staff_profiles(organization_id,id)`,
-- `(organization_id, vehicle_id) -> vehicles(organization_id,id)`,
-- `(organization_id, location_id) -> locations(organization_id,id)`.
+Byłoby to szczególnie niebezpieczne dla `important_date`, ponieważ termin dokumentu już ma canonical ownera w domenie Staff/Vehicle. Skopiowanie daty do niezależnego mutable `calendar_events` tworzyłoby dwa źródła prawdy i ryzyko rozjazdu.
 
-Wszystkie są nullable i używają `MATCH SIMPLE`, więc brak zasobu nadal jest legalny. Jeśli resource ID jest podany, musi wskazywać rekord dokładnie z tego samego OSK.
+## 5. DB-CAL-002 — decyzja: `calendar_events` tylko dla ręcznych wpisów
 
-`ON UPDATE RESTRICT`, `ON DELETE RESTRICT` chronią historyczne odwołania.
+`calendar_events` jest fizycznym magazynem **manual operational events**.
 
-### 5.2 `availability_slots`
+Dozwolone wartości `event_type` w tej tabeli:
+- `general_event`,
+- `driving_lesson`.
 
-Analogicznie:
-- `(organization_id, instructor_id) -> staff_profiles(organization_id,id)`,
-- `(organization_id, vehicle_id) -> vehicles(organization_id,id)`,
-- `(organization_id, location_id) -> locations(organization_id,id)`,
-- `(organization_id, booked_student_id) -> students(organization_id,id)`.
+Wymagany jest DB `CHECK` zamykający ten katalog dla bieżącego modelu.
 
-`booked_student_id` otrzymuje tutaj wyłącznie same-tenant boundary. Jego state matrix, exactly-once booking i relacja do realnego efektu rezerwacji pozostają w `DB-CAL-006`.
+`important_date`:
+- nie może zostać zapisany jako `calendar_events` row,
+- nie może zostać utworzony ani zmieniony przez manualne create/update/cancel/complete CalendarEvent,
+- jest elementem read-modelu kalendarza wyprowadzanym ze swojej domeny źródłowej.
 
-### 5.3 Tenant key
+DB-CAL-002 celowo **nie** rozstrzyga jeszcze, jak `driving_lesson` ma być związany z formalnym `TrainingSession`; to pozostaje DB-CAL-007. Zachowanie dyskryminatora ręcznego formularza nie jest teraz usuwane.
 
-`calendar_events.organization_id` i `availability_slots.organization_id` są obowiązkowymi tenant keys.
+## 6. `important_date` — canonical source i projekcja
 
-Zasady:
-- organization scope pochodzi z aktywnego membership/zwalidowanego parent context,
-- client-supplied `organization_id` nie jest authority,
-- zwykła zmiana `organization_id` nie służy do przenoszenia eventu/slotu między OSK,
-- cross-tenant relation jest odrzucana przez DB nawet przy pominiętej walidacji aplikacji.
+### 6.1 Źródła bieżące
 
-### 5.4 `created_by_user_id`
+Dla obecnego zakresu systemowa projekcja może powstawać z bieżących rekordów dokumentów z non-null `valid_until`:
 
-Nie dodano sztucznego composite tenant FK dla `created_by_user_id`.
+Staff:
+- `card_or_authorization`,
+- `medical_exam`,
+- `psychological_exam`.
 
-`User` jest globalną tożsamością i może mieć membership w wielu OSK. To, czy dany User miał prawo utworzyć/zarządzać eventem, wynika z membership + permission/scope. Canonical semantyka `calendar.manage.own` pozostaje celowo w `DB-CAL-005`.
+Vehicle:
+- `technical_inspection`,
+- `oc_insurance`,
+- `ac_insurance`.
 
-## 6. Archive i historia
+Current source row pozostaje definiowany przez model wersjonowanych dokumentów (`superseded_at IS NULL`). Stara superseded wersja nie jest bieżącą `important_date`.
 
-Composite FK nie powinien usuwać ani zerować relacji historycznej po archiwizacji Staff/Vehicle/Location/Student.
+### 6.2 Tożsamość projekcji
 
-Parent domains używają lifecycle/archive zamiast normalnego hard delete. Dlatego stary event może nadal wskazywać historyczny zasób i pozostawać audytowalny.
+Canonical identity systemowego wpisu nie jest `calendar_events.id`.
 
-DB-CAL-001 nie ustala, czy **nowy** event może użyć archived/inactive resource. To oddzielna business/compliance eligibility policy.
+Jest nią source tuple:
+- `organization_id`,
+- `source_domain`,
+- `source_row_id`,
+- `date_kind`.
 
-## 7. Migration design dla DB-CAL-001
+Warstwa API może z tego wyprowadzić stabilny opaque identifier do UI, ale taki identifier nie może zostać później potraktowany jak PK w `calendar_events`.
 
-Migracji Laravel nadal nie tworzymy. Gdy finalny DB4_5 migration design zostanie wygenerowany, kolejność dla tego blockera jest następująca:
+Projection item musi zachować source reference, aby kliknięcie mogło prowadzić do obiektu źródłowego, a mutacja terminu odbywała się w domenie Staff/Vehicle.
 
-1. potwierdzić istniejące candidate keys Student/Staff/Vehicle/Location,
-2. sprawdzić non-null i poprawność `organization_id` eventów/slotów,
-3. wykonać precheck każdej niepustej relacji CalendarEvent,
-4. wykonać precheck każdej niepustej relacji AvailabilitySlot,
-5. jeśli istnieje cross-tenant mismatch — zatrzymać migrację albo wykonać jawnie zatwierdzoną security/data remediation,
-6. **nie** naprawiać automatycznie przez przepięcie resource ID, zmianę organizacji ani wyzerowanie relacji,
-7. dopiero po czystych precheckach dodać composite FKs,
-8. uruchomić negatywne constraint tests.
+### 6.3 Brak drugiego źródła prawdy
 
-## 8. Testy wymagane przez tę bramkę
+Zmiana `valid_until` w source domain automatycznie zmienia systemową projekcję bez osobnego PATCH do CalendarEvent.
 
-Muszą istnieć testy, że:
-- same-tenant Student/Instructor/Vehicle/Location na CalendarEvent przechodzą,
-- wszystkie opcjonalne resource IDs mogą być `NULL`,
-- każdy z czterech resource IDs z innego OSK jest odrzucany przez DB,
-- same-tenant Instructor/Vehicle/Location na AvailabilitySlot przechodzą,
-- każdy z tych zasobów z innego OSK jest odrzucany,
-- `booked_student_id` z innego OSK jest odrzucany,
-- migracyjny precheck wykrywa legacy cross-tenant rows,
-- nie można przenieść eventu/slotu do innego OSK przez zwykłe przepisanie `organization_id`,
-- archive parent resource nie niszczy historycznej relacji,
-- globalny User jako actor nie jest fałszywie traktowany jak tenant-owned resource.
+Supersede/clear source row usuwa poprzedni current projection zgodnie z read modelem.
 
-## 9. Self-audit DB-CAL-001
+Dopuszczalny jest później materialized/cache read model, ale:
+- nie jest authoritative,
+- jest odbudowywalny ze źródeł,
+- nie może być ręcznie edytowany,
+- nie staje się drugim ownerem daty.
+
+To pozwala w przyszłości dodawać inne systemowe terminy, pod warunkiem jawnego mapowania `source_domain + date_kind`.
+
+## 7. DB-CAL-002 — problem B: miejsce spotkania
+
+Obserwowany UI ma jeden przełączany slot miejsca spotkania. Select zapisanej lokalizacji i custom text nie są jednocześnie aktywne.
+
+Poprzedni physical row pozwalał jednak technicznie zapisać oba:
+- `location_id != NULL`,
+- `custom_meeting_place != NULL`.
+
+To tworzyłoby dwa konkurujące źródła miejsca dla jednego eventu.
+
+## 8. DB-CAL-002 — invariant miejsca spotkania
+
+Canonical semantyka:
+
+**zero albo jedno z:**
+- `location_id`,
+- `custom_meeting_place`.
+
+Oba `NULL` są dozwolone, ponieważ miejsce spotkania jest w formularzu opcjonalne.
+
+DB musi wymuszać logicznie:
+
+`num_nonnulls(location_id, custom_meeting_place) <= 1`
+
+oraz:
+
+`custom_meeting_place IS NULL OR btrim(custom_meeting_place) <> ''`.
+
+Na write boundary:
+- custom text jest trimowany,
+- empty/whitespace-only normalizuje się do `NULL`,
+- przełączenie na saved Location czyści custom text w command model,
+- przełączenie na custom text czyści `location_id`,
+- custom text nigdy nie tworzy automatycznie trwałego rekordu `locations`.
+
+## 9. Migration design DB-CAL-002
+
+Migracji Laravel nadal nie tworzymy.
+
+Przyszły migration design ma kolejno:
+1. przeskanować istniejące `calendar_events.event_type`,
+2. wykryć `important_date`, nieznane systemowe typy i inne wartości poza `general_event|driving_lesson`,
+3. nie klasyfikować ich automatycznie na podstawie nazwy/zasobów,
+4. wykryć eventy mające równocześnie saved Location i custom text,
+5. wykryć whitespace-only custom text,
+6. dla niejednoznacznych rekordów wymagać explicit reviewed remediation,
+7. whitespace-only może być znormalizowane do `NULL` dopiero po potwierdzeniu, że nie odrzucamy semantycznej treści,
+8. dodać `event_type` CHECK,
+9. dodać meeting-place exclusion/nonblank CHECK,
+10. uruchomić projection/manual-write oraz meeting-place negative tests.
+
+Nie wolno „naprawić” obu aktywnych miejsc przez arbitralny wybór `location_id` albo tekstu.
+
+## 10. Testy wymagane przez DB-CAL-002
+
+Muszą pokryć co najmniej:
+- `general_event` jest dozwolony,
+- `driving_lesson` jest dozwolony i nie zmienia potwierdzonego parytetu widocznego formularza,
+- `important_date` jako row `calendar_events` jest odrzucany,
+- nieznany systemowy/manualny event type poza zamkniętym katalogiem jest odrzucany,
+- manual create nie może zapisać `important_date`,
+- current Staff document expiry pojawia się jako systemowa projekcja,
+- current Vehicle document expiry pojawia się jako systemowa projekcja,
+- superseded source document nie emituje current `important_date`,
+- zmiana source `valid_until` zmienia projekcję bez modyfikacji `calendar_events`,
+- projekcji nie można mutować endpointami manual CalendarEvent,
+- tożsamość projekcji rozwiązuje się do source tuple, nie do `calendar_events.id`,
+- event tylko z `location_id` przechodzi,
+- event tylko z niepustym custom text przechodzi,
+- event bez miejsca przechodzi,
+- event z Location i custom text jednocześnie jest odrzucany przez DB,
+- whitespace-only custom text nie jest trwałym stanem,
+- custom text nie tworzy stałej Location,
+- migration precheck wykrywa unknown event type i dual meeting place.
+
+## 11. Self-audit DB-CAL-002
 
 Wynik: **PASS**.
 
 Sprawdzone:
-- wszystkie 4 tenant-owned relacje `calendar_events` mają composite same-tenant boundary,
-- wszystkie 4 tenant-owned relacje `availability_slots` mają composite same-tenant boundary,
-- nullable semantics zachowane przez `MATCH SIMPLE`,
-- użyto istniejących candidate keys zamiast duplikować model,
-- historia jest chroniona przez `RESTRICT`,
-- User nie został błędnie tenant-scoped,
-- migration policy nie maskuje legacy naruszeń automatycznym przepinaniem danych,
-- nie rozwiązano DB-CAL-002..007,
-- aggregate schema pozostało zamrożone,
+- manual storage ma zamknięty katalog typów,
+- `important_date` nie staje się drugim mutable źródłem daty,
+- canonical `valid_until` pozostaje w Staff/Vehicle source domain,
+- projection identity jest source-based,
+- manualne CalendarEvent commands nie mutują system projection,
+- meeting place ma DB-enforced zero-or-one source,
+- opcjonalny stan bez miejsca jest zachowany,
+- whitespace-only custom text nie jest persystowany,
+- custom text nie tworzy `Location`,
+- DB-CAL-001 pozostaje zachowany,
+- nie rozwiązano DB-CAL-003..007,
+- agregaty pozostały zamrożone,
 - migracji Laravel nie utworzono,
 - DB4_6 i UI nie rozpoczęto.
 
-## 10. Pozostałe P1 po DB-CAL-001
+## 12. Pozostałe P1 po DB-CAL-002
 
-Pozostaje dokładnie **6 P1**:
-
-### DB-CAL-002 — manual event vs system projection + row invariants
-
-Ręczny formularz obsługuje tylko `general_event` i `driving_lesson`; `important_date` jest systemową projekcją. Nadal trzeba zamknąć storage boundary oraz `location_id XOR custom_meeting_place`.
+Pozostaje dokładnie **5 P1**:
 
 ### DB-CAL-003 — overlap/conflict concurrency
 
-Server-side conflict detection nadal nie ma race-safe final DB/transaction boundary.
+Server-side conflict detection nadal nie ma race-safe final DB/transaction boundary. Nie ustalono jeszcze interval semantics, resource-claiming statuses ani finalnej strategii PostgreSQL/serialization.
 
 ### DB-CAL-004 — event lifecycle + optimistic concurrency
 
@@ -192,24 +250,25 @@ Nadal brak canonical owner resolver zgodnego z DB4_2.
 
 ### DB-CAL-006 — AvailabilitySlot booking lifecycle
 
-Same-tenant `booked_student_id` jest już zamknięte, ale exactly-once booking, state matrix, book/cancel races i efekt rezerwacji nadal są otwarte.
+Same-tenant `booked_student_id` jest zamknięte przez DB-CAL-001, ale exactly-once booking, state matrix, book/cancel races i efekt rezerwacji nadal są otwarte.
 
 ### DB-CAL-007 — `driving_lesson` vs formal `TrainingSession`
 
 Nadal trzeba ustalić jeden canonical schedule owner i relację/projekcję tak, aby Calendar nie stał się drugim formalnym źródłem godzin.
 
-## 11. Bramka jakości DB-CAL-001
+## 13. Bramka jakości DB-CAL-002
 
 **PASS.**
 
-Stan po bramce:
+Stan po bramce tego artefaktu:
 - P0: `0`,
-- P1 rozwiązane w DB4_5: `1`,
-- P1 otwarte: `6`,
+- P1 rozwiązane w DB4_5: `2`,
+- P1 otwarte: `5`,
 - `DB-CAL-001`: `PASS`,
+- `DB-CAL-002`: `PASS`,
 - final DB4_5 aggregate sync: nadal `PENDING`,
 - DB4_6: zablokowane,
 - Stage 5: zablokowany,
 - UI/feature implementation: zablokowane.
 
-Następny pojedynczy dozwolony krok po aktualizacji centralnego gate: **`DB-CAL-002` only**.
+Następny pojedynczy krok **dopiero po aktualizacji centralnego gate**: `DB-CAL-003` only.
