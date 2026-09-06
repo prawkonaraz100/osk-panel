@@ -3,20 +3,20 @@
 Data: 2026-09-06
 
 **Etap:** `DB4_5_CALENDAR`  
-**Aktualny krok:** `DB-CAL-007`  
-**Status:** `DB-CAL-001..007 PASS / 0 P1 OPEN / FINAL AGGREGATE SYNC PENDING`
+**Aktualny krok:** `DB4_5_FINAL_AGGREGATE_SYNC`  
+**Status:** `DB-CAL-001..007 PASS / 0 P1 OPEN / FINAL AGGREGATE SYNC PASS`
 
 ## 1. Zasada pracy
 
-DB4_5 jest prowadzony pojedynczymi blockerami. Diagnoza wykazała 7 P1. Pełny zapis DB-CAL-003, DB-CAL-004, DB-CAL-005 i DB-CAL-006 pozostaje poniżej bez kondensowania. Bieżący DB-CAL-007 został dopisany jako kolejny osobny appendix, bez przepisywania potwierdzonych wcześniejszych decyzji poza jawnym supersession tam, gdzie DB-CAL-007 był wcześniej zastrzeżoną granicą.
+DB4_5 jest prowadzony pojedynczymi blockerami. Diagnoza wykazała 7 P1. Pełny zapis DB-CAL-003, DB-CAL-004, DB-CAL-005, DB-CAL-006 i DB-CAL-007 pozostaje poniżej bez kondensowania. Po zamknięciu wszystkich siedmiu blockerów wykonano osobny finalny aggregate sync do `specs/database/core-schema.yml` i `docs/87-physical-database-schema.md`, opisany w appendixie na końcu.
 
 W bieżącym kroku nie wykonano:
-- finalnego `DB4_5 FINAL AGGREGATE SYNC` do `specs/database/core-schema.yml` i `docs/87-physical-database-schema.md`,
 - DB4_6 ani późniejszych slice'ów,
 - migracji Laravel,
+- Stage 5 acceptance-contract sync,
 - UI/feature implementation.
 
-Machine-readable kontrakt: `specs/database/calendar.yml`.
+Machine-readable kontrakt bounded context: `specs/database/calendar.yml`. Agregat machine: `specs/database/core-schema.yml`.
 
 ## 2. Źródła i zachowane wymagania
 
@@ -1879,3 +1879,149 @@ czyli synchronizacja już zamkniętych DB-CAL-001..007 do:
 z semantic-loss/stale-constraint checks i bez wejścia w DB4_6, Stage 5, migracje Laravel lub UI.
 
 **STOP przed finalnym aggregate sync DB4_5.**
+
+---
+
+# DB4_5 FINAL AGGREGATE SYNC
+
+## 85. Zakres i źródła synchronizacji
+
+Finalny sync nie zmienia żadnej decyzji DB-CAL-001..007. Jego rolą jest wyłącznie przenieść zamknięty bounded-context contract do dwóch agregatów:
+- `specs/database/core-schema.yml`,
+- `docs/87-physical-database-schema.md`.
+
+Źródła prawdy użyte w syncu:
+- `specs/database/calendar.yml`,
+- `docs/109-stage-4-calendar-audit.md`,
+- zależności DB4_2–DB4_4 już obecne w agregatach.
+
+Nie modyfikowano API, migrations, UI ani DB4_6+.
+
+## 86. Machine aggregate sync
+
+Commit `aa2d9174f5d2e82e644c6ee3ade0b39c1686108e` synchronizuje `specs/database/core-schema.yml`.
+
+Preservation diff względem wejścia w final sync (`e26a6a53111d…`):
+- tylko `specs/database/core-schema.yml`,
+- `+351/-5`.
+
+Usunięte elementy to wyłącznie stale Calendar shortcuts:
+- stary dwuelementowy katalog Calendar tables,
+- `calendar_conflict.enforcement_strategy: pending_ADR`,
+- ogólny pojedynczy `calendar` migration step,
+- `calendar_overlap_constraint_strategy` z pending ADRs.
+
+Dodano bez utraty wcześniejszych domen m.in.:
+- wszystkie 6 wymaganych tabel/projekcji Calendar,
+- pełny `calendar_model`,
+- same-tenant relations,
+- CalendarEvent/AvailabilitySlot lifecycle/history/version constraints,
+- `calendar_resource_claims`,
+- trzy claim owner kinds,
+- cztery partial GiST exclusion constraints,
+- TrainingSession formal schedule authority,
+- `training_session_calendar_details`,
+- booked-slot formalization handoff,
+- transakcyjne invarianty,
+- dependency-safe migration order,
+- DB4_5 invariant/race/migration test matrix.
+
+## 87. Narrative aggregate sync
+
+Commit `ac6a0ec89ce6b95ef68c290fec7df76a7c2e562f` synchronizuje `docs/87-physical-database-schema.md`.
+
+Preservation diff względem machine-sync head:
+- tylko `docs/87-physical-database-schema.md`,
+- `+325/-38`.
+
+Narrative zachowuje wszystkie wcześniejsze sekcje DB4_2–DB4_4, a zmiany są ograniczone do:
+- statusu/intro DB4_5,
+- DB4_5 extension w TrainingSession,
+- pełnego zastąpienia starej minimalnej sekcji Calendar,
+- Calendar indexes,
+- DB4_5 migration/invariant tests,
+- dependency-safe migration order,
+- przeniesienia Calendar overlap z „oczekujące” do „zamknięte”.
+
+## 88. Semantic-loss i stale-constraint gate
+
+Wynik: **PASS**.
+
+Sprawdzono, że oba agregaty zachowują bez utraty semantyki:
+- DB-CAL-001 same-tenant resource integrity,
+- DB-CAL-002 important-date projection i meeting-place zero-or-one,
+- DB-CAL-003 half-open interval + `btree_gist` + cztery partial GiST constraints,
+- DB-CAL-004 CalendarEvent status/version/terminal metadata/history,
+- DB-CAL-005 canonical StaffProfile owner i fail-closed own,
+- DB-CAL-006 AvailabilitySlot exactly-once booking/cancel/history/no-auto-reavailability,
+- DB-CAL-007 TrainingSession jako jedyny formal schedule owner + claims + companion + handoff.
+
+Sprawdzono również brak stale założeń:
+- brak `calendar_overlap_constraint_strategy` w pending ADRs,
+- brak `pending_ADR` dla conflict enforcement,
+- brak finalnego modelu, w którym formal `driving_lesson` jest drugą mutable CalendarEvent copy,
+- brak `version integer` jako finalnego CalendarEvent/AvailabilitySlot concurrency root,
+- brak automatycznego tworzenia formal TrainingSession przy bookingu bez Course context,
+- brak calendar/claim shortcut do TrainingHourLedger.
+
+Pozostałe pending ADRs są niezwiązane z DB4_5 i zostały zachowane.
+
+## 89. Migration order i invariant coverage
+
+Wynik: **PASS**.
+
+Finalny aggregate migration order respektuje zależności:
+1. DB4_4 TrainingSession istnieje przed Calendar integration,
+2. `btree_gist` jest dostępne przed finalnymi exclusion constraints,
+3. Calendar lifecycle/history/claims/companion/formalization link powstają dopiero po wymaganych parent keys,
+4. final partial indexes/cross-table guards są aktywowane po prechecks/backfill/remediation.
+
+Test matrix obejmuje:
+- tenant isolation,
+- lifecycle/history/version pairing,
+- own-scope authorization relations,
+- half-open interval semantics,
+- 4 rodzaje konfliktujących zasobów,
+- event-vs-booking-vs-session race cases,
+- exactly-once booking,
+- TrainingSession claim/credit separation,
+- formalization owner transfer,
+- no duplicate calendar item,
+- no heuristic legacy driving-lesson conversion,
+- no automatic overlap winner/shift/cancel/reassign.
+
+## 90. Preservation self-audit finalnego syncu
+
+Wynik: **PASS**.
+
+Range compare `e26a6a53111d… -> ac6a0ec89ce6…` przed aktualizacją tego audytu wykazał dokładnie dwa aggregate files:
+- `specs/database/core-schema.yml`,
+- `docs/87-physical-database-schema.md`.
+
+Nie dotknięto:
+- DB4_6 ani późniejszych bounded contexts,
+- OpenAPI/Stage 5,
+- Laravel migrations,
+- UI/feature implementation.
+
+W finalnym syncu nie znaleziono nowego P0/P1.
+
+## 91. Bramka jakości DB4_5 FINAL AGGREGATE SYNC
+
+**PASS.**
+
+Stan po finalnym syncu:
+- DB-CAL-001..007: `PASS`,
+- DB4_5 diagnosed P1: `7`,
+- DB4_5 resolved P1: `7`,
+- DB4_5 open P0/P1: `0`,
+- DB4_5 final aggregate sync: `PASS`,
+- **DB4_5 result: `PASS`**,
+- DB4_6: `NOT_STARTED`,
+- Stage 5: zablokowany do końca Stage 4,
+- Laravel migrations: nie utworzono,
+- UI/feature implementation: nie rozpoczęto.
+
+Następnym potencjalnym pojedynczym etapem jest `DB4_6_LICENSES_LEARNING_ACCESS`, ale **nie jest rozpoczynany w tej bramce**.
+
+**STOP przed DB4_6.**
