@@ -70,10 +70,10 @@ stage_4_slices:
     status: IN_PROGRESS_BLOCKERS_OPEN
     diagnosis: COMPLETE
     blockers_diagnosed: 7
-    blockers_resolved: 5
-    open_P0_P1: 2
+    blockers_resolved: 6
+    open_P0_P1: 1
     final_aggregate_sync: PENDING
-    result: DB_CAL_001_002_003_004_005_PASS_2_P1_OPEN
+    result: DB_CAL_001_002_003_004_005_006_PASS_1_P1_OPEN
   - id: DB4_6_LICENSES_LEARNING_ACCESS
     status: NOT_STARTED
   - id: DB4_7_INTERNAL_EXAMS
@@ -899,7 +899,7 @@ quality_checks:
       conflict_projection_table: calendar_resource_claims
       conflict_projection_is_business_source_of_truth: false
       exactly_one_resource_column_per_claim: true
-      current_claim_owner_kind_check: calendar_event_only
+      current_claim_owner_kind_check: calendar_event_and_availability_slot_booking
       exact_scheduled_event_claim_set_guard: true
       exact_claim_set_guard_deferrability: DEFERRABLE_INITIALLY_DEFERRED
       claim_same_tenant_resource_FKs: true
@@ -910,11 +910,11 @@ quality_checks:
       deterministic_claim_processing_order: [student, instructor, vehicle, location]
       availability_slot_publication_itself_claims_resource: false
       successful_booking_may_bypass_shared_claim_boundary: false
-      availability_booking_owner_state_machine_and_link: deferred_to_DB_CAL_006
+      availability_booking_owner_state_machine_and_link: closed_by_DB_CAL_006
       formal_training_schedule_owner_mapping: deferred_to_DB_CAL_007
       claim_insert_credits_training_time: false
       migration_legacy_overlap_auto_cancel_shift_reassign: forbidden
-      DB_CAL_004_through_DB_CAL_007_not_fixed: true
+      DB_CAL_007_not_fixed: true
     checks:
       half_open_interval_semantics_are_unambiguous: PASS
       adjacent_events_do_not_false_conflict: PASS
@@ -931,7 +931,7 @@ quality_checks:
       scheduled_event_direct_time_or_resource_change_without_claim_sync_blocked: PASS
       conflicting_update_rolls_back_to_previous_event_and_claim_state: PASS
       availability_publication_not_mistaken_for_reservation: PASS
-      future_booking_obligated_to_same_boundary_without_solving_DB_CAL_006: PASS
+      booking_uses_same_GiST_boundary_after_DB_CAL_006: PASS
       formal_training_obligated_to_same_boundary_without_solving_DB_CAL_007: PASS
       aggregate_core_schema_modified_in_step: false
       aggregate_docs87_modified_in_step: false
@@ -1058,6 +1058,78 @@ quality_checks:
       Laravel_migrations_created: false
       UI_or_feature_implementation_started: false
 
+  availability_slot_booking_lifecycle_and_exactly_once:
+    status: PASS
+    resolved_blocker_id: DB-CAL-006
+    severity: P1
+    machine_source: specs/database/calendar.yml
+    audit_source: docs/109-stage-4-calendar-audit.md
+    decision:
+      status_values: [available, booked, cancelled]
+      state_booking_fields_database_enforced: true
+      concurrency_root: availability_slots.version
+      version_type: bigint
+      version_minimum: 1
+      material_PATCH_book_cancel_require_expected_version_at_domain_boundary: true
+      command_lock: availability_slot_FOR_UPDATE
+      compare_expected_version_after_lock: true
+      current_Stage3_PATCH_uses_If_Match: true
+      current_Stage3_book_cancel_have_If_Match: false
+      book_cancel_If_Match_required_marker_sync: Stage5_acceptance_contract_sync
+      idempotency_key_is_not_expected_version_substitute: true
+      only_available_slot_is_normal_PATCHable: true
+      lifecycle_history_table: availability_slot_lifecycle_events
+      lifecycle_history_append_only: true
+      unique_history_scope: [organization_id, availability_slot_id, slot_version_after]
+      current_version_history_final_state_guard: DEFERRABLE_INITIALLY_DEFERRED
+      claim_owner_kind: availability_slot_booking
+      claim_owner_kind_catalog_after_step: [calendar_event, availability_slot_booking]
+      booked_slot_exact_claim_set_guard: DEFERRABLE_INITIALLY_DEFERRED
+      booked_slot_claims: student_plus_each_nonnull_instructor_vehicle_location
+      available_or_cancelled_booking_claim_count: 0
+      booking_uses_shared_four_GiST_exclusion_constraints: true
+      booking_vs_calendar_event_conflict_database_enforced: true
+      booking_vs_booking_conflict_database_enforced: true
+      successful_booking_creates_independent_calendar_event: false
+      canonical_current_reservation_owner: booked_availability_slot
+      cancellation_source_states: [available, booked]
+      cancelled_slot_is_terminal: true
+      cancellation_auto_republishes_available_slot: false
+      cancel_booked_preserves_student_in_history_snapshot: true
+      cancel_booked_clears_current_booking_fields_and_claims: true
+      booking_permission: calendar.book_for_student_student_scoped
+      booking_permission_redefined_as_slot_own: false
+      publish_update_cancel_scope: DB_CAL_005_organization_or_own
+      booking_claim_insert_credits_training_time: false
+      DB_CAL_007_not_fixed: true
+    checks:
+      slot_status_and_booking_field_matrix_closed: PASS
+      one_slot_version_concurrency_root: PASS
+      PATCH_book_cancel_races_serialize_on_same_slot: PASS
+      stale_command_cannot_commit_partial_slot_claim_or_history: PASS
+      semantic_noop_PATCH_does_not_create_fake_version_or_history: PASS
+      booked_and_cancelled_normal_PATCH_blocked: PASS
+      lifecycle_history_current_version_pairing: PASS
+      booking_owner_kind_is_database_constrained: PASS
+      booked_exact_claim_set_checks_final_transaction_state: PASS
+      booking_uses_student_instructor_vehicle_location_GiST_boundary: PASS
+      two_concurrent_bookings_same_slot_allow_at_most_one_commit: PASS
+      booking_vs_existing_event_rolls_back_entire_booking: PASS
+      two_distinct_overlapping_slots_same_resource_allow_at_most_one_booking_commit: PASS
+      successful_booking_does_not_create_second_calendar_event_source: PASS
+      cancel_releases_claims_and_preserves_history: PASS
+      cancelled_slot_does_not_silently_republish_availability: PASS
+      same_tenant_student_relation_preserved: PASS
+      existing_DB4_2_booking_permission_semantics_preserved: PASS
+      existing_DB_CAL_005_owner_scope_semantics_preserved: PASS
+      booking_does_not_bypass_DB_TRN_006_training_pipeline: PASS
+      migration_does_not_guess_status_student_time_actor_or_overlap_winner: PASS
+      aggregate_core_schema_modified_in_step: false
+      aggregate_docs87_modified_in_step: false
+      later_domain_slices_entered: false
+      Laravel_migrations_created: false
+      UI_or_feature_implementation_started: false
+
 resolved_blockers:
   - DB-FOUND-001
   - DB-FOUND-002
@@ -1087,9 +1159,9 @@ resolved_blockers:
   - DB-CAL-003
   - DB-CAL-004
   - DB-CAL-005
+  - DB-CAL-006
 
 open_blockers_current_diagnosed_scope:
-  - DB-CAL-006
   - DB-CAL-007
 
 gate_definition:
@@ -1100,7 +1172,7 @@ gate_definition:
     - migration_order_dependency_safe
     - database_invariant_test_matrix_exists
     - reverse_engineering_preservation_traceable
-  current_result: DB4_5_DB_CAL_001_002_003_004_005_PASS_2_P1_OPEN
+  current_result: DB4_5_DB_CAL_001_002_003_004_005_006_PASS_1_P1_OPEN
   DB4_1_result: PASS
   DB4_2_result: PASS
   DB4_3_result: PASS
@@ -1121,7 +1193,8 @@ gate_definition:
   DB4_5_DB_CAL_003_result: PASS
   DB4_5_DB_CAL_004_result: PASS
   DB4_5_DB_CAL_005_result: PASS
-  DB4_5_result: IN_PROGRESS_2_P1_OPEN
+  DB4_5_DB_CAL_006_result: PASS
+  DB4_5_result: IN_PROGRESS_1_P1_OPEN
   may_start_DB4_4_fixes: false
   may_start_DB4_5: true
   may_start_DB4_5_fixes: true
@@ -1130,17 +1203,20 @@ gate_definition:
   may_start_UI_or_feature_implementation: false
 
 next_single_step:
-  id: DB_CAL_006
-  blocker: DB-CAL-006
-  action: close_availability_slot_booking_lifecycle_and_exactly_once_only
+  id: DB_CAL_007
+  blocker: DB-CAL-007
+  action: close_driving_lesson_training_session_source_of_truth_only
   allowed_scope:
     - specs/database/calendar.yml
     - docs/109-stage-4-calendar-audit.md
     - specs/gates/stage-4-database-contract-gate.yml
   scope_lock: >-
-    Fix only DB-CAL-006 AvailabilitySlot status/field matrix, booking exactly-once
-    behavior, shared conflict-claim reservation effect, book/cancel races and explicit
-    reavailability policy. Do not fix DB-CAL-007, do not modify aggregate core-schema.yml
-    or docs/87 before the final DB4_5 aggregate sync, do not enter DB4_6 or later slices,
-    do not create Laravel migrations and do not start UI/feature implementation.
-  after_action: rerun_DB_CAL_006_gate_and_record_PASS_or_remaining_blocker_then_stop_before_DB_CAL_007
+    Fix only DB-CAL-007 canonical schedule owner and relation/projection between manual
+    driving_lesson CalendarEvent, booked availability reservation and formal TrainingSession.
+    Define exactly one effective reservation fact and atomic create/update/cancel/reschedule
+    orchestration without allowing Calendar completion or conflict claims to credit training
+    time outside DB-TRN-006. Do not perform the final DB4_5 aggregate sync in the same step,
+    do not modify aggregate core-schema.yml or docs/87 before the separate final aggregate
+    sync gate, do not enter DB4_6 or later slices, do not create Laravel migrations and do
+    not start UI/feature implementation.
+  after_action: rerun_DB_CAL_007_gate_and_record_PASS_or_remaining_blocker_then_stop_before_DB4_5_final_aggregate_sync
