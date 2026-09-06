@@ -13,7 +13,7 @@ meta:
 working_rule:
   diagnosis_only: false
   fixes_applied_in_this_step: true
-  current_step: DB4_6_STEP_4_DB_LIC_004
+  current_step: DB4_6_STEP_5_DB_LIC_005
   one_blocker_per_followup_step: true
   Laravel_migrations_created: false
   Stage5_started: false
@@ -308,7 +308,7 @@ resolved_contracts:
       - assignment_same_organization_but_wrong_student_learning_account_pair_is_rejected
       - activation_cannot_reference_assignment_from_other_organization
       - same_global_user_may_still_back_learning_accounts_in_different_organizations
-      - global_language_and_product_dictionaries_are_not_incorrectly_tenant_scoped
+      - global_language_and_license_product_not_redefined_as_tenant_resources
       - source_order_item_commerce_relation_is_not_falsely_closed_before_DB4_9
     explicitly_not_solved_in_this_step:
       - DB-LIC-002_auth_identifier_same_user_and_login_projection_consistency
@@ -1022,6 +1022,312 @@ resolved_contracts:
       - exact_password_hash_algorithm_cost_rotation_parameters
       - exact_HTTP_shape_for_expected_credential_version_and_secret_bearing_immediate_PDF
 
+  DB-LIC-005:
+    status: PASS
+    resolved_at: 2026-09-07
+    scope: inventory_assignment_lifecycle_and_exactly_once_allocation_revoke_only
+    inventory_unit_model:
+      row_represents_exactly_one_inventory_unit: true
+      status_field: license_inventory_entries.status
+      status_values: [available, assigned, consumed, expired, adjusted]
+      ordinary_assignment_target_status: available
+      ordinary_assignment_flow_transitions:
+        available_to_assigned: create_license_assignment
+        assigned_to_available: revoke_unactivated
+        assigned_to_consumed: successful_activation_boundary
+      consumed_is_reusable_by_normal_assignment: false
+      expired_is_assignable: false
+      adjusted_is_assignable: false
+      normal_hard_delete_after_grant_or_assignment_history: forbidden
+      expired_semantics:
+        current_assignment_count: 0
+        normal_transition_source: available_only
+        exact_expiration_command_owner: deferred_to_DB4_9_or_explicit_future_inventory_policy
+      adjusted_semantics:
+        current_assignment_count: 0
+        normal_assignment_revoke_activate_commands_may_set_adjusted: false
+        exact_adjustment_command_owner: deferred_to_DB4_9_or_explicit_future_inventory_adjustment_policy
+        consumed_or_historical_activation_is_not_rewritten_to_adjusted: true
+        post_consumption_refund_or_replacement_must_use_separate_compensating_business_effect_not_mutate_consumed_history: true
+    assignment_model:
+      status_field: license_assignments.status
+      status_values: [assigned, activated, revoked_before_activation]
+      version:
+        field: license_assignments.version
+        type: bigint
+        nullable: false
+        default: 1
+        check: version_gte_1
+        concurrency_root_for_assignment_state: true
+      normal_hard_delete: forbidden
+      generic_status_PATCH: forbidden
+      normal_transitions:
+        create: none_to_assigned_version_1
+        activate: assigned_to_activated_version_plus_1
+        revoke_unactivated: assigned_to_revoked_before_activation_version_plus_1
+      activated_to_any_normal_state: forbidden
+      revoked_to_any_normal_state: forbidden
+      reassign_restored_inventory_reuses_old_assignment_row: false
+      reassign_restored_inventory_creates_new_assignment_row: true
+      state_field_matrix:
+        assigned:
+          revoked_at: null
+          revoked_by_user_id: null
+          revoke_reason: null
+          activation_count: 0
+        activated:
+          revoked_at: null
+          revoked_by_user_id: null
+          revoke_reason: null
+          activation_count: exactly_1
+        revoked_before_activation:
+          revoked_at: nonnull
+          revoked_by_user_id: nonnull
+          revoke_reason: nonblank
+          activation_count: 0
+      activated_status_is_temporal_entitlement_active_flag: false
+      activated_status_meaning: this_inventory_unit_was_irreversibly_consumed_by_activation
+      entitlement_current_or_expired_projection_owner: DB_LIC_006
+    current_assignment_definition:
+      predicate: status_in_assigned_or_activated_and_revoked_at_is_null
+      partial_unique:
+        columns: [organization_id, license_inventory_entry_id]
+        where: status_in_assigned_or_activated_and_revoked_at_is_null
+      many_historical_revoked_assignments_per_inventory_allowed: true
+      at_most_one_current_assignment_per_inventory: true
+      consumed_inventory_has_permanent_current_activated_assignment: true
+    cross_row_final_state_equivalence:
+      enforcement: DEFERRABLE_INITIALLY_DEFERRED_constraint_trigger_or_equivalent_transactional_DB_guard
+      inventory_available:
+        current_assignment_count: 0
+      inventory_assigned:
+        current_assignment_count: exactly_1
+        required_current_assignment_status: assigned
+        required_activation_count_for_current_assignment: 0
+      inventory_consumed:
+        current_assignment_count: exactly_1
+        required_current_assignment_status: activated
+        required_activation_count_for_current_assignment: exactly_1
+      inventory_expired:
+        current_assignment_count: 0
+      inventory_adjusted:
+        current_assignment_count: 0
+      assignment_assigned:
+        required_inventory_status: assigned
+        activation_count: 0
+      assignment_activated:
+        required_inventory_status: consumed
+        activation_count: exactly_1
+      assignment_revoked_before_activation:
+        activation_count: 0
+        inventory_status_not_permanently_derived_from_historical_revoked_row: true
+        reason: same_inventory_may_later_be_reassigned_with_a_new_assignment_row
+      direct_inventory_or_assignment_status_change_without_matching_cross_row_final_state: rejected_at_commit
+    allocation_serialization:
+      inventory_allocation_concurrency_boundary: license_inventory_entries_row_FOR_UPDATE
+      separate_inventory_version_added: false
+      reason: assignment_create_revoke_activate_all_serialize_on_the_same_concrete_inventory_unit_row_and_final_state_guard
+      assignment_state_concurrency_boundary: license_assignments.version_plus_row_FOR_UPDATE
+      expected_assignment_version_required_for_activate_and_revoke_domain_commands: true
+      current_Stage3_activate_revoke_have_If_Match: false
+      expected_assignment_version_HTTP_marker_sync: Stage5_acceptance_contract_sync
+      idempotency_key_is_not_expected_version_substitute: true
+    shared_lock_order:
+      existing_learning_account_flow:
+        - claim_idempotency_key_when_command_requires_it
+        - students_row_FOR_UPDATE
+        - student_learning_accounts_row_FOR_UPDATE
+        - license_inventory_entries_row_FOR_UPDATE
+        - license_assignments_row_FOR_UPDATE_when_existing
+      create_new_learning_account_without_OSK_password:
+        - claim_idempotency_key
+        - students_row_FOR_UPDATE
+        - create_or_bind_identity_and_learning_account_per_DB_LIC_002_and_DB_LIC_003
+        - license_inventory_entries_row_FOR_UPDATE
+      create_new_learning_account_with_OSK_managed_password:
+        - claim_idempotency_key
+        - students_row_FOR_UPDATE
+        - create_learning_account_and_identity_per_DB_LIC_002_and_DB_LIC_003
+        - users_row_and_user_password_management_row_per_DB_LIC_004
+        - license_inventory_entries_row_FOR_UPDATE
+      activate_and_revoke_common_tail:
+        - students_row_FOR_UPDATE
+        - student_learning_accounts_row_FOR_UPDATE
+        - license_inventory_entries_row_FOR_UPDATE
+        - license_assignments_row_FOR_UPDATE
+      downstream_DB_LIC_006_may_extend_after_assignment_lock_but_may_not_reorder_prefix: true
+    create_assignment_transaction:
+      endpoint: POST_/license-assignments
+      permission: licenses.assign
+      idempotency_required: true
+      exactly_one_target_preserved: true
+      target_existing_account:
+        require_DB_LIC_001_exact_student_account_tenant: true
+        require_DB_LIC_003_operational_eligibility_after_locks: true
+      target_new_account:
+        learning_account_identity_and_optional_credential_creation_same_outer_transaction: true
+        failure_after_account_or_credential_preparation_rolls_back_account_identifier_user_when_newly_created_and_password_effect: true
+        one_time_secret_return_occurs_only_after_entire_assignment_transaction_commits: true
+      after_inventory_lock_require_status: available
+      after_inventory_lock_require_zero_current_assignment: true
+      language_product_compatibility_final_rule: deferred_to_DB_LIC_007
+      successful_effects_same_transaction:
+        - insert_license_assignment_status_assigned_version_1
+        - set_same_inventory_row_status_assigned
+        - append_redacted_audit_and_outbox_metadata
+        - complete_idempotency_record
+        - satisfy_cross_row_final_state_guard_at_commit
+      same_idempotency_key_same_request:
+        second_assignment_created: false
+        inventory_transition_repeated: false
+        return_original_assignment_result: true
+      same_idempotency_key_different_request: reject_conflict
+      different_key_same_inventory_after_first_commit: conflict_inventory_not_available
+      two_concurrent_assignment_creates_same_inventory: at_most_one_commits
+    revoke_unactivated_transaction:
+      endpoint: POST_/license-assignments/{assignmentId}/revoke-unactivated
+      permission: licenses.revoke_unactivated
+      idempotency_required: true
+      expected_assignment_version_required: true
+      lock_order: shared_existing_learning_account_then_inventory_then_assignment
+      after_locks_require:
+        - DB_LIC_003_target_student_and_learning_account_operationally_eligible_or_explicit_admin_history_policy_if_future_product_allows_archived_revoke
+        - assignment_status_assigned
+        - inventory_status_assigned
+        - activation_count_zero
+        - current_assignment_is_this_assignment
+        - expected_assignment_version_matches
+      reason_required_nonblank: true
+      command_effective_at_captured_once: true
+      successful_effects_same_transaction:
+        - set_assignment_status_revoked_before_activation
+        - set_revoked_at_command_effective_at
+        - set_revoked_by_user_id_actor
+        - set_revoke_reason
+        - increment_assignment_version_once
+        - set_same_inventory_row_status_available
+        - append_redacted_audit_and_outbox_metadata
+        - complete_idempotency_record
+        - satisfy_cross_row_final_state_guard_at_commit
+      restore_exactly_one_meaning: transition_the_same_single_inventory_entry_assigned_to_available_once
+      does_not_increment_inventory_counter_or_create_replacement_unit: true
+      same_key_retry_repeats_restore: false
+      same_key_retry_repeats_version_bump: false
+      new_key_against_revoked_assignment: conflict_without_inventory_effect
+      hard_delete_assignment: forbidden
+      hard_delete_learning_account_if_no_other_assignments: forbidden
+    activation_boundary_required_by_DB_LIC_005_only:
+      purpose: close_activate_vs_revoke_race_and_inventory_state_without_solving_entitlement_math
+      endpoint: POST_/license-assignments/{assignmentId}/activate
+      idempotency_required: true
+      expected_assignment_version_required: true
+      common_lock_prefix: student_then_learning_account_then_inventory_then_assignment
+      after_locks_require:
+        - DB_LIC_003_operational_eligibility
+        - assignment_status_assigned
+        - inventory_status_assigned
+        - activation_count_zero
+        - current_assignment_is_this_assignment
+        - expected_assignment_version_matches
+      atomic_state_effect_required_for_any_successful_activation:
+        - insert_exactly_one_license_activation_row_for_assignment
+        - set_assignment_status_activated
+        - increment_assignment_version_once
+        - set_same_inventory_row_status_consumed
+        - satisfy_cross_row_final_state_guard_at_commit
+      activation_effective_period_duration_snapshot_stacking_and_actor_provenance: deferred_to_DB_LIC_006
+      DB_LIC_005_does_not_define_effective_from_or_effective_to: true
+      activation_row_remains_immutable_history: true
+    activate_vs_revoke_race:
+      shared_lock_rows: [student, learning_account, inventory_entry, assignment]
+      same_lock_order: true
+      activation_first:
+        final_assignment_status: activated
+        final_inventory_status: consumed
+        activation_count: 1
+        later_revoke_result: conflict_no_restore
+      revoke_first:
+        final_assignment_status: revoked_before_activation
+        final_inventory_status: available
+        activation_count: 0
+        later_activation_result: conflict_no_consume
+      both_effects_commit_for_same_assignment: impossible
+      inventory_can_be_both_restored_and_consumed_for_same_assignment: false
+    student_archive_interaction:
+      parent_rule: DB_LIC_003
+      archive_does_not_auto_revoke_existing_assignment: true
+      archive_does_not_auto_restore_inventory: true
+      archive_first_blocks_new_assignment_and_activation: true
+      revoke_of_archived_student:
+        ordinary_UI_command_policy: fail_closed_until_explicit_product_rule
+        history_or_data_correction_need_may_use_separate_elevated_command_later: true
+      reason: revoke_is_a_new_inventory_effect_and_must_not_bypass_parent_state_policy_silently
+    audit_and_history:
+      assignment_rows_preserved: true
+      revoked_assignment_preserved_after_inventory_reassignment: true
+      activated_assignment_preserved_after_entitlement_expiry: true
+      audit_required_for_create_activate_revoke: true
+      audit_fields_minimum: [organization_id, assignment_id, inventory_entry_id, student_id, learning_account_id, actor_user_id, previous_status, new_status, request_id, occurred_at]
+      revoke_reason_recorded_on_assignment: true
+      final_audit_outbox_table_shape: deferred_to_DB4_10
+    migration_design:
+      order:
+        - precheck_inventory_status_values_against_closed_catalog
+        - precheck_assignment_status_revocation_metadata_and_activation_presence_for_deterministic_classification
+        - fail_on_available_inventory_with_current_assignment
+        - fail_on_assigned_inventory_without_exactly_one_unactivated_current_assignment
+        - fail_on_consumed_inventory_without_exactly_one_activated_assignment_and_one_activation_row
+        - fail_on_expired_or_adjusted_inventory_with_current_assignment
+        - fail_on_assignment_with_activation_and_revoke_metadata_both_present
+        - map_legacy_assignment_status_only_when_status_metadata_and_activation_evidence_are_unambiguous
+        - add_assignment_version_bigint_not_null_default_1_check_gte_1_or_validate_existing_equivalent
+        - add_closed_inventory_and_assignment_status_checks
+        - add_or_replace_current_assignment_partial_unique_with_final_current_predicate
+        - add_assignment_state_field_matrix_checks
+        - add_deferrable_inventory_assignment_activation_final_state_guard
+        - wire_assignment_create_and_revoke_to_shared_lock_order_idempotency_and_version_rules
+        - require_activation_flow_to_use_same_inventory_assignment_transition_boundary_before_DB_LIC_006_details
+        - add_race_and_direct_SQL_invariant_tests
+      legacy_status_auto_guess_from_display_text_or_latest_row: forbidden
+      available_with_live_assignment_auto_revoke_or_auto_move_inventory: forbidden
+      assigned_without_assignment_auto_create_assignment: forbidden
+      consumed_without_activation_auto_fabricate_activation: forbidden
+      revoked_metadata_missing_actor_time_or_reason_auto_fabrication: forbidden
+      contradictory_legacy_state: fail_migration_and_require_reviewed_remediation
+    required_integration_tests:
+      - inventory_status_rejects_unknown_value
+      - assignment_status_rejects_unknown_value
+      - new_assignment_starts_assigned_version_one_with_inventory_assigned
+      - available_inventory_with_current_assignment_is_rejected_at_commit
+      - assigned_inventory_without_exactly_one_assigned_current_assignment_is_rejected_at_commit
+      - consumed_inventory_without_exactly_one_activated_assignment_and_activation_is_rejected_at_commit
+      - expired_or_adjusted_inventory_with_current_assignment_is_rejected_at_commit
+      - assigned_assignment_with_revoke_metadata_or_activation_is_rejected
+      - revoked_before_activation_requires_actor_time_nonblank_reason_and_zero_activation
+      - activated_assignment_requires_zero_revoke_metadata_and_exactly_one_activation
+      - two_concurrent_assignments_for_same_inventory_allow_at_most_one_commit
+      - same_assignment_create_idempotency_key_replays_original_without_second_assignment_or_state_change
+      - different_assignment_key_after_inventory_allocated_is_conflict
+      - create_new_learning_account_and_assignment_commit_all_or_none
+      - create_new_OSK_managed_account_password_and_assignment_failure_returns_no_secret_and_rolls_back_new_effects
+      - revoke_unactivated_transitions_same_inventory_row_back_to_available_once
+      - same_revoke_idempotency_key_does_not_restore_twice_or_increment_version_twice
+      - different_revoke_key_after_revoked_assignment_does_not_change_inventory
+      - revoke_never_hard_deletes_assignment_or_learning_account
+      - activation_and_revoke_same_assignment_have_exactly_one_winner
+      - activation_first_makes_inventory_consumed_and_revoke_cannot_restore
+      - revoke_first_makes_inventory_available_and_activation_cannot_consume
+      - historical_revoked_assignment_remains_after_same_inventory_is_reassigned_with_new_assignment_row
+      - activated_assignment_remains_activated_after_entitlement_later_expires
+      - direct_SQL_status_drift_fails_deferred_final_state_guard
+      - student_archive_does_not_auto_revoke_or_restore_inventory
+      - migration_does_not_invent_missing_assignment_activation_or_revoke_metadata
+    explicitly_not_solved_in_this_step:
+      - DB-LIC-006_activation_stacking_effective_period_duration_snapshot_expiry_before_after_and_actor_provenance
+      - DB-LIC-007_language_product_capability_assignment_snapshot_and_management_projection_rules
+      - DB4_9_purchase_payment_inventory_grant_expiration_and_adjustment_command_details
+      - exact_HTTP_If_Match_required_marker_and_conflict_status_mapping
+
 blockers:
   - id: DB-LIC-001
     severity: P1
@@ -1093,7 +1399,8 @@ blockers:
   - id: DB-LIC-005
     severity: P1
     title: inventory_assignment_lifecycle_and_exactly_once_allocation_revoke
-    status: OPEN
+    status: RESOLVED
+    resolution_ref: resolved_contracts.DB-LIC-005
     diagnosis:
       - current partial unique prevents two nonrevoked assignments for one inventory entry but does not by itself prove inventory status assignment status activation presence and revoke effect are mutually consistent
       - assignment status has no closed catalog or field matrix in the physical blueprint
@@ -1151,11 +1458,11 @@ diagnosis_summary:
   result: FAIL_WITH_7_P1_BLOCKERS
 
 current_gate_summary:
-  blockers_resolved_after_diagnosis: 4
-  open_P0_P1: 3
-  result: FAIL_WITH_3_P1_BLOCKERS
-  resolved_blockers: [DB-LIC-001, DB-LIC-002, DB-LIC-003, DB-LIC-004]
-  next_blocker: DB-LIC-005
+  blockers_resolved_after_diagnosis: 5
+  open_P0_P1: 2
+  result: FAIL_WITH_2_P1_BLOCKERS
+  resolved_blockers: [DB-LIC-001, DB-LIC-002, DB-LIC-003, DB-LIC-004, DB-LIC-005]
+  next_blocker: DB-LIC-006
 
 nonblockers_and_deferred_questions:
   - exact_public_prices_discounts_VAT_and_payment_provider_flow_belong_to_DB4_9
@@ -1165,7 +1472,7 @@ nonblockers_and_deferred_questions:
   - exact_HTTP_If_Match_required_markers_and_error_codes_remain_Stage5_acceptance_contract_sync
   - exact_max_bulk_PDF_count_and_select_visible_pagination_behavior_are_application_product_limits_not_database_P1
   - exact_competitor_semantics_of_inventory_card_active_count_remain_unobservable_but_our_projection_must_be_defined_before_implementation
-  - exact_always_stack_exceptions_of_the_competitor_are_not_assumed; our entitlement rule will be an explicit product decision when DB_LIC_006_is_fixed
+  - exact_always_stack_exceptions_of_the_competitor_are_not_assumed; our entitlement_rule_will_be_an_explicit_product_decision_when_DB_LIC_006_is_fixed
 
 preservation_checks:
   all_confirmed_license_variants_remain_data_not_hardcoded_global_rule: PASS
@@ -1219,6 +1526,24 @@ preservation_checks:
   bulk_reset_is_all_or_none_and_groups_duplicate_learning_accounts_by_global_user: PASS
   bulk_download_permission_alone_cannot_reset_credentials: PASS
   DB_LIC_005_through_DB_LIC_007_not_fixed_in_DB_LIC_004_step: PASS
+  inventory_row_is_one_concrete_unit_not_counter: PASS
+  inventory_and_assignment_status_catalogs_are_closed: PASS
+  assignment_version_is_concurrency_root_for_activate_and_revoke: PASS
+  current_assignment_partial_unique_preserves_multiple_historical_revoked_assignments: PASS
+  inventory_assignment_activation_final_state_equivalence_is_database_guarded: PASS
+  assignment_to_existing_learning_account_is_atomic_and_idempotent: PASS
+  create_new_learning_account_and_assignment_is_one_outer_transaction: PASS
+  optional_initial_OSK_password_effect_rolls_back_if_assignment_does_not_commit: PASS
+  revoke_unactivated_restores_same_inventory_row_exactly_once: PASS
+  revoke_never_hard_deletes_assignment_or_learning_account: PASS
+  activate_and_revoke_share_inventory_assignment_lock_boundary: PASS
+  activate_vs_revoke_has_exactly_one_winner: PASS
+  activated_assignment_is_consumption_history_not_temporal_access_status: PASS
+  revoked_assignment_history_survives_inventory_reassignment: PASS
+  expired_and_adjusted_inventory_cannot_be_assigned_in_normal_flow: PASS
+  consumed_inventory_history_is_not_rewritten_to_adjusted: PASS
+  DB_LIC_006_entitlement_math_and_activation_provenance_not_fixed_in_DB_LIC_005_step: PASS
+  DB_LIC_007_language_capability_and_projection_not_fixed_in_DB_LIC_005_step: PASS
   purchase_payment_scope_not_accidentally_solved_in_DB4_6: PASS
   DB4_7_or_later_scope_not_entered: PASS
   aggregate_core_schema_modified_in_diagnosis: false
@@ -1229,16 +1554,16 @@ preservation_checks:
   UI_or_feature_implementation_started: false
 
 next_single_step:
-  id: DB4_6_STEP_5
-  blocker: DB-LIC-005
-  action: resolve_inventory_assignment_lifecycle_and_exactly_once_allocation_revoke_only
+  id: DB4_6_STEP_6
+  blocker: DB-LIC-006
+  action: resolve_activation_stacking_entitlement_history_concurrency_and_reproducibility_only
   allowed_files:
     - specs/database/licenses-learning-access.yml
     - docs/110-stage-4-licenses-learning-access-audit.md
     - specs/gates/stage-4-database-contract-gate.yml
   scope_lock: >-
-    Resolve only DB-LIC-005. Do not fix DB-LIC-006 or DB-LIC-007, do not
-    synchronize specs/database/core-schema.yml or docs/87-physical-database-schema.md
-    until the final DB4_6 aggregate sync, do not enter DB4_7 or later slices, do
-    not create Laravel migrations, do not start Stage 5 and do not implement UI/features.
-  after_action: rerun_DB4_6_gate_and_STOP_before_DB_LIC_006
+    Resolve only DB-LIC-006. Do not fix DB-LIC-007, do not synchronize
+    specs/database/core-schema.yml or docs/87-physical-database-schema.md until the
+    final DB4_6 aggregate sync, do not enter DB4_7 or later slices, do not create
+    Laravel migrations, do not start Stage 5 and do not implement UI/features.
+  after_action: rerun_DB4_6_gate_and_STOP_before_DB_LIC_007
