@@ -7,6 +7,7 @@ meta:
   preservation_contract: docs/96-reverse-engineering-preservation-contract.md
   traceability: specs/traceability/core-v1.yml
   DB4_4_students_courses_training_aggregate_sync: PASS
+  DB4_5_calendar_aggregate_sync: PASS
 
 conventions:
   primary_key:
@@ -137,7 +138,11 @@ core_tables:
 
   calendar:
     - calendar_events
+    - calendar_event_lifecycle_events
     - availability_slots
+    - availability_slot_lifecycle_events
+    - calendar_resource_claims
+    - training_session_calendar_details
 
   student_finance:
     - student_charges
@@ -714,6 +719,147 @@ students_courses_training_model:
     hard_unique_PKK_number_not_invented: true
     provider_fetch_update_return_retry_reconciliation: deferred_to_DB4_8
 
+calendar_model:
+  bounded_context_source: specs/database/calendar.yml
+  audit_source: docs/109-stage-4-calendar-audit.md
+  aggregate_sync_status: PASS
+  resolved_blockers: [DB-CAL-001, DB-CAL-002, DB-CAL-003, DB-CAL-004, DB-CAL-005, DB-CAL-006, DB-CAL-007]
+
+  storage_and_projection_boundary:
+    calendar_events_runtime_role: manual_general_event_only_after_legacy_driving_lesson_remediation
+    formal_driving_lesson_source: practical_training_session_projection
+    important_date_source: current_staff_or_vehicle_document_valid_until_projection
+    important_date_persisted_in_calendar_events: false
+    booked_availability_projection_source: booked_slot_without_training_session_link
+    formalized_slot_projection_suppressed: true
+    duplicate_formal_calendar_item_forbidden: true
+
+  tenant_integrity:
+    calendar_event_optional_relations: [student_id, instructor_id, vehicle_id, location_id]
+    availability_slot_optional_relations: [instructor_id, vehicle_id, location_id, booked_student_id]
+    same_tenant_composite_FKs_required: true
+    nullable_relations_use_MATCH_SIMPLE: true
+    historical_relations_use_RESTRICT: true
+    organization_id_client_authority: false
+
+  meeting_place:
+    manual_event_sources: [location_id, custom_meeting_place]
+    formal_lesson_sources: [training_sessions.location_id, training_session_calendar_details.custom_meeting_place]
+    zero_or_one_source: true
+    both_null_allowed: true
+    custom_text_trimmed_nonblank: true
+    custom_text_creates_location: false
+
+  calendar_events:
+    event_type_values_runtime: [general_event]
+    status_values: [scheduled, completed, cancelled]
+    version: bigint_not_null_default_1_check_gte_1
+    concurrency_root: calendar_events.version
+    terminal_metadata: [completed_at, completed_by_user_id, cancelled_at, cancelled_by_user_id, cancellation_reason]
+    lifecycle_history_table: calendar_event_lifecycle_events
+    lifecycle_history_append_only: true
+    one_history_event_per_material_version: true
+    current_version_history_guard: DEFERRABLE_INITIALLY_DEFERRED
+    scheduled_exact_claim_set_required: true
+    terminal_claim_count: 0
+    generic_terminal_PATCH: forbidden
+    normal_hard_delete: forbidden
+    own_owner: instructor_id_staff_profile
+    created_by_user_is_owner: false
+
+  availability_slots:
+    status_values: [available, booked, cancelled]
+    version: bigint_not_null_default_1_check_gte_1
+    concurrency_root: availability_slots.version
+    booking_fields: [booked_student_id, booked_at]
+    training_session_id_nullable_same_tenant_unique: true
+    lifecycle_history_table: availability_slot_lifecycle_events
+    lifecycle_event_values_runtime: [created, updated, booked, formalized, cancelled]
+    lifecycle_history_append_only: true
+    one_history_event_per_material_version: true
+    current_version_history_guard: DEFERRABLE_INITIALLY_DEFERRED
+    available_claim_count: 0
+    booked_unformalized_claim_owner: availability_slot_booking
+    booked_formalized_claim_count: 0
+    booked_formalized_current_reservation_owner: training_session
+    cancelled_claim_count: 0
+    cancelled_terminal: true
+    automatic_reavailability_after_cancel: false
+    successful_booking_creates_calendar_event: false
+    own_owner: instructor_id_staff_profile
+
+  conflict_engine:
+    interval: half_open_[starts_at,ends_at)
+    range_expression: tstzrange(starts_at,ends_at,'[)')
+    adjacent_end_equals_next_start_conflict: false
+    projection_table: calendar_resource_claims
+    technical_projection_not_business_history: true
+    exactly_one_resource_column_nonnull: true
+    resource_kinds: [student, instructor, vehicle, location]
+    custom_meeting_place_claims_resource: false
+    important_date_claims_resource: false
+    owner_kind_values: [calendar_event, availability_slot_booking, training_session]
+    owner_resolution_guard: DEFERRABLE_INITIALLY_DEFERRED
+    exact_claim_set_guard: DEFERRABLE_INITIALLY_DEFERRED
+    PostgreSQL_extension: btree_gist
+    final_concurrency_boundary: four_partial_GiST_exclusion_constraints
+    exclusion_dimensions: [organization_id_equals, same_resource_id_equals, occupied_during_overlaps]
+    application_precheck_is_final_boundary: false
+    claim_insert_credits_training_time: false
+
+  formal_training_calendar_authority:
+    canonical_schedule_owner: training_sessions
+    projected_calendar_type: driving_lesson_for_practical_sessions
+    canonical_student_source: course_enrollments.student_id
+    canonical_schedule_fields: [starts_at, ends_at, instructor_id, vehicle_id, location_id]
+    calendar_only_companion_table: training_session_calendar_details
+    companion_fields: [display_name, custom_meeting_place]
+    companion_is_second_concurrency_root: false
+    companion_material_change_increments_training_session_version: true
+    planned_session_types_claim_resources: [theory, practical]
+    planned_exact_claim_set: course_student_plus_instructor_plus_optional_vehicle_location
+    completed_or_cancelled_claim_count: 0
+    formal_mutations_require_training_permissions: true
+    calendar_manage_permission_alone_mutates_formal_training: false
+    calendar_complete_creates_attendance_or_ledger_credit: false
+    base_credit_path: DB_TRN_006_only
+
+  availability_to_training_handoff:
+    auto_create_training_session_during_booking_without_course_context: false
+    dedicated_atomic_command: true
+    idempotency_required: true
+    expected_slot_version_required: true
+    course_context: explicit_or_exactly_one_eligible_active_never_latest_or_first_heuristic
+    lock_order: [course_enrollment, availability_slot]
+    creates_planned_practical_training_session_from_slot_snapshot: true
+    transfers_claim_owner_from_slot_to_training_session_same_transaction: true
+    sets_availability_slot_training_session_id: true
+    increments_slot_version_once: true
+    appends_formalized_lifecycle_event: true
+    handoff_failure_restores_original_booking_claims_by_transaction_rollback: true
+    formalized_slot_cancel_independently: false
+    linked_session_terminal_state_auto_republishes_slot: false
+    later_session_reschedule_rewrites_slot_snapshot: false
+
+  own_scope:
+    manual_event_owner: calendar_events.instructor_id
+    availability_slot_owner: availability_slots.instructor_id
+    formal_lesson_view_owner: training_sessions.instructor_id
+    owner_identity: StaffProfile
+    active_staff_membership_link_required: true
+    null_owner_result: deny
+    creator_or_terminal_actor_grants_ownership: false
+    own_mutation_can_transfer_or_clear_owner: false
+    formal_lesson_mutation_uses_training_permission_not_calendar_permission: true
+
+  legacy_migration_policy:
+    driving_lesson_calendar_event_auto_match_by_time_name_or_resources: forbidden
+    ambiguous_legacy_row_requires_explicit_review: true
+    existing_overlap_auto_winner_shift_cancel_or_reassign: forbidden
+    unknown_status_actor_or_terminal_time_guess: forbidden
+    missing_booking_student_or_time_guess: forbidden
+    backfill_claims_only_from_reliably_classified_rows: true
+
 idempotency_model:
   idempotency_records:
     fields:
@@ -806,6 +952,13 @@ critical_relations:
   - training_session_has_exactly_one_attendance_row_when_completed_and_it_is_exact_course_student
   - completed_present_training_session_has_exactly_one_base_credit
   - course_enrollment_has_many_recognized_external_training_records_with_deterministic_current_projection
+  - manual_general_calendar_event_has_same_tenant_optional_student_instructor_vehicle_location_relations
+  - scheduled_manual_calendar_event_has_exact_resource_claim_set
+  - availability_slot_booking_has_same_tenant_student_and_exact_resource_claim_set_until_formalized
+  - practical_training_session_projects_as_formal_driving_lesson_without_calendar_event_copy
+  - planned_training_session_has_exact_course_student_and_resource_claim_set
+  - training_session_calendar_details_is_zero_or_one_companion_to_same_tenant_practical_session
+  - availability_slot_may_link_to_at_most_one_same_tenant_training_session_after_atomic_formalization
   - student_has_many_learning_accounts
   - learning_account_receives_license_assignments
   - license_inventory_entry_has_many_historical_assignments_but_at_most_one_current_assignment
@@ -915,6 +1068,18 @@ structural_decisions:
     history_is_versioned: true
     create_course_and_required_PKK_identity_atomic: true
     provider_lifecycle_deferred_to_DB4_8: true
+  calendar_schedule_and_conflicts:
+    bounded_context_source: specs/database/calendar.yml
+    manual_calendar_event_storage: general_event_only_after_legacy_remediation
+    formal_driving_lesson_schedule_owner: training_sessions
+    important_date_storage: source_projection_not_calendar_row
+    conflict_projection: calendar_resource_claims
+    final_overlap_boundary: PostgreSQL_btree_gist_partial_exclusion_constraints
+    interval: half_open
+    owner_kinds: [calendar_event, availability_slot_booking, training_session]
+    slot_booking_creates_calendar_event: false
+    formalization_transfers_reservation_owner_atomically: true
+    calendar_complete_credits_training: false
   license_assignment_history:
     inventory_entry_global_unique_across_all_history: false
     current_assignment_unique: true
@@ -1178,6 +1343,80 @@ critical_constraints:
     type: partial_unique
     columns: [organization_id, course_enrollment_id]
     where: superseded_at_is_null
+  calendar_event_candidate_key_org_id:
+    columns: [organization_id, id]
+  calendar_event_version_minimum:
+    check: version_gte_1
+  calendar_event_status_check:
+    check: status_in_scheduled_completed_cancelled
+  calendar_event_type_check_after_DB4_5:
+    check: event_type_equals_general_event
+  calendar_event_student_same_tenant_composite_FK:
+    source_columns: [organization_id, student_id]
+    target_table: students
+    target_columns: [organization_id, id]
+    match: MATCH_SIMPLE
+    on_update: RESTRICT
+    on_delete: RESTRICT
+  calendar_event_instructor_same_tenant_composite_FK:
+    source_columns: [organization_id, instructor_id]
+    target_table: staff_profiles
+    target_columns: [organization_id, id]
+    match: MATCH_SIMPLE
+    on_update: RESTRICT
+    on_delete: RESTRICT
+  calendar_event_vehicle_same_tenant_composite_FK:
+    source_columns: [organization_id, vehicle_id]
+    target_table: vehicles
+    target_columns: [organization_id, id]
+    match: MATCH_SIMPLE
+    on_update: RESTRICT
+    on_delete: RESTRICT
+  calendar_event_location_same_tenant_composite_FK:
+    source_columns: [organization_id, location_id]
+    target_table: locations
+    target_columns: [organization_id, id]
+    match: MATCH_SIMPLE
+    on_update: RESTRICT
+    on_delete: RESTRICT
+  calendar_event_history_unique_per_version:
+    columns: [organization_id, calendar_event_id, event_version_after]
+  availability_slot_candidate_key_org_id:
+    columns: [organization_id, id]
+  availability_slot_version_minimum:
+    check: version_gte_1
+  availability_slot_status_check:
+    check: status_in_available_booked_cancelled
+  availability_slot_training_session_unique_when_present:
+    type: partial_unique
+    columns: [organization_id, training_session_id]
+    where: training_session_id_is_not_null
+  availability_slot_history_unique_per_version:
+    columns: [organization_id, availability_slot_id, slot_version_after]
+  training_session_calendar_details_unique_session:
+    columns: [organization_id, training_session_id]
+  calendar_resource_claim_exactly_one_resource:
+    check: num_nonnulls_student_instructor_vehicle_location_equals_1
+  calendar_resource_claim_owner_kind_check:
+    check: claim_owner_kind_in_calendar_event_availability_slot_booking_training_session
+  calendar_resource_claim_time_positive:
+    check: ends_at_gt_starts_at
+  calendar_resource_claim_student_GiST_exclusion:
+    type: partial_exclusion_GiST
+    dimensions: [organization_id_equals, student_id_equals, occupied_during_overlaps]
+    where: student_id_is_not_null
+  calendar_resource_claim_instructor_GiST_exclusion:
+    type: partial_exclusion_GiST
+    dimensions: [organization_id_equals, instructor_id_equals, occupied_during_overlaps]
+    where: instructor_id_is_not_null
+  calendar_resource_claim_vehicle_GiST_exclusion:
+    type: partial_exclusion_GiST
+    dimensions: [organization_id_equals, vehicle_id_equals, occupied_during_overlaps]
+    where: vehicle_id_is_not_null
+  calendar_resource_claim_location_GiST_exclusion:
+    type: partial_exclusion_GiST
+    dimensions: [organization_id_equals, location_id_equals, occupied_during_overlaps]
+    where: location_id_is_not_null
   license_current_assignment_unique_per_inventory_entry:
     type: partial_unique
     columns: [license_inventory_entry_id]
@@ -1211,6 +1450,7 @@ critical_constraints:
   exam_attempt_result_unique: true
   session_end_after_start: true
   calendar_event_end_after_start: true
+  availability_slot_end_after_start: true
   non_negative_money_and_minutes: true
 
 transactional_invariants:
@@ -1337,11 +1577,15 @@ transactional_invariants:
     require_exactly_one_verified_attendance: true
     present_creates_exactly_one_matching_base_credit: true
     absent_creates_zero_credit: true
-    complete_and_credit_atomic: true
+    remove_training_session_resource_claims_same_transaction: true
+    final_training_session_claim_count: 0
+    complete_credit_and_claim_release_atomic: true
   cancel_training_session:
     lock_order: [course_enrollment, training_session]
     require_session_planned: true
     require_zero_base_credit: true
+    remove_training_session_resource_claims_same_transaction: true
+    final_training_session_claim_count: 0
     cancellation_creates_no_credit: true
   correct_training_hour_ledger:
     lock_order: [course_enrollment, source_entry_when_present]
@@ -1361,6 +1605,69 @@ transactional_invariants:
     exactly_one_current_profile_required_after_commit: true
     provider_network_call_required_for_local_identity_write: false
     provider_lifecycle: deferred_to_DB4_8
+  create_or_update_manual_calendar_event:
+    source: calendar_events_general_event_only
+    validate_same_tenant_resources: true
+    create_initial_status: scheduled
+    concurrency_root_for_update: calendar_events.version
+    material_update_expected_version_required: true
+    exact_claim_set_same_transaction: true
+    claims_order: [student, instructor, vehicle, location]
+    GiST_exclusion_is_final_conflict_boundary: true
+    lifecycle_history_same_material_version: true
+    conflict_rolls_back_event_claims_and_history: true
+  complete_or_cancel_manual_calendar_event:
+    concurrency_root: calendar_events.version
+    expected_version_required: true
+    remove_all_calendar_event_claims_same_transaction: true
+    increment_version_once: true
+    append_matching_lifecycle_history: true
+    terminal_claim_count: 0
+    calendar_complete_credits_training: false
+  book_availability_slot:
+    concurrency_root: availability_slots.version
+    expected_version_required: true
+    source_status: available
+    target_status: booked
+    create_exact_booking_claim_set_same_transaction: true
+    claims_order: [student, instructor, vehicle, location]
+    GiST_exclusion_is_final_conflict_boundary: true
+    append_booked_history: true
+    successful_booking_creates_calendar_event: false
+    conflict_rolls_back_booking_fields_claims_version_and_history: true
+  cancel_availability_slot:
+    concurrency_root: availability_slots.version
+    expected_version_required: true
+    source_statuses: [available, booked]
+    remove_booking_claims_if_present: true
+    clear_current_booking_fields: true
+    target_status: cancelled
+    preserve_pre_cancel_student_in_history: true
+    automatic_reavailability: false
+  create_or_reschedule_training_session_schedule_claims:
+    lock_order: [course_enrollment, training_session_when_existing, resource_claims]
+    require_course_active: true
+    planned_session_exact_claim_set_same_transaction: true
+    claims: course_student_plus_instructor_plus_optional_vehicle_location
+    claims_order: [student, instructor, vehicle, location]
+    GiST_exclusion_is_final_conflict_boundary: true
+    material_companion_metadata_change_uses_same_training_session_version: true
+    conflict_rolls_back_session_schedule_metadata_and_claims: true
+  formalize_booked_availability_slot_to_training_session:
+    permission: training_sessions.create
+    idempotency_required: true
+    expected_slot_version_required: true
+    course_context_never_guessed_by_latest_or_first: true
+    lock_order: [course_enrollment, availability_slot]
+    require_booked_slot_without_training_session_link: true
+    create_planned_practical_training_session_from_slot_snapshot: true
+    remove_availability_booking_claims: true
+    insert_training_session_claims_same_transaction: true
+    set_training_session_link: true
+    increment_slot_version_once: true
+    append_formalized_slot_history: true
+    failed_handoff_rolls_back_to_original_booked_claim_owner: true
+    linked_slot_cancel_independently_after_handoff: false
   revoke_unactivated_license:
     lock:
       - license_assignment
@@ -1419,8 +1726,13 @@ transactional_invariants:
   payment_webhook:
     dedupe_before_business_effect: true
   calendar_conflict:
-    enforcement_strategy: pending_ADR
+    enforcement_strategy: calendar_resource_claims_plus_four_partial_PostgreSQL_GiST_exclusion_constraints
+    interval: half_open_[starts_at,ends_at)
+    owner_kinds: [calendar_event, availability_slot_booking, training_session]
     server_side_required: true
+    application_precheck_is_final_boundary: false
+    claim_exact_set_final_state_guard: DEFERRABLE_INITIALLY_DEFERRED
+    claim_insert_credits_training_time: false
   idempotent_command:
     claim_key_before_effect: true
     same_key_different_payload_rejected: true
@@ -1472,7 +1784,8 @@ migration_order:
   - students_identity_version_and_learning_accounts
   - course_enrollments_lifecycle_requirement_rules_context_profiles_exemptions_and_PKK_identity
   - training_sessions_attendance_ledger_and_recognized_external_training
-  - calendar
+  - enable_btree_gist_before_calendar_resource_claim_exclusion_constraints
+  - calendar_events_availability_lifecycle_claims_training_session_calendar_details_and_formalization_links
   - pkk_provider_operations_and_attempts
   - student_finance
   - license_inventory_assignments_and_activations
@@ -1577,6 +1890,40 @@ migration_tests_required:
   - PKK_identity_replacement_preserves_prior_profile_and_leaves_exactly_one_current
   - category_or_training_type_change_cannot_commit_with_stale_current_PKK_identity
   - DB4_4_migration_does_not_guess_no_PESEL_requirement_context_external_lineage_or_PKK_history_when_legacy_evidence_is_ambiguous
+  - calendar_manual_event_cross_tenant_student_instructor_vehicle_location_is_rejected
+  - calendar_manual_event_location_and_custom_meeting_place_cannot_both_be_persisted
+  - important_date_is_source_projection_and_never_manual_calendar_event_row
+  - calendar_half_open_intervals_allow_adjacent_same_resource_reservations
+  - calendar_same_student_overlap_same_organization_is_rejected_by_GiST
+  - calendar_same_instructor_overlap_same_organization_is_rejected_by_GiST
+  - calendar_same_vehicle_overlap_same_organization_is_rejected_by_GiST
+  - calendar_same_location_overlap_same_organization_is_rejected_by_GiST
+  - calendar_same_resource_in_different_organizations_does_not_conflict
+  - unknown_calendar_claim_owner_kind_is_rejected
+  - scheduled_general_event_has_exact_claim_set_and_terminal_general_event_has_zero_claims
+  - calendar_event_current_version_has_exactly_one_matching_lifecycle_history_row
+  - two_calendar_event_mutations_same_expected_version_cannot_both_commit
+  - calendar_own_scope_requires_active_staff_link_to_target_instructor_and_creator_is_not_owner_shortcut
+  - availability_slot_state_booking_fields_and_version_history_are_consistent
+  - two_concurrent_bookings_same_availability_slot_allow_at_most_one_commit
+  - availability_booking_conflicting_with_existing_general_event_rolls_back_entire_booking
+  - booked_slot_has_exact_booking_claim_set_until_formalized
+  - cancelled_availability_slot_has_zero_claims_and_is_not_auto_republished
+  - planned_training_session_has_exact_course_student_instructor_and_optional_vehicle_location_claims
+  - training_session_conflicts_with_general_event_booking_or_other_session_on_same_resource_and_overlap
+  - training_session_claim_insert_never_creates_attendance_or_training_credit
+  - completed_or_cancelled_training_session_has_zero_resource_claims
+  - practical_training_session_projects_as_driving_lesson_without_calendar_event_copy
+  - training_session_calendar_details_preserves_optional_name_or_custom_place_without_schedule_duplication
+  - training_session_location_and_calendar_custom_place_cannot_both_be_active
+  - formal_lesson_calendar_mutation_requires_training_permission_not_calendar_manage_permission
+  - calendar_complete_never_bypasses_DB_TRN_006_credit_pipeline
+  - availability_formalization_requires_explicit_or_unambiguous_active_course_and_never_latest_first_guess
+  - availability_formalization_transfers_claim_owner_atomically_without_duplicate_reservation
+  - formalized_slot_has_training_session_link_zero_booking_claims_and_no_second_calendar_item
+  - formalized_slot_cannot_cancel_independently_and_linked_session_terminal_state_does_not_auto_republish_slot
+  - legacy_driving_lesson_calendar_row_is_not_heuristically_mapped_to_training_session
+  - DB4_5_migration_does_not_auto_shift_cancel_reassign_or_choose_overlap_winner
   - revoked_license_assignment_allows_same_inventory_entry_to_be_reassigned_later
   - two_current_license_assignments_for_same_inventory_entry_are_rejected
   - second_activation_for_same_license_assignment_is_rejected
@@ -1600,6 +1947,5 @@ migration_tests_required:
 
 pending_ADRs:
   - sensitive_identifier_application_encryption_and_key_rotation
-  - calendar_overlap_constraint_strategy
   - immutable_snapshot_hash_canonicalization
   - auth_identifier_email_verification_and_account_merge_policy
