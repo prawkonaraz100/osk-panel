@@ -3,8 +3,8 @@
 Data: 2026-09-06
 
 **Etap:** `DB4_6_LICENSES_LEARNING_ACCESS`  
-**Aktualny krok:** `DB4_6_STEP_3 / DB-LIC-003`  
-**Status:** `DB-LIC-001..003 PASS / 0 P0 / 4 P1 OPEN`
+**Aktualny krok:** `DB4_6_STEP_4 / DB-LIC-004`  
+**Status:** `DB-LIC-001..004 PASS / 0 P0 / 3 P1 OPEN`
 
 Machine-readable diagnoza: `specs/database/licenses-learning-access.yml`.
 
@@ -909,3 +909,305 @@ Aktualny stan po DB-LIC-003:
 Następny dozwolony krok po centralnym gate: **DB-LIC-004 only**.
 
 **STOP przed DB-LIC-004.**
+
+---
+
+## 22. DB-LIC-004 — resolution contract and self-audit
+
+**Current result: PASS.**
+
+Ten krok zamyka wyłącznie credential authority, one-time plaintext handoff, reset/reprint, pojedynczy i zbiorczy PDF oraz secret non-persistence. Nie zmienia inventory/assignment lifecycle, activation stackingu ani product-language authority.
+
+### 22.1 Hasło jest credentialem globalnego Usera
+
+Canonical local-password owner pozostaje:
+
+`users.password_hash`.
+
+Nie dodajemy hasha na `StudentLearningAccount` i nie tworzymy tenantowego hasła obok globalnej tożsamości. Plaintext ani odwracalny ciphertext hasła logowania nie może istnieć w żadnej zwykłej tabeli.
+
+To ma ważną konsekwencję: permission OSK do `student_access.reset_password` sam w sobie nie może oznaczać prawa do zmiany dowolnego `users.password_hash`, ponieważ ten sam globalny User może mieć inne konteksty tożsamości.
+
+### 22.2 Fail-closed global password management authority
+
+Dodajemy globalny rekord `user_password_management` — jeden na Usera:
+
+- `user_id` PK/FK `users`,
+- `management_mode = unclassified | self_service | organization_managed`,
+- nullable `managing_organization_id`,
+- `credential_version bigint >= 0`,
+- nullable `password_changed_at`,
+- timestamps.
+
+`unclassified` oraz `self_service` mają `managing_organization_id = NULL` i nie pozwalają OSK resetować hasła.
+
+`organization_managed` wymaga dokładnie jednego `managing_organization_id`; dopiero zgodność tego Organization z LearningAccount oraz właściwa permission/scope pozwalają wejść do resetu.
+
+Samo podpięcie istniejącego globalnego Usera do LearningAccount **nie przenosi** password-management authority.
+
+### 22.3 Organization-managed User musi być exclusive learner principal
+
+Self-audit ujawnił krytyczne ryzyko: gdyby OSK mogło zarządzać globalnym hasłem Usera używanego również jako pracownik, owner, konto social-login lub dostęp w innym OSK, reset hasła mógłby przejąć inne konteksty tego Usera.
+
+Dlatego `organization_managed` ma fail-closed guard:
+
+- zero `OrganizationMembership` dla tego Usera,
+- zero LearningAccount w innym Organization,
+- zero current `AuthSocialAccount`.
+
+Guard jest final-state DB/transactional boundary i działa również przy próbie późniejszego dodania membership, cross-org LearningAccount albo social account.
+
+Jeżeli taki principal ma zostać rozszerzony na globalną/współdzieloną identity, najpierw musi przejść jawny elevated identity/security transition do trybu, który nie pozostawia tenantowi prawa do resetu globalnego hasła. Dokładny claim/transfer/recovery flow pozostaje istniejącą osobną bramką Identity.
+
+To nie cofa decyzji DB-LIC-002 o możliwości jednego globalnego Usera w wielu OSK. Taki User może istnieć w wielu OSK, ale wtedy **nie może pozostawać organization-managed przez jedno OSK**.
+
+### 22.4 Credential version jest osobnym concurrency rootem
+
+Globalne lokalne hasło ma concurrency root:
+
+`user_password_management.credential_version`.
+
+Każda zmiana `users.password_hash`, niezależnie czy wykonuje ją OSK czy self-service/global auth flow, musi:
+- lockować ten sam management row,
+- zwiększyć `credential_version` dokładnie raz.
+
+OSK-managed set/reset wymaga expected credential version. Stale version daje conflict bez zmiany hasha, handoffu ani audytu.
+
+Reset hasła nie zwiększa `StudentLearningAccount.version`, ponieważ hasło jest globalnym credentialem Usera, a nie konfiguracją konkretnego LearningAccount.
+
+### 22.5 Lock order i idempotency przed non-replayable effect
+
+Single reset/set używa kolejności:
+
+`Idempotency claim -> Student FOR UPDATE -> LearningAccount FOR UPDATE -> User FOR UPDATE -> UserPasswordManagement FOR UPDATE`.
+
+Po lockach ponownie sprawdzamy:
+- tenant/scope,
+- DB-LIC-003 operational eligibility,
+- matching organization-managed authority,
+- exclusive-principal guard,
+- expected credential version.
+
+Idempotency-Key musi zostać zajęty przed efektem, którego sekretu nie można później replayować.
+
+### 22.6 One-time plaintext istnieje wyłącznie w pamięci procesu
+
+Świeże hasło przechodzi tylko przez:
+
+`accept/generate -> validate -> hash -> optional immediate render -> durable hash+redacted metadata commit -> one-time return/stream -> discard`.
+
+Plaintext jest zabroniony w:
+- tabelach,
+- FileAsset/object storage,
+- audit,
+- outbox,
+- logach/traces,
+- `idempotency_records.safe_response_snapshot`,
+- QR.
+
+Do audit/outbox/handoff nie zapisujemy również samego password hash.
+
+Po zakończeniu commandu serwer nie ma ścieżki `pokaż stare hasło`.
+
+### 22.7 StudentAccessHandoff przechowuje metadane, nie sekret
+
+`student_access_handoffs` staje się trwałą historią **nie-sekretnych** handoffów/dokumentów. Finalizujemy m.in.:
+
+- `handoff_type = initial_credentials | password_reset | credentials_document`,
+- `credential_version_snapshot`,
+- `contains_fresh_secret`,
+- `fresh_secret_generated_at`,
+- nullable `batch_id`,
+- nullable `batch_ordinal`,
+- istniejący nullable `document_asset_id`.
+
+Jeżeli `contains_fresh_secret=true`:
+- typ to initial/password_reset,
+- credential version >= 1,
+- generated timestamp jest wymagany,
+- `document_asset_id` musi być NULL.
+
+Czyli sam handoff potwierdza, że sekret został jednorazowo wygenerowany, ale nie przechowuje go i nie pozwala go odtworzyć.
+
+### 22.8 Secret-bearing PDF nigdy nie jest FileAsset
+
+PDF zawierający świeże jawne hasło:
+- może powstać tylko w tym samym commandzie co create/reset,
+- jest renderowany w pamięci procesu,
+- nie jest zapisywany jako `FileAsset`,
+- nie trafia do object storage,
+- jest zwracany/streamowany tylko raz.
+
+Późniejszy GET po `handoffId` może zwrócić wyłącznie dokument bez starego hasła: login, instrukcję i stan hasła.
+
+Jeżeli produkt cache'uje taki **sekret-free** PDF, wymagamy osobnego purpose `student_access_credentials_nonsecret`, `ready` FileAsset i same-tenant relation z DB-LIC-001. Generator tego wariantu nie może nawet przyjmować plaintext password jako input.
+
+Kartka z widocznym hasłem ponownie = **nowy reset, nowa credential version, nowy immediate secret render**.
+
+QR może zawierać login URL i opcjonalny nonsecret login prefill; nigdy hasło/reset token.
+
+### 22.9 Reset transaction i delivery failure
+
+Przed durable write można opcjonalnie wyrenderować secret-bearing PDF w pamięci. Jeżeli render zawiedzie przed commit:
+- hash się nie zmienia,
+- credential version się nie zmienia,
+- handoff nie powstaje.
+
+Po commit:
+- `users.password_hash` i version są trwałe,
+- metadata handoff/audit/outbox istnieją,
+- secret response/PDF jest przekazywany jeden raz.
+
+Jeżeli sieć/klient zerwie odbiór już po commit, system **nie cofa** hasła i **nie zapisuje sekretu do późniejszego retry**. Retry tym samym Idempotency-Key nie robi drugiego resetu i nie replayuje hasła. Jeżeli operator potrzebuje nowej kartki z hasłem, wykonuje jawny nowy reset z nowym key i aktualną credential version.
+
+Dokładne HTTP mapping „secret no longer replayable” pozostaje Stage 5.
+
+### 22.10 Nonsecret reprint pozostaje dostępny
+
+Pobranie dokumentu bez jawnego hasła:
+- nie zmienia credential,
+- nie zwiększa credential version,
+- może działać dynamicznie albo przez secret-free FileAsset,
+- wymaga właściwego download permission i target scope.
+
+Czyli zachowujemy praktyczne `Pobierz dostęp`, ale nie udajemy, że system zna stare hasło.
+
+### 22.11 Bulk PDF — dwa jawne tryby
+
+Zachowujemy jeden połączony, wielostronicowy PDF i mixed locales.
+
+Rozdzielamy:
+
+1. `nonsecret_combined_pdf`
+   - zero zmian haseł,
+   - batch metadata + jeden nonsecret handoff item per selected LearningAccount.
+
+2. `reset_and_secret_combined_pdf`
+   - wymaga download permission oraz `student_access.reset_password` dla **każdego** targetu,
+   - download permission sam nie może resetować credentials,
+   - przed pierwszym password write wszystkie targety muszą przejść tenant/scope/eligibility/authority/version checks,
+   - cały PDF jest renderowany w pamięci przed durable password writes,
+   - wszystkie password mutations + batch metadata commitują all-or-none.
+
+`regenerate_credentials_when_required` nie może oznaczać „zresetuj wszystko, czego starego hasła nie umiemy odczytać”. Stage 5 musi zamienić ten boolean na jednoznaczny command mode albo jawny reset target set.
+
+### 22.12 Ten sam globalny User wielokrotnie w batchu
+
+Jeśli zaznaczono kilka LearningAccounts tego samego globalnego Usera:
+- grupujemy po `user_id`,
+- generujemy jedno nowe hasło dla tego Usera,
+- wykonujemy jeden hash write,
+- jeden `credential_version +1`,
+- w tym samym immediate batchu ta sama świeża wartość może znaleźć się na kilku stronach dotyczących tego samego Usera.
+
+Nie resetujemy tego samego globalnego hasła kilka razy tylko dlatego, że ma kilka widocznych kart.
+
+Multi-target lock order jest deterministyczny:
+
+`Students UUID sort -> LearningAccounts UUID sort -> Users UUID sort -> PasswordManagement user UUID sort`.
+
+### 22.13 Bulk failure jest all-or-none
+
+Jeśli przed commit nie przejdzie choć jeden:
+- tenant/scope,
+- eligibility,
+- management authority,
+- exclusive-principal guard,
+- expected credential version,
+- render całego PDF,
+
+to wynik wynosi:
+- 0 zmienionych password hashes,
+- 0 credential version bumps,
+- 0 handoff items.
+
+Delivery failure po commit nie daje server-side secret replay i nie wykonuje resetów ponownie przy tym samym idempotency key.
+
+### 22.14 Audit/outbox bez sekretów
+
+Audytujemy co najmniej:
+- Organization,
+- account albo batch,
+- target User,
+- action,
+- actor,
+- credential version before/after,
+- request_id,
+- timestamp.
+
+Zabronione pola:
+- plaintext password,
+- password hash,
+- secret PDF bytes,
+- reset token,
+- QR secret.
+
+Finalny fizyczny shape audit/outbox pozostaje DB4_10; obowiązek redaction działa już teraz.
+
+### 22.15 Migration safety
+
+Przyszła migracja:
+1. tworzy `user_password_management`,
+2. dla istniejących Users ustawia `unclassified` — **nie zgaduje managing OSK** z LearningAccount, creatora ani ostatniej aktywności,
+3. ustawia migration epoch `credential_version=0` przy NULL hash i `1` przy istniejącym hash; nie udaje historycznej liczby resetów,
+4. nie zgaduje `password_changed_at`,
+5. dodaje final-state hash/version guard,
+6. dodaje exclusive-principal guards,
+7. dodaje batch i handoff metadata,
+8. skanuje legacy handoff assets pod kątem potencjalnego plaintext secretu/purpose,
+9. legacy secret-bearing PDF wymaga reviewed security remediation,
+10. nie migruje plaintextu do ciphertext/secret table.
+
+Nie wolno po prostu oznaczyć istniejącego dokumentu jako „nonsecret” bez dowodu.
+
+### 22.16 Required tests
+
+Obowiązkowe testy obejmują m.in.:
+- canonical hash pozostaje na User,
+- matching OSK + permission/scope + exclusive principal może resetować,
+- organization-managed User nie może mieć Membership, cross-org LearningAccount ani current social auth,
+- próba utworzenia któregoś z tych kontekstów wymaga wcześniejszego authority transition,
+- self-service/unclassified OSK reset failuje,
+- attach istniejącego Usera nie przenosi authority,
+- stale credential version nie zmienia niczego,
+- dwa resety z tą samą version nie commitują oba,
+- każdy local-password mutation zwiększa ten sam credential epoch,
+- plaintext nie występuje w DB/audit/outbox/log/idempotency,
+- secret-bearing PDF nie trafia do FileAsset/object storage,
+- later PDF GET nie odzyskuje hasła,
+- reprint z hasłem wymaga resetu,
+- QR nie ma secretu,
+- same-key retry nie resetuje ponownie i nie replayuje secretu,
+- precommit render failure zostawia stary credential,
+- bulk nonsecret nie zmienia haseł,
+- bulk reset wymaga reset permission dla każdego targetu,
+- bulk failure zmienia zero credentials,
+- kilka kont tego samego Usera daje jeden reset/epoch,
+- archived/ineligible LearningAccount nie przechodzi reset/sensitive export,
+- migracja nie zgaduje managing OSK i nie zachowuje legacy secret PDF bez review.
+
+### 22.17 Scope preservation
+
+Self-audit potwierdził:
+- DB-LIC-001..003 pozostają PASS,
+- DB-LIC-005..007 pozostają OPEN,
+- nie zmieniono inventory/assignment lifecycle,
+- nie zamknięto activation stacking/entitlement history,
+- nie zamknięto language capability/projection,
+- global login authority DB-LIC-002 pozostaje jedna,
+- organization-managed credential authority nie tworzy tenantowego login namespace,
+- exact identity authority transfer/claim/recovery pozostaje odrębną bramką Identity,
+- exact password algorithm/cost pozostaje security implementation policy,
+- exact HTTP secret-PDF/expected credential version pozostaje Stage 5,
+- agregaty `core-schema.yml` i `docs/87` pozostają zamrożone,
+- brak migracji Laravel, DB4_7, Stage 5 i UI.
+
+Aktualny stan po DB-LIC-004:
+- resolved: **4/7**,
+- open P0: **0**,
+- open P1: **3**,
+- DB4_6: **FAIL_WITH_3_P1_BLOCKERS**.
+
+Następny dozwolony krok po centralnym gate: **DB-LIC-005 only**.
+
+**STOP przed DB-LIC-005.**
