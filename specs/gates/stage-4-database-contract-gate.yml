@@ -79,10 +79,10 @@ stage_4_slices:
     status: IN_PROGRESS_WITH_BLOCKERS
     diagnosis: COMPLETE
     blockers_diagnosed: 7
-    blockers_resolved: 4
-    open_P0_P1: 3
+    blockers_resolved: 5
+    open_P0_P1: 2
     final_aggregate_sync: BLOCKED
-    result: FAIL_WITH_3_P1_BLOCKERS
+    result: FAIL_WITH_2_P1_BLOCKERS
   - id: DB4_7_INTERNAL_EXAMS
     status: NOT_STARTED
   - id: DB4_8_PKK
@@ -1558,6 +1558,79 @@ quality_checks:
       Laravel_migrations_created: false
       UI_or_feature_implementation_started: false
 
+  license_inventory_assignment_exactly_once_lifecycle:
+    status: PASS
+    resolved_blocker_id: DB-LIC-005
+    severity: P1
+    machine_source: specs/database/licenses-learning-access.yml
+    audit_source: docs/110-stage-4-licenses-learning-access-audit.md
+    decision:
+      inventory_row_represents_one_concrete_unit: true
+      inventory_status_values: [available, assigned, consumed, expired, adjusted]
+      assignment_status_values: [assigned, activated, revoked_before_activation]
+      assignment_concurrency_root: license_assignments.version
+      assignment_version_type: bigint
+      assignment_version_minimum: 1
+      assigned_at_required_immutable: true
+      assigned_by_user_required_global_FK_RESTRICT: true
+      normal_hard_delete_assignment: forbidden
+      current_assignment_predicate: status_assigned_or_activated_and_revoked_at_null
+      current_assignment_unique_scope: [organization_id, license_inventory_entry_id]
+      inventory_assignment_activation_final_state_guard: DEFERRABLE_INITIALLY_DEFERRED
+      available_inventory_current_assignment_count: 0
+      assigned_inventory_requires_exactly_one_unactivated_assigned_assignment: true
+      consumed_inventory_requires_exactly_one_activated_assignment_and_activation: true
+      expired_or_adjusted_inventory_current_assignment_count: 0
+      revoked_assignment_may_coexist_with_later_new_assignment_for_same_inventory: true
+      activated_assignment_is_temporal_access_active_flag: false
+      activated_assignment_is_irreversible_consumption_history: true
+      inventory_allocation_lock: license_inventory_entries_FOR_UPDATE
+      separate_inventory_version_added: false
+      activate_revoke_expected_assignment_version_required: true
+      activate_revoke_If_Match_sync: Stage5_acceptance_contract_sync
+      assignment_create_idempotent_and_atomic: true
+      create_new_learning_account_and_assignment_one_outer_transaction: true
+      optional_initial_credential_rolls_back_if_assignment_fails: true
+      revoke_restores_same_inventory_row_exactly_once: true
+      revoke_increments_inventory_counter_or_creates_replacement_unit: false
+      explicit_revoke_unactivated_after_student_archive_or_account_suspension: allowed
+      archive_auto_revokes_assignment_or_restores_inventory: false
+      activate_and_revoke_share_same_lock_order: true
+      activate_vs_revoke_exactly_one_winner: true
+      activation_minimum_state_effect: activation_row_plus_assignment_activated_plus_inventory_consumed
+      activation_effective_period_stacking_snapshot_and_actor_provenance: deferred_to_DB_LIC_006
+      language_product_compatibility_and_projection_rules: deferred_to_DB_LIC_007
+      purchase_payment_inventory_grant_expiry_adjustment_commands: deferred_to_DB4_9
+      DB_LIC_006_and_DB_LIC_007_not_fixed: true
+    checks:
+      inventory_and_assignment_status_catalogs_closed: PASS
+      assignment_state_field_matrix_closed: PASS
+      inventory_row_is_not_counter: PASS
+      one_current_assignment_per_inventory_enforced: PASS
+      multiple_revoked_history_rows_per_inventory_preserved: PASS
+      cross_row_inventory_assignment_activation_equivalence_enforced_at_commit: PASS
+      direct_SQL_state_drift_rejected: PASS
+      two_concurrent_assignments_same_inventory_at_most_one_commit: PASS
+      assignment_same_key_retry_does_not_allocate_twice: PASS
+      create_new_account_and_assignment_commit_all_or_none: PASS
+      failed_assignment_does_not_leak_fresh_OSK_managed_secret: PASS
+      revoke_preserves_history_and_restores_same_unit_once: PASS
+      revoke_same_key_retry_does_not_restore_or_version_bump_twice: PASS
+      revoke_after_archive_or_suspension_is_explicit_and_does_not_reactivate_target: PASS
+      archive_itself_does_not_auto_revoke_or_restore_inventory: PASS
+      activation_and_revoke_serialize_on_same_inventory_and_assignment_rows: PASS
+      activation_first_blocks_later_revoke_restore: PASS
+      revoke_first_blocks_later_activation_consume: PASS
+      activated_assignment_persists_after_entitlement_expiry: PASS
+      DB_LIC_006_entitlement_math_and_provenance_remains_open: PASS
+      DB_LIC_007_language_capability_projection_remains_open: PASS
+      DB4_9_commerce_grant_expiry_adjustment_not_solved_early: PASS
+      aggregate_core_schema_modified_in_step: false
+      aggregate_docs87_modified_in_step: false
+      later_domain_slices_entered: false
+      Laravel_migrations_created: false
+      UI_or_feature_implementation_started: false
+
 resolved_blockers:
   - DB-FOUND-001
   - DB-FOUND-002
@@ -1593,9 +1666,9 @@ resolved_blockers:
   - DB-LIC-002
   - DB-LIC-003
   - DB-LIC-004
+  - DB-LIC-005
 
 open_blockers_current_diagnosed_scope:
-  - DB-LIC-005
   - DB-LIC-006
   - DB-LIC-007
 
@@ -1607,7 +1680,7 @@ gate_definition:
     - migration_order_dependency_safe
     - database_invariant_test_matrix_exists
     - reverse_engineering_preservation_traceable
-  current_result: FAIL_DB4_6_WITH_3_OPEN_P1_BLOCKERS
+  current_result: FAIL_DB4_6_WITH_2_OPEN_P1_BLOCKERS
   DB4_1_result: PASS
   DB4_2_result: PASS
   DB4_3_result: PASS
@@ -1637,7 +1710,8 @@ gate_definition:
   DB4_6_DB_LIC_002_result: PASS
   DB4_6_DB_LIC_003_result: PASS
   DB4_6_DB_LIC_004_result: PASS
-  DB4_6_result: FAIL_WITH_3_P1_BLOCKERS
+  DB4_6_DB_LIC_005_result: PASS
+  DB4_6_result: FAIL_WITH_2_P1_BLOCKERS
   may_start_DB4_4_fixes: false
   may_start_DB4_5: false
   may_start_DB4_5_fixes: false
@@ -1648,9 +1722,9 @@ gate_definition:
   may_start_UI_or_feature_implementation: false
 
 next_single_step:
-  id: DB4_6_STEP_5
-  blocker: DB-LIC-005
-  action: resolve_inventory_assignment_lifecycle_and_exactly_once_allocation_revoke_only
+  id: DB4_6_STEP_6
+  blocker: DB-LIC-006
+  action: resolve_activation_stacking_entitlement_history_concurrency_and_reproducibility_only
   allowed_scope:
     - specs/database/licenses-learning-access.yml
     - docs/110-stage-4-licenses-learning-access-audit.md
@@ -1659,8 +1733,8 @@ next_single_step:
     - specs/database/core-schema.yml
     - docs/87-physical-database-schema.md
   scope_lock: >-
-    Resolve only DB-LIC-005. Do not fix DB-LIC-006 or DB-LIC-007. Keep the
-    aggregate core schema and docs/87 frozen until the final DB4_6 aggregate sync.
-    Do not enter DB4_7 or later slices, do not start Stage 5, do not create Laravel
-    migrations and do not start UI/feature implementation.
-  after_action: rerun_DB4_6_gate_and_STOP_before_DB_LIC_006
+    Resolve only DB-LIC-006. Do not fix DB-LIC-007. Keep the aggregate core schema
+    and docs/87 frozen until the final DB4_6 aggregate sync. Do not enter DB4_7 or
+    later slices, do not start Stage 5, do not create Laravel migrations and do not
+    start UI/feature implementation.
+  after_action: rerun_DB4_6_gate_and_STOP_before_DB_LIC_007
