@@ -2,7 +2,7 @@
 
 Data: 2026-09-06
 
-**Status:** `DB4_4 IN PROGRESS / DB-TRN-001 PASS / DB-TRN-002 PASS / DB-TRN-003 PASS / DB-TRN-004 PASS / DB-TRN-005 PASS / 3 P1 BLOCKERS OPEN`
+**Status:** `DB4_4 IN PROGRESS / DB-TRN-001 PASS / DB-TRN-002 PASS / DB-TRN-003 PASS / DB-TRN-004 PASS / DB-TRN-005 PASS / DB-TRN-006 PASS / 2 P1 BLOCKERS OPEN`
 
 ## Cel i zasada pracy
 
@@ -23,6 +23,7 @@ Przejrzano w szczególności:
 - `specs/legal/editable-training-requirements.yml`,
 - `docs/66-formal-student-record-and-theory-exemptions.md`,
 - `docs/67-editable-training-requirements-and-theory-exemption.md`,
+- `docs/adr/0003-training-hour-ledger.md`,
 - `specs/traceability/core-v1.yml`,
 - `specs/api/openapi-components-v1.yaml`,
 - `specs/api/paths/students-courses.yaml`,
@@ -863,7 +864,7 @@ DB-TRN-005 zamyka tylko freshness wymagań przed completion:
 - jego requirements revision jest aktualna,
 - rule-set identity jest poprawna.
 
-Wymagane minuty pozostają DB-TRN-006, a spełnienie internal exam requirements pozostaje DB4_7.
+Current-OSK minute component zamyka DB-TRN-006, external recognized component pozostaje DB-TRN-007, a spełnienie internal exam requirements pozostaje DB4_7.
 
 ## Migration design
 
@@ -918,31 +919,237 @@ Sprawdzono:
 
 ---
 
-# DB-TRN-006 — OPEN P1: verified attendance -> ledger exactly-once
+# DB-TRN-006 — PASS: verified attendance -> ledger exactly-once
 
-## Problem
+## Problem z diagnozy
 
-Formalny pipeline jest zdefiniowany jako:
+Formalny pipeline brzmi:
 
-`training_session -> duration -> verified attendance -> training_hour_ledger -> course totals`.
+`TrainingSession -> duration -> verified attendance -> TrainingHourLedgerEntry -> course totals`.
 
-API `complete` deklaruje atomowe utworzenie eligible ledger entries, ale physical blueprint nie posiada jeszcze pełnych guardów exactly-once.
+Stage-3 API już obiecuje, że `POST /training-sessions/{sessionId}/complete` kończy Session i atomowo tworzy eligible ledger entries, a `cancel` kończy sesję bez formalnego creditu. Brakowało jednak fizycznych gwarancji, że:
+- Attendance dotyczy dokładnie Studenta z tego CourseEnrollment, a nie tylko dowolnego Studenta z tego samego OSK,
+- jeden Session nie tworzy dwóch base creditów,
+- Session anulowany nie ma creditu,
+- absent attendance nie kredytuje czasu,
+- Ledger Session i Ledger Course są dokładnie tym samym CourseEnrollment,
+- correction/reversal nie wskazuje entry z innego kursu albo innej części szkolenia,
+- source entry nie jest niszczony przez korektę,
+- double reversal nie może przejść concurrency race.
 
-Brakuje jednoznacznego rozstrzygnięcia co najmniej dla:
-- attendance Student musi odpowiadać Studentowi szkolonemu w CourseEnrollment sesji,
-- session/course/student/tenant muszą być spójne,
-- cancelled session nie może kredytować czasu,
-- ponowne/retry `complete` nie może tworzyć drugiego base credit,
-- jedna sesja nie może zostać formalnie zaliczona dwa razy temu samemu kursowi/part,
-- `source_entry_id` correction/reversal musi mieć jawny FK i lifecycle,
-- reversal/correction nie może umożliwić przypadkowego double reversal/double credit,
-- duration/timestamps i credited minutes muszą mieć jeden autorytatywny kontrakt.
+## Canonical duration — minuty bez zaokrąglania do bloków 45/60
 
-## Ryzyko
+Canonical storage nadal pozostaje w minutach. `duration_minutes` nie jest client authority: musi odpowiadać dokładnej dodatniej, całkowitominutowej różnicy `ends_at - starts_at` i jest przeliczane przy zmianie planned session.
 
-Formalny czas szkolenia może zostać naliczony podwójnie, dla niewłaściwego kursanta albo mimo anulowanej sesji.
+Nie zaokrąglamy pojedynczej sesji do wielokrotności 45 albo 60 minut. `45 min` dla teorii i `60 min` dla praktyki definiują jednostkę/minimum formalnego szkolenia w rule engine; Ledger przechowuje faktyczny credited instructional time w minutach.
 
-**Status:** OPEN P1.
+## TrainingSession lifecycle
+
+Canonical formal-crediting session types:
+- `theory`,
+- `practical`.
+
+Session lifecycle:
+- `planned`,
+- `completed`,
+- `cancelled`.
+
+`training_sessions.version bigint >= 1` jest concurrency root Session + jego Attendance state.
+
+Dodajemy terminal metadata completion/cancellation. `planned` nie ma terminal metadata, `completed` ma completed actor/time, `cancelled` ma cancellation actor/time/reason. Completed i cancelled są wzajemnie wykluczające.
+
+Normalny PATCH jest dozwolony tylko dla `planned`. Terminal Session jest historią formalną i nie może być później przepisywany zwykłym PATCH-em ani hard-delete.
+
+## Attendance — dokładny Course i dokładny Student
+
+Samo `organization_id` z DB-TRN-001 nie wystarczało. Dwie osoby w tym samym OSK nadal mogłyby zostać omyłkowo skrzyżowane.
+
+Dlatego Attendance dostaje `course_enrollment_id` i dwa composite FK:
+
+`(organization_id, training_session_id, course_enrollment_id)`
+-> `training_sessions(organization_id,id,course_enrollment_id)`
+
+oraz:
+
+`(organization_id, course_enrollment_id, student_id)`
+-> `course_enrollments(organization_id,id,student_id)`.
+
+Wymagane są odpowiednie parent candidate keys.
+
+Ponieważ jeden TrainingSession należy do jednego CourseEnrollment, a Enrollment do jednego Studenta, canonical cardinality to **maksymalnie jeden Attendance row na Session**, a nie tylko `(session,student)` unique.
+
+Attendance status dla tego formalnego pipeline ma `present | absent`. Confirmation actor/time muszą być oba NULL albo oba non-NULL. Credit jest możliwy wyłącznie dla potwierdzonego `present`.
+
+Attendance po terminalizacji Session nie jest normalnie edytowalny ani kasowany.
+
+## Exactly-once base credit
+
+Ledger dostaje partial unique:
+
+`UNIQUE (organization_id, training_session_id) WHERE entry_type='credit'`.
+
+To zamyka at-most-one nawet wtedy, gdy idempotency albo kod aplikacji zawiedzie.
+
+Dodatkowo deferrable transactional guard zamyka at-least-one i negatywne stany:
+- `planned` -> zero base credit,
+- `cancelled` -> zero base credit,
+- `completed + present + verified` -> dokładnie jeden credit,
+- `completed + absent + verified` -> zero credit,
+- completed Session musi mieć dokładnie jeden zweryfikowany Attendance row.
+
+Base `credit`:
+- zawsze ma Session,
+- nie ma `source_entry_id`,
+- `training_part` wynika z Session type,
+- `minutes = session.duration_minutes`,
+- powstaje tylko w complete transaction.
+
+Direct SQL/import nie może ominąć tej relacji i stworzyć creditu do planned/cancelled/absent Session ani oznaczyć present Session jako completed bez odpowiadającego creditu.
+
+## Session complete
+
+Stały lock order:
+
+`CourseEnrollment FOR UPDATE -> TrainingSession FOR UPDATE -> Attendance FOR UPDATE`.
+
+Po locku Course musi nadal być `active`, Session musi być `planned`, Attendance musi istnieć dokładnie raz i być zweryfikowany.
+
+Jeżeli Attendance jest `present`, transaction tworzy dokładnie jeden credit. Przy `absent` nie tworzy creditu. Dopiero w tej samej transakcji Session przechodzi do `completed`, version rośnie raz, a audit/outbox są zapisywane razem.
+
+Idempotency-Key obsługuje transport retry. Fresh drugi complete kończy się konfliktem. Partial unique + final guard są końcową DB boundary.
+
+Normalne Session completion nie zwiększa CourseEnrollment.version — Session jest własnym concurrency aggregate. Course row jest lockowany wyłącznie po to, aby serializować się z Course completion/cancel i sprawdzić aktualny lifecycle po locku.
+
+## Session cancel
+
+Cancel działa tylko z `planned` i nie może istnieć żaden base credit. Ustawia terminal cancellation metadata i zwiększa Session version raz.
+
+Po anulowaniu Course może pozostać planned Session, ponieważ DB-TRN-004 celowo nie robi hidden cascade. Dlatego dedykowany Session cancel może posprzątać planned Session również wtedy, gdy parent Course jest już terminalny — bez generowania czasu.
+
+Completed Session nie może zostać zwykłym cancel-em cofnięty ani automatycznie odwrócony.
+
+Race complete vs cancel serializuje się na tym samym `Course -> Session` lock order. Wynik może być tylko completed albo cancelled; `cancelled + base credit` nie może się zacommitować.
+
+## Ledger Session musi należeć do dokładnie tego Course
+
+Dotychczasowy same-tenant FK nie wystarczał. Ledger dostaje composite Session relation:
+
+`(organization_id, training_session_id, course_enrollment_id)`
+-> `training_sessions(organization_id,id,course_enrollment_id)`.
+
+Nie da się więc podpiąć Session z Course A do ledger row Course B nawet wewnątrz tego samego OSK.
+
+## Correction / reversal source lifecycle
+
+Ledger jest append-only. Do source relation dokładamy composite self-FK obejmujący:
+- tenant,
+- source entry id,
+- CourseEnrollment,
+- `training_part`.
+
+Correction/reversal nie może więc celować w rekord z innego tenant, kursu ani części szkolenia.
+
+Entry matrix:
+- `credit` — dodatni, Session required, source NULL,
+- `opening_balance` — dodatni, bez Session/source, reason required, tylko explicit current-OSK import,
+- `correction` — non-zero signed delta, reason required, source opcjonalny,
+- `reversal` — dokładne `-source.minutes`, source required.
+
+Jeżeli correction/reversal ma source powiązany z Session, dziedziczy tę samą Session relation. Source typu `reversal` nie może być kolejnym source.
+
+Partial unique `(organization_id, source_entry_id) WHERE entry_type='reversal'` pozwala odwrócić jeden source maksymalnie raz nawet przy race.
+
+Reversal neutralizuje wyłącznie swój bezpośredni source delta. Nie kasuje sibling corrections. Błędnego reversal nie kasujemy i nie robimy reversal-of-reversal; naprawa to nowy jawny correction z reason.
+
+## Istniejący API correction request
+
+Stage-3 `TrainingHourCorrectionRequest` posiada signed `minutes`, `reason` i opcjonalny `source_entry_id`, ale nie osobne `entry_type`.
+
+Canonical mapping pozostaje deterministyczny:
+- source istnieje i `minutes == -source.minutes` -> `reversal`,
+- każdy inny prawidłowy przypadek -> `correction`.
+
+Standalone correction bez source jest legalny, ale wymaga reason i uprawnienia.
+
+Manual correction serializuje się na Course row i wymaga świeżej Course version w runtime contract; dokładny `If-Match` surface zostaje do Stage 5 sync. Udana korekta zwiększa Course version raz i dopisuje DB-TRN-004 `updated` albo, dla terminalnego kursu, `closed_course_corrected`. Lifecycle kursu nie jest przez korektę otwierany.
+
+## Opening balance
+
+Current-OSK opening balance pozostaje możliwy wyłącznie w explicit import mode i wymaga reason/audit. Maksymalnie jeden `opening_balance` per `Course + training_part`; późniejsza poprawka odbywa się przez correction/reversal, nie drugi opening balance.
+
+Godziny z poprzedniego OSK nadal nie trafiają do tego typu wpisu — ich ownerem jest `RecognizedExternalTraining` i DB-TRN-007.
+
+## Deterministyczna current-OSK projection
+
+Bieżący credited time OSK:
+
+`SUM(training_hour_ledger_entries.minutes)` per Course + `training_part`.
+
+Suma uwzględnia credit/opening_balance/correction/reversal i nie używa `declared_theory_minutes` ani `declared_practical_minutes`.
+
+Course-part projection oraz source-linked Session subtotal nie mogą stać się ujemne; signed mutation przechodzi transactional guard przed commit.
+
+External training nie jest jeszcze częścią tej projekcji.
+
+## Completion boundary po DB-TRN-006
+
+Po tym blockerze deterministyczne są:
+- aktualny requirement profile z DB-TRN-005,
+- current-OSK credited theory/practical minutes z Ledger.
+
+Nie oznaczamy jednak finalnego combined minimum jako zamkniętego, ponieważ external recognized component pozostaje jeszcze niejednoznaczny do czasu DB-TRN-007. Internal exam satisfaction pozostaje DB4_7.
+
+Czyli DB-TRN-006 zamyka **current-OSK ledger arithmetic + exactly-once**, bez przedwczesnego „zaliczenia całego kursu”.
+
+## Migration design
+
+Późniejsza migracja będzie musiała kolejno:
+1. ujednolicić Session `version`, status i terminal metadata,
+2. sprawdzić dodatni whole-minute duration,
+3. utworzyć exact-student / exact-course candidate keys,
+4. dodać Attendance `course_enrollment_id` jako tymczasowo nullable,
+5. sprawdzić, że każdy istniejący Attendance Student jest dokładnie Studentem z Course sesji,
+6. wykryć wiele Attendance rows dla jednej Session,
+7. dopiero po weryfikacji backfillować Course z Session,
+8. dodać exact-course composite FK i one-attendance-per-session unique,
+9. sprawdzić confirmation pairs bez odgadywania brakujących actorów/statusów,
+10. w Ledger wykryć duplicate base credit, credit dla cancelled/planned/absent, błędne minutes/part/course,
+11. wykryć duplicate opening balance, double reversal i source links cross-course/cross-part,
+12. sprawdzić ujemne finalne subtotals,
+13. dopiero wtedy dodać partial unique, self-FK, entry-matrix checks i deferrable guards.
+
+Legacy completed Session bez wiarygodnego Attendance/Ledger evidence nie jest automatycznie „naprawiany”. Nie wolno fabrykować obecności, confirmation actor ani missing credit z samego `status`. Taki przypadek blokuje migrację do jawnej reviewed remediation.
+
+Nie generujemy jeszcze migracji Laravel.
+
+## Quality gate DB-TRN-006
+
+Sprawdzono:
+- Attendance jest fizycznie związany z exact Session Course i exact Course Student — **PASS DESIGN**,
+- one-Student CourseSession ma maksymalnie jeden Attendance row — **PASS DESIGN**,
+- confirmation jest jawne, a tylko verified present jest credit-eligible — **PASS**,
+- completed present Session ma dokładnie jeden base credit — **PASS DESIGN**,
+- completed absent Session ma zero base credit — **PASS DESIGN**,
+- planned/cancelled Session ma zero base credit — **PASS DESIGN**,
+- drugi complete/retry/race nie może stworzyć drugiego base credit — **PASS DESIGN**,
+- Ledger Session nie może wskazać Session z innego Course tego samego OSK — **PASS DESIGN**,
+- credit part/minutes pochodzą z Session, bez rounding 45/60 — **PASS**,
+- correction/reversal source musi być same tenant + same Course + same part — **PASS DESIGN**,
+- original ledger row pozostaje immutable — **PASS**,
+- jeden source nie może mieć dwóch reversal — **PASS DESIGN**,
+- reversal-of-reversal jest zablokowany, a correction chain pozostaje append-only — **PASS**,
+- current-OSK projection jest signed sumą ledgeru i nie czyta declared hours — **PASS**,
+- signed corrections/reversals nie mogą zepchnąć projection poniżej zera — **PASS DESIGN**,
+- complete/cancel/course-close mają wspólny lock ordering — **PASS DESIGN**,
+- DB-TRN-007 external projection nie została rozwiązana — **PASS SCOPE**,
+- DB-TRN-008 PKK boundary nie została rozwiązana — **PASS SCOPE**,
+- final combined current+external minimum nie został fałszywie oznaczony jako zamknięty — **PASS SCOPE**,
+- `specs/database/core-schema.yml` bez zmian — **PASS**,
+- `docs/87-physical-database-schema.md` bez zmian — **PASS**,
+- DB4_5+ bez zmian — **PASS**,
+- migracje Laravel/UI/feature implementation — **NIE ROZPOCZĘTO**.
+
+**GATE DB-TRN-006: PASS.**
 
 ---
 
@@ -1148,6 +1355,38 @@ Self-audit:
 
 **FINAL GATE DB-TRN-005: PASS.**
 
+---
+
+# Quality gate DB4_4_STEP_7 — DB-TRN-006
+
+Wykonano wyłącznie verified Attendance -> immutable TrainingHourLedger exactly-once.
+
+Self-audit:
+- exact Course Student integrity Attendance jest fizyczna, nie tylko application check — **PASS DESIGN**,
+- exact Session Course integrity Ledger jest fizyczna — **PASS DESIGN**,
+- jeden single-student Session ma maksymalnie jeden Attendance — **PASS DESIGN**,
+- verified present jest jedynym base-credit eligibility predicate — **PASS**,
+- `completed+present` wymaga dokładnie jednego credit, `completed+absent` zero — **PASS DESIGN**,
+- planned/cancelled Session nie może mieć base credit — **PASS DESIGN**,
+- complete retry i concurrent duplicate są domknięte Idempotency + status lock + partial unique — **PASS DESIGN**,
+- duration/credit ma jeden canonical minute contract bez rounding 45/60 — **PASS**,
+- Ledger correction/reversal pozostają append-only — **PASS**,
+- source self-FK zamyka tenant/course/training-part — **PASS DESIGN**,
+- double reversal jest zablokowany partial unique — **PASS DESIGN**,
+- current-OSK projection jest deterministyczną signed sumą — **PASS**,
+- korekta nie może dać ujemnego finalnego subtotal — **PASS DESIGN**,
+- Course close vs Session complete i Session cancel vs complete mają stały lock order — **PASS DESIGN**,
+- terminal Course hour correction zachowuje lifecycle i dopisuje correction history — **PASS**,
+- DB-TRN-007 external projection pozostaje nierozwiązana — **PASS SCOPE**,
+- final combined current+external minute satisfaction pozostaje do DB-TRN-007 — **PASS SCOPE**,
+- DB-TRN-008 PKK boundary pozostaje nierozwiązany — **PASS SCOPE**,
+- `specs/database/core-schema.yml` bez zmian — **PASS**,
+- `docs/87-physical-database-schema.md` bez zmian — **PASS**,
+- DB4_5+ bez zmian — **PASS**,
+- migracje Laravel/UI/feature implementation — **NIE ROZPOCZĘTO**.
+
+**FINAL GATE DB-TRN-006: PASS.**
+
 ## Aktualna kolejność napraw
 
 1. `DB-TRN-001` — **PASS**.
@@ -1155,8 +1394,8 @@ Self-audit:
 3. `DB-TRN-003` — **PASS**.
 4. `DB-TRN-004` — **PASS**.
 5. `DB-TRN-005` — **PASS**.
-6. `DB-TRN-006` — attendance -> ledger exactly-once — **NEXT**.
-7. `DB-TRN-007` — external training projection/history.
+6. `DB-TRN-006` — **PASS**.
+7. `DB-TRN-007` — external training projection/history — **NEXT**.
 8. `DB-TRN-008` — course PKK persistence boundary.
 
-**Następny pojedynczy krok: tylko `DB-TRN-006` -> self-audit -> gate -> STOP przed `DB-TRN-007`.**
+**Następny pojedynczy krok: tylko `DB-TRN-007` -> self-audit -> gate -> STOP przed `DB-TRN-008`.**
