@@ -2,11 +2,13 @@
 
 Data: 2026-09-06
 
-**Status:** `DB4_4 DIAGNOSIS COMPLETE / 8 P1 BLOCKERS OPEN / NO FIXES APPLIED`
+**Status:** `DB4_4 IN PROGRESS / DB-TRN-001 PASS / 7 P1 BLOCKERS OPEN`
 
 ## Cel i zasada pracy
 
-Ten krok otwiera `DB4_4_STUDENTS_COURSES_TRAINING_LEDGER` wyłącznie jako diagnozę. Nie naprawiamy żadnego znalezionego blockera w tym samym kroku, nie wchodzimy do Calendar ani późniejszych slice'ów i nie generujemy migracji Laravel.
+`DB4_4_STUDENTS_COURSES_TRAINING_LEDGER` został otwarty od osobnej diagnozy, bez napraw w tym samym kroku. Następnie blocker jest zamykany pojedynczo: jedna decyzja fizyczna -> self-audit -> gate -> STOP.
+
+Nie wchodzimy do Calendar ani późniejszych slice'ów i nie generujemy migracji Laravel przed zamknięciem właściwych bramek projektu.
 
 Zasada:
 
@@ -25,8 +27,11 @@ Przejrzano w szczególności:
 - `specs/api/openapi-components-v1.yaml`,
 - `specs/api/paths/students-courses.yaml`,
 - `specs/database/core-schema.yml`,
+- `specs/database/students-courses-training.yml`,
 - `docs/87-physical-database-schema.md`,
 - `docs/84-test-strategy.md`.
+
+`specs/database/students-courses-training.yml` jest bounded-context machine spec dla DB4_4. Aggregate `core-schema.yml` i `docs/87` pozostają nietknięte aż do osobnego finalnego sync DB4_4.
 
 ## Co jest już poprawnie zaprojektowane
 
@@ -39,17 +44,17 @@ Przejrzano w szczególności:
 - formalna i finansowa historia nie może być hard-delete,
 - API posiada osobne operacje create/update/cancel/restore/stage transition, sesje szkoleniowe, korekty godzin oraz external training.
 
-To są dobre fundamenty. Problemem jest brak pełnych fizycznych inwariantów gwarantujących te reguły po pominięciu warstwy aplikacyjnej, przy imporcie, concurrency lub późniejszej korekcie.
+To są dobre fundamenty. Diagnoza wykryła osiem P1 wymagających zamknięcia fizycznymi inwariantami.
 
 ---
 
-# DB-TRN-001 — OPEN P1: same-tenant integrity Student / Course / Training
+# DB-TRN-001 — PASS: same-tenant integrity Student / Course / Training
 
-## Problem
+## Problem z diagnozy
 
-W wielu formalnych relacjach obie strony mają `organization_id`, ale blueprint nadal opiera się głównie na zwykłych FK do samego `id`. Nie daje to fizycznej gwarancji, że relacja nie połączy danych dwóch OSK.
+W wielu formalnych relacjach obie strony mają `organization_id`, ale aggregate blueprint opierał się głównie na zwykłych FK do samego `id`. To nie dawało fizycznej gwarancji, że relacja nie połączy danych dwóch OSK.
 
-Dotyczy co najmniej:
+Dotyczyło co najmniej:
 - `students.default_location_id`,
 - `student_learning_accounts -> students` w zakresie same-tenant ownership,
 - `course_enrollments -> students`, `staff_profiles`, `locations`,
@@ -60,11 +65,101 @@ Dotyczy co najmniej:
 - `training_session_attendance -> training_sessions + students`,
 - `training_hour_ledger_entries -> course_enrollments/training_sessions`.
 
-## Ryzyko
+## Decyzja canonical
 
-Błąd backendu, importu albo skryptu może stworzyć formalny rekord kursu lub godzin OSK A wskazujący Student/Instructor/Location/Vehicle z OSK B. To narusza globalną zasadę Stage 4, że cross-tenant relation musi mieć fizyczną albo jednoznacznie transakcyjną granicę integralności.
+W `specs/database/students-courses-training.yml` wprowadzono tenant-aware candidate keys oraz composite foreign keys. Fizyczny wzorzec jest taki sam jak zamknięty wcześniej w DB4_3:
 
-**Status:** OPEN P1. To jest pierwszy blocker do naprawy po bramce diagnozy.
+`child(organization_id, relation_id) -> parent(organization_id, id)`.
+
+Parent candidate keys wymagane w tym slice:
+- `students(organization_id,id)`,
+- `course_enrollments(organization_id,id)`,
+- `training_sessions(organization_id,id)`.
+
+Wykorzystujemy też już zamknięte w DB4_3:
+- `staff_profiles(organization_id,id)`,
+- `locations(organization_id,id)`,
+- `vehicles(organization_id,id)`.
+
+Każdy composite FK używa `ON UPDATE RESTRICT / ON DELETE RESTRICT`. Opcjonalne relacje (`default_location`, course location, session vehicle/location, ledger session) zachowują `MATCH SIMPLE`, więc `NULL` pozostaje legalnym brakiem relacji, ale nie może ukryć nie-NULL cross-tenant ID.
+
+## Attendance — brakujący tenant key
+
+`training_session_attendance` nie miał własnego `organization_id`, więc nie dało się fizycznie spiąć jednocześnie Session i Student z tym samym tenantem.
+
+Decyzja:
+- dodać `organization_id NOT NULL FK organizations`,
+- `(organization_id,training_session_id)` -> `training_sessions(organization_id,id)`,
+- `(organization_id,student_id)` -> `students(organization_id,id)`.
+
+Migracja będzie później wykonywana bez automatycznego „naprawiania” danych:
+1. kolumna tymczasowo nullable,
+2. sprawdzenie, że Session i Student istnieją i należą do tego samego OSK,
+3. mismatch -> migration FAIL / jawna security remediation,
+4. backfill tenantu z uprzednio zweryfikowanej TrainingSession,
+5. `NOT NULL`, FK do Organization i oba composite FK.
+
+Nie zmieniamy w tym blockerze semantyki unique `(training_session_id,student_id)` ani reguł formalnego creditu.
+
+## Relacje zamknięte fizycznie
+
+Po decyzji DB-TRN-001 same-tenant boundary istnieje dla:
+- Student -> default Location,
+- StudentLearningAccount -> Student,
+- CourseEnrollment -> Student,
+- CourseEnrollment -> lead StaffProfile,
+- CourseEnrollment -> optional Location,
+- TrainingRequirementProfile -> CourseEnrollment,
+- CourseExemptionDecision -> CourseEnrollment,
+- RecognizedExternalTraining -> CourseEnrollment,
+- TrainingSession -> CourseEnrollment,
+- TrainingSession -> StaffProfile,
+- TrainingSession -> optional Vehicle,
+- TrainingSession -> optional Location,
+- TrainingSessionAttendance -> TrainingSession,
+- TrainingSessionAttendance -> Student,
+- TrainingHourLedgerEntry -> CourseEnrollment,
+- TrainingHourLedgerEntry -> optional TrainingSession.
+
+Globalny `User` i globalne słowniki DrivingCategory nie dostają sztucznego tenant key. Ten sam globalny User może legalnie występować w wielu organizacjach; tenant ownership learning account wynika z powiązania z tenant-owned Studentem.
+
+## Tenant ownership
+
+`organization_id` rekordów formalnych nie jest client authority. Backend wyprowadza tenant z aktywnego membership albo zweryfikowanego parent resource. Zmiana organizacji istniejącego formalnego Student/Course/Session/Ledger przez zwykłe przepisanie `organization_id` jest zabroniona.
+
+Composite FK pozostają końcową granicą bezpieczeństwa, jeżeli backend/import popełni błąd.
+
+## Świadomie NIE rozwiązano tutaj
+
+Aby nie naruszyć staged process, DB-TRN-001 nie rozwiązuje:
+- czy Attendance Student jest dokładnie Studentem z CourseEnrollment sesji — DB-TRN-006,
+- czy Ledger Session należy dokładnie do tego samego CourseEnrollment co ledger row — DB-TRN-006,
+- exactly-once complete/credit, cancelled-session guard, correction/reversal source entry — DB-TRN-006,
+- PESEL/birth-date branch i duplicate Student — DB-TRN-002,
+- Student version/archive/restore — DB-TRN-003,
+- Course stage/cancel/restore history — DB-TRN-004,
+- requirement source facts/reproducibility — DB-TRN-005,
+- external-hours current projection — DB-TRN-007,
+- required PKK persistence boundary — DB-TRN-008,
+- learning-account/license credentials lifecycle — DB4_6,
+- PKK provider lifecycle — DB4_8.
+
+## Quality gate DB-TRN-001
+
+Sprawdzono:
+- wszystkie relacje wymienione w diagnozie DB-TRN-001 mają physical same-tenant boundary — **PASS**,
+- parent candidate keys są jawne — **PASS**,
+- brakujący tenant key Attendance został domknięty — **PASS DESIGN**,
+- migration backfill Attendance nie może cicho przepisać cross-tenant danych — **PASS**,
+- optional FK zachowują poprawną nullability przez `MATCH SIMPLE` — **PASS**,
+- formalne FK używają `RESTRICT`, bez destrukcyjnego cascade — **PASS**,
+- global User/dictionary nie zostały błędnie tenant-scoped — **PASS**,
+- DB-TRN-002..008 nie zostały naprawione przy okazji — **PASS**,
+- `core-schema.yml` i `docs/87` nie zostały zmienione — **PASS**,
+- migracje Laravel nie zostały utworzone — **PASS**,
+- DB4_5 ani późniejsze slice'y nie zostały rozpoczęte — **PASS**.
+
+**GATE DB-TRN-001: PASS.**
 
 ---
 
@@ -238,13 +333,13 @@ Nie rozwiązujemy w tym slice:
 - dokładnych regexów telefonu/e-mail/PKK/VIN jako application validation,
 - nieobserwowalnego backend behavior konkurencyjnego hard delete.
 
-Te zależności mogą być walidowane na boundary późniejszych slice'ów, ale nie są powodem do rozszerzenia zakresu tej diagnozy.
+Te zależności mogą być walidowane na boundary późniejszych slice'ów, ale nie są powodem do rozszerzenia zakresu bieżącego blockera.
 
 ---
 
 # Quality gate DB4_4_STEP_1 — DIAGNOSIS
 
-Sprawdzono:
+Historyczny wynik kroku diagnozy:
 - DB4_3 był PASS przed otwarciem DB4_4 — **PASS**,
 - przejrzano screen/API/legal/DB/test sources dla Students/Courses/Training Ledger — **PASS**,
 - wszystkie potwierdzone cztery pola godzinowe kursu pozostają w scope — **PASS**,
@@ -252,18 +347,41 @@ Sprawdzono:
 - reguły 45 min teoria / 60 min praktyka zostały uwzględnione jako wymaganie, nie zostały reinterpretowane — **PASS**,
 - wykryto i zapisano wszystkie znane P0/P1 z tego audytu — **PASS: 8 P1 / 0 P0**,
 - nie naprawiono żadnego DB-TRN-* w kroku diagnozy — **PASS**,
-- `core-schema.yml` i `docs/87` nie są modyfikowane w diagnozie — **PASS**,
+- `core-schema.yml` i `docs/87` nie były modyfikowane w diagnozie — **PASS**,
 - nie rozpoczęto DB4_5 ani późniejszych slice'ów — **PASS**,
 - nie utworzono migracji Laravel ani feature/UI implementation — **PASS**.
 
 **DIAGNOSIS GATE DB4_4: FAIL_WITH_8_P1_BLOCKERS.**
 
-To jest prawidłowy wynik: diagnoza została zakończona, ale slice nie może przejść dalej bez napraw blocker po blockerze.
+Był to prawidłowy wynik diagnozy i otworzył naprawy blocker-by-blocker.
+
+---
+
+# Quality gate DB4_4_STEP_2 — DB-TRN-001
+
+Wykonano wyłącznie same-tenant integrity. Bounded-context spec nie naprawia pozostałych siedmiu blockerów.
+
+Self-audit:
+- nowy machine source: `specs/database/students-courses-training.yml` — **PASS**,
+- komplet relacji z diagnozy DB-TRN-001 -> composite same-tenant boundary — **PASS**,
+- Attendance otrzymał projekt `organization_id` + bezpieczny migration backfill — **PASS**,
+- Staff/Location/Vehicle wykorzystują candidate keys już zamknięte w DB4_3 — **PASS**,
+- Student/Course/TrainingSession candidate keys zadeklarowane — **PASS**,
+- nie wprowadzono nowego hard-delete/cascade formal history — **PASS**,
+- nie zmieniono semantyki formalnych godzin — **PASS**,
+- nie rozwiązano dokładnej relacji Attendance Student = Course Student — **PASS SCOPE**, pozostaje DB-TRN-006,
+- nie rozwiązano ledger exactly-once — **PASS SCOPE**, pozostaje DB-TRN-006,
+- `specs/database/core-schema.yml` bez zmian — **PASS**,
+- `docs/87-physical-database-schema.md` bez zmian — **PASS**,
+- DB4_5+ bez zmian — **PASS**,
+- migracje Laravel/UI/feature implementation — **NIE ROZPOCZĘTO**.
+
+**FINAL GATE DB-TRN-001: PASS.**
 
 ## Aktualna kolejność napraw
 
-1. `DB-TRN-001` — same-tenant integrity Student/Course/Training.
-2. `DB-TRN-002` — formal Student identity branch + duplicate lifecycle.
+1. `DB-TRN-001` — **PASS**.
+2. `DB-TRN-002` — formal Student identity branch + duplicate lifecycle — **NEXT**.
 3. `DB-TRN-003` — Student concurrency + archive/restore lifecycle.
 4. `DB-TRN-004` — Course lifecycle/stage/cancel/restore history.
 5. `DB-TRN-005` — requirement context/profile reproducibility.
@@ -271,4 +389,4 @@ To jest prawidłowy wynik: diagnoza została zakończona, ale slice nie może pr
 7. `DB-TRN-007` — external training projection/history.
 8. `DB-TRN-008` — course PKK persistence boundary.
 
-**Następny pojedynczy krok: tylko `DB-TRN-001` -> self-audit -> gate -> STOP.**
+**Następny pojedynczy krok: tylko `DB-TRN-002` -> self-audit -> gate -> STOP przed `DB-TRN-003`.**
