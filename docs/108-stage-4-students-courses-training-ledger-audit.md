@@ -2,7 +2,7 @@
 
 Data: 2026-09-06
 
-**Status:** `DB4_4 IN PROGRESS / DB-TRN-001 PASS / DB-TRN-002 PASS / DB-TRN-003 PASS / DB-TRN-004 PASS / 4 P1 BLOCKERS OPEN`
+**Status:** `DB4_4 IN PROGRESS / DB-TRN-001 PASS / DB-TRN-002 PASS / DB-TRN-003 PASS / DB-TRN-004 PASS / DB-TRN-005 PASS / 3 P1 BLOCKERS OPEN`
 
 ## Cel i zasada pracy
 
@@ -81,83 +81,9 @@ Wykorzystujemy też już zamknięte w DB4_3:
 - `locations(organization_id,id)`,
 - `vehicles(organization_id,id)`.
 
-Każdy composite FK używa `ON UPDATE RESTRICT / ON DELETE RESTRICT`. Opcjonalne relacje (`default_location`, course location, session vehicle/location, ledger session) zachowują `MATCH SIMPLE`, więc `NULL` pozostaje legalnym brakiem relacji, ale nie może ukryć nie-NULL cross-tenant ID.
+Każdy composite FK używa `ON UPDATE RESTRICT / ON DELETE RESTRICT`. Opcjonalne relacje zachowują `MATCH SIMPLE`.
 
-## Attendance — brakujący tenant key
-
-`training_session_attendance` nie miał własnego `organization_id`, więc nie dało się fizycznie spiąć jednocześnie Session i Student z tym samym tenantem.
-
-Decyzja:
-- dodać `organization_id NOT NULL FK organizations`,
-- `(organization_id,training_session_id)` -> `training_sessions(organization_id,id)`,
-- `(organization_id,student_id)` -> `students(organization_id,id)`.
-
-Migracja będzie później wykonywana bez automatycznego „naprawiania” danych:
-1. kolumna tymczasowo nullable,
-2. sprawdzenie, że Session i Student istnieją i należą do tego samego OSK,
-3. mismatch -> migration FAIL / jawna security remediation,
-4. backfill tenantu z uprzednio zweryfikowanej TrainingSession,
-5. `NOT NULL`, FK do Organization i oba composite FK.
-
-Nie zmieniamy w tym blockerze semantyki unique `(training_session_id,student_id)` ani reguł formalnego creditu.
-
-## Relacje zamknięte fizycznie
-
-Po decyzji DB-TRN-001 same-tenant boundary istnieje dla:
-- Student -> default Location,
-- StudentLearningAccount -> Student,
-- CourseEnrollment -> Student,
-- CourseEnrollment -> lead StaffProfile,
-- CourseEnrollment -> optional Location,
-- TrainingRequirementProfile -> CourseEnrollment,
-- CourseExemptionDecision -> CourseEnrollment,
-- RecognizedExternalTraining -> CourseEnrollment,
-- TrainingSession -> CourseEnrollment,
-- TrainingSession -> StaffProfile,
-- TrainingSession -> optional Vehicle,
-- TrainingSession -> optional Location,
-- TrainingSessionAttendance -> TrainingSession,
-- TrainingSessionAttendance -> Student,
-- TrainingHourLedgerEntry -> CourseEnrollment,
-- TrainingHourLedgerEntry -> optional TrainingSession.
-
-Globalny `User` i globalne słowniki DrivingCategory nie dostają sztucznego tenant key. Ten sam globalny User może legalnie występować w wielu organizacjach; tenant ownership learning account wynika z powiązania z tenant-owned Studentem.
-
-## Tenant ownership
-
-`organization_id` rekordów formalnych nie jest client authority. Backend wyprowadza tenant z aktywnego membership albo zweryfikowanego parent resource. Zmiana organizacji istniejącego formalnego Student/Course/Session/Ledger przez zwykłe przepisanie `organization_id` jest zabroniona.
-
-Composite FK pozostają końcową granicą bezpieczeństwa, jeżeli backend/import popełni błąd.
-
-## Świadomie NIE rozwiązano tutaj
-
-Aby nie naruszyć staged process, DB-TRN-001 nie rozwiązuje:
-- czy Attendance Student jest dokładnie Studentem z CourseEnrollment sesji — DB-TRN-006,
-- czy Ledger Session należy dokładnie do tego samego CourseEnrollment co ledger row — DB-TRN-006,
-- exactly-once complete/credit, cancelled-session guard, correction/reversal source entry — DB-TRN-006,
-- PESEL/birth-date branch i duplicate Student — DB-TRN-002,
-- Student version/archive/restore — DB-TRN-003,
-- Course stage/cancel/restore history — DB-TRN-004,
-- requirement source facts/reproducibility — DB-TRN-005,
-- external-hours current projection — DB-TRN-007,
-- required PKK persistence boundary — DB-TRN-008,
-- learning-account/license credentials lifecycle — DB4_6,
-- PKK provider lifecycle — DB4_8.
-
-## Quality gate DB-TRN-001
-
-Sprawdzono:
-- wszystkie relacje wymienione w diagnozie DB-TRN-001 mają physical same-tenant boundary — **PASS**,
-- parent candidate keys są jawne — **PASS**,
-- brakujący tenant key Attendance został domknięty — **PASS DESIGN**,
-- migration backfill Attendance nie może cicho przepisać cross-tenant danych — **PASS**,
-- optional FK zachowują poprawną nullability przez `MATCH SIMPLE` — **PASS**,
-- formalne FK używają `RESTRICT`, bez destrukcyjnego cascade — **PASS**,
-- global User/dictionary nie zostały błędnie tenant-scoped — **PASS**,
-- DB-TRN-002..008 nie zostały naprawione przy okazji — **PASS**,
-- `core-schema.yml` i `docs/87` nie zostały zmienione — **PASS**,
-- migracje Laravel nie zostały utworzone — **PASS**,
-- DB4_5 ani późniejsze slice'y nie zostały rozpoczęte — **PASS**.
+`training_session_attendance` dostaje własne `organization_id NOT NULL`, aby oba composite FK do Session i Student miały fizyczną same-tenant boundary. Migracja nie może cicho przepinać istniejących cross-tenant danych.
 
 **GATE DB-TRN-001: PASS.**
 
@@ -165,163 +91,9 @@ Sprawdzono:
 
 # DB-TRN-002 — PASS: formal Student identity branch + duplicate lifecycle
 
-## Problem z diagnozy
+`students` może istnieć jako pre-course profil bez PESEL, ale formalny `CourseEnrollment` wymaga jednej z dwóch kompletnych gałęzi: PESEL albo jawny brak PESEL + data urodzenia. `no_pesel_declared` odróżnia brak danych od formalnej deklaracji. PESEL ciphertext/hash są jedną atomową parą, a partial unique `(organization_id,pesel_lookup_hash)` obejmuje także archived rows.
 
-Zweryfikowana reguła formalna wymaga, aby osoba przyjmowana na szkolenie była ewidencjonowana przez PESEL albo — gdy PESEL nie został nadany — przez datę urodzenia. Jednocześnie potwierdzony ekran tworzenia kursanta pozwala utworzyć sam profil kursanta bez kursu, a na ekranie edycji istnieje jawny branch `no_pesel` / `no_pesel_declared` i data urodzenia jest wymagana właśnie dla tego branchu.
-
-Nie można więc bezrefleksyjnie zrobić `students.pesel NOT NULL`, bo zepsułoby to potwierdzoną możliwość przygotowania profilu przed formalnym zapisem na kurs. Z drugiej strony nie można dopuścić, aby `CourseEnrollment` istniał dla kursanta z niekompletną formalną tożsamością.
-
-## Decyzja canonical — rozdzielenie profilu przygotowawczego od formalnej gotowości
-
-`students` może istnieć jako trwały, pre-course profil z samym imieniem i nazwiskiem. Formalna kompletność tożsamości jest natomiast warunkiem utworzenia i utrzymania `CourseEnrollment`.
-
-Dodajemy do `students`:
-
-`no_pesel_declared boolean NOT NULL DEFAULT false`.
-
-To pole nie jest automatycznie wyliczane z `pesel IS NULL`. Ma rozróżniać dwa różne fakty:
-- `no_pesel_declared=false + brak PESEL` = profil jeszcze niekompletny / PESEL nie został wprowadzony,
-- `no_pesel_declared=true` = jawnie zadeklarowano, że PESEL nie został nadany; wtedy data urodzenia jest wymagana.
-
-Input API `no_pesel` mapuje się na canonical DB field `no_pesel_declared`. Nie zmieniamy w tym kroku Stage-3 OpenAPI.
-
-## Row-level consistency PESEL
-
-`pesel_ciphertext` i `pesel_lookup_hash` są jednym logical value zapisanym w dwóch bezpiecznych reprezentacjach. DB wymusza, że:
-- oba są `NULL`, albo
-- oba są non-NULL.
-
-Nie można zapisać tylko ciphertextu albo tylko lookup hash.
-
-Branch `no_pesel_declared=true` wymaga jednocześnie:
-- `pesel_ciphertext IS NULL`,
-- `pesel_lookup_hash IS NULL`,
-- `birth_date IS NOT NULL`.
-
-Jeżeli PESEL jest obecny, `no_pesel_declared` musi być `false`.
-
-Dopuszczamy nadal pre-formalny stan:
-
-`no_pesel_declared=false + brak PESEL pair`
-
-bo inaczej zredukowalibyśmy potwierdzony create flow. Taki rekord nie może jednak zostać użyty jako formalny kursant CourseEnrollment.
-
-## Formal identity predicate
-
-Student spełnia warunek formalnej tożsamości tylko wtedy, gdy finalny stan spełnia jedną z dwóch gałęzi:
-
-1. `no_pesel_declared=false` oraz oba pola PESEL są non-NULL,
-2. `no_pesel_declared=true`, oba pola PESEL są NULL i `birth_date IS NOT NULL`.
-
-Nie wymagamy ręcznego `birth_date` dla branchu z PESEL. Źródło daty urodzenia przy PESEL pozostawało w screen spec jako `TO_VERIFY`, więc nie wymyślamy automatycznego dekodowania lub dodatkowego obowiązku.
-
-## Database boundary dla formalnego kursu
-
-Sama walidacja formularza nie jest wystarczająca.
-
-Projekt przewiduje deferrable constraint trigger albo równoważny transactional database guard:
-- przy `INSERT` / zmianie Student relation na `course_enrollments` sprawdź `student_has_formal_identity`,
-- przy zmianie pól tożsamości Student, który ma jakikolwiek historyczny CourseEnrollment, sprawdź finalny stan po transakcji,
-- nie pozwól zdegradować formalnego kursanta do stanu „brak PESEL, no_pesel nie zadeklarowane”.
-
-Constraint jest deferrable, aby legalna korekta branchu mogła w jednej transakcji wyczyścić stary PESEL, ustawić `no_pesel_declared=true` i uzupełnić datę urodzenia bez chwilowego zerwania finalnego inwariantu.
-
-Wymóg tożsamości nie znika po zakończeniu, anulowaniu, przerwaniu ani archiwizacji rekordu, jeżeli istnieje formalna historia kursu. Formalna dokumentacja nadal musi odnosić się do kompletnej tożsamości kursanta.
-
-## PESEL — bezpieczny write contract
-
-Plaintext PESEL nie jest przechowywany. Authorized command/import:
-1. przyjmuje plaintext tylko na boundary requestu,
-2. wykonuje canonical normalization,
-3. z tego samego znormalizowanego inputu tworzy ciphertext oraz keyed lookup hash,
-4. zapisuje oba atomowo,
-5. usuwa plaintext z dalszego obiegu.
-
-Lookup pozostaje HMAC-SHA-256 albo równoważnym secret-keyed hashem. Zwykły globalny SHA-256 jest zabroniony.
-
-PostgreSQL nie dostaje HMAC secretu tylko po to, aby kryptograficznie porównać ciphertext z hashem. DB wymusza ich pair-nullity i uniqueness, natomiast integration test warstwy domenowej wymusza, że obie reprezentacje zostały policzone z tego samego canonical inputu. Niezależny PATCH jednego z tych dwóch pól jest zabroniony.
-
-## Duplicate PESEL lifecycle
-
-Canonical hard boundary:
-
-`UNIQUE (organization_id, pesel_lookup_hash) WHERE pesel_lookup_hash IS NOT NULL`.
-
-Index obejmuje również zarchiwizowane rekordy. Archive nie zwalnia PESEL.
-
-Efekt:
-- drugi Student z tym samym PESEL w tym samym OSK nie może powstać,
-- zarchiwizowanie pierwszego Studenta nie pozwala stworzyć jego duplikatu,
-- ten sam PESEL może wystąpić w innym OSK, bo identity jest tenant-scoped w tym modelu,
-- normalny lifecycle nie używa hard-delete do zwalniania PESEL.
-
-Nie tworzymy hard unique na `first_name + last_name + birth_date` dla osoby bez PESEL. Taki zestaw nie jest unikalnym identyfikatorem osoby i mógłby blokować dwie rzeczywiście różne osoby. Aplikacja może później pokazywać ostrzeżenie o potencjalnym duplikacie, ale nie udajemy, że to bezpieczny DB identity key.
-
-## Zmiany branchu
-
-PESEL -> brak PESEL:
-- `no_pesel_declared=true`,
-- oba pola PESEL wyczyszczone,
-- `birth_date` wymagane,
-- całość w jednej transakcji,
-- identity change audytowany.
-
-Brak PESEL -> PESEL:
-- `no_pesel_declared=false`,
-- ciphertext + lookup hash zapisane jako jedna para,
-- znana `birth_date` nie jest automatycznie kasowana,
-- identity change audytowany.
-
-PESEL -> inny PESEL:
-- obie reprezentacje zastępowane atomowo,
-- partial unique jest końcową granicą duplicate race,
-- identity change audytowany.
-
-Optimistic concurrency edycji Student jest teraz zamknięte w DB-TRN-003.
-
-## Archive / restore w zakresie identity
-
-DB-TRN-002 zamyka identity lifecycle:
-- archive nie czyści PESEL/birth-date identity,
-- archive nie zwalnia PESEL unique claim,
-- restore używa tego samego trwałego Student row,
-- restore nie tworzy drugiego identity record.
-
-Wpływ archive na aktywne kursy i concurrency jest teraz doprecyzowany w DB-TRN-003.
-
-## Migration design
-
-Przy przyszłych migracjach:
-1. dodać `no_pesel_declared` z bezpiecznym default `false`,
-2. sprawdzić spójność istniejących par ciphertext/hash,
-3. **nie** ustawiać automatycznie `no_pesel_declared=true` tylko dlatego, że PESEL jest pusty,
-4. wykryć duplikaty non-NULL PESEL hash per OSK, również archived,
-5. nie kasować ani nie merge'ować ich po cichu,
-6. dodać row checks i partial unique,
-7. sprawdzić każdy Student z istniejącym CourseEnrollment,
-8. formalny Student bez poprawnej identity branch -> migration FAIL / jawna data remediation,
-9. dodać deferrable formal-identity guards.
-
-Pre-course incomplete Student może legalnie pozostać po migracji, o ile nie ma formalnego CourseEnrollment.
-
-## Quality gate DB-TRN-002
-
-Sprawdzono:
-- prawna reguła PESEL albo data urodzenia dla osoby bez PESEL jest chroniona przed formalnym kursem — **PASS**,
-- potwierdzona możliwość utworzenia profilu bez kursu nie została zepsuta — **PASS**,
-- `no_pesel_declared` odróżnia jawny brak PESEL od brakujących danych — **PASS**,
-- ciphertext/hash muszą być zapisywane i czyszczone jako para — **PASS**,
-- formalny CourseEnrollment nie może wskazywać incomplete identity — **PASS DESIGN**,
-- Student z formalną historią nie może później zostać zdegradowany do incomplete identity — **PASS DESIGN**,
-- PESEL jest unikalny per OSK również przez archive — **PASS**,
-- ten sam PESEL w dwóch różnych OSK nie jest błędnie blokowany globalnie — **PASS**,
-- name + birth date nie zostały użyte jako fałszywy hard unique — **PASS**,
-- migracja nie zgaduje `no_pesel` na podstawie NULL — **PASS**,
-- plaintext PESEL nadal nie jest persistence field — **PASS**,
-- DB-TRN-003..008 nie zostały naprawione przy okazji — **PASS**,
-- `core-schema.yml` i `docs/87` nie zostały zmienione — **PASS**,
-- migracje Laravel nie zostały utworzone — **PASS**,
-- DB4_5 ani późniejsze slice'y nie zostały rozpoczęte — **PASS**.
+Archive nie zwalnia PESEL; restore używa tego samego trwałego Student row. Nie używamy fałszywego hard unique na imię+nazwisko+data urodzenia.
 
 **GATE DB-TRN-002: PASS.**
 
@@ -329,181 +101,9 @@ Sprawdzono:
 
 # DB-TRN-003 — PASS: Student concurrency + archive/restore lifecycle
 
-## Problem z diagnozy
+`students.version bigint` jest jednym concurrency root edycji profilu, archive i restore. Mutacje lockują Student `FOR UPDATE`, stale expected version nie może wykonać partial write.
 
-Publiczny kontrakt `Student` zwraca `version`, a `PATCH /students/{studentId}` używa `If-Match`, natomiast physical `students` nie miał concurrency root. Archive i restore były osobnymi komendami, ale brakowało wspólnego lock/version contract oraz jednoznacznej odpowiedzi, co dzieje się z aktywnym kursem przy archive.
-
-Najgroźniejszy race był następujący:
-1. proces A sprawdza, że Student jest aktywny i zaczyna tworzyć CourseEnrollment,
-2. proces B archiwizuje Studenta,
-3. oba procesy commitują,
-4. powstaje archived Student z nowym aktywnym formalnym kursem.
-
-Drugie ryzyko to zwykły lost update przy dwóch równoległych PATCH-ach albo PATCH vs archive.
-
-## Decyzja canonical — jeden concurrency root
-
-Do `students` dodajemy:
-
-`version bigint NOT NULL DEFAULT 1 CHECK (version >= 1)`.
-
-`students.version` jest concurrency root dla:
-- edycji profilu,
-- edycji identity branch,
-- archive,
-- restore.
-
-Materialna zmiana zwiększa version dokładnie raz. State-idempotent no-op nie zwiększa version.
-
-`archived_at` i `archived_by_user_id` nie mogą być ustawiane ani czyszczone zwykłym profile PATCH. Do lifecycle służą wyłącznie dedykowane archive/restore commands.
-
-## PATCH / Student update
-
-Mutujący profile command:
-1. pobiera expected version z `If-Match`,
-2. lockuje Student `FOR UPDATE`,
-3. dopiero po locku porównuje expected version,
-4. stale version -> conflict/precondition failed bez partial write,
-5. stosuje zmianę,
-6. ponownie przechodzi DB-TRN-001/002 guards,
-7. zwiększa `version` dokładnie raz,
-8. sensitive/material change zapisuje audit/outbox w tej samej transakcji.
-
-Dwa PATCH-e z tym samym expected version nie mogą oba zacommitować.
-
-Sam fakt, że Student jest archived, nie jest fizycznym powodem do utraty możliwości korekty danych historycznych. Database contract dopuszcza korektę business fields na archived row, jeżeli warstwa autoryzacji/UI na to zezwala, ale taka korekta nadal nie może zmieniać archive state i musi przejść version + identity guards.
-
-Stage-3 OpenAPI już referencjonuje `If-Match` na Student PATCH. Machine contract DB4_4 traktuje expected version jako wymagany dla mutacji. Dokładne oznaczenie HTTP `required`/`428` pozostaje do synchronizacji acceptance/API w Stage 5; nie osłabiamy z tego powodu fizycznego concurrency contract.
-
-## Archive Student — bez ukrytej zmiany kursu
-
-Archive nie jest aliasem „anuluj wszystkie kursy”. Nie może:
-- ustawiać `cancelled_at`,
-- ustawiać `interrupted_at`,
-- ustawiać `completed_at`,
-- zmieniać `training_stage`,
-- usuwać CourseEnrollment,
-- usuwać Sessions/Attendance/Ledger.
-
-W DB-TRN-003 przyjmujemy konserwatywny minimalny predicate kursu otwartego:
-
-`completed_at IS NULL AND interrupted_at IS NULL AND cancelled_at IS NULL`.
-
-Jeżeli Student ma choć jeden taki CourseEnrollment, archive kończy się conflict i niczego nie zmienia.
-
-Pełna macierz Course lifecycle należy do DB-TRN-004. Tam predicate może zostać doprecyzowany, ale nie wolno osłabić zasady: **archive Studenta nie ma hidden side effect na stan formalnego kursu**.
-
-Historyczne terminalne kursy pozostają przypięte do archived Student.
-
-## Course create vs archive — jedna granica serializacji
-
-CourseEnrollment create i Student archive lockują ten sam `students` row `FOR UPDATE`.
-
-Course create po locku wymaga:
-- `archived_at IS NULL`,
-- formal identity z DB-TRN-002,
-- same-tenant integrity z DB-TRN-001.
-
-Deferrable constraint trigger albo równoważny transactional DB guard sprawia również, że import/direct SQL nie może stworzyć nowego formalnego enrollmentu dla archived Student.
-
-Race ma tylko dwa legalne wyniki:
-- Course create commitował pierwszy -> archive po locku widzi otwarty kurs i jest odrzucony,
-- archive commitował pierwszy -> Course create po locku widzi archived Student i jest odrzucony.
-
-Stan `archived Student + newly open course` nie może zostać zacommitowany.
-
-## Archive transaction
-
-Dla aktywnego Studenta:
-1. claim Idempotency-Key,
-2. lock Student `FOR UPDATE`,
-3. tenant/permission check,
-4. sprawdzenie braku otwartego CourseEnrollment po locku,
-5. ustawienie `archived_at` i `archived_by_user_id`,
-6. `version + 1`,
-7. audit + outbox,
-8. commit.
-
-Jeżeli Student już jest archived, ponowny archive jest state-idempotent no-op i nie zwiększa version.
-
-PESEL/birth-date identity, kursy, sesje, attendance i ledger nie są modyfikowane.
-
-## Restore transaction
-
-Restore używa tego samego durable Student row.
-
-Dla archived Student:
-1. claim Idempotency-Key,
-2. lock Student `FOR UPDATE`,
-3. tenant/permission check,
-4. clear `archived_at` i `archived_by_user_id`,
-5. `version + 1`,
-6. audit + outbox,
-7. commit.
-
-Jeżeli Student już jest aktywny, restore jest state-idempotent no-op bez version bump.
-
-Restore:
-- nie tworzy nowego Student ID,
-- nie otwiera cancelled/completed/interrupted CourseEnrollment,
-- nie tworzy kursu,
-- nie zmienia PESEL unique claim,
-- nie rebinduje historycznych formalnych rekordów.
-
-## Races edit/archive/restore
-
-Wszystkie trzy rodziny mutacji lockują ten sam Student row.
-
-Jeżeli PATCH commitnie przed archive, archive widzi najnowszy stan i może następnie zarchiwizować go, zwiększając version kolejny raz. Nie ma lost update.
-
-Jeżeli archive commitnie pierwszy, wcześniejszy PATCH z old expected version po uzyskaniu locka dostaje stale-version conflict i nie może nadpisać archived state.
-
-Archive i restore również serializują się na Student row i każdy command ocenia stan dopiero po locku.
-
-## Learning access — świadomie poza tym krokiem
-
-DB-TRN-003 **nie** definiuje jeszcze, czy archive Student ma suspendować learning account/licencję. To należy do DB4_6.
-
-W tym slice:
-- nie kasujemy learning account,
-- nie revoke'ujemy licencji jako ukrytego efektu,
-- restore nie reaktywuje dostępu jako ukrytego efektu.
-
-DB4_6 musi później zamknąć ten lifecycle jawnie.
-
-## Migration design
-
-Przy późniejszych migracjach:
-1. dodać `students.version bigint NOT NULL DEFAULT 1 CHECK >= 1`,
-2. legacy rows inicjalizować na 1,
-3. wykryć archived Student z kursem spełniającym minimalny open predicate,
-4. taki konflikt -> migration FAIL / jawna reviewed remediation; nie auto-cancel,
-5. zainstalować DB guard wymagający nonarchived Student przy course insert/rebind,
-6. zainstalować archive guard przeciw otwartemu kursowi,
-7. podpiąć profile PATCH/archive/restore do jednego version root,
-8. uruchomić race/invariant tests.
-
-Nie generujemy jeszcze migracji Laravel.
-
-## Quality gate DB-TRN-003
-
-Sprawdzono:
-- `students.version` jest jednoznacznym concurrency root — **PASS DESIGN**,
-- stale PATCH nie może nadpisać nowszego Student state — **PASS**,
-- dwa PATCH-e z tym samym expected version nie mogą oba commitować — **PASS**,
-- edit/archive/restore serializują się na tym samym Student row — **PASS**,
-- archive nie zmienia kursu w tle — **PASS**,
-- Student z otwartym kursem nie może zostać zarchiwizowany — **PASS DESIGN**,
-- archived Student nie może dostać nowego CourseEnrollment — **PASS DESIGN**,
-- race course-create vs archive nie może pozostawić archived Student + open course — **PASS DESIGN**,
-- terminalna historia kursów/sesji/ledger pozostaje nietknięta — **PASS**,
-- restore używa tego samego row i nie otwiera historycznych kursów — **PASS**,
-- DB-TRN-002 PESEL/identity archive rules pozostają zachowane — **PASS**,
-- pełna Course lifecycle matrix nie została rozwiązana przy okazji — **PASS SCOPE**, pozostaje DB-TRN-004,
-- learning access/license lifecycle nie został rozwiązany — **PASS SCOPE**, pozostaje DB4_6,
-- `core-schema.yml` i `docs/87` nie zostały zmienione — **PASS**,
-- migracje Laravel nie zostały utworzone — **PASS**,
-- DB4_5 ani późniejsze slice'y nie zostały rozpoczęte — **PASS**.
+Course create i Student archive serializują się na tym samym Student row. Archive nie anuluje ani nie przerywa kursu w tle; aktywny CourseEnrollment blokuje archive. Restore nie otwiera historycznych courses.
 
 **GATE DB-TRN-003: PASS.**
 
@@ -511,211 +111,261 @@ Sprawdzono:
 
 # DB-TRN-004 — PASS: Course lifecycle, stage history, cancel/restore
 
-## Problem z diagnozy
+Canonical lifecycle to `active|completed|interrupted|cancelled`, wyliczany z terminal timestamps. `training_completed` jest atomowo związane z `completed_at`; terminal timestamps są mutually exclusive.
 
-`course_enrollments` miał równolegle `training_stage`, `completed_at`, `interrupted_at`, `cancelled_at` i `version`, ale bez zamkniętej fizycznej macierzy. Możliwy był więc stan sprzeczny, np. `training_stage=training_completed` bez `completed_at`, jednoczesne completion + cancellation albo utrata informacji, przez jakie etapy kurs przechodził.
+Course ma jeden `version` root, a każda materialna mutacja ma dokładnie jeden version bump i append-only `course_enrollment_lifecycle_event`. Normalny restore działa tylko `cancelled -> active`; completed/interrupted wymagają wyjątkowej correction, nie restore. Closed course generic PATCH jest zabroniony.
 
-Potwierdzone źródła dają siedem wartości `training_stage`, osobne operacje API `cancel`, `restore`, `stage-transitions`, optimistic concurrency dla zwykłej edycji oraz wymóg historii. Jednocześnie ekran mówi `transition_rules: TO_VERIFY`, więc nie wolno nam wymyślić sztucznej sekwencji `theory -> practice -> ...` jako twardego constraintu.
-
-## Decyzja canonical — stage i lifecycle są osobnymi wymiarami
-
-`training_stage` opisuje etap workflow, natomiast lifecycle kursu wynika z terminalnych timestampów. Nie dokładamy drugiej mutowalnej kolumny `status`, która mogłaby rozjechać się z timestampami.
-
-Canonical lifecycle:
-- `active` — `completed_at`, `interrupted_at`, `cancelled_at` są wszystkie `NULL`,
-- `completed` — tylko `completed_at` jest non-NULL i `training_stage='training_completed'`,
-- `interrupted` — tylko `interrupted_at` jest non-NULL i stage nie jest `training_completed`,
-- `cancelled` — tylko `cancelled_at` jest non-NULL, `cancelled_by_user_id` jest non-NULL i stage nie jest `training_completed`.
-
-DB wymusza maksymalnie jeden terminalny timestamp. Dodatkowo `training_stage='training_completed'` jest równoważne obecności `completed_at`. Dzięki temu stage i zakończenie nie mogą się rozjechać.
-
-Predicate `active` staje się finalnym doprecyzowaniem minimalnego `open course predicate` z DB-TRN-003.
-
-## Stage catalog bez wymyślania niepotwierdzonego grafu
-
-Dozwolone wartości pozostają dokładnie zgodne z potwierdzonym ekranem:
-- `unassigned`,
-- `theory`,
-- `practice`,
-- `documentation`,
-- `word_exam`,
-- `supplementary_training`,
-- `training_completed`.
-
-Dla aktywnego kursu jawna komenda stage transition może przechodzić pomiędzy potwierdzonymi **nieterminalnymi** wartościami. Nie kodujemy na sztywno kolejności, której nie zweryfikowaliśmy.
-
-Target `training_completed` nie jest zwykłą zmianą stringa. Kieruje do atomowej semantyki completion: stage + `completed_at` zmieniają się razem.
-
-## Jeden concurrency root dla CourseEnrollment
-
-`course_enrollments.version` jest canonical concurrency root wszystkich materialnych mutacji kursu i ma finalnie typ `bigint NOT NULL DEFAULT 1 CHECK >= 1`.
-
-Update, stage transition, complete, interrupt, cancel, restore i correction:
-- lockują CourseEnrollment `FOR UPDATE`,
-- porównują expected version po locku,
-- stale version kończy się conflict/precondition failed bez częściowego zapisu,
-- udana materialna mutacja zwiększa version dokładnie raz.
-
-Transport retry dla commandów z Idempotency-Key zwraca wcześniejszy wynik i nie nakłada efektu drugi raz. Idempotency nie zastępuje optimistic concurrency przy świeżej, ale już nieaktualnej intencji użytkownika.
-
-Dokładny HTTP surface expected-version dla lifecycle commandów wymaga późniejszej synchronizacji Stage 5; fizycznego concurrency contractu nie osłabiamy.
-
-## Append-only historia Course lifecycle
-
-Dodajemy projekt tabeli `course_enrollment_lifecycle_events` jako formalny append-only trail. Każdy event przechowuje co najmniej:
-- tenant i CourseEnrollment,
-- `event_type`,
-- from/to lifecycle state,
-- from/to training stage,
-- `course_version_before` / `course_version_after`,
-- actor, czas i reason tam, gdzie wymagany,
-- opcjonalny redacted payload korekty,
-- opcjonalne `correction_of_event_id` dla jawnej korekty faktu lifecycle.
-
-Każda materialna zmiana CourseEnrollment ma dokładnie jeden odpowiadający event w tej samej transakcji. Unique `(organization_id, course_enrollment_id, course_version_after)` oraz transactional/deferrable guard wiążą row-version z historią.
-
-Historia jest append-only. Normalna aplikacja nie aktualizuje i nie usuwa dawnych eventów.
-
-## Completion
-
-Completion jest dozwolone tylko z `active` i atomowo:
-- ustawia `training_stage='training_completed'`,
-- ustawia `completed_at`,
-- pozostawia `interrupted_at`, `cancelled_at`, `cancelled_by_user_id` puste,
-- zwiększa version raz,
-- zapisuje event `completed`, audit i outbox.
-
-DB-TRN-004 **nie** rozstrzyga jeszcze, czy kurs spełnił wymagane godziny, wymagania rule engine i egzaminy. To pozostaje odpowiednio DB-TRN-005, DB-TRN-006 i DB4_7.
-
-## Interruption
-
-Przerwanie jest formalnym zakończeniem bieżącego szkolenia bez twierdzenia, że zostało ukończone. Z aktywnego kursu:
-- zachowuje ostatni nieterminalny `training_stage`,
-- ustawia `interrupted_at`,
-- wymaga reason,
-- zwiększa version i zapisuje append-only event `interrupted`.
-
-Normalne `restore` nie czyści `interrupted_at`. Jeżeli przerwanie było błędem, powrót do aktywnego kursu jest wyjątkową jawnie audytowaną `lifecycle correction`, a nie zwykłym restore.
-
-## Cancel
-
-`POST .../cancel` jest lifecycle commandem, nie hard-delete. Z aktywnego kursu:
-- zachowuje ostatni nieterminalny stage,
-- ustawia `cancelled_at` i `cancelled_by_user_id`,
-- wymaga reason,
-- zwiększa version raz,
-- zapisuje `cancelled` event.
-
-Nie usuwa ani nie przepisuje Sessions, Attendance, Ledger, Exam, Finance ani PKK history. Fresh cancel już cancelled course jest konfliktem; retry z tym samym Idempotency-Key nie powtarza efektu.
-
-Completed albo interrupted course nie może być normalnie anulowany po fakcie. Ewentualne sprostowanie terminalnego faktu należy do jawnego correction flow.
-
-## Restore
-
-Normalny restore jest jednoznacznie ograniczony do `cancelled -> active`.
-
-Nie otwiera:
-- completed,
-- interrupted.
-
-Restore cancelled course:
-1. lockuje najpierw Student, potem CourseEnrollment,
-2. wymaga nonarchived Student oraz nadal poprawnej formal identity,
-3. czyści `cancelled_at` i `cancelled_by_user_id`,
-4. zachowuje poprzedni stage,
-5. zwiększa version raz,
-6. dopisuje event `restored`.
-
-Nie tworzy nowego kursu ani Studenta i nie zmienia historycznych sessions/ledger/external training.
-
-Stały lock order `Student -> Course` zamyka race restore vs Student archive. Nie może zostać zacommitowany stan `archived Student + restored active Course`.
-
-## Closed course correction
-
-Zwykły PATCH terminalnego kursu jest odrzucany. Ekran już wymaga correction mode, więc fizyczny kontrakt to respektuje.
-
-Business-field correction bez zmiany lifecycle:
-- wymaga expected version, actor i reason,
-- zachowuje terminal state/timestamps,
-- zwiększa version,
-- dopisuje `closed_course_corrected` z redacted before/after projection,
-- nie usuwa wcześniejszej historii.
-
-Wyjątkowa korekta samego lifecycle:
-- nie jest aliasem normalnego restore,
-- wymaga reference do korygowanego eventu,
-- reason + before/after projection,
-- finalny row musi przejść pełną lifecycle matrix,
-- jeżeli finalnie wraca do `active`, Student musi być nonarchived i nadal spełniać DB-TRN-002.
-
-## Formal activity po zamknięciu
-
-Nowej `TrainingSession` nie można tworzyć dla `completed`, `interrupted` ani `cancelled` CourseEnrollment. Istniejąca formalna historia nie jest usuwana.
-
-Dokładne session completion / attendance / ledger credit i korekty pozostają DB-TRN-006.
-
-## Migration design
-
-Przy późniejszym generowaniu migracji:
-1. ujednolicić `course_enrollments.version` do bigint >= 1,
-2. zweryfikować katalog istniejących stage,
-3. wykryć sprzeczne kombinacje terminal timestamps,
-4. wykryć rozjazd `training_completed <-> completed_at`,
-5. wykryć niespójne `cancelled_at/cancelled_by`,
-6. sprzeczny legacy row -> FAIL / jawna reviewed remediation, bez zgadywania historii,
-7. utworzyć append-only `course_enrollment_lifecycle_events`,
-8. dla każdego istniejącego kursu utworzyć tylko `migration_baseline` z aktualnym stanem — bez wymyślania dawnych actorów i chronologii,
-9. dodać row checks i guard `version <-> exactly one lifecycle event`,
-10. podpiąć update/stage/complete/interrupt/cancel/restore/correction do wspólnego Course version root,
-11. dodać guard, że nowa TrainingSession wymaga aktywnego kursu,
-12. uruchomić race/history/negative tests.
-
-Nie generujemy jeszcze migracji Laravel.
-
-## Quality gate DB-TRN-004
-
-Sprawdzono:
-- istnieje jedna sprzecznościowo zamknięta macierz `active/completed/interrupted/cancelled` — **PASS DESIGN**,
-- `training_completed` i `completed_at` nie mogą się rozjechać — **PASS DESIGN**,
-- terminalne timestamps są mutually exclusive — **PASS DESIGN**,
-- siedem potwierdzonych stage zostało zachowanych, bez wymyślenia niepotwierdzonej kolejności — **PASS PRESERVATION**,
-- stage/lifecycle history jest append-only i same-tenant — **PASS DESIGN**,
-- każda materialna mutacja ma jeden Course version root + jeden event — **PASS DESIGN**,
-- update/stage/cancel/restore races są serializowane; stale intent nie może cicho wygrać — **PASS DESIGN**,
-- normalny restore otwiera tylko cancelled, nie completed/interrupted — **PASS**,
-- restore nie może aktywować kursu z archived Student — **PASS DESIGN**,
-- closed-course correction zachowuje dawną historię — **PASS**,
-- Student archive nadal nie zmienia Course w tle — **PASS**,
-- DB-TRN-005..008 nie zostały rozwiązane przy okazji — **PASS SCOPE**,
-- `specs/database/core-schema.yml` bez zmian — **PASS**,
-- `docs/87-physical-database-schema.md` bez zmian — **PASS**,
-- DB4_5+ bez zmian — **PASS**,
-- migracje Laravel/UI/feature implementation — **NIE ROZPOCZĘTO**.
+Nie wymyślono niepotwierdzonego strict stage graph; zachowano dokładnie potwierdzone siedem stage values.
 
 **GATE DB-TRN-004: PASS.**
 
 ---
 
-# DB-TRN-005 — OPEN P1: requirement context/profile reproducibility and correction history
+# DB-TRN-005 — PASS: requirement context/profile reproducibility and correction history
 
-## Problem
+## Problem z diagnozy
 
-Legal/product spec mówi, że wymagania mają być przeliczalne na podstawie trwałych faktów:
-- target category,
-- held categories,
+Mieliśmy `training_requirement_profiles.input_snapshot` oraz `course_exemption_decisions`, ale brakowało odpowiedzi na cztery podstawowe pytania:
+1. gdzie dokładnie żyją bieżące source facts,
+2. jak stwierdzić, że current requirement profile nie jest stale,
+3. jak dokładnie odtworzyć kalkulację po konkretnej wersji reguł,
+4. jak poprawić wymagania na zamkniętym kursie bez przepisania historii.
+
+Szczególnie niebezpieczne byłoby przechowywanie `target_category` równocześnie w CourseEnrollment i requirement context, bo dwa mutable current values mogłyby się rozjechać.
+
+## Jednoznaczny owner source facts
+
+Nie duplikujemy kategorii kursu. Canonical:
+- `target category` -> `course_enrollments.driving_category_id`,
+- `training_type` -> `course_enrollments.training_type`,
+- `started_at` -> CourseEnrollment, gdy wpływa na wybór reguł,
+- `state_theory_passed` + evidence -> nowy current `course_requirement_contexts`,
+- `held_categories` -> znormalizowany current set `course_requirement_context_held_categories`,
+- explicit exemption basis/evidence -> aktualny non-revoked `course_exemption_decisions`,
+- manual override -> osobny audytowalny `course_requirement_override_decisions`.
+
+Output starego requirement profile nigdy nie jest używany do „odgadywania” source facts.
+
+## `requirements_revision` — freshness epoch, nie drugi concurrency root
+
+Do CourseEnrollment dochodzi:
+
+`requirements_revision bigint NOT NULL CHECK >= 1`.
+
+To **nie jest drugi optimistic concurrency root**. Concurrency nadal należy wyłącznie do `course_enrollments.version`.
+
+`requirements_revision` rośnie tylko wtedy, gdy zmienia się wejście wpływające na wymagania albo jawnie przeliczamy pod innym immutable rule set. Current profile musi mieć dokładnie tę samą rewizję.
+
+Dzięki temu stage transition może zmienić Course version bez fałszywego oznaczania requirement profile jako stale, ale zmiana kategorii, held categories, teorii państwowej, exemption, override lub rule set nie może zacommitować bez nowego profilu.
+
+## Immutable identity reguł
+
+Dodajemy globalny katalog `training_requirement_rule_sets`:
+- `version` jako trwały identyfikator,
+- jurisdiction,
+- `content_hash` canonical rule artifact,
+- source reference,
+- effective/published timestamps.
+
+Wersja użyta przez profile musi wskazywać istniejący immutable row. Nie można później pod tym samym `rule_set_version` podmienić treści reguł.
+
+DB-TRN-005 nie wymyśla polityki, która przyszła wersja prawa ma być zastosowana do którego kursu. Zamyka tylko reprodukowalność: jeżeli engine wybrał wersję, musi być ona jednoznacznie utrwalona i hash-identifiable.
+
+## Durable current requirement context
+
+`course_requirement_contexts` ma dokładnie jeden current row per CourseEnrollment i nie dostaje osobnego version. Wszystkie mutacje serializują się na Course row.
+
+Current held categories są normalizowane do osobnej tabeli join. Nie przechowujemy ich jako przypadkowego JSON array. Historyczne zestawy są zachowywane w immutable input snapshots każdej kalkulacji.
+
+## Exemption decisions
+
+`course_exemption_decisions` stają się jawnie wersjonowaną historią wyboru podstawy zwolnienia:
+- business fields immutable po insert,
+- maksimum jeden current non-revoked decision per Course,
+- replacement = revoke starego + insert nowego pod Course lockiem,
+- revoke ma actor + reason,
+- current basis nie jest duplikowane do requirement context.
+
+Nie ma nieaudytowanego checkboxa „zwolnij z teorii”.
+
+## Manual override
+
+Ponieważ istniejąca specyfikacja produktu dopuszcza manual override pod warunkami bezpieczeństwa, physical model dostaje `course_requirement_override_decisions`.
+
+Override:
+- jest osobną decyzją, nie ukrytym booleanem,
+- wymaga permission, actor, reason i timestamp,
+- ma allowlist wyłącznie sześciu requirement outputs,
+- minute values nie mogą być ujemne,
+- maksimum jeden current override na Course,
+- replacement/revoke zachowuje stare decyzje,
+- base rule-engine output nadal jest zapisywany osobno od effective output po override.
+
+Dzięki temu po czasie widać, co powiedział rule engine i co dokładnie zostało ręcznie zmienione.
+
+## `training_requirement_profiles` jako immutable decision trail
+
+Każdy profile staje się nie tylko current projection, ale pełnym immutable calculation decision.
+
+Dopisujemy/utrwalamy m.in.:
+- `requirements_revision`,
+- Course version po kalkulacji,
+- `rule_set_version`,
+- trigger code,
+- calculation reason,
+- actor/system origin,
+- pełny normalized `input_snapshot`,
+- `base_output_snapshot`,
+- `effective_output_snapshot`,
+- optional manual override decision id,
+- relational effective output columns,
+- calculated/superseded timestamps.
+
+Business contents starego profilu nie są aktualizowane. Zwykłą history mutation może być tylko `superseded_at`.
+
+Partial unique utrzymuje maksimum jeden current profile. Dodatkowo unique `(organization_id, course_enrollment_id, requirements_revision)` zabrania dwóch decyzji dla tej samej rewizji.
+
+## Input snapshot
+
+Snapshot każdej kalkulacji zawiera dokładnie użyte:
+- category ID/code,
+- training type,
+- course start,
 - `state_theory_passed`,
-- exemption basis,
-- evidence reference.
+- context evidence,
+- posortowane held categories,
+- current exemption decision/basis/evidence,
+- current override decision/payload,
+- rule-set version i content hash.
 
-Rekomendowany model dokumentacyjny rozdziela durable requirement context od immutable decyzji kalkulacyjnych. Obecny DB posiada `training_requirement_profiles` z `input_snapshot` oraz `course_exemption_decisions`, lecz nie ma jeszcze jednoznacznego canonical ownera bieżących source facts ani kompletnego immutable decision trail każdej rekalkulacji z actor/reason/output snapshot.
+Nie kopiujemy PESEL ani PKK, bo nie są potrzebne do kalkulacji wymagań.
 
-Dodatkowo korekta zamkniętego kursu musi być audytowana i nie może niszczyć wcześniejszych zajęć, attendance ani exam history.
+## Current projection guard
 
-## Ryzyko
+Finalny committed CourseEnrollment musi posiadać dokładnie jeden current profile oraz:
 
-Po czasie nie będzie można deterministycznie odpowiedzieć: „dlaczego w tej wersji kurs miał takie wymagania?” ani bezpiecznie odtworzyć skutku późniejszej korekty przy konkretnym `rule_set_version`.
+`current_profile.requirements_revision = course_enrollments.requirements_revision`.
 
-**Status:** OPEN P1.
+At-most-one daje partial unique; at-least-one + revision match wymusza deferrable constraint trigger albo równoważny transactional DB guard.
+
+Direct SQL, który zmieni context albo `requirements_revision` bez nowej kalkulacji, nie może przejść finalnego constraintu.
+
+## Course create
+
+API już obiecuje „course created and legal requirements calculated”. Dlatego nowy Course w tej samej transakcji dostaje:
+- `requirements_revision=1`,
+- current requirement context,
+- explicit source facts, jeżeli zostały podane,
+- wybraną immutable rule-set version,
+- current profile dla revision 1.
+
+Nie rozwiązujemy tu PKK persistence; to nadal DB-TRN-008.
+
+## Edycja contextu
+
+`POST .../requirement-context`:
+1. claimuje Idempotency-Key,
+2. lockuje CourseEnrollment `FOR UPDATE`,
+3. sprawdza expected Course version,
+4. aktualizuje current facts/held-category set,
+5. `requirements_revision + 1`,
+6. supersede starego current profile,
+7. kalkuluje i insertuje nowy profile,
+8. Course `version + 1` dokładnie raz,
+9. dopisuje właściwy DB-TRN-004 `updated` albo `closed_course_corrected` event,
+10. audit + outbox w tej samej transakcji.
+
+Semantic no-op nie tworzy sztucznej nowej rewizji.
+
+## Category/training type/start change
+
+Course PATCH już ma Course lock + expected version. Jeżeli zmienia rule-relevant field, requirement recalculation jest częścią tej samej transakcji. Nie robimy drugiego Course version bump za profile — cały logical command zwiększa Course version tylko raz.
+
+Internal-exam compatibility pozostaje DB4_7, external-training compatibility pozostaje DB-TRN-007.
+
+## Exemption / override / rule-set refresh
+
+Każda z tych zmian:
+- lockuje ten sam Course,
+- używa expected Course version,
+- zwiększa `requirements_revision` raz,
+- tworzy nowy immutable profile,
+- zwiększa Course version raz,
+- zapisuje DB-TRN-004 history + audit/outbox.
+
+Dwa równoległe commandy z tą samą Course version nie mogą oba wygrać.
+
+## Closed course correction
+
+Po terminalnym zamknięciu requirements nie są edytowane inline. Obowiązuje DB-TRN-004 correction mode z reason, actor i expected version.
+
+Korekta:
+- dopisuje nowy profile,
+- nie usuwa starych profili,
+- nie usuwa Sessions, Attendance, Ledger ani ExamAttempt,
+- oznacza potrzebę regeneracji pochodnych dokumentów, jeżeli zostały dotknięte.
+
+Dokładny pipeline dokumentów pozostaje późniejszym slice, więc nie rozszerzamy DB-TRN-005.
+
+## Completion boundary
+
+DB-TRN-005 zamyka tylko requirement-projection część completion:
+- current profile musi istnieć,
+- revision musi być świeża,
+- rule-set identity musi być poprawna.
+
+Dopiero DB-TRN-006 sprawdzi wymagane minuty, a DB4_7 wymagane egzaminy wewnętrzne.
+
+## Migration design
+
+Migracja nie może odtwarzać source facts z outputów na zasadzie „teoria=false, więc zapewne miał kategorię X”.
+
+Kolejność:
+1. register known immutable rule artifact + hash,
+2. dodać `requirements_revision` tymczasowo nullable dla legacy precheck,
+3. utworzyć context / held categories / override decisions,
+4. wzmocnić exemption decisions,
+5. rozszerzyć profiles o revision/course-version/snapshots/actor/trigger/rule-set FK,
+6. próbować materializować source facts wyłącznie z kompletnego, zweryfikowanego starego `input_snapshot` lub innych jawnych źródeł,
+7. nie zgadywać held categories, theory-passed ani exemption basis z output flags,
+8. brak reconstructible facts -> migration FAIL / explicit reviewed remediation,
+9. dopiero po weryfikacji przypisać revision i current profile,
+10. włączyć partial unique + revision freshness guard.
+
+Analogicznie nie można przypisać staremu profilowi fikcyjnej rule-set version, jeżeli nie wiadomo, jaki dokładnie artefakt go wyliczył.
+
+## Self-audit incydentu jakości w tym kroku
+
+Pierwszy machine write DB-TRN-005 zachował nowe decyzje, ale skrócił wcześniejsze sekcje DB-TRN-001..004. To zostało wykryte **przed zapisaniem gate PASS**.
+
+Nie zaakceptowano tego jako finalnego machine source. Kolejny commit przywrócił pełny wcześniejszy contract i dopisał DB-TRN-005 bez semantycznej utraty. Porównanie z HEAD sprzed DB-TRN-005 pokazuje dla machine spec tylko `514 additions / 3 deletions`, gdzie trzy usunięcia odpowiadają celowej zmianie statusu/current-step/open-blocker listy.
+
+Czyli bramka została wykonana na skorygowanym źródle, a nie na wersji skróconej.
+
+## Quality gate DB-TRN-005
+
+Sprawdzono:
+- target category ma jednego canonical ownera — **PASS**,
+- durable current source facts są jednoznaczne — **PASS DESIGN**,
+- held categories są znormalizowane — **PASS DESIGN**,
+- explicit exemption ma current/history ownera — **PASS DESIGN**,
+- manual override jest jawny i audytowalny — **PASS DESIGN**,
+- rule-set version wskazuje immutable hashed artifact — **PASS DESIGN**,
+- `requirements_revision` dowodzi freshness bez tworzenia drugiego concurrency root — **PASS DESIGN**,
+- każda source-fact/rule-set zmiana tworzy dokładnie jeden nowy immutable profile — **PASS DESIGN**,
+- input/base-output/effective-output/actor/reason/evidence trail jest kompletny — **PASS DESIGN**,
+- requirement commandy i Course PATCH serializują się na tym samym Course version root — **PASS DESIGN**,
+- closed-course correction zachowuje starą historię — **PASS**,
+- recalculation nie usuwa training/attendance/exam history — **PASS**,
+- completion freshness jest zamknięte bez przedwczesnego rozwiązania godzin i egzaminów — **PASS SCOPE**,
+- DB-TRN-006..008 pozostają nierozwiązane — **PASS SCOPE**,
+- nie utracono wcześniejszego DB-TRN-001..004 machine contract po self-audit correction — **PASS**,
+- `specs/database/core-schema.yml` bez zmian — **PASS**,
+- `docs/87-physical-database-schema.md` bez zmian — **PASS**,
+- DB4_5+ bez zmian — **PASS**,
+- migracje Laravel/UI/feature implementation — **NIE ROZPOCZĘTO**.
+
+**GATE DB-TRN-005: PASS.**
 
 ---
 
@@ -753,16 +403,7 @@ Formalny czas szkolenia może zostać naliczony podwójnie, dla niewłaściwego 
 
 Potwierdzony formularz course create/edit pokazuje po jednej wartości „teoria w innej szkole” i „praktyka w innej szkole”. Jednocześnie domena musi wspierać wiele udokumentowanych zewnętrznych wpisów oraz korekty/reversal bez utraty historii.
 
-Obecna tabela może przechowywać wiele aktywnych rekordów tego samego `course_enrollment + training_part + source_kind`, ale nie definiuje jednoznacznie:
-- który rekord reprezentuje bieżącą wartość formularza `course_form_initial`,
-- czy kolejne edycje zastępują/revoke'ują wcześniejszą wersję,
-- które rekordy są additive documented transfer,
-- jak projekcja sumy unika podwójnego naliczenia po kolejnych edycjach,
-- jak concurrency create/revoke zachowuje deterministyczny wynik.
-
-## Ryzyko
-
-Godziny uznane z poprzedniego OSK mogą zostać naliczone podwójnie albo projekcja formularza stanie się zależna od nieokreślonego „latest row”.
+Obecna tabela nie definiuje jeszcze jednoznacznie current form projection vs additive documented transfer oraz concurrency revoke/replace.
 
 **Status:** OPEN P1.
 
@@ -772,13 +413,7 @@ Godziny uznane z poprzedniego OSK mogą zostać naliczone podwójnie albo projek
 
 ## Problem
 
-Zweryfikowany dedykowany formularz Course create/edit wymaga PKK, a PKK jest course-scoped. Jednocześnie `course_enrollments` nie posiada własnego PKK field, natomiast `pkk_profiles` należy do późniejszego DB4_8 i `pkk_number` może być nullable.
-
-DB4_4 musi później określić minimalną bezpieczną granicę persistence/orchestration, dzięki której zapis kursu z wymaganym PKK nie może zakończyć się stanem „Course istnieje, ale required PKK identity nie została utrwalona”. Nie wolno przy tym w tym slice projektować provider request/response, reconciliation ani retry — to pozostaje DB4_8.
-
-## Ryzyko
-
-Potwierdzony course-create capability może powstać jako częściowy zapis albo PKK może zostać przypisane do innego course/tenant niż enrollment, zanim DB4_8 dołoży provider lifecycle.
+Zweryfikowany dedykowany formularz Course create/edit wymaga PKK, a PKK jest course-scoped. Minimalna atomic persistence boundary między CourseEnrollment i PKK identity nadal nie jest zamknięta; provider lifecycle pozostaje DB4_8.
 
 **Status:** OPEN P1.
 
@@ -796,48 +431,15 @@ Nie rozwiązujemy w tym slice:
 - dokładnych regexów telefonu/e-mail/PKK/VIN jako application validation,
 - nieobserwowalnego backend behavior konkurencyjnego hard delete.
 
-Te zależności mogą być walidowane na boundary późniejszych slice'ów, ale nie są powodem do rozszerzenia zakresu bieżącego blockera.
-
 ---
 
 # Quality gate DB4_4_STEP_1 — DIAGNOSIS
 
-Historyczny wynik kroku diagnozy:
-- DB4_3 był PASS przed otwarciem DB4_4 — **PASS**,
-- przejrzano screen/API/legal/DB/test sources dla Students/Courses/Training Ledger — **PASS**,
-- wszystkie potwierdzone cztery pola godzinowe kursu pozostają w scope — **PASS**,
-- formalny source of truth czasu pozostaje ledger, nie ręcznie nadpisywane declared hours — **PASS**,
-- reguły 45 min teoria / 60 min praktyka zostały uwzględnione jako wymaganie, nie zostały reinterpretowane — **PASS**,
-- wykryto i zapisano wszystkie znane P0/P1 z tego audytu — **PASS: 8 P1 / 0 P0**,
-- nie naprawiono żadnego DB-TRN-* w kroku diagnozy — **PASS**,
-- `core-schema.yml` i `docs/87` nie były modyfikowane w diagnozie — **PASS**,
-- nie rozpoczęto DB4_5 ani późniejszych slice'ów — **PASS**,
-- nie utworzono migracji Laravel ani feature/UI implementation — **PASS**.
-
-**DIAGNOSIS GATE DB4_4: FAIL_WITH_8_P1_BLOCKERS.**
-
-Był to prawidłowy wynik diagnozy i otworzył naprawy blocker-by-blocker.
+Historyczny wynik diagnozy: **FAIL_WITH_8_P1_BLOCKERS** — prawidłowy wynik otwierający blocker-by-blocker fixes.
 
 ---
 
 # Quality gate DB4_4_STEP_2 — DB-TRN-001
-
-Wykonano wyłącznie same-tenant integrity. Bounded-context spec nie naprawił pozostałych siedmiu blockerów.
-
-Self-audit:
-- nowy machine source: `specs/database/students-courses-training.yml` — **PASS**,
-- komplet relacji z diagnozy DB-TRN-001 -> composite same-tenant boundary — **PASS**,
-- Attendance otrzymał projekt `organization_id` + bezpieczny migration backfill — **PASS**,
-- Staff/Location/Vehicle wykorzystują candidate keys już zamknięte w DB4_3 — **PASS**,
-- Student/Course/TrainingSession candidate keys zadeklarowane — **PASS**,
-- nie wprowadzono nowego hard-delete/cascade formal history — **PASS**,
-- nie zmieniono semantyki formalnych godzin — **PASS**,
-- nie rozwiązano dokładnej relacji Attendance Student = Course Student — **PASS SCOPE**, pozostaje DB-TRN-006,
-- nie rozwiązano ledger exactly-once — **PASS SCOPE**, pozostaje DB-TRN-006,
-- `specs/database/core-schema.yml` bez zmian — **PASS**,
-- `docs/87-physical-database-schema.md` bez zmian — **PASS**,
-- DB4_5+ bez zmian — **PASS**,
-- migracje Laravel/UI/feature implementation — **NIE ROZPOCZĘTO**.
 
 **FINAL GATE DB-TRN-001: PASS.**
 
@@ -845,50 +447,11 @@ Self-audit:
 
 # Quality gate DB4_4_STEP_3 — DB-TRN-002
 
-Wykonano wyłącznie formal Student identity branch + PESEL duplicate/archive lifecycle.
-
-Self-audit:
-- bounded-context machine source zaktualizowany bez zmian aggregate — **PASS**,
-- pre-course Student bez PESEL nadal może istnieć jako incomplete profile — **PASS PRESERVATION**,
-- formal CourseEnrollment wymaga jednej z dwóch legalnych identity branches — **PASS DESIGN**,
-- `no_pesel_declared` rozróżnia jawny brak PESEL od niekompletnych danych — **PASS**,
-- PESEL ciphertext/hash pair jest atomowa i nie może być połowicznie NULL — **PASS**,
-- PESEL partial unique działa per OSK i obejmuje archived rows — **PASS**,
-- archive nie zwalnia PESEL i restore nie tworzy nowej identity — **PASS**,
-- nie wprowadzono hard unique na name+birth_date — **PASS**,
-- migracja nie zgaduje `no_pesel` i nie naprawia duplicate przez silent merge/delete — **PASS**,
-- Student version/edit/archive concurrency nie zostały rozwiązane — **PASS SCOPE** w tamtym kroku,
-- course lifecycle nie został zmieniony — **PASS SCOPE**, pozostaje DB-TRN-004,
-- `specs/database/core-schema.yml` bez zmian — **PASS**,
-- `docs/87-physical-database-schema.md` bez zmian — **PASS**,
-- DB4_5+ bez zmian — **PASS**,
-- migracje Laravel/UI/feature implementation — **NIE ROZPOCZĘTO**.
-
 **FINAL GATE DB-TRN-002: PASS.**
 
 ---
 
 # Quality gate DB4_4_STEP_4 — DB-TRN-003
-
-Wykonano wyłącznie Student concurrency + archive/restore lifecycle.
-
-Self-audit:
-- bounded-context machine source zaktualizowany bez zmian aggregate — **PASS**,
-- Student ma jeden version root dla profile edit/archive/restore — **PASS**,
-- stale expected version nie może spowodować partial/lost update — **PASS**,
-- dedicated archive/restore pozostają idempotent i serializowane — **PASS**,
-- archive nie mutuje CourseEnrollment ani formalnej historii — **PASS**,
-- otwarty kurs blokuje archive — **PASS DESIGN**,
-- Course create i archive serializują się na Student row — **PASS DESIGN**,
-- archived Student nie może dostać nowego formalnego kursu — **PASS DESIGN**,
-- restore nie otwiera ani nie tworzy kursu — **PASS**,
-- DB-TRN-002 identity/PESEL semantics nie zostały osłabione — **PASS**,
-- pełna macierz Course lifecycle nie została zaprojektowana — **PASS SCOPE**, pozostaje DB-TRN-004,
-- learning access/license archive effect nie został zaprojektowany — **PASS SCOPE**, pozostaje DB4_6,
-- `specs/database/core-schema.yml` bez zmian — **PASS**,
-- `docs/87-physical-database-schema.md` bez zmian — **PASS**,
-- DB4_5+ bez zmian — **PASS**,
-- migracje Laravel/UI/feature implementation — **NIE ROZPOCZĘTO**.
 
 **FINAL GATE DB-TRN-003: PASS.**
 
@@ -896,30 +459,30 @@ Self-audit:
 
 # Quality gate DB4_4_STEP_5 — DB-TRN-004
 
-Wykonano wyłącznie Course lifecycle/stage/cancel/restore history.
+**FINAL GATE DB-TRN-004: PASS.**
+
+---
+
+# Quality gate DB4_4_STEP_6 — DB-TRN-005
+
+Wykonano wyłącznie requirement context/profile reproducibility.
 
 Self-audit:
-- bounded-context machine source został zaktualizowany bez aggregate sync — **PASS**,
-- jedna lifecycle matrix usuwa sprzeczne kombinacje completion/interruption/cancel — **PASS DESIGN**,
-- `training_completed` jest atomowo związane z `completed_at` — **PASS DESIGN**,
-- stage catalog zachowuje dokładnie potwierdzone wartości — **PASS PRESERVATION**,
-- nie wymyślono strict transition graph mimo `TO_VERIFY` w screen spec — **PASS SCOPE**,
-- append-only lifecycle history zachowuje from/to stage/state + course versions — **PASS DESIGN**,
-- każda materialna mutacja ma dokładnie jeden version bump i jeden history event — **PASS DESIGN**,
-- normalny restore dotyczy tylko cancelled course — **PASS**,
-- completed/interrupted nie są normalnie reopenowane — **PASS**,
-- Student archive vs course restore race jest zamknięty stałym lock order — **PASS DESIGN**,
-- generic PATCH terminalnego kursu wymaga explicit correction mode — **PASS**,
-- correction nie niszczy wcześniejszych eventów ani formalnej historii — **PASS**,
-- nowa TrainingSession wymaga active Course, ale dokładne session/ledger semantics pozostają DB-TRN-006 — **PASS SCOPE**,
-- completion eligibility nie została rozwiązana przed DB-TRN-005/006/DB4_7 — **PASS SCOPE**,
-- DB-TRN-005..008 nadal pozostają otwarte — **PASS SCOPE**,
-- `specs/database/core-schema.yml` bez zmian — **PASS**,
-- `docs/87-physical-database-schema.md` bez zmian — **PASS**,
-- DB4_5+ bez zmian — **PASS**,
-- migracje Laravel/UI/feature implementation — **NIE ROZPOCZĘTO**.
+- machine source zawiera durable source-fact owners + immutable profile history — **PASS**,
+- `requirements_revision` jest freshness epoch, nie konkurencyjnym version root — **PASS**,
+- source-fact change nie może commitnąć ze stale profile — **PASS DESIGN**,
+- target category nie została zduplikowana — **PASS**,
+- exemption/override są jawnie audytowalne — **PASS**,
+- rule-set identity jest immutable + hashed — **PASS**,
+- snapshots pozwalają odtworzyć inputs, base output i effective output — **PASS**,
+- active i closed-course correction używają Course lock/version contract — **PASS**,
+- wcześniejsze machine obligations DB-TRN-001..004 zostały zachowane po wykrytej i skorygowanej regresji dokumentacyjnej — **PASS**,
+- `core-schema.yml` i `docs/87` pozostają bez zmian — **PASS**,
+- DB-TRN-006..008 nadal open — **PASS SCOPE**,
+- DB4_5+ nie rozpoczęto — **PASS**,
+- Laravel migrations / UI implementation nie rozpoczęto — **PASS**.
 
-**FINAL GATE DB-TRN-004: PASS.**
+**FINAL GATE DB-TRN-005: PASS.**
 
 ## Aktualna kolejność napraw
 
@@ -927,9 +490,9 @@ Self-audit:
 2. `DB-TRN-002` — **PASS**.
 3. `DB-TRN-003` — **PASS**.
 4. `DB-TRN-004` — **PASS**.
-5. `DB-TRN-005` — requirement context/profile reproducibility — **NEXT**.
-6. `DB-TRN-006` — attendance -> ledger exactly-once.
+5. `DB-TRN-005` — **PASS**.
+6. `DB-TRN-006` — attendance -> ledger exactly-once — **NEXT**.
 7. `DB-TRN-007` — external training projection/history.
 8. `DB-TRN-008` — course PKK persistence boundary.
 
-**Następny pojedynczy krok: tylko `DB-TRN-005` -> self-audit -> gate -> STOP przed `DB-TRN-006`.**
+**Następny pojedynczy krok: tylko `DB-TRN-006` -> self-audit -> gate -> STOP przed `DB-TRN-007`.**
