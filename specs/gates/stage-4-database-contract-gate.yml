@@ -70,10 +70,10 @@ stage_4_slices:
     status: IN_PROGRESS_BLOCKERS_OPEN
     diagnosis: COMPLETE
     blockers_diagnosed: 7
-    blockers_resolved: 3
-    open_P0_P1: 4
+    blockers_resolved: 4
+    open_P0_P1: 3
     final_aggregate_sync: PENDING
-    result: DB_CAL_001_002_003_PASS_4_P1_OPEN
+    result: DB_CAL_001_002_003_004_PASS_3_P1_OPEN
   - id: DB4_6_LICENSES_LEARNING_ACCESS
     status: NOT_STARTED
   - id: DB4_7_INTERNAL_EXAMS
@@ -310,7 +310,7 @@ quality_checks:
       identity_branch_change_audited: true
       Student_optimistic_concurrency: governed_by_DB_TRN_003
     checks:
-      legal_PESEL_or_birth_date_rule_preserved_before_formal_enrollment: PASS
+      legal_PESEL_or_birth_date_rule_preserved: PASS
       pre_course_student_creation_capability_not_reduced: PASS
       missing_PESEL_not_confused_with_explicit_no_PESEL: PASS
       PESEL_pair_consistency_closed: PASS
@@ -944,6 +944,68 @@ quality_checks:
     resolved_blocker_id: DB-CAL-003
     strategy: calendar_resource_claims_plus_partial_GiST_exclusion_constraints
 
+  calendar_event_lifecycle_and_optimistic_concurrency:
+    status: PASS
+    resolved_blocker_id: DB-CAL-004
+    severity: P1
+    machine_source: specs/database/calendar.yml
+    audit_source: docs/109-stage-4-calendar-audit.md
+    decision:
+      status_values: [scheduled, completed, cancelled]
+      terminal_metadata_matrix_database_enforced: true
+      completed_by_user_FK: users.id
+      cancelled_by_user_FK: users.id
+      concurrency_root: calendar_events.version
+      version_type: bigint
+      version_minimum: 1
+      material_PATCH_cancel_complete_require_expected_version_at_domain_boundary: true
+      command_lock: calendar_event_FOR_UPDATE
+      compare_expected_version_after_lock: true
+      current_Stage3_PATCH_uses_If_Match: true
+      current_Stage3_cancel_complete_have_If_Match: false
+      cancel_complete_If_Match_required_marker_sync: Stage5_acceptance_contract_sync
+      idempotency_key_is_not_expected_version_substitute: true
+      semantic_noop_PATCH_increments_version: false
+      terminal_normal_PATCH: forbidden
+      terminal_normal_hard_delete: forbidden
+      lifecycle_history_table: calendar_event_lifecycle_events
+      lifecycle_history_append_only: true
+      unique_history_scope: [organization_id, calendar_event_id, event_version_after]
+      current_version_history_final_state_guard: DEFERRABLE_INITIALLY_DEFERRED
+      current_event_requires_exactly_one_matching_history_row: true
+      matching_history_to_status_must_equal_event_status: true
+      runtime_history_after_equals_before_plus_1: true
+      command_effective_at_captured_once_per_new_material_command: true
+      terminal_timestamp_and_history_occurred_at_share_command_effective_at: true
+      cancelled_or_completed_event_has_zero_DB_CAL_003_claims: true
+      terminal_claim_release_same_transaction: true
+      calendar_complete_creates_training_credit: false
+      migration_unknown_status_actor_or_terminal_time_guess: forbidden
+      DB_CAL_005_through_DB_CAL_007_not_fixed: true
+    checks:
+      closed_status_catalog_and_terminal_metadata_matrix: PASS
+      terminal_actor_global_user_FKs_present: PASS
+      single_event_version_concurrency_root: PASS
+      expected_version_checked_after_row_lock: PASS
+      PATCH_cancel_complete_races_serialize_on_same_event: PASS
+      stale_command_cannot_commit_partial_event_claim_or_history: PASS
+      semantic_noop_does_not_create_fake_version_or_history: PASS
+      one_history_row_at_most_per_event_version: PASS
+      one_matching_current_history_row_at_least_per_event_version_at_commit: PASS
+      current_history_status_matches_current_event_status: PASS
+      direct_status_or_version_change_without_history_rejected_at_commit: PASS
+      lifecycle_history_business_rows_immutable: PASS
+      terminal_event_claims_released_atomically: PASS
+      command_effective_at_not_mislabeled_as_exact_commit_timestamp: PASS
+      idempotency_replay_does_not_create_second_terminal_effect: PASS
+      calendar_complete_does_not_bypass_DB_TRN_006_training_pipeline: PASS
+      migration_does_not_fabricate_unknown_status_actor_or_timestamp: PASS
+      aggregate_core_schema_modified_in_step: false
+      aggregate_docs87_modified_in_step: false
+      later_domain_slices_entered: false
+      Laravel_migrations_created: false
+      UI_or_feature_implementation_started: false
+
 resolved_blockers:
   - DB-FOUND-001
   - DB-FOUND-002
@@ -971,9 +1033,9 @@ resolved_blockers:
   - DB-CAL-001
   - DB-CAL-002
   - DB-CAL-003
+  - DB-CAL-004
 
 open_blockers_current_diagnosed_scope:
-  - DB-CAL-004
   - DB-CAL-005
   - DB-CAL-006
   - DB-CAL-007
@@ -986,7 +1048,7 @@ gate_definition:
     - migration_order_dependency_safe
     - database_invariant_test_matrix_exists
     - reverse_engineering_preservation_traceable
-  current_result: DB4_5_DB_CAL_001_002_003_PASS_4_P1_OPEN
+  current_result: DB4_5_DB_CAL_001_002_003_004_PASS_3_P1_OPEN
   DB4_1_result: PASS
   DB4_2_result: PASS
   DB4_3_result: PASS
@@ -1005,7 +1067,8 @@ gate_definition:
   DB4_5_DB_CAL_001_result: PASS
   DB4_5_DB_CAL_002_result: PASS
   DB4_5_DB_CAL_003_result: PASS
-  DB4_5_result: IN_PROGRESS_4_P1_OPEN
+  DB4_5_DB_CAL_004_result: PASS
+  DB4_5_result: IN_PROGRESS_3_P1_OPEN
   may_start_DB4_4_fixes: false
   may_start_DB4_5: true
   may_start_DB4_5_fixes: true
@@ -1014,17 +1077,17 @@ gate_definition:
   may_start_UI_or_feature_implementation: false
 
 next_single_step:
-  id: DB_CAL_004
-  blocker: DB-CAL-004
-  action: close_calendar_event_lifecycle_and_optimistic_concurrency_only
+  id: DB_CAL_005
+  blocker: DB-CAL-005
+  action: close_calendar_manage_own_owner_resolution_only
   allowed_scope:
     - specs/database/calendar.yml
     - docs/109-stage-4-calendar-audit.md
     - specs/gates/stage-4-database-contract-gate.yml
   scope_lock: >-
-    Fix only DB-CAL-004 CalendarEvent lifecycle state matrix, terminal metadata,
-    expected-version semantics and PATCH/cancel/complete race behavior. Do not fix
-    DB-CAL-005 or later Calendar blockers, do not modify aggregate core-schema.yml
-    or docs/87 before the final DB4_5 aggregate sync, do not enter DB4_6 or later
-    slices, do not create Laravel migrations and do not start UI/feature implementation.
-  after_action: rerun_DB_CAL_004_gate_and_record_PASS_or_remaining_blocker_then_stop_before_DB_CAL_005
+    Fix only DB-CAL-005 canonical calendar.manage.own owner resolution for CalendarEvent
+    and AvailabilitySlot consistent with existing DB4_2 own-scope semantics. Do not fix
+    DB-CAL-006 or DB-CAL-007, do not modify aggregate core-schema.yml or docs/87 before
+    the final DB4_5 aggregate sync, do not enter DB4_6 or later slices, do not create
+    Laravel migrations and do not start UI/feature implementation.
+  after_action: rerun_DB_CAL_005_gate_and_record_PASS_or_remaining_blocker_then_stop_before_DB_CAL_006
