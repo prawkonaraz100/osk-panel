@@ -61,9 +61,9 @@ stage_4_slices:
   - id: DB4_4_STUDENTS_COURSES_TRAINING_LEDGER
     status: IN_PROGRESS_WITH_BLOCKERS
     diagnosis: COMPLETE
-    blockers_resolved: 3
-    open_P0_P1: 5
-    result: FAIL_WITH_5_P1_BLOCKERS
+    blockers_resolved: 4
+    open_P0_P1: 4
+    result: FAIL_WITH_4_P1_BLOCKERS
   - id: DB4_5_CALENDAR
     status: NOT_STARTED
   - id: DB4_6_LICENSES_LEARNING_ACCESS
@@ -372,14 +372,68 @@ quality_checks:
       UI_or_feature_implementation_started: false
 
   course_lifecycle_stage_history_cancel_restore:
-    status: FAIL
-    blocker_id: DB-TRN-004
+    status: PASS
+    resolved_blocker_id: DB-TRN-004
     severity: P1
-    unresolved: >-
-      training_stage, completed_at, interrupted_at and cancelled_at do not yet have
-      a canonical lifecycle matrix, durable stage-transition history and serialized
-      cancel/restore/correction semantics.
-    impact: contradictory_course_state_or_loss_of_formal_stage_history
+    machine_source: specs/database/students-courses-training.yml
+    audit_source: docs/108-stage-4-students-courses-training-ledger-audit.md
+    decision:
+      course_version:
+        canonical_type: bigint
+        nullable: false
+        default: 1
+        check: version_gte_1
+      concurrency_root: course_enrollments.version
+      lifecycle_state_source: derived_from_terminal_timestamps
+      separate_mutable_lifecycle_status_column: false
+      allowed_training_stages:
+        - unassigned
+        - theory
+        - practice
+        - documentation
+        - word_exam
+        - supplementary_training
+        - training_completed
+      exact_unobserved_nonterminal_transition_graph_hardcoded: false
+      terminal_timestamp_cardinality_maximum: 1
+      training_completed_equivalent_to_completed_at_nonnull: true
+      cancellation_actor_pair_required: true
+      lifecycle_history_table: course_enrollment_lifecycle_events
+      lifecycle_history_append_only: true
+      one_history_event_per_material_course_version: true
+      history_event_unique_scope: [organization_id, course_enrollment_id, course_version_after]
+      history_same_tenant_composite_FK: true
+      material_course_mutation_version_increment: exactly_once
+      normal_restore_source_state: cancelled
+      normal_restore_completed_or_interrupted: forbidden
+      closed_course_generic_PATCH: forbidden_requires_correction_mode
+      lifecycle_correction_must_reference_prior_event: true
+      restore_under_archived_student: forbidden
+      restore_lock_order: student_then_course
+      hard_delete_or_rewrite_formal_history_on_cancel: forbidden
+      new_training_session_requires_active_course: true
+      exact_HTTP_expected_version_marker_sync: Stage5_acceptance_contract_sync
+    checks:
+      lifecycle_matrix_active_completed_interrupted_cancelled_defined: PASS
+      terminal_timestamps_mutually_exclusive: PASS
+      training_completed_and_completed_at_cannot_diverge: PASS
+      confirmed_stage_catalog_preserved: PASS
+      unverified_strict_stage_sequence_not_invented: PASS
+      stage_and_lifecycle_history_append_only: PASS
+      every_material_course_version_has_exactly_one_history_event: PASS
+      update_stage_cancel_restore_share_course_serialization_boundary: PASS
+      stale_lifecycle_intent_cannot_silently_overwrite: PASS
+      normal_restore_only_reopens_cancelled_course: PASS
+      completed_and_interrupted_normal_restore_blocked: PASS
+      course_restore_student_archive_race_closed: PASS
+      closed_course_correction_preserves_prior_history: PASS
+      completion_eligibility_not_solved_before_DB_TRN_005_006_DB4_7: PASS
+      DB_TRN_005_through_DB_TRN_008_not_fixed_in_DB_TRN_004_step: PASS
+      aggregate_core_schema_modified_in_step: false
+      aggregate_docs87_modified_in_step: false
+      later_domain_slices_entered: false
+      Laravel_migrations_created: false
+      UI_or_feature_implementation_started: false
 
   requirement_context_profile_reproducibility:
     status: FAIL
@@ -431,6 +485,7 @@ quality_checks:
     - exact_phone_email_PKK_format_validation_to_application_validation
     - exact_PESEL_format_checksum_validation_to_application_validation_and_security_tests
     - exact_HTTP_If_Match_required_marker_and_428_acceptance_sync_to_Stage5
+    - exact_HTTP_course_lifecycle_expected_version_marker_and_error_code_sync_to_Stage5
     - competitor_unobservable_delete_backend_semantics
 
   calendar_overlap_database_strategy:
@@ -455,10 +510,9 @@ resolved_blockers:
   - DB-TRN-001
   - DB-TRN-002
   - DB-TRN-003
+  - DB-TRN-004
 
 open_blockers_current_diagnosed_scope:
-  - id: DB-TRN-004
-    severity: P1
   - id: DB-TRN-005
     severity: P1
   - id: DB-TRN-006
@@ -476,7 +530,7 @@ gate_definition:
     - migration_order_dependency_safe
     - database_invariant_test_matrix_exists
     - reverse_engineering_preservation_traceable
-  current_result: FAIL_DB4_4_WITH_5_OPEN_P1_BLOCKERS
+  current_result: FAIL_DB4_4_WITH_4_OPEN_P1_BLOCKERS
   DB4_1_result: PASS
   DB4_2_result: PASS
   DB4_3_result: PASS
@@ -484,6 +538,7 @@ gate_definition:
   DB4_4_DB_TRN_001_result: PASS
   DB4_4_DB_TRN_002_result: PASS
   DB4_4_DB_TRN_003_result: PASS
+  DB4_4_DB_TRN_004_result: PASS
   DB4_4_result: FAIL
   may_start_DB4_4_fixes: true
   may_start_DB4_5: false
@@ -491,16 +546,16 @@ gate_definition:
   may_start_UI_or_feature_implementation: false
 
 next_single_step:
-  id: DB4_4_STEP_5
-  blocker: DB-TRN-004
-  action: resolve_course_lifecycle_stage_history_cancel_restore_only
+  id: DB4_4_STEP_6
+  blocker: DB-TRN-005
+  action: resolve_requirement_context_profile_reproducibility_only
   allowed_scope:
     - specs/database/students-courses-training.yml
     - docs/108-stage-4-students-courses-training-ledger-audit.md
     - specs/gates/stage-4-database-contract-gate.yml
   scope_lock: >-
-    Resolve only DB-TRN-004. Do not fix DB-TRN-005 through DB-TRN-008 in the same
+    Resolve only DB-TRN-005. Do not fix DB-TRN-006 through DB-TRN-008 in the same
     step. Do not enter DB4_5 or later slices, do not create Laravel migrations and
     do not start UI/feature implementation. Keep aggregate core-schema.yml and
     docs/87 synchronization deferred until the final DB4_4 aggregate sync gate.
-  after_action: rerun_DB4_4_gate_and_record_DB_TRN_004_PASS_or_new_blocker_then_stop_before_DB_TRN_005
+  after_action: rerun_DB4_4_gate_and_record_DB_TRN_005_PASS_or_new_blocker_then_stop_before_DB_TRN_006
