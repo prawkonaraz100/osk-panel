@@ -2,7 +2,7 @@
 
 Data: 2026-09-06
 
-**Status:** `DB4_4 IN PROGRESS / DB-TRN-001 PASS / DB-TRN-002 PASS / DB-TRN-003 PASS / 5 P1 BLOCKERS OPEN`
+**Status:** `DB4_4 IN PROGRESS / DB-TRN-001 PASS / DB-TRN-002 PASS / DB-TRN-003 PASS / DB-TRN-004 PASS / 4 P1 BLOCKERS OPEN`
 
 ## Cel i zasada pracy
 
@@ -509,26 +509,190 @@ Sprawdzono:
 
 ---
 
-# DB-TRN-004 — OPEN P1: Course lifecycle, stage history, cancel/restore
+# DB-TRN-004 — PASS: Course lifecycle, stage history, cancel/restore
 
-## Problem
+## Problem z diagnozy
 
-`course_enrollments` posiada jednocześnie `training_stage`, `completed_at`, `interrupted_at`, `cancelled_at`, ale nie ma jeszcze zamkniętej fizycznej macierzy stanów ani historii przejść stage.
+`course_enrollments` miał równolegle `training_stage`, `completed_at`, `interrupted_at`, `cancelled_at` i `version`, ale bez zamkniętej fizycznej macierzy. Możliwy był więc stan sprzeczny, np. `training_stage=training_completed` bez `completed_at`, jednoczesne completion + cancellation albo utrata informacji, przez jakie etapy kurs przechodził.
 
-Potwierdzone API posiada osobną operację `stage-transitions`, ekran wymaga historii, a polityka produktu mapuje „usuń kurs” na bezpieczne cancel/correction z zachowaniem formalnych zależności. Closed course wymaga trybu korekty.
+Potwierdzone źródła dają siedem wartości `training_stage`, osobne operacje API `cancel`, `restore`, `stage-transitions`, optimistic concurrency dla zwykłej edycji oraz wymóg historii. Jednocześnie ekran mówi `transition_rules: TO_VERIFY`, więc nie wolno nam wymyślić sztucznej sekwencji `theory -> practice -> ...` jako twardego constraintu.
 
-Nie jest fizycznie rozstrzygnięte:
-- które kombinacje stage/timestamp są legalne,
-- jak zachować pełną historię stage transitions,
-- jak serializować update/cancel/restore/complete/interruption,
-- czy i kiedy cancelled/closed enrollment można przywrócić,
-- jak korekta closed course nie przepisuje historycznych faktów.
+## Decyzja canonical — stage i lifecycle są osobnymi wymiarami
 
-## Ryzyko
+`training_stage` opisuje etap workflow, natomiast lifecycle kursu wynika z terminalnych timestampów. Nie dokładamy drugiej mutowalnej kolumny `status`, która mogłaby rozjechać się z timestampami.
 
-Jeden kurs może mieć wzajemnie sprzeczne lifecycle flags albo utracić historię zmian etapu potrzebną do audytu i dokumentacji.
+Canonical lifecycle:
+- `active` — `completed_at`, `interrupted_at`, `cancelled_at` są wszystkie `NULL`,
+- `completed` — tylko `completed_at` jest non-NULL i `training_stage='training_completed'`,
+- `interrupted` — tylko `interrupted_at` jest non-NULL i stage nie jest `training_completed`,
+- `cancelled` — tylko `cancelled_at` jest non-NULL, `cancelled_by_user_id` jest non-NULL i stage nie jest `training_completed`.
 
-**Status:** OPEN P1.
+DB wymusza maksymalnie jeden terminalny timestamp. Dodatkowo `training_stage='training_completed'` jest równoważne obecności `completed_at`. Dzięki temu stage i zakończenie nie mogą się rozjechać.
+
+Predicate `active` staje się finalnym doprecyzowaniem minimalnego `open course predicate` z DB-TRN-003.
+
+## Stage catalog bez wymyślania niepotwierdzonego grafu
+
+Dozwolone wartości pozostają dokładnie zgodne z potwierdzonym ekranem:
+- `unassigned`,
+- `theory`,
+- `practice`,
+- `documentation`,
+- `word_exam`,
+- `supplementary_training`,
+- `training_completed`.
+
+Dla aktywnego kursu jawna komenda stage transition może przechodzić pomiędzy potwierdzonymi **nieterminalnymi** wartościami. Nie kodujemy na sztywno kolejności, której nie zweryfikowaliśmy.
+
+Target `training_completed` nie jest zwykłą zmianą stringa. Kieruje do atomowej semantyki completion: stage + `completed_at` zmieniają się razem.
+
+## Jeden concurrency root dla CourseEnrollment
+
+`course_enrollments.version` jest canonical concurrency root wszystkich materialnych mutacji kursu i ma finalnie typ `bigint NOT NULL DEFAULT 1 CHECK >= 1`.
+
+Update, stage transition, complete, interrupt, cancel, restore i correction:
+- lockują CourseEnrollment `FOR UPDATE`,
+- porównują expected version po locku,
+- stale version kończy się conflict/precondition failed bez częściowego zapisu,
+- udana materialna mutacja zwiększa version dokładnie raz.
+
+Transport retry dla commandów z Idempotency-Key zwraca wcześniejszy wynik i nie nakłada efektu drugi raz. Idempotency nie zastępuje optimistic concurrency przy świeżej, ale już nieaktualnej intencji użytkownika.
+
+Dokładny HTTP surface expected-version dla lifecycle commandów wymaga późniejszej synchronizacji Stage 5; fizycznego concurrency contractu nie osłabiamy.
+
+## Append-only historia Course lifecycle
+
+Dodajemy projekt tabeli `course_enrollment_lifecycle_events` jako formalny append-only trail. Każdy event przechowuje co najmniej:
+- tenant i CourseEnrollment,
+- `event_type`,
+- from/to lifecycle state,
+- from/to training stage,
+- `course_version_before` / `course_version_after`,
+- actor, czas i reason tam, gdzie wymagany,
+- opcjonalny redacted payload korekty,
+- opcjonalne `correction_of_event_id` dla jawnej korekty faktu lifecycle.
+
+Każda materialna zmiana CourseEnrollment ma dokładnie jeden odpowiadający event w tej samej transakcji. Unique `(organization_id, course_enrollment_id, course_version_after)` oraz transactional/deferrable guard wiążą row-version z historią.
+
+Historia jest append-only. Normalna aplikacja nie aktualizuje i nie usuwa dawnych eventów.
+
+## Completion
+
+Completion jest dozwolone tylko z `active` i atomowo:
+- ustawia `training_stage='training_completed'`,
+- ustawia `completed_at`,
+- pozostawia `interrupted_at`, `cancelled_at`, `cancelled_by_user_id` puste,
+- zwiększa version raz,
+- zapisuje event `completed`, audit i outbox.
+
+DB-TRN-004 **nie** rozstrzyga jeszcze, czy kurs spełnił wymagane godziny, wymagania rule engine i egzaminy. To pozostaje odpowiednio DB-TRN-005, DB-TRN-006 i DB4_7.
+
+## Interruption
+
+Przerwanie jest formalnym zakończeniem bieżącego szkolenia bez twierdzenia, że zostało ukończone. Z aktywnego kursu:
+- zachowuje ostatni nieterminalny `training_stage`,
+- ustawia `interrupted_at`,
+- wymaga reason,
+- zwiększa version i zapisuje append-only event `interrupted`.
+
+Normalne `restore` nie czyści `interrupted_at`. Jeżeli przerwanie było błędem, powrót do aktywnego kursu jest wyjątkową jawnie audytowaną `lifecycle correction`, a nie zwykłym restore.
+
+## Cancel
+
+`POST .../cancel` jest lifecycle commandem, nie hard-delete. Z aktywnego kursu:
+- zachowuje ostatni nieterminalny stage,
+- ustawia `cancelled_at` i `cancelled_by_user_id`,
+- wymaga reason,
+- zwiększa version raz,
+- zapisuje `cancelled` event.
+
+Nie usuwa ani nie przepisuje Sessions, Attendance, Ledger, Exam, Finance ani PKK history. Fresh cancel już cancelled course jest konfliktem; retry z tym samym Idempotency-Key nie powtarza efektu.
+
+Completed albo interrupted course nie może być normalnie anulowany po fakcie. Ewentualne sprostowanie terminalnego faktu należy do jawnego correction flow.
+
+## Restore
+
+Normalny restore jest jednoznacznie ograniczony do `cancelled -> active`.
+
+Nie otwiera:
+- completed,
+- interrupted.
+
+Restore cancelled course:
+1. lockuje najpierw Student, potem CourseEnrollment,
+2. wymaga nonarchived Student oraz nadal poprawnej formal identity,
+3. czyści `cancelled_at` i `cancelled_by_user_id`,
+4. zachowuje poprzedni stage,
+5. zwiększa version raz,
+6. dopisuje event `restored`.
+
+Nie tworzy nowego kursu ani Studenta i nie zmienia historycznych sessions/ledger/external training.
+
+Stały lock order `Student -> Course` zamyka race restore vs Student archive. Nie może zostać zacommitowany stan `archived Student + restored active Course`.
+
+## Closed course correction
+
+Zwykły PATCH terminalnego kursu jest odrzucany. Ekran już wymaga correction mode, więc fizyczny kontrakt to respektuje.
+
+Business-field correction bez zmiany lifecycle:
+- wymaga expected version, actor i reason,
+- zachowuje terminal state/timestamps,
+- zwiększa version,
+- dopisuje `closed_course_corrected` z redacted before/after projection,
+- nie usuwa wcześniejszej historii.
+
+Wyjątkowa korekta samego lifecycle:
+- nie jest aliasem normalnego restore,
+- wymaga reference do korygowanego eventu,
+- reason + before/after projection,
+- finalny row musi przejść pełną lifecycle matrix,
+- jeżeli finalnie wraca do `active`, Student musi być nonarchived i nadal spełniać DB-TRN-002.
+
+## Formal activity po zamknięciu
+
+Nowej `TrainingSession` nie można tworzyć dla `completed`, `interrupted` ani `cancelled` CourseEnrollment. Istniejąca formalna historia nie jest usuwana.
+
+Dokładne session completion / attendance / ledger credit i korekty pozostają DB-TRN-006.
+
+## Migration design
+
+Przy późniejszym generowaniu migracji:
+1. ujednolicić `course_enrollments.version` do bigint >= 1,
+2. zweryfikować katalog istniejących stage,
+3. wykryć sprzeczne kombinacje terminal timestamps,
+4. wykryć rozjazd `training_completed <-> completed_at`,
+5. wykryć niespójne `cancelled_at/cancelled_by`,
+6. sprzeczny legacy row -> FAIL / jawna reviewed remediation, bez zgadywania historii,
+7. utworzyć append-only `course_enrollment_lifecycle_events`,
+8. dla każdego istniejącego kursu utworzyć tylko `migration_baseline` z aktualnym stanem — bez wymyślania dawnych actorów i chronologii,
+9. dodać row checks i guard `version <-> exactly one lifecycle event`,
+10. podpiąć update/stage/complete/interrupt/cancel/restore/correction do wspólnego Course version root,
+11. dodać guard, że nowa TrainingSession wymaga aktywnego kursu,
+12. uruchomić race/history/negative tests.
+
+Nie generujemy jeszcze migracji Laravel.
+
+## Quality gate DB-TRN-004
+
+Sprawdzono:
+- istnieje jedna sprzecznościowo zamknięta macierz `active/completed/interrupted/cancelled` — **PASS DESIGN**,
+- `training_completed` i `completed_at` nie mogą się rozjechać — **PASS DESIGN**,
+- terminalne timestamps są mutually exclusive — **PASS DESIGN**,
+- siedem potwierdzonych stage zostało zachowanych, bez wymyślenia niepotwierdzonej kolejności — **PASS PRESERVATION**,
+- stage/lifecycle history jest append-only i same-tenant — **PASS DESIGN**,
+- każda materialna mutacja ma jeden Course version root + jeden event — **PASS DESIGN**,
+- update/stage/cancel/restore races są serializowane; stale intent nie może cicho wygrać — **PASS DESIGN**,
+- normalny restore otwiera tylko cancelled, nie completed/interrupted — **PASS**,
+- restore nie może aktywować kursu z archived Student — **PASS DESIGN**,
+- closed-course correction zachowuje dawną historię — **PASS**,
+- Student archive nadal nie zmienia Course w tle — **PASS**,
+- DB-TRN-005..008 nie zostały rozwiązane przy okazji — **PASS SCOPE**,
+- `specs/database/core-schema.yml` bez zmian — **PASS**,
+- `docs/87-physical-database-schema.md` bez zmian — **PASS**,
+- DB4_5+ bez zmian — **PASS**,
+- migracje Laravel/UI/feature implementation — **NIE ROZPOCZĘTO**.
+
+**GATE DB-TRN-004: PASS.**
 
 ---
 
@@ -728,15 +892,44 @@ Self-audit:
 
 **FINAL GATE DB-TRN-003: PASS.**
 
+---
+
+# Quality gate DB4_4_STEP_5 — DB-TRN-004
+
+Wykonano wyłącznie Course lifecycle/stage/cancel/restore history.
+
+Self-audit:
+- bounded-context machine source został zaktualizowany bez aggregate sync — **PASS**,
+- jedna lifecycle matrix usuwa sprzeczne kombinacje completion/interruption/cancel — **PASS DESIGN**,
+- `training_completed` jest atomowo związane z `completed_at` — **PASS DESIGN**,
+- stage catalog zachowuje dokładnie potwierdzone wartości — **PASS PRESERVATION**,
+- nie wymyślono strict transition graph mimo `TO_VERIFY` w screen spec — **PASS SCOPE**,
+- append-only lifecycle history zachowuje from/to stage/state + course versions — **PASS DESIGN**,
+- każda materialna mutacja ma dokładnie jeden version bump i jeden history event — **PASS DESIGN**,
+- normalny restore dotyczy tylko cancelled course — **PASS**,
+- completed/interrupted nie są normalnie reopenowane — **PASS**,
+- Student archive vs course restore race jest zamknięty stałym lock order — **PASS DESIGN**,
+- generic PATCH terminalnego kursu wymaga explicit correction mode — **PASS**,
+- correction nie niszczy wcześniejszych eventów ani formalnej historii — **PASS**,
+- nowa TrainingSession wymaga active Course, ale dokładne session/ledger semantics pozostają DB-TRN-006 — **PASS SCOPE**,
+- completion eligibility nie została rozwiązana przed DB-TRN-005/006/DB4_7 — **PASS SCOPE**,
+- DB-TRN-005..008 nadal pozostają otwarte — **PASS SCOPE**,
+- `specs/database/core-schema.yml` bez zmian — **PASS**,
+- `docs/87-physical-database-schema.md` bez zmian — **PASS**,
+- DB4_5+ bez zmian — **PASS**,
+- migracje Laravel/UI/feature implementation — **NIE ROZPOCZĘTO**.
+
+**FINAL GATE DB-TRN-004: PASS.**
+
 ## Aktualna kolejność napraw
 
 1. `DB-TRN-001` — **PASS**.
 2. `DB-TRN-002` — **PASS**.
 3. `DB-TRN-003` — **PASS**.
-4. `DB-TRN-004` — Course lifecycle/stage/cancel/restore history — **NEXT**.
-5. `DB-TRN-005` — requirement context/profile reproducibility.
+4. `DB-TRN-004` — **PASS**.
+5. `DB-TRN-005` — requirement context/profile reproducibility — **NEXT**.
 6. `DB-TRN-006` — attendance -> ledger exactly-once.
 7. `DB-TRN-007` — external training projection/history.
 8. `DB-TRN-008` — course PKK persistence boundary.
 
-**Następny pojedynczy krok: tylko `DB-TRN-004` -> self-audit -> gate -> STOP przed `DB-TRN-005`.**
+**Następny pojedynczy krok: tylko `DB-TRN-005` -> self-audit -> gate -> STOP przed `DB-TRN-006`.**
