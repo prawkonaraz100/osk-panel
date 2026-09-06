@@ -3,17 +3,18 @@
 Data: 2026-09-06
 
 **Etap:** `DB4_5_CALENDAR`  
-**Aktualny krok:** `DB-CAL-006`  
-**Status:** `DB-CAL-001..006 PASS / 1 P1 OPEN`
+**Aktualny krok:** `DB-CAL-007`  
+**Status:** `DB-CAL-001..007 PASS / 0 P1 OPEN / FINAL AGGREGATE SYNC PENDING`
 
 ## 1. Zasada pracy
 
-DB4_5 jest prowadzony pojedynczymi blockerami. Diagnoza wykazała 7 P1. Pełny zapis DB-CAL-003, DB-CAL-004 i DB-CAL-005 pozostaje poniżej bez kondensowania. Bieżący DB-CAL-006 został dopisany jako kolejny osobny appendix, bez przepisywania potwierdzonych wcześniejszych decyzji.
+DB4_5 jest prowadzony pojedynczymi blockerami. Diagnoza wykazała 7 P1. Pełny zapis DB-CAL-003, DB-CAL-004, DB-CAL-005 i DB-CAL-006 pozostaje poniżej bez kondensowania. Bieżący DB-CAL-007 został dopisany jako kolejny osobny appendix, bez przepisywania potwierdzonych wcześniejszych decyzji poza jawnym supersession tam, gdzie DB-CAL-007 był wcześniej zastrzeżoną granicą.
 
-W bieżącym kroku nie zmieniono:
-- `DB-CAL-007` Calendar ↔ formal `TrainingSession`.
-
-Nie zmieniono też aggregate `specs/database/core-schema.yml` ani `docs/87-physical-database-schema.md`, nie utworzono migracji Laravel i nie rozpoczęto DB4_6/UI.
+W bieżącym kroku nie wykonano:
+- finalnego `DB4_5 FINAL AGGREGATE SYNC` do `specs/database/core-schema.yml` i `docs/87-physical-database-schema.md`,
+- DB4_6 ani późniejszych slice'ów,
+- migracji Laravel,
+- UI/feature implementation.
 
 Machine-readable kontrakt: `specs/database/calendar.yml`.
 
@@ -1480,3 +1481,401 @@ Stan przed centralnym gate:
 - UI/feature implementation: zablokowane.
 
 Następny pojedynczy krok dopiero po centralnym gate: **DB-CAL-007 only**.
+
+---
+
+# DB-CAL-007 — `driving_lesson` ↔ formal `TrainingSession`
+
+## 71. Źródła i problem DB-CAL-007
+
+DB-CAL-007 opiera się przede wszystkim na:
+- zamkniętym DB-TRN-006 w `specs/database/students-courses-training.yml`,
+- Stage-3 TrainingSession API w `specs/api/paths/students-courses.yaml`,
+- Stage-3 Calendar API w `specs/api/paths/pkk-calendar.yaml`,
+- `TrainingSession` / calendar request schemas w `specs/api/openapi-components-v1.yaml`,
+- potwierdzonym formularzu kalendarza w `specs/screens/calendar.yml` i `specs/screens/calendar-add-event.yml`.
+
+DB4_4 już ustalił, że formalna sesja szkoleniowa ma:
+- lifecycle `planned|completed|cancelled`,
+- concurrency root `training_sessions.version`,
+- `starts_at`, `ends_at`, `instructor_id`, `vehicle_id`, `location_id`,
+- Studenta wynikającego z `CourseEnrollment`,
+- formalny pipeline `TrainingSession -> verified Attendance -> TrainingHourLedger`.
+
+Równoległe utrzymywanie tych samych danych czasu i zasobów w mutable `CalendarEvent(type=driving_lesson)` stworzyłoby drugi source-of-truth i możliwość driftu.
+
+## 72. Jedyny canonical schedule owner: `TrainingSession`
+
+Decyzja DB-CAL-007:
+
+**formalna jazda jest schedule-owned wyłącznie przez `TrainingSession`.**
+
+Po tej bramce nowy formalny `driving_lesson` nie jest zapisywany jako osobny `calendar_events` row.
+
+Kalendarz wyświetla go jako projekcję praktycznego TrainingSession:
+- `starts_at` / `ends_at` -> TrainingSession,
+- `status` / `version` -> TrainingSession,
+- Student -> `CourseEnrollment.student_id`,
+- Instructor -> TrainingSession,
+- Vehicle -> TrainingSession,
+- saved Location -> TrainingSession.
+
+Stable calendar identity może być source-based, np. `source_kind=training_session + source_id`, ale nie może udawać PK `calendar_events`.
+
+Tylko `session_type=practical` jest projekcją `driving_lesson`. Nie inventujemy osobnego typu kalendarza dla teorii.
+
+DB-CAL-002 historycznie jawnie zastrzegł, że DB-CAL-007 może zmienić storage formalnej jazdy. Dlatego runtime `calendar_events` po migracji będzie przechowywać manual `general_event`, podczas gdy widoczna opcja „Jazda” pozostaje w produkcie jako projection/command adapter do TrainingSession.
+
+## 73. Calendar-only companion metadata bez drugiego schedule source
+
+Potwierdzony formularz jazdy ma także pola, których TrainingSession nie posiada:
+- opcjonalną nazwę,
+- custom meeting place jako alternatywę dla zapisanej Location.
+
+Nie kopiujemy przez to czasu ani zasobów do CalendarEvent.
+
+Wprowadzamy 1:1 companion:
+
+`training_session_calendar_details`
+
+z polami co najmniej:
+- `organization_id`,
+- `training_session_id`,
+- `display_name` nullable,
+- `custom_meeting_place` nullable,
+- timestamps.
+
+Reguły:
+- same-tenant FK do TrainingSession,
+- tylko practical TrainingSession może mieć ten calendar companion,
+- custom text po trimie musi być niepusty,
+- `training_sessions.location_id` oraz `custom_meeting_place` są zero-or-one source,
+- oba mogą być NULL,
+- oba nie mogą być non-NULL,
+- companion nie przechowuje Studenta, Instruktora, Vehicle ani czasu.
+
+Materialna zmiana companion metadata podnosi **ten sam `training_sessions.version`**. Nie tworzymy drugiego concurrency root.
+
+## 74. Routing create/update/cancel/complete
+
+### `general_event`
+Nadal korzysta z `calendar_events`, DB-CAL-004 i calendar permissions.
+
+### Formal `driving_lesson`
+Korzysta z TrainingSession:
+- create -> `training_sessions.create`,
+- update/reschedule -> `training_sessions.edit`,
+- cancel -> `training_sessions.cancel`,
+- complete -> `training_sessions.edit` + reguły DB-TRN-006.
+
+`calendar.manage.own` lub `calendar.manage.organization` **nie daje automatycznie prawa do mutacji formalnego TrainingSession**.
+
+Generic CalendarEvent PATCH/cancel/complete nie może targetować source-based TrainingSession projection.
+
+Calendar `complete` nie jest ścieżką zaliczenia formalnej jazdy. Formalne complete nadal przechodzi przez DB-TRN-006 i jego Attendance/Ledger exactly-once contract.
+
+### Course context przy tworzeniu jazdy z kalendarza
+Obecny Calendar request nie niesie jednoznacznego CourseEnrollment.
+
+Docelowo preferowane jest jawne `course_enrollment_id`. Implicit resolution jest dopuszczalne tylko wtedy, gdy dokładnie jeden aktywny, kwalifikujący się Course jest dowodliwy.
+
+Jeżeli jest zero lub wiele kandydatów:
+- trzeba zażądać jawnego Course,
+- nie wolno wybierać „pierwszego”, „najnowszego” ani ostatnio używanego heurystycznie.
+
+Wybrany Student w formularzu jest search/input context; formalny Student wynika z CourseEnrollment.
+
+Dokładny HTTP discriminated schema / operation IDs pozostają Stage 5 acceptance contract sync.
+
+## 75. `training_session` w shared GiST conflict boundary
+
+`calendar_resource_claims.claim_owner_kind` po DB-CAL-007 ma jawny katalog:
+- `calendar_event`,
+- `availability_slot_booking`,
+- `training_session`.
+
+Dla `training_session` wymagany jest same-tenant owner guard.
+
+Każdy `planned` TrainingSession ma dokładnie:
+- Student claim równy Studentowi CourseEnrollment,
+- Instructor claim równy `training_sessions.instructor_id`,
+- Vehicle claim iff `vehicle_id != NULL`,
+- Location claim iff `location_id != NULL`,
+- interval dokładnie `[starts_at,ends_at)`,
+- to samo `organization_id`.
+
+Zarówno planned theory, jak i planned practical session zajmują odpowiednie zasoby. `completed|cancelled` mają zero TrainingSession claims.
+
+Final-state guard jest `DEFERRABLE INITIALLY DEFERRED` lub równoważną transactional DB boundary.
+
+Te same cztery GiST constraints wymuszają teraz race-safe conflict dla:
+- TrainingSession vs manual general CalendarEvent,
+- TrainingSession vs unformalized booked AvailabilitySlot,
+- TrainingSession vs TrainingSession.
+
+Claim insert nadal:
+- nie tworzy Attendance,
+- nie nalicza Ledger credit,
+- nie jest formalną ewidencją godzin.
+
+## 76. TrainingSession mutation + claim orchestration
+
+### Create
+Transakcja:
+1. lock CourseEnrollment,
+2. potwierdza active Course i same-tenant relations,
+3. tworzy planned TrainingSession version 1,
+4. tworzy exact claims w kolejności Student -> Instructor -> Vehicle -> Location,
+5. GiST przyjmuje albo odrzuca,
+6. commit tylko przy spójnym final state.
+
+Conflict rollbackuje Session, companion metadata i claims.
+
+### Planned PATCH / reschedule
+Lock order:
+1. CourseEnrollment,
+2. TrainingSession,
+3. claims.
+
+Expected TrainingSession version jest sprawdzany po locku. Zmiana czasu/zasobów atomowo replacementuje claims. Zmiana companion metadata używa tego samego Session version bump.
+
+GiST failure odtwarza poprzedni schedule/claim/metadata state przez rollback całej transakcji.
+
+### Complete
+Zachowujemy DB-TRN-006 lock prefix:
+1. CourseEnrollment,
+2. TrainingSession,
+3. Attendance.
+
+W tej samej transakcji usuwamy TrainingSession claims. Finalne `completed` ma zero claims, ale formalny credit powstaje wyłącznie zgodnie z DB-TRN-006 verified attendance/ledger equivalence.
+
+### Cancel
+Course -> Session lock, removal claims i terminal status w jednej transakcji. Cancel nie tworzy ani nie odwraca automatycznie formalnego credit.
+
+Attendance-only mutation nie modyfikuje schedule claims.
+
+## 77. Booked AvailabilitySlot -> formal TrainingSession
+
+DB-CAL-006 celowo nie tworzył TrainingSession automatycznie podczas `/book`, ponieważ request ma Studenta, ale nie gwarantuje jednoznacznego Course.
+
+DB-CAL-007 dodaje jawny handoff.
+
+`availability_slots.training_session_id`:
+- nullable,
+- same-tenant FK do TrainingSession,
+- unique, gdy non-null,
+- po ustawieniu nie jest normalnie czyszczony.
+
+### Booked, jeszcze nieformalny
+- `training_session_id = NULL`,
+- current reservation owner = `availability_slot_booking`,
+- exact DB-CAL-006 claims istnieją,
+- slot cancel jest dozwolony.
+
+### Booked, sformalizowany
+- `training_session_id != NULL`,
+- slot nadal zachowuje historyczny booking snapshot,
+- **zero AvailabilitySlot booking claims**,
+- current reservation owner = linked TrainingSession,
+- formalized slot nie jest osobnym drugim calendar item,
+- slot cancel jest zabroniony; używa się TrainingSession lifecycle.
+
+Slot lifecycle dostaje dedykowany materialny event `formalized`: `booked -> booked`, version +1, z zachowaniem Student snapshot.
+
+Linked session musi:
+- należeć do tego samego OSK,
+- być practical,
+- należeć do Course tego samego Studenta, który zarezerwował slot.
+
+### Atomowy handoff
+Dedykowany command:
+1. wymaga `training_sessions.create`, Idempotency-Key i expected slot version,
+2. rozwiązuje jawny/unikalny Course bez heurystyki,
+3. lockuje Course, potem Slot,
+4. tworzy planned practical TrainingSession z czasu i zasobów slotu,
+5. opcjonalnie companion metadata,
+6. usuwa AvailabilitySlot claims,
+7. wstawia exact TrainingSession claims dla **tej samej rezerwacji**,
+8. zapisuje `slot.training_session_id`,
+9. podnosi slot version dokładnie raz,
+10. appenduje `formalized` lifecycle event,
+11. sprawdza link/claim/history/GiST guards,
+12. audit/outbox i commit.
+
+Cały transfer ownera rezerwacji jest jedną transakcją. Nie ma momentu committed state z dwoma claim sets ani z zerowym reservation fact.
+
+Błąd rollbackuje nowy Session/link/history i zachowuje oryginalne booking claims.
+
+Retry z tym samym Idempotency-Key zwraca wcześniejszy wynik; nowy handoff dla już linked slotu = conflict.
+
+Późniejszy reschedule TrainingSession nie przepisuje historycznego slot snapshotu. Cancel/complete Session nie republishuje slotu automatycznie.
+
+## 78. Read model kalendarza po DB-CAL-007
+
+Calendar read model jest unionem source-specific items:
+- manual `general_event` -> `calendar_events`,
+- formal `driving_lesson` -> practical TrainingSession + calendar companion,
+- `important_date` -> source-domain projection,
+- booked Availability reservation tylko gdy jeszcze nie ma `training_session_id`.
+
+Formalized slot jest suppressowany, ponieważ jego linked TrainingSession jest już jedynym calendar item dla tej formalnej jazdy.
+
+Każdy source ma:
+- stabilną source-based identity,
+- właściwy mutation route,
+- własne permission semantics.
+
+Dokładny HTTP union schema pozostaje Stage 5 contract sync.
+
+## 79. Historia i permission boundary
+
+Formalna historia TrainingSession pozostaje w DB4_4. Nie duplikujemy jej przez CalendarEvent history.
+
+AvailabilitySlot history zachowuje:
+- booking,
+- Studenta,
+- fakt formalizacji,
+- link do TrainingSession.
+
+Późniejszy Session cancel/complete nie rewrite'uje slot history.
+
+`calendar.view` może projektować TrainingSessions przy istniejących scope adapters:
+- `own` -> TrainingSession Instructor,
+- assigned Student -> Course Student,
+- assigned Location -> TrainingSession Location,
+- organization -> Organization.
+
+Natomiast mutation formalnej jazdy wymaga permission z domeny TrainingSession. Calendar permissions nie są privilege-escalation shortcutem.
+
+## 80. Migration design DB-CAL-007
+
+Migracji Laravel nadal nie tworzymy.
+
+Późniejszy DB4_5 migration design musi wykonać w bezpiecznej kolejności m.in.:
+1. znaleźć istniejące `calendar_events.event_type=driving_lesson`,
+2. dla każdego wymagać jawnej klasyfikacji lub wiarygodnego istniejącego mappingu do TrainingSession,
+3. **nie** dopasowywać eventu do Session przez podobny czas, nazwę, najbliższy rekord ani kolejność utworzenia,
+4. nonformal legacy item może być jawnie przeklasyfikowany do `general_event` tylko jako reviewed remediation,
+5. formalny legacy item wymaga zweryfikowanego Course i historii TrainingSession,
+6. utworzyć `training_session_calendar_details`,
+7. dodać `availability_slots.training_session_id` + same-tenant unique relation,
+8. rozszerzyć slot history o `formalized`,
+9. dodać linked-slot Student/Session guard,
+10. przygotować TrainingSession claim owner guard zanim DB dopuści nowy claim kind,
+11. precheck planned TrainingSession overlapów z eventami, bookingami i innymi sessions,
+12. overlap/ambiguous state -> FAIL/review; bez auto-cancel, shift, reassign i bez wyboru zwycięzcy,
+13. rozszerzyć claim-kind CHECK do `training_session`,
+14. backfillować exact claims tylko dla reliably planned sessions,
+15. dodać deferred TrainingSession exact-claim guard,
+16. dopiero po rozwiązaniu legacy driving_lesson rows ograniczyć runtime `calendar_events` do `general_event`,
+17. uruchomić projection/routing/handoff/cross-owner race tests.
+
+Finalny runtime authority jest jednoznaczny, ale migracja nie ma prawa niszczyć lub przepisywać historii przez heurystyczne „dopasowanie”.
+
+## 81. Testy DB-CAL-007
+
+Obowiązkowo:
+- nowy formal driving_lesson nie tworzy CalendarEvent row,
+- calendar driving_lesson projection czyta practical TrainingSession schedule/status/version/resources,
+- Student projekcji = Course Student,
+- optional name jest zachowany w companion,
+- custom meeting place działa tylko przy NULL `location_id`,
+- whitespace-only custom place rejected,
+- companion metadata change bumpuje TrainingSession version,
+- CalendarEvent endpoint nie mutuje formal projection,
+- calendar permission bez training permission nie mutuje formalnej jazdy,
+- create z kalendarza wymaga active Course i training permission,
+- ambiguous Course nie wybiera latest/first,
+- planned Session ma exact claims,
+- Student claim = Course Student,
+- terminal Session ma zero claims,
+- TrainingSession claim owner jest same-tenant,
+- direct schedule mutation bez claim sync rejected,
+- TrainingSession vs general Event overlap -> at most one commit,
+- TrainingSession vs unformalized booking overlap -> at most one commit,
+- TrainingSession vs TrainingSession overlap -> at most one commit,
+- reschedule conflict rollbackuje poprzedni schedule/claims,
+- complete zwalnia claims i zachowuje DB-TRN-006 credit equivalence,
+- cancel zwalnia claims bez ukrytego credit effect,
+- Calendar complete nie nalicza formalnych godzin,
+- booking nie auto-tworzy Session bez Course context,
+- formalize wymaga Course tego samego Studenta,
+- handoff atomowo transferuje reservation claims,
+- slot dostaje unique Session link i formalized history,
+- failed handoff zachowuje oryginalny booking,
+- idempotent retry nie tworzy drugiego Session,
+- second fresh handoff rejected,
+- formalized slot ma zero Availability booking claims,
+- formalized slot nie emituje drugiego calendar item,
+- formalized slot nie może być niezależnie cancelled,
+- późniejszy Session reschedule nie rewrite'uje slot snapshotu,
+- Session cancel/complete nie auto-republishuje slotu,
+- jeden formal TrainingSession = jeden calendar item,
+- legacy driving_lesson rows nie są auto-mapowane heurystycznie,
+- migration precheck wykrywa cross-owner overlaps,
+- migracja nie auto-canceluje/przesuwa/reassignuje i nie wybiera overlap winnera.
+
+## 82. Self-audit DB-CAL-007
+
+Wynik merytoryczny: **PASS**.
+
+Potwierdzono:
+- jeden formal schedule owner = TrainingSession,
+- nie istnieje druga mutable CalendarEvent copy formalnego schedule,
+- widoczna capability `driving_lesson` jest zachowana jako projection + command adapter,
+- Student/czas/Instructor/Vehicle/Location mają jedno canonical źródło,
+- optional name/custom place są zachowane bez kopiowania schedule fields,
+- `training_sessions.version` pozostaje jednym concurrency rootem całej formal lesson projection,
+- formalne mutacje wymagają training permissions,
+- Calendar permissions nie eskalują do training mutation,
+- `training_session` jest jawnie DB-constrained claim owner kind,
+- planned sessions używają wspólnego GiST boundary,
+- terminal sessions zwalniają claims atomowo,
+- claim/projection nie naliczają godzin,
+- Calendar complete nie omija DB-TRN-006,
+- booked-slot handoff jest explicit, atomic, idempotent i nie wybiera niejednoznacznego Course,
+- formalized slot nie dubluje reservation claim ani calendar item,
+- booking history przeżywa handoff i późniejszy Session lifecycle,
+- Session terminal state nie republishuje slotu,
+- legacy rows wymagają evidence-based remediation,
+- nie znaleziono nowego P0/P1,
+- agregaty nie zostały zmienione,
+- nie utworzono migracji Laravel,
+- nie rozpoczęto DB4_6 ani UI.
+
+### Preservation self-audit incident
+
+Pierwszy machine draft DB-CAL-007 (`b5b65050431c…`) skondensował wcześniejsze DB-CAL-001..006 i dał diff około `+675/-1706`. Bramka jakości odrzuciła ten stan **przed narracją i centralnym PASS**.
+
+Corrective machine commit `8d4d539be2ee…` przywrócił wcześniejszy kontrakt i zachował DB-CAL-007 jako jawne additions/supersessions. Net diff względem stanu sprzed DB-CAL-007 wrócił do około `+467/-53`. To jest właściwy stan machine contractu pod dalszy gate.
+
+## 83. Stan po DB-CAL-007
+
+Po tym blockerze:
+- P0 otwarte: `0`,
+- P1 rozwiązane w DB4_5: `7/7`,
+- P1 otwarte: `0`,
+- DB-CAL-001..007: `PASS`,
+- **final DB4_5 aggregate sync: `PENDING`**,
+- DB4_6: nadal zablokowane,
+- Stage 5: nadal zablokowany,
+- Laravel migrations: nadal zablokowane,
+- UI/feature implementation: nadal zablokowane.
+
+Brak P1 nie oznacza jeszcze finalnego `DB4_5 PASS`, ponieważ bounded-context contract nie został jeszcze zsynchronizowany do zamrożonych agregatów.
+
+## 84. Bramka jakości DB-CAL-007
+
+**PASS — po machine preservation correction + architecture/concurrency/security self-audit.**
+
+Następny dozwolony krok jest wyłącznie:
+
+`DB4_5 FINAL AGGREGATE SYNC`
+
+czyli synchronizacja już zamkniętych DB-CAL-001..007 do:
+- `specs/database/core-schema.yml`,
+- `docs/87-physical-database-schema.md`,
+
+z semantic-loss/stale-constraint checks i bez wejścia w DB4_6, Stage 5, migracje Laravel lub UI.
+
+**STOP przed finalnym aggregate sync DB4_5.**
