@@ -70,10 +70,10 @@ stage_4_slices:
     status: IN_PROGRESS_BLOCKERS_OPEN
     diagnosis: COMPLETE
     blockers_diagnosed: 7
-    blockers_resolved: 2
-    open_P0_P1: 5
+    blockers_resolved: 3
+    open_P0_P1: 4
     final_aggregate_sync: PENDING
-    result: DB_CAL_001_002_PASS_5_P1_OPEN
+    result: DB_CAL_001_002_003_PASS_4_P1_OPEN
   - id: DB4_6_LICENSES_LEARNING_ACCESS
     status: NOT_STARTED
   - id: DB4_7_INTERNAL_EXAMS
@@ -883,8 +883,62 @@ quality_checks:
       Laravel_migrations_created: false
       UI_or_feature_implementation_started: false
 
+  calendar_resource_overlap_conflict_boundary:
+    status: PASS
+    resolved_blocker_id: DB-CAL-003
+    severity: P1
+    machine_source: specs/database/calendar.yml
+    audit_source: docs/109-stage-4-calendar-audit.md
+    decision:
+      canonical_interval: half_open_[starts_at,ends_at)
+      adjacent_end_equals_next_start_conflicts: false
+      conflicting_resource_kinds: [student, instructor, vehicle, managed_location]
+      custom_meeting_place_creates_managed_resource_claim: false
+      important_date_projection_creates_resource_claim: false
+      active_manual_event_claiming_status: scheduled
+      conflict_projection_table: calendar_resource_claims
+      conflict_projection_is_business_source_of_truth: false
+      exactly_one_resource_column_per_claim: true
+      exact_scheduled_event_claim_set_guard: true
+      claim_same_tenant_resource_FKs: true
+      PostgreSQL_extension: btree_gist
+      final_boundary: four_partial_GiST_exclusion_constraints
+      application_precheck_is_final_boundary: false
+      event_update_conflict_rolls_back_event_and_claim_replacement: true
+      deterministic_claim_processing_order: [student, instructor, vehicle, location]
+      availability_slot_publication_itself_claims_resource: false
+      successful_booking_may_bypass_shared_claim_boundary: false
+      availability_booking_owner_state_machine_and_link: deferred_to_DB_CAL_006
+      formal_training_schedule_owner_mapping: deferred_to_DB_CAL_007
+      claim_insert_credits_training_time: false
+      migration_legacy_overlap_auto_cancel_shift_reassign: forbidden
+      DB_CAL_004_through_DB_CAL_007_not_fixed: true
+    checks:
+      half_open_interval_semantics_are_unambiguous: PASS
+      adjacent_events_do_not_false_conflict: PASS
+      student_same_resource_overlap_is_database_rejected: PASS
+      instructor_same_resource_overlap_is_database_rejected: PASS
+      vehicle_same_resource_overlap_is_database_rejected: PASS
+      managed_location_same_resource_overlap_is_database_rejected: PASS
+      same_resource_identity_in_different_organizations_isolated: PASS
+      claim_projection_preserves_DB_CAL_001_same_tenant_integrity: PASS
+      important_date_and_custom_text_preserve_DB_CAL_002_boundaries: PASS
+      check_then_insert_race_cannot_bypass_GiST: PASS
+      scheduled_event_direct_time_or_resource_change_without_claim_sync_blocked: PASS
+      conflicting_update_rolls_back_to_previous_event_and_claim_state: PASS
+      availability_publication_not_mistaken_for_reservation: PASS
+      future_booking_obligated_to_same_boundary_without_solving_DB_CAL_006: PASS
+      formal_training_obligated_to_same_boundary_without_solving_DB_CAL_007: PASS
+      aggregate_core_schema_modified_in_step: false
+      aggregate_docs87_modified_in_step: false
+      later_domain_slices_entered: false
+      Laravel_migrations_created: false
+      UI_or_feature_implementation_started: false
+
   calendar_overlap_database_strategy:
-    status: OPEN_DB_CAL_003
+    status: PASS
+    resolved_blocker_id: DB-CAL-003
+    strategy: calendar_resource_claims_plus_partial_GiST_exclusion_constraints
 
 resolved_blockers:
   - DB-FOUND-001
@@ -912,9 +966,9 @@ resolved_blockers:
   - DB-TRN-008
   - DB-CAL-001
   - DB-CAL-002
+  - DB-CAL-003
 
 open_blockers_current_diagnosed_scope:
-  - DB-CAL-003
   - DB-CAL-004
   - DB-CAL-005
   - DB-CAL-006
@@ -928,7 +982,7 @@ gate_definition:
     - migration_order_dependency_safe
     - database_invariant_test_matrix_exists
     - reverse_engineering_preservation_traceable
-  current_result: DB4_5_DB_CAL_001_002_PASS_5_P1_OPEN
+  current_result: DB4_5_DB_CAL_001_002_003_PASS_4_P1_OPEN
   DB4_1_result: PASS
   DB4_2_result: PASS
   DB4_3_result: PASS
@@ -946,7 +1000,8 @@ gate_definition:
   DB4_5_diagnosis_result: PASS_DIAGNOSIS_COMPLETE
   DB4_5_DB_CAL_001_result: PASS
   DB4_5_DB_CAL_002_result: PASS
-  DB4_5_result: IN_PROGRESS_5_P1_OPEN
+  DB4_5_DB_CAL_003_result: PASS
+  DB4_5_result: IN_PROGRESS_4_P1_OPEN
   may_start_DB4_4_fixes: false
   may_start_DB4_5: true
   may_start_DB4_5_fixes: true
@@ -955,17 +1010,17 @@ gate_definition:
   may_start_UI_or_feature_implementation: false
 
 next_single_step:
-  id: DB_CAL_003
-  blocker: DB-CAL-003
-  action: close_race_safe_calendar_resource_overlap_conflict_boundary_only
+  id: DB_CAL_004
+  blocker: DB-CAL-004
+  action: close_calendar_event_lifecycle_and_optimistic_concurrency_only
   allowed_scope:
     - specs/database/calendar.yml
     - docs/109-stage-4-calendar-audit.md
     - specs/gates/stage-4-database-contract-gate.yml
   scope_lock: >-
-    Fix only DB-CAL-003 resource overlap/conflict interval semantics and the final
-    race-safe PostgreSQL or transactional serialization boundary. Do not fix
-    DB-CAL-004 or later Calendar blockers, do not modify aggregate core-schema.yml
+    Fix only DB-CAL-004 CalendarEvent lifecycle state matrix, terminal metadata,
+    expected-version semantics and PATCH/cancel/complete race behavior. Do not fix
+    DB-CAL-005 or later Calendar blockers, do not modify aggregate core-schema.yml
     or docs/87 before the final DB4_5 aggregate sync, do not enter DB4_6 or later
     slices, do not create Laravel migrations and do not start UI/feature implementation.
-  after_action: rerun_DB_CAL_003_gate_and_record_PASS_or_remaining_blocker_then_stop_before_DB_CAL_004
+  after_action: rerun_DB_CAL_004_gate_and_record_PASS_or_remaining_blocker_then_stop_before_DB_CAL_005
