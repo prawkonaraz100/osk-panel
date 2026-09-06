@@ -3,15 +3,14 @@
 Data: 2026-09-06
 
 **Etap:** `DB4_5_CALENDAR`  
-**Aktualny krok:** `DB-CAL-004`  
-**Status:** `DB-CAL-001..004 PASS / 3 P1 OPEN`
+**Aktualny krok:** `DB-CAL-005`  
+**Status:** `DB-CAL-001..005 PASS / 2 P1 OPEN`
 
 ## 1. Zasada pracy
 
-DB4_5 jest prowadzony pojedynczymi blockerami. Diagnoza wykazała 7 P1. Po wcześniejszym zamknięciu `DB-CAL-001` i `DB-CAL-002` w kroku DB-CAL-003 rozwiązano **wyłącznie `DB-CAL-003` — race-safe resource overlap/conflict boundary**. Pełny zapis tamtego etapu pozostaje poniżej bez kondensowania. Bieżący DB-CAL-004 został dopisany jako osobny appendix po historycznej bramce DB-CAL-003.
+DB4_5 jest prowadzony pojedynczymi blockerami. Diagnoza wykazała 7 P1. Pełny zapis DB-CAL-003 i DB-CAL-004 pozostaje poniżej bez kondensowania. Bieżący DB-CAL-005 został dopisany jako kolejny osobny appendix, bez przepisywania potwierdzonych wcześniejszych decyzji.
 
 W bieżącym kroku nie zmieniono:
-- `DB-CAL-005` `calendar.manage.own`,
 - `DB-CAL-006` AvailabilitySlot booking lifecycle,
 - `DB-CAL-007` Calendar ↔ formal `TrainingSession`.
 
@@ -797,4 +796,304 @@ Stan przed centralnym gate:
 - Stage 5: zablokowany,
 - UI/feature implementation: zablokowane.
 
-Następny pojedynczy krok dopiero po centralnym gate: **DB-CAL-005 only**.
+Historycznie następnym pojedynczym krokiem był **DB-CAL-005 only**.
+
+---
+
+# DB-CAL-005 — canonical `calendar.manage.own` owner resolution
+
+## 39. Źródła DB-CAL-005
+
+Ten krok korzysta przede wszystkim z już zamkniętego RBAC:
+- `specs/security/permissions.yml`,
+- `specs/database/identity-rbac.yml`,
+- `specs/database/staff-locations-vehicles.yml`,
+- `docs/04-roles-permissions.md`,
+- Stage-3 Calendar API w `specs/api/paths/pkk-calendar.yaml`.
+
+Nie redefiniujemy `own`. DB4_2 mówi już:
+- tenant validation jest przed scope resolution,
+- `own` wymaga canonical owner relation do bieżącego User albo StaffProfile połączonego z aktywnym membership,
+- brak owner relation = DENY,
+- frontend filtering nie jest security boundary,
+- `calendar.manage.own` ma profil `own_only`,
+- `calendar.publish_student_slots` dopuszcza `organization|own`,
+- `calendar.view` może OR-ować `organization|assigned_students|assigned_locations|own`.
+
+## 40. Problem DB-CAL-005
+
+CalendarEvent miał jednocześnie:
+- `created_by_user_id`,
+- opcjonalny `instructor_id`.
+
+AvailabilitySlot miał opcjonalny `instructor_id`.
+
+Bez jawnej decyzji backend mógłby różnie interpretować „mój event”:
+- raz jako „utworzony przeze mnie”,
+- innym razem jako „prowadzony przeze mnie”,
+- albo tylko filtrować to w UI.
+
+To byłoby niebezpieczne. Sekretariat może stworzyć jazdę dla instruktora B — autor rekordu nie powinien przez to stać się domenowym właścicielem jazdy.
+
+## 41. Canonical owner — istniejący `instructor_id`
+
+Nie dodajemy drugiej kolumny ownera.
+
+Canonical owner dla `own`:
+- `CalendarEvent` -> `calendar_events.instructor_id`,
+- `AvailabilitySlot` -> `availability_slots.instructor_id`.
+
+Owner identity jest `StaffProfile`.
+
+DB-CAL-001 już fizycznie gwarantuje, że `(organization_id,instructor_id)` wskazuje StaffProfile z tego samego OSK.
+
+`created_by_user_id`, `completed_by_user_id`, `cancelled_by_user_id` i późniejsze lifecycle actor fields są provenance/auditem, **nie ownership relation**.
+
+## 42. Runtime resolver `own`
+
+Canonical ścieżka:
+
+`authenticated User -> active OrganizationMembership -> active StaffMembershipLink -> StaffProfile -> target.instructor_id`
+
+Allow dopiero, gdy:
+- membership jest aktywny,
+- target jest w tym samym tenant,
+- istnieje aktywny StaffMembershipLink (`unlinked_at IS NULL`),
+- `target.instructor_id == linked_staff_profile.id`,
+- konkretne permission jest granted i ma scope `own`,
+- domain state również pozwala na akcję.
+
+Fail-closed:
+- brak staff linku,
+- `instructor_id = NULL`,
+- tylko zgodność `created_by_user_id`,
+- ten sam globalny User bez aktywnego staff linku,
+- cross-tenant target.
+
+## 43. CalendarEvent — general vs driving lesson
+
+### `general_event` z instruktorem
+Ownerem jest wskazany `instructor_id`. Instruktor może zarządzać eventem przez `own`, jeśli jego aktywny staff link wskazuje ten sam StaffProfile.
+
+### `general_event` bez instruktora
+Nie ma canonical owner relation. `own` = DENY.
+
+Taki event nadal może być zarządzany przez osobę z `calendar.manage.organization` + organization scope.
+
+Nie wolno uzupełnić ownera przez `created_by_user_id`.
+
+### `driving_lesson` z instruktorem
+Ownerem own-scope jest `instructor_id`.
+
+### `driving_lesson` bez instruktora
+`own` = DENY. Nie wymuszamy tu jednak jeszcze formalnej reguły, że driving lesson zawsze musi mieć instruktora — to należy do DB-CAL-007 i integracji z TrainingSession.
+
+## 44. AvailabilitySlot
+
+Analogicznie:
+- slot z `instructor_id` ma ownera StaffProfile,
+- slot bez `instructor_id` jest ownerless dla `own`,
+- osoba z `calendar.publish_student_slots` + own może publikować tylko slot dla własnego linked StaffProfile,
+- organization scope może publikować slot ownerless albo dla innego same-tenant StaffProfile, o ile pozostałe reguły domenowe na to pozwalają.
+
+`calendar.book_for_student` pozostaje permission typu student-scoped. DB-CAL-005 nie zmienia autoryzacji bookingu w slot-own i nie rozwiązuje jego lifecycle — to DB-CAL-006.
+
+## 45. Create pod `own`
+
+### CalendarEvent
+Jeżeli command korzysta z `calendar.manage.own`:
+- aktywny staff link jest wymagany,
+- proposed `instructor_id` musi być non-null,
+- musi równać się linked StaffProfile,
+- nie wolno wskazać innego instruktora,
+- nie wolno pominąć instruktora i „odziedziczyć” ownera z autora requestu.
+
+Przy `calendar.manage.organization` own match nie jest wymagany; nadal obowiązuje tenant/domain validation.
+
+### AvailabilitySlot
+Ta sama reguła dla own branch `calendar.publish_student_slots`.
+
+## 46. PATCH i transfer ownership
+
+Own-scope nie może służyć do eskalacji przez zmianę właściciela.
+
+Dla istniejącego targetu pod `own`:
+1. current `instructor_id` musi odpowiadać linked StaffProfile,
+2. po locku targetu ownership jest ponownie sprawdzany,
+3. proposed final `instructor_id` również musi pozostać tym samym StaffProfile.
+
+Zatem pod `own` zabronione jest:
+- przypisanie eventu/slotu innemu instruktorowi,
+- wyczyszczenie `instructor_id`.
+
+Reassignment jest możliwy tylko przez odpowiedni organization scope. Po takim commicie nowy `instructor_id` staje się nowym canonical ownerem dla przyszłych own checks.
+
+## 47. Cancel / complete i stan terminalny
+
+Dla CalendarEvent cancel/complete pod `own` current owner jest sprawdzany **po Event row locku**.
+
+Terminal command nie zmienia `instructor_id`.
+
+Pozostałe reguły DB-CAL-004 pozostają bez zmian:
+- expected version,
+- lifecycle state,
+- history event,
+- claim release,
+- idempotency.
+
+## 48. Unlink / archive / restore
+
+Własność jest rozwiązywana przez **aktywną** relację membership↔StaffProfile, a nie przez historycznego autora.
+
+Po `StaffMembershipLink.unlinked_at != NULL`:
+- historyczny `instructor_id` eventu/slotu pozostaje,
+- ten membership przestaje spełniać own scope,
+- organization-scope management może nadal działać.
+
+Po archive StaffProfile:
+- DB4_3 nie pozwala pozostawić active StaffMembershipLink,
+- own scope fail-closed,
+- historyczny `instructor_id` nie jest zerowany.
+
+Po restore StaffProfile:
+- stary link nie jest automatycznie otwierany,
+- own access nie wraca automatycznie,
+- potrzebny jest jawny nowy aktywny link.
+
+Jeżeli później inny membership zostanie jawnie aktywnie połączony z tym samym StaffProfile i ma odpowiednie permission/scope, może rozwiązać istniejące targety jako own. Ownership identity jest StaffProfile, nie „pierwszy User, który kiedyś utworzył event”.
+
+## 49. Authorization concurrency / TOCTOU
+
+Nie wystarcza sprawdzić StaffMembershipLink przed długą mutacją i później ignorować jego zmianę.
+
+Own mutation ma:
+1. zwalidować active membership i tenant,
+2. rozwiązać matching active StaffMembershipLink,
+3. utrzymać stabilność owner proof do commitu — preferowane `FOR SHARE` na matching link albo równoważna serializowana rewalidacja,
+4. dla istniejącego targetu lock `FOR UPDATE`,
+5. po locku ponownie sprawdzić current owner,
+6. sprawdzić expected version, jeśli command tego wymaga,
+7. dla PATCH sprawdzić post-state owner,
+8. dopiero wykonać mutation i istniejące DB-CAL-003/004 guards.
+
+Unlink/archive nie może „zniknąć” w środku requestu bez zdefiniowanej serializacji owner proof.
+
+Permission/membership revocation lifecycle pozostaje zgodny z DB4_2 `authorization_version` i nie jest tutaj redefiniowany.
+
+## 50. Query enforcement
+
+Ten sam owner adapter obowiązuje także tam, gdzie `calendar.view` ma scope `own` dla manual CalendarEvent.
+
+Filtrowanie musi odbywać się w backend query / authorization relation dla:
+- list,
+- get-by-id,
+- search,
+- count,
+- export.
+
+Vue post-filter nie jest security boundary.
+
+Pozostałe istniejące scope'y `assigned_students`, `assigned_locations`, `organization` nadal są OR-owane zgodnie z DB4_2 i **nie zmieniamy ich definicji**.
+
+DB-CAL-005 nie zmienia source-specific own adaptera dla `important_date`; nie jest on wymagany do zamknięcia blockera `calendar.manage.own`.
+
+## 51. Migration design DB-CAL-005
+
+Migracji Laravel nadal nie tworzymy.
+
+Nie potrzebujemy:
+- nowej kolumny owner,
+- backfillu ownera,
+- konwersji `created_by_user_id` -> ownership.
+
+Legacy row z `instructor_id != NULL` używa istniejącego instruktora jako canonical ownera own-scope.
+
+Legacy row z `instructor_id = NULL` pozostaje ownerless dla `own`. **Nie wolno** inferować ownera z:
+- `created_by_user_id`,
+- lifecycle actorów,
+- nazwy eventu,
+- innych heurystyk.
+
+Przy przyszłej migracji warto mieć indeksy do scope filtering:
+- `(organization_id,instructor_id)` na `calendar_events`,
+- `(organization_id,instructor_id)` na `availability_slots`.
+
+To indeksy wydajnościowe, nie nowy source-of-truth.
+
+## 52. Testy DB-CAL-005
+
+Obowiązkowo:
+- own match wymaga active membership + active StaffMembershipLink + matching `instructor_id`,
+- `instructor_id=NULL` deny nawet gdy creator=current user,
+- creator=current user nie daje own, jeśli instructor wskazuje inną osobę,
+- general event z self instructor jest own-manageable,
+- general event bez instructor wymaga non-own management scope,
+- driving lesson z self instructor jest own-manageable,
+- driving lesson z innym/null instructor jest deny pod own,
+- own create wymaga proposed self instructor,
+- own PATCH nie może transferować ani zerować instructor,
+- organization manage może reassign w granicach same-tenant/domain rules,
+- cancel/complete pod own rewalidują current owner po Event locku,
+- slot own resolver używa `availability_slots.instructor_id`,
+- own slot create/update nie może wskazać innego/NULL ownera,
+- organization branch slot management nie wymaga own match,
+- `calendar.book_for_student` nie zostaje przedefiniowane jako slot own,
+- unlink usuwa own access bez rewrite historii,
+- archive usuwa own access bez zerowania instructor,
+- restore bez nowego linku nie przywraca own,
+- jawny nowy link do tego samego StaffProfile może ponownie spełnić own,
+- brak aktywnego linku = deny nawet dla tego samego globalnego User,
+- cross-tenant deny zachodzi przed owner resolverem,
+- `calendar.view` own filtruje manual events backendowo przez instructor owner,
+- pozostałe scope semantics pozostają bez zmian,
+- legacy NULL instructor nie jest backfillowany z created_by,
+- unlink-vs-own-mutation race nie może użyć znikającego owner proof bez serializacji.
+
+## 53. Self-audit DB-CAL-005
+
+Wynik: **PASS**.
+
+Potwierdzono:
+- `own` z DB4_2 nie został przedefiniowany,
+- CalendarEvent owner = istniejący `instructor_id`,
+- AvailabilitySlot owner = istniejący `instructor_id`,
+- nie dodano drugiej kolumny owner,
+- null owner fail-closed,
+- `created_by_user_id` nie jest authorization shortcut,
+- own create nie może utworzyć ownerless/foreign-owner targetu,
+- own PATCH nie może transferować/zerować ownera,
+- organization scope może zarządzać ownerless/reassign zgodnie z istniejącymi regułami,
+- unlink/archive/restore zachowują semantykę DB4_3,
+- list/get/search/count/export są backend-scope enforced,
+- `assigned_students`, `assigned_locations`, `organization` nie zostały przedefiniowane,
+- booking lifecycle DB-CAL-006 nie został rozwiązany,
+- formal schedule owner DB-CAL-007 nie został rozwiązany,
+- agregaty są nadal zamrożone,
+- brak migracji Laravel,
+- brak DB4_6/UI implementation.
+
+## 54. Pozostałe P1 po DB-CAL-005
+
+Pozostają dokładnie **2 P1**:
+
+### DB-CAL-006 — AvailabilitySlot booking lifecycle
+Do zamknięcia pozostają slot status/field matrix, exactly-once booking, reservation effect w shared conflict boundary, book/cancel races oraz reavailability.
+
+### DB-CAL-007 — `driving_lesson` vs formal `TrainingSession`
+Do zamknięcia pozostaje jeden canonical schedule owner i jednoznaczna relacja/projekcja bez dwóch niezależnych mutable schedule facts.
+
+## 55. Bramka jakości DB-CAL-005
+
+**PASS — machine contract + security-scope self-audit.**
+
+Stan przed centralnym gate:
+- P0: `0`,
+- P1 rozwiązane w DB4_5: `5`,
+- P1 otwarte: `2`,
+- DB-CAL-001..005: `PASS`,
+- final DB4_5 aggregate sync: `PENDING`,
+- DB4_6: zablokowane,
+- Stage 5: zablokowany,
+- UI/feature implementation: zablokowane.
+
+Następny pojedynczy krok dopiero po centralnym gate: **DB-CAL-006 only**.
