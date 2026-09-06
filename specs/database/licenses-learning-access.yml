@@ -501,7 +501,7 @@ resolved_contracts:
         version_increment: false
       dedicated_public_suspend_resume_HTTP_observed: false
       DB4_6_invents_new_UI_or_HTTP_capability: false
-      history_source_until_DB4_10_finalization: audit_log_plus_outbox_domain_event
+      history_source_until_DB4_10: audit_log_plus_outbox_domain_event
       dedicated_learning_account_lifecycle_history_table_required: false
       status_change_without_audit_outbox: forbidden
     effective_operational_eligibility:
@@ -575,7 +575,7 @@ resolved_contracts:
       restore_may_recreate_or_unrevoke_assignment: false
       restore_may_recreate_activation: false
       restore_may_extend_expired_entitlement: false
-      previously_active_learning_account_becomes_operationally_eligible_again: true_subject_to_current_license_entitlement_and_global_auth_rules
+      previously_active_learning_account_becomes_operationally_eligible_again: true_subject_to_current_entitlement_and_global_auth_rules
       explicitly_suspended_learning_account_remains_suspended: true
       expired_entitlement_remains_expired: true
       revoked_unactivated_assignment_remains_revoked: true
@@ -1341,6 +1341,7 @@ resolved_contracts:
       type: integer_not_null_check_gt_0
       runtime_semantics: one_duration_day_equals_exactly_86400_seconds
       in_place_duration_change_after_first_inventory_reference: forbidden
+      duration_update_enforcement: BEFORE_UPDATE_trigger_or_equivalent_database_guard_reject_change_when_any_inventory_references_product
       new_duration_requires_new_license_product_row: true
       product_active_false_invalidates_existing_assigned_inventory: false
       non_entitlement_metadata_change_rewrites_historical_activation_effect: false
@@ -1348,6 +1349,7 @@ resolved_contracts:
       language_capability_semantics: deferred_to_DB_LIC_007
     inventory_product_binding:
       license_inventory_entries.license_product_id_immutable_after_inventory_creation: true
+      product_binding_update_enforcement: BEFORE_UPDATE_trigger_or_equivalent_database_guard_reject_change_of_license_product_id
       source_order_item_and_commercial_grant_provenance: deferred_to_DB4_9
     activation_ledger_model:
       table: license_activations
@@ -1388,8 +1390,9 @@ resolved_contracts:
       sequence_is_history_order_not_second_optimistic_concurrency_root: true
     activation_origin:
       allowed_values: [learner_self, organization_user, legacy_unknown]
+      database_check_closed_catalog: true
       runtime_allowed_values: [learner_self, organization_user]
-      legacy_unknown_runtime_insert: forbidden
+      legacy_unknown_runtime_insert: forbidden_after_migration_cutover
       learner_self:
         activated_by_user_id: required_nonnull
         activated_by_user_id_must_equal_learning_account_user_id: true
@@ -1402,6 +1405,9 @@ resolved_contracts:
         activated_by_user_id: nullable_preserve_existing_if_known
         exact_actor_kind_inferred_from_current_membership_or_user_equality: false
     duration_snapshot:
+      allowed_source_values: [product_at_activation, legacy_effect_reconstructed]
+      database_check_closed_catalog: true
+      runtime_allowed_source_values: [product_at_activation]
       runtime_source: locked_license_product.duration_days
       product_row_lock: FOR_SHARE_or_equivalent_stable_read
       runtime_duration_snapshot_source: product_at_activation
@@ -1409,8 +1415,17 @@ resolved_contracts:
       runtime_product_active_required: false
       rationale_for_inactive_product: deactivating_catalog_item_does_not_revoke_already_assigned_inventory_right
       legacy_duration_snapshot_source: legacy_effect_reconstructed
+      legacy_effect_reconstructed_runtime_insert: forbidden_after_migration_cutover
       legacy_reconstruction_allowed_only_when_existing_effective_interval_is_positive_exact_whole_86400_second_days: true
       legacy_current_product_duration_used_to_rewrite_existing_effect: false
+    migration_only_insert_guard:
+      enabled_after_legacy_backfill_before_runtime_cutover: true
+      enforcement: BEFORE_INSERT_trigger_or_equivalent_database_guard
+      reject_new_activation_origin: legacy_unknown
+      reject_new_duration_snapshot_source: legacy_effect_reconstructed
+      existing_backfilled_legacy_rows_remain_legal: true
+      existing_backfilled_legacy_rows_remain_immutable: true
+      guard_cannot_be_bypassed_by_direct_SQL_application_role: true
     entitlement_chain_final_state_guard:
       enforcement: DEFERRABLE_INITIALLY_DEFERRED_constraint_trigger_or_equivalent_transactional_DB_guard
       applies_per: [organization_id, student_learning_account_id]
@@ -1479,7 +1494,8 @@ resolved_contracts:
         - compute_effective_from
         - snapshot_product_duration_days
         - compute_effective_to
-        - validate_activation_origin_and_actor
+        - validate_runtime_activation_origin_and_actor
+        - set_duration_snapshot_source_product_at_activation
         - insert_immutable_license_activation
         - set_assignment_status_activated_and_increment_version_once
         - set_same_inventory_row_status_consumed
@@ -1552,10 +1568,12 @@ resolved_contracts:
         - add_assignment_candidate_key_org_id_learning_account
         - add_activation_exact_learning_account_composite_FK
         - add_activation_sequence_unique_and_checks
+        - add_closed_activation_origin_and_duration_snapshot_source_checks
         - add_activation_origin_and_actor_matrix_checks
         - add_runtime_duration_snapshot_product_validation_trigger
         - add_activation_immutability_guard
         - add_deferrable_entitlement_chain_final_state_guard
+        - enable_migration_only_source_insert_guard_after_backfill_before_runtime_cutover
         - wire_runtime_activation_to_DB_LIC_005_lock_prefix_plus_product_stable_read
         - add_exactly_once_stacking_migration_and_concurrency_tests
       legacy_activation_order_from_created_at_or_UUID_only: forbidden
@@ -1567,7 +1585,12 @@ resolved_contracts:
       - license_product_duration_days_must_be_positive
       - product_duration_cannot_change_in_place_after_inventory_exists
       - inventory_license_product_binding_cannot_change_after_inventory_creation
+      - activation_origin_rejects_unknown_value
+      - duration_snapshot_source_rejects_unknown_value
       - runtime_activation_duration_snapshot_equals_locked_product_duration
+      - runtime_or_direct_insert_with_legacy_unknown_origin_is_rejected_after_cutover
+      - runtime_or_direct_insert_with_legacy_effect_reconstructed_source_is_rejected_after_cutover
+      - existing_migrated_legacy_source_rows_remain_legal_and_immutable_after_cutover
       - deactivating_product_does_not_invalidate_already_assigned_inventory_activation
       - activation_belongs_to_exact_assignment_learning_account
       - activation_sequence_is_unique_per_learning_account_and_starts_at_one
@@ -1822,6 +1845,7 @@ preservation_checks:
   license_product_duration_cannot_change_in_place_after_inventory_reference: PASS
   inventory_product_binding_is_immutable: PASS
   activation_origin_distinguishes_learner_self_organization_user_and_legacy_unknown: PASS
+  migration_only_activation_source_values_are_runtime_insert_blocked: PASS
   learner_self_activation_uses_real_learning_account_user_not_fake_OSK_actor: PASS
   current_entitlement_end_is_derived_from_MAX_effective_to_not_second_mutable_authority: PASS
   entitlement_expiry_continues_during_archive_or_suspension: PASS
