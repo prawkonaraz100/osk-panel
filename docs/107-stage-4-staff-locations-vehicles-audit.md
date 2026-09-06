@@ -2,7 +2,7 @@
 
 Data: 2026-09-06
 
-**Status:** `DB4_3 IN PROGRESS / DB-RES-001..005 PASS / 1 P1 BLOCKER OPEN`
+**Status:** `DB4_3 ALL 6 BLOCKERS PASS / FINAL AGGREGATE SYNC PENDING`
 
 ## Cel
 
@@ -25,7 +25,7 @@ Zasada:
 - `docs/08-security-compliance.md`,
 - `docs/87-physical-database-schema.md`.
 
-Podczas zamykania DB4_3 `specs/database/staff-locations-vehicles.yml` jest autorytatywnym bounded-context source dla nowych decyzji tego slice'u. Aggregate `core-schema.yml` i `docs/87` zostaną zsynchronizowane przed finalnym PASS całego DB4_3 i przed generowaniem migracji.
+Podczas zamykania DB4_3 `specs/database/staff-locations-vehicles.yml` jest autorytatywnym bounded-context source dla nowych decyzji tego slice'u. Aggregate `core-schema.yml` i `docs/87` zostaną zsynchronizowane w osobnym, następnym kroku przed finalnym PASS całego DB4_3 i przed generowaniem migracji.
 
 ---
 
@@ -67,127 +67,7 @@ Cztery prywatne ścieżki attachmentu używają same-tenant composite FK do `fil
 
 # DB-RES-004 — PASS: history-safe current document validity projection
 
-## Problem
-
-Zweryfikowane ekrany pokazują po jednej bieżącej wartości ważności dla każdego rodzaju dokumentu, natomiast dotychczasowy physical blueprint dopuszczał wiele `staff_documents` / `vehicle_documents` tego samego typu bez definicji rekordu bieżącego.
-
-Nie można było jednoznacznie odpowiedzieć, czy backend ma:
-- nadpisywać rekord,
-- wybierać `MAX(created_at)`,
-- przechowywać historię i arbitralnie wybierać jedną wersję,
-- czy blokować dwa równoległe current records.
-
-To było niezgodne z wymaganiem zachowania historii oraz z jednoznaczną projekcją detail/expiry.
-
-## Decyzja canonical
-
-Wybrany został **versioned/superseded history model**.
-
-Current row:
-
-`superseded_at IS NULL`
-
-Dla jednego parenta i `document_type` może istnieć **zero albo dokładnie jeden** bieżący rekord.
-
-Staff:
-
-`UNIQUE (organization_id, staff_profile_id, document_type) WHERE superseded_at IS NULL`
-
-Vehicle:
-
-`UNIQUE (organization_id, vehicle_id, document_type) WHERE superseded_at IS NULL`
-
-Nie stosujemy zasady „najnowszy created_at wygrywa”.
-
-## Pola wersji
-
-Do `staff_documents` dochodzą semantycznie:
-- `created_by_user_id nullable`,
-- `superseded_at nullable`,
-- `superseded_by_user_id nullable`,
-- `supersession_reason nullable`.
-
-Analogicznie dla `vehicle_documents`.
-
-`valid_until` pozostaje nullable. W Staff nadal istnieje `document_number`; asset nadal podlega DB-RES-003.
-
-## Edycja dokumentu
-
-Zwykła edycja ważności/numeru/assetu **nie mutuje business fields starej wersji w miejscu**.
-
-Transakcja replacement:
-1. lock parent resource,
-2. pobierz current row danego typu `FOR UPDATE`, jeśli istnieje,
-3. zwaliduj tenant i nowy asset,
-4. oznacz stary current jako superseded,
-5. wstaw nową current version,
-6. zapisz audit/outbox,
-7. commit.
-
-Partial unique index jest finalnym zabezpieczeniem przed dwoma current rows przy concurrency.
-
-Jeżeli payload nie zmienia business state, nowa wersja nie jest wymagana.
-
-## Clear semantics
-
-Usunięcie dokumentu z bieżącej projekcji oznacza:
-- supersede current row,
-- brak replacement,
-- zero current rows,
-- historia pozostaje.
-
-Jeżeli użytkownik usuwa tylko datę ważności, ale dokument jako taki pozostaje, powstaje nowa wersja z `valid_until = NULL`.
-
-Hard-delete nie jest używany do zwykłej edycji ani czyszczenia.
-
-## Immutability historii
-
-Po supersede business fields historycznego dokumentu są immutable.
-
-Na istniejącym current row dozwolona jest jedynie kontrolowana jednorazowa zmiana pól supersession. Canonical DB design wymaga triggera albo równoważnego constraint policy, aby późniejsza poprawka nie przepisała historii.
-
-## Projection rules
-
-Detail Staff/Vehicle czyta wyłącznie `superseded_at IS NULL`.
-
-- brak current row → brak bieżącej wartości dokumentu,
-- current row z `valid_until IS NULL` → dokument bez daty ważności,
-- `expired` liczymy wyłącznie z bieżącego `valid_until`, względem lokalnej daty organizacji,
-- próg `expiring_soon` pozostaje konfiguracją/projekcją, nie częścią DB-RES-004.
-
-Dla późniejszego DB4_5 Calendar wejściem do important-date projection są wyłącznie current rows z `valid_until IS NOT NULL`. Superseded rows nie mogą emitować bieżących alertów terminowych.
-
-## Relacja z DB-RES-003
-
-Każda nowa wersja dokumentu z `asset_id` ponownie przechodzi same-tenant + purpose + ready attachment gate z DB-RES-003.
-
-Supersede dokumentu nie kasuje starego FileAsset. Historyczna referencja pozostaje zgodnie z polityką retencji i security delivery assetu.
-
-## Migration precheck
-
-Przed utworzeniem partial unique indexes należy pogrupować istniejące dokumenty per parent/type i wykryć grupy z więcej niż jednym kandydatem na current.
-
-**Nie wolno automatycznie wybrać `MAX(created_at)` ani `MAX(id)`.** Ambiguous history wymaga jawnego one-time mapping/remediation opartego na źródłowych danych albo audytowalnej decyzji migracyjnej.
-
-## Quality gate DB-RES-004
-
-Sprawdzono:
-- current predicate jest jednoznaczny — **PASS**,
-- zero-or-one current row per parent/type jest chronione partial unique — **PASS**,
-- normalna edycja zachowuje poprzednią wersję — **PASS**,
-- concurrency nie może pozostawić dwóch current rows — **PASS DESIGN**,
-- clear nie hard-delete'uje historii — **PASS**,
-- historyczne business fields są immutable — **PASS DESIGN**,
-- detail/expiry czytają wyłącznie current row — **PASS**,
-- superseded row nie emituje current important-date input — **PASS**,
-- DB-RES-003 pozostaje obowiązujący dla każdego nowego attachmentu — **PASS**,
-- migration precheck nie stosuje arbitralnego `latest wins` — **PASS**,
-- DB-RES-005 i DB-RES-006 nie zostały rozwiązane w tym kroku — **PASS**,
-- nie rozpoczęto DB4_4 ani migracji Laravel — **PASS**.
-
-Nie znaleziono nowego P0/P1 wynikającego z decyzji DB-RES-004.
-
-Machine source: `specs/database/staff-locations-vehicles.yml`.
+Wybrany został versioned/superseded history model. Current row to `superseded_at IS NULL`, a partial unique index gwarantuje zero albo jeden current row na parent + document type. Edycja tworzy nową wersję zamiast przepisywać historię, clear zachowuje stare rekordy, a projekcje detail/expiry/important-date czytają tylko current row. Nie stosujemy heurystyki `MAX(created_at)`.
 
 **Gate DB-RES-004: PASS.**
 
@@ -195,163 +75,175 @@ Machine source: `specs/database/staff-locations-vehicles.yml`.
 
 # DB-RES-005 — PASS: Staff/Vehicle identity uniqueness lifecycle
 
-## Problem
-
-Physical blueprint nie rozstrzygał, czy identyfikatory zasobów mają pozostawać unikalne po archiwizacji, czy archive ma zwalniać ich wartość. To groziło dwoma przeciwnymi błędami:
-- powstaniem drugiego trwałego profilu tej samej osoby/pojazdu,
-- albo zablokowaniem legalnego późniejszego użycia numeru rejestracyjnego.
-
-Osobno trzeba było rozstrzygnąć PESEL pracownika, VIN pojazdu i numer rejestracyjny.
-
-## Staff PESEL
-
-PESEL pozostaje opcjonalny, szyfrowany w `pesel_ciphertext`, a equality/uniqueness używa `pesel_lookup_hash` zgodnego z keyed-HMAC policy.
-
-Canonical constraint:
-
-`UNIQUE (organization_id, pesel_lookup_hash) WHERE pesel_lookup_hash IS NOT NULL`
-
-Constraint obejmuje **także zarchiwizowane StaffProfile**.
-
-Skutki:
-- archive pracownika nie zwalnia PESEL,
-- próba utworzenia drugiego StaffProfile z tym samym PESEL w tym samym OSK jest konfliktem również wtedy, gdy pierwszy profil jest archived,
-- właściwą ścieżką jest restore istniejącego profilu albo jawna korekta danych,
-- ten sam PESEL może istnieć w innym OSK, bo StaffProfile jest tenant-owned,
-- korekta PESEL na wartość zajętą przez inny profil w tym samym OSK jest odrzucana,
-- jawna, audytowana korekta błędnego PESEL na tym samym profilu może zwolnić poprzednią błędną wartość; nie tworzymy osobnego dożywotniego rejestru wszystkich historycznych pomyłek PESEL.
-
-## Vehicle VIN
-
-VIN jest nullable, ale gdy istnieje, identyfikuje fizyczny pojazd na tyle silnie, że archive nie może zwolnić go dla drugiego Vehicle row.
-
-Canonical constraint:
-
-`UNIQUE (organization_id, vin_normalized) WHERE vin_normalized IS NOT NULL`
-
-Constraint obejmuje także archived vehicles.
-
-Skutki:
-- ten sam VIN w drugim trwałym Vehicle row tego samego OSK jest zabroniony,
-- jeżeli pojazd został zarchiwizowany, należy przywrócić jego rekord zamiast tworzyć drugi z tym samym VIN,
-- ten sam VIN może wystąpić w innym OSK,
-- jawna korekta błędnego VIN jest dozwolona i audytowana, ale nie może wejść na VIN zajęty przez inny Vehicle tego OSK.
-
-## Vehicle registration number
-
-Numer rejestracyjny ma inną semantykę niż VIN: jest bieżącym identyfikatorem operacyjnym i może być legalnie użyty później dla innego aktywnego pojazdu po wyjściu poprzedniego pojazdu z floty.
-
-Dlatego canonical constraint jest **current-only**:
-
-`UNIQUE (organization_id, registration_number_normalized) WHERE archived_at IS NULL`
-
-Skutki:
-- dwa niearchiwalne/aktywne Vehicle rows w tym samym OSK nie mogą mieć tego samego numeru,
-- archive zwalnia numer dla przyszłego aktywnego pojazdu,
-- archived row nadal zachowuje historyczny numer,
-- wiele historycznych archived rows może mieć ten sam numer,
-- restore starego Vehicle wymaga, aby numer był w tej chwili wolny wśród niearchiwalnych pojazdów,
-- jeżeli numer został przejęty przez inny aktywny pojazd, restore zwraca conflict; system nie robi auto-swap, auto-archive ani silent renumber,
-- po rozwiązaniu konfliktu przez zmianę numeru albo archive aktualnego posiadacza restore może się udać.
-
-## Tenant scope i normalizacja
-
-Wszystkie trzy reguły są per `organization_id`, nie globalne dla całej platformy.
-
-Uniqueness działa na kanonicznych przechowywanych wartościach:
-- PESEL → `pesel_lookup_hash`,
-- VIN → `vin_normalized`,
-- rejestracja → `registration_number_normalized`.
-
-Dokładne regexy/format-validation nie są częścią DB-RES-005. Jeżeli przyszła zmiana normalizacji mogłaby zlać dwie istniejące wartości, wymaga osobnego migration precheck przed wdrożeniem.
-
-## Archive / restore
-
-- Staff archive zachowuje PESEL hash i nadal uczestniczy w uniqueness,
-- Vehicle archive zachowuje i rezerwuje VIN,
-- Vehicle archive zwalnia wyłącznie registration number dla current fleet,
-- hard-delete nie jest normalną metodą „zwolnienia” PESEL/VIN/rejestracji,
-- wpływ Staff archive na panel access pozostaje wyłącznie zakresem DB-RES-006.
-
-## Migration precheck
-
-Przed utworzeniem constraintów należy wykryć:
-- duplikaty nie-null `pesel_lookup_hash` w jednym OSK, także w archived StaffProfile,
-- duplikaty nie-null `vin_normalized` w jednym OSK, także w archived Vehicle,
-- duplikaty `registration_number_normalized` wśród `archived_at IS NULL`,
-- kolizje, które ujawnią się po canonical normalization.
-
-Dozwolone są:
-- te same wartości w różnych OSK,
-- historyczny reuse numeru rejestracyjnego w archived rows, jeśli najwyżej jeden bieżący row go posiada.
-
-Migracja **nie może** po cichu usuwać, scalać, archiwizować, zmieniać PESEL/VIN ani przenumerowywać pojazdu tylko po to, aby constraint przeszedł. Konflikt wymaga jawnej, audytowalnej remediacji.
-
-## Concurrency
-
-DB unique index jest finalną race boundary. Create/edit/restore może wykonać precheck dla UX, ale nie może zakładać, że precheck wystarcza.
-
-Szczególnie race:
-
-`restore archived vehicle ↔ create/rename another vehicle to same registration`
-
-musi dać jednego zwycięzcę i domain conflict po drugiej stronie.
-
-## Quality gate DB-RES-005
-
-Sprawdzono:
-- PESEL jest unikalny per OSK także przez archive/restore — **PASS**,
-- PESEL nie jest platform-global unique — **PASS**,
-- VIN jest unikalny per OSK także przez archive/restore — **PASS**,
-- VIN nie jest zwalniany przez archive — **PASS**,
-- registration number jest unikalny tylko w current/nonarchived fleet — **PASS**,
-- historyczny registration reuse po archive jest dozwolony bez utraty historii — **PASS**,
-- restore ma jednoznaczny conflict, gdy registration jest zajęty — **PASS**,
-- jawna identity correction nie omija uniqueness i jest audytowana — **PASS DESIGN**,
-- migracja nie robi silent identity repair — **PASS**,
-- concurrency opiera finalne rozstrzygnięcie o DB constraint — **PASS DESIGN**,
-- DB-RES-006 nie został rozwiązany w tym kroku — **PASS**,
-- DB4_4 i migracje Laravel nie zostały rozpoczęte — **PASS**.
-
-Nie znaleziono nowego P0/P1 wynikającego z decyzji DB-RES-005.
-
-Machine source: `specs/database/staff-locations-vehicles.yml`.
+PESEL pracownika i VIN pojazdu są unikalne per OSK także przez archive/restore, gdy wartość istnieje. Numer rejestracyjny jest unikalny per OSK tylko wśród niearchiwalnych pojazdów, dzięki czemu historyczny numer może zostać legalnie użyty ponownie po archive, bez przepisywania historii. Restore starego pojazdu przy zajętym numerze daje conflict. Constrainty są finalną race boundary.
 
 **Gate DB-RES-005: PASS.**
 
 ---
 
-# DB-RES-006 — OPEN P1 SECURITY: archiwizacja StaffProfile vs panel access
+# DB-RES-006 — PASS: Staff archive vs panel-access membership lifecycle
 
-Jeżeli StaffProfile zostanie zarchiwizowany bez zmiany aktywnego StaffMembershipLink/OrganizationMembership, były pracownik może zachować panel access. Bezwarunkowy revoke membership może natomiast zepsuć restore i last-owner guard.
+## Problem
 
-Potrzebna jawna atomowa policy respektująca DB-IAM-004/005. **To jest następny i jedyny blocker do naprawy.**
+StaffProfile i panel account są oddzielnymi konceptami. Samo `archived_at` na StaffProfile nie usuwało jednak StaffMembershipLink ani nie określało, co zrobić z OrganizationMembership.
+
+Dwa skrajne zachowania były błędne:
+- pozostawienie aktywnego linku i aktywnego membership mogło utrzymać staff-derived dostęp po archive,
+- bezwarunkowy revoke membership niszczyłby bezpieczny restore, permission snapshot i mógłby wejść w konflikt z Owner/last-owner governance.
+
+## Decyzja canonical — rozdzielenie Staff od membership
+
+- `StaffProfile` reprezentuje zasób kadrowy,
+- `OrganizationMembership` reprezentuje principal autoryzacyjny OSK,
+- `StaffMembershipLink` wiąże te dwa konteksty.
+
+Archive Staff **zawsze kończy aktywny StaffMembershipLink**. Nie otwieramy historycznego linku ponownie przy restore; ewentualny późniejszy panel access tworzy nowy link row.
+
+Committed invariant:
+
+`archived StaffProfile -> zero StaffMembershipLink z unlinked_at IS NULL`
+
+oraz odwrotnie:
+
+`aktywny StaffMembershipLink -> StaffProfile.archived_at IS NULL`.
+
+DB design wymaga guardu/constraint triggera dla tworzenia linku do niearchiwalnego Staff oraz końcowego guardu, że archive nie może zacommitować z aktywnym linkiem. Archive i link creation serializują się na StaffProfile, więc race nie może zostawić stanu sprzecznego.
+
+## Archive bez panel account
+
+Jeżeli StaffProfile nie ma aktywnego StaffMembershipLink:
+- ustawiamy `archived_at` i aktora,
+- nie zmieniamy żadnego OrganizationMembership,
+- audit/outbox powstają w tej samej transakcji.
+
+## Archive zwykłego pracownika z panelem
+
+Jeżeli aktywny link wskazuje membership z `is_owner=false`:
+1. lock StaffProfile,
+2. lock aktywnego linku,
+3. lock membership,
+4. oznacz StaffProfile jako archived,
+5. zakończ StaffMembershipLink przez `unlinked_at` + actor,
+6. jeżeli membership jest `active`, przejdź do `suspended` zgodnie z DB-IAM-005,
+7. wyczyść bound session tenant contexts w tej samej transakcji,
+8. zwiększ `version` i `authorization_version` zgodnie z DB-IAM-005,
+9. audit/outbox,
+10. commit.
+
+Jeżeli membership już był `suspended`, pozostaje suspended. Jeżeli był `revoked`, pozostaje revoked i niczego nie odtwarzamy.
+
+To oznacza, że archive pracownika usuwa staff-derived path i wyłącza zwykłe konto pracownika bez destrukcyjnego revoke permission history.
+
+## Archive StaffProfile powiązanego z Ownerem
+
+Owner jest wyjątkiem świadomym i bezpiecznym.
+
+Standardowy Staff archive:
+- kończy StaffMembershipLink,
+- **nie zmienia `is_owner`**,
+- **nie suspenduje ani nie revoke'uje Owner membership jako ukrytego efektu**.
+
+Powód: Owner governance jest osobnym high-risk lifecycle i może legalnie istnieć bez StaffProfile. Po unlink owner zachowuje wyłącznie prawa wynikające bezpośrednio z OrganizationMembership; nie ma już staff-derived `own`, `assigned_locations` ani `assigned_students` przez zarchiwizowany profil.
+
+Jeżeli administrator chce równocześnie odebrać Ownerowi dostęp do panelu, nie robi tego przez „Archiwizuj pracownika”. Musi użyć jawnego Owner transfer/demotion/membership flow z DB-IAM-004/005. Dzięki temu last-owner guard nie jest obchodzony przez akcję kadrową.
+
+W szczególności archive StaffProfile jedynego Ownera jest dozwolone jako archive profilu kadrowego, bo Owner membership pozostaje aktywne. Nie powstaje stan `0 active owners`.
+
+## Skutek dla resolverów RBAC
+
+Po archive nie istnieje aktywny StaffMembershipLink, więc:
+- `own` przez StaffProfile → empty/deny,
+- `assigned_locations` → empty/deny,
+- `assigned_students` → empty/deny.
+
+Jeżeli linked membership był Ownerem i pozostał aktywny, jego jawne membership permissions/scopes nadal są oceniane normalnie. To nie jest dostęp wynikający z archived StaffProfile.
+
+## Restore StaffProfile
+
+Domyślny restore przywraca **tylko rekord kadrowy**:
+- czyści `archived_at`,
+- nie reaktywuje membership,
+- nie tworzy StaffMembershipLink,
+- nie wiąże starych sesji.
+
+Przywrócenie panel access wymaga osobnej, jawnej decyzji.
+
+Jeżeli operator jawnie przywraca panel access:
+- Staff musi być już niearchiwalny,
+- membership musi należeć do tego samego OSK,
+- nie może istnieć conflicting active link po stronie Staff ani membership,
+- powstaje **nowy** StaffMembershipLink row.
+
+Status membership:
+- `active` → tworzymy nowy link,
+- `suspended` → jawne `suspended -> active` według DB-IAM-005 + nowy link; stare sesje nie rebindują się automatycznie,
+- `revoked` → brak automatycznej reaktywacji; wymagane świeże permission/template provisioning zgodnie z DB-IAM-005,
+- Owner active po archive → jawny restore panel link tworzy nowy link, bez zmiany Owner governance.
+
+## Atomicity i historia
+
+Archive jest jedną transakcją. Jeżeli którekolwiek przejście Staff/link/membership/session nie powiedzie się, wszystko się wycofuje. Nie może istnieć częściowy stan „Staff archived, ale stary link nadal aktywny”.
+
+Historyczne StaffMembershipLink rows nie są hard-delete. Membership również nie jest hard-delete.
+
+## Migration precheck
+
+Przed guardami należy wykryć:
+- archived StaffProfile z aktywnym StaffMembershipLink,
+- aktywny StaffMembershipLink wskazujący archived StaffProfile,
+- aktywne non-owner membership pozostawione jako staff-panel account dla archived Staff.
+
+Cross-tenant mismatch pozostaje zakresem już zamkniętego DB-RES-001.
+
+Migracja nie może po cichu:
+- reaktywować Staff,
+- przenosić Ownera,
+- revoke'ować membership,
+- usuwać historycznych linków.
+
+Wymagana jest jawna i audytowalna remediation.
+
+## Quality gate DB-RES-006
+
+Sprawdzono:
+- archived Staff nie może mieć aktywnego StaffMembershipLink — **PASS DESIGN**,
+- nowy active link do archived Staff jest blokowany w DB boundary — **PASS DESIGN**,
+- zwykły non-owner panel account jest suspended przy archive — **PASS**,
+- session tenant contexts są czyszczone przez istniejący DB-IAM-005 lifecycle — **PASS**,
+- revoked membership nie jest przypadkiem odtwarzany — **PASS**,
+- Owner nie jest po cichu demoted/suspended/revoked przez akcję Staff archive — **PASS**,
+- last-owner guard nie może zostać ominięty Staff archive — **PASS**,
+- staff-derived resolvers po archive dają empty/deny — **PASS**,
+- restore Staff nie przywraca automatycznie panel access — **PASS**,
+- panel restore tworzy nowy historyczny link zamiast otwierać stary — **PASS**,
+- suspended/revoked restore respektuje DB-IAM-005 — **PASS**,
+- archive/link creation race jest serializowany — **PASS DESIGN**,
+- transaction failure nie może zostawić częściowego stanu — **PASS DESIGN**,
+- DB4_4 ani migracje Laravel nie zostały rozpoczęte — **PASS**.
+
+Nie znaleziono nowego P0/P1 wynikającego z decyzji DB-RES-006.
+
+Machine source: `specs/database/staff-locations-vehicles.yml`.
+
+**Gate DB-RES-006: PASS.**
 
 ---
 
-# Nie są blockerami DB4_3 na tym etapie
-
-- próg `expiring_soon`,
-- future Calendar behavior po archive — DB4_5,
-- active Course behavior po archive — DB4_4,
-- szczegółowe walidatory numeru rejestracyjnego/VIN/telefonu,
-- provider katalogu miejscowości,
-- tenant FK do globalnego słownika driving category,
-- nieobserwowalne backend semantics konkurencyjnego delete.
-
----
-
-# Wynik po DB4_3_STEP_6
+# Stan DB4_3 po DB4_3_STEP_7
 
 - `DB-RES-001` — **PASS**,
 - `DB-RES-002` — **PASS**,
 - `DB-RES-003` — **PASS**,
 - `DB-RES-004` — **PASS**,
 - `DB-RES-005` — **PASS**,
-- `DB-RES-006` — **OPEN P1**.
+- `DB-RES-006` — **PASS**.
 
-DB4_3 jako całość nadal ma **FAIL / IN_PROGRESS** z 1 blockerem P1. DB4_4 pozostaje zablokowany.
+W zdiagnozowanym bounded-context DB4_3 pozostało **0 otwartych P0/P1**.
 
-Aggregate `core-schema.yml` i `docs/87` zostaną zsynchronizowane dopiero przed finalnym DB4_3 PASS, po zamknięciu ostatniego blockera bounded-contextu.
+To **nie oznacza jeszcze finalnego PASS całego DB4_3**, ponieważ zgodnie z planem pozostała osobna bramka synchronizacji:
 
-**Następny pojedynczy krok: tylko `DB-RES-006` — Staff archive vs panel-access membership lifecycle.**
+`specs/database/staff-locations-vehicles.yml -> specs/database/core-schema.yml + docs/87-physical-database-schema.md`
+
+Dopiero po tej synchronizacji i jej własnym gate można oznaczyć DB4_3 jako PASS i otworzyć DB4_4.
+
+**Następny pojedynczy krok: tylko finalna synchronizacja aggregate DB4_3 + gate.**
