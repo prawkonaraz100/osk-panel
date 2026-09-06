@@ -51,12 +51,12 @@ stage_4_slices:
     final_aggregate_sync: PASS
     result: PASS
   - id: DB4_3_STAFF_LOCATIONS_VEHICLES
-    status: ALL_BLOCKERS_RESOLVED_PENDING_FINAL_AGGREGATE_SYNC
+    status: PASS
     diagnosis: COMPLETE
     blockers_resolved: 6
     open_P0_P1: 0
-    final_aggregate_sync: PENDING
-    result: FAIL_PENDING_FINAL_AGGREGATE_SYNC
+    final_aggregate_sync: PASS
+    result: PASS
   - id: DB4_4_STUDENTS_COURSES_TRAINING_LEDGER
     status: NOT_STARTED
   - id: DB4_5_CALENDAR
@@ -85,7 +85,7 @@ quality_checks:
   DB4_3_diagnosis:
     status: PASS_DIAGNOSIS_COMPLETE
     source: docs/107-stage-4-staff-locations-vehicles-audit.md
-    later_domain_slices_entered: false
+    later_domain_slices_entered_during_DB4_3: false
     Laravel_migrations_created: false
 
   staff_membership_link_same_organization_integrity:
@@ -93,24 +93,29 @@ quality_checks:
     resolved_blocker_id: DB-RES-001
     severity: P1
     machine_source: specs/database/staff-locations-vehicles.yml
+    aggregate_machine_source: specs/database/core-schema.yml
+    aggregate_narrative_source: docs/87-physical-database-schema.md
 
   staff_vehicle_location_assignment_tenant_integrity:
     status: PASS
     resolved_blocker_id: DB-RES-002
     severity: P1
     machine_source: specs/database/staff-locations-vehicles.yml
+    aggregate_machine_source: specs/database/core-schema.yml
+    aggregate_narrative_source: docs/87-physical-database-schema.md
 
   staff_vehicle_file_asset_attachment_integrity:
     status: PASS
     resolved_blocker_id: DB-RES-003
     severity: P1
     machine_source: specs/database/staff-locations-vehicles.yml
+    aggregate_machine_source: specs/database/core-schema.yml
+    aggregate_narrative_source: docs/87-physical-database-schema.md
 
   staff_vehicle_document_current_projection:
     status: PASS
     resolved_blocker_id: DB-RES-004
     severity: P1
-    machine_source: specs/database/staff-locations-vehicles.yml
     decision:
       history_model: versioned_rows_with_superseded_at
       current_predicate: superseded_at_is_null
@@ -131,7 +136,6 @@ quality_checks:
     status: PASS
     resolved_blocker_id: DB-RES-005
     severity: P1
-    machine_source: specs/database/staff-locations-vehicles.yml
     decision:
       uniqueness_scope: per_organization
       staff_PESEL:
@@ -161,8 +165,6 @@ quality_checks:
     status: PASS
     resolved_blocker_id: DB-RES-006
     severity: P1
-    machine_source: specs/database/staff-locations-vehicles.yml
-    narrative_source: docs/107-stage-4-staff-locations-vehicles-audit.md
     decision:
       archived_staff_may_have_active_staff_membership_link: false
       active_link_requires_nonarchived_staff: true
@@ -172,53 +174,43 @@ quality_checks:
       linked_nonowner_active_membership_on_archive: suspend_using_DB_IAM_005
       linked_nonowner_suspended_membership_on_archive: keep_suspended
       linked_nonowner_revoked_membership_on_archive: keep_revoked
-      nonowner_archive_clears_bound_session_tenant_contexts_when_suspended: true
       linked_owner_membership_on_standard_staff_archive:
         end_staff_membership_link: true
         change_is_owner: false
         change_membership_status: false
-        reason: owner_governance_is_separate_high_risk_lifecycle
       owner_panel_access_removal_as_hidden_staff_archive_side_effect: forbidden
       owner_access_removal_requires_explicit_DB_IAM_004_005_governance_flow: true
       sole_owner_staff_profile_may_be_archived_while_owner_membership_stays_active: true
-      staff_derived_own_assigned_location_assigned_student_scope_after_archive: deny_empty_set
+      staff_derived_scope_after_archive: deny_empty_set
       restore_staff_profile_auto_restores_panel_access: false
       restore_staff_profile_auto_rebinds_old_sessions: false
       explicit_panel_access_restore_creates_new_link_row: true
       old_unlinked_link_row_reopened: false
-      suspended_membership_restore_uses_DB_IAM_005: true
       revoked_membership_auto_reactivated_by_staff_restore: false
       archive_is_atomic_across_staff_link_membership_session_audit_outbox: true
-    migration_precheck:
-      - detect_archived_staff_with_active_staff_membership_link
-      - detect_active_link_pointing_to_archived_staff
-      - detect_active_nonowner_staff_panel_membership_left_for_archived_staff
-      - never_silently_reactivate_staff_transfer_owner_revoke_membership_or_delete_link_history
-    tests:
-      - archive_without_panel_link_has_no_membership_side_effect
-      - archive_active_nonowner_unlinks_and_suspends_atomically
-      - archive_nonowner_clears_bound_session_tenant_contexts
-      - archive_suspended_or_revoked_nonowner_does_not_restore_authorization
-      - archive_owner_ends_staff_link_but_keeps_owner_governance_unchanged
-      - sole_owner_archive_does_not_create_zero_active_owner_state
-      - owner_access_removal_requires_explicit_governance_flow
-      - archived_staff_cannot_receive_active_staff_link
-      - archive_vs_link_creation_race_cannot_commit_invalid_state
-      - archived_staff_staff_derived_resolvers_deny
-      - restore_staff_does_not_auto_restore_panel_access
-      - explicit_restore_creates_new_link_and_preserves_old_link_history
-      - revoked_membership_is_not_implicitly_reactivated
-      - archive_failure_rolls_back_all_cross_aggregate_effects
 
   DB4_3_final_aggregate_sync:
-    status: PENDING
-    required_sources:
-      - specs/database/staff-locations-vehicles.yml
-      - specs/database/core-schema.yml
-      - docs/87-physical-database-schema.md
-    requirement: >-
-      All six bounded-context decisions must be represented without semantic loss
-      or contradiction in core-schema.yml and docs/87 before DB4_3 can become PASS.
+    status: PASS
+    bounded_context_source: specs/database/staff-locations-vehicles.yml
+    aggregate_machine_source: specs/database/core-schema.yml
+    aggregate_narrative_source: docs/87-physical-database-schema.md
+    audit_source: docs/107-stage-4-staff-locations-vehicles-audit.md
+    checks:
+      DB_RES_001_represented_without_semantic_loss: PASS
+      DB_RES_002_represented_without_semantic_loss: PASS
+      DB_RES_003_represented_without_semantic_loss: PASS
+      DB_RES_004_represented_without_semantic_loss: PASS
+      DB_RES_005_represented_without_semantic_loss: PASS
+      DB_RES_006_represented_without_semantic_loss: PASS
+      stale_simple_staff_location_unique_removed_from_aggregate: PASS
+      stale_simple_vehicle_location_unique_removed_from_aggregate: PASS
+      stale_optional_staff_PESEL_uniqueness_removed_from_narrative: PASS
+      stale_full_history_vehicle_registration_unique_removed_from_narrative: PASS
+      staff_membership_backend_only_tenant_check_replaced_with_composite_DB_boundary: PASS
+      aggregate_migration_test_obligations_cover_DB4_3: PASS
+      no_new_P0_P1_discovered_during_sync: PASS
+      no_DB4_4_work_started: PASS
+      no_Laravel_migrations_created: PASS
 
   DB4_3_nonblockers_deferred_to_dependent_slices:
     - future_calendar_event_behavior_after_resource_archive_to_DB4_5
@@ -257,27 +249,22 @@ gate_definition:
     - migration_order_dependency_safe
     - database_invariant_test_matrix_exists
     - reverse_engineering_preservation_traceable
-  current_result: FAIL_PENDING_DB4_3_FINAL_AGGREGATE_SYNC
+  current_result: FAIL_STAGE_4_INCOMPLETE_AFTER_DB4_3_PASS
+  DB4_1_result: PASS
   DB4_2_result: PASS
-  DB4_3_blockers_result: PASS
-  DB4_3_result: PENDING_FINAL_AGGREGATE_SYNC
-  may_start_DB4_3_final_sync: true
-  may_start_DB4_4: false
+  DB4_3_result: PASS
+  may_start_DB4_4: true
   may_start_stage_5: false
   may_start_UI_or_feature_implementation: false
 
 next_single_step:
-  id: DB4_3_STEP_8
-  action: synchronize_all_DB4_3_bounded_context_decisions_into_core_schema_and_docs87_then_run_final_DB4_3_gate
-  allowed_scope:
-    - specs/database/staff-locations-vehicles.yml
-    - specs/database/core-schema.yml
-    - docs/87-physical-database-schema.md
-    - docs/107-stage-4-staff-locations-vehicles-audit.md
-    - specs/gates/stage-4-database-contract-gate.yml
+  id: DB4_4_STEP_1
+  action: diagnose_students_courses_training_ledger_physical_invariants_only
+  stage: DB4_4_STUDENTS_COURSES_TRAINING_LEDGER
+  start_condition: DB4_3_result_is_PASS
   scope_lock: >-
-    Do not enter DB4_4 and do not create Laravel migrations. This step is only the
-    final DB4_3 aggregate synchronization and verification. No new DB4_3 business
-    semantics may be invented during synchronization; any discovered contradiction
-    becomes a new explicit blocker and keeps DB4_3 closed.
-  after_action: record_final_DB4_3_PASS_or_new_explicit_blocker_then_stop_before_DB4_4
+    Start DB4_4 with diagnosis only. Do not fix any DB4_4 blocker in the same
+    diagnosis step, do not enter Calendar or later slices, and do not create
+    Laravel migrations or feature/UI implementation. Record all discovered P0/P1
+    blockers first, then run the DB4_4 diagnosis gate before any repair.
+  after_action: record_DB4_4_diagnosis_result_and_next_single_blocker_or_PASS_then_stop
