@@ -30,6 +30,7 @@ sources:
     - specs/database/organization-settings.yml
     - specs/database/identity-rbac.yml
     - specs/database/staff-locations-vehicles.yml
+    - specs/database/students-courses-training.yml
   security:
     - specs/security/permissions.yml
     - docs/04-roles-permissions.md
@@ -60,9 +61,9 @@ stage_4_slices:
   - id: DB4_4_STUDENTS_COURSES_TRAINING_LEDGER
     status: IN_PROGRESS_WITH_BLOCKERS
     diagnosis: COMPLETE
-    blockers_resolved: 0
-    open_P0_P1: 8
-    result: FAIL_WITH_8_P1_BLOCKERS
+    blockers_resolved: 1
+    open_P0_P1: 7
+    result: FAIL_WITH_7_P1_BLOCKERS
   - id: DB4_5_CALENDAR
     status: NOT_STARTED
   - id: DB4_6_LICENSES_LEARNING_ACCESS
@@ -235,14 +236,40 @@ quality_checks:
       formal_history_hard_delete_not_introduced: PASS
 
   student_course_training_same_tenant_integrity:
-    status: FAIL
-    blocker_id: DB-TRN-001
+    status: PASS
+    resolved_blocker_id: DB-TRN-001
     severity: P1
-    unresolved: >-
-      Student, CourseEnrollment, TrainingSession, attendance, requirement, external
-      training and ledger relations do not yet have complete physical same-tenant
-      integrity across every tenant-owned relation ID.
-    impact: cross_tenant_formal_training_or_hour_records_can_be_created_if_application_validation_is_bypassed
+    machine_source: specs/database/students-courses-training.yml
+    audit_source: docs/108-stage-4-students-courses-training-ledger-audit.md
+    decision:
+      candidate_keys_required:
+        - students[organization_id,id]
+        - course_enrollments[organization_id,id]
+        - training_sessions[organization_id,id]
+        - staff_profiles[organization_id,id]
+        - locations[organization_id,id]
+        - vehicles[organization_id,id]
+      attendance_adds_nonnull_organization_id: true
+      composite_same_tenant_FKs_cover_all_relations_from_DB_TRN_001_diagnosis: true
+      optional_relations_use_MATCH_SIMPLE: true
+      formal_relation_on_update: RESTRICT
+      formal_relation_on_delete: RESTRICT
+      organization_id_client_authority: false
+      moving_formal_row_between_tenants_by_plain_organization_id_update: forbidden
+      attendance_cross_tenant_backfill_auto_repair: forbidden
+      database_composite_FK_is_final_boundary: true
+    checks:
+      all_diagnosed_DB_TRN_001_relations_have_same_tenant_boundary: PASS
+      attendance_missing_tenant_key_closed: PASS
+      existing_DB4_3_staff_location_vehicle_candidate_keys_reused: PASS
+      global_user_and_dictionary_not_fake_tenant_scoped: PASS
+      DB_TRN_006_same_course_and_exactly_once_semantics_not_solved_early: PASS
+      DB_TRN_002_through_DB_TRN_008_other_than_relation_boundary_not_fixed: PASS
+      aggregate_core_schema_modified_in_step: false
+      aggregate_docs87_modified_in_step: false
+      later_domain_slices_entered: false
+      Laravel_migrations_created: false
+      UI_or_feature_implementation_started: false
 
   student_formal_identity_and_duplicate_lifecycle:
     status: FAIL
@@ -343,10 +370,9 @@ resolved_blockers:
   - DB-RES-004
   - DB-RES-005
   - DB-RES-006
+  - DB-TRN-001
 
 open_blockers_current_diagnosed_scope:
-  - id: DB-TRN-001
-    severity: P1
   - id: DB-TRN-002
     severity: P1
   - id: DB-TRN-003
@@ -370,11 +396,12 @@ gate_definition:
     - migration_order_dependency_safe
     - database_invariant_test_matrix_exists
     - reverse_engineering_preservation_traceable
-  current_result: FAIL_DB4_4_WITH_8_OPEN_P1_BLOCKERS
+  current_result: FAIL_DB4_4_WITH_7_OPEN_P1_BLOCKERS
   DB4_1_result: PASS
   DB4_2_result: PASS
   DB4_3_result: PASS
   DB4_4_diagnosis_result: PASS_DIAGNOSIS_COMPLETE
+  DB4_4_DB_TRN_001_result: PASS
   DB4_4_result: FAIL
   may_start_DB4_4_fixes: true
   may_start_DB4_5: false
@@ -382,16 +409,16 @@ gate_definition:
   may_start_UI_or_feature_implementation: false
 
 next_single_step:
-  id: DB4_4_STEP_2
-  blocker: DB-TRN-001
-  action: resolve_students_courses_training_same_tenant_relation_integrity_only
+  id: DB4_4_STEP_3
+  blocker: DB-TRN-002
+  action: resolve_student_formal_identity_branch_and_duplicate_lifecycle_only
   allowed_scope:
     - specs/database/students-courses-training.yml
     - docs/108-stage-4-students-courses-training-ledger-audit.md
     - specs/gates/stage-4-database-contract-gate.yml
   scope_lock: >-
-    Resolve only DB-TRN-001. Do not fix DB-TRN-002 through DB-TRN-008 in the same
+    Resolve only DB-TRN-002. Do not fix DB-TRN-003 through DB-TRN-008 in the same
     step. Do not enter DB4_5 or later slices, do not create Laravel migrations and
     do not start UI/feature implementation. Keep aggregate core-schema.yml and
     docs/87 synchronization deferred until the final DB4_4 aggregate sync gate.
-  after_action: rerun_DB4_4_gate_and_record_DB_TRN_001_PASS_or_new_blocker_then_stop_before_DB_TRN_002
+  after_action: rerun_DB4_4_gate_and_record_DB_TRN_002_PASS_or_new_blocker_then_stop_before_DB_TRN_003
