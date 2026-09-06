@@ -2,7 +2,7 @@
 
 Data: 2026-09-06
 
-**Status:** `DB4_4 IN PROGRESS / DB-TRN-001 PASS / DB-TRN-002 PASS / 6 P1 BLOCKERS OPEN`
+**Status:** `DB4_4 IN PROGRESS / DB-TRN-001 PASS / DB-TRN-002 PASS / DB-TRN-003 PASS / 5 P1 BLOCKERS OPEN`
 
 ## Cel i zasada pracy
 
@@ -277,17 +277,17 @@ PESEL -> inny PESEL:
 - partial unique jest końcową granicą duplicate race,
 - identity change audytowany.
 
-Optimistic concurrency samej edycji Student pozostaje świadomie DB-TRN-003. W tym kroku nie projektujemy `version` ani edit/archive serialization.
+Optimistic concurrency edycji Student jest teraz zamknięte w DB-TRN-003.
 
 ## Archive / restore w zakresie identity
 
-DB-TRN-002 zamyka tylko identity lifecycle:
+DB-TRN-002 zamyka identity lifecycle:
 - archive nie czyści PESEL/birth-date identity,
 - archive nie zwalnia PESEL unique claim,
 - restore używa tego samego trwałego Student row,
 - restore nie tworzy drugiego identity record.
 
-Wpływ archive na aktywne kursy i concurrency pozostaje DB-TRN-003.
+Wpływ archive na aktywne kursy i concurrency jest teraz doprecyzowany w DB-TRN-003.
 
 ## Migration design
 
@@ -327,26 +327,185 @@ Sprawdzono:
 
 ---
 
-# DB-TRN-003 — OPEN P1: Student concurrency + archive/restore lifecycle
+# DB-TRN-003 — PASS: Student concurrency + archive/restore lifecycle
 
-## Problem
+## Problem z diagnozy
 
-Publiczny kontrakt `Student` posiada `version`, a `PATCH /students/{studentId}` korzysta z `If-Match`. Physical `students` nie posiada obecnie jawnego `version` jako concurrency root.
+Publiczny kontrakt `Student` zwraca `version`, a `PATCH /students/{studentId}` używa `If-Match`, natomiast physical `students` nie miał concurrency root. Archive i restore były osobnymi komendami, ale brakowało wspólnego lock/version contract oraz jednoznacznej odpowiedzi, co dzieje się z aktywnym kursem przy archive.
 
-Jednocześnie istnieją osobne operacje archive/restore i wymaganie zachowania formalnej historii, ale fizyczna polityka nie rozstrzyga jeszcze w pełni:
-- jak serializować profile edit vs archive/restore,
-- co archive oznacza dla aktywnych CourseEnrollment,
-- kiedy restore jest dozwolony,
-- jak uniknąć silent lost update,
-- które zależności pozostają tylko historyczne bez destrukcyjnego cascade.
+Najgroźniejszy race był następujący:
+1. proces A sprawdza, że Student jest aktywny i zaczyna tworzyć CourseEnrollment,
+2. proces B archiwizuje Studenta,
+3. oba procesy commitują,
+4. powstaje archived Student z nowym aktywnym formalnym kursem.
 
-Szczegółowy lifecycle learning access/licencji pozostaje zakresem DB4_6 i nie jest tutaj projektowany.
+Drugie ryzyko to zwykły lost update przy dwóch równoległych PATCH-ach albo PATCH vs archive.
 
-## Ryzyko
+## Decyzja canonical — jeden concurrency root
 
-Równoległa edycja i archive/restore może nadpisać dane lub pozostawić student/course state sprzeczny z formalną historią.
+Do `students` dodajemy:
 
-**Status:** OPEN P1.
+`version bigint NOT NULL DEFAULT 1 CHECK (version >= 1)`.
+
+`students.version` jest concurrency root dla:
+- edycji profilu,
+- edycji identity branch,
+- archive,
+- restore.
+
+Materialna zmiana zwiększa version dokładnie raz. State-idempotent no-op nie zwiększa version.
+
+`archived_at` i `archived_by_user_id` nie mogą być ustawiane ani czyszczone zwykłym profile PATCH. Do lifecycle służą wyłącznie dedykowane archive/restore commands.
+
+## PATCH / Student update
+
+Mutujący profile command:
+1. pobiera expected version z `If-Match`,
+2. lockuje Student `FOR UPDATE`,
+3. dopiero po locku porównuje expected version,
+4. stale version -> conflict/precondition failed bez partial write,
+5. stosuje zmianę,
+6. ponownie przechodzi DB-TRN-001/002 guards,
+7. zwiększa `version` dokładnie raz,
+8. sensitive/material change zapisuje audit/outbox w tej samej transakcji.
+
+Dwa PATCH-e z tym samym expected version nie mogą oba zacommitować.
+
+Sam fakt, że Student jest archived, nie jest fizycznym powodem do utraty możliwości korekty danych historycznych. Database contract dopuszcza korektę business fields na archived row, jeżeli warstwa autoryzacji/UI na to zezwala, ale taka korekta nadal nie może zmieniać archive state i musi przejść version + identity guards.
+
+Stage-3 OpenAPI już referencjonuje `If-Match` na Student PATCH. Machine contract DB4_4 traktuje expected version jako wymagany dla mutacji. Dokładne oznaczenie HTTP `required`/`428` pozostaje do synchronizacji acceptance/API w Stage 5; nie osłabiamy z tego powodu fizycznego concurrency contract.
+
+## Archive Student — bez ukrytej zmiany kursu
+
+Archive nie jest aliasem „anuluj wszystkie kursy”. Nie może:
+- ustawiać `cancelled_at`,
+- ustawiać `interrupted_at`,
+- ustawiać `completed_at`,
+- zmieniać `training_stage`,
+- usuwać CourseEnrollment,
+- usuwać Sessions/Attendance/Ledger.
+
+W DB-TRN-003 przyjmujemy konserwatywny minimalny predicate kursu otwartego:
+
+`completed_at IS NULL AND interrupted_at IS NULL AND cancelled_at IS NULL`.
+
+Jeżeli Student ma choć jeden taki CourseEnrollment, archive kończy się conflict i niczego nie zmienia.
+
+Pełna macierz Course lifecycle należy do DB-TRN-004. Tam predicate może zostać doprecyzowany, ale nie wolno osłabić zasady: **archive Studenta nie ma hidden side effect na stan formalnego kursu**.
+
+Historyczne terminalne kursy pozostają przypięte do archived Student.
+
+## Course create vs archive — jedna granica serializacji
+
+CourseEnrollment create i Student archive lockują ten sam `students` row `FOR UPDATE`.
+
+Course create po locku wymaga:
+- `archived_at IS NULL`,
+- formal identity z DB-TRN-002,
+- same-tenant integrity z DB-TRN-001.
+
+Deferrable constraint trigger albo równoważny transactional DB guard sprawia również, że import/direct SQL nie może stworzyć nowego formalnego enrollmentu dla archived Student.
+
+Race ma tylko dwa legalne wyniki:
+- Course create commitował pierwszy -> archive po locku widzi otwarty kurs i jest odrzucony,
+- archive commitował pierwszy -> Course create po locku widzi archived Student i jest odrzucony.
+
+Stan `archived Student + newly open course` nie może zostać zacommitowany.
+
+## Archive transaction
+
+Dla aktywnego Studenta:
+1. claim Idempotency-Key,
+2. lock Student `FOR UPDATE`,
+3. tenant/permission check,
+4. sprawdzenie braku otwartego CourseEnrollment po locku,
+5. ustawienie `archived_at` i `archived_by_user_id`,
+6. `version + 1`,
+7. audit + outbox,
+8. commit.
+
+Jeżeli Student już jest archived, ponowny archive jest state-idempotent no-op i nie zwiększa version.
+
+PESEL/birth-date identity, kursy, sesje, attendance i ledger nie są modyfikowane.
+
+## Restore transaction
+
+Restore używa tego samego durable Student row.
+
+Dla archived Student:
+1. claim Idempotency-Key,
+2. lock Student `FOR UPDATE`,
+3. tenant/permission check,
+4. clear `archived_at` i `archived_by_user_id`,
+5. `version + 1`,
+6. audit + outbox,
+7. commit.
+
+Jeżeli Student już jest aktywny, restore jest state-idempotent no-op bez version bump.
+
+Restore:
+- nie tworzy nowego Student ID,
+- nie otwiera cancelled/completed/interrupted CourseEnrollment,
+- nie tworzy kursu,
+- nie zmienia PESEL unique claim,
+- nie rebinduje historycznych formalnych rekordów.
+
+## Races edit/archive/restore
+
+Wszystkie trzy rodziny mutacji lockują ten sam Student row.
+
+Jeżeli PATCH commitnie przed archive, archive widzi najnowszy stan i może następnie zarchiwizować go, zwiększając version kolejny raz. Nie ma lost update.
+
+Jeżeli archive commitnie pierwszy, wcześniejszy PATCH z old expected version po uzyskaniu locka dostaje stale-version conflict i nie może nadpisać archived state.
+
+Archive i restore również serializują się na Student row i każdy command ocenia stan dopiero po locku.
+
+## Learning access — świadomie poza tym krokiem
+
+DB-TRN-003 **nie** definiuje jeszcze, czy archive Student ma suspendować learning account/licencję. To należy do DB4_6.
+
+W tym slice:
+- nie kasujemy learning account,
+- nie revoke'ujemy licencji jako ukrytego efektu,
+- restore nie reaktywuje dostępu jako ukrytego efektu.
+
+DB4_6 musi później zamknąć ten lifecycle jawnie.
+
+## Migration design
+
+Przy późniejszych migracjach:
+1. dodać `students.version bigint NOT NULL DEFAULT 1 CHECK >= 1`,
+2. legacy rows inicjalizować na 1,
+3. wykryć archived Student z kursem spełniającym minimalny open predicate,
+4. taki konflikt -> migration FAIL / jawna reviewed remediation; nie auto-cancel,
+5. zainstalować DB guard wymagający nonarchived Student przy course insert/rebind,
+6. zainstalować archive guard przeciw otwartemu kursowi,
+7. podpiąć profile PATCH/archive/restore do jednego version root,
+8. uruchomić race/invariant tests.
+
+Nie generujemy jeszcze migracji Laravel.
+
+## Quality gate DB-TRN-003
+
+Sprawdzono:
+- `students.version` jest jednoznacznym concurrency root — **PASS DESIGN**,
+- stale PATCH nie może nadpisać nowszego Student state — **PASS**,
+- dwa PATCH-e z tym samym expected version nie mogą oba commitować — **PASS**,
+- edit/archive/restore serializują się na tym samym Student row — **PASS**,
+- archive nie zmienia kursu w tle — **PASS**,
+- Student z otwartym kursem nie może zostać zarchiwizowany — **PASS DESIGN**,
+- archived Student nie może dostać nowego CourseEnrollment — **PASS DESIGN**,
+- race course-create vs archive nie może pozostawić archived Student + open course — **PASS DESIGN**,
+- terminalna historia kursów/sesji/ledger pozostaje nietknięta — **PASS**,
+- restore używa tego samego row i nie otwiera historycznych kursów — **PASS**,
+- DB-TRN-002 PESEL/identity archive rules pozostają zachowane — **PASS**,
+- pełna Course lifecycle matrix nie została rozwiązana przy okazji — **PASS SCOPE**, pozostaje DB-TRN-004,
+- learning access/license lifecycle nie został rozwiązany — **PASS SCOPE**, pozostaje DB4_6,
+- `core-schema.yml` i `docs/87` nie zostały zmienione — **PASS**,
+- migracje Laravel nie zostały utworzone — **PASS**,
+- DB4_5 ani późniejsze slice'y nie zostały rozpoczęte — **PASS**.
+
+**GATE DB-TRN-003: PASS.**
 
 ---
 
@@ -534,7 +693,7 @@ Self-audit:
 - archive nie zwalnia PESEL i restore nie tworzy nowej identity — **PASS**,
 - nie wprowadzono hard unique na name+birth_date — **PASS**,
 - migracja nie zgaduje `no_pesel` i nie naprawia duplicate przez silent merge/delete — **PASS**,
-- Student version/edit/archive concurrency nie zostały rozwiązane — **PASS SCOPE**, pozostaje DB-TRN-003,
+- Student version/edit/archive concurrency nie zostały rozwiązane — **PASS SCOPE** w tamtym kroku,
 - course lifecycle nie został zmieniony — **PASS SCOPE**, pozostaje DB-TRN-004,
 - `specs/database/core-schema.yml` bez zmian — **PASS**,
 - `docs/87-physical-database-schema.md` bez zmian — **PASS**,
@@ -543,15 +702,41 @@ Self-audit:
 
 **FINAL GATE DB-TRN-002: PASS.**
 
+---
+
+# Quality gate DB4_4_STEP_4 — DB-TRN-003
+
+Wykonano wyłącznie Student concurrency + archive/restore lifecycle.
+
+Self-audit:
+- bounded-context machine source zaktualizowany bez zmian aggregate — **PASS**,
+- Student ma jeden version root dla profile edit/archive/restore — **PASS**,
+- stale expected version nie może spowodować partial/lost update — **PASS**,
+- dedicated archive/restore pozostają idempotent i serializowane — **PASS**,
+- archive nie mutuje CourseEnrollment ani formalnej historii — **PASS**,
+- otwarty kurs blokuje archive — **PASS DESIGN**,
+- Course create i archive serializują się na Student row — **PASS DESIGN**,
+- archived Student nie może dostać nowego formalnego kursu — **PASS DESIGN**,
+- restore nie otwiera ani nie tworzy kursu — **PASS**,
+- DB-TRN-002 identity/PESEL semantics nie zostały osłabione — **PASS**,
+- pełna macierz Course lifecycle nie została zaprojektowana — **PASS SCOPE**, pozostaje DB-TRN-004,
+- learning access/license archive effect nie został zaprojektowany — **PASS SCOPE**, pozostaje DB4_6,
+- `specs/database/core-schema.yml` bez zmian — **PASS**,
+- `docs/87-physical-database-schema.md` bez zmian — **PASS**,
+- DB4_5+ bez zmian — **PASS**,
+- migracje Laravel/UI/feature implementation — **NIE ROZPOCZĘTO**.
+
+**FINAL GATE DB-TRN-003: PASS.**
+
 ## Aktualna kolejność napraw
 
 1. `DB-TRN-001` — **PASS**.
 2. `DB-TRN-002` — **PASS**.
-3. `DB-TRN-003` — Student concurrency + archive/restore lifecycle — **NEXT**.
-4. `DB-TRN-004` — Course lifecycle/stage/cancel/restore history.
+3. `DB-TRN-003` — **PASS**.
+4. `DB-TRN-004` — Course lifecycle/stage/cancel/restore history — **NEXT**.
 5. `DB-TRN-005` — requirement context/profile reproducibility.
 6. `DB-TRN-006` — attendance -> ledger exactly-once.
 7. `DB-TRN-007` — external training projection/history.
 8. `DB-TRN-008` — course PKK persistence boundary.
 
-**Następny pojedynczy krok: tylko `DB-TRN-003` -> self-audit -> gate -> STOP przed `DB-TRN-004`.**
+**Następny pojedynczy krok: tylko `DB-TRN-004` -> self-audit -> gate -> STOP przed `DB-TRN-005`.**
