@@ -24,6 +24,10 @@ principles:
   private_staff_vehicle_asset_attachment_is_purpose_bound: true
   document_validity_history_is_versioned_not_overwritten: true
   at_most_one_current_document_row_per_parent_and_type: true
+  staff_pesel_identity_is_unique_per_organization_including_archived_rows_when_present: true
+  vehicle_vin_identity_is_unique_per_organization_including_archived_rows_when_present: true
+  vehicle_registration_is_unique_per_organization_among_nonarchived_rows: true
+  archive_does_not_hard_delete_identity_history: true
   aggregate_sync_deferred_until_final_DB4_3_gate: true
 
 # DB-RES-001
@@ -355,7 +359,7 @@ file_asset_attachment_integrity:
 # DB-RES-004
 document_current_projection:
   blocker: DB-RES-004
-  status: RESOLVED_DESIGN
+  status: PASS
   goal: >-
     Staff and Vehicle document validity history must be preserved while every
     parent/document_type has an unambiguous current projection for detail screens,
@@ -499,10 +503,156 @@ document_current_projection:
     - superseded_document_does_not_emit_current_calendar_important_date_input
     - migration_precheck_refuses_ambiguous_current_selection_without_explicit_remediation
 
+# DB-RES-005
+identity_uniqueness_lifecycle:
+  blocker: DB-RES-005
+  status: RESOLVED_DESIGN
+  goal: >-
+    Staff PESEL, Vehicle VIN and Vehicle registration number must have explicit,
+    history-safe uniqueness semantics so archive/restore and identity correction
+    cannot create silent duplicate resources or impossible restore behavior.
+
+  scope:
+    uniqueness_tenant_boundary: organization_id
+    cross_organization_same_identity_value_allowed: true
+    reason: >-
+      StaffProfile and Vehicle are tenant-owned resources. The same person may work
+      for multiple OSK, and the same physical vehicle may be represented in more
+      than one OSK context when business/legal relationships permit it. This slice
+      does not impose platform-global uniqueness.
+
+  staff_pesel:
+    nullable: true
+    storage:
+      plaintext_persistence: forbidden
+      equality_column: pesel_lookup_hash
+      equality_hash: keyed_HMAC_as_defined_by_sensitive_identifier_pattern
+    unique_index:
+      type: partial_unique
+      columns: [organization_id, pesel_lookup_hash]
+      where: pesel_lookup_hash_is_not_null
+      archived_rows_included: true
+    semantics:
+      archive_releases_identity_value: false
+      create_duplicate_when_existing_profile_archived: reject_and_require_explicit_restore_or_identity_correction
+      restore_same_profile: allowed_without_reclaiming_identity
+      correction_to_value_used_by_any_other_profile_in_same_organization: rejected
+      explicit_identity_correction_may_change_hash_on_same_profile: true
+      correction_requires_audit: true
+      old_incorrect_hash_is_not_reserved_forever_after_explicit_correction: true
+    note: >-
+      The uniqueness contract prevents two durable StaffProfile rows in one OSK
+      from holding the same current PESEL. It does not create a separate historical
+      PESEL-value registry; an explicitly audited correction may release a value
+      that was confirmed to be erroneous.
+
+  vehicle_vin:
+    nullable: true
+    storage_column: vin_normalized
+    unique_index:
+      type: partial_unique
+      columns: [organization_id, vin_normalized]
+      where: vin_normalized_is_not_null
+      archived_rows_included: true
+    semantics:
+      archive_releases_identity_value: false
+      create_duplicate_when_existing_vehicle_archived: reject_and_require_restore_or_identity_correction
+      restore_same_vehicle: allowed_without_reclaiming_identity
+      correction_to_value_used_by_any_other_vehicle_in_same_organization: rejected
+      explicit_identity_correction_may_change_vin_on_same_vehicle: true
+      correction_requires_audit: true
+      old_incorrect_vin_is_not_reserved_forever_after_explicit_correction: true
+    reason: >-
+      VIN identifies the physical vehicle strongly enough that archiving the row
+      must not make the VIN available for a second durable Vehicle row in the same
+      OSK. An audited correction of erroneous data is distinct from archive reuse.
+
+  vehicle_registration_number:
+    nullable: false
+    storage_column: registration_number_normalized
+    unique_index:
+      type: partial_unique
+      columns: [organization_id, registration_number_normalized]
+      where: archived_at_is_null
+      archived_rows_included: false
+    semantics:
+      active_duplicate: rejected
+      archive_releases_registration_for_future_active_vehicle: true
+      archived_history_retains_original_registration_value: true
+      multiple_archived_historical_rows_may_share_same_registration: true
+      restore_requires_registration_currently_free_among_nonarchived_vehicles: true
+      restore_when_another_active_vehicle_uses_registration: conflict_no_auto_swap_or_auto_archive
+      restore_after_conflicting_active_vehicle_is_archived_or_renumbered: allowed
+      active_registration_correction_to_value_used_by_another_active_vehicle: rejected
+      registration_change_requires_audit: true
+    reason: >-
+      Registration number is an operational identifier that may legitimately be
+      reused after the previous vehicle leaves the active fleet. Therefore current
+      uniqueness is strict, while historical archived rows keep their original
+      value without blocking future legitimate reuse.
+
+  normalization_boundary:
+    uniqueness_is_evaluated_on_canonical_stored_values: true
+    pesel: pesel_lookup_hash_after_canonical_PESEL_input_processing
+    vin: vin_normalized
+    registration: registration_number_normalized
+    exact_format_validation_rules: deferred_application_validation_not_part_of_DB_RES_005
+    normalization_change_that_would_merge_existing_distinct_values_requires_migration_precheck: true
+
+  archive_restore_interaction:
+    staff_archive:
+      pesel_hash_remains_on_row: true
+      uniqueness_constraint_remains_effective: true
+      panel_access_effect: deferred_to_DB_RES_006
+    vehicle_archive:
+      vin_remains_reserved_by_archived_row: true
+      registration_becomes_available_to_other_nonarchived_vehicle: true
+    hard_delete_to_release_identity: forbidden_as_normal_lifecycle
+
+  migration_precheck:
+    required_before_unique_indexes: true
+    checks:
+      - duplicate_nonnull_staff_pesel_hash_within_organization_including_archived_rows
+      - duplicate_nonnull_vehicle_vin_within_organization_including_archived_rows
+      - duplicate_registration_number_among_nonarchived_vehicles_within_organization
+      - normalization_collisions_for_VIN_and_registration
+    allowed_existing_state:
+      - same_staff_pesel_in_different_organizations
+      - same_vehicle_vin_in_different_organizations
+      - same_registration_in_different_organizations
+      - duplicate_registration_across_archived_history_when_at_most_one_nonarchived_holder_exists
+    invalid_row_policy: >-
+      Fail migration or require explicit auditable identity remediation. Never
+      silently delete, merge, archive, renumber, change PESEL/VIN, or choose a
+      surviving row merely to satisfy the constraint.
+
+  concurrency_and_commands:
+    database_unique_indexes_are_final_race_boundary: true
+    create_restore_and_identity_edit_must_translate_unique_violation_to_domain_conflict: true
+    restore_vehicle_must_not_precheck_only_without_relying_on_unique_index: true
+    no_hard_delete_retry_workaround: true
+
+  tests_required:
+    - second_staff_profile_same_nonnull_PESEL_in_same_organization_is_rejected
+    - archived_staff_profile_still_blocks_second_profile_with_same_PESEL
+    - same_PESEL_in_different_organizations_is_allowed
+    - restoring_same_archived_staff_profile_does_not_conflict_with_its_own_PESEL
+    - staff_PESEL_correction_to_another_profiles_value_is_rejected
+    - audited_staff_PESEL_correction_can_release_confirmed_erroneous_old_value
+    - second_vehicle_same_nonnull_VIN_in_same_organization_is_rejected_even_if_first_is_archived
+    - same_VIN_in_different_organizations_is_allowed
+    - vehicle_VIN_correction_to_another_vehicles_value_is_rejected
+    - two_nonarchived_vehicles_same_registration_in_same_organization_are_rejected
+    - same_registration_in_different_organizations_is_allowed
+    - archiving_vehicle_releases_registration_for_new_active_vehicle
+    - archived_vehicle_history_keeps_registration_after_reuse
+    - restore_archived_vehicle_fails_while_another_nonarchived_vehicle_holds_registration
+    - restore_succeeds_after_registration_conflict_is_resolved
+    - concurrent_vehicle_restore_and_create_for_same_registration_have_one_winner
+    - migration_precheck_detects_staff_PESEL_vehicle_VIN_and_active_registration_conflicts
+    - migration_does_not_silently_modify_identity_values_to_pass_constraints
+
 open_blockers_not_resolved_here:
-  DB-RES-005:
-    status: OPEN
-    topic: staff_vehicle_identity_uniqueness_lifecycle
   DB-RES-006:
     status: OPEN
     topic: staff_archive_panel_access_lifecycle
