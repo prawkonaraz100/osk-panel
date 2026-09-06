@@ -1,7 +1,7 @@
 meta:
   project: osk-panel
   scope: students_courses_training_core_v1
-  status: DB_TRN_001_002_003_004_PASS_4_P1_BLOCKERS_OPEN
+  status: DB_TRN_001_002_003_004_005_PASS_3_P1_BLOCKERS_OPEN
   stage: DB4_4_STUDENTS_COURSES_TRAINING_LEDGER
   created_at: 2026-09-06
   narrative: docs/108-stage-4-students-courses-training-ledger-audit.md
@@ -31,10 +31,13 @@ principles:
   course_lifecycle_state_is_derived_from_terminal_timestamps_not_parallel_mutable_status: true
   course_stage_and_lifecycle_history_is_append_only: true
   course_terminal_state_changes_require_dedicated_serialized_commands: true
-  current_step_scope: course_lifecycle_stage_history_cancel_restore_only
+  requirement_target_category_has_one_canonical_owner_on_course_enrollment: true
+  requirement_current_projection_must_match_course_requirements_revision: true
+  rule_set_version_must_resolve_to_immutable_hashed_rule_artifact: true
+  requirement_calculation_history_is_immutable_and_reproducible: true
+  current_step_scope: requirement_context_profile_reproducibility_only
 
 open_blockers_after_this_step:
-  - DB-TRN-005
   - DB-TRN-006
   - DB-TRN-007
   - DB-TRN-008
@@ -48,33 +51,13 @@ same_tenant_integrity:
     TrainingSession, attendance and TrainingHourLedger relations must be unable to
     connect tenant-owned resources from different organizations even when
     application-level relation validation is bypassed.
-
   tenant_candidate_keys_required:
-    students:
-      columns: [organization_id, id]
-      unique_constraint_required: true
-      purpose: composite_same_organization_FK_target
-    course_enrollments:
-      columns: [organization_id, id]
-      unique_constraint_required: true
-      purpose: composite_same_organization_FK_target
-    training_sessions:
-      columns: [organization_id, id]
-      unique_constraint_required: true
-      purpose: composite_same_organization_FK_target
-    staff_profiles:
-      columns: [organization_id, id]
-      unique_constraint_required: true
-      source: DB-RES-001
-    locations:
-      columns: [organization_id, id]
-      unique_constraint_required: true
-      source: DB-RES-002
-    vehicles:
-      columns: [organization_id, id]
-      unique_constraint_required: true
-      source: DB-RES-002
-
+    students: { columns: [organization_id, id], unique_constraint_required: true, purpose: composite_same_organization_FK_target }
+    course_enrollments: { columns: [organization_id, id], unique_constraint_required: true, purpose: composite_same_organization_FK_target }
+    training_sessions: { columns: [organization_id, id], unique_constraint_required: true, purpose: composite_same_organization_FK_target }
+    staff_profiles: { columns: [organization_id, id], unique_constraint_required: true, source: DB-RES-001 }
+    locations: { columns: [organization_id, id], unique_constraint_required: true, source: DB-RES-002 }
+    vehicles: { columns: [organization_id, id], unique_constraint_required: true, source: DB-RES-002 }
   tenant_key_policy:
     required_nonnull_organization_id:
       - students
@@ -89,11 +72,6 @@ same_tenant_integrity:
     organization_id_mutation_after_insert: forbidden_for_normal_domain_lifecycle
     moving_formal_record_between_organizations_by_rewriting_organization_id: forbidden
     client_supplied_organization_id_as_authority: forbidden
-    application_rule: >-
-      Create/update actions derive organization scope from the active membership or
-      validated parent resource. The database composite foreign keys below are the
-      final relation boundary and must still reject a malformed import or backend bug.
-
   students_default_location:
     source_table: students
     source_columns: [organization_id, default_location_id]
@@ -103,8 +81,6 @@ same_tenant_integrity:
     match: MATCH_SIMPLE
     on_update: RESTRICT
     on_delete: RESTRICT
-    effect: nonnull_default_location_must_belong_to_student_organization
-
   student_learning_account_student:
     source_table: student_learning_accounts
     source_columns: [organization_id, student_id]
@@ -114,32 +90,22 @@ same_tenant_integrity:
     match: MATCH_SIMPLE
     on_update: RESTRICT
     on_delete: RESTRICT
-    note: >-
-      user_id remains a relation to the global User identity. A global User may
-      legitimately participate in more than one organization, so no fake tenant
-      composite FK to users is introduced here.
-
   course_enrollment_relations:
     student_same_organization:
-      source_table: course_enrollments
       source_columns: [organization_id, student_id]
       target_table: students
       target_columns: [organization_id, id]
       nullable_relation: false
-      match: MATCH_SIMPLE
       on_update: RESTRICT
       on_delete: RESTRICT
     lead_instructor_same_organization:
-      source_table: course_enrollments
       source_columns: [organization_id, lead_instructor_id]
       target_table: staff_profiles
       target_columns: [organization_id, id]
       nullable_relation: false
-      match: MATCH_SIMPLE
       on_update: RESTRICT
       on_delete: RESTRICT
     location_same_organization:
-      source_table: course_enrollments
       source_columns: [organization_id, location_id]
       target_table: locations
       target_columns: [organization_id, id]
@@ -147,61 +113,44 @@ same_tenant_integrity:
       match: MATCH_SIMPLE
       on_update: RESTRICT
       on_delete: RESTRICT
-    driving_category_relation:
-      target_is_global_dictionary: true
-      tenant_composite_FK_not_required: true
-
+    driving_category_relation: { target_is_global_dictionary: true, tenant_composite_FK_not_required: true }
   training_requirement_profile_course:
-    source_table: training_requirement_profiles
     source_columns: [organization_id, course_enrollment_id]
     target_table: course_enrollments
     target_columns: [organization_id, id]
     nullable_relation: false
-    match: MATCH_SIMPLE
     on_update: RESTRICT
     on_delete: RESTRICT
-
   course_exemption_decision_course:
-    source_table: course_exemption_decisions
     source_columns: [organization_id, course_enrollment_id]
     target_table: course_enrollments
     target_columns: [organization_id, id]
     nullable_relation: false
-    match: MATCH_SIMPLE
     on_update: RESTRICT
     on_delete: RESTRICT
-
   recognized_external_training_course:
-    source_table: recognized_external_training
     source_columns: [organization_id, course_enrollment_id]
     target_table: course_enrollments
     target_columns: [organization_id, id]
     nullable_relation: false
-    match: MATCH_SIMPLE
     on_update: RESTRICT
     on_delete: RESTRICT
-
   training_session_relations:
     course_same_organization:
-      source_table: training_sessions
       source_columns: [organization_id, course_enrollment_id]
       target_table: course_enrollments
       target_columns: [organization_id, id]
       nullable_relation: false
-      match: MATCH_SIMPLE
       on_update: RESTRICT
       on_delete: RESTRICT
     instructor_same_organization:
-      source_table: training_sessions
       source_columns: [organization_id, instructor_id]
       target_table: staff_profiles
       target_columns: [organization_id, id]
       nullable_relation: false
-      match: MATCH_SIMPLE
       on_update: RESTRICT
       on_delete: RESTRICT
     vehicle_same_organization:
-      source_table: training_sessions
       source_columns: [organization_id, vehicle_id]
       target_table: vehicles
       target_columns: [organization_id, id]
@@ -210,7 +159,6 @@ same_tenant_integrity:
       on_update: RESTRICT
       on_delete: RESTRICT
     location_same_organization:
-      source_table: training_sessions
       source_columns: [organization_id, location_id]
       target_table: locations
       target_columns: [organization_id, id]
@@ -218,27 +166,17 @@ same_tenant_integrity:
       match: MATCH_SIMPLE
       on_update: RESTRICT
       on_delete: RESTRICT
-
   training_session_attendance:
     organization_id_change:
       existing_blueprint_has_column: false
       canonical_change: add_nonnull_organization_id
       foreign_key: organizations.id
-      reason: >-
-        Attendance needs an explicit tenant key so both the session and student
-        references can be protected by composite same-organization foreign keys.
-    uniqueness_preserved_in_this_step:
-      columns: [training_session_id, student_id]
-      note: >-
-        DB-TRN-001 does not redesign attendance exactly-once or same-course student
-        semantics. The existing pair uniqueness is preserved; deeper credit rules
-        remain DB-TRN-006.
+    uniqueness_preserved_in_this_step: { columns: [training_session_id, student_id] }
     session_same_organization:
       source_columns: [organization_id, training_session_id]
       target_table: training_sessions
       target_columns: [organization_id, id]
       nullable_relation: false
-      match: MATCH_SIMPLE
       on_update: RESTRICT
       on_delete: RESTRICT
     student_same_organization:
@@ -246,22 +184,17 @@ same_tenant_integrity:
       target_table: students
       target_columns: [organization_id, id]
       nullable_relation: false
-      match: MATCH_SIMPLE
       on_update: RESTRICT
       on_delete: RESTRICT
-
   training_hour_ledger_relations:
     course_same_organization:
-      source_table: training_hour_ledger_entries
       source_columns: [organization_id, course_enrollment_id]
       target_table: course_enrollments
       target_columns: [organization_id, id]
       nullable_relation: false
-      match: MATCH_SIMPLE
       on_update: RESTRICT
       on_delete: RESTRICT
     session_same_organization_when_present:
-      source_table: training_hour_ledger_entries
       source_columns: [organization_id, training_session_id]
       target_table: training_sessions
       target_columns: [organization_id, id]
@@ -269,100 +202,23 @@ same_tenant_integrity:
       match: MATCH_SIMPLE
       on_update: RESTRICT
       on_delete: RESTRICT
-    source_entry_relation:
-      lifecycle_and_exactly_once_semantics: deferred_to_DB_TRN_006
-      no_change_in_DB_TRN_001: true
-
   intentionally_not_solved_by_DB_TRN_001:
     attendance_student_must_equal_course_enrollment_student: DB-TRN-006
     training_session_course_must_equal_ledger_course_when_session_present: DB-TRN-006
     session_completion_exactly_once_credit: DB-TRN-006
-    cancelled_session_credit_guard: DB-TRN-006
     ledger_correction_reversal_source_entry_lifecycle: DB-TRN-006
-    student_PESEL_or_birth_date_identity_branch: DB-TRN-002
-    student_archive_restore_and_versioning: DB-TRN-003
-    course_stage_cancel_restore_history: DB-TRN-004
     requirement_context_reproducibility: DB-TRN-005
     external_training_current_projection_and_reversal_history: DB-TRN-007
     course_required_PKK_atomic_persistence_boundary: DB-TRN-008
-    learning_account_license_credentials_lifecycle: DB4_6
-    PKK_provider_retry_reconciliation: DB4_8
-
   migration_design:
     migrations_not_generated_in_this_step: true
-    order_when_DB4_4_migrations_are_later_generated:
-      - add_or_verify_candidate_unique_students_organization_id_id
-      - add_or_verify_candidate_unique_course_enrollments_organization_id_id
-      - add_or_verify_candidate_unique_training_sessions_organization_id_id
-      - verify_existing_staff_location_vehicle_candidate_keys_from_DB4_3
-      - run_all_existing_cross_tenant_prechecks_before_new_FKs
-      - add_training_session_attendance_organization_id_as_temporarily_nullable
-      - verify_every_attendance_session_and_student_have_same_organization
-      - backfill_attendance_organization_id_from_verified_training_session_organization_id
-      - set_training_session_attendance_organization_id_not_null_and_FK_organizations
-      - add_all_composite_same_tenant_foreign_keys
-      - rerun_cross_tenant_negative_constraint_tests
     attendance_backfill_rule: >-
       Never silently reassign attendance to a different student/session/organization.
-      If existing attendance joins a session and student from different organizations,
-      fail migration and require explicit security/data remediation before retry.
-    general_invalid_row_policy: >-
-      Fail migration or perform an explicitly reviewed security remediation. Never
-      auto-correct a cross-tenant relation by moving a formal row to another tenant.
-
-  migration_prechecks_required:
-    - every_student_default_location_is_null_or_same_organization
-    - every_student_learning_account_matches_student_organization
-    - every_course_enrollment_matches_student_organization
-    - every_course_lead_instructor_matches_course_organization
-    - every_nonnull_course_location_matches_course_organization
-    - every_training_requirement_profile_matches_course_organization
-    - every_course_exemption_decision_matches_course_organization
-    - every_recognized_external_training_row_matches_course_organization
-    - every_training_session_matches_course_organization
-    - every_training_session_instructor_matches_session_organization
-    - every_nonnull_training_session_vehicle_matches_session_organization
-    - every_nonnull_training_session_location_matches_session_organization
-    - every_attendance_session_and_student_share_same_organization_before_backfill
-    - every_ledger_entry_matches_course_organization
-    - every_nonnull_ledger_training_session_matches_ledger_organization
-
-  tests_required:
-    - student_default_location_same_tenant_is_accepted
-    - student_default_location_from_other_organization_is_rejected_by_database
-    - student_learning_account_same_tenant_student_is_accepted
-    - student_learning_account_cross_tenant_student_is_rejected_by_database
-    - course_same_tenant_student_instructor_and_location_are_accepted
-    - course_student_from_other_organization_is_rejected_by_database
-    - course_instructor_from_other_organization_is_rejected_by_database
-    - course_location_from_other_organization_is_rejected_by_database
-    - course_null_location_remains_valid
-    - requirement_profile_cross_tenant_course_is_rejected_by_database
-    - exemption_decision_cross_tenant_course_is_rejected_by_database
-    - recognized_external_training_cross_tenant_course_is_rejected_by_database
-    - training_session_same_tenant_course_instructor_vehicle_location_is_accepted
-    - training_session_cross_tenant_course_is_rejected_by_database
-    - training_session_cross_tenant_instructor_is_rejected_by_database
-    - training_session_cross_tenant_vehicle_is_rejected_by_database
-    - training_session_cross_tenant_location_is_rejected_by_database
-    - training_session_null_vehicle_and_location_remain_valid
-    - attendance_same_tenant_session_and_student_is_accepted
-    - attendance_cross_tenant_session_or_student_is_rejected_by_database
-    - attendance_migration_precheck_detects_existing_cross_tenant_pair_before_backfill
-    - ledger_same_tenant_course_and_optional_session_is_accepted
-    - ledger_cross_tenant_course_is_rejected_by_database
-    - ledger_cross_tenant_session_is_rejected_by_database
-    - ledger_null_session_remains_valid_for_non_session_entry_types_subject_to_later_DB_TRN_006_rules
-    - rewriting_organization_id_to_move_formal_record_between_tenants_is_forbidden
-    - no_new_cascade_delete_of_student_course_training_formal_history_is_introduced
-
+      Cross-tenant mismatches fail migration and require explicit remediation.
   self_audit:
     every_relation_named_in_DB_TRN_001_diagnosis_has_physical_boundary: PASS
     required_parent_candidate_keys_declared: PASS
     attendance_missing_tenant_key_closed_without_exactly_once_scope_creep: PASS
-    optional_relations_keep_MATCH_SIMPLE_null_behavior: PASS
-    global_user_and_dictionary_relations_not_incorrectly_tenant_scoped: PASS
-    DB_TRN_002_through_DB_TRN_008_not_fixed: PASS
     aggregate_core_schema_not_modified_in_this_step: PASS
     aggregate_docs87_not_modified_in_this_step: PASS
     Laravel_migrations_created: false
@@ -373,214 +229,47 @@ student_formal_identity_and_duplicate_lifecycle:
   blocker: DB-TRN-002
   status: PASS
   goal: >-
-    Preserve the confirmed ability to create a Student profile before a course is
-    attached, while making it impossible for a formal CourseEnrollment to exist for
-    a Student who lacks the legally required PESEL-or-no-PESEL-with-birth-date
-    identity branch. PESEL duplicate prevention must remain durable through archive.
-
-  authority_and_preservation:
-    legal_source: docs/66-formal-student-record-and-theory-exemptions.md
-    observed_create_source: specs/screens/student-create.yml
-    observed_edit_source: specs/screens/student-edit.yml
-    legal_rule: PESEL_or_birth_date_when_PESEL_not_assigned_before_formal_training
-    student_can_be_created_without_course: true
-    student_create_visible_always_required_fields_remain_first_name_and_last_name_only: true
-    do_not_turn_pre_course_student_creation_into_mandatory_PESEL_form: true
-    formal_training_requires_course_enrollment_and_complete_identity: true
-
+    Preserve pre-course Student creation while requiring PESEL or explicit no-PESEL
+    plus birth date before formal CourseEnrollment and keeping duplicate prevention
+    durable through archive.
   students_physical_model:
-    add_column:
-      name: no_pesel_declared
-      type: boolean
-      nullable: false
-      default: false
-      purpose: >-
-        Distinguish an explicit declaration that PESEL was not assigned from an
-        incomplete pre-formal profile where PESEL has simply not been entered yet.
-      api_mapping: CreateStudentRequest.no_pesel_and_UpdateStudentRequest.no_pesel
-    existing_columns:
-      pesel_ciphertext: nullable
-      pesel_lookup_hash: nullable
-      birth_date: nullable
-    no_stored_identity_status_projection_required: true
-    formal_identity_is_a_predicate_over_source_fields: true
-
+    no_pesel_declared: { type: boolean, nullable: false, default: false }
+    pesel_ciphertext: nullable
+    pesel_lookup_hash: nullable
+    birth_date: nullable
   row_level_consistency:
-    pesel_pair_nullity_check:
-      check: >-
-        (pesel_ciphertext IS NULL AND pesel_lookup_hash IS NULL) OR
-        (pesel_ciphertext IS NOT NULL AND pesel_lookup_hash IS NOT NULL)
-      purpose: ciphertext_and_lookup_hash_must_be_written_or_cleared_as_one_pair
-    no_pesel_branch_check:
-      check: >-
-        no_pesel_declared = false OR
-        (pesel_ciphertext IS NULL AND pesel_lookup_hash IS NULL AND birth_date IS NOT NULL)
-      effect: explicit_no_PESEL_requires_birth_date_and_forbids_stored_PESEL
-    pesel_present_forbids_no_pesel_declaration:
-      check: >-
-        pesel_ciphertext IS NULL OR no_pesel_declared = false
-    incomplete_preformal_state:
-      allowed: true
-      shape: >-
-        no_pesel_declared = false AND pesel_ciphertext IS NULL AND
-        pesel_lookup_hash IS NULL; birth_date may be null or known.
-      restriction: may_not_back_a_formal_course_enrollment
-
-  formal_identity_predicate:
-    name: student_has_formal_identity
-    expression: >-
-      (no_pesel_declared = false AND pesel_ciphertext IS NOT NULL AND
-       pesel_lookup_hash IS NOT NULL)
-      OR
-      (no_pesel_declared = true AND pesel_ciphertext IS NULL AND
-       pesel_lookup_hash IS NULL AND birth_date IS NOT NULL)
-    birth_date_required_when_PESEL_present: false
-    exact_birth_date_source_when_PESEL_present: intentionally_not_invented
-
+    pesel_pair_nullity_check: >-
+      (pesel_ciphertext IS NULL AND pesel_lookup_hash IS NULL) OR
+      (pesel_ciphertext IS NOT NULL AND pesel_lookup_hash IS NOT NULL)
+    no_pesel_branch_check: >-
+      no_pesel_declared = false OR
+      (pesel_ciphertext IS NULL AND pesel_lookup_hash IS NULL AND birth_date IS NOT NULL)
+  formal_identity_predicate: >-
+    (no_pesel_declared = false AND pesel_ciphertext IS NOT NULL AND pesel_lookup_hash IS NOT NULL)
+    OR
+    (no_pesel_declared = true AND pesel_ciphertext IS NULL AND pesel_lookup_hash IS NULL AND birth_date IS NOT NULL)
   formal_enrollment_database_boundary:
     enforcement: deferrable_constraint_triggers_or_equivalent_transactional_database_guards
-    course_enrollment_insert_or_student_change_guard:
-      - on_course_enrollment_insert_or_student_rebind_verify_student_has_formal_identity
-      - on_student_identity_field_update_when_any_course_enrollment_exists_verify_final_student_has_formal_identity
-      - evaluate_final_transaction_state_to_allow_atomic_valid_branch_transition
     any_historical_course_enrollment_keeps_identity_requirement: true
-    cancelled_or_completed_course_does_not_make_identity_optional_again: true
-    reason: >-
-      The formal record must remain documentable after completion, interruption,
-      cancellation or archive; identity cannot be degraded to an incomplete draft
-      merely because active training has ended.
-    course_same_tenant_relation_still_governed_by: DB-TRN-001
-
   PESEL_write_contract:
     plaintext_persistence: forbidden
-    canonical_input_flow:
-      - accept_plaintext_PESEL_only_in_authorized_request_or_import_boundary
-      - normalize_once_using_canonical_PESEL_normalizer
-      - derive_ciphertext_and_keyed_lookup_hash_from_the_same_normalized_input
-      - write_both_columns_atomically
-      - discard_plaintext_after_command_boundary
     lookup_hash: HMAC_SHA_256_or_equivalent_secret_keyed_hash
-    plain_global_SHA256_for_lookup: forbidden
     independent_patch_of_ciphertext_or_lookup_hash: forbidden
-    database_recomputes_HMAC_or_holds_HMAC_secret: false
-    consistency_boundary: >-
-      Database enforces pair nullity and uniqueness. Application/domain integration
-      tests prove both values are derived from the same normalized PESEL; the HMAC
-      secret is not moved into PostgreSQL merely to make a cryptographic CHECK.
-
   duplicate_PESEL_policy:
     scope: per_organization
-    index:
-      type: partial_unique
-      columns: [organization_id, pesel_lookup_hash]
-      where: pesel_lookup_hash_is_not_null
+    index: { type: partial_unique, columns: [organization_id, pesel_lookup_hash], where: pesel_lookup_hash_is_not_null }
     archived_rows_included: true
     archive_releases_PESEL: false
     same_PESEL_in_different_organizations_allowed: true
-    hard_delete_to_release_PESEL_as_normal_lifecycle: forbidden
-    reason: >-
-      Archive is historical state, not deletion of identity. Keeping archived rows
-      in the unique boundary prevents a second durable Student record for the same
-      PESEL from being created in one OSK while the original is archived.
-    no_PESEL_name_birth_date_hard_unique:
-      enabled: false
-      rationale: name_plus_birth_date_is_not_a_legally_unique_person_identifier
-      application_may_surface_potential_duplicate_warning: true
-
-  identity_branch_transitions:
-    PESEL_to_no_PESEL:
-      atomic_final_state_required:
-        - set_no_pesel_declared_true
-        - clear_pesel_ciphertext
-        - clear_pesel_lookup_hash
-        - require_birth_date_nonnull
-      historical_course_guard_must_still_pass: true
-      audit_identity_change: true
-    no_PESEL_to_PESEL:
-      atomic_final_state_required:
-        - set_no_pesel_declared_false
-        - write_new_pesel_ciphertext_and_lookup_hash_pair
-      birth_date_auto_clear: false
-      note: keep_known_birth_date_unless_separate_authorized_correction_changes_it
-      audit_identity_change: true
-    PESEL_to_different_PESEL:
-      replace_ciphertext_and_lookup_hash_pair_atomically: true
-      unique_index_is_final_duplicate_boundary: true
-      audit_identity_change: true
-    invalid_transition_examples:
-      - no_pesel_true_with_nonnull_PESEL_pair
-      - no_pesel_true_with_null_birth_date
-      - only_one_of_ciphertext_or_lookup_hash_nonnull
-      - formal_student_changed_to_incomplete_no_PESEL_not_declared_state
-    optimistic_concurrency_for_identity_update: governed_by_DB_TRN_003
-
-  archive_restore_semantics_for_identity_only:
-    archive_does_not_clear_identity_fields: true
-    archive_does_not_release_PESEL_unique_claim: true
-    restore_reuses_same_durable_student_row: true
-    restore_does_not_create_second_student_identity: true
-    student_archive_effect_on_courses_and_versioning: governed_by_DB_TRN_003
-
+    no_PESEL_name_birth_date_hard_unique: false
   migration_design:
     migrations_not_generated_in_this_step: true
-    steps_when_later_generated:
-      - add_no_pesel_declared_boolean_default_false
-      - verify_existing_PESEL_ciphertext_lookup_hash_pair_nullity
-      - do_not_infer_no_pesel_declared_true_merely_from_missing_PESEL
-      - detect_duplicate_nonnull_PESEL_lookup_hash_within_each_organization_including_archived_rows
-      - explicitly_remediate_duplicates_or_invalid_pairs_before_constraints_never_silent_delete_or_merge
-      - add_PESEL_pair_row_check
-      - add_no_pesel_branch_row_checks
-      - add_partial_unique_organization_PESEL_lookup_hash
-      - precheck_every_student_with_existing_course_enrollment_has_formal_identity
-      - require_explicit_data_remediation_for_formal_students_missing_identity_never_guess_no_PESEL
-      - add_deferrable_formal_identity_constraint_guards
-    pre_course_incomplete_student_rows_may_remain_after_migration: true
-
-  tests_required:
-    - pre_course_student_with_first_and_last_name_only_can_exist_as_incomplete_profile
-    - course_enrollment_for_incomplete_student_is_rejected_by_database_guard
-    - student_with_PESEL_pair_and_no_pesel_false_satisfies_formal_identity
-    - no_pesel_student_with_birth_date_and_null_PESEL_pair_satisfies_formal_identity
-    - no_pesel_true_with_PESEL_pair_is_rejected
-    - no_pesel_true_without_birth_date_is_rejected
-    - only_ciphertext_without_lookup_hash_is_rejected
-    - only_lookup_hash_without_ciphertext_is_rejected
-    - duplicate_PESEL_in_same_organization_is_rejected
-    - duplicate_PESEL_is_rejected_even_when_first_student_is_archived
-    - same_PESEL_hash_value_may_exist_in_different_organizations
-    - atomic_PESEL_to_no_PESEL_transition_with_birth_date_is_accepted
-    - PESEL_to_no_PESEL_transition_without_birth_date_is_rejected
-    - atomic_no_PESEL_to_PESEL_transition_is_accepted
-    - formal_student_cannot_be_changed_to_incomplete_identity_state
-    - completed_cancelled_or_archived_formal_history_does_not_allow_identity_to_become_incomplete
-    - no_PESEL_name_and_birth_date_are_not_used_as_false_database_unique_identifier
-    - migration_does_not_auto_mark_missing_PESEL_as_no_pesel_declared
-    - migration_fails_on_duplicate_same_organization_PESEL_without_explicit_remediation
-    - plaintext_PESEL_is_not_persisted_and_hash_ciphertext_are_written_from_one_normalized_command_input
-
-  intentionally_not_solved_by_DB_TRN_002:
-    student_optimistic_version_edit_archive_restore_serialization: DB-TRN-003
-    active_course_behavior_on_student_archive: DB-TRN-003
-    course_stage_cancel_restore_history: DB-TRN-004
-    requirement_context_reproducibility: DB-TRN-005
-    attendance_ledger_exactly_once: DB-TRN-006
-    external_training_current_projection_history: DB-TRN-007
-    course_required_PKK_persistence_boundary: DB-TRN-008
-    exact_PESEL_format_and_checksum_validation: application_validation_and_security_test_policy
-    fuzzy_duplicate_detection_for_no_PESEL_students: application_product_policy_not_hard_DB_identity
-
+    do_not_infer_no_pesel_declared_true_merely_from_missing_PESEL: true
+    duplicate_or_invalid_identity_policy: fail_or_explicit_remediation_never_silent_merge_delete
   self_audit:
     legal_PESEL_or_birth_date_rule_preserved_for_formal_training: PASS
     observed_pre_course_student_creation_not_broken: PASS
-    explicit_no_PESEL_declaration_distinguished_from_missing_data: PASS
-    PESEL_ciphertext_hash_pair_consistency_closed: PASS
     duplicate_PESEL_per_organization_closed_including_archive: PASS
-    cross_organization_same_person_not_globally_blocked: PASS
-    archive_does_not_release_PESEL: PASS
-    name_birth_date_not_misused_as_hard_unique_identifier: PASS
-    formal_identity_guard_is_database_or_transactional_boundary_not_frontend_only: PASS
-    DB_TRN_003_through_DB_TRN_008_not_fixed: PASS
     aggregate_core_schema_not_modified_in_this_step: PASS
     aggregate_docs87_not_modified_in_this_step: PASS
     Laravel_migrations_created: false
@@ -590,233 +279,49 @@ student_formal_identity_and_duplicate_lifecycle:
 student_concurrency_archive_restore_lifecycle:
   blocker: DB-TRN-003
   status: PASS
-  goal: >-
-    Make Student profile updates, archive, restore and formal course creation safe
-    under concurrency without deleting or silently mutating formal history. Student
-    archive is a visibility/lifecycle state of one durable row, not a hidden course
-    cancellation command.
-
-  authority_and_api_surface:
-    student_response_version_source: specs/api/openapi-components-v1.yaml
-    update_operation: PATCH_/students/{studentId}
-    update_concurrency_header: If-Match
-    archive_operation: POST_/students/{studentId}/archive
-    restore_operation: POST_/students/{studentId}/restore
-    archive_restore_idempotency_key_present: true
-    hard_delete_student_normal_lifecycle: forbidden
-
   students_physical_model:
-    add_column:
-      name: version
-      type: bigint
-      nullable: false
-      default: 1
-      check: version_gte_1
-      purpose: optimistic_concurrency_root_for_student_profile_and_archive_state
-    existing_archive_columns:
-      archived_at: nullable_timestamptz
-      archived_by_user_id: nullable_uuid
-    archive_status_derived_from_archived_at: true
-    archive_status_separate_boolean_column_required: false
-    organization_id_mutation: forbidden
-    archived_at_or_archived_by_mutation_via_generic_profile_PATCH: forbidden
-
+    version: { type: bigint, nullable: false, default: 1, check: version_gte_1 }
+    archived_at: nullable_timestamptz
+    archived_by_user_id: nullable_uuid
   version_semantics:
     concurrency_root: students.version
-    material_profile_update_increments_once: true
-    material_identity_branch_update_increments_once: true
-    successful_archive_state_change_increments_once: true
-    successful_restore_state_change_increments_once: true
+    material_mutation_increments_once: true
     semantic_noop_does_not_increment: true
     stale_expected_version_has_no_partial_write: true
-    version_returned_in_student_projection: true
-    ETag_or_If_Match_represents_current_student_version: true
-
   profile_update_transaction:
-    expected_version_required_for_mutating_profile_command: true
     expected_version_source: If-Match
     lock_student_row: FOR_UPDATE
     compare_expected_version_after_lock: true
-    stale_version_result: conflict_or_precondition_failed_without_write
-    apply_field_changes_only_after_version_match: true
-    identity_changes_must_still_pass_DB_TRN_002: true
-    default_location_changes_must_still_pass_DB_TRN_001: true
     archive_state_cannot_be_changed_through_profile_patch: true
-    archived_profile_business_field_correction:
-      database_does_not_forbid_only_because_archived: true
-      authorization_and_UI_policy_may_be_narrower: true
-      same_version_and_identity_audit_rules_still_apply: true
-    audit_and_outbox_same_transaction_for_sensitive_or_material_change: true
-    note_on_API_contract: >-
-      Stage-3 OpenAPI already references If-Match on Student PATCH. Runtime/domain
-      policy treats the expected version as required for mutation; exact HTTP
-      required-marker/428 representation is an API/acceptance synchronization item,
-      not a reason to weaken the database concurrency contract in DB4_4.
-
   course_creation_vs_archive_serialization:
     course_enrollment_create_must_lock_student_row: FOR_UPDATE
     after_lock_create_requires_student_archived_at_null: true
     after_lock_create_requires_DB_TRN_002_formal_identity: true
-    database_guard:
-      enforcement: deferrable_constraint_trigger_or_equivalent_transactional_DB_guard
-      course_insert_or_student_rebind_requires_nonarchived_student: true
-      direct_SQL_or_import_cannot_bypass_active_student_requirement: true
-    race_rule: >-
-      Course creation and Student archive serialize on the same Student row. If
-      course creation commits first, archive sees the newly open enrollment and is
-      rejected. If archive commits first, course creation sees archived_at non-null
-      and is rejected. The system must never commit archived Student + newly open
-      CourseEnrollment from this race.
-
+    database_guard: deferrable_constraint_trigger_or_equivalent_transactional_DB_guard
   archive_open_course_guard:
-    policy: archive_does_not_silently_cancel_interrupt_complete_or_rewrite_courses
-    minimal_open_course_predicate_for_DB_TRN_003: >-
-      course_enrollments.student_id = student.id AND
-      completed_at IS NULL AND interrupted_at IS NULL AND cancelled_at IS NULL
-    archive_when_any_matching_course_exists: reject_conflict
-    why_minimal_predicate_is_used_now: >-
-      DB-TRN-004 owns the complete Course lifecycle/stage matrix. DB-TRN-003 only
-      needs the conservative boundary that a clearly non-terminal enrollment blocks
-      archive. DB-TRN-004 may refine the canonical open/terminal predicate but may
-      not weaken the rule that Student archive has no hidden course-state side effect.
-    historical_terminal_courses_may_remain_linked_to_archived_student: true
-    archived_student_history_hard_delete_or_detach: forbidden
-
+    canonical_open_predicate_after_DB_TRN_004: completed_at_null_and_interrupted_at_null_and_cancelled_at_null
+    archive_when_open_course_exists: reject_conflict
+    hidden_course_mutation: forbidden
   archive_transaction:
     idempotency_claim_before_effect: true
     lock_student_row: FOR_UPDATE
-    if_already_archived:
-      state_idempotent_noop: true
-      version_increment: false
-      existing_identity_and_history_unchanged: true
-    if_active:
-      steps:
-        - verify_tenant_and_permission
-        - verify_no_open_course_using_archive_guard_after_student_lock
-        - set_archived_at
-        - set_archived_by_user_id
-        - increment_version_once
-        - write_audit_and_outbox_same_transaction
-      course_rows_mutated: false
-      training_sessions_attendance_ledger_mutated: false
-      PESEL_or_birth_date_identity_mutated: false
-    transaction_failure_rolls_back_archive_version_audit_outbox: true
-
+    course_rows_mutated: false
+    training_sessions_attendance_ledger_mutated: false
   restore_transaction:
     idempotency_claim_before_effect: true
     lock_student_row: FOR_UPDATE
-    if_already_active:
-      state_idempotent_noop: true
-      version_increment: false
-    if_archived:
-      steps:
-        - verify_tenant_and_permission
-        - clear_archived_at
-        - clear_archived_by_user_id
-        - increment_version_once
-        - write_audit_and_outbox_same_transaction
-      historical_course_rows_changed: false
-      historical_training_rows_changed: false
-      PESEL_unique_claim_changed: false
-      restore_reuses_same_student_id: true
+    restore_reuses_same_student_id: true
     restore_does_not_reopen_cancelled_completed_or_interrupted_course: true
-    restore_does_not_create_course: true
-    transaction_failure_rolls_back_restore_version_audit_outbox: true
-
-  edit_archive_restore_races:
-    all_three_mutation_families_lock_same_student_row: true
-    PATCH_then_archive:
-      allowed_sequence: >-
-        PATCH may commit first and increment version; archive then observes the
-        latest committed Student state, applies its own checks and increments again.
-      lost_update: false
-    archive_then_stale_PATCH:
-      result: stale_expected_version_conflict
-      archived_state_preserved: true
-    archive_vs_restore:
-      serialized_by_student_row_lock: true
-      each_command_evaluates_state_after_lock: true
-      duplicate_same_state_command_is_noop: true
-    two_PATCH_same_expected_version:
-      at_most_one_can_commit: true
-      loser: stale_version_conflict_without_partial_write
-
   learning_access_and_license_boundary:
-    student_archive_auto_revokes_or_deletes_learning_account: false_in_this_slice
-    student_restore_auto_reactivates_learning_access: false_in_this_slice
-    detailed_learning_access_license_effects: deferred_to_DB4_6
-    reason: >-
-      DB-TRN-003 must not invent DB4_6 credential/license lifecycle. Student archive
-      only closes the Student/formal-course concurrency boundary here.
-
-  formal_history_and_delete_policy:
-    student_hard_delete: forbidden_for_normal_archive
-    course_enrollment_hard_delete_on_student_archive: forbidden
-    training_session_hard_delete_on_student_archive: forbidden
-    attendance_hard_delete_on_student_archive: forbidden
-    ledger_hard_delete_on_student_archive: forbidden
-    foreign_key_default: RESTRICT
-    archive_preserves_DB_TRN_002_identity_claims: true
-
+    detailed_effects: deferred_to_DB4_6
   migration_design:
     migrations_not_generated_in_this_step: true
-    steps_when_later_generated:
-      - add_students_version_bigint_not_null_default_1_check_gte_1
-      - verify_all_existing_student_versions_or_initialize_legacy_rows_to_1
-      - precheck_archived_students_for_minimal_open_course_conflicts
-      - require_explicit_data_remediation_for_archived_student_with_open_course_never_auto_cancel_course
-      - install_course_insert_or_rebind_guard_requiring_nonarchived_student_and_DB_TRN_002_identity
-      - install_archive_guard_against_open_course_predicate_with_student_row_serialization
-      - wire_profile_update_archive_restore_commands_to_students_version
-      - add_concurrency_and_archive_race_invariant_tests
     existing_archived_student_with_open_course_policy: fail_migration_or_explicit_reviewed_remediation
-
-  tests_required:
-    - new_or_migrated_student_version_is_at_least_one
-    - profile_PATCH_with_current_expected_version_commits_and_increments_version_once
-    - profile_PATCH_with_stale_expected_version_is_rejected_without_partial_write
-    - two_profile_PATCH_commands_with_same_expected_version_cannot_both_commit
-    - identity_branch_update_still_passes_DB_TRN_002_and_increments_version_once
-    - profile_PATCH_cannot_directly_set_or_clear_archived_at_or_archived_by
-    - archive_active_student_without_open_course_sets_archive_fields_and_increments_version_once
-    - repeated_archive_of_already_archived_student_is_state_noop_without_version_increment
-    - archive_student_with_open_course_is_rejected_without_course_mutation
-    - archive_with_only_terminal_historical_courses_preserves_all_course_rows
-    - archive_does_not_delete_or_rewrite_sessions_attendance_or_ledger
-    - course_create_for_archived_student_is_rejected_by_database_guard
-    - concurrent_course_create_and_student_archive_cannot_commit_archived_student_with_new_open_course
-    - archive_then_stale_profile_PATCH_returns_conflict_and_preserves_archive
-    - profile_PATCH_then_archive_can_serialize_without_lost_update
-    - restore_archived_student_clears_archive_fields_and_increments_version_once
-    - repeated_restore_of_active_student_is_state_noop_without_version_increment
-    - restore_reuses_same_student_row_and_does_not_reopen_or_create_courses
-    - archive_restore_does_not_release_or_recreate_PESEL_identity_claim
-    - student_archive_does_not_hard_delete_formal_history
-    - migration_detects_archived_student_with_open_course_before_enabling_guard
-
-  intentionally_not_solved_by_DB_TRN_003:
-    complete_course_stage_timestamp_matrix: DB-TRN-004
-    course_stage_transition_history: DB-TRN-004
-    course_cancel_restore_and_closed_course_correction_semantics: DB-TRN-004
-    requirement_context_reproducibility: DB-TRN-005
-    attendance_ledger_exactly_once: DB-TRN-006
-    external_training_current_projection_history: DB-TRN-007
-    course_required_PKK_persistence_boundary: DB-TRN-008
-    learning_account_license_credentials_lifecycle: DB4_6
-    exact_HTTP_If_Match_required_marker_and_428_acceptance_sync: Stage5_acceptance_contract_sync
-
   self_audit:
     student_version_concurrency_root_defined: PASS
-    stale_profile_update_cannot_silently_overwrite: PASS
-    edit_archive_restore_share_student_row_serialization_boundary: PASS
     course_create_archive_race_closed: PASS
-    archived_student_cannot_receive_new_formal_course: PASS
     archive_with_open_course_is_rejected_without_hidden_course_mutation: PASS
-    terminal_formal_history_is_preserved: PASS
     restore_reuses_same_row_and_does_not_reopen_history: PASS
-    DB_TRN_002_identity_and_PESEL_archive_rules_preserved: PASS
-    DB_TRN_004_course_lifecycle_matrix_not_solved_early: PASS
-    DB4_6_learning_access_lifecycle_not_solved_early: PASS
     aggregate_core_schema_not_modified_in_this_step: PASS
     aggregate_docs87_not_modified_in_this_step: PASS
     Laravel_migrations_created: false
@@ -826,431 +331,602 @@ student_concurrency_archive_restore_lifecycle:
 course_lifecycle_stage_history_cancel_restore:
   blocker: DB-TRN-004
   status: PASS
-  goal: >-
-    Give CourseEnrollment one contradiction-free lifecycle model, durable stage and
-    lifecycle history, and one serialized concurrency boundary for update, stage
-    transition, completion, interruption, cancellation, restore and closed-course
-    correction without hard-deleting or silently rewriting formal history.
-
   authority_and_preservation:
-    stage_source: specs/screens/student-detail.yml
-    API_source: specs/api/paths/students-courses.yaml
-    API_schema_source: specs/api/openapi-components-v1.yaml
-    edit_source: specs/screens/course-edit.yml
-    delete_source: specs/screens/course-delete.yml
-    legal_completion_interruption_source: docs/66-formal-student-record-and-theory-exemptions.md
-    confirmed_training_stage_values:
-      - unassigned
-      - theory
-      - practice
-      - documentation
-      - word_exam
-      - supplementary_training
-      - training_completed
+    confirmed_training_stage_values: [unassigned, theory, practice, documentation, word_exam, supplementary_training, training_completed]
     exact_competitor_transition_graph_observed: false
     do_not_invent_strict_theory_to_practice_sequence: true
     closed_course_changes_require_correction_mode: true
-    observed_delete_action_maps_to_non_destructive_cancel_policy: true
-
   course_enrollment_physical_model:
-    version:
-      canonical_type: bigint
-      nullable: false
-      default: 1
-      check: version_gte_1
-      purpose: concurrency_root_for_all_material_course_mutations
+    version: { canonical_type: bigint, nullable: false, default: 1, check: version_gte_1 }
     training_stage:
       type: varchar_64
       nullable: false
       allowed_values: [unassigned, theory, practice, documentation, word_exam, supplementary_training, training_completed]
       initial_value: unassigned
-      client_may_set_on_create: false
-    existing_terminal_projection_columns:
-      completed_at: nullable_timestamptz
-      interrupted_at: nullable_timestamptz
-      cancelled_at: nullable_timestamptz
-      cancelled_by_user_id: nullable_uuid
+    completed_at: nullable_timestamptz
+    interrupted_at: nullable_timestamptz
+    cancelled_at: nullable_timestamptz
+    cancelled_by_user_id: nullable_uuid
     separate_mutable_lifecycle_status_column_required: false
-    lifecycle_state_is_derived_from_terminal_projection: true
-    organization_id_mutation: forbidden
-    terminal_timestamp_or_training_stage_mutation_via_generic_PATCH: forbidden
-
   lifecycle_state_predicate:
-    active: >-
-      completed_at IS NULL AND interrupted_at IS NULL AND cancelled_at IS NULL
-    completed: >-
-      completed_at IS NOT NULL AND interrupted_at IS NULL AND cancelled_at IS NULL
-      AND training_stage = 'training_completed'
-    interrupted: >-
-      interrupted_at IS NOT NULL AND completed_at IS NULL AND cancelled_at IS NULL
-      AND training_stage <> 'training_completed'
-    cancelled: >-
-      cancelled_at IS NOT NULL AND completed_at IS NULL AND interrupted_at IS NULL
-      AND training_stage <> 'training_completed'
-    valid_states: [active, completed, interrupted, cancelled]
-    DB_TRN_003_open_course_predicate_now_canonical_active_predicate: true
-
+    active: completed_at_null_and_interrupted_at_null_and_cancelled_at_null
+    completed: completed_at_nonnull_only_and_training_stage_training_completed
+    interrupted: interrupted_at_nonnull_only_and_stage_noncompleted
+    cancelled: cancelled_at_nonnull_only_cancelled_by_nonnull_and_stage_noncompleted
   row_level_consistency:
-    exactly_zero_or_one_terminal_timestamp_nonnull:
-      check: num_nonnull(completed_at, interrupted_at, cancelled_at)_lte_1
-    training_completed_stage_equivalence:
-      check: >-
-        (completed_at IS NOT NULL AND training_stage = 'training_completed') OR
-        (completed_at IS NULL AND training_stage <> 'training_completed')
-    cancellation_actor_pair:
-      check: >-
-        (cancelled_at IS NULL AND cancelled_by_user_id IS NULL) OR
-        (cancelled_at IS NOT NULL AND cancelled_by_user_id IS NOT NULL)
-    completed_interrupted_cancelled_are_mutually_exclusive: true
-    active_course_cannot_use_training_completed_stage: true
-    cancelled_or_interrupted_course_preserves_last_noncompleted_training_stage: true
-
+    terminal_timestamp_cardinality_maximum: 1
+    training_completed_stage_equivalent_to_completed_at_nonnull: true
+    cancellation_actor_pair_required: true
   lifecycle_history_table:
     name: course_enrollment_lifecycle_events
     append_only: true
     tenant_owned: true
+    same_tenant_course_FK: true
+    one_history_event_per_material_course_version: { columns: [organization_id, course_enrollment_id, course_version_after], type: unique }
+    correction_self_FK_same_tenant: true
+    event_types: [created, migration_baseline, updated, stage_changed, completed, interrupted, cancelled, restored, closed_course_corrected, lifecycle_corrected]
+  version_and_history_semantics:
+    concurrency_root: course_enrollments.version
+    every_material_course_mutation_increments_version_once: true
+    every_material_course_mutation_appends_exactly_one_lifecycle_event_same_transaction: true
+    semantic_noop_does_not_increment_version_or_append_event: true
+  generic_course_update:
+    expected_version_source: If-Match
+    lock_course_row: FOR_UPDATE
+    normal_business_field_update_requires_lifecycle_state: active
+    training_stage_or_terminal_projection_update_via_PATCH: forbidden
+    closed_course_generic_PATCH: reject_requires_explicit_correction_mode
+  stage_transition_policy:
+    lifecycle_state_required: active
+    nonterminal_transition_graph: explicit_audited_move_between_confirmed_nonterminal_values_without_invented_sequence
+    target_training_completed: completion_command_semantics
+  completion_transaction:
+    precondition_current_state: active
+    atomically_set_stage_and_completed_at: true
+    completion_eligibility_requirements_hours_exams: deferred_to_DB_TRN_005_DB_TRN_006_and_DB4_7
+  interruption_transaction:
+    precondition_current_state: active
+    reason_required: true
+    preserves_last_noncompleted_stage: true
+    normal_restore_clears_interrupted_at: false
+  cancellation_transaction:
+    precondition_current_state: active
+    reason_required: true
+    hard_delete_or_rewrite_formal_history: forbidden
+  restore_transaction:
+    normal_restore_source_state: cancelled
+    completed_or_interrupted_restore: forbidden
+    lock_order: [student_row_FOR_UPDATE, course_enrollment_row_FOR_UPDATE]
+    require_student_nonarchived_after_student_lock: true
+    preserve_training_stage: true
+  closed_course_correction:
+    explicit_correction_mode_required: true
+    reason_and_actor_required: true
+    business_field_correction_appends: closed_course_corrected
+    lifecycle_fact_correction_appends: lifecycle_corrected
+    prior_history_delete: forbidden
+  terminal_course_formal_activity_boundary:
+    new_training_session_requires_course_active_after_lock: true
+    existing_formal_history_is_never_deleted_when_course_closes: true
+  migration_design:
+    migrations_not_generated_in_this_step: true
+    baseline_event_semantics: migration_baseline_without_invented_actor_or_transition_chronology
+    contradictory_legacy_row_policy: fail_or_explicit_reviewed_remediation_never_auto_rewrite_history
+  self_audit:
+    one_contradiction_free_lifecycle_state_matrix_defined: PASS
+    durable_append_only_stage_and_lifecycle_history_defined: PASS
+    all_material_course_mutations_use_one_version_root_and_history_pair: PASS
+    normal_restore_only_reopens_cancelled_not_completed_or_interrupted: PASS
+    closed_course_correction_preserves_prior_lifecycle_history: PASS
+    DB_TRN_005_through_DB_TRN_008_not_fixed: PASS
+    aggregate_core_schema_not_modified_in_this_step: PASS
+    aggregate_docs87_not_modified_in_this_step: PASS
+    Laravel_migrations_created: false
+    later_DB4_slices_entered: false
+
+# DB-TRN-005
+requirement_context_profile_reproducibility:
+  blocker: DB-TRN-005
+  status: PASS
+  goal: >-
+    Make every current training requirement a reproducible result of durable source
+    facts plus an immutable identified rule set, while preserving every historical
+    calculation and every correction without deleting training, attendance or exam
+    history. Requirement mutations serialize with CourseEnrollment so category,
+    context, exemption and override races cannot produce a stale current projection.
+
+  authority_and_preservation:
+    legal_source: specs/legal/training-theory-exemptions.yml
+    product_source: specs/legal/editable-training-requirements.yml
+    narrative_source: docs/67-editable-training-requirements-and-theory-exemption.md
+    API_get_current_profile: GET_/course-enrollments/{courseEnrollmentId}/requirements
+    API_update_context: POST_/course-enrollments/{courseEnrollmentId}/requirement-context
+    API_exemption_decision: POST_/course-enrollments/{courseEnrollmentId}/exemption-decisions
+    current_API_requirement_context_schema_is_open_ended: true
+    exact_HTTP_schema_and_expected_version_sync: Stage5_acceptance_contract_sync
+    requirements_may_change_after_course_start: true
+    terminal_course_change_requires_DB_TRN_004_correction_mode: true
+    historical_training_attendance_exam_rows_may_not_be_deleted_by_recalculation: true
+
+  canonical_source_fact_ownership:
+    course_owned_rule_inputs:
+      target_category:
+        canonical_column: course_enrollments.driving_category_id
+        duplicate_current_target_category_column_in_context: forbidden
+      training_type:
+        canonical_column: course_enrollments.training_type
+      course_started_at:
+        canonical_column: course_enrollments.started_at
+        reason: preserve_rule_set_or_effective_date_reproducibility_when_applicable
+    context_owned_rule_inputs:
+      state_theory_passed: course_requirement_contexts.state_theory_passed
+      context_evidence_reference: course_requirement_contexts.evidence_reference
+      held_categories: course_requirement_context_held_categories
+    exemption_owned_rule_inputs:
+      current_exemption_basis: current_nonrevoked_course_exemption_decision
+      current_exemption_evidence: current_nonrevoked_course_exemption_decision.evidence_reference
+    manual_override_owned_rule_inputs:
+      current_override: current_nonrevoked_course_requirement_override_decision
+    computed_outputs_are_never_accepted_as_source_facts: true
+    requirement_profile_output_must_not_be_used_to_infer_missing_source_facts: true
+
+  course_enrollment_requirement_revision:
+    add_column:
+      name: requirements_revision
+      type: bigint
+      nullable: false
+      default_for_new_course: 1
+      check: requirements_revision_gte_1
+      purpose: freshness_epoch_for_current_requirement_projection_not_a_second_concurrency_root
+    concurrency_root_remains: course_enrollments.version
+    increment_exactly_once_when:
+      - driving_category_id_changes
+      - training_type_changes
+      - started_at_changes_when_rule_selection_or_result_can_be_affected
+      - state_theory_passed_or_context_evidence_changes
+      - held_category_set_changes
+      - current_exemption_decision_changes_or_is_revoked
+      - current_manual_override_changes_or_is_revoked
+      - applicable_rule_set_is_reselected_or_refreshed
+    does_not_increment_for:
+      - ordinary_stage_transition_without_requirement_input_change
+      - cancel_or_restore_without_requirement_input_change
+      - instructor_or_location_change
+      - declared_hour_field_change_when_it_does_not_change_legal_requirement_calculation
+    each_increment_requires_new_current_profile_same_transaction: true
+
+  training_requirement_rule_sets:
+    purpose: immutable_identity_for_exact_rule_engine_artifact_used_by_each_decision
+    tenant_owned: false
     fields:
-      - id_uuid_PK
+      - version_varchar_64_PK
+      - jurisdiction_varchar_16_not_null
+      - content_hash_char_64_not_null
+      - source_reference_varchar_255_nullable
+      - effective_from_timestamptz_nullable
+      - published_at_timestamptz_not_null
+      - created_at_timestamptz_not_null
+    content_hash_algorithm: SHA_256_or_equivalent_collision_resistant_hash_of_canonical_rule_artifact
+    version_reuse_for_different_content: forbidden
+    row_mutation_after_first_profile_reference: forbidden
+    profile_rule_set_FK_required: true
+    rule_selection_policy:
+      exact_legal_applicability_logic_defined_here: false
+      requirement: selected_version_must_be_explicit_and_resolve_to_one_immutable_row
+      reason: DB_TRN_005_closes_reproducibility_not_future_legal_rule_selection_policy
+
+  course_requirement_contexts:
+    purpose: current_mutable_non_course_source_facts_for_rule_engine
+    one_row_per_course: true
+    primary_key: [organization_id, course_enrollment_id]
+    fields:
       - organization_id_uuid_not_null
       - course_enrollment_id_uuid_not_null
-      - event_type_varchar_48_not_null
-      - from_lifecycle_state_varchar_24_nullable_for_create_or_baseline
-      - to_lifecycle_state_varchar_24_not_null
-      - from_training_stage_varchar_64_nullable_for_create_or_baseline
-      - to_training_stage_varchar_64_not_null
-      - course_version_before_bigint_nullable_for_migration_baseline
-      - course_version_after_bigint_not_null
-      - reason_text_nullable_subject_to_event_rule
-      - actor_user_id_uuid_nullable_only_for_migration_baseline
-      - correction_of_event_id_uuid_nullable
-      - event_payload_redacted_jsonb_nullable
-      - occurred_at_timestamptz_not_null
-    event_types:
-      - created
-      - migration_baseline
-      - updated
-      - stage_changed
-      - completed
-      - interrupted
-      - cancelled
-      - restored
-      - closed_course_corrected
-      - lifecycle_corrected
-    candidate_key:
-      columns: [organization_id, id]
-      purpose: same_tenant_correction_reference_target
+      - state_theory_passed_boolean_not_null_default_false
+      - evidence_reference_varchar_255_nullable
+      - effective_from_timestamptz_not_null
+      - updated_by_user_id_uuid_not_null
+      - updated_at_timestamptz_not_null
     same_tenant_course_FK:
       source_columns: [organization_id, course_enrollment_id]
       target_table: course_enrollments
       target_columns: [organization_id, id]
       on_update: RESTRICT
       on_delete: RESTRICT
-    correction_self_FK_when_present:
-      source_columns: [organization_id, correction_of_event_id]
-      target_table: course_enrollment_lifecycle_events
+    independent_version_column: false
+    concurrency_root: course_enrollments.version
+    generic_direct_SQL_update_without_profile_recalculation: forbidden_by_transactional_guard
+
+  course_requirement_context_held_categories:
+    purpose: normalized_current_set_of_held_categories_used_as_source_facts
+    fields:
+      - organization_id_uuid_not_null
+      - course_enrollment_id_uuid_not_null
+      - driving_category_id_uuid_not_null
+    primary_key: [organization_id, course_enrollment_id, driving_category_id]
+    context_composite_FK:
+      source_columns: [organization_id, course_enrollment_id]
+      target_table: course_requirement_contexts
+      target_columns: [organization_id, course_enrollment_id]
+      on_update: RESTRICT
+      on_delete: CASCADE_technical_child_only
+    driving_category_is_global_dictionary: true
+    held_category_set_history_storage: training_requirement_profile_input_snapshots
+    direct_child_mutation_outside_serialized_requirement_command: forbidden
+
+  course_exemption_decisions_strengthening:
+    existing_table: course_exemption_decisions
+    purpose: auditable_current_and_historical_explicit_exemption_basis_decisions
+    business_fields_immutable_after_insert:
+      - basis_code
+      - evidence_reference
+      - reason
+      - approved_by_user_id
+      - rule_set_version
+      - created_at
+    add_revocation_fields:
+      - revoked_by_user_id_nullable
+      - revocation_reason_nullable
+    current_predicate: revoked_at_is_null
+    at_most_one_current_per_course:
+      type: partial_unique
+      columns: [organization_id, course_enrollment_id]
+      where: revoked_at_is_null
+    current_basis_not_duplicated_into_course_requirement_context: true
+    replacement_semantics: revoke_old_current_then_insert_new_current_under_course_lock_same_transaction
+    revoke_without_replacement_allowed: true
+    revoke_reason_and_actor_required: true
+    same_tenant_course_FK: governed_by_DB_TRN_001
+
+  course_requirement_override_decisions:
+    purpose: optional_audited_manual_override_defined_by_existing_product_policy
+    tenant_owned: true
+    fields:
+      - id_uuid_PK
+      - organization_id_uuid_not_null
+      - course_enrollment_id_uuid_not_null
+      - override_payload_jsonb_not_null
+      - reason_text_not_null
+      - evidence_reference_varchar_255_nullable
+      - approved_by_user_id_uuid_not_null
+      - created_at_timestamptz_not_null
+      - revoked_at_timestamptz_nullable
+      - revoked_by_user_id_uuid_nullable
+      - revocation_reason_text_nullable
+    allowed_override_keys_only:
+      - theory_training_required
+      - minimum_theory_minutes
+      - internal_theory_exam_required
+      - practical_training_required
+      - minimum_practical_minutes
+      - internal_practical_exam_required
+    arbitrary_extra_override_key: forbidden
+    nonnegative_minute_values_required: true
+    current_predicate: revoked_at_is_null
+    at_most_one_current_per_course:
+      type: partial_unique
+      columns: [organization_id, course_enrollment_id]
+      where: revoked_at_is_null
+    same_tenant_course_FK:
+      source_columns: [organization_id, course_enrollment_id]
+      target_table: course_enrollments
+      target_columns: [organization_id, id]
+      on_update: RESTRICT
+      on_delete: RESTRICT
+    replacement_or_revoke_requires_course_lock_expected_version_reason_actor: true
+    override_is_never_silent_rule_engine_input: true
+
+  training_requirement_profiles_strengthening:
+    existing_table: training_requirement_profiles
+    role: immutable_calculation_decision_history_plus_single_current_projection
+    current_predicate: superseded_at_is_null
+    at_most_one_current_per_course:
+      type: partial_unique
+      columns: [organization_id, course_enrollment_id]
+      where: superseded_at_is_null
+    add_or_require_fields:
+      - requirements_revision_bigint_not_null
+      - course_version_after_bigint_not_null
+      - rule_set_version_varchar_64_not_null_FK_training_requirement_rule_sets
+      - trigger_code_varchar_64_not_null
+      - calculation_reason_text_nullable_subject_to_trigger
+      - calculated_by_user_id_uuid_nullable_for_system_only
+      - input_snapshot_jsonb_not_null
+      - base_output_snapshot_jsonb_not_null
+      - effective_output_snapshot_jsonb_not_null
+      - manual_override_decision_id_uuid_nullable
+      - calculated_at_timestamptz_not_null
+      - superseded_at_timestamptz_nullable
+    existing_effective_output_columns_remain:
+      - theory_training_required
+      - minimum_theory_minutes
+      - internal_theory_exam_required
+      - practical_training_required
+      - minimum_practical_minutes
+      - internal_practical_exam_required
+      - exemption_basis_code
+    unique_decision_per_requirement_revision:
+      columns: [organization_id, course_enrollment_id, requirements_revision]
+    same_tenant_course_FK: governed_by_DB_TRN_001
+    manual_override_same_tenant_FK_when_present:
+      source_columns: [organization_id, manual_override_decision_id]
+      target_table: course_requirement_override_decisions
       target_columns: [organization_id, id]
       match: MATCH_SIMPLE
       on_update: RESTRICT
       on_delete: RESTRICT
-    one_history_event_per_material_course_version:
-      type: unique
-      columns: [organization_id, course_enrollment_id, course_version_after]
-    normal_event_version_step:
-      rule: course_version_after_equals_course_version_before_plus_1
-      migration_baseline_exception: course_version_before_is_null
-    reason_required_for_event_types:
-      - interrupted
-      - cancelled
-      - closed_course_corrected
-      - lifecycle_corrected
-    normal_actor_required: true
-    migration_baseline_actor_may_be_null: true
-    event_payload_is_audit_projection_not_business_authority: true
-    plaintext_PKK_or_PESEL_in_event_payload: forbidden
-    update_or_delete_history_event_by_normal_application_role: forbidden
+      target_candidate_key_required: [organization_id, id]
+    immutable_after_insert:
+      - requirements_revision
+      - course_version_after
+      - rule_set_version
+      - trigger_code
+      - calculation_reason
+      - calculated_by_user_id
+      - input_snapshot
+      - base_output_snapshot
+      - effective_output_snapshot
+      - manual_override_decision_id
+      - all_effective_output_columns
+      - calculated_at
+    only_normal_mutable_history_marker: superseded_at
 
-  version_and_history_semantics:
-    concurrency_root: course_enrollments.version
-    create_starts_at_version: 1
-    create_appends_event_type: created
-    every_material_course_mutation_increments_version_once: true
-    every_material_course_mutation_appends_exactly_one_lifecycle_event_same_transaction: true
-    semantic_noop_does_not_increment_version_or_append_event: true
-    history_event_course_version_after_equals_committed_course_version: true
-    direct_mutation_that_changes_course_version_without_matching_event: forbidden_by_transactional_guard
-    history_event_without_matching_material_course_version: forbidden_by_transactional_guard
+  input_snapshot_contract:
+    must_capture_exact_normalized_inputs_used_for_decision:
+      - course_enrollment_id
+      - driving_category_id_and_code
+      - training_type
+      - started_at
+      - state_theory_passed
+      - context_evidence_reference
+      - sorted_held_category_ids_and_codes
+      - current_exemption_decision_id_nullable
+      - current_exemption_basis_code_nullable
+      - current_exemption_evidence_reference_nullable
+      - current_manual_override_decision_id_nullable
+      - current_manual_override_payload_nullable
+      - selected_rule_set_version
+      - selected_rule_set_content_hash
+    PII_not_required_for_requirement_calculation_must_not_be_copied: true
+    PESEL_or_PKK_in_snapshot: forbidden
+    snapshot_is_immutable_evidence_not_current_source_authority: true
+
+  output_snapshot_contract:
+    base_output_snapshot: exact_rule_engine_result_before_manual_override
+    effective_output_snapshot: exact_result_after_optional_override
+    effective_relational_columns_are_current_API_projection: true
+    application_integration_test_must_prove_effective_snapshot_equals_relational_effective_columns: true
+    database_does_not_need_rule_engine_or_JSON_recalculation_secret_logic: true
+
+  current_projection_freshness_guard:
+    final_transaction_invariant: >-
+      Every CourseEnrollment has exactly one current TrainingRequirementProfile and
+      that profile.requirements_revision equals course_enrollments.requirements_revision.
     enforcement: deferrable_constraint_trigger_or_equivalent_transactional_database_guard
+    at_most_one_current_from_partial_unique: true
+    at_least_one_current_required_for_committed_formal_course: true
+    stale_profile_after_source_fact_change_may_not_commit: true
+    profile_rule_set_version_must_resolve_to_immutable_rule_set: true
 
-  generic_course_update:
-    operation: PATCH_/course-enrollments/{courseEnrollmentId}
-    expected_version_required: true
-    expected_version_source: If-Match
-    lock_course_row: FOR_UPDATE
-    compare_expected_version_after_lock: true
-    stale_version_result: conflict_or_precondition_failed_without_partial_write
-    normal_business_field_update_requires_lifecycle_state: active
-    training_stage_or_terminal_projection_update_via_PATCH: forbidden
-    successful_material_update:
-      - apply_only_allowed_business_fields
-      - preserve_DB_TRN_001_same_tenant_relations
-      - preserve_DB_TRN_002_student_identity_boundary
-      - increment_course_version_once
-      - append_updated_event
-      - write_audit_and_outbox_same_transaction
-    closed_course_generic_PATCH: reject_requires_explicit_correction_mode
+  initial_course_creation_requirement_transaction:
+    API_contract_promises_requirements_calculated_on_create: true
+    new_course_requirements_revision: 1
+    initial_context:
+      state_theory_passed: false_unless_explicitly_supplied_by_authorized_create_or_followup_correction
+      held_categories: empty_unless_explicitly_supplied
+      current_exemption_decision: null_unless_explicit_authorized_flow_creates_one
+      current_manual_override: null
+    atomically_before_course_commit:
+      - create_course_requirement_context
+      - create_any_explicit_held_category_rows
+      - select_explicit_immutable_rule_set_version
+      - calculate_base_outputs
+      - apply_current_override_if_any
+      - insert_current_training_requirement_profile_for_requirements_revision_1
+      - satisfy_DB_TRN_004_course_version_and_created_event_contract
+    PKK_atomic_persistence_not_solved_here: DB-TRN-008
 
-  stage_transition_policy:
-    operation: POST_/course-enrollments/{courseEnrollmentId}/stage-transitions
+  requirement_context_update_transaction:
+    operation: POST_/course-enrollments/{courseEnrollmentId}/requirement-context
     idempotency_key_required_by_existing_API: true
     expected_course_version_required_for_fresh_mutating_command: true
-    exact_HTTP_If_Match_or_expected_version_surface_sync: Stage5_acceptance_contract_sync
+    exact_HTTP_expected_version_surface_sync: Stage5_acceptance_contract_sync
     lock_course_row: FOR_UPDATE
-    lifecycle_state_required: active
-    generic_nonterminal_stage_values:
-      - unassigned
-      - theory
-      - practice
-      - documentation
-      - word_exam
-      - supplementary_training
-    nonterminal_transition_graph: >-
-      Because the confirmed screen explicitly marks exact transition rules TO_VERIFY,
-      DB4_4 does not invent a false sequential graph. An explicit audited command may
-      move an active course between confirmed nonterminal stage values; later domain
-      policy may narrow this allowlist without changing the physical history model.
-    target_same_as_current_stage: semantic_noop_without_version_or_event
-    target_training_completed:
-      route_to: completion_command_semantics
-      plain_stage_only_update_forbidden: true
-    successful_nonterminal_transition:
-      - preserve_all_terminal_timestamps_null
+    compare_expected_version_after_lock: true
+    active_course_normal_edit_allowed: true
+    terminal_course_requires_DB_TRN_004_correction_mode: true
+    atomically_on_semantic_change:
+      - update_context_scalar_source_facts
+      - replace_held_category_current_set_as_needed
+      - increment_requirements_revision_once
+      - select_explicit_immutable_rule_set_version
+      - supersede_prior_current_profile
+      - calculate_and_insert_new_current_profile
       - increment_course_version_once
-      - append_stage_changed_event_with_from_and_to_stage
+      - append_DB_TRN_004_updated_event_or_closed_course_corrected_event
       - write_audit_and_outbox_same_transaction
+    semantic_noop:
+      requirements_revision_increment: false
+      course_version_increment: false
+      new_profile_insert: false
+    destructive_retroactive_rewrite_of_completed_activity: forbidden
 
-  completion_transaction:
-    source_operation: stage_transition_target_training_completed_or_equivalent_domain_command
-    precondition_current_state: active
+  course_rule_input_update_integration:
+    operation: PATCH_/course-enrollments/{courseEnrollmentId}
+    source_fields_that_trigger_recalculation:
+      - driving_category_id
+      - training_type
+      - started_at_when_rule_selection_or_outputs_can_change
+    existing_DB_TRN_004_course_lock_and_expected_version_reused: true
+    one_course_version_increment_total_for_combined_course_and_requirement_change: true
+    requirements_revision_increment_once_if_rule_input_changed: true
+    new_current_profile_same_transaction: true
+    category_change_revalidation_of_existing_exam_compatibility: deferred_to_DB4_7
+    external_training_compatibility_and_projection_details: deferred_to_DB_TRN_007
+
+  exemption_decision_transaction:
+    operation: POST_/course-enrollments/{courseEnrollmentId}/exemption-decisions
+    idempotency_key_required_by_existing_API: true
+    expected_course_version_required_for_fresh_mutating_command: true
+    lock_course_row: FOR_UPDATE
+    terminal_course_requires_DB_TRN_004_correction_mode: true
+    replacement_or_revoke:
+      - preserve_prior_decision_row
+      - revoke_prior_current_with_actor_reason_when_needed
+      - insert_new_current_when_replacing
+      - increment_requirements_revision_once
+      - supersede_prior_current_profile
+      - calculate_and_insert_new_current_profile
+      - increment_course_version_once
+      - append_DB_TRN_004_updated_or_closed_course_corrected_event
+      - write_audit_and_outbox_same_transaction
+    direct_unqualified_exemption_boolean_without_basis: forbidden
+
+  manual_override_transaction:
+    current_product_policy_allows_override: true
+    exact_HTTP_surface: Stage5_acceptance_contract_sync
+    permission_required: true
+    reason_actor_timestamp_required: true
     lock_course_row: FOR_UPDATE
     expected_course_version_required: true
-    atomically:
-      - set_training_stage_training_completed
-      - set_completed_at_to_authoritative_command_time
-      - keep_interrupted_at_null
-      - keep_cancelled_at_and_cancelled_by_null
+    terminal_course_requires_DB_TRN_004_correction_mode: true
+    replacement_or_revoke:
+      - preserve_prior_override_decision_row
+      - revoke_prior_current_with_actor_reason_when_needed
+      - insert_new_current_override_when_replacing
+      - increment_requirements_revision_once
+      - calculate_base_rule_engine_output_without_override
+      - calculate_effective_output_with_current_override
+      - supersede_prior_current_profile
+      - insert_new_current_profile
       - increment_course_version_once
-      - append_completed_event
+      - append_DB_TRN_004_updated_or_closed_course_corrected_event
       - write_audit_and_outbox_same_transaction
-    completion_eligibility_requirements_hours_exams: deferred_to_DB_TRN_005_DB_TRN_006_and_DB4_7
-    generic_PATCH_may_set_completed_at: false
-    normal_restore_may_reopen_completed_course: false
 
-  interruption_transaction:
-    formal_meaning: end_current_training_as_interrupted_without_claiming_completion
-    exact_HTTP_operation_surface: Stage5_acceptance_contract_sync
-    precondition_current_state: active
-    reason_required: true
+  rule_set_recalculation_transaction:
+    purpose: intentionally_recalculate_same_source_facts_under_newly_selected_applicable_rule_set
     lock_course_row: FOR_UPDATE
     expected_course_version_required: true
-    atomically:
-      - preserve_current_noncompleted_training_stage
-      - set_interrupted_at_to_authoritative_command_time
-      - keep_completed_at_null
-      - keep_cancelled_at_and_cancelled_by_null
-      - increment_course_version_once
-      - append_interrupted_event_with_reason
-      - write_audit_and_outbox_same_transaction
-    normal_restore_operation_clears_interrupted_at: false
-    reopening_mistaken_interruption_requires_explicit_lifecycle_correction: true
-
-  cancellation_transaction:
-    operation: POST_/course-enrollments/{courseEnrollmentId}/cancel
-    idempotency_key_required: true
     reason_required: true
-    precondition_current_state: active
-    lock_course_row: FOR_UPDATE
-    expected_course_version_required_for_fresh_command: true
-    exact_HTTP_If_Match_or_expected_version_surface_sync: Stage5_acceptance_contract_sync
-    atomically:
-      - preserve_current_noncompleted_training_stage
-      - set_cancelled_at_to_authoritative_command_time
-      - set_cancelled_by_user_id_to_actor
-      - keep_completed_at_null
-      - keep_interrupted_at_null
-      - increment_course_version_once
-      - append_cancelled_event_with_reason
-      - write_audit_and_outbox_same_transaction
-    hard_delete_course: false
-    hard_delete_or_rewrite_sessions_attendance_ledger_exam_payment_or_PKK_history: false
-    distinct_fresh_cancel_when_already_cancelled: conflict_already_cancelled
-    same_idempotency_key_retry: return_prior_result_without_reapplying_effect
-    cancel_completed_or_interrupted_course: conflict_requires_correction_policy_not_cancel
+    source_facts_may_remain_unchanged: true
+    requirements_revision_increment_once: true
+    new_profile_with_new_rule_set_and_full_snapshots_required: true
+    course_version_increment_once: true
+    DB_TRN_004_history_event_required: true
+    old_profile_and_old_rule_set_rows_preserved: true
 
-  restore_transaction:
-    operation: POST_/course-enrollments/{courseEnrollmentId}/restore
-    normal_restore_source_state: cancelled
-    completed_or_interrupted_restore: forbidden
-    idempotency_key_required: true
-    expected_course_version_required_for_fresh_command: true
-    exact_HTTP_If_Match_or_expected_version_surface_sync: Stage5_acceptance_contract_sync
-    lock_order:
-      - student_row_FOR_UPDATE
-      - course_enrollment_row_FOR_UPDATE
-    require_student_nonarchived_after_student_lock: true
-    require_DB_TRN_002_formal_identity_still_valid: true
-    atomically:
-      - clear_cancelled_at
-      - clear_cancelled_by_user_id
-      - preserve_training_stage
-      - keep_completed_at_null
-      - keep_interrupted_at_null
-      - increment_course_version_once
-      - append_restored_event
-      - write_audit_and_outbox_same_transaction
-    restore_creates_new_course_or_student: false
-    restore_rewrites_sessions_attendance_ledger_or_external_training: false
-    distinct_fresh_restore_when_course_not_cancelled: conflict_not_cancelled
-    same_idempotency_key_retry: return_prior_result_without_reapplying_effect
+  closed_course_correction_integration:
+    normal_inline_requirement_edit_on_terminal_course: forbidden
+    explicit_DB_TRN_004_correction_mode_required: true
+    correction_reason_actor_expected_version_required: true
+    requirements_revision_increments_when_source_fact_or_rule_set_changes: true
+    new_profile_inserted_without_deleting_prior_profiles: true
+    existing_training_sessions_attendance_ledger_exam_attempts_unchanged: true
+    signed_or_derived_document_regeneration_marked_as_required_when_affected: true
+    exact_document_regeneration_pipeline: deferred_to_document_and_audit_slice
 
-  student_archive_vs_course_restore_race:
-    shared_serialization_root: students_row
-    fixed_lock_order_when_both_student_and_course_needed: student_then_course
-    restore_wins_first: >-
-      Restore commits an active course while Student is nonarchived; later Student
-      archive sees the now-active course and is rejected by DB-TRN-003.
-    archive_wins_first: >-
-      Restore sees archived_at non-null after the Student lock and is rejected.
-    impossible_committed_state: archived_student_plus_restored_active_course
+  completion_requirement_boundary:
+    DB_TRN_005_closes_only_projection_freshness_side: true
+    before_completion_require:
+      - exactly_one_current_training_requirement_profile
+      - current_profile_requirements_revision_equals_course_requirements_revision
+      - current_profile_rule_set_version_resolves_to_immutable_rule_set
+    required_minutes_satisfaction: deferred_to_DB_TRN_006
+    internal_exam_satisfaction: deferred_to_DB4_7
+    current_profile_outputs_determine_which_requirements_apply: true
+    historical_profiles_never_used_as_current_completion_authority: true
 
-  closed_course_correction:
-    normal_generic_PATCH_on_terminal_course: forbidden
-    explicit_correction_mode_required: true
-    expected_course_version_required: true
-    reason_required: true
-    actor_required: true
-    lock_course_row: FOR_UPDATE
-    business_field_correction_without_lifecycle_change:
-      lifecycle_state_and_terminal_timestamps_unchanged: true
-      allowed_fields_subject_to_domain_policy: true
-      increment_course_version_once: true
-      append_event_type: closed_course_corrected
-      redacted_before_after_or_changed_field_projection_in_event_payload: required
-      never_delete_prior_lifecycle_events: true
-    lifecycle_fact_correction:
-      normal_restore_alias: false
-      exceptional_governed_flow: true
-      correction_of_event_id_required: true
-      final_row_must_pass_complete_lifecycle_matrix: true
-      reason_and_redacted_before_after_projection_required: true
-      increment_course_version_once: true
-      append_event_type: lifecycle_corrected
-      if_final_state_becomes_active:
-        lock_student_before_course: true
-        require_student_nonarchived: true
-        require_DB_TRN_002_formal_identity: true
-    exact_permission_and_HTTP_surface: Stage5_security_acceptance_sync
-
-  terminal_course_formal_activity_boundary:
-    new_training_session_requires_course_active_after_lock: true
-    new_formal_training_activity_may_not_start_for_completed_interrupted_or_cancelled_course: true
-    existing_session_completion_and_ledger_exactly_once_semantics: deferred_to_DB_TRN_006
-    completion_eligibility_and_requirement_recalculation: deferred_to_DB_TRN_005_DB_TRN_006_DB4_7
-    existing_formal_history_is_never_deleted_when_course_closes: true
-
-  concurrency_races:
-    all_material_course_mutations_lock_course_row: true
-    update_vs_stage_transition_with_same_expected_version: at_most_one_commits
-    stage_transition_vs_cancel_with_same_expected_version: at_most_one_commits
-    cancel_vs_restore_with_stale_expected_version: stale_command_conflicts
-    completed_or_interrupted_state_blocks_normal_restore_after_lock: true
-    idempotency_handles_transport_retry_not_concurrent_stale_intent: true
+  concurrency_and_races:
+    all_requirement_affecting_mutations_lock_course_enrollment_row: true
+    concurrency_root: course_enrollments.version
+    child_context_or_held_category_rows_have_independent_concurrency_root: false
+    category_PATCH_vs_requirement_context_update_same_expected_version: at_most_one_commits
+    exemption_change_vs_override_change_same_expected_version: at_most_one_commits
+    rule_set_refresh_vs_context_change_same_expected_version: at_most_one_commits
+    stale_loser_has_no_context_partial_write_no_profile_insert_no_revision_increment: true
+    profile_partial_unique_and_revision_guard_are_final_database_boundaries: true
 
   migration_design:
     migrations_not_generated_in_this_step: true
     steps_when_later_generated:
-      - widen_or_define_course_enrollments_version_as_bigint_not_null_default_1_check_gte_1
-      - verify_every_existing_course_version_is_at_least_1
-      - verify_every_existing_training_stage_is_in_confirmed_stage_catalog
-      - precheck_terminal_timestamp_exclusivity
-      - precheck_training_completed_stage_equivalence
-      - precheck_cancelled_at_and_cancelled_by_user_id_pair
-      - fail_on_contradictory_legacy_course_state_and_require_explicit_reviewed_remediation
-      - never_guess_missing_completed_interrupted_or_cancelled_timestamp_from_stage_or_other_fields
-      - create_append_only_course_enrollment_lifecycle_events_with_same_tenant_FKs_and_version_unique
-      - create_one_migration_baseline_event_for_each_existing_course_without_claiming_unobserved_transition_history
-      - install_row_checks_for_stage_terminal_timestamp_matrix
-      - install_deferrable_or_equivalent_guard_pairing_each_future_material_course_version_with_one_history_event
-      - wire_update_stage_complete_interrupt_cancel_restore_and_correction_to_one_course_version_root
-      - install_student_then_course_lock_order_for_restore_or_reopen_flows
-      - install_new_training_session_requires_active_course_guard
-      - add_course_lifecycle_history_concurrency_and_negative_tests
-    baseline_event_semantics: >-
-      Legacy current state is recorded as migration_baseline with null from-state and
-      no invented actor. It must not be mislabeled as the original creation, stage,
-      cancellation, completion or interruption event.
-    contradictory_legacy_row_policy: fail_migration_or_explicit_reviewed_remediation_never_auto_rewrite_history
+      - create_training_requirement_rule_sets_and_register_current_known_rule_artifact_with_content_hash
+      - add_course_enrollments_requirements_revision_temporarily_nullable_for_legacy_precheck
+      - create_course_requirement_contexts
+      - create_course_requirement_context_held_categories
+      - create_course_requirement_override_decisions
+      - strengthen_course_exemption_decision_revocation_metadata_and_current_partial_unique
+      - extend_training_requirement_profiles_with_revision_course_version_snapshots_actor_trigger_and_rule_set_FK
+      - inspect_existing_training_requirement_profile_input_snapshots_for_reconstructible_source_facts
+      - materialize_context_and_held_categories_only_from_verified_complete_source_evidence
+      - never_infer_held_categories_state_theory_passed_or_exemption_basis_from_output_flags_alone
+      - require_explicit_data_remediation_for_legacy_course_whose_current_requirement_source_facts_cannot_be_reconstructed
+      - assign_requirements_revision_and_current_profile_revision_consistently_after_verified_remediation
+      - create_or_validate_exactly_one_current_profile_per_course
+      - add_partial_unique_current_exemption_override_profile_constraints
+      - add_unique_profile_per_requirements_revision
+      - set_course_requirements_revision_not_null_check_gte_1
+      - install_deferrable_current_profile_revision_freshness_guard
+      - wire_all_requirement_affecting_commands_to_course_lock_version_revision_and_profile_recalculation
+      - add_reproducibility_concurrency_closed_correction_and_negative_tests
+    legacy_missing_context_policy: fail_migration_or_explicit_reviewed_remediation_never_guess_from_effective_output
+    legacy_rule_set_identity_policy: exact_existing_rule_version_and_content_hash_must_be_known_or_profile_requires_explicit_reviewed_baseline_remediation
 
   tests_required:
-    - course_version_is_at_least_one_and_is_single_concurrency_root
-    - course_stage_rejects_value_outside_confirmed_catalog
-    - active_course_has_all_terminal_timestamps_null_and_noncompleted_stage
-    - completed_course_requires_only_completed_at_nonnull_and_stage_training_completed
-    - interrupted_course_requires_only_interrupted_at_nonnull_and_noncompleted_stage
-    - cancelled_course_requires_only_cancelled_at_nonnull_cancelled_by_nonnull_and_noncompleted_stage
-    - two_or_three_terminal_timestamps_nonnull_are_rejected
-    - training_completed_stage_without_completed_at_is_rejected
-    - completed_at_with_noncompleted_stage_is_rejected
-    - cancelled_at_without_cancelled_by_is_rejected
-    - normal_course_PATCH_cannot_mutate_stage_or_terminal_timestamps
-    - normal_course_PATCH_on_active_course_with_current_version_increments_once_and_appends_updated_event
-    - stale_course_PATCH_is_rejected_without_partial_write_or_history_event
-    - nonterminal_stage_transition_preserves_active_state_and_appends_from_to_history
-    - exact_nonterminal_stage_sequence_is_not_falsely_hardcoded_beyond_confirmed_values
-    - transition_target_training_completed_atomically_sets_stage_and_completed_at
-    - completion_does_not_also_set_cancelled_or_interrupted
-    - interruption_preserves_last_noncompleted_stage_and_appends_reasoned_history
-    - cancel_active_course_preserves_stage_sets_cancel_projection_and_appends_history
-    - cancel_does_not_hard_delete_or_rewrite_formal_financial_or_PKK_history
-    - fresh_second_cancel_of_already_cancelled_course_conflicts_without_new_version
-    - restore_cancelled_course_clears_current_cancel_projection_preserves_stage_and_history
-    - restore_completed_or_interrupted_course_is_rejected
-    - restore_cancelled_course_for_archived_student_is_rejected
-    - concurrent_student_archive_and_course_restore_cannot_commit_archived_student_with_active_course
-    - stage_transition_and_cancel_from_same_expected_version_cannot_both_commit
-    - cancel_and_stale_restore_cannot_silently_undo_each_other
-    - closed_course_generic_PATCH_is_rejected
-    - closed_course_business_correction_requires_reason_version_and_history_event
-    - lifecycle_correction_references_prior_event_and_final_row_passes_state_matrix
-    - new_training_session_for_terminal_course_is_rejected
-    - lifecycle_history_events_are_append_only_and_same_tenant
-    - exactly_one_history_event_exists_per_material_course_version
-    - migration_baseline_does_not_invent_missing_legacy_transition_actor_or_chronology
-    - migration_fails_on_contradictory_terminal_legacy_state_without_explicit_remediation
+    - target_category_has_single_current_owner_on_course_enrollment_not_duplicate_context_column
+    - new_course_commits_with_requirements_revision_1_context_and_exactly_one_current_profile
+    - current_profile_revision_equals_course_requirements_revision
+    - direct_context_change_without_profile_recalculation_is_rejected_by_database_guard
+    - direct_requirements_revision_increment_without_matching_current_profile_is_rejected
+    - two_current_profiles_for_same_course_are_rejected
+    - same_course_same_requirements_revision_second_profile_is_rejected
+    - rule_set_version_references_immutable_hashed_rule_set_row
+    - changing_rule_set_content_under_already_used_version_is_rejected
+    - profile_input_snapshot_contains_exact_course_context_held_category_exemption_override_rule_set_inputs
+    - profile_snapshot_forbids_unneeded_PESEL_or_PKK_data
+    - profile_effective_columns_match_effective_output_snapshot_in_integration_test
+    - held_category_set_change_increments_requirements_revision_once_course_version_once_and_creates_one_new_profile
+    - state_theory_passed_change_recalculates_and_preserves_prior_profile
+    - category_change_and_requirement_context_change_from_same_expected_course_version_cannot_both_commit
+    - course_rule_input_change_and_recalculation_use_one_course_version_increment_total
+    - exemption_replacement_preserves_old_decision_revokes_it_and_creates_new_profile
+    - at_most_one_current_exemption_decision_exists_per_course
+    - direct_unqualified_exemption_boolean_without_basis_is_not_current_source_fact
+    - manual_override_requires_reason_actor_allowed_keys_and_preserves_base_output_snapshot
+    - at_most_one_current_manual_override_exists_per_course
+    - override_revoke_recalculates_effective_profile_without_deleting_old_profile
+    - source_fact_change_does_not_delete_or_rewrite_existing_sessions_attendance_or_exam_attempts
+    - removing_exemption_can_restore_missing_requirements_without_creating_fake_credits
+    - adding_exemption_stops_future_requirement_without deleting_historical_activity
+    - terminal_course_requirement_edit_without_correction_mode_is_rejected
+    - closed_course_requirement_correction_appends_new_profile_and_DB_TRN_004_correction_history
+    - rule_set_refresh_with_same_source_facts_increments_requirements_revision_and_preserves_old_profile
+    - completion_rejects_missing_or_stale_current_requirement_profile_before_hour_or_exam_checks
+    - migration_does_not_infer_source_facts_from_old_effective_output_flags
+    - migration_fails_or_requires_review_when_legacy_context_or_rule_set_identity_is_not_reconstructible
 
-  intentionally_not_solved_by_DB_TRN_004:
-    exact_completion_eligibility_from_requirement_context: DB-TRN-005
-    attendance_and_ledger_exactly_once_credit: DB-TRN-006
-    current_external_training_projection_and_reversal_history: DB-TRN-007
-    required_course_PKK_atomic_persistence_boundary: DB-TRN-008
-    learning_account_license_credentials_lifecycle: DB4_6
-    internal_exam_attempt_compatibility_and_completion_gate: DB4_7
-    PKK_provider_retry_reconciliation: DB4_8
-    exact_stricter_nonterminal_stage_sequence_if_product_later_confirms_one: future_domain_policy_without_history_schema_change
-    exact_HTTP_expected_version_required_markers_and_error_codes: Stage5_acceptance_contract_sync
+  intentionally_not_solved_by_DB_TRN_005:
+    attendance_verified_session_to_ledger_exactly_once_and_minute_satisfaction: DB-TRN-006
+    recognized_external_training_current_projection_and_reversal_history: DB-TRN-007
+    course_required_PKK_atomic_persistence_boundary: DB-TRN-008
+    internal_exam_attempt_compatibility_and_satisfaction: DB4_7
+    document_regeneration_delivery_and_signing_pipeline: later_document_audit_slice
+    exact_rule_set_applicability_selection_for_future_law_changes: legal_rule_engine_policy
+    exact_HTTP_requirement_context_exemption_override_schemas_If_Match_and_error_codes: Stage5_acceptance_contract_sync
 
   self_audit:
-    one_contradiction_free_lifecycle_state_matrix_defined: PASS
-    training_completed_stage_and_completed_timestamp_cannot_diverge: PASS
-    completed_interrupted_cancelled_are_mutually_exclusive: PASS
-    durable_append_only_stage_and_lifecycle_history_defined: PASS
-    all_material_course_mutations_use_one_version_root_and_history_pair: PASS
-    cancel_restore_stage_update_races_are_serialized_and_stale_intent_conflicts: PASS
-    normal_restore_only_reopens_cancelled_not_completed_or_interrupted: PASS
-    restore_cannot_reopen_course_under_archived_student: PASS
-    closed_course_correction_preserves_prior_lifecycle_history: PASS
-    exact_unobserved_nonterminal_stage_order_not_invented: PASS
-    DB_TRN_003_student_archive_no_hidden_course_mutation_preserved: PASS
-    DB_TRN_005_through_DB_TRN_008_not_fixed: PASS
+    target_category_has_one_canonical_source_not_two_mutable_copies: PASS
+    durable_current_noncourse_requirement_source_facts_defined: PASS
+    held_categories_normalized_and_current_history_recoverable_from_decision_snapshots: PASS
+    explicit_exemption_basis_has_auditable_current_and_historical_owner: PASS
+    manual_override_has_auditable_non_silent_owner: PASS
+    immutable_hashed_rule_set_identity_defined: PASS
+    requirements_revision_proves_current_projection_freshness_without_second_concurrency_root: PASS
+    every_requirement_affecting_change_requires_one_new_immutable_profile: PASS
+    complete_input_base_output_effective_output_actor_reason_evidence_trail_defined: PASS
+    category_context_exemption_override_rule_set_races_serialize_on_course_version_root: PASS
+    closed_course_requirement_correction_integrates_with_DB_TRN_004_without_history_delete: PASS
+    requirement_recalculation_does_not_rewrite_training_attendance_or_exam_history: PASS
+    DB_TRN_006_through_DB_TRN_008_not_fixed: PASS
     aggregate_core_schema_not_modified_in_this_step: PASS
     aggregate_docs87_not_modified_in_this_step: PASS
     Laravel_migrations_created: false
