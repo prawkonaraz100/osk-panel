@@ -61,9 +61,9 @@ stage_4_slices:
   - id: DB4_4_STUDENTS_COURSES_TRAINING_LEDGER
     status: IN_PROGRESS_WITH_BLOCKERS
     diagnosis: COMPLETE
-    blockers_resolved: 5
-    open_P0_P1: 3
-    result: FAIL_WITH_3_P1_BLOCKERS
+    blockers_resolved: 6
+    open_P0_P1: 2
+    result: FAIL_WITH_2_P1_BLOCKERS
   - id: DB4_5_CALENDAR
     status: NOT_STARTED
   - id: DB4_6_LICENSES_LEARNING_ACCESS
@@ -473,7 +473,9 @@ quality_checks:
       terminal_course_requirement_change_requires_DB_TRN_004_correction_mode: true
       recalculation_deletes_or_rewrites_training_attendance_exam_history: false
       completion_profile_freshness_guard_closed: true
-      required_minutes_satisfaction: deferred_to_DB_TRN_006
+      current_OSK_required_minutes_component: governed_by_DB_TRN_006
+      recognized_external_minutes_component: governed_by_DB_TRN_007
+      final_combined_minute_satisfaction: DB_TRN_006_plus_DB_TRN_007
       internal_exam_satisfaction: deferred_to_DB4_7
       exact_HTTP_requirement_schema_expected_version_and_errors: Stage5_acceptance_contract_sync
     checks:
@@ -501,14 +503,75 @@ quality_checks:
       UI_or_feature_implementation_started: false
 
   training_attendance_ledger_exactly_once:
-    status: FAIL
-    blocker_id: DB-TRN-006
+    status: PASS
+    resolved_blocker_id: DB-TRN-006
     severity: P1
-    unresolved: >-
-      Verified attendance to training-hour-ledger credit lacks complete same-course
-      student integrity, exactly-once base credit, cancellation guards and explicit
-      correction/reversal source-entry lifecycle constraints.
-    impact: formal_hours_can_be_double_credited_or_credited_to_wrong_student_or_cancelled_session
+    machine_source: specs/database/students-courses-training.yml
+    audit_source: docs/108-stage-4-students-courses-training-ledger-audit.md
+    decision:
+      session_status_values: [planned, completed, cancelled]
+      session_concurrency_root: training_sessions.version
+      duration_minutes_source: exact_positive_whole_minute_difference_of_ends_at_and_starts_at
+      duration_rounding_to_45_or_60_minute_blocks: false
+      attendance_adds_course_enrollment_id: true
+      attendance_exact_session_course_composite_FK: true
+      attendance_exact_course_student_composite_FK: true
+      attendance_current_cardinality: one_row_per_training_session
+      attendance_status_values: [present, absent]
+      verified_attendance_requires_confirmation_actor_and_time: true
+      only_verified_present_is_base_credit_eligible: true
+      base_credit_partial_unique_scope: [organization_id, training_session_id]
+      completed_present_session_requires_exactly_one_credit: true
+      completed_absent_session_requires_zero_credit: true
+      planned_or_cancelled_session_requires_zero_credit: true
+      credit_training_part_and_minutes_derived_from_session: true
+      ledger_session_must_match_exact_course_not_only_tenant: true
+      ledger_append_only: true
+      source_entry_self_FK_scope: [organization_id, source_entry_id, course_enrollment_id, training_part]
+      one_reversal_per_source_entry: true
+      reversal_of_reversal: forbidden
+      opening_balance_unique_per_course_part: true
+      recognized_previous_OSK_hours_as_current_OSK_opening_balance: forbidden
+      current_OSK_projection: signed_sum_of_immutable_ledger_entries_per_course_and_training_part
+      declared_course_hour_fields_in_credited_projection: false
+      recognized_external_training_in_current_OSK_projection: false
+      course_part_and_source_linked_session_subtotals_may_be_negative: false
+      fixed_session_complete_lock_order: [course_enrollment, training_session, attendance]
+      fixed_session_cancel_lock_order: [course_enrollment, training_session]
+      normal_session_completion_increments_course_version: false
+      manual_training_hour_correction_increments_course_version: true
+      terminal_course_hour_correction_reopens_course: false
+      ambiguous_legacy_completed_session_missing_evidence_auto_repair: forbidden
+      final_combined_current_plus_external_minute_satisfaction: deferred_to_DB_TRN_007
+      exact_HTTP_attendance_and_correction_concurrency_schema: Stage5_acceptance_contract_sync
+    checks:
+      attendance_is_exact_course_and_exact_student_not_same_tenant_only: PASS
+      one_attendance_row_per_single_student_session: PASS
+      verified_present_is_only_base_credit_eligible_state: PASS
+      completed_present_exactly_one_credit_guard_defined: PASS
+      completed_absent_zero_credit_guard_defined: PASS
+      planned_cancelled_zero_credit_guard_defined: PASS
+      duplicate_session_credit_blocked_by_partial_unique: PASS
+      complete_retry_and_complete_cancel_race_cannot_double_credit: PASS
+      ledger_session_course_mismatch_blocked_by_composite_FK: PASS
+      credit_minutes_equal_session_duration_without_45_60_rounding: PASS
+      correction_reversal_source_is_same_tenant_course_and_training_part: PASS
+      correction_and_reversal_do_not_rewrite_source_entry: PASS
+      duplicate_reversal_same_source_blocked: PASS
+      reversal_of_reversal_blocked: PASS
+      current_OSK_projection_is_deterministic_signed_sum: PASS
+      declared_hours_do_not_self_credit: PASS
+      recognized_external_training_remains_separate: PASS
+      negative_final_course_part_or_source_session_subtotal_blocked: PASS
+      course_close_session_complete_and_session_cancel_share_safe_lock_order: PASS
+      terminal_course_correction_preserves_lifecycle_and_appends_history: PASS
+      migration_does_not_fabricate_missing_attendance_or_credit: PASS
+      DB_TRN_007_and_DB_TRN_008_not_fixed_in_DB_TRN_006_step: PASS
+      aggregate_core_schema_modified_in_step: false
+      aggregate_docs87_modified_in_step: false
+      later_domain_slices_entered: false
+      Laravel_migrations_created: false
+      UI_or_feature_implementation_started: false
 
   recognized_external_training_projection_history:
     status: FAIL
@@ -542,6 +605,7 @@ quality_checks:
     - exact_HTTP_If_Match_required_marker_and_428_acceptance_sync_to_Stage5
     - exact_HTTP_course_lifecycle_expected_version_marker_and_error_code_sync_to_Stage5
     - exact_HTTP_requirement_context_exemption_override_schema_expected_version_and_error_sync_to_Stage5
+    - exact_HTTP_session_attendance_correction_expected_version_and_error_sync_to_Stage5
     - competitor_unobservable_delete_backend_semantics
 
   calendar_overlap_database_strategy:
@@ -568,10 +632,9 @@ resolved_blockers:
   - DB-TRN-003
   - DB-TRN-004
   - DB-TRN-005
+  - DB-TRN-006
 
 open_blockers_current_diagnosed_scope:
-  - id: DB-TRN-006
-    severity: P1
   - id: DB-TRN-007
     severity: P1
   - id: DB-TRN-008
@@ -585,7 +648,7 @@ gate_definition:
     - migration_order_dependency_safe
     - database_invariant_test_matrix_exists
     - reverse_engineering_preservation_traceable
-  current_result: FAIL_DB4_4_WITH_3_OPEN_P1_BLOCKERS
+  current_result: FAIL_DB4_4_WITH_2_OPEN_P1_BLOCKERS
   DB4_1_result: PASS
   DB4_2_result: PASS
   DB4_3_result: PASS
@@ -595,6 +658,7 @@ gate_definition:
   DB4_4_DB_TRN_003_result: PASS
   DB4_4_DB_TRN_004_result: PASS
   DB4_4_DB_TRN_005_result: PASS
+  DB4_4_DB_TRN_006_result: PASS
   DB4_4_result: FAIL
   may_start_DB4_4_fixes: true
   may_start_DB4_5: false
@@ -602,16 +666,16 @@ gate_definition:
   may_start_UI_or_feature_implementation: false
 
 next_single_step:
-  id: DB4_4_STEP_7
-  blocker: DB-TRN-006
-  action: resolve_training_attendance_ledger_exactly_once_only
+  id: DB4_4_STEP_8
+  blocker: DB-TRN-007
+  action: resolve_recognized_external_training_projection_history_only
   allowed_scope:
     - specs/database/students-courses-training.yml
     - docs/108-stage-4-students-courses-training-ledger-audit.md
     - specs/gates/stage-4-database-contract-gate.yml
   scope_lock: >-
-    Resolve only DB-TRN-006. Do not fix DB-TRN-007 or DB-TRN-008 in the same step.
-    Do not enter DB4_5 or later slices, do not create Laravel migrations and do not
-    start UI/feature implementation. Keep aggregate core-schema.yml and docs/87
+    Resolve only DB-TRN-007. Do not fix DB-TRN-008 in the same step. Do not enter
+    DB4_5 or later slices, do not create Laravel migrations and do not start
+    UI/feature implementation. Keep aggregate core-schema.yml and docs/87
     synchronization deferred until the final DB4_4 aggregate sync gate.
-  after_action: rerun_DB4_4_gate_and_record_DB_TRN_006_PASS_or_new_blocker_then_stop_before_DB_TRN_007
+  after_action: rerun_DB4_4_gate_and_record_DB_TRN_007_PASS_or_new_blocker_then_stop_before_DB_TRN_008
