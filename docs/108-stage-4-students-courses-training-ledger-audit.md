@@ -2,7 +2,7 @@
 
 Data: 2026-09-06
 
-**Status:** `DB4_4 IN PROGRESS / DB-TRN-001 PASS / 7 P1 BLOCKERS OPEN`
+**Status:** `DB4_4 IN PROGRESS / DB-TRN-001 PASS / DB-TRN-002 PASS / 6 P1 BLOCKERS OPEN`
 
 ## Cel i zasada pracy
 
@@ -163,27 +163,167 @@ Sprawdzono:
 
 ---
 
-# DB-TRN-002 — OPEN P1: formal identity branch Student + duplicate lifecycle
+# DB-TRN-002 — PASS: formal Student identity branch + duplicate lifecycle
 
-## Problem
+## Problem z diagnozy
 
-Zweryfikowana reguła formalna wymaga identyfikacji osoby przez PESEL albo — gdy PESEL nie został nadany — przez datę urodzenia. UI posiada jawny branch `no_pesel` / `no_pesel_declared`.
+Zweryfikowana reguła formalna wymaga, aby osoba przyjmowana na szkolenie była ewidencjonowana przez PESEL albo — gdy PESEL nie został nadany — przez datę urodzenia. Jednocześnie potwierdzony ekran tworzenia kursanta pozwala utworzyć sam profil kursanta bez kursu, a na ekranie edycji istnieje jawny branch `no_pesel` / `no_pesel_declared` i data urodzenia jest wymagana właśnie dla tego branchu.
 
-Obecny physical blueprint dopuszcza jednak stan, w którym jednocześnie:
-- PESEL jest `NULL`,
-- birth date jest `NULL`.
+Nie można więc bezrefleksyjnie zrobić `students.pesel NOT NULL`, bo zepsułoby to potwierdzoną możliwość przygotowania profilu przed formalnym zapisem na kurs. Z drugiej strony nie można dopuścić, aby `CourseEnrollment` istniał dla kursanta z niekompletną formalną tożsamością.
 
-Nie jest też ostatecznie zamknięte:
-- spójne przejście PESEL <-> brak PESEL,
-- spójność `pesel_ciphertext` z `pesel_lookup_hash`,
-- duplicate PESEL per OSK,
-- zachowanie duplicate detection przez archive/restore.
+## Decyzja canonical — rozdzielenie profilu przygotowawczego od formalnej gotowości
 
-## Ryzyko
+`students` może istnieć jako trwały, pre-course profil z samym imieniem i nazwiskiem. Formalna kompletność tożsamości jest natomiast warunkiem utworzenia i utrzymania `CourseEnrollment`.
 
-Możliwy jest formalny rekord kursanta niespełniający minimalnej identyfikacji ewidencyjnej albo dwa trwałe rekordy tej samej osoby w jednym OSK.
+Dodajemy do `students`:
 
-**Status:** OPEN P1.
+`no_pesel_declared boolean NOT NULL DEFAULT false`.
+
+To pole nie jest automatycznie wyliczane z `pesel IS NULL`. Ma rozróżniać dwa różne fakty:
+- `no_pesel_declared=false + brak PESEL` = profil jeszcze niekompletny / PESEL nie został wprowadzony,
+- `no_pesel_declared=true` = jawnie zadeklarowano, że PESEL nie został nadany; wtedy data urodzenia jest wymagana.
+
+Input API `no_pesel` mapuje się na canonical DB field `no_pesel_declared`. Nie zmieniamy w tym kroku Stage-3 OpenAPI.
+
+## Row-level consistency PESEL
+
+`pesel_ciphertext` i `pesel_lookup_hash` są jednym logical value zapisanym w dwóch bezpiecznych reprezentacjach. DB wymusza, że:
+- oba są `NULL`, albo
+- oba są non-NULL.
+
+Nie można zapisać tylko ciphertextu albo tylko lookup hash.
+
+Branch `no_pesel_declared=true` wymaga jednocześnie:
+- `pesel_ciphertext IS NULL`,
+- `pesel_lookup_hash IS NULL`,
+- `birth_date IS NOT NULL`.
+
+Jeżeli PESEL jest obecny, `no_pesel_declared` musi być `false`.
+
+Dopuszczamy nadal pre-formalny stan:
+
+`no_pesel_declared=false + brak PESEL pair`
+
+bo inaczej zredukowalibyśmy potwierdzony create flow. Taki rekord nie może jednak zostać użyty jako formalny kursant CourseEnrollment.
+
+## Formal identity predicate
+
+Student spełnia warunek formalnej tożsamości tylko wtedy, gdy finalny stan spełnia jedną z dwóch gałęzi:
+
+1. `no_pesel_declared=false` oraz oba pola PESEL są non-NULL,
+2. `no_pesel_declared=true`, oba pola PESEL są NULL i `birth_date IS NOT NULL`.
+
+Nie wymagamy ręcznego `birth_date` dla branchu z PESEL. Źródło daty urodzenia przy PESEL pozostawało w screen spec jako `TO_VERIFY`, więc nie wymyślamy automatycznego dekodowania lub dodatkowego obowiązku.
+
+## Database boundary dla formalnego kursu
+
+Sama walidacja formularza nie jest wystarczająca.
+
+Projekt przewiduje deferrable constraint trigger albo równoważny transactional database guard:
+- przy `INSERT` / zmianie Student relation na `course_enrollments` sprawdź `student_has_formal_identity`,
+- przy zmianie pól tożsamości Student, który ma jakikolwiek historyczny CourseEnrollment, sprawdź finalny stan po transakcji,
+- nie pozwól zdegradować formalnego kursanta do stanu „brak PESEL, no_pesel nie zadeklarowane”.
+
+Constraint jest deferrable, aby legalna korekta branchu mogła w jednej transakcji wyczyścić stary PESEL, ustawić `no_pesel_declared=true` i uzupełnić datę urodzenia bez chwilowego zerwania finalnego inwariantu.
+
+Wymóg tożsamości nie znika po zakończeniu, anulowaniu, przerwaniu ani archiwizacji rekordu, jeżeli istnieje formalna historia kursu. Formalna dokumentacja nadal musi odnosić się do kompletnej tożsamości kursanta.
+
+## PESEL — bezpieczny write contract
+
+Plaintext PESEL nie jest przechowywany. Authorized command/import:
+1. przyjmuje plaintext tylko na boundary requestu,
+2. wykonuje canonical normalization,
+3. z tego samego znormalizowanego inputu tworzy ciphertext oraz keyed lookup hash,
+4. zapisuje oba atomowo,
+5. usuwa plaintext z dalszego obiegu.
+
+Lookup pozostaje HMAC-SHA-256 albo równoważnym secret-keyed hashem. Zwykły globalny SHA-256 jest zabroniony.
+
+PostgreSQL nie dostaje HMAC secretu tylko po to, aby kryptograficznie porównać ciphertext z hashem. DB wymusza ich pair-nullity i uniqueness, natomiast integration test warstwy domenowej wymusza, że obie reprezentacje zostały policzone z tego samego canonical inputu. Niezależny PATCH jednego z tych dwóch pól jest zabroniony.
+
+## Duplicate PESEL lifecycle
+
+Canonical hard boundary:
+
+`UNIQUE (organization_id, pesel_lookup_hash) WHERE pesel_lookup_hash IS NOT NULL`.
+
+Index obejmuje również zarchiwizowane rekordy. Archive nie zwalnia PESEL.
+
+Efekt:
+- drugi Student z tym samym PESEL w tym samym OSK nie może powstać,
+- zarchiwizowanie pierwszego Studenta nie pozwala stworzyć jego duplikatu,
+- ten sam PESEL może wystąpić w innym OSK, bo identity jest tenant-scoped w tym modelu,
+- normalny lifecycle nie używa hard-delete do zwalniania PESEL.
+
+Nie tworzymy hard unique na `first_name + last_name + birth_date` dla osoby bez PESEL. Taki zestaw nie jest unikalnym identyfikatorem osoby i mógłby blokować dwie rzeczywiście różne osoby. Aplikacja może później pokazywać ostrzeżenie o potencjalnym duplikacie, ale nie udajemy, że to bezpieczny DB identity key.
+
+## Zmiany branchu
+
+PESEL -> brak PESEL:
+- `no_pesel_declared=true`,
+- oba pola PESEL wyczyszczone,
+- `birth_date` wymagane,
+- całość w jednej transakcji,
+- identity change audytowany.
+
+Brak PESEL -> PESEL:
+- `no_pesel_declared=false`,
+- ciphertext + lookup hash zapisane jako jedna para,
+- znana `birth_date` nie jest automatycznie kasowana,
+- identity change audytowany.
+
+PESEL -> inny PESEL:
+- obie reprezentacje zastępowane atomowo,
+- partial unique jest końcową granicą duplicate race,
+- identity change audytowany.
+
+Optimistic concurrency samej edycji Student pozostaje świadomie DB-TRN-003. W tym kroku nie projektujemy `version` ani edit/archive serialization.
+
+## Archive / restore w zakresie identity
+
+DB-TRN-002 zamyka tylko identity lifecycle:
+- archive nie czyści PESEL/birth-date identity,
+- archive nie zwalnia PESEL unique claim,
+- restore używa tego samego trwałego Student row,
+- restore nie tworzy drugiego identity record.
+
+Wpływ archive na aktywne kursy i concurrency pozostaje DB-TRN-003.
+
+## Migration design
+
+Przy przyszłych migracjach:
+1. dodać `no_pesel_declared` z bezpiecznym default `false`,
+2. sprawdzić spójność istniejących par ciphertext/hash,
+3. **nie** ustawiać automatycznie `no_pesel_declared=true` tylko dlatego, że PESEL jest pusty,
+4. wykryć duplikaty non-NULL PESEL hash per OSK, również archived,
+5. nie kasować ani nie merge'ować ich po cichu,
+6. dodać row checks i partial unique,
+7. sprawdzić każdy Student z istniejącym CourseEnrollment,
+8. formalny Student bez poprawnej identity branch -> migration FAIL / jawna data remediation,
+9. dodać deferrable formal-identity guards.
+
+Pre-course incomplete Student może legalnie pozostać po migracji, o ile nie ma formalnego CourseEnrollment.
+
+## Quality gate DB-TRN-002
+
+Sprawdzono:
+- prawna reguła PESEL albo data urodzenia dla osoby bez PESEL jest chroniona przed formalnym kursem — **PASS**,
+- potwierdzona możliwość utworzenia profilu bez kursu nie została zepsuta — **PASS**,
+- `no_pesel_declared` odróżnia jawny brak PESEL od brakujących danych — **PASS**,
+- ciphertext/hash muszą być zapisywane i czyszczone jako para — **PASS**,
+- formalny CourseEnrollment nie może wskazywać incomplete identity — **PASS DESIGN**,
+- Student z formalną historią nie może później zostać zdegradowany do incomplete identity — **PASS DESIGN**,
+- PESEL jest unikalny per OSK również przez archive — **PASS**,
+- ten sam PESEL w dwóch różnych OSK nie jest błędnie blokowany globalnie — **PASS**,
+- name + birth date nie zostały użyte jako fałszywy hard unique — **PASS**,
+- migracja nie zgaduje `no_pesel` na podstawie NULL — **PASS**,
+- plaintext PESEL nadal nie jest persistence field — **PASS**,
+- DB-TRN-003..008 nie zostały naprawione przy okazji — **PASS**,
+- `core-schema.yml` i `docs/87` nie zostały zmienione — **PASS**,
+- migracje Laravel nie zostały utworzone — **PASS**,
+- DB4_5 ani późniejsze slice'y nie zostały rozpoczęte — **PASS**.
+
+**GATE DB-TRN-002: PASS.**
 
 ---
 
@@ -359,7 +499,7 @@ Był to prawidłowy wynik diagnozy i otworzył naprawy blocker-by-blocker.
 
 # Quality gate DB4_4_STEP_2 — DB-TRN-001
 
-Wykonano wyłącznie same-tenant integrity. Bounded-context spec nie naprawia pozostałych siedmiu blockerów.
+Wykonano wyłącznie same-tenant integrity. Bounded-context spec nie naprawił pozostałych siedmiu blockerów.
 
 Self-audit:
 - nowy machine source: `specs/database/students-courses-training.yml` — **PASS**,
@@ -378,15 +518,40 @@ Self-audit:
 
 **FINAL GATE DB-TRN-001: PASS.**
 
+---
+
+# Quality gate DB4_4_STEP_3 — DB-TRN-002
+
+Wykonano wyłącznie formal Student identity branch + PESEL duplicate/archive lifecycle.
+
+Self-audit:
+- bounded-context machine source zaktualizowany bez zmian aggregate — **PASS**,
+- pre-course Student bez PESEL nadal może istnieć jako incomplete profile — **PASS PRESERVATION**,
+- formal CourseEnrollment wymaga jednej z dwóch legalnych identity branches — **PASS DESIGN**,
+- `no_pesel_declared` rozróżnia jawny brak PESEL od niekompletnych danych — **PASS**,
+- PESEL ciphertext/hash pair jest atomowa i nie może być połowicznie NULL — **PASS**,
+- PESEL partial unique działa per OSK i obejmuje archived rows — **PASS**,
+- archive nie zwalnia PESEL i restore nie tworzy nowej identity — **PASS**,
+- nie wprowadzono hard unique na name+birth_date — **PASS**,
+- migracja nie zgaduje `no_pesel` i nie naprawia duplicate przez silent merge/delete — **PASS**,
+- Student version/edit/archive concurrency nie zostały rozwiązane — **PASS SCOPE**, pozostaje DB-TRN-003,
+- course lifecycle nie został zmieniony — **PASS SCOPE**, pozostaje DB-TRN-004,
+- `specs/database/core-schema.yml` bez zmian — **PASS**,
+- `docs/87-physical-database-schema.md` bez zmian — **PASS**,
+- DB4_5+ bez zmian — **PASS**,
+- migracje Laravel/UI/feature implementation — **NIE ROZPOCZĘTO**.
+
+**FINAL GATE DB-TRN-002: PASS.**
+
 ## Aktualna kolejność napraw
 
 1. `DB-TRN-001` — **PASS**.
-2. `DB-TRN-002` — formal Student identity branch + duplicate lifecycle — **NEXT**.
-3. `DB-TRN-003` — Student concurrency + archive/restore lifecycle.
+2. `DB-TRN-002` — **PASS**.
+3. `DB-TRN-003` — Student concurrency + archive/restore lifecycle — **NEXT**.
 4. `DB-TRN-004` — Course lifecycle/stage/cancel/restore history.
 5. `DB-TRN-005` — requirement context/profile reproducibility.
 6. `DB-TRN-006` — attendance -> ledger exactly-once.
 7. `DB-TRN-007` — external training projection/history.
 8. `DB-TRN-008` — course PKK persistence boundary.
 
-**Następny pojedynczy krok: tylko `DB-TRN-002` -> self-audit -> gate -> STOP przed `DB-TRN-003`.**
+**Następny pojedynczy krok: tylko `DB-TRN-003` -> self-audit -> gate -> STOP przed `DB-TRN-004`.**
