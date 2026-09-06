@@ -1,16 +1,36 @@
-# 109. Stage 4 — Calendar database diagnosis
+# 109. Stage 4 — Calendar database audit
 
 Data: 2026-09-06
 
 **Etap:** `DB4_5_CALENDAR`  
-**Krok:** `DB4_5_STEP_1_DIAGNOSIS`  
-**Status:** `DIAGNOSIS_COMPLETE / 7 P1 OPEN / 0 FIXES APPLIED`
+**Aktualny krok:** `DB-CAL-001`  
+**Status:** `DB-CAL-001 PASS / 6 P1 OPEN`
 
-## 1. Zasada tego kroku
+## 1. Zasada pracy
 
-Ten dokument jest wyłącznie diagnozą. Nie zmienia fizycznego aggregate schema, nie tworzy migracji Laravel i nie rozwiązuje żadnego blockera. Po bramce jakości następny dozwolony krok to pojedynczy `DB-CAL-001`.
+DB4_5 jest prowadzony pojedynczymi blockerami. Diagnoza wykazała 7 P1. W tym kroku rozwiązano **wyłącznie `DB-CAL-001` — same-tenant resource integrity**.
 
-Źródła:
+Nie zmieniono:
+- `DB-CAL-002` manual event vs system projection,
+- `DB-CAL-003` overlap/conflict concurrency,
+- `DB-CAL-004` lifecycle eventu,
+- `DB-CAL-005` `calendar.manage.own`,
+- `DB-CAL-006` availability booking lifecycle,
+- `DB-CAL-007` Calendar ↔ formal `TrainingSession`.
+
+Nie zmieniono też aggregate `specs/database/core-schema.yml` ani `docs/87-physical-database-schema.md`, nie utworzono migracji Laravel i nie rozpoczęto DB4_6/UI.
+
+Machine-readable kontrakt: `specs/database/calendar.yml`.
+
+## 2. Źródła i istniejące zależności
+
+DB-CAL-001 korzysta z już zamkniętych granic wcześniejszych slice:
+- `students (organization_id,id)` — candidate key z DB-TRN-001,
+- `staff_profiles (organization_id,id)` — candidate key z DB-RES-001,
+- `vehicles (organization_id,id)` — candidate key z DB-RES-002,
+- `locations (organization_id,id)` — candidate key z DB-RES-002.
+
+Źródła funkcjonalne i kontraktowe pozostają:
 - `docs/48-calendar-main-screen.md`,
 - `docs/49-calendar-add-event-form.md`,
 - `docs/50-own-calendar-event-lifecycle.md`,
@@ -21,157 +41,175 @@ Ten dokument jest wyłącznie diagnozą. Nie zmienia fizycznego aggregate schema
 - `specs/api/openapi-components-v1.yaml`,
 - `specs/api/required-operations-v1.yml`,
 - `specs/security/permissions.yml`,
-- `specs/reverse-engineering-manifest.yml`,
-- `specs/traceability/core-v1.yml`,
-- `specs/database/core-schema.yml`,
-- `docs/87-physical-database-schema.md`,
-- `specs/database/students-courses-training.yml`,
-- `docs/84-test-strategy.md`.
+- `specs/database/staff-locations-vehicles.yml`,
+- `specs/database/students-courses-training.yml`.
 
-Machine-readable diagnoza: `specs/database/calendar.yml`.
+## 3. Zachowane wymagania Calendar
 
-## 2. Co jest już potwierdzone i nie może zniknąć
-
-Calendar jest jednym centralnym plannerem OSK. Musi zachować:
+Naprawa same-tenant integrity nie redukuje produktu. Nadal zachowujemy:
+- jeden centralny kalendarz,
 - widoki miesiąc / tydzień / dzień,
-- filtry `Wydarzenie`, `Jazda`, `Ważne daty`,
-- wielowymiarowe filtry Staff / Vehicle / Location,
-- ręczne tworzenie `general_event` i `driving_lesson`,
-- opcjonalnego Studenta, Instruktora, Pojazdu i miejsca spotkania,
-- alternatywę `Location` albo własny tekst `custom_meeting_place`,
+- `general_event`, `driving_lesson` i systemową projekcję `important_date`,
+- filtry Staff / Vehicle / Location,
+- opcjonalnego Studenta, Instruktora, Pojazd i zarządzaną lokalizację,
+- custom meeting place,
+- availability/self-booking,
 - server-side conflict detection,
-- history-preserving edit/cancel/complete lifecycle,
-- `important_date` jako systemową projekcję źródłowych terminów, nie ręczny event,
-- availability/self-booking slots,
-- tenant isolation,
+- history-preserving lifecycle,
 - timezone organizacji,
-- audyt zmian.
+- audyt.
 
-Nie rozwiązujemy braków przez usunięcie żadnej z tych funkcji.
+DB-CAL-001 nie rozstrzyga jeszcze, które zasoby są biznesowo aktywne/kwalifikowane ani czy wygasły dokument jest warningiem czy hard-blockiem. Ten krok odpowiada tylko na pytanie: **czy wskazany tenant-owned resource należy do tej samej organizacji co event/slot**.
 
-## 3. Stan obecnego physical blueprintu
+## 4. DB-CAL-001 — problem
 
-`calendar_events` ma obecnie m.in. `organization_id`, czas, optional Student/Instructor/Vehicle/Location, custom meeting place, `status`, `version` i `created_by_user_id`. Jest tylko `ends_at > starts_at` oraz zapis, że backend sprawdza konflikty, podczas gdy strategia concurrency pozostaje `pending_ADR`.
+Przed tym krokiem `calendar_events` i `availability_slots` miały `organization_id`, ale relacje do tenant-owned zasobów były opisane jedynie przez zwykłe resource IDs.
 
-`availability_slots` ma `organization_id`, optional Instructor/Vehicle/Location, czas, `status`, `booked_student_id`, `booked_at` i `version`, lecz bez zamkniętego lifecycle i transakcyjnego modelu book/cancel.
+Dotyczyło to:
+- `calendar_events.student_id`,
+- `calendar_events.instructor_id`,
+- `calendar_events.vehicle_id`,
+- `calendar_events.location_id`,
+- `availability_slots.instructor_id`,
+- `availability_slots.vehicle_id`,
+- `availability_slots.location_id`,
+- `availability_slots.booked_student_id`.
 
-Ten szkielet wystarcza do rozpoczęcia DB4_5, ale nie jest jeszcze bezpiecznym production blueprintem.
+Sama aplikacyjna walidacja `resource.organization_id == event.organization_id` nie jest wystarczającą finalną granicą. Błąd backendu, import albo późniejszy kod mógłby zapisać event OSK A wskazujący zasób OSK B.
 
-## 4. Wynik diagnozy
+## 5. DB-CAL-001 — decyzja fizyczna
 
-- P0: **0**
-- P1: **7**
-- poprawki zastosowane w tym kroku: **0**
+### 5.1 `calendar_events`
 
-### DB-CAL-001 — P1 — same-tenant resource integrity
+Każda opcjonalna relacja tenant-owned otrzymuje composite FK:
 
-`calendar_events` i `availability_slots` są tenant-owned, ale aggregate nie definiuje composite same-organization FK dla wszystkich resource IDs. Dotyczy Student/Instructor/Vehicle/Location oraz `booked_student_id`.
+- `(organization_id, student_id) -> students(organization_id,id)`,
+- `(organization_id, instructor_id) -> staff_profiles(organization_id,id)`,
+- `(organization_id, vehicle_id) -> vehicles(organization_id,id)`,
+- `(organization_id, location_id) -> locations(organization_id,id)`.
 
-Ryzyko: backend bug/import może stworzyć event OSK A wskazujący zasób OSK B mimo poprawnego `organization_id` na samym event row.
+Wszystkie są nullable i używają `MATCH SIMPLE`, więc brak zasobu nadal jest legalny. Jeśli resource ID jest podany, musi wskazywać rekord dokładnie z tego samego OSK.
 
-**Nie naprawiono w diagnozie.**
+`ON UPDATE RESTRICT`, `ON DELETE RESTRICT` chronią historyczne odwołania.
 
-### DB-CAL-002 — P1 — manual event vs system projection + row invariants
+### 5.2 `availability_slots`
 
-Ręczny formularz obsługuje tylko `general_event` i `driving_lesson`. `important_date` jest własną systemową projekcją i jego source-of-truth pozostaje w Staff/Vehicle document domains. Obecne `event_type varchar` nie zamyka tej granicy.
+Analogicznie:
+- `(organization_id, instructor_id) -> staff_profiles(organization_id,id)`,
+- `(organization_id, vehicle_id) -> vehicles(organization_id,id)`,
+- `(organization_id, location_id) -> locations(organization_id,id)`,
+- `(organization_id, booked_student_id) -> students(organization_id,id)`.
 
-Dodatkowo formularz jednoznacznie reprezentuje miejsce jako `saved location XOR custom text`, ale obecny row pozwala technicznie ustawić oba.
+`booked_student_id` otrzymuje tutaj wyłącznie same-tenant boundary. Jego state matrix, exactly-once booking i relacja do realnego efektu rezerwacji pozostają w `DB-CAL-006`.
 
-Ryzyko: drugi source-of-truth dla ważnych dat i sprzeczny meeting-place state.
+### 5.3 Tenant key
 
-**Nie naprawiono w diagnozie.**
+`calendar_events.organization_id` i `availability_slots.organization_id` są obowiązkowymi tenant keys.
 
-### DB-CAL-003 — P1 — overlap/conflict concurrency
+Zasady:
+- organization scope pochodzi z aktywnego membership/zwalidowanego parent context,
+- client-supplied `organization_id` nie jest authority,
+- zwykła zmiana `organization_id` nie służy do przenoszenia eventu/slotu między OSK,
+- cross-tenant relation jest odrzucana przez DB nawet przy pominiętej walidacji aplikacji.
 
-API i wymagania produktu mówią o server-side conflict detection, ale `core-schema.yml` ma nadal `calendar_conflict.enforcement_strategy: pending_ADR`.
+### 5.4 `created_by_user_id`
 
-Samo `SELECT czy wolne -> INSERT` nie jest race-safe. Dwa równoległe requesty mogą oba zobaczyć wolny zasób i oba commitować.
+Nie dodano sztucznego composite tenant FK dla `created_by_user_id`.
 
-Zakres konfliktów musi objąć co najmniej Student / Instructor / Vehicle / zarządzaną Location oraz rezerwację powstałą z self-bookingu.
+`User` jest globalną tożsamością i może mieć membership w wielu OSK. To, czy dany User miał prawo utworzyć/zarządzać eventem, wynika z membership + permission/scope. Canonical semantyka `calendar.manage.own` pozostaje celowo w `DB-CAL-005`.
 
-**Nie naprawiono w diagnozie.**
+## 6. Archive i historia
 
-### DB-CAL-004 — P1 — event lifecycle + optimistic concurrency
+Composite FK nie powinien usuwać ani zerować relacji historycznej po archiwizacji Staff/Vehicle/Location/Student.
 
-Own policy definiuje `scheduled|completed|cancelled`, zachowanie historii oraz audyt. Physical model ma wolny `status` i `version`, ale nie ma state matrix, terminal metadata ani zamkniętego PATCH-vs-cancel-vs-complete concurrency contract.
+Parent domains używają lifecycle/archive zamiast normalnego hard delete. Dlatego stary event może nadal wskazywać historyczny zasób i pozostawać audytowalny.
 
-Ryzyko: równoległa edycja i cancel/complete mogą wzajemnie nadpisać stan albo pozostawić niespójne historyczne dane.
+DB-CAL-001 nie ustala, czy **nowy** event może użyć archived/inactive resource. To oddzielna business/compliance eligibility policy.
 
-**Nie naprawiono w diagnozie.**
+## 7. Migration design dla DB-CAL-001
 
-### DB-CAL-005 — P1 — `calendar.manage.own` bez canonical owner relation
+Migracji Laravel nadal nie tworzymy. Gdy finalny DB4_5 migration design zostanie wygenerowany, kolejność dla tego blockera jest następująca:
 
-DB4_2 ustalił, że scope `own` ma działać wyłącznie przez canonical owner relation i przy jej braku fail-closed. Calendar ma realne permission `calendar.manage.own`, lecz model nie wskazuje czy ownerem eventu jest Instructor, creator czy inna relacja. To samo dotyczy own-scope publikowania slotów.
+1. potwierdzić istniejące candidate keys Student/Staff/Vehicle/Location,
+2. sprawdzić non-null i poprawność `organization_id` eventów/slotów,
+3. wykonać precheck każdej niepustej relacji CalendarEvent,
+4. wykonać precheck każdej niepustej relacji AvailabilitySlot,
+5. jeśli istnieje cross-tenant mismatch — zatrzymać migrację albo wykonać jawnie zatwierdzoną security/data remediation,
+6. **nie** naprawiać automatycznie przez przepięcie resource ID, zmianę organizacji ani wyzerowanie relacji,
+7. dopiero po czystych precheckach dodać composite FKs,
+8. uruchomić negatywne constraint tests.
 
-Nie wolno tutaj po cichu redefiniować globalnej semantyki `own` z DB4_2.
+## 8. Testy wymagane przez tę bramkę
 
-**Nie naprawiono w diagnozie.**
+Muszą istnieć testy, że:
+- same-tenant Student/Instructor/Vehicle/Location na CalendarEvent przechodzą,
+- wszystkie opcjonalne resource IDs mogą być `NULL`,
+- każdy z czterech resource IDs z innego OSK jest odrzucany przez DB,
+- same-tenant Instructor/Vehicle/Location na AvailabilitySlot przechodzą,
+- każdy z tych zasobów z innego OSK jest odrzucany,
+- `booked_student_id` z innego OSK jest odrzucany,
+- migracyjny precheck wykrywa legacy cross-tenant rows,
+- nie można przenieść eventu/slotu do innego OSK przez zwykłe przepisanie `organization_id`,
+- archive parent resource nie niszczy historycznej relacji,
+- globalny User jako actor nie jest fałszywie traktowany jak tenant-owned resource.
 
-### DB-CAL-006 — P1 — AvailabilitySlot exactly-once booking lifecycle
+## 9. Self-audit DB-CAL-001
 
-Stage-3 API obiecuje atomowy booking jednego slotu dla jednego Studenta, a strategia testów wymaga double-booking race test. Obecny row nie definiuje state matrix, lock order, stale version behavior ani materialnego skutku rezerwacji w Calendar.
+Wynik: **PASS**.
 
-Ryzyko: dwa bookingi, book-vs-cancel race albo slot oznaczony jako booked bez realnej rezerwacji zasobu w kalendarzu.
+Sprawdzone:
+- wszystkie 4 tenant-owned relacje `calendar_events` mają composite same-tenant boundary,
+- wszystkie 4 tenant-owned relacje `availability_slots` mają composite same-tenant boundary,
+- nullable semantics zachowane przez `MATCH SIMPLE`,
+- użyto istniejących candidate keys zamiast duplikować model,
+- historia jest chroniona przez `RESTRICT`,
+- User nie został błędnie tenant-scoped,
+- migration policy nie maskuje legacy naruszeń automatycznym przepinaniem danych,
+- nie rozwiązano DB-CAL-002..007,
+- aggregate schema pozostało zamrożone,
+- migracji Laravel nie utworzono,
+- DB4_6 i UI nie rozpoczęto.
 
-**Nie naprawiono w diagnozie.**
+## 10. Pozostałe P1 po DB-CAL-001
 
-### DB-CAL-007 — P1 — `driving_lesson` vs formal `TrainingSession`
+Pozostaje dokładnie **6 P1**:
 
-DB4_4 uczynił `TrainingSession` formalnym źródłem sesji szkoleniowej, Attendance i Ledger creditu. Calendar równocześnie ma `driving_lesson` z tymi samymi osiami: Student, Instructor, Vehicle, Location i czas. Brak relation/projection contract pomiędzy tymi modelami.
+### DB-CAL-002 — manual event vs system projection + row invariants
 
-Ryzyko: dwie niezależne mutowalne kopie tej samej jazdy mogą różnić się terminem/zasobami; Calendar może zostać cancelled/completed niezależnie od formalnej TrainingSession.
+Ręczny formularz obsługuje tylko `general_event` i `driving_lesson`; `important_date` jest systemową projekcją. Nadal trzeba zamknąć storage boundary oraz `location_id XOR custom_meeting_place`.
 
-Calendar `complete` nie może stać się drugim sposobem naliczania godzin — credited time musi nadal przechodzić przez DB-TRN-006.
+### DB-CAL-003 — overlap/conflict concurrency
 
-**Nie naprawiono w diagnozie.**
+Server-side conflict detection nadal nie ma race-safe final DB/transaction boundary.
 
-## 5. Celowo niezakwalifikowane jako P1 w tym kroku
+### DB-CAL-004 — event lifecycle + optimistic concurrency
 
-Nie blokują physical Calendar diagnosis:
-- exact min/max duration,
-- czy `Jazda` ma backendowo wymagane zasoby mimo optional labels w UI,
-- warning vs hard-block dla wygasłych dokumentów — wymaga policy/legal decision,
-- recurrence,
-- notifications,
-- drag & drop,
-- persistence zaznaczeń filtrów,
-- dokładny rendering `Ważnych dat` u konkurenta,
-- dokładne znaczenie `!`,
-- employee work-time UI,
-- dokładne Stage-5 HTTP `If-Match` required markers/error codes.
+Nadal brak finalnej state matrix i PATCH/cancel/complete concurrency contract.
 
-Te elementy pozostają jawnie zachowane jako późniejsze decyzje; nie są usunięte ze scope produktu.
+### DB-CAL-005 — `calendar.manage.own`
 
-## 6. Kolejność napraw po diagnozie
+Nadal brak canonical owner resolver zgodnego z DB4_2.
 
-Naprawiamy po jednym blockerze, każdorazowo z osobną bramką:
+### DB-CAL-006 — AvailabilitySlot booking lifecycle
 
-1. `DB-CAL-001` — same-tenant integrity,
-2. `DB-CAL-002` — manual/system storage boundary + single-row invariants,
-3. `DB-CAL-003` — race-safe overlap/conflict,
-4. `DB-CAL-004` — event lifecycle/concurrency,
-5. `DB-CAL-005` — own-scope resolver,
-6. `DB-CAL-006` — availability booking lifecycle,
-7. `DB-CAL-007` — formal TrainingSession integration,
-8. final DB4_5 aggregate sync.
+Same-tenant `booked_student_id` jest już zamknięte, ale exactly-once booking, state matrix, book/cancel races i efekt rezerwacji nadal są otwarte.
 
-Ta kolejność jest celowa: conflict/lifecycle/authorization logic nie powinna być projektowana na relacjach, które wcześniej nie mają gwarancji same-tenant.
+### DB-CAL-007 — `driving_lesson` vs formal `TrainingSession`
 
-## 7. Bramka jakości diagnozy
+Nadal trzeba ustalić jeden canonical schedule owner i relację/projekcję tak, aby Calendar nie stał się drugim formalnym źródłem godzin.
 
-**PASS — DIAGNOSIS COMPLETE.**
+## 11. Bramka jakości DB-CAL-001
 
-Spełnione warunki:
-- komplet Calendar reverse-engineering został zachowany,
-- availability/self-booking nie zostało pominięte,
-- important-date source boundary został rozpoznany,
-- zależność z formalnym TrainingSession została rozpoznana,
-- RBAC `own` został potraktowany jako istniejący kontrakt, nie redefiniowany,
-- wykryto 7 P1 i 0 P0,
-- nie zastosowano żadnej naprawy,
-- `core-schema.yml` i `docs/87` nie zostały zmienione w diagnozie,
-- nie utworzono migracji Laravel,
-- nie rozpoczęto DB4_6 ani późniejszych slice,
-- nie rozpoczęto UI/feature implementation.
+**PASS.**
 
-Następny pojedynczy krok po zapisaniu centralnego gate: **`DB-CAL-001` only**.
+Stan po bramce:
+- P0: `0`,
+- P1 rozwiązane w DB4_5: `1`,
+- P1 otwarte: `6`,
+- `DB-CAL-001`: `PASS`,
+- final DB4_5 aggregate sync: nadal `PENDING`,
+- DB4_6: zablokowane,
+- Stage 5: zablokowany,
+- UI/feature implementation: zablokowane.
+
+Następny pojedynczy dozwolony krok po aktualizacji centralnego gate: **`DB-CAL-002` only**.
