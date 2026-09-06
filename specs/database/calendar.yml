@@ -1,0 +1,269 @@
+meta:
+  project: osk-panel
+  scope: calendar_core_v1
+  stage: DB4_5_CALENDAR
+  status: DIAGNOSIS_COMPLETE_7_P1_BLOCKERS_OPEN
+  diagnosed_at: 2026-09-06
+  narrative: docs/109-stage-4-calendar-audit.md
+  aggregate_blueprint: specs/database/core-schema.yml
+  aggregate_narrative: docs/87-physical-database-schema.md
+  security_dependency: specs/security/permissions.yml
+  training_dependency: specs/database/students-courses-training.yml
+  resource_dependency: specs/database/staff-locations-vehicles.yml
+  preservation_manifest: specs/reverse-engineering-manifest.yml
+  traceability: specs/traceability/core-v1.yml
+  api_inventory: specs/api/required-operations-v1.yml
+  api_paths: specs/api/paths/pkk-calendar.yaml
+  screen_sources:
+    - specs/screens/calendar.yml
+    - specs/screens/calendar-add-event.yml
+  evidence_docs:
+    - docs/48-calendar-main-screen.md
+    - docs/49-calendar-add-event-form.md
+    - docs/50-own-calendar-event-lifecycle.md
+    - docs/51-calendar-important-dates.md
+  diagnosis_only: true
+  fixes_applied_in_this_step: 0
+
+preservation_contract:
+  single_calendar_engine: true
+  manual_event_types_preserved: [general_event, driving_lesson]
+  important_date_is_system_projection_not_manual_event: true
+  month_week_day_views_preserved: true
+  resource_filters_preserved: [staff, vehicles, locations]
+  manual_event_resource_cardinality:
+    student: zero_or_one
+    instructor: zero_or_one
+    vehicle: zero_or_one
+    meeting_place: zero_or_one
+  saved_location_or_custom_meeting_place_preserved: true
+  availability_self_booking_capability_preserved: true
+  event_create_update_cancel_complete_capabilities_preserved: true
+  server_side_conflict_detection_required: true
+  organization_timezone_required: true
+  history_preserving_cancel_required: true
+  no_confirmed_capability_removed_by_diagnosis: true
+
+current_physical_snapshot:
+  tables:
+    - calendar_events
+    - availability_slots
+  calendar_events_current_shape:
+    tenant_key: organization_id
+    resources: [student_id_nullable, instructor_id_nullable, vehicle_id_nullable, location_id_nullable]
+    custom_meeting_place_nullable: true
+    temporal: [starts_at, ends_at]
+    lifecycle: [status, version]
+    current_time_check: ends_at_gt_starts_at
+    current_conflict_rule: server_side_required_but_enforcement_strategy_pending_ADR
+    current_same_tenant_composite_FKs_documented: false
+    current_manual_vs_system_type_DB_boundary_documented: false
+    current_location_vs_custom_place_XOR_DB_boundary_documented: false
+    current_terminal_metadata_and_state_matrix_documented: false
+    current_own_scope_owner_relation_documented: false
+    training_session_relation_documented: false
+  availability_slots_current_shape:
+    tenant_key: organization_id
+    resources: [instructor_id_nullable, vehicle_id_nullable, location_id_nullable]
+    temporal: [starts_at, ends_at]
+    lifecycle: [status, version]
+    booking_projection: [booked_student_id_nullable, booked_at_nullable]
+    current_same_tenant_composite_FKs_documented: false
+    current_booking_state_matrix_documented: false
+    current_double_booking_concurrency_boundary_documented: false
+    current_booked_slot_to_calendar_reservation_relation_documented: false
+
+blockers:
+  DB-CAL-001:
+    severity: P1
+    status: OPEN
+    title: calendar_and_availability_same_tenant_resource_integrity_missing
+    diagnosis: >-
+      CalendarEvent and AvailabilitySlot are tenant-owned rows but the aggregate
+      physical model does not define composite same-organization foreign keys for
+      Student, StaffProfile, Vehicle, Location or booked Student relations. Simple
+      resource IDs plus organization_id therefore do not form a final database
+      boundary against cross-tenant assignment when application validation is
+      bypassed or malformed import data is loaded.
+    affected_relations:
+      calendar_events: [student_id, instructor_id, vehicle_id, location_id]
+      availability_slots: [instructor_id, vehicle_id, location_id, booked_student_id]
+    dependencies_already_available:
+      students_candidate_key: [organization_id, id]
+      staff_profiles_candidate_key: [organization_id, id]
+      vehicles_candidate_key: [organization_id, id]
+      locations_candidate_key: [organization_id, id]
+    closure_must_define:
+      - composite_same_tenant_FKs_for_every_tenant_owned_relation
+      - MATCH_SIMPLE_for_nullable_relations
+      - RESTRICT_history_preserving_delete_policy
+      - migration_prechecks_that_never_auto_reassign_cross_tenant_rows
+      - negative_cross_tenant_constraint_tests
+
+  DB-CAL-002:
+    severity: P1
+    status: OPEN
+    title: manual_calendar_event_storage_boundaries_are_underconstrained
+    diagnosis: >-
+      Confirmed manual creation supports only general_event and driving_lesson,
+      while important_date is a system projection whose source date remains in the
+      Staff/Vehicle source domain. The current physical event_type is an unconstrained
+      varchar, so it does not prevent accidental manual persistence of important_date.
+      The current row also permits location_id and custom_meeting_place together even
+      though the confirmed form and product contract define them as mutually exclusive.
+    closure_must_define:
+      - manual_storage_event_type_domain_excludes_important_date_projection_rows
+      - important_date_projection_identity_and_read_model_boundary_without_second_source_of_truth
+      - saved_location_XOR_custom_meeting_place_constraint
+      - normalized_empty_custom_text_semantics
+      - integration_tests_for_projection_vs_manual_write_boundary
+
+  DB-CAL-003:
+    severity: P1
+    status: OPEN
+    title: resource_overlap_conflict_has_no_race_safe_final_boundary
+    diagnosis: >-
+      The API and product policy require server-side instructor, vehicle, student
+      and managed-location conflict detection, but core-schema.yml explicitly leaves
+      enforcement_strategy as pending_ADR. A check-then-insert or check-then-update
+      implementation can allow two concurrent transactions to both observe no conflict
+      and commit overlapping reservations.
+    race_scope:
+      - calendar_event_create_vs_calendar_event_create
+      - calendar_event_create_vs_calendar_event_update
+      - calendar_event_update_vs_calendar_event_update
+      - booking_created_reservation_vs_existing_or_concurrent_calendar_event
+      - concurrent_booking_requests_competing_for_same_resource_window
+    closure_must_define:
+      - exact_conflict_interval_semantics
+      - which_statuses_claim_resources
+      - which_resource_types_conflict
+      - final_PostgreSQL_or_transactional_serialization_boundary
+      - deterministic_lock_order_if_lock_based
+      - retry_conflict_behavior
+      - concurrency_tests_proving_at_most_one_conflicting_commit
+
+  DB-CAL-004:
+    severity: P1
+    status: OPEN
+    title: calendar_event_lifecycle_and_optimistic_concurrency_are_not_closed
+    diagnosis: >-
+      Own product policy defines scheduled/completed/cancelled and history-preserving
+      cancellation, while the physical model only has free-form status plus version.
+      Cancel and complete are dedicated API commands and PATCH uses If-Match, but the
+      database design does not yet define state checks, terminal metadata, lock order,
+      stale-version behavior or PATCH-vs-cancel-vs-complete races.
+    closure_must_define:
+      - canonical_status_values_and_transition_matrix
+      - cancellation_actor_time_reason_metadata
+      - completion_actor_time_metadata_if_retained
+      - event_version_type_minimum_and_increment_rules
+      - expected_version_and_row_lock_semantics_for_material_mutations
+      - terminal_event_edit_policy
+      - append_only_audit_or_history_event_obligation
+      - no_normal_hard_delete_for_operational_history
+
+  DB-CAL-005:
+    severity: P1
+    status: OPEN
+    title: calendar_manage_own_has_no_canonical_database_owner_resolution
+    diagnosis: >-
+      RBAC already defines calendar.manage.own with own scope and fail-closed behavior
+      when a target has no canonical owner relation. CalendarEvent currently exposes
+      created_by_user_id and optional instructor_id but the database contract does not
+      state which relation is authoritative for own-scope authorization. Availability
+      slot publishing with own scope has the same ambiguity.
+    closure_must_define:
+      - canonical_own_resolver_for_calendar_event
+      - canonical_own_resolver_for_availability_slot
+      - behavior_for_general_event_without_instructor
+      - behavior_for_driving_lesson_with_instructor
+      - behavior_after_staff_membership_unlink_or_archive
+      - no_created_by_shortcut_that_silently_expands_instructor_scope_unless_explicitly_decided
+      - permission_scope_tests_for_own_assigned_students_assigned_locations_organization
+    constraint: >-
+      DB4_5 may implement the existing DB4_2 own semantics but may not silently
+      redefine the global meaning of own, assigned_students or assigned_locations.
+
+  DB-CAL-006:
+    severity: P1
+    status: OPEN
+    title: availability_slot_booking_lifecycle_and_exactly_once_boundary_are_incomplete
+    diagnosis: >-
+      Stage-3 API promises that a slot is atomically booked for one Student and the
+      test strategy requires a double-booking race test. The physical row has status,
+      booked_student_id, booked_at and version but no state matrix, no atomic book/cancel
+      transaction contract, no final concurrency boundary and no explicit representation
+      of the reservation/calendar effect created by a successful booking.
+    closure_must_define:
+      - slot_status_values_and_field_consistency_checks
+      - one_booking_effect_per_slot
+      - booking_row_lock_and_idempotency_order
+      - stale_update_vs_book_vs_cancel_behavior
+      - same_tenant_student_booking_boundary
+      - booked_slot_mutability_policy
+      - whether_successful_booking_creates_or_links_exactly_one_calendar_reservation_event
+      - resource_conflict_revalidation_at_booking_commit
+      - cancellation_history_and_reavailability_policy
+      - double_booking_and_book_cancel_race_tests
+
+  DB-CAL-007:
+    severity: P1
+    status: OPEN
+    title: driving_lesson_calendar_event_vs_formal_training_session_source_of_truth_is_ambiguous
+    diagnosis: >-
+      DB4_4 established TrainingSession as the formal source for scheduled training,
+      verified attendance and credited ledger time. Calendar simultaneously models a
+      driving_lesson CalendarEvent with the same Student/Instructor/Vehicle/Location
+      and time concepts, but no physical relation or projection rule currently states
+      whether one owns the other. Independent mutable rows could drift in time/resources
+      or allow a Calendar complete/cancel action to disagree with formal TrainingSession.
+    closure_must_define:
+      - exactly_one_canonical_schedule_owner_for_formal_driving_lesson
+      - relation_or_projection_between_calendar_and_training_session
+      - no_double_mutable_copy_of_time_and_resources_without_atomic_consistency_boundary
+      - create_update_cancel_reschedule_orchestration_direction
+      - calendar_complete_must_not_credit_training_hours_outside_DB_TRN_006_pipeline
+      - conflict_engine_reads_one_effective_reservation_fact
+      - historical_reference_survives_cancel_and_correction
+      - integration_tests_for_calendar_vs_training_session_consistency
+
+nonblockers_and_deferred_decisions:
+  exact_duration_minimum_maximum: application_validation_or_later_product_policy
+  driving_lesson_visible_form_optional_labels: preserved_no_backend_rule_invented_from_competitor
+  expired_document_warning_vs_hard_block: legal_and_product_compliance_policy
+  recurrence: later_calendar_product_extension
+  notifications: later_notification_slice
+  drag_and_drop: UI_capability_using_same_backend_mutation_contract_if_added
+  resource_filter_selection_persistence: UI_preference
+  competitor_important_date_exact_rendering: UNOBSERVABLE_NONBLOCKING
+  main_calendar_warning_indicator_exact_semantics: UNOBSERVABLE_NONBLOCKING
+  employee_work_time_tracking_UI: separate_later_capability
+  exact_HTTP_If_Match_required_marker_and_error_codes: Stage5_acceptance_contract_sync
+
+migration_design_status:
+  migrations_created_in_diagnosis: false
+  aggregate_core_schema_modified_in_diagnosis: false
+  aggregate_docs87_modified_in_diagnosis: false
+  legacy_data_changed_in_diagnosis: false
+
+quality_gate:
+  diagnosis_scope_only: PASS
+  reverse_engineering_calendar_capabilities_preserved: PASS
+  manual_vs_system_important_date_boundary_identified: PASS
+  availability_self_booking_in_scope: PASS
+  training_session_cross_slice_dependency_identified: PASS
+  RBAC_own_scope_dependency_identified_without_redefinition: PASS
+  open_P0: 0
+  open_P1: 7
+  fixes_applied: 0
+  later_DB4_slices_entered: false
+  Laravel_migrations_created: false
+  UI_or_feature_implementation_started: false
+
+next_single_blocker_after_diagnosis_gate:
+  id: DB-CAL-001
+  reason: >-
+    Close same-tenant resource integrity first because every later overlap,
+    lifecycle, ownership and booking rule must operate on relations that are
+    already guaranteed to belong to the same organization.
