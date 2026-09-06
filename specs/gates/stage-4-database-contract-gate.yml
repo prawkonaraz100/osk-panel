@@ -58,7 +58,11 @@ stage_4_slices:
     final_aggregate_sync: PASS
     result: PASS
   - id: DB4_4_STUDENTS_COURSES_TRAINING_LEDGER
-    status: NOT_STARTED
+    status: IN_PROGRESS_WITH_BLOCKERS
+    diagnosis: COMPLETE
+    blockers_resolved: 0
+    open_P0_P1: 8
+    result: FAIL_WITH_8_P1_BLOCKERS
   - id: DB4_5_CALENDAR
     status: NOT_STARTED
   - id: DB4_6_LICENSES_LEARNING_ACCESS
@@ -209,14 +213,115 @@ quality_checks:
       staff_membership_backend_only_tenant_check_replaced_with_composite_DB_boundary: PASS
       aggregate_migration_test_obligations_cover_DB4_3: PASS
       no_new_P0_P1_discovered_during_sync: PASS
-      no_DB4_4_work_started: PASS
+      no_DB4_4_work_started_during_DB4_3: PASS
       no_Laravel_migrations_created: PASS
 
-  DB4_3_nonblockers_deferred_to_dependent_slices:
-    - future_calendar_event_behavior_after_resource_archive_to_DB4_5
-    - active_course_behavior_after_staff_or_location_archive_to_DB4_4
-    - exact_expiring_soon_threshold_projection_config
-    - city_dictionary_provider_choice
+  DB4_4_diagnosis:
+    status: PASS_DIAGNOSIS_COMPLETE
+    source: docs/108-stage-4-students-courses-training-ledger-audit.md
+    diagnosed_P0: 0
+    diagnosed_P1: 8
+    fixes_applied_in_diagnosis_step: 0
+    aggregate_core_schema_modified_in_diagnosis: false
+    aggregate_docs87_modified_in_diagnosis: false
+    later_domain_slices_entered: false
+    Laravel_migrations_created: false
+    UI_or_feature_implementation_started: false
+    preservation_checks:
+      all_four_observed_course_hour_fields_remain_in_scope: PASS
+      current_OSK_form_hours_do_not_self_credit_formal_time: PASS
+      recognized_external_training_remains_separate: PASS
+      theory_45_minute_and_practical_60_minute_rules_respected_as_input_requirements: PASS
+      formal_history_hard_delete_not_introduced: PASS
+
+  student_course_training_same_tenant_integrity:
+    status: FAIL
+    blocker_id: DB-TRN-001
+    severity: P1
+    unresolved: >-
+      Student, CourseEnrollment, TrainingSession, attendance, requirement, external
+      training and ledger relations do not yet have complete physical same-tenant
+      integrity across every tenant-owned relation ID.
+    impact: cross_tenant_formal_training_or_hour_records_can_be_created_if_application_validation_is_bypassed
+
+  student_formal_identity_and_duplicate_lifecycle:
+    status: FAIL
+    blocker_id: DB-TRN-002
+    severity: P1
+    unresolved: >-
+      The database does not yet physically require the PESEL-or-birth-date formal
+      identity branch and does not finalize PESEL hash/ciphertext consistency,
+      per-organization duplicate identity semantics, archive and restore behavior.
+    impact: invalid_formal_student_identity_or_duplicate_durable_student_records
+
+  student_concurrency_archive_restore_lifecycle:
+    status: FAIL
+    blocker_id: DB-TRN-003
+    severity: P1
+    unresolved: >-
+      The Student API exposes optimistic version semantics but the students table
+      lacks the physical concurrency root, and archive/restore effects on active
+      formal CourseEnrollment history are not fully serialized or defined.
+    impact: lost_updates_or_inconsistent_student_course_archive_state
+
+  course_lifecycle_stage_history_cancel_restore:
+    status: FAIL
+    blocker_id: DB-TRN-004
+    severity: P1
+    unresolved: >-
+      training_stage, completed_at, interrupted_at and cancelled_at do not yet have
+      a canonical lifecycle matrix, durable stage-transition history and serialized
+      cancel/restore/correction semantics.
+    impact: contradictory_course_state_or_loss_of_formal_stage_history
+
+  requirement_context_profile_reproducibility:
+    status: FAIL
+    blocker_id: DB-TRN-005
+    severity: P1
+    unresolved: >-
+      Editable source facts and each rule-engine recalculation are not yet modeled
+      as a complete durable context plus reproducible immutable decision history
+      with rule-set version, actor, reason and before/output evidence.
+    impact: cannot_deterministically_reconstruct_why_formal_requirements_changed
+
+  training_attendance_ledger_exactly_once:
+    status: FAIL
+    blocker_id: DB-TRN-006
+    severity: P1
+    unresolved: >-
+      Verified attendance to training-hour-ledger credit lacks complete same-course
+      student integrity, exactly-once base credit, cancellation guards and explicit
+      correction/reversal source-entry lifecycle constraints.
+    impact: formal_hours_can_be_double_credited_or_credited_to_wrong_student_or_cancelled_session
+
+  recognized_external_training_projection_history:
+    status: FAIL
+    blocker_id: DB-TRN-007
+    severity: P1
+    unresolved: >-
+      The physical model does not distinguish an unambiguous current course-form
+      external-hours projection from additive documented historical transfers and
+      their revoke/correction lifecycle.
+    impact: previous_OSK_hours_can_be_double_counted_or_projected_nondeterministically
+
+  course_required_pkk_persistence_boundary:
+    status: FAIL
+    blocker_id: DB-TRN-008
+    severity: P1
+    unresolved: >-
+      Dedicated course create/edit requires a course-scoped PKK, but the minimal
+      atomic persistence boundary between CourseEnrollment and PKK identity is not
+      yet closed before the later DB4_8 provider lifecycle slice.
+    impact: course_can_commit_without_required_PKK_identity_or_with_mismatched_course_tenant_ownership
+
+  DB4_4_nonblockers_deferred_to_dependent_slices:
+    - legal_category_dictionary_reverification_including_PT_mapping_to_production_legal_gate
+    - learning_access_license_and_credentials_lifecycle_to_DB4_6
+    - internal_exam_compatibility_and_attempt_lifecycle_to_DB4_7
+    - PKK_provider_request_response_retry_reconciliation_to_DB4_8
+    - student_finance_and_course_cost_payment_ledger_to_DB4_9
+    - calendar_overlap_and_resource_booking_to_DB4_5
+    - exact_phone_email_PKK_format_validation_to_application_validation
     - competitor_unobservable_delete_backend_semantics
 
   calendar_overlap_database_strategy:
@@ -239,7 +344,23 @@ resolved_blockers:
   - DB-RES-005
   - DB-RES-006
 
-open_blockers_current_diagnosed_scope: []
+open_blockers_current_diagnosed_scope:
+  - id: DB-TRN-001
+    severity: P1
+  - id: DB-TRN-002
+    severity: P1
+  - id: DB-TRN-003
+    severity: P1
+  - id: DB-TRN-004
+    severity: P1
+  - id: DB-TRN-005
+    severity: P1
+  - id: DB-TRN-006
+    severity: P1
+  - id: DB-TRN-007
+    severity: P1
+  - id: DB-TRN-008
+    severity: P1
 
 gate_definition:
   PASS_requires_for_entire_stage_4:
@@ -249,22 +370,28 @@ gate_definition:
     - migration_order_dependency_safe
     - database_invariant_test_matrix_exists
     - reverse_engineering_preservation_traceable
-  current_result: FAIL_STAGE_4_INCOMPLETE_AFTER_DB4_3_PASS
+  current_result: FAIL_DB4_4_WITH_8_OPEN_P1_BLOCKERS
   DB4_1_result: PASS
   DB4_2_result: PASS
   DB4_3_result: PASS
-  may_start_DB4_4: true
+  DB4_4_diagnosis_result: PASS_DIAGNOSIS_COMPLETE
+  DB4_4_result: FAIL
+  may_start_DB4_4_fixes: true
+  may_start_DB4_5: false
   may_start_stage_5: false
   may_start_UI_or_feature_implementation: false
 
 next_single_step:
-  id: DB4_4_STEP_1
-  action: diagnose_students_courses_training_ledger_physical_invariants_only
-  stage: DB4_4_STUDENTS_COURSES_TRAINING_LEDGER
-  start_condition: DB4_3_result_is_PASS
+  id: DB4_4_STEP_2
+  blocker: DB-TRN-001
+  action: resolve_students_courses_training_same_tenant_relation_integrity_only
+  allowed_scope:
+    - specs/database/students-courses-training.yml
+    - docs/108-stage-4-students-courses-training-ledger-audit.md
+    - specs/gates/stage-4-database-contract-gate.yml
   scope_lock: >-
-    Start DB4_4 with diagnosis only. Do not fix any DB4_4 blocker in the same
-    diagnosis step, do not enter Calendar or later slices, and do not create
-    Laravel migrations or feature/UI implementation. Record all discovered P0/P1
-    blockers first, then run the DB4_4 diagnosis gate before any repair.
-  after_action: record_DB4_4_diagnosis_result_and_next_single_blocker_or_PASS_then_stop
+    Resolve only DB-TRN-001. Do not fix DB-TRN-002 through DB-TRN-008 in the same
+    step. Do not enter DB4_5 or later slices, do not create Laravel migrations and
+    do not start UI/feature implementation. Keep aggregate core-schema.yml and
+    docs/87 synchronization deferred until the final DB4_4 aggregate sync gate.
+  after_action: rerun_DB4_4_gate_and_record_DB_TRN_001_PASS_or_new_blocker_then_stop_before_DB_TRN_002
