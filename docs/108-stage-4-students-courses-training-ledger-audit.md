@@ -2,7 +2,7 @@
 
 Data: 2026-09-06
 
-**Status:** `DB4_4 IN PROGRESS / DB-TRN-001 PASS / DB-TRN-002 PASS / DB-TRN-003 PASS / DB-TRN-004 PASS / DB-TRN-005 PASS / DB-TRN-006 PASS / DB-TRN-007 PASS / 1 P1 BLOCKER OPEN`
+**Status:** `DB4_4 BLOCKERS RESOLVED / DB-TRN-001 PASS / DB-TRN-002 PASS / DB-TRN-003 PASS / DB-TRN-004 PASS / DB-TRN-005 PASS / DB-TRN-006 PASS / DB-TRN-007 PASS / DB-TRN-008 PASS / 0 P0-P1 BLOCKERS / FINAL AGGREGATE SYNC PENDING`
 
 ## Cel i zasada pracy
 
@@ -1637,6 +1637,211 @@ Sprawdzono:
 
 ---
 
+# DB-TRN-008 — PASS: required course PKK atomic persistence boundary
+
+## Problem z diagnozy
+
+Potwierdzony Course create oraz Course edit wymagają `pkk_number`, a reverse engineering wprost wskazuje, że PKK należy do **konkretnego CourseEnrollment**, nie globalnie do Studenta. Równocześnie istniejący physical draft trzymał `pkk_profiles` jako pojedynczy optional child z nullable `pkk_number_ciphertext` / `pkk_lookup_hash`.
+
+Taki model nie gwarantował, że:
+- Course nie zacommituje się bez wymaganej lokalnej tożsamości PKK,
+- PKK należy do tego samego OSK i dokładnie tego Course,
+- zmiana PKK nie nadpisze historycznej wartości,
+- category/training type nie zmieni się przy pozostawieniu stale PKK context,
+- provider fetch/retry nie zostanie błędnie wymieszany z samym lokalnym zapisem kursu.
+
+## Canonical owner — `pkk_profiles`, bez drugiej kopii na CourseEnrollment
+
+Nie dokładamy plaintext ani ciphertext PKK do `course_enrollments`. Canonical owner pozostaje `pkk_profiles`, bo Stage-3 API i obserwowany operacyjny flow już są course-scoped.
+
+Zmiana polega na wzmocnieniu `pkk_profiles` z „jednego mutable childa” do **wersjonowanej course-scoped identity history z dokładnie jednym current profile**.
+
+Każdy committed CourseEnrollment ma finalnie dokładnie jeden current PkkProfile:
+- w tym samym `organization_id`,
+- dla tego samego `course_enrollment_id`,
+- z non-NULL ciphertext + keyed lookup hash,
+- z context snapshot odpowiadającym finalnej kategorii i typowi szkolenia kursu.
+
+At-most-one zapewnia partial unique, a at-least-one i context freshness — deferrable constraint trigger albo równoważny transactional DB guard.
+
+## Bezpieczna reprezentacja numeru PKK
+
+Plaintext PKK jest wyłącznie wejściem autoryzowanej komendy. Flow:
+1. canonical normalization,
+2. encryption,
+3. HMAC-SHA-256 albo równoważny keyed lookup hash z tego samego normalized input,
+4. zapis obu wartości atomowo,
+5. usunięcie plaintextu z dalszego persistence/audit/outbox flow.
+
+`pkk_number_ciphertext` i `pkk_lookup_hash` są wymagane dla każdej identity version. Nie wolno niezależnie patchować tylko jednej reprezentacji. PostgreSQL nie otrzymuje HMAC secretu; spójność pochodzenia pary z jednego inputu jest integration/security testem warstwy aplikacji.
+
+## Nie wymyślamy niepotwierdzonego hard unique PKK
+
+Course-create reverse engineering jawnie oznacza zachowanie duplicate PKK/category jako niezaobserwowane. Dlatego DB-TRN-008 **nie** wprowadza hard unique na `pkk_lookup_hash`.
+
+Lookup hash pozostaje dostępny do autoryzowanego wykrywania kolizji, ale exact collision policy musi zostać potwierdzona w DB4_8 / legal-product verification. Nie wolno zamknąć tej niewiadomej constraintem, który mógłby odrzucać legalny historyczny/provider workflow.
+
+## Wersjonowanie i lineage PKK
+
+Każdy profile ma `identity_revision >= 1` oraz:
+- `record_origin`: `course_create | course_edit | context_revalidation | migration_baseline`,
+- `bound_driving_category_id`,
+- `bound_training_type`,
+- `recorded_at` i actor dla normalnego runtime,
+- `supersedes_pkk_profile_id`,
+- `superseded_at` / `superseded_by_user_id`.
+
+Business identity starego profile jest immutable. Zmiana nie przepisuje starego ciphertext/hash.
+
+Composite self-FK wymusza same tenant + same Course lineage. Jeden source może mieć maksymalnie jednego successor. Self-reference, cycle i branching są zabronione.
+
+Unique `(organization_id, course_enrollment_id, identity_revision)` oraz partial unique current profile eliminują race „dwa current PKK dla kursu”.
+
+Providerowe pola `status`, snapshots, `fetched_at`, `updated_at` pozostają w modelu, ale ich dokładny lifecycle jest świadomie własnością DB4_8.
+
+## Atomowy Course create
+
+`POST /students/{studentId}/course-enrollments` już wymaga `pkk_number`. Plaintext PKK nie staje się kolumną Course.
+
+W jednej transakcji przed commit:
+1. przechodzą Student/tenant/identity guards DB-TRN-001..003,
+2. PKK jest normalizowane, szyfrowane i hashowane,
+3. powstaje CourseEnrollment,
+4. powstaje current PkkProfile `identity_revision=1`, `record_origin=course_create`,
+5. profile jest związany z tenantem, Course, category i training type,
+6. powstaje aktualny requirement context/profile DB-TRN-005,
+7. powstają ewentualne początkowe external-training records DB-TRN-007,
+8. powstaje DB-TRN-004 `created` history event oraz audit/outbox,
+9. finalny required-current-PKK guard musi przejść.
+
+Jeżeli encryption/hash/profile insert lub finalny PKK guard nie przejdzie, **Course i wszystkie sibling side effects rollbackują się razem**.
+
+## Lokalny zapis kursu nie czeka na provider fetch
+
+Potwierdzony operacyjny stan „PKK istnieje, ale brak pobranych danych PKK” musi pozostać możliwy. Dlatego:
+- provider fetch nie jest precondition lokalnego Course commit,
+- verified integration configuration nie jest precondition samego lokalnego zapisu wymaganej tożsamości PKK,
+- fetch może nastąpić później dla current profile.
+
+To oddziela persistence identity od integration lifecycle zamiast mieszać DB4_4 i DB4_8.
+
+## Edit PKK i concurrency
+
+Zmiana `pkk_number` używa istniejącego `course_enrollments.version` jako jedynego concurrency root.
+
+Command:
+- lockuje Course `FOR UPDATE`,
+- porównuje expected version,
+- lockuje current PkkProfile,
+- normalizuje nowy PKK i porównuje lookup hash.
+
+Jeżeli normalized PKK jest taki sam — identity history jest no-op.
+
+Jeżeli jest inny:
+- current profile zostaje superseded,
+- powstaje successor `identity_revision + 1`, `record_origin=course_edit`,
+- successor wskazuje source,
+- snapshot context pochodzi z finalnych Course values,
+- stary provider snapshot/fetched state nie jest kopiowany jako authority nowej tożsamości.
+
+Cały Course edit zwiększa Course version dokładnie raz, nawet gdy razem zmienia inne pola. Sama zmiana PKK nie zwiększa `requirements_revision`.
+
+Event/audit/outbox nie mogą zawierać plaintext PKK.
+
+Dla terminalnego kursu zmiana PKK wymaga istniejącego DB-TRN-004 correction mode z actor + reason i nie reopenuje lifecycle.
+
+## Category / training type — PKK context revalidation
+
+Current PkkProfile snapshotuje:
+- `bound_driving_category_id`,
+- `bound_training_type`.
+
+Finalny guard nie pozwala zacommitować Course, którego current PKK profile ma stary context.
+
+Zmiana category/training type wymaga więc jawnego domain revalidation outcome:
+- kompatybilny ten sam PKK -> supersede + `context_revalidation` successor z nowym context, bez żądania plaintextu,
+- podano replacement PKK -> normalny PKK successor z finalnym context,
+- niekompatybilny albo nieznany wynik bez replacement -> reject przed commit.
+
+DB-TRN-008 nie wymyśla niezaobserwowanej provider/legal compatibility matrix. Database chroni freshness po decyzji, a późniejsza warstwa domenowa/providerowa określa wynik semantyczny.
+
+## Cancel / restore bez hidden provider side effects
+
+Cancel Course:
+- nie usuwa ani nie supersede'uje current PkkProfile,
+- nie wykonuje ukrytego „return PKK”.
+
+Restore:
+- używa istniejącej current local PKK identity,
+- nie wykonuje ukrytego provider fetch.
+
+Superseded profile i związana z nim provider operation history pozostają zachowane. Provider return/reconciliation należy do DB4_8.
+
+## Migration design
+
+Przyszła migracja DB-TRN-008:
+1. dodaje revision/context/origin/supersession fields najpierw jako nullable,
+2. sprawdza same-tenant Course relation każdego istniejącego PkkProfile,
+3. wykrywa każdy Course z `0` albo `>1` legacy PkkProfile,
+4. brak required profile -> FAIL / explicit reviewed remediation,
+5. wiele profili -> FAIL / reviewed remediation; **bez latest-row guess**,
+6. sprawdza non-NULL ciphertext/hash pair,
+7. nie odgaduje PKK z provider snapshot, redacted payload ani labelu,
+8. verified single legacy profile dostaje tylko jawny `migration_baseline`, revision 1,
+9. migration baseline nie fabrykuje pierwotnego aktora ani capture timestampu,
+10. current context jest związany z aktualnym Course jako baseline, nie jako twierdzenie o historycznej chronologii,
+11. dodawane są same-tenant composite FK, current partial unique, revision unique i lineage self-FK,
+12. dopiero po remediation wymagane fields stają się NOT NULL,
+13. instalowany jest finalny required-current-profile/context guard.
+
+Migracja nie kontaktuje się z zewnętrznym providerem, aby „zgadnąć” brakujący PKK.
+
+Nie generujemy jeszcze migracji Laravel.
+
+## Świadomie poza DB-TRN-008
+
+Pozostaje DB4_8:
+- verification konfiguracji integracji,
+- fetch request/response,
+- provider profile status machine,
+- update/return XML/signature,
+- return to school/authority/expired,
+- retry i reconciliation,
+- provider error mapping,
+- exact duplicate/collision i provider-category compatibility policy po weryfikacji.
+
+Stage 5 zachowuje exact HTTP `If-Match`, error codes oraz format/checksum PKK. DB4_7 nadal odpowiada za internal-exam satisfaction.
+
+## Quality gate DB-TRN-008
+
+Sprawdzono:
+- wymagane PKK z Course create/edit jest zachowane — **PASS PRESERVATION**,
+- PKK ma jednego canonical course-scoped ownera bez duplicate Course column — **PASS DESIGN**,
+- każdy committed Course ma dokładnie jeden current PKK identity profile — **PASS DESIGN**,
+- current PKK jest fizycznie same tenant + same Course — **PASS DESIGN**,
+- ciphertext + HMAC są wymagane, plaintext nie jest persistence field — **PASS**,
+- nie wymyślono niepotwierdzonego hard unique PKK — **PASS SCOPE**,
+- Course create i required local PKK identity są atomowe — **PASS DESIGN**,
+- provider fetch/config nie zostały fałszywie dodane jako Course-save precondition — **PASS PRESERVATION**,
+- edit PKK wersjonuje profile i zachowuje poprzednią identity history — **PASS DESIGN**,
+- category/training type nie może pozostawić stale current PKK context — **PASS DESIGN**,
+- nie wymyślono niezaobserwowanej provider/legal compatibility matrix — **PASS SCOPE**,
+- PKK mutations korzystają z istniejącego Course version root — **PASS DESIGN**,
+- terminal Course PKK correction korzysta z DB-TRN-004 i nie reopenuje kursu — **PASS**,
+- cancel/restore nie mają hidden provider side effects i nie niszczą historii — **PASS**,
+- migracja nie zgaduje missing PKK, latest row, actor ani historycznego czasu — **PASS**,
+- DB4_8 provider lifecycle nie został rozwiązany przy okazji — **PASS SCOPE**,
+- pełny wcześniejszy machine contract DB-TRN-001..007 zachowany — **PASS PRESERVATION**,
+- pełna wcześniejsza narracja DB-TRN-001..007 zachowana — **PASS PRESERVATION**,
+- `specs/database/core-schema.yml` bez zmian — **PASS**,
+- `docs/87-physical-database-schema.md` bez zmian — **PASS**,
+- DB4_5+ bez zmian — **PASS**,
+- migracje Laravel/UI/feature implementation — **NIE ROZPOCZĘTO**.
+
+**GATE DB-TRN-008: PASS.**
+
+---
+
 ## Aktualna kolejność napraw
 
 1. `DB-TRN-001` — **PASS**.
@@ -1646,6 +1851,8 @@ Sprawdzono:
 5. `DB-TRN-005` — **PASS**.
 6. `DB-TRN-006` — **PASS**.
 7. `DB-TRN-007` — **PASS**.
-8. `DB-TRN-008` — course PKK persistence boundary — **NEXT**.
+8. `DB-TRN-008` — **PASS**.
 
-**Następny pojedynczy krok: tylko `DB-TRN-008` -> self-audit -> gate -> STOP przed finalnym DB4_4 aggregate sync.**
+W diagnozowanym zakresie DB4_4 pozostało **0 P0/P1 blockerów**. Nie oznacza to jeszcze `DB4_4 PASS`, ponieważ zgodnie z procesem pozostaje osobna bramka końcowa synchronizacji bounded-context contractu do `specs/database/core-schema.yml` i `docs/87-physical-database-schema.md` oraz kontrola braku semantic loss.
+
+**Następny pojedynczy krok: tylko finalny `DB4_4 aggregate sync` -> self-audit -> gate. STOP przed DB4_5.**
