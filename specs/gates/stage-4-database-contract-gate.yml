@@ -61,9 +61,9 @@ stage_4_slices:
   - id: DB4_4_STUDENTS_COURSES_TRAINING_LEDGER
     status: IN_PROGRESS_WITH_BLOCKERS
     diagnosis: COMPLETE
-    blockers_resolved: 2
-    open_P0_P1: 6
-    result: FAIL_WITH_6_P1_BLOCKERS
+    blockers_resolved: 3
+    open_P0_P1: 5
+    result: FAIL_WITH_5_P1_BLOCKERS
   - id: DB4_5_CALENDAR
     status: NOT_STARTED
   - id: DB4_6_LICENSES_LEARNING_ACCESS
@@ -300,7 +300,7 @@ quality_checks:
       same_PESEL_different_organizations_allowed: true
       name_birth_date_hard_unique_for_no_PESEL: false
       identity_branch_change_audited: true
-      Student_optimistic_concurrency: deferred_to_DB_TRN_003
+      Student_optimistic_concurrency: governed_by_DB_TRN_003
     checks:
       legal_PESEL_or_birth_date_rule_preserved_before_formal_enrollment: PASS
       pre_course_student_creation_capability_not_reduced: PASS
@@ -312,7 +312,7 @@ quality_checks:
       migration_does_not_guess_no_PESEL_from_null: PASS
       formal_student_identity_cannot_degrade_to_incomplete_state: PASS
       no_false_name_birth_date_unique_constraint: PASS
-      DB_TRN_003_through_DB_TRN_008_not_fixed: PASS
+      DB_TRN_003_through_DB_TRN_008_not_fixed_in_DB_TRN_002_step: PASS
       aggregate_core_schema_modified_in_step: false
       aggregate_docs87_modified_in_step: false
       later_domain_slices_entered: false
@@ -320,14 +320,56 @@ quality_checks:
       UI_or_feature_implementation_started: false
 
   student_concurrency_archive_restore_lifecycle:
-    status: FAIL
-    blocker_id: DB-TRN-003
+    status: PASS
+    resolved_blocker_id: DB-TRN-003
     severity: P1
-    unresolved: >-
-      The Student API exposes optimistic version semantics but the students table
-      lacks the physical concurrency root, and archive/restore effects on active
-      formal CourseEnrollment history are not fully serialized or defined.
-    impact: lost_updates_or_inconsistent_student_course_archive_state
+    machine_source: specs/database/students-courses-training.yml
+    audit_source: docs/108-stage-4-students-courses-training-ledger-audit.md
+    decision:
+      students_version:
+        type: bigint
+        nullable: false
+        default: 1
+        check: version_gte_1
+      concurrency_root: students.version
+      profile_update_expected_version_source: If-Match
+      profile_update_locks_student_FOR_UPDATE: true
+      stale_expected_version_partial_write: forbidden
+      material_student_mutation_increments_version_once: true
+      state_idempotent_archive_restore_noop_increments_version: false
+      generic_profile_PATCH_may_mutate_archive_state: false
+      archive_restore_use_dedicated_operations: true
+      archive_restore_idempotency_key_present: true
+      course_create_and_student_archive_serialize_on_student_row: true
+      new_course_requires_student_nonarchived_after_lock: true
+      database_guard_blocks_course_for_archived_student: true
+      archive_hidden_course_state_mutation: forbidden
+      minimal_open_course_predicate_for_archive_guard: completed_at_null_and_interrupted_at_null_and_cancelled_at_null
+      archive_with_open_course: reject_conflict
+      terminal_historical_courses_remain_linked: true
+      restore_reuses_same_student_row: true
+      restore_reopens_or_creates_course: false
+      archive_hard_deletes_formal_history: false
+      learning_access_license_archive_effect: deferred_to_DB4_6
+      exact_HTTP_If_Match_required_marker_sync: Stage5_acceptance_contract_sync
+    checks:
+      student_version_concurrency_root_defined: PASS
+      stale_PATCH_cannot_silently_overwrite_newer_student_state: PASS
+      two_PATCH_same_expected_version_cannot_both_commit: PASS
+      edit_archive_restore_share_student_row_serialization_boundary: PASS
+      course_create_archive_race_closed: PASS
+      archived_student_cannot_receive_new_formal_course: PASS
+      archive_open_course_rejected_without_hidden_course_mutation: PASS
+      terminal_history_preserved: PASS
+      restore_does_not_reopen_history: PASS
+      DB_TRN_002_identity_and_PESEL_rules_preserved: PASS
+      DB_TRN_004_course_lifecycle_matrix_not_solved_early: PASS
+      DB4_6_learning_access_lifecycle_not_solved_early: PASS
+      aggregate_core_schema_modified_in_step: false
+      aggregate_docs87_modified_in_step: false
+      later_domain_slices_entered: false
+      Laravel_migrations_created: false
+      UI_or_feature_implementation_started: false
 
   course_lifecycle_stage_history_cancel_restore:
     status: FAIL
@@ -388,6 +430,7 @@ quality_checks:
     - calendar_overlap_and_resource_booking_to_DB4_5
     - exact_phone_email_PKK_format_validation_to_application_validation
     - exact_PESEL_format_checksum_validation_to_application_validation_and_security_tests
+    - exact_HTTP_If_Match_required_marker_and_428_acceptance_sync_to_Stage5
     - competitor_unobservable_delete_backend_semantics
 
   calendar_overlap_database_strategy:
@@ -411,10 +454,9 @@ resolved_blockers:
   - DB-RES-006
   - DB-TRN-001
   - DB-TRN-002
+  - DB-TRN-003
 
 open_blockers_current_diagnosed_scope:
-  - id: DB-TRN-003
-    severity: P1
   - id: DB-TRN-004
     severity: P1
   - id: DB-TRN-005
@@ -434,13 +476,14 @@ gate_definition:
     - migration_order_dependency_safe
     - database_invariant_test_matrix_exists
     - reverse_engineering_preservation_traceable
-  current_result: FAIL_DB4_4_WITH_6_OPEN_P1_BLOCKERS
+  current_result: FAIL_DB4_4_WITH_5_OPEN_P1_BLOCKERS
   DB4_1_result: PASS
   DB4_2_result: PASS
   DB4_3_result: PASS
   DB4_4_diagnosis_result: PASS_DIAGNOSIS_COMPLETE
   DB4_4_DB_TRN_001_result: PASS
   DB4_4_DB_TRN_002_result: PASS
+  DB4_4_DB_TRN_003_result: PASS
   DB4_4_result: FAIL
   may_start_DB4_4_fixes: true
   may_start_DB4_5: false
@@ -448,16 +491,16 @@ gate_definition:
   may_start_UI_or_feature_implementation: false
 
 next_single_step:
-  id: DB4_4_STEP_4
-  blocker: DB-TRN-003
-  action: resolve_student_concurrency_archive_restore_lifecycle_only
+  id: DB4_4_STEP_5
+  blocker: DB-TRN-004
+  action: resolve_course_lifecycle_stage_history_cancel_restore_only
   allowed_scope:
     - specs/database/students-courses-training.yml
     - docs/108-stage-4-students-courses-training-ledger-audit.md
     - specs/gates/stage-4-database-contract-gate.yml
   scope_lock: >-
-    Resolve only DB-TRN-003. Do not fix DB-TRN-004 through DB-TRN-008 in the same
+    Resolve only DB-TRN-004. Do not fix DB-TRN-005 through DB-TRN-008 in the same
     step. Do not enter DB4_5 or later slices, do not create Laravel migrations and
     do not start UI/feature implementation. Keep aggregate core-schema.yml and
     docs/87 synchronization deferred until the final DB4_4 aggregate sync gate.
-  after_action: rerun_DB4_4_gate_and_record_DB_TRN_003_PASS_or_new_blocker_then_stop_before_DB_TRN_004
+  after_action: rerun_DB4_4_gate_and_record_DB_TRN_004_PASS_or_new_blocker_then_stop_before_DB_TRN_005
