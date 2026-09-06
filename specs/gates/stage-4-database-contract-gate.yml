@@ -67,13 +67,13 @@ stage_4_slices:
     final_aggregate_sync: PASS
     result: PASS
   - id: DB4_5_CALENDAR
-    status: IN_PROGRESS_FINAL_AGGREGATE_SYNC_PENDING
+    status: PASS
     diagnosis: COMPLETE
     blockers_diagnosed: 7
     blockers_resolved: 7
     open_P0_P1: 0
-    final_aggregate_sync: PENDING
-    result: DB_CAL_001_002_003_004_005_006_007_PASS_AGGREGATE_SYNC_PENDING
+    final_aggregate_sync: PASS
+    result: PASS
   - id: DB4_6_LICENSES_LEARNING_ACCESS
     status: NOT_STARTED
   - id: DB4_7_INTERNAL_EXAMS
@@ -1198,6 +1198,40 @@ quality_checks:
       Laravel_migrations_created: false
       UI_or_feature_implementation_started: false
 
+  DB4_5_final_aggregate_sync:
+    status: PASS
+    bounded_context_source: specs/database/calendar.yml
+    audit_source: docs/109-stage-4-calendar-audit.md
+    aggregate_machine_source: specs/database/core-schema.yml
+    aggregate_narrative_source: docs/87-physical-database-schema.md
+    machine_sync_commit: aa2d9174f5d2e82e644c6ee3ade0b39c1686108e
+    narrative_sync_commit: ac6a0ec89ce6b95ef68c290fec7df76a7c2e562f
+    audit_sync_commit: da7d092cad7856e0a22bc4271b43238f4f46f7d7
+    checks:
+      DB_CAL_001_same_tenant_resource_integrity_represented_without_semantic_loss: PASS
+      DB_CAL_002_projection_and_meeting_place_boundary_represented_without_semantic_loss: PASS
+      DB_CAL_003_half_open_GiST_conflict_boundary_represented_without_semantic_loss: PASS
+      DB_CAL_004_event_lifecycle_version_history_represented_without_semantic_loss: PASS
+      DB_CAL_005_own_scope_owner_resolution_represented_without_semantic_loss: PASS
+      DB_CAL_006_availability_booking_lifecycle_represented_without_semantic_loss: PASS
+      DB_CAL_007_training_session_schedule_authority_and_handoff_represented_without_semantic_loss: PASS
+      stale_calendar_overlap_pending_ADR_removed_from_aggregate: PASS
+      stale_formal_driving_lesson_mutable_calendar_event_copy_removed_from_final_runtime_model: PASS
+      training_session_is_single_formal_schedule_owner: PASS
+      claim_owner_kind_catalog_is_exactly_calendar_event_availability_slot_booking_training_session: PASS
+      four_partial_GiST_exclusion_constraints_are_represented: PASS
+      calendar_event_and_availability_slot_lifecycle_history_version_guards_are_represented: PASS
+      training_session_exact_claim_set_and_terminal_release_are_represented: PASS
+      availability_slot_formalization_handoff_is_atomic_and_nonduplicating: PASS
+      claim_or_calendar_complete_cannot_credit_training_outside_DB_TRN_006: PASS
+      aggregate_migration_order_is_dependency_safe_for_DB4_5: PASS
+      aggregate_invariant_and_race_test_matrix_covers_DB4_5: PASS
+      no_new_P0_P1_discovered_during_sync: PASS
+      no_DB4_6_work_started_during_sync: PASS
+      no_Stage5_work_started: PASS
+      no_Laravel_migrations_created: PASS
+      no_UI_or_feature_implementation_started: PASS
+
 resolved_blockers:
   - DB-FOUND-001
   - DB-FOUND-002
@@ -1240,7 +1274,7 @@ gate_definition:
     - migration_order_dependency_safe
     - database_invariant_test_matrix_exists
     - reverse_engineering_preservation_traceable
-  current_result: DB4_5_DB_CAL_001_002_003_004_005_006_007_PASS_AGGREGATE_SYNC_PENDING
+  current_result: DB4_5_PASS_DB4_6_NOT_STARTED
   DB4_1_result: PASS
   DB4_2_result: PASS
   DB4_3_result: PASS
@@ -1263,27 +1297,21 @@ gate_definition:
   DB4_5_DB_CAL_005_result: PASS
   DB4_5_DB_CAL_006_result: PASS
   DB4_5_DB_CAL_007_result: PASS
-  DB4_5_result: IN_PROGRESS_FINAL_AGGREGATE_SYNC_PENDING
+  DB4_5_final_aggregate_sync_result: PASS
+  DB4_5_result: PASS
   may_start_DB4_4_fixes: false
-  may_start_DB4_5: true
+  may_start_DB4_5: false
   may_start_DB4_5_fixes: false
-  may_start_DB4_6: false
+  may_start_DB4_6: true
   may_start_stage_5: false
   may_start_UI_or_feature_implementation: false
 
 next_single_step:
-  id: DB4_5_FINAL_AGGREGATE_SYNC
-  action: synchronize_calendar_bounded_context_into_core_schema_and_docs87_only
-  allowed_scope:
-    - specs/database/calendar.yml
-    - docs/109-stage-4-calendar-audit.md
-    - specs/database/core-schema.yml
-    - docs/87-physical-database-schema.md
-    - specs/gates/stage-4-database-contract-gate.yml
+  id: DB4_6_LICENSES_LEARNING_ACCESS_DIAGNOSIS
+  action: diagnose_DB4_6_only_after_next_explicit_user_instruction
   scope_lock: >-
-    Synchronize only the already closed DB-CAL-001..007 bounded-context contract into
-    specs/database/core-schema.yml and docs/87-physical-database-schema.md. Run semantic-loss,
-    stale-constraint, migration-order and invariant-test coverage checks. Do not enter DB4_6
-    or later slices, do not start Stage 5, do not create Laravel migrations and do not start
-    UI/feature implementation.
-  after_action: rerun_DB4_5_final_aggregate_sync_gate_record_PASS_or_remaining_sync_blocker_then_stop_before_DB4_6
+    DB4_5 is fully closed including its aggregate synchronization. The next eligible
+    database slice is DB4_6_LICENSES_LEARNING_ACCESS. Do not start it inside the DB4_5
+    final-sync gate, do not enter DB4_7 or later slices, do not start Stage 5, do not
+    create Laravel migrations and do not start UI/feature implementation.
+  after_action: diagnose_DB4_6_then_record_its_gate_and_stop_before_first_DB4_6_fix
