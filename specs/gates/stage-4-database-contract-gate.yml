@@ -70,10 +70,10 @@ stage_4_slices:
     status: IN_PROGRESS_BLOCKERS_OPEN
     diagnosis: COMPLETE
     blockers_diagnosed: 7
-    blockers_resolved: 4
-    open_P0_P1: 3
+    blockers_resolved: 5
+    open_P0_P1: 2
     final_aggregate_sync: PENDING
-    result: DB_CAL_001_002_003_004_PASS_3_P1_OPEN
+    result: DB_CAL_001_002_003_004_005_PASS_2_P1_OPEN
   - id: DB4_6_LICENSES_LEARNING_ACCESS
     status: NOT_STARTED
   - id: DB4_7_INTERNAL_EXAMS
@@ -1006,6 +1006,58 @@ quality_checks:
       Laravel_migrations_created: false
       UI_or_feature_implementation_started: false
 
+  calendar_own_scope_owner_resolution:
+    status: PASS
+    resolved_blocker_id: DB-CAL-005
+    severity: P1
+    machine_source: specs/database/calendar.yml
+    audit_source: docs/109-stage-4-calendar-audit.md
+    decision:
+      upstream_own_semantics_source: DB4_2
+      calendar_event_owner_column: instructor_id
+      availability_slot_owner_column: instructor_id
+      owner_identity_type: StaffProfile
+      separate_owner_column_added: false
+      created_by_user_is_owner: false
+      terminal_actor_is_owner: false
+      own_resolver_path: active_membership_to_active_staff_membership_link_to_staff_profile_equals_target_instructor
+      missing_active_staff_link: deny_empty_set
+      null_instructor_owner: deny
+      cross_tenant_checked_before_owner_resolution: true
+      own_create_requires_proposed_instructor_equal_linked_staff_profile: true
+      own_PATCH_requires_pre_and_post_owner_equal_linked_staff_profile: true
+      own_transfer_or_clear_instructor: forbidden
+      organization_scope_may_manage_ownerless_or_reassign_subject_to_existing_domain_rules: true
+      calendar_view_own_manual_event_adapter_uses_instructor: true
+      calendar_publish_student_slots_own_adapter_uses_instructor: true
+      calendar_book_for_student_semantics_redefined: false
+      unlink_or_archive_removes_own_resolution_without_rewriting_history: true
+      staff_restore_auto_restores_own: false
+      created_by_legacy_backfill_to_owner: forbidden
+      assigned_students_semantics_redefined: false
+      assigned_locations_semantics_redefined: false
+      organization_scope_semantics_redefined: false
+      DB_CAL_006_and_DB_CAL_007_not_fixed: true
+    checks:
+      DB4_2_own_semantics_reused_without_redefinition: PASS
+      calendar_event_has_one_canonical_own_owner_relation: PASS
+      availability_slot_has_one_canonical_own_owner_relation: PASS
+      null_owner_fails_closed: PASS
+      created_by_user_does_not_expand_own_scope: PASS
+      own_create_cannot_create_other_owner_or_ownerless_target: PASS
+      own_PATCH_cannot_transfer_or_clear_owner: PASS
+      owner_rechecked_after_target_lock_for_existing_mutation: PASS
+      staff_link_unlink_archive_restore_behavior_preserves_DB4_3: PASS
+      backend_query_enforcement_required_for_own_scope: PASS
+      existing_assigned_students_assigned_locations_organization_scopes_unchanged: PASS
+      slot_booking_lifecycle_remains_open_DB_CAL_006: PASS
+      formal_training_integration_remains_open_DB_CAL_007: PASS
+      aggregate_core_schema_modified_in_step: false
+      aggregate_docs87_modified_in_step: false
+      later_domain_slices_entered: false
+      Laravel_migrations_created: false
+      UI_or_feature_implementation_started: false
+
 resolved_blockers:
   - DB-FOUND-001
   - DB-FOUND-002
@@ -1034,9 +1086,9 @@ resolved_blockers:
   - DB-CAL-002
   - DB-CAL-003
   - DB-CAL-004
+  - DB-CAL-005
 
 open_blockers_current_diagnosed_scope:
-  - DB-CAL-005
   - DB-CAL-006
   - DB-CAL-007
 
@@ -1048,7 +1100,7 @@ gate_definition:
     - migration_order_dependency_safe
     - database_invariant_test_matrix_exists
     - reverse_engineering_preservation_traceable
-  current_result: DB4_5_DB_CAL_001_002_003_004_PASS_3_P1_OPEN
+  current_result: DB4_5_DB_CAL_001_002_003_004_005_PASS_2_P1_OPEN
   DB4_1_result: PASS
   DB4_2_result: PASS
   DB4_3_result: PASS
@@ -1068,7 +1120,8 @@ gate_definition:
   DB4_5_DB_CAL_002_result: PASS
   DB4_5_DB_CAL_003_result: PASS
   DB4_5_DB_CAL_004_result: PASS
-  DB4_5_result: IN_PROGRESS_3_P1_OPEN
+  DB4_5_DB_CAL_005_result: PASS
+  DB4_5_result: IN_PROGRESS_2_P1_OPEN
   may_start_DB4_4_fixes: false
   may_start_DB4_5: true
   may_start_DB4_5_fixes: true
@@ -1077,17 +1130,17 @@ gate_definition:
   may_start_UI_or_feature_implementation: false
 
 next_single_step:
-  id: DB_CAL_005
-  blocker: DB-CAL-005
-  action: close_calendar_manage_own_owner_resolution_only
+  id: DB_CAL_006
+  blocker: DB-CAL-006
+  action: close_availability_slot_booking_lifecycle_and_exactly_once_only
   allowed_scope:
     - specs/database/calendar.yml
     - docs/109-stage-4-calendar-audit.md
     - specs/gates/stage-4-database-contract-gate.yml
   scope_lock: >-
-    Fix only DB-CAL-005 canonical calendar.manage.own owner resolution for CalendarEvent
-    and AvailabilitySlot consistent with existing DB4_2 own-scope semantics. Do not fix
-    DB-CAL-006 or DB-CAL-007, do not modify aggregate core-schema.yml or docs/87 before
-    the final DB4_5 aggregate sync, do not enter DB4_6 or later slices, do not create
-    Laravel migrations and do not start UI/feature implementation.
-  after_action: rerun_DB_CAL_005_gate_and_record_PASS_or_remaining_blocker_then_stop_before_DB_CAL_006
+    Fix only DB-CAL-006 AvailabilitySlot status/field matrix, booking exactly-once
+    behavior, shared conflict-claim reservation effect, book/cancel races and explicit
+    reavailability policy. Do not fix DB-CAL-007, do not modify aggregate core-schema.yml
+    or docs/87 before the final DB4_5 aggregate sync, do not enter DB4_6 or later slices,
+    do not create Laravel migrations and do not start UI/feature implementation.
+  after_action: rerun_DB_CAL_006_gate_and_record_PASS_or_remaining_blocker_then_stop_before_DB_CAL_007
