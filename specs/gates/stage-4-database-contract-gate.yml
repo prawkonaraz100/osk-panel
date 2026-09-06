@@ -310,7 +310,7 @@ quality_checks:
       identity_branch_change_audited: true
       Student_optimistic_concurrency: governed_by_DB_TRN_003
     checks:
-      legal_PESEL_or_birth_date_rule_preserved: PASS
+      legal_PESEL_or_birth_date_rule_preserved_before_formal_enrollment: PASS
       pre_course_student_creation_capability_not_reduced: PASS
       missing_PESEL_not_confused_with_explicit_no_PESEL: PASS
       PESEL_pair_consistency_closed: PASS
