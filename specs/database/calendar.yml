@@ -542,6 +542,9 @@ resource_overlap_conflict_boundary:
       canonical: true
     owner_kinds_enabled_in_DB_CAL_003:
       - calendar_event
+    claim_owner_kind_check:
+      expression: claim_owner_kind = 'calendar_event'
+      required_until_later_owner_kind_gate: true
     future_owner_kind_extension_requires_own_gate: true
     future_expected_consumers:
       availability_booking: DB-CAL-006
@@ -586,6 +589,7 @@ resource_overlap_conflict_boundary:
       trigger or equivalent transactional DB guard validates this relation.
     exact_claim_set_final_state_guard:
       type: deferrable_constraint_trigger_or_equivalent_transactional_DB_guard
+      deferrability: DEFERRABLE_INITIALLY_DEFERRED
       scheduled_event_requires:
         - exactly_one_student_claim_iff_student_id_nonnull
         - exactly_one_instructor_claim_iff_instructor_id_nonnull
@@ -713,6 +717,7 @@ resource_overlap_conflict_boundary:
       - fail_on_ambiguous_or_overlapping_legacy_reservations_before_claim_backfill
       - create_calendar_resource_claims_with_exactly_one_resource_and_same_tenant_FKs
       - add_generated_half_open_tstzrange
+      - add_claim_owner_kind_check_calendar_event_only
       - add_duplicate_claim_partial_unique_constraints
       - add_four_partial_GiST_exclusion_constraints
       - backfill_exact_claim_rows_from_nonnull_resources_of_scheduled_manual_events
@@ -738,6 +743,7 @@ resource_overlap_conflict_boundary:
     - same_resource_uuid_in_different_organizations_does_not_conflict
     - custom_meeting_place_does_not_create_managed_location_claim
     - important_date_projection_does_not_create_resource_claim
+    - unknown_claim_owner_kind_is_rejected_by_database
     - scheduled_event_has_exact_claim_set_for_all_nonnull_resources
     - scheduled_event_direct_resource_or_time_update_without_claim_sync_is_rejected
     - non_scheduled_event_has_zero_active_calendar_event_claims
@@ -768,6 +774,8 @@ resource_overlap_conflict_boundary:
     same_tenant_resource_FKs_on_claims_preserve_DB_CAL_001: PASS
     important_date_projection_preserves_DB_CAL_002_and_does_not_claim: PASS
     custom_text_meeting_place_does_not_claim_managed_location: PASS
+    unknown_claim_owner_kind_cannot_create_unguarded_claim: PASS
+    claim_exact_set_guard_is_deferred_to_final_transaction_state: PASS
     database_not_check_then_insert_is_final_race_boundary: PASS
     scheduled_manual_event_claim_set_is_transactionally_exact: PASS
     conflicting_transaction_cannot_commit_partial_event_without_claims: PASS
@@ -912,6 +920,8 @@ quality_gate:
   DB_CAL_003_half_open_interval_semantics: PASS
   DB_CAL_003_student_instructor_vehicle_location_GiST_exclusion: PASS
   DB_CAL_003_manual_event_exact_claim_set_guard: PASS
+  DB_CAL_003_claim_owner_kind_is_DB_constrained: PASS
+  DB_CAL_003_exact_set_guard_is_DEFERRABLE_INITIALLY_DEFERRED: PASS
   DB_CAL_003_database_is_final_race_boundary: PASS
   DB_CAL_003_availability_booking_must_join_same_boundary_later: PASS
   reverse_engineering_calendar_capabilities_preserved: PASS
