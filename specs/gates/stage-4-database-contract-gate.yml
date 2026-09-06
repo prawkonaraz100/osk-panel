@@ -53,9 +53,9 @@ stage_4_slices:
   - id: DB4_3_STAFF_LOCATIONS_VEHICLES
     status: IN_PROGRESS_WITH_BLOCKERS
     diagnosis: COMPLETE
-    blockers_resolved: 4
-    open_P0_P1: 2
-    result: FAIL_WITH_2_P1_BLOCKERS
+    blockers_resolved: 5
+    open_P0_P1: 1
+    result: FAIL_WITH_1_P1_BLOCKER
   - id: DB4_4_STUDENTS_COURSES_TRAINING_LEDGER
     status: NOT_STARTED
   - id: DB4_5_CALENDAR
@@ -130,32 +130,62 @@ quality_checks:
       calendar_important_date_input_uses_only_current_nonnull_valid_until: true
       latest_created_at_heuristic_allowed: false
       DB_RES_003_asset_attachment_gate_still_applies_to_each_new_version: true
-    migration_precheck:
-      - detect_multiple_candidate_current_staff_document_rows_per_type
-      - detect_multiple_candidate_current_vehicle_document_rows_per_type
-      - do_not_silently_choose_MAX_created_at_or_MAX_id
-      - require_explicit_auditable_mapping_or_remediation_before_current_unique_indexes
-    tests:
-      - at_most_one_current_staff_document_per_type
-      - at_most_one_current_vehicle_document_per_type
-      - replacement_preserves_previous_version
-      - concurrent_replacements_cannot_leave_two_current_rows
-      - current_projection_ignores_superseded_rows
-      - clear_document_preserves_history_and_leaves_zero_current_rows
-      - historical_business_fields_immutable
-      - current_valid_until_null_means_no_expiry_date
-      - superseded_row_does_not_emit_current_important_date
-      - ambiguous_migration_history_is_not_auto_resolved_by_latest_created_at
 
   staff_vehicle_identity_uniqueness_lifecycle:
-    status: FAIL
-    blocker_id: DB-RES-005
+    status: PASS
+    resolved_blocker_id: DB-RES-005
     severity: P1
-    unresolved:
-      - staff_PESEL_uniqueness_across_archive_restore_when_present
-      - vehicle_registration_uniqueness_across_archive_restore
-      - vehicle_VIN_uniqueness_when_present
-    impact: migration_constraints_and_restore_behavior_can_conflict_or_allow_duplicate_resource_identity
+    machine_source: specs/database/staff-locations-vehicles.yml
+    narrative_source: docs/107-stage-4-staff-locations-vehicles-audit.md
+    decision:
+      uniqueness_scope: per_organization
+      staff_PESEL:
+        column: pesel_lookup_hash
+        type: partial_unique
+        columns: [organization_id, pesel_lookup_hash]
+        where: pesel_lookup_hash_is_not_null
+        archived_rows_included: true
+        archive_releases_value: false
+        duplicate_archived_profile_policy: restore_existing_or_explicit_identity_correction
+      vehicle_VIN:
+        column: vin_normalized
+        type: partial_unique
+        columns: [organization_id, vin_normalized]
+        where: vin_normalized_is_not_null
+        archived_rows_included: true
+        archive_releases_value: false
+        duplicate_archived_vehicle_policy: restore_existing_or_explicit_identity_correction
+      vehicle_registration:
+        column: registration_number_normalized
+        type: partial_unique
+        columns: [organization_id, registration_number_normalized]
+        where: archived_at_is_null
+        archived_rows_included: false
+        archive_releases_value_for_current_fleet: true
+        archived_history_keeps_value: true
+        restore_requires_current_registration_free: true
+        conflict_auto_swap_or_auto_archive: false
+      cross_organization_same_identity_value_allowed: true
+      hard_delete_to_release_identity_as_normal_lifecycle: false
+      explicit_identity_correction_requires_audit: true
+      database_unique_constraint_is_final_concurrency_boundary: true
+    migration_precheck:
+      - detect_duplicate_nonnull_staff_PESEL_within_org_including_archived
+      - detect_duplicate_nonnull_vehicle_VIN_within_org_including_archived
+      - detect_duplicate_registration_among_nonarchived_vehicles_within_org
+      - detect_normalization_collisions
+      - allow_historical_registration_reuse_only_when_at_most_one_nonarchived_holder_exists
+      - never_silently_delete_merge_archive_renumber_or_change_identity_to_pass_migration
+    tests:
+      - archived_staff_still_blocks_duplicate_PESEL_in_same_org
+      - same_PESEL_in_different_orgs_allowed
+      - archived_vehicle_still_blocks_duplicate_VIN_in_same_org
+      - same_VIN_in_different_orgs_allowed
+      - two_nonarchived_vehicles_same_registration_rejected
+      - archive_releases_registration_for_new_current_vehicle
+      - restore_conflicts_when_registration_is_held_by_another_current_vehicle
+      - concurrent_restore_and_create_for_same_registration_have_one_winner
+      - identity_correction_cannot_take_value_held_by_another_resource
 
   staff_archive_panel_access_lifecycle:
     status: FAIL
@@ -192,10 +222,9 @@ resolved_blockers:
   - DB-RES-002
   - DB-RES-003
   - DB-RES-004
+  - DB-RES-005
 
 open_blockers_current_diagnosed_scope:
-  - id: DB-RES-005
-    severity: P1
   - id: DB-RES-006
     severity: P1
 
@@ -207,7 +236,7 @@ gate_definition:
     - migration_order_dependency_safe
     - database_invariant_test_matrix_exists
     - reverse_engineering_preservation_traceable
-  current_result: FAIL_DB4_3_WITH_2_OPEN_P1_BLOCKERS
+  current_result: FAIL_DB4_3_WITH_1_OPEN_P1_BLOCKER
   DB4_2_result: PASS
   DB4_3_result: FAIL
   may_start_DB4_3_fixes: true
@@ -216,18 +245,19 @@ gate_definition:
   may_start_UI_or_feature_implementation: false
 
 next_single_step:
-  id: DB4_3_STEP_6
-  blocker: DB-RES-005
-  action: resolve_Staff_and_Vehicle_identity_uniqueness_lifecycle_only
+  id: DB4_3_STEP_7
+  blocker: DB-RES-006
+  action: resolve_Staff_archive_vs_panel_access_membership_lifecycle_only
   allowed_scope:
     - specs/database/staff-locations-vehicles.yml
     - specs/database/core-schema.yml
+    - specs/database/identity-rbac.yml
     - docs/87-physical-database-schema.md
     - docs/107-stage-4-staff-locations-vehicles-audit.md
     - specs/gates/stage-4-database-contract-gate.yml
   scope_lock: >-
-    Do not fix staff-archive/panel-access lifecycle in the same step. Do not enter
-    DB4_4 or create Laravel migrations. Aggregate core-schema/docs87 sync remains
-    deferred until final DB4_3 PASS unless a blocker cannot be expressed safely
-    without immediate sync.
-  after_action: rerun_DB4_3_gate_and_record_DB_RES_005_PASS_or_new_blocker_before_DB_RES_006
+    Do not enter DB4_4 or create Laravel migrations. Resolve only Staff archive,
+    restore and panel-access membership/link effects while preserving last-owner,
+    membership history and DB4_2 authorization lifecycle. After this blocker PASS,
+    perform a separate final DB4_3 aggregate synchronization gate before DB4_4.
+  after_action: rerun_DB4_3_gate_and_record_DB_RES_006_PASS_or_new_blocker_then_stop_before_final_aggregate_sync
