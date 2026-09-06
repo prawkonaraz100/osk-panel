@@ -51,11 +51,12 @@ stage_4_slices:
     final_aggregate_sync: PASS
     result: PASS
   - id: DB4_3_STAFF_LOCATIONS_VEHICLES
-    status: IN_PROGRESS_WITH_BLOCKERS
+    status: ALL_BLOCKERS_RESOLVED_PENDING_FINAL_AGGREGATE_SYNC
     diagnosis: COMPLETE
-    blockers_resolved: 5
-    open_P0_P1: 1
-    result: FAIL_WITH_1_P1_BLOCKER
+    blockers_resolved: 6
+    open_P0_P1: 0
+    final_aggregate_sync: PENDING
+    result: FAIL_PENDING_FINAL_AGGREGATE_SYNC
   - id: DB4_4_STUDENTS_COURSES_TRAINING_LEDGER
     status: NOT_STARTED
   - id: DB4_5_CALENDAR
@@ -76,6 +77,7 @@ stage_4_slices:
 quality_checks:
   DB4_1_foundation:
     status: PASS
+
   DB4_2_identity_tenant_rbac:
     status: PASS
     source: docs/105-stage-4-identity-tenant-rbac-audit.md
@@ -109,7 +111,6 @@ quality_checks:
     resolved_blocker_id: DB-RES-004
     severity: P1
     machine_source: specs/database/staff-locations-vehicles.yml
-    narrative_source: docs/107-stage-4-staff-locations-vehicles-audit.md
     decision:
       history_model: versioned_rows_with_superseded_at
       current_predicate: superseded_at_is_null
@@ -124,79 +125,100 @@ quality_checks:
         where: superseded_at_is_null
       normal_edit_overwrites_business_fields_in_place: false
       hard_delete_on_edit_or_clear: false
-      replacement_transaction_serializes_on_parent: true
-      historical_business_fields_immutable: true
-      current_projection_uses_only_non_superseded_rows: true
-      calendar_important_date_input_uses_only_current_nonnull_valid_until: true
       latest_created_at_heuristic_allowed: false
-      DB_RES_003_asset_attachment_gate_still_applies_to_each_new_version: true
 
   staff_vehicle_identity_uniqueness_lifecycle:
     status: PASS
     resolved_blocker_id: DB-RES-005
     severity: P1
     machine_source: specs/database/staff-locations-vehicles.yml
-    narrative_source: docs/107-stage-4-staff-locations-vehicles-audit.md
     decision:
       uniqueness_scope: per_organization
       staff_PESEL:
-        column: pesel_lookup_hash
         type: partial_unique
         columns: [organization_id, pesel_lookup_hash]
         where: pesel_lookup_hash_is_not_null
         archived_rows_included: true
         archive_releases_value: false
-        duplicate_archived_profile_policy: restore_existing_or_explicit_identity_correction
       vehicle_VIN:
-        column: vin_normalized
         type: partial_unique
         columns: [organization_id, vin_normalized]
         where: vin_normalized_is_not_null
         archived_rows_included: true
         archive_releases_value: false
-        duplicate_archived_vehicle_policy: restore_existing_or_explicit_identity_correction
       vehicle_registration:
-        column: registration_number_normalized
         type: partial_unique
         columns: [organization_id, registration_number_normalized]
         where: archived_at_is_null
-        archived_rows_included: false
         archive_releases_value_for_current_fleet: true
         archived_history_keeps_value: true
         restore_requires_current_registration_free: true
-        conflict_auto_swap_or_auto_archive: false
-      cross_organization_same_identity_value_allowed: true
       hard_delete_to_release_identity_as_normal_lifecycle: false
       explicit_identity_correction_requires_audit: true
       database_unique_constraint_is_final_concurrency_boundary: true
-    migration_precheck:
-      - detect_duplicate_nonnull_staff_PESEL_within_org_including_archived
-      - detect_duplicate_nonnull_vehicle_VIN_within_org_including_archived
-      - detect_duplicate_registration_among_nonarchived_vehicles_within_org
-      - detect_normalization_collisions
-      - allow_historical_registration_reuse_only_when_at_most_one_nonarchived_holder_exists
-      - never_silently_delete_merge_archive_renumber_or_change_identity_to_pass_migration
-    tests:
-      - archived_staff_still_blocks_duplicate_PESEL_in_same_org
-      - same_PESEL_in_different_orgs_allowed
-      - archived_vehicle_still_blocks_duplicate_VIN_in_same_org
-      - same_VIN_in_different_orgs_allowed
-      - two_nonarchived_vehicles_same_registration_rejected
-      - archive_releases_registration_for_new_current_vehicle
-      - restore_conflicts_when_registration_is_held_by_another_current_vehicle
-      - concurrent_restore_and_create_for_same_registration_have_one_winner
-      - identity_correction_cannot_take_value_held_by_another_resource
 
   staff_archive_panel_access_lifecycle:
-    status: FAIL
-    blocker_id: DB-RES-006
+    status: PASS
+    resolved_blocker_id: DB-RES-006
     severity: P1
-    unresolved: >-
-      Archiving StaffProfile does not yet define the atomic effect on active
-      StaffMembershipLink and OrganizationMembership. Leaving membership active can
-      preserve panel access for archived staff; destructive revoke can break safe
-      restore and last-owner invariants.
-    impact: archived_staff_may_retain_access_or_restore_may_become_inconsistent
+    machine_source: specs/database/staff-locations-vehicles.yml
+    narrative_source: docs/107-stage-4-staff-locations-vehicles-audit.md
+    decision:
+      archived_staff_may_have_active_staff_membership_link: false
+      active_link_requires_nonarchived_staff: true
+      archive_and_link_creation_race_serialized_on_staff_profile: true
+      normal_archive_hard_deletes_link_or_membership_history: false
+      archive_without_active_link_changes_membership: false
+      linked_nonowner_active_membership_on_archive: suspend_using_DB_IAM_005
+      linked_nonowner_suspended_membership_on_archive: keep_suspended
+      linked_nonowner_revoked_membership_on_archive: keep_revoked
+      nonowner_archive_clears_bound_session_tenant_contexts_when_suspended: true
+      linked_owner_membership_on_standard_staff_archive:
+        end_staff_membership_link: true
+        change_is_owner: false
+        change_membership_status: false
+        reason: owner_governance_is_separate_high_risk_lifecycle
+      owner_panel_access_removal_as_hidden_staff_archive_side_effect: forbidden
+      owner_access_removal_requires_explicit_DB_IAM_004_005_governance_flow: true
+      sole_owner_staff_profile_may_be_archived_while_owner_membership_stays_active: true
+      staff_derived_own_assigned_location_assigned_student_scope_after_archive: deny_empty_set
+      restore_staff_profile_auto_restores_panel_access: false
+      restore_staff_profile_auto_rebinds_old_sessions: false
+      explicit_panel_access_restore_creates_new_link_row: true
+      old_unlinked_link_row_reopened: false
+      suspended_membership_restore_uses_DB_IAM_005: true
+      revoked_membership_auto_reactivated_by_staff_restore: false
+      archive_is_atomic_across_staff_link_membership_session_audit_outbox: true
+    migration_precheck:
+      - detect_archived_staff_with_active_staff_membership_link
+      - detect_active_link_pointing_to_archived_staff
+      - detect_active_nonowner_staff_panel_membership_left_for_archived_staff
+      - never_silently_reactivate_staff_transfer_owner_revoke_membership_or_delete_link_history
+    tests:
+      - archive_without_panel_link_has_no_membership_side_effect
+      - archive_active_nonowner_unlinks_and_suspends_atomically
+      - archive_nonowner_clears_bound_session_tenant_contexts
+      - archive_suspended_or_revoked_nonowner_does_not_restore_authorization
+      - archive_owner_ends_staff_link_but_keeps_owner_governance_unchanged
+      - sole_owner_archive_does_not_create_zero_active_owner_state
+      - owner_access_removal_requires_explicit_governance_flow
+      - archived_staff_cannot_receive_active_staff_link
+      - archive_vs_link_creation_race_cannot_commit_invalid_state
+      - archived_staff_staff_derived_resolvers_deny
+      - restore_staff_does_not_auto_restore_panel_access
+      - explicit_restore_creates_new_link_and_preserves_old_link_history
+      - revoked_membership_is_not_implicitly_reactivated
+      - archive_failure_rolls_back_all_cross_aggregate_effects
+
+  DB4_3_final_aggregate_sync:
+    status: PENDING
+    required_sources:
+      - specs/database/staff-locations-vehicles.yml
+      - specs/database/core-schema.yml
+      - docs/87-physical-database-schema.md
+    requirement: >-
+      All six bounded-context decisions must be represented without semantic loss
+      or contradiction in core-schema.yml and docs/87 before DB4_3 can become PASS.
 
   DB4_3_nonblockers_deferred_to_dependent_slices:
     - future_calendar_event_behavior_after_resource_archive_to_DB4_5
@@ -223,10 +245,9 @@ resolved_blockers:
   - DB-RES-003
   - DB-RES-004
   - DB-RES-005
+  - DB-RES-006
 
-open_blockers_current_diagnosed_scope:
-  - id: DB-RES-006
-    severity: P1
+open_blockers_current_diagnosed_scope: []
 
 gate_definition:
   PASS_requires_for_entire_stage_4:
@@ -236,28 +257,27 @@ gate_definition:
     - migration_order_dependency_safe
     - database_invariant_test_matrix_exists
     - reverse_engineering_preservation_traceable
-  current_result: FAIL_DB4_3_WITH_1_OPEN_P1_BLOCKER
+  current_result: FAIL_PENDING_DB4_3_FINAL_AGGREGATE_SYNC
   DB4_2_result: PASS
-  DB4_3_result: FAIL
-  may_start_DB4_3_fixes: true
+  DB4_3_blockers_result: PASS
+  DB4_3_result: PENDING_FINAL_AGGREGATE_SYNC
+  may_start_DB4_3_final_sync: true
   may_start_DB4_4: false
   may_start_stage_5: false
   may_start_UI_or_feature_implementation: false
 
 next_single_step:
-  id: DB4_3_STEP_7
-  blocker: DB-RES-006
-  action: resolve_Staff_archive_vs_panel_access_membership_lifecycle_only
+  id: DB4_3_STEP_8
+  action: synchronize_all_DB4_3_bounded_context_decisions_into_core_schema_and_docs87_then_run_final_DB4_3_gate
   allowed_scope:
     - specs/database/staff-locations-vehicles.yml
     - specs/database/core-schema.yml
-    - specs/database/identity-rbac.yml
     - docs/87-physical-database-schema.md
     - docs/107-stage-4-staff-locations-vehicles-audit.md
     - specs/gates/stage-4-database-contract-gate.yml
   scope_lock: >-
-    Do not enter DB4_4 or create Laravel migrations. Resolve only Staff archive,
-    restore and panel-access membership/link effects while preserving last-owner,
-    membership history and DB4_2 authorization lifecycle. After this blocker PASS,
-    perform a separate final DB4_3 aggregate synchronization gate before DB4_4.
-  after_action: rerun_DB4_3_gate_and_record_DB_RES_006_PASS_or_new_blocker_then_stop_before_final_aggregate_sync
+    Do not enter DB4_4 and do not create Laravel migrations. This step is only the
+    final DB4_3 aggregate synchronization and verification. No new DB4_3 business
+    semantics may be invented during synchronization; any discovered contradiction
+    becomes a new explicit blocker and keeps DB4_3 closed.
+  after_action: record_final_DB4_3_PASS_or_new_explicit_blocker_then_stop_before_DB4_4
