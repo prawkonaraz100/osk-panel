@@ -79,10 +79,10 @@ stage_4_slices:
     status: IN_PROGRESS_WITH_BLOCKERS
     diagnosis: COMPLETE
     blockers_diagnosed: 7
-    blockers_resolved: 3
-    open_P0_P1: 4
+    blockers_resolved: 4
+    open_P0_P1: 3
     final_aggregate_sync: BLOCKED
-    result: FAIL_WITH_4_P1_BLOCKERS
+    result: FAIL_WITH_3_P1_BLOCKERS
   - id: DB4_7_INTERNAL_EXAMS
     status: NOT_STARTED
   - id: DB4_8_PKK
@@ -1486,6 +1486,78 @@ quality_checks:
       Laravel_migrations_created: false
       UI_or_feature_implementation_started: false
 
+  license_one_time_credentials_handoff_secret_non_persistence:
+    status: PASS
+    resolved_blocker_id: DB-LIC-004
+    severity: P1
+    machine_source: specs/database/licenses-learning-access.yml
+    audit_source: docs/110-stage-4-licenses-learning-access-audit.md
+    decision:
+      canonical_password_hash_owner: users.password_hash
+      learning_account_password_hash_added: false
+      global_password_management_table: user_password_management
+      password_management_modes: [unclassified, self_service, organization_managed]
+      credential_concurrency_root: user_password_management.credential_version
+      every_local_password_hash_mutation_increments_same_credential_version: true
+      OSK_reset_requires_permission_scope_and_matching_management_authority: true
+      permission_alone_grants_global_password_reset: false
+      organization_managed_requires_exclusive_learner_principal: true
+      organization_managed_user_may_have_organization_membership: false
+      organization_managed_user_may_have_learning_account_in_other_organization: false
+      organization_managed_user_may_have_current_social_auth: false
+      identity_authority_transition_is_hidden_learning_access_side_effect: false
+      plaintext_password_persisted_anywhere: false
+      reversible_password_ciphertext_or_secret_reference_persisted: false
+      secret_in_audit_outbox_logs_idempotency_or_QR: false
+      secret_bearing_PDF_persisted_as_FileAsset_or_object_storage: false
+      secret_bearing_PDF_rendered_and_streamed_immediately_from_memory: true
+      later_handoff_PDF_can_recover_old_password: false
+      visible_password_reprint_requires_new_reset: true
+      secret_free_cached_PDF_allowed_with_dedicated_ready_same_tenant_asset_purpose: true
+      handoff_rows_are_nonsecret_metadata: true
+      handoff_secret_metadata_requires_null_document_asset: true
+      bulk_export_batch_table: student_access_export_batches
+      bulk_nonsecret_mode_changes_credentials: false
+      bulk_reset_mode_requires_reset_permission_for_every_target: true
+      bulk_download_permission_alone_can_reset_credentials: false
+      bulk_reset_all_or_none: true
+      duplicate_learning_accounts_same_global_user_reset_once_per_batch: true
+      idempotency_retry_repeats_password_reset: false
+      idempotency_retry_replays_plaintext_secret: false
+      precommit_render_failure_changes_password_hash: false
+      postcommit_delivery_failure_rolls_back_password: false
+      migration_infers_managing_organization_from_existing_learning_account_or_creator: false
+      legacy_secret_bearing_PDF_requires_reviewed_security_remediation: true
+      DB_LIC_005_through_DB_LIC_007_not_fixed: true
+    checks:
+      global_user_password_hash_remains_single_local_password_authority: PASS
+      OSK_managed_credentials_capability_preserved: PASS
+      self_service_credentials_capability_preserved: PASS
+      tenant_permission_cannot_take_over_shared_staff_owner_social_or_cross_org_global_identity: PASS
+      credential_version_serializes_global_password_mutation: PASS
+      stale_credential_version_has_no_partial_effect: PASS
+      plaintext_password_absent_from_relational_storage: PASS
+      plaintext_and_hash_absent_from_audit_outbox_and_idempotency_safe_snapshot: PASS
+      secret_bearing_PDF_not_durably_stored: PASS
+      later_reprint_cannot_recover_old_secret: PASS
+      visible_password_reprint_requires_new_credential_epoch: PASS
+      QR_never_contains_password_or_reset_secret: PASS
+      same_idempotency_key_does_not_repeat_reset_or_replay_secret: PASS
+      secret_free_document_download_remains_available: PASS
+      bulk_combined_PDF_capability_preserved: PASS
+      bulk_reset_is_permission_checked_per_target_and_atomic: PASS
+      duplicate_global_user_in_batch_is_reset_once: PASS
+      archived_or_ineligible_learning_account_cannot_receive_sensitive_credential_effect: PASS
+      migration_does_not_guess_management_authority_or_silently_preserve_secret_document: PASS
+      DB_LIC_005_inventory_state_exactly_once_remains_open: PASS
+      DB_LIC_006_stacking_reproducibility_remains_open: PASS
+      DB_LIC_007_language_projection_consistency_remains_open: PASS
+      aggregate_core_schema_modified_in_step: false
+      aggregate_docs87_modified_in_step: false
+      later_domain_slices_entered: false
+      Laravel_migrations_created: false
+      UI_or_feature_implementation_started: false
+
 resolved_blockers:
   - DB-FOUND-001
   - DB-FOUND-002
@@ -1520,9 +1592,9 @@ resolved_blockers:
   - DB-LIC-001
   - DB-LIC-002
   - DB-LIC-003
+  - DB-LIC-004
 
 open_blockers_current_diagnosed_scope:
-  - DB-LIC-004
   - DB-LIC-005
   - DB-LIC-006
   - DB-LIC-007
@@ -1535,7 +1607,7 @@ gate_definition:
     - migration_order_dependency_safe
     - database_invariant_test_matrix_exists
     - reverse_engineering_preservation_traceable
-  current_result: FAIL_DB4_6_WITH_4_OPEN_P1_BLOCKERS
+  current_result: FAIL_DB4_6_WITH_3_OPEN_P1_BLOCKERS
   DB4_1_result: PASS
   DB4_2_result: PASS
   DB4_3_result: PASS
@@ -1564,7 +1636,8 @@ gate_definition:
   DB4_6_DB_LIC_001_result: PASS
   DB4_6_DB_LIC_002_result: PASS
   DB4_6_DB_LIC_003_result: PASS
-  DB4_6_result: FAIL_WITH_4_P1_BLOCKERS
+  DB4_6_DB_LIC_004_result: PASS
+  DB4_6_result: FAIL_WITH_3_P1_BLOCKERS
   may_start_DB4_4_fixes: false
   may_start_DB4_5: false
   may_start_DB4_5_fixes: false
@@ -1575,9 +1648,9 @@ gate_definition:
   may_start_UI_or_feature_implementation: false
 
 next_single_step:
-  id: DB4_6_STEP_4
-  blocker: DB-LIC-004
-  action: resolve_one_time_credentials_handoff_PDF_and_secret_non_persistence_only
+  id: DB4_6_STEP_5
+  blocker: DB-LIC-005
+  action: resolve_inventory_assignment_lifecycle_and_exactly_once_allocation_revoke_only
   allowed_scope:
     - specs/database/licenses-learning-access.yml
     - docs/110-stage-4-licenses-learning-access-audit.md
@@ -1586,8 +1659,8 @@ next_single_step:
     - specs/database/core-schema.yml
     - docs/87-physical-database-schema.md
   scope_lock: >-
-    Resolve only DB-LIC-004. Do not fix DB-LIC-005 through DB-LIC-007. Keep the
+    Resolve only DB-LIC-005. Do not fix DB-LIC-006 or DB-LIC-007. Keep the
     aggregate core schema and docs/87 frozen until the final DB4_6 aggregate sync.
     Do not enter DB4_7 or later slices, do not start Stage 5, do not create Laravel
     migrations and do not start UI/feature implementation.
-  after_action: rerun_DB4_6_gate_and_STOP_before_DB_LIC_005
+  after_action: rerun_DB4_6_gate_and_STOP_before_DB_LIC_006
