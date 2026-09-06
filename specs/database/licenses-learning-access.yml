@@ -1,0 +1,377 @@
+meta:
+  project: osk-panel
+  stage: 4
+  slice: DB4_6_LICENSES_LEARNING_ACCESS
+  status: DIAGNOSIS_COMPLETE_WITH_BLOCKERS
+  diagnosed_at: 2026-09-06
+  branch: docs-consolidation-2026-09-05
+  narrative_audit: docs/110-stage-4-licenses-learning-access-audit.md
+  aggregate_machine_source: specs/database/core-schema.yml
+  aggregate_narrative_source: docs/87-physical-database-schema.md
+  aggregate_sync_status: FROZEN_UNTIL_DB4_6_BLOCKERS_CLOSE
+
+working_rule:
+  diagnosis_only: true
+  fixes_applied_in_this_step: false
+  one_blocker_per_followup_step: true
+  Laravel_migrations_created: false
+  Stage5_started: false
+  UI_or_feature_implementation_started: false
+  DB4_7_or_later_slice_started: false
+
+sources:
+  repository_policy:
+    - AGENTS.md
+    - docs/96-reverse-engineering-preservation-contract.md
+    - specs/reverse-engineering-manifest.yml
+    - specs/implementation-baseline-v1.yml
+  product_and_evidence:
+    - docs/38-student-assign-license-form.md
+    - docs/39-student-license-delete-confirmation.md
+    - docs/43-student-access-credentials-pdf.md
+    - docs/44-own-student-access-document-policy.md
+    - docs/52-license-purchase-screen.md
+    - docs/53-license-management-panel.md
+    - docs/54-license-expanded-assignments.md
+    - docs/55-license-generate-access-form.md
+    - docs/56-license-existing-student-selected-state.md
+    - docs/57-license-list-sorting.md
+    - docs/58-license-bulk-access-pdf.md
+    - docs/83-core-lifecycle-policy.md
+    - docs/84-test-strategy.md
+  screens:
+    - specs/screens/student-assign-license.yml
+    - specs/screens/student-license-delete.yml
+    - specs/screens/student-access-credentials-pdf.yml
+    - specs/screens/license-management-panel.yml
+    - specs/screens/license-expanded-assignments.yml
+    - specs/screens/license-generate-access.yml
+    - specs/screens/license-bulk-access-pdf.yml
+  design_and_security:
+    - specs/design/core-lifecycle.yml
+    - specs/security/permissions.yml
+  api:
+    - specs/api/paths/students-courses.yaml
+    - specs/api/paths/licenses.yaml
+    - specs/api/openapi-components-v1.yaml
+    - specs/api/required-operations-v1.yml
+  current_physical_blueprint_read_only:
+    - specs/database/core-schema.yml
+    - docs/87-physical-database-schema.md
+
+scope_boundary:
+  included:
+    - student_learning_accounts
+    - auth_identity_link_used_by_learning_accounts
+    - student_access_handoffs_and_credentials_documents
+    - license_products_and_product_language_capability_as_consumed_by_access
+    - license_inventory_entries_after_they_exist_in_inventory
+    - license_assignments
+    - license_activations_and_learning_access_entitlement_periods
+    - assign_activate_revoke_unactivated_and_credentials_export_concurrency
+  explicitly_deferred:
+    license_purchase_order_payment_pricing_and_inventory_grant_from_payment: DB4_9_STUDENT_FINANCE_COMMERCE
+    internal_exam_access_and_inventory: DB4_7_INTERNAL_EXAMS
+    PKK_provider_lifecycle: DB4_8_PKK
+    audit_outbox_notification_storage_finalization: DB4_10_AUDIT_OUTBOX_NOTIFICATIONS
+    exact_HTTP_If_Match_status_error_and_one_time_response_contract_sync: Stage5_acceptance_contract_sync
+    auth_account_merge_recovery_and_email_verification_policy: existing_pending_identity_policy_gate
+    application_password_hash_algorithm_and_rotation_parameters: security_implementation_policy
+
+preserved_capabilities:
+  learning_access_separate_from_license_assignment: true
+  one_student_may_have_multiple_learning_accesses: true
+  one_learning_access_may_have_multiple_license_assignments: true
+  assign_to_existing_learning_access: true
+  create_new_learning_access_and_assign_in_one_business_flow: true
+  assignment_target_cardinality: exactly_one
+  bulk_assignment_inferred_from_bulk_PDF: false
+  contact_email_separate_from_learning_login_identifier: true
+  license_assignment_separate_from_activation: true
+  revoke_unactivated_without_hard_delete: true
+  revoke_unactivated_restores_exactly_one_inventory_unit: true
+  active_assignment_ordinary_revoke_unactivated_forbidden: true
+  stacking_or_extension_of_existing_entitlement_supported: true
+  OSK_managed_credentials_supported: true
+  learner_self_service_credentials_supported: true
+  authorized_OSK_worker_may_set_or_generate_initial_password: true
+  authorized_OSK_worker_may_activate_for_student: true
+  plaintext_password_visible_only_at_create_or_reset_handoff_boundary: true
+  old_plaintext_password_recovery: forbidden
+  reset_and_reprint_supported: true
+  single_access_credentials_PDF_supported: true
+  bulk_multi_access_single_PDF_supported: true
+  bulk_PDF_localized_per_learning_access: true
+  QR_plaintext_password: forbidden
+  language_options_are_capability_driven_not_hardcoded_from_one_screen: true
+  inventory_available_and_active_count_projections_preserved: true
+  search_sort_hide_finished_and_assignment_history_preserved: true
+
+current_blueprint_observations:
+  student_learning_accounts:
+    fields_seen:
+      - id
+      - organization_id
+      - student_id
+      - user_id
+      - primary_auth_login_identifier_id
+      - login_identifier_projection
+      - language_code
+      - status
+      - created_at
+      - updated_at
+    version_present: false
+    exact_status_catalog_present: false
+    student_same_tenant_FK_present: true
+    primary_auth_identifier_same_user_guard_present: false
+    login_projection_consistency_guard_present: false
+  student_access_handoffs:
+    fields_seen:
+      - id
+      - organization_id
+      - student_learning_account_id
+      - handoff_type
+      - generated_by_user_id
+      - document_asset_id
+      - created_at
+    plaintext_password_column_present: false
+    exact_same_tenant_account_guard_present: false
+    one_time_secret_consumption_or_expiry_state_present: false
+    persisted_PDF_secret_content_policy_closed: false
+  license_inventory_entries:
+    fields_seen:
+      - id
+      - organization_id
+      - license_product_id
+      - source_order_item_id
+      - status
+      - granted_at
+      - created_at
+    observed_status_catalog_in_aggregate: [available, assigned, consumed, expired, adjusted]
+    exact_state_equivalence_to_assignment_activation_closed: false
+  license_assignments:
+    fields_seen:
+      - id
+      - organization_id
+      - license_inventory_entry_id
+      - student_id
+      - student_learning_account_id
+      - language_code
+      - status
+      - assigned_by_user_id
+      - assigned_at
+      - revoked_at
+      - revoked_by_user_id
+      - revoke_reason
+      - version
+    current_inventory_entry_partial_unique_present: true
+    exact_same_tenant_inventory_student_account_relations_present: false
+    exact_account_student_match_guard_present: false
+    closed_status_and_field_matrix_present: false
+    language_duplicate_owner_semantics_closed: false
+  license_activations:
+    fields_seen:
+      - id
+      - organization_id
+      - license_assignment_id
+      - activated_by_user_id
+      - activated_at
+      - effective_from
+      - effective_to
+      - created_at
+    unique_activation_per_assignment_present: true
+    effective_interval_positive_check_present: true
+    same_tenant_assignment_relation_present: false
+    product_duration_snapshot_or_effect_snapshot_present: false
+    expiry_before_after_provenance_present: false
+  transactional_intentions_already_present_in_aggregate:
+    revoke_unactivated_restores_exactly_one_inventory: true
+    activate_or_extend_serializes_on_learning_account: true
+    activation_creates_effective_period: true
+    activation_consumes_inventory_exactly_once: true
+    current_entitlement_end_projection_intended_as_max_effective_to: true
+    note: intentions_do_not_close_missing_cross_row_DB_invariants
+
+preservation_and_security_baseline:
+  generic_login_resolves_globally_without_tenant_selector: true
+  auth_login_identifiers_are_canonical_login_resolution_source: true
+  learning_account_login_identifier_is_projection_not_independent_identity_authority: true
+  same_global_user_may_participate_in_multiple_organizations: true
+  unverified_email_must_not_be_silently_used_to_merge_accounts: true
+  passwords_persist_as_hash_only: true
+  password_forbidden_from_audit_log_outbox_and_idempotency_snapshot: true
+  PDFs_and_bulk_exports_require_backend_permission_and_tenant_scope: true
+  Student_archive_effect_on_learning_access_was_explicitly_deferred_from_DB4_4_to_DB4_6: true
+  LicenseAssignment_before_activation_uses_revoke_not_hard_delete: true
+  LicenseActivation_is_immutable_history: true
+
+blockers:
+  - id: DB-LIC-001
+    severity: P1
+    title: license_and_learning_access_same_tenant_exact_target_integrity
+    status: OPEN
+    diagnosis:
+      - current aggregate uses multiple tenant-owned IDs on learning-access/license rows but does not define composite same-tenant relations for all of them
+      - a LicenseAssignment can physically drift so organization inventory student and learning account are not proven to describe one exact target
+      - StudentLearningAccount and StudentAccessHandoff relations are not yet protected consistently by tenant-aware candidate keys
+      - LicenseActivation organization and assignment are not yet proven same-tenant by the physical blueprint
+    required_outcome_for_future_fix:
+      - every tenant-owned relation in this slice must be protected by a composite same-tenant FK or equivalent final transactional DB guard
+      - assignment must prove the selected learning account belongs to the exact selected Student in the same Organization
+      - inventory assignment activation and handoff relations must not be cross-tenant constructible
+    risk: cross_tenant_access_or_license_effect_and_wrong_student_target
+
+  - id: DB-LIC-002
+    severity: P1
+    title: learning_account_global_auth_identity_and_login_consistency
+    status: OPEN
+    diagnosis:
+      - StudentLearningAccount stores user_id primary_auth_login_identifier_id and a login_identifier_projection but current physical blueprint does not prove the identifier belongs to that same User
+      - the projection can drift from canonical auth_login_identifiers unless an explicit synchronization invariant exists
+      - learning-account creation through an email_or_login must not create a second independent login namespace or silently merge unrelated Users
+      - global login uniqueness already belongs to DB4_2 auth_login_identifiers and must not be redefined per tenant here
+    required_outcome_for_future_fix:
+      - one canonical auth identity path from learning account to User and current login identifier
+      - database-safe same-User relation for referenced auth identifier
+      - projection consistency without creating a second authority
+      - no heuristic account merge from unverified email or display fields
+    risk: login_collision_wrong_global_identity_or_stale_learning_login_projection
+
+  - id: DB-LIC-003
+    severity: P1
+    title: learning_account_lifecycle_optimistic_concurrency_and_student_archive_effect
+    status: OPEN
+    diagnosis:
+      - learning-account PATCH already exposes If-Match but student_learning_accounts currently has no explicit version column in the physical blueprint
+      - status exists as an unconstrained string without a closed lifecycle or state-field matrix
+      - DB4_4 explicitly deferred Student archive and restore effects on learning access and licenses to DB4_6
+      - without a defined lifecycle a stale credential language status or archive command can overwrite or leave an access eligible for new operations inconsistently
+    required_outcome_for_future_fix:
+      - one learning-account concurrency root compatible with optimistic update semantics
+      - explicit access lifecycle and allowed material transitions
+      - deterministic policy for Student archive and restore without deleting license or credential history
+      - assignment activation reset and export eligibility must consume the final lifecycle state consistently
+    risk: stale_updates_or_archived_student_retaining_undefined_access_behavior
+
+  - id: DB-LIC-004
+    severity: P1
+    title: one_time_credentials_handoff_PDF_and_secret_non_persistence
+    status: OPEN
+    diagnosis:
+      - own product policy requires OSK-managed credentials where a fresh password can be shown and printed once while old plaintext remains unrecoverable
+      - current StudentAccessHandoff has a document_asset_id but no explicit one-time secret lifecycle or guarantee that a persisted FileAsset cannot become a durable recoverable plaintext-password copy
+      - bulk PDF can optionally regenerate credentials and therefore can combine multiple sensitive mutations with one export
+      - idempotency replay must never persist or replay a plaintext secret from safe_response_snapshot
+    required_outcome_for_future_fix:
+      - plaintext password exists only at an authorized create or reset handoff boundary and is never persisted in ordinary relational storage audit outbox logs idempotency or durable QR payload
+      - exact safe handling for initial/reset PDF generation and later reprint must be defined
+      - single and bulk credential exports must be tenant-scoped permission-scoped audited and atomic enough to avoid partial undocumented resets
+      - old password recovery remains impossible
+    risk: recoverable_plaintext_credentials_secret_leak_or_inconsistent_bulk_reset
+
+  - id: DB-LIC-005
+    severity: P1
+    title: inventory_assignment_lifecycle_and_exactly_once_allocation_revoke
+    status: OPEN
+    diagnosis:
+      - current partial unique prevents two nonrevoked assignments for one inventory entry but does not by itself prove inventory status assignment status activation presence and revoke effect are mutually consistent
+      - assignment status has no closed catalog or field matrix in the physical blueprint
+      - create_new_learning_access_and_assign must be one atomic business flow but the final DB equivalence is not defined
+      - revoke-unactivated must return exactly one unit and must never race into both restored and activated effects
+      - direct SQL or backend defects could leave available inventory with a live assignment or assigned inventory with no live assignment
+    required_outcome_for_future_fix:
+      - explicit inventory and assignment lifecycle with final-state cross-row equivalence
+      - one inventory unit may have at most one current assignment and assignment/revoke effects are exactly once
+      - assignment to existing or newly created learning account is atomic and idempotent
+      - revoke before activation preserves history and restores one inventory unit only once
+      - activate versus revoke concurrency has one winner and no double inventory transition
+    risk: oversold_or_lost_inventory_double_restore_or_assignment_without_matching_inventory_state
+
+  - id: DB-LIC-006
+    severity: P1
+    title: activation_stacking_entitlement_history_concurrency_and_reproducibility
+    status: OPEN
+    diagnosis:
+      - aggregate intends to serialize activation on StudentLearningAccount and create one activation period per assignment but final current-entitlement integrity is not DB-closed
+      - concurrent extensions must not lose days and must produce deterministic nonoverwriting history
+      - historical effect must remain reproducible if LicenseProduct duration or metadata changes later
+      - current activation row lacks explicit duration snapshot and expiry_before expiry_after provenance called for by the product evidence
+      - activated_by_user_id nullable does not yet distinguish learner self-activation from OSK-managed activation semantics
+    required_outcome_for_future_fix:
+      - immutable exactly-once activation effect per assignment
+      - serialized stacking on one learning account with deterministic effective_from and effective_to
+      - durable product/effect snapshot sufficient to explain each extension later
+      - deterministic current access expiry derived from immutable activation history or a guarded projection
+      - learner versus OSK activation provenance is auditable without inventing a fake User actor
+    risk: lost_entitlement_days_double_application_or_nonreproducible_historical_expiry
+
+  - id: DB-LIC-007
+    severity: P1
+    title: license_product_language_capability_and_assignment_projection_consistency
+    status: OPEN
+    diagnosis:
+      - language is canonically present on StudentLearningAccount while LicenseAssignment also stores language_code and CreateLicenseAssignmentRequest requires language_code even for an existing access
+      - without an explicit authority/snapshot rule assignment language can drift from the selected learning account
+      - product-language support is capability-driven and evidence contains a SOURCE_CONFLICT so a hardcoded global language list is forbidden
+      - inventory points to a LicenseProduct but assignment/activation must not silently grant a language or historical duration unsupported by the consumed product
+      - latest-license active-count hide-finished and per-access projections need deterministic rules based on the same underlying history rather than mutable duplicated status text
+    required_outcome_for_future_fix:
+      - one canonical current learning-access language owner with explicit historical snapshot semantics where needed
+      - product-language compatibility validated from capability data rather than hardcoded screen options
+      - assignment inventory product language and activation history cannot contradict each other
+      - management projections are deterministic from canonical assignment activation and entitlement history
+    risk: unsupported_language_entitlement_or_drifting_license_management_projection
+
+diagnosis_summary:
+  P0: 0
+  P1: 7
+  blockers_resolved_in_diagnosis: 0
+  open_P0_P1: 7
+  result: FAIL_WITH_7_P1_BLOCKERS
+
+nonblockers_and_deferred_questions:
+  - exact_public_prices_discounts_VAT_and_payment_provider_flow_belong_to_DB4_9
+  - exact_inventory_grant_after_payment_or_manual_commercial_grant_belongs_to_DB4_9
+  - exact_global_auth_email_verification_merge_and_recovery_policy_is_not_invented_in_DB4_6
+  - exact_password_complexity_hash_cost_and_rotation_parameters_are_security_implementation_policy
+  - exact_HTTP_If_Match_required_markers_and_error_codes_remain_Stage5_acceptance_contract_sync
+  - exact_max_bulk_PDF_count_and_select_visible_pagination_behavior_are_application_product_limits_not_database_P1
+  - exact_competitor_semantics_of_inventory_card_active_count_remain_unobservable_but_our_projection_must_be_defined_before_implementation
+  - exact_always_stack_exceptions_of_the_competitor_are_not_assumed; our entitlement rule will be an explicit product decision when DB_LIC_006_is_fixed
+
+preservation_checks:
+  all_confirmed_license_variants_remain_data_not_hardcoded_global_rule: PASS
+  existing_and_new_learning_access_assignment_paths_preserved: PASS
+  exactly_one_assignment_target_preserved: PASS
+  multiple_assignments_per_learning_access_preserved: PASS
+  assign_not_equal_activation_preserved: PASS
+  revoke_unactivated_history_preserved: PASS
+  OSK_managed_credentials_preserved: PASS
+  learner_self_service_preserved: PASS
+  one_time_plaintext_handoff_capability_preserved_without_authorizing_storage: PASS
+  single_and_bulk_credentials_PDF_preserved: PASS
+  per_access_localization_preserved: PASS
+  reset_and_reprint_preserved: PASS
+  license_stacking_extension_capability_preserved: PASS
+  language_SOURCE_CONFLICT_preserved_as_capability_driven: PASS
+  purchase_payment_scope_not_accidentally_solved_in_DB4_6: PASS
+  DB4_7_or_later_scope_not_entered: PASS
+  aggregate_core_schema_modified_in_diagnosis: false
+  aggregate_docs87_modified_in_diagnosis: false
+  Laravel_migrations_created: false
+  UI_or_feature_implementation_started: false
+
+next_single_step:
+  id: DB4_6_STEP_1
+  blocker: DB-LIC-001
+  action: resolve_license_and_learning_access_same_tenant_exact_target_integrity_only
+  allowed_files:
+    - specs/database/licenses-learning-access.yml
+    - docs/110-stage-4-licenses-learning-access-audit.md
+    - specs/gates/stage-4-database-contract-gate.yml
+  scope_lock: >-
+    Resolve only DB-LIC-001. Do not fix DB-LIC-002 through DB-LIC-007, do not
+    synchronize specs/database/core-schema.yml or docs/87-physical-database-schema.md
+    until the final DB4_6 aggregate sync, do not enter DB4_7 or later slices, do
+    not create Laravel migrations, do not start Stage 5 and do not implement UI/features.
+  after_action: rerun_DB4_6_gate_and_STOP_before_DB_LIC_002
