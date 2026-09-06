@@ -2,7 +2,7 @@
 
 Data: 2026-09-06
 
-**Status:** `DB4_3 IN PROGRESS / DB-RES-001..004 PASS / 2 P1 BLOCKERS OPEN`
+**Status:** `DB4_3 IN PROGRESS / DB-RES-001..005 PASS / 1 P1 BLOCKER OPEN`
 
 ## Cel
 
@@ -97,7 +97,7 @@ Vehicle:
 
 `UNIQUE (organization_id, vehicle_id, document_type) WHERE superseded_at IS NULL`
 
-Nie stosujemy zasady „najnowszy `created_at` wygrywa”.
+Nie stosujemy zasady „najnowszy created_at wygrywa”.
 
 ## Pola wersji
 
@@ -193,14 +193,131 @@ Machine source: `specs/database/staff-locations-vehicles.yml`.
 
 ---
 
-# DB-RES-005 — OPEN P1: identity uniqueness lifecycle Staff/Vehicle
+# DB-RES-005 — PASS: Staff/Vehicle identity uniqueness lifecycle
 
-Do finalnego rozstrzygnięcia pozostają:
-- Staff PESEL uniqueness, gdy podany,
-- Vehicle registration number uniqueness przez archive/restore,
-- Vehicle VIN uniqueness, gdy podany.
+## Problem
 
-**To jest następny i jedyny blocker do naprawy.**
+Physical blueprint nie rozstrzygał, czy identyfikatory zasobów mają pozostawać unikalne po archiwizacji, czy archive ma zwalniać ich wartość. To groziło dwoma przeciwnymi błędami:
+- powstaniem drugiego trwałego profilu tej samej osoby/pojazdu,
+- albo zablokowaniem legalnego późniejszego użycia numeru rejestracyjnego.
+
+Osobno trzeba było rozstrzygnąć PESEL pracownika, VIN pojazdu i numer rejestracyjny.
+
+## Staff PESEL
+
+PESEL pozostaje opcjonalny, szyfrowany w `pesel_ciphertext`, a equality/uniqueness używa `pesel_lookup_hash` zgodnego z keyed-HMAC policy.
+
+Canonical constraint:
+
+`UNIQUE (organization_id, pesel_lookup_hash) WHERE pesel_lookup_hash IS NOT NULL`
+
+Constraint obejmuje **także zarchiwizowane StaffProfile**.
+
+Skutki:
+- archive pracownika nie zwalnia PESEL,
+- próba utworzenia drugiego StaffProfile z tym samym PESEL w tym samym OSK jest konfliktem również wtedy, gdy pierwszy profil jest archived,
+- właściwą ścieżką jest restore istniejącego profilu albo jawna korekta danych,
+- ten sam PESEL może istnieć w innym OSK, bo StaffProfile jest tenant-owned,
+- korekta PESEL na wartość zajętą przez inny profil w tym samym OSK jest odrzucana,
+- jawna, audytowana korekta błędnego PESEL na tym samym profilu może zwolnić poprzednią błędną wartość; nie tworzymy osobnego dożywotniego rejestru wszystkich historycznych pomyłek PESEL.
+
+## Vehicle VIN
+
+VIN jest nullable, ale gdy istnieje, identyfikuje fizyczny pojazd na tyle silnie, że archive nie może zwolnić go dla drugiego Vehicle row.
+
+Canonical constraint:
+
+`UNIQUE (organization_id, vin_normalized) WHERE vin_normalized IS NOT NULL`
+
+Constraint obejmuje także archived vehicles.
+
+Skutki:
+- ten sam VIN w drugim trwałym Vehicle row tego samego OSK jest zabroniony,
+- jeżeli pojazd został zarchiwizowany, należy przywrócić jego rekord zamiast tworzyć drugi z tym samym VIN,
+- ten sam VIN może wystąpić w innym OSK,
+- jawna korekta błędnego VIN jest dozwolona i audytowana, ale nie może wejść na VIN zajęty przez inny Vehicle tego OSK.
+
+## Vehicle registration number
+
+Numer rejestracyjny ma inną semantykę niż VIN: jest bieżącym identyfikatorem operacyjnym i może być legalnie użyty później dla innego aktywnego pojazdu po wyjściu poprzedniego pojazdu z floty.
+
+Dlatego canonical constraint jest **current-only**:
+
+`UNIQUE (organization_id, registration_number_normalized) WHERE archived_at IS NULL`
+
+Skutki:
+- dwa niearchiwalne/aktywne Vehicle rows w tym samym OSK nie mogą mieć tego samego numeru,
+- archive zwalnia numer dla przyszłego aktywnego pojazdu,
+- archived row nadal zachowuje historyczny numer,
+- wiele historycznych archived rows może mieć ten sam numer,
+- restore starego Vehicle wymaga, aby numer był w tej chwili wolny wśród niearchiwalnych pojazdów,
+- jeżeli numer został przejęty przez inny aktywny pojazd, restore zwraca conflict; system nie robi auto-swap, auto-archive ani silent renumber,
+- po rozwiązaniu konfliktu przez zmianę numeru albo archive aktualnego posiadacza restore może się udać.
+
+## Tenant scope i normalizacja
+
+Wszystkie trzy reguły są per `organization_id`, nie globalne dla całej platformy.
+
+Uniqueness działa na kanonicznych przechowywanych wartościach:
+- PESEL → `pesel_lookup_hash`,
+- VIN → `vin_normalized`,
+- rejestracja → `registration_number_normalized`.
+
+Dokładne regexy/format-validation nie są częścią DB-RES-005. Jeżeli przyszła zmiana normalizacji mogłaby zlać dwie istniejące wartości, wymaga osobnego migration precheck przed wdrożeniem.
+
+## Archive / restore
+
+- Staff archive zachowuje PESEL hash i nadal uczestniczy w uniqueness,
+- Vehicle archive zachowuje i rezerwuje VIN,
+- Vehicle archive zwalnia wyłącznie registration number dla current fleet,
+- hard-delete nie jest normalną metodą „zwolnienia” PESEL/VIN/rejestracji,
+- wpływ Staff archive na panel access pozostaje wyłącznie zakresem DB-RES-006.
+
+## Migration precheck
+
+Przed utworzeniem constraintów należy wykryć:
+- duplikaty nie-null `pesel_lookup_hash` w jednym OSK, także w archived StaffProfile,
+- duplikaty nie-null `vin_normalized` w jednym OSK, także w archived Vehicle,
+- duplikaty `registration_number_normalized` wśród `archived_at IS NULL`,
+- kolizje, które ujawnią się po canonical normalization.
+
+Dozwolone są:
+- te same wartości w różnych OSK,
+- historyczny reuse numeru rejestracyjnego w archived rows, jeśli najwyżej jeden bieżący row go posiada.
+
+Migracja **nie może** po cichu usuwać, scalać, archiwizować, zmieniać PESEL/VIN ani przenumerowywać pojazdu tylko po to, aby constraint przeszedł. Konflikt wymaga jawnej, audytowalnej remediacji.
+
+## Concurrency
+
+DB unique index jest finalną race boundary. Create/edit/restore może wykonać precheck dla UX, ale nie może zakładać, że precheck wystarcza.
+
+Szczególnie race:
+
+`restore archived vehicle ↔ create/rename another vehicle to same registration`
+
+musi dać jednego zwycięzcę i domain conflict po drugiej stronie.
+
+## Quality gate DB-RES-005
+
+Sprawdzono:
+- PESEL jest unikalny per OSK także przez archive/restore — **PASS**,
+- PESEL nie jest platform-global unique — **PASS**,
+- VIN jest unikalny per OSK także przez archive/restore — **PASS**,
+- VIN nie jest zwalniany przez archive — **PASS**,
+- registration number jest unikalny tylko w current/nonarchived fleet — **PASS**,
+- historyczny registration reuse po archive jest dozwolony bez utraty historii — **PASS**,
+- restore ma jednoznaczny conflict, gdy registration jest zajęty — **PASS**,
+- jawna identity correction nie omija uniqueness i jest audytowana — **PASS DESIGN**,
+- migracja nie robi silent identity repair — **PASS**,
+- concurrency opiera finalne rozstrzygnięcie o DB constraint — **PASS DESIGN**,
+- DB-RES-006 nie został rozwiązany w tym kroku — **PASS**,
+- DB4_4 i migracje Laravel nie zostały rozpoczęte — **PASS**.
+
+Nie znaleziono nowego P0/P1 wynikającego z decyzji DB-RES-005.
+
+Machine source: `specs/database/staff-locations-vehicles.yml`.
+
+**Gate DB-RES-005: PASS.**
 
 ---
 
@@ -208,7 +325,7 @@ Do finalnego rozstrzygnięcia pozostają:
 
 Jeżeli StaffProfile zostanie zarchiwizowany bez zmiany aktywnego StaffMembershipLink/OrganizationMembership, były pracownik może zachować panel access. Bezwarunkowy revoke membership może natomiast zepsuć restore i last-owner guard.
 
-Potrzebna jawna atomowa policy respektująca DB-IAM-004/005. Nie naprawiamy jeszcze.
+Potrzebna jawna atomowa policy respektująca DB-IAM-004/005. **To jest następny i jedyny blocker do naprawy.**
 
 ---
 
@@ -224,17 +341,17 @@ Potrzebna jawna atomowa policy respektująca DB-IAM-004/005. Nie naprawiamy jesz
 
 ---
 
-# Wynik po DB4_3_STEP_5
+# Wynik po DB4_3_STEP_6
 
 - `DB-RES-001` — **PASS**,
 - `DB-RES-002` — **PASS**,
 - `DB-RES-003` — **PASS**,
 - `DB-RES-004` — **PASS**,
-- `DB-RES-005` — **OPEN P1**,
+- `DB-RES-005` — **PASS**,
 - `DB-RES-006` — **OPEN P1**.
 
-DB4_3 jako całość nadal ma **FAIL / IN_PROGRESS** z 2 blockerami P1. DB4_4 pozostaje zablokowany.
+DB4_3 jako całość nadal ma **FAIL / IN_PROGRESS** z 1 blockerem P1. DB4_4 pozostaje zablokowany.
 
-Aggregate `core-schema.yml` i `docs/87` zostaną zsynchronizowane dopiero przed finalnym DB4_3 PASS, po zamknięciu blockerów bounded-contextu.
+Aggregate `core-schema.yml` i `docs/87` zostaną zsynchronizowane dopiero przed finalnym DB4_3 PASS, po zamknięciu ostatniego blockera bounded-contextu.
 
-**Następny pojedynczy krok: tylko `DB-RES-005` — Staff/Vehicle identity uniqueness lifecycle.**
+**Następny pojedynczy krok: tylko `DB-RES-006` — Staff archive vs panel-access membership lifecycle.**
