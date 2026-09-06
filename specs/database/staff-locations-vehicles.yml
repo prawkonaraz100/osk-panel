@@ -1,7 +1,7 @@
 meta:
   project: osk-panel
   scope: staff_locations_vehicles_core_v1
-  status: IN_PROGRESS_WITH_OPEN_BLOCKERS
+  status: ALL_BLOCKERS_RESOLVED_PENDING_AGGREGATE_SYNC
   stage: DB4_3_STAFF_LOCATIONS_VEHICLES
   created_at: 2026-09-06
   narrative: docs/107-stage-4-staff-locations-vehicles-audit.md
@@ -28,6 +28,9 @@ principles:
   vehicle_vin_identity_is_unique_per_organization_including_archived_rows_when_present: true
   vehicle_registration_is_unique_per_organization_among_nonarchived_rows: true
   archive_does_not_hard_delete_identity_history: true
+  archived_staff_must_not_have_active_staff_membership_link: true
+  staff_archive_does_not_silently_revoke_owner_governance: true
+  staff_restore_does_not_implicitly_restore_panel_access: true
   aggregate_sync_deferred_until_final_DB4_3_gate: true
 
 # DB-RES-001
@@ -106,8 +109,8 @@ staff_membership_link_same_organization_integrity:
     rbac_resolver_dependency: >-
       own, assigned_locations and assigned_students may only traverse an active
       StaffMembershipLink that satisfies these composite tenant constraints.
-    membership_status_eligibility: governed_by_DB4_2_and_DB_RES_006_not_redefined_here
-    staff_archive_effect_on_link_or_membership: deferred_to_DB_RES_006
+    membership_status_eligibility: governed_by_DB4_2_and_DB_RES_006
+    staff_archive_effect_on_link_or_membership: governed_by_DB_RES_006
 
   migration_precheck:
     required_before_constraints: true
@@ -506,7 +509,7 @@ document_current_projection:
 # DB-RES-005
 identity_uniqueness_lifecycle:
   blocker: DB-RES-005
-  status: RESOLVED_DESIGN
+  status: PASS
   goal: >-
     Staff PESEL, Vehicle VIN and Vehicle registration number must have explicit,
     history-safe uniqueness semantics so archive/restore and identity correction
@@ -540,11 +543,6 @@ identity_uniqueness_lifecycle:
       explicit_identity_correction_may_change_hash_on_same_profile: true
       correction_requires_audit: true
       old_incorrect_hash_is_not_reserved_forever_after_explicit_correction: true
-    note: >-
-      The uniqueness contract prevents two durable StaffProfile rows in one OSK
-      from holding the same current PESEL. It does not create a separate historical
-      PESEL-value registry; an explicitly audited correction may release a value
-      that was confirmed to be erroneous.
 
   vehicle_vin:
     nullable: true
@@ -562,10 +560,6 @@ identity_uniqueness_lifecycle:
       explicit_identity_correction_may_change_vin_on_same_vehicle: true
       correction_requires_audit: true
       old_incorrect_vin_is_not_reserved_forever_after_explicit_correction: true
-    reason: >-
-      VIN identifies the physical vehicle strongly enough that archiving the row
-      must not make the VIN available for a second durable Vehicle row in the same
-      OSK. An audited correction of erroneous data is distinct from archive reuse.
 
   vehicle_registration_number:
     nullable: false
@@ -585,11 +579,6 @@ identity_uniqueness_lifecycle:
       restore_after_conflicting_active_vehicle_is_archived_or_renumbered: allowed
       active_registration_correction_to_value_used_by_another_active_vehicle: rejected
       registration_change_requires_audit: true
-    reason: >-
-      Registration number is an operational identifier that may legitimately be
-      reused after the previous vehicle leaves the active fleet. Therefore current
-      uniqueness is strict, while historical archived rows keep their original
-      value without blocking future legitimate reuse.
 
   normalization_boundary:
     uniqueness_is_evaluated_on_canonical_stored_values: true
@@ -603,7 +592,7 @@ identity_uniqueness_lifecycle:
     staff_archive:
       pesel_hash_remains_on_row: true
       uniqueness_constraint_remains_effective: true
-      panel_access_effect: deferred_to_DB_RES_006
+      panel_access_effect: governed_by_DB_RES_006
     vehicle_archive:
       vin_remains_reserved_by_archived_row: true
       registration_becomes_available_to_other_nonarchived_vehicle: true
@@ -652,7 +641,182 @@ identity_uniqueness_lifecycle:
     - migration_precheck_detects_staff_PESEL_vehicle_VIN_and_active_registration_conflicts
     - migration_does_not_silently_modify_identity_values_to_pass_constraints
 
-open_blockers_not_resolved_here:
-  DB-RES-006:
-    status: OPEN
-    topic: staff_archive_panel_access_lifecycle
+# DB-RES-006
+staff_archive_panel_access_lifecycle:
+  blocker: DB-RES-006
+  status: RESOLVED_DESIGN
+  goal: >-
+    Archiving a StaffProfile must remove every staff-derived authorization path
+    without destroying membership history, silently revoking Owner governance, or
+    making a later restore re-enable access without an explicit decision.
+
+  separation_of_concerns:
+    staff_profile_represents_workforce_resource: true
+    organization_membership_represents_tenant_authorization_principal: true
+    staff_membership_link_represents_staff_to_membership_association: true
+    owner_governance_may_exist_without_active_staff_link: true
+    implication: >-
+      Staff archive always ends the active StaffMembershipLink. A non-owner staff
+      panel account is suspended by default. An Owner membership is not silently
+      suspended or revoked merely because its StaffProfile is archived; after the
+      link ends it keeps only authorization granted by the membership itself and no
+      staff-derived own/assigned scope path.
+
+  committed_state_invariants:
+    archived_staff_has_active_staff_membership_link: forbidden
+    active_staff_membership_link_target_staff_must_be_nonarchived: true
+    historical_unlinked_staff_membership_rows_preserved: true
+    staff_archive_hard_deletes_membership_or_link_history: false
+    restore_reopens_old_link_row: false
+
+  database_guard:
+    active_link_insert_or_relink_requires_nonarchived_staff:
+      enforcement: constraint_trigger_or_equivalent_database_trigger
+      lock_staff_profile_row: FOR_SHARE_or_stronger
+      reject_if_archived_at_nonnull: true
+    archive_commit_requires_zero_active_links:
+      enforcement: deferred_constraint_trigger_or_equivalent_transactional_database_guard
+      predicate: no_staff_membership_links_for_profile_where_unlinked_at_is_null
+    race_archive_vs_new_link:
+      serialized_on_staff_profile_row: true
+      both_operations_cannot_commit_conflicting_state: true
+
+  archive_command:
+    transaction_required: true
+    locks_in_order:
+      - staff_profile_FOR_UPDATE
+      - active_staff_membership_link_FOR_UPDATE_if_present
+      - linked_organization_membership_FOR_UPDATE_if_present
+      - organization_governance_boundary_when_owner_state_is_evaluated
+    common_steps:
+      - validate_staff_belongs_to_active_request_organization
+      - reject_or_noop_according_to_command_policy_if_already_archived
+      - set_staff_archived_at_and_actor
+      - end_active_staff_membership_link_if_present_by_setting_unlinked_at_and_actor
+      - write_audit_and_outbox_same_transaction
+
+    no_active_staff_link:
+      membership_change: none
+      result: staff_archived_without_panel_link
+
+    linked_membership_nonowner:
+      predicate: organization_membership_is_owner_false
+      if_membership_status_active:
+        transition: active_to_suspended
+        semantics_source: DB_IAM_005
+        keep_permission_scope_configuration: true
+        clear_bound_auth_session_membership_contexts_same_transaction: true
+        increment_membership_version_once: true
+        increment_authorization_version_once: true
+      if_membership_status_suspended:
+        keep_status_suspended: true
+        do_not_increment_authorization_version_only_for_redundant_status_transition: true
+      if_membership_status_revoked:
+        keep_status_revoked: true
+        do_not_restore_permission_snapshot: true
+      result: >-
+        The archived employee has no active staff link and no active non-owner
+        tenant membership created by the staff account lifecycle.
+
+    linked_membership_owner:
+      predicate: organization_membership_is_owner_true
+      standard_staff_archive_changes_owner_membership_status: false
+      standard_staff_archive_changes_is_owner: false
+      active_staff_link_still_ends: true
+      reason: >-
+        Owner governance is a separate high-risk lifecycle. Staff archive must not
+        implicitly demote, suspend or revoke an Owner and must not accidentally
+        violate the DB-IAM-004 last-owner invariant. Once unlinked, staff-derived
+        own/assigned resolvers no longer use the archived StaffProfile.
+      owner_membership_may_remain_active: true
+      owner_access_retention_is_intentional_not_staff_derived: true
+      request_to_remove_owner_panel_access_as_part_of_staff_archive:
+        allowed_as_hidden_side_effect: false
+        required_flow: explicit_owner_transfer_or_owner_membership_governance_command
+        last_owner_guard: DB_IAM_004
+        membership_transition_semantics: DB_IAM_005
+
+  authorization_effect_after_archive:
+    own_scope_via_archived_staff_profile: deny_empty_set
+    assigned_locations_via_archived_staff_profile: deny_empty_set
+    assigned_students_via_archived_staff_profile: deny_empty_set
+    resolver_reason: no_active_staff_membership_link
+    nonowner_staff_membership_active_after_archive: forbidden_by_command_policy
+    owner_membership_permissions_after_archive: evaluated_normally_from_membership_permissions_and_scopes
+    frontend_filtering_as_security_boundary: forbidden
+
+  restore_command:
+    restore_staff_profile_only:
+      default: true
+      action: clear_archived_at_and_restore_actor_metadata
+      recreates_staff_membership_link: false
+      activates_or_changes_membership: false
+      rebinds_old_sessions: false
+      reason: restore_of_workforce_record_does_not_imply_restore_of_credentials_or_authorization
+
+    explicit_restore_panel_access:
+      separate_explicit_decision_required: true
+      transaction_required: true
+      preconditions:
+        - staff_profile_is_not_archived
+        - membership_belongs_to_same_organization
+        - no_conflicting_active_staff_link_for_profile
+        - no_conflicting_active_staff_link_for_membership
+      historical_link_policy: create_new_staff_membership_link_row_never_reopen_old_row
+      if_membership_status_active:
+        action: create_new_active_staff_membership_link_only
+      if_membership_status_suspended:
+        action:
+          - transition_suspended_to_active_using_DB_IAM_005
+          - create_new_active_staff_membership_link
+        old_sessions_auto_rebind: false
+      if_membership_status_revoked:
+        automatic_reactivation: forbidden
+        required_before_link_can_authorize: fresh_permission_or_template_provisioning_using_DB_IAM_005
+        old_owner_or_permission_snapshot_auto_restore: false
+      owner_membership:
+        if_still_active: create_new_link_only_after_explicit_panel_access_restore
+        owner_governance_unchanged_by_restore_staff_profile_only: true
+
+  failure_atomicity:
+    archive_fails_before_commit:
+      staff_profile_link_membership_session_changes_all_roll_back: true
+    owner_governance_command_failure:
+      staff_archive_must_not_partially_demote_or_suspend_owner: true
+    audit_and_outbox_committed_only_with_business_state: true
+
+  migration_precheck:
+    required_before_archive_link_guards: true
+    checks:
+      - archived_staff_profiles_with_active_staff_membership_links
+      - active_staff_membership_links_pointing_to_archived_staff_profiles
+      - nonowner_active_memberships_that_are_only_staff_linked_while_profile_is_archived
+      - cross_tenant_link_mismatch_already_covered_by_DB_RES_001
+    invalid_row_policy: >-
+      Require explicit auditable remediation. Do not silently reactivate Staff,
+      transfer Owner, revoke membership, or discard historical StaffMembershipLink
+      rows merely to make the new invariant pass.
+
+  tests_required:
+    - archiving_staff_without_panel_link_archives_profile_without_membership_side_effect
+    - archiving_staff_with_active_nonowner_membership_unlinks_staff_and_suspends_membership_atomically
+    - nonowner_archive_clears_bound_session_tenant_contexts_via_DB_IAM_005
+    - archiving_staff_with_already_suspended_membership_keeps_it_suspended_and_unlinks_staff
+    - archiving_staff_with_revoked_membership_does_not_restore_or_mutate_revoked_authorization_snapshot
+    - archiving_staff_linked_to_active_owner_ends_staff_link_but_keeps_owner_membership_and_is_owner_unchanged
+    - sole_owner_staff_archive_does_not_violate_last_owner_because_owner_membership_is_not_silently_suspended
+    - removing_owner_panel_access_requires_explicit_owner_governance_flow
+    - archived_staff_cannot_receive_new_active_staff_membership_link
+    - concurrent_staff_archive_and_panel_link_creation_have_only_one_valid_committed_outcome
+    - archived_staff_cannot_grant_own_assigned_locations_or_assigned_students_scope
+    - restoring_staff_profile_does_not_auto_restore_panel_access_or_rebind_sessions
+    - explicit_panel_access_restore_creates_new_link_row_and_preserves_old_link_history
+    - suspended_membership_may_be_explicitly_reactivated_using_DB_IAM_005_without_rebinding_old_sessions
+    - revoked_membership_is_not_implicitly_reactivated_on_staff_restore
+    - archive_transaction_failure_leaves_no_partial_staff_link_membership_or_session_state
+
+post_blocker_state:
+  open_P0_P1_in_DB4_3: 0
+  final_DB4_3_PASS_allowed_before_aggregate_sync: false
+  next_required_step: final_DB4_3_aggregate_core_schema_and_docs87_synchronization_gate
+  DB4_4_may_start_before_final_sync_gate: false
