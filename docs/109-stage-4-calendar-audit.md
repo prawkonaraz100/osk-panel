@@ -3,15 +3,14 @@
 Data: 2026-09-06
 
 **Etap:** `DB4_5_CALENDAR`  
-**Aktualny krok:** `DB-CAL-005`  
-**Status:** `DB-CAL-001..005 PASS / 2 P1 OPEN`
+**Aktualny krok:** `DB-CAL-006`  
+**Status:** `DB-CAL-001..006 PASS / 1 P1 OPEN`
 
 ## 1. Zasada pracy
 
-DB4_5 jest prowadzony pojedynczymi blockerami. Diagnoza wykazała 7 P1. Pełny zapis DB-CAL-003 i DB-CAL-004 pozostaje poniżej bez kondensowania. Bieżący DB-CAL-005 został dopisany jako kolejny osobny appendix, bez przepisywania potwierdzonych wcześniejszych decyzji.
+DB4_5 jest prowadzony pojedynczymi blockerami. Diagnoza wykazała 7 P1. Pełny zapis DB-CAL-003, DB-CAL-004 i DB-CAL-005 pozostaje poniżej bez kondensowania. Bieżący DB-CAL-006 został dopisany jako kolejny osobny appendix, bez przepisywania potwierdzonych wcześniejszych decyzji.
 
 W bieżącym kroku nie zmieniono:
-- `DB-CAL-006` AvailabilitySlot booking lifecycle,
 - `DB-CAL-007` Calendar ↔ formal `TrainingSession`.
 
 Nie zmieniono też aggregate `specs/database/core-schema.yml` ani `docs/87-physical-database-schema.md`, nie utworzono migracji Laravel i nie rozpoczęto DB4_6/UI.
@@ -1097,3 +1096,387 @@ Stan przed centralnym gate:
 - UI/feature implementation: zablokowane.
 
 Następny pojedynczy krok dopiero po centralnym gate: **DB-CAL-006 only**.
+
+---
+
+# DB-CAL-006 — AvailabilitySlot booking lifecycle + exactly-once
+
+## 56. Źródła i granica DB-CAL-006
+
+Ten krok opiera się na:
+- Stage-3 `/availability-slots`, `/book` i `/cancel` w `specs/api/paths/pkk-calendar.yaml`,
+- `AvailabilitySlot`, `CreateAvailabilitySlotRequest`, `UpdateAvailabilitySlotRequest` i `BookAvailabilitySlotRequest` w `specs/api/openapi-components-v1.yaml`,
+- race/idempotency wymaganiach z `docs/84-test-strategy.md`,
+- DB-CAL-001 same-tenant integrity,
+- DB-CAL-003 shared GiST conflict boundary,
+- DB-CAL-005 slot owner/scope semantics.
+
+API potwierdza, że `/book` ma **atomowo zarezerwować slot dla jednego Studenta**, a test strategy wymaga, by dwa równoległe bookingi jednego slotu/zasobu dały maksymalnie jeden poprawny booking.
+
+DB-CAL-006 nie rozstrzyga jeszcze relacji formalnej jazdy do `TrainingSession`. To pozostaje wyłącznie DB-CAL-007.
+
+## 57. Zamknięty lifecycle AvailabilitySlot
+
+Canonical statusy:
+- `available`,
+- `booked`,
+- `cancelled`.
+
+### `available`
+- `booked_student_id = NULL`,
+- `booked_at = NULL`,
+- zero booking claims,
+- PATCH dozwolony,
+- booking dozwolony,
+- cancel dozwolony.
+
+### `booked`
+- `booked_student_id != NULL`,
+- `booked_at != NULL`,
+- exact booking claim set,
+- normalny PATCH zabroniony,
+- drugi booking zabroniony,
+- cancel dozwolony.
+
+### `cancelled`
+- current `booked_student_id = NULL`,
+- current `booked_at = NULL`,
+- zero booking claims,
+- PATCH zabroniony,
+- booking zabroniony,
+- kolejny nowy cancel command zabroniony.
+
+DB wymusza zgodność statusu z booking fields. Generic PATCH nie może ustawiać statusu ani pól bookingu bez dedykowanego commandu.
+
+Normalny hard delete nie jest lifecycle slotu.
+
+## 58. Reavailability jest jawna, nie ukryta
+
+Anulowany slot jest terminalny.
+
+Nie stosujemy automatycznego:
+- `booked -> available`,
+- `cancelled -> available`,
+- tworzenia nowego available slotu jako side-effect cancel.
+
+Jeżeli OSK chce ponownie wystawić ten sam termin, publikuje **nowy AvailabilitySlot**. Future explicit reopen, jeśli kiedyś będzie potrzebny, dostanie osobną bramkę.
+
+Ta decyzja zapobiega sytuacji, w której cancel po czasie albo świadome wycofanie terminu przypadkiem ponownie publikuje dostępność.
+
+## 59. `availability_slots.version` — jeden concurrency root
+
+`version` jest `bigint NOT NULL DEFAULT 1 CHECK >= 1`.
+
+PATCH, book i cancel serializują się na tym samym `availability_slots` row:
+1. `SELECT ... FOR UPDATE`,
+2. expected version sprawdzany po locku,
+3. dopiero potem state transition/mutation.
+
+PATCH już ma `If-Match` w Stage 3. Book/cancel obecnie mają Idempotency-Key, ale nie `If-Match`; wymaganie expected version istnieje na granicy domenowej, a exact HTTP marker zostaje do Stage 5 acceptance contract sync.
+
+`Idempotency-Key` nie zastępuje expected version dla nowego commandu.
+
+Semantic no-op PATCH nie podnosi version, nie zmienia `updated_at` i nie tworzy historii.
+
+## 60. Append-only `availability_slot_lifecycle_events`
+
+Każda materialna wersja slotu ma historię:
+- `id`,
+- `organization_id`,
+- `availability_slot_id`,
+- `event_type`,
+- `from_status`,
+- `to_status`,
+- `slot_version_before`,
+- `slot_version_after`,
+- `actor_user_id`,
+- `booking_student_id_snapshot`,
+- `reason`,
+- `changed_fields_redacted`,
+- `occurred_at`.
+
+Runtime eventy:
+- `created`,
+- `updated`,
+- `booked`,
+- `cancelled`.
+
+Migration-only:
+- `migration_baseline`.
+
+Historia jest append-only. `UNIQUE(organization_id,availability_slot_id,slot_version_after)` daje at-most-one per material version.
+
+Dodatkowy **`DEFERRABLE INITIALLY DEFERRED` current-version/history guard** wymaga przy commit:
+- dokładnie jednego history row dla current `availability_slots.version`,
+- `to_status` zgodnego z current slot status,
+- runtime successor `after = before + 1`.
+
+Bez matching history nie można bezpośrednio przepisać statusu/version/booking fields.
+
+`booking_student_id_snapshot` zachowuje Studenta z bookingu również wtedy, gdy późniejszy cancel czyści current booking fields.
+
+## 61. Shared GiST boundary — owner kind `availability_slot_booking`
+
+DB-CAL-003 zostaje rozszerzony o drugi jawny owner kind:
+- `calendar_event`,
+- `availability_slot_booking`.
+
+DB check:
+
+`claim_owner_kind IN ('calendar_event','availability_slot_booking')`.
+
+Nieznany owner kind nadal jest odrzucany.
+
+Dla `availability_slot_booking` claim owner musi rozwiązać się do **tego samego tenant i tego samego AvailabilitySlot**. Finalny owner guard jest deferrable.
+
+Booked slot przy commit musi mieć dokładnie:
+- 1 Student claim równy `booked_student_id`,
+- 1 Instructor claim iff `instructor_id != NULL`,
+- 1 Vehicle claim iff `vehicle_id != NULL`,
+- 1 Location claim iff `location_id != NULL`,
+- każdy claim z dokładnie tym samym `[starts_at,ends_at)`,
+- to samo `organization_id`.
+
+`available` i `cancelled` muszą mieć zero booking claims.
+
+Exact-set guard jest `DEFERRABLE INITIALLY DEFERRED` albo równoważną transactional DB boundary.
+
+Te same cztery GiST exclusion constraints z DB-CAL-003 zabezpieczają:
+- booking vs CalendarEvent,
+- booking vs booking,
+- Student,
+- Instructor,
+- Vehicle,
+- Location.
+
+Samo opublikowanie `available` slotu nadal **nie zajmuje zasobów**.
+
+## 62. Booking nie tworzy drugiego CalendarEvent
+
+Successful booking nie tworzy niezależnego mutable `CalendarEvent`.
+
+Canonical current reservation owner w DB-CAL-006 to:
+
+`AvailabilitySlot(status='booked')`.
+
+Conflict projection to jego claims z `claim_owner_kind='availability_slot_booking'`.
+
+Calendar może później wyświetlać booked slot jako read-model projection, ale taki projection:
+- nie jest drugim source-of-truth,
+- nie jest bezpośrednio mutowany jak manual CalendarEvent,
+- może być odbudowany ze slotu.
+
+To celowo nie przesądza DB-CAL-007. Jeżeli booked slot później stanie się formalną jazdą, DB-CAL-007 musi zdefiniować atomowy handoff/ownership tak, by pozostał **jeden effective reservation fact**, a nie dwa nakładające się sources.
+
+## 63. Book transaction
+
+Book używa `calendar.book_for_student` i istniejącego student-scoped RBAC wobec żądanego Studenta. Nie przedefiniowujemy bookingu jako `slot own`.
+
+Transakcja:
+1. claim/replay Idempotency-Key,
+2. active membership + same-tenant slot,
+3. DB-CAL-001 same-tenant Student validation,
+4. autoryzacja `calendar.book_for_student` dla requested Student,
+5. slot `FOR UPDATE`,
+6. expected-version check,
+7. wymagany status `available`,
+8. revalidation obecnych zasobów i czasu slotu,
+9. capture jednego `command_effective_at`,
+10. status -> `booked`,
+11. `booked_student_id` -> requested Student,
+12. `booked_at = command_effective_at`,
+13. exact claims w kolejności Student -> Instructor -> Vehicle -> Location,
+14. istniejące GiST constraints przyjmują albo odrzucają,
+15. version +1 dokładnie raz,
+16. append `booked` lifecycle event z Student snapshot i tym samym command instant,
+17. deferred exact-claim + history guards,
+18. audit/outbox w tej samej transakcji, gdy calendar domain events są materializowane,
+19. commit.
+
+GiST conflict rollbackuje **wszystko**: status, booking fields, claims, version i history. Slot pozostaje wcześniejszym `available`.
+
+Same Idempotency-Key + ten sam payload zwraca ten sam rezultat bez drugiego efektu. Ten sam key + inny Student/payload = idempotency conflict. Inny key przeciw booked/cancelled = conflict, nie drugi booking.
+
+## 64. PATCH i cancel
+
+### PATCH
+Normalny PATCH działa tylko dla `available`.
+
+Po locku:
+- expected version,
+- state = available,
+- DB-CAL-001 resource validation,
+- DB-CAL-005 owner pre/post check dla own scope,
+- status i booking fields nie są generic-patchowalne,
+- material change -> version +1 + `updated` history,
+- zero booking claims pozostaje final invariant.
+
+`booked` i `cancelled` są niepatchowalne w normalnym flow.
+
+### Cancel available
+- `available -> cancelled`,
+- version +1,
+- historia `cancelled`,
+- booking fields pozostają NULL,
+- zero claims.
+
+### Cancel booked
+- zapamiętujemy pre-cancel Student,
+- usuwamy wszystkie booking claims,
+- czyścimy current `booked_student_id` i `booked_at`,
+- `booked -> cancelled`,
+- version +1,
+- append history z poprzednim Student snapshot,
+- finalnie zero claims.
+
+Cancel korzysta z `calendar.publish_student_slots` i DB-CAL-005 organization|own scope. Current owner jest rewalidowany po slot locku.
+
+Ten sam cancel Idempotency-Key replay nie tworzy drugiego efektu. Nowy command przeciw już cancelled slotowi jest conflict.
+
+## 65. Race matrix
+
+### book vs book — ten sam slot/version
+Maksymalnie jeden commit. Drugi dostaje stale-version/state conflict.
+
+### book vs cancel
+Pierwszy poprawny lock+commit wygrywa. Drugi nie pozostawia partial state.
+
+### PATCH vs book
+Pierwszy poprawny lock+commit wygrywa. Drugi dostaje stale-version albo non-available conflict.
+
+### PATCH vs cancel
+Analogicznie.
+
+### dwa różne sloty, ten sam zasób i overlap
+Oba mogą być opublikowane jako `available`, ponieważ publikacja nie jest rezerwacją. Przy bookingach wspólne GiST constraints pozwalają maksymalnie jednemu konfliktującemu reservation commit.
+
+### booking vs istniejący CalendarEvent
+GiST odrzuca booking. Cały booking rollbackuje, slot pozostaje `available` na poprzedniej wersji.
+
+Lock order:
+1. AvailabilitySlot,
+2. Student claim,
+3. Instructor claim,
+4. Vehicle claim,
+5. Location claim.
+
+## 66. Migration design DB-CAL-006
+
+Migracji Laravel nadal nie tworzymy.
+
+Przyszła kolejność:
+1. precheck statusów i booking field pairs,
+2. unknown/inconsistent status -> explicit review,
+3. `version` -> bigint nonnull >=1,
+4. status/field checks,
+5. `availability_slot_lifecycle_events`,
+6. same-tenant history relations i actor FK,
+7. migration baseline tylko z wiarygodnego current state,
+8. unique one history per version + immutability,
+9. deferred current-version/history guard,
+10. precheck wiarygodnie booked slotów vs CalendarEvent claims i inne booked slots,
+11. legacy overlap/ambiguous booking -> FAIL/review,
+12. dodać owner guard dla `availability_slot_booking`, podczas gdy stary claim-kind check nadal blokuje jego użycie,
+13. dopiero wtedy rozszerzyć claim-kind check do dwóch wartości,
+14. backfill exact claims tylko dla reliably booked slots,
+15. deferred exact claim-set guard,
+16. potwierdzić zero claims dla available/cancelled,
+17. race tests.
+
+Nie wolno:
+- zgadywać statusu z samego `booked_at`, Student ID, czasu lub `updated_at`,
+- inventować Studenta/timestampu dla rzekomego bookingu,
+- automatycznie wybierać zwycięzcy overlapu,
+- anulować/modyfikować slotu tylko po to, by constraint przeszedł,
+- zmieniać booked na available,
+- tworzyć CalendarEvent z legacy booked slotu,
+- fabrykować actora migration baseline.
+
+## 67. Testy DB-CAL-006
+
+Obowiązkowo:
+- create -> available/version1/no booking fields/no claims/history,
+- unknown status rejected,
+- available wymaga NULL booking fields i zero claims,
+- booked wymaga Student+booked_at+exact claims,
+- cancelled wymaga NULL current booking fields i zero claims,
+- cross-tenant booked Student rejected,
+- material available PATCH -> version +1 + history,
+- semantic no-op -> bez fake version/history,
+- booked/cancelled normal PATCH rejected,
+- own PATCH nadal nie transferuje instructor owner,
+- book wymaga student-scoped `calendar.book_for_student`,
+- book atomowo ustawia status/Student/time/version/history/claims,
+- slot bez optional resources nadal tworzy Student claim,
+- claim interval = slot interval,
+- dwa concurrent book same slot -> maksymalnie jeden commit,
+- idempotency replay -> zero drugiego book effect,
+- ten sam key + inny Student -> conflict,
+- booking vs CalendarEvent conflict -> pełny rollback do available,
+- dwa różne overlapujące sloty tego samego Instructor/Vehicle/Location/Student -> maksymalnie jeden booking,
+- PATCH vs book i book vs cancel -> jeden materialny winner,
+- cancel available -> cancelled/history,
+- cancel booked -> remove claims + clear current booking + preserve Student snapshot in history,
+- cancel replay -> zero drugiego efektu,
+- cancelled nie jest auto-republished i nie można go rebookować,
+- current version ma dokładnie jeden matching history row,
+- direct status/version/booking-field rewrite bez history rejected,
+- history immutable,
+- unknown claim owner kind nadal rejected,
+- fake claims dla available/cancelled rejected,
+- booked claim removal without state transition rejected,
+- booking nie tworzy niezależnego CalendarEvent,
+- booking/claim insert nie tworzy Attendance ani TrainingHourLedger credit,
+- migration nie zgaduje statusu/Studenta/timestampu/actora/overlap winnera.
+
+## 68. Self-audit DB-CAL-006
+
+Wynik: **PASS**.
+
+Potwierdzono:
+- status/booking-field matrix jest zamknięty,
+- slot ma jeden concurrency root `version`,
+- book/cancel expected version sprawdzany po slot locku,
+- booked/cancelled nie są generic PATCH mutable,
+- successful booking ma jeden canonical reservation owner bez drugiego CalendarEvent,
+- `availability_slot_booking` jest DB-constrained owner kind,
+- booked exact claim set jest sprawdzany na finalnym stanie transakcji,
+- booking używa istniejących Student/Instructor/Vehicle/Location GiST constraints,
+- booking-vs-event i booking-vs-booking są race-safe w DB,
+- failed booking nie zostawia partial version/history/claims,
+- cancel zachowuje historię i zwalnia claims,
+- cancel nie republishuje automatycznie dostępności,
+- lifecycle history jest append-only i version-paired,
+- same-tenant Student boundary DB-CAL-001 została zachowana,
+- student-scoped booking permission DB4_2 nie został przedefiniowany,
+- DB-CAL-005 slot-owner semantics nie zostały przedefiniowane,
+- booking nie nalicza formalnych godzin,
+- **DB-CAL-007 pozostaje otwarte i nie zostało rozwiązane w tym kroku**,
+- aggregate pozostają zamrożone,
+- brak migracji Laravel,
+- brak DB4_6/UI implementation.
+
+## 69. Pozostały P1 po DB-CAL-006
+
+Pozostaje dokładnie **1 P1**:
+
+### DB-CAL-007 — `driving_lesson` vs formal `TrainingSession`
+
+Do zamknięcia pozostaje wybór jednego canonical schedule ownera oraz relacji/projekcji, która nie pozostawi dwóch niezależnych mutable schedule facts. DB-CAL-007 musi również ustalić atomic handoff z booked availability reservation, jeśli taka rezerwacja staje się formalną jazdą, oraz zapewnić jeden effective reservation fact w shared conflict boundary.
+
+## 70. Bramka jakości DB-CAL-006
+
+**PASS — machine contract + lifecycle/concurrency/claim self-audit.**
+
+Stan przed centralnym gate:
+- P0: `0`,
+- P1 rozwiązane w DB4_5: `6`,
+- P1 otwarte: `1`,
+- DB-CAL-001..006: `PASS`,
+- DB-CAL-007: `OPEN`,
+- final DB4_5 aggregate sync: `PENDING`,
+- DB4_6: zablokowane,
+- Stage 5: zablokowany,
+- UI/feature implementation: zablokowane.
+
+Następny pojedynczy krok dopiero po centralnym gate: **DB-CAL-007 only**.
