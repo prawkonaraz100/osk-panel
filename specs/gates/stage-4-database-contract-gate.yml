@@ -79,10 +79,10 @@ stage_4_slices:
     status: IN_PROGRESS_WITH_BLOCKERS
     diagnosis: COMPLETE
     blockers_diagnosed: 7
-    blockers_resolved: 5
-    open_P0_P1: 2
+    blockers_resolved: 6
+    open_P0_P1: 1
     final_aggregate_sync: BLOCKED
-    result: FAIL_WITH_2_P1_BLOCKERS
+    result: FAIL_WITH_1_P1_BLOCKER
   - id: DB4_7_INTERNAL_EXAMS
     status: NOT_STARTED
   - id: DB4_8_PKK
@@ -1631,6 +1631,75 @@ quality_checks:
       Laravel_migrations_created: false
       UI_or_feature_implementation_started: false
 
+  license_activation_stacking_entitlement_history_reproducibility:
+    status: PASS
+    resolved_blocker_id: DB-LIC-006
+    severity: P1
+    machine_source: specs/database/licenses-learning-access.yml
+    audit_source: docs/110-stage-4-licenses-learning-access-audit.md
+    decision:
+      activation_history_model: immutable_append_only_entitlement_effect_ledger
+      one_activation_per_assignment: true
+      activation_exact_learning_account_composite_FK: true
+      entitlement_sequence_unique_per_learning_account: true
+      entitlement_sequence_contiguous_from_one: true
+      entitlement_sequence_is_second_concurrency_root: false
+      product_duration_days_positive: true
+      product_duration_change_after_inventory_reference: forbidden_by_database_guard
+      inventory_product_binding_change_after_creation: forbidden_by_database_guard
+      runtime_duration_snapshot_source: product_at_activation
+      duration_days_snapshot_required: true
+      migration_duration_source: legacy_effect_reconstructed
+      activation_origin_values: [learner_self, organization_user, legacy_unknown]
+      runtime_activation_origin_values: [learner_self, organization_user]
+      migration_only_origin_and_duration_source_runtime_insert_blocked: true
+      entitlement_chain_final_state_guard: DEFERRABLE_INITIALLY_DEFERRED
+      first_effect_expiry_before: null
+      extension_before_expiry_starts_at_previous_effective_to: true
+      activation_after_expiry_starts_at_command_effective_at: true
+      effective_to_is_effective_from_plus_snapshot_duration: true
+      current_entitlement_end_source: MAX_license_activations_effective_to_per_learning_account
+      independent_mutable_current_expires_at_added: false
+      concurrent_activation_serialization_root: student_learning_accounts_row_FOR_UPDATE
+      two_different_assignments_same_account_may_both_activate_serially: true
+      concurrent_extensions_lose_remaining_time: false
+      activation_vs_revoke_one_winner_preserved: true
+      student_archive_or_account_suspension_pauses_or_extends_entitlement: false
+      learner_self_actor_equals_learning_account_user: true
+      organization_user_activation_requires_real_actor_permission_and_scope: true
+      legacy_actor_origin_inference_from_current_state: forbidden
+      activation_row_normal_update_or_delete: forbidden
+      language_capability_and_management_projection_rules: deferred_to_DB_LIC_007
+      pricing_payment_inventory_grant: deferred_to_DB4_9
+      DB_LIC_007_not_fixed: true
+    checks:
+      immutable_activation_effect_history: PASS
+      activation_targets_exact_assignment_learning_account: PASS
+      sequence_unique_contiguous_and_not_second_concurrency_root: PASS
+      duration_snapshot_reproduces_historical_effect: PASS
+      product_duration_and_inventory_product_binding_are_database_immutable_after_reference: PASS
+      migration_only_origin_and_duration_source_cannot_be_used_by_runtime_or_direct_SQL_after_cutover: PASS
+      existing_migrated_legacy_rows_remain_legal_and_immutable: PASS
+      before_expiry_extension_preserves_all_remaining_time: PASS
+      after_expiry_activation_does_not_backfill_expired_gap: PASS
+      effective_period_math_is_deterministic: PASS
+      two_concurrent_extensions_same_learning_account_serialize_without_lost_days: PASS
+      same_assignment_cannot_activate_twice: PASS
+      idempotency_retry_does_not_apply_entitlement_twice: PASS
+      activation_vs_revoke_DB_LIC_005_boundary_preserved: PASS
+      learner_self_and_organization_user_provenance_is_auditable_without_fake_actor: PASS
+      current_entitlement_end_is_derived_not_independent_mutable_authority: PASS
+      archive_or_suspension_does_not_pause_or_extend_entitlement: PASS
+      activated_assignment_remains_consumption_history_after_expiry: PASS
+      legacy_migration_does_not_guess_order_duration_origin_or_rewrite_effective_times: PASS
+      DB_LIC_007_language_capability_and_management_projection_remains_open: PASS
+      DB4_9_commerce_not_solved_early: PASS
+      aggregate_core_schema_modified_in_step: false
+      aggregate_docs87_modified_in_step: false
+      later_domain_slices_entered: false
+      Laravel_migrations_created: false
+      UI_or_feature_implementation_started: false
+
 resolved_blockers:
   - DB-FOUND-001
   - DB-FOUND-002
@@ -1667,9 +1736,9 @@ resolved_blockers:
   - DB-LIC-003
   - DB-LIC-004
   - DB-LIC-005
+  - DB-LIC-006
 
 open_blockers_current_diagnosed_scope:
-  - DB-LIC-006
   - DB-LIC-007
 
 gate_definition:
@@ -1680,7 +1749,7 @@ gate_definition:
     - migration_order_dependency_safe
     - database_invariant_test_matrix_exists
     - reverse_engineering_preservation_traceable
-  current_result: FAIL_DB4_6_WITH_2_OPEN_P1_BLOCKERS
+  current_result: FAIL_DB4_6_WITH_1_OPEN_P1_BLOCKER
   DB4_1_result: PASS
   DB4_2_result: PASS
   DB4_3_result: PASS
@@ -1711,7 +1780,8 @@ gate_definition:
   DB4_6_DB_LIC_003_result: PASS
   DB4_6_DB_LIC_004_result: PASS
   DB4_6_DB_LIC_005_result: PASS
-  DB4_6_result: FAIL_WITH_2_P1_BLOCKERS
+  DB4_6_DB_LIC_006_result: PASS
+  DB4_6_result: FAIL_WITH_1_P1_BLOCKER
   may_start_DB4_4_fixes: false
   may_start_DB4_5: false
   may_start_DB4_5_fixes: false
@@ -1722,9 +1792,9 @@ gate_definition:
   may_start_UI_or_feature_implementation: false
 
 next_single_step:
-  id: DB4_6_STEP_6
-  blocker: DB-LIC-006
-  action: resolve_activation_stacking_entitlement_history_concurrency_and_reproducibility_only
+  id: DB4_6_STEP_7
+  blocker: DB-LIC-007
+  action: resolve_product_language_capability_assignment_snapshot_and_management_projection_consistency_only
   allowed_scope:
     - specs/database/licenses-learning-access.yml
     - docs/110-stage-4-licenses-learning-access-audit.md
@@ -1733,8 +1803,7 @@ next_single_step:
     - specs/database/core-schema.yml
     - docs/87-physical-database-schema.md
   scope_lock: >-
-    Resolve only DB-LIC-006. Do not fix DB-LIC-007. Keep the aggregate core schema
-    and docs/87 frozen until the final DB4_6 aggregate sync. Do not enter DB4_7 or
-    later slices, do not start Stage 5, do not create Laravel migrations and do not
-    start UI/feature implementation.
-  after_action: rerun_DB4_6_gate_and_STOP_before_DB_LIC_007
+    Resolve only DB-LIC-007. Keep the aggregate core schema and docs/87 frozen until
+    the final DB4_6 aggregate sync. Do not enter DB4_7 or later slices, do not start
+    Stage 5, do not create Laravel migrations and do not start UI/feature implementation.
+  after_action: rerun_DB4_6_gate_and_STOP_before_DB4_6_final_aggregate_sync
