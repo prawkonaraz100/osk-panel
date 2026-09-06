@@ -67,13 +67,13 @@ stage_4_slices:
     final_aggregate_sync: PASS
     result: PASS
   - id: DB4_5_CALENDAR
-    status: IN_PROGRESS_BLOCKERS_OPEN
+    status: IN_PROGRESS_FINAL_AGGREGATE_SYNC_PENDING
     diagnosis: COMPLETE
     blockers_diagnosed: 7
-    blockers_resolved: 6
-    open_P0_P1: 1
+    blockers_resolved: 7
+    open_P0_P1: 0
     final_aggregate_sync: PENDING
-    result: DB_CAL_001_002_003_004_005_006_PASS_1_P1_OPEN
+    result: DB_CAL_001_002_003_004_005_006_007_PASS_AGGREGATE_SYNC_PENDING
   - id: DB4_6_LICENSES_LEARNING_ACCESS
     status: NOT_STARTED
   - id: DB4_7_INTERNAL_EXAMS
@@ -899,7 +899,7 @@ quality_checks:
       conflict_projection_table: calendar_resource_claims
       conflict_projection_is_business_source_of_truth: false
       exactly_one_resource_column_per_claim: true
-      current_claim_owner_kind_check: calendar_event_and_availability_slot_booking
+      current_claim_owner_kind_check: calendar_event_availability_slot_booking_and_training_session
       exact_scheduled_event_claim_set_guard: true
       exact_claim_set_guard_deferrability: DEFERRABLE_INITIALLY_DEFERRED
       claim_same_tenant_resource_FKs: true
@@ -911,10 +911,10 @@ quality_checks:
       availability_slot_publication_itself_claims_resource: false
       successful_booking_may_bypass_shared_claim_boundary: false
       availability_booking_owner_state_machine_and_link: closed_by_DB_CAL_006
-      formal_training_schedule_owner_mapping: deferred_to_DB_CAL_007
+      formal_training_schedule_owner_mapping: closed_by_DB_CAL_007
       claim_insert_credits_training_time: false
       migration_legacy_overlap_auto_cancel_shift_reassign: forbidden
-      DB_CAL_007_not_fixed: true
+      DB_CAL_007_not_fixed: false
     checks:
       half_open_interval_semantics_are_unambiguous: PASS
       adjacent_events_do_not_false_conflict: PASS
@@ -932,7 +932,7 @@ quality_checks:
       conflicting_update_rolls_back_to_previous_event_and_claim_state: PASS
       availability_publication_not_mistaken_for_reservation: PASS
       booking_uses_same_GiST_boundary_after_DB_CAL_006: PASS
-      formal_training_obligated_to_same_boundary_without_solving_DB_CAL_007: PASS
+      formal_training_uses_same_GiST_boundary_after_DB_CAL_007: PASS
       aggregate_core_schema_modified_in_step: false
       aggregate_docs87_modified_in_step: false
       later_domain_slices_entered: false
@@ -1130,6 +1130,74 @@ quality_checks:
       Laravel_migrations_created: false
       UI_or_feature_implementation_started: false
 
+  formal_driving_lesson_training_session_source_of_truth:
+    status: PASS
+    resolved_blocker_id: DB-CAL-007
+    severity: P1
+    machine_source: specs/database/calendar.yml
+    audit_source: docs/109-stage-4-calendar-audit.md
+    decision:
+      canonical_formal_schedule_owner: training_sessions
+      formal_driving_lesson_calendar_item: practical_training_session_projection
+      new_formal_driving_lesson_persisted_as_calendar_event_row: false
+      calendar_events_runtime_persisted_type_after_legacy_remediation: general_event_only
+      formal_student_source: course_enrollments.student_id
+      formal_schedule_resource_sources: training_sessions
+      calendar_only_companion_table: training_session_calendar_details
+      companion_fields: [display_name, custom_meeting_place]
+      companion_duplicates_schedule_fields: false
+      companion_material_change_uses_training_session_version: true
+      formal_concurrency_root: training_sessions.version
+      formal_mutations_require_training_permissions: true
+      calendar_manage_permission_grants_training_session_mutation: false
+      calendar_complete_creates_formal_training_credit: false
+      base_credit_path_remains_DB_TRN_006: true
+      training_session_claim_owner_kind: training_session
+      claim_owner_kind_catalog_after_step: [calendar_event, availability_slot_booking, training_session]
+      planned_training_session_exact_claim_set_guard: DEFERRABLE_INITIALLY_DEFERRED
+      planned_training_session_claims: course_student_plus_instructor_plus_optional_vehicle_location
+      terminal_training_session_claim_count: 0
+      training_session_uses_shared_four_GiST_exclusion_constraints: true
+      availability_slot_training_session_link: same_tenant_unique_nullable
+      booking_auto_creates_training_session_without_course_context: false
+      formalization_handoff_is_dedicated_atomic_idempotent_command: true
+      formalized_slot_availability_booking_claim_count: 0
+      formalized_slot_current_reservation_owner: training_session
+      formalized_slot_emits_second_calendar_item: false
+      formalized_slot_can_cancel_independently: false
+      linked_session_terminal_state_auto_republishes_slot: false
+      ambiguous_course_resolution_uses_latest_or_first_heuristic: false
+      legacy_calendar_driving_lesson_auto_maps_to_training_session_by_time_or_name: false
+      final_DB4_5_aggregate_sync_done_in_this_step: false
+    checks:
+      exactly_one_formal_schedule_owner_is_training_session: PASS
+      no_mutable_calendar_event_copy_of_formal_schedule: PASS
+      visible_driving_lesson_capability_preserved_as_projection_and_command_adapter: PASS
+      formal_student_time_instructor_vehicle_location_have_single_canonical_sources: PASS
+      optional_name_and_custom_place_preserved_without_schedule_duplication: PASS
+      training_session_version_remains_single_formal_lesson_concurrency_root: PASS
+      formal_mutation_requires_training_permission: PASS
+      calendar_permission_cannot_escalate_into_training_mutation: PASS
+      training_session_claim_owner_kind_is_database_constrained: PASS
+      planned_training_session_uses_same_GiST_boundary: PASS
+      training_session_vs_calendar_event_booking_and_session_races_use_same_database_boundary: PASS
+      terminal_training_session_releases_claims_atomically: PASS
+      claim_projection_does_not_credit_training: PASS
+      calendar_complete_cannot_bypass_DB_TRN_006: PASS
+      booked_slot_to_training_session_handoff_is_atomic: PASS
+      booked_slot_handoff_is_idempotent: PASS
+      booked_slot_handoff_does_not_guess_ambiguous_course: PASS
+      formalized_slot_has_no_duplicate_reservation_claim_or_calendar_item: PASS
+      booking_history_survives_formalization_and_later_session_lifecycle: PASS
+      session_terminal_state_does_not_auto_republish_slot: PASS
+      legacy_rows_require_explicit_evidence_based_remediation: PASS
+      no_new_P0_P1_discovered: PASS
+      aggregate_core_schema_modified_in_step: false
+      aggregate_docs87_modified_in_step: false
+      later_domain_slices_entered: false
+      Laravel_migrations_created: false
+      UI_or_feature_implementation_started: false
+
 resolved_blockers:
   - DB-FOUND-001
   - DB-FOUND-002
@@ -1160,9 +1228,9 @@ resolved_blockers:
   - DB-CAL-004
   - DB-CAL-005
   - DB-CAL-006
-
-open_blockers_current_diagnosed_scope:
   - DB-CAL-007
+
+open_blockers_current_diagnosed_scope: []
 
 gate_definition:
   PASS_requires_for_entire_stage_4:
@@ -1172,7 +1240,7 @@ gate_definition:
     - migration_order_dependency_safe
     - database_invariant_test_matrix_exists
     - reverse_engineering_preservation_traceable
-  current_result: DB4_5_DB_CAL_001_002_003_004_005_006_PASS_1_P1_OPEN
+  current_result: DB4_5_DB_CAL_001_002_003_004_005_006_007_PASS_AGGREGATE_SYNC_PENDING
   DB4_1_result: PASS
   DB4_2_result: PASS
   DB4_3_result: PASS
@@ -1194,29 +1262,28 @@ gate_definition:
   DB4_5_DB_CAL_004_result: PASS
   DB4_5_DB_CAL_005_result: PASS
   DB4_5_DB_CAL_006_result: PASS
-  DB4_5_result: IN_PROGRESS_1_P1_OPEN
+  DB4_5_DB_CAL_007_result: PASS
+  DB4_5_result: IN_PROGRESS_FINAL_AGGREGATE_SYNC_PENDING
   may_start_DB4_4_fixes: false
   may_start_DB4_5: true
-  may_start_DB4_5_fixes: true
+  may_start_DB4_5_fixes: false
   may_start_DB4_6: false
   may_start_stage_5: false
   may_start_UI_or_feature_implementation: false
 
 next_single_step:
-  id: DB_CAL_007
-  blocker: DB-CAL-007
-  action: close_driving_lesson_training_session_source_of_truth_only
+  id: DB4_5_FINAL_AGGREGATE_SYNC
+  action: synchronize_calendar_bounded_context_into_core_schema_and_docs87_only
   allowed_scope:
     - specs/database/calendar.yml
     - docs/109-stage-4-calendar-audit.md
+    - specs/database/core-schema.yml
+    - docs/87-physical-database-schema.md
     - specs/gates/stage-4-database-contract-gate.yml
   scope_lock: >-
-    Fix only DB-CAL-007 canonical schedule owner and relation/projection between manual
-    driving_lesson CalendarEvent, booked availability reservation and formal TrainingSession.
-    Define exactly one effective reservation fact and atomic create/update/cancel/reschedule
-    orchestration without allowing Calendar completion or conflict claims to credit training
-    time outside DB-TRN-006. Do not perform the final DB4_5 aggregate sync in the same step,
-    do not modify aggregate core-schema.yml or docs/87 before the separate final aggregate
-    sync gate, do not enter DB4_6 or later slices, do not create Laravel migrations and do
-    not start UI/feature implementation.
-  after_action: rerun_DB_CAL_007_gate_and_record_PASS_or_remaining_blocker_then_stop_before_DB4_5_final_aggregate_sync
+    Synchronize only the already closed DB-CAL-001..007 bounded-context contract into
+    specs/database/core-schema.yml and docs/87-physical-database-schema.md. Run semantic-loss,
+    stale-constraint, migration-order and invariant-test coverage checks. Do not enter DB4_6
+    or later slices, do not start Stage 5, do not create Laravel migrations and do not start
+    UI/feature implementation.
+  after_action: rerun_DB4_5_final_aggregate_sync_gate_record_PASS_or_remaining_sync_blocker_then_stop_before_DB4_6
