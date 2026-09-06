@@ -2,7 +2,7 @@ meta:
   project: osk-panel
   stage: 4
   slice: DB4_6_LICENSES_LEARNING_ACCESS
-  status: DIAGNOSIS_COMPLETE_WITH_BLOCKERS
+  status: IN_PROGRESS_WITH_BLOCKERS
   diagnosed_at: 2026-09-06
   branch: docs-consolidation-2026-09-05
   narrative_audit: docs/110-stage-4-licenses-learning-access-audit.md
@@ -11,8 +11,9 @@ meta:
   aggregate_sync_status: FROZEN_UNTIL_DB4_6_BLOCKERS_CLOSE
 
 working_rule:
-  diagnosis_only: true
-  fixes_applied_in_this_step: false
+  diagnosis_only: false
+  fixes_applied_in_this_step: true
+  current_step: DB4_6_STEP_1_DB_LIC_001
   one_blocker_per_followup_step: true
   Laravel_migrations_created: false
   Stage5_started: false
@@ -205,11 +206,124 @@ preservation_and_security_baseline:
   LicenseAssignment_before_activation_uses_revoke_not_hard_delete: true
   LicenseActivation_is_immutable_history: true
 
+resolved_contracts:
+  DB-LIC-001:
+    status: PASS
+    resolved_at: 2026-09-06
+    scope: same_tenant_and_exact_target_integrity_only
+    candidate_keys_required:
+      students:
+        - [organization_id, id]
+      file_assets:
+        - [organization_id, id]
+      student_learning_accounts:
+        - [organization_id, id]
+        - [organization_id, id, student_id]
+      license_inventory_entries:
+        - [organization_id, id]
+      license_assignments:
+        - [organization_id, id]
+    composite_relations:
+      student_learning_account_to_student:
+        child: student_learning_accounts[organization_id,student_id]
+        parent: students[organization_id,id]
+        nullable: false
+        on_update: RESTRICT
+        on_delete: RESTRICT
+      handoff_to_learning_account:
+        child: student_access_handoffs[organization_id,student_learning_account_id]
+        parent: student_learning_accounts[organization_id,id]
+        nullable: false
+        on_update: RESTRICT
+        on_delete: RESTRICT
+      handoff_to_document_asset:
+        child: student_access_handoffs[organization_id,document_asset_id]
+        parent: file_assets[organization_id,id]
+        nullable: true
+        match: SIMPLE
+        on_update: RESTRICT
+        on_delete: RESTRICT
+        note: only_same_organization_private_asset_may_be_referenced_when_nonnull; readiness_purpose_and_secret_storage_policy_remain_DB_LIC_004
+      assignment_to_inventory:
+        child: license_assignments[organization_id,license_inventory_entry_id]
+        parent: license_inventory_entries[organization_id,id]
+        nullable: false
+        on_update: RESTRICT
+        on_delete: RESTRICT
+      assignment_to_student:
+        child: license_assignments[organization_id,student_id]
+        parent: students[organization_id,id]
+        nullable: false
+        on_update: RESTRICT
+        on_delete: RESTRICT
+      assignment_to_exact_learning_account_student_pair:
+        child: license_assignments[organization_id,student_learning_account_id,student_id]
+        parent: student_learning_accounts[organization_id,id,student_id]
+        nullable: false
+        on_update: RESTRICT
+        on_delete: RESTRICT
+        exact_target_guarantee: selected_learning_account_belongs_to_exact_selected_student_in_same_organization
+      activation_to_assignment:
+        child: license_activations[organization_id,license_assignment_id]
+        parent: license_assignments[organization_id,id]
+        nullable: false
+        on_update: RESTRICT
+        on_delete: RESTRICT
+    global_or_dictionary_relations_not_fake_tenant_scoped:
+      - student_learning_accounts.user_id_to_users.id
+      - student_learning_accounts.primary_auth_login_identifier_id_to_auth_login_identifiers.id
+      - student_learning_accounts.language_code_to_languages.code
+      - license_inventory_entries.license_product_id_to_license_products.id
+      - license_assignments.language_code_to_languages.code
+      - assigned_revoked_activated_generated_by_user_ids_to_users.id
+    organization_id_policy:
+      client_authority: false
+      plain_update_may_move_tenant_owned_row_between_organizations: false
+      same_tenant_constraints_are_final_database_boundary: true
+    DB4_9_boundary:
+      license_inventory_entries.source_order_item_id_same_tenant_commerce_relation: deferred_to_DB4_9
+      reason: order_item_owner_and_commerce_grant_lifecycle_are_outside_DB_LIC_001_and_must_not_be_partially_designed_here
+    migration_design:
+      order:
+        - precheck_existing_learning_account_student_same_tenant_rows
+        - precheck_handoff_account_and_optional_document_asset_same_tenant_rows
+        - precheck_assignment_inventory_student_and_exact_account_student_rows
+        - precheck_activation_assignment_same_tenant_rows
+        - add_required_parent_candidate_keys
+        - add_composite_same_tenant_and_exact_target_foreign_keys
+        - validate_constraints
+      auto_reassign_cross_tenant_relation: forbidden
+      auto_rewrite_assignment_student_to_match_account: forbidden
+      auto_rewrite_assignment_account_to_match_student: forbidden
+      auto_null_cross_tenant_document_asset: forbidden
+      auto_rewrite_activation_organization: forbidden
+      unresolved_legacy_mismatch: fail_migration_and_require_reviewed_remediation
+    required_integration_tests:
+      - learning_account_cannot_reference_student_from_other_organization
+      - handoff_cannot_reference_learning_account_from_other_organization
+      - handoff_nonnull_document_asset_must_belong_to_same_organization
+      - assignment_cannot_reference_inventory_from_other_organization
+      - assignment_cannot_reference_student_from_other_organization
+      - assignment_cannot_reference_learning_account_from_other_organization
+      - assignment_same_organization_but_wrong_student_learning_account_pair_is_rejected
+      - activation_cannot_reference_assignment_from_other_organization
+      - same_global_user_may_still_back_learning_accounts_in_different_organizations
+      - global_language_and_product_dictionaries_are_not_incorrectly_tenant_scoped
+      - source_order_item_commerce_relation_is_not_falsely_closed_before_DB4_9
+    explicitly_not_solved_in_this_step:
+      - DB-LIC-002_auth_identifier_same_user_and_login_projection_consistency
+      - DB-LIC-003_learning_account_lifecycle_version_and_student_archive_effect
+      - DB-LIC-004_one_time_secret_and_PDF_storage_policy
+      - DB-LIC-005_inventory_assignment_state_equivalence_exactly_once_revoke
+      - DB-LIC-006_activation_stacking_and_entitlement_reproducibility
+      - DB-LIC-007_language_capability_and_projection_authority
+
 blockers:
   - id: DB-LIC-001
     severity: P1
     title: license_and_learning_access_same_tenant_exact_target_integrity
-    status: OPEN
+    status: RESOLVED
+    resolution_ref: resolved_contracts.DB-LIC-001
     diagnosis:
       - current aggregate uses multiple tenant-owned IDs on learning-access/license rows but does not define composite same-tenant relations for all of them
       - a LicenseAssignment can physically drift so organization inventory student and learning account are not proven to describe one exact target
@@ -329,6 +443,13 @@ diagnosis_summary:
   open_P0_P1: 7
   result: FAIL_WITH_7_P1_BLOCKERS
 
+current_gate_summary:
+  blockers_resolved_after_diagnosis: 1
+  open_P0_P1: 6
+  result: FAIL_WITH_6_P1_BLOCKERS
+  resolved_blocker: DB-LIC-001
+  next_blocker: DB-LIC-002
+
 nonblockers_and_deferred_questions:
   - exact_public_prices_discounts_VAT_and_payment_provider_flow_belong_to_DB4_9
   - exact_inventory_grant_after_payment_or_manual_commercial_grant_belongs_to_DB4_9
@@ -354,24 +475,30 @@ preservation_checks:
   reset_and_reprint_preserved: PASS
   license_stacking_extension_capability_preserved: PASS
   language_SOURCE_CONFLICT_preserved_as_capability_driven: PASS
+  exact_student_learning_account_target_is_now_database_provable: PASS
+  cross_tenant_inventory_assignment_activation_and_handoff_are_database_rejected: PASS
+  handoff_document_asset_same_tenant_only_without_solving_secret_storage_policy: PASS
+  global_user_auth_identifier_and_dictionary_relations_not_fake_tenant_scoped: PASS
+  source_order_item_same_tenant_commerce_relation_deferred_to_DB4_9: PASS
   purchase_payment_scope_not_accidentally_solved_in_DB4_6: PASS
+  DB_LIC_002_through_DB_LIC_007_not_fixed_in_DB_LIC_001_step: PASS
   DB4_7_or_later_scope_not_entered: PASS
-  aggregate_core_schema_modified_in_diagnosis: false
-  aggregate_docs87_modified_in_diagnosis: false
+  aggregate_core_schema_modified_in_step: false
+  aggregate_docs87_modified_in_step: false
   Laravel_migrations_created: false
   UI_or_feature_implementation_started: false
 
 next_single_step:
-  id: DB4_6_STEP_1
-  blocker: DB-LIC-001
-  action: resolve_license_and_learning_access_same_tenant_exact_target_integrity_only
+  id: DB4_6_STEP_2
+  blocker: DB-LIC-002
+  action: resolve_learning_account_global_auth_identity_and_login_consistency_only
   allowed_files:
     - specs/database/licenses-learning-access.yml
     - docs/110-stage-4-licenses-learning-access-audit.md
     - specs/gates/stage-4-database-contract-gate.yml
   scope_lock: >-
-    Resolve only DB-LIC-001. Do not fix DB-LIC-002 through DB-LIC-007, do not
+    Resolve only DB-LIC-002. Do not fix DB-LIC-003 through DB-LIC-007, do not
     synchronize specs/database/core-schema.yml or docs/87-physical-database-schema.md
     until the final DB4_6 aggregate sync, do not enter DB4_7 or later slices, do
     not create Laravel migrations, do not start Stage 5 and do not implement UI/features.
-  after_action: rerun_DB4_6_gate_and_STOP_before_DB_LIC_002
+  after_action: rerun_DB4_6_gate_and_STOP_before_DB_LIC_003
