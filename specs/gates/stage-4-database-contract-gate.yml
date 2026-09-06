@@ -79,10 +79,10 @@ stage_4_slices:
     status: IN_PROGRESS_WITH_BLOCKERS
     diagnosis: COMPLETE
     blockers_diagnosed: 7
-    blockers_resolved: 2
-    open_P0_P1: 5
+    blockers_resolved: 3
+    open_P0_P1: 4
     final_aggregate_sync: BLOCKED
-    result: FAIL_WITH_5_P1_BLOCKERS
+    result: FAIL_WITH_4_P1_BLOCKERS
   - id: DB4_7_INTERNAL_EXAMS
     status: NOT_STARTED
   - id: DB4_8_PKK
@@ -207,7 +207,7 @@ quality_checks:
       explicit_panel_access_restore_creates_new_link_row: true
       old_unlinked_link_row_reopened: false
       revoked_membership_auto_reactivated_by_staff_restore: false
-      archive_is_atomic_across_staff_link_membership_session_audit_outbox: true
+      archive_is_atomic_across_staff_link_membership_sessions_audit_outbox: true
 
   DB4_3_final_aggregate_sync:
     status: PASS
@@ -1413,6 +1413,79 @@ quality_checks:
       Laravel_migrations_created: false
       UI_or_feature_implementation_started: false
 
+  license_learning_account_lifecycle_concurrency_student_archive:
+    status: PASS
+    resolved_blocker_id: DB-LIC-003
+    severity: P1
+    machine_source: specs/database/licenses-learning-access.yml
+    audit_source: docs/110-stage-4-licenses-learning-access-audit.md
+    decision:
+      learning_account_version: bigint_not_null_default_1_check_gte_1
+      concurrency_root: student_learning_accounts.version
+      material_fields_under_version: [auth_login_identifier_id, language_code, explicit_status_transition]
+      status_values: [active, suspended]
+      new_account_status: active
+      expired_is_learning_account_status: false
+      generic_PATCH_may_change_status: false
+      normal_hard_delete: forbidden
+      organization_student_user_reparenting_in_normal_lifecycle: forbidden
+      active_to_suspended: explicit_domain_or_security_command_only
+      suspended_to_active: explicit_resume_command_only
+      public_suspend_resume_HTTP_added_in_DB4_6: false
+      lifecycle_history_source_until_DB4_10: audit_log_plus_outbox
+      effective_operational_eligibility:
+        requires_account_status_active: true
+        requires_student_archived_at_null: true
+        requires_current_auth_identifier_per_DB_LIC_002: true
+        global_user_auth_eligibility_remains_identity_domain: true
+      state_dependent_lock_prefix: [students_row_FOR_UPDATE, student_learning_accounts_row_FOR_UPDATE]
+      learning_account_create_requires_nonarchived_student_after_parent_lock: true
+      account_PATCH_requires_expected_version_after_account_lock: true
+      normal_account_PATCH_for_archived_student: forbidden
+      archive_mutates_learning_account_status_or_version: false
+      archive_revokes_assignment_or_restores_inventory: false
+      archive_rewrites_activation_history: false
+      archive_pauses_or_extends_entitlement: false
+      active_entitlement_ages_by_wall_clock_during_archive: true
+      archive_revokes_global_user_identifier_or_auth_session: false
+      restore_mutates_learning_account_status_or_version: false
+      restore_resumes_explicitly_suspended_account: false
+      restore_unrevokes_assignment_or_recreates_activation: false
+      restore_extends_expired_entitlement: false
+      previously_active_account_after_restore: eligible_subject_to_current_entitlement_and_global_auth
+      eligibility_cache_recheck_inputs: [students.version, student_learning_accounts.version, student_learning_accounts.status]
+      downstream_DB_LIC_004_005_006_must_extend_not_reorder_parent_lock_prefix: true
+      DB_LIC_004_through_DB_LIC_007_not_fixed: true
+    checks:
+      learning_account_version_concurrency_root_defined: PASS
+      closed_status_catalog_active_suspended: PASS
+      account_expiry_not_confused_with_learning_account_state: PASS
+      current_expected_version_update_increments_once: PASS
+      stale_expected_version_rejected_without_partial_write: PASS
+      two_updates_same_expected_version_at_most_one_commit: PASS
+      semantic_noop_does_not_increment_version: PASS
+      generic_PATCH_cannot_change_status: PASS
+      account_create_for_archived_student_rejected: PASS
+      archive_does_not_fan_out_status_or_version_updates: PASS
+      archive_blocks_new_operational_effects_after_commit: PASS
+      archive_does_not_revoke_assignment_restore_inventory_or_rewrite_activation: PASS
+      archive_does_not_pause_or_extend_entitlement: PASS
+      restore_does_not_reactivate_suspended_account_or_license_history: PASS
+      archive_create_PATCH_assignment_activation_races_are_linearizable_on_student_parent_lock: PASS
+      local_student_archive_does_not_revoke_same_global_user_in_other_organization: PASS
+      cache_cannot_outlive_student_archive_version_change: PASS
+      migration_unknown_status_requires_reviewed_remediation: PASS
+      migration_does_not_auto_suspend_revoke_pause_or_extend_from_parent_archive: PASS
+      DB_LIC_004_secret_handoff_policy_remains_open: PASS
+      DB_LIC_005_inventory_state_exactly_once_remains_open: PASS
+      DB_LIC_006_stacking_reproducibility_remains_open: PASS
+      DB_LIC_007_language_projection_consistency_remains_open: PASS
+      aggregate_core_schema_modified_in_step: false
+      aggregate_docs87_modified_in_step: false
+      later_domain_slices_entered: false
+      Laravel_migrations_created: false
+      UI_or_feature_implementation_started: false
+
 resolved_blockers:
   - DB-FOUND-001
   - DB-FOUND-002
@@ -1446,9 +1519,9 @@ resolved_blockers:
   - DB-CAL-007
   - DB-LIC-001
   - DB-LIC-002
+  - DB-LIC-003
 
 open_blockers_current_diagnosed_scope:
-  - DB-LIC-003
   - DB-LIC-004
   - DB-LIC-005
   - DB-LIC-006
@@ -1462,7 +1535,7 @@ gate_definition:
     - migration_order_dependency_safe
     - database_invariant_test_matrix_exists
     - reverse_engineering_preservation_traceable
-  current_result: FAIL_DB4_6_WITH_5_OPEN_P1_BLOCKERS
+  current_result: FAIL_DB4_6_WITH_4_OPEN_P1_BLOCKERS
   DB4_1_result: PASS
   DB4_2_result: PASS
   DB4_3_result: PASS
@@ -1490,7 +1563,8 @@ gate_definition:
   DB4_6_diagnosis_result: PASS_DIAGNOSIS_COMPLETE
   DB4_6_DB_LIC_001_result: PASS
   DB4_6_DB_LIC_002_result: PASS
-  DB4_6_result: FAIL_WITH_5_P1_BLOCKERS
+  DB4_6_DB_LIC_003_result: PASS
+  DB4_6_result: FAIL_WITH_4_P1_BLOCKERS
   may_start_DB4_4_fixes: false
   may_start_DB4_5: false
   may_start_DB4_5_fixes: false
@@ -1501,9 +1575,9 @@ gate_definition:
   may_start_UI_or_feature_implementation: false
 
 next_single_step:
-  id: DB4_6_STEP_3
-  blocker: DB-LIC-003
-  action: resolve_learning_account_lifecycle_optimistic_concurrency_and_student_archive_effect_only
+  id: DB4_6_STEP_4
+  blocker: DB-LIC-004
+  action: resolve_one_time_credentials_handoff_PDF_and_secret_non_persistence_only
   allowed_scope:
     - specs/database/licenses-learning-access.yml
     - docs/110-stage-4-licenses-learning-access-audit.md
@@ -1512,8 +1586,8 @@ next_single_step:
     - specs/database/core-schema.yml
     - docs/87-physical-database-schema.md
   scope_lock: >-
-    Resolve only DB-LIC-003. Do not fix DB-LIC-004 through DB-LIC-007. Keep the
+    Resolve only DB-LIC-004. Do not fix DB-LIC-005 through DB-LIC-007. Keep the
     aggregate core schema and docs/87 frozen until the final DB4_6 aggregate sync.
     Do not enter DB4_7 or later slices, do not start Stage 5, do not create Laravel
     migrations and do not start UI/feature implementation.
-  after_action: rerun_DB4_6_gate_and_STOP_before_DB_LIC_004
+  after_action: rerun_DB4_6_gate_and_STOP_before_DB_LIC_005
