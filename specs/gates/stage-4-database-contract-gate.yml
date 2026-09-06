@@ -61,9 +61,9 @@ stage_4_slices:
   - id: DB4_4_STUDENTS_COURSES_TRAINING_LEDGER
     status: IN_PROGRESS_WITH_BLOCKERS
     diagnosis: COMPLETE
-    blockers_resolved: 1
-    open_P0_P1: 7
-    result: FAIL_WITH_7_P1_BLOCKERS
+    blockers_resolved: 2
+    open_P0_P1: 6
+    result: FAIL_WITH_6_P1_BLOCKERS
   - id: DB4_5_CALENDAR
     status: NOT_STARTED
   - id: DB4_6_LICENSES_LEARNING_ACCESS
@@ -272,14 +272,52 @@ quality_checks:
       UI_or_feature_implementation_started: false
 
   student_formal_identity_and_duplicate_lifecycle:
-    status: FAIL
-    blocker_id: DB-TRN-002
+    status: PASS
+    resolved_blocker_id: DB-TRN-002
     severity: P1
-    unresolved: >-
-      The database does not yet physically require the PESEL-or-birth-date formal
-      identity branch and does not finalize PESEL hash/ciphertext consistency,
-      per-organization duplicate identity semantics, archive and restore behavior.
-    impact: invalid_formal_student_identity_or_duplicate_durable_student_records
+    machine_source: specs/database/students-courses-training.yml
+    audit_source: docs/108-stage-4-students-courses-training-ledger-audit.md
+    decision:
+      pre_course_student_profile_may_be_identity_incomplete: true
+      observed_first_name_last_name_only_create_capability_preserved: true
+      no_pesel_declared_column:
+        type: boolean
+        nullable: false
+        default: false
+      no_pesel_declared_is_not_inferred_from_null_PESEL: true
+      PESEL_ciphertext_lookup_hash_pair_must_both_be_null_or_both_nonnull: true
+      explicit_no_PESEL_requires_birth_date: true
+      explicit_no_PESEL_forbids_PESEL_pair: true
+      formal_course_enrollment_requires_student_has_formal_identity: true
+      formal_identity_requirement_kept_for_historical_course_rows: true
+      formal_identity_database_guard: deferrable_constraint_trigger_or_equivalent_transactional_DB_guard
+      PESEL_lookup_hash: HMAC_SHA_256_or_equivalent_secret_keyed_hash
+      plaintext_PESEL_persistence: forbidden
+      independent_ciphertext_or_hash_patch: forbidden
+      PESEL_unique_scope: per_organization
+      PESEL_unique_includes_archived_rows: true
+      archive_releases_PESEL: false
+      same_PESEL_different_organizations_allowed: true
+      name_birth_date_hard_unique_for_no_PESEL: false
+      identity_branch_change_audited: true
+      Student_optimistic_concurrency: deferred_to_DB_TRN_003
+    checks:
+      legal_PESEL_or_birth_date_rule_preserved_before_formal_enrollment: PASS
+      pre_course_student_creation_capability_not_reduced: PASS
+      missing_PESEL_not_confused_with_explicit_no_PESEL: PASS
+      PESEL_pair_consistency_closed: PASS
+      duplicate_PESEL_same_organization_rejected: PASS
+      archived_student_keeps_PESEL_unique_claim: PASS
+      same_person_not_globally_blocked_across_OSKs: PASS
+      migration_does_not_guess_no_PESEL_from_null: PASS
+      formal_student_identity_cannot_degrade_to_incomplete_state: PASS
+      no_false_name_birth_date_unique_constraint: PASS
+      DB_TRN_003_through_DB_TRN_008_not_fixed: PASS
+      aggregate_core_schema_modified_in_step: false
+      aggregate_docs87_modified_in_step: false
+      later_domain_slices_entered: false
+      Laravel_migrations_created: false
+      UI_or_feature_implementation_started: false
 
   student_concurrency_archive_restore_lifecycle:
     status: FAIL
@@ -349,6 +387,7 @@ quality_checks:
     - student_finance_and_course_cost_payment_ledger_to_DB4_9
     - calendar_overlap_and_resource_booking_to_DB4_5
     - exact_phone_email_PKK_format_validation_to_application_validation
+    - exact_PESEL_format_checksum_validation_to_application_validation_and_security_tests
     - competitor_unobservable_delete_backend_semantics
 
   calendar_overlap_database_strategy:
@@ -371,10 +410,9 @@ resolved_blockers:
   - DB-RES-005
   - DB-RES-006
   - DB-TRN-001
+  - DB-TRN-002
 
 open_blockers_current_diagnosed_scope:
-  - id: DB-TRN-002
-    severity: P1
   - id: DB-TRN-003
     severity: P1
   - id: DB-TRN-004
@@ -396,12 +434,13 @@ gate_definition:
     - migration_order_dependency_safe
     - database_invariant_test_matrix_exists
     - reverse_engineering_preservation_traceable
-  current_result: FAIL_DB4_4_WITH_7_OPEN_P1_BLOCKERS
+  current_result: FAIL_DB4_4_WITH_6_OPEN_P1_BLOCKERS
   DB4_1_result: PASS
   DB4_2_result: PASS
   DB4_3_result: PASS
   DB4_4_diagnosis_result: PASS_DIAGNOSIS_COMPLETE
   DB4_4_DB_TRN_001_result: PASS
+  DB4_4_DB_TRN_002_result: PASS
   DB4_4_result: FAIL
   may_start_DB4_4_fixes: true
   may_start_DB4_5: false
@@ -409,16 +448,16 @@ gate_definition:
   may_start_UI_or_feature_implementation: false
 
 next_single_step:
-  id: DB4_4_STEP_3
-  blocker: DB-TRN-002
-  action: resolve_student_formal_identity_branch_and_duplicate_lifecycle_only
+  id: DB4_4_STEP_4
+  blocker: DB-TRN-003
+  action: resolve_student_concurrency_archive_restore_lifecycle_only
   allowed_scope:
     - specs/database/students-courses-training.yml
     - docs/108-stage-4-students-courses-training-ledger-audit.md
     - specs/gates/stage-4-database-contract-gate.yml
   scope_lock: >-
-    Resolve only DB-TRN-002. Do not fix DB-TRN-003 through DB-TRN-008 in the same
+    Resolve only DB-TRN-003. Do not fix DB-TRN-004 through DB-TRN-008 in the same
     step. Do not enter DB4_5 or later slices, do not create Laravel migrations and
     do not start UI/feature implementation. Keep aggregate core-schema.yml and
     docs/87 synchronization deferred until the final DB4_4 aggregate sync gate.
-  after_action: rerun_DB4_4_gate_and_record_DB_TRN_002_PASS_or_new_blocker_then_stop_before_DB_TRN_003
+  after_action: rerun_DB4_4_gate_and_record_DB_TRN_003_PASS_or_new_blocker_then_stop_before_DB_TRN_004
