@@ -501,7 +501,7 @@ resolved_contracts:
         version_increment: false
       dedicated_public_suspend_resume_HTTP_observed: false
       DB4_6_invents_new_UI_or_HTTP_capability: false
-      history_source_until_DB4_10: audit_log_plus_outbox_domain_event
+      history_source_until_DB4_10_finalization: audit_log_plus_outbox_domain_event
       dedicated_learning_account_lifecycle_history_table_required: false
       status_change_without_audit_outbox: forbidden
     effective_operational_eligibility:
@@ -575,7 +575,7 @@ resolved_contracts:
       restore_may_recreate_or_unrevoke_assignment: false
       restore_may_recreate_activation: false
       restore_may_extend_expired_entitlement: false
-      previously_active_learning_account_becomes_operationally_eligible_again: true_subject_to_current_entitlement_and_global_auth_rules
+      previously_active_learning_account_becomes_operationally_eligible_again: true_subject_to_current_license_entitlement_and_global_auth_rules
       explicitly_suspended_learning_account_remains_suspended: true
       expired_entitlement_remains_expired: true
       revoked_unactivated_assignment_remains_revoked: true
