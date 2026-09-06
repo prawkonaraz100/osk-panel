@@ -162,7 +162,7 @@ DB check:
 
 Claim jest technical current projection, więc jego usunięcie/replacement w tej samej transakcji co zmiana ownera nie jest utratą business history. Business history pozostaje w CalendarEvent/audicie i późniejszych lifecycle artifacts.
 
-W DB-CAL-003 jedynym aktywnym owner kind jest `calendar_event`. Dodanie innych origin kinds wymaga osobnej późniejszej bramki.
+W DB-CAL-003 jedynym aktywnym owner kind jest `calendar_event`. Self-audit doprecyzował, że nie może to być wyłącznie konwencja aplikacyjna: wymagany jest DB `CHECK (claim_owner_kind = 'calendar_event')`. Dzięki temu nieznany owner kind nie może utworzyć orphan claimu i zablokować zasobu bez odpowiadającego owner guard. Rozszerzenie katalogu owner kinds będzie możliwe dopiero w późniejszej, jawnej bramce DB-CAL-006/007.
 
 ## 9. Same-tenant integrity claims
 
@@ -196,7 +196,7 @@ Nie wolno pozostawić:
 
 Non-scheduled event ma zero aktywnych claims.
 
-Final-state DB guard jest deferrable/transactional, aby event i jego claim set mogły zostać zmienione atomowo w jednej transakcji bez wymagania poprawnego stanu po każdym pojedynczym SQL statement.
+Final-state DB guard jest **`DEFERRABLE INITIALLY DEFERRED`** (albo równoważną transactional DB boundary), aby event i jego claim set mogły zostać zmienione atomowo w jednej transakcji bez wymagania poprawnego stanu po każdym pojedynczym SQL statement, ale z obowiązkowo poprawnym stanem przy commit.
 
 ## 11. Finalna granica PostgreSQL — GiST exclusion constraints
 
@@ -321,10 +321,11 @@ Przyszła kolejność:
 10. utworzyć `calendar_resource_claims`,
 11. dodać exactly-one-resource i same-tenant FKs,
 12. dodać generated half-open `tstzrange`,
-13. dodać partial uniques i cztery GiST exclusion constraints,
-14. backfillować exact claims z niepustych zasobów `scheduled` eventów,
-15. dodać owner/exact-set final-state guards,
-16. uruchomić concurrency tests.
+13. dodać `claim_owner_kind = 'calendar_event'` CHECK,
+14. dodać partial uniques i cztery GiST exclusion constraints,
+15. backfillować exact claims z niepustych zasobów `scheduled` eventów,
+16. dodać owner/exact-set `DEFERRABLE INITIALLY DEFERRED` guards,
+17. uruchomić concurrency tests.
 
 Nieznanego legacy statusu nie klasyfikujemy na ślepo jako claiming/nonclaiming. Full lifecycle constraints pozostają DB-CAL-004.
 
@@ -341,6 +342,7 @@ Obowiązkowo:
 - ten sam resource identity w innym OSK nie konfliktuje,
 - custom meeting place nie tworzy managed Location claim,
 - `important_date` nie tworzy claimu,
+- nieznany `claim_owner_kind` jest odrzucany przez DB,
 - scheduled event ma dokładny claim set,
 - bezpośrednia zmiana czasu/resource bez claim sync jest odrzucana,
 - non-scheduled event nie ma aktywnych claims,
@@ -364,6 +366,8 @@ Sprawdzone:
 - wszystkie 4 wymagane resource kinds mają finalną GiST boundary,
 - claims zachowują same-tenant integrity DB-CAL-001,
 - `important_date` i meeting-place semantics DB-CAL-002 są zachowane,
+- nieznany `claim_owner_kind` nie może utworzyć niekontrolowanego orphan claimu,
+- exact-set guard jest odroczony do finalnego stanu transakcji, a nie pominięty,
 - finalną granicą nie jest check-then-insert,
 - scheduled CalendarEvent ma exact transactional claim set,
 - konflikt nie może zostawić częściowej zmiany eventu,
