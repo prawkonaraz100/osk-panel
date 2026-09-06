@@ -13,7 +13,7 @@ meta:
 working_rule:
   diagnosis_only: false
   fixes_applied_in_this_step: true
-  current_step: DB4_6_STEP_5_DB_LIC_005
+  current_step: DB4_6_STEP_6_DB_LIC_006
   one_blocker_per_followup_step: true
   Laravel_migrations_created: false
   Stage5_started: false
@@ -1332,6 +1332,270 @@ resolved_contracts:
       - DB4_9_purchase_payment_inventory_grant_expiration_and_adjustment_command_details
       - exact_HTTP_If_Match_required_marker_and_conflict_status_mapping
 
+  DB-LIC-006:
+    status: PASS
+    resolved_at: 2026-09-07
+    scope: activation_stacking_entitlement_history_concurrency_and_reproducibility_only
+    product_duration_contract:
+      canonical_field: license_products.duration_days
+      type: integer_not_null_check_gt_0
+      runtime_semantics: one_duration_day_equals_exactly_86400_seconds
+      in_place_duration_change_after_first_inventory_reference: forbidden
+      new_duration_requires_new_license_product_row: true
+      product_active_false_invalidates_existing_assigned_inventory: false
+      non_entitlement_metadata_change_rewrites_historical_activation_effect: false
+      pricing_and_inventory_grant_semantics: deferred_to_DB4_9
+      language_capability_semantics: deferred_to_DB_LIC_007
+    inventory_product_binding:
+      license_inventory_entries.license_product_id_immutable_after_inventory_creation: true
+      source_order_item_and_commercial_grant_provenance: deferred_to_DB4_9
+    activation_ledger_model:
+      table: license_activations
+      role: immutable_append_only_entitlement_effect_ledger
+      normal_update: forbidden
+      normal_delete: forbidden
+      one_activation_per_assignment: true
+      fields_added_or_finalized:
+        student_learning_account_id: uuid_not_null
+        entitlement_sequence: bigint_not_null_check_gte_1
+        activation_origin: varchar_32_not_null
+        duration_snapshot_source: varchar_32_not_null
+        duration_days_snapshot: integer_not_null_check_gt_0
+        expiry_before: timestamptz_nullable
+        activated_by_user_id: uuid_nullable_global_FK_users_RESTRICT
+        activated_at: timestamptz_not_null
+        effective_from: timestamptz_not_null
+        effective_to: timestamptz_not_null
+        created_at: timestamptz_not_null
+      expiry_after_duplicate_column_added: false
+      canonical_expiry_after_value: license_activations.effective_to
+      license_product_id_duplicate_snapshot_column_added: false
+      canonical_product_identity_path: activation_to_assignment_to_inventory_to_license_product
+      language_snapshot_or_compatibility_added_here: false
+    exact_learning_account_relation:
+      assignment_candidate_key_required: [organization_id, id, student_learning_account_id]
+      activation_child_columns: [organization_id, license_assignment_id, student_learning_account_id]
+      assignment_parent_columns: [organization_id, id, student_learning_account_id]
+      on_update: RESTRICT
+      on_delete: RESTRICT
+      proves_activation_effect_belongs_to_exact_assignment_learning_account: true
+    activation_sequence:
+      unique_scope: [organization_id, student_learning_account_id, entitlement_sequence]
+      first_sequence_value: 1
+      next_sequence_rule: previous_max_plus_1_under_learning_account_lock
+      gaps_allowed: false
+      duplicate_sequence_allowed: false
+      sequence_is_history_order_not_second_optimistic_concurrency_root: true
+    activation_origin:
+      allowed_values: [learner_self, organization_user, legacy_unknown]
+      runtime_allowed_values: [learner_self, organization_user]
+      legacy_unknown_runtime_insert: forbidden
+      learner_self:
+        activated_by_user_id: required_nonnull
+        activated_by_user_id_must_equal_learning_account_user_id: true
+        fake_organization_membership_required: false
+      organization_user:
+        activated_by_user_id: required_nonnull
+        required_permission: licenses.activate
+        tenant_scope_authorization_required_at_command: true
+      legacy_unknown:
+        activated_by_user_id: nullable_preserve_existing_if_known
+        exact_actor_kind_inferred_from_current_membership_or_user_equality: false
+    duration_snapshot:
+      runtime_source: locked_license_product.duration_days
+      product_row_lock: FOR_SHARE_or_equivalent_stable_read
+      runtime_duration_snapshot_source: product_at_activation
+      runtime_snapshot_must_equal_locked_product_duration: true
+      runtime_product_active_required: false
+      rationale_for_inactive_product: deactivating_catalog_item_does_not_revoke_already_assigned_inventory_right
+      legacy_duration_snapshot_source: legacy_effect_reconstructed
+      legacy_reconstruction_allowed_only_when_existing_effective_interval_is_positive_exact_whole_86400_second_days: true
+      legacy_current_product_duration_used_to_rewrite_existing_effect: false
+    entitlement_chain_final_state_guard:
+      enforcement: DEFERRABLE_INITIALLY_DEFERRED_constraint_trigger_or_equivalent_transactional_DB_guard
+      applies_per: [organization_id, student_learning_account_id]
+      requires_sequence_contiguous_from_1: true
+      sequence_1_expiry_before: null
+      sequence_gt_1_expiry_before_equals_previous_effective_to: true
+      activated_at_source_for_runtime: command_effective_at_captured_once_after_required_locks
+      effective_from_rule: greatest_activated_at_and_expiry_before_when_present
+      effective_to_rule: effective_from_plus_duration_days_snapshot_times_86400_seconds
+      canonical_expiry_after_equals_effective_to: true
+      effective_to_gt_effective_from: true
+      runtime_duration_snapshot_source_must_be_product_at_activation: true
+      legacy_effect_reconstructed_rows_may_preserve_existing_effect_only_if_chain_is_unambiguous: true
+      direct_activation_insert_or_update_with_broken_chain: rejected_at_commit
+    stacking_semantics:
+      prior_entitlement_absent:
+        expiry_before: null
+        effective_from: activated_at
+      prior_entitlement_still_future:
+        expiry_before: previous_effective_to
+        effective_from: previous_effective_to
+        result: full_new_duration_appended_without_losing_remaining_time
+      prior_entitlement_already_past:
+        expiry_before: previous_effective_to
+        effective_from: activated_at
+        result: no_retroactive_fill_of_expired_gap
+      two_or_more_pending_assignments_may_be_activated_sequentially: true
+      always_stack_runtime_rule: true
+      unobserved_competitor_exceptions_imported: false
+    current_entitlement_projection:
+      canonical_source: immutable_license_activations
+      persisted_current_expires_at_column_added: false
+      latest_entitlement_end_expression: MAX_effective_to_per_learning_account
+      no_activation_rows_result: null
+      live_entitlement_at_read_time: latest_entitlement_end_gt_read_effective_at
+      operational_access_also_requires_DB_LIC_003_eligibility: true
+      archive_or_suspension_rewrites_or_pauses_entitlement_end: false
+      entitlement_end_may_remain_past_for_history: true
+      future_performance_cache_allowed: derived_rebuildable_non_authoritative_only
+      management_latest_license_active_count_hide_finished_and_language_projection: deferred_to_DB_LIC_007
+      exact_remaining_days_display_rounding: deferred_to_Stage5_or_DB_LIC_007_projection_contract
+    activation_transaction:
+      endpoint: POST_/license-assignments/{assignmentId}/activate
+      idempotency_required: true
+      expected_assignment_version_required: true
+      lock_order:
+        - claim_idempotency_key
+        - students_row_FOR_UPDATE
+        - student_learning_accounts_row_FOR_UPDATE
+        - license_inventory_entries_row_FOR_UPDATE
+        - license_assignments_row_FOR_UPDATE
+        - license_products_row_FOR_SHARE
+      after_locks_require:
+        - DB_LIC_003_operational_eligibility
+        - DB_LIC_005_assignment_status_assigned
+        - DB_LIC_005_inventory_status_assigned
+        - DB_LIC_005_activation_count_zero
+        - DB_LIC_005_current_assignment_is_this_assignment
+        - expected_assignment_version_matches
+        - product_duration_days_gt_zero
+      sequence_and_prior_expiry_read_after_learning_account_lock: true
+      command_effective_at_captured_once_after_required_locks: true
+      successful_effects_same_transaction:
+        - compute_next_entitlement_sequence
+        - compute_expiry_before_from_previous_sequence_or_null
+        - compute_effective_from
+        - snapshot_product_duration_days
+        - compute_effective_to
+        - validate_activation_origin_and_actor
+        - insert_immutable_license_activation
+        - set_assignment_status_activated_and_increment_version_once
+        - set_same_inventory_row_status_consumed
+        - append_redacted_audit_and_outbox_metadata
+        - complete_idempotency_record
+        - satisfy_DB_LIC_005_inventory_assignment_activation_guard
+        - satisfy_DB_LIC_006_entitlement_chain_guard
+      learning_account_version_increment: false
+      rationale: entitlement_history_is_separate_from_learning_account_configuration_version
+    concurrency_and_races:
+      serialization_root_for_multiple_activations_same_learning_account: student_learning_accounts_row_FOR_UPDATE
+      two_different_assignments_same_learning_account:
+        both_may_succeed: true
+        commit_order: learning_account_lock_acquisition_order
+        second_reads_first_effective_to_after_first_commit: true
+        second_gets_next_sequence: true
+        lost_entitlement_days: false
+      same_assignment_double_activation:
+        both_may_succeed: false
+        protected_by_assignment_lock_version_unique_activation_and_DB_LIC_005_state: true
+      activation_vs_revoke_same_assignment: DB_LIC_005_exactly_one_winner
+      activation_vs_student_archive: DB_LIC_003_parent_lock_serial_order
+      activation_vs_learning_account_suspend: shared_learning_account_lock_and_post_lock_eligibility_check
+      activation_vs_learning_account_configuration_PATCH:
+        serializes_on_learning_account_row: true
+        activation_does_not_bump_learning_account_configuration_version: true
+        language_related_effect_of_order: deferred_to_DB_LIC_007
+    idempotency:
+      same_key_same_request_after_success:
+        second_activation_row: false
+        second_sequence: false
+        assignment_version_second_bump: false
+        inventory_second_consume: false
+        entitlement_extension_second_application: false
+        return_original_safe_activation_result: true
+      same_key_different_request: reject_conflict
+      different_key_after_assignment_already_activated: conflict_without_new_entitlement_effect
+    audit_and_provenance:
+      activation_row_is_primary_entitlement_effect_history: true
+      audit_outbox_required_same_transaction: true
+      minimum_fields:
+        - organization_id
+        - license_assignment_id
+        - student_learning_account_id
+        - entitlement_sequence
+        - activation_origin
+        - activated_by_user_id_nullable_for_legacy_unknown_only
+        - duration_snapshot_source
+        - duration_days_snapshot
+        - expiry_before
+        - expiry_after_equal_effective_to
+        - activated_at
+        - effective_from
+        - effective_to
+        - request_id
+      final_audit_outbox_table_shape: deferred_to_DB4_10
+    migration_design:
+      order:
+        - precheck_every_activation_resolves_through_assignment_to_exact_learning_account_and_inventory_product
+        - precheck_existing_effective_to_gt_effective_from
+        - backfill_student_learning_account_id_from_exact_assignment_relation_only
+        - partition_existing_activations_by_learning_account
+        - derive_entitlement_sequence_only_when_one_unambiguous_order_satisfies_existing_effective_periods
+        - reconstruct_duration_days_snapshot_from_existing_effective_interval_only_when_positive_exact_whole_86400_second_days
+        - set_duration_snapshot_source_legacy_effect_reconstructed_for_migrated_rows
+        - set_activation_origin_legacy_unknown_unless_reliable_historical_origin_evidence_exists
+        - preserve_existing_activated_by_user_id_when_present_without_inferring_origin
+        - derive_expiry_before_from_previous_unambiguous_sequence
+        - verify_effective_from_equals_greatest_activated_at_and_expiry_before_for_chain
+        - add_assignment_candidate_key_org_id_learning_account
+        - add_activation_exact_learning_account_composite_FK
+        - add_activation_sequence_unique_and_checks
+        - add_activation_origin_and_actor_matrix_checks
+        - add_runtime_duration_snapshot_product_validation_trigger
+        - add_activation_immutability_guard
+        - add_deferrable_entitlement_chain_final_state_guard
+        - wire_runtime_activation_to_DB_LIC_005_lock_prefix_plus_product_stable_read
+        - add_exactly_once_stacking_migration_and_concurrency_tests
+      legacy_activation_order_from_created_at_or_UUID_only: forbidden
+      legacy_duration_snapshot_from_current_product_when_existing_effect_disagrees: forbidden
+      rewrite_existing_effective_from_or_effective_to_to_fit_new_rule: forbidden
+      infer_learner_self_or_organization_user_from_current_membership_or_actor_equality: forbidden
+      ambiguous_chain_or_non_whole_day_effect: fail_migration_and_require_reviewed_remediation
+    required_integration_tests:
+      - license_product_duration_days_must_be_positive
+      - product_duration_cannot_change_in_place_after_inventory_exists
+      - inventory_license_product_binding_cannot_change_after_inventory_creation
+      - runtime_activation_duration_snapshot_equals_locked_product_duration
+      - deactivating_product_does_not_invalidate_already_assigned_inventory_activation
+      - activation_belongs_to_exact_assignment_learning_account
+      - activation_sequence_is_unique_per_learning_account_and_starts_at_one
+      - entitlement_sequence_cannot_have_gap_at_commit
+      - first_activation_has_null_expiry_before_and_effective_from_equals_activated_at
+      - extension_before_expiry_uses_previous_effective_to_and_preserves_all_remaining_time
+      - activation_after_expiry_uses_activated_at_and_does_not_backfill_expired_gap
+      - effective_to_equals_effective_from_plus_snapshot_days_exact_86400_seconds
+      - expiry_after_projection_equals_effective_to
+      - activation_row_cannot_be_updated_or_deleted
+      - two_concurrent_different_assignment_activations_same_account_both_commit_serially_without_lost_days
+      - same_assignment_cannot_activate_twice
+      - same_idempotency_key_does_not_apply_entitlement_twice
+      - different_key_after_activation_does_not_extend_again
+      - activation_and_revoke_same_assignment_still_have_exactly_one_winner
+      - archived_or_suspended_target_cannot_receive_new_activation
+      - learner_self_origin_requires_actor_equal_learning_account_user
+      - organization_user_origin_requires_real_actor_and_activation_permission_scope
+      - legacy_unknown_origin_cannot_be_created_by_runtime
+      - current_entitlement_end_is_max_effective_to_and_not_independent_mutable_column
+      - entitlement_expiry_continues_during_student_archive_or_account_suspension
+      - activated_assignment_remains_activated_after_entitlement_end_passes
+      - legacy_migration_does_not_guess_order_duration_or_actor_origin_or_rewrite_effective_times
+    explicitly_not_solved_in_this_step:
+      - DB-LIC-007_language_capability_assignment_snapshot_and_management_latest_status_count_hide_finished_projection_rules
+      - DB4_9_pricing_purchase_payment_inventory_grant_and_commercial_adjustment_details
+      - exact_HTTP_If_Match_activation_origin_and_error_mapping_sync
+
 blockers:
   - id: DB-LIC-001
     severity: P1
@@ -1422,7 +1686,8 @@ blockers:
   - id: DB-LIC-006
     severity: P1
     title: activation_stacking_entitlement_history_concurrency_and_reproducibility
-    status: OPEN
+    status: RESOLVED
+    resolution_ref: resolved_contracts.DB-LIC-006
     diagnosis:
       - aggregate intends to serialize activation on StudentLearningAccount and create one activation period per assignment but final current-entitlement integrity is not DB-closed
       - concurrent extensions must not lose days and must produce deterministic nonoverwriting history
@@ -1462,11 +1727,11 @@ diagnosis_summary:
   result: FAIL_WITH_7_P1_BLOCKERS
 
 current_gate_summary:
-  blockers_resolved_after_diagnosis: 5
-  open_P0_P1: 2
-  result: FAIL_WITH_2_P1_BLOCKERS
-  resolved_blockers: [DB-LIC-001, DB-LIC-002, DB-LIC-003, DB-LIC-004, DB-LIC-005]
-  next_blocker: DB-LIC-006
+  blockers_resolved_after_diagnosis: 6
+  open_P0_P1: 1
+  result: FAIL_WITH_1_P1_BLOCKER
+  resolved_blockers: [DB-LIC-001, DB-LIC-002, DB-LIC-003, DB-LIC-004, DB-LIC-005, DB-LIC-006]
+  next_blocker: DB-LIC-007
 
 nonblockers_and_deferred_questions:
   - exact_public_prices_discounts_VAT_and_payment_provider_flow_belong_to_DB4_9
@@ -1476,7 +1741,6 @@ nonblockers_and_deferred_questions:
   - exact_HTTP_If_Match_required_markers_and_error_codes_remain_Stage5_acceptance_contract_sync
   - exact_max_bulk_PDF_count_and_select_visible_pagination_behavior_are_application_product_limits_not_database_P1
   - exact_competitor_semantics_of_inventory_card_active_count_remain_unobservable_but_our_projection_must_be_defined_before_implementation
-  - exact_always_stack_exceptions_of_the_competitor_are_not_assumed; our entitlement rule will be an explicit product decision when DB_LIC_006_is_fixed
 
 preservation_checks:
   all_confirmed_license_variants_remain_data_not_hardcoded_global_rule: PASS
@@ -1548,7 +1812,21 @@ preservation_checks:
   expired_and_adjusted_inventory_cannot_be_assigned_in_normal_flow: PASS
   consumed_inventory_history_is_not_rewritten_to_adjusted: PASS
   DB_LIC_006_entitlement_math_and_activation_provenance_not_fixed_in_DB_LIC_005_step: PASS
-  DB_LIC_007_language_capability_and_projection_not_fixed_in_DB_LIC_005_step: PASS
+  runtime_activation_effect_is_immutable_and_exactly_once: PASS
+  activation_points_to_exact_assignment_learning_account: PASS
+  entitlement_sequence_is_contiguous_unique_and_not_second_concurrency_root: PASS
+  active_extension_stacks_after_previous_expiry_without_lost_days: PASS
+  expired_access_new_activation_starts_at_command_effective_at_without_backfill: PASS
+  concurrent_extensions_same_learning_account_serialize_without_lost_time: PASS
+  duration_days_snapshot_preserves_historical_effect: PASS
+  license_product_duration_cannot_change_in_place_after_inventory_reference: PASS
+  inventory_product_binding_is_immutable: PASS
+  activation_origin_distinguishes_learner_self_organization_user_and_legacy_unknown: PASS
+  learner_self_activation_uses_real_learning_account_user_not_fake_OSK_actor: PASS
+  current_entitlement_end_is_derived_from_MAX_effective_to_not_second_mutable_authority: PASS
+  entitlement_expiry_continues_during_archive_or_suspension: PASS
+  legacy_activation_migration_does_not_guess_chain_duration_or_actor_origin: PASS
+  DB_LIC_007_language_capability_and_management_projection_not_fixed_in_DB_LIC_006_step: PASS
   purchase_payment_scope_not_accidentally_solved_in_DB4_6: PASS
   DB4_7_or_later_scope_not_entered: PASS
   aggregate_core_schema_modified_in_diagnosis: false
@@ -1559,16 +1837,16 @@ preservation_checks:
   UI_or_feature_implementation_started: false
 
 next_single_step:
-  id: DB4_6_STEP_6
-  blocker: DB-LIC-006
-  action: resolve_activation_stacking_entitlement_history_concurrency_and_reproducibility_only
+  id: DB4_6_STEP_7
+  blocker: DB-LIC-007
+  action: resolve_product_language_capability_assignment_snapshot_and_management_projection_consistency_only
   allowed_files:
     - specs/database/licenses-learning-access.yml
     - docs/110-stage-4-licenses-learning-access-audit.md
     - specs/gates/stage-4-database-contract-gate.yml
   scope_lock: >-
-    Resolve only DB-LIC-006. Do not fix DB-LIC-007, do not synchronize
-    specs/database/core-schema.yml or docs/87-physical-database-schema.md until the
-    final DB4_6 aggregate sync, do not enter DB4_7 or later slices, do not create
-    Laravel migrations, do not start Stage 5 and do not implement UI/features.
-  after_action: rerun_DB4_6_gate_and_STOP_before_DB_LIC_007
+    Resolve only DB-LIC-007. Do not synchronize specs/database/core-schema.yml or
+    docs/87-physical-database-schema.md until the final DB4_6 aggregate sync, do not
+    enter DB4_7 or later slices, do not create Laravel migrations, do not start Stage 5
+    and do not implement UI/features.
+  after_action: rerun_DB4_6_gate_and_STOP_before_DB4_6_final_aggregate_sync
