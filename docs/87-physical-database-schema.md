@@ -2,9 +2,11 @@
 
 Data: 2026-09-06
 
-**Status:** `IMPLEMENTATION_BLUEPRINT`
+**Status:** `IMPLEMENTATION_BLUEPRINT / DB4_4_AGGREGATE_SYNC_PASS`
 
 > To nie są jeszcze migracje Laravel. To fizyczny blueprint tabel, indeksów, constraintów i najważniejszych transakcji zgodny z canonical domain model. Machine-readable odpowiednik: `specs/database/core-schema.yml`. Przy konflikcie machine spec + późniejszy ADR wygrywa. Reverse-engineered scope chronią `docs/96-reverse-engineering-preservation-contract.md` i `specs/reverse-engineering-manifest.yml`. Cross-layer kompletność kontroluje `specs/traceability/core-v1.yml`.
+
+DB4_4 Students / Courses / Training Ledger został zsynchronizowany z `specs/database/students-courses-training.yml` po zamknięciu DB-TRN-001..008. Sekcje 11–14 oraz odpowiadające im constrainty, transakcje, kolejność migracji i testy poniżej są agregatową projekcją tych rozstrzygnięć.
 
 ---
 
@@ -43,8 +45,10 @@ Preferowany wzorzec:
 ## 2.2 PKK
 
 Analogicznie:
-- `pkk_number_ciphertext text null`,
-- `pkk_lookup_hash char(64) null`.
+- `pkk_number_ciphertext text`,
+- `pkk_lookup_hash char(64)`,
+- dla bieżącej formalnej identity PKK oba pola są wymagane,
+- plaintext PKK istnieje tylko na autoryzowanym command boundary, a po zapisie jest odrzucany.
 
 ## 2.3 Credentials/provider secrets
 
@@ -706,26 +710,50 @@ Cross-tenant Vehicle↔Location nie może przejść constraintów ani zanieczyś
 
 ---
 
-# 11. Students / learning access
+# 11. Students / learning access — DB4_4 aggregate
+
+Canonical szczegóły tej sekcji: `specs/database/students-courses-training.yml`, DB-TRN-001..003.
 
 ## `students`
 
 - `id uuid PK`
-- `organization_id uuid FK`
+- `organization_id uuid FK organizations not null`
 - `first_name varchar(120) not null`
 - `last_name varchar(120) not null`
 - `birth_date date null`
+- `no_pesel_declared boolean not null default false`
 - `pesel_ciphertext text null`
 - `pesel_lookup_hash char(64) null`
 - `contact_email_normalized varchar(320) null`
 - `phone varchar(40) null`
-- `default_location_id uuid null FK locations`
+- `default_location_id uuid null`
 - `archived_at timestamptz null`
 - `archived_by_user_id uuid null`
+- `version bigint not null default 1 check (version >= 1)`
 - `created_at`
 - `updated_at`.
 
-Validation: branch z PESEL albo formalny branch bez PESEL + birth date.
+Candidate key:
+
+`UNIQUE(organization_id,id)`.
+
+`default_location_id`, jeśli nie jest `NULL`, jest chronione przez composite FK `(organization_id,default_location_id) -> locations(organization_id,id)` z `ON UPDATE/DELETE RESTRICT`.
+
+PESEL jest jednym logicznym identyfikatorem zapisanym jako ciphertext + keyed lookup hash. Row check wymaga obu pól jednocześnie `NULL` albo jednocześnie non-NULL. `no_pesel_declared=true` wymaga jednocześnie braku PESEL pair i `birth_date IS NOT NULL`; PESEL obecny zabrania `no_pesel_declared=true`.
+
+Pre-course Student może istnieć z niekompletną tożsamością. Formalny `CourseEnrollment` może jednak wskazywać tylko Studenta spełniającego jeden z branchy:
+1. `no_pesel_declared=false` + kompletna para PESEL,
+2. `no_pesel_declared=true` + brak PESEL + data urodzenia.
+
+Formal-identity guard jest constraint triggerem deferrable albo równoważną transactional DB boundary. Student mający historyczny formalny kurs nie może później zostać zdegradowany do stanu incomplete.
+
+Partial unique:
+
+`UNIQUE(organization_id,pesel_lookup_hash) WHERE pesel_lookup_hash IS NOT NULL`.
+
+Obejmuje archived rows; archive nie zwalnia PESEL. Nie tworzymy fałszywego hard unique na `imię+nazwisko+data_urodzenia` dla osób bez PESEL.
+
+`students.version` jest jednym concurrency root dla profile edit, identity edit, archive i restore. Course create i Student archive serializują się na Student row. Archive przy aktywnym kursie jest conflict i nie anuluje, nie przerywa ani nie usuwa kursu. Restore używa tego samego durable Student row i nie otwiera historycznych kursów.
 
 ## `student_learning_accounts`
 
@@ -739,6 +767,8 @@ Validation: branch z PESEL albo formalny branch bez PESEL + birth date.
 - `status varchar(32) not null`
 - `created_at`
 - `updated_at`.
+
+`(organization_id,student_id) -> students(organization_id,id)` jest same-tenant FK. Szczegółowy lifecycle licencji/dostępu pozostaje DB4_6.
 
 ## `student_access_handoffs`
 
@@ -754,18 +784,20 @@ Nie ma kolumny plaintext password.
 
 ---
 
-# 12. CourseEnrollment / requirements
+# 12. CourseEnrollment / lifecycle / requirements — DB4_4 aggregate
+
+Canonical szczegóły: DB-TRN-004, DB-TRN-005 i DB-TRN-007.
 
 ## `course_enrollments`
 
 - `id uuid PK`
-- `organization_id uuid FK`
-- `student_id uuid FK`
+- `organization_id uuid FK not null`
+- `student_id uuid not null`
 - `training_type varchar(32) not null`
-- `driving_category_id uuid FK`
+- `driving_category_id uuid FK not null`
 - `started_at timestamptz not null`
-- `lead_instructor_id uuid FK staff_profiles`
-- `location_id uuid null FK locations`
+- `lead_instructor_id uuid not null`
+- `location_id uuid null`
 - `training_stage varchar(64) not null`
 - `declared_theory_minutes integer null check >= 0`
 - `declared_practical_minutes integer null check >= 0`
@@ -774,18 +806,119 @@ Nie ma kolumny plaintext password.
 - `cancelled_at timestamptz null`
 - `cancelled_by_user_id uuid null`
 - `created_by_user_id uuid`
-- `version integer not null default 1`
+- `version bigint not null default 1 check (version >= 1)`
+- `requirements_revision bigint not null default 1 check (requirements_revision >= 1)`
 - `created_at`
 - `updated_at`.
 
-`declared_*` zachowują zaobserwowane pola jako plan/deklarację. **Nie są zaliczonym formalnym czasem.**
+Candidate keys:
+- `UNIQUE(organization_id,id)`,
+- `UNIQUE(organization_id,id,student_id)` dla exact-Course-Student FK Attendance.
+
+Composite same-tenant FK chronią Student, lead instructor oraz optional Location. `organization_id` nie jest client authority.
+
+`declared_*` zachowują zaobserwowane pola jako plan/deklarację i **nie są zaliczonym formalnym czasem**.
+
+Canonical `training_stage` values:
+`unassigned|theory|practice|documentation|word_exam|supplementary_training|training_completed`.
+
+Lifecycle nie ma drugiej mutowalnej kolumny status. Jest wyprowadzany z terminal timestamps:
+- active: wszystkie terminal timestamps `NULL`, stage != `training_completed`,
+- completed: tylko `completed_at` non-NULL i stage `training_completed`,
+- interrupted: tylko `interrupted_at` non-NULL i stage != `training_completed`,
+- cancelled: tylko `cancelled_at` non-NULL, `cancelled_by_user_id` non-NULL i stage != `training_completed`.
+
+DB wymusza maksymalnie jeden terminal timestamp oraz równoważność `training_completed <-> completed_at non-NULL`. Normalny restore otwiera tylko cancelled Course; completed/interrupted wymagają jawnej exceptional lifecycle correction. Generic PATCH terminalnego Course jest zabroniony bez correction mode.
+
+## `course_enrollment_lifecycle_events`
+
+Append-only historia każdej materialnej wersji Course:
+- `id uuid PK`
+- `organization_id uuid not null`
+- `course_enrollment_id uuid not null`
+- `event_type varchar(48) not null`
+- `from_lifecycle_state varchar(24) null`
+- `to_lifecycle_state varchar(24) not null`
+- `from_training_stage varchar(64) null`
+- `to_training_stage varchar(64) not null`
+- `course_version_before bigint null`
+- `course_version_after bigint not null`
+- `reason text null`
+- `actor_user_id uuid null only for migration baseline`
+- `correction_of_event_id uuid null`
+- `event_payload_redacted jsonb null`
+- `occurred_at timestamptz not null`.
+
+Same-tenant composite FK do Course oraz self-FK dla `correction_of_event_id`. Unique `(organization_id,course_enrollment_id,course_version_after)` gwarantuje jeden event per material Course version. Normalne eventy mają `after = before + 1`; migration baseline może mieć `before=NULL`. Historia nie jest aktualizowana ani usuwana przez normalny lifecycle.
+
+## `training_requirement_rule_sets`
+
+Globalny, immutable katalog dokładnych artefaktów rule engine:
+- `version varchar(64) PK`
+- `jurisdiction varchar(16) not null`
+- `content_hash char(64) not null`
+- `source_reference varchar(255) null`
+- `effective_from timestamptz null`
+- `published_at timestamptz not null`
+- `created_at timestamptz not null`.
+
+Raz użytej `version` nie wolno przypisać innej treści.
+
+## `course_requirement_contexts`
+
+Jeden current non-course source-fact row na Course:
+- `organization_id uuid not null`
+- `course_enrollment_id uuid not null`
+- `state_theory_passed boolean not null default false`
+- `evidence_reference varchar(255) null`
+- `effective_from timestamptz not null`
+- `updated_by_user_id uuid not null`
+- `updated_at timestamptz not null`.
+
+PK `(organization_id,course_enrollment_id)`. Nie ma własnego concurrency root; używa Course version.
+
+## `course_requirement_context_held_categories`
+
+Normalized current held-category set:
+- `organization_id uuid not null`
+- `course_enrollment_id uuid not null`
+- `driving_category_id uuid not null`.
+
+PK `(organization_id,course_enrollment_id,driving_category_id)`.
+
+## `course_requirement_override_decisions`
+
+Audytowalna, opcjonalna manual override decision history:
+- `id uuid PK`
+- `organization_id uuid not null`
+- `course_enrollment_id uuid not null`
+- `override_payload jsonb not null`
+- `reason text not null`
+- `evidence_reference varchar(255) null`
+- `approved_by_user_id uuid not null`
+- `created_at timestamptz not null`
+- `revoked_at timestamptz null`
+- `revoked_by_user_id uuid null`
+- `revocation_reason text null`.
+
+Dozwolone override keys są ograniczone do requirement outputs: theory/practical required, minimum minutes oraz internal theory/practical exam required. Maximum one current row per Course: partial unique `(organization_id,course_enrollment_id) WHERE revoked_at IS NULL`.
 
 ## `training_requirement_profiles`
 
+Immutable calculation-decision history + jeden current projection:
 - `id uuid PK`
-- `organization_id uuid FK`
-- `course_enrollment_id uuid FK`
-- `rule_set_version varchar(64)`
+- `organization_id uuid not null`
+- `course_enrollment_id uuid not null`
+- `requirements_revision bigint not null`
+- `course_version_after bigint not null`
+- `rule_set_version varchar(64) not null FK training_requirement_rule_sets`
+- `trigger_code varchar(64) not null`
+- `calculation_reason text null`
+- `calculated_by_user_id uuid null for system`
+- `input_snapshot jsonb not null`
+- `base_output_snapshot jsonb not null`
+- `effective_output_snapshot jsonb not null`
+- `manual_override_decision_id uuid null`
 - `theory_training_required boolean`
 - `minimum_theory_minutes integer`
 - `internal_theory_exam_required boolean`
@@ -793,97 +926,167 @@ Nie ma kolumny plaintext password.
 - `minimum_practical_minutes integer`
 - `internal_practical_exam_required boolean`
 - `exemption_basis_code varchar(128) null`
-- `input_snapshot jsonb not null`
-- `calculated_at timestamptz`
+- `calculated_at timestamptz not null`
 - `superseded_at timestamptz null`.
 
-Partial unique `(course_enrollment_id)` where `superseded_at is null`.
+Partial unique `(organization_id,course_enrollment_id) WHERE superseded_at IS NULL` daje at-most-one current. Unique `(organization_id,course_enrollment_id,requirements_revision)` daje jeden decision per revision. Deferrable final-state guard wymaga **dokładnie jednego** current profile i `profile.requirements_revision = course_enrollments.requirements_revision` dla każdego committed formal Course.
+
+Snapshot przechowuje dokładne normalized inputs, rule-set version + hash i decyzje exemption/override. PESEL i PKK nie trafiają do requirement snapshotów.
 
 ## `course_exemption_decisions`
 
 - `id uuid PK`
-- `organization_id uuid FK`
-- `course_enrollment_id uuid FK`
+- `organization_id uuid not null`
+- `course_enrollment_id uuid not null`
 - `basis_code varchar(128)`
 - `evidence_reference varchar(255) null`
 - `reason text null`
 - `approved_by_user_id uuid`
 - `rule_set_version varchar(64)`
 - `created_at`
-- `revoked_at timestamptz null`.
+- `revoked_at timestamptz null`
+- `revoked_by_user_id uuid null`
+- `revocation_reason text null`.
+
+Business fields są immutable po insert. Partial unique `(organization_id,course_enrollment_id) WHERE revoked_at IS NULL`. Replacement/revoke zachowuje dawną decyzję i w tej samej Course-serialized transakcji zwiększa `requirements_revision`, tworzy nowy current RequirementProfile i lifecycle history event.
 
 ## `recognized_external_training`
 
+Wersjonowana historia godzin uznanych z poprzedniego OSK:
 - `id uuid PK`
-- `organization_id uuid FK`
-- `course_enrollment_id uuid FK`
+- `organization_id uuid not null`
+- `course_enrollment_id uuid not null`
 - `training_part varchar(32)` — `theory|practical`
-- `recognized_minutes integer not null check >= 0`
-- `source_kind varchar(32)` — `course_form_initial|documented_transfer|correction`
+- `recognized_minutes integer not null` — current runtime row > 0; zero reprezentujemy brakiem current effect,
+- `record_role varchar(32)` — `course_form_projection|documented_transfer`,
+- `source_kind varchar(32)` — `course_form_initial|course_form_revision|documented_transfer|correction|context_revalidation`,
 - `source_school_reference varchar(255) null`
 - `evidence_reference varchar(255) null`
 - `reason text null`
 - `approved_by_user_id uuid`
+- `recognized_for_driving_category_id uuid null only for noncurrent legacy unknown`
+- `recognized_for_training_type varchar(32) null only for noncurrent legacy unknown`
+- `supersedes_record_id uuid null`
 - `created_at`
+- `superseded_at timestamptz null`
 - `revoked_at timestamptz null`
 - `revoked_by_user_id uuid null`
-- `reversal_reason text null`.
+- `revocation_reason text null`.
+
+Current predicate: `superseded_at IS NULL AND revoked_at IS NULL` oraz context snapshot zgodny z bieżącą kategorią i training type Course.
+
+`course_form_projection` ma partial unique `(organization_id,course_enrollment_id,training_part)` dla current rows — formularz ma zatem jedną bieżącą scalar wartość per część. `documented_transfer` jest niezależnym additive recordem; wiele current transferów jest sumowanych.
+
+Korekta external to **pełne replacement value**, nie signed delta jak Ledger correction. Source jest superseded, successor zachowuje tenant/Course/part/role. Composite self-FK oraz partial unique na `supersedes_record_id` zabraniają cross-course lineage i branchowania. Nie używamy `MAX(created_at)` / „latest row wins”.
+
+Zmiana kategorii lub training type Course wymaga revalidation current external rows w tej samej transakcji. DB nie koduje niezweryfikowanej macierzy legalnej kompatybilności; wymusza jedynie, że po domain decision nie pozostanie stale-context current credit.
+
+Formalny total per part:
+
+`current_OSK_ledger_minutes + current_recognized_external_minutes`.
+
+Teoria i praktyka nie zastępują się wzajemnie.
 
 ---
 
-# 13. Training sessions / formal hour ledger
+# 13. Training sessions / formal hour ledger — DB4_4 aggregate
+
+Canonical szczegóły: DB-TRN-001 i DB-TRN-006.
 
 ## `training_sessions`
 
 - `id uuid PK`
-- `organization_id uuid FK`
-- `course_enrollment_id uuid FK`
-- `session_type varchar(32)`
-- `starts_at timestamptz`
-- `ends_at timestamptz`
-- `duration_minutes integer`
-- `instructor_id uuid FK staff_profiles`
-- `vehicle_id uuid null FK vehicles`
-- `location_id uuid null FK locations`
-- `status varchar(32)`
+- `organization_id uuid not null`
+- `course_enrollment_id uuid not null`
+- `session_type varchar(32)` — formal creditable `theory|practical`
+- `starts_at timestamptz not null`
+- `ends_at timestamptz not null`
+- `duration_minutes integer not null check > 0`
+- `instructor_id uuid not null`
+- `vehicle_id uuid null`
+- `location_id uuid null`
+- `status varchar(32) not null` — `planned|completed|cancelled`
+- `completed_at timestamptz null`
+- `completed_by_user_id uuid null`
+- `cancelled_at timestamptz null`
+- `cancelled_by_user_id uuid null`
+- `cancellation_reason text null`
 - `created_by_user_id uuid`
-- `version integer default 1`
+- `version bigint not null default 1 check (version >= 1)`
 - `created_at`
 - `updated_at`.
 
-Check `ends_at > starts_at`.
+Candidate keys:
+- `UNIQUE(organization_id,id)`,
+- `UNIQUE(organization_id,id,course_enrollment_id)`.
+
+Composite same-tenant FKs do Course, Instructor oraz optional Vehicle/Location. `duration_minutes` jest dokładną dodatnią liczbą pełnych minut pomiędzy `starts_at` i `ends_at`; nie zaokrąglamy sesji do bloków 45/60.
+
+State checks wiążą `planned/completed/cancelled` z odpowiednią terminal metadata. Completed/cancelled Session jest normalnie immutable i nie hard-delete.
 
 ## `training_session_attendance`
 
-- `training_session_id uuid FK`
-- `student_id uuid FK`
-- `status varchar(32)`
+- `organization_id uuid not null`
+- `training_session_id uuid not null`
+- `course_enrollment_id uuid not null`
+- `student_id uuid not null`
+- `status varchar(32)` — `present|absent`
 - `confirmed_by_user_id uuid null`
 - `confirmed_at timestamptz null`.
 
-Unique `(training_session_id,student_id)`.
+Canonical cardinality: `UNIQUE(organization_id,training_session_id)` — jeden Attendance row na single-student formal Session.
+
+Exact integrity:
+- `(organization_id,training_session_id,course_enrollment_id) -> training_sessions(organization_id,id,course_enrollment_id)`,
+- `(organization_id,course_enrollment_id,student_id) -> course_enrollments(organization_id,id,student_id)`.
+
+Confirmation actor i time są oba NULL albo oba non-NULL. Formalny base credit może powstać wyłącznie dla verified `present`.
 
 ## `training_hour_ledger_entries`
 
-Immutable.
-
+Immutable / append-only:
 - `id uuid PK`
-- `organization_id uuid FK`
-- `course_enrollment_id uuid FK`
-- `training_session_id uuid null FK`
+- `organization_id uuid not null`
+- `course_enrollment_id uuid not null`
+- `training_session_id uuid null`
 - `entry_type varchar(32)` — `credit|opening_balance|correction|reversal`
-- `training_part varchar(32)`
+- `training_part varchar(32)` — `theory|practical`
 - `minutes integer not null`
 - `source_entry_id uuid null`
 - `reason text null`
-- `actor_user_id uuid`
+- `actor_user_id uuid not null for new runtime entries`
 - `created_at`.
 
-Formalny credited time bieżącego OSK = ledger projection.
+Session relation jest exact-course composite FK:
+`(organization_id,training_session_id,course_enrollment_id) -> training_sessions(organization_id,id,course_enrollment_id)`.
+
+Source relation dla correction/reversal obejmuje tenant + source ID + Course + training part, więc nie można korygować wpisu z innego Course albo part.
+
+Partial unique:
+- base credit: `(organization_id,training_session_id) WHERE entry_type='credit'`,
+- opening balance: `(organization_id,course_enrollment_id,training_part) WHERE entry_type='opening_balance'`,
+- reversal source: `(organization_id,source_entry_id) WHERE entry_type='reversal'`.
+
+Entry matrix:
+- `credit`: dodatni, Session required, source NULL, minutes = exact Session duration, part wynika z Session type,
+- `opening_balance`: dodatni, no Session/source, reason required, tylko explicit current-OSK import,
+- `correction`: non-zero signed delta, reason required, source optional,
+- `reversal`: dokładne `-source.minutes`, source required, source typu reversal niedozwolony.
+
+Deferrable final-state guard:
+- planned Session -> 0 credits,
+- cancelled Session -> 0 credits,
+- completed + verified present -> dokładnie 1 matching credit,
+- completed + verified absent -> 0 credits,
+- completed Session -> dokładnie 1 verified Attendance.
+
+Complete transaction lock order: `Course -> Session -> Attendance`. Cancel: `Course -> Session`. Complete/cancel race nie może pozostawić cancelled Session z creditem ani present completed Session bez creditu.
+
+Current OSK formal time = signed sum Ledger per `Course + training_part`. Course-part total oraz source-linked Session subtotal nie mogą być ujemne. Godziny zadeklarowane w Course form nie zwiększają Ledger; godziny z poprzedniego OSK pozostają w `recognized_external_training`.
 
 ---
 
-# 14. PKK
+# 14. PKK — local course identity + provider boundary
 
 ## `pkk_integration_settings`
 
@@ -899,18 +1102,72 @@ Canonical one-to-one konfiguracja PKK dla organizacji, wspólna dla `/ustawienia
 
 `readiness_status`: `not_configured|configured_unverified|verified|requires_attention`.
 
+Konfiguracja providera jest osobnym konceptem. Brak zweryfikowanej konfiguracji nie blokuje lokalnego atomowego zapisu Course + wymaganej identity PKK; blokuje/warunkuje późniejsze provider operations w DB4_8.
+
 ## `pkk_profiles`
 
+Canonical owner course-scoped identity PKK oraz jej wersjonowanej historii. Nie ma drugiej kopii PKK na `course_enrollments`.
+
 - `id uuid PK`
-- `organization_id uuid FK`
-- `course_enrollment_id uuid unique FK`
-- `pkk_number_ciphertext text null`
-- `pkk_lookup_hash char(64) null`
-- `status varchar(64) null`
+- `organization_id uuid not null`
+- `course_enrollment_id uuid not null`
+- `pkk_number_ciphertext text not null`
+- `pkk_lookup_hash char(64) not null`
+- `identity_revision bigint not null check >= 1`
+- `bound_driving_category_id uuid not null`
+- `bound_training_type varchar(32) not null`
+- `record_origin varchar(32) not null` — `course_create|course_edit|context_revalidation|migration_baseline`
+- `recorded_at timestamptz not null`
+- `recorded_by_user_id uuid null only for migration baseline`
+- `supersedes_pkk_profile_id uuid null`
+- `superseded_at timestamptz null`
+- `superseded_by_user_id uuid null`
+- `status varchar(64) null` — provider lifecycle ownership DB4_8
 - `profile_snapshot_ciphertext text null`
 - `profile_snapshot_redacted jsonb null`
 - `fetched_at timestamptz null`
 - `updated_at`.
+
+Current predicate: `superseded_at IS NULL`.
+
+Composite same-tenant Course FK:
+`(organization_id,course_enrollment_id) -> course_enrollments(organization_id,id)`.
+
+Candidate key `(organization_id,id,course_enrollment_id)` pozwala lineage self-FK:
+`(organization_id,supersedes_pkk_profile_id,course_enrollment_id) -> pkk_profiles(organization_id,id,course_enrollment_id)`.
+
+Constraints:
+- unique `(organization_id,course_enrollment_id,identity_revision)`,
+- partial unique `(organization_id,course_enrollment_id) WHERE superseded_at IS NULL`,
+- partial unique `(organization_id,supersedes_pkk_profile_id) WHERE supersedes_pkk_profile_id IS NOT NULL`,
+- source musi być current przed replacement; self-reference/cycle/branching zabronione.
+
+Deferrable required-current-profile guard wymaga po commit **dokładnie jednego current `pkk_profile` dla każdego CourseEnrollment** oraz zgodności `bound_driving_category_id` i `bound_training_type` z finalnym Course.
+
+PKK write contract:
+1. plaintext tylko na autoryzowanym command boundary,
+2. jedna canonical normalization,
+3. z tego samego normalized inputu powstają ciphertext + HMAC lookup hash,
+4. zapis obu atomowo,
+5. plaintext nie trafia do Course, historii, audit ani outbox.
+
+DB4_4 świadomie **nie** wprowadza hard unique na `pkk_lookup_hash`, bo duplicate/collision policy nie została potwierdzona. Lookup hash służy do bezpiecznego authorized collision detection; exact provider/legal collision policy pozostaje DB4_8 + legal/product verification.
+
+Course create atomowo zapisuje:
+- CourseEnrollment,
+- current PkkProfile `identity_revision=1`, `record_origin=course_create`,
+- requirement context/current RequirementProfile,
+- initial external rows, jeśli są dodatnie,
+- Course lifecycle `created` event,
+- audit/outbox.
+
+Błąd PKK encryption/hash/profile insert rollbackuje cały Course create. Provider fetch nie jest wymagany przed lokalnym commit.
+
+Zmiana PKK nie nadpisuje current profile in-place. Stary row jest superseded, a successor dostaje `identity_revision+1`, finalny Course context i `record_origin=course_edit`. Ten sam normalized PKK = identity-history no-op.
+
+Zmiana category/training type wymaga revalidation PKK context w tej samej Course-serialized transakcji. Kompatybilny ten sam PKK może dostać `context_revalidation` successor bez ponownego plaintextu; incompatibility/unknown bez replacement PKK blokuje Course context change. Nie kodujemy niezweryfikowanej macierzy provider/legal compatibility.
+
+Cancel/restore Course nie kasuje ani nie supersede'uje PKK i nie wykonuje ukrytego provider return/fetch.
 
 ## `pkk_operations`
 
@@ -944,6 +1201,8 @@ Canonical one-to-one konfiguracja PKK dla organizacji, wspólna dla `/ustawienia
 - `finished_at timestamptz null`.
 
 Unique `(pkk_operation_id,attempt_no)`.
+
+**DB4_4 synchronizuje tylko local required course PKK identity.** Exact provider configuration verification, fetch/update/return/XML-signature/status/retry/idempotency/reconciliation i operation-attempt constraints pozostają do osobnego DB4_8.
 
 ---
 
@@ -1374,7 +1633,7 @@ Preferowane:
 
 `organization_memberships` nie jest hard-delete. Suspend/revoke są lifecycle state changes.
 
-Nigdy cascade-delete z `Student` do course enrollment, exam, payment ani PKK operation history. Nigdy cascade-delete z `CourseEnrollment` do PKK operations, training hour ledger, internal exam attempts ani student charges.
+Nigdy cascade-delete z `Student` do CourseEnrollment, ExamAttempt, payment ani PKK operation history. Nigdy cascade-delete z `CourseEnrollment` do `pkk_profiles`, PKK operations, training hour ledger, internal exam attempts ani student charges.
 
 ---
 
@@ -1389,7 +1648,13 @@ Minimum pod obserwowane query:
 - staff: archived + name + document expiry,
 - vehicles: archived + registration + document expiry,
 - locations: archived + type,
-- course_enrollments: student + stage + start,
+- course_enrollments: student + stage + start + version/requirements revision,
+- course lifecycle events: Course + version/time,
+- requirement profiles: Course + current/revision,
+- recognized external: Course + part + current role,
+- training sessions: Course + status/time,
+- training ledger: Course + part + Session/source,
+- pkk profiles: Course + current/revision,
 - calendar_events: time range + resource IDs,
 - student_charges/payments: student + date/status,
 - license inventory: product/status,
@@ -1451,6 +1716,38 @@ Staff / Locations / Vehicles DB4_3:
 - restore Staff nie przywraca automatycznie panel access ani starych sesji,
 - jawny panel restore tworzy nowy StaffMembershipLink i respektuje suspended/revoked membership lifecycle.
 
+Students / Courses / Training DB4_4:
+- pre-course Student może istnieć bez kompletnej formal identity, ale Course create jest odrzucony do czasu spełnienia PESEL lub explicit no-PESEL + birth date,
+- `no_pesel_declared=true` wymaga birth date i braku PESEL pair,
+- Student PESEL ciphertext/hash pair jest atomowa i duplicate same-organization jest odrzucony również przy archived row,
+- dwa Student mutations z tym samym expected version nie mogą oba commitować,
+- Course create vs Student archive nie może pozostawić archived Student + nowy active Course,
+- wszystkie same-tenant Student/Course/Training relacje odrzucają cross-tenant reference w DB,
+- Course terminal timestamps są mutually exclusive, a `training_completed` nie może rozjechać się z `completed_at`,
+- każdy material Course version ma dokładnie jeden append-only lifecycle event,
+- normalny restore otwiera tylko cancelled Course i nie może aktywować go pod archived Student,
+- current RequirementProfile jest dokładnie jeden i ma revision równą Course `requirements_revision`,
+- rule-set version wskazuje immutable hashed artifact,
+- requirement source fact change nie może commitować bez nowego current profile,
+- exemption/override replacement zachowuje wcześniejszą historię,
+- Attendance jest exact Session Course + exact Course Student i jest maksymalnie jeden per Session,
+- completed verified present Session ma dokładnie jeden base credit,
+- completed absent, planned i cancelled Session mają zero base credit,
+- duplicate base credit per Session jest odrzucony,
+- correction/reversal source jest same tenant + same Course + same training part,
+- ten sam source nie może być reversed dwa razy; reversal-of-reversal jest zabroniony,
+- declared Course hours nie zwiększają formalnego Ledger bez wpisu ledgerowego,
+- course-form external projection ma najwyżej jeden current row per Course+part,
+- documented external transfers są addytywne, a replacement correction nie double-countuje source i successor,
+- current external row nie przeżywa category/training-type change bez revalidation,
+- combined current-OSK + external minutes są deterministyczne per training part,
+- Course create nie może commitować bez dokładnie jednego current PKK identity profile,
+- current PKK profile ma ciphertext + HMAC lookup hash; plaintext nie jest persistowany,
+- PKK replacement zachowuje prior profile i finalnie pozostawia dokładnie jeden current,
+- category/training-type change nie może commitować ze stale PKK context,
+- DB4_4 nie hard-blockuje identycznego PKK hash na dwóch Course bez zweryfikowanej provider/legal duplicate policy,
+- DB4_4 migration nie zgaduje no-PESEL branch, requirement context, external lineage ani PKK identity/history z niepełnego legacy evidence.
+
 Pozostałe obowiązkowe testy:
 - generated synthetic IDs są UUIDv7/native uuid,
 - organization contact address jest 1:1 i nie jest `locations`,
@@ -1459,7 +1756,6 @@ Pozostałe obowiązkowe testy:
 - PKK external login nie zmienia application login i plaintext nie jest persistowany,
 - account closure nullable-scope uniqueness działa dla global i tenant,
 - staff/vehicle multi-category/multi-location działa,
-- declared course hours nie zwiększają credited ledger time,
 - historical license assignment reuse + one current assignment,
 - concurrent license extensions nie gubią czasu,
 - exam reservation/station concurrency działa i failover nie konsumuje drugiego creditu,
@@ -1477,16 +1773,19 @@ Pozostałe obowiązkowe testy:
 3. dictionaries/capabilities,
 4. file assets + idempotency,
 5. staff/locations/vehicles + assignment tables,
-6. students/learning accounts,
-7. course enrollments/requirements,
-8. training/calendar,
-9. PKK,
-10. student finance,
-11. license inventory/assignment/activation periods,
-12. internal exam inventory/attempt/access/stations/station sessions,
-13. orders/payments/service entitlements/activations,
-14. audit/activity/outbox/notifications,
-15. final partial indexes/cross-table constraints.
+6. Student identity/version + learning accounts,
+7. CourseEnrollment lifecycle + requirement rule/context/profile/exemption/override + **local required PKK identity**,
+8. TrainingSession + exact Attendance + immutable Ledger + recognized external training,
+9. Calendar,
+10. PKK provider operations/attempts/retry/reconciliation — DB4_8,
+11. Student finance,
+12. license inventory/assignment/activation periods,
+13. internal exam inventory/attempt/access/stations/station sessions,
+14. orders/payments/service entitlements/activations,
+15. audit/activity/outbox/notifications,
+16. final partial indexes/cross-table constraints.
+
+W obrębie DB4_4 migracja najpierw robi legacy prechecks/remediation, dopiero potem NOT NULL/unique/composite FK/deferrable guards. Nie wybiera „latest row” ani nie fabrykuje brakującej formalnej tożsamości, actorów, lineage, attendance czy creditów.
 
 ---
 
@@ -1496,13 +1795,20 @@ Zamknięte:
 - synthetic domain ID: UUIDv7 application-side -> PostgreSQL `uuid`,
 - physical ownership Ustawień OSK,
 - Identity/Tenant/RBAC DB4_2: materialized runtime permissions, per-permission scope, same-user composite session FK, durable membership lifecycle `active|suspended|revoked`, `is_owner` governance marker, last-owner guard, grant ceiling, `version` + `authorization_version`, atomic audit/outbox i session-context clearing na suspend/revoke,
-- Staff/Locations/Vehicles DB4_3: same-tenant StaffMembershipLink i location assignments, tenant/purpose/ready FileAsset attachment boundary, versioned current-document projection, PESEL/VIN/registration lifecycle uniqueness oraz bezpieczny Staff archive/restore vs panel-access lifecycle.
+- Staff/Locations/Vehicles DB4_3: same-tenant StaffMembershipLink i location assignments, tenant/purpose/ready FileAsset attachment boundary, versioned current-document projection, PESEL/VIN/registration lifecycle uniqueness oraz bezpieczny Staff archive/restore vs panel-access lifecycle,
+- **Students/Courses/Training DB4_4**: same-tenant formal relations; Student formal identity + durable archive/version; Course lifecycle/version/history; reproducible requirement context + immutable rule set/profile history; exact verified Attendance -> exactly-once append-only Ledger; deterministic previous-OSK projection/history; atomowa, wersjonowana local course PKK identity bez wciągania provider lifecycle.
 
-Nadal wymagają osobnego etapu/ADR przed produkcyjnymi migracjami odpowiednich modułów:
+Po DB4_4 nadal osobno wymagają dalszych slice/ADR:
+- Calendar overlap enforcement — DB4_5,
+- learning-access/license credentials lifecycle — DB4_6,
+- internal-exam compatibility/attempt completion gate — DB4_7,
+- PKK provider configuration/fetch/update/return/XML/retry/reconciliation/collision policy — DB4_8,
+- Student Finance — DB4_9,
 - application encryption + key rotation dla PESEL/PKK/provider snapshots,
-- calendar overlap enforcement,
 - immutable snapshot canonicalization/hash,
-- auth account merge/recovery/email verification policy.
+- auth account merge/recovery/email verification policy,
+- final production legal re-verification słownika kategorii, w tym `PT`,
+- exact HTTP expected-version/error-code synchronization w Stage 5.
 
 ---
 
