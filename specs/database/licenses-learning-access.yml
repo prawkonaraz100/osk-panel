@@ -739,7 +739,7 @@ blockers:
       - aggregate intends to serialize activation on StudentLearningAccount and create one activation period per assignment but final current-entitlement integrity is not DB-closed
       - concurrent extensions must not lose days and must produce deterministic nonoverwriting history
       - historical effect must remain reproducible if LicenseProduct duration or metadata changes later
-      - current activation row lacks explicit duration snapshot and expiry_before_after provenance called for by the product evidence
+      - current activation row lacks explicit duration snapshot and expiry_before expiry_after provenance called for by the product evidence
       - activated_by_user_id nullable does not yet distinguish learner self-activation from OSK-managed activation semantics
     required_outcome_for_future_fix:
       - immutable exactly-once activation effect per assignment
