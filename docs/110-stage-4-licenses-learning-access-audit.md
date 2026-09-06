@@ -3,8 +3,8 @@
 Data: 2026-09-06
 
 **Etap:** `DB4_6_LICENSES_LEARNING_ACCESS`  
-**Aktualny krok:** `DB4_6_STEP_2 / DB-LIC-002`  
-**Status:** `DB-LIC-001..002 PASS / 0 P0 / 5 P1 OPEN`
+**Aktualny krok:** `DB4_6_STEP_3 / DB-LIC-003`  
+**Status:** `DB-LIC-001..003 PASS / 0 P0 / 4 P1 OPEN`
 
 Machine-readable diagnoza: `specs/database/licenses-learning-access.yml`.
 
@@ -694,3 +694,218 @@ Aktualny stan po DB-LIC-002:
 Następny dozwolony krok po centralnym gate: **DB-LIC-003 only**.
 
 **STOP przed DB-LIC-003.**
+
+---
+
+## 21. DB-LIC-003 — resolution contract and self-audit
+
+**Current result: PASS.**
+
+Ten krok zamyka wyłącznie lifecycle i concurrency `StudentLearningAccount` oraz wpływ `Student archive/restore`. Nie zmienia secret/PDF, inventory, activation stacking ani language capability.
+
+### 21.1 LearningAccount ma własny concurrency root
+
+Dodajemy:
+
+`student_learning_accounts.version bigint not null default 1 check (version >= 1)`.
+
+`version` obejmuje materialne zmiany samego konta:
+- `auth_login_identifier_id`,
+- `language_code`,
+- jawne przejście statusu.
+
+LearningAccount PATCH:
+1. lockuje Student po regule parent-first,
+2. wymaga non-archived Student dla normalnej konfiguracji,
+3. lockuje LearningAccount `FOR UPDATE`,
+4. porównuje expected version z `If-Match`,
+5. dopiero po zgodności stosuje zmianę,
+6. zwiększa `version` dokładnie raz.
+
+Stale expected version nie może pozostawić częściowego zapisu. Semantic no-op nie zwiększa wersji.
+
+Dokładny HTTP required-marker/428 pozostaje Stage 5. Password/credential epoch pozostaje DB-LIC-004, assignment version DB-LIC-005, a activation stacking DB-LIC-006.
+
+### 21.2 Minimalny zamknięty lifecycle konta
+
+Canonical statusy LearningAccount:
+- `active`,
+- `suspended`.
+
+Nie dodajemy `expired` jako statusu konta, ponieważ wygasa **entitlement/licencja**, a nie sama globalna możliwość istnienia LearningAccount.
+
+Nowe konto startuje jako:
+- `status=active`,
+- `version=1`.
+
+Przejścia:
+- `active -> suspended` tylko przez jawny domain/security command,
+- `suspended -> active` tylko przez jawny resume command,
+- same-state command = idempotent no-op.
+
+Generic PATCH nie może zmieniać statusu. W aktualnym Stage-3 API nie ma potwierdzonego publicznego suspend/resume endpointu, więc DB4_6 nie dodaje nowej funkcji HTTP/UI. Fizyczny lifecycle jest jednak zamknięty, a ewentualny późniejszy command musi użyć tej samej wersji i audytu.
+
+Nie dodajemy osobnej tabeli lifecycle tylko dla tego konta. Status transition wymaga audit + outbox; finalny model tych tabel jest DB4_10.
+
+### 21.3 Immutable ownership
+
+W normalnym lifecycle nie wolno przepinać LearningAccount pomiędzy:
+- `organization_id`,
+- `student_id`,
+- `user_id`.
+
+`organization_id` chroni DB-LIC-001, a `user_id` i identifier binding — DB-LIC-002. Zmiana Studenta nie jest zwykłą edycją konta.
+
+### 21.4 Effective operational eligibility
+
+Nie tworzymy drugiego persisted statusu typu `student_archived_access`.
+
+Canonical predicate dla nowych operacyjnych skutków to:
+
+`learning_account.status = active`
+
+AND
+
+`student.archived_at IS NULL`
+
+AND current AuthLoginIdentifier z DB-LIC-002
+
+AND niezależne globalne reguły auth Usera.
+
+Ten predykat musi być konsumowany przez:
+- learner learning/progress context,
+- nowy LicenseAssignment do istniejącego LearningAccount,
+- activation licencji,
+- reset/generowanie nowych credentials,
+- sensitive handoff,
+- single/bulk credential PDF/export.
+
+Historyczny odczyt assignmentów/activationów dla administratora nie wymaga operational eligibility, ale nadal wymaga poprawnego tenant permission/scope.
+
+Normalny PATCH loginu/języka może działać dla `active|suspended`, jeśli Student nie jest zarchiwizowany. Korekta historycznych danych zarchiwizowanego Studenta wymaga osobnego audytowanego correction command, nie generic PATCH.
+
+### 21.5 Student archive nie przepisuje dzieci
+
+DB-TRN-003 pozostaje canonical parent archive transaction.
+
+Archive Studenta:
+- nie usuwa LearningAccount,
+- nie zmienia `learning_account.status`,
+- nie zwiększa `learning_account.version`,
+- nie revokuje LicenseAssignment,
+- nie zwraca inventory,
+- nie usuwa ani nie przepisuje Activation,
+- nie zatrzymuje licznika aktywnego entitlementu,
+- nie wydłuża jego końca,
+- nie revokuje globalnego Usera ani AuthLoginIdentifiera,
+- nie wylogowuje globalnie Usera, który może mieć inne OSK/konteksty.
+
+Po commit `Student archive` operational eligibility dla tego tenantowego LearningAccount wynosi `false`.
+
+Jeśli aktywna licencja miała ważność do określonego czasu, czas nadal biegnie po wall clock. Archive nie jest refundem, revoke ani pause entitlementu.
+
+### 21.6 Restore usuwa tylko parent gate
+
+Student restore:
+- nie zmienia statusu kont,
+- nie zwiększa LearningAccount version,
+- nie od-revokowuje assignmentów,
+- nie odtwarza activation,
+- nie wydłuża wygasłego entitlementu.
+
+LearningAccount, który przed archive miał `status=active`, ponownie może stać się operationally eligible — ale tylko jeśli jego bieżący entitlement i globalny auth również na to pozwalają.
+
+LearningAccount jawnie `suspended` pozostaje `suspended`.
+
+To jest kluczowe: restore Studenta nie może przypadkiem reaktywować dostępu zawieszonego niezależną decyzją bezpieczeństwa/administracyjną.
+
+### 21.7 Wspólna granica wyścigów
+
+Wszystkie state-dependent operacje używają wspólnego prefixu locków:
+
+`Student FOR UPDATE -> StudentLearningAccount FOR UPDATE`.
+
+Nowe operacyjne skutki po Student lock wymagają `archived_at IS NULL`, a po LearningAccount lock wymagają `status=active`.
+
+Dzięki temu:
+- create account vs archive ma jeden porządek serialny,
+- PATCH vs archive nie gubi zmian,
+- assignment/activation/reset/handoff vs archive mają jeden winner/order,
+- jeśli efekt licencyjny lub credentialowy commitnie pierwszy, późniejszy archive go **nie cofa** — tylko blokuje kolejne użycie,
+- jeśli archive commitnie pierwszy, nowy efekt jest odrzucany po parent lock.
+
+DB-LIC-005/006 mogą rozszerzyć ten prefix o własne locki inventory/assignment/activation. Nie mogą zmienić kolejności parent-first. DB-LIC-004 doprecyzuje locki reset/handoff.
+
+### 21.8 Cache/session safety
+
+Archive zwiększa `students.version` zgodnie z DB-TRN-003. Każdy cache/token decyzji learning-context musi więc rewalidować co najmniej:
+- `students.version`,
+- `student_learning_accounts.version`,
+- `student_learning_accounts.status`.
+
+Nie wolno traktować starego, długo żyjącego cache jako prawa do dalszego korzystania po archive.
+
+Nie oznacza to revokowania całej globalnej AuthSession tego Usera — inne organizacje i globalne funkcje pozostają niezależne.
+
+### 21.9 Migration safety
+
+Przyszła migracja:
+1. precheck istniejących `student_learning_accounts.status`,
+2. unknown/null status bez wiarygodnego mapowania → FAIL + reviewed remediation,
+3. dodanie `version bigint >=1`,
+4. CHECK `status IN ('active','suspended')`,
+5. zabezpieczenie normalnej immutability organization/student/user,
+6. wiring PATCH do expected-version + lock,
+7. wiring state-dependent operations do Student→LearningAccount lock prefix,
+8. wdrożenie effective eligibility w operacyjnych commandach/projekcjach.
+
+Zabronione:
+- auto-map unknown status do `active`,
+- auto-suspend wszystkich kont zarchiwizowanych Studentów,
+- auto-revoke ich assignmentów,
+- auto-pause/extend entitlementów.
+
+### 21.10 Required tests
+
+- nowe konto: `active`, `version=1`,
+- invalid status → reject,
+- current `If-Match` PATCH → commit + version +1,
+- stale PATCH → reject bez partial write,
+- dwa PATCH z tą samą wersją → maksymalnie jeden commit,
+- semantic no-op → bez version bump,
+- generic PATCH nie może ustawić statusu,
+- account create dla archived Student → reject,
+- archive nie zmienia status/version LearningAccount,
+- archive nie revokuje assignmentu, nie zwraca inventory i nie przepisuje Activation,
+- archive blokuje nowe assignment/activation/reset/handoff/export/learning context,
+- entitlement nadal biegnie podczas archive i nie jest automatycznie wydłużany,
+- restore nie resume'uje jawnie suspended account,
+- restore nie od-revokowuje assignmentu i nie wydłuża expired entitlementu,
+- archive/create/PATCH/assignment/activation races są linearizable przez Student parent lock,
+- local Student archive nie revokuje globalnego Usera ani LearningAccount tego Usera w innym OSK,
+- cache eligibility rewaliduje parent/account version i status,
+- migracja nie zgaduje statusu ani nie wykonuje fan-out lifecycle mutation na child rows.
+
+### 21.11 Scope preservation
+
+Self-audit potwierdził:
+- DB-LIC-001 i DB-LIC-002 pozostają PASS,
+- DB-LIC-004..007 pozostają OPEN,
+- nie zaprojektowano one-time secret/PDF storage,
+- nie zamknięto inventory/assignment state equivalence,
+- nie rozstrzygnięto dokładnego activation stacking/history,
+- nie zamknięto language capability/projection,
+- Student archive pozostaje zgodny z DB-TRN-003 i nie mutuje course/formal history,
+- nie dodano nowego publicznego suspend/resume UI/API,
+- agregaty `core-schema.yml` i `docs/87` pozostają zamrożone,
+- brak migracji Laravel, DB4_7, Stage 5 i UI.
+
+Aktualny stan po DB-LIC-003:
+- resolved: **3/7**,
+- open P0: **0**,
+- open P1: **4**,
+- DB4_6: **FAIL_WITH_4_P1_BLOCKERS**.
+
+Następny dozwolony krok po centralnym gate: **DB-LIC-004 only**.
+
+**STOP przed DB-LIC-004.**
