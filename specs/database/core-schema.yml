@@ -6,6 +6,7 @@ meta:
   doc: docs/87-physical-database-schema.md
   preservation_contract: docs/96-reverse-engineering-preservation-contract.md
   traceability: specs/traceability/core-v1.yml
+  DB4_4_students_courses_training_aggregate_sync: PASS
 
 conventions:
   primary_key:
@@ -116,6 +117,11 @@ core_tables:
 
   training:
     - course_enrollments
+    - course_enrollment_lifecycle_events
+    - training_requirement_rule_sets
+    - course_requirement_contexts
+    - course_requirement_context_held_categories
+    - course_requirement_override_decisions
     - training_requirement_profiles
     - course_exemption_decisions
     - recognized_external_training
@@ -599,6 +605,115 @@ staff_locations_vehicles_model:
     revoked_membership_auto_reactivation: forbidden
     archive_transaction_atomic_across_staff_link_membership_sessions_audit_outbox: true
 
+students_courses_training_model:
+  bounded_context_source: specs/database/students-courses-training.yml
+  audit_source: docs/108-stage-4-students-courses-training-ledger-audit.md
+  aggregate_sync_status: PASS
+  resolved_blockers: [DB-TRN-001, DB-TRN-002, DB-TRN-003, DB-TRN-004, DB-TRN-005, DB-TRN-006, DB-TRN-007, DB-TRN-008]
+
+  tenant_integrity:
+    tenant_candidate_keys:
+      students: [organization_id, id]
+      course_enrollments: [organization_id, id]
+      training_sessions: [organization_id, id]
+    all_tenant_owned_student_course_training_relations_use_composite_same_tenant_FK_or_equivalent_guard: true
+    organization_id_client_authority: false
+    formal_relation_on_update: RESTRICT
+    formal_relation_on_delete: RESTRICT
+
+  student_identity_and_lifecycle:
+    pre_course_incomplete_profile_allowed: true
+    fields_added_or_strengthened:
+      no_pesel_declared: boolean_not_null_default_false
+      version: bigint_not_null_default_1_check_gte_1
+    formal_course_requires_identity: PESEL_pair_or_explicit_no_PESEL_with_birth_date
+    PESEL_pair_atomic: true
+    PESEL_unique_per_organization_including_archived: true
+    archive_releases_PESEL: false
+    archive_with_active_course: reject_conflict
+    course_create_vs_archive_serialized_on_student: true
+    restore_reuses_same_student_row: true
+    hard_delete_formal_history: forbidden
+
+  course_lifecycle:
+    concurrency_root: course_enrollments.version
+    version_type: bigint_not_null_default_1_check_gte_1
+    requirements_revision: bigint_not_null_default_1_check_gte_1
+    lifecycle_state_derived_from_terminal_timestamps: true
+    terminal_states: [active, completed, interrupted, cancelled]
+    terminal_timestamp_cardinality_maximum: 1
+    training_completed_equivalent_to_completed_at_nonnull: true
+    lifecycle_history_table: course_enrollment_lifecycle_events
+    lifecycle_history_append_only: true
+    one_history_event_per_material_course_version: true
+    normal_restore_source_state: cancelled
+    completed_or_interrupted_normal_restore: forbidden
+    terminal_course_generic_PATCH: forbidden_requires_explicit_correction_mode
+
+  requirement_reproducibility:
+    target_category_owner: course_enrollments.driving_category_id
+    concurrency_root: course_enrollments.version
+    rule_sets_table: training_requirement_rule_sets
+    rule_set_version_content_immutable_after_reference: true
+    current_context_table: course_requirement_contexts
+    held_categories_table: course_requirement_context_held_categories
+    override_decisions_table: course_requirement_override_decisions
+    profiles_are_immutable_decision_history: true
+    current_profile_predicate: superseded_at_is_null
+    at_most_one_current_profile_per_course: true
+    exactly_one_current_profile_required_for_committed_formal_course: true
+    current_profile_requirements_revision_must_equal_course: true
+    one_profile_per_requirements_revision: true
+    snapshots_required: [input_snapshot, base_output_snapshot, effective_output_snapshot]
+    PII_not_required_for_rules_excluded_from_snapshot: [PESEL, PKK]
+
+  training_attendance_ledger:
+    session_status_values: [planned, completed, cancelled]
+    session_version: bigint_not_null_default_1_check_gte_1
+    session_duration_source: exact_positive_whole_minute_difference_of_ends_at_and_starts_at
+    attendance_fields_include: [organization_id, course_enrollment_id]
+    attendance_exact_session_course_composite_FK: true
+    attendance_exact_course_student_composite_FK: true
+    one_attendance_row_per_session: true
+    verified_present_only_base_credit_eligible: true
+    completed_present_exactly_one_base_credit: true
+    completed_absent_zero_base_credit: true
+    planned_or_cancelled_zero_base_credit: true
+    ledger_append_only: true
+    base_credit_partial_unique_per_session: true
+    source_entry_same_tenant_course_part_self_FK: true
+    one_reversal_per_source: true
+    reversal_of_reversal: forbidden
+    current_OSK_projection: signed_sum_ledger_per_course_and_training_part
+    declared_course_hours_are_not_credited_time: true
+
+  recognized_external_training:
+    record_roles: [course_form_projection, documented_transfer]
+    current_predicate: superseded_at_is_null_and_revoked_at_is_null
+    one_current_course_form_projection_per_course_part: true
+    documented_transfer_rows_are_additive: true
+    correction_semantics: full_replacement_not_signed_delta
+    lineage_same_tenant_course_part_role: true
+    one_successor_per_source: true
+    current_context_snapshot_fields: [recognized_for_driving_category_id, recognized_for_training_type]
+    current_context_must_match_course: true
+    unverified_legal_compatibility_matrix_hardcoded: false
+    combined_formal_minutes: current_OSK_ledger_plus_current_recognized_external_same_part
+
+  pkk_identity_boundary:
+    canonical_owner: pkk_profiles
+    course_scoped: true
+    versioned_history: true
+    current_predicate: superseded_at_is_null
+    exactly_one_current_profile_per_course: true
+    plaintext_PKK_persistence: forbidden
+    pkk_number_pair_required_on_current_identity: [pkk_number_ciphertext, pkk_lookup_hash]
+    course_and_initial_PKK_identity_commit_atomically: true
+    PKK_identity_edit_uses_course_version_and_history: true
+    category_or_training_type_change_requires_PKK_identity_revalidation_same_transaction: true
+    hard_unique_PKK_number_not_invented: true
+    provider_fetch_update_return_retry_reconciliation: deferred_to_DB4_8
+
 idempotency_model:
   idempotency_records:
     fields:
@@ -684,12 +799,13 @@ critical_relations:
   - staff_and_vehicle_documents_have_versioned_history_and_at_most_one_current_row_per_type
   - student_has_many_course_enrollments
   - student_learning_account_resolves_to_global_user_and_primary_login_identifier
-  - course_enrollment_has_zero_or_one_pkk_profile
-  - course_enrollment_has_many_versioned_requirement_profiles
-  - current_requirement_profile_is_latest_non_superseded_not_required_pointer_on_course_row
+  - course_enrollment_has_many_versioned_pkk_profiles_and_exactly_one_current_identity
+  - course_enrollment_has_many_versioned_requirement_profiles_and_exactly_one_current_revision_match
+  - course_enrollment_has_append_only_lifecycle_events_version_paired
   - course_enrollment_has_many_training_sessions
-  - training_session_credits_training_hour_ledger_entries
-  - course_enrollment_has_many_recognized_external_training_records
+  - training_session_has_exactly_one_attendance_row_when_completed_and_it_is_exact_course_student
+  - completed_present_training_session_has_exactly_one_base_credit
+  - course_enrollment_has_many_recognized_external_training_records_with_deterministic_current_projection
   - student_has_many_learning_accounts
   - learning_account_receives_license_assignments
   - license_inventory_entry_has_many_historical_assignments_but_at_most_one_current_assignment
@@ -763,13 +879,42 @@ structural_decisions:
       may_create_opening_balance_ledger_entries: true
       audit_reason_required: true
   requirement_profile:
+    bounded_context_source: specs/database/students-courses-training.yml
     course_enrollment_current_pointer_required: false
-    current_projection: latest_where_superseded_at_is_null
-    reason: avoid_unnecessary_circular_fk
+    current_predicate: superseded_at_is_null
+    current_cardinality: exactly_one_per_committed_formal_course
+    current_revision_must_equal_course_requirements_revision: true
+    one_profile_per_requirements_revision: true
+    rule_set_is_immutable_hashed_artifact: true
   recognized_external_training:
-    supports_initial_course_form_values: true
-    initial_import_source: course_form_initial
-    subsequent_changes: audited_records_or_reversal
+    bounded_context_source: specs/database/students-courses-training.yml
+    role_separates_projection_from_provenance: true
+    course_form_projection_at_most_one_current_per_part: true
+    documented_transfers_are_additive: true
+    current_predicate: superseded_at_is_null_and_revoked_at_is_null_and_context_matches_course
+    correction_is_full_replacement: true
+    latest_created_at_heuristic: forbidden
+  course_lifecycle:
+    bounded_context_source: specs/database/students-courses-training.yml
+    lifecycle_state_derived_from_terminal_timestamps: true
+    append_only_history_table: course_enrollment_lifecycle_events
+    one_event_per_material_course_version: true
+    normal_restore_only_cancelled: true
+    closed_course_change_requires_correction_mode: true
+  training_hour_ledger:
+    bounded_context_source: specs/database/students-courses-training.yml
+    formal_credit_source: immutable_ledger
+    one_base_credit_per_completed_present_session: true
+    absent_or_cancelled_session_credit: forbidden
+    corrections_and_reversals_are_append_only: true
+    external_recognition_is_separate_component: true
+  course_pkk_identity:
+    bounded_context_source: specs/database/students-courses-training.yml
+    owner: pkk_profiles
+    exactly_one_current_profile_per_course: true
+    history_is_versioned: true
+    create_course_and_required_PKK_identity_atomic: true
+    provider_lifecycle_deferred_to_DB4_8: true
   license_assignment_history:
     inventory_entry_global_unique_across_all_history: false
     current_assignment_unique: true
@@ -977,11 +1122,61 @@ critical_constraints:
     target_table: file_assets
     target_columns: [organization_id, id]
     match: MATCH_SIMPLE
-  pkk_profile_unique_per_course_enrollment:
-    columns: [course_enrollment_id]
+  student_candidate_key_org_id:
+    columns: [organization_id, id]
+  course_enrollment_candidate_key_org_id:
+    columns: [organization_id, id]
+  course_enrollment_candidate_key_org_id_student:
+    columns: [organization_id, id, student_id]
+  training_session_candidate_key_org_id:
+    columns: [organization_id, id]
+  training_session_candidate_key_org_id_course:
+    columns: [organization_id, id, course_enrollment_id]
+  student_pesel_unique_per_organization_including_archived:
+    type: partial_unique
+    columns: [organization_id, pesel_lookup_hash]
+    where: pesel_lookup_hash_is_not_null
+  course_lifecycle_event_unique_per_version:
+    columns: [organization_id, course_enrollment_id, course_version_after]
   training_requirement_only_one_current_per_course:
     type: partial_unique
-    columns: [course_enrollment_id]
+    columns: [organization_id, course_enrollment_id]
+    where: superseded_at_is_null
+  training_requirement_one_decision_per_revision:
+    columns: [organization_id, course_enrollment_id, requirements_revision]
+  course_exemption_only_one_current_per_course:
+    type: partial_unique
+    columns: [organization_id, course_enrollment_id]
+    where: revoked_at_is_null
+  course_requirement_override_only_one_current_per_course:
+    type: partial_unique
+    columns: [organization_id, course_enrollment_id]
+    where: revoked_at_is_null
+  external_course_form_projection_only_one_current_per_course_part:
+    type: partial_unique
+    columns: [organization_id, course_enrollment_id, training_part]
+    where: record_role_course_form_projection_and_superseded_at_is_null_and_revoked_at_is_null
+  external_one_successor_per_source:
+    type: partial_unique
+    columns: [organization_id, supersedes_record_id]
+    where: supersedes_record_id_is_not_null
+  attendance_one_row_per_session:
+    columns: [organization_id, training_session_id]
+  ledger_base_credit_only_one_per_session:
+    type: partial_unique
+    columns: [organization_id, training_session_id]
+    where: entry_type_equals_credit
+  ledger_opening_balance_only_one_per_course_part:
+    type: partial_unique
+    columns: [organization_id, course_enrollment_id, training_part]
+    where: entry_type_equals_opening_balance
+  ledger_reversal_only_one_per_source:
+    type: partial_unique
+    columns: [organization_id, source_entry_id]
+    where: entry_type_equals_reversal
+  pkk_profile_only_one_current_per_course:
+    type: partial_unique
+    columns: [organization_id, course_enrollment_id]
     where: superseded_at_is_null
   license_current_assignment_unique_per_inventory_entry:
     type: partial_unique
@@ -1115,6 +1310,57 @@ transactional_invariants:
     update_owned_tables_atomically: true
     increment_settings_version_once: true
     redacted_audit_required: true
+  create_course_enrollment:
+    lock_student_first: true
+    require_student_nonarchived_and_formal_identity: true
+    create_requirement_revision_1_and_current_profile_same_transaction: true
+    create_required_current_PKK_identity_same_transaction: true
+    course_version_starts_at_1_and_created_lifecycle_event_required: true
+    current_external_form_projection_rows_created_only_for_positive_declared_external_values: true
+    no_partial_course_without_required_PKK_or_requirement_profile: true
+  mutate_student_profile_archive_restore:
+    concurrency_root: students.version
+    lock_student: true
+    expected_version_required_for_material_profile_change: true
+    archive_with_active_course: reject_conflict
+    archive_restore_do_not_rewrite_formal_history: true
+  mutate_course_lifecycle_or_requirement_or_external_or_PKK_identity:
+    concurrency_root: course_enrollments.version
+    lock_course_before_material_child_projection_mutation: true
+    stale_expected_version: conflict_without_partial_write
+    exactly_one_course_version_increment_per_logical_material_command: true
+    exactly_one_course_lifecycle_event_per_material_course_version: true
+    terminal_course_normal_business_change_requires_correction_mode: true
+  complete_training_session:
+    lock_order: [course_enrollment, training_session, training_session_attendance]
+    require_course_active_and_session_planned: true
+    require_exactly_one_verified_attendance: true
+    present_creates_exactly_one_matching_base_credit: true
+    absent_creates_zero_credit: true
+    complete_and_credit_atomic: true
+  cancel_training_session:
+    lock_order: [course_enrollment, training_session]
+    require_session_planned: true
+    require_zero_base_credit: true
+    cancellation_creates_no_credit: true
+  correct_training_hour_ledger:
+    lock_order: [course_enrollment, source_entry_when_present]
+    append_only: true
+    source_same_tenant_course_part_required: true
+    one_reversal_per_source: true
+    final_course_part_and_source_session_subtotals_nonnegative: true
+  mutate_recognized_external_training:
+    lock_course_first: true
+    replacement_preserves_source_history: true
+    current_context_must_match_final_course_category_and_training_type: true
+    no_latest_row_heuristic: true
+  mutate_course_PKK_identity:
+    lock_course_first: true
+    plaintext_PKK_discarded_after_command_boundary: true
+    replace_current_profile_by_supersede_plus_successor: true
+    exactly_one_current_profile_required_after_commit: true
+    provider_network_call_required_for_local_identity_write: false
+    provider_lifecycle: deferred_to_DB4_8
   revoke_unactivated_license:
     lock:
       - license_assignment
@@ -1190,6 +1436,7 @@ foreign_key_policy:
     - student_payments
     - pkk_operations
   never_cascade_course_enrollment_to:
+    - pkk_profiles
     - pkk_operations
     - training_hour_ledger_entries
     - internal_exam_attempts
@@ -1212,6 +1459,7 @@ security_storage_rules:
   pkk:
     full_provider_payload_in_plain_jsonb_forbidden: true
     external_osk_login_plaintext_after_save_forbidden: true
+    plaintext_course_PKK_after_save_forbidden: true
   idempotency:
     one_time_plaintext_password_response_snapshot_forbidden: true
 
@@ -1221,10 +1469,11 @@ migration_order:
   - dictionaries_and_capabilities
   - file_assets_and_idempotency
   - staff_locations_vehicles_and_assignment_tables
-  - students_learning_accounts
-  - course_enrollments_requirements
-  - training_and_calendar
-  - pkk
+  - students_identity_version_and_learning_accounts
+  - course_enrollments_lifecycle_requirement_rules_context_profiles_exemptions_and_PKK_identity
+  - training_sessions_attendance_ledger_and_recognized_external_training
+  - calendar
+  - pkk_provider_operations_and_attempts
   - student_finance
   - license_inventory_assignments_and_activations
   - internal_exam_inventory_attempts_stations_and_station_sessions
@@ -1301,7 +1550,33 @@ migration_tests_required:
   - staff_archive_nonowner_unlinks_and_suspends_membership_atomically
   - staff_archive_owner_unlinks_staff_but_does_not_silently_change_owner_governance
   - staff_restore_does_not_auto_restore_panel_access_or_old_sessions
+  - pre_course_student_can_exist_without_formal_identity_but_course_create_is_rejected_until_identity_complete
+  - explicit_no_PESEL_requires_birth_date_and_forbids_PESEL_pair
+  - student_PESEL_pair_is_atomic_and_duplicate_same_organization_is_rejected_including_archived
+  - two_student_profile_mutations_same_expected_version_cannot_both_commit
+  - course_create_and_student_archive_race_cannot_commit_archived_student_with_open_course
+  - course_lifecycle_terminal_timestamps_are_mutually_exclusive_and_training_completed_matches_completed_at
+  - exactly_one_lifecycle_event_exists_per_material_course_version
+  - restore_only_reopens_cancelled_course_and_cannot_reopen_under_archived_student
+  - current_requirement_profile_revision_equals_course_requirements_revision
+  - rule_set_version_references_immutable_hashed_rule_artifact
+  - requirement_source_fact_change_cannot_commit_without_new_current_profile
+  - attendance_is_exact_session_course_and_exact_course_student
+  - completed_verified_present_session_has_exactly_one_base_credit
+  - completed_absent_planned_or_cancelled_session_has_zero_base_credit
+  - duplicate_base_credit_per_session_is_rejected
+  - correction_and_reversal_source_is_same_tenant_course_and_training_part
+  - same_source_cannot_be_reversed_twice_and_reversal_of_reversal_is_rejected
   - declared_course_hours_do_not_change_credited_training_hours_without_ledger_entry
+  - course_form_external_projection_has_at_most_one_current_row_per_course_part
+  - documented_external_transfers_are_additive_and_correction_replacement_does_not_double_count
+  - current_external_row_cannot_survive_category_or_training_type_change_without_revalidation
+  - combined_current_OSK_plus_external_minutes_are_deterministic_per_training_part
+  - course_create_cannot_commit_without_exactly_one_current_PKK_identity
+  - current_PKK_identity_has_ciphertext_and_lookup_hash_and_plaintext_is_not_persisted
+  - PKK_identity_replacement_preserves_prior_profile_and_leaves_exactly_one_current
+  - category_or_training_type_change_cannot_commit_with_stale_current_PKK_identity
+  - DB4_4_migration_does_not_guess_no_PESEL_requirement_context_external_lineage_or_PKK_history_when_legacy_evidence_is_ambiguous
   - revoked_license_assignment_allows_same_inventory_entry_to_be_reassigned_later
   - two_current_license_assignments_for_same_inventory_entry_are_rejected
   - second_activation_for_same_license_assignment_is_rejected
@@ -1317,7 +1592,6 @@ migration_tests_required:
   - payment_success_does_not_activate_explicit_mode_entitlement_early
   - duplicate_provider_event_with_same_provider_is_rejected
   - same_provider_event_id_from_different_provider_does_not_collide
-  - only_one_non_superseded_requirement_profile_per_course
   - duplicate_tenant_idempotency_key_same_scope_same_request_does_not_repeat_business_effect
   - duplicate_global_idempotency_key_same_scope_same_request_does_not_repeat_business_effect
   - same_idempotency_key_in_different_organizations_does_not_collide
