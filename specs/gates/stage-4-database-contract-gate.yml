@@ -59,12 +59,12 @@ stage_4_slices:
     final_aggregate_sync: PASS
     result: PASS
   - id: DB4_4_STUDENTS_COURSES_TRAINING_LEDGER
-    status: BLOCKERS_RESOLVED_AWAITING_FINAL_AGGREGATE_SYNC
+    status: PASS
     diagnosis: COMPLETE
     blockers_resolved: 8
     open_P0_P1: 0
-    final_aggregate_sync: PENDING
-    result: BLOCKER_GATE_PASS_AGGREGATE_SYNC_PENDING
+    final_aggregate_sync: PASS
+    result: PASS
   - id: DB4_5_CALENDAR
     status: NOT_STARTED
   - id: DB4_6_LICENSES_LEARNING_ACCESS
@@ -690,6 +690,36 @@ quality_checks:
       Laravel_migrations_created: false
       UI_or_feature_implementation_started: false
 
+  DB4_4_final_aggregate_sync:
+    status: PASS
+    bounded_context_source: specs/database/students-courses-training.yml
+    audit_source: docs/108-stage-4-students-courses-training-ledger-audit.md
+    aggregate_machine_source: specs/database/core-schema.yml
+    aggregate_narrative_source: docs/87-physical-database-schema.md
+    checks:
+      DB_TRN_001_same_tenant_integrity_represented_without_semantic_loss: PASS
+      DB_TRN_002_student_formal_identity_and_PESEL_lifecycle_represented_without_semantic_loss: PASS
+      DB_TRN_003_student_version_archive_restore_represented_without_semantic_loss: PASS
+      DB_TRN_004_course_lifecycle_stage_history_represented_without_semantic_loss: PASS
+      DB_TRN_005_requirement_reproducibility_represented_without_semantic_loss: PASS
+      DB_TRN_006_exact_attendance_and_ledger_exactly_once_represented_without_semantic_loss: PASS
+      DB_TRN_007_external_training_projection_history_represented_without_semantic_loss: PASS
+      DB_TRN_008_atomic_versioned_course_PKK_identity_represented_without_semantic_loss: PASS
+      stale_simple_course_PKK_unique_removed_from_aggregate: PASS
+      stale_attendance_session_student_pair_unique_replaced_with_exact_course_one_row_per_session_boundary: PASS
+      stale_requirement_latest_row_shortcut_removed_and_revision_freshness_guard_represented: PASS
+      stale_external_training_projection_ambiguity_removed: PASS
+      aggregate_machine_and_narrative_both_reference_bounded_context_contract: PASS
+      aggregate_migration_order_dependency_safe_for_DB4_4: PASS
+      aggregate_migration_and_invariant_tests_cover_DB4_4: PASS
+      all_four_observed_course_hour_fields_and_separation_of_declared_vs_credited_time_preserved: PASS
+      PKK_provider_lifecycle_remains_deferred_to_DB4_8: PASS
+      calendar_overlap_and_resource_booking_not_entered: PASS
+      no_new_P0_P1_discovered_during_sync: PASS
+      no_Laravel_migrations_created: PASS
+      no_UI_or_feature_implementation_started: PASS
+      DB4_5_and_later_slices_not_started_during_sync: PASS
+
   DB4_4_nonblockers_deferred_to_dependent_slices:
     - legal_category_dictionary_reverification_including_PT_mapping_to_production_legal_gate
     - learning_access_license_and_credentials_lifecycle_to_DB4_6
@@ -745,7 +775,7 @@ gate_definition:
     - migration_order_dependency_safe
     - database_invariant_test_matrix_exists
     - reverse_engineering_preservation_traceable
-  current_result: DB4_4_BLOCKERS_RESOLVED_FINAL_AGGREGATE_SYNC_PENDING
+  current_result: DB4_4_PASS_DB4_5_NOT_STARTED
   DB4_1_result: PASS
   DB4_2_result: PASS
   DB4_3_result: PASS
@@ -758,24 +788,19 @@ gate_definition:
   DB4_4_DB_TRN_006_result: PASS
   DB4_4_DB_TRN_007_result: PASS
   DB4_4_DB_TRN_008_result: PASS
-  DB4_4_result: IN_PROGRESS_FINAL_AGGREGATE_SYNC_PENDING
+  DB4_4_final_aggregate_sync_result: PASS
+  DB4_4_result: PASS
   may_start_DB4_4_fixes: false
-  may_start_DB4_5: false
+  may_start_DB4_5: true
   may_start_stage_5: false
   may_start_UI_or_feature_implementation: false
 
 next_single_step:
-  id: DB4_4_FINAL_AGGREGATE_SYNC
+  id: DB4_5_STEP_1_DIAGNOSIS
   blocker: none
-  action: synchronize_DB_TRN_001_through_008_into_aggregate_schema_and_narrative_without_semantic_loss
-  allowed_scope:
-    - specs/database/students-courses-training.yml
-    - specs/database/core-schema.yml
-    - docs/87-physical-database-schema.md
-    - docs/108-stage-4-students-courses-training-ledger-audit.md
-    - specs/gates/stage-4-database-contract-gate.yml
+  action: diagnose_DB4_5_calendar_only_before_any_fix
   scope_lock: >-
-    Perform only the final DB4_4 aggregate synchronization and preservation audit.
-    Do not enter DB4_5 or later slices, do not create Laravel migrations and do not
-    start UI/feature implementation. Do not weaken any DB-TRN-001..008 invariant.
-  after_action: rerun_DB4_4_final_aggregate_gate_and_record_PASS_or_new_blocker_then_stop_before_DB4_5
+    DB4_4 is closed. The next permitted slice is DB4_5 Calendar diagnosis only.
+    Do not fix Calendar blockers in the diagnosis step, do not enter DB4_6 or later
+    slices, do not create Laravel migrations and do not start UI/feature implementation.
+  after_action: record_DB4_5_diagnosis_gate_then_stop_before_first_calendar_fix
