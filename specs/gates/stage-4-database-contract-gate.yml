@@ -177,7 +177,7 @@ quality_checks:
         archive_releases_value_for_current_fleet: true
         archived_history_keeps_value: true
         restore_requires_current_registration_free: true
-      hard_delete_to_release_identity_as_normal_lifecycle: forbidden
+      hard_delete_to_release_identity_as_normal_lifecycle: false
       explicit_identity_correction_requires_audit: true
       database_unique_constraint_is_final_concurrency_boundary: true
 
@@ -618,7 +618,7 @@ quality_checks:
       concurrency_root: course_enrollments.version
       material_external_mutation_course_version_increment: exactly_once
       terminal_course_external_change_requires_DB_TRN_004_correction_mode: true
-      legacy_latest_row_guess_or_fabricated_lineage_context_actor: forbidden
+      legacy_latest_row_or_fabricated_lineage_context_actor: forbidden
       exact_HTTP_external_correction_and_If_Match_sync: Stage5_acceptance_contract_sync
     checks:
       one_deterministic_current_form_value_per_course_part: PASS
