@@ -51,6 +51,7 @@ principles:
   material_calendar_event_mutation_requires_expected_version: true
   terminal_calendar_event_normal_patch_is_forbidden: true
   calendar_event_lifecycle_history_is_append_only_and_version_paired: true
+  calendar_event_current_version_requires_matching_history_row: true
   normal_calendar_event_hard_delete_is_forbidden: true
   aggregate_sync_deferred_until_final_DB4_5_gate: true
   DB_CAL_005_through_DB_CAL_007_must_not_be_solved_in_DB_CAL_004: true
@@ -93,6 +94,7 @@ current_physical_snapshot:
     current_location_vs_custom_place_XOR_DB_boundary_documented: true
     current_terminal_metadata_and_state_matrix_documented: true
     current_optimistic_concurrency_documented: true
+    current_lifecycle_history_final_state_guard_documented: true
     current_own_scope_owner_relation_documented: false
     training_session_relation_documented: false
   availability_slots_current_shape:
@@ -855,6 +857,9 @@ calendar_event_lifecycle_and_concurrency:
         type: uuid
         nullable: true
         global_user_relation: true
+        foreign_key: users.id
+        on_update: RESTRICT
+        on_delete: RESTRICT
       cancelled_at:
         type: timestamptz
         nullable: true
@@ -862,6 +867,9 @@ calendar_event_lifecycle_and_concurrency:
         type: uuid
         nullable: true
         global_user_relation: true
+        foreign_key: users.id
+        on_update: RESTRICT
+        on_delete: RESTRICT
       cancellation_reason:
         type: text
         nullable: true
@@ -938,6 +946,14 @@ calendar_event_lifecycle_and_concurrency:
       updated_at_change: false
     material_mutation_version_increment: exactly_once
 
+  command_effective_time:
+    capture_once_per_new_material_command_after_event_lock: true
+    canonical_name: command_effective_at
+    storage_type: timestamptz
+    use_for_cancelled_at_or_completed_at: true
+    use_for_matching_lifecycle_event_occurred_at: true
+    described_as_exact_database_commit_timestamp: false
+
   calendar_event_lifecycle_events:
     purpose: append_only_material_version_history
     fields:
@@ -962,6 +978,12 @@ calendar_event_lifecycle_and_concurrency:
       target_columns: [organization_id, id]
       on_update: RESTRICT
       on_delete: RESTRICT
+    actor_user_FK:
+      target_table: users
+      target_column: id
+      nullable_only_for_migration_baseline: true
+      on_update: RESTRICT
+      on_delete: RESTRICT
     unique_one_history_event_per_material_version:
       columns: [organization_id, calendar_event_id, event_version_after]
     runtime_version_pair_rule: event_version_after_equals_event_version_before_plus_1
@@ -974,6 +996,17 @@ calendar_event_lifecycle_and_concurrency:
       event_version_before: null
       event_version_after: current_event_version
       actor_user_id_may_be_null: true
+    current_version_history_final_state_guard:
+      type: deferrable_constraint_trigger_or_equivalent_transactional_DB_guard
+      deferrability: DEFERRABLE_INITIALLY_DEFERRED
+      final_calendar_event_requires:
+        - exactly_one_history_row_with_event_version_after_equal_to_calendar_event_version
+        - latest_matching_history_to_status_equal_to_calendar_event_status
+      runtime_successor_requires:
+        - event_version_before_equals_previous_current_event_version
+        - event_version_after_equals_event_version_before_plus_1
+      migration_baseline_may_anchor_unknown_earlier_history: true
+      direct_event_version_or_status_change_without_matching_history_row: forbidden
     business_history_rows_mutable_after_insert: false
     normal_hard_delete: forbidden
     claim_projection_history_is_not_duplicated_here: true
@@ -988,7 +1021,7 @@ calendar_event_lifecycle_and_concurrency:
       - insert_exact_DB_CAL_003_resource_claim_set
       - let_GiST_constraints_accept_or_reject
       - append_created_lifecycle_event_version_1
-      - commit_only_if_deferred_claim_guard_passes
+      - commit_only_if_deferred_claim_and_history_guards_pass
     failure_rolls_back_event_claims_and_history: true
 
   scheduled_PATCH_transaction:
@@ -999,11 +1032,12 @@ calendar_event_lifecycle_and_concurrency:
       - reject_status_or_terminal_metadata_in_generic_PATCH
       - validate_same_tenant_and_row_invariants
       - detect_semantic_noop
+      - capture_command_effective_at_for_material_change
       - if_time_or_resource_claim_fields_change_replace_DB_CAL_003_claim_set_in_deterministic_order
       - apply_material_event_fields
       - increment_version_exactly_once
-      - append_updated_lifecycle_event_for_same_version
-      - commit_only_if_GiST_and_deferred_claim_guard_pass
+      - append_updated_lifecycle_event_for_same_version_and_command_effective_at
+      - commit_only_if_GiST_deferred_claim_and_history_guards_pass
     terminal_event_PATCH: conflict_for_normal_operation
 
   cancel_transaction:
@@ -1013,14 +1047,15 @@ calendar_event_lifecycle_and_concurrency:
       - lock_calendar_event_FOR_UPDATE
       - compare_expected_version_after_lock_for_new_command
       - require_status_scheduled
+      - capture_command_effective_at_once
       - remove_all_calendar_event_resource_claims
       - set_status_cancelled
-      - set_cancelled_at_to_command_commit_time
+      - set_cancelled_at_to_command_effective_at
       - set_cancelled_by_user_id_to_actor
       - persist_nullable_reason_if_supplied
       - increment_version_exactly_once
-      - append_cancelled_lifecycle_event_for_same_version
-      - commit_only_if_deferred_claim_guard_requires_zero_claims
+      - append_cancelled_lifecycle_event_for_same_version_and_command_effective_at
+      - commit_only_if_deferred_claim_and_history_guards_pass
     same_idempotency_key_same_payload_retry_after_success: return_same_result_without_version_increment
     different_idempotency_key_against_already_cancelled_event: conflict_not_second_cancellation
 
@@ -1031,13 +1066,14 @@ calendar_event_lifecycle_and_concurrency:
       - lock_calendar_event_FOR_UPDATE
       - compare_expected_version_after_lock_for_new_command
       - require_status_scheduled
+      - capture_command_effective_at_once
       - remove_all_calendar_event_resource_claims
       - set_status_completed
-      - set_completed_at_to_command_commit_time
+      - set_completed_at_to_command_effective_at
       - set_completed_by_user_id_to_actor
       - increment_version_exactly_once
-      - append_completed_lifecycle_event_for_same_version
-      - commit_only_if_deferred_claim_guard_requires_zero_claims
+      - append_completed_lifecycle_event_for_same_version_and_command_effective_at
+      - commit_only_if_deferred_claim_and_history_guards_pass
     same_idempotency_key_same_payload_retry_after_success: return_same_result_without_version_increment
     different_idempotency_key_against_already_completed_event: conflict_not_second_completion
     calendar_complete_credits_training_hours: false
@@ -1086,11 +1122,14 @@ calendar_event_lifecycle_and_concurrency:
       - add_completed_and_cancelled_terminal_metadata_columns_nullable_initially
       - collect_reliable_existing_audit_or_domain_evidence_for_terminal_actor_and_time
       - fail_or_require_review_for_terminal_rows_whose_required_metadata_cannot_be_reconstructed
+      - add_calendar_event_terminal_actor_foreign_keys_to_users
       - add_calendar_event_status_and_terminal_metadata_checks
       - create_append_only_calendar_event_lifecycle_events
+      - add_lifecycle_event_actor_foreign_key_to_users
       - create_migration_baseline_history_event_for_each_existing_event_current_version
       - add_unique_one_history_event_per_event_version
       - add_history_immutability_guard
+      - add_deferrable_current_event_version_history_final_state_guard
       - align_DB_CAL_003_claim_backfill_with_final_scheduled_status_only
       - run_patch_cancel_complete_version_race_tests
     unknown_status_policy: >-
@@ -1110,6 +1149,7 @@ calendar_event_lifecycle_and_concurrency:
     - scheduled_event_with_any_terminal_metadata_is_rejected
     - completed_event_requires_completed_at_and_completed_by_and_forbids_cancel_metadata
     - cancelled_event_requires_cancelled_at_and_cancelled_by_and_forbids_completion_metadata
+    - terminal_actor_ids_must_reference_existing_global_users
     - generic_PATCH_cannot_write_status_completed_or_cancelled_or_terminal_metadata
     - material_scheduled_PATCH_with_matching_expected_version_increments_version_once
     - semantic_noop_PATCH_does_not_increment_version_or_append_history
@@ -1117,6 +1157,8 @@ calendar_event_lifecycle_and_concurrency:
     - completed_or_cancelled_event_normal_PATCH_is_rejected
     - cancel_from_scheduled_removes_claims_sets_metadata_increments_version_and_appends_history
     - complete_from_scheduled_removes_claims_sets_metadata_increments_version_and_appends_history
+    - cancel_and_its_history_event_share_one_command_effective_at
+    - complete_and_its_history_event_share_one_command_effective_at
     - cancel_from_completed_or_cancelled_is_rejected_for_new_command
     - complete_from_completed_or_cancelled_is_rejected_for_new_command
     - same_cancel_idempotency_key_retry_returns_same_result_without_second_version
@@ -1126,7 +1168,8 @@ calendar_event_lifecycle_and_concurrency:
     - cancel_vs_complete_same_expected_version_allows_exactly_one_terminal_transition
     - two_cancel_commands_different_keys_same_expected_version_do_not_both_commit
     - two_complete_commands_different_keys_same_expected_version_do_not_both_commit
-    - every_material_event_version_has_exactly_one_lifecycle_history_event
+    - every_current_event_version_has_exactly_one_matching_lifecycle_history_event
+    - direct_event_version_or_status_change_without_matching_history_is_rejected_at_commit
     - lifecycle_history_business_row_is_immutable
     - terminal_event_has_zero_DB_CAL_003_resource_claims
     - calendar_complete_does_not_create_training_attendance_or_hour_ledger_credit
@@ -1144,13 +1187,17 @@ calendar_event_lifecycle_and_concurrency:
 
   self_audit:
     status_catalog_and_terminal_metadata_matrix_are_closed: PASS
+    terminal_actor_relations_reference_global_users_without_fake_tenant_scope: PASS
     version_is_single_event_concurrency_root: PASS
     expected_version_is_checked_after_FOR_UPDATE_lock: PASS
     PATCH_cancel_complete_races_serialize_on_same_event_row: PASS
-    one_material_event_version_maps_to_one_append_only_history_event: PASS
+    at_most_one_history_row_per_event_version_is_unique_constrained: PASS
+    current_event_version_requires_exactly_one_matching_history_row_at_commit: PASS
+    matching_current_history_status_must_equal_event_status: PASS
     semantic_noop_PATCH_does_not_create_fake_version: PASS
     terminal_event_normal_PATCH_and_hard_delete_are_forbidden: PASS
     cancel_and_complete_remove_DB_CAL_003_claims_atomically: PASS
+    terminal_metadata_and_history_share_one_command_effective_at: PASS
     stale_or_conflicting_command_cannot_commit_partial_claim_history_or_event_change: PASS
     idempotency_replay_does_not_replace_expected_version_for_new_commands: PASS
     calendar_complete_does_not_credit_formal_training_hours: PASS
@@ -1283,10 +1330,13 @@ quality_gate:
   DB_CAL_003_exact_set_guard_is_DEFERRABLE_INITIALLY_DEFERRED: PASS
   DB_CAL_003_database_is_final_race_boundary: PASS
   DB_CAL_004_status_and_terminal_metadata_matrix: PASS
+  DB_CAL_004_terminal_actor_FKs_to_users: PASS
   DB_CAL_004_single_version_concurrency_root: PASS
   DB_CAL_004_PATCH_cancel_complete_races_serialized: PASS
   DB_CAL_004_append_only_version_paired_history: PASS
+  DB_CAL_004_current_version_history_final_state_guard: PASS
   DB_CAL_004_terminal_claim_release_atomic: PASS
+  DB_CAL_004_command_effective_time_consistent_between_row_and_history: PASS
   DB_CAL_004_calendar_complete_does_not_credit_training: PASS
   reverse_engineering_calendar_capabilities_preserved: PASS
   open_P0: 0
