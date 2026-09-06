@@ -3,10 +3,10 @@
 Data: 2026-09-06
 
 **Etap:** `DB4_6_LICENSES_LEARNING_ACCESS`  
-**Aktualny krok:** `DIAGNOSIS_ONLY`  
-**Status:** `DIAGNOSIS COMPLETE / 0 P0 / 7 P1 OPEN / NO FIXES APPLIED`
+**Aktualny krok:** `DB4_6_STEP_1 / DB-LIC-001`  
+**Status:** `DB-LIC-001 PASS / 0 P0 / 6 P1 OPEN`
 
-Machine-readable diagnoza: `specs/database/licenses-learning-access.yml`.
+Machine-readable diagnoza i kontrakty: `specs/database/licenses-learning-access.yml`.
 
 ---
 
@@ -21,7 +21,7 @@ DB4_6 rozpoczynamy tak samo jak wcześniejsze slice'y Stage 4:
 5. agregaty `specs/database/core-schema.yml` i `docs/87-physical-database-schema.md` pozostają zamrożone do finalnego DB4_6 aggregate sync,
 6. DB4_7+, Stage 5, migracje Laravel i UI pozostają poza bieżącym zakresem.
 
-W tym kroku **nie utworzono migracji i nie zmieniono istniejącego fizycznego agregatu**.
+W diagnozie nie utworzono migracji i nie zmieniono istniejącego fizycznego agregatu. W bieżącym fixerze DB-LIC-001 nadal nie zmieniamy agregatów ani migracji — zamykamy bounded-context contract i centralny gate.
 
 ---
 
@@ -60,7 +60,7 @@ Najważniejsze źródła produktowe i reverse-engineeringowe:
 - `specs/api/paths/licenses.yaml`,
 - `specs/api/openapi-components-v1.yaml`.
 
-Aktualne agregaty DB były w tym kroku wyłącznie źródłem odczytu:
+Aktualne agregaty DB są do finalnego DB4_6 sync wyłącznie źródłem odczytu:
 
 - `specs/database/core-schema.yml`,
 - `docs/87-physical-database-schema.md`.
@@ -121,7 +121,7 @@ Docelowy efekt musi wspierać semantykę równoważną:
 
 bez utraty dni przy współbieżnych aktywacjach.
 
-W kroku diagnostycznym **nie zamykamy jeszcze dokładnej fizycznej reprezentacji ani wszystkich wyjątków produktu**. Stwierdzamy jedynie, że aktualny blueprint nie dowodzi jeszcze pełnej, reprodukowalnej i race-safe historii tego efektu.
+DB-LIC-001 nie zamyka fizycznej reprezentacji stackingu ani wszystkich wyjątków produktu. Ten zakres pozostaje wyłącznie w DB-LIC-006.
 
 ---
 
@@ -143,7 +143,7 @@ Jednocześnie obowiązuje bezwzględna granica security:
 - audit/log/outbox/idempotency snapshot nie mogą przechowywać hasła,
 - QR nie zawiera hasła.
 
-Ta kombinacja wymaga jawnego, bezpiecznego one-time handoff lifecycle. Sam fakt, że `student_access_handoffs` nie ma kolumny password, jeszcze nie zamyka problemu, ponieważ trwały `document_asset_id` może wskazywać dokument zawierający świeży sekret, jeżeli nie zdefiniujemy jego storage/lifetime policy.
+Ta kombinacja wymaga jawnego, bezpiecznego one-time handoff lifecycle. DB-LIC-001 zamyka jedynie tenant-integrity relacji handoff→account i opcjonalnego handoff→FileAsset; readiness, purpose i secret-storage policy pozostają wyłącznie DB-LIC-004.
 
 ---
 
@@ -160,36 +160,129 @@ Stage-3 API ma już osobne operacje:
 - assignment history,
 - bulk access PDF.
 
-LearningAccount PATCH ma `If-Match`, ale aktualny physical blueprint `student_learning_accounts` nie posiada jeszcze jawnego `version`.
+LearningAccount PATCH ma `If-Match`, ale aktualny physical blueprint `student_learning_accounts` nie posiada jeszcze jawnego `version`. To pozostaje DB-LIC-003.
 
 `CreateLicenseAssignmentRequest` rozdziela target:
 - `existing_learning_account_id`, albo
 - `student_id + new_learning_account`.
 
-To jest poprawne biznesowe rozdzielenie, ale baza nadal musi fizycznie udowodnić exact Student/Account/Organization/Inventory target.
+DB-LIC-001 zamyka fizyczny dowód, że finalny zapis assignmentu wskazuje dokładnie tę samą parę Student/LearningAccount i to samo OSK co zużywana jednostka inventory.
 
 ---
 
 # 8. DB-LIC-001 — same-tenant i exact-target integrity
 
-**Severity: P1 — OPEN.**
+**Severity: P1 — RESOLVED / PASS.**
 
-Aktualne encje licencyjne przechowują równolegle:
+Diagnoza wykazała, że samo równoległe przechowywanie:
 - `organization_id`,
 - `student_id`,
 - `student_learning_account_id`,
 - `license_inventory_entry_id`,
-- później `license_assignment_id` w activation.
+- `license_assignment_id`
 
-W agregacie nie ma jeszcze pełnego zestawu composite same-tenant/exact-target boundaries, który uniemożliwia skonstruowanie np.:
-- assignmentu OSK A na inventory OSK B,
-- assignmentu Studenta A na LearningAccount Studenta B,
-- activation z `organization_id` różnym od assignmentu,
-- handoff podpiętego do konta z innego tenant.
+nie stanowi jeszcze integralności relacyjnej.
 
-Application validation nie jest wystarczającą końcową granicą dla tych relacji.
+Bieżący fixer ustanawia jeden spójny wzorzec:
 
-**Ryzyko:** cross-tenant access/licensing albo licencja przypisana do niewłaściwego kursanta.
+`child(organization_id, relation_id) -> parent(organization_id,id)`
+
+dla tenant-owned relacji oraz mocniejszą exact-target relację assignmentu:
+
+`license_assignments(organization_id, student_learning_account_id, student_id)`
+
+`-> student_learning_accounts(organization_id, id, student_id)`.
+
+Dzięki temu assignment nie może wskazać konta innego Studenta nawet wtedy, gdy oba rekordy należą do tego samego OSK.
+
+### 8.1 Candidate keys
+
+Wymagane/reużywane:
+- `students(organization_id,id)` — już istnieje z DB4_4,
+- `file_assets(organization_id,id)` — już istnieje z foundation/DB4_3,
+- `student_learning_accounts(organization_id,id)`,
+- `student_learning_accounts(organization_id,id,student_id)`,
+- `license_inventory_entries(organization_id,id)`,
+- `license_assignments(organization_id,id)`.
+
+### 8.2 Same-tenant FKs
+
+`student_learning_accounts`:
+- `(organization_id,student_id) -> students(organization_id,id)` — zachowujemy istniejącą granicę.
+
+`student_access_handoffs`:
+- `(organization_id,student_learning_account_id) -> student_learning_accounts(organization_id,id)`,
+- opcjonalne `(organization_id,document_asset_id) -> file_assets(organization_id,id)` z `MATCH SIMPLE`.
+
+Jeśli `document_asset_id` jest non-NULL, dokument musi należeć do tego samego OSK. Platformowy asset z `organization_id=NULL` nie może zostać przypadkowo użyty jako prywatny dokument dostępu kursanta. To **nie** rozstrzyga jeszcze, czy PDF ze świeżym hasłem może być trwale przechowywany — ta polityka pozostaje DB-LIC-004.
+
+`license_assignments`:
+- `(organization_id,license_inventory_entry_id) -> license_inventory_entries(organization_id,id)`,
+- `(organization_id,student_id) -> students(organization_id,id)`,
+- `(organization_id,student_learning_account_id,student_id) -> student_learning_accounts(organization_id,id,student_id)`.
+
+`license_activations`:
+- `(organization_id,license_assignment_id) -> license_assignments(organization_id,id)`.
+
+Formalne relacje używają `ON UPDATE RESTRICT / ON DELETE RESTRICT`; opcjonalny FileAsset używa `MATCH SIMPLE`.
+
+### 8.3 Globalne relacje nie są sztucznie tenant-scoped
+
+DB-LIC-001 nie zmienia modelu DB4_2. Nadal globalne pozostają:
+- `users`,
+- `auth_login_identifiers`,
+- `languages`,
+- `license_products`.
+
+Actor IDs (`assigned_by_user_id`, `revoked_by_user_id`, `activated_by_user_id`, `generated_by_user_id`) nadal odnoszą się do globalnego `users.id`; ich authorization/audit nie jest zastępowane fałszywym composite tenant FK.
+
+### 8.4 `organization_id` nie jest client authority
+
+Backend nie może „naprawić” relacji przez przyjęcie dowolnego `organization_id` z requestu. Tenant wynika z aktywnego kontekstu/autoryzowanego parent resource, a composite FK jest końcową granicą DB.
+
+Plain update przenoszący LearningAccount, Handoff, InventoryEntry, Assignment albo Activation do innego OSK jest zabroniony.
+
+### 8.5 Granica z `source_order_item_id`
+
+`license_inventory_entries.source_order_item_id` pozostaje świadomie poza DB-LIC-001. Dzisiejszy `order_items` nie ma własnego `organization_id`; tenant wynika pośrednio z `orders`. Poprawne zamknięcie tej relacji wymaga decyzji w DB4_9 o commerce candidate keys / denormalizacji tenant key i nie może być wykonane połowicznie tutaj.
+
+To odroczenie dotyczy wyłącznie provenance komercyjnej źródła inventory. Nie pozostawia otwartej możliwości cross-tenant assignmentu, aktywacji ani handoffu.
+
+### 8.6 Migration safety
+
+Przyszła migracja przed dodaniem constraintów wykonuje prechecki:
+- LearningAccount↔Student,
+- Handoff↔LearningAccount,
+- Handoff↔optional FileAsset,
+- Assignment↔Inventory,
+- Assignment↔Student,
+- Assignment↔exact LearningAccount/Student pair,
+- Activation↔Assignment.
+
+Jeśli istnieje mismatch, migracja **FAIL** i wymaga reviewed remediation.
+
+Zabronione jest automatyczne:
+- przepisywanie `organization_id`,
+- przepisywanie `student_id`, aby „pasował” do konta,
+- podmienianie LearningAccount na inne konto tego Studenta,
+- nullowanie cross-tenant `document_asset_id`,
+- przepisywanie organizacji Activation.
+
+### 8.7 Test matrix DB-LIC-001
+
+Obowiązkowe integration tests:
+- LearningAccount nie może wskazać Studenta innego OSK,
+- Handoff nie może wskazać LearningAccount innego OSK,
+- non-NULL Handoff FileAsset musi być z tego samego OSK,
+- Assignment nie może wskazać InventoryEntry innego OSK,
+- Assignment nie może wskazać Studenta innego OSK,
+- Assignment nie może wskazać LearningAccount innego OSK,
+- Assignment z tego samego OSK, ale z kontem innego Studenta jest odrzucany,
+- Activation nie może wskazać Assignmentu innego OSK,
+- ten sam globalny User może nadal wspierać LearningAccounts w różnych OSK,
+- globalne Language/LicenseProduct nie są błędnie tenant-scoped.
+
+**Wynik DB-LIC-001: PASS.**
 
 ---
 
@@ -368,9 +461,9 @@ Jednocześnie operacje licencyjne i credentials muszą już teraz deklarować ob
 
 ## 17. Self-audit diagnozy
 
-Wynik: **PASS_DIAGNOSIS_COMPLETE**.
+Wynik historycznej diagnozy: **PASS_DIAGNOSIS_COMPLETE**.
 
-Sprawdzone:
+Sprawdzone w diagnozie:
 - żaden z siedmiu blockerów nie został naprawiony w kroku diagnozy,
 - nie usunięto rozdzielenia LearningAccount / Assignment / Activation,
 - zachowano existing-access i create-new-access assignment flows,
@@ -391,28 +484,55 @@ Sprawdzone:
 
 ---
 
-## 18. Wynik bramki diagnostycznej
+## 18. Wynik bramki diagnostycznej — historyczny punkt startowy
 
 - P0: **0**,
 - P1: **7**,
 - rozwiązane w diagnozie: **0**,
-- otwarte P0/P1: **7**,
-- wynik DB4_6: **FAIL_WITH_7_P1_BLOCKERS**,
-- final DB4_6 aggregate sync: **BLOCKED**,
-- DB4_7: **BLOCKED**,
-- Stage 5: **BLOCKED**,
-- Laravel migrations: **BLOCKED**,
-- UI/feature implementation: **BLOCKED**.
+- otwarte P0/P1 po diagnozie: **7**,
+- wynik startowy DB4_6: **FAIL_WITH_7_P1_BLOCKERS**.
 
-Kolejność napraw:
-1. `DB-LIC-001` — same-tenant + exact target integrity,
-2. `DB-LIC-002` — LearningAccount ↔ global auth identity,
-3. `DB-LIC-003` — LearningAccount lifecycle/concurrency/archive,
-4. `DB-LIC-004` — one-time credentials/handoff/PDF,
-5. `DB-LIC-005` — inventory/assignment exactly-once lifecycle,
-6. `DB-LIC-006` — activation/stacking entitlement,
-7. `DB-LIC-007` — product-language/projection consistency.
+Kolejność napraw pozostaje:
+1. `DB-LIC-001` — same-tenant + exact target integrity — **PASS**,
+2. `DB-LIC-002` — LearningAccount ↔ global auth identity — OPEN,
+3. `DB-LIC-003` — LearningAccount lifecycle/concurrency/archive — OPEN,
+4. `DB-LIC-004` — one-time credentials/handoff/PDF — OPEN,
+5. `DB-LIC-005` — inventory/assignment exactly-once lifecycle — OPEN,
+6. `DB-LIC-006` — activation/stacking entitlement — OPEN,
+7. `DB-LIC-007` — product-language/projection consistency — OPEN.
 
-Następny dozwolony krok po centralnym gate to wyłącznie **DB-LIC-001**.
+---
 
-**STOP przed pierwszym fixerem DB4_6.**
+## 19. Self-audit DB-LIC-001
+
+Wynik: **PASS**.
+
+Sprawdzone po zapisie machine contract:
+- wszystkie tenant-owned relacje potrzebne do assignment/handoff/activation mają finalną composite DB boundary,
+- exact Student↔LearningAccount target jest dowodliwy jednym composite FK, a nie tylko application validation,
+- cross-tenant InventoryEntry nie może zostać wykorzystany przez Assignment,
+- Activation nie może wskazać Assignmentu z innego OSK,
+- Handoff nie może wskazać LearningAccount ani prywatnego FileAsset z innego OSK,
+- global User/AuthLoginIdentifier/Language/LicenseProduct nie zostały sztucznie tenant-scoped,
+- nie zdefiniowano jeszcze same-User auth-identifier guard — DB-LIC-002 pozostaje OPEN,
+- nie dodano `version` ani lifecycle LearningAccount — DB-LIC-003 pozostaje OPEN,
+- nie rozstrzygnięto trwałego PDF/one-time secret — DB-LIC-004 pozostaje OPEN,
+- nie zamknięto inventory/assignment status equivalence ani revoke exactly-once — DB-LIC-005 pozostaje OPEN,
+- nie zamknięto activation stacking/effect snapshots — DB-LIC-006 pozostaje OPEN,
+- nie rozstrzygnięto language authority/capability — DB-LIC-007 pozostaje OPEN,
+- `source_order_item_id` nie został pozornie zabezpieczony bez poprawnego tenantowego modelu `order_items`; pozostaje DB4_9,
+- nie zmieniono `specs/database/core-schema.yml`,
+- nie zmieniono `docs/87-physical-database-schema.md`,
+- nie utworzono migracji Laravel,
+- nie rozpoczęto DB4_7, Stage 5 ani UI.
+
+Aktualny wynik DB4_6 po DB-LIC-001:
+- rozwiązane blockery: **1/7**,
+- otwarte P0: **0**,
+- otwarte P1: **6**,
+- wynik: **FAIL_WITH_6_P1_BLOCKERS**,
+- final DB4_6 aggregate sync: **BLOCKED**.
+
+Następny dozwolony krok po centralnym gate to wyłącznie **DB-LIC-002**.
+
+**STOP przed DB-LIC-002.**
