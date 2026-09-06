@@ -2,11 +2,13 @@
 
 Data: 2026-09-06
 
-**Status:** `IMPLEMENTATION_BLUEPRINT / DB4_4_AGGREGATE_SYNC_PASS`
+**Status:** `IMPLEMENTATION_BLUEPRINT / DB4_5_AGGREGATE_SYNC_PASS`
 
 > To nie są jeszcze migracje Laravel. To fizyczny blueprint tabel, indeksów, constraintów i najważniejszych transakcji zgodny z canonical domain model. Machine-readable odpowiednik: `specs/database/core-schema.yml`. Przy konflikcie machine spec + późniejszy ADR wygrywa. Reverse-engineered scope chronią `docs/96-reverse-engineering-preservation-contract.md` i `specs/reverse-engineering-manifest.yml`. Cross-layer kompletność kontroluje `specs/traceability/core-v1.yml`.
 
 DB4_4 Students / Courses / Training Ledger został zsynchronizowany z `specs/database/students-courses-training.yml` po zamknięciu DB-TRN-001..008. Sekcje 11–14 oraz odpowiadające im constrainty, transakcje, kolejność migracji i testy poniżej są agregatową projekcją tych rozstrzygnięć.
+
+DB4_5 Calendar został zsynchronizowany z `specs/database/calendar.yml` po zamknięciu DB-CAL-001..007. Sekcja 15, rozszerzenie formalnego `TrainingSession` w sekcji 13 oraz odpowiadające constrainty, transakcje, migration order i invariant tests są agregatową projekcją zamkniętego kontraktu Calendar.
 
 ---
 
@@ -989,9 +991,9 @@ Teoria i praktyka nie zastępują się wzajemnie.
 
 ---
 
-# 13. Training sessions / formal hour ledger — DB4_4 aggregate
+# 13. Training sessions / formal hour ledger — DB4_4 aggregate + DB4_5 schedule-conflict extension
 
-Canonical szczegóły: DB-TRN-001 i DB-TRN-006.
+Canonical szczegóły: DB-TRN-001, DB-TRN-006 oraz DB-CAL-003/007.
 
 ## `training_sessions`
 
@@ -1023,6 +1025,10 @@ Candidate keys:
 Composite same-tenant FKs do Course, Instructor oraz optional Vehicle/Location. `duration_minutes` jest dokładną dodatnią liczbą pełnych minut pomiędzy `starts_at` i `ends_at`; nie zaokrąglamy sesji do bloków 45/60.
 
 State checks wiążą `planned/completed/cancelled` z odpowiednią terminal metadata. Completed/cancelled Session jest normalnie immutable i nie hard-delete.
+
+Po DB4_5 `TrainingSession` jest również jedynym canonical schedule ownerem formalnego szkolenia. Każdy `planned` Session — zarówno `theory`, jak i `practical` — materializuje dokładny set `calendar_resource_claims`: Student wynikający z Course, Instructor oraz opcjonalne Vehicle i managed Location dla dokładnego przedziału `[starts_at,ends_at)`. `completed|cancelled` ma zero aktywnych claims. Create/reschedule, complete i cancel synchronizują te claims w tej samej transakcji co Session lifecycle; claim insert sam nie tworzy Attendance ani Ledger credit.
+
+Praktyczny Session jest w read modelu Calendar projekcją `driving_lesson`; nie ma drugiej mutable kopii w `calendar_events`. Opcjonalną nazwę/custom meeting text zachowuje 1:1 `training_session_calendar_details`, opisane w sekcji 15. Materialna zmiana companion metadata korzysta z tego samego `training_sessions.version`, nie z osobnego concurrency root.
 
 ## `training_session_attendance`
 
@@ -1080,7 +1086,7 @@ Deferrable final-state guard:
 - completed + verified absent -> 0 credits,
 - completed Session -> dokładnie 1 verified Attendance.
 
-Complete transaction lock order: `Course -> Session -> Attendance`. Cancel: `Course -> Session`. Complete/cancel race nie może pozostawić cancelled Session z creditem ani present completed Session bez creditu.
+Complete transaction lock order: `Course -> Session -> Attendance`. Cancel: `Course -> Session`. Complete/cancel race nie może pozostawić cancelled Session z creditem ani present completed Session bez creditu. Po DB4_5 complete/cancel atomowo usuwa również Session resource claims; finalny terminal Session ma zero claims.
 
 Current OSK formal time = signed sum Ledger per `Course + training_part`. Course-part total oraz source-linked Session subtotal nie mogą być ujemne. Godziny zadeklarowane w Course form nie zwiększają Ledger; godziny z poprzedniego OSK pozostają w `recognized_external_training`.
 
@@ -1206,44 +1212,284 @@ Unique `(pkk_operation_id,attempt_no)`.
 
 ---
 
-# 15. Calendar
+# 15. Calendar — DB4_5 aggregate
 
-## `calendar_events`
+Canonical szczegóły: `specs/database/calendar.yml`, audyt `docs/109-stage-4-calendar-audit.md`, DB-CAL-001..007.
+
+## 15.1 Storage i read-model boundary
+
+Po DB4_5 nie utrzymujemy dwóch mutable schedule facts dla formalnej jazdy.
+
+Źródła bieżących elementów kalendarza:
+- manual `general_event` -> `calendar_events`,
+- formal `driving_lesson` -> praktyczny `training_sessions` + opcjonalny `training_session_calendar_details`,
+- `important_date` -> source-domain projection z bieżących Staff/Vehicle documents z `valid_until IS NOT NULL`,
+- booked availability reservation -> `availability_slots` tylko dopóki `training_session_id IS NULL`.
+
+Sformalizowany slot nie emituje drugiego elementu, bo linked TrainingSession jest już jedyną formalną rezerwacją.
+
+Historyczne `calendar_events(event_type='driving_lesson')` nie są automatycznie dopasowywane do TrainingSession po czasie, nazwie ani zasobach. Migracja może konwertować wyłącznie dowodliwe 1:1 przypadki; niejednoznaczne wymagają jawnej reviewed remediation.
+
+## 15.2 `calendar_events` — manual `general_event`
+
+Po legacy remediation runtime `calendar_events` przechowuje ręczne `general_event`, nie formalną jazdę.
 
 - `id uuid PK`
-- `organization_id uuid FK`
-- `event_type varchar(32)`
+- `organization_id uuid not null`
+- `event_type varchar(32) not null` — runtime `general_event`,
 - `name varchar(255) null`
-- `starts_at timestamptz`
-- `ends_at timestamptz`
-- `student_id uuid null FK`
-- `instructor_id uuid null FK staff_profiles`
-- `vehicle_id uuid null FK vehicles`
-- `location_id uuid null FK locations`
-- `custom_meeting_place varchar(255) null`
-- `status varchar(32)`
-- `created_by_user_id uuid`
-- `version integer default 1`
-- `created_at`
-- `updated_at`.
-
-Check `ends_at > starts_at`.
-
-Backend waliduje konflikt zasobów. Strategia DB exclusion constraint vs transaction lock finalizowana ADR.
-
-## `availability_slots`
-
-- `id uuid PK`
-- `organization_id uuid FK`
+- `starts_at timestamptz not null`
+- `ends_at timestamptz not null`
+- `student_id uuid null`
 - `instructor_id uuid null`
 - `vehicle_id uuid null`
 - `location_id uuid null`
-- `starts_at timestamptz`
-- `ends_at timestamptz`
-- `status varchar(32)`
+- `custom_meeting_place varchar(255) null`
+- `status varchar(32) not null` — `scheduled|completed|cancelled`,
+- `created_by_user_id uuid not null`
+- `version bigint not null default 1 check (version >= 1)`
+- `completed_at timestamptz null`
+- `completed_by_user_id uuid null`
+- `cancelled_at timestamptz null`
+- `cancelled_by_user_id uuid null`
+- `cancellation_reason text null`
+- `created_at`
+- `updated_at`.
+
+Candidate key: `UNIQUE(organization_id,id)`.
+
+Composite same-tenant FKs `(organization_id,resource_id)` chronią optional Student/Instructor/Vehicle/Location i używają `MATCH SIMPLE`, `ON UPDATE/DELETE RESTRICT`. `organization_id` nie jest client authority.
+
+Meeting place ma zero lub jedno persisted source:
+- saved `location_id`, albo
+- trimmed nonblank `custom_meeting_place`.
+
+Oba mogą być NULL; oba non-NULL są zabronione. Custom text nie tworzy `Location`.
+
+Lifecycle:
+- create -> `scheduled`, version 1,
+- material PATCH: `scheduled -> scheduled`, version +1,
+- complete: `scheduled -> completed`, version +1,
+- cancel: `scheduled -> cancelled`, version +1.
+
+Generic PATCH status/terminal metadata, normal restore i hard delete terminal history są zabronione. Completed/cancelled mają spójną terminal metadata i zero current claims.
+
+`created_by_user_id` jest provenance, nie ownerem `own` scope. Canonical owner manual eventu to `instructor_id` wskazujący StaffProfile. `instructor_id=NULL` daje `own` DENY; organization scope może nadal zarządzać, jeśli permission na to pozwala.
+
+## 15.3 `calendar_event_lifecycle_events`
+
+Append-only material-version history:
+- `id uuid PK`
+- `organization_id uuid not null`
+- `calendar_event_id uuid not null`
+- `event_type varchar(32) not null` — runtime `created|updated|completed|cancelled`, migration-only `migration_baseline`,
+- `from_status varchar(32) null`
+- `to_status varchar(32) not null`
+- `event_version_before bigint null`
+- `event_version_after bigint not null`
+- `actor_user_id uuid null only for migration baseline`
+- `reason text null`
+- `changed_fields_redacted jsonb null`
+- `occurred_at timestamptz not null`.
+
+Same-tenant FK do CalendarEvent; actor to global `users(id)`. Unique `(organization_id,calendar_event_id,event_version_after)`.
+
+`DEFERRABLE INITIALLY DEFERRED` current-version/history guard wymaga po commit dokładnie jednego history row dla current Event version i `to_status` zgodnego z Event status. Runtime successor ma `after=before+1`. Business history jest immutable.
+
+## 15.4 `availability_slots`
+
+- `id uuid PK`
+- `organization_id uuid not null`
+- `instructor_id uuid null`
+- `vehicle_id uuid null`
+- `location_id uuid null`
+- `starts_at timestamptz not null`
+- `ends_at timestamptz not null`
+- `status varchar(32) not null` — `available|booked|cancelled`,
 - `booked_student_id uuid null`
 - `booked_at timestamptz null`
-- `version integer default 1`.
+- `training_session_id uuid null`
+- `version bigint not null default 1 check (version >= 1)`
+- `created_at`
+- `updated_at`.
+
+Candidate key `UNIQUE(organization_id,id)`. Same-tenant optional FKs do Instructor/Vehicle/Location/Student. `training_session_id`, gdy non-NULL, jest same-tenant relacją do TrainingSession i ma partial unique `(organization_id,training_session_id)`.
+
+State matrix:
+- `available`: booking fields NULL, `training_session_id=NULL`, zero claims, normal PATCH/book/cancel dozwolone,
+- `booked` unformalized: Student+booked_at non-NULL, `training_session_id=NULL`, exact `availability_slot_booking` claims,
+- `booked` formalized: Student+booked_at zachowane jako booking snapshot, `training_session_id!=NULL`, **zero slot-booking claims**; current reservation owner = TrainingSession,
+- `cancelled`: current booking fields NULL, link NULL w normalnym flow, zero claims, terminal.
+
+Cancellation nie republishuje dostępności. Chcąc ponownie wystawić czas, tworzymy nowy slot. Successful booking nie tworzy CalendarEvent.
+
+Canonical own owner slotu = `instructor_id` StaffProfile; creator/Student nie daje own ownership.
+
+## 15.5 `availability_slot_lifecycle_events`
+
+Append-only history każdej materialnej wersji slotu:
+- `id uuid PK`
+- `organization_id uuid not null`
+- `availability_slot_id uuid not null`
+- `event_type varchar(32)` — runtime `created|updated|booked|formalized|cancelled`, migration-only `migration_baseline`,
+- `from_status varchar(32) null`
+- `to_status varchar(32) not null`
+- `slot_version_before bigint null`
+- `slot_version_after bigint not null`
+- `actor_user_id uuid null only for migration baseline`
+- `booking_student_id_snapshot uuid null`
+- `reason text null`
+- `changed_fields_redacted jsonb null`
+- `occurred_at timestamptz not null`.
+
+Unique `(organization_id,availability_slot_id,slot_version_after)`. Current version/history final-state guard jest `DEFERRABLE INITIALLY DEFERRED`.
+
+`formalized` jest materialnym `booked -> booked` eventem version +1 i zachowuje Student snapshot. Późniejsze lifecycle linked Session nie rewrite'uje tej historii.
+
+## 15.6 `calendar_resource_claims` — finalna race-safe conflict boundary
+
+To techniczna current projection zajętości, nie business history.
+
+- `id uuid PK`
+- `organization_id uuid not null`
+- `claim_owner_kind varchar(32) not null` — `calendar_event|availability_slot_booking|training_session`,
+- `claim_owner_id uuid not null`
+- `student_id uuid null`
+- `instructor_id uuid null`
+- `vehicle_id uuid null`
+- `location_id uuid null`
+- `starts_at timestamptz not null`
+- `ends_at timestamptz not null`
+- `occupied_during tstzrange GENERATED ALWAYS AS (tstzrange(starts_at,ends_at,'[)')) STORED`
+- `created_at timestamptz not null`.
+
+Checks:
+- `ends_at > starts_at`,
+- `num_nonnulls(student_id,instructor_id,vehicle_id,location_id)=1`,
+- owner kind jest dokładnie jedną z 3 dozwolonych wartości.
+
+Każdy resource relation ma same-tenant composite FK. Owner resolution do właściwego CalendarEvent/AvailabilitySlot/TrainingSession oraz exact claim set są chronione `DEFERRABLE INITIALLY DEFERRED` constraint triggerami lub równoważną transactional DB boundary.
+
+Canonical przedział konfliktu to half-open `[starts_at,ends_at)`. Zatem `10:00–11:00` i `11:00–12:00` nie konfliktują.
+
+Wymagane `btree_gist` oraz cztery partial exclusion constraints:
+- Student: `organization_id WITH =`, `student_id WITH =`, `occupied_during WITH &&` gdzie Student non-NULL,
+- Instructor analogicznie,
+- Vehicle analogicznie,
+- Location analogicznie.
+
+To jest finalna concurrency boundary. Application precheck służy UX, ale race nie może ominąć GiST.
+
+Custom meeting text i `important_date` nie tworzą resource claims.
+
+## 15.7 Exact claim sets
+
+### Scheduled manual general event
+Dokładnie po jednym claimie dla każdego niepustego Student/Instructor/Vehicle/Location, z exact event interval. Completed/cancelled = zero claims.
+
+### Booked AvailabilitySlot przed formalizacją
+Dokładnie:
+- Student równy `booked_student_id`,
+- Instructor iff non-NULL,
+- Vehicle iff non-NULL,
+- Location iff non-NULL,
+- exact slot interval.
+
+Available/cancelled = zero claims. Formalized booked slot = zero slot claims, bo reservation owner został przeniesiony do TrainingSession.
+
+### Planned TrainingSession
+Dokładnie:
+- Student wynikający z `course_enrollments.student_id`,
+- Instructor z Session,
+- Vehicle iff non-NULL,
+- Location iff non-NULL,
+- exact Session interval.
+
+Dotyczy zarówno theory, jak i practical Session. Completed/cancelled = zero claims.
+
+Claim insert nigdy nie nalicza godzin i nie tworzy Attendance.
+
+## 15.8 `training_session_calendar_details`
+
+Calendar-only 0..1 companion formalnego practical TrainingSession:
+- `organization_id uuid not null`
+- `training_session_id uuid not null`
+- `display_name text null`
+- `custom_meeting_place text null`
+- `created_at timestamptz not null`
+- `updated_at timestamptz not null`.
+
+Unique/PK `(organization_id,training_session_id)`, same-tenant FK do Session. DB guard wymaga `session_type='practical'`.
+
+Companion nie przechowuje czasu, Studenta, Instruktora, Vehicle ani saved Location. `training_sessions.location_id` oraz companion custom text są zero-or-one source; oba NULL dozwolone, oba non-NULL zabronione. Custom text po trimie musi być niepusty.
+
+Materialna zmiana companion metadata zwiększa **ten sam `training_sessions.version`**. Terminal Session nie jest normalnie patchowany przez companion.
+
+## 15.9 Formal `driving_lesson` routing i permissions
+
+Kalendarz wyświetla practical TrainingSession jako `driving_lesson`, ale mutacja jest command adapterem do Training domain:
+- create: `training_sessions.create`,
+- reschedule/update: `training_sessions.edit`,
+- cancel: `training_sessions.cancel`,
+- complete: `training_sessions.edit` + DB-TRN-006.
+
+`calendar.manage.*` sam nie daje prawa do mutacji formalnego Session. Generic CalendarEvent PATCH/cancel/complete nie targetuje source-based TrainingSession projection.
+
+`calendar.view` może projektować formalne Session z istniejącymi scope adapters:
+- own -> Session Instructor,
+- assigned Student -> Course Student,
+- assigned Location -> Session Location,
+- organization -> Organization.
+
+Formalne complete nadal wymaga verified Attendance i tworzy eligible Ledger credit wyłącznie ścieżką DB-TRN-006. Calendar complete/claim insert nie jest skrótem do formalnego zaliczenia czasu.
+
+Przy tworzeniu jazdy z Calendar explicit `course_enrollment_id` jest preferowany. Implicit Course resolution jest dozwolone tylko, gdy dokładnie jeden aktywny, kwalifikujący się Course jest dowodliwy. Zero/wiele -> wymagany jawny Course; nie wybieramy „latest/first”.
+
+## 15.10 Booked AvailabilitySlot -> formal TrainingSession handoff
+
+Booking nie tworzy Session automatycznie, bo sam Student nie gwarantuje jednoznacznego Course context.
+
+Dedykowany formalization command:
+1. wymaga `training_sessions.create`, Idempotency-Key i expected slot version,
+2. rozwiązuje explicit lub dokładnie jeden kwalifikujący Course bez heurystyki,
+3. lock order `Course -> AvailabilitySlot`,
+4. wymaga `booked`, `training_session_id IS NULL`, same Student Course↔booking,
+5. tworzy planned practical TrainingSession z booking snapshot czasu/zasobów,
+6. opcjonalnie companion metadata,
+7. usuwa `availability_slot_booking` claims,
+8. wstawia exact `training_session` claims dla tej samej rezerwacji,
+9. zapisuje `slot.training_session_id`,
+10. zwiększa slot version raz,
+11. appenduje `formalized` history event,
+12. audit/outbox + deferred link/claims/history/GiST guards,
+13. commit.
+
+Całość jest jedną transakcją: nie ma committed stanu z dwoma reservation owners ani bez reservation fact. Failure rollbackuje nowy Session/link/history i zachowuje pierwotne booking claims.
+
+Po handoff slot nie jest samodzielnie anulowany; używamy Session cancel. Session cancel/complete nie republishuje slotu. Późniejszy Session reschedule nie przepisuje historycznego booking snapshotu slotu.
+
+## 15.11 Important dates
+
+`important_date` nie jest `calendar_events` row.
+
+Bieżące źródła:
+- StaffDocument current (`superseded_at IS NULL`) z non-NULL `valid_until`: card/authorization, medical exam, psychological exam,
+- VehicleDocument current z non-NULL `valid_until`: technical inspection, OC, AC.
+
+Canonical identity projection opiera się na `(organization_id,source_domain,source_row_id,date_kind)`. Zmiana `valid_until` w source domain aktualizuje widok bez drugiego calendar write. Projection nie można mutować manual CalendarEvent endpoints i nie tworzy resource claims.
+
+## 15.12 Calendar migration safety
+
+DB4_5 migration nie może:
+- heurystycznie klasyfikować nieznanych event/slot statusów,
+- fabrykować terminal actor/timestamps z `updated_at`/creatora,
+- zgadywać booked Studenta lub booked_at,
+- wybierać zwycięzcy legacy overlapu,
+- przesuwać czasu, anulować event/slot ani zerować zasobów tylko po to, by GiST przeszedł,
+- heurystycznie mapować legacy driving_lesson do TrainingSession,
+- tworzyć duplicate TrainingSession dla niejednoznacznego legacy row.
+
+Najpierw prechecks/reviewed remediation, potem candidate keys/composite FKs/history baselines, `btree_gist`, claim projection/backfill, exact-set guards i GiST constraints.
 
 ---
 
@@ -1652,10 +1898,15 @@ Minimum pod obserwowane query:
 - course lifecycle events: Course + version/time,
 - requirement profiles: Course + current/revision,
 - recognized external: Course + part + current role,
-- training sessions: Course + status/time,
+- training sessions: Course + status/time oraz Instructor/Vehicle/Location + time pod calendar projection,
 - training ledger: Course + part + Session/source,
 - pkk profiles: Course + current/revision,
-- calendar_events: time range + resource IDs,
+- calendar_events: `(organization_id,starts_at,ends_at)`, `(organization_id,instructor_id)`, pozostałe resource filters,
+- calendar_event_lifecycle_events: `(organization_id,calendar_event_id,event_version_after)` + occurred_at,
+- availability_slots: `(organization_id,status,starts_at,ends_at)`, `(organization_id,instructor_id)`, booked Student/link lookups,
+- availability_slot_lifecycle_events: `(organization_id,availability_slot_id,slot_version_after)` + occurred_at,
+- calendar_resource_claims: owner lookup `(organization_id,claim_owner_kind,claim_owner_id)` plus indeksy wspierające cztery GiST exclusion constraints,
+- training_session_calendar_details: `(organization_id,training_session_id)` unique lookup,
 - student_charges/payments: student + date/status,
 - license inventory: product/status,
 - exam attempts: course/student/date/status/language/category,
@@ -1748,6 +1999,39 @@ Students / Courses / Training DB4_4:
 - DB4_4 nie hard-blockuje identycznego PKK hash na dwóch Course bez zweryfikowanej provider/legal duplicate policy,
 - DB4_4 migration nie zgaduje no-PESEL branch, requirement context, external lineage ani PKK identity/history z niepełnego legacy evidence.
 
+Calendar DB4_5:
+- manual CalendarEvent z cross-tenant Student/Instructor/Vehicle/Location jest odrzucony przez DB,
+- saved Location i custom meeting place nie mogą być równocześnie aktywne; custom text jest trimmed/nonblank,
+- `important_date` pozostaje source projection i nie może być manual CalendarEvent row,
+- half-open interval pozwala temu samemu zasobowi zakończyć o 11:00 i zacząć nową rezerwację o 11:00,
+- overlap tego samego Student/Instructor/Vehicle/managed Location w tym samym OSK jest odrzucony przez GiST,
+- ten sam resource w innym OSK nie konfliktuje,
+- nieznany claim owner kind jest odrzucony,
+- scheduled general event ma exact claim set, terminal general event ma zero claims,
+- current CalendarEvent version ma dokładnie jeden matching lifecycle history row,
+- dwa CalendarEvent mutations z tym samym expected version nie mogą oba commitować,
+- `own` wymaga active StaffMembershipLink do target instructor; creator nie jest owner shortcut,
+- AvailabilitySlot state/booking fields/version/history są spójne,
+- dwa concurrent bookingi tego samego slotu dają maksymalnie jeden commit,
+- booking konfliktujący z general event rollbackuje cały booking,
+- booked slot ma exact booking claims dopóki nie zostanie sformalizowany,
+- cancelled slot ma zero claims i nie jest automatycznie republished,
+- planned TrainingSession ma exact Course Student + Instructor + optional Vehicle/Location claims,
+- TrainingSession konfliktuje z general event, booking i innym Session dla tego samego zasobu/overlap,
+- TrainingSession claim insert nie tworzy Attendance ani training credit,
+- completed/cancelled TrainingSession ma zero resource claims,
+- practical TrainingSession projektuje się jako `driving_lesson` bez CalendarEvent copy,
+- companion zachowuje optional name/custom place bez duplikowania schedule fields,
+- TrainingSession saved Location i companion custom place nie mogą być równocześnie aktywne,
+- formal lesson calendar mutation wymaga training permission, nie samego calendar.manage,
+- Calendar complete nigdy nie omija DB-TRN-006,
+- formalization wymaga explicit lub jednoznacznego aktywnego Course i nigdy nie wybiera latest/first,
+- formalization atomowo przenosi claim owner Slot -> TrainingSession bez duplicate reservation,
+- formalized slot ma TrainingSession link, zero booking claims i zero drugiego calendar item,
+- formalized slot nie jest samodzielnie anulowany, a linked Session terminal state nie republishuje go,
+- legacy driving_lesson CalendarEvent nie jest heurystycznie mapowany do TrainingSession,
+- DB4_5 migration nie auto-shiftuje, nie auto-canceluje, nie reassignuje i nie wybiera overlap winnera.
+
 Pozostałe obowiązkowe testy:
 - generated synthetic IDs są UUIDv7/native uuid,
 - organization contact address jest 1:1 i nie jest `locations`,
@@ -1776,16 +2060,19 @@ Pozostałe obowiązkowe testy:
 6. Student identity/version + learning accounts,
 7. CourseEnrollment lifecycle + requirement rule/context/profile/exemption/override + **local required PKK identity**,
 8. TrainingSession + exact Attendance + immutable Ledger + recognized external training,
-9. Calendar,
-10. PKK provider operations/attempts/retry/reconciliation — DB4_8,
-11. Student finance,
-12. license inventory/assignment/activation periods,
-13. internal exam inventory/attempt/access/stations/station sessions,
-14. orders/payments/service entitlements/activations,
-15. audit/activity/outbox/notifications,
-16. final partial indexes/cross-table constraints.
+9. włączyć `btree_gist` przed materializacją finalnych calendar resource exclusion constraints,
+10. Calendar: manual event/slot lifecycle history, same-tenant relations, `calendar_resource_claims`, `training_session_calendar_details`, slot→Session link/formalization i TrainingSession claim integration,
+11. PKK provider operations/attempts/retry/reconciliation — DB4_8,
+12. Student finance,
+13. license inventory/assignment/activation periods,
+14. internal exam inventory/attempt/access/stations/station sessions,
+15. orders/payments/service entitlements/activations,
+16. audit/activity/outbox/notifications,
+17. final partial indexes/cross-table constraints.
 
 W obrębie DB4_4 migracja najpierw robi legacy prechecks/remediation, dopiero potem NOT NULL/unique/composite FK/deferrable guards. Nie wybiera „latest row” ani nie fabrykuje brakującej formalnej tożsamości, actorów, lineage, attendance czy creditów.
+
+W obrębie DB4_5 kolejność jest równie rygorystyczna: najpierw precheck same-tenant/event-type/status/booking-state/overlap oraz jawna klasyfikacja legacy `driving_lesson`; potem lifecycle baselines i candidate keys; następnie `btree_gist`, technical claims + owner guards + exact-set guards + GiST; dopiero po dowodliwej migracji włączamy finalne constraints. Nie naprawiamy overlapów ani nie tworzymy TrainingSession przez heurystykę.
 
 ---
 
@@ -1796,10 +2083,10 @@ Zamknięte:
 - physical ownership Ustawień OSK,
 - Identity/Tenant/RBAC DB4_2: materialized runtime permissions, per-permission scope, same-user composite session FK, durable membership lifecycle `active|suspended|revoked`, `is_owner` governance marker, last-owner guard, grant ceiling, `version` + `authorization_version`, atomic audit/outbox i session-context clearing na suspend/revoke,
 - Staff/Locations/Vehicles DB4_3: same-tenant StaffMembershipLink i location assignments, tenant/purpose/ready FileAsset attachment boundary, versioned current-document projection, PESEL/VIN/registration lifecycle uniqueness oraz bezpieczny Staff archive/restore vs panel-access lifecycle,
-- **Students/Courses/Training DB4_4**: same-tenant formal relations; Student formal identity + durable archive/version; Course lifecycle/version/history; reproducible requirement context + immutable rule set/profile history; exact verified Attendance -> exactly-once append-only Ledger; deterministic previous-OSK projection/history; atomowa, wersjonowana local course PKK identity bez wciągania provider lifecycle.
+- **Students/Courses/Training DB4_4**: same-tenant formal relations; Student formal identity + durable archive/version; Course lifecycle/version/history; reproducible requirement context + immutable rule set/profile history; exact verified Attendance -> exactly-once append-only Ledger; deterministic previous-OSK projection/history; atomowa, wersjonowana local course PKK identity bez wciągania provider lifecycle,
+- **Calendar DB4_5**: same-tenant calendar resources; manual/system storage boundary; half-open resource conflict model z `btree_gist` i czterema partial GiST exclusion constraints; CalendarEvent lifecycle/version/history; canonical `own` przez StaffProfile; AvailabilitySlot exactly-once booking/cancel/history bez auto-reavailability; `TrainingSession` jako jedyny formal driving-lesson schedule owner; shared claims dla formalnych sesji; atomowy booked-slot -> TrainingSession handoff bez drugiego reservation fact i bez skrótu do formalnego creditu.
 
-Po DB4_4 nadal osobno wymagają dalszych slice/ADR:
-- Calendar overlap enforcement — DB4_5,
+Po DB4_5 nadal osobno wymagają dalszych slice/ADR:
 - learning-access/license credentials lifecycle — DB4_6,
 - internal-exam compatibility/attempt completion gate — DB4_7,
 - PKK provider configuration/fetch/update/return/XML/retry/reconciliation/collision policy — DB4_8,
