@@ -1,6 +1,6 @@
 # 87. Physical database schema — PostgreSQL core v1
 
-Data: 2026-09-05
+Data: 2026-09-06
 
 **Status:** `IMPLEMENTATION_BLUEPRINT`
 
@@ -161,7 +161,8 @@ To trwały tenant authorization aggregate root. Jeden row na `(organization_id,u
 
 Unique/candidate keys:
 - `UNIQUE(organization_id,user_id)`,
-- `UNIQUE(id,user_id)` — potrzebne jako target composite FK sesji.
+- `UNIQUE(id,user_id)` — target composite FK sesji,
+- `UNIQUE(organization_id,id)` — target composite FK `staff_membership_links` dla same-tenant integrity.
 
 Stare `data_scope varchar(64)` jest **usunięte z canonical physical model**. Scope jest per permission.
 
@@ -360,7 +361,19 @@ Unique `(organization_id,user_id,legal_document_id)`.
 - `ready_at timestamptz null`
 - `deleted_at timestamptz null`
 
-Unique `storage_key`.
+Constraints/candidate keys:
+- unique `storage_key`,
+- `UNIQUE(organization_id,id)` jako target tenant-aware composite FK dla prywatnych Staff/Vehicle attachments.
+
+Dla Staff/Vehicle attachment:
+- prywatny asset musi należeć do tego samego `organization_id`,
+- platformowy asset z `organization_id IS NULL` nie może być przypięty jako prywatne zdjęcie/dokument,
+- purpose jest związany ze ścieżką attachmentu (`staff_photo`, `staff_document`, `vehicle_photo`, `vehicle_document`),
+- business attachment może commitować wyłącznie dla `status='ready'`,
+- reusable DB trigger/constraint trigger blokuje asset `FOR SHARE` i jest finalną granicą purpose + ready; Laravel robi wcześniejszy precheck dla UX,
+- `purpose` po zakończeniu uploadu nie jest przepisywany,
+- późniejszy security transition assetu do non-ready nie usuwa historycznej referencji, ale download musi ponownie sprawdzić bieżący stan assetu,
+- replacement attachmentu nie kasuje automatycznie poprzedniego FileAsset.
 
 ---
 
@@ -460,16 +473,23 @@ Unique `(internal_exam_capability_id,language_code)`.
 - `pesel_ciphertext text null`
 - `pesel_lookup_hash char(64) null`
 - `authorization_number varchar(128) null`
-- `photo_asset_id uuid null FK file_assets`
+- `photo_asset_id uuid null`
 - `archived_at timestamptz null`
 - `archived_by_user_id uuid null`
 - `created_at`
 - `updated_at`.
 
-Indexes:
+Candidate/unique/index rules:
+- `UNIQUE(organization_id,id)` jako target composite tenant FK,
 - `(organization_id,archived_at)`,
 - `(organization_id,last_name,first_name)`,
-- optional partial unique `(organization_id,pesel_lookup_hash)` where not null.
+- `UNIQUE(organization_id,pesel_lookup_hash) WHERE pesel_lookup_hash IS NOT NULL` — obejmuje także archived StaffProfile; archive nie zwalnia PESEL.
+
+Photo FK:
+
+`FOREIGN KEY (organization_id,photo_asset_id) REFERENCES file_assets(organization_id,id) MATCH SIMPLE ON UPDATE RESTRICT ON DELETE RESTRICT`.
+
+Przy non-null photo dodatkowo obowiązuje DB attachment trigger: purpose `staff_photo`, status `ready`.
 
 ## `staff_type_assignments`
 
@@ -485,12 +505,23 @@ Unique `(staff_profile_id,staff_type_code)`.
 
 Unique `(staff_profile_id,driving_category_id)`.
 
+`driving_categories` jest globalnym słownikiem, więc nie dokładamy sztucznego tenant key po stronie kategorii.
+
 ## `staff_location_assignments`
 
-- `staff_profile_id uuid FK`
-- `location_id uuid FK`
+Tenant-aware join:
+- `organization_id uuid FK organizations`
+- `staff_profile_id uuid`
+- `location_id uuid`
 
-Unique `(staff_profile_id,location_id)`.
+`PRIMARY KEY (organization_id,staff_profile_id,location_id)`.
+
+Composite FK:
+- `(organization_id,staff_profile_id) -> staff_profiles(organization_id,id)`,
+- `(organization_id,location_id) -> locations(organization_id,id)`,
+- `ON UPDATE RESTRICT / ON DELETE RESTRICT`.
+
+Cross-tenant Staff↔Location nie może przejść constraintów i nie może rozszerzyć `assigned_locations` RBAC.
 
 ## `staff_membership_links`
 
@@ -498,32 +529,74 @@ Historyczne powiązanie profilu pracownika z membership w konkretnym OSK.
 
 - `id uuid PK`
 - `organization_id uuid FK`
-- `staff_profile_id uuid FK`
-- `organization_membership_id uuid FK`
+- `staff_profile_id uuid`
+- `organization_membership_id uuid`
 - `linked_at timestamptz`
 - `linked_by_user_id uuid null`
 - `unlinked_at timestamptz null`
 - `unlinked_by_user_id uuid null`.
 
+Composite same-tenant FK:
+- `(organization_id,staff_profile_id) -> staff_profiles(organization_id,id)`,
+- `(organization_id,organization_membership_id) -> organization_memberships(organization_id,id)`,
+- `ON UPDATE RESTRICT / ON DELETE RESTRICT`.
+
 Partial unique:
 - `(staff_profile_id)` where `unlinked_at is null`,
 - `(organization_membership_id)` where `unlinked_at is null`.
 
-Backend sprawdza zgodność organization po obu stronach.
+DB guard zabrania aktywnego linku do `StaffProfile.archived_at IS NOT NULL`. Archive vs link creation serializujemy na StaffProfile row.
+
+## Staff archive / panel access lifecycle
+
+Archive StaffProfile zawsze kończy aktywny `StaffMembershipLink` i zachowuje historyczny link row.
+
+Dla linked non-owner membership:
+- `active -> suspended` zgodnie z DB-IAM-005,
+- permission/scope config pozostaje do jawnego wznowienia,
+- bound session tenant contexts są czyszczone w tej samej transakcji,
+- membership już `suspended` pozostaje suspended,
+- membership `revoked` pozostaje revoked i nie odzyskuje permission snapshotu.
+
+Dla linked Owner membership:
+- Staff archive kończy StaffMembershipLink,
+- **nie zmienia `is_owner` i nie suspenduje/revoke'uje Ownera jako ukrytego side-effectu**,
+- odebranie Ownerowi panel access wymaga jawnego DB-IAM-004/005 governance flow,
+- dzięki temu archive profilu kadrowego jedynego Ownera nie tworzy stanu `0 active owners`.
+
+Po archive brak aktywnego StaffMembershipLink oznacza empty/deny dla staff-derived `own`, `assigned_locations`, `assigned_students`. Owner może nadal autoryzować wyłącznie z własnych jawnych membership permissions/scopes.
+
+Restore StaffProfile domyślnie przywraca tylko rekord kadrowy. Nie tworzy linku, nie aktywuje membership i nie rebinduje starych sesji. Jawny restore panel access tworzy **nowy** StaffMembershipLink; starego historycznego row nie otwieramy ponownie. `suspended -> active` używa DB-IAM-005, a revoked membership nie jest automatycznie reaktywowany.
 
 ## `staff_documents`
 
+Versioned/superseded history model:
 - `id uuid PK`
 - `organization_id uuid FK`
 - `staff_profile_id uuid FK`
 - `document_type varchar(64)`
 - `valid_until date null`
 - `document_number varchar(128) null`
-- `asset_id uuid null FK file_assets`
-- `created_at`
-- `updated_at`.
+- `asset_id uuid null`
+- `created_at timestamptz`
+- `created_by_user_id uuid null`
+- `superseded_at timestamptz null`
+- `superseded_by_user_id uuid null`
+- `supersession_reason text null`.
 
 Startowe typy: `card_or_authorization`, `medical_exam`, `psychological_exam`.
+
+Current predicate: `superseded_at IS NULL`.
+
+Partial unique:
+
+`UNIQUE(organization_id,staff_profile_id,document_type) WHERE superseded_at IS NULL`.
+
+Normalna edycja nie nadpisuje business fields starej wersji. Parent jest serializowany, current row superseded, a następnie powstaje nowa wersja. Clear = supersede bez replacement; zero current rows. Historyczne business fields są immutable. Nie używamy `MAX(created_at)` jako current resolvera.
+
+Asset FK:
+
+`FOREIGN KEY (organization_id,asset_id) REFERENCES file_assets(organization_id,id) MATCH SIMPLE ON UPDATE RESTRICT ON DELETE RESTRICT`, plus purpose `staff_document` i `status='ready'` przy attachment commit.
 
 ---
 
@@ -545,6 +618,8 @@ Startowe typy: `card_or_authorization`, `medical_exam`, `psychological_exam`.
 - `created_at`
 - `updated_at`.
 
+Candidate key `UNIQUE(organization_id,id)` jest wymagany dla tenant-aware Staff/Vehicle location assignments.
+
 ---
 
 # 10. Vehicles
@@ -560,26 +635,51 @@ Startowe typy: `card_or_authorization`, `medical_exam`, `psychological_exam`.
 - `production_year smallint null`
 - `engine_capacity_cm3 integer null`
 - `vin_normalized varchar(32) null`
-- `photo_asset_id uuid null FK file_assets`
+- `photo_asset_id uuid null`
 - `archived_at timestamptz null`
 - `archived_by_user_id uuid null`
 - `created_at`
 - `updated_at`.
 
-Unique `(organization_id,registration_number_normalized)` zgodnie z finalną polityką reuse po archiwizacji; optional `(organization_id,vin_normalized)` where not null.
+Candidate/identity constraints:
+- `UNIQUE(organization_id,id)` jako composite tenant FK target,
+- `UNIQUE(organization_id,vin_normalized) WHERE vin_normalized IS NOT NULL` — obejmuje także archived rows; archive nie zwalnia VIN,
+- `UNIQUE(organization_id,registration_number_normalized) WHERE archived_at IS NULL` — current fleet only.
+
+Numer rejestracyjny może zostać legalnie użyty przez inny bieżący Vehicle po archive poprzedniego; archived history zachowuje dawną wartość. Restore starego Vehicle wymaga wolnego numeru wśród nonarchived rows; konflikt nie powoduje auto-swap/auto-archive/renumber.
+
+Photo FK:
+
+`FOREIGN KEY (organization_id,photo_asset_id) REFERENCES file_assets(organization_id,id) MATCH SIMPLE ON UPDATE RESTRICT ON DELETE RESTRICT`, plus purpose `vehicle_photo` i `status='ready'` przy attachment commit.
 
 ## `vehicle_documents`
 
+Versioned/superseded history model:
 - `id uuid PK`
 - `organization_id uuid FK`
 - `vehicle_id uuid FK`
 - `document_type varchar(64)`
 - `valid_until date null`
-- `asset_id uuid null FK file_assets`
-- `created_at`
-- `updated_at`.
+- `asset_id uuid null`
+- `created_at timestamptz`
+- `created_by_user_id uuid null`
+- `superseded_at timestamptz null`
+- `superseded_by_user_id uuid null`
+- `supersession_reason text null`.
 
 Typy: `technical_inspection`, `oc_insurance`, `ac_insurance`.
+
+Current predicate: `superseded_at IS NULL`.
+
+Partial unique:
+
+`UNIQUE(organization_id,vehicle_id,document_type) WHERE superseded_at IS NULL`.
+
+Replacement/clear/history immutability działają identycznie jak dla StaffDocument. Current detail/expiry czyta tylko non-superseded row; current `valid_until IS NULL` oznacza brak daty ważności. Dla późniejszego Calendar important-date input bierzemy wyłącznie current rows z non-null `valid_until`.
+
+Asset FK:
+
+`FOREIGN KEY (organization_id,asset_id) REFERENCES file_assets(organization_id,id) MATCH SIMPLE ON UPDATE RESTRICT ON DELETE RESTRICT`, plus purpose `vehicle_document` i `status='ready'` przy attachment commit.
 
 ## `vehicle_category_assignments`
 
@@ -590,10 +690,19 @@ Unique `(vehicle_id,driving_category_id)`.
 
 ## `vehicle_location_assignments`
 
-- `vehicle_id uuid FK`
-- `location_id uuid FK`
+Tenant-aware join:
+- `organization_id uuid FK organizations`
+- `vehicle_id uuid`
+- `location_id uuid`
 
-Unique `(vehicle_id,location_id)`.
+`PRIMARY KEY (organization_id,vehicle_id,location_id)`.
+
+Composite FK:
+- `(organization_id,vehicle_id) -> vehicles(organization_id,id)`,
+- `(organization_id,location_id) -> locations(organization_id,id)`,
+- `ON UPDATE RESTRICT / ON DELETE RESTRICT`.
+
+Cross-tenant Vehicle↔Location nie może przejść constraintów ani zanieczyścić późniejszych calendar resource filters.
 
 ---
 
@@ -1321,6 +1430,27 @@ Identity / Tenant / RBAC:
 - permission revoke przy aktywnym membership jest skuteczny najpóźniej przy następnym autoryzowanym request bez obowiązkowego logoutu,
 - audit + outbox commitują atomowo z membership mutation.
 
+Staff / Locations / Vehicles DB4_3:
+- StaffMembershipLink cross-tenant Staff↔Membership jest odrzucony przez composite FK,
+- active StaffMembershipLink do archived Staff jest zabroniony,
+- race Staff archive ↔ create link nie może commitować sprzecznego stanu,
+- Staff↔Location oraz Vehicle↔Location cross-tenant assignment jest odrzucony,
+- private Staff/Vehicle attachment wymaga same tenant + dokładnego purpose + `ready`,
+- race asset-status ↔ attachment nie może ominąć ready validation,
+- StaffDocument/VehicleDocument ma najwyżej jeden current row per parent/type,
+- document replacement zachowuje historię, clear nie hard-delete'uje, superseded business fields są immutable,
+- superseded dokument nie emituje bieżącego expiry/important-date input,
+- archived Staff nadal blokuje duplikat PESEL w tym samym OSK,
+- archived Vehicle nadal blokuje duplikat VIN w tym samym OSK,
+- dwa nonarchived Vehicle z tym samym numerem rejestracyjnym w jednym OSK są odrzucone,
+- archive Vehicle zwalnia numer tylko dla current fleet i zachowuje historyczną wartość,
+- restore Vehicle z zajętym aktualnie numerem daje conflict,
+- archive zwykłego non-owner Staff atomowo kończy link, suspenduje active membership i czyści tenant session contexts,
+- archive Staff powiązanego z Ownerem kończy staff link, ale nie demotuje/suspenduje/revoke'uje Ownera ukrytym side-effectem,
+- staff-derived `own/assigned_locations/assigned_students` po archive = empty/deny,
+- restore Staff nie przywraca automatycznie panel access ani starych sesji,
+- jawny panel restore tworzy nowy StaffMembershipLink i respektuje suspended/revoked membership lifecycle.
+
 Pozostałe obowiązkowe testy:
 - generated synthetic IDs są UUIDv7/native uuid,
 - organization contact address jest 1:1 i nie jest `locations`,
@@ -1365,7 +1495,8 @@ Pozostałe obowiązkowe testy:
 Zamknięte:
 - synthetic domain ID: UUIDv7 application-side -> PostgreSQL `uuid`,
 - physical ownership Ustawień OSK,
-- Identity/Tenant/RBAC DB4_2: materialized runtime permissions, per-permission scope, same-user composite session FK, durable membership lifecycle `active|suspended|revoked`, `is_owner` governance marker, last-owner guard, grant ceiling, `version` + `authorization_version`, atomic audit/outbox i session-context clearing na suspend/revoke.
+- Identity/Tenant/RBAC DB4_2: materialized runtime permissions, per-permission scope, same-user composite session FK, durable membership lifecycle `active|suspended|revoked`, `is_owner` governance marker, last-owner guard, grant ceiling, `version` + `authorization_version`, atomic audit/outbox i session-context clearing na suspend/revoke,
+- Staff/Locations/Vehicles DB4_3: same-tenant StaffMembershipLink i location assignments, tenant/purpose/ready FileAsset attachment boundary, versioned current-document projection, PESEL/VIN/registration lifecycle uniqueness oraz bezpieczny Staff archive/restore vs panel-access lifecycle.
 
 Nadal wymagają osobnego etapu/ADR przed produkcyjnymi migracjami odpowiednich modułów:
 - application encryption + key rotation dla PESEL/PKK/provider snapshots,
