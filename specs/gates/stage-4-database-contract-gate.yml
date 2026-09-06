@@ -79,10 +79,10 @@ stage_4_slices:
     status: IN_PROGRESS_WITH_BLOCKERS
     diagnosis: COMPLETE
     blockers_diagnosed: 7
-    blockers_resolved: 0
-    open_P0_P1: 7
+    blockers_resolved: 1
+    open_P0_P1: 6
     final_aggregate_sync: BLOCKED
-    result: FAIL_WITH_7_P1_BLOCKERS
+    result: FAIL_WITH_6_P1_BLOCKERS
   - id: DB4_7_INTERNAL_EXAMS
     status: NOT_STARTED
   - id: DB4_8_PKK
@@ -1284,6 +1284,66 @@ quality_checks:
       aggregates_remain_frozen_until_DB4_6_final_sync: PASS
       no_fix_applied_during_diagnosis: PASS
 
+  license_learning_access_same_tenant_exact_target_integrity:
+    status: PASS
+    resolved_blocker_id: DB-LIC-001
+    severity: P1
+    machine_source: specs/database/licenses-learning-access.yml
+    audit_source: docs/110-stage-4-licenses-learning-access-audit.md
+    decision:
+      candidate_keys_required:
+        - students[organization_id,id]
+        - file_assets[organization_id,id]
+        - student_learning_accounts[organization_id,id]
+        - student_learning_accounts[organization_id,id,student_id]
+        - license_inventory_entries[organization_id,id]
+        - license_assignments[organization_id,id]
+      learning_account_student_same_tenant_FK: true
+      handoff_learning_account_same_tenant_FK: true
+      handoff_optional_document_asset_same_tenant_FK: true
+      handoff_optional_document_asset_match: MATCH_SIMPLE
+      assignment_inventory_same_tenant_FK: true
+      assignment_student_same_tenant_FK: true
+      assignment_exact_learning_account_student_FK: true
+      exact_assignment_target_key: [organization_id, student_learning_account_id, student_id]
+      activation_assignment_same_tenant_FK: true
+      relation_on_update: RESTRICT
+      relation_on_delete: RESTRICT
+      organization_id_client_authority: false
+      plain_tenant_move_by_organization_id_update: forbidden
+      global_user_auth_identifier_language_and_product_relations_fake_tenant_scoped: false
+      document_asset_readiness_purpose_and_secret_storage_policy: deferred_to_DB_LIC_004
+      source_order_item_same_tenant_commerce_relation: deferred_to_DB4_9
+      source_order_item_defer_reason: current_order_items_has_no_organization_id_and_correct_commerce_tenant_boundary_requires_DB4_9_design
+      migration_cross_tenant_auto_reassignment: forbidden
+      migration_wrong_student_account_pair_auto_rewrite: forbidden
+      migration_cross_tenant_document_asset_auto_null: forbidden
+      unresolved_legacy_mismatch: fail_and_require_reviewed_remediation
+      DB_LIC_002_through_DB_LIC_007_not_fixed: true
+    checks:
+      learning_account_to_student_cross_tenant_rejected: PASS
+      handoff_to_learning_account_cross_tenant_rejected: PASS
+      handoff_nonnull_private_file_asset_cross_tenant_rejected: PASS
+      assignment_to_inventory_cross_tenant_rejected: PASS
+      assignment_to_student_cross_tenant_rejected: PASS
+      assignment_to_learning_account_cross_tenant_rejected: PASS
+      assignment_same_organization_but_wrong_student_account_pair_rejected: PASS
+      activation_to_assignment_cross_tenant_rejected: PASS
+      same_global_user_can_still_back_learning_accounts_in_multiple_organizations: PASS
+      global_language_and_license_product_not_redefined_as_tenant_resources: PASS
+      DB4_9_commerce_provenance_not_partially_redesigned: PASS
+      DB_LIC_002_auth_identity_consistency_remains_open: PASS
+      DB_LIC_003_lifecycle_concurrency_archive_remains_open: PASS
+      DB_LIC_004_secret_handoff_policy_remains_open: PASS
+      DB_LIC_005_inventory_state_exactly_once_remains_open: PASS
+      DB_LIC_006_stacking_reproducibility_remains_open: PASS
+      DB_LIC_007_language_projection_consistency_remains_open: PASS
+      aggregate_core_schema_modified_in_step: false
+      aggregate_docs87_modified_in_step: false
+      later_domain_slices_entered: false
+      Laravel_migrations_created: false
+      UI_or_feature_implementation_started: false
+
 resolved_blockers:
   - DB-FOUND-001
   - DB-FOUND-002
@@ -1315,9 +1375,9 @@ resolved_blockers:
   - DB-CAL-005
   - DB-CAL-006
   - DB-CAL-007
+  - DB-LIC-001
 
 open_blockers_current_diagnosed_scope:
-  - DB-LIC-001
   - DB-LIC-002
   - DB-LIC-003
   - DB-LIC-004
@@ -1333,7 +1393,7 @@ gate_definition:
     - migration_order_dependency_safe
     - database_invariant_test_matrix_exists
     - reverse_engineering_preservation_traceable
-  current_result: FAIL_DB4_6_WITH_7_OPEN_P1_BLOCKERS
+  current_result: FAIL_DB4_6_WITH_6_OPEN_P1_BLOCKERS
   DB4_1_result: PASS
   DB4_2_result: PASS
   DB4_3_result: PASS
@@ -1359,7 +1419,8 @@ gate_definition:
   DB4_5_final_aggregate_sync_result: PASS
   DB4_5_result: PASS
   DB4_6_diagnosis_result: PASS_DIAGNOSIS_COMPLETE
-  DB4_6_result: FAIL_WITH_7_P1_BLOCKERS
+  DB4_6_DB_LIC_001_result: PASS
+  DB4_6_result: FAIL_WITH_6_P1_BLOCKERS
   may_start_DB4_4_fixes: false
   may_start_DB4_5: false
   may_start_DB4_5_fixes: false
@@ -1370,9 +1431,9 @@ gate_definition:
   may_start_UI_or_feature_implementation: false
 
 next_single_step:
-  id: DB4_6_STEP_1
-  blocker: DB-LIC-001
-  action: resolve_license_and_learning_access_same_tenant_exact_target_integrity_only
+  id: DB4_6_STEP_2
+  blocker: DB-LIC-002
+  action: resolve_learning_account_global_auth_identity_and_login_consistency_only
   allowed_scope:
     - specs/database/licenses-learning-access.yml
     - docs/110-stage-4-licenses-learning-access-audit.md
@@ -1381,8 +1442,8 @@ next_single_step:
     - specs/database/core-schema.yml
     - docs/87-physical-database-schema.md
   scope_lock: >-
-    Resolve only DB-LIC-001. Do not fix DB-LIC-002 through DB-LIC-007. Keep the
+    Resolve only DB-LIC-002. Do not fix DB-LIC-003 through DB-LIC-007. Keep the
     aggregate core schema and docs/87 frozen until the final DB4_6 aggregate sync.
     Do not enter DB4_7 or later slices, do not start Stage 5, do not create Laravel
     migrations and do not start UI/feature implementation.
-  after_action: rerun_DB4_6_gate_and_STOP_before_DB_LIC_002
+  after_action: rerun_DB4_6_gate_and_STOP_before_DB_LIC_003
