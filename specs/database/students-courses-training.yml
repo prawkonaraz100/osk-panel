@@ -1,7 +1,7 @@
 meta:
   project: osk-panel
   scope: students_courses_training_core_v1
-  status: DB_TRN_001_002_003_004_005_PASS_3_P1_BLOCKERS_OPEN
+  status: DB_TRN_001_002_003_004_005_006_PASS_2_P1_BLOCKERS_OPEN
   stage: DB4_4_STUDENTS_COURSES_TRAINING_LEDGER
   created_at: 2026-09-06
   narrative: docs/108-stage-4-students-courses-training-ledger-audit.md
@@ -35,10 +35,13 @@ principles:
   requirement_current_projection_must_match_course_requirements_revision: true
   rule_set_version_must_resolve_to_immutable_hashed_rule_artifact: true
   requirement_calculation_history_is_immutable_and_reproducible: true
-  current_step_scope: requirement_context_profile_reproducibility_only
+  formal_session_credit_requires_verified_attendance_for_exact_course_student: true
+  one_completed_present_session_may_create_at_most_one_base_credit: true
+  cancelled_session_may_never_create_formal_base_credit: true
+  training_hour_ledger_is_append_only_and_corrections_are_compensating_entries: true
+  current_step_scope: attendance_verified_session_to_ledger_exactly_once_only
 
 open_blockers_after_this_step:
-  - DB-TRN-006
   - DB-TRN-007
   - DB-TRN-008
 
@@ -273,23 +276,23 @@ same_tenant_integrity:
       on_update: RESTRICT
       on_delete: RESTRICT
     source_entry_relation:
-      lifecycle_and_exactly_once_semantics: deferred_to_DB_TRN_006
+      lifecycle_and_exactly_once_semantics: closed_by_DB_TRN_006
       no_change_in_DB_TRN_001: true
 
   intentionally_not_solved_by_DB_TRN_001:
-    attendance_student_must_equal_course_enrollment_student: DB-TRN-006
-    training_session_course_must_equal_ledger_course_when_session_present: DB-TRN-006
-    session_completion_exactly_once_credit: DB-TRN-006
-    cancelled_session_credit_guard: DB-TRN-006
-    ledger_correction_reversal_source_entry_lifecycle: DB-TRN-006
+    attendance_student_must_equal_course_enrollment_student: closed_by_DB_TRN_006
+    training_session_course_must_equal_ledger_course_when_session_present: closed_by_DB_TRN_006
+    session_completion_exactly_once_credit: closed_by_DB_TRN_006
+    cancelled_session_credit_guard: closed_by_DB_TRN_006
+    ledger_correction_reversal_source_entry_lifecycle: closed_by_DB_TRN_006
     student_PESEL_or_birth_date_identity_branch: DB-TRN-002
     student_archive_restore_and_versioning: DB-TRN-003
     course_stage_cancel_restore_history: DB-TRN-004
     requirement_context_reproducibility: DB-TRN-005
-    external_training_current_projection_and_reversal_history: DB-TRN-007
-    course_required_PKK_atomic_persistence_boundary: DB-TRN-008
+    external_hours_current_projection: DB-TRN-007
+    required_PKK_persistence_boundary: DB-TRN-008
     learning_account_license_credentials_lifecycle: DB4_6
-    PKK_provider_retry_reconciliation: DB4_8
+    PKK_provider_lifecycle: DB4_8
 
   migration_design:
     migrations_not_generated_in_this_step: true
@@ -355,7 +358,7 @@ same_tenant_integrity:
     - ledger_same_tenant_course_and_optional_session_is_accepted
     - ledger_cross_tenant_course_is_rejected_by_database
     - ledger_cross_tenant_session_is_rejected_by_database
-    - ledger_null_session_remains_valid_for_non_session_entry_types_subject_to_later_DB_TRN_006_rules
+    - ledger_null_session_remains_valid_for_non_session_entry_types_subject_to_DB_TRN_006_rules
     - rewriting_organization_id_to_move_formal_record_between_tenants_is_forbidden
     - no_new_cascade_delete_of_student_course_training_formal_history_is_introduced
 
@@ -365,7 +368,7 @@ same_tenant_integrity:
     attendance_missing_tenant_key_closed_without_exactly_once_scope_creep: PASS
     optional_relations_keep_MATCH_SIMPLE_null_behavior: PASS
     global_user_and_dictionary_relations_not_incorrectly_tenant_scoped: PASS
-    DB_TRN_002_through_DB_TRN_008_not_fixed: PASS
+    DB_TRN_002_through_DB_TRN_008_not_fixed_in_original_step: PASS
     aggregate_core_schema_not_modified_in_this_step: PASS
     aggregate_docs87_not_modified_in_this_step: PASS
     Laravel_migrations_created: false
@@ -583,7 +586,7 @@ student_formal_identity_and_duplicate_lifecycle:
     archive_does_not_release_PESEL: PASS
     name_birth_date_not_misused_as_hard_unique_identifier: PASS
     formal_identity_guard_is_database_or_transactional_boundary_not_frontend_only: PASS
-    DB_TRN_003_through_DB_TRN_008_not_fixed: PASS
+    DB_TRN_003_through_DB_TRN_008_not_fixed_in_original_step: PASS
     aggregate_core_schema_not_modified_in_this_step: PASS
     aggregate_docs87_not_modified_in_this_step: PASS
     Laravel_migrations_created: false
@@ -990,7 +993,7 @@ course_lifecycle_stage_history_cancel_restore:
     expected_version_source: If-Match
     lock_course_row: FOR_UPDATE
     compare_expected_version_after_lock: true
-    stale_version_result: conflict_or_precondition_failed_without_partial_write
+    stale_version_result: conflict_or_precondition_failed_without_write
     normal_business_field_update_requires_lifecycle_state: active
     training_stage_or_terminal_projection_update_via_PATCH: forbidden
     successful_material_update:
@@ -1044,7 +1047,7 @@ course_lifecycle_stage_history_cancel_restore:
       - increment_course_version_once
       - append_completed_event
       - write_audit_and_outbox_same_transaction
-    completion_eligibility_requirements_hours_exams: deferred_to_DB_TRN_005_DB_TRN_006_and_DB4_7
+    completion_eligibility_requirements_hours_exams: DB_TRN_005_projection_freshness_plus_DB_TRN_006_current_OSK_hours_plus_DB_TRN_007_external_hours_plus_DB4_7_exams
     generic_PATCH_may_set_completed_at: false
     normal_restore_may_reopen_completed_course: false
 
@@ -1156,8 +1159,8 @@ course_lifecycle_stage_history_cancel_restore:
   terminal_course_formal_activity_boundary:
     new_training_session_requires_course_active_after_lock: true
     new_formal_training_activity_may_not_start_for_completed_interrupted_or_cancelled_course: true
-    existing_session_completion_and_ledger_exactly_once_semantics: deferred_to_DB_TRN_006
-    completion_eligibility_and_requirement_recalculation: deferred_to_DB_TRN_005_DB_TRN_006_DB4_7
+    existing_session_completion_and_ledger_exactly_once_semantics: governed_by_DB_TRN_006
+    completion_eligibility_and_requirement_recalculation: DB_TRN_005_DB_TRN_006_DB_TRN_007_DB4_7
     existing_formal_history_is_never_deleted_when_course_closes: true
 
   concurrency_races:
@@ -1253,7 +1256,7 @@ course_lifecycle_stage_history_cancel_restore:
     closed_course_correction_preserves_prior_lifecycle_history: PASS
     exact_unobserved_nonterminal_stage_order_not_invented: PASS
     DB_TRN_003_student_archive_no_hidden_course_mutation_preserved: PASS
-    DB_TRN_005_through_DB_TRN_008_not_fixed: PASS
+    DB_TRN_005_through_DB_TRN_008_not_fixed_in_original_step: PASS
     aggregate_core_schema_not_modified_in_this_step: PASS
     aggregate_docs87_not_modified_in_this_step: PASS
     Laravel_migrations_created: false
@@ -1666,7 +1669,9 @@ requirement_context_profile_reproducibility:
       - exactly_one_current_training_requirement_profile
       - current_profile_requirements_revision_equals_course_requirements_revision
       - current_profile_rule_set_version_resolves_to_immutable_rule_set
-    required_minutes_satisfaction: deferred_to_DB_TRN_006
+    current_OSK_required_minutes_component: governed_by_DB_TRN_006
+    recognized_external_minutes_component: governed_by_DB_TRN_007
+    final_combined_minute_satisfaction: DB_TRN_006_plus_DB_TRN_007
     internal_exam_satisfaction: deferred_to_DB4_7
     current_profile_outputs_determine_which_requirements_apply: true
     historical_profiles_never_used_as_current_completion_authority: true
@@ -1761,7 +1766,478 @@ requirement_context_profile_reproducibility:
     category_context_exemption_override_rule_set_races_serialize_on_course_version_root: PASS
     closed_course_requirement_correction_integrates_with_DB_TRN_004_without_history_delete: PASS
     requirement_recalculation_does_not_rewrite_training_attendance_or_exam_history: PASS
-    DB_TRN_006_through_DB_TRN_008_not_fixed: PASS
+    DB_TRN_006_through_DB_TRN_008_not_fixed_in_original_step: PASS
+    aggregate_core_schema_not_modified_in_this_step: PASS
+    aggregate_docs87_not_modified_in_this_step: PASS
+    Laravel_migrations_created: false
+    later_DB4_slices_entered: false
+
+# DB-TRN-006
+training_attendance_ledger_exactly_once:
+  blocker: DB-TRN-006
+  status: PASS
+  goal: >-
+    Close the formal TrainingSession -> verified Attendance -> TrainingHourLedger
+    pipeline so a session can credit only the Student enrolled in that exact course,
+    base session credit is exactly-once, a cancelled session cannot credit time, and
+    every correction or reversal is an immutable compensating entry with a valid
+    source lifecycle. Current-OSK credited totals become deterministic in minutes.
+
+  authority_and_preservation:
+    legal_pipeline_source: docs/66-formal-student-record-and-theory-exemptions.md
+    ledger_ADR: docs/adr/0003-training-hour-ledger.md
+    test_policy: docs/84-test-strategy.md
+    API_source: specs/api/paths/students-courses.yaml
+    API_schema_source: specs/api/openapi-components-v1.yaml
+    complete_operation: POST_/training-sessions/{sessionId}/complete
+    cancel_operation: POST_/training-sessions/{sessionId}/cancel
+    correction_operation: POST_/course-enrollments/{courseEnrollmentId}/training-hour-corrections
+    complete_API_promise: session_completed_and_eligible_ledger_entries_created_atomically
+    cancel_API_promise: session_cancelled_without_crediting_formal_time
+    correction_API_promise: immutable_correction_or_reversal_entry_created
+    canonical_storage_unit: minutes
+    theory_hour_definition_minutes: 45
+    practical_hour_definition_minutes: 60
+    declared_course_form_hours_are_not_credited_time: true
+    recognized_external_training_remains_separate: true
+    external_current_projection_not_solved_here: DB-TRN-007
+
+  course_and_session_candidate_keys:
+    course_enrollments_exact_student_target:
+      columns: [organization_id, id, student_id]
+      unique_constraint_required: true
+      purpose: attendance_exact_course_student_composite_FK_target
+    training_sessions_exact_course_target:
+      columns: [organization_id, id, course_enrollment_id]
+      unique_constraint_required: true
+      purpose: attendance_and_ledger_exact_course_composite_FK_target
+    ledger_source_target:
+      columns: [organization_id, id, course_enrollment_id, training_part]
+      unique_constraint_required: true
+      purpose: correction_reversal_same_tenant_same_course_same_part_self_FK_target
+
+  training_session_physical_lifecycle:
+    formal_creditable_session_types: [theory, practical]
+    status_values: [planned, completed, cancelled]
+    initial_status: planned
+    version:
+      canonical_type: bigint
+      nullable: false
+      default: 1
+      check: version_gte_1
+      purpose: concurrency_root_for_session_schedule_attendance_and_terminal_state
+    duration_minutes:
+      nullable: false
+      check: duration_minutes_gt_0
+      client_authority: false
+      canonical_rule: >-
+        duration_minutes equals the exact positive whole-minute difference between
+        ends_at and starts_at. A formal session interval must therefore resolve to a
+        whole number of minutes; the backend recomputes duration when planned times
+        change. There is no rounding into 45- or 60-minute blocks.
+    add_terminal_metadata:
+      - completed_at_timestamptz_nullable
+      - completed_by_user_id_uuid_nullable
+      - cancelled_at_timestamptz_nullable
+      - cancelled_by_user_id_uuid_nullable
+      - cancellation_reason_text_nullable
+    planned_state_check: >-
+      status = 'planned' AND completed_at IS NULL AND completed_by_user_id IS NULL AND
+      cancelled_at IS NULL AND cancelled_by_user_id IS NULL AND cancellation_reason IS NULL
+    completed_state_check: >-
+      status = 'completed' AND completed_at IS NOT NULL AND completed_by_user_id IS NOT NULL AND
+      cancelled_at IS NULL AND cancelled_by_user_id IS NULL AND cancellation_reason IS NULL
+    cancelled_state_check: >-
+      status = 'cancelled' AND cancelled_at IS NOT NULL AND cancelled_by_user_id IS NOT NULL AND
+      cancellation_reason IS NOT NULL AND completed_at IS NULL AND completed_by_user_id IS NULL
+    terminal_states_mutually_exclusive: true
+    normal_PATCH_requires_status: planned
+    normal_PATCH_may_change:
+      - starts_at
+      - ends_at
+      - instructor_id
+      - vehicle_id
+      - location_id
+    normal_PATCH_recomputes_duration_minutes: true
+    normal_PATCH_increments_session_version_once: true
+    completed_or_cancelled_session_business_fields_are_immutable_in_normal_flow: true
+    hard_delete_terminal_session: forbidden
+    exact_public_session_status_and_attendance_recording_schema_sync: Stage5_acceptance_contract_sync
+
+  attendance_exact_course_integrity:
+    existing_table: training_session_attendance
+    DB_TRN_001_organization_id_kept: true
+    add_column:
+      name: course_enrollment_id
+      type: uuid
+      nullable: false
+      purpose: prove_session_and_student_belong_to_the_exact_same_formal_enrollment
+    one_attendance_row_per_session:
+      type: unique
+      columns: [organization_id, training_session_id]
+      replaces_weaker_pair_uniqueness_as_canonical_boundary: true
+      reason: one TrainingSession belongs to one CourseEnrollment and that enrollment has one Student
+    session_exact_course_FK:
+      source_columns: [organization_id, training_session_id, course_enrollment_id]
+      target_table: training_sessions
+      target_columns: [organization_id, id, course_enrollment_id]
+      on_update: RESTRICT
+      on_delete: RESTRICT
+    student_exact_course_FK:
+      source_columns: [organization_id, course_enrollment_id, student_id]
+      target_table: course_enrollments
+      target_columns: [organization_id, id, student_id]
+      on_update: RESTRICT
+      on_delete: RESTRICT
+    attendance_status_values: [present, absent]
+    confirmation_pair_check: >-
+      (confirmed_at IS NULL AND confirmed_by_user_id IS NULL) OR
+      (confirmed_at IS NOT NULL AND confirmed_by_user_id IS NOT NULL)
+    verified_attendance_predicate: confirmed_at_is_not_null_and_confirmed_by_user_id_is_not_null
+    credit_eligible_predicate: verified_attendance_and_status_present
+    attendance_mutation_requires_session_status: planned
+    attendance_mutation_lock_order: [course_enrollment_FOR_UPDATE, training_session_FOR_UPDATE]
+    attendance_mutation_increments_session_version_once: true
+    attendance_after_session_terminal_is_immutable_in_normal_flow: true
+    attendance_hard_delete_after_terminal_session: forbidden
+
+  training_hour_ledger_strengthening:
+    existing_table: training_hour_ledger_entries
+    append_only: true
+    allowed_entry_types: [credit, opening_balance, correction, reversal]
+    allowed_training_parts: [theory, practical]
+    actor_user_id_required_for_all_new_entries: true
+    created_at_authoritative_server_time: true
+    update_or_delete_existing_ledger_entry_by_normal_application: forbidden
+    session_exact_course_FK_when_present:
+      source_columns: [organization_id, training_session_id, course_enrollment_id]
+      target_table: training_sessions
+      target_columns: [organization_id, id, course_enrollment_id]
+      match: MATCH_SIMPLE
+      on_update: RESTRICT
+      on_delete: RESTRICT
+    source_entry_same_tenant_course_part_FK_when_present:
+      source_columns: [organization_id, source_entry_id, course_enrollment_id, training_part]
+      target_table: training_hour_ledger_entries
+      target_columns: [organization_id, id, course_enrollment_id, training_part]
+      match: MATCH_SIMPLE
+      on_update: RESTRICT
+      on_delete: RESTRICT
+    base_credit_exactly_once:
+      type: partial_unique
+      columns: [organization_id, training_session_id]
+      where: entry_type_equals_credit
+      effect: at_most_one_base_credit_per_session
+    opening_balance_exactly_once_per_part:
+      type: partial_unique
+      columns: [organization_id, course_enrollment_id, training_part]
+      where: entry_type_equals_opening_balance
+      effect: repeated_current_OSK_import_cannot_silently_stack_multiple_opening_balances
+    source_reversal_exactly_once:
+      type: partial_unique
+      columns: [organization_id, source_entry_id]
+      where: entry_type_equals_reversal
+      effect: one_source_entry_cannot_be_reversed_twice
+
+  ledger_entry_type_matrix:
+    credit:
+      minutes: positive
+      training_session_id: required
+      source_entry_id: null
+      reason: nullable_system_context
+      session_status_required_at_final_transaction_state: completed
+      session_type_to_training_part:
+        theory: theory
+        practical: practical
+      minutes_must_equal_session_duration_minutes: true
+      entry_created_only_by_session_complete_transaction: true
+    opening_balance:
+      minutes: positive
+      training_session_id: null
+      source_entry_id: null
+      reason: required
+      explicit_import_mode_required: true
+      source: current_OSK_opening_balance_only
+      recognized_previous_OSK_hours_forbidden_here: use_recognized_external_training
+    correction:
+      minutes: nonzero_signed_delta
+      reason: required
+      source_entry_id: nullable
+      if_source_entry_null_training_session_id_must_be_null: true
+      if_source_entry_present:
+        source_entry_allowed_types: [credit, opening_balance, correction]
+        source_entry_type_reversal_forbidden: true
+        training_session_id_must_equal_source_training_session_id_including_null: true
+        same_course_and_training_part_enforced_by_self_FK: true
+      original_source_row_mutated: false
+    reversal:
+      minutes: exact_negative_of_source_entry_minutes
+      reason: required
+      source_entry_id: required
+      source_entry_allowed_types: [credit, opening_balance, correction]
+      source_entry_type_reversal_forbidden: true
+      training_session_id_must_equal_source_training_session_id_including_null: true
+      same_course_and_training_part_enforced_by_self_FK: true
+      original_source_row_mutated: false
+      reversal_of_reversal_as_normal_flow: forbidden
+    enforcement: row_checks_plus_deferrable_constraint_triggers_or_equivalent_transactional_DB_guards
+
+  completed_session_credit_equivalence_guard:
+    enforcement: deferrable_constraint_trigger_or_equivalent_transactional_database_guard
+    final_transaction_invariants:
+      - planned_session_has_zero_credit_entries
+      - cancelled_session_has_zero_credit_entries
+      - completed_session_has_exactly_one_verified_attendance_row
+      - completed_present_session_has_exactly_one_credit_entry
+      - completed_absent_session_has_zero_credit_entries
+      - credit_entry_course_equals_session_course
+      - credit_entry_training_part_matches_session_type
+      - credit_entry_minutes_equals_session_duration_minutes
+    direct_SQL_or_import_cannot_create_credit_for_planned_cancelled_or_absent_session: true
+    direct_SQL_or_import_cannot_mark_present_session_completed_without_matching_credit: true
+
+  session_completion_transaction:
+    operation: POST_/training-sessions/{sessionId}/complete
+    idempotency_key_required: true
+    fixed_lock_order:
+      - course_enrollment_FOR_UPDATE
+      - training_session_FOR_UPDATE
+      - training_session_attendance_row_FOR_UPDATE
+    course_must_be_active_after_lock: true
+    session_precondition_status: planned
+    attendance_must_exist_exactly_once: true
+    attendance_must_be_verified: true
+    duration_recomputed_and_verified_against_times: true
+    if_attendance_present:
+      - insert_exactly_one_credit_with_session_course_part_and_duration
+    if_attendance_absent:
+      - insert_no_credit
+    atomically:
+      - set_session_completed_terminal_metadata
+      - increment_session_version_once
+      - satisfy_completed_session_credit_equivalence_guard
+      - write_audit_and_outbox_same_transaction
+    course_version_increment_for_normal_session_completion: false
+    reason: >-
+      Session is its own concurrency aggregate. The Course row is locked to serialize
+      against course close/cancel and eligibility decisions, but routine child-session
+      completion does not artificially invalidate unrelated Course metadata edits.
+    same_idempotency_key_retry: return_prior_result_without_duplicate_credit
+    fresh_second_complete_after_completed: conflict_already_completed
+
+  session_cancellation_transaction:
+    operation: POST_/training-sessions/{sessionId}/cancel
+    idempotency_key_required: true
+    reason_required: true
+    fixed_lock_order:
+      - course_enrollment_FOR_UPDATE
+      - training_session_FOR_UPDATE
+    session_precondition_status: planned
+    parent_course_may_already_be_terminal_for_cleanup: true
+    atomically:
+      - verify_zero_credit_entries
+      - set_session_cancelled_terminal_metadata
+      - increment_session_version_once
+      - preserve_any_existing_attendance_as_history_without_credit
+      - write_audit_and_outbox_same_transaction
+    fresh_cancel_after_session_completed: conflict_requires_explicit_correction_not_cancel
+    same_idempotency_key_retry: return_prior_result_without_duplicate_effect
+    course_cancel_does_not_auto_cancel_completed_sessions_or_reverse_existing_credit: true
+
+  complete_vs_cancel_and_course_close_races:
+    session_complete_and_session_cancel_share_course_then_session_lock_order: true
+    complete_wins_before_session_cancel:
+      result: completed_session_and_optional_exactly_one_credit_then_cancel_conflicts
+    session_cancel_wins_before_complete:
+      result: cancelled_session_then_complete_conflicts_and_no_credit
+    course_cancel_or_complete_wins_course_lock_first:
+      session_complete_after_lock: rejected_because_parent_not_active
+    session_complete_wins_course_lock_first:
+      result: session_completion_commits_then_course_command_rechecks_latest_ledger_and_may_continue
+    impossible_committed_states:
+      - cancelled_session_with_base_credit
+      - completed_present_session_without_base_credit
+      - completed_absent_session_with_base_credit
+      - credit_for_wrong_course_student_or_wrong_training_part
+
+  correction_and_reversal_command:
+    operation: POST_/course-enrollments/{courseEnrollmentId}/training-hour-corrections
+    idempotency_key_required: true
+    permission_required: true
+    reason_required_by_existing_request: true
+    expected_course_version_required_for_fresh_manual_correction: true
+    exact_HTTP_If_Match_surface_sync: Stage5_acceptance_contract_sync
+    fixed_lock_order:
+      - course_enrollment_FOR_UPDATE
+      - source_ledger_entry_FOR_UPDATE_when_present
+    source_entry_id_validation:
+      same_tenant_same_course_same_part: database_self_FK
+      source_may_not_be_reversal: true
+      source_exists_before_insert: true
+    deterministic_entry_type_mapping_for_existing_request_shape:
+      if_source_present_and_minutes_equals_exact_negative_of_source_minutes: reversal
+      otherwise: correction
+    standalone_correction_when_source_null: allowed_with_reason_and_permission
+    atomically:
+      - validate_final_course_part_projection_nonnegative
+      - validate_final_session_subtotal_nonnegative_when_source_is_session_linked
+      - insert_immutable_correction_or_reversal
+      - increment_course_version_once
+      - append_DB_TRN_004_updated_event_if_course_active_or_closed_course_corrected_if_terminal
+      - write_audit_and_outbox_same_transaction
+    requirements_revision_changed: false
+    source_or_prior_entries_rewritten_or_deleted: false
+    same_idempotency_key_retry: return_prior_result_without_second_ledger_entry
+    concurrent_same_expected_course_version_corrections: at_most_one_commits
+
+  correction_chain_policy:
+    correction_of_credit_opening_balance_or_correction: allowed
+    reversal_of_credit_opening_balance_or_correction: allowed_once_per_source
+    reversal_of_reversal: forbidden
+    reversal_neutralizes_only_its_direct_source_delta: true
+    reversal_does_not_cascade_delete_or_rewrite_sibling_corrections: true
+    mistaken_reversal_is_not_deleted_or_reversed_by_reversal_of_reversal: true
+    mistaken_reversal_remediation: create_new_audited_correction_with_reason
+    cycles_or_self_reference: forbidden
+    source_entry_must_preexist_current_entry: true
+
+  current_OSK_projection:
+    theory_minutes: sum_training_hour_ledger_minutes_where_training_part_theory
+    practical_minutes: sum_training_hour_ledger_minutes_where_training_part_practical
+    projection_includes_entry_types: [credit, opening_balance, correction, reversal]
+    projection_excludes_declared_course_form_fields: true
+    projection_excludes_recognized_external_training: true
+    course_part_total_must_never_be_negative: true
+    source_linked_session_subtotal_must_never_be_negative: true
+    external_component_joined_only_after_DB_TRN_007: true
+    no_rounding_to_training_hour_blocks: true
+    theory_45_and_practical_60_are_requirement_unit_definitions_not_ledger_rounding_rules: true
+
+  completion_minutes_boundary:
+    fresh_requirement_profile_required_from_DB_TRN_005: true
+    current_OSK_credited_minutes_now_deterministic: true
+    recognized_external_minutes_not_yet_finalized: DB-TRN-007
+    final_combined_required_minutes_gate: >-
+      Do not mark the combined current-OSK-plus-recognized-external minimum check as
+      closed until DB-TRN-007 defines the current external projection. DB-TRN-006
+      closes the current-OSK ledger component and exactly-once arithmetic only.
+    internal_exam_gate: DB4_7
+
+  migration_design:
+    migrations_not_generated_in_this_step: true
+    steps_when_later_generated:
+      - widen_training_sessions_version_to_bigint_not_null_default_1_check_gte_1
+      - normalize_or_precheck_training_session_status_against_planned_completed_cancelled
+      - add_session_terminal_metadata_and_validate_state_matrix
+      - verify_every_session_interval_has_positive_whole_minute_duration_and_duration_minutes_matches_interval
+      - add_candidate_unique_course_enrollments_organization_id_id_student_id
+      - add_candidate_unique_training_sessions_organization_id_id_course_enrollment_id
+      - add_candidate_unique_ledger_organization_id_id_course_id_training_part
+      - add_attendance_course_enrollment_id_temporarily_nullable
+      - verify_each_attendance_student_is_exact_student_of_session_course
+      - detect_multiple_attendance_rows_for_one_session_and_require_explicit_remediation
+      - backfill_attendance_course_enrollment_id_from_verified_session
+      - set_attendance_course_enrollment_id_not_null_and_add_exact_course_composite_FKs
+      - replace_weaker_attendance_pair_unique_with_one_attendance_per_session_unique_after_prechecks
+      - validate_attendance_status_and_confirmation_pairs_without_guessing_missing_confirmation
+      - add_ledger_session_exact_course_composite_FK
+      - add_ledger_source_same_course_part_composite_self_FK
+      - precheck_duplicate_credit_per_session
+      - precheck_credit_for_planned_or_cancelled_session
+      - precheck_completed_present_session_without_one_matching_credit
+      - precheck_completed_absent_session_with_credit
+      - precheck_credit_minutes_part_or_course_mismatch_to_session
+      - precheck_duplicate_opening_balance_per_course_part
+      - precheck_invalid_source_links_cross_course_cross_part_or_source_type_reversal
+      - precheck_duplicate_reversal_of_same_source
+      - precheck_negative_course_part_or_session_subtotals
+      - require_explicit_reviewed_remediation_for_ambiguous_legacy_session_attendance_or_ledger_never_fabricate_attendance_or_credit
+      - add_partial_unique_credit_opening_balance_reversal_constraints
+      - add_entry_type_matrix_checks_and_deferrable_guards
+      - wire_session_complete_cancel_attendance_and_correction_commands_to_fixed_lock_order
+      - add_exactly_once_race_projection_and_negative_tests
+    legacy_ambiguous_completed_session_policy: >-
+      Never infer presence, confirmation, actor or missing base credit from session
+      status alone. If a legacy completed session cannot be proven consistent with
+      attendance and ledger evidence, fail migration or require explicit reviewed
+      remediation before constraints are enabled.
+
+  tests_required:
+    - training_session_status_accepts_only_planned_completed_cancelled
+    - training_session_version_is_bigint_at_least_one
+    - duration_minutes_equals_positive_whole_minute_timestamp_difference
+    - session_PATCH_only_allowed_while_planned_and_recomputes_duration
+    - terminal_session_normal_PATCH_is_rejected
+    - attendance_course_enrollment_id_matches_session_course_by_composite_FK
+    - attendance_student_must_equal_exact_course_enrollment_student_by_composite_FK
+    - second_attendance_row_for_same_session_is_rejected
+    - attendance_confirmation_actor_and_time_are_both_null_or_both_nonnull
+    - attendance_change_after_terminal_session_is_rejected
+    - complete_requires_exactly_one_verified_attendance_row
+    - complete_present_session_creates_exactly_one_credit_atomically
+    - credit_minutes_equal_session_duration_without_45_or_60_minute_rounding
+    - theory_session_credit_has_training_part_theory
+    - practical_session_credit_has_training_part_practical
+    - complete_absent_session_creates_no_credit
+    - second_fresh_complete_is_rejected_without_second_credit
+    - same_complete_idempotency_key_retry_returns_prior_effect_without_second_credit
+    - partial_unique_rejects_second_credit_for_same_session_even_if_application_bug_bypasses_idempotency
+    - cancelled_session_has_zero_base_credit
+    - complete_cancel_race_cannot_commit_cancelled_session_with_credit
+    - course_cancel_vs_session_complete_serializes_on_course_lock
+    - course_cancel_after_completed_session_preserves_existing_credit
+    - ledger_session_course_mismatch_is_rejected_by_composite_FK
+    - credit_for_planned_session_is_rejected_by_final_transaction_guard
+    - credit_for_absent_session_is_rejected_by_final_transaction_guard
+    - direct_SQL_completed_present_session_without_credit_is_rejected_by_final_transaction_guard
+    - opening_balance_requires_positive_minutes_reason_no_session_and_no_source
+    - second_opening_balance_same_course_part_is_rejected
+    - previous_OSK_recognized_hours_cannot_be_written_as_current_OSK_opening_balance
+    - correction_is_nonzero_signed_delta_and_never_updates_source_row
+    - correction_source_must_share_tenant_course_and_training_part
+    - source_linked_correction_copies_source_training_session_relation_including_null
+    - source_entry_cannot_reference_reversal
+    - reversal_minutes_equal_exact_negative_of_source_delta
+    - same_source_cannot_be_reversed_twice
+    - reversal_of_reversal_is_rejected
+    - mistaken_reversal_is_remediated_by_new_correction_not_history_delete
+    - correction_and_reversal_keep_course_part_total_nonnegative
+    - session_linked_correction_chain_keeps_session_subtotal_nonnegative
+    - two_manual_corrections_same_expected_course_version_cannot_both_commit
+    - terminal_course_hour_correction_uses_closed_course_corrected_history_without_reopening_course
+    - current_OSK_theory_projection_is_exact_sum_of_immutable_ledger_theory_entries
+    - current_OSK_practical_projection_is_exact_sum_of_immutable_ledger_practical_entries
+    - declared_theory_or_practical_minutes_do_not_change_credited_projection
+    - external_recognized_training_is_not_in_current_OSK_ledger_projection
+    - migration_does_not_fabricate_missing_attendance_or_credit_for_ambiguous_legacy_session
+    - migration_detects_wrong_student_attendance_duplicate_credit_cancelled_credit_and_bad_source_links_before_constraints
+
+  intentionally_not_solved_by_DB_TRN_006:
+    recognized_external_training_current_projection_and_reversal_history: DB-TRN-007
+    final_combined_current_OSK_plus_external_minute_satisfaction: DB-TRN-007_after_DB_TRN_006
+    course_required_PKK_atomic_persistence_boundary: DB-TRN-008
+    internal_exam_attempt_compatibility_and_satisfaction: DB4_7
+    calendar_resource_overlap_and_booking: DB4_5
+    exact_HTTP_attendance_recording_and_correction_If_Match_schema_and_error_codes: Stage5_acceptance_contract_sync
+    terminal_session_fact_correction_surface_beyond_credited_time_delta: Stage5_domain_acceptance_sync_if_required
+
+  self_audit:
+    attendance_is_bound_to_exact_session_course_and_exact_course_student: PASS
+    one_attendance_row_per_single_student_course_session: PASS
+    verified_presence_is_required_for_base_credit: PASS
+    completed_present_session_has_exactly_one_base_credit: PASS
+    completed_absent_session_has_zero_base_credit: PASS
+    planned_or_cancelled_session_cannot_have_base_credit: PASS
+    base_credit_course_part_and_minutes_are_derived_from_session: PASS
+    session_complete_retry_or_race_cannot_double_credit: PASS
+    session_cancel_complete_and_course_close_races_have_fixed_lock_order: PASS
+    ledger_session_relation_is_exact_same_course_not_same_tenant_only: PASS
+    correction_and_reversal_source_relation_is_same_tenant_same_course_same_part: PASS
+    one_source_cannot_be_reversed_twice_and_reversal_of_reversal_is_forbidden: PASS
+    source_rows_are_never_destructively_edited_or_deleted: PASS
+    current_OSK_projection_is_deterministic_signed_sum_and_never_uses_declared_hours: PASS
+    theory_45_and_practical_60_are_not_misused_as_rounding_blocks: PASS
+    DB_TRN_007_and_DB_TRN_008_not_fixed: PASS
     aggregate_core_schema_not_modified_in_this_step: PASS
     aggregate_docs87_not_modified_in_this_step: PASS
     Laravel_migrations_created: false
