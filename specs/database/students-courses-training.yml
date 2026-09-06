@@ -1,0 +1,364 @@
+meta:
+  project: osk-panel
+  scope: students_courses_training_core_v1
+  status: DB_TRN_001_PASS_7_P1_BLOCKERS_OPEN
+  stage: DB4_4_STUDENTS_COURSES_TRAINING_LEDGER
+  created_at: 2026-09-06
+  narrative: docs/108-stage-4-students-courses-training-ledger-audit.md
+  aggregate_blueprint: specs/database/core-schema.yml
+  aggregate_narrative: docs/87-physical-database-schema.md
+  resource_dependency: specs/database/staff-locations-vehicles.yml
+  identity_dependency: specs/database/identity-rbac.yml
+  authority_rule: >-
+    This bounded-context specification is authoritative for Students/Courses/
+    Training physical semantics while DB4_4 is being closed. It augments the
+    aggregate core schema. Aggregate core-schema.yml and docs/87 remain unchanged
+    until the final DB4_4 aggregate synchronization gate.
+
+principles:
+  tenant_owned_relation_must_be_physically_or_transactionally_same_tenant: true
+  organization_id_is_not_client_authority: true
+  tenant_key_is_derived_from_authenticated_context_or_validated_parent: true
+  cross_tenant_formal_training_relation_is_forbidden: true
+  formal_history_uses_RESTRICT_not_destructive_cascade: true
+  global_users_and_global_dictionaries_do_not_require_fake_tenant_keys: true
+  aggregate_sync_deferred_until_final_DB4_4_gate: true
+  current_step_scope: same_tenant_relation_integrity_only
+
+open_blockers_after_this_step:
+  - DB-TRN-002
+  - DB-TRN-003
+  - DB-TRN-004
+  - DB-TRN-005
+  - DB-TRN-006
+  - DB-TRN-007
+  - DB-TRN-008
+
+# DB-TRN-001
+same_tenant_integrity:
+  blocker: DB-TRN-001
+  status: PASS
+  goal: >-
+    Student, CourseEnrollment, requirement/exemption/external-training records,
+    TrainingSession, attendance and TrainingHourLedger relations must be unable to
+    connect tenant-owned resources from different organizations even when
+    application-level relation validation is bypassed.
+
+  tenant_candidate_keys_required:
+    students:
+      columns: [organization_id, id]
+      unique_constraint_required: true
+      purpose: composite_same_organization_FK_target
+    course_enrollments:
+      columns: [organization_id, id]
+      unique_constraint_required: true
+      purpose: composite_same_organization_FK_target
+    training_sessions:
+      columns: [organization_id, id]
+      unique_constraint_required: true
+      purpose: composite_same_organization_FK_target
+    staff_profiles:
+      columns: [organization_id, id]
+      unique_constraint_required: true
+      source: DB-RES-001
+    locations:
+      columns: [organization_id, id]
+      unique_constraint_required: true
+      source: DB-RES-002
+    vehicles:
+      columns: [organization_id, id]
+      unique_constraint_required: true
+      source: DB-RES-002
+
+  tenant_key_policy:
+    required_nonnull_organization_id:
+      - students
+      - student_learning_accounts
+      - course_enrollments
+      - training_requirement_profiles
+      - course_exemption_decisions
+      - recognized_external_training
+      - training_sessions
+      - training_session_attendance
+      - training_hour_ledger_entries
+    organization_id_mutation_after_insert: forbidden_for_normal_domain_lifecycle
+    moving_formal_record_between_organizations_by_rewriting_organization_id: forbidden
+    client_supplied_organization_id_as_authority: forbidden
+    application_rule: >-
+      Create/update actions derive organization scope from the active membership or
+      validated parent resource. The database composite foreign keys below are the
+      final relation boundary and must still reject a malformed import or backend bug.
+
+  students_default_location:
+    source_table: students
+    source_columns: [organization_id, default_location_id]
+    target_table: locations
+    target_columns: [organization_id, id]
+    nullable_relation: true
+    match: MATCH_SIMPLE
+    on_update: RESTRICT
+    on_delete: RESTRICT
+    effect: nonnull_default_location_must_belong_to_student_organization
+
+  student_learning_account_student:
+    source_table: student_learning_accounts
+    source_columns: [organization_id, student_id]
+    target_table: students
+    target_columns: [organization_id, id]
+    nullable_relation: false
+    match: MATCH_SIMPLE
+    on_update: RESTRICT
+    on_delete: RESTRICT
+    note: >-
+      user_id remains a relation to the global User identity. A global User may
+      legitimately participate in more than one organization, so no fake tenant
+      composite FK to users is introduced here.
+
+  course_enrollment_relations:
+    student_same_organization:
+      source_table: course_enrollments
+      source_columns: [organization_id, student_id]
+      target_table: students
+      target_columns: [organization_id, id]
+      nullable_relation: false
+      match: MATCH_SIMPLE
+      on_update: RESTRICT
+      on_delete: RESTRICT
+    lead_instructor_same_organization:
+      source_table: course_enrollments
+      source_columns: [organization_id, lead_instructor_id]
+      target_table: staff_profiles
+      target_columns: [organization_id, id]
+      nullable_relation: false
+      match: MATCH_SIMPLE
+      on_update: RESTRICT
+      on_delete: RESTRICT
+    location_same_organization:
+      source_table: course_enrollments
+      source_columns: [organization_id, location_id]
+      target_table: locations
+      target_columns: [organization_id, id]
+      nullable_relation: true
+      match: MATCH_SIMPLE
+      on_update: RESTRICT
+      on_delete: RESTRICT
+    driving_category_relation:
+      target_is_global_dictionary: true
+      tenant_composite_FK_not_required: true
+
+  training_requirement_profile_course:
+    source_table: training_requirement_profiles
+    source_columns: [organization_id, course_enrollment_id]
+    target_table: course_enrollments
+    target_columns: [organization_id, id]
+    nullable_relation: false
+    match: MATCH_SIMPLE
+    on_update: RESTRICT
+    on_delete: RESTRICT
+
+  course_exemption_decision_course:
+    source_table: course_exemption_decisions
+    source_columns: [organization_id, course_enrollment_id]
+    target_table: course_enrollments
+    target_columns: [organization_id, id]
+    nullable_relation: false
+    match: MATCH_SIMPLE
+    on_update: RESTRICT
+    on_delete: RESTRICT
+
+  recognized_external_training_course:
+    source_table: recognized_external_training
+    source_columns: [organization_id, course_enrollment_id]
+    target_table: course_enrollments
+    target_columns: [organization_id, id]
+    nullable_relation: false
+    match: MATCH_SIMPLE
+    on_update: RESTRICT
+    on_delete: RESTRICT
+
+  training_session_relations:
+    course_same_organization:
+      source_table: training_sessions
+      source_columns: [organization_id, course_enrollment_id]
+      target_table: course_enrollments
+      target_columns: [organization_id, id]
+      nullable_relation: false
+      match: MATCH_SIMPLE
+      on_update: RESTRICT
+      on_delete: RESTRICT
+    instructor_same_organization:
+      source_table: training_sessions
+      source_columns: [organization_id, instructor_id]
+      target_table: staff_profiles
+      target_columns: [organization_id, id]
+      nullable_relation: false
+      match: MATCH_SIMPLE
+      on_update: RESTRICT
+      on_delete: RESTRICT
+    vehicle_same_organization:
+      source_table: training_sessions
+      source_columns: [organization_id, vehicle_id]
+      target_table: vehicles
+      target_columns: [organization_id, id]
+      nullable_relation: true
+      match: MATCH_SIMPLE
+      on_update: RESTRICT
+      on_delete: RESTRICT
+    location_same_organization:
+      source_table: training_sessions
+      source_columns: [organization_id, location_id]
+      target_table: locations
+      target_columns: [organization_id, id]
+      nullable_relation: true
+      match: MATCH_SIMPLE
+      on_update: RESTRICT
+      on_delete: RESTRICT
+
+  training_session_attendance:
+    organization_id_change:
+      existing_blueprint_has_column: false
+      canonical_change: add_nonnull_organization_id
+      foreign_key: organizations.id
+      reason: >-
+        Attendance needs an explicit tenant key so both the session and student
+        references can be protected by composite same-organization foreign keys.
+    uniqueness_preserved_in_this_step:
+      columns: [training_session_id, student_id]
+      note: >-
+        DB-TRN-001 does not redesign attendance exactly-once or same-course student
+        semantics. The existing pair uniqueness is preserved; deeper credit rules
+        remain DB-TRN-006.
+    session_same_organization:
+      source_columns: [organization_id, training_session_id]
+      target_table: training_sessions
+      target_columns: [organization_id, id]
+      nullable_relation: false
+      match: MATCH_SIMPLE
+      on_update: RESTRICT
+      on_delete: RESTRICT
+    student_same_organization:
+      source_columns: [organization_id, student_id]
+      target_table: students
+      target_columns: [organization_id, id]
+      nullable_relation: false
+      match: MATCH_SIMPLE
+      on_update: RESTRICT
+      on_delete: RESTRICT
+
+  training_hour_ledger_relations:
+    course_same_organization:
+      source_table: training_hour_ledger_entries
+      source_columns: [organization_id, course_enrollment_id]
+      target_table: course_enrollments
+      target_columns: [organization_id, id]
+      nullable_relation: false
+      match: MATCH_SIMPLE
+      on_update: RESTRICT
+      on_delete: RESTRICT
+    session_same_organization_when_present:
+      source_table: training_hour_ledger_entries
+      source_columns: [organization_id, training_session_id]
+      target_table: training_sessions
+      target_columns: [organization_id, id]
+      nullable_relation: true
+      match: MATCH_SIMPLE
+      on_update: RESTRICT
+      on_delete: RESTRICT
+    source_entry_relation:
+      lifecycle_and_exactly_once_semantics: deferred_to_DB_TRN_006
+      no_change_in_DB_TRN_001: true
+
+  intentionally_not_solved_by_DB_TRN_001:
+    attendance_student_must_equal_course_enrollment_student: DB-TRN-006
+    training_session_course_must_equal_ledger_course_when_session_present: DB-TRN-006
+    session_completion_exactly_once_credit: DB-TRN-006
+    cancelled_session_credit_guard: DB-TRN-006
+    ledger_correction_reversal_source_entry_lifecycle: DB-TRN-006
+    student_PESEL_or_birth_date_identity_branch: DB-TRN-002
+    student_archive_restore_and_versioning: DB-TRN-003
+    course_stage_cancel_restore_history: DB-TRN-004
+    requirement_context_reproducibility: DB-TRN-005
+    external_training_current_projection_and_reversal_history: DB-TRN-007
+    course_required_PKK_atomic_persistence_boundary: DB-TRN-008
+    learning_account_license_credentials_lifecycle: DB4_6
+    PKK_provider_retry_reconciliation: DB4_8
+
+  migration_design:
+    migrations_not_generated_in_this_step: true
+    order_when_DB4_4_migrations_are_later_generated:
+      - add_or_verify_candidate_unique_students_organization_id_id
+      - add_or_verify_candidate_unique_course_enrollments_organization_id_id
+      - add_or_verify_candidate_unique_training_sessions_organization_id_id
+      - verify_existing_staff_location_vehicle_candidate_keys_from_DB4_3
+      - run_all_existing_cross_tenant_prechecks_before_new_FKs
+      - add_training_session_attendance_organization_id_as_temporarily_nullable
+      - verify_every_attendance_session_and_student_have_same_organization
+      - backfill_attendance_organization_id_from_verified_training_session_organization_id
+      - set_training_session_attendance_organization_id_not_null_and_FK_organizations
+      - add_all_composite_same_tenant_foreign_keys
+      - rerun_cross_tenant_negative_constraint_tests
+    attendance_backfill_rule: >-
+      Never silently reassign attendance to a different student/session/organization.
+      If existing attendance joins a session and student from different organizations,
+      fail migration and require explicit security/data remediation before retry.
+    general_invalid_row_policy: >-
+      Fail migration or perform an explicitly reviewed security remediation. Never
+      auto-correct a cross-tenant relation by moving a formal row to another tenant.
+
+  migration_prechecks_required:
+    - every_student_default_location_is_null_or_same_organization
+    - every_student_learning_account_matches_student_organization
+    - every_course_enrollment_matches_student_organization
+    - every_course_lead_instructor_matches_course_organization
+    - every_nonnull_course_location_matches_course_organization
+    - every_training_requirement_profile_matches_course_organization
+    - every_course_exemption_decision_matches_course_organization
+    - every_recognized_external_training_row_matches_course_organization
+    - every_training_session_matches_course_organization
+    - every_training_session_instructor_matches_session_organization
+    - every_nonnull_training_session_vehicle_matches_session_organization
+    - every_nonnull_training_session_location_matches_session_organization
+    - every_attendance_session_and_student_share_same_organization_before_backfill
+    - every_ledger_entry_matches_course_organization
+    - every_nonnull_ledger_training_session_matches_ledger_organization
+
+  tests_required:
+    - student_default_location_same_tenant_is_accepted
+    - student_default_location_from_other_organization_is_rejected_by_database
+    - student_learning_account_same_tenant_student_is_accepted
+    - student_learning_account_cross_tenant_student_is_rejected_by_database
+    - course_same_tenant_student_instructor_and_location_are_accepted
+    - course_student_from_other_organization_is_rejected_by_database
+    - course_instructor_from_other_organization_is_rejected_by_database
+    - course_location_from_other_organization_is_rejected_by_database
+    - course_null_location_remains_valid
+    - requirement_profile_cross_tenant_course_is_rejected_by_database
+    - exemption_decision_cross_tenant_course_is_rejected_by_database
+    - recognized_external_training_cross_tenant_course_is_rejected_by_database
+    - training_session_same_tenant_course_instructor_vehicle_location_is_accepted
+    - training_session_cross_tenant_course_is_rejected_by_database
+    - training_session_cross_tenant_instructor_is_rejected_by_database
+    - training_session_cross_tenant_vehicle_is_rejected_by_database
+    - training_session_cross_tenant_location_is_rejected_by_database
+    - training_session_null_vehicle_and_location_remain_valid
+    - attendance_same_tenant_session_and_student_is_accepted
+    - attendance_cross_tenant_session_or_student_is_rejected_by_database
+    - attendance_migration_precheck_detects_existing_cross_tenant_pair_before_backfill
+    - ledger_same_tenant_course_and_optional_session_is_accepted
+    - ledger_cross_tenant_course_is_rejected_by_database
+    - ledger_cross_tenant_session_is_rejected_by_database
+    - ledger_null_session_remains_valid_for_non_session_entry_types_subject_to_later_DB_TRN_006_rules
+    - rewriting_organization_id_to_move_formal_record_between_tenants_is_forbidden
+    - no_new_cascade_delete_of_student_course_training_formal_history_is_introduced
+
+  self_audit:
+    every_relation_named_in_DB_TRN_001_diagnosis_has_physical_boundary: PASS
+    required_parent_candidate_keys_declared: PASS
+    attendance_missing_tenant_key_closed_without_exactly_once_scope_creep: PASS
+    optional_relations_keep_MATCH_SIMPLE_null_behavior: PASS
+    global_user_and_dictionary_relations_not_incorrectly_tenant_scoped: PASS
+    DB_TRN_002_through_DB_TRN_008_not_fixed: PASS
+    aggregate_core_schema_not_modified_in_this_step: PASS
+    aggregate_docs87_not_modified_in_this_step: PASS
+    Laravel_migrations_created: false
+    later_DB4_slices_entered: false
