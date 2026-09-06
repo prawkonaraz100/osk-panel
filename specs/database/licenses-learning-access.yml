@@ -308,7 +308,7 @@ resolved_contracts:
       - assignment_same_organization_but_wrong_student_learning_account_pair_is_rejected
       - activation_cannot_reference_assignment_from_other_organization
       - same_global_user_may_still_back_learning_accounts_in_different_organizations
-      - global_language_and_license_product_not_redefined_as_tenant_resources
+      - global_language_and_product_dictionaries_are_not_incorrectly_tenant_scoped
       - source_order_item_commerce_relation_is_not_falsely_closed_before_DB4_9
     explicitly_not_solved_in_this_step:
       - DB-LIC-002_auth_identifier_same_user_and_login_projection_consistency
@@ -1059,6 +1059,8 @@ resolved_contracts:
         default: 1
         check: version_gte_1
         concurrency_root_for_assignment_state: true
+      assigned_at: required_nonnull_immutable
+      assigned_by_user_id: required_nonnull_global_user_FK_RESTRICT
       normal_hard_delete: forbidden
       generic_status_PATCH: forbidden
       normal_transitions:
@@ -1172,7 +1174,7 @@ resolved_contracts:
       after_inventory_lock_require_zero_current_assignment: true
       language_product_compatibility_final_rule: deferred_to_DB_LIC_007
       successful_effects_same_transaction:
-        - insert_license_assignment_status_assigned_version_1
+        - insert_license_assignment_status_assigned_version_1_with_assigned_actor_and_time
         - set_same_inventory_row_status_assigned
         - append_redacted_audit_and_outbox_metadata
         - complete_idempotency_record
@@ -1190,8 +1192,10 @@ resolved_contracts:
       idempotency_required: true
       expected_assignment_version_required: true
       lock_order: shared_existing_learning_account_then_inventory_then_assignment
+      operational_eligibility_required: false
+      rationale: revoke_releases_an_unused_right_and_must_remain_possible_after_student_archive_or_learning_account_suspension_without_auto_revoke_side_effect
       after_locks_require:
-        - DB_LIC_003_target_student_and_learning_account_operationally_eligible_or_explicit_admin_history_policy_if_future_product_allows_archived_revoke
+        - DB_LIC_001_exact_target_and_tenant_integrity
         - assignment_status_assigned
         - inventory_status_assigned
         - activation_count_zero
@@ -1258,10 +1262,9 @@ resolved_contracts:
       archive_does_not_auto_revoke_existing_assignment: true
       archive_does_not_auto_restore_inventory: true
       archive_first_blocks_new_assignment_and_activation: true
-      revoke_of_archived_student:
-        ordinary_UI_command_policy: fail_closed_until_explicit_product_rule
-        history_or_data_correction_need_may_use_separate_elevated_command_later: true
-      reason: revoke_is_a_new_inventory_effect_and_must_not_bypass_parent_state_policy_silently
+      explicit_revoke_unactivated_after_archive_or_account_suspension: allowed_with_permission_and_same_tenant_state_checks
+      revoke_does_not_reactivate_learning_account_or_student: true
+      rationale: archive_is_not_hidden_revoke_but_must_not_trap_an_unused_inventory_unit_forever
     audit_and_history:
       assignment_rows_preserved: true
       revoked_assignment_preserved_after_inventory_reassignment: true
@@ -1297,7 +1300,7 @@ resolved_contracts:
     required_integration_tests:
       - inventory_status_rejects_unknown_value
       - assignment_status_rejects_unknown_value
-      - new_assignment_starts_assigned_version_one_with_inventory_assigned
+      - new_assignment_starts_assigned_version_one_with_inventory_assigned_and_assigned_actor_time
       - available_inventory_with_current_assignment_is_rejected_at_commit
       - assigned_inventory_without_exactly_one_assigned_current_assignment_is_rejected_at_commit
       - consumed_inventory_without_exactly_one_activated_assignment_and_activation_is_rejected_at_commit
@@ -1311,6 +1314,7 @@ resolved_contracts:
       - create_new_learning_account_and_assignment_commit_all_or_none
       - create_new_OSK_managed_account_password_and_assignment_failure_returns_no_secret_and_rolls_back_new_effects
       - revoke_unactivated_transitions_same_inventory_row_back_to_available_once
+      - revoke_unactivated_is_allowed_for_archived_student_or_suspended_learning_account_without_reactivating_them
       - same_revoke_idempotency_key_does_not_restore_twice_or_increment_version_twice
       - different_revoke_key_after_revoked_assignment_does_not_change_inventory
       - revoke_never_hard_deletes_assignment_or_learning_account
@@ -1472,7 +1476,7 @@ nonblockers_and_deferred_questions:
   - exact_HTTP_If_Match_required_markers_and_error_codes_remain_Stage5_acceptance_contract_sync
   - exact_max_bulk_PDF_count_and_select_visible_pagination_behavior_are_application_product_limits_not_database_P1
   - exact_competitor_semantics_of_inventory_card_active_count_remain_unobservable_but_our_projection_must_be_defined_before_implementation
-  - exact_always_stack_exceptions_of_the_competitor_are_not_assumed; our entitlement_rule_will_be_an_explicit_product_decision_when_DB_LIC_006_is_fixed
+  - exact_always_stack_exceptions_of_the_competitor_are_not_assumed; our entitlement rule will be an explicit product decision when DB_LIC_006_is_fixed
 
 preservation_checks:
   all_confirmed_license_variants_remain_data_not_hardcoded_global_rule: PASS
@@ -1535,6 +1539,7 @@ preservation_checks:
   create_new_learning_account_and_assignment_is_one_outer_transaction: PASS
   optional_initial_OSK_password_effect_rolls_back_if_assignment_does_not_commit: PASS
   revoke_unactivated_restores_same_inventory_row_exactly_once: PASS
+  revoke_unactivated_remains_explicitly_available_after_student_archive_or_learning_account_suspension: PASS
   revoke_never_hard_deletes_assignment_or_learning_account: PASS
   activate_and_revoke_share_inventory_assignment_lock_boundary: PASS
   activate_vs_revoke_has_exactly_one_winner: PASS
