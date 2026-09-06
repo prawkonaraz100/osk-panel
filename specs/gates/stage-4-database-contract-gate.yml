@@ -70,10 +70,10 @@ stage_4_slices:
     status: IN_PROGRESS_BLOCKERS_OPEN
     diagnosis: COMPLETE
     blockers_diagnosed: 7
-    blockers_resolved: 1
-    open_P0_P1: 6
+    blockers_resolved: 2
+    open_P0_P1: 5
     final_aggregate_sync: PENDING
-    result: DB_CAL_001_PASS_6_P1_OPEN
+    result: DB_CAL_001_002_PASS_5_P1_OPEN
   - id: DB4_6_LICENSES_LEARNING_ACCESS
     status: NOT_STARTED
   - id: DB4_7_INTERNAL_EXAMS
@@ -829,6 +829,60 @@ quality_checks:
       Laravel_migrations_created: false
       UI_or_feature_implementation_started: false
 
+  calendar_manual_event_and_important_date_storage_boundary:
+    status: PASS
+    resolved_blocker_id: DB-CAL-002
+    severity: P1
+    machine_source: specs/database/calendar.yml
+    audit_source: docs/109-stage-4-calendar-audit.md
+    decision:
+      calendar_events_storage_role: manual_operational_events_only
+      allowed_manual_event_types: [general_event, driving_lesson]
+      important_date_may_be_persisted_as_calendar_events_row: false
+      important_date_canonical_date_owner: source_domain_document_row
+      current_staff_document_sources:
+        - card_or_authorization
+        - medical_exam
+        - psychological_exam
+      current_vehicle_document_sources:
+        - technical_inspection
+        - oc_insurance
+        - ac_insurance
+      source_document_current_predicate: superseded_at_is_null_and_valid_until_is_not_null
+      projection_identity_tuple: [organization_id, source_domain, source_row_id, date_kind]
+      projection_calendar_events_primary_key: false
+      manual_calendar_commands_may_mutate_projection: false
+      source_date_change_requires_calendar_event_write: false
+      optional_projection_cache_authoritative: false
+      meeting_place_semantics: zero_or_one_of_location_id_or_custom_meeting_place
+      both_meeting_place_sources_null_allowed: true
+      custom_text_trimmed_before_persist: true
+      whitespace_only_custom_text_persisted: false
+      custom_text_auto_creates_location: false
+      migration_unknown_event_type_auto_classification: forbidden
+      migration_dual_meeting_place_auto_choice: forbidden
+      DB_CAL_003_through_DB_CAL_007_not_fixed: true
+    checks:
+      manual_event_type_domain_is_closed: PASS
+      important_date_is_projection_not_second_mutable_source: PASS
+      source_valid_until_remains_authoritative: PASS
+      projection_identity_is_source_based: PASS
+      projection_is_not_mutable_through_manual_event_endpoints: PASS
+      meeting_place_zero_or_one_source_is_enforced: PASS
+      optional_no_meeting_place_state_is_preserved: PASS
+      whitespace_only_custom_text_is_not_persisted: PASS
+      custom_text_does_not_create_location: PASS
+      overlap_strategy_remains_open_DB_CAL_003: PASS
+      lifecycle_remains_open_DB_CAL_004: PASS
+      own_scope_resolver_remains_open_DB_CAL_005: PASS
+      booking_lifecycle_remains_open_DB_CAL_006: PASS
+      training_session_integration_remains_open_DB_CAL_007: PASS
+      aggregate_core_schema_modified_in_step: false
+      aggregate_docs87_modified_in_step: false
+      later_domain_slices_entered: false
+      Laravel_migrations_created: false
+      UI_or_feature_implementation_started: false
+
   calendar_overlap_database_strategy:
     status: OPEN_DB_CAL_003
 
@@ -857,9 +911,9 @@ resolved_blockers:
   - DB-TRN-007
   - DB-TRN-008
   - DB-CAL-001
+  - DB-CAL-002
 
 open_blockers_current_diagnosed_scope:
-  - DB-CAL-002
   - DB-CAL-003
   - DB-CAL-004
   - DB-CAL-005
@@ -874,7 +928,7 @@ gate_definition:
     - migration_order_dependency_safe
     - database_invariant_test_matrix_exists
     - reverse_engineering_preservation_traceable
-  current_result: DB4_5_DB_CAL_001_PASS_6_P1_OPEN
+  current_result: DB4_5_DB_CAL_001_002_PASS_5_P1_OPEN
   DB4_1_result: PASS
   DB4_2_result: PASS
   DB4_3_result: PASS
@@ -891,7 +945,8 @@ gate_definition:
   DB4_4_result: PASS
   DB4_5_diagnosis_result: PASS_DIAGNOSIS_COMPLETE
   DB4_5_DB_CAL_001_result: PASS
-  DB4_5_result: IN_PROGRESS_6_P1_OPEN
+  DB4_5_DB_CAL_002_result: PASS
+  DB4_5_result: IN_PROGRESS_5_P1_OPEN
   may_start_DB4_4_fixes: false
   may_start_DB4_5: true
   may_start_DB4_5_fixes: true
@@ -900,17 +955,17 @@ gate_definition:
   may_start_UI_or_feature_implementation: false
 
 next_single_step:
-  id: DB_CAL_002
-  blocker: DB-CAL-002
-  action: close_manual_calendar_event_vs_system_projection_and_single_row_invariants_only
+  id: DB_CAL_003
+  blocker: DB-CAL-003
+  action: close_race_safe_calendar_resource_overlap_conflict_boundary_only
   allowed_scope:
     - specs/database/calendar.yml
     - docs/109-stage-4-calendar-audit.md
     - specs/gates/stage-4-database-contract-gate.yml
   scope_lock: >-
-    Fix only DB-CAL-002 manual CalendarEvent versus system-projected important-date
-    storage boundary and location_id XOR custom_meeting_place row invariants. Do not
-    fix DB-CAL-003 or later Calendar blockers, do not modify aggregate core-schema.yml
+    Fix only DB-CAL-003 resource overlap/conflict interval semantics and the final
+    race-safe PostgreSQL or transactional serialization boundary. Do not fix
+    DB-CAL-004 or later Calendar blockers, do not modify aggregate core-schema.yml
     or docs/87 before the final DB4_5 aggregate sync, do not enter DB4_6 or later
     slices, do not create Laravel migrations and do not start UI/feature implementation.
-  after_action: rerun_DB_CAL_002_gate_and_record_PASS_or_remaining_blocker_then_stop_before_DB_CAL_003
+  after_action: rerun_DB_CAL_003_gate_and_record_PASS_or_remaining_blocker_then_stop_before_DB_CAL_004
