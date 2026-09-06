@@ -973,6 +973,8 @@ Każda zmiana `users.password_hash`, niezależnie czy wykonuje ją OSK czy self-
 
 OSK-managed set/reset wymaga expected credential version. Stale version daje conflict bez zmiany hasha, handoffu ani audytu.
 
+`credential_version` jest monotonicznym epokiem stanu local-password, a nie wskaźnikiem „czy hash istnieje”. Non-NULL `password_hash` wymaga `credential_version >= 1`, ale po jawnym, audytowanym wyłączeniu local-password hash może być NULL przy dodatniej wersji. Takie wyłączenie — jeśli dopuści je Identity flow — również zwiększa tę samą wersję i nigdy nie resetuje jej do zera.
+
 Reset hasła nie zwiększa `StudentLearningAccount.version`, ponieważ hasło jest globalnym credentialem Usera, a nie konfiguracją konkretnego LearningAccount.
 
 ### 22.5 Lock order i idempotency przed non-replayable effect
@@ -1016,7 +1018,7 @@ Po zakończeniu commandu serwer nie ma ścieżki `pokaż stare hasło`.
 - `handoff_type = initial_credentials | password_reset | credentials_document`,
 - `credential_version_snapshot`,
 - `contains_fresh_secret`,
-- `fresh_secret_generated_at`,
+- `fresh_secret_issued_at`,
 - nullable `batch_id`,
 - nullable `batch_ordinal`,
 - istniejący nullable `document_asset_id`.
@@ -1024,10 +1026,10 @@ Po zakończeniu commandu serwer nie ma ścieżki `pokaż stare hasło`.
 Jeżeli `contains_fresh_secret=true`:
 - typ to initial/password_reset,
 - credential version >= 1,
-- generated timestamp jest wymagany,
+- issued timestamp jest wymagany,
 - `document_asset_id` musi być NULL.
 
-Czyli sam handoff potwierdza, że sekret został jednorazowo wygenerowany, ale nie przechowuje go i nie pozwala go odtworzyć.
+Nazwa `issued_at` jest celowa: świeże hasło może być wygenerowane przez system albo wpisane ręcznie przez uprawniony sekretariat. Handoff potwierdza moment jednorazowego wydania sekretu, ale nie przechowuje go i nie pozwala go odtworzyć.
 
 ### 22.8 Secret-bearing PDF nigdy nie jest FileAsset
 
@@ -1151,7 +1153,7 @@ Przyszła migracja:
 2. dla istniejących Users ustawia `unclassified` — **nie zgaduje managing OSK** z LearningAccount, creatora ani ostatniej aktywności,
 3. ustawia migration epoch `credential_version=0` przy NULL hash i `1` przy istniejącym hash; nie udaje historycznej liczby resetów,
 4. nie zgaduje `password_changed_at`,
-5. dodaje final-state hash/version guard,
+5. dodaje final-state guard tylko w kierunku `password_hash IS NOT NULL -> credential_version >= 1`; dodatnia wersja nie wymusza istnienia hasha, bo epoch musi przeżyć jawne wyłączenie local-password,
 6. dodaje exclusive-principal guards,
 7. dodaje batch i handoff metadata,
 8. skanuje legacy handoff assets pod kątem potencjalnego plaintext secretu/purpose,
@@ -1172,6 +1174,7 @@ Obowiązkowe testy obejmują m.in.:
 - stale credential version nie zmienia niczego,
 - dwa resety z tą samą version nie commitują oba,
 - każdy local-password mutation zwiększa ten sam credential epoch,
+- jawne wyłączenie local-password — jeśli wspierane przez Identity flow — ustawia hash NULL, zwiększa ten sam credential epoch i nie zeruje wersji,
 - plaintext nie występuje w DB/audit/outbox/log/idempotency,
 - secret-bearing PDF nie trafia do FileAsset/object storage,
 - later PDF GET nie odzyskuje hasła,
@@ -1196,6 +1199,7 @@ Self-audit potwierdził:
 - nie zamknięto language capability/projection,
 - global login authority DB-LIC-002 pozostaje jedna,
 - organization-managed credential authority nie tworzy tenantowego login namespace,
+- credential epoch pozostaje monotoniczny także po jawnym wyłączeniu local-password,
 - exact identity authority transfer/claim/recovery pozostaje odrębną bramką Identity,
 - exact password algorithm/cost pozostaje security implementation policy,
 - exact HTTP secret-PDF/expected credential version pozostaje Stage 5,
