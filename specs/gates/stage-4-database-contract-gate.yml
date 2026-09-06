@@ -79,10 +79,10 @@ stage_4_slices:
     status: IN_PROGRESS_WITH_BLOCKERS
     diagnosis: COMPLETE
     blockers_diagnosed: 7
-    blockers_resolved: 1
-    open_P0_P1: 6
+    blockers_resolved: 2
+    open_P0_P1: 5
     final_aggregate_sync: BLOCKED
-    result: FAIL_WITH_6_P1_BLOCKERS
+    result: FAIL_WITH_5_P1_BLOCKERS
   - id: DB4_7_INTERNAL_EXAMS
     status: NOT_STARTED
   - id: DB4_8_PKK
@@ -1344,6 +1344,75 @@ quality_checks:
       Laravel_migrations_created: false
       UI_or_feature_implementation_started: false
 
+  license_learning_access_global_auth_identity_login_consistency:
+    status: PASS
+    resolved_blocker_id: DB-LIC-002
+    severity: P1
+    machine_source: specs/database/licenses-learning-access.yml
+    audit_source: docs/110-stage-4-licenses-learning-access-audit.md
+    decision:
+      canonical_login_authority: auth_login_identifiers
+      canonical_login_authority_global_not_tenant_scoped: true
+      DB4_2_global_current_identifier_uniqueness_preserved: true
+      canonical_learning_account_identifier_field: auth_login_identifier_id
+      provisional_primary_auth_login_identifier_field_replaced: true
+      referenced_identifier_must_be_primary_for_type: false
+      persisted_login_identifier_projection_in_canonical_model: false
+      API_list_search_login_projection: auth_login_identifiers.identifier_normalized_via_join
+      auth_login_identifiers_candidate_key: [id, user_id]
+      learning_account_same_user_composite_FK_source: [auth_login_identifier_id, user_id]
+      learning_account_same_user_composite_FK_target: auth_login_identifiers[id,user_id]
+      relation_on_update: RESTRICT
+      relation_on_delete: RESTRICT
+      referenced_identifier_must_be_current_nonrevoked_at_commit: true
+      current_identifier_guard: DEFERRABLE_INITIALLY_DEFERRED_constraint_trigger_or_equivalent_transactional_DB_guard
+      identifier_revoke_must_repoint_learning_accounts_or_fail: true
+      per_tenant_login_namespace_or_unique_added: false
+      same_global_user_identifier_may_back_learning_accounts_in_multiple_organizations: true
+      typed_identifier_alone_proves_existing_user_same_person: false
+      existing_identifier_reuse_requires_trusted_same_user_binding_context: true
+      create_unused_identifier_may_create_new_global_principal_and_identifier_atomically: true
+      heuristic_user_merge_or_rebind_from_student_profile_fields: forbidden
+      normal_learning_account_update_may_change_user_id: false
+      update_to_same_user_identifier: repoint_allowed
+      update_to_other_user_identifier: conflict_no_merge_no_rebind
+      update_to_unused_identifier: create_for_same_user_then_repoint
+      new_identifier_hidden_primary_for_type_promotion: false
+      old_identifier_hidden_auto_revoke_from_learning_account_PATCH: false
+      email_identifier_implies_verified_email: false
+      verification_merge_recovery_authority: existing_identity_policy_gate
+      login_update_optimistic_concurrency: deferred_to_DB_LIC_003
+      DB_LIC_003_through_DB_LIC_007_not_fixed: true
+    checks:
+      auth_login_identifiers_remains_single_global_login_authority: PASS
+      learning_account_identifier_must_belong_to_same_global_user: PASS
+      learning_account_cannot_reference_revoked_identifier_at_commit: PASS
+      auth_identifier_cannot_commit_revoke_while_learning_account_still_references_it: PASS
+      same_visible_current_identifier_still_resolves_to_at_most_one_global_user: PASS
+      same_global_user_may_have_multiple_current_identifiers: PASS
+      same_global_user_identifier_may_back_learning_accounts_in_multiple_organizations: PASS
+      no_per_tenant_login_namespace_or_uniqueness_created: PASS
+      API_login_identifier_is_joined_identifier_normalized: PASS
+      persisted_independent_login_projection_not_used_as_authority: PASS
+      unused_identifier_create_does_not_heuristically_merge_user_from_student_fields: PASS
+      existing_identifier_owned_by_other_user_without_trusted_binding_is_rejected: PASS
+      same_user_identifier_update_repoints_without_user_change: PASS
+      other_user_identifier_update_is_rejected_without_merge: PASS
+      unused_identifier_update_creates_identifier_for_same_user_without_hidden_primary_promotion: PASS
+      learning_account_login_update_does_not_auto_revoke_old_global_identifier: PASS
+      DB4_2_verification_and_account_merge_authority_preserved: PASS
+      migration_ambiguity_mismatch_revoked_pointer_or_projection_drift_requires_reviewed_remediation: PASS
+      DB_LIC_003_lifecycle_concurrency_archive_remains_open: PASS
+      DB_LIC_004_secret_handoff_policy_remains_open: PASS
+      DB_LIC_005_inventory_state_exactly_once_remains_open: PASS
+      DB_LIC_006_stacking_reproducibility_remains_open: PASS
+      DB_LIC_007_language_projection_consistency_remains_open: PASS
+      aggregate_core_schema_modified_in_step: false
+      aggregate_docs87_modified_in_step: false
+      later_domain_slices_entered: false
+      Laravel_migrations_created: false
+      UI_or_feature_implementation_started: false
+
 resolved_blockers:
   - DB-FOUND-001
   - DB-FOUND-002
@@ -1376,9 +1445,9 @@ resolved_blockers:
   - DB-CAL-006
   - DB-CAL-007
   - DB-LIC-001
+  - DB-LIC-002
 
 open_blockers_current_diagnosed_scope:
-  - DB-LIC-002
   - DB-LIC-003
   - DB-LIC-004
   - DB-LIC-005
@@ -1393,7 +1462,7 @@ gate_definition:
     - migration_order_dependency_safe
     - database_invariant_test_matrix_exists
     - reverse_engineering_preservation_traceable
-  current_result: FAIL_DB4_6_WITH_6_OPEN_P1_BLOCKERS
+  current_result: FAIL_DB4_6_WITH_5_OPEN_P1_BLOCKERS
   DB4_1_result: PASS
   DB4_2_result: PASS
   DB4_3_result: PASS
@@ -1420,7 +1489,8 @@ gate_definition:
   DB4_5_result: PASS
   DB4_6_diagnosis_result: PASS_DIAGNOSIS_COMPLETE
   DB4_6_DB_LIC_001_result: PASS
-  DB4_6_result: FAIL_WITH_6_P1_BLOCKERS
+  DB4_6_DB_LIC_002_result: PASS
+  DB4_6_result: FAIL_WITH_5_P1_BLOCKERS
   may_start_DB4_4_fixes: false
   may_start_DB4_5: false
   may_start_DB4_5_fixes: false
@@ -1431,9 +1501,9 @@ gate_definition:
   may_start_UI_or_feature_implementation: false
 
 next_single_step:
-  id: DB4_6_STEP_2
-  blocker: DB-LIC-002
-  action: resolve_learning_account_global_auth_identity_and_login_consistency_only
+  id: DB4_6_STEP_3
+  blocker: DB-LIC-003
+  action: resolve_learning_account_lifecycle_optimistic_concurrency_and_student_archive_effect_only
   allowed_scope:
     - specs/database/licenses-learning-access.yml
     - docs/110-stage-4-licenses-learning-access-audit.md
@@ -1442,8 +1512,8 @@ next_single_step:
     - specs/database/core-schema.yml
     - docs/87-physical-database-schema.md
   scope_lock: >-
-    Resolve only DB-LIC-002. Do not fix DB-LIC-003 through DB-LIC-007. Keep the
+    Resolve only DB-LIC-003. Do not fix DB-LIC-004 through DB-LIC-007. Keep the
     aggregate core schema and docs/87 frozen until the final DB4_6 aggregate sync.
     Do not enter DB4_7 or later slices, do not start Stage 5, do not create Laravel
     migrations and do not start UI/feature implementation.
-  after_action: rerun_DB4_6_gate_and_STOP_before_DB_LIC_003
+  after_action: rerun_DB4_6_gate_and_STOP_before_DB_LIC_004
