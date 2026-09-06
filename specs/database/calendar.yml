@@ -2,7 +2,7 @@ meta:
   project: osk-panel
   scope: calendar_core_v1
   stage: DB4_5_CALENDAR
-  status: DB_CAL_001_002_003_004_PASS_3_P1_BLOCKERS_OPEN
+  status: DB_CAL_001_002_003_004_005_PASS_2_P1_BLOCKERS_OPEN
   diagnosed_at: 2026-09-06
   updated_at: 2026-09-06
   narrative: docs/109-stage-4-calendar-audit.md
@@ -24,8 +24,8 @@ meta:
     - docs/50-own-calendar-event-lifecycle.md
     - docs/51-calendar-important-dates.md
   diagnosis_complete: true
-  current_step: DB-CAL-004
-  fixes_applied_total: 4
+  current_step: DB-CAL-005
+  fixes_applied_total: 5
 
 principles:
   tenant_owned_calendar_relation_must_be_physically_same_tenant: true
@@ -53,8 +53,13 @@ principles:
   calendar_event_lifecycle_history_is_append_only_and_version_paired: true
   calendar_event_current_version_requires_matching_history_row: true
   normal_calendar_event_hard_delete_is_forbidden: true
+  calendar_own_scope_owner_is_instructor_staff_profile: true
+  calendar_created_by_user_is_provenance_not_own_scope_owner: true
+  calendar_own_scope_without_instructor_fails_closed: true
+  calendar_own_mutation_may_not_transfer_owner: true
+  active_staff_membership_link_is_required_for_own_resolution: true
   aggregate_sync_deferred_until_final_DB4_5_gate: true
-  DB_CAL_005_through_DB_CAL_007_must_not_be_solved_in_DB_CAL_004: true
+  DB_CAL_006_and_DB_CAL_007_must_not_be_solved_in_DB_CAL_005: true
 
 preservation_contract:
   single_calendar_engine: true
@@ -73,7 +78,7 @@ preservation_contract:
   server_side_conflict_detection_required: true
   organization_timezone_required: true
   history_preserving_cancel_required: true
-  no_confirmed_capability_removed_by_DB_CAL_001_002_003_or_004: true
+  no_confirmed_capability_removed_by_DB_CAL_001_002_003_004_or_005: true
 
 current_physical_snapshot:
   tables:
@@ -95,7 +100,7 @@ current_physical_snapshot:
     current_terminal_metadata_and_state_matrix_documented: true
     current_optimistic_concurrency_documented: true
     current_lifecycle_history_final_state_guard_documented: true
-    current_own_scope_owner_relation_documented: false
+    current_own_scope_owner_relation_documented: instructor_id_to_staff_profile
     training_session_relation_documented: false
   availability_slots_current_shape:
     tenant_key: organization_id
@@ -104,6 +109,7 @@ current_physical_snapshot:
     lifecycle: [status, version]
     booking_projection: [booked_student_id_nullable, booked_at_nullable]
     current_same_tenant_composite_FKs_documented: true
+    current_own_scope_owner_relation_documented: instructor_id_to_staff_profile
     current_booking_state_matrix_documented: false
     current_double_booking_concurrency_boundary_documented: shared_claim_boundary_defined_but_booking_effect_integration_deferred_to_DB_CAL_006
     current_booked_slot_to_calendar_reservation_relation_documented: false
@@ -194,7 +200,7 @@ same_tenant_resource_integrity:
         in multiple organizations. Authorization that the actor may create/manage the
         event is checked through membership/permission scope, not by inventing a fake
         organization_id on users.
-      own_scope_semantics: deferred_to_DB_CAL_005
+      own_scope_semantics: closed_by_DB_CAL_005_using_instructor_id_not_created_by_user_id
 
   availability_slots:
     instructor_same_organization:
@@ -289,7 +295,7 @@ same_tenant_resource_integrity:
     location_id_XOR_custom_meeting_place: closed_by_DB_CAL_002
     resource_overlap_race_safe_enforcement: closed_by_DB_CAL_003
     calendar_event_lifecycle_and_versioning: closed_by_DB_CAL_004
-    calendar_manage_own_owner_resolution: DB-CAL-005
+    calendar_manage_own_owner_resolution: closed_by_DB_CAL_005
     availability_booking_state_and_exactly_once: DB-CAL-006
     driving_lesson_vs_training_session_source_of_truth: DB-CAL-007
     archived_or_expired_resource_business_eligibility: later_domain_or_compliance_policy
@@ -451,7 +457,7 @@ manual_event_and_important_date_storage_boundary:
   intentionally_not_solved_by_DB_CAL_002:
     resource_overlap_race_safe_enforcement: closed_by_DB_CAL_003
     calendar_event_lifecycle_and_versioning: closed_by_DB_CAL_004
-    calendar_manage_own_owner_resolution: DB-CAL-005
+    calendar_manage_own_owner_resolution: closed_by_DB_CAL_005
     availability_booking_state_and_exactly_once: DB-CAL-006
     driving_lesson_vs_training_session_source_of_truth: DB-CAL-007
     exact_warning_thresholds_for_important_dates: later_product_policy
@@ -782,7 +788,7 @@ resource_overlap_conflict_boundary:
 
   intentionally_not_solved_by_DB_CAL_003:
     calendar_event_lifecycle_transition_matrix_and_expected_version: closed_by_DB_CAL_004
-    calendar_manage_own_owner_resolution: DB-CAL-005
+    calendar_manage_own_owner_resolution: closed_by_DB_CAL_005
     availability_slot_state_machine_exactly_once_booking_and_cancel: DB-CAL-006
     availability_booking_business_owner_link_to_claims: DB-CAL-006
     driving_lesson_vs_training_session_canonical_schedule_owner: DB-CAL-007
@@ -1177,7 +1183,7 @@ calendar_event_lifecycle_and_concurrency:
     - migration_does_not_guess_unknown_status_actor_or_terminal_timestamp
 
   intentionally_not_solved_by_DB_CAL_004:
-    calendar_manage_own_owner_resolution: DB-CAL-005
+    calendar_manage_own_owner_resolution: closed_by_DB_CAL_005
     availability_slot_state_machine_exactly_once_booking_and_cancel: DB-CAL-006
     availability_booking_business_owner_link_to_claims: DB-CAL-006
     driving_lesson_vs_training_session_canonical_schedule_owner: DB-CAL-007
@@ -1202,6 +1208,278 @@ calendar_event_lifecycle_and_concurrency:
     idempotency_replay_does_not_replace_expected_version_for_new_commands: PASS
     calendar_complete_does_not_credit_formal_training_hours: PASS
     DB_CAL_005_through_DB_CAL_007_not_fixed_in_this_step: PASS
+    aggregate_core_schema_modified_in_step: false
+    aggregate_docs87_modified_in_step: false
+    Laravel_migrations_created: false
+    later_DB4_slices_entered: false
+    UI_or_feature_implementation_started: false
+
+# DB-CAL-005
+calendar_own_scope_owner_resolution:
+  blocker: DB-CAL-005
+  severity: P1
+  status: PASS
+  goal: >-
+    Bind every calendar target that supports the existing DB4_2 `own` scope to one
+    canonical StaffProfile relation so backend authorization can prove ownership without
+    falling back to creator identity, UI filters or role-template shortcuts.
+
+  upstream_RBAC_contract_reused_without_redefinition:
+    permission_catalog: specs/security/permissions.yml
+    identity_database_contract: specs/database/identity-rbac.yml
+    own_semantics: target_owned_by_current_user_or_staff_profile_linked_to_active_membership
+    missing_owner_relation: deny
+    tenant_validation_precedes_scope_resolution: true
+    role_template_is_runtime_authority: false
+    granted_permission_without_matching_scope: deny
+    scope_OR_behavior_unchanged: true
+    assigned_students_semantics_changed_here: false
+    assigned_locations_semantics_changed_here: false
+    organization_scope_semantics_changed_here: false
+
+  canonical_owner_relations:
+    calendar_event:
+      owner_kind: staff_profile
+      owner_column: calendar_events.instructor_id
+      nullable: true
+      same_tenant_boundary: DB-CAL-001_composite_FK_organization_id_instructor_id
+      created_by_user_id_is_owner: false
+      completed_by_user_id_is_owner: false
+      cancelled_by_user_id_is_owner: false
+      separate_owner_staff_profile_id_column_added: false
+    availability_slot:
+      owner_kind: staff_profile
+      owner_column: availability_slots.instructor_id
+      nullable: true
+      same_tenant_boundary: DB-CAL-001_composite_FK_organization_id_instructor_id
+      booked_student_id_is_owner: false
+      separate_owner_staff_profile_id_column_added: false
+
+  runtime_own_resolver:
+    canonical_path:
+      - authenticated_user
+      - active_organization_membership_for_same_organization
+      - active_staff_membership_link_where_unlinked_at_is_null
+      - linked_staff_profile
+      - require_target_instructor_id_equals_linked_staff_profile_id
+    active_membership_required: true
+    active_staff_link_required: true
+    archived_staff_with_no_active_link_matches: false
+    no_active_staff_link_result: deny_empty_set
+    target_instructor_id_null_result: deny
+    created_by_user_match_without_owner_relation_result: deny
+    same_user_global_identity_without_active_staff_link_result: deny
+    cross_tenant_match_result: deny_before_owner_resolution
+    permission_specific_registered_resolver_required: true
+    frontend_post_fetch_filter_is_security_boundary: false
+
+  CalendarEvent_behavior:
+    general_event_with_instructor:
+      own_owner: instructor_id
+      owner_staff_may_use_own_when_permission_granted_and_scope_matches: true
+    general_event_without_instructor:
+      canonical_owner_relation_present: false
+      own_result: deny
+      organization_scope_may_manage_if_separately_granted: true
+      created_by_user_does_not_fill_owner_gap: true
+    driving_lesson_with_instructor:
+      own_owner: instructor_id
+      own_result_for_matching_active_staff_link: allow_if_permission_and_domain_state_also_allow
+    driving_lesson_without_instructor:
+      own_result: deny
+      organization_scope_may_manage_if_separately_granted: true
+      later_formal_training_requirement: DB-CAL-007
+
+  AvailabilitySlot_behavior:
+    slot_with_instructor:
+      own_owner: instructor_id
+      calendar_publish_student_slots_with_own_scope: allow_only_for_matching_active_staff_link
+    slot_without_instructor:
+      own_result: deny
+      organization_scope_may_publish_or_manage_if_permission_has_organization_scope: true
+    booking_permission_owner_rule:
+      calendar_book_for_student_uses_student_scoped_permission_not_slot_own_scope: true
+      booking_lifecycle_and_reservation_effect: deferred_to_DB_CAL_006
+
+  create_authorization:
+    CalendarEvent_with_calendar_manage_own:
+      require_active_staff_link: true
+      require_proposed_instructor_id_nonnull: true
+      require_proposed_instructor_id_equals_linked_staff_profile_id: true
+      request_may_claim_different_instructor_under_own: false
+      request_may_omit_instructor_and_fall_back_to_created_by: false
+    CalendarEvent_with_calendar_manage_organization:
+      own_match_required: false
+      same_tenant_and_domain_constraints_still_required: true
+      instructor_may_be_null_if_other_domain_rules_allow: true
+      instructor_may_be_other_same_tenant_staff_if_other_domain_rules_allow: true
+      creator_is_not_implicitly_persisted_as_owner: true
+    AvailabilitySlot_with_calendar_publish_student_slots_own_scope:
+      require_active_staff_link: true
+      require_proposed_instructor_id_nonnull: true
+      require_proposed_instructor_id_equals_linked_staff_profile_id: true
+    AvailabilitySlot_with_calendar_publish_student_slots_organization_scope:
+      own_match_required: false
+      same_tenant_and_domain_constraints_still_required: true
+      instructor_may_be_null_if_other_domain_rules_allow: true
+      instructor_may_be_other_same_tenant_staff_if_other_domain_rules_allow: true
+
+  existing_target_mutation_authorization:
+    own_mutation_precondition:
+      existing_target_instructor_id_must_equal_linked_staff_profile_id: true
+      target_without_instructor: deny
+    own_PATCH_postcondition:
+      proposed_final_instructor_id_must_equal_same_linked_staff_profile_id: true
+      transfer_to_other_instructor_under_own: forbidden
+      clear_instructor_under_own: forbidden
+    organization_scope_reassignment:
+      may_change_instructor_with_same_tenant_and_domain_validation: true
+      resulting_own_owner_after_commit: new_instructor_id_or_none
+    CalendarEvent_cancel_or_complete_under_own:
+      require_current_event_owner_match_after_event_lock: true
+      ownership_not_changed_by_terminal_command: true
+    AvailabilitySlot_update_under_own:
+      require_current_slot_owner_match_after_slot_lock: true
+      require_post_update_owner_match_same_staff_profile: true
+      booked_slot_mutability_state_rule: deferred_to_DB_CAL_006
+
+  authorization_and_concurrency_order:
+    own_mutation_lock_or_revalidation_contract:
+      - validate_active_membership_same_tenant
+      - resolve_and_hold_active_staff_membership_link_for_scope_or_equivalently_revalidate_under_serialization
+      - lock_target_event_or_slot_FOR_UPDATE_when_target_exists
+      - recheck_target_current_instructor_owner_after_target_lock
+      - verify_expected_target_version_where_existing_contract_requires_it
+      - verify_proposed_post_state_owner_for_PATCH
+      - execute_domain_mutation
+      - commit_with_existing_DB_CAL_003_004_guards
+    preferred_link_stability_boundary: hold_matching_staff_membership_link_row_FOR_SHARE_until_command_commit
+    unlink_or_archive_must_not_race_to_silently_change_owner_proof_mid_command: true
+    permission_or_membership_revoke_effect: governed_by_DB4_2_authorization_version_and_membership_lifecycle
+    current_request_authorization_snapshot_may_not_be_reused_for_later_request: true
+
+  link_unlink_archive_restore_behavior:
+    staff_membership_link_unlinked:
+      event_and_slot_instructor_id_history_rewritten: false
+      own_scope_for_unlinked_membership_after_unlink: deny
+      organization_scope_management_still_possible_if_granted: true
+    staff_profile_archived:
+      active_staff_membership_link_allowed_after_archive: false
+      own_scope_after_archive: deny
+      historical_instructor_relation_preserved: true
+    staff_profile_restored:
+      old_staff_membership_link_auto_reopened: false
+      own_scope_auto_restored: false
+      explicit_new_active_link_required_before_own_can_match_again: true
+    new_membership_explicitly_linked_to_same_staff_profile:
+      own_scope_may_match_existing_targets_again_if_permission_and_scope_granted: true
+      ownership_identity_is_staff_profile_not_original_user_creator: true
+
+  query_and_permission_adapter_rules:
+    calendar_manage_own:
+      scope_profile: own_only
+      canonical_target_owner_adapter: instructor_id_to_active_linked_staff_profile
+    calendar_publish_student_slots:
+      scope_profile: organization_or_own
+      own_adapter: availability_slots.instructor_id_to_active_linked_staff_profile
+      organization_adapter: existing_DB4_2_tenant_resource
+    calendar_view:
+      scope_profile: calendar_scoped
+      manual_CalendarEvent_own_adapter: calendar_events.instructor_id_to_active_linked_staff_profile
+      other_existing_assigned_students_assigned_locations_organization_adapters_remain_OR_and_unchanged: true
+    list_get_search_count_export_filtering:
+      own_filter_must_be_in_backend_query_or_equivalent_authorized_relation: true
+      UI_only_filter: forbidden
+    important_date_projection_owner_adapter_changed_here: false
+
+  created_by_and_history_security:
+    created_by_user_id:
+      semantics: immutable_or_historical_provenance_of_creation
+      grants_calendar_manage_own: false
+      grants_calendar_view_own: false
+    lifecycle_actor_fields:
+      semantics: audit_actor_only
+      grant_ownership: false
+    rationale: >-
+      A secretary or organization administrator may create an event for instructor B.
+      The record then belongs to instructor B for own-scope purposes because instructor_id
+      is the domain owner. Conversely, an event created by instructor A without an
+      instructor_id remains ownerless for own scope instead of silently becoming A-owned.
+
+  migration_design:
+    migrations_created_in_this_step: false
+    aggregate_core_schema_modified_in_this_step: false
+    aggregate_docs87_modified_in_this_step: false
+    new_owner_column_required: false
+    data_backfill_required_for_owner_relation: false
+    performance_indexes_when_later_generating_DB4_5_migrations:
+      - calendar_events[organization_id,instructor_id]
+      - availability_slots[organization_id,instructor_id]
+    legacy_rows_with_null_instructor:
+      infer_owner_from_created_by_user_id: forbidden
+      infer_owner_from_lifecycle_actor: forbidden
+      remain_ownerless_for_own_scope: true
+      organization_scope_can_still_manage_if_granted: true
+    legacy_rows_with_instructor:
+      owner_is_existing_same_tenant_instructor_id: true
+      no_creator_based_override: true
+
+  tests_required:
+    - calendar_event_own_matches_only_when_active_membership_has_active_staff_link_to_event_instructor
+    - calendar_event_own_denies_when_instructor_id_is_null_even_if_created_by_user_is_current_user
+    - calendar_event_own_denies_when_created_by_user_matches_but_instructor_belongs_to_other_staff_profile
+    - general_event_with_self_instructor_can_be_managed_by_matching_own_scope
+    - general_event_without_instructor_requires_non_own_scope_for_management
+    - driving_lesson_with_self_instructor_can_be_managed_by_matching_own_scope
+    - driving_lesson_with_other_instructor_is_denied_under_own
+    - driving_lesson_without_instructor_is_denied_under_own_without_inventing_DB_CAL_007_requirement
+    - own_create_calendar_event_requires_proposed_instructor_equal_active_linked_staff_profile
+    - own_PATCH_cannot_change_instructor_to_other_staff_profile
+    - own_PATCH_cannot_clear_instructor
+    - organization_manage_can_reassign_instructor_subject_to_same_tenant_and_domain_rules
+    - own_cancel_requires_current_owner_match_after_event_lock
+    - own_complete_requires_current_owner_match_after_event_lock
+    - availability_slot_own_matches_only_when_slot_instructor_equals_active_linked_staff_profile
+    - own_slot_create_requires_proposed_instructor_equal_active_linked_staff_profile
+    - own_slot_update_cannot_transfer_or_clear_instructor
+    - organization_scope_slot_management_does_not_require_own_match
+    - calendar_book_for_student_authorization_is_not_redefined_as_slot_own_permission
+    - unlinking_staff_membership_link_removes_own_access_without_rewriting_historical_event_or_slot
+    - archiving_staff_removes_own_access_and_preserves_instructor_history
+    - restoring_staff_without_new_link_does_not_restore_own_access
+    - explicit_new_link_to_same_staff_profile_can_restore_own_resolution_for_existing_targets
+    - created_by_user_id_never_expands_own_scope
+    - same_user_without_active_staff_link_does_not_match_staff_owned_calendar_target
+    - cross_tenant_target_is_denied_before_owner_resolution
+    - calendar_view_with_own_scope_filters_manual_events_by_instructor_owner_in_backend_query
+    - calendar_view_assigned_students_assigned_locations_and_organization_scope_semantics_remain_unchanged
+    - legacy_null_instructor_row_is_not_backfilled_from_created_by_user
+    - concurrent_link_unlink_and_own_mutation_cannot_commit_using_a_disappeared_owner_proof_without_defined_serialization
+
+  intentionally_not_solved_by_DB_CAL_005:
+    availability_slot_status_and_booking_exactly_once_state_machine: DB-CAL-006
+    availability_booking_reservation_owner_kind_and_claim_materialization: DB-CAL-006
+    book_cancel_race_and_reavailability: DB-CAL-006
+    driving_lesson_vs_training_session_canonical_schedule_owner: DB-CAL-007
+    training_session_claim_origin_mapping: DB-CAL-007
+    exact_HTTP_scope_denial_error_payload: Stage5_acceptance_contract_sync
+    important_date_projection_own_scope_adapter: not_required_to_close_calendar_manage_own_blocker
+
+  self_audit:
+    existing_DB4_2_own_semantics_reused_without_redefinition: PASS
+    canonical_owner_for_calendar_event_is_existing_instructor_id: PASS
+    canonical_owner_for_availability_slot_is_existing_instructor_id: PASS
+    separate_owner_column_not_invented: PASS
+    null_owner_fails_closed_for_own_scope: PASS
+    created_by_user_is_not_authorization_shortcut: PASS
+    own_create_cannot_claim_other_instructor_or_ownerless_target: PASS
+    own_PATCH_cannot_transfer_or_clear_owner: PASS
+    organization_scope_can_manage_ownerless_or_reassign_with_existing_tenant_rules: PASS
+    staff_link_unlink_archive_restore_behavior_matches_DB4_3: PASS
+    list_and_get_authorization_is_backend_query_enforced: PASS
+    assigned_students_assigned_locations_organization_semantics_not_redefined: PASS
+    slot_booking_authorization_and_lifecycle_not_solved_early: PASS
+    formal_training_schedule_owner_not_solved_early: PASS
     aggregate_core_schema_modified_in_step: false
     aggregate_docs87_modified_in_step: false
     Laravel_migrations_created: false
@@ -1235,25 +1513,9 @@ blockers:
 
   DB-CAL-005:
     severity: P1
-    status: OPEN
+    status: PASS
     title: calendar_manage_own_has_no_canonical_database_owner_resolution
-    diagnosis: >-
-      RBAC already defines calendar.manage.own with own scope and fail-closed behavior
-      when a target has no canonical owner relation. CalendarEvent currently exposes
-      created_by_user_id and optional instructor_id but the database contract does not
-      state which relation is authoritative for own-scope authorization. Availability
-      slot publishing with own scope has the same ambiguity.
-    closure_must_define:
-      - canonical_own_resolver_for_calendar_event
-      - canonical_own_resolver_for_availability_slot
-      - behavior_for_general_event_without_instructor
-      - behavior_for_driving_lesson_with_instructor
-      - behavior_after_staff_membership_unlink_or_archive
-      - no_created_by_shortcut_that_silently_expands_instructor_scope_unless_explicitly_decided
-      - permission_scope_tests_for_own_assigned_students_assigned_locations_organization
-    constraint: >-
-      DB4_5 may implement the existing DB4_2 own semantics but may not silently
-      redefine the global meaning of own, assigned_students or assigned_locations.
+    resolved_by: calendar_own_scope_owner_resolution
 
   DB-CAL-006:
     severity: P1
@@ -1323,6 +1585,7 @@ quality_gate:
   DB_CAL_002_result: PASS
   DB_CAL_003_result: PASS
   DB_CAL_004_result: PASS
+  DB_CAL_005_result: PASS
   DB_CAL_003_half_open_interval_semantics: PASS
   DB_CAL_003_student_instructor_vehicle_location_GiST_exclusion: PASS
   DB_CAL_003_manual_event_exact_claim_set_guard: PASS
@@ -1338,18 +1601,25 @@ quality_gate:
   DB_CAL_004_terminal_claim_release_atomic: PASS
   DB_CAL_004_command_effective_time_consistent_between_row_and_history: PASS
   DB_CAL_004_calendar_complete_does_not_credit_training: PASS
+  DB_CAL_005_calendar_event_owner_is_instructor_staff_profile: PASS
+  DB_CAL_005_availability_slot_owner_is_instructor_staff_profile: PASS
+  DB_CAL_005_null_owner_fail_closed: PASS
+  DB_CAL_005_created_by_is_not_owner_shortcut: PASS
+  DB_CAL_005_own_mutation_cannot_transfer_owner: PASS
+  DB_CAL_005_staff_link_lifecycle_fail_closed: PASS
+  DB_CAL_005_existing_scope_semantics_not_redefined: PASS
   reverse_engineering_calendar_capabilities_preserved: PASS
   open_P0: 0
-  open_P1: 3
-  fixes_applied_total: 4
+  open_P1: 2
+  fixes_applied_total: 5
   later_DB4_slices_entered: false
   Laravel_migrations_created: false
   UI_or_feature_implementation_started: false
 
 next_single_blocker_after_gate:
-  id: DB-CAL-005
+  id: DB-CAL-006
   reason: >-
-    Same-tenant integrity, manual/system storage, race-safe overlap enforcement and
-    CalendarEvent lifecycle/concurrency are now closed. The next isolated blocker is
-    calendar.manage.own owner resolution; availability booking lifecycle and formal
-    TrainingSession integration remain out of scope until their own gates.
+    Same-tenant integrity, manual/system storage, race-safe overlap enforcement,
+    CalendarEvent lifecycle/concurrency and canonical own-scope ownership are now closed.
+    The next isolated blocker is AvailabilitySlot booking lifecycle/exactly-once behavior;
+    formal TrainingSession integration remains out of scope until DB-CAL-007.
