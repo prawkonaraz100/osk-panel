@@ -483,6 +483,8 @@ preservation_checks:
   purchase_payment_scope_not_accidentally_solved_in_DB4_6: PASS
   DB_LIC_002_through_DB_LIC_007_not_fixed_in_DB_LIC_001_step: PASS
   DB4_7_or_later_scope_not_entered: PASS
+  aggregate_core_schema_modified_in_diagnosis: false
+  aggregate_docs87_modified_in_diagnosis: false
   aggregate_core_schema_modified_in_step: false
   aggregate_docs87_modified_in_step: false
   Laravel_migrations_created: false
