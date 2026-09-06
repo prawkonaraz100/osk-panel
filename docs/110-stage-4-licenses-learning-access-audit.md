@@ -3,8 +3,8 @@
 Data: 2026-09-06
 
 **Etap:** `DB4_6_LICENSES_LEARNING_ACCESS`  
-**Aktualny krok:** `DB4_6_STEP_1 / DB-LIC-001`  
-**Status:** `DB-LIC-001 PASS / 0 P0 / 6 P1 OPEN`
+**Aktualny krok:** `DB4_6_STEP_2 / DB-LIC-002`  
+**Status:** `DB-LIC-001..002 PASS / 0 P0 / 5 P1 OPEN`
 
 Machine-readable diagnoza: `specs/database/licenses-learning-access.yml`.
 
@@ -535,3 +535,162 @@ Aktualny stan po DB-LIC-001:
 Następny dozwolony krok po centralnym gate: **DB-LIC-002 only**.
 
 **STOP przed DB-LIC-002.**
+
+---
+
+## 20. DB-LIC-002 — resolution contract and self-audit
+
+**Current result: PASS.**
+
+Bieżący fixer zachowuje DB4_2 jako nadrzędny model globalnego loginu. Nie tworzymy osobnej tenantowej tabeli ani unikalności loginów dla LearningAccount.
+
+### 20.1 Jedno canonical źródło loginu
+
+Canonical źródłem pozostaje:
+
+`auth_login_identifiers`
+
+z globalną current-unikalnością `identifier_normalized` ustanowioną w DB4_2.
+
+LearningAccount nie przechowuje drugiego niezależnego loginu. Provisional `login_identifier_projection` zostaje usunięty z canonical persisted modelu, a `StudentLearningAccount.login_identifier` w API/listach/wyszukiwaniu jest projekcją przez join do `auth_login_identifiers.identifier_normalized`.
+
+Jeżeli kiedyś potrzebny będzie performance cache, może być wyłącznie derived/non-authoritative i musi mieć równoważny DB refresh guard.
+
+### 20.2 Pointer nie oznacza globalnego primary loginu
+
+Provisional pole:
+
+`primary_auth_login_identifier_id`
+
+zostaje zastąpione przez:
+
+`auth_login_identifier_id`.
+
+Powód: jeden globalny User może mieć kilka current identifiers (`email`/`username`), a różne LearningAccounts mogą korzystać z dowolnego current identifiera tego samego Usera. Nie wymuszamy `is_primary_for_type=true` i nie zmieniamy semantyki globalnego primary e-mail/loginu.
+
+### 20.3 Same-User DB boundary
+
+Wymagany candidate key:
+
+`auth_login_identifiers(id,user_id)`.
+
+LearningAccount ma composite FK:
+
+`student_learning_accounts(auth_login_identifier_id,user_id)`
+
+`-> auth_login_identifiers(id,user_id)`.
+
+To fizycznie dowodzi, że wybrany login należy dokładnie do tego samego globalnego Usera co LearningAccount. `user_id` nie może być normalnie przepięty na innego Usera.
+
+### 20.4 Tylko current identifier
+
+LearningAccount może wskazywać tylko identifier z `revoked_at IS NULL`.
+
+Ponieważ predykatu current nie da się wyrazić zwykłym FK, wymagamy `DEFERRABLE INITIALLY DEFERRED` constraint triggera lub równoważnej transactional DB boundary działającej w obu kierunkach:
+- finalny LearningAccount nie może wskazywać revoked identifiera,
+- revoke identifiera nie może commitować, jeśli po transakcji jakiś LearningAccount nadal go wskazuje.
+
+Identity revoke musi więc atomowo przepiąć zależne LearningAccounts albo zakończyć się konfliktem.
+
+### 20.5 Brak tenantowego namespace loginów
+
+Nie dodajemy:
+- unique `(organization_id,login_identifier)`,
+- unique LearningAccount per AuthLoginIdentifier.
+
+Ten sam current identifier tego samego Usera może wspierać LearningAccounts w kilku OSK. Generic login najpierw rozwiązuje globalnego Usera, dopiero później aplikacja wybiera autoryzowany kontekst nauki/OSK.
+
+### 20.6 Create flow i zakaz heuristic merge
+
+Dla `Email lub login`:
+1. input jest normalizowany według istniejącej Identity policy,
+2. lookup odbywa się globalnie w current `auth_login_identifiers`,
+3. jeżeli identifier jest wolny, OSK-managed flow może atomowo utworzyć nowego globalnego principal + identifier + LearningAccount,
+4. system nie może szukać „tej samej osoby” po imieniu, contact_email, PESEL ani innych polach Studenta,
+5. jeżeli current identifier już należy do Usera, sam wpisany string **nie jest wystarczającym dowodem**, że LearningAccount należy podpiąć do tego Usera.
+
+Reuse istniejącego Usera wymaga jawnego trusted same-user binding context. Bez niego wynik to conflict wymagający identity resolution. Dokładne merge/recovery/email-verification policy pozostaje istniejącą osobną bramką Identity.
+
+Wpisanie e-maila nie oznacza automatycznie `verified_at`.
+
+### 20.7 Update login_identifier
+
+Normalny LearningAccount update nie zmienia `user_id`.
+
+Dla nowego identyfikatora:
+- jeśli current identifier istnieje dla tego samego Usera → LearningAccount może zostać przepięty na ten identifier,
+- jeśli istnieje dla innego Usera → conflict, bez rebind/merge,
+- jeśli nie istnieje → tworzony jest nowy identifier dla tego samego Usera, a następnie LearningAccount jest przepinany.
+
+Nowy identifier nie staje się po cichu `is_primary_for_type=true`.
+
+Stary globalny identifier **nie jest automatycznie revokowany** jako ukryty efekt PATCH LearningAccount, bo może być używany przez inne LearningAccounts lub globalne flow konta. Jeśli produkt wymaga unieważnienia starego aliasu, musi to być jawny command domeny Identity.
+
+Optimistic concurrency/lost-update policy LearningAccount pozostaje DB-LIC-003.
+
+### 20.8 Migration safety
+
+Przed przyszłym sync/migration wymagane są prechecki:
+- każdy LearningAccount ma `user_id` i identifier pointer,
+- pointer należy do tego samego Usera,
+- pointer jest current/non-revoked,
+- jeżeli legacy `login_identifier_projection` istnieje, musi dokładnie odpowiadać `identifier_normalized` wskazanego row.
+
+Zabronione jest:
+- szukanie brakującego pointera po projection i wybieranie „najlepszego” matcha,
+- przepinanie LearningAccount do innego Usera,
+- automatyczne od-revokowanie identifiera,
+- tworzenie identifiera z legacy projection bez reviewed evidence,
+- merge Userów przy kolizji loginu.
+
+Niejednoznaczność → migration FAIL + reviewed remediation.
+
+Po zweryfikowanym cutoverze:
+- dodajemy `(id,user_id)` candidate key,
+- canonical `auth_login_identifier_id`,
+- same-User composite FK,
+- current-identifier deferred guard,
+- read/search/API przechodzą na join,
+- persisted `login_identifier_projection` jest usuwany.
+
+### 20.9 Required tests
+
+- LearningAccount identifier innego Usera → reject,
+- LearningAccount z revoked identifierem → reject przy commit,
+- revoke identifiera nadal wskazywanego przez LearningAccount → reject,
+- globalna current-unikalność visible loginu DB4_2 pozostaje nienaruszona,
+- jeden User może mieć wiele current identifiers,
+- ten sam User/identifier może wspierać LearningAccounts w wielu OSK,
+- brak per-tenant login namespace,
+- API `login_identifier` = joined `identifier_normalized`,
+- typed existing identifier innego Usera bez trusted binding → conflict,
+- update na identifier tego samego Usera → repoint bez zmiany Usera,
+- update na identifier innego Usera → reject,
+- update na wolny identifier → nowy identifier dla tego samego Usera bez hidden primary promotion,
+- LearningAccount update nie revokuje po cichu poprzedniego globalnego aliasu,
+- migration failuje przy pointer/User mismatch, revoked pointer lub nierozliczonej legacy projection.
+
+### 20.10 Scope preservation
+
+Self-audit potwierdził:
+- DB-LIC-001 pozostaje PASS,
+- DB-LIC-003..007 pozostają OPEN,
+- nie dodano jeszcze LearningAccount `version` ani lifecycle,
+- nie rozstrzygnięto Student archive/restore,
+- nie zmieniono password/handoff/PDF policy,
+- nie rozwiązano inventory↔assignment exactly-once,
+- nie zmieniono activation stacking,
+- nie zamknięto language capability/projection,
+- nie zmieniono DB4_2 global login uniqueness ani verification authority,
+- agregaty pozostają zamrożone,
+- brak migracji Laravel, DB4_7, Stage 5 i UI.
+
+Aktualny stan po DB-LIC-002:
+- resolved: **2/7**,
+- open P0: **0**,
+- open P1: **5**,
+- DB4_6: **FAIL_WITH_5_P1_BLOCKERS**.
+
+Następny dozwolony krok po centralnym gate: **DB-LIC-003 only**.
+
+**STOP przed DB-LIC-003.**
