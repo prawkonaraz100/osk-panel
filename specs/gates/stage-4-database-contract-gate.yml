@@ -61,9 +61,9 @@ stage_4_slices:
   - id: DB4_4_STUDENTS_COURSES_TRAINING_LEDGER
     status: IN_PROGRESS_WITH_BLOCKERS
     diagnosis: COMPLETE
-    blockers_resolved: 6
-    open_P0_P1: 2
-    result: FAIL_WITH_2_P1_BLOCKERS
+    blockers_resolved: 7
+    open_P0_P1: 1
+    result: FAIL_WITH_1_P1_BLOCKER
   - id: DB4_5_CALENDAR
     status: NOT_STARTED
   - id: DB4_6_LICENSES_LEARNING_ACCESS
@@ -574,14 +574,62 @@ quality_checks:
       UI_or_feature_implementation_started: false
 
   recognized_external_training_projection_history:
-    status: FAIL
-    blocker_id: DB-TRN-007
+    status: PASS
+    resolved_blocker_id: DB-TRN-007
     severity: P1
-    unresolved: >-
-      The physical model does not distinguish an unambiguous current course-form
-      external-hours projection from additive documented historical transfers and
-      their revoke/correction lifecycle.
-    impact: previous_OSK_hours_can_be_double_counted_or_projected_nondeterministically
+    machine_source: specs/database/students-courses-training.yml
+    audit_source: docs/108-stage-4-students-courses-training-ledger-audit.md
+    decision:
+      record_roles: [course_form_projection, documented_transfer]
+      source_kind_is_provenance_not_projection_role: true
+      current_predicate: superseded_at_null_and_revoked_at_null
+      one_current_course_form_projection_per_course_part: true
+      absent_course_form_projection_projects_zero: true
+      documented_transfer_current_rows_are_additive: true
+      latest_created_at_heuristic_allowed: false
+      business_fields_immutable_after_insert: true
+      lineage_same_tenant_course_part_role: true
+      one_successor_per_source: true
+      lineage_branching_or_cycles: forbidden
+      external_correction_semantics: full_replacement_not_signed_delta
+      external_revoke_hard_delete: false
+      current_rows_snapshot_course_category_and_training_type: true
+      current_context_must_match_final_course_context: true
+      category_or_training_type_change_requires_external_revalidation_same_transaction: true
+      exact_unverified_legal_compatibility_matrix_hardcoded: false
+      current_external_projection: course_form_component_plus_sum_current_documented_transfers_per_part
+      current_OSK_ledger_remains_separate: true
+      combined_current_OSK_plus_external_minute_satisfaction: closed
+      concurrency_root: course_enrollments.version
+      material_external_mutation_course_version_increment: exactly_once
+      terminal_course_external_change_requires_DB_TRN_004_correction_mode: true
+      legacy_latest_row_guess_or_fabricated_lineage_context_actor: forbidden
+      exact_HTTP_external_correction_and_If_Match_sync: Stage5_acceptance_contract_sync
+    checks:
+      one_deterministic_current_form_value_per_course_part: PASS
+      latest_row_wins_heuristic_removed: PASS
+      documented_transfers_are_additive_and_separate_from_form_revisions: PASS
+      replacement_preserves_source_history_without_double_count: PASS
+      correction_is_full_replacement: PASS
+      revoke_preserves_history_and_removes_current_effect: PASS
+      lineage_same_tenant_course_part_role_and_nonbranching: PASS
+      one_successor_per_source: PASS
+      stale_context_current_row_blocked_after_category_or_training_type_change: PASS
+      unverified_legal_compatibility_matrix_not_invented: PASS
+      course_create_edit_previous_OSK_fields_preserved: PASS
+      standalone_external_list_create_revoke_capabilities_preserved: PASS
+      recognized_external_totals_are_deterministic_per_part: PASS
+      current_OSK_ledger_remains_separate: PASS
+      combined_current_plus_external_minute_gate_closed: PASS
+      external_mutations_use_course_version_and_lifecycle_history: PASS
+      terminal_course_external_change_does_not_reopen_course: PASS
+      migration_does_not_guess_latest_lineage_context_or_actor: PASS
+      DB_TRN_008_not_fixed_in_DB_TRN_007_step: PASS
+      aggregate_core_schema_modified_in_step: false
+      aggregate_docs87_modified_in_step: false
+      later_domain_slices_entered: false
+      Laravel_migrations_created: false
+      UI_or_feature_implementation_started: false
 
   course_required_pkk_persistence_boundary:
     status: FAIL
@@ -606,6 +654,7 @@ quality_checks:
     - exact_HTTP_course_lifecycle_expected_version_marker_and_error_code_sync_to_Stage5
     - exact_HTTP_requirement_context_exemption_override_schema_expected_version_and_error_sync_to_Stage5
     - exact_HTTP_session_attendance_correction_expected_version_and_error_sync_to_Stage5
+    - exact_HTTP_external_training_correction_expected_version_and_error_sync_to_Stage5
     - competitor_unobservable_delete_backend_semantics
 
   calendar_overlap_database_strategy:
@@ -633,10 +682,9 @@ resolved_blockers:
   - DB-TRN-004
   - DB-TRN-005
   - DB-TRN-006
+  - DB-TRN-007
 
 open_blockers_current_diagnosed_scope:
-  - id: DB-TRN-007
-    severity: P1
   - id: DB-TRN-008
     severity: P1
 
@@ -648,7 +696,7 @@ gate_definition:
     - migration_order_dependency_safe
     - database_invariant_test_matrix_exists
     - reverse_engineering_preservation_traceable
-  current_result: FAIL_DB4_4_WITH_2_OPEN_P1_BLOCKERS
+  current_result: FAIL_DB4_4_WITH_1_OPEN_P1_BLOCKER
   DB4_1_result: PASS
   DB4_2_result: PASS
   DB4_3_result: PASS
@@ -659,6 +707,7 @@ gate_definition:
   DB4_4_DB_TRN_004_result: PASS
   DB4_4_DB_TRN_005_result: PASS
   DB4_4_DB_TRN_006_result: PASS
+  DB4_4_DB_TRN_007_result: PASS
   DB4_4_result: FAIL
   may_start_DB4_4_fixes: true
   may_start_DB4_5: false
@@ -666,16 +715,16 @@ gate_definition:
   may_start_UI_or_feature_implementation: false
 
 next_single_step:
-  id: DB4_4_STEP_8
-  blocker: DB-TRN-007
-  action: resolve_recognized_external_training_projection_history_only
+  id: DB4_4_STEP_9
+  blocker: DB-TRN-008
+  action: resolve_course_required_pkk_persistence_boundary_only
   allowed_scope:
     - specs/database/students-courses-training.yml
     - docs/108-stage-4-students-courses-training-ledger-audit.md
     - specs/gates/stage-4-database-contract-gate.yml
   scope_lock: >-
-    Resolve only DB-TRN-007. Do not fix DB-TRN-008 in the same step. Do not enter
-    DB4_5 or later slices, do not create Laravel migrations and do not start
-    UI/feature implementation. Keep aggregate core-schema.yml and docs/87
-    synchronization deferred until the final DB4_4 aggregate sync gate.
-  after_action: rerun_DB4_4_gate_and_record_DB_TRN_007_PASS_or_new_blocker_then_stop_before_DB_TRN_008
+    Resolve only DB-TRN-008. Do not enter DB4_5 or later slices, do not create
+    Laravel migrations and do not start UI/feature implementation. Keep aggregate
+    core-schema.yml and docs/87 synchronization deferred until the final DB4_4
+    aggregate sync gate.
+  after_action: rerun_DB4_4_gate_and_record_DB_TRN_008_PASS_or_new_blocker_then_stop_before_final_DB4_4_aggregate_sync
