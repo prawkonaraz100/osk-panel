@@ -59,11 +59,12 @@ stage_4_slices:
     final_aggregate_sync: PASS
     result: PASS
   - id: DB4_4_STUDENTS_COURSES_TRAINING_LEDGER
-    status: IN_PROGRESS_WITH_BLOCKERS
+    status: BLOCKERS_RESOLVED_AWAITING_FINAL_AGGREGATE_SYNC
     diagnosis: COMPLETE
-    blockers_resolved: 7
-    open_P0_P1: 1
-    result: FAIL_WITH_1_P1_BLOCKER
+    blockers_resolved: 8
+    open_P0_P1: 0
+    final_aggregate_sync: PENDING
+    result: BLOCKER_GATE_PASS_AGGREGATE_SYNC_PENDING
   - id: DB4_5_CALENDAR
     status: NOT_STARTED
   - id: DB4_6_LICENSES_LEARNING_ACCESS
@@ -632,14 +633,62 @@ quality_checks:
       UI_or_feature_implementation_started: false
 
   course_required_pkk_persistence_boundary:
-    status: FAIL
-    blocker_id: DB-TRN-008
+    status: PASS
+    resolved_blocker_id: DB-TRN-008
     severity: P1
-    unresolved: >-
-      Dedicated course create/edit requires a course-scoped PKK, but the minimal
-      atomic persistence boundary between CourseEnrollment and PKK identity is not
-      yet closed before the later DB4_8 provider lifecycle slice.
-    impact: course_can_commit_without_required_PKK_identity_or_with_mismatched_course_tenant_ownership
+    machine_source: specs/database/students-courses-training.yml
+    audit_source: docs/108-stage-4-students-courses-training-ledger-audit.md
+    decision:
+      canonical_owner: pkk_profiles
+      duplicate_PKK_column_on_course_enrollments: forbidden
+      pkk_scope: course_enrollment_not_global_student
+      exactly_one_current_PKK_profile_per_course: true
+      current_predicate: superseded_at_is_null
+      current_profile_same_tenant_same_course_composite_FK: true
+      current_profile_required_ciphertext_and_lookup_hash: true
+      plaintext_PKK_persistence: forbidden
+      lookup_hash: HMAC_SHA_256_or_equivalent_secret_keyed_hash
+      unverified_hard_unique_PKK_hash_added: false
+      identity_revision_unique_per_course: true
+      profile_lineage_same_tenant_same_course_and_linear: true
+      one_successor_per_profile: true
+      current_profile_context_fields: [bound_driving_category_id, bound_training_type]
+      current_profile_context_must_match_final_course: true
+      course_create_and_required_PKK_identity_atomic: true
+      provider_fetch_required_for_local_course_commit: false
+      provider_configuration_required_for_local_course_commit: false
+      PKK_edit_uses_course_version_concurrency_root: true
+      changed_PKK_supersedes_profile_and_preserves_old_identity: true
+      same_normalized_PKK_edit_creates_fake_revision: false
+      category_or_training_type_change_requires_PKK_context_revalidation: true
+      exact_unverified_provider_compatibility_matrix_hardcoded: false
+      terminal_course_PKK_change_requires_DB_TRN_004_correction_mode: true
+      cancel_or_restore_hidden_provider_fetch_return_side_effect: forbidden
+      provider_status_fetch_update_return_retry_reconciliation: deferred_to_DB4_8
+      migration_latest_row_or_missing_PKK_guess: forbidden
+      exact_HTTP_PKK_edit_format_and_error_sync: Stage5_acceptance_contract_sync
+    checks:
+      confirmed_required_course_create_edit_PKK_preserved: PASS
+      one_canonical_course_scoped_PKK_owner: PASS
+      every_committed_course_has_exactly_one_current_PKK_identity: PASS
+      current_PKK_is_same_tenant_same_course: PASS
+      ciphertext_HMAC_pair_required_and_plaintext_not_persisted: PASS
+      unverified_duplicate_PKK_uniqueness_not_invented: PASS
+      course_create_and_PKK_identity_atomicity_closed: PASS
+      provider_fetch_not_falsely_required_for_local_save: PASS
+      PKK_edit_versions_identity_without_history_overwrite: PASS
+      stale_PKK_context_blocked_after_category_or_training_type_change: PASS
+      unverified_provider_compatibility_matrix_not_invented: PASS
+      PKK_mutations_share_course_version_concurrency_root: PASS
+      terminal_course_PKK_change_preserves_lifecycle_via_correction_mode: PASS
+      cancel_restore_do_not_hide_provider_side_effects: PASS
+      migration_does_not_guess_missing_PKK_latest_profile_actor_or_original_time: PASS
+      DB4_8_provider_lifecycle_not_solved_early: PASS
+      aggregate_core_schema_modified_in_step: false
+      aggregate_docs87_modified_in_step: false
+      later_domain_slices_entered: false
+      Laravel_migrations_created: false
+      UI_or_feature_implementation_started: false
 
   DB4_4_nonblockers_deferred_to_dependent_slices:
     - legal_category_dictionary_reverification_including_PT_mapping_to_production_legal_gate
@@ -655,6 +704,7 @@ quality_checks:
     - exact_HTTP_requirement_context_exemption_override_schema_expected_version_and_error_sync_to_Stage5
     - exact_HTTP_session_attendance_correction_expected_version_and_error_sync_to_Stage5
     - exact_HTTP_external_training_correction_expected_version_and_error_sync_to_Stage5
+    - exact_HTTP_PKK_edit_expected_version_format_and_error_sync_to_Stage5
     - competitor_unobservable_delete_backend_semantics
 
   calendar_overlap_database_strategy:
@@ -683,10 +733,9 @@ resolved_blockers:
   - DB-TRN-005
   - DB-TRN-006
   - DB-TRN-007
+  - DB-TRN-008
 
-open_blockers_current_diagnosed_scope:
-  - id: DB-TRN-008
-    severity: P1
+open_blockers_current_diagnosed_scope: []
 
 gate_definition:
   PASS_requires_for_entire_stage_4:
@@ -696,7 +745,7 @@ gate_definition:
     - migration_order_dependency_safe
     - database_invariant_test_matrix_exists
     - reverse_engineering_preservation_traceable
-  current_result: FAIL_DB4_4_WITH_1_OPEN_P1_BLOCKER
+  current_result: DB4_4_BLOCKERS_RESOLVED_FINAL_AGGREGATE_SYNC_PENDING
   DB4_1_result: PASS
   DB4_2_result: PASS
   DB4_3_result: PASS
@@ -708,23 +757,25 @@ gate_definition:
   DB4_4_DB_TRN_005_result: PASS
   DB4_4_DB_TRN_006_result: PASS
   DB4_4_DB_TRN_007_result: PASS
-  DB4_4_result: FAIL
-  may_start_DB4_4_fixes: true
+  DB4_4_DB_TRN_008_result: PASS
+  DB4_4_result: IN_PROGRESS_FINAL_AGGREGATE_SYNC_PENDING
+  may_start_DB4_4_fixes: false
   may_start_DB4_5: false
   may_start_stage_5: false
   may_start_UI_or_feature_implementation: false
 
 next_single_step:
-  id: DB4_4_STEP_9
-  blocker: DB-TRN-008
-  action: resolve_course_required_pkk_persistence_boundary_only
+  id: DB4_4_FINAL_AGGREGATE_SYNC
+  blocker: none
+  action: synchronize_DB_TRN_001_through_008_into_aggregate_schema_and_narrative_without_semantic_loss
   allowed_scope:
     - specs/database/students-courses-training.yml
+    - specs/database/core-schema.yml
+    - docs/87-physical-database-schema.md
     - docs/108-stage-4-students-courses-training-ledger-audit.md
     - specs/gates/stage-4-database-contract-gate.yml
   scope_lock: >-
-    Resolve only DB-TRN-008. Do not enter DB4_5 or later slices, do not create
-    Laravel migrations and do not start UI/feature implementation. Keep aggregate
-    core-schema.yml and docs/87 synchronization deferred until the final DB4_4
-    aggregate sync gate.
-  after_action: rerun_DB4_4_gate_and_record_DB_TRN_008_PASS_or_new_blocker_then_stop_before_final_DB4_4_aggregate_sync
+    Perform only the final DB4_4 aggregate synchronization and preservation audit.
+    Do not enter DB4_5 or later slices, do not create Laravel migrations and do not
+    start UI/feature implementation. Do not weaken any DB-TRN-001..008 invariant.
+  after_action: rerun_DB4_4_final_aggregate_gate_and_record_PASS_or_new_blocker_then_stop_before_DB4_5
