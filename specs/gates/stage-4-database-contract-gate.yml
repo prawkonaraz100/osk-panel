@@ -899,7 +899,9 @@ quality_checks:
       conflict_projection_table: calendar_resource_claims
       conflict_projection_is_business_source_of_truth: false
       exactly_one_resource_column_per_claim: true
+      current_claim_owner_kind_check: calendar_event_only
       exact_scheduled_event_claim_set_guard: true
+      exact_claim_set_guard_deferrability: DEFERRABLE_INITIALLY_DEFERRED
       claim_same_tenant_resource_FKs: true
       PostgreSQL_extension: btree_gist
       final_boundary: four_partial_GiST_exclusion_constraints
@@ -923,6 +925,8 @@ quality_checks:
       same_resource_identity_in_different_organizations_isolated: PASS
       claim_projection_preserves_DB_CAL_001_same_tenant_integrity: PASS
       important_date_and_custom_text_preserve_DB_CAL_002_boundaries: PASS
+      unknown_claim_owner_kind_rejected_by_database: PASS
+      claim_exact_set_guard_checks_final_transaction_state: PASS
       check_then_insert_race_cannot_bypass_GiST: PASS
       scheduled_event_direct_time_or_resource_change_without_claim_sync_blocked: PASS
       conflicting_update_rolls_back_to_previous_event_and_claim_state: PASS
