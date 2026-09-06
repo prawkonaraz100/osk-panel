@@ -2,7 +2,7 @@ meta:
   project: osk-panel
   scope: calendar_core_v1
   stage: DB4_5_CALENDAR
-  status: DB_CAL_001_002_003_004_005_006_PASS_1_P1_BLOCKER_OPEN
+  status: DB_CAL_001_002_003_004_005_006_007_PASS_0_P1_BLOCKERS_OPEN_AGGREGATE_SYNC_PENDING
   diagnosed_at: 2026-09-06
   updated_at: 2026-09-06
   narrative: docs/109-stage-4-calendar-audit.md
@@ -24,8 +24,8 @@ meta:
     - docs/50-own-calendar-event-lifecycle.md
     - docs/51-calendar-important-dates.md
   diagnosis_complete: true
-  current_step: DB-CAL-006
-  fixes_applied_total: 6
+  current_step: DB-CAL-007
+  fixes_applied_total: 7
 
 principles:
   tenant_owned_calendar_relation_must_be_physically_same_tenant: true
@@ -35,7 +35,9 @@ principles:
   nullable_calendar_resource_relation_uses_MATCH_SIMPLE: true
   historical_calendar_relations_use_RESTRICT_not_destructive_cascade: true
   global_user_identity_does_not_receive_fake_tenant_key: true
-  calendar_events_store_manual_events_only: true
+  calendar_events_store_manual_general_events_only_after_DB_CAL_007: true
+  formal_driving_lesson_schedule_owner_is_training_session: true
+  driving_lesson_calendar_item_is_projection_of_practical_training_session: true
   important_dates_are_system_projection_not_manual_rows: true
   source_domain_date_remains_authoritative_for_important_date: true
   meeting_place_has_zero_or_one_persisted_source: true
@@ -48,7 +50,8 @@ principles:
   successful_availability_booking_uses_same_GiST_claim_boundary: true
   availability_slot_lifecycle_values_are_closed: [available, booked, cancelled]
   availability_slot_version_is_single_concurrency_root: true
-  booked_availability_slot_is_current_reservation_owner_not_second_calendar_event: true
+  booked_availability_slot_is_reservation_owner_until_explicit_training_handoff: true
+  formalized_availability_booking_points_to_training_session_and_has_no_own_claims: true
   cancelled_availability_slot_is_terminal_and_not_auto_republished: true
   calendar_event_lifecycle_values_are_closed: [scheduled, completed, cancelled]
   calendar_event_version_is_single_concurrency_root: true
@@ -62,37 +65,49 @@ principles:
   calendar_own_scope_without_instructor_fails_closed: true
   calendar_own_mutation_may_not_transfer_owner: true
   active_staff_membership_link_is_required_for_own_resolution: true
-  aggregate_sync_deferred_until_final_DB4_5_gate: true
-  DB_CAL_007_must_not_be_solved_in_DB_CAL_006: true
+  formal_training_mutations_require_training_domain_permissions_not_calendar_shortcuts: true
+  training_session_claim_owner_kind_uses_same_GiST_boundary: true
+  training_claim_insert_or_calendar_projection_never_credits_training_time: true
+  aggregate_sync_deferred_until_separate_final_DB4_5_gate: true
 
 preservation_contract:
   single_calendar_engine: true
-  manual_event_types_preserved: [general_event, driving_lesson]
+  visible_calendar_types_preserved: [general_event, driving_lesson, important_date]
+  persisted_calendar_event_types_after_DB_CAL_007: [general_event]
+  driving_lesson_capability_preserved_as_training_session_projection_and_command_adapter: true
   important_date_is_system_projection_not_manual_event: true
   month_week_day_views_preserved: true
   resource_filters_preserved: [staff, vehicles, locations]
-  manual_event_resource_cardinality:
-    student: zero_or_one
-    instructor: zero_or_one
-    vehicle: zero_or_one
-    meeting_place: zero_or_one
+  visible_driving_lesson_fields_preserved:
+    - optional_display_name
+    - start_datetime_and_duration
+    - student
+    - instructor
+    - vehicle
+    - saved_location_or_custom_meeting_place
+  training_session_calendar_companion_metadata_preserves:
+    - display_name
+    - custom_meeting_place
   saved_location_or_custom_meeting_place_preserved: true
   availability_self_booking_capability_preserved: true
-  event_create_update_cancel_complete_capabilities_preserved: true
+  event_create_update_cancel_complete_capabilities_preserved_for_manual_general_event: true
+  formal_driving_lesson_create_update_cancel_complete_capabilities_preserved_through_training_session_domain: true
   server_side_conflict_detection_required: true
   organization_timezone_required: true
   history_preserving_cancel_required: true
-  no_confirmed_capability_removed_by_DB_CAL_001_002_003_004_005_or_006: true
+  no_confirmed_calendar_capability_removed_by_DB_CAL_001_through_DB_CAL_007: true
 
 current_physical_snapshot:
   tables:
     - calendar_events
     - calendar_event_lifecycle_events_planned_by_DB_CAL_004
     - availability_slots
-    - availability_slot_lifecycle_events_planned_by_DB_CAL_006
-    - calendar_resource_claims_planned_by_DB_CAL_003_and_extended_by_DB_CAL_006
+    - availability_slot_lifecycle_events_planned_by_DB_CAL_006_and_extended_by_DB_CAL_007
+    - training_session_calendar_details_planned_by_DB_CAL_007
+    - calendar_resource_claims_planned_by_DB_CAL_003_extended_by_DB_CAL_006_007
   calendar_events_current_shape:
     tenant_key: organization_id
+    runtime_event_types: [general_event]
     resources: [student_id_nullable, instructor_id_nullable, vehicle_id_nullable, location_id_nullable]
     custom_meeting_place_nullable: true
     temporal: [starts_at, ends_at]
@@ -106,23 +121,33 @@ current_physical_snapshot:
     current_optimistic_concurrency_documented: true
     current_lifecycle_history_final_state_guard_documented: true
     current_own_scope_owner_relation_documented: instructor_id_to_staff_profile
-    training_session_relation_documented: false
+    formal_training_session_relation: projection_not_duplicate_calendar_event_row
+  formal_training_calendar_projection:
+    canonical_schedule_owner: training_sessions
+    projected_calendar_type: driving_lesson
+    projected_training_session_type: practical
+    projected_student: course_enrollments.student_id
+    projected_instructor_vehicle_location_time_status_version: training_sessions
+    projected_display_name_and_custom_meeting_place: training_session_calendar_details
+    projection_is_mutable_calendar_event_row: false
+    formal_mutation_routes_to_training_session: true
   availability_slots_current_shape:
     tenant_key: organization_id
     resources: [instructor_id_nullable, vehicle_id_nullable, location_id_nullable]
     temporal: [starts_at, ends_at]
     lifecycle: [status_available_booked_cancelled, version]
-    booking_projection: [booked_student_id_nullable, booked_at_nullable]
+    booking_projection: [booked_student_id_nullable, booked_at_nullable, training_session_id_nullable]
     current_same_tenant_composite_FKs_documented: true
     current_own_scope_owner_relation_documented: instructor_id_to_staff_profile
     current_booking_state_matrix_documented: true
     current_double_booking_concurrency_boundary_documented: availability_slot_booking_claims_use_shared_GiST_boundary
-    current_booked_slot_to_calendar_reservation_relation_documented: booked_slot_itself_is_reservation_owner_no_calendar_event_copy
+    unformalized_booked_slot_current_reservation_owner: availability_slot_booking
+    formalized_booked_slot_current_reservation_owner: training_session
     current_lifecycle_history_final_state_guard_documented: true
-    auto_reavailability_after_cancel: false
+    auto_reavailability_after_cancel_or_training_terminal_state: false
 
 # DB-CAL-001
-same_tenant_resource_integrity:
+same_tenant_integrity:
   blocker: DB-CAL-001
   severity: P1
   status: PASS
@@ -131,23 +156,23 @@ same_tenant_resource_integrity:
     StaffProfile, Vehicle or Location rows from another organization even if
     application validation is bypassed or malformed import data is supplied.
 
-  tenant_candidate_keys_reused:
+  tenant_candidate_keys_required:
     students:
       columns: [organization_id, id]
+      unique_constraint_required: true
       source: DB-TRN-001
-      unique_constraint_already_required: true
     staff_profiles:
       columns: [organization_id, id]
+      unique_constraint_required: true
       source: DB-RES-001
-      unique_constraint_already_required: true
     vehicles:
       columns: [organization_id, id]
+      unique_constraint_required: true
       source: DB-RES-002
-      unique_constraint_already_required: true
     locations:
       columns: [organization_id, id]
+      unique_constraint_required: true
       source: DB-RES-002
-      unique_constraint_already_required: true
 
   tenant_key_policy:
     calendar_events_organization_id:
@@ -163,7 +188,7 @@ same_tenant_resource_integrity:
     application_rule: >-
       Calendar create/update/book actions derive organization scope from the active
       membership or validated parent. The composite database foreign keys below are
-      the final same-tenant relation boundary.
+      the final relation boundary.
 
   calendar_events:
     student_same_organization:
@@ -204,10 +229,8 @@ same_tenant_resource_integrity:
       tenant_composite_FK_required: false
       rationale: >-
         User is a global authentication identity and may legitimately have memberships
-        in multiple organizations. Authorization that the actor may create/manage the
-        event is checked through membership/permission scope, not by inventing a fake
-        organization_id on users.
-      own_scope_semantics: closed_by_DB_CAL_005_using_instructor_id_not_created_by_user_id
+        in multiple organizations. Authorization is checked through membership and
+        permission scope, not by inventing a tenant key on users.
 
   availability_slots:
     instructor_same_organization:
@@ -242,7 +265,11 @@ same_tenant_resource_integrity:
       match: MATCH_SIMPLE
       on_update: RESTRICT
       on_delete: RESTRICT
-      booking_state_semantics: closed_by_DB_CAL_006_booked_state_requires_student
+      booking_state_semantics: closed_by_DB_CAL_006_and_extended_by_DB_CAL_007_handoff
+
+  historical_note_after_DB_CAL_007:
+    prior_calendar_event_driving_lesson_same_tenant_rules: preserved_for_legacy_remediation_only
+    current_formal_driving_lesson_relations: owned_by_training_session_and_DB_TRN_001
 
   archive_and_history_behavior:
     relation_to_archived_student_staff_vehicle_or_location:
@@ -258,54 +285,7 @@ same_tenant_resource_integrity:
     migrations_created_in_this_step: false
     aggregate_core_schema_modified_in_this_step: false
     aggregate_docs87_modified_in_this_step: false
-    order_when_DB4_5_migrations_are_later_generated:
-      - verify_existing_students_staff_profiles_vehicles_locations_candidate_keys
-      - verify_calendar_events_organization_id_is_nonnull_and_valid
-      - verify_availability_slots_organization_id_is_nonnull_and_valid
-      - precheck_every_nonnull_calendar_event_student_matches_event_organization
-      - precheck_every_nonnull_calendar_event_instructor_matches_event_organization
-      - precheck_every_nonnull_calendar_event_vehicle_matches_event_organization
-      - precheck_every_nonnull_calendar_event_location_matches_event_organization
-      - precheck_every_nonnull_availability_slot_instructor_matches_slot_organization
-      - precheck_every_nonnull_availability_slot_vehicle_matches_slot_organization
-      - precheck_every_nonnull_availability_slot_location_matches_slot_organization
-      - precheck_every_nonnull_availability_slot_booked_student_matches_slot_organization
-      - add_calendar_event_composite_same_tenant_foreign_keys
-      - add_availability_slot_composite_same_tenant_foreign_keys
-      - rerun_cross_tenant_negative_constraint_tests
-    invalid_row_policy: >-
-      Fail migration or perform an explicitly reviewed security/data remediation.
-      Never fix a mismatch by silently moving the calendar row to another organization,
-      changing the referenced Student/Staff/Vehicle/Location, or nulling a relation.
-
-  tests_required:
-    - calendar_event_with_same_tenant_optional_student_instructor_vehicle_location_is_accepted
-    - calendar_event_with_all_optional_resources_null_is_accepted
-    - calendar_event_student_from_other_organization_is_rejected_by_database
-    - calendar_event_instructor_from_other_organization_is_rejected_by_database
-    - calendar_event_vehicle_from_other_organization_is_rejected_by_database
-    - calendar_event_location_from_other_organization_is_rejected_by_database
-    - availability_slot_with_same_tenant_optional_instructor_vehicle_location_is_accepted
-    - availability_slot_with_optional_resources_null_is_accepted
-    - availability_slot_instructor_from_other_organization_is_rejected_by_database
-    - availability_slot_vehicle_from_other_organization_is_rejected_by_database
-    - availability_slot_location_from_other_organization_is_rejected_by_database
-    - availability_slot_booked_student_from_other_organization_is_rejected_by_database
-    - migration_precheck_detects_each_existing_cross_tenant_calendar_relation
-    - rewriting_calendar_event_organization_id_to_move_it_between_tenants_is_forbidden
-    - rewriting_availability_slot_organization_id_to_move_it_between_tenants_is_forbidden
-    - archived_parent_history_does_not_auto_null_or_destroy_existing_calendar_reference
-    - global_created_by_user_relation_is_not_rejected_only_because_user_has_multiple_tenant_memberships
-
-  intentionally_not_solved_by_DB_CAL_001:
-    manual_event_vs_important_date_storage_boundary: closed_by_DB_CAL_002
-    location_id_XOR_custom_meeting_place: closed_by_DB_CAL_002
-    resource_overlap_race_safe_enforcement: closed_by_DB_CAL_003
-    calendar_event_lifecycle_and_versioning: closed_by_DB_CAL_004
-    calendar_manage_own_owner_resolution: closed_by_DB_CAL_005
-    availability_booking_state_and_exactly_once: closed_by_DB_CAL_006
-    driving_lesson_vs_training_session_source_of_truth: DB-CAL-007
-    archived_or_expired_resource_business_eligibility: later_domain_or_compliance_policy
+    invalid_row_policy: explicit_review_never_silent_cross_tenant_reassignment
 
   self_audit:
     every_calendar_event_tenant_owned_resource_relation_has_composite_boundary: PASS
@@ -315,7 +295,6 @@ same_tenant_resource_integrity:
     historical_relations_use_RESTRICT_and_are_not_auto_nulled: PASS
     global_user_identity_not_fake_tenant_scoped: PASS
     migration_does_not_silently_reassign_cross_tenant_data: PASS
-    DB_CAL_002_through_DB_CAL_007_not_fixed_in_original_step: PASS
     aggregate_core_schema_modified_in_step: false
     aggregate_docs87_modified_in_step: false
     Laravel_migrations_created: false
@@ -327,25 +306,18 @@ manual_event_and_important_date_storage_boundary:
   blocker: DB-CAL-002
   severity: P1
   status: PASS
-  goal: >-
-    Persist only manually managed calendar facts in calendar_events, preserve
-    important_date as a system projection whose date remains owned by the source
-    Staff/Vehicle document domain, and make one manual event incapable of persisting
-    two competing meeting-place sources.
-
-  calendar_events_storage_role:
-    role: manual_operational_calendar_event_only
-    allowed_event_type_values:
-      - general_event
-      - driving_lesson
+  historical_contract_at_close:
+    calendar_events_allowed_general_event_and_driving_lesson: true
+    DB_CAL_007_was_explicitly_reserved_to_change_formal_driving_lesson_storage: true
+  current_runtime_after_DB_CAL_007:
+    calendar_events_storage_role: manual_general_event_only
+    allowed_event_type_values: [general_event]
     event_type_check_required: true
+    formal_driving_lesson_persisted_as_calendar_event: false
+    formal_driving_lesson_calendar_source: practical_training_session_projection
+    visible_driving_lesson_selector_capability_preserved: true
     important_date_allowed_as_calendar_events_row: false
     system_generated_projection_row_allowed_as_calendar_events_row: false
-    manual_create_or_patch_may_set_important_date: false
-    note: >-
-      DB-CAL-007 may later change how formal driving lessons are projected or linked
-      to TrainingSession, but DB-CAL-002 does not remove the confirmed driving_lesson
-      manual discriminator or decide that later source-of-truth integration.
 
   important_date_projection:
     storage_model: query_projection_not_calendar_events_source_row
@@ -354,149 +326,49 @@ manual_event_and_important_date_storage_boundary:
       staff_documents:
         current_predicate: superseded_at_is_null
         required_date: valid_until_is_not_null
-        supported_document_types:
-          - card_or_authorization
-          - medical_exam
-          - psychological_exam
+        supported_document_types: [card_or_authorization, medical_exam, psychological_exam]
       vehicle_documents:
         current_predicate: superseded_at_is_null
         required_date: valid_until_is_not_null
-        supported_document_types:
-          - technical_inspection
-          - oc_insurance
-          - ac_insurance
+        supported_document_types: [technical_inspection, oc_insurance, ac_insurance]
     projection_identity:
-      canonical_tuple:
-        - organization_id
-        - source_domain
-        - source_row_id
-        - date_kind
+      canonical_tuple: [organization_id, source_domain, source_row_id, date_kind]
       calendar_events_id_is_not_projection_identity: true
       source_row_reference_required_in_projection: true
-      stable_opaque_API_id_may_be_derived_from_canonical_tuple: true
-      derived_API_id_must_not_be_resolved_as_calendar_events_primary_key: true
-    projection_fields_are_derived:
-      event_type: important_date
-      starts_at: source_valid_until_in_organization_calendar_semantics
-      source_reference: canonical_tuple
-      staff_or_vehicle_resource: source_parent_relation
-      title_and_warning_state: read_model_projection
     mutation_boundary:
-      calendar_event_create_update_cancel_complete_endpoints_may_mutate_projection: false
+      calendar_event_mutation_endpoints_may_mutate_projection: false
       edit_happens_in_source_domain: true
-      source_date_change_updates_projection_without_second_manual_calendar_write: true
-      source_row_supersession_or_clear_removes_old_current_projection: true
-    optional_cache_or_materialized_read_model:
-      allowed: true
-      authoritative: false
-      disposable_and_rebuildable_from_source_domains: true
-      direct_manual_mutation: forbidden
-      exact_cache_refresh_strategy: implementation_detail_after_contract
-    future_system_dates:
-      may_join_same_projection_contract: true
-      require_explicit_source_domain_and_date_kind_mapping: true
-      must_not_become_untracked_calendar_events_rows: true
 
-  meeting_place_invariant:
+  manual_general_event_meeting_place_invariant:
     semantics: zero_or_one_of_saved_location_or_custom_text
-    saved_location_column: location_id
-    custom_text_column: custom_meeting_place
-    database_checks_required:
-      - NOT_location_id_and_custom_meeting_place_both_nonnull
-      - custom_meeting_place_null_or_trimmed_nonempty
-    canonical_check_expression: >-
+    database_check: >-
       num_nonnulls(location_id, custom_meeting_place) <= 1
       AND (custom_meeting_place IS NULL OR btrim(custom_meeting_place) <> '')
-    write_normalization:
-      custom_text_trim_before_persist: true
-      empty_or_whitespace_only_custom_text_normalizes_to_null: true
-      custom_text_does_not_create_location_row: true
-      switching_to_saved_location_clears_custom_text_in_command_model: true
-      switching_to_custom_text_clears_location_id_in_command_model: true
     both_null_allowed: true
-    reason_both_null_allowed: meeting_place_is_confirmed_optional
+    custom_text_does_not_create_location_row: true
 
   migration_design:
     migrations_created_in_this_step: false
     aggregate_core_schema_modified_in_this_step: false
     aggregate_docs87_modified_in_this_step: false
-    order_when_DB4_5_migrations_are_later_generated:
-      - precheck_calendar_events_event_type_values
-      - precheck_no_persisted_important_date_or_unknown_system_projection_rows_in_calendar_events
-      - precheck_no_calendar_event_has_both_location_id_and_nonempty_custom_meeting_place
-      - precheck_no_persisted_custom_meeting_place_is_whitespace_only
-      - resolve_invalid_legacy_rows_by_explicit_review_not_type_guess
-      - add_calendar_events_event_type_check_general_event_or_driving_lesson
-      - add_calendar_events_meeting_place_exclusion_and_nonblank_checks
-      - add_important_date_projection_query_or_read_model_contract_without_source_date_copy
-      - run_manual_vs_projection_and_meeting_place_negative_tests
-    invalid_legacy_event_type_policy: >-
-      Do not infer an unknown legacy row as general_event, driving_lesson or
-      important_date from its name/resources. Fail migration and require explicit
-      reviewed classification or removal from manual storage if it is a system projection.
-    invalid_legacy_meeting_place_policy: >-
-      Do not choose location_id versus custom_meeting_place by guessing which value
-      is newer or more meaningful. Both-active rows require explicit reviewed remediation.
-      Whitespace-only custom text may be normalized to NULL only after the precheck proves
-      that no semantic non-whitespace value is being discarded.
-
-  tests_required:
-    - manual_general_event_row_is_accepted
-    - manual_driving_lesson_row_is_accepted_without_changing_visible_form_parity
-    - calendar_events_row_with_event_type_important_date_is_rejected
-    - calendar_events_row_with_unknown_system_projection_type_is_rejected
-    - manual_calendar_create_cannot_persist_important_date
-    - important_date_projection_reads_current_staff_document_expiry_from_source_domain
-    - important_date_projection_reads_current_vehicle_document_expiry_from_source_domain
-    - superseded_staff_or_vehicle_document_does_not_emit_current_important_date
-    - source_valid_until_change_changes_projection_without_calendar_event_row_edit
-    - projection_item_mutation_through_calendar_event_mutation_endpoint_is_rejected
-    - projection_identity_resolves_to_source_tuple_not_calendar_events_primary_key
-    - event_with_location_only_is_accepted
-    - event_with_trimmed_custom_meeting_place_only_is_accepted
-    - event_with_neither_meeting_place_source_is_accepted
-    - event_with_location_and_custom_meeting_place_is_rejected_by_database
-    - event_with_whitespace_only_custom_meeting_place_is_rejected_after_write_normalization_boundary
-    - custom_meeting_place_never_auto_creates_permanent_location
-    - migration_precheck_detects_unknown_manual_event_type
-    - migration_precheck_detects_both_active_meeting_place_sources
-
-  intentionally_not_solved_by_DB_CAL_002:
-    resource_overlap_race_safe_enforcement: closed_by_DB_CAL_003
-    calendar_event_lifecycle_and_versioning: closed_by_DB_CAL_004
-    calendar_manage_own_owner_resolution: closed_by_DB_CAL_005
-    availability_booking_state_and_exactly_once: closed_by_DB_CAL_006
-    driving_lesson_vs_training_session_source_of_truth: DB-CAL-007
-    exact_warning_thresholds_for_important_dates: later_product_policy
-    exact_API_union_schema_for_manual_and_projection_items: Stage5_acceptance_contract_sync
+    DB_CAL_007_superseding_step_requires_legacy_driving_lesson_classification_before_general_event_only_check: true
 
   self_audit:
-    manual_calendar_storage_has_closed_event_type_domain: PASS
+    current_manual_calendar_storage_has_closed_general_event_domain: PASS
+    formal_driving_lesson_no_longer_creates_second_mutable_calendar_source: PASS
     important_date_does_not_create_second_mutable_source_of_truth: PASS
     source_document_valid_until_remains_authoritative: PASS
-    projection_identity_is_source_based_not_calendar_event_row_based: PASS
-    projection_is_not_mutable_through_manual_event_commands: PASS
-    meeting_place_zero_or_one_source_is_database_enforced: PASS
-    optional_meeting_place_both_null_state_preserved: PASS
-    whitespace_only_custom_text_not_persisted: PASS
-    custom_text_does_not_create_location_resource: PASS
-    DB_CAL_003_through_DB_CAL_007_not_fixed_in_original_step: PASS
+    meeting_place_zero_or_one_source_is_database_enforced_for_manual_general_event: PASS
+    visible_driving_lesson_capability_is_preserved_through_training_projection: PASS
     aggregate_core_schema_modified_in_step: false
     aggregate_docs87_modified_in_step: false
     Laravel_migrations_created: false
-    later_DB4_slices_entered: false
-    UI_or_feature_implementation_started: false
 
 # DB-CAL-003
 resource_overlap_conflict_boundary:
   blocker: DB-CAL-003
   severity: P1
   status: PASS
-  goal: >-
-    Make overlapping reservations for the same Student, Instructor, Vehicle or managed
-    Location in the same organization impossible to commit under concurrent requests,
-    without relying on check-then-insert application logic and without making Calendar
-    a second business source of truth for TrainingSession or availability booking.
 
   interval_semantics:
     storage: timestamptz_UTC
@@ -505,1520 +377,651 @@ resource_overlap_conflict_boundary:
     requires_ends_at_gt_starts_at: true
     adjacent_end_equals_next_start_conflicts: false
     exact_overlap_operator: '&&'
-    organization_timezone_changes_display_not_stored_instant: true
 
-  conflicting_resource_kinds:
-    student:
-      source_column_on_manual_event: student_id
-      same_exact_resource_conflicts: true
-    instructor:
-      source_column_on_manual_event: instructor_id
-      parent_table: staff_profiles
-      same_exact_resource_conflicts: true
-    vehicle:
-      source_column_on_manual_event: vehicle_id
-      same_exact_resource_conflicts: true
-    managed_location:
-      source_column_on_manual_event: location_id
-      same_exact_resource_conflicts: true
-    cross_resource_kind_UUID_equality_is_not_conflict: true
-    custom_meeting_place_is_managed_resource_claim: false
-    important_date_projection_is_resource_claim: false
-
-  resource_claim_predicate_for_manual_events:
-    claiming_status: scheduled
-    nonclaiming_statuses_known_from_own_product_policy: [completed, cancelled]
-    every_nonnull_resource_on_scheduled_manual_event_creates_exactly_one_claim: true
-    null_resource_creates_claim: false
-    claim_time_must_equal_event_time: true
-    lifecycle_transition_matrix_and_terminal_metadata: closed_by_DB_CAL_004
-    note: >-
-      DB-CAL-003 defines which operational state occupies resources. DB-CAL-004 closes
-      the legal state transitions, actor/time metadata, optimistic concurrency and
-      terminal edit policy without changing the conflict interval semantics.
+  conflicting_resource_kinds: [student, instructor, vehicle, managed_location]
+  custom_meeting_place_is_managed_resource_claim: false
+  important_date_projection_is_resource_claim: false
 
   calendar_resource_claims:
     purpose: technical_current_conflict_projection_not_business_history
-    append_only_history_required: false
-    claim_rows_may_be_deleted_and_recreated_inside_owner_transaction: true
-    fields:
-      - id_uuid
-      - organization_id_uuid
-      - claim_owner_kind_varchar
-      - claim_owner_id_uuid
-      - student_id_uuid_nullable
-      - instructor_id_uuid_nullable
-      - vehicle_id_uuid_nullable
-      - location_id_uuid_nullable
-      - starts_at_timestamptz
-      - ends_at_timestamptz
-      - occupied_during_tstzrange_generated_stored
-      - created_at_timestamptz
-    exactly_one_resource_column_nonnull:
-      expression: num_nonnulls(student_id,instructor_id,vehicle_id,location_id)=1
-      required: true
-    time_check:
-      expression: ends_at_gt_starts_at
-      required: true
-    occupied_during:
-      generated_expression: tstzrange(starts_at,ends_at,'[)')
-      canonical: true
-    owner_kinds_enabled_after_DB_CAL_006:
+    exactly_one_resource_column_nonnull: true
+    owner_kinds_after_DB_CAL_007:
       - calendar_event
       - availability_slot_booking
-    claim_owner_kind_check:
-      expression: claim_owner_kind IN ('calendar_event','availability_slot_booking')
-      required: true
-    future_owner_kind_extension_requires_own_gate: true
-    future_expected_consumers:
-      availability_booking: closed_by_DB_CAL_006
-      formal_driving_lesson_or_training_projection: DB-CAL-007
+      - training_session
+    claim_owner_kind_check: >-
+      claim_owner_kind IN ('calendar_event','availability_slot_booking','training_session')
+    unknown_owner_kind_rejected: true
+    generated_range: tstzrange(starts_at,ends_at,'[)')
 
   claim_same_tenant_resource_FKs:
-    student:
-      source_columns: [organization_id, student_id]
-      target_table: students
-      target_columns: [organization_id, id]
-      match: MATCH_SIMPLE
-      on_update: RESTRICT
-      on_delete: RESTRICT
-    instructor:
-      source_columns: [organization_id, instructor_id]
-      target_table: staff_profiles
-      target_columns: [organization_id, id]
-      match: MATCH_SIMPLE
-      on_update: RESTRICT
-      on_delete: RESTRICT
-    vehicle:
-      source_columns: [organization_id, vehicle_id]
-      target_table: vehicles
-      target_columns: [organization_id, id]
-      match: MATCH_SIMPLE
-      on_update: RESTRICT
-      on_delete: RESTRICT
-    location:
-      source_columns: [organization_id, location_id]
-      target_table: locations
-      target_columns: [organization_id, id]
-      match: MATCH_SIMPLE
-      on_update: RESTRICT
-      on_delete: RESTRICT
-
-  calendar_event_claim_owner_guard:
-    calendar_events_candidate_key_required: [organization_id, id]
-    current_owner_kind: calendar_event
-    owner_resolution: >-
-      For claim_owner_kind=calendar_event, claim_owner_id must resolve to a
-      calendar_events row with the same organization_id. A deferrable constraint
-      trigger or equivalent transactional DB guard validates this relation.
-    exact_claim_set_final_state_guard:
-      type: deferrable_constraint_trigger_or_equivalent_transactional_DB_guard
-      deferrability: DEFERRABLE_INITIALLY_DEFERRED
-      scheduled_event_requires:
-        - exactly_one_student_claim_iff_student_id_nonnull
-        - exactly_one_instructor_claim_iff_instructor_id_nonnull
-        - exactly_one_vehicle_claim_iff_vehicle_id_nonnull
-        - exactly_one_location_claim_iff_location_id_nonnull
-        - every_claim_interval_equals_event_interval
-        - every_claim_organization_equals_event_organization
-      non_scheduled_event_requires_zero_calendar_event_claims: true
-      extra_claim_not_corresponding_to_event_resource_forbidden: true
-      direct_event_time_or_resource_change_without_matching_claim_replacement: forbidden
+    student: [organization_id, student_id]
+    instructor: [organization_id, instructor_id]
+    vehicle: [organization_id, vehicle_id]
+    location: [organization_id, location_id]
+    same_tenant_parent_constraints_reused_from_DB4_3_DB4_4: true
 
   duplicate_claim_guards:
-    one_student_claim_per_owner:
-      type: partial_unique
-      columns: [organization_id, claim_owner_kind, claim_owner_id, student_id]
-      where: student_id_is_not_null
-    one_instructor_claim_per_owner:
-      type: partial_unique
-      columns: [organization_id, claim_owner_kind, claim_owner_id, instructor_id]
-      where: instructor_id_is_not_null
-    one_vehicle_claim_per_owner:
-      type: partial_unique
-      columns: [organization_id, claim_owner_kind, claim_owner_id, vehicle_id]
-      where: vehicle_id_is_not_null
-    one_location_claim_per_owner:
-      type: partial_unique
-      columns: [organization_id, claim_owner_kind, claim_owner_id, location_id]
-      where: location_id_is_not_null
+    one_student_claim_per_owner: [organization_id, claim_owner_kind, claim_owner_id, student_id]
+    one_instructor_claim_per_owner: [organization_id, claim_owner_kind, claim_owner_id, instructor_id]
+    one_vehicle_claim_per_owner: [organization_id, claim_owner_kind, claim_owner_id, vehicle_id]
+    one_location_claim_per_owner: [organization_id, claim_owner_kind, claim_owner_id, location_id]
 
   PostgreSQL_final_conflict_boundary:
     extension_required: btree_gist
     strategy: four_partial_GiST_exclusion_constraints_on_calendar_resource_claims
-    student_exclusion:
-      dimensions:
-        - organization_id WITH '='
-        - student_id WITH '='
-        - occupied_during WITH '&&'
-      where: student_id_is_not_null
-    instructor_exclusion:
-      dimensions:
-        - organization_id WITH '='
-        - instructor_id WITH '='
-        - occupied_during WITH '&&'
-      where: instructor_id_is_not_null
-    vehicle_exclusion:
-      dimensions:
-        - organization_id WITH '='
-        - vehicle_id WITH '='
-        - occupied_during WITH '&&'
-      where: vehicle_id_is_not_null
-    location_exclusion:
-      dimensions:
-        - organization_id WITH '='
-        - location_id WITH '='
-        - occupied_during WITH '&&'
-      where: location_id_is_not_null
-    check_then_insert_without_claim_constraint_is_sufficient: false
-    application_precheck_for_friendly_error_allowed: true
+    resource_dimensions:
+      student: [organization_id, student_id, occupied_during]
+      instructor: [organization_id, instructor_id, occupied_during]
+      vehicle: [organization_id, vehicle_id, occupied_during]
+      location: [organization_id, location_id, occupied_during]
     application_precheck_is_final_boundary: false
     database_exclusion_constraint_is_final_concurrency_boundary: true
 
-  manual_event_mutation_claim_sync:
-    create:
-      - validate_tenant_and_basic_time
-      - insert_calendar_event_in_scheduled_version_1_state
-      - insert_exact_claim_set_in_deterministic_resource_order
-      - let_GiST_exclusion_constraints_accept_or_reject
-      - final_state_claim_guard_must_pass_before_commit
-    update_time_or_resources:
-      - lock_target_calendar_event_FOR_UPDATE
-      - verify_expected_event_version_after_lock
-      - require_scheduled_state
-      - load_existing_claims
-      - lock_or_process_claims_in_deterministic_resource_order
-      - remove_current_claim_projection_for_owner
-      - apply_event_change
-      - insert_replacement_exact_claim_set
-      - let_GiST_exclusion_constraints_accept_or_reject
-      - increment_event_version_exactly_once_for_material_change
-      - append_calendar_event_lifecycle_updated_event_for_same_version
-      - final_state_claim_guard_must_pass_before_commit
-    complete_or_cancel:
-      - lock_target_calendar_event_FOR_UPDATE
-      - verify_expected_event_version_after_lock
-      - require_scheduled_state
-      - remove_all_calendar_event_claims_for_owner
-      - apply_terminal_status_and_metadata
-      - increment_event_version_exactly_once
-      - append_matching_lifecycle_event_for_same_version
-      - final_state_claim_guard_requires_zero_claims_before_commit
-    conflict_or_constraint_failure_rolls_back_event_claim_and_history_changes: true
-    deterministic_resource_order: [student, instructor, vehicle, location]
-    safety_does_not_depend_on_advisory_lock_or_application_check: true
+  manual_general_event_claim_guard:
+    scheduled_general_event_requires_exact_claims_for_each_nonnull_resource: true
+    completed_or_cancelled_general_event_requires_zero_claims: true
+    deferrability: DEFERRABLE_INITIALLY_DEFERRED
 
-  availability_integration_boundary:
-    publishing_available_slot_creates_resource_claims: false
-    rationale: >-
-      Availability describes a bookable window, not an occupied reservation. Treating
-      publication itself as a hard claim would incorrectly make availability overlap
-      with the resource whose free time it is describing.
-    successful_booking_may_commit_without_conflict_claims: false
-    DB_CAL_006_result: closed_by_availability_slot_booking_owner_kind_and_exact_claim_guard
-    concurrent_bookings_or_booking_vs_event_must_share_same_GiST_boundary: true
-    cancelled_slot_has_booking_claims: false
+  availability_booking_claim_guard:
+    source: DB-CAL-006
+    unformalized_booked_slot_requires_exact_booking_claims: true
+    available_or_cancelled_slot_requires_zero_booking_claims: true
+    formalized_booked_slot_requires_zero_availability_booking_claims: true
+    reason: training_session_becomes_reservation_owner_after_handoff
 
-  training_integration_boundary:
-    DB_CAL_007_obligation: >-
-      Whichever source becomes the canonical formal driving-lesson schedule must expose
-      exactly one effective reservation fact to this same conflict boundary. DB-CAL-003
-      does not choose CalendarEvent versus TrainingSession ownership and does not allow
-      conflict enforcement to become a second training-hour source.
-    training_hour_credit_side_effect_from_claim_insert_or_calendar_complete: forbidden
+  training_session_claim_guard:
+    owner_kind: training_session
+    candidate_key_reused: training_sessions[organization_id,id]
+    owner_resolution_same_tenant_required: true
+    claiming_state: planned
+    claiming_session_types: [theory, practical]
+    planned_session_exact_claims:
+      student: exactly_one_equal_to_course_enrollment_student
+      instructor: exactly_one_equal_to_training_session_instructor
+      vehicle: exactly_one_iff_training_session_vehicle_nonnull
+      location: exactly_one_iff_training_session_location_nonnull
+      interval: exactly_training_session_starts_at_ends_at
+      organization: exactly_training_session_organization_id
+    completed_or_cancelled_session_requires_zero_training_session_claims: true
+    deferrability: DEFERRABLE_INITIALLY_DEFERRED
+    extra_or_missing_or_stale_claim_forbidden: true
+    direct_schedule_resource_change_without_claim_sync: forbidden
+    claim_insert_credits_training_hours: false
 
-  conflict_result_and_retry:
-    exclusion_violation_maps_to_domain_calendar_resource_conflict: true
-    exact_HTTP_error_code_and_payload: Stage5_acceptance_contract_sync
-    conflict_transaction_commits_partial_event_or_claim_change: false
-    silent_automatic_shift_or_resource_reassignment: forbidden
-    blind_automatic_retry_as_success: forbidden
-    caller_may_retry_after_refresh_or_changed_input: true
-    unexpected_deadlock_or_serialization_failure:
-      classify_as_transient_retryable_database_failure_not_success: true
-      retry_must_rerun_full_transaction_and_constraints: true
+  cross_owner_conflicts:
+    training_session_vs_calendar_event: same_GiST_constraints
+    training_session_vs_availability_booking: same_GiST_constraints
+    training_session_vs_training_session: same_GiST_constraints
+    availability_booking_vs_calendar_event: same_GiST_constraints
+    current_effective_reservation_fact_per_formal_session: exactly_one_training_session_claim_set_while_planned
 
   migration_design:
     migrations_created_in_this_step: false
     aggregate_core_schema_modified_in_this_step: false
     aggregate_docs87_modified_in_this_step: false
-    order_when_DB4_5_migrations_are_later_generated:
-      - ensure_btree_gist_extension_available
-      - verify_calendar_events_have_valid_positive_time_ranges
-      - identify_current_scheduled_manual_events_that_should_claim_resources
-      - precheck_existing_scheduled_event_overlaps_per_organization_student_instructor_vehicle_location
-      - fail_on_ambiguous_or_overlapping_legacy_reservations_before_claim_backfill
-      - create_calendar_resource_claims_with_exactly_one_resource_and_same_tenant_FKs
-      - add_generated_half_open_tstzrange
-      - add_initial_claim_owner_kind_check_calendar_event
-      - add_duplicate_claim_partial_unique_constraints
-      - add_four_partial_GiST_exclusion_constraints
-      - backfill_exact_claim_rows_from_nonnull_resources_of_scheduled_manual_events
-      - add_calendar_event_claim_owner_and_exact_set_deferrable_guards
-      - later_DB_CAL_006_expand_claim_owner_kind_to_availability_slot_booking_after_slot_prechecks_and_owner_guard
-      - rerun_concurrent_overlap_negative_tests
-    legacy_overlap_policy: >-
-      Never auto-select a winner, shift a time range, cancel an event or null a resource
-      to make the exclusion constraint pass. Existing overlaps require explicit reviewed
-      operational remediation before the constraint is enabled.
-    legacy_unknown_status_policy: >-
-      DB-CAL-003 does not guess whether an unknown legacy status should occupy resources.
-      DB-CAL-004 now defines the allowed event status catalog; DB-CAL-006 separately defines
-      slot statuses. Migration still requires explicit reviewed classification for unknown values.
-
-  tests_required:
-    - half_open_intervals_allow_event_B_start_equal_event_A_end_for_same_resource
-    - overlapping_intervals_for_same_student_same_organization_are_rejected
-    - overlapping_intervals_for_same_instructor_same_organization_are_rejected
-    - overlapping_intervals_for_same_vehicle_same_organization_are_rejected
-    - overlapping_intervals_for_same_managed_location_same_organization_are_rejected
-    - same_time_different_student_instructor_vehicle_location_resources_can_commit
-    - same_uuid_value_in_different_resource_kinds_is_not_cross_kind_conflict
-    - same_resource_uuid_in_different_organizations_does_not_conflict
-    - custom_meeting_place_does_not_create_managed_location_claim
-    - important_date_projection_does_not_create_resource_claim
-    - unknown_claim_owner_kind_is_rejected_by_database
-    - scheduled_event_has_exact_claim_set_for_all_nonnull_resources
-    - scheduled_event_direct_resource_or_time_update_without_claim_sync_is_rejected
-    - non_scheduled_event_has_zero_active_calendar_event_claims
-    - two_concurrent_creates_for_same_resource_overlapping_time_allow_at_most_one_commit
-    - concurrent_create_vs_update_into_same_resource_window_allow_at_most_one_conflicting_commit
-    - concurrent_updates_of_distinct_events_into_same_resource_window_allow_at_most_one_conflicting_commit
-    - failed_conflicting_update_rolls_back_and_preserves_previous_event_and_claim_set
-    - application_precheck_race_cannot_bypass_GiST_exclusion_constraint
-    - availability_slot_publication_does_not_occupy_resource_by_itself
-    - successful_availability_booking_cannot_bypass_shared_claim_boundary
-    - booking_claims_conflict_with_calendar_event_claims_for_same_resource_and_overlap
-    - deterministic_claim_processing_order_is_student_instructor_vehicle_location
-    - migration_precheck_detects_existing_overlapping_scheduled_reservations
-    - migration_never_auto_cancels_shifts_or_reassigns_conflicting_legacy_event
-
-  intentionally_not_solved_by_DB_CAL_003:
-    calendar_event_lifecycle_transition_matrix_and_expected_version: closed_by_DB_CAL_004
-    calendar_manage_own_owner_resolution: closed_by_DB_CAL_005
-    availability_slot_state_machine_exactly_once_booking_and_cancel: closed_by_DB_CAL_006
-    availability_booking_business_owner_link_to_claims: closed_by_DB_CAL_006
-    driving_lesson_vs_training_session_canonical_schedule_owner: DB-CAL-007
-    training_session_claim_origin_mapping: DB-CAL-007
-    exact_HTTP_conflict_error_code_and_If_Match_details: Stage5_acceptance_contract_sync
+    DB_CAL_007_extension_order:
+      - create_training_session_claim_owner_guard_while_claim_kind_check_blocks_training_session
+      - precheck_planned_training_session_overlaps_against_existing_general_event_and_unformalized_booking_claims
+      - fail_on_ambiguous_or_overlapping_legacy_reservations_without_auto_winner
+      - expand_claim_owner_kind_check_to_include_training_session
+      - backfill_exact_claims_for_reliably_planned_training_sessions
+      - add_deferrable_training_session_exact_claim_guard
 
   self_audit:
-    interval_semantics_are_unambiguous_half_open: PASS
-    adjacent_events_are_not_false_conflicts: PASS
-    all_four_required_resource_kinds_have_GiST_exclusion_boundary: PASS
-    same_tenant_resource_FKs_on_claims_preserve_DB_CAL_001: PASS
-    important_date_projection_preserves_DB_CAL_002_and_does_not_claim: PASS
-    custom_text_meeting_place_does_not_claim_managed_location: PASS
-    unknown_claim_owner_kind_cannot_create_unguarded_claim: PASS
-    claim_exact_set_guard_is_deferred_to_final_transaction_state: PASS
-    database_not_check_then_insert_is_final_race_boundary: PASS
-    scheduled_manual_event_claim_set_is_transactionally_exact: PASS
-    conflicting_transaction_cannot_commit_partial_event_without_claims: PASS
-    availability_publication_not_mistaken_for_reservation: PASS
-    booking_uses_same_boundary_after_DB_CAL_006: PASS
-    training_is_obligated_to_same_boundary_without_solving_DB_CAL_007_source_of_truth: PASS
-    DB_CAL_004_through_DB_CAL_007_not_fixed_in_original_step: PASS
+    interval_semantics_remain_half_open: PASS
+    all_three_owner_kinds_share_same_GiST_boundary: PASS
+    planned_training_session_has_exact_current_claim_set: PASS
+    terminal_training_session_has_zero_claims: PASS
+    training_claim_does_not_credit_formal_time: PASS
+    conflict_projection_remains_technical_not_business_source: PASS
     aggregate_core_schema_modified_in_step: false
     aggregate_docs87_modified_in_step: false
     Laravel_migrations_created: false
-    later_DB4_slices_entered: false
-    UI_or_feature_implementation_started: false
 
 # DB-CAL-004
 calendar_event_lifecycle_and_concurrency:
   blocker: DB-CAL-004
   severity: P1
   status: PASS
-  goal: >-
-    Make CalendarEvent status, terminal metadata and optimistic concurrency deterministic,
-    preserve operational history, and ensure PATCH, cancel and complete races serialize
-    on one Event row while remaining compatible with the DB-CAL-003 resource-claim boundary.
-
-  canonical_status_values:
-    - scheduled
-    - completed
-    - cancelled
+  current_runtime_scope_after_DB_CAL_007: manual_general_event_rows_only
+  canonical_status_values: [scheduled, completed, cancelled]
   status_check_required: true
-
-  canonical_calendar_events_fields:
-    existing_or_retained:
-      - id_uuid
-      - organization_id_uuid
-      - event_type_general_event_or_driving_lesson
-      - name_nullable
-      - starts_at_timestamptz
-      - ends_at_timestamptz
-      - student_id_nullable
-      - instructor_id_nullable
-      - vehicle_id_nullable
-      - location_id_nullable
-      - custom_meeting_place_nullable
-      - status_varchar
-      - created_by_user_id_uuid
-      - created_at_timestamptz
-      - updated_at_timestamptz
-    lifecycle_and_concurrency:
-      version:
-        type: bigint
-        nullable: false
-        default: 1
-        check: version_gte_1
-      completed_at:
-        type: timestamptz
-        nullable: true
-      completed_by_user_id:
-        type: uuid
-        nullable: true
-        global_user_relation: true
-        foreign_key: users.id
-        on_update: RESTRICT
-        on_delete: RESTRICT
-      cancelled_at:
-        type: timestamptz
-        nullable: true
-      cancelled_by_user_id:
-        type: uuid
-        nullable: true
-        global_user_relation: true
-        foreign_key: users.id
-        on_update: RESTRICT
-        on_delete: RESTRICT
-      cancellation_reason:
-        type: text
-        nullable: true
-
-  lifecycle_state_matrix:
-    scheduled:
-      completed_at: null
-      completed_by_user_id: null
-      cancelled_at: null
-      cancelled_by_user_id: null
-      cancellation_reason: null
-      DB_CAL_003_resource_claims: exact_for_nonnull_resources
-    completed:
-      completed_at: nonnull
-      completed_by_user_id: nonnull
-      cancelled_at: null
-      cancelled_by_user_id: null
-      cancellation_reason: null
-      DB_CAL_003_resource_claims: zero
-    cancelled:
-      completed_at: null
-      completed_by_user_id: null
-      cancelled_at: nonnull
-      cancelled_by_user_id: nonnull
-      cancellation_reason: nullable
-      DB_CAL_003_resource_claims: zero
-    terminal_metadata_database_check_required: true
-    completed_and_cancelled_metadata_may_coexist: false
-
-  transition_matrix:
-    create:
-      from: none
-      to: scheduled
-      version_after: 1
-    patch_material_fields:
-      from: scheduled
-      to: scheduled
-      version_increment: exactly_once
-    complete:
-      from: scheduled
-      to: completed
-      version_increment: exactly_once
-    cancel:
-      from: scheduled
-      to: cancelled
-      version_increment: exactly_once
-    completed_to_scheduled_normal_restore: forbidden
-    cancelled_to_scheduled_normal_restore: forbidden
-    completed_to_cancelled_normal_transition: forbidden
-    cancelled_to_completed_normal_transition: forbidden
-    generic_PATCH_may_set_status_or_terminal_metadata: false
-    exact_future_exceptional_correction_capability_invented_here: false
-    note: >-
-      No normal reopen/restore command is confirmed for CalendarEvent. A future explicit
-      audited correction capability, if product requirements require it, must receive its
-      own contract; ordinary PATCH must not emulate one by rewriting terminal fields.
-
-  version_and_expected_version:
-    concurrency_root: calendar_events.version
-    create_initial_version: 1
-    material_PATCH_requires_expected_version: true
-    cancel_requires_expected_version_at_domain_boundary: true
-    complete_requires_expected_version_at_domain_boundary: true
-    expected_version_source_for_PATCH: If-Match
-    current_Stage3_cancel_complete_HTTP_contract_has_If_Match: false
-    Stage5_sync_required_for_cancel_complete_expected_version_marker: true
-    idempotency_key_is_not_substitute_for_expected_version: true
-    command_lock: SELECT_calendar_event_FOR_UPDATE
-    compare_expected_version_after_lock: true
-    stale_expected_version_result: conflict_no_partial_write
-    semantic_noop_PATCH:
-      version_increment: false
-      lifecycle_history_append: false
-      updated_at_change: false
-    material_mutation_version_increment: exactly_once
-
-  command_effective_time:
-    capture_once_per_new_material_command_after_event_lock: true
-    canonical_name: command_effective_at
-    storage_type: timestamptz
-    use_for_cancelled_at_or_completed_at: true
-    use_for_matching_lifecycle_event_occurred_at: true
-    described_as_exact_database_commit_timestamp: false
-
-  calendar_event_lifecycle_events:
-    purpose: append_only_material_version_history
-    fields:
-      - id_uuid_PK
-      - organization_id_uuid_not_null
-      - calendar_event_id_uuid_not_null
-      - event_type_varchar_not_null
-      - from_status_varchar_nullable_only_for_created_or_migration_baseline
-      - to_status_varchar_not_null
-      - event_version_before_bigint_nullable_only_for_created_or_migration_baseline
-      - event_version_after_bigint_not_null
-      - actor_user_id_uuid_nullable_only_for_migration_baseline
-      - reason_text_nullable
-      - changed_fields_redacted_jsonb_nullable
-      - occurred_at_timestamptz_not_null
-    event_type_values:
-      runtime: [created, updated, completed, cancelled]
-      migration_only: [migration_baseline]
-    same_tenant_event_FK:
-      source_columns: [organization_id, calendar_event_id]
-      target_table: calendar_events
-      target_columns: [organization_id, id]
-      on_update: RESTRICT
-      on_delete: RESTRICT
-    actor_user_FK:
-      target_table: users
-      target_column: id
-      nullable_only_for_migration_baseline: true
-      on_update: RESTRICT
-      on_delete: RESTRICT
-    unique_one_history_event_per_material_version:
-      columns: [organization_id, calendar_event_id, event_version_after]
-    runtime_version_pair_rule: event_version_after_equals_event_version_before_plus_1
-    create_rule:
-      event_version_before: null
-      event_version_after: 1
-      from_status: null
-      to_status: scheduled
-    migration_baseline_rule:
-      event_version_before: null
-      event_version_after: current_event_version
-      actor_user_id_may_be_null: true
-    current_version_history_final_state_guard:
-      type: deferrable_constraint_trigger_or_equivalent_transactional_DB_guard
-      deferrability: DEFERRABLE_INITIALLY_DEFERRED
-      final_calendar_event_requires:
-        - exactly_one_history_row_with_event_version_after_equal_to_calendar_event_version
-        - latest_matching_history_to_status_equal_to_calendar_event_status
-      runtime_successor_requires:
-        - event_version_before_equals_previous_current_event_version
-        - event_version_after_equals_event_version_before_plus_1
-      migration_baseline_may_anchor_unknown_earlier_history: true
-      direct_event_version_or_status_change_without_matching_history_row: forbidden
-    business_history_rows_mutable_after_insert: false
-    normal_hard_delete: forbidden
-    claim_projection_history_is_not_duplicated_here: true
-
-  create_transaction:
-    idempotency_key_required_by_API: true
-    steps:
-      - claim_or_replay_idempotency_record
-      - validate_DB_CAL_001_same_tenant_relations
-      - validate_DB_CAL_002_manual_type_and_meeting_place
-      - insert_calendar_event_status_scheduled_version_1
-      - insert_exact_DB_CAL_003_resource_claim_set
-      - let_GiST_constraints_accept_or_reject
-      - append_created_lifecycle_event_version_1
-      - commit_only_if_deferred_claim_and_history_guards_pass
-    failure_rolls_back_event_claims_and_history: true
-
-  scheduled_PATCH_transaction:
-    steps:
-      - lock_calendar_event_FOR_UPDATE
-      - compare_expected_version_after_lock
-      - require_status_scheduled
-      - reject_status_or_terminal_metadata_in_generic_PATCH
-      - validate_same_tenant_and_row_invariants
-      - detect_semantic_noop
-      - capture_command_effective_at_for_material_change
-      - if_time_or_resource_claim_fields_change_replace_DB_CAL_003_claim_set_in_deterministic_order
-      - apply_material_event_fields
-      - increment_version_exactly_once
-      - append_updated_lifecycle_event_for_same_version_and_command_effective_at
-      - commit_only_if_GiST_deferred_claim_and_history_guards_pass
-    terminal_event_PATCH: conflict_for_normal_operation
-
-  cancel_transaction:
-    idempotency_key_required_by_API: true
-    command_order:
-      - claim_or_replay_idempotency_record
-      - lock_calendar_event_FOR_UPDATE
-      - compare_expected_version_after_lock_for_new_command
-      - require_status_scheduled
-      - capture_command_effective_at_once
-      - remove_all_calendar_event_resource_claims
-      - set_status_cancelled
-      - set_cancelled_at_to_command_effective_at
-      - set_cancelled_by_user_id_to_actor
-      - persist_nullable_reason_if_supplied
-      - increment_version_exactly_once
-      - append_cancelled_lifecycle_event_for_same_version_and_command_effective_at
-      - commit_only_if_deferred_claim_and_history_guards_pass
-    same_idempotency_key_same_payload_retry_after_success: return_same_result_without_version_increment
-    different_idempotency_key_against_already_cancelled_event: conflict_not_second_cancellation
-
-  complete_transaction:
-    idempotency_key_required_by_API: true
-    command_order:
-      - claim_or_replay_idempotency_record
-      - lock_calendar_event_FOR_UPDATE
-      - compare_expected_version_after_lock_for_new_command
-      - require_status_scheduled
-      - capture_command_effective_at_once
-      - remove_all_calendar_event_resource_claims
-      - set_status_completed
-      - set_completed_at_to_command_effective_at
-      - set_completed_by_user_id_to_actor
-      - increment_version_exactly_once
-      - append_completed_lifecycle_event_for_same_version_and_command_effective_at
-      - commit_only_if_deferred_claim_and_history_guards_pass
-    same_idempotency_key_same_payload_retry_after_success: return_same_result_without_version_increment
-    different_idempotency_key_against_already_completed_event: conflict_not_second_completion
-    calendar_complete_credits_training_hours: false
-    rationale: DB_CAL_007_and_DB_TRN_006_own_formal_training_effects
-
-  race_matrix:
-    PATCH_vs_PATCH_same_expected_version:
-      result: at_most_one_material_mutation_commits
-      loser: stale_version_conflict
-    PATCH_vs_cancel_same_expected_version:
-      result: whichever_locks_and_commits_first_wins
-      loser: stale_version_or_terminal_state_conflict_without_partial_write
-    PATCH_vs_complete_same_expected_version:
-      result: whichever_locks_and_commits_first_wins
-      loser: stale_version_or_terminal_state_conflict_without_partial_write
-    cancel_vs_complete_same_expected_version:
-      result: exactly_one_terminal_transition_can_commit
-      loser: stale_version_or_terminal_state_conflict
-    cancel_vs_cancel_different_idempotency_keys_same_expected_version:
-      result: one_success_one_conflict
-    complete_vs_complete_different_idempotency_keys_same_expected_version:
-      result: one_success_one_conflict
-    same_idempotency_key_replay:
-      result: original_result_without_second_effect
-    row_lock_order_with_claims:
-      - calendar_event
-      - resource_claims_in_DB_CAL_003_order_student_instructor_vehicle_location
-
-  terminal_event_policy:
-    normal_business_PATCH: forbidden
-    normal_hard_delete: forbidden
-    resource_claims_after_terminal_transition: zero
-    history_retained: true
-    created_by_and_original_business_fields_preserved: true
-    API_detail_may_read_terminal_event: true
-    future_data_correction_must_not_rewrite_lifecycle_history: true
+  concurrency_root: calendar_events.version
+  material_PATCH_cancel_complete_require_expected_version: true
+  command_lock: SELECT_calendar_event_FOR_UPDATE
+  lifecycle_history_table: calendar_event_lifecycle_events
+  lifecycle_history_append_only: true
+  current_version_history_final_state_guard: DEFERRABLE_INITIALLY_DEFERRED
+  scheduled_event_claims: exact_DB_CAL_003_general_event_claim_set
+  terminal_event_claims: zero
+  normal_hard_delete: forbidden
+  calendar_complete_credits_training_hours: false
+  formal_driving_lesson_complete_uses_this_calendar_event_command: false
+  formal_driving_lesson_complete_route: DB_TRN_006_training_session_complete_only
 
   migration_design:
     migrations_created_in_this_step: false
     aggregate_core_schema_modified_in_this_step: false
     aggregate_docs87_modified_in_this_step: false
-    order_when_DB4_5_migrations_are_later_generated:
-      - precheck_existing_calendar_event_status_values
-      - explicitly_classify_unknown_status_rows_without_guessing_from_time_or_name
-      - ensure_calendar_event_version_is_nonnull_bigint_and_at_least_1
-      - add_completed_and_cancelled_terminal_metadata_columns_nullable_initially
-      - collect_reliable_existing_audit_or_domain_evidence_for_terminal_actor_and_time
-      - fail_or_require_review_for_terminal_rows_whose_required_metadata_cannot_be_reconstructed
-      - add_calendar_event_terminal_actor_foreign_keys_to_users
-      - add_calendar_event_status_and_terminal_metadata_checks
-      - create_append_only_calendar_event_lifecycle_events
-      - add_lifecycle_event_actor_foreign_key_to_users
-      - create_migration_baseline_history_event_for_each_existing_event_current_version
-      - add_unique_one_history_event_per_event_version
-      - add_history_immutability_guard
-      - add_deferrable_current_event_version_history_final_state_guard
-      - align_DB_CAL_003_claim_backfill_with_final_scheduled_status_only
-      - run_patch_cancel_complete_version_race_tests
-    unknown_status_policy: >-
-      Do not map unknown values to scheduled/completed/cancelled from starts_at, ends_at,
-      name or resource shape. Require explicit reviewed classification.
-    missing_terminal_metadata_policy: >-
-      Do not fabricate completed_at/cancelled_at from updated_at and do not fabricate
-      actor identity from created_by_user_id. Use reliable evidence or require explicit
-      remediation before enabling the final state checks.
-    baseline_history_policy: >-
-      Existing rows may receive a migration_baseline history event at their current
-      event version without pretending earlier material versions are known.
-
-  tests_required:
-    - create_event_commits_scheduled_status_version_1_exact_claim_set_and_created_history_event
-    - status_outside_scheduled_completed_cancelled_is_rejected
-    - scheduled_event_with_any_terminal_metadata_is_rejected
-    - completed_event_requires_completed_at_and_completed_by_and_forbids_cancel_metadata
-    - cancelled_event_requires_cancelled_at_and_cancelled_by_and_forbids_completion_metadata
-    - terminal_actor_ids_must_reference_existing_global_users
-    - generic_PATCH_cannot_write_status_completed_or_cancelled_or_terminal_metadata
-    - material_scheduled_PATCH_with_matching_expected_version_increments_version_once
-    - semantic_noop_PATCH_does_not_increment_version_or_append_history
-    - stale_PATCH_after_row_lock_is_rejected_without_partial_claim_or_event_change
-    - completed_or_cancelled_event_normal_PATCH_is_rejected
-    - cancel_from_scheduled_removes_claims_sets_metadata_increments_version_and_appends_history
-    - complete_from_scheduled_removes_claims_sets_metadata_increments_version_and_appends_history
-    - cancel_and_its_history_event_share_one_command_effective_at
-    - complete_and_its_history_event_share_one_command_effective_at
-    - cancel_from_completed_or_cancelled_is_rejected_for_new_command
-    - complete_from_completed_or_cancelled_is_rejected_for_new_command
-    - same_cancel_idempotency_key_retry_returns_same_result_without_second_version
-    - same_complete_idempotency_key_retry_returns_same_result_without_second_version
-    - PATCH_vs_cancel_same_expected_version_allows_only_one_material_winner
-    - PATCH_vs_complete_same_expected_version_allows_only_one_material_winner
-    - cancel_vs_complete_same_expected_version_allows_exactly_one_terminal_transition
-    - two_cancel_commands_different_keys_same_expected_version_do_not_both_commit
-    - two_complete_commands_different_keys_same_expected_version_do_not_both_commit
-    - every_current_event_version_has_exactly_one_matching_lifecycle_history_event
-    - direct_event_version_or_status_change_without_matching_history_is_rejected_at_commit
-    - lifecycle_history_business_row_is_immutable
-    - terminal_event_has_zero_DB_CAL_003_resource_claims
-    - calendar_complete_does_not_create_training_attendance_or_hour_ledger_credit
-    - normal_hard_delete_of_operational_calendar_event_is_not_domain_lifecycle
-    - migration_does_not_guess_unknown_status_actor_or_terminal_timestamp
-
-  intentionally_not_solved_by_DB_CAL_004:
-    calendar_manage_own_owner_resolution: closed_by_DB_CAL_005
-    availability_slot_state_machine_exactly_once_booking_and_cancel: closed_by_DB_CAL_006
-    availability_booking_business_owner_link_to_claims: closed_by_DB_CAL_006
-    driving_lesson_vs_training_session_canonical_schedule_owner: DB-CAL-007
-    training_session_claim_origin_mapping: DB-CAL-007
-    exact_HTTP_If_Match_required_marker_for_cancel_complete_and_error_codes: Stage5_acceptance_contract_sync
-    temporal_rule_for_marking_future_event_completed: later_product_policy_not_invented
+    legacy_calendar_event_driving_lesson_rows_must_be_resolved_before_general_event_only_runtime_check: true
 
   self_audit:
-    status_catalog_and_terminal_metadata_matrix_are_closed: PASS
-    terminal_actor_relations_reference_global_users_without_fake_tenant_scope: PASS
-    version_is_single_event_concurrency_root: PASS
-    expected_version_is_checked_after_FOR_UPDATE_lock: PASS
-    PATCH_cancel_complete_races_serialize_on_same_event_row: PASS
-    at_most_one_history_row_per_event_version_is_unique_constrained: PASS
-    current_event_version_requires_exactly_one_matching_history_row_at_commit: PASS
-    matching_current_history_status_must_equal_event_status: PASS
-    semantic_noop_PATCH_does_not_create_fake_version: PASS
-    terminal_event_normal_PATCH_and_hard_delete_are_forbidden: PASS
-    cancel_and_complete_remove_DB_CAL_003_claims_atomically: PASS
-    terminal_metadata_and_history_share_one_command_effective_at: PASS
-    stale_or_conflicting_command_cannot_commit_partial_claim_history_or_event_change: PASS
-    idempotency_replay_does_not_replace_expected_version_for_new_commands: PASS
-    calendar_complete_does_not_credit_formal_training_hours: PASS
-    DB_CAL_005_through_DB_CAL_007_not_fixed_in_this_step: PASS
+    calendar_event_lifecycle_preserved_for_manual_general_events: PASS
+    formal_training_completion_cannot_use_calendar_event_shortcut: PASS
     aggregate_core_schema_modified_in_step: false
     aggregate_docs87_modified_in_step: false
     Laravel_migrations_created: false
-    later_DB4_slices_entered: false
-    UI_or_feature_implementation_started: false
 
 # DB-CAL-005
 calendar_own_scope_owner_resolution:
   blocker: DB-CAL-005
   severity: P1
   status: PASS
-  goal: >-
-    Bind every calendar target that supports the existing DB4_2 `own` scope to one
-    canonical StaffProfile relation so backend authorization can prove ownership without
-    falling back to creator identity, UI filters or role-template shortcuts.
 
-  upstream_RBAC_contract_reused_without_redefinition:
-    permission_catalog: specs/security/permissions.yml
-    identity_database_contract: specs/database/identity-rbac.yml
-    own_semantics: target_owned_by_current_user_or_staff_profile_linked_to_active_membership
-    missing_owner_relation: deny
-    tenant_validation_precedes_scope_resolution: true
-    role_template_is_runtime_authority: false
-    granted_permission_without_matching_scope: deny
-    scope_OR_behavior_unchanged: true
-    assigned_students_semantics_changed_here: false
-    assigned_locations_semantics_changed_here: false
-    organization_scope_semantics_changed_here: false
+  current_manual_calendar_event_own_owner:
+    row_type: general_event
+    owner_column: instructor_id
+    owner_identity: StaffProfile
+    null_instructor_result: deny
+    created_by_user_is_owner: false
 
-  canonical_owner_relations:
-    calendar_event:
-      owner_kind: staff_profile
-      owner_column: calendar_events.instructor_id
-      nullable: true
-      same_tenant_boundary: DB-CAL-001_composite_FK_organization_id_instructor_id
-      created_by_user_id_is_owner: false
-      completed_by_user_id_is_owner: false
-      cancelled_by_user_id_is_owner: false
-      separate_owner_staff_profile_id_column_added: false
-    availability_slot:
-      owner_kind: staff_profile
-      owner_column: availability_slots.instructor_id
-      nullable: true
-      same_tenant_boundary: DB-CAL-001_composite_FK_organization_id_instructor_id
-      booked_student_id_is_owner: false
-      separate_owner_staff_profile_id_column_added: false
+  availability_slot_own_owner:
+    owner_column: instructor_id
+    owner_identity: StaffProfile
+    null_instructor_result: deny
 
-  runtime_own_resolver:
-    canonical_path:
-      - authenticated_user
-      - active_organization_membership_for_same_organization
-      - active_staff_membership_link_where_unlinked_at_is_null
-      - linked_staff_profile
-      - require_target_instructor_id_equals_linked_staff_profile_id
-    active_membership_required: true
-    active_staff_link_required: true
-    archived_staff_with_no_active_link_matches: false
-    no_active_staff_link_result: deny_empty_set
-    target_instructor_id_null_result: deny
-    created_by_user_match_without_owner_relation_result: deny
-    same_user_global_identity_without_active_staff_link_result: deny
-    cross_tenant_match_result: deny_before_owner_resolution
-    permission_specific_registered_resolver_required: true
-    frontend_post_fetch_filter_is_security_boundary: false
-
-  CalendarEvent_behavior:
-    general_event_with_instructor:
-      own_owner: instructor_id
-      owner_staff_may_use_own_when_permission_granted_and_scope_matches: true
-    general_event_without_instructor:
-      canonical_owner_relation_present: false
-      own_result: deny
-      organization_scope_may_manage_if_separately_granted: true
-      created_by_user_does_not_fill_owner_gap: true
-    driving_lesson_with_instructor:
-      own_owner: instructor_id
-      own_result_for_matching_active_staff_link: allow_if_permission_and_domain_state_also_allow
-    driving_lesson_without_instructor:
-      own_result: deny
-      organization_scope_may_manage_if_separately_granted: true
-      later_formal_training_requirement: DB-CAL-007
-
-  AvailabilitySlot_behavior:
-    slot_with_instructor:
-      own_owner: instructor_id
-      calendar_publish_student_slots_with_own_scope: allow_only_for_matching_active_staff_link
-    slot_without_instructor:
-      own_result: deny
-      organization_scope_may_publish_or_manage_if_permission_has_organization_scope: true
-    booking_permission_owner_rule:
-      calendar_book_for_student_uses_student_scoped_permission_not_slot_own_scope: true
-      booking_lifecycle_and_reservation_effect: closed_by_DB_CAL_006
-
-  create_authorization:
-    CalendarEvent_with_calendar_manage_own:
-      require_active_staff_link: true
-      require_proposed_instructor_id_nonnull: true
-      require_proposed_instructor_id_equals_linked_staff_profile_id: true
-      request_may_claim_different_instructor_under_own: false
-      request_may_omit_instructor_and_fall_back_to_created_by: false
-    CalendarEvent_with_calendar_manage_organization:
-      own_match_required: false
-      same_tenant_and_domain_constraints_still_required: true
-      instructor_may_be_null_if_other_domain_rules_allow: true
-      instructor_may_be_other_same_tenant_staff_if_other_domain_rules_allow: true
-      creator_is_not_implicitly_persisted_as_owner: true
-    AvailabilitySlot_with_calendar_publish_student_slots_own_scope:
-      require_active_staff_link: true
-      require_proposed_instructor_id_nonnull: true
-      require_proposed_instructor_id_equals_linked_staff_profile_id: true
-    AvailabilitySlot_with_calendar_publish_student_slots_organization_scope:
-      own_match_required: false
-      same_tenant_and_domain_constraints_still_required: true
-      instructor_may_be_null_if_other_domain_rules_allow: true
-      instructor_may_be_other_same_tenant_staff_if_other_domain_rules_allow: true
-
-  existing_target_mutation_authorization:
-    own_mutation_precondition:
-      existing_target_instructor_id_must_equal_linked_staff_profile_id: true
-      target_without_instructor: deny
-    own_PATCH_postcondition:
-      proposed_final_instructor_id_must_equal_same_linked_staff_profile_id: true
-      transfer_to_other_instructor_under_own: forbidden
-      clear_instructor_under_own: forbidden
-    organization_scope_reassignment:
-      may_change_instructor_with_same_tenant_and_domain_validation: true
-      resulting_own_owner_after_commit: new_instructor_id_or_none
-    CalendarEvent_cancel_or_complete_under_own:
-      require_current_event_owner_match_after_event_lock: true
-      ownership_not_changed_by_terminal_command: true
-    AvailabilitySlot_update_under_own:
-      require_current_slot_owner_match_after_slot_lock: true
-      require_post_update_owner_match_same_staff_profile: true
-      booked_slot_mutability_state_rule: closed_by_DB_CAL_006_only_available_is_patchable
-
-  authorization_and_concurrency_order:
-    own_mutation_lock_or_revalidation_contract:
-      - validate_active_membership_same_tenant
-      - resolve_and_hold_active_staff_membership_link_for_scope_or_equivalently_revalidate_under_serialization
-      - lock_target_event_or_slot_FOR_UPDATE_when_target_exists
-      - recheck_target_current_instructor_owner_after_target_lock
-      - verify_expected_target_version_where_existing_contract_requires_it
-      - verify_proposed_post_state_owner_for_PATCH
-      - execute_domain_mutation
-      - commit_with_existing_DB_CAL_003_004_guards
-    preferred_link_stability_boundary: hold_matching_staff_membership_link_row_FOR_SHARE_until_command_commit
-    unlink_or_archive_must_not_race_to_silently_change_owner_proof_mid_command: true
-    permission_or_membership_revoke_effect: governed_by_DB4_2_authorization_version_and_membership_lifecycle
-    current_request_authorization_snapshot_may_not_be_reused_for_later_request: true
-
-  link_unlink_archive_restore_behavior:
-    staff_membership_link_unlinked:
-      event_and_slot_instructor_id_history_rewritten: false
-      own_scope_for_unlinked_membership_after_unlink: deny
-      organization_scope_management_still_possible_if_granted: true
-    staff_profile_archived:
-      active_staff_membership_link_allowed_after_archive: false
-      own_scope_after_archive: deny
-      historical_instructor_relation_preserved: true
-    staff_profile_restored:
-      old_staff_membership_link_auto_reopened: false
-      own_scope_auto_restored: false
-      explicit_new_active_link_required_before_own_can_match_again: true
-    new_membership_explicitly_linked_to_same_staff_profile:
-      own_scope_may_match_existing_targets_again_if_permission_and_scope_granted: true
-      ownership_identity_is_staff_profile_not_original_user_creator: true
+  formal_driving_lesson_calendar_view_owner_adapter:
+    source: training_sessions.instructor_id
+    owner_identity: StaffProfile
+    own_view_requires_active_membership_staff_link_to_same_instructor: true
+    calendar_manage_own_grants_training_session_mutation: false
+    training_session_mutation_permission_required: true
 
   query_and_permission_adapter_rules:
-    calendar_manage_own:
-      scope_profile: own_only
-      canonical_target_owner_adapter: instructor_id_to_active_linked_staff_profile
-    calendar_publish_student_slots:
-      scope_profile: organization_or_own
-      own_adapter: availability_slots.instructor_id_to_active_linked_staff_profile
-      organization_adapter: existing_DB4_2_tenant_resource
-    calendar_view:
-      scope_profile: calendar_scoped
-      manual_CalendarEvent_own_adapter: calendar_events.instructor_id_to_active_linked_staff_profile
-      other_existing_assigned_students_assigned_locations_organization_adapters_remain_OR_and_unchanged: true
-    list_get_search_count_export_filtering:
-      own_filter_must_be_in_backend_query_or_equivalent_authorized_relation: true
-      UI_only_filter: forbidden
-    important_date_projection_owner_adapter_changed_here: false
-
-  created_by_and_history_security:
-    created_by_user_id:
-      semantics: immutable_or_historical_provenance_of_creation
-      grants_calendar_manage_own: false
-      grants_calendar_view_own: false
-    lifecycle_actor_fields:
-      semantics: audit_actor_only
-      grant_ownership: false
-    rationale: >-
-      A secretary or organization administrator may create an event for instructor B.
-      The record then belongs to instructor B for own-scope purposes because instructor_id
-      is the domain owner. Conversely, an event created by instructor A without an
-      instructor_id remains ownerless for own scope instead of silently becoming A-owned.
-
-  migration_design:
-    migrations_created_in_this_step: false
-    aggregate_core_schema_modified_in_this_step: false
-    aggregate_docs87_modified_in_this_step: false
-    new_owner_column_required: false
-    data_backfill_required_for_owner_relation: false
-    performance_indexes_when_later_generating_DB4_5_migrations:
-      - calendar_events[organization_id,instructor_id]
-      - availability_slots[organization_id,instructor_id]
-    legacy_rows_with_null_instructor:
-      infer_owner_from_created_by_user_id: forbidden
-      infer_owner_from_lifecycle_actor: forbidden
-      remain_ownerless_for_own_scope: true
-      organization_scope_can_still_manage_if_granted: true
-    legacy_rows_with_instructor:
-      owner_is_existing_same_tenant_instructor_id: true
-      no_creator_based_override: true
-
-  tests_required:
-    - calendar_event_own_matches_only_when_active_membership_has_active_staff_link_to_event_instructor
-    - calendar_event_own_denies_when_instructor_id_is_null_even_if_created_by_user_is_current_user
-    - calendar_event_own_denies_when_created_by_user_matches_but_instructor_belongs_to_other_staff_profile
-    - general_event_with_self_instructor_can_be_managed_by_matching_own_scope
-    - general_event_without_instructor_requires_non_own_scope_for_management
-    - driving_lesson_with_self_instructor_can_be_managed_by_matching_own_scope
-    - driving_lesson_with_other_instructor_is_denied_under_own
-    - driving_lesson_without_instructor_is_denied_under_own_without_inventing_DB_CAL_007_requirement
-    - own_create_calendar_event_requires_proposed_instructor_equal_active_linked_staff_profile
-    - own_PATCH_cannot_change_instructor_to_other_staff_profile
-    - own_PATCH_cannot_clear_instructor
-    - organization_manage_can_reassign_instructor_subject_to_same_tenant_and_domain_rules
-    - own_cancel_requires_current_owner_match_after_event_lock
-    - own_complete_requires_current_owner_match_after_event_lock
-    - availability_slot_own_matches_only_when_slot_instructor_equals_active_linked_staff_profile
-    - own_slot_create_requires_proposed_instructor_equal_active_linked_staff_profile
-    - own_slot_update_cannot_transfer_or_clear_instructor
-    - organization_scope_slot_management_does_not_require_own_match
-    - calendar_book_for_student_authorization_is_not_redefined_as_slot_own_permission
-    - unlinking_staff_membership_link_removes_own_access_without_rewriting_historical_event_or_slot
-    - archiving_staff_removes_own_access_and_preserves_instructor_history
-    - restoring_staff_without_new_link_does_not_restore_own_access
-    - explicit_new_link_to_same_staff_profile_can_restore_own_resolution_for_existing_targets
-    - created_by_user_id_never_expands_own_scope
-    - same_user_without_active_staff_link_does_not_match_staff_owned_calendar_target
-    - cross_tenant_target_is_denied_before_owner_resolution
-    - calendar_view_with_own_scope_filters_manual_events_by_instructor_owner_in_backend_query
-    - calendar_view_assigned_students_assigned_locations_and_organization_scope_semantics_remain_unchanged
-    - legacy_null_instructor_row_is_not_backfilled_from_created_by_user
-    - concurrent_link_unlink_and_own_mutation_cannot_commit_using_a_disappeared_owner_proof_without_defined_serialization
-
-  intentionally_not_solved_by_DB_CAL_005:
-    availability_slot_status_and_booking_exactly_once_state_machine: closed_by_DB_CAL_006
-    availability_booking_reservation_owner_kind_and_claim_materialization: closed_by_DB_CAL_006
-    book_cancel_race_and_reavailability: closed_by_DB_CAL_006
-    driving_lesson_vs_training_session_canonical_schedule_owner: DB-CAL-007
-    training_session_claim_origin_mapping: DB-CAL-007
-    exact_HTTP_scope_denial_error_payload: Stage5_acceptance_contract_sync
-    important_date_projection_own_scope_adapter: not_required_to_close_calendar_manage_own_blocker
+    calendar_view_manual_general_event_own: calendar_events.instructor_id
+    calendar_view_formal_driving_lesson_own: training_sessions.instructor_id
+    calendar_view_assigned_students_for_formal_driving_lesson: course_enrollments.student_id
+    calendar_view_assigned_locations_for_formal_driving_lesson: training_sessions.location_id
+    existing_scope_OR_semantics_preserved: true
+    frontend_filter_is_security_boundary: false
 
   self_audit:
-    existing_DB4_2_own_semantics_reused_without_redefinition: PASS
-    canonical_owner_for_calendar_event_is_existing_instructor_id: PASS
-    canonical_owner_for_availability_slot_is_existing_instructor_id: PASS
-    separate_owner_column_not_invented: PASS
-    null_owner_fails_closed_for_own_scope: PASS
-    created_by_user_is_not_authorization_shortcut: PASS
-    own_create_cannot_claim_other_instructor_or_ownerless_target: PASS
-    own_PATCH_cannot_transfer_or_clear_owner: PASS
-    organization_scope_can_manage_ownerless_or_reassign_with_existing_tenant_rules: PASS
-    staff_link_unlink_archive_restore_behavior_matches_DB4_3: PASS
-    list_and_get_authorization_is_backend_query_enforced: PASS
-    assigned_students_assigned_locations_organization_semantics_not_redefined: PASS
-    slot_booking_authorization_and_lifecycle_not_solved_early: PASS
-    formal_training_schedule_owner_not_solved_early: PASS
+    DB4_2_own_semantics_reused_without_redefinition: PASS
+    created_by_user_is_not_owner_shortcut: PASS
+    formal_projection_owner_uses_training_session_instructor: PASS
+    calendar_permission_does_not_escalate_into_training_mutation_permission: PASS
     aggregate_core_schema_modified_in_step: false
     aggregate_docs87_modified_in_step: false
     Laravel_migrations_created: false
-    later_DB4_slices_entered: false
-    UI_or_feature_implementation_started: false
 
 # DB-CAL-006
 availability_slot_booking_lifecycle_and_exactly_once:
   blocker: DB-CAL-006
   severity: P1
   status: PASS
-  goal: >-
-    Make one published AvailabilitySlot transition atomically from availability to at
-    most one booked reservation, enforce all Student/Instructor/Vehicle/Location conflicts
-    through the shared DB-CAL-003 GiST boundary, preserve versioned lifecycle history,
-    and make cancellation deterministic without silently republishing availability.
 
-  source_contracts:
-    API_paths: specs/api/paths/pkk-calendar.yaml
-    API_book_description: slot_atomically_booked_for_one_student
-    API_cancel_description: slot_cancelled_or_booking_released_according_to_lifecycle
-    test_strategy: docs/84-test-strategy.md
-    race_requirement: at_most_one_booking_for_one_slot_or_resource
-    same_tenant_student_boundary: DB-CAL-001
-    own_scope_slot_owner_boundary: DB-CAL-005
-    conflict_boundary: DB-CAL-003
+  canonical_status_values: [available, booked, cancelled]
+  concurrency_root: availability_slots.version
+  booked_student_and_booked_at_pair_required: true
+  cancelled_slot_terminal_and_not_auto_republished: true
+  normal_hard_delete: forbidden
 
-  canonical_status_values:
-    - available
-    - booked
-    - cancelled
-  status_check_required: true
+  DB_CAL_007_extension_fields:
+    training_session_id:
+      type: uuid
+      nullable: true
+      meaning: immutable_link_after_explicit_formalization_of_booked_reservation
+      same_tenant_FK:
+        source_columns: [organization_id, training_session_id]
+        target_table: training_sessions
+        target_columns: [organization_id, id]
+        match: MATCH_SIMPLE
+        on_update: RESTRICT
+        on_delete: RESTRICT
+      unique_when_nonnull:
+        columns: [organization_id, training_session_id]
+      normal_clear_after_link: forbidden
 
-  canonical_availability_slots_fields:
-    existing_or_retained:
-      - id_uuid
-      - organization_id_uuid
-      - instructor_id_uuid_nullable
-      - vehicle_id_uuid_nullable
-      - location_id_uuid_nullable
-      - starts_at_timestamptz
-      - ends_at_timestamptz
-      - status_varchar
-      - booked_student_id_uuid_nullable
-      - booked_at_timestamptz_nullable
-      - version_bigint
-      - created_at_timestamptz
-      - updated_at_timestamptz
-    version:
-      type: bigint
-      nullable: false
-      default: 1
-      check: version_gte_1
-    time_check:
-      expression: ends_at_gt_starts_at
-      required: true
-    candidate_key_for_claim_owner_guard:
-      columns: [organization_id, id]
-      unique_constraint_required: true
-
-  state_matrix:
-    available:
-      booked_student_id: null
-      booked_at: null
-      availability_slot_booking_claims: zero
-      patchable: true
-      bookable: true
-      cancellable: true
-    booked:
+  booked_substates_after_DB_CAL_007:
+    unformalized:
+      training_session_id: null
+      availability_slot_booking_claims: exact_student_and_nonnull_slot_resources
+      slot_is_current_reservation_owner: true
+      cancel_via_slot_command: allowed
+    formalized:
+      training_session_id: nonnull
       booked_student_id: nonnull
       booked_at: nonnull
-      availability_slot_booking_claims: exact_student_and_nonnull_slot_resources
-      patchable: false
-      bookable: false
-      cancellable: true
-    cancelled:
-      booked_student_id: null
-      booked_at: null
       availability_slot_booking_claims: zero
-      patchable: false
-      bookable: false
-      cancellable: false_for_new_command
-    booked_student_and_booked_at_pair_check_required: true
-    status_booking_fields_equivalence_check_required: true
-    generic_PATCH_may_set_status_booked_cancelled_or_booking_fields: false
-    normal_hard_delete: forbidden
+      slot_is_current_reservation_owner: false
+      linked_training_session_is_current_schedule_owner: true
+      generic_slot_PATCH: forbidden
+      slot_cancel_command: forbidden_use_training_session_lifecycle
+      calendar_booked_slot_projection_suppressed_to_avoid_duplicate_item: true
+    cancelled:
+      training_session_id: null
+      availability_slot_booking_claims: zero
 
-  transition_matrix:
-    create:
-      from: none
-      to: available
-      version_after: 1
-    material_PATCH:
-      from: available
-      to: available
-      version_increment: exactly_once
-    book:
-      from: available
-      to: booked
-      version_increment: exactly_once
-    cancel_available:
-      from: available
-      to: cancelled
-      version_increment: exactly_once
-    cancel_booked:
-      from: booked
-      to: cancelled
-      version_increment: exactly_once
-      clears_current_booking_fields: true
-      removes_booking_claims: true
-      preserves_prior_student_in_lifecycle_history: true
-    booked_to_available_automatic_release: forbidden
-    cancelled_to_available_normal_reopen: forbidden
-    cancelled_to_booked: forbidden
-    booked_to_booked_second_booking: forbidden
-    automatic_reavailability_after_cancel: false
-    reavailability_policy: >-
-      Cancellation is terminal for the slot. If the OSK wants to expose the same time
-      again it must explicitly publish a new AvailabilitySlot (or a future separately
-      designed reopen capability). Cancellation never silently creates a new available
-      slot and never rewrites the cancelled row back to available.
+  formalization_history_extension:
+    lifecycle_event_type_added: formalized
+    transition: booked_to_booked_material_version
+    requires_pre_state_training_session_id_null: true
+    requires_post_state_training_session_id_nonnull: true
+    booking_student_id_snapshot: preserve_current_booked_student
+    slot_version_increment: exactly_once
+    same_status_material_transition_allowed_only_for_this_dedicated_command: true
 
-  version_and_expected_version:
-    concurrency_root: availability_slots.version
-    create_initial_version: 1
-    material_PATCH_requires_expected_version: true
-    book_requires_expected_version_at_domain_boundary: true
-    cancel_requires_expected_version_at_domain_boundary: true
-    expected_version_source_for_PATCH: If-Match
-    current_Stage3_book_cancel_HTTP_contract_has_If_Match: false
-    Stage5_sync_required_for_book_cancel_expected_version_marker: true
-    idempotency_key_is_not_substitute_for_expected_version: true
-    command_lock: SELECT_availability_slot_FOR_UPDATE
-    compare_expected_version_after_lock: true
-    stale_expected_version_result: conflict_no_partial_write
-    semantic_noop_PATCH:
-      version_increment: false
-      lifecycle_history_append: false
-      updated_at_change: false
-    material_mutation_version_increment: exactly_once
+  linked_student_and_session_guard:
+    enforcement: deferrable_constraint_trigger_or_equivalent_transactional_DB_guard
+    when_training_session_id_nonnull_requires:
+      - slot_status_equals_booked
+      - linked_training_session_session_type_equals_practical
+      - linked_training_session_organization_equals_slot_organization
+      - linked_training_session_course_student_equals_slot_booked_student_id
+    current_slot_time_resource_fields_after_formalization_are_historical_booking_snapshot: true
+    later_training_session_reschedule_does_not_rewrite_slot_snapshot: true
 
-  command_effective_time:
-    capture_once_per_new_material_command_after_slot_lock: true
-    canonical_name: command_effective_at
-    storage_type: timestamptz
-    book_sets_booked_at_to_command_effective_at: true
-    matching_lifecycle_event_occurred_at_uses_same_value: true
-    described_as_exact_database_commit_timestamp: false
+  existing_book_and_cancel_rules_preserved:
+    booking_permission: calendar.book_for_student
+    booking_auto_creates_training_session: false
+    reason_no_auto_create: booking_request_has_no_unambiguous_course_context_and_must_not_guess
+    cancelled_slot_auto_republished: false
+    formalized_slot_auto_republished_when_session_cancelled_or_completed: false
 
-  availability_slot_lifecycle_events:
-    purpose: append_only_material_version_history
+  self_audit:
+    unformalized_booking_keeps_DB_CAL_006_exactly_once_claims: PASS
+    formalized_booking_transfers_reservation_owner_without_second_claim_set: PASS
+    training_session_link_same_tenant_and_unique: PASS
+    booked_student_matches_linked_session_course_student: PASS
+    slot_snapshot_not_rewritten_by_later_session_reschedule: PASS
+    formalized_slot_cannot_be_cancelled_independently_from_training_session: PASS
+    no_auto_reavailability_after_formalization_or_session_terminal_state: PASS
+    aggregate_core_schema_modified_in_step: false
+    aggregate_docs87_modified_in_step: false
+    Laravel_migrations_created: false
+
+# DB-CAL-007
+formal_driving_lesson_training_session_source_of_truth:
+  blocker: DB-CAL-007
+  severity: P1
+  status: PASS
+  goal: >-
+    Make TrainingSession the only mutable schedule owner for formal training while
+    preserving the calendar driving_lesson UX as a read/command projection, extending
+    the shared conflict boundary to TrainingSession, and defining an explicit booked-slot
+    handoff with no duplicate reservation fact or training-credit shortcut.
+
+  authority_reused:
+    formal_training_contract: specs/database/students-courses-training.yml
+    DB_TRN_006_training_session_statuses: [planned, completed, cancelled]
+    DB_TRN_006_training_session_concurrency_root: training_sessions.version
+    DB_TRN_006_schedule_fields:
+      - starts_at
+      - ends_at
+      - instructor_id
+      - vehicle_id
+      - location_id
+    DB_TRN_006_formal_credit_pipeline: TrainingSession_to_verified_Attendance_to_TrainingHourLedger
+    DB_TRN_006_complete_is_only_base_credit_creation_path: true
+    calendar_form_sources:
+      - specs/screens/calendar.yml
+      - specs/screens/calendar-add-event.yml
+    calendar_API_source: specs/api/paths/pkk-calendar.yaml
+    training_API_source: specs/api/paths/students-courses.yaml
+
+  canonical_schedule_ownership:
+    formal_training_business_owner: training_sessions
+    practical_formal_lesson_calendar_type: driving_lesson
+    calendar_events_is_formal_training_schedule_owner: false
+    calendar_events_stores_formal_driving_lesson_row: false
+    training_session_time_and_resource_fields_mirrored_into_mutable_calendar_row: false
+    calendar_item_is_projection: true
+    projection_identity:
+      source_kind: training_session
+      source_id: training_sessions.id
+      stable_opaque_calendar_id_may_encode_source_kind_and_id: true
+      must_not_resolve_as_calendar_events_primary_key: true
+    source_fields:
+      starts_at: training_sessions.starts_at
+      ends_at: training_sessions.ends_at
+      status: training_sessions.status
+      version: training_sessions.version
+      student_id: course_enrollments.student_id
+      instructor_id: training_sessions.instructor_id
+      vehicle_id: training_sessions.vehicle_id
+      location_id: training_sessions.location_id
+      display_name: training_session_calendar_details.display_name
+      custom_meeting_place: training_session_calendar_details.custom_meeting_place
+    only_practical_session_projects_as_driving_lesson: true
+    theory_session_calendar_type_not_invented: true
+
+  training_session_calendar_details:
+    purpose: calendar_only_companion_metadata_not_schedule_source
+    cardinality: zero_or_one_per_training_session
     fields:
-      - id_uuid_PK
       - organization_id_uuid_not_null
-      - availability_slot_id_uuid_not_null
-      - event_type_varchar_not_null
-      - from_status_varchar_nullable_only_for_created_or_migration_baseline
-      - to_status_varchar_not_null
-      - slot_version_before_bigint_nullable_only_for_created_or_migration_baseline
-      - slot_version_after_bigint_not_null
-      - actor_user_id_uuid_nullable_only_for_migration_baseline
-      - booking_student_id_snapshot_uuid_nullable
-      - reason_text_nullable
-      - changed_fields_redacted_jsonb_nullable
-      - occurred_at_timestamptz_not_null
-    event_type_values:
-      runtime: [created, updated, booked, cancelled]
-      migration_only: [migration_baseline]
-    same_tenant_slot_FK:
-      source_columns: [organization_id, availability_slot_id]
-      target_table: availability_slots
+      - training_session_id_uuid_PK_or_unique_not_null
+      - display_name_text_nullable
+      - custom_meeting_place_text_nullable
+      - created_at_timestamptz_not_null
+      - updated_at_timestamptz_not_null
+    same_tenant_session_FK:
+      source_columns: [organization_id, training_session_id]
+      target_table: training_sessions
       target_columns: [organization_id, id]
       on_update: RESTRICT
       on_delete: RESTRICT
-    booking_student_snapshot_same_tenant_FK:
-      source_columns: [organization_id, booking_student_id_snapshot]
-      target_table: students
-      target_columns: [organization_id, id]
-      match: MATCH_SIMPLE
-      on_update: RESTRICT
-      on_delete: RESTRICT
-    actor_user_FK:
-      target_table: users
-      target_column: id
-      nullable_only_for_migration_baseline: true
-      on_update: RESTRICT
-      on_delete: RESTRICT
-    unique_one_history_event_per_material_version:
-      columns: [organization_id, availability_slot_id, slot_version_after]
-    runtime_version_pair_rule: slot_version_after_equals_slot_version_before_plus_1
-    create_rule:
-      slot_version_before: null
-      slot_version_after: 1
-      from_status: null
-      to_status: available
-      booking_student_id_snapshot: null
-    book_rule:
-      from_status: available
-      to_status: booked
-      booking_student_id_snapshot: equals_final_booked_student_id
-    cancel_available_rule:
-      from_status: available
-      to_status: cancelled
-      booking_student_id_snapshot: null
-    cancel_booked_rule:
-      from_status: booked
-      to_status: cancelled
-      booking_student_id_snapshot: equals_pre_cancel_booked_student_id
-    migration_baseline_rule:
-      slot_version_before: null
-      slot_version_after: current_slot_version
-      actor_user_id_may_be_null: true
-      booking_student_snapshot_only_when_reliably_known: true
-    current_version_history_final_state_guard:
-      type: deferrable_constraint_trigger_or_equivalent_transactional_DB_guard
-      deferrability: DEFERRABLE_INITIALLY_DEFERRED
-      final_slot_requires:
-        - exactly_one_history_row_with_slot_version_after_equal_to_availability_slot_version
-        - matching_history_to_status_equal_to_availability_slot_status
-      runtime_successor_requires:
-        - slot_version_before_equals_previous_current_slot_version
-        - slot_version_after_equals_slot_version_before_plus_1
-      migration_baseline_may_anchor_unknown_earlier_history: true
-      direct_slot_version_status_or_booking_field_change_without_matching_history: forbidden
-    business_history_rows_mutable_after_insert: false
-    normal_hard_delete: forbidden
+    practical_session_only_guard:
+      deferrable_or_transactional_DB_guard: true
+      session_type_must_equal_practical_when_row_exists: true
+    custom_text_check: custom_meeting_place_is_null_or_btrim_nonempty
+    meeting_place_cross_table_guard:
+      deferrable_or_transactional_DB_guard: true
+      invariant: >-
+        For a practical TrainingSession projected in Calendar, location_id and
+        training_session_calendar_details.custom_meeting_place are zero-or-one sources.
+      both_null_allowed: true
+      both_nonnull_forbidden: true
+    display_name_or_custom_text_mutation_changes_training_session_version: true
+    reason: calendar_projection_clients_need_one_expected_version_for_entire_formal_lesson_item
+    metadata_update_without_matching_training_session_version_increment: forbidden
+    metadata_hard_delete_after_terminal_session_as_normal_edit: forbidden
 
-  claim_owner_kind_extension:
-    previous_DB_CAL_003_allowed_values: [calendar_event]
-    allowed_values_after_DB_CAL_006: [calendar_event, availability_slot_booking]
+  runtime_calendar_storage_supersession:
+    DB_CAL_002_provisional_manual_driving_lesson_row_rule:
+      superseded: true
+      current_rule: calendar_events_runtime_event_type_check_general_event_only
+      rationale: >-
+        DB-CAL-002 explicitly left formal-driving-lesson storage for DB-CAL-007. Keeping
+        a second mutable CalendarEvent with the same schedule fields would violate the
+        already authoritative TrainingSession schedule and formal credit lifecycle.
+    DB_CAL_004_calendar_event_driving_lesson_lifecycle_rule:
+      superseded_for_formal_lessons: true
+      current_rule: CalendarEvent lifecycle applies only to manual general_event rows
+    DB_CAL_005_calendar_manage_own_on_driving_lesson_CalendarEvent:
+      superseded_for_formal_lessons: true
+      current_rule: view ownership resolves through TrainingSession instructor, mutations require training permissions
+    visible_event_type_option_removed: false
+    driving_lesson_UI_capability_removed: false
+
+  calendar_command_routing:
+    general_event:
+      persistence: calendar_events
+      create_update_cancel_complete: DB_CAL_004_commands_and_calendar_permissions
+    driving_lesson:
+      persistence: training_sessions_plus_optional_training_session_calendar_details
+      create:
+        canonical_command: TrainingSession_create_with_session_type_practical
+        permission: training_sessions.create
+        course_context_required: true
+        student_id_must_equal_course_enrollment_student: true
+        calendar_manage_permission_alone_is_sufficient: false
+      update_or_reschedule:
+        canonical_command: TrainingSession_planned_PATCH
+        permission: training_sessions.edit
+        expected_version: training_sessions.version
+        updates_calendar_companion_metadata_same_transaction_when_requested: true
+      cancel:
+        canonical_command: TrainingSession_cancel
+        permission: training_sessions.cancel
+        expected_version_required_at_domain_boundary: true
+      complete:
+        canonical_command: TrainingSession_complete
+        permission: training_sessions.edit
+        requires_DB_TRN_006_verified_attendance_and_credit_equivalence: true
+      generic_calendar_event_mutation_endpoint_may_target_training_projection: false
+    Stage5_contract_sync:
+      current_CreateCalendarEventRequest_lacks_course_enrollment_id: true
+      current_calendar_event_paths_are_calendar_event_row_oriented: true
+      required_change: >-
+        Keep the visible Add Event/Jazda capability but route the driving_lesson branch
+        to the TrainingSession command contract. Add explicit course context or a
+        source-specific operation/schema. Do not silently select a course when the
+        student has zero or multiple eligible active enrollments.
+      exact_union_schema_operation_ids_permissions_and_errors: Stage5_acceptance_contract_sync
+
+  course_context_resolution_for_calendar_driving_lesson_create:
+    preferred_authority: explicit_course_enrollment_id
+    selected_student_is_not_sufficient_when_course_context_ambiguous: true
+    implicit_resolution_allowed_only_when_exactly_one_eligible_active_course_is_provable: true
+    zero_or_multiple_eligible_courses_result: validation_requires_explicit_course_context
+    never_choose_latest_created_course_or_first_row: true
+    course_must_be_active_after_lock: true
+    session_type_for_calendar_driving_lesson: practical
+    visible_student_field_may_be_used_as_search_input_but_formal_student_is_derived_from_course: true
+
+  training_session_claim_owner_kind:
+    previous_allowed_claim_owner_kinds: [calendar_event, availability_slot_booking]
+    allowed_after_DB_CAL_007: [calendar_event, availability_slot_booking, training_session]
     database_check_required: true
-    canonical_check_expression: claim_owner_kind IN ('calendar_event','availability_slot_booking')
-    unknown_owner_kind_rejected: true
-    DB_CAL_007_may_not_reuse_or_extend_without_own_gate: true
+    owner_guard_same_tenant_training_session_required: true
+    exact_claim_guard: DB_CAL_003_training_session_claim_guard
+    planned_theory_and_practical_sessions_claim_resources: true
+    completed_or_cancelled_sessions_claim_resources: false
+    source_of_student_claim: course_enrollments.student_id
+    source_of_instructor_vehicle_location_and_time: training_sessions
+    claims_are_not_training_hour_ledger: true
 
-  availability_slot_booking_claim_owner_guard:
-    claim_owner_kind: availability_slot_booking
-    availability_slots_candidate_key_required: [organization_id, id]
-    owner_resolution: >-
-      Every claim with claim_owner_kind=availability_slot_booking resolves to one
-      availability_slots row with the same organization_id and claim_owner_id=id.
-    owner_guard:
-      type: deferrable_constraint_trigger_or_equivalent_transactional_DB_guard
-      deferrability: DEFERRABLE_INITIALLY_DEFERRED
-    exact_claim_set_final_state_guard:
-      type: deferrable_constraint_trigger_or_equivalent_transactional_DB_guard
-      deferrability: DEFERRABLE_INITIALLY_DEFERRED
-      booked_slot_requires:
-        - exactly_one_student_claim_equal_to_booked_student_id
-        - exactly_one_instructor_claim_iff_instructor_id_nonnull
-        - exactly_one_vehicle_claim_iff_vehicle_id_nonnull
-        - exactly_one_location_claim_iff_location_id_nonnull
-        - every_claim_interval_equals_slot_interval
-        - every_claim_organization_equals_slot_organization
-      available_or_cancelled_slot_requires_zero_availability_slot_booking_claims: true
-      extra_claim_not_corresponding_to_slot_current_resource_forbidden: true
-      direct_booked_slot_resource_time_or_student_change_without_claim_sync: forbidden
-    exact_claim_order: [student, instructor, vehicle, location]
-    same_GiST_exclusion_constraints_as_calendar_event_claims: true
-    booking_vs_calendar_event_overlap_rejected: true
-    booking_vs_other_booking_overlap_rejected: true
-    booking_claim_insert_credits_training_time: false
+  training_session_schedule_transactions_with_claims:
+    create:
+      lock_order:
+        - course_enrollment_FOR_UPDATE
+        - insert_training_session
+        - claims_student_instructor_vehicle_location
+      requirements:
+        - parent_course_active
+        - same_tenant_relations_DB_TRN_001
+        - status_planned_version_1
+        - duration_rule_DB_TRN_006
+        - exact_training_session_claim_set
+        - GiST_conflict_boundary
+      conflict_rolls_back_session_metadata_and_claims: true
+    planned_PATCH_or_reschedule:
+      lock_order:
+        - course_enrollment_FOR_UPDATE
+        - training_session_FOR_UPDATE
+        - claims_student_instructor_vehicle_location
+      compare_expected_session_version_after_lock: true
+      replace_claims_atomically_when_schedule_or_resource_changes: true
+      companion_metadata_change_uses_same_session_version_increment: true
+      GiST_failure_rolls_back_to_previous_session_claim_and_metadata_state: true
+    complete:
+      preserve_DB_TRN_006_lock_prefix:
+        - course_enrollment_FOR_UPDATE
+        - training_session_FOR_UPDATE
+        - training_session_attendance_row_FOR_UPDATE
+      then_remove_training_session_claims_before_final_commit: true
+      status_credit_attendance_and_claim_release_same_transaction: true
+      completed_session_final_claim_count: 0
+      base_credit_created_only_by_DB_TRN_006_rules: true
+    cancel:
+      preserve_DB_TRN_006_lock_prefix:
+        - course_enrollment_FOR_UPDATE
+        - training_session_FOR_UPDATE
+      then_remove_training_session_claims_before_final_commit: true
+      cancelled_session_final_claim_count: 0
+      creates_or_reverses_training_credit: false
+    attendance_only_update:
+      schedule_claim_set_changed: false
+      existing_DB_TRN_006_lock_order_preserved: true
 
-  reservation_representation:
-    successful_booking_creates_calendar_event_row: false
-    successful_booking_creates_second_mutable_schedule_copy: false
-    canonical_current_reservation_owner: availability_slot_row_while_status_booked
-    reservation_conflict_projection: calendar_resource_claims_owner_kind_availability_slot_booking
-    optional_calendar_read_model_projection:
-      allowed: true
-      source: booked_availability_slot
-      authoritative: false
-      direct_manual_mutation: forbidden
-      exact_Stage3_or_Stage5_API_union_shape: Stage5_acceptance_contract_sync
-    rationale: >-
-      Creating an independent CalendarEvent for the booking before DB-CAL-007 would
-      introduce another mutable schedule fact and force a premature choice about formal
-      TrainingSession ownership. The booked slot plus exact claims is sufficient as the
-      current reservation source in DB-CAL-006.
-    DB_CAL_007_obligation: >-
-      If a booked availability reservation later becomes a formal driving lesson,
-      DB-CAL-007 must define an atomic handoff or ownership rule so there is still only
-      one effective reservation fact and no duplicate overlapping claim set.
+  formalized_availability_booking_handoff:
+    automatic_at_book_time: false
+    rationale: BookAvailabilitySlotRequest_has_student_but_no_course_context_and_must_not_guess_formal_enrollment
+    dedicated_domain_command_required: true
+    exact_HTTP_surface: Stage5_acceptance_contract_sync
+    permission_required: training_sessions.create
+    idempotency_key_required: true
+    expected_slot_version_required: true
+    explicit_course_enrollment_id_required_unless_exactly_one_eligible_course_provable: true
+    preconditions:
+      - slot_status_booked
+      - slot_training_session_id_null
+      - slot_booked_student_id_nonnull
+      - course_active
+      - course_student_equals_slot_booked_student_id
+    lock_order:
+      - course_enrollment_FOR_UPDATE
+      - availability_slot_FOR_UPDATE
+    atomic_effects:
+      - create_planned_practical_training_session_from_slot_time_instructor_vehicle_location
+      - create_optional_training_session_calendar_details_if_needed
+      - remove_all_availability_slot_booking_claims
+      - insert_exact_training_session_claim_set_for_same_reservation
+      - set_availability_slot_training_session_id_to_new_session
+      - increment_availability_slot_version_exactly_once
+      - append_availability_slot_formalized_lifecycle_event_same_version
+      - satisfy_slot_link_guard_training_claim_guard_and_GiST_boundary
+      - audit_and_outbox_same_transaction
+    current_slot_time_resources_after_handoff: retained_as_immutable_booking_snapshot
+    later_session_reschedule_updates_slot_snapshot: false
+    later_calendar_projection_uses_session_not_slot_snapshot: true
+    booked_slot_projection_after_handoff: suppressed
+    slot_cancel_after_handoff: forbidden_use_training_session_cancel
+    session_cancel_after_handoff_auto_republishes_slot: false
+    session_complete_after_handoff_auto_republishes_slot: false
+    handoff_failure_rolls_back_slot_claims_link_session_and_history: true
+    same_idempotency_key_retry: return_same_training_session_without_second_handoff
+    second_fresh_handoff_for_linked_slot: conflict
 
-  create_transaction:
-    idempotency_key_required_by_API: true
-    steps:
-      - claim_or_replay_idempotency_record
-      - validate_DB_CAL_001_same_tenant_slot_resources
-      - apply_DB_CAL_005_calendar_publish_student_slots_scope_to_proposed_instructor
-      - validate_positive_time_range
-      - insert_slot_status_available_version_1_with_booking_fields_null
-      - create_no_availability_slot_booking_claims
-      - append_created_lifecycle_event_version_1
-      - commit_only_if_deferred_slot_history_and_zero_claim_guards_pass
-    publication_itself_claims_resources: false
+  read_model_union:
+    sources:
+      manual_general_event: calendar_events
+      formal_driving_lesson: practical_training_sessions_plus_calendar_details
+      important_date: source_domain_projection
+      unformalized_booked_availability_reservation: availability_slots_where_booked_and_training_session_id_null
+    formalized_booked_slot_emits_separate_calendar_item: false
+    source_specific_stable_identity_required: true
+    source_specific_mutation_route_required: true
+    duplicate_item_for_same_formal_training_session_forbidden: true
+    exact_Stage5_union_schema: Stage5_acceptance_contract_sync
 
-  available_PATCH_transaction:
-    permission: calendar.publish_student_slots
-    steps:
-      - resolve_DB_CAL_005_scope_proof
-      - lock_availability_slot_FOR_UPDATE
-      - recheck_current_owner_scope_after_lock
-      - compare_expected_version_after_lock
-      - require_status_available
-      - reject_status_or_booking_fields_in_generic_PATCH
-      - validate_DB_CAL_001_same_tenant_resources_and_positive_time_range
-      - validate_DB_CAL_005_post_state_owner_for_own_scope
-      - detect_semantic_noop
-      - capture_command_effective_at_for_material_change
-      - apply_material_slot_fields
-      - increment_version_exactly_once
-      - append_updated_lifecycle_event_for_same_version_and_command_effective_at
-      - commit_only_if_history_guard_and_zero_booking_claim_guard_pass
-    booked_or_cancelled_slot_PATCH: conflict_for_normal_operation
-    publication_update_may_create_claims: false
+  lifecycle_and_history_consistency:
+    TrainingSession_history_and_formal_credit_authority_remains_DB4_4: true
+    CalendarEvent_history_does_not_duplicate_formal_session_lifecycle: true
+    availability_slot_history_preserves_booking_and_formalization_link: true
+    formal_training_session_cancel_or_complete_does_not_rewrite_slot_history: true
+    terminal_session_historical_calendar_projection_may_remain_readable: true
+    exact_default_UI_visibility_of_cancelled_or_completed_items: product_UI_policy_not_required_for_DB_gate
+    hard_delete_to_remove_formal_calendar_history: forbidden
 
-  book_transaction:
-    permission: calendar.book_for_student
-    idempotency_key_required_by_API: true
-    expected_version_required_at_domain_boundary: true
-    command_order:
-      - claim_or_replay_idempotency_record
-      - resolve_active_membership_and_same_tenant_slot
-      - validate_requested_student_same_tenant_via_DB_CAL_001
-      - authorize_calendar_book_for_student_against_requested_student_using_existing_student_scoped_RBAC
-      - lock_availability_slot_FOR_UPDATE
-      - compare_expected_version_after_lock_for_new_command
-      - require_status_available
-      - revalidate_slot_time_and_current_resource_relations
-      - capture_command_effective_at_once
-      - set_status_booked
-      - set_booked_student_id_to_requested_student
-      - set_booked_at_to_command_effective_at
-      - materialize_exact_availability_slot_booking_claim_set_in_student_instructor_vehicle_location_order
-      - let_existing_four_GiST_exclusion_constraints_accept_or_reject
-      - increment_version_exactly_once
-      - append_booked_lifecycle_event_with_student_snapshot_and_same_command_effective_at
-      - commit_only_if_deferred_exact_claim_and_history_guards_pass
-      - write_audit_and_outbox_same_transaction_when_calendar_domain_events_are_enabled
-    same_idempotency_key_same_payload_retry_after_success: return_same_result_without_second_version_or_claim_set
-    same_idempotency_key_different_student_or_payload: idempotency_conflict
-    different_key_against_already_booked_or_cancelled_slot: conflict_not_second_booking
-    GiST_conflict_result:
-      rollback_status_booking_fields_claims_history_version: true
-      slot_remains_available_at_previous_version: true
-      auto_move_or_auto_resource_change: forbidden
-
-  cancel_transaction:
-    permission: calendar.publish_student_slots
-    idempotency_key_required_by_API: true
-    expected_version_required_at_domain_boundary: true
-    allowed_source_statuses: [available, booked]
-    command_order:
-      - claim_or_replay_idempotency_record
-      - resolve_DB_CAL_005_publish_scope
-      - lock_availability_slot_FOR_UPDATE
-      - recheck_current_slot_owner_scope_after_lock
-      - compare_expected_version_after_lock_for_new_command
-      - require_status_available_or_booked
-      - capture_pre_cancel_booked_student_id_if_present
-      - capture_command_effective_at_once
-      - remove_all_availability_slot_booking_claims_if_booked
-      - clear_booked_student_id_and_booked_at
-      - set_status_cancelled
-      - increment_version_exactly_once
-      - append_cancelled_lifecycle_event_with_pre_cancel_student_snapshot_and_command_effective_at
-      - commit_only_if_zero_claim_and_history_guards_pass
-      - write_audit_and_outbox_same_transaction_when_calendar_domain_events_are_enabled
-    same_idempotency_key_same_payload_retry_after_success: return_same_result_without_second_version
-    different_key_against_already_cancelled_slot: conflict_not_second_cancellation
-    auto_republish_after_cancel: false
-    cancellation_creates_new_available_slot: false
-
-  race_matrix:
-    book_vs_book_same_expected_version:
-      result: at_most_one_booking_commits
-      loser: stale_version_or_state_conflict
-    book_vs_cancel_same_expected_version:
-      result: whichever_locks_and_commits_first_wins
-      loser: stale_version_or_state_conflict_without_partial_write
-    PATCH_vs_book_same_expected_version:
-      result: whichever_locks_and_commits_first_wins
-      loser: stale_version_or_non_available_state_conflict
-    PATCH_vs_cancel_same_expected_version:
-      result: whichever_locks_and_commits_first_wins
-      loser: stale_version_or_cancelled_state_conflict
-    two_distinct_slots_overlapping_same_resource_booking:
-      result: GiST_allows_at_most_one_conflicting_booking_commit
-    booking_vs_existing_calendar_event:
-      result: GiST_rejects_conflicting_booking_and_rolls_back_slot_to_available
-    same_idempotency_key_book_replay:
-      result: original_book_result_without_second_effect
-    same_idempotency_key_cancel_replay:
-      result: original_cancel_result_without_second_effect
-    row_and_claim_lock_order:
-      - availability_slot
-      - resource_claims_student_instructor_vehicle_location
-
-  authorization_boundaries:
-    publish_create_update_cancel:
-      permission: calendar.publish_student_slots
-      scope_semantics: DB_CAL_005_organization_or_own
-    book:
-      permission: calendar.book_for_student
-      scope_semantics: existing_student_scoped_RBAC_on_requested_student
-      slot_own_scope_required: false
-      booked_student_is_slot_owner: false
-    same_tenant_student_FK_is_final_relation_boundary: true
-    frontend_scope_filter_is_security_boundary: false
-
-  cancellation_and_history_policy:
-    cancelled_slot_is_terminal: true
-    current_booking_fields_cleared_on_cancel: true
-    previous_booked_student_preserved_in_lifecycle_event_when_booking_existed: true
-    current_booking_claims_after_cancel: zero
-    automatic_reavailability: false
-    historical_slot_row_preserved: true
-    hard_delete_to_free_time: forbidden
-    reason: >-
-      Automatic reavailability would create a new business effect merely from cancellation
-      and can expose a past or no-longer-desired time window. Re-publication must be explicit.
+  permission_boundary:
+    calendar_view_can_project_training_sessions_subject_to_existing_calendar_scopes: true
+    own_view_adapter: training_sessions.instructor_id_to_active_linked_staff_profile
+    assigned_student_adapter: course_enrollments.student_id
+    assigned_location_adapter: training_sessions.location_id
+    organization_adapter: training_session_organization_id
+    calendar_manage_own_or_organization_does_not_grant_training_sessions_create_edit_cancel: true
+    training_permissions_are_required_for_formal_lesson_mutations: true
+    calendar_book_for_student_does_not_grant_training_session_create: true
 
   migration_design:
     migrations_created_in_this_step: false
     aggregate_core_schema_modified_in_this_step: false
     aggregate_docs87_modified_in_this_step: false
     order_when_DB4_5_migrations_are_later_generated:
-      - precheck_existing_availability_slot_status_values_and_booking_field_pairs
-      - explicitly_classify_unknown_status_rows_without_guessing_from_booked_at_or_student_alone
-      - ensure_availability_slot_version_is_nonnull_bigint_and_at_least_1
-      - add_status_check_available_booked_cancelled_and_state_field_checks
-      - create_availability_slot_lifecycle_events_and_same_tenant_relations
-      - create_migration_baseline_history_event_for_each_existing_slot_current_version_using_only_reliable_state
-      - add_unique_one_history_event_per_slot_version_and_history_immutability
-      - add_deferrable_current_slot_version_history_guard
-      - precheck_each_reliably_booked_slot_against_existing_calendar_event_claims_and_other_booked_slots
-      - fail_on_legacy_booking_overlap_or_ambiguous_booking_state_before_claim_backfill
-      - add_availability_slot_booking_claim_owner_guard_while_old_claim_kind_check_still_blocks_new_kind
-      - expand_claim_owner_kind_check_to_calendar_event_or_availability_slot_booking
-      - backfill_exact_claims_for_reliably_booked_slots_only
-      - add_deferrable_availability_slot_exact_claim_set_guard
-      - validate_all_available_and_cancelled_slots_have_zero_booking_claims
-      - run_book_cancel_patch_and_cross_owner_GiST_race_tests
-    invalid_legacy_status_policy: >-
-      Do not infer available/booked/cancelled solely from booked_student_id, booked_at,
-      starts_at, updated_at or whether the slot is in the past. Require explicit reviewed
-      classification whenever the existing state is inconsistent or unknown.
-    missing_booking_evidence_policy: >-
-      A supposed booked slot without reliable Student and booked_at evidence is not
-      auto-repaired by inventing a Student, timestamp or booking. Require remediation.
-    legacy_overlap_policy: >-
-      Never select an automatic winner, cancel a slot, move a time range, clear a resource
-      or silently turn a booked slot into available merely to satisfy the GiST boundary.
-    migration_actor_policy: migration_baseline_actor_may_be_null_never_fabricate_from_unrelated_creator
-    cancelled_legacy_booking_history_policy: >-
-      If reliable evidence identifies the previously booked Student it may be preserved
-      in migration history. Otherwise do not invent the released Student identity.
-    calendar_event_backfill_from_booked_slot: forbidden
+      - precheck_existing_calendar_events_event_type_driving_lesson_rows
+      - require_explicit_classification_or_reliable_preexisting_training_session_mapping_for_each_legacy_driving_lesson_row
+      - never_match_legacy_calendar_event_to_training_session_by_time_name_or_nearest_row_heuristic
+      - nonformal_legacy_item_may_be_explicitly_reclassified_to_general_event_only_by_reviewed_remediation
+      - formal_legacy_item_requires_verified_course_and_training_session_history_before_calendar_events_general_event_only_check
+      - create_training_session_calendar_details_and_same_tenant_guards
+      - add_availability_slots_training_session_id_nullable_and_same_tenant_unique_relation
+      - extend_availability_slot_lifecycle_event_catalog_with_formalized
+      - add_linked_slot_student_training_session_deferrable_guard
+      - create_training_session_claim_owner_guard_while_claim_kind_check_still_blocks_training_session
+      - precheck_all_planned_training_sessions_for_conflicts_against_existing_general_events_unformalized_bookings_and_other_sessions
+      - fail_on_legacy_overlap_without_auto_cancel_shift_reassign_or_winner_selection
+      - expand_claim_owner_kind_check_to_include_training_session
+      - backfill_exact_claims_for_reliably_planned_training_sessions
+      - add_deferrable_training_session_exact_claim_guard
+      - change_runtime_calendar_events_event_type_check_to_general_event_only_after_legacy_driving_lesson_rows_are_resolved
+      - run_calendar_projection_mutation_routing_handoff_and_cross_owner_GiST_race_tests
+    legacy_formal_lesson_policy: >-
+      Do not create a TrainingSession merely because a legacy CalendarEvent says
+      driving_lesson. Formal training requires verified CourseEnrollment and historical
+      evidence. Ambiguous rows stop migration for explicit remediation.
+    legacy_duplicate_schedule_policy: >-
+      Do not choose CalendarEvent or TrainingSession as winner from timestamp proximity.
+      The final runtime authority is TrainingSession, but migration must preserve or
+      explicitly remediate history before the duplicate mutable calendar row is removed
+      from runtime storage.
 
   tests_required:
-    - create_slot_commits_available_version_1_no_booking_fields_no_claims_and_created_history
-    - slot_status_outside_available_booked_cancelled_is_rejected
-    - available_slot_requires_null_booking_fields_and_zero_booking_claims
-    - booked_slot_requires_student_and_booked_at_and_exact_booking_claim_set
-    - cancelled_slot_requires_null_current_booking_fields_and_zero_booking_claims
-    - booked_student_cross_tenant_relation_is_rejected_by_DB_CAL_001
-    - material_available_PATCH_with_matching_version_increments_once_and_appends_history
-    - semantic_noop_available_PATCH_does_not_increment_or_append_history
-    - booked_slot_PATCH_is_rejected
-    - cancelled_slot_PATCH_is_rejected
-    - own_scope_slot_PATCH_cannot_transfer_instructor_owner_after_DB_CAL_005
-    - booking_requires_calendar_book_for_student_scope_on_requested_student
-    - book_slot_sets_booked_state_student_time_version_and_history_atomically
-    - booking_creates_student_claim_and_each_nonnull_slot_resource_claim
-    - booking_with_all_optional_slot_resources_null_still_creates_exact_student_claim
-    - booking_claim_interval_equals_slot_interval
-    - two_concurrent_book_commands_same_slot_allow_at_most_one_commit
-    - same_book_idempotency_key_replay_does_not_create_second_booking_version_or_claims
-    - same_book_idempotency_key_with_different_student_is_rejected
-    - booking_conflicting_with_calendar_event_rolls_back_and_leaves_slot_available
-    - two_overlapping_distinct_slots_for_same_instructor_allow_at_most_one_booking_commit
-    - two_overlapping_distinct_slots_for_same_vehicle_allow_at_most_one_booking_commit
-    - two_overlapping_distinct_slots_for_same_location_allow_at_most_one_booking_commit
-    - overlapping_slots_for_same_student_allow_at_most_one_booking_commit
-    - PATCH_vs_book_same_version_has_one_material_winner
-    - book_vs_cancel_same_version_has_one_material_winner
-    - cancel_available_sets_cancelled_increments_version_and_preserves_history
-    - cancel_booked_removes_claims_clears_current_booking_fields_and_preserves_student_in_history
-    - same_cancel_idempotency_key_replay_does_not_cancel_twice
-    - new_cancel_command_against_cancelled_slot_is_rejected
-    - cancelled_slot_is_not_automatically_republished
-    - cancelled_slot_cannot_be_rebooked
-    - every_current_slot_version_has_exactly_one_matching_lifecycle_history_event
-    - direct_slot_status_version_or_booking_field_change_without_matching_history_is_rejected
-    - availability_slot_lifecycle_history_is_immutable
-    - unknown_claim_owner_kind_remains_rejected_after_two_allowed_owner_kinds
-    - availability_slot_booking_claim_owner_must_resolve_same_tenant_slot
-    - available_or_cancelled_slot_direct_booking_claim_insert_is_rejected_at_commit
-    - booked_slot_direct_claim_removal_is_rejected_at_commit
-    - booked_slot_does_not_create_independent_calendar_event_row
-    - booking_claim_insert_does_not_create_training_attendance_or_hour_credit
-    - migration_does_not_guess_status_student_time_actor_or_overlap_winner
+    - runtime_calendar_events_accept_general_event_and_reject_new_persisted_driving_lesson_row
+    - calendar_driving_lesson_projection_reads_practical_training_session_time_status_version_and_resources
+    - calendar_driving_lesson_student_is_derived_from_training_session_course
+    - training_session_calendar_details_preserve_optional_display_name
+    - training_session_calendar_details_preserve_custom_meeting_place_without_location_id
+    - training_session_calendar_details_reject_custom_meeting_place_when_session_location_id_nonnull
+    - training_session_calendar_details_reject_whitespace_only_custom_text
+    - calendar_projection_metadata_update_increments_training_session_version
+    - formal_driving_lesson_calendar_projection_cannot_be_mutated_through_calendar_event_row_endpoint
+    - calendar_manage_permission_without_training_permission_cannot_create_update_cancel_or_complete_formal_lesson
+    - training_session_create_from_calendar_requires_active_course_and_training_create_permission
+    - ambiguous_student_course_context_is_not_resolved_by_latest_or_first_course
+    - planned_training_session_has_exact_student_instructor_vehicle_location_claim_set
+    - planned_training_session_student_claim_equals_course_student
+    - completed_or_cancelled_training_session_has_zero_claims
+    - training_session_claim_owner_must_resolve_same_tenant_session
+    - unknown_claim_owner_kind_still_rejected_after_training_session_extension
+    - planned_session_direct_time_or_resource_change_without_claim_sync_is_rejected_at_commit
+    - concurrent_training_session_create_vs_general_event_same_resource_overlap_allows_at_most_one_commit
+    - concurrent_training_session_create_vs_unformalized_booking_same_resource_overlap_allows_at_most_one_commit
+    - concurrent_two_training_sessions_same_resource_overlap_allows_at_most_one_commit
+    - training_session_reschedule_conflict_rolls_back_to_prior_schedule_and_claim_set
+    - training_session_complete_releases_claims_and_uses_DB_TRN_006_attendance_credit_equivalence
+    - training_session_cancel_releases_claims_without_creating_or_reversing_credit
+    - calendar_complete_endpoint_cannot_credit_formal_training
+    - booking_does_not_auto_create_training_session_without_course_context
+    - formalize_booked_slot_requires_same_student_course
+    - formalize_booked_slot_transfers_claim_owner_atomically_without_overlap_duplicate
+    - formalize_booked_slot_sets_unique_training_session_link_and_appends_formalized_history
+    - handoff_failure_rolls_back_original_booking_claims_and_does_not_leave_session
+    - same_handoff_idempotency_key_does_not_create_second_session
+    - second_fresh_handoff_on_linked_slot_is_rejected
+    - formalized_slot_has_zero_availability_booking_claims
+    - formalized_slot_is_not_emitted_as_second_calendar_item
+    - formalized_slot_cannot_be_cancelled_independently
+    - linked_training_session_reschedule_does_not_rewrite_historical_slot_snapshot
+    - linked_training_session_cancel_does_not_auto_republish_slot
+    - linked_training_session_complete_does_not_auto_republish_slot
+    - calendar_read_model_has_one_item_per_formal_training_session
+    - legacy_driving_lesson_calendar_rows_are_not_auto_matched_to_training_sessions_by_heuristics
+    - migration_detects_cross_owner_schedule_overlaps_before_training_session_claim_backfill
+    - migration_does_not_auto_cancel_shift_reassign_or_select_overlap_winner
 
-  intentionally_not_solved_by_DB_CAL_006:
-    driving_lesson_vs_training_session_canonical_schedule_owner: DB-CAL-007
-    training_session_claim_owner_kind_or_atomic_handoff: DB-CAL-007
-    formal_training_create_update_cancel_or_reschedule_orchestration: DB-CAL-007
-    exact_HTTP_If_Match_required_marker_for_book_cancel: Stage5_acceptance_contract_sync
-    exact_HTTP_booking_conflict_and_cancel_error_codes: Stage5_acceptance_contract_sync
-    exact_calendar_read_model_union_shape_for_booked_availability_reservations: Stage5_acceptance_contract_sync
-    archived_or_expired_resource_business_eligibility_at_booking: later_domain_or_compliance_policy
+  intentionally_not_solved_by_DB_CAL_007:
+    final_DB4_5_aggregate_core_schema_and_docs87_sync: next_separate_gate
+    exact_HTTP_calendar_union_and_driving_lesson_command_schema: Stage5_acceptance_contract_sync
+    exact_HTTP_booking_formalization_operation_and_error_codes: Stage5_acceptance_contract_sync
+    exact_default_UI_visibility_of_terminal_calendar_items: later_UI_product_policy
+    expired_resource_warning_vs_hard_block: legal_and_product_compliance_policy
+    recurrence_and_notifications: later_calendar_product_extension
+    DB4_6_and_later_domain_slices: not_started
 
   self_audit:
-    status_and_booking_field_matrix_is_closed: PASS
-    version_is_single_slot_concurrency_root: PASS
-    book_and_cancel_expected_version_checked_after_slot_lock: PASS
-    booked_and_cancelled_slots_are_not_generic_PATCH_mutable: PASS
-    successful_booking_has_one_canonical_reservation_owner_without_calendar_event_copy: PASS
-    availability_slot_booking_claim_owner_kind_is_DB_constrained: PASS
-    booked_slot_exact_claim_set_is_deferred_to_final_transaction_state: PASS
-    booking_uses_existing_student_instructor_vehicle_location_GiST_boundaries: PASS
-    booking_vs_event_and_booking_vs_booking_races_are_database_safe: PASS
-    failed_GiST_booking_rolls_back_slot_history_version_and_claims: PASS
-    cancellation_is_history_preserving_and_releases_claims: PASS
-    cancellation_does_not_silently_republish_availability: PASS
-    lifecycle_history_is_version_paired_and_append_only: PASS
-    same_tenant_student_boundary_preserved: PASS
-    DB4_2_student_scoped_booking_permission_not_redefined: PASS
-    DB_CAL_005_slot_owner_scope_not_redefined: PASS
-    booking_does_not_credit_formal_training: PASS
-    DB_CAL_007_not_fixed_in_this_step: PASS
+    exactly_one_formal_schedule_owner_is_training_session: PASS
+    no_mutable_calendar_event_copy_of_formal_lesson_schedule: PASS
+    visible_driving_lesson_capability_preserved_as_projection_and_command_adapter: PASS
+    formal_student_instructor_vehicle_location_and_time_have_single_canonical_owners: PASS
+    optional_name_and_custom_meeting_place_preserved_without_duplicating_schedule_fields: PASS
+    training_session_version_remains_single_formal_lesson_concurrency_root: PASS
+    formal_training_mutations_require_training_permissions: PASS
+    calendar_permissions_do_not_bypass_training_authority: PASS
+    training_session_claim_owner_kind_is_DB_constrained: PASS
+    planned_training_sessions_use_same_GiST_boundary_as_calendar_and_booking: PASS
+    terminal_training_sessions_release_claims_atomically: PASS
+    claim_projection_never_credits_training_time: PASS
+    calendar_complete_cannot_bypass_DB_TRN_006: PASS
+    booked_slot_to_training_session_handoff_is_explicit_atomic_and_idempotent: PASS
+    handoff_never_auto_selects_ambiguous_course: PASS
+    formalized_slot_no_longer_owns_or_duplicates_current_reservation_claims: PASS
+    slot_booking_history_survives_handoff_and_later_session_lifecycle: PASS
+    no_auto_reavailability_after_session_terminal_state: PASS
+    legacy_driving_lesson_rows_require_explicit_evidence_based_remediation: PASS
+    no_new_P0_or_P1_discovered: PASS
     aggregate_core_schema_modified_in_step: false
     aggregate_docs87_modified_in_step: false
     Laravel_migrations_created: false
@@ -2030,62 +1033,40 @@ blockers:
     severity: P1
     status: PASS
     title: calendar_and_availability_same_tenant_resource_integrity_missing
-    resolved_by: same_tenant_resource_integrity
-
+    resolved_by: same_tenant_integrity
   DB-CAL-002:
     severity: P1
     status: PASS
     title: manual_calendar_event_storage_boundaries_are_underconstrained
     resolved_by: manual_event_and_important_date_storage_boundary
-
   DB-CAL-003:
     severity: P1
     status: PASS
     title: resource_overlap_conflict_has_no_race_safe_final_boundary
     resolved_by: resource_overlap_conflict_boundary
-
   DB-CAL-004:
     severity: P1
     status: PASS
     title: calendar_event_lifecycle_and_optimistic_concurrency_are_not_closed
     resolved_by: calendar_event_lifecycle_and_concurrency
-
   DB-CAL-005:
     severity: P1
     status: PASS
     title: calendar_manage_own_has_no_canonical_database_owner_resolution
     resolved_by: calendar_own_scope_owner_resolution
-
   DB-CAL-006:
     severity: P1
     status: PASS
     title: availability_slot_booking_lifecycle_and_exactly_once_boundary_are_incomplete
     resolved_by: availability_slot_booking_lifecycle_and_exactly_once
-
   DB-CAL-007:
     severity: P1
-    status: OPEN
+    status: PASS
     title: driving_lesson_calendar_event_vs_formal_training_session_source_of_truth_is_ambiguous
-    diagnosis: >-
-      DB4_4 established TrainingSession as the formal source for scheduled training,
-      verified attendance and credited ledger time. Calendar simultaneously models a
-      driving_lesson CalendarEvent with the same Student/Instructor/Vehicle/Location
-      and time concepts, but no physical relation or projection rule currently states
-      whether one owns the other. Independent mutable rows could drift in time/resources
-      or allow a Calendar complete/cancel action to disagree with formal TrainingSession.
-    closure_must_define:
-      - exactly_one_canonical_schedule_owner_for_formal_driving_lesson
-      - relation_or_projection_between_calendar_and_training_session
-      - no_double_mutable_copy_of_time_and_resources_without_atomic_consistency_boundary
-      - create_update_cancel_reschedule_orchestration_direction
-      - calendar_complete_must_not_credit_training_hours_outside_DB_TRN_006_pipeline
-      - conflict_engine_reads_one_effective_reservation_fact
-      - historical_reference_survives_cancel_and_correction
-      - integration_tests_for_calendar_vs_training_session_consistency
+    resolved_by: formal_driving_lesson_training_session_source_of_truth
 
 nonblockers_and_deferred_decisions:
   exact_duration_minimum_maximum: application_validation_or_later_product_policy
-  driving_lesson_visible_form_optional_labels: preserved_no_backend_rule_invented_from_competitor
   expired_document_warning_vs_hard_block: legal_and_product_compliance_policy
   recurrence: later_calendar_product_extension
   notifications: later_notification_slice
@@ -2110,49 +1091,37 @@ quality_gate:
   DB_CAL_004_result: PASS
   DB_CAL_005_result: PASS
   DB_CAL_006_result: PASS
-  DB_CAL_003_half_open_interval_semantics: PASS
-  DB_CAL_003_student_instructor_vehicle_location_GiST_exclusion: PASS
-  DB_CAL_003_manual_event_exact_claim_set_guard: PASS
-  DB_CAL_003_claim_owner_kind_is_DB_constrained: PASS
-  DB_CAL_003_exact_set_guard_is_DEFERRABLE_INITIALLY_DEFERRED: PASS
-  DB_CAL_003_database_is_final_race_boundary: PASS
-  DB_CAL_004_status_and_terminal_metadata_matrix: PASS
-  DB_CAL_004_terminal_actor_FKs_to_users: PASS
-  DB_CAL_004_single_version_concurrency_root: PASS
-  DB_CAL_004_PATCH_cancel_complete_races_serialized: PASS
-  DB_CAL_004_append_only_version_paired_history: PASS
-  DB_CAL_004_current_version_history_final_state_guard: PASS
-  DB_CAL_004_terminal_claim_release_atomic: PASS
-  DB_CAL_004_command_effective_time_consistent_between_row_and_history: PASS
-  DB_CAL_004_calendar_complete_does_not_credit_training: PASS
-  DB_CAL_005_calendar_event_owner_is_instructor_staff_profile: PASS
-  DB_CAL_005_availability_slot_owner_is_instructor_staff_profile: PASS
-  DB_CAL_005_null_owner_fail_closed: PASS
-  DB_CAL_005_created_by_is_not_owner_shortcut: PASS
-  DB_CAL_005_own_mutation_cannot_transfer_owner: PASS
-  DB_CAL_005_staff_link_lifecycle_fail_closed: PASS
-  DB_CAL_005_existing_scope_semantics_not_redefined: PASS
-  DB_CAL_006_slot_status_and_booking_field_matrix: PASS
-  DB_CAL_006_slot_version_concurrency_root: PASS
-  DB_CAL_006_availability_slot_booking_claim_owner_kind: PASS
-  DB_CAL_006_exact_booked_claim_set_guard: PASS
-  DB_CAL_006_booking_uses_shared_GiST_boundary: PASS
-  DB_CAL_006_book_cancel_patch_race_matrix: PASS
-  DB_CAL_006_booking_lifecycle_history_version_pairing: PASS
-  DB_CAL_006_cancelled_slot_not_auto_republished: PASS
-  DB_CAL_006_booked_slot_does_not_create_second_calendar_event: PASS
+  DB_CAL_007_result: PASS
+  DB_CAL_007_training_session_is_canonical_formal_schedule_owner: PASS
+  DB_CAL_007_driving_lesson_is_projection_not_second_mutable_calendar_row: PASS
+  DB_CAL_007_calendar_companion_metadata_does_not_duplicate_schedule_fields: PASS
+  DB_CAL_007_training_session_claim_owner_kind_is_DB_constrained: PASS
+  DB_CAL_007_training_session_uses_shared_GiST_boundary: PASS
+  DB_CAL_007_terminal_session_claim_release_is_atomic: PASS
+  DB_CAL_007_training_permissions_own_formal_mutations: PASS
+  DB_CAL_007_calendar_complete_cannot_credit_formal_training: PASS
+  DB_CAL_007_booked_slot_handoff_is_atomic_and_idempotent: PASS
+  DB_CAL_007_formalized_slot_has_no_duplicate_reservation_claim_or_calendar_item: PASS
+  DB_CAL_007_legacy_rows_not_auto_mapped_by_heuristic: PASS
   reverse_engineering_calendar_capabilities_preserved: PASS
   open_P0: 0
-  open_P1: 1
-  fixes_applied_total: 6
+  open_P1: 0
+  fixes_applied_total: 7
+  final_DB4_5_aggregate_sync: PENDING
   later_DB4_slices_entered: false
   Laravel_migrations_created: false
   UI_or_feature_implementation_started: false
 
-next_single_blocker_after_gate:
-  id: DB-CAL-007
-  reason: >-
-    Same-tenant integrity, manual/system storage, race-safe overlap enforcement,
-    CalendarEvent lifecycle/concurrency, canonical own-scope ownership and AvailabilitySlot
-    booking exactly-once lifecycle are closed. The final isolated blocker in DB4_5 is the
-    driving_lesson CalendarEvent versus formal TrainingSession source-of-truth boundary.
+next_single_step_after_gate:
+  id: DB4_5_FINAL_AGGREGATE_SYNC
+  action: synchronize_calendar_bounded_context_into_core_schema_and_docs87_only
+  allowed_scope:
+    - specs/database/calendar.yml
+    - docs/109-stage-4-calendar-audit.md
+    - specs/database/core-schema.yml
+    - docs/87-physical-database-schema.md
+    - specs/gates/stage-4-database-contract-gate.yml
+  scope_lock: >-
+    Do not enter DB4_6, Stage 5, Laravel migrations or UI. Synchronize the already
+    closed DB-CAL-001..007 contract into the aggregate physical schema and narrative,
+    run semantic-loss and stale-constraint checks, update the central gate, then stop.
