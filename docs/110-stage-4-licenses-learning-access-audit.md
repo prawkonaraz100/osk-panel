@@ -3,8 +3,8 @@
 Data: 2026-09-07
 
 **Etap:** `DB4_6_LICENSES_LEARNING_ACCESS`  
-**Aktualny krok:** `DB4_6_STEP_5 / DB-LIC-005`  
-**Status:** `DB-LIC-001..005 PASS / 0 P0 / 2 P1 OPEN`
+**Aktualny krok:** `DB4_6_STEP_6 / DB-LIC-006`  
+**Status:** `DB-LIC-001..006 PASS / 0 P0 / 1 P1 OPEN`
 
 Machine-readable diagnoza: `specs/database/licenses-learning-access.yml`.
 
@@ -1539,3 +1539,345 @@ Aktualny stan po DB-LIC-005:
 Następny dozwolony krok po centralnym gate: **DB-LIC-006 only**.
 
 **STOP przed DB-LIC-006.**
+
+---
+
+## 24. DB-LIC-006 — resolution contract and self-audit
+
+**Current result: PASS.**
+
+Ten krok zamyka wyłącznie aktywację, stacking, immutable entitlement history, concurrency i reprodukowalność historycznego efektu licencji. Nie rozstrzyga jeszcze product-language capability ani finalnych projekcji panelu z DB-LIC-007 i nie wchodzi w pricing/payment/inventory grant DB4_9.
+
+### 24.1 Activation jest immutable entitlement ledgerem
+
+`license_activations` nie jest mutable projection. Każdy row jest niezmiennym, append-only efektem jednej aktywacji konkretnego Assignmentu.
+
+Normalny UPDATE i DELETE Activation są zabronione. Nadal obowiązuje exactly-one Activation per Assignment z DB-LIC-005.
+
+Finalizujemy pola:
+- `student_learning_account_id`,
+- `entitlement_sequence`,
+- `activation_origin`,
+- `duration_snapshot_source`,
+- `duration_days_snapshot`,
+- `expiry_before`,
+- `activated_by_user_id`,
+- `activated_at`,
+- `effective_from`,
+- `effective_to`,
+- `created_at`.
+
+Nie dodajemy osobnego `expiry_after`: canonical `expiry_after` to `effective_to`.
+
+Nie duplikujemy również `license_product_id` w Activation. Canonical product identity pozostaje ścieżką:
+
+`Activation -> Assignment -> InventoryEntry -> LicenseProduct`.
+
+### 24.2 Activation musi wskazywać dokładny LearningAccount Assignmentu
+
+Dodajemy/reużywamy candidate key:
+
+`license_assignments(organization_id,id,student_learning_account_id)`.
+
+Activation ma composite FK:
+
+`license_activations(organization_id,license_assignment_id,student_learning_account_id)`
+
+`-> license_assignments(organization_id,id,student_learning_account_id)`.
+
+Dzięki temu nie da się zapisać efektu entitlementu Assignmentu A pod innym LearningAccount w tym samym OSK ani w innym tenant.
+
+### 24.3 Entitlement sequence porządkuje immutable historię
+
+Każdy LearningAccount ma sekwencję:
+
+`entitlement_sequence = 1, 2, 3, ...`
+
+z unique:
+
+`(organization_id,student_learning_account_id,entitlement_sequence)`.
+
+Pierwszy row ma sequence 1. Kolejny numer to poprzedni max + 1, obliczony dopiero pod lockiem LearningAccount.
+
+Sequence nie może mieć luk ani duplikatów. Nie jest drugim optimistic concurrency rootem — służy wyłącznie do jednoznacznego porządku immutable effect history.
+
+### 24.4 Duration produktu jest częścią wartości prawa
+
+Canonical runtime duration pozostaje:
+
+`license_products.duration_days`.
+
+Wymagamy dodatniej liczby całych dni. Dla tego kontraktu jeden entitlement day oznacza dokładnie `86400` sekund.
+
+Po utworzeniu choć jednej jednostki Inventory wskazującej dany LicenseProduct nie wolno zmieniać `duration_days` tego produktu w miejscu. Granica DB to `BEFORE UPDATE` trigger lub równoważny guard, który odrzuca zmianę duration, jeśli istnieje referencja Inventory.
+
+Zmiana oferowanego czasu oznacza nowy `LicenseProduct` row.
+
+Tak samo `license_inventory_entries.license_product_id` jest immutable po utworzeniu jednostki i chroniony DB przed przepięciem produktu.
+
+Dezaktywacja produktu katalogowego nie unieważnia prawa już przypisanego w Inventory. Pricing, payment i commercial grant pozostają DB4_9.
+
+### 24.5 Runtime zapisuje duration snapshot
+
+Przed aktywacją stabilnie odczytujemy/lockujemy LicenseProduct i zapisujemy:
+
+`duration_snapshot_source = product_at_activation`
+
+oraz
+
+`duration_days_snapshot = locked license_products.duration_days`.
+
+Historyczny Activation nie zależy później od aktualnej tabeli produktu przy obliczaniu swojego efektu.
+
+To daje reprodukowalność: po latach wiemy, ile dni dokładnie zastosował konkretny Activation.
+
+### 24.6 Migration-only source nie może wejść do runtime
+
+Dla danych legacy dopuszczamy drugi source:
+
+`legacy_effect_reconstructed`.
+
+Tylko podczas kontrolowanego backfillu można odtworzyć snapshot z istniejącego `effective_from -> effective_to`, i tylko jeśli interval jest dodatnią, dokładną wielokrotnością 86400 sekund.
+
+`duration_snapshot_source` ma zamknięty katalog:
+- `product_at_activation`,
+- `legacy_effect_reconstructed`.
+
+Po legacy backfill, przed runtime cutover, włączamy DB-level `BEFORE INSERT`/equivalent migration-only guard. Nowy row nie może użyć `legacy_effect_reconstructed`.
+
+Istniejące zaimportowane legacy rows pozostają legalne, ale immutable.
+
+### 24.7 Activation origin rozróżnia learner i OSK
+
+`activation_origin` ma zamknięty katalog:
+- `learner_self`,
+- `organization_user`,
+- `legacy_unknown`.
+
+Runtime dopuszcza tylko pierwsze dwa.
+
+Dla `learner_self`:
+- `activated_by_user_id` jest wymagany,
+- musi wskazywać dokładnie `student_learning_accounts.user_id`,
+- nie tworzymy fikcyjnego Staff/Organization actor.
+
+Dla `organization_user`:
+- realny `activated_by_user_id` jest wymagany,
+- command musi przejść `licenses.activate` i tenant/scope authorization.
+
+`legacy_unknown` jest migration-only. Nie zgadujemy origin po dzisiejszym Membership ani po tym, że actor przypadkiem równa się LearningAccount User.
+
+Tak jak dla legacy duration, po backfillu DB-level insert guard blokuje nowe runtime/direct-SQL rows z `legacy_unknown`.
+
+### 24.8 Deferred entitlement-chain guard
+
+Sam unique sequence nie wystarcza. Wymagamy `DEFERRABLE INITIALLY DEFERRED` constraint triggera lub równoważnej transactional DB boundary per:
+
+`(organization_id,student_learning_account_id)`.
+
+Finalny łańcuch musi spełniać:
+- sequence ciągła od 1,
+- sequence 1 ma `expiry_before IS NULL`,
+- sequence > 1 ma `expiry_before = previous.effective_to`,
+- runtime `activated_at` pochodzi z jednego `command_effective_at` uchwyconego po wymaganych lockach,
+- `effective_from = greatest(activated_at, expiry_before)` dla kolejnych efektów,
+- `effective_to = effective_from + duration_days_snapshot * 86400 seconds`,
+- `effective_to > effective_from`.
+
+Bezpośredni insert z luką sequence, błędnym predecessor albo ręcznie wymyślonym końcem nie może commitować.
+
+### 24.9 Dokładna reguła stackingu
+
+Brak wcześniejszego entitlementu:
+
+`expiry_before = NULL`
+
+`effective_from = activated_at`.
+
+Jeżeli poprzedni entitlement jeszcze trwa:
+
+`expiry_before = previous.effective_to`
+
+`effective_from = previous.effective_to`.
+
+Pełna nowa duration jest dokładana **po aktualnym końcu** — kursant nie traci pozostałych dni.
+
+Jeżeli poprzedni entitlement już wygasł:
+
+`expiry_before = previous.effective_to`
+
+`effective_from = activated_at`.
+
+Nie uzupełniamy retroaktywnie wygasłej luki.
+
+Własna runtime rule produktu w tym kontrakcie to `always stack`; nie importujemy niezaobserwowanych wyjątków konkurenta.
+
+### 24.10 Current entitlement nie ma drugiej mutable authority
+
+Nie dodajemy niezależnego `current_expires_at` na LearningAccount.
+
+Canonical bieżący koniec to:
+
+`MAX(license_activations.effective_to)` per LearningAccount.
+
+Brak Activation rows daje `NULL`.
+
+Temporalnie entitlement jest live, jeśli ten koniec jest większy od czasu odczytu, ale realne operational access nadal musi równocześnie spełnić DB-LIC-003 eligibility.
+
+Cache tej wartości może istnieć tylko jako derived, rebuildable, non-authoritative projection.
+
+### 24.11 Archive/suspension nie zatrzymuje zegara
+
+Student archive ani LearningAccount suspension:
+- nie modyfikują Activation rows,
+- nie przesuwają `effective_to`,
+- nie pauzują czasu,
+- nie przedłużają entitlementu.
+
+Blokują nowe operational effects zgodnie z DB-LIC-003, ale istniejący okres nadal starzeje się po wall clock.
+
+Po upływie końca Assignment pozostaje `activated`, a Inventory `consumed`, zgodnie z DB-LIC-005.
+
+### 24.12 Activation transaction
+
+`POST /license-assignments/{assignmentId}/activate` zachowuje Idempotency-Key i expected Assignment version.
+
+Lock order:
+1. claim Idempotency-Key,
+2. Student `FOR UPDATE`,
+3. LearningAccount `FOR UPDATE`,
+4. InventoryEntry `FOR UPDATE`,
+5. Assignment `FOR UPDATE`,
+6. LicenseProduct `FOR SHARE` lub równoważny stable read.
+
+Po lockach ponownie wymagamy:
+- DB-LIC-003 operational eligibility,
+- Assignment `assigned`,
+- Inventory `assigned`,
+- zero Activation,
+- current Assignment = target,
+- expected Assignment version zgodna,
+- dodatni `duration_days`.
+
+Dopiero wtedy wyliczamy sequence, predecessor expiry, `effective_from`, snapshot duration, `effective_to` i provenance.
+
+Sukces atomowo:
+- insertuje jeden immutable Activation,
+- Assignment `assigned -> activated` + version 1x,
+- Inventory `assigned -> consumed`,
+- audit/outbox/idempotency,
+- przechodzi DB-LIC-005 final-state guard,
+- przechodzi DB-LIC-006 entitlement-chain guard.
+
+Activation nie zwiększa `StudentLearningAccount.version`, bo entitlement history nie jest konfiguracją konta.
+
+### 24.13 Dwa równoległe extension nie gubią czasu
+
+Serialization root dla aktywacji różnych Assignmentów tego samego LearningAccount to:
+
+`student_learning_accounts row FOR UPDATE`.
+
+Dwa równoległe Assignmenty mogą oba zostać aktywowane, ale serialnie:
+- pierwszy pod lockiem tworzy następny effect,
+- drugi po uzyskaniu locka widzi już `effective_to` pierwszego,
+- dostaje kolejny sequence,
+- dokłada pełną własną duration po nowym końcu.
+
+Nie ma lost update ani utraty dni.
+
+Same Assignment nadal nie może zostać aktywowany dwa razy dzięki DB-LIC-005 state/version + unique Activation.
+
+Activation vs revoke pozostaje dokładnie-one-winner z DB-LIC-005.
+
+### 24.14 Idempotency aktywacji
+
+Ten sam key + ten sam request po sukcesie:
+- nie tworzy drugiego Activation,
+- nie zajmuje kolejnego sequence,
+- nie robi kolejnego Assignment version bump,
+- nie konsumuje Inventory drugi raz,
+- nie przedłuża entitlementu drugi raz,
+- zwraca bezpieczny rezultat pierwszej operacji.
+
+Ten sam key + inny request → conflict.
+
+Nowy key po już wykonanej aktywacji również nie stosuje kolejnego efektu; Assignment nie jest już `assigned`.
+
+### 24.15 Audit i reprodukowalność
+
+Activation row jest primary historycznym dowodem entitlement effect.
+
+Audit/outbox w tej samej transakcji musi móc wskazać co najmniej:
+- Organization,
+- Assignment,
+- LearningAccount,
+- sequence,
+- origin i actor,
+- duration source/snapshot,
+- `expiry_before`,
+- `expiry_after = effective_to`,
+- `activated_at`,
+- `effective_from`,
+- `effective_to`,
+- request_id.
+
+Finalny fizyczny model audit/outbox nadal pozostaje DB4_10.
+
+### 24.16 Migration safety
+
+Legacy activation history nie jest przepisywana tak, by pasowała do nowej reguły.
+
+Migracja może backfillować nowy chain tylko, jeśli istniejące dane dają jednoznaczny porządek i efekt. Zabronione jest:
+- wybieranie orderu tylko po `created_at` albo UUID,
+- branie dzisiejszego product duration, jeśli nie zgadza się z istniejącym historycznym efektem,
+- przepisywanie starych `effective_from/effective_to`,
+- zgadywanie learner-vs-OSK origin z obecnych Memberships,
+- fabrykowanie sequence lub snapshotu przy niejednoznaczności.
+
+Niejednoznaczny chain albo interval, którego nie da się bezstratnie zrekonstruować jako dodatnią liczbę pełnych 86400-sekundowych dni, daje migration FAIL + reviewed remediation.
+
+Po backfillu włączamy closed catalogs, immutability, runtime product snapshot validation, deferred chain guard i migration-only insert guard **przed** runtime cutover.
+
+### 24.17 Required tests i self-audit
+
+Obowiązkowe testy obejmują m.in.:
+- `duration_days > 0`,
+- product duration nie może zmienić się po referencji Inventory,
+- Inventory nie może zostać przepięte na inny produkt,
+- runtime snapshot = locked product duration,
+- unknown origin/source → reject,
+- legacy-only origin/source → runtime/direct-SQL insert reject po cutover,
+- migrated legacy rows pozostają legalne i immutable,
+- Activation wskazuje exact Assignment/LearningAccount,
+- sequence jest unique i contiguous od 1,
+- pierwszy effect ma NULL predecessor,
+- extension przed expiry zachowuje wszystkie pozostałe dni,
+- activation po expiry startuje w command time i nie wypełnia luki,
+- `effective_to` odpowiada dokładnie snapshot duration,
+- Activation nie może być update/delete,
+- dwa concurrent extensions tego samego LearningAccount nie gubią czasu,
+- same Assignment nie aktywuje się dwa razy,
+- retry nie stosuje entitlementu drugi raz,
+- archive/suspension blokują nową aktywację, ale nie pauzują starej,
+- learner self ma rzeczywistego Usera LearningAccount,
+- OSK activation ma realnego actor + permission/scope,
+- current entitlement end pochodzi z `MAX(effective_to)`, nie mutable projection,
+- migration nie zgaduje chain/duration/origin ani nie przepisuje starych czasów.
+
+Self-audit potwierdził również:
+- DB-LIC-001..005 pozostają PASS,
+- DB-LIC-007 pozostaje OPEN,
+- product-language capability, assignment language snapshot i panel projection rules nie zostały naprawione przedwcześnie,
+- ceny, płatności i commercial inventory grant pozostają DB4_9,
+- agregaty `core-schema.yml` i `docs/87` pozostają zamrożone,
+- brak migracji Laravel, DB4_7, Stage 5 i UI.
+
+Aktualny stan po DB-LIC-006:
+- resolved: **6/7**,
+- open P0: **0**,
+- open P1: **1**,
+- DB4_6: **FAIL_WITH_1_P1_BLOCKER**.
+
+Następny dozwolony krok po centralnym gate: **DB-LIC-007 only**.
+
+**STOP przed DB-LIC-007.**
