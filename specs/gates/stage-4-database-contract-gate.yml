@@ -207,7 +207,7 @@ quality_checks:
       explicit_panel_access_restore_creates_new_link_row: true
       old_unlinked_link_row_reopened: false
       revoked_membership_auto_reactivated_by_staff_restore: false
-      archive_is_atomic_across_staff_link_membership_sessions_audit_outbox: true
+      archive_is_atomic_across_staff_link_membership_session_audit_outbox: true
 
   DB4_3_final_aggregate_sync:
     status: PASS
