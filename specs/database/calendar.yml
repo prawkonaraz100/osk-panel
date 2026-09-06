@@ -2,8 +2,9 @@ meta:
   project: osk-panel
   scope: calendar_core_v1
   stage: DB4_5_CALENDAR
-  status: DIAGNOSIS_COMPLETE_7_P1_BLOCKERS_OPEN
+  status: DB_CAL_001_PASS_6_P1_BLOCKERS_OPEN
   diagnosed_at: 2026-09-06
+  updated_at: 2026-09-06
   narrative: docs/109-stage-4-calendar-audit.md
   aggregate_blueprint: specs/database/core-schema.yml
   aggregate_narrative: docs/87-physical-database-schema.md
@@ -22,8 +23,20 @@ meta:
     - docs/49-calendar-add-event-form.md
     - docs/50-own-calendar-event-lifecycle.md
     - docs/51-calendar-important-dates.md
-  diagnosis_only: true
-  fixes_applied_in_this_step: 0
+  diagnosis_complete: true
+  current_step: DB-CAL-001
+  fixes_applied_total: 1
+
+principles:
+  tenant_owned_calendar_relation_must_be_physically_same_tenant: true
+  organization_id_is_not_client_authority: true
+  tenant_key_is_derived_from_authenticated_membership_or_validated_parent: true
+  cross_tenant_calendar_resource_assignment_is_forbidden: true
+  nullable_calendar_resource_relation_uses_MATCH_SIMPLE: true
+  historical_calendar_relations_use_RESTRICT_not_destructive_cascade: true
+  global_user_identity_does_not_receive_fake_tenant_key: true
+  aggregate_sync_deferred_until_final_DB4_5_gate: true
+  DB_CAL_002_through_DB_CAL_007_must_not_be_solved_in_DB_CAL_001: true
 
 preservation_contract:
   single_calendar_engine: true
@@ -42,7 +55,7 @@ preservation_contract:
   server_side_conflict_detection_required: true
   organization_timezone_required: true
   history_preserving_cancel_required: true
-  no_confirmed_capability_removed_by_diagnosis: true
+  no_confirmed_capability_removed_by_DB_CAL_001: true
 
 current_physical_snapshot:
   tables:
@@ -56,7 +69,7 @@ current_physical_snapshot:
     lifecycle: [status, version]
     current_time_check: ends_at_gt_starts_at
     current_conflict_rule: server_side_required_but_enforcement_strategy_pending_ADR
-    current_same_tenant_composite_FKs_documented: false
+    current_same_tenant_composite_FKs_documented: true
     current_manual_vs_system_type_DB_boundary_documented: false
     current_location_vs_custom_place_XOR_DB_boundary_documented: false
     current_terminal_metadata_and_state_matrix_documented: false
@@ -68,37 +81,218 @@ current_physical_snapshot:
     temporal: [starts_at, ends_at]
     lifecycle: [status, version]
     booking_projection: [booked_student_id_nullable, booked_at_nullable]
-    current_same_tenant_composite_FKs_documented: false
+    current_same_tenant_composite_FKs_documented: true
     current_booking_state_matrix_documented: false
     current_double_booking_concurrency_boundary_documented: false
     current_booked_slot_to_calendar_reservation_relation_documented: false
 
+# DB-CAL-001
+same_tenant_resource_integrity:
+  blocker: DB-CAL-001
+  severity: P1
+  status: PASS
+  goal: >-
+    CalendarEvent and AvailabilitySlot must be unable to reference Student,
+    StaffProfile, Vehicle or Location rows from another organization even if
+    application validation is bypassed or malformed import data is supplied.
+
+  tenant_candidate_keys_reused:
+    students:
+      columns: [organization_id, id]
+      source: DB-TRN-001
+      unique_constraint_already_required: true
+    staff_profiles:
+      columns: [organization_id, id]
+      source: DB-RES-001
+      unique_constraint_already_required: true
+    vehicles:
+      columns: [organization_id, id]
+      source: DB-RES-002
+      unique_constraint_already_required: true
+    locations:
+      columns: [organization_id, id]
+      source: DB-RES-002
+      unique_constraint_already_required: true
+
+  tenant_key_policy:
+    calendar_events_organization_id:
+      nullable: false
+      foreign_key: organizations.id
+      mutation_after_insert: forbidden_for_normal_domain_lifecycle
+    availability_slots_organization_id:
+      nullable: false
+      foreign_key: organizations.id
+      mutation_after_insert: forbidden_for_normal_domain_lifecycle
+    client_supplied_organization_id_as_authority: forbidden
+    moving_calendar_row_between_organizations_by_rewriting_organization_id: forbidden
+    application_rule: >-
+      Calendar create/update/book actions derive organization scope from the active
+      membership or validated parent. The composite database foreign keys below are
+      the final same-tenant relation boundary.
+
+  calendar_events:
+    student_same_organization:
+      source_columns: [organization_id, student_id]
+      target_table: students
+      target_columns: [organization_id, id]
+      nullable_relation: true
+      match: MATCH_SIMPLE
+      on_update: RESTRICT
+      on_delete: RESTRICT
+    instructor_same_organization:
+      source_columns: [organization_id, instructor_id]
+      target_table: staff_profiles
+      target_columns: [organization_id, id]
+      nullable_relation: true
+      match: MATCH_SIMPLE
+      on_update: RESTRICT
+      on_delete: RESTRICT
+    vehicle_same_organization:
+      source_columns: [organization_id, vehicle_id]
+      target_table: vehicles
+      target_columns: [organization_id, id]
+      nullable_relation: true
+      match: MATCH_SIMPLE
+      on_update: RESTRICT
+      on_delete: RESTRICT
+    location_same_organization:
+      source_columns: [organization_id, location_id]
+      target_table: locations
+      target_columns: [organization_id, id]
+      nullable_relation: true
+      match: MATCH_SIMPLE
+      on_update: RESTRICT
+      on_delete: RESTRICT
+    created_by_user_relation:
+      target_table: users
+      global_identity: true
+      tenant_composite_FK_required: false
+      rationale: >-
+        User is a global authentication identity and may legitimately have memberships
+        in multiple organizations. Authorization that the actor may create/manage the
+        event is checked through membership/permission scope, not by inventing a fake
+        organization_id on users.
+      own_scope_semantics: deferred_to_DB_CAL_005
+
+  availability_slots:
+    instructor_same_organization:
+      source_columns: [organization_id, instructor_id]
+      target_table: staff_profiles
+      target_columns: [organization_id, id]
+      nullable_relation: true
+      match: MATCH_SIMPLE
+      on_update: RESTRICT
+      on_delete: RESTRICT
+    vehicle_same_organization:
+      source_columns: [organization_id, vehicle_id]
+      target_table: vehicles
+      target_columns: [organization_id, id]
+      nullable_relation: true
+      match: MATCH_SIMPLE
+      on_update: RESTRICT
+      on_delete: RESTRICT
+    location_same_organization:
+      source_columns: [organization_id, location_id]
+      target_table: locations
+      target_columns: [organization_id, id]
+      nullable_relation: true
+      match: MATCH_SIMPLE
+      on_update: RESTRICT
+      on_delete: RESTRICT
+    booked_student_same_organization_when_present:
+      source_columns: [organization_id, booked_student_id]
+      target_table: students
+      target_columns: [organization_id, id]
+      nullable_relation: true
+      match: MATCH_SIMPLE
+      on_update: RESTRICT
+      on_delete: RESTRICT
+      booking_state_semantics: deferred_to_DB_CAL_006
+
+  archive_and_history_behavior:
+    relation_to_archived_student_staff_vehicle_or_location:
+      historical_reference_may_remain_resolvable: true
+      composite_FK_does_not_auto_null_relation_on_archive: true
+      archive_is_not_hard_delete_in_parent_domains: true
+    new_or_modified_event_resource_eligibility:
+      active_or_compliance_policy_not_decided_here: true
+      reason: DB_CAL_001_only_closes_tenant_identity_not_business_eligibility
+    hard_delete_parent_to_make_calendar_history_disappear: forbidden_as_normal_lifecycle
+
+  migration_design:
+    migrations_created_in_this_step: false
+    aggregate_core_schema_modified_in_this_step: false
+    aggregate_docs87_modified_in_this_step: false
+    order_when_DB4_5_migrations_are_later_generated:
+      - verify_existing_students_staff_profiles_vehicles_locations_candidate_keys
+      - verify_calendar_events_organization_id_is_nonnull_and_valid
+      - verify_availability_slots_organization_id_is_nonnull_and_valid
+      - precheck_every_nonnull_calendar_event_student_matches_event_organization
+      - precheck_every_nonnull_calendar_event_instructor_matches_event_organization
+      - precheck_every_nonnull_calendar_event_vehicle_matches_event_organization
+      - precheck_every_nonnull_calendar_event_location_matches_event_organization
+      - precheck_every_nonnull_availability_slot_instructor_matches_slot_organization
+      - precheck_every_nonnull_availability_slot_vehicle_matches_slot_organization
+      - precheck_every_nonnull_availability_slot_location_matches_slot_organization
+      - precheck_every_nonnull_availability_slot_booked_student_matches_slot_organization
+      - add_calendar_event_composite_same_tenant_foreign_keys
+      - add_availability_slot_composite_same_tenant_foreign_keys
+      - rerun_cross_tenant_negative_constraint_tests
+    invalid_row_policy: >-
+      Fail migration or perform an explicitly reviewed security/data remediation.
+      Never fix a mismatch by silently moving the calendar row to another organization,
+      changing the referenced Student/Staff/Vehicle/Location, or nulling a relation.
+
+  tests_required:
+    - calendar_event_with_same_tenant_optional_student_instructor_vehicle_location_is_accepted
+    - calendar_event_with_all_optional_resources_null_is_accepted
+    - calendar_event_student_from_other_organization_is_rejected_by_database
+    - calendar_event_instructor_from_other_organization_is_rejected_by_database
+    - calendar_event_vehicle_from_other_organization_is_rejected_by_database
+    - calendar_event_location_from_other_organization_is_rejected_by_database
+    - availability_slot_with_same_tenant_optional_instructor_vehicle_location_is_accepted
+    - availability_slot_with_optional_resources_null_is_accepted
+    - availability_slot_instructor_from_other_organization_is_rejected_by_database
+    - availability_slot_vehicle_from_other_organization_is_rejected_by_database
+    - availability_slot_location_from_other_organization_is_rejected_by_database
+    - availability_slot_booked_student_from_other_organization_is_rejected_by_database
+    - migration_precheck_detects_each_existing_cross_tenant_calendar_relation
+    - rewriting_calendar_event_organization_id_to_move_it_between_tenants_is_forbidden
+    - rewriting_availability_slot_organization_id_to_move_it_between_tenants_is_forbidden
+    - archived_parent_history_does_not_auto_null_or_destroy_existing_calendar_reference
+    - global_created_by_user_relation_is_not_rejected_only_because_user_has_multiple_tenant_memberships
+
+  intentionally_not_solved_by_DB_CAL_001:
+    manual_event_vs_important_date_storage_boundary: DB-CAL-002
+    location_id_XOR_custom_meeting_place: DB-CAL-002
+    resource_overlap_race_safe_enforcement: DB-CAL-003
+    calendar_event_lifecycle_and_versioning: DB-CAL-004
+    calendar_manage_own_owner_resolution: DB-CAL-005
+    availability_booking_state_and_exactly_once: DB-CAL-006
+    driving_lesson_vs_training_session_source_of_truth: DB-CAL-007
+    archived_or_expired_resource_business_eligibility: later_domain_or_compliance_policy
+
+  self_audit:
+    every_calendar_event_tenant_owned_resource_relation_has_composite_boundary: PASS
+    every_availability_slot_tenant_owned_resource_relation_has_composite_boundary: PASS
+    nullable_relations_preserve_null_semantics_with_MATCH_SIMPLE: PASS
+    parent_candidate_keys_already_exist_from_DB4_3_and_DB4_4: PASS
+    historical_relations_use_RESTRICT_and_are_not_auto_nulled: PASS
+    global_user_identity_not_fake_tenant_scoped: PASS
+    migration_does_not_silently_reassign_cross_tenant_data: PASS
+    DB_CAL_002_through_DB_CAL_007_not_fixed_in_this_step: PASS
+    aggregate_core_schema_modified_in_step: false
+    aggregate_docs87_modified_in_step: false
+    Laravel_migrations_created: false
+    later_DB4_slices_entered: false
+    UI_or_feature_implementation_started: false
+
 blockers:
   DB-CAL-001:
     severity: P1
-    status: OPEN
+    status: PASS
     title: calendar_and_availability_same_tenant_resource_integrity_missing
-    diagnosis: >-
-      CalendarEvent and AvailabilitySlot are tenant-owned rows but the aggregate
-      physical model does not define composite same-organization foreign keys for
-      Student, StaffProfile, Vehicle, Location or booked Student relations. Simple
-      resource IDs plus organization_id therefore do not form a final database
-      boundary against cross-tenant assignment when application validation is
-      bypassed or malformed import data is loaded.
-    affected_relations:
-      calendar_events: [student_id, instructor_id, vehicle_id, location_id]
-      availability_slots: [instructor_id, vehicle_id, location_id, booked_student_id]
-    dependencies_already_available:
-      students_candidate_key: [organization_id, id]
-      staff_profiles_candidate_key: [organization_id, id]
-      vehicles_candidate_key: [organization_id, id]
-      locations_candidate_key: [organization_id, id]
-    closure_must_define:
-      - composite_same_tenant_FKs_for_every_tenant_owned_relation
-      - MATCH_SIMPLE_for_nullable_relations
-      - RESTRICT_history_preserving_delete_policy
-      - migration_prechecks_that_never_auto_reassign_cross_tenant_rows
-      - negative_cross_tenant_constraint_tests
+    resolved_by: same_tenant_resource_integrity
 
   DB-CAL-002:
     severity: P1
@@ -242,28 +436,30 @@ nonblockers_and_deferred_decisions:
   exact_HTTP_If_Match_required_marker_and_error_codes: Stage5_acceptance_contract_sync
 
 migration_design_status:
-  migrations_created_in_diagnosis: false
-  aggregate_core_schema_modified_in_diagnosis: false
-  aggregate_docs87_modified_in_diagnosis: false
-  legacy_data_changed_in_diagnosis: false
+  migrations_created_in_this_step: false
+  aggregate_core_schema_modified_in_this_step: false
+  aggregate_docs87_modified_in_this_step: false
+  legacy_data_changed_in_this_step: false
 
 quality_gate:
-  diagnosis_scope_only: PASS
+  diagnosis_complete: PASS
+  DB_CAL_001_result: PASS
+  DB_CAL_001_every_relation_has_same_tenant_boundary: PASS
+  DB_CAL_001_nullable_relations_keep_null_behavior: PASS
+  DB_CAL_001_cross_tenant_migration_auto_repair_forbidden: PASS
+  DB_CAL_001_parent_history_preserved: PASS
   reverse_engineering_calendar_capabilities_preserved: PASS
-  manual_vs_system_important_date_boundary_identified: PASS
-  availability_self_booking_in_scope: PASS
-  training_session_cross_slice_dependency_identified: PASS
-  RBAC_own_scope_dependency_identified_without_redefinition: PASS
   open_P0: 0
-  open_P1: 7
-  fixes_applied: 0
+  open_P1: 6
+  fixes_applied_total: 1
   later_DB4_slices_entered: false
   Laravel_migrations_created: false
   UI_or_feature_implementation_started: false
 
-next_single_blocker_after_diagnosis_gate:
-  id: DB-CAL-001
+next_single_blocker_after_gate:
+  id: DB-CAL-002
   reason: >-
-    Close same-tenant resource integrity first because every later overlap,
-    lifecycle, ownership and booking rule must operate on relations that are
-    already guaranteed to belong to the same organization.
+    Same-tenant resource integrity is now closed. The next isolated blocker is the
+    manual CalendarEvent versus system-projected important-date storage boundary and
+    the single-row meeting-place invariants; overlap/lifecycle/ownership/booking and
+    TrainingSession integration remain out of scope until their own gates.
