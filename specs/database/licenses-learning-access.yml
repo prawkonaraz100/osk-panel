@@ -13,7 +13,7 @@ meta:
 working_rule:
   diagnosis_only: false
   fixes_applied_in_this_step: true
-  current_step: DB4_6_STEP_1_DB_LIC_001
+  current_step: DB4_6_STEP_2_DB_LIC_002
   one_blocker_per_followup_step: true
   Laravel_migrations_created: false
   Stage5_started: false
@@ -318,6 +318,135 @@ resolved_contracts:
       - DB-LIC-006_activation_stacking_and_entitlement_reproducibility
       - DB-LIC-007_language_capability_and_projection_authority
 
+  DB-LIC-002:
+    status: PASS
+    resolved_at: 2026-09-06
+    scope: global_auth_identity_and_login_consistency_only
+    canonical_identity_authority:
+      table: auth_login_identifiers
+      global_not_tenant_scoped: true
+      current_identifier_predicate: revoked_at_is_null
+      visible_login_global_uniqueness: existing_DB4_2_partial_unique_identifier_normalized_where_current
+      allowed_identifier_types: [email, username]
+      normalization_owner: DB4_2_identity_policy
+      learning_access_may_define_second_tenant_login_namespace: false
+    learning_account_shape:
+      user_id:
+        nullable: false
+        target: users.id
+        normal_learning_account_mutation_may_rebind_to_different_user: false
+      canonical_identifier_pointer:
+        field: auth_login_identifier_id
+        replaces_provisional_field: primary_auth_login_identifier_id
+        nullable: false
+        target: auth_login_identifiers.id
+        requires_identifier_is_primary_for_type: false
+        reason: one_global_user_may_have_multiple_current_login_identifiers_and_learning_accounts_may_use_any_current_identifier
+      persisted_login_identifier_projection:
+        field: login_identifier_projection
+        canonical_status: REMOVE_FROM_PERSISTED_LEARNING_ACCOUNT_MODEL
+        API_projection: join_auth_login_identifiers.identifier_normalized
+        list_search_projection: join_auth_login_identifiers.identifier_normalized
+        independent_write_allowed: false
+        optional_future_performance_cache_if_needed: derived_non_authoritative_only_with_equivalent_DB_refresh_guard
+    auth_identifier_candidate_key:
+      table: auth_login_identifiers
+      required_unique: [id, user_id]
+      user_id_reparenting: forbidden
+    same_user_composite_foreign_key:
+      source_table: student_learning_accounts
+      source_columns: [auth_login_identifier_id, user_id]
+      target_table: auth_login_identifiers
+      target_columns: [id, user_id]
+      on_update: RESTRICT
+      on_delete: RESTRICT
+      proves: selected_login_identifier_belongs_to_exact_same_global_user_as_learning_account
+    current_identifier_final_state_guard:
+      required: true
+      enforcement: DEFERRABLE_INITIALLY_DEFERRED_constraint_trigger_or_equivalent_transactional_DB_guard
+      learning_account_final_state_requires_referenced_identifier_revoked_at_null: true
+      identifier_revoke_final_state_requires_zero_learning_accounts_still_pointing_to_revoked_identifier: true
+      identity_revoke_transaction_must_repoint_dependents_or_fail: true
+      hard_delete_referenced_identifier: blocked_by_FK
+    cardinality_and_reuse:
+      multiple_learning_accounts_may_reference_same_current_identifier_for_same_user: true
+      same_user_may_have_learning_accounts_in_multiple_organizations: true
+      per_organization_login_uniqueness_added: false
+      unique_learning_account_per_auth_identifier_added: false
+      reason: generic_login_resolves_global_User_then_application_resolves_authorized_learning_context; tenant_must_not_redefine_login_uniqueness
+    learning_account_create_identity_resolution:
+      normalize_input_with_identity_policy: true
+      current_identifier_not_found:
+        may_create_new_global_user_principal_and_identifier_atomically_for_OSK_managed_access: true
+        silent_match_to_existing_user_by_student_name_contact_email_PESEL_or_other_profile_field: forbidden
+      current_identifier_found:
+        identifier_user_may_be_reused_only_with_explicit_trusted_same_user_binding_context: true
+        typed_login_string_alone_is_sufficient_proof_to_attach_existing_user: false
+        without_trusted_binding_context: reject_identifier_in_use_requires_identity_resolution
+      email_identifier_created_or_reused_implies_verified_email: false
+      verification_state_owner: DB4_2_identity_policy
+      account_merge_recovery_details: deferred_to_existing_pending_identity_policy_gate
+    learning_account_login_update:
+      user_id_is_immutable_in_normal_learning_account_flow: true
+      normalize_proposed_identifier_with_identity_policy: true
+      if_current_identifier_exists_for_same_user: repoint_learning_account_to_that_identifier
+      if_current_identifier_exists_for_different_user: reject_conflict_without_rebind_or_merge
+      if_identifier_does_not_exist_currently: create_identifier_for_same_user_then_repoint
+      newly_created_identifier_is_primary_for_type_by_default: false
+      primary_for_type_change_requires_separate_identity_semantics: true
+      old_identifier_auto_revoke_as_hidden_learning_account_side_effect: false
+      rationale: old_identifier_is_global_User_identity_and_may_be_used_by_other_learning_accounts_or_global_account_flows
+      explicit_global_identifier_retirement_if_product_requires_old_alias_invalidation: identity_domain_command_not_hidden_learning_account_patch
+      stale_learning_account_update_overwrite_policy: deferred_to_DB_LIC_003_version_concurrency
+    forbidden_identity_inference:
+      - do_not_merge_or_rebind_users_by_student_contact_email
+      - do_not_merge_or_rebind_users_by_student_name
+      - do_not_merge_or_rebind_users_by_PESEL
+      - do_not_resolve_missing_pointer_from_legacy_login_projection_without_review
+      - do_not_treat_identifier_type_email_as_verified_identity_without_verification_evidence
+      - do_not_create_tenant_scoped_duplicate_of_global_login_identifier
+    migration_design:
+      order:
+        - precheck_every_learning_account_has_user_and_identifier_pointer
+        - precheck_identifier_pointer_user_matches_learning_account_user
+        - precheck_referenced_identifier_is_current_nonrevoked
+        - precheck_legacy_login_identifier_projection_equals_referenced_identifier_normalized_when_projection_exists
+        - add_auth_login_identifiers_candidate_key_id_user_id
+        - rename_or_replace_primary_auth_login_identifier_id_with_auth_login_identifier_id
+        - add_same_user_composite_FK
+        - add_deferrable_current_identifier_final_state_guard
+        - switch_read_search_API_projection_to_joined_identifier_normalized
+        - drop_persisted_login_identifier_projection_after_verified_projection_cutover
+      missing_or_mismatched_pointer_auto_lookup_by_projection: forbidden
+      mismatched_user_auto_rebind: forbidden
+      revoked_identifier_auto_unrevoke: forbidden
+      legacy_projection_auto_creates_identifier: forbidden
+      legacy_identifier_collision_auto_merge: forbidden
+      unresolved_legacy_identity_ambiguity: fail_migration_and_require_reviewed_remediation
+    required_integration_tests:
+      - learning_account_identifier_must_belong_to_same_global_user
+      - learning_account_cannot_reference_revoked_identifier_at_commit
+      - auth_identifier_cannot_be_revoked_while_learning_account_still_points_to_it_at_commit
+      - same_visible_current_identifier_still_resolves_to_at_most_one_global_user
+      - same_global_user_may_have_multiple_current_identifiers
+      - same_global_user_identifier_may_back_learning_accounts_in_multiple_organizations
+      - no_per_tenant_login_namespace_or_uniqueness_is_created
+      - API_login_identifier_equals_joined_auth_identifier_normalized
+      - persisted_independent_login_projection_is_not_used_as_authority
+      - create_with_unused_identifier_does_not_heuristically_merge_existing_user_by_student_fields
+      - create_with_identifier_owned_by_other_user_without_trusted_binding_is_rejected
+      - update_to_identifier_owned_by_same_user_repoints_without_user_change
+      - update_to_identifier_owned_by_different_user_is_rejected_without_merge
+      - update_to_unused_identifier_creates_identifier_for_same_user_without_hidden_primary_promotion
+      - learning_account_login_update_does_not_auto_revoke_global_old_identifier
+      - migration_fails_on_pointer_user_mismatch_revoked_pointer_or_unreconciled_projection
+    explicitly_not_solved_in_this_step:
+      - DB-LIC-003_learning_account_status_version_archive_restore_and_stale_update_policy
+      - DB-LIC-004_password_reset_one_time_secret_handoff_and_PDF_storage_policy
+      - DB-LIC-005_inventory_assignment_state_equivalence_and_exactly_once_revoke
+      - DB-LIC-006_activation_stacking_entitlement_history_and_reproducibility
+      - DB-LIC-007_language_capability_assignment_snapshot_and_management_projection_rules
+
 blockers:
   - id: DB-LIC-001
     severity: P1
@@ -338,7 +467,8 @@ blockers:
   - id: DB-LIC-002
     severity: P1
     title: learning_account_global_auth_identity_and_login_consistency
-    status: OPEN
+    status: RESOLVED
+    resolution_ref: resolved_contracts.DB-LIC-002
     diagnosis:
       - StudentLearningAccount stores user_id primary_auth_login_identifier_id and a login_identifier_projection but current physical blueprint does not prove the identifier belongs to that same User
       - the projection can drift from canonical auth_login_identifiers unless an explicit synchronization invariant exists
@@ -444,21 +574,21 @@ diagnosis_summary:
   result: FAIL_WITH_7_P1_BLOCKERS
 
 current_gate_summary:
-  blockers_resolved_after_diagnosis: 1
-  open_P0_P1: 6
-  result: FAIL_WITH_6_P1_BLOCKERS
-  resolved_blocker: DB-LIC-001
-  next_blocker: DB-LIC-002
+  blockers_resolved_after_diagnosis: 2
+  open_P0_P1: 5
+  result: FAIL_WITH_5_P1_BLOCKERS
+  resolved_blockers: [DB-LIC-001, DB-LIC-002]
+  next_blocker: DB-LIC-003
 
 nonblockers_and_deferred_questions:
   - exact_public_prices_discounts_VAT_and_payment_provider_flow_belong_to_DB4_9
-  - exact_inventory_grant_after_payment_or_manual_commercial_grant_belongs_to_DB4_9
+  - exact_inventory_grant_after_payment_or_manual_commercial_grant_belong_to_DB4_9
   - exact_global_auth_email_verification_merge_and_recovery_policy_is_not_invented_in_DB4_6
   - exact_password_complexity_hash_cost_and_rotation_parameters_are_security_implementation_policy
   - exact_HTTP_If_Match_required_markers_and_error_codes_remain_Stage5_acceptance_contract_sync
   - exact_max_bulk_PDF_count_and_select_visible_pagination_behavior_are_application_product_limits_not_database_P1
   - exact_competitor_semantics_of_inventory_card_active_count_remain_unobservable_but_our_projection_must_be_defined_before_implementation
-  - exact_always_stack_exceptions_of_the_competitor_are_not_assumed; our entitlement rule will be an explicit product decision when DB_LIC_006_is_fixed
+  - exact_always_stack_exceptions_of_the_competitor_are_not_assumed; our_entitlement_rule_will_be_an_explicit_product_decision_when_DB_LIC_006_is_fixed
 
 preservation_checks:
   all_confirmed_license_variants_remain_data_not_hardcoded_global_rule: PASS
@@ -480,8 +610,16 @@ preservation_checks:
   handoff_document_asset_same_tenant_only_without_solving_secret_storage_policy: PASS
   global_user_auth_identifier_and_dictionary_relations_not_fake_tenant_scoped: PASS
   source_order_item_same_tenant_commerce_relation_deferred_to_DB4_9: PASS
+  global_auth_login_identifier_remains_single_login_authority: PASS
+  learning_account_identifier_same_user_is_database_provable: PASS
+  persisted_login_projection_removed_as_independent_authority: PASS
+  current_nonrevoked_identifier_required_at_commit: PASS
+  per_tenant_login_namespace_not_created: PASS
+  same_global_user_cross_organization_reuse_preserved: PASS
+  heuristic_merge_or_rebind_from_typed_identifier_or_student_fields_forbidden: PASS
+  DB4_2_global_login_uniqueness_and_verification_authority_preserved: PASS
+  DB_LIC_003_through_DB_LIC_007_not_fixed_in_DB_LIC_002_step: PASS
   purchase_payment_scope_not_accidentally_solved_in_DB4_6: PASS
-  DB_LIC_002_through_DB_LIC_007_not_fixed_in_DB_LIC_001_step: PASS
   DB4_7_or_later_scope_not_entered: PASS
   aggregate_core_schema_modified_in_diagnosis: false
   aggregate_docs87_modified_in_diagnosis: false
@@ -491,16 +629,16 @@ preservation_checks:
   UI_or_feature_implementation_started: false
 
 next_single_step:
-  id: DB4_6_STEP_2
-  blocker: DB-LIC-002
-  action: resolve_learning_account_global_auth_identity_and_login_consistency_only
+  id: DB4_6_STEP_3
+  blocker: DB-LIC-003
+  action: resolve_learning_account_lifecycle_optimistic_concurrency_and_student_archive_effect_only
   allowed_files:
     - specs/database/licenses-learning-access.yml
     - docs/110-stage-4-licenses-learning-access-audit.md
     - specs/gates/stage-4-database-contract-gate.yml
   scope_lock: >-
-    Resolve only DB-LIC-002. Do not fix DB-LIC-003 through DB-LIC-007, do not
+    Resolve only DB-LIC-003. Do not fix DB-LIC-004 through DB-LIC-007, do not
     synchronize specs/database/core-schema.yml or docs/87-physical-database-schema.md
     until the final DB4_6 aggregate sync, do not enter DB4_7 or later slices, do
     not create Laravel migrations, do not start Stage 5 and do not implement UI/features.
-  after_action: rerun_DB4_6_gate_and_STOP_before_DB_LIC_003
+  after_action: rerun_DB4_6_gate_and_STOP_before_DB_LIC_004
