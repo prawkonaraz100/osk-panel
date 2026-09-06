@@ -691,12 +691,20 @@ resolved_contracts:
         requires_separate_elevated_identity_security_command: true
         exact_transfer_claim_recovery_policy: existing_pending_identity_policy_gate
       attaching_existing_global_user_to_learning_account_changes_management_authority: false
-      same_global_user_may_have_learning_accounts_in_multiple_organizations: true
+      same_global_user_may_have_learning_accounts_in_multiple_organizations: true_only_when_not_organization_managed
       permission_in_nonmanaging_organization_grants_password_reset: false
+      organization_managed_exclusive_principal_guard:
+        purpose: prevent_tenant_password_reset_from_becoming_cross_tenant_or_staff_account_takeover
+        organization_membership_rows_for_user_allowed: false
+        learning_account_in_other_organization_allowed: false
+        current_auth_social_account_allowed: false
+        final_state_enforcement: DEFERRABLE_INITIALLY_DEFERRED_constraint_triggers_or_equivalent_transactional_DB_guards_on_all_participating_tables
+        creating_membership_cross_org_learning_account_or_current_social_link_while_organization_managed: reject_until_identity_authority_is_explicitly_transitioned
+        historical_user_identity_merge_or_authority_transition: separate_elevated_identity_security_flow
       rationale: >-
         Because users.password_hash authenticates one global User, tenant-level reset
-        permission alone must never let OSK B replace the credential used by the same
-        User in OSK A or another global context.
+        permission alone must never let OSK A take over staff, owner, social-login or
+        cross-organization contexts of that same User.
     OSK_managed_initial_password:
       allowed_only_when:
         - learning_account_create_passes_DB_LIC_001_and_DB_LIC_002
@@ -704,6 +712,7 @@ resolved_contracts:
         - actor_has_student_access_create_for_target
         - actor_has_student_access_manage_credentials_for_target_when_initial_password_is_supplied
         - user_password_management_is_organization_managed_by_same_organization
+        - user_satisfies_organization_managed_exclusive_principal_guard
       newly_created_global_user_in_OSK_managed_flow:
         may_initialize_management_row_atomically: true
         management_mode: organization_managed
@@ -718,14 +727,18 @@ resolved_contracts:
       required_learning_account_eligibility: DB_LIC_003_effective_operational_eligibility
       management_mode_required: organization_managed
       managing_organization_id_must_equal_learning_account_organization_id: true
+      organization_managed_exclusive_principal_guard_must_hold: true
       reset_permission_may_transfer_password_management_authority: false
       user_shared_with_other_organizations:
-        manager_organization_may_reset: true
-        nonmanager_organization_may_reset: false
+        organization_managed_state_is_invalid_until_identity_authority_transition: true
+        OSK_reset_while_shared: forbidden
+      user_with_any_organization_membership_or_current_social_account:
+        OSK_reset_while_organization_managed: forbidden
       user_self_service_or_unclassified:
         OSK_reset: deny_fail_closed
     credential_version_and_concurrency:
       concurrency_root: user_password_management.credential_version
+      every_local_password_hash_mutation_regardless_of_actor_must_lock_management_row_and_increment_credential_version_once: true
       expected_credential_version_required_for_OSK_set_or_reset_domain_command: true
       exact_HTTP_transport_of_expected_credential_version: Stage5_acceptance_contract_sync
       successful_password_set_or_reset_increments_credential_version_once: true
@@ -734,12 +747,12 @@ resolved_contracts:
       stale_expected_credential_version: conflict_without_hash_handoff_or_audit_effect
       learning_account_version_increment_for_password_reset: false
       reason: password_is_global_User_credential_and_may_be_referenced_by_multiple_learning_accounts
-    single_secret_mutation_lock_order:
-      - students_row_FOR_UPDATE
-      - student_learning_accounts_row_FOR_UPDATE
-      - users_row_FOR_UPDATE
-      - user_password_management_row_FOR_UPDATE
-      - idempotency_claim_or_equivalent_is_acquired_before_nonreplayable_effect_according_to_global_idempotency_contract
+    single_secret_mutation_sequence:
+      - claim_idempotency_key_before_nonreplayable_effect
+      - lock_students_row_FOR_UPDATE
+      - lock_student_learning_accounts_row_FOR_UPDATE
+      - lock_users_row_FOR_UPDATE
+      - lock_user_password_management_row_FOR_UPDATE
     one_time_plaintext_lifecycle:
       durable_secret_record_created: false
       process_memory_states:
@@ -768,7 +781,7 @@ resolved_contracts:
           allowed_values: [initial_credentials, password_reset, credentials_document]
         credential_version_snapshot: bigint_not_null_check_gte_0
         contains_fresh_secret: boolean_not_null_default_false
-        fresh_secret_issued_at: timestamptz_nullable
+        fresh_secret_generated_at: timestamptz_nullable
         batch_id: uuid_nullable_FK_student_access_export_batches
         batch_ordinal: integer_nullable_check_gt_0
         document_asset_id: existing_nullable_same_tenant_FK_from_DB_LIC_001
@@ -776,10 +789,10 @@ resolved_contracts:
         contains_fresh_secret_true:
           handoff_type_allowed: [initial_credentials, password_reset]
           credential_version_snapshot_must_be_gte_1: true
-          fresh_secret_issued_at_required: true
+          fresh_secret_generated_at_required: true
           document_asset_id_must_be_null: true
         contains_fresh_secret_false:
-          fresh_secret_issued_at_must_be_null: true
+          fresh_secret_generated_at_must_be_null: true
           document_asset_id_may_be_null_or_secret_free_asset: true
       batch_matrix:
         batch_id_null_requires_batch_ordinal_null: true
@@ -835,7 +848,7 @@ resolved_contracts:
         - authorize_and_scope_target
         - lock_student_learning_account_user_and_management_rows_in_canonical_order
         - recheck_DB_LIC_003_operational_eligibility_after_locks
-        - require_matching_organization_managed_password_authority
+        - require_matching_organization_managed_password_authority_and_exclusive_principal_guard
         - compare_expected_credential_version_after_lock
         - accept_or_generate_plaintext_only_in_process_memory
         - validate_password_policy_and_derive_hash
@@ -883,6 +896,7 @@ resolved_contracts:
         nonsecret_combined_pdf:
           credential_mutation: false
           old_plaintext_recovery: false
+          creates_one_batch_and_one_nonsecret_handoff_item_per_selected_learning_account: true
         reset_and_secret_combined_pdf:
           credential_mutation: true
           all_selected_targets_must_pass_authority_before_any_password_write: true
@@ -906,7 +920,7 @@ resolved_contracts:
         - validate_every_selected_account_same_organization_and_permission_scope
         - acquire_all_locks_in_deterministic_order
         - recheck_every_target_DB_LIC_003_operational_eligibility
-        - verify_matching_password_management_authority_for_every_unique_user
+        - verify_matching_password_management_authority_and_exclusive_principal_guard_for_every_unique_user
         - compare_expected_credential_versions_for_every_unique_user
         - generate_one_plaintext_and_hash_per_unique_user_in_memory
         - render_entire_combined_secret_bearing_PDF_in_memory_before_durable_password_writes
@@ -950,6 +964,7 @@ resolved_contracts:
         - initialize_credential_version_zero_when_password_hash_null_and_one_when_nonnull_as_migration_epoch_not_historical_reset_count
         - leave_password_changed_at_null_when_original_change_time_is_unknown
         - add_users_password_hash_vs_credential_version_deferred_final_state_guard
+        - add_organization_managed_exclusive_principal_deferred_guards_across_memberships_learning_accounts_and_social_accounts
         - add_student_access_export_batches
         - add_handoff_credential_version_secret_metadata_batch_fields_and_checks
         - precheck_existing_handoff_document_assets_for_possible_plaintext_secret_content_or_untrusted_purpose
@@ -964,12 +979,17 @@ resolved_contracts:
       legacy_plaintext_password_migration_into_ciphertext_or_secret_table: forbidden
     required_integration_tests:
       - global_password_hash_remains_on_user_and_no_learning_account_password_hash_is_added
-      - organization_managed_user_can_be_reset_only_by_matching_organization_with_required_permission_and_scope
-      - same_global_user_linked_to_two_organizations_cannot_be_reset_by_nonmanaging_organization
+      - organization_managed_user_can_be_reset_only_by_matching_organization_with_required_permission_scope_and_exclusive_principal_guard
+      - organization_managed_user_cannot_have_any_organization_membership_row
+      - organization_managed_user_cannot_have_learning_account_in_another_organization
+      - organization_managed_user_cannot_have_current_social_auth_account
+      - creating_staff_membership_cross_org_learning_account_or_social_link_requires_prior_explicit_identity_authority_transition
+      - same_global_user_linked_to_two_organizations_cannot_be_reset_by_either_OSK_while_still_organization_managed
       - self_service_or_unclassified_user_OSK_reset_is_denied_fail_closed
       - linking_existing_user_does_not_transfer_password_management_authority
-      - initial_password_for_new_OSK_managed_user_initializes_authority_atomically
+      - initial_password_for_new_OSK_managed_exclusive_user_initializes_authority_atomically
       - reset_with_current_expected_credential_version_changes_hash_and_increments_epoch_once
+      - self_service_or_other_auth_password_change_also_increments_same_credential_version_once
       - reset_with_stale_expected_credential_version_is_rejected_without_partial_effect
       - two_resets_with_same_expected_credential_version_cannot_both_commit
       - plaintext_password_is_absent_from_relational_tables_audit_outbox_logs_and_idempotency_snapshot
@@ -1143,7 +1163,7 @@ nonblockers_and_deferred_questions:
   - exact_HTTP_If_Match_required_markers_and_error_codes_remain_Stage5_acceptance_contract_sync
   - exact_max_bulk_PDF_count_and_select_visible_pagination_behavior_are_application_product_limits_not_database_P1
   - exact_competitor_semantics_of_inventory_card_active_count_remain_unobservable_but_our_projection_must_be_defined_before_implementation
-  - exact_always_stack_exceptions_of_the_competitor_are_not_assumed; our entitlement rule will_be_an_explicit_product_decision_when_DB_LIC_006_is_fixed
+  - exact_always_stack_exceptions_of_the_competitor_are_not_assumed; our entitlement rule will be an explicit product decision when DB_LIC_006_is_fixed
 
 preservation_checks:
   all_confirmed_license_variants_remain_data_not_hardcoded_global_rule: PASS
@@ -1185,6 +1205,7 @@ preservation_checks:
   DB_LIC_004_through_DB_LIC_007_not_fixed_in_DB_LIC_003_step: PASS
   global_User_password_hash_remains_single_canonical_local_password_credential: PASS
   OSK_password_reset_requires_matching_global_password_management_authority_not_permission_alone: PASS
+  organization_managed_password_authority_is_exclusive_learner_principal_not_cross_tenant_staff_or_social_identity: PASS
   same_global_User_cross_organization_nonmanager_password_takeover_blocked: PASS
   credential_version_serializes_global_password_mutation_without_reusing_learning_account_version: PASS
   plaintext_secret_never_persisted_in_DB_audit_outbox_idempotency_FileAsset_or_QR: PASS
