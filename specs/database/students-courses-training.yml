@@ -1,7 +1,7 @@
 meta:
   project: osk-panel
   scope: students_courses_training_core_v1
-  status: DB_TRN_001_002_PASS_6_P1_BLOCKERS_OPEN
+  status: DB_TRN_001_002_003_PASS_5_P1_BLOCKERS_OPEN
   stage: DB4_4_STUDENTS_COURSES_TRAINING_LEDGER
   created_at: 2026-09-06
   narrative: docs/108-stage-4-students-courses-training-ledger-audit.md
@@ -25,10 +25,12 @@ principles:
   aggregate_sync_deferred_until_final_DB4_4_gate: true
   pre_course_student_profile_may_exist_before_formal_identity_is_complete: true
   formal_course_enrollment_requires_legally_complete_student_identity: true
-  current_step_scope: formal_student_identity_branch_and_duplicate_lifecycle_only
+  student_profile_is_durable_and_archive_is_state_not_delete: true
+  student_mutations_use_one_concurrency_root: true
+  student_archive_must_not_silently_cancel_or_rewrite_course_history: true
+  current_step_scope: student_concurrency_archive_restore_lifecycle_only
 
 open_blockers_after_this_step:
-  - DB-TRN-003
   - DB-TRN-004
   - DB-TRN-005
   - DB-TRN-006
@@ -508,14 +510,14 @@ student_formal_identity_and_duplicate_lifecycle:
       - no_pesel_true_with_null_birth_date
       - only_one_of_ciphertext_or_lookup_hash_nonnull
       - formal_student_changed_to_incomplete_no_PESEL_not_declared_state
-    optimistic_concurrency_for_identity_update: deferred_to_DB_TRN_003
+    optimistic_concurrency_for_identity_update: governed_by_DB_TRN_003
 
   archive_restore_semantics_for_identity_only:
     archive_does_not_clear_identity_fields: true
     archive_does_not_release_PESEL_unique_claim: true
     restore_reuses_same_durable_student_row: true
     restore_does_not_create_second_student_identity: true
-    student_archive_effect_on_courses_and_versioning: deferred_to_DB_TRN_003
+    student_archive_effect_on_courses_and_versioning: governed_by_DB_TRN_003
 
   migration_design:
     migrations_not_generated_in_this_step: true
@@ -577,6 +579,242 @@ student_formal_identity_and_duplicate_lifecycle:
     name_birth_date_not_misused_as_hard_unique_identifier: PASS
     formal_identity_guard_is_database_or_transactional_boundary_not_frontend_only: PASS
     DB_TRN_003_through_DB_TRN_008_not_fixed: PASS
+    aggregate_core_schema_not_modified_in_this_step: PASS
+    aggregate_docs87_not_modified_in_this_step: PASS
+    Laravel_migrations_created: false
+    later_DB4_slices_entered: false
+
+# DB-TRN-003
+student_concurrency_archive_restore_lifecycle:
+  blocker: DB-TRN-003
+  status: PASS
+  goal: >-
+    Make Student profile updates, archive, restore and formal course creation safe
+    under concurrency without deleting or silently mutating formal history. Student
+    archive is a visibility/lifecycle state of one durable row, not a hidden course
+    cancellation command.
+
+  authority_and_api_surface:
+    student_response_version_source: specs/api/openapi-components-v1.yaml
+    update_operation: PATCH_/students/{studentId}
+    update_concurrency_header: If-Match
+    archive_operation: POST_/students/{studentId}/archive
+    restore_operation: POST_/students/{studentId}/restore
+    archive_restore_idempotency_key_present: true
+    hard_delete_student_normal_lifecycle: forbidden
+
+  students_physical_model:
+    add_column:
+      name: version
+      type: bigint
+      nullable: false
+      default: 1
+      check: version_gte_1
+      purpose: optimistic_concurrency_root_for_student_profile_and_archive_state
+    existing_archive_columns:
+      archived_at: nullable_timestamptz
+      archived_by_user_id: nullable_uuid
+    archive_status_derived_from_archived_at: true
+    archive_status_separate_boolean_column_required: false
+    organization_id_mutation: forbidden
+    archived_at_or_archived_by_mutation_via_generic_profile_PATCH: forbidden
+
+  version_semantics:
+    concurrency_root: students.version
+    material_profile_update_increments_once: true
+    material_identity_branch_update_increments_once: true
+    successful_archive_state_change_increments_once: true
+    successful_restore_state_change_increments_once: true
+    semantic_noop_does_not_increment: true
+    stale_expected_version_has_no_partial_write: true
+    version_returned_in_student_projection: true
+    ETag_or_If_Match_represents_current_student_version: true
+
+  profile_update_transaction:
+    expected_version_required_for_mutating_profile_command: true
+    expected_version_source: If-Match
+    lock_student_row: FOR_UPDATE
+    compare_expected_version_after_lock: true
+    stale_version_result: conflict_or_precondition_failed_without_write
+    apply_field_changes_only_after_version_match: true
+    identity_changes_must_still_pass_DB_TRN_002: true
+    default_location_changes_must_still_pass_DB_TRN_001: true
+    archive_state_cannot_be_changed_through_profile_patch: true
+    archived_profile_business_field_correction:
+      database_does_not_forbid_only_because_archived: true
+      authorization_and_UI_policy_may_be_narrower: true
+      same_version_and_identity_audit_rules_still_apply: true
+    audit_and_outbox_same_transaction_for_sensitive_or_material_change: true
+    note_on_API_contract: >-
+      Stage-3 OpenAPI already references If-Match on Student PATCH. Runtime/domain
+      policy treats the expected version as required for mutation; exact HTTP
+      required-marker/428 representation is an API/acceptance synchronization item,
+      not a reason to weaken the database concurrency contract in DB4_4.
+
+  course_creation_vs_archive_serialization:
+    course_enrollment_create_must_lock_student_row: FOR_UPDATE
+    after_lock_create_requires_student_archived_at_null: true
+    after_lock_create_requires_DB_TRN_002_formal_identity: true
+    database_guard:
+      enforcement: deferrable_constraint_trigger_or_equivalent_transactional_DB_guard
+      course_insert_or_student_rebind_requires_nonarchived_student: true
+      direct_SQL_or_import_cannot_bypass_active_student_requirement: true
+    race_rule: >-
+      Course creation and Student archive serialize on the same Student row. If
+      course creation commits first, archive sees the newly open enrollment and is
+      rejected. If archive commits first, course creation sees archived_at non-null
+      and is rejected. The system must never commit archived Student + newly open
+      CourseEnrollment from this race.
+
+  archive_open_course_guard:
+    policy: archive_does_not_silently_cancel_interrupt_complete_or_rewrite_courses
+    minimal_open_course_predicate_for_DB_TRN_003: >-
+      course_enrollments.student_id = student.id AND
+      completed_at IS NULL AND interrupted_at IS NULL AND cancelled_at IS NULL
+    archive_when_any_matching_course_exists: reject_conflict
+    why_minimal_predicate_is_used_now: >-
+      DB-TRN-004 owns the complete Course lifecycle/stage matrix. DB-TRN-003 only
+      needs the conservative boundary that a clearly non-terminal enrollment blocks
+      archive. DB-TRN-004 may refine the canonical open/terminal predicate but may
+      not weaken the rule that Student archive has no hidden course-state side effect.
+    historical_terminal_courses_may_remain_linked_to_archived_student: true
+    archived_student_history_hard_delete_or_detach: forbidden
+
+  archive_transaction:
+    idempotency_claim_before_effect: true
+    lock_student_row: FOR_UPDATE
+    if_already_archived:
+      state_idempotent_noop: true
+      version_increment: false
+      existing_identity_and_history_unchanged: true
+    if_active:
+      steps:
+        - verify_tenant_and_permission
+        - verify_no_open_course_using_archive_guard_after_student_lock
+        - set_archived_at
+        - set_archived_by_user_id
+        - increment_version_once
+        - write_audit_and_outbox_same_transaction
+      course_rows_mutated: false
+      training_sessions_attendance_ledger_mutated: false
+      PESEL_or_birth_date_identity_mutated: false
+    transaction_failure_rolls_back_archive_version_audit_outbox: true
+
+  restore_transaction:
+    idempotency_claim_before_effect: true
+    lock_student_row: FOR_UPDATE
+    if_already_active:
+      state_idempotent_noop: true
+      version_increment: false
+    if_archived:
+      steps:
+        - verify_tenant_and_permission
+        - clear_archived_at
+        - clear_archived_by_user_id
+        - increment_version_once
+        - write_audit_and_outbox_same_transaction
+      historical_course_rows_changed: false
+      historical_training_rows_changed: false
+      PESEL_unique_claim_changed: false
+      restore_reuses_same_student_id: true
+    restore_does_not_reopen_cancelled_completed_or_interrupted_course: true
+    restore_does_not_create_course: true
+    transaction_failure_rolls_back_restore_version_audit_outbox: true
+
+  edit_archive_restore_races:
+    all_three_mutation_families_lock_same_student_row: true
+    PATCH_then_archive:
+      allowed_sequence: >-
+        PATCH may commit first and increment version; archive then observes the
+        latest committed Student state, applies its own checks and increments again.
+      lost_update: false
+    archive_then_stale_PATCH:
+      result: stale_expected_version_conflict
+      archived_state_preserved: true
+    archive_vs_restore:
+      serialized_by_student_row_lock: true
+      each_command_evaluates_state_after_lock: true
+      duplicate_same_state_command_is_noop: true
+    two_PATCH_same_expected_version:
+      at_most_one_can_commit: true
+      loser: stale_version_conflict_without_partial_write
+
+  learning_access_and_license_boundary:
+    student_archive_auto_revokes_or_deletes_learning_account: false_in_this_slice
+    student_restore_auto_reactivates_learning_access: false_in_this_slice
+    detailed_learning_access_license_effects: deferred_to_DB4_6
+    reason: >-
+      DB-TRN-003 must not invent DB4_6 credential/license lifecycle. Student archive
+      only closes the Student/formal-course concurrency boundary here.
+
+  formal_history_and_delete_policy:
+    student_hard_delete: forbidden_for_normal_archive
+    course_enrollment_hard_delete_on_student_archive: forbidden
+    training_session_hard_delete_on_student_archive: forbidden
+    attendance_hard_delete_on_student_archive: forbidden
+    ledger_hard_delete_on_student_archive: forbidden
+    foreign_key_default: RESTRICT
+    archive_preserves_DB_TRN_002_identity_claims: true
+
+  migration_design:
+    migrations_not_generated_in_this_step: true
+    steps_when_later_generated:
+      - add_students_version_bigint_not_null_default_1_check_gte_1
+      - verify_all_existing_student_versions_or_initialize_legacy_rows_to_1
+      - precheck_archived_students_for_minimal_open_course_conflicts
+      - require_explicit_data_remediation_for_archived_student_with_open_course_never_auto_cancel_course
+      - install_course_insert_or_rebind_guard_requiring_nonarchived_student_and_DB_TRN_002_identity
+      - install_archive_guard_against_open_course_predicate_with_student_row_serialization
+      - wire_profile_update_archive_restore_commands_to_students_version
+      - add_concurrency_and_archive_race_invariant_tests
+    existing_archived_student_with_open_course_policy: fail_migration_or_explicit_reviewed_remediation
+
+  tests_required:
+    - new_or_migrated_student_version_is_at_least_one
+    - profile_PATCH_with_current_expected_version_commits_and_increments_version_once
+    - profile_PATCH_with_stale_expected_version_is_rejected_without_partial_write
+    - two_profile_PATCH_commands_with_same_expected_version_cannot_both_commit
+    - identity_branch_update_still_passes_DB_TRN_002_and_increments_version_once
+    - profile_PATCH_cannot_directly_set_or_clear_archived_at_or_archived_by
+    - archive_active_student_without_open_course_sets_archive_fields_and_increments_version_once
+    - repeated_archive_of_already_archived_student_is_state_noop_without_version_increment
+    - archive_student_with_open_course_is_rejected_without_course_mutation
+    - archive_with_only_terminal_historical_courses_preserves_all_course_rows
+    - archive_does_not_delete_or_rewrite_sessions_attendance_or_ledger
+    - course_create_for_archived_student_is_rejected_by_database_guard
+    - concurrent_course_create_and_student_archive_cannot_commit_archived_student_with_new_open_course
+    - archive_then_stale_profile_PATCH_returns_conflict_and_preserves_archive
+    - profile_PATCH_then_archive_can_serialize_without_lost_update
+    - restore_archived_student_clears_archive_fields_and_increments_version_once
+    - repeated_restore_of_active_student_is_state_noop_without_version_increment
+    - restore_reuses_same_student_row_and_does_not_reopen_or_create_courses
+    - archive_restore_does_not_release_or_recreate_PESEL_identity_claim
+    - student_archive_does_not_hard_delete_formal_history
+    - migration_detects_archived_student_with_open_course_before_enabling_guard
+
+  intentionally_not_solved_by_DB_TRN_003:
+    complete_course_stage_timestamp_matrix: DB-TRN-004
+    course_stage_transition_history: DB-TRN-004
+    course_cancel_restore_and_closed_course_correction_semantics: DB-TRN-004
+    requirement_context_reproducibility: DB-TRN-005
+    attendance_ledger_exactly_once: DB-TRN-006
+    external_training_current_projection_history: DB-TRN-007
+    course_required_PKK_persistence_boundary: DB-TRN-008
+    learning_account_license_credentials_lifecycle: DB4_6
+    exact_HTTP_If_Match_required_marker_and_428_acceptance_sync: Stage5_acceptance_contract_sync
+
+  self_audit:
+    student_version_concurrency_root_defined: PASS
+    stale_profile_update_cannot_silently_overwrite: PASS
+    edit_archive_restore_share_student_row_serialization_boundary: PASS
+    course_create_archive_race_closed: PASS
+    archived_student_cannot_receive_new_formal_course: PASS
+    archive_with_open_course_is_rejected_without_hidden_course_mutation: PASS
+    terminal_formal_history_is_preserved: PASS
+    restore_reuses_same_row_and_does_not_reopen_history: PASS
+    DB_TRN_002_identity_and_PESEL_archive_rules_preserved: PASS
+    DB_TRN_004_course_lifecycle_matrix_not_solved_early: PASS
+    DB4_6_learning_access_lifecycle_not_solved_early: PASS
     aggregate_core_schema_not_modified_in_this_step: PASS
     aggregate_docs87_not_modified_in_this_step: PASS
     Laravel_migrations_created: false
