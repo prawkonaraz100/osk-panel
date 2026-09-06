@@ -1,7 +1,7 @@
 meta:
   project: osk-panel
   scope: students_courses_training_core_v1
-  status: DB_TRN_001_002_003_004_005_006_007_PASS_1_P1_BLOCKER_OPEN
+  status: DB_TRN_001_002_003_004_005_006_007_008_PASS_0_P1_BLOCKERS_OPEN
   stage: DB4_4_STUDENTS_COURSES_TRAINING_LEDGER
   created_at: 2026-09-06
   narrative: docs/108-stage-4-students-courses-training-ledger-audit.md
@@ -43,10 +43,13 @@ principles:
   external_documented_transfers_are_additive_current_records: true
   external_training_history_is_versioned_without_latest_row_guess: true
   external_current_credit_must_match_current_course_category_and_training_type: true
-  current_step_scope: recognized_external_training_projection_history_only
+  course_requires_exactly_one_current_pkk_identity_profile: true
+  pkk_identity_is_course_scoped_and_versioned: true
+  pkk_plaintext_persistence_forbidden: true
+  pkk_provider_lifecycle_deferred_to_DB4_8: true
+  current_step_scope: course_required_PKK_atomic_persistence_boundary_only
 
-open_blockers_after_this_step:
-  - DB-TRN-008
+open_blockers_after_this_step: []
 
 # DB-TRN-001
 same_tenant_integrity:
@@ -2695,6 +2698,361 @@ recognized_external_training_projection_history:
     terminal_course_external_change_requires_correction_mode: PASS
     migration_does_not_guess_latest_row_lineage_context_or_actor: PASS
     DB_TRN_008_not_fixed: PASS
+    aggregate_core_schema_not_modified_in_this_step: PASS
+    aggregate_docs87_not_modified_in_this_step: PASS
+    Laravel_migrations_created: false
+    later_DB4_slices_entered: false
+
+# DB-TRN-008
+course_required_pkk_atomic_persistence_boundary:
+  blocker: DB-TRN-008
+  status: PASS
+  goal: >-
+    Make the confirmed required course-scoped PKK identity atomic with CourseEnrollment
+    persistence without duplicating plaintext PKK on the Course row and without pulling
+    provider fetch/update/return/retry lifecycle from DB4_8 into DB4_4. Every committed
+    course must have exactly one current encrypted PKK identity profile for the same
+    tenant and course; PKK edits and course-context revalidation preserve prior profile
+    versions instead of overwriting formal history.
+
+  authority_and_preservation:
+    create_screen: specs/screens/course-create.yml
+    edit_screen: specs/screens/course-edit.yml
+    API_course_schema: specs/api/openapi-components-v1.yaml
+    API_PKK_paths: specs/api/paths/pkk-calendar.yaml
+    PKK_entrypoint_source: docs/75-pkk-entrypoints-and-student-list.md
+    PKK_course_panel_source: docs/76-pkk-course-operational-panel.md
+    PKK_management_source: docs/77-pkk-management-flow-fallback-design.md
+    PKK_configuration_gate_source: docs/37-pkk-configuration-gate.md
+    aggregate_blueprint_reference_only: specs/database/core-schema.yml
+    aggregate_narrative_reference_only: docs/87-physical-database-schema.md
+    create_request_requires_pkk_number: true
+    edit_screen_requires_pkk_number: true
+    pkk_is_owned_by_course_enrollment_not_global_student: true
+    one_student_may_have_multiple_courses_each_with_own_PKK: true
+    course_may_have_PKK_before_provider_profile_is_fetched: true
+    provider_configuration_gate_applies_to_provider_operations_not_local_identity_persistence: true
+    exact_duplicate_PKK_or_PKK_category_collision_rule_observed: false
+    exact_PKK_format_validation_observed: false
+
+  canonical_identity_owner:
+    table: pkk_profiles
+    course_enrollments_duplicate_plain_or_ciphertext_PKK_column: forbidden
+    current_API_projection: GET_/course-enrollments/{courseEnrollmentId}/pkk
+    provider_operations_keep_exact_profile_reference_history: true
+    reason: >-
+      Existing API and physical design already scope PkkProfile to CourseEnrollment.
+      Strengthening that owner avoids a second mutable PKK copy on CourseEnrollment
+      and lets historical provider operations remain attached to the exact profile
+      identity version they used.
+
+  pkk_profiles_strengthening:
+    existing_table: pkk_profiles
+    tenant_owned: true
+    current_predicate: superseded_at_is_null
+    existing_sensitive_fields:
+      - pkk_number_ciphertext
+      - pkk_lookup_hash
+    identity_fields_required_after_migration:
+      - pkk_number_ciphertext_nonnull
+      - pkk_lookup_hash_nonnull
+      - identity_revision_bigint_nonnull_gte_1
+      - bound_driving_category_id_uuid_nonnull
+      - bound_training_type_varchar_32_nonnull
+      - record_origin_varchar_32_nonnull
+      - recorded_at_timestamptz_nonnull
+      - supersedes_pkk_profile_id_uuid_nullable
+      - superseded_at_timestamptz_nullable
+      - superseded_by_user_id_uuid_nullable
+      - recorded_by_user_id_uuid_nullable_only_for_migration_baseline
+    record_origin_values:
+      - course_create
+      - course_edit
+      - context_revalidation
+      - migration_baseline
+    provider_fields_preserved_for_DB4_8:
+      - status
+      - profile_snapshot_ciphertext
+      - profile_snapshot_redacted
+      - fetched_at
+      - updated_at
+    identity_business_fields_immutable_after_insert:
+      - organization_id
+      - course_enrollment_id
+      - pkk_number_ciphertext
+      - pkk_lookup_hash
+      - identity_revision
+      - bound_driving_category_id
+      - bound_training_type
+      - record_origin
+      - recorded_at
+      - recorded_by_user_id
+      - supersedes_pkk_profile_id
+    superseded_profile_identity_fields_never_reactivated_or_rewritten: true
+    provider_field_mutability_and_status_matrix: DB4_8
+    hard_delete_normal_lifecycle: forbidden
+
+  sensitive_identifier_contract:
+    plaintext_PKK_persistence: forbidden
+    canonical_write_flow:
+      - accept_plaintext_PKK_only_at_authorized_course_command_boundary
+      - normalize_once_using_canonical_application_PKK_normalizer
+      - derive_ciphertext_and_keyed_lookup_hash_from_same_normalized_value
+      - discard_plaintext_after_command_boundary
+    lookup_hash: HMAC_SHA_256_or_equivalent_secret_keyed_hash
+    plain_global_SHA256_for_lookup: forbidden
+    independent_ciphertext_or_lookup_hash_update: forbidden
+    database_holds_HMAC_secret: false
+    database_pair_boundary: both_ciphertext_and_hash_are_nonnull_for_every_identity_profile
+    exact_format_checksum_or_length_validation: application_validation_and_Stage5_acceptance_sync
+
+  duplicate_PKK_policy:
+    hard_unique_on_pkk_lookup_hash_in_DB_TRN_008: false
+    reason: >-
+      Course create reverse-engineering explicitly leaves duplicate PKK/category
+      behavior unobserved. DB4_4 must not invent a uniqueness rule that could reject
+      a legitimate historical or provider workflow. Exact collision policy belongs
+      to verified domain/provider validation before production implementation.
+    same_hash_may_exist_on_distinct_course_profiles_until_policy_verified: true
+    exact_lookup_hash_still_available_for_authorized_collision_detection: true
+
+  exact_course_and_lineage_integrity:
+    pkk_profile_candidate_key:
+      columns: [organization_id, id, course_enrollment_id]
+    same_tenant_course_FK:
+      source_columns: [organization_id, course_enrollment_id]
+      target_table: course_enrollments
+      target_columns: [organization_id, id]
+      on_update: RESTRICT
+      on_delete: RESTRICT
+    supersedes_same_tenant_same_course_self_FK:
+      source_columns: [organization_id, supersedes_pkk_profile_id, course_enrollment_id]
+      target_table: pkk_profiles
+      target_columns: [organization_id, id, course_enrollment_id]
+      match: MATCH_SIMPLE
+      on_update: RESTRICT
+      on_delete: RESTRICT
+    one_identity_revision_number_per_course:
+      type: unique
+      columns: [organization_id, course_enrollment_id, identity_revision]
+    at_most_one_successor_per_profile:
+      type: partial_unique
+      columns: [organization_id, supersedes_pkk_profile_id]
+      where: supersedes_pkk_profile_id_is_not_null
+    current_profile_at_most_one_per_course:
+      type: partial_unique
+      columns: [organization_id, course_enrollment_id]
+      where: superseded_at_is_null
+    source_must_preexist_successor: true
+    source_must_be_current_before_replacement: true
+    replacement_marks_source_superseded_same_transaction: true
+    self_reference_or_cycle: forbidden
+    lineage_is_linear_not_branching: true
+
+  required_current_profile_guard:
+    final_transaction_invariant: >-
+      Every CourseEnrollment has exactly one current PkkProfile in the same
+      organization and course, with non-null PKK ciphertext/hash identity and current
+      bound_driving_category_id/bound_training_type equal to the final CourseEnrollment
+      driving_category_id/training_type.
+    enforcement: partial_unique_plus_deferrable_constraint_trigger_or_equivalent_transactional_database_guard
+    at_most_one_current_from_partial_unique: true
+    at_least_one_current_required_for_every_committed_course: true
+    direct_SQL_course_without_current_PKK_identity_cannot_commit: true
+    direct_SQL_cross_tenant_PKK_profile_cannot_commit: true
+    stale_course_context_PKK_profile_cannot_commit: true
+
+  initial_course_creation_transaction:
+    operation: POST_/students/{studentId}/course-enrollments
+    request_pkk_number_required_by_existing_API: true
+    pkk_plaintext_is_command_input_not_course_column: true
+    fixed_locking_uses_existing_student_and_course_create_contracts: true
+    atomically_before_commit:
+      - validate_student_and_course_preconditions_from_DB_TRN_001_002_003
+      - normalize_encrypt_and_hash_required_PKK
+      - insert_CourseEnrollment
+      - insert_current_PkkProfile_identity_revision_1_record_origin_course_create
+      - bind_PkkProfile_to_course_organization_category_and_training_type
+      - create_requirement_context_and_current_requirement_profile_from_DB_TRN_005
+      - create_any_initial_external_training_rows_from_DB_TRN_007
+      - create_DB_TRN_004_created_history_event
+      - write_audit_and_outbox
+      - satisfy_required_current_PKK_profile_guard
+    any_PKK_identity_write_failure_rolls_back_course_and_all_sibling_side_effects: true
+    provider_fetch_call_required_before_course_commit: false
+    provider_configuration_required_for_local_course_save: false
+    provider_fetch_can_happen_later_for_same_current_profile: true
+    nested_student_plus_initial_course_flow_must_use_same_atomic_course_boundary: true
+
+  PKK_identity_edit_transaction:
+    operation: PATCH_/course-enrollments/{courseEnrollmentId}
+    expected_course_version_required: true
+    lock_course_enrollment_FOR_UPDATE: true
+    lock_current_pkk_profile_FOR_UPDATE: true
+    active_course_normal_edit_allowed: true
+    terminal_course_requires_DB_TRN_004_correction_mode: true
+    changed_PKK_value:
+      - normalize_encrypt_and_hash_new_PKK
+      - compare_new_lookup_hash_to_current_lookup_hash_after_course_lock
+      - if_different_mark_current_profile_superseded
+      - insert_successor_identity_revision_plus_1_record_origin_course_edit
+      - successor_supersedes_current_profile
+      - successor_context_snapshot_from_final_course_values
+      - do_not_copy_old_provider_snapshot_or_fetched_state_as_new_identity_authority
+    same_normalized_PKK_value:
+      identity_history_noop: true
+      no_successor_created_due_only_to_same_PKK: true
+    successful_material_PKK_change:
+      course_version_increment_total_for_whole_course_edit: exactly_once
+      requirements_revision_increment_due_only_to_PKK_change: false
+      DB_TRN_004_history_event_if_active: updated
+      DB_TRN_004_history_event_if_terminal: closed_course_corrected
+      event_payload_contains_plaintext_PKK: false
+      audit_contains_plaintext_PKK: false
+    stale_expected_course_version_partial_PKK_write: forbidden
+
+  course_context_revalidation:
+    trigger_fields:
+      - driving_category_id
+      - training_type
+    current_profile_context_fields:
+      - bound_driving_category_id
+      - bound_training_type
+    new_profile_context_is_derived_from_locked_final_course: true
+    category_or_training_type_change_may_not_commit_with_stale_current_PKK_context: true
+    exact_provider_or_legal_compatibility_matrix_hardcoded_in_DB_TRN_008: false
+    explicit_domain_revalidation_outcomes:
+      compatible_same_PKK:
+        - supersede_current_profile
+        - insert_successor_record_origin_context_revalidation
+        - preserve_existing_ciphertext_and_lookup_hash_without_requiring_plaintext
+        - bind_successor_to_final_category_and_training_type
+        - do_not_claim_provider_fetch_for_new_context
+      replacement_PKK_supplied:
+        - use_PKK_identity_edit_successor_with_final_context
+      incompatible_or_unknown_without_replacement:
+        - reject_course_context_change_before_commit
+    reason: >-
+      The confirmed course-edit contract requires revalidation of pkk_context, but
+      exact provider/category compatibility is not observed. The database enforces
+      freshness of the committed binding while the domain/provider validator owns
+      the semantic decision.
+    one_course_version_increment_for_combined_course_context_and_PKK_work: true
+
+  cancellation_restore_and_history:
+    course_cancel_deletes_or_supersedes_current_PKK_profile: false
+    course_restore_recreates_PKK_profile: false
+    course_cancel_hidden_provider_return_operation: forbidden
+    course_restore_hidden_provider_fetch_operation: forbidden
+    historical_superseded_PKK_profiles_preserved: true
+    historical_PKK_operations_remain_bound_to_exact_profile_version: true
+    student_archive_does_not_rebind_or_delete_PKK_history: true
+    provider_return_or_reconciliation_effects: DB4_8
+
+  provider_lifecycle_scope_boundary:
+    deliberately_not_defined_here:
+      - provider_configuration_verification
+      - fetch_request_response_contract
+      - profile_status_state_machine
+      - update_and_return_XML_signature_flow
+      - return_to_school
+      - return_to_authority
+      - return_expired
+      - operation_attempt_retry
+      - external_idempotency_and_reconciliation
+      - provider_error_mapping
+      - exact_pkk_operation_same_tenant_FK_strengthening
+    local_identity_can_exist_before_fetch: true
+    pkk_profile_provider_payload_is_not_source_for_missing_local_PKK_identity: true
+
+  migration_design:
+    migrations_not_generated_in_this_step: true
+    steps_when_later_generated:
+      - add_identity_revision_context_origin_recorded_and_supersession_columns_to_pkk_profiles_as_nullable_for_prechecks
+      - verify_every_existing_pkk_profile_matches_its_course_organization
+      - detect_every_course_with_zero_or_more_than_one_legacy_pkk_profile
+      - fail_or_require_explicit_reviewed_remediation_for_course_missing_required_PKK_profile
+      - fail_or_require_explicit_reviewed_remediation_for_duplicate_course_profiles_never_choose_latest_row
+      - verify_each_legacy_pkk_profile_has_both_ciphertext_and_lookup_hash_nonnull
+      - never_infer_missing_PKK_from_provider_snapshot_redacted_payload_or_course_label
+      - verify_or_remediate_ciphertext_hash_pair_in_application_security_process_without_exposing_plaintext
+      - assign_identity_revision_1_and_record_origin_migration_baseline_only_to_verified_single_profile
+      - set_recorded_at_to_migration_baseline_time_without_claiming_original_capture_time
+      - keep_recorded_by_user_id_null_for_migration_baseline_instead_of_fabricating_actor
+      - bind_verified_baseline_current_profile_context_to_current_course_category_and_training_type_as_migration_baseline_not_historical_claim
+      - add_candidate_key_pkk_profiles_organization_id_id_course_enrollment_id
+      - replace_simple_course_enrollment_id_unique_with_partial_unique_current_profile_per_tenant_course
+      - add_unique_identity_revision_per_tenant_course
+      - add_same_tenant_course_composite_FK
+      - add_same_tenant_same_course_supersession_self_FK_and_one_successor_unique
+      - set_required_identity_and_context_columns_not_null_after_remediation
+      - install_deferrable_required_current_profile_and_context_freshness_guard
+      - wire_course_create_PKK_edit_and_course_context_revalidation_to_course_lock_version_history
+      - add_atomicity_lineage_context_migration_and_race_tests
+    legacy_missing_PKK_policy: fail_migration_or_explicit_reviewed_remediation_never_invent_identifier
+    legacy_multiple_profile_policy: fail_migration_or_explicit_reviewed_remediation_never_latest_row_guess
+    migration_does_not_call_external_provider_to_guess_missing_identity: true
+
+  tests_required:
+    - create_course_without_required_PKK_input_is_rejected_by_API_and_domain_contract
+    - direct_SQL_course_without_current_PKK_profile_is_rejected_by_final_database_guard
+    - new_course_commits_with_exactly_one_current_PKK_profile_identity_revision_1
+    - current_PKK_profile_must_share_course_organization_by_composite_FK
+    - second_current_PKK_profile_for_same_course_is_rejected
+    - PKK_ciphertext_and_lookup_hash_are_both_required_for_identity_profile
+    - plaintext_PKK_is_not_persisted_in_course_profile_history_audit_or_outbox
+    - ciphertext_and_HMAC_are_derived_from_same_normalized_PKK_command_input
+    - course_create_rolls_back_when_PKK_encrypt_hash_or_profile_insert_fails
+    - local_course_create_does_not_require_provider_fetch_or_verified_integration_configuration
+    - current_PKK_profile_context_matches_course_category_and_training_type
+    - direct_context_change_without_PKK_revalidation_is_rejected_by_final_guard
+    - compatible_category_change_creates_context_revalidation_successor_and_preserves_old_profile
+    - incompatible_or_unknown_context_change_without_replacement_PKK_is_rejected
+    - changed_PKK_supersedes_current_profile_and_inserts_linear_successor
+    - same_normalized_PKK_edit_does_not_create_fake_identity_revision
+    - one_profile_source_cannot_have_two_successors
+    - supersession_self_reference_or_cycle_is_rejected
+    - PKK_edit_and_competing_course_edit_same_expected_version_cannot_both_commit
+    - stale_PKK_edit_cannot_partially_supersede_or_insert_profile
+    - combined_course_and_PKK_edit_increments_course_version_exactly_once
+    - PKK_only_change_does_not_increment_requirements_revision
+    - terminal_course_PKK_change_requires_DB_TRN_004_correction_mode
+    - terminal_course_PKK_correction_preserves_terminal_lifecycle_state
+    - cancellation_does_not_delete_supersede_or_provider_return_PKK_implicitly
+    - restore_reuses_current_PKK_identity_and_does_not_provider_fetch_implicitly
+    - superseded_profile_and_its_provider_operation_history_remain_preserved
+    - identical_PKK_hash_on_two_distinct_courses_is_not_hard_rejected_by_unverified_DB4_4_uniqueness_rule
+    - migration_fails_or_requires_review_for_course_missing_PKK_profile
+    - migration_fails_or_requires_review_for_multiple_PKK_profiles_per_course_without_latest_row_guess
+    - migration_never_fabricates_missing_PKK_actor_original_timestamp_or_identifier_from_provider_payload
+    - DB_TRN_008_does_not_define_provider_retry_return_XML_or_reconciliation_lifecycle
+
+  intentionally_not_solved_by_DB_TRN_008:
+    provider_configuration_verification_and_credentials_lifecycle: DB4_8
+    PKK_fetch_update_return_operation_attempt_retry_reconciliation: DB4_8
+    exact_provider_PKK_category_compatibility_and_duplicate_policy: DB4_8_plus_legal_product_verification
+    exact_PKK_format_length_checksum_validation: application_validation_and_Stage5_acceptance_sync
+    exact_HTTP_PKK_edit_expected_version_and_error_codes: Stage5_acceptance_contract_sync
+    internal_exam_attempt_compatibility_and_satisfaction: DB4_7
+    final_DB4_4_aggregate_core_schema_and_docs87_sync: separate_final_DB4_4_aggregate_sync_gate
+
+  self_audit:
+    confirmed_required_course_create_edit_PKK_field_preserved: PASS
+    PKK_has_one_canonical_course_scoped_owner_without_duplicate_course_column: PASS
+    every_committed_course_has_exactly_one_current_PKK_identity_profile: PASS
+    current_PKK_profile_is_same_tenant_same_course: PASS
+    PKK_ciphertext_and_HMAC_are_required_and_plaintext_is_not_persisted: PASS
+    unverified_duplicate_PKK_uniqueness_rule_not_invented: PASS
+    course_create_and_required_PKK_identity_are_atomic: PASS
+    provider_fetch_or_configuration_is_not_falsely_required_for_local_course_commit: PASS
+    PKK_edit_versions_profile_and_preserves_previous_identity_history: PASS
+    PKK_context_cannot_be_stale_after_category_or_training_type_change: PASS
+    exact_unobserved_provider_compatibility_matrix_not_invented: PASS
+    PKK_edit_and_context_revalidation_use_existing_course_version_root: PASS
+    terminal_course_PKK_change_requires_existing_correction_mode: PASS
+    cancel_restore_do_not_hide_provider_side_effects_or_delete_history: PASS
+    migration_never_guesses_missing_PKK_profile_identifier_actor_or_latest_row: PASS
+    DB4_8_provider_lifecycle_not_solved_early: PASS
     aggregate_core_schema_not_modified_in_this_step: PASS
     aggregate_docs87_not_modified_in_this_step: PASS
     Laravel_migrations_created: false
