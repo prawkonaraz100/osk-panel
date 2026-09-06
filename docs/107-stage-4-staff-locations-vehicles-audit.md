@@ -2,13 +2,13 @@
 
 Data: 2026-09-06
 
-**Status:** `DB4_3 ALL 6 BLOCKERS PASS / FINAL AGGREGATE SYNC PENDING`
+**Status:** `DB4_3 FINAL PASS / 0 OPEN P0-P1 / AGGREGATE SYNC PASS`
 
 ## Cel
 
-Pracujemy nad `DB4_3_STAFF_LOCATIONS_VEHICLES` ściśle blocker po blockerze.
+`DB4_3_STAFF_LOCATIONS_VEHICLES` został przeprowadzony ściśle blocker po blockerze, a po zamknięciu wszystkich sześciu blockerów wykonano osobną finalną synchronizację aggregate.
 
-Nie wchodzimy w Student/Course/Calendar i nie generujemy migracji Laravel. Każdy blocker ma osobną decyzję, machine-readable spec, self-audit i gate.
+Nie rozpoczęto Student/Course/Calendar, migracji Laravel ani implementacji UI w ramach tej bramki.
 
 Zasada:
 
@@ -25,7 +25,7 @@ Zasada:
 - `docs/08-security-compliance.md`,
 - `docs/87-physical-database-schema.md`.
 
-Podczas zamykania DB4_3 `specs/database/staff-locations-vehicles.yml` jest autorytatywnym bounded-context source dla nowych decyzji tego slice'u. Aggregate `core-schema.yml` i `docs/87` zostaną zsynchronizowane w osobnym, następnym kroku przed finalnym PASS całego DB4_3 i przed generowaniem migracji.
+`specs/database/staff-locations-vehicles.yml` pozostaje źródłem decyzji bounded-context DB4_3. Po finalnym sync jego sześć rozstrzygnięć zostało przeniesionych bez redukcji capability do aggregate `specs/database/core-schema.yml` oraz narrative `docs/87-physical-database-schema.md`.
 
 ---
 
@@ -132,22 +132,16 @@ Jeżeli aktywny link wskazuje membership z `is_owner=false`:
 
 Jeżeli membership już był `suspended`, pozostaje suspended. Jeżeli był `revoked`, pozostaje revoked i niczego nie odtwarzamy.
 
-To oznacza, że archive pracownika usuwa staff-derived path i wyłącza zwykłe konto pracownika bez destrukcyjnego revoke permission history.
-
 ## Archive StaffProfile powiązanego z Ownerem
-
-Owner jest wyjątkiem świadomym i bezpiecznym.
 
 Standardowy Staff archive:
 - kończy StaffMembershipLink,
 - **nie zmienia `is_owner`**,
 - **nie suspenduje ani nie revoke'uje Owner membership jako ukrytego efektu**.
 
-Powód: Owner governance jest osobnym high-risk lifecycle i może legalnie istnieć bez StaffProfile. Po unlink owner zachowuje wyłącznie prawa wynikające bezpośrednio z OrganizationMembership; nie ma już staff-derived `own`, `assigned_locations` ani `assigned_students` przez zarchiwizowany profil.
+Owner governance jest osobnym high-risk lifecycle i może istnieć bez StaffProfile. Odebranie Ownerowi panel access wymaga jawnego Owner transfer/demotion/membership flow z DB-IAM-004/005. Dzięki temu last-owner guard nie jest obchodzony przez akcję kadrową.
 
-Jeżeli administrator chce równocześnie odebrać Ownerowi dostęp do panelu, nie robi tego przez „Archiwizuj pracownika”. Musi użyć jawnego Owner transfer/demotion/membership flow z DB-IAM-004/005. Dzięki temu last-owner guard nie jest obchodzony przez akcję kadrową.
-
-W szczególności archive StaffProfile jedynego Ownera jest dozwolone jako archive profilu kadrowego, bo Owner membership pozostaje aktywne. Nie powstaje stan `0 active owners`.
+Archive StaffProfile jedynego Ownera jest dozwolone jako archive profilu kadrowego, ponieważ Owner membership pozostaje aktywne i nie powstaje stan `0 active owners`.
 
 ## Skutek dla resolverów RBAC
 
@@ -160,90 +154,85 @@ Jeżeli linked membership był Ownerem i pozostał aktywny, jego jawne membershi
 
 ## Restore StaffProfile
 
-Domyślny restore przywraca **tylko rekord kadrowy**:
+Domyślny restore przywraca tylko rekord kadrowy:
 - czyści `archived_at`,
 - nie reaktywuje membership,
 - nie tworzy StaffMembershipLink,
 - nie wiąże starych sesji.
 
-Przywrócenie panel access wymaga osobnej, jawnej decyzji.
-
-Jeżeli operator jawnie przywraca panel access:
-- Staff musi być już niearchiwalny,
-- membership musi należeć do tego samego OSK,
-- nie może istnieć conflicting active link po stronie Staff ani membership,
-- powstaje **nowy** StaffMembershipLink row.
+Jawne przywrócenie panel access wymaga niearchiwalnego Staff, membership z tego samego OSK oraz braku conflicting active links. Powstaje nowy StaffMembershipLink row.
 
 Status membership:
-- `active` → tworzymy nowy link,
+- `active` → nowy link,
 - `suspended` → jawne `suspended -> active` według DB-IAM-005 + nowy link; stare sesje nie rebindują się automatycznie,
-- `revoked` → brak automatycznej reaktywacji; wymagane świeże permission/template provisioning zgodnie z DB-IAM-005,
-- Owner active po archive → jawny restore panel link tworzy nowy link, bez zmiany Owner governance.
+- `revoked` → brak automatycznej reaktywacji; wymagane świeże provisioning zgodnie z DB-IAM-005,
+- aktywny Owner → nowy link bez zmiany Owner governance.
 
 ## Atomicity i historia
 
-Archive jest jedną transakcją. Jeżeli którekolwiek przejście Staff/link/membership/session nie powiedzie się, wszystko się wycofuje. Nie może istnieć częściowy stan „Staff archived, ale stary link nadal aktywny”.
-
-Historyczne StaffMembershipLink rows nie są hard-delete. Membership również nie jest hard-delete.
-
-## Migration precheck
-
-Przed guardami należy wykryć:
-- archived StaffProfile z aktywnym StaffMembershipLink,
-- aktywny StaffMembershipLink wskazujący archived StaffProfile,
-- aktywne non-owner membership pozostawione jako staff-panel account dla archived Staff.
-
-Cross-tenant mismatch pozostaje zakresem już zamkniętego DB-RES-001.
-
-Migracja nie może po cichu:
-- reaktywować Staff,
-- przenosić Ownera,
-- revoke'ować membership,
-- usuwać historycznych linków.
-
-Wymagana jest jawna i audytowalna remediation.
+Archive jest jedną transakcją. Jeżeli którekolwiek przejście Staff/link/membership/session nie powiedzie się, wszystko się wycofuje. Historyczne StaffMembershipLink rows i Membership nie są hard-delete.
 
 ## Quality gate DB-RES-006
 
-Sprawdzono:
 - archived Staff nie może mieć aktywnego StaffMembershipLink — **PASS DESIGN**,
-- nowy active link do archived Staff jest blokowany w DB boundary — **PASS DESIGN**,
-- zwykły non-owner panel account jest suspended przy archive — **PASS**,
-- session tenant contexts są czyszczone przez istniejący DB-IAM-005 lifecycle — **PASS**,
-- revoked membership nie jest przypadkiem odtwarzany — **PASS**,
-- Owner nie jest po cichu demoted/suspended/revoked przez akcję Staff archive — **PASS**,
-- last-owner guard nie może zostać ominięty Staff archive — **PASS**,
+- active link do archived Staff jest blokowany — **PASS DESIGN**,
+- non-owner active membership jest suspended przy archive — **PASS**,
+- session tenant contexts są czyszczone przez DB-IAM-005 — **PASS**,
+- revoked membership nie jest odtwarzany — **PASS**,
+- Owner nie jest po cichu demoted/suspended/revoked — **PASS**,
+- last-owner guard nie może zostać ominięty — **PASS**,
 - staff-derived resolvers po archive dają empty/deny — **PASS**,
 - restore Staff nie przywraca automatycznie panel access — **PASS**,
-- panel restore tworzy nowy historyczny link zamiast otwierać stary — **PASS**,
-- suspended/revoked restore respektuje DB-IAM-005 — **PASS**,
-- archive/link creation race jest serializowany — **PASS DESIGN**,
-- transaction failure nie może zostawić częściowego stanu — **PASS DESIGN**,
-- DB4_4 ani migracje Laravel nie zostały rozpoczęte — **PASS**.
-
-Nie znaleziono nowego P0/P1 wynikającego z decyzji DB-RES-006.
-
-Machine source: `specs/database/staff-locations-vehicles.yml`.
+- panel restore tworzy nowy link i zachowuje historię — **PASS**,
+- transaction failure nie zostawia częściowego stanu — **PASS DESIGN**.
 
 **Gate DB-RES-006: PASS.**
 
 ---
 
-# Stan DB4_3 po DB4_3_STEP_7
+# DB4_3_STEP_8 — finalna synchronizacja aggregate — PASS
+
+## Zakres
+
+W tym kroku nie dodawano nowych reguł biznesowych. Wykonano wyłącznie synchronizację sześciu zamkniętych decyzji z bounded-contextu do:
+- `specs/database/core-schema.yml`,
+- `docs/87-physical-database-schema.md`.
+
+DB4_4 nie został rozpoczęty. Nie utworzono migracji Laravel.
+
+## Self-audit synchronizacji
+
+Sprawdzono sześć ścieżek `bounded context -> aggregate machine spec -> narrative`:
+
+1. **DB-RES-001 StaffMembershipLink same-tenant** — candidate keys + composite FK + active-link history są w core i docs87 — **PASS**.
+2. **DB-RES-002 Staff/Vehicle ↔ Location** — join tables mają `organization_id`, tenant-aware PK i composite FK — **PASS**.
+3. **DB-RES-003 FileAsset** — candidate key, same-tenant attachment, cztery purpose, `ready`, DB trigger/lock i brak platform asset dla private attachment są zachowane — **PASS**.
+4. **DB-RES-004 documents** — `superseded_at`, zero-or-one current row, partial uniques, immutable history, replacement/clear semantics i current-only projection są zachowane — **PASS**.
+5. **DB-RES-005 identity uniqueness** — PESEL/VIN durable per-OSK uniqueness i current-only registration uniqueness z restore conflict są zachowane — **PASS**.
+6. **DB-RES-006 Staff archive/panel access** — unlink, non-owner suspend, Owner exception, resolver deny, explicit restore/new link i brak auto-reactivation revoked membership są zachowane — **PASS**.
+
+Dodatkowo:
+- stare proste `staff_location_assignment_unique` / `vehicle_location_assignment_unique` zostały zastąpione tenant-aware kluczami — **PASS**,
+- stara niejednoznaczna polityka `optional PESEL/VIN` / full registration unique została usunięta z narrative — **PASS**,
+- `Backend sprawdza organization` nie jest już jedyną granicą StaffMembershipLink — **PASS**,
+- nie znaleziono konfliktu DB4_3 z DB4_2 Owner/membership lifecycle — **PASS**,
+- migration/invariant test matrix w aggregate zawiera obowiązki DB4_3 — **PASS**,
+- nie zredukowano potwierdzonego reverse-engineered capability — **PASS**.
+
+Nie znaleziono nowego P0/P1 podczas synchronizacji.
+
+## Finalny wynik DB4_3
 
 - `DB-RES-001` — **PASS**,
 - `DB-RES-002` — **PASS**,
 - `DB-RES-003` — **PASS**,
 - `DB-RES-004` — **PASS**,
 - `DB-RES-005` — **PASS**,
-- `DB-RES-006` — **PASS**.
+- `DB-RES-006` — **PASS**,
+- aggregate machine sync — **PASS**,
+- aggregate narrative sync — **PASS**,
+- otwarte P0/P1 — **0**.
 
-W zdiagnozowanym bounded-context DB4_3 pozostało **0 otwartych P0/P1**.
+**FINAL GATE DB4_3: PASS.**
 
-To **nie oznacza jeszcze finalnego PASS całego DB4_3**, ponieważ zgodnie z planem pozostała osobna bramka synchronizacji:
-
-`specs/database/staff-locations-vehicles.yml -> specs/database/core-schema.yml + docs/87-physical-database-schema.md`
-
-Dopiero po tej synchronizacji i jej własnym gate można oznaczyć DB4_3 jako PASS i otworzyć DB4_4.
-
-**Następny pojedynczy krok: tylko finalna synchronizacja aggregate DB4_3 + gate.**
+DB4_4 może zostać otwarty dopiero jako osobny następny etap, zaczynając od diagnozy `Students / Courses / Training Ledger`, bez wykonywania migracji Laravel w tym samym kroku.
