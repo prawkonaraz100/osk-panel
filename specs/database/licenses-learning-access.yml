@@ -13,7 +13,7 @@ meta:
 working_rule:
   diagnosis_only: false
   fixes_applied_in_this_step: true
-  current_step: DB4_6_STEP_3_DB_LIC_003
+  current_step: DB4_6_STEP_4_DB_LIC_004
   one_blocker_per_followup_step: true
   Laravel_migrations_created: false
   Stage5_started: false
@@ -646,6 +646,360 @@ resolved_contracts:
       - DB-LIC-006_activation_stacking_entitlement_period_history_and_reproducibility
       - DB-LIC-007_language_capability_assignment_snapshot_and_management_projection_rules
 
+  DB-LIC-004:
+    status: PASS
+    resolved_at: 2026-09-06
+    scope: one_time_credentials_handoff_PDF_and_secret_non_persistence_only
+    canonical_password_storage:
+      password_hash_owner: users.password_hash
+      password_hash_is_global_user_credential: true
+      learning_account_password_hash_column: forbidden
+      plaintext_password_column_any_relational_table: forbidden
+      reversible_password_ciphertext_or_secret_reference_for_login_password: forbidden
+      hash_algorithm_and_cost_parameters: security_implementation_policy
+    global_password_management_authority:
+      table: user_password_management
+      purpose: fail_closed_authority_and_credential_epoch_for_global_local_password_mutation
+      user_scope: global
+      one_row_per_user: true
+      fields:
+        user_id: uuid_PK_FK_users
+        management_mode: varchar_32_not_null
+        managing_organization_id: uuid_nullable_FK_organizations
+        credential_version: bigint_not_null_default_0_check_gte_0
+        password_changed_at: timestamptz_nullable
+        created_at: timestamptz
+        updated_at: timestamptz
+      management_mode_values: [unclassified, self_service, organization_managed]
+      state_matrix:
+        unclassified:
+          managing_organization_id: null
+          OSK_password_set_or_reset_allowed: false
+        self_service:
+          managing_organization_id: null
+          OSK_password_set_or_reset_allowed: false
+        organization_managed:
+          managing_organization_id: required_nonnull
+          OSK_password_set_or_reset_allowed_only_for_matching_organization: true
+      relation_to_global_user_password:
+        password_hash_null_allows_credential_version_zero: true
+        password_hash_nonnull_requires_credential_version_gte_1: true
+        credential_version_gte_1_requires_password_hash_nonnull: true
+        enforcement: DEFERRABLE_INITIALLY_DEFERRED_constraint_trigger_or_equivalent_transactional_DB_guard_across_users_and_management_row
+      authority_transfer_or_self_service_claim:
+        hidden_side_effect_of_learning_account_create_update_reset: forbidden
+        requires_separate_elevated_identity_security_command: true
+        exact_transfer_claim_recovery_policy: existing_pending_identity_policy_gate
+      attaching_existing_global_user_to_learning_account_changes_management_authority: false
+      same_global_user_may_have_learning_accounts_in_multiple_organizations: true
+      permission_in_nonmanaging_organization_grants_password_reset: false
+      rationale: >-
+        Because users.password_hash authenticates one global User, tenant-level reset
+        permission alone must never let OSK B replace the credential used by the same
+        User in OSK A or another global context.
+    OSK_managed_initial_password:
+      allowed_only_when:
+        - learning_account_create_passes_DB_LIC_001_and_DB_LIC_002
+        - student_and_learning_account_are_operationally_eligible_per_DB_LIC_003
+        - actor_has_student_access_create_for_target
+        - actor_has_student_access_manage_credentials_for_target_when_initial_password_is_supplied
+        - user_password_management_is_organization_managed_by_same_organization
+      newly_created_global_user_in_OSK_managed_flow:
+        may_initialize_management_row_atomically: true
+        management_mode: organization_managed
+        managing_organization_id: active_organization
+        initial_credential_version_before_password: 0
+      existing_user_without_matching_organization_managed_authority:
+        initial_password_set_by_OSK: forbidden
+        learning_account_link_may_still_use_self_service_identity_flow_subject_to_DB_LIC_002: true
+    OSK_password_reset_authority:
+      required_permission: student_access.reset_password
+      target_scope: student_scoped
+      required_learning_account_eligibility: DB_LIC_003_effective_operational_eligibility
+      management_mode_required: organization_managed
+      managing_organization_id_must_equal_learning_account_organization_id: true
+      reset_permission_may_transfer_password_management_authority: false
+      user_shared_with_other_organizations:
+        manager_organization_may_reset: true
+        nonmanager_organization_may_reset: false
+      user_self_service_or_unclassified:
+        OSK_reset: deny_fail_closed
+    credential_version_and_concurrency:
+      concurrency_root: user_password_management.credential_version
+      expected_credential_version_required_for_OSK_set_or_reset_domain_command: true
+      exact_HTTP_transport_of_expected_credential_version: Stage5_acceptance_contract_sync
+      successful_password_set_or_reset_increments_credential_version_once: true
+      semantic_retry_with_same_idempotency_key_increments_again: false
+      different_authorized_reset_with_new_expected_version_and_new_idempotency_key_may_increment_again: true
+      stale_expected_credential_version: conflict_without_hash_handoff_or_audit_effect
+      learning_account_version_increment_for_password_reset: false
+      reason: password_is_global_User_credential_and_may_be_referenced_by_multiple_learning_accounts
+    single_secret_mutation_lock_order:
+      - students_row_FOR_UPDATE
+      - student_learning_accounts_row_FOR_UPDATE
+      - users_row_FOR_UPDATE
+      - user_password_management_row_FOR_UPDATE
+      - idempotency_claim_or_equivalent_is_acquired_before_nonreplayable_effect_according_to_global_idempotency_contract
+    one_time_plaintext_lifecycle:
+      durable_secret_record_created: false
+      process_memory_states:
+        - accepted_or_CSPRNG_generated
+        - validated_under_password_security_policy
+        - hashed_for_users.password_hash
+        - optionally_rendered_into_immediate_secret_bearing_response_or_PDF_bytes
+        - durable_hash_and_redacted_metadata_committed
+        - returned_or_streamed_once
+        - plaintext_and_secret_bearing_buffer_discarded_after_response_boundary
+      old_plaintext_recovery_after_command: impossible_by_design
+      server_side_later_secret_lookup: forbidden
+      secret_in_database_columns: forbidden
+      secret_in_file_assets_or_object_storage: forbidden
+      secret_in_audit_logs: forbidden
+      secret_in_outbox_messages: forbidden
+      secret_in_application_logs_or_traces: forbidden
+      secret_in_idempotency_safe_response_snapshot: forbidden
+      secret_in_QR_payload: forbidden
+      password_hash_in_audit_outbox_or_handoff_metadata: forbidden
+      memory_zeroization: best_effort_language_runtime_sensitive_buffer_discipline
+    student_access_handoffs:
+      role: durable_nonsecret_metadata_about_access_handoff_or_document_generation
+      fields_added_or_finalized:
+        handoff_type:
+          allowed_values: [initial_credentials, password_reset, credentials_document]
+        credential_version_snapshot: bigint_not_null_check_gte_0
+        contains_fresh_secret: boolean_not_null_default_false
+        fresh_secret_issued_at: timestamptz_nullable
+        batch_id: uuid_nullable_FK_student_access_export_batches
+        batch_ordinal: integer_nullable_check_gt_0
+        document_asset_id: existing_nullable_same_tenant_FK_from_DB_LIC_001
+      secret_metadata_matrix:
+        contains_fresh_secret_true:
+          handoff_type_allowed: [initial_credentials, password_reset]
+          credential_version_snapshot_must_be_gte_1: true
+          fresh_secret_issued_at_required: true
+          document_asset_id_must_be_null: true
+        contains_fresh_secret_false:
+          fresh_secret_issued_at_must_be_null: true
+          document_asset_id_may_be_null_or_secret_free_asset: true
+      batch_matrix:
+        batch_id_null_requires_batch_ordinal_null: true
+        batch_id_nonnull_requires_batch_ordinal_nonnull: true
+        unique_batch_ordinal: [batch_id, batch_ordinal]
+        one_selected_learning_account_once_per_batch: [batch_id, student_learning_account_id]
+      persisted_secret_or_encrypted_password_field: forbidden
+      handoff_row_allows_secret_replay: false
+    student_access_export_batches:
+      purpose: durable_nonsecret_metadata_for_one_combined_multi_access_export
+      fields:
+        id: uuid_PK
+        organization_id: uuid_not_null_FK_organizations
+        requested_by_user_id: uuid_not_null_FK_users
+        export_mode: varchar_48_not_null
+        selected_account_count: integer_not_null_check_gt_0
+        created_at: timestamptz
+      export_mode_values: [nonsecret_combined_pdf, reset_and_secret_combined_pdf]
+      secret_bytes_or_passwords_persisted: false
+      secret_bearing_document_asset_id: forbidden
+      batch_items_source: student_access_handoffs_with_batch_id
+      batch_same_tenant_handoff_guard_required: true
+      batch_selected_count_must_equal_final_item_count:
+        enforcement: DEFERRABLE_INITIALLY_DEFERRED_constraint_trigger_or_equivalent_final_state_guard
+    PDF_storage_and_reprint_policy:
+      secret_bearing_PDF:
+        may_contain_new_plaintext_only_in_same_command_that_generated_or_accepted_that_plaintext: true
+        rendered_in_process_memory: true
+        persisted_as_FileAsset: false
+        persisted_to_object_storage: false
+        later_download_by_handoff_id_can_reproduce_secret: false
+      later_handoff_PDF_GET:
+        allowed_output: secret_free_login_instructions_password_state_document
+        old_plaintext_password: never_returned
+        may_render_dynamically_without_FileAsset: true
+      secret_free_persisted_PDF_if_product_chooses_to_cache:
+        allowed: true
+        file_asset_purpose_required: student_access_credentials_nonsecret
+        file_asset_status_required: ready
+        same_tenant_relation: DB_LIC_001
+        generator_input_model_must_exclude_plaintext_password_fields: true
+      reprint_with_visible_password:
+        requires_new_password_reset_and_new_secret_bearing_immediate_render: true
+        old_handoff_reuse: forbidden
+      QR_payload_allowlist:
+        - login_page_URL
+        - optional_nonsecret_login_identifier_prefill
+      QR_password_or_reset_secret: forbidden
+      exact_HTTP_endpoint_shape_for_immediate_secret_PDF: Stage5_acceptance_contract_sync
+    password_reset_transaction:
+      idempotency_claim_before_nonreplayable_effect: true
+      steps:
+        - authorize_and_scope_target
+        - lock_student_learning_account_user_and_management_rows_in_canonical_order
+        - recheck_DB_LIC_003_operational_eligibility_after_locks
+        - require_matching_organization_managed_password_authority
+        - compare_expected_credential_version_after_lock
+        - accept_or_generate_plaintext_only_in_process_memory
+        - validate_password_policy_and_derive_hash
+        - optionally_render_secret_bearing_PDF_bytes_in_memory_before_durable_hash_write
+        - update_users_password_hash
+        - increment_credential_version_once
+        - set_password_changed_at_to_command_effective_at
+        - append_nonsecret_student_access_handoff_metadata
+        - write_redacted_audit_and_outbox_metadata_same_transaction
+        - complete_idempotency_record_without_secret_or_secret_PDF_bytes
+        - commit
+        - return_plaintext_or_stream_pre_rendered_secret_PDF_once
+        - discard_plaintext_and_secret_bearing_buffers
+      render_failure_before_commit:
+        password_hash_changed: false
+        credential_version_changed: false
+        handoff_created: false
+      network_or_client_delivery_failure_after_commit:
+        rollback_committed_password_change: false
+        old_secret_replay_on_same_idempotency_key: forbidden
+        operator_needs_new_password: explicit_new_reset_with_new_idempotency_key_and_current_credential_version
+      same_idempotency_key_same_request_after_completed:
+        second_password_reset: false
+        secret_replay: false
+        allowed_response: sanitized_nonsecret_result_or_secret_response_not_replayable_error
+        exact_HTTP_mapping: Stage5_acceptance_contract_sync
+      same_idempotency_key_different_request: reject_conflict
+    nonsecret_handoff_and_reprint:
+      credential_mutation: false
+      credential_version_increment: false
+      can_generate_login_instructions_and_password_state: true
+      can_persist_secret_free_FileAsset_subject_to_policy: true
+      download_requires_student_access_download_credentials_pdf: true
+      create_handoff_requires_student_access_manage_credentials_when_applicable: true
+      target_must_pass_tenant_scope_and_DB_LIC_003_operational_eligibility_for_sensitive_export: true
+    bulk_credentials_export:
+      endpoint_permission_preserved: licenses.access_documents.download
+      reset_mode_requires_additional_permission_for_every_target: student_access.reset_password
+      download_permission_alone_may_reset_passwords: false
+      tenant_and_scope_check_every_selected_account: true
+      one_combined_PDF_preserved: true
+      mixed_locales_preserved: true
+      exact_language_capability_semantics: deferred_to_DB_LIC_007
+      canonical_modes:
+        nonsecret_combined_pdf:
+          credential_mutation: false
+          old_plaintext_recovery: false
+        reset_and_secret_combined_pdf:
+          credential_mutation: true
+          all_selected_targets_must_pass_authority_before_any_password_write: true
+          all_password_mutations_and_handoff_batch_metadata_commit_all_or_none: true
+      regenerate_credentials_when_required_boolean:
+        may_not_infer_need_from_absence_of_recoverable_plaintext: true
+        must_map_to_explicit_command_mode_or_explicit_reset_target_set_before_mutation: true
+        exact_HTTP_mapping: Stage5_acceptance_contract_sync
+      duplicate_global_user_in_selected_accounts:
+        group_by_user_id: true
+        one_new_plaintext_password_per_unique_global_user: true
+        one_password_hash_write_and_one_credential_version_increment_per_unique_user: true
+        same_fresh_password_may_render_on_each_selected_account_page_for_that_same_global_user_in_same_immediate_batch: true
+      deterministic_multi_target_lock_order:
+        - all_distinct_students_sorted_by_uuid_FOR_UPDATE
+        - all_selected_learning_accounts_sorted_by_uuid_FOR_UPDATE
+        - all_distinct_users_sorted_by_uuid_FOR_UPDATE
+        - all_user_password_management_rows_sorted_by_user_uuid_FOR_UPDATE
+      transaction_sequence_reset_mode:
+        - claim_idempotency_key
+        - validate_every_selected_account_same_organization_and_permission_scope
+        - acquire_all_locks_in_deterministic_order
+        - recheck_every_target_DB_LIC_003_operational_eligibility
+        - verify_matching_password_management_authority_for_every_unique_user
+        - compare_expected_credential_versions_for_every_unique_user
+        - generate_one_plaintext_and_hash_per_unique_user_in_memory
+        - render_entire_combined_secret_bearing_PDF_in_memory_before_durable_password_writes
+        - update_all_users_password_hashes_and_credential_versions
+        - create_one_batch_and_one_handoff_item_per_selected_learning_account
+        - write_redacted_audit_outbox_and_idempotency_metadata
+        - commit_all_or_none
+        - stream_pre_rendered_combined_PDF_once
+        - discard_all_plaintext_and_secret_buffers
+      any_validation_authority_version_or_render_failure_before_commit:
+        password_hashes_changed: 0
+        credential_versions_changed: 0
+        handoff_items_created: 0
+      delivery_failure_after_commit:
+        secret_replay_from_server_storage: forbidden
+        retry_same_key_repeats_resets: false
+        explicit_new_reset_batch_required_for_new_secret_document: true
+    audit_outbox_and_logs:
+      required_metadata:
+        - organization_id
+        - student_learning_account_id_or_batch_id
+        - target_user_id
+        - action
+        - actor_user_id
+        - credential_version_before
+        - credential_version_after
+        - request_id
+        - occurred_at
+      forbidden_fields:
+        - plaintext_password
+        - password_hash
+        - secret_bearing_PDF_bytes
+        - reset_token
+        - QR_secret
+      DB4_10_final_table_shape: deferred
+      redaction_obligation_active_now: true
+    migration_design:
+      order:
+        - create_user_password_management_table_and_state_checks
+        - create_unclassified_management_row_for_each_existing_user_without_inferring_an_OSK_manager
+        - initialize_credential_version_zero_when_password_hash_null_and_one_when_nonnull_as_migration_epoch_not_historical_reset_count
+        - leave_password_changed_at_null_when_original_change_time_is_unknown
+        - add_users_password_hash_vs_credential_version_deferred_final_state_guard
+        - add_student_access_export_batches
+        - add_handoff_credential_version_secret_metadata_batch_fields_and_checks
+        - precheck_existing_handoff_document_assets_for_possible_plaintext_secret_content_or_untrusted_purpose
+        - require_reviewed_security_remediation_for_any_legacy_secret_bearing_persisted_document
+        - register_secret_free_access_document_asset_purpose
+        - wire_single_and_bulk_secret_commands_to_global_user_management_authority_and_credential_version
+        - add_secret_scanning_redaction_idempotency_and_concurrency_tests
+      existing_user_managing_organization_inferred_from_only_learning_account_or_creator: forbidden
+      existing_ambiguous_user_management_mode: unclassified_fail_closed
+      legacy_password_changed_at_guess: forbidden
+      legacy_secret_bearing_PDF_silently_reclassified_nonsecret: forbidden
+      legacy_plaintext_password_migration_into_ciphertext_or_secret_table: forbidden
+    required_integration_tests:
+      - global_password_hash_remains_on_user_and_no_learning_account_password_hash_is_added
+      - organization_managed_user_can_be_reset_only_by_matching_organization_with_required_permission_and_scope
+      - same_global_user_linked_to_two_organizations_cannot_be_reset_by_nonmanaging_organization
+      - self_service_or_unclassified_user_OSK_reset_is_denied_fail_closed
+      - linking_existing_user_does_not_transfer_password_management_authority
+      - initial_password_for_new_OSK_managed_user_initializes_authority_atomically
+      - reset_with_current_expected_credential_version_changes_hash_and_increments_epoch_once
+      - reset_with_stale_expected_credential_version_is_rejected_without_partial_effect
+      - two_resets_with_same_expected_credential_version_cannot_both_commit
+      - plaintext_password_is_absent_from_relational_tables_audit_outbox_logs_and_idempotency_snapshot
+      - password_hash_is_absent_from_handoff_audit_and_outbox_payloads
+      - secret_bearing_PDF_is_never_persisted_as_FileAsset_or_object_storage_blob
+      - handoff_with_contains_fresh_secret_true_requires_null_document_asset_id
+      - later_handoff_PDF_download_never_recovers_old_plaintext_password
+      - reprint_with_visible_password_requires_new_reset_and_new_credential_version
+      - secret_free_cached_access_PDF_requires_ready_same_tenant_secret_free_purpose_asset
+      - QR_contains_no_plaintext_password_or_reset_secret
+      - same_idempotency_key_retry_does_not_repeat_reset_and_does_not_replay_secret
+      - same_idempotency_key_different_payload_is_rejected
+      - render_failure_before_commit_leaves_password_hash_and_credential_version_unchanged
+      - bulk_nonsecret_export_changes_no_password_hashes
+      - bulk_reset_requires_download_and_reset_permissions_for_every_target
+      - bulk_reset_validation_failure_changes_zero_credentials
+      - bulk_reset_multiple_users_commits_all_or_none
+      - bulk_selection_with_two_learning_accounts_for_same_global_user_resets_that_user_once_and_renders_one_shared_fresh_password_for_that_user
+      - bulk_same_key_retry_does_not_repeat_resets_or_replay_secret_PDF
+      - archived_or_ineligible_student_learning_account_cannot_receive_reset_or_sensitive_export
+      - local_OSK_password_reset_does_not_change_management_authority_or_merge_global_users
+      - migration_does_not_infer_managing_organization_or_preserve_secret_bearing_legacy_PDF_without_review
+    explicitly_not_solved_in_this_step:
+      - DB-LIC-005_inventory_assignment_state_equivalence_exactly_once_revoke_and_assignment_concurrency
+      - DB-LIC-006_activation_stacking_entitlement_period_history_and_reproducibility
+      - DB-LIC-007_language_capability_assignment_snapshot_and_management_projection_rules
+      - exact_identity_authority_transfer_self_service_claim_recovery_flow
+      - exact_password_hash_algorithm_cost_rotation_parameters
+      - exact_HTTP_shape_for_expected_credential_version_and_secret_bearing_immediate_PDF
+
 blockers:
   - id: DB-LIC-001
     severity: P1
@@ -700,7 +1054,8 @@ blockers:
   - id: DB-LIC-004
     severity: P1
     title: one_time_credentials_handoff_PDF_and_secret_non_persistence
-    status: OPEN
+    status: RESOLVED
+    resolution_ref: resolved_contracts.DB-LIC-004
     diagnosis:
       - own product policy requires OSK-managed credentials where a fresh password can be shown and printed once while old plaintext remains unrecoverable
       - current StudentAccessHandoff has a document_asset_id but no explicit one-time secret lifecycle or guarantee that a persisted FileAsset cannot become a durable recoverable plaintext-password copy
@@ -774,11 +1129,11 @@ diagnosis_summary:
   result: FAIL_WITH_7_P1_BLOCKERS
 
 current_gate_summary:
-  blockers_resolved_after_diagnosis: 3
-  open_P0_P1: 4
-  result: FAIL_WITH_4_P1_BLOCKERS
-  resolved_blockers: [DB-LIC-001, DB-LIC-002, DB-LIC-003]
-  next_blocker: DB-LIC-004
+  blockers_resolved_after_diagnosis: 4
+  open_P0_P1: 3
+  result: FAIL_WITH_3_P1_BLOCKERS
+  resolved_blockers: [DB-LIC-001, DB-LIC-002, DB-LIC-003, DB-LIC-004]
+  next_blocker: DB-LIC-005
 
 nonblockers_and_deferred_questions:
   - exact_public_prices_discounts_VAT_and_payment_provider_flow_belong_to_DB4_9
@@ -788,7 +1143,7 @@ nonblockers_and_deferred_questions:
   - exact_HTTP_If_Match_required_markers_and_error_codes_remain_Stage5_acceptance_contract_sync
   - exact_max_bulk_PDF_count_and_select_visible_pagination_behavior_are_application_product_limits_not_database_P1
   - exact_competitor_semantics_of_inventory_card_active_count_remain_unobservable_but_our_projection_must_be_defined_before_implementation
-  - exact_always_stack_exceptions_of_the_competitor_are_not_assumed; our entitlement rule will be an explicit product decision when DB_LIC_006_is_fixed
+  - exact_always_stack_exceptions_of_the_competitor_are_not_assumed; our entitlement rule will_be_an_explicit_product_decision_when_DB_LIC_006_is_fixed
 
 preservation_checks:
   all_confirmed_license_variants_remain_data_not_hardcoded_global_rule: PASS
@@ -828,6 +1183,18 @@ preservation_checks:
   archive_restore_and_state_dependent_access_commands_share_student_lock_boundary: PASS
   global_User_and_other_organization_learning_context_not_revoked_by_local_student_archive: PASS
   DB_LIC_004_through_DB_LIC_007_not_fixed_in_DB_LIC_003_step: PASS
+  global_User_password_hash_remains_single_canonical_local_password_credential: PASS
+  OSK_password_reset_requires_matching_global_password_management_authority_not_permission_alone: PASS
+  same_global_User_cross_organization_nonmanager_password_takeover_blocked: PASS
+  credential_version_serializes_global_password_mutation_without_reusing_learning_account_version: PASS
+  plaintext_secret_never_persisted_in_DB_audit_outbox_idempotency_FileAsset_or_QR: PASS
+  secret_bearing_PDF_is_immediate_memory_only_and_later_reprint_cannot_recover_old_secret: PASS
+  nonsecret_reprint_and_secret_free_cached_PDF_capability_preserved: PASS
+  reset_and_visible_password_reprint_requires_new_credential_version: PASS
+  single_secret_idempotency_deduplicates_effect_without_secret_replay: PASS
+  bulk_reset_is_all_or_none_and_groups_duplicate_learning_accounts_by_global_user: PASS
+  bulk_download_permission_alone_cannot_reset_credentials: PASS
+  DB_LIC_005_through_DB_LIC_007_not_fixed_in_DB_LIC_004_step: PASS
   purchase_payment_scope_not_accidentally_solved_in_DB4_6: PASS
   DB4_7_or_later_scope_not_entered: PASS
   aggregate_core_schema_modified_in_diagnosis: false
@@ -838,16 +1205,16 @@ preservation_checks:
   UI_or_feature_implementation_started: false
 
 next_single_step:
-  id: DB4_6_STEP_4
-  blocker: DB-LIC-004
-  action: resolve_one_time_credentials_handoff_PDF_and_secret_non_persistence_only
+  id: DB4_6_STEP_5
+  blocker: DB-LIC-005
+  action: resolve_inventory_assignment_lifecycle_and_exactly_once_allocation_revoke_only
   allowed_files:
     - specs/database/licenses-learning-access.yml
     - docs/110-stage-4-licenses-learning-access-audit.md
     - specs/gates/stage-4-database-contract-gate.yml
   scope_lock: >-
-    Resolve only DB-LIC-004. Do not fix DB-LIC-005 through DB-LIC-007, do not
+    Resolve only DB-LIC-005. Do not fix DB-LIC-006 or DB-LIC-007, do not
     synchronize specs/database/core-schema.yml or docs/87-physical-database-schema.md
     until the final DB4_6 aggregate sync, do not enter DB4_7 or later slices, do
     not create Laravel migrations, do not start Stage 5 and do not implement UI/features.
-  after_action: rerun_DB4_6_gate_and_STOP_before_DB_LIC_005
+  after_action: rerun_DB4_6_gate_and_STOP_before_DB_LIC_006
