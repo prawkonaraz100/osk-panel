@@ -2,7 +2,7 @@ meta:
   project: osk-panel
   scope: calendar_core_v1
   stage: DB4_5_CALENDAR
-  status: DB_CAL_001_PASS_6_P1_BLOCKERS_OPEN
+  status: DB_CAL_001_002_PASS_5_P1_BLOCKERS_OPEN
   diagnosed_at: 2026-09-06
   updated_at: 2026-09-06
   narrative: docs/109-stage-4-calendar-audit.md
@@ -24,8 +24,8 @@ meta:
     - docs/50-own-calendar-event-lifecycle.md
     - docs/51-calendar-important-dates.md
   diagnosis_complete: true
-  current_step: DB-CAL-001
-  fixes_applied_total: 1
+  current_step: DB-CAL-002
+  fixes_applied_total: 2
 
 principles:
   tenant_owned_calendar_relation_must_be_physically_same_tenant: true
@@ -35,8 +35,13 @@ principles:
   nullable_calendar_resource_relation_uses_MATCH_SIMPLE: true
   historical_calendar_relations_use_RESTRICT_not_destructive_cascade: true
   global_user_identity_does_not_receive_fake_tenant_key: true
+  calendar_events_store_manual_events_only: true
+  important_dates_are_system_projection_not_manual_rows: true
+  source_domain_date_remains_authoritative_for_important_date: true
+  meeting_place_has_zero_or_one_persisted_source: true
+  empty_or_whitespace_custom_meeting_place_is_not_persisted: true
   aggregate_sync_deferred_until_final_DB4_5_gate: true
-  DB_CAL_002_through_DB_CAL_007_must_not_be_solved_in_DB_CAL_001: true
+  DB_CAL_003_through_DB_CAL_007_must_not_be_solved_in_DB_CAL_002: true
 
 preservation_contract:
   single_calendar_engine: true
@@ -55,7 +60,7 @@ preservation_contract:
   server_side_conflict_detection_required: true
   organization_timezone_required: true
   history_preserving_cancel_required: true
-  no_confirmed_capability_removed_by_DB_CAL_001: true
+  no_confirmed_capability_removed_by_DB_CAL_001_or_002: true
 
 current_physical_snapshot:
   tables:
@@ -70,8 +75,8 @@ current_physical_snapshot:
     current_time_check: ends_at_gt_starts_at
     current_conflict_rule: server_side_required_but_enforcement_strategy_pending_ADR
     current_same_tenant_composite_FKs_documented: true
-    current_manual_vs_system_type_DB_boundary_documented: false
-    current_location_vs_custom_place_XOR_DB_boundary_documented: false
+    current_manual_vs_system_type_DB_boundary_documented: true
+    current_location_vs_custom_place_XOR_DB_boundary_documented: true
     current_terminal_metadata_and_state_matrix_documented: false
     current_own_scope_owner_relation_documented: false
     training_session_relation_documented: false
@@ -263,8 +268,8 @@ same_tenant_resource_integrity:
     - global_created_by_user_relation_is_not_rejected_only_because_user_has_multiple_tenant_memberships
 
   intentionally_not_solved_by_DB_CAL_001:
-    manual_event_vs_important_date_storage_boundary: DB-CAL-002
-    location_id_XOR_custom_meeting_place: DB-CAL-002
+    manual_event_vs_important_date_storage_boundary: closed_by_DB_CAL_002
+    location_id_XOR_custom_meeting_place: closed_by_DB_CAL_002
     resource_overlap_race_safe_enforcement: DB-CAL-003
     calendar_event_lifecycle_and_versioning: DB-CAL-004
     calendar_manage_own_owner_resolution: DB-CAL-005
@@ -280,7 +285,172 @@ same_tenant_resource_integrity:
     historical_relations_use_RESTRICT_and_are_not_auto_nulled: PASS
     global_user_identity_not_fake_tenant_scoped: PASS
     migration_does_not_silently_reassign_cross_tenant_data: PASS
-    DB_CAL_002_through_DB_CAL_007_not_fixed_in_this_step: PASS
+    DB_CAL_002_through_DB_CAL_007_not_fixed_in_original_step: PASS
+    aggregate_core_schema_modified_in_step: false
+    aggregate_docs87_modified_in_step: false
+    Laravel_migrations_created: false
+    later_DB4_slices_entered: false
+    UI_or_feature_implementation_started: false
+
+# DB-CAL-002
+manual_event_and_important_date_storage_boundary:
+  blocker: DB-CAL-002
+  severity: P1
+  status: PASS
+  goal: >-
+    Persist only manually managed calendar facts in calendar_events, preserve
+    important_date as a system projection whose date remains owned by the source
+    Staff/Vehicle document domain, and make one manual event incapable of persisting
+    two competing meeting-place sources.
+
+  calendar_events_storage_role:
+    role: manual_operational_calendar_event_only
+    allowed_event_type_values:
+      - general_event
+      - driving_lesson
+    event_type_check_required: true
+    important_date_allowed_as_calendar_events_row: false
+    system_generated_projection_row_allowed_as_calendar_events_row: false
+    manual_create_or_patch_may_set_important_date: false
+    note: >-
+      DB-CAL-007 may later change how formal driving lessons are projected or linked
+      to TrainingSession, but DB-CAL-002 does not remove the confirmed driving_lesson
+      manual discriminator or decide that later source-of-truth integration.
+
+  important_date_projection:
+    storage_model: query_projection_not_calendar_events_source_row
+    canonical_date_owner: source_domain_row
+    source_domains:
+      staff_documents:
+        current_predicate: superseded_at_is_null
+        required_date: valid_until_is_not_null
+        supported_document_types:
+          - card_or_authorization
+          - medical_exam
+          - psychological_exam
+      vehicle_documents:
+        current_predicate: superseded_at_is_null
+        required_date: valid_until_is_not_null
+        supported_document_types:
+          - technical_inspection
+          - oc_insurance
+          - ac_insurance
+    projection_identity:
+      canonical_tuple:
+        - organization_id
+        - source_domain
+        - source_row_id
+        - date_kind
+      calendar_events_id_is_not_projection_identity: true
+      source_row_reference_required_in_projection: true
+      stable_opaque_API_id_may_be_derived_from_canonical_tuple: true
+      derived_API_id_must_not_be_resolved_as_calendar_events_primary_key: true
+    projection_fields_are_derived:
+      event_type: important_date
+      starts_at: source_valid_until_in_organization_calendar_semantics
+      source_reference: canonical_tuple
+      staff_or_vehicle_resource: source_parent_relation
+      title_and_warning_state: read_model_projection
+    mutation_boundary:
+      calendar_event_create_update_cancel_complete_endpoints_may_mutate_projection: false
+      edit_happens_in_source_domain: true
+      source_date_change_updates_projection_without_second_manual_calendar_write: true
+      source_row_supersession_or_clear_removes_old_current_projection: true
+    optional_cache_or_materialized_read_model:
+      allowed: true
+      authoritative: false
+      disposable_and_rebuildable_from_source_domains: true
+      direct_manual_mutation: forbidden
+      exact_cache_refresh_strategy: implementation_detail_after_contract
+    future_system_dates:
+      may_join_same_projection_contract: true
+      require_explicit_source_domain_and_date_kind_mapping: true
+      must_not_become_untracked_calendar_events_rows: true
+
+  meeting_place_invariant:
+    semantics: zero_or_one_of_saved_location_or_custom_text
+    saved_location_column: location_id
+    custom_text_column: custom_meeting_place
+    database_checks_required:
+      - NOT_location_id_and_custom_meeting_place_both_nonnull
+      - custom_meeting_place_null_or_trimmed_nonempty
+    canonical_check_expression: >-
+      num_nonnulls(location_id, custom_meeting_place) <= 1
+      AND (custom_meeting_place IS NULL OR btrim(custom_meeting_place) <> '')
+    write_normalization:
+      custom_text_trim_before_persist: true
+      empty_or_whitespace_only_custom_text_normalizes_to_null: true
+      custom_text_does_not_create_location_row: true
+      switching_to_saved_location_clears_custom_text_in_command_model: true
+      switching_to_custom_text_clears_location_id_in_command_model: true
+    both_null_allowed: true
+    reason_both_null_allowed: meeting_place_is_confirmed_optional
+
+  migration_design:
+    migrations_created_in_this_step: false
+    aggregate_core_schema_modified_in_this_step: false
+    aggregate_docs87_modified_in_this_step: false
+    order_when_DB4_5_migrations_are_later_generated:
+      - precheck_calendar_events_event_type_values
+      - precheck_no_persisted_important_date_or_unknown_system_projection_rows_in_calendar_events
+      - precheck_no_calendar_event_has_both_location_id_and_nonempty_custom_meeting_place
+      - precheck_no_persisted_custom_meeting_place_is_whitespace_only
+      - resolve_invalid_legacy_rows_by_explicit_review_not_type_guess
+      - add_calendar_events_event_type_check_general_event_or_driving_lesson
+      - add_calendar_events_meeting_place_exclusion_and_nonblank_checks
+      - add_important_date_projection_query_or_read_model_contract_without_source_date_copy
+      - run_manual_vs_projection_and_meeting_place_negative_tests
+    invalid_legacy_event_type_policy: >-
+      Do not infer an unknown legacy row as general_event, driving_lesson or
+      important_date from its name/resources. Fail migration and require explicit
+      reviewed classification or removal from manual storage if it is a system projection.
+    invalid_legacy_meeting_place_policy: >-
+      Do not choose location_id versus custom_meeting_place by guessing which value
+      is newer or more meaningful. Both-active rows require explicit reviewed remediation.
+      Whitespace-only custom text may be normalized to NULL only after the precheck proves
+      that no semantic non-whitespace value is being discarded.
+
+  tests_required:
+    - manual_general_event_row_is_accepted
+    - manual_driving_lesson_row_is_accepted_without_changing_visible_form_parity
+    - calendar_events_row_with_event_type_important_date_is_rejected
+    - calendar_events_row_with_unknown_system_projection_type_is_rejected
+    - manual_calendar_create_cannot_persist_important_date
+    - important_date_projection_reads_current_staff_document_expiry_from_source_domain
+    - important_date_projection_reads_current_vehicle_document_expiry_from_source_domain
+    - superseded_staff_or_vehicle_document_does_not_emit_current_important_date
+    - source_valid_until_change_changes_projection_without_calendar_event_row_edit
+    - projection_item_mutation_through_calendar_event_mutation_endpoint_is_rejected
+    - projection_identity_resolves_to_source_tuple_not_calendar_events_primary_key
+    - event_with_location_only_is_accepted
+    - event_with_trimmed_custom_meeting_place_only_is_accepted
+    - event_with_neither_meeting_place_source_is_accepted
+    - event_with_location_and_custom_meeting_place_is_rejected_by_database
+    - event_with_whitespace_only_custom_meeting_place_is_rejected_after_write_normalization_boundary
+    - custom_meeting_place_never_auto_creates_permanent_location
+    - migration_precheck_detects_unknown_manual_event_type
+    - migration_precheck_detects_both_active_meeting_place_sources
+
+  intentionally_not_solved_by_DB_CAL_002:
+    resource_overlap_race_safe_enforcement: DB-CAL-003
+    calendar_event_lifecycle_and_versioning: DB-CAL-004
+    calendar_manage_own_owner_resolution: DB-CAL-005
+    availability_booking_state_and_exactly_once: DB-CAL-006
+    driving_lesson_vs_training_session_source_of_truth: DB-CAL-007
+    exact_warning_thresholds_for_important_dates: later_product_policy
+    exact_API_union_schema_for_manual_and_projection_items: Stage5_acceptance_contract_sync
+
+  self_audit:
+    manual_calendar_storage_has_closed_event_type_domain: PASS
+    important_date_does_not_create_second_mutable_source_of_truth: PASS
+    source_document_valid_until_remains_authoritative: PASS
+    projection_identity_is_source_based_not_calendar_event_row_based: PASS
+    projection_is_not_mutable_through_manual_event_commands: PASS
+    meeting_place_zero_or_one_source_is_database_enforced: PASS
+    optional_meeting_place_both_null_state_preserved: PASS
+    whitespace_only_custom_text_not_persisted: PASS
+    custom_text_does_not_create_location_resource: PASS
+    DB_CAL_003_through_DB_CAL_007_not_fixed_in_this_step: PASS
     aggregate_core_schema_modified_in_step: false
     aggregate_docs87_modified_in_step: false
     Laravel_migrations_created: false
@@ -296,21 +466,9 @@ blockers:
 
   DB-CAL-002:
     severity: P1
-    status: OPEN
+    status: PASS
     title: manual_calendar_event_storage_boundaries_are_underconstrained
-    diagnosis: >-
-      Confirmed manual creation supports only general_event and driving_lesson,
-      while important_date is a system projection whose source date remains in the
-      Staff/Vehicle source domain. The current physical event_type is an unconstrained
-      varchar, so it does not prevent accidental manual persistence of important_date.
-      The current row also permits location_id and custom_meeting_place together even
-      though the confirmed form and product contract define them as mutually exclusive.
-    closure_must_define:
-      - manual_storage_event_type_domain_excludes_important_date_projection_rows
-      - important_date_projection_identity_and_read_model_boundary_without_second_source_of_truth
-      - saved_location_XOR_custom_meeting_place_constraint
-      - normalized_empty_custom_text_semantics
-      - integration_tests_for_projection_vs_manual_write_boundary
+    resolved_by: manual_event_and_important_date_storage_boundary
 
   DB-CAL-003:
     severity: P1
@@ -444,22 +602,24 @@ migration_design_status:
 quality_gate:
   diagnosis_complete: PASS
   DB_CAL_001_result: PASS
-  DB_CAL_001_every_relation_has_same_tenant_boundary: PASS
-  DB_CAL_001_nullable_relations_keep_null_behavior: PASS
-  DB_CAL_001_cross_tenant_migration_auto_repair_forbidden: PASS
-  DB_CAL_001_parent_history_preserved: PASS
+  DB_CAL_002_result: PASS
+  DB_CAL_002_manual_event_type_domain_closed: PASS
+  DB_CAL_002_important_date_source_domain_projection_only: PASS
+  DB_CAL_002_no_second_mutable_important_date_source: PASS
+  DB_CAL_002_meeting_place_zero_or_one_source: PASS
+  DB_CAL_002_whitespace_custom_text_not_persisted: PASS
   reverse_engineering_calendar_capabilities_preserved: PASS
   open_P0: 0
-  open_P1: 6
-  fixes_applied_total: 1
+  open_P1: 5
+  fixes_applied_total: 2
   later_DB4_slices_entered: false
   Laravel_migrations_created: false
   UI_or_feature_implementation_started: false
 
 next_single_blocker_after_gate:
-  id: DB-CAL-002
+  id: DB-CAL-003
   reason: >-
-    Same-tenant resource integrity is now closed. The next isolated blocker is the
-    manual CalendarEvent versus system-projected important-date storage boundary and
-    the single-row meeting-place invariants; overlap/lifecycle/ownership/booking and
-    TrainingSession integration remain out of scope until their own gates.
+    Manual/system storage ownership and meeting-place row invariants are now closed.
+    The next isolated blocker is race-safe resource overlap enforcement; event lifecycle,
+    own-scope ownership, availability booking and TrainingSession integration remain
+    out of scope until their own gates.
