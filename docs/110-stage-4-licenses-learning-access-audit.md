@@ -1,10 +1,10 @@
 # 110. Stage 4 — Licenses / Learning Access database audit
 
-Data: 2026-09-06
+Data: 2026-09-07
 
 **Etap:** `DB4_6_LICENSES_LEARNING_ACCESS`  
-**Aktualny krok:** `DB4_6_STEP_4 / DB-LIC-004`  
-**Status:** `DB-LIC-001..004 PASS / 0 P0 / 3 P1 OPEN`
+**Aktualny krok:** `DB4_6_STEP_5 / DB-LIC-005`  
+**Status:** `DB-LIC-001..005 PASS / 0 P0 / 2 P1 OPEN`
 
 Machine-readable diagnoza: `specs/database/licenses-learning-access.yml`.
 
@@ -1215,3 +1215,327 @@ Aktualny stan po DB-LIC-004:
 Następny dozwolony krok po centralnym gate: **DB-LIC-005 only**.
 
 **STOP przed DB-LIC-005.**
+
+---
+
+## 23. DB-LIC-005 — resolution contract and self-audit
+
+**Current result: PASS.**
+
+Ten krok zamyka wyłącznie lifecycle konkretnej jednostki `LicenseInventoryEntry`, lifecycle `LicenseAssignment`, atomowe przydzielenie/cofnięcie przed aktywacją oraz wspólną granicę concurrency dla `activate vs revoke`. Nie zamyka jeszcze matematyki entitlementu, snapshotu efektu aktywacji ani language capability.
+
+### 23.1 Jedna pozycja inventory = jedna konkretna sztuka
+
+`license_inventory_entries` nie jest licznikiem. Jeden rekord reprezentuje dokładnie jedną jednostkę licencji.
+
+Canonical statusy inventory:
+- `available`,
+- `assigned`,
+- `consumed`,
+- `expired`,
+- `adjusted`.
+
+Normalny lifecycle przypisania używa wyłącznie:
+
+`available -> assigned -> consumed`
+
+albo przed aktywacją:
+
+`available -> assigned -> available`.
+
+Drugie przejście oznacza jawny `revoke-unactivated` i zwrot dokładnie **tej samej jednostki**, a nie zwiększenie luźnego licznika czy utworzenie replacement row.
+
+`consumed` nie jest ponownie assignable. `expired` i `adjusted` również nie są targetem zwykłego assignment flow.
+
+Dokładne operacje grant/expiry/adjustment inventory pozostają poza tym fixerem — do DB4_9 lub osobnej jawnej polityki. Historycznego `consumed` nie wolno przepisywać na `adjusted`; ewentualny refund/replacement po wykorzystaniu musi być osobnym kompensującym efektem biznesowym.
+
+### 23.2 Zamknięty lifecycle Assignment
+
+Canonical statusy `license_assignments.status`:
+- `assigned`,
+- `activated`,
+- `revoked_before_activation`.
+
+Nowy Assignment zaczyna jako:
+- `status=assigned`,
+- `version=1`,
+- `assigned_at` non-NULL i immutable,
+- `assigned_by_user_id` non-NULL, globalny FK do Usera z RESTRICT.
+
+`license_assignments.version bigint >= 1` jest concurrency rootem stanu Assignment.
+
+Normalne przejścia:
+- create: `none -> assigned`,
+- activate: `assigned -> activated`,
+- revoke: `assigned -> revoked_before_activation`.
+
+`activated` i `revoked_before_activation` są terminalne w normalnym lifecycle. Starego revoked Assignment nie reaktywujemy przy ponownym użyciu odzyskanej sztuki — powstaje nowy Assignment row.
+
+### 23.3 State-field matrix
+
+`assigned`:
+- zero revoke metadata,
+- zero Activation rows.
+
+`activated`:
+- zero revoke metadata,
+- dokładnie jeden Activation row.
+
+`revoked_before_activation`:
+- `revoked_at` non-NULL,
+- `revoked_by_user_id` non-NULL,
+- `revoke_reason` nonblank,
+- zero Activation rows.
+
+Generic PATCH nie może ustawiać statusu. Normalny hard-delete Assignment jest zabroniony.
+
+### 23.4 `activated` nie znaczy „ważna dzisiaj”
+
+Status `activated` jest historycznym faktem:
+
+**ta konkretna jednostka inventory została nieodwracalnie zużyta przez aktywację.**
+
+Nie jest to temporalny flag „kursant ma dziś aktywny dostęp”. Po wygaśnięciu entitlementu Assignment nadal pozostaje `activated`, a Inventory nadal `consumed`.
+
+Bieżąca ważność, expiry i remaining time będą wyliczane z immutable entitlement history w DB-LIC-006.
+
+### 23.5 Current Assignment i historia
+
+Current Assignment dla konkretnej jednostki inventory to row spełniający:
+
+`status IN ('assigned','activated') AND revoked_at IS NULL`.
+
+Wymagamy partial unique:
+
+`(organization_id, license_inventory_entry_id)` dla tego predykatu.
+
+To daje maksymalnie jeden current Assignment na jednostkę, ale pozwala zachować wiele historycznych `revoked_before_activation` dla tej samej sztuki po kolejnych cyklach przydzielenie → cofnięcie → ponowne przydzielenie.
+
+Po `consumed` current Assignment jest permanentnie tym `activated` row — aż do końca historii jednostki; nie jest zwalniany przez samo wygaśnięcie czasowego dostępu.
+
+### 23.6 Cross-row final-state equivalence
+
+Partial unique nie wystarcza. Dodajemy `DEFERRABLE INITIALLY DEFERRED` constraint trigger lub równoważną final transactional DB boundary.
+
+W stanie finalnym:
+- `inventory.available` → zero current Assignment,
+- `inventory.assigned` → dokładnie jeden current Assignment w `assigned`, zero Activation,
+- `inventory.consumed` → dokładnie jeden current Assignment w `activated`, dokładnie jeden Activation,
+- `inventory.expired|adjusted` → zero current Assignment.
+
+W drugą stronę:
+- `assignment.assigned` wymaga `inventory.assigned` i zero Activation,
+- `assignment.activated` wymaga `inventory.consumed` i dokładnie jeden Activation,
+- `assignment.revoked_before_activation` wymaga zero Activation, ale nie narzuca na zawsze stanu inventory, ponieważ ta sama sztuka może później zostać przypisana ponownie przez nowy row.
+
+Bezpośrednia zmiana statusu, która pozostawia rozjazd, nie może commitować.
+
+### 23.7 Concurrency roots i lock order
+
+Dla alokacji konkretnej sztuki finalną granicą jest:
+
+`license_inventory_entries row FOR UPDATE`.
+
+Nie dodajemy osobnego `inventory.version`, ponieważ wszystkie create/revoke/activate dla tej sztuki serializują się na dokładnie tym samym row i końcowym cross-row guardzie.
+
+Dla istniejącego Assignment:
+
+`license_assignments.version + Assignment row FOR UPDATE`.
+
+Activate i revoke wymagają expected assignment version na granicy domenowej. Stage-3 POST-y nie mają jeszcze `If-Match`, więc dokładny required header/error mapping jest markerem do Stage 5. `Idempotency-Key` nie zastępuje optimistic concurrency.
+
+Wspólny porządek:
+
+`Student -> LearningAccount -> InventoryEntry -> Assignment`.
+
+DB-LIC-006 może dopiero po tym prefixie dołożyć własne locki/operacje entitlementu; nie może zmienić kolejności.
+
+### 23.8 Assignment do istniejącego LearningAccount
+
+`POST /license-assignments`:
+- wymaga `licenses.assign`,
+- wymaga Idempotency-Key,
+- zachowuje exactly-one target,
+- po lockach wymaga exact Student/Account/Organization z DB-LIC-001,
+- wymaga operational eligibility z DB-LIC-003,
+- lockuje wskazany InventoryEntry,
+- wymaga `inventory.status=available` i zero current Assignment.
+
+Sukces atomowo:
+1. tworzy Assignment `assigned`, version 1, z actor/time,
+2. ustawia tę samą jednostkę InventoryEntry na `assigned`,
+3. zapisuje redacted audit/outbox,
+4. finalizuje idempotency,
+5. przechodzi deferred final-state guard.
+
+Dwa równoległe assignmenty tej samej jednostki — maksymalnie jeden może commitować.
+
+### 23.9 Create-new-learning-account + assignment jest jednym outer transaction
+
+Potwierdzony flow z nowym dostępem nie może tworzyć sieroty.
+
+W jednym outer transaction znajdują się:
+- Student parent lock,
+- identity/LearningAccount z DB-LIC-002/003,
+- opcjonalne OSK-managed credential z DB-LIC-004,
+- InventoryEntry lock,
+- Assignment insert i inventory state transition.
+
+Jeżeli końcowy assignment nie może commitować, nowe konto/identifier/User — jeśli były tworzone wyłącznie dla tego flow — oraz credential mutation są rollbackowane.
+
+Świeży sekret DB-LIC-004 może zostać zwrócony operatorowi dopiero po commit całej operacji. Nie może być wydany po częściowo udanym create-account przed nieudanym assignmentem.
+
+### 23.10 Idempotency assignmentu
+
+Ten sam Idempotency-Key + ten sam request:
+- nie tworzy drugiego Assignment,
+- nie wykonuje drugi raz `available -> assigned`,
+- zwraca rezultat oryginalnej operacji.
+
+Ten sam key + inny payload → conflict.
+
+Inny key po pierwszym sukcesie → konflikt, bo InventoryEntry nie jest już `available`.
+
+### 23.11 Revoke-unactivated = zwrot tej samej sztuki dokładnie raz
+
+`POST /license-assignments/{assignmentId}/revoke-unactivated` wymaga:
+- permission `licenses.revoke_unactivated`,
+- Idempotency-Key,
+- expected Assignment version.
+
+Po wspólnych lockach wymagamy:
+- exact tenant/target integrity,
+- Assignment `assigned`,
+- Inventory `assigned`,
+- zero Activation,
+- current Assignment to dokładnie wskazany row,
+- zgodna expected version.
+
+Sukces atomowo:
+- Assignment → `revoked_before_activation`,
+- zapisuje `revoked_at`, actor i nonblank reason,
+- Assignment version +1,
+- ta sama jednostka Inventory → `available`,
+- audit/outbox/idempotency,
+- deferred final-state guard.
+
+To jest znaczenie „restore exactly one”. Nie tworzymy nowej jednostki i nie inkrementujemy niezależnego counta.
+
+Same-key retry nie robi drugiego zwrotu ani version bump. Nowy key wobec już revoked Assignment kończy się konfliktem bez zmiany inventory.
+
+### 23.12 Jawny revoke pozostaje możliwy po archive/suspension
+
+Self-audit poprawił tu pierwszy draft.
+
+Student archive z DB-LIC-003 nadal:
+- nie revokuje automatycznie Assignment,
+- nie zwraca automatycznie Inventory.
+
+Jednak uprawniony administrator może później wykonać **jawny `revoke-unactivated`** także dla archived Student albo suspended LearningAccount, jeśli cały tenant/state/version check przechodzi i Assignment nadal jest nieaktywowany.
+
+Powód: archive/suspension nie może uwięzić niewykorzystanej konkretnej sztuki na zawsze.
+
+Ten revoke:
+- nie restore'uje Studenta,
+- nie resume'uje LearningAccount,
+- nie zmienia globalnej identity,
+- tylko zamyka historyczny nieaktywowany Assignment i zwraca jego InventoryEntry.
+
+Nowy assignment i activation nadal wymagają normalnej operational eligibility.
+
+### 23.13 Minimalna activation boundary w DB-LIC-005
+
+Żeby zamknąć `activate vs revoke`, DB-LIC-005 musi określić minimalny niepodzielny efekt aktywacji na lifecycle jednostki, ale **nie** matematykę entitlementu.
+
+Po wspólnych lockach successful activation musi w jednej transakcji:
+- utworzyć dokładnie jeden Activation row,
+- Assignment `assigned -> activated`, version +1,
+- Inventory `assigned -> consumed`,
+- przejść final-state guard.
+
+DB-LIC-005 nie określa jeszcze:
+- `effective_from`,
+- `effective_to`,
+- duration snapshot,
+- stacking,
+- expiry_before/after,
+- learner-vs-OSK actor provenance.
+
+To pozostaje wyłącznie DB-LIC-006.
+
+### 23.14 Activate vs revoke — dokładnie jeden winner
+
+Oba commandy używają tych samych rows i tego samego porządku locków.
+
+Jeśli activation wygra:
+- Assignment = `activated`,
+- Inventory = `consumed`,
+- Activation count = 1,
+- późniejszy revoke kończy się conflict/no restore.
+
+Jeśli revoke wygra:
+- Assignment = `revoked_before_activation`,
+- Inventory = `available`,
+- Activation count = 0,
+- późniejsza activation kończy się conflict/no consume.
+
+Nie istnieje finalny stan, w którym ta sama licencja została jednocześnie zużyta i zwrócona.
+
+### 23.15 Migration safety
+
+Przyszła migracja najpierw precheckuje i zatrzymuje się na sprzecznym legacy data.
+
+W szczególności nie wolno:
+- automatycznie revokować live Assignment tylko dlatego, że Inventory jest `available`,
+- tworzyć brakującego Assignmentu dla `assigned` Inventory,
+- fabrykować Activation dla `consumed`,
+- zgadywać revoke actor/time/reason,
+- mapować statusów po display text albo `latest row`.
+
+Niejednoznaczność = FAIL + reviewed remediation.
+
+Dopiero potem dodajemy closed checks, Assignment version, current partial unique, state-field matrix i deferred final-state equivalence.
+
+### 23.16 Required race/invariant tests
+
+Obowiązkowe testy obejmują m.in.:
+- unknown Inventory/Assignment status → reject,
+- nowy Assignment = assigned/version1 + actor/time i Inventory=assigned,
+- available + current Assignment → reject przy commit,
+- assigned bez dokładnie jednego assigned current Assignment → reject,
+- consumed bez dokładnie jednego activated Assignment + Activation → reject,
+- expired/adjusted z current Assignment → reject,
+- dwa równoległe assignmenty jednej sztuki → maksymalnie jeden commit,
+- create-new-account + assignment → all-or-none,
+- nieudany assignment po OSK-managed credential create → brak wydanego sekretu i rollback,
+- revoke zwraca tę samą sztukę raz,
+- revoke archived/suspended targetu jest jawnie możliwy i nie reaktywuje targetu,
+- retry revoke nie zwraca drugi raz,
+- activation vs revoke → dokładnie jeden winner,
+- historyczny revoked row przetrwa późniejszy reassign tej sztuki,
+- activated row pozostaje activated po późniejszym expiry entitlementu,
+- direct SQL drift nie przechodzi deferred guard,
+- migracja nie fabrykuje brakujących eventów/metadanych.
+
+### 23.17 Scope preservation
+
+Self-audit potwierdził:
+- DB-LIC-001..004 pozostają PASS,
+- DB-LIC-006 i DB-LIC-007 pozostają OPEN,
+- nie zamknięto effective-period/stacking/duration/effect snapshot ani activation actor provenance,
+- nie zamknięto product-language capability ani panel projection rules,
+- nie zaprojektowano purchase/payment/inventory grant z DB4_9,
+- `source_order_item_id` tenant/commercial boundary nadal pozostaje DB4_9,
+- agregaty `core-schema.yml` i `docs/87` pozostają zamrożone,
+- nie utworzono migracji Laravel,
+- nie rozpoczęto DB4_7, Stage 5 ani UI.
+
+Aktualny stan po DB-LIC-005:
+- resolved: **5/7**,
+- open P0: **0**,
+- open P1: **2**,
+- DB4_6: **FAIL_WITH_2_P1_BLOCKERS**.
+
+Następny dozwolony krok po centralnym gate: **DB-LIC-006 only**.
+
+**STOP przed DB-LIC-006.**
