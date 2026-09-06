@@ -492,8 +492,112 @@ asset_model:
       - ready_at
       - deleted_at
     storage_key_unique: true
+    tenant_candidate_key: [organization_id, id]
+    purpose_immutable_after_upload_commit: true
     ready_required_before_business_attachment: true
     malware_or_content_scan_status_required_for_risky_uploads: true
+
+staff_locations_vehicles_model:
+  bounded_context_source: specs/database/staff-locations-vehicles.yml
+  aggregate_sync_status: PASS
+  tenant_candidate_keys:
+    staff_profiles: [organization_id, id]
+    organization_memberships: [organization_id, id]
+    locations: [organization_id, id]
+    vehicles: [organization_id, id]
+    file_assets: [organization_id, id]
+
+  staff_membership_links:
+    tenant_key: organization_id
+    composite_foreign_keys:
+      staff_profile: [organization_id, staff_profile_id]
+      organization_membership: [organization_id, organization_membership_id]
+    active_link_unique_per_staff_profile: true
+    active_link_unique_per_membership: true
+    normal_unlink_preserves_history: true
+    archived_staff_active_link_forbidden: true
+
+  location_assignments:
+    staff_location_assignments:
+      fields: [organization_id, staff_profile_id, location_id]
+      primary_key: [organization_id, staff_profile_id, location_id]
+      same_tenant_composite_FKs: true
+    vehicle_location_assignments:
+      fields: [organization_id, vehicle_id, location_id]
+      primary_key: [organization_id, vehicle_id, location_id]
+      same_tenant_composite_FKs: true
+
+  private_asset_attachments:
+    same_tenant_composite_FK_required: true
+    platform_global_asset_allowed: false
+    application_precheck_required: true
+    database_attachment_trigger_is_final_boundary: true
+    asset_lock_during_validation: FOR_SHARE
+    required_status_at_attach: ready
+    paths:
+      staff_profile_photo: staff_photo
+      staff_document_asset: staff_document
+      vehicle_photo: vehicle_photo
+      vehicle_document_asset: vehicle_document
+    later_nonready_asset_delivery_requires_current_state_recheck: true
+    attachment_replacement_auto_deletes_old_asset: false
+
+  document_history:
+    strategy: versioned_rows_with_superseded_at
+    current_predicate: superseded_at_is_null
+    current_cardinality: zero_or_one_per_parent_and_document_type
+    staff_current_unique:
+      type: partial_unique
+      columns: [organization_id, staff_profile_id, document_type]
+      where: superseded_at_is_null
+    vehicle_current_unique:
+      type: partial_unique
+      columns: [organization_id, vehicle_id, document_type]
+      where: superseded_at_is_null
+    in_place_business_overwrite: forbidden
+    normal_clear_hard_delete: forbidden
+    replacement_serializes_on_parent: true
+    superseded_business_fields_immutable: true
+    latest_created_at_heuristic_for_current: forbidden
+    calendar_important_date_input: current_rows_with_nonnull_valid_until_only
+
+  identity_uniqueness:
+    scope: per_organization
+    staff_PESEL:
+      type: partial_unique
+      columns: [organization_id, pesel_lookup_hash]
+      where: pesel_lookup_hash_is_not_null
+      includes_archived_rows: true
+      archive_releases_value: false
+    vehicle_VIN:
+      type: partial_unique
+      columns: [organization_id, vin_normalized]
+      where: vin_normalized_is_not_null
+      includes_archived_rows: true
+      archive_releases_value: false
+    vehicle_registration:
+      type: partial_unique
+      columns: [organization_id, registration_number_normalized]
+      where: archived_at_is_null
+      archive_releases_value_for_current_fleet: true
+      restore_requires_value_free_among_nonarchived_rows: true
+    hard_delete_to_release_identity_as_normal_lifecycle: forbidden
+    explicit_identity_correction_requires_audit: true
+
+  staff_archive_panel_access:
+    archive_always_ends_active_staff_membership_link: true
+    nonowner_active_membership_transition_on_archive: active_to_suspended
+    suspended_nonowner_membership_stays_suspended: true
+    revoked_nonowner_membership_stays_revoked: true
+    owner_membership_status_or_is_owner_changed_by_staff_archive: false
+    owner_access_removal_requires_explicit_DB_IAM_004_005_governance_flow: true
+    sole_owner_staff_profile_archive_allowed_without_zero_owner_state: true
+    staff_derived_scope_after_archive: deny_empty_set
+    restore_staff_profile_auto_restores_panel_access: false
+    restore_staff_profile_auto_rebinds_sessions: false
+    explicit_panel_access_restore_creates_new_link_row: true
+    revoked_membership_auto_reactivation: forbidden
+    archive_transaction_atomic_across_staff_link_membership_sessions_audit_outbox: true
 
 idempotency_model:
   idempotency_records:
@@ -567,13 +671,17 @@ critical_relations:
   - permission_scope_pair_must_be_whitelisted
   - staff_profile_belongs_to_exactly_one_organization
   - staff_profile_can_exist_without_login_membership
+  - staff_membership_link_profile_and_membership_must_share_link_organization
   - staff_profile_can_have_at_most_one_active_membership_link_in_its_organization
+  - archived_staff_profile_cannot_have_active_membership_link
   - same_global_user_can_have_memberships_in_multiple_organizations
   - staff_has_many_types_via_assignment
   - staff_has_many_categories_via_assignment
-  - staff_has_many_locations_via_assignment
+  - staff_has_many_locations_via_tenant_aware_assignment
   - vehicle_has_many_categories_via_assignment
-  - vehicle_has_many_locations_via_assignment
+  - vehicle_has_many_locations_via_tenant_aware_assignment
+  - staff_and_vehicle_private_assets_must_match_tenant_purpose_and_ready_state_at_attach
+  - staff_and_vehicle_documents_have_versioned_history_and_at_most_one_current_row_per_type
   - student_has_many_course_enrollments
   - student_learning_account_resolves_to_global_user_and_primary_login_identifier
   - course_enrollment_has_zero_or_one_pkk_profile
@@ -629,12 +737,18 @@ structural_decisions:
   staff_login_link:
     table: staff_membership_links
     target: organization_membership_id
+    bounded_context_source: specs/database/staff-locations-vehicles.yml
     reason: >-
       A global User may work in more than one OSK. Linking StaffProfile to an
       OrganizationMembership preserves tenant context and does not incorrectly
       make user_id globally unique across staff records.
     history_preserved: true
     active_link_uniqueness: partial_unique
+    same_organization_composite_FKs_required: true
+    archived_staff_active_link_forbidden: true
+    archive_nonowner_active_membership: suspend_via_DB_IAM_005
+    archive_owner_membership_hidden_status_change: forbidden
+    restore_staff_auto_restores_panel_access: false
   course_declared_hours:
     reason: >-
       Reverse-engineered course create/edit screens contain current-OSK theory
@@ -721,6 +835,9 @@ critical_constraints:
   organization_membership_candidate_key_id_user:
     columns: [id, user_id]
     purpose: composite_auth_session_same_user_FK_target
+  organization_membership_candidate_key_org_id:
+    columns: [organization_id, id]
+    purpose: composite_staff_membership_same_organization_FK_target
   organization_membership_version_minimum:
     check: version_gte_1
   organization_membership_authorization_version_minimum:
@@ -750,6 +867,8 @@ critical_constraints:
     columns: [organization_id, user_id, legal_document_id]
   file_asset_storage_key_unique:
     columns: [storage_key]
+  file_asset_candidate_key_org_id:
+    columns: [organization_id, id]
   idempotency_unique_organization_scope:
     type: partial_unique
     columns: [organization_id, operation_key, idempotency_key]
@@ -758,12 +877,42 @@ critical_constraints:
     type: partial_unique
     columns: [operation_key, idempotency_key]
     where: organization_id_is_null
+  staff_profile_candidate_key_org_id:
+    columns: [organization_id, id]
+  location_candidate_key_org_id:
+    columns: [organization_id, id]
+  vehicle_candidate_key_org_id:
+    columns: [organization_id, id]
   staff_type_assignment_unique:
     columns: [staff_profile_id, staff_type_code]
   staff_category_assignment_unique:
     columns: [staff_profile_id, driving_category_id]
-  staff_location_assignment_unique:
-    columns: [staff_profile_id, location_id]
+  staff_location_assignment_primary_key:
+    columns: [organization_id, staff_profile_id, location_id]
+  staff_location_assignment_staff_composite_FK:
+    source_columns: [organization_id, staff_profile_id]
+    target_table: staff_profiles
+    target_columns: [organization_id, id]
+    on_update: RESTRICT
+    on_delete: RESTRICT
+  staff_location_assignment_location_composite_FK:
+    source_columns: [organization_id, location_id]
+    target_table: locations
+    target_columns: [organization_id, id]
+    on_update: RESTRICT
+    on_delete: RESTRICT
+  staff_membership_link_staff_composite_FK:
+    source_columns: [organization_id, staff_profile_id]
+    target_table: staff_profiles
+    target_columns: [organization_id, id]
+    on_update: RESTRICT
+    on_delete: RESTRICT
+  staff_membership_link_membership_composite_FK:
+    source_columns: [organization_id, organization_membership_id]
+    target_table: organization_memberships
+    target_columns: [organization_id, id]
+    on_update: RESTRICT
+    on_delete: RESTRICT
   staff_active_membership_link_unique_per_profile:
     type: partial_unique
     columns: [staff_profile_id]
@@ -772,10 +921,62 @@ critical_constraints:
     type: partial_unique
     columns: [organization_membership_id]
     where: unlinked_at_is_null
+  staff_pesel_unique_per_organization_including_archived:
+    type: partial_unique
+    columns: [organization_id, pesel_lookup_hash]
+    where: pesel_lookup_hash_is_not_null
+  staff_document_current_unique:
+    type: partial_unique
+    columns: [organization_id, staff_profile_id, document_type]
+    where: superseded_at_is_null
   vehicle_category_assignment_unique:
     columns: [vehicle_id, driving_category_id]
-  vehicle_location_assignment_unique:
-    columns: [vehicle_id, location_id]
+  vehicle_location_assignment_primary_key:
+    columns: [organization_id, vehicle_id, location_id]
+  vehicle_location_assignment_vehicle_composite_FK:
+    source_columns: [organization_id, vehicle_id]
+    target_table: vehicles
+    target_columns: [organization_id, id]
+    on_update: RESTRICT
+    on_delete: RESTRICT
+  vehicle_location_assignment_location_composite_FK:
+    source_columns: [organization_id, location_id]
+    target_table: locations
+    target_columns: [organization_id, id]
+    on_update: RESTRICT
+    on_delete: RESTRICT
+  vehicle_vin_unique_per_organization_including_archived:
+    type: partial_unique
+    columns: [organization_id, vin_normalized]
+    where: vin_normalized_is_not_null
+  vehicle_registration_unique_per_organization_current_fleet:
+    type: partial_unique
+    columns: [organization_id, registration_number_normalized]
+    where: archived_at_is_null
+  vehicle_document_current_unique:
+    type: partial_unique
+    columns: [organization_id, vehicle_id, document_type]
+    where: superseded_at_is_null
+  staff_profile_photo_same_tenant_composite_FK:
+    source_columns: [organization_id, photo_asset_id]
+    target_table: file_assets
+    target_columns: [organization_id, id]
+    match: MATCH_SIMPLE
+  staff_document_asset_same_tenant_composite_FK:
+    source_columns: [organization_id, asset_id]
+    target_table: file_assets
+    target_columns: [organization_id, id]
+    match: MATCH_SIMPLE
+  vehicle_photo_same_tenant_composite_FK:
+    source_columns: [organization_id, photo_asset_id]
+    target_table: file_assets
+    target_columns: [organization_id, id]
+    match: MATCH_SIMPLE
+  vehicle_document_asset_same_tenant_composite_FK:
+    source_columns: [organization_id, asset_id]
+    target_table: file_assets
+    target_columns: [organization_id, id]
+    match: MATCH_SIMPLE
   pkk_profile_unique_per_course_enrollment:
     columns: [course_enrollment_id]
   training_requirement_only_one_current_per_course:
@@ -872,6 +1073,39 @@ transactional_invariants:
     increment_authorization_version_once: true
     invalidate_membership_scoped_elevation_or_reauth_proofs: true
     write_audit_and_outbox_same_transaction: true
+  create_staff_membership_link:
+    require_staff_nonarchived: true
+    require_same_organization_staff_and_membership: true
+    lock_staff_profile_to_serialize_against_archive: true
+    database_composite_FKs_are_final_same_tenant_boundary: true
+    active_link_partial_uniques_are_final_concurrency_boundary: true
+  attach_staff_or_vehicle_private_asset:
+    require_same_tenant_composite_FK: true
+    lock_file_asset_FOR_SHARE: true
+    require_exact_path_purpose: true
+    require_asset_status_ready: true
+    database_trigger_is_final_boundary: true
+  replace_staff_or_vehicle_document:
+    lock_parent_resource: true
+    load_current_row_FOR_UPDATE_if_present: true
+    supersede_previous_row_before_insert_new_current: true
+    preserve_historical_row: true
+    audit_and_outbox_same_transaction: true
+  archive_staff_profile:
+    lock_staff_profile: true
+    end_active_staff_membership_link_same_transaction: true
+    nonowner_active_membership_transition: active_to_suspended_via_DB_IAM_005
+    clear_nonowner_bound_session_contexts_same_transaction: true
+    owner_membership_hidden_suspend_revoke_or_demotion: forbidden
+    last_owner_guard_bypass: forbidden
+    archived_staff_staff_derived_scope: deny_empty_set
+    audit_and_outbox_same_transaction: true
+  restore_staff_profile:
+    auto_restore_panel_access: false
+    auto_rebind_old_sessions: false
+    explicit_panel_access_restore_creates_new_link: true
+    suspended_membership_reactivation_uses_DB_IAM_005: true
+    revoked_membership_auto_reactivation: forbidden
   create_account_closure_request:
     one_pending_per_scope: true
     audit_required: true
@@ -1047,8 +1281,26 @@ migration_tests_required:
   - pending_account_closure_for_two_different_organizations_does_not_collide
   - same_user_can_have_memberships_in_two_organizations
   - staff_can_exist_without_membership_link
+  - staff_membership_link_cross_tenant_pair_is_rejected
+  - archived_staff_cannot_have_or_receive_active_staff_membership_link
   - staff_can_have_multiple_categories_and_locations
+  - staff_location_assignment_cross_tenant_pair_is_rejected
   - vehicle_can_have_multiple_categories_and_locations
+  - vehicle_location_assignment_cross_tenant_pair_is_rejected
+  - staff_and_vehicle_private_assets_require_same_tenant_correct_purpose_and_ready_state
+  - concurrent_asset_state_change_and_private_attachment_cannot_bypass_ready_validation
+  - staff_document_has_at_most_one_current_row_per_type
+  - vehicle_document_has_at_most_one_current_row_per_type
+  - document_replacement_preserves_history_and_concurrency_cannot_leave_two_current_rows
+  - superseded_document_business_fields_are_immutable
+  - archived_staff_still_blocks_duplicate_PESEL_in_same_organization
+  - archived_vehicle_still_blocks_duplicate_VIN_in_same_organization
+  - two_nonarchived_vehicles_same_registration_in_same_organization_are_rejected
+  - vehicle_archive_releases_registration_for_current_fleet_but_preserves_history
+  - vehicle_restore_conflicts_if_registration_is_held_by_another_nonarchived_vehicle
+  - staff_archive_nonowner_unlinks_and_suspends_membership_atomically
+  - staff_archive_owner_unlinks_staff_but_does_not_silently_change_owner_governance
+  - staff_restore_does_not_auto_restore_panel_access_or_old_sessions
   - declared_course_hours_do_not_change_credited_training_hours_without_ledger_entry
   - revoked_license_assignment_allows_same_inventory_entry_to_be_reassigned_later
   - two_current_license_assignments_for_same_inventory_entry_are_rejected
