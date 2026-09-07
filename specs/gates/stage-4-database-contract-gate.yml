@@ -33,6 +33,7 @@ sources:
     - specs/database/students-courses-training.yml
     - specs/database/calendar.yml
     - specs/database/licenses-learning-access.yml
+    - specs/database/internal-exams.yml
   security:
     - specs/security/permissions.yml
     - docs/04-roles-permissions.md
@@ -84,7 +85,13 @@ stage_4_slices:
     final_aggregate_sync: PASS
     result: PASS
   - id: DB4_7_INTERNAL_EXAMS
-    status: NOT_STARTED
+    status: FAIL_WITH_8_P1_BLOCKERS
+    diagnosis: COMPLETE
+    blockers_diagnosed: 8
+    blockers_resolved: 0
+    open_P0_P1: 8
+    final_aggregate_sync: BLOCKED
+    result: FAIL_WITH_8_P1_BLOCKERS
   - id: DB4_8_PKK
     status: NOT_STARTED
   - id: DB4_9_STUDENT_FINANCE_COMMERCE
@@ -1804,6 +1811,54 @@ quality_checks:
       no_UI_or_feature_implementation_started: PASS
       audit_history_preservation_incident_corrected_before_PASS: PASS
 
+  DB4_7_diagnosis:
+    status: PASS_DIAGNOSIS_COMPLETE
+    machine_source: specs/database/internal-exams.yml
+    audit_source: docs/112-stage-4-internal-exams-audit.md
+    diagnosed_P0: 0
+    diagnosed_P1: 8
+    blockers_resolved: 0
+    open_P0_P1: 8
+    fixes_applied_in_diagnosis_step: 0
+    aggregate_core_schema_modified_in_diagnosis: false
+    aggregate_docs87_modified_in_diagnosis: false
+    later_domain_slices_entered: false
+    Laravel_migrations_created: false
+    Stage5_started: false
+    UI_or_feature_implementation_started: false
+    blockers:
+      DB_EXAM_001_same_tenant_and_exact_target_integrity: DIAGNOSED_P1
+      DB_EXAM_002_formal_course_requirement_and_exam_capability_basis: DIAGNOSED_P1
+      DB_EXAM_003_inventory_reservation_authority_and_consume_on_start_exactly_once: DIAGNOSED_P1
+      DB_EXAM_004_attempt_and_access_lifecycle_concurrency: DIAGNOSED_P1
+      DB_EXAM_005_exam_access_token_and_finished_result_token_security: DIAGNOSED_P1
+      DB_EXAM_006_station_session_concurrency_device_binding_and_failover: DIAGNOSED_P1
+      DB_EXAM_007_immutable_exam_definition_question_result_and_document_evidence: DIAGNOSED_P1
+      DB_EXAM_008_deterministic_management_history_latest_and_statistics_projection: DIAGNOSED_P1
+    preservation_checks:
+      course_first_formal_attempt_preserved: PASS
+      formal_attempt_requires_persistent_student_and_course_preserved: PASS
+      no_ad_hoc_formal_candidate_introduced: PASS
+      theory_exemption_and_requirement_engine_preserved: PASS
+      multi_attempt_history_preserved: PASS
+      remote_link_mode_preserved: PASS
+      local_current_workstation_mode_preserved: PASS
+      assigned_exam_station_extension_preserved: PASS
+      consume_on_start_ADR_preserved: PASS
+      release_unused_prestart_reservation_preserved: PASS
+      technical_abort_after_start_no_auto_restore_preserved: PASS
+      opaque_token_and_raw_token_nonpersistence_preserved: PASS
+      one_active_attempt_per_station_without_global_OSK_limit_preserved: PASS
+      station_failover_without_second_inventory_consumption_preserved: PASS
+      immutable_finished_question_result_document_evidence_preserved: PASS
+      answer_sheet_and_question_review_preserved: PASS
+      paper_signature_workflow_preserved: PASS
+      DB4_8_PKK_provider_lifecycle_not_entered: PASS
+      DB4_9_payment_and_inventory_grant_not_solved_early: PASS
+      DB4_10_final_audit_outbox_shape_not_entered: PASS
+      aggregates_remain_frozen_until_DB4_7_final_sync: PASS
+      no_fix_applied_during_diagnosis: PASS
+
 resolved_blockers:
   - DB-FOUND-001
   - DB-FOUND-002
@@ -1843,7 +1898,15 @@ resolved_blockers:
   - DB-LIC-006
   - DB-LIC-007
 
-open_blockers_current_diagnosed_scope: []
+open_blockers_current_diagnosed_scope:
+  - DB-EXAM-001
+  - DB-EXAM-002
+  - DB-EXAM-003
+  - DB-EXAM-004
+  - DB-EXAM-005
+  - DB-EXAM-006
+  - DB-EXAM-007
+  - DB-EXAM-008
 
 gate_definition:
   PASS_requires_for_entire_stage_4:
@@ -1853,7 +1916,7 @@ gate_definition:
     - migration_order_dependency_safe
     - database_invariant_test_matrix_exists
     - reverse_engineering_preservation_traceable
-  current_result: DB4_6_PASS_DB4_7_NOT_STARTED
+  current_result: DB4_7_FAIL_WITH_8_P1_BLOCKERS
   DB4_1_result: PASS
   DB4_2_result: PASS
   DB4_3_result: PASS
@@ -1888,26 +1951,32 @@ gate_definition:
   DB4_6_DB_LIC_007_result: PASS
   DB4_6_final_aggregate_sync_result: PASS
   DB4_6_result: PASS
+  DB4_7_diagnosis_result: PASS_DIAGNOSIS_COMPLETE
+  DB4_7_result: FAIL_WITH_8_P1_BLOCKERS
   may_start_DB4_4_fixes: false
   may_start_DB4_5: false
   may_start_DB4_5_fixes: false
   may_start_DB4_6: false
   may_start_DB4_6_fixes: false
   may_start_DB4_7: true
+  may_start_DB4_7_fixes: true
+  may_start_DB4_8: false
   may_start_stage_5: false
   may_start_UI_or_feature_implementation: false
 
 next_single_step:
-  id: DB4_7_INTERNAL_EXAMS_DIAGNOSIS
-  action: diagnose_DB4_7_only_after_next_explicit_user_instruction
+  id: DB_EXAM_001_SAME_TENANT_EXACT_TARGET
+  action: resolve_DB_EXAM_001_only_after_next_explicit_user_instruction
   allowed_scope:
-    - inspect_existing_internal_exam_sources_and_current_aggregate_read_only
-    - create_or_update_DB4_7_bounded_context_machine_diagnosis_after_path_confirmation
-    - create_dedicated_DB4_7_audit_after_path_confirmation
+    - specs/database/internal-exams.yml
+    - docs/112-stage-4-internal-exams-audit.md
     - specs/gates/stage-4-database-contract-gate.yml
+  frozen_scope:
+    - specs/database/core-schema.yml
+    - docs/87-physical-database-schema.md
   scope_lock: >-
-    Diagnose DB4_7 only. Do not fix any DB4_7 blocker in the diagnosis step. Keep
-    specs/database/core-schema.yml and docs/87-physical-database-schema.md frozen until
-    DB4_7 final aggregate sync. Do not enter DB4_8 or later slices, do not start Stage 5,
-    do not create Laravel migrations and do not start UI/feature implementation.
-  after_action: diagnose_DB4_7_then_record_its_gate_and_STOP_before_first_DB4_7_fix
+    Resolve only DB-EXAM-001 same-tenant and exact-target integrity. Preserve all
+    other diagnosed DB4_7 blockers as OPEN. Do not enter DB4_8 or later slices,
+    do not start Stage 5, do not create Laravel migrations and do not start
+    UI/feature implementation.
+  after_action: rerun_DB_EXAM_001_gate_and_STOP_before_DB_EXAM_002
