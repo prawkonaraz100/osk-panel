@@ -2,8 +2,8 @@ meta:
   project: osk-panel
   stage: 4
   slice: DB4_7_INTERNAL_EXAMS
-  step: DB_EXAM_003_INVENTORY_RESERVATION_CONSUME_ON_START
-  status: FAIL_WITH_5_P1_BLOCKERS
+  step: DB_EXAM_004_ATTEMPT_ACCESS_LIFECYCLE_CONCURRENCY
+  status: FAIL_WITH_4_P1_BLOCKERS
   diagnosed_at: 2026-09-07
   branch: docs-consolidation-2026-09-05
   aggregate_sync_status: FROZEN_UNTIL_DB4_7_FINAL_SYNC
@@ -15,7 +15,7 @@ meta:
 scope_rule:
   diagnose_before_fixing: true
   fixes_allowed_in_this_step: true
-  current_step_scope: DB_EXAM_003_only
+  current_step_scope: DB_EXAM_004_only
   one_blocker_per_future_step: true
   aggregate_files_frozen:
     - specs/database/core-schema.yml
@@ -865,6 +865,532 @@ resolved_contracts:
       - migration_does_not_guess_ambiguous_released_adjusted_or_ledger_order
       - DB_EXAM_004_through_DB_EXAM_008_remain_open
 
+  DB-EXAM-004:
+    status: PASS
+    title: attempt_and_access_lifecycle_concurrency
+    severity: P1
+    goal: >-
+      Make InternalExamAttempt the single lifecycle concurrency root and make
+      every Access, Reservation and lifecycle timestamp agree with one closed,
+      race-safe state machine, so start/revoke/expire/submit/technical-abort/
+      invalidate and before-start edits cannot commit contradictory outcomes.
+
+    authority_and_version_model:
+      attempt_lifecycle_authority: internal_exam_attempts.status
+      access_lifecycle_authority: internal_exam_accesses.status
+      reservation_accounting_authority: DB_EXAM_003_ledger_plus_guarded_reservation_projection
+      attempt_version: bigint_not_null_default_1_check_gte_1
+      access_version: bigint_not_null_default_1_check_gte_1
+      main_concurrency_root_for_attempt_affecting_commands: internal_exam_attempts_row_FOR_UPDATE
+      access_local_state_is_not_independent_from_attempt: true
+      business_status_inferred_only_from_timestamps: false
+      normal_attempt_hard_delete: forbidden
+      normal_access_hard_delete: forbidden
+      command_effective_at_captured_once_per_mutation: true
+      semantic_noop_increments_version: false
+
+    attempt_status_catalog:
+      values: [created, in_progress, passed, failed, technical_abort, invalidated]
+      transition_matrix:
+        created: [in_progress]
+        in_progress: [passed, failed, technical_abort, invalidated]
+        passed: [invalidated]
+        failed: [invalidated]
+        technical_abort: [invalidated]
+        invalidated: []
+      prestart_attempt_cancelled_state_added: false
+      prestart_access_cancel_revoke_or_expire_leaves_attempt_created: true
+      repeat_exam_reopens_terminal_attempt: false
+      repeat_exam_requires_new_attempt: true
+
+    attempt_fields_and_matrix:
+      fields_added_or_finalized:
+        - status_varchar_32_not_null
+        - version_bigint_not_null_default_1_check_gte_1
+        - started_at_timestamptz_nullable
+        - finished_at_timestamptz_nullable
+        - technical_aborted_at_timestamptz_nullable
+        - invalidated_at_timestamptz_nullable
+      created:
+        requires_null: [started_at, finished_at, technical_aborted_at, invalidated_at]
+      in_progress:
+        requires_nonnull: [started_at]
+        requires_null: [finished_at, technical_aborted_at, invalidated_at]
+      passed_or_failed:
+        requires_nonnull: [started_at, finished_at]
+        requires_null: [technical_aborted_at, invalidated_at]
+        finished_at_gte_started_at: true
+      technical_abort:
+        requires_nonnull: [started_at, finished_at, technical_aborted_at]
+        requires_null: [invalidated_at]
+        technical_aborted_at_equals_finished_at: true
+      invalidated:
+        requires_nonnull: [started_at, finished_at, invalidated_at]
+        invalidated_at_gte_finished_at: true
+        technical_aborted_at_may_remain_nonnull_only_when_invalidation_source_was_technical_abort: true
+      started_at_set_exactly_once: true
+      finished_at_set_exactly_once_when_first_execution_terminal_state_is_entered: true
+      passed_failed_finished_at_not_rewritten_by_later_invalidation: true
+      technical_abort_finished_at_not_rewritten_by_later_invalidation: true
+      invalidation_from_in_progress_sets_finished_at_equal_invalidated_at: true
+
+    access_status_catalog:
+      values: [draft, ready, delivered_or_assigned, opened, started, completed, cancelled, expired, revoked, technical_abort, invalidated]
+      prestart_nonterminal: [draft, ready, delivered_or_assigned, opened]
+      startable: [ready, delivered_or_assigned, opened]
+      poststart_nonterminal: [started]
+      terminal_prestart: [cancelled, expired, revoked]
+      terminal_poststart: [completed, technical_abort, invalidated]
+      normal_reopen_terminal_access_in_place: forbidden
+      station_or_mode_rebind_after_terminal_prestart_access: create_new_access_row
+
+    access_fields_and_matrix:
+      fields_added_or_finalized:
+        - version_bigint_not_null_default_1_check_gte_1
+        - ready_at_timestamptz_nullable
+        - delivered_or_assigned_at_timestamptz_nullable
+        - opened_at_timestamptz_nullable
+        - started_at_timestamptz_nullable
+        - completed_at_timestamptz_nullable
+        - cancelled_at_timestamptz_nullable
+        - expired_at_timestamptz_nullable
+        - revoked_at_timestamptz_nullable
+        - technical_aborted_at_timestamptz_nullable
+        - invalidated_at_timestamptz_nullable
+      draft:
+        requires_null: [ready_at, delivered_or_assigned_at, opened_at, started_at, completed_at, cancelled_at, expired_at, revoked_at, technical_aborted_at, invalidated_at]
+      ready:
+        requires_nonnull: [ready_at]
+        requires_null: [started_at, completed_at, cancelled_at, expired_at, revoked_at, technical_aborted_at, invalidated_at]
+      delivered_or_assigned:
+        requires_nonnull: [ready_at, delivered_or_assigned_at]
+        requires_null: [started_at, completed_at, cancelled_at, expired_at, revoked_at, technical_aborted_at, invalidated_at]
+      opened:
+        mode_must_equal: remote_link
+        requires_nonnull: [ready_at, opened_at]
+        requires_null: [started_at, completed_at, cancelled_at, expired_at, revoked_at, technical_aborted_at, invalidated_at]
+      started:
+        requires_nonnull: [started_at]
+        requires_null: [completed_at, cancelled_at, expired_at, revoked_at, technical_aborted_at, invalidated_at]
+      completed:
+        requires_nonnull: [started_at, completed_at]
+        requires_null: [cancelled_at, expired_at, revoked_at, technical_aborted_at, invalidated_at]
+      cancelled:
+        requires_nonnull: [cancelled_at]
+        requires_null: [started_at, completed_at, expired_at, revoked_at, technical_aborted_at, invalidated_at]
+      expired:
+        requires_nonnull: [expired_at]
+        requires_null: [started_at, completed_at, cancelled_at, revoked_at, technical_aborted_at, invalidated_at]
+      revoked:
+        requires_nonnull: [revoked_at]
+        requires_null: [started_at, completed_at, cancelled_at, expired_at, technical_aborted_at, invalidated_at]
+      technical_abort:
+        requires_nonnull: [started_at, technical_aborted_at]
+        requires_null: [cancelled_at, expired_at, revoked_at, invalidated_at]
+      invalidated:
+        requires_nonnull: [started_at, invalidated_at]
+        prior_completed_at_or_technical_aborted_at_may_remain_as_history: true
+        prestart_terminal_timestamp_may_be_nonnull: false
+      timestamp_columns_once_nonnull_are_immutable: true
+
+    launch_mode_matrix:
+      remote_link:
+        station_id: MUST_BE_NULL
+        expires_at: REQUIRED
+        opened_state_allowed: true
+      local_current_workstation:
+        station_id: REQUIRED_SERVER_RESOLVED
+        expires_at: MUST_BE_NULL
+        opened_state_allowed: false
+      assigned_exam_station:
+        station_id: REQUIRED
+        expires_at: MUST_BE_NULL
+        opened_state_allowed: false
+      mode_and_station_id_immutable_per_access: true
+      station_identity_device_binding_availability_and_failover: deferred_to_DB_EXAM_006
+
+    access_cardinality:
+      one_nonterminal_access_per_attempt:
+        type: partial_unique
+        columns: [organization_id, internal_exam_attempt_id]
+        where: status_in_draft_ready_delivered_or_assigned_opened_started
+      one_ever_started_access_per_attempt:
+        type: partial_unique
+        columns: [organization_id, internal_exam_attempt_id]
+        where: started_at_is_not_null
+      multiple_terminal_prestart_access_history_per_attempt: allowed
+      resend_remote_link_creates_new_access_row: false
+      resend_remote_link_creates_new_reservation: false
+      access_create_when_nonterminal_access_exists: conflict_unless_same_idempotency_retry
+      access_create_when_attempt_not_created: forbidden
+
+    lifecycle_history:
+      attempt_table: internal_exam_attempt_lifecycle_events
+      access_table: internal_exam_access_lifecycle_events
+      append_only: true
+      normal_update_or_delete: forbidden
+      attempt_event_fields:
+        - id_uuid_PK
+        - organization_id_uuid_not_null
+        - internal_exam_attempt_id_uuid_not_null
+        - event_type_varchar_48_not_null
+        - from_status_varchar_32_nullable
+        - to_status_varchar_32_not_null
+        - version_before_bigint_nullable
+        - version_after_bigint_not_null_check_gte_1
+        - actor_user_id_uuid_nullable
+        - reason_text_nullable
+        - occurred_at_timestamptz_not_null
+        - created_at_timestamptz_not_null
+      access_event_fields:
+        - id_uuid_PK
+        - organization_id_uuid_not_null
+        - internal_exam_access_id_uuid_not_null
+        - internal_exam_attempt_id_uuid_not_null
+        - event_type_varchar_48_not_null
+        - from_status_varchar_32_nullable
+        - to_status_varchar_32_not_null
+        - version_before_bigint_nullable
+        - version_after_bigint_not_null_check_gte_1
+        - actor_user_id_uuid_nullable
+        - reason_text_nullable
+        - occurred_at_timestamptz_not_null
+        - created_at_timestamptz_not_null
+      same_tenant_exact_parent_FKs_required: true
+      one_attempt_event_per_material_version:
+        unique_scope: [organization_id, internal_exam_attempt_id, version_after]
+      one_access_event_per_material_version:
+        unique_scope: [organization_id, internal_exam_access_id, version_after]
+      normal_version_step: version_after_equals_version_before_plus_1
+      creation_event_version_before: null
+      creation_event_version_after: 1
+      current_row_version_and_status_must_match_latest_event: DEFERRABLE_INITIALLY_DEFERRED_or_equivalent_transactional_DB_guard
+      lifecycle_event_payload_must_not_store_raw_access_token: true
+      lifecycle_event_payload_must_not_copy_PESEL_or_PKK: true
+      final_audit_outbox_shape: deferred_to_DB4_10
+
+    candidate_snapshot_PATCH:
+      API_operation: PATCH_/internal-exam-attempts/{attemptId}
+      concurrency: If_Match_expected_attempt_version_required
+      lock_order: [internal_exam_attempt_FOR_UPDATE]
+      requires_attempt_status: created
+      requires_started_at_null: true
+      allowed_material_field: candidate_snapshot_only
+      immutable_fields_include: [organization_id, student_id, course_enrollment_id, exam_part, driving_category_id, language_code, training_requirement_profile_id, requirements_revision, internal_exam_capability_id, requirement_basis_snapshot]
+      successful_material_change_increments_attempt_version_once: true
+      append_attempt_lifecycle_event: candidate_snapshot_updated
+      two_PATCHes_same_expected_version_at_most_one_commit: true
+      PATCH_after_start_or_terminal: forbidden
+      old_sensitive_candidate_snapshot_copied_into_lifecycle_event: false
+
+    existing_attempt_basis_after_later_rule_change:
+      creation_time_basis_remains_historical_authority_for_existing_attempt: true
+      later_requirement_profile_supersession_alone_blocks_existing_attempt_access_or_start: false
+      later_capability_retirement_alone_blocks_existing_attempt_access_or_start: false
+      rerun_current_rule_engine_on_access_create_or_start: false
+      rewrite_attempt_basis_to_current_profile_or_capability: forbidden
+      explicit_lifecycle_invalidation_remains_separate_command: true
+      reason: >-
+        DB-EXAM-002 explicitly preserves already-created Attempt history when the
+        current requirement profile or capability later changes. DB-EXAM-004 does
+        not invent a silent second eligibility decision at Access creation or Start.
+
+    access_create_and_replacement:
+      API_operation: POST_/internal-exam-attempts/{attemptId}/accesses
+      idempotency_required: true
+      lock_prefix: [internal_exam_attempt_FOR_UPDATE]
+      requires_attempt_status: created
+      requires_zero_nonterminal_access: true
+      if_existing_reserved_reservation_for_attempt: reuse_exact_same_reservation_without_new_ledger_effect
+      if_no_reserved_and_no_consumed_reservation_after_prior_prestart_release:
+        allocate_new_inventory_unit_and_new_reservation_using_DB_EXAM_003
+      if_consumed_reservation_exists: reject
+      replacement_re_reservation_atomic_with_new_access_creation: true
+      no_inventory_available_rolls_back_new_access_and_re_reservation: true
+      old_released_reservation_row_reopened: false
+      same_idempotency_retry_allocates_second_unit_or_access: false
+      initial_remote_link_status: ready
+      initial_local_or_assigned_station_status: delivered_or_assigned
+      initial_access_version: 1
+      append_creation_lifecycle_event: true
+
+    remote_send_resend_and_open:
+      send_operation: POST_/internal-exam-accesses/{accessId}/send
+      send_idempotency_required: true
+      lock_order: [internal_exam_attempt_FOR_UPDATE, internal_exam_access_FOR_UPDATE]
+      send_requires_attempt_created: true
+      send_mode_requires_remote_link: true
+      send_for_expired_revoked_cancelled_started_or_terminal_access: forbidden
+      first_send_transition: ready_to_delivered_or_assigned
+      resend_from_delivered_or_assigned_or_opened_regresses_status: false
+      resend_creates_new_access_or_reservation: false
+      raw_token_rotation_scope: deferred_to_DB_EXAM_005
+      outbox_delivery_exact_shape: deferred_to_DB4_10
+      opened_transition:
+        mode: remote_link_only
+        allowed_from: [ready, delivered_or_assigned]
+        target: opened
+        inventory_effect: none
+        reservation_effect: none
+
+    shared_attempt_access_lock_order:
+      canonical_prefix: [internal_exam_attempt_FOR_UPDATE, internal_exam_access_FOR_UPDATE]
+      inventory_suffix_when_reservation_changes: [internal_exam_reservation_FOR_UPDATE, internal_exam_inventory_entry_FOR_UPDATE]
+      full_start_revoke_expire_cancel_prefix_and_suffix: [internal_exam_attempt_FOR_UPDATE, internal_exam_access_FOR_UPDATE, internal_exam_reservation_FOR_UPDATE, internal_exam_inventory_entry_FOR_UPDATE]
+      DB_EXAM_003_inventory_suffix_order_preserved: true
+      station_lock_extension: deferred_to_DB_EXAM_006
+      token_verification_and_scope: deferred_to_DB_EXAM_005
+      all_state_preconditions_rechecked_after_locks: true
+
+    start_command:
+      API_operation: POST_/internal-exam-accesses/{accessId}/start
+      idempotency_required: true
+      requires_attempt_status: created
+      requires_access_status_in: [ready, delivered_or_assigned, opened]
+      requires_exact_reserved_reservation: true
+      remote_requires_command_effective_at_lt_expires_at: true
+      exact_expiry_boundary_start_allowed: false
+      atomic_effects:
+        - consume_inventory_exactly_once_via_DB_EXAM_003
+        - reservation_reserved_to_consumed
+        - attempt_created_to_in_progress
+        - set_attempt_started_at_once
+        - increment_attempt_version_once
+        - access_prestart_to_started
+        - set_access_started_at_equal_attempt_started_at
+        - increment_access_version_once
+        - append_attempt_and_access_lifecycle_events
+      station_effects: deferred_to_DB_EXAM_006
+      same_idempotency_retry_reconsumes_or_reincrements_versions: false
+      new_start_request_after_attempt_started: reject_without_new_effect
+      two_parallel_start_requests: at_most_one_material_start
+
+    prestart_access_terminal_commands:
+      revoke:
+        API_operation: POST_/internal-exam-accesses/{accessId}/revoke
+        source_statuses: [draft, ready, delivered_or_assigned, opened]
+        target_status: revoked
+        actor: authorized_user
+      expire:
+        source_statuses: [draft, ready, delivered_or_assigned, opened]
+        target_status: expired
+        command_effective_at_must_be_gte_expires_at: true
+        remote_link_only: true
+        actor_may_be_system: true
+      cancel:
+        source_statuses: [draft, ready, delivered_or_assigned, opened]
+        target_status: cancelled
+        purpose: explicit_prestart_local_or_domain_cancellation_without_adding_attempt_cancelled_state
+      common:
+        idempotency_required: true
+        lock_order: [internal_exam_attempt_FOR_UPDATE, internal_exam_access_FOR_UPDATE, internal_exam_reservation_FOR_UPDATE, internal_exam_inventory_entry_FOR_UPDATE]
+        requires_attempt_status: created
+        requires_exact_reserved_reservation: true
+        atomic_effects:
+          - transition_access_terminal_prestart
+          - set_exact_terminal_timestamp
+          - increment_access_version_once
+          - append_access_lifecycle_event
+          - release_reservation_and_inventory_exactly_once_via_DB_EXAM_003
+        attempt_status_after_commit: created
+        attempt_version_increment_for_access_only_terminal_transition: false
+        consumed_reservation_release: forbidden
+
+    start_vs_revoke_or_expire_race:
+      same_concurrency_root_and_lock_order: true
+      start_first: attempt_in_progress_access_started_reservation_consumed_then_revoke_or_expire_rejected
+      revoke_or_expire_first: attempt_created_access_terminal_prestart_reservation_released_then_start_rejected
+      remote_effective_at_equal_expires_at: start_rejected_expire_eligible
+      both_start_and_prestart_terminal_effect_for_same_access_commit: false
+
+    submit_command:
+      API_operation: POST_/internal-exam-attempts/{attemptId}/submit
+      idempotency_required: true
+      lock_order: [internal_exam_attempt_FOR_UPDATE, exact_started_access_FOR_UPDATE]
+      requires_attempt_status: in_progress
+      requires_access_status: started
+      requires_exact_consumed_reservation: true
+      result_pass_fail_decision_source: exam_engine_subject_to_DB_EXAM_007_scoring_consistency
+      atomic_effects:
+        - persist_exactly_one_result_and_finished_evidence_subject_to_DB_EXAM_007
+        - attempt_in_progress_to_passed_or_failed
+        - set_attempt_finished_at_once
+        - increment_attempt_version_once
+        - access_started_to_completed
+        - set_access_completed_at_equal_attempt_finished_at
+        - increment_access_version_once
+        - append_attempt_and_access_lifecycle_events
+      inventory_or_reservation_transition: none
+      second_consumption_on_submit: forbidden
+      retry_after_success_rewrites_result_or_versions: false
+      second_distinct_submit_after_terminal: reject
+
+    technical_abort_command:
+      API_operation: POST_/internal-exam-attempts/{attemptId}/technical-abort
+      idempotency_required: true
+      reason_required_nonblank: true
+      lock_order: [internal_exam_attempt_FOR_UPDATE, exact_started_access_FOR_UPDATE]
+      requires_attempt_status: in_progress
+      requires_access_status: started
+      requires_exact_consumed_reservation: true
+      atomic_effects:
+        - attempt_in_progress_to_technical_abort
+        - set_finished_at_and_technical_aborted_at_same_command_effective_at
+        - increment_attempt_version_once
+        - access_started_to_technical_abort
+        - set_access_technical_aborted_at_same_command_effective_at
+        - increment_access_version_once
+        - append_attempt_and_access_lifecycle_events
+      inventory_or_reservation_transition: none
+      auto_restore_inventory: false
+      retry_after_success_increments_or_aborts_again: false
+
+    invalidate_command:
+      permission: exams.attempt.invalidate
+      public_Stage3_endpoint_present: false
+      Stage5_API_contract_sync_required: true
+      idempotency_required: true
+      expected_attempt_version_required: true
+      reason_required_nonblank: true
+      allowed_source_statuses: [in_progress, passed, failed, technical_abort]
+      source_created_allowed: false
+      lock_order: [internal_exam_attempt_FOR_UPDATE, exact_ever_started_access_FOR_UPDATE]
+      atomic_effects:
+        - set_attempt_status_invalidated
+        - set_attempt_invalidated_at_once
+        - if_source_in_progress_set_finished_at_equal_invalidated_at
+        - preserve_prior_finished_at_for_passed_failed_or_technical_abort
+        - increment_attempt_version_once
+        - set_ever_started_access_status_invalidated
+        - set_access_invalidated_at_once
+        - preserve_prior_access_completed_or_technical_abort_timestamp
+        - increment_access_version_once
+        - append_attempt_and_access_lifecycle_events
+      result_question_document_rows_deleted_or_rewritten: false
+      exact_evidence_correction_immutability: deferred_to_DB_EXAM_007
+      inventory_or_reservation_transition: none
+      consumed_inventory_restored: false
+      stale_expected_version_after_submit_abort_or_other_invalidation: conflict_without_rebase
+
+    terminal_races:
+      submit_vs_technical_abort:
+        both_require_in_progress_under_attempt_lock: true
+        exactly_one_first_execution_terminal_transition_commits: true
+        loser_rechecks_and_rejects_without_effect: true
+      submit_vs_invalidate_from_in_progress:
+        invalidate_expected_version_prevents_silent_rebase_onto_passed_or_failed: true
+        exactly_one_command_against_same_observed_attempt_version_commits: true
+      technical_abort_vs_invalidate_from_in_progress:
+        invalidate_expected_version_prevents_silent_rebase_onto_technical_abort: true
+        exactly_one_command_against_same_observed_attempt_version_commits: true
+      deliberate_postfinish_invalidation:
+        allowed_after_refetch_with_current_expected_version: true
+        creates_new_material_version_and_history_event: true
+      terminal_attempt_reopened_to_in_progress: forbidden
+
+    final_state_equivalence:
+      guard: DEFERRABLE_INITIALLY_DEFERRED_or_equivalent_transactional_DB_guard
+      created:
+        consumed_reservation_count: 0
+        reserved_reservation_count: zero_or_one
+        ever_started_access_count: 0
+        nonterminal_access_count: zero_or_one
+        nonterminal_access_requires_reserved_reservation: true
+      in_progress:
+        consumed_reservation_count: 1
+        reserved_reservation_count: 0
+        ever_started_access_count: 1
+        exact_started_access_status: started
+        access_started_at_equals_attempt_started_at: true
+      passed_or_failed:
+        consumed_reservation_count: 1
+        reserved_reservation_count: 0
+        ever_started_access_count: 1
+        exact_started_access_status: completed
+        access_completed_at_equals_attempt_finished_at: true
+        exact_result_count: 1
+      technical_abort:
+        consumed_reservation_count: 1
+        reserved_reservation_count: 0
+        ever_started_access_count: 1
+        exact_started_access_status: technical_abort
+      invalidated:
+        consumed_reservation_count: 1
+        reserved_reservation_count: 0
+        ever_started_access_count: 1
+        exact_started_access_status: invalidated
+      terminal_prestart_access_with_attempt_created:
+        may_have_zero_reserved_reservation_after_release: true
+        old_released_reservation_history_preserved: true
+      direct_cross_row_status_edit_without_matching_command_effects: rejected_at_commit
+
+    migration_policy:
+      closed_status_mapping_requires_exact_evidence: true
+      unknown_or_ambiguous_attempt_status: fail_and_require_reviewed_remediation
+      unknown_or_ambiguous_access_status: fail_and_require_reviewed_remediation
+      timestamp_or_UUID_order_used_to_guess_current_access: forbidden
+      multiple_nonterminal_accesses_auto_pick_winner: forbidden
+      multiple_started_accesses_auto_pick_winner: forbidden
+      terminal_attempt_missing_started_or_finished_evidence_auto_fabrication: forbidden
+      revoked_or_expired_access_with_consumed_reservation_auto_rewrite: forbidden
+      lifecycle_transition_history_reconstruction_from_ambiguous_timestamps: forbidden
+      migration_baseline_event_allowed_for_proven_current_row_state: true
+      migration_baseline_may_start_at_current_row_version_without_fabricating_prior_events: true
+      migration_baseline_actor_reason_or_sensitive_snapshot_fabrication: forbidden
+      runtime_migration_baseline_event_after_cutover: forbidden
+      unresolved_attempt_access_reservation_matrix: fail_and_require_reviewed_remediation
+
+    required_tests:
+      - attempt_status_catalog_is_closed
+      - access_status_catalog_is_closed
+      - attempt_state_timestamp_matrix_rejects_contradictions
+      - access_state_timestamp_matrix_rejects_contradictions
+      - attempt_version_and_lifecycle_event_pair_one_material_change
+      - access_version_and_lifecycle_event_pair_one_material_change
+      - lifecycle_events_append_only_and_match_current_row_version_state
+      - candidate_PATCH_requires_created_before_start_and_current_If_Match
+      - two_candidate_PATCHes_same_If_Match_at_most_one_commit
+      - candidate_PATCH_cannot_change_course_category_language_requirement_or_capability_basis
+      - candidate_PATCH_after_start_rejected
+      - later_requirement_profile_supersession_does_not_rewrite_or_silently_block_existing_attempt
+      - later_capability_retirement_does_not_rewrite_or_silently_block_existing_attempt
+      - one_nonterminal_access_per_attempt_enforced
+      - at_most_one_access_ever_started_per_attempt_enforced
+      - remote_access_requires_null_station_and_expiry
+      - local_access_requires_server_resolved_station_and_no_expiry
+      - assigned_station_access_requires_station_and_no_expiry
+      - access_mode_or_station_rebind_in_place_rejected
+      - remote_resend_reuses_same_access_and_reservation
+      - access_create_with_existing_nonterminal_access_rejected
+      - replacement_access_after_prestart_release_creates_new_reservation_atomically
+      - replacement_access_no_inventory_rolls_back_access_creation
+      - old_released_reservation_is_not_reopened
+      - start_requires_attempt_created_access_startable_and_reserved_reservation
+      - remote_start_at_or_after_expiry_rejected
+      - start_sets_attempt_and_access_started_at_same_effective_time
+      - start_increments_attempt_and_access_versions_once
+      - start_retry_does_not_reconsume_or_reincrement
+      - revoke_before_start_releases_exactly_once_and_leaves_attempt_created
+      - expire_before_start_releases_exactly_once_and_leaves_attempt_created
+      - cancel_before_start_releases_exactly_once_and_leaves_attempt_created
+      - start_vs_revoke_has_one_winner
+      - start_vs_expire_has_one_winner_with_exact_expiry_boundary_fail_closed
+      - submit_requires_in_progress_started_access_and_consumed_reservation
+      - submit_transitions_attempt_and_access_once_without_inventory_effect
+      - submit_retry_does_not_create_second_result_or_increment_versions
+      - submit_vs_technical_abort_has_one_first_terminal_winner
+      - technical_abort_keeps_consumed_inventory_and_sets_matching_terminal_state
+      - invalidate_requires_permission_reason_expected_version_and_poststart_attempt
+      - concurrent_invalidate_does_not_silently_rebase_after_submit_or_abort
+      - deliberate_postfinish_invalidate_requires_refetched_current_version
+      - invalidate_preserves_result_question_document_rows_for_DB_EXAM_007
+      - terminal_attempt_cannot_reopen_or_restart_same_attempt
+      - created_attempt_with_terminal_prestart_access_may_have_zero_reserved_reservation
+      - in_progress_and_terminal_attempt_access_reservation_final_state_guard_enforced
+      - migration_does_not_guess_access_winner_status_or_transition_order
+      - DB_EXAM_001_DB_EXAM_002_DB_EXAM_003_preserved
+      - DB_EXAM_005_through_DB_EXAM_008_remain_open
+
 blockers:
   - id: DB-EXAM-001
     title: same_tenant_and_exact_target_integrity
@@ -935,7 +1461,8 @@ blockers:
   - id: DB-EXAM-004
     title: attempt_and_access_lifecycle_concurrency
     severity: P1
-    status: OPEN
+    status: RESOLVED
+    resolution_ref: resolved_contracts.DB-EXAM-004
     diagnosis:
       - design_defines_closed_attempt_and_access_lifecycles_but_current_physical_blueprint_does_not_yet_prove_state_field_matrices_or_transition_guards
       - attempt_PATCH_is_before_start_only_and_has_If_Match_but_start_submit_abort_invalidate_and_access_revoke_expire_races_share_no_fully_defined_concurrency_root_contract
@@ -1025,7 +1552,7 @@ blockers:
     status: OPEN
     diagnosis:
       - management_panel_requires_latest_exam_attempt_count_pass_rate_passed_failed_status_filters_sorting_and_hide_finished
-      - observed_attempts_can_share_the_same_displayed_minute_so_timestamp_alone_cannot_deterministically_select_latest
+      - observed_attempts_can_share_the_same_displayed_minute_so timestamp_alone_cannot_deterministically_select_latest
       - current_blueprint_has_no_explicit_per_course_or_per_student_attempt_sequence_or_other_closed_latest_order
       - UI_status_labels_such_as_no_assignment_not_conducted_passed_failed_are_projections_and_must_not_become_a_second_mutable_attempt_status_authority
       - counts_and_pass_rate_must_have_defined_inclusion_rules_for created in_progress technical_abort invalidated_and_finished_attempts
@@ -1044,18 +1571,17 @@ diagnosis_summary:
   diagnosed_P0: 0
   diagnosed_P1: 8
   resolved_in_diagnosis: 0
-  resolved_after_diagnosis: 3
-  open_P0_P1: 5
-  result: FAIL_WITH_5_P1_BLOCKERS
+  resolved_after_diagnosis: 4
+  open_P0_P1: 4
+  result: FAIL_WITH_4_P1_BLOCKERS
   blockers_in_required_fix_order:
-    - DB-EXAM-004
     - DB-EXAM-005
     - DB-EXAM-006
     - DB-EXAM-007
     - DB-EXAM-008
 
 preservation_gate:
-  status: PASS_DB_EXAM_003_MACHINE_CONTRACT
+  status: PASS_DB_EXAM_004_MACHINE_CONTRACT
   checks:
     no_blocker_fixed_during_diagnosis: true
     course_first_formal_exam_preserved: true
@@ -1119,6 +1645,25 @@ preservation_gate:
     station_failover_remains_DB_EXAM_006: true
     scoring_document_immutability_remains_DB_EXAM_007: true
     management_statistics_projection_remains_DB_EXAM_008: true
+    DB_EXAM_004_attempt_is_concurrency_root: true
+    DB_EXAM_004_closed_attempt_and_access_status_catalogs: true
+    DB_EXAM_004_state_timestamp_matrices_closed: true
+    DB_EXAM_004_attempt_and_access_version_history_closed: true
+    DB_EXAM_004_one_nonterminal_and_one_ever_started_access_boundary_closed: true
+    DB_EXAM_004_mode_station_nullability_matrix_closed_without_entering_station_device_rules: true
+    DB_EXAM_004_candidate_PATCH_If_Match_boundary_closed: true
+    DB_EXAM_004_later_basis_change_policy_explicit_without_rewriting_history: true
+    DB_EXAM_004_access_replacement_re_reservation_boundary_closed: true
+    DB_EXAM_004_start_revoke_expire_shared_lock_order_closed: true
+    DB_EXAM_004_start_and_submit_do_not_double_consume: true
+    DB_EXAM_004_submit_abort_invalidate_races_closed: true
+    DB_EXAM_004_attempt_access_reservation_final_state_guard_closed: true
+    DB_EXAM_004_invalidation_preserves_evidence_for_DB_EXAM_007: true
+    DB_EXAM_004_Stage3_invalidate_API_gap_recorded_for_later_sync: true
+    DB_EXAM_005_token_security_not_solved: true
+    DB_EXAM_006_station_device_failover_not_solved: true
+    DB_EXAM_007_scoring_document_evidence_not_solved: true
+    DB_EXAM_008_management_projection_not_solved: true
     core_schema_aggregate_modified: false
     docs87_aggregate_modified: false
     DB4_8_or_later_entered: false
@@ -1127,6 +1672,6 @@ preservation_gate:
     UI_or_feature_implementation_started: false
 
 next_single_step_after_central_gate:
-  id: DB-EXAM-004
-  action: resolve_attempt_and_access_lifecycle_concurrency_only
-  stop_before: DB-EXAM-005
+  id: DB-EXAM-005
+  action: resolve_exam_access_token_and_finished_result_token_security_only
+  stop_before: DB-EXAM-006
