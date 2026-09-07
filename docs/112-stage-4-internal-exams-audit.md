@@ -3,8 +3,8 @@
 Data: 2026-09-07
 
 **Etap:** `DB4_7_INTERNAL_EXAMS`  
-**Aktualny krok:** `DB_EXAM_003_INVENTORY_RESERVATION_CONSUME_ON_START`  
-**Status:** `FAIL_WITH_5_P1_BLOCKERS / 0 P0 / 5 P1 OPEN`
+**Aktualny krok:** `DB_EXAM_004_ATTEMPT_ACCESS_LIFECYCLE_CONCURRENCY`  
+**Status:** `FAIL_WITH_4_P1_BLOCKERS / 0 P0 / 4 P1 OPEN`
 
 Machine-readable diagnoza: `specs/database/internal-exams.yml`.
 
@@ -976,3 +976,279 @@ Aktualny stan DB4_7 po DB-EXAM-003:
 Następny dozwolony krok po centralnym gate: **DB-EXAM-004 only**.
 
 **STOP przed DB-EXAM-004.**
+
+---
+
+## 18. DB-EXAM-004 — wynik fixera: PASS
+
+DB-EXAM-004 zamyka wyłącznie Attempt/Access lifecycle, optimistic concurrency, wspólną kolejność blokad i final-state equivalence z Reservation. Nie projektuje purpose-scoped tokenów, device binding/failover stanowisk, scoringu/dokumentów ani projekcji panelu.
+
+### 18.1 Attempt jest głównym concurrency root
+
+Canonical lifecycle authority próby to `internal_exam_attempts.status`, a lokalny lifecycle dostępu to `internal_exam_accesses.status`. Status Accessu nie jest niezależnym światem — wszystkie komendy zmieniające stan konkretnej próby najpierw serializują się na:
+
+`InternalExamAttempt FOR UPDATE`.
+
+Attempt i Access mają `version >= 1`. Materialna zmiana zwiększa właściwą wersję dokładnie raz; semantic no-op nie zwiększa jej.
+
+Normalny hard-delete Attemptu ani Accessu jest zabroniony.
+
+### 18.2 Zamknięty katalog Attempt
+
+Runtime Attempt states:
+
+`created | in_progress | passed | failed | technical_abort | invalidated`.
+
+Dozwolone przejścia:
+- `created -> in_progress`,
+- `in_progress -> passed|failed|technical_abort|invalidated`,
+- `passed|failed|technical_abort -> invalidated`,
+- `invalidated` jest terminalny.
+
+Nie dodajemy sztucznego `cancelled` dla Attemptu przed startem. Pre-start cancel/revoke/expire dotyczy Accessu i zwolnienia rezerwacji, a sam Attempt pozostaje `created`, dzięki czemu można utworzyć nowy Access i — jeżeli wcześniejsza rezerwacja została zwolniona — nową rezerwację.
+
+Terminalnego Attemptu nie otwieramy ponownie do `in_progress`; powtórka egzaminu tworzy nowy Attempt.
+
+### 18.3 Attempt state-field matrix
+
+`created` wymaga braku `started_at`, `finished_at`, `technical_aborted_at`, `invalidated_at`.
+
+`in_progress` wymaga `started_at` i braku terminalnych timestampów.
+
+`passed|failed` wymagają `started_at`, `finished_at`, `finished_at >= started_at`.
+
+`technical_abort` wymaga `started_at`, `finished_at`, `technical_aborted_at`, przy czym abort timestamp jest momentem pierwszego zakończenia wykonania.
+
+`invalidated` wymaga, aby próba była już rozpoczęta. Invalidation nie przepisuje wcześniejszego `finished_at` dla passed/failed/technical-abort; jeżeli źródłem było `in_progress`, `finished_at` zostaje ustawione razem z invalidation.
+
+`started_at` jest ustawiane dokładnie raz.
+
+### 18.4 Zamknięty katalog Access
+
+Access states:
+
+`draft | ready | delivered_or_assigned | opened | started | completed | cancelled | expired | revoked | technical_abort | invalidated`.
+
+Pre-start nonterminal:
+`draft|ready|delivered_or_assigned|opened`.
+
+Startable:
+`ready|delivered_or_assigned|opened`.
+
+Po starcie aktywny Access to `started`.
+
+Pre-start terminal:
+`cancelled|expired|revoked`.
+
+Post-start terminal:
+`completed|technical_abort|invalidated`.
+
+Terminalnego Accessu nie reaktywujemy w miejscu.
+
+Każdy status ma odpowiadającą state-field matrix. Terminalne timestampy są write-once.
+
+### 18.5 Mode + Station matrix bez wchodzenia w DB-EXAM-006
+
+DB-EXAM-004 zamyka wyłącznie nullability/shape:
+- `remote_link` -> `station_id IS NULL`, `expires_at NOT NULL`, może wejść w `opened`,
+- `local_current_workstation` -> Station jest wymagana i rozwiązywana po stronie serwera, `expires_at IS NULL`,
+- `assigned_exam_station` -> Station wymagana, `expires_at IS NULL`.
+
+`mode` oraz `station_id` są immutable dla jednego Accessu. Jeżeli po pre-start terminal state trzeba zmienić sposób uruchomienia lub Station, tworzymy nowy Access.
+
+To nie rozstrzyga jeszcze station identity, device binding, availability ani failover — te pozostają DB-EXAM-006.
+
+### 18.6 Kardynalność Accessów
+
+Partial unique wymusza maksymalnie jeden nonterminal Access per Attempt.
+
+Dodatkowo jeden Attempt może mieć maksymalnie jeden Access, który kiedykolwiek wystartował (`started_at IS NOT NULL`). To chroni przed ponownym startem tej samej formalnej próby przez nowy Access.
+
+Historyczne pre-start terminal Access rows mogą istnieć wielokrotnie.
+
+Resend remote linku nie tworzy kolejnego Accessu ani kolejnej Reservation.
+
+### 18.7 Versioned lifecycle history
+
+Wprowadzamy append-only:
+- `internal_exam_attempt_lifecycle_events`,
+- `internal_exam_access_lifecycle_events`.
+
+Każdy materialny version step ma dokładnie jeden lifecycle event. Normalny step to `version_after = version_before + 1`; creation może mieć `version_before=NULL`, `version_after=1`.
+
+Po commit bieżący row version/status musi odpowiadać najnowszemu eventowi przez deferrable guard albo równoważną transactional DB boundary.
+
+Lifecycle event nie przechowuje raw access tokenu ani kopii PESEL/PKK. Finalny shape audit/outbox nadal należy do DB4_10.
+
+### 18.8 Candidate snapshot PATCH
+
+`PATCH /internal-exam-attempts/{attemptId}` jest dozwolony tylko przed startem:
+- Attempt `created`,
+- `started_at IS NULL`,
+- wymagany aktualny `If-Match`/expected version,
+- dozwolona jest wyłącznie materialna zmiana `candidate_snapshot`.
+
+Nie wolno przez ten PATCH przepinać:
+- Organization,
+- Student,
+- Course,
+- exam part,
+- category,
+- language,
+- RequirementProfile/revision,
+- capability,
+- `requirement_basis_snapshot`.
+
+Dwa PATCH-e z tym samym expected version: maksymalnie jeden commit.
+
+### 18.9 Późniejsza zmiana requirements/capability
+
+Historyczny Attempt zachowuje creation-time basis z DB-EXAM-002.
+
+Sama późniejsza supersession RequirementProfile albo retirement capability:
+- nie przepisuje Attemptu,
+- nie uruchamia ponownie rule engine przy Access create/start,
+- nie blokuje automatycznie istniejącego Attemptu tylko dlatego, że jego historyczny basis nie jest już current.
+
+Jeżeli biznesowo próba ma zostać wycofana, służy do tego jawny lifecycle command, a nie cicha reinterpretacja historii.
+
+### 18.10 Access create, replacement i re-reservation
+
+`POST /internal-exam-attempts/{attemptId}/accesses` lockuje Attempt i wymaga `status=created` oraz braku nonterminal Accessu.
+
+Jeżeli Attempt nadal ma aktywną Reservation `reserved`, nowy pierwszy Access używa tej samej rezerwacji bez nowego ledger effect.
+
+Jeżeli wcześniejszy pre-start Access został terminalnie zakończony i jego Reservation zwolniona, nowy Access może powstać wyłącznie atomowo z **nową** InventoryEntry/Reservation alokowaną według DB-EXAM-003.
+
+Stary released Reservation row nie jest otwierany ponownie. Brak inventory rollbackuje zarówno nowy Access, jak i próbę re-reservation.
+
+Consumed Reservation oznacza, że nie wolno tworzyć replacement Accessu do ponownego startu tej samej próby.
+
+### 18.11 Send/resend i remote open
+
+Remote send wymaga mode `remote_link`, Attempt `created` i właściwego pre-start Access state.
+
+Pierwsze wysłanie może przejść `ready -> delivered_or_assigned`. Resend z `delivered_or_assigned` lub `opened` nie cofa statusu i nie tworzy drugiego Accessu ani Reservation.
+
+Dokładna rotacja/purpose tokenu pozostaje DB-EXAM-005; outbox delivery — DB4_10.
+
+`opened` jest dozwolone wyłącznie dla remote linku i nie ma inventory effect.
+
+### 18.12 Wspólna kolejność locków i start vs release
+
+Canonical prefix dla stateful commands:
+
+`Attempt FOR UPDATE -> Access FOR UPDATE`.
+
+Jeżeli zmieniana jest Reservation/Inventory, zachowujemy suffix zamknięty w DB-EXAM-003:
+
+`Reservation FOR UPDATE -> InventoryEntry FOR UPDATE`.
+
+Pełna kolejność dla start/revoke/expire/cancel:
+
+`Attempt -> Access -> Reservation -> InventoryEntry`.
+
+Po lockach wszystkie preconditions są sprawdzane ponownie.
+
+Start wymaga:
+- Attempt `created`,
+- Access w `ready|delivered_or_assigned|opened`,
+- exact Reservation `reserved`,
+- dla remote: `command_effective_at < expires_at`.
+
+Na dokładnej granicy `effective_at == expires_at` start jest odrzucony, a expiry jest dozwolone.
+
+Start atomowo:
+- konsumuje inventory przez DB-EXAM-003,
+- zmienia Attempt na `in_progress`,
+- ustawia Attempt `started_at`,
+- zmienia Access na `started`,
+- ustawia ten sam moment `started_at`,
+- zwiększa obie wersje raz,
+- dopisuje oba lifecycle events.
+
+Revoke/expire/cancel przed startem używa tego samego lock order i atomowo terminalizuje Access oraz zwalnia Reservation przez DB-EXAM-003. Attempt pozostaje `created`.
+
+W race start vs revoke/expire tylko pierwszy prawidłowy stan może commitować.
+
+### 18.13 Submit, technical abort i invalidation
+
+Submit wymaga Attempt `in_progress`, exact Access `started` i consumed Reservation. Atomowo tworzy wynik/evidence (szczegóły consistency nadal DB-EXAM-007), przełącza Attempt na `passed|failed`, Access na `completed` i ustawia matching finish timestamp.
+
+Submit **nie wykonuje żadnej drugiej konsumpcji inventory**.
+
+Technical abort wymaga tych samych post-start podstaw, przełącza Attempt i Access na `technical_abort`, zapisuje reason/timestamp i nie przywraca consumed inventory.
+
+Submit vs technical abort serializują się na Attempt row; tylko jeden może zostać pierwszym execution-terminal effect.
+
+`exams.attempt.invalidate` jest jawną elevated lifecycle akcją. Invalidation:
+- wymaga reason,
+- wymaga expected Attempt version,
+- jest dozwolone dopiero po starcie,
+- nie usuwa ani nie przepisuje Result/Question/Document evidence,
+- nie zwraca consumed inventory.
+
+Jeżeli invalidate konkuruje z submit/abort na tej samej obserwowanej wersji, stale command odpada. Świadoma post-finish invalidation wymaga ponownego odczytu current version.
+
+Stage-3 API nie ma jeszcze publicznego endpointu invalidation mimo istniejącego permission contract; gap zapisujemy do późniejszego API contract sync, bez wchodzenia teraz w Stage 5.
+
+### 18.14 Final-state equivalence
+
+Po commit cross-row guard wymaga m.in.:
+- `created` -> zero consumed Reservation, zero ever-started Access, zero lub jedna active Reservation/Access,
+- nonterminal pre-start Access -> dokładnie odpowiadająca active Reservation,
+- `in_progress` -> dokładnie jedna consumed Reservation i jeden `started` Access,
+- `passed|failed` -> dokładnie jedna consumed Reservation, jeden `completed` Access i dokładnie jeden Result,
+- `technical_abort` -> consumed Reservation + matching technical-abort Access,
+- `invalidated` -> consumed Reservation + dokładnie jeden ever-started Access w `invalidated`.
+
+Pre-start terminal Access może pozostawić Attempt `created` bez aktywnej Reservation; historia released Reservation zostaje zachowana.
+
+Bezpośredni ręczny UPDATE jednego statusu bez matching cross-row effects ma zostać odrzucony przy commit.
+
+### 18.15 Migration safety
+
+Legacy lifecycle można mapować tylko przy dokładnym dowodzie zgodności statusów, timestamps, Accessów i Reservation.
+
+Zabronione jest:
+- wybieranie „aktualnego” Accessu po timestamp/UUID,
+- automatyczne wybieranie zwycięzcy spośród wielu nonterminal lub started Accessów,
+- fabrykowanie brakującego start/finish timestampu dla terminalnej próby,
+- przepisywanie revoked/expired Accessu z consumed Reservation tylko po to, by constraint przeszedł,
+- rekonstruowanie pełnej transition history z niejednoznacznych timestampów.
+
+Migration baseline może opisać wiarygodnie udowodniony current state bez wymyślania wcześniejszych eventów. Runtime nie może używać migration baseline po cutover.
+
+Niejednoznaczność = migration FAIL + reviewed remediation.
+
+### 18.16 Self-audit fixera
+
+Machine write DB-EXAM-004 został wykonany wyłącznie w `specs/database/internal-exams.yml`. Preservation gate wykrył trzy czysto tekstowe regresje w historycznych otwartych blockerach; nie zaakceptowano ich. Korekty `d91731f…` i `7143bae…` przywróciły oryginalne brzmienie DB-EXAM-004/006/008.
+
+Po korekcie porównano DB-EXAM-005..008 z bazą sprzed fixera i pozostały literalnie OPEN bez zmiany diagnoz. Zamrożone agregaty zachowały identyczne SHA:
+- `specs/database/core-schema.yml` -> `5d8f4d661f56115740d3c3a59d8424c85ec1cf24`,
+- `docs/87-physical-database-schema.md` -> `191afe107e830baa928b18f67e6cb75b2d4a73b8`.
+
+Sprawdzono dodatkowo:
+- DB-EXAM-001..003 pozostają PASS,
+- lock suffix DB-EXAM-003 nie został odwrócony,
+- resend nie alokuje drugiej sztuki,
+- replacement po release używa nowej Reservation, nie otwiera starej,
+- submit nie konsumuje ponownie,
+- technical abort nie przywraca inventory,
+- późniejszy requirement/capability change nie przepisuje Attempt history,
+- token security pozostaje DB-EXAM-005,
+- station device/failover pozostaje DB-EXAM-006,
+- scoring/document evidence pozostaje DB-EXAM-007,
+- management projection pozostaje DB-EXAM-008,
+- DB4_8+, Stage 5, Laravel migrations i UI nie zostały rozpoczęte.
+
+Aktualny stan DB4_7 po DB-EXAM-004:
+- P0: **0**,
+- P1 open: **4**,
+- resolved: **4/8**,
+- result: **FAIL_WITH_4_P1_BLOCKERS**.
+
+Następny dozwolony krok po centralnym gate: **DB-EXAM-005 only**.
+
+**STOP przed DB-EXAM-005.**
