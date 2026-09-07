@@ -85,13 +85,13 @@ stage_4_slices:
     final_aggregate_sync: PASS
     result: PASS
   - id: DB4_7_INTERNAL_EXAMS
-    status: FAIL_WITH_8_P1_BLOCKERS
+    status: FAIL_WITH_7_P1_BLOCKERS
     diagnosis: COMPLETE
     blockers_diagnosed: 8
-    blockers_resolved: 0
-    open_P0_P1: 8
+    blockers_resolved: 1
+    open_P0_P1: 7
     final_aggregate_sync: BLOCKED
-    result: FAIL_WITH_8_P1_BLOCKERS
+    result: FAIL_WITH_7_P1_BLOCKERS
   - id: DB4_8_PKK
     status: NOT_STARTED
   - id: DB4_9_STUDENT_FINANCE_COMMERCE
@@ -1859,6 +1859,66 @@ quality_checks:
       aggregates_remain_frozen_until_DB4_7_final_sync: PASS
       no_fix_applied_during_diagnosis: PASS
 
+  internal_exam_same_tenant_exact_target_integrity:
+    status: PASS
+    resolved_blocker_id: DB-EXAM-001
+    severity: P1
+    machine_source: specs/database/internal-exams.yml
+    audit_source: docs/112-stage-4-internal-exams-audit.md
+    decision:
+      organization_id_required_on_all_tenant_owned_internal_exam_tables: true
+      attempt_question_adds_organization_id: true
+      result_adds_organization_id: true
+      course_enrollment_exact_student_candidate_key: [organization_id, id, student_id]
+      attempt_exact_course_student_composite_FK: true
+      attempt_student_same_tenant_composite_FK: true
+      reservation_inventory_same_tenant_composite_FK: true
+      reservation_attempt_same_tenant_composite_FK: true
+      access_attempt_same_tenant_composite_FK: true
+      access_optional_station_same_tenant_composite_FK: true
+      access_exact_attempt_candidate_key: [organization_id, id, internal_exam_attempt_id]
+      station_session_exact_access_attempt_composite_FK: true
+      station_session_station_same_tenant_composite_FK: true
+      station_session_transfer_same_tenant_same_attempt_composite_FK: true
+      attempt_question_attempt_same_tenant_composite_FK: true
+      result_attempt_same_tenant_composite_FK: true
+      document_attempt_same_tenant_composite_FK: true
+      document_asset_same_tenant_composite_FK: true
+      formal_relation_on_update: RESTRICT
+      formal_relation_on_delete: RESTRICT
+      organization_id_client_authority: false
+      global_user_actor_fake_tenant_scoped: false
+      global_driving_category_and_language_fake_tenant_scoped: false
+      source_order_item_same_tenant_commerce_relation: deferred_to_DB4_9
+      migration_question_result_org_backfill_from_exact_attempt_parent: allowed
+      migration_cross_tenant_or_wrong_target_auto_reassignment: forbidden
+      unresolved_legacy_relation_mismatch: fail_and_require_reviewed_remediation
+      DB_EXAM_002_through_DB_EXAM_008_not_fixed: true
+    checks:
+      attempt_cross_tenant_student_rejected: PASS
+      attempt_cross_tenant_course_rejected: PASS
+      attempt_same_organization_wrong_student_course_pair_rejected: PASS
+      reservation_cross_tenant_inventory_or_attempt_rejected: PASS
+      access_cross_tenant_attempt_or_nonnull_station_rejected: PASS
+      station_session_cross_tenant_attempt_access_station_rejected: PASS
+      station_session_access_for_other_attempt_rejected_even_same_organization: PASS
+      station_session_transfer_to_other_tenant_or_attempt_rejected: PASS
+      attempt_question_and_result_are_tenant_bound_to_exact_attempt: PASS
+      one_result_per_attempt_scope_preserved: PASS
+      document_cross_tenant_attempt_or_file_asset_rejected: PASS
+      nullable_access_station_and_transfer_relations_use_MATCH_SIMPLE: PASS
+      history_preserving_RESTRICT_policy_preserved: PASS
+      global_identity_and_dictionary_boundaries_preserved: PASS
+      DB4_9_commerce_boundary_not_partially_redesigned: PASS
+      migration_does_not_guess_or_reassign_wrong_targets: PASS
+      aggregate_core_schema_modified_in_step: false
+      aggregate_docs87_modified_in_step: false
+      DB_EXAM_002_through_DB_EXAM_008_remain_open: PASS
+      DB4_8_or_later_entered: false
+      Laravel_migrations_created: false
+      Stage5_started: false
+      UI_or_feature_implementation_started: false
+
 resolved_blockers:
   - DB-FOUND-001
   - DB-FOUND-002
@@ -1897,9 +1957,9 @@ resolved_blockers:
   - DB-LIC-005
   - DB-LIC-006
   - DB-LIC-007
+  - DB-EXAM-001
 
 open_blockers_current_diagnosed_scope:
-  - DB-EXAM-001
   - DB-EXAM-002
   - DB-EXAM-003
   - DB-EXAM-004
@@ -1916,7 +1976,7 @@ gate_definition:
     - migration_order_dependency_safe
     - database_invariant_test_matrix_exists
     - reverse_engineering_preservation_traceable
-  current_result: DB4_7_FAIL_WITH_8_P1_BLOCKERS
+  current_result: DB4_7_FAIL_WITH_7_P1_BLOCKERS
   DB4_1_result: PASS
   DB4_2_result: PASS
   DB4_3_result: PASS
@@ -1952,7 +2012,8 @@ gate_definition:
   DB4_6_final_aggregate_sync_result: PASS
   DB4_6_result: PASS
   DB4_7_diagnosis_result: PASS_DIAGNOSIS_COMPLETE
-  DB4_7_result: FAIL_WITH_8_P1_BLOCKERS
+  DB4_7_DB_EXAM_001_result: PASS
+  DB4_7_result: FAIL_WITH_7_P1_BLOCKERS
   may_start_DB4_4_fixes: false
   may_start_DB4_5: false
   may_start_DB4_5_fixes: false
@@ -1965,8 +2026,8 @@ gate_definition:
   may_start_UI_or_feature_implementation: false
 
 next_single_step:
-  id: DB_EXAM_001_SAME_TENANT_EXACT_TARGET
-  action: resolve_DB_EXAM_001_only_after_next_explicit_user_instruction
+  id: DB_EXAM_002_FORMAL_COURSE_REQUIREMENT_CAPABILITY_BASIS
+  action: resolve_DB_EXAM_002_only_after_next_explicit_user_instruction
   allowed_scope:
     - specs/database/internal-exams.yml
     - docs/112-stage-4-internal-exams-audit.md
@@ -1975,8 +2036,8 @@ next_single_step:
     - specs/database/core-schema.yml
     - docs/87-physical-database-schema.md
   scope_lock: >-
-    Resolve only DB-EXAM-001 same-tenant and exact-target integrity. Preserve all
-    other diagnosed DB4_7 blockers as OPEN. Do not enter DB4_8 or later slices,
+    Resolve only DB-EXAM-002 formal Course/Requirement/Capability basis. Preserve
+    DB-EXAM-003 through DB-EXAM-008 as OPEN. Do not enter DB4_8 or later slices,
     do not start Stage 5, do not create Laravel migrations and do not start
     UI/feature implementation.
-  after_action: rerun_DB_EXAM_001_gate_and_STOP_before_DB_EXAM_002
+  after_action: rerun_DB_EXAM_002_gate_and_STOP_before_DB_EXAM_003
