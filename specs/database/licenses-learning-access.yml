@@ -601,15 +601,6 @@ resolved_contracts:
         shared_prefix: students_then_learning_account
         restore_does_not_perform_resume: true
         explicit_resume_still_requires_its_own_authorized_command_and_current_state
-    cache_and_session_safety:
-      student_archive_increments_students.version_via_DB_TRN_003: true
-      learning_account_material_change_increments_learning_account.version: true
-      eligibility_cache_must_revalidate:
-        - students.version
-        - student_learning_accounts.version
-        - student_learning_accounts.status
-      long_lived_cached_authorization_may_override_new_archive: false
-      does_not_require_global_auth_session_revoke: true
     migration_design:
       order:
         - precheck_existing_learning_account_status_values
