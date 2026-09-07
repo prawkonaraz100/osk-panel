@@ -2,8 +2,8 @@ meta:
   project: osk-panel
   stage: 4
   slice: DB4_7_INTERNAL_EXAMS
-  step: DB_EXAM_002_FORMAL_COURSE_REQUIREMENT_CAPABILITY_BASIS
-  status: FAIL_WITH_6_P1_BLOCKERS
+  step: DB_EXAM_003_INVENTORY_RESERVATION_CONSUME_ON_START
+  status: FAIL_WITH_5_P1_BLOCKERS
   diagnosed_at: 2026-09-07
   branch: docs-consolidation-2026-09-05
   aggregate_sync_status: FROZEN_UNTIL_DB4_7_FINAL_SYNC
@@ -15,7 +15,7 @@ meta:
 scope_rule:
   diagnose_before_fixing: true
   fixes_allowed_in_this_step: true
-  current_step_scope: DB_EXAM_002_only
+  current_step_scope: DB_EXAM_003_only
   one_blocker_per_future_step: true
   aggregate_files_frozen:
     - specs/database/core-schema.yml
@@ -560,6 +560,311 @@ resolved_contracts:
       - unresolved_legacy_basis_requires_reviewed_remediation
       - DB_EXAM_003_through_DB_EXAM_008_remain_open
 
+  DB-EXAM-003:
+    status: PASS
+    title: inventory_reservation_authority_and_consume_on_start_exactly_once
+    severity: P1
+    goal: >-
+      Preserve concrete one-unit inventory allocation while making an append-only
+      inventory ledger the canonical accounting history, so reservation, release,
+      consume-on-start and elevated adjustment effects are exactly-once, race-safe,
+      auditable and incapable of drifting into a mutable counter model.
+
+    authority_model:
+      canonical_inventory_accounting_history: internal_exam_inventory_ledger_entries
+      inventory_entry_role: stable_one_unit_identity_provenance_and_current_operational_projection
+      reservation_role: one_attempt_to_one_unit_allocation_history
+      mutable_available_exam_counter_as_authority: forbidden
+      inventory_entry_status_as_independent_authority: false
+      reservation_status_as_independent_accounting_authority: false
+      ledger_append_only: true
+      ledger_normal_update_or_delete: forbidden
+      final_state_equivalence_guard: DEFERRABLE_INITIALLY_DEFERRED_or_equivalent_transactional_DB_guard
+      current_available_projection_sources:
+        canonical: SUM_internal_exam_inventory_ledger_entries.available_delta_per_organization_and_source_type
+        operational_equivalent: COUNT_internal_exam_inventory_entries_where_current_state_available
+      canonical_and_operational_available_projection_must_match_at_commit: true
+
+    inventory_entry_model:
+      one_row_represents_one_concrete_exam_unit: true
+      source_type_values: [free, paid, adjustment]
+      current_state_values: [available, reserved, consumed, adjusted_out]
+      old_released_as_unit_state: forbidden_in_runtime
+      reason_released_is_transition_not_current_state: true
+      old_adjusted_as_ambiguous_unit_state: replaced_by_source_type_adjustment_or_current_state_adjusted_out
+      fields_added_or_finalized:
+        - current_state_varchar_32_not_null
+        - source_adjustment_id_uuid_nullable
+        - created_at_timestamptz_not_null
+      source_order_item_id_same_tenant_commerce_boundary: deferred_to_DB4_9
+      paid_grant_payment_confirmation_semantics: deferred_to_DB4_9
+      source_type_or_source_reference_mutation_after_creation: forbidden
+      consumed_unit_returns_to_available_by_normal_release: false
+      consumed_unit_normal_update_to_available: forbidden
+      adjusted_out_unit_returns_to_available_in_place: forbidden
+      allocation_lock: internal_exam_inventory_entry_FOR_UPDATE
+
+    reservation_model:
+      status_values: [reserved, released, consumed]
+      version: bigint_not_null_default_1_check_gte_1
+      linkage_fields_immutable: [organization_id, internal_exam_inventory_entry_id, internal_exam_attempt_id, reserved_at]
+      released_metadata:
+        requires: [released_at]
+        forbids: [consumed_at]
+      consumed_metadata:
+        requires: [consumed_at]
+        forbids: [released_at]
+      reserved_metadata:
+        requires_null: [released_at, consumed_at]
+      current_active_reservation_predicate: status_reserved
+      one_active_reservation_per_inventory_entry:
+        type: partial_unique
+        columns: [organization_id, internal_exam_inventory_entry_id]
+        where: status_reserved
+      one_active_reservation_per_attempt:
+        type: partial_unique
+        columns: [organization_id, internal_exam_attempt_id]
+        where: status_reserved
+      one_consumed_reservation_per_attempt:
+        type: partial_unique
+        columns: [organization_id, internal_exam_attempt_id]
+        where: status_consumed
+      multiple_released_reservation_history_per_attempt_or_unit: allowed
+      reservation_terminal_transition_reopened_in_place: forbidden
+      exact_access_lifecycle_trigger_for_re_reservation_after_release: deferred_to_DB_EXAM_004
+
+    ledger_model:
+      table: internal_exam_inventory_ledger_entries
+      tenant_owned: true
+      fields:
+        - id_uuid_PK
+        - organization_id_uuid_not_null
+        - internal_exam_inventory_entry_id_uuid_not_null
+        - internal_exam_reservation_id_uuid_nullable
+        - internal_exam_attempt_id_uuid_nullable
+        - internal_exam_inventory_adjustment_id_uuid_nullable
+        - event_sequence_bigint_not_null_check_gte_1
+        - event_type_varchar_32_not_null
+        - available_delta_smallint_not_null
+        - actor_user_id_uuid_nullable
+        - reason_text_nullable
+        - occurred_at_timestamptz_not_null
+        - created_at_timestamptz_not_null
+      event_type_values_runtime:
+        - unit_granted
+        - unit_adjustment_granted
+        - unit_reserved
+        - unit_released
+        - unit_consumed
+        - unit_adjusted_out
+      migration_only_event_type: migration_baseline
+      runtime_insert_migration_baseline_after_cutover: forbidden
+      exact_available_delta_by_event_type:
+        unit_granted: 1
+        unit_adjustment_granted: 1
+        unit_reserved: -1
+        unit_released: 1
+        unit_consumed: 0
+        unit_adjusted_out: -1
+        migration_baseline: derived_from_proven_legacy_state_only
+      event_sequence_unique_scope: [organization_id, internal_exam_inventory_entry_id, event_sequence]
+      event_sequence_contiguous_from_one: true
+      event_sequence_allocated_under_inventory_entry_lock: true
+      reservation_event_exact_same_tenant_attempt_inventory_binding_required: true
+      actor_user_is_global_identity_not_fake_tenant_scoped: true
+      event_type_relation_matrix_database_enforced: true
+      ledger_business_rows_immutable: true
+
+    ledger_state_machine:
+      initial_event_for_free_or_paid_unit: unit_granted
+      initial_event_for_positive_adjustment_unit: unit_adjustment_granted
+      available_to_reserved: unit_reserved
+      reserved_to_available: unit_released
+      reserved_to_consumed: unit_consumed
+      available_to_adjusted_out: unit_adjusted_out
+      event_after_unit_consumed: forbidden
+      event_after_unit_adjusted_out: forbidden
+      unit_reserved_event_requires_exact_reserved_reservation: true
+      unit_released_event_requires_same_reservation_transition_reserved_to_released: true
+      unit_consumed_event_requires_same_reservation_transition_reserved_to_consumed: true
+      reserve_release_cycles_before_consumption: allowed_with_new_reservation_rows
+      same_reservation_release_then_consume_or_consume_then_release: forbidden
+      direct_current_state_change_without_matching_ledger_event: rejected_at_commit
+
+    attempt_creation_and_reservation:
+      API_operation: POST_/course-enrollments/{courseEnrollmentId}/internal-exam-attempts
+      Stage3_contract: attempt_created_and_one_inventory_unit_reserved
+      canonical_reservation_moment_core_v1: formal_attempt_creation
+      older_design_wording_create_access_reserves_unit: superseded_for_formal_Stage3_flow
+      access_creation_or_resend_allocates_second_unit: false
+      idempotency_required: true
+      existing_DB_EXAM_002_first_lock_prefix_preserved: [course_enrollment_FOR_UPDATE]
+      inventory_candidate_selection:
+        requires_same_organization: true
+        requires_current_state_available: true
+        requires_ledger_final_state_available: true
+        lock_candidate_FOR_UPDATE: true
+        SKIP_LOCKED_allowed_for_parallel_allocators: true
+        hardcoded_free_before_paid_or_paid_before_free_priority: false
+        source_priority_remains_explicit_product_allocation_policy_not_DB_integrity_rule: true
+      atomic_effects:
+        - create_internal_exam_attempt
+        - create_reserved_reservation
+        - append_unit_reserved_ledger_event
+        - set_inventory_current_state_reserved
+      failure_rolls_back_attempt_reservation_ledger_and_unit_state: true
+      no_inventory_available: reject_without_orphan_attempt
+      same_idempotency_key_retry_allocates_new_unit: false
+      same_idempotency_key_retry_creates_second_reservation: false
+      later_access_creation_may_assume_or_validate_existing_active_reservation_but_may_not_silently_double_allocate: true
+
+    consume_on_start:
+      canonical_policy_core_v1: consume_on_start
+      other_design_policy_variants_enabled_in_core_v1: false
+      start_inventory_lock_suffix_after_attempt_access_roots: [internal_exam_reservation_FOR_UPDATE, internal_exam_inventory_entry_FOR_UPDATE]
+      preconditions_after_lock:
+        - reservation_status_reserved
+        - inventory_current_state_reserved
+        - reservation_and_inventory_match_exact_attempt
+        - last_ledger_event_is_unit_reserved_for_same_reservation
+      atomic_inventory_effects:
+        - append_unit_consumed_ledger_event
+        - set_reservation_status_consumed_and_consumed_at
+        - increment_reservation_version_once
+        - set_inventory_current_state_consumed
+      attempt_in_progress_effect_must_commit_in_same_outer_start_transaction: true
+      exact_attempt_access_state_matrix_and_started_at_rules: deferred_to_DB_EXAM_004
+      station_effects_and_locking: deferred_to_DB_EXAM_006
+      finish_or_submit_appends_second_consume_event: false
+      technical_abort_after_start_appends_release_event: false
+      consumed_unit_reusable_without_adjustment: false
+      idempotency_retry_reapplies_consume: false
+      two_parallel_start_requests_same_attempt_can_consume_two_units: false
+
+    prestart_release:
+      release_sources: [access_revoke, access_expire, attempt_cancel_or_other_prestart_terminal_flow_governed_by_DB_EXAM_004]
+      exact_access_attempt_transition_eligibility: deferred_to_DB_EXAM_004
+      inventory_lock_suffix: [internal_exam_reservation_FOR_UPDATE, internal_exam_inventory_entry_FOR_UPDATE]
+      require_reservation_reserved_and_inventory_reserved: true
+      atomic_effects:
+        - append_unit_released_ledger_event
+        - set_reservation_status_released_and_released_at
+        - increment_reservation_version_once
+        - set_inventory_current_state_available
+      release_consumed_reservation: forbidden
+      release_same_reservation_twice: forbidden
+      same_idempotency_key_retry_releases_again: false
+      released_unit_may_be_reserved_later_for_another_or_reeligible_attempt: true
+      old_reservation_history_reopened: false
+      automatic_expiry_release_actor_may_be_system_null_with_reason_code: true
+
+    start_vs_release_race:
+      shared_lock_suffix: [internal_exam_reservation, internal_exam_inventory_entry]
+      lock_order_may_not_be_reversed_by_DB_EXAM_004_or_DB_EXAM_005: true
+      start_first_result: reservation_consumed_inventory_consumed_release_rejected
+      release_first_result: reservation_released_inventory_available_start_rejected_until_any_future_valid_re_reservation
+      both_terminal_effects_commit_for_same_reservation: false
+      exactly_one_terminal_ledger_event_after_unit_reserved_for_same_reservation: true
+
+    adjustment_model:
+      table: internal_exam_inventory_adjustments
+      purpose: elevated_append_only_inventory_correction_command_record
+      tenant_owned: true
+      fields:
+        - id_uuid_PK
+        - organization_id_uuid_not_null
+        - delta_integer_not_null_nonzero
+        - reason_text_not_null_nonblank
+        - related_attempt_id_uuid_nullable
+        - created_by_user_id_uuid_not_null
+        - created_at_timestamptz_not_null
+      related_attempt_same_tenant_composite_FK: true
+      created_by_user_is_global_identity: true
+      permission: exams.inventory.adjust
+      elevated: true
+      idempotency_required: true
+      normal_update_or_delete: forbidden
+      positive_delta:
+        creates_exactly_abs_delta_new_inventory_units_source_type_adjustment: true
+        each_new_unit_initial_state_available: true
+        each_new_unit_links_source_adjustment_id: true
+        each_new_unit_initial_ledger_event: unit_adjustment_granted
+      negative_delta:
+        may_select_only_currently_available_units: true
+        reserved_or_consumed_unit_withdrawal: forbidden
+        append_unit_adjusted_out_per_selected_unit: true
+        set_selected_unit_current_state_adjusted_out: true
+        insufficient_available_units: reject_whole_adjustment
+      adjustment_final_state_guard:
+        positive_delta_effect_count_equals_delta: true
+        negative_delta_adjusted_out_event_count_equals_abs_delta: true
+        type: DEFERRABLE_INITIALLY_DEFERRED_or_equivalent_transactional_DB_guard
+      all_units_in_one_adjustment_apply_all_or_none: true
+      hardcoded_source_priority_for_negative_adjustment: false
+      technical_abort_refund:
+        mechanism: positive_adjustment_creates_new_compensating_unit
+        original_consumed_inventory_entry_state_changed_back_to_available: false
+        original_consumed_ledger_history_rewritten: false
+        related_attempt_must_same_tenant_and_if_used_as_refund_have_consumed_reservation: true
+      arbitrary_mutable_counter_delta_without_unit_and_ledger_effect: forbidden
+
+    derived_inventory_projection:
+      available_total: sum_available_delta_or_equivalent_guarded_count_current_state_available
+      available_by_source_type: group_by_inventory_entry_source_type
+      free_paid_adjustment_provenance_preserved: true
+      UI_total_is_mutable_authority: false
+      reserved_total: derived_from_current_reserved_reservations_or_units
+      consumed_total: derived_from_unit_consumed_events_or_current_consumed_units
+      direct_admin_edit_available_count: forbidden
+
+    commerce_boundary:
+      payment_order_to_paid_inventory_grant: deferred_to_DB4_9
+      source_order_item_exact_same_tenant_relation: deferred_to_DB4_9
+      purchase_webhook_idempotent_grant: deferred_to_DB4_9
+      DB_EXAM_003_may_define_paid_unit_and_unit_granted_event_shape_but_not_payment_trigger: true
+
+    migration_policy:
+      old_unit_status_available_reserved_consumed_may_be_mapped_only_when_matching_reservation_timestamps_and_relations_prove_state: true
+      old_unit_status_released_may_become_available_only_when_exact_released_reservation_and_no_later_active_or_consumed_reservation_are_proven: true
+      old_unit_status_adjusted_auto_interpretation: forbidden_without_evidence
+      reconstruct_ledger_sequence_from_ambiguous_timestamps_or_UUID_order: forbidden
+      migration_baseline_allowed_only_for_reliably_proven_legacy_state: true
+      migration_baseline_actor_or_reason_fabrication: forbidden
+      paid_unit_payment_history_fabrication: forbidden
+      unresolved_unit_reservation_or_adjustment_state: fail_and_require_reviewed_remediation
+      runtime_migration_baseline_event_after_cutover: forbidden
+
+    required_tests:
+      - ledger_is_append_only_and_unit_status_is_not_independent_accounting_authority
+      - available_count_ledger_projection_equals_guarded_available_unit_projection
+      - create_attempt_reserves_exactly_one_unit_same_transaction
+      - create_attempt_with_no_available_unit_rolls_back_attempt
+      - same_create_idempotency_key_does_not_allocate_second_unit
+      - two_concurrent_attempt_creates_cannot_reserve_same_unit
+      - free_paid_selection_priority_not_hardcoded_as_database_invariant
+      - one_active_reservation_per_inventory_entry_enforced
+      - one_active_reservation_per_attempt_enforced
+      - at_most_one_consumed_reservation_per_attempt_enforced
+      - reservation_reserved_state_has_matching_unit_reserved_ledger_event
+      - start_consumes_reserved_unit_exactly_once
+      - start_updates_reservation_and_inventory_and_attempt_start_in_one_outer_transaction
+      - two_parallel_start_requests_cannot_double_consume
+      - submit_or_finish_does_not_consume_again
+      - prestart_release_returns_same_unit_to_available_exactly_once
+      - start_vs_release_has_one_winner
+      - consumed_reservation_cannot_be_released
+      - technical_abort_after_start_does_not_auto_restore_consumed_unit
+      - technical_refund_uses_positive_adjustment_and_preserves_original_consumed_history
+      - positive_adjustment_delta_N_creates_exactly_N_adjustment_units_and_events
+      - negative_adjustment_delta_N_withdraws_exactly_N_available_units_or_rolls_back
+      - negative_adjustment_cannot_withdraw_reserved_or_consumed_unit
+      - adjustment_same_idempotency_key_does_not_apply_twice
+      - visible_available_total_is_projection_not_mutable_counter
+      - released_is_not_persisted_as_current_unit_state
+      - source_type_adjustment_is_not_confused_with_adjusted_out_current_state
+      - migration_does_not_guess_ambiguous_released_adjusted_or_ledger_order
+      - DB_EXAM_004_through_DB_EXAM_008_remain_open
+
 blockers:
   - id: DB-EXAM-001
     title: same_tenant_and_exact_target_integrity
@@ -606,7 +911,8 @@ blockers:
   - id: DB-EXAM-003
     title: inventory_reservation_authority_and_consume_on_start_exactly_once
     severity: P1
-    status: OPEN
+    status: RESOLVED
+    resolution_ref: resolved_contracts.DB-EXAM-003
     diagnosis:
       - own_design_names_exam_credit_ledger_as_source_of_truth_while_current_aggregate_models_concrete_inventory_rows_with_mutable_status
       - authority_between_unit_inventory_state_reservation_rows_and_ledger_or_adjustment_history_is_not_yet_unambiguous
@@ -738,11 +1044,10 @@ diagnosis_summary:
   diagnosed_P0: 0
   diagnosed_P1: 8
   resolved_in_diagnosis: 0
-  resolved_after_diagnosis: 2
-  open_P0_P1: 6
-  result: FAIL_WITH_6_P1_BLOCKERS
+  resolved_after_diagnosis: 3
+  open_P0_P1: 5
+  result: FAIL_WITH_5_P1_BLOCKERS
   blockers_in_required_fix_order:
-    - DB-EXAM-003
     - DB-EXAM-004
     - DB-EXAM-005
     - DB-EXAM-006
@@ -750,7 +1055,7 @@ diagnosis_summary:
     - DB-EXAM-008
 
 preservation_gate:
-  status: PASS_DB_EXAM_002_MACHINE_CONTRACT
+  status: PASS_DB_EXAM_003_MACHINE_CONTRACT
   checks:
     no_blocker_fixed_during_diagnosis: true
     course_first_formal_exam_preserved: true
@@ -797,6 +1102,23 @@ preservation_gate:
     no_inventory_exactly_once_semantics_from_DB_EXAM_003_solved_early: true
     no_attempt_access_state_matrix_from_DB_EXAM_004_solved_early: true
     no_station_failover_from_DB_EXAM_006_solved_early: true
+    DB_EXAM_003_ledger_unit_reservation_authority_resolved: true
+    inventory_unit_current_state_is_guarded_projection_not_second_accounting_authority: true
+    create_attempt_reserves_one_unit_atomically: true
+    consume_on_start_exactly_once_closed: true
+    prestart_release_exactly_once_closed: true
+    start_vs_release_shared_lock_boundary_closed: true
+    technical_abort_does_not_auto_restore_consumed_unit: true
+    positive_and_negative_adjustment_are_unit_and_ledger_effects_not_counter_edits: true
+    adjustment_refund_preserves_original_consumed_history: true
+    free_paid_adjustment_available_counts_are_derived: true
+    free_vs_paid_selection_priority_not_invented: true
+    payment_order_grant_trigger_remains_DB4_9: true
+    attempt_access_state_matrix_remains_DB_EXAM_004: true
+    token_security_remains_DB_EXAM_005: true
+    station_failover_remains_DB_EXAM_006: true
+    scoring_document_immutability_remains_DB_EXAM_007: true
+    management_statistics_projection_remains_DB_EXAM_008: true
     core_schema_aggregate_modified: false
     docs87_aggregate_modified: false
     DB4_8_or_later_entered: false
@@ -805,6 +1127,6 @@ preservation_gate:
     UI_or_feature_implementation_started: false
 
 next_single_step_after_central_gate:
-  id: DB-EXAM-003
-  action: resolve_inventory_reservation_authority_and_consume_on_start_exactly_once_only
-  stop_before: DB-EXAM-004
+  id: DB-EXAM-004
+  action: resolve_attempt_and_access_lifecycle_concurrency_only
+  stop_before: DB-EXAM-005
