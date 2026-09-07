@@ -1467,7 +1467,7 @@ blockers:
       - design_defines_closed_attempt_and_access_lifecycles_but_current_physical_blueprint_does_not_yet_prove_state_field_matrices_or_transition_guards
       - attempt_PATCH_is_before_start_only_and_has_If_Match_but_start_submit_abort_invalidate_and_access_revoke_expire_races_share_no_fully_defined_concurrency_root_contract
       - semantic_relationship_between_attempt_status_access_status_reservation_status_and_timestamps_is_not_closed
-      - multiple_accesses_for_one_attempt_are_supported_by_API_but_current_active_access_cardinality_and_revoke_resend_semantics_are_not_physically_proven
+      - multiple_accesses_for_one_attempt_are_supported_by_API_but current_active_access_cardinality_and_revoke_resend_semantics_are_not_physically_proven
       - submit_must_finish_once_and_must_not_consume_inventory_again
     risk:
       - started_attempt_with_prestart_access_state
@@ -1516,7 +1516,7 @@ blockers:
       - one_attempt_active_on_two_stations
       - two_attempts_active_on_one_station
       - wrong_tenant_station_launch
-      - failover consumes_second_credit_or_loses_active_attempt
+      - failover_consumes_second_credit_or_loses_active_attempt
     closure_scope_only:
       - station_identity_and_same_tenant_relations
       - active_station_session_uniqueness_and_exact_attempt_access_binding
@@ -1552,7 +1552,7 @@ blockers:
     status: OPEN
     diagnosis:
       - management_panel_requires_latest_exam_attempt_count_pass_rate_passed_failed_status_filters_sorting_and_hide_finished
-      - observed_attempts_can_share_the_same_displayed_minute_so timestamp_alone_cannot_deterministically_select_latest
+      - observed_attempts_can_share_the_same_displayed_minute_so_timestamp_alone_cannot_deterministically_select_latest
       - current_blueprint_has_no_explicit_per_course_or_per_student_attempt_sequence_or_other_closed_latest_order
       - UI_status_labels_such_as_no_assignment_not_conducted_passed_failed_are_projections_and_must_not_become_a_second_mutable_attempt_status_authority
       - counts_and_pass_rate_must_have_defined_inclusion_rules_for created in_progress technical_abort invalidated_and_finished_attempts
