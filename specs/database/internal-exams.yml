@@ -440,7 +440,7 @@ blockers:
     diagnosis:
       - API_allows_examAccessToken_as_alternative_principal_for_start_submit_and_finished_result_review
       - current_access_row_has_one_token_hash_but_start_capability_and_post_finish_result_review_have_different_privilege_lifecycles
-      - raw_token_nonpersistence_is_declared_but_token purpose scope expiry revocation rotation and replay boundaries_are_not_physically_closed
+      - raw_token_nonpersistence_is_declared_but token purpose scope expiry revocation rotation and replay boundaries_are_not_physically_closed
       - predictable_attempt_id_must_never_become_authority_for_remote_or_result_access
       - remote_send_resend_must_not_create_a_second_reservation_or_uncontrolled_second_start
     risk:
@@ -539,6 +539,23 @@ diagnosis_summary:
 preservation_gate:
   status: PASS_DB_EXAM_001_MACHINE_CONTRACT
   checks:
+    no_blocker_fixed_during_diagnosis: true
+    course_first_formal_exam_preserved: true
+    no_ad_hoc_formal_candidate_introduced: true
+    theory_exemption_and_requirement_engine_preserved: true
+    remote_link_and_local_current_workstation_preserved: true
+    assigned_exam_station_extension_preserved: true
+    consume_on_start_ADR_preserved: true
+    release_before_start_preserved: true
+    technical_abort_no_auto_restore_preserved: true
+    multi_attempt_history_preserved: true
+    tokenized_exam_frontend_preserved: true
+    question_review_and_answer_sheet_preserved: true
+    paper_signature_workflow_preserved: true
+    no_global_one_student_per_OSK_limit_invented: true
+    DB4_9_payment_and_inventory_grant_not_solved_early: true
+    DB4_8_PKK_provider_lifecycle_not_entered: true
+    DB4_10_final_audit_outbox_physical_shape_not_entered: true
     DB_EXAM_001_same_tenant_and_exact_target_integrity_resolved: true
     attempt_exact_course_student_pair_closed: true
     reservation_inventory_and_attempt_same_tenant_closed: true
