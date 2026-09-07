@@ -3,8 +3,8 @@
 Data: 2026-09-07
 
 **Etap:** `DB4_7_INTERNAL_EXAMS`  
-**Aktualny krok:** `DIAGNOSIS_ONLY`  
-**Status:** `FAIL_WITH_8_P1_BLOCKERS / 0 P0 / 8 P1 OPEN`
+**Aktualny krok:** `DB_EXAM_001_SAME_TENANT_EXACT_TARGET`  
+**Status:** `FAIL_WITH_7_P1_BLOCKERS / 0 P0 / 7 P1 OPEN`
 
 Machine-readable diagnoza: `specs/database/internal-exams.yml`.
 
@@ -407,3 +407,135 @@ Kolejność fixerów:
 Po centralnym gate następny dozwolony krok to **wyłącznie DB-EXAM-001**.
 
 **STOP przed DB-EXAM-001.**
+
+---
+
+## 15. DB-EXAM-001 — wynik fixera: PASS
+
+DB-EXAM-001 zamyka wyłącznie fizyczną integralność tenantową i exact-target. Nie definiuje lifecycle Attempt/Access/Reservation, tokenów, zużycia inventory, scoringu, failover ani projekcji panelu.
+
+### 15.1 Exact Course + Student
+
+Formalny `internal_exam_attempt` nadal zawiera wymagane `organization_id`, `student_id` i `course_enrollment_id`, ale samo sprawdzenie dwóch osobnych same-tenant FK nie wystarcza. Potrzebny jest candidate key:
+
+`course_enrollments(organization_id,id,student_id)`.
+
+Attempt ma composite FK:
+
+`(organization_id,course_enrollment_id,student_id)`
+`-> course_enrollments(organization_id,id,student_id)`.
+
+Dzięki temu niemożliwy staje się przypadek „Course kursanta A + Student B” nawet wtedy, gdy obie osoby są w tym samym OSK. Zachowujemy także bezpośredni same-tenant FK Attempt -> Student.
+
+### 15.2 Tenant keys dla całego graphu Internal Exams
+
+`organization_id NOT NULL` jest wymagany na tenant-owned tabelach Internal Exams, w tym na dwóch tabelach, które w dotychczasowym agregacie nie miały własnego tenant key:
+- `internal_exam_attempt_questions`,
+- `internal_exam_results`.
+
+Dla tych tabel tenant można w migracji deterministycznie backfillować wyłącznie z obowiązkowego parent Attempt. Nie jest to heurystyka ani reassignment.
+
+Wymagane candidate keys `(organization_id,id)` obejmują co najmniej:
+- InventoryEntry,
+- Attempt,
+- Reservation,
+- Access,
+- ExamStation,
+- StationSession.
+
+### 15.3 Reservation i Access
+
+Reservation ma composite same-tenant FK zarówno do dokładnej InventoryEntry, jak i Attempt.
+
+Access ma composite same-tenant FK do Attempt. Jeśli `station_id` jest non-NULL, wskazana Station musi należeć do tego samego Organization. Czy Station ma być wymagana dla określonych `mode` pozostaje DB-EXAM-004/006.
+
+### 15.4 StationSession exact Access + Attempt
+
+Sama para osobnych FK do Access i Attempt nie wystarcza, bo można byłoby teoretycznie stworzyć:
+
+`Session.attempt_id = A`, `Session.access_id = access_of_B`.
+
+Dlatego Access posiada candidate key:
+
+`(organization_id,id,internal_exam_attempt_id)`.
+
+StationSession wskazuje go przez:
+
+`(organization_id,internal_exam_access_id,internal_exam_attempt_id)`.
+
+Dodatkowo StationSession ma same-tenant FK do ExamStation.
+
+Transfer reference jest nullable, ale gdy istnieje, musi wskazywać StationSession tego samego tenantu i tego samego Attempt przez candidate key:
+
+`internal_exam_station_sessions(organization_id,id,internal_exam_attempt_id)`.
+
+To nie definiuje jeszcze dozwolonego failover transition — jedynie uniemożliwia transfer do innej próby.
+
+### 15.5 Questions, Result i Documents
+
+AttemptQuestion dostaje `organization_id` i composite FK do exact Attempt. Unique ordinal ma scope `(organization_id,internal_exam_attempt_id,ordinal)`.
+
+Result również dostaje `organization_id`, composite FK do Attempt i nadal dokładnie jeden Result per Attempt przez unique `(organization_id,internal_exam_attempt_id)`.
+
+Document wskazuje same-tenant Attempt oraz same-tenant FileAsset przez `(organization_id,asset_id) -> file_assets(organization_id,id)`.
+
+Purpose/readiness assetu, wersja dokumentu, snapshot hash i immutability pozostają DB-EXAM-007.
+
+### 15.6 Globalne relacje
+
+Nie tworzymy sztucznych tenant composite FK dla:
+- `users`,
+- `driving_categories`,
+- `languages`.
+
+Są to globalne identity/dictionaries i wcześniejsza architektura pozostaje bez zmian.
+
+### 15.7 Commerce boundary
+
+`internal_exam_inventory_entries.source_order_item_id` nie dostaje teraz pozornego same-tenant constraintu. Poprawny tenant boundary `OrderItem` zależy od DB4_9, ponieważ obecny commerce model nie ma jeszcze finalnego organization candidate key dla tej relacji.
+
+DB-EXAM-001 nie projektuje więc payment/order lifecycle ani momentu grantowania paid inventory.
+
+### 15.8 Delete policy
+
+Formalne relacje Internal Exams używają `ON UPDATE RESTRICT / ON DELETE RESTRICT`. Normalny lifecycle nie może hard-delete'ować formalnej historii przez cascade tylko dlatego, że zmienił się Student, Course, Attempt czy dokument.
+
+### 15.9 Migration safety
+
+Przed włączeniem constraintów migracja musi sprawdzić:
+- exact Attempt Course+Student,
+- tenant parentów Reservation/Access/StationSession,
+- exact StationSession Access+Attempt,
+- transfer same Attempt,
+- Document Asset same tenant.
+
+Dozwolony jest deterministyczny backfill `organization_id` Question/Result z ich obowiązkowego Attempt.
+
+Zabronione są:
+- przepięcie Attempt do innego Studenta/Course,
+- przepięcie StationSession do innego Access/Attempt/Station,
+- reassignment Inventory Reservation,
+- wyzerowanie cross-tenant Document Asset tylko po to, aby migracja przeszła,
+- zgadywanie brakującego parent ID.
+
+Niejednoznaczność = migration FAIL + reviewed remediation.
+
+### 15.10 Self-audit fixera
+
+Pierwszy machine write ujawnił dwie drobne regresje tekstu w historycznej diagnozie DB-EXAM-005/006 oraz zastąpił część checklisty diagnozy. Nie zostały zaakceptowane jako PASS. W kolejnych commitach przywrócono oryginalne brzmienie i pełną checklistę diagnostyczną.
+
+Po korekcie:
+- DB-EXAM-001 jest rozwiązany,
+- DB-EXAM-002..008 pozostają otwarte i nie zostały semantycznie zmienione,
+- `core-schema.yml` i `docs/87` pozostają zamrożone,
+- DB4_8+, Stage 5, Laravel migrations i UI nie zostały rozpoczęte.
+
+Aktualny stan DB4_7 po DB-EXAM-001:
+- P0: **0**,
+- P1 open: **7**,
+- resolved: **1/8**,
+- result: **FAIL_WITH_7_P1_BLOCKERS**.
+
+Następny dozwolony krok po centralnym gate: **DB-EXAM-002 only**.
+
+**STOP przed DB-EXAM-002.**
