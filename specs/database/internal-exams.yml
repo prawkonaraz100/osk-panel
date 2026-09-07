@@ -1079,7 +1079,7 @@ resolved_contracts:
       immutable_fields_include: [organization_id, student_id, course_enrollment_id, exam_part, driving_category_id, language_code, training_requirement_profile_id, requirements_revision, internal_exam_capability_id, requirement_basis_snapshot]
       successful_material_change_increments_attempt_version_once: true
       append_attempt_lifecycle_event: candidate_snapshot_updated
-      two_PATCHes_same_expected_version_at_most_one_commit: true
+      two_PATCHes_same_If_Match_at_most_one_commit: true
       PATCH_after_start_or_terminal: forbidden
       old_sensitive_candidate_snapshot_copied_into_lifecycle_event: false
 
@@ -1349,7 +1349,7 @@ resolved_contracts:
       - access_version_and_lifecycle_event_pair_one_material_change
       - lifecycle_events_append_only_and_match_current_row_version_state
       - candidate_PATCH_requires_created_before_start_and_current_If_Match
-      - two_candidate_PATCHes_same_expected_version_at_most_one_commit
+      - two_candidate_PATCHes_same_If_Match_at_most_one_commit
       - candidate_PATCH_cannot_change_course_category_language_requirement_or_capability_basis
       - candidate_PATCH_after_start_rejected
       - later_requirement_profile_supersession_does_not_rewrite_or_silently_block_existing_attempt
