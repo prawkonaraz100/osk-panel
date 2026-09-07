@@ -610,7 +610,7 @@ blockers:
     diagnosis:
       - own_design_names_exam_credit_ledger_as_source_of_truth_while_current_aggregate_models_concrete_inventory_rows_with_mutable_status
       - authority_between_unit_inventory_state_reservation_rows_and_ledger_or_adjustment_history_is_not_yet_unambiguous
-      - create_attempt_reserves_exactly_one_unit_and_start_consumes_exactly_once_but final_cross_row_equivalence_is_not_yet_closed
+      - create_attempt_reserves_exactly_one_unit_and_start_consumes_exactly_once_but_final_cross_row_equivalence_is_not_yet_closed
       - release_before_start_and_adjustment_after_start_require_distinct_auditable_effects
       - free_paid_adjustment_source_provenance_must_survive_without_turning_visible_available_count_into_authority
       - source_order_payment_grant_details_remain_DB4_9
