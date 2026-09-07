@@ -1157,7 +1157,7 @@ resolved_contracts:
         - set_attempt_started_at_once
         - increment_attempt_version_once
         - access_prestart_to_started
-        - set_access_started_at_equal_attempt.started_at
+        - set_access_started_at_equal_attempt_started_at
         - increment_access_version_once
         - append_attempt_and_access_lifecycle_events
       station_effects: deferred_to_DB_EXAM_006
