@@ -2,8 +2,8 @@ meta:
   project: osk-panel
   stage: 4
   slice: DB4_7_INTERNAL_EXAMS
-  step: DIAGNOSIS_ONLY
-  status: FAIL_WITH_8_P1_BLOCKERS
+  step: DB_EXAM_001_SAME_TENANT_EXACT_TARGET
+  status: FAIL_WITH_7_P1_BLOCKERS
   diagnosed_at: 2026-09-07
   branch: docs-consolidation-2026-09-05
   aggregate_sync_status: FROZEN_UNTIL_DB4_7_FINAL_SYNC
@@ -14,7 +14,8 @@ meta:
 
 scope_rule:
   diagnose_before_fixing: true
-  fixes_allowed_in_this_step: false
+  fixes_allowed_in_this_step: true
+  current_step_scope: DB_EXAM_001_only
   one_blocker_per_future_step: true
   aggregate_files_frozen:
     - specs/database/core-schema.yml
@@ -108,11 +109,250 @@ current_aggregate_observation:
     - finish_is_not_second_consumption_point
   diagnosis_rule: existing_positive_elements_are_preserved_but_do_not_by_themselves_close_cross_row_or_lifecycle_invariants
 
+resolved_contracts:
+  DB-EXAM-001:
+    status: PASS
+    title: same_tenant_and_exact_target_integrity
+    severity: P1
+    goal: >-
+      Every formal InternalExam relation must be unable to connect tenant-owned
+      resources from different organizations or to combine a Course, Student,
+      Attempt, Access, StationSession, Result, Question or Document that does not
+      belong to the exact intended parent relation.
+
+    tenant_key_policy:
+      organization_id_required_nonnull_on:
+        - internal_exam_inventory_entries
+        - internal_exam_attempts
+        - internal_exam_reservations
+        - internal_exam_accesses
+        - exam_stations
+        - internal_exam_station_sessions
+        - internal_exam_attempt_questions
+        - internal_exam_results
+        - internal_exam_documents
+      organization_id_client_authority: false
+      tenant_key_source: active_membership_or_validated_parent
+      organization_id_mutation_after_insert: forbidden_for_normal_domain_lifecycle
+      relation_on_update: RESTRICT
+      relation_on_delete: RESTRICT
+      formal_history_destructive_cascade: forbidden
+
+    candidate_keys_required:
+      students:
+        columns: [organization_id, id]
+        source: DB4_4
+      course_enrollments:
+        columns: [organization_id, id]
+        source: DB4_4
+      course_enrollments_exact_student:
+        columns: [organization_id, id, student_id]
+        unique_constraint_required: true
+        purpose: exact_formal_attempt_course_student_FK_target
+      file_assets:
+        columns: [organization_id, id]
+        source: DB4_2_foundation
+      internal_exam_inventory_entries:
+        columns: [organization_id, id]
+        unique_constraint_required: true
+      internal_exam_attempts:
+        columns: [organization_id, id]
+        unique_constraint_required: true
+      internal_exam_reservations:
+        columns: [organization_id, id]
+        unique_constraint_required: true
+      internal_exam_accesses:
+        columns: [organization_id, id]
+        unique_constraint_required: true
+      internal_exam_accesses_exact_attempt:
+        columns: [organization_id, id, internal_exam_attempt_id]
+        unique_constraint_required: true
+        purpose: station_session_exact_access_attempt_FK_target
+      exam_stations:
+        columns: [organization_id, id]
+        unique_constraint_required: true
+      internal_exam_station_sessions:
+        columns: [organization_id, id]
+        unique_constraint_required: true
+      internal_exam_station_sessions_exact_attempt:
+        columns: [organization_id, id, internal_exam_attempt_id]
+        unique_constraint_required: true
+        purpose: transfer_chain_same_attempt_FK_target
+
+    attempt_relations:
+      student_same_tenant:
+        source_table: internal_exam_attempts
+        source_columns: [organization_id, student_id]
+        target_table: students
+        target_columns: [organization_id, id]
+        nullable: false
+        match: MATCH_SIMPLE
+      exact_course_student:
+        source_table: internal_exam_attempts
+        source_columns: [organization_id, course_enrollment_id, student_id]
+        target_table: course_enrollments
+        target_columns: [organization_id, id, student_id]
+        nullable: false
+        match: MATCH_SIMPLE
+        effect: attempt_course_must_belong_to_exact_attempt_student
+      driving_category_is_global_dictionary: true
+      language_is_global_dictionary: true
+      category_or_language_matching_course_or_capability: deferred_to_DB_EXAM_002
+
+    reservation_relations:
+      inventory_same_tenant:
+        source_columns: [organization_id, internal_exam_inventory_entry_id]
+        target_table: internal_exam_inventory_entries
+        target_columns: [organization_id, id]
+        nullable: false
+        match: MATCH_SIMPLE
+      attempt_same_tenant:
+        source_columns: [organization_id, internal_exam_attempt_id]
+        target_table: internal_exam_attempts
+        target_columns: [organization_id, id]
+        nullable: false
+        match: MATCH_SIMPLE
+      lifecycle_equivalence_and_exactly_once_consumption: deferred_to_DB_EXAM_003
+
+    access_relations:
+      attempt_same_tenant:
+        source_columns: [organization_id, internal_exam_attempt_id]
+        target_table: internal_exam_attempts
+        target_columns: [organization_id, id]
+        nullable: false
+        match: MATCH_SIMPLE
+      optional_station_same_tenant:
+        source_columns: [organization_id, station_id]
+        target_table: exam_stations
+        target_columns: [organization_id, id]
+        nullable: true
+        match: MATCH_SIMPLE
+      station_required_or_forbidden_by_mode: deferred_to_DB_EXAM_004_and_DB_EXAM_006
+
+    station_session_relations:
+      attempt_same_tenant:
+        source_columns: [organization_id, internal_exam_attempt_id]
+        target_table: internal_exam_attempts
+        target_columns: [organization_id, id]
+        nullable: false
+        match: MATCH_SIMPLE
+      exact_access_attempt:
+        source_columns: [organization_id, internal_exam_access_id, internal_exam_attempt_id]
+        target_table: internal_exam_accesses
+        target_columns: [organization_id, id, internal_exam_attempt_id]
+        nullable: false
+        match: MATCH_SIMPLE
+        effect: station_session_cannot_pair_access_for_attempt_A_with_attempt_B
+      station_same_tenant:
+        source_columns: [organization_id, exam_station_id]
+        target_table: exam_stations
+        target_columns: [organization_id, id]
+        nullable: false
+        match: MATCH_SIMPLE
+      transfer_same_tenant_same_attempt:
+        source_columns: [organization_id, transferred_from_session_id, internal_exam_attempt_id]
+        target_table: internal_exam_station_sessions
+        target_columns: [organization_id, id, internal_exam_attempt_id]
+        nullable: true
+        match: MATCH_SIMPLE
+        effect: transfer_reference_cannot_cross_tenant_or_switch_attempt
+      created_by_user_is_global_identity: true
+      created_by_user_fake_tenant_composite_FK: false
+      active_station_uniqueness_and_failover_transition_rules: deferred_to_DB_EXAM_006
+
+    attempt_question_relations:
+      organization_id_addition_required: true
+      attempt_same_tenant:
+        source_columns: [organization_id, internal_exam_attempt_id]
+        target_table: internal_exam_attempts
+        target_columns: [organization_id, id]
+        nullable: false
+        match: MATCH_SIMPLE
+      ordinal_unique_scope: [organization_id, internal_exam_attempt_id, ordinal]
+      question_content_scoring_immutability: deferred_to_DB_EXAM_007
+
+    result_relations:
+      organization_id_addition_required: true
+      attempt_same_tenant:
+        source_columns: [organization_id, internal_exam_attempt_id]
+        target_table: internal_exam_attempts
+        target_columns: [organization_id, id]
+        nullable: false
+        match: MATCH_SIMPLE
+      one_result_per_attempt_unique_scope: [organization_id, internal_exam_attempt_id]
+      result_scoring_consistency_and_immutability: deferred_to_DB_EXAM_007
+
+    document_relations:
+      attempt_same_tenant:
+        source_columns: [organization_id, internal_exam_attempt_id]
+        target_table: internal_exam_attempts
+        target_columns: [organization_id, id]
+        nullable: false
+        match: MATCH_SIMPLE
+      asset_same_tenant:
+        source_columns: [organization_id, asset_id]
+        target_table: file_assets
+        target_columns: [organization_id, id]
+        nullable: false
+        match: MATCH_SIMPLE
+      asset_purpose_readiness_document_version_and_hash_policy: deferred_to_DB_EXAM_007
+
+    commerce_boundary:
+      internal_exam_inventory_source_order_item_same_tenant_relation: deferred_to_DB4_9
+      reason: >-
+        Current order_items lacks the finalized organization candidate key needed
+        to prove the commerce tenant boundary. DB-EXAM-001 must not partially
+        redesign purchase/payment/inventory grant provenance before DB4_9.
+
+    migration_policy:
+      precheck_attempt_course_student_exact_pair: required
+      precheck_all_existing_tenant_owned_parent_child_organization_ids: required
+      precheck_station_session_access_attempt_exact_pair: required
+      precheck_station_transfer_same_attempt: required
+      precheck_document_asset_same_tenant: required
+      add_question_result_organization_id_by_exact_mandatory_attempt_parent: allowed_deterministic_backfill
+      auto_reassign_attempt_to_different_student_or_course: forbidden
+      auto_rewire_station_session_to_different_access_attempt_or_station: forbidden
+      auto_reassign_inventory_reservation: forbidden
+      auto_null_cross_tenant_document_asset: forbidden
+      auto_guess_missing_parent_id: forbidden
+      unresolved_mismatch: fail_and_require_reviewed_remediation
+
+    required_tests:
+      - attempt_cross_tenant_student_rejected
+      - attempt_cross_tenant_course_rejected
+      - attempt_same_org_wrong_student_course_pair_rejected
+      - reservation_cross_tenant_inventory_rejected
+      - reservation_cross_tenant_attempt_rejected
+      - access_cross_tenant_attempt_rejected
+      - access_nonnull_cross_tenant_station_rejected
+      - access_null_station_still_allowed_structurally_before_mode_matrix_DB_EXAM_004_006
+      - station_session_cross_tenant_attempt_rejected
+      - station_session_cross_tenant_access_rejected
+      - station_session_access_for_other_attempt_rejected_even_same_org
+      - station_session_cross_tenant_station_rejected
+      - station_session_transfer_cross_tenant_rejected
+      - station_session_transfer_to_other_attempt_rejected_even_same_org
+      - attempt_question_cross_tenant_attempt_rejected
+      - duplicate_attempt_question_ordinal_same_attempt_rejected
+      - result_cross_tenant_attempt_rejected
+      - second_result_same_attempt_rejected
+      - document_cross_tenant_attempt_rejected
+      - document_cross_tenant_file_asset_rejected
+      - global_user_actor_not_fake_tenant_scoped
+      - driving_category_and_language_global_dictionaries_not_fake_tenant_scoped
+      - migration_backfills_question_result_org_only_from_exact_attempt_parent
+      - migration_fails_on_wrong_student_course_pair
+      - migration_fails_on_station_session_access_attempt_mismatch
+      - migration_fails_on_cross_tenant_document_asset
+      - DB_EXAM_002_through_DB_EXAM_008_remain_open
+
 blockers:
   - id: DB-EXAM-001
     title: same_tenant_and_exact_target_integrity
     severity: P1
-    status: OPEN
+    status: RESOLVED
+    resolution_ref: resolved_contracts.DB-EXAM-001
     diagnosis:
       - current_blueprint_repeats_organization_student_course_attempt_inventory_access_station_identifiers_without_complete_composite_exact_target_boundaries
       - attempt_must_not_pair_a_course_with_the_wrong_student_inside_the_same_organization
@@ -200,7 +440,7 @@ blockers:
     diagnosis:
       - API_allows_examAccessToken_as_alternative_principal_for_start_submit_and_finished_result_review
       - current_access_row_has_one_token_hash_but_start_capability_and_post_finish_result_review_have_different_privilege_lifecycles
-      - raw_token_nonpersistence_is_declared_but token purpose scope expiry revocation rotation and replay boundaries_are_not_physically_closed
+      - raw_token_nonpersistence_is_declared_but_token purpose scope expiry revocation rotation and replay boundaries_are_not_physically_closed
       - predictable_attempt_id_must_never_become_authority_for_remote_or_result_access
       - remote_send_resend_must_not_create_a_second_reservation_or_uncontrolled_second_start
     risk:
@@ -222,7 +462,7 @@ blockers:
     diagnosis:
       - product_requires_one_active_attempt_per_station_and_supports_multiple_stations_per_OSK
       - current_station_session_partial_uniques_are_positive_but same_tenant exact_access_attempt_station_binding_and_station_eligibility_are_not_fully_closed
-      - local_current_workstation_and_assigned_exam_station_need_a_clear_station_identity_or_device_binding_boundary
+      - local_current_workstation_and_assigned_exam_station_need_a_clear_station identity_or_device_binding_boundary
       - failover_after_start_must_transfer_active_session_without_second_inventory_consumption_or_parallel_active_station_sessions
       - station_key_hash_and_status_exist_but lifecycle_authentication_and_disabled_offline_behavior_are_not_yet_proven
     risk:
@@ -284,10 +524,10 @@ diagnosis_summary:
   diagnosed_P0: 0
   diagnosed_P1: 8
   resolved_in_diagnosis: 0
-  open_P0_P1: 8
-  result: FAIL_WITH_8_P1_BLOCKERS
+  resolved_after_diagnosis: 1
+  open_P0_P1: 7
+  result: FAIL_WITH_7_P1_BLOCKERS
   blockers_in_required_fix_order:
-    - DB-EXAM-001
     - DB-EXAM-002
     - DB-EXAM-003
     - DB-EXAM-004
@@ -297,32 +537,31 @@ diagnosis_summary:
     - DB-EXAM-008
 
 preservation_gate:
-  status: PASS_DIAGNOSIS_COMPLETE
+  status: PASS_DB_EXAM_001_MACHINE_CONTRACT
   checks:
-    no_blocker_fixed_during_diagnosis: true
+    DB_EXAM_001_same_tenant_and_exact_target_integrity_resolved: true
+    attempt_exact_course_student_pair_closed: true
+    reservation_inventory_and_attempt_same_tenant_closed: true
+    access_attempt_and_optional_station_same_tenant_closed: true
+    station_session_exact_access_attempt_binding_closed: true
+    station_transfer_same_attempt_boundary_closed: true
+    attempt_question_and_result_receive_tenant_key: true
+    document_attempt_and_asset_same_tenant_closed: true
+    history_preserving_RESTRICT_policy_preserved: true
+    global_user_and_dictionaries_not_fake_tenant_scoped: true
+    source_order_item_commerce_boundary_deferred_to_DB4_9: true
+    no_status_lifecycle_or_race_semantics_from_DB_EXAM_003_004_006_solved_early: true
+    no_token_security_from_DB_EXAM_005_solved_early: true
+    no_scoring_document_immutability_from_DB_EXAM_007_solved_early: true
+    no_management_projection_from_DB_EXAM_008_solved_early: true
     core_schema_aggregate_modified: false
     docs87_aggregate_modified: false
-    course_first_formal_exam_preserved: true
-    no_ad_hoc_formal_candidate_introduced: true
-    theory_exemption_and_requirement_engine_preserved: true
-    remote_link_and_local_current_workstation_preserved: true
-    assigned_exam_station_extension_preserved: true
-    consume_on_start_ADR_preserved: true
-    release_before_start_preserved: true
-    technical_abort_no_auto_restore_preserved: true
-    multi_attempt_history_preserved: true
-    tokenized_exam_frontend_preserved: true
-    question_review_and_answer_sheet_preserved: true
-    paper_signature_workflow_preserved: true
-    no_global_one_student_per_OSK_limit_invented: true
-    DB4_9_payment_and_inventory_grant_not_solved_early: true
-    DB4_8_PKK_provider_lifecycle_not_entered: true
-    DB4_10_final_audit_outbox_physical_shape_not_entered: true
+    DB4_8_or_later_entered: false
     Laravel_migrations_created: false
     Stage5_started: false
     UI_or_feature_implementation_started: false
 
 next_single_step_after_central_gate:
-  id: DB-EXAM-001
-  action: resolve_same_tenant_and_exact_target_integrity_only
-  stop_before: DB-EXAM-002
+  id: DB-EXAM-002
+  action: resolve_formal_course_requirement_and_exam_capability_basis_only
+  stop_before: DB-EXAM-003
