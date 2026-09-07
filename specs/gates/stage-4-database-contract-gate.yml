@@ -85,13 +85,13 @@ stage_4_slices:
     final_aggregate_sync: PASS
     result: PASS
   - id: DB4_7_INTERNAL_EXAMS
-    status: FAIL_WITH_5_P1_BLOCKERS
+    status: FAIL_WITH_4_P1_BLOCKERS
     diagnosis: COMPLETE
     blockers_diagnosed: 8
-    blockers_resolved: 3
-    open_P0_P1: 5
+    blockers_resolved: 4
+    open_P0_P1: 4
     final_aggregate_sync: BLOCKED
-    result: FAIL_WITH_5_P1_BLOCKERS
+    result: FAIL_WITH_4_P1_BLOCKERS
   - id: DB4_8_PKK
     status: NOT_STARTED
   - id: DB4_9_STUDENT_FINANCE_COMMERCE
@@ -2097,6 +2097,104 @@ quality_checks:
       Stage5_started: false
       UI_or_feature_implementation_started: false
 
+  internal_exam_attempt_access_lifecycle_concurrency:
+    status: PASS
+    resolved_blocker_id: DB-EXAM-004
+    severity: P1
+    machine_source: specs/database/internal-exams.yml
+    audit_source: docs/112-stage-4-internal-exams-audit.md
+    machine_contract_commit: 7143bae588a9397d9f0a94f6c52bf827f21ea952
+    narrative_audit_commit: a2b91dc59b0f6fc1f335b2fa4fec7504836e0f60
+    decision:
+      attempt_lifecycle_authority: internal_exam_attempts.status
+      access_lifecycle_authority: internal_exam_accesses.status
+      main_concurrency_root: internal_exam_attempts_row_FOR_UPDATE
+      attempt_version_required: true
+      access_version_required: true
+      attempt_status_values: [created, in_progress, passed, failed, technical_abort, invalidated]
+      access_status_values: [draft, ready, delivered_or_assigned, opened, started, completed, cancelled, expired, revoked, technical_abort, invalidated]
+      prestart_attempt_cancelled_state_added: false
+      repeat_exam_reopens_terminal_attempt: false
+      repeat_exam_requires_new_attempt: true
+      attempt_state_timestamp_matrix_database_enforced: true
+      access_state_timestamp_matrix_database_enforced: true
+      attempt_lifecycle_history_append_only: true
+      access_lifecycle_history_append_only: true
+      current_row_version_status_history_equivalence_guard: DEFERRABLE_INITIALLY_DEFERRED_or_equivalent_transactional_DB_guard
+      one_nonterminal_access_per_attempt: true
+      one_ever_started_access_per_attempt: true
+      remote_link_requires_null_station_and_expiry: true
+      local_current_workstation_requires_server_resolved_station_and_no_expiry: true
+      assigned_exam_station_requires_station_and_no_expiry: true
+      mode_and_station_id_immutable_per_access: true
+      station_device_binding_and_failover: deferred_to_DB_EXAM_006
+      candidate_snapshot_PATCH_before_start_only: true
+      candidate_snapshot_PATCH_requires_expected_attempt_version: true
+      candidate_snapshot_PATCH_cannot_rebind_course_category_language_requirement_or_capability: true
+      later_requirement_or_capability_change_rewrites_existing_attempt: false
+      later_requirement_or_capability_change_silently_blocks_existing_attempt: false
+      existing_attempt_creation_time_basis_remains_history_authority: true
+      access_create_requires_attempt_created_and_zero_nonterminal_access: true
+      existing_reserved_reservation_reused_for_first_access: true
+      replacement_after_prestart_release_creates_new_reservation_atomically: true
+      released_reservation_reopened_in_place: false
+      resend_creates_second_access_or_reservation: false
+      shared_lock_prefix: [internal_exam_attempt, internal_exam_access]
+      DB_EXAM_003_inventory_lock_suffix_preserved: [internal_exam_reservation, internal_exam_inventory_entry]
+      start_revoke_expire_cancel_full_lock_order: [internal_exam_attempt, internal_exam_access, internal_exam_reservation, internal_exam_inventory_entry]
+      remote_start_requires_effective_at_lt_expires_at: true
+      exact_expiry_boundary_start_allowed: false
+      start_consumes_via_DB_EXAM_003_exactly_once: true
+      start_sets_attempt_and_access_started_atomically: true
+      revoke_expire_cancel_prestart_release_via_DB_EXAM_003: true
+      submit_requires_in_progress_started_access_consumed_reservation: true
+      submit_consumes_inventory_again: false
+      technical_abort_auto_restores_inventory: false
+      invalidate_permission: exams.attempt.invalidate
+      invalidate_requires_reason_and_expected_version: true
+      invalidate_before_start_allowed: false
+      invalidate_rewrites_or_deletes_result_question_document_evidence: false
+      invalidate_restores_consumed_inventory: false
+      public_Stage3_invalidate_endpoint_present: false
+      invalidate_endpoint_contract_sync: Stage5_acceptance_contract_sync
+      submit_abort_invalidate_races_serialize_on_attempt: true
+      deliberate_postfinish_invalidation_requires_refetched_current_version: true
+      final_attempt_access_reservation_state_equivalence_guard: DEFERRABLE_INITIALLY_DEFERRED_or_equivalent_transactional_DB_guard
+      migration_guesses_current_access_or_lifecycle_order: forbidden
+      DB_EXAM_005_through_DB_EXAM_008_not_fixed: true
+    checks:
+      attempt_and_access_status_catalogs_closed: PASS
+      attempt_and_access_state_timestamp_matrices_closed: PASS
+      attempt_and_access_version_history_pairing_closed: PASS
+      one_nonterminal_access_and_one_ever_started_access_boundaries_closed: PASS
+      remote_local_assigned_mode_station_shape_closed_without_station_device_scope_creep: PASS
+      candidate_PATCH_If_Match_and_before_start_boundary_closed: PASS
+      later_basis_change_preserves_existing_attempt_history: PASS
+      replacement_access_after_release_re_reserves_atomically_without_reopening_old_reservation: PASS
+      resend_does_not_allocate_second_access_or_inventory_unit: PASS
+      DB_EXAM_003_lock_suffix_preserved: PASS
+      start_revoke_expire_share_deterministic_lock_order: PASS
+      start_vs_revoke_or_expire_has_one_winner: PASS
+      start_consumes_once_and_submit_does_not_consume_again: PASS
+      submit_vs_technical_abort_has_one_execution_terminal_winner: PASS
+      invalidate_stale_version_cannot_silently_rebase_after_submit_or_abort: PASS
+      deliberate_postfinish_invalidate_requires_current_version: PASS
+      technical_abort_and_invalidate_do_not_auto_restore_consumed_inventory: PASS
+      invalidation_preserves_evidence_for_DB_EXAM_007: PASS
+      attempt_access_reservation_final_state_guard_closed: PASS
+      migration_does_not_guess_access_winner_status_or_transition_order: PASS
+      DB_EXAM_001_DB_EXAM_002_DB_EXAM_003_preserved: PASS
+      DB_EXAM_005_token_security_remains_open: PASS
+      DB_EXAM_006_station_failover_remains_open: PASS
+      DB_EXAM_007_evidence_scoring_document_immutability_remains_open: PASS
+      DB_EXAM_008_management_projection_remains_open: PASS
+      aggregate_core_schema_modified_in_step: false
+      aggregate_docs87_modified_in_step: false
+      DB4_8_or_later_entered: false
+      Laravel_migrations_created: false
+      Stage5_started: false
+      UI_or_feature_implementation_started: false
+
 resolved_blockers:
   - DB-FOUND-001
   - DB-FOUND-002
@@ -2138,9 +2236,9 @@ resolved_blockers:
   - DB-EXAM-001
   - DB-EXAM-002
   - DB-EXAM-003
+  - DB-EXAM-004
 
 open_blockers_current_diagnosed_scope:
-  - DB-EXAM-004
   - DB-EXAM-005
   - DB-EXAM-006
   - DB-EXAM-007
@@ -2154,7 +2252,7 @@ gate_definition:
     - migration_order_dependency_safe
     - database_invariant_test_matrix_exists
     - reverse_engineering_preservation_traceable
-  current_result: DB4_7_FAIL_WITH_5_P1_BLOCKERS
+  current_result: DB4_7_FAIL_WITH_4_P1_BLOCKERS
   DB4_1_result: PASS
   DB4_2_result: PASS
   DB4_3_result: PASS
@@ -2193,7 +2291,8 @@ gate_definition:
   DB4_7_DB_EXAM_001_result: PASS
   DB4_7_DB_EXAM_002_result: PASS
   DB4_7_DB_EXAM_003_result: PASS
-  DB4_7_result: FAIL_WITH_5_P1_BLOCKERS
+  DB4_7_DB_EXAM_004_result: PASS
+  DB4_7_result: FAIL_WITH_4_P1_BLOCKERS
   may_start_DB4_4_fixes: false
   may_start_DB4_5: false
   may_start_DB4_5_fixes: false
@@ -2206,8 +2305,8 @@ gate_definition:
   may_start_UI_or_feature_implementation: false
 
 next_single_step:
-  id: DB_EXAM_004_ATTEMPT_ACCESS_LIFECYCLE_CONCURRENCY
-  action: resolve_DB_EXAM_004_only_after_next_explicit_user_instruction
+  id: DB_EXAM_005_EXAM_ACCESS_TOKEN_AND_FINISHED_RESULT_TOKEN_SECURITY
+  action: resolve_DB_EXAM_005_only_after_next_explicit_user_instruction
   allowed_scope:
     - specs/database/internal-exams.yml
     - docs/112-stage-4-internal-exams-audit.md
@@ -2216,8 +2315,8 @@ next_single_step:
     - specs/database/core-schema.yml
     - docs/87-physical-database-schema.md
   scope_lock: >-
-    Resolve only DB-EXAM-004 Attempt/Access lifecycle and concurrency. Preserve
-    DB-EXAM-005 through DB-EXAM-008 as OPEN. Do not enter DB4_8 or later slices,
-    do not start Stage 5, do not create Laravel migrations and do not start
+    Resolve only DB-EXAM-005 exam access token and finished-result token security.
+    Preserve DB-EXAM-006 through DB-EXAM-008 as OPEN. Do not enter DB4_8 or later
+    slices, do not start Stage 5, do not create Laravel migrations and do not start
     UI/feature implementation.
-  after_action: rerun_DB_EXAM_004_gate_and_STOP_before_DB_EXAM_005
+  after_action: rerun_DB_EXAM_005_gate_and_STOP_before_DB_EXAM_006
