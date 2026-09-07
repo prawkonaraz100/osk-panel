@@ -2,8 +2,8 @@ meta:
   project: osk-panel
   stage: 4
   slice: DB4_7_INTERNAL_EXAMS
-  step: DB_EXAM_007_IMMUTABLE_EXAM_DEFINITION_QUESTION_RESULT_AND_DOCUMENT_EVIDENCE
-  status: FAIL_WITH_1_P1_BLOCKER
+  step: DB_EXAM_008_DETERMINISTIC_MANAGEMENT_HISTORY_LATEST_AND_STATISTICS_PROJECTION
+  status: BLOCKERS_RESOLVED_PENDING_DB4_7_FINAL_AGGREGATE_SYNC
   diagnosed_at: 2026-09-07
   branch: docs-consolidation-2026-09-05
   aggregate_sync_status: FROZEN_UNTIL_DB4_7_FINAL_SYNC
@@ -15,7 +15,7 @@ meta:
 scope_rule:
   diagnose_before_fixing: true
   fixes_allowed_in_this_step: true
-  current_step_scope: DB_EXAM_007_only
+  current_step_scope: DB_EXAM_008_only
   one_blocker_per_future_step: true
   aggregate_files_frozen:
     - specs/database/core-schema.yml
@@ -2538,6 +2538,270 @@ resolved_contracts:
       - DB_EXAM_001_through_DB_EXAM_006_preserved
       - DB_EXAM_008_remains_open
 
+  DB-EXAM-008:
+    status: PASS
+    title: deterministic_management_history_latest_and_statistics_projection
+    severity: P1
+    goal: >-
+      Make the exam-management list, expanded history, latest-attempt summary,
+      filters, stable sorting, counts and pass-rate deterministic projections of
+      the formal Course/Attempt lifecycle without introducing a mutable summary
+      authority or letting display timestamps decide which Attempt is latest.
+
+    projection_authority:
+      mutable_management_summary_table_as_authority: forbidden
+      canonical_lifecycle_authority: internal_exam_attempts.status_from_DB_EXAM_004
+      canonical_formal_eligibility_authority: current_training_requirement_profile_from_DB_EXAM_002
+      canonical_attempt_history_authority: internal_exam_attempts
+      canonical_result_authority: internal_exam_results_from_DB_EXAM_007
+      projection_kind: relational_view_or_equivalent_single_query_over_authoritative_rows
+      recommended_database_view_name: internal_exam_management_subjects_v
+      materialized_projection_with_stale_independent_status: forbidden
+      current_student_identity_is_management_search_display_source_not_finished_exam_history_source: true
+      finished_attempt_candidate_snapshot_history_remains_DB_EXAM_007_authority: true
+
+    management_subject_grain:
+      key: [organization_id, course_enrollment_id, exam_part]
+      student_id_derived_from_exact_course_enrollment: true
+      course_category_derived_from_exact_course_enrollment: true
+      separate_student_only_summary_row_as_formal_authority: false
+      include_context_when:
+        - current_requirement_profile_marks_exam_part_required
+        - or_at_least_one_historical_attempt_exists_for_exact_course_and_part
+      omit_context_when_no_attempt_and_current_part_not_required: true
+      reason: >-
+        A part that is not currently required must never appear as a missing
+        assignment. Historical attempts remain visible even if later requirement
+        recalculation makes that part non-current, so management does not erase
+        formal history.
+      assignment_eligible_now_projection:
+        true_when_current_profile_required_flag_true: true
+        false_when_part_not_currently_required: true
+        create_command_still_revalidates_DB_EXAM_002_under_course_lock: true
+      one_student_with_multiple_course_enrollments_may_have_multiple_management_contexts: true
+      one_course_with_theory_and_practical_required_may_have_two_contexts: true
+      Stage3_ExamSubject_missing_course_enrollment_id_and_exam_part: true
+      typed_API_projection_sync: Stage5_acceptance_contract_sync
+
+    deterministic_attempt_ordering:
+      add_attempt_fields:
+        - course_attempt_sequence_bigint_not_null_check_gte_1
+        - created_at_timestamptz_not_null_immutable
+      unique_sequence_scope: [organization_id, course_enrollment_id, course_attempt_sequence]
+      sequence_scope_includes_all_exam_parts_for_same_course: true
+      allocation_transaction: existing_formal_attempt_creation_transaction
+      allocation_lock: course_enrollment_FOR_UPDATE_already_first_lock_from_DB_EXAM_002
+      next_sequence_formula: COALESCE(MAX_course_attempt_sequence_for_exact_course_0)_plus_1
+      sequence_assigned_before_attempt_insert: true
+      sequence_and_attempt_insert_commit_or_rollback_together: true
+      concurrent_creates_same_course_are_serialized: true
+      committed_runtime_sequence_contiguous_from_one: true
+      sequence_immutable_after_insert: true
+      attempt_normal_hard_delete_forbidden_preserves_sequence_history: true
+      timestamp_is_latest_authority: false
+      UUID_is_latest_authority: false
+      display_minute_is_latest_authority: false
+      latest_attempt_for_management_context: MAX_course_attempt_sequence_where_exact_course_and_exam_part
+      expanded_course_history_order: [course_attempt_sequence_DESC]
+      equal_created_at_or_equal_displayed_minute_still_has_one_latest: true
+      index_required:
+        columns: [organization_id, course_enrollment_id, exam_part, course_attempt_sequence]
+        order_hint: course_attempt_sequence_DESC
+
+    latest_projection_fields:
+      latest_attempt_id: exact_attempt_with_max_sequence_for_context_or_null
+      latest_attempt_sequence: max_sequence_for_context_or_null
+      latest_attempt_status: exact_DB_EXAM_004_status_or_null
+      latest_exam_category: latest_attempt_driving_category_code_or_null
+      latest_exam_language: latest_attempt_language_code_or_null
+      latest_exam_at:
+        core_v1_source: latest_attempt.created_at
+        nullable_when_no_attempt: true
+        purpose: management_display_and_sort_field
+        not_used_to_select_latest_attempt: true
+      latest_attempt_started_at_projection_allowed: true
+      latest_attempt_finished_at_projection_allowed: true
+      management_latest_fields_must_all_come_from_same_latest_attempt_id: true
+      mixing_category_from_one_attempt_and_status_or_language_from_another: forbidden
+
+    public_status_projection:
+      values: [not_assigned, not_conducted, failed, passed]
+      persisted_as_mutable_subject_status: false
+      mapping:
+        no_attempt_for_included_current_required_context: not_assigned
+        latest_attempt_created: not_conducted
+        latest_attempt_in_progress: not_conducted
+        latest_attempt_technical_abort: not_conducted
+        latest_attempt_invalidated: not_conducted
+        latest_attempt_failed: failed
+        latest_attempt_passed: passed
+      current_part_not_required_and_no_history_produces_not_assigned: false
+      technical_abort_is_failed_result: false
+      invalidated_attempt_preserved_result_makes_projection_passed_or_failed: false
+      prior_passed_or_failed_attempt_does_not_override_newer_attempt_status: true
+      reason: management_column_is_latest_exam_projection_not_course_completion_authority
+      course_completion_or_training_stage_authority_recomputed_from_this_status: false
+
+    attempt_counts_and_pass_rate:
+      exact_scope: [organization_id, course_enrollment_id, exam_part]
+      exam_count:
+        formula: COUNT_all_internal_exam_attempts_for_context
+        includes_statuses: [created, in_progress, passed, failed, technical_abort, invalidated]
+        reason: expanded_history_count_is_attempt_history_count_not_only_results
+      passed_count:
+        formula: COUNT_attempts_where_current_status_passed
+      failed_count:
+        formula: COUNT_attempts_where_current_status_failed
+      valid_conducted_count:
+        formula: passed_count_plus_failed_count
+      excluded_from_valid_conducted_denominator: [created, in_progress, technical_abort, invalidated]
+      invalidated_result_evidence_preserved_but_excluded_from_current_valid_pass_fail_statistics: true
+      pass_rate:
+        formula: passed_count_divided_by_valid_conducted_count
+        denominator_zero_value: null
+        not_zero_when_no_conducted_attempt: true
+        precision_or_percentage_rounding: API_presentation_concern_not_database_authority
+      panel_aggregate_counts:
+        source: sum_attempt_counts_over_subject_contexts_in_exact_query_scope
+        aggregate_pass_rate_formula: SUM_passed_count_divided_by_SUM_valid_conducted_count
+        average_of_per_row_pass_rates: forbidden
+      no_counter_columns_mutated_on_attempt_transition: true
+
+    hide_finished_semantics:
+      applies_to: management_subject_rows_only
+      hide_finished_false: no_additional_status_predicate
+      hide_finished_true_excludes_projected_statuses: [passed, failed]
+      hide_finished_true_keeps_projected_statuses: [not_assigned, not_conducted]
+      technical_abort_and_invalidated_remain_visible_for_followup: true
+      expanded_history_rows_deleted_or_hidden_by_flag: false
+      database_attempt_rows_mutated_by_flag: false
+
+    search_filter_semantics:
+      search_q:
+        sources_current_management_identity:
+          - students.first_name
+          - students.last_name
+          - students.contact_email
+          - student_learning_accounts.login_identifier
+        PESEL_searched_by_main_q: false
+        finished_candidate_snapshot_searched_by_main_q: false
+        field_combination: OR
+        case_insensitive: true
+      category_filter:
+        source: exact_course_enrollment.driving_category
+        multiple_selected_values_combine: OR
+      status_filter:
+        source: public_status_projection
+        multiple_selected_values_combine: OR
+      different_filter_dimensions_combine: AND
+      hide_finished_combines_with_other_filters: AND
+      tenant_predicate_required_before_projection: true
+      search_or_filter_never_changes_attempt_status_or_history: true
+
+    stable_sort_and_pagination:
+      allowed_sort_fields:
+        - identity_or_login
+        - student_full_name
+        - latest_exam_category
+        - latest_exam_status
+        - latest_exam_at
+        - latest_exam_language
+        - exam_count
+      directions: [asc, desc]
+      latest_exam_status_rank_asc:
+        not_assigned: 1
+        not_conducted: 2
+        failed: 3
+        passed: 4
+      null_order_for_nullable_latest_fields: NULLS_LAST_for_both_directions
+      identity_or_login_sort_key: normalized_COALESCE_contact_email_then_login_then_empty
+      student_full_name_sort_key: normalized_last_name_then_first_name
+      final_stable_tie_breaker: [course_enrollment_id_ASC, exam_part_ASC]
+      tie_breaker_applied_after_every_requested_sort: true
+      pagination_without_stable_tie_breaker: forbidden
+      latest_exam_at_sort_does_not_define_latest_attempt: true
+      same_minute_or_same_timestamp_rows_do_not_reorder_between_pages: true
+
+    expanded_history_projection:
+      endpoint_scope: exact_course_enrollment
+      all_attempts_retained: true
+      canonical_order: course_attempt_sequence_DESC
+      status_text_comes_from_exact_attempt_lifecycle_projection: true
+      candidate_and_PKK_display_for_finished_history_uses_attempt_snapshot_not_current_profile: true
+      details_token_uses_DB_EXAM_005_exact_attempt_binding: true
+      answer_sheet_uses_DB_EXAM_007_exact_evidence_bundle: true
+      newer_attempt_never_overwrites_older_result_or_document: true
+
+    concurrency_and_lifecycle_interaction:
+      attempt_create_sequence_allocation_extends_DB_EXAM_002_without_reordering_first_course_lock: true
+      DB_EXAM_003_inventory_allocation_occurs_in_same_outer_create_transaction: true
+      failed_attempt_creation_rolls_back_sequence_and_inventory_reservation_together: true
+      attempt_status_transition_does_not_change_course_attempt_sequence: true
+      invalidate_does_not_renumber_attempts: true
+      repeat_exam_always_new_attempt_with_next_course_sequence: true
+      management_read_needs_no_write_lock_or_summary_update: true
+
+    API_contract_sync_gaps:
+      current_ExamSubject_too_small_for_course_part_latest_fields_counts_and_assignment_eligibility: true
+      current_subjects_endpoint_has_search_category_status_sort_and_pagination: true
+      hide_finished_query_parameter_missing_in_Stage3_contract: true
+      current_course_attempt_history_endpoint_exists: true
+      exact_projection_fields_status_enum_hide_finished_and_sort_enum_sync: Stage5_acceptance_contract_sync
+      API_files_modified_in_DB_EXAM_008: false
+
+    migration_policy:
+      existing_attempt_sequence_backfill_requires_proven_total_order_within_exact_course: true
+      allowed_order_evidence_examples:
+        - trusted_existing_monotonic_sequence
+        - trusted_strict_creation_timestamp_order_without_ties
+        - reviewed_external_source_with_exact_attempt_order
+      displayed_minute_order_is_sufficient: false
+      UUID_order_as_tie_breaker: forbidden
+      random_or_lexicographic_ID_order_as_creation_order: forbidden
+      tied_or_missing_creation_evidence_auto_order: forbidden
+      current_status_or_result_used_to_guess_attempt_order: forbidden
+      reviewed_exact_order_may_assign_contiguous_1_to_N: true
+      current_required_profile_may_define_management_visibility_after_cutover: true
+      historical_attempts_for_now_nonrequired_part_are_not_deleted: true
+      ambiguous_legacy_order: fail_and_require_reviewed_remediation
+      mutable_legacy_summary_counter_or_latest_attempt_pointer_promoted_without_reconciliation: forbidden
+
+    required_tests:
+      - course_attempt_sequence_starts_at_one_and_is_unique_per_course
+      - course_attempt_sequence_is_contiguous_for_committed_runtime_attempts
+      - concurrent_attempt_creates_same_course_get_distinct_ordered_sequences
+      - failed_create_rolls_back_attempt_sequence_and_inventory_reservation
+      - equal_created_at_attempts_still_have_one_latest_by_course_sequence
+      - displayed_minute_or_UUID_never_selects_latest
+      - latest_context_attempt_is_max_sequence_for_exact_course_and_part
+      - all_latest_category_status_language_time_fields_come_from_same_attempt
+      - no_attempt_required_context_projects_not_assigned
+      - no_attempt_nonrequired_context_is_not_false_not_assigned
+      - created_in_progress_technical_abort_and_invalidated_project_not_conducted
+      - failed_projects_failed
+      - passed_projects_passed
+      - invalidated_preserved_result_does_not_count_as_passed_or_failed_projection
+      - exam_count_includes_all_attempt_lifecycle_statuses
+      - pass_rate_denominator_contains_only_current_passed_and_failed_attempts
+      - pass_rate_is_null_when_no_valid_conducted_attempt
+      - panel_pass_rate_uses_ratio_of_sums_not_average_of_row_rates
+      - hide_finished_excludes_latest_passed_and_failed_only
+      - hide_finished_keeps_not_assigned_not_conducted_and_does_not_hide_history
+      - status_filters_OR_within_status_dimension
+      - categories_OR_within_category_dimension
+      - category_status_search_and_hide_finished_combine_with_AND
+      - main_search_uses_current_name_email_login_and_not_PESEL_or_finished_snapshot
+      - stable_sort_adds_course_and_part_tie_breaker_for_every_sort_field
+      - nullable_latest_sort_fields_are_NULLS_LAST_in_both_directions
+      - pagination_does_not_duplicate_or_skip_equal_primary_sort_values
+      - expanded_history_uses_course_attempt_sequence_desc
+      - latest_management_projection_is_not_mutable_summary_authority
+      - attempt_status_transition_requires_no_counter_or_summary_row_update
+      - later_requirement_change_does_not_delete_historical_attempt_context
+      - DB_EXAM_001_through_DB_EXAM_007_preserved
+      - DB4_7_final_aggregate_sync_not_started
+      - DB4_8_and_later_not_entered
+
 blockers:
   - id: DB-EXAM-001
     title: same_tenant_and_exact_target_integrity
@@ -2699,7 +2963,8 @@ blockers:
   - id: DB-EXAM-008
     title: deterministic_management_history_latest_and_statistics_projection
     severity: P1
-    status: OPEN
+    status: RESOLVED
+    resolution_ref: resolved_contracts.DB-EXAM-008
     diagnosis:
       - management_panel_requires_latest_exam_attempt_count_pass_rate_passed_failed_status_filters_sorting_and_hide_finished
       - observed_attempts_can_share_the_same_displayed_minute_so_timestamp_alone_cannot_deterministically_select_latest
@@ -2721,14 +2986,13 @@ diagnosis_summary:
   diagnosed_P0: 0
   diagnosed_P1: 8
   resolved_in_diagnosis: 0
-  resolved_after_diagnosis: 7
-  open_P0_P1: 1
-  result: FAIL_WITH_1_P1_BLOCKER
-  blockers_in_required_fix_order:
-    - DB-EXAM-008
+  resolved_after_diagnosis: 8
+  open_P0_P1: 0
+  result: BLOCKERS_RESOLVED_PENDING_DB4_7_FINAL_AGGREGATE_SYNC
+  blockers_in_required_fix_order: []
 
 preservation_gate:
-  status: PASS_DB_EXAM_007_MACHINE_CONTRACT
+  status: PASS_DB_EXAM_008_MACHINE_CONTRACT
   checks:
     no_blocker_fixed_during_diagnosis: true
     course_first_formal_exam_preserved: true
@@ -2846,6 +3110,16 @@ preservation_gate:
     DB_EXAM_007_current_question_bank_or_template_cannot_rewrite_history: true
     DB_EXAM_007_correction_requires_append_only_or_invalidation_semantics: true
     DB_EXAM_008_management_projection_remains_open_after_DB_EXAM_007: true
+    DB_EXAM_008_management_subject_grain_course_part_closed: true
+    DB_EXAM_008_course_attempt_sequence_is_latest_authority: true
+    DB_EXAM_008_timestamp_and_UUID_not_latest_authority: true
+    DB_EXAM_008_public_status_is_derived_not_mutable_authority: true
+    DB_EXAM_008_not_required_part_not_false_not_assigned: true
+    DB_EXAM_008_exam_count_and_pass_rate_denominators_closed: true
+    DB_EXAM_008_hide_finished_semantics_closed_without_hiding_history: true
+    DB_EXAM_008_search_filter_sort_and_pagination_stability_closed: true
+    DB_EXAM_008_migration_does_not_guess_legacy_attempt_order: true
+    DB4_7_final_aggregate_sync_not_started_after_DB_EXAM_008_machine: true
     core_schema_aggregate_modified: false
     docs87_aggregate_modified: false
     DB4_8_or_later_entered: false
@@ -2854,6 +3128,6 @@ preservation_gate:
     UI_or_feature_implementation_started: false
 
 next_single_step_after_central_gate:
-  id: DB-EXAM-008
-  action: resolve_deterministic_management_history_latest_and_statistics_projection_only
-  stop_before: DB4_7_FINAL_AGGREGATE_SYNC
+  id: DB4_7_FINAL_AGGREGATE_SYNC
+  action: synchronize_internal_exam_contract_into_frozen_aggregates_only_after_next_explicit_user_instruction
+  stop_before: DB4_8_PKK
