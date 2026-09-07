@@ -2,8 +2,8 @@ meta:
   project: osk-panel
   stage: 4
   slice: DB4_7_INTERNAL_EXAMS
-  step: DB_EXAM_001_SAME_TENANT_EXACT_TARGET
-  status: FAIL_WITH_7_P1_BLOCKERS
+  step: DB_EXAM_002_FORMAL_COURSE_REQUIREMENT_CAPABILITY_BASIS
+  status: FAIL_WITH_6_P1_BLOCKERS
   diagnosed_at: 2026-09-07
   branch: docs-consolidation-2026-09-05
   aggregate_sync_status: FROZEN_UNTIL_DB4_7_FINAL_SYNC
@@ -15,7 +15,7 @@ meta:
 scope_rule:
   diagnose_before_fixing: true
   fixes_allowed_in_this_step: true
-  current_step_scope: DB_EXAM_001_only
+  current_step_scope: DB_EXAM_002_only
   one_blocker_per_future_step: true
   aggregate_files_frozen:
     - specs/database/core-schema.yml
@@ -197,7 +197,7 @@ resolved_contracts:
         effect: attempt_course_must_belong_to_exact_attempt_student
       driving_category_is_global_dictionary: true
       language_is_global_dictionary: true
-      category_or_language_matching_course_or_capability: deferred_to_DB_EXAM_002
+      category_or_language_matching_course_or_capability: closed_by_DB_EXAM_002
 
     reservation_relations:
       inventory_same_tenant:
@@ -347,6 +347,219 @@ resolved_contracts:
       - migration_fails_on_cross_tenant_document_asset
       - DB_EXAM_002_through_DB_EXAM_008_remain_open
 
+  DB-EXAM-002:
+    status: PASS
+    title: formal_course_requirement_and_exam_capability_basis
+    severity: P1
+    goal: >-
+      A formal InternalExamAttempt must prove which exact immutable requirement
+      decision authorized the requested exam part and which exact category/part/
+      language capability made that exam variant available at creation time,
+      without making the Attempt a second rule-engine authority.
+
+    authority_model:
+      requirement_decision_authority: training_requirement_profiles
+      current_requirement_freshness_authority: course_enrollments.requirements_revision
+      requirement_rule_artifact_authority: training_requirement_rule_sets
+      exam_category_authority: course_enrollments.driving_category_id
+      requested_exam_part_authority: CreateInternalExamAttemptRequest.exam_part_subject_to_current_requirement_profile
+      requested_language_authority: CreateInternalExamAttemptRequest.language_code_subject_to_current_capability
+      generic_requirement_basis_text_as_canonical_authority: false
+      current_capability_projection_authority: internal_exam_capabilities_current_rows
+      attempt_stores_historical_basis_not_independent_requirement_decision: true
+
+    requirement_profile_exact_binding:
+      add_attempt_columns:
+        - training_requirement_profile_id_uuid_not_null
+        - requirements_revision_bigint_not_null_check_gte_1
+        - internal_exam_capability_id_uuid_not_null
+        - requirement_basis_snapshot_jsonb_not_null
+      training_requirement_profiles_candidate_key:
+        columns: [organization_id, id, course_enrollment_id, requirements_revision]
+        unique_constraint_required: true
+        purpose: exact_attempt_course_revision_profile_FK_target
+      attempt_exact_profile_FK:
+        source_columns: [organization_id, training_requirement_profile_id, course_enrollment_id, requirements_revision]
+        target_table: training_requirement_profiles
+        target_columns: [organization_id, id, course_enrollment_id, requirements_revision]
+        on_update: RESTRICT
+        on_delete: RESTRICT
+      course_enrollments_exact_student_category_candidate_key:
+        columns: [organization_id, id, student_id, driving_category_id]
+        unique_constraint_required: true
+      attempt_exact_course_student_category_FK:
+        source_columns: [organization_id, course_enrollment_id, student_id, driving_category_id]
+        target_table: course_enrollments
+        target_columns: [organization_id, id, student_id, driving_category_id]
+        on_update: RESTRICT
+        on_delete: RESTRICT
+        strengthens_DB_EXAM_001_exact_course_student_boundary: true
+      profile_must_be_current_at_attempt_creation: true
+      current_profile_predicate: superseded_at_is_null_and_profile_requirements_revision_equals_course_requirements_revision
+      profile_currentness_is_permanent_FK_condition: false
+      reason: later_requirement_recalculation_must_be_allowed_to_supersede_profile_without_invalidating_historical_attempt
+
+    required_part_mapping:
+      theory:
+        required_profile_flag: internal_theory_exam_required
+        creation_requires_value: true
+      practical:
+        required_profile_flag: internal_practical_exam_required
+        creation_requires_value: true
+      unsupported_exam_part_value: rejected
+      theory_exempt_profile_allows_new_theory_attempt: false
+      practical_not_required_profile_allows_new_practical_attempt: false
+      attempt_exam_part_mutable_after_creation: false
+      attempt_requirement_profile_or_revision_rebind_after_creation: forbidden
+
+    internal_exam_capabilities:
+      role: global_versioned_category_part_language_availability_history
+      tenant_owned: false
+      fields:
+        - id_uuid_PK
+        - driving_category_id_uuid_not_null_FK_global_dictionary
+        - exam_part_varchar_16_not_null_theory_or_practical
+        - language_code_varchar_16_not_null_FK_global_language_dictionary
+        - enabled_at_timestamptz_not_null
+        - disabled_at_timestamptz_nullable
+        - source_reference_varchar_255_nullable
+        - created_at_timestamptz_not_null
+      current_predicate: disabled_at_is_null
+      current_unique:
+        type: partial_unique
+        columns: [driving_category_id, exam_part, language_code]
+        where: disabled_at_is_null
+      exact_attempt_target_candidate_key:
+        columns: [id, driving_category_id, exam_part, language_code]
+        unique_constraint_required: true
+      attempt_exact_capability_FK:
+        source_columns: [internal_exam_capability_id, driving_category_id, exam_part, language_code]
+        target_columns: [id, driving_category_id, exam_part, language_code]
+        on_update: RESTRICT
+        on_delete: RESTRICT
+      category_part_or_language_change_in_place: forbidden
+      normal_retirement: set_disabled_at_once
+      retired_row_hard_delete: forbidden_after_reference
+      reenable_same_historical_row_in_place: forbidden
+      later_reenable: create_new_capability_row
+      current_API_capabilities_endpoint_projection: group_current_rows_by_category_and_exam_part_and_list_language_codes
+      global_language_dictionary_alone_implies_exam_support: false
+      observed_screen_language_list_as_global_authority: false
+
+    attempt_basis_snapshot:
+      canonical_column: requirement_basis_snapshot
+      immutable_after_insert: true
+      minimum_safe_fields:
+        - training_requirement_profile_id
+        - requirements_revision
+        - rule_set_version
+        - rule_set_content_hash
+        - exam_part
+        - required_profile_flag_name
+        - required_profile_flag_value_true
+        - exemption_basis_code_nullable
+        - driving_category_id
+        - driving_category_code
+        - training_type
+        - internal_exam_capability_id
+        - language_code
+        - basis_evaluated_at
+      basis_evaluated_at_source: command_effective_at_captured_once_for_attempt_creation
+      PESEL_in_requirement_basis_snapshot: forbidden
+      PKK_in_requirement_basis_snapshot: forbidden
+      candidate_identity_snapshot_remains_separate: true
+      snapshot_is_history_evidence_not_current_rule_authority: true
+      integration_test_must_match_profile_rule_set_course_category_and_capability: true
+
+    creation_serialization_and_race_boundary:
+      operation: POST_/course-enrollments/{courseEnrollmentId}/internal-exam-attempts
+      current_request_fields: [exam_part, language_code]
+      request_may_supply_driving_category_id: false
+      first_lock_prefix: [course_enrollment_FOR_UPDATE]
+      reason: DB_TRN_005_requirement_recalculation_also_serializes_on_course_enrollment
+      after_course_lock_require:
+        - exact_current_training_requirement_profile_exists
+        - current_profile_requirements_revision_equals_locked_course_requirements_revision
+        - selected_exam_part_required_flag_is_true
+      selected_category: derive_from_locked_course_enrollment_driving_category_id
+      capability_lookup: exact_current_row_for_derived_category_plus_requested_exam_part_plus_requested_language
+      capability_row_lock_during_creation: FOR_SHARE
+      capability_retirement_requires_conflicting_row_update_lock: true
+      write_attempt_profile_revision_category_capability_and_basis_snapshot_atomically: true
+      inventory_reservation_transaction_integration: deferred_to_DB_EXAM_003
+      later_steps_may_extend_lock_order_but_must_not_reorder_course_prefix: true
+      requirement_change_vs_attempt_create_result: >-
+        Both commands serialize on CourseEnrollment. If attempt creation commits
+        first, it records the then-current immutable profile and later recalculation
+        may supersede that profile without rewriting the Attempt. If recalculation
+        commits first, attempt creation must validate the new current profile and
+        cannot use the superseded one.
+      capability_disable_vs_attempt_create_result: >-
+        Creation locks the selected current capability row for share while retirement
+        updates that same row. Therefore either the attempt records a capability that
+        was current before retirement, or retirement wins first and the new attempt
+        is rejected; no new attempt may commit against an already-disabled row.
+
+    later_requirement_or_capability_change_semantics:
+      existing_attempt_profile_pointer_rewritten: false
+      existing_attempt_requirements_revision_rewritten: false
+      existing_attempt_category_or_language_rewritten: false
+      existing_attempt_basis_snapshot_rewritten: false
+      existing_attempt_auto_invalidated_by_requirement_recalculation: false
+      existing_attempt_auto_invalidated_by_capability_retirement: false
+      new_attempt_may_use_superseded_requirement_profile: false
+      new_attempt_may_use_disabled_capability: false
+      derived_basis_current_projection_allowed: true
+      derived_basis_current_projection_is_mutable_authority: false
+      prestart_start_or_access_policy_when_basis_later_becomes_noncurrent: deferred_to_DB_EXAM_004
+      reason: >-
+        DB-EXAM-002 closes creation eligibility and immutable historical provenance.
+        Any explicit lifecycle action on an already-created pre-start Attempt must
+        be decided by DB-EXAM-004 rather than silently rewriting or deleting history.
+
+    migration_policy:
+      generic_legacy_requirement_basis_text_is_sufficient_to_infer_profile_pointer: false
+      current_requirement_profile_may_be_used_as_latest_heuristic_for_old_attempt: false
+      nearest_profile_by_calculated_at_or_UUID: forbidden
+      rerun_current_rule_engine_to_backfill_historical_basis: forbidden
+      current_capability_row_may_be_assumed_historical_capability: false
+      language_list_from_screen_or_global_dictionary_may_be_used_to_infer_support: false
+      reviewed_exact_profile_and_capability_mapping_when_proven: allowed
+      unresolved_legacy_attempt_basis: fail_and_require_reviewed_remediation
+      auto_delete_or_auto_invalidate_unreconstructible_attempt: forbidden
+      no_fake_rule_set_version_or_content_hash: true
+
+    required_tests:
+      - create_theory_attempt_requires_current_profile_internal_theory_exam_required_true
+      - theory_exempt_course_rejects_new_theory_attempt
+      - create_practical_attempt_requires_current_profile_internal_practical_exam_required_true
+      - practical_not_required_course_rejects_new_practical_attempt
+      - attempt_category_is_derived_from_exact_course_and_same_org_wrong_category_is_rejected
+      - request_cannot_override_course_category
+      - attempt_profile_pointer_for_other_course_is_rejected
+      - attempt_profile_revision_must_equal_exact_referenced_profile_revision
+      - new_attempt_cannot_bind_superseded_requirement_profile
+      - current_profile_revision_must_equal_locked_course_requirements_revision
+      - unsupported_language_for_exact_category_part_is_rejected
+      - capability_for_other_category_is_rejected
+      - capability_for_other_exam_part_is_rejected
+      - capability_for_other_language_is_rejected
+      - global_language_dictionary_presence_alone_does_not_grant_exam_capability
+      - capability_retirement_preserves_historical_row_and_blocks_new_attempt_after_retirement
+      - capability_reenable_creates_new_row_not_mutates_old_history
+      - concurrent_requirement_recalculation_and_attempt_create_serialize_on_course_row
+      - create_first_then_requirement_change_preserves_old_attempt_basis_without_rewrite
+      - requirement_change_first_then_create_uses_new_profile_or_rejects_part
+      - concurrent_capability_retire_and_attempt_create_cannot_commit_new_attempt_against_already_disabled_capability
+      - later_profile_supersession_does_not_rewrite_or_delete_existing_attempt
+      - later_capability_retirement_does_not_rewrite_or_delete_existing_attempt
+      - requirement_basis_snapshot_matches_exact_profile_rule_set_course_category_and_capability
+      - requirement_basis_snapshot_contains_no_PESEL_or_PKK
+      - legacy_generic_basis_is_not_auto_mapped_to_current_or_nearest_profile
+      - migration_does_not_rerun_current_rules_to_invent_historical_basis
+      - unresolved_legacy_basis_requires_reviewed_remediation
+      - DB_EXAM_003_through_DB_EXAM_008_remain_open
+
 blockers:
   - id: DB-EXAM-001
     title: same_tenant_and_exact_target_integrity
@@ -372,7 +585,8 @@ blockers:
   - id: DB-EXAM-002
     title: formal_course_requirement_and_exam_capability_basis
     severity: P1
-    status: OPEN
+    status: RESOLVED
+    resolution_ref: resolved_contracts.DB-EXAM-002
     diagnosis:
       - API_requires_exam_part_must_be_required_by_rule_engine_but_current_attempt_only_has_generic_requirement_basis_text
       - DB4_4_has_versioned_requirement_profiles_and_requirements_revision_but_attempt_does_not_yet_prove_which_exact_requirement_decision_authorized_the_part
@@ -524,11 +738,10 @@ diagnosis_summary:
   diagnosed_P0: 0
   diagnosed_P1: 8
   resolved_in_diagnosis: 0
-  resolved_after_diagnosis: 1
-  open_P0_P1: 7
-  result: FAIL_WITH_7_P1_BLOCKERS
+  resolved_after_diagnosis: 2
+  open_P0_P1: 6
+  result: FAIL_WITH_6_P1_BLOCKERS
   blockers_in_required_fix_order:
-    - DB-EXAM-002
     - DB-EXAM-003
     - DB-EXAM-004
     - DB-EXAM-005
@@ -537,7 +750,7 @@ diagnosis_summary:
     - DB-EXAM-008
 
 preservation_gate:
-  status: PASS_DB_EXAM_001_MACHINE_CONTRACT
+  status: PASS_DB_EXAM_002_MACHINE_CONTRACT
   checks:
     no_blocker_fixed_during_diagnosis: true
     course_first_formal_exam_preserved: true
@@ -556,19 +769,21 @@ preservation_gate:
     DB4_9_payment_and_inventory_grant_not_solved_early: true
     DB4_8_PKK_provider_lifecycle_not_entered: true
     DB4_10_final_audit_outbox_physical_shape_not_entered: true
-    DB_EXAM_001_same_tenant_and_exact_target_integrity_resolved: true
-    attempt_exact_course_student_pair_closed: true
-    reservation_inventory_and_attempt_same_tenant_closed: true
-    access_attempt_and_optional_station_same_tenant_closed: true
-    station_session_exact_access_attempt_binding_closed: true
-    station_transfer_same_attempt_boundary_closed: true
-    attempt_question_and_result_receive_tenant_key: true
-    document_attempt_and_asset_same_tenant_closed: true
-    history_preserving_RESTRICT_policy_preserved: true
-    global_user_and_dictionaries_not_fake_tenant_scoped: true
-    source_order_item_commerce_boundary_deferred_to_DB4_9: true
-    no_status_lifecycle_or_race_semantics_from_DB_EXAM_003_004_006_solved_early: true
+    DB_EXAM_001_same_tenant_and_exact_target_integrity_preserved: true
+    DB_EXAM_002_exact_requirement_profile_basis_resolved: true
+    exact_course_student_category_boundary_closed: true
+    theory_and_practical_required_flag_mapping_closed: true
+    current_requirement_revision_checked_under_course_lock: true
+    global_versioned_category_part_language_capability_defined: true
+    language_dictionary_not_mistaken_for_exam_support: true
+    capability_retirement_preserves_history_and_blocks_new_creation: true
+    requirement_basis_snapshot_is_immutable_nonPII_evidence: true
+    later_requirement_or_capability_change_does_not_rewrite_attempt_history: true
+    prestart_lifecycle_effect_of_later_basis_change_deferred_to_DB_EXAM_004: true
+    no_inventory_exactly_once_semantics_from_DB_EXAM_003_solved_early: true
+    no_attempt_access_state_matrix_from_DB_EXAM_004_solved_early: true
     no_token_security_from_DB_EXAM_005_solved_early: true
+    no_station_failover_from_DB_EXAM_006_solved_early: true
     no_scoring_document_immutability_from_DB_EXAM_007_solved_early: true
     no_management_projection_from_DB_EXAM_008_solved_early: true
     core_schema_aggregate_modified: false
@@ -579,6 +794,6 @@ preservation_gate:
     UI_or_feature_implementation_started: false
 
 next_single_step_after_central_gate:
-  id: DB-EXAM-002
-  action: resolve_formal_course_requirement_and_exam_capability_basis_only
-  stop_before: DB-EXAM-003
+  id: DB-EXAM-003
+  action: resolve_inventory_reservation_authority_and_consume_on_start_exactly_once_only
+  stop_before: DB-EXAM-004
