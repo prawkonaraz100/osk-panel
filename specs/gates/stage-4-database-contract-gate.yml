@@ -76,13 +76,13 @@ stage_4_slices:
     final_aggregate_sync: PASS
     result: PASS
   - id: DB4_6_LICENSES_LEARNING_ACCESS
-    status: IN_PROGRESS_WITH_BLOCKERS
+    status: IN_PROGRESS_FINAL_AGGREGATE_SYNC_PENDING
     diagnosis: COMPLETE
     blockers_diagnosed: 7
-    blockers_resolved: 6
-    open_P0_P1: 1
-    final_aggregate_sync: BLOCKED
-    result: FAIL_WITH_1_P1_BLOCKER
+    blockers_resolved: 7
+    open_P0_P1: 0
+    final_aggregate_sync: PENDING
+    result: IN_PROGRESS_FINAL_AGGREGATE_SYNC_PENDING
   - id: DB4_7_INTERNAL_EXAMS
     status: NOT_STARTED
   - id: DB4_8_PKK
@@ -1700,6 +1700,69 @@ quality_checks:
       Laravel_migrations_created: false
       UI_or_feature_implementation_started: false
 
+  license_product_language_capability_assignment_projection_consistency:
+    status: PASS
+    resolved_blocker_id: DB-LIC-007
+    severity: P1
+    machine_source: specs/database/licenses-learning-access.yml
+    audit_source: docs/110-stage-4-licenses-learning-access-audit.md
+    decision:
+      current_learning_access_language_owner: student_learning_accounts.language_code
+      global_language_dictionary_implies_product_support: false
+      assignment_language_is_immutable_assignment_time_snapshot: true
+      activation_duplicate_language_column_added: false
+      product_language_capability_table: license_product_language_capabilities
+      capability_current_predicate: disabled_at_is_null
+      capability_current_unique_scope: [license_product_id, language_code]
+      capability_history_hard_delete_or_reenable_in_place: forbidden
+      assignment_capability_pointer_required: true
+      assignment_capability_exact_inventory_product_and_assigned_at_interval_guard: DEFERRABLE_INITIALLY_DEFERRED
+      assignment_sequence_unique_scope: [organization_id, student_learning_account_id, assignment_sequence]
+      assignment_sequence_allocated_under_learning_account_lock: true
+      latest_assignment_source: max_assignment_sequence
+      timestamp_or_UUID_latest_heuristic: forbidden
+      existing_account_assignment_inherits_locked_account_language: true
+      request_may_silently_change_existing_account_language: false
+      new_account_language_and_assignment_snapshot_match: true
+      language_change_requires_zero_pending_assignments: true
+      language_change_requires_zero_live_or_future_entitlements: true
+      expired_or_revoked_history_rewritten_on_language_change: false
+      capability_retirement_revokes_existing_assignment: false
+      capability_retirement_blocks_later_activation_of_already_assigned_unit: false
+      activation_requires_assignment_language_equal_current_account_language: true
+      management_projection_is_mutable_authority: false
+      management_read_effective_at_captured_once: true
+      latest_status_count_expiry_remaining_time_hide_finished_are_derived: true
+      inventory_available_count_source: inventory_entries_status_available
+      inventory_active_count_source: activated_assignments_with_effective_to_gt_read_effective_at
+      bulk_credentials_locale_source: current_learning_account_language
+      source_conflict_screen_language_lists_are_global_authority: false
+      Russian_language_hardcoded_as_supported_or_unsupported: false
+      migration_guesses_assignment_order_or_capability_support: forbidden
+      DB4_9_commerce_not_solved: true
+    checks:
+      product_language_support_is_capability_data_not_global_dictionary_or_screen_list: PASS
+      Russian_source_conflict_preserved_without_hardcoding: PASS
+      current_learning_access_has_one_language_owner: PASS
+      assignment_language_snapshot_is_immutable: PASS
+      assignment_capability_matches_exact_inventory_product_and_time: PASS
+      assignment_sequence_provides_deterministic_latest_order: PASS
+      existing_account_assignment_cannot_drift_language: PASS
+      language_change_cannot_drift_pending_or_live_entitlement: PASS
+      historical_assignment_and_activation_rows_not_rewritten_on_language_change: PASS
+      capability_retirement_does_not_retroactively_revoke_assigned_right: PASS
+      latest_status_counts_expiry_remaining_and_hide_finished_are_canonical_projections: PASS
+      no_mutable_duplicate_management_projection_authority_added: PASS
+      mixed_locale_bulk_credentials_export_preserved: PASS
+      migration_does_not_guess_language_capability_or_assignment_order: PASS
+      all_DB_LIC_001_through_DB_LIC_007_are_resolved: PASS
+      no_new_P0_P1_discovered: PASS
+      aggregate_core_schema_modified_in_step: false
+      aggregate_docs87_modified_in_step: false
+      later_domain_slices_entered: false
+      Laravel_migrations_created: false
+      UI_or_feature_implementation_started: false
+
 resolved_blockers:
   - DB-FOUND-001
   - DB-FOUND-002
@@ -1737,9 +1800,9 @@ resolved_blockers:
   - DB-LIC-004
   - DB-LIC-005
   - DB-LIC-006
-
-open_blockers_current_diagnosed_scope:
   - DB-LIC-007
+
+open_blockers_current_diagnosed_scope: []
 
 gate_definition:
   PASS_requires_for_entire_stage_4:
@@ -1749,7 +1812,7 @@ gate_definition:
     - migration_order_dependency_safe
     - database_invariant_test_matrix_exists
     - reverse_engineering_preservation_traceable
-  current_result: FAIL_DB4_6_WITH_1_OPEN_P1_BLOCKER
+  current_result: IN_PROGRESS_DB4_6_FINAL_AGGREGATE_SYNC_PENDING
   DB4_1_result: PASS
   DB4_2_result: PASS
   DB4_3_result: PASS
@@ -1781,29 +1844,30 @@ gate_definition:
   DB4_6_DB_LIC_004_result: PASS
   DB4_6_DB_LIC_005_result: PASS
   DB4_6_DB_LIC_006_result: PASS
-  DB4_6_result: FAIL_WITH_1_P1_BLOCKER
+  DB4_6_DB_LIC_007_result: PASS
+  DB4_6_result: IN_PROGRESS_FINAL_AGGREGATE_SYNC_PENDING
   may_start_DB4_4_fixes: false
   may_start_DB4_5: false
   may_start_DB4_5_fixes: false
   may_start_DB4_6: true
-  may_start_DB4_6_fixes: true
+  may_start_DB4_6_fixes: false
   may_start_DB4_7: false
   may_start_stage_5: false
   may_start_UI_or_feature_implementation: false
 
 next_single_step:
-  id: DB4_6_STEP_7
-  blocker: DB-LIC-007
-  action: resolve_product_language_capability_assignment_snapshot_and_management_projection_consistency_only
+  id: DB4_6_FINAL_AGGREGATE_SYNC
+  action: synchronize_closed_DB_LIC_001_through_DB_LIC_007_into_aggregate_machine_and_narrative_schema_only
   allowed_scope:
     - specs/database/licenses-learning-access.yml
     - docs/110-stage-4-licenses-learning-access-audit.md
-    - specs/gates/stage-4-database-contract-gate.yml
-  aggregate_files_frozen:
     - specs/database/core-schema.yml
     - docs/87-physical-database-schema.md
+    - specs/gates/stage-4-database-contract-gate.yml
   scope_lock: >-
-    Resolve only DB-LIC-007. Keep the aggregate core schema and docs/87 frozen until
-    the final DB4_6 aggregate sync. Do not enter DB4_7 or later slices, do not start
-    Stage 5, do not create Laravel migrations and do not start UI/feature implementation.
-  after_action: rerun_DB4_6_gate_and_STOP_before_DB4_6_final_aggregate_sync
+    Synchronize only the already-closed DB-LIC-001..007 contracts into the aggregate
+    machine and narrative schema, remove stale aggregate shortcuts, run semantic-loss,
+    stale-constraint, migration-order and invariant-test checks, and update the central
+    gate. Do not enter DB4_7 or later slices, do not start Stage 5, do not create Laravel
+    migrations and do not start UI/feature implementation.
+  after_action: rerun_DB4_6_final_aggregate_gate_and_STOP_before_DB4_7
