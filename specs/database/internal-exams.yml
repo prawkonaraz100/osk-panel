@@ -462,7 +462,7 @@ blockers:
     diagnosis:
       - product_requires_one_active_attempt_per_station_and_supports_multiple_stations_per_OSK
       - current_station_session_partial_uniques_are_positive_but same_tenant exact_access_attempt_station_binding_and_station_eligibility_are_not_fully_closed
-      - local_current_workstation_and_assigned_exam_station_need_a_clear_station identity_or_device_binding_boundary
+      - local_current_workstation_and_assigned_exam_station_need_a_clear_station_identity_or_device_binding_boundary
       - failover_after_start_must_transfer_active_session_without_second_inventory_consumption_or_parallel_active_station_sessions
       - station_key_hash_and_status_exist_but lifecycle_authentication_and_disabled_offline_behavior_are_not_yet_proven
     risk:
