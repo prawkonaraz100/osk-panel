@@ -274,8 +274,8 @@ quality_checks:
       attendance_adds_nonnull_organization_id: true
       composite_same_tenant_FKs_cover_all_relations_from_DB_TRN_001_diagnosis: true
       optional_relations_use_MATCH_SIMPLE: true
-      relation_on_update: RESTRICT
-      relation_on_delete: RESTRICT
+      formal_relation_on_update: RESTRICT
+      formal_relation_on_delete: RESTRICT
       organization_id_client_authority: false
       moving_formal_row_between_tenants_by_plain_organization_id_update: forbidden
       attendance_cross_tenant_backfill_auto_repair: forbidden
@@ -626,7 +626,7 @@ quality_checks:
       material_external_mutation_course_version_increment: exactly_once
       terminal_course_external_change_requires_DB_TRN_004_correction_mode: true
       legacy_latest_row_or_fabricated_lineage_context_actor: forbidden
-      exact_HTTP_external_training_correction_and_If_Match_sync: Stage5_acceptance_contract_sync
+      exact_HTTP_external_correction_and_If_Match_sync: Stage5_acceptance_contract_sync
     checks:
       one_deterministic_current_form_value_per_course_part: PASS
       latest_row_wins_heuristic_removed: PASS
