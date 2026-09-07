@@ -3,8 +3,8 @@
 Data: 2026-09-07
 
 **Etap:** `DB4_7_INTERNAL_EXAMS`  
-**Aktualny krok:** `DB_EXAM_006_STATION_SESSION_CONCURRENCY_DEVICE_BINDING_AND_FAILOVER`  
-**Status:** `FAIL_WITH_2_P1_BLOCKERS / 0 P0 / 2 P1 OPEN`
+**Aktualny krok:** `DB_EXAM_007_IMMUTABLE_EXAM_DEFINITION_QUESTION_RESULT_AND_DOCUMENT_EVIDENCE`  
+**Status:** `FAIL_WITH_1_P1_BLOCKER / 0 P0 / 1 P1 OPEN`
 
 Machine-readable diagnoza: `specs/database/internal-exams.yml`.
 
@@ -1769,3 +1769,196 @@ Aktualny stan DB4_7 po DB-EXAM-006:
 Następny dozwolony krok po centralnym gate: **DB-EXAM-007 only**.
 
 **STOP przed DB-EXAM-007.**
+
+---
+
+## 21. DB-EXAM-007 — wynik fixera: PASS
+
+DB-EXAM-007 zamyka wyłącznie historycznie odtwarzalny i niezmienny evidence bundle egzaminu: wersję definicji, dokładny zestaw pytań i mediów, odpowiedzi i scoring, Result oraz wersjonowany artefakt dokumentu. Nie definiuje jeszcze deterministic latest/history/statistics dla panelu — to pozostaje DB-EXAM-008.
+
+### 21.1 Jeden historyczny evidence bundle dla wyniku, review i PDF
+
+Ekran wyniku, review pytanie-po-pytaniu i `Arkusz odpowiedzi` nie są trzema niezależnymi źródłami danych. Są projekcjami jednego historycznego Attemptu.
+
+Canonical authority zostaje rozdzielone na:
+- `internal_exam_definitions` — immutable wersja silnika/kompozycji/scoring policy,
+- `internal_exam_attempt_questions` — dokładny ordered evidence użyty w próbie,
+- `internal_exam_results` — immutable wynik tej próby,
+- `internal_exam_documents` + immutable template binding — formalny artefakt dokumentu.
+
+Aktualna baza pytań, aktualne media, aktualna scoring policy i aktualny szablon PDF nie są authority dla zakończonej próby.
+
+### 21.2 Definicję i zestaw egzaminu zamrażamy przy faktycznym starcie
+
+Źródła nie dowodzą, że samo utworzenie Attemptu albo remote linku ujawnia lub zamraża zestaw pytań. Nie wymyślamy więc pre-start freeze.
+
+Canonical moment dla core v1 to **actual exam start, przed możliwością udzielenia odpowiedzi**.
+
+W ramach tej samej transakcji, która już wykonuje consume-on-start:
+1. system wybiera dokładnie current `internal_exam_definition` dla category + exam part + language + engine kind,
+2. zapisuje definition ID/version/hash na Attempt,
+3. dla `question_test` materializuje kompletny ordered zestaw `internal_exam_attempt_questions`,
+4. wylicza `question_set_hash`,
+5. dopiero razem z tym commitują istniejące efekty Start + Inventory consume.
+
+Jeżeli definicji albo kompletnego question evidence nie da się zamrozić, start i konsumpcja rollbackują się razem.
+
+Retirement definicji konkuruje z Start przez row lock. Start, który wygrał pierwszy, zachowuje swoją historyczną wersję; retirement, który wygrał pierwszy, wymusza wybór nowej current definition albo odrzuca Start.
+
+### 21.3 Nie hardcodujemy obserwowanych `32 pytań` ani `74 pkt`
+
+Potwierdzony historyczny ekran/PDF dla egzaminu teoretycznego pokazuje 32 pozycje i 74 maksymalne punkty. To jest evidence konkretnego wariantu, a nie globalna stała domeny.
+
+`composition_snapshot` definicji przechowuje reguły kompozycji, sekcji i liczebności. `scoring_policy_snapshot` przechowuje właściwe reguły punktacji i zaliczenia.
+
+Nie hardcodujemy również niepotwierdzonego progu zaliczenia ani pozytywnej etykiety PDF.
+
+Egzamin praktyczny nie jest sztucznie wciskany do modelu `32 pytań / 74 pkt`. Może korzystać z tego samego versioned definition/result/document envelope z `engine_kind=non_question_assessment`, bez tworzenia fikcyjnych question rows.
+
+### 21.4 Exact question/content/media evidence
+
+Dla `question_test` każdy `internal_exam_attempt_question` zachowuje co najmniej:
+- ordinal i group,
+- provenance question/revision ID,
+- versioned/canonical `question_snapshot`,
+- schema version snapshotu,
+- `question_snapshot_hash`,
+- historyczne media przez immutable revision albo hash-bound evidence reference,
+- frozen `max_points_snapshot`,
+- finalną odpowiedź kandydata,
+- `is_correct`,
+- `points_awarded`,
+- `answered_at`.
+
+Question ID ani mutable current URL nie są wystarczającym dowodem historycznym. Finished review nie może wymagać odczytu aktualnego QuestionBank jako authority.
+
+Pola treści/media/max-points są immutable od Start. Final answer/scoring fields są write-once po submit.
+
+`question_set_hash` jest deterministycznym SHA-256 ordered zestawu: ordinals + groups + question hashes + max-points.
+
+### 21.5 Server-side scoring i Result consistency
+
+Submit zachowuje concurrency root DB-EXAM-004. Pod Attempt lock system:
+- sprawdza exact frozen definition i question-set hash,
+- ocenia odpowiedzi server-side według frozen question/scoring policy,
+- zapisuje finalne answer/correctness/points,
+- tworzy dokładnie jeden immutable Result,
+- dopiero potem przełącza Attempt/Access do passed/failed.
+
+Dla question-test:
+- `Result.score = SUM(points_awarded)`,
+- `Result.max_score = SUM(max_points_snapshot)`,
+- punkty per pozycja mieszczą się w `0..max_points_snapshot`,
+- `passed` wynika z frozen scoring policy,
+- numeric threshold snapshot jest wymagany tylko wtedy, gdy wybrana polityka rzeczywiście używa progu liczbowego.
+
+Nie przeliczamy starego egzaminu aktualną polityką.
+
+Result screen counts basic/specialized/all są projekcją frozen AttemptQuestions. Nie są to jeszcze statystyki zarządcze DB-EXAM-008.
+
+### 21.6 Evidence bundle hash
+
+Po submit powstaje `evidence_bundle_hash` z canonical serialization co najmniej:
+- Attempt/Organization,
+- candidate snapshot,
+- category/part/language,
+- requirement basis,
+- definition ID/version/hash,
+- ordered final question evidence, jeżeli dotyczy,
+- scoring policy snapshot,
+- score/max score, jeżeli dotyczy,
+- passed,
+- finished_at.
+
+Zmiana któregokolwiek frozen elementu zmieniłaby hash. Aktualne dane QuestionBank nie są pobierane jako live inputs do tego dowodu.
+
+### 21.7 Versioned document template i deterministyczny PDF
+
+Wprowadzamy immutable katalog `internal_exam_document_templates` z:
+- document type,
+- optional exam part,
+- template version,
+- renderer version,
+- template content hash,
+- half-open effective interval `[effective_from,effective_to)`.
+
+Dla tej samej kombinacji template scope okresy obowiązywania nie mogą się nakładać. Opublikowanej wersji nie edytujemy retroaktywnie po użyciu.
+
+Answer-sheet binding jest ustalany deterministycznie z `Attempt.finished_at` i zostaje zamrożony w result evidence.
+
+Canonical `internal_exam_document` przechowuje dokładny template ID/version/renderer/hash, `evidence_bundle_hash`, FileAsset, content hash i generation metadata.
+
+FileAsset musi być same-tenant, `ready`, mieć właściwy purpose i SHA-256 równy `content_hash` dokumentu. Referenced formalnego artefaktu nie można normalnie podmienić ani skasować.
+
+Powtórne pobranie używa istniejącego canonical assetu albo zweryfikowanej byte-identical regeneracji. Render nie może zależeć od aktualnego profilu Studenta, aktualnej bazy pytań, aktualnego czasu czy losowego ID, jeśli taki element nie został wcześniej zamrożony jako jawny input.
+
+Papierowe linie podpisu kursanta oraz osoby egzaminującej pozostają częścią wersjonowanego template. Nie wymyślamy obowiązkowego uploadu skanu podpisanego dokumentu, ponieważ obecne źródła tego nie potwierdzają.
+
+### 21.8 Invalidation i korekty nie przepisują historii
+
+DB-EXAM-004 już rozstrzygnął, że invalidation zachowuje Result/Question/Document rows. DB-EXAM-007 domyka to fizycznie:
+- post-finish invalidation nie przelicza Result,
+- nie nadpisuje Question evidence,
+- nie regeneruje starego PDF jako nowej treści pod tym samym historycznym dokumentem,
+- nie zmienia evidence hash.
+
+Normalny staff edit zakończonych odpowiedzi, punktów, Resultu albo dokumentu jest zabroniony.
+
+Jeśli formalny outcome musi zostać zmieniony, właściwy kierunek to jawna invalidation + nowy Attempt albo osobny przyszły correction artifact. Opcjonalny `internal_exam_evidence_correction_event` jest append-only adnotacją i nie mutuje oryginalnego evidence.
+
+### 21.9 Security i API boundaries pozostają nienaruszone
+
+DB-EXAM-005 pozostaje authority dla bearer-tokenów:
+- finished-result token może czytać exact Result i Questions,
+- nadal nie może startować/submitować,
+- nadal nie uzyskuje prawa do staff-only PDF download.
+
+Stage-3 ma już endpointy Result, Questions i Answer Sheet, ale schematy są za ogólne dla finalnych version/hash/policy fields. Typed API sync zostaje zapisany do Stage 5; pliki OpenAPI nie są zmieniane w DB007.
+
+### 21.10 Migration safety
+
+Legacy evidence można aktywować jako pełny historyczny snapshot tylko przy dowodzie exact contentu, odpowiedzi, poprawnej odpowiedzi/evaluation key, mediów, punktów, wyniku i lineage szablonu.
+
+Dozwolona jest deterministyczna operacja wyliczenia hash z kompletnego, dokładnego legacy snapshotu.
+
+Zabronione jest:
+- uzupełnianie brakującej treści aktualnym QuestionBank,
+- zgadywanie revision lub media revision z bieżącego rekordu/URL,
+- zakładanie 32 pytań lub 74 pkt dla wszystkich starych prób,
+- wyprowadzanie historycznego pass threshold z obecnych reguł albo samego `passed`,
+- poprawianie odpowiedzi/punktów, aby suma zaczęła pasować,
+- przypinanie aktualnego template do starego Attemptu bez dowodu,
+- fabrykowanie brakującego historycznego PDF/media.
+
+Niejednoznaczność = migration FAIL + reviewed remediation.
+
+### 21.11 Self-audit fixera
+
+Pierwsza próba machine write została odrzucona przez preservation gate, ponieważ pełne zastąpienie pliku skróciło historyczne kontrakty DB-EXAM-001..006. Branch został cofnięty do finalnego DB-EXAM-006, a wadliwa wersja nie została przyjęta jako baza kolejnego etapu.
+
+Następnie zastosowano exact-match patch do oryginalnego pliku, zwalidowano YAML i z gotowego target blobu utworzono czysty commit bez plików pomocniczych i bez zmiany workflow.
+
+Końcowy machine compare od `1d27c849…` do `d2a8950f…` obejmuje wyłącznie `specs/database/internal-exams.yml`. DB-EXAM-008 pozostaje literalnie OPEN z niezmienioną diagnozą.
+
+Zamrożone agregaty nadal mają dokładnie:
+- `specs/database/core-schema.yml` -> `5d8f4d661f56115740d3c3a59d8424c85ec1cf24`,
+- `docs/87-physical-database-schema.md` -> `191afe107e830baa928b18f67e6cb75b2d4a73b8`.
+
+Sprawdzono dodatkowo:
+- DB-EXAM-001..006 pozostają PASS,
+- consume-on-start i lock boundaries nie zostały odwrócone,
+- Station failover nadal nie konsumuje drugi raz,
+- token security nie dostało rozszerzonego privilege,
+- praktyczny egzamin nie dostał wymyślonej struktury teoretycznej,
+- DB-EXAM-008 management/statistics pozostaje OPEN,
+- DB4_8+, Stage 5, Laravel migrations i UI nie zostały rozpoczęte.
+
+Aktualny stan DB4_7 po DB-EXAM-007:
+- P0: **0**,
+- P1 open: **1**,
+- resolved: **7/8**,
+- result: **FAIL_WITH_1_P1_BLOCKER**.
+
+Następny dozwolony krok po centralnym gate: **DB-EXAM-008 only**.
+
+**STOP przed DB-EXAM-008.**
