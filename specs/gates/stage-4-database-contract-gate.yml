@@ -85,13 +85,13 @@ stage_4_slices:
     final_aggregate_sync: PASS
     result: PASS
   - id: DB4_7_INTERNAL_EXAMS
-    status: FAIL_WITH_2_P1_BLOCKERS
+    status: FAIL_WITH_1_P1_BLOCKER
     diagnosis: COMPLETE
     blockers_diagnosed: 8
-    blockers_resolved: 6
-    open_P0_P1: 2
+    blockers_resolved: 7
+    open_P0_P1: 1
     final_aggregate_sync: BLOCKED
-    result: FAIL_WITH_2_P1_BLOCKERS
+    result: FAIL_WITH_1_P1_BLOCKER
   - id: DB4_8_PKK
     status: NOT_STARTED
   - id: DB4_9_STUDENT_FINANCE_COMMERCE
@@ -2346,6 +2346,73 @@ quality_checks:
       Stage5_started: false
       UI_or_feature_implementation_started: false
 
+  internal_exam_immutable_definition_question_result_document_evidence:
+    status: PASS
+    resolved_blocker_id: DB-EXAM-007
+    severity: P1
+    machine_source: specs/database/internal-exams.yml
+    audit_source: docs/112-stage-4-internal-exams-audit.md
+    machine_contract_commit: d2a8950f19b292cef311df3ca3ec32a5d46d7e6a
+    narrative_audit_commit: 37bbcfd0f99f611e08b8538092a9de9ae98ed94d
+    decision:
+      immutable_definition_catalog: internal_exam_definitions
+      definition_selected_and_frozen_at_actual_exam_start: true
+      definition_binding_exact_category_part_language: true
+      observed_32_questions_global_constant: false
+      observed_74_points_global_constant: false
+      unverified_numeric_pass_threshold_hardcoded: false
+      question_test_materializes_ordered_question_evidence_before_answering: true
+      question_content_and_media_evidence_hash_bound: true
+      current_question_bank_after_start_is_history_authority: false
+      final_answer_and_scoring_fields_write_once: true
+      scoring_server_side_against_frozen_policy: true
+      result_score_equals_frozen_question_awarded_sum_when_question_test: true
+      result_max_score_equals_frozen_question_max_sum_when_question_test: true
+      result_passed_matches_frozen_scoring_policy: true
+      result_is_immutable_after_insert: true
+      evidence_bundle_hash_required: true
+      document_template_catalog: internal_exam_document_templates
+      document_template_effective_intervals_nonoverlapping: true
+      document_template_binding_frozen_by_attempt_finish_context: true
+      document_asset_ready_purpose_same_tenant_and_hash_matching: true
+      deterministic_answer_sheet_render_from_frozen_inputs: true
+      repeated_download_uses_canonical_asset_or_verified_identical_regeneration: true
+      postfinish_invalidation_preserves_question_result_document_evidence_and_hashes: true
+      silent_in_place_finished_evidence_correction: forbidden
+      correction_uses_invalidation_new_attempt_or_append_only_correction_artifact: true
+      finished_result_token_document_download_escalation: false
+      exact_typed_API_snapshot_hash_definition_template_sync: Stage5_acceptance_contract_sync
+      DB_EXAM_008_management_projection_not_fixed: true
+    checks:
+      definition_versioning_and_immutability_closed: PASS
+      definition_start_binding_and_retirement_race_closed: PASS
+      no_32_74_or_unverified_threshold_global_hardcode: PASS
+      practical_non_question_assessment_not_forced_into_theory_question_shape: PASS
+      question_order_content_options_correct_answer_media_and_points_historical_evidence_closed: PASS
+      question_and_question_set_hashes_closed: PASS
+      finished_review_not_dependent_on_current_question_bank: PASS
+      submit_server_side_scoring_against_frozen_policy_closed: PASS
+      result_question_score_max_pass_equivalence_closed: PASS
+      one_result_per_attempt_and_result_immutability_preserved: PASS
+      evidence_bundle_hash_closed: PASS
+      document_template_version_interval_and_hash_lineage_closed: PASS
+      answer_sheet_file_asset_readiness_purpose_and_hash_boundary_closed: PASS
+      deterministic_answer_sheet_regeneration_closed: PASS
+      paper_signature_template_capability_preserved: PASS
+      invalidation_preserves_original_formal_evidence: PASS
+      in_place_finished_evidence_edit_forbidden: PASS
+      DB_EXAM_005_result_token_scope_preserved_without_document_download: PASS
+      migration_does_not_guess_question_media_scoring_threshold_or_template_history: PASS
+      migration_does_not_normalize_mismatched_score_answer_evidence: PASS
+      DB_EXAM_001_through_DB_EXAM_006_preserved: PASS
+      DB_EXAM_008_management_projection_remains_open: PASS
+      aggregate_core_schema_modified_in_step: false
+      aggregate_docs87_modified_in_step: false
+      DB4_8_or_later_entered: false
+      Laravel_migrations_created: false
+      Stage5_started: false
+      UI_or_feature_implementation_started: false
+
 resolved_blockers:
   - DB-FOUND-001
   - DB-FOUND-002
@@ -2390,9 +2457,9 @@ resolved_blockers:
   - DB-EXAM-004
   - DB-EXAM-005
   - DB-EXAM-006
+  - DB-EXAM-007
 
 open_blockers_current_diagnosed_scope:
-  - DB-EXAM-007
   - DB-EXAM-008
 
 gate_definition:
@@ -2403,7 +2470,7 @@ gate_definition:
     - migration_order_dependency_safe
     - database_invariant_test_matrix_exists
     - reverse_engineering_preservation_traceable
-  current_result: DB4_7_FAIL_WITH_2_P1_BLOCKERS
+  current_result: DB4_7_FAIL_WITH_1_P1_BLOCKER
   DB4_1_result: PASS
   DB4_2_result: PASS
   DB4_3_result: PASS
@@ -2445,7 +2512,8 @@ gate_definition:
   DB4_7_DB_EXAM_004_result: PASS
   DB4_7_DB_EXAM_005_result: PASS
   DB4_7_DB_EXAM_006_result: PASS
-  DB4_7_result: FAIL_WITH_2_P1_BLOCKERS
+  DB4_7_DB_EXAM_007_result: PASS
+  DB4_7_result: FAIL_WITH_1_P1_BLOCKER
   may_start_DB4_4_fixes: false
   may_start_DB4_5: false
   may_start_DB4_5_fixes: false
@@ -2458,8 +2526,8 @@ gate_definition:
   may_start_UI_or_feature_implementation: false
 
 next_single_step:
-  id: DB_EXAM_007_IMMUTABLE_EXAM_DEFINITION_QUESTION_RESULT_AND_DOCUMENT_EVIDENCE
-  action: resolve_DB_EXAM_007_only_after_next_explicit_user_instruction
+  id: DB_EXAM_008_DETERMINISTIC_MANAGEMENT_HISTORY_LATEST_AND_STATISTICS_PROJECTION
+  action: resolve_DB_EXAM_008_only_after_next_explicit_user_instruction
   allowed_scope:
     - specs/database/internal-exams.yml
     - docs/112-stage-4-internal-exams-audit.md
@@ -2468,7 +2536,8 @@ next_single_step:
     - specs/database/core-schema.yml
     - docs/87-physical-database-schema.md
   scope_lock: >-
-    Resolve only DB-EXAM-007 immutable exam definition, question, result and document evidence.
-    Preserve DB-EXAM-008 as OPEN. Do not enter DB4_8 or later slices, do not start
-    Stage 5, do not create Laravel migrations and do not start UI/feature implementation.
-  after_action: rerun_DB_EXAM_007_gate_and_STOP_before_DB_EXAM_008
+    Resolve only DB-EXAM-008 deterministic management history, latest and statistics projection.
+    Do not perform DB4_7 final aggregate sync in the same fixer step. Do not enter DB4_8 or
+    later slices, do not start Stage 5, do not create Laravel migrations and do not start
+    UI/feature implementation.
+  after_action: rerun_DB_EXAM_008_gate_and_STOP_before_DB4_7_FINAL_AGGREGATE_SYNC
