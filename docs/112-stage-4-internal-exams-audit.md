@@ -3,8 +3,8 @@
 Data: 2026-09-07
 
 **Etap:** `DB4_7_INTERNAL_EXAMS`  
-**Aktualny krok:** `DB_EXAM_002_FORMAL_COURSE_REQUIREMENT_CAPABILITY_BASIS`  
-**Status:** `FAIL_WITH_6_P1_BLOCKERS / 0 P0 / 6 P1 OPEN`
+**Aktualny krok:** `DB_EXAM_003_INVENTORY_RESERVATION_CONSUME_ON_START`  
+**Status:** `FAIL_WITH_5_P1_BLOCKERS / 0 P0 / 5 P1 OPEN`
 
 Machine-readable diagnoza: `specs/database/internal-exams.yml`.
 
@@ -746,3 +746,233 @@ Aktualny stan DB4_7 po DB-EXAM-002:
 Następny dozwolony krok po centralnym gate: **DB-EXAM-003 only**.
 
 **STOP przed DB-EXAM-003.**
+
+---
+
+## 17. DB-EXAM-003 — wynik fixera: PASS
+
+DB-EXAM-003 zamyka wyłącznie authority i exactly-once dla puli egzaminów, rezerwacji, konsumpcji przy starcie oraz audytowanych korekt. Nie zamyka jeszcze Attempt/Access lifecycle, tokenów, StationSession/failover, scoringu ani statystyk.
+
+### 17.1 Ledger i jednostkowe Inventory nie są konkurencyjnymi źródłami prawdy
+
+Zachowujemy oba modele, ale rozdzielamy ich role:
+
+- `internal_exam_inventory_entries` — stabilna tożsamość jednej konkretnej sztuki egzaminu, jej provenance i guarded current operational state,
+- `internal_exam_inventory_ledger_entries` — **canonical append-only accounting history**,
+- `internal_exam_reservations` — historia przypisania jednej konkretnej sztuki do formalnego Attemptu.
+
+Nie istnieje mutable `available_exam_count` jako authority. Stan jednostki oraz status Reservation są projekcjami operacyjnymi, które muszą być zgodne z ledgerem po commit. Finalna granica jest `DEFERRABLE INITIALLY DEFERRED` albo równoważnym transactional DB guardem.
+
+### 17.2 Current state konkretnej sztuki
+
+Jeden InventoryEntry reprezentuje dokładnie jedną jednostkę. Runtime current states:
+
+`available | reserved | consumed | adjusted_out`.
+
+`released` nie jest current state jednostki. Release jest zdarzeniem `reserved -> available` i pozostaje widoczny w ledgerze/Reservation history.
+
+Analogicznie dawne niejednoznaczne `adjusted` rozbijamy na dwa pojęcia:
+- `source_type=adjustment` — jednostka została przyznana przez korektę,
+- `current_state=adjusted_out` — dostępna jednostka została jawnie wycofana przez korektę ujemną.
+
+Consumed unit nie wraca normalnym UPDATE-em do `available`; `adjusted_out` również nie jest ponownie otwierany w miejscu.
+
+### 17.3 Reservation — dokładnie jedna aktywna alokacja
+
+Reservation ma katalog:
+
+`reserved | released | consumed`.
+
+Ma własne `version >= 1` oraz immutable linkage do Organization, InventoryEntry, Attempt i `reserved_at`.
+
+State-field matrix:
+- `reserved` -> `released_at=NULL`, `consumed_at=NULL`,
+- `released` -> `released_at!=NULL`, `consumed_at=NULL`,
+- `consumed` -> `consumed_at!=NULL`, `released_at=NULL`.
+
+Partial unique wymusza maksymalnie:
+- jedną aktywną Reservation na InventoryEntry,
+- jedną aktywną Reservation na Attempt,
+- jedną consumed Reservation na Attempt.
+
+Historyczne released rows pozostają. Nie „od-rezerwujemy” starego row przez zmianę z powrotem na `reserved`; ewentualna przyszła ponowna alokacja tworzy nową Reservation. Dokładna lifecycle eligibility po release pozostaje DB-EXAM-004.
+
+### 17.4 `internal_exam_inventory_ledger_entries`
+
+Ledger jest append-only. Każdy event należy do jednej konkretnej jednostki i ma bezlukowy `event_sequence`, alokowany pod `InventoryEntry FOR UPDATE`.
+
+Runtime event types:
+- `unit_granted`,
+- `unit_adjustment_granted`,
+- `unit_reserved`,
+- `unit_released`,
+- `unit_consumed`,
+- `unit_adjusted_out`.
+
+Migration-only event to `migration_baseline`, którego runtime nie może wstawiać po cutover.
+
+`available_delta` jest deterministyczny:
+- grant `+1`,
+- adjustment grant `+1`,
+- reserve `-1`,
+- release `+1`,
+- consume `0`,
+- adjusted-out `-1`.
+
+Reservation-related ledger event musi wskazywać exact same-tenant Inventory + Reservation + Attempt. Business ledger rows są immutable.
+
+### 17.5 Kiedy rezerwujemy sztukę
+
+Stage-3 API jednoznacznie mówi, że:
+
+`POST /course-enrollments/{courseEnrollmentId}/internal-exam-attempts`
+
+**tworzy Attempt i rezerwuje dokładnie jedną jednostkę**.
+
+To jest canonical flow core v1. Starsze sformułowanie „create access -> reserve” zostaje superseded dla formalnego Stage-3 flow; utworzenie lub resend Accessu nie może pobrać drugiej sztuki.
+
+Transakcja zachowuje lock prefix DB-EXAM-002:
+
+`CourseEnrollment FOR UPDATE -> ... -> InventoryEntry FOR UPDATE`.
+
+Wybrana jednostka musi być same-tenant, `available` i mieć ledger final state `available`. `SKIP LOCKED` może służyć równoległym allocatorom. Nie hardcodujemy kolejności `free before paid` ani odwrotnej, bo evidence jej nie potwierdza.
+
+Atomowo powstają:
+- Attempt,
+- Reservation `reserved`,
+- ledger `unit_reserved`,
+- Inventory current state `reserved`.
+
+Brak jednostki rollbackuje cały Attempt. Idempotency retry nie przydziela kolejnej sztuki.
+
+### 17.6 Consume-on-start exactly once
+
+ADR-0004 pozostaje nadrzędny dla core v1: **consume-on-start**.
+
+Po właściwych Attempt/Access locks przyszły DB-EXAM-004 musi zachować suffix:
+
+`Reservation FOR UPDATE -> InventoryEntry FOR UPDATE`.
+
+Start wymaga:
+- Reservation `reserved`,
+- Inventory `reserved`,
+- exact Attempt binding,
+- ostatniego ledger event `unit_reserved` dla tej samej Reservation.
+
+Jedna transakcja:
+- dopisuje `unit_consumed`,
+- zmienia Reservation na `consumed`, zapisuje `consumed_at` i version +1,
+- zmienia Inventory na `consumed`,
+- przełącza Attempt do `in_progress` w tej samej outer transaction.
+
+Dokładny Attempt/Access state matrix i `started_at` pozostają DB-EXAM-004, a station effects DB-EXAM-006.
+
+Submit/finish nie konsumuje ponownie. Retry startu nie dopisuje drugiej konsumpcji. Technical abort po starcie nie dopisuje release.
+
+### 17.7 Pre-start release i race ze startem
+
+Revoke/expire/cancel przed startem może wywołać release, ale dokładne lifecycle źródło i eligibility zamknie DB-EXAM-004.
+
+Inventory effect jest już określony:
+- lock Reservation,
+- lock InventoryEntry,
+- wymagaj obu w stanie `reserved`,
+- append `unit_released`,
+- Reservation -> `released`, `released_at`, version +1,
+- Inventory -> `available`.
+
+Start i release używają tego samego lock suffixu. Pierwszy commit wygrywa:
+- start pierwszy -> `consumed`; release jest później odrzucony,
+- release pierwszy -> `released/available`; stary start jest odrzucony.
+
+Dla jednej Reservation nie mogą commitować oba terminalne efekty.
+
+### 17.8 Audytowane korekty inventory
+
+`POST /internal-exam/inventory-adjustments` pozostaje elevated command z `exams.inventory.adjust` i Idempotency-Key.
+
+Wprowadzamy append-only `internal_exam_inventory_adjustments` zawierający co najmniej:
+- Organization,
+- non-zero `delta`,
+- reason,
+- optional same-tenant related Attempt,
+- real actor User,
+- timestamp.
+
+`delta > 0` tworzy dokładnie N nowych jednostek `source_type=adjustment`, każda `available`, każda z initial `unit_adjustment_granted`.
+
+`delta < 0` może wycofać tylko aktualnie `available` jednostki. Dla każdej dopisuje `unit_adjusted_out`; Reservation/consumed unit nie może być zabrana. Jeżeli brakuje wolnych jednostek, cała korekta rollbackuje się.
+
+Exactly-once dotyczy jednego idempotentnego commandu. Kolejna świadoma korekta jest nowym immutable Adjustment z własnym powodem i aktorem — nie ukrytym ponownym wykonaniem starej operacji.
+
+### 17.9 Zwrot po awarii technicznej
+
+Technical abort po starcie **nie przywraca starej sztuki**.
+
+Jeżeli uprawniony operator uzna refund za zasadny, dodatni Adjustment tworzy nową kompensacyjną jednostkę. Oryginalna jednostka pozostaje `consumed`, jej Reservation pozostaje `consumed`, a ledger historii próby nie jest przepisywany.
+
+To rozdziela dwa fakty:
+- egzamin faktycznie wystartował i zużył konkretną sztukę,
+- później OSK dostało audytowaną kompensację.
+
+### 17.10 Projekcja puli
+
+Panelowe:
+- `Darmowe`,
+- `Opłacone`,
+- `Adjustment`,
+- `Wszystkie`
+
+są projekcjami canonical historii i provenance jednostek.
+
+Available total można liczyć jako sumę `available_delta` ledgeru; guarded operational count `Inventory.current_state='available'` musi dawać ten sam wynik. Żaden licznik nie jest samodzielnym mutable source of truth.
+
+Nie definiujemy jeszcze kolejności zużywania free vs paid, ponieważ istniejące źródła tego nie potwierdzają. To product allocation policy, nie invariant DB-EXAM-003.
+
+### 17.11 Commerce boundary
+
+DB-EXAM-003 nie projektuje:
+- momentu grantowania paid inventory po payment,
+- order/payment lifecycle,
+- webhooków,
+- exact same-tenant OrderItem boundary.
+
+Pozostaje to DB4_9. DB-EXAM-003 definiuje jedynie, jak wygląda już istniejąca jednostka i jej `unit_granted` history.
+
+### 17.12 Migration safety
+
+Migracja może mapować legacy `available|reserved|consumed` tylko przy dowodliwej zgodności Reservation, parent relations i timestampów.
+
+Legacy `released` może stać się current `available` wyłącznie, gdy istnieje exact released Reservation i brak późniejszego active/consumed efektu.
+
+Legacy `adjusted` jest niejednoznaczne — nie zgadujemy, czy oznacza grant czy withdrawal.
+
+Zabronione jest:
+- rekonstruowanie ledger order z remisów timestampów lub UUID,
+- fabrykowanie payment provenance,
+- wymyślanie aktora/reason,
+- automatyczne od-konsumowanie technicznie przerwanej próby.
+
+Niejednoznaczność = migration FAIL + reviewed remediation.
+
+### 17.13 Self-audit fixera
+
+Machine preservation gate przeszedł bez regresji historycznych. Otwarta diagnoza DB-EXAM-004..008 została porównana z bazą `4103cfe6…` i pozostała bez zmian.
+
+Sprawdzono dodatkowo:
+- ledger + unit rows nie tworzą dwóch niezależnych authority,
+- technical refund nie zmienia historii consumed unit,
+- generic adjustment endpoint nie dostał sztucznego „one correction per Attempt”,
+- free-vs-paid priority nie został wymyślony,
+- DB4_9 payment/order grant nie został rozwiązany przedwcześnie,
+- agregaty pozostają zamrożone.
+
+Aktualny stan DB4_7 po DB-EXAM-003:
+- P0: **0**,
+- P1 open: **5**,
+- resolved: **3/8**,
+- result: **FAIL_WITH_5_P1_BLOCKERS**.
+
+Następny dozwolony krok po centralnym gate: **DB-EXAM-004 only**.
+
+**STOP przed DB-EXAM-004.**
