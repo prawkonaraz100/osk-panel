@@ -76,13 +76,13 @@ stage_4_slices:
     final_aggregate_sync: PASS
     result: PASS
   - id: DB4_6_LICENSES_LEARNING_ACCESS
-    status: IN_PROGRESS_FINAL_AGGREGATE_SYNC_PENDING
+    status: PASS
     diagnosis: COMPLETE
     blockers_diagnosed: 7
     blockers_resolved: 7
     open_P0_P1: 0
-    final_aggregate_sync: PENDING
-    result: IN_PROGRESS_FINAL_AGGREGATE_SYNC_PENDING
+    final_aggregate_sync: PASS
+    result: PASS
   - id: DB4_7_INTERNAL_EXAMS
     status: NOT_STARTED
   - id: DB4_8_PKK
@@ -1763,6 +1763,47 @@ quality_checks:
       Laravel_migrations_created: false
       UI_or_feature_implementation_started: false
 
+  DB4_6_final_aggregate_sync:
+    status: PASS
+    bounded_context_source: specs/database/licenses-learning-access.yml
+    blocker_audit_source: docs/110-stage-4-licenses-learning-access-audit.md
+    final_sync_audit_source: docs/111-stage-4-licenses-learning-access-final-sync-audit.md
+    aggregate_machine_source: specs/database/core-schema.yml
+    aggregate_narrative_source: docs/87-physical-database-schema.md
+    machine_sync_commits:
+      - 7e1ad06bf354f038e11b4a9663b28b887aa6b32b
+      - eec0f1450f1f99ee704539b7e07501fc22a1ae88
+    narrative_sync_commit: 940bbbfa3bf2308d667231830961174f6be64e4f
+    final_sync_audit_commit: b21ad5d515759ae1d648b1818bae155f2635fd8f
+    checks:
+      DB_LIC_001_same_tenant_exact_target_represented_without_semantic_loss: PASS
+      DB_LIC_002_global_auth_identity_login_consistency_represented_without_semantic_loss: PASS
+      DB_LIC_003_learning_account_lifecycle_archive_represented_without_semantic_loss: PASS
+      DB_LIC_004_credential_authority_and_secret_nonpersistence_represented_without_semantic_loss: PASS
+      DB_LIC_005_inventory_assignment_exactly_once_represented_without_semantic_loss: PASS
+      DB_LIC_006_activation_stacking_reproducibility_represented_without_semantic_loss: PASS
+      DB_LIC_007_product_language_and_projection_represented_without_semantic_loss: PASS
+      stale_license_product_languages_removed_from_canonical_aggregate: PASS
+      stale_primary_auth_login_identifier_id_removed: PASS
+      stale_independent_login_identifier_projection_removed: PASS
+      current_entitlement_end_is_MAX_effective_to_not_mutable_or_nonrevoked_shortcut: PASS
+      exact_assignment_student_learning_account_boundary_represented: PASS
+      password_management_exclusive_principal_and_credential_epoch_represented: PASS
+      secret_bearing_PDF_nonpersistence_represented: PASS
+      inventory_assignment_activation_final_state_equivalence_represented: PASS
+      assignment_and_entitlement_sequences_represented: PASS
+      immutable_product_duration_and_inventory_product_binding_represented: PASS
+      versioned_product_language_capability_and_retirement_semantics_represented: PASS
+      derived_management_projection_and_read_effective_at_represented: PASS
+      aggregate_migration_order_dependency_safe_for_DB4_6: PASS
+      aggregate_invariant_and_race_test_matrix_covers_DB4_6: PASS
+      no_new_P0_P1_discovered_during_sync: PASS
+      no_DB4_7_work_started_during_sync: PASS
+      no_Stage5_work_started: PASS
+      no_Laravel_migrations_created: PASS
+      no_UI_or_feature_implementation_started: PASS
+      audit_history_preservation_incident_corrected_before_PASS: PASS
+
 resolved_blockers:
   - DB-FOUND-001
   - DB-FOUND-002
@@ -1812,7 +1853,7 @@ gate_definition:
     - migration_order_dependency_safe
     - database_invariant_test_matrix_exists
     - reverse_engineering_preservation_traceable
-  current_result: IN_PROGRESS_DB4_6_FINAL_AGGREGATE_SYNC_PENDING
+  current_result: DB4_6_PASS_DB4_7_NOT_STARTED
   DB4_1_result: PASS
   DB4_2_result: PASS
   DB4_3_result: PASS
@@ -1845,29 +1886,28 @@ gate_definition:
   DB4_6_DB_LIC_005_result: PASS
   DB4_6_DB_LIC_006_result: PASS
   DB4_6_DB_LIC_007_result: PASS
-  DB4_6_result: IN_PROGRESS_FINAL_AGGREGATE_SYNC_PENDING
+  DB4_6_final_aggregate_sync_result: PASS
+  DB4_6_result: PASS
   may_start_DB4_4_fixes: false
   may_start_DB4_5: false
   may_start_DB4_5_fixes: false
-  may_start_DB4_6: true
+  may_start_DB4_6: false
   may_start_DB4_6_fixes: false
-  may_start_DB4_7: false
+  may_start_DB4_7: true
   may_start_stage_5: false
   may_start_UI_or_feature_implementation: false
 
 next_single_step:
-  id: DB4_6_FINAL_AGGREGATE_SYNC
-  action: synchronize_closed_DB_LIC_001_through_DB_LIC_007_into_aggregate_machine_and_narrative_schema_only
+  id: DB4_7_INTERNAL_EXAMS_DIAGNOSIS
+  action: diagnose_DB4_7_only_after_next_explicit_user_instruction
   allowed_scope:
-    - specs/database/licenses-learning-access.yml
-    - docs/110-stage-4-licenses-learning-access-audit.md
-    - specs/database/core-schema.yml
-    - docs/87-physical-database-schema.md
+    - inspect_existing_internal_exam_sources_and_current_aggregate_read_only
+    - create_or_update_DB4_7_bounded_context_machine_diagnosis_after_path_confirmation
+    - create_dedicated_DB4_7_audit_after_path_confirmation
     - specs/gates/stage-4-database-contract-gate.yml
   scope_lock: >-
-    Synchronize only the already-closed DB-LIC-001..007 contracts into the aggregate
-    machine and narrative schema, remove stale aggregate shortcuts, run semantic-loss,
-    stale-constraint, migration-order and invariant-test checks, and update the central
-    gate. Do not enter DB4_7 or later slices, do not start Stage 5, do not create Laravel
-    migrations and do not start UI/feature implementation.
-  after_action: rerun_DB4_6_final_aggregate_gate_and_STOP_before_DB4_7
+    Diagnose DB4_7 only. Do not fix any DB4_7 blocker in the diagnosis step. Keep
+    specs/database/core-schema.yml and docs/87-physical-database-schema.md frozen until
+    DB4_7 final aggregate sync. Do not enter DB4_8 or later slices, do not start Stage 5,
+    do not create Laravel migrations and do not start UI/feature implementation.
+  after_action: diagnose_DB4_7_then_record_its_gate_and_STOP_before_first_DB4_7_fix
