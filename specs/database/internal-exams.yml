@@ -1,0 +1,328 @@
+meta:
+  project: osk-panel
+  stage: 4
+  slice: DB4_7_INTERNAL_EXAMS
+  step: DIAGNOSIS_ONLY
+  status: FAIL_WITH_8_P1_BLOCKERS
+  diagnosed_at: 2026-09-07
+  branch: docs-consolidation-2026-09-05
+  aggregate_sync_status: FROZEN_UNTIL_DB4_7_FINAL_SYNC
+  implementation_started: false
+  Laravel_migrations_created: false
+  Stage5_started: false
+  UI_or_feature_implementation_started: false
+
+scope_rule:
+  diagnose_before_fixing: true
+  fixes_allowed_in_this_step: false
+  one_blocker_per_future_step: true
+  aggregate_files_frozen:
+    - specs/database/core-schema.yml
+    - docs/87-physical-database-schema.md
+  later_slices_forbidden_in_this_step:
+    - DB4_8_PKK
+    - DB4_9_STUDENT_FINANCE_COMMERCE
+    - DB4_10_AUDIT_OUTBOX_NOTIFICATIONS
+    - DB4_11_FINAL_MIGRATION_ORDER_AND_INVARIANT_TEST_MATRIX
+
+canonical_sources:
+  product_design:
+    - specs/design/internal-exam-lifecycle.yml
+    - docs/34-own-internal-exam-lifecycle-policy.md
+    - docs/adr/0004-internal-exam-consume-on-start.md
+  formal_course_and_legal_context:
+    - docs/66-formal-student-record-and-theory-exemptions.md
+    - docs/67-editable-training-requirements-and-theory-exemption.md
+    - specs/database/students-courses-training.yml
+  observed_product_evidence:
+    - docs/32-student-internal-exam-screen.md
+    - docs/33-student-internal-exam-access-flow.md
+    - docs/59-internal-exam-purchase-screen.md
+    - docs/60-internal-exam-management-panel.md
+    - docs/61-internal-exam-expanded-attempt-history.md
+    - docs/62-internal-exam-answer-sheet-pdf.md
+    - docs/63-internal-exam-result-details-screen.md
+    - docs/64-internal-exam-question-review.md
+    - docs/65-internal-exam-generation-access-flow.md
+    - docs/68-internal-exam-edit-candidate-data.md
+    - docs/69-internal-exam-filtering.md
+    - docs/70-internal-exam-sorting.md
+  API_and_security:
+    - specs/api/paths/internal-exams.yaml
+    - specs/api/openapi-components-v1.yaml
+    - specs/security/permissions.yml
+  preservation:
+    - specs/reverse-engineering-manifest.yml
+    - docs/96-reverse-engineering-preservation-contract.md
+    - specs/traceability/core-v1.yml
+  current_aggregate_read_only:
+    - specs/database/core-schema.yml
+    - docs/87-physical-database-schema.md
+
+confirmed_business_capabilities_to_preserve:
+  course_first_formal_attempt: true
+  formal_attempt_requires_persistent_student_and_course_enrollment: true
+  theory_and_practical_exam_parts_are_contextual: true
+  theory_must_not_be_generated_when_rule_engine_says_not_required: true
+  multi_attempt_history_per_student_and_course: true
+  management_latest_attempt_and_statistics_are_projections: true
+  remote_link_mode: true
+  local_current_workstation_mode: true
+  assigned_exam_station_domain_extension: true
+  available_inventory_projection_with_free_paid_adjustment_provenance: true
+  consume_on_start_default_policy: true
+  unused_prestart_reservation_release: true
+  technical_abort_after_start_does_not_auto_restore_inventory: true
+  audited_inventory_adjustment: true
+  opaque_exam_access_token: true
+  raw_remote_token_recoverable_storage: false
+  one_active_attempt_per_station: true
+  station_failover_without_second_inventory_consumption: true
+  immutable_finished_attempt_question_answer_scoring_history: true
+  result_screen_and_answer_sheet_use_same_historical_attempt: true
+  deterministic_answer_sheet_regeneration: true
+  paper_signature_workflow_preserved: true
+  batch_candidate_generation_inferred: false
+  ad_hoc_formal_candidate_supported: false
+
+current_aggregate_observation:
+  existing_tables:
+    - internal_exam_inventory_entries
+    - internal_exam_attempts
+    - internal_exam_reservations
+    - internal_exam_accesses
+    - exam_stations
+    - internal_exam_station_sessions
+    - internal_exam_attempt_questions
+    - internal_exam_results
+    - internal_exam_documents
+  positive_existing_elements:
+    - attempt_has_student_course_exam_part_category_language_candidate_snapshot_and_version
+    - reservation_links_inventory_to_attempt
+    - access_has_launch_mode_token_hash_station_and_lifecycle_timestamps
+    - station_session_has_transfer_reference
+    - attempt_question_has_ordinal_question_snapshot_answer_and_points
+    - result_is_one_per_attempt_in_current_blueprint
+    - answer_sheet_document_is_per_attempt
+    - start_transaction_mentions_exactly_once_inventory_consumption
+    - finish_is_not_second_consumption_point
+  diagnosis_rule: existing_positive_elements_are_preserved_but_do_not_by_themselves_close_cross_row_or_lifecycle_invariants
+
+blockers:
+  - id: DB-EXAM-001
+    title: same_tenant_and_exact_target_integrity
+    severity: P1
+    status: OPEN
+    diagnosis:
+      - current_blueprint_repeats_organization_student_course_attempt_inventory_access_station_identifiers_without_complete_composite_exact_target_boundaries
+      - attempt_must_not_pair_a_course_with_the_wrong_student_inside_the_same_organization
+      - reservation_access_station_session_result_question_and_document_children_must_not_cross_tenant_or_cross_attempt
+      - station_session_must_not_pair_an_access_for_attempt_A_with_attempt_B
+      - application_validation_is_not_a_sufficient_final_boundary_for_formal_exam_history
+    risk:
+      - cross_tenant_exam_access_or_document_exposure
+      - exam_history_attached_to_wrong_student_course_or_attempt
+      - station_session_or_inventory_effect_applied_to_wrong_attempt
+    closure_scope_only:
+      - candidate_keys_and_composite_same_tenant_exact_target_relations
+      - nullable_relation_semantics
+      - history_preserving_delete_policy
+      - migration_prechecks_without_auto_reassignment
+
+  - id: DB-EXAM-002
+    title: formal_course_requirement_and_exam_capability_basis
+    severity: P1
+    status: OPEN
+    diagnosis:
+      - API_requires_exam_part_must_be_required_by_rule_engine_but_current_attempt_only_has_generic_requirement_basis_text
+      - DB4_4_has_versioned_requirement_profiles_and_requirements_revision_but_attempt_does_not_yet_prove_which_exact_requirement_decision_authorized_the_part
+      - category_exam_part_language_capability_must_be_consistent_with_the_selected_course_and_current_exam_capability_at_creation
+      - later_course_requirement_changes_must_not_rewrite_or_retroactively_invalidate_historical_attempt_evidence_silently
+      - theory_exempt_course_must_not_receive_a_new_formal_theory_attempt
+    risk:
+      - legally_or_formally_inapplicable_exam_part_generated
+      - historical_attempt_has_no_reproducible_basis
+      - category_or_language_drift_between_course_capability_and_attempt
+    closure_scope_only:
+      - exact_course_student_context
+      - exact_requirement_revision_or_profile_basis
+      - category_part_language_capability_validation
+      - historical_basis_snapshot_and_later_requirement_change_semantics
+
+  - id: DB-EXAM-003
+    title: inventory_reservation_authority_and_consume_on_start_exactly_once
+    severity: P1
+    status: OPEN
+    diagnosis:
+      - own_design_names_exam_credit_ledger_as_source_of_truth_while_current_aggregate_models_concrete_inventory_rows_with_mutable_status
+      - authority_between_unit_inventory_state_reservation_rows_and_ledger_or_adjustment_history_is_not_yet_unambiguous
+      - create_attempt_reserves_exactly_one_unit_and_start_consumes_exactly_once_but_final_cross_row_equivalence_is_not_yet_closed
+      - release_before_start_and_adjustment_after_start_require_distinct_auditable_effects
+      - free_paid_adjustment_source_provenance_must_survive_without_turning_visible_available_count_into_authority
+      - source_order_payment_grant_details_remain_DB4_9
+    risk:
+      - double_consumption_or_double_release
+      - orphan_reserved_or_consumed_unit
+      - hidden_manual_counter_correction
+      - technical_abort_incorrectly_restores_consumed_credit
+    closure_scope_only:
+      - single_inventory_authority_model_reconciling_unit_rows_and_ledger_history
+      - reservation_state_equivalence
+      - consume_on_start_transaction_and_races
+      - release_and_adjustment_exactly_once
+      - derived_available_counts
+
+  - id: DB-EXAM-004
+    title: attempt_and_access_lifecycle_concurrency
+    severity: P1
+    status: OPEN
+    diagnosis:
+      - design_defines_closed_attempt_and_access_lifecycles_but_current_physical_blueprint_does_not_yet_prove_state_field_matrices_or_transition_guards
+      - attempt_PATCH_is_before_start_only_and_has_If_Match_but_start_submit_abort_invalidate_and_access_revoke_expire_races_share_no_fully_defined_concurrency_root_contract
+      - semantic_relationship_between_attempt_status_access_status_reservation_status_and_timestamps_is_not_closed
+      - multiple_accesses_for_one_attempt_are_supported_by_API_but_current_active_access_cardinality_and_revoke_resend_semantics_are_not_physically_proven
+      - submit_must_finish_once_and_must_not_consume_inventory_again
+    risk:
+      - started_attempt_with_prestart_access_state
+      - revoked_or_expired_access_starting_successfully_in_a_race
+      - submit_and_abort_both_committing_terminal_effects
+      - duplicate_or_lost_attempt_versions
+    closure_scope_only:
+      - closed_status_catalogs_and_state_field_matrices
+      - optimistic_concurrency_and_row_lock_order
+      - access_attempt_reservation_final_state_invariants
+      - start_submit_abort_invalidate_revoke_expire_race_tests
+
+  - id: DB-EXAM-005
+    title: exam_access_token_and_finished_result_token_security
+    severity: P1
+    status: OPEN
+    diagnosis:
+      - API_allows_examAccessToken_as_alternative_principal_for_start_submit_and_finished_result_review
+      - current_access_row_has_one_token_hash_but_start_capability_and_post_finish_result_review_have_different_privilege_lifecycles
+      - raw_token_nonpersistence_is_declared_but token purpose scope expiry revocation rotation and replay boundaries_are_not_physically_closed
+      - predictable_attempt_id_must_never_become_authority_for_remote_or_result_access
+      - remote_send_resend_must_not_create_a_second_reservation_or_uncontrolled_second_start
+    risk:
+      - leaked_start_token_retains_excess_post_exam_privilege
+      - result_token_can_start_or_mutate_exam
+      - replay_or_parallel_start
+      - cross_attempt_result_disclosure
+    closure_scope_only:
+      - purpose_scoped_opaque_token_model
+      - hash_only_storage_and_one_way_verification
+      - exact_attempt_binding
+      - expiry_revocation_replay_and_post_finish_scope
+      - separation_or_proven_equivalent_security_boundary_for_start_vs_result_access
+
+  - id: DB-EXAM-006
+    title: station_session_concurrency_device_binding_and_failover
+    severity: P1
+    status: OPEN
+    diagnosis:
+      - product_requires_one_active_attempt_per_station_and_supports_multiple_stations_per_OSK
+      - current_station_session_partial_uniques_are_positive_but same_tenant exact_access_attempt_station_binding_and_station_eligibility_are_not_fully_closed
+      - local_current_workstation_and_assigned_exam_station_need_a_clear_station_identity_or_device_binding_boundary
+      - failover_after_start_must_transfer_active_session_without_second_inventory_consumption_or_parallel_active_station_sessions
+      - station_key_hash_and_status_exist_but lifecycle_authentication_and_disabled_offline_behavior_are_not_yet_proven
+    risk:
+      - one_attempt_active_on_two_stations
+      - two_attempts_active_on_one_station
+      - wrong_tenant_station_launch
+      - failover consumes_second_credit_or_loses_active_attempt
+    closure_scope_only:
+      - station_identity_and_same_tenant_relations
+      - active_station_session_uniqueness_and_exact_attempt_access_binding
+      - local_start_and_failover_lock_order
+      - station_disable_offline_and_recovery_semantics
+
+  - id: DB-EXAM-007
+    title: immutable_exam_definition_question_result_and_document_evidence
+    severity: P1
+    status: OPEN
+    diagnosis:
+      - observed_result_screen_question_review_and_answer_sheet_must_reconstruct_the_same_finished_attempt
+      - current_question_snapshot_and_result_snapshot_are_too_generic_to_prove_exam_definition_version_question_media_version_scoring_threshold_and_document_template_lineage
+      - finished_question_answer_scoring_rows_and_result_need_immutability_and consistency_guards
+      - historical_result_must_not_be_recomputed_from_current_question_bank_or_current_scoring_rules
+      - answer_sheet_regeneration_needs_deterministic_snapshot_and_document_version_hash_policy
+      - administrative_correction_must_not_silently_overwrite_formal_history
+    risk:
+      - historical_PDF_or_result_changes_after_question_bank_update
+      - score_result_mismatch
+      - nonreproducible_formal_document
+      - evidence_loss_through_in_place_edit
+    closure_scope_only:
+      - immutable_exam_definition_and_question_content_or_versioned_references
+      - scoring_and_pass_threshold_snapshots
+      - result_question_attempt_consistency
+      - document_template_version_hash_and_file_asset_boundary
+      - append_only_correction_or_invalidation_semantics
+
+  - id: DB-EXAM-008
+    title: deterministic_management_history_latest_and_statistics_projection
+    severity: P1
+    status: OPEN
+    diagnosis:
+      - management_panel_requires_latest_exam_attempt_count_pass_rate_passed_failed_status_filters_sorting_and_hide_finished
+      - observed_attempts_can_share_the_same_displayed_minute_so_timestamp_alone_cannot_deterministically_select_latest
+      - current_blueprint_has_no_explicit_per_course_or_per_student_attempt_sequence_or_other_closed_latest_order
+      - UI_status_labels_such_as_no_assignment_not_conducted_passed_failed_are_projections_and_must_not_become_a_second_mutable_attempt_status_authority
+      - counts_and_pass_rate_must_have_defined_inclusion_rules_for created in_progress technical_abort invalidated_and_finished_attempts
+    risk:
+      - nondeterministic_latest_row
+      - inconsistent_pass_rate_and_counts
+      - filter_sort_results_disagree_with_attempt_history
+      - mutable_summary_drift
+    closure_scope_only:
+      - deterministic_attempt_ordering
+      - derived_status_mapping
+      - explicit_statistics_denominators_and_hide_finished_semantics
+      - projection_only_search_filter_sort_counts
+
+diagnosis_summary:
+  diagnosed_P0: 0
+  diagnosed_P1: 8
+  resolved_in_diagnosis: 0
+  open_P0_P1: 8
+  result: FAIL_WITH_8_P1_BLOCKERS
+  blockers_in_required_fix_order:
+    - DB-EXAM-001
+    - DB-EXAM-002
+    - DB-EXAM-003
+    - DB-EXAM-004
+    - DB-EXAM-005
+    - DB-EXAM-006
+    - DB-EXAM-007
+    - DB-EXAM-008
+
+preservation_gate:
+  status: PASS_DIAGNOSIS_COMPLETE
+  checks:
+    no_blocker_fixed_during_diagnosis: true
+    core_schema_aggregate_modified: false
+    docs87_aggregate_modified: false
+    course_first_formal_exam_preserved: true
+    no_ad_hoc_formal_candidate_introduced: true
+    theory_exemption_and_requirement_engine_preserved: true
+    remote_link_and_local_current_workstation_preserved: true
+    assigned_exam_station_extension_preserved: true
+    consume_on_start_ADR_preserved: true
+    release_before_start_preserved: true
+    technical_abort_no_auto_restore_preserved: true
+    multi_attempt_history_preserved: true
+    tokenized_exam_frontend_preserved: true
+    question_review_and_answer_sheet_preserved: true
+    paper_signature_workflow_preserved: true
+    no_global_one_student_per_OSK_limit_invented: true
+    DB4_9_payment_and_inventory_grant_not_solved_early: true
+    DB4_8_PKK_provider_lifecycle_not_entered: true
+    DB4_10_final_audit_outbox_physical_shape_not_entered: true
+    Laravel_migrations_created: false
+    Stage5_started: false
+    UI_or_feature_implementation_started: false
+
+next_single_step_after_central_gate:
+  id: DB-EXAM-001
+  action: resolve_same_tenant_and_exact_target_integrity_only
+  stop_before: DB-EXAM-002
