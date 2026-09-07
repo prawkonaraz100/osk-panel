@@ -3,8 +3,8 @@
 Data: 2026-09-07
 
 **Etap:** `DB4_6_LICENSES_LEARNING_ACCESS`  
-**Aktualny krok:** `DB4_6_STEP_6 / DB-LIC-006`  
-**Status:** `DB-LIC-001..006 PASS / 0 P0 / 1 P1 OPEN`
+**Aktualny krok:** `DB4_6_STEP_7 / DB-LIC-007`  
+**Status:** `DB-LIC-001..007 PASS / 0 P0 / 0 P1 OPEN / FINAL AGGREGATE SYNC PENDING`
 
 Machine-readable diagnoza: `specs/database/licenses-learning-access.yml`.
 
@@ -1881,3 +1881,221 @@ Aktualny stan po DB-LIC-006:
 Następny dozwolony krok po centralnym gate: **DB-LIC-007 only**.
 
 **STOP przed DB-LIC-007.**
+
+---
+
+## 25. DB-LIC-007 — product-language capability, assignment snapshot and management projections
+
+**Current result: PASS.**
+
+Ten krok zamyka ostatni P1 DB4_6. Nie synchronizuje jeszcze agregatów i nie wchodzi w DB4_7, DB4_9, Stage 5, migracje Laravel ani UI.
+
+### 25.1 Jedno źródło bieżącego języka dostępu
+
+Canonical owner bieżącego języka to:
+
+`student_learning_accounts.language_code`.
+
+`languages.code` pozostaje globalnym słownikiem, ale sama obecność języka w słowniku **nie oznacza**, że konkretny LicenseProduct go obsługuje.
+
+`license_assignments.language_code` pozostaje historycznym, immutable snapshotem języka w chwili przydzielenia. Zmiana bieżącego języka LearningAccount nie przepisuje starych Assignmentów ani Activation history.
+
+Nie dodajemy drugiej kolumny language do Activation.
+
+### 25.2 Product-language support jest historyzowanym capability
+
+Dodajemy globalny katalog:
+
+`license_product_language_capabilities`.
+
+Każdy row wiąże dokładnie:
+- `license_product_id`,
+- `language_code`,
+- `enabled_at`,
+- opcjonalne `disabled_at`.
+
+Current capability ma `disabled_at IS NULL`, z partial unique per `(license_product_id,language_code)`.
+
+Capability history jest immutable poza jednorazowym przejściem `disabled_at: NULL -> timestamp`. Re-enable oznacza nowy row, nie odblokowanie starego historycznego rekordu.
+
+### 25.3 Konflikt źródeł PL/EN/DE/RU/UK nie jest rozstrzygany hardcodem
+
+Operational assignment UI pokazuje `pl,en,de,ru,uk`, a purchase marketing pokazuje `pl,en,de,uk`.
+
+Żadna z tych list nie jest globalnym DB CHECK ani canonical listą produktu. Rosyjski ani żaden inny język nie jest włączany/wyłączany przez architektoniczne zgadywanie.
+
+Runtime selector ma czytać current capability rows. Faktyczne wsparcie konkretnego języka wymaga reviewed product/content/catalog evidence.
+
+### 25.4 Assignment snapshot jest związany z dokładnym produktem inventory
+
+`license_assignments` finalizuje:
+- `assignment_sequence bigint >= 1`,
+- immutable `language_code`,
+- `license_product_language_capability_id`.
+
+Assignment wskazuje capability o tym samym `language_code`, a deferred final-state guard wymaga dodatkowo, aby:
+- capability należało do dokładnie `license_product_id` wskazanego przez InventoryEntry,
+- `assigned_at >= enabled_at`,
+- `assigned_at < disabled_at`, jeśli capability zostało później wyłączone.
+
+Nie wolno backdate'ować `disabled_at` tak, aby istniejący prawidłowy Assignment przestał mieścić się w historycznym interval capability.
+
+### 25.5 Assignment do istniejącego LearningAccount dziedziczy jego język
+
+Dla istniejącego konta canonical język pochodzi z zablokowanego `StudentLearningAccount`.
+
+Jeżeli Stage-3 request nadal niesie `language_code`, wartość musi być identyczna z kontem albo command failuje. Request nie może po cichu zmienić języka istniejącego konta.
+
+Dla nowego LearningAccount wybrany język ustawia konto i ten sam język zostaje zapisany jako Assignment snapshot, pod warunkiem current capability produktu.
+
+### 25.6 Capability retirement nie revokuje historycznego prawa
+
+Wyłączenie języka w katalogu blokuje **nowe** Assignmenty w tym capability.
+
+Nie unieważnia już prawidłowo przydzielonej jednostki. Taki Assignment może później zostać aktywowany nawet jeśli capability nie jest już current, ponieważ immutable snapshot dowodzi, że prawo zostało przydzielone, gdy produkt je wspierał.
+
+Activation nadal sprawdza, że Assignment snapshot language jest zgodny z bieżącym LearningAccount language. Dzięki regule zmiany języka pending Assignment nie może zostać po cichu aktywowany w innym języku.
+
+### 25.7 Zmiana języka LearningAccount wymaga quiescent state
+
+Normalny PATCH języka korzysta z `StudentLearningAccount.version` i parent-first locków DB-LIC-003.
+
+Zmiana jest dozwolona tylko gdy:
+- Student nie jest archived,
+- konto ma status `active` albo `suspended`,
+- nowy globalny Language jest aktywny,
+- nie istnieje pending Assignment `status=assigned`,
+- nie istnieje niewygasły ani future entitlement (`effective_to > command_effective_at`).
+
+Expired activated history oraz revoked history nie blokują zmiany i nie są przepisywane.
+
+Gołe konto bez aktualnej licencji może zmienić język bez wskazywania konkretnego LicenseProduct; następny Assignment ponownie przejdzie exact product-capability check.
+
+### 25.8 Deterministyczne latest bez timestamp/UUID heuristic
+
+Każdy LearningAccount ma własny `assignment_sequence = 1,2,3,...`, alokowany pod jego row lockiem.
+
+Unique scope:
+
+`(organization_id,student_learning_account_id,assignment_sequence)`.
+
+Sequence jest historycznym porządkiem, nie drugim concurrency rootem. `latest_assignment` to zawsze najwyższy sequence; nie stosujemy fallbacku typu `MAX(assigned_at)` z UUID tie-breakerem.
+
+### 25.9 Panel zarządzania jest projekcją canonical history
+
+Nie tworzymy mutable tabeli `latest/status/count/remaining/finished`.
+
+Jedno `read_effective_at` jest chwytane na całe zapytanie.
+
+Per LearningAccount:
+- `latest_license_generated_at` = `latest_assignment.assigned_at`,
+- `latest_license_language` = Assignment snapshot,
+- `learning_access_language` = bieżący LearningAccount language,
+- `assigned_license_count` = Assignmenty `assigned|activated`, z pominięciem `revoked_before_activation`,
+- `current_learning_access_expiry` = `MAX(Activation.effective_to)`.
+
+Status w historii:
+- `assigned` → `not_activated`,
+- `revoked_before_activation` → `revoked`,
+- `activated` + `effective_to > as_of` → `active`,
+- `activated` + `effective_to <= as_of` → `expired`.
+
+`remaining_time` jest wyłącznie pochodną `effective_to - as_of`, z minimum zero. Dokładne zaokrąglanie do etykiety „dni” pozostaje Stage 5 presentation contract.
+
+### 25.10 Active count zachowuje obserwowany model przedłużeń
+
+Inventory `available_count` jest liczone z konkretnych InventoryEntry w stanie `available`.
+
+`active_count` produktu jest liczone z Assignmentów `activated`, których Activation ma `effective_to > read_effective_at`, dla Inventory tego produktu.
+
+To celowo oznacza, że stacked extension może nadal być prezentowany jako aktywny historyczny efekt licencji, jeśli jego końcowy `effective_to` jeszcze nie minął. Jest to spójne z obserwowanym panelem z wieloma aktywnymi przedłużeniami; nie importujemy jednak niepotwierdzonych wyjątków konkurenta.
+
+### 25.11 Hide finished jest deterministyczne
+
+LearningAccess jest `finished` tylko jeśli jednocześnie:
+- nie ma pending Assignment `assigned`,
+- `current_entitlement_end` jest NULL albo `<= read_effective_at`.
+
+Revoked history sama nie utrzymuje dostępu jako unfinished.
+
+`hide_finished=true` filtruje dokładnie według tego predykatu. Mixed history nie jest rozstrzygane przez „status ostatniego wiersza”.
+
+### 25.12 Credentials localization używa bieżącego języka konta
+
+Single i bulk credentials document są lokalizowane z:
+
+`student_learning_accounts.language_code` w chwili exportu.
+
+Assignment snapshot nie staje się bieżącym locale dokumentu. Dzięki temu mixed-locale multi-access PDF pozostaje wspierany, a historyczna licencja nie blokuje późniejszej legalnej zmiany języka konta po zakończeniu wszystkich praw.
+
+### 25.13 Migration safety
+
+Przyszły sync/migration musi:
+1. zweryfikować wszystkie LearningAccount/Assignment language codes względem globalnego słownika,
+2. sprawdzić pending i niewygasłe Assignment/Activation pod kątem zgodności z current account language,
+3. wyprowadzić `assignment_sequence` tylko z jednoznacznej historii,
+4. failować na remisach/niejednoznacznym orderze zamiast wybierać UUID,
+5. utworzyć historyczny capability catalog wyłącznie z reviewed product evidence,
+6. nie seedować capability z całego `languages` ani z pojedynczego screena,
+7. backfillować capability pointer wyłącznie gdy product+language+assigned_at interval są dowodliwe,
+8. dopiero potem włączyć uniqueness, immutability, composite FK i deferred guards.
+
+Niejednoznaczność capability albo kolejności Assignmentów = migration FAIL + reviewed remediation.
+
+### 25.14 Required tests
+
+Wymagane są co najmniej:
+- global Language nie implikuje product capability,
+- różne produkty mogą mieć różne zestawy języków,
+- tylko jeden current capability per product/language,
+- disabled capability nie jest usuwane ani reaktywowane w miejscu,
+- new Assignment wymaga current exact product-language capability,
+- existing-account Assignment dziedziczy język konta,
+- request nie może po cichu zmienić języka istniejącego konta,
+- Assignment capability product musi równać się Inventory product,
+- Assignment timestamp musi mieścić się w capability interval,
+- snapshot language/capability jest immutable,
+- assignment sequence jest unique/contiguous i alokowane pod LearningAccount lockiem,
+- latest używa sequence, nie timestamp/UUID heuristic,
+- language PATCH z pending lub live/future entitlement failuje,
+- language PATCH po zakończeniu praw zachowuje historyczne snapshoty,
+- capability retirement nie blokuje aktywacji już przydzielonej jednostki,
+- presentation status/remaining/hide-finished są derived,
+- counts są wyliczane z canonical Inventory/Assignment/Activation rows,
+- bulk PDF lokalizuje strony według bieżącego LearningAccount language,
+- migracja nie hardkoduje `ru` ani innej listy z UI.
+
+### 25.15 Preservation incident i self-audit
+
+Pierwszy machine draft `e52e4847bab31bdd52815868591274a963cc6299` został **odrzucony przez preservation gate**, ponieważ skondensował część wcześniejszych DB-LIC-004..006.
+
+Commit `05dc6500ab85bf81e50531be9e981bf91b6395fe` przywrócił wcześniejszy machine contract bitowo; compare względem bazy `2d554c9d1045334fbb1af9cbe863d45d3609454f` miał zero zmian netto.
+
+Ponowny draft `3f4d3dbc17783066e052770165a78b782da3223b` zachował wcześniejszy kontrakt, ale self-audit znalazł jeszcze jeden niezamierzony blok w historycznej sekcji DB-LIC-003. Commit `4a0f02cfd56a63e59a64ee4dbe36238fcf775f83` usunął dokładnie ten hunk.
+
+Finalny machine preservation audit dla DB-LIC-007 potwierdził:
+- brak zmian semantycznych w DB-LIC-001..006,
+- jedyny nowy kontrakt domenowy to DB-LIC-007,
+- `DB-LIC-007 OPEN -> RESOLVED`,
+- summary `6/7 -> 7/7`,
+- agregaty nadal zamrożone,
+- DB4_7, Stage 5, Laravel migrations i UI nadal nierozpoczęte.
+
+### 25.16 Wynik blockera i następny krok
+
+Po DB-LIC-007:
+- resolved: **7/7**,
+- open P0: **0**,
+- open P1: **0**,
+- wynik blockera: **PASS**,
+- DB4_6 jako slice: **IN_PROGRESS_FINAL_AGGREGATE_SYNC_PENDING**.
+
+DB4_6 nie jest jeszcze ogłoszony jako finalny PASS, ponieważ aggregate machine i narrative schema nie zostały jeszcze zsynchronizowane z zamkniętymi DB-LIC-001..007.
+
+Następny i jedyny dozwolony krok po centralnym gate:
+
+**DB4_6 FINAL AGGREGATE SYNC**.
+
+W tym kroku wolno zsynchronizować tylko zamknięte kontrakty licencyjne do `specs/database/core-schema.yml` i `docs/87-physical-database-schema.md`, usunąć stare skróty agregatu, wykonać semantic-loss/stale-constraint/migration-order/invariant-test audit i ponownie uruchomić centralny gate.
+
+**STOP przed DB4_7.**
