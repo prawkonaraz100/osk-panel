@@ -85,13 +85,13 @@ stage_4_slices:
     final_aggregate_sync: PASS
     result: PASS
   - id: DB4_7_INTERNAL_EXAMS
-    status: FAIL_WITH_3_P1_BLOCKERS
+    status: FAIL_WITH_2_P1_BLOCKERS
     diagnosis: COMPLETE
     blockers_diagnosed: 8
-    blockers_resolved: 5
-    open_P0_P1: 3
+    blockers_resolved: 6
+    open_P0_P1: 2
     final_aggregate_sync: BLOCKED
-    result: FAIL_WITH_3_P1_BLOCKERS
+    result: FAIL_WITH_2_P1_BLOCKERS
   - id: DB4_8_PKK
     status: NOT_STARTED
   - id: DB4_9_STUDENT_FINANCE_COMMERCE
@@ -2265,6 +2265,87 @@ quality_checks:
       Stage5_started: false
       UI_or_feature_implementation_started: false
 
+  internal_exam_station_session_device_failover:
+    status: PASS
+    resolved_blocker_id: DB-EXAM-006
+    severity: P1
+    machine_source: specs/database/internal-exams.yml
+    audit_source: docs/112-stage-4-internal-exams-audit.md
+    machine_contract_commit: 1d0ec923ce1fb7a4d99a7ae571e608556517f0cc
+    narrative_audit_commit: 6ae88637eb3ac2dacd48035da4c988d6d0ea47ab
+    decision:
+      logical_station_authority: exam_stations
+      station_credential_table: exam_station_credentials
+      station_credentials_are_rotating_history: true
+      raw_station_secret_recoverable_storage: forbidden
+      persistent_station_administrative_status_values: [enabled, disabled]
+      station_connectivity_online_offline_is_derived: true
+      station_occupancy_free_occupied_is_derived_from_active_station_session: true
+      effective_availability_requires_enabled_online_current_credential_and_free_occupancy: true
+      access_station_id_role: immutable_prestart_launch_or_assignment_binding
+      current_runtime_station_after_start_source: active_internal_exam_station_session.exam_station_id
+      failover_rewrites_access_station_id: false
+      local_current_workstation_station_identity_is_server_resolved: true
+      assigned_station_first_session_requires_exact_assigned_station_identity: true
+      remote_access_has_station_session: false
+      active_station_session_unique_per_station: true
+      active_station_session_unique_per_attempt: true
+      station_session_transfer_chain_is_linear: true
+      station_session_sequence_contiguous_from_one: true
+      local_start_preserves_DB_EXAM_004_attempt_access_lock_prefix: true
+      local_start_preserves_DB_EXAM_003_reservation_inventory_lock_suffix: true
+      local_start_station_session_and_inventory_consume_are_one_outer_transaction: true
+      failover_reuses_same_attempt_and_access: true
+      failover_creates_new_reservation_or_inventory_effect: false
+      failover_consumes_inventory_again: false
+      reconnect_same_station_reuses_active_session: true
+      offline_or_disabled_station_auto_ends_active_session: false
+      offline_or_disabled_station_auto_restores_inventory: false
+      offline_or_disabled_station_auto_transfers_attempt: false
+      submit_closes_active_local_session_atomically: true
+      technical_abort_closes_active_local_session_without_inventory_restore: true
+      invalidate_from_in_progress_closes_active_local_session: true
+      postfinish_invalidation_rewrites_ended_station_session_history: false
+      current_Stage3_station_transfer_endpoint_present: true
+      current_Stage3_exam_station_list_present: true
+      station_registration_rotation_heartbeat_HTTP_present: false
+      exact_station_transport_contract_sync: Stage5_acceptance_contract_sync
+      DB_EXAM_007_and_DB_EXAM_008_not_fixed: true
+    checks:
+      station_admin_connectivity_occupancy_authorities_separated: PASS
+      station_credential_rotation_and_nonrecoverable_secret_closed: PASS
+      revoked_wrong_station_or_disabled_station_credential_rejected: PASS
+      local_current_workstation_cannot_spoof_station_id: PASS
+      assigned_station_first_session_requires_exact_live_target: PASS
+      remote_access_has_zero_station_sessions: PASS
+      one_active_session_per_station_enforced: PASS
+      one_active_session_per_attempt_enforced: PASS
+      linear_transfer_sequence_and_predecessor_guard_closed: PASS
+      local_start_lock_order_preserves_DB_EXAM_004_and_DB_EXAM_003: PASS
+      local_start_session_failure_rolls_back_consume_and_start: PASS
+      parallel_starts_same_station_have_at_most_one_winner: PASS
+      parallel_local_start_same_attempt_does_not_double_consume_or_session: PASS
+      failover_keeps_same_attempt_access_and_consumed_reservation: PASS
+      failover_does_not_rewrite_access_station_binding: PASS
+      failover_does_not_consume_or_restore_inventory: PASS
+      concurrent_failovers_same_attempt_have_one_successor: PASS
+      competing_failovers_to_same_target_station_have_one_winner: PASS
+      station_rows_for_cross_transfer_lock_in_sorted_order: PASS
+      reconnect_reuses_active_session_without_second_consume: PASS
+      disable_or_offline_state_does_not_hide_or_auto_end_active_history: PASS
+      submit_abort_invalidate_close_matching_active_session_atomically: PASS
+      failover_vs_terminal_attempt_commands_serialize_on_attempt: PASS
+      migration_does_not_guess_credential_session_winner_sequence_or_transfer: PASS
+      DB_EXAM_001_through_DB_EXAM_005_preserved: PASS
+      DB_EXAM_007_evidence_scoring_document_immutability_remains_open: PASS
+      DB_EXAM_008_management_projection_remains_open: PASS
+      aggregate_core_schema_modified_in_step: false
+      aggregate_docs87_modified_in_step: false
+      DB4_8_or_later_entered: false
+      Laravel_migrations_created: false
+      Stage5_started: false
+      UI_or_feature_implementation_started: false
+
 resolved_blockers:
   - DB-FOUND-001
   - DB-FOUND-002
@@ -2308,9 +2389,9 @@ resolved_blockers:
   - DB-EXAM-003
   - DB-EXAM-004
   - DB-EXAM-005
+  - DB-EXAM-006
 
 open_blockers_current_diagnosed_scope:
-  - DB-EXAM-006
   - DB-EXAM-007
   - DB-EXAM-008
 
@@ -2322,7 +2403,7 @@ gate_definition:
     - migration_order_dependency_safe
     - database_invariant_test_matrix_exists
     - reverse_engineering_preservation_traceable
-  current_result: DB4_7_FAIL_WITH_3_P1_BLOCKERS
+  current_result: DB4_7_FAIL_WITH_2_P1_BLOCKERS
   DB4_1_result: PASS
   DB4_2_result: PASS
   DB4_3_result: PASS
@@ -2363,7 +2444,8 @@ gate_definition:
   DB4_7_DB_EXAM_003_result: PASS
   DB4_7_DB_EXAM_004_result: PASS
   DB4_7_DB_EXAM_005_result: PASS
-  DB4_7_result: FAIL_WITH_3_P1_BLOCKERS
+  DB4_7_DB_EXAM_006_result: PASS
+  DB4_7_result: FAIL_WITH_2_P1_BLOCKERS
   may_start_DB4_4_fixes: false
   may_start_DB4_5: false
   may_start_DB4_5_fixes: false
@@ -2376,8 +2458,8 @@ gate_definition:
   may_start_UI_or_feature_implementation: false
 
 next_single_step:
-  id: DB_EXAM_006_STATION_SESSION_CONCURRENCY_DEVICE_BINDING_AND_FAILOVER
-  action: resolve_DB_EXAM_006_only_after_next_explicit_user_instruction
+  id: DB_EXAM_007_IMMUTABLE_EXAM_DEFINITION_QUESTION_RESULT_AND_DOCUMENT_EVIDENCE
+  action: resolve_DB_EXAM_007_only_after_next_explicit_user_instruction
   allowed_scope:
     - specs/database/internal-exams.yml
     - docs/112-stage-4-internal-exams-audit.md
@@ -2386,8 +2468,7 @@ next_single_step:
     - specs/database/core-schema.yml
     - docs/87-physical-database-schema.md
   scope_lock: >-
-    Resolve only DB-EXAM-006 station session concurrency, device binding and failover.
-    Preserve DB-EXAM-007 and DB-EXAM-008 as OPEN. Do not enter DB4_8 or later slices,
-    do not start Stage 5, do not create Laravel migrations and do not start
-    UI/feature implementation.
-  after_action: rerun_DB_EXAM_006_gate_and_STOP_before_DB_EXAM_007
+    Resolve only DB-EXAM-007 immutable exam definition, question, result and document evidence.
+    Preserve DB-EXAM-008 as OPEN. Do not enter DB4_8 or later slices, do not start
+    Stage 5, do not create Laravel migrations and do not start UI/feature implementation.
+  after_action: rerun_DB_EXAM_007_gate_and_STOP_before_DB_EXAM_008
