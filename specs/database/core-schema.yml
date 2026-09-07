@@ -8,6 +8,7 @@ meta:
   traceability: specs/traceability/core-v1.yml
   DB4_4_students_courses_training_aggregate_sync: PASS
   DB4_5_calendar_aggregate_sync: PASS
+  DB4_6_licenses_learning_access_aggregate_sync: PASS
 
 conventions:
   primary_key:
@@ -71,6 +72,7 @@ core_tables:
     - organization_settings
     - organization_contact_addresses
     - users
+    - user_password_management
     - auth_login_identifiers
     - auth_social_accounts
     - auth_sessions
@@ -115,6 +117,7 @@ core_tables:
     - students
     - student_learning_accounts
     - student_access_handoffs
+    - student_access_export_batches
 
   training:
     - course_enrollments
@@ -150,7 +153,7 @@ core_tables:
 
   licenses:
     - license_products
-    - license_product_languages
+    - license_product_language_capabilities
     - license_inventory_entries
     - license_assignments
     - license_activations
@@ -199,6 +202,28 @@ identity_model:
     pre_onboarding_or_system_principal_nullability_may_be_supported: true
     names_are_global_identity_fields_not_duplicated_per_organization: true
 
+  user_password_management:
+    purpose: fail_closed_global_local_password_management_authority_and_credential_epoch
+    one_row_per_user: true
+    fields:
+      - user_id
+      - management_mode
+      - managing_organization_id_nullable
+      - credential_version
+      - password_changed_at_nullable
+      - created_at
+      - updated_at
+    management_mode_values: [unclassified, self_service, organization_managed]
+    credential_version_type: bigint_not_null_default_0_check_gte_0
+    organization_managed_requires_managing_organization: true
+    self_service_or_unclassified_require_null_managing_organization: true
+    OSK_password_mutation_requires_matching_organization_managed_authority: true
+    organization_managed_exclusive_principal_guard: true
+    organization_managed_forbids_organization_membership: true
+    organization_managed_forbids_learning_account_in_other_organization: true
+    organization_managed_forbids_current_social_auth_account: true
+    authority_transition_is_separate_identity_security_command: true
+
   auth_login_identifiers:
     purpose: resolve_generic_login_without_tenant_selector
     fields:
@@ -219,6 +244,7 @@ identity_model:
       type: partial_unique
       columns: [user_id, identifier_type]
       where: revoked_at_is_null_and_is_primary_for_type_true
+    candidate_key_id_user: [id, user_id]
     settings_email_projection: current_nonrevoked_identifier_type_email_and_primary_true
     rule: same_visible_login_string_must_not_resolve_to_two_users
 
@@ -860,6 +886,166 @@ calendar_model:
     missing_booking_student_or_time_guess: forbidden
     backfill_claims_only_from_reliably_classified_rows: true
 
+licenses_learning_access_model:
+  bounded_context_source: specs/database/licenses-learning-access.yml
+  audit_source: docs/110-stage-4-licenses-learning-access-audit.md
+  aggregate_sync_status: PASS
+  resolved_blockers: [DB-LIC-001, DB-LIC-002, DB-LIC-003, DB-LIC-004, DB-LIC-005, DB-LIC-006, DB-LIC-007]
+
+  tenant_and_exact_target_integrity:
+    tenant_candidate_keys:
+      students: [organization_id, id]
+      file_assets: [organization_id, id]
+      student_learning_accounts: [organization_id, id]
+      student_learning_accounts_exact_student: [organization_id, id, student_id]
+      license_inventory_entries: [organization_id, id]
+      license_assignments: [organization_id, id]
+      license_assignments_exact_learning_account: [organization_id, id, student_learning_account_id]
+    all_tenant_owned_relations_use_composite_same_tenant_FK_or_equivalent_guard: true
+    assignment_exact_target: [organization_id, student_learning_account_id, student_id]
+    organization_id_client_authority: false
+    formal_relation_on_update: RESTRICT
+    formal_relation_on_delete: RESTRICT
+    source_order_item_commerce_tenant_boundary: deferred_to_DB4_9
+
+  learning_accounts:
+    fields_added_or_finalized:
+      auth_login_identifier_id: uuid_not_null
+      language_code: varchar_not_null
+      status: varchar_active_or_suspended
+      version: bigint_not_null_default_1_check_gte_1
+    removed_persisted_independent_projection: login_identifier_projection
+    canonical_login_projection: auth_login_identifiers.identifier_normalized_via_join
+    same_user_identifier_composite_FK: student_learning_accounts[auth_login_identifier_id,user_id]_to_auth_login_identifiers[id,user_id]
+    referenced_identifier_must_be_current: true
+    current_identifier_final_state_guard: DEFERRABLE_INITIALLY_DEFERRED
+    user_id_reparenting_normal_flow: forbidden
+    tenant_login_namespace_added: false
+    status_values: [active, suspended]
+    concurrency_root: student_learning_accounts.version
+    generic_PATCH_may_change_status: false
+    normal_hard_delete: forbidden
+    operational_eligibility_requires: [status_active, student_nonarchived, current_auth_identifier, global_user_auth_eligible]
+    state_dependent_lock_prefix: [student, student_learning_account]
+    student_archive_rewrites_account_or_license_history: false
+    student_archive_pauses_or_extends_entitlement: false
+    student_restore_auto_resumes_suspended_or_revoked_or_expired_right: false
+
+  password_management_and_handoffs:
+    canonical_password_hash_owner: users.password_hash
+    password_management_table: user_password_management
+    credential_concurrency_root: user_password_management.credential_version
+    OSK_reset_requires_matching_organization_managed_authority_and_permission_scope: true
+    organization_managed_exclusive_principal_guard: true
+    plaintext_password_persisted: false
+    reversible_login_password_storage: false
+    secret_bearing_PDF_persisted_as_FileAsset_or_object_storage: false
+    secret_bearing_PDF_rendered_in_memory_and_streamed_once: true
+    later_handoff_can_recover_old_plaintext: false
+    visible_password_reprint_requires_new_reset: true
+    QR_contains_password_or_reset_secret: false
+    handoff_rows_are_nonsecret_metadata: true
+    handoff_fields_added: [credential_version_snapshot, contains_fresh_secret, fresh_secret_issued_at, batch_id, batch_ordinal]
+    handoff_with_fresh_secret_requires_document_asset_null: true
+    export_batch_table: student_access_export_batches
+    bulk_export_modes: [nonsecret_combined_pdf, reset_and_secret_combined_pdf]
+    bulk_reset_all_or_none: true
+    duplicate_learning_accounts_same_global_user_reset_once_per_batch: true
+    secret_in_audit_outbox_logs_or_idempotency_snapshot: forbidden
+
+  inventory_and_assignment:
+    inventory_row_represents_one_unit: true
+    inventory_status_values: [available, assigned, consumed, expired, adjusted]
+    normal_inventory_path: available_to_assigned_to_consumed_or_assigned_to_available_on_explicit_revoke
+    assignment_status_values: [assigned, activated, revoked_before_activation]
+    assignment_version: bigint_not_null_default_1_check_gte_1
+    assignment_concurrency_root: license_assignments.version
+    assigned_at_and_actor_required_immutable: true
+    normal_assignment_hard_delete: forbidden
+    current_assignment_predicate: status_in_assigned_activated_and_revoked_at_is_null
+    current_assignment_unique_scope: [organization_id, license_inventory_entry_id]
+    final_state_equivalence_guard: DEFERRABLE_INITIALLY_DEFERRED
+    available_inventory_current_assignment_count: 0
+    assigned_inventory_requires_one_assigned_unactivated_current_assignment: true
+    consumed_inventory_requires_one_activated_assignment_and_one_activation: true
+    expired_adjusted_inventory_current_assignment_count: 0
+    activated_assignment_is_consumption_history_not_current_time_flag: true
+    revoked_assignment_history_survives_reassignment: true
+    allocation_serialization_root: license_inventory_entries_row_FOR_UPDATE
+    create_assignment_is_atomic_and_idempotent: true
+    create_new_learning_account_and_assignment_one_outer_transaction: true
+    revoke_unactivated_restores_same_inventory_unit_exactly_once: true
+    revoke_after_student_archive_or_account_suspension_explicitly_allowed: true
+    activate_vs_revoke_share_lock_order_and_have_exactly_one_winner: true
+
+  activation_and_entitlement:
+    activation_table_role: immutable_append_only_entitlement_effect_ledger
+    normal_update_or_delete: forbidden
+    one_activation_per_assignment: true
+    exact_learning_account_composite_FK: license_activations[organization_id,license_assignment_id,student_learning_account_id]_to_license_assignments[organization_id,id,student_learning_account_id]
+    entitlement_sequence: bigint_not_null_gte_1_contiguous_per_learning_account
+    entitlement_sequence_unique_scope: [organization_id, student_learning_account_id, entitlement_sequence]
+    serialization_root: student_learning_accounts_row_FOR_UPDATE
+    activation_origin_values: [learner_self, organization_user, legacy_unknown]
+    runtime_activation_origin_values: [learner_self, organization_user]
+    duration_snapshot_source_values: [product_at_activation, legacy_effect_reconstructed]
+    runtime_duration_snapshot_source: product_at_activation
+    duration_days_snapshot_required_positive: true
+    product_duration_days_positive: true
+    product_duration_change_after_inventory_reference: forbidden
+    inventory_product_binding_change_after_creation: forbidden
+    expiry_before_chain_required: true
+    entitlement_chain_guard: DEFERRABLE_INITIALLY_DEFERRED
+    first_effect_starts_at_activation_time: true
+    extension_before_expiry_starts_at_previous_effective_to: true
+    activation_after_expiry_starts_at_command_effective_at_without_gap_backfill: true
+    effective_to_rule: effective_from_plus_duration_days_snapshot_times_86400_seconds
+    current_entitlement_end: MAX_license_activations_effective_to_per_learning_account
+    independent_mutable_current_expiry: forbidden
+    concurrent_extensions_do_not_lose_time: true
+    archive_or_suspension_pauses_or_extends_entitlement: false
+    migration_only_origin_or_duration_source_runtime_insert: forbidden_after_cutover
+
+  product_language_capability_and_projection:
+    current_learning_access_language_owner: student_learning_accounts.language_code
+    assignment_language_role: immutable_assignment_time_snapshot
+    product_language_capability_table: license_product_language_capabilities
+    current_capability_predicate: disabled_at_is_null
+    current_capability_unique_scope: [license_product_id, language_code]
+    capability_history_hard_delete_or_reenable_in_place: forbidden
+    assignment_capability_pointer_required: true
+    exact_assignment_capability_product_language_time_guard: DEFERRABLE_INITIALLY_DEFERRED
+    existing_account_assignment_inherits_locked_account_language: true
+    new_account_language_and_assignment_snapshot_match: true
+    capability_retirement_retroactively_revokes_assigned_right: false
+    capability_retirement_blocks_activation_of_already_assigned_unit: false
+    language_change_requires_zero_pending_assignments_and_zero_live_future_entitlements: true
+    historical_assignment_or_activation_rewritten_on_language_change: false
+    assignment_sequence: bigint_not_null_gte_1_contiguous_per_learning_account
+    assignment_sequence_unique_scope: [organization_id, student_learning_account_id, assignment_sequence]
+    latest_assignment_source: max_assignment_sequence
+    timestamp_or_UUID_latest_heuristic: forbidden
+    management_projection_mutable_authority: forbidden
+    read_effective_at_captured_once_per_query: true
+    status_expiry_remaining_hide_finished_are_derived: true
+    available_count_source: inventory_status_available
+    active_count_source: activated_assignment_activation_effective_to_gt_read_effective_at
+    bulk_credentials_locale_source: current_learning_account_language
+    global_language_dictionary_or_single_screen_list_grants_product_support: false
+    Russian_language_support_hardcoded_from_SOURCE_CONFLICT: false
+
+  migration_policy:
+    auto_reassign_cross_tenant_or_wrong_student_account_pair: forbidden
+    missing_or_mismatched_auth_identifier_auto_merge_or_rebind: forbidden
+    unknown_learning_account_status_auto_map: forbidden
+    managing_organization_inferred_from_learning_account_or_creator: forbidden
+    legacy_secret_bearing_PDF_silently_preserved_or_reclassified_nonsecret: forbidden
+    inventory_assignment_activation_state_fabrication: forbidden
+    activation_order_duration_origin_or_effective_time_guess: forbidden
+    assignment_order_from_timestamp_tie_or_UUID: forbidden
+    product_language_capability_inferred_from_global_dictionary_or_one_screen: forbidden
+    ambiguous_legacy_state: fail_and_require_reviewed_remediation
+
 idempotency_model:
   idempotency_records:
     fields:
@@ -923,6 +1109,7 @@ critical_relations:
   - organization_has_one_contact_address
   - organization_has_many_students
   - user_has_many_auth_login_identifiers
+  - user_has_one_password_management_authority_and_credential_epoch
   - user_has_many_auth_sessions
   - user_has_many_account_closure_requests
   - user_has_many_organization_memberships
@@ -944,7 +1131,14 @@ critical_relations:
   - staff_and_vehicle_private_assets_must_match_tenant_purpose_and_ready_state_at_attach
   - staff_and_vehicle_documents_have_versioned_history_and_at_most_one_current_row_per_type
   - student_has_many_course_enrollments
-  - student_learning_account_resolves_to_global_user_and_primary_login_identifier
+  - student_has_many_learning_accounts
+  - student_learning_account_resolves_to_global_user_and_current_same_user_auth_login_identifier
+  - student_learning_account_has_many_license_assignments
+  - license_assignment_targets_exact_same_tenant_student_learning_account_and_inventory
+  - license_product_has_versioned_language_capabilities
+  - license_inventory_entry_has_many_historical_assignments_but_at_most_one_current_assignment
+  - license_assignment_has_at_most_one_activation
+  - license_activation_targets_exact_assignment_learning_account_and_immutable_entitlement_sequence
   - course_enrollment_has_many_versioned_pkk_profiles_and_exactly_one_current_identity
   - course_enrollment_has_many_versioned_requirement_profiles_and_exactly_one_current_revision_match
   - course_enrollment_has_append_only_lifecycle_events_version_paired
@@ -959,11 +1153,6 @@ critical_relations:
   - planned_training_session_has_exact_course_student_and_resource_claim_set
   - training_session_calendar_details_is_zero_or_one_companion_to_same_tenant_practical_session
   - availability_slot_may_link_to_at_most_one_same_tenant_training_session_after_atomic_formalization
-  - student_has_many_learning_accounts
-  - learning_account_receives_license_assignments
-  - license_inventory_entry_has_many_historical_assignments_but_at_most_one_current_assignment
-  - license_assignment_has_at_most_one_activation
-  - license_activation_has_effective_entitlement_period
   - course_enrollment_has_many_internal_exam_attempts
   - internal_exam_inventory_entry_has_many_historical_reservations_but_at_most_one_active_reservation
   - internal_exam_attempt_has_at_most_one_active_reservation
@@ -998,11 +1187,17 @@ structural_decisions:
     suspend_or_revoke_clears_bound_session_tenant_contexts: true
     authorization_changes_write_audit_and_outbox_same_transaction: true
   student_learning_login:
-    primary_auth_identifier_reference_required_when_login_provisioned: true
-    login_identifier_cached_on_learning_account_for_projection_only: true
+    bounded_context_source: specs/database/licenses-learning-access.yml
+    canonical_auth_identifier_reference: auth_login_identifier_id
     canonical_login_resolution: auth_login_identifiers
+    auth_identifier_must_belong_to_same_global_user: true
+    referenced_identifier_must_be_current_nonrevoked_at_commit: true
+    persisted_login_identifier_projection_as_independent_authority: false
+    API_list_search_projection: auth_login_identifiers.identifier_normalized_via_join
     reason: generic_login_page_has_no_organization_selector
-    allow_same_email_to_reuse_same_global_user_across_organizations: true
+    allow_same_global_user_identifier_to_back_learning_accounts_across_organizations: true
+    per_tenant_login_namespace_or_unique: forbidden
+    heuristic_merge_or_rebind_from_student_fields_or_typed_login: forbidden
   staff_login_link:
     table: staff_membership_links
     target: organization_membership_id
@@ -1081,20 +1276,32 @@ structural_decisions:
     formalization_transfers_reservation_owner_atomically: true
     calendar_complete_credits_training: false
   license_assignment_history:
+    bounded_context_source: specs/database/licenses-learning-access.yml
     inventory_entry_global_unique_across_all_history: false
     current_assignment_unique: true
-    current_definition: revoked_at_is_null_and_status_in_current_states
+    current_definition: status_in_assigned_activated_and_revoked_at_is_null
+    current_unique_scope: [organization_id, license_inventory_entry_id]
+    revoked_history_survives_reassignment: true
+    cross_row_inventory_assignment_activation_equivalence: DEFERRABLE_INITIALLY_DEFERRED
   license_activation_periods:
-    fields:
-      - activated_at
-      - effective_from
-      - effective_to
+    bounded_context_source: specs/database/licenses-learning-access.yml
+    fields: [student_learning_account_id, entitlement_sequence, activation_origin, duration_snapshot_source, duration_days_snapshot, expiry_before, activated_at, effective_from, effective_to]
+    immutable_append_only: true
     activation_serialization_lock: student_learning_account
-    effective_from_rule: max(now_current_entitlement_end)
-    effective_to_rule: effective_from_plus_license_product_duration
-    current_access_expiry_projection: max_nonrevoked_effective_to
-    multiple_active_historical_rows_supported: true
+    sequence_contiguous_from_one: true
+    effective_from_rule: greatest_activated_at_and_previous_expiry_when_present
+    effective_to_rule: effective_from_plus_duration_days_snapshot_times_86400_seconds
+    current_access_expiry_projection: MAX_effective_to
+    multiple_activated_historical_rows_supported: true
     concurrent_extension_must_not_lose_time: true
+  license_language_and_management_projection:
+    bounded_context_source: specs/database/licenses-learning-access.yml
+    current_language_owner: student_learning_accounts.language_code
+    assignment_language_snapshot_immutable: true
+    product_support_owner: license_product_language_capabilities
+    latest_assignment_order: max_assignment_sequence
+    mutable_latest_status_count_remaining_or_finished_authority: forbidden
+    source_conflicting_screen_language_lists_are_authority: false
   exam_reservation_history:
     global_unique_inventory_entry_across_all_history: false
     active_inventory_reservation_unique: true
@@ -1134,6 +1341,9 @@ critical_constraints:
     type: partial_unique
     columns: [user_id, identifier_type]
     where: revoked_at_is_null_and_is_primary_for_type_true
+  auth_login_identifier_candidate_key_id_user:
+    columns: [id, user_id]
+    purpose: learning_account_same_global_user_identifier_FK_target
   organization_settings_version_minimum:
     check: version_gte_1
   social_provider_subject_unique:
@@ -1289,6 +1499,49 @@ critical_constraints:
     match: MATCH_SIMPLE
   student_candidate_key_org_id:
     columns: [organization_id, id]
+  student_learning_account_candidate_key_org_id:
+    columns: [organization_id, id]
+  student_learning_account_candidate_key_org_id_student:
+    columns: [organization_id, id, student_id]
+  student_learning_account_version_minimum:
+    check: version_gte_1
+  student_learning_account_status_check:
+    check: status_in_active_suspended
+  student_learning_account_student_same_tenant_composite_FK:
+    source_columns: [organization_id, student_id]
+    target_table: students
+    target_columns: [organization_id, id]
+    on_update: RESTRICT
+    on_delete: RESTRICT
+  student_learning_account_identifier_same_user_composite_FK:
+    source_columns: [auth_login_identifier_id, user_id]
+    target_table: auth_login_identifiers
+    target_columns: [id, user_id]
+    on_update: RESTRICT
+    on_delete: RESTRICT
+  student_learning_account_current_identifier_final_state_guard:
+    type: DEFERRABLE_INITIALLY_DEFERRED_constraint_trigger_or_equivalent
+  student_access_handoff_account_same_tenant_composite_FK:
+    source_columns: [organization_id, student_learning_account_id]
+    target_table: student_learning_accounts
+    target_columns: [organization_id, id]
+    on_update: RESTRICT
+    on_delete: RESTRICT
+  student_access_handoff_document_asset_same_tenant_composite_FK:
+    source_columns: [organization_id, document_asset_id]
+    target_table: file_assets
+    target_columns: [organization_id, id]
+    match: MATCH_SIMPLE
+    on_update: RESTRICT
+    on_delete: RESTRICT
+  student_access_handoff_batch_ordinal_unique:
+    columns: [batch_id, batch_ordinal]
+  student_access_handoff_batch_account_unique:
+    columns: [batch_id, student_learning_account_id]
+  user_password_management_credential_version_minimum:
+    check: credential_version_gte_0
+  user_password_management_state_and_exclusive_principal_guard:
+    type: DEFERRABLE_INITIALLY_DEFERRED_cross_table_constraint_triggers_or_equivalent
   course_enrollment_candidate_key_org_id:
     columns: [organization_id, id]
   course_enrollment_candidate_key_org_id_student:
@@ -1417,13 +1670,53 @@ critical_constraints:
     type: partial_exclusion_GiST
     dimensions: [organization_id_equals, location_id_equals, occupied_during_overlaps]
     where: location_id_is_not_null
+  license_inventory_candidate_key_org_id:
+    columns: [organization_id, id]
+  license_assignment_candidate_key_org_id:
+    columns: [organization_id, id]
+  license_assignment_candidate_key_org_id_learning_account:
+    columns: [organization_id, id, student_learning_account_id]
+  license_assignment_version_minimum:
+    check: version_gte_1
+  license_assignment_status_check:
+    check: status_in_assigned_activated_revoked_before_activation
+  license_inventory_status_check:
+    check: status_in_available_assigned_consumed_expired_adjusted
   license_current_assignment_unique_per_inventory_entry:
     type: partial_unique
-    columns: [license_inventory_entry_id]
-    where: revoked_at_is_null
+    columns: [organization_id, license_inventory_entry_id]
+    where: status_in_assigned_activated_and_revoked_at_is_null
     note: do_not_make_inventory_entry_unique_across_historical_revoked_assignments
+  license_inventory_assignment_activation_final_state_guard:
+    type: DEFERRABLE_INITIALLY_DEFERRED_constraint_trigger_or_equivalent
+  license_assignment_sequence_unique:
+    columns: [organization_id, student_learning_account_id, assignment_sequence]
+  license_product_language_capability_current_unique:
+    type: partial_unique
+    columns: [license_product_id, language_code]
+    where: disabled_at_is_null
+  license_product_language_capability_candidate_key_id_language:
+    columns: [id, language_code]
+  license_assignment_capability_same_language_composite_FK:
+    source_columns: [license_product_language_capability_id, language_code]
+    target_table: license_product_language_capabilities
+    target_columns: [id, language_code]
+    on_update: RESTRICT
+    on_delete: RESTRICT
+  license_assignment_exact_product_capability_time_guard:
+    type: DEFERRABLE_INITIALLY_DEFERRED_constraint_trigger_or_equivalent
   license_activation_unique:
     columns: [license_assignment_id]
+  license_activation_entitlement_sequence_unique:
+    columns: [organization_id, student_learning_account_id, entitlement_sequence]
+  license_activation_exact_learning_account_composite_FK:
+    source_columns: [organization_id, license_assignment_id, student_learning_account_id]
+    target_table: license_assignments
+    target_columns: [organization_id, id, student_learning_account_id]
+    on_update: RESTRICT
+    on_delete: RESTRICT
+  license_activation_entitlement_chain_guard:
+    type: DEFERRABLE_INITIALLY_DEFERRED_constraint_trigger_or_equivalent
   license_effective_period_valid:
     check: effective_to_gt_effective_from
   service_activation_unique:
@@ -1564,6 +1857,8 @@ transactional_invariants:
     expected_version_required_for_material_profile_change: true
     archive_with_active_course: reject_conflict
     archive_restore_do_not_rewrite_formal_history: true
+    learning_access_operational_eligibility_reads_student_archive_state: true
+    archive_does_not_revoke_license_or_pause_entitlement: true
   mutate_course_lifecycle_or_requirement_or_external_or_PKK_identity:
     concurrency_root: course_enrollments.version
     lock_course_before_material_child_projection_mutation: true
@@ -1668,27 +1963,69 @@ transactional_invariants:
     append_formalized_slot_history: true
     failed_handoff_rolls_back_to_original_booked_claim_owner: true
     linked_slot_cancel_independently_after_handoff: false
+  mutate_learning_account_configuration:
+    concurrency_root: student_learning_accounts.version
+    lock_order: [student, student_learning_account]
+    expected_version_required: true
+    normal_update_requires_student_nonarchived: true
+    identifier_change_requires_same_global_user_and_current_identifier: true
+    status_change_generic_PATCH: forbidden
+    language_change_requires_zero_pending_assignments_and_zero_live_future_entitlements: true
+    successful_material_change_increments_version_once: true
+  reset_OSK_managed_learning_credentials:
+    idempotency_required: true
+    lock_order: [student, student_learning_account, user, user_password_management]
+    expected_credential_version_required: true
+    require_operational_eligibility: true
+    require_matching_organization_managed_authority_and_exclusive_principal_guard: true
+    plaintext_exists_only_in_process_memory: true
+    secret_bearing_PDF_if_requested_rendered_before_durable_hash_write: true
+    durable_secret_storage: forbidden
+    same_key_retry_repeats_reset_or_replays_secret: false
+    precommit_render_failure_changes_credentials: false
+  bulk_learning_credentials_export:
+    validate_all_targets_before_any_secret_mutation: true
+    reset_mode_requires_reset_permission_for_every_target: true
+    deterministic_lock_order_by_UUID: true
+    duplicate_targets_same_global_user_grouped_to_one_password_reset: true
+    reset_and_secret_mode_all_or_none: true
+    secret_bearing_combined_PDF_persisted: false
+    same_key_retry_repeats_resets_or_replays_secret: false
+  create_license_assignment:
+    idempotency_required: true
+    lock_order_existing_account: [student, student_learning_account, license_inventory_entry]
+    new_account_identity_credentials_assignment_are_one_outer_transaction: true
+    require_operational_eligibility_for_existing_account: true
+    require_inventory_available_and_zero_current_assignment: true
+    require_current_exact_product_language_capability: true
+    assignment_language_for_existing_account: locked_learning_account_language
+    assignment_sequence_allocated_under_learning_account_lock: true
+    create_assignment_and_set_inventory_assigned_same_transaction: true
+    failure_rolls_back_new_account_identity_and_optional_credentials: true
   revoke_unactivated_license:
-    lock:
-      - license_assignment
-      - license_inventory_entry
-    transaction:
-      - verify_not_activated
-      - revoke_assignment
-      - restore_exactly_one_inventory_entry_to_available
-      - write_audit
+    idempotency_required: true
+    expected_assignment_version_required: true
+    lock_order: [student, student_learning_account, license_inventory_entry, license_assignment]
+    operational_eligibility_required: false
+    require_assignment_assigned_inventory_assigned_and_zero_activation: true
+    revoke_assignment_and_restore_same_inventory_entry_to_available: true
+    restore_exactly_once: true
+    retry_does_not_restore_or_increment_version_twice: true
+    write_audit_and_outbox_same_transaction: true
   activate_or_extend_license:
-    lock:
-      - student_learning_account
-      - license_assignment
-      - license_inventory_entry
-    transaction:
-      - verify_assignment_not_revoked_and_not_activated
-      - compute_current_entitlement_end
-      - create_activation_with_effective_period
-      - consume_inventory_exactly_once
-      - write_audit
-    retry_safe: true
+    idempotency_required: true
+    expected_assignment_version_required: true
+    lock_order: [student, student_learning_account, license_inventory_entry, license_assignment, license_product]
+    require_operational_eligibility: true
+    require_assignment_assigned_inventory_assigned_and_zero_activation: true
+    require_assignment_language_equals_current_learning_account_language: true
+    capability_must_have_been_valid_at_assignment_time_not_necessarily_current_now: true
+    compute_next_entitlement_sequence_under_learning_account_lock: true
+    snapshot_product_duration_days: true
+    compute_expiry_before_effective_from_effective_to: true
+    create_immutable_activation_and_set_assignment_activated_and_inventory_consumed_same_transaction: true
+    retry_does_not_apply_entitlement_twice: true
+    write_audit_and_outbox_same_transaction: true
   exam_start:
     lock:
       - internal_exam_access
@@ -1747,6 +2084,8 @@ foreign_key_policy:
     - internal_exam_attempts
     - student_payments
     - pkk_operations
+    - student_learning_accounts
+    - license_assignments
   never_cascade_course_enrollment_to:
     - pkk_profiles
     - pkk_operations
@@ -1759,6 +2098,14 @@ security_storage_rules:
     raw_cookie_or_bearer_secret_forbidden: true
     token_hash_or_framework_opaque_id_only: true
     permission_snapshot_as_authority_forbidden: true
+  credentials:
+    canonical_local_password_hash_owner: users.password_hash
+    plaintext_password_persistence_forbidden: true
+    reversible_login_password_storage_forbidden: true
+    secret_bearing_PDF_FileAsset_or_object_storage_forbidden: true
+    secret_in_QR_forbidden: true
+    secret_in_audit_outbox_logs_traces_forbidden: true
+    password_hash_in_handoff_audit_or_outbox_forbidden: true
   audit_log:
     before_after_payloads_must_be_redacted_or_allowlisted: true
     plaintext_passwords_forbidden: true
@@ -1774,25 +2121,26 @@ security_storage_rules:
     plaintext_course_PKK_after_save_forbidden: true
   idempotency:
     one_time_plaintext_password_response_snapshot_forbidden: true
+    secret_bearing_PDF_bytes_response_snapshot_forbidden: true
 
 migration_order:
-  - identity_organization_auth_identifiers_memberships_permissions_scopes_sessions_and_closure_requests
+  - identity_organization_users_auth_identifiers_memberships_permissions_scopes_sessions_closure_requests_and_user_password_management_base
   - legal_documents_terms_and_settings
   - dictionaries_and_capabilities
   - file_assets_and_idempotency
   - staff_locations_vehicles_and_assignment_tables
-  - students_identity_version_and_learning_accounts
+  - students_identity_version_learning_accounts_access_handoff_batches_and_same_user_identifier_boundary
   - course_enrollments_lifecycle_requirement_rules_context_profiles_exemptions_and_PKK_identity
   - training_sessions_attendance_ledger_and_recognized_external_training
   - enable_btree_gist_before_calendar_resource_claim_exclusion_constraints
   - calendar_events_availability_lifecycle_claims_training_session_calendar_details_and_formalization_links
   - pkk_provider_operations_and_attempts
   - student_finance
-  - license_inventory_assignments_and_activations
+  - license_products_language_capability_history_inventory_assignments_and_activations
   - internal_exam_inventory_attempts_stations_and_station_sessions
   - orders_payments_service_entitlements_and_activations
   - audit_activity_outbox_notifications
-  - final_partial_indexes_and_cross_table_constraints
+  - final_partial_indexes_and_cross_table_constraints_including_learning_identity_password_authority_inventory_assignment_activation_entitlement_and_language_capability_guards
 
 migration_tests_required:
   - generated_synthetic_domain_ids_are_UUIDv7_and_stored_as_native_uuid
@@ -1924,11 +2272,43 @@ migration_tests_required:
   - formalized_slot_cannot_cancel_independently_and_linked_session_terminal_state_does_not_auto_republish_slot
   - legacy_driving_lesson_calendar_row_is_not_heuristically_mapped_to_training_session
   - DB4_5_migration_does_not_auto_shift_cancel_reassign_or_choose_overlap_winner
+  - learning_account_identifier_must_belong_to_same_global_user_and_be_current_at_commit
+  - learning_account_login_projection_is_joined_from_auth_identifier_not_independent_persisted_authority
+  - same_global_user_identifier_may_back_learning_accounts_in_multiple_organizations
+  - learning_account_version_and_active_suspended_status_are_database_constrained
+  - archived_student_blocks_new_learning_operational_effects_without_rewriting_license_history
+  - OSK_password_reset_requires_matching_management_authority_and_exclusive_learner_principal
+  - every_local_password_mutation_increments_one_global_credential_version
+  - plaintext_password_and_secret_bearing_PDF_are_absent_from_durable_storage_audit_outbox_logs_and_idempotency_snapshot
+  - secret_bearing_PDF_is_immediate_memory_only_and_later_reprint_requires_new_reset
+  - bulk_secret_reset_is_all_or_none_and_duplicate_learning_accounts_same_user_reset_once
+  - assignment_cross_tenant_inventory_student_or_account_and_wrong_student_account_pair_are_rejected
+  - inventory_and_assignment_status_catalogs_and_final_state_equivalence_are_enforced
+  - two_concurrent_assignments_same_inventory_allow_at_most_one_commit
+  - create_new_learning_account_and_assignment_commit_all_or_none
+  - revoke_unactivated_restores_same_inventory_entry_exactly_once_and_preserves_assignment_history
+  - activate_and_revoke_same_assignment_have_exactly_one_winner
+  - activation_targets_exact_assignment_learning_account_and_is_immutable
+  - entitlement_sequence_is_unique_contiguous_and_serialized_on_learning_account
+  - product_duration_and_inventory_product_binding_are_immutable_after_inventory_reference
+  - runtime_activation_snapshots_positive_duration_and_uses_real_learner_or_organization_actor
+  - extension_before_expiry_preserves_remaining_time_and_activation_after_expiry_does_not_backfill_gap
+  - two_concurrent_extensions_same_learning_account_do_not_lose_entitlement_time
+  - current_entitlement_end_is_MAX_activation_effective_to_not_mutable_projection
+  - product_language_support_requires_capability_row_not_global_language_or_screen_list
+  - assignment_language_is_immutable_snapshot_bound_to_exact_inventory_product_capability_and_assignment_time
+  - existing_account_assignment_inherits_locked_account_language_and_cannot_silently_change_it
+  - language_change_with_pending_assignment_or_live_future_entitlement_is_rejected
+  - capability_retirement_does_not_retroactively_revoke_already_assigned_right
+  - assignment_sequence_determines_latest_without_timestamp_or_UUID_heuristic
+  - management_latest_status_count_expiry_remaining_and_hide_finished_are_derived_from_canonical_history
+  - bulk_credentials_PDF_localizes_each_access_from_current_learning_account_language
+  - DB4_6_migration_does_not_guess_tenant_target_identity_password_authority_inventory_state_activation_chain_assignment_order_or_language_capability
   - revoked_license_assignment_allows_same_inventory_entry_to_be_reassigned_later
   - two_current_license_assignments_for_same_inventory_entry_are_rejected
   - second_activation_for_same_license_assignment_is_rejected
   - concurrent_license_extensions_do_not_lose_entitlement_days
-  - license_effective_periods_do_not_overlap_incorrectly_for_same_serialized_activation_sequence
+  - license_effective_periods_follow_serialized_contiguous_activation_sequence
   - released_exam_reservation_allows_inventory_entry_to_be_reserved_again
   - two_active_exam_reservations_for_same_inventory_entry_are_rejected
   - two_active_exam_reservations_for_same_attempt_are_rejected
