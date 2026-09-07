@@ -85,13 +85,13 @@ stage_4_slices:
     final_aggregate_sync: PASS
     result: PASS
   - id: DB4_7_INTERNAL_EXAMS
-    status: FAIL_WITH_7_P1_BLOCKERS
+    status: FAIL_WITH_6_P1_BLOCKERS
     diagnosis: COMPLETE
     blockers_diagnosed: 8
-    blockers_resolved: 1
-    open_P0_P1: 7
+    blockers_resolved: 2
+    open_P0_P1: 6
     final_aggregate_sync: BLOCKED
-    result: FAIL_WITH_7_P1_BLOCKERS
+    result: FAIL_WITH_6_P1_BLOCKERS
   - id: DB4_8_PKK
     status: NOT_STARTED
   - id: DB4_9_STUDENT_FINANCE_COMMERCE
@@ -324,7 +324,7 @@ quality_checks:
       identity_branch_change_audited: true
       Student_optimistic_concurrency: governed_by_DB_TRN_003
     checks:
-      legal_PESEL_or_birth_date_rule_preserved_before_formal_enrollment: PASS
+      legal_PESEL_or_birth_date_rule_preserved: PASS
       pre_course_student_creation_capability_not_reduced: PASS
       missing_PESEL_not_confused_with_explicit_no_PESEL: PASS
       PESEL_pair_consistency_closed: PASS
@@ -509,7 +509,7 @@ quality_checks:
       rule_set_identity_is_immutable_and_hashed: PASS
       requirements_revision_proves_current_projection_freshness: PASS
       requirements_revision_is_not_second_concurrency_root: PASS
-      every_requirement_affecting_change_creates_one_new_current_profile: PASS
+      every_requirement_affecting_change_requires_one_new_immutable_profile: PASS
       input_base_output_effective_output_snapshots_are_preserved: PASS
       category_context_exemption_override_and_rule_refresh_races_serialize_on_course: PASS
       stale_source_fact_change_cannot_commit_with_old_current_profile: PASS
@@ -1919,6 +1919,85 @@ quality_checks:
       Stage5_started: false
       UI_or_feature_implementation_started: false
 
+  internal_exam_formal_course_requirement_capability_basis:
+    status: PASS
+    resolved_blocker_id: DB-EXAM-002
+    severity: P1
+    machine_source: specs/database/internal-exams.yml
+    audit_source: docs/112-stage-4-internal-exams-audit.md
+    decision:
+      requirement_decision_authority: training_requirement_profiles
+      requirement_freshness_authority: course_enrollments.requirements_revision
+      rule_artifact_authority: training_requirement_rule_sets
+      exam_category_authority: course_enrollments.driving_category_id
+      generic_requirement_basis_text_is_authority: false
+      attempt_adds_training_requirement_profile_id: true
+      attempt_adds_requirements_revision: true
+      attempt_adds_internal_exam_capability_id: true
+      attempt_adds_immutable_requirement_basis_snapshot: true
+      exact_profile_candidate_key: [organization_id, id, course_enrollment_id, requirements_revision]
+      attempt_exact_profile_composite_FK: true
+      exact_course_student_category_candidate_key: [organization_id, id, student_id, driving_category_id]
+      attempt_exact_course_student_category_composite_FK: true
+      request_may_override_course_category: false
+      theory_creation_requires_current_profile_internal_theory_exam_required_true: true
+      practical_creation_requires_current_profile_internal_practical_exam_required_true: true
+      theory_exempt_course_new_theory_attempt: forbidden
+      internal_exam_capabilities_role: global_versioned_category_part_language_availability_history
+      capability_tenant_owned: false
+      capability_current_predicate: disabled_at_is_null
+      capability_current_unique_scope: [driving_category_id, exam_part, language_code]
+      attempt_exact_capability_composite_FK: true
+      global_language_dictionary_implies_exam_support: false
+      retired_capability_hard_delete_after_reference: forbidden
+      capability_reenable_in_place: forbidden
+      requirement_basis_snapshot_contains_PKK_or_PESEL: false
+      attempt_create_lock_prefix: [course_enrollment_FOR_UPDATE]
+      requirement_recalculation_and_attempt_create_share_course_serialization_root: true
+      selected_capability_locked_FOR_SHARE_during_creation: true
+      capability_retirement_conflicts_with_creation_lock: true
+      later_requirement_supersession_rewrites_existing_attempt: false
+      later_capability_retirement_rewrites_existing_attempt: false
+      existing_attempt_auto_invalidated_by_basis_change_in_DB_EXAM_002: false
+      prestart_lifecycle_after_basis_becomes_noncurrent: deferred_to_DB_EXAM_004
+      inventory_reservation_transaction_extension: deferred_to_DB_EXAM_003
+      migration_current_or_nearest_profile_heuristic: forbidden
+      migration_reruns_current_rule_engine_for_historical_basis: forbidden
+      migration_assumes_current_capability_was_historical: forbidden
+      unresolved_legacy_basis: fail_and_require_reviewed_remediation
+      DB_EXAM_003_through_DB_EXAM_008_not_fixed: true
+    checks:
+      current_profile_and_revision_required_at_attempt_creation: PASS
+      exact_profile_course_revision_binding_closed: PASS
+      exact_course_student_category_binding_closed: PASS
+      request_category_cannot_drift_from_course: PASS
+      theory_exemption_blocks_new_theory_attempt: PASS
+      practical_not_required_blocks_new_practical_attempt: PASS
+      unsupported_category_part_language_combination_rejected: PASS
+      language_dictionary_alone_does_not_grant_capability: PASS
+      capability_retirement_preserves_history_and_blocks_new_creation: PASS
+      capability_reenable_creates_new_history_row: PASS
+      requirement_basis_snapshot_is_immutable_historical_evidence: PASS
+      requirement_basis_snapshot_excludes_PESEL_and_PKK: PASS
+      requirement_change_and_attempt_create_race_serialized_on_course: PASS
+      capability_retirement_and_attempt_create_race_has_deterministic_winner: PASS
+      existing_attempt_survives_later_profile_supersession_without_rewrite: PASS
+      existing_attempt_survives_later_capability_retirement_without_rewrite: PASS
+      migration_does_not_guess_profile_capability_or_rule_history: PASS
+      DB_EXAM_001_integrity_preserved: PASS
+      DB_EXAM_003_inventory_exactly_once_remains_open: PASS
+      DB_EXAM_004_lifecycle_remains_open: PASS
+      DB_EXAM_005_token_security_remains_open: PASS
+      DB_EXAM_006_station_failover_remains_open: PASS
+      DB_EXAM_007_evidence_scoring_document_immutability_remains_open: PASS
+      DB_EXAM_008_management_projection_remains_open: PASS
+      aggregate_core_schema_modified_in_step: false
+      aggregate_docs87_modified_in_step: false
+      DB4_8_or_later_entered: false
+      Laravel_migrations_created: false
+      Stage5_started: false
+      UI_or_feature_implementation_started: false
+
 resolved_blockers:
   - DB-FOUND-001
   - DB-FOUND-002
@@ -1958,9 +2037,9 @@ resolved_blockers:
   - DB-LIC-006
   - DB-LIC-007
   - DB-EXAM-001
+  - DB-EXAM-002
 
 open_blockers_current_diagnosed_scope:
-  - DB-EXAM-002
   - DB-EXAM-003
   - DB-EXAM-004
   - DB-EXAM-005
@@ -1976,7 +2055,7 @@ gate_definition:
     - migration_order_dependency_safe
     - database_invariant_test_matrix_exists
     - reverse_engineering_preservation_traceable
-  current_result: DB4_7_FAIL_WITH_7_P1_BLOCKERS
+  current_result: DB4_7_FAIL_WITH_6_P1_BLOCKERS
   DB4_1_result: PASS
   DB4_2_result: PASS
   DB4_3_result: PASS
@@ -2013,7 +2092,8 @@ gate_definition:
   DB4_6_result: PASS
   DB4_7_diagnosis_result: PASS_DIAGNOSIS_COMPLETE
   DB4_7_DB_EXAM_001_result: PASS
-  DB4_7_result: FAIL_WITH_7_P1_BLOCKERS
+  DB4_7_DB_EXAM_002_result: PASS
+  DB4_7_result: FAIL_WITH_6_P1_BLOCKERS
   may_start_DB4_4_fixes: false
   may_start_DB4_5: false
   may_start_DB4_5_fixes: false
@@ -2026,8 +2106,8 @@ gate_definition:
   may_start_UI_or_feature_implementation: false
 
 next_single_step:
-  id: DB_EXAM_002_FORMAL_COURSE_REQUIREMENT_CAPABILITY_BASIS
-  action: resolve_DB_EXAM_002_only_after_next_explicit_user_instruction
+  id: DB_EXAM_003_INVENTORY_RESERVATION_CONSUME_ON_START
+  action: resolve_DB_EXAM_003_only_after_next_explicit_user_instruction
   allowed_scope:
     - specs/database/internal-exams.yml
     - docs/112-stage-4-internal-exams-audit.md
@@ -2036,8 +2116,8 @@ next_single_step:
     - specs/database/core-schema.yml
     - docs/87-physical-database-schema.md
   scope_lock: >-
-    Resolve only DB-EXAM-002 formal Course/Requirement/Capability basis. Preserve
-    DB-EXAM-003 through DB-EXAM-008 as OPEN. Do not enter DB4_8 or later slices,
-    do not start Stage 5, do not create Laravel migrations and do not start
-    UI/feature implementation.
-  after_action: rerun_DB_EXAM_002_gate_and_STOP_before_DB_EXAM_003
+    Resolve only DB-EXAM-003 inventory/reservation authority and consume-on-start
+    exactly-once. Preserve DB-EXAM-004 through DB-EXAM-008 as OPEN. Do not enter
+    DB4_8 or later slices, do not start Stage 5, do not create Laravel migrations
+    and do not start UI/feature implementation.
+  after_action: rerun_DB_EXAM_003_gate_and_STOP_before_DB_EXAM_004
