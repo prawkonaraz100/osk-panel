@@ -3,8 +3,8 @@
 Data: 2026-09-07
 
 **Etap:** `DB4_7_INTERNAL_EXAMS`  
-**Aktualny krok:** `DB_EXAM_005_EXAM_ACCESS_TOKEN_AND_FINISHED_RESULT_TOKEN_SECURITY`  
-**Status:** `FAIL_WITH_3_P1_BLOCKERS / 0 P0 / 3 P1 OPEN`
+**Aktualny krok:** `DB_EXAM_006_STATION_SESSION_CONCURRENCY_DEVICE_BINDING_AND_FAILOVER`  
+**Status:** `FAIL_WITH_2_P1_BLOCKERS / 0 P0 / 2 P1 OPEN`
 
 Machine-readable diagnoza: `specs/database/internal-exams.yml`.
 
@@ -1505,3 +1505,267 @@ Aktualny stan DB4_7 po DB-EXAM-005:
 Następny dozwolony krok po centralnym gate: **DB-EXAM-006 only**.
 
 **STOP przed DB-EXAM-006.**
+
+---
+
+## 20. DB-EXAM-006 — wynik fixera: PASS
+
+DB-EXAM-006 zamyka wyłącznie runtime authority stanowisk egzaminacyjnych, ich uwierzytelnienie, aktywną okupację przez `StationSession`, concurrency startu lokalnego oraz post-start failover. Nie projektuje scoringu, immutable question/result/document evidence ani management/statistics projection.
+
+### 20.1 Trzy osobne pojęcia: administracja, connectivity i occupancy
+
+Dotychczasowe ogólne `ExamStation.status` nie może mieszać `online/offline`, `available/occupied` i `disabled` jako jednego mutable source of truth.
+
+Canonical model rozdziela:
+- **administrative status** — persistowane `enabled|disabled`,
+- **connectivity** — projekcja `online|offline` z current credential + świeżego authenticated heartbeat,
+- **occupancy** — projekcja `free|occupied` z liczby aktywnych `internal_exam_station_sessions`.
+
+Stanowisko jest efektywnie dostępne dla nowego startu/failover tylko wtedy, gdy jednocześnie:
+- jest administracyjnie enabled,
+- jest online,
+- ma current nonrevoked credential,
+- occupancy jest `free`.
+
+Stary ogólny status nie pozostaje drugim authority przy finalnym aggregate sync.
+
+### 20.2 `ExamStation` jest logiczną tożsamością stanowiska
+
+`exam_stations` jest trwałym tenant-owned zasobem logicznego stanowiska. Nie jest pojedynczym transient connection ID.
+
+`Access.station_id` ma po DB-EXAM-004 rolę **immutable pre-start launch/assignment binding**. Po starcie bieżące fizyczne stanowisko nie jest wyprowadzane z Accessu, tylko z aktywnego `StationSession`.
+
+Failover nie przepisuje `Access.station_id`, nie tworzy drugiego Accessu i nie zmienia historycznej decyzji, gdzie Access był pierwotnie uruchamiany/przypisany.
+
+### 20.3 Rotowalne credential stanowiska
+
+Pojedynczy legacy `station_key_hash` nie jest finalnym current security authority.
+
+Wprowadzamy historyczną tabelę `exam_station_credentials` z:
+- exact same-tenant Station binding,
+- monotonicznym `credential_sequence`,
+- losowym `lookup_id`,
+- keyed one-way verifier + key version,
+- issue/revoke metadata,
+- real actor User.
+
+Raw station secret:
+- powstaje z CSPRNG,
+- ma co najmniej równoważnik 256 bitów entropii,
+- nie jest persistowany recoverably,
+- nie trafia do audit/outbox/logs/traces/idempotency snapshots.
+
+Partial unique pozwala na dokładnie jeden current nonrevoked credential per Station. Rotacja revoke'uje poprzedni credential i tworzy successor row; nie restartuje aktywnego StationSession.
+
+### 20.4 Heartbeat i disabled/offline behavior
+
+Authenticated heartbeat:
+1. rozwiązuje credential po losowym locatorze,
+2. weryfikuje one-way verifier constant-time,
+3. sprawdza nonrevoked exact Station/tenant binding,
+4. lockuje Station,
+5. ponownie sprawdza `enabled` i current credential,
+6. zapisuje `last_authenticated_heartbeat_at`.
+
+Heartbeat z revoked/wrong-station credential jest odrzucany. Disabled Station nie może odświeżać liveness.
+
+Stale heartbeat oznacza `offline` jako projekcję — nie wykonuje ukrytego UPDATE statusu biznesowego.
+
+Offline albo disabled Station **nie kończy automatycznie aktywnego egzaminu**, nie przywraca inventory i nie wykonuje automatycznego transferu. Może istnieć aktywna formalna Session na urządzeniu, które właśnie przestało odpowiadać; wymaga to jawnego recovery flow.
+
+### 20.5 Local current workstation i assigned exam station
+
+Dla `local_current_workstation` `Access.station_id` musi być rozwiązywany po stronie serwera z authenticated current Station context. Klient nie może podać arbitralnego `station_id` i przejąć innego stanowiska.
+
+Dla `assigned_exam_station` operator może wcześniej wskazać docelową Station, ale pierwszy aktywny StationSession musi powstać dokładnie dla tej Station i wymaga jej authenticated/live server connection context.
+
+Sam staff permission nie wystarcza do sfabrykowania aktywnego StationSession bez tożsamości docelowego stanowiska.
+
+Remote bearer token z DB-EXAM-005 nie jest używany jako uwierzytelnienie local/assigned Station.
+
+### 20.6 `internal_exam_station_sessions` jako jedyne occupancy authority
+
+StationSession przechowuje immutable linkage do:
+- Organization,
+- Attempt,
+- Access,
+- ExamStation,
+- `session_sequence`,
+- opcjonalnego predecessor transferu,
+- `started_at`.
+
+Aktywna Session ma `ended_at=NULL` i `end_reason=NULL`. Po zakończeniu oba pola są write-once.
+
+Dozwolone `end_reason`:
+- `exam_completed`,
+- `technical_abort`,
+- `invalidated`,
+- `transferred`.
+
+Partial unique wymusza:
+- maksymalnie jedną aktywną Session per Station,
+- maksymalnie jedną aktywną Session per Attempt.
+
+Daje to finalną DB boundary zarówno przeciw „dwa egzaminy na jednym stanowisku”, jak i „jedna próba równolegle na dwóch stanowiskach”.
+
+### 20.7 Liniowy transfer historyczny
+
+Pierwsza StationSession ma:
+- `session_sequence=1`,
+- `transferred_from_session_id=NULL`.
+
+Każdy successor transfer:
+- ma sequence poprzednika +1,
+- wskazuje dokładnie predecessor tego samego tenant/Attempt/Access,
+- wymaga predecessor `end_reason=transferred`,
+- rozpoczyna się dokładnie w momencie zakończenia poprzednika.
+
+Jeden predecessor może mieć maksymalnie jednego successor. Branching i cycle są zabronione przez finalny cross-row guard.
+
+### 20.8 Local start i lock order
+
+Start lokalny zachowuje wcześniejsze authority roots i nie odwraca żadnej kolejności:
+
+`Attempt FOR UPDATE`
+`-> Access FOR UPDATE`
+`-> target ExamStation FOR UPDATE`
+`-> current StationCredential FOR SHARE`
+`-> Reservation FOR UPDATE`
+`-> InventoryEntry FOR UPDATE`.
+
+To zachowuje:
+- prefix DB-EXAM-004 (`Attempt -> Access`),
+- suffix DB-EXAM-003 (`Reservation -> InventoryEntry`).
+
+Po lockach ponownie wymagamy m.in. exact Station binding, enabled, online, current credential, zero active Session dla Station i Attempt oraz exact reserved Reservation/Inventory.
+
+Jedna outer transaction:
+- konsumuje inventory dokładnie raz przez DB-EXAM-003,
+- wykonuje Attempt/Access start z DB-EXAM-004,
+- tworzy pierwszą StationSession.
+
+Jeśli insertion StationSession nie może commitować, cały start wraz z konsumowaniem inventory rollbackuje się.
+
+### 20.9 Failover po starcie bez drugiej konsumpcji
+
+Stage-3 już posiada:
+
+`POST /internal-exam-attempts/{attemptId}/station-transfer`.
+
+Failover wymaga:
+- Attempt `in_progress`,
+- exact Access `started`,
+- consumed Reservation,
+- dokładnie jednej aktywnej StationSession,
+- local/assigned launch mode,
+- nowej Station różnej od bieżącej i w tym samym OSK,
+- target Station enabled, online, z current credential i bez aktywnej Session.
+
+Canonical lock order:
+
+`Attempt -> started Access -> active StationSession -> old+target Station sorted by UUID -> target credential`.
+
+Sortowanie dwóch Station rows zapobiega deadlockowi przy równoległych transferach między stanowiskami.
+
+Atomowo:
+- old Session dostaje `ended_at` i `end_reason=transferred`,
+- powstaje jeden successor na target Station,
+- successor ma sequence +1 i exact predecessor reference,
+- Attempt pozostaje `in_progress`,
+- Access pozostaje `started`.
+
+**Nie ma żadnego Reservation ani Inventory effect.** Failover nie konsumuje drugi raz i nie „oddaje” poprzedniej konsumpcji.
+
+### 20.10 Awaria, reconnect, rotation i disable podczas aktywnej próby
+
+Gdy heartbeat stanie się stale:
+- Station jest projekcyjnie offline,
+- active Session nadal istnieje,
+- Attempt nie zmienia statusu,
+- inventory pozostaje consumed,
+- automatic failover nie zachodzi.
+
+Reconnect tego samego stanowiska z current credential:
+- odświeża heartbeat,
+- wykorzystuje istniejącą matching active Session,
+- nie tworzy nowej Session,
+- nie konsumuje ponownie.
+
+Credential rotation podczas aktywnej próby unieważnia stary secret, ale nie kończy Session. Reconnect z nowym credential może kontynuować tę samą Session.
+
+Disable Station jest dozwolone jako security response. Revoke'uje current credential i blokuje nowe komendy ze Station, ale nie ukrywa formalnej aktywnej historii. Operator musi jawnie zrobić station transfer albo technical abort.
+
+### 20.11 Terminalne lifecycle komendy zamykają aktywną Session atomowo
+
+DB-EXAM-006 rozszerza terminalne komendy DB-EXAM-004 dla local/assigned flow:
+- submit `passed|failed` -> active Session kończy się `exam_completed` w tej samej transakcji,
+- technical abort -> active Session kończy się `technical_abort`, bez inventory restore,
+- invalidation z `in_progress` -> active Session kończy się `invalidated`.
+
+Post-finish invalidation nie przepisuje wcześniej zakończonej Session.
+
+Failover vs submit/abort/invalidate serializują się na Attempt row. Jeśli transfer wygra pierwszy, terminalna komenda zamyka nową active Session. Jeśli terminalna komenda wygra pierwsza, późniejszy transfer jest odrzucony po rechecku statusu.
+
+### 20.12 Stage-3 API gaps zapisane, ale nie rozwiązane przedwcześnie
+
+Stage-3 posiada już:
+- listę ExamStations,
+- station-transfer endpoint.
+
+Nie posiada jeszcze jawnych endpointów/protokołu dla:
+- station registration/provisioning credential,
+- credential rotation,
+- authenticated heartbeat,
+- exact assigned-station live claim/connection binding.
+
+DB-EXAM-006 zapisuje te luki do późniejszego Stage-5 API contract sync. Pliki OpenAPI nie są modyfikowane w tym kroku.
+
+### 20.13 Migration safety
+
+Migracja nie może:
+- automatycznie promować legacy `station_key_hash` bez dowodu verifier algorithm/key context,
+- traktować starego mieszanego `status` jako current authority online/offline/occupied/disabled,
+- wybierać zwycięzcy przy wielu active Sessions na Station lub Attempt,
+- zgadywać `session_sequence` po timestampie/UUID,
+- rekonstruować transfer chain z samej bliskości timestampów,
+- fabrykować brakującej StationSession dla rozpoczętego Attemptu,
+- naprawiać brakującej Session drugą konsumpcją inventory,
+- przepisywać `Access.station_id` na „ostatnie” failover stanowisko bez dowodu launch binding.
+
+Niejednoznaczne credential/session/transfer history = migration FAIL + reviewed remediation.
+
+### 20.14 Self-audit fixera
+
+Pierwszy machine commit DB-EXAM-006: `d0d1583919844dd650a0fac571745ef874c0d8a6`.
+
+Self-audit wykrył niepoprawną strukturę YAML w nowej sekcji oraz potrzebę rozdzielenia `occupancy` od efektywnej dostępności. Commit `caa6d6deb2f247791f99895ebdda59945b5ac21e` naprawił strukturę i doprecyzował model Station state.
+
+Preservation check wykrył następnie dwie czysto tekstowe regresje w zamkniętym DB-EXAM-004 dotyczące literalnego `If_Match`. Nie zostały zaakceptowane. Commit `1d0ec923ce1fb7a4d99a7ae571e608556517f0cc` przywrócił oba historyczne zapisy dokładnie.
+
+Pełny compare od finalnego DB-EXAM-005 (`a6a2e877f29c7c2237ed40e5269e5cb3f78a0c57`) obejmuje wyłącznie `specs/database/internal-exams.yml`.
+
+Zamrożone agregaty nadal mają dokładnie:
+- `specs/database/core-schema.yml` -> `5d8f4d661f56115740d3c3a59d8424c85ec1cf24`,
+- `docs/87-physical-database-schema.md` -> `191afe107e830baa928b18f67e6cb75b2d4a73b8`.
+
+Sprawdzono dodatkowo:
+- DB-EXAM-001..005 pozostają PASS,
+- remote bearer-token authority DB-EXAM-005 nie został rozszerzony na local Station,
+- Attempt/Access concurrency root DB-EXAM-004 pozostaje pierwszy,
+- Reservation/Inventory lock suffix DB-EXAM-003 pozostaje w tej samej kolejności,
+- failover nie tworzy nowego Accessu, Reservation ani Inventory effect,
+- reconnect nie konsumuje ponownie,
+- disabled/offline Station nie kończy ukrycie formalnej Session,
+- DB-EXAM-007 immutable evidence pozostaje OPEN,
+- DB-EXAM-008 management/statistics projection pozostaje OPEN,
+- DB4_8+, Stage 5, Laravel migrations i UI nie zostały rozpoczęte.
+
+Aktualny stan DB4_7 po DB-EXAM-006:
+- P0: **0**,
+- P1 open: **2**,
+- resolved: **6/8**,
+- result: **FAIL_WITH_2_P1_BLOCKERS**.
+
+Następny dozwolony krok po centralnym gate: **DB-EXAM-007 only**.
+
+**STOP przed DB-EXAM-007.**
