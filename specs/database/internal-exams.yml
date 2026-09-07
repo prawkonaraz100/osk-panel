@@ -2,8 +2,8 @@ meta:
   project: osk-panel
   stage: 4
   slice: DB4_7_INTERNAL_EXAMS
-  step: DB_EXAM_005_EXAM_ACCESS_TOKEN_AND_FINISHED_RESULT_TOKEN_SECURITY
-  status: FAIL_WITH_3_P1_BLOCKERS
+  step: DB_EXAM_006_STATION_SESSION_CONCURRENCY_DEVICE_BINDING_AND_FAILOVER
+  status: FAIL_WITH_2_P1_BLOCKERS
   diagnosed_at: 2026-09-07
   branch: docs-consolidation-2026-09-05
   aggregate_sync_status: FROZEN_UNTIL_DB4_7_FINAL_SYNC
@@ -15,7 +15,7 @@ meta:
 scope_rule:
   diagnose_before_fixing: true
   fixes_allowed_in_this_step: true
-  current_step_scope: DB_EXAM_005_only
+  current_step_scope: DB_EXAM_006_only
   one_blocker_per_future_step: true
   aggregate_files_frozen:
     - specs/database/core-schema.yml
@@ -1706,6 +1706,434 @@ resolved_contracts:
       - DB_EXAM_001_DB_EXAM_002_DB_EXAM_003_DB_EXAM_004_preserved
       - DB_EXAM_006_through_DB_EXAM_008_remain_open
 
+  DB-EXAM-006:
+    status: PASS
+    title: station_session_concurrency_device_binding_and_failover
+    severity: P1
+    goal: >-
+      Make a registered ExamStation a cryptographically authenticated logical
+      workstation and make InternalExamStationSession the single runtime station
+      occupancy authority after start, so local/assigned starts and post-start
+      failover cannot create parallel sessions, cross stations or consume twice.
+
+    authority_model:
+      logical_station_authority: exam_stations
+      station_credential_authority: exam_station_credentials_current_nonrevoked_row
+      station_occupancy_authority: internal_exam_station_sessions_where_ended_at_is_null
+      access_station_id_role: immutable_prestart_launch_or_assignment_binding
+      current_runtime_station_after_start: active_internal_exam_station_session.exam_station_id
+      failover_updates_access_station_id: false
+      failover_creates_second_access: false
+      failover_creates_second_reservation_or_inventory_effect: false
+      remote_link_has_station_session: false
+      global_one_student_per_organization_limit_added: false
+      permission_and_scope_semantics_redefined: false
+
+    station_state_model:
+      persistent_administrative_status_values: [enabled, disabled]
+      legacy_single_status_mixing_online_offline_available_occupied_disabled_is_canonical: false
+      connectivity_state:
+        values: [online, offline]
+        authority: derived_from_current_station_credential_and_last_authenticated_heartbeat_at
+        exact_heartbeat_freshness_threshold: configurable_security_product_policy_not_database_constant
+      availability_state:
+        values: [available, occupied]
+        authority: derived_from_zero_or_one_active_station_session
+      product_visible_online_offline_available_occupied_disabled_concepts_preserved: true
+      new_start_or_failover_target_requires:
+        - administrative_status_enabled
+        - current_nonrevoked_station_credential
+        - connectivity_online
+        - zero_active_station_session
+      active_session_may_temporarily_exist_on_offline_or_disabled_station_after_failure: true
+      offline_or_disabled_state_auto_ends_session: false
+      offline_or_disabled_state_auto_restores_inventory: false
+      offline_or_disabled_state_auto_transfers_attempt: false
+
+    station_fields_added_or_finalized:
+      - administrative_status_varchar_16_not_null
+      - last_authenticated_heartbeat_at_timestamptz_nullable
+      - created_at_timestamptz_not_null
+      - updated_at_timestamptz_not_null
+      legacy_station_key_hash_as_canonical_current_credential: false
+      ordinary_client_supplied_organization_id_authority: false
+      normal_station_hard_delete_after_history_reference: forbidden
+
+    station_credentials:
+      table: exam_station_credentials
+      tenant_owned: true
+      fields:
+        - id_uuid_PK
+        - organization_id_uuid_not_null
+        - exam_station_id_uuid_not_null
+        - credential_sequence_bigint_not_null_check_gte_1
+        - lookup_id_uuid_not_null
+        - secret_verifier_bytea_or_char64_not_null
+        - verifier_key_version_integer_not_null_check_gte_1
+        - issued_at_timestamptz_not_null
+        - revoked_at_timestamptz_nullable
+        - revoke_reason_code_varchar_64_nullable
+        - issued_by_user_id_uuid_not_null
+        - created_at_timestamptz_not_null
+      station_same_tenant_FK:
+        source_columns: [organization_id, exam_station_id]
+        target_table: exam_stations
+        target_columns: [organization_id, id]
+        on_update: RESTRICT
+        on_delete: RESTRICT
+      lookup_id_global_unique: true
+      credential_sequence_unique_scope: [organization_id, exam_station_id, credential_sequence]
+      credential_sequence_contiguous_under_station_lock: true
+      one_current_nonrevoked_credential_per_station:
+        type: partial_unique
+        columns: [organization_id, exam_station_id]
+        where: revoked_at_is_null
+      immutable_after_insert:
+        - organization_id
+        - exam_station_id
+        - credential_sequence
+        - lookup_id
+        - secret_verifier
+        - verifier_key_version
+        - issued_at
+        - issued_by_user_id
+      revocation_write_once: true
+      revoked_at_nonnull_requires_reason_code: true
+      raw_station_secret_entropy_bits_minimum: 256
+      raw_station_secret_source: CSPRNG
+      persisted_verifier: keyed_one_way_verifier_HMAC_SHA256_or_equivalent
+      verifier_key_storage: outside_database_security_key_management
+      verifier_comparison: constant_time
+      raw_station_secret_persisted_recoverably: false
+      raw_station_secret_in_audit_outbox_logs_traces_or_idempotency_snapshot: forbidden
+      station_or_lookup_id_without_secret_authenticates: false
+      credential_rotation:
+        lock_order: [exam_station_FOR_UPDATE, current_exam_station_credential_FOR_UPDATE_if_present]
+        revoke_prior_current_and_insert_next_sequence_same_transaction: true
+        raw_new_secret_returned_or_provisioned_once: true
+        last_authenticated_heartbeat_at_cleared: true
+        active_station_session_rewritten_or_restarted: false
+      station_disable:
+        lock_station_FOR_UPDATE: true
+        set_administrative_status_disabled: true
+        revoke_current_credential_same_transaction: true
+        last_authenticated_heartbeat_at_cleared: true
+        active_session_hidden_termination_or_transfer: forbidden
+      station_enable:
+        does_not_restore_revoked_credential: true
+        explicit_new_credential_required_when_none_current: true
+        online_only_after_authenticated_heartbeat: true
+
+    station_authentication_and_heartbeat:
+      authentication_sequence:
+        - parse_station_credential
+        - resolve_credential_row_by_random_lookup_id
+        - derive_and_constant_time_compare_verifier
+        - require_credential_revoked_at_null
+        - require_exact_station_and_organization_binding
+        - lock_exam_station_FOR_UPDATE
+        - recheck_station_enabled_and_credential_current
+        - update_last_authenticated_heartbeat_at_to_command_effective_at
+      heartbeat_from_revoked_or_wrong_station_credential: rejected
+      disabled_station_heartbeat: rejected
+      stale_heartbeat_changes_persisted_station_status: false
+      heartbeat_itself_creates_station_session: false
+      heartbeat_itself_consumes_inventory: false
+      current_station_credential_rotation_or_disable_invalidates_old_credential_immediately: true
+      exact_HTTP_station_register_rotate_heartbeat_contract_present_in_Stage3: false
+      Stage5_API_contract_sync_required: true
+
+    local_and_assigned_station_binding:
+      local_current_workstation:
+        access_station_id_source: server_resolved_authenticated_current_station
+        client_may_arbitrarily_override_station_id: false
+        first_session_station_must_equal_access_station_id: true
+        activation_requires_authenticated_exact_station_context: true
+      assigned_exam_station:
+        access_station_id_role: authorized_operator_selected_target_before_start
+        first_session_station_must_equal_access_station_id: true
+        station_activation_requires_exact_target_station_authenticated_or_live_server_connection_context: true
+        staff_permission_alone_may_fabricate_active_station_session_without_target_station_identity: false
+      bearer_exam_access_token_for_local_or_assigned_station: forbidden_by_DB_EXAM_005
+      exact_transport_for_server_push_station_claim_or_connection_binding: Stage5_acceptance_contract_sync
+
+    station_session_model:
+      table: internal_exam_station_sessions
+      fields_added_or_finalized:
+        - session_sequence_bigint_not_null_check_gte_1
+        - started_at_timestamptz_not_null
+        - ended_at_timestamptz_nullable
+        - end_reason_varchar_32_nullable
+      linkage_immutable:
+        - organization_id
+        - internal_exam_attempt_id
+        - internal_exam_access_id
+        - exam_station_id
+        - session_sequence
+        - transferred_from_session_id
+        - started_at
+      end_reason_values: [exam_completed, technical_abort, invalidated, transferred]
+      active_state:
+        ended_at: null
+        end_reason: null
+      ended_state:
+        ended_at: required_nonnull
+        end_reason: required_nonnull
+        ended_at_gte_started_at: true
+      ended_at_and_end_reason_write_once: true
+      normal_session_reopen_after_end: forbidden
+      normal_station_session_hard_delete: forbidden
+      active_unique_per_station:
+        type: partial_unique
+        columns: [organization_id, exam_station_id]
+        where: ended_at_is_null
+      active_unique_per_attempt:
+        type: partial_unique
+        columns: [organization_id, internal_exam_attempt_id]
+        where: ended_at_is_null
+      sequence_unique_per_attempt:
+        columns: [organization_id, internal_exam_attempt_id, session_sequence]
+      sequence_contiguous_from_one_under_attempt_lock: true
+      first_session:
+        session_sequence: 1
+        transferred_from_session_id: null
+      transferred_session:
+        session_sequence_must_equal_predecessor_plus_1: true
+        transferred_from_session_required: true
+        predecessor_must_same_tenant_attempt_and_access: true
+        predecessor_end_reason_must_equal_transferred: true
+        predecessor_ended_at_equals_successor_started_at: true
+      one_successor_per_predecessor:
+        type: partial_unique
+        columns: [organization_id, transferred_from_session_id]
+        where: transferred_from_session_id_is_not_null
+      transfer_chain_branching_or_cycle: forbidden
+      chain_guard: DEFERRABLE_INITIALLY_DEFERRED_or_equivalent_transactional_DB_guard
+
+    local_or_assigned_start:
+      API_operation: POST_/internal-exam-accesses/{accessId}/start
+      permission_for_staff_initiated_local_flow: exams.start.local
+      DB_EXAM_004_attempt_access_concurrency_root_preserved: true
+      DB_EXAM_003_inventory_suffix_preserved: true
+      lock_order:
+        - internal_exam_attempt_FOR_UPDATE
+        - internal_exam_access_FOR_UPDATE
+        - target_exam_station_FOR_UPDATE
+        - current_exam_station_credential_FOR_SHARE_when_station_authenticated_context_required
+        - internal_exam_reservation_FOR_UPDATE
+        - internal_exam_inventory_entry_FOR_UPDATE
+      stale_aggregate_access_before_attempt_lock_order_is_authority: false
+      preconditions_after_locks:
+        - attempt_status_created
+        - access_status_startable
+        - access_mode_local_current_workstation_or_assigned_exam_station
+        - target_station_equals_access_station_id_for_first_start
+        - target_station_same_organization
+        - target_station_enabled
+        - target_station_connectivity_online
+        - target_station_has_current_credential
+        - zero_active_station_session_for_target_station
+        - zero_active_station_session_for_attempt
+        - exact_reservation_reserved_and_inventory_reserved
+      atomic_effects:
+        - consume_inventory_exactly_once_via_DB_EXAM_003
+        - perform_DB_EXAM_004_attempt_and_access_start_transition
+        - create_first_station_session_sequence_1
+        - set_station_session_started_at_equal_attempt_and_access_started_at
+      remote_start_creates_station_session: false
+      active_session_creation_failure_rolls_back_inventory_and_attempt_access_start: true
+      same_idempotency_retry_creates_second_session_or_consumes_again: false
+      two_attempts_starting_same_station_at_most_one_commit: true
+      one_attempt_parallel_local_start_at_most_one_session_and_one_consume: true
+
+    failover_after_start:
+      API_operation: POST_/internal-exam-attempts/{attemptId}/station-transfer
+      permission: exams.start.local
+      permission_scope_redefined: false
+      idempotency_required: true
+      reason_required_nonblank: true
+      source_mode_in: [local_current_workstation, assigned_exam_station]
+      requires_attempt_status: in_progress
+      requires_access_status: started
+      requires_exact_consumed_reservation: true
+      requires_exactly_one_active_station_session: true
+      target_station_must_differ_from_current_station: true
+      target_station_same_organization: true
+      canonical_lock_order:
+        - internal_exam_attempt_FOR_UPDATE
+        - exact_started_internal_exam_access_FOR_UPDATE
+        - active_internal_exam_station_session_FOR_UPDATE
+        - old_and_target_exam_station_rows_sorted_by_UUID_FOR_UPDATE
+        - current_target_station_credential_FOR_SHARE
+      target_recheck_after_locks:
+        - administrative_status_enabled
+        - connectivity_online
+        - current_nonrevoked_credential_exists
+        - zero_active_station_session
+      old_station_may_be_offline_or_disabled: true
+      old_station_authentication_required_for_recovery_transfer: false
+      atomic_effects:
+        - set_old_session_ended_at_to_command_effective_at
+        - set_old_session_end_reason_transferred
+        - create_new_session_same_organization_attempt_and_access
+        - set_new_session_sequence_old_plus_1
+        - set_new_session_transferred_from_old_session_id
+        - set_new_session_started_at_equal_old_session_ended_at
+        - preserve_attempt_status_in_progress
+        - preserve_access_status_started
+      access_station_id_rewritten_to_target: false
+      reservation_or_inventory_transition: none
+      second_inventory_consumption: forbidden
+      attempt_or_access_version_increment_for_station_only_transfer: false
+      station_session_sequence_is_transfer_history_authority: true
+      same_idempotency_retry_creates_another_successor: false
+      concurrent_transfers_same_attempt_at_most_one_successor_from_observed_active_session: true
+      two_attempts_competing_for_same_target_station_at_most_one_transfer_commits: true
+      two_cross_station_transfers_lock_station_rows_in_same_sorted_order: true
+
+    station_failure_reconnect_disable_semantics:
+      heartbeat_becomes_stale:
+        connectivity_projection: offline
+        active_session_remains_active: true
+        attempt_status_rewritten: false
+        inventory_restored: false
+        automatic_transfer: false
+      reconnect_same_station:
+        requires_current_valid_station_credential: true
+        refreshes_authenticated_heartbeat: true
+        existing_matching_active_session_reused: true
+        creates_new_station_session: false
+        consumes_inventory_again: false
+      credential_rotation_while_session_active:
+        active_session_preserved: true
+        old_credential_rejected: true
+        reconnect_with_new_credential_may_resume_same_session: true
+      disable_while_session_active:
+        disable_allowed_for_security_response: true
+        credential_revoked_immediately: true
+        active_session_preserved_as_recovery_required_history: true
+        new_commands_from_disabled_station_rejected: true
+        explicit_transfer_or_technical_abort_required_to_resolve_active_attempt: true
+
+    terminal_attempt_station_session_integration:
+      shared_root: internal_exam_attempt_FOR_UPDATE
+      submit_pass_or_fail:
+        if_remote: station_session_effect_none
+        if_local_or_assigned: close_exact_active_session_end_reason_exam_completed_same_transaction
+        station_session_ended_at_equals_attempt_finished_at: true
+        second_inventory_consumption: false
+      technical_abort:
+        if_local_or_assigned: close_exact_active_session_end_reason_technical_abort_same_transaction
+        station_session_ended_at_equals_attempt_technical_aborted_at: true
+        inventory_restored: false
+      invalidate_from_in_progress:
+        if_local_or_assigned: close_exact_active_session_end_reason_invalidated_same_transaction
+        station_session_ended_at_equals_attempt_invalidated_at: true
+        inventory_restored: false
+      invalidate_after_passed_failed_or_technical_abort:
+        ended_station_session_history_rewritten_or_reopened: false
+      failover_vs_submit_abort_or_invalidate:
+        serialized_on_attempt_row: true
+        transfer_first_then_terminal_command_closes_new_active_session: true
+        terminal_first_then_transfer: rejected_after_state_recheck
+
+    final_state_equivalence:
+      guard: DEFERRABLE_INITIALLY_DEFERRED_or_equivalent_transactional_DB_guard
+      remote_access_any_lifecycle_state:
+        station_session_count: 0
+      local_or_assigned_created_prestart:
+        active_station_session_count: 0
+      local_or_assigned_in_progress:
+        active_station_session_count: 1
+        active_session_exact_access_attempt_binding: true
+        consumed_reservation_count: 1
+      local_or_assigned_passed_or_failed:
+        active_station_session_count: 0
+        latest_session_end_reason: exam_completed
+      local_or_assigned_technical_abort:
+        active_station_session_count: 0
+        latest_session_end_reason: technical_abort
+      invalidated_from_in_progress_local_or_assigned:
+        active_station_session_count: 0
+        latest_session_end_reason: invalidated
+      postfinish_invalidation:
+        prior_terminal_station_session_end_reason_preserved: true
+      linear_session_chain_exactly_one_first_and_zero_or_more_successors: true
+      current_station_after_start_derived_from_active_session_not_access_station_id: true
+      direct_session_insert_end_or_transfer_without_matching_attempt_access_state: rejected_at_commit
+
+    API_contract_sync_gaps:
+      current_Stage3_station_transfer_endpoint_present: true
+      current_Stage3_exam_station_list_present: true
+      station_registration_or_credential_rotation_endpoint_present: false
+      authenticated_station_heartbeat_endpoint_present: false
+      assigned_station_authenticated_start_claim_transport_explicit: false
+      exact_HTTP_and_realtime_transport_sync: Stage5_acceptance_contract_sync
+      API_files_modified_in_DB_EXAM_006: false
+
+    migration_policy:
+      legacy_station_key_hash_verifier_algorithm_and_key_context_assumed: false
+      legacy_station_key_hash_auto_promoted_to_current_credential: forbidden_without_proof
+      legacy_online_offline_available_occupied_status_as_canonical_state: forbidden
+      occupancy_reconstructed_from_exact_active_station_session_only: true
+      multiple_active_sessions_same_station_auto_pick_winner: forbidden
+      multiple_active_sessions_same_attempt_auto_pick_winner: forbidden
+      station_session_sequence_inferred_from_ambiguous_timestamp_or_UUID_order: forbidden
+      transfer_chain_inferred_from_timestamp_adjacency: forbidden
+      active_local_attempt_without_exact_station_session_mapping_auto_fabrication: forbidden
+      missing_station_session_fixed_by_second_inventory_consume: forbidden
+      access_station_id_rewritten_to_latest_failover_station: forbidden_without_explicit_launch_binding_evidence
+      ambiguous_credential_status_or_session_chain: fail_and_require_reviewed_remediation
+      formal_attempt_inventory_result_question_document_history_deleted_for_station_remediation: false
+
+    required_tests:
+      - station_admin_status_is_enabled_or_disabled_only
+      - connectivity_online_offline_is_derived_from_authenticated_heartbeat_not_mutable_status
+      - availability_available_occupied_is_derived_from_active_session_not_mutable_status
+      - one_current_station_credential_per_station_enforced
+      - raw_station_secret_is_never_persisted_recoverably
+      - wrong_station_wrong_tenant_or_revoked_credential_rejected
+      - credential_rotation_revokes_old_secret_and_clears_liveness_without_restarting_session
+      - disabled_station_cannot_authenticate_start_or_be_failover_target
+      - offline_station_cannot_be_new_start_or_failover_target
+      - active_session_may_survive_station_offline_or_disable_without_inventory_restore
+      - local_current_workstation_station_id_is_server_resolved_from_authenticated_station
+      - assigned_first_session_requires_exact_assigned_station_identity
+      - remote_access_never_has_station_session
+      - one_active_station_session_per_station_enforced
+      - one_active_station_session_per_attempt_enforced
+      - first_station_session_sequence_is_one_and_has_no_predecessor
+      - transfer_session_sequence_is_previous_plus_one
+      - transfer_chain_cannot_branch_or_cycle
+      - local_start_lock_order_preserves_DB_EXAM_004_attempt_then_access_prefix
+      - local_start_lock_order_preserves_DB_EXAM_003_reservation_then_inventory_suffix
+      - stale_aggregate_access_then_attempt_lock_order_is_not_reintroduced
+      - local_start_requires_enabled_online_unoccupied_exact_station
+      - local_start_creates_session_and_consumes_inventory_in_same_outer_transaction
+      - session_insert_failure_rolls_back_inventory_consume_and_attempt_start
+      - two_attempts_starting_same_station_at_most_one_commits
+      - same_attempt_parallel_local_start_does_not_create_second_session_or_consume
+      - failover_requires_in_progress_started_local_or_assigned_attempt
+      - failover_keeps_same_attempt_access_and_consumed_reservation
+      - failover_does_not_update_access_station_id
+      - failover_does_not_consume_or_restore_inventory
+      - failover_closes_old_and_creates_one_successor_same_effective_at
+      - same_idempotency_key_does_not_create_second_transfer
+      - concurrent_transfers_same_attempt_have_one_winner
+      - two_attempts_competing_for_target_station_have_one_winner
+      - cross_station_transfers_use_sorted_station_lock_order
+      - offline_old_station_can_be_recovered_without_old_station_auth
+      - reconnect_same_station_reuses_active_session_without_second_consume
+      - submit_closes_active_local_session_exam_completed_same_transaction
+      - technical_abort_closes_active_local_session_without_inventory_restore
+      - invalidate_from_in_progress_closes_active_local_session_without_erasing_evidence
+      - postfinish_invalidation_does_not_rewrite_ended_session_history
+      - failover_vs_submit_abort_invalidate_serializes_on_attempt
+      - remote_local_station_final_state_equivalence_guard_enforced
+      - migration_does_not_guess_active_session_winner_sequence_transfer_or_credential
+      - DB_EXAM_001_through_DB_EXAM_005_preserved
+      - DB_EXAM_007_and_DB_EXAM_008_remain_open
+
 blockers:
   - id: DB-EXAM-001
     title: same_tenant_and_exact_target_integrity
@@ -1821,7 +2249,8 @@ blockers:
   - id: DB-EXAM-006
     title: station_session_concurrency_device_binding_and_failover
     severity: P1
-    status: OPEN
+    status: RESOLVED
+    resolution_ref: resolved_contracts.DB-EXAM-006
     diagnosis:
       - product_requires_one_active_attempt_per_station_and_supports_multiple_stations_per_OSK
       - current_station_session_partial_uniques_are_positive_but same_tenant exact_access_attempt_station_binding_and_station_eligibility_are_not_fully_closed
@@ -1887,16 +2316,15 @@ diagnosis_summary:
   diagnosed_P0: 0
   diagnosed_P1: 8
   resolved_in_diagnosis: 0
-  resolved_after_diagnosis: 5
-  open_P0_P1: 3
-  result: FAIL_WITH_3_P1_BLOCKERS
+  resolved_after_diagnosis: 6
+  open_P0_P1: 2
+  result: FAIL_WITH_2_P1_BLOCKERS
   blockers_in_required_fix_order:
-    - DB-EXAM-006
     - DB-EXAM-007
     - DB-EXAM-008
 
 preservation_gate:
-  status: PASS_DB_EXAM_005_MACHINE_CONTRACT
+  status: PASS_DB_EXAM_006_MACHINE_CONTRACT
   checks:
     no_blocker_fixed_during_diagnosis: true
     course_first_formal_exam_preserved: true
@@ -1993,6 +2421,19 @@ preservation_gate:
     DB_EXAM_006_station_device_failover_remains_open_after_DB_EXAM_005: true
     DB_EXAM_007_evidence_scoring_document_immutability_remains_open_after_DB_EXAM_005: true
     DB_EXAM_008_management_projection_remains_open_after_DB_EXAM_005: true
+    DB_EXAM_006_logical_station_and_runtime_session_authorities_closed: true
+    DB_EXAM_006_station_credential_rotation_and_nonpersistence_closed: true
+    DB_EXAM_006_online_offline_and_available_occupied_are_derived: true
+    DB_EXAM_006_access_station_launch_binding_vs_runtime_station_distinction_closed: true
+    DB_EXAM_006_one_active_station_session_per_station_and_attempt_closed: true
+    DB_EXAM_006_linear_station_session_transfer_chain_closed: true
+    DB_EXAM_006_local_start_preserves_attempt_access_prefix_and_inventory_suffix: true
+    DB_EXAM_006_failover_has_no_inventory_or_access_rebind_effect: true
+    DB_EXAM_006_disable_offline_reconnect_recovery_semantics_closed: true
+    DB_EXAM_006_terminal_attempt_closes_active_station_session_atomically: true
+    DB_EXAM_006_Stage3_station_security_transport_gaps_recorded_for_Stage5: true
+    DB_EXAM_007_evidence_scoring_document_immutability_remains_open_after_DB_EXAM_006: true
+    DB_EXAM_008_management_projection_remains_open_after_DB_EXAM_006: true
     core_schema_aggregate_modified: false
     docs87_aggregate_modified: false
     DB4_8_or_later_entered: false
@@ -2001,6 +2442,6 @@ preservation_gate:
     UI_or_feature_implementation_started: false
 
 next_single_step_after_central_gate:
-  id: DB-EXAM-006
-  action: resolve_station_session_concurrency_device_binding_and_failover_only
-  stop_before: DB-EXAM-007
+  id: DB-EXAM-007
+  action: resolve_immutable_exam_definition_question_result_and_document_evidence_only
+  stop_before: DB-EXAM-008
