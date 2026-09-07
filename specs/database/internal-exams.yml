@@ -197,7 +197,7 @@ resolved_contracts:
         effect: attempt_course_must_belong_to_exact_attempt_student
       driving_category_is_global_dictionary: true
       language_is_global_dictionary: true
-      category_or_language_matching_course_or_capability: closed_by_DB_EXAM_002
+      category_or_language_matching_course_or_capability: deferred_to_DB_EXAM_002
 
     reservation_relations:
       inventory_same_tenant:
@@ -610,7 +610,7 @@ blockers:
     diagnosis:
       - own_design_names_exam_credit_ledger_as_source_of_truth_while_current_aggregate_models_concrete_inventory_rows_with_mutable_status
       - authority_between_unit_inventory_state_reservation_rows_and_ledger_or_adjustment_history_is_not_yet_unambiguous
-      - create_attempt_reserves_exactly_one_unit_and_start_consumes_exactly_once_but_final_cross_row_equivalence_is_not_yet_closed
+      - create_attempt_reserves_exactly_one_unit_and_start_consumes_exactly_once_but final_cross_row_equivalence_is_not_yet_closed
       - release_before_start_and_adjustment_after_start_require_distinct_auditable_effects
       - free_paid_adjustment_source_provenance_must_survive_without_turning_visible_available_count_into_authority
       - source_order_payment_grant_details_remain_DB4_9
@@ -769,7 +769,21 @@ preservation_gate:
     DB4_9_payment_and_inventory_grant_not_solved_early: true
     DB4_8_PKK_provider_lifecycle_not_entered: true
     DB4_10_final_audit_outbox_physical_shape_not_entered: true
-    DB_EXAM_001_same_tenant_and_exact_target_integrity_preserved: true
+    DB_EXAM_001_same_tenant_and_exact_target_integrity_resolved: true
+    attempt_exact_course_student_pair_closed: true
+    reservation_inventory_and_attempt_same_tenant_closed: true
+    access_attempt_and_optional_station_same_tenant_closed: true
+    station_session_exact_access_attempt_binding_closed: true
+    station_transfer_same_attempt_boundary_closed: true
+    attempt_question_and_result_receive_tenant_key: true
+    document_attempt_and_asset_same_tenant_closed: true
+    history_preserving_RESTRICT_policy_preserved: true
+    global_user_and_dictionaries_not_fake_tenant_scoped: true
+    source_order_item_commerce_boundary_deferred_to_DB4_9: true
+    no_status_lifecycle_or_race_semantics_from_DB_EXAM_003_004_006_solved_early: true
+    no_token_security_from_DB_EXAM_005_solved_early: true
+    no_scoring_document_immutability_from_DB_EXAM_007_solved_early: true
+    no_management_projection_from_DB_EXAM_008_solved_early: true
     DB_EXAM_002_exact_requirement_profile_basis_resolved: true
     exact_course_student_category_boundary_closed: true
     theory_and_practical_required_flag_mapping_closed: true
@@ -782,10 +796,7 @@ preservation_gate:
     prestart_lifecycle_effect_of_later_basis_change_deferred_to_DB_EXAM_004: true
     no_inventory_exactly_once_semantics_from_DB_EXAM_003_solved_early: true
     no_attempt_access_state_matrix_from_DB_EXAM_004_solved_early: true
-    no_token_security_from_DB_EXAM_005_solved_early: true
     no_station_failover_from_DB_EXAM_006_solved_early: true
-    no_scoring_document_immutability_from_DB_EXAM_007_solved_early: true
-    no_management_projection_from_DB_EXAM_008_solved_early: true
     core_schema_aggregate_modified: false
     docs87_aggregate_modified: false
     DB4_8_or_later_entered: false
