@@ -2,18 +2,18 @@ meta:
   project: osk-panel
   stage: 4
   slice: DB4_6_LICENSES_LEARNING_ACCESS
-  status: IN_PROGRESS_WITH_BLOCKERS
+  status: IN_PROGRESS_FINAL_AGGREGATE_SYNC_PENDING
   diagnosed_at: 2026-09-06
   branch: docs-consolidation-2026-09-05
   narrative_audit: docs/110-stage-4-licenses-learning-access-audit.md
   aggregate_machine_source: specs/database/core-schema.yml
   aggregate_narrative_source: docs/87-physical-database-schema.md
-  aggregate_sync_status: FROZEN_UNTIL_DB4_6_BLOCKERS_CLOSE
+  aggregate_sync_status: PENDING_AFTER_DB4_6_BLOCKERS_CLOSE
 
 working_rule:
   diagnosis_only: false
   fixes_applied_in_this_step: true
-  current_step: DB4_6_STEP_6_DB_LIC_006
+  current_step: DB4_6_STEP_7_DB_LIC_007
   one_blocker_per_followup_step: true
   Laravel_migrations_created: false
   Stage5_started: false
@@ -601,6 +601,15 @@ resolved_contracts:
         shared_prefix: students_then_learning_account
         restore_does_not_perform_resume: true
         explicit_resume_still_requires_its_own_authorized_command_and_current_state
+    cache_and_session_safety:
+      student_archive_increments_students.version_via_DB_TRN_003: true
+      learning_account_material_change_increments_learning_account.version: true
+      eligibility_cache_must_revalidate:
+        - students.version
+        - student_learning_accounts.version
+        - student_learning_accounts.status
+      long_lived_cached_authorization_may_override_new_archive: false
+      does_not_require_global_auth_session_revoke: true
     migration_design:
       order:
         - precheck_existing_learning_account_status_values
@@ -1619,6 +1628,245 @@ resolved_contracts:
       - DB4_9_pricing_purchase_payment_inventory_grant_and_commercial_adjustment_details
       - exact_HTTP_If_Match_activation_origin_and_error_mapping_sync
 
+  DB-LIC-007:
+    status: PASS
+    resolved_at: 2026-09-07
+    scope: product_language_capability_assignment_snapshot_and_management_projection_consistency_only
+    canonical_language_ownership:
+      current_learning_access_language_owner: student_learning_accounts.language_code
+      current_language_relation: global_languages.code
+      current_language_requires_global_language_active_for_new_or_changed_configuration: true
+      global_language_dictionary_presence_implies_product_support: false
+      assignment_language_role: immutable_assignment_time_snapshot
+      activation_language_duplicate_column_added: false
+      bulk_credentials_document_locale_source: student_learning_accounts.language_code_at_export_time
+      historical_assignment_language_rewritten_when_account_language_changes: false
+    product_language_capability_model:
+      table: license_product_language_capabilities
+      scope: global_product_catalog_not_tenant_scoped
+      fields:
+        id: uuid_PK
+        license_product_id: uuid_not_null_FK_license_products_RESTRICT
+        language_code: varchar_not_null_FK_languages_code_RESTRICT
+        enabled_at: timestamptz_not_null
+        disabled_at: timestamptz_nullable
+        created_at: timestamptz_not_null
+      current_capability_predicate: disabled_at_is_null
+      current_partial_unique:
+        columns: [license_product_id, language_code]
+        where: disabled_at_is_null
+      candidate_key_for_assignment_snapshot: [id, language_code]
+      enabled_at_immutable: true
+      disabled_at_transition: null_to_nonnull_once_only
+      disabled_at_must_be_gt_enabled_at: true
+      disabled_at_clear_or_rewrite: forbidden
+      normal_hard_delete: forbidden
+      reenable_after_disable: create_new_capability_row
+      language_screen_options_are_authority: false
+      purchase_marketing_language_copy_is_authority: false
+      russian_presence_in_authenticated_selector_is_global_truth: false
+      russian_absence_in_purchase_marketing_is_global_truth: false
+      authoritative_capability_source: product_content_configuration_and_reviewed_catalog_data
+      source_conflict_resolution: architecture_supports_ru_or_any_other_language_only_when_current_capability_row_exists
+    assignment_language_snapshot:
+      fields_added_or_finalized:
+        assignment_sequence: bigint_not_null_check_gte_1
+        language_code: varchar_not_null_immutable
+        license_product_language_capability_id: uuid_not_null
+      assignment_sequence_unique_scope: [organization_id, student_learning_account_id, assignment_sequence]
+      assignment_sequence_first_value: 1
+      assignment_sequence_next_rule: previous_max_plus_1_under_learning_account_lock
+      assignment_sequence_gap_allowed: false
+      assignment_sequence_is_second_concurrency_root: false
+      capability_same_language_composite_FK:
+        child: license_assignments[license_product_language_capability_id,language_code]
+        parent: license_product_language_capabilities[id,language_code]
+        on_update: RESTRICT
+        on_delete: RESTRICT
+      exact_inventory_product_capability_guard:
+        enforcement: DEFERRABLE_INITIALLY_DEFERRED_constraint_trigger_or_equivalent_transactional_DB_guard
+        requires_capability_license_product_id_equals_assignment_inventory_license_product_id: true
+        requires_assigned_at_gte_capability_enabled_at: true
+        requires_disabled_at_null_or_assigned_at_lt_disabled_at: true
+        capability_update_cannot_backdate_disable_before_existing_assignment_snapshot: true
+      assignment_language_is_independent_mutable_current_owner: false
+      assignment_language_update_after_insert: forbidden
+    assignment_command_language_rules:
+      existing_learning_account_target:
+        selector_behavior_evidence: language_selector_hidden_and_existing_account_language_inherited
+        canonical_language: locked_student_learning_account.language_code
+        request_language_if_Stage3_still_sends_it_must_equal_account_language: true
+        request_language_may_mutate_existing_learning_account: false
+        Stage5_request_sync: remove_or_forbid_independent_language_field_for_existing_account_branch
+      new_learning_account_target:
+        requested_language_sets_new_learning_account_language: true
+        same_language_snapshotted_to_assignment: true
+        selected_inventory_product_must_have_current_capability_for_language: true
+      common_after_locks:
+        global_language_must_be_active: true
+        capability_must_be_current_at_assignment_time: true
+        capability_product_must_equal_locked_inventory_product: true
+        assignment_sequence_allocated_under_learning_account_lock: true
+      retiring_capability_after_assignment_invalidates_existing_assignment: false
+      retiring_capability_after_assignment_blocks_later_activation_of_that_already_assigned_unit: false
+      reason: assignment_snapshot_proves_the_unit_was_validly_allocated_while_capability_was_enabled
+    learning_account_language_change:
+      command: existing_DB_LIC_003_learning_account_PATCH_language_code
+      expected_learning_account_version_required: true
+      shared_lock_prefix: [students_row_FOR_UPDATE, student_learning_accounts_row_FOR_UPDATE]
+      linked_student_must_be_nonarchived: true
+      account_status_allowed: [active, suspended]
+      proposed_global_language_must_be_active: true
+      quiescent_requirement:
+        pending_assignment_count_status_assigned: 0
+        live_or_future_activation_count_effective_to_gt_command_effective_at: 0
+      expired_activated_history_blocks_change: false
+      revoked_history_blocks_change: false
+      product_capability_required_when_no_current_or_pending_license: false
+      reason: bare_learning_account_may_exist_without_a_license; next_assignment_performs_exact_product_capability_check
+      successful_change_increments_learning_account_version_once: true
+      rewrites_historical_assignment_language_snapshots: false
+      rewrites_activation_history: false
+      hidden_revoke_or_inventory_effect: false
+      language_change_while_pending_or_live_entitlement: reject_conflict_requires_explicit_future_product_capability_if_ever_introduced
+    activation_language_boundary:
+      activation_insert_write_time_guard: BEFORE_INSERT_trigger_or_equivalent_database_guard
+      requires_assignment_language_equals_current_locked_learning_account_language_at_activation: true
+      capability_must_still_be_current_at_activation: false
+      historical_capability_must_still_prove_assignment_was_valid_at_assigned_at: true
+      rationale: account_language_cannot_change_while_assignment_is_pending_so_activation_cannot_silently_switch_language; capability_retirement_does_not_revoke_already_allocated_right
+    management_projection_contract:
+      authoritative_mutable_projection_table_added: false
+      read_effective_at_captured_once_per_query: true
+      optional_cache: derived_rebuildable_non_authoritative_only
+      row_granularity: student_learning_account
+      row_inclusion: learning_account_with_at_least_one_assignment_history
+      assignment_history_order: assignment_sequence_desc
+      latest_assignment:
+        source: max_assignment_sequence
+        assigned_at_timestamp_tiebreak_heuristic: false
+        UUID_latest_heuristic: false
+      latest_license_generated_at: latest_assignment.assigned_at
+      latest_license_language: latest_assignment.language_code_snapshot
+      learning_access_language: student_learning_accounts.language_code
+      assigned_license_count:
+        expression: count_assignments_status_in_assigned_or_activated
+        revoked_before_activation_included: false
+        expired_activated_assignment_included: true
+      assignment_presentation_status:
+        assigned: not_activated
+        revoked_before_activation: revoked
+        activated_and_effective_to_gt_read_effective_at: active
+        activated_and_effective_to_lte_read_effective_at: expired
+        activated_future_effective_from_but_effective_to_gt_read_effective_at: active
+      assignment_expires_at:
+        assigned_or_revoked_without_activation: null
+        activated: license_activation.effective_to
+      assignment_remaining_time:
+        no_activation: null
+        activated_nonexpired_seconds: max_0_effective_to_minus_read_effective_at
+        expired_seconds: 0
+        exact_human_day_rounding_or_label: Stage5_presentation_contract
+      current_learning_access_expiry: MAX_license_activations_effective_to_per_learning_account
+      finished_learning_access_predicate:
+        pending_assigned_assignment_count: 0
+        current_entitlement_end_null_or_lte_read_effective_at: true
+        revoked_history_does_not_make_unfinished: true
+      hide_finished_true: exclude_rows_matching_finished_learning_access_predicate
+      inventory_available_count_per_product: count_inventory_entries_status_available
+      inventory_active_count_per_product:
+        expression: count_assignments_status_activated_join_activation_effective_to_gt_read_effective_at_for_inventory_product
+        includes_stacked_future_segment_if_not_expired: true
+        excludes_expired_activation: true
+        excludes_unactivated_assignment: true
+        excludes_revoked_assignment: true
+      sorting:
+        server_side: true
+        whitelist_fields_preserved: [learning_identifier, student_full_name, latest_license_generated_at, learning_access_language, latest_license_status, assigned_license_count]
+        status_sort_uses_canonical_derived_domain_value_not_translated_label: true
+        exact_user_facing_status_rank: Stage5_acceptance_contract_sync
+        stable_secondary_key: student_learning_account_id
+      expanded_history_includes_revoked_and_expired: true
+      no_independent_mutable_latest_status_count_remaining_time_or_finished_columns: true
+    credentials_localization:
+      single_and_bulk_document_locale_source: student_learning_accounts.language_code_at_export_time
+      assignment_snapshot_language_used_as_current_document_locale: false
+      mixed_locales_in_one_bulk_PDF_preserved: true
+      archived_or_ineligible_sensitive_export_still_blocked_by_DB_LIC_003_and_DB_LIC_004: true
+    source_conflict_policy:
+      authenticated_assignment_selector_observed_languages: [pl, en, de, ru, uk]
+      purchase_marketing_observed_languages: [pl, en, de, uk]
+      neither_list_is_global_DB_check: true
+      languages_table_row_alone_grants_product_language: false
+      product_capability_endpoint_must_read_current_capability_rows: true
+      UI_selector_must_consume_product_capability_endpoint: true
+      marketing_copy_may_be_subset_or_separate_catalog_projection: true
+      russian_full_content_support_must_be_confirmed_in_capability_data_before_offer: true
+    migration_design:
+      order:
+        - precheck_learning_account_language_codes_exist_in_global_language_dictionary
+        - precheck_assignment_language_codes_exist_in_global_language_dictionary
+        - precheck_current_unactivated_assignments_language_equals_current_learning_account_language
+        - precheck_nonexpired_activation_assignment_language_equals_current_learning_account_language_at_cutover
+        - derive_assignment_sequence_per_learning_account_only_when_historical_order_is_unambiguous
+        - fail_on_same_account_assignment_order_ties_without_reliable_historical_order_evidence
+        - create_license_product_language_capabilities_history_table
+        - load_capability_history_only_from_reviewed_product_content_or_catalog_evidence
+        - do_not_seed_capability_rows_from_global_language_dictionary_or_one_screen_option_list
+        - backfill_assignment_capability_pointer_only_when_exact_inventory_product_language_and_assigned_at_interval_is_provable
+        - add_assignment_sequence_unique_and_contiguous_guard
+        - add_assignment_capability_same_language_composite_FK
+        - add_exact_inventory_product_capability_time_guard
+        - add_capability_history_immutability_and_current_partial_unique
+        - wire_assignment_create_to_current_capability_and_account_language_snapshot_rules
+        - wire_learning_account_language_PATCH_to_quiescent_rule
+        - wire_activation_insert_to_assignment_language_equals_current_account_write_time_guard
+        - implement_management_projection_queries_or_views_from_canonical_history
+        - add_language_projection_migration_and_race_tests
+      assignment_sequence_from_UUID_or_latest_row_tiebreak_without_evidence: forbidden
+      capability_support_inferred_from_languages_dictionary: forbidden
+      capability_support_inferred_only_from_purchase_marketing_copy: forbidden
+      capability_support_inferred_only_from_authenticated_selector: forbidden
+      current_account_language_auto_rewritten_to_latest_assignment: forbidden
+      historical_assignment_language_auto_rewritten_to_current_account_language: forbidden
+      ambiguous_legacy_capability_or_assignment_order: fail_migration_and_require_reviewed_remediation
+    required_integration_tests:
+      - global_language_dictionary_does_not_imply_product_capability
+      - product_may_support_different_language_sets_without_hardcoded_global_list
+      - only_one_current_capability_row_per_product_language
+      - disabled_capability_history_cannot_be_deleted_or_reenabled_in_place
+      - new_assignment_requires_active_global_language_and_current_product_language_capability
+      - existing_learning_account_assignment_snapshots_exact_locked_account_language
+      - existing_account_assignment_request_cannot_silently_change_account_language
+      - new_account_assignment_sets_account_language_and_snapshot_to_same_supported_value
+      - assignment_capability_product_must_equal_inventory_product
+      - assignment_assigned_at_must_fall_within_capability_enabled_interval
+      - capability_cannot_be_backdated_disabled_before_existing_assignment_snapshot
+      - assignment_language_and_capability_pointer_are_immutable
+      - assignment_sequence_unique_contiguous_and_allocated_under_learning_account_lock
+      - latest_assignment_is_max_sequence_not_timestamp_or_UUID_heuristic
+      - language_PATCH_with_pending_assignment_is_rejected
+      - language_PATCH_with_live_or_future_entitlement_is_rejected
+      - language_PATCH_after_all_entitlements_expired_and_no_pending_assignment_may_succeed_and_preserves_history
+      - activation_requires_assignment_snapshot_language_equal_current_account_language_at_insert
+      - capability_retirement_after_assignment_does_not_block_activation_of_that_already_assigned_unit
+      - latest_license_language_is_assignment_snapshot_while_learning_access_language_is_current_account_language
+      - not_activated_active_expired_revoked_presentation_states_are_derived_not_stored
+      - assignment_remaining_time_is_derived_from_activation_effective_to_and_one_query_as_of
+      - hide_finished_keeps_pending_or_nonexpired_accounts_and_hides_expired_or_revoked_only_accounts
+      - assigned_license_count_excludes_revoked_but_includes_consumed_history
+      - inventory_available_count_is_exact_available_rows
+      - inventory_active_count_is_activated_not_expired_rows_for_that_product
+      - bulk_PDF_localizes_each_page_from_current_learning_account_language
+      - sorting_uses_whitelisted_canonical_projection_and_stable_secondary_key
+      - migration_does_not_hardcode_ru_or_other_screen_language_list
+      - migration_does_not_guess_assignment_order_or_capability_support
+    explicitly_not_solved_in_this_step:
+      - DB4_9_pricing_purchase_payment_inventory_grant_and_commercial_adjustment_details
+      - exact_user_facing_status_sort_rank_and_remaining_day_rounding_in_Stage5
+      - exact_max_bulk_PDF_count_and_pagination_selection_scope
+      - DB4_10_final_audit_outbox_notification_storage_shape
+
 blockers:
   - id: DB-LIC-001
     severity: P1
@@ -1728,7 +1976,8 @@ blockers:
   - id: DB-LIC-007
     severity: P1
     title: license_product_language_capability_and_assignment_projection_consistency
-    status: OPEN
+    status: RESOLVED
+    resolution_ref: resolved_contracts.DB-LIC-007
     diagnosis:
       - language is canonically present on StudentLearningAccount while LicenseAssignment also stores language_code and CreateLicenseAssignmentRequest requires language_code even for an existing access
       - without an explicit authority/snapshot rule assignment language can drift from the selected learning account
@@ -1750,11 +1999,12 @@ diagnosis_summary:
   result: FAIL_WITH_7_P1_BLOCKERS
 
 current_gate_summary:
-  blockers_resolved_after_diagnosis: 6
-  open_P0_P1: 1
-  result: FAIL_WITH_1_P1_BLOCKER
-  resolved_blockers: [DB-LIC-001, DB-LIC-002, DB-LIC-003, DB-LIC-004, DB-LIC-005, DB-LIC-006]
-  next_blocker: DB-LIC-007
+  blockers_resolved_after_diagnosis: 7
+  open_P0_P1: 0
+  result: IN_PROGRESS_FINAL_AGGREGATE_SYNC_PENDING
+  resolved_blockers: [DB-LIC-001, DB-LIC-002, DB-LIC-003, DB-LIC-004, DB-LIC-005, DB-LIC-006, DB-LIC-007]
+  next_blocker: null
+  next_step: DB4_6_FINAL_AGGREGATE_SYNC
 
 nonblockers_and_deferred_questions:
   - exact_public_prices_discounts_VAT_and_payment_provider_flow_belong_to_DB4_9
@@ -1763,7 +2013,7 @@ nonblockers_and_deferred_questions:
   - exact_password_complexity_hash_cost_and_rotation_parameters_are_security_implementation_policy
   - exact_HTTP_If_Match_required_markers_and_error_codes_remain_Stage5_acceptance_contract_sync
   - exact_max_bulk_PDF_count_and_select_visible_pagination_behavior_are_application_product_limits_not_database_P1
-  - exact_competitor_semantics_of_inventory_card_active_count_remain_unobservable_but_our_projection_must_be_defined_before_implementation
+  - exact_user_facing_status_sort_rank_and_remaining_day_rounding_are_Stage5_presentation_contract
 
 preservation_checks:
   all_confirmed_license_variants_remain_data_not_hardcoded_global_rule: PASS
@@ -1851,6 +2101,19 @@ preservation_checks:
   entitlement_expiry_continues_during_archive_or_suspension: PASS
   legacy_activation_migration_does_not_guess_chain_duration_or_actor_origin: PASS
   DB_LIC_007_language_capability_and_management_projection_not_fixed_in_DB_LIC_006_step: PASS
+  product_language_support_is_capability_data_not_global_language_dictionary_or_screen_list: PASS
+  russian_source_conflict_is_not_resolved_by_hardcoding: PASS
+  learning_account_is_single_current_language_owner: PASS
+  assignment_language_is_immutable_assignment_time_snapshot: PASS
+  assignment_to_existing_access_inherits_locked_current_account_language: PASS
+  assignment_product_language_capability_is_exactly_bound_to_inventory_product_and_assignment_time: PASS
+  assignment_sequence_provides_deterministic_latest_and_history_order_without_timestamp_UUID_heuristic: PASS
+  learning_account_language_change_cannot_drift_pending_or_live_entitlement_language: PASS
+  capability_retirement_does_not_retroactively_revoke_already_assigned_right: PASS
+  management_status_counts_expiry_remaining_time_and_hide_finished_are_derived_from_canonical_history: PASS
+  mutable_duplicate_management_projection_authority_not_created: PASS
+  bulk_credentials_export_localizes_from_current_learning_account_language: PASS
+  DB_LIC_001_through_DB_LIC_007_all_closed: PASS
   purchase_payment_scope_not_accidentally_solved_in_DB4_6: PASS
   DB4_7_or_later_scope_not_entered: PASS
   aggregate_core_schema_modified_in_diagnosis: false
@@ -1861,16 +2124,18 @@ preservation_checks:
   UI_or_feature_implementation_started: false
 
 next_single_step:
-  id: DB4_6_STEP_7
-  blocker: DB-LIC-007
-  action: resolve_product_language_capability_assignment_snapshot_and_management_projection_consistency_only
+  id: DB4_6_FINAL_AGGREGATE_SYNC
+  action: synchronize_closed_DB_LIC_001_through_DB_LIC_007_into_aggregate_machine_and_narrative_schema_only
   allowed_files:
     - specs/database/licenses-learning-access.yml
     - docs/110-stage-4-licenses-learning-access-audit.md
+    - specs/database/core-schema.yml
+    - docs/87-physical-database-schema.md
     - specs/gates/stage-4-database-contract-gate.yml
   scope_lock: >-
-    Resolve only DB-LIC-007. Do not synchronize specs/database/core-schema.yml or
-    docs/87-physical-database-schema.md until the final DB4_6 aggregate sync, do not
-    enter DB4_7 or later slices, do not create Laravel migrations, do not start Stage 5
-    and do not implement UI/features.
-  after_action: rerun_DB4_6_gate_and_STOP_before_DB4_6_final_aggregate_sync
+    Synchronize only the already-closed DB-LIC-001..007 contracts into the aggregate
+    machine and narrative schema, remove stale aggregate shortcuts, run semantic-loss,
+    stale-constraint, migration-order and invariant-test checks, and update the central
+    gate. Do not enter DB4_7 or later slices, do not create Laravel migrations, do not
+    start Stage 5 and do not implement UI/features.
+  after_action: rerun_DB4_6_final_aggregate_gate_and_STOP_before_DB4_7
