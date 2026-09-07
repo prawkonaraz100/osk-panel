@@ -3,8 +3,8 @@
 Data: 2026-09-07
 
 **Etap:** `DB4_7_INTERNAL_EXAMS`  
-**Aktualny krok:** `DB_EXAM_004_ATTEMPT_ACCESS_LIFECYCLE_CONCURRENCY`  
-**Status:** `FAIL_WITH_4_P1_BLOCKERS / 0 P0 / 4 P1 OPEN`
+**Aktualny krok:** `DB_EXAM_005_EXAM_ACCESS_TOKEN_AND_FINISHED_RESULT_TOKEN_SECURITY`  
+**Status:** `FAIL_WITH_3_P1_BLOCKERS / 0 P0 / 3 P1 OPEN`
 
 Machine-readable diagnoza: `specs/database/internal-exams.yml`.
 
@@ -1252,3 +1252,256 @@ Aktualny stan DB4_7 po DB-EXAM-004:
 Następny dozwolony krok po centralnym gate: **DB-EXAM-005 only**.
 
 **STOP przed DB-EXAM-005.**
+
+---
+
+## 19. DB-EXAM-005 — wynik fixera: PASS
+
+DB-EXAM-005 zamyka wyłącznie security boundary dla bearer tokenów zdalnego egzaminu i rozdziela uprawnienie do wykonania egzaminu od późniejszego odczytu wyniku. Nie projektuje StationSession/device binding/failover, scoringu/dokumentów ani projekcji statystyk.
+
+### 19.1 Jeden `Access.token_hash` nie może być finalnym authority
+
+Dotychczasowy pojedynczy `internal_exam_accesses.token_hash` mieszał dwa różne privilege lifecycle:
+- token wykonawczy przed i podczas egzaminu,
+- token tylko do odczytu zakończonego wyniku i question review.
+
+Canonical token authority przenosimy do append-history table `internal_exam_access_tokens`. Stary `Access.token_hash` nie jest już source of truth; jego dokładne usunięcie lub migracyjne wygaszenie nastąpi przy finalnym aggregate/cutover po reviewed migration.
+
+Bearer tokens są dozwolone wyłącznie dla `remote_link`. Lokalne i przypisane stanowiska nie dostają remote bearer tokenu; ich authentication/device binding pozostaje DB-EXAM-006.
+
+### 19.2 Zamknięty katalog purpose
+
+Dozwolone są dokładnie dwa purpose:
+- `exam_execution`,
+- `finished_result_read`.
+
+Nie używamy arbitralnego JSON scope jako authority.
+
+`exam_execution` może tylko:
+- uruchomić exact Access,
+- obsługiwać/submitować exact rozpoczęty Attempt.
+
+Nie może czytać zakończonego wyniku ani question review.
+
+`finished_result_read` może tylko:
+- `GET` exact Result,
+- `GET` exact Questions zakończonego Attemptu.
+
+Nie może startować, submitować, revoke'ować Accessu, robić station transfer ani pobierać staff-only dokumentów.
+
+### 19.3 Exact Access + Attempt + tenant binding
+
+Każdy token row przechowuje:
+- `organization_id`,
+- `internal_exam_access_id`,
+- `internal_exam_attempt_id`,
+- purpose,
+- monotoniczny `token_sequence`,
+- losowy `lookup_id`,
+- one-way verifier + key version,
+- issue/expiry/revocation metadata.
+
+Composite FK:
+
+`(organization_id,internal_exam_access_id,internal_exam_attempt_id)`
+`-> internal_exam_accesses(organization_id,id,internal_exam_attempt_id)`
+
+uniemożliwia podpięcie tokenu Accessu A do Attemptu B albo innego OSK.
+
+`lookup_id` jest tylko losowym locator, nie sekretem i nie authority.
+
+### 19.4 Raw token nigdy nie jest recoverable
+
+Token powstaje z CSPRNG i ma co najmniej równoważnik 256 bitów entropii.
+
+W DB zapisujemy wyłącznie keyed one-way verifier, np. HMAC-SHA-256 lub równoważny mechanizm, wraz z `verifier_key_version`. Pepper/key pozostaje poza bazą w security key management.
+
+Raw secret nie może być zapisany:
+- w DB,
+- w reversible ciphertext,
+- w FileAsset/object storage,
+- audit logach,
+- outbox payloadach,
+- application logs/traces,
+- lifecycle events,
+- idempotency response snapshot.
+
+Po przekroczeniu one-time response/delivery boundary serwer nie może odzyskać starego secretu.
+
+### 19.5 Weryfikacja tokenu
+
+Weryfikacja wymaga kolejno:
+1. parsowania opaque tokenu,
+2. odszukania row po losowym locatorze,
+3. wyliczenia verifiera z właściwym key version,
+4. constant-time compare,
+5. zgodności purpose,
+6. exact Access/Attempt request binding,
+7. same tenant,
+8. `revoked_at IS NULL`,
+9. `effective_at < expires_at`,
+10. następnie locków DB-EXAM-004 i ponownego sprawdzenia lifecycle.
+
+`attempt_id`, `access_id` ani sam `lookup_id` nigdy nie uwierzytelniają.
+
+Na dokładnej granicy expiry token jest nieważny.
+
+### 19.6 Execution token lifecycle
+
+Execution token istnieje tylko dla remote Accessu.
+
+Przed startem wymaga startable Accessu i Attempt `created`. Po starcie może autoryzować submit wyłącznie exact Access/Attempt w `started/in_progress`, dopóki token nie wygasł i nie został revoked.
+
+Parallel replay startu nadal jest finalnie zatrzymywany przez DB-EXAM-004 Attempt/Access locks oraz DB-EXAM-003 consume-on-start exactly once.
+
+Execution token jest revoke'owany atomowo przy:
+- pre-start revoke/expire/cancel,
+- successful submit/finish,
+- technical abort,
+- invalidation.
+
+Exact TTL pozostaje konfigurowalną security/product policy; DB nie hardcoduje arbitralnej liczby minut, ale konfiguracja musi obejmować przewidziany czas egzaminu.
+
+### 19.7 Finished-result token lifecycle
+
+Result token nie istnieje przed zakończeniem egzaminu.
+
+Powstaje wyłącznie, gdy:
+- Attempt jest `passed|failed`,
+- Access jest `completed`,
+- exact Result istnieje.
+
+W tej samej finish transaction:
+- execution token jest revoke'owany,
+- powstaje jeden current `finished_result_read` verifier.
+
+Technical abort nie tworzy result tokenu.
+
+Invalidation revoke'uje current result token, ale nie usuwa historycznego Result/Question/Document evidence. Staff nadal może czytać wynik przez istniejący RBAC, jeśli ma odpowiednie permission.
+
+Ewentualny przyszły reissue result tokenu musi być jawnym commandem z nowym Idempotency-Key i rotacją secretu; exact HTTP shape pozostaje do Stage-5 API sync.
+
+### 19.8 Dlaczego resend musi rotować token
+
+Potwierdzony produkt wymaga resend tego samego Accessu bez nowej Reservation. Jednocześnie raw secret jest nieodtwarzalny.
+
+Dlatego resend **nie może wysłać starego tokenu ponownie**.
+
+`POST /internal-exam-accesses/{accessId}/send`:
+- zachowuje ten sam Access,
+- zachowuje tę samą Reservation,
+- nie alokuje kolejnego InventoryEntry,
+- revoke'uje current execution token z powodem rotation,
+- zwiększa `token_sequence`,
+- generuje nowy secret w pamięci,
+- zapisuje tylko nowy verifier,
+- wysyła nowy raw secret raz,
+- odrzuca buffer secretu.
+
+Stary token przestaje działać natychmiast po commit rotacji.
+
+Pierwszy send może zmienić Access `ready -> delivered_or_assigned`; resend nie cofa lifecycle statusu.
+
+### 19.9 Idempotency bez secret replay
+
+One-time secret i Idempotency-Key nie oznaczają, że serwer ma zachować plaintext do ponownego zwrócenia.
+
+Ten sam completed Idempotency-Key:
+- nie wykonuje drugiej rotacji,
+- nie tworzy kolejnego tokenu,
+- nie odtwarza starego raw secretu,
+- może zwrócić sanitized nonsecret receipt albo jawny `secret not replayable` rezultat.
+
+Jeżeli klient nie odebrał secretu po commit, stary secret nadal nie staje się recoverable. Potrzebny jest nowy jawny send/resend z nowym Idempotency-Key, który rotuje secret ponownie.
+
+Delivery failure nie rollbackuje Accessu, Reservation ani token history.
+
+### 19.10 Token sequence i current uniqueness
+
+Per `(Organization,Access,purpose)` tokeny mają bezlukowy `token_sequence` od 1, alokowany pod Access lock.
+
+Partial unique gwarantuje maksymalnie jeden row `revoked_at IS NULL` na Access+purpose.
+
+Historyczne rotated/revoked/expired rows pozostają i nie są hard-delete'owane.
+
+Verifier, binding, purpose, sequence, locator, issue time i expiry są immutable. Revocation jest write-once i wymaga reason code.
+
+### 19.11 Final-state equivalence
+
+Deferrable cross-row guard wymaga:
+- local/assigned-station Access -> zero bearer tokens,
+- remote `ready|delivered|opened` -> dokładnie 1 current execution token, 0 result token,
+- remote `started` -> dokładnie 1 current execution token, 0 result token,
+- remote `completed` z passed/failed Result -> 0 execution, dokładnie 1 current result token,
+- remote `technical_abort|invalidated` -> zero current bearer tokens,
+- remote pre-start `cancelled|expired|revoked` -> zero current bearer tokens.
+
+Expired token nie uwierzytelnia nawet wtedy, gdy cleanup nie ustawił jeszcze `revoked_at`.
+
+### 19.12 Integracja z DB-EXAM-003 i DB-EXAM-004
+
+DB-EXAM-005 nie zmienia inventory semantics:
+- create Attempt nadal rezerwuje dokładnie jedną sztukę,
+- start nadal konsumuje dokładnie raz,
+- submit nie konsumuje drugi raz,
+- pre-start revoke/expire/cancel nadal release'uje Reservation,
+- technical abort nie przywraca consumed unit.
+
+Token commands zachowują lock prefix DB-EXAM-004 `Attempt -> Access`; gdy lifecycle dotyka Reservation/Inventory, suffix DB-EXAM-003 pozostaje bez zmian.
+
+Rotation tokenu sama w sobie nie zwiększa business `Access.version`, jeśli nie zmienia się business field; token history ma własny sequence.
+
+### 19.13 Outbox i delivery boundary
+
+DB-EXAM-005 zamyka zakaz durable raw-secret storage, ale nie projektuje finalnej infrastruktury wiadomości.
+
+Outbox może zachować wyłącznie nonsecret delivery metadata/intention. Raw token nie może znaleźć się w durable outbox payload.
+
+Exact transport i sposób bezpiecznej jednorazowej dostawy zostaną zsynchronizowane w Stage 5 oraz DB4_10, bez rozwiązywania ich teraz.
+
+### 19.14 Migration safety
+
+Legacy `Access.token_hash` jest niejednoznaczny: nie wiadomo automatycznie, czy reprezentował execution privilege, result privilege czy dawny multipurpose token.
+
+Migracja nie może:
+- klasyfikować finished legacy hash jako result token tylko po statusie,
+- promować pre-start hash do active execution tokenu bez dowodu verifier algorithm/key context,
+- kopiować starego hasha jako current token tylko po to, by link nadal działał,
+- zastępować tokenu Attempt/Access ID,
+- fabrykować raw secretu,
+- tworzyć result tokenu bez jawnej delivery flow.
+
+Najbezpieczniejszym defaultem dla niejednoznacznego ephemeral tokenu jest security invalidation i jawny reissue/rotation. Formalna historia Attempt/Result/Questions/Documents nie jest przez to kasowana.
+
+Niejednoznaczny purpose/verifier = fail security activation + reviewed remediation.
+
+### 19.15 Self-audit fixera
+
+Pierwszy machine write DB-EXAM-005 wprowadził jedną niedozwoloną czysto tekstową zmianę w zamkniętym DB-EXAM-004: `set_access_started_at_equal_attempt_started_at` zostało zapisane jako `set_access_started_at_equal_attempt.started_at`. Bramka jakości nie została wtedy uznana za PASS.
+
+Commit `cf551565…` przywrócił dokładnie tę jedną linię. Porównanie correction commit wykazało 1 addition / 1 deletion, a pełny diff od finalnego DB-EXAM-004 obejmuje wyłącznie `specs/database/internal-exams.yml`.
+
+Zamrożone agregaty nadal mają dokładnie:
+- `specs/database/core-schema.yml` -> `5d8f4d661f56115740d3c3a59d8424c85ec1cf24`,
+- `docs/87-physical-database-schema.md` -> `191afe107e830baa928b18f67e6cb75b2d4a73b8`.
+
+Sprawdzono dodatkowo:
+- DB-EXAM-001..004 pozostają PASS,
+- resend nie tworzy nowego Accessu, Reservation ani Inventory,
+- raw token nie jest nigdzie durable/recoverable,
+- execution privilege i result-read privilege są rozdzielone,
+- token nie zastępuje lifecycle/tenant/exact-target checks,
+- DB-EXAM-006 Station/device/failover pozostaje OPEN,
+- DB-EXAM-007 scoring/document evidence pozostaje OPEN,
+- DB-EXAM-008 management/statistics projection pozostaje OPEN,
+- DB4_8+, Stage 5, Laravel migrations i UI nie zostały rozpoczęte.
+
+Aktualny stan DB4_7 po DB-EXAM-005:
+- P0: **0**,
+- P1 open: **3**,
+- resolved: **5/8**,
+- result: **FAIL_WITH_3_P1_BLOCKERS**.
+
+Następny dozwolony krok po centralnym gate: **DB-EXAM-006 only**.
+
+**STOP przed DB-EXAM-006.**
