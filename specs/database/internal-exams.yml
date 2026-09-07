@@ -2,8 +2,8 @@ meta:
   project: osk-panel
   stage: 4
   slice: DB4_7_INTERNAL_EXAMS
-  step: DB_EXAM_006_STATION_SESSION_CONCURRENCY_DEVICE_BINDING_AND_FAILOVER
-  status: FAIL_WITH_2_P1_BLOCKERS
+  step: DB_EXAM_007_IMMUTABLE_EXAM_DEFINITION_QUESTION_RESULT_AND_DOCUMENT_EVIDENCE
+  status: FAIL_WITH_1_P1_BLOCKER
   diagnosed_at: 2026-09-07
   branch: docs-consolidation-2026-09-05
   aggregate_sync_status: FROZEN_UNTIL_DB4_7_FINAL_SYNC
@@ -15,7 +15,7 @@ meta:
 scope_rule:
   diagnose_before_fixing: true
   fixes_allowed_in_this_step: true
-  current_step_scope: DB_EXAM_006_only
+  current_step_scope: DB_EXAM_007_only
   one_blocker_per_future_step: true
   aggregate_files_frozen:
     - specs/database/core-schema.yml
@@ -2142,6 +2142,402 @@ resolved_contracts:
       - DB_EXAM_001_through_DB_EXAM_005_preserved
       - DB_EXAM_007_and_DB_EXAM_008_remain_open
 
+  DB-EXAM-007:
+    status: PASS
+    title: immutable_exam_definition_question_result_and_document_evidence
+    severity: P1
+    goal: >-
+      Make the definition selected at exam start, the exact ordered question/content/media
+      evidence, the final answers and scoring, the Result and every formal answer-sheet
+      artifact historically reproducible and immutable, so no later question-bank,
+      scoring-policy, template or administrative change can rewrite a finished Attempt.
+
+    scope_boundary:
+      observed_theory_question_test_evidence_fully_closed: true
+      practical_exam_forced_into_32_question_or_74_point_structure: false
+      observed_32_questions_global_constant: false
+      observed_74_max_points_global_constant: false
+      unobserved_positive_result_label_hardcoded: false
+      non_question_assessment_may_use_same_definition_result_document_envelope_without_fake_question_rows: true
+      DB_EXAM_008_management_latest_statistics_projection_not_fixed: true
+
+    authority_model:
+      immutable_definition_catalog: internal_exam_definitions
+      attempt_definition_binding_authority: internal_exam_attempts.internal_exam_definition_id_plus_definition_hash_snapshot
+      ordered_question_evidence_authority: internal_exam_attempt_questions
+      result_authority: internal_exam_results
+      formal_document_artifact_authority: internal_exam_documents_plus_immutable_template_binding
+      current_question_bank_after_attempt_start_is_history_authority: false
+      current_scoring_policy_after_attempt_start_is_history_authority: false
+      current_document_template_after_attempt_finish_is_history_authority: false
+      result_screen_and_answer_sheet_read_same_evidence_bundle: true
+
+    internal_exam_definitions:
+      tenant_owned: false
+      role: global_versioned_immutable_exam_engine_definition
+      fields:
+        - id_uuid_PK
+        - driving_category_id_uuid_not_null_FK_global_dictionary
+        - exam_part_varchar_16_not_null_theory_or_practical
+        - language_code_varchar_16_not_null_FK_global_language_dictionary
+        - engine_kind_varchar_32_not_null
+        - definition_version_varchar_64_not_null
+        - definition_schema_version_integer_not_null_check_gte_1
+        - composition_snapshot_jsonb_not_null
+        - scoring_policy_snapshot_jsonb_not_null
+        - definition_content_hash_char64_not_null
+        - published_at_timestamptz_not_null
+        - retired_at_timestamptz_nullable
+        - created_at_timestamptz_not_null
+      engine_kind_values: [question_test, non_question_assessment]
+      current_predicate: retired_at_is_null
+      current_unique:
+        type: partial_unique
+        columns: [driving_category_id, exam_part, language_code, engine_kind]
+        where: retired_at_is_null
+      exact_attempt_target_candidate_key:
+        columns: [id, driving_category_id, exam_part, language_code]
+        unique_constraint_required: true
+      definition_version_unique_scope: [driving_category_id, exam_part, language_code, definition_version]
+      definition_content_hash_algorithm: SHA_256_over_canonical_serialization
+      published_business_fields_immutable: true
+      normal_retirement_sets_retired_at_once: true
+      retired_definition_hard_delete_after_reference: forbidden
+      reenable_retired_definition_in_place: forbidden
+      later_definition_version_requires_new_row: true
+      composition_snapshot_may_define_counts_sections_selection_rules_without_database_hardcoding_32: true
+      scoring_policy_snapshot_may_define_max_points_and_pass_logic_without_database_hardcoding_74_or_threshold: true
+
+    attempt_definition_binding_and_start_freeze:
+      fields_added_or_finalized_on_attempt:
+        - internal_exam_definition_id_uuid_nullable_before_start
+        - exam_definition_version_snapshot_varchar_64_nullable_before_start
+        - exam_definition_hash_snapshot_char64_nullable_before_start
+        - evidence_schema_version_integer_nullable_before_start
+        - question_set_hash_char64_nullable
+      exact_definition_FK:
+        source_columns: [internal_exam_definition_id, driving_category_id, exam_part, language_code]
+        target_table: internal_exam_definitions
+        target_columns: [id, driving_category_id, exam_part, language_code]
+        match: MATCH_SIMPLE
+        on_update: RESTRICT
+        on_delete: RESTRICT
+      before_start_all_definition_binding_fields_null: true
+      after_start_definition_id_version_hash_and_evidence_schema_required: true
+      definition_binding_write_once: true
+      definition_selection_moment_core_v1: actual_exam_start_before_candidate_can_answer
+      selection_reason: >-
+        Existing sources do not prove that a remote link or pre-start Access freezes a question set.
+        Start is the first formal execution moment and already is the consume-on-start atomic boundary,
+        so selecting and freezing the current definition there is reproducible without inventing
+        pre-start question exposure semantics.
+      requires_current_definition_for_exact_category_part_language_and_expected_engine_kind: true
+      selected_definition_locked_FOR_SHARE_until_start_commit: true
+      concurrent_definition_retirement_has_deterministic_winner: true
+      start_first_then_retirement_preserves_started_attempt_definition: true
+      retirement_first_then_start_requires_new_current_definition_or_rejects: true
+      later_definition_retirement_or_new_version_rebinds_started_attempt: false
+      rerun_current_definition_for_finished_review_or_pdf: forbidden
+      DB_EXAM_004_remote_start_lock_extension:
+        order: [internal_exam_attempt_FOR_UPDATE, internal_exam_access_FOR_UPDATE, internal_exam_definition_FOR_SHARE, internal_exam_reservation_FOR_UPDATE, internal_exam_inventory_entry_FOR_UPDATE]
+        preserves_attempt_access_prefix: true
+        preserves_reservation_inventory_suffix: true
+      DB_EXAM_006_local_start_lock_extension:
+        order: [internal_exam_attempt_FOR_UPDATE, internal_exam_access_FOR_UPDATE, internal_exam_definition_FOR_SHARE, target_exam_station_FOR_UPDATE, current_station_credential_FOR_SHARE, internal_exam_reservation_FOR_UPDATE, internal_exam_inventory_entry_FOR_UPDATE]
+        preserves_existing_relative_lock_order: true
+      question_test_start_atomic_effects:
+        - bind_exact_definition_id_version_and_hash
+        - materialize_exact_ordered_attempt_question_rows_from_selected_definition_and_selection_engine
+        - compute_and_store_question_set_hash
+        - perform_existing_start_and_consume_transaction
+      non_question_assessment_start_atomic_effects:
+        - bind_exact_definition_id_version_and_hash
+        - freeze_definition_evidence_without_inventing_question_rows
+        - perform_existing_start_and_consume_transaction
+      definition_or_question_materialization_failure_rolls_back_start_and_inventory_consume: true
+
+    attempt_question_evidence:
+      table: internal_exam_attempt_questions
+      tenant_owned: true
+      fields_added_or_finalized:
+        - group_varchar_32_not_null_for_question_test
+        - source_question_identifier_varchar_128_nullable_provenance_only
+        - source_question_revision_identifier_varchar_128_nullable_provenance_only
+        - question_snapshot_schema_version_integer_not_null_check_gte_1
+        - question_snapshot_jsonb_not_null
+        - question_snapshot_hash_char64_not_null
+        - media_evidence_snapshot_jsonb_nullable
+        - max_points_snapshot_integer_not_null_check_gte_0
+        - candidate_answer_jsonb_nullable
+        - is_correct_boolean_nullable
+        - points_awarded_integer_nullable
+        - answered_at_timestamptz_nullable
+      ordinal_minimum: 1
+      ordinal_unique_scope_preserved: [organization_id, internal_exam_attempt_id, ordinal]
+      source_question_identifier_or_revision_is_runtime_history_authority: false
+      immutable_start_time_fields:
+        - organization_id
+        - internal_exam_attempt_id
+        - ordinal
+        - group
+        - source_question_identifier
+        - source_question_revision_identifier
+        - question_snapshot_schema_version
+        - question_snapshot
+        - question_snapshot_hash
+        - media_evidence_snapshot
+        - max_points_snapshot
+      question_snapshot_minimum_semantics_for_question_test:
+        - rendered_question_text_or_versioned_exact_content
+        - answer_type
+        - ordered_answer_options
+        - correct_answer_or_equivalent_evaluation_key
+        - category_context
+      question_snapshot_hash_algorithm: SHA_256_over_canonical_snapshot
+      media_evidence_rule: >-
+        Every rendered historical image/video must be reproducible from an immutable retained
+        revision or an evidence reference containing a stable content hash. A mutable current URL
+        without revision/hash is insufficient history evidence.
+      live_current_media_or_question_row_lookup_required_for_finished_review: false
+      question_set_hash_algorithm: SHA_256_over_ordered_ordinals_groups_question_hashes_and_max_points
+      question_set_hash_matches_exact_attempt_question_rows_at_commit: true
+      answer_and_scoring_fields_before_submit:
+        candidate_answer: null
+        is_correct: null
+        points_awarded: null
+      final_answer_and_scoring_fields_written_atomically_by_submit: true
+      final_answer_and_scoring_fields_write_once: true
+      unanswered_question_candidate_answer_may_be_null: true
+      answered_at_nullable_for_unanswered: true
+      points_awarded_when_final_required: true
+      points_awarded_bounds: zero_to_max_points_snapshot
+      direct_update_of_question_content_after_start: forbidden
+      direct_update_of_final_answer_or_score_after_finish: forbidden
+
+    scoring_and_result_consistency:
+      result_fields_added_or_finalized:
+        - evidence_schema_version_integer_not_null_check_gte_1
+        - score_integer_nullable_by_engine_kind
+        - max_score_integer_nullable_by_engine_kind
+        - pass_threshold_snapshot_integer_nullable
+        - passed_boolean_not_null_for_completed_result
+        - scoring_policy_snapshot_jsonb_not_null
+        - question_set_hash_char64_nullable
+        - evidence_bundle_hash_char64_not_null
+        - answer_sheet_template_binding_snapshot_jsonb_nullable
+        - result_snapshot_jsonb_not_null
+        - result_snapshot_hash_char64_not_null
+        - created_at_timestamptz_not_null
+      one_result_per_attempt_DB_EXAM_001_preserved: true
+      result_exists_only_for_attempt_status_passed_or_failed: true
+      passed_attempt_requires_result_passed_true: true
+      failed_attempt_requires_result_passed_false: true
+      result_is_immutable_after_insert: true
+      result_snapshot_is_serialized_projection_not_second_mutable_authority: true
+      question_test_consistency:
+        requires_question_rows_matching_definition_composition: true
+        result_question_set_hash_equals_attempt_question_set_hash: true
+        score_equals_sum_points_awarded: true
+        max_score_equals_sum_max_points_snapshot: true
+        score_bounds_zero_to_max_score: true
+        pass_threshold_snapshot_required_only_when_selected_scoring_policy_uses_numeric_threshold: true
+        passed_must_equal_frozen_scoring_policy_evaluation: true
+        is_correct_and_points_awarded_must_match_frozen_question_evaluation_policy: true
+      non_question_assessment_consistency:
+        fake_zero_question_74_point_result_forbidden: true
+        result_fields_follow_frozen_definition_scoring_policy: true
+      observed_numeric_pass_threshold_hardcoded_without_source: false
+      result_screen_basic_specialized_correct_incorrect_counts_are_derived_from_attempt_question_rows: true
+      those_result_screen_counts_are_not_DB_EXAM_008_management_statistics_authority: true
+      submit_transaction_extension:
+        preserves_DB_EXAM_004_attempt_access_lock_root: true
+        validates_definition_binding_and_question_set_hash_before_scoring: true
+        evaluates_answers_server_side_against_frozen_snapshot_and_scoring_policy: true
+        persists_final_question_answer_score_fields_and_one_result_atomically: true
+        computes_evidence_bundle_hash_before_terminal_commit: true
+        transitions_attempt_access_via_DB_EXAM_004_same_transaction: true
+        inventory_effect: none
+      submit_retry_after_success_rewrites_question_result_or_hashes: false
+      second_distinct_submit_after_terminal: rejected
+
+    evidence_bundle_hash:
+      algorithm: SHA_256_over_canonical_serialization
+      includes_at_minimum:
+        - attempt_id
+        - organization_id
+        - candidate_snapshot
+        - driving_category_id
+        - exam_part
+        - language_code
+        - requirement_basis_snapshot_hash_or_canonical_snapshot
+        - internal_exam_definition_id
+        - exam_definition_version_snapshot
+        - exam_definition_hash_snapshot
+        - ordered_final_attempt_question_evidence_for_question_test
+        - result_scoring_policy_snapshot
+        - score_and_max_score_when_applicable
+        - passed
+        - finished_at
+      current_question_bank_fields_not_in_hash_as_live_lookups: true
+      hash_changes_if_any_frozen_question_answer_score_or_result_evidence_changes: true
+
+    document_template_catalog:
+      table: internal_exam_document_templates
+      tenant_owned: false
+      fields:
+        - id_uuid_PK
+        - document_type_varchar_64_not_null
+        - exam_part_varchar_16_nullable
+        - template_version_varchar_64_not_null
+        - renderer_version_varchar_64_not_null
+        - template_content_hash_char64_not_null
+        - effective_from_timestamptz_not_null
+        - effective_to_timestamptz_nullable
+        - created_at_timestamptz_not_null
+      effective_interval: half_open_[effective_from,effective_to)
+      effective_to_if_nonnull_gt_effective_from: true
+      overlapping_effective_intervals_for_same_document_type_and_exam_part: forbidden
+      template_version_unique_scope: [document_type, exam_part, template_version]
+      published_template_business_fields_immutable: true
+      hard_delete_after_document_reference: forbidden
+      historical_template_selection_source: attempt_finished_at
+      retroactive_interval_rewrite_after_use: forbidden
+      answer_sheet_template_must_be_resolvable_at_submit_for_question_test_when_answer_sheet_is_required: true
+      selected_template_binding_stored_in_result_snapshot: true
+      later_template_publication_does_not_change_finished_attempt_binding: true
+
+    internal_exam_documents:
+      fields_added_or_finalized:
+        - internal_exam_document_template_id_uuid_not_null
+        - template_version_snapshot_varchar_64_not_null
+        - renderer_version_snapshot_varchar_64_not_null
+        - template_hash_snapshot_char64_not_null
+        - evidence_bundle_hash_char64_not_null
+        - asset_id_uuid_not_null
+        - content_hash_char64_not_null
+        - generated_at_timestamptz_not_null
+        - generated_by_user_id_uuid_nullable
+        - created_at_timestamptz_not_null
+      one_canonical_document_per_attempt_and_document_type:
+        unique_scope: [organization_id, internal_exam_attempt_id, document_type]
+      exact_attempt_same_tenant_and_asset_same_tenant_DB_EXAM_001_preserved: true
+      selected_template_must_match_finish_time_binding_snapshot: true
+      evidence_bundle_hash_must_equal_exact_result_evidence_bundle_hash_for_answer_sheet: true
+      file_asset_requirements:
+        status: ready
+        purpose: internal_exam_answer_sheet_or_exact_document_type_specific_evidence_purpose
+        file_asset_sha256_equals_document_content_hash: true
+        referenced_asset_normal_delete_or_replace: forbidden
+      deterministic_render_contract:
+        same_frozen_evidence_template_renderer_inputs_produce_same_canonical_PDF_bytes: true
+        volatile_current_time_random_id_or_current_student_profile_may_not_enter_rendered_bytes: true
+        generated_at_is_metadata_of_generation_not_hidden_business_input_unless_frozen_render_contract_explicitly_uses_it: true
+      document_row_business_fields_immutable_after_insert: true
+      regenerate_by_recomputing_from_current_question_bank_or_current_student_profile: forbidden
+      repeat_download_uses_existing_canonical_asset_or_verified_identical_regeneration: true
+      paper_signature_lines_preserved_by_template: true
+      signed_paper_scan_workflow_not_invented_as_required_current_feature: true
+
+    invalidation_and_correction_semantics:
+      DB_EXAM_004_invalidation_preserves_attempt_question_result_document_evidence: true
+      postfinish_invalidation_recomputes_result: false
+      postfinish_invalidation_regenerates_or_overwrites_existing_answer_sheet: false
+      postfinish_invalidation_changes_evidence_bundle_hash: false
+      normal_staff_edit_of_finished_question_answer_points_result_or_document: forbidden
+      correction_strategy:
+        factual_or_outcome_change_to_finished_exam: explicit_invalidation_plus_new_attempt_or_explicit_future_correction_artifact
+        original_attempt_evidence_remains_immutable: true
+        silent_in_place_fix: forbidden
+      optional_append_only_annotation_table: internal_exam_evidence_correction_events
+      correction_event_fields:
+        - id_uuid_PK
+        - organization_id_uuid_not_null
+        - internal_exam_attempt_id_uuid_not_null
+        - correction_kind_varchar_64_not_null
+        - reason_text_not_null_nonblank
+        - actor_user_id_uuid_not_null
+        - created_at_timestamptz_not_null
+      correction_event_may_mutate_original_evidence: false
+      correction_event_same_tenant_attempt_FK_required: true
+      correction_event_actor_is_global_user: true
+      final_audit_outbox_shape: deferred_to_DB4_10
+
+    review_and_download_projection:
+      GET_result_reads_internal_exam_results_only_for_exact_finished_attempt: true
+      GET_questions_reads_ordered_internal_exam_attempt_questions_not_current_question_bank: true
+      question_review_media_uses_frozen_media_evidence: true
+      answer_sheet_download_reads_exact_document_asset_or_deterministic_frozen_evidence_template_binding: true
+      finished_result_read_token_DB_EXAM_005_scope_preserved: true
+      staff_document_download_permission_preserved: true
+      result_and_question_review_tokens_do_not_gain_document_download: true
+
+    API_contract_sync_gaps:
+      current_InternalExamResult_schema_too_small_for_definition_policy_hash_template_evidence_metadata: true
+      current_ExamQuestionSnapshot_uses_GenericObject_for_question_and_candidate_answer: true
+      current_submit_answers_items_are_GenericObject: true
+      current_answer_sheet_endpoint_exists: true
+      current_result_and_questions_endpoints_exist: true
+      exact_typed_snapshot_hash_definition_and_template_fields_sync: Stage5_acceptance_contract_sync
+      API_files_modified_in_DB_EXAM_007: false
+
+    migration_policy:
+      legacy_question_snapshot_may_be_accepted_only_when_exact_historical_content_correct_answer_options_media_identity_and_points_are_proven: true
+      compute_hash_from_complete_exact_legacy_snapshot: allowed_deterministic_transform
+      current_question_bank_lookup_to_fill_missing_historical_question_content: forbidden
+      infer_missing_question_revision_from_current_row: forbidden
+      infer_missing_media_revision_or_bytes_from_current_URL: forbidden
+      infer_32_question_structure_or_74_max_score_for_all_legacy_attempts: forbidden
+      infer_pass_threshold_from_passed_boolean_or_known_current_rules: forbidden
+      recompute_legacy_result_from_current_scoring_policy: forbidden
+      change_answer_or_awarded_points_to_make_legacy_total_match: forbidden
+      current_document_template_assumed_for_old_finished_attempt: forbidden
+      existing_legacy_PDF_may_bind_only_when_exact_attempt_and_content_hash_are_proven: true
+      fabricate_missing_PDF_or_question_media_as_if_historical: forbidden
+      score_max_result_question_mismatch_auto_normalization: forbidden
+      ambiguous_definition_question_scoring_or_template_lineage: fail_and_require_reviewed_remediation
+      formal_evidence_deleted_to_make_migration_pass: false
+
+    required_tests:
+      - published_exam_definition_is_immutable_and_versioned
+      - one_current_definition_per_category_part_language_engine_kind
+      - observed_32_questions_and_74_points_are_not_global_database_constants
+      - start_binds_exact_current_definition_for_attempt_category_part_language
+      - start_and_definition_retirement_race_has_deterministic_winner
+      - definition_binding_is_write_once_after_start
+      - question_test_start_materializes_complete_ordered_question_set_before_candidate_can_answer
+      - question_materialization_failure_rolls_back_start_and_inventory_consume
+      - question_snapshot_hash_matches_canonical_snapshot
+      - question_set_hash_matches_exact_ordered_attempt_question_rows
+      - finished_review_does_not_query_current_question_bank_as_authority
+      - historical_media_uses_immutable_revision_or_content_hash_not_mutable_URL_only
+      - question_content_and_max_points_cannot_change_after_start
+      - submit_sets_final_answer_correctness_and_points_atomically_once
+      - final_points_are_between_zero_and_frozen_max_points
+      - question_test_result_score_equals_sum_awarded_points
+      - question_test_result_max_score_equals_sum_frozen_max_points
+      - passed_flag_matches_frozen_scoring_policy_not_current_policy
+      - no_unverified_numeric_pass_threshold_is_hardcoded
+      - one_result_per_attempt_preserved_and_result_is_immutable
+      - result_question_set_hash_equals_attempt_question_set_hash
+      - evidence_bundle_hash_changes_on_any_frozen_evidence_change
+      - submit_retry_does_not_rewrite_result_questions_or_hashes
+      - technical_abort_or_invalidation_preserves_start_time_question_definition_evidence
+      - postfinish_invalidation_preserves_original_result_question_document_hashes
+      - document_template_versions_are_immutable_nonoverlapping_effective_intervals
+      - answer_sheet_template_binding_is_deterministic_from_finish_time_and_frozen_in_result
+      - later_template_publication_does_not_change_old_attempt_document
+      - answer_sheet_asset_is_ready_correct_purpose_same_tenant_and_hash_matching
+      - referenced_answer_sheet_asset_cannot_be_replaced_or_deleted_normally
+      - same_evidence_template_renderer_produces_same_canonical_PDF_hash
+      - repeated_download_does_not_rebuild_from_current_student_or_question_bank
+      - correction_event_is_append_only_and_cannot_mutate_original_evidence
+      - outcome_correction_requires_explicit_invalidation_and_new_attempt_or_separate_correction_artifact
+      - result_and_question_read_tokens_keep_DB_EXAM_005_scope_without_document_escalation
+      - migration_does_not_guess_question_revision_media_scoring_threshold_or_template
+      - migration_does_not_normalize_mismatched_legacy_scores_or_answers
+      - DB_EXAM_001_through_DB_EXAM_006_preserved
+      - DB_EXAM_008_remains_open
+
 blockers:
   - id: DB-EXAM-001
     title: same_tenant_and_exact_target_integrity
@@ -2279,7 +2675,8 @@ blockers:
   - id: DB-EXAM-007
     title: immutable_exam_definition_question_result_and_document_evidence
     severity: P1
-    status: OPEN
+    status: RESOLVED
+    resolution_ref: resolved_contracts.DB-EXAM-007
     diagnosis:
       - observed_result_screen_question_review_and_answer_sheet_must_reconstruct_the_same_finished_attempt
       - current_question_snapshot_and_result_snapshot_are_too_generic_to_prove_exam_definition_version_question_media_version_scoring_threshold_and_document_template_lineage
@@ -2324,15 +2721,14 @@ diagnosis_summary:
   diagnosed_P0: 0
   diagnosed_P1: 8
   resolved_in_diagnosis: 0
-  resolved_after_diagnosis: 6
-  open_P0_P1: 2
-  result: FAIL_WITH_2_P1_BLOCKERS
+  resolved_after_diagnosis: 7
+  open_P0_P1: 1
+  result: FAIL_WITH_1_P1_BLOCKER
   blockers_in_required_fix_order:
-    - DB-EXAM-007
     - DB-EXAM-008
 
 preservation_gate:
-  status: PASS_DB_EXAM_006_MACHINE_CONTRACT
+  status: PASS_DB_EXAM_007_MACHINE_CONTRACT
   checks:
     no_blocker_fixed_during_diagnosis: true
     course_first_formal_exam_preserved: true
@@ -2442,6 +2838,14 @@ preservation_gate:
     DB_EXAM_006_Stage3_station_security_transport_gaps_recorded_for_Stage5: true
     DB_EXAM_007_evidence_scoring_document_immutability_remains_open_after_DB_EXAM_006: true
     DB_EXAM_008_management_projection_remains_open_after_DB_EXAM_006: true
+    DB_EXAM_007_definition_selected_and_frozen_at_start: true
+    DB_EXAM_007_no_32_or_74_global_hardcode: true
+    DB_EXAM_007_question_content_media_and_points_snapshot_hashed: true
+    DB_EXAM_007_result_is_immutable_and_scoring_consistent_with_frozen_policy: true
+    DB_EXAM_007_document_template_and_asset_hash_lineage_closed: true
+    DB_EXAM_007_current_question_bank_or_template_cannot_rewrite_history: true
+    DB_EXAM_007_correction_requires_append_only_or_invalidation_semantics: true
+    DB_EXAM_008_management_projection_remains_open_after_DB_EXAM_007: true
     core_schema_aggregate_modified: false
     docs87_aggregate_modified: false
     DB4_8_or_later_entered: false
@@ -2450,6 +2854,6 @@ preservation_gate:
     UI_or_feature_implementation_started: false
 
 next_single_step_after_central_gate:
-  id: DB-EXAM-007
-  action: resolve_immutable_exam_definition_question_result_and_document_evidence_only
-  stop_before: DB-EXAM-008
+  id: DB-EXAM-008
+  action: resolve_deterministic_management_history_latest_and_statistics_projection_only
+  stop_before: DB4_7_FINAL_AGGREGATE_SYNC
