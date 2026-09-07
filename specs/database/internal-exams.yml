@@ -1349,7 +1349,7 @@ resolved_contracts:
       - access_version_and_lifecycle_event_pair_one_material_change
       - lifecycle_events_append_only_and_match_current_row_version_state
       - candidate_PATCH_requires_created_before_start_and_current_If_Match
-      - two_candidate_PATCHes_same_If_Match_at_most_one_commit
+      - two_candidate_PATCHes_same_expected_version_at_most_one_commit
       - candidate_PATCH_cannot_change_course_category_language_requirement_or_capability_basis
       - candidate_PATCH_after_start_rejected
       - later_requirement_profile_supersession_does_not_rewrite_or_silently_block_existing_attempt
@@ -1732,29 +1732,37 @@ resolved_contracts:
     station_state_model:
       persistent_administrative_status_values: [enabled, disabled]
       legacy_single_status_mixing_online_offline_available_occupied_disabled_is_canonical: false
+      legacy_status_column_final_aggregate_action: replace_with_administrative_status_or_non_authoritative_migration_only
       connectivity_state:
         values: [online, offline]
         authority: derived_from_current_station_credential_and_last_authenticated_heartbeat_at
         exact_heartbeat_freshness_threshold: configurable_security_product_policy_not_database_constant
-      availability_state:
-        values: [available, occupied]
+      occupancy_state:
+        values: [free, occupied]
         authority: derived_from_zero_or_one_active_station_session
+      effective_availability:
+        available_when:
+          - administrative_status_enabled
+          - connectivity_online
+          - occupancy_free
+        otherwise_available: false
       product_visible_online_offline_available_occupied_disabled_concepts_preserved: true
       new_start_or_failover_target_requires:
         - administrative_status_enabled
         - current_nonrevoked_station_credential
         - connectivity_online
-        - zero_active_station_session
+        - occupancy_free
       active_session_may_temporarily_exist_on_offline_or_disabled_station_after_failure: true
       offline_or_disabled_state_auto_ends_session: false
       offline_or_disabled_state_auto_restores_inventory: false
       offline_or_disabled_state_auto_transfers_attempt: false
 
-    station_fields_added_or_finalized:
-      - administrative_status_varchar_16_not_null
-      - last_authenticated_heartbeat_at_timestamptz_nullable
-      - created_at_timestamptz_not_null
-      - updated_at_timestamptz_not_null
+    station_model:
+      fields_added_or_finalized:
+        - administrative_status_varchar_16_not_null
+        - last_authenticated_heartbeat_at_timestamptz_nullable
+        - created_at_timestamptz_not_null
+        - updated_at_timestamptz_not_null
       legacy_station_key_hash_as_canonical_current_credential: false
       ordinary_client_supplied_organization_id_authority: false
       normal_station_hard_delete_after_history_reference: forbidden
@@ -2089,7 +2097,7 @@ resolved_contracts:
     required_tests:
       - station_admin_status_is_enabled_or_disabled_only
       - connectivity_online_offline_is_derived_from_authenticated_heartbeat_not_mutable_status
-      - availability_available_occupied_is_derived_from_active_session_not_mutable_status
+      - effective_availability_is_derived_from_admin_connectivity_and_occupancy
       - one_current_station_credential_per_station_enforced
       - raw_station_secret_is_never_persisted_recoverably
       - wrong_station_wrong_tenant_or_revoked_credential_rejected
