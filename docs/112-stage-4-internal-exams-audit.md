@@ -3,8 +3,8 @@
 Data: 2026-09-07
 
 **Etap:** `DB4_7_INTERNAL_EXAMS`  
-**Aktualny krok:** `DB_EXAM_001_SAME_TENANT_EXACT_TARGET`  
-**Status:** `FAIL_WITH_7_P1_BLOCKERS / 0 P0 / 7 P1 OPEN`
+**Aktualny krok:** `DB_EXAM_002_FORMAL_COURSE_REQUIREMENT_CAPABILITY_BASIS`  
+**Status:** `FAIL_WITH_6_P1_BLOCKERS / 0 P0 / 6 P1 OPEN`
 
 Machine-readable diagnoza: `specs/database/internal-exams.yml`.
 
@@ -539,3 +539,210 @@ Aktualny stan DB4_7 po DB-EXAM-001:
 Następny dozwolony krok po centralnym gate: **DB-EXAM-002 only**.
 
 **STOP przed DB-EXAM-002.**
+
+---
+
+## 16. DB-EXAM-002 — wynik fixera: PASS
+
+DB-EXAM-002 zamyka wyłącznie formalną i historycznie odtwarzalną podstawę utworzenia egzaminu. Nie projektuje inventory/reservation exactly-once, Attempt/Access lifecycle, tokenów, Station failover, scoringu ani statystyk.
+
+### 16.1 Jedno źródło decyzji, czy dana część egzaminu jest wymagana
+
+`InternalExamAttempt` nie staje się drugim rule engine.
+
+Canonical authority pozostaje w DB4_4:
+- bieżący formalny wynik wymagań: `training_requirement_profiles`,
+- freshness epoch: `course_enrollments.requirements_revision`,
+- użyty artefakt reguł: `training_requirement_rule_sets`,
+- kategoria kursu: `course_enrollments.driving_category_id`.
+
+Pole tekstowe typu `requirement_basis` nie może być źródłem prawdy o tym, czy teoria lub praktyka jest wymagana.
+
+Request Stage-3 nadal podaje wyłącznie:
+- `exam_part`,
+- `language_code`.
+
+Nie przyjmujemy `driving_category_id` jako niezależnej decyzji klienta. Kategoria Attemptu jest wyprowadzana z zablokowanego `CourseEnrollment`.
+
+### 16.2 Exact RequirementProfile + revision
+
+Attempt otrzymuje obowiązkowe pola:
+- `training_requirement_profile_id`,
+- `requirements_revision`,
+- `internal_exam_capability_id`,
+- `requirement_basis_snapshot`.
+
+Wymagany candidate key profilu:
+
+`training_requirement_profiles(organization_id,id,course_enrollment_id,requirements_revision)`.
+
+Attempt wskazuje dokładny profil przez composite FK:
+
+`(organization_id,training_requirement_profile_id,course_enrollment_id,requirements_revision)`
+`-> training_requirement_profiles(organization_id,id,course_enrollment_id,requirements_revision)`.
+
+Dzięki temu nie wystarcza wskazanie profilu istniejącego w tym samym OSK. Musi to być profil dokładnie tego Course i dokładnie tej revision.
+
+Currentness profilu jest warunkiem **utworzenia** Attemptu, nie permanentnym warunkiem FK. Po późniejszej legalnej recalculation profil może zostać superseded, a stary Attempt nadal wskazuje historyczną decyzję, która obowiązywała przy jego utworzeniu.
+
+### 16.3 Exact Course + Student + Category
+
+DB-EXAM-001 zamknął Course+Student. DB-EXAM-002 wzmacnia tę granicę o kategorię:
+
+`course_enrollments(organization_id,id,student_id,driving_category_id)`
+
+jest candidate key dla Attemptu.
+
+Attempt ma composite FK:
+
+`(organization_id,course_enrollment_id,student_id,driving_category_id)`
+`-> course_enrollments(organization_id,id,student_id,driving_category_id)`.
+
+Nie można więc utworzyć egzaminu dla Course kat. C, ale zapisać na Attempt kat. B. Request nie może „nadpisać” kategorii wyprowadzonej z Course.
+
+### 16.4 Która część egzaminu jest dozwolona
+
+Mapowanie jest jawne:
+- `exam_part=theory` wymaga `TrainingRequirementProfile.internal_theory_exam_required = true`,
+- `exam_part=practical` wymaga `TrainingRequirementProfile.internal_practical_exam_required = true`.
+
+Jeżeli rule engine zwalnia kursanta z teorii, nowy teoretyczny Attempt jest odrzucany.
+
+Dotyczy to m.in. wcześniej potwierdzonych scenariuszy, w których teoria nie jest wymagana. Brak teorii nie oznacza braku Course lub Student — oznacza tylko brak prawa do wygenerowania niepotrzebnej części egzaminu.
+
+`exam_part` oraz wskazanie profilu/revision są historycznym faktem i nie są normalnie przepinane po utworzeniu Attemptu.
+
+### 16.5 `internal_exam_capabilities` — wersjonowana dostępność category + part + language
+
+Sam globalny słownik `languages` nie oznacza, że każda wersja egzaminu istnieje w każdym języku.
+
+Wprowadzamy globalny, nietenantowy katalog historycznych capability:
+
+`internal_exam_capabilities`.
+
+Każdy row reprezentuje dokładnie:
+- `driving_category_id`,
+- `exam_part`,
+- `language_code`,
+- `enabled_at`,
+- opcjonalne `disabled_at`,
+- opcjonalne `source_reference`.
+
+Current capability to `disabled_at IS NULL`.
+
+Partial unique:
+
+`(driving_category_id,exam_part,language_code) WHERE disabled_at IS NULL`.
+
+Attempt przechowuje `internal_exam_capability_id` i ma exact composite FK:
+
+`(internal_exam_capability_id,driving_category_id,exam_part,language_code)`
+`-> internal_exam_capabilities(id,driving_category_id,exam_part,language_code)`.
+
+Dzięki temu pointer nie może wskazywać capability dla innej kategorii, części albo języka.
+
+Wyłączenie capability zachowuje row historyczny. Nie hard-delete'ujemy go po użyciu. Ponowne włączenie tej samej kombinacji tworzy nowy historyczny row, zamiast „odmładzać” stary przez wyzerowanie `disabled_at`.
+
+Endpoint `/internal-exam/capabilities` jest projekcją bieżących rows, grupowaną po kategorii i części. Lista języków zaobserwowana na jednym ekranie konkurenta nie staje się globalnym source of truth.
+
+### 16.6 Immutable `requirement_basis_snapshot`
+
+Attempt zapisuje minimalny, niezbędny snapshot podstawy utworzenia. Obejmuje co najmniej:
+- ID profilu,
+- requirements revision,
+- rule-set version,
+- rule-set content hash,
+- exam part,
+- nazwę i wartość użytej flagi `required=true`,
+- exemption basis, jeśli występuje,
+- kategorię ID/code,
+- training type,
+- capability ID,
+- language code,
+- `basis_evaluated_at`.
+
+Snapshot jest dowodem historycznym, a nie drugim rule engine.
+
+Nie kopiujemy do niego PESEL ani PKK. Dane tożsamości potrzebne do dokumentowania próby pozostają w osobnym `candidate_snapshot` i będą dalej chronione zgodnie z właściwymi boundary.
+
+### 16.7 Transakcja utworzenia i races
+
+Tworzenie Attemptu rozpoczyna wspólny lock prefix:
+
+`CourseEnrollment FOR UPDATE`.
+
+To celowo ten sam root, na którym DB-TRN-005 serializuje zmianę requirement contextu.
+
+Po locku system musi ponownie sprawdzić:
+1. istnieje dokładnie current TrainingRequirementProfile,
+2. jego `requirements_revision` jest równe bieżącemu Course,
+3. właściwa flaga `internal_*_exam_required` jest `true`,
+4. kategoria pochodzi z Course,
+5. istnieje dokładnie current capability dla `category + exam_part + language`.
+
+Wybrany capability row jest blokowany `FOR SHARE`; jego retirement wymaga konfliktującego update locku.
+
+Daje to deterministyczne wyniki race:
+- Attempt create wygrał przed requirement recalculation -> zapisuje ówczesny profil; późniejsza zmiana go nie przepisuje,
+- recalculation wygrała pierwsza -> Attempt musi użyć nowego profilu albo zostaje odrzucony,
+- create wygrał przed capability retirement -> zapisuje capability ważne w tej chwili,
+- retirement wygrał pierwszy -> nowy Attempt nie może commitować z już disabled capability.
+
+DB-EXAM-003 może później rozszerzyć tę transakcję o Inventory/Reservation, ale nie może odwrócić ustalonego Course lock prefix.
+
+### 16.8 Późniejsza zmiana wymagań lub capability
+
+Zmiana requirementów po utworzeniu Attemptu nie:
+- przepina profilu,
+- zmienia requirements revision historycznego Attemptu,
+- zmienia kategorii/języka,
+- przelicza `requirement_basis_snapshot`,
+- automatycznie usuwa ani invaliduje próby.
+
+Analogicznie retirement capability nie przepisuje historycznych Attemptów.
+
+Nowy Attempt nie może jednak korzystać z superseded RequirementProfile ani disabled capability.
+
+Osobne pytanie: co zrobić z **już utworzonym, ale jeszcze nierozpoczętym** Attemptem, gdy jego basis później stanie się nieaktualny. Tego celowo nie rozstrzygamy tutaj — jest to lifecycle policy DB-EXAM-004. DB-EXAM-002 zakazuje jedynie cichego przepisywania historii.
+
+### 16.9 Migration safety
+
+Legacy `requirement_basis` jako zwykły tekst nie jest wystarczającym dowodem do automatycznego ustalenia historycznego profilu.
+
+Migracja nie może:
+- podpiąć bieżącego profilu tylko dlatego, że jest current,
+- wybrać „najbliższego” profilu po `calculated_at`, UUID albo kolejności,
+- ponownie uruchomić dzisiejszego rule engine i udawać, że wynik był historyczną decyzją,
+- założyć, że dzisiejsze current capability było dostępne w chwili starego Attemptu,
+- wywnioskować capability z globalnego słownika języków albo listy na jednym ekranie,
+- wymyślić rule-set version/content hash,
+- usunąć lub automatycznie invalidować nierozstrzygalnej próby.
+
+Exact legacy mapping jest dopuszczalny tylko wtedy, gdy istnieją wiarygodne dane dowodzące konkretnego profilu i capability. W przeciwnym razie: migration FAIL + reviewed remediation.
+
+### 16.10 Self-audit fixera
+
+Pierwszy machine write DB-EXAM-002 poprawnie zamknął architekturę, ale preservation gate wykrył:
+- zmianę jednej historycznej linii DB-EXAM-001 z `deferred_to_DB_EXAM_002` na `closed_by_DB_EXAM_002`,
+- zastąpienie części szczegółowej checklisty DB-EXAM-001 nowymi checkami,
+- w korekcie pojawiła się jeszcze jedna czysto tekstowa regresja w otwartym DB-EXAM-003 (`but_final...` -> `but final...`).
+
+Żadna z tych wersji nie została zaakceptowana jako PASS. Historyczny DB-EXAM-001 i diagnoza DB-EXAM-003..008 zostały przywrócone przed zamknięciem machine gate.
+
+Po korekcie:
+- DB-EXAM-001 pozostaje PASS,
+- DB-EXAM-002 jest PASS,
+- DB-EXAM-003..008 pozostają OPEN,
+- agregaty `core-schema.yml` i `docs/87` pozostają zamrożone,
+- OpenAPI nie został zmieniony,
+- DB4_8+, Stage 5, Laravel migrations i UI nie zostały rozpoczęte.
+
+Aktualny stan DB4_7 po DB-EXAM-002:
+- P0: **0**,
+- P1 open: **6**,
+- resolved: **2/8**,
+- result: **FAIL_WITH_6_P1_BLOCKERS**.
+
+Następny dozwolony krok po centralnym gate: **DB-EXAM-003 only**.
+
+**STOP przed DB-EXAM-003.**
