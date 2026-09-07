@@ -324,7 +324,7 @@ quality_checks:
       identity_branch_change_audited: true
       Student_optimistic_concurrency: governed_by_DB_TRN_003
     checks:
-      legal_PESEL_or_birth_date_rule_preserved: PASS
+      legal_PESEL_or_birth_date_rule_preserved_before_formal_enrollment: PASS
       pre_course_student_creation_capability_not_reduced: PASS
       missing_PESEL_not_confused_with_explicit_no_PESEL: PASS
       PESEL_pair_consistency_closed: PASS
@@ -509,7 +509,7 @@ quality_checks:
       rule_set_identity_is_immutable_and_hashed: PASS
       requirements_revision_proves_current_projection_freshness: PASS
       requirements_revision_is_not_second_concurrency_root: PASS
-      every_requirement_affecting_change_requires_one_new_immutable_profile: PASS
+      every_requirement_affecting_change_creates_one_new_current_profile: PASS
       input_base_output_effective_output_snapshots_are_preserved: PASS
       category_context_exemption_override_and_rule_refresh_races_serialize_on_course: PASS
       stale_source_fact_change_cannot_commit_with_old_current_profile: PASS
