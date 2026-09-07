@@ -2,8 +2,8 @@ meta:
   project: osk-panel
   stage: 4
   slice: DB4_7_INTERNAL_EXAMS
-  step: DB_EXAM_004_ATTEMPT_ACCESS_LIFECYCLE_CONCURRENCY
-  status: FAIL_WITH_4_P1_BLOCKERS
+  step: DB_EXAM_005_EXAM_ACCESS_TOKEN_AND_FINISHED_RESULT_TOKEN_SECURITY
+  status: FAIL_WITH_3_P1_BLOCKERS
   diagnosed_at: 2026-09-07
   branch: docs-consolidation-2026-09-05
   aggregate_sync_status: FROZEN_UNTIL_DB4_7_FINAL_SYNC
@@ -15,7 +15,7 @@ meta:
 scope_rule:
   diagnose_before_fixing: true
   fixes_allowed_in_this_step: true
-  current_step_scope: DB_EXAM_004_only
+  current_step_scope: DB_EXAM_005_only
   one_blocker_per_future_step: true
   aggregate_files_frozen:
     - specs/database/core-schema.yml
@@ -1157,7 +1157,7 @@ resolved_contracts:
         - set_attempt_started_at_once
         - increment_attempt_version_once
         - access_prestart_to_started
-        - set_access_started_at_equal_attempt_started_at
+        - set_access_started_at_equal_attempt.started_at
         - increment_access_version_once
         - append_attempt_and_access_lifecycle_events
       station_effects: deferred_to_DB_EXAM_006
@@ -1391,6 +1391,321 @@ resolved_contracts:
       - DB_EXAM_001_DB_EXAM_002_DB_EXAM_003_preserved
       - DB_EXAM_005_through_DB_EXAM_008_remain_open
 
+  DB-EXAM-005:
+    status: PASS
+    title: exam_access_token_and_finished_result_token_security
+    severity: P1
+    goal: >-
+      Replace the ambiguous single Access token hash with purpose-scoped,
+      nonrecoverable bearer-token history bound to the exact remote Access and
+      Attempt, so execution privilege and finished-result read privilege cannot
+      bleed into each other, replay, survive revocation, or authorize by ID alone.
+
+    authority_model:
+      canonical_token_table: internal_exam_access_tokens
+      legacy_internal_exam_accesses_token_hash_is_canonical: false
+      legacy_token_hash_final_aggregate_action: remove_or_non_authoritative_migration_only_after_reviewed_cutover
+      bearer_tokens_allowed_only_for_mode: remote_link
+      local_or_assigned_station_bearer_token_auth: forbidden
+      station_authentication_and_device_binding: deferred_to_DB_EXAM_006
+      purpose_values: [exam_execution, finished_result_read]
+      arbitrary_scope_json_as_authority: false
+      normal_token_row_hard_delete: forbidden
+      token_history_preserved_after_rotation_revocation_or_expiry: true
+
+    token_table:
+      fields:
+        - id_uuid_PK
+        - organization_id_uuid_not_null
+        - internal_exam_access_id_uuid_not_null
+        - internal_exam_attempt_id_uuid_not_null
+        - purpose_varchar_32_not_null
+        - token_sequence_bigint_not_null_check_gte_1
+        - lookup_id_uuid_not_null
+        - secret_verifier_bytea_or_char64_not_null
+        - verifier_key_version_integer_not_null_check_gte_1
+        - issued_at_timestamptz_not_null
+        - expires_at_timestamptz_not_null
+        - revoked_at_timestamptz_nullable
+        - revoke_reason_code_varchar_64_nullable
+        - issued_by_user_id_uuid_nullable
+        - created_at_timestamptz_not_null
+      exact_access_attempt_FK:
+        source_columns: [organization_id, internal_exam_access_id, internal_exam_attempt_id]
+        target_table: internal_exam_accesses
+        target_columns: [organization_id, id, internal_exam_attempt_id]
+        on_update: RESTRICT
+        on_delete: RESTRICT
+      lookup_id_global_unique: true
+      sequence_unique_scope: [organization_id, internal_exam_access_id, purpose, token_sequence]
+      sequence_contiguous_from_one_under_access_lock: true
+      one_current_nonrevoked_per_access_purpose:
+        type: partial_unique
+        columns: [organization_id, internal_exam_access_id, purpose]
+        where: revoked_at_is_null
+      immutable_after_insert:
+        - organization_id
+        - internal_exam_access_id
+        - internal_exam_attempt_id
+        - purpose
+        - token_sequence
+        - lookup_id
+        - secret_verifier
+        - verifier_key_version
+        - issued_at
+        - expires_at
+      revocation_write_once: true
+      revoked_at_nonnull_requires_reason_code: true
+      issued_by_user_is_global_identity_not_fake_tenant_scoped: true
+
+    secret_construction_and_storage:
+      bearer_shape: opaque_random_locator_plus_high_entropy_secret_or_equivalent_single_opaque_token
+      minimum_secret_entropy_bits: 256
+      secret_source: CSPRNG
+      lookup_id_is_secret_or_authority: false
+      persisted_verifier: keyed_one_way_verifier_HMAC_SHA256_or_equivalent
+      verifier_key_version_required: true
+      verifier_key_or_pepper_storage: outside_database_security_key_management
+      verifier_comparison: constant_time
+      raw_secret_persisted_in_database: false
+      raw_secret_persisted_as_reversible_ciphertext: false
+      raw_secret_persisted_in_file_assets_or_object_storage: false
+      raw_secret_in_audit_logs: forbidden
+      raw_secret_in_outbox_messages: forbidden
+      raw_secret_in_application_logs_or_traces: forbidden
+      raw_secret_in_lifecycle_events: forbidden
+      raw_secret_in_idempotency_safe_response_snapshot: forbidden
+      attempt_or_access_or_lookup_id_alone_authenticates: false
+      old_raw_secret_recovery_after_response_boundary: impossible_by_design
+
+    verification_contract:
+      sequence:
+        - parse_opaque_token
+        - resolve_token_row_by_random_lookup_id
+        - derive_verifier_with_row_verifier_key_version
+        - constant_time_compare_secret_verifier
+        - require_expected_purpose
+        - require_exact_request_access_and_attempt_binding
+        - require_same_organization_binding
+        - require_revoked_at_null
+        - require_command_effective_at_lt_token_expires_at
+        - acquire_DB_EXAM_004_attempt_then_access_locks
+        - recheck_attempt_access_lifecycle_after_locks
+      auth_by_predictable_attempt_id: forbidden
+      auth_by_access_id: forbidden
+      auth_by_lookup_id_without_secret: forbidden
+      wrong_purpose_token_reuse: forbidden
+      cross_attempt_token_reuse: forbidden
+      cross_access_token_reuse: forbidden
+      cross_tenant_token_reuse: forbidden
+      exact_expiry_boundary_valid: false
+
+    exam_execution_token:
+      purpose: exam_execution
+      allowed_mode: remote_link
+      allowed_capabilities:
+        - start_exact_access
+        - submit_exact_started_attempt
+      result_or_question_review_allowed: false
+      documents_download_allowed: false
+      admin_or_station_transfer_allowed: false
+      prestart_requires_access_status_in: [ready, delivered_or_assigned, opened]
+      prestart_requires_attempt_status: created
+      after_start_submit_requires_access_status: started
+      after_start_submit_requires_attempt_status: in_progress
+      second_start_prevented_by_DB_EXAM_004_attempt_access_locks_and_state: true
+      execution_token_may_authorize_submit_until_expiry_or_revocation: true
+      exact_execution_token_TTL: configurable_security_product_policy_not_database_constant
+      TTL_configuration_must_cover_expected_exam_duration: true
+      completion_revokes_current_execution_token_same_transaction: true
+      technical_abort_revokes_current_execution_token_same_transaction: true
+      prestart_revoke_expire_cancel_revokes_current_execution_token_same_transaction: true
+      invalidation_revokes_current_execution_token_if_any_same_transaction: true
+
+    finished_result_read_token:
+      purpose: finished_result_read
+      allowed_mode: remote_link
+      issue_condition:
+        - attempt_status_passed_or_failed
+        - access_status_completed
+        - exact_internal_exam_result_exists
+      issued_before_finish: forbidden
+      read_capabilities:
+        - GET_exact_attempt_result
+        - GET_exact_attempt_questions
+      start_allowed: false
+      submit_allowed: false
+      revoke_access_or_station_transfer_allowed: false
+      document_download_allowed: false
+      exact_result_token_TTL: configurable_security_product_policy_not_database_constant
+      issue_and_execution_token_retirement_same_finish_transaction: true
+      one_current_result_token_per_access: true
+      technical_abort_issues_result_token: false
+      invalidation_revokes_current_result_token_same_transaction: true
+      staff_RBAC_result_access_survives_token_revocation_subject_to_existing_permissions: true
+      future_result_token_reissue:
+        requires_explicit_command: true
+        requires_new_idempotency_key: true
+        rotates_secret_and_revokes_prior_current_token: true
+        exact_HTTP_shape: Stage5_acceptance_contract_sync
+
+    remote_access_create_and_one_time_delivery:
+      initial_remote_access_creation_mints_execution_token: true
+      raw_secret_exists_only_in_process_memory_until_one_time_response_or_delivery_boundary: true
+      persist_token_verifier_before_return: true
+      InternalExamAccess_one_time_remote_url_semantics_preserved: true
+      same_idempotency_key_retry_after_success:
+        creates_new_token: false
+        replays_raw_secret: false
+        allowed_response: sanitized_nonsecret_receipt_or_secret_not_replayable_error
+      network_failure_after_commit:
+        rolls_back_access_or_reservation_or_token: false
+        server_can_recover_old_secret: false
+        recovery: explicit_send_or_resend_with_new_idempotency_key_and_token_rotation
+
+    send_resend_rotation:
+      API_operation: POST_/internal-exam-accesses/{accessId}/send
+      idempotency_required: true
+      lock_order: [internal_exam_attempt_FOR_UPDATE, internal_exam_access_FOR_UPDATE]
+      DB_EXAM_004_access_state_requirements_preserved: true
+      same_access_row_preserved: true
+      same_reservation_preserved: true
+      new_inventory_allocation: false
+      resend_same_raw_secret: false
+      reason: raw_secret_is_nonrecoverable_after_original_response_boundary
+      rotation_sequence:
+        - lock_attempt_then_access
+        - recheck_remote_prestart_send_eligibility
+        - revoke_current_exam_execution_token_if_present_with_reason_rotated_for_send
+        - allocate_next_exam_execution_token_sequence
+        - generate_new_CSPRNG_secret_in_memory
+        - persist_only_new_lookup_and_verifier
+        - commit_nonsecret_state_and_delivery_metadata
+        - deliver_new_raw_secret_once
+        - discard_raw_secret_buffer
+      first_send_may_change_access_ready_to_delivered_or_assigned: true
+      resend_regresses_access_status: false
+      same_idempotency_key_retry_rotates_again: false
+      same_idempotency_key_retry_replays_secret: false
+      explicit_new_resend_after_delivery_failure_requires_new_idempotency_key: true
+      durable_outbox_contains_raw_secret: false
+      exact_secret_delivery_transport: Stage5_and_DB4_10_contract_sync
+
+    lifecycle_integration:
+      prestart_access_revoke_expire_cancel:
+        revoke_current_execution_token_same_transaction: true
+        DB_EXAM_003_reservation_release_unchanged: true
+      start:
+        execution_token_not_rotated_on_start: true
+        DB_EXAM_003_inventory_consume_exactly_once_unchanged: true
+      submit_pass_or_fail:
+        revoke_execution_token: true
+        mint_finished_result_read_token: true
+        persist_result_and_DB_EXAM_004_terminal_state_and_token_changes_atomically: true
+        second_inventory_consumption: false
+      technical_abort:
+        revoke_execution_token: true
+        mint_result_token: false
+        consumed_inventory_restored: false
+      invalidation:
+        revoke_any_current_execution_and_result_tokens: true
+        result_question_document_evidence_deleted_or_rewritten: false
+        consumed_inventory_restored: false
+      token_transition_increments_access_business_version_if_no_access_business_field_changed: false
+      reason_token_rotation_has_own_sequence_and_history: true
+
+    final_state_equivalence:
+      guard: DEFERRABLE_INITIALLY_DEFERRED_or_equivalent_transactional_DB_guard
+      local_or_assigned_station_access:
+        current_bearer_token_count: 0
+      remote_ready_delivered_or_opened:
+        current_execution_token_count: 1
+        current_result_token_count: 0
+      remote_started:
+        current_execution_token_count: 1
+        current_result_token_count: 0
+      remote_completed_passed_or_failed_with_result:
+        current_execution_token_count: 0
+        current_result_token_count: 1
+      remote_technical_abort:
+        current_execution_token_count: 0
+        current_result_token_count: 0
+      remote_invalidated:
+        current_execution_token_count: 0
+        current_result_token_count: 0
+      remote_cancelled_expired_or_revoked_prestart:
+        current_execution_token_count: 0
+        current_result_token_count: 0
+      historical_revoked_or_expired_token_rows_preserved: true
+      expired_but_not_yet_revoked_token_authenticates: false
+
+    idempotency_and_secret_nonreplay:
+      create_send_resend_result_reissue_claim_idempotency_before_nonreplayable_secret_effect: true
+      same_key_same_request_after_completion_performs_second_rotation_or_issue: false
+      same_key_same_request_after_completion_returns_old_raw_secret: false
+      same_key_different_request: reject_conflict
+      completed_idempotency_record_contains_only_nonsecret_result_metadata: true
+      client_delivery_failure_does_not_make_server_secret_recoverable: true
+      explicit_new_command_is_required_for_new_secret: true
+
+    migration_policy:
+      legacy_internal_exam_accesses_token_hash_has_known_purpose_by_default: false
+      auto_classify_finished_legacy_hash_as_result_token: forbidden
+      auto_classify_prestart_legacy_hash_as_current_execution_token: forbidden_without_proven_verifier_algorithm_and_key_context
+      copy_legacy_hash_into_new_active_token_table_without_proven_verifier_scheme: forbidden
+      attempt_id_or_access_id_substituted_as_token: forbidden
+      fabricate_raw_secret_for_legacy_access: forbidden
+      fabricate_result_token_during_migration_without_delivery_flow: forbidden
+      safest_default_for_ambiguous_legacy_token: revoke_or_security_invalidate_ephemeral_token_and_require_explicit_reissue
+      formal_attempt_result_question_document_history_deleted_due_to_token_migration: false
+      reviewed_migration_of_legacy_token_as_noncurrent_history_when_binding_is_proven: allowed
+      unresolved_purpose_or_verifier_semantics: fail_security_activation_and_require_reviewed_remediation
+
+    required_tests:
+      - token_purpose_catalog_is_closed
+      - bearer_tokens_exist_only_for_remote_link_accesses
+      - raw_token_is_never_persisted_recoverably
+      - lookup_id_alone_does_not_authenticate
+      - wrong_secret_for_lookup_id_rejected
+      - wrong_purpose_token_rejected
+      - execution_token_for_other_attempt_rejected
+      - execution_token_for_other_access_rejected
+      - cross_tenant_token_binding_rejected
+      - token_exact_expiry_boundary_rejected
+      - revoked_token_rejected
+      - expired_token_rejected_even_before_cleanup_revocation
+      - execution_token_cannot_read_finished_result_or_questions
+      - finished_result_read_token_cannot_start_or_submit
+      - finished_result_read_token_cannot_download_staff_only_documents
+      - local_or_assigned_station_access_cannot_have_current_bearer_token
+      - one_current_token_per_access_purpose_enforced
+      - token_sequence_is_contiguous_under_access_lock
+      - verifier_and_token_binding_fields_are_immutable
+      - remote_access_create_returns_secret_once_and_persists_only_verifier
+      - create_idempotency_retry_does_not_mint_or_replay_secret
+      - send_resend_uses_same_access_and_same_reservation
+      - resend_rotates_execution_secret_and_revokes_old_token
+      - old_execution_token_fails_immediately_after_resend_rotation
+      - resend_same_idempotency_key_does_not_rotate_twice_or_replay_secret
+      - explicit_new_resend_new_key_mints_new_secret_without_new_inventory
+      - delivery_failure_after_commit_does_not_rollback_access_reservation_or_token
+      - prestart_revoke_revokes_execution_token_and_releases_reservation_same_transaction
+      - prestart_expire_revokes_execution_token_and_releases_reservation_same_transaction
+      - prestart_cancel_revokes_execution_token_and_releases_reservation_same_transaction
+      - parallel_start_with_same_execution_token_cannot_double_start_or_double_consume
+      - valid_execution_token_can_submit_only_exact_started_attempt
+      - submit_revokes_execution_token_and_mints_one_result_token_without_second_consume
+      - submit_idempotency_retry_does_not_mint_second_result_token
+      - technical_abort_revokes_execution_token_and_mints_no_result_token
+      - invalidation_revokes_current_result_token_and_preserves_evidence
+      - finished_result_token_reads_only_exact_matching_result_and_questions
+      - finished_result_token_expiry_revocation_enforced
+      - no_raw_secret_in_audit_outbox_lifecycle_or_idempotency_snapshots
+      - legacy_single_token_hash_is_not_heuristically_promoted_to_active_multipurpose_token
+      - migration_does_not_fabricate_raw_or_result_token
+      - DB_EXAM_001_DB_EXAM_002_DB_EXAM_003_DB_EXAM_004_preserved
+      - DB_EXAM_006_through_DB_EXAM_008_remain_open
+
 blockers:
   - id: DB-EXAM-001
     title: same_tenant_and_exact_target_integrity
@@ -1483,7 +1798,8 @@ blockers:
   - id: DB-EXAM-005
     title: exam_access_token_and_finished_result_token_security
     severity: P1
-    status: OPEN
+    status: RESOLVED
+    resolution_ref: resolved_contracts.DB-EXAM-005
     diagnosis:
       - API_allows_examAccessToken_as_alternative_principal_for_start_submit_and_finished_result_review
       - current_access_row_has_one_token_hash_but_start_capability_and_post_finish_result_review_have_different_privilege_lifecycles
@@ -1571,17 +1887,16 @@ diagnosis_summary:
   diagnosed_P0: 0
   diagnosed_P1: 8
   resolved_in_diagnosis: 0
-  resolved_after_diagnosis: 4
-  open_P0_P1: 4
-  result: FAIL_WITH_4_P1_BLOCKERS
+  resolved_after_diagnosis: 5
+  open_P0_P1: 3
+  result: FAIL_WITH_3_P1_BLOCKERS
   blockers_in_required_fix_order:
-    - DB-EXAM-005
     - DB-EXAM-006
     - DB-EXAM-007
     - DB-EXAM-008
 
 preservation_gate:
-  status: PASS_DB_EXAM_004_MACHINE_CONTRACT
+  status: PASS_DB_EXAM_005_MACHINE_CONTRACT
   checks:
     no_blocker_fixed_during_diagnosis: true
     course_first_formal_exam_preserved: true
@@ -1664,6 +1979,20 @@ preservation_gate:
     DB_EXAM_006_station_device_failover_not_solved: true
     DB_EXAM_007_scoring_document_evidence_not_solved: true
     DB_EXAM_008_management_projection_not_solved: true
+    DB_EXAM_005_purpose_scoped_token_authority_resolved: true
+    DB_EXAM_005_execution_and_finished_result_privileges_separated: true
+    DB_EXAM_005_raw_secret_nonpersistence_closed: true
+    DB_EXAM_005_exact_access_attempt_tenant_binding_closed: true
+    DB_EXAM_005_resend_rotates_secret_without_new_access_reservation_or_inventory: true
+    DB_EXAM_005_same_idempotency_key_never_replays_secret: true
+    DB_EXAM_005_execution_token_cannot_read_result_and_result_token_cannot_execute: true
+    DB_EXAM_005_lifecycle_revocation_integrated_with_DB_EXAM_004: true
+    DB_EXAM_005_DB_EXAM_003_consume_release_semantics_preserved: true
+    DB_EXAM_005_local_station_auth_scope_not_entered: true
+    DB_EXAM_005_legacy_single_hash_not_heuristically_promoted: true
+    DB_EXAM_006_station_device_failover_remains_open_after_DB_EXAM_005: true
+    DB_EXAM_007_evidence_scoring_document_immutability_remains_open_after_DB_EXAM_005: true
+    DB_EXAM_008_management_projection_remains_open_after_DB_EXAM_005: true
     core_schema_aggregate_modified: false
     docs87_aggregate_modified: false
     DB4_8_or_later_entered: false
@@ -1672,6 +2001,6 @@ preservation_gate:
     UI_or_feature_implementation_started: false
 
 next_single_step_after_central_gate:
-  id: DB-EXAM-005
-  action: resolve_exam_access_token_and_finished_result_token_security_only
-  stop_before: DB-EXAM-006
+  id: DB-EXAM-006
+  action: resolve_station_session_concurrency_device_binding_and_failover_only
+  stop_before: DB-EXAM-007
