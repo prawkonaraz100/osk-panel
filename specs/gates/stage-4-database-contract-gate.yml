@@ -85,13 +85,13 @@ stage_4_slices:
     final_aggregate_sync: PASS
     result: PASS
   - id: DB4_7_INTERNAL_EXAMS
-    status: FAIL_WITH_6_P1_BLOCKERS
+    status: FAIL_WITH_5_P1_BLOCKERS
     diagnosis: COMPLETE
     blockers_diagnosed: 8
-    blockers_resolved: 2
-    open_P0_P1: 6
+    blockers_resolved: 3
+    open_P0_P1: 5
     final_aggregate_sync: BLOCKED
-    result: FAIL_WITH_6_P1_BLOCKERS
+    result: FAIL_WITH_5_P1_BLOCKERS
   - id: DB4_8_PKK
     status: NOT_STARTED
   - id: DB4_9_STUDENT_FINANCE_COMMERCE
@@ -274,8 +274,8 @@ quality_checks:
       attendance_adds_nonnull_organization_id: true
       composite_same_tenant_FKs_cover_all_relations_from_DB_TRN_001_diagnosis: true
       optional_relations_use_MATCH_SIMPLE: true
-      formal_relation_on_update: RESTRICT
-      formal_relation_on_delete: RESTRICT
+      relation_on_update: RESTRICT
+      relation_on_delete: RESTRICT
       organization_id_client_authority: false
       moving_formal_row_between_tenants_by_plain_organization_id_update: forbidden
       attendance_cross_tenant_backfill_auto_repair: forbidden
@@ -626,7 +626,7 @@ quality_checks:
       material_external_mutation_course_version_increment: exactly_once
       terminal_course_external_change_requires_DB_TRN_004_correction_mode: true
       legacy_latest_row_or_fabricated_lineage_context_actor: forbidden
-      exact_HTTP_external_correction_and_If_Match_sync: Stage5_acceptance_contract_sync
+      exact_HTTP_external_training_correction_and_If_Match_sync: Stage5_acceptance_contract_sync
     checks:
       one_deterministic_current_form_value_per_course_part: PASS
       latest_row_wins_heuristic_removed: PASS
@@ -1998,6 +1998,105 @@ quality_checks:
       Stage5_started: false
       UI_or_feature_implementation_started: false
 
+  internal_exam_inventory_reservation_consume_on_start_exactly_once:
+    status: PASS
+    resolved_blocker_id: DB-EXAM-003
+    severity: P1
+    machine_source: specs/database/internal-exams.yml
+    audit_source: docs/112-stage-4-internal-exams-audit.md
+    decision:
+      canonical_inventory_accounting_history: internal_exam_inventory_ledger_entries
+      inventory_entry_is_stable_one_unit_identity_and_guarded_projection: true
+      reservation_is_allocation_history_not_independent_accounting_authority: true
+      mutable_available_exam_counter_is_authority: false
+      ledger_append_only: true
+      final_state_equivalence_guard: DEFERRABLE_INITIALLY_DEFERRED_or_equivalent_transactional_DB_guard
+      inventory_current_states: [available, reserved, consumed, adjusted_out]
+      released_is_current_inventory_state: false
+      adjustment_provenance_source_type: adjustment
+      adjusted_out_is_terminal_inventory_state: true
+      reservation_status_values: [reserved, released, consumed]
+      reservation_concurrency_root: internal_exam_reservations.version
+      one_active_reservation_per_inventory_entry: true
+      one_active_reservation_per_attempt: true
+      at_most_one_consumed_reservation_per_attempt: true
+      ledger_event_types_runtime: [unit_granted, unit_adjustment_granted, unit_reserved, unit_released, unit_consumed, unit_adjusted_out]
+      ledger_migration_only_event_type: migration_baseline
+      runtime_migration_baseline_after_cutover: forbidden
+      ledger_event_sequence_contiguous_per_unit: true
+      ledger_available_delta_exact_by_event_type: true
+      attempt_creation_reserves_exactly_one_unit_same_transaction: true
+      reservation_moment_core_v1: formal_attempt_creation
+      access_creation_or_resend_allocates_second_unit: false
+      DB_EXAM_002_course_lock_prefix_preserved: true
+      inventory_candidate_locked_FOR_UPDATE: true
+      parallel_allocator_SKIP_LOCKED_allowed: true
+      free_before_paid_or_paid_before_free_hardcoded: false
+      create_attempt_inventory_allocation_idempotent: true
+      no_available_unit_leaves_orphan_attempt: false
+      canonical_consumption_moment: start
+      consume_on_start_exactly_once: true
+      start_inventory_lock_suffix: [internal_exam_reservation, internal_exam_inventory_entry]
+      start_and_release_share_same_lock_suffix: true
+      start_first_blocks_release: true
+      release_first_blocks_stale_start: true
+      submit_or_finish_consumes_again: false
+      technical_abort_after_start_auto_restores_consumed_unit: false
+      consumed_unit_normal_reopen_to_available: forbidden
+      prestart_release_returns_same_unit_to_available: true
+      release_reopens_old_reservation_row: false
+      adjustment_table: internal_exam_inventory_adjustments
+      adjustment_permission: exams.inventory.adjust
+      adjustment_rows_append_only: true
+      adjustment_idempotency_required: true
+      positive_adjustment_creates_new_adjustment_units: true
+      negative_adjustment_withdraws_only_available_units_to_adjusted_out: true
+      negative_adjustment_reserved_or_consumed_withdrawal: forbidden
+      technical_refund_creates_new_compensating_unit: true
+      technical_refund_rewrites_original_consumed_history: false
+      visible_available_counts_are_derived: true
+      source_provenance_free_paid_adjustment_preserved: true
+      paid_order_payment_grant_trigger: deferred_to_DB4_9
+      source_order_item_same_tenant_relation: deferred_to_DB4_9
+      DB_EXAM_004_through_DB_EXAM_008_not_fixed: true
+    checks:
+      ledger_and_unit_rows_have_one_accounting_authority: PASS
+      inventory_current_state_is_guarded_projection: PASS
+      reservation_state_and_ledger_final_state_equivalence: PASS
+      create_attempt_reserves_exactly_one_unit_atomically: PASS
+      no_inventory_rolls_back_attempt_creation: PASS
+      concurrent_attempt_creates_cannot_reserve_same_unit: PASS
+      idempotent_create_does_not_allocate_twice: PASS
+      free_paid_priority_not_invented: PASS
+      start_consumes_exactly_once: PASS
+      parallel_start_cannot_double_consume: PASS
+      submit_finish_does_not_second_consume: PASS
+      prestart_release_returns_same_unit_once: PASS
+      start_release_race_has_one_winner: PASS
+      consumed_reservation_cannot_be_released: PASS
+      technical_abort_does_not_auto_restore: PASS
+      technical_refund_preserves_original_consumption_and_adds_compensating_unit: PASS
+      positive_adjustment_effect_count_matches_delta: PASS
+      negative_adjustment_effect_count_matches_delta_or_rolls_back: PASS
+      negative_adjustment_cannot_take_reserved_or_consumed_unit: PASS
+      adjustment_retry_does_not_apply_twice: PASS
+      visible_available_count_is_projection: PASS
+      released_is_not_inventory_current_state: PASS
+      adjustment_source_and_adjusted_out_state_not_conflated: PASS
+      migration_does_not_guess_ambiguous_state_or_ledger_order: PASS
+      DB_EXAM_001_and_DB_EXAM_002_preserved: PASS
+      DB_EXAM_004_lifecycle_remains_open: PASS
+      DB_EXAM_005_token_security_remains_open: PASS
+      DB_EXAM_006_station_failover_remains_open: PASS
+      DB_EXAM_007_evidence_scoring_document_immutability_remains_open: PASS
+      DB_EXAM_008_management_projection_remains_open: PASS
+      aggregate_core_schema_modified_in_step: false
+      aggregate_docs87_modified_in_step: false
+      DB4_8_or_later_entered: false
+      Laravel_migrations_created: false
+      Stage5_started: false
+      UI_or_feature_implementation_started: false
+
 resolved_blockers:
   - DB-FOUND-001
   - DB-FOUND-002
@@ -2038,9 +2137,9 @@ resolved_blockers:
   - DB-LIC-007
   - DB-EXAM-001
   - DB-EXAM-002
+  - DB-EXAM-003
 
 open_blockers_current_diagnosed_scope:
-  - DB-EXAM-003
   - DB-EXAM-004
   - DB-EXAM-005
   - DB-EXAM-006
@@ -2055,7 +2154,7 @@ gate_definition:
     - migration_order_dependency_safe
     - database_invariant_test_matrix_exists
     - reverse_engineering_preservation_traceable
-  current_result: DB4_7_FAIL_WITH_6_P1_BLOCKERS
+  current_result: DB4_7_FAIL_WITH_5_P1_BLOCKERS
   DB4_1_result: PASS
   DB4_2_result: PASS
   DB4_3_result: PASS
@@ -2093,7 +2192,8 @@ gate_definition:
   DB4_7_diagnosis_result: PASS_DIAGNOSIS_COMPLETE
   DB4_7_DB_EXAM_001_result: PASS
   DB4_7_DB_EXAM_002_result: PASS
-  DB4_7_result: FAIL_WITH_6_P1_BLOCKERS
+  DB4_7_DB_EXAM_003_result: PASS
+  DB4_7_result: FAIL_WITH_5_P1_BLOCKERS
   may_start_DB4_4_fixes: false
   may_start_DB4_5: false
   may_start_DB4_5_fixes: false
@@ -2106,8 +2206,8 @@ gate_definition:
   may_start_UI_or_feature_implementation: false
 
 next_single_step:
-  id: DB_EXAM_003_INVENTORY_RESERVATION_CONSUME_ON_START
-  action: resolve_DB_EXAM_003_only_after_next_explicit_user_instruction
+  id: DB_EXAM_004_ATTEMPT_ACCESS_LIFECYCLE_CONCURRENCY
+  action: resolve_DB_EXAM_004_only_after_next_explicit_user_instruction
   allowed_scope:
     - specs/database/internal-exams.yml
     - docs/112-stage-4-internal-exams-audit.md
@@ -2116,8 +2216,8 @@ next_single_step:
     - specs/database/core-schema.yml
     - docs/87-physical-database-schema.md
   scope_lock: >-
-    Resolve only DB-EXAM-003 inventory/reservation authority and consume-on-start
-    exactly-once. Preserve DB-EXAM-004 through DB-EXAM-008 as OPEN. Do not enter
-    DB4_8 or later slices, do not start Stage 5, do not create Laravel migrations
-    and do not start UI/feature implementation.
-  after_action: rerun_DB_EXAM_003_gate_and_STOP_before_DB_EXAM_004
+    Resolve only DB-EXAM-004 Attempt/Access lifecycle and concurrency. Preserve
+    DB-EXAM-005 through DB-EXAM-008 as OPEN. Do not enter DB4_8 or later slices,
+    do not start Stage 5, do not create Laravel migrations and do not start
+    UI/feature implementation.
+  after_action: rerun_DB_EXAM_004_gate_and_STOP_before_DB_EXAM_005
