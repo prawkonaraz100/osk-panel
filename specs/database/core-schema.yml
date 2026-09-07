@@ -1538,8 +1538,16 @@ critical_constraints:
     columns: [batch_id, batch_ordinal]
   student_access_handoff_batch_account_unique:
     columns: [batch_id, student_learning_account_id]
+  student_access_handoff_secret_metadata_matrix:
+    type: check_or_equivalent_guard
+    rule: contains_fresh_secret_requires_initial_or_reset_type_positive_credential_version_fresh_secret_issued_at_and_null_document_asset
+  student_access_export_batch_item_count_guard:
+    type: DEFERRABLE_INITIALLY_DEFERRED_constraint_trigger_or_equivalent
   user_password_management_credential_version_minimum:
     check: credential_version_gte_0
+  user_password_hash_requires_positive_credential_epoch_guard:
+    type: DEFERRABLE_INITIALLY_DEFERRED_constraint_trigger_or_equivalent
+    rule: users_password_hash_nonnull_requires_user_password_management_credential_version_gte_1
   user_password_management_state_and_exclusive_principal_guard:
     type: DEFERRABLE_INITIALLY_DEFERRED_cross_table_constraint_triggers_or_equivalent
   course_enrollment_candidate_key_org_id:
@@ -1670,12 +1678,37 @@ critical_constraints:
     type: partial_exclusion_GiST
     dimensions: [organization_id_equals, location_id_equals, occupied_during_overlaps]
     where: location_id_is_not_null
+  license_product_duration_positive:
+    check: duration_days_gt_0
+  license_product_duration_immutable_after_inventory_reference_guard:
+    type: BEFORE_UPDATE_trigger_or_equivalent
   license_inventory_candidate_key_org_id:
     columns: [organization_id, id]
+  license_inventory_product_binding_immutable_guard:
+    type: BEFORE_UPDATE_trigger_or_equivalent
+    field: license_product_id
   license_assignment_candidate_key_org_id:
     columns: [organization_id, id]
   license_assignment_candidate_key_org_id_learning_account:
     columns: [organization_id, id, student_learning_account_id]
+  license_assignment_inventory_same_tenant_composite_FK:
+    source_columns: [organization_id, license_inventory_entry_id]
+    target_table: license_inventory_entries
+    target_columns: [organization_id, id]
+    on_update: RESTRICT
+    on_delete: RESTRICT
+  license_assignment_student_same_tenant_composite_FK:
+    source_columns: [organization_id, student_id]
+    target_table: students
+    target_columns: [organization_id, id]
+    on_update: RESTRICT
+    on_delete: RESTRICT
+  license_assignment_exact_learning_account_student_composite_FK:
+    source_columns: [organization_id, student_learning_account_id, student_id]
+    target_table: student_learning_accounts
+    target_columns: [organization_id, id, student_id]
+    on_update: RESTRICT
+    on_delete: RESTRICT
   license_assignment_version_minimum:
     check: version_gte_1
   license_assignment_status_check:
@@ -1691,12 +1724,17 @@ critical_constraints:
     type: DEFERRABLE_INITIALLY_DEFERRED_constraint_trigger_or_equivalent
   license_assignment_sequence_unique:
     columns: [organization_id, student_learning_account_id, assignment_sequence]
+  license_assignment_sequence_contiguous_guard:
+    type: DEFERRABLE_INITIALLY_DEFERRED_constraint_trigger_or_equivalent
   license_product_language_capability_current_unique:
     type: partial_unique
     columns: [license_product_id, language_code]
     where: disabled_at_is_null
   license_product_language_capability_candidate_key_id_language:
     columns: [id, language_code]
+  license_product_language_capability_history_immutability_guard:
+    type: trigger_or_equivalent
+    rule: enabled_at_immutable_disabled_at_null_to_nonnull_once_no_hard_delete_or_reenable_in_place
   license_assignment_capability_same_language_composite_FK:
     source_columns: [license_product_language_capability_id, language_code]
     target_table: license_product_language_capabilities
@@ -1715,8 +1753,17 @@ critical_constraints:
     target_columns: [organization_id, id, student_learning_account_id]
     on_update: RESTRICT
     on_delete: RESTRICT
+  license_activation_origin_check:
+    check: activation_origin_in_learner_self_organization_user_legacy_unknown
+  license_activation_duration_snapshot_source_check:
+    check: duration_snapshot_source_in_product_at_activation_legacy_effect_reconstructed
+  license_activation_migration_only_source_runtime_insert_guard:
+    type: BEFORE_INSERT_trigger_or_equivalent
+    rule: runtime_rejects_legacy_unknown_and_legacy_effect_reconstructed_after_cutover
   license_activation_entitlement_chain_guard:
     type: DEFERRABLE_INITIALLY_DEFERRED_constraint_trigger_or_equivalent
+  license_activation_language_equals_current_account_write_guard:
+    type: BEFORE_INSERT_trigger_or_equivalent
   license_effective_period_valid:
     check: effective_to_gt_effective_from
   service_activation_unique:
