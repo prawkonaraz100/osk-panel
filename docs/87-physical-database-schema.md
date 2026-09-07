@@ -1,14 +1,16 @@
 # 87. Physical database schema — PostgreSQL core v1
 
-Data: 2026-09-06
+Data: 2026-09-07
 
-**Status:** `IMPLEMENTATION_BLUEPRINT / DB4_5_AGGREGATE_SYNC_PASS`
+**Status:** `IMPLEMENTATION_BLUEPRINT / DB4_6_AGGREGATE_SYNC_PASS`
 
 > To nie są jeszcze migracje Laravel. To fizyczny blueprint tabel, indeksów, constraintów i najważniejszych transakcji zgodny z canonical domain model. Machine-readable odpowiednik: `specs/database/core-schema.yml`. Przy konflikcie machine spec + późniejszy ADR wygrywa. Reverse-engineered scope chronią `docs/96-reverse-engineering-preservation-contract.md` i `specs/reverse-engineering-manifest.yml`. Cross-layer kompletność kontroluje `specs/traceability/core-v1.yml`.
 
 DB4_4 Students / Courses / Training Ledger został zsynchronizowany z `specs/database/students-courses-training.yml` po zamknięciu DB-TRN-001..008. Sekcje 11–14 oraz odpowiadające im constrainty, transakcje, kolejność migracji i testy poniżej są agregatową projekcją tych rozstrzygnięć.
 
 DB4_5 Calendar został zsynchronizowany z `specs/database/calendar.yml` po zamknięciu DB-CAL-001..007. Sekcja 15, rozszerzenie formalnego `TrainingSession` w sekcji 13 oraz odpowiadające constrainty, transakcje, migration order i invariant tests są agregatową projekcją zamkniętego kontraktu Calendar.
+
+DB4_6 Licenses / Learning Access został zsynchronizowany z `specs/database/licenses-learning-access.yml` po zamknięciu DB-LIC-001..007. Rozszerzenia Identity i Student Learning Access, sekcja 17 oraz odpowiadające constrainty, transakcje, security boundary, migration order i invariant tests są agregatową projekcją tego kontraktu.
 
 ---
 
@@ -55,8 +57,11 @@ Analogicznie:
 ## 2.3 Credentials/provider secrets
 
 - sekrety integracyjne przez secret manager albo szyfrowane reference,
-- plaintext po zapisie zabroniony,
-- audit/log/outbox nie zawiera hasła, tokenu, pełnego secretu.
+- canonical local password hash pozostaje wyłącznie w `users.password_hash`,
+- plaintext hasła nigdy nie jest persistowany ani odtwarzalny z bazy,
+- secret-bearing credential PDF nie jest zapisywany jako `FileAsset` ani do object storage; jest renderowany in-memory i streamowany jednokrotnie,
+- QR nie zawiera hasła ani reset secretu,
+- audit/log/outbox/idempotency snapshot nie zawiera hasła, password hash, tokenu ani pełnego secretu.
 
 ---
 
@@ -121,7 +126,28 @@ Globalna tożsamość auth.
 - `created_at`
 - `updated_at`
 
-Imię i nazwisko są globalnymi polami tożsamości użytkownika. E-mail/login nie jest kanoniczną kolumną w `users`.
+Imię i nazwisko są globalnymi polami tożsamości użytkownika. E-mail/login nie jest kanoniczną kolumną w `users`. `users.password_hash` jest jedynym canonical ownerem lokalnego hash hasła; DB4_6 nie tworzy tenantowej kopii hasła.
+
+## `user_password_management`
+
+One-to-one globalny security authority/credential epoch dla lokalnego hasła Usera:
+
+- `user_id uuid PK/FK users`
+- `management_mode varchar(32) not null` — `unclassified|self_service|organization_managed`
+- `managing_organization_id uuid null FK organizations`
+- `credential_version bigint not null default 0 check (credential_version >= 0)`
+- `password_changed_at timestamptz null`
+- `created_at`
+- `updated_at`.
+
+State matrix:
+- `organization_managed` wymaga `managing_organization_id IS NOT NULL`,
+- `self_service|unclassified` wymagają `managing_organization_id IS NULL`,
+- `users.password_hash IS NOT NULL` wymaga `credential_version >= 1`.
+
+OSK może wykonać reset hasła tylko, gdy target User ma `organization_managed` i `managing_organization_id` równe temu OSK oraz actor ma wymagane permission/scope. Taki principal musi być ekskluzywnym learner principalem: brak OrganizationMembership, brak LearningAccount w innym OSK i brak current SocialAuthAccount. Przejście authority jest osobnym jawnie audytowanym identity-security commandem, a nie side-effectem zwykłego resetu.
+
+Każda udana materialna mutacja lokalnego hasła zwiększa dokładnie jeden globalny `credential_version`. Plaintext istnieje wyłącznie w pamięci procesu w granicy bieżącego commandu.
 
 ## `auth_login_identifiers`
 
@@ -137,6 +163,8 @@ Imię i nazwisko są globalnymi polami tożsamości użytkownika. E-mail/login n
 Partial unique:
 - `(identifier_normalized)` where `revoked_at is null`,
 - `(user_id, identifier_type)` where `revoked_at is null AND is_primary_for_type=true`.
+
+Candidate key `UNIQUE(id,user_id)` jest targetem same-global-user composite FK z LearningAccount.
 
 ## `auth_social_accounts`
 
@@ -369,7 +397,7 @@ Unique `(organization_id,user_id,legal_document_id)`.
 
 Constraints/candidate keys:
 - unique `storage_key`,
-- `UNIQUE(organization_id,id)` jako target tenant-aware composite FK dla prywatnych Staff/Vehicle attachments.
+- `UNIQUE(organization_id,id)` jako target tenant-aware composite FK dla prywatnych Staff/Vehicle attachments i non-secret learning-access document references.
 
 Dla Staff/Vehicle attachment:
 - prywatny asset musi należeć do tego samego `organization_id`,
@@ -380,6 +408,8 @@ Dla Staff/Vehicle attachment:
 - `purpose` po zakończeniu uploadu nie jest przepisywany,
 - późniejszy security transition assetu do non-ready nie usuwa historycznej referencji, ale download musi ponownie sprawdzić bieżący stan assetu,
 - replacement attachmentu nie kasuje automatycznie poprzedniego FileAsset.
+
+Credential PDF zawierający świeże hasło jest wyjątkiem od zwykłego asset pipeline: **nie wolno go tworzyć jako FileAsset**. Jest renderowany i streamowany tylko w ramach bieżącego reset/export commandu.
 
 ---
 
@@ -405,7 +435,7 @@ Partial unique:
 - tenant `(organization_id,operation_key,idempotency_key)` where `organization_id IS NOT NULL`,
 - global `(operation_key,idempotency_key)` where `organization_id IS NULL`.
 
-Same key + different request hash w tym samym scope = conflict. One-time plaintext password/token nie trafia do snapshotu.
+Same key + different request hash w tym samym scope = conflict. One-time plaintext password/token ani secret-bearing PDF bytes nie trafiają do snapshotu. Retry secret-bearing reset/export nie może ponownie mutować hasła ani odtworzyć starego plaintextu.
 
 ---
 
@@ -418,6 +448,8 @@ Same key + different request hash w tym samym scope = conflict. One-time plainte
 - `active boolean`
 - `valid_from date null`
 - `valid_to date null`.
+
+Globalny słownik `languages` nie jest dowodem wsparcia języka przez konkretny produkt licencyjny. Product support ma własną wersjonowaną capability history w sekcji 17.
 
 ## `driving_categories`
 
@@ -712,9 +744,9 @@ Cross-tenant Vehicle↔Location nie może przejść constraintów ani zanieczyś
 
 ---
 
-# 11. Students / learning access — DB4_4 aggregate
+# 11. Students / learning access — DB4_4 + DB4_6 aggregate
 
-Canonical szczegóły tej sekcji: `specs/database/students-courses-training.yml`, DB-TRN-001..003.
+Canonical Student identity/lifecycle: `specs/database/students-courses-training.yml`, DB-TRN-001..003. Canonical learning-account/credentials/license boundary: `specs/database/licenses-learning-access.yml`, DB-LIC-001..007.
 
 ## `students`
 
@@ -757,32 +789,82 @@ Obejmuje archived rows; archive nie zwalnia PESEL. Nie tworzymy fałszywego hard
 
 `students.version` jest jednym concurrency root dla profile edit, identity edit, archive i restore. Course create i Student archive serializują się na Student row. Archive przy aktywnym kursie jest conflict i nie anuluje, nie przerywa ani nie usuwa kursu. Restore używa tego samego durable Student row i nie otwiera historycznych kursów.
 
+DB4_6 doprecyzowuje wpływ na learning access: archive nie przepisuje LearningAccount, Assignment ani Activation history, nie pauzuje i nie przedłuża entitlement. Archived Student jest natomiast operacyjnie niekwalifikujący do nowych learning-access effects. Restore sam nie wznawia zawieszonych kont ani nie reaktywuje wygasłych/revoked praw.
+
 ## `student_learning_accounts`
 
+Durable tenant learning-access identity:
+
 - `id uuid PK`
-- `organization_id uuid FK`
-- `student_id uuid FK`
-- `user_id uuid FK users`
-- `primary_auth_login_identifier_id uuid FK auth_login_identifiers`
-- `login_identifier_projection varchar(320) not null`
-- `language_code varchar(16) FK languages`
-- `status varchar(32) not null`
+- `organization_id uuid not null`
+- `student_id uuid not null`
+- `user_id uuid not null FK users`
+- `auth_login_identifier_id uuid not null`
+- `language_code varchar(16) not null FK languages`
+- `status varchar(32) not null` — `active|suspended`
+- `version bigint not null default 1 check (version >= 1)`
 - `created_at`
 - `updated_at`.
 
-`(organization_id,student_id) -> students(organization_id,id)` jest same-tenant FK. Szczegółowy lifecycle licencji/dostępu pozostaje DB4_6.
+Candidate keys:
+- `UNIQUE(organization_id,id)`,
+- `UNIQUE(organization_id,id,student_id)` dla exact Assignment target.
+
+Same-tenant Student FK:
+`(organization_id,student_id) -> students(organization_id,id) ON UPDATE/DELETE RESTRICT`.
+
+Same-global-user identifier FK:
+`(auth_login_identifier_id,user_id) -> auth_login_identifiers(id,user_id) ON UPDATE/DELETE RESTRICT`.
+
+Referencja auth identifier musi po commit wskazywać current/non-revoked identifier. Final-state guard jest `DEFERRABLE INITIALLY DEFERRED` albo równoważną DB boundary. Nie utrzymujemy już niezależnego `login_identifier_projection`; login/search/list projection czyta `auth_login_identifiers.identifier_normalized` przez join. Nie dokładamy tenantowego namespace/unique loginu, bo generic login jest globalny.
+
+`user_id` nie jest przepinany zwykłym PATCH. `version` jest concurrency root konfiguracji konta. Generic PATCH nie zmienia lifecycle `status`; suspend/resume jest jawny. Normalny hard-delete jest zabroniony.
+
+Operational eligibility do nowych assignment/activation/reset effects wymaga jednocześnie:
+- `status='active'`,
+- Student nie jest archived,
+- auth identifier nadal current,
+- global User jest auth-eligible.
+
+State-dependent mutation lockuje co najmniej `Student -> StudentLearningAccount`, żeby archive i nowy learning-access effect nie mogły przejść obok siebie.
 
 ## `student_access_handoffs`
 
+Non-secret metadata wydania danych dostępowych:
+
 - `id uuid PK`
-- `organization_id uuid FK`
-- `student_learning_account_id uuid FK`
-- `handoff_type varchar(32)`
-- `generated_by_user_id uuid FK`
-- `document_asset_id uuid null FK file_assets`
+- `organization_id uuid not null`
+- `student_learning_account_id uuid not null`
+- `handoff_type varchar(32) not null` — np. `initial|reset|nonsecret_reprint`
+- `generated_by_user_id uuid FK users`
+- `document_asset_id uuid null`
+- `credential_version_snapshot bigint null`
+- `contains_fresh_secret boolean not null default false`
+- `fresh_secret_issued_at timestamptz null`
+- `batch_id uuid null`
+- `batch_ordinal integer null`
 - `created_at`.
 
-Nie ma kolumny plaintext password.
+Same-tenant composite FK chroni LearningAccount i optional FileAsset. Handoff nie przechowuje plaintext password ani password hash.
+
+Jeżeli `contains_fresh_secret=true`, handoff musi odnosić się do initial/reset, mieć dodatni `credential_version_snapshot`, `fresh_secret_issued_at` i **`document_asset_id IS NULL`**. Secret-bearing PDF jest memory-only; metadata handoff może potwierdzać jego wydanie, ale nie zachowuje pliku ani sekretu.
+
+Późniejszy „druk hasła” nie może odzyskać dawnego plaintextu. Jeżeli ma ponownie pokazać hasło, jest to nowy reset z nowym credential version.
+
+## `student_access_export_batches`
+
+Auditowalna metadata operacji zbiorczej, bez sekretów:
+
+- `id uuid PK`
+- `organization_id uuid not null`
+- `export_mode varchar(32) not null` — `nonsecret_combined_pdf|reset_and_secret_combined_pdf`
+- `requested_by_user_id uuid not null`
+- `item_count integer not null check > 0`
+- `created_at`.
+
+Po commit liczba handoff items w batch musi odpowiadać `item_count`; `(batch_id,batch_ordinal)` i `(batch_id,student_learning_account_id)` są unique.
+
+W trybie `reset_and_secret_combined_pdf` wszystkie targety są prewalidowane przed pierwszą mutacją. Resety i wynikowy combined PDF są logicznie all-or-none. Ten sam global User wskazany przez kilka LearningAccount w batch dostaje jeden reset, a wszystkie jego handoff rows snapshotują ten sam nowy credential version. Failed render przed durable password write pozostawia stare credentials bez zmian.
 
 ---
 
@@ -851,7 +933,7 @@ Append-only historia każdej materialnej wersji Course:
 - `event_payload_redacted jsonb null`
 - `occurred_at timestamptz not null`.
 
-Same-tenant composite FK do Course oraz self-FK dla `correction_of_event_id`. Unique `(organization_id,course_enrollment_id,course_version_after)` gwarantuje jeden event per material Course version. Normalne eventy mają `after = before + 1`; migration baseline może mieć `before=NULL`. Historia nie jest aktualizowana ani usuwana przez normalny lifecycle.
+Same-tenant composite FK do Course oraz self-FK dla `correction_of_event_id`. Unique `(organization_id,course_enrollment_id,course_version_after)` gwarantuje jeden event per material Course version. Normalne eventy mają `after=before+1`; migration baseline może mieć `before=NULL`. Historia nie jest aktualizowana ani usuwana przez normalny lifecycle.
 
 ## `training_requirement_rule_sets`
 
@@ -1232,7 +1314,7 @@ Historyczne `calendar_events(event_type='driving_lesson')` nie są automatycznie
 
 ## 15.2 `calendar_events` — manual `general_event`
 
-Po legacy remediation runtime `calendar_events` przechowuje ręczne `general_event`, nie formalną jazdę.
+Po DB4_5 runtime `calendar_events` przechowuje ręczne `general_event`, nie formalną jazdę.
 
 - `id uuid PK`
 - `organization_id uuid not null`
@@ -1534,66 +1616,222 @@ Balance = charge - nieodwrócone payments.
 
 ---
 
-# 17. Licenses
+# 17. Licenses / entitlement — DB4_6 aggregate
 
-## `license_products`
+Canonical szczegóły: `specs/database/licenses-learning-access.yml`, audyt `docs/110-stage-4-licenses-learning-access-audit.md`, DB-LIC-001..007.
 
-- `id uuid PK`
-- `code varchar(64) unique`
-- `duration_days integer`
-- `active boolean`
-- `activation_mode varchar(32)`
-- `metadata jsonb`.
-
-## `license_product_languages`
-
-- `license_product_id uuid FK`
-- `language_code varchar(16) FK languages`
-
-Unique `(license_product_id,language_code)`.
-
-## `license_inventory_entries`
+## 17.1 `license_products`
 
 - `id uuid PK`
-- `organization_id uuid FK`
-- `license_product_id uuid FK`
-- `source_order_item_id uuid null`
-- `status varchar(32)` — `available|assigned|consumed|expired|adjusted`
-- `granted_at timestamptz`
-- `created_at`.
+- `code varchar(64) unique not null`
+- `duration_days integer not null check (duration_days > 0)`
+- `active boolean not null`
+- `activation_mode varchar(32) not null`
+- `metadata jsonb null`.
 
-## `license_assignments`
+`duration_days` jest definicją produktu dla **przyszłych** aktywacji. Gdy produkt ma już InventoryEntry, duration nie może być nadpisana w sposób zmieniający historyczne znaczenie. Każda Activation snapshotuje użyty czas trwania.
+
+## 17.2 `license_product_language_capabilities`
+
+Wersjonowana historia wsparcia językowego produktu, zamiast bezhistorycznego `license_product_languages`:
 
 - `id uuid PK`
-- `organization_id uuid FK`
-- `license_inventory_entry_id uuid FK`
-- `student_id uuid FK`
-- `student_learning_account_id uuid FK`
-- `language_code varchar(16)`
-- `status varchar(32)`
-- `assigned_by_user_id uuid`
-- `assigned_at timestamptz`
+- `license_product_id uuid not null FK license_products`
+- `language_code varchar(16) not null FK languages`
+- `enabled_at timestamptz not null`
+- `disabled_at timestamptz null`
+- `created_at timestamptz not null`.
+
+Partial unique:
+`UNIQUE(license_product_id,language_code) WHERE disabled_at IS NULL`.
+
+Candidate key `UNIQUE(id,language_code)` wspiera exact Assignment snapshot FK.
+
+`enabled_at` jest immutable; `disabled_at` może przejść tylko `NULL -> non-NULL`. Normalny hard-delete i re-enable starego row in-place są zabronione; ponowne wsparcie tworzy nowy capability row. Globalny `languages` ani pojedyncza lista z UI nie jest dowodem product support.
+
+Retirement capability:
+- blokuje nowe Assignment po `disabled_at`,
+- nie revoke'uje retroaktywnie już przypisanych praw,
+- nie blokuje późniejszej Activation unit przypisanego, gdy capability było ważne w `assigned_at`.
+
+## 17.3 `license_inventory_entries`
+
+Jeden row = jedna jednostka licencji:
+
+- `id uuid PK`
+- `organization_id uuid not null`
+- `license_product_id uuid not null FK license_products`
+- `source_order_item_id uuid null` — exact commerce tenant boundary domykamy w DB4_9,
+- `status varchar(32) not null` — `available|assigned|consumed|expired|adjusted`
+- `granted_at timestamptz not null`
+- `created_at timestamptz not null`.
+
+Candidate key `UNIQUE(organization_id,id)`.
+
+`license_product_id` jest immutable po utworzeniu InventoryEntry. Normalna ścieżka jednostki:
+`available -> assigned -> consumed`, albo `assigned -> available` wyłącznie przez jawny revoke unactivated Assignment. `expired|adjusted` są stanami bez current assignment.
+
+## 17.4 `license_assignments`
+
+Historyczna alokacja konkretnej jednostki Inventory do dokładnego LearningAccount/Studenta:
+
+- `id uuid PK`
+- `organization_id uuid not null`
+- `license_inventory_entry_id uuid not null`
+- `student_id uuid not null`
+- `student_learning_account_id uuid not null`
+- `license_product_language_capability_id uuid not null`
+- `language_code varchar(16) not null`
+- `assignment_sequence bigint not null check >= 1`
+- `status varchar(32) not null` — `assigned|activated|revoked_before_activation`
+- `assigned_by_user_id uuid not null`
+- `assigned_at timestamptz not null`
 - `revoked_at timestamptz null`
 - `revoked_by_user_id uuid null`
 - `revoke_reason text null`
-- `version integer default 1`.
+- `version bigint not null default 1 check (version >= 1)`
+- `created_at timestamptz not null`.
 
-Partial unique `(license_inventory_entry_id)` where current/not revoked.
+Candidate keys:
+- `UNIQUE(organization_id,id)`,
+- `UNIQUE(organization_id,id,student_learning_account_id)` dla exact Activation target.
 
-## `license_activations`
+Composite same-tenant / exact-target FKs:
+- `(organization_id,license_inventory_entry_id) -> license_inventory_entries(organization_id,id)`,
+- `(organization_id,student_id) -> students(organization_id,id)`,
+- `(organization_id,student_learning_account_id,student_id) -> student_learning_accounts(organization_id,id,student_id)`,
+- `(license_product_language_capability_id,language_code) -> license_product_language_capabilities(id,language_code)`.
+
+Assignment musi dodatkowo wskazywać capability tego samego produktu co InventoryEntry, dla tego samego języka, i capability musi obejmować `assigned_at`. To jest cross-row final-state guard.
+
+Current assignment predicate:
+`status IN ('assigned','activated') AND revoked_at IS NULL`.
+
+Partial unique:
+`UNIQUE(organization_id,license_inventory_entry_id)` dla current predicate. Historyczne revoked rows pozostają i nie blokują późniejszego reassignment tej samej jednostki.
+
+`assignment_sequence` jest monotoniczną, bezlukową kolejnością per LearningAccount, alokowaną pod lockiem LearningAccount; unique `(organization_id,student_learning_account_id,assignment_sequence)`. „Najnowsza licencja” = `MAX(assignment_sequence)`, nie timestamp/UUID heuristic.
+
+Existing LearningAccount assignment dziedziczy jego bieżący `language_code`; Assignment nie może po cichu zmienić języka konta. Dla nowego konta language i Assignment snapshot powstają atomowo i muszą być zgodne.
+
+`version` jest concurrency root Assignment. `assigned_at`, actor, Student, LearningAccount, Inventory, language snapshot, capability pointer i assignment sequence są historyczne/immutable.
+
+## 17.5 Inventory ↔ Assignment ↔ Activation final-state equivalence
+
+Po commit:
+- Inventory `available` -> zero current Assignment,
+- Inventory `assigned` -> dokładnie jeden current Assignment `status='assigned'`, zero Activation,
+- Inventory `consumed` -> dokładnie jeden historyczny/current Assignment `status='activated'` i dokładnie jedna Activation,
+- Inventory `expired|adjusted` -> zero current Assignment.
+
+Activated Assignment jest faktem historycznym konsumpcji jednostki, a nie odpowiedzią na pytanie „czy dostęp jest dziś aktywny”. Bieżący dostęp wynika z Activation entitlement periods.
+
+Guard jest `DEFERRABLE INITIALLY DEFERRED` lub równoważną finalną DB boundary. Allocation serializuje się na InventoryEntry `FOR UPDATE`, więc dwa concurrent assignments tej samej jednostki dają maksymalnie jeden commit.
+
+Create Assignment jest idempotentny. Gdy trzeba jednocześnie utworzyć LearningAccount/identity/credentials, cały flow jest **jedną outer transaction**; failure Assignment rollbackuje także nowe konto/identity/credential mutation.
+
+Revoke przed aktywacją:
+- wymaga expected Assignment version + Idempotency-Key,
+- lock order `Student -> LearningAccount -> InventoryEntry -> Assignment`,
+- wymaga `Assignment='assigned'`, `Inventory='assigned'`, zero Activation,
+- atomowo `Assignment -> revoked_before_activation`, Inventory tej samej jednostki -> `available`, version +1, audit/outbox,
+- retry nie zwalnia jednostki drugi raz,
+- revoke jest dozwolony także po archive Student lub suspend LearningAccount, bo jest operacją porządkowania prawa, nie nowym access effectem.
+
+Activate i revoke korzystają z tego samego lock order/prefiksu, więc race ma dokładnie jednego zwycięzcę.
+
+## 17.6 `license_activations` — immutable entitlement ledger
+
+Append-only efekt aktywacji:
 
 - `id uuid PK`
-- `organization_id uuid FK`
-- `license_assignment_id uuid unique FK`
+- `organization_id uuid not null`
+- `license_assignment_id uuid not null unique`
+- `student_learning_account_id uuid not null`
+- `entitlement_sequence bigint not null check >= 1`
+- `activation_origin varchar(32) not null` — runtime `learner_self|organization_user`, migration-only `legacy_unknown`
 - `activated_by_user_id uuid null`
-- `activated_at timestamptz`
-- `effective_from timestamptz`
-- `effective_to timestamptz`
-- `created_at`.
+- `activated_at timestamptz not null`
+- `duration_snapshot_source varchar(32) not null` — runtime `product_at_activation`, migration-only `legacy_effect_reconstructed`
+- `duration_days_snapshot integer not null check > 0`
+- `expiry_before timestamptz null`
+- `effective_from timestamptz not null`
+- `effective_to timestamptz not null`
+- `created_at timestamptz not null`.
 
-Check `effective_to > effective_from`.
+Normalny UPDATE/DELETE Activation jest zabroniony. Exact composite FK:
+`(organization_id,license_assignment_id,student_learning_account_id) -> license_assignments(organization_id,id,student_learning_account_id)`.
 
-Stacking i revoke pozostają zgodne z `specs/database/core-schema.yml`.
+Unique:
+- `license_assignment_id` — jedna Activation per Assignment,
+- `(organization_id,student_learning_account_id,entitlement_sequence)`.
+
+`entitlement_sequence` jest bezlukowe od 1 i alokowane pod `StudentLearningAccount FOR UPDATE`.
+
+Canonical chaining:
+- pierwsza Activation: `expiry_before=NULL`, `effective_from=activated_at`,
+- jeżeli poprzedni entitlement jeszcze trwa: `expiry_before=previous.effective_to`, `effective_from=previous.effective_to`,
+- jeżeli poprzedni już wygasł: `expiry_before=previous.effective_to`, `effective_from=activated_at`; nie backfillujemy przerwy,
+- zawsze `effective_to = effective_from + duration_days_snapshot * 86400 seconds`.
+
+Current entitlement end jest wyłącznie pochodne:
+`MAX(license_activations.effective_to)` per LearningAccount. Nie ma niezależnej mutable kolumny expiry.
+
+Activation command:
+- Idempotency-Key + expected Assignment version,
+- lock order `Student -> LearningAccount -> InventoryEntry -> Assignment -> LicenseProduct`,
+- operational eligibility required,
+- Assignment/Inventory muszą być `assigned` i Activation nie może istnieć,
+- current LearningAccount language musi równać się Assignment snapshot language,
+- capability nie musi być current teraz, ale musi być dowodliwie ważna w `assigned_at`,
+- snapshotuje dodatni product duration,
+- oblicza sequence/expiry/effective period,
+- atomowo tworzy Activation, ustawia Assignment `activated`, Inventory `consumed`, zwiększa Assignment version raz, zapisuje audit/outbox.
+
+Concurrent extensions tego samego LearningAccount nie tracą czasu dzięki serializacji na LearningAccount. Archive/suspend nie pauzuje ani nie przedłuża już biegnącego entitlement.
+
+Runtime nie może wstawiać `legacy_unknown` ani `legacy_effect_reconstructed` po migration cutover.
+
+## 17.7 Language change i management projection
+
+Canonical current language accessu = `student_learning_accounts.language_code`. `license_assignments.language_code` jest immutable assignment-time snapshot.
+
+Zmiana language LearningAccount wymaga:
+- expected LearningAccount version,
+- lock `Student -> LearningAccount`,
+- operational eligibility,
+- **zero pending Assignment** (`status='assigned'`),
+- **zero live/future entitlement** (`Activation.effective_to > command_effective_at`).
+
+Historyczne Assignment/Activation nie są przepisywane. Udana zmiana zwiększa LearningAccount version raz.
+
+Management/read model jest czystą projekcją. `read_effective_at` jest pobrane raz na zapytanie. Pochodne są m.in.:
+- status accessu,
+- expiry,
+- remaining time,
+- hide-finished,
+- available count = Inventory `status='available'`,
+- active count = activated Assignment z Activation `effective_to > read_effective_at`,
+- latest assignment = `MAX(assignment_sequence)`.
+
+Nie utrzymujemy mutable „latest_status/count/remaining/finished” jako authority.
+
+Bulk credential PDF lokalizuje każdy access według **bieżącego LearningAccount language**, nie historycznego Assignment snapshotu.
+
+## 17.8 DB4_6 migration safety
+
+Migracja nie może heurystycznie:
+- przepinać cross-tenant lub wrong-Student LearningAccount/Assignment,
+- merge'ować/rebindować Usera/identifiera na podstawie imienia, emaila Studenta lub wpisanego loginu,
+- mapować nieznanego LearningAccount statusu,
+- wywnioskować `managing_organization_id` z LearningAccount albo creatora,
+- zachować legacy secret-bearing PDF jako zwykły FileAsset ani udawać, że był non-secret,
+- fabrykować Inventory/Assignment/Activation state,
+- zgadywać activation order, duration, origin lub effective time,
+- wyznaczać assignment order z timestamp tie lub UUID,
+- wywnioskować product-language capability z globalnego słownika lub jednego ekranu.
+
+Niejednoznaczny legacy state = FAIL + reviewed remediation. Najpierw prechecks/remediation, potem candidate keys/composite FKs, credential authority, capability history, sequences i final-state guards; dopiero po dowodliwym backfillu włączamy runtime constraints.
 
 ---
 
@@ -1829,6 +2067,8 @@ Append-only:
 
 Dla membership authorization mutation audit musi dodatkowo zawierać logicznie `membership_version before/after` i `authorization_version before/after` w bezpiecznym domain diff/snapshot.
 
+Learning credential/license audit jest również redacted: może przechowywać identyfikatory row, statusy, credential version i effective periods, ale nigdy plaintext password, password hash ani secret-bearing PDF bytes.
+
 ## `organization_activity_events`
 
 - `id uuid PK`
@@ -1856,7 +2096,7 @@ Dla membership authorization mutation audit musi dodatkowo zawierać logicznie `
 - `attempts integer default 0`
 - `last_error text null`.
 
-Membership permission/scope/status/Owner mutation zapisuje outbox w tej samej transakcji co current state + audit.
+Membership permission/scope/status/Owner mutation zapisuje outbox w tej samej transakcji co current state + audit. Learning-access/license mutation również zapisuje tylko bezpieczne metadata i commituję audit/outbox atomowo z biznesowym stanem.
 
 ## `notifications`
 
@@ -1879,7 +2119,7 @@ Preferowane:
 
 `organization_memberships` nie jest hard-delete. Suspend/revoke są lifecycle state changes.
 
-Nigdy cascade-delete z `Student` do CourseEnrollment, ExamAttempt, payment ani PKK operation history. Nigdy cascade-delete z `CourseEnrollment` do `pkk_profiles`, PKK operations, training hour ledger, internal exam attempts ani student charges.
+Nigdy cascade-delete z `Student` do CourseEnrollment, ExamAttempt, payment, PKK operation history, StudentLearningAccount ani LicenseAssignment. Nigdy cascade-delete z `CourseEnrollment` do `pkk_profiles`, PKK operations, training hour ledger, internal exam attempts ani student charges. License Assignment/Activation oraz access-handoff audit pozostają historyczne i nie są usuwane normalnym lifecycle.
 
 ---
 
@@ -1890,7 +2130,11 @@ Minimum pod obserwowane query:
 - membership_permissions: `(membership_id,permission_code)`,
 - membership_permission_scopes: `(membership_id,permission_code)`,
 - auth_sessions: `(user_id,revoked_at,last_seen_at)` i lookup po `organization_membership_id`,
+- user_password_management: lookup po `(management_mode,managing_organization_id)` oraz PK `user_id`,
 - students: archived + created/name/search projection,
+- student_learning_accounts: `(organization_id,student_id)`, `(organization_id,status)`, `user_id`, `auth_login_identifier_id`, language,
+- student_access_handoffs: `(organization_id,student_learning_account_id,created_at)`, batch+ordinal/account,
+- student_access_export_batches: organization + created_at/requester,
 - staff: archived + name + document expiry,
 - vehicles: archived + registration + document expiry,
 - locations: archived + type,
@@ -1908,7 +2152,10 @@ Minimum pod obserwowane query:
 - calendar_resource_claims: owner lookup `(organization_id,claim_owner_kind,claim_owner_id)` plus indeksy wspierające cztery GiST exclusion constraints,
 - training_session_calendar_details: `(organization_id,training_session_id)` unique lookup,
 - student_charges/payments: student + date/status,
-- license inventory: product/status,
+- license products/capabilities: product code oraz `(license_product_id,language_code,disabled_at)`,
+- license inventory: `(organization_id,license_product_id,status)`,
+- license assignments: Inventory current lookup, LearningAccount + `assignment_sequence`, Student/status, capability pointer,
+- license activations: Assignment unique, LearningAccount + `entitlement_sequence`, LearningAccount + `effective_to`,
 - exam attempts: course/student/date/status/language/category,
 - activity events: organization + occurred_at,
 - orders: organization + status/date.
@@ -2032,6 +2279,40 @@ Calendar DB4_5:
 - legacy driving_lesson CalendarEvent nie jest heurystycznie mapowany do TrainingSession,
 - DB4_5 migration nie auto-shiftuje, nie auto-canceluje, nie reassignuje i nie wybiera overlap winnera.
 
+Licenses / Learning Access DB4_6:
+- LearningAccount identifier należy do tego samego global Usera i jest current przy commit,
+- login projection jest joinem z AuthLoginIdentifier, nie niezależnym persisted authority,
+- ten sam global User/identifier może wspierać LearningAccount w wielu OSK; nie tworzymy tenantowego login namespace,
+- LearningAccount `version>=1` i status `active|suspended` są DB-constrained,
+- archived Student blokuje nowe learning-access effects bez przepisywania Assignment/Activation history i bez pauzowania entitlement,
+- OSK password reset wymaga matching `organization_managed` authority, exclusive learner principal i permission/scope,
+- każdy local password mutation zwiększa globalny credential version dokładnie raz,
+- plaintext hasła, password hash i secret-bearing PDF nie trafiają do durable storage/audit/outbox/log/idempotency snapshot,
+- secret-bearing PDF jest memory-only; późniejszy reprint hasła wymaga nowego resetu,
+- bulk secret reset jest all-or-none, a duplicate LearningAccounts tego samego Usera resetują go raz,
+- Assignment cross-tenant Inventory/Student/Account oraz wrong Student↔Account pair są odrzucone,
+- Inventory i Assignment statusy oraz final-state equivalence są wymuszane,
+- dwa concurrent assignments tej samej Inventory jednostki dają maksymalnie jeden commit,
+- create new LearningAccount + identity/credentials + Assignment commitują all-or-none,
+- revoke unactivated przywraca dokładnie tę samą Inventory jednostkę raz i zachowuje Assignment history,
+- activate i revoke tego samego Assignment mają dokładnie jednego zwycięzcę,
+- Activation wskazuje exact Assignment/LearningAccount i jest immutable append-only,
+- entitlement sequence jest unique, bezlukowe i serializowane na LearningAccount,
+- product duration oraz Inventory product binding są immutable po Inventory reference; Activation ma duration snapshot,
+- runtime Activation ma rzeczywisty `learner_self|organization_user` origin, dodatni duration snapshot i nie używa migration-only provenance,
+- extension przed expiry zachowuje pozostały czas, a activation po expiry nie backfilluje przerwy,
+- dwa concurrent extensions nie gubią entitlement time,
+- current entitlement end = `MAX(Activation.effective_to)`, nie mutable projection,
+- product language support wymaga capability row, nie globalnego language dictionary ani pojedynczej screen listy,
+- Assignment language jest immutable snapshot związanym z exact Inventory product/capability i assignment time,
+- istniejące konto dziedziczy swój language i Assignment nie może go po cichu zmienić,
+- language change z pending Assignment lub live/future entitlement jest odrzucony,
+- capability retirement nie revoke'uje retroaktywnie wcześniej przypisanego prawa,
+- Assignment sequence określa latest; timestamp/UUID heuristic jest zabroniony,
+- management latest/status/count/expiry/remaining/hide-finished są derived z canonical history przy jednym `read_effective_at`,
+- bulk credential PDF lokalizuje wpisy według current LearningAccount language,
+- DB4_6 migration nie zgaduje tenant target, identity, password authority, Inventory state, Activation chain, Assignment order ani language capability.
+
 Pozostałe obowiązkowe testy:
 - generated synthetic IDs są UUIDv7/native uuid,
 - organization contact address jest 1:1 i nie jest `locations`,
@@ -2040,8 +2321,6 @@ Pozostałe obowiązkowe testy:
 - PKK external login nie zmienia application login i plaintext nie jest persistowany,
 - account closure nullable-scope uniqueness działa dla global i tenant,
 - staff/vehicle multi-category/multi-location działa,
-- historical license assignment reuse + one current assignment,
-- concurrent license extensions nie gubią czasu,
 - exam reservation/station concurrency działa i failover nie konsumuje drugiego creditu,
 - explicit service entitlement activation jest exactly-once,
 - payment event dedupe jest `(provider,provider_event_id)`,
@@ -2052,27 +2331,29 @@ Pozostałe obowiązkowe testy:
 
 # 24. Kolejność migracji high-level
 
-1. organizations/users/auth identifiers + organization memberships + permissions + scope catalogs + membership permission/scope rows + sessions + account closure,
+1. organizations/users/auth identifiers + `user_password_management` baseline + organization memberships + permissions + scope catalogs + membership permission/scope rows + sessions + account closure,
 2. organization settings + company contact address + legal documents/terms acceptance,
 3. dictionaries/capabilities,
 4. file assets + idempotency,
 5. staff/locations/vehicles + assignment tables,
-6. Student identity/version + learning accounts,
+6. Student identity/version + LearningAccount version/status + access handoff/export-batch metadata + same-user auth-identifier boundary,
 7. CourseEnrollment lifecycle + requirement rule/context/profile/exemption/override + **local required PKK identity**,
 8. TrainingSession + exact Attendance + immutable Ledger + recognized external training,
 9. włączyć `btree_gist` przed materializacją finalnych calendar resource exclusion constraints,
 10. Calendar: manual event/slot lifecycle history, same-tenant relations, `calendar_resource_claims`, `training_session_calendar_details`, slot→Session link/formalization i TrainingSession claim integration,
 11. PKK provider operations/attempts/retry/reconciliation — DB4_8,
 12. Student finance,
-13. license inventory/assignment/activation periods,
+13. LicenseProduct language capability history + Inventory + Assignment sequences/current uniqueness + immutable Activation entitlement ledger,
 14. internal exam inventory/attempt/access/stations/station sessions,
 15. orders/payments/service entitlements/activations,
 16. audit/activity/outbox/notifications,
-17. final partial indexes/cross-table constraints.
+17. final partial indexes/cross-table constraints, w tym LearningAccount current-identifier, password-authority/exclusive-principal, Inventory↔Assignment↔Activation equivalence, contiguous sequences, entitlement chain i language-capability guards.
 
 W obrębie DB4_4 migracja najpierw robi legacy prechecks/remediation, dopiero potem NOT NULL/unique/composite FK/deferrable guards. Nie wybiera „latest row” ani nie fabrykuje brakującej formalnej tożsamości, actorów, lineage, attendance czy creditów.
 
 W obrębie DB4_5 kolejność jest równie rygorystyczna: najpierw precheck same-tenant/event-type/status/booking-state/overlap oraz jawna klasyfikacja legacy `driving_lesson`; potem lifecycle baselines i candidate keys; następnie `btree_gist`, technical claims + owner guards + exact-set guards + GiST; dopiero po dowodliwej migracji włączamy finalne constraints. Nie naprawiamy overlapów ani nie tworzymy TrainingSession przez heurystykę.
+
+W obrębie DB4_6 najpierw precheckujemy LearningAccount identity, tenant/exact-target relacje, password authority, legacy credential artifacts, Inventory/Assignment/Activation consistency, activation order/effective periods oraz product-language evidence. Niejednoznaczności trafiają do reviewed remediation. Dopiero potem backfillujemy bezpieczne baselines/sequences/capability history i włączamy same-user/composite FK, credential authority, final-state equivalence, contiguous sequence i entitlement-chain guards. Nie zgadujemy na podstawie timestampów, UUID, creatora, ekranu ani globalnego language dictionary.
 
 ---
 
@@ -2084,13 +2365,13 @@ Zamknięte:
 - Identity/Tenant/RBAC DB4_2: materialized runtime permissions, per-permission scope, same-user composite session FK, durable membership lifecycle `active|suspended|revoked`, `is_owner` governance marker, last-owner guard, grant ceiling, `version` + `authorization_version`, atomic audit/outbox i session-context clearing na suspend/revoke,
 - Staff/Locations/Vehicles DB4_3: same-tenant StaffMembershipLink i location assignments, tenant/purpose/ready FileAsset attachment boundary, versioned current-document projection, PESEL/VIN/registration lifecycle uniqueness oraz bezpieczny Staff archive/restore vs panel-access lifecycle,
 - **Students/Courses/Training DB4_4**: same-tenant formal relations; Student formal identity + durable archive/version; Course lifecycle/version/history; reproducible requirement context + immutable rule set/profile history; exact verified Attendance -> exactly-once append-only Ledger; deterministic previous-OSK projection/history; atomowa, wersjonowana local course PKK identity bez wciągania provider lifecycle,
-- **Calendar DB4_5**: same-tenant calendar resources; manual/system storage boundary; half-open resource conflict model z `btree_gist` i czterema partial GiST exclusion constraints; CalendarEvent lifecycle/version/history; canonical `own` przez StaffProfile; AvailabilitySlot exactly-once booking/cancel/history bez auto-reavailability; `TrainingSession` jako jedyny formal driving-lesson schedule owner; shared claims dla formalnych sesji; atomowy booked-slot -> TrainingSession handoff bez drugiego reservation fact i bez skrótu do formalnego creditu.
+- **Calendar DB4_5**: same-tenant calendar resources; manual/system storage boundary; half-open resource conflict model z `btree_gist` i czterema partial GiST exclusion constraints; CalendarEvent lifecycle/version/history; canonical `own` przez StaffProfile; AvailabilitySlot exactly-once booking/cancel/history bez auto-reavailability; `TrainingSession` jako jedyny formal driving-lesson schedule owner; shared claims dla formalnych sesji; atomowy booked-slot -> TrainingSession handoff bez drugiego reservation fact i bez skrótu do formalnego creditu,
+- **Licenses / Learning Access DB4_6**: exact same-tenant Assignment target; current same-user AuthLoginIdentifier bez niezależnej login projection; durable LearningAccount lifecycle/version i operational eligibility; fail-closed global password management authority + credential epoch; memory-only secret-bearing credential PDFs i non-secret handoff/batch metadata; Inventory↔Assignment↔Activation final-state equivalence; immutable serialized entitlement ledger z duration snapshot/sequence; versioned product-language capability; immutable Assignment language/order snapshots oraz czysto derived management projection.
 
-Po DB4_5 nadal osobno wymagają dalszych slice/ADR:
-- learning-access/license credentials lifecycle — DB4_6,
+Po DB4_6 nadal osobno wymagają dalszych slice/ADR:
 - internal-exam compatibility/attempt completion gate — DB4_7,
 - PKK provider configuration/fetch/update/return/XML/retry/reconciliation/collision policy — DB4_8,
-- Student Finance — DB4_9,
+- Student Finance i exact commerce/source-order tenant boundary — DB4_9,
 - application encryption + key rotation dla PESEL/PKK/provider snapshots,
 - immutable snapshot canonicalization/hash,
 - auth account merge/recovery/email verification policy,
