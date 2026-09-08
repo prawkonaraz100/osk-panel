@@ -1,0 +1,99 @@
+name: Temporary DB-PKK-004 Machine Gate
+
+on:
+  push:
+    branches: [tmp-db-pkk-004-machine-helper]
+    paths:
+      - '.github/workflows/tmp-db-pkk-004-machine.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: tmp-db-pkk-004-machine-helper
+      - name: Patch DB-PKK-004 and validate
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          p = Path('specs/database/pkk.yml')
+          s = p.read_text()
+          frag = Path('.stage4-tmp/db-pkk-004-machine.ymlfrag').read_text().rstrip() + '\n\n'
+
+          def once(old, new, label):
+              global s
+              n = s.count(old)
+              assert n == 1, f'{label}: expected exactly 1 match, got {n}'
+              s = s.replace(old, new, 1)
+
+          once('  step: DB_PKK_003_PROVIDER_OPERATION_LIFECYCLE_CONCURRENCY_AND_COMMAND_ELIGIBILITY\n',
+               '  step: DB_PKK_004_IDEMPOTENCY_RETRY_RECONCILIATION_AND_EXACTLY_ONCE_EXTERNAL_EFFECT\n', 'meta step')
+          once('  status: FAIL_WITH_5_P1_BLOCKERS\n', '  status: FAIL_WITH_4_P1_BLOCKERS\n', 'meta status')
+          once('  current_step_scope: DB_PKK_003_PROVIDER_OPERATION_LIFECYCLE_CONCURRENCY_AND_COMMAND_ELIGIBILITY_only\n',
+               '  current_step_scope: DB_PKK_004_IDEMPOTENCY_RETRY_RECONCILIATION_AND_EXACTLY_ONCE_EXTERNAL_EFFECT_only\n', 'scope')
+
+          marker = '\nblockers:\n'
+          assert s.count(marker) == 1, f'blockers marker count={s.count(marker)}'
+          assert '\n  DB-PKK-004:\n    status: PASS\n' not in s
+          s = s.replace(marker, '\n' + frag + 'blockers:\n', 1)
+
+          old_blocker = '''  - id: DB-PKK-004\n    title: idempotency_retry_reconciliation_and_exactly_once_external_effect\n    severity: P1\n    status: OPEN\n'''
+          new_blocker = '''  - id: DB-PKK-004\n    title: idempotency_retry_reconciliation_and_exactly_once_external_effect\n    severity: P1\n    status: RESOLVED\n    resolution_ref: resolved_contracts.DB-PKK-004\n'''
+          once(old_blocker, new_blocker, 'blocker 004')
+
+          start = s.index('diagnosis_summary:\n')
+          end = s.index('\nAPI_contract_sync_gaps_recorded_not_fixed:', start)
+          ds = s[start:end]
+          assert '  resolved_after_diagnosis: 3\n' in ds
+          assert '  open_P0_P1: 5\n' in ds
+          assert '  result: FAIL_WITH_5_P1_BLOCKERS\n' in ds
+          assert ds.count('    - DB-PKK-004\n') == 1
+          ds = ds.replace('  resolved_after_diagnosis: 3\n','  resolved_after_diagnosis: 4\n',1)
+          ds = ds.replace('  open_P0_P1: 5\n','  open_P0_P1: 4\n',1)
+          ds = ds.replace('  result: FAIL_WITH_5_P1_BLOCKERS\n','  result: FAIL_WITH_4_P1_BLOCKERS\n',1)
+          ds = ds.replace('    - DB-PKK-004\n','',1)
+          s = s[:start] + ds + s[end:]
+
+          ps = s.index('preservation_gate:\n')
+          ns = s.index('\nnext_single_step_after_central_gate:', ps)
+          pb = s[ps:ns]
+          assert '  status: PASS_DB_PKK_003\n' in pb
+          pb = pb.replace('  status: PASS_DB_PKK_003\n','  status: PASS_DB_PKK_004\n',1)
+          old_tail = '    DB_PKK_004_through_DB_PKK_008_remain_open: true\n'
+          assert pb.count(old_tail) == 1, f'preservation tail count={pb.count(old_tail)}'
+          pb = pb.replace(old_tail,
+              '    DB_PKK_004_idempotency_retry_reconciliation_exactly_once_external_effect_closed: true\n'
+              '    DB_PKK_005_through_DB_PKK_008_remain_open: true\n',1)
+          s = s[:ps] + pb + s[ns:]
+
+          ns = s.index('next_single_step_after_central_gate:\n')
+          nb = s[ns:]
+          assert '  id: DB_PKK_004_IDEMPOTENCY_RETRY_RECONCILIATION_AND_EXACTLY_ONCE_EXTERNAL_EFFECT\n' in nb
+          assert '  action: resolve_DB_PKK_004_only_after_next_explicit_user_instruction\n' in nb
+          assert '  stop_before: DB_PKK_005_SIGNED_XML_HANDOFF_AND_FILE_ASSET_EVIDENCE_INTEGRITY\n' in nb
+          nb = nb.replace('  id: DB_PKK_004_IDEMPOTENCY_RETRY_RECONCILIATION_AND_EXACTLY_ONCE_EXTERNAL_EFFECT\n',
+                          '  id: DB_PKK_005_SIGNED_XML_HANDOFF_AND_FILE_ASSET_EVIDENCE_INTEGRITY\n',1)
+          nb = nb.replace('  action: resolve_DB_PKK_004_only_after_next_explicit_user_instruction\n',
+                          '  action: resolve_DB_PKK_005_only_after_next_explicit_user_instruction\n',1)
+          nb = nb.replace('  stop_before: DB_PKK_005_SIGNED_XML_HANDOFF_AND_FILE_ASSET_EVIDENCE_INTEGRITY\n',
+                          '  stop_before: DB_PKK_006_SENSITIVE_PROVIDER_PAYLOAD_ENCRYPTION_REDACTION_HASH_AND_KEY_VERSION_BOUNDARY\n',1)
+          s = s[:ns] + nb
+
+          p.write_text(s)
+          PY
+
+          ruby -e "require 'yaml'; y=YAML.unsafe_load_file('specs/database/pkk.yml'); raise unless y.dig('meta','step')=='DB_PKK_004_IDEMPOTENCY_RETRY_RECONCILIATION_AND_EXACTLY_ONCE_EXTERNAL_EFFECT'; raise unless y.dig('meta','status')=='FAIL_WITH_4_P1_BLOCKERS'; r=y['resolved_contracts']; %w[DB-PKK-001 DB-PKK-002 DB-PKK-003 DB-PKK-004].each{|k| raise k unless r.dig(k,'status')=='PASS'}; b=y['blockers'].to_h{|x| [x['id'],x['status']]}; %w[DB-PKK-001 DB-PKK-002 DB-PKK-003 DB-PKK-004].each{|k| raise k unless b[k]=='RESOLVED'}; %w[DB-PKK-005 DB-PKK-006 DB-PKK-007 DB-PKK-008].each{|k| raise k unless b[k]=='OPEN'}; raise unless y.dig('diagnosis_summary','open_P0_P1')==4; raise unless y.dig('diagnosis_summary','resolved_after_diagnosis')==4; raise unless y.dig('next_single_step_after_central_gate','id')=='DB_PKK_005_SIGNED_XML_HANDOFF_AND_FILE_ASSET_EVIDENCE_INTEGRITY'"
+          git diff --check -- specs/database/pkk.yml
+          test "$(git diff --name-only | grep -v '^\.github/workflows/tmp-db-pkk-004-machine.yml$' | grep -v '^\.stage4-tmp/' | sort -u)" = "specs/database/pkk.yml"
+          git config user.name 'prawkonaraz100'
+          git config user.email 'prawkonaraz100@gmail.com'
+          git add specs/database/pkk.yml
+          git commit -m 'DB-PKK-004: close idempotency retry reconciliation contract'
+          git push origin HEAD:tmp-db-pkk-004-machine-helper
