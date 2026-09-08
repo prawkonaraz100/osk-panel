@@ -2,11 +2,11 @@ meta:
   project: osk-panel
   stage: 4
   slice: DB4_9_STUDENT_FINANCE_COMMERCE
-  step: DB4_9_DIAGNOSIS
-  status: FAIL_WITH_10_P1_BLOCKERS
+  step: DB_FIN_001_SAME_TENANT_EXACT_CHARGE_PAYMENT_COURSE_INTEGRITY
+  status: FAIL_WITH_9_P1_BLOCKERS
   diagnosed_at: 2026-09-08
   branch: docs-consolidation-2026-09-05
-  diagnosis_only: true
+  diagnosis_only: false
   aggregate_sync_status: FROZEN_DURING_DB4_9_DIAGNOSIS_AND_FIXERS
   implementation_started: false
   Laravel_migrations_created: false
@@ -15,8 +15,8 @@ meta:
 
 scope_rule:
   diagnose_before_fixing: true
-  fixes_allowed_in_this_step: false
-  current_step_scope: DB4_9_DIAGNOSIS_only
+  fixes_allowed_in_this_step: true
+  current_step_scope: DB_FIN_001_only
   one_blocker_per_future_step: true
   aggregate_files_frozen:
     specs/database/core-schema.yml:
@@ -164,11 +164,130 @@ API_contract_sync_gaps_recorded_not_fixed:
   refund_chargeback_and_invoice_HTTP_contract_not_confirmed_and_not_invented_in_DB4_9_diagnosis: true
   API_files_modified_in_DB4_9_diagnosis: false
 
+resolved_contracts:
+  DB-FIN-001:
+    status: PASS
+    severity: P1
+    title: student_finance_same_tenant_exact_charge_payment_course_integrity
+    scope_boundary:
+      closes_only_relation_and_exact_target_integrity: true
+      charge_payment_lifecycle_balance_overpayment_reversal_concurrency_deferred_to_DB_FIN_002: true
+      commerce_models_unchanged: true
+    required_candidate_keys:
+      students:
+        columns: [organization_id, id]
+        source: DB4_4_existing
+      course_enrollments_exact_student:
+        columns: [organization_id, id, student_id]
+        unique_constraint_required: true
+        purpose: optional_charge_course_must_belong_to_exact_charge_student
+      student_charges_exact_payment_target:
+        columns: [organization_id, id, student_id, currency]
+        unique_constraint_required: true
+        purpose: payment_must_reference_exact_charge_student_and_currency
+    tenant_key_policy:
+      student_charges_organization_id_nonnull: true
+      student_charges_student_id_nonnull: true
+      student_charges_currency_nonnull: true
+      student_payments_organization_id_nonnull: true
+      student_payments_student_id_nonnull: true
+      student_payments_charge_id_nonnull: true
+      student_payments_currency_nonnull: true
+      organization_id_is_derived_from_authenticated_tenant_or_validated_parent: true
+      normal_lifecycle_may_move_charge_or_payment_between_organizations: false
+      repeated_student_and_currency_fields_are_integrity_keys_not_client_authority: true
+    relations:
+      charge_student:
+        source_table: student_charges
+        source_columns: [organization_id, student_id]
+        target_table: students
+        target_columns: [organization_id, id]
+        nullable_relation: false
+        match: MATCH_SIMPLE
+        on_update: RESTRICT
+        on_delete: RESTRICT
+      charge_optional_course_exact_student:
+        source_table: student_charges
+        source_columns: [organization_id, course_enrollment_id, student_id]
+        target_table: course_enrollments
+        target_columns: [organization_id, id, student_id]
+        nullable_relation: true
+        nullability_driver: course_enrollment_id
+        match: MATCH_SIMPLE
+        on_update: RESTRICT
+        on_delete: RESTRICT
+        effect: nonnull_course_must_be_same_tenant_and_belong_to_exact_charge_student
+      payment_student:
+        source_table: student_payments
+        source_columns: [organization_id, student_id]
+        target_table: students
+        target_columns: [organization_id, id]
+        nullable_relation: false
+        match: MATCH_SIMPLE
+        on_update: RESTRICT
+        on_delete: RESTRICT
+      payment_exact_charge_student_currency:
+        source_table: student_payments
+        source_columns: [organization_id, charge_id, student_id, currency]
+        target_table: student_charges
+        target_columns: [organization_id, id, student_id, currency]
+        nullable_relation: false
+        match: MATCH_SIMPLE
+        on_update: RESTRICT
+        on_delete: RESTRICT
+        effect: payment_cannot_cross_tenant_student_charge_or_currency_boundary
+    global_actor_relations:
+      created_by_user_id: {target: global_users, fake_tenant_composite_FK_forbidden: true}
+      received_by_user_id: {target: global_users, fake_tenant_composite_FK_forbidden: true}
+      cancelled_by_user_id: {target: global_users, fake_tenant_composite_FK_forbidden: true}
+      reversed_by_user_id: {target: global_users, fake_tenant_composite_FK_forbidden: true}
+      authorization_and_membership_validation_remains_application_RBAC_boundary: true
+    currency_integrity:
+      charge_currency_is_parent_authority_for_payment_currency: true
+      exact_equality_enforced_by_composite_FK: true
+      existing_payment_blocks_parent_currency_change_via_RESTRICT_relation: true
+      broader_currency_edit_policy_not_solved_here: true
+    migration_policy:
+      preflight_before_constraints:
+        - every_charge_organization_student_pair_resolves_exact_student
+        - every_nonnull_charge_course_resolves_exact_same_organization_course_and_same_student
+        - every_payment_resolves_exact_organization_charge_student_currency_tuple
+        - no_required_relation_key_is_null
+      cross_tenant_or_wrong_student_course_auto_reparent: forbidden
+      payment_student_auto_rewrite_from_charge_on_mismatch: forbidden
+      payment_currency_auto_rewrite_from_charge_on_mismatch: forbidden
+      ambiguous_or_mismatched_legacy_row: fail_and_require_reviewed_remediation
+      hard_delete_financial_history_to_make_constraint_pass: forbidden
+    required_tests:
+      - charge_wrong_tenant_student_rejected
+      - charge_nonnull_course_from_other_tenant_rejected
+      - charge_nonnull_course_of_other_student_same_tenant_rejected
+      - charge_null_course_allowed_when_student_is_valid
+      - payment_wrong_tenant_charge_rejected
+      - payment_charge_of_other_student_same_tenant_rejected
+      - payment_currency_different_from_charge_rejected
+      - exact_valid_charge_payment_relation_commits
+      - global_actor_user_is_not_rejected_for_missing_fake_tenant_key
+      - legacy_mismatch_fails_without_auto_reparent_or_currency_rewrite
+    preservation_checks:
+      StudentFinance_remains_distinct_from_PlatformCommerce: PASS
+      one_charge_many_partial_payments_capability_preserved: PASS
+      optional_course_context_preserved: PASS
+      DB_FIN_002_not_solved_early: PASS
+      DB_COM_001_through_DB_COM_008_unchanged: PASS
+      aggregate_core_schema_modified: false
+      aggregate_docs87_modified: false
+      DB4_10_or_later_entered: false
+      Stage5_started: false
+      Laravel_migrations_created: false
+      UI_or_feature_implementation_started: false
+
 blockers:
   - id: DB-FIN-001
     title: student_finance_same_tenant_exact_charge_payment_course_integrity
     severity: P1
-    status: OPEN
+    status: RESOLVED
+    resolution_ref: resolved_contracts.DB-FIN-001
     diagnosis:
       - charge_repeats_organization_student_and_optional_course_but_current_blueprint_does_not_prove_optional_course_belongs_to_exact_same_student_and_tenant
       - payment_repeats_organization_student_and_charge_but_current_blueprint_does_not_prove_charge_belongs_to_exact_same_student_and_tenant
@@ -393,10 +512,12 @@ blockers:
 diagnosis_summary:
   diagnosed_P0: 0
   diagnosed_P1: 10
-  open_P0_P1: 10
-  result: FAIL_WITH_10_P1_BLOCKERS
-  blockers_in_required_fix_order:
+  resolved_after_diagnosis: 1
+  open_P0_P1: 9
+  result: FAIL_WITH_9_P1_BLOCKERS
+  resolved_blockers:
     - DB-FIN-001
+  blockers_in_required_fix_order:
     - DB-FIN-002
     - DB-COM-001
     - DB-COM-002
@@ -407,7 +528,7 @@ diagnosis_summary:
     - DB-COM-008
     - DB-COM-006
 preservation_gate:
-  status: PASS_DB4_9_DIAGNOSIS_MACHINE
+  status: PASS_DB_FIN_001_MACHINE_CONTRACT
   checks:
     student_finance_and_platform_commerce_remain_distinct: true
     DB4_6_license_inventory_assignment_activation_contract_preserved: true
@@ -425,6 +546,6 @@ preservation_gate:
     UI_or_feature_implementation_started: false
 
 next_single_step_after_central_gate:
-  id: DB_FIN_001_SAME_TENANT_EXACT_CHARGE_PAYMENT_COURSE_INTEGRITY
-  action: resolve_DB_FIN_001_only_after_next_explicit_user_instruction
-  stop_before: DB_FIN_002_CHARGE_PAYMENT_REVERSAL_LIFECYCLE_BALANCE_OVERPAYMENT_AND_CONCURRENCY
+  id: DB_FIN_002_CHARGE_PAYMENT_REVERSAL_LIFECYCLE_BALANCE_OVERPAYMENT_AND_CONCURRENCY
+  action: resolve_DB_FIN_002_only_after_next_explicit_user_instruction
+  stop_before: DB_COM_001_ORDER_ITEM_TENANT_PRODUCT_SNAPSHOT_PRICE_TOTAL_AND_QUANTITY_INTEGRITY
