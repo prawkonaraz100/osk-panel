@@ -3,8 +3,8 @@
 Data: 2026-09-08
 
 **Etap:** `DB4_9_STUDENT_FINANCE_COMMERCE`  
-**Aktualny krok:** `DB4_9_DIAGNOSIS`  
-**Status:** `FAIL_WITH_10_P1_BLOCKERS / 0 P0 / 10 P1 OPEN`
+**Aktualny krok:** `DB_FIN_001_SAME_TENANT_EXACT_CHARGE_PAYMENT_COURSE_INTEGRITY`
+**Status:** `FAIL_WITH_9_P1_BLOCKERS / 0 P0 / 9 P1 OPEN`
 
 Machine-readable diagnoza: `specs/database/student-finance-commerce.yml`.
 
@@ -236,3 +236,67 @@ Kolejność jest zależnościowa, nie numeryczna: deterministic history i migrat
 Następny dozwolony krok po centralnej bramce diagnozy: **DB-FIN-001 only** i dopiero po następnym jawnym poleceniu użytkownika.
 
 **STOP przed fixerem DB-FIN-001.**
+
+## 19. DB-FIN-001 — wynik fixera: PASS
+
+DB-FIN-001 domyka wyłącznie fizyczną integralność relacji Student Finance. Nie zmienia semantyki salda, reversal, cancellation ani concurrency należności — te elementy pozostają DB-FIN-002.
+
+### 19.1. Exact Charge → Student
+
+`student_charges(organization_id, student_id)` musi wskazywać `students(organization_id, id)` przez composite FK z `RESTRICT`. Tenant nie jest wartością klienta; jest wyprowadzany z aktywnego kontekstu OSK lub zweryfikowanego parentu.
+
+### 19.2. Optional Charge → exact Course tego samego Studenta
+
+Samo FK `(organization_id, course_enrollment_id)` nie wystarcza, ponieważ nie dowodzi, że Course należy do tego samego Studenta, którego wskazuje Charge.
+
+Dlatego `course_enrollments` dostaje candidate key `(organization_id, id, student_id)`, a non-null relacja Charge używa:
+
+`student_charges(organization_id, course_enrollment_id, student_id)` → `course_enrollments(organization_id, id, student_id)`.
+
+`course_enrollment_id = NULL` pozostaje legalne; osobny FK Charge→Student nadal obowiązuje.
+
+### 19.3. Payment → exact Charge + Student + currency
+
+`student_charges` dostaje candidate key `(organization_id, id, student_id, currency)`. `student_payments` wiąże się z nim przez dokładnie ten sam zestaw pól.
+
+W efekcie Payment nie może:
+- wskazać Charge innego tenant,
+- wskazać Charge innego Studenta w tym samym OSK,
+- użyć innej waluty niż Charge.
+
+Dodatkowy direct FK Payment→Student pozostaje jawny. Wszystkie historyczne relacje używają `RESTRICT`.
+
+### 19.4. Globalni actorzy nie dostają fałszywego tenant FK
+
+`created_by_user_id`, `received_by_user_id`, `cancelled_by_user_id` i `reversed_by_user_id` pozostają relacjami do globalnego User identity. Organizacyjna autoryzacja aktora jest obowiązkiem RBAC/command boundary, nie sztucznego `(organization_id,user_id)` FK do globalnej tabeli users.
+
+### 19.5. Migration safety
+
+Przed dodaniem constraints migracja musi udowodnić:
+- exact Charge→Student,
+- dla non-null Course: exact tenant + Course + Student,
+- exact Payment→Charge + Student + currency,
+- brak NULL w wymaganych kluczach.
+
+Mismatched legacy row nie może zostać automatycznie przepięty na „pasującego” Studenta/Course ani mieć automatycznie zmienionej waluty. Ambiguity oznacza FAIL i reviewed remediation. Formalna historia finansowa nie może być usuwana tylko po to, aby constraint przeszedł.
+
+### 19.6. Preservation gate
+
+Zachowane bez zmian:
+- Student Finance i Platform Commerce pozostają rozdzielone,
+- wiele częściowych wpłat do jednej należności pozostaje dozwolone,
+- optional Course context pozostaje dozwolony,
+- DB-FIN-002 pozostaje OPEN,
+- DB-COM-001…008 pozostają OPEN,
+- agregaty `core-schema.yml` i `docs/87...` pozostają zamrożone,
+- DB4_10+, Stage 5, Laravel migrations i UI pozostają nieruszone.
+
+Stan po fixerze:
+- P0 OPEN: **0**,
+- P1 OPEN: **9**,
+- resolved: **1/10**,
+- result: **FAIL_WITH_9_P1_BLOCKERS**.
+
+Następny dozwolony krok po central gate: **DB-FIN-002 only**.
+
+**STOP przed DB-FIN-002.**
