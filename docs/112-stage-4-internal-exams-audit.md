@@ -3,8 +3,8 @@
 Data: 2026-09-07
 
 **Etap:** `DB4_7_INTERNAL_EXAMS`  
-**Aktualny krok:** `DB_EXAM_007_IMMUTABLE_EXAM_DEFINITION_QUESTION_RESULT_AND_DOCUMENT_EVIDENCE`  
-**Status:** `FAIL_WITH_1_P1_BLOCKER / 0 P0 / 1 P1 OPEN`
+**Aktualny krok:** `DB_EXAM_008_DETERMINISTIC_MANAGEMENT_HISTORY_LATEST_AND_STATISTICS_PROJECTION`  
+**Status:** `BLOCKERS_RESOLVED_PENDING_DB4_7_FINAL_AGGREGATE_SYNC / 0 P0 / 0 P1 OPEN`
 
 Machine-readable diagnoza: `specs/database/internal-exams.yml`.
 
@@ -1962,3 +1962,212 @@ Aktualny stan DB4_7 po DB-EXAM-007:
 Następny dozwolony krok po centralnym gate: **DB-EXAM-008 only**.
 
 **STOP przed DB-EXAM-008.**
+
+---
+
+## 22. DB-EXAM-008 — wynik fixera: PASS
+
+DB-EXAM-008 zamyka ostatni P1 bounded contextu Internal Exams: deterministyczną projekcję panelu zarządzania, historii prób, `latest`, statusów publicznych, liczników, pass-rate, `hide finished`, filtrowania, sortowania i paginacji. Nie tworzy nowego lifecycle authority i nie wykonuje jeszcze finalnego sync do agregatów.
+
+### 22.1 Grain panelu to formalny kontekst kursu i części egzaminu
+
+Canonical management subject ma grain:
+
+`(organization_id, course_enrollment_id, exam_part)`.
+
+Nie tworzymy student-only summary jako źródła prawdy. Jeden kurs może mieć osobne konteksty teorii i praktyki, a jeden Student może mieć wiele kursów.
+
+Kontekst jest widoczny, gdy:
+- bieżący requirement profile nadal wymaga tej części egzaminu, albo
+- istnieje co najmniej jeden historyczny Attempt dla exact course + exam part.
+
+Jeżeli część nie jest obecnie wymagana i nie ma żadnej historii, nie pokazujemy fałszywego `Brak przypisanego`. Historyczne próby pozostają natomiast widoczne po późniejszej zmianie requirements.
+
+### 22.2 Panel jest projekcją, nie mutable summary authority
+
+Źródła pozostają rozdzielone:
+- `internal_exam_attempts.status` — lifecycle authority z DB-EXAM-004,
+- current `training_requirement_profile` — bieżąca formalna wymagalność z DB-EXAM-002,
+- `internal_exam_attempts` — historia prób,
+- `internal_exam_results` — wynik z DB-EXAM-007.
+
+Panel może być relational view albo equivalent single query nad authoritative rows. Zabroniona jest niezależnie mutowana tabela summary ze statusem, `latest_attempt_id`, licznikami albo pass-rate, która mogłaby rozjechać się z Attempt history.
+
+Aktualne imię, nazwisko, email i login służą do zarządzania i wyszukiwania. Nie zastępują immutable candidate snapshotu zakończonego egzaminu.
+
+### 22.3 Deterministyczna kolejność prób
+
+Timestamp z dokładnością do minuty nie może rozstrzygać `latest`, ponieważ zaobserwowano różne próby z tą samą minutą.
+
+Do Attempt dodajemy immutable `course_attempt_sequence bigint >= 1`.
+
+Sequence:
+- jest unikalny w `(organization_id, course_enrollment_id, course_attempt_sequence)`,
+- obejmuje wszystkie części egzaminu tego samego CourseEnrollment,
+- jest przydzielany w istniejącej transakcji create Attempt,
+- korzysta z już istniejącego pierwszego locka `CourseEnrollment FOR UPDATE`,
+- runtime przydziela kolejno `1..N`,
+- rollback create oznacza rollback sequence razem z Attempt i Inventory reservation,
+- nie zmienia się przy późniejszych lifecycle transitions,
+- nie jest odzyskiwany przez normalne DELETE, bo Attempt history nie podlega normalnemu hard-delete.
+
+`latest` dla management context to Attempt o największym `course_attempt_sequence` dla exact `(course_enrollment, exam_part)`.
+
+Timestamp, display minute ani UUID nie są latest authority.
+
+### 22.4 Wszystkie pola `Najnowszy egzamin` pochodzą z jednego Attemptu
+
+Z exact `latest_attempt_id` projektujemy wspólnie:
+- category,
+- status,
+- language,
+- management display date,
+- optional started/finished timestamps.
+
+Core v1 używa `latest_attempt.created_at` jako pola `latest_exam_at` dla prezentacji i sortowania. To pole nie wybiera jednak latest Attemptu.
+
+Niedozwolone jest mieszanie np. kategorii z jednej próby i statusu lub języka z innej.
+
+### 22.5 Publiczne statusy są wyłącznie projekcją lifecycle
+
+Publiczny katalog panelu:
+- `not_assigned`,
+- `not_conducted`,
+- `failed`,
+- `passed`.
+
+Mapowanie:
+- brak Attemptu w widocznym, obecnie wymaganym kontekście -> `not_assigned`,
+- latest `created` -> `not_conducted`,
+- latest `in_progress` -> `not_conducted`,
+- latest `technical_abort` -> `not_conducted`,
+- latest `invalidated` -> `not_conducted`,
+- latest `failed` -> `failed`,
+- latest `passed` -> `passed`.
+
+Technical abort nie staje się automatycznie wynikiem negatywnym. Invalidation zachowuje historyczny Result jako evidence, ale nie projektuje kursanta jako `passed` albo `failed` na podstawie unieważnionego wyniku.
+
+Nowsza niedokończona próba może więc projektować `not_conducted` mimo wcześniejszego pass/fail. Kolumna opisuje latest exam, a nie authority ukończenia Course.
+
+### 22.6 Liczniki i pass-rate mają zamknięte denominatory
+
+Dla exact management context:
+- `exam_count` = wszystkie Attempty: `created`, `in_progress`, `passed`, `failed`, `technical_abort`, `invalidated`,
+- `passed_count` = tylko current status `passed`,
+- `failed_count` = tylko current status `failed`,
+- `valid_conducted_count = passed_count + failed_count`,
+- `pass_rate = passed_count / valid_conducted_count`.
+
+Jeżeli `valid_conducted_count = 0`, pass-rate jest `NULL`, a nie sztucznym `0%`.
+
+`created`, `in_progress`, `technical_abort` i `invalidated` nie wchodzą do mianownika pass-rate. Zachowany Result unieważnionej próby pozostaje evidence, ale nie liczy się jako aktualny valid pass/fail.
+
+Dla agregatu panelu pass-rate jest ratio of sums:
+
+`SUM(passed_count) / SUM(valid_conducted_count)`.
+
+Średnia z procentów poszczególnych wierszy jest zabroniona.
+
+### 22.7 `Ukryj egzaminy zakończone`
+
+`hide_finished=true` działa tylko na management subject rows:
+- ukrywa projekcje `passed` i `failed`,
+- pozostawia `not_assigned` i `not_conducted`,
+- pozostawia technical abort / invalidated do follow-up, bo projektują się jako `not_conducted`.
+
+Flaga nie usuwa, nie aktualizuje ani nie ukrywa rekordów rozwiniętej historii Attemptów.
+
+### 22.8 Search i filtry
+
+Main search `q` używa bieżących danych zarządczych:
+- first name,
+- last name,
+- contact email,
+- learning-account login.
+
+Nie dokładamy PESEL do głównego `q`, bo nie zostało to potwierdzone. Nie wyszukujemy też po historycznym candidate snapshot jako alternatywnym źródle bieżącej tożsamości panelu.
+
+Semantyka logiczna:
+- wiele kategorii -> OR wewnątrz category dimension,
+- wiele statusów -> OR wewnątrz status dimension,
+- category + status + search + hide-finished -> AND między wymiarami,
+- tenant predicate obowiązuje przed projekcją.
+
+### 22.9 Stabilne sortowanie i paginacja
+
+Dozwolone pola pozostają zgodne z obserwowanym panelem:
+- identity/login,
+- full name,
+- latest category,
+- latest status,
+- latest date,
+- latest language,
+- exam count.
+
+Każde sortowanie dostaje finalny stabilny tie-breaker:
+
+`course_enrollment_id ASC, exam_part ASC`.
+
+Nullable latest fields mają `NULLS LAST` w obu kierunkach. Dzięki temu równe primary sort values nie powodują losowej zmiany kolejności między stronami paginacji.
+
+`latest_exam_at` może być sort field, ale nie staje się przez to źródłem wyboru latest Attempt.
+
+### 22.10 Rozwinięta historia pozostaje pełną historią prób
+
+Endpoint historii CourseEnrollment zachowuje wszystkie Attempty. Canonical order to `course_attempt_sequence DESC`.
+
+Historyczny status pochodzi z exact Attempt lifecycle. Dane kandydata/PKK zakończonej próby pozostają snapshotem Attemptu. Details token korzysta z exact Attempt binding DB-EXAM-005, a answer sheet z evidence bundle DB-EXAM-007.
+
+Nowa próba nigdy nie nadpisuje starego Result ani Document.
+
+### 22.11 Concurrency i migracja
+
+Sequence allocation rozszerza istniejącą transakcję DB-EXAM-002 i nie zmienia pierwszego locka `CourseEnrollment FOR UPDATE`. DB-EXAM-003 reservation nadal należy do tego samego outer create transaction.
+
+Migracja historycznych Attemptów może backfillować sequence tylko wtedy, gdy istnieje dowód pełnego total order w exact CourseEnrollment, np. trusted monotonic sequence, trusted strict creation timestamp bez remisów albo reviewed external exact order.
+
+Zabronione jest:
+- rozstrzyganie remisu przez UUID,
+- używanie wyświetlanej minuty,
+- zgadywanie kolejności z current status albo Result,
+- promowanie legacy mutable latest pointer/counter bez reconciliation.
+
+Niejednoznaczny legacy order = migration FAIL + reviewed remediation.
+
+### 22.12 API sync pozostaje Stage 5
+
+Stage-3 endpoint `/internal-exam/subjects` już ma search/category/status/sort/pagination, ale `ExamSubject` jest zbyt mały dla finalnego course/part/latest/count/eligibility contractu. Brakuje także jawnego `hide_finished` query parameter.
+
+DB008 nie zmienia OpenAPI. Typed projection/status enums, sort enum i `hide_finished` trafiają do Stage 5 acceptance-contract sync.
+
+### 22.13 Self-audit fixera
+
+Machine contract został nałożony exact-match patchem na finalny DB007 i zwalidowany jako YAML. Z gotowego bloba utworzono czysty commit `70127f0ea8ffbf5611902b72f0290885055892c1` bez plików pomocniczych i bez zmiany workflow.
+
+Machine compare od `64bdf5c1…` do `70127f0e…` obejmuje wyłącznie `specs/database/internal-exams.yml`.
+
+Zamrożone agregaty nadal mają dokładnie:
+- `specs/database/core-schema.yml` -> `5d8f4d661f56115740d3c3a59d8424c85ec1cf24`,
+- `docs/87-physical-database-schema.md` -> `191afe107e830baa928b18f67e6cb75b2d4a73b8`.
+
+Sprawdzono dodatkowo:
+- DB-EXAM-001..007 pozostają PASS,
+- lifecycle status authority DB-EXAM-004 nie został zastąpiony statusem panelu,
+- requirement engine DB-EXAM-002 nadal decyduje o formalnej wymagalności,
+- Inventory create transaction DB-EXAM-003 zachowuje atomicity,
+- token security DB-EXAM-005 pozostaje exact-attempt scoped,
+- Station semantics DB-EXAM-006 pozostają bez zmian,
+- immutable Result/Question/Document evidence DB-EXAM-007 pozostaje authority historii,
+- DB4_7 final aggregate sync nie został rozpoczęty,
+- DB4_8+, Stage 5, Laravel migrations i UI nie zostały rozpoczęte.
+
+Aktualny stan DB4_7 po DB-EXAM-008:
+- P0: **0**,
+- P1 open: **0**,
+- resolved: **8/8**,
+- blocker result: **PASS**,
+- DB4_7 aggregate sync: **PENDING**.
+
+Następny dozwolony krok po centralnym gate: **DB4_7 FINAL AGGREGATE SYNC only**.
+
+**STOP przed DB4_7 FINAL AGGREGATE SYNC.**
