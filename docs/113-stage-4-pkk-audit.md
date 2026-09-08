@@ -3,8 +3,8 @@
 Data: 2026-09-08
 
 **Etap:** `DB4_8_PKK`  
-**Aktualny krok:** `DB_PKK_003_PROVIDER_OPERATION_LIFECYCLE_CONCURRENCY_AND_COMMAND_ELIGIBILITY`
-**Status:** `FAIL_WITH_5_P1_BLOCKERS / 0 P0 / 5 P1 OPEN`
+**Aktualny krok:** `DB_PKK_004_IDEMPOTENCY_RETRY_RECONCILIATION_AND_EXACTLY_ONCE_EXTERNAL_EFFECT`
+**Status:** `FAIL_WITH_4_P1_BLOCKERS / 0 P0 / 4 P1 OPEN`
 
 Machine-readable diagnoza: `specs/database/pkk.yml`.
 
@@ -644,3 +644,116 @@ Self-audit:
 Po centralnym gate jedynym dopuszczalnym następnym krokiem jest `DB-PKK-004 — idempotency, retry, reconciliation and exactly-once external effect`, wyłącznie po kolejnym jawnym poleceniu użytkownika.
 
 **STOP przed DB-PKK-004.**
+
+---
+
+## 21. DB-PKK-004 — wynik fixera: PASS
+
+Machine contract: `specs/database/pkk.yml`, clean machine commit `5e3956ffbfe2eb46208c5797471fe376b2b40c22`.
+
+### 21.1 Idempotency HTTP a zewnętrzny efekt to dwie różne granice
+
+`Idempotency-Key` pozostaje wspólnym authority dla ponowienia komendy HTTP. Runtime PKK wiąże przyjętą komendę z trwałym `idempotency_records`, a ten sam key z tym samym canonical request hash zwraca ten sam wcześniej zaakceptowany wynik biznesowy bez utworzenia drugiej `PkkOperation` ani drugiego provider Attemptu.
+
+Ten sam key użyty z innym request hash jest konfliktem. Replay nadal wymaga bieżącej autoryzacji do odczytu pierwotnej Operation; znajomość klucza nie jest tokenem dostępu.
+
+### 21.2 Operation i provider Attempt mają jawne powiązanie z idempotency evidence
+
+Runtime `pkk_operations` posiada exact same-tenant binding do initial idempotency record. Historyczne legacy rows bez dowodliwego key/hash mogą zachować jawny migration-only brak bindingu, ale po cutover nowe Operation muszą go mieć.
+
+Każdy runtime `pkk_operation_attempt` jest również związany z exact command idempotency record. Jeden retry command nie może więc przez race lub HTTP replay utworzyć dwóch transportowych Attemptów.
+
+### 21.3 Deterministyczna sekwencja provider Attemptów
+
+`attempt_no >= 1` jest unikalny per exact Operation i przydzielany pod `PkkOperation FOR UPDATE`. Nowe committed runtime Attempty używają kolejnego numeru i rollback nie konsumuje numeru.
+
+Nie renumerujemy legacy Attemptów, żeby stworzyć pozornie idealną historię. Niejednoznaczne albo duplikujące się historyczne numery wymagają reviewed remediation.
+
+### 21.4 Dispatch claim i jeden replay-blocking Attempt
+
+Canonical transport status ma rozdzielone stany `prepared`, `dispatching`, `succeeded`, `safe_failed`, `effect_unknown`, `reconciled_no_effect`, `reconciled_effect`.
+
+Dla jednej Operation może istnieć maksymalnie jeden replay-blocking Attempt (`prepared|dispatching|effect_unknown`). Worker może wysłać request providera dopiero po atomowym zwycięstwie przejścia `prepared -> dispatching`. Drugi worker widzący `dispatching` nie może wysłać requestu ponownie.
+
+Provider I/O pozostaje poza transakcją DB.
+
+### 21.5 Timeout nie oznacza bezpiecznego failed
+
+Najważniejsza granica bezpieczeństwa: timeout, zerwane połączenie albo crash po rozpoczęciu dispatchu nie dowodzą, że provider nie wykonał operacji.
+
+Taki Attempt przechodzi do `effect_unknown`, a nie do zwykłego retryable failure. Nowy provider dispatch jest zablokowany, dopóki zewnętrzny skutek pozostaje możliwy.
+
+### 21.6 Retry disposition
+
+Canonical retry disposition to:
+
+- `safe_to_retry` — istnieje dowód, że zewnętrzny efekt nie zaszedł,
+- `not_retryable` — ponowienie jest niedozwolone,
+- `reconciliation_required` — efekt jest nieznany.
+
+Dawne prowizoryczne boolean `retryable` nie jest po cutover samodzielnym runtime authority. Business validation error albo definitywne odrzucenie przez providera nie może zostać automatycznie zakwalifikowane do blind retry.
+
+### 21.7 Append-only reconciliation evidence
+
+Nowy `pkk_operation_attempt_reconciliations` przechowuje append-only historię reconciliation exact-bound do tenant/Course/Profile/Operation/Attempt.
+
+Każda reconciliation dostaje ciągły `reconciliation_sequence` przydzielany pod lockiem Attemptu oraz wynik `effect_present|effect_absent|inconclusive`. Pierwszy conclusive outcome zamyka normalną ścieżkę reconciliation; sprzeczne późniejsze conclusive result nie są zwykłym runtime update.
+
+Pełny wrażliwy provider payload nie trafia do tej tabeli. Może ona przechowywać wyłącznie evidence hash i allowlisted safe summary; pełna kryptografia payloadów pozostaje DB-PKK-006.
+
+### 21.8 Reconciliation przed ponownym dispatch
+
+`effect_absent` może pozwolić na jawny retry dopiero po ponownym sprawdzeniu wszystkich bieżących warunków DB-PKK-003. `effect_present` oznacza brak replay; Operation może zostać uznana za success tylko wtedy, gdy adapter ma wystarczający dowód faktycznego zamierzonego efektu.
+
+`inconclusive` pozostawia Attempt jako `effect_unknown` i blokuje retry.
+
+Jeżeli provider nie oferuje wiarygodnej reconciliation i nie ma natywnej idempotency, system nie zgaduje. Automatyczny retry pozostaje zabroniony nawet kosztem liveness.
+
+### 21.9 Retry command
+
+`POST .../retry` nie tworzy nowej business Operation. Po durable idempotency claim command lockuje Course, current PkkProfile, istniejącą Operation oraz właściwy ostatni Attempt i ponownie sprawdza exact context, current profile, status `failed`, brak replay-blocking Attemptu, `safe_to_retry`, gotowość integracji oraz `pkk.retry` + scope.
+
+Udany nowy retry tworzy kolejny `prepared` Attempt, przeprowadza zarezerwowane w DB-PKK-003 przejście `failed -> pending`, zwiększa `operation_version` raz i appenduje lifecycle event. Provider dispatch następuje dopiero po commit.
+
+### 21.10 Zakres gwarancji exactly-once
+
+DB-PKK-004 nie twierdzi, że może zagwarantować fizyczne exactly-once po stronie obcego systemu bez wsparcia providera.
+
+Gwarancja naszego systemu jest precyzyjna: **nie wykonujemy świadomie drugiego provider dispatch, dopóki poprzedni mógł już spowodować zewnętrzny business effect**. Unknown effect blokuje replay; retry wymaga dowodu no-effect albo zweryfikowanej provider-native idempotency w przyszłym adapter contract.
+
+To jest fail-closed safety boundary, a nie optymistyczne „timeout = spróbuj ponownie”.
+
+### 21.11 Migration safety
+
+Migracja nie może fabrykować historycznych Idempotency-Key ani request hash z obecnego mutable stanu. Nie może wiązać starej Operation z przypadkowym current idempotency record, renumerować Attemptów, oznaczać unknown jako safe failure ani tworzyć fikcyjnych reconciliation events.
+
+Jeżeli można dowieść exact immutable legacy request + key + command scope, generic idempotency record może zostać odtworzony z jawnym legacy provenance. W pozostałych przypadkach brak historycznego bindingu pozostaje jawny i wymaga reviewed remediation.
+
+### 21.12 Preservation gate
+
+Pozostają OPEN: `DB-PKK-005`…`DB-PKK-008`. Nie rozwiązano podpisanego XML, pełnego payload crypto, configuration revision binding ani deterministic latest/history projection. Nie zmieniono API, `core-schema.yml`, `docs/87`, migracji Laravel ani UI.
+
+Self-audit:
+
+- generic idempotency replay authority — **PASS**,
+- same key/same hash nie tworzy drugiej Operation/Attempt — **PASS**,
+- one replay-blocking Attempt per Operation — **PASS**,
+- dispatch claim chroni przed duplicate worker send — **PASS**,
+- timeout/connection loss -> unknown, nie safe failure — **PASS**,
+- reconciliation append-only + exact Attempt binding — **PASS**,
+- retry wymaga definitywnego no-effect proof — **PASS**,
+- brak provider-native exactly-once nie został zmyślony — **PASS**,
+- DB-PKK-001…003 — **zachowane**,
+- DB-PKK-005…008 — **nadal OPEN**,
+- frozen aggregates — **bez zmian**.
+
+### 21.13 Wynik po fixerze
+
+- P0 open: **0**,
+- P1 open: **4**,
+- resolved: **4 / 8**,
+- wynik DB4_8: **FAIL_WITH_4_P1_BLOCKERS**.
+
+Po centralnym gate jedynym dopuszczalnym następnym krokiem jest `DB-PKK-005 — signed XML handoff and FileAsset evidence integrity`, wyłącznie po kolejnym jawnym poleceniu użytkownika.
+
+**STOP przed DB-PKK-005.**
