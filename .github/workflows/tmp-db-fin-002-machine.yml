@@ -1,0 +1,85 @@
+name: Temporary DB-FIN-002 Machine Gate
+
+on:
+  push:
+    branches: [tmp-db-fin-002-machine-helper]
+    paths:
+      - '.stage4-tmp/TRIGGER_DB_FIN_002_MACHINE'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: tmp-db-fin-002-machine-helper
+      - name: Patch and validate DB-FIN-002 only
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import yaml, copy
+          p=Path('specs/database/student-finance-commerce.yml')
+          s=p.read_text()
+          before=yaml.safe_load(s)
+          blockers_before=copy.deepcopy(before['blockers'])
+          r1=copy.deepcopy(before['resolved_contracts']['DB-FIN-001'])
+
+          reps=[
+            ('  step: DB_FIN_001_SAME_TENANT_EXACT_CHARGE_PAYMENT_COURSE_INTEGRITY\n','  step: DB_FIN_002_CHARGE_PAYMENT_REVERSAL_LIFECYCLE_BALANCE_OVERPAYMENT_AND_CONCURRENCY\n'),
+            ('  status: FAIL_WITH_9_P1_BLOCKERS\n','  status: FAIL_WITH_8_P1_BLOCKERS\n'),
+            ('  current_step_scope: DB_FIN_001_only\n','  current_step_scope: DB_FIN_002_only\n'),
+          ]
+          for old,new in reps:
+            assert s.count(old)==1,(old,s.count(old))
+            s=s.replace(old,new,1)
+
+          marker='\nblockers:\n'
+          assert s.count(marker)==1
+          assert '\n  DB-FIN-002:\n' not in s.split(marker)[0]
+          block='''\n  DB-FIN-002:\n    status: PASS\n    severity: P1\n    title: charge_payment_reversal_lifecycle_balance_overpayment_and_concurrency\n    scope_boundary:\n      closes_only_student_finance_lifecycle_balance_reversal_idempotency_and_concurrency: true\n      DB_COM_001_through_DB_COM_008_unchanged: true\n      charge_from_course_cost_cross_domain_race_remains_DB_COM_008: true\n      audit_outbox_physical_storage_remains_DB4_10: true\n    charge_authority:\n      durable_business_state:\n        active_predicate: cancelled_at_is_null\n        cancelled_predicate: cancelled_at_is_not_null\n        mutable_status_column_as_second_authority_after_cutover: forbidden\n      cancellation_tuple:\n        fields: [cancelled_at, cancelled_by_user_id, cancellation_reason]\n        valid_states: all_null_or_all_nonnull\n        cancellation_reason_nonblank_when_cancelled: true\n        write_once: true\n        un_cancel_transition: forbidden\n      immutable_financial_identity_after_insert:\n        - organization_id\n        - student_id\n        - course_enrollment_id\n        - amount_minor\n        - currency\n      cancellation_requires_valid_payment_total_zero: true\n      cancellation_with_any_nonreversed_payment: reject\n      rationale: MVP_has_no_student_credit_or_unallocated_payment_model\n    payment_authority:\n      positive_amount_required: true\n      valid_payment_predicate: reversed_at_is_null\n      immutable_after_insert_except_reversal_tuple:\n        - organization_id\n        - student_id\n        - charge_id\n        - amount_minor\n        - currency\n        - paid_at\n        - payment_method\n        - note\n        - received_by_user_id\n        - created_at\n      reversal_tuple:\n        fields: [reversed_at, reversed_by_user_id, reversal_reason]\n        valid_states: all_null_or_all_nonnull\n        reversal_reason_nonblank_when_reversed: true\n        transition: unreversed_to_reversed_once\n        second_reversal: forbidden\n        unreverse: forbidden\n      hard_delete_after_insert: forbidden\n    derived_financial_projection:\n      paid_amount_minor: SUM_student_payments_amount_minor_where_reversed_at_is_null\n      remaining_amount_minor: charge_amount_minor_minus_paid_amount_minor\n      invariant_remaining_gte_zero: true\n      collection_state:\n        cancelled: cancelled_at_is_not_null\n        paid: cancelled_at_is_null_and_remaining_amount_minor_eq_0\n        partially_paid: cancelled_at_is_null_and_paid_amount_minor_gt_0_and_remaining_amount_minor_gt_0\n        open: cancelled_at_is_null_and_paid_amount_minor_eq_0_and_remaining_amount_minor_gt_0\n      overdue_modifier:\n        persisted_business_authority: false\n        predicate: cancelled_at_is_null_and_remaining_amount_minor_gt_0_and_due_at_is_not_null_and_due_at_before_organization_local_now\n        note: overdue_may_be_rendered_as_UI_label_but_does_not_replace_collection_state_authority\n      student_summary:\n        total_due: SUM_amount_minor_of_noncancelled_charges\n        total_paid: SUM_valid_payments_of_noncancelled_charges\n        total_remaining: SUM_remaining_amount_minor_of_noncancelled_charges\n        frontend_mutable_summary_columns: forbidden\n    concurrency_and_lock_order:\n      root: exact_student_charge_row\n      all_money_affecting_commands_share_root: [record_payment, reverse_payment, cancel_charge]\n      record_payment:\n        - atomically_claim_generic_idempotency_record\n        - lock_exact_charge_FOR_UPDATE\n        - require_charge_not_cancelled\n        - calculate_valid_payment_sum_under_charge_lock\n        - calculate_remaining_under_same_lock\n        - require_new_amount_minor_lte_remaining\n        - insert_exact_payment\n        - complete_idempotency_record_with_safe_result\n      reverse_payment:\n        - atomically_claim_generic_idempotency_record\n        - lock_exact_charge_FOR_UPDATE\n        - lock_exact_payment_FOR_UPDATE\n        - require_payment_unreversed\n        - set_full_reversal_tuple_once\n        - complete_idempotency_record_with_safe_result\n      cancel_charge:\n        - atomically_claim_generic_idempotency_record\n        - lock_exact_charge_FOR_UPDATE\n        - require_not_already_cancelled_unless_same_idempotency_replay\n        - calculate_valid_payment_sum_under_charge_lock\n        - require_valid_payment_sum_eq_0\n        - set_full_cancellation_tuple_once\n        - complete_idempotency_record_with_safe_result\n      record_payment_vs_record_payment_race: serialized_by_charge_lock\n      record_payment_vs_reversal_race: serialized_by_charge_lock\n      record_payment_vs_cancel_race: serialized_by_charge_lock\n      reversal_vs_cancel_race: serialized_by_charge_lock\n      no_network_IO_inside_student_finance_transaction: true\n    no_overpayment_boundary:\n      application_precheck_alone_sufficient: false\n      authoritative_check_occurs_after_charge_lock: true\n      final_state_requires_sum_valid_payments_lte_charge_amount: true\n      two_concurrent_payments_cannot_both_consume_same_remaining_amount: true\n      future_student_credit_extension_required_for_intentional_overpayment: true\n    idempotency:\n      authority: infrastructure_idempotency_records\n      common_contract_source: specs/api/common-contract.yml\n      commands:\n        create_charge:\n          operation_key: student_finance.charge.create\n          Idempotency_Key_required: true\n        record_payment:\n          operation_key: student_finance.payment.record\n          Idempotency_Key_required: true\n        reverse_payment:\n          operation_key: student_finance.payment.reverse\n          Idempotency_Key_required: true\n        cancel_charge:\n          operation_key: student_finance.charge.cancel\n          Idempotency_Key_required: true\n      same_key_same_hash_completed: replay_safe_result_without_second_effect\n      same_key_different_request_hash: conflict\n      atomic_claim_before_business_effect: true\n      nullable_student_payments_idempotency_key_as_parallel_authority_after_cutover: forbidden\n      legacy_column_policy: deauthorize_or_remove_after_migration_not_used_for_new_command_deduplication\n      create_charge_from_course_cost_exact_source_race: deferred_to_DB_COM_008\n    normal_command_semantics:\n      payment_reversal_recalculates_projection_without_rewriting_charge_state: true\n      reversal_of_last_or_full_payment_may_derive_partially_paid_or_open: true\n      cancellation_after_reversing_all_payments_allowed: true\n      cancellation_before_reversing_active_payments_rejected: true\n      payment_on_cancelled_charge_rejected: true\n      direct_status_patch: forbidden\n      direct_remaining_or_paid_total_patch: forbidden\n      payment_delete: forbidden\n    audit_intent:\n      required_events:\n        - student_charge_created\n        - student_charge_cancelled\n        - student_payment_recorded\n        - student_payment_reversed\n      actor_and_reason_preserved_where_applicable: true\n      transactional_business_intent_required: true\n      physical_audit_outbox_storage_finalization: DB4_10\n    migration_policy:\n      preflight:\n        - every_payment_reversal_tuple_is_all_null_or_all_nonnull\n        - every_charge_cancellation_tuple_is_all_null_or_all_nonnull\n        - every_active_charge_has_sum_valid_payments_lte_amount_minor\n        - every_cancelled_charge_has_sum_valid_payments_eq_0\n        - no_duplicate_or_ambiguous_reversal_state\n      stored_charge_status_is_not_used_as_authority_to_fabricate_payment_or_reversal_history: true\n      legacy_overpayment_auto_truncate_or_split: forbidden\n      legacy_cancelled_charge_active_payment_auto_reverse: forbidden\n      legacy_partial_reversal_tuple_auto_complete: forbidden\n      legacy_student_payments_idempotency_key_promoted_to_generic_record_without_operation_key_and_request_hash: forbidden\n      ambiguous_financial_history: fail_and_require_reviewed_remediation\n      hard_delete_to_make_invariant_pass: forbidden\n    required_tests:\n      - two_concurrent_payments_exceeding_remaining_cannot_both_commit\n      - exact_remaining_payment_commits_and_derives_paid\n      - partial_payment_derives_partially_paid\n      - reversal_removes_payment_from_valid_sum_and_reopens_projection\n      - second_reversal_rejected_or_same_idempotency_replayed_without_second_effect\n      - cancellation_with_active_payment_rejected\n      - reversal_then_cancellation_commits_in_serialized_order\n      - payment_on_cancelled_charge_rejected\n      - cancellation_vs_payment_race_has_one_valid_serial_outcome\n      - same_Idempotency_Key_same_hash_replays_without_duplicate_payment\n      - same_Idempotency_Key_different_hash_conflicts\n      - stale_mutable_charge_status_cannot_override_derived_projection\n      - overdue_is_projection_modifier_not_mutable_business_authority\n      - legacy_overpayment_or_cancelled_with_active_payment_fails_migration_without_fabricated_correction\n    preservation_checks:\n      DB_FIN_001_exact_relation_contract_unchanged: PASS\n      StudentFinance_remains_distinct_from_PlatformCommerce: PASS\n      one_charge_many_partial_payments_preserved: PASS\n      MVP_no_overpayment_preserved: PASS\n      payment_correction_is_reversal_not_delete_preserved: PASS\n      optional_course_relation_preserved: PASS\n      DB_COM_001_through_DB_COM_008_unchanged: PASS\n      aggregate_core_schema_modified: false\n      aggregate_docs87_modified: false\n      DB4_10_or_later_entered: false\n      Stage5_started: false\n      Laravel_migrations_created: false\n      UI_or_feature_implementation_started: false\n'''
+          s=s.replace(marker,block+marker,1)
+
+          old='''  - id: DB-FIN-002\n    title: charge_payment_reversal_lifecycle_balance_overpayment_and_concurrency\n    severity: P1\n    status: OPEN\n'''
+          new='''  - id: DB-FIN-002\n    title: charge_payment_reversal_lifecycle_balance_overpayment_and_concurrency\n    severity: P1\n    status: RESOLVED\n    resolution_ref: resolved_contracts.DB-FIN-002\n'''
+          assert s.count(old)==1
+          s=s.replace(old,new,1)
+
+          reps2=[
+            ('  resolved_after_diagnosis: 1\n','  resolved_after_diagnosis: 2\n'),
+            ('  open_P0_P1: 9\n','  open_P0_P1: 8\n'),
+            ('  result: FAIL_WITH_9_P1_BLOCKERS\n','  result: FAIL_WITH_8_P1_BLOCKERS\n'),
+            ('  status: PASS_DB_FIN_001_MACHINE_CONTRACT\n','  status: PASS_DB_FIN_002_MACHINE_CONTRACT\n'),
+            ('  id: DB_FIN_002_CHARGE_PAYMENT_REVERSAL_LIFECYCLE_BALANCE_OVERPAYMENT_AND_CONCURRENCY\n  action: resolve_DB_FIN_002_only_after_next_explicit_user_instruction\n  stop_before: DB_COM_001_ORDER_ITEM_TENANT_PRODUCT_SNAPSHOT_PRICE_TOTAL_AND_QUANTITY_INTEGRITY\n','  id: DB_COM_001_ORDER_ITEM_TENANT_PRODUCT_SNAPSHOT_PRICE_TOTAL_AND_QUANTITY_INTEGRITY\n  action: resolve_DB_COM_001_only_after_next_explicit_user_instruction\n  stop_before: DB_COM_002_PAYMENT_ATTEMPT_EVENT_ORDER_STATE_IDEMPOTENCY_AND_RECONCILIATION\n')
+          ]
+          for old,new in reps2:
+            assert s.count(old)==1,(old,s.count(old))
+            s=s.replace(old,new,1)
+
+          p.write_text(s)
+          after=yaml.safe_load(s)
+          assert after['resolved_contracts']['DB-FIN-001']==r1
+          assert after['resolved_contracts']['DB-FIN-002']['status']=='PASS'
+          statuses={x['id']:x['status'] for x in after['blockers']}
+          assert statuses['DB-FIN-001']=='RESOLVED'
+          assert statuses['DB-FIN-002']=='RESOLVED'
+          for bid in ['DB-COM-001','DB-COM-002','DB-COM-003','DB-COM-004','DB-COM-005','DB-COM-006','DB-COM-007','DB-COM-008']:
+            assert statuses[bid]=='OPEN'
+          assert after['diagnosis_summary']['resolved_after_diagnosis']==2
+          assert after['diagnosis_summary']['open_P0_P1']==8
+          assert after['diagnosis_summary']['result']=='FAIL_WITH_8_P1_BLOCKERS'
+          assert after['preservation_gate']['status']=='PASS_DB_FIN_002_MACHINE_CONTRACT'
+          assert after['next_single_step_after_central_gate']['id']=='DB_COM_001_ORDER_ITEM_TENANT_PRODUCT_SNAPSHOT_PRICE_TOTAL_AND_QUANTITY_INTEGRITY'
+          PY
+          test "$(git hash-object specs/database/core-schema.yml)" = "65c6daab0330a2c6cf57a6a2caaba288a13a7a70"
+          test "$(git hash-object docs/87-physical-database-schema.md)" = "4d5f24f2948bdb55e7367c7b013ed918dade40ae"
+          git diff --check -- specs/database/student-finance-commerce.yml
+          test "$(git diff --name-only | grep -v '^\.github/workflows/tmp-db-fin-002-machine.yml$' | grep -v '^\.stage4-tmp/' | sort -u)" = "specs/database/student-finance-commerce.yml"
+          git config user.name 'prawkonaraz100'
+          git config user.email 'prawkonaraz100@gmail.com'
+          git add specs/database/student-finance-commerce.yml
+          git commit -m 'DB-FIN-002: close finance lifecycle balance and concurrency contract'
+          git push origin HEAD:tmp-db-fin-002-machine-helper
