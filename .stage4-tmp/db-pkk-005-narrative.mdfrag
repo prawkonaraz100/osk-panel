@@ -1,0 +1,122 @@
+
+---
+
+## 22. DB-PKK-005 — wynik fixera: PASS
+
+Machine contract: `specs/database/pkk.yml`, clean machine commit `a8df64ef06fd900004a36499728f9b9299f7ef7b`.
+
+### 22.1 Podpis XML jest zdolnością warunkową providera
+
+Potwierdzony flow produktu zachowujemy dokładnie jako `pobierz XML -> podpisz zewnętrznie -> wgraj podpisany XML -> wyślij do providera`, ale nie wymuszamy go na każdej mutującej operacji PKK. To adapter, po zweryfikowaniu konkretnego kontraktu providera, rozstrzyga czy dana operacja wymaga zewnętrznego podpisu.
+
+DB-PKK-005 nie inventuje formatu XAdES, profilu podpisu, sposobu walidacji `podpis.gov.pl` ani provider-specific XML schema. Kontrakt DB dowodzi tożsamości, kontekstu i hashy artefaktów; kryptograficzna ważność podpisu pozostaje odpowiedzialnością zweryfikowanego adapter contract.
+
+### 22.2 Durable authority `pkk_signature_handoffs`
+
+`requires_signature` nie może być wyłącznie etykietą UI. Każdy runtime transition do tego stanu posiada dokładny `pkk_signature_handoff` związany z tym samym organization, CourseEnrollment, PkkProfile i PkkOperation.
+
+Handoff ma deterministyczny `handoff_no`, wskazuje dokładną wersję lifecycle eventu `requires_signature`, opcjonalnie dokładny provider Attempt, który wygenerował unsigned XML, oraz write-once identyfikatory i hashe unsigned/signed artefaktu. Normalny hard delete i reparenting są zabronione.
+
+### 22.3 Unsigned XML musi istnieć przed `requires_signature`
+
+Unsigned XML używa istniejącego `FileAsset` z exact purpose `pkk_unsigned_xml_to_sign`. Przed utworzeniem handoffu asset musi należeć do tego samego tenant, być `ready`, mieć niepusty SHA-256, dodatni rozmiar oraz przejść content/MIME/security policy właściwe dla XML.
+
+`unsigned_sha256` w handoffie musi równać się hash FileAsset. Raw XML nie jest kopiowany do lifecycle eventów, idempotency response snapshotów ani bezpiecznych projekcji UI.
+
+### 22.4 `pending -> requires_signature` jest jednym atomowym boundary
+
+Transition lockuje dokładną PkkOperation, weryfikuje expected version/status i adapter requirement, alokuje handoff, wiąże ready unsigned FileAsset, zwiększa operation version dokładnie raz oraz appenduje lifecycle event tej samej wersji.
+
+Commit nie może pozostawić `requires_signature` bez dowodu, który unsigned XML użytkownik ma podpisać. Provider I/O nie jest wykonywane wewnątrz tej transakcji.
+
+### 22.5 Signed upload jest rezerwowany dla jednego exact handoff
+
+Generic purpose-bound upload jest niewystarczający jako dowód zamiaru. Dlatego `pkk_signature_handoff_upload_reservations` rezerwuje konkretny FileAsset dla dokładnego handoffu przed przyjęciem go jako signed evidence.
+
+Reservation niesie organization, handoff, Operation, Course i Profile context, jest immutable i nie może zostać zwyczajnie usunięte. Jeden FileAsset nie może być zarezerwowany do dwóch handoffów.
+
+### 22.6 Signed XML acceptance jest write-once i bez cross-operation reuse
+
+Signed asset ma purpose `pkk_signed_xml_return`, musi być same-tenant, `ready`, posiadać SHA-256, dodatni rozmiar, zweryfikowany detected content/MIME policy oraz dokładną rezerwację dla tego handoffu.
+
+Po akceptacji `signed_file_asset_id` i `signed_sha256` są write-once. Próba podmiany innym plikiem jest konfliktem, a ten sam signed asset nie może zostać użyty dla innej Operation ani innego handoffu. Replay tego samego attachment command może jedynie zwrócić istniejący stan.
+
+### 22.7 FileAsset pozostaje jedynym authority dla binarnego artefaktu
+
+DB-PKK-005 nie tworzy drugiego systemu storage. Reużywa wspólny `file_assets`: purpose, status, sha256, size, detected MIME i storage identity.
+
+Po formalnym związaniu unsigned/signed XML nie wolno normalnie oznaczyć assetu jako deleted, podmienić obiektu pod tym samym FileAsset id ani zmienić hash/size/detected MIME/purpose. Nazwa pliku nie jest authority integralności.
+
+Hash jest dowodem integralności treści, nie szyfrowaniem. Poufność XML, encrypted storage boundary i key-version semantics pozostają wyłącznie DB-PKK-006.
+
+### 22.8 Submission Attempt musi wskazywać exact signature handoff
+
+`pkk_operation_attempts` otrzymuje nullable `signature_handoff_id` z exact-context FK do organization/Operation/Course/Profile. Runtime submission po podpisie ma dokładnie jeden handoff; normalny provider Attempt niezwiązany z podpisem ma `NULL`.
+
+Dla jednego handoffu może istnieć co najwyżej jeden runtime submission Attempt. Retry po podpisanym submission nie może automatycznie użyć starego handoffu; domyślnie nowy cykl wymagający podpisu tworzy nowy handoff, chyba że przyszły zweryfikowany provider contract jawnie dopuści inne zachowanie.
+
+### 22.9 Signed XML submit korzysta z istniejącego idempotency authority
+
+Komenda submission ma canonical operation key `pkk.signed_xml.submit`. Request hash obejmuje exact organization/Course/Operation/handoff/signed FileAsset/signed hash.
+
+Ten sam key + ten sam hash zwraca tę samą Operation i submission Attempt bez nowego dispatchu. Ten sam key z innym hashem jest konfliktem. Safe response nie może zawierać raw XML ani storage key.
+
+### 22.10 `requires_signature -> submitted` jest atomowe przed provider dispatch
+
+Po idempotency claim lock order obejmuje Course, exact current PkkProfile, PkkOperation, current signature handoff i signed FileAsset. Recheck potwierdza current profile, status `requires_signature`, zgodność handoff version, write-once signed evidence, readiness/purpose/hash/content policy, brak consume/cancel, brak replay-blocking Attemptu, integration readiness i permission/scope.
+
+W jednej lokalnej transakcji powstaje kolejny `prepared` provider Attempt związany z handoffem, Operation przechodzi do `submitted`, version rośnie raz, lifecycle event jest appendowany, `consumed_at` zostaje ustawione raz, a idempotency record wskazuje tę samą Operation. Dopiero po commit może nastąpić provider dispatch.
+
+Jeżeli lokalna transakcja nie commitnie, Operation pozostaje `requires_signature`; nie powstaje durable provider Attempt ani dispatch effect, a signed evidence pozostaje zachowane.
+
+### 22.11 Wyjście z signature flow nie niszczy evidence
+
+DB-PKK-003 zachowuje przejścia `requires_signature -> failed|cancelled`. Handoff i unsigned/signed artefakty pozostają w historii. Handoff porzucony bez submission dostaje write-once `cancelled_at`; nie jest przepinany do nowej Operation lub nowej rewizji PkkProfile.
+
+### 22.12 Authorization i download są przez exact PKK context
+
+UI nie dostaje surowego `storage_key`. Download unsigned XML oraz ewentualny historyczny signed XML jest autoryzowany przez exact Operation/handoff context i permission/scope z DB-PKK-003. Sama znajomość FileAsset id nie stanowi tokenu dostępu.
+
+### 22.13 Migration safety
+
+Migracja nie może fabrykować handoffu, podpisu, hashy ani roli pliku na podstawie nazwy, timestampu, „latest upload” lub samego tenant match. Legacy `requires_signature` bez dokładnego unsigned artifact pozostaje jawną evidence gap wymagającą reviewed remediation.
+
+Legacy submitted/completed nie może być automatycznie uznane za flow bez podpisu ani powiązane z przypadkowym same-tenant XML. Import historycznego XML jest możliwy tylko gdy exact provenance i rola unsigned/signed są dowodliwe, a bytes można zweryfikować i wyliczyć SHA-256.
+
+### 22.14 Stage-5 API gaps pozostają jawnie odroczone
+
+Obecny Stage-3 OpenAPI nie ma jeszcze dedykowanego endpointu pobrania unsigned XML, rezerwacji/upload context dla signed XML ani attach/submit signed XML. Generic upload nie niesie jeszcze parent handoff context, a `PkkOperation` nie prezentuje signature-handoff state.
+
+To są acceptance/API sync gaps do Stage 5. DB-PKK-005 nie modyfikuje plików API i nie wymyśla finalnego HTTP shape przed adapter contract.
+
+### 22.15 Preservation gate
+
+Pozostają OPEN: `DB-PKK-006`, `DB-PKK-007`, `DB-PKK-008`. Nie rozwiązano szyfrowania provider payload/XML, configuration revision binding ani deterministic latest/history projection. Nie zmieniono `core-schema.yml`, `docs/87`, API, migracji Laravel ani UI.
+
+Self-audit:
+
+- signature requirement jest adapter-verified, nie globalnie hardcoded — **PASS**,
+- `requires_signature` posiada durable exact-context handoff — **PASS**,
+- unsigned XML ready/purpose/hash bound przed transition — **PASS**,
+- signed upload rezerwowany dla exact handoff — **PASS**,
+- signed asset write-once i bez cross-operation reuse — **PASS**,
+- FileAsset pozostaje binary authority — **PASS**,
+- submission Attempt ma exact handoff binding — **PASS**,
+- signed XML submit idempotency reużywa DB-PKK-004 — **PASS**,
+- `requires_signature -> submitted` atomowe przed dispatch — **PASS**,
+- cryptographic signature validity nie została zmyślona — **PASS**,
+- migracja nie fabrykuje historycznych XML/signature evidence — **PASS**,
+- DB-PKK-001…004 — **zachowane**,
+- DB-PKK-006…008 — **nadal OPEN**,
+- frozen aggregates — **bez zmian**.
+
+### 22.16 Wynik po fixerze
+
+- P0 open: **0**,
+- P1 open: **3**,
+- resolved: **5 / 8**,
+- wynik DB4_8: **FAIL_WITH_3_P1_BLOCKERS**.
+
+Po centralnym gate jedynym dopuszczalnym następnym krokiem jest `DB-PKK-006 — sensitive provider payload encryption, redaction, hash and key-version boundary`, wyłącznie po kolejnym jawnym poleceniu użytkownika.
+
+**STOP przed DB-PKK-006.**
