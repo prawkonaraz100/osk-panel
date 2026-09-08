@@ -2,8 +2,8 @@ meta:
   project: osk-panel
   stage: 4
   slice: DB4_8_PKK
-  step: DB_PKK_006_SENSITIVE_PROVIDER_PAYLOAD_ENCRYPTION_REDACTION_HASH_AND_KEY_VERSION_BOUNDARY
-  status: FAIL_WITH_2_P1_BLOCKERS
+  step: DB_PKK_007_INTEGRATION_CONFIGURATION_REVISION_BINDING_AND_ASYNC_EXECUTION_CONTEXT
+  status: FAIL_WITH_1_P1_BLOCKER
   diagnosed_at: 2026-09-08
   branch: docs-consolidation-2026-09-05
   diagnosis_only: false
@@ -16,7 +16,7 @@ meta:
 scope_rule:
   diagnose_before_fixing: true
   fixes_allowed_in_this_step: true
-  current_step_scope: DB_PKK_006_SENSITIVE_PROVIDER_PAYLOAD_ENCRYPTION_REDACTION_HASH_AND_KEY_VERSION_BOUNDARY_only
+  current_step_scope: DB_PKK_007_INTEGRATION_CONFIGURATION_REVISION_BINDING_AND_ASYNC_EXECUTION_CONTEXT_only
   one_blocker_per_future_step: true
   aggregate_files_frozen:
     specs/database/core-schema.yml:
@@ -2010,6 +2010,288 @@ resolved_contracts:
       Stage5_started: false
       UI_or_feature_implementation_started: false
 
+  DB-PKK-007:
+    status: PASS
+    title: integration_configuration_revision_binding_and_async_execution_context
+    severity: P1
+    goal: >-
+      Give every PKK provider attempt an immutable binding to the exact integration
+      configuration revision that authorized and parameterized its external call,
+      serialize configuration mutation against dispatch and unknown-effect resolution,
+      and prevent retries or delayed workers from silently using newer PKK settings.
+
+    authority_and_scope:
+      current_settings_authority: pkk_integration_settings
+      aggregate_settings_concurrency_root_preserved: organization_settings.version
+      execution_configuration_revision_history_authority: pkk_integration_configuration_revisions
+      provider_attempt_execution_binding_authority: pkk_operation_attempts.integration_configuration_revision
+      configuration_gate_shadow_copy_created: false
+      operator_user_name_snapshot_integration_history_created: false
+      external_osk_login_plaintext_history_created: false
+      future_provider_secret_value_columns_invented: false
+      provider_specific_execution_schema_invented: false
+      DB_PKK_008_latest_operation_projection: deferred
+
+    current_integration_revision:
+      table: pkk_integration_settings
+      field_added_or_finalized:
+        execution_configuration_revision: bigint_not_null_default_1_check_gte_1
+      current_revision_is_settings_updated_at_timestamp: false
+      increment_only_on_material_execution_configuration_change: true
+      material_change_sources:
+        - school_name
+        - osk_registry_number
+        - external_osk_login_logical_value
+        - readiness_status_when_effective_execution_eligibility_changes
+        - future_verified_credential_or_secret_version_reference_when_adapter_contract_adds_one
+      unrelated_company_or_UI_settings_increment_execution_revision: false
+      user_first_name_or_last_name_change_alone_increment_execution_revision: false
+      reason_user_names_not_included: not_verified_as_provider_execution_inputs_and_actor_user_id_already_exists
+      organization_settings_version_still_increments_per_existing_settings_contract: true
+      execution_revision_and_organization_settings_version_have_distinct_roles: true
+
+    configuration_revision_table:
+      name: pkk_integration_configuration_revisions
+      fields:
+        id: uuid_primary_key
+        organization_id: uuid_not_null
+        execution_configuration_revision: bigint_not_null_check_gte_1
+        organization_settings_version_at_capture: integer_not_null_check_gte_1
+        school_name_snapshot: varchar_not_null
+        osk_registry_number_snapshot: varchar_not_null
+        external_osk_login_binding_hmac: char_64_not_null
+        readiness_status_snapshot: varchar_not_null_existing_closed_catalog
+        configuration_binding_hmac: char_64_not_null
+        revision_origin: varchar_runtime_or_legacy_baseline_not_null
+        created_at: timestamptz_not_null
+      organization_relation: organization_id_to_organizations_id_RESTRICT
+      tenant_candidate_key: [organization_id, id]
+      revision_unique_scope: [organization_id, execution_configuration_revision]
+      first_runtime_revision: 1
+      revision_allocation: previous_plus_one_under_same_organization_settings_lock
+      runtime_revisions_contiguous_for_committed_material_changes: true
+      current_revision_projection: exact_row_matching_pkk_integration_settings.execution_configuration_revision
+      timestamp_UUID_or_updated_at_as_revision_authority: false
+      normal_update_or_delete: forbidden
+
+    configuration_binding_hash:
+      algorithm: HMAC_SHA_256_or_equivalent_secret_keyed_hash
+      key_outside_database: true
+      input_is_canonical_execution_configuration: true
+      current_known_inputs:
+        - school_name
+        - osk_registry_number
+        - normalized_external_osk_login_logical_value
+        - readiness_status
+      future_adapter_verified_secret_or_credential_version_reference_must_be_included_when_present: true
+      future_secret_plaintext_must_not_be_included_in_persisted_revision_row: true
+      raw_external_osk_login_plaintext_persisted_in_revision: false
+      external_osk_login_ciphertext_copied_into_operation_or_attempt_history: false
+      hash_is_not_authorization_token: true
+      hash_does_not_replace_exact_revision_FK: true
+
+    revision_capture_transaction:
+      shared_serialization_boundary: organization_settings_row_FOR_UPDATE
+      settings_command_flow_preserved: true
+      on_material_PKK_configuration_change:
+        - acquire_PKK_execution_lock_for_organization
+        - lock_organization_settings_FOR_UPDATE
+        - validate_permission_and_IfMatch_per_existing_settings_contract
+        - reject_material_change_if_dispatching_or_effect_unknown_attempt_exists
+        - apply_pkk_integration_settings_change
+        - recalculate_readiness_status
+        - increment_organization_settings.version_once
+        - increment_execution_configuration_revision_once_if_execution_configuration_materially_changed
+        - append_exactly_one_configuration_revision_for_new_execution_revision
+        - audit_redacted_change_without_external_login_or_secret_plaintext
+        - commit
+      on_non_PKK_settings_change:
+        execution_configuration_revision_increment: false
+        configuration_revision_row_append: false
+      provider_network_IO_inside_settings_transaction: forbidden
+
+    organization_PKK_execution_lock:
+      kind: transaction_scoped_advisory_lock_or_equivalent_single_organization_DB_serialization_key
+      key_scope: organization_id_plus_PKK_integration_execution_domain
+      acquired_before_existing_row_locks: true
+      shared_by:
+        - material_PKK_configuration_update
+        - provider_attempt_creation_or_retry_binding
+        - provider_attempt_dispatch_claim
+        - reconciliation_command_that_may_call_provider
+      purpose: serialize_configuration_epoch_changes_with_external_effect_boundaries_without_reversing_existing_row_lock_order
+      unrelated_organizations_block_each_other: false
+
+    attempt_configuration_binding:
+      field_added_to_pkk_operation_attempts:
+        integration_configuration_revision: bigint_nullable_for_legacy_not_null_for_runtime
+      exact_same_tenant_revision_relation:
+        source_columns: [organization_id, integration_configuration_revision]
+        target_table: pkk_integration_configuration_revisions
+        target_columns: [organization_id, execution_configuration_revision]
+        on_update: RESTRICT
+        on_delete: RESTRICT
+      runtime_attempt_binding_immutable_after_insert: true
+      first_attempt_and_each_retry_bind_independently: true
+      retry_after_configuration_change_may_bind_new_current_revision: true
+      old_attempt_revision_rewritten_to_new_revision: false
+      operation_row_itself_becomes_mutable_current_configuration_authority: false
+
+    attempt_creation_or_retry_binding_transaction:
+      preserves_DB_PKK_004_attempt_sequence_and_one_replay_blocking_attempt_boundary: true
+      lock_prefix:
+        - acquire_organization_PKK_execution_lock
+        - lock_exact_pkk_operation_FOR_UPDATE_for_attempt_sequence_and_retry_eligibility
+        - lock_or_share_organization_settings_and_read_current_pkk_integration_settings
+      checks_before_attempt_insert:
+        - exact_operation_tenant_course_profile_context_from_DB_PKK_001
+        - current_operation_retry_or_initial_attempt_eligibility_from_DB_PKK_003_004
+        - readiness_status_is_operation_ready_under_DB_PKK_003_adapter_capability_rule
+        - current_configuration_revision_has_exact_append_only_revision_row
+        - current_configuration_binding_HMAC_recomputes_to_revision_evidence
+        - no_replay_blocking_attempt_conflict
+      created_attempt_gets_current_exact_execution_configuration_revision: true
+      provider_IO_inside_binding_transaction: false
+
+    dispatch_claim_configuration_recheck:
+      DB_PKK_004_existing_attempt_row_FOR_UPDATE_claim_preserved: true
+      additional_prefix_before_existing_claim:
+        - acquire_organization_PKK_execution_lock
+      short_claim_transaction_steps:
+        - lock_attempt_FOR_UPDATE
+        - require_status_prepared
+        - read_current_organization_settings_and_pkk_integration_settings_under_same_execution_lock
+        - compare_attempt_bound_revision_to_current_execution_configuration_revision
+        - verify_current_configuration_binding_HMAC_matches_bound_revision
+        - if_match_transition_prepared_to_dispatching_and_set_dispatch_started_at
+        - if_mismatch_transition_prepared_to_safe_failed_without_provider_IO
+        - commit
+      provider_network_IO_after_claim_commit: true
+      exact_execution_material_loaded_only_from_revision_matching_current_settings: true
+      external_login_or_future_secret_plaintext_persisted_on_attempt: false
+      ephemeral_decrypted_execution_material_may_live_only_in_worker_memory_for_minimum_dispatch_window: true
+      configuration_changed_before_dispatch_is_unknown_external_effect: false
+      configuration_changed_before_dispatch_classification: safe_local_pre_dispatch_failure
+      stale_attempt_may_silently_dispatch_with_new_configuration: false
+
+    configuration_change_vs_attempt_state:
+      prepared_attempt_exists:
+        material_configuration_change_allowed: true
+        prepared_attempt_revision_rebound: false
+        later_dispatch: safe_fail_before_IO_due_revision_mismatch
+      dispatching_attempt_exists:
+        material_configuration_change: reject_conflict
+        reason: preserve_same_execution_identity_until_transport_result_is classified
+      effect_unknown_attempt_exists:
+        material_configuration_change: reject_conflict
+        reason: preserve_configuration_needed_for_fail_closed_reconciliation
+      succeeded_safe_failed_reconciled_terminal_attempts_only:
+        material_configuration_change: allowed
+      generic_non_PKK_settings_change_while_dispatching_or_effect_unknown: allowed_if_it_does_not_change_execution_configuration_or_readiness
+
+    reconciliation_configuration_boundary:
+      reconciliation_history_authority_from_DB_PKK_004_preserved: true
+      reconciliation_that_calls_provider_must_use_same_bound_attempt_configuration_revision: true
+      before_provider_reconciliation_IO:
+        - acquire_organization_PKK_execution_lock
+        - lock_exact_attempt_and_operation_as_required_by_DB_PKK_004
+        - require_current_execution_configuration_revision_equals_attempt_bound_revision
+        - verify_configuration_binding_HMAC
+        - commit_local_claim_before_network_IO_if_command_model_requires_claim
+      assume_provider_reconciliation_is_configuration_independent: false
+      current_configuration_mismatch_during_effect_unknown: impossible_for_normal_settings_command_due_change_block
+      security_or_emergency_configuration_revocation_may_break_liveness: true
+      emergency_revocation_safety_behavior: fail_closed_and_manual_security_remediation_not_silent_new_identity_reconciliation
+
+    readiness_and_verification_semantics:
+      readiness_catalog_preserved: [not_configured, configured_unverified, verified, requires_attention]
+      exact_provider_connection_test_semantics_invented: false
+      configured_unverified_operation_ready_rule: preserve_DB_PKK_003_adapter_capability_dependent_rule
+      readiness_status_snapshot_is_provider_verification_proof_by_itself: false
+      future_verified_test_or_credential_reference_may_extend_revision_evidence_only_after_verified_adapter_contract: true
+      operation_attempt_cannot_bypass_current_readiness_recheck: true
+
+    security_and_history_policy:
+      revision_table_contains_plaintext_external_osk_login: false
+      revision_table_contains_plaintext_future_secret: false
+      operation_or_attempt_contains_plaintext_external_osk_login: false
+      operation_or_attempt_contains_plaintext_future_secret: false
+      external_login_full_value_in_audit_or_activity: forbidden
+      historical_revision_is_evidence_of_configuration_binding_not_secret_archive: true
+      secret_manager_key_or_credential_material_copy_into_database_history: forbidden
+      revision_hashes_exposed_as_bearer_credentials: false
+
+    migration_policy:
+      current_pkk_integration_settings_may_receive_legacy_baseline_revision_1_only_when_current_logical_values_are_decryptable_and_exact: true
+      legacy_baseline_claims_prior_configuration_history: false
+      legacy_baseline_revision_origin: legacy_baseline
+      historical_provider_attempt_without_exact_configuration_evidence:
+        bind_to_current_or_nearest_revision_by_timestamp: forbidden
+        bind_using_updated_at_or_created_at_heuristic: forbidden
+        required_action: preserve_null_legacy_binding_and_flag_reviewed_historical_evidence_gap_until_remediated
+      historical_attempt_may_bind_baseline_only_with_trusted_evidence_same_configuration_was_used: true
+      reconstruct_external_login_from_logs_or_audit: forbidden
+      invent_missing_secret_reference_or_verification_epoch: forbidden
+      provider_call_to_reconstruct_historical_configuration: forbidden
+      migration_does_not_rewrite_DB_PKK_001_through_DB_PKK_006_history: true
+
+    Stage5_API_sync_gaps_recorded_not_fixed:
+      exact_HTTP_error_for_configuration_changed_before_dispatch: pending_acceptance_contract_sync
+      exact_admin_surface_for_blocked_configuration_change_due_effect_unknown: pending_acceptance_contract_sync
+      crypto_or_secret_manager_configuration_fields_exposed_by_API: false
+      exact_provider_execution_schema_remains_adapter_owned: true
+      API_files_modified_in_DB_PKK_007: false
+
+    required_tests:
+      - material_PKK_configuration_change_increments_execution_configuration_revision_and_appends_exactly_one_revision
+      - unrelated_company_or_UI_settings_change_does_not_increment_execution_configuration_revision
+      - user_name_change_alone_does_not_create_fake_provider_execution_revision
+      - configuration_revision_external_login_binding_uses_keyed_HMAC_not_plaintext_or_unkeyed_digest
+      - runtime_attempt_must_bind_exact_same_tenant_current_configuration_revision
+      - attempt_configuration_binding_is_immutable_after_insert
+      - retry_after_configuration_change_creates_new_attempt_bound_to_new_revision_without_rewriting_old_attempt
+      - prepared_attempt_after_configuration_change_safe_fails_before_provider_IO
+      - prepared_attempt_cannot_silently_dispatch_using_new_configuration
+      - material_configuration_change_is_rejected_while_dispatching_attempt_exists
+      - material_configuration_change_is_rejected_while_effect_unknown_attempt_exists
+      - non_PKK_settings_change_does_not_false_block_on_dispatching_attempt
+      - dispatch_claim_with_matching_revision_preserves_DB_PKK_004_single_sender_boundary
+      - configuration_revision_or_binding_hash_mismatch_prevents_dispatch
+      - provider_IO_occurs_after_local dispatch claim transaction commits
+      - reconciliation_provider_call_uses_same_attempt_bound_revision
+      - emergency_security_revocation_fails_closed_instead_of_reconciling_under_new identity
+      - external_osk_login_or_future_secret_plaintext_never_enters revision operation attempt audit or logs
+      - legacy_attempt_is_not_bound_to_current_configuration_by_timestamp_or updated_at guessing
+      - DB_PKK_001_through_DB_PKK_006_are_preserved
+      - DB_PKK_008_remains_open
+
+    self_audit:
+      settings_concurrency_root_preserved: PASS
+      separate_execution_configuration_revision_closed: PASS
+      append_only_revision_history_closed: PASS
+      exact_attempt_revision_binding_closed: PASS
+      async_dispatch_revision_recheck_closed: PASS
+      prepared_stale_attempt_safe_fail_without_IO_closed: PASS
+      dispatching_effect_unknown_configuration_change_interlock_closed: PASS
+      retry_may_bind_new_revision_without_rewriting_old_attempt: PASS
+      reconciliation_same_revision_boundary_closed: PASS
+      no_plaintext_external_login_or_secret_history_created: PASS
+      provider_specific_execution_schema_not_invented: PASS
+      DB_PKK_001_exact_target_integrity_preserved: PASS
+      DB_PKK_002_snapshot_history_preserved: PASS
+      DB_PKK_003_lifecycle_and_readiness_preserved: PASS
+      DB_PKK_004_idempotency_dispatch_reconciliation_preserved: PASS
+      DB_PKK_005_signed_XML_evidence_preserved: PASS
+      DB_PKK_006_payload_security_preserved: PASS
+      DB_PKK_008_latest_projection_not_solved: PASS
+      aggregate_core_schema_modified: false
+      aggregate_docs87_modified: false
+      API_files_modified: false
+      Laravel_migrations_created: false
+      DB4_9_or_later_entered: false
+      Stage5_started: false
+      UI_or_feature_implementation_started: false
+
 blockers:
   - id: DB-PKK-001
     title: same_tenant_and_exact_course_profile_operation_attempt_integrity
@@ -2151,7 +2433,8 @@ blockers:
   - id: DB-PKK-007
     title: integration_configuration_revision_binding_and_async_execution_context
     severity: P1
-    status: OPEN
+    status: RESOLVED
+    resolution_ref: resolved_contracts.DB-PKK-007
     diagnosis:
       - pkk_integration_settings_has_readiness_and_updated_at_while_organization_settings_version_is_the_current_settings_concurrency_root
       - provider_operations_can_be_async_or_retried_after_configuration_changes
@@ -2196,11 +2479,10 @@ diagnosis_summary:
   diagnosed_P0: 0
   diagnosed_P1: 8
   resolved_in_diagnosis: 0
-  resolved_after_diagnosis: 6
-  open_P0_P1: 2
-  result: FAIL_WITH_2_P1_BLOCKERS
+  resolved_after_diagnosis: 7
+  open_P0_P1: 1
+  result: FAIL_WITH_1_P1_BLOCKER
   blockers_in_required_fix_order:
-    - DB-PKK-007
     - DB-PKK-008
 
 API_contract_sync_gaps_recorded_not_fixed:
@@ -2212,7 +2494,7 @@ API_contract_sync_gaps_recorded_not_fixed:
   API_files_modified_in_DB4_8_diagnosis: false
 
 preservation_gate:
-  status: PASS_DB_PKK_006
+  status: PASS_DB_PKK_007
   checks:
     no_blocker_fixed_during_diagnosis: true
     DB4_4_course_PKK_identity_contract_preserved: true
@@ -2242,11 +2524,12 @@ preservation_gate:
     DB_PKK_004_idempotency_retry_reconciliation_exactly_once_external_effect_closed: true
     DB_PKK_005_signed_XML_handoff_and_FileAsset_evidence_integrity_closed: true
     DB_PKK_006_sensitive_payload_encryption_redaction_hash_key_version_boundary_closed: true
-    DB_PKK_007_and_DB_PKK_008_remain_open: true
+    DB_PKK_007_integration_configuration_revision_binding_and_async_execution_context_closed: true
+    DB_PKK_008_remains_open: true
 
 next_single_step_after_central_gate:
-  id: DB_PKK_007_INTEGRATION_CONFIGURATION_REVISION_BINDING_AND_ASYNC_EXECUTION_CONTEXT
-  action: resolve_DB_PKK_007_only_after_next_explicit_user_instruction
+  id: DB_PKK_008_DETERMINISTIC_OPERATION_HISTORY_LATEST_AND_COURSE_SUMMARY_PROJECTION
+  action: resolve_DB_PKK_008_only_after_next_explicit_user_instruction
   allowed_scope:
     - specs/database/pkk.yml
     - docs/113-stage-4-pkk-audit.md
@@ -2254,4 +2537,4 @@ next_single_step_after_central_gate:
   aggregate_files_frozen:
     - specs/database/core-schema.yml
     - docs/87-physical-database-schema.md
-  stop_before: DB_PKK_008_DETERMINISTIC_OPERATION_HISTORY_LATEST_AND_COURSE_SUMMARY_PROJECTION
+  stop_before: DB4_8_FINAL_AGGREGATE_SYNC
