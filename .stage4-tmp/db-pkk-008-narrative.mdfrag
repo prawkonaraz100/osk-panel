@@ -1,0 +1,137 @@
+## 25. DB-PKK-008 — wynik fixera: PASS
+
+### 25.1. Cel
+
+DB-PKK-008 zamyka ostatni blocker DB4_8: deterministyczną kolejność business operations PKK dla jednego kursu oraz jednoznaczne projekcje `Ostatnia operacja PKK` i `Historia operacji PKK (N)`.
+
+Nie tworzymy drugiego stanu kursu ani mutowalnego licznika. Authority pozostaje `pkk_operations`.
+
+### 25.2. Course-scoped operation sequence
+
+`pkk_operations` otrzymuje `course_operation_sequence`:
+- `bigint`,
+- runtime `NOT NULL`,
+- minimum `1`,
+- unikalne w `(organization_id, course_enrollment_id, course_operation_sequence)`.
+
+Sekwencja jest przydzielana jako `max + 1` pod istniejącym pierwszym lockiem `course_enrollment FOR UPDATE` z DB-PKK-003. Nie wprowadzamy nowego locka przed Course i nie odwracamy ustalonego lock order.
+
+Sekwencja jest immutable po insercie. Zmiana lifecycle, późne zakończenie operacji, retry, reconciliation ani podpis XML nie zmieniają numeru business operation.
+
+### 25.3. Latest operation
+
+`Ostatnia operacja PKK` jest projekcją operacji o najwyższym `course_operation_sequence` dla dokładnego kursu.
+
+Nie wolno wybierać latest przez:
+- `completed_at`,
+- `created_at` po runtime cutover,
+- UUID,
+- status ostatniego transport Attempt.
+
+Asynchroniczne późniejsze zakończenie starszej operacji nie może zmienić tego, która business operation jest najnowsza.
+
+Jeżeli kurs nie ma operacji, projekcja latest jest `null`; UI może nadal prezentować zaobserwowane `Brak operacji`.
+
+### 25.4. Historia przez rewizje PKK
+
+Historia jest per `course_enrollment`, a nie tylko per current `PkkProfile`.
+
+Zmiana/supersession rewizji identity PKK nie resetuje `course_operation_sequence` i nie usuwa wcześniejszych operacji tego samego kursu. Jeden kurs ma jeden ciąg business operations przez wszystkie własne rewizje `PkkProfile`.
+
+### 25.5. Operation count a transport Attempt count
+
+`Historia operacji PKK (N)` = `COUNT(pkk_operations)` dla dokładnego kursu.
+
+Do N nie zaliczamy:
+- retry Attempt,
+- dodatkowego provider Attempt,
+- reconciliation event,
+- signature handoff,
+- crypto/redaction evidence.
+
+Retry działa na istniejącej business operation i nie przydziela nowego `course_operation_sequence`.
+
+Transport Attempt count pozostaje osobną metryką i nie może być prezentowany jako liczba operacji PKK.
+
+### 25.6. Stable history order i pagination
+
+Jedynym canonical order key jest `course_operation_sequence`.
+
+Historia może być prezentowana `ASC` albo `DESC`, ale kierunek musi być jawnie ustalony przez API/UI. DB-PKK-008 nie wymyśla niewidocznego zachowania konkurenta; obecny Stage-3 endpoint ma `page/per_page`, ale nie ma jeszcze jawnego sort contractu, więc dokładny default direction pozostaje Stage-5 acceptance sync.
+
+Unikalna sekwencja usuwa problem timestamp ties. Nie potrzeba UUID ani timestamp secondary tie-breakera.
+
+Offset pagination jest stabilna dla danego statycznego zbioru. Jeżeli produkt będzie wymagał ścisłej stabilności między kolejnymi requestami podczas równoległych insertów, Stage 5 powinien wykorzystać sequence jako cursor/anchor zamiast udawać, że offset gwarantuje brak przesunięć.
+
+### 25.7. Course summary pozostaje projekcją
+
+Karta kursu nadal składa się z canonical danych kursu/PKK oraz dwóch projekcji:
+- `last_pkk_operation`,
+- `pkk_operation_history_count`.
+
+Nie dodajemy authority typu `course_enrollments.last_pkk_operation_id` ani mutowalnego `pkk_operations_count`.
+
+Ewentualny przyszły cache/materialized view może istnieć wyłącznie jako rebuildable non-authoritative projection.
+
+`last_pkk_operation.business_status` nie jest ani `training_stage`, ani profile-sync state.
+
+### 25.8. Migracja legacy — fail closed
+
+Backfill `course_operation_sequence` przebiega per exact organization+course.
+
+Dozwolone źródła kolejności:
+1. silniejszy, wiarygodny zachowany dowód kolejności utworzenia business operation,
+2. jeżeli go brak — `created_at`, ale tylko gdy wartości są ściśle unikalne w obrębie kursu i nie ma sprzecznego silniejszego dowodu.
+
+Jeżeli legacy rows mają równy `created_at` i brak wiarygodnego dowodu kolejności, migracja nie może użyć:
+- UUID,
+- `completed_at`,
+- provider response timestamp,
+- kolejności zakończenia async.
+
+Taki przypadek wymaga reviewed historical remediation. Nie wołamy providera w migracji, aby „odtworzyć” historię.
+
+Po backfillu wymagamy: non-null sequence, brak duplikatów, start od 1 i `max(sequence) = COUNT(operations)` dla czystej historii kursu.
+
+### 25.9. Zachowanie poprzednich kontraktów
+
+DB-PKK-001…007 pozostają zachowane:
+- exact tenant/course/profile integrity,
+- immutable provider snapshots,
+- operation lifecycle,
+- idempotency/retry/reconciliation,
+- signed XML evidence,
+- payload security,
+- exact integration configuration revision binding.
+
+DB-PKK-008 nie modyfikuje API, agregatów, migracji Laravel ani UI.
+
+### 25.10. Self-audit
+
+- deterministic course operation sequence: PASS,
+- concurrent allocation boundary: PASS,
+- async completion cannot reorder latest: PASS,
+- latest = max sequence: PASS,
+- operation count != attempt count: PASS,
+- stable timestamp-tie ordering: PASS,
+- no mutable second course-summary authority: PASS,
+- legacy tie is not guessed: PASS,
+- DB-PKK-001…007 preserved: PASS,
+- `core-schema.yml` frozen: PASS,
+- `docs/87...` frozen: PASS,
+- DB4_9 not entered: PASS,
+- Stage 5 not started: PASS,
+- Laravel migrations not created: PASS,
+- UI/feature implementation not started: PASS.
+
+### 25.11. Stan DB4_8 po fixerze
+
+- P0 OPEN: **0**,
+- P1 OPEN: **0**,
+- resolved: **8/8**,
+- blocker result: **PASS**,
+- slice result: **BLOCKERS_RESOLVED_PENDING_DB4_8_FINAL_AGGREGATE_SYNC**.
+
+DB4_8 nie otrzymuje jeszcze finalnego `PASS`, ponieważ `core-schema.yml` i `docs/87...` nadal są celowo zamrożone. Następny osobny etap to wyłącznie `DB4_8_FINAL_AGGREGATE_SYNC`.
+
+**STOP przed DB4_8 final aggregate sync.**
