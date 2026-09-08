@@ -2,7 +2,7 @@
 
 Data: 2026-09-07
 
-**Status:** `IMPLEMENTATION_BLUEPRINT / DB4_7_INTERNAL_EXAMS_AGGREGATE_SYNC_PASS`
+**Status:** `IMPLEMENTATION_BLUEPRINT / DB4_8_PKK_AGGREGATE_SYNC_PASS`
 
 > To nie są jeszcze migracje Laravel. To fizyczny blueprint tabel, indeksów, constraintów i najważniejszych transakcji zgodny z canonical domain model. Machine-readable odpowiednik: `specs/database/core-schema.yml`. Przy konflikcie machine spec + późniejszy ADR wygrywa. Reverse-engineered scope chronią `docs/96-reverse-engineering-preservation-contract.md` i `specs/reverse-engineering-manifest.yml`. Cross-layer kompletność kontroluje `specs/traceability/core-v1.yml`.
 
@@ -13,6 +13,8 @@ DB4_5 Calendar został zsynchronizowany z `specs/database/calendar.yml` po zamkn
 DB4_6 Licenses / Learning Access został zsynchronizowany z `specs/database/licenses-learning-access.yml` po zamknięciu DB-LIC-001..007. Rozszerzenia Identity i Student Learning Access, sekcja 17 oraz odpowiadające constrainty, transakcje, security boundary, migration order i invariant tests są agregatową projekcją tego kontraktu.
 
 DB4_7 Internal Exams został zsynchronizowany z `specs/database/internal-exams.yml` po zamknięciu DB-EXAM-001..008. Sekcja 18 oraz odpowiadające jej same-tenant boundaries, inventory ledger, Attempt/Access lifecycle, token i Station security, immutable exam evidence, deterministyczna management projection, lock orders, migration safety i invariant tests są agregatową projekcją zamkniętego kontraktu.
+
+DB4_8 PKK został zsynchronizowany z `specs/database/pkk.yml` po zamknięciu DB-PKK-001..008. Sekcja 14 oraz odpowiadające jej exact same-tenant provider boundaries, snapshot/lifecycle/attempt/reconciliation history, signed XML evidence, payload encryption/redaction, execution-configuration revision binding, deterministyczna course operation history, migration safety i invariant tests są agregatową projekcją zamkniętego kontraktu.
 
 ---
 
@@ -1176,123 +1178,191 @@ Current OSK formal time = signed sum Ledger per `Course + training_part`. Course
 
 ---
 
-# 14. PKK — local course identity + provider boundary
+# 14. PKK — DB4_8 aggregate
 
-## `pkk_integration_settings`
+Canonical szczegóły: `specs/database/pkk.yml`, audyt `docs/113-stage-4-pkk-audit.md`, DB-PKK-001..008. Lokalna identity PKK z DB4_4 pozostaje częścią Course, a DB4_8 domyka provider lifecycle, retry/reconciliation, podpisany XML, ochronę payloadów, execution-configuration history i deterministyczną historię operacji.
 
-Canonical one-to-one konfiguracja PKK dla organizacji, wspólna dla `/ustawienia` i configuration gate.
+## 14.1 Authority i granica Course/PKK/provider
 
-- `organization_id uuid PK/FK organizations`
-- `school_name varchar(255) null`
-- `osk_registry_number varchar(128) null`
-- `external_osk_login_ciphertext text null`
-- `external_osk_login_lookup_hash char(64) null`
-- `readiness_status varchar(32) not null default 'not_configured'`
-- `updated_at timestamptz`
+Canonical business owner integracji pozostaje dokładny `course_enrollment`. `pkk_profiles` jest wyłącznie wersjonowaną historią lokalnej identity PKK. Provider observation, operation lifecycle, transport attempts, reconciliation i security evidence mają osobne append-only authorities; nie dopisujemy drugiego mutable statusu na Course ani PkkProfile.
 
-`readiness_status`: `not_configured|configured_unverified|verified|requires_attention`.
+Provider-specific schema, katalog zewnętrznych statusów, natywne idempotency/reconciliation semantics i reguły XAdES pozostają adapter-owned i nie są fabrykowane w bazie.
 
-Konfiguracja providera jest osobnym konceptem. Brak zweryfikowanej konfiguracji nie blokuje lokalnego atomowego zapisu Course + wymaganej identity PKK; blokuje/warunkuje późniejsze provider operations w DB4_8.
+## 14.2 `pkk_integration_settings` i execution revision
 
-## `pkk_profiles`
-
-Canonical owner course-scoped identity PKK oraz jej wersjonowanej historii. Nie ma drugiej kopii PKK na `course_enrollments`.
-
-- `id uuid PK`
-- `organization_id uuid not null`
-- `course_enrollment_id uuid not null`
-- `pkk_number_ciphertext text not null`
-- `pkk_lookup_hash char(64) not null`
-- `identity_revision bigint not null check >= 1`
-- `bound_driving_category_id uuid not null`
-- `bound_training_type varchar(32) not null`
-- `record_origin varchar(32) not null` — `course_create|course_edit|context_revalidation|migration_baseline`
-- `recorded_at timestamptz not null`
-- `recorded_by_user_id uuid null only for migration baseline`
-- `supersedes_pkk_profile_id uuid null`
-- `superseded_at timestamptz null`
-- `superseded_by_user_id uuid null`
-- `status varchar(64) null` — provider lifecycle ownership DB4_8
-- `profile_snapshot_ciphertext text null`
-- `profile_snapshot_redacted jsonb null`
-- `fetched_at timestamptz null`
+Canonical one-to-one settings record zachowuje:
+- `organization_id`,
+- `school_name`,
+- `osk_registry_number`,
+- szyfrowany `external_osk_login`,
+- `readiness_status`,
+- `execution_configuration_revision bigint >= 1`,
 - `updated_at`.
 
-Current predicate: `superseded_at IS NULL`.
+`organization_settings.version` nadal jest concurrency root całych ustawień OSK. `execution_configuration_revision` ma inną rolę: zwiększa się tylko przy materialnej zmianie konfiguracji wpływającej na wykonanie PKK. Zmiana niezwiązanych ustawień OSK nie tworzy fałszywej rewizji PKK.
 
-Composite same-tenant Course FK:
-`(organization_id,course_enrollment_id) -> course_enrollments(organization_id,id)`.
+## 14.3 `pkk_integration_configuration_revisions`
 
-Candidate key `(organization_id,id,course_enrollment_id)` pozwala lineage self-FK:
-`(organization_id,supersedes_pkk_profile_id,course_enrollment_id) -> pkk_profiles(organization_id,id,course_enrollment_id)`.
+Append-only historia dokładnego kontekstu wykonawczego providera:
+- tenant + `execution_configuration_revision`,
+- `organization_settings_version_at_capture`,
+- bezpieczne snapshoty znanych nie-sekretnych pól,
+- HMAC binding logicznej wartości external OSK login zamiast plaintext history,
+- readiness snapshot,
+- canonical `configuration_binding_hmac`,
+- provenance i `created_at`.
 
-Constraints:
-- unique `(organization_id,course_enrollment_id,identity_revision)`,
-- partial unique `(organization_id,course_enrollment_id) WHERE superseded_at IS NULL`,
-- partial unique `(organization_id,supersedes_pkk_profile_id) WHERE supersedes_pkk_profile_id IS NOT NULL`,
-- source musi być current przed replacement; self-reference/cycle/branching zabronione.
+Unique `(organization_id,execution_configuration_revision)`. Rewizje są bezlukowe dla committed runtime material changes i nie są wybierane po `updated_at`/UUID. Provider Attempt wskazuje dokładną rewizję używaną do danego external call; binding jest immutable.
 
-Deferrable required-current-profile guard wymaga po commit **dokładnie jednego current `pkk_profile` dla każdego CourseEnrollment** oraz zgodności `bound_driving_category_id` i `bound_training_type` z finalnym Course.
+## 14.4 `pkk_profiles` — identity pozostaje oddzielona od provider snapshot
 
-PKK write contract:
-1. plaintext tylko na autoryzowanym command boundary,
-2. jedna canonical normalization,
-3. z tego samego normalized inputu powstają ciphertext + HMAC lookup hash,
-4. zapis obu atomowo,
-5. plaintext nie trafia do Course, historii, audit ani outbox.
+DB4_4 identity contract pozostaje bez zmian: dokładnie jeden current profile per Course, historyczne revisions pozostają, plaintext PKK nie jest persistowany, context revalidation jest Course-serialized.
 
-DB4_4 świadomie **nie** wprowadza hard unique na `pkk_lookup_hash`, bo duplicate/collision policy nie została potwierdzona. Lookup hash służy do bezpiecznego authorized collision detection; exact provider/legal collision policy pozostaje DB4_8 + legal/product verification.
+Provisional `status/profile_snapshot/fetched_at` na identity row przestają być runtime authority po bezpiecznym cutover. Nowa identity revision nie dziedziczy automatycznie provider observation starej rewizji.
 
-Course create atomowo zapisuje:
-- CourseEnrollment,
-- current PkkProfile `identity_revision=1`, `record_origin=course_create`,
-- requirement context/current RequirementProfile,
-- initial external rows, jeśli są dodatnie,
-- Course lifecycle `created` event,
-- audit/outbox.
+## 14.5 `pkk_provider_profile_snapshots`
 
-Błąd PKK encryption/hash/profile insert rollbackuje cały Course create. Provider fetch nie jest wymagany przed lokalnym commit.
+Append-only observations providera dla exact `Course + PkkProfile`:
+- explicit same-tenant exact context,
+- `snapshot_revision bigint >= 1`,
+- immutable normalized snapshot evidence,
+- `snapshot_content_hash`,
+- provider-neutral metadata/provenance,
+- captured/fetched time.
 
-Zmiana PKK nie nadpisuje current profile in-place. Stary row jest superseded, a successor dostaje `identity_revision+1`, finalny Course context i `record_origin=course_edit`. Ten sam normalized PKK = identity-history no-op.
+Runtime revision jest alokowana pod exact Profile lock i jest bezlukowa dla committed rows. Current provider projection = `MAX(snapshot_revision)` wyłącznie dla **current PkkProfile**. Timestamp i UUID nie są latest authority; snapshot superseded identity nie jest fallbackiem dla nowej identity.
 
-Zmiana category/training type wymaga revalidation PKK context w tej samej Course-serialized transakcji. Kompatybilny ten sam PKK może dostać `context_revalidation` successor bez ponownego plaintextu; incompatibility/unknown bez replacement PKK blokuje Course context change. Nie kodujemy niezweryfikowanej macierzy provider/legal compatibility.
+Provider snapshot nie nadpisuje automatycznie Student/Course.
 
-Cancel/restore Course nie kasuje ani nie supersede'uje PKK i nie wykonuje ukrytego provider return/fetch.
+## 14.6 `pkk_operations` — business operation authority
 
-## `pkk_operations`
+Każdy runtime provider command tworzy jeden business operation exact-bound do tenant/Course/PkkProfile.
 
-- `id uuid PK`
-- `organization_id uuid FK`
-- `course_enrollment_id uuid FK`
-- `pkk_profile_id uuid null FK`
-- `operation_type varchar(64)`
-- `business_status varchar(32)`
-- `idempotency_key uuid null`
-- `request_id varchar(64)`
-- `request_snapshot_redacted jsonb null`
-- `request_payload_ciphertext text null`
-- `actor_user_id uuid`
-- `created_at`
-- `completed_at timestamptz null`.
+Canonical operation types:
+`fetch_profile|update_and_return|return_to_school|return_to_authority|return_expired`.
 
-## `pkk_operation_attempts`
+Canonical business lifecycle:
+`draft|pending|requires_signature|submitted|success|failed|cancelled`.
 
-- `id uuid PK`
-- `pkk_operation_id uuid FK`
-- `attempt_no integer`
-- `provider_request_id varchar(128) null`
-- `transport_status varchar(32)`
-- `provider_status_code varchar(64) null`
-- `error_class varchar(64) null`
-- `retryable boolean`
-- `normalized_response_redacted jsonb null`
-- `provider_response_ciphertext text null`
-- `started_at`
-- `finished_at timestamptz null`.
+`success|cancelled` są terminalne. `failed -> pending` jest dozwolone tylko przez jawny retry contract. Generic status PATCH jest zabroniony.
 
-Unique `(pkk_operation_id,attempt_no)`.
+Operation ma m.in.:
+- immutable exact context,
+- `version`,
+- confirmation evidence dla mutujących return operations,
+- current-cycle `completed_at`,
+- immutable `course_operation_sequence`.
 
-**DB4_4 synchronizuje tylko local required course PKK identity.** Exact provider configuration verification, fetch/update/return/XML-signature/status/retry/idempotency/reconciliation i operation-attempt constraints pozostają do osobnego DB4_8.
+Partial unique blokuje więcej niż jedną active operation (`draft|pending|requires_signature|submitted`) dla exact current Profile. Command creation serializuje się lock orderem `Course -> exact current PkkProfile -> OrganizationSettings`. Provider I/O odbywa się dopiero po lokalnym commit.
+
+## 14.7 `pkk_operation_lifecycle_events`
+
+Append-only history materialnych wersji Operation:
+- tenant + operation,
+- `operation_version`,
+- from/to business status,
+- event origin,
+- actor/reason,
+- `occurred_at`.
+
+Unique `(organization_id,pkk_operation_id,operation_version)`. Final-state guard wymaga zgodności current Operation version/status z najnowszym lifecycle row. Nie rekonstruujemy brakującej historii z `updated_at`.
+
+## 14.8 `pkk_operation_attempts` — transport, nie business history
+
+Provider Attempt jest exact child Operation/Course/PkkProfile i ma jawny tenant key. Runtime attempt number jest alokowany pod Operation lock; retry tworzy **nowy Attempt, nie nowy business Operation**.
+
+Attempt przechowuje provider-neutral transport state, request/correlation identifier, error classification, exact command-idempotency binding, optional signature handoff binding oraz immutable `integration_configuration_revision` używaną do external call.
+
+Przed send worker musi wygrać atomowy dispatch claim. Jednocześnie może istnieć maksymalnie jeden replay-blocking Attempt dla jednej Operation.
+
+Timeout/connection loss po możliwym dispatchu nie jest zwykłym `failed`; staje się `effect_unknown` i blokuje drugi send/retry do czasu rozstrzygnięcia.
+
+## 14.9 `pkk_operation_attempt_reconciliations`
+
+Append-only, sekwencjonowana historia prób ustalenia external effect exact Attemptu. Conclusive `no_effect` może odblokować jawny retry po ponownych business rechecks. Conclusive `effect_present` zabrania replay. Inconclusive albo brak wiarygodnej reconciliation oznacza fail-closed — tracimy liveness zamiast ryzykować podwójny return/update.
+
+System nie twierdzi, że sieć zapewnia native exactly-once; gwarancja aplikacji polega na tym, że nie wykonuje świadomie drugiego dispatchu, gdy poprzedni efekt może już istnieć.
+
+## 14.10 Signed XML handoff
+
+Jeżeli **zweryfikowany adapter flow** wymaga external XML signature, używamy:
+- `pkk_signature_handoffs`,
+- `pkk_signature_handoff_upload_reservations`,
+- istniejącego `file_assets`.
+
+`requires_signature` nie może być tylko etykietą UI: operation musi mieć exact same-tenant unsigned artifact z purpose `pkk_unsigned_xml_to_sign`, ready state i hash zgodny z FileAsset. Signed upload ma purpose `pkk_signed_xml_return`, exact reservation dla jednego handoffu i jest przypinany write-once.
+
+Arbitrary same-tenant upload nie może zostać użyty dla innej Operation/Handoff. Referenced unsigned/signed artifact nie jest normalnie usuwany ani podmieniany pod tym samym FileAsset identity.
+
+`requires_signature -> submitted` i utworzenie dokładnego submission Attempt commitują atomowo. Provider dispatch następuje po commit. DB nie udaje walidatora XAdES bez zweryfikowanego provider contract.
+
+## 14.11 Protected provider payload i safe projection
+
+Raw provider payload przechowujemy tylko, gdy versioned retention policy tego wymaga. Runtime modes:
+- `redacted_only`,
+- `encrypted_raw_plus_redacted`.
+
+Canonical raw evidence authority: `pkk_protected_payloads`. Każdy retained raw payload używa authenticated encryption; runtime crypto profile v1 to AES-256-GCM, random 256-bit DEK, 96-bit nonce i 128-bit authentication tag. AAD wiąże ciphertext z tenantem, rolą payloadu, exact parentem i crypto profile. Plaintext raw provider payload nie trafia do durable DB.
+
+`pkk_protected_payload_key_wrappings` przechowuje append-only wrapping revisions. KEK rotation rewrapuje ten sam DEK i **nie** przepisuje business ciphertextu, nonce/tag, snapshot hash ani Operation history.
+
+Safe UI projection ma osobną append-only historię `pkk_payload_redacted_projections`. Redaction jest allowlist-based, versioned i deny-by-default dla nieznanych provider fields. Zmiana polityki tworzy nową projection revision zamiast nadpisywania starej.
+
+Raw payload/error body jest zabroniony w audit, activity feed, outbox, notifications, idempotency safe response, application logs i generic error message.
+
+## 14.12 PKK XML storage confidentiality
+
+FileAsset zachowuje rolę identity/integrity pliku, a `FileAsset.sha256` pozostaje hashem zweryfikowanego **plaintext XML content**. Finalny storage object unsigned/signed PKK XML musi jednak być application-encrypted przed `ready`.
+
+`pkk_signature_file_asset_protections` zapisuje crypto metadata/encrypted-object hash, a `pkk_signature_file_asset_key_wrappings` append-only DEK wrapping history. Rotacja klucza nie zmienia FileAsset hash, handoff binding ani encrypted object bytes. Temporary plaintext quarantine jest usuwane po successful finalization.
+
+## 14.13 Configuration change vs async execution
+
+Per-organization PKK execution serialization boundary jest współdzielona przez:
+- material configuration update,
+- provider attempt creation/retry binding,
+- dispatch claim,
+- reconciliation, która może komunikować się z providerem.
+
+Materialna zmiana konfiguracji jest odrzucana, gdy istnieje `dispatching` albo `effect_unknown` Attempt wymagający starego kontekstu. `prepared` Attempt po zmianie rewizji nie przechodzi cicho na nowe ustawienia — failuje przed provider I/O. Retry może utworzyć nowy Attempt jawnie związany z nową current configuration revision, bez przepisywania starej historii.
+
+## 14.14 Deterministyczna historia i course summary
+
+`pkk_operations.course_operation_sequence` jest monotoniczną sekwencją per `(organization_id,course_enrollment_id)`, alokowaną pod istniejącym pierwszym `CourseEnrollment FOR UPDATE`. Unique `(organization_id,course_enrollment_id,course_operation_sequence)`. Runtime committed sequence jest bezlukowa i immutable.
+
+Historia obejmuje wszystkie PkkProfile revisions tego samego Course. Profile supersession nie zeruje sekwencji.
+
+Canonical read model:
+- `Ostatnia operacja PKK` = Operation z `MAX(course_operation_sequence)` dla exact Course,
+- `Historia operacji PKK (N)` = `COUNT(pkk_operations)` dla exact Course,
+- zero operations -> latest `NULL`, count `0`,
+- default history order = `course_operation_sequence DESC`.
+
+`created_at`, `completed_at`, provider response time ani UUID nie są latest/tie-break authority. Retry/transport Attempt, reconciliation i signature handoff nie zwiększają business-operation count.
+
+Nie tworzymy mutable summary table jako drugiego authority. Ewentualny cache/materialized view może kiedyś istnieć wyłącznie jako w pełni rebuildable projection.
+
+## 14.15 Migration safety DB4_8
+
+DB4_8 migration działa fail-closed. W szczególności nie wolno:
+- przepinać cross-tenant/cross-course provider history,
+- przypinać legacy Operation z `pkk_profile_id=NULL` do „current/latest” profilu,
+- zgadywać snapshot revisions lub lifecycle transitions z timestamp/UUID,
+- auto-cancelować duplicate active operations,
+- fabrykować idempotency/retry key, retryable state albo `no_effect`,
+- renumerować Attempts, aby sztucznie wyglądały na poprawną historię,
+- zgadywać XML role/handoff z filename/time/same-tenant upload,
+- promować starego ciphertextu do authenticated runtime envelope bez algorithm/nonce/tag/key/AAD evidence,
+- zgadywać configuration revision z `updated_at`,
+- ustalać business operation order z `completed_at`, UUID lub provider response time.
+
+Dla legacy Course z równymi `created_at` i bez silniejszego wiarygodnego dowodu kolejności `course_operation_sequence` backfill **musi się zatrzymać i wymaga reviewed remediation**. Migracja nie wywołuje providera ani zewnętrznego signing service w celu „odtworzenia” historii.
+
+## 14.16 Stage 5 / adapter gaps świadomie odroczone
+
+DB4_8 nie zmienia Stage-3 API. Do acceptance/API sync pozostają m.in. exact provider adapter request/response schema, dokładny HTTP flow signed XML, safe projection nowych signature states, jawne dokumentowanie kolejności historii/paginacji oraz provider-specific error/status mapping. Te braki nie zmieniają fizycznych authority i invariantów DB4_8.
+
+**DB4_8 aggregate conclusion:** provider lifecycle jest teraz domknięty jako exact same-tenant, history-preserving, retry/reconciliation-safe, evidence-bound i deterministic read-model contract. DB4_9 finance/commerce nie został rozpoczęty.
 
 ---
 
@@ -2453,7 +2523,7 @@ Pozostałe obowiązkowe testy:
 8. TrainingSession + exact Attendance + immutable Ledger + recognized external training,
 9. włączyć `btree_gist` przed materializacją finalnych calendar resource exclusion constraints,
 10. Calendar: manual event/slot lifecycle history, same-tenant relations, `calendar_resource_claims`, `training_session_calendar_details`, slot→Session link/formalization i TrainingSession claim integration,
-11. PKK provider operations/attempts/retry/reconciliation — DB4_8,
+11. PKK execution-configuration revisions + provider snapshots + operations/lifecycle + attempts/reconciliations + signed-XML handoff/reservations + protected payload/redaction + XML crypto bindings + deterministic course operation sequence,
 12. Student finance,
 13. LicenseProduct language capability history + Inventory + Assignment sequences/current uniqueness + immutable Activation entitlement ledger,
 14. internal exam capability history, inventory units/adjustments/ledger/reservations, Attempt/Access lifecycle+tokens, Station credentials/sessions, immutable definitions/questions/results/templates/documents and deterministic management projection,
@@ -2467,6 +2537,8 @@ W obrębie DB4_5 kolejność jest równie rygorystyczna: najpierw precheck same-
 
 W obrębie DB4_6 najpierw precheckujemy LearningAccount identity, tenant/exact-target relacje, password authority, legacy credential artifacts, Inventory/Assignment/Activation consistency, activation order/effective periods oraz product-language evidence. Niejednoznaczności trafiają do reviewed remediation. Dopiero potem backfillujemy bezpieczne baselines/sequences/capability history i włączamy same-user/composite FK, credential authority, final-state equivalence, contiguous sequence i entitlement-chain guards. Nie zgadujemy na podstawie timestampów, UUID, creatora, ekranu ani globalnego language dictionary.
 
+W obrębie DB4_8 najpierw precheckujemy exact tenant/Course/Profile/Operation/Attempt context, provider snapshot i lifecycle history, idempotency/attempt state, signed-XML provenance, crypto-envelope lineage, execution-configuration revisions oraz legacy business-operation order. Niejednoznaczności trafiają do reviewed remediation. Dopiero potem backfillujemy dowodliwe snapshot/attempt/configuration/operation sequences i włączamy composite FK, partial unique, append-only/final-state guards oraz crypto/evidence bindings. Nie zgadujemy current Profile, external effect, XML role, key version, configuration revision ani kolejności business operations na podstawie timestampów, UUID, filename lub provider completion time.
+
 ---
 
 # 25. Zamknięte i oczekujące decyzje techniczne
@@ -2479,10 +2551,10 @@ Zamknięte:
 - **Students/Courses/Training DB4_4**: same-tenant formal relations; Student formal identity + durable archive/version; Course lifecycle/version/history; reproducible requirement context + immutable rule set/profile history; exact verified Attendance -> exactly-once append-only Ledger; deterministic previous-OSK projection/history; atomowa, wersjonowana local course PKK identity bez wciągania provider lifecycle,
 - **Calendar DB4_5**: same-tenant calendar resources; manual/system storage boundary; half-open resource conflict model z `btree_gist` i czterema partial GiST exclusion constraints; CalendarEvent lifecycle/version/history; canonical `own` przez StaffProfile; AvailabilitySlot exactly-once booking/cancel/history bez auto-reavailability; `TrainingSession` jako jedyny formal driving-lesson schedule owner; shared claims dla formalnych sesji; atomowy booked-slot -> TrainingSession handoff bez drugiego reservation fact i bez skrótu do formalnego creditu,
 - **Licenses / Learning Access DB4_6**: exact same-tenant Assignment target; current same-user AuthLoginIdentifier bez niezależnej login projection; durable LearningAccount lifecycle/version i operational eligibility; fail-closed global password management authority + credential epoch; memory-only secret-bearing credential PDFs i non-secret handoff/batch metadata; Inventory↔Assignment↔Activation final-state equivalence; immutable serialized entitlement ledger z duration snapshot/sequence; versioned product-language capability; immutable Assignment language/order snapshots oraz czysto derived management projection.
+- **PKK DB4_8**: exact Course/Profile/Operation/Attempt tenant integrity; immutable provider snapshot i lifecycle history; fail-closed idempotency/retry/reconciliation dla unknown external effect; signed-XML FileAsset evidence; authenticated raw-payload encryption + allowlisted redaction + key-wrapping history; exact execution-configuration revision binding; immutable `course_operation_sequence` oraz derived latest/count bez drugiego summary authority.
 
-Po DB4_6 nadal osobno wymagają dalszych slice/ADR:
+Po DB4_8 nadal osobno wymagają dalszych slice/ADR:
 - DB4_7 Internal Exams aggregate contract — synchronized / PASS,
-- PKK provider configuration/fetch/update/return/XML/retry/reconciliation/collision policy — DB4_8,
 - Student Finance i exact commerce/source-order tenant boundary — DB4_9,
 - application encryption + key rotation dla PESEL/PKK/provider snapshots,
 - immutable snapshot canonicalization/hash,
