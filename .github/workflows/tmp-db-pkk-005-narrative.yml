@@ -32,7 +32,7 @@ jobs:
           assert s.count(old_status)==1, s.count(old_status)
           assert '## 22. DB-PKK-005 — wynik fixera: PASS' not in s
           s=s.replace(old_step,new_step,1).replace(old_status,new_status,1)
-          s=s.rstrip()+frag+'\n'
+          s=s.rstrip()+frag.rstrip()+'\n'
           p.write_text(s)
           PY
           grep -q '^## 22\. DB-PKK-005 — wynik fixera: PASS$' docs/113-stage-4-pkk-audit.md
