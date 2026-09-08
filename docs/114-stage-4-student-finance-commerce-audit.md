@@ -3,8 +3,8 @@
 Data: 2026-09-08
 
 **Etap:** `DB4_9_STUDENT_FINANCE_COMMERCE`  
-**Aktualny krok:** `DB_FIN_001_SAME_TENANT_EXACT_CHARGE_PAYMENT_COURSE_INTEGRITY`
-**Status:** `FAIL_WITH_9_P1_BLOCKERS / 0 P0 / 9 P1 OPEN`
+**Aktualny krok:** `DB_FIN_002_CHARGE_PAYMENT_REVERSAL_LIFECYCLE_BALANCE_OVERPAYMENT_AND_CONCURRENCY`
+**Status:** `FAIL_WITH_8_P1_BLOCKERS / 0 P0 / 8 P1 OPEN`
 
 Machine-readable diagnoza: `specs/database/student-finance-commerce.yml`.
 
@@ -300,3 +300,84 @@ Stan po fixerze:
 Następny dozwolony krok po central gate: **DB-FIN-002 only**.
 
 **STOP przed DB-FIN-002.**
+
+## 20. DB-FIN-002 — wynik fixera: PASS
+
+DB-FIN-002 domyka lifecycle należności i wpłat, saldo, reversal, zakaz nadpłaty oraz concurrency. Nie zmienia żadnego modelu Platform Commerce — DB-COM-001…008 pozostają OPEN.
+
+### 20.1. Jeden trwały stan Charge, reszta jako projekcja
+
+`cancelled` jest trwałym stanem biznesowym wynikającym z write-once tuple `cancelled_at + cancelled_by_user_id + cancellation_reason`. `open`, `partially_paid` i `paid` nie są drugim mutable authority; wynikają z kwoty należności i sumy ważnych, nieodwróconych wpłat.
+
+`overdue` jest czasowym modifierem projekcji: aktywna należność ma remaining > 0, `due_at` istnieje i termin minął według czasu lokalnego organizacji. Nie zapisujemy go jako niezależnego stanu mogącego rozjechać się z zegarem lub saldem.
+
+### 20.2. Ważna wpłata i reversal
+
+Wpłata jest ważna, gdy `reversed_at IS NULL`. Dane finansowe Payment są po insert immutable; jedyną normalną zmianą jest pełny reversal tuple `reversed_at + reversed_by_user_id + reversal_reason`. Tuple jest albo całe NULL, albo całe non-NULL. Reversal jest jednokierunkowy i może nastąpić tylko raz. Hard delete wpłaty jest zabroniony.
+
+Odwrócenie wpłaty automatycznie zmienia projekcję Charge. Jeżeli cofamy ostatnią lub pełną wpłatę, Charge może wrócić z `paid` do `partially_paid` albo `open` bez przepisywania pola status.
+
+### 20.3. Saldo
+
+Dla Charge:
+- `paid_amount = SUM(amount_minor)` tylko dla Payment z `reversed_at IS NULL`,
+- `remaining_amount = amount_minor - paid_amount`,
+- finalny invariant: `remaining_amount >= 0`.
+
+Dla Studenta sumujemy tylko nieanulowane Charge. Frontend nie zapisuje `paid`, `remaining` ani totals jako authority.
+
+### 20.4. Zakaz nadpłaty i concurrency root
+
+Application precheck nie wystarcza. `student_charges` jest concurrency rootem dla `record payment`, `reverse payment` i `cancel charge`. Każda z tych komend blokuje exact Charge `FOR UPDATE` przed obliczeniem salda lub zmianą efektu finansowego.
+
+Record Payment po locku ponownie liczy sumę ważnych wpłat i wymaga `new amount <= remaining`. Dwie równoległe wpłaty nie mogą więc skonsumować tej samej pozostałej kwoty.
+
+### 20.5. Cancellation vs istniejące pieniądze
+
+W MVP nie ma jeszcze `student_credit` ani unallocated payment modelu. Dlatego Charge nie może zostać anulowany, jeśli istnieje jakakolwiek nieodwrócona wpłata. Sekretariat najpierw wykonuje reversal z powodem, a dopiero potem cancellation.
+
+To zamyka race:
+- reversal i cancellation serializują się na Charge,
+- payment i cancellation serializują się na Charge,
+- payment na anulowany Charge jest odrzucany.
+
+### 20.6. Idempotency
+
+Jedyną authority retry jest wspólny `idempotency_records`. Dotyczy `create charge`, `record payment`, `reverse payment` i `cancel charge`. Ten sam key + ten sam request hash replayuje zapisany bezpieczny wynik bez drugiego efektu; ten sam key z innym payloadem powoduje conflict.
+
+Nullable `student_payments.idempotency_key` nie może pozostać równoległym systemem deduplikacji po cutover. Historyczny klucz bez pełnego operation key i request hash nie jest automatycznie przepisywany na generic idempotency record.
+
+Exact race dla automatycznego `create charge from Course cost` pozostaje świadomie DB-COM-008.
+
+### 20.7. Migration safety
+
+Preflight musi wykryć co najmniej:
+- częściowy reversal tuple,
+- częściowy cancellation tuple,
+- aktywną należność z sumą valid payments > amount,
+- anulowaną należność z nieodwróconą wpłatą.
+
+Migracja nie może ucinać nadpłaty, dopisywać sztucznego reversal, automatycznie cofać wpłaty ani fabrykować generic idempotency records. Ambiguous legacy finance history = FAIL i reviewed remediation.
+
+### 20.8. Preservation gate
+
+Zachowane bez zmian:
+- DB-FIN-001 exact relation contract,
+- Charge i Payment jako osobne byty,
+- wiele częściowych wpłat,
+- MVP bez nadpłaty,
+- korekta przez reversal zamiast delete,
+- optional Course context,
+- DB-COM-001…008 OPEN,
+- `core-schema.yml` i `docs/87...` zamrożone,
+- DB4_10+, Stage 5, Laravel migrations i UI nieruszone.
+
+Stan po fixerze:
+- P0 OPEN: **0**,
+- P1 OPEN: **8**,
+- resolved: **2/10**,
+- result: **FAIL_WITH_8_P1_BLOCKERS**.
+
+Następny dozwolony krok po central gate: **DB-COM-001 only**.
+
+**STOP przed DB-COM-001.**
