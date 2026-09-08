@@ -1,0 +1,40 @@
+name: Temporary DB-PKK-003 Narrative Gate
+on:
+  push:
+    paths: ['.github/workflows/tmp-db-pkk-003-narrative.yml']
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: tmp-db-pkk-003-narrative-helper
+          fetch-depth: 2
+      - name: Patch narrative and validate
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('docs/113-stage-4-pkk-audit.md')
+          s=p.read_text()
+          old='''**Aktualny krok:** `DB_PKK_002_IMMUTABLE_PROVIDER_PROFILE_SNAPSHOT_HISTORY_AND_CURRENT_PROJECTION`\n**Status:** `FAIL_WITH_6_P1_BLOCKERS / 0 P0 / 6 P1 OPEN`\n'''
+          new='''**Aktualny krok:** `DB_PKK_003_PROVIDER_OPERATION_LIFECYCLE_CONCURRENCY_AND_COMMAND_ELIGIBILITY`\n**Status:** `FAIL_WITH_5_P1_BLOCKERS / 0 P0 / 5 P1 OPEN`\n'''
+          assert s.count(old)==1, s.count(old)
+          assert '## 20. DB-PKK-003 — wynik fixera: PASS' not in s
+          s=s.replace(old,new,1)
+          frag=Path('.stage4-tmp/db-pkk-003-narrative.mdfrag').read_text().rstrip()+"\n"
+          s=s.rstrip()+"\n"+frag
+          p.write_text(s)
+          PY
+          grep -Fq '## 20. DB-PKK-003 — wynik fixera: PASS' docs/113-stage-4-pkk-audit.md
+          grep -Fq '**Status:** `FAIL_WITH_5_P1_BLOCKERS / 0 P0 / 5 P1 OPEN`' docs/113-stage-4-pkk-audit.md
+          git diff --check -- docs/113-stage-4-pkk-audit.md
+          test "$(git diff --name-only | grep -v '^\.github/workflows/tmp-db-pkk-003-narrative.yml$' | grep -v '^\.stage4-tmp/db-pkk-003-narrative.mdfrag$' | sort)" = "docs/113-stage-4-pkk-audit.md"
+          git config user.name prawkonaraz100
+          git config user.email prawkonaraz100@gmail.com
+          git add docs/113-stage-4-pkk-audit.md
+          git commit -m 'DB-PKK-003: add lifecycle narrative audit'
+          git push origin HEAD:tmp-db-pkk-003-narrative-helper
