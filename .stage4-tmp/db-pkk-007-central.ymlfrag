@@ -1,0 +1,48 @@
+
+  pkk_integration_configuration_revision_binding_and_async_execution_context:
+    status: PASS
+    resolved_blocker_id: DB-PKK-007
+    severity: P1
+    machine_source: specs/database/pkk.yml
+    audit_source: docs/113-stage-4-pkk-audit.md
+    machine_contract_commit: 577d5ad393bf2107341c8112a1906a3bbe8ea2c4
+    narrative_audit_commit: 07deefb1861ac28978f4b5a827c55d42e2101c30
+    decision:
+      current_settings_authority: pkk_integration_settings
+      aggregate_settings_concurrency_root: organization_settings.version
+      separate_execution_configuration_revision: true
+      execution_configuration_revision_history: pkk_integration_configuration_revisions
+      attempt_exact_configuration_binding_required: true
+      attempt_binding_immutable_after_insert: true
+      retry_may_bind_new_current_revision_without_rewriting_old_attempt: true
+      organization_wide_PKK_execution_serialization_lock: true
+      prepared_attempt_after_configuration_change_safe_fails_before_provider_IO: true
+      dispatching_attempt_blocks_material_configuration_change: true
+      effect_unknown_attempt_blocks_material_configuration_change: true
+      reconciliation_uses_same_attempt_bound_configuration_revision: true
+      external_osk_login_plaintext_history_created: false
+      future_secret_plaintext_history_created: false
+      provider_specific_execution_schema_invented: false
+      timestamp_or_updated_at_revision_heuristic_allowed: false
+      DB_PKK_008_not_fixed: true
+    checks:
+      organization_settings_version_semantics_preserved: PASS
+      execution_configuration_revision_semantics_closed: PASS
+      append_only_configuration_revision_history_closed: PASS
+      exact_same_tenant_attempt_revision_binding_closed: PASS
+      configuration_change_vs_dispatch_serialization_closed: PASS
+      stale_prepared_attempt_cannot_silently_dispatch_new_configuration: PASS
+      dispatching_effect_unknown_configuration_change_interlock_closed: PASS
+      retry_new_revision_without_history_rewrite_closed: PASS
+      reconciliation_same_revision_boundary_closed: PASS
+      no_plaintext_external_login_or_future_secret_history: PASS
+      legacy_attempt_revision_not_guessed_from_timestamp_or_updated_at: PASS
+      DB_PKK_001_through_DB_PKK_006_preserved: PASS
+      DB_PKK_008_remains_open: PASS
+      aggregate_core_schema_modified_in_step: false
+      aggregate_docs87_modified_in_step: false
+      API_files_modified_in_step: false
+      DB4_9_or_later_entered: false
+      Laravel_migrations_created: false
+      Stage5_started: false
+      UI_or_feature_implementation_started: false
