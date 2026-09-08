@@ -3,8 +3,8 @@
 Data: 2026-09-07
 
 **Etap:** `DB4_7_INTERNAL_EXAMS`  
-**Aktualny krok:** `DB_EXAM_008_DETERMINISTIC_MANAGEMENT_HISTORY_LATEST_AND_STATISTICS_PROJECTION`  
-**Status:** `BLOCKERS_RESOLVED_PENDING_DB4_7_FINAL_AGGREGATE_SYNC / 0 P0 / 0 P1 OPEN`
+**Aktualny krok:** `DB4_7_FINAL_AGGREGATE_SYNC`
+**Status:** `PASS / 0 P0 / 0 P1 OPEN`
 
 Machine-readable diagnoza: `specs/database/internal-exams.yml`.
 
@@ -2171,3 +2171,104 @@ Aktualny stan DB4_7 po DB-EXAM-008:
 Następny dozwolony krok po centralnym gate: **DB4_7 FINAL AGGREGATE SYNC only**.
 
 **STOP przed DB4_7 FINAL AGGREGATE SYNC.**
+
+
+---
+
+## 23. DB4_7 FINAL AGGREGATE SYNC — PASS
+
+Data finalizacji: 2026-09-08.
+
+Final aggregate sync rozpoczął się dopiero po zamknięciu wszystkich ośmiu blockerów `DB-EXAM-001..008`, przy `0 P0` i `0 P1 open`. Agregaty pozostawały zamrożone przez cały blocker work i zostały odblokowane dopiero na osobne polecenie użytkownika.
+
+### 23.1 Machine aggregate
+
+Czysty machine aggregate commit:
+- `6f1185a0d6b92b542d22a091710b23333041ba17`,
+- zmieniony wyłącznie `specs/database/core-schema.yml`,
+- finalny blob `c04dcbea90ca877c1c4e76196b77fdb33e404dab`.
+
+Machine aggregate usuwa stale provisional Internal Exams shortcuts i projektuje zamknięte DB-EXAM-001..008: same-tenant/exact-target integrity, requirement/capability basis, ledger-backed Inventory/Reservation, Attempt/Access lifecycle, purpose-scoped access tokens, Station credentials/session failover, immutable exam evidence oraz deterministic management ordering/projection.
+
+YAML całego `core-schema.yml` został zwalidowany. Wynik machine aggregate gate: **PASS**.
+
+### 23.2 Narrative aggregate
+
+Czysty narrative aggregate commit:
+- `bef415c4aa277a31d6f24bd89a3327eed3d59c7f`,
+- parent `6f1185a0d6b92b542d22a091710b23333041ba17`,
+- zmieniony wyłącznie `docs/87-physical-database-schema.md`,
+- finalny blob `a26421c9d3d624693f29f8e9dfa1b9e718f22323`.
+
+Sekcja 18 `Internal exams` została zastąpiona finalną projekcją bounded contractu zamiast pozostawienia obok niej drugiego, sprzecznego provisional modelu. Status dokumentu to `DB4_7_INTERNAL_EXAMS_AGGREGATE_SYNC_PASS`.
+
+Wynik narrative aggregate gate: **PASS**.
+
+### 23.3 Bounded final-sync status
+
+Po zaakceptowaniu obu agregatów zaktualizowano wyłącznie status final-sync w bounded contract:
+- commit `affc502a44edd643240c344315135b5c1f0e9e56`,
+- `specs/database/internal-exams.yml` jako jedyny zmieniony plik,
+- `DB-EXAM-001..008` pozostają `PASS`,
+- `diagnosis_summary.result = PASS`,
+- `preservation_gate.status = PASS_DB4_7_FINAL_AGGREGATE_SYNC`,
+- oba agregaty są zapisane wraz z exact commit/blob SHA,
+- `DB4_8_or_later_entered = false`.
+
+Pełny YAML bounded contractu został ponownie zwalidowany. Wynik bounded final-sync gate: **PASS**.
+
+### 23.4 Cross-file semantic-loss i stale-shortcut gate
+
+`specs/database/internal-exams.yml`, `specs/database/core-schema.yml` i `docs/87-physical-database-schema.md` pozostają zgodne w krytycznych decyzjach DB4_7. W szczególności aggregate nie osłabia bounded contractu w zakresie:
+- Course-first formal Attempt i exact Student/Course binding,
+- current requirement profile + immutable capability basis,
+- ledger authority i consume-on-start exactly once,
+- Attempt jako lifecycle/concurrency root,
+- rozdzielenia execution token od finished-result token,
+- logical Station vs current credential vs active StationSession,
+- failover bez drugiego Inventory effect i bez rewrite `Access.station_id`,
+- immutable definition/question/result/document evidence,
+- `course_attempt_sequence` jako authority deterministic latest,
+- management status/count/pass-rate jako derived projection, nie mutable summary authority.
+
+Stare provisional shortcuts nie pozostają równoległym source of truth. Wynik semantic-loss/stale-shortcut gate: **PASS**.
+
+### 23.5 Migration-order i invariant-test gate
+
+Finalne agregaty zachowują fail-closed migration policy: najpierw prechecks i reviewed remediation, potem candidate keys/composite FKs, ledger/lifecycle/security/evidence constraints i na końcu cross-row/deferred guards. Migracja nie może zgadywać cross-tenant parentów, Reservation/Inventory state, token/credential semantics, StationSession chain, historical evidence ani legacy attempt order.
+
+Mandatory tests obejmują concurrency/race boundaries, exactly-once consume/release, token replay/scope, Station occupancy/failover, immutable finished evidence oraz deterministic management projection.
+
+Wynik migration-order/invariant-test gate: **PASS**.
+
+### 23.6 Preservation i aggregate-only scope
+
+Compare od finalnego DB-EXAM-008 central gate `5a7e87ecb31ef85bc9ba20e8e71baa38c56a7bdc` do bounded final-sync commit `affc502a44edd643240c344315135b5c1f0e9e56` obejmuje dokładnie trzy pliki:
+1. `specs/database/core-schema.yml`,
+2. `docs/87-physical-database-schema.md`,
+3. `specs/database/internal-exams.yml`.
+
+Helper workflows i pliki pomocnicze nie należą do czystej historii final-sync. Nie zmieniono OpenAPI, Laravel migrations, UI ani bounded contextu DB4_8+.
+
+Wynik preservation/scope gate: **PASS**.
+
+### 23.7 Finalny wynik DB4_7
+
+- diagnosed blockers: **8**,
+- resolved blockers: **8**,
+- open P0: **0**,
+- open P1: **0**,
+- machine aggregate sync: **PASS**,
+- narrative aggregate sync: **PASS**,
+- bounded final-sync status: **PASS**,
+- semantic-loss/stale-shortcut gate: **PASS**,
+- migration/test gate: **PASS**,
+- preservation gate: **PASS**.
+
+DB4_7 jest gotowy do finalnego centralnego statusu **PASS**.
+
+Po centralnym gate następny dopuszczalny etap to wyłącznie `DB4_8_PKK_DIAGNOSIS` i dopiero po kolejnym jawnym poleceniu użytkownika.
+
+Stage 5, Laravel migrations i UI pozostają zablokowane.
+
+**STOP przed DB4_8.**
