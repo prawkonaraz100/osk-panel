@@ -1,0 +1,59 @@
+  pkk_idempotency_retry_reconciliation_and_exactly_once_external_effect:
+    status: PASS
+    resolved_blocker_id: DB-PKK-004
+    severity: P1
+    machine_source: specs/database/pkk.yml
+    audit_source: docs/113-stage-4-pkk-audit.md
+    machine_contract_commit: 5e3956ffbfe2eb46208c5797471fe376b2b40c22
+    narrative_audit_commit: f210adb59dbc8af9fb7911592c53d9a9d3909d4d
+    decision:
+      HTTP_command_idempotency_authority: idempotency_records
+      business_operation_authority: pkk_operations
+      provider_transport_attempt_authority: pkk_operation_attempts
+      reconciliation_history_authority: pkk_operation_attempt_reconciliations
+      runtime_operation_requires_initial_idempotency_record: true
+      runtime_provider_attempt_requires_command_idempotency_record: true
+      same_key_same_hash_creates_second_operation_or_attempt: false
+      same_key_different_hash: IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_PAYLOAD
+      provider_attempt_sequence_allocated_under_operation_lock: true
+      one_replay_blocking_attempt_per_operation: true
+      attempt_dispatch_status_catalog: [prepared, dispatching, succeeded, safe_failed, effect_unknown, reconciled_no_effect, reconciled_effect]
+      retry_disposition_catalog: [safe_to_retry, not_retryable, reconciliation_required]
+      only_prepared_to_dispatching_winner_may_send: true
+      stale_dispatching_blind_replay: forbidden
+      timeout_or_connection_loss_means_no_effect: false
+      effect_unknown_blocks_new_dispatch: true
+      reconciliation_history_append_only: true
+      reconciliation_outcomes: [effect_present, effect_absent, inconclusive]
+      retry_after_effect_unknown_requires_conclusive_effect_absent: true
+      retry_creates_new_business_operation: false
+      failed_to_pending_only_via_explicit_safe_retry: true
+      provider_IO_inside_database_transaction: false
+      provider_native_exactly_once_assumed: false
+      provider_reconciliation_unavailable_or_inconclusive_auto_retry: forbidden
+      safety_over_liveness_when_effect_unknown: true
+      signed_XML_evidence_deferred_to_DB_PKK_005: true
+      payload_security_deferred_to_DB_PKK_006: true
+      configuration_revision_binding_deferred_to_DB_PKK_007: true
+      latest_operation_projection_deferred_to_DB_PKK_008: true
+    checks:
+      generic_idempotency_claim_is_canonical_HTTP_replay_authority: PASS
+      runtime_operation_and_attempt_have_durable_idempotency_binding: PASS
+      same_key_same_hash_cannot_duplicate_business_or_transport_effect: PASS
+      attempt_sequence_and_one_replay_blocking_attempt_closed: PASS
+      dispatch_claim_prevents_duplicate_worker_send: PASS
+      unknown_effect_is_not_mislabeled_safe_failure: PASS
+      reconciliation_is_append_only_and_exact_attempt_bound: PASS
+      retry_requires_definitive_safe_no_effect_proof: PASS
+      no_unverified_provider_exactly_once_capability_invented: PASS
+      fail_closed_when_reconciliation_unavailable_or_inconclusive: PASS
+      DB_PKK_001_through_DB_PKK_003_preserved: PASS
+      DB_PKK_005_through_DB_PKK_008_remain_open: PASS
+      aggregate_core_schema_modified_in_step: false
+      aggregate_docs87_modified_in_step: false
+      API_files_modified_in_step: false
+      DB4_9_or_later_entered: false
+      Laravel_migrations_created: false
+      Stage5_started: false
+      UI_or_feature_implementation_started: false
+
