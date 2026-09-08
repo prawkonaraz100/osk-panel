@@ -2,8 +2,8 @@ meta:
   project: osk-panel
   stage: 4
   slice: DB4_8_PKK
-  step: DB_PKK_004_IDEMPOTENCY_RETRY_RECONCILIATION_AND_EXACTLY_ONCE_EXTERNAL_EFFECT
-  status: FAIL_WITH_4_P1_BLOCKERS
+  step: DB_PKK_005_SIGNED_XML_HANDOFF_AND_FILE_ASSET_EVIDENCE_INTEGRITY
+  status: FAIL_WITH_3_P1_BLOCKERS
   diagnosed_at: 2026-09-08
   branch: docs-consolidation-2026-09-05
   diagnosis_only: false
@@ -16,7 +16,7 @@ meta:
 scope_rule:
   diagnose_before_fixing: true
   fixes_allowed_in_this_step: true
-  current_step_scope: DB_PKK_004_IDEMPOTENCY_RETRY_RECONCILIATION_AND_EXACTLY_ONCE_EXTERNAL_EFFECT_only
+  current_step_scope: DB_PKK_005_SIGNED_XML_HANDOFF_AND_FILE_ASSET_EVIDENCE_INTEGRITY_only
   one_blocker_per_future_step: true
   aggregate_files_frozen:
     specs/database/core-schema.yml:
@@ -1208,6 +1208,350 @@ resolved_contracts:
       Stage5_started: false
       UI_or_feature_implementation_started: false
 
+  DB-PKK-005:
+    status: PASS
+    title: signed_XML_handoff_and_file_asset_evidence_integrity
+    severity: P1
+    goal: >-
+      Make every provider-required XML signing handoff durable, exact-context,
+      tamper-evident and one-time-bound so requires_signature can never be only
+      a UI label and a signed upload cannot be silently substituted, replaced,
+      deleted or reused for another PKK operation.
+
+    authority_and_scope:
+      business_operation_authority: pkk_operations
+      transport_attempt_authority: pkk_operation_attempts
+      signature_handoff_authority: pkk_signature_handoffs
+      generic_binary_asset_authority: file_assets
+      generic_upload_transport_authority: existing_upload_presign_and_complete_contract
+      exact_provider_XML_schema_signature_format_and_validation_rules: pending_provider_adapter_contract
+      cryptographic_signature_validity_claimed_by_DB_PKK_005: false
+      evidence_claim: exact_unsigned_and_returned_signed_artifact_identity_hash_and_context_are_provable
+      provider_payload_crypto_and_storage_key_rotation: deferred_to_DB_PKK_006
+      exact_configuration_revision_binding: deferred_to_DB_PKK_007
+      deterministic_operation_history_projection: deferred_to_DB_PKK_008
+
+    signature_applicability:
+      applies_only_when_adapter_verified_operation_flow_requires_external_XML_signature: true
+      all_mutating_operations_forced_to_signature: false
+      operation_type_to_signature_requirement_mapping: adapter_verified_not_hardcoded
+      preserved_user_flow:
+        - download_unsigned_XML
+        - sign_externally
+        - upload_signed_XML
+        - submit_exact_signed_XML_to_provider
+      external_signing_service_is_not_application_auth_or_database_authority: true
+
+    signature_handoff_table:
+      name: pkk_signature_handoffs
+      fields:
+        id: uuid_primary_key
+        organization_id: uuid_not_null
+        course_enrollment_id: uuid_not_null
+        pkk_profile_id: uuid_not_null
+        pkk_operation_id: uuid_not_null
+        handoff_no: bigint_not_null_check_gte_1
+        requires_signature_operation_version: bigint_not_null_check_gte_1
+        source_pkk_operation_attempt_id: uuid_nullable
+        unsigned_file_asset_id: uuid_not_null
+        unsigned_sha256: char_64_not_null
+        signed_file_asset_id: uuid_nullable_write_once
+        signed_sha256: char_64_nullable_write_once
+        signed_attached_by_user_id: uuid_nullable_global_users_FK_RESTRICT
+        signed_attached_at: timestamptz_nullable_write_once
+        consumed_at: timestamptz_nullable_write_once
+        cancelled_at: timestamptz_nullable_write_once
+        created_at: timestamptz_not_null
+      exact_operation_context_relation:
+        source_columns: [organization_id, pkk_operation_id, course_enrollment_id, pkk_profile_id]
+        target_table: pkk_operations
+        target_columns: [organization_id, id, course_enrollment_id, pkk_profile_id]
+        on_update: RESTRICT
+        on_delete: RESTRICT
+      exact_requires_signature_lifecycle_relation:
+        source_columns: [organization_id, pkk_operation_id, requires_signature_operation_version]
+        target_table: pkk_operation_lifecycle_events
+        target_columns: [organization_id, pkk_operation_id, operation_version]
+        required_target_to_business_status: requires_signature
+        enforcement: composite_FK_plus_deferred_or_equivalent_DB_guard
+      optional_source_attempt_relation:
+        nullable: true
+        source_columns: [organization_id, source_pkk_operation_attempt_id, pkk_operation_id, course_enrollment_id, pkk_profile_id]
+        target_table: pkk_operation_attempts
+        target_columns: [organization_id, id, pkk_operation_id, course_enrollment_id, pkk_profile_id]
+        purpose: bind_provider_generated_unsigned_XML_to_exact_source_attempt_when_one_exists
+      one_handoff_number_per_operation_unique: [organization_id, pkk_operation_id, handoff_no]
+      one_handoff_per_requires_signature_version_unique: [organization_id, pkk_operation_id, requires_signature_operation_version]
+      handoff_sequence_allocation:
+        lock: exact_pkk_operation_FOR_UPDATE
+        rule: previous_runtime_max_plus_one
+        rollback_does_not_consume_number: true
+      exact_context_and_unsigned_fields_immutable_after_insert: true
+      normal_hard_delete: forbidden
+
+    unsigned_XML_evidence:
+      file_asset_purpose: pkk_unsigned_xml_to_sign
+      organization_owned_asset_required: true
+      platform_global_asset_for_runtime_handoff: forbidden
+      same_tenant_relation:
+        source_columns: [organization_id, unsigned_file_asset_id]
+        target_table: file_assets
+        target_columns: [organization_id, id]
+        on_delete: RESTRICT
+      before_handoff_creation_require:
+        - file_asset_status_ready
+        - purpose_exactly_pkk_unsigned_xml_to_sign
+        - sha256_nonnull_and_64_hex
+        - size_bytes_positive
+        - detected_content_satisfies_XML_artifact_policy
+        - risky_upload_or_generated_object_security_checks_completed_when_applicable
+      unsigned_sha256_must_equal_bound_FileAsset_sha256: true
+      raw_XML_copied_into_operation_lifecycle_idempotency_or_safe_projection_JSON: false
+      requires_signature_transition_without_ready_unsigned_evidence: forbidden
+
+    pending_to_requires_signature_transaction:
+      prerequisites:
+        - exact_operation_is_pending_mutating_operation
+        - adapter_verified_flow_requires_external_XML_signature
+        - unsigned_FileAsset_is_ready_and_exact_same_tenant
+      steps:
+        - lock_pkk_operation_FOR_UPDATE
+        - verify_expected_operation_version_and_pending_status
+        - allocate_handoff_no
+        - create_exact_context_signature_handoff_with_unsigned_asset_and_hash
+        - increment_operation_version_once
+        - transition_pending_to_requires_signature
+        - append_exactly_one_lifecycle_event_same_version
+        - set_handoff_requires_signature_operation_version_to_same_new_version
+        - satisfy_deferred_exact_lifecycle_guard
+        - commit
+      provider_IO_inside_transaction: false
+      effect: operation_cannot_be_requires_signature_without_exact_unsigned_XML_evidence
+
+    signed_upload_reservation_boundary:
+      reason: >-
+        Generic same-tenant purpose-bound uploads are not by themselves enough
+        to prove which PKK handoff the user intended. A signed XML asset must be
+        reserved for one exact handoff before it can become accepted evidence.
+      reservation_table: pkk_signature_handoff_upload_reservations
+      fields:
+        id: uuid_primary_key
+        organization_id: uuid_not_null
+        pkk_signature_handoff_id: uuid_not_null
+        pkk_operation_id: uuid_not_null
+        course_enrollment_id: uuid_not_null
+        pkk_profile_id: uuid_not_null
+        file_asset_id: uuid_not_null
+        created_by_user_id: uuid_not_null_global_users_FK_RESTRICT
+        created_at: timestamptz_not_null
+        accepted_at: timestamptz_nullable_write_once
+        rejected_at: timestamptz_nullable_write_once
+      exact_handoff_context_FK: true
+      exact_handoff_context_target_columns: [organization_id, id, pkk_operation_id, course_enrollment_id, pkk_profile_id]
+      exact_file_asset_same_tenant_FK: true
+      one_reservation_per_file_asset_unique: [organization_id, file_asset_id]
+      reservation_context_immutable: true
+      normal_hard_delete: forbidden
+      Stage5_HTTP_shape: pending_acceptance_contract_sync
+
+    signed_XML_acceptance:
+      file_asset_purpose: pkk_signed_xml_return
+      accepted_asset_requirements:
+        - exact_same_tenant_FileAsset
+        - exact_upload_reservation_for_same_handoff
+        - file_asset_status_ready
+        - purpose_exactly_pkk_signed_xml_return
+        - sha256_nonnull_and_64_hex
+        - size_bytes_positive
+        - detected_content_satisfies_XML_artifact_policy
+        - server_computed_or_verified_sha256_matches_FileAsset_sha256
+      declared_mime_is_security_authority: false
+      detected_mime_and_content_policy_is_authority: true
+      exact_numeric_size_limit: provider_or_platform_upload_policy_not_invented_here
+      signed_file_asset_and_hash_set_once_per_handoff: true
+      accepted_signed_asset_unique_across_handoffs: true
+      normal_replace_after_acceptance: forbidden
+      cross_operation_or_cross_handoff_reuse: forbidden
+      attachment_command_under_handoff_lock:
+        same_asset_replay: return_existing_state_without_second_binding
+        different_asset_after_signed_asset_accepted: conflict
+      signed_sha256_must_equal_bound_FileAsset_sha256: true
+      local_proof_that_external_signature_is_cryptographically_valid: provider_adapter_contract_required_not_invented
+
+    FileAsset_retention_and_integrity:
+      referenced_unsigned_or_signed_asset_normal_delete: forbidden
+      referenced_asset_status_deleted: forbidden_until_formal_reference_retention_allows_explicit_governed_process
+      storage_key_or_object_replacement_under_same_FileAsset_id: forbidden
+      sha256_size_detected_mime_purpose_after_ready_and_formal_binding: immutable
+      original_filename_is_not_identity_or_integrity_authority: true
+      content_hash_is_evidence_not_encryption: true
+      DB_PKK_006_must_define_confidentiality_key_version_and_sensitive_XML_storage_boundary: true
+
+    attempt_to_signature_handoff_binding:
+      field_added_to_pkk_operation_attempts: signature_handoff_id_uuid_nullable
+      exact_context_relation:
+        source_columns: [organization_id, signature_handoff_id, pkk_operation_id, course_enrollment_id, pkk_profile_id]
+        target_table: pkk_signature_handoffs
+        target_columns: [organization_id, id, pkk_operation_id, course_enrollment_id, pkk_profile_id]
+        match: MATCH_SIMPLE
+        on_update: RESTRICT
+        on_delete: RESTRICT
+      one_runtime_submission_attempt_per_handoff:
+        type: partial_unique
+        columns: [organization_id, signature_handoff_id]
+        where: signature_handoff_id_is_not_null
+      non_signature_provider_attempt_requires_null_signature_handoff_id: true
+      retry_after_signed_submission:
+        automatic_reuse_same_handoff: forbidden
+        default: create_new_handoff_if_adapter_again_requires_signature
+        future_same_signed_artifact_replay_only_after_verified_provider_contract_revision: not_assumed
+
+    signed_XML_submit_idempotency:
+      canonical_operation_key: pkk.signed_xml.submit
+      authority: idempotency_records
+      request_hash_input:
+        - canonical_operation_key
+        - organization_id
+        - course_enrollment_id
+        - pkk_operation_id
+        - pkk_signature_handoff_id
+        - signed_file_asset_id
+        - signed_sha256
+      same_key_same_hash: return_same_operation_and_submission_attempt_without_new_dispatch
+      same_key_different_hash: conflict_IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_PAYLOAD
+      one_idempotency_command_may_create_at_most_one_submission_attempt: true
+      safe_response_may_contain_raw_XML_or_sensitive_FileAsset_storage_key: false
+
+    requires_signature_to_submitted_transaction:
+      provider_dispatch_after_commit: true
+      lock_order_after_idempotency_claim:
+        - course_enrollment_FOR_UPDATE
+        - exact_current_pkk_profile_FOR_UPDATE
+        - pkk_operation_FOR_UPDATE
+        - exact_current_signature_handoff_FOR_UPDATE
+        - signed_file_asset_FOR_SHARE
+      recheck_after_locks:
+        - exact_same_tenant_course_profile_operation_context
+        - operation_profile_is_still_current
+        - business_status_is_requires_signature
+        - handoff_requires_signature_operation_version_matches_current_operation_version
+        - signed_asset_is_accepted_write_once_for_this_exact_handoff
+        - signed_asset_ready_purpose_hash_mime_size_policy_still_valid
+        - handoff_not_consumed_or_cancelled
+        - no_replay_blocking_provider_attempt_exists
+        - integration_readiness_still_satisfies_DB_PKK_003
+        - actor_has_exact_operation_type_permission_and_scope
+      effect:
+        - claim_or_replay_pkk_signed_xml_submit_idempotency_record
+        - allocate_next_attempt_no_under_pkk_operation_lock
+        - create_prepared_provider_attempt_with_exact_signature_handoff_id
+        - transition_requires_signature_to_submitted
+        - increment_operation_version_once
+        - append_exactly_one_submitted_lifecycle_event_same_version
+        - set_handoff_consumed_at_once
+        - complete_local_idempotency_record_with_same_operation_result
+        - commit
+      failure_before_commit:
+        operation_remains_requires_signature: true
+        no_provider_attempt_or_dispatch_effect_commits: true
+        signed_artifact_evidence_remains_preserved: true
+      provider_result_processing_after_dispatch: DB_PKK_004_plus_DB_PKK_003
+
+    lifecycle_exit_without_submission:
+      requires_signature_to_failed_or_cancelled_preserved_from_DB_PKK_003: true
+      handoff_and_unsigned_or_signed_evidence_retained: true
+      cancelled_at_set_once_when_handoff_is_abandoned_without_submission: true
+      old_handoff_never_rebound_to_new_operation_or_profile_revision: true
+      retry_cycle_reentering_requires_signature_creates_new_handoff_no: true
+
+    authorization_and_download_boundary:
+      raw_storage_key_exposed_to_UI: false
+      unsigned_XML_download_authorized_through_exact_operation_handoff_context: true
+      signed_XML_history_download_authorized_through_exact_operation_handoff_context_when_product_policy_allows: true
+      authorization_permission_source: DB_PKK_003_operation_type_permission_mapping_plus_tenant_scope
+      FileAsset_id_alone_is_not_authorization_token: true
+
+    migration_policy:
+      legacy_requires_signature_without_exact_unsigned_artifact:
+        fabricate_handoff_or_XML: forbidden
+        infer_unsigned_asset_from_filename_timestamp_or_latest_upload: forbidden
+        required_action: preserve_legacy_state_and_require_reviewed_remediation_before_runtime_submission
+      legacy_submitted_or_completed_operation_without_provable_signature_handoff:
+        infer_that_signature_was_not_required: forbidden
+        infer_signed_asset_from_same_tenant_uploads: forbidden
+        fabricate_hash_or_handoff_history: forbidden
+        required_action: preserve_as_legacy_unknown_evidence_gap_or_remediate_from_trusted_external_archive
+      legacy_XML_file_with_provable_exact_operation_provenance:
+        import_to_FileAsset_only_after_bytes_are_verified_and_sha256_computed: true
+        bind_as_unsigned_or_signed_only_when_role_is_provable: true
+      FileAsset_missing_ready_hash_purpose_or_exact_provenance:
+        auto_attach_to_PKK_handoff: forbidden
+      migration_calls_provider_or_external_signing_service: forbidden
+      historical_handoff_numbers_fabricated: false
+      cross_operation_asset_deduplication_for_formal_evidence: forbidden
+
+    Stage5_API_sync_gaps_recorded_not_fixed:
+      dedicated_unsigned_XML_download_endpoint_missing: true
+      dedicated_signed_XML_reservation_or_upload_context_endpoint_missing: true
+      dedicated_signed_XML_attach_or_submit_endpoint_missing: true
+      required_operations_inventory_has_orchestration_capability_without_exact_HTTP_shape: true
+      generic_UploadPresignRequest_has_no_PKK_handoff_parent_context: true
+      PkkOperation_projection_has_no_signature_handoff_state_or_safe_artifact_projection: true
+      exact_provider_signature_validation_error_contract: pending_provider_adapter_contract
+      API_files_modified_in_DB_PKK_005: false
+
+    required_tests:
+      - operation_cannot_enter_requires_signature_without_ready_same_tenant_unsigned_XML_evidence
+      - unsigned_asset_wrong_tenant_wrong_purpose_not_ready_missing_hash_or_non_XML_policy_is_rejected
+      - exactly_one_handoff_exists_for_one_requires_signature_operation_version
+      - handoff_exact_operation_course_profile_context_cannot_be_reparented
+      - optional_source_attempt_must_match_exact_handoff_operation_course_profile_context
+      - arbitrary_same_tenant_signed_XML_upload_without_exact_handoff_reservation_is_rejected
+      - signed_asset_from_other_handoff_or_operation_is_rejected
+      - signed_asset_from_other_tenant_is_rejected
+      - signed_asset_must_be_ready_purpose_bound_hash_verified_and_XML_policy_valid
+      - accepted_signed_asset_and_hash_are_write_once_and_cannot_be_replaced
+      - referenced_unsigned_or_signed_FileAsset_cannot_be_normally_deleted_or_object_replaced
+      - submit_without_accepted_signed_asset_is_rejected
+      - signed_XML_submit_same_idempotency_key_same_hash_creates_at_most_one_submission_attempt
+      - signed_XML_submit_same_idempotency_key_different_hash_is_conflict
+      - two_concurrent_signed_XML_submit_commands_at_most_one_prepared_attempt_commits
+      - submission_attempt_exactly_matches_handoff_operation_course_profile_context
+      - requires_signature_to_submitted_and_submission_attempt_creation_commit_atomically
+      - provider_dispatch_occurs_only_after_submission_transaction_commits
+      - failed_or_cancelled_signature_handoff_preserves_all_artifact_evidence
+      - retry_reentering_signature_flow_creates_new_handoff_instead_of_rebinding_old_evidence
+      - cryptographic_signature_schema_or_XAdES_rules_are_not_invented_without_provider_contract
+      - migration_does_not_guess_unsigned_or_signed_role_from_filename_time_or_same_tenant_uploads
+      - DB_PKK_001_exact_target_DB_PKK_003_lifecycle_and_DB_PKK_004_idempotency_dispatch_safety_are_preserved
+      - DB_PKK_006_through_DB_PKK_008_remain_open
+
+    self_audit:
+      requires_signature_is_backed_by_exact_unsigned_XML_evidence: PASS
+      signature_handoff_exact_same_tenant_operation_course_profile_binding: PASS
+      source_attempt_binding_when_present_reuses_DB_PKK_001_exact_target: PASS
+      arbitrary_same_tenant_upload_cross_operation_attachment_closed: PASS
+      signed_FileAsset_purpose_readiness_mime_size_hash_boundary_closed: PASS
+      accepted_signed_asset_and_hash_write_once: PASS
+      FileAsset_delete_replace_tamper_boundary_closed: PASS
+      signed_submit_bound_to_generic_idempotency_and_one_exact_provider_attempt: PASS
+      requires_signature_to_submitted_evidence_atomicity_closed: PASS
+      external_signature_cryptographic_validity_not_overclaimed: PASS
+      DB_PKK_001_exact_target_integrity_preserved: PASS
+      DB_PKK_002_provider_snapshot_history_preserved: PASS
+      DB_PKK_003_business_lifecycle_preserved: PASS
+      DB_PKK_004_idempotency_retry_reconciliation_exactly_once_safety_preserved: PASS
+      DB_PKK_006_payload_crypto_not_solved: PASS
+      DB_PKK_007_configuration_revision_not_solved: PASS
+      DB_PKK_008_latest_projection_not_solved: PASS
+      aggregate_core_schema_modified: false
+      aggregate_docs87_modified: false
+      API_files_modified: false
+      Laravel_migrations_created: false
+      DB4_9_or_later_entered: false
+      Stage5_started: false
+      UI_or_feature_implementation_started: false
+
 blockers:
   - id: DB-PKK-001
     title: same_tenant_and_exact_course_profile_operation_attempt_integrity
@@ -1304,7 +1648,8 @@ blockers:
   - id: DB-PKK-005
     title: signed_XML_handoff_and_file_asset_evidence_integrity
     severity: P1
-    status: OPEN
+    status: RESOLVED
+    resolution_ref: resolved_contracts.DB-PKK-005
     diagnosis:
       - preserved_capability_requires_download_XML_sign_externally_and_upload_signed_XML_when_provider_requires_it
       - current_PKK_tables_do_not_bind_unsigned_or_signed_XML_artifacts_to_the_exact_operation_attempt_or_profile
@@ -1392,11 +1737,10 @@ diagnosis_summary:
   diagnosed_P0: 0
   diagnosed_P1: 8
   resolved_in_diagnosis: 0
-  resolved_after_diagnosis: 4
-  open_P0_P1: 4
-  result: FAIL_WITH_4_P1_BLOCKERS
+  resolved_after_diagnosis: 5
+  open_P0_P1: 3
+  result: FAIL_WITH_3_P1_BLOCKERS
   blockers_in_required_fix_order:
-    - DB-PKK-005
     - DB-PKK-006
     - DB-PKK-007
     - DB-PKK-008
@@ -1410,7 +1754,7 @@ API_contract_sync_gaps_recorded_not_fixed:
   API_files_modified_in_DB4_8_diagnosis: false
 
 preservation_gate:
-  status: PASS_DB_PKK_004
+  status: PASS_DB_PKK_005
   checks:
     no_blocker_fixed_during_diagnosis: true
     DB4_4_course_PKK_identity_contract_preserved: true
@@ -1438,11 +1782,12 @@ preservation_gate:
     DB_PKK_002_immutable_provider_snapshot_history_and_current_projection_closed: true
     DB_PKK_003_provider_operation_lifecycle_concurrency_and_command_eligibility_closed: true
     DB_PKK_004_idempotency_retry_reconciliation_exactly_once_external_effect_closed: true
-    DB_PKK_005_through_DB_PKK_008_remain_open: true
+    DB_PKK_005_signed_XML_handoff_and_FileAsset_evidence_integrity_closed: true
+    DB_PKK_006_through_DB_PKK_008_remain_open: true
 
 next_single_step_after_central_gate:
-  id: DB_PKK_005_SIGNED_XML_HANDOFF_AND_FILE_ASSET_EVIDENCE_INTEGRITY
-  action: resolve_DB_PKK_005_only_after_next_explicit_user_instruction
+  id: DB_PKK_006_SENSITIVE_PROVIDER_PAYLOAD_ENCRYPTION_REDACTION_HASH_AND_KEY_VERSION_BOUNDARY
+  action: resolve_DB_PKK_006_only_after_next_explicit_user_instruction
   allowed_scope:
     - specs/database/pkk.yml
     - docs/113-stage-4-pkk-audit.md
@@ -1450,4 +1795,4 @@ next_single_step_after_central_gate:
   aggregate_files_frozen:
     - specs/database/core-schema.yml
     - docs/87-physical-database-schema.md
-  stop_before: DB_PKK_006_SENSITIVE_PROVIDER_PAYLOAD_ENCRYPTION_REDACTION_HASH_AND_KEY_VERSION_BOUNDARY
+  stop_before: DB_PKK_007_INTEGRATION_CONFIGURATION_REVISION_BINDING_AND_ASYNC_EXECUTION_CONTEXT
