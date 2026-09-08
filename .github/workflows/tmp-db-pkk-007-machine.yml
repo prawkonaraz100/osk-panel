@@ -1,0 +1,85 @@
+name: Temporary DB-PKK-007 Machine Gate
+
+on:
+  push:
+    branches: [tmp-db-pkk-007-machine-helper]
+    paths:
+      - '.stage4-tmp/TRIGGER_DB_PKK_007_MACHINE'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: tmp-db-pkk-007-machine-helper
+      - name: Patch and validate machine contract
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import yaml
+          p=Path('specs/database/pkk.yml')
+          s=p.read_text()
+          frag=Path('.stage4-tmp/db-pkk-007-machine.ymlfrag').read_text().rstrip()+'\n\n'
+
+          replacements=[
+            ('  step: DB_PKK_006_SENSITIVE_PROVIDER_PAYLOAD_ENCRYPTION_REDACTION_HASH_AND_KEY_VERSION_BOUNDARY\n','  step: DB_PKK_007_INTEGRATION_CONFIGURATION_REVISION_BINDING_AND_ASYNC_EXECUTION_CONTEXT\n'),
+            ('  status: FAIL_WITH_2_P1_BLOCKERS\n','  status: FAIL_WITH_1_P1_BLOCKER\n'),
+            ('  current_step_scope: DB_PKK_006_SENSITIVE_PROVIDER_PAYLOAD_ENCRYPTION_REDACTION_HASH_AND_KEY_VERSION_BOUNDARY_only\n','  current_step_scope: DB_PKK_007_INTEGRATION_CONFIGURATION_REVISION_BINDING_AND_ASYNC_EXECUTION_CONTEXT_only\n'),
+          ]
+          for old,new in replacements:
+            assert s.count(old)==1,(old,s.count(old))
+            s=s.replace(old,new,1)
+
+          marker='\nblockers:\n'
+          assert s.count(marker)==1,s.count(marker)
+          assert '\n  DB-PKK-007:\n    status: PASS\n' not in s
+          s=s.replace(marker,'\n'+frag+'blockers:\n',1)
+
+          old_block='''  - id: DB-PKK-007\n    title: integration_configuration_revision_binding_and_async_execution_context\n    severity: P1\n    status: OPEN\n    diagnosis:\n'''
+          new_block='''  - id: DB-PKK-007\n    title: integration_configuration_revision_binding_and_async_execution_context\n    severity: P1\n    status: RESOLVED\n    resolution_ref: resolved_contracts.DB-PKK-007\n    diagnosis:\n'''
+          assert s.count(old_block)==1,s.count(old_block)
+          s=s.replace(old_block,new_block,1)
+
+          old_summary='''diagnosis_summary:\n  diagnosed_P0: 0\n  diagnosed_P1: 8\n  resolved_in_diagnosis: 0\n  resolved_after_diagnosis: 6\n  open_P0_P1: 2\n  result: FAIL_WITH_2_P1_BLOCKERS\n  blockers_in_required_fix_order:\n    - DB-PKK-007\n    - DB-PKK-008\n'''
+          new_summary='''diagnosis_summary:\n  diagnosed_P0: 0\n  diagnosed_P1: 8\n  resolved_in_diagnosis: 0\n  resolved_after_diagnosis: 7\n  open_P0_P1: 1\n  result: FAIL_WITH_1_P1_BLOCKER\n  blockers_in_required_fix_order:\n    - DB-PKK-008\n'''
+          assert s.count(old_summary)==1,s.count(old_summary)
+          s=s.replace(old_summary,new_summary,1)
+
+          assert s.count('  status: PASS_DB_PKK_006\n')==1
+          s=s.replace('  status: PASS_DB_PKK_006\n','  status: PASS_DB_PKK_007\n',1)
+          old_pres='    DB_PKK_007_and_DB_PKK_008_remain_open: true\n'
+          new_pres='''    DB_PKK_007_integration_configuration_revision_binding_and_async_execution_context_closed: true\n    DB_PKK_008_remains_open: true\n'''
+          assert s.count(old_pres)==1,s.count(old_pres)
+          s=s.replace(old_pres,new_pres,1)
+
+          old_next='''next_single_step_after_central_gate:\n  id: DB_PKK_007_INTEGRATION_CONFIGURATION_REVISION_BINDING_AND_ASYNC_EXECUTION_CONTEXT\n  action: resolve_DB_PKK_007_only_after_next_explicit_user_instruction\n  allowed_scope:\n    - specs/database/pkk.yml\n    - docs/113-stage-4-pkk-audit.md\n    - specs/gates/stage-4-database-contract-gate.yml\n  aggregate_files_frozen:\n    - specs/database/core-schema.yml\n    - docs/87-physical-database-schema.md\n  stop_before: DB_PKK_008_DETERMINISTIC_OPERATION_HISTORY_LATEST_AND_COURSE_SUMMARY_PROJECTION\n'''
+          new_next='''next_single_step_after_central_gate:\n  id: DB_PKK_008_DETERMINISTIC_OPERATION_HISTORY_LATEST_AND_COURSE_SUMMARY_PROJECTION\n  action: resolve_DB_PKK_008_only_after_next_explicit_user_instruction\n  allowed_scope:\n    - specs/database/pkk.yml\n    - docs/113-stage-4-pkk-audit.md\n    - specs/gates/stage-4-database-contract-gate.yml\n  aggregate_files_frozen:\n    - specs/database/core-schema.yml\n    - docs/87-physical-database-schema.md\n  stop_before: DB4_8_FINAL_AGGREGATE_SYNC\n'''
+          assert s.count(old_next)==1,s.count(old_next)
+          s=s.replace(old_next,new_next,1)
+
+          p.write_text(s)
+          d=yaml.safe_load(s)
+          assert d['meta']['step']=='DB_PKK_007_INTEGRATION_CONFIGURATION_REVISION_BINDING_AND_ASYNC_EXECUTION_CONTEXT'
+          assert d['meta']['status']=='FAIL_WITH_1_P1_BLOCKER'
+          assert d['resolved_contracts']['DB-PKK-007']['status']=='PASS'
+          b={x['id']:x for x in d['blockers']}
+          assert b['DB-PKK-007']['status']=='RESOLVED'
+          assert b['DB-PKK-008']['status']=='OPEN'
+          assert d['diagnosis_summary']['resolved_after_diagnosis']==7
+          assert d['diagnosis_summary']['open_P0_P1']==1
+          assert d['diagnosis_summary']['blockers_in_required_fix_order']==['DB-PKK-008']
+          assert d['preservation_gate']['status']=='PASS_DB_PKK_007'
+          assert d['next_single_step_after_central_gate']['id']=='DB_PKK_008_DETERMINISTIC_OPERATION_HISTORY_LATEST_AND_COURSE_SUMMARY_PROJECTION'
+          PY
+          git diff --check -- specs/database/pkk.yml
+          test "$(git diff --name-only | grep -v '^\.github/workflows/tmp-db-pkk-007-machine.yml$' | grep -v '^\.stage4-tmp/' | sort -u)" = "specs/database/pkk.yml"
+          git config user.name 'prawkonaraz100'
+          git config user.email 'prawkonaraz100@gmail.com'
+          git add specs/database/pkk.yml
+          git commit -m 'DB-PKK-007: close integration configuration revision contract'
+          git push origin HEAD:tmp-db-pkk-007-machine-helper
