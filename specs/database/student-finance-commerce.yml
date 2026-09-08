@@ -3,7 +3,7 @@ meta:
   stage: 4
   slice: DB4_9_STUDENT_FINANCE_COMMERCE
   step: DB4_9_DIAGNOSIS
-  status: FAIL_WITH_8_P1_BLOCKERS
+  status: FAIL_WITH_10_P1_BLOCKERS
   diagnosed_at: 2026-09-08
   branch: docs-consolidation-2026-09-05
   diagnosis_only: true
@@ -392,9 +392,9 @@ blockers:
 
 diagnosis_summary:
   diagnosed_P0: 0
-  diagnosed_P1: 8
-  open_P0_P1: 8
-  result: FAIL_WITH_8_P1_BLOCKERS
+  diagnosed_P1: 10
+  open_P0_P1: 10
+  result: FAIL_WITH_10_P1_BLOCKERS
   blockers_in_required_fix_order:
     - DB-FIN-001
     - DB-FIN-002
@@ -406,15 +406,8 @@ diagnosis_summary:
     - DB-COM-005
     - DB-COM-008
     - DB-COM-006
-  note: >-
-    There are eight P1 blockers even though the closure order lists ten labels only if
-    DB-COM-007 and DB-COM-008 are treated as standalone blockers. The authoritative
-    blocker list above contains DB-FIN-001, DB-FIN-002 and DB-COM-001 through DB-COM-008,
-    which totals ten. This inconsistency is intentional diagnosis validation bait and
-    MUST be corrected before the diagnosis gate can PASS.
-
 preservation_gate:
-  status: PENDING_DIAGNOSIS_SELF_AUDIT
+  status: PASS_DB4_9_DIAGNOSIS_MACHINE
   checks:
     student_finance_and_platform_commerce_remain_distinct: true
     DB4_6_license_inventory_assignment_activation_contract_preserved: true
