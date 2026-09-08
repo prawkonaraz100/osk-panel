@@ -94,13 +94,13 @@ stage_4_slices:
     final_aggregate_sync: PASS
     result: PASS
   - id: DB4_8_PKK
-    status: FAIL_WITH_7_P1_BLOCKERS
+    status: FAIL_WITH_6_P1_BLOCKERS
     diagnosis: COMPLETE
     blockers_diagnosed: 8
-    blockers_resolved: 1
-    open_P0_P1: 7
+    blockers_resolved: 2
+    open_P0_P1: 6
     final_aggregate_sync: NOT_STARTED
-    result: FAIL_WITH_7_P1_BLOCKERS
+    result: FAIL_WITH_6_P1_BLOCKERS
   - id: DB4_9_STUDENT_FINANCE_COMMERCE
     status: NOT_STARTED
   - id: DB4_10_AUDIT_OUTBOX_NOTIFICATIONS
@@ -2635,6 +2635,50 @@ quality_checks:
       Stage5_started: false
       UI_or_feature_implementation_started: false
 
+  pkk_immutable_provider_snapshot_history_current_projection:
+    status: PASS
+    resolved_blocker_id: DB-PKK-002
+    severity: P1
+    machine_source: specs/database/pkk.yml
+    audit_source: docs/113-stage-4-pkk-audit.md
+    machine_contract_commit: 3283805d56ab331b9b889028cf38ddc28d9a00c0
+    narrative_audit_commit: 61c5961f0f48d294b0b731bcbdd23631a185e36e
+    decision:
+      PKK_identity_authority: pkk_profiles
+      provider_snapshot_history_authority: pkk_provider_profile_snapshots
+      provider_snapshot_history_append_only: true
+      snapshot_exact_tenant_course_profile_binding: true
+      snapshot_revision_contiguous_under_exact_profile_lock: true
+      timestamp_UUID_or_hash_latest_authority: false
+      current_snapshot_source: max_snapshot_revision_for_exact_current_pkk_profile
+      fallback_to_superseded_identity_snapshot: forbidden
+      late_snapshot_for_superseded_identity_becomes_current: false
+      new_identity_revision_copies_old_snapshot: false
+      snapshot_content_hash_is_evidence_binding_not_crypto_completion: true
+      payload_crypto_and_redaction_integrity_deferred_to_DB_PKK_006: true
+      provider_snapshot_auto_overwrites_student_or_course: false
+      legacy_provider_fields_on_pkk_profiles_runtime_authority_after_cutover: false
+      legacy_snapshot_rebinding_to_current_or_latest_by_heuristic: forbidden
+      DB_PKK_003_through_DB_PKK_008_not_fixed: true
+    checks:
+      identity_and_provider_snapshot_authorities_separated: PASS
+      immutable_append_only_snapshot_history_defined: PASS
+      exact_same_tenant_course_profile_snapshot_binding: PASS
+      deterministic_revision_and_current_projection: PASS
+      stale_identity_fallback_forbidden: PASS
+      late_historical_response_cannot_corrupt_current_projection: PASS
+      automatic_student_course_overwrite_forbidden: PASS
+      migration_is_fail_closed_and_non_guessing: PASS
+      DB_PKK_001_preserved: PASS
+      DB_PKK_003_through_DB_PKK_008_remain_open: PASS
+      aggregate_core_schema_modified_in_step: false
+      aggregate_docs87_modified_in_step: false
+      API_files_modified_in_step: false
+      DB4_9_or_later_entered: false
+      Laravel_migrations_created: false
+      Stage5_started: false
+      UI_or_feature_implementation_started: false
+
 resolved_blockers:
   - DB-FOUND-001
   - DB-FOUND-002
@@ -2682,9 +2726,9 @@ resolved_blockers:
   - DB-EXAM-007
   - DB-EXAM-008
   - DB-PKK-001
+  - DB-PKK-002
 
 open_blockers_current_diagnosed_scope:
-  - DB-PKK-002
   - DB-PKK-003
   - DB-PKK-004
   - DB-PKK-005
@@ -2700,7 +2744,7 @@ gate_definition:
     - migration_order_dependency_safe
     - database_invariant_test_matrix_exists
     - reverse_engineering_preservation_traceable
-  current_result: DB4_8_FAIL_WITH_7_P1_BLOCKERS
+  current_result: DB4_8_FAIL_WITH_6_P1_BLOCKERS
   DB4_1_result: PASS
   DB4_2_result: PASS
   DB4_3_result: PASS
@@ -2748,7 +2792,8 @@ gate_definition:
   DB4_7_result: PASS
   DB4_8_diagnosis_result: PASS_DIAGNOSIS_COMPLETE
   DB4_8_DB_PKK_001_result: PASS
-  DB4_8_result: FAIL_WITH_7_P1_BLOCKERS
+  DB4_8_DB_PKK_002_result: PASS
+  DB4_8_result: FAIL_WITH_6_P1_BLOCKERS
   may_start_DB4_4_fixes: false
   may_start_DB4_5: false
   may_start_DB4_5_fixes: false
@@ -2762,8 +2807,8 @@ gate_definition:
   may_start_UI_or_feature_implementation: false
 
 next_single_step:
-  id: DB_PKK_002_IMMUTABLE_PROVIDER_PROFILE_SNAPSHOT_HISTORY_AND_CURRENT_PROJECTION
-  action: resolve_DB_PKK_002_only_after_next_explicit_user_instruction
+  id: DB_PKK_003_PROVIDER_OPERATION_LIFECYCLE_CONCURRENCY_AND_COMMAND_ELIGIBILITY
+  action: resolve_DB_PKK_003_only_after_next_explicit_user_instruction
   allowed_scope:
     - specs/database/pkk.yml
     - docs/113-stage-4-pkk-audit.md
@@ -2772,8 +2817,8 @@ next_single_step:
     - specs/database/core-schema.yml
     - docs/87-physical-database-schema.md
   scope_lock: >-
-    Resolve only DB-PKK-002 immutable provider profile snapshot history and current
-    projection. Do not resolve DB-PKK-003 or later PKK blockers in the same step,
+    Resolve only DB-PKK-003 provider operation lifecycle, concurrency and command
+    eligibility. Do not resolve DB-PKK-004 or later PKK blockers in the same step,
     do not enter DB4_9 or later slices, do not start Stage 5, do not create Laravel
     migrations and do not start UI or feature implementation.
-  after_action: rerun_DB_PKK_002_machine_narrative_central_gate_and_STOP_before_DB_PKK_003
+  after_action: rerun_DB_PKK_003_machine_narrative_central_gate_and_STOP_before_DB_PKK_004
