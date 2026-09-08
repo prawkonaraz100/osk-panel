@@ -94,13 +94,13 @@ stage_4_slices:
     final_aggregate_sync: PASS
     result: PASS
   - id: DB4_8_PKK
-    status: BLOCKERS_RESOLVED_PENDING_FINAL_AGGREGATE_SYNC
+    status: PASS
     diagnosis: COMPLETE
     blockers_diagnosed: 8
     blockers_resolved: 8
     open_P0_P1: 0
-    final_aggregate_sync: PENDING
-    result: BLOCKERS_RESOLVED_PENDING_FINAL_AGGREGATE_SYNC
+    final_aggregate_sync: PASS
+    result: PASS
   - id: DB4_9_STUDENT_FINANCE_COMMERCE
     status: NOT_STARTED
   - id: DB4_10_AUDIT_OUTBOX_NOTIFICATIONS
@@ -3005,6 +3005,41 @@ quality_checks:
       Stage5_started: false
       UI_or_feature_implementation_started: false
 
+  DB4_8_final_aggregate_sync:
+    status: PASS
+    bounded_context_source: specs/database/pkk.yml
+    blocker_audit_source: docs/113-stage-4-pkk-audit.md
+    final_sync_audit_source: docs/113-stage-4-pkk-audit.md#26
+    aggregate_machine_source: specs/database/core-schema.yml
+    aggregate_narrative_source: docs/87-physical-database-schema.md
+    aggregate_base_after_DB_PKK_008_central_gate: 824aac3196ff8f6d7794dc2618dda14640ed0a30
+    machine_aggregate_commit: e22905ede00cab6d2b4cd5e2cc34e8740285e1f0
+    machine_aggregate_blob: 65c6daab0330a2c6cf57a6a2caaba288a13a7a70
+    narrative_aggregate_commit: 89f4e8eb21c15e19738baa0f885afb13e757360f
+    narrative_aggregate_blob: 4d5f24f2948bdb55e7367c7b013ed918dade40ae
+    bounded_final_sync_commit: 63c9fae5ca556f4f67faf34a32f361c61012c2bb
+    bounded_final_sync_blob: 14f5a54377f72c9ed4650d75cf87327d8b859612
+    final_sync_audit_commit: 968e08ca119475a9c06d0036b438af30b90d5b9f
+    final_sync_audit_blob: 1b1451fdefb3be65a42bfbffc2967f566ddeb1b2
+    checks:
+      all_eight_PKK_blockers_PASS: PASS
+      machine_aggregate_YAML_valid: PASS
+      narrative_aggregate_sync: PASS
+      bounded_final_sync_YAML_valid: PASS
+      cross_file_semantic_loss_gate: PASS
+      stale_provisional_shortcut_gate: PASS
+      migration_order_and_invariant_test_gate: PASS
+      aggregate_only_scope_gate: PASS
+      final_sync_audit_preservation_gate: PASS
+      core_schema_blob_matches_final_sync_record: PASS
+      docs87_blob_matches_final_sync_record: PASS
+      pkk_bounded_blob_matches_final_sync_record: PASS
+      DB4_9_remains_not_started: PASS
+      DB4_10_or_later_remain_not_started: PASS
+      Stage5_remains_blocked: PASS
+      Laravel_migrations_created: false
+      UI_or_feature_implementation_started: false
+
 resolved_blockers:
   - DB-FOUND-001
   - DB-FOUND-002
@@ -3070,7 +3105,7 @@ gate_definition:
     - migration_order_dependency_safe
     - database_invariant_test_matrix_exists
     - reverse_engineering_preservation_traceable
-  current_result: DB4_8_BLOCKERS_RESOLVED_PENDING_FINAL_AGGREGATE_SYNC
+  current_result: DB4_8_PASS
   DB4_1_result: PASS
   DB4_2_result: PASS
   DB4_3_result: PASS
@@ -3125,7 +3160,8 @@ gate_definition:
   DB4_8_DB_PKK_006_result: PASS
   DB4_8_DB_PKK_007_result: PASS
   DB4_8_DB_PKK_008_result: PASS
-  DB4_8_result: BLOCKERS_RESOLVED_PENDING_FINAL_AGGREGATE_SYNC
+  DB4_8_final_aggregate_sync_result: PASS
+  DB4_8_result: PASS
   may_start_DB4_4_fixes: false
   may_start_DB4_5: false
   may_start_DB4_5_fixes: false
@@ -3133,26 +3169,20 @@ gate_definition:
   may_start_DB4_6_fixes: false
   may_start_DB4_7: false
   may_start_DB4_7_fixes: false
-  may_start_DB4_8: true
-  may_start_DB4_8_fixes: true
+  may_start_DB4_8: false
+  may_start_DB4_8_fixes: false
+  may_start_DB4_9: true
+  may_start_DB4_9_fixes: false
   may_start_stage_5: false
   may_start_UI_or_feature_implementation: false
 
 next_single_step:
-  id: DB4_8_FINAL_AGGREGATE_SYNC
-  action: sync_DB4_8_resolved_contracts_to_aggregate_only_after_next_explicit_user_instruction
-  allowed_scope:
-    - specs/database/pkk.yml
-    - docs/113-stage-4-pkk-audit.md
-    - specs/gates/stage-4-database-contract-gate.yml
-    - specs/database/core-schema.yml
-    - docs/87-physical-database-schema.md
-  aggregate_files_frozen_until_next_explicit_user_instruction:
+  id: DB4_9_STUDENT_FINANCE_COMMERCE_DIAGNOSIS
+  action: begin_DB4_9_diagnosis_only_after_next_explicit_user_instruction
+  aggregate_files_frozen_until_DB4_9_diagnosis_is_closed:
     - specs/database/core-schema.yml
     - docs/87-physical-database-schema.md
   scope_lock: >-
-    Synchronize only the resolved DB-PKK-001 through DB-PKK-008 contracts into
-    the DB4_8 aggregate machine and narrative documents, then update bounded audit
-    and central gate. Do not enter DB4_9, Stage 5, Laravel migrations or UI in the
-    same step.
-  after_action: rerun_DB4_8_final_aggregate_sync_gate_and_STOP_before_DB4_9
+    Diagnose DB4_9 Student Finance / Commerce only. Do not fix DB4_9 blockers,
+    do not enter DB4_10, Stage 5, Laravel migrations or UI in the diagnosis step.
+  after_action: record_DB4_9_diagnosis_gate_and_STOP_before_first_DB4_9_fixer
