@@ -1,0 +1,179 @@
+pkk_model:
+  bounded_context_source: specs/database/pkk.yml
+  audit_source: docs/113-stage-4-pkk-audit.md
+  aggregate_sync_status: PASS
+  resolved_blockers: [DB-PKK-001, DB-PKK-002, DB-PKK-003, DB-PKK-004, DB-PKK-005, DB-PKK-006, DB-PKK-007, DB-PKK-008]
+
+  authority_boundary:
+    course_PKK_identity_authority: pkk_profiles
+    current_integration_settings_authority: pkk_integration_settings
+    integration_configuration_history_authority: pkk_integration_configuration_revisions
+    provider_snapshot_history_authority: pkk_provider_profile_snapshots
+    business_operation_authority: pkk_operations
+    business_lifecycle_history_authority: pkk_operation_lifecycle_events
+    transport_attempt_authority: pkk_operation_attempts
+    reconciliation_history_authority: pkk_operation_attempt_reconciliations
+    signature_handoff_authority: pkk_signature_handoffs
+    generic_binary_asset_authority: file_assets
+    retained_raw_payload_authority: pkk_protected_payloads
+    safe_projection_history_authority: pkk_payload_redacted_projections
+    mutable_course_or_profile_summary_as_second_authority: forbidden
+
+  tenant_and_exact_target_integrity:
+    organization_id_client_authority: false
+    pkk_operation_exact_context: [organization_id, course_enrollment_id, pkk_profile_id]
+    pkk_attempt_exact_parent_context: [organization_id, pkk_operation_id, course_enrollment_id, pkk_profile_id]
+    operation_to_course_same_tenant_composite_FK: true
+    operation_to_exact_profile_course_composite_FK: true
+    attempt_to_exact_operation_course_profile_composite_FK: true
+    signature_handoff_to_exact_operation_course_profile_composite_FK: true
+    reconciliation_to_exact_attempt_operation_course_profile_context: true
+    historical_context_reparenting: forbidden
+    formal_relation_on_update: RESTRICT
+    formal_relation_on_delete: RESTRICT
+    actor_user_is_global_identity_without_fake_tenant_FK: true
+
+  provider_profile_snapshots:
+    identity_and_provider_snapshot_authorities_separate: true
+    snapshot_table: pkk_provider_profile_snapshots
+    snapshot_revision_scope: [organization_id, course_enrollment_id, pkk_profile_id, snapshot_revision]
+    snapshot_revision_contiguous_for_runtime_rows: true
+    snapshot_revision_allocated_under_exact_profile_lock: true
+    snapshot_content_hash_required: true
+    snapshot_business_fields_immutable: true
+    current_snapshot_projection: max_snapshot_revision_for_exact_current_PkkProfile
+    superseded_identity_snapshot_fallback: forbidden
+    provider_snapshot_auto_overwrites_student_or_course: false
+    legacy_mutable_provider_fields_on_pkk_profiles_runtime_authority_after_cutover: false
+
+  business_operations:
+    operation_type_values: [fetch_profile, update_and_return, return_to_school, return_to_authority, return_expired]
+    business_status_values: [draft, pending, requires_signature, submitted, success, failed, cancelled]
+    active_statuses: [draft, pending, requires_signature, submitted]
+    retry_creates_new_business_operation: false
+    generic_direct_status_PATCH: forbidden
+    success_or_cancelled_terminal: true
+    failed_to_pending_only_through_explicit_retry_contract: true
+    one_active_operation_per_exact_profile: true
+    lifecycle_history_table: pkk_operation_lifecycle_events
+    one_lifecycle_event_per_operation_version: true
+    operation_current_version_status_matches_latest_history: DEFERRABLE_INITIALLY_DEFERRED_or_equivalent
+    confirmation_required_for_mutating_return_operations: true
+    provider_network_IO_inside_business_transition_transaction: forbidden
+    operation_creation_lock_order: [course_enrollment_FOR_UPDATE, exact_current_pkk_profile_FOR_UPDATE, organization_settings_FOR_SHARE]
+    PKK_identity_edit_vs_active_operation_serialized: true
+    duplicate_current_PKK_lookup_hash_for_external_operation: fail_closed_ambiguity_without_invented_global_uniqueness
+
+  idempotency_retry_reconciliation:
+    HTTP_command_idempotency_authority: idempotency_records
+    initial_operation_idempotency_binding_required_for_runtime: true
+    provider_attempt_command_idempotency_binding_required_for_runtime: true
+    same_key_same_hash_replay_creates_second_operation_or_attempt: false
+    same_key_different_hash: conflict
+    attempt_number_scope: [organization_id, pkk_operation_id, attempt_no]
+    attempt_number_allocated_under_operation_lock: true
+    one_replay_blocking_attempt_per_operation: true
+    worker_dispatch_claim_required_before_provider_send: true
+    timeout_or_connection_loss_effect_unknown_is_plain_failed: false
+    effect_unknown_blocks_new_dispatch_and_retry: true
+    reconciliation_table: pkk_operation_attempt_reconciliations
+    reconciliation_append_only_and_sequenced: true
+    retry_requires_definitive_no_effect_or_safe_retryable_failure: true
+    inconclusive_or_unavailable_reconciliation: fail_closed_no_automatic_retry
+    provider_native_exactly_once_assumed: false
+    safety_over_liveness_when_external_effect_unknown: true
+
+  signed_XML_handoff:
+    applies_only_when_verified_adapter_flow_requires_signature: true
+    signature_handoff_table: pkk_signature_handoffs
+    upload_reservation_table: pkk_signature_handoff_upload_reservations
+    unsigned_asset_purpose: pkk_unsigned_xml_to_sign
+    signed_asset_purpose: pkk_signed_xml_return
+    requires_signature_requires_ready_exact_same_tenant_unsigned_asset: true
+    unsigned_and_signed_hash_must_match_FileAsset_sha256: true
+    accepted_signed_asset_write_once: true
+    cross_handoff_or_cross_operation_asset_reuse: forbidden
+    referenced_XML_FileAsset_normal_delete_or_object_replacement: forbidden
+    requires_signature_to_submitted_creates_exact_submission_attempt_atomically: true
+    provider_dispatch_after_submission_commit: true
+    XAdES_or_provider_signature_rules_invented: false
+
+  protected_payloads_and_redaction:
+    retention_modes: [redacted_only, encrypted_raw_plus_redacted]
+    minimize_before_encrypt: true
+    plaintext_raw_provider_payload_persistence: forbidden
+    protected_payload_table: pkk_protected_payloads
+    protected_payload_key_wrapping_table: pkk_protected_payload_key_wrappings
+    redacted_projection_table: pkk_payload_redacted_projections
+    runtime_AEAD_profile: AES_256_GCM_256_bit_DEK_96_bit_nonce_128_bit_tag
+    exact_context_AAD_includes: [organization_id, payload_role, exact_parent_kind, exact_parent_id, crypto_profile_version]
+    random_DEK_per_payload: true
+    raw_DEK_or_KEK_persisted: false
+    key_rotation_rewraps_DEK_without_rewriting_business_ciphertext: true
+    current_wrapping_is_max_revision: true
+    redaction_is_allowlist_not_blacklist: true
+    unknown_provider_fields_safe_projection_default: deny
+    redaction_policy_change_appends_projection_revision: true
+    raw_payload_forbidden_in: [audit_logs, organization_activity_events, outbox_messages, notifications, idempotency_records_safe_response_snapshot, application_logs, generic_error_messages]
+    provisional_payload_fields_on_profile_operation_attempt_deauthorized_after_cutover: true
+
+  signature_XML_storage_security:
+    FileAsset_plaintext_sha256_semantics_preserved: true
+    final_ready_PKK_XML_storage_object_application_encrypted: true
+    signature_file_protection_table: pkk_signature_file_asset_protections
+    signature_file_key_wrapping_table: pkk_signature_file_asset_key_wrappings
+    FileAsset_sha256_is_verified_plaintext_XML_hash: true
+    encrypted_storage_object_sha256_is_ciphertext_object_hash: true
+    final_download_requires_exact_PKK_authorization_and_decryption: true
+    temporary_plaintext_quarantine_destroyed_after_successful_finalization: true
+
+  integration_configuration_revisions:
+    current_settings_table: pkk_integration_settings
+    current_execution_revision_field: execution_configuration_revision
+    revision_table: pkk_integration_configuration_revisions
+    revision_increment_only_on_material_PKK_execution_configuration_change: true
+    unrelated_OSK_setting_change_increments_execution_revision: false
+    organization_settings_version_remains_aggregate_settings_concurrency_root: true
+    provider_attempt_binds_exact_integration_configuration_revision: true
+    attempt_binding_immutable: true
+    retry_may_bind_new_current_revision_without_rewriting_old_attempt: true
+    organization_wide_PKK_execution_serialization_lock_per_organization: true
+    material_configuration_change_while_dispatching_or_effect_unknown_attempt_exists: reject_conflict
+    stale_prepared_attempt_after_configuration_change: safe_fail_before_provider_IO
+    reconciliation_uses_attempt_bound_revision: true
+    plaintext_external_osk_login_or_future_secret_copied_to_history: false
+
+  deterministic_operation_history_and_course_projection:
+    business_sequence_field: course_operation_sequence
+    sequence_scope: [organization_id, course_enrollment_id]
+    unique_scope: [organization_id, course_enrollment_id, course_operation_sequence]
+    sequence_allocated_under_existing_course_enrollment_FOR_UPDATE: true
+    committed_runtime_sequence_contiguous_from_one: true
+    sequence_immutable: true
+    history_spans_all_PkkProfile_revisions_for_same_course: true
+    latest_operation_selector: MAX_course_operation_sequence_for_exact_course
+    latest_by_created_at_completed_at_or_UUID: forbidden
+    history_order_default: course_operation_sequence_DESC
+    operation_history_count: COUNT_pkk_operations_for_exact_course
+    retry_attempt_count_is_business_operation_count: false
+    course_card_last_operation_and_history_count_are_derived: true
+    zero_operation_course_latest: null
+    zero_operation_course_count: 0
+    summary_row_or_cache_as_business_authority: forbidden
+
+  migration_safety:
+    fail_closed_on_ambiguous_legacy_state: true
+    no_cross_tenant_reparenting: true
+    no_null_legacy_operation_profile_auto_bind_to_current_or_latest: true
+    no_provider_snapshot_revision_guess_from_timestamp_or_UUID_when_ambiguous: true
+    no_lifecycle_transition_or_completed_at_history_fabrication: true
+    no_active_operation_auto_cancel_or_winner_selection: true
+    no_retry_idempotency_key_or_effect_safe_state_fabrication: true
+    no_attempt_renumbering_to_fake_history: true
+    no_signature_XML_role_or_handoff_guess_from_filename_timestamp_or_same_tenant_upload: true
+    no_legacy_ciphertext_promotion_to_authenticated_envelope_without_crypto_metadata: true
+    no_configuration_revision_guess_from_updated_at_or_timestamp: true
+    no_business_operation_sequence_tie_break_by_completed_at_UUID_or_provider_response_time: true
+    equal_legacy_created_at_without_stronger_order_evidence: fail_and_require_reviewed_remediation
+    migration_calls_provider_or_external_signing_service: forbidden
+    DB4_9_payment_or_commerce_boundary_not_entered: true
