@@ -1,0 +1,84 @@
+name: Temporary DB-FIN-002 Machine Gate V2
+
+on:
+  push:
+    branches: [tmp-db-fin-002-machine-v2-helper]
+    paths:
+      - '.stage4-tmp/TRIGGER_DB_FIN_002_MACHINE_V2'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: tmp-db-fin-002-machine-v2-helper
+      - name: Patch and validate DB-FIN-002 only
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import yaml, copy
+          p=Path('specs/database/student-finance-commerce.yml')
+          s=p.read_text()
+          before=yaml.safe_load(s)
+          fin001=copy.deepcopy(before['resolved_contracts']['DB-FIN-001'])
+          blockers=copy.deepcopy(before['blockers'])
+          fragment=Path('.stage4-tmp/db-fin-002-contract.fragment').read_text()
+          parsed_fragment=yaml.safe_load('resolved_contracts:\n'+fragment)
+          assert parsed_fragment['resolved_contracts']['DB-FIN-002']['status']=='PASS'
+
+          changes=[
+            ('  step: DB_FIN_001_SAME_TENANT_EXACT_CHARGE_PAYMENT_COURSE_INTEGRITY\n','  step: DB_FIN_002_CHARGE_PAYMENT_REVERSAL_LIFECYCLE_BALANCE_OVERPAYMENT_AND_CONCURRENCY\n'),
+            ('  status: FAIL_WITH_9_P1_BLOCKERS\n','  status: FAIL_WITH_8_P1_BLOCKERS\n'),
+            ('  current_step_scope: DB_FIN_001_only\n','  current_step_scope: DB_FIN_002_only\n')]
+          for old,new in changes:
+            assert s.count(old)==1,(old,s.count(old)); s=s.replace(old,new,1)
+
+          marker='\nblockers:\n'; assert s.count(marker)==1
+          assert '\n  DB-FIN-002:\n' not in s
+          s=s.replace(marker,'\n'+fragment+marker.lstrip('\n'),1)
+
+          old='''  - id: DB-FIN-002\n    title: charge_payment_reversal_lifecycle_balance_overpayment_and_concurrency\n    severity: P1\n    status: OPEN\n'''
+          new='''  - id: DB-FIN-002\n    title: charge_payment_reversal_lifecycle_balance_overpayment_and_concurrency\n    severity: P1\n    status: RESOLVED\n    resolution_ref: resolved_contracts.DB-FIN-002\n'''
+          assert s.count(old)==1; s=s.replace(old,new,1)
+
+          old_summary='''diagnosis_summary:\n  diagnosed_P0: 0\n  diagnosed_P1: 10\n  resolved_after_diagnosis: 1\n  open_P0_P1: 9\n  result: FAIL_WITH_9_P1_BLOCKERS\n  resolved_blockers:\n    - DB-FIN-001\n  blockers_in_required_fix_order:\n    - DB-FIN-002\n    - DB-COM-001\n'''
+          new_summary='''diagnosis_summary:\n  diagnosed_P0: 0\n  diagnosed_P1: 10\n  resolved_after_diagnosis: 2\n  open_P0_P1: 8\n  result: FAIL_WITH_8_P1_BLOCKERS\n  resolved_blockers:\n    - DB-FIN-001\n    - DB-FIN-002\n  blockers_in_required_fix_order:\n    - DB-COM-001\n'''
+          assert s.count(old_summary)==1; s=s.replace(old_summary,new_summary,1)
+          assert s.count('  status: PASS_DB_FIN_001_MACHINE_CONTRACT\n')==1
+          s=s.replace('  status: PASS_DB_FIN_001_MACHINE_CONTRACT\n','  status: PASS_DB_FIN_002_MACHINE_CONTRACT\n',1)
+          old_next='''next_single_step_after_central_gate:\n  id: DB_FIN_002_CHARGE_PAYMENT_REVERSAL_LIFECYCLE_BALANCE_OVERPAYMENT_AND_CONCURRENCY\n  action: resolve_DB_FIN_002_only_after_next_explicit_user_instruction\n  stop_before: DB_COM_001_ORDER_ITEM_TENANT_PRODUCT_SNAPSHOT_PRICE_TOTAL_AND_QUANTITY_INTEGRITY\n'''
+          new_next='''next_single_step_after_central_gate:\n  id: DB_COM_001_ORDER_ITEM_TENANT_PRODUCT_SNAPSHOT_PRICE_TOTAL_AND_QUANTITY_INTEGRITY\n  action: resolve_DB_COM_001_only_after_next_explicit_user_instruction\n  stop_before: DB_COM_002_PAYMENT_ATTEMPT_EVENT_ORDER_STATE_IDEMPOTENCY_AND_RECONCILIATION\n'''
+          assert s.count(old_next)==1; s=s.replace(old_next,new_next,1)
+          p.write_text(s)
+
+          after=yaml.safe_load(s)
+          assert after['resolved_contracts']['DB-FIN-001']==fin001
+          assert after['resolved_contracts']['DB-FIN-002']['status']=='PASS'
+          assert after['blockers'][0]==blockers[0]
+          assert after['blockers'][1]['status']=='RESOLVED'
+          for k in ['diagnosis','risk','closure_scope_only']:
+            assert after['blockers'][1][k]==blockers[1][k]
+          assert after['blockers'][2:]==blockers[2:]
+          assert after['diagnosis_summary']['resolved_after_diagnosis']==2
+          assert after['diagnosis_summary']['open_P0_P1']==8
+          assert after['diagnosis_summary']['result']=='FAIL_WITH_8_P1_BLOCKERS'
+          assert after['diagnosis_summary']['resolved_blockers']==['DB-FIN-001','DB-FIN-002']
+          assert len(after['diagnosis_summary']['blockers_in_required_fix_order'])==8
+          assert after['diagnosis_summary']['blockers_in_required_fix_order'][0]=='DB-COM-001'
+          assert after['preservation_gate']['status']=='PASS_DB_FIN_002_MACHINE_CONTRACT'
+          assert after['next_single_step_after_central_gate']['id']=='DB_COM_001_ORDER_ITEM_TENANT_PRODUCT_SNAPSHOT_PRICE_TOTAL_AND_QUANTITY_INTEGRITY'
+          PY
+          test "$(git hash-object specs/database/core-schema.yml)" = "65c6daab0330a2c6cf57a6a2caaba288a13a7a70"
+          test "$(git hash-object docs/87-physical-database-schema.md)" = "4d5f24f2948bdb55e7367c7b013ed918dade40ae"
+          git diff --check -- specs/database/student-finance-commerce.yml
+          test "$(git diff --name-only | grep -v '^\.github/workflows/tmp-db-fin-002-machine-v2.yml$' | grep -v '^\.stage4-tmp/' | sort -u)" = "specs/database/student-finance-commerce.yml"
+          git config user.name 'prawkonaraz100'
+          git config user.email 'prawkonaraz100@gmail.com'
+          git add specs/database/student-finance-commerce.yml
+          git commit -m 'DB-FIN-002: close finance lifecycle balance and concurrency'
+          git push origin HEAD:tmp-db-fin-002-machine-v2-helper
