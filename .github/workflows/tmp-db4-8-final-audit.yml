@@ -1,0 +1,47 @@
+name: Temporary DB4_8 Final Audit Gate
+
+on:
+  push:
+    branches: [tmp-db4-8-final-audit-helper]
+    paths:
+      - '.stage4-tmp/TRIGGER_DB4_8_FINAL_AUDIT'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: tmp-db4-8-final-audit-helper
+      - name: Patch and validate final PKK audit
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('docs/113-stage-4-pkk-audit.md')
+          s=p.read_text()
+          old_header='''# 113. Stage 4 — PKK database audit\n\nData: 2026-09-08\n\n**Etap:** `DB4_8_PKK`  \n**Aktualny krok:** `DB_PKK_008_DETERMINISTIC_OPERATION_HISTORY_LATEST_AND_COURSE_SUMMARY_PROJECTION`\n**Status:** `BLOCKERS_RESOLVED_PENDING_DB4_8_FINAL_AGGREGATE_SYNC / 0 P0 / 0 P1 OPEN`\n'''
+          new_header='''# 113. Stage 4 — PKK database audit\n\nData: 2026-09-08\n\n**Etap:** `DB4_8_PKK`  \n**Aktualny krok:** `DB4_8_FINAL_AGGREGATE_SYNC`\n**Status:** `PASS / 0 P0 / 0 P1 OPEN`\n'''
+          assert s.startswith(old_header)
+          assert '## 26. DB4_8_FINAL_AGGREGATE_SYNC — wynik: PASS' not in s
+          historical=s[len(old_header):]
+          assert '## 25.' in historical
+          assert 'slice result: **BLOCKERS_RESOLVED_PENDING_DB4_8_FINAL_AGGREGATE_SYNC**.' in historical
+          appendix='''\n\n---\n\n## 26. DB4_8_FINAL_AGGREGATE_SYNC — wynik: PASS\n\nDB4_8 final aggregate sync został wykonany dopiero po zamknięciu DB-PKK-001…008 i po osobnych bramkach machine aggregate, narrative aggregate oraz bounded final-sync. Historyczne sekcje 1–25 pozostają literalnym zapisem wcześniejszych bramek; ich wcześniejsze komunikaty `STOP` nie są przepisywane retroaktywnie.\n\n### 26.1. Finalne źródła agregatowe\n\n- base po DB-PKK-008 central gate: `824aac3196ff8f6d7794dc2618dda14640ed0a30`,\n- machine aggregate commit: `e22905ede00cab6d2b4cd5e2cc34e8740285e1f0`,\n- `specs/database/core-schema.yml` blob: `65c6daab0330a2c6cf57a6a2caaba288a13a7a70`,\n- narrative aggregate commit: `89f4e8eb21c15e19738baa0f885afb13e757360f`,\n- `docs/87-physical-database-schema.md` blob: `4d5f24f2948bdb55e7367c7b013ed918dade40ae`,\n- bounded final-sync commit: `63c9fae5ca556f4f67faf34a32f361c61012c2bb`,\n- `specs/database/pkk.yml` final-sync blob: `14f5a54377f72c9ed4650d75cf87327d8b859612`.\n\nMachine i narrative aggregate są projekcją tych samych ośmiu zamkniętych kontraktów DB-PKK. `pkk.yml` pozostaje canonical bounded-context source; agregaty nie tworzą konkurencyjnej authority.\n\n### 26.2. Semantic-loss i preservation gate\n\nPASS:\n- DB-PKK-001…008 nadal są RESOLVED, bez ponownego otwierania lub przepisywania wcześniejszych kontraktów,\n- exact Course/Profile/Operation/Attempt tenant boundary jest zachowana,\n- provider snapshot i operation lifecycle pozostają append-only/history-preserving,\n- idempotency + retry + `effect_unknown` reconciliation zachowują exactly-once external-effect boundary,\n- signed XML handoff zachowuje exact FileAsset/hash/evidence binding,\n- protected provider payloads pozostają application-encrypted; redacted projection nie jest raw evidence,\n- provider attempt nadal wskazuje exact integration configuration revision,\n- latest PKK operation nadal wynika z `MAX(course_operation_sequence)`, nie z timestampu ani UUID,\n- history count nadal liczy business operations, nie transport retries,\n- brak starego provisional `deferred_to_DB4_8` jako finalnej authority,\n- DB4_9 Student Finance / Commerce nie został rozpoczęty,\n- DB4_10+ nie zostały rozpoczęte,\n- Stage 5 nie został rozpoczęty,\n- Laravel migrations nie zostały utworzone,\n- UI/feature implementation nie został rozpoczęty.\n\n### 26.3. Migration-order i invariant-test gate\n\nPASS. Finalny aggregate obejmuje configuration revisions, provider snapshots, business operation lifecycle, provider attempts i reconciliation, signature handoffs, protected payloads/redacted projections, XML crypto binding oraz deterministic course operation sequence. Migration safety pozostaje fail-closed: legacy order, configuration context, provider effect, payload history i signature lineage nie mogą być zgadywane.\n\n### 26.4. Self-audit DB4_8\n\n- P0 OPEN: **0**,\n- P1 OPEN: **0**,\n- resolved: **8/8**,\n- machine aggregate: **PASS**,\n- narrative aggregate: **PASS**,\n- bounded final-sync: **PASS**,\n- final-sync audit: **PASS**,\n- DB4_8 slice status przed central gate: **PASS_PENDING_CENTRAL_GATE**.\n\nNastępny i jedyny krok w DB4_8 to aktualizacja `specs/gates/stage-4-database-contract-gate.yml` oraz końcowy full-scope compare/workflow-hygiene check.\n\n**STOP przed DB4_9_STUDENT_FINANCE_COMMERCE.**\n'''
+          out=new_header+historical+appendix
+          assert out[len(new_header):len(new_header)+len(historical)] == historical
+          p.write_text(out)
+          PY
+          test "$(git hash-object specs/database/core-schema.yml)" = "65c6daab0330a2c6cf57a6a2caaba288a13a7a70"
+          test "$(git hash-object docs/87-physical-database-schema.md)" = "4d5f24f2948bdb55e7367c7b013ed918dade40ae"
+          test "$(git hash-object specs/database/pkk.yml)" = "14f5a54377f72c9ed4650d75cf87327d8b859612"
+          git diff --check -- docs/113-stage-4-pkk-audit.md
+          test "$(git diff --name-only | grep -v '^\.github/workflows/tmp-db4-8-final-audit.yml$' | grep -v '^\.stage4-tmp/' | sort -u)" = "docs/113-stage-4-pkk-audit.md"
+          git config user.name 'prawkonaraz100'
+          git config user.email 'prawkonaraz100@gmail.com'
+          git add docs/113-stage-4-pkk-audit.md
+          git commit -m 'DB4_8: add final aggregate sync audit'
+          git push origin HEAD:tmp-db4-8-final-audit-helper
