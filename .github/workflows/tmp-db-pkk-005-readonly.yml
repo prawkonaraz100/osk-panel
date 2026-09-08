@@ -1,0 +1,24 @@
+name: Temporary DB-PKK-005 Readonly Gate
+
+on:
+  push:
+    branches: [tmp-db-pkk-005-machine-helper]
+    paths:
+      - '.stage4-tmp/TRIGGER_DB_PKK_005_READONLY'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: tmp-db-pkk-005-machine-helper
+      - name: Validate DB-PKK-005 read-only
+        shell: bash
+        run: |
+          ruby -e "require 'yaml'; y=YAML.unsafe_load_file('specs/database/pkk.yml'); raise unless y.dig('meta','step')=='DB_PKK_005_SIGNED_XML_HANDOFF_AND_FILE_ASSET_EVIDENCE_INTEGRITY'; raise unless y.dig('meta','status')=='FAIL_WITH_3_P1_BLOCKERS'; r=y['resolved_contracts']; %w[DB-PKK-001 DB-PKK-002 DB-PKK-003 DB-PKK-004 DB-PKK-005].each{|k| raise k unless r.dig(k,'status')=='PASS'}; c=r['DB-PKK-005']; raise unless c.dig('signature_handoff_table','name')=='pkk_signature_handoffs'; raise unless c.dig('signed_upload_reservation_boundary','reservation_table')=='pkk_signature_handoff_upload_reservations'; raise unless c.dig('unsigned_XML_evidence','file_asset_purpose')=='pkk_unsigned_xml_to_sign'; raise unless c.dig('signed_XML_acceptance','file_asset_purpose')=='pkk_signed_xml_return'; raise unless c.dig('signed_XML_submit_idempotency','canonical_operation_key')=='pkk.signed_xml.submit'; raise unless c.dig('authority_and_scope','cryptographic_signature_validity_claimed_by_DB_PKK_005')==false; b=y['blockers'].to_h{|x| [x['id'],x['status']]}; %w[DB-PKK-001 DB-PKK-002 DB-PKK-003 DB-PKK-004 DB-PKK-005].each{|k| raise k unless b[k]=='RESOLVED'}; %w[DB-PKK-006 DB-PKK-007 DB-PKK-008].each{|k| raise k unless b[k]=='OPEN'}; raise unless y.dig('diagnosis_summary','open_P0_P1')==3; raise unless y.dig('diagnosis_summary','resolved_after_diagnosis')==5; raise unless y.dig('diagnosis_summary','result')=='FAIL_WITH_3_P1_BLOCKERS'; raise unless y.dig('preservation_gate','status')=='PASS_DB_PKK_005'; raise unless y.dig('next_single_step_after_central_gate','id')=='DB_PKK_006_SENSITIVE_PROVIDER_PAYLOAD_ENCRYPTION_REDACTION_HASH_AND_KEY_VERSION_BOUNDARY'; puts 'DB-PKK-005 READONLY VALIDATION PASS'"
+          git diff --check
+          test -z "$(git status --porcelain -- specs/database/pkk.yml)"
