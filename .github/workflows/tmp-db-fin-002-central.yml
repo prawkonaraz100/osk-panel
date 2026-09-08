@@ -1,0 +1,92 @@
+name: Temporary DB-FIN-002 Central Gate
+
+on:
+  push:
+    branches: [tmp-db-fin-002-central-helper]
+    paths:
+      - '.stage4-tmp/TRIGGER_DB_FIN_002_CENTRAL'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: tmp-db-fin-002-central-helper
+      - name: Patch and validate DB-FIN-002 central gate only
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import yaml, copy
+          p=Path('specs/gates/stage-4-database-contract-gate.yml')
+          s=p.read_text()
+          before=yaml.safe_load(s)
+          quality_before=copy.deepcopy(before['quality_checks'])
+          resolved_before=copy.deepcopy(before['resolved_blockers'])
+          open_before=copy.deepcopy(before['open_blockers_current_diagnosed_scope'])
+
+          old_slice='''  - id: DB4_9_STUDENT_FINANCE_COMMERCE\n    status: FAIL_WITH_9_P1_BLOCKERS\n    diagnosis: COMPLETE\n    blockers_diagnosed: 10\n    blockers_resolved: 1\n    open_P0_P1: 9\n    final_aggregate_sync: NOT_STARTED\n    result: FAIL_WITH_9_P1_BLOCKERS\n'''
+          new_slice='''  - id: DB4_9_STUDENT_FINANCE_COMMERCE\n    status: FAIL_WITH_8_P1_BLOCKERS\n    diagnosis: COMPLETE\n    blockers_diagnosed: 10\n    blockers_resolved: 2\n    open_P0_P1: 8\n    final_aggregate_sync: NOT_STARTED\n    result: FAIL_WITH_8_P1_BLOCKERS\n'''
+          assert s.count(old_slice)==1
+          s=s.replace(old_slice,new_slice,1)
+
+          marker='\nresolved_blockers:\n'
+          assert s.count(marker)==1
+          assert '\n  student_finance_lifecycle_balance_reversal_overpayment_concurrency:\n' not in s
+          block='''\n  student_finance_lifecycle_balance_reversal_overpayment_concurrency:\n    status: PASS\n    resolved_blocker_id: DB-FIN-002\n    severity: P1\n    machine_source: specs/database/student-finance-commerce.yml\n    narrative_source: docs/114-stage-4-student-finance-commerce-audit.md\n    machine_commit: 1ac3288fb52a842066586384c598c286d8d31d4b\n    machine_blob: ffb447a0eebe5a6b79b291c787ffec4af4196e5f\n    narrative_commit: a19ce134e572c633f8f2629de6f7b0a70f2ffd34\n    narrative_blob: 1bc9152a8210d88bd413383072fd632de54054ba\n    decision:\n      durable_charge_state_authority: cancelled_tuple_only\n      open_partial_paid_are_derived_from_valid_nonreversed_payments: true\n      overdue_is_time_based_projection_modifier_not_mutable_authority: true\n      valid_payment_predicate: reversed_at_is_null\n      reversal_tuple_write_once: true\n      second_reversal_or_unreverse: forbidden\n      cancelled_charge_requires_valid_payment_total_zero: true\n      cancellation_with_nonreversed_payment: reject\n      student_charge_is_money_mutation_concurrency_root: true\n      record_reverse_cancel_share_charge_FOR_UPDATE_boundary: true\n      no_overpayment_rechecked_after_charge_lock: true\n      generic_idempotency_records_are_only_retry_authority: true\n      student_payments_nullable_idempotency_key_parallel_authority: forbidden_after_cutover\n      financial_hard_delete: forbidden\n      physical_audit_outbox_storage_finalization: DB4_10\n    checks:\n      concurrent_payments_cannot_both_consume_same_remaining_amount: PASS\n      payment_vs_cancel_and_reversal_races_serialized: PASS\n      balance_is_projection_not_frontend_state: PASS\n      cancellation_vs_existing_money_semantics_closed: PASS\n      generic_idempotency_boundary_closed: PASS\n      DB_FIN_001_contract_preserved: PASS\n      DB_COM_001_through_DB_COM_008_remain_open: PASS\n      aggregate_core_schema_modified: false\n      aggregate_docs87_modified: false\n      DB4_10_or_later_entered: false\n      Stage5_started: false\n      Laravel_migrations_created: false\n      UI_or_feature_implementation_started: false\n'''
+          s=s.replace(marker,block+marker,1)
+
+          anchor='  - DB-FIN-001\n\nopen_blockers_current_diagnosed_scope:\n'
+          assert s.count(anchor)==1
+          s=s.replace(anchor,'  - DB-FIN-001\n  - DB-FIN-002\n\nopen_blockers_current_diagnosed_scope:\n',1)
+          assert s.count('open_blockers_current_diagnosed_scope:\n  - DB-FIN-002\n')==1
+          s=s.replace('open_blockers_current_diagnosed_scope:\n  - DB-FIN-002\n','open_blockers_current_diagnosed_scope:\n',1)
+
+          assert s.count('  current_result: DB4_9_FAIL_WITH_9_P1_BLOCKERS\n')==1
+          s=s.replace('  current_result: DB4_9_FAIL_WITH_9_P1_BLOCKERS\n','  current_result: DB4_9_FAIL_WITH_8_P1_BLOCKERS\n',1)
+          old_result='''  DB4_9_DB_FIN_001_result: PASS\n  DB4_9_result: FAIL_WITH_9_P1_BLOCKERS\n'''
+          new_result='''  DB4_9_DB_FIN_001_result: PASS\n  DB4_9_DB_FIN_002_result: PASS\n  DB4_9_result: FAIL_WITH_8_P1_BLOCKERS\n'''
+          assert s.count(old_result)==1
+          s=s.replace(old_result,new_result,1)
+
+          assert s.count('  id: DB_FIN_002_CHARGE_PAYMENT_REVERSAL_LIFECYCLE_BALANCE_OVERPAYMENT_AND_CONCURRENCY\n')==1
+          s=s.replace('  id: DB_FIN_002_CHARGE_PAYMENT_REVERSAL_LIFECYCLE_BALANCE_OVERPAYMENT_AND_CONCURRENCY\n','  id: DB_COM_001_ORDER_ITEM_TENANT_PRODUCT_SNAPSHOT_PRICE_TOTAL_AND_QUANTITY_INTEGRITY\n',1)
+          assert s.count('  action: resolve_DB_FIN_002_only_after_next_explicit_user_instruction\n')==1
+          s=s.replace('  action: resolve_DB_FIN_002_only_after_next_explicit_user_instruction\n','  action: resolve_DB_COM_001_only_after_next_explicit_user_instruction\n',1)
+          old_scope='''  scope_lock: >-\n    Resolve DB-FIN-002 only. Preserve DB-COM-001 through DB-COM-008 as OPEN.\n    Do not enter DB-COM-001, DB4_10, Stage 5, Laravel migrations or UI in the same step.\n  after_action: rerun_DB_FIN_002_machine_narrative_central_gate_and_STOP_before_DB_COM_001\n'''
+          new_scope='''  scope_lock: >-\n    Resolve DB-COM-001 only. Preserve DB-COM-002 through DB-COM-008 as OPEN.\n    Do not enter DB-COM-002, DB4_10, Stage 5, Laravel migrations or UI in the same step.\n  after_action: rerun_DB_COM_001_machine_narrative_central_gate_and_STOP_before_DB_COM_002\n'''
+          assert s.count(old_scope)==1
+          s=s.replace(old_scope,new_scope,1)
+
+          p.write_text(s)
+          after=yaml.safe_load(s)
+          qa=copy.deepcopy(after['quality_checks'])
+          newq=qa.pop('student_finance_lifecycle_balance_reversal_overpayment_concurrency')
+          assert qa==quality_before
+          assert newq['status']=='PASS'
+          slices={x['id']:x for x in after['stage_4_slices']}
+          assert slices['DB4_9_STUDENT_FINANCE_COMMERCE']['blockers_resolved']==2
+          assert slices['DB4_9_STUDENT_FINANCE_COMMERCE']['open_P0_P1']==8
+          assert slices['DB4_10_AUDIT_OUTBOX_NOTIFICATIONS']['status']=='NOT_STARTED'
+          assert after['resolved_blockers']==resolved_before+['DB-FIN-002']
+          assert after['open_blockers_current_diagnosed_scope']==[x for x in open_before if x!='DB-FIN-002']
+          assert after['gate_definition']['current_result']=='DB4_9_FAIL_WITH_8_P1_BLOCKERS'
+          assert after['gate_definition']['DB4_9_DB_FIN_002_result']=='PASS'
+          assert after['gate_definition']['DB4_9_result']=='FAIL_WITH_8_P1_BLOCKERS'
+          assert after['next_single_step']['id']=='DB_COM_001_ORDER_ITEM_TENANT_PRODUCT_SNAPSHOT_PRICE_TOTAL_AND_QUANTITY_INTEGRITY'
+          PY
+          test "$(git hash-object specs/database/core-schema.yml)" = "65c6daab0330a2c6cf57a6a2caaba288a13a7a70"
+          test "$(git hash-object docs/87-physical-database-schema.md)" = "4d5f24f2948bdb55e7367c7b013ed918dade40ae"
+          test "$(git hash-object specs/database/student-finance-commerce.yml)" = "ffb447a0eebe5a6b79b291c787ffec4af4196e5f"
+          test "$(git hash-object docs/114-stage-4-student-finance-commerce-audit.md)" = "1bc9152a8210d88bd413383072fd632de54054ba"
+          git diff --check -- specs/gates/stage-4-database-contract-gate.yml
+          test "$(git diff --name-only | grep -v '^\.github/workflows/tmp-db-fin-002-central.yml$' | grep -v '^\.stage4-tmp/' | sort -u)" = "specs/gates/stage-4-database-contract-gate.yml"
+          git config user.name 'prawkonaraz100'
+          git config user.email 'prawkonaraz100@gmail.com'
+          git add specs/gates/stage-4-database-contract-gate.yml
+          git commit -m 'DB-FIN-002: close central database contract gate'
+          git push origin HEAD:tmp-db-fin-002-central-helper
