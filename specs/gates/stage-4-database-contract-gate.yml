@@ -94,13 +94,13 @@ stage_4_slices:
     final_aggregate_sync: PASS
     result: PASS
   - id: DB4_8_PKK
-    status: FAIL_WITH_4_P1_BLOCKERS
+    status: FAIL_WITH_3_P1_BLOCKERS
     diagnosis: COMPLETE
     blockers_diagnosed: 8
-    blockers_resolved: 4
-    open_P0_P1: 4
+    blockers_resolved: 5
+    open_P0_P1: 3
     final_aggregate_sync: NOT_STARTED
-    result: FAIL_WITH_4_P1_BLOCKERS
+    result: FAIL_WITH_3_P1_BLOCKERS
   - id: DB4_9_STUDENT_FINANCE_COMMERCE
     status: NOT_STARTED
   - id: DB4_10_AUDIT_OUTBOX_NOTIFICATIONS
@@ -2797,6 +2797,57 @@ quality_checks:
       Stage5_started: false
       UI_or_feature_implementation_started: false
 
+  pkk_signed_XML_handoff_and_file_asset_evidence_integrity:
+    status: PASS
+    resolved_blocker_id: DB-PKK-005
+    severity: P1
+    machine_source: specs/database/pkk.yml
+    audit_source: docs/113-stage-4-pkk-audit.md
+    machine_contract_commit: a8df64ef06fd900004a36499728f9b9299f7ef7b
+    narrative_audit_commit: 7fd04ffee8b6f945b974c4a934446860f00cb08a
+    decision:
+      signature_requirement_mapping: adapter_verified_not_globally_hardcoded
+      signature_handoff_authority: pkk_signature_handoffs
+      generic_binary_asset_authority: file_assets
+      exact_unsigned_asset_purpose: pkk_unsigned_xml_to_sign
+      exact_signed_asset_purpose: pkk_signed_xml_return
+      requires_signature_without_exact_unsigned_evidence: forbidden
+      signed_upload_requires_exact_handoff_reservation: true
+      signed_asset_binding_write_once: true
+      cross_operation_or_cross_handoff_signed_asset_reuse: forbidden
+      referenced_FileAsset_normal_replace_or_delete: forbidden
+      signature_submission_attempt_requires_exact_handoff_binding: true
+      signed_XML_submit_idempotency_operation_key: pkk.signed_xml.submit
+      requires_signature_to_submitted_and_submission_attempt_commit_atomically: true
+      provider_dispatch_before_local_commit: forbidden
+      raw_XML_or_storage_key_in_safe_projection_or_idempotency_response: forbidden
+      cryptographic_signature_validity_claimed_without_provider_contract: false
+      provider_specific_XML_schema_or_XAdES_rules_invented: false
+      legacy_signature_evidence_guessed_by_filename_timestamp_or_latest_upload: forbidden
+      DB_PKK_006_payload_crypto_deferred: true
+      DB_PKK_007_configuration_revision_deferred: true
+      DB_PKK_008_latest_projection_deferred: true
+    checks:
+      exact_context_signature_handoff_closed: PASS
+      unsigned_ready_purpose_hash_binding_closed: PASS
+      signed_upload_exact_handoff_reservation_closed: PASS
+      signed_asset_write_once_and_no_cross_operation_reuse: PASS
+      FileAsset_integrity_and_retention_boundary_closed: PASS
+      signature_submission_attempt_exact_handoff_binding_closed: PASS
+      signed_XML_submission_idempotency_reuses_DB_PKK_004: PASS
+      requires_signature_to_submitted_atomic_before_dispatch: PASS
+      unverified_cryptographic_signature_semantics_not_invented: PASS
+      migration_fail_closed_and_non_guessing: PASS
+      DB_PKK_001_through_DB_PKK_004_preserved: PASS
+      DB_PKK_006_through_DB_PKK_008_remain_open: PASS
+      aggregate_core_schema_modified_in_step: false
+      aggregate_docs87_modified_in_step: false
+      API_files_modified_in_step: false
+      DB4_9_or_later_entered: false
+      Laravel_migrations_created: false
+      Stage5_started: false
+      UI_or_feature_implementation_started: false
+
 resolved_blockers:
   - DB-FOUND-001
   - DB-FOUND-002
@@ -2847,9 +2898,9 @@ resolved_blockers:
   - DB-PKK-002
   - DB-PKK-003
   - DB-PKK-004
+  - DB-PKK-005
 
 open_blockers_current_diagnosed_scope:
-  - DB-PKK-005
   - DB-PKK-006
   - DB-PKK-007
   - DB-PKK-008
@@ -2862,7 +2913,7 @@ gate_definition:
     - migration_order_dependency_safe
     - database_invariant_test_matrix_exists
     - reverse_engineering_preservation_traceable
-  current_result: DB4_8_FAIL_WITH_4_P1_BLOCKERS
+  current_result: DB4_8_FAIL_WITH_3_P1_BLOCKERS
   DB4_1_result: PASS
   DB4_2_result: PASS
   DB4_3_result: PASS
@@ -2913,7 +2964,8 @@ gate_definition:
   DB4_8_DB_PKK_002_result: PASS
   DB4_8_DB_PKK_003_result: PASS
   DB4_8_DB_PKK_004_result: PASS
-  DB4_8_result: FAIL_WITH_4_P1_BLOCKERS
+  DB4_8_DB_PKK_005_result: PASS
+  DB4_8_result: FAIL_WITH_3_P1_BLOCKERS
   may_start_DB4_4_fixes: false
   may_start_DB4_5: false
   may_start_DB4_5_fixes: false
@@ -2927,8 +2979,8 @@ gate_definition:
   may_start_UI_or_feature_implementation: false
 
 next_single_step:
-  id: DB_PKK_005_SIGNED_XML_HANDOFF_AND_FILE_ASSET_EVIDENCE_INTEGRITY
-  action: resolve_DB_PKK_005_only_after_next_explicit_user_instruction
+  id: DB_PKK_006_SENSITIVE_PROVIDER_PAYLOAD_ENCRYPTION_REDACTION_HASH_AND_KEY_VERSION_BOUNDARY
+  action: resolve_DB_PKK_006_only_after_next_explicit_user_instruction
   allowed_scope:
     - specs/database/pkk.yml
     - docs/113-stage-4-pkk-audit.md
@@ -2937,8 +2989,8 @@ next_single_step:
     - specs/database/core-schema.yml
     - docs/87-physical-database-schema.md
   scope_lock: >-
-    Resolve only DB-PKK-005 signed XML handoff and FileAsset evidence integrity.
-    Do not resolve DB-PKK-006 or later PKK blockers in the same step, do not enter
-    DB4_9 or later slices, do not start Stage 5, do not create Laravel migrations
-    and do not start UI or feature implementation.
-  after_action: rerun_DB_PKK_005_machine_narrative_central_gate_and_STOP_before_DB_PKK_006
+    Resolve only DB-PKK-006 sensitive provider payload encryption, redaction, hash
+    and key-version boundary. Do not resolve DB-PKK-007 or later PKK blockers in
+    the same step, do not enter DB4_9 or later slices, do not start Stage 5, do
+    not create Laravel migrations and do not start UI or feature implementation.
+  after_action: rerun_DB_PKK_006_machine_narrative_central_gate_and_STOP_before_DB_PKK_007
