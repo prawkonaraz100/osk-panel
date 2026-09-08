@@ -2,7 +2,7 @@
 
 Data: 2026-09-07
 
-**Status:** `IMPLEMENTATION_BLUEPRINT / DB4_6_AGGREGATE_SYNC_PASS`
+**Status:** `IMPLEMENTATION_BLUEPRINT / DB4_7_INTERNAL_EXAMS_AGGREGATE_SYNC_PASS`
 
 > To nie są jeszcze migracje Laravel. To fizyczny blueprint tabel, indeksów, constraintów i najważniejszych transakcji zgodny z canonical domain model. Machine-readable odpowiednik: `specs/database/core-schema.yml`. Przy konflikcie machine spec + późniejszy ADR wygrywa. Reverse-engineered scope chronią `docs/96-reverse-engineering-preservation-contract.md` i `specs/reverse-engineering-manifest.yml`. Cross-layer kompletność kontroluje `specs/traceability/core-v1.yml`.
 
@@ -11,6 +11,8 @@ DB4_4 Students / Courses / Training Ledger został zsynchronizowany z `specs/dat
 DB4_5 Calendar został zsynchronizowany z `specs/database/calendar.yml` po zamknięciu DB-CAL-001..007. Sekcja 15, rozszerzenie formalnego `TrainingSession` w sekcji 13 oraz odpowiadające constrainty, transakcje, migration order i invariant tests są agregatową projekcją zamkniętego kontraktu Calendar.
 
 DB4_6 Licenses / Learning Access został zsynchronizowany z `specs/database/licenses-learning-access.yml` po zamknięciu DB-LIC-001..007. Rozszerzenia Identity i Student Learning Access, sekcja 17 oraz odpowiadające constrainty, transakcje, security boundary, migration order i invariant tests są agregatową projekcją tego kontraktu.
+
+DB4_7 Internal Exams został zsynchronizowany z `specs/database/internal-exams.yml` po zamknięciu DB-EXAM-001..008. Sekcja 18 oraz odpowiadające jej same-tenant boundaries, inventory ledger, Attempt/Access lifecycle, token i Station security, immutable exam evidence, deterministyczna management projection, lock orders, migration safety i invariant tests są agregatową projekcją zamkniętego kontraktu.
 
 ---
 
@@ -1837,130 +1839,240 @@ Niejednoznaczny legacy state = FAIL + reviewed remediation. Najpierw prechecks/r
 
 # 18. Internal exams
 
-## `internal_exam_inventory_entries`
+Canonical bounded-context source: `specs/database/internal-exams.yml` (`DB-EXAM-001..008 = PASS`). Ta sekcja zastępuje wcześniejszy provisional model. Nie wolno wdrażać równolegle starego `token_hash`, `station_key_hash`, stanu Inventory `released|adjusted`, timestamp-only latest ani generic mutable evidence jako drugiego authority.
 
-- `id uuid PK`
-- `organization_id uuid FK`
-- `source_type varchar(32)` — `free|paid|adjustment`
-- `source_order_item_id uuid null`
-- `status varchar(32)` — `available|reserved|consumed|released|adjusted`
-- `granted_at timestamptz`
-- `created_at`.
+## 18.1 Formal requirement i capability
 
-## `internal_exam_attempts`
+Formalny `internal_exam_attempt` zawsze należy do trwałego `student_id + course_enrollment_id`. Exact tenant/course/student/category jest chroniony composite FK, a Attempt zapisuje niezmienny basis decyzji formalnej:
+- `training_requirement_profile_id`,
+- `requirements_revision`,
+- `internal_exam_capability_id`,
+- `requirement_basis_snapshot jsonb`.
 
-- `id uuid PK`
-- `organization_id uuid FK`
-- `student_id uuid FK`
-- `course_enrollment_id uuid FK`
-- `exam_part varchar(16)`
-- `driving_category_id uuid FK`
-- `language_code varchar(16)`
-- `requirement_basis varchar(128)`
-- `candidate_snapshot jsonb not null`
-- `status varchar(32)`
-- `started_at timestamptz null`
-- `finished_at timestamptz null`
-- `invalidated_at timestamptz null`
-- `version integer default 1`
-- `created_at`.
+Tworzenie Attemptu rozpoczyna się od `CourseEnrollment FOR UPDATE`. Po locku system wymaga current RequirementProfile o tej samej revision oraz odpowiedniej flagi `internal_theory_exam_required` albo `internal_practical_exam_required`. Kategoria pochodzi z CourseEnrollment; request nie może jej nadpisać.
 
-## `internal_exam_reservations`
+Globalny versioned `internal_exam_capabilities` ma co najmniej: category, exam part, language, `enabled_at`, nullable `disabled_at`, source reference i timestamps. Current support = `disabled_at IS NULL`; partial unique dotyczy `(driving_category_id, exam_part, language_code)`. Sama obecność języka w globalnym słowniku nie oznacza wsparcia egzaminu.
 
-- `id uuid PK`
-- `organization_id uuid FK`
-- `internal_exam_inventory_entry_id uuid FK`
-- `internal_exam_attempt_id uuid FK`
-- `status varchar(32)` — `reserved|released|consumed`
-- `reserved_at timestamptz`
-- `released_at timestamptz null`
-- `consumed_at timestamptz null`
-- `idempotency_key uuid null`
-- `version integer default 1`.
+Późniejsza zmiana RequirementProfile lub retirement capability nie przepisuje historycznego Attemptu. Kurs zwolniony z teorii nie może dostać nowego formalnego theory Attemptu.
 
-Partial unique:
-- `(internal_exam_inventory_entry_id)` where `status='reserved'`,
-- `(internal_exam_attempt_id)` where `status='reserved'`.
+## 18.2 Inventory, Reservation i append-only ledger
 
-## `internal_exam_accesses`
+### `internal_exam_inventory_entries`
 
-- `id uuid PK`
-- `organization_id uuid FK`
-- `internal_exam_attempt_id uuid FK`
-- `mode varchar(32)` — `remote_link|local_current_workstation|assigned_exam_station`
-- `token_hash char(64) null`
-- `station_id uuid null FK exam_stations`
-- `status varchar(32)`
-- `expires_at timestamptz null`
-- `revoked_at timestamptz null`
-- `opened_at timestamptz null`
-- `started_at timestamptz null`
-- `created_at`
-- `version integer default 1`.
+Jedna tabela = jedna konkretna jednostka egzaminowa i jej provenance. Current states:
+- `available`,
+- `reserved`,
+- `consumed`,
+- `adjusted_out`.
 
-## `exam_stations`
+Source types:
+- `free`,
+- `paid`,
+- `adjustment`.
 
-- `id uuid PK`
-- `organization_id uuid FK`
-- `name varchar(128)`
-- `station_key_hash char(64) null`
-- `status varchar(32)`
-- `last_seen_at timestamptz null`
-- `created_at`
-- `updated_at`.
+`released` jest przejściem Reservation/Ledger, nie bieżącym stanem Inventory. Mutable licznik dostępnych egzaminów nie jest authority.
 
-## `internal_exam_station_sessions`
+### `internal_exam_reservations`
 
-- `id uuid PK`
-- `organization_id uuid FK`
-- `internal_exam_attempt_id uuid FK`
-- `internal_exam_access_id uuid FK`
-- `exam_station_id uuid FK`
-- `started_at timestamptz`
-- `ended_at timestamptz null`
-- `end_reason varchar(64) null`
-- `transferred_from_session_id uuid null FK self`
-- `created_by_user_id uuid null`
-- `created_at`.
+Statusy:
+- `reserved`,
+- `released`,
+- `consumed`.
 
-Partial unique:
-- `(exam_station_id)` where `ended_at is null`,
-- `(internal_exam_attempt_id)` where `ended_at is null`.
+Partial unique zapewnia co najwyżej jedną aktywną rezerwację per InventoryEntry i per Attempt oraz co najwyżej jedną consumed Reservation per Attempt. Released history pozostaje immutable; późniejsze użycie jednostki tworzy nową Reservation zamiast otwierania starej.
 
-## `internal_exam_attempt_questions`
+### `internal_exam_inventory_ledger_entries`
 
-- `id uuid PK`
-- `internal_exam_attempt_id uuid FK`
-- `ordinal smallint`
-- `question_snapshot jsonb`
-- `candidate_answer jsonb null`
-- `is_correct boolean null`
-- `points_awarded integer null`
-- `answered_at timestamptz null`.
+Canonical accounting history jest append-only. Każdy event ma `event_sequence` unikalny i ciągły per `(organization_id, internal_exam_inventory_entry_id)` przydzielany pod lockiem jednostki.
 
-Unique `(internal_exam_attempt_id,ordinal)`.
+Runtime events:
+- `unit_granted`,
+- `unit_adjustment_granted`,
+- `unit_reserved`,
+- `unit_released`,
+- `unit_consumed`,
+- `unit_adjusted_out`.
 
-## `internal_exam_results`
+`migration_baseline` jest dozwolony wyłącznie przy kontrolowanym cutover i nie może być emitowany runtime po migracji.
 
-- `id uuid PK`
-- `internal_exam_attempt_id uuid unique FK`
-- `passed boolean`
-- `score integer`
-- `max_score integer`
-- `result_snapshot jsonb`
-- `created_at`.
+Formalny Attempt rezerwuje dokładnie jedną jednostkę w transakcji create. Start konsumuje ją dokładnie raz. Revoke/expire/cancel przed startem zwalnia rezerwację dokładnie raz. Technical abort po starcie nie przywraca jednostki; refund to osobny dodatni adjustment zachowujący pierwotną consumed history. Kolejność free-vs-paid nie jest hardcodowanym constraintem DB. Payment/grant trigger pozostaje DB4_9.
 
-## `internal_exam_documents`
+## 18.3 Attempt lifecycle i concurrency
 
-- `id uuid PK`
-- `organization_id uuid FK`
-- `internal_exam_attempt_id uuid FK`
-- `document_type varchar(64)`
-- `asset_id uuid FK file_assets`
-- `snapshot_hash char(64)`
-- `created_at`.
+### `internal_exam_attempts`
 
-Start transaction: lock access + attempt + reservation + inventory + station(if local), validate, consume inventory exactly once, create station session if local, audit/outbox, commit. Finish nie konsumuje ponownie.
+Canonical statuses:
+- `created`,
+- `in_progress`,
+- `passed`,
+- `failed`,
+- `technical_abort`,
+- `invalidated`.
+
+Attempt ma `version bigint >= 1` i jest głównym concurrency rootem dla commandów wpływających na próbę. State/timestamp matrix wymusza zgodność `started_at`, `finished_at`, `technical_aborted_at`, `invalidated_at`. Normalny hard-delete oraz reopen terminalnego Attemptu są zabronione; repeat exam = nowy Attempt.
+
+`internal_exam_attempt_lifecycle_events` jest append-only i wiąże materialną wersję Attemptu z transition eventem. Candidate snapshot może być edytowany tylko w `created`, przed startem, z `If-Match`/expected version.
+
+### `internal_exam_accesses`
+
+Canonical statuses:
+- `draft`,
+- `ready`,
+- `delivered_or_assigned`,
+- `opened`,
+- `started`,
+- `completed`,
+- `cancelled`,
+- `expired`,
+- `revoked`,
+- `technical_abort`,
+- `invalidated`.
+
+Launch modes:
+- `remote_link`: `station_id IS NULL`, `expires_at IS NOT NULL`,
+- `local_current_workstation`: Station server-resolved, bez expiry,
+- `assigned_exam_station`: exact Station required, bez expiry.
+
+Mode i Station binding są immutable per Access. Co najwyżej jeden nonterminal Access i co najwyżej jeden Access ever-started na Attempt; terminalna historia prestart może zawierać wiele Access rows. `internal_exam_access_lifecycle_events` jest append-only.
+
+Canonical shared lock prefix to `Attempt FOR UPDATE -> Access FOR UPDATE`. Gdy zmienia się Reservation/Inventory, suffix pozostaje `Reservation FOR UPDATE -> InventoryEntry FOR UPDATE`.
+
+Start, revoke/expire/cancel oraz submit/abort/invalidate re-checkują preconditions po lockach. Races mają jednego zwycięzcę. Submit nie konsumuje Inventory drugi raz; technical abort i invalidation nie przywracają consumed unit.
+
+## 18.4 Purpose-scoped remote tokens
+
+`internal_exam_access_tokens` zastępuje pojedynczy `Access.token_hash` jako canonical bearer-token authority.
+
+Purposes:
+- `exam_execution`,
+- `finished_result_read`.
+
+Tokeny są tylko dla `remote_link`. Raw secret ma co najmniej 256 bitów entropy i nigdy nie jest przechowywany odwracalnie. DB przechowuje keyed one-way verifier (HMAC-SHA-256 albo równoważny), a key/pepper pozostaje poza DB. Token jest exact-bound do organization + Access + Attempt + purpose; ID ani lookup locator sam nie autoryzuje.
+
+Resend używa tego samego Access/Reservation, rotuje execution secret i odwołuje poprzedni. Idempotency retry nie mintuje ponownie i nie odtwarza raw secret. Po submit execution token jest revokowany, a osobny finished-result token może czytać wyłącznie historyczny Result/Questions; nie może startować, submitować ani pobierać staff-only PDF. Technical abort nie mintuje result tokenu. Invalidation revokuje bieżące bearer tokens bez kasowania evidence.
+
+Raw token nie trafia do audit/outbox/log/idempotency snapshot.
+
+## 18.5 Station identity, credentials i Session failover
+
+### `exam_stations`
+
+Station jest logiczną tożsamością stanowiska. Persisted administrative state to tylko:
+- `enabled`,
+- `disabled`.
+
+Online/offline jest derived z current authenticated credential + heartbeat freshness. Free/occupied jest derived z aktywnej `internal_exam_station_session`. Efektywnie available = enabled + online + current credential + free.
+
+### `exam_station_credentials`
+
+Rotating credential history z nieodwracalnym keyed verifierem; raw Station secret nie jest recoverable ani logowany. Rotacja revokuje stare credential, ale nie kończy aktywnej Session. Disable revokuje current credential i blokuje nowe działania, lecz nie wykonuje ukrytego auto-end, transfer ani refund.
+
+### `internal_exam_station_sessions`
+
+Session przechowuje exact organization/Attempt/Access/Station, `session_sequence`, optional predecessor, `started_at`, nullable `ended_at` i end reason:
+- `exam_completed`,
+- `technical_abort`,
+- `invalidated`,
+- `transferred`.
+
+Partial unique: najwyżej jedna aktywna Session per Station i per Attempt. Sequence jest ciągły od 1 dla Attemptu; transfer chain jest liniowy, bez branch/cycle.
+
+`Access.station_id` pozostaje immutable prestart launch/assignment binding. Po starcie bieżąca runtime Station pochodzi z aktywnej StationSession.
+
+Failover używa tego samego Attemptu i Accessu, nie zmienia `Access.station_id`, nie tworzy Reservation ani Inventory effect i nie konsumuje ponownie. Reconnect tej samej Station używa istniejącej aktywnej Session. Offline/disabled Station nie kończy ani nie transferuje automatycznie egzaminu. Submit/technical-abort/invalidation domykają matching active Session atomowo.
+
+## 18.6 Immutable exam definition, questions i Result
+
+### `internal_exam_definitions`
+
+Globalny immutable katalog versioned definicji dla category + exam part + language + engine kind (`question_test|non_question_assessment`). Definicja zawiera `composition_snapshot`, `scoring_policy_snapshot`, schema/version, content hash, publish/retire timestamps. Current row ma partial unique dla swojego scope.
+
+Definicja jest wybierana i zamrażana **przy faktycznym Start**, przed możliwością odpowiedzi. Attempt zapisuje exact definition ID/version/hash/evidence schema i, dla testu pytaniowego, `question_set_hash`.
+
+Zaobserwowane 32 pytania i 74 pkt nie są globalnymi stałymi DB; liczebność i scoring wynikają z frozen definition.
+
+### `internal_exam_attempt_questions`
+
+Dla `question_test` Start materializuje exact ordered evidence: ordinal/group, source provenance, schema-versioned `question_snapshot`, `question_snapshot_hash`, immutable media evidence/hash, `max_points_snapshot`. Treść/media/max-points są immutable od Start. Submit zapisuje finalne `candidate_answer`, `is_correct`, `points_awarded`, `answered_at` jako write-once fields.
+
+Finished review nie używa current QuestionBank ani mutable current media jako history authority.
+
+### `internal_exam_results`
+
+Dokładnie jeden immutable Result dla `passed|failed`. Scoring jest wykonywany server-side według frozen policy. Dla question-test:
+- `score = SUM(points_awarded)`,
+- `max_score = SUM(max_points_snapshot)`,
+- `passed` odpowiada frozen scoring policy.
+
+Result zachowuje scoring policy snapshot, optional threshold, question-set hash, result snapshot/hash oraz `evidence_bundle_hash`. Invalidation po finish nie przelicza i nie nadpisuje Question/Result evidence.
+
+## 18.7 Versioned document template i answer-sheet evidence
+
+### `internal_exam_document_templates`
+
+Globalny immutable katalog zawiera document type, optional exam part, template version, renderer version, template content hash oraz half-open effective interval `[effective_from,effective_to)`. Zakresy obowiązywania dla tego samego scope nie mogą się nakładać, a użytej wersji nie wolno retroaktywnie przepisywać.
+
+### `internal_exam_documents`
+
+Canonical document wiąże exact Attempt, template ID/version/renderer/hash, `evidence_bundle_hash`, same-tenant ready FileAsset, `content_hash`, generation metadata. Jeden canonical document per `(organization_id, attempt_id, document_type)`.
+
+Answer sheet jest deterministycznie renderowany z frozen Attempt/Result/Question evidence + frozen template. Powtórne pobranie używa istniejącego assetu albo zweryfikowanej byte-identical regeneracji. Aktualny profil Studenta, current QuestionBank i current template nie mogą zmienić historycznego dokumentu. In-place edit finished evidence jest zabroniony; formalna korekta wymaga jawnej invalidation + nowego Attemptu albo przyszłego append-only correction artifact.
+
+## 18.8 Deterministic management projection
+
+Panel zarządzania nie ma mutable summary authority. Canonical grain projekcji:
+
+`(organization_id, course_enrollment_id, exam_part)`.
+
+Kontekst istnieje, gdy current RequirementProfile wymaga tej części albo istnieje historyczny Attempt. Niewymagana część bez historii nie projektuje fałszywego `not_assigned`.
+
+Każdy Attempt dostaje immutable `course_attempt_sequence bigint >= 1`, unikalny per organization+CourseEnrollment, wspólny dla wszystkich exam parts tego kursu. Sequence jest przydzielany w create transaction pod istniejącym `CourseEnrollment FOR UPDATE`, ciągły dla committed runtime attempts i rollbackuje razem z failed create/reservation.
+
+Latest dla exact course+part = Attempt z największym `course_attempt_sequence`. Timestamp, UUID ani wyświetlana minuta nie są latest authority.
+
+Publiczne statusy panelu są derived:
+- brak Attemptu w wymaganym kontekście -> `not_assigned`,
+- latest `created|in_progress|technical_abort|invalidated` -> `not_conducted`,
+- latest `failed` -> `failed`,
+- latest `passed` -> `passed`.
+
+`exam_count` obejmuje wszystkie Attempty. Pass-rate = `passed / (passed + failed)`; pozostałe statusy nie wchodzą do denominatora, a brak valid conducted attempts daje `NULL`, nie sztuczne 0%. Aggregate pass-rate jest ratio of sums, nie średnią procentów.
+
+`hide_finished=true` ukrywa tylko projected `passed|failed`; nie ukrywa expanded history. Search używa current imienia, nazwiska, emaila i loginu, nie PESEL ani finished candidate snapshot. Wiele kategorii i statusów łączy się OR we własnym wymiarze, różne wymiary AND. Każde sortowanie ma stabilny tie-breaker `(course_enrollment_id ASC, exam_part ASC)`; nullable latest fields są `NULLS LAST`. Expanded history ma `course_attempt_sequence DESC`.
+
+## 18.9 Canonical transaction lock orders
+
+- create Attempt: `CourseEnrollment FOR UPDATE`, potem current requirement/capability validation, sequence allocation i exact Inventory reservation w jednej outer transaction,
+- remote Start: `Attempt -> Access -> Definition FOR SHARE -> Reservation -> InventoryEntry`,
+- local/assigned Start: `Attempt -> Access -> Definition FOR SHARE -> target Station -> current StationCredential FOR SHARE -> Reservation -> InventoryEntry`,
+- failover: `Attempt -> exact started Access -> active StationSession -> old+target Stations sorted by UUID -> target current credential FOR SHARE`,
+- submit/abort: `Attempt -> exact started Access`; final Question/Result/Attempt/Access i optional StationSession close commitują atomowo,
+- invalidate: `Attempt -> exact ever-started Access`, expected version + reason, bez kasowania evidence i bez Inventory restore.
+
+Każdy command re-checkuje preconditions po lockach. Start materializuje definition/question evidence oraz konsumuje dokładnie raz w tej samej outer transaction; failure evidence/session powoduje rollback całego Start.
+
+## 18.10 Same-tenant constraints i history preservation
+
+Tenant-owned FK muszą być composite tam, gdzie child powtarza `organization_id`. Kluczowe exact-target boundaries obejmują Attempt->Course/Student/Category/RequirementProfile, Reservation->Attempt/Inventory, Access->Attempt/optional Station, StationSession->Attempt/Access/Station, Question/Result/Document->Attempt i Document->FileAsset.
+
+Formalnych Attemptów, wyników, ledger events, lifecycle events, sessions i dokumentów nie hard-delete. `ON UPDATE/DELETE RESTRICT` lub odpowiedni history-preserving guard jest domyślną granicą dla formalnych relacji.
+
+## 18.11 Migration safety
+
+DB4_7 migruje fail-closed. Zabronione jest automatyczne zgadywanie:
+- cross-tenant/wrong-target przypisań,
+- historycznego RequirementProfile/capability z current stanu,
+- Inventory/Reservation/Ledger kolejności z UUID lub niejednoznacznych timestampów,
+- lifecycle winner/order,
+- purpose starego token hash lub raw secret,
+- Station credential/session/transfer winner,
+- question/media revision, scoring threshold i template history,
+- punktów/odpowiedzi tak, aby sztucznie wyrównać Result,
+- `course_attempt_sequence` przez UUID, display minute, status albo Result.
+
+Dozwolone są wyłącznie deterministyczne transformacje z kompletnego, udowodnionego legacy evidence. Ambiguity = migration FAIL + reviewed remediation.
+
+DB4_8 provider lifecycle, DB4_9 payment/grant trigger oraz DB4_10 final audit/outbox physical shape nie są rozwiązywane w tym sync.
 
 ---
 
@@ -2344,7 +2456,7 @@ Pozostałe obowiązkowe testy:
 11. PKK provider operations/attempts/retry/reconciliation — DB4_8,
 12. Student finance,
 13. LicenseProduct language capability history + Inventory + Assignment sequences/current uniqueness + immutable Activation entitlement ledger,
-14. internal exam inventory/attempt/access/stations/station sessions,
+14. internal exam capability history, inventory units/adjustments/ledger/reservations, Attempt/Access lifecycle+tokens, Station credentials/sessions, immutable definitions/questions/results/templates/documents and deterministic management projection,
 15. orders/payments/service entitlements/activations,
 16. audit/activity/outbox/notifications,
 17. final partial indexes/cross-table constraints, w tym LearningAccount current-identifier, password-authority/exclusive-principal, Inventory↔Assignment↔Activation equivalence, contiguous sequences, entitlement chain i language-capability guards.
@@ -2369,7 +2481,7 @@ Zamknięte:
 - **Licenses / Learning Access DB4_6**: exact same-tenant Assignment target; current same-user AuthLoginIdentifier bez niezależnej login projection; durable LearningAccount lifecycle/version i operational eligibility; fail-closed global password management authority + credential epoch; memory-only secret-bearing credential PDFs i non-secret handoff/batch metadata; Inventory↔Assignment↔Activation final-state equivalence; immutable serialized entitlement ledger z duration snapshot/sequence; versioned product-language capability; immutable Assignment language/order snapshots oraz czysto derived management projection.
 
 Po DB4_6 nadal osobno wymagają dalszych slice/ADR:
-- internal-exam compatibility/attempt completion gate — DB4_7,
+- DB4_7 Internal Exams aggregate contract — synchronized / PASS,
 - PKK provider configuration/fetch/update/return/XML/retry/reconciliation/collision policy — DB4_8,
 - Student Finance i exact commerce/source-order tenant boundary — DB4_9,
 - application encryption + key rotation dla PESEL/PKK/provider snapshots,
