@@ -1,0 +1,79 @@
+name: Temporary DB-FIN-001 Machine Gate
+
+on:
+  push:
+    branches: [tmp-db-fin-001-machine-helper]
+    paths:
+      - '.stage4-tmp/TRIGGER_DB_FIN_001_MACHINE'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: tmp-db-fin-001-machine-helper
+      - name: Patch and validate DB-FIN-001 only
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import yaml, copy
+          p=Path('specs/database/student-finance-commerce.yml')
+          s=p.read_text()
+          before=yaml.safe_load(s)
+          blockers_before=copy.deepcopy(before['blockers'])
+          assert [b['id'] for b in blockers_before]==['DB-FIN-001','DB-FIN-002','DB-COM-001','DB-COM-002','DB-COM-003','DB-COM-004','DB-COM-005','DB-COM-006','DB-COM-007','DB-COM-008']
+          assert all(b['status']=='OPEN' for b in blockers_before)
+
+          for old,new in [
+            ('  step: DB4_9_DIAGNOSIS\n','  step: DB_FIN_001_SAME_TENANT_EXACT_CHARGE_PAYMENT_COURSE_INTEGRITY\n'),
+            ('  status: FAIL_WITH_10_P1_BLOCKERS\n','  status: FAIL_WITH_9_P1_BLOCKERS\n'),
+            ('  diagnosis_only: true\n','  diagnosis_only: false\n'),
+            ('  fixes_allowed_in_this_step: false\n','  fixes_allowed_in_this_step: true\n'),
+            ('  current_step_scope: DB4_9_DIAGNOSIS_only\n','  current_step_scope: DB_FIN_001_only\n')]:
+            assert s.count(old)==1,(old,s.count(old)); s=s.replace(old,new,1)
+
+          marker='\nblockers:\n'; assert s.count(marker)==1
+          resolved='''\nresolved_contracts:\n  DB-FIN-001:\n    status: PASS\n    severity: P1\n    title: student_finance_same_tenant_exact_charge_payment_course_integrity\n    scope_boundary:\n      closes_only_relation_and_exact_target_integrity: true\n      charge_payment_lifecycle_balance_overpayment_reversal_concurrency_deferred_to_DB_FIN_002: true\n      commerce_models_unchanged: true\n    required_candidate_keys:\n      students:\n        columns: [organization_id, id]\n        source: DB4_4_existing\n      course_enrollments_exact_student:\n        columns: [organization_id, id, student_id]\n        unique_constraint_required: true\n        purpose: optional_charge_course_must_belong_to_exact_charge_student\n      student_charges_exact_payment_target:\n        columns: [organization_id, id, student_id, currency]\n        unique_constraint_required: true\n        purpose: payment_must_reference_exact_charge_student_and_currency\n    tenant_key_policy:\n      student_charges_organization_id_nonnull: true\n      student_charges_student_id_nonnull: true\n      student_charges_currency_nonnull: true\n      student_payments_organization_id_nonnull: true\n      student_payments_student_id_nonnull: true\n      student_payments_charge_id_nonnull: true\n      student_payments_currency_nonnull: true\n      organization_id_is_derived_from_authenticated_tenant_or_validated_parent: true\n      normal_lifecycle_may_move_charge_or_payment_between_organizations: false\n      repeated_student_and_currency_fields_are_integrity_keys_not_client_authority: true\n    relations:\n      charge_student:\n        source_table: student_charges\n        source_columns: [organization_id, student_id]\n        target_table: students\n        target_columns: [organization_id, id]\n        nullable_relation: false\n        match: MATCH_SIMPLE\n        on_update: RESTRICT\n        on_delete: RESTRICT\n      charge_optional_course_exact_student:\n        source_table: student_charges\n        source_columns: [organization_id, course_enrollment_id, student_id]\n        target_table: course_enrollments\n        target_columns: [organization_id, id, student_id]\n        nullable_relation: true\n        nullability_driver: course_enrollment_id\n        match: MATCH_SIMPLE\n        on_update: RESTRICT\n        on_delete: RESTRICT\n        effect: nonnull_course_must_be_same_tenant_and_belong_to_exact_charge_student\n      payment_student:\n        source_table: student_payments\n        source_columns: [organization_id, student_id]\n        target_table: students\n        target_columns: [organization_id, id]\n        nullable_relation: false\n        match: MATCH_SIMPLE\n        on_update: RESTRICT\n        on_delete: RESTRICT\n      payment_exact_charge_student_currency:\n        source_table: student_payments\n        source_columns: [organization_id, charge_id, student_id, currency]\n        target_table: student_charges\n        target_columns: [organization_id, id, student_id, currency]\n        nullable_relation: false\n        match: MATCH_SIMPLE\n        on_update: RESTRICT\n        on_delete: RESTRICT\n        effect: payment_cannot_cross_tenant_student_charge_or_currency_boundary\n    global_actor_relations:\n      created_by_user_id: {target: global_users, fake_tenant_composite_FK_forbidden: true}\n      received_by_user_id: {target: global_users, fake_tenant_composite_FK_forbidden: true}\n      cancelled_by_user_id: {target: global_users, fake_tenant_composite_FK_forbidden: true}\n      reversed_by_user_id: {target: global_users, fake_tenant_composite_FK_forbidden: true}\n      authorization_and_membership_validation_remains_application_RBAC_boundary: true\n    currency_integrity:\n      charge_currency_is_parent_authority_for_payment_currency: true\n      exact_equality_enforced_by_composite_FK: true\n      existing_payment_blocks_parent_currency_change_via_RESTRICT_relation: true\n      broader_currency_edit_policy_not_solved_here: true\n    migration_policy:\n      preflight_before_constraints:\n        - every_charge_organization_student_pair_resolves_exact_student\n        - every_nonnull_charge_course_resolves_exact_same_organization_course_and_same_student\n        - every_payment_resolves_exact_organization_charge_student_currency_tuple\n        - no_required_relation_key_is_null\n      cross_tenant_or_wrong_student_course_auto_reparent: forbidden\n      payment_student_auto_rewrite_from_charge_on_mismatch: forbidden\n      payment_currency_auto_rewrite_from_charge_on_mismatch: forbidden\n      ambiguous_or_mismatched_legacy_row: fail_and_require_reviewed_remediation\n      hard_delete_financial_history_to_make_constraint_pass: forbidden\n    required_tests:\n      - charge_wrong_tenant_student_rejected\n      - charge_nonnull_course_from_other_tenant_rejected\n      - charge_nonnull_course_of_other_student_same_tenant_rejected\n      - charge_null_course_allowed_when_student_is_valid\n      - payment_wrong_tenant_charge_rejected\n      - payment_charge_of_other_student_same_tenant_rejected\n      - payment_currency_different_from_charge_rejected\n      - exact_valid_charge_payment_relation_commits\n      - global_actor_user_is_not_rejected_for_missing_fake_tenant_key\n      - legacy_mismatch_fails_without_auto_reparent_or_currency_rewrite\n    preservation_checks:\n      StudentFinance_remains_distinct_from_PlatformCommerce: PASS\n      one_charge_many_partial_payments_capability_preserved: PASS\n      optional_course_context_preserved: PASS\n      DB_FIN_002_not_solved_early: PASS\n      DB_COM_001_through_DB_COM_008_unchanged: PASS\n      aggregate_core_schema_modified: false\n      aggregate_docs87_modified: false\n      DB4_10_or_later_entered: false\n      Stage5_started: false\n      Laravel_migrations_created: false\n      UI_or_feature_implementation_started: false\n'''
+          assert 'resolved_contracts:' not in s; s=s.replace(marker,resolved+marker,1)
+
+          old='''  - id: DB-FIN-001\n    title: student_finance_same_tenant_exact_charge_payment_course_integrity\n    severity: P1\n    status: OPEN\n'''
+          new='''  - id: DB-FIN-001\n    title: student_finance_same_tenant_exact_charge_payment_course_integrity\n    severity: P1\n    status: RESOLVED\n    resolution_ref: resolved_contracts.DB-FIN-001\n'''
+          assert s.count(old)==1; s=s.replace(old,new,1)
+
+          old='''diagnosis_summary:\n  diagnosed_P0: 0\n  diagnosed_P1: 10\n  open_P0_P1: 10\n  result: FAIL_WITH_10_P1_BLOCKERS\n  blockers_in_required_fix_order:\n    - DB-FIN-001\n    - DB-FIN-002\n'''
+          new='''diagnosis_summary:\n  diagnosed_P0: 0\n  diagnosed_P1: 10\n  resolved_after_diagnosis: 1\n  open_P0_P1: 9\n  result: FAIL_WITH_9_P1_BLOCKERS\n  resolved_blockers:\n    - DB-FIN-001\n  blockers_in_required_fix_order:\n    - DB-FIN-002\n'''
+          assert s.count(old)==1; s=s.replace(old,new,1)
+          assert s.count('  status: PASS_DB4_9_DIAGNOSIS_MACHINE\n')==1
+          s=s.replace('  status: PASS_DB4_9_DIAGNOSIS_MACHINE\n','  status: PASS_DB_FIN_001_MACHINE_CONTRACT\n',1)
+          old='''next_single_step_after_central_gate:\n  id: DB_FIN_001_SAME_TENANT_EXACT_CHARGE_PAYMENT_COURSE_INTEGRITY\n  action: resolve_DB_FIN_001_only_after_next_explicit_user_instruction\n  stop_before: DB_FIN_002_CHARGE_PAYMENT_REVERSAL_LIFECYCLE_BALANCE_OVERPAYMENT_AND_CONCURRENCY\n'''
+          new='''next_single_step_after_central_gate:\n  id: DB_FIN_002_CHARGE_PAYMENT_REVERSAL_LIFECYCLE_BALANCE_OVERPAYMENT_AND_CONCURRENCY\n  action: resolve_DB_FIN_002_only_after_next_explicit_user_instruction\n  stop_before: DB_COM_001_ORDER_ITEM_TENANT_PRODUCT_SNAPSHOT_PRICE_TOTAL_AND_QUANTITY_INTEGRITY\n'''
+          assert s.count(old)==1; s=s.replace(old,new,1)
+          p.write_text(s)
+
+          after=yaml.safe_load(s)
+          assert after['meta']['step']=='DB_FIN_001_SAME_TENANT_EXACT_CHARGE_PAYMENT_COURSE_INTEGRITY'
+          assert after['meta']['status']=='FAIL_WITH_9_P1_BLOCKERS'
+          assert after['resolved_contracts']['DB-FIN-001']['status']=='PASS'
+          assert after['blockers'][0]['status']=='RESOLVED'
+          assert after['blockers'][0]['diagnosis']==blockers_before[0]['diagnosis']
+          assert after['blockers'][1:]==blockers_before[1:]
+          assert after['diagnosis_summary']['open_P0_P1']==9
+          assert after['diagnosis_summary']['resolved_blockers']==['DB-FIN-001']
+          assert len(after['diagnosis_summary']['blockers_in_required_fix_order'])==9
+          assert after['preservation_gate']['status']=='PASS_DB_FIN_001_MACHINE_CONTRACT'
+          assert after['next_single_step_after_central_gate']['id']=='DB_FIN_002_CHARGE_PAYMENT_REVERSAL_LIFECYCLE_BALANCE_OVERPAYMENT_AND_CONCURRENCY'
+          PY
+          test "$(git hash-object specs/database/core-schema.yml)" = "65c6daab0330a2c6cf57a6a2caaba288a13a7a70"
+          test "$(git hash-object docs/87-physical-database-schema.md)" = "4d5f24f2948bdb55e7367c7b013ed918dade40ae"
+          git diff --check -- specs/database/student-finance-commerce.yml
+          test "$(git diff --name-only | grep -v '^\.github/workflows/tmp-db-fin-001-machine.yml$' | grep -v '^\.stage4-tmp/' | sort -u)" = "specs/database/student-finance-commerce.yml"
+          git config user.name 'prawkonaraz100'
+          git config user.email 'prawkonaraz100@gmail.com'
+          git add specs/database/student-finance-commerce.yml
+          git commit -m 'DB-FIN-001: close exact student finance relation integrity'
+          git push origin HEAD:tmp-db-fin-001-machine-helper
