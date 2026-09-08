@@ -94,13 +94,13 @@ stage_4_slices:
     final_aggregate_sync: PASS
     result: PASS
   - id: DB4_8_PKK
-    status: FAIL_WITH_6_P1_BLOCKERS
+    status: FAIL_WITH_5_P1_BLOCKERS
     diagnosis: COMPLETE
     blockers_diagnosed: 8
-    blockers_resolved: 2
-    open_P0_P1: 6
+    blockers_resolved: 3
+    open_P0_P1: 5
     final_aggregate_sync: NOT_STARTED
-    result: FAIL_WITH_6_P1_BLOCKERS
+    result: FAIL_WITH_5_P1_BLOCKERS
   - id: DB4_9_STUDENT_FINANCE_COMMERCE
     status: NOT_STARTED
   - id: DB4_10_AUDIT_OUTBOX_NOTIFICATIONS
@@ -2679,6 +2679,65 @@ quality_checks:
       Stage5_started: false
       UI_or_feature_implementation_started: false
 
+  pkk_provider_operation_lifecycle_concurrency_and_command_eligibility:
+    status: PASS
+    resolved_blocker_id: DB-PKK-003
+    severity: P1
+    machine_source: specs/database/pkk.yml
+    audit_source: docs/113-stage-4-pkk-audit.md
+    machine_contract_commit: 88f474bf0c53b55657348289aebfcdf1fed08b65
+    narrative_audit_commit: 95a3c65a6bba23ae7954e0b1142666fb22c0a68e
+    decision:
+      business_status_catalog: [draft, pending, requires_signature, submitted, success, failed, cancelled]
+      UI_pending_success_failed_is_projection_not_authority: true
+      operation_types: [fetch_profile, update_and_return, return_to_school, return_to_authority, return_expired]
+      retry_is_new_business_operation_type: false
+      operation_version_is_lifecycle_concurrency_root: true
+      one_nonterminal_operation_per_exact_current_pkk_profile: true
+      global_unique_on_PKK_number_added: false
+      runtime_start_requires_exact_current_pkk_profile: true
+      runtime_start_requires_exact_permission_and_scope: true
+      runtime_start_requires_integration_readiness_recheck: true
+      mutating_operation_confirmation_required: true
+      confirmation_operation_types: [update_and_return, return_to_school, return_to_authority, return_expired]
+      fetch_profile_requires_mutating_confirmation: false
+      success_and_cancelled_terminal: true
+      failed_to_pending_allowed_only_through_explicit_retry_command: true
+      lifecycle_history_table: pkk_operation_lifecycle_events
+      lifecycle_history_append_only: true
+      lifecycle_order_authority: operation_version
+      timestamp_or_UUID_lifecycle_order_authority: false
+      provider_network_call_inside_open_database_transaction: false
+      provider_response_transition_requires_new_short_transaction_and_expected_version: true
+      operation_start_serializes_with_course_and_pkk_identity_change: true
+      exact_configuration_revision_binding_deferred_to_DB_PKK_007: true
+      idempotency_retry_reconciliation_exactly_once_deferred_to_DB_PKK_004: true
+      legacy_ambiguous_status_or_active_conflict_auto_guess: forbidden
+      DB_PKK_004_through_DB_PKK_008_not_fixed: true
+    checks:
+      closed_business_lifecycle_catalog: PASS
+      UI_projection_does_not_create_second_status_authority: PASS
+      exact_current_profile_eligibility_rechecked_under_lock: PASS
+      one_active_operation_per_exact_profile_boundary: PASS
+      no_global_PKK_number_uniqueness_invented: PASS
+      mutating_confirmation_boundary_closed: PASS
+      terminal_status_immutability_closed: PASS
+      explicit_retry_is_only_failed_to_pending_path: PASS
+      append_only_lifecycle_event_history_and_version_order: PASS
+      database_transaction_not_held_during_provider_network_call: PASS
+      response_applied_under_fresh_lock_and_expected_version: PASS
+      DB_PKK_004_retry_reconciliation_not_solved_early: PASS
+      DB_PKK_007_configuration_revision_binding_not_solved_early: PASS
+      DB_PKK_004_through_DB_PKK_008_remain_open: PASS
+      aggregate_core_schema_modified_in_step: false
+      aggregate_docs87_modified_in_step: false
+      API_files_modified_in_step: false
+      DB4_9_or_later_entered: false
+      Laravel_migrations_created: false
+      Stage5_started: false
+      UI_or_feature_implementation_started: false
+
+
 resolved_blockers:
   - DB-FOUND-001
   - DB-FOUND-002
@@ -2727,9 +2786,9 @@ resolved_blockers:
   - DB-EXAM-008
   - DB-PKK-001
   - DB-PKK-002
+  - DB-PKK-003
 
 open_blockers_current_diagnosed_scope:
-  - DB-PKK-003
   - DB-PKK-004
   - DB-PKK-005
   - DB-PKK-006
@@ -2744,7 +2803,7 @@ gate_definition:
     - migration_order_dependency_safe
     - database_invariant_test_matrix_exists
     - reverse_engineering_preservation_traceable
-  current_result: DB4_8_FAIL_WITH_6_P1_BLOCKERS
+  current_result: DB4_8_FAIL_WITH_5_P1_BLOCKERS
   DB4_1_result: PASS
   DB4_2_result: PASS
   DB4_3_result: PASS
@@ -2793,7 +2852,8 @@ gate_definition:
   DB4_8_diagnosis_result: PASS_DIAGNOSIS_COMPLETE
   DB4_8_DB_PKK_001_result: PASS
   DB4_8_DB_PKK_002_result: PASS
-  DB4_8_result: FAIL_WITH_6_P1_BLOCKERS
+  DB4_8_DB_PKK_003_result: PASS
+  DB4_8_result: FAIL_WITH_5_P1_BLOCKERS
   may_start_DB4_4_fixes: false
   may_start_DB4_5: false
   may_start_DB4_5_fixes: false
@@ -2807,8 +2867,8 @@ gate_definition:
   may_start_UI_or_feature_implementation: false
 
 next_single_step:
-  id: DB_PKK_003_PROVIDER_OPERATION_LIFECYCLE_CONCURRENCY_AND_COMMAND_ELIGIBILITY
-  action: resolve_DB_PKK_003_only_after_next_explicit_user_instruction
+  id: DB_PKK_004_IDEMPOTENCY_RETRY_RECONCILIATION_AND_EXACTLY_ONCE_EXTERNAL_EFFECT
+  action: resolve_DB_PKK_004_only_after_next_explicit_user_instruction
   allowed_scope:
     - specs/database/pkk.yml
     - docs/113-stage-4-pkk-audit.md
@@ -2817,8 +2877,8 @@ next_single_step:
     - specs/database/core-schema.yml
     - docs/87-physical-database-schema.md
   scope_lock: >-
-    Resolve only DB-PKK-003 provider operation lifecycle, concurrency and command
-    eligibility. Do not resolve DB-PKK-004 or later PKK blockers in the same step,
+    Resolve only DB-PKK-004 idempotency, retry, reconciliation and exactly-once
+    external effect. Do not resolve DB-PKK-005 or later PKK blockers in the same step,
     do not enter DB4_9 or later slices, do not start Stage 5, do not create Laravel
     migrations and do not start UI or feature implementation.
-  after_action: rerun_DB_PKK_003_machine_narrative_central_gate_and_STOP_before_DB_PKK_004
+  after_action: rerun_DB_PKK_004_machine_narrative_central_gate_and_STOP_before_DB_PKK_005
