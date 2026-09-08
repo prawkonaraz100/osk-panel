@@ -85,13 +85,13 @@ stage_4_slices:
     final_aggregate_sync: PASS
     result: PASS
   - id: DB4_7_INTERNAL_EXAMS
-    status: BLOCKERS_RESOLVED_PENDING_FINAL_AGGREGATE_SYNC
+    status: PASS
     diagnosis: COMPLETE
     blockers_diagnosed: 8
     blockers_resolved: 8
     open_P0_P1: 0
-    final_aggregate_sync: PENDING
-    result: BLOCKERS_RESOLVED_PENDING_FINAL_AGGREGATE_SYNC
+    final_aggregate_sync: PASS
+    result: PASS
   - id: DB4_8_PKK
     status: NOT_STARTED
   - id: DB4_9_STUDENT_FINANCE_COMMERCE
@@ -2484,6 +2484,56 @@ quality_checks:
       Stage5_started: false
       UI_or_feature_implementation_started: false
 
+  DB4_7_final_aggregate_sync:
+    status: PASS
+    bounded_context_source: specs/database/internal-exams.yml
+    blocker_audit_source: docs/112-stage-4-internal-exams-audit.md
+    final_sync_audit_source: docs/112-stage-4-internal-exams-audit.md#23
+    aggregate_machine_source: specs/database/core-schema.yml
+    aggregate_narrative_source: docs/87-physical-database-schema.md
+    aggregate_base_after_DB_EXAM_008_central_gate: 5a7e87ecb31ef85bc9ba20e8e71baa38c56a7bdc
+    machine_aggregate_commit: 6f1185a0d6b92b542d22a091710b23333041ba17
+    machine_aggregate_blob: c04dcbea90ca877c1c4e76196b77fdb33e404dab
+    narrative_aggregate_commit: bef415c4aa277a31d6f24bd89a3327eed3d59c7f
+    narrative_aggregate_blob: a26421c9d3d624693f29f8e9dfa1b9e718f22323
+    bounded_final_sync_commit: affc502a44edd643240c344315135b5c1f0e9e56
+    bounded_final_sync_blob: 3723e30583718703764fdb8f649f8c38726f4558
+    final_sync_audit_commit: 3dbde7d2447b3c382d6e2c11680d1b807160d61e
+    final_sync_audit_blob: 74ad367137bbb2221583cd178fe9a60a7ae795ef
+    decision:
+      DB_EXAM_001_through_DB_EXAM_008_all_closed: true
+      aggregate_machine_and_narrative_semantically_synchronized: true
+      stale_provisional_internal_exam_shortcuts_removed_as_authority: true
+      course_first_formal_attempt_preserved: true
+      requirement_and_capability_basis_preserved: true
+      ledger_inventory_and_consume_on_start_exactly_once_preserved: true
+      attempt_access_lifecycle_and_concurrency_preserved: true
+      purpose_scoped_execution_and_finished_result_token_security_preserved: true
+      station_credential_session_and_failover_semantics_preserved: true
+      failover_second_inventory_effect: forbidden
+      failover_rewrites_access_station_id: false
+      immutable_exam_definition_question_result_document_evidence_preserved: true
+      course_attempt_sequence_is_deterministic_latest_authority: true
+      management_status_counts_and_pass_rate_are_derived_projection_only: true
+      migration_policy_fail_closed_and_non_guessing: true
+      mandatory_race_and_invariant_tests_projected_to_aggregate: true
+      OpenAPI_or_Stage5_contract_sync_performed: false
+      DB4_8_or_later_entered: false
+      Laravel_migrations_created: false
+      UI_or_feature_implementation_started: false
+    checks:
+      all_eight_internal_exam_blockers_PASS: PASS
+      machine_aggregate_YAML_valid: PASS
+      narrative_aggregate_sync: PASS
+      bounded_final_sync_YAML_valid: PASS
+      cross_file_semantic_loss_gate: PASS
+      stale_shortcut_gate: PASS
+      migration_order_and_invariant_test_gate: PASS
+      aggregate_only_scope_gate: PASS
+      final_sync_audit_preservation_gate: PASS
+      DB4_8_remains_not_started: PASS
+      Stage5_remains_blocked: PASS
+
 resolved_blockers:
   - DB-FOUND-001
   - DB-FOUND-002
@@ -2541,7 +2591,7 @@ gate_definition:
     - migration_order_dependency_safe
     - database_invariant_test_matrix_exists
     - reverse_engineering_preservation_traceable
-  current_result: DB4_7_BLOCKERS_RESOLVED_PENDING_FINAL_AGGREGATE_SYNC
+  current_result: DB4_7_PASS_READY_FOR_DB4_8_DIAGNOSIS
   DB4_1_result: PASS
   DB4_2_result: PASS
   DB4_3_result: PASS
@@ -2585,30 +2635,24 @@ gate_definition:
   DB4_7_DB_EXAM_006_result: PASS
   DB4_7_DB_EXAM_007_result: PASS
   DB4_7_DB_EXAM_008_result: PASS
-  DB4_7_result: BLOCKERS_RESOLVED_PENDING_FINAL_AGGREGATE_SYNC
+  DB4_7_final_aggregate_sync_result: PASS
+  DB4_7_result: PASS
   may_start_DB4_4_fixes: false
   may_start_DB4_5: false
   may_start_DB4_5_fixes: false
   may_start_DB4_6: false
   may_start_DB4_6_fixes: false
-  may_start_DB4_7: true
-  may_start_DB4_7_fixes: true
-  may_start_DB4_8: false
+  may_start_DB4_7: false
+  may_start_DB4_7_fixes: false
+  may_start_DB4_8: true
   may_start_stage_5: false
   may_start_UI_or_feature_implementation: false
 
 next_single_step:
-  id: DB4_7_FINAL_AGGREGATE_SYNC
-  action: synchronize_DB4_7_internal_exam_contract_into_aggregate_blueprints_only_after_next_explicit_user_instruction
-  allowed_scope:
-    - specs/database/core-schema.yml
-    - docs/87-physical-database-schema.md
-    - specs/database/internal-exams.yml
-    - docs/112-stage-4-internal-exams-audit.md
-    - specs/gates/stage-4-database-contract-gate.yml
+  id: DB4_8_PKK_DIAGNOSIS
+  action: begin_DB4_8_PKK_diagnosis_only_after_next_explicit_user_instruction
   scope_lock: >-
-    Synchronize only the already-PASS DB-EXAM-001 through DB-EXAM-008 contract into the
-    Stage-4 aggregate blueprints and close DB4_7. Do not diagnose or fix DB4_8 in the same
-    step, do not start Stage 5, do not create Laravel migrations and do not start UI/feature
-    implementation.
-  after_action: rerun_DB4_7_final_aggregate_gate_and_STOP_before_DB4_8
+    Diagnose DB4_8 PKK only. Do not fix a DB4_8 blocker in the diagnosis step, do not enter
+    DB4_9 or later slices, do not start Stage 5, do not create Laravel migrations and do not
+    start UI or feature implementation.
+  after_action: rerun_DB4_8_diagnosis_gate_and_STOP_before_first_DB4_8_fixer
