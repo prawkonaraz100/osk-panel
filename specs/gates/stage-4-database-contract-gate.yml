@@ -94,13 +94,13 @@ stage_4_slices:
     final_aggregate_sync: PASS
     result: PASS
   - id: DB4_8_PKK
-    status: FAIL_WITH_3_P1_BLOCKERS
+    status: FAIL_WITH_2_P1_BLOCKERS
     diagnosis: COMPLETE
     blockers_diagnosed: 8
-    blockers_resolved: 5
-    open_P0_P1: 3
+    blockers_resolved: 6
+    open_P0_P1: 2
     final_aggregate_sync: NOT_STARTED
-    result: FAIL_WITH_3_P1_BLOCKERS
+    result: FAIL_WITH_2_P1_BLOCKERS
   - id: DB4_9_STUDENT_FINANCE_COMMERCE
     status: NOT_STARTED
   - id: DB4_10_AUDIT_OUTBOX_NOTIFICATIONS
@@ -2848,6 +2848,71 @@ quality_checks:
       Stage5_started: false
       UI_or_feature_implementation_started: false
 
+
+  pkk_sensitive_provider_payload_encryption_redaction_hash_and_key_version_boundary:
+    status: PASS
+    resolved_blocker_id: DB-PKK-006
+    severity: P1
+    machine_source: specs/database/pkk.yml
+    audit_source: docs/113-stage-4-pkk-audit.md
+    machine_contract_commit: 140289d94f58b8a15f59412537623736d9826721
+    narrative_audit_commit: 1768524669ac7e0f79b24c182afb3509d0eebfba
+    decision:
+      provider_schema_owner: verified_adapter_contract
+      raw_payload_retention_default: minimize_before_encrypt
+      runtime_retention_modes: [redacted_only, encrypted_raw_plus_redacted]
+      retained_raw_payload_authority: pkk_protected_payloads
+      payload_key_wrapping_history_authority: pkk_protected_payload_key_wrappings
+      redacted_projection_history_authority: pkk_payload_redacted_projections
+      authenticated_encryption_profile_v1: AES_256_GCM
+      data_encryption_key_bits: 256
+      nonce_bits: 96
+      authentication_tag_bits: 128
+      random_DEK_per_payload: true
+      canonical_AAD_binds_tenant_role_exact_parent_and_crypto_profile: true
+      ciphertext_transplant_between_tenants_or_parents_fails_authentication: true
+      DB_PKK_002_snapshot_content_hash_semantics_preserved: true
+      snapshot_content_hash_is_AEAD_authentication: false
+      current_runtime_wrapping: max_wrapping_revision
+      key_rotation_rewraps_DEK_without_business_ciphertext_rewrite: true
+      raw_DEK_or_KEK_persisted_or_logged: false
+      safe_projection_is_allowlist_based_and_deny_by_default: true
+      redaction_policy_change_appends_projection_revision: true
+      provisional_parent_payload_fields_runtime_authority_after_cutover: false
+      raw_plaintext_excluded_from_audit_activity_outbox_notification_idempotency_and_logs: true
+      raw_provider_error_body_treated_as_sensitive: true
+      signature_XML_FileAsset_identity_and_plaintext_hash_preserved: true
+      final_ready_PKK_XML_storage_application_encrypted: true
+      XML_key_rotation_preserves_handoff_FileAsset_hash_and_encrypted_object: true
+      legacy_unknown_ciphertext_promoted_to_authenticated_runtime_envelope: false
+      provider_specific_schema_invented: false
+      exact_retention_duration_invented: false
+      API_files_modified_in_step: false
+      DB_PKK_007_and_DB_PKK_008_not_fixed: true
+    checks:
+      minimization_before_encryption: PASS
+      retained_raw_AEAD_envelope: PASS
+      exact_tenant_parent_AAD_transplant_protection: PASS
+      immutable_ciphertext_and_hash_evidence: PASS
+      append_only_key_wrapping_history: PASS
+      KEK_rotation_without_business_evidence_rewrite: PASS
+      DB_PKK_002_hash_semantics_preserved: PASS
+      append_only_allowlisted_redacted_projection_lineage: PASS
+      raw_payload_leakage_exclusion: PASS
+      provisional_payload_authority_cutover: PASS
+      DB_PKK_005_XML_FileAsset_identity_preserved_and_confidentiality_closed: PASS
+      migration_fail_closed_without_crypto_or_redaction_guessing: PASS
+      DB_PKK_001_through_DB_PKK_005_preserved: PASS
+      DB_PKK_007_remains_open: PASS
+      DB_PKK_008_remains_open: PASS
+      aggregate_core_schema_modified_in_step: false
+      aggregate_docs87_modified_in_step: false
+      API_files_modified_in_step: false
+      DB4_9_or_later_entered: false
+      Laravel_migrations_created: false
+      Stage5_started: false
+      UI_or_feature_implementation_started: false
+
 resolved_blockers:
   - DB-FOUND-001
   - DB-FOUND-002
@@ -2899,9 +2964,9 @@ resolved_blockers:
   - DB-PKK-003
   - DB-PKK-004
   - DB-PKK-005
+  - DB-PKK-006
 
 open_blockers_current_diagnosed_scope:
-  - DB-PKK-006
   - DB-PKK-007
   - DB-PKK-008
 
@@ -2913,7 +2978,7 @@ gate_definition:
     - migration_order_dependency_safe
     - database_invariant_test_matrix_exists
     - reverse_engineering_preservation_traceable
-  current_result: DB4_8_FAIL_WITH_3_P1_BLOCKERS
+  current_result: DB4_8_FAIL_WITH_2_P1_BLOCKERS
   DB4_1_result: PASS
   DB4_2_result: PASS
   DB4_3_result: PASS
@@ -2965,7 +3030,8 @@ gate_definition:
   DB4_8_DB_PKK_003_result: PASS
   DB4_8_DB_PKK_004_result: PASS
   DB4_8_DB_PKK_005_result: PASS
-  DB4_8_result: FAIL_WITH_3_P1_BLOCKERS
+  DB4_8_DB_PKK_006_result: PASS
+  DB4_8_result: FAIL_WITH_2_P1_BLOCKERS
   may_start_DB4_4_fixes: false
   may_start_DB4_5: false
   may_start_DB4_5_fixes: false
@@ -2979,8 +3045,8 @@ gate_definition:
   may_start_UI_or_feature_implementation: false
 
 next_single_step:
-  id: DB_PKK_006_SENSITIVE_PROVIDER_PAYLOAD_ENCRYPTION_REDACTION_HASH_AND_KEY_VERSION_BOUNDARY
-  action: resolve_DB_PKK_006_only_after_next_explicit_user_instruction
+  id: DB_PKK_007_INTEGRATION_CONFIGURATION_REVISION_BINDING_AND_ASYNC_EXECUTION_CONTEXT
+  action: resolve_DB_PKK_007_only_after_next_explicit_user_instruction
   allowed_scope:
     - specs/database/pkk.yml
     - docs/113-stage-4-pkk-audit.md
@@ -2989,8 +3055,8 @@ next_single_step:
     - specs/database/core-schema.yml
     - docs/87-physical-database-schema.md
   scope_lock: >-
-    Resolve only DB-PKK-006 sensitive provider payload encryption, redaction, hash
-    and key-version boundary. Do not resolve DB-PKK-007 or later PKK blockers in
-    the same step, do not enter DB4_9 or later slices, do not start Stage 5, do
-    not create Laravel migrations and do not start UI or feature implementation.
-  after_action: rerun_DB_PKK_006_machine_narrative_central_gate_and_STOP_before_DB_PKK_007
+    Resolve only DB-PKK-007 integration configuration revision binding and async
+    execution context. Do not resolve DB-PKK-008 in the same step, do not enter
+    DB4_9 or later slices, do not start Stage 5, do not create Laravel migrations
+    and do not start UI or feature implementation.
+  after_action: rerun_DB_PKK_007_machine_narrative_central_gate_and_STOP_before_DB_PKK_008
