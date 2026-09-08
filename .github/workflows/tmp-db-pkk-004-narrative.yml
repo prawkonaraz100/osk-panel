@@ -1,0 +1,47 @@
+name: Temporary DB-PKK-004 Narrative Gate
+
+on:
+  push:
+    branches: [tmp-db-pkk-004-narrative-helper]
+    paths:
+      - '.github/workflows/tmp-db-pkk-004-narrative.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: tmp-db-pkk-004-narrative-helper
+      - name: Patch narrative and validate
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('docs/113-stage-4-pkk-audit.md')
+          s=p.read_text()
+          frag=Path('.stage4-tmp/db-pkk-004-narrative.mdfrag').read_text().rstrip()+"\n"
+          old_step='**Aktualny krok:** `DB_PKK_003_PROVIDER_OPERATION_LIFECYCLE_CONCURRENCY_AND_COMMAND_ELIGIBILITY`\n'
+          new_step='**Aktualny krok:** `DB_PKK_004_IDEMPOTENCY_RETRY_RECONCILIATION_AND_EXACTLY_ONCE_EXTERNAL_EFFECT`\n'
+          old_status='**Status:** `FAIL_WITH_5_P1_BLOCKERS / 0 P0 / 5 P1 OPEN`\n'
+          new_status='**Status:** `FAIL_WITH_4_P1_BLOCKERS / 0 P0 / 4 P1 OPEN`\n'
+          assert s.count(old_step)==1
+          assert s.count(old_status)==1
+          assert '## 21. DB-PKK-004' not in s
+          assert s.rstrip().endswith('**STOP przed DB-PKK-004.**')
+          s=s.replace(old_step,new_step,1).replace(old_status,new_status,1)
+          s=s.rstrip()+"\n"+frag
+          p.write_text(s)
+          PY
+          grep -q '^## 21. DB-PKK-004 — wynik fixera: PASS$' docs/113-stage-4-pkk-audit.md
+          grep -q '^\*\*STOP przed DB-PKK-005\.\*\*$' docs/113-stage-4-pkk-audit.md
+          git diff --check -- docs/113-stage-4-pkk-audit.md
+          test "$(git diff --name-only | grep -v '^\.github/workflows/tmp-db-pkk-004-narrative.yml$' | grep -v '^\.stage4-tmp/' | sort -u)" = "docs/113-stage-4-pkk-audit.md"
+          git config user.name 'prawkonaraz100'
+          git config user.email 'prawkonaraz100@gmail.com'
+          git add docs/113-stage-4-pkk-audit.md
+          git commit -m 'DB-PKK-004: add idempotency retry reconciliation narrative audit'
+          git push origin HEAD:tmp-db-pkk-004-narrative-helper
