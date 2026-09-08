@@ -69,7 +69,7 @@ jobs:
           assert d['pkk_model']['integration_configuration_revisions']['provider_attempt_binds_exact_integration_configuration_revision'] is True
           assert 'pkk_operation_attempt_reconciliations' in d['core_tables']['pkk']
           assert 'pkk_signature_file_asset_key_wrappings' in d['core_tables']['pkk']
-          assert d['training_model']['pkk_identity_boundary']['provider_fetch_update_return_retry_reconciliation']=='defined_in_pkk_model'
+          assert d['students_courses_training_model']['pkk_identity_boundary']['provider_fetch_update_return_retry_reconciliation']=='defined_in_pkk_model'
           assert 'pkk_provider_operations_and_attempts' not in d['migration_order']
           PY
           git diff --check -- specs/database/core-schema.yml
