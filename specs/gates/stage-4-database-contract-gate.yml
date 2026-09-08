@@ -94,13 +94,13 @@ stage_4_slices:
     final_aggregate_sync: PASS
     result: PASS
   - id: DB4_8_PKK
-    status: FAIL_WITH_8_P1_BLOCKERS
+    status: FAIL_WITH_7_P1_BLOCKERS
     diagnosis: COMPLETE
     blockers_diagnosed: 8
-    blockers_resolved: 0
-    open_P0_P1: 8
+    blockers_resolved: 1
+    open_P0_P1: 7
     final_aggregate_sync: NOT_STARTED
-    result: FAIL_WITH_8_P1_BLOCKERS
+    result: FAIL_WITH_7_P1_BLOCKERS
   - id: DB4_9_STUDENT_FINANCE_COMMERCE
     status: NOT_STARTED
   - id: DB4_10_AUDIT_OUTBOX_NOTIFICATIONS
@@ -2586,6 +2586,55 @@ quality_checks:
       Stage5_started: false
       UI_or_feature_implementation_started: false
 
+  pkk_same_tenant_exact_target_integrity:
+    status: PASS
+    resolved_blocker_id: DB-PKK-001
+    severity: P1
+    machine_source: specs/database/pkk.yml
+    audit_source: docs/113-stage-4-pkk-audit.md
+    machine_contract_commit: 55ee706a7fcdd2e71d3844b71f07bef533e90cc2
+    narrative_audit_commit: f50b9ae6731fd73ec713edeb715b5e91476d9714
+    decision:
+      runtime_provider_operation_owner: exact_course_enrollment_and_bound_pkk_identity_revision
+      runtime_provider_operation_requires_exact_pkk_profile: true
+      organization_id_client_authority: false
+      operation_course_same_tenant_composite_FK: true
+      operation_exact_profile_course_composite_FK: true
+      provider_attempt_explicit_organization_course_profile_context: true
+      provider_attempt_exact_operation_context_composite_FK: true
+      operation_and_attempt_exact_context_fields_immutable_after_insert: true
+      actor_user_is_global_identity_not_fake_tenant_scoped: true
+      destructive_cascade_of_provider_history: forbidden
+      relation_on_update_and_delete: RESTRICT
+      legacy_null_operation_profile_auto_bind_to_current_or_latest: forbidden
+      legacy_wrong_course_or_tenant_profile_auto_reparent: forbidden
+      attempt_context_backfill_source: verified_exact_parent_operation_only
+      future_attempt_scoped_evidence_must_reuse_exact_same_tenant_attempt_target: true
+      DB_PKK_002_provider_snapshot_history_not_fixed: true
+      DB_PKK_003_operation_lifecycle_not_fixed: true
+      DB_PKK_004_retry_reconciliation_not_fixed: true
+      DB_PKK_005_signed_XML_not_fixed: true
+      DB_PKK_006_payload_security_not_fixed: true
+      DB_PKK_007_configuration_revision_not_fixed: true
+      DB_PKK_008_latest_projection_not_fixed: true
+    checks:
+      exact_operation_course_profile_same_tenant_boundary_closed: PASS
+      attempt_exact_parent_context_boundary_closed: PASS
+      cross_course_same_tenant_profile_pairing_rejected: PASS
+      cross_tenant_operation_or_attempt_context_rejected: PASS
+      global_actor_relation_preserved: PASS
+      history_reparenting_and_destructive_cascade_forbidden: PASS
+      migration_null_profile_heuristic_forbidden: PASS
+      DB4_4_course_scoped_PKK_identity_preserved: PASS
+      DB_PKK_002_through_DB_PKK_008_remain_open: PASS
+      aggregate_core_schema_modified_in_step: false
+      aggregate_docs87_modified_in_step: false
+      API_files_modified_in_step: false
+      DB4_9_or_later_entered: false
+      Laravel_migrations_created: false
+      Stage5_started: false
+      UI_or_feature_implementation_started: false
+
 resolved_blockers:
   - DB-FOUND-001
   - DB-FOUND-002
@@ -2632,9 +2681,9 @@ resolved_blockers:
   - DB-EXAM-006
   - DB-EXAM-007
   - DB-EXAM-008
+  - DB-PKK-001
 
 open_blockers_current_diagnosed_scope:
-  - DB-PKK-001
   - DB-PKK-002
   - DB-PKK-003
   - DB-PKK-004
@@ -2651,7 +2700,7 @@ gate_definition:
     - migration_order_dependency_safe
     - database_invariant_test_matrix_exists
     - reverse_engineering_preservation_traceable
-  current_result: DB4_8_FAIL_WITH_8_P1_BLOCKERS
+  current_result: DB4_8_FAIL_WITH_7_P1_BLOCKERS
   DB4_1_result: PASS
   DB4_2_result: PASS
   DB4_3_result: PASS
@@ -2698,7 +2747,8 @@ gate_definition:
   DB4_7_final_aggregate_sync_result: PASS
   DB4_7_result: PASS
   DB4_8_diagnosis_result: PASS_DIAGNOSIS_COMPLETE
-  DB4_8_result: FAIL_WITH_8_P1_BLOCKERS
+  DB4_8_DB_PKK_001_result: PASS
+  DB4_8_result: FAIL_WITH_7_P1_BLOCKERS
   may_start_DB4_4_fixes: false
   may_start_DB4_5: false
   may_start_DB4_5_fixes: false
@@ -2712,8 +2762,8 @@ gate_definition:
   may_start_UI_or_feature_implementation: false
 
 next_single_step:
-  id: DB_PKK_001_SAME_TENANT_AND_EXACT_COURSE_PROFILE_OPERATION_ATTEMPT_INTEGRITY
-  action: resolve_DB_PKK_001_only_after_next_explicit_user_instruction
+  id: DB_PKK_002_IMMUTABLE_PROVIDER_PROFILE_SNAPSHOT_HISTORY_AND_CURRENT_PROJECTION
+  action: resolve_DB_PKK_002_only_after_next_explicit_user_instruction
   allowed_scope:
     - specs/database/pkk.yml
     - docs/113-stage-4-pkk-audit.md
@@ -2722,8 +2772,8 @@ next_single_step:
     - specs/database/core-schema.yml
     - docs/87-physical-database-schema.md
   scope_lock: >-
-    Resolve only DB-PKK-001 same-tenant and exact Course/Profile/Operation/Attempt
-    integrity. Do not resolve DB-PKK-002 or later PKK blockers in the same step,
+    Resolve only DB-PKK-002 immutable provider profile snapshot history and current
+    projection. Do not resolve DB-PKK-003 or later PKK blockers in the same step,
     do not enter DB4_9 or later slices, do not start Stage 5, do not create Laravel
     migrations and do not start UI or feature implementation.
-  after_action: rerun_DB_PKK_001_machine_narrative_central_gate_and_STOP_before_DB_PKK_002
+  after_action: rerun_DB_PKK_002_machine_narrative_central_gate_and_STOP_before_DB_PKK_003
