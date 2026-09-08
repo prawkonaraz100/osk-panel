@@ -1,0 +1,86 @@
+name: Temporary DB-COM-001 Machine Gate
+
+on:
+  push:
+    branches: [tmp-db-com-001-machine-helper]
+    paths:
+      - '.stage4-tmp/TRIGGER_DB_COM_001_MACHINE'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: tmp-db-com-001-machine-helper
+      - name: Patch and validate DB-COM-001 only
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import yaml, copy
+          p=Path('specs/database/student-finance-commerce.yml')
+          s=p.read_text()
+          before=yaml.safe_load(s)
+          fin1=copy.deepcopy(before['resolved_contracts']['DB-FIN-001'])
+          fin2=copy.deepcopy(before['resolved_contracts']['DB-FIN-002'])
+
+          reps=[
+            ('  step: DB_FIN_002_CHARGE_PAYMENT_REVERSAL_LIFECYCLE_BALANCE_OVERPAYMENT_AND_CONCURRENCY\n','  step: DB_COM_001_ORDER_ITEM_TENANT_PRODUCT_SNAPSHOT_PRICE_TOTAL_AND_QUANTITY_INTEGRITY\n'),
+            ('  status: FAIL_WITH_8_P1_BLOCKERS\n','  status: FAIL_WITH_7_P1_BLOCKERS\n'),
+            ('  current_step_scope: DB_FIN_002_only\n','  current_step_scope: DB_COM_001_only\n'),
+          ]
+          for old,new in reps:
+            assert s.count(old)==1,(old,s.count(old))
+            s=s.replace(old,new,1)
+
+          marker='\nblockers:\n'
+          assert s.count(marker)==1
+          assert '\n  DB-COM-001:\n' not in s.split(marker)[0]
+          block='''\n  DB-COM-001:\n    status: PASS\n    severity: P1\n    title: order_item_tenant_product_snapshot_price_total_and_quantity_integrity\n    scope_boundary:\n      closes_only_order_item_tenant_catalog_pricing_snapshot_and_total_integrity: true\n      payment_lifecycle_and_confirmation_deferred_to_DB_COM_002: true\n      paid_order_fulfillment_deferred_to_DB_COM_003: true\n      downstream_grant_provenance_and_quantity_deferred_to_DB_COM_004_and_DB_COM_007: true\n      purchase_history_sequence_and_booking_projection_deferred_to_DB_COM_005: true\n    commerce_catalog_items:\n      role: stable_platform_sellable_product_identity_used_by_checkout_and_order_history\n      tenant_owned: false\n      fields:\n        - id\n        - code\n        - product_kind\n        - license_product_id_nullable\n        - active\n        - created_at\n      product_kind_values: [license, internal_exam, generic_service]\n      stable_code_unique: true\n      immutable_identity_fields_after_first_order_reference: [code, product_kind, license_product_id_nullable]\n      product_kind_matrix:\n        license:\n          license_product_id: required\n          exact_target: license_products.id\n          note: commerce_catalog_identity_does_not_replace_license_product_entitlement_authority\n        internal_exam:\n          license_product_id: null\n          identity: commerce_catalog_item_itself_represents_sellable_exam_unit\n          exact_exam_inventory_grant_semantics: DB_COM_004\n        generic_service:\n          license_product_id: null\n          identity: commerce_catalog_item_itself_represents_sellable_service\n          exact_service_entitlement_mapping: DB_COM_007\n      fake_polymorphic_foreign_key: forbidden\n      catalog_deactivation_rewrites_historical_order_items: false\n    candidate_keys:\n      orders_exact_currency:\n        columns: [organization_id, id, currency]\n        unique_constraint_required: true\n      order_items_tenant_identity:\n        columns: [organization_id, id]\n        unique_constraint_required: true\n      commerce_catalog_item_kind:\n        columns: [id, product_kind]\n        unique_constraint_required: true\n    order_items_final_fields_or_semantics:\n      organization_id:\n        nullable: false\n        derived_from_exact_order: true\n      order_id: {nullable: false}\n      commerce_catalog_item_id: {nullable: false}\n      product_kind: {nullable: false}\n      quantity:\n        type: integer\n        nullable: false\n        check: gt_0\n      currency:\n        type: char_3_ISO_4217\n        nullable: false\n      list_unit_amount_minor:\n        type: bigint_minor_units\n        nullable: false\n        check: gte_0\n      unit_amount_minor:\n        meaning: charged_gross_unit_amount_after_applied_discount\n        type: bigint_minor_units\n        nullable: false\n        check: gte_0_and_lte_list_unit_amount_minor\n      unit_discount_amount_minor:\n        type: bigint_minor_units\n        nullable: false\n        formula: list_unit_amount_minor_minus_unit_amount_minor\n      vat_rate_basis_points:\n        type: integer\n        nullable: false\n        check: between_0_and_10000\n        role: immutable_tax_rate_snapshot_for_the_line_not_the_line_total_authority\n      total_amount_minor:\n        type: bigint_minor_units\n        nullable: false\n        formula: quantity_times_unit_amount_minor\n      product_snapshot:\n        type: jsonb\n        nullable: false\n        server_owned: true\n        minimum_semantics:\n          - catalog_item_id\n          - stable_catalog_code\n          - product_kind\n          - display_name_at_order_time\n          - source_reference_snapshot_when_applicable\n      pricing_snapshot:\n        type: jsonb\n        nullable: false\n        server_owned: true\n        minimum_semantics:\n          - list_unit_amount_minor\n          - charged_unit_amount_minor\n          - unit_discount_amount_minor\n          - vat_rate_basis_points\n          - pricing_rule_or_revision_identifiers_when_available\n          - pricing_resolution_time\n      snapshot_hash:\n        type: char_64_sha256_or_equivalent_content_hash\n        nullable: false\n        purpose: detect_accidental_snapshot_drift_not_replace_server_authority\n      legacy_product_type_product_reference_after_cutover:\n        authority: false\n        policy: migrate_to_catalog_item_binding_or_fail_review\n    relations:\n      order_item_exact_order_and_currency:\n        source: order_items[organization_id,order_id,currency]\n        target: orders[organization_id,id,currency]\n        on_update: RESTRICT\n        on_delete: RESTRICT\n      order_item_exact_catalog_kind:\n        source: order_items[commerce_catalog_item_id,product_kind]\n        target: commerce_catalog_items[id,product_kind]\n        on_update: RESTRICT\n        on_delete: RESTRICT\n      catalog_license_target:\n        applies_when: product_kind_equals_license\n        source: commerce_catalog_items.license_product_id\n        target: license_products.id\n        on_update: RESTRICT\n        on_delete: RESTRICT\n        implementation: check_plus_FK_or_equivalent_constraint_boundary\n    immutable_order_item_policy:\n      after_order_creation_commit_business_fields_mutable: false\n      forbidden_normal_updates:\n        - organization_id\n        - order_id\n        - commerce_catalog_item_id\n        - product_kind\n        - quantity\n        - currency\n        - list_unit_amount_minor\n        - unit_amount_minor\n        - unit_discount_amount_minor\n        - vat_rate_basis_points\n        - total_amount_minor\n        - product_snapshot\n        - pricing_snapshot\n        - snapshot_hash\n      catalog_or_price_change_rewrites_history: false\n      correction_requires_new_order_or_future_explicit_financial_correction_flow_not_in_place_item_patch: true\n    pricing_and_total_authority:\n      client_supplied_price_discount_vat_or_total_as_authority: forbidden\n      server_resolves_catalog_and_pricing_before_insert: true\n      observed_UI_amount_semantics: gross_amounts\n      charged_line_total_formula: quantity_times_unit_amount_minor\n      unit_discount_formula: list_unit_amount_minor_minus_unit_amount_minor\n      VAT_rate_is_snapshotted_but_not_recomputed_to_mutate_gross_line_total: true\n      order_currency_is_parent_authority: true\n      mixed_currency_items_in_one_order: forbidden\n      order_total_amount_minor_formula: SUM_order_items_total_amount_minor\n      order_total_cross_row_guard: deferrable_constraint_trigger_or_equivalent_transactional_DB_guard\n      order_with_zero_total_possible_after_full_discount: not_forbidden_by_DB_COM_001\n      payment_semantics_for_zero_total_order: DB_COM_002\n    order_creation_transaction:\n      server_owned_sequence:\n        - derive_organization_from_authenticated_context\n        - resolve_requested_sellable_catalog_items\n        - require_catalog_item_active_at_creation\n        - validate_kind_specific_catalog_identity\n        - resolve_server_side_pricing_and_discount_context\n        - calculate_immutable_per_line_snapshots\n        - insert_order_with_authoritative_currency_and_total\n        - insert_order_items_with_exact_order_and_catalog_relations\n        - verify_order_total_equals_sum_line_totals_before_commit\n      frontend_preview_may_differ_from_authoritative_server_resolution: true\n      retry_idempotency_for_order_creation_preserved_from_common_contract: true\n    migration_policy:\n      order_items_add_organization_id_backfill_source: exact_parent_order_only\n      order_items_add_currency_backfill_source: exact_parent_order_only\n      legacy_product_type_reference_mapping_requires_proven_catalog_identity: true\n      infer_catalog_item_from_display_name_price_or_timestamp: forbidden\n      infer_license_product_from_duration_or_price_without_proven_reference: forbidden\n      create_generic_catalog_item_to_hide_ambiguous_legacy_reference: forbidden\n      historical_price_or_discount_recalculation_from_current_catalog: forbidden\n      line_total_rewrite_to_make_current_formula_pass_without_source_evidence: forbidden\n      ambiguous_product_or_pricing_line: fail_and_require_reviewed_remediation\n      hard_delete_order_item_to_make_constraints_pass: forbidden\n    required_tests:\n      - order_item_wrong_tenant_order_rejected\n      - order_item_currency_different_from_order_rejected\n      - order_item_product_kind_different_from_catalog_item_rejected\n      - license_catalog_item_without_license_product_rejected\n      - nonlicense_catalog_item_with_license_product_rejected\n      - quantity_zero_or_negative_rejected\n      - unit_amount_greater_than_list_unit_rejected\n      - unit_discount_formula_mismatch_rejected\n      - line_total_formula_mismatch_rejected\n      - order_total_not_equal_sum_lines_rejected_at_transaction_boundary\n      - product_or_pricing_snapshot_is_immutable_after_commit\n      - later_catalog_price_or_display_change_does_not_modify_historical_order_item\n      - server_side_order_creation_does_not_trust_client_price_total_or_discount\n      - legacy_ambiguous_product_mapping_fails_without_heuristic_catalog_item\n    preservation_checks:\n      DB_FIN_001_and_DB_FIN_002_contracts_unchanged: PASS\n      license_product_specialized_authority_preserved: PASS\n      internal_exam_is_quantity_product_not_license_duration_clone: PASS\n      one_order_may_contain_multiple_license_variants: PASS\n      purchase_history_remains_separate_from_student_finance: PASS\n      DB_COM_002_through_DB_COM_008_unchanged: PASS\n      aggregate_core_schema_modified: false\n      aggregate_docs87_modified: false\n      DB4_10_or_later_entered: false\n      Stage5_started: false\n      Laravel_migrations_created: false\n      UI_or_feature_implementation_started: false\n'''
+          s=s.replace(marker,block+marker,1)
+
+          old='''  - id: DB-COM-001\n    title: order_item_tenant_product_snapshot_price_total_and_quantity_integrity\n    severity: P1\n    status: OPEN\n'''
+          new='''  - id: DB-COM-001\n    title: order_item_tenant_product_snapshot_price_total_and_quantity_integrity\n    severity: P1\n    status: RESOLVED\n    resolution_ref: resolved_contracts.DB-COM-001\n'''
+          assert s.count(old)==1
+          s=s.replace(old,new,1)
+
+          reps2=[
+            ('  resolved_after_diagnosis: 2\n','  resolved_after_diagnosis: 3\n'),
+            ('  open_P0_P1: 8\n','  open_P0_P1: 7\n'),
+            ('  result: FAIL_WITH_8_P1_BLOCKERS\n','  result: FAIL_WITH_7_P1_BLOCKERS\n'),
+            ('  status: PASS_DB_FIN_002_MACHINE_CONTRACT\n','  status: PASS_DB_COM_001_MACHINE_CONTRACT\n'),
+            ('  id: DB_COM_001_ORDER_ITEM_TENANT_PRODUCT_SNAPSHOT_PRICE_TOTAL_AND_QUANTITY_INTEGRITY\n  action: resolve_DB_COM_001_only_after_next_explicit_user_instruction\n  stop_before: DB_COM_002_PAYMENT_ATTEMPT_EVENT_ORDER_STATE_IDEMPOTENCY_AND_RECONCILIATION\n','  id: DB_COM_002_PAYMENT_ATTEMPT_EVENT_ORDER_STATE_IDEMPOTENCY_AND_RECONCILIATION\n  action: resolve_DB_COM_002_only_after_next_explicit_user_instruction\n  stop_before: DB_COM_003_PAID_ORDER_EXACTLY_ONCE_GRANT_ORCHESTRATION_AND_ATOMICITY\n')
+          ]
+          for old,new in reps2:
+            assert s.count(old)==1,(old,s.count(old))
+            s=s.replace(old,new,1)
+
+          p.write_text(s)
+          after=yaml.safe_load(s)
+          assert after['resolved_contracts']['DB-FIN-001']==fin1
+          assert after['resolved_contracts']['DB-FIN-002']==fin2
+          assert after['resolved_contracts']['DB-COM-001']['status']=='PASS'
+          statuses={x['id']:x['status'] for x in after['blockers']}
+          for bid in ['DB-FIN-001','DB-FIN-002','DB-COM-001']:
+            assert statuses[bid]=='RESOLVED'
+          for bid in ['DB-COM-002','DB-COM-003','DB-COM-004','DB-COM-005','DB-COM-006','DB-COM-007','DB-COM-008']:
+            assert statuses[bid]=='OPEN'
+          assert after['diagnosis_summary']['resolved_after_diagnosis']==3
+          assert after['diagnosis_summary']['open_P0_P1']==7
+          assert after['diagnosis_summary']['result']=='FAIL_WITH_7_P1_BLOCKERS'
+          assert after['preservation_gate']['status']=='PASS_DB_COM_001_MACHINE_CONTRACT'
+          assert after['next_single_step_after_central_gate']['id']=='DB_COM_002_PAYMENT_ATTEMPT_EVENT_ORDER_STATE_IDEMPOTENCY_AND_RECONCILIATION'
+          PY
+          test "$(git hash-object specs/database/core-schema.yml)" = "65c6daab0330a2c6cf57a6a2caaba288a13a7a70"
+          test "$(git hash-object docs/87-physical-database-schema.md)" = "4d5f24f2948bdb55e7367c7b013ed918dade40ae"
+          git diff --check -- specs/database/student-finance-commerce.yml
+          test "$(git diff --name-only | grep -v '^\.github/workflows/tmp-db-com-001-machine.yml$' | grep -v '^\.stage4-tmp/' | sort -u)" = "specs/database/student-finance-commerce.yml"
+          git config user.name 'prawkonaraz100'
+          git config user.email 'prawkonaraz100@gmail.com'
+          git add specs/database/student-finance-commerce.yml
+          git commit -m 'DB-COM-001: close order item catalog pricing integrity contract'
+          git push origin HEAD:tmp-db-com-001-machine-helper
