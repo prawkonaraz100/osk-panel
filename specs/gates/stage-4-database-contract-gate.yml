@@ -94,13 +94,13 @@ stage_4_slices:
     final_aggregate_sync: PASS
     result: PASS
   - id: DB4_8_PKK
-    status: FAIL_WITH_1_P1_BLOCKER
+    status: BLOCKERS_RESOLVED_PENDING_FINAL_AGGREGATE_SYNC
     diagnosis: COMPLETE
     blockers_diagnosed: 8
-    blockers_resolved: 7
-    open_P0_P1: 1
-    final_aggregate_sync: NOT_STARTED
-    result: FAIL_WITH_1_P1_BLOCKER
+    blockers_resolved: 8
+    open_P0_P1: 0
+    final_aggregate_sync: PENDING
+    result: BLOCKERS_RESOLVED_PENDING_FINAL_AGGREGATE_SYNC
   - id: DB4_9_STUDENT_FINANCE_COMMERCE
     status: NOT_STARTED
   - id: DB4_10_AUDIT_OUTBOX_NOTIFICATIONS
@@ -2962,6 +2962,49 @@ quality_checks:
       Stage5_started: false
       UI_or_feature_implementation_started: false
 
+  pkk_deterministic_operation_history_latest_and_course_summary_projection:
+    status: PASS
+    resolved_blocker_id: DB-PKK-008
+    severity: P1
+    machine_source: specs/database/pkk.yml
+    audit_source: docs/113-stage-4-pkk-audit.md
+    machine_contract_commit: 2b5871ee9d81dfd065a2a296fa355cc096a0851c
+    narrative_audit_commit: 0ac50db9b8093639a4b78655b40b202c87a91e9b
+    decision:
+      business_operation_history_authority: pkk_operations
+      deterministic_course_sequence: course_operation_sequence
+      sequence_scope: organization_plus_course_enrollment
+      sequence_allocation_root: existing_course_enrollment_FOR_UPDATE
+      sequence_immutable_after_insert: true
+      retry_creates_new_business_operation: false
+      latest_operation_selector: max_course_operation_sequence
+      completed_at_created_at_or_UUID_latest_selector_allowed: false
+      operation_history_count: count_business_operations_for_exact_course
+      transport_attempt_count_is_separate_metric: true
+      course_summary_is_derived_projection_not_second_authority: true
+      history_spans_PkkProfile_revisions_of_same_course: true
+      legacy_equal_created_at_without_stronger_order_evidence_is_auto_tiebroken: false
+      final_aggregate_sync_performed_in_DB_PKK_008: false
+    checks:
+      deterministic_business_operation_order_closed: PASS
+      concurrent_sequence_allocation_closed: PASS
+      async_completion_cannot_reorder_latest: PASS
+      latest_projection_from_max_sequence_closed: PASS
+      operation_count_and_attempt_count_separated: PASS
+      stable_equal_timestamp_order_closed: PASS
+      mutable_course_summary_authority_not_created: PASS
+      profile_revision_does_not_reset_course_history: PASS
+      legacy_UUID_or_completed_at_tiebreak_forbidden: PASS
+      DB_PKK_001_through_DB_PKK_007_preserved: PASS
+      all_8_DB4_8_blockers_resolved: PASS
+      aggregate_core_schema_modified_in_step: false
+      aggregate_docs87_modified_in_step: false
+      API_files_modified_in_step: false
+      DB4_9_or_later_entered: false
+      Laravel_migrations_created: false
+      Stage5_started: false
+      UI_or_feature_implementation_started: false
+
 resolved_blockers:
   - DB-FOUND-001
   - DB-FOUND-002
@@ -3015,9 +3058,9 @@ resolved_blockers:
   - DB-PKK-005
   - DB-PKK-006
   - DB-PKK-007
-
-open_blockers_current_diagnosed_scope:
   - DB-PKK-008
+
+open_blockers_current_diagnosed_scope: []
 
 gate_definition:
   PASS_requires_for_entire_stage_4:
@@ -3027,7 +3070,7 @@ gate_definition:
     - migration_order_dependency_safe
     - database_invariant_test_matrix_exists
     - reverse_engineering_preservation_traceable
-  current_result: DB4_8_FAIL_WITH_1_P1_BLOCKER
+  current_result: DB4_8_BLOCKERS_RESOLVED_PENDING_FINAL_AGGREGATE_SYNC
   DB4_1_result: PASS
   DB4_2_result: PASS
   DB4_3_result: PASS
@@ -3081,7 +3124,8 @@ gate_definition:
   DB4_8_DB_PKK_005_result: PASS
   DB4_8_DB_PKK_006_result: PASS
   DB4_8_DB_PKK_007_result: PASS
-  DB4_8_result: FAIL_WITH_1_P1_BLOCKER
+  DB4_8_DB_PKK_008_result: PASS
+  DB4_8_result: BLOCKERS_RESOLVED_PENDING_FINAL_AGGREGATE_SYNC
   may_start_DB4_4_fixes: false
   may_start_DB4_5: false
   may_start_DB4_5_fixes: false
@@ -3095,18 +3139,20 @@ gate_definition:
   may_start_UI_or_feature_implementation: false
 
 next_single_step:
-  id: DB_PKK_008_DETERMINISTIC_OPERATION_HISTORY_LATEST_AND_COURSE_SUMMARY_PROJECTION
-  action: resolve_DB_PKK_008_only_after_next_explicit_user_instruction
+  id: DB4_8_FINAL_AGGREGATE_SYNC
+  action: sync_DB4_8_resolved_contracts_to_aggregate_only_after_next_explicit_user_instruction
   allowed_scope:
     - specs/database/pkk.yml
     - docs/113-stage-4-pkk-audit.md
     - specs/gates/stage-4-database-contract-gate.yml
-  aggregate_files_frozen:
+    - specs/database/core-schema.yml
+    - docs/87-physical-database-schema.md
+  aggregate_files_frozen_until_next_explicit_user_instruction:
     - specs/database/core-schema.yml
     - docs/87-physical-database-schema.md
   scope_lock: >-
-    Resolve only DB-PKK-008 deterministic operation history latest and course
-    summary projection. Do not enter DB4_9 or later slices in the same step, do
-    not start Stage 5, do not create Laravel migrations and do not start UI or
-    feature implementation.
-  after_action: rerun_DB_PKK_008_machine_narrative_central_gate_and_STOP_before_DB4_8_FINAL_AGGREGATE_SYNC
+    Synchronize only the resolved DB-PKK-001 through DB-PKK-008 contracts into
+    the DB4_8 aggregate machine and narrative documents, then update bounded audit
+    and central gate. Do not enter DB4_9, Stage 5, Laravel migrations or UI in the
+    same step.
+  after_action: rerun_DB4_8_final_aggregate_sync_gate_and_STOP_before_DB4_9
