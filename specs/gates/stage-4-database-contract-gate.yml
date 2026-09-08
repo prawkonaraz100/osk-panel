@@ -34,6 +34,7 @@ sources:
     - specs/database/calendar.yml
     - specs/database/licenses-learning-access.yml
     - specs/database/internal-exams.yml
+    - specs/database/pkk.yml
   security:
     - specs/security/permissions.yml
     - docs/04-roles-permissions.md
@@ -93,7 +94,13 @@ stage_4_slices:
     final_aggregate_sync: PASS
     result: PASS
   - id: DB4_8_PKK
-    status: NOT_STARTED
+    status: FAIL_WITH_8_P1_BLOCKERS
+    diagnosis: COMPLETE
+    blockers_diagnosed: 8
+    blockers_resolved: 0
+    open_P0_P1: 8
+    final_aggregate_sync: NOT_STARTED
+    result: FAIL_WITH_8_P1_BLOCKERS
   - id: DB4_9_STUDENT_FINANCE_COMMERCE
     status: NOT_STARTED
   - id: DB4_10_AUDIT_OUTBOX_NOTIFICATIONS
@@ -2534,6 +2541,51 @@ quality_checks:
       DB4_8_remains_not_started: PASS
       Stage5_remains_blocked: PASS
 
+  DB4_8_PKK_diagnosis:
+    status: PASS_DIAGNOSIS_COMPLETE
+    machine_source: specs/database/pkk.yml
+    audit_source: docs/113-stage-4-pkk-audit.md
+    machine_diagnosis_commit: 9c77e56116952da723ed9693cb698ec5a0df971f
+    narrative_audit_commit: 0231bd8f2137b0ebc011cb8d80d93a858d2a7182
+    diagnosed_P0: 0
+    diagnosed_P1: 8
+    fixes_applied_in_diagnosis_step: 0
+    open_P0_P1: 8
+    result: FAIL_WITH_8_P1_BLOCKERS
+    blockers_in_required_fix_order:
+      - DB-PKK-001
+      - DB-PKK-002
+      - DB-PKK-003
+      - DB-PKK-004
+      - DB-PKK-005
+      - DB-PKK-006
+      - DB-PKK-007
+      - DB-PKK-008
+    frozen_aggregate_blobs:
+      specs/database/core-schema.yml: c04dcbea90ca877c1c4e76196b77fdb33e404dab
+      docs/87-physical-database-schema.md: a26421c9d3d624693f29f8e9dfa1b9e718f22323
+    preservation_checks:
+      no_blocker_fixed_during_diagnosis: PASS
+      DB4_4_course_scoped_PKK_identity_preserved: PASS
+      exactly_one_current_course_PKK_identity_preserved: PASS
+      PKK_identity_history_and_course_versioning_preserved: PASS
+      hard_unique_PKK_number_not_invented: PASS
+      organization_settings_PKK_source_preserved: PASS
+      configuration_gate_user_names_not_duplicated: PASS
+      external_osk_login_not_application_login: PASS
+      permission_based_RBAC_preserved: PASS
+      common_PKK_idempotency_contract_preserved: PASS
+      fetch_preview_update_return_all_return_variants_history_retry_preserved: PASS
+      signed_XML_handoff_capability_preserved: PASS
+      unknown_provider_schema_status_idempotency_reconciliation_XML_semantics_not_invented: PASS
+      aggregate_core_schema_modified_in_diagnosis: false
+      aggregate_docs87_modified_in_diagnosis: false
+      API_files_modified_in_diagnosis: false
+      DB4_9_or_later_entered: false
+      Laravel_migrations_created: false
+      Stage5_started: false
+      UI_or_feature_implementation_started: false
+
 resolved_blockers:
   - DB-FOUND-001
   - DB-FOUND-002
@@ -2581,7 +2633,15 @@ resolved_blockers:
   - DB-EXAM-007
   - DB-EXAM-008
 
-open_blockers_current_diagnosed_scope: []
+open_blockers_current_diagnosed_scope:
+  - DB-PKK-001
+  - DB-PKK-002
+  - DB-PKK-003
+  - DB-PKK-004
+  - DB-PKK-005
+  - DB-PKK-006
+  - DB-PKK-007
+  - DB-PKK-008
 
 gate_definition:
   PASS_requires_for_entire_stage_4:
@@ -2591,7 +2651,7 @@ gate_definition:
     - migration_order_dependency_safe
     - database_invariant_test_matrix_exists
     - reverse_engineering_preservation_traceable
-  current_result: DB4_7_PASS_READY_FOR_DB4_8_DIAGNOSIS
+  current_result: DB4_8_FAIL_WITH_8_P1_BLOCKERS
   DB4_1_result: PASS
   DB4_2_result: PASS
   DB4_3_result: PASS
@@ -2637,6 +2697,8 @@ gate_definition:
   DB4_7_DB_EXAM_008_result: PASS
   DB4_7_final_aggregate_sync_result: PASS
   DB4_7_result: PASS
+  DB4_8_diagnosis_result: PASS_DIAGNOSIS_COMPLETE
+  DB4_8_result: FAIL_WITH_8_P1_BLOCKERS
   may_start_DB4_4_fixes: false
   may_start_DB4_5: false
   may_start_DB4_5_fixes: false
@@ -2645,14 +2707,23 @@ gate_definition:
   may_start_DB4_7: false
   may_start_DB4_7_fixes: false
   may_start_DB4_8: true
+  may_start_DB4_8_fixes: true
   may_start_stage_5: false
   may_start_UI_or_feature_implementation: false
 
 next_single_step:
-  id: DB4_8_PKK_DIAGNOSIS
-  action: begin_DB4_8_PKK_diagnosis_only_after_next_explicit_user_instruction
+  id: DB_PKK_001_SAME_TENANT_AND_EXACT_COURSE_PROFILE_OPERATION_ATTEMPT_INTEGRITY
+  action: resolve_DB_PKK_001_only_after_next_explicit_user_instruction
+  allowed_scope:
+    - specs/database/pkk.yml
+    - docs/113-stage-4-pkk-audit.md
+    - specs/gates/stage-4-database-contract-gate.yml
+  aggregate_files_frozen:
+    - specs/database/core-schema.yml
+    - docs/87-physical-database-schema.md
   scope_lock: >-
-    Diagnose DB4_8 PKK only. Do not fix a DB4_8 blocker in the diagnosis step, do not enter
-    DB4_9 or later slices, do not start Stage 5, do not create Laravel migrations and do not
-    start UI or feature implementation.
-  after_action: rerun_DB4_8_diagnosis_gate_and_STOP_before_first_DB4_8_fixer
+    Resolve only DB-PKK-001 same-tenant and exact Course/Profile/Operation/Attempt
+    integrity. Do not resolve DB-PKK-002 or later PKK blockers in the same step,
+    do not enter DB4_9 or later slices, do not start Stage 5, do not create Laravel
+    migrations and do not start UI or feature implementation.
+  after_action: rerun_DB_PKK_001_machine_narrative_central_gate_and_STOP_before_DB_PKK_002
