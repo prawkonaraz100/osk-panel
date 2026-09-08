@@ -45,18 +45,24 @@ jobs:
 
           assert s.count('  result: BLOCKERS_RESOLVED_PENDING_DB4_8_FINAL_AGGREGATE_SYNC\n')==1
           s=s.replace('  result: BLOCKERS_RESOLVED_PENDING_DB4_8_FINAL_AGGREGATE_SYNC\n','  result: PASS\n',1)
-          assert s.count('  status: PASS_DB_PKK_008\n')==1
-          s=s.replace('  status: PASS_DB_PKK_008\n','  status: PASS_DB4_8_FINAL_AGGREGATE_SYNC\n',1)
-          assert s.count('    aggregate_core_schema_modified: false\n')==1
-          assert s.count('    aggregate_docs87_modified: false\n')==1
-          s=s.replace('    aggregate_core_schema_modified: false\n','    aggregate_core_schema_modified: true\n',1)
-          s=s.replace('    aggregate_docs87_modified: false\n','    aggregate_docs87_modified: true\n',1)
 
+          pmark='\npreservation_gate:\n'
+          nmark='\nnext_single_step_after_central_gate:\n'
+          assert s.count(pmark)==1 and s.count(nmark)==1
+          pre,rest=s.split(pmark,1)
+          pres_body,next_body=rest.split(nmark,1)
+          pres='preservation_gate:\n'+pres_body
+          assert pres.count('  status: PASS_DB_PKK_008\n')==1
+          pres=pres.replace('  status: PASS_DB_PKK_008\n','  status: PASS_DB4_8_FINAL_AGGREGATE_SYNC\n',1)
+          assert pres.count('    aggregate_core_schema_modified: false\n')==1
+          assert pres.count('    aggregate_docs87_modified: false\n')==1
+          pres=pres.replace('    aggregate_core_schema_modified: false\n','    aggregate_core_schema_modified: true\n',1)
+          pres=pres.replace('    aggregate_docs87_modified: false\n','    aggregate_docs87_modified: true\n',1)
           closed='    DB_PKK_008_deterministic_operation_history_latest_and_course_summary_projection_closed: true\n'
           finalcheck='    DB4_8_final_aggregate_sync_completed_after_DB_PKK_001_through_008_closed: true\n'
-          assert s.count(closed)==1
-          assert finalcheck not in s
-          s=s.replace(closed,closed+finalcheck,1)
+          assert pres.count(closed)==1 and finalcheck not in pres
+          pres=pres.replace(closed,closed+finalcheck,1)
+          s=pre+pmark+pres.removeprefix('preservation_gate:\n')+nmark+next_body
 
           marker='\nnext_single_step_after_central_gate:\n'
           assert s.count(marker)==1
@@ -80,6 +86,8 @@ jobs:
           assert after['diagnosis_summary']['open_P0_P1']==0
           assert after['diagnosis_summary']['result']=='PASS'
           assert after['preservation_gate']['status']=='PASS_DB4_8_FINAL_AGGREGATE_SYNC'
+          assert after['preservation_gate']['checks']['aggregate_core_schema_modified'] is True
+          assert after['preservation_gate']['checks']['aggregate_docs87_modified'] is True
           assert after['final_aggregate_sync']['status']=='PASS'
           assert after['final_aggregate_sync']['machine_aggregate_blob']=='65c6daab0330a2c6cf57a6a2caaba288a13a7a70'
           assert after['final_aggregate_sync']['narrative_aggregate_blob']=='4d5f24f2948bdb55e7367c7b013ed918dade40ae'
