@@ -85,13 +85,13 @@ stage_4_slices:
     final_aggregate_sync: PASS
     result: PASS
   - id: DB4_7_INTERNAL_EXAMS
-    status: FAIL_WITH_1_P1_BLOCKER
+    status: BLOCKERS_RESOLVED_PENDING_FINAL_AGGREGATE_SYNC
     diagnosis: COMPLETE
     blockers_diagnosed: 8
-    blockers_resolved: 7
-    open_P0_P1: 1
-    final_aggregate_sync: BLOCKED
-    result: FAIL_WITH_1_P1_BLOCKER
+    blockers_resolved: 8
+    open_P0_P1: 0
+    final_aggregate_sync: PENDING
+    result: BLOCKERS_RESOLVED_PENDING_FINAL_AGGREGATE_SYNC
   - id: DB4_8_PKK
     status: NOT_STARTED
   - id: DB4_9_STUDENT_FINANCE_COMMERCE
@@ -2413,6 +2413,77 @@ quality_checks:
       Stage5_started: false
       UI_or_feature_implementation_started: false
 
+
+  internal_exam_deterministic_management_history_latest_statistics_projection:
+    status: PASS
+    resolved_blocker_id: DB-EXAM-008
+    severity: P1
+    machine_source: specs/database/internal-exams.yml
+    audit_source: docs/112-stage-4-internal-exams-audit.md
+    machine_contract_commit: 70127f0ea8ffbf5611902b72f0290885055892c1
+    narrative_audit_commit: ecd9d69b37ae9dc2c7d3c1dd0c2cd140dd6bc01e
+    decision:
+      management_subject_grain: [organization_id, course_enrollment_id, exam_part]
+      mutable_summary_table_as_authority: forbidden
+      lifecycle_status_authority: internal_exam_attempts.status
+      formal_requirement_authority: current_training_requirement_profile
+      attempt_history_authority: internal_exam_attempts
+      result_authority: internal_exam_results
+      deterministic_attempt_order_field: course_attempt_sequence
+      sequence_unique_per_course_enrollment: true
+      sequence_allocated_under_existing_course_enrollment_FOR_UPDATE: true
+      timestamp_or_UUID_selects_latest: false
+      latest_for_context: MAX_course_attempt_sequence_for_exact_course_and_exam_part
+      management_latest_fields_all_from_same_attempt: true
+      public_status_values: [not_assigned, not_conducted, failed, passed]
+      technical_abort_projects_failed: false
+      invalidated_preserved_result_projects_passed_or_failed: false
+      exam_count_includes_all_attempt_statuses: true
+      pass_rate_denominator: passed_plus_failed_only
+      pass_rate_when_no_valid_conducted_attempt: null
+      aggregate_pass_rate_is_ratio_of_sums: true
+      hide_finished_excludes_projected_passed_and_failed_only: true
+      hide_finished_mutates_or_hides_expanded_history: false
+      search_fields: [first_name, last_name, contact_email, learning_account_login]
+      main_search_includes_PESEL: false
+      multiple_categories_OR: true
+      multiple_statuses_OR: true
+      filter_dimensions_AND: true
+      stable_sort_final_tie_breaker: [course_enrollment_id_ASC, exam_part_ASC]
+      nullable_latest_sort_fields: NULLS_LAST_both_directions
+      expanded_history_order: course_attempt_sequence_DESC
+      legacy_ambiguous_attempt_order_auto_guessed: false
+      current_Stage3_subjects_endpoint_present: true
+      Stage3_hide_finished_query_parameter_present: false
+      typed_management_projection_API_sync: Stage5_acceptance_contract_sync
+      DB4_7_final_aggregate_sync_performed_in_blocker_step: false
+    checks:
+      management_projection_is_not_second_lifecycle_authority: PASS
+      current_required_context_without_attempt_projects_not_assigned: PASS
+      nonrequired_no_history_context_not_false_not_assigned: PASS
+      historical_context_survives_later_requirement_change: PASS
+      course_attempt_sequence_deterministically_orders_attempts: PASS
+      same_minute_attempts_have_one_latest_without_timestamp_tie_break: PASS
+      latest_category_status_language_time_same_attempt: PASS
+      created_in_progress_technical_abort_invalidated_project_not_conducted: PASS
+      failed_and_passed_project_exact_terminal_result_status: PASS
+      invalidated_result_not_counted_as_current_pass_or_fail: PASS
+      exam_count_and_pass_rate_denominators_closed: PASS
+      zero_denominator_pass_rate_is_null: PASS
+      panel_aggregate_pass_rate_ratio_of_sums: PASS
+      hide_finished_semantics_closed_without_history_mutation: PASS
+      search_filter_boolean_semantics_closed: PASS
+      stable_sort_and_pagination_tie_breaker_closed: PASS
+      expanded_history_uses_sequence_desc: PASS
+      migration_does_not_guess_tied_legacy_order_from_UUID_status_or_display_minute: PASS
+      DB_EXAM_001_through_DB_EXAM_007_preserved: PASS
+      aggregate_core_schema_modified_in_step: false
+      aggregate_docs87_modified_in_step: false
+      DB4_8_or_later_entered: false
+      Laravel_migrations_created: false
+      Stage5_started: false
+      UI_or_feature_implementation_started: false
+
 resolved_blockers:
   - DB-FOUND-001
   - DB-FOUND-002
@@ -2458,9 +2529,9 @@ resolved_blockers:
   - DB-EXAM-005
   - DB-EXAM-006
   - DB-EXAM-007
-
-open_blockers_current_diagnosed_scope:
   - DB-EXAM-008
+
+open_blockers_current_diagnosed_scope: []
 
 gate_definition:
   PASS_requires_for_entire_stage_4:
@@ -2470,7 +2541,7 @@ gate_definition:
     - migration_order_dependency_safe
     - database_invariant_test_matrix_exists
     - reverse_engineering_preservation_traceable
-  current_result: DB4_7_FAIL_WITH_1_P1_BLOCKER
+  current_result: DB4_7_BLOCKERS_RESOLVED_PENDING_FINAL_AGGREGATE_SYNC
   DB4_1_result: PASS
   DB4_2_result: PASS
   DB4_3_result: PASS
@@ -2513,7 +2584,8 @@ gate_definition:
   DB4_7_DB_EXAM_005_result: PASS
   DB4_7_DB_EXAM_006_result: PASS
   DB4_7_DB_EXAM_007_result: PASS
-  DB4_7_result: FAIL_WITH_1_P1_BLOCKER
+  DB4_7_DB_EXAM_008_result: PASS
+  DB4_7_result: BLOCKERS_RESOLVED_PENDING_FINAL_AGGREGATE_SYNC
   may_start_DB4_4_fixes: false
   may_start_DB4_5: false
   may_start_DB4_5_fixes: false
@@ -2526,18 +2598,17 @@ gate_definition:
   may_start_UI_or_feature_implementation: false
 
 next_single_step:
-  id: DB_EXAM_008_DETERMINISTIC_MANAGEMENT_HISTORY_LATEST_AND_STATISTICS_PROJECTION
-  action: resolve_DB_EXAM_008_only_after_next_explicit_user_instruction
+  id: DB4_7_FINAL_AGGREGATE_SYNC
+  action: synchronize_DB4_7_internal_exam_contract_into_aggregate_blueprints_only_after_next_explicit_user_instruction
   allowed_scope:
+    - specs/database/core-schema.yml
+    - docs/87-physical-database-schema.md
     - specs/database/internal-exams.yml
     - docs/112-stage-4-internal-exams-audit.md
     - specs/gates/stage-4-database-contract-gate.yml
-  frozen_scope:
-    - specs/database/core-schema.yml
-    - docs/87-physical-database-schema.md
   scope_lock: >-
-    Resolve only DB-EXAM-008 deterministic management history, latest and statistics projection.
-    Do not perform DB4_7 final aggregate sync in the same fixer step. Do not enter DB4_8 or
-    later slices, do not start Stage 5, do not create Laravel migrations and do not start
-    UI/feature implementation.
-  after_action: rerun_DB_EXAM_008_gate_and_STOP_before_DB4_7_FINAL_AGGREGATE_SYNC
+    Synchronize only the already-PASS DB-EXAM-001 through DB-EXAM-008 contract into the
+    Stage-4 aggregate blueprints and close DB4_7. Do not diagnose or fix DB4_8 in the same
+    step, do not start Stage 5, do not create Laravel migrations and do not start UI/feature
+    implementation.
+  after_action: rerun_DB4_7_final_aggregate_gate_and_STOP_before_DB4_8
