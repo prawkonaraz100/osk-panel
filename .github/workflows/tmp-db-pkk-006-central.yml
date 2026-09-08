@@ -1,0 +1,75 @@
+name: Temporary DB-PKK-006 Central Gate
+
+on:
+  push:
+    branches: [tmp-db-pkk-006-central-helper]
+    paths:
+      - '.stage4-tmp/TRIGGER_DB_PKK_006_CENTRAL'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: tmp-db-pkk-006-central-helper
+      - name: Patch and validate central gate
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import yaml
+          p=Path('specs/gates/stage-4-database-contract-gate.yml')
+          s=p.read_text()
+          frag=Path('.stage4-tmp/db-pkk-006-central.ymlfrag').read_text().rstrip()+'\n\n'
+
+          old_slice='''  - id: DB4_8_PKK\n    status: FAIL_WITH_3_P1_BLOCKERS\n    diagnosis: COMPLETE\n    blockers_diagnosed: 8\n    blockers_resolved: 5\n    open_P0_P1: 3\n    final_aggregate_sync: NOT_STARTED\n    result: FAIL_WITH_3_P1_BLOCKERS\n'''
+          new_slice='''  - id: DB4_8_PKK\n    status: FAIL_WITH_2_P1_BLOCKERS\n    diagnosis: COMPLETE\n    blockers_diagnosed: 8\n    blockers_resolved: 6\n    open_P0_P1: 2\n    final_aggregate_sync: NOT_STARTED\n    result: FAIL_WITH_2_P1_BLOCKERS\n'''
+          assert s.count(old_slice)==1, s.count(old_slice)
+          s=s.replace(old_slice,new_slice,1)
+
+          marker='\nresolved_blockers:\n'
+          assert s.count(marker)==1, s.count(marker)
+          assert '  pkk_sensitive_provider_payload_encryption_redaction_hash_and_key_version_boundary:\n' not in s
+          s=s.replace(marker,'\n'+frag+'resolved_blockers:\n',1)
+
+          old_resolved='''  - DB-PKK-003\n  - DB-PKK-004\n  - DB-PKK-005\n\nopen_blockers_current_diagnosed_scope:\n  - DB-PKK-006\n  - DB-PKK-007\n  - DB-PKK-008\n'''
+          new_resolved='''  - DB-PKK-003\n  - DB-PKK-004\n  - DB-PKK-005\n  - DB-PKK-006\n\nopen_blockers_current_diagnosed_scope:\n  - DB-PKK-007\n  - DB-PKK-008\n'''
+          assert s.count(old_resolved)==1, s.count(old_resolved)
+          s=s.replace(old_resolved,new_resolved,1)
+
+          assert s.count('  current_result: DB4_8_FAIL_WITH_3_P1_BLOCKERS\n')==1
+          s=s.replace('  current_result: DB4_8_FAIL_WITH_3_P1_BLOCKERS\n','  current_result: DB4_8_FAIL_WITH_2_P1_BLOCKERS\n',1)
+          gate_old='''  DB4_8_DB_PKK_005_result: PASS\n  DB4_8_result: FAIL_WITH_3_P1_BLOCKERS\n'''
+          gate_new='''  DB4_8_DB_PKK_005_result: PASS\n  DB4_8_DB_PKK_006_result: PASS\n  DB4_8_result: FAIL_WITH_2_P1_BLOCKERS\n'''
+          assert s.count(gate_old)==1, s.count(gate_old)
+          s=s.replace(gate_old,gate_new,1)
+
+          old_next='''next_single_step:\n  id: DB_PKK_006_SENSITIVE_PROVIDER_PAYLOAD_ENCRYPTION_REDACTION_HASH_AND_KEY_VERSION_BOUNDARY\n  action: resolve_DB_PKK_006_only_after_next_explicit_user_instruction\n  allowed_scope:\n    - specs/database/pkk.yml\n    - docs/113-stage-4-pkk-audit.md\n    - specs/gates/stage-4-database-contract-gate.yml\n  aggregate_files_frozen:\n    - specs/database/core-schema.yml\n    - docs/87-physical-database-schema.md\n  scope_lock: >-\n    Resolve only DB-PKK-006 sensitive provider payload encryption, redaction, hash\n    and key-version boundary. Do not resolve DB-PKK-007 or later PKK blockers in\n    the same step, do not enter DB4_9 or later slices, do not start Stage 5, do\n    not create Laravel migrations and do not start UI or feature implementation.\n  after_action: rerun_DB_PKK_006_machine_narrative_central_gate_and_STOP_before_DB_PKK_007\n'''
+          new_next='''next_single_step:\n  id: DB_PKK_007_INTEGRATION_CONFIGURATION_REVISION_BINDING_AND_ASYNC_EXECUTION_CONTEXT\n  action: resolve_DB_PKK_007_only_after_next_explicit_user_instruction\n  allowed_scope:\n    - specs/database/pkk.yml\n    - docs/113-stage-4-pkk-audit.md\n    - specs/gates/stage-4-database-contract-gate.yml\n  aggregate_files_frozen:\n    - specs/database/core-schema.yml\n    - docs/87-physical-database-schema.md\n  scope_lock: >-\n    Resolve only DB-PKK-007 integration configuration revision binding and async\n    execution context. Do not resolve DB-PKK-008 in the same step, do not enter\n    DB4_9 or later slices, do not start Stage 5, do not create Laravel migrations\n    and do not start UI or feature implementation.\n  after_action: rerun_DB_PKK_007_machine_narrative_central_gate_and_STOP_before_DB_PKK_008\n'''
+          assert s.count(old_next)==1, s.count(old_next)
+          s=s.replace(old_next,new_next,1)
+
+          p.write_text(s)
+          d=yaml.safe_load(s)
+          sl=next(x for x in d['stage_4_slices'] if x['id']=='DB4_8_PKK')
+          assert sl['blockers_resolved']==6 and sl['open_P0_P1']==2
+          assert sl['result']=='FAIL_WITH_2_P1_BLOCKERS'
+          q=d['quality_checks']['pkk_sensitive_provider_payload_encryption_redaction_hash_and_key_version_boundary']
+          assert q['status']=='PASS' and q['resolved_blocker_id']=='DB-PKK-006'
+          assert d['open_blockers_current_diagnosed_scope']==['DB-PKK-007','DB-PKK-008']
+          assert 'DB-PKK-006' in d['resolved_blockers']
+          assert d['gate_definition']['DB4_8_DB_PKK_006_result']=='PASS'
+          assert d['gate_definition']['DB4_8_result']=='FAIL_WITH_2_P1_BLOCKERS'
+          assert d['next_single_step']['id']=='DB_PKK_007_INTEGRATION_CONFIGURATION_REVISION_BINDING_AND_ASYNC_EXECUTION_CONTEXT'
+          PY
+          git diff --check -- specs/gates/stage-4-database-contract-gate.yml
+          test "$(git diff --name-only | grep -v '^\.github/workflows/tmp-db-pkk-006-central.yml$' | grep -v '^\.stage4-tmp/' | sort -u)" = "specs/gates/stage-4-database-contract-gate.yml"
+          git config user.name 'prawkonaraz100'
+          git config user.email 'prawkonaraz100@gmail.com'
+          git add specs/gates/stage-4-database-contract-gate.yml
+          git commit -m 'DB-PKK-006: close central database contract gate'
+          git push origin HEAD:tmp-db-pkk-006-central-helper
