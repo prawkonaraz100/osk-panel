@@ -2,8 +2,8 @@ meta:
   project: osk-panel
   stage: 4
   slice: DB4_8_PKK
-  step: DB_PKK_003_PROVIDER_OPERATION_LIFECYCLE_CONCURRENCY_AND_COMMAND_ELIGIBILITY
-  status: FAIL_WITH_5_P1_BLOCKERS
+  step: DB_PKK_004_IDEMPOTENCY_RETRY_RECONCILIATION_AND_EXACTLY_ONCE_EXTERNAL_EFFECT
+  status: FAIL_WITH_4_P1_BLOCKERS
   diagnosed_at: 2026-09-08
   branch: docs-consolidation-2026-09-05
   diagnosis_only: false
@@ -16,7 +16,7 @@ meta:
 scope_rule:
   diagnose_before_fixing: true
   fixes_allowed_in_this_step: true
-  current_step_scope: DB_PKK_003_PROVIDER_OPERATION_LIFECYCLE_CONCURRENCY_AND_COMMAND_ELIGIBILITY_only
+  current_step_scope: DB_PKK_004_IDEMPOTENCY_RETRY_RECONCILIATION_AND_EXACTLY_ONCE_EXTERNAL_EFFECT_only
   one_blocker_per_future_step: true
   aggregate_files_frozen:
     specs/database/core-schema.yml:
@@ -812,6 +812,402 @@ resolved_contracts:
       Stage5_started: false
       UI_or_feature_implementation_started: false
 
+  DB-PKK-004:
+    status: PASS
+    title: idempotency_retry_reconciliation_and_exactly_once_external_effect
+    severity: P1
+    goal: >-
+      Bind every accepted PKK mutation and every provider dispatch to durable
+      command idempotency evidence, serialize retry attempts, and prevent any
+      second external dispatch while the previous external effect is unknown.
+      Exactly-once safety must fail closed when provider-native idempotency or
+      authoritative reconciliation is unavailable rather than guessing that a
+      timeout means no effect.
+
+    authority_and_scope:
+      HTTP_command_idempotency_authority: idempotency_records
+      business_operation_authority: pkk_operations
+      provider_transport_attempt_authority: pkk_operation_attempts
+      reconciliation_history_authority: pkk_operation_attempt_reconciliations
+      provider_native_idempotency_support_assumed: false
+      provider_native_reconciliation_support_assumed: false
+      retry_creates_new_business_operation: false
+      retry_creates_new_provider_attempt_when_eligible: true
+      unknown_external_effect_is_plain_failed: false
+      signed_XML_artifact_semantics: deferred_to_DB_PKK_005
+      provider_payload_crypto_and_redaction: deferred_to_DB_PKK_006
+      exact_configuration_revision_binding: deferred_to_DB_PKK_007
+      deterministic_business_operation_sequence: deferred_to_DB_PKK_008
+
+    generic_idempotency_binding:
+      table: idempotency_records
+      tenant_candidate_key_required: [organization_id, id]
+      PKK_runtime_organization_id_required_nonnull: true
+      PKK_runtime_expires_at: null_durable_while_referenced
+      PKK_referenced_record_normal_hard_delete: forbidden_RESTRICT
+      canonical_operation_keys:
+        fetch_profile: pkk.fetch
+        update_and_return: pkk.update_and_return
+        return_to_school: pkk.return_to_school
+        return_to_authority: pkk.return_to_authority
+        return_expired: pkk.return_expired
+        retry_existing_operation: pkk.operation.retry
+      request_hash_input:
+        - canonical_operation_key
+        - organization_id
+        - route_course_enrollment_id
+        - route_operation_id_when_present
+        - canonical_normalized_client_payload
+      excluded_from_request_hash:
+        - Idempotency_Key_itself
+        - server_generated_timestamps
+        - server_generated_operation_or_attempt_ids
+        - provider_response_payload
+      same_scope_same_key_different_hash: conflict_IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_PAYLOAD
+      same_scope_same_key_same_hash: return_same_accepted_business_result_without_new_dispatch
+      authorization_rechecked_before_replay_result_is_exposed: true
+      accepted_async_command_record_status: completed_after_local_business_acceptance_not_after_provider_business_completion
+      result_resource_type_for_accepted_PKK_command: pkk_operation
+      result_resource_id: exact_pkk_operation_id
+      safe_response_snapshot_may_contain_sensitive_provider_payload: false
+      exact_HTTP_replay_status_and_body_shape: Stage5_acceptance_contract_sync
+
+    pkk_operations_idempotency_fields:
+      initial_idempotency_record_id:
+        type: uuid_nullable_for_legacy_not_null_for_runtime_origin
+        same_tenant_composite_FK: true
+        target: idempotency_records_organization_id_id
+      legacy_idempotency_key_column_runtime_authority_after_cutover: false
+      runtime_operation_requires_initial_idempotency_record: true
+      one_initial_idempotency_record_may_create_at_most_one_operation: true
+      operation_initial_idempotency_exact_result_guard: >-
+        Referenced idempotency record must belong to the same organization,
+        use the command operation_key matching pkk_operations.operation_type,
+        have the exact canonical request_hash, and when completed point to this
+        exact pkk_operation as result_resource_type/result_resource_id.
+      idempotency_context_immutable_after_operation_insert: true
+
+    provider_attempt_model:
+      attempt_number_field: attempt_no
+      attempt_number_minimum: 1
+      unique_attempt_number_scope: [organization_id, pkk_operation_id, attempt_no]
+      runtime_attempt_sequence_allocation:
+        lock: exact_pkk_operation_FOR_UPDATE
+        rule: previous_runtime_max_plus_one
+        committed_runtime_sequence_has_no_new_gaps: true
+        rollback_does_not_consume_attempt_number: true
+      command_idempotency_record_id:
+        type: uuid_nullable_for_legacy_not_null_for_runtime_dispatch_attempt
+        same_tenant_composite_FK: true
+        target: idempotency_records_organization_id_id
+        unique_per_runtime_attempt_command: true
+      one_idempotency_command_may_create_at_most_one_provider_attempt: true
+      provider_request_id_optional: true
+      provider_request_id_global_uniqueness_invented: false
+      exact_provider_request_id_scope: adapter_contract_pending
+
+    attempt_dispatch_status_catalog:
+      values:
+        - prepared
+        - dispatching
+        - succeeded
+        - safe_failed
+        - effect_unknown
+        - reconciled_no_effect
+        - reconciled_effect
+      replay_blocking_statuses: [prepared, dispatching, effect_unknown]
+      terminal_attempt_statuses: [succeeded, safe_failed, reconciled_no_effect, reconciled_effect]
+      direct_client_status_write: forbidden
+      status_transition_requires_attempt_command_or_adapter_result_handler: true
+
+    attempt_timestamp_matrix:
+      fields_added_or_finalized:
+        dispatch_started_at: timestamptz_nullable
+        transport_finished_at: timestamptz_nullable
+        resolved_at: timestamptz_nullable
+      prepared:
+        dispatch_started_at: null
+        transport_finished_at: null
+        resolved_at: null
+      dispatching:
+        dispatch_started_at: nonnull
+        transport_finished_at: null
+        resolved_at: null
+      succeeded:
+        dispatch_started_at: nonnull
+        transport_finished_at: nonnull
+        resolved_at: nonnull
+      safe_failed:
+        dispatch_started_at: nullable_when_failure_proven_before_dispatch
+        transport_finished_at: nonnull
+        resolved_at: nonnull
+      effect_unknown:
+        dispatch_started_at: nonnull
+        transport_finished_at: nonnull
+        resolved_at: null
+      reconciled_no_effect:
+        dispatch_started_at: nonnull
+        transport_finished_at: nonnull
+        resolved_at: nonnull
+      reconciled_effect:
+        dispatch_started_at: nonnull
+        transport_finished_at: nonnull
+        resolved_at: nonnull
+
+    retry_disposition:
+      field: retry_disposition
+      values: [safe_to_retry, not_retryable, reconciliation_required]
+      server_owned: true
+      succeeded: not_retryable
+      safe_failed:
+        allowed: [safe_to_retry, not_retryable]
+        rule: safe_to_retry_requires_adapter_or_local_transport_proof_that_no_external_effect_occurred
+      effect_unknown: reconciliation_required
+      reconciled_no_effect: safe_to_retry_subject_to_current_business_eligibility
+      reconciled_effect: not_retryable
+      business_validation_or_provider_definitive_rejection_blind_retry: forbidden
+      boolean_retryable_legacy_field_runtime_authority_after_cutover: false
+
+    dispatch_claim_and_network_boundary:
+      one_replay_blocking_attempt_per_operation:
+        type: partial_unique
+        columns: [organization_id, pkk_operation_id]
+        where: attempt_dispatch_status_in_prepared_dispatching_effect_unknown
+      dispatch_claim_transaction:
+        steps:
+          - lock_attempt_FOR_UPDATE
+          - require_status_prepared
+          - transition_prepared_to_dispatching
+          - set_dispatch_started_at_once
+          - commit
+        provider_IO_inside_transaction: false
+      only_worker_that_committed_prepared_to_dispatching_may_send_provider_request: true
+      duplicate_job_observing_dispatching_may_send_again: false
+      stale_dispatching_after_worker_crash:
+        reset_to_prepared: forbidden
+        automatic_retry_same_or_new_attempt: forbidden
+        safe_recovery: classify_effect_unknown_and_reconcile
+      provider_result_transaction:
+        steps:
+          - lock_exact_attempt_FOR_UPDATE
+          - verify_attempt_is_exact_operation_context
+          - validate_provider_result_belongs_to_same_dispatch_or_known_provider_request_reference
+          - classify_succeeded_safe_failed_or_effect_unknown
+          - update_attempt_timestamps_and_retry_disposition
+          - transition_business_operation_only_if_outcome_is_definitive
+          - commit
+        provider_IO_inside_transaction: false
+
+    business_operation_outcome_mapping:
+      succeeded:
+        operation_transition: operation_type_specific_success_path_from_DB_PKK_003
+        retry_allowed: false
+      safe_failed:
+        operation_transition: current_nonterminal_to_failed_with_lifecycle_event
+        retry_allowed_only_if_retry_disposition_safe_to_retry: true
+      effect_unknown:
+        operation_business_status_change: false
+        reconciliation_required_projection: true
+        new_dispatch_forbidden: true
+      reconciled_no_effect:
+        operation_transition: current_nonterminal_to_failed_with_reconciled_no_effect_reason
+        retry_allowed_after_transition_and_all_DB_PKK_003_eligibility_rechecks: true
+      reconciled_effect:
+        operation_transition: success_only_when_reconciliation_evidence_proves_intended_effect_and_is_sufficient_for_adapter_success_mapping
+        retry_allowed: false
+      inconclusive_reconciliation:
+        attempt_remains_effect_unknown: true
+        operation_business_status_change: false
+        retry_allowed: false
+
+    reconciliation_history:
+      table: pkk_operation_attempt_reconciliations
+      fields:
+        id: uuid_primary_key
+        organization_id: uuid_not_null
+        pkk_operation_id: uuid_not_null
+        pkk_operation_attempt_id: uuid_not_null
+        course_enrollment_id: uuid_not_null
+        pkk_profile_id: uuid_not_null
+        reconciliation_sequence: bigint_not_null_check_gte_1
+        outcome: varchar_effect_present_effect_absent_inconclusive_not_null
+        provider_reference: varchar_nullable
+        evidence_hash: char_64_not_null
+        safe_summary: jsonb_nullable_allowlisted_non_sensitive_only
+        actor_kind: varchar_system_provider_adapter_or_user_not_null
+        actor_user_id: uuid_nullable_global_users_FK_RESTRICT
+        performed_at: timestamptz_not_null
+        created_at: timestamptz_not_null
+      exact_attempt_context_FK: true
+      exact_attempt_context_source: DB_PKK_001_reusable_exact_attempt_target
+      one_sequence_unique: [organization_id, pkk_operation_attempt_id, reconciliation_sequence]
+      sequence_allocation_lock: exact_pkk_operation_attempt_FOR_UPDATE
+      committed_runtime_sequence_contiguous: true
+      append_only: true
+      normal_update_or_delete: forbidden
+      allowed_only_when_attempt_effect_is_unknown_or_prior_reconciliation_inconclusive: true
+      first_conclusive_outcome_closes_reconciliation: true
+      later_contradictory_conclusive_outcome_normal_runtime: forbidden
+      sensitive_full_provider_payload_storage_here: forbidden_until_DB_PKK_006_protected_evidence_contract
+      exact_reconciliation_transport_endpoint: internal_or_Stage5_adapter_contract_pending
+
+    retry_command_transaction:
+      permission: pkk.retry
+      idempotency_record_operation_key: pkk.operation.retry
+      lock_order_after_idempotency_claim:
+        - course_enrollment_FOR_UPDATE
+        - exact_current_pkk_profile_FOR_UPDATE
+        - pkk_operation_FOR_UPDATE
+        - latest_relevant_pkk_operation_attempt_FOR_UPDATE
+      recheck_after_locks:
+        - exact_same_tenant_course_profile_operation_context
+        - operation_profile_is_still_current
+        - business_status_is_failed
+        - no_other_active_business_operation_conflict_for_exact_profile_except_this_retrying_operation
+        - no_replay_blocking_attempt_exists
+        - latest_attempt_retry_disposition_is_safe_to_retry
+        - unknown_effect_has_conclusive_reconciled_no_effect_before_retry
+        - integration_readiness_still_satisfies_DB_PKK_003
+        - actor_has_pkk_retry_and_target_scope
+      effect:
+        - claim_or_replay_retry_idempotency_record
+        - if_same_key_same_hash_existing_attempt_return_same_operation_without_new_attempt
+        - allocate_next_attempt_no_under_operation_lock
+        - create_prepared_attempt_bound_to_retry_idempotency_record
+        - transition_operation_failed_to_pending
+        - clear_current_cycle_completed_at_only_as_defined_by_DB_PKK_003
+        - increment_operation_version_once
+        - append_retry_lifecycle_event_same_version
+        - complete_local_idempotency_record_with_same_operation_result
+        - commit
+      provider_dispatch_after_commit: true
+
+    initial_command_idempotency_and_attempt_boundary:
+      command_idempotency_claim_precedes_business_effect_commit: true
+      accepted_operation_and_initial_idempotency_result_commit_atomically: true
+      immediate_provider_dispatch_operation:
+        create_first_prepared_attempt_in_same_local_acceptance_transaction_when_dispatch_eligible: true
+        first_attempt_may_reuse_initial_operation_idempotency_record: true
+      requires_signature_operation:
+        provider_attempt_required_before_signature_handoff_completed: false
+        later_signed_XML_submit_command_idempotency_and_attempt_origin: deferred_to_DB_PKK_005
+      idempotency_replay_after_operation_acceptance_creates_new_attempt: false
+
+    exactly_once_external_effect_safety:
+      claim: >-
+        The database and command model guarantee that the application never
+        intentionally dispatches a second provider attempt while the previous
+        attempt could already have produced the external business effect.
+      native_provider_exactly_once_assumed: false
+      retry_after_definitive_no_effect_proof_only: true
+      timeout_means_no_effect: false
+      connection_loss_means_no_effect: false
+      effect_unknown_blocks_retry_and_new_attempt: true
+      reconciliation_effect_present_means_no_replay: true
+      reconciliation_effect_absent_may_unlock_explicit_retry: true
+      provider_reconciliation_unavailable_or_inconclusive:
+        automatic_retry: forbidden
+        operation_remains_blocked_fail_closed: true
+        reviewed_manual_resolution_may_be_required: true
+      duplicate_external_effect_preferred_over_liveness: false
+      safety_over_liveness_when_effect_unknown: true
+
+    idempotency_status_and_failure_semantics:
+      local_validation_failure_before_operation_commit:
+        external_effect_possible: false
+        operation_created: false
+        provider_attempt_created: false
+      accepted_command_local_commit:
+        idempotency_status: completed
+        result_is_operation_reference: true
+        external_provider_completion_required_before_idempotency_completed: false
+      same_key_same_hash_replay:
+        create_second_business_operation: false
+        create_second_provider_attempt: false
+        return_authorized_current_projection_of_original_result: true
+      same_key_different_hash_replay:
+        conflict: true
+      idempotency_record_safe_response_snapshot_must_exclude_provider_sensitive_payload: true
+
+    migration_policy:
+      runtime_operation_requires_initial_idempotency_record_after_cutover: true
+      legacy_operation_without_provable_generic_idempotency_record:
+        fabricate_request_hash_from_current_mutable_state: forbidden
+        bind_to_current_unrelated_idempotency_record: forbidden
+        preserve_as_legacy_origin_with_null_initial_idempotency_pointer: true
+      legacy_operation_with_exact_immutable_request_snapshot_and_key:
+        reconstruct_generic_record_only_if_target_command_scope_and_hash_are_provable: true
+        reconstructed_record_origin_must_be_marked_legacy: true
+      legacy_attempt_without_command_idempotency_record:
+        fabricate_retry_key: forbidden
+        preserve_as_legacy_attempt_with_null_command_idempotency_pointer: true
+      legacy_attempt_numbering:
+        renumber_existing_attempts: forbidden
+        runtime_next_number_source: max_verified_existing_attempt_no_plus_one_under_operation_lock
+        runtime_new_gaps_after_cutover: forbidden
+      duplicate_or_nonpositive_legacy_attempt_no: fail_and_require_reviewed_remediation
+      multiple_replay_blocking_legacy_attempts_same_operation: do_not_choose_winner_or_auto_fail
+      unknown_legacy_transport_result:
+        map_to_safe_failed: forbidden
+        mark_retryable_without_proof: forbidden
+        required_action: reviewed_mapping_or_effect_unknown_and_reconciliation_required_when_dispatch_is_proven_possible
+      historical_reconciliation_events_fabricated: false
+      migration_calls_provider: forbidden
+
+    required_tests:
+      - same_initial_idempotency_key_and_same_hash_returns_same_operation_without_new_attempt
+      - same_initial_idempotency_key_different_hash_is_conflict
+      - same_retry_idempotency_key_same_hash_does_not_allocate_second_attempt_number
+      - one_runtime_initial_idempotency_record_cannot_create_two_operations
+      - one_runtime_attempt_command_idempotency_record_cannot_create_two_attempts
+      - attempt_numbers_allocate_under_operation_lock_without_new_runtime_gaps
+      - two_concurrent_retry_commands_for_same_failed_operation_at_most_one_new_attempt_commits
+      - only_one_replay_blocking_attempt_per_operation_can_exist
+      - only_worker_winning_prepared_to_dispatching_transition_may_send_provider_request
+      - stale_dispatching_is_not_reset_and_replayed_blindly
+      - definitive_safe_failure_can_be_retryable_only_when_no_effect_is_proven
+      - business_validation_failure_is_not_blindly_retryable
+      - timeout_after_dispatch_enters_effect_unknown_not_failed
+      - effect_unknown_blocks_retry_and_new_attempt
+      - inconclusive_reconciliation_keeps_operation_blocked
+      - reconciled_no_effect_can_unlock_explicit_retry_after_business_rechecks
+      - reconciled_effect_forbids_replay_and_finalizes_only_with_sufficient_success_evidence
+      - reconciliation_sequence_is_append_only_and_contiguous_for_runtime_events
+      - idempotency_replay_still_requires_authorized_access_to_original_operation
+      - idempotency_safe_response_never_contains_sensitive_provider_payload
+      - legacy_missing_request_hash_or_retry_key_is_not_fabricated
+      - legacy_attempts_are_not_renumbered_to_fake_contiguous_history
+      - DB_PKK_001_exact_attempt_context_is_preserved
+      - DB_PKK_003_business_lifecycle_and_failed_to_pending_retry_reservation_is_preserved
+      - DB_PKK_005_through_DB_PKK_008_remain_open
+
+    self_audit:
+      generic_idempotency_claim_is_canonical_HTTP_replay_authority: PASS
+      runtime_operation_bound_to_durable_initial_idempotency_record: PASS
+      runtime_provider_attempt_bound_to_exact_command_idempotency_record: PASS
+      same_key_same_hash_cannot_duplicate_business_operation_or_attempt: PASS
+      attempt_sequence_and_one_replay_blocking_attempt_closed: PASS
+      dispatch_claim_prevents_duplicate_worker_send: PASS
+      unknown_effect_is_not_mislabeled_safe_failure: PASS
+      explicit_reconciliation_history_and_fail_closed_unknown_state_defined: PASS
+      retry_requires_definitive_safe_to_retry_or_reconciled_no_effect: PASS
+      exactly_once_safety_does_not_assume_provider_native_idempotency: PASS
+      provider_unreconcilable_unknown_state_sacrifices_liveness_not_safety: PASS
+      DB_PKK_001_exact_target_integrity_preserved: PASS
+      DB_PKK_002_provider_snapshot_history_preserved: PASS
+      DB_PKK_003_lifecycle_concurrency_eligibility_preserved: PASS
+      DB_PKK_005_signed_XML_not_solved: PASS
+      DB_PKK_006_payload_security_not_solved: PASS
+      DB_PKK_007_configuration_revision_not_solved: PASS
+      DB_PKK_008_latest_projection_not_solved: PASS
+      aggregate_core_schema_modified: false
+      aggregate_docs87_modified: false
+      API_files_modified: false
+      Laravel_migrations_created: false
+      DB4_9_or_later_entered: false
+      Stage5_started: false
+      UI_or_feature_implementation_started: false
+
 blockers:
   - id: DB-PKK-001
     title: same_tenant_and_exact_course_profile_operation_attempt_integrity
@@ -883,7 +1279,8 @@ blockers:
   - id: DB-PKK-004
     title: idempotency_retry_reconciliation_and_exactly_once_external_effect
     severity: P1
-    status: OPEN
+    status: RESOLVED
+    resolution_ref: resolved_contracts.DB-PKK-004
     diagnosis:
       - common_API_contract_requires_Idempotency_Key_for_PKK_mutations_but_current_pkk_operations_idempotency_key_is_nullable_and_has_no_closed_uniqueness_or_request_hash_binding
       - retry_endpoint_exists_and_traceability_requires_business_validation_errors_not_blindly_retried
@@ -995,11 +1392,10 @@ diagnosis_summary:
   diagnosed_P0: 0
   diagnosed_P1: 8
   resolved_in_diagnosis: 0
-  resolved_after_diagnosis: 3
-  open_P0_P1: 5
-  result: FAIL_WITH_5_P1_BLOCKERS
+  resolved_after_diagnosis: 4
+  open_P0_P1: 4
+  result: FAIL_WITH_4_P1_BLOCKERS
   blockers_in_required_fix_order:
-    - DB-PKK-004
     - DB-PKK-005
     - DB-PKK-006
     - DB-PKK-007
@@ -1014,7 +1410,7 @@ API_contract_sync_gaps_recorded_not_fixed:
   API_files_modified_in_DB4_8_diagnosis: false
 
 preservation_gate:
-  status: PASS_DB_PKK_003
+  status: PASS_DB_PKK_004
   checks:
     no_blocker_fixed_during_diagnosis: true
     DB4_4_course_PKK_identity_contract_preserved: true
@@ -1041,11 +1437,12 @@ preservation_gate:
     DB_PKK_001_legacy_null_profile_not_heuristically_bound: true
     DB_PKK_002_immutable_provider_snapshot_history_and_current_projection_closed: true
     DB_PKK_003_provider_operation_lifecycle_concurrency_and_command_eligibility_closed: true
-    DB_PKK_004_through_DB_PKK_008_remain_open: true
+    DB_PKK_004_idempotency_retry_reconciliation_exactly_once_external_effect_closed: true
+    DB_PKK_005_through_DB_PKK_008_remain_open: true
 
 next_single_step_after_central_gate:
-  id: DB_PKK_004_IDEMPOTENCY_RETRY_RECONCILIATION_AND_EXACTLY_ONCE_EXTERNAL_EFFECT
-  action: resolve_DB_PKK_004_only_after_next_explicit_user_instruction
+  id: DB_PKK_005_SIGNED_XML_HANDOFF_AND_FILE_ASSET_EVIDENCE_INTEGRITY
+  action: resolve_DB_PKK_005_only_after_next_explicit_user_instruction
   allowed_scope:
     - specs/database/pkk.yml
     - docs/113-stage-4-pkk-audit.md
@@ -1053,4 +1450,4 @@ next_single_step_after_central_gate:
   aggregate_files_frozen:
     - specs/database/core-schema.yml
     - docs/87-physical-database-schema.md
-  stop_before: DB_PKK_005_SIGNED_XML_HANDOFF_AND_FILE_ASSET_EVIDENCE_INTEGRITY
+  stop_before: DB_PKK_006_SENSITIVE_PROVIDER_PAYLOAD_ENCRYPTION_REDACTION_HASH_AND_KEY_VERSION_BOUNDARY
