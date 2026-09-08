@@ -1,0 +1,113 @@
+from pathlib import Path
+import yaml
+
+path = Path('specs/database/pkk.yml')
+frag_path = Path('.stage4-tmp/db-pkk-005-machine.ymlfrag')
+text = path.read_text()
+frag = frag_path.read_text().rstrip() + '\n'
+
+def replace_once(src, old, new, label):
+    count = src.count(old)
+    if count != 1:
+        raise SystemExit(f'{label}: expected exactly one match, got {count}')
+    return src.replace(old, new, 1)
+
+text = replace_once(text,
+    '  step: DB_PKK_004_IDEMPOTENCY_RETRY_RECONCILIATION_AND_EXACTLY_ONCE_EXTERNAL_EFFECT\n',
+    '  step: DB_PKK_005_SIGNED_XML_HANDOFF_AND_FILE_ASSET_EVIDENCE_INTEGRITY\n',
+    'meta.step')
+text = replace_once(text,
+    '  status: FAIL_WITH_4_P1_BLOCKERS\n',
+    '  status: FAIL_WITH_3_P1_BLOCKERS\n',
+    'meta.status')
+text = replace_once(text,
+    '  current_step_scope: DB_PKK_004_IDEMPOTENCY_RETRY_RECONCILIATION_AND_EXACTLY_ONCE_EXTERNAL_EFFECT_only\n',
+    '  current_step_scope: DB_PKK_005_SIGNED_XML_HANDOFF_AND_FILE_ASSET_EVIDENCE_INTEGRITY_only\n',
+    'scope.current_step')
+
+marker = '\nblockers:\n'
+if text.count(marker) != 1:
+    raise SystemExit(f'resolved_contract insertion marker count={text.count(marker)}')
+if '\n  DB-PKK-005:\n    status: PASS\n' in text:
+    raise SystemExit('resolved DB-PKK-005 already exists')
+text = text.replace(marker, '\n' + frag + '\nblockers:\n', 1)
+
+text = replace_once(text,
+    '  - id: DB-PKK-005\n    title: signed_XML_handoff_and_file_asset_evidence_integrity\n    severity: P1\n    status: OPEN\n',
+    '  - id: DB-PKK-005\n    title: signed_XML_handoff_and_file_asset_evidence_integrity\n    severity: P1\n    status: RESOLVED\n    resolution_ref: resolved_contracts.DB-PKK-005\n',
+    'blocker.DB-PKK-005')
+
+text = replace_once(text,
+    '  resolved_after_diagnosis: 4\n  open_P0_P1: 4\n  result: FAIL_WITH_4_P1_BLOCKERS\n  blockers_in_required_fix_order:\n    - DB-PKK-005\n    - DB-PKK-006\n    - DB-PKK-007\n    - DB-PKK-008\n',
+    '  resolved_after_diagnosis: 5\n  open_P0_P1: 3\n  result: FAIL_WITH_3_P1_BLOCKERS\n  blockers_in_required_fix_order:\n    - DB-PKK-006\n    - DB-PKK-007\n    - DB-PKK-008\n',
+    'diagnosis_summary')
+
+text = replace_once(text,
+    'preservation_gate:\n  status: PASS_DB_PKK_004\n',
+    'preservation_gate:\n  status: PASS_DB_PKK_005\n',
+    'preservation.status')
+text = replace_once(text,
+    '    DB_PKK_005_through_DB_PKK_008_remain_open: true\n',
+    '    DB_PKK_005_signed_XML_handoff_and_FileAsset_evidence_integrity_closed: true\n    DB_PKK_006_through_DB_PKK_008_remain_open: true\n',
+    'preservation.DB005-008')
+
+text = replace_once(text,
+    'next_single_step_after_central_gate:\n  id: DB_PKK_005_SIGNED_XML_HANDOFF_AND_FILE_ASSET_EVIDENCE_INTEGRITY\n  action: resolve_DB_PKK_005_only_after_next_explicit_user_instruction\n  allowed_scope:\n    - specs/database/pkk.yml\n    - docs/113-stage-4-pkk-audit.md\n    - specs/gates/stage-4-database-contract-gate.yml\n  aggregate_files_frozen:\n    - specs/database/core-schema.yml\n    - docs/87-physical-database-schema.md\n  stop_before: DB_PKK_006_SENSITIVE_PROVIDER_PAYLOAD_ENCRYPTION_REDACTION_HASH_AND_KEY_VERSION_BOUNDARY\n',
+    'next_single_step_after_central_gate:\n  id: DB_PKK_006_SENSITIVE_PROVIDER_PAYLOAD_ENCRYPTION_REDACTION_HASH_AND_KEY_VERSION_BOUNDARY\n  action: resolve_DB_PKK_006_only_after_next_explicit_user_instruction\n  allowed_scope:\n    - specs/database/pkk.yml\n    - docs/113-stage-4-pkk-audit.md\n    - specs/gates/stage-4-database-contract-gate.yml\n  aggregate_files_frozen:\n    - specs/database/core-schema.yml\n    - docs/87-physical-database-schema.md\n  stop_before: DB_PKK_007_INTEGRATION_CONFIGURATION_REVISION_BINDING_AND_ASYNC_EXECUTION_CONTEXT\n',
+    'next_single_step')
+
+data = yaml.safe_load(text)
+assert data['meta']['step'] == 'DB_PKK_005_SIGNED_XML_HANDOFF_AND_FILE_ASSET_EVIDENCE_INTEGRITY'
+assert data['meta']['status'] == 'FAIL_WITH_3_P1_BLOCKERS'
+assert data['scope_rule']['current_step_scope'] == 'DB_PKK_005_SIGNED_XML_HANDOFF_AND_FILE_ASSET_EVIDENCE_INTEGRITY_only'
+assert data['scope_rule']['aggregate_files_frozen']['specs/database/core-schema.yml']['blob_sha'] == 'c04dcbea90ca877c1c4e76196b77fdb33e404dab'
+assert data['scope_rule']['aggregate_files_frozen']['docs/87-physical-database-schema.md']['blob_sha'] == 'a26421c9d3d624693f29f8e9dfa1b9e718f22323'
+
+resolved = data['resolved_contracts']
+assert list(resolved.keys()) == ['DB-PKK-001','DB-PKK-002','DB-PKK-003','DB-PKK-004','DB-PKK-005']
+assert all(resolved[k]['status'] == 'PASS' for k in resolved)
+c = resolved['DB-PKK-005']
+assert c['signature_handoff_table']['name'] == 'pkk_signature_handoffs'
+assert c['signed_upload_reservation_boundary']['reservation_table'] == 'pkk_signature_handoff_upload_reservations'
+assert c['unsigned_XML_evidence']['file_asset_purpose'] == 'pkk_unsigned_xml_to_sign'
+assert c['signed_XML_acceptance']['file_asset_purpose'] == 'pkk_signed_xml_return'
+assert c['signed_XML_submit_idempotency']['canonical_operation_key'] == 'pkk.signed_xml.submit'
+assert c['attempt_to_signature_handoff_binding']['one_runtime_submission_attempt_per_handoff']['type'] == 'partial_unique'
+assert c['requires_signature_to_submitted_transaction']['provider_dispatch_after_commit'] is True
+assert c['authority_and_scope']['cryptographic_signature_validity_claimed_by_DB_PKK_005'] is False
+assert c['Stage5_API_sync_gaps_recorded_not_fixed']['API_files_modified_in_DB_PKK_005'] is False
+assert c['self_audit']['DB_PKK_006_payload_crypto_not_solved'] == 'PASS'
+assert c['self_audit']['DB_PKK_007_configuration_revision_not_solved'] == 'PASS'
+assert c['self_audit']['DB_PKK_008_latest_projection_not_solved'] == 'PASS'
+
+blockers = {b['id']: b for b in data['blockers']}
+for bid in ['DB-PKK-001','DB-PKK-002','DB-PKK-003','DB-PKK-004','DB-PKK-005']:
+    assert blockers[bid]['status'] == 'RESOLVED', (bid, blockers[bid]['status'])
+for bid in ['DB-PKK-006','DB-PKK-007','DB-PKK-008']:
+    assert blockers[bid]['status'] == 'OPEN', (bid, blockers[bid]['status'])
+assert blockers['DB-PKK-005']['resolution_ref'] == 'resolved_contracts.DB-PKK-005'
+
+s = data['diagnosis_summary']
+assert s['diagnosed_P0'] == 0
+assert s['diagnosed_P1'] == 8
+assert s['resolved_after_diagnosis'] == 5
+assert s['open_P0_P1'] == 3
+assert s['result'] == 'FAIL_WITH_3_P1_BLOCKERS'
+assert s['blockers_in_required_fix_order'] == ['DB-PKK-006','DB-PKK-007','DB-PKK-008']
+
+p = data['preservation_gate']
+assert p['status'] == 'PASS_DB_PKK_005'
+assert p['checks']['DB_PKK_005_signed_XML_handoff_and_FileAsset_evidence_integrity_closed'] is True
+assert p['checks']['DB_PKK_006_through_DB_PKK_008_remain_open'] is True
+assert p['checks']['aggregate_core_schema_modified'] is False
+assert p['checks']['aggregate_docs87_modified'] is False
+assert p['checks']['Laravel_migrations_created'] is False
+assert p['checks']['Stage5_started'] is False
+assert p['checks']['UI_or_feature_implementation_started'] is False
+
+n = data['next_single_step_after_central_gate']
+assert n['id'] == 'DB_PKK_006_SENSITIVE_PROVIDER_PAYLOAD_ENCRYPTION_REDACTION_HASH_AND_KEY_VERSION_BOUNDARY'
+assert n['stop_before'] == 'DB_PKK_007_INTEGRATION_CONFIGURATION_REVISION_BINDING_AND_ASYNC_EXECUTION_CONTEXT'
+
+path.write_text(text)
+print('DB-PKK-005 YAML + semantic assertions: PASS')
