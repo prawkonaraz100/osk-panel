@@ -103,13 +103,13 @@ stage_4_slices:
     final_aggregate_sync: PASS
     result: PASS
   - id: DB4_9_STUDENT_FINANCE_COMMERCE
-    status: FAIL_WITH_9_P1_BLOCKERS
+    status: FAIL_WITH_8_P1_BLOCKERS
     diagnosis: COMPLETE
     blockers_diagnosed: 10
-    blockers_resolved: 1
-    open_P0_P1: 9
+    blockers_resolved: 2
+    open_P0_P1: 8
     final_aggregate_sync: NOT_STARTED
-    result: FAIL_WITH_9_P1_BLOCKERS
+    result: FAIL_WITH_8_P1_BLOCKERS
   - id: DB4_10_AUDIT_OUTBOX_NOTIFICATIONS
     status: NOT_STARTED
   - id: DB4_11_FINAL_MIGRATION_ORDER_AND_INVARIANT_TEST_MATRIX
@@ -3116,6 +3116,47 @@ quality_checks:
       Laravel_migrations_created: false
       UI_or_feature_implementation_started: false
 
+  student_finance_lifecycle_balance_reversal_overpayment_concurrency:
+    status: PASS
+    resolved_blocker_id: DB-FIN-002
+    severity: P1
+    machine_source: specs/database/student-finance-commerce.yml
+    narrative_source: docs/114-stage-4-student-finance-commerce-audit.md
+    machine_commit: 1ac3288fb52a842066586384c598c286d8d31d4b
+    machine_blob: ffb447a0eebe5a6b79b291c787ffec4af4196e5f
+    narrative_commit: a19ce134e572c633f8f2629de6f7b0a70f2ffd34
+    narrative_blob: 1bc9152a8210d88bd413383072fd632de54054ba
+    decision:
+      durable_charge_state_authority: cancelled_tuple_only
+      open_partial_paid_are_derived_from_valid_nonreversed_payments: true
+      overdue_is_time_based_projection_modifier_not_mutable_authority: true
+      valid_payment_predicate: reversed_at_is_null
+      reversal_tuple_write_once: true
+      second_reversal_or_unreverse: forbidden
+      cancelled_charge_requires_valid_payment_total_zero: true
+      cancellation_with_nonreversed_payment: reject
+      student_charge_is_money_mutation_concurrency_root: true
+      record_reverse_cancel_share_charge_FOR_UPDATE_boundary: true
+      no_overpayment_rechecked_after_charge_lock: true
+      generic_idempotency_records_are_only_retry_authority: true
+      student_payments_nullable_idempotency_key_parallel_authority: forbidden_after_cutover
+      financial_hard_delete: forbidden
+      physical_audit_outbox_storage_finalization: DB4_10
+    checks:
+      concurrent_payments_cannot_both_consume_same_remaining_amount: PASS
+      payment_vs_cancel_and_reversal_races_serialized: PASS
+      balance_is_projection_not_frontend_state: PASS
+      cancellation_vs_existing_money_semantics_closed: PASS
+      generic_idempotency_boundary_closed: PASS
+      DB_FIN_001_contract_preserved: PASS
+      DB_COM_001_through_DB_COM_008_remain_open: PASS
+      aggregate_core_schema_modified: false
+      aggregate_docs87_modified: false
+      DB4_10_or_later_entered: false
+      Stage5_started: false
+      Laravel_migrations_created: false
+      UI_or_feature_implementation_started: false
+
 resolved_blockers:
   - DB-FOUND-001
   - DB-FOUND-002
@@ -3171,9 +3212,9 @@ resolved_blockers:
   - DB-PKK-007
   - DB-PKK-008
   - DB-FIN-001
+  - DB-FIN-002
 
 open_blockers_current_diagnosed_scope:
-  - DB-FIN-002
   - DB-COM-001
   - DB-COM-002
   - DB-COM-003
@@ -3191,7 +3232,7 @@ gate_definition:
     - migration_order_dependency_safe
     - database_invariant_test_matrix_exists
     - reverse_engineering_preservation_traceable
-  current_result: DB4_9_FAIL_WITH_9_P1_BLOCKERS
+  current_result: DB4_9_FAIL_WITH_8_P1_BLOCKERS
   DB4_1_result: PASS
   DB4_2_result: PASS
   DB4_3_result: PASS
@@ -3250,7 +3291,8 @@ gate_definition:
   DB4_8_result: PASS
   DB4_9_diagnosis_result: PASS_DIAGNOSIS_COMPLETE
   DB4_9_DB_FIN_001_result: PASS
-  DB4_9_result: FAIL_WITH_9_P1_BLOCKERS
+  DB4_9_DB_FIN_002_result: PASS
+  DB4_9_result: FAIL_WITH_8_P1_BLOCKERS
   may_start_DB4_4_fixes: false
   may_start_DB4_5: false
   may_start_DB4_5_fixes: false
@@ -3266,8 +3308,8 @@ gate_definition:
   may_start_UI_or_feature_implementation: false
 
 next_single_step:
-  id: DB_FIN_002_CHARGE_PAYMENT_REVERSAL_LIFECYCLE_BALANCE_OVERPAYMENT_AND_CONCURRENCY
-  action: resolve_DB_FIN_002_only_after_next_explicit_user_instruction
+  id: DB_COM_001_ORDER_ITEM_TENANT_PRODUCT_SNAPSHOT_PRICE_TOTAL_AND_QUANTITY_INTEGRITY
+  action: resolve_DB_COM_001_only_after_next_explicit_user_instruction
   allowed_scope:
     - specs/database/student-finance-commerce.yml
     - docs/114-stage-4-student-finance-commerce-audit.md
@@ -3276,6 +3318,6 @@ next_single_step:
     - specs/database/core-schema.yml
     - docs/87-physical-database-schema.md
   scope_lock: >-
-    Resolve DB-FIN-002 only. Preserve DB-COM-001 through DB-COM-008 as OPEN.
-    Do not enter DB-COM-001, DB4_10, Stage 5, Laravel migrations or UI in the same step.
-  after_action: rerun_DB_FIN_002_machine_narrative_central_gate_and_STOP_before_DB_COM_001
+    Resolve DB-COM-001 only. Preserve DB-COM-002 through DB-COM-008 as OPEN.
+    Do not enter DB-COM-002, DB4_10, Stage 5, Laravel migrations or UI in the same step.
+  after_action: rerun_DB_COM_001_machine_narrative_central_gate_and_STOP_before_DB_COM_002
