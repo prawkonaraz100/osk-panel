@@ -1,0 +1,49 @@
+name: Temporary DB-PKK-003 Central Gate
+on:
+  push:
+    paths: ['.github/workflows/tmp-db-pkk-003-central.yml']
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: tmp-db-pkk-003-central-helper
+          fetch-depth: 2
+      - name: Patch central gate and validate
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('specs/gates/stage-4-database-contract-gate.yml')
+          s=p.read_text()
+          repl=[
+            ('''  - id: DB4_8_PKK\n    status: FAIL_WITH_6_P1_BLOCKERS\n    diagnosis: COMPLETE\n    blockers_diagnosed: 8\n    blockers_resolved: 2\n    open_P0_P1: 6\n    final_aggregate_sync: NOT_STARTED\n    result: FAIL_WITH_6_P1_BLOCKERS\n''','''  - id: DB4_8_PKK\n    status: FAIL_WITH_5_P1_BLOCKERS\n    diagnosis: COMPLETE\n    blockers_diagnosed: 8\n    blockers_resolved: 3\n    open_P0_P1: 5\n    final_aggregate_sync: NOT_STARTED\n    result: FAIL_WITH_5_P1_BLOCKERS\n'''),
+            ('''  - DB-PKK-001\n  - DB-PKK-002\n\nopen_blockers_current_diagnosed_scope:\n  - DB-PKK-003\n  - DB-PKK-004\n''','''  - DB-PKK-001\n  - DB-PKK-002\n  - DB-PKK-003\n\nopen_blockers_current_diagnosed_scope:\n  - DB-PKK-004\n'''),
+            ('  current_result: DB4_8_FAIL_WITH_6_P1_BLOCKERS\n','  current_result: DB4_8_FAIL_WITH_5_P1_BLOCKERS\n'),
+            ('''  DB4_8_DB_PKK_001_result: PASS\n  DB4_8_DB_PKK_002_result: PASS\n  DB4_8_result: FAIL_WITH_6_P1_BLOCKERS\n''','''  DB4_8_DB_PKK_001_result: PASS\n  DB4_8_DB_PKK_002_result: PASS\n  DB4_8_DB_PKK_003_result: PASS\n  DB4_8_result: FAIL_WITH_5_P1_BLOCKERS\n'''),
+            ('''next_single_step:\n  id: DB_PKK_003_PROVIDER_OPERATION_LIFECYCLE_CONCURRENCY_AND_COMMAND_ELIGIBILITY\n  action: resolve_DB_PKK_003_only_after_next_explicit_user_instruction\n''','''next_single_step:\n  id: DB_PKK_004_IDEMPOTENCY_RETRY_RECONCILIATION_AND_EXACTLY_ONCE_EXTERNAL_EFFECT\n  action: resolve_DB_PKK_004_only_after_next_explicit_user_instruction\n'''),
+            ('''    Resolve only DB-PKK-003 provider operation lifecycle, concurrency and command\n    eligibility. Do not resolve DB-PKK-004 or later PKK blockers in the same step,\n''','''    Resolve only DB-PKK-004 idempotency, retry, reconciliation and exactly-once\n    external effect. Do not resolve DB-PKK-005 or later PKK blockers in the same step,\n'''),
+            ('  after_action: rerun_DB_PKK_003_machine_narrative_central_gate_and_STOP_before_DB_PKK_004\n','  after_action: rerun_DB_PKK_004_machine_narrative_central_gate_and_STOP_before_DB_PKK_005\n'),
+          ]
+          for old,new in repl:
+            assert s.count(old)==1, (old[:80], s.count(old))
+            s=s.replace(old,new,1)
+          marker='\nresolved_blockers:\n'
+          assert s.count(marker)==1
+          frag=Path('.stage4-tmp/db-pkk-003-central.ymlfrag').read_text()
+          assert '  pkk_provider_operation_lifecycle_concurrency_and_command_eligibility:\n' not in s
+          s=s.replace(marker,'\n'+frag+marker,1)
+          p.write_text(s)
+          PY
+          ruby -e "require 'yaml'; d=YAML.unsafe_load_file('specs/gates/stage-4-database-contract-gate.yml'); s=d['stage_4_slices'].find{|x|x['id']=='DB4_8_PKK'}; abort unless s['blockers_resolved']==3 && s['open_P0_P1']==5 && s['result']=='FAIL_WITH_5_P1_BLOCKERS'; abort unless d.dig('quality_checks','pkk_provider_operation_lifecycle_concurrency_and_command_eligibility','status')=='PASS'; abort unless d['open_blockers_current_diagnosed_scope']==%w[DB-PKK-004 DB-PKK-005 DB-PKK-006 DB-PKK-007 DB-PKK-008]; abort unless d.dig('gate_definition','DB4_8_DB_PKK_003_result')=='PASS'; abort unless d.dig('next_single_step','id')=='DB_PKK_004_IDEMPOTENCY_RETRY_RECONCILIATION_AND_EXACTLY_ONCE_EXTERNAL_EFFECT'"
+          git diff --check -- specs/gates/stage-4-database-contract-gate.yml
+          test "$(git diff --name-only | grep -v '^\.github/workflows/tmp-db-pkk-003-central.yml$' | grep -v '^\.stage4-tmp/db-pkk-003-central.ymlfrag$' | sort)" = "specs/gates/stage-4-database-contract-gate.yml"
+          git config user.name prawkonaraz100
+          git config user.email prawkonaraz100@gmail.com
+          git add specs/gates/stage-4-database-contract-gate.yml
+          git commit -m 'DB-PKK-003: close central database contract gate'
+          git push origin HEAD:tmp-db-pkk-003-central-helper
