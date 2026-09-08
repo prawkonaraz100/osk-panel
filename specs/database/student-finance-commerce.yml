@@ -2,8 +2,8 @@ meta:
   project: osk-panel
   stage: 4
   slice: DB4_9_STUDENT_FINANCE_COMMERCE
-  step: DB_FIN_002_CHARGE_PAYMENT_REVERSAL_LIFECYCLE_BALANCE_OVERPAYMENT_AND_CONCURRENCY
-  status: FAIL_WITH_8_P1_BLOCKERS
+  step: DB_COM_001_ORDER_ITEM_TENANT_PRODUCT_SNAPSHOT_PRICE_TOTAL_AND_QUANTITY_INTEGRITY
+  status: FAIL_WITH_7_P1_BLOCKERS
   diagnosed_at: 2026-09-08
   branch: docs-consolidation-2026-09-05
   diagnosis_only: false
@@ -16,7 +16,7 @@ meta:
 scope_rule:
   diagnose_before_fixing: true
   fixes_allowed_in_this_step: true
-  current_step_scope: DB_FIN_002_only
+  current_step_scope: DB_COM_001_only
   one_blocker_per_future_step: true
   aggregate_files_frozen:
     specs/database/core-schema.yml:
@@ -473,6 +473,221 @@ resolved_contracts:
       Laravel_migrations_created: false
       UI_or_feature_implementation_started: false
 
+  DB-COM-001:
+    status: PASS
+    severity: P1
+    title: order_item_tenant_product_snapshot_price_total_and_quantity_integrity
+    scope_boundary:
+      closes_only_order_item_tenant_catalog_pricing_snapshot_and_total_integrity: true
+      payment_lifecycle_and_confirmation_deferred_to_DB_COM_002: true
+      paid_order_fulfillment_deferred_to_DB_COM_003: true
+      downstream_grant_provenance_and_quantity_deferred_to_DB_COM_004_and_DB_COM_007: true
+      purchase_history_sequence_and_booking_projection_deferred_to_DB_COM_005: true
+    commerce_catalog_items:
+      role: stable_platform_sellable_product_identity_used_by_checkout_and_order_history
+      tenant_owned: false
+      fields:
+        - id
+        - code
+        - product_kind
+        - license_product_id_nullable
+        - active
+        - created_at
+      product_kind_values: [license, internal_exam, generic_service]
+      stable_code_unique: true
+      immutable_identity_fields_after_first_order_reference: [code, product_kind, license_product_id_nullable]
+      product_kind_matrix:
+        license:
+          license_product_id: required
+          exact_target: license_products.id
+          note: commerce_catalog_identity_does_not_replace_license_product_entitlement_authority
+        internal_exam:
+          license_product_id: null
+          identity: commerce_catalog_item_itself_represents_sellable_exam_unit
+          exact_exam_inventory_grant_semantics: DB_COM_004
+        generic_service:
+          license_product_id: null
+          identity: commerce_catalog_item_itself_represents_sellable_service
+          exact_service_entitlement_mapping: DB_COM_007
+      fake_polymorphic_foreign_key: forbidden
+      catalog_deactivation_rewrites_historical_order_items: false
+    candidate_keys:
+      orders_exact_currency:
+        columns: [organization_id, id, currency]
+        unique_constraint_required: true
+      order_items_tenant_identity:
+        columns: [organization_id, id]
+        unique_constraint_required: true
+      commerce_catalog_item_kind:
+        columns: [id, product_kind]
+        unique_constraint_required: true
+    order_items_final_fields_or_semantics:
+      organization_id:
+        nullable: false
+        derived_from_exact_order: true
+      order_id: {nullable: false}
+      commerce_catalog_item_id: {nullable: false}
+      product_kind: {nullable: false}
+      quantity:
+        type: integer
+        nullable: false
+        check: gt_0
+      currency:
+        type: char_3_ISO_4217
+        nullable: false
+      list_unit_amount_minor:
+        type: bigint_minor_units
+        nullable: false
+        check: gte_0
+      unit_amount_minor:
+        meaning: charged_gross_unit_amount_after_applied_discount
+        type: bigint_minor_units
+        nullable: false
+        check: gte_0_and_lte_list_unit_amount_minor
+      unit_discount_amount_minor:
+        type: bigint_minor_units
+        nullable: false
+        formula: list_unit_amount_minor_minus_unit_amount_minor
+      vat_rate_basis_points:
+        type: integer
+        nullable: false
+        check: between_0_and_10000
+        role: immutable_tax_rate_snapshot_for_the_line_not_the_line_total_authority
+      total_amount_minor:
+        type: bigint_minor_units
+        nullable: false
+        formula: quantity_times_unit_amount_minor
+      product_snapshot:
+        type: jsonb
+        nullable: false
+        server_owned: true
+        minimum_semantics:
+          - catalog_item_id
+          - stable_catalog_code
+          - product_kind
+          - display_name_at_order_time
+          - source_reference_snapshot_when_applicable
+      pricing_snapshot:
+        type: jsonb
+        nullable: false
+        server_owned: true
+        minimum_semantics:
+          - list_unit_amount_minor
+          - charged_unit_amount_minor
+          - unit_discount_amount_minor
+          - vat_rate_basis_points
+          - pricing_rule_or_revision_identifiers_when_available
+          - pricing_resolution_time
+      snapshot_hash:
+        type: char_64_sha256_or_equivalent_content_hash
+        nullable: false
+        purpose: detect_accidental_snapshot_drift_not_replace_server_authority
+      legacy_product_type_product_reference_after_cutover:
+        authority: false
+        policy: migrate_to_catalog_item_binding_or_fail_review
+    relations:
+      order_item_exact_order_and_currency:
+        source: order_items[organization_id,order_id,currency]
+        target: orders[organization_id,id,currency]
+        on_update: RESTRICT
+        on_delete: RESTRICT
+      order_item_exact_catalog_kind:
+        source: order_items[commerce_catalog_item_id,product_kind]
+        target: commerce_catalog_items[id,product_kind]
+        on_update: RESTRICT
+        on_delete: RESTRICT
+      catalog_license_target:
+        applies_when: product_kind_equals_license
+        source: commerce_catalog_items.license_product_id
+        target: license_products.id
+        on_update: RESTRICT
+        on_delete: RESTRICT
+        implementation: check_plus_FK_or_equivalent_constraint_boundary
+    immutable_order_item_policy:
+      after_order_creation_commit_business_fields_mutable: false
+      forbidden_normal_updates:
+        - organization_id
+        - order_id
+        - commerce_catalog_item_id
+        - product_kind
+        - quantity
+        - currency
+        - list_unit_amount_minor
+        - unit_amount_minor
+        - unit_discount_amount_minor
+        - vat_rate_basis_points
+        - total_amount_minor
+        - product_snapshot
+        - pricing_snapshot
+        - snapshot_hash
+      catalog_or_price_change_rewrites_history: false
+      correction_requires_new_order_or_future_explicit_financial_correction_flow_not_in_place_item_patch: true
+    pricing_and_total_authority:
+      client_supplied_price_discount_vat_or_total_as_authority: forbidden
+      server_resolves_catalog_and_pricing_before_insert: true
+      observed_UI_amount_semantics: gross_amounts
+      charged_line_total_formula: quantity_times_unit_amount_minor
+      unit_discount_formula: list_unit_amount_minor_minus_unit_amount_minor
+      VAT_rate_is_snapshotted_but_not_recomputed_to_mutate_gross_line_total: true
+      order_currency_is_parent_authority: true
+      mixed_currency_items_in_one_order: forbidden
+      order_total_amount_minor_formula: SUM_order_items_total_amount_minor
+      order_total_cross_row_guard: deferrable_constraint_trigger_or_equivalent_transactional_DB_guard
+      order_with_zero_total_possible_after_full_discount: not_forbidden_by_DB_COM_001
+      payment_semantics_for_zero_total_order: DB_COM_002
+    order_creation_transaction:
+      server_owned_sequence:
+        - derive_organization_from_authenticated_context
+        - resolve_requested_sellable_catalog_items
+        - require_catalog_item_active_at_creation
+        - validate_kind_specific_catalog_identity
+        - resolve_server_side_pricing_and_discount_context
+        - calculate_immutable_per_line_snapshots
+        - insert_order_with_authoritative_currency_and_total
+        - insert_order_items_with_exact_order_and_catalog_relations
+        - verify_order_total_equals_sum_line_totals_before_commit
+      frontend_preview_may_differ_from_authoritative_server_resolution: true
+      retry_idempotency_for_order_creation_preserved_from_common_contract: true
+    migration_policy:
+      order_items_add_organization_id_backfill_source: exact_parent_order_only
+      order_items_add_currency_backfill_source: exact_parent_order_only
+      legacy_product_type_reference_mapping_requires_proven_catalog_identity: true
+      infer_catalog_item_from_display_name_price_or_timestamp: forbidden
+      infer_license_product_from_duration_or_price_without_proven_reference: forbidden
+      create_generic_catalog_item_to_hide_ambiguous_legacy_reference: forbidden
+      historical_price_or_discount_recalculation_from_current_catalog: forbidden
+      line_total_rewrite_to_make_current_formula_pass_without_source_evidence: forbidden
+      ambiguous_product_or_pricing_line: fail_and_require_reviewed_remediation
+      hard_delete_order_item_to_make_constraints_pass: forbidden
+    required_tests:
+      - order_item_wrong_tenant_order_rejected
+      - order_item_currency_different_from_order_rejected
+      - order_item_product_kind_different_from_catalog_item_rejected
+      - license_catalog_item_without_license_product_rejected
+      - nonlicense_catalog_item_with_license_product_rejected
+      - quantity_zero_or_negative_rejected
+      - unit_amount_greater_than_list_unit_rejected
+      - unit_discount_formula_mismatch_rejected
+      - line_total_formula_mismatch_rejected
+      - order_total_not_equal_sum_lines_rejected_at_transaction_boundary
+      - product_or_pricing_snapshot_is_immutable_after_commit
+      - later_catalog_price_or_display_change_does_not_modify_historical_order_item
+      - server_side_order_creation_does_not_trust_client_price_total_or_discount
+      - legacy_ambiguous_product_mapping_fails_without_heuristic_catalog_item
+    preservation_checks:
+      DB_FIN_001_and_DB_FIN_002_contracts_unchanged: PASS
+      license_product_specialized_authority_preserved: PASS
+      internal_exam_is_quantity_product_not_license_duration_clone: PASS
+      one_order_may_contain_multiple_license_variants: PASS
+      purchase_history_remains_separate_from_student_finance: PASS
+      DB_COM_002_through_DB_COM_008_unchanged: PASS
+      aggregate_core_schema_modified: false
+      aggregate_docs87_modified: false
+      DB4_10_or_later_entered: false
+      Stage5_started: false
+      Laravel_migrations_created: false
+      UI_or_feature_implementation_started: false
+
 blockers:
   - id: DB-FIN-001
     title: student_finance_same_tenant_exact_charge_payment_course_integrity
@@ -524,7 +739,8 @@ blockers:
   - id: DB-COM-001
     title: order_item_tenant_product_snapshot_price_total_and_quantity_integrity
     severity: P1
-    status: OPEN
+    status: RESOLVED
+    resolution_ref: resolved_contracts.DB-COM-001
     diagnosis:
       - order_items_currently_lack_organization_id_so_downstream_same_tenant_purchase_provenance_cannot_be_proven_with_composite_FKs
       - product_type_plus_nullable_generic_product_reference_has_no_exact_reference_kind_guard
@@ -704,9 +920,9 @@ blockers:
 diagnosis_summary:
   diagnosed_P0: 0
   diagnosed_P1: 10
-  resolved_after_diagnosis: 2
-  open_P0_P1: 8
-  result: FAIL_WITH_8_P1_BLOCKERS
+  resolved_after_diagnosis: 3
+  open_P0_P1: 7
+  result: FAIL_WITH_7_P1_BLOCKERS
   resolved_blockers:
     - DB-FIN-001
   blockers_in_required_fix_order:
@@ -720,7 +936,7 @@ diagnosis_summary:
     - DB-COM-008
     - DB-COM-006
 preservation_gate:
-  status: PASS_DB_FIN_002_MACHINE_CONTRACT
+  status: PASS_DB_COM_001_MACHINE_CONTRACT
   checks:
     student_finance_and_platform_commerce_remain_distinct: true
     DB4_6_license_inventory_assignment_activation_contract_preserved: true
@@ -738,6 +954,6 @@ preservation_gate:
     UI_or_feature_implementation_started: false
 
 next_single_step_after_central_gate:
-  id: DB_COM_001_ORDER_ITEM_TENANT_PRODUCT_SNAPSHOT_PRICE_TOTAL_AND_QUANTITY_INTEGRITY
-  action: resolve_DB_COM_001_only_after_next_explicit_user_instruction
-  stop_before: DB_COM_002_PAYMENT_ATTEMPT_EVENT_ORDER_STATE_IDEMPOTENCY_AND_RECONCILIATION
+  id: DB_COM_002_PAYMENT_ATTEMPT_EVENT_ORDER_STATE_IDEMPOTENCY_AND_RECONCILIATION
+  action: resolve_DB_COM_002_only_after_next_explicit_user_instruction
+  stop_before: DB_COM_003_PAID_ORDER_EXACTLY_ONCE_GRANT_ORCHESTRATION_AND_ATOMICITY
