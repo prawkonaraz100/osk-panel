@@ -1,0 +1,51 @@
+  pkk_signed_XML_handoff_and_file_asset_evidence_integrity:
+    status: PASS
+    resolved_blocker_id: DB-PKK-005
+    severity: P1
+    machine_source: specs/database/pkk.yml
+    audit_source: docs/113-stage-4-pkk-audit.md
+    machine_contract_commit: a8df64ef06fd900004a36499728f9b9299f7ef7b
+    narrative_audit_commit: 7fd04ffee8b6f945b974c4a934446860f00cb08a
+    decision:
+      signature_requirement_mapping: adapter_verified_not_globally_hardcoded
+      signature_handoff_authority: pkk_signature_handoffs
+      generic_binary_asset_authority: file_assets
+      exact_unsigned_asset_purpose: pkk_unsigned_xml_to_sign
+      exact_signed_asset_purpose: pkk_signed_xml_return
+      requires_signature_without_exact_unsigned_evidence: forbidden
+      signed_upload_requires_exact_handoff_reservation: true
+      signed_asset_binding_write_once: true
+      cross_operation_or_cross_handoff_signed_asset_reuse: forbidden
+      referenced_FileAsset_normal_replace_or_delete: forbidden
+      signature_submission_attempt_requires_exact_handoff_binding: true
+      signed_XML_submit_idempotency_operation_key: pkk.signed_xml.submit
+      requires_signature_to_submitted_and_submission_attempt_commit_atomically: true
+      provider_dispatch_before_local_commit: forbidden
+      raw_XML_or_storage_key_in_safe_projection_or_idempotency_response: forbidden
+      cryptographic_signature_validity_claimed_without_provider_contract: false
+      provider_specific_XML_schema_or_XAdES_rules_invented: false
+      legacy_signature_evidence_guessed_by_filename_timestamp_or_latest_upload: forbidden
+      DB_PKK_006_payload_crypto_deferred: true
+      DB_PKK_007_configuration_revision_deferred: true
+      DB_PKK_008_latest_projection_deferred: true
+    checks:
+      exact_context_signature_handoff_closed: PASS
+      unsigned_ready_purpose_hash_binding_closed: PASS
+      signed_upload_exact_handoff_reservation_closed: PASS
+      signed_asset_write_once_and_no_cross_operation_reuse: PASS
+      FileAsset_integrity_and_retention_boundary_closed: PASS
+      signature_submission_attempt_exact_handoff_binding_closed: PASS
+      signed_XML_submission_idempotency_reuses_DB_PKK_004: PASS
+      requires_signature_to_submitted_atomic_before_dispatch: PASS
+      unverified_cryptographic_signature_semantics_not_invented: PASS
+      migration_fail_closed_and_non_guessing: PASS
+      DB_PKK_001_through_DB_PKK_004_preserved: PASS
+      DB_PKK_006_through_DB_PKK_008_remain_open: PASS
+      aggregate_core_schema_modified_in_step: false
+      aggregate_docs87_modified_in_step: false
+      API_files_modified_in_step: false
+      DB4_9_or_later_entered: false
+      Laravel_migrations_created: false
+      Stage5_started: false
+      UI_or_feature_implementation_started: false
+
