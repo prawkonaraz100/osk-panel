@@ -1,0 +1,192 @@
+
+## 23. DB-PKK-006 — wynik fixera: PASS
+
+### 23.1. Zakres zamknięcia
+
+DB-PKK-006 zamyka wyłącznie bezpieczeństwo wrażliwych payloadów integracji PKK: minimalizację retencji, szyfrowanie raw evidence, integralność i lineage, redakcję projekcji bezpiecznych dla UI/logów oraz kompatybilność z rotacją kluczy. Nie zmienia semantyki DB-PKK-001…005 i nie rozwiązuje DB-PKK-007 ani DB-PKK-008.
+
+Provider-specific schema pozostaje własnością zweryfikowanego adaptera. Ten etap nie wymyśla zewnętrznych nazw pól, statusów ani dodatkowych danych protokołu.
+
+### 23.2. Minimalizacja przed szyfrowaniem
+
+Canonical policy ma dwa jawne tryby retencji:
+
+- `redacted_only` — brak trwałego raw ciphertextu; zachowujemy tylko bezpieczną, wersjonowaną projekcję i hash źródłowych bajtów,
+- `encrypted_raw_plus_redacted` — pełny raw payload jest utrwalany wyłącznie jako zaszyfrowane immutable evidence, razem z bezpieczną projekcją.
+
+Domyślną zasadą jest minimalizacja: pełny raw payload nie jest przechowywany tylko dlatego, że technicznie da się go zapisać. Decyzję retencyjną podejmuje wersjonowana platformowa polityka bezpieczeństwa/retencji, a jej wersja jest zapisywana przy capture.
+
+Plaintext provider payload nie może stać się trwałym rekordem przed szyfrowaniem. Może istnieć jedynie w pamięci procesu przez minimalny czas potrzebny do canonicalization, walidacji, redakcji i ewentualnego szyfrowania.
+
+### 23.3. Canonical raw evidence — `pkk_protected_payloads`
+
+Po cutover jedynym canonical runtime authority dla retained raw provider evidence jest `pkk_protected_payloads`.
+
+Każdy rekord ma:
+
+- `organization_id`,
+- zamkniętą provider-neutral rolę payloadu,
+- dokładnie jeden właściwy parent: provider snapshot, operation, provider attempt albo reconciliation,
+- hash canonical plaintext bytes,
+- wersję crypto profile i AAD schema,
+- nonce, ciphertext i auth tag,
+- hash dokładnych ciphertext bytes,
+- wersję polityki retencji.
+
+Database boundary odrzuca payload związany z niewłaściwym parentem lub tenantem. Normalny update raw evidence jest zabroniony; normalny hard-delete jest zabroniony poza kontrolowanym procesem retencyjnym.
+
+### 23.4. Authenticated encryption i exact-context AAD
+
+Runtime crypto profile v1 używa `AES-256-GCM` z losowym 256-bitowym DEK per protected payload, 96-bitowym nonce i 128-bitowym authentication tagiem. Algorytm i profil kryptograficzny nie są wybierane przez klienta.
+
+Canonical AAD obejmuje co najmniej:
+
+- wersję schematu AAD,
+- `organization_id`,
+- rolę payloadu,
+- exact parent kind,
+- exact parent id,
+- crypto profile version.
+
+Oznacza to, że transplant ciphertextu pomiędzy tenantami, operacjami, attemptami albo snapshotami kończy się błędem uwierzytelnienia. Sam `SHA-256` nie zastępuje AEAD authentication.
+
+### 23.5. Semantyka hashy pozostaje rozdzielona
+
+`canonical_plaintext_sha256` identyfikuje dokładne canonical retained plaintext bytes i wiąże lineage projekcji.
+
+`ciphertext_sha256` identyfikuje dokładne przechowywane ciphertext bytes i może służyć jako precheck integralności storage.
+
+Właściwym kryptograficznym authority dla ciphertext + AAD pozostaje AEAD auth tag.
+
+DB-PKK-002 `snapshot_content_hash` nie zmienia znaczenia: nadal wiąże normalized business snapshot envelope, a nie pełne raw provider bytes, nie jest szyfrowaniem i nie jest mechanizmem authentication.
+
+### 23.6. Envelope encryption i rotacja kluczy
+
+DEK nie jest przechowywany w plaintext. Dla każdego protected payload istnieje append-only historia `pkk_protected_payload_key_wrappings` z:
+
+- contiguous `wrapping_revision`,
+- wrapping profile version,
+- provider code,
+- opaque non-secret `kek_reference`,
+- opaque non-secret `kek_version`,
+- `wrapped_dek`.
+
+Normalna rotacja KEK nie odszyfrowuje i nie szyfruje ponownie business ciphertextu. Tworzy wyłącznie nową wrapping revision dla tego samego DEK. Nie zmienia nonce, auth tagu, plaintext hash, DB-PKK-002 hash ani historycznych rekordów operation/attempt/snapshot.
+
+Brak bieżącego klucza, błąd unwrap albo AEAD authentication failure failują zamknięcie operacji i przechodzą na ścieżkę security remediation; runtime nie może cicho fallbackować do starego wrappingu lub plaintextu.
+
+### 23.7. Safe UI projection — append-only allowlist
+
+Canonical safe projection po cutover to `pkk_payload_redacted_projections`.
+
+Każda projekcja jest związana z exact tenant + parent + payload role, ma wersję polityki redakcji i retencji, source plaintext hash, revision oraz hash canonical redacted JSON.
+
+Redakcja jest allowlist-based, nie blacklist-based:
+
+- nieznane lub niesklasyfikowane provider fields są domyślnie odrzucane,
+- raw provider JSON nie może być kopiowany bezpośrednio jako „redacted JSON”,
+- zmiana polityki redakcji tworzy nową projection revision zamiast nadpisywać historię,
+- UI może korzystać z tej projekcji jako read modelu, ale projekcja nie jest pełnym evidence authority.
+
+### 23.8. Jeden runtime authority po cutover
+
+Provisional pola payloadów obecne wcześniej na `pkk_provider_profile_snapshots`, `pkk_operations` i `pkk_operation_attempts` przestają być runtime authority po cutover.
+
+Canonical raw authority: `pkk_protected_payloads`.
+
+Canonical safe projection authority: `pkk_payload_redacted_projections`.
+
+Dwa równoległe, mutowalne payload authorities są zabronione.
+
+### 23.9. Zakaz leakage do systemów pomocniczych
+
+Raw provider plaintext, raw provider error body, ciphertext i wrapped key material nie mogą trafiać do:
+
+- `audit_logs`,
+- activity feed,
+- outbox,
+- notifications,
+- idempotency safe response snapshot,
+- application logs,
+- generic error messages.
+
+Do trwałych logów/eventów mogą wejść jedynie provider-neutral error class, bezpiecznie zsanityzowany adapter code/message, bezpieczny request/correlation id i autoryzowany reference do protected payload albo safe projection.
+
+Preferujemy referencję do chronionego evidence zamiast kopiowania payloadu.
+
+### 23.10. Transakcje capture
+
+W trybie `redacted_only` system canonicalizuje transient payload, liczy source hash, wykonuje wersjonowaną allowlist redaction, zapisuje projection i usuwa raw plaintext z pamięci. Nie powstaje trwały raw ciphertext i system nie może później twierdzić, że zachował pełne raw evidence.
+
+W trybie `encrypted_raw_plus_redacted` system generuje DEK/nonce, buduje exact-context AAD, wykonuje AEAD, wrapuje DEK, tworzy bezpieczną projekcję i zapisuje protected payload + pierwszy wrapping + projekcję atomowo w jednej lokalnej transakcji. Partial envelope bez key wrapping lub safe projection nie może się zatwierdzić.
+
+Provider network I/O nie jest wykonywany wewnątrz tej transakcji persistence.
+
+### 23.11. Signed XML z DB-PKK-005 — poufność bez zmiany FileAsset identity
+
+DB-PKK-005 pozostaje źródłem prawdy dla exact signed/unsigned XML handoff i `FileAsset` identity/hash. DB-PKK-006 dodaje poufność final storage.
+
+Finalny `ready` PKK XML object musi być application-encrypted. `FileAsset.sha256` nadal oznacza hash zweryfikowanego plaintext XML; osobny `encrypted_storage_object_sha256` oznacza hash finalnego encrypted storage object.
+
+`pkk_signature_file_asset_protections` wiąże exact handoff, FileAsset, rolę `unsigned|signed`, crypto profile, nonce i auth tag. Historia wrappingu DEK dla takich assetów jest append-only w `pkk_signature_file_asset_key_wrappings`.
+
+Rotacja klucza nie zmienia FileAsset plaintext hash, handoff binding ani encrypted object — tworzy nową wrapping revision.
+
+### 23.12. Bezpieczny ingest XML
+
+Presigned upload może trafić do tymczasowego quarantine object. `FileAsset` nie może przejść do `ready`, dopóki nie przejdą:
+
+1. exact tenant + handoff validation z DB-PKK-005,
+2. size/content sniffing i wymagany scan,
+3. verification plaintext SHA-256,
+4. application encryption do final private object,
+5. zapis exact protection row i pierwszego wrappingu,
+6. usunięcie tymczasowego plaintext object po udanej finalizacji.
+
+Błąd skanu lub szyfrowania nie może oznaczyć FileAsset jako `ready`. Download odszyfrowuje dopiero po exact PKK authorization.
+
+### 23.13. Migracja — fail closed, bez fabrykowania crypto history
+
+Legacy plaintext payload nie staje się automatycznie trwałym raw evidence. Może zostać zaszyfrowany tylko, gdy exact parent jest udowodniony i polityka retencji wymaga raw evidence; w przeciwnym razie dopuszczalna jest wyłącznie deterministycznie bezpieczna projekcja po zweryfikowanym cutover.
+
+Legacy ciphertext bez algorytmu, nonce, auth tagu, AAD semantics lub key reference nie może zostać nazwany authenticated runtime envelope.
+
+Legacy redacted JSON bez redaction-policy lineage i source hash nie może zostać cicho awansowany do bieżącej safe projection.
+
+Nie wolno zgadywać crypto profile, key version ani redaction policy version. Migracja nie odpytuje providera ani zewnętrznej usługi podpisu w celu rekonstrukcji historii.
+
+Legacy DB-PKK-002 snapshot hash nie jest przeliczany pod nowy ciphertext.
+
+### 23.14. Stage 5/API gaps pozostają odłożone
+
+Ten etap nie modyfikuje OpenAPI. Safe profile/operation projections nadal nie eksponują crypto internals, wrapped DEK ani storage keys. Exact provider payload schema pozostaje adapter-owned. Admin surface dla polityk retencji/redakcji nie jest projektowany w DB-PKK-006.
+
+### 23.15. Self-audit
+
+- minimization before encryption — PASS,
+- retained raw AEAD envelope — PASS,
+- exact tenant/parent AAD transplant protection — PASS,
+- append-only key wrapping history — PASS,
+- KEK rotation bez business ciphertext rewrite — PASS,
+- DB-PKK-002 hash semantics preserved — PASS,
+- append-only allowlisted redacted projection lineage — PASS,
+- audit/outbox/log/idempotency leakage exclusion — PASS,
+- provisional payload fields deauthorized after cutover — PASS,
+- DB-PKK-005 FileAsset identity preserved + XML confidentiality closed — PASS,
+- provider-specific schema not invented — PASS,
+- legacy crypto/redaction history not guessed — PASS,
+- DB-PKK-001…005 preserved — PASS,
+- DB-PKK-007 OPEN — preserved,
+- DB-PKK-008 OPEN — preserved,
+- aggregate files unchanged — PASS,
+- API files unchanged — PASS,
+- Laravel migrations not created — PASS,
+- DB4_9+ not entered — PASS,
+- Stage 5 not started — PASS,
+- UI/feature implementation not started — PASS.
+
+**Stan po DB-PKK-006:** `0 P0 / 2 P1 OPEN`, `6/8 resolved`, wynik `FAIL_WITH_2_P1_BLOCKERS`.
+
+Następny dopuszczalny blocker po central gate: `DB-PKK-007`.
+
+**STOP przed DB-PKK-007.**
