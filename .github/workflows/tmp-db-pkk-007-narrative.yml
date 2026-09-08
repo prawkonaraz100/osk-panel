@@ -1,0 +1,46 @@
+name: Temporary DB-PKK-007 Narrative Gate
+
+on:
+  push:
+    branches: [tmp-db-pkk-007-narrative-helper]
+    paths:
+      - '.stage4-tmp/TRIGGER_DB_PKK_007_NARRATIVE'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: tmp-db-pkk-007-narrative-helper
+      - name: Patch and validate narrative
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('docs/113-stage-4-pkk-audit.md')
+          s=p.read_text()
+          frag=Path('.stage4-tmp/db-pkk-007-narrative.mdfrag').read_text()
+          old_step='**Aktualny krok:** `DB_PKK_006_SENSITIVE_PROVIDER_PAYLOAD_ENCRYPTION_REDACTION_HASH_AND_KEY_VERSION_BOUNDARY`\n'
+          new_step='**Aktualny krok:** `DB_PKK_007_INTEGRATION_CONFIGURATION_REVISION_BINDING_AND_ASYNC_EXECUTION_CONTEXT`\n'
+          old_status='**Status:** `FAIL_WITH_2_P1_BLOCKERS / 0 P0 / 2 P1 OPEN`\n'
+          new_status='**Status:** `FAIL_WITH_1_P1_BLOCKER / 0 P0 / 1 P1 OPEN`\n'
+          assert s.count(old_step)==1,s.count(old_step)
+          assert s.count(old_status)==1,s.count(old_status)
+          assert '## 24. DB-PKK-007 — wynik fixera: PASS' not in s
+          s=s.replace(old_step,new_step,1).replace(old_status,new_status,1)
+          s=s.rstrip()+'\n\n'+frag.strip()+'\n'
+          p.write_text(s)
+          PY
+          grep -q '^## 24\. DB-PKK-007 — wynik fixera: PASS$' docs/113-stage-4-pkk-audit.md
+          grep -q '^\*\*STOP przed DB-PKK-008\.\*\*$' docs/113-stage-4-pkk-audit.md
+          git diff --check -- docs/113-stage-4-pkk-audit.md
+          test "$(git diff --name-only | grep -v '^\.github/workflows/tmp-db-pkk-007-narrative.yml$' | grep -v '^\.stage4-tmp/' | sort -u)" = "docs/113-stage-4-pkk-audit.md"
+          git config user.name 'prawkonaraz100'
+          git config user.email 'prawkonaraz100@gmail.com'
+          git add docs/113-stage-4-pkk-audit.md
+          git commit -m 'DB-PKK-007: add configuration revision narrative audit'
+          git push origin HEAD:tmp-db-pkk-007-narrative-helper
