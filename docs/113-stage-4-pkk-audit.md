@@ -3,8 +3,8 @@
 Data: 2026-09-08
 
 **Etap:** `DB4_8_PKK`  
-**Aktualny krok:** `DB_PKK_001_SAME_TENANT_AND_EXACT_COURSE_PROFILE_OPERATION_ATTEMPT_INTEGRITY`
-**Status:** `FAIL_WITH_7_P1_BLOCKERS / 0 P0 / 7 P1 OPEN`
+**Aktualny krok:** `DB_PKK_002_IMMUTABLE_PROVIDER_PROFILE_SNAPSHOT_HISTORY_AND_CURRENT_PROJECTION`
+**Status:** `FAIL_WITH_6_P1_BLOCKERS / 0 P0 / 6 P1 OPEN`
 
 Machine-readable diagnoza: `specs/database/pkk.yml`.
 
@@ -471,3 +471,79 @@ Self-audit:
 Po centralnym gate jedynym dopuszczalnym następnym krokiem jest `DB-PKK-002 — immutable provider profile snapshot history and current projection`, wyłącznie po kolejnym jawnym poleceniu użytkownika.
 
 **STOP przed DB-PKK-002.**
+
+---
+
+## 19. DB-PKK-002 — wynik fixera: PASS
+
+Machine contract: `specs/database/pkk.yml`, clean machine commit `3283805d56ab331b9b889028cf38ddc28d9a00c0`.
+
+### 19.1 Rozdzielenie identity od provider snapshot history
+
+`pkk_profiles` pozostaje canonical authority course-scoped PKK identity i jego rewizji z DB4_4. Dane od zewnętrznego providera nie są już mutable stanem tej samej identity row.
+
+Nowym canonical authority historii obserwacji providera jest append-only `pkk_provider_profile_snapshots`. Stare pola providerowe na `pkk_profiles` (`status`, `profile_snapshot`, `fetched_at`) po bezpiecznym cutover przestają być runtime authority i mogą być wyłącznie migration-only.
+
+### 19.2 Exact identity binding
+
+Każdy snapshot jest związany kompozytowo z dokładnym `(organization_id, pkk_profile_id, course_enrollment_id)`. Nie może więc przejść pomiędzy tenantami, kursami ani rewizjami PKK identity.
+
+DB-PKK-001 pozostaje nienaruszony i jest bazą relacyjną dla tego evidence.
+
+### 19.3 Append-only revision history
+
+Snapshot ma immutable `snapshot_revision >= 1`, przydzielany jako kolejna rewizja pod blokadą dokładnego `PkkProfile FOR UPDATE`.
+
+Rewizje są deterministyczne i ciągłe dla committed rows. Timestamp, UUID ani hash nie są `latest` authority. Normalny UPDATE lub hard-delete snapshotu jest zabroniony.
+
+### 19.4 Deterministyczny current projection
+
+Current PKK identity dla kursu nadal pochodzi z `pkk_profiles ... superseded_at IS NULL`. Current provider snapshot to wyłącznie `MAX(snapshot_revision)` dla tej dokładnej aktualnej identity revision.
+
+Jeśli aktualna identity nie ma snapshotu, projekcja ma stan „not fetched”/NULL. System nie może fallbackować do snapshotu poprzedniej, superseded rewizji PKK.
+
+Późna odpowiedź providera związana z historyczną rewizją może zostać zachowana w historii tej rewizji, ale nigdy nie staje się current snapshotem kursu.
+
+### 19.5 Evidence hash i granica kryptografii
+
+Snapshot posiada `snapshot_content_hash`, liczony nad canonical normalized provider snapshot envelope przed szyfrowaniem. Hash wiąże historyczną treść, ale nie jest mechanizmem szyfrowania ani uwierzytelnienia.
+
+Pełny encrypted-payload envelope, key version, authenticated encryption i redaction integrity pozostają wyłącznie DB-PKK-006. DB-PKK-002 nie udaje, że zamknął kryptografię providera.
+
+### 19.6 Brak automatycznego overwrite Student/Course
+
+Provider snapshot jest external observation evidence i read projection. Nie zapisuje automatycznie wartości do `students` ani `course_enrollments`. Ewentualna późniejsza aktualizacja domeny wymaga osobnej walidacji, authorization, concurrency i auditu.
+
+### 19.7 Identity change i migration safety
+
+Nowa rewizja `PkkProfile` zaczyna z zerem provider snapshots. Kopiowanie snapshotu poprzedniej identity do nowej jest zabronione.
+
+Migracja jest fail-closed: legacy snapshot można związać tylko z dokładnie udowodnioną identity revision; nie wolno zgadywać current/latest po czasie, UUID ani danych kursu. Nieznane `fetched_at` pozostaje NULL z origin `legacy_reconstructed`, a brak jednoznacznego provenance wymaga reviewed remediation.
+
+### 19.8 Preservation gate
+
+Pozostają OPEN: `DB-PKK-003`…`DB-PKK-008`. Nie zmieniono API, `core-schema.yml`, `docs/87`, migracji Laravel ani UI.
+
+Self-audit:
+
+- identity i provider snapshot authority rozdzielone — **PASS**,
+- append-only immutable snapshot history — **PASS**,
+- exact tenant/course/profile binding — **PASS**,
+- deterministic revision/current projection — **PASS**,
+- timestamp/UUID latest heuristic — **zabroniony**,
+- stale snapshot fallback po zmianie PKK — **zabroniony**,
+- late historical provider response nie psuje current projection — **PASS**,
+- Student/Course auto-overwrite — **zabroniony**,
+- DB-PKK-003…008 — **nadal OPEN**,
+- frozen aggregates — **bez zmian**.
+
+### 19.9 Wynik po fixerze
+
+- P0 open: **0**,
+- P1 open: **6**,
+- resolved: **2 / 8**,
+- wynik DB4_8: **FAIL_WITH_6_P1_BLOCKERS**.
+
+Po centralnym gate jedynym dopuszczalnym następnym krokiem jest `DB-PKK-003 — provider operation lifecycle, concurrency and command eligibility`, wyłącznie po kolejnym jawnym poleceniu użytkownika.
+
+**STOP przed DB-PKK-003.**
