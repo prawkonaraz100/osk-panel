@@ -1,0 +1,46 @@
+name: Temporary DB-FIN-002 Narrative Gate
+
+on:
+  push:
+    branches: [tmp-db-fin-002-narrative-helper]
+    paths:
+      - '.stage4-tmp/TRIGGER_DB_FIN_002_NARRATIVE'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: tmp-db-fin-002-narrative-helper
+      - name: Patch and validate DB-FIN-002 narrative only
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('docs/114-stage-4-student-finance-commerce-audit.md')
+          s=p.read_text()
+          old='''**Aktualny krok:** `DB_FIN_001_SAME_TENANT_EXACT_CHARGE_PAYMENT_COURSE_INTEGRITY`\n**Status:** `FAIL_WITH_9_P1_BLOCKERS / 0 P0 / 9 P1 OPEN`\n'''
+          new='''**Aktualny krok:** `DB_FIN_002_CHARGE_PAYMENT_REVERSAL_LIFECYCLE_BALANCE_OVERPAYMENT_AND_CONCURRENCY`\n**Status:** `FAIL_WITH_8_P1_BLOCKERS / 0 P0 / 8 P1 OPEN`\n'''
+          assert s.count(old)==1
+          s=s.replace(old,new,1)
+          assert '## 20. DB-FIN-002 — wynik fixera: PASS' not in s
+          section='''\n\n## 20. DB-FIN-002 — wynik fixera: PASS\n\nDB-FIN-002 domyka lifecycle należności i wpłat, saldo, reversal, zakaz nadpłaty oraz concurrency. Nie zmienia żadnego modelu Platform Commerce — DB-COM-001…008 pozostają OPEN.\n\n### 20.1. Jeden trwały stan Charge, reszta jako projekcja\n\n`cancelled` jest trwałym stanem biznesowym wynikającym z write-once tuple `cancelled_at + cancelled_by_user_id + cancellation_reason`. `open`, `partially_paid` i `paid` nie są drugim mutable authority; wynikają z kwoty należności i sumy ważnych, nieodwróconych wpłat.\n\n`overdue` jest czasowym modifierem projekcji: aktywna należność ma remaining > 0, `due_at` istnieje i termin minął według czasu lokalnego organizacji. Nie zapisujemy go jako niezależnego stanu mogącego rozjechać się z zegarem lub saldem.\n\n### 20.2. Ważna wpłata i reversal\n\nWpłata jest ważna, gdy `reversed_at IS NULL`. Dane finansowe Payment są po insert immutable; jedyną normalną zmianą jest pełny reversal tuple `reversed_at + reversed_by_user_id + reversal_reason`. Tuple jest albo całe NULL, albo całe non-NULL. Reversal jest jednokierunkowy i może nastąpić tylko raz. Hard delete wpłaty jest zabroniony.\n\nOdwrócenie wpłaty automatycznie zmienia projekcję Charge. Jeżeli cofamy ostatnią lub pełną wpłatę, Charge może wrócić z `paid` do `partially_paid` albo `open` bez przepisywania pola status.\n\n### 20.3. Saldo\n\nDla Charge:\n- `paid_amount = SUM(amount_minor)` tylko dla Payment z `reversed_at IS NULL`,\n- `remaining_amount = amount_minor - paid_amount`,\n- finalny invariant: `remaining_amount >= 0`.\n\nDla Studenta sumujemy tylko nieanulowane Charge. Frontend nie zapisuje `paid`, `remaining` ani totals jako authority.\n\n### 20.4. Zakaz nadpłaty i concurrency root\n\nApplication precheck nie wystarcza. `student_charges` jest concurrency rootem dla `record payment`, `reverse payment` i `cancel charge`. Każda z tych komend blokuje exact Charge `FOR UPDATE` przed obliczeniem salda lub zmianą efektu finansowego.\n\nRecord Payment po locku ponownie liczy sumę ważnych wpłat i wymaga `new amount <= remaining`. Dwie równoległe wpłaty nie mogą więc skonsumować tej samej pozostałej kwoty.\n\n### 20.5. Cancellation vs istniejące pieniądze\n\nW MVP nie ma jeszcze `student_credit` ani unallocated payment modelu. Dlatego Charge nie może zostać anulowany, jeśli istnieje jakakolwiek nieodwrócona wpłata. Sekretariat najpierw wykonuje reversal z powodem, a dopiero potem cancellation.\n\nTo zamyka race:\n- reversal i cancellation serializują się na Charge,\n- payment i cancellation serializują się na Charge,\n- payment na anulowany Charge jest odrzucany.\n\n### 20.6. Idempotency\n\nJedyną authority retry jest wspólny `idempotency_records`. Dotyczy `create charge`, `record payment`, `reverse payment` i `cancel charge`. Ten sam key + ten sam request hash replayuje zapisany bezpieczny wynik bez drugiego efektu; ten sam key z innym payloadem powoduje conflict.\n\nNullable `student_payments.idempotency_key` nie może pozostać równoległym systemem deduplikacji po cutover. Historyczny klucz bez pełnego operation key i request hash nie jest automatycznie przepisywany na generic idempotency record.\n\nExact race dla automatycznego `create charge from Course cost` pozostaje świadomie DB-COM-008.\n\n### 20.7. Migration safety\n\nPreflight musi wykryć co najmniej:\n- częściowy reversal tuple,\n- częściowy cancellation tuple,\n- aktywną należność z sumą valid payments > amount,\n- anulowaną należność z nieodwróconą wpłatą.\n\nMigracja nie może ucinać nadpłaty, dopisywać sztucznego reversal, automatycznie cofać wpłaty ani fabrykować generic idempotency records. Ambiguous legacy finance history = FAIL i reviewed remediation.\n\n### 20.8. Preservation gate\n\nZachowane bez zmian:\n- DB-FIN-001 exact relation contract,\n- Charge i Payment jako osobne byty,\n- wiele częściowych wpłat,\n- MVP bez nadpłaty,\n- korekta przez reversal zamiast delete,\n- optional Course context,\n- DB-COM-001…008 OPEN,\n- `core-schema.yml` i `docs/87...` zamrożone,\n- DB4_10+, Stage 5, Laravel migrations i UI nieruszone.\n\nStan po fixerze:\n- P0 OPEN: **0**,\n- P1 OPEN: **8**,\n- resolved: **2/10**,\n- result: **FAIL_WITH_8_P1_BLOCKERS**.\n\nNastępny dozwolony krok po central gate: **DB-COM-001 only**.\n\n**STOP przed DB-COM-001.**'''
+          s=s.rstrip()+section+'\n'
+          p.write_text(s)
+          PY
+          grep -q '^## 20. DB-FIN-002 — wynik fixera: PASS$' docs/114-stage-4-student-finance-commerce-audit.md
+          grep -q 'FAIL_WITH_8_P1_BLOCKERS / 0 P0 / 8 P1 OPEN' docs/114-stage-4-student-finance-commerce-audit.md
+          git diff --check -- docs/114-stage-4-student-finance-commerce-audit.md
+          test "$(git hash-object specs/database/student-finance-commerce.yml)" = "ffb447a0eebe5a6b79b291c787ffec4af4196e5f"
+          test "$(git hash-object specs/database/core-schema.yml)" = "65c6daab0330a2c6cf57a6a2caaba288a13a7a70"
+          test "$(git hash-object docs/87-physical-database-schema.md)" = "4d5f24f2948bdb55e7367c7b013ed918dade40ae"
+          test "$(git diff --name-only | grep -v '^\.github/workflows/tmp-db-fin-002-narrative.yml$' | grep -v '^\.stage4-tmp/' | sort -u)" = "docs/114-stage-4-student-finance-commerce-audit.md"
+          git config user.name 'prawkonaraz100'
+          git config user.email 'prawkonaraz100@gmail.com'
+          git add docs/114-stage-4-student-finance-commerce-audit.md
+          git commit -m 'DB-FIN-002: add lifecycle balance concurrency audit'
+          git push origin HEAD:tmp-db-fin-002-narrative-helper
