@@ -2,8 +2,8 @@ meta:
   project: osk-panel
   stage: 4
   slice: DB4_9_STUDENT_FINANCE_COMMERCE
-  step: DB_FIN_001_SAME_TENANT_EXACT_CHARGE_PAYMENT_COURSE_INTEGRITY
-  status: FAIL_WITH_9_P1_BLOCKERS
+  step: DB_FIN_002_CHARGE_PAYMENT_REVERSAL_LIFECYCLE_BALANCE_OVERPAYMENT_AND_CONCURRENCY
+  status: FAIL_WITH_8_P1_BLOCKERS
   diagnosed_at: 2026-09-08
   branch: docs-consolidation-2026-09-05
   diagnosis_only: false
@@ -16,7 +16,7 @@ meta:
 scope_rule:
   diagnose_before_fixing: true
   fixes_allowed_in_this_step: true
-  current_step_scope: DB_FIN_001_only
+  current_step_scope: DB_FIN_002_only
   one_blocker_per_future_step: true
   aggregate_files_frozen:
     specs/database/core-schema.yml:
@@ -282,6 +282,197 @@ resolved_contracts:
       Laravel_migrations_created: false
       UI_or_feature_implementation_started: false
 
+  DB-FIN-002:
+    status: PASS
+    severity: P1
+    title: charge_payment_reversal_lifecycle_balance_overpayment_and_concurrency
+    scope_boundary:
+      closes_only_student_finance_lifecycle_balance_reversal_idempotency_and_concurrency: true
+      DB_COM_001_through_DB_COM_008_unchanged: true
+      charge_from_course_cost_cross_domain_race_remains_DB_COM_008: true
+      audit_outbox_physical_storage_remains_DB4_10: true
+    charge_authority:
+      durable_business_state:
+        active_predicate: cancelled_at_is_null
+        cancelled_predicate: cancelled_at_is_not_null
+        mutable_status_column_as_second_authority_after_cutover: forbidden
+      cancellation_tuple:
+        fields: [cancelled_at, cancelled_by_user_id, cancellation_reason]
+        valid_states: all_null_or_all_nonnull
+        cancellation_reason_nonblank_when_cancelled: true
+        write_once: true
+        un_cancel_transition: forbidden
+      immutable_financial_identity_after_insert:
+        - organization_id
+        - student_id
+        - course_enrollment_id
+        - amount_minor
+        - currency
+      cancellation_requires_valid_payment_total_zero: true
+      cancellation_with_any_nonreversed_payment: reject
+      rationale: MVP_has_no_student_credit_or_unallocated_payment_model
+    payment_authority:
+      positive_amount_required: true
+      valid_payment_predicate: reversed_at_is_null
+      immutable_after_insert_except_reversal_tuple:
+        - organization_id
+        - student_id
+        - charge_id
+        - amount_minor
+        - currency
+        - paid_at
+        - payment_method
+        - note
+        - received_by_user_id
+        - created_at
+      reversal_tuple:
+        fields: [reversed_at, reversed_by_user_id, reversal_reason]
+        valid_states: all_null_or_all_nonnull
+        reversal_reason_nonblank_when_reversed: true
+        transition: unreversed_to_reversed_once
+        second_reversal: forbidden
+        unreverse: forbidden
+      hard_delete_after_insert: forbidden
+    derived_financial_projection:
+      paid_amount_minor: SUM_student_payments_amount_minor_where_reversed_at_is_null
+      remaining_amount_minor: charge_amount_minor_minus_paid_amount_minor
+      invariant_remaining_gte_zero: true
+      collection_state:
+        cancelled: cancelled_at_is_not_null
+        paid: cancelled_at_is_null_and_remaining_amount_minor_eq_0
+        partially_paid: cancelled_at_is_null_and_paid_amount_minor_gt_0_and_remaining_amount_minor_gt_0
+        open: cancelled_at_is_null_and_paid_amount_minor_eq_0_and_remaining_amount_minor_gt_0
+      overdue_modifier:
+        persisted_business_authority: false
+        predicate: cancelled_at_is_null_and_remaining_amount_minor_gt_0_and_due_at_is_not_null_and_due_at_before_organization_local_now
+        note: overdue_may_be_rendered_as_UI_label_but_does_not_replace_collection_state_authority
+      student_summary:
+        total_due: SUM_amount_minor_of_noncancelled_charges
+        total_paid: SUM_valid_payments_of_noncancelled_charges
+        total_remaining: SUM_remaining_amount_minor_of_noncancelled_charges
+        frontend_mutable_summary_columns: forbidden
+    concurrency_and_lock_order:
+      root: exact_student_charge_row
+      all_money_affecting_commands_share_root: [record_payment, reverse_payment, cancel_charge]
+      record_payment:
+        - atomically_claim_generic_idempotency_record
+        - lock_exact_charge_FOR_UPDATE
+        - require_charge_not_cancelled
+        - calculate_valid_payment_sum_under_charge_lock
+        - calculate_remaining_under_same_lock
+        - require_new_amount_minor_lte_remaining
+        - insert_exact_payment
+        - complete_idempotency_record_with_safe_result
+      reverse_payment:
+        - atomically_claim_generic_idempotency_record
+        - lock_exact_charge_FOR_UPDATE
+        - lock_exact_payment_FOR_UPDATE
+        - require_payment_unreversed
+        - set_full_reversal_tuple_once
+        - complete_idempotency_record_with_safe_result
+      cancel_charge:
+        - atomically_claim_generic_idempotency_record
+        - lock_exact_charge_FOR_UPDATE
+        - require_not_already_cancelled_unless_same_idempotency_replay
+        - calculate_valid_payment_sum_under_charge_lock
+        - require_valid_payment_sum_eq_0
+        - set_full_cancellation_tuple_once
+        - complete_idempotency_record_with_safe_result
+      record_payment_vs_record_payment_race: serialized_by_charge_lock
+      record_payment_vs_reversal_race: serialized_by_charge_lock
+      record_payment_vs_cancel_race: serialized_by_charge_lock
+      reversal_vs_cancel_race: serialized_by_charge_lock
+      no_network_IO_inside_student_finance_transaction: true
+    no_overpayment_boundary:
+      application_precheck_alone_sufficient: false
+      authoritative_check_occurs_after_charge_lock: true
+      final_state_requires_sum_valid_payments_lte_charge_amount: true
+      two_concurrent_payments_cannot_both_consume_same_remaining_amount: true
+      future_student_credit_extension_required_for_intentional_overpayment: true
+    idempotency:
+      authority: infrastructure_idempotency_records
+      common_contract_source: specs/api/common-contract.yml
+      commands:
+        create_charge:
+          operation_key: student_finance.charge.create
+          Idempotency_Key_required: true
+        record_payment:
+          operation_key: student_finance.payment.record
+          Idempotency_Key_required: true
+        reverse_payment:
+          operation_key: student_finance.payment.reverse
+          Idempotency_Key_required: true
+        cancel_charge:
+          operation_key: student_finance.charge.cancel
+          Idempotency_Key_required: true
+      same_key_same_hash_completed: replay_safe_result_without_second_effect
+      same_key_different_request_hash: conflict
+      atomic_claim_before_business_effect: true
+      nullable_student_payments_idempotency_key_as_parallel_authority_after_cutover: forbidden
+      legacy_column_policy: deauthorize_or_remove_after_migration_not_used_for_new_command_deduplication
+      create_charge_from_course_cost_exact_source_race: deferred_to_DB_COM_008
+    normal_command_semantics:
+      payment_reversal_recalculates_projection_without_rewriting_charge_state: true
+      reversal_of_last_or_full_payment_may_derive_partially_paid_or_open: true
+      cancellation_after_reversing_all_payments_allowed: true
+      cancellation_before_reversing_active_payments_rejected: true
+      payment_on_cancelled_charge_rejected: true
+      direct_status_patch: forbidden
+      direct_remaining_or_paid_total_patch: forbidden
+      payment_delete: forbidden
+    audit_intent:
+      required_events:
+        - student_charge_created
+        - student_charge_cancelled
+        - student_payment_recorded
+        - student_payment_reversed
+      actor_and_reason_preserved_where_applicable: true
+      transactional_business_intent_required: true
+      physical_audit_outbox_storage_finalization: DB4_10
+    migration_policy:
+      preflight:
+        - every_payment_reversal_tuple_is_all_null_or_all_nonnull
+        - every_charge_cancellation_tuple_is_all_null_or_all_nonnull
+        - every_active_charge_has_sum_valid_payments_lte_amount_minor
+        - every_cancelled_charge_has_sum_valid_payments_eq_0
+        - no_duplicate_or_ambiguous_reversal_state
+      stored_charge_status_is_not_used_as_authority_to_fabricate_payment_or_reversal_history: true
+      legacy_overpayment_auto_truncate_or_split: forbidden
+      legacy_cancelled_charge_active_payment_auto_reverse: forbidden
+      legacy_partial_reversal_tuple_auto_complete: forbidden
+      legacy_student_payments_idempotency_key_promoted_to_generic_record_without_operation_key_and_request_hash: forbidden
+      ambiguous_financial_history: fail_and_require_reviewed_remediation
+      hard_delete_to_make_invariant_pass: forbidden
+    required_tests:
+      - two_concurrent_payments_exceeding_remaining_cannot_both_commit
+      - exact_remaining_payment_commits_and_derives_paid
+      - partial_payment_derives_partially_paid
+      - reversal_removes_payment_from_valid_sum_and_reopens_projection
+      - second_reversal_rejected_or_same_idempotency_replayed_without_second_effect
+      - cancellation_with_active_payment_rejected
+      - reversal_then_cancellation_commits_in_serialized_order
+      - payment_on_cancelled_charge_rejected
+      - cancellation_vs_payment_race_has_one_valid_serial_outcome
+      - same_Idempotency_Key_same_hash_replays_without_duplicate_payment
+      - same_Idempotency_Key_different_hash_conflicts
+      - stale_mutable_charge_status_cannot_override_derived_projection
+      - overdue_is_projection_modifier_not_mutable_business_authority
+      - legacy_overpayment_or_cancelled_with_active_payment_fails_migration_without_fabricated_correction
+    preservation_checks:
+      DB_FIN_001_exact_relation_contract_unchanged: PASS
+      StudentFinance_remains_distinct_from_PlatformCommerce: PASS
+      one_charge_many_partial_payments_preserved: PASS
+      MVP_no_overpayment_preserved: PASS
+      payment_correction_is_reversal_not_delete_preserved: PASS
+      optional_course_relation_preserved: PASS
+      DB_COM_001_through_DB_COM_008_unchanged: PASS
+      aggregate_core_schema_modified: false
+      aggregate_docs87_modified: false
+      DB4_10_or_later_entered: false
+      Stage5_started: false
+      Laravel_migrations_created: false
+      UI_or_feature_implementation_started: false
+
 blockers:
   - id: DB-FIN-001
     title: student_finance_same_tenant_exact_charge_payment_course_integrity
@@ -308,7 +499,8 @@ blockers:
   - id: DB-FIN-002
     title: charge_payment_reversal_lifecycle_balance_overpayment_and_concurrency
     severity: P1
-    status: OPEN
+    status: RESOLVED
+    resolution_ref: resolved_contracts.DB-FIN-002
     diagnosis:
       - product_decision_requires_balance_from_valid_payments_and_forbids_MVP_overpayment
       - current_mutable_charge_status_has_no_closed_authority_or_state_matrix
@@ -512,9 +704,9 @@ blockers:
 diagnosis_summary:
   diagnosed_P0: 0
   diagnosed_P1: 10
-  resolved_after_diagnosis: 1
-  open_P0_P1: 9
-  result: FAIL_WITH_9_P1_BLOCKERS
+  resolved_after_diagnosis: 2
+  open_P0_P1: 8
+  result: FAIL_WITH_8_P1_BLOCKERS
   resolved_blockers:
     - DB-FIN-001
   blockers_in_required_fix_order:
@@ -528,7 +720,7 @@ diagnosis_summary:
     - DB-COM-008
     - DB-COM-006
 preservation_gate:
-  status: PASS_DB_FIN_001_MACHINE_CONTRACT
+  status: PASS_DB_FIN_002_MACHINE_CONTRACT
   checks:
     student_finance_and_platform_commerce_remain_distinct: true
     DB4_6_license_inventory_assignment_activation_contract_preserved: true
@@ -546,6 +738,6 @@ preservation_gate:
     UI_or_feature_implementation_started: false
 
 next_single_step_after_central_gate:
-  id: DB_FIN_002_CHARGE_PAYMENT_REVERSAL_LIFECYCLE_BALANCE_OVERPAYMENT_AND_CONCURRENCY
-  action: resolve_DB_FIN_002_only_after_next_explicit_user_instruction
-  stop_before: DB_COM_001_ORDER_ITEM_TENANT_PRODUCT_SNAPSHOT_PRICE_TOTAL_AND_QUANTITY_INTEGRITY
+  id: DB_COM_001_ORDER_ITEM_TENANT_PRODUCT_SNAPSHOT_PRICE_TOTAL_AND_QUANTITY_INTEGRITY
+  action: resolve_DB_COM_001_only_after_next_explicit_user_instruction
+  stop_before: DB_COM_002_PAYMENT_ATTEMPT_EVENT_ORDER_STATE_IDEMPOTENCY_AND_RECONCILIATION
