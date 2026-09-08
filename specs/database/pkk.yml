@@ -1,0 +1,393 @@
+meta:
+  project: osk-panel
+  stage: 4
+  slice: DB4_8_PKK
+  step: DB4_8_PKK_DIAGNOSIS
+  status: FAIL_WITH_8_P1_BLOCKERS
+  diagnosed_at: 2026-09-08
+  branch: docs-consolidation-2026-09-05
+  diagnosis_only: true
+  aggregate_sync_status: FROZEN_PENDING_BLOCKER_RESOLUTION
+  implementation_started: false
+  Laravel_migrations_created: false
+  Stage5_started: false
+  UI_or_feature_implementation_started: false
+
+scope_rule:
+  diagnose_before_fixing: true
+  fixes_allowed_in_this_step: false
+  current_step_scope: DB4_8_PKK_DIAGNOSIS_only
+  one_blocker_per_future_step: true
+  aggregate_files_frozen:
+    specs/database/core-schema.yml:
+      blob_sha: c04dcbea90ca877c1c4e76196b77fdb33e404dab
+    docs/87-physical-database-schema.md:
+      blob_sha: a26421c9d3d624693f29f8e9dfa1b9e718f22323
+  later_slices_forbidden_in_this_step:
+    - DB4_9_STUDENT_FINANCE_COMMERCE
+    - DB4_10_AUDIT_OUTBOX_NOTIFICATIONS
+    - DB4_11_FINAL_MIGRATION_ORDER_AND_INVARIANT_TEST_MATRIX
+  Stage5_or_API_contract_sync_in_this_step: forbidden
+  Laravel_migration_generation_in_this_step: forbidden
+
+canonical_sources:
+  course_and_PKK_identity:
+    - specs/database/students-courses-training.yml
+    - docs/87-physical-database-schema.md
+    - docs/66-formal-student-record-and-theory-exemptions.md
+  organization_configuration:
+    - specs/database/organization-settings.yml
+    - docs/37-pkk-configuration-gate.md
+    - specs/screens/pkk-configuration-gate.yml
+    - specs/api/paths/auth-organization.yaml
+  observed_PKK_product_evidence:
+    - docs/75-pkk-entrypoints-and-student-list.md
+    - docs/76-pkk-course-operational-panel.md
+    - docs/77-pkk-management-flow-fallback-design.md
+    - specs/screens/pkk-entrypoints-and-student-list.yml
+    - specs/screens/pkk-course-operational-panel.yml
+  API_and_security:
+    - specs/api/paths/pkk-calendar.yaml
+    - specs/api/openapi-components-v1.yaml
+    - specs/api/common-contract.yml
+    - specs/api/required-operations-v1.yml
+    - specs/security/permissions.yml
+  preservation:
+    - specs/reverse-engineering-manifest.yml
+    - docs/96-reverse-engineering-preservation-contract.md
+    - specs/traceability/core-v1.yml
+  current_aggregate_read_only:
+    - specs/database/core-schema.yml
+    - docs/87-physical-database-schema.md
+
+upstream_contracts_must_not_be_reopened:
+  DB4_4_course_PKK_identity:
+    status: PASS
+    canonical_owner: pkk_profiles
+    course_scoped: true
+    exactly_one_current_identity_profile_per_course: true
+    identity_history_versioned: true
+    current_predicate: superseded_at_is_null
+    plaintext_PKK_persistence_forbidden: true
+    course_and_initial_PKK_identity_commit_atomically: true
+    PKK_identity_edit_uses_course_version_and_history: true
+    category_or_training_type_change_requires_PKK_identity_revalidation_same_transaction: true
+    hard_unique_PKK_number_not_invented: true
+    provider_lifecycle_was_explicitly_deferred_to_DB4_8: true
+  organization_settings:
+    status: PASS
+    one_canonical_PKK_configuration_record_per_organization: true
+    configuration_gate_and_settings_share_same_domain_records: true
+    external_osk_login_is_not_application_login: true
+    external_osk_login_encrypted_at_rest: true
+    organization_settings_version_is_settings_concurrency_root: true
+    operator_names_belong_to_users_not_PKK_settings: true
+  RBAC:
+    status: PASS
+    permissions_preserved:
+      - pkk.view
+      - pkk.fetch
+      - pkk.training.update_and_return
+      - pkk.return.school
+      - pkk.return.authority
+      - pkk.return.expired
+      - pkk.retry
+      - organization.integrations.manage
+    PKK_permissions_are_student_scoped_after_tenant_validation: true
+  common_idempotency:
+    status: PASS
+    Idempotency_Key_required_for_PKK_mutations: true
+    same_key_different_payload_conflict_required: true
+    idempotency_records_are_generic_authority: true
+
+confirmed_business_capabilities_to_preserve:
+  PKK_operational_owner_is_course_enrollment: true
+  one_student_may_have_multiple_courses_each_with_own_PKK_identity_history: true
+  add_student_from_PKK_entrypoint: true
+  configuration_gate_before_provider_operations_when_configuration_incomplete: true
+  fetch_profile: true
+  preview_fetched_profile: true
+  update_training_and_return: true
+  return_to_other_school: true
+  return_to_authority: true
+  return_expired_profile: true
+  append_only_operation_history: true
+  latest_operation_summary_on_course: true
+  retry_only_for_safe_retryable_errors: true
+  unknown_timeout_state_requires_reconciliation_before_replay: true
+  signed_XML_handoff_when_provider_requires_it: true
+  fetched_provider_data_is_snapshot_not_unconditional_student_overwrite: true
+  sensitive_provider_payload_requires_redacted_UI_projection_and_protected_storage: true
+  exact_provider_schema_is_not_invented_from_unobservable_competitor_UI: true
+
+current_aggregate_observation:
+  existing_tables:
+    - pkk_integration_settings
+    - pkk_profiles
+    - pkk_operations
+    - pkk_operation_attempts
+    - file_assets
+    - idempotency_records
+  positive_existing_elements:
+    - pkk_profiles_has_same_tenant_course_binding_and_versioned_identity_history_from_DB4_4
+    - pkk_profiles_has_provider_status_snapshot_and_fetched_at_placeholder_fields
+    - pkk_operations_has_course_profile_operation_type_business_status_idempotency_request_snapshot_actor_and_timestamps
+    - pkk_operation_attempts_has_attempt_number_provider_request_transport_provider_status_error_retryable_and_response_snapshot_fields
+    - common_contract_requires_Idempotency_Key_for_PKK_mutations
+    - API_exposes_fetch_update_return_history_and_retry_commands
+    - traceability_explicitly_requires_timeout_unknown_state_reconciliation_before_replay
+    - file_assets_and_upload_contract_exist_for_future_signed_XML_evidence
+  diagnosis_rule: >-
+    These are useful provisional elements, but they do not yet prove exact-target
+    tenant integrity, immutable provider snapshot history, command lifecycle,
+    exactly-once external effects, signed-XML evidence lineage, configuration
+    revision binding, or deterministic latest-operation projection.
+
+provider_contract_unknowns_not_to_invent:
+  exact_request_response_fields: pending_provider_adapter_contract
+  exact_provider_status_catalog: pending_provider_adapter_contract
+  provider_native_idempotency_support: unknown
+  provider_native_reconciliation_lookup: unknown
+  signed_XML_schema_signature_format_and_validation_rules: pending_provider_contract
+  duplicate_PKK_external_ownership_semantics: not_verified
+  exact_test_connection_semantics: conditional_provider_capability
+  rule: >-
+    DB4_8 may establish provider-neutral fail-closed persistence and concurrency
+    boundaries, but must not fabricate external PKK protocol facts. Any provider-
+    specific field/status/duplicate rule remains a later verified adapter contract.
+
+blockers:
+  - id: DB-PKK-001
+    title: same_tenant_and_exact_course_profile_operation_attempt_integrity
+    severity: P1
+    status: OPEN
+    diagnosis:
+      - DB4_4_closes_PkkProfile_to_exact_Course_but_current_pkk_operations_only_have_generic_course_and_optional_profile_references
+      - current_pkk_operation_attempts_do_not_carry_an_explicit_tenant_key_or_exact_course_profile_binding
+      - same_organization_operation_could_pair_course_A_with_profile_from_course_B_without_a_composite_exact_target_boundary
+      - future_signed_XML_or_reconciliation_evidence_must_not_attach_to_an_operation_from_another_tenant_course_or_profile
+      - actor_user_is_global_identity_and_must_not_be_fake_tenant_scoped
+    risk:
+      - cross_tenant_provider_history_or_payload_exposure
+      - provider_effect_recorded_against_wrong_course_or_PKK_identity
+      - retry_or_reconciliation_attempt_attached_to_wrong_operation
+    closure_scope_only:
+      - tenant_candidate_keys_for_PKK_provider_rows
+      - explicit_organization_id_where_needed_for_relational_security
+      - composite_same_tenant_exact_course_profile_operation_relations
+      - nullable_relation_semantics_and_RESTRICT_history_policy
+      - migration_prechecks_without_reparenting_or_guessing
+
+  - id: DB-PKK-002
+    title: immutable_provider_profile_snapshot_history_and_current_projection
+    severity: P1
+    status: OPEN
+    diagnosis:
+      - DB4_4_identity_fields_on_pkk_profiles_are_versioned_history_but_provider_status_snapshot_and_fetched_at_are_still_provisional_mutable_fields_on_the_same_row
+      - repeated_fetches_or_later_provider_responses_need_historical_snapshots_instead_of_overwriting_the_only_identity_row
+      - preview_PKK_and_fetched_data_panel_need_one_deterministic_current_provider_snapshot_for_the_exact_current_identity_profile
+      - DB4_4_explicitly_forbids_copying_old_provider_snapshot_state_into_a_new_PKK_identity_revision
+      - provider_snapshot_must_not_silently_overwrite_current_Student_or_Course_fields
+    risk:
+      - loss_of_historical_provider_evidence
+      - stale_or_wrong_profile_snapshot_displayed_after_identity_change
+      - current_identity_row_becomes_mixed_identity_and_mutable_sync_authority
+    closure_scope_only:
+      - provider_snapshot_storage_separate_from_immutable_PKK_identity_or_equivalent_versioned_history
+      - deterministic_snapshot_revision_and_current_projection
+      - immutable_snapshot_content_hash_or_equivalent_integrity_evidence
+      - exact_identity_profile_binding
+      - no_automatic_student_or_course_overwrite
+
+  - id: DB-PKK-003
+    title: provider_operation_lifecycle_concurrency_and_command_eligibility
+    severity: P1
+    status: OPEN
+    diagnosis:
+      - current_business_status_is_unconstrained_while_product_sources_describe_draft_pending_requires_signature_submitted_success_failed_cancelled_and_simpler_pending_success_failed_views
+      - fetch_update_return_and_return_variants_have_different_external_effects_but_no_closed_database_state_matrix
+      - operation_creation_must_revalidate_exact_course_current_PKK_identity_permission_and_integration_readiness_without_racing_course_edit_cancel_or_PKK_supersession
+      - competing_mutating_operations_for_the_same_current_profile_can_have_conflicting_external_effects_without_a_serialization_rule
+      - DB4_4_deliberately_did_not_invent_a_hard_unique_PKK_number_so_duplicate_lookup_hash_conditions_must_fail_closed_for_provider_mutation_until_verified_provider_semantics_exist
+    risk:
+      - operation_runs_against_superseded_or_wrong_PKK_context
+      - two_conflicting_returns_or_update_return_commands_execute_concurrently
+      - invalid_state_transition_or_provider_action_after_course_context_changed
+    closure_scope_only:
+      - canonical_provider_neutral_operation_type_and_business_state_catalogs
+      - state_timestamp_equivalence_and_terminal_immutability
+      - course_and_current_profile_serialization_boundary
+      - provider_operation_eligibility_rechecks
+      - safe_nonterminal_mutation_exclusivity_or_verified_operation_conflict_matrix
+      - fail_closed_duplicate_PKK_ambiguity_without_invented_global_uniqueness
+
+  - id: DB-PKK-004
+    title: idempotency_retry_reconciliation_and_exactly_once_external_effect
+    severity: P1
+    status: OPEN
+    diagnosis:
+      - common_API_contract_requires_Idempotency_Key_for_PKK_mutations_but_current_pkk_operations_idempotency_key_is_nullable_and_has_no_closed_uniqueness_or_request_hash_binding
+      - retry_endpoint_exists_and_traceability_requires_business_validation_errors_not_blindly_retried
+      - timeout_or_connection_loss_can_leave_external_effect_unknown_and_must_not_be_treated_as_failed_then_replayed
+      - current_attempt_no_unique_is_positive_but_does_not_define_contiguous_allocation_lock_order_or_one_inflight_attempt
+      - provider_request_id_transport_status_business_status_and_reconciliation_outcome_are_not_yet_tied_to_one_exact_operation_effect
+    risk:
+      - duplicate_external_return_or_update
+      - blind_retry_after_provider_already_committed
+      - two_parallel_attempts_for_one_operation
+      - idempotency_key_reuse_creates_distinct_business_operations
+    closure_scope_only:
+      - operation_idempotency_claim_bound_to_generic_idempotency_records_or_equivalent_exact_scope
+      - request_hash_and_same_key_same_result_semantics
+      - one_inflight_provider_attempt_per_operation
+      - contiguous_attempt_sequence_under_operation_lock
+      - retryable_error_matrix_vs_unknown_effect_state
+      - explicit_reconciliation_state_and_no_replay_until_resolved
+      - final_operation_effect_exactly_once_without_assuming_provider_native_idempotency
+
+  - id: DB-PKK-005
+    title: signed_XML_handoff_and_file_asset_evidence_integrity
+    severity: P1
+    status: OPEN
+    diagnosis:
+      - preserved_capability_requires_download_XML_sign_externally_and_upload_signed_XML_when_provider_requires_it
+      - current_PKK_tables_do_not_bind_unsigned_or_signed_XML_artifacts_to_the_exact_operation_attempt_or_profile
+      - generic_file_assets_exist_but_no_PKK_specific_purpose_readiness_hash_or_one_time_state_boundary_is_defined
+      - requires_signature_must_not_be_a_UI_only_label_without_durable_evidence_of_which_XML_was_signed
+      - arbitrary_same_tenant_upload_must_not_be_attachable_as_signed_XML_for_another_operation
+    risk:
+      - wrong_XML_signed_or_submitted_for_wrong_course
+      - tampered_or_replaced_document_evidence
+      - operation_submitted_without_proving_signature_handoff_completion
+    closure_scope_only:
+      - signed_XML_artifact_metadata_and_exact_operation_attempt_profile_binding
+      - same_tenant_FileAsset_purpose_readiness_mime_size_hash_boundary
+      - immutable_unsigned_content_hash_and_signed_asset_hash
+      - requires_signature_to_submitted_transition_evidence
+      - normal_replace_delete_or_cross_operation_reuse_forbidden
+
+  - id: DB-PKK-006
+    title: sensitive_provider_payload_encryption_redaction_hash_and_key_version_boundary
+    severity: P1
+    status: OPEN
+    diagnosis:
+      - current_request_payload_ciphertext_provider_response_ciphertext_and_redacted_JSON_fields_are_positive_but_have_no_closed_cipher_version_key_version_or_content_integrity_contract
+      - provider_snapshots_may_contain_PII_and_formal_training_data_and_must_not_leak_through_audit_activity_outbox_logs_or_idempotency_safe_snapshots
+      - traceability_already_lists_encryption_and_key_rotation_ADR_as_required_before_production
+      - mutable_redacted_projection_must_not_be_able_to_diverge_silently_from_protected_evidence
+      - exact_provider_payload_schema_is_pending_and_must_remain_adapter_owned
+    risk:
+      - plaintext_or_overbroad_provider_payload_leak
+      - historical_payload_cannot_be_verified_after_key_rotation
+      - redacted_projection_disagrees_with_encrypted_evidence_without_detection
+    closure_scope_only:
+      - encrypted_payload_envelope_metadata_and_key_version_reference
+      - immutable_ciphertext_and_integrity_hash_or_authenticated_encryption_evidence
+      - allowlisted_redacted_projection_boundary
+      - explicit_exclusion_from_audit_outbox_logs_and_idempotency_safe_response_snapshots
+      - key_rotation_compatible_history_without_rewriting_business_evidence
+      - no_provider_specific_schema_invention
+
+  - id: DB-PKK-007
+    title: integration_configuration_revision_binding_and_async_execution_context
+    severity: P1
+    status: OPEN
+    diagnosis:
+      - pkk_integration_settings_has_readiness_and_updated_at_while_organization_settings_version_is_the_current_settings_concurrency_root
+      - provider_operations_can_be_async_or_retried_after_configuration_changes
+      - current_pkk_operation_does_not_prove_which_organization_settings_or_integration_configuration_revision_authorized_and_parameterized_the_external_call
+      - changing_external_osk_login_or_future_secret_reference_must_not_silently_change_the_execution_context_of_an_already_created_attempt
+      - exact_provider_secrets_are_not_observed_and_must_not_be_invented_or_snapshotted_in_plaintext
+    risk:
+      - retry_executes_under_different_integration_identity_than_original_attempt
+      - historical_operation_cannot_explain_which_verified_configuration_was_used
+      - configuration_change_race_with_provider_submission
+    closure_scope_only:
+      - immutable_configuration_revision_or_version_binding_for_each_provider_attempt
+      - readiness_verification_epoch_or_equivalent_execution_precondition
+      - safe_configuration_change_vs_operation_lock_order
+      - no_plaintext_credential_or_external_login_copy_into_operation_history
+      - future_secret_reference_support_without_inventing_secret_fields
+
+  - id: DB-PKK-008
+    title: deterministic_operation_history_latest_and_course_summary_projection
+    severity: P1
+    status: OPEN
+    diagnosis:
+      - course_UI_shows_last_PKK_operation_and_operation_history_count
+      - current_pkk_operations_only_have_created_at_and_completed_at_so_equal_timestamps_or_async_completion_order_can_make_latest_selection_ambiguous
+      - latest_operation_is_a_projection_and_must_not_become_a_second_mutable_course_or_profile_status_authority
+      - history_listing_needs_stable_order_and_pagination_independent_of_UUID_or_display_timestamp_ties
+      - retry_attempt_count_and_business_operation_count_are_distinct_metrics_and_must_not_be_mixed
+    risk:
+      - nondeterministic_last_operation_on_student_or_course_screen
+      - count_disagrees_with_history
+      - retries_inflate_business_operation_count
+      - pagination_duplicates_or_skips_equal_timestamp_rows
+    closure_scope_only:
+      - deterministic_course_scoped_business_operation_sequence
+      - immutable_sequence_allocation_under_existing_course_serialization_boundary
+      - latest_operation_from_max_sequence_not_timestamp_or_UUID
+      - derived_history_count_and_latest_status_projection
+      - stable_history_sort_and_pagination_tie_breaker
+      - separate_operation_count_from_transport_attempt_count
+
+diagnosis_summary:
+  diagnosed_P0: 0
+  diagnosed_P1: 8
+  resolved_in_diagnosis: 0
+  open_P0_P1: 8
+  result: FAIL_WITH_8_P1_BLOCKERS
+  blockers_in_required_fix_order:
+    - DB-PKK-001
+    - DB-PKK-002
+    - DB-PKK-003
+    - DB-PKK-004
+    - DB-PKK-005
+    - DB-PKK-006
+    - DB-PKK-007
+    - DB-PKK-008
+
+API_contract_sync_gaps_recorded_not_fixed:
+  pkk_profile_schema_is_thin_projection_without_snapshot_revision_lineage: true
+  pkk_operation_schema_is_thin_projection_without_closed_business_state_or_attempt_details: true
+  signed_XML_handoff_has_preserved_capability_but_no_exact_HTTP_transport_contract: true
+  provider_normalized_update_payload_is_intentionally_opaque_adapter_boundary: true
+  exact_status_fields_retry_reconciliation_and_signed_XML_transport_sync: Stage5_acceptance_contract_sync
+  API_files_modified_in_DB4_8_diagnosis: false
+
+preservation_gate:
+  status: PASS_DIAGNOSIS_ONLY
+  checks:
+    no_blocker_fixed_during_diagnosis: true
+    DB4_4_course_PKK_identity_contract_preserved: true
+    exactly_one_current_course_scoped_PKK_identity_preserved: true
+    PKK_identity_history_and_course_versioning_preserved: true
+    no_hard_unique_PKK_number_invented: true
+    organization_settings_PKK_configuration_source_preserved: true
+    configuration_gate_does_not_create_duplicate_user_name_storage: true
+    external_osk_login_not_redefined_as_application_login: true
+    permission_based_RBAC_preserved: true
+    common_idempotency_contract_preserved: true
+    fetch_preview_update_return_all_three_return_variants_history_retry_preserved: true
+    signed_XML_handoff_preserved_as_required_capability: true
+    no_unobserved_provider_schema_or_status_semantics_invented: true
+    exact_provider_contract_remains_pending_adapter_boundary: true
+    aggregate_core_schema_modified: false
+    aggregate_docs87_modified: false
+    DB4_9_or_later_entered: false
+    Laravel_migrations_created: false
+    Stage5_started: false
+    UI_or_feature_implementation_started: false
+
+next_single_step_after_central_gate:
+  id: DB_PKK_001_SAME_TENANT_AND_EXACT_COURSE_PROFILE_OPERATION_ATTEMPT_INTEGRITY
+  action: resolve_DB_PKK_001_only_after_next_explicit_user_instruction
+  allowed_scope:
+    - specs/database/pkk.yml
+    - docs/113-stage-4-pkk-audit.md
+    - specs/gates/stage-4-database-contract-gate.yml
+  aggregate_files_frozen:
+    - specs/database/core-schema.yml
+    - docs/87-physical-database-schema.md
+  stop_before: DB_PKK_002_IMMUTABLE_PROVIDER_PROFILE_SNAPSHOT_HISTORY_AND_CURRENT_PROJECTION
