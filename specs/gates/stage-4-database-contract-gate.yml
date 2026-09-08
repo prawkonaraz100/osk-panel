@@ -94,13 +94,13 @@ stage_4_slices:
     final_aggregate_sync: PASS
     result: PASS
   - id: DB4_8_PKK
-    status: FAIL_WITH_2_P1_BLOCKERS
+    status: FAIL_WITH_1_P1_BLOCKER
     diagnosis: COMPLETE
     blockers_diagnosed: 8
-    blockers_resolved: 6
-    open_P0_P1: 2
+    blockers_resolved: 7
+    open_P0_P1: 1
     final_aggregate_sync: NOT_STARTED
-    result: FAIL_WITH_2_P1_BLOCKERS
+    result: FAIL_WITH_1_P1_BLOCKER
   - id: DB4_9_STUDENT_FINANCE_COMMERCE
     status: NOT_STARTED
   - id: DB4_10_AUDIT_OUTBOX_NOTIFICATIONS
@@ -2913,6 +2913,55 @@ quality_checks:
       Stage5_started: false
       UI_or_feature_implementation_started: false
 
+
+  pkk_integration_configuration_revision_binding_and_async_execution_context:
+    status: PASS
+    resolved_blocker_id: DB-PKK-007
+    severity: P1
+    machine_source: specs/database/pkk.yml
+    audit_source: docs/113-stage-4-pkk-audit.md
+    machine_contract_commit: 577d5ad393bf2107341c8112a1906a3bbe8ea2c4
+    narrative_audit_commit: 07deefb1861ac28978f4b5a827c55d42e2101c30
+    decision:
+      current_settings_authority: pkk_integration_settings
+      aggregate_settings_concurrency_root: organization_settings.version
+      separate_execution_configuration_revision: true
+      execution_configuration_revision_history: pkk_integration_configuration_revisions
+      attempt_exact_configuration_binding_required: true
+      attempt_binding_immutable_after_insert: true
+      retry_may_bind_new_current_revision_without_rewriting_old_attempt: true
+      organization_wide_PKK_execution_serialization_lock: true
+      prepared_attempt_after_configuration_change_safe_fails_before_provider_IO: true
+      dispatching_attempt_blocks_material_configuration_change: true
+      effect_unknown_attempt_blocks_material_configuration_change: true
+      reconciliation_uses_same_attempt_bound_configuration_revision: true
+      external_osk_login_plaintext_history_created: false
+      future_secret_plaintext_history_created: false
+      provider_specific_execution_schema_invented: false
+      timestamp_or_updated_at_revision_heuristic_allowed: false
+      DB_PKK_008_not_fixed: true
+    checks:
+      organization_settings_version_semantics_preserved: PASS
+      execution_configuration_revision_semantics_closed: PASS
+      append_only_configuration_revision_history_closed: PASS
+      exact_same_tenant_attempt_revision_binding_closed: PASS
+      configuration_change_vs_dispatch_serialization_closed: PASS
+      stale_prepared_attempt_cannot_silently_dispatch_new_configuration: PASS
+      dispatching_effect_unknown_configuration_change_interlock_closed: PASS
+      retry_new_revision_without_history_rewrite_closed: PASS
+      reconciliation_same_revision_boundary_closed: PASS
+      no_plaintext_external_login_or_future_secret_history: PASS
+      legacy_attempt_revision_not_guessed_from_timestamp_or_updated_at: PASS
+      DB_PKK_001_through_DB_PKK_006_preserved: PASS
+      DB_PKK_008_remains_open: PASS
+      aggregate_core_schema_modified_in_step: false
+      aggregate_docs87_modified_in_step: false
+      API_files_modified_in_step: false
+      DB4_9_or_later_entered: false
+      Laravel_migrations_created: false
+      Stage5_started: false
+      UI_or_feature_implementation_started: false
+
 resolved_blockers:
   - DB-FOUND-001
   - DB-FOUND-002
@@ -2965,9 +3014,9 @@ resolved_blockers:
   - DB-PKK-004
   - DB-PKK-005
   - DB-PKK-006
+  - DB-PKK-007
 
 open_blockers_current_diagnosed_scope:
-  - DB-PKK-007
   - DB-PKK-008
 
 gate_definition:
@@ -2978,7 +3027,7 @@ gate_definition:
     - migration_order_dependency_safe
     - database_invariant_test_matrix_exists
     - reverse_engineering_preservation_traceable
-  current_result: DB4_8_FAIL_WITH_2_P1_BLOCKERS
+  current_result: DB4_8_FAIL_WITH_1_P1_BLOCKER
   DB4_1_result: PASS
   DB4_2_result: PASS
   DB4_3_result: PASS
@@ -3031,7 +3080,8 @@ gate_definition:
   DB4_8_DB_PKK_004_result: PASS
   DB4_8_DB_PKK_005_result: PASS
   DB4_8_DB_PKK_006_result: PASS
-  DB4_8_result: FAIL_WITH_2_P1_BLOCKERS
+  DB4_8_DB_PKK_007_result: PASS
+  DB4_8_result: FAIL_WITH_1_P1_BLOCKER
   may_start_DB4_4_fixes: false
   may_start_DB4_5: false
   may_start_DB4_5_fixes: false
@@ -3045,8 +3095,8 @@ gate_definition:
   may_start_UI_or_feature_implementation: false
 
 next_single_step:
-  id: DB_PKK_007_INTEGRATION_CONFIGURATION_REVISION_BINDING_AND_ASYNC_EXECUTION_CONTEXT
-  action: resolve_DB_PKK_007_only_after_next_explicit_user_instruction
+  id: DB_PKK_008_DETERMINISTIC_OPERATION_HISTORY_LATEST_AND_COURSE_SUMMARY_PROJECTION
+  action: resolve_DB_PKK_008_only_after_next_explicit_user_instruction
   allowed_scope:
     - specs/database/pkk.yml
     - docs/113-stage-4-pkk-audit.md
@@ -3055,8 +3105,8 @@ next_single_step:
     - specs/database/core-schema.yml
     - docs/87-physical-database-schema.md
   scope_lock: >-
-    Resolve only DB-PKK-007 integration configuration revision binding and async
-    execution context. Do not resolve DB-PKK-008 in the same step, do not enter
-    DB4_9 or later slices, do not start Stage 5, do not create Laravel migrations
-    and do not start UI or feature implementation.
-  after_action: rerun_DB_PKK_007_machine_narrative_central_gate_and_STOP_before_DB_PKK_008
+    Resolve only DB-PKK-008 deterministic operation history latest and course
+    summary projection. Do not enter DB4_9 or later slices in the same step, do
+    not start Stage 5, do not create Laravel migrations and do not start UI or
+    feature implementation.
+  after_action: rerun_DB_PKK_008_machine_narrative_central_gate_and_STOP_before_DB4_8_FINAL_AGGREGATE_SYNC
