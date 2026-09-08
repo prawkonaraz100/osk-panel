@@ -103,13 +103,13 @@ stage_4_slices:
     final_aggregate_sync: PASS
     result: PASS
   - id: DB4_9_STUDENT_FINANCE_COMMERCE
-    status: FAIL_WITH_10_P1_BLOCKERS
+    status: FAIL_WITH_9_P1_BLOCKERS
     diagnosis: COMPLETE
     blockers_diagnosed: 10
-    blockers_resolved: 0
-    open_P0_P1: 10
+    blockers_resolved: 1
+    open_P0_P1: 9
     final_aggregate_sync: NOT_STARTED
-    result: FAIL_WITH_10_P1_BLOCKERS
+    result: FAIL_WITH_9_P1_BLOCKERS
   - id: DB4_10_AUDIT_OUTBOX_NOTIFICATIONS
     status: NOT_STARTED
   - id: DB4_11_FINAL_MIGRATION_ORDER_AND_INVARIANT_TEST_MATRIX
@@ -3080,6 +3080,42 @@ quality_checks:
       Laravel_migrations_created: false
       UI_or_feature_implementation_started: false
 
+  student_finance_exact_charge_payment_course_integrity:
+    status: PASS
+    resolved_blocker_id: DB-FIN-001
+    severity: P1
+    machine_source: specs/database/student-finance-commerce.yml
+    narrative_source: docs/114-stage-4-student-finance-commerce-audit.md
+    machine_commit: f92f910b19b9c367430e5fb8e4eb3181c23801df
+    machine_blob: ea786013f7931fb086734d2a1060f69dce6f312d
+    narrative_commit: c8d54fdd930a718a600c08d5b42078be89659874
+    narrative_blob: 6cf2e16c25b79e8122a341b582a45640bce7ad04
+    decision:
+      course_enrollments_exact_student_candidate_key: [organization_id, id, student_id]
+      student_charges_exact_payment_target_candidate_key: [organization_id, id, student_id, currency]
+      charge_student_FK: [organization_id, student_id]
+      charge_optional_course_exact_student_FK: [organization_id, course_enrollment_id, student_id]
+      payment_student_FK: [organization_id, student_id]
+      payment_exact_charge_student_currency_FK: [organization_id, charge_id, student_id, currency]
+      optional_course_uses_MATCH_SIMPLE: true
+      formal_finance_relations_on_update: RESTRICT
+      formal_finance_relations_on_delete: RESTRICT
+      global_user_actor_fake_tenant_FK: forbidden
+      legacy_mismatch_auto_reparent_or_currency_rewrite: forbidden
+    checks:
+      same_tenant_Charge_Student_boundary: PASS
+      optional_Course_belongs_to_exact_Charge_Student: PASS
+      Payment_belongs_to_exact_Charge_Student_and_currency: PASS
+      global_User_identity_not_fake_tenant_scoped: PASS
+      DB_FIN_002_remains_open: PASS
+      DB_COM_001_through_DB_COM_008_remain_open: PASS
+      aggregate_core_schema_modified: false
+      aggregate_docs87_modified: false
+      DB4_10_or_later_entered: false
+      Stage5_started: false
+      Laravel_migrations_created: false
+      UI_or_feature_implementation_started: false
+
 resolved_blockers:
   - DB-FOUND-001
   - DB-FOUND-002
@@ -3134,9 +3170,9 @@ resolved_blockers:
   - DB-PKK-006
   - DB-PKK-007
   - DB-PKK-008
+  - DB-FIN-001
 
 open_blockers_current_diagnosed_scope:
-  - DB-FIN-001
   - DB-FIN-002
   - DB-COM-001
   - DB-COM-002
@@ -3155,7 +3191,7 @@ gate_definition:
     - migration_order_dependency_safe
     - database_invariant_test_matrix_exists
     - reverse_engineering_preservation_traceable
-  current_result: DB4_9_FAIL_WITH_10_P1_BLOCKERS
+  current_result: DB4_9_FAIL_WITH_9_P1_BLOCKERS
   DB4_1_result: PASS
   DB4_2_result: PASS
   DB4_3_result: PASS
@@ -3213,7 +3249,8 @@ gate_definition:
   DB4_8_final_aggregate_sync_result: PASS
   DB4_8_result: PASS
   DB4_9_diagnosis_result: PASS_DIAGNOSIS_COMPLETE
-  DB4_9_result: FAIL_WITH_10_P1_BLOCKERS
+  DB4_9_DB_FIN_001_result: PASS
+  DB4_9_result: FAIL_WITH_9_P1_BLOCKERS
   may_start_DB4_4_fixes: false
   may_start_DB4_5: false
   may_start_DB4_5_fixes: false
@@ -3229,8 +3266,8 @@ gate_definition:
   may_start_UI_or_feature_implementation: false
 
 next_single_step:
-  id: DB_FIN_001_SAME_TENANT_EXACT_CHARGE_PAYMENT_COURSE_INTEGRITY
-  action: resolve_DB_FIN_001_only_after_next_explicit_user_instruction
+  id: DB_FIN_002_CHARGE_PAYMENT_REVERSAL_LIFECYCLE_BALANCE_OVERPAYMENT_AND_CONCURRENCY
+  action: resolve_DB_FIN_002_only_after_next_explicit_user_instruction
   allowed_scope:
     - specs/database/student-finance-commerce.yml
     - docs/114-stage-4-student-finance-commerce-audit.md
@@ -3239,6 +3276,6 @@ next_single_step:
     - specs/database/core-schema.yml
     - docs/87-physical-database-schema.md
   scope_lock: >-
-    Resolve DB-FIN-001 only. Preserve all other nine DB4_9 blockers as OPEN.
-    Do not enter DB-FIN-002, DB4_10, Stage 5, Laravel migrations or UI in the same step.
-  after_action: rerun_DB_FIN_001_machine_narrative_central_gate_and_STOP_before_DB_FIN_002
+    Resolve DB-FIN-002 only. Preserve DB-COM-001 through DB-COM-008 as OPEN.
+    Do not enter DB-COM-001, DB4_10, Stage 5, Laravel migrations or UI in the same step.
+  after_action: rerun_DB_FIN_002_machine_narrative_central_gate_and_STOP_before_DB_COM_001
