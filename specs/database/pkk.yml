@@ -2,11 +2,11 @@ meta:
   project: osk-panel
   stage: 4
   slice: DB4_8_PKK
-  step: DB4_8_PKK_DIAGNOSIS
-  status: FAIL_WITH_8_P1_BLOCKERS
+  step: DB_PKK_001_SAME_TENANT_AND_EXACT_COURSE_PROFILE_OPERATION_ATTEMPT_INTEGRITY
+  status: FAIL_WITH_7_P1_BLOCKERS
   diagnosed_at: 2026-09-08
   branch: docs-consolidation-2026-09-05
-  diagnosis_only: true
+  diagnosis_only: false
   aggregate_sync_status: FROZEN_PENDING_BLOCKER_RESOLUTION
   implementation_started: false
   Laravel_migrations_created: false
@@ -15,8 +15,8 @@ meta:
 
 scope_rule:
   diagnose_before_fixing: true
-  fixes_allowed_in_this_step: false
-  current_step_scope: DB4_8_PKK_DIAGNOSIS_only
+  fixes_allowed_in_this_step: true
+  current_step_scope: DB_PKK_001_SAME_TENANT_AND_EXACT_COURSE_PROFILE_OPERATION_ATTEMPT_INTEGRITY_only
   one_blocker_per_future_step: true
   aggregate_files_frozen:
     specs/database/core-schema.yml:
@@ -156,11 +156,198 @@ provider_contract_unknowns_not_to_invent:
     boundaries, but must not fabricate external PKK protocol facts. Any provider-
     specific field/status/duplicate rule remains a later verified adapter contract.
 
+resolved_contracts:
+  DB-PKK-001:
+    status: PASS
+    title: same_tenant_and_exact_course_profile_operation_attempt_integrity
+    severity: P1
+    goal: >-
+      Every persisted provider operation and transport attempt must be unable
+      to cross tenants or combine a CourseEnrollment, PkkProfile, Operation
+      and Attempt that do not represent the exact same course-scoped PKK
+      identity context, even if application validation is bypassed.
+
+    authority_and_scope:
+      organization_id_client_authority: false
+      tenant_key_source: active_membership_or_validated_parent
+      runtime_provider_operation_owner: exact_course_enrollment_and_bound_pkk_identity_revision
+      runtime_provider_operation_requires_exact_pkk_profile: true
+      pkk_profile_id_nullable_for_runtime_provider_operation: false
+      conditional_test_connection_is_not_a_course_scoped_pkk_operation: true
+      actor_user_id_is_global_identity: true
+      actor_user_fake_tenant_composite_FK: false
+      provider_profile_currentness_and_command_eligibility: deferred_to_DB_PKK_003
+      provider_snapshot_history: deferred_to_DB_PKK_002
+
+    tenant_candidate_keys_required:
+      course_enrollments:
+        columns: [organization_id, id]
+        source: DB4_4
+      pkk_profiles_exact_course:
+        columns: [organization_id, id, course_enrollment_id]
+        source: DB_TRN_008
+        unique_constraint_required: true
+      pkk_operations:
+        columns: [organization_id, id]
+        unique_constraint_required: true
+      pkk_operations_exact_context:
+        columns: [organization_id, id, course_enrollment_id, pkk_profile_id]
+        unique_constraint_required: true
+        purpose: exact_provider_attempt_parent_target
+      pkk_operation_attempts:
+        columns: [organization_id, id]
+        unique_constraint_required: true
+      pkk_operation_attempts_exact_context:
+        columns: [organization_id, id, pkk_operation_id, course_enrollment_id, pkk_profile_id]
+        unique_constraint_required: true
+        purpose: future_exact_evidence_parent_target
+
+    pkk_operations:
+      organization_id_required_nonnull: true
+      course_enrollment_id_required_nonnull: true
+      pkk_profile_id_runtime_required_nonnull: true
+      relation_course_same_tenant:
+        source_columns: [organization_id, course_enrollment_id]
+        target_table: course_enrollments
+        target_columns: [organization_id, id]
+        match: MATCH_SIMPLE
+        on_update: RESTRICT
+        on_delete: RESTRICT
+      relation_exact_profile_course:
+        source_columns: [organization_id, pkk_profile_id, course_enrollment_id]
+        target_table: pkk_profiles
+        target_columns: [organization_id, id, course_enrollment_id]
+        match: MATCH_SIMPLE
+        on_update: RESTRICT
+        on_delete: RESTRICT
+        effect: operation_cannot_pair_course_A_with_profile_from_course_B_or_other_tenant
+      actor_relation:
+        target_table: users
+        target_columns: [id]
+        tenant_composite_FK: false
+      identity_context_fields_immutable_after_insert:
+        - organization_id
+        - course_enrollment_id
+        - pkk_profile_id
+      normal_hard_delete: forbidden
+      note: >-
+        Binding to a PkkProfile freezes which local PKK identity revision the
+        provider operation concerns. Whether that profile must be current at
+        command creation/execution is intentionally left to DB-PKK-003.
+
+    pkk_operation_attempts:
+      fields_added_or_finalized:
+        organization_id: uuid_not_null
+        course_enrollment_id: uuid_not_null
+        pkk_profile_id: uuid_not_null
+      exact_operation_context_relation:
+        source_columns: [organization_id, pkk_operation_id, course_enrollment_id, pkk_profile_id]
+        target_table: pkk_operations
+        target_columns: [organization_id, id, course_enrollment_id, pkk_profile_id]
+        match: MATCH_SIMPLE
+        on_update: RESTRICT
+        on_delete: RESTRICT
+        effect: attempt_cannot_rebind_operation_to_different_course_profile_or_tenant
+      independent_direct_course_or_profile_FK_required_in_addition_to_exact_operation_FK: false
+      reason: exact_operation_context_composite_FK_already_proves_both_relations
+      exact_context_fields_immutable_after_insert:
+        - organization_id
+        - pkk_operation_id
+        - course_enrollment_id
+        - pkk_profile_id
+      normal_hard_delete: forbidden
+      attempt_number_retry_and_inflight_semantics: deferred_to_DB_PKK_004
+
+    future_evidence_boundary:
+      signed_XML_schema_created_in_DB_PKK_001: false
+      reconciliation_schema_created_in_DB_PKK_001: false
+      requirement: >-
+        Any later PKK artifact, signature handoff or reconciliation evidence
+        that is scoped to one provider attempt must reference an exact
+        same-tenant Attempt context, not a loose operation/profile id pair.
+      reusable_exact_attempt_target:
+        columns: [organization_id, id, pkk_operation_id, course_enrollment_id, pkk_profile_id]
+      exact_XML_and_FileAsset_semantics_remain_DB_PKK_005: true
+      reconciliation_semantics_remain_DB_PKK_004: true
+
+    history_and_tenant_policy:
+      organization_id_mutation_after_insert: forbidden_for_normal_domain_lifecycle
+      course_profile_operation_attempt_reparenting: forbidden
+      relation_on_update: RESTRICT
+      relation_on_delete: RESTRICT
+      destructive_cascade_of_provider_history: forbidden
+      application_validation_is_final_relation_boundary: false
+
+    migration_policy:
+      add_pkk_operation_attempts_context_columns_temporarily_nullable: true
+      precheck_every_pkk_operation_matches_course_organization: required
+      precheck_every_nonnull_operation_profile_matches_exact_same_course_and_organization: required
+      legacy_operation_with_null_pkk_profile_id:
+        auto_bind_to_current_profile: forbidden
+        auto_bind_to_latest_profile_by_timestamp_or_revision: forbidden
+        required_action: fail_and_require_reviewed_historical_remediation_or_trusted_external_evidence
+      legacy_operation_profile_from_wrong_course_or_tenant:
+        auto_reparent: forbidden
+        required_action: fail_and_require_reviewed_security_remediation
+      attempt_context_backfill:
+        source: verified_exact_parent_pkk_operation_only
+        fields: [organization_id, course_enrollment_id, pkk_profile_id]
+        allowed_after_parent_operation_prechecks_pass: true
+        missing_or_ambiguous_parent: fail_and_require_reviewed_remediation
+      add_candidate_keys_before_child_composite_FKs: true
+      set_attempt_context_columns_not_null_after_verified_backfill: true
+      set_runtime_operation_pkk_profile_id_not_null_after_legacy_remediation: true
+      migration_does_not_call_provider_to_guess_history: true
+
+    required_tests:
+      - same_tenant_operation_exact_course_profile_is_accepted
+      - operation_profile_from_other_course_same_organization_is_rejected_by_database
+      - operation_profile_from_other_organization_is_rejected_by_database
+      - operation_course_from_other_organization_is_rejected_by_database
+      - runtime_provider_operation_without_exact_pkk_profile_is_rejected_after_cutover
+      - actor_global_user_relation_does_not_require_fake_tenant_key
+      - same_tenant_attempt_exact_operation_course_profile_is_accepted
+      - attempt_with_operation_from_other_organization_is_rejected_by_database
+      - attempt_cannot_pair_operation_with_different_course
+      - attempt_cannot_pair_operation_with_different_profile
+      - attempt_exact_context_fields_cannot_be_reparented_after_insert
+      - operation_exact_context_fields_cannot_be_reparented_after_insert
+      - normal_delete_cannot_cascade_away_provider_operation_or_attempt_history
+      - migration_detects_operation_profile_course_mismatch
+      - migration_does_not_bind_null_legacy_operation_profile_to_current_or_latest_heuristically
+      - attempt_context_backfill_uses_only_verified_exact_parent_operation
+      - DB_TRN_008_identity_history_and_exact_course_profile_boundary_preserved
+      - DB_PKK_002_through_DB_PKK_008_remain_open
+
+    self_audit:
+      exact_operation_course_profile_same_tenant_boundary_closed: PASS
+      provider_attempt_receives_explicit_tenant_and_exact_context: PASS
+      attempt_exact_parent_composite_FK_closes_cross_course_profile_rebinding: PASS
+      global_actor_not_incorrectly_tenant_scoped: PASS
+      runtime_provider_operation_null_profile_ambiguity_closed_fail_closed: PASS
+      legacy_null_profile_not_heuristically_rebound: PASS
+      DB4_4_PKK_identity_contract_preserved: PASS
+      DB_PKK_002_provider_snapshot_history_not_solved: PASS
+      DB_PKK_003_operation_lifecycle_not_solved: PASS
+      DB_PKK_004_retry_reconciliation_not_solved: PASS
+      DB_PKK_005_signed_XML_not_solved: PASS
+      DB_PKK_006_payload_security_not_solved: PASS
+      DB_PKK_007_configuration_revision_not_solved: PASS
+      DB_PKK_008_latest_projection_not_solved: PASS
+      aggregate_core_schema_modified: false
+      aggregate_docs87_modified: false
+      API_files_modified: false
+      Laravel_migrations_created: false
+      DB4_9_or_later_entered: false
+      Stage5_started: false
+      UI_or_feature_implementation_started: false
+
 blockers:
   - id: DB-PKK-001
     title: same_tenant_and_exact_course_profile_operation_attempt_integrity
     severity: P1
-    status: OPEN
+    status: RESOLVED
+    resolution_ref: resolved_contracts.DB-PKK-001
     diagnosis:
       - DB4_4_closes_PkkProfile_to_exact_Course_but_current_pkk_operations_only_have_generic_course_and_optional_profile_references
       - current_pkk_operation_attempts_do_not_carry_an_explicit_tenant_key_or_exact_course_profile_binding
@@ -336,10 +523,10 @@ diagnosis_summary:
   diagnosed_P0: 0
   diagnosed_P1: 8
   resolved_in_diagnosis: 0
-  open_P0_P1: 8
-  result: FAIL_WITH_8_P1_BLOCKERS
+  resolved_after_diagnosis: 1
+  open_P0_P1: 7
+  result: FAIL_WITH_7_P1_BLOCKERS
   blockers_in_required_fix_order:
-    - DB-PKK-001
     - DB-PKK-002
     - DB-PKK-003
     - DB-PKK-004
@@ -357,7 +544,7 @@ API_contract_sync_gaps_recorded_not_fixed:
   API_files_modified_in_DB4_8_diagnosis: false
 
 preservation_gate:
-  status: PASS_DIAGNOSIS_ONLY
+  status: PASS_DB_PKK_001
   checks:
     no_blocker_fixed_during_diagnosis: true
     DB4_4_course_PKK_identity_contract_preserved: true
@@ -379,10 +566,14 @@ preservation_gate:
     Laravel_migrations_created: false
     Stage5_started: false
     UI_or_feature_implementation_started: false
+    DB_PKK_001_exact_operation_course_profile_same_tenant_boundary_closed: true
+    DB_PKK_001_provider_attempt_exact_operation_context_boundary_closed: true
+    DB_PKK_001_legacy_null_profile_not_heuristically_bound: true
+    DB_PKK_002_through_DB_PKK_008_remain_open: true
 
 next_single_step_after_central_gate:
-  id: DB_PKK_001_SAME_TENANT_AND_EXACT_COURSE_PROFILE_OPERATION_ATTEMPT_INTEGRITY
-  action: resolve_DB_PKK_001_only_after_next_explicit_user_instruction
+  id: DB_PKK_002_IMMUTABLE_PROVIDER_PROFILE_SNAPSHOT_HISTORY_AND_CURRENT_PROJECTION
+  action: resolve_DB_PKK_002_only_after_next_explicit_user_instruction
   allowed_scope:
     - specs/database/pkk.yml
     - docs/113-stage-4-pkk-audit.md
@@ -390,4 +581,4 @@ next_single_step_after_central_gate:
   aggregate_files_frozen:
     - specs/database/core-schema.yml
     - docs/87-physical-database-schema.md
-  stop_before: DB_PKK_002_IMMUTABLE_PROVIDER_PROFILE_SNAPSHOT_HISTORY_AND_CURRENT_PROJECTION
+  stop_before: DB_PKK_003_PROVIDER_OPERATION_LIFECYCLE_CONCURRENCY_AND_COMMAND_ELIGIBILITY
