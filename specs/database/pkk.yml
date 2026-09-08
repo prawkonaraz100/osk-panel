@@ -2,8 +2,8 @@ meta:
   project: osk-panel
   stage: 4
   slice: DB4_8_PKK
-  step: DB_PKK_002_IMMUTABLE_PROVIDER_PROFILE_SNAPSHOT_HISTORY_AND_CURRENT_PROJECTION
-  status: FAIL_WITH_6_P1_BLOCKERS
+  step: DB_PKK_003_PROVIDER_OPERATION_LIFECYCLE_CONCURRENCY_AND_COMMAND_ELIGIBILITY
+  status: FAIL_WITH_5_P1_BLOCKERS
   diagnosed_at: 2026-09-08
   branch: docs-consolidation-2026-09-05
   diagnosis_only: false
@@ -16,7 +16,7 @@ meta:
 scope_rule:
   diagnose_before_fixing: true
   fixes_allowed_in_this_step: true
-  current_step_scope: DB_PKK_002_IMMUTABLE_PROVIDER_PROFILE_SNAPSHOT_HISTORY_AND_CURRENT_PROJECTION_only
+  current_step_scope: DB_PKK_003_PROVIDER_OPERATION_LIFECYCLE_CONCURRENCY_AND_COMMAND_ELIGIBILITY_only
   one_blocker_per_future_step: true
   aggregate_files_frozen:
     specs/database/core-schema.yml:
@@ -525,6 +525,293 @@ resolved_contracts:
       Stage5_started: false
       UI_or_feature_implementation_started: false
 
+  DB-PKK-003:
+    status: PASS
+    title: provider_operation_lifecycle_concurrency_and_command_eligibility
+    severity: P1
+    goal: >-
+      Give every course-scoped PKK provider operation one closed provider-neutral
+      business lifecycle, serialize operation creation against Course/PkkProfile
+      and integration-settings changes, and reject conflicting or stale commands
+      before any provider I/O begins without inventing provider-specific protocol rules.
+
+    authority_and_scope:
+      business_operation_authority: pkk_operations
+      lifecycle_history_authority: pkk_operation_lifecycle_events
+      transport_attempt_retry_reconciliation_authority: deferred_to_DB_PKK_004
+      signed_XML_evidence: deferred_to_DB_PKK_005
+      payload_crypto_and_redaction: deferred_to_DB_PKK_006
+      exact_configuration_revision_binding: deferred_to_DB_PKK_007
+      deterministic_course_operation_sequence: deferred_to_DB_PKK_008
+      preview_profile_is_business_operation: false
+      list_or_get_operation_is_business_operation: false
+      retry_creates_new_business_operation: false
+
+    operation_type_catalog:
+      runtime_values:
+        - fetch_profile
+        - update_and_return
+        - return_to_school
+        - return_to_authority
+        - return_expired
+      immutable_after_insert: true
+      permission_mapping:
+        fetch_profile: pkk.fetch
+        update_and_return: pkk.training.update_and_return
+        return_to_school: pkk.return.school
+        return_to_authority: pkk.return.authority
+        return_expired: pkk.return.expired
+      exact_provider_request_fields_per_type: adapter_owned_not_invented
+      retry_permission: pkk.retry_deferred_to_DB_PKK_004
+
+    business_status_catalog:
+      values: [draft, pending, requires_signature, submitted, success, failed, cancelled]
+      active_statuses: [draft, pending, requires_signature, submitted]
+      irreversible_terminal_statuses: [success, cancelled]
+      retry_gated_quiescent_status: failed
+      observed_three_state_UI_is_projection_not_authority: true
+      generic_direct_business_status_PATCH: forbidden
+      success_or_cancelled_outgoing_transition: forbidden
+      failed_to_pending_transition: reserved_only_for_DB_PKK_004_explicit_retry
+      unknown_timeout_or_unknown_external_effect_is_not_plain_failed: true
+
+    transition_matrix:
+      runtime_initial_status:
+        fetch_profile: pending
+        mutating_operation_with_confirmation_captured_atomically: pending
+        explicit_local_preparation_workflow_when_used: draft
+      draft:
+        allowed_to: [pending, cancelled]
+      pending_fetch_profile:
+        allowed_to: [success, failed]
+      pending_mutating_operation:
+        allowed_to: [requires_signature, submitted, failed]
+      requires_signature:
+        allowed_to: [submitted, failed, cancelled]
+      submitted:
+        allowed_to: [success, failed]
+      failed:
+        allowed_to: [pending_only_via_DB_PKK_004_retry]
+      success:
+        allowed_to: []
+      cancelled:
+        allowed_to: []
+      requires_signature_operation_type_mapping: adapter_verified_not_hardcoded
+      mutating_operation_success_requires_submitted_history_event: true
+      fetch_profile_may_complete_without_submitted_state: true
+
+    operation_fields_added_or_finalized:
+      operation_origin: varchar_runtime_or_legacy_migrated_not_null
+      version: bigint_not_null_default_1_check_gte_1
+      business_status: closed_catalog_not_null
+      confirmed_at: timestamptz_nullable
+      confirmed_by_user_id: uuid_nullable_global_users_FK_RESTRICT
+      completed_at: timestamptz_nullable_current_cycle_projection
+      operation_type_and_exact_context_immutable: true
+      normal_hard_delete: forbidden
+      runtime_origin_value: runtime
+
+    confirmation_boundary:
+      confirmation_required_operation_types:
+        - update_and_return
+        - return_to_school
+        - return_to_authority
+        - return_expired
+      fetch_profile_confirmation_fields_must_be_null: true
+      runtime_mutating_operation_may_enter_pending_only_with_confirmation_pair: true
+      confirmation_pair: [confirmed_at, confirmed_by_user_id]
+      confirmed_by_user_must_have_exact_operation_permission_and_scope_at_confirmation: true
+      API_POST_itself_may_capture_confirmation_atomically_after_UI_confirmation: true
+      exact_HTTP_confirmation_shape: Stage5_acceptance_contract_sync
+      legacy_missing_confirmation_must_not_be_fabricated: true
+
+    current_cycle_timestamp_equivalence:
+      active_status_requires_completed_at_null: true
+      success_failed_or_cancelled_requires_completed_at_nonnull: true
+      failed_to_pending_explicit_retry_clears_current_completed_at_in_same_transaction: true
+      prior_failure_time_remains_immutable_in_lifecycle_history: true
+      success_or_cancelled_completed_at_write_once: true
+      timestamps_or_status_may_change_only_through_lifecycle_command: true
+
+    lifecycle_history_table:
+      name: pkk_operation_lifecycle_events
+      fields:
+        id: uuid_primary_key
+        organization_id: uuid_not_null
+        pkk_operation_id: uuid_not_null
+        operation_version: bigint_not_null_check_gte_1
+        from_business_status: varchar_nullable
+        to_business_status: varchar_not_null_closed_catalog
+        event_origin: varchar_runtime_or_legacy_baseline_not_null
+        occurred_at: timestamptz_not_null
+        actor_kind: varchar_user_system_provider_adapter_or_legacy_migration_not_null
+        actor_user_id: uuid_nullable_global_users_FK_RESTRICT
+        reason_code: varchar_nullable
+        created_at: timestamptz_not_null
+      exact_operation_relation: "[organization_id,pkk_operation_id]_to_pkk_operations[organization_id,id]"
+      one_event_per_operation_version_unique: [organization_id, pkk_operation_id, operation_version]
+      first_event_version: 1
+      first_event_from_status: null
+      runtime_event_origin: runtime
+      append_only: true
+      normal_update_or_delete: forbidden
+      operation_current_version_status_must_equal_latest_event: DEFERRABLE_INITIALLY_DEFERRED_or_equivalent_transactional_DB_guard
+
+    concurrency_and_active_operation_boundary:
+      operation_concurrency_root: pkk_operations.version
+      lifecycle_transition_lock: exact_pkk_operation_row_FOR_UPDATE
+      one_active_operation_per_exact_profile:
+        type: partial_unique
+        columns: [organization_id, pkk_profile_id]
+        where: business_status_in_draft_pending_requires_signature_submitted
+      profile_lock_is_creation_serialization_root: true
+      two_concurrent_operation_creates_same_profile_at_most_one_commit: true
+      no_verified_provider_conflict_matrix_available: true
+      conservative_fail_closed_exclusivity_until_verified: true
+      failed_success_cancelled_rows_do_not_hold_active_slot: true
+      DB_PKK_004_retry_to_pending_must_reacquire_current_profile_and_active_slot: true
+
+    command_creation_lock_order_and_rechecks:
+      lock_order:
+        - course_enrollment_FOR_UPDATE
+        - exact_current_pkk_profile_FOR_UPDATE
+        - organization_settings_FOR_SHARE
+      pkk_integration_settings_read_under_locked_organization_settings_epoch: true
+      recheck_after_locks:
+        - tenant_and_permission_for_exact_course
+        - requested_profile_is_exact_course_current_profile_superseded_at_null
+        - operation_type_permission_mapping
+        - integration_configuration_is_operation_ready_under_canonical_settings_policy
+        - no_other_active_operation_for_exact_profile
+        - duplicate_PKK_identity_is_not_ambiguous_for_external_operation
+        - confirmation_present_for_runtime_mutating_operation_before_pending
+      universal_course_active_only_rule_invented: false
+      reason: provider_operation_eligibility_by_course_terminal_state_is_not_verified
+      provider_network_call_inside_database_lock_transaction: forbidden
+      operation_row_and_initial_lifecycle_event_commit_before_provider_dispatch: true
+      transport_attempt_dispatch_after_commit: DB_PKK_004
+
+    configuration_readiness_boundary:
+      settings_concurrency_root_preserved: organization_settings.version
+      operation_creation_locks_same_organization_settings_row_used_by_settings_update: true
+      always_reject_readiness_statuses: [not_configured, requires_attention]
+      configured_unverified_vs_verified_execution_rule: adapter_capability_dependent
+      if_provider_verification_is_supported_and_required: verified_required
+      if_provider_has_no_verifiable_connection_test: configured_unverified_may_be_operation_ready
+      readiness_status_is_rechecked_not_snapshotted_as_final_execution_evidence_here: true
+      exact_configuration_revision_evidence: deferred_to_DB_PKK_007
+
+    PKK_identity_change_interlock:
+      new_operation_requires_current_profile: true
+      current_profile_supersession_or_PKK_identity_edit_while_active_operation_exists: reject_conflict
+      identity_edit_and_operation_create_share_course_then_profile_lock_prefix: true
+      operation_create_vs_identity_supersession_has_one_winner: true
+      operation_already_success_failed_or_cancelled_does_not_prevent_later_identity_revision: true
+      retry_of_failed_operation_after_profile_superseded: must_be_rejected_by_DB_PKK_004_currentness_recheck
+
+    ambiguous_duplicate_PKK_fail_closed:
+      hard_unique_PKK_number_added: false
+      external_ownership_semantics_invented: false
+      operation_preflight_checks_current_profiles_with_same_lookup_hash_in_relevant_organization_scope: true
+      if_more_than_one_current_profile_matches_same_lookup_hash: reject_ambiguous_PKK_identity
+      race_safe_identity_ambiguity_boundary: transaction_scoped_lock_keyed_by_organization_and_pkk_lookup_hash_or_equivalent_lock_record
+      same_boundary_required_for_PKK_identity_create_or_edit_that_changes_lookup_hash: true
+      purpose: serialize_duplicate_ambiguity_check_without_claiming_global_uniqueness
+
+    transition_transaction:
+      steps:
+        - lock_operation_FOR_UPDATE
+        - validate_transition_against_operation_type_and_current_status
+        - validate_actor_or_worker_authority
+        - update_business_status_and_current_cycle_completed_at
+        - increment_operation_version_once
+        - append_exactly_one_lifecycle_event_same_version
+        - satisfy_deferred_current_status_version_history_guard
+        - commit
+      provider_IO_inside_this_transaction: false
+      direct_SQL_status_change_without_matching_event_rejected_at_commit: true
+
+    failure_and_retry_boundary:
+      known_business_or_transport_failure_may_enter_failed: true
+      timeout_or_connection_loss_with_unknown_external_effect_must_not_be_normal_failed_retry_path: true
+      failed_status_is_not_generic_terminal_immutable_because_explicit_retry_is_preserved: true
+      failed_to_pending_requires_DB_PKK_004_retryable_classification_idempotency_and_reconciliation_checks: true
+      DB_PKK_003_does_not_define_attempt_number_or_one_inflight_attempt: true
+
+    migration_policy:
+      operation_type_mapped_only_when_exact_semantic_match_to_closed_catalog_is_proven: true
+      unknown_legacy_operation_type: fail_and_require_reviewed_mapping
+      business_status_mapped_only_when_exact_existing_value_is_in_closed_catalog: true
+      unknown_legacy_status: fail_and_require_reviewed_mapping
+      operation_origin_for_existing_rows: legacy_migrated
+      version_backfill: 1_only_as_migration_baseline_not_claim_of_historical_transition_count
+      lifecycle_baseline_event:
+        create_one_event_for_verified_current_legacy_state: true
+        event_origin: legacy_baseline
+        from_business_status: null
+        operation_version: 1
+        does_not_fabricate_prior_transitions: true
+      completed_at_not_inferred_from_updated_at_attempt_time_or_provider_time: true
+      inconsistent_status_completed_at_pair: fail_and_require_reviewed_remediation
+      multiple_active_operations_same_profile: do_not_auto_cancel_or_pick_winner
+      active_operation_bound_to_superseded_profile: do_not_rebind_to_current_profile
+      missing_mutating_confirmation_history: preserve_as_legacy_unknown_not_fabricated
+      duplicate_PKK_ambiguity: do_not_add_hard_unique_or_choose_owner
+      migration_calls_provider: forbidden
+
+    required_tests:
+      - only_closed_operation_types_are_accepted
+      - only_closed_business_statuses_are_accepted
+      - fetch_profile_pending_can_complete_success_or_failed_without_submitted
+      - mutating_operation_cannot_reach_success_without_submitted_history
+      - requires_signature_can_transition_to_submitted_but_not_success_directly
+      - success_and_cancelled_have_no_outgoing_transition
+      - generic_failed_to_pending_transition_is_rejected_outside_DB_PKK_004_retry
+      - active_status_requires_completed_at_null
+      - success_failed_cancelled_require_completed_at_nonnull
+      - direct_status_update_without_matching_lifecycle_event_is_rejected_at_commit
+      - two_concurrent_operation_creates_same_profile_at_most_one_commit
+      - operation_create_against_superseded_profile_is_rejected
+      - operation_create_vs_PKK_identity_supersession_has_one_winner
+      - PKK_identity_edit_is_rejected_while_active_operation_exists
+      - configuration_change_and_operation_creation_serialize_on_organization_settings
+      - not_configured_or_requires_attention_cannot_start_provider_operation
+      - runtime_mutating_operation_cannot_enter_pending_without_confirmation_pair
+      - fetch_profile_does_not_require_return_confirmation
+      - ambiguous_duplicate_current_PKK_lookup_hash_blocks_external_operation_without_adding_unique_constraint
+      - provider_network_call_is_not_made_before_operation_creation_transaction_commits
+      - migration_does_not_invent_prior_lifecycle_events_or_completed_at
+      - migration_does_not_auto_cancel_duplicate_active_operations
+      - DB_PKK_001_exact_context_and_DB_PKK_002_snapshot_history_are_preserved
+      - DB_PKK_004_through_DB_PKK_008_remain_open
+
+    self_audit:
+      closed_provider_neutral_operation_type_catalog_defined: PASS
+      rich_business_lifecycle_preserves_observed_three_state_UI_as_projection: PASS
+      type_specific_transition_matrix_defined: PASS
+      success_and_cancelled_terminal_immutability_defined: PASS
+      failed_retry_exception_reserved_to_DB_PKK_004: PASS
+      lifecycle_history_and_current_version_equivalence_defined: PASS
+      one_active_operation_per_exact_profile_closed_fail_closed: PASS
+      operation_creation_serializes_with_course_profile_and_settings_changes: PASS
+      provider_IO_not_held_under_database_transaction_locks: PASS
+      confirmation_evidence_required_for_runtime_return_mutations: PASS
+      duplicate_PKK_ambiguity_fails_closed_without_inventing_uniqueness: PASS
+      DB_PKK_001_exact_target_integrity_preserved: PASS
+      DB_PKK_002_immutable_provider_snapshot_history_preserved: PASS
+      DB_PKK_004_idempotency_retry_reconciliation_not_solved: PASS
+      DB_PKK_005_signed_XML_not_solved: PASS
+      DB_PKK_006_payload_security_not_solved: PASS
+      DB_PKK_007_configuration_revision_not_solved: PASS
+      DB_PKK_008_latest_projection_not_solved: PASS
+      aggregate_core_schema_modified: false
+      aggregate_docs87_modified: false
+      API_files_modified: false
+      Laravel_migrations_created: false
+      DB4_9_or_later_entered: false
+      Stage5_started: false
+      UI_or_feature_implementation_started: false
+
 blockers:
   - id: DB-PKK-001
     title: same_tenant_and_exact_course_profile_operation_attempt_integrity
@@ -573,7 +860,8 @@ blockers:
   - id: DB-PKK-003
     title: provider_operation_lifecycle_concurrency_and_command_eligibility
     severity: P1
-    status: OPEN
+    status: RESOLVED
+    resolution_ref: resolved_contracts.DB-PKK-003
     diagnosis:
       - current_business_status_is_unconstrained_while_product_sources_describe_draft_pending_requires_signature_submitted_success_failed_cancelled_and_simpler_pending_success_failed_views
       - fetch_update_return_and_return_variants_have_different_external_effects_but_no_closed_database_state_matrix
@@ -707,11 +995,10 @@ diagnosis_summary:
   diagnosed_P0: 0
   diagnosed_P1: 8
   resolved_in_diagnosis: 0
-  resolved_after_diagnosis: 2
-  open_P0_P1: 6
-  result: FAIL_WITH_6_P1_BLOCKERS
+  resolved_after_diagnosis: 3
+  open_P0_P1: 5
+  result: FAIL_WITH_5_P1_BLOCKERS
   blockers_in_required_fix_order:
-    - DB-PKK-003
     - DB-PKK-004
     - DB-PKK-005
     - DB-PKK-006
@@ -727,7 +1014,7 @@ API_contract_sync_gaps_recorded_not_fixed:
   API_files_modified_in_DB4_8_diagnosis: false
 
 preservation_gate:
-  status: PASS_DB_PKK_002
+  status: PASS_DB_PKK_003
   checks:
     no_blocker_fixed_during_diagnosis: true
     DB4_4_course_PKK_identity_contract_preserved: true
@@ -753,11 +1040,12 @@ preservation_gate:
     DB_PKK_001_provider_attempt_exact_operation_context_boundary_closed: true
     DB_PKK_001_legacy_null_profile_not_heuristically_bound: true
     DB_PKK_002_immutable_provider_snapshot_history_and_current_projection_closed: true
-    DB_PKK_003_through_DB_PKK_008_remain_open: true
+    DB_PKK_003_provider_operation_lifecycle_concurrency_and_command_eligibility_closed: true
+    DB_PKK_004_through_DB_PKK_008_remain_open: true
 
 next_single_step_after_central_gate:
-  id: DB_PKK_003_PROVIDER_OPERATION_LIFECYCLE_CONCURRENCY_AND_COMMAND_ELIGIBILITY
-  action: resolve_DB_PKK_003_only_after_next_explicit_user_instruction
+  id: DB_PKK_004_IDEMPOTENCY_RETRY_RECONCILIATION_AND_EXACTLY_ONCE_EXTERNAL_EFFECT
+  action: resolve_DB_PKK_004_only_after_next_explicit_user_instruction
   allowed_scope:
     - specs/database/pkk.yml
     - docs/113-stage-4-pkk-audit.md
@@ -765,4 +1053,4 @@ next_single_step_after_central_gate:
   aggregate_files_frozen:
     - specs/database/core-schema.yml
     - docs/87-physical-database-schema.md
-  stop_before: DB_PKK_004_IDEMPOTENCY_RETRY_RECONCILIATION_AND_EXACTLY_ONCE_EXTERNAL_EFFECT
+  stop_before: DB_PKK_005_SIGNED_XML_HANDOFF_AND_FILE_ASSET_EVIDENCE_INTEGRITY
