@@ -3,8 +3,8 @@
 Data: 2026-09-08
 
 **Etap:** `DB4_8_PKK`  
-**Aktualny krok:** `DB_PKK_008_DETERMINISTIC_OPERATION_HISTORY_LATEST_AND_COURSE_SUMMARY_PROJECTION`
-**Status:** `BLOCKERS_RESOLVED_PENDING_DB4_8_FINAL_AGGREGATE_SYNC / 0 P0 / 0 P1 OPEN`
+**Aktualny krok:** `DB4_8_FINAL_AGGREGATE_SYNC`
+**Status:** `PASS / 0 P0 / 0 P1 OPEN`
 
 Machine-readable diagnoza: `specs/database/pkk.yml`.
 
@@ -1375,3 +1375,60 @@ DB-PKK-008 nie modyfikuje API, agregatów, migracji Laravel ani UI.
 DB4_8 nie otrzymuje jeszcze finalnego `PASS`, ponieważ `core-schema.yml` i `docs/87...` nadal są celowo zamrożone. Następny osobny etap to wyłącznie `DB4_8_FINAL_AGGREGATE_SYNC`.
 
 **STOP przed DB4_8 final aggregate sync.**
+
+
+---
+
+## 26. DB4_8_FINAL_AGGREGATE_SYNC — wynik: PASS
+
+DB4_8 final aggregate sync został wykonany dopiero po zamknięciu DB-PKK-001…008 i po osobnych bramkach machine aggregate, narrative aggregate oraz bounded final-sync. Historyczne sekcje 1–25 pozostają literalnym zapisem wcześniejszych bramek; ich wcześniejsze komunikaty `STOP` nie są przepisywane retroaktywnie.
+
+### 26.1. Finalne źródła agregatowe
+
+- base po DB-PKK-008 central gate: `824aac3196ff8f6d7794dc2618dda14640ed0a30`,
+- machine aggregate commit: `e22905ede00cab6d2b4cd5e2cc34e8740285e1f0`,
+- `specs/database/core-schema.yml` blob: `65c6daab0330a2c6cf57a6a2caaba288a13a7a70`,
+- narrative aggregate commit: `89f4e8eb21c15e19738baa0f885afb13e757360f`,
+- `docs/87-physical-database-schema.md` blob: `4d5f24f2948bdb55e7367c7b013ed918dade40ae`,
+- bounded final-sync commit: `63c9fae5ca556f4f67faf34a32f361c61012c2bb`,
+- `specs/database/pkk.yml` final-sync blob: `14f5a54377f72c9ed4650d75cf87327d8b859612`.
+
+Machine i narrative aggregate są projekcją tych samych ośmiu zamkniętych kontraktów DB-PKK. `pkk.yml` pozostaje canonical bounded-context source; agregaty nie tworzą konkurencyjnej authority.
+
+### 26.2. Semantic-loss i preservation gate
+
+PASS:
+- DB-PKK-001…008 nadal są RESOLVED, bez ponownego otwierania lub przepisywania wcześniejszych kontraktów,
+- exact Course/Profile/Operation/Attempt tenant boundary jest zachowana,
+- provider snapshot i operation lifecycle pozostają append-only/history-preserving,
+- idempotency + retry + `effect_unknown` reconciliation zachowują exactly-once external-effect boundary,
+- signed XML handoff zachowuje exact FileAsset/hash/evidence binding,
+- protected provider payloads pozostają application-encrypted; redacted projection nie jest raw evidence,
+- provider attempt nadal wskazuje exact integration configuration revision,
+- latest PKK operation nadal wynika z `MAX(course_operation_sequence)`, nie z timestampu ani UUID,
+- history count nadal liczy business operations, nie transport retries,
+- brak starego provisional `deferred_to_DB4_8` jako finalnej authority,
+- DB4_9 Student Finance / Commerce nie został rozpoczęty,
+- DB4_10+ nie zostały rozpoczęte,
+- Stage 5 nie został rozpoczęty,
+- Laravel migrations nie zostały utworzone,
+- UI/feature implementation nie został rozpoczęty.
+
+### 26.3. Migration-order i invariant-test gate
+
+PASS. Finalny aggregate obejmuje configuration revisions, provider snapshots, business operation lifecycle, provider attempts i reconciliation, signature handoffs, protected payloads/redacted projections, XML crypto binding oraz deterministic course operation sequence. Migration safety pozostaje fail-closed: legacy order, configuration context, provider effect, payload history i signature lineage nie mogą być zgadywane.
+
+### 26.4. Self-audit DB4_8
+
+- P0 OPEN: **0**,
+- P1 OPEN: **0**,
+- resolved: **8/8**,
+- machine aggregate: **PASS**,
+- narrative aggregate: **PASS**,
+- bounded final-sync: **PASS**,
+- final-sync audit: **PASS**,
+- DB4_8 slice status przed central gate: **PASS_PENDING_CENTRAL_GATE**.
+
+Następny i jedyny krok w DB4_8 to aktualizacja `specs/gates/stage-4-database-contract-gate.yml` oraz końcowy full-scope compare/workflow-hygiene check.
+
+**STOP przed DB4_9_STUDENT_FINANCE_COMMERCE.**
