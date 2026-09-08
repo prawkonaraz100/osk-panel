@@ -1,0 +1,46 @@
+name: Temporary DB-PKK-005 Narrative Gate
+
+on:
+  push:
+    branches: [tmp-db-pkk-005-narrative-helper]
+    paths:
+      - '.stage4-tmp/TRIGGER_DB_PKK_005_NARRATIVE'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: tmp-db-pkk-005-narrative-helper
+      - name: Patch and validate narrative
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('docs/113-stage-4-pkk-audit.md')
+          s=p.read_text()
+          frag=Path('.stage4-tmp/db-pkk-005-narrative.mdfrag').read_text()
+          old_step='**Aktualny krok:** `DB_PKK_004_IDEMPOTENCY_RETRY_RECONCILIATION_AND_EXACTLY_ONCE_EXTERNAL_EFFECT`\n'
+          new_step='**Aktualny krok:** `DB_PKK_005_SIGNED_XML_HANDOFF_AND_FILE_ASSET_EVIDENCE_INTEGRITY`\n'
+          old_status='**Status:** `FAIL_WITH_4_P1_BLOCKERS / 0 P0 / 4 P1 OPEN`\n'
+          new_status='**Status:** `FAIL_WITH_3_P1_BLOCKERS / 0 P0 / 3 P1 OPEN`\n'
+          assert s.count(old_step)==1, s.count(old_step)
+          assert s.count(old_status)==1, s.count(old_status)
+          assert '## 22. DB-PKK-005 — wynik fixera: PASS' not in s
+          s=s.replace(old_step,new_step,1).replace(old_status,new_status,1)
+          s=s.rstrip()+frag+'\n'
+          p.write_text(s)
+          PY
+          grep -q '^## 22\. DB-PKK-005 — wynik fixera: PASS$' docs/113-stage-4-pkk-audit.md
+          grep -q '^\*\*STOP przed DB-PKK-006\.\*\*$' docs/113-stage-4-pkk-audit.md
+          git diff --check -- docs/113-stage-4-pkk-audit.md
+          test "$(git diff --name-only | grep -v '^\.github/workflows/tmp-db-pkk-005-narrative.yml$' | grep -v '^\.stage4-tmp/' | sort -u)" = "docs/113-stage-4-pkk-audit.md"
+          git config user.name 'prawkonaraz100'
+          git config user.email 'prawkonaraz100@gmail.com'
+          git add docs/113-stage-4-pkk-audit.md
+          git commit -m 'DB-PKK-005: add signed XML handoff narrative audit'
+          git push origin HEAD:tmp-db-pkk-005-narrative-helper
