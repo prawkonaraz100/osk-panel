@@ -1,0 +1,94 @@
+name: Temporary DB4_8 Bounded Final Sync Gate
+
+on:
+  push:
+    branches: [tmp-db4-8-final-bounded-helper]
+    paths:
+      - '.stage4-tmp/TRIGGER_DB4_8_FINAL_BOUNDED'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: tmp-db4-8-final-bounded-helper
+      - name: Patch and validate bounded final sync
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import yaml, copy
+          p=Path('specs/database/pkk.yml')
+          s=p.read_text()
+          before=yaml.safe_load(s)
+          contracts_before=copy.deepcopy(before['resolved_contracts'])
+          blockers_before=copy.deepcopy(before['blockers'])
+
+          replacements=[
+            ('  step: DB_PKK_008_DETERMINISTIC_OPERATION_HISTORY_LATEST_AND_COURSE_SUMMARY_PROJECTION\n','  step: DB4_8_FINAL_AGGREGATE_SYNC\n'),
+            ('  status: BLOCKERS_RESOLVED_PENDING_DB4_8_FINAL_AGGREGATE_SYNC\n','  status: PASS\n'),
+            ('  aggregate_sync_status: FROZEN_PENDING_DB4_8_FINAL_AGGREGATE_SYNC\n','  aggregate_sync_status: PASS\n'),
+            ('  current_step_scope: DB_PKK_008_DETERMINISTIC_OPERATION_HISTORY_LATEST_AND_COURSE_SUMMARY_PROJECTION_only\n','  current_step_scope: DB4_8_FINAL_AGGREGATE_SYNC_only\n'),
+          ]
+          for old,new in replacements:
+            assert s.count(old)==1,(old,s.count(old))
+            s=s.replace(old,new,1)
+
+          old_frozen='''  aggregate_files_frozen:\n    specs/database/core-schema.yml:\n      blob_sha: c04dcbea90ca877c1c4e76196b77fdb33e404dab\n    docs/87-physical-database-schema.md:\n      blob_sha: a26421c9d3d624693f29f8e9dfa1b9e718f22323\n'''
+          new_frozen='''  aggregate_files_frozen:\n    - specs/database/core-schema.yml\n    - docs/87-physical-database-schema.md\n'''
+          assert s.count(old_frozen)==1,s.count(old_frozen)
+          s=s.replace(old_frozen,new_frozen,1)
+
+          assert s.count('  result: BLOCKERS_RESOLVED_PENDING_DB4_8_FINAL_AGGREGATE_SYNC\n')==1
+          s=s.replace('  result: BLOCKERS_RESOLVED_PENDING_DB4_8_FINAL_AGGREGATE_SYNC\n','  result: PASS\n',1)
+          assert s.count('  status: PASS_DB_PKK_008\n')==1
+          s=s.replace('  status: PASS_DB_PKK_008\n','  status: PASS_DB4_8_FINAL_AGGREGATE_SYNC\n',1)
+          assert s.count('    aggregate_core_schema_modified: false\n')==1
+          assert s.count('    aggregate_docs87_modified: false\n')==1
+          s=s.replace('    aggregate_core_schema_modified: false\n','    aggregate_core_schema_modified: true\n',1)
+          s=s.replace('    aggregate_docs87_modified: false\n','    aggregate_docs87_modified: true\n',1)
+
+          closed='    DB_PKK_008_deterministic_operation_history_latest_and_course_summary_projection_closed: true\n'
+          finalcheck='    DB4_8_final_aggregate_sync_completed_after_DB_PKK_001_through_008_closed: true\n'
+          assert s.count(closed)==1
+          assert finalcheck not in s
+          s=s.replace(closed,closed+finalcheck,1)
+
+          marker='\nnext_single_step_after_central_gate:\n'
+          assert s.count(marker)==1
+          assert '\nfinal_aggregate_sync:\n' not in s
+          final='''\nfinal_aggregate_sync:\n  status: PASS\n  blocker_contracts_closed: [DB-PKK-001, DB-PKK-002, DB-PKK-003, DB-PKK-004, DB-PKK-005, DB-PKK-006, DB-PKK-007, DB-PKK-008]\n  aggregate_base_after_DB_PKK_008_central_gate: 824aac3196ff8f6d7794dc2618dda14640ed0a30\n  machine_aggregate_commit: e22905ede00cab6d2b4cd5e2cc34e8740285e1f0\n  machine_aggregate_blob: 65c6daab0330a2c6cf57a6a2caaba288a13a7a70\n  narrative_aggregate_commit: 89f4e8eb21c15e19738baa0f885afb13e757360f\n  narrative_aggregate_blob: 4d5f24f2948bdb55e7367c7b013ed918dade40ae\n  machine_and_narrative_semantic_loss_gate: PASS\n  migration_order_and_invariant_test_gate: PASS\n  stale_provisional_shortcut_gate: PASS\n  DB4_9_or_later_entered: false\n  Laravel_migrations_created: false\n  Stage5_started: false\n  UI_or_feature_implementation_started: false\n'''
+          s=s.replace(marker,final+marker,1)
+
+          old_next='''next_single_step_after_central_gate:\n  id: DB4_8_FINAL_AGGREGATE_SYNC\n  action: sync_DB4_8_resolved_contracts_to_aggregates_only_after_next_explicit_user_instruction\n  allowed_scope:\n    - specs/database/pkk.yml\n    - docs/113-stage-4-pkk-audit.md\n    - specs/gates/stage-4-database-contract-gate.yml\n    - specs/database/core-schema.yml\n    - docs/87-physical-database-schema.md\n  aggregate_files_frozen_until_next_explicit_user_instruction:\n    - specs/database/core-schema.yml\n    - docs/87-physical-database-schema.md\n  stop_before: DB4_9_STUDENT_FINANCE_COMMERCE\n'''
+          new_next='''next_single_step_after_central_gate:\n  id: DB4_9_STUDENT_FINANCE_COMMERCE_DIAGNOSIS\n  action: begin_DB4_9_only_after_next_explicit_user_instruction\n  stop_before: DB4_10_AUDIT_OUTBOX_NOTIFICATIONS\n'''
+          assert s.count(old_next)==1,s.count(old_next)
+          s=s.replace(old_next,new_next,1)
+
+          p.write_text(s)
+          after=yaml.safe_load(s)
+          assert after['resolved_contracts']==contracts_before
+          assert after['blockers']==blockers_before
+          assert after['meta']['step']=='DB4_8_FINAL_AGGREGATE_SYNC'
+          assert after['meta']['status']=='PASS'
+          assert after['meta']['aggregate_sync_status']=='PASS'
+          assert after['diagnosis_summary']['resolved_after_diagnosis']==8
+          assert after['diagnosis_summary']['open_P0_P1']==0
+          assert after['diagnosis_summary']['result']=='PASS'
+          assert after['preservation_gate']['status']=='PASS_DB4_8_FINAL_AGGREGATE_SYNC'
+          assert after['final_aggregate_sync']['status']=='PASS'
+          assert after['final_aggregate_sync']['machine_aggregate_blob']=='65c6daab0330a2c6cf57a6a2caaba288a13a7a70'
+          assert after['final_aggregate_sync']['narrative_aggregate_blob']=='4d5f24f2948bdb55e7367c7b013ed918dade40ae'
+          assert after['next_single_step_after_central_gate']['id']=='DB4_9_STUDENT_FINANCE_COMMERCE_DIAGNOSIS'
+          PY
+          git diff --check -- specs/database/pkk.yml
+          test "$(git diff --name-only | grep -v '^\.github/workflows/tmp-db4-8-final-bounded.yml$' | grep -v '^\.stage4-tmp/' | sort -u)" = "specs/database/pkk.yml"
+          git config user.name 'prawkonaraz100'
+          git config user.email 'prawkonaraz100@gmail.com'
+          git add specs/database/pkk.yml
+          git commit -m 'DB4_8: close bounded PKK aggregate sync'
+          git push origin HEAD:tmp-db4-8-final-bounded-helper
