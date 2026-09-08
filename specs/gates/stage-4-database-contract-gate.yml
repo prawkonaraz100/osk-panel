@@ -94,13 +94,13 @@ stage_4_slices:
     final_aggregate_sync: PASS
     result: PASS
   - id: DB4_8_PKK
-    status: FAIL_WITH_5_P1_BLOCKERS
+    status: FAIL_WITH_4_P1_BLOCKERS
     diagnosis: COMPLETE
     blockers_diagnosed: 8
-    blockers_resolved: 3
-    open_P0_P1: 5
+    blockers_resolved: 4
+    open_P0_P1: 4
     final_aggregate_sync: NOT_STARTED
-    result: FAIL_WITH_5_P1_BLOCKERS
+    result: FAIL_WITH_4_P1_BLOCKERS
   - id: DB4_9_STUDENT_FINANCE_COMMERCE
     status: NOT_STARTED
   - id: DB4_10_AUDIT_OUTBOX_NOTIFICATIONS
@@ -2738,6 +2738,65 @@ quality_checks:
       UI_or_feature_implementation_started: false
 
 
+  pkk_idempotency_retry_reconciliation_and_exactly_once_external_effect:
+    status: PASS
+    resolved_blocker_id: DB-PKK-004
+    severity: P1
+    machine_source: specs/database/pkk.yml
+    audit_source: docs/113-stage-4-pkk-audit.md
+    machine_contract_commit: 5e3956ffbfe2eb46208c5797471fe376b2b40c22
+    narrative_audit_commit: f210adb59dbc8af9fb7911592c53d9a9d3909d4d
+    decision:
+      HTTP_command_idempotency_authority: idempotency_records
+      business_operation_authority: pkk_operations
+      provider_transport_attempt_authority: pkk_operation_attempts
+      reconciliation_history_authority: pkk_operation_attempt_reconciliations
+      runtime_operation_requires_initial_idempotency_record: true
+      runtime_provider_attempt_requires_command_idempotency_record: true
+      same_key_same_hash_creates_second_operation_or_attempt: false
+      same_key_different_hash: IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_PAYLOAD
+      provider_attempt_sequence_allocated_under_operation_lock: true
+      one_replay_blocking_attempt_per_operation: true
+      attempt_dispatch_status_catalog: [prepared, dispatching, succeeded, safe_failed, effect_unknown, reconciled_no_effect, reconciled_effect]
+      retry_disposition_catalog: [safe_to_retry, not_retryable, reconciliation_required]
+      only_prepared_to_dispatching_winner_may_send: true
+      stale_dispatching_blind_replay: forbidden
+      timeout_or_connection_loss_means_no_effect: false
+      effect_unknown_blocks_new_dispatch: true
+      reconciliation_history_append_only: true
+      reconciliation_outcomes: [effect_present, effect_absent, inconclusive]
+      retry_after_effect_unknown_requires_conclusive_effect_absent: true
+      retry_creates_new_business_operation: false
+      failed_to_pending_only_via_explicit_safe_retry: true
+      provider_IO_inside_database_transaction: false
+      provider_native_exactly_once_assumed: false
+      provider_reconciliation_unavailable_or_inconclusive_auto_retry: forbidden
+      safety_over_liveness_when_effect_unknown: true
+      signed_XML_evidence_deferred_to_DB_PKK_005: true
+      payload_security_deferred_to_DB_PKK_006: true
+      configuration_revision_binding_deferred_to_DB_PKK_007: true
+      latest_operation_projection_deferred_to_DB_PKK_008: true
+    checks:
+      generic_idempotency_claim_is_canonical_HTTP_replay_authority: PASS
+      runtime_operation_and_attempt_have_durable_idempotency_binding: PASS
+      same_key_same_hash_cannot_duplicate_business_or_transport_effect: PASS
+      attempt_sequence_and_one_replay_blocking_attempt_closed: PASS
+      dispatch_claim_prevents_duplicate_worker_send: PASS
+      unknown_effect_is_not_mislabeled_safe_failure: PASS
+      reconciliation_is_append_only_and_exact_attempt_bound: PASS
+      retry_requires_definitive_safe_no_effect_proof: PASS
+      no_unverified_provider_exactly_once_capability_invented: PASS
+      fail_closed_when_reconciliation_unavailable_or_inconclusive: PASS
+      DB_PKK_001_through_DB_PKK_003_preserved: PASS
+      DB_PKK_005_through_DB_PKK_008_remain_open: PASS
+      aggregate_core_schema_modified_in_step: false
+      aggregate_docs87_modified_in_step: false
+      API_files_modified_in_step: false
+      DB4_9_or_later_entered: false
+      Laravel_migrations_created: false
+      Stage5_started: false
+      UI_or_feature_implementation_started: false
+
 resolved_blockers:
   - DB-FOUND-001
   - DB-FOUND-002
@@ -2787,9 +2846,9 @@ resolved_blockers:
   - DB-PKK-001
   - DB-PKK-002
   - DB-PKK-003
+  - DB-PKK-004
 
 open_blockers_current_diagnosed_scope:
-  - DB-PKK-004
   - DB-PKK-005
   - DB-PKK-006
   - DB-PKK-007
@@ -2803,7 +2862,7 @@ gate_definition:
     - migration_order_dependency_safe
     - database_invariant_test_matrix_exists
     - reverse_engineering_preservation_traceable
-  current_result: DB4_8_FAIL_WITH_5_P1_BLOCKERS
+  current_result: DB4_8_FAIL_WITH_4_P1_BLOCKERS
   DB4_1_result: PASS
   DB4_2_result: PASS
   DB4_3_result: PASS
@@ -2853,7 +2912,8 @@ gate_definition:
   DB4_8_DB_PKK_001_result: PASS
   DB4_8_DB_PKK_002_result: PASS
   DB4_8_DB_PKK_003_result: PASS
-  DB4_8_result: FAIL_WITH_5_P1_BLOCKERS
+  DB4_8_DB_PKK_004_result: PASS
+  DB4_8_result: FAIL_WITH_4_P1_BLOCKERS
   may_start_DB4_4_fixes: false
   may_start_DB4_5: false
   may_start_DB4_5_fixes: false
@@ -2867,8 +2927,8 @@ gate_definition:
   may_start_UI_or_feature_implementation: false
 
 next_single_step:
-  id: DB_PKK_004_IDEMPOTENCY_RETRY_RECONCILIATION_AND_EXACTLY_ONCE_EXTERNAL_EFFECT
-  action: resolve_DB_PKK_004_only_after_next_explicit_user_instruction
+  id: DB_PKK_005_SIGNED_XML_HANDOFF_AND_FILE_ASSET_EVIDENCE_INTEGRITY
+  action: resolve_DB_PKK_005_only_after_next_explicit_user_instruction
   allowed_scope:
     - specs/database/pkk.yml
     - docs/113-stage-4-pkk-audit.md
@@ -2877,8 +2937,8 @@ next_single_step:
     - specs/database/core-schema.yml
     - docs/87-physical-database-schema.md
   scope_lock: >-
-    Resolve only DB-PKK-004 idempotency, retry, reconciliation and exactly-once
-    external effect. Do not resolve DB-PKK-005 or later PKK blockers in the same step,
-    do not enter DB4_9 or later slices, do not start Stage 5, do not create Laravel
-    migrations and do not start UI or feature implementation.
-  after_action: rerun_DB_PKK_004_machine_narrative_central_gate_and_STOP_before_DB_PKK_005
+    Resolve only DB-PKK-005 signed XML handoff and FileAsset evidence integrity.
+    Do not resolve DB-PKK-006 or later PKK blockers in the same step, do not enter
+    DB4_9 or later slices, do not start Stage 5, do not create Laravel migrations
+    and do not start UI or feature implementation.
+  after_action: rerun_DB_PKK_005_machine_narrative_central_gate_and_STOP_before_DB_PKK_006
