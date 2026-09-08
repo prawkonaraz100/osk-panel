@@ -1,0 +1,457 @@
+  DB-PKK-006:
+    status: PASS
+    title: sensitive_provider_payload_encryption_redaction_hash_and_key_version_boundary
+    severity: P1
+    goal: >-
+      Minimize sensitive PKK provider payload persistence, protect any raw payload
+      that must be retained with immutable authenticated encryption and explicit
+      key-version evidence, keep UI/log projections allowlisted and independently
+      versioned, and allow key rotation without rewriting business evidence.
+
+    authority_and_scope:
+      provider_schema_owner: verified_adapter_contract
+      exact_provider_request_response_fields_invented_here: false
+      raw_payload_retention_default: minimize_and_do_not_persist_unless_retention_policy_requires_full_evidence
+      retained_raw_payload_authority: pkk_protected_payloads
+      payload_key_wrapping_history_authority: pkk_protected_payload_key_wrappings
+      redacted_projection_history_authority: pkk_payload_redacted_projections
+      signature_XML_binary_authority_preserved: file_assets
+      signature_XML_crypto_binding_authority: pkk_signature_file_asset_protections
+      signature_XML_key_wrapping_history_authority: pkk_signature_file_asset_key_wrappings
+      DB_PKK_002_snapshot_content_hash_semantics_redefined: false
+      DB_PKK_002_snapshot_content_hash_role: business_evidence_binding_not_encryption_or_authentication
+      DB_PKK_007_configuration_revision_binding: deferred
+      DB_PKK_008_latest_operation_projection: deferred
+
+    retention_and_minimization_policy:
+      runtime_retention_modes:
+        - redacted_only
+        - encrypted_raw_plus_redacted
+      decision_owner: versioned_platform_security_and_retention_policy
+      policy_version_recorded_per_capture: true
+      provider_adapter_may_force_more_retention_without_platform_policy: false
+      raw_payload_plaintext_persisted_before_encryption: forbidden
+      raw_payload_plaintext_in_temporary_processing_memory: allowed_only_for_minimum_processing_window
+      redacted_only_mode:
+        durable_raw_ciphertext_exists: false
+        full_raw_evidence_claimed: false
+        durable_source_evidence_hash_required: true
+      encrypted_raw_plus_redacted_mode:
+        protected_payload_required: true
+        full_raw_plaintext_storage_forbidden: true
+      hardcoded_retention_duration_in_DB_PKK_006: false
+      exact_retention_period: separate_retention_policy_not_invented
+
+    protected_payload_table:
+      name: pkk_protected_payloads
+      fields:
+        id: uuid_primary_key
+        organization_id: uuid_not_null
+        payload_role: varchar_not_null_closed_provider_neutral_catalog
+        retention_mode: varchar_not_null_encrypted_raw_plus_redacted
+        retention_policy_version: varchar_not_null
+        provider_profile_snapshot_id: uuid_nullable
+        pkk_operation_id: uuid_nullable
+        pkk_operation_attempt_id: uuid_nullable
+        reconciliation_id: uuid_nullable
+        canonical_plaintext_sha256: char_64_not_null
+        crypto_profile_version: integer_not_null_check_gte_1
+        aead_algorithm_code: varchar_not_null
+        aad_schema_version: integer_not_null_check_gte_1
+        nonce: bytea_not_null
+        ciphertext: bytea_not_null
+        auth_tag: bytea_not_null
+        ciphertext_sha256: char_64_not_null
+        created_at: timestamptz_not_null
+      runtime_payload_roles:
+        - profile_snapshot_raw
+        - operation_command_request_raw
+        - provider_attempt_request_raw
+        - provider_attempt_response_raw
+        - reconciliation_raw
+      role_parent_matrix:
+        profile_snapshot_raw: exactly_provider_profile_snapshot_id_only
+        operation_command_request_raw: exactly_pkk_operation_id_only
+        provider_attempt_request_raw: exactly_pkk_operation_attempt_id_only
+        provider_attempt_response_raw: exactly_pkk_operation_attempt_id_only
+        reconciliation_raw: exactly_reconciliation_id_only
+      exactly_one_role_appropriate_parent_nonnull: database_check_required
+      organization_id_client_authority: false
+      plaintext_JSON_or_text_column_present: false
+      normal_update: forbidden
+      normal_hard_delete: forbidden_until_governed_retention_process
+
+    protected_payload_parent_relations:
+      profile_snapshot:
+        source_columns: [organization_id, provider_profile_snapshot_id]
+        target_table: pkk_provider_profile_snapshots
+        target_columns: [organization_id, id]
+        on_update: RESTRICT
+        on_delete: RESTRICT
+      operation:
+        source_columns: [organization_id, pkk_operation_id]
+        target_table: pkk_operations
+        target_columns: [organization_id, id]
+        on_update: RESTRICT
+        on_delete: RESTRICT
+      attempt:
+        source_columns: [organization_id, pkk_operation_attempt_id]
+        target_table: pkk_operation_attempts
+        target_columns: [organization_id, id]
+        on_update: RESTRICT
+        on_delete: RESTRICT
+      reconciliation:
+        source_columns: [organization_id, reconciliation_id]
+        target_table: pkk_operation_attempt_reconciliations
+        target_columns: [organization_id, id]
+        on_update: RESTRICT
+        on_delete: RESTRICT
+      one_profile_snapshot_raw_per_parent: partial_unique_on_organization_profile_snapshot_role
+      one_operation_command_request_raw_per_parent: partial_unique_on_organization_operation_role
+      one_provider_attempt_request_raw_per_parent: partial_unique_on_organization_attempt_request_role
+      one_provider_attempt_response_raw_per_parent: partial_unique_on_organization_attempt_response_role
+      one_reconciliation_raw_per_parent: partial_unique_on_organization_reconciliation_role
+      cross_tenant_or_wrong_parent_payload_transplant: database_rejected
+
+    authenticated_encryption_profile:
+      runtime_crypto_profile_v1:
+        profile_version: 1
+        aead_algorithm: AES_256_GCM
+        data_encryption_key_bits: 256
+        nonce_bits: 96
+        authentication_tag_bits: 128
+        random_DEK_per_protected_payload: true
+        random_nonce_per_encryption: true
+      future_algorithm_change_requires_new_crypto_profile_version: true
+      algorithm_or_crypto_profile_client_selectable: false
+      crypto_implementation_source: platform_security_ADR_and_vetted_crypto_library
+      custom_cryptography_implementation: forbidden
+      encryption_key_material_in_database_plaintext: forbidden
+      encryption_key_material_in_application_logs: forbidden
+
+    associated_data_boundary:
+      canonical_AAD_includes:
+        - aad_schema_version
+        - organization_id
+        - payload_role
+        - exact_parent_kind
+        - exact_parent_id
+        - crypto_profile_version
+      AAD_encoded_deterministically: true
+      AAD_stored_as_sensitive_full_payload: false
+      decrypt_with_different_tenant_parent_or_role: authentication_failure
+      ciphertext_transplant_between_operations_attempts_profiles_or_tenants: fails_closed
+
+    payload_hash_semantics:
+      canonical_plaintext_sha256:
+        input: deterministic_canonical_retained_plaintext_bytes_before_encryption
+        role: exact_plaintext_byte_evidence_and_projection_lineage
+        authentication_authority: false
+        encryption_authority: false
+      ciphertext_sha256:
+        input: exact_persisted_ciphertext_bytes
+        role: storage_byte_identity_and_corruption_precheck
+        authentication_authority: false
+      AEAD_auth_tag:
+        role: cryptographic_ciphertext_and_AAD_authentication_authority
+      DB_PKK_002_snapshot_content_hash:
+        preserved_input_and_semantics: true
+        equals_canonical_plaintext_sha256_required: false
+        reason: DB_PKK_002_hash_binds_normalized_business_snapshot_envelope_while_raw_provider_bytes_may_have_different_canonical_form
+      hash_values_must_not_be_used_as_authorization_tokens: true
+
+    payload_key_wrapping_table:
+      name: pkk_protected_payload_key_wrappings
+      fields:
+        id: uuid_primary_key
+        organization_id: uuid_not_null
+        pkk_protected_payload_id: uuid_not_null
+        wrapping_revision: bigint_not_null_check_gte_1
+        wrapping_profile_version: integer_not_null_check_gte_1
+        key_provider_code: varchar_not_null
+        kek_reference: varchar_not_null_opaque_nonsecret
+        kek_version: varchar_not_null_opaque_nonsecret
+        wrapped_dek: bytea_not_null
+        created_at: timestamptz_not_null
+      exact_payload_same_tenant_FK: true
+      unique_revision: [organization_id, pkk_protected_payload_id, wrapping_revision]
+      first_revision: 1
+      runtime_revision_allocation: previous_max_plus_one_under_exact_protected_payload_lock
+      committed_runtime_revisions_contiguous: true
+      current_runtime_wrapping: max_wrapping_revision
+      fallback_to_older_wrapping_after_current_auth_or_key_failure: forbidden_in_normal_runtime
+      raw_DEK_or_KEK_persisted: false
+      wrapping_history_normal_update_or_delete: forbidden
+
+    key_rotation_semantics:
+      rotation_target: wrapped_DEK_only
+      decrypt_and_reencrypt_business_payload_ciphertext_for_normal_KEK_rotation: false
+      mutate_pkk_protected_payload_ciphertext_nonce_tag_or_plaintext_hash: false
+      mutate_DB_PKK_002_snapshot_content_hash: false
+      mutate_operation_attempt_or_snapshot_business_history: false
+      steps:
+        - lock_exact_protected_payload
+        - unwrap_DEK_using_current_wrapping_in_trusted_crypto_boundary
+        - create_new_wrapping_revision_using_new_KEK_reference_and_version
+        - verify_new_wrapping_can_unwrap_same_DEK_inside_trusted_boundary
+        - commit_new_wrapping_revision
+      current_key_missing_or_unavailable: fail_closed_and_security_remediation
+      AEAD_authentication_failure: fail_closed_security_incident_path
+      rotation_failure_rewrites_old_business_evidence: false
+      old_wrapping_retention_or_destruction: governed_security_key_lifecycle_not_business_row_rewrite
+
+    redacted_projection_table:
+      name: pkk_payload_redacted_projections
+      fields:
+        id: uuid_primary_key
+        organization_id: uuid_not_null
+        payload_role: varchar_not_null_same_provider_neutral_catalog
+        provider_profile_snapshot_id: uuid_nullable
+        pkk_operation_id: uuid_nullable
+        pkk_operation_attempt_id: uuid_nullable
+        reconciliation_id: uuid_nullable
+        protected_payload_id: uuid_nullable
+        projection_revision: bigint_not_null_check_gte_1
+        redaction_policy_code: varchar_not_null
+        redaction_policy_version: varchar_not_null
+        retention_policy_version: varchar_not_null
+        source_plaintext_sha256: char_64_not_null
+        redacted_jsonb: jsonb_not_null
+        projection_sha256: char_64_not_null
+        created_at: timestamptz_not_null
+      exact_role_parent_matrix_same_as_protected_payloads: true
+      exactly_one_role_appropriate_parent_nonnull: database_check_required
+      optional_protected_payload_must_match_same_organization_role_and_exact_parent: true
+      protected_payload_required_when_retention_mode_encrypted_raw_plus_redacted: true
+      protected_payload_null_allowed_for_redacted_only: true
+      source_plaintext_sha256_must_match_protected_payload_when_present: true
+      projection_hash_input:
+        - redaction_policy_code
+        - redaction_policy_version
+        - exact redacted_jsonb_canonical_form
+      projection_revision_unique_scope: exact_parent_plus_payload_role_plus_projection_revision
+      revision_allocation: previous_max_plus_one_under_exact_parent_security_projection_lock
+      current_UI_projection: max_projection_revision_for_exact_parent_and_role
+      append_only: true
+      normal_update_or_delete: forbidden
+
+    redaction_policy_boundary:
+      provider_specific_field_allowlist_owner: verified_adapter_redaction_policy
+      DB_PKK_006_invents_provider_field_names: false
+      arbitrary_unknown_keys_allowed_into_safe_projection: false
+      adapter_must_construct_projection_from_allowlist_not_blacklist: true
+      deny_by_default_for_unclassified_provider_fields: true
+      direct_copy_of_raw_provider_JSON_to_redacted_jsonb: forbidden
+      redaction_policy_change_rewrites_existing_projection: false
+      redaction_policy_change_creates_new_projection_revision: true
+      projection_is_full_provider_evidence_authority: false
+      projection_can_drive_UI_read_model: true
+      projection_and_raw_retention_decision_recorded_independently: true
+      semantic_allowlist_enforcement_owner: domain_adapter_plus_contract_tests_because_provider_schema_is_not_known_to_database
+
+    parent_field_cutover:
+      pkk_provider_profile_snapshots_provider_profile_payload_ciphertext_runtime_authority_after_cutover: false
+      pkk_provider_profile_snapshots_redacted_profile_projection_jsonb_runtime_authority_after_cutover: false
+      pkk_operations_provisional_request_payload_ciphertext_runtime_authority_after_cutover: false
+      pkk_operations_provisional_redacted_request_JSON_runtime_authority_after_cutover: false
+      pkk_operation_attempts_provisional_provider_response_ciphertext_runtime_authority_after_cutover: false
+      pkk_operation_attempts_provisional_redacted_response_JSON_runtime_authority_after_cutover: false
+      canonical_runtime_raw_payload_authority_after_cutover: pkk_protected_payloads
+      canonical_runtime_safe_projection_authority_after_cutover: pkk_payload_redacted_projections
+      two_mutable_payload_authorities_allowed: false
+
+    leakage_exclusion_boundary:
+      raw_plaintext_payload_forbidden_in:
+        - audit_logs
+        - organization_activity_events
+        - outbox_messages
+        - notifications
+        - idempotency_records_safe_response_snapshot
+        - application_logs
+        - generic_error_messages
+      ciphertext_or_wrapped_DEK_exposed_to_UI_or_safe_event_payload: false
+      raw_provider_error_body_treated_as_sensitive_payload: true
+      safe_persistent_error_fields:
+        - provider_neutral_error_class
+        - adapter_sanitized_error_code_when_safe
+        - adapter_sanitized_short_message_when_safe
+        - request_or_correlation_id_when_safe
+        - protected_payload_or_projection_reference_when_authorized
+      event_and_log_payloads_use_allowlisted_serializers: true
+      database_can_semantically_inspect_arbitrary_provider_JSON_for_PII: false
+      enforcement: domain_safe_serializer_plus_schema_contract_tests_plus_security_review
+      raw_payload_reference_is_preferred_over_payload_copy: true
+
+    redacted_only_capture_transaction:
+      steps:
+        - canonicalize_transient_provider_payload
+        - compute_source_plaintext_sha256
+        - apply_versioned_allowlist_redaction_policy
+        - compute_projection_sha256
+        - persist_exact_parent_redacted_projection_with_retention_and_redaction_policy_versions
+        - discard_raw_plaintext_after_minimum_processing_window
+      durable_raw_payload_created: false
+      later_claim_that_full_raw_evidence_was_retained: forbidden
+
+    encrypted_raw_capture_transaction:
+      steps:
+        - canonicalize_transient_provider_payload
+        - compute_canonical_plaintext_sha256
+        - generate_random_DEK_and_nonce_in_trusted_crypto_boundary
+        - build_exact_context_AAD
+        - AEAD_encrypt_plaintext
+        - wrap_DEK_with_current_platform_KEK_reference
+        - apply_versioned_allowlist_redaction_policy
+        - persist_protected_payload_first_key_wrapping_and_projection_in_one_local_transaction
+        - discard_plaintext_DEK_and_raw_plaintext_from_process_memory_as_soon_as_practical
+      partial_envelope_without_key_wrapping_or_projection_commits: forbidden
+      provider_network_IO_inside_capture_persistence_transaction: false
+
+    signature_XML_storage_protection:
+      FileAsset_plaintext_content_identity_authority_preserved: true
+      FileAsset_sha256_semantics_redefined: false
+      raw_XML_in_database_ciphertext_payload_table: false
+      final_ready_PKK_XML_storage_object_must_be_application_encrypted: true
+      direct_plaintext_final_storage_object_for_PKK_XML: forbidden
+      protection_table: pkk_signature_file_asset_protections
+      fields:
+        id: uuid_primary_key
+        organization_id: uuid_not_null
+        pkk_signature_handoff_id: uuid_not_null
+        file_asset_id: uuid_not_null
+        asset_role: varchar_unsigned_or_signed_not_null
+        crypto_profile_version: integer_not_null_check_gte_1
+        aead_algorithm_code: varchar_not_null
+        aad_schema_version: integer_not_null_check_gte_1
+        nonce: bytea_not_null
+        auth_tag: bytea_not_null
+        encrypted_storage_object_sha256: char_64_not_null
+        created_at: timestamptz_not_null
+      exact_handoff_FileAsset_role_binding: required
+      unsigned_role_requires_handoff_unsigned_file_asset_id_match: true
+      signed_role_requires_handoff_signed_file_asset_id_match: true
+      one_protection_row_per_handoff_asset_role: true
+      final_FileAsset_ready_for_PKK_XML_requires_protection_row_and_encrypted_storage_object: true
+      FileAsset_sha256_remains_hash_of_verified_plaintext_XML_content: true
+      encrypted_storage_object_sha256_is_hash_of_ciphertext_storage_object: true
+      raw_storage_key_exposed_to_UI_logs_audit_or_idempotency: false
+      protection_row_normal_update_or_delete: forbidden
+
+    signature_XML_key_wrapping_table:
+      name: pkk_signature_file_asset_key_wrappings
+      fields:
+        id: uuid_primary_key
+        organization_id: uuid_not_null
+        pkk_signature_file_asset_protection_id: uuid_not_null
+        wrapping_revision: bigint_not_null_check_gte_1
+        wrapping_profile_version: integer_not_null_check_gte_1
+        key_provider_code: varchar_not_null
+        kek_reference: varchar_not_null_opaque_nonsecret
+        kek_version: varchar_not_null_opaque_nonsecret
+        wrapped_dek: bytea_not_null
+        created_at: timestamptz_not_null
+      exact_protection_same_tenant_FK: true
+      unique_revision: [organization_id, pkk_signature_file_asset_protection_id, wrapping_revision]
+      current_runtime_wrapping: max_wrapping_revision
+      rotation_rewraps_DEK_without_changing_FileAsset_hash_handoff_or_encrypted_object: true
+      raw_DEK_or_KEK_persisted: false
+      normal_update_or_delete: forbidden
+
+    signature_XML_ingest_security_boundary:
+      presigned_upload_may_land_in_temporary_quarantine_object: true
+      final_ready_transition_requires:
+        - tenant_and_exact_handoff_reservation_validation_from_DB_PKK_005
+        - size_and_content_sniffing_and_scan_policy_from_FileAsset_contract
+        - plaintext_SHA256_verification_before_final_encryption
+        - application_encryption_into_final_private_object
+        - exact_protection_and_first_key_wrapping_persisted
+        - temporary_plaintext_object_destroyed_after_successful_finalization
+      failed_encryption_or_scan_marks_FileAsset_ready: false
+      final_download_decrypts_only_after_exact_PKK_authorization: true
+
+    migration_policy:
+      legacy_plaintext_provider_payload:
+        continue_plaintext_runtime_authority: forbidden
+        encrypt_only_when_exact_parent_proven_and_retention_policy_requires_raw_evidence: true
+        otherwise_generate_only_safe_projection_if_deterministically_possible_and_remove_from_runtime_plaintext_path_after_verified_cutover: true
+      legacy_ciphertext_without_algorithm_nonce_tag_key_reference_or_AAD_semantics:
+        promote_to_runtime_protected_payload: forbidden
+        claim_authenticated_encryption: forbidden
+        required_action: preserve_as_legacy_security_evidence_gap_and_reviewed_remediation
+      legacy_redacted_JSON_without_policy_version_or_source_hash:
+        silently_promote_to_current_safe_projection: forbidden
+        required_action: reviewed_reprojection_from_trusted_source_or_explicit_legacy_projection_marker
+      legacy_profile_snapshot_content_hash:
+        recompute_to_match_new_ciphertext: forbidden
+        DB_PKK_002_semantics_preserved: true
+      legacy_XML_FileAsset_without_proven_encrypted_final_storage:
+        claim_DB_PKK_006_storage_protection: forbidden
+        required_action: controlled_reencrypt_exact_bytes_and_verify_FileAsset_plaintext_hash_or_reviewed_remediation
+      migration_calls_provider_or_external_signing_service: forbidden
+      guessed_key_version_or_crypto_profile: forbidden
+      guessed_redaction_policy_version: forbidden
+
+    Stage5_API_sync_gaps_recorded_not_fixed:
+      safe_PkkProfile_and_PkkOperation_projections_continue_to_expose_no_raw_crypto_internals: true
+      crypto_envelope_key_wrapping_or_storage_key_HTTP_exposure_needed: false
+      exact_provider_payload_schema_remains_adapter_owned: true
+      exact_retention_and_redaction_policy_admin_surface_defined_here: false
+      API_files_modified_in_DB_PKK_006: false
+
+    required_tests:
+      - runtime_raw_provider_payload_is_never_persisted_plaintext
+      - redacted_only_mode_creates_no_raw_ciphertext_and_does_not_claim_full_raw_evidence
+      - encrypted_raw_mode_requires_protected_payload_first_wrapping_and_redacted_projection_atomically
+      - protected_payload_wrong_tenant_or_wrong_exact_parent_is_rejected
+      - payload_role_parent_matrix_requires_exactly_one_correct_parent
+      - duplicate_runtime_raw_payload_for_same_exact_parent_role_is_rejected
+      - crypto_profile_v1_uses_AES_256_GCM_256_bit_DEK_96_bit_nonce_and_128_bit_tag
+      - changing_AAD_tenant_role_parent_or_crypto_profile_causes_authentication_failure
+      - tampered_ciphertext_or_auth_tag_causes_fail_closed_authentication_failure
+      - wrong_current_KEK_or_wrapped_DEK_cannot_fall_back_to_unchecked_plaintext
+      - ciphertext_SHA256_is_not_treated_as_authentication_substitute
+      - DB_PKK_002_snapshot_content_hash_remains_business_evidence_binding_not_AEAD_authentication
+      - key_rotation_adds_wrapping_revision_without_rewriting_ciphertext_nonce_tag_plaintext_hash_or_business_history
+      - current_runtime_wrapping_is_max_revision_and_normal_runtime_does_not_silently_fallback_to_old_wrapping
+      - raw_DEK_KEK_or_secret_key_material_is_never_persisted_or_logged
+      - redacted_projection_is_exact_parent_and_source_hash_bound
+      - redaction_policy_change_appends_new_projection_revision_instead_of_overwriting_history
+      - unknown_or_unclassified_provider_fields_are_denied_from_safe_projection_by_default
+      - raw_provider_payload_or_error_body_never_enters_audit_activity_outbox_notification_idempotency_or_application_logs
+      - idempotency_safe_response_contains_only safe_result_reference_and_allowlisted_projection
+      - legacy_unknown_ciphertext_is_not_promoted_to_authenticated_runtime_envelope
+      - legacy_redacted_JSON_without_lineage_is_not_silently_promoted
+      - PKK_unsigned_and_signed_XML_final_storage_is_application_encrypted_before_FileAsset_ready
+      - XML_crypto_rotation_preserves_FileAsset_plaintext_sha256_handoff_binding_and_encrypted_object
+      - raw_storage_key_and_XML_plaintext_do_not_enter_logs_audit_outbox_or_idempotency
+      - DB_PKK_001_through_DB_PKK_005_are_preserved
+      - DB_PKK_007_and_DB_PKK_008_remain_open
+
+    self_audit:
+      minimization_before_encryption_defined: PASS
+      retained_raw_payload_AEAD_envelope_closed: PASS
+      exact_tenant_parent_AAD_transplant_protection_closed: PASS
+      key_version_and_wrapped_DEK_history_closed: PASS
+      KEK_rotation_without_business_ciphertext_rewrite_closed: PASS
+      DB_PKK_002_snapshot_hash_semantics_preserved: PASS
+      append_only_redacted_projection_lineage_closed: PASS
+      allowlist_not_blacklist_safe_projection_boundary_closed: PASS
+      audit_activity_outbox_notification_idempotency_and_log_exclusion_closed: PASS
+      provisional_parent_payload_fields_deauthorized_after_cutover: PASS
+      DB_PKK_005_FileAsset_identity_preserved_while_XML_confidentiality_closed: PASS
+      provider_specific_schema_not_invented: PASS
+      legacy_crypto_redaction_history_not_guessed: PASS
+      DB_PKK_001_exact_target_integrity_preserved: PASS
+      DB_PKK_002_snapshot_history_preserved: PASS
+      DB_PKK_003_lifecycle_preserved: PASS
+      DB_PKK_004_idempotency_reconciliation_preserved: PASS
+      DB_PKK_005_signed_XML_evidence_preserved: PASS
+      DB_PKK_007_configuration_revision_not_solved: PASS
+      DB_PKK_008_latest_projection_not_solved: PASS
+      aggregate_core_schema_modified: false
+      aggregate_docs87_modified: false
+      API_files_modified: false
+      Laravel_migrations_created: false
+      DB4_9_or_later_entered: false
+      Stage5_started: false
+      UI_or_feature_implementation_started: false
