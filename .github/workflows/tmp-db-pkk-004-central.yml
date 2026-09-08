@@ -1,0 +1,90 @@
+name: Temporary DB-PKK-004 Central Gate
+
+on:
+  push:
+    branches: [tmp-db-pkk-004-central-helper]
+    paths:
+      - '.github/workflows/tmp-db-pkk-004-central.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: tmp-db-pkk-004-central-helper
+      - name: Patch central gate and validate
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('specs/gates/stage-4-database-contract-gate.yml')
+          s=p.read_text()
+          frag=Path('.stage4-tmp/db-pkk-004-central.ymlfrag').read_text()
+
+          old_slice='''  - id: DB4_8_PKK\n    status: FAIL_WITH_5_P1_BLOCKERS\n    diagnosis: COMPLETE\n    blockers_diagnosed: 8\n    blockers_resolved: 3\n    open_P0_P1: 5\n    final_aggregate_sync: NOT_STARTED\n    result: FAIL_WITH_5_P1_BLOCKERS\n'''
+          new_slice='''  - id: DB4_8_PKK\n    status: FAIL_WITH_4_P1_BLOCKERS\n    diagnosis: COMPLETE\n    blockers_diagnosed: 8\n    blockers_resolved: 4\n    open_P0_P1: 4\n    final_aggregate_sync: NOT_STARTED\n    result: FAIL_WITH_4_P1_BLOCKERS\n'''
+          assert s.count(old_slice)==1, f'slice count {s.count(old_slice)}'
+          s=s.replace(old_slice,new_slice,1)
+
+          marker='\nresolved_blockers:\n'
+          assert s.count(marker)==1
+          assert '  pkk_idempotency_retry_reconciliation_and_exactly_once_external_effect:\n' not in s
+          s=s.replace(marker,'\n'+frag+'resolved_blockers:\n',1)
+
+          rs=s.index('resolved_blockers:\n')
+          os=s.index('\nopen_blockers_current_diagnosed_scope:',rs)
+          rb=s[rs:os]
+          assert rb.count('  - DB-PKK-003\n')==1
+          assert '  - DB-PKK-004\n' not in rb
+          rb=rb.replace('  - DB-PKK-003\n','  - DB-PKK-003\n  - DB-PKK-004\n',1)
+          s=s[:rs]+rb+s[os:]
+
+          os=s.index('open_blockers_current_diagnosed_scope:\n')
+          gs=s.index('\ngate_definition:',os)
+          ob=s[os:gs]
+          assert ob.count('  - DB-PKK-004\n')==1
+          for x in ['DB-PKK-005','DB-PKK-006','DB-PKK-007','DB-PKK-008']:
+              assert ob.count(f'  - {x}\n')==1
+          ob=ob.replace('  - DB-PKK-004\n','',1)
+          s=s[:os]+ob+s[gs:]
+
+          gs=s.index('gate_definition:\n')
+          ns=s.index('\nnext_single_step:',gs)
+          gb=s[gs:ns]
+          assert gb.count('  current_result: DB4_8_FAIL_WITH_5_P1_BLOCKERS\n')==1
+          assert gb.count('  DB4_8_DB_PKK_003_result: PASS\n')==1
+          assert '  DB4_8_DB_PKK_004_result: PASS\n' not in gb
+          assert gb.count('  DB4_8_result: FAIL_WITH_5_P1_BLOCKERS\n')==1
+          gb=gb.replace('  current_result: DB4_8_FAIL_WITH_5_P1_BLOCKERS\n','  current_result: DB4_8_FAIL_WITH_4_P1_BLOCKERS\n',1)
+          gb=gb.replace('  DB4_8_DB_PKK_003_result: PASS\n','  DB4_8_DB_PKK_003_result: PASS\n  DB4_8_DB_PKK_004_result: PASS\n',1)
+          gb=gb.replace('  DB4_8_result: FAIL_WITH_5_P1_BLOCKERS\n','  DB4_8_result: FAIL_WITH_4_P1_BLOCKERS\n',1)
+          s=s[:gs]+gb+s[ns:]
+
+          ns=s.index('next_single_step:\n')
+          nb=s[ns:]
+          old_id='  id: DB_PKK_004_IDEMPOTENCY_RETRY_RECONCILIATION_AND_EXACTLY_ONCE_EXTERNAL_EFFECT\n'
+          old_action='  action: resolve_DB_PKK_004_only_after_next_explicit_user_instruction\n'
+          old_scope='''  scope_lock: >-\n    Resolve only DB-PKK-004 idempotency, retry, reconciliation and exactly-once\n    external effect. Do not resolve DB-PKK-005 or later PKK blockers in the same step,\n    do not enter DB4_9 or later slices, do not start Stage 5, do not create Laravel\n    migrations and do not start UI or feature implementation.\n  after_action: rerun_DB_PKK_004_machine_narrative_central_gate_and_STOP_before_DB_PKK_005\n'''
+          new_scope='''  scope_lock: >-\n    Resolve only DB-PKK-005 signed XML handoff and FileAsset evidence integrity.\n    Do not resolve DB-PKK-006 or later PKK blockers in the same step, do not enter\n    DB4_9 or later slices, do not start Stage 5, do not create Laravel migrations\n    and do not start UI or feature implementation.\n  after_action: rerun_DB_PKK_005_machine_narrative_central_gate_and_STOP_before_DB_PKK_006\n'''
+          assert nb.count(old_id)==1
+          assert nb.count(old_action)==1
+          assert nb.count(old_scope)==1, 'next scope marker mismatch'
+          nb=nb.replace(old_id,'  id: DB_PKK_005_SIGNED_XML_HANDOFF_AND_FILE_ASSET_EVIDENCE_INTEGRITY\n',1)
+          nb=nb.replace(old_action,'  action: resolve_DB_PKK_005_only_after_next_explicit_user_instruction\n',1)
+          nb=nb.replace(old_scope,new_scope,1)
+          s=s[:ns]+nb
+          p.write_text(s)
+          PY
+
+          ruby -e "require 'yaml'; y=YAML.unsafe_load_file('specs/gates/stage-4-database-contract-gate.yml'); sl=y['stage_4_slices'].find{|x| x['id']=='DB4_8_PKK'}; raise unless sl['blockers_resolved']==4 && sl['open_P0_P1']==4 && sl['result']=='FAIL_WITH_4_P1_BLOCKERS'; q=y.dig('quality_checks','pkk_idempotency_retry_reconciliation_and_exactly_once_external_effect'); raise unless q && q['status']=='PASS' && q['resolved_blocker_id']=='DB-PKK-004'; raise unless y['resolved_blockers'].include?('DB-PKK-004'); raise if y['open_blockers_current_diagnosed_scope'].include?('DB-PKK-004'); raise unless y['open_blockers_current_diagnosed_scope']==%w[DB-PKK-005 DB-PKK-006 DB-PKK-007 DB-PKK-008]; g=y['gate_definition']; raise unless g['current_result']=='DB4_8_FAIL_WITH_4_P1_BLOCKERS' && g['DB4_8_DB_PKK_004_result']=='PASS' && g['DB4_8_result']=='FAIL_WITH_4_P1_BLOCKERS'; n=y['next_single_step']; raise unless n['id']=='DB_PKK_005_SIGNED_XML_HANDOFF_AND_FILE_ASSET_EVIDENCE_INTEGRITY'; raise unless y['stage_4_slices'].find{|x| x['id']=='DB4_9_STUDENT_FINANCE_COMMERCE'}['status']=='NOT_STARTED'; raise unless g['may_start_stage_5']==false && g['may_start_UI_or_feature_implementation']==false"
+          git diff --check -- specs/gates/stage-4-database-contract-gate.yml
+          test "$(git diff --name-only | grep -v '^\.github/workflows/tmp-db-pkk-004-central.yml$' | grep -v '^\.stage4-tmp/' | sort -u)" = "specs/gates/stage-4-database-contract-gate.yml"
+          git config user.name 'prawkonaraz100'
+          git config user.email 'prawkonaraz100@gmail.com'
+          git add specs/gates/stage-4-database-contract-gate.yml
+          git commit -m 'DB-PKK-004: close central database contract gate'
+          git push origin HEAD:tmp-db-pkk-004-central-helper
