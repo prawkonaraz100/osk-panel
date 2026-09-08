@@ -2,11 +2,11 @@ meta:
   project: osk-panel
   stage: 4
   slice: DB4_7_INTERNAL_EXAMS
-  step: DB_EXAM_008_DETERMINISTIC_MANAGEMENT_HISTORY_LATEST_AND_STATISTICS_PROJECTION
-  status: BLOCKERS_RESOLVED_PENDING_DB4_7_FINAL_AGGREGATE_SYNC
+  step: DB4_7_FINAL_AGGREGATE_SYNC
+  status: PASS
   diagnosed_at: 2026-09-07
   branch: docs-consolidation-2026-09-05
-  aggregate_sync_status: FROZEN_UNTIL_DB4_7_FINAL_SYNC
+  aggregate_sync_status: PASS
   implementation_started: false
   Laravel_migrations_created: false
   Stage5_started: false
@@ -15,7 +15,7 @@ meta:
 scope_rule:
   diagnose_before_fixing: true
   fixes_allowed_in_this_step: true
-  current_step_scope: DB_EXAM_008_only
+  current_step_scope: DB4_7_FINAL_AGGREGATE_SYNC_only
   one_blocker_per_future_step: true
   aggregate_files_frozen:
     - specs/database/core-schema.yml
@@ -2988,11 +2988,11 @@ diagnosis_summary:
   resolved_in_diagnosis: 0
   resolved_after_diagnosis: 8
   open_P0_P1: 0
-  result: BLOCKERS_RESOLVED_PENDING_DB4_7_FINAL_AGGREGATE_SYNC
+  result: PASS
   blockers_in_required_fix_order: []
 
 preservation_gate:
-  status: PASS_DB_EXAM_008_MACHINE_CONTRACT
+  status: PASS_DB4_7_FINAL_AGGREGATE_SYNC
   checks:
     no_blocker_fixed_during_diagnosis: true
     course_first_formal_exam_preserved: true
@@ -3119,15 +3119,31 @@ preservation_gate:
     DB_EXAM_008_hide_finished_semantics_closed_without_hiding_history: true
     DB_EXAM_008_search_filter_sort_and_pagination_stability_closed: true
     DB_EXAM_008_migration_does_not_guess_legacy_attempt_order: true
-    DB4_7_final_aggregate_sync_not_started_after_DB_EXAM_008_machine: true
-    core_schema_aggregate_modified: false
-    docs87_aggregate_modified: false
+    DB4_7_final_aggregate_sync_completed_after_DB_EXAM_001_through_008_closed: true
+    core_schema_aggregate_modified: true
+    docs87_aggregate_modified: true
     DB4_8_or_later_entered: false
     Laravel_migrations_created: false
     Stage5_started: false
     UI_or_feature_implementation_started: false
 
+final_aggregate_sync:
+  status: PASS
+  blocker_contracts_closed: [DB-EXAM-001, DB-EXAM-002, DB-EXAM-003, DB-EXAM-004, DB-EXAM-005, DB-EXAM-006, DB-EXAM-007, DB-EXAM-008]
+  aggregate_base_after_DB_EXAM_008_central_gate: 5a7e87ecb31ef85bc9ba20e8e71baa38c56a7bdc
+  machine_aggregate_commit: 6f1185a0d6b92b542d22a091710b23333041ba17
+  machine_aggregate_blob: c04dcbea90ca877c1c4e76196b77fdb33e404dab
+  narrative_aggregate_commit: bef415c4aa277a31d6f24bd89a3327eed3d59c7f
+  narrative_aggregate_blob: a26421c9d3d624693f29f8e9dfa1b9e718f22323
+  machine_and_narrative_semantic_loss_gate: PASS
+  migration_order_and_invariant_test_gate: PASS
+  stale_provisional_shortcut_gate: PASS
+  DB4_8_or_later_entered: false
+  Laravel_migrations_created: false
+  Stage5_started: false
+  UI_or_feature_implementation_started: false
+
 next_single_step_after_central_gate:
-  id: DB4_7_FINAL_AGGREGATE_SYNC
-  action: synchronize_internal_exam_contract_into_frozen_aggregates_only_after_next_explicit_user_instruction
-  stop_before: DB4_8_PKK
+  id: DB4_8_PKK_DIAGNOSIS
+  action: begin_DB4_8_only_after_next_explicit_user_instruction
+  stop_before: DB4_9_STUDENT_FINANCE_COMMERCE
