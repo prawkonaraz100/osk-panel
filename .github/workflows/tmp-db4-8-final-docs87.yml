@@ -1,0 +1,86 @@
+name: Temporary DB4_8 Docs87 Aggregate Gate
+
+on:
+  push:
+    branches: [tmp-db4-8-final-docs87-helper]
+    paths:
+      - '.stage4-tmp/TRIGGER_DB4_8_FINAL_DOCS87'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: tmp-db4-8-final-docs87-helper
+      - name: Patch and validate PKK narrative aggregate
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('docs/87-physical-database-schema.md')
+          s=p.read_text()
+          frag=Path('.stage4-tmp/db4-8-docs87-section14.mdfrag').read_text().strip()+'\n\n'
+
+          old_status='**Status:** `IMPLEMENTATION_BLUEPRINT / DB4_7_INTERNAL_EXAMS_AGGREGATE_SYNC_PASS`\n'
+          new_status='**Status:** `IMPLEMENTATION_BLUEPRINT / DB4_8_PKK_AGGREGATE_SYNC_PASS`\n'
+          assert s.count(old_status)==1,s.count(old_status)
+          s=s.replace(old_status,new_status,1)
+
+          db47='DB4_7 Internal Exams został zsynchronizowany z `specs/database/internal-exams.yml` po zamknięciu DB-EXAM-001..008. Sekcja 18 oraz odpowiadające jej same-tenant boundaries, inventory ledger, Attempt/Access lifecycle, token i Station security, immutable exam evidence, deterministyczna management projection, lock orders, migration safety i invariant tests są agregatową projekcją zamkniętego kontraktu.\n'
+          db48='\nDB4_8 PKK został zsynchronizowany z `specs/database/pkk.yml` po zamknięciu DB-PKK-001..008. Sekcja 14 oraz odpowiadające jej exact same-tenant provider boundaries, snapshot/lifecycle/attempt/reconciliation history, signed XML evidence, payload encryption/redaction, execution-configuration revision binding, deterministyczna course operation history, migration safety i invariant tests są agregatową projekcją zamkniętego kontraktu.\n'
+          assert s.count(db47)==1,s.count(db47)
+          assert 'DB4_8 PKK został zsynchronizowany' not in s
+          s=s.replace(db47,db47+db48,1)
+
+          start='# 14. PKK — local course identity + provider boundary\n'
+          end='# 15. Calendar — DB4_5 aggregate\n'
+          assert s.count(start)==1,s.count(start)
+          assert s.count(end)==1,s.count(end)
+          i=s.index(start)
+          j=s.index(end,i)
+          s=s[:i]+frag+'---\n\n'+s[j:]
+
+          old_mig='11. PKK provider operations/attempts/retry/reconciliation — DB4_8,\n'
+          new_mig='11. PKK execution-configuration revisions + provider snapshots + operations/lifecycle + attempts/reconciliations + signed-XML handoff/reservations + protected payload/redaction + XML crypto bindings + deterministic course operation sequence,\n'
+          assert s.count(old_mig)==1,s.count(old_mig)
+          s=s.replace(old_mig,new_mig,1)
+
+          db46_para='W obrębie DB4_6 najpierw precheckujemy LearningAccount identity, tenant/exact-target relacje, password authority, legacy credential artifacts, Inventory/Assignment/Activation consistency, activation order/effective periods oraz product-language evidence. Niejednoznaczności trafiają do reviewed remediation. Dopiero potem backfillujemy bezpieczne baselines/sequences/capability history i włączamy same-user/composite FK, credential authority, final-state equivalence, contiguous sequence i entitlement-chain guards. Nie zgadujemy na podstawie timestampów, UUID, creatora, ekranu ani globalnego language dictionary.\n'
+          db48_para='\nW obrębie DB4_8 najpierw precheckujemy exact tenant/Course/Profile/Operation/Attempt context, provider snapshot i lifecycle history, idempotency/attempt state, signed-XML provenance, crypto-envelope lineage, execution-configuration revisions oraz legacy business-operation order. Niejednoznaczności trafiają do reviewed remediation. Dopiero potem backfillujemy dowodliwe snapshot/attempt/configuration/operation sequences i włączamy composite FK, partial unique, append-only/final-state guards oraz crypto/evidence bindings. Nie zgadujemy current Profile, external effect, XML role, key version, configuration revision ani kolejności business operations na podstawie timestampów, UUID, filename lub provider completion time.\n'
+          assert s.count(db46_para)==1,s.count(db46_para)
+          assert 'W obrębie DB4_8 najpierw precheckujemy' not in s
+          s=s.replace(db46_para,db46_para+db48_para,1)
+
+          lic_closed='- **Licenses / Learning Access DB4_6**: exact same-tenant Assignment target; current same-user AuthLoginIdentifier bez niezależnej login projection; durable LearningAccount lifecycle/version i operational eligibility; fail-closed global password management authority + credential epoch; memory-only secret-bearing credential PDFs i non-secret handoff/batch metadata; Inventory↔Assignment↔Activation final-state equivalence; immutable serialized entitlement ledger z duration snapshot/sequence; versioned product-language capability; immutable Assignment language/order snapshots oraz czysto derived management projection.\n'
+          pkk_closed='- **PKK DB4_8**: exact Course/Profile/Operation/Attempt tenant integrity; immutable provider snapshot i lifecycle history; fail-closed idempotency/retry/reconciliation dla unknown external effect; signed-XML FileAsset evidence; authenticated raw-payload encryption + allowlisted redaction + key-wrapping history; exact execution-configuration revision binding; immutable `course_operation_sequence` oraz derived latest/count bez drugiego summary authority.\n'
+          assert s.count(lic_closed)==1,s.count(lic_closed)
+          assert '**PKK DB4_8**' not in s
+          s=s.replace(lic_closed,lic_closed+pkk_closed,1)
+
+          old_pending='''Po DB4_6 nadal osobno wymagają dalszych slice/ADR:\n- DB4_7 Internal Exams aggregate contract — synchronized / PASS,\n- PKK provider configuration/fetch/update/return/XML/retry/reconciliation/collision policy — DB4_8,\n'''
+          new_pending='''Po DB4_8 nadal osobno wymagają dalszych slice/ADR:\n- DB4_7 Internal Exams aggregate contract — synchronized / PASS,\n'''
+          assert s.count(old_pending)==1,s.count(old_pending)
+          s=s.replace(old_pending,new_pending,1)
+
+          p.write_text(s)
+          PY
+          grep -q '^# 14\. PKK — DB4_8 aggregate$' docs/87-physical-database-schema.md
+          grep -q '^## 14\.14 Deterministyczna historia i course summary$' docs/87-physical-database-schema.md
+          grep -q '^# 15\. Calendar — DB4_5 aggregate$' docs/87-physical-database-schema.md
+          grep -q 'DB4_8_PKK_AGGREGATE_SYNC_PASS' docs/87-physical-database-schema.md
+          grep -q 'DB4_8 PKK został zsynchronizowany' docs/87-physical-database-schema.md
+          grep -q '^11\. PKK execution-configuration revisions' docs/87-physical-database-schema.md
+          grep -q '^W obrębie DB4_8 najpierw precheckujemy' docs/87-physical-database-schema.md
+          grep -q '^\- \*\*PKK DB4_8\*\*:' docs/87-physical-database-schema.md
+          ! grep -q 'Exact provider configuration verification, fetch/update/return/XML-signature/status/retry/idempotency/reconciliation i operation-attempt constraints pozostają do osobnego DB4_8' docs/87-physical-database-schema.md
+          git diff --check -- docs/87-physical-database-schema.md
+          test "$(git diff --name-only | grep -v '^\.github/workflows/tmp-db4-8-final-docs87.yml$' | grep -v '^\.stage4-tmp/' | sort -u)" = "docs/87-physical-database-schema.md"
+          git config user.name 'prawkonaraz100'
+          git config user.email 'prawkonaraz100@gmail.com'
+          git add docs/87-physical-database-schema.md
+          git commit -m 'DB4_8: synchronize PKK narrative aggregate'
+          git push origin HEAD:tmp-db4-8-final-docs87-helper
