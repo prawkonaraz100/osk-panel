@@ -1,0 +1,55 @@
+name: Temporary DB-PKK-005 Central Gate
+
+on:
+  push:
+    branches: [tmp-db-pkk-005-central-helper]
+    paths:
+      - '.stage4-tmp/TRIGGER_DB_PKK_005_CENTRAL'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: tmp-db-pkk-005-central-helper
+      - name: Patch and validate central gate
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('specs/gates/stage-4-database-contract-gate.yml')
+          s=p.read_text()
+          frag=Path('.stage4-tmp/db-pkk-005-central.ymlfrag').read_text()
+          def once(old,new,label):
+              global s
+              n=s.count(old)
+              assert n==1, f'{label}: {n}'
+              s=s.replace(old,new,1)
+          once('  - id: DB4_8_PKK\n    status: FAIL_WITH_4_P1_BLOCKERS\n    diagnosis: COMPLETE\n    blockers_diagnosed: 8\n    blockers_resolved: 4\n    open_P0_P1: 4\n    final_aggregate_sync: NOT_STARTED\n    result: FAIL_WITH_4_P1_BLOCKERS\n',
+               '  - id: DB4_8_PKK\n    status: FAIL_WITH_3_P1_BLOCKERS\n    diagnosis: COMPLETE\n    blockers_diagnosed: 8\n    blockers_resolved: 5\n    open_P0_P1: 3\n    final_aggregate_sync: NOT_STARTED\n    result: FAIL_WITH_3_P1_BLOCKERS\n','slice')
+          marker='\nresolved_blockers:\n'
+          assert s.count(marker)==1
+          assert '  pkk_signed_XML_handoff_and_file_asset_evidence_integrity:\n' not in s
+          s=s.replace(marker,'\n'+frag+marker.lstrip('\n'),1)
+          once('  - DB-PKK-004\n\nopen_blockers_current_diagnosed_scope:\n  - DB-PKK-005\n  - DB-PKK-006\n  - DB-PKK-007\n  - DB-PKK-008\n',
+               '  - DB-PKK-004\n  - DB-PKK-005\n\nopen_blockers_current_diagnosed_scope:\n  - DB-PKK-006\n  - DB-PKK-007\n  - DB-PKK-008\n','resolved/open')
+          once('  current_result: DB4_8_FAIL_WITH_4_P1_BLOCKERS\n','  current_result: DB4_8_FAIL_WITH_3_P1_BLOCKERS\n','current result')
+          once('  DB4_8_DB_PKK_004_result: PASS\n  DB4_8_result: FAIL_WITH_4_P1_BLOCKERS\n',
+               '  DB4_8_DB_PKK_004_result: PASS\n  DB4_8_DB_PKK_005_result: PASS\n  DB4_8_result: FAIL_WITH_3_P1_BLOCKERS\n','gate result')
+          old='''next_single_step:\n  id: DB_PKK_005_SIGNED_XML_HANDOFF_AND_FILE_ASSET_EVIDENCE_INTEGRITY\n  action: resolve_DB_PKK_005_only_after_next_explicit_user_instruction\n  allowed_scope:\n    - specs/database/pkk.yml\n    - docs/113-stage-4-pkk-audit.md\n    - specs/gates/stage-4-database-contract-gate.yml\n  aggregate_files_frozen:\n    - specs/database/core-schema.yml\n    - docs/87-physical-database-schema.md\n  scope_lock: >-\n    Resolve only DB-PKK-005 signed XML handoff and FileAsset evidence integrity.\n    Do not resolve DB-PKK-006 or later PKK blockers in the same step, do not enter\n    DB4_9 or later slices, do not start Stage 5, do not create Laravel migrations\n    and do not start UI or feature implementation.\n  after_action: rerun_DB_PKK_005_machine_narrative_central_gate_and_STOP_before_DB_PKK_006\n'''
+          new='''next_single_step:\n  id: DB_PKK_006_SENSITIVE_PROVIDER_PAYLOAD_ENCRYPTION_REDACTION_HASH_AND_KEY_VERSION_BOUNDARY\n  action: resolve_DB_PKK_006_only_after_next_explicit_user_instruction\n  allowed_scope:\n    - specs/database/pkk.yml\n    - docs/113-stage-4-pkk-audit.md\n    - specs/gates/stage-4-database-contract-gate.yml\n  aggregate_files_frozen:\n    - specs/database/core-schema.yml\n    - docs/87-physical-database-schema.md\n  scope_lock: >-\n    Resolve only DB-PKK-006 sensitive provider payload encryption, redaction, hash\n    and key-version boundary. Do not resolve DB-PKK-007 or later PKK blockers in\n    the same step, do not enter DB4_9 or later slices, do not start Stage 5, do\n    not create Laravel migrations and do not start UI or feature implementation.\n  after_action: rerun_DB_PKK_006_machine_narrative_central_gate_and_STOP_before_DB_PKK_007\n'''
+          once(old,new,'next step')
+          p.write_text(s)
+          PY
+          ruby -e "require 'yaml'; y=YAML.unsafe_load_file('specs/gates/stage-4-database-contract-gate.yml'); x=y['stage_4_slices'].find{|z| z['id']=='DB4_8_PKK'}; raise unless x['blockers_resolved']==5 && x['open_P0_P1']==3 && x['result']=='FAIL_WITH_3_P1_BLOCKERS'; q=y['quality_checks']['pkk_signed_XML_handoff_and_file_asset_evidence_integrity']; raise unless q['status']=='PASS' && q['resolved_blocker_id']=='DB-PKK-005'; raise unless y['open_blockers_current_diagnosed_scope']==['DB-PKK-006','DB-PKK-007','DB-PKK-008']; raise unless y['gate_definition']['DB4_8_DB_PKK_005_result']=='PASS'; raise unless y['gate_definition']['DB4_8_result']=='FAIL_WITH_3_P1_BLOCKERS'; raise unless y.dig('next_single_step','id')=='DB_PKK_006_SENSITIVE_PROVIDER_PAYLOAD_ENCRYPTION_REDACTION_HASH_AND_KEY_VERSION_BOUNDARY'"
+          git diff --check -- specs/gates/stage-4-database-contract-gate.yml
+          test "$(git diff --name-only | grep -v '^\.github/workflows/tmp-db-pkk-005-central.yml$' | grep -v '^\.stage4-tmp/' | sort -u)" = "specs/gates/stage-4-database-contract-gate.yml"
+          git config user.name 'prawkonaraz100'
+          git config user.email 'prawkonaraz100@gmail.com'
+          git add specs/gates/stage-4-database-contract-gate.yml
+          git commit -m 'DB-PKK-005: close central database contract gate'
+          git push origin HEAD:tmp-db-pkk-005-central-helper
