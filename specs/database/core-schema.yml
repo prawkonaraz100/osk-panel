@@ -9,6 +9,7 @@ meta:
   DB4_4_students_courses_training_aggregate_sync: PASS
   DB4_5_calendar_aggregate_sync: PASS
   DB4_6_licenses_learning_access_aggregate_sync: PASS
+  DB4_7_internal_exams_machine_aggregate_sync: PASS
 
 conventions:
   primary_key:
@@ -96,7 +97,6 @@ core_tables:
     - location_types
     - staff_types
     - internal_exam_capabilities
-    - internal_exam_capability_languages
 
   staff:
     - staff_profiles
@@ -160,13 +160,21 @@ core_tables:
 
   internal_exams:
     - internal_exam_inventory_entries
+    - internal_exam_inventory_adjustments
+    - internal_exam_inventory_ledger_entries
     - internal_exam_attempts
+    - internal_exam_attempt_lifecycle_events
     - internal_exam_reservations
     - internal_exam_accesses
+    - internal_exam_access_lifecycle_events
+    - internal_exam_access_tokens
     - exam_stations
+    - exam_station_credentials
     - internal_exam_station_sessions
+    - internal_exam_definitions
     - internal_exam_attempt_questions
     - internal_exam_results
+    - internal_exam_document_templates
     - internal_exam_documents
 
   commerce:
@@ -1153,14 +1161,282 @@ critical_relations:
   - planned_training_session_has_exact_course_student_and_resource_claim_set
   - training_session_calendar_details_is_zero_or_one_companion_to_same_tenant_practical_session
   - availability_slot_may_link_to_at_most_one_same_tenant_training_session_after_atomic_formalization
-  - course_enrollment_has_many_internal_exam_attempts
-  - internal_exam_inventory_entry_has_many_historical_reservations_but_at_most_one_active_reservation
-  - internal_exam_attempt_has_at_most_one_active_reservation
-  - internal_exam_attempt_has_many_historical_station_sessions_but_at_most_one_active
-  - exam_station_has_at_most_one_active_station_session
-  - internal_exam_attempt_has_one_result_when_finished
+  - course_enrollment_has_many_internal_exam_attempts_with_immutable_course_attempt_sequence
+  - internal_exam_attempt_binds_exact_course_student_category_requirement_revision_and_capability
+  - internal_exam_inventory_entry_has_append_only_ledger_and_many_historical_reservations_but_at_most_one_active
+  - internal_exam_attempt_has_at_most_one_active_and_at_most_one_consumed_reservation
+  - internal_exam_attempt_has_append_only_lifecycle_history_and_at_most_one_ever_started_access
+  - internal_exam_access_has_append_only_lifecycle_history_and_purpose_scoped_remote_tokens
+  - exam_station_has_rotating_nonrecoverable_credentials_and_at_most_one_active_station_session
+  - internal_exam_attempt_has_many_historical_station_sessions_but_at_most_one_active_linear_transfer_chain
+  - internal_exam_attempt_binds_one_immutable_definition_at_start_and_ordered_question_evidence_when_question_test
+  - internal_exam_attempt_has_exactly_one_immutable_result_when_passed_or_failed
+  - internal_exam_document_binds_exact_result_evidence_template_and_ready_hash_matching_file_asset
+  - internal_exam_management_subject_is_derived_per_course_enrollment_and_exam_part_not_mutable_summary_authority
   - order_item_can_grant_service_entitlement
   - service_entitlement_has_at_most_one_activation
+
+internal_exams_model:
+  bounded_context_source: specs/database/internal-exams.yml
+  blocker_contracts_synchronized: [DB-EXAM-001, DB-EXAM-002, DB-EXAM-003, DB-EXAM-004, DB-EXAM-005, DB-EXAM-006, DB-EXAM-007, DB-EXAM-008]
+  aggregate_machine_sync_status: PASS
+  tenant_integrity:
+    organization_id_is_server_derived: true
+    formal_history_delete_policy: RESTRICT
+    same_tenant_exact_target_relations_required: true
+    attempt_exact_course_student_category: [organization_id, course_enrollment_id, student_id, driving_category_id]
+    attempt_exact_requirement_profile_revision: [organization_id, training_requirement_profile_id, course_enrollment_id, requirements_revision]
+    reservation_exact_attempt_inventory: [organization_id, internal_exam_attempt_id, internal_exam_inventory_entry_id]
+    access_exact_attempt_and_optional_station: true
+    station_session_exact_access_attempt_station: true
+    question_result_document_exact_attempt: true
+    document_exact_same_tenant_file_asset: true
+    migration_cross_tenant_or_wrong_target_auto_reassignment: forbidden
+
+  formal_requirement_and_capability:
+    current_requirement_authority: training_requirement_profiles
+    current_requirement_revision_authority: course_enrollments.requirements_revision
+    attempt_fields:
+      - training_requirement_profile_id
+      - requirements_revision
+      - internal_exam_capability_id
+      - requirement_basis_snapshot
+    attempt_basis_immutable_after_creation: true
+    category_source: locked_course_enrollment_driving_category_id
+    exam_part_values: [theory, practical]
+    theory_create_requires_internal_theory_exam_required_true: true
+    practical_create_requires_internal_practical_exam_required_true: true
+    current_capability_table: internal_exam_capabilities
+    capability_is_global_versioned_category_part_language_history: true
+    capability_fields: [id, driving_category_id, exam_part, language_code, enabled_at, disabled_at, source_reference, created_at]
+    capability_current_predicate: disabled_at_is_null
+    capability_current_unique_scope: [driving_category_id, exam_part, language_code]
+    global_language_dictionary_alone_grants_exam_support: false
+    attempt_creation_first_lock: course_enrollment_FOR_UPDATE
+    later_requirement_or_capability_change_rewrites_existing_attempt: false
+    theory_exempt_course_new_theory_attempt: forbidden
+
+  inventory:
+    accounting_history_authority: internal_exam_inventory_ledger_entries
+    concrete_unit_table: internal_exam_inventory_entries
+    adjustment_command_table: internal_exam_inventory_adjustments
+    mutable_available_counter_as_authority: forbidden
+    source_type_values: [free, paid, adjustment]
+    inventory_current_state_values: [available, reserved, consumed, adjusted_out]
+    released_as_current_inventory_state: forbidden
+    inventory_source_provenance_immutable: true
+    reservation_status_values: [reserved, released, consumed]
+    reservation_version_minimum: 1
+    one_active_reservation_per_unit: true
+    one_active_reservation_per_attempt: true
+    at_most_one_consumed_reservation_per_attempt: true
+    released_reservation_may_be_followed_by_new_reservation_row: true
+    ledger_event_types: [unit_granted, unit_adjustment_granted, unit_reserved, unit_released, unit_consumed, unit_adjusted_out, migration_baseline]
+    migration_baseline_runtime_insert_after_cutover: forbidden
+    ledger_event_sequence_unique_scope: [organization_id, internal_exam_inventory_entry_id, event_sequence]
+    ledger_event_sequence_contiguous_from_one: true
+    ledger_business_rows_immutable: true
+    reserve_on_formal_attempt_create: true
+    consume_exactly_once_on_start: true
+    prestart_release_exactly_once: true
+    technical_abort_auto_restores_consumed_unit: false
+    consumed_refund_requires_positive_adjustment: true
+    free_paid_selection_priority_hardcoded_in_database: false
+    payment_order_grant_trigger: deferred_to_DB4_9
+
+  attempt_lifecycle:
+    concurrency_root: internal_exam_attempts_row_FOR_UPDATE
+    status_values: [created, in_progress, passed, failed, technical_abort, invalidated]
+    version_type: bigint_not_null_default_1_check_gte_1
+    normal_hard_delete: forbidden
+    transitions:
+      created: [in_progress]
+      in_progress: [passed, failed, technical_abort, invalidated]
+      passed: [invalidated]
+      failed: [invalidated]
+      technical_abort: [invalidated]
+      invalidated: []
+    timestamp_fields: [started_at, finished_at, technical_aborted_at, invalidated_at]
+    state_timestamp_matrix_database_guarded: true
+    lifecycle_history_table: internal_exam_attempt_lifecycle_events
+    lifecycle_history_append_only: true
+    one_lifecycle_event_per_material_version: true
+    candidate_snapshot_PATCH_before_start_only: true
+    candidate_snapshot_PATCH_requires_If_Match_expected_version: true
+    repeat_exam_requires_new_attempt: true
+    postfinish_invalidation_preserves_original_finished_evidence: true
+
+  access_lifecycle:
+    status_values: [draft, ready, delivered_or_assigned, opened, started, completed, cancelled, expired, revoked, technical_abort, invalidated]
+    version_type: bigint_not_null_default_1_check_gte_1
+    launch_modes: [remote_link, local_current_workstation, assigned_exam_station]
+    remote_link_station_id: MUST_BE_NULL
+    remote_link_expires_at: REQUIRED
+    local_current_workstation_station_id: REQUIRED_SERVER_RESOLVED
+    assigned_exam_station_station_id: REQUIRED
+    local_or_assigned_expires_at: MUST_BE_NULL
+    mode_and_station_binding_immutable_per_access: true
+    lifecycle_history_table: internal_exam_access_lifecycle_events
+    lifecycle_history_append_only: true
+    one_nonterminal_access_per_attempt: true
+    at_most_one_ever_started_access_per_attempt: true
+    terminal_prestart_access_history_many: true
+    resend_creates_new_access_or_reservation: false
+    shared_lock_prefix: [internal_exam_attempt_FOR_UPDATE, internal_exam_access_FOR_UPDATE]
+    inventory_lock_suffix: [internal_exam_reservation_FOR_UPDATE, internal_exam_inventory_entry_FOR_UPDATE]
+    start_submit_abort_invalidate_races_recheck_state_under_attempt_lock: true
+
+  remote_token_security:
+    canonical_table: internal_exam_access_tokens
+    legacy_access_token_hash_is_canonical: false
+    allowed_access_mode: remote_link
+    purpose_values: [exam_execution, finished_result_read]
+    raw_secret_entropy_minimum_bits: 256
+    raw_secret_recoverable_storage: forbidden
+    persisted_verifier: keyed_one_way_HMAC_SHA256_or_equivalent
+    verifier_key_or_pepper_outside_database: true
+    exact_binding: [organization_id, internal_exam_access_id, internal_exam_attempt_id, purpose]
+    one_current_nonrevoked_per_access_purpose: true
+    resend_rotates_execution_secret_and_revokes_old: true
+    same_idempotency_retry_replays_raw_secret: false
+    execution_token_can_read_finished_result: false
+    finished_result_token_can_start_or_submit: false
+    finished_result_token_can_download_staff_only_document: false
+    submit_revokes_execution_and_mints_finished_result_read: true
+    technical_abort_mints_finished_result_token: false
+    invalidation_revokes_current_bearer_tokens: true
+    local_or_assigned_station_bearer_auth: forbidden
+    raw_secret_in_logs_audit_outbox_or_idempotency_snapshot: forbidden
+
+  stations:
+    station_table: exam_stations
+    credential_table: exam_station_credentials
+    persisted_administrative_status_values: [enabled, disabled]
+    connectivity_online_offline_is_derived_from_authenticated_heartbeat: true
+    occupancy_free_occupied_is_derived_from_active_station_session: true
+    effective_available_requires_enabled_online_current_credential_and_free: true
+    station_raw_credential_recoverable_storage: forbidden
+    credential_verifier: keyed_one_way_HMAC_SHA256_or_equivalent
+    credential_rotation_revokes_old_and_does_not_end_active_session: true
+    disable_revokes_current_credential_but_does_not_auto_end_transfer_or_refund: true
+    access_station_id_role: immutable_prestart_launch_or_assignment_binding
+    runtime_station_source_after_start: active_internal_exam_station_sessions.exam_station_id
+    station_session_fields: [organization_id, internal_exam_attempt_id, internal_exam_access_id, exam_station_id, session_sequence, transferred_from_session_id, started_at, ended_at, end_reason]
+    session_end_reason_values: [exam_completed, technical_abort, invalidated, transferred]
+    one_active_session_per_station: true
+    one_active_session_per_attempt: true
+    session_sequence_unique_scope: [organization_id, internal_exam_attempt_id, session_sequence]
+    session_sequence_contiguous_from_one: true
+    transfer_chain_linear_no_branch_or_cycle: true
+    failover_rewrites_access_station_id: false
+    failover_creates_access_reservation_or_inventory_effect: false
+    failover_consumes_again: false
+    reconnect_same_station_reuses_active_session: true
+    terminal_attempt_closes_active_session_atomically: true
+
+  immutable_exam_evidence:
+    definition_table: internal_exam_definitions
+    definition_tenant_owned: false
+    definition_engine_kind_values: [question_test, non_question_assessment]
+    definition_fields: [id, driving_category_id, exam_part, language_code, engine_kind, definition_version, definition_schema_version, composition_snapshot, scoring_policy_snapshot, definition_content_hash, published_at, retired_at, created_at]
+    current_definition_partial_unique_scope: [driving_category_id, exam_part, language_code, engine_kind]
+    definition_published_business_fields_immutable: true
+    definition_selected_and_frozen_at_actual_start_before_answering: true
+    attempt_definition_fields: [internal_exam_definition_id, exam_definition_version_snapshot, exam_definition_hash_snapshot, evidence_schema_version, question_set_hash]
+    observed_32_questions_global_constant: false
+    observed_74_max_points_global_constant: false
+    unverified_numeric_pass_threshold_global_constant: false
+    question_test_materializes_exact_ordered_rows_at_start: true
+    attempt_question_fields: [organization_id, internal_exam_attempt_id, ordinal, group, source_question_identifier, source_question_revision_identifier, question_snapshot_schema_version, question_snapshot, question_snapshot_hash, media_evidence_snapshot, max_points_snapshot, candidate_answer, is_correct, points_awarded, answered_at]
+    question_content_media_and_max_points_immutable_from_start: true
+    final_answer_and_scoring_fields_write_once_at_submit: true
+    question_set_hash_over_ordered_frozen_evidence: true
+    current_question_bank_or_mutable_media_is_finished_history_authority: false
+    result_table: internal_exam_results
+    result_one_per_passed_or_failed_attempt: true
+    result_immutable_after_insert: true
+    result_fields: [organization_id, internal_exam_attempt_id, evidence_schema_version, score, max_score, pass_threshold_snapshot, passed, scoring_policy_snapshot, question_set_hash, evidence_bundle_hash, answer_sheet_template_binding_snapshot, result_snapshot, result_snapshot_hash, created_at]
+    question_test_score_equals_sum_points_awarded: true
+    question_test_max_score_equals_sum_max_points_snapshot: true
+    passed_matches_frozen_scoring_policy: true
+    evidence_bundle_hash_required: true
+    document_template_table: internal_exam_document_templates
+    document_template_tenant_owned: false
+    template_fields: [id, document_type, exam_part, template_version, renderer_version, template_content_hash, effective_from, effective_to, created_at]
+    template_effective_interval: half_open
+    template_effective_intervals_nonoverlapping_per_scope: true
+    published_template_business_fields_immutable: true
+    internal_exam_document_fields: [organization_id, internal_exam_attempt_id, document_type, internal_exam_document_template_id, template_version_snapshot, renderer_version_snapshot, template_hash_snapshot, evidence_bundle_hash, asset_id, content_hash, generated_at, generated_by_user_id, created_at]
+    one_canonical_document_per_attempt_and_type: true
+    file_asset_requires_ready_correct_purpose_same_tenant_and_matching_sha256: true
+    deterministic_PDF_from_frozen_evidence_and_template: true
+    repeated_download_recomputes_from_current_profile_question_bank_or_template: false
+    in_place_finished_evidence_edit: forbidden
+    correction_requires_invalidation_new_attempt_or_append_only_future_annotation: true
+
+  management_projection:
+    mutable_summary_table_as_authority: forbidden
+    grain: [organization_id, course_enrollment_id, exam_part]
+    include_if_current_part_required_or_historical_attempt_exists: true
+    no_attempt_nonrequired_no_history_projects_not_assigned: false
+    attempt_order_field: course_attempt_sequence
+    course_attempt_sequence_unique_scope: [organization_id, course_enrollment_id, course_attempt_sequence]
+    sequence_spans_all_exam_parts_for_course: true
+    sequence_allocated_under_course_enrollment_FOR_UPDATE: true
+    sequence_contiguous_for_committed_runtime_attempts: true
+    sequence_immutable: true
+    latest_for_context: MAX_course_attempt_sequence_filtered_by_exact_course_and_exam_part
+    timestamp_UUID_or_display_minute_is_latest_authority: false
+    public_status_values: [not_assigned, not_conducted, failed, passed]
+    public_status_mapping:
+      no_attempt_required_context: not_assigned
+      created: not_conducted
+      in_progress: not_conducted
+      technical_abort: not_conducted
+      invalidated: not_conducted
+      failed: failed
+      passed: passed
+    exam_count_includes: [created, in_progress, passed, failed, technical_abort, invalidated]
+    pass_rate_denominator: passed_plus_failed_only
+    pass_rate_zero_denominator: null
+    aggregate_pass_rate: ratio_of_sums_not_average_of_row_rates
+    hide_finished_excludes: [passed, failed]
+    hide_finished_keeps: [not_assigned, not_conducted]
+    hide_finished_changes_expanded_history: false
+    search_fields: [student_first_name, student_last_name, student_contact_email, learning_account_login]
+    main_search_includes_PESEL: false
+    multiple_categories_combine_OR: true
+    multiple_statuses_combine_OR: true
+    different_filter_dimensions_combine_AND: true
+    stable_sort_final_tie_breaker: [course_enrollment_id_ASC, exam_part_ASC]
+    nullable_latest_sort_fields: NULLS_LAST_both_directions
+    expanded_history_order: course_attempt_sequence_DESC
+
+  command_lock_orders:
+    create_attempt_prefix: [course_enrollment_FOR_UPDATE]
+    remote_start: [internal_exam_attempt_FOR_UPDATE, internal_exam_access_FOR_UPDATE, internal_exam_definition_FOR_SHARE, internal_exam_reservation_FOR_UPDATE, internal_exam_inventory_entry_FOR_UPDATE]
+    local_or_assigned_start: [internal_exam_attempt_FOR_UPDATE, internal_exam_access_FOR_UPDATE, internal_exam_definition_FOR_SHARE, target_exam_station_FOR_UPDATE, current_station_credential_FOR_SHARE, internal_exam_reservation_FOR_UPDATE, internal_exam_inventory_entry_FOR_UPDATE]
+    failover: [internal_exam_attempt_FOR_UPDATE, exact_started_access_FOR_UPDATE, active_station_session_FOR_UPDATE, old_and_target_exam_stations_FOR_UPDATE_sorted_by_UUID, target_current_station_credential_FOR_SHARE]
+    submit_or_abort_prefix: [internal_exam_attempt_FOR_UPDATE, exact_started_access_FOR_UPDATE]
+    lock_order_rechecked_after_each_lock: true
+    start_definition_question_materialization_attempt_access_station_session_and_inventory_effect_one_outer_transaction: true
+    submit_question_scoring_result_attempt_access_and_station_close_one_outer_transaction: true
+
+  migration_safety:
+    fail_closed_on_ambiguous_legacy_state: true
+    no_cross_tenant_auto_reassignment: true
+    no_current_requirement_or_capability_heuristic_for_historical_basis: true
+    no_inventory_ledger_or_reservation_order_guess_from_timestamp_or_UUID: true
+    no_access_winner_or_lifecycle_order_guess: true
+    no_legacy_token_purpose_or_raw_secret_guess: true
+    no_station_credential_session_or_transfer_winner_guess: true
+    no_question_media_scoring_threshold_or_template_history_guess: true
+    no_finished_score_answer_normalization_to_force_consistency: true
+    no_attempt_sequence_tie_break_using_UUID_display_minute_status_or_result: true
+    reviewed_exact_legacy_mapping_or_order_allowed_when_proven: true
+    DB4_8_provider_lifecycle_not_entered: true
+    DB4_9_payment_grant_boundary_not_entered: true
+    DB4_10_final_audit_outbox_shape_not_entered: true
 
 structural_decisions:
   identity_tenant_rbac:
@@ -1302,18 +1578,28 @@ structural_decisions:
     latest_assignment_order: max_assignment_sequence
     mutable_latest_status_count_remaining_or_finished_authority: forbidden
     source_conflicting_screen_language_lists_are_authority: false
-  exam_reservation_history:
-    global_unique_inventory_entry_across_all_history: false
-    active_inventory_reservation_unique: true
-    active_attempt_reservation_unique: true
-    active_definition: status_reserved
-  exam_station_concurrency:
-    local_start_requires_resolved_station_identity: true
-    active_station_session_table: internal_exam_station_sessions
-    max_one_active_attempt_per_station: true
-    max_one_active_station_session_per_attempt: true
-    pre_start_rebind_allowed_after_revoke: true
-    post_start_failover_requires_technical_transfer_with_audit: true
+  internal_exam_inventory_and_lifecycle:
+    bounded_context_source: specs/database/internal-exams.yml
+    inventory_accounting_authority: internal_exam_inventory_ledger_entries
+    consume_on_start_exactly_once: true
+    attempt_concurrency_root: internal_exam_attempts
+    access_shared_lock_prefix_attempt_then_access: true
+    lifecycle_history_append_only: true
+    remote_tokens_purpose_scoped_nonrecoverable: true
+  internal_exam_station_security_and_failover:
+    bounded_context_source: specs/database/internal-exams.yml
+    station_credential_authority: exam_station_credentials
+    station_online_and_occupancy_are_derived: true
+    current_runtime_station_after_start_is_active_session: true
+    failover_reuses_same_attempt_access_and_consumed_reservation: true
+    failover_second_inventory_effect: false
+  internal_exam_evidence_and_management:
+    bounded_context_source: specs/database/internal-exams.yml
+    definition_and_question_evidence_frozen_at_start: true
+    result_and_document_evidence_immutable: true
+    deterministic_attempt_order: course_attempt_sequence
+    management_status_counts_pass_rate_and_latest_are_derived: true
+    mutable_management_summary_authority: forbidden
   payment_webhook_dedup:
     unique_scope: [provider, provider_event_id]
   service_entitlement_activation:
@@ -1772,22 +2058,71 @@ critical_constraints:
     columns: [provider, provider_event_id]
   exam_active_reservation_unique_per_inventory_entry:
     type: partial_unique
-    columns: [internal_exam_inventory_entry_id]
+    columns: [organization_id, internal_exam_inventory_entry_id]
     where: status_equals_reserved
   exam_active_reservation_unique_per_attempt:
     type: partial_unique
-    columns: [internal_exam_attempt_id]
+    columns: [organization_id, internal_exam_attempt_id]
     where: status_equals_reserved
+  exam_consumed_reservation_unique_per_attempt:
+    type: partial_unique
+    columns: [organization_id, internal_exam_attempt_id]
+    where: status_equals_consumed
+  exam_inventory_ledger_sequence_unique:
+    columns: [organization_id, internal_exam_inventory_entry_id, event_sequence]
+  exam_inventory_ledger_sequence_and_state_guard:
+    type: DEFERRABLE_INITIALLY_DEFERRED_constraint_trigger_or_equivalent
+  exam_attempt_course_sequence_unique:
+    columns: [organization_id, course_enrollment_id, course_attempt_sequence]
+  exam_attempt_course_sequence_contiguous_guard:
+    type: DEFERRABLE_INITIALLY_DEFERRED_constraint_trigger_or_equivalent
+  exam_attempt_status_timestamp_and_final_state_guard:
+    type: DEFERRABLE_INITIALLY_DEFERRED_constraint_trigger_or_equivalent
+  exam_access_nonterminal_unique_per_attempt:
+    type: partial_unique
+    columns: [organization_id, internal_exam_attempt_id]
+    where: status_in_draft_ready_delivered_or_assigned_opened_started
+  exam_access_ever_started_unique_per_attempt:
+    type: partial_unique
+    columns: [organization_id, internal_exam_attempt_id]
+    where: started_at_is_not_null
+  exam_access_token_current_unique_per_access_purpose:
+    type: partial_unique
+    columns: [organization_id, internal_exam_access_id, purpose]
+    where: revoked_at_is_null
+  exam_station_current_credential_unique:
+    type: partial_unique
+    columns: [organization_id, exam_station_id]
+    where: revoked_at_is_null
   exam_active_station_session_unique_per_station:
     type: partial_unique
-    columns: [exam_station_id]
+    columns: [organization_id, exam_station_id]
     where: ended_at_is_null
   exam_active_station_session_unique_per_attempt:
     type: partial_unique
-    columns: [internal_exam_attempt_id]
+    columns: [organization_id, internal_exam_attempt_id]
     where: ended_at_is_null
+  exam_station_session_sequence_unique:
+    columns: [organization_id, internal_exam_attempt_id, session_sequence]
+  exam_station_session_transfer_chain_guard:
+    type: DEFERRABLE_INITIALLY_DEFERRED_constraint_trigger_or_equivalent
+  exam_definition_current_unique:
+    type: partial_unique
+    columns: [driving_category_id, exam_part, language_code, engine_kind]
+    where: retired_at_is_null
+  exam_attempt_question_ordinal_unique:
+    columns: [organization_id, internal_exam_attempt_id, ordinal]
+  exam_attempt_result_unique:
+    columns: [organization_id, internal_exam_attempt_id]
+  exam_result_question_evidence_equivalence_guard:
+    type: DEFERRABLE_INITIALLY_DEFERRED_constraint_trigger_or_equivalent
+  exam_document_template_effective_interval_nonoverlap_guard:
+    type: PostgreSQL_exclusion_or_equivalent
+  exam_document_canonical_unique_per_attempt_type:
+    columns: [organization_id, internal_exam_attempt_id, document_type]
+  exam_document_evidence_asset_hash_guard:
+    type: DEFERRABLE_INITIALLY_DEFERRED_constraint_trigger_or_equivalent
   exam_inventory_consume_exactly_once: true
-  exam_attempt_result_unique: true
   session_end_after_start: true
   calendar_event_end_after_start: true
   availability_slot_end_after_start: true
@@ -2073,30 +2408,56 @@ transactional_invariants:
     create_immutable_activation_and_set_assignment_activated_and_inventory_consumed_same_transaction: true
     retry_does_not_apply_entitlement_twice: true
     write_audit_and_outbox_same_transaction: true
-  exam_start:
-    lock:
-      - internal_exam_access
-      - internal_exam_attempt
-      - internal_exam_reservation
-      - internal_exam_inventory_entry
-      - exam_station_if_local
-    transaction:
-      - verify_access_startable
-      - verify_reservation_active
-      - verify_station_available_if_local
-      - consume_inventory_exactly_once
-      - mark_reservation_consumed
-      - mark_attempt_in_progress
-      - create_active_station_session_if_local
-      - write_audit
+  create_internal_exam_attempt_and_reserve:
+    idempotency_required: true
+    first_lock: course_enrollment_FOR_UPDATE
+    validate_current_requirement_profile_and_exact_capability: true
+    allocate_course_attempt_sequence_under_course_lock: true
+    reserve_exactly_one_inventory_unit_and_append_ledger_event: true
+    attempt_sequence_reservation_and_attempt_insert_one_outer_transaction: true
+  exam_start_remote:
+    idempotency_required: true
+    lock_order: [internal_exam_attempt, internal_exam_access, internal_exam_definition_FOR_SHARE, internal_exam_reservation, internal_exam_inventory_entry]
+    freeze_definition_and_question_evidence_before_answering: true
+    consume_inventory_exactly_once: true
+    attempt_access_reservation_inventory_and_evidence_one_outer_transaction: true
+  exam_start_local_or_assigned:
+    idempotency_required: true
+    lock_order: [internal_exam_attempt, internal_exam_access, internal_exam_definition_FOR_SHARE, target_exam_station, current_station_credential_FOR_SHARE, internal_exam_reservation, internal_exam_inventory_entry]
+    exact_station_identity_required: true
+    create_first_station_session_sequence_one: true
+    consume_inventory_exactly_once: true
+    station_session_failure_rolls_back_start_and_consume: true
+  exam_prestart_revoke_expire_or_cancel:
+    lock_prefix: [internal_exam_attempt, internal_exam_access]
+    inventory_suffix: [internal_exam_reservation, internal_exam_inventory_entry]
+    release_reserved_unit_exactly_once: true
+    attempt_remains_created: true
+  exam_submit:
+    lock_prefix: [internal_exam_attempt, exact_started_access]
+    score_server_side_against_frozen_evidence: true
+    persist_final_question_fields_result_evidence_hash_and_terminal_attempt_access_atomically: true
+    close_active_station_session_if_local: true
+    second_inventory_consume: forbidden
+  exam_technical_abort:
+    lock_prefix: [internal_exam_attempt, exact_started_access]
+    close_active_station_session_if_local: true
+    consumed_inventory_auto_restore: false
+  exam_invalidate:
+    lock_prefix: [internal_exam_attempt, exact_ever_started_access]
+    expected_attempt_version_and_reason_required: true
+    preserve_question_result_document_evidence: true
+    consumed_inventory_auto_restore: false
   exam_station_failover_after_start:
     elevated_or_technical_recovery_flow: true
+    lock_order: [internal_exam_attempt, exact_started_access, active_station_session, old_and_target_exam_stations_sorted_by_UUID, target_current_station_credential_FOR_SHARE]
     transaction:
-      - close_old_station_session_with_reason
-      - verify_new_station_available
-      - create_new_station_session_with_transfer_reference
-      - do_not_consume_exam_inventory_again
-      - write_audit
+      - close_old_session_as_transferred
+      - verify_target_enabled_online_current_credential_and_free
+      - create_linear_successor_session_same_attempt_and_access
+      - do_not_rewrite_access_station_id
+      - do_not_create_or_change_reservation
+      - do_not_consume_or_restore_inventory
   activate_service_entitlement:
     lock:
       - service_entitlement
@@ -2184,7 +2545,7 @@ migration_order:
   - pkk_provider_operations_and_attempts
   - student_finance
   - license_products_language_capability_history_inventory_assignments_and_activations
-  - internal_exam_inventory_attempts_stations_and_station_sessions
+  - internal_exam_capability_history_inventory_ledger_attempt_lifecycle_access_tokens_station_credentials_sessions_definitions_question_result_template_document_and_management_projection
   - orders_payments_service_entitlements_and_activations
   - audit_activity_outbox_notifications
   - final_partial_indexes_and_cross_table_constraints_including_learning_identity_password_authority_inventory_assignment_activation_entitlement_and_language_capability_guards
@@ -2356,12 +2717,28 @@ migration_tests_required:
   - second_activation_for_same_license_assignment_is_rejected
   - concurrent_license_extensions_do_not_lose_entitlement_days
   - license_effective_periods_follow_serialized_contiguous_activation_sequence
-  - released_exam_reservation_allows_inventory_entry_to_be_reserved_again
-  - two_active_exam_reservations_for_same_inventory_entry_are_rejected
-  - two_active_exam_reservations_for_same_attempt_are_rejected
+  - internal_exam_attempt_rejects_cross_tenant_or_wrong_course_student_category_requirement_or_capability_target
+  - theory_exempt_course_rejects_new_formal_theory_attempt
+  - internal_exam_available_count_matches_append_only_ledger_and_guarded_unit_projection
+  - attempt_create_reserves_exactly_one_inventory_unit_and_failed_create_rolls_back_sequence_and_reservation
+  - two_active_exam_reservations_for_same_inventory_entry_or_attempt_are_rejected
+  - start_consumes_reserved_exam_unit_exactly_once_and_prestart_release_is_exactly_once
+  - technical_abort_after_start_does_not_auto_restore_exam_inventory
+  - attempt_and_access_status_timestamp_version_and_lifecycle_history_are_consistent
+  - start_vs_revoke_expire_and_submit_vs_abort_invalidate_have_one_serialized_winner
+  - raw_exam_bearer_tokens_and_station_secrets_are_never_recoverably_persisted_or_logged
+  - execution_and_finished_result_token_purposes_cannot_escalate_into_each_other_or_document_download
   - two_active_local_exam_sessions_on_same_station_are_rejected
   - same_attempt_cannot_have_two_active_station_sessions
-  - failover_does_not_consume_second_exam_credit
+  - station_failover_keeps_same_attempt_access_and_consumed_reservation_and_does_not_consume_second_credit
+  - offline_disabled_or_reconnect_station_flow_does_not_silently_end_transfer_or_refund_active_attempt
+  - exam_definition_and_exact_question_media_points_evidence_are_frozen_at_start_without_global_32_or_74_hardcode
+  - result_score_max_pass_and_question_evidence_match_frozen_scoring_policy_and_are_immutable
+  - answer_sheet_template_evidence_asset_and_content_hash_lineage_is_deterministic_and_immutable
+  - postfinish_invalidation_preserves_original_result_question_document_evidence
+  - course_attempt_sequence_is_unique_contiguous_and_selects_latest_without_timestamp_or_UUID_heuristic
+  - internal_exam_management_status_counts_pass_rate_hide_finished_search_filter_sort_and_pagination_are_derived_deterministically
+  - DB4_7_migration_does_not_guess_tenant_target_requirement_capability_inventory_state_lifecycle_token_station_transfer_question_scoring_template_or_attempt_order
   - explicit_service_entitlement_activation_is_exactly_once
   - payment_success_does_not_activate_explicit_mode_entitlement_early
   - duplicate_provider_event_with_same_provider_is_rejected
