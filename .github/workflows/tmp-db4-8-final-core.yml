@@ -1,0 +1,81 @@
+name: Temporary DB4_8 Core Aggregate Gate
+
+on:
+  push:
+    branches: [tmp-db4-8-final-core-helper]
+    paths:
+      - '.stage4-tmp/TRIGGER_DB4_8_FINAL_CORE'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: tmp-db4-8-final-core-helper
+      - name: Patch and validate PKK aggregate core
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import yaml
+          p=Path('specs/database/core-schema.yml')
+          s=p.read_text()
+          frag=Path('.stage4-tmp/db4-8-pkk-core.ymlfrag').read_text().rstrip()+'\n\n'
+
+          old_meta='  DB4_7_internal_exams_machine_aggregate_sync: PASS\n'
+          new_meta=old_meta+'  DB4_8_PKK_machine_aggregate_sync: PASS\n'
+          assert s.count(old_meta)==1
+          assert 'DB4_8_PKK_machine_aggregate_sync' not in s
+          s=s.replace(old_meta,new_meta,1)
+
+          old_tables='''  pkk:\n    - pkk_integration_settings\n    - pkk_profiles\n    - pkk_operations\n    - pkk_operation_attempts\n'''
+          new_tables='''  pkk:\n    - pkk_integration_settings\n    - pkk_integration_configuration_revisions\n    - pkk_profiles\n    - pkk_provider_profile_snapshots\n    - pkk_operations\n    - pkk_operation_lifecycle_events\n    - pkk_operation_attempts\n    - pkk_operation_attempt_reconciliations\n    - pkk_signature_handoffs\n    - pkk_signature_handoff_upload_reservations\n    - pkk_protected_payloads\n    - pkk_protected_payload_key_wrappings\n    - pkk_payload_redacted_projections\n    - pkk_signature_file_asset_protections\n    - pkk_signature_file_asset_key_wrappings\n'''
+          assert s.count(old_tables)==1,s.count(old_tables)
+          s=s.replace(old_tables,new_tables,1)
+
+          old_deferred='    provider_fetch_update_return_retry_reconciliation: deferred_to_DB4_8\n'
+          new_deferred='    provider_fetch_update_return_retry_reconciliation: defined_in_pkk_model\n'
+          assert s.count(old_deferred)==1,s.count(old_deferred)
+          s=s.replace(old_deferred,new_deferred,1)
+
+          marker='\ncalendar_model:\n'
+          assert s.count(marker)==1,s.count(marker)
+          assert '\npkk_model:\n' not in s
+          s=s.replace(marker,'\n'+frag+'calendar_model:\n',1)
+
+          old_migration='  - pkk_provider_operations_and_attempts\n'
+          new_migration='  - pkk_integration_configuration_revisions_provider_snapshots_operations_lifecycle_attempts_reconciliations_signature_handoffs_protected_payloads_redacted_projections_and_XML_crypto_bindings\n'
+          assert s.count(old_migration)==1,s.count(old_migration)
+          s=s.replace(old_migration,new_migration,1)
+
+          anchor='  - DB4_4_migration_does_not_guess_no_PESEL_requirement_context_external_lineage_or_PKK_history_when_legacy_evidence_is_ambiguous\n'
+          tests='''  - PKK_operation_course_profile_and_attempt_exact_context_cross_tenant_or_cross_course_mismatch_is_rejected\n  - PKK_provider_snapshot_history_is_append_only_and_current_projection_uses_max_snapshot_revision_for_exact_current_profile\n  - PKK_business_operation_status_matches_append_only_lifecycle_history_and_one_active_operation_per_exact_profile\n  - PKK_same_idempotency_key_same_hash_does_not_duplicate_operation_or_provider_attempt\n  - PKK_effect_unknown_blocks_retry_until_conclusive_no_effect_reconciliation\n  - PKK_signature_handoff_requires_exact_ready_same_tenant_unsigned_and_signed_FileAsset_hash_binding\n  - PKK_signed_XML_submit_creates_exact_attempt_and_submitted_transition_atomically_before_provider_dispatch\n  - PKK_raw_provider_payload_is_never_persisted_plaintext_and_safe_projection_is_allowlisted_versioned_history\n  - PKK_key_rotation_rewraps_DEK_without_rewriting_business_ciphertext_or_snapshot_hash_history\n  - PKK_XML_final_storage_is_application_encrypted_while_FileAsset_sha256_remains_plaintext_content_hash\n  - PKK_provider_attempt_binds_exact_integration_configuration_revision_and_stale_prepared_attempt_cannot_silently_use_new_configuration\n  - PKK_material_configuration_change_is_blocked_while_dispatching_or_effect_unknown_attempt_requires_old_context\n  - PKK_course_operation_sequence_is_unique_immutable_contiguous_for_runtime_and_allocated_under_course_lock\n  - PKK_latest_operation_uses_max_course_operation_sequence_not_created_at_completed_at_or_UUID\n  - PKK_history_count_counts_business_operations_not_transport_attempts_or_retries\n  - PKK_legacy_equal_created_at_without_stronger_order_evidence_fails_sequence_backfill_instead_of_guessing\n'''
+          assert s.count(anchor)==1,s.count(anchor)
+          assert 'PKK_latest_operation_uses_max_course_operation_sequence' not in s
+          s=s.replace(anchor,anchor+tests,1)
+
+          p.write_text(s)
+          d=yaml.safe_load(s)
+          assert d['meta']['DB4_8_PKK_machine_aggregate_sync']=='PASS'
+          assert d['pkk_model']['aggregate_sync_status']=='PASS'
+          assert len(d['pkk_model']['resolved_blockers'])==8
+          assert d['pkk_model']['deterministic_operation_history_and_course_projection']['latest_operation_selector']=='MAX_course_operation_sequence_for_exact_course'
+          assert d['pkk_model']['idempotency_retry_reconciliation']['effect_unknown_blocks_new_dispatch_and_retry'] is True
+          assert d['pkk_model']['protected_payloads_and_redaction']['plaintext_raw_provider_payload_persistence']=='forbidden'
+          assert d['pkk_model']['integration_configuration_revisions']['provider_attempt_binds_exact_integration_configuration_revision'] is True
+          assert 'pkk_operation_attempt_reconciliations' in d['core_tables']['pkk']
+          assert 'pkk_signature_file_asset_key_wrappings' in d['core_tables']['pkk']
+          assert d['training_model']['pkk_identity_boundary']['provider_fetch_update_return_retry_reconciliation']=='defined_in_pkk_model'
+          assert 'pkk_provider_operations_and_attempts' not in d['migration_order']
+          PY
+          git diff --check -- specs/database/core-schema.yml
+          test "$(git diff --name-only | grep -v '^\.github/workflows/tmp-db4-8-final-core.yml$' | grep -v '^\.stage4-tmp/' | sort -u)" = "specs/database/core-schema.yml"
+          git config user.name 'prawkonaraz100'
+          git config user.email 'prawkonaraz100@gmail.com'
+          git add specs/database/core-schema.yml
+          git commit -m 'DB4_8: synchronize PKK machine aggregate'
+          git push origin HEAD:tmp-db4-8-final-core-helper
