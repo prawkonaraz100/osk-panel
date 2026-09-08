@@ -1,0 +1,45 @@
+name: Temporary DB-FIN-001 Narrative Gate
+
+on:
+  push:
+    branches: [tmp-db-fin-001-narrative-helper]
+    paths:
+      - '.stage4-tmp/TRIGGER_DB_FIN_001_NARRATIVE'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: tmp-db-fin-001-narrative-helper
+      - name: Patch and validate narrative only
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('docs/114-stage-4-student-finance-commerce-audit.md')
+          s=p.read_text()
+          old='''**Aktualny krok:** `DB4_9_DIAGNOSIS`  \n**Status:** `FAIL_WITH_10_P1_BLOCKERS / 0 P0 / 10 P1 OPEN`\n'''
+          new='''**Aktualny krok:** `DB_FIN_001_SAME_TENANT_EXACT_CHARGE_PAYMENT_COURSE_INTEGRITY`\n**Status:** `FAIL_WITH_9_P1_BLOCKERS / 0 P0 / 9 P1 OPEN`\n'''
+          assert s.count(old)==1
+          s=s.replace(old,new,1)
+          assert '## 19. DB-FIN-001 — wynik fixera: PASS' not in s
+          append='''\n\n## 19. DB-FIN-001 — wynik fixera: PASS\n\nDB-FIN-001 domyka wyłącznie fizyczną integralność relacji Student Finance. Nie zmienia semantyki salda, reversal, cancellation ani concurrency należności — te elementy pozostają DB-FIN-002.\n\n### 19.1. Exact Charge → Student\n\n`student_charges(organization_id, student_id)` musi wskazywać `students(organization_id, id)` przez composite FK z `RESTRICT`. Tenant nie jest wartością klienta; jest wyprowadzany z aktywnego kontekstu OSK lub zweryfikowanego parentu.\n\n### 19.2. Optional Charge → exact Course tego samego Studenta\n\nSamo FK `(organization_id, course_enrollment_id)` nie wystarcza, ponieważ nie dowodzi, że Course należy do tego samego Studenta, którego wskazuje Charge.\n\nDlatego `course_enrollments` dostaje candidate key `(organization_id, id, student_id)`, a non-null relacja Charge używa:\n\n`student_charges(organization_id, course_enrollment_id, student_id)` → `course_enrollments(organization_id, id, student_id)`.\n\n`course_enrollment_id = NULL` pozostaje legalne; osobny FK Charge→Student nadal obowiązuje.\n\n### 19.3. Payment → exact Charge + Student + currency\n\n`student_charges` dostaje candidate key `(organization_id, id, student_id, currency)`. `student_payments` wiąże się z nim przez dokładnie ten sam zestaw pól.\n\nW efekcie Payment nie może:\n- wskazać Charge innego tenant,\n- wskazać Charge innego Studenta w tym samym OSK,\n- użyć innej waluty niż Charge.\n\nDodatkowy direct FK Payment→Student pozostaje jawny. Wszystkie historyczne relacje używają `RESTRICT`.\n\n### 19.4. Globalni actorzy nie dostają fałszywego tenant FK\n\n`created_by_user_id`, `received_by_user_id`, `cancelled_by_user_id` i `reversed_by_user_id` pozostają relacjami do globalnego User identity. Organizacyjna autoryzacja aktora jest obowiązkiem RBAC/command boundary, nie sztucznego `(organization_id,user_id)` FK do globalnej tabeli users.\n\n### 19.5. Migration safety\n\nPrzed dodaniem constraints migracja musi udowodnić:\n- exact Charge→Student,\n- dla non-null Course: exact tenant + Course + Student,\n- exact Payment→Charge + Student + currency,\n- brak NULL w wymaganych kluczach.\n\nMismatched legacy row nie może zostać automatycznie przepięty na „pasującego” Studenta/Course ani mieć automatycznie zmienionej waluty. Ambiguity oznacza FAIL i reviewed remediation. Formalna historia finansowa nie może być usuwana tylko po to, aby constraint przeszedł.\n\n### 19.6. Preservation gate\n\nZachowane bez zmian:\n- Student Finance i Platform Commerce pozostają rozdzielone,\n- wiele częściowych wpłat do jednej należności pozostaje dozwolone,\n- optional Course context pozostaje dozwolony,\n- DB-FIN-002 pozostaje OPEN,\n- DB-COM-001…008 pozostają OPEN,\n- agregaty `core-schema.yml` i `docs/87...` pozostają zamrożone,\n- DB4_10+, Stage 5, Laravel migrations i UI pozostają nieruszone.\n\nStan po fixerze:\n- P0 OPEN: **0**,\n- P1 OPEN: **9**,\n- resolved: **1/10**,\n- result: **FAIL_WITH_9_P1_BLOCKERS**.\n\nNastępny dozwolony krok po central gate: **DB-FIN-002 only**.\n\n**STOP przed DB-FIN-002.**\n'''
+          s=s.rstrip()+append
+          p.write_text(s)
+          assert s.count('## 19. DB-FIN-001 — wynik fixera: PASS')==1
+          assert '## 18. Wynik diagnozy' in s
+          PY
+          git diff --check -- docs/114-stage-4-student-finance-commerce-audit.md
+          test "$(git diff --name-only | grep -v '^\.github/workflows/tmp-db-fin-001-narrative.yml$' | grep -v '^\.stage4-tmp/' | sort -u)" = "docs/114-stage-4-student-finance-commerce-audit.md"
+          test "$(git hash-object specs/database/core-schema.yml)" = "65c6daab0330a2c6cf57a6a2caaba288a13a7a70"
+          test "$(git hash-object docs/87-physical-database-schema.md)" = "4d5f24f2948bdb55e7367c7b013ed918dade40ae"
+          git config user.name 'prawkonaraz100'
+          git config user.email 'prawkonaraz100@gmail.com'
+          git add docs/114-stage-4-student-finance-commerce-audit.md
+          git commit -m 'DB-FIN-001: add exact relation integrity audit'
+          git push origin HEAD:tmp-db-fin-001-narrative-helper
