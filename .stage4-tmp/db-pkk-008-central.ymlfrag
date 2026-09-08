@@ -1,0 +1,42 @@
+  pkk_deterministic_operation_history_latest_and_course_summary_projection:
+    status: PASS
+    resolved_blocker_id: DB-PKK-008
+    severity: P1
+    machine_source: specs/database/pkk.yml
+    audit_source: docs/113-stage-4-pkk-audit.md
+    machine_contract_commit: 2b5871ee9d81dfd065a2a296fa355cc096a0851c
+    narrative_audit_commit: 0ac50db9b8093639a4b78655b40b202c87a91e9b
+    decision:
+      business_operation_history_authority: pkk_operations
+      deterministic_course_sequence: course_operation_sequence
+      sequence_scope: organization_plus_course_enrollment
+      sequence_allocation_root: existing_course_enrollment_FOR_UPDATE
+      sequence_immutable_after_insert: true
+      retry_creates_new_business_operation: false
+      latest_operation_selector: max_course_operation_sequence
+      completed_at_created_at_or_UUID_latest_selector_allowed: false
+      operation_history_count: count_business_operations_for_exact_course
+      transport_attempt_count_is_separate_metric: true
+      course_summary_is_derived_projection_not_second_authority: true
+      history_spans_PkkProfile_revisions_of_same_course: true
+      legacy_equal_created_at_without_stronger_order_evidence_is_auto_tiebroken: false
+      final_aggregate_sync_performed_in_DB_PKK_008: false
+    checks:
+      deterministic_business_operation_order_closed: PASS
+      concurrent_sequence_allocation_closed: PASS
+      async_completion_cannot_reorder_latest: PASS
+      latest_projection_from_max_sequence_closed: PASS
+      operation_count_and_attempt_count_separated: PASS
+      stable_equal_timestamp_order_closed: PASS
+      mutable_course_summary_authority_not_created: PASS
+      profile_revision_does_not_reset_course_history: PASS
+      legacy_UUID_or_completed_at_tiebreak_forbidden: PASS
+      DB_PKK_001_through_DB_PKK_007_preserved: PASS
+      all_8_DB4_8_blockers_resolved: PASS
+      aggregate_core_schema_modified_in_step: false
+      aggregate_docs87_modified_in_step: false
+      API_files_modified_in_step: false
+      DB4_9_or_later_entered: false
+      Laravel_migrations_created: false
+      Stage5_started: false
+      UI_or_feature_implementation_started: false
