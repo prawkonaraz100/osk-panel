@@ -3,8 +3,8 @@
 Data: 2026-09-08
 
 **Etap:** `DB4_8_PKK`  
-**Aktualny krok:** `DB_PKK_006_SENSITIVE_PROVIDER_PAYLOAD_ENCRYPTION_REDACTION_HASH_AND_KEY_VERSION_BOUNDARY`
-**Status:** `FAIL_WITH_2_P1_BLOCKERS / 0 P0 / 2 P1 OPEN`
+**Aktualny krok:** `DB_PKK_007_INTEGRATION_CONFIGURATION_REVISION_BINDING_AND_ASYNC_EXECUTION_CONTEXT`
+**Status:** `FAIL_WITH_1_P1_BLOCKER / 0 P0 / 1 P1 OPEN`
 
 Machine-readable diagnoza: `specs/database/pkk.yml`.
 
@@ -1070,3 +1070,170 @@ Ten etap nie modyfikuje OpenAPI. Safe profile/operation projections nadal nie ek
 Następny dopuszczalny blocker po central gate: `DB-PKK-007`.
 
 **STOP przed DB-PKK-007.**
+
+## 24. DB-PKK-007 — wynik fixera: PASS
+
+### 24.1. Zakres zamknięcia
+
+DB-PKK-007 zamyka wyłącznie historyczną rewizję konfiguracji wykonawczej PKK oraz jej wiązanie z asynchronicznymi provider attemptami. Nie zmienia canonical settings ownership, nie kopiuje gate'a PKK do drugiego modelu i nie rozwiązuje DB-PKK-008.
+
+### 24.2. Dwa różne concurrency/version roots
+
+`organization_settings.version` pozostaje wspólnym optimistic-concurrency rootem całego ekranu ustawień.
+
+Dodatkowo `pkk_integration_settings.execution_configuration_revision` staje się wąskim numerem rewizji konfiguracji wykonawczej PKK. Rośnie tylko po materialnej zmianie danych wpływających na integrację PKK lub readiness, a nie po każdej zmianie danych firmy/UI.
+
+Zmiana imienia lub nazwiska użytkownika sama w sobie nie tworzy nowej rewizji wykonawczej, ponieważ nie potwierdzono, że te pola są provider execution inputs; actor nadal jest identyfikowany przez istniejący `actor_user_id`.
+
+### 24.3. Append-only historia konfiguracji
+
+Nowa tabela `pkk_integration_configuration_revisions` przechowuje append-only evidence każdej runtime rewizji:
+
+- organization,
+- `execution_configuration_revision`,
+- `organization_settings_version_at_capture`,
+- school name snapshot,
+- OSK registry number snapshot,
+- keyed binding HMAC dla external OSK login,
+- readiness snapshot,
+- keyed HMAC całej canonical execution configuration,
+- origin i czas utworzenia.
+
+Rewizja nie jest wyznaczana z `updated_at`, UUID ani timestampu. Runtime rewizje są przydzielane sekwencyjnie pod tym samym lockiem `organization_settings`.
+
+### 24.4. Brak plaintext credential history
+
+Pełny `Login OSK` nie jest kopiowany do operation/attempt/revision history. Historia przechowuje keyed HMAC powiązania logicznej wartości.
+
+Tak samo przyszłe sekrety/credential values nie mogą zostać skopiowane do historii. Jeśli zweryfikowany adapter w przyszłości dostanie versioned secret reference, jego wersja może wejść do configuration binding evidence, ale nie sam sekret.
+
+### 24.5. Attempt wiąże dokładną rewizję
+
+Każdy runtime `pkk_operation_attempt` ma obowiązkowe `integration_configuration_revision` z same-tenant composite FK do dokładnej rewizji konfiguracji.
+
+Binding jest immutable po insert. Initial attempt oraz każdy retry wiążą rewizję niezależnie.
+
+Jeżeli operator zmieni konfigurację po wcześniejszej porażce, nowy retry może jawnie związać nową rewizję. Stary attempt nigdy nie jest przepinany do nowej konfiguracji.
+
+### 24.6. Organization-wide PKK execution serialization
+
+DB-PKK-007 wprowadza transaction-scoped advisory lock albo równoważny database serialization key dla `(organization_id, PKK integration execution domain)`.
+
+Ten lock jest wspólny dla:
+
+- materialnej zmiany konfiguracji PKK,
+- tworzenia/bindowania provider attemptu,
+- dispatch claim,
+- reconciliation command wykonującego provider I/O.
+
+Lock jest pobierany przed istniejącymi row-lockami, dzięki czemu nie odwraca dotychczasowych lock orders DB-PKK-003/004.
+
+### 24.7. Zmiana konfiguracji
+
+Materialna zmiana PKK:
+
+1. pobiera organization PKK execution lock,
+2. blokuje `organization_settings FOR UPDATE`,
+3. waliduje permission + istniejący If-Match,
+4. odrzuca zmianę, jeśli istnieje `dispatching` lub `effect_unknown` attempt,
+5. aktualizuje canonical `pkk_integration_settings`,
+6. przelicza readiness,
+7. inkrementuje `organization_settings.version`,
+8. gdy execution configuration rzeczywiście się zmieniła — inkrementuje `execution_configuration_revision` i dopisuje dokładnie jeden revision row,
+9. zapisuje redacted audit,
+10. commit.
+
+Provider I/O nie jest wykonywany w tej transakcji.
+
+### 24.8. Prepared attempt po zmianie konfiguracji
+
+`prepared` attempt nie blokuje zmiany konfiguracji. Jego historyczny binding pozostaje bez zmian.
+
+Przy późniejszej próbie dispatch system porównuje bound revision z current revision. Jeżeli nie są identyczne, attempt przechodzi do `safe_failed` **przed jakimkolwiek provider I/O**. Nie jest to `effect_unknown`, bo zewnętrzne wywołanie jeszcze nie nastąpiło.
+
+Nie wolno wysłać starego attemptu z nową konfiguracją.
+
+### 24.9. Dispatch claim
+
+Dotychczasowy DB-PKK-004 `prepared -> dispatching` pozostaje authority dla one-sender boundary.
+
+DB-PKK-007 dodaje przed nim organization execution lock oraz recheck:
+
+- bound revision == current execution revision,
+- current configuration binding HMAC == immutable revision evidence,
+- readiness nadal pozwala na wykonanie zgodnie z DB-PKK-003.
+
+Dopiero po zgodnym rechecku można commitować `dispatching`. Provider network I/O następuje po commit, używając jedynie ephemeral decrypted execution material w pamięci workera przez minimalny czas potrzebny do dispatch.
+
+### 24.10. Dispatching/effect_unknown blokują materialną zmianę configu
+
+Gdy attempt jest `dispatching`, materialna zmiana konfiguracji PKK jest odrzucana do czasu klasyfikacji transport result.
+
+Gdy attempt jest `effect_unknown`, materialna zmiana również jest blokowana, żeby nie utracić konfiguracji potrzebnej do fail-closed reconciliation.
+
+Unrelated settings change, która nie zmienia konfiguracji wykonawczej ani readiness, nie jest fałszywie blokowana.
+
+### 24.11. Reconciliation używa tej samej rewizji
+
+Provider reconciliation po `effect_unknown` musi działać w kontekście tej samej rewizji, do której był przypisany attempt.
+
+Nie zakładamy, że provider reconciliation jest niezależny od credential/config context. Jeżeli awaryjne security revoke uniemożliwia dalsze użycie konfiguracji, system wybiera fail-closed/manual security remediation zamiast cicho rekoncyliować pod nową tożsamością integracyjną.
+
+### 24.12. Readiness pozostaje provider-neutral
+
+Zamknięty katalog readiness pozostaje:
+
+- `not_configured`,
+- `configured_unverified`,
+- `verified`,
+- `requires_attention`.
+
+DB-PKK-007 nie wymyśla connection-test protocol. Zasada, czy `configured_unverified` może wykonywać operacje, pozostaje adapter-capability-dependent zgodnie z DB-PKK-003.
+
+### 24.13. Migracja — bez timestamp guessing
+
+Dla bieżącej konfiguracji można utworzyć legacy baseline revision `1` tylko, jeżeli aktualne logical values są jednoznaczne i możliwe do bezpiecznego odczytu.
+
+Baseline nie udaje historii wcześniejszych zmian.
+
+Historycznych attemptów nie wolno wiązać z current/nearest revision przez `created_at`, `updated_at`, UUID lub inne heurystyki. Bez trusted evidence historyczny attempt pozostaje oznaczony jako evidence gap do reviewed remediation.
+
+Nie rekonstruujemy external login z logów/audytu i nie odpytujemy providera w celu odtworzenia historycznej konfiguracji.
+
+### 24.14. Stage 5/API gaps
+
+OpenAPI pozostaje nietknięte. Do późniejszej synchronizacji trafiają jedynie:
+
+- dokładny HTTP error dla `configuration_changed_before_dispatch`,
+- presentation dla zmiany ustawień zablokowanej przez `effect_unknown`,
+- przyszły verified secret/config adapter contract.
+
+Crypto internals i secret manager values nie stają się częścią publicznego API.
+
+### 24.15. Self-audit
+
+- settings concurrency root preserved — PASS,
+- separate execution configuration revision — PASS,
+- append-only revision history — PASS,
+- exact attempt revision binding — PASS,
+- async dispatch revision recheck — PASS,
+- prepared stale attempt safe-fails before I/O — PASS,
+- dispatching/effect_unknown config-change interlock — PASS,
+- retry may bind new revision without rewriting old attempt — PASS,
+- reconciliation same-revision boundary — PASS,
+- no plaintext external login or secret history — PASS,
+- provider-specific execution schema not invented — PASS,
+- DB-PKK-001…006 preserved — PASS,
+- DB-PKK-008 remains OPEN — PASS,
+- aggregate files unchanged — PASS,
+- API files unchanged — PASS,
+- Laravel migrations not created — PASS,
+- DB4_9+ not entered — PASS,
+- Stage 5 not started — PASS,
+- UI/feature implementation not started — PASS.
+
+**Stan po DB-PKK-007:** `0 P0 / 1 P1 OPEN`, `7/8 resolved`, wynik `FAIL_WITH_1_P1_BLOCKER`.
+
+Następny dopuszczalny blocker po central gate: `DB-PKK-008`.
+
+**STOP przed DB-PKK-008.**
