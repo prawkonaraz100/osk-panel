@@ -1,0 +1,230 @@
+  DB-PKK-008:
+    status: PASS
+    title: deterministic_operation_history_latest_and_course_summary_projection
+    severity: P1
+    goal: >-
+      Make the PKK business-operation history for one course deterministic under
+      concurrent creation and asynchronous completion, so the course card, history
+      count and paginated history all derive from one append-preserving source and
+      never depend on timestamp or UUID tie-breaking.
+
+    authority_and_scope:
+      business_operation_history_authority: pkk_operations
+      business_operation_transport_retry_authority: pkk_operation_attempts
+      latest_operation_projection_authority: max_course_operation_sequence_for_exact_course
+      history_count_authority: count_pkk_operations_for_exact_course
+      retry_attempt_count_authority: count_pkk_operation_attempts_for_exact_operation_or_course
+      latest_operation_is_second_course_status_authority: false
+      mutable_cached_latest_operation_on_course_enrollment_required: false
+      mutable_cached_operation_count_on_course_enrollment_required: false
+      current_or_superseded_PkkProfile_filter_for_course_history: none_history_spans_all_profile_revisions_of_exact_course
+      DB4_8_final_aggregate_sync_performed_here: false
+      DB4_9_or_later_entered: false
+
+    pkk_operations_course_sequence:
+      field_added:
+        course_operation_sequence: bigint_not_null_runtime_check_gte_1
+      unique_constraint:
+        columns: [organization_id, course_enrollment_id, course_operation_sequence]
+      allocation_scope: exact_organization_and_course_enrollment
+      allocation_serialization_root: course_enrollment_FOR_UPDATE
+      existing_command_creation_lock_prefix_reused: true
+      new_lock_before_course_enrollment_introduced: false
+      allocation_algorithm:
+        - lock_exact_course_enrollment_using_existing_DB_PKK_003_first_lock
+        - determine_previous_max_course_operation_sequence_for_exact_course
+        - allocate_previous_max_plus_one_or_1_when_none
+        - insert_pkk_operation_with_allocated_sequence_in_same_local_transaction
+      first_sequence: 1
+      committed_runtime_sequences_contiguous: true
+      sequence_immutable_after_insert: true
+      sequence_reassigned_on_lifecycle_transition: false
+      sequence_reassigned_on_async_completion: false
+      sequence_reassigned_on_retry: false
+      retry_creates_new_business_operation: false
+      retry_preserves_original_operation_sequence: true
+      operation_hard_delete_that_would_create_history_gap: forbidden
+      concurrent_operation_creation_same_course_cannot_allocate_same_sequence: true
+
+    latest_operation_projection:
+      scope: exact_course_enrollment_across_all_its_PKK_identity_revisions
+      zero_operations_projection:
+        latest_operation: null
+        observed_UI_label_may_render: Brak_operacji
+      one_or_more_operations_projection:
+        selector: max_course_operation_sequence
+        projected_from_selected_operation:
+          - id
+          - course_operation_sequence
+          - operation_type
+          - business_status
+          - created_at
+          - completed_at
+      business_status_source: selected_pkk_operation_business_status
+      provider_attempt_status_as_latest_business_status: forbidden
+      completed_at_used_for_latest_selection: false
+      created_at_used_for_latest_selection_after_runtime_cutover: false
+      UUID_used_for_latest_selection: false
+      latest_changes_when_new_business_operation_is_inserted: true
+      lifecycle_change_on_current_latest_updates_projected_status_but_not_which_operation_is_latest: true
+      late_completion_of_older_operation_can_make_it_latest: false
+      projection_can_be_recomputed_from_authority: true
+
+    history_count_projection:
+      operation_history_count:
+        formula: COUNT_pkk_operations_where_organization_and_course_match
+        includes_business_statuses: all
+        includes_operations_for_superseded_PkkProfile_revisions_of_same_course: true
+        retry_adds_to_count: false
+        transport_attempt_adds_to_count: false
+        reconciliation_event_adds_to_count: false
+        signature_handoff_adds_to_count: false
+      transport_attempt_count:
+        distinct_metric: true
+        formula: COUNT_pkk_operation_attempts_for_requested_scope
+        must_not_be_labeled_as_operation_history_count: true
+      count_equals_max_sequence_after_clean_runtime_cutover: true
+      reason: runtime_sequences_start_at_1_are_contiguous_and_business_operations_are_not_hard_deleted
+      count_stored_as_mutable_course_column: false
+
+    stable_history_query_contract:
+      primary_order_key: course_operation_sequence
+      key_unique_within_exact_course: true
+      allowed_directions: [asc, desc]
+      API_or_UI_must_choose_and_document_direction: true
+      current_Stage3_API_has_page_per_page_but_no_explicit_sort_contract: true
+      exact_default_direction_sync: Stage5_acceptance_contract_sync
+      timestamp_secondary_tie_breaker_required: false
+      UUID_secondary_tie_breaker_required: false
+      equal_created_at_rows_remain_deterministically_ordered_by_sequence: true
+      equal_completed_at_rows_remain_deterministically_ordered_by_sequence: true
+      pagination_total: operation_history_count_only
+      page_per_page_pagination_static_dataset_is_stable_with_unique_sequence: true
+      cross_request_offset_pagination_under_concurrent_new_inserts_is_snapshot_unstable: true
+      strong_no_duplicate_pagination_across_concurrent_inserts_requires_cursor_or_anchor_API_sync: Stage5_acceptance_contract_sync
+      database_sequence_is_suitable_future_cursor_or_anchor_key: true
+
+    course_summary_projection:
+      source_tables:
+        course_identity: course_enrollments
+        pkk_identity_current_and_history: pkk_profiles
+        PKK_business_operations: pkk_operations
+      fields_required_by_observed_course_card:
+        pkk: current_PkkProfile_redacted_identity_projection
+        category: course_enrollment_driving_category
+        training_type: course_enrollment_training_type
+        start_date: course_enrollment_started_at
+        last_pkk_operation: derived_latest_operation_projection
+        pkk_operation_history_count: derived_operation_history_count
+      latest_operation_and_count_share_same_exact_course_scope: true
+      summary_row_or_cache_as_authority: forbidden
+      nonauthoritative_cache_materialized_view_may_be_added_later_if_rebuildable: true
+      cache_invalidation_semantics_defined_in_DB_PKK_008: false
+      latest_operation_is_not_profile_sync_state: true
+      latest_operation_is_not_course_training_stage: true
+
+    interaction_with_upstream_contracts:
+      DB_PKK_001_exact_tenant_course_profile_binding_preserved: true
+      DB_PKK_002_provider_snapshot_revision_order_is_independent_from_course_operation_sequence: true
+      DB_PKK_003_operation_lifecycle_status_transitions_do_not_reorder_business_history: true
+      DB_PKK_004_retry_creates_attempt_not_operation_so_business_sequence_is_unchanged: true
+      DB_PKK_005_signature_handoff_does_not_create_business_operation_sequence: true
+      DB_PKK_006_security_projection_rows_do_not_create_business_operation_sequence: true
+      DB_PKK_007_configuration_revision_changes_do_not_create_business_operation_sequence: true
+      current_profile_supersession_does_not_reset_course_operation_sequence: true
+      course_operation_sequence_is_not_global_across_courses_or_organizations: true
+
+    index_and_query_boundary:
+      unique_course_sequence_index:
+        columns: [organization_id, course_enrollment_id, course_operation_sequence]
+        supports_latest_max_and_ordered_history: true
+      exact_course_filter_required_before_ordering: true
+      query_by_student_without_course_scope_must_join_course_and_keep_each_course_history_separate: true
+      one_student_multiple_courses_sequence_namespaces_are_independent: true
+      provider_operation_attempt_index_does_not_replace_business_operation_index: true
+
+    migration_policy:
+      add_course_operation_sequence_temporarily_nullable: true
+      process_legacy_rows_per_exact_organization_and_course: true
+      trusted_order_evidence_priority:
+        - authoritative_existing_business_operation_creation_order_if_independently_preserved
+        - strictly_unique_created_at_values_within_exact_course_when_no_stronger_order_evidence_exists
+      completed_at_used_to_reconstruct_creation_order: forbidden
+      async_provider_completion_order_used_to_reconstruct_creation_order: forbidden
+      UUID_lexical_or_binary_order_used_as_tie_breaker: forbidden
+      provider_response_timestamp_used_as_business_creation_order: forbidden
+      equal_legacy_created_at_without_stronger_trusted_order_evidence:
+        automatic_sequence_assignment: forbidden
+        required_action: fail_and_require_reviewed_historical_remediation_or_trusted_audit_evidence
+      legacy_rows_with_unique_created_at_and_no_conflicting_stronger_evidence:
+        deterministic_assignment: ROW_NUMBER_order_by_created_at_ASC_per_exact_course
+        first_sequence: 1
+      migration_calls_external_provider_to_infer_history: forbidden
+      after_backfill_checks:
+        - every_pkk_operation_has_nonnull_sequence
+        - no_duplicate_sequence_within_exact_course
+        - min_sequence_is_1_for_nonempty_course_history
+        - max_sequence_equals_operation_count_for_each_clean_course_history
+      add_not_null_after_verified_backfill: true
+      add_unique_constraint_after_verified_backfill: true
+      ambiguous_legacy_history_not_silently_dropped_or_rewritten: true
+
+    Stage5_API_sync_gaps_recorded_not_fixed:
+      operations_list_currently_has_page_and_per_page_without_explicit_order_direction: true
+      add_or_document_course_operation_sequence_in_safe_PkkOperation_projection: required_acceptance_sync
+      document_operation_history_order_direction: required_acceptance_sync
+      cursor_or_anchor_pagination_if_strong_cross_request_insert_stability_required: product_acceptance_decision
+      API_files_modified_in_DB_PKK_008: false
+
+    required_tests:
+      - first_business_operation_for_course_gets_sequence_1
+      - second_business_operation_for_same_course_gets_sequence_2
+      - two_concurrent_operation_creates_same_course_cannot_commit_same_sequence
+      - operations_for_two_courses_may_each_start_at_sequence_1
+      - operation_sequence_is_immutable_after_insert
+      - lifecycle_transition_does_not_change_operation_sequence
+      - older_operation_completing_after_newer_operation_does_not_become_latest
+      - latest_operation_is_max_course_operation_sequence_not_max_completed_at_created_at_or_UUID
+      - zero_operation_course_projects_null_latest_and_count_0
+      - business_operation_count_counts_failed_cancelled_pending_success_and_other_business_operations
+      - retry_provider_attempt_does_not_increment_business_operation_count_or_sequence
+      - reconciliation_or_signature_handoff_does_not_increment_business_operation_count
+      - transport_attempt_count_is_distinct_from_business_operation_count
+      - superseding_PkkProfile_identity_revision_does_not_reset_course_operation_sequence
+      - course_history_across_profile_revisions_remains_one_course_scoped_order
+      - equal_runtime_created_at_rows_are_ordered_by_unique_course_operation_sequence
+      - history_query_ASC_or_DESC_on_sequence_has_no_timestamp_tie
+      - legacy_equal_created_at_rows_without_trusted_order_evidence_fail_migration
+      - legacy_migration_never_uses_completed_at_or_UUID_to_guess_creation_order
+      - successful_legacy_backfill_has_contiguous_1_to_count_sequence_per_course
+      - course_summary_latest_and_count_are_derived_not_mutable_second_authority
+      - DB_PKK_001_through_DB_PKK_007_are_preserved
+      - aggregate_files_remain_frozen_until_DB4_8_final_aggregate_sync
+
+    self_audit:
+      deterministic_course_scoped_business_operation_sequence_closed: PASS
+      allocation_reuses_existing_course_serialization_root: PASS
+      concurrent_sequence_collision_closed: PASS
+      async_completion_cannot_reorder_history: PASS
+      latest_projection_from_max_sequence_closed: PASS
+      course_history_count_excludes_transport_retries: PASS
+      operation_count_and_attempt_count_separated: PASS
+      stable_equal_timestamp_history_order_closed: PASS
+      mutable_course_summary_second_authority_not_created: PASS
+      profile_revision_change_does_not_reset_course_history: PASS
+      legacy_tie_order_not_guessed_from_UUID_or_completed_at: PASS
+      Stage5_pagination_order_gaps_recorded_not_fixed: PASS
+      DB_PKK_001_exact_integrity_preserved: PASS
+      DB_PKK_002_snapshot_history_preserved: PASS
+      DB_PKK_003_lifecycle_preserved: PASS
+      DB_PKK_004_retry_reconciliation_preserved: PASS
+      DB_PKK_005_signed_XML_evidence_preserved: PASS
+      DB_PKK_006_payload_security_preserved: PASS
+      DB_PKK_007_configuration_revision_binding_preserved: PASS
+      aggregate_core_schema_modified: false
+      aggregate_docs87_modified: false
+      API_files_modified: false
+      Laravel_migrations_created: false
+      DB4_9_or_later_entered: false
+      Stage5_started: false
+      UI_or_feature_implementation_started: false
