@@ -3,8 +3,8 @@
 Data: 2026-09-08
 
 **Etap:** `DB4_8_PKK`  
-**Aktualny krok:** `DB4_8_PKK_DIAGNOSIS`  
-**Status:** `FAIL_WITH_8_P1_BLOCKERS / 0 P0 / 8 P1 OPEN`
+**Aktualny krok:** `DB_PKK_001_SAME_TENANT_AND_EXACT_COURSE_PROFILE_OPERATION_ATTEMPT_INTEGRITY`
+**Status:** `FAIL_WITH_7_P1_BLOCKERS / 0 P0 / 7 P1 OPEN`
 
 Machine-readable diagnoza: `specs/database/pkk.yml`.
 
@@ -397,3 +397,77 @@ Kolejność fixerów:
 Po centralnym gate jedynym dopuszczalnym następnym krokiem będzie **DB-PKK-001**, i dopiero po kolejnym jawnym poleceniu użytkownika.
 
 **STOP przed DB-PKK-001.**
+
+
+---
+
+## 18. DB-PKK-001 — wynik fixera: PASS
+
+Machine contract: `specs/database/pkk.yml`, clean machine commit `55ee706a7fcdd2e71d3844b71f07bef533e90cc2`.
+
+### 18.1 Zakres
+
+DB-PKK-001 zamyka wyłącznie relacyjną granicę **same-tenant + exact-target** dla providerowego PKK. Nie rozwiązuje lifecycle operacji, retry/reconciliation, provider snapshotów, podpisanego XML, kryptografii payloadów, rewizji konfiguracji ani latest-operation projection.
+
+Runtime `pkk_operation` jest związana z dokładnym `CourseEnrollment` i dokładną rewizją `PkkProfile`; runtime provider operation nie może mieć niejednoznacznego `pkk_profile_id = NULL`.
+
+### 18.2 Exact Course/Profile dla Operation
+
+Canonical relacje:
+
+- `(organization_id, course_enrollment_id) -> course_enrollments(organization_id,id)`,
+- `(organization_id, pkk_profile_id, course_enrollment_id) -> pkk_profiles(organization_id,id,course_enrollment_id)`.
+
+Drugi composite FK blokuje połączenie Course A z profilem Course B nawet wewnątrz tego samego OSK. `organization_id`, `course_enrollment_id` i `pkk_profile_id` są immutable po insercie; formalna historia używa `RESTRICT`, bez destructive cascade.
+
+### 18.3 Exact Operation context dla Attempt
+
+`pkk_operation_attempts` dostaje jawne `organization_id`, `course_enrollment_id` i `pkk_profile_id`, a exact-parent FK ma postać:
+
+`(organization_id,pkk_operation_id,course_enrollment_id,pkk_profile_id)`
+`-> pkk_operations(organization_id,id,course_enrollment_id,pkk_profile_id)`.
+
+Attempt nie może więc wskazywać Operation z jednego kontekstu i jednocześnie innego Course/Profile. Ten exact target jest też bezpieczną bazą dla późniejszego reconciliation i signed-XML evidence, ale ich semantyka pozostaje odpowiednio w DB-PKK-004 i DB-PKK-005.
+
+### 18.4 Actor i historia
+
+`actor_user_id` nadal wskazuje globalne `users(id)`; nie tworzymy sztucznego tenantowego FK do Usera. Tenant bezpieczeństwa wynika z exact Course/Profile/Operation contextu i authorization boundary.
+
+Normalne przepinanie Operation/Attempt do innego tenantu, Course albo Profile oraz hard-delete provider history są zabronione.
+
+### 18.5 Migration safety
+
+Migracja jest fail-closed:
+
+- najpierw weryfikuje tenant Course i exact Profile/Course,
+- Attempt context może być backfillowany tylko z wcześniej zweryfikowanego parent Operation,
+- legacy Operation z `pkk_profile_id = NULL` nie jest automatycznie wiązany z current ani „najnowszym” profilem,
+- wrong-course/wrong-tenant Profile nie jest automatycznie przepinany,
+- brak jednoznacznego historycznego dowodu wymaga reviewed remediation,
+- migracja nie odpytuje providera, aby zgadywać historię.
+
+### 18.6 Preservation gate
+
+Pozostają OPEN i nierozwiązane: `DB-PKK-002`…`DB-PKK-008`. Nie zmieniono API, `specs/database/core-schema.yml`, `docs/87-physical-database-schema.md`, migracji Laravel ani UI.
+
+Self-audit:
+
+- exact Operation Course/Profile same-tenant boundary — **PASS**,
+- explicit tenant + exact context na provider Attempt — **PASS**,
+- cross-course/cross-profile rebinding — **zablokowany**,
+- history-preserving `RESTRICT` — **PASS**,
+- global User nie został błędnie tenant-scoped — **PASS**,
+- legacy null-profile heuristic — **zabroniona**,
+- DB4_4 PKK identity contract — **zachowany**,
+- frozen aggregates — **bez zmian**.
+
+### 18.7 Wynik po fixerze
+
+- P0 open: **0**,
+- P1 open: **7**,
+- resolved: **1 / 8**,
+- wynik DB4_8: **FAIL_WITH_7_P1_BLOCKERS**.
+
+Po centralnym gate jedynym dopuszczalnym następnym krokiem jest `DB-PKK-002 — immutable provider profile snapshot history and current projection`, wyłącznie po kolejnym jawnym poleceniu użytkownika.
+
+**STOP przed DB-PKK-002.**
