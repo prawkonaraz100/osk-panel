@@ -2,8 +2,8 @@ meta:
   project: osk-panel
   stage: 4
   slice: DB4_8_PKK
-  step: DB_PKK_001_SAME_TENANT_AND_EXACT_COURSE_PROFILE_OPERATION_ATTEMPT_INTEGRITY
-  status: FAIL_WITH_7_P1_BLOCKERS
+  step: DB_PKK_002_IMMUTABLE_PROVIDER_PROFILE_SNAPSHOT_HISTORY_AND_CURRENT_PROJECTION
+  status: FAIL_WITH_6_P1_BLOCKERS
   diagnosed_at: 2026-09-08
   branch: docs-consolidation-2026-09-05
   diagnosis_only: false
@@ -16,7 +16,7 @@ meta:
 scope_rule:
   diagnose_before_fixing: true
   fixes_allowed_in_this_step: true
-  current_step_scope: DB_PKK_001_SAME_TENANT_AND_EXACT_COURSE_PROFILE_OPERATION_ATTEMPT_INTEGRITY_only
+  current_step_scope: DB_PKK_002_IMMUTABLE_PROVIDER_PROFILE_SNAPSHOT_HISTORY_AND_CURRENT_PROJECTION_only
   one_blocker_per_future_step: true
   aggregate_files_frozen:
     specs/database/core-schema.yml:
@@ -340,6 +340,189 @@ resolved_contracts:
       Laravel_migrations_created: false
       DB4_9_or_later_entered: false
       Stage5_started: false
+  DB-PKK-002:
+    status: PASS
+    title: immutable_provider_profile_snapshot_history_and_current_projection
+    severity: P1
+    goal: >-
+      Separate immutable course-scoped PKK identity from append-only provider
+      observations so repeated fetches or later provider responses never overwrite
+      the only historical evidence and current UI projection is deterministic for
+      the exact current PkkProfile revision.
+
+    authority_and_scope:
+      PKK_identity_authority: pkk_profiles
+      provider_snapshot_history_authority: pkk_provider_profile_snapshots
+      legacy_pkk_profiles_status_profile_snapshot_fetched_at_canonical_after_cutover: false
+      provider_snapshot_currentness_stored_boolean: false
+      provider_snapshot_currentness_derived_from_identity_and_revision: true
+      provider_operation_lifecycle_and_eligibility: deferred_to_DB_PKK_003
+      idempotent_response_acceptance_and_retry_deduplication: deferred_to_DB_PKK_004
+      provider_payload_crypto_envelope_key_version_and_redaction_integrity: deferred_to_DB_PKK_006
+      exact_provider_schema_and_status_catalog: adapter_owned_not_invented
+      student_or_course_auto_overwrite_from_provider_snapshot: forbidden
+
+    snapshot_table:
+      name: pkk_provider_profile_snapshots
+      fields_added_or_finalized:
+        id: uuid_primary_key
+        organization_id: uuid_not_null
+        course_enrollment_id: uuid_not_null
+        pkk_profile_id: uuid_not_null
+        snapshot_revision: bigint_not_null_check_gte_1
+        snapshot_schema_version: integer_not_null_check_gte_1
+        capture_origin: varchar_provider_response_or_legacy_reconstructed
+        provider_status_snapshot: varchar_nullable_opaque_adapter_owned
+        provider_profile_payload_ciphertext: bytea_nullable_crypto_contract_deferred_DB_PKK_006
+        redacted_profile_projection_jsonb: jsonb_not_null_default_empty_object
+        snapshot_content_hash: sha256_not_null
+        fetched_at: timestamptz_nullable_only_for_legacy_reconstructed
+        created_at: timestamptz_not_null
+      runtime_capture_origin: provider_response
+      runtime_provider_response_requires_fetched_at: true
+      legacy_reconstructed_may_have_unknown_fetched_at: true
+      normal_update_after_insert: forbidden
+      normal_hard_delete: forbidden
+      snapshot_content_and_identity_fields_immutable: true
+
+    exact_identity_relation:
+      source_columns: [organization_id, pkk_profile_id, course_enrollment_id]
+      target_table: pkk_profiles
+      target_columns: [organization_id, id, course_enrollment_id]
+      on_update: RESTRICT
+      on_delete: RESTRICT
+      effect: snapshot_cannot_cross_tenant_course_or_PKK_identity_revision
+      organization_id_client_authority: false
+
+    candidate_keys_and_revision:
+      tenant_candidate_key: [organization_id, id]
+      exact_snapshot_context_candidate_key: [organization_id, id, pkk_profile_id, course_enrollment_id]
+      revision_unique_scope: [organization_id, pkk_profile_id, snapshot_revision]
+      first_revision: 1
+      revision_allocation: MAX_existing_revision_plus_1_under_exact_PkkProfile_FOR_UPDATE
+      revision_contiguous_for_committed_rows: true
+      revision_immutable: true
+      timestamp_UUID_or_hash_used_as_revision_or_latest_tiebreaker: false
+      snapshot_content_hash_unique: false
+      reason_hash_not_unique: identical_provider_data_may_be_observed_more_than_once_and_DB_PKK_004_owns_idempotent_effect_deduplication
+
+    snapshot_hash_boundary:
+      algorithm: SHA_256_or_stronger_fixed_approved_digest
+      input: canonical_normalized_provider_profile_snapshot_envelope_before_encryption
+      includes:
+        - snapshot_schema_version
+        - provider_status_snapshot
+        - normalized_provider_profile_content
+      excludes:
+        - random_encryption_nonce
+        - storage_metadata
+        - created_at
+        - database_row_id
+      hash_is_business_evidence_binding_not_encryption_or_authentication: true
+      authenticated_encryption_and_key_rotation: deferred_to_DB_PKK_006
+      redacted_projection_is_not_full_evidence_authority: true
+
+    append_concurrency:
+      serialization_root: exact_pkk_profile_row_FOR_UPDATE
+      lock_then_recheck_exact_tenant_course_profile: true
+      profile_superseded_during_wait:
+        legitimate_already_bound_historical_provider_response_may_append_to_exact_superseded_profile: true
+        becomes_current_course_projection: false
+        operation_was_eligible_to_run: governed_by_DB_PKK_003
+      concurrent_accepted_appends_same_profile_get_distinct_revisions: true
+      append_mutates_pkk_profile_identity_fields_or_course_version: false
+
+    deterministic_current_projection:
+      course_current_identity_source: pkk_profiles_where_course_exact_and_superseded_at_is_null
+      current_provider_snapshot_for_course: MAX_snapshot_revision_for_exact_current_pkk_profile
+      if_current_identity_has_zero_snapshots: null_not_fetched_projection
+      fallback_to_snapshot_from_superseded_identity: forbidden
+      latest_by_fetched_at_created_at_or_UUID: forbidden
+      provider_status_snapshot_is_operation_lifecycle_authority: false
+      historical_profile_latest_snapshot_remains_queryable: true
+      late_snapshot_for_superseded_identity_can_replace_current_course_projection: false
+      current_projection_persisted_back_to_course_or_student: false
+
+    identity_change_semantics:
+      new_PkkProfile_revision_starts_with_zero_provider_snapshots: true
+      copy_previous_identity_provider_snapshot_to_successor: forbidden
+      previous_identity_snapshots_remain_immutable_history: true
+      fetch_required_for_new_identity_before_provider_data_panel_is_current: true
+      DB4_4_exactly_one_current_identity_rule_preserved: true
+
+    data_authority:
+      provider_snapshot_role: external_observation_evidence_and_read_projection
+      student_fields_authority: students_domain
+      course_fields_authority: course_enrollments_domain
+      automatic_write_through_from_snapshot_to_student: forbidden
+      automatic_write_through_from_snapshot_to_course: forbidden
+      explicit_future_domain_update_requires_separate_validation_authorization_concurrency_and_audit: true
+
+    legacy_pkk_profile_provider_fields:
+      fields: [status, profile_snapshot, fetched_at]
+      canonical_runtime_write_after_cutover: false
+      canonical_current_projection_after_cutover: false
+      final_aggregate_action: remove_or_mark_migration_only_after_verified_snapshot_backfill_and_read_cutover
+      identity_fields_on_pkk_profiles_remain_unchanged: true
+
+    migration_policy:
+      physical_cutover_waits_for_DB_PKK_006_safe_payload_storage_contract: true
+      legacy_profile_with_all_three_provider_fields_null_creates_snapshot: false
+      legacy_snapshot_bound_only_to_same_exact_pkk_profile_revision: true
+      one_legacy_mutable_snapshot_can_map_to_revision_1_only_when_exact_identity_proven: true
+      copy_legacy_snapshot_to_current_successor_identity: forbidden
+      choose_snapshot_across_identity_revisions_by_timestamp_or_UUID: forbidden
+      infer_missing_fetched_at_from_created_at_updated_at_or_course_time: forbidden
+      legacy_unknown_fetched_at_preserved_as_null_with_capture_origin_legacy_reconstructed: true
+      compute_snapshot_hash_only_from_deterministically_canonicalizable_retained_content: true
+      missing_or_ambiguous_payload_or_identity_provenance: fail_and_require_reviewed_remediation
+      provider_call_to_reconstruct_historical_snapshot: forbidden
+      drop_or_ignore_legacy_identity_row_provider_fields_before_verified_backfill: forbidden
+      read_cutover_requires_counts_exact_identity_bindings_revision_and_hash_checks: true
+
+    required_tests:
+      - first_snapshot_for_profile_gets_revision_1
+      - concurrent_snapshot_appends_same_profile_serialize_and_receive_distinct_contiguous_revisions
+      - duplicate_snapshot_revision_same_profile_is_rejected
+      - snapshot_cross_tenant_profile_relation_is_rejected
+      - snapshot_profile_from_other_course_same_organization_is_rejected
+      - snapshot_identity_or_content_update_after_insert_is_rejected
+      - snapshot_normal_hard_delete_is_rejected
+      - current_projection_uses_max_revision_for_exact_current_profile
+      - equal_fetched_at_or_created_at_values_do_not_make_current_projection_ambiguous
+      - current_profile_with_with_zero_snapshots_does_not_fallback_to_superseded_profile
+      - new_identity_revision_does_not_copy_previous_snapshot
+      - late_snapshot_for_superseded_profile_remains_history_and_never_becomes_current_course_projection
+      - identical_snapshot_content_hash_is_not_used_as_business_deduplication_key
+      - provider_snapshot_does_not_auto_update_student_or_course
+      - migration_does_not_guess_missing_fetched_at_from_unrelated_timestamps
+      - migration_does_not_move_legacy_snapshot_to_latest_or_current_identity
+      - DB_PKK_001_exact_target_integrity_preserved
+      - DB_PKK_003_through_DB_PKK_008_remain_open
+
+    self_audit:
+      identity_and_provider_snapshot_authorities_separated: PASS
+      immutable_append_only_snapshot_history_defined: PASS
+      exact_same_tenant_course_profile_binding_reuses_DB_PKK_001: PASS
+      deterministic_revision_and_current_projection_defined: PASS
+      timestamp_or_UUID_latest_heuristic_forbidden: PASS
+      identity_change_stale_snapshot_fallback_forbidden: PASS
+      late_response_history_preserved_without_current_projection_corruption: PASS
+      snapshot_hash_evidence_boundary_defined_without_claiming_crypto_completion: PASS
+      automatic_student_course_overwrite_forbidden: PASS
+      legacy_identity_row_provider_fields_deauthoritized_after_safe_cutover: PASS
+      DB_PKK_003_operation_lifecycle_not_solved: PASS
+      DB_PKK_004_idempotency_retry_reconciliation_not_solved: PASS
+      DB_PKK_005_signed_XML_not_solved: PASS
+      DB_PKK_006_payload_security_not_solved: PASS
+      DB_PKK_007_configuration_revision_not_solved: PASS
+      DB_PKK_008_latest_operation_projection_not_solved: PASS
+      aggregate_core_schema_modified: false
+      aggregate_docs87_modified: false
+      API_files_modified: false
+      Laravel_migrations_created: false
+      DB4_9_or_later_entered: false
+      Stage5_started: false
       UI_or_feature_implementation_started: false
 
 blockers:
@@ -368,7 +551,8 @@ blockers:
   - id: DB-PKK-002
     title: immutable_provider_profile_snapshot_history_and_current_projection
     severity: P1
-    status: OPEN
+    status: RESOLVED
+    resolution_ref: resolved_contracts.DB-PKK-002
     diagnosis:
       - DB4_4_identity_fields_on_pkk_profiles_are_versioned_history_but_provider_status_snapshot_and_fetched_at_are_still_provisional_mutable_fields_on_the_same_row
       - repeated_fetches_or_later_provider_responses_need_historical_snapshots_instead_of_overwriting_the_only_identity_row
@@ -523,11 +707,10 @@ diagnosis_summary:
   diagnosed_P0: 0
   diagnosed_P1: 8
   resolved_in_diagnosis: 0
-  resolved_after_diagnosis: 1
-  open_P0_P1: 7
-  result: FAIL_WITH_7_P1_BLOCKERS
+  resolved_after_diagnosis: 2
+  open_P0_P1: 6
+  result: FAIL_WITH_6_P1_BLOCKERS
   blockers_in_required_fix_order:
-    - DB-PKK-002
     - DB-PKK-003
     - DB-PKK-004
     - DB-PKK-005
@@ -544,7 +727,7 @@ API_contract_sync_gaps_recorded_not_fixed:
   API_files_modified_in_DB4_8_diagnosis: false
 
 preservation_gate:
-  status: PASS_DB_PKK_001
+  status: PASS_DB_PKK_002
   checks:
     no_blocker_fixed_during_diagnosis: true
     DB4_4_course_PKK_identity_contract_preserved: true
@@ -569,11 +752,12 @@ preservation_gate:
     DB_PKK_001_exact_operation_course_profile_same_tenant_boundary_closed: true
     DB_PKK_001_provider_attempt_exact_operation_context_boundary_closed: true
     DB_PKK_001_legacy_null_profile_not_heuristically_bound: true
-    DB_PKK_002_through_DB_PKK_008_remain_open: true
+    DB_PKK_002_immutable_provider_snapshot_history_and_current_projection_closed: true
+    DB_PKK_003_through_DB_PKK_008_remain_open: true
 
 next_single_step_after_central_gate:
-  id: DB_PKK_002_IMMUTABLE_PROVIDER_PROFILE_SNAPSHOT_HISTORY_AND_CURRENT_PROJECTION
-  action: resolve_DB_PKK_002_only_after_next_explicit_user_instruction
+  id: DB_PKK_003_PROVIDER_OPERATION_LIFECYCLE_CONCURRENCY_AND_COMMAND_ELIGIBILITY
+  action: resolve_DB_PKK_003_only_after_next_explicit_user_instruction
   allowed_scope:
     - specs/database/pkk.yml
     - docs/113-stage-4-pkk-audit.md
@@ -581,4 +765,4 @@ next_single_step_after_central_gate:
   aggregate_files_frozen:
     - specs/database/core-schema.yml
     - docs/87-physical-database-schema.md
-  stop_before: DB_PKK_003_PROVIDER_OPERATION_LIFECYCLE_CONCURRENCY_AND_COMMAND_ELIGIBILITY
+  stop_before: DB_PKK_004_IDEMPOTENCY_RETRY_RECONCILIATION_AND_EXACTLY_ONCE_EXTERNAL_EFFECT
