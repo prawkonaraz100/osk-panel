@@ -1,0 +1,97 @@
+
+---
+
+## 20. DB-PKK-003 — wynik fixera: PASS
+
+Machine contract: `specs/database/pkk.yml`, clean machine commit `88f474bf0c53b55657348289aebfcdf1fed08b65`.
+
+### 20.1 Canonical business lifecycle
+
+DB-PKK-003 zamyka provider-neutralny lifecycle `pkk_operations` bez wymyślania zewnętrznego katalogu statusów providera. Canonical business status ma zamknięty katalog:
+
+- `draft`,
+- `pending`,
+- `requires_signature`,
+- `submitted`,
+- `success`,
+- `failed`,
+- `cancelled`.
+
+Uproszczone `pending/success/failed` pozostaje projekcją UI, a nie drugim źródłem prawdy.
+
+### 20.2 Operation type i command eligibility
+
+Runtime operation types pozostają rozdzielone od statusu: `fetch_profile`, `update_and_return`, `return_to_school`, `return_to_authority`, `return_expired`. `retry` nie jest nowym business operation type; dotyczy istniejącej Operation i pozostaje szczegółowo zamykany w DB-PKK-004.
+
+Przed przejściem `draft -> pending` system pod lockiem ponownie sprawdza tenant, exact Course/Profile, current PkkProfile, uprawnienie do konkretnego typu operacji oraz gotowość integracji. Superseded profile nie może rozpocząć nowego provider effect.
+
+### 20.3 Jedna aktywna Operation na current PkkProfile
+
+Ponieważ nie mamy zweryfikowanej macierzy niezależnych efektów zewnętrznego providera, przyjmujemy bezpieczną granicę serializacji: dla dokładnej current identity revision może istnieć maksymalnie jedna niezamknięta provider Operation.
+
+Nie tworzymy globalnego unique na numer PKK. Granica dotyczy exact course-scoped `PkkProfile`, zgodnie z DB4_4.
+
+### 20.4 Lifecycle transitions
+
+Dozwolone przejścia są jawne i fail-closed. Normalna ścieżka prowadzi od `draft` do `pending`, dalej opcjonalnie przez `requires_signature` i/lub `submitted`, a następnie do `success` albo `failed`. `draft` może zostać anulowany przed provider effect; anulowanie po rozpoczęciu efektu jest dozwolone tylko, gdy command policy jawnie potwierdza brak niejednoznacznego zewnętrznego skutku.
+
+`success` i `cancelled` są terminalne. `failed -> pending` nie jest zwykłym statusem PATCH; może nastąpić wyłącznie przez przyszły jawny retry command zgodny z DB-PKK-004.
+
+### 20.5 Confirmation boundary dla operacji mutujących
+
+`update_and_return`, `return_to_school`, `return_to_authority` i `return_expired` wymagają formalnej pary `confirmed_at + confirmed_by_user_id` przed wejściem w `pending`. `fetch_profile` nie wymaga tej pary.
+
+Nie fabrykujemy confirmation history dla legacy rows. Exact shape HTTP/UI pozostaje do późniejszego Stage 5 contract sync.
+
+### 20.6 Timestamp equivalence i append-only lifecycle history
+
+Current Operation row zachowuje spójność status/timestamps, a każda zmiana lifecycle tworzy append-only `pkk_operation_lifecycle_events` z kolejnym `operation_version`.
+
+Historia zachowuje poprzedni status, nowy status, origin, actor/reason i czas przejścia. Timestamp ani UUID nie są authority dla kolejności eventów; authority stanowi wersja operacji.
+
+### 20.7 Lock order i brak transakcji przez sieć
+
+Command lifecycle lockuje lokalny kontekst w ustalonej kolejności i commit lokalnego stanu następuje przed wywołaniem providera. Transakcja DB nie pozostaje otwarta podczas requestu sieciowego.
+
+Powrót odpowiedzi providera wykonuje nową krótką transakcję, która ponownie lockuje dokładną Operation i stosuje wyłącznie dozwolone przejście z oczekiwanej wersji. Retry, unknown effect i reconciliation pozostają w DB-PKK-004.
+
+### 20.8 Relacja z edycją Course/PKK i konfiguracją
+
+Start provider command serializuje się z edycją Course/PkkProfile tak, aby nie można było uruchomić efektu na profilu, który w tej samej chwili jest superseded. Gotowość konfiguracji jest re-checkowana przed submission.
+
+Dokładne immutable binding do rewizji konfiguracji per provider Attempt pozostaje wyłącznie DB-PKK-007; DB-PKK-003 nie udaje, że zamyka ten blocker.
+
+### 20.9 Migration safety
+
+Legacy status jest akceptowany tylko wtedy, gdy jednoznacznie mapuje się do canonical lifecycle i jego timestampów. Nieznany/ambiguous status nie jest zgadywany. Brak historycznych lifecycle eventów może otrzymać wyłącznie jawny `legacy_baseline` dla udowodnionego current state; nie rekonstruujemy fikcyjnej sekwencji przejść.
+
+Legacy równoległe active Operations dla jednego exact profile wymagają reviewed remediation przed włączeniem finalnej unique-active boundary.
+
+### 20.10 Preservation gate
+
+Pozostają OPEN: `DB-PKK-004`…`DB-PKK-008`. Nie zmieniono API, `specs/database/core-schema.yml`, `docs/87-physical-database-schema.md`, migracji Laravel ani UI.
+
+Self-audit:
+
+- canonical lifecycle/state matrix — **PASS**,
+- UI status jako projection, nie authority — **PASS**,
+- exact current Profile eligibility — **PASS**,
+- one active Operation per exact current Profile — **PASS**,
+- mutating confirmation boundary — **PASS**,
+- append-only lifecycle history/versioning — **PASS**,
+- DB transaction nie obejmuje provider network call — **PASS**,
+- retry/reconciliation nie zostały przedwcześnie rozwiązane — **PASS**,
+- configuration revision binding nie został przedwcześnie rozwiązany — **PASS**,
+- DB-PKK-004…008 — **nadal OPEN**,
+- frozen aggregates — **bez zmian**.
+
+### 20.11 Wynik po fixerze
+
+- P0 open: **0**,
+- P1 open: **5**,
+- resolved: **3 / 8**,
+- wynik DB4_8: **FAIL_WITH_5_P1_BLOCKERS**.
+
+Po centralnym gate jedynym dopuszczalnym następnym krokiem jest `DB-PKK-004 — idempotency, retry, reconciliation and exactly-once external effect`, wyłącznie po kolejnym jawnym poleceniu użytkownika.
+
+**STOP przed DB-PKK-004.**
