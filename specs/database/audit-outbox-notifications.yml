@@ -2,15 +2,15 @@ meta:
   project: osk-panel
   stage: 4
   slice: DB4_10_AUDIT_OUTBOX_NOTIFICATIONS
-  step: DB_ACT_001_FIXER
-  status: FAIL_WITH_3_P1_BLOCKERS
+  step: DB_NOT_001_FIXER
+  status: FAIL_WITH_2_P1_BLOCKERS
   diagnosed_at: 2026-09-09
   branch: docs-consolidation-2026-09-05
   diagnosis_only: false
   fixes_applied_in_diagnosis_step: 0
-  current_fixer: DB-ACT-001
-  blockers_resolved: 5
-  open_P0_P1: 3
+  current_fixer: DB-NOT-001
+  blockers_resolved: 6
+  open_P0_P1: 2
   implementation_started: false
   Laravel_migrations_created: false
   Stage5_started: false
@@ -18,8 +18,8 @@ meta:
 
 scope_rule:
   diagnose_before_fixing: true
-  fixes_allowed_in_this_step: true_DB_ACT_001_only
-  current_step_scope: DB_ACT_001_only
+  fixes_allowed_in_this_step: true_DB_NOT_001_only
+  current_step_scope: DB_NOT_001_only
   one_blocker_per_future_step: true
   aggregate_files_frozen:
     specs/database/core-schema.yml: f3519060967085517329bc668fac02e5c1fd2dbd
@@ -266,6 +266,7 @@ blockers:
 
   - id: DB-NOT-001
     severity: P1
+    status: PASS
     title: notification_recipient_membership_and_organization_audience_read_state_integrity
     evidence:
       - notifications_user_id_is_nullable_while_API_describes_user_or_organization_notifications
@@ -1145,13 +1146,170 @@ resolved_contracts:
       - normal_application_cannot_delete_activity_history
       - DB_ACT_001_does_not_guess_legacy_source_actor_subject_student_or_policy_lineage
 
+
+  DB-NOT-001:
+    status: PASS
+    title: notification_recipient_membership_and_organization_audience_read_state_integrity
+    recipient_materialization_model:
+      table: notifications
+      semantic: one_physical_notification_row_per_exact_organization_membership_recipient
+      notification_row_is_recipient_scoped_projection_not_business_authority: true
+      existing_user_id_field_final_semantic: recipient_user_id
+      add_field: organization_membership_id
+      add_audience_kind_field:
+        name: audience_kind
+        values: [direct_membership, organization_broadcast]
+      new_runtime_rows_require_nonnull:
+        - organization_id
+        - organization_membership_id
+        - user_id
+        - audience_kind
+      nullable_recipient_runtime_row: forbidden
+      one_shared_organization_row_with_shared_read_at: forbidden
+      notification_id_is_unique_recipient_row_identity: true
+      source_event_binding_and_source_recipient_dedupe: deferred_to_DB_NOT_002
+    exact_recipient_membership_relation:
+      source_columns: [organization_id, organization_membership_id, user_id]
+      target_table: organization_memberships
+      target_columns: [organization_id, id, user_id]
+      on_update: RESTRICT
+      on_delete: RESTRICT
+      target_candidate_key_required: [organization_id, id, user_id]
+      organization_membership_hard_delete_already_forbidden_upstream: true
+      global_user_id_without_exact_membership_is_not_recipient_authority: true
+      same_user_membership_in_other_organization_cannot_match: true
+      organization_id_user_id_or_membership_id_client_override_as_recipient_authority: forbidden
+      recipient_identity_server_derived_from_trusted_notification_audience_resolution: true
+    recipient_eligibility_at_materialization:
+      required_membership_status_for_new_delivery: active
+      active_status_validation: INSERT_time_database_guard_or_equivalent_transactional_constraint
+      membership_status_is_not_part_of_FK_candidate_key_because_status_may_change_later: true
+      suspended_or_revoked_membership_cannot_receive_new_runtime_notification_row: true
+      eligibility_is_decided_at_materialization_snapshot_not_recomputed_to_rewrite_history: true
+      future_membership_status_change_does_not_invalidate_or_reassign_existing_row: true
+    audience_matrix:
+      direct_membership:
+        semantic: notification_for_one_user_in_one_exact_organization_membership_context
+        exact_recipient_membership_required: true
+        recipient_membership_must_be_active_at_materialization: true
+        one_runtime_row_for_resolved_recipient: true
+        selecting_recipient_by_global_user_id_without_organization_membership_resolution: forbidden
+        same_global_user_other_organization_membership_not_included: true
+      organization_broadcast:
+        semantic: organization_audience_materialized_as_independent_recipient_rows
+        shared_nullable_recipient_parent_row: forbidden
+        eligible_set: every_membership_with_same_organization_id_and_status_active_visible_in_one_materialization_transaction_snapshot
+        one_row_per_eligible_membership: true
+        zero_eligible_memberships_yields_zero_notification_rows_not_placeholder_shared_row: true
+        materialization_all_rows_or_none_in_one_local_database_transaction: true
+        recipient_rows_each_store_exact_membership_and_user_triple: true
+        later_joining_membership_not_retroactively_added: true
+        later_suspension_or_revocation_does_not_delete_existing_recipient_row: true
+        role_permission_location_or_staff_filter_not_invented_without_upstream_notification_contract: true
+      audience_kind_is_server_derived_and_immutable_after_insert: true
+    organization_broadcast_snapshot_and_concurrency:
+      membership_set_resolution_uses_single_database_transaction_snapshot: true
+      set_definition: same_organization_and_status_active_at_snapshot
+      membership_transition_committed_before_snapshot_affects_set_normally: true
+      membership_transition_committed_after_snapshot_does_not_retroactively_mutate_set: true
+      partial_recipient_fanout_commit: forbidden
+      retry_source_dedupe_and_concurrent_projector_exactly_once_per_recipient: deferred_to_DB_NOT_002
+      no_cross_organization_fanout: true
+    per_recipient_read_state_boundary:
+      read_at_field_remains_on_each_recipient_scoped_notifications_row: true
+      read_at_never_shared_across_memberships: true
+      one_recipient_read_cannot_change_another_recipient_row: true
+      organization_broadcast_rows_have_independent_read_at_values: true
+      exact_null_to_nonnull_once_transition_and_idempotency: deferred_to_DB_NOT_002
+      mark_unread_or_notification_delete_action_not_added: true
+    historical_membership_behavior:
+      recipient_organization_membership_id_and_user_id_immutable_after_insert: true
+      existing_notification_not_reassigned_when_membership_status_or_permissions_change: true
+      membership_suspended_or_revoked:
+        notification_row_retained_as_history: true
+        list_or_mark_read_access_while_not_active: denied
+      same_membership_reactivated:
+        historical_row_remains_bound_to_same_membership: true
+        current_access_again_follows_ordinary_active_selected_membership_boundary: true
+        no_new_or_rewritten_notification_identity_created_only_for_reactivation: true
+      recipient_user_global_profile_change_does_not_move_row_between_organizations: true
+      retention_or_legacy_cleanup_rules: deferred_to_DB_EVT_001
+    notifications_list_API_boundary:
+      endpoint: GET_/notifications
+      requires_authenticated_user_and_active_selected_organization_membership: true
+      mandatory_predicates:
+        - organization_id_equals_selected_membership_organization_id
+        - organization_membership_id_equals_selected_membership_id
+        - user_id_equals_authenticated_user_id
+      unread_only_filter_applied_only_after_mandatory_recipient_scope: true
+      user_cannot_list_another_active_membership_notifications_even_in_same_organization: true
+      same_global_user_other_organization_rows_excluded: true
+      organization_broadcast_is_not_queried_via_recipient_null_OR_clause: true
+      Stage3_Notification_shape_preserved: true
+      notification_payload_and_created_at_mapping_unchanged: true
+    mark_read_ownership_boundary_for_DB_NOT_002:
+      endpoint: POST_/notifications/{notificationId}/read
+      row_lookup_must_include_notification_id_plus_selected_active_membership_scope: true
+      own_notification_scope_root:
+        - notification.organization_id_equals_selected_membership.organization_id
+        - notification.organization_membership_id_equals_selected_membership.id
+        - notification.user_id_equals_authenticated_user.id
+      wrong_membership_or_wrong_organization_notification_id: not_found_or_forbidden_per_API_security_policy_without_leakage
+      recipient_ownership_is_closed_here: true
+      read_at_write_once_idempotency_command_and_source_event_dedupe: deferred_to_DB_NOT_002
+    immutability_and_payload_boundary:
+      organization_id_organization_membership_id_user_id_audience_kind_type_created_at_immutable_after_insert: true
+      normal_application_cannot_retarget_notification_to_other_recipient: true
+      payload_security_contract_remains_safe_allowlisted_or_minimized_under_existing_security_rules: true
+      DB_NOT_001_does_not_expand_payload_schema_or_add_delivery_channel: true
+      email_SMS_push_webhook_or_device_token_channel: not_invented
+    legacy_boundary:
+      existing_notification_with_null_user_id_or_without_exact_membership_is_not_assigned_membership_by_same_email_name_user_guess_or_organization_membership_similarity: true
+      organization_wide_legacy_row_with_single_shared_read_at_is_not_fanned_out_with_copied_read_state_without_exact_evidence: true
+      legacy_recipient_and_read_state_backfill_quarantine_and_phased_constraints: deferred_to_DB_EVT_001
+      no_synthetic_membership_or_recipient_assignment_created_only_to_force_constraint_pass: true
+      new_runtime_write_fence_requires_exact_recipient_membership_contract: true
+    explicitly_not_closed_here:
+      - exact_notification_source_domain_event_relation_DB_NOT_002
+      - source_plus_recipient_dedupe_DB_NOT_002
+      - read_at_NULL_to_nonNULL_once_and_Idempotency_Key_DB_NOT_002
+      - legacy_recipient_read_source_backfill_and_retention_DB_EVT_001
+      - exact_privacy_retention_duration
+      - external_notification_delivery_channels
+      - new_role_permission_or_segment_based_notification_audiences
+    required_tests:
+      - new_runtime_notification_requires_nonnull_organization_membership_and_user_recipient
+      - recipient_triple_wrong_tenant_is_rejected
+      - recipient_membership_user_mismatch_is_rejected
+      - global_user_id_without_exact_membership_cannot_authorize_notification_recipient
+      - suspended_or_revoked_membership_cannot_receive_new_notification
+      - direct_membership_notification_materializes_exactly_one_recipient_row
+      - direct_notification_for_user_in_org_A_does_not_target_same_user_membership_in_org_B
+      - organization_broadcast_creates_one_independent_row_per_active_membership_in_snapshot
+      - organization_broadcast_never_creates_shared_recipient_null_row
+      - organization_broadcast_with_zero_active_memberships_creates_no_placeholder_notification
+      - organization_broadcast_partial_fanout_rolls_back_entire_materialization_transaction
+      - later_membership_join_does_not_retroactively_gain_old_broadcast_row
+      - later_membership_suspension_or_revocation_does_not_delete_or_reassign_old_notification
+      - inactive_membership_cannot_list_or_mark_read_retained_notification
+      - reactivated_same_membership_does_not_change_recipient_identity
+      - one_broadcast_recipient_read_at_is_independent_from_every_other_recipient_row
+      - notifications_list_mandatory_scope_uses_exact_selected_membership_and_authenticated_user
+      - unread_only_filter_cannot_bypass_recipient_scope
+      - same_user_other_organization_notification_not_returned
+      - mark_read_lookup_wrong_recipient_membership_cannot_target_row
+      - normal_application_cannot_retarget_existing_notification
+      - DB_NOT_001_does_not_define_source_dedupe_or_read_write_once_lifecycle
+      - email_SMS_push_or_other_external_channel_not_added
+      - DB_NOT_001_does_not_guess_legacy_membership_or_copy_shared_read_state
+
 diagnosis_summary:
   diagnosed_P0: 0
   diagnosed_P1: 8
   fixes_applied_in_diagnosis_step: 0
-  resolved_after_diagnosis: 5
-  open_P0_P1: 3
-  result: FAIL_WITH_3_P1_BLOCKERS
+  resolved_after_diagnosis: 6
+  open_P0_P1: 2
+  result: FAIL_WITH_2_P1_BLOCKERS
   blockers_in_required_fix_order:
     - DB-AUD-001
     - DB-AUD-002
@@ -1163,16 +1321,16 @@ diagnosis_summary:
     - DB-EVT-001
 
 next_single_step_after_central_gate:
-  id: DB_NOT_001_NOTIFICATION_RECIPIENT_MEMBERSHIP_AND_ORGANIZATION_AUDIENCE_READ_STATE_INTEGRITY
-  action: resolve_DB_NOT_001_only_after_next_explicit_user_instruction
+  id: DB_NOT_002_NOTIFICATION_SOURCE_DEDUPE_MARK_READ_IDEMPOTENCY_AND_LIFECYCLE
+  action: resolve_DB_NOT_002_only_after_next_explicit_user_instruction
   allowed_files_only:
     - specs/database/audit-outbox-notifications.yml
     - docs/115-stage-4-audit-outbox-notifications-audit.md
     - specs/gates/stage-4-database-contract-gate.yml
   aggregate_files_currently_frozen: true
   scope_lock: >-
-    DB-AUD-001, DB-AUD-002, DB-OUT-001, DB-OUT-002 and DB-ACT-001 are PASS.
-    Resolve DB-NOT-001 only in the next fixer transaction. Keep DB-NOT-002
-    and DB-EVT-001 OPEN. Do not modify core-schema.yml or docs/87, do not
+    DB-AUD-001, DB-AUD-002, DB-OUT-001, DB-OUT-002, DB-ACT-001 and
+    DB-NOT-001 are PASS. Resolve DB-NOT-002 only in the next fixer transaction.
+    Keep DB-EVT-001 OPEN. Do not modify core-schema.yml or docs/87, do not
     enter DB4_11, Stage 5, Laravel migrations or UI.
-  stop_before: DB_NOT_001
+  stop_before: DB_NOT_002
