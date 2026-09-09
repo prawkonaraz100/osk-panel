@@ -103,13 +103,13 @@ stage_4_slices:
     final_aggregate_sync: PASS
     result: PASS
   - id: DB4_9_STUDENT_FINANCE_COMMERCE
-    status: FAIL_WITH_1_P1_BLOCKER
+    status: BLOCKERS_RESOLVED_PENDING_DB4_9_FINAL_AGGREGATE_SYNC
     diagnosis: COMPLETE
     blockers_diagnosed: 10
-    blockers_resolved: 9
-    open_P0_P1: 1
-    final_aggregate_sync: NOT_STARTED
-    result: FAIL_WITH_1_P1_BLOCKER
+    blockers_resolved: 10
+    open_P0_P1: 0
+    final_aggregate_sync: PENDING
+    result: BLOCKERS_RESOLVED_PENDING_DB4_9_FINAL_AGGREGATE_SYNC
   - id: DB4_10_AUDIT_OUTBOX_NOTIFICATIONS
     status: NOT_STARTED
   - id: DB4_11_FINAL_MIGRATION_ORDER_AND_INVARIANT_TEST_MATRIX
@@ -3597,6 +3597,83 @@ quality_checks:
       Laravel_migrations_created: false
       UI_or_feature_implementation_started: false
 
+
+  commerce_legacy_migration_reconciliation_and_backfill_safety:
+    status: PASS
+    resolved_blocker_id: DB-COM-006
+    severity: P1
+    machine_source: specs/database/student-finance-commerce.yml
+    narrative_source: docs/114-stage-4-student-finance-commerce-audit.md
+    machine_commit: 81955f1c7399c27f6e73f0d0dcc43be371c086df
+    machine_blob: 462b3d301fcd0b1e2339ca0eef075259ebdb286a
+    narrative_commit: 7955c9e5a2809ee2527439599528087d2ecef845
+    narrative_blob: aaab3df7f90a678d4dd75815595011fdb4e06d45
+    decision:
+      evidence_classes:
+        - safe_exact_derivation
+        - proven_historical_fact
+        - reviewed_exact_remediation
+        - unresolved_ambiguity
+      unresolved_ambiguity_allows_automatic_backfill: false
+      timestamp_UUID_amount_same_tenant_or_similarity_as_exact_lineage_evidence: forbidden
+      order_item_organization_backfill_source: exact_existing_parent_order_only
+      missing_or_ambiguous_order_parent_is_reparented_heuristically: false
+      exact_catalog_product_linkage_requires_proven_reference_or_reviewed_exact_mapping: true
+      current_catalog_price_used_to_reconstruct_historical_price: false
+      inconsistent_or_missing_historical_pricing_requires_review_or_fail: true
+      technical_order_sequence_allocation_may_claim_reconstructed_historical_chronology: false
+      ordered_at_requires_proven_historical_time_or_reviewed_exact_remediation: true
+      booked_at_requires_trusted_payment_zero_total_or_reviewed_exact_evidence: true
+      browser_return_created_at_updated_at_or_migration_now_as_booking_authority: forbidden
+      legacy_paid_string_creates_order_payment_settlement: false
+      payment_settlement_requires_exact_trusted_confirmed_payment: true
+      payment_winner_selected_by_time_amount_provider_or_UUID: false
+      unproven_exact_provider_event_is_fabricated_as_source_event: false
+      direct_bank_transfer_settlement_requires_independent_bank_or_provider_evidence: true
+      migration_invokes_fulfillment_worker_or_grant_command: false
+      settled_order_without_proven_complete_grant_set_state: requires_reconciliation
+      settled_order_without_proven_grants_backfilled_as_pending: false
+      fulfilled_backfill_requires_proven_settlement_or_zero_total_and_complete_exact_grant_set: true
+      inventory_to_order_item_pairing_by_similarity: forbidden
+      quantity_N_requires_exactly_N_proven_downstream_units_before_fulfilled_backfill: true
+      grant_ordinals_may_enumerate_only_already_proven_exact_set: true
+      migration_creates_clones_deletes_or_regrants_units_to_force_quantity: false
+      license_assignment_activation_history_rewritten: false
+      exam_reservation_attempt_consumption_history_rewritten: false
+      service_activation_history_rewritten: false
+      course_cost_origin_requires_direct_trusted_create_from_course_cost_history: true
+      course_student_amount_currency_title_or_timestamp_similarity_creates_course_cost_origin: false
+      final_preflight_requires_write_fence_or_new_contract_only_writes: true
+      unresolved_ambiguity_blocks_constraint_activation: true
+      reconciliation_manifest_is_migration_review_artifact_not_runtime_business_authority: true
+      raw_legacy_evidence_preserved: true
+      migration_restart_may_duplicate_settlement_fulfillment_or_grants: false
+      formal_finance_or_downstream_history_hard_deleted_to_make_constraints_pass: false
+      DB4_9_final_aggregate_sync_performed_in_DB_COM_006: false
+    checks:
+      machine_YAML_valid: PASS
+      machine_provenance_matches_clean_commit_and_blob: PASS
+      narrative_provenance_matches_clean_commit_and_blob: PASS
+      all_10_DB4_9_blockers_resolved: PASS
+      no_heuristic_payment_or_inventory_lineage_reconstruction: PASS
+      paid_without_proven_grants_cannot_trigger_regrant: PASS
+      existing_downstream_consumed_or_activated_history_preserved: PASS
+      exact_quantity_backfill_requires_proven_set: PASS
+      write_fence_and_phased_constraint_activation_closed: PASS
+      StudentFinance_and_PlatformCommerce_remain_distinct: PASS
+      DB_FIN_001_and_DB_FIN_002_preserved: PASS
+      DB_COM_001_through_DB_COM_005_preserved: PASS
+      DB_COM_007_and_DB_COM_008_preserved: PASS
+      DB4_6_license_lifecycle_preserved: PASS
+      DB4_7_exam_lifecycle_preserved: PASS
+      DB4_8_PKK_preserved: PASS
+      aggregate_core_schema_modified_in_step: false
+      aggregate_docs87_modified_in_step: false
+      DB4_10_or_later_entered: false
+      Stage5_started: false
+      Laravel_migrations_created: false
+      UI_or_feature_implementation_started: false
+
 resolved_blockers:
   - DB-FOUND-001
   - DB-FOUND-002
@@ -3660,9 +3737,9 @@ resolved_blockers:
   - DB-COM-007
   - DB-COM-005
   - DB-COM-008
-
-open_blockers_current_diagnosed_scope:
   - DB-COM-006
+
+open_blockers_current_diagnosed_scope: []
 
 gate_definition:
   PASS_requires_for_entire_stage_4:
@@ -3672,7 +3749,7 @@ gate_definition:
     - migration_order_dependency_safe
     - database_invariant_test_matrix_exists
     - reverse_engineering_preservation_traceable
-  current_result: DB4_9_FAIL_WITH_2_P1_BLOCKERS
+  current_result: DB4_9_BLOCKERS_RESOLVED_PENDING_DB4_9_FINAL_AGGREGATE_SYNC
   DB4_1_result: PASS
   DB4_2_result: PASS
   DB4_3_result: PASS
@@ -3739,7 +3816,8 @@ gate_definition:
   DB4_9_DB_COM_007_result: PASS
   DB4_9_DB_COM_005_result: PASS
   DB4_9_DB_COM_008_result: PASS
-  DB4_9_result: FAIL_WITH_1_P1_BLOCKER
+  DB4_9_DB_COM_006_result: PASS
+  DB4_9_result: BLOCKERS_RESOLVED_PENDING_DB4_9_FINAL_AGGREGATE_SYNC
   may_start_DB4_4_fixes: false
   may_start_DB4_5: false
   may_start_DB4_5_fixes: false
@@ -3755,16 +3833,20 @@ gate_definition:
   may_start_UI_or_feature_implementation: false
 
 next_single_step:
-  id: DB_COM_006_LEGACY_MIGRATION_RECONCILIATION_AND_BACKFILL_SAFETY
-  action: resolve_DB_COM_006_only_after_next_explicit_user_instruction
+  id: DB4_9_FINAL_AGGREGATE_SYNC
+  action: sync_DB4_9_resolved_contracts_to_aggregate_only_after_next_explicit_user_instruction
   allowed_scope:
     - specs/database/student-finance-commerce.yml
     - docs/114-stage-4-student-finance-commerce-audit.md
     - specs/gates/stage-4-database-contract-gate.yml
-  aggregate_files_frozen_until_DB4_9_final_aggregate_sync:
+    - specs/database/core-schema.yml
+    - docs/87-physical-database-schema.md
+  aggregate_files_frozen_until_next_explicit_user_instruction:
     - specs/database/core-schema.yml
     - docs/87-physical-database-schema.md
   scope_lock: >-
-    Resolve DB-COM-006 only. Do not enter DB4_9 final aggregate sync, DB4_10,
-    Stage 5, Laravel migrations or UI in the same step.
-  after_action: rerun_DB_COM_006_machine_narrative_central_gate_and_STOP_before_DB4_9_FINAL_AGGREGATE_SYNC
+    Synchronize only resolved DB-FIN-001/002 and DB-COM-001 through DB-COM-008
+    contracts into the DB4_9 aggregate machine and narrative documents, then update
+    bounded audit and central gate. Do not enter DB4_10, Stage 5, Laravel migrations
+    or UI in the same step.
+  after_action: rerun_DB4_9_final_aggregate_sync_gate_and_STOP_before_DB4_10
