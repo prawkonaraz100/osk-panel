@@ -2,15 +2,15 @@ meta:
   project: osk-panel
   stage: 4
   slice: DB4_10_AUDIT_OUTBOX_NOTIFICATIONS
-  step: DB_NOT_002_FIXER
-  status: FAIL_WITH_1_P1_BLOCKER
+  step: DB_EVT_001_FIXER
+  status: BLOCKERS_RESOLVED_PENDING_DB4_10_FINAL_AGGREGATE_SYNC
   diagnosed_at: 2026-09-09
   branch: docs-consolidation-2026-09-05
   diagnosis_only: false
   fixes_applied_in_diagnosis_step: 0
-  current_fixer: DB-NOT-002
-  blockers_resolved: 7
-  open_P0_P1: 1
+  current_fixer: DB-EVT-001
+  blockers_resolved: 8
+  open_P0_P1: 0
   implementation_started: false
   Laravel_migrations_created: false
   Stage5_started: false
@@ -18,8 +18,8 @@ meta:
 
 scope_rule:
   diagnose_before_fixing: true
-  fixes_allowed_in_this_step: true_DB_NOT_002_only
-  current_step_scope: DB_NOT_002_only
+  fixes_allowed_in_this_step: true_DB_EVT_001_only
+  current_step_scope: DB_EVT_001_only
   one_blocker_per_future_step: true
   aggregate_files_frozen:
     specs/database/core-schema.yml: f3519060967085517329bc668fac02e5c1fd2dbd
@@ -305,6 +305,7 @@ blockers:
 
   - id: DB-EVT-001
     severity: P1
+    status: PASS
     title: legacy_event_projection_backfill_retention_and_cleanup_safety
     evidence:
       - provisional_rows_may_lack_new_source_event_recipient_membership_policy_version_or_publisher_state
@@ -1434,13 +1435,258 @@ resolved_contracts:
       - mark_read_does_not_invent_recursive_domain_event_outbox_or_notification
       - DB_NOT_002_does_not_guess_legacy_source_or_rewrite_legacy_read_state
 
+
+  DB-EVT-001:
+    status: PASS
+    title: legacy_event_projection_backfill_retention_and_cleanup_safety
+    scope_boundary:
+      closes_only_legacy_evidence_backfill_phased_constraint_activation_retention_execution_and_technical_cleanup: true
+      DB_AUD_001_append_only_actor_entity_contract_preserved: true
+      DB_AUD_002_redaction_policy_and_reason_contract_preserved: true
+      DB_OUT_001_domain_event_identity_and_atomic_outbox_contract_preserved: true
+      DB_OUT_002_at_least_once_publisher_lifecycle_preserved: true
+      DB_ACT_001_activity_projection_contract_preserved: true
+      DB_NOT_001_recipient_membership_contract_preserved: true
+      DB_NOT_002_notification_source_and_read_lifecycle_preserved: true
+      exact_retention_durations_invented_here: false
+      final_DB4_10_aggregate_sync_performed_here: false
+
+    durable_migration_review_authority:
+      table: event_projection_migration_cases
+      purpose: append_only_review_evidence_for_legacy_rows_that_cannot_immediately_satisfy_DB4_10_contract
+      fields:
+        - id
+        - source_table
+        - source_row_id
+        - source_row_fingerprint
+        - issue_code
+        - evidence_class
+        - resolution_state
+        - evidence_reference_json_safe
+        - resolution_kind_nullable
+        - resolution_reason_nullable
+        - reviewed_by_user_id_nullable
+        - reviewed_at_nullable
+        - created_at
+      source_table_allowlist:
+        - audit_logs
+        - domain_events
+        - outbox_messages
+        - organization_activity_events
+        - notifications
+      unique_key: [source_table, source_row_id, issue_code]
+      source_row_fingerprint_semantic: stable_hash_of_nonsecret_migration_relevant_fields_for_change_detection
+      raw_sensitive_payload_copy_into_case: forbidden
+      password_token_secret_full_PESEL_full_PKK_external_OSK_credentials: forbidden
+      normal_application_UPDATE_or_DELETE_case_history: forbidden
+      resolution_state_values: [open, proven_backfillable, reviewed_nonconforming, resolved]
+      client_or_UI_authority: none
+      migration_or_privileged_review_only: true
+
+    evidence_classes:
+      exact_durable_evidence:
+        semantic: required_relation_or_state_is_proven_by_preexisting_durable_authoritative_keys_or_explicit_historical_record
+        may_backfill_only_fields_exactly_proven_by_evidence: true
+        may_not_infer_unproven_sibling_fields: true
+      partial_but_nonconflicting:
+        semantic: some_required_fields_are_proven_but_at_least_one_required_field_lacks_exact_evidence
+        automatic_backfill_to_current_contract: forbidden
+        action: create_or_keep_open_migration_case
+      ambiguous_or_conflicting:
+        semantic: multiple_possible_targets_or_evidence_conflicts_with_current_contract
+        automatic_reparent_merge_delete_or_state_rewrite: forbidden
+        action: reviewed_nonconforming_or_open_case_until_explicit_resolution
+      unsafe_payload_detected:
+        semantic: legacy_technical_or_audit_payload_contains_forbidden_secret_or_full_sensitive_identifier
+        use_payload_to_guess_actor_recipient_event_or_entity: forbidden
+        action: security_review_plus_policy_controlled_remediation_without_silent_history_rewrite
+      absence_of_evidence_is_not_evidence_of_default: true
+
+    forbidden_legacy_inference:
+      - timestamp_proximity
+      - same_organization_only
+      - request_id_similarity_without_exact_historical_binding
+      - outbox_id_or_attempt_count_similarity
+      - event_type_similarity
+      - payload_text_similarity
+      - aggregate_type_or_id_similarity_without_exact_recorded_reference
+      - actor_name_email_or_current_role_similarity
+      - current_membership_uniqueness_without_historical_recipient_evidence
+      - current_policy_revision_as_legacy_policy_version
+      - current_entity_state_as_historical_actor_entity_or_recipient_state
+      - UUID_sort_order_or_creation_order
+      - copied_shared_organization_read_at_to_multiple_recipients
+
+    per_table_legacy_rules:
+      audit_logs:
+        policy_version_backfill_requires_exact_historical_policy_revision_evidence: true
+        actor_membership_backfill_requires_exact_historical_membership_user_organization_evidence: true
+        entity_reference_mode_backfill_requires_exact_target_or_explicit_snapshot_only_evidence: true
+        before_after_payload_is_never_revalidated_by_rewriting_history_under_current_policy: true
+        reason_is_never_fabricated_for_legacy_required_reason_action: true
+        unresolved_row_blocks_full_constraint_validation_for_that_row: true
+      domain_events:
+        synthetic_event_created_from_existing_audit_outbox_activity_or_notification_similarity: forbidden
+        event_scope_or_tenant_backfill_requires_exact_preexisting_business_or_event_evidence: true
+        required_audit_link_backfill_requires_exact_historical_binding: true
+        causation_link_is_not_reconstructed_from_request_or_time_proximity: true
+      outbox_messages:
+        domain_event_link_backfill_requires_exact_historical_event_identity_evidence: true
+        existing_row_without_exact_domain_event_identity_is_not_promoted_to_domain_event_authority: true
+        published_at_or_attempts_alone_do_not_prove_current_publication_state_matrix: true
+        pending_leased_published_reconciliation_state_backfill_requires_exact_local_publisher_evidence: true
+        ambiguous_delivery_state: reviewed_nonconforming_or_open_case
+      organization_activity_events:
+        source_event_backfill_requires_exact_durable_event_identity_evidence: true
+        activity_row_itself_cannot_be_used_to_synthesize_its_source_event: true
+        actor_subject_student_or_projection_policy_version_not_guessed_from_current_state: true
+        duplicate_candidate_rows_not_deleted_or_merged_by_similarity: true
+      notifications:
+        source_event_backfill_requires_exact_durable_event_identity_evidence: true
+        recipient_membership_backfill_requires_exact_historical_recipient_membership_evidence: true
+        current_unique_user_membership_match_alone_is_insufficient_if_historical_recipient_context_is_unproven: true
+        existing_direct_recipient_read_at_is_preserved_only_when_exact_recipient_row_identity_is_proven: true
+        organization_shared_legacy_read_at_is_not_fanned_out_or_copied: true
+        null_read_at_is_not_changed_during_migration: true
+        nonnull_read_at_is_not_cleared_or_retimestamped: true
+
+    write_fence_and_expand_contract:
+      migration_pattern: expand_backfill_validate_contract
+      phase_1_expand:
+        add_new_tables_columns_indexes_and_candidate_keys_compatibly: true
+        destructive_drop_or_rename_of_legacy_columns: forbidden
+        backup_and_restore_path_required_before_destructive_contract_phase: true
+      phase_2_new_runtime_write_fence:
+        deploy_current_DB4_10_writers_before_legacy_backfill: true
+        new_inserts_must_satisfy_DB_AUD_001_through_DB_NOT_002_contracts_immediately: true
+        PostgreSQL_NOT_VALID_FK_CHECK_or_equivalent_allowed_to_avoid_false_validation_of_old_rows: true
+        NOT_VALID_constraints_still_enforce_new_or_updated_rows_where_PostgreSQL_semantics_apply: true
+        normal_runtime_may_not_create_new_legacy_exception_rows: true
+      phase_3_inventory_and_cases:
+        inventory_every_legacy_row_missing_required_contract_evidence: true
+        persist_nonsecret_fingerprint_and_issue_code: true
+        repeated_inventory_is_idempotent_by_case_unique_key: true
+      phase_4_exact_backfill_only:
+        apply_only_exact_durable_evidence_class: true
+        backfill_transaction_records_review_case_resolution_or_migration_evidence: true
+        one_field_proof_does_not_authorize_unrelated_field_inference: true
+      phase_5_reconciliation_gate:
+        unresolved_partial_ambiguous_conflicting_or_unsafe_rows_are_not_silently_deleted_or_hidden_as_resolved: true
+        unresolved_rows_block_constraint_validation_or_go_live_for_affected_contract: true
+        human_review_may_choose_only_resolution_kind_supported_by_existing_contract_and_evidence: true
+      phase_6_constraint_validation:
+        validate_each_FK_CHECK_unique_guard_only_after_zero_unresolved_rows_for_its_required_population: true
+        validation_failure_reopens_or_preserves_case_and_blocks_contract_phase: true
+      phase_7_contract_cleanup:
+        legacy_columns_or_compatibility_paths_removed_only_in_separate_reviewed_release: true
+        no_drop_before_backup_restore_and_zero_unresolved_gate: true
+
+    retention_policy_boundary:
+      exact_duration_source: external_approved_privacy_and_legal_retention_policy
+      exact_days_months_years_defined_in_DB_EVT_001: false
+      global_delete_everything_after_X_days: forbidden
+      policy_must_be_data_class_specific: true
+      legal_hold_or_incident_hold_when_applicable_overrides_ordinary_cleanup: true
+      normal_application_role_may_execute_retention_delete_or_rewrite: false
+      retention_execution_requires:
+        - privileged_dedicated_execution_path
+        - approved_policy_version_reference
+        - exact_data_class
+        - server_derived_cutoff_from_that_policy
+        - nonblank_reason
+        - pre_execution_scope_count_or_dry_run_evidence
+        - immutable_execution_audit_record_outside_rows_being_deleted
+      retention_execution_must_not_rewrite_business_facts_to_make_them_eligible: true
+      retention_policy_change_does_not_retroactively_mutate_surviving_history: true
+      backup_retention_and_restore_policy_remain_production_operations_concern: true
+
+    retention_execution_evidence:
+      table: data_retention_execution_runs
+      append_only: true
+      fields:
+        - id
+        - policy_version_reference
+        - data_class
+        - cutoff_at
+        - organization_id_nullable_when_policy_scope_is_tenant_specific
+        - initiated_by_user_id_nullable_for_system_execution
+        - reason
+        - candidate_count
+        - deleted_or_redacted_count
+        - skipped_hold_count
+        - started_at
+        - completed_at_nullable
+        - result
+      result_values: [running, completed, failed, partial_requires_review]
+      stores_raw_deleted_payload: false
+      stores_secret_or_full_sensitive_identifier: false
+      normal_application_UPDATE_or_DELETE: forbidden
+      executor_progress_fields_may_transition_only_by_privileged_retention_procedure: true
+
+    append_only_vs_retention:
+      normal_runtime_audit_domain_event_activity_history_mutation_or_delete_remains_forbidden: true
+      privileged_retention_is_not_normal_business_UPDATE_or_DELETE_permission: true
+      audit_cleanup_if_approved_requires_policy_specific_execution_evidence_before_delete: true
+      retention_does_not_allow_reason_actor_entity_or_payload_rewrite_in_place_to_avoid_delete_policy: true
+      domain_event_or_audit_required_by_still_retained_business_or_projection_lineage_cannot_be_deleted_by_cascade: true
+      foreign_keys_for_business_audit_event_projection_lineage_use_RESTRICT_or_explicit_reviewed_cleanup_order_not_CASCADE: true
+
+    outbox_cleanup_boundary:
+      outbox_is_technical_delivery_history_not_business_ledger: true
+      cleanup_eligibility_requires_external_retention_policy_plus_safe_terminal_state: true
+      safe_terminal_state_for_automatic_cleanup: published
+      pending_or_leased_or_requires_reconciliation_automatic_cleanup: forbidden
+      ambiguous_legacy_publication_state_cleanup: forbidden
+      cleanup_outbox_row_does_not_delete_domain_event_audit_business_row_activity_or_notification: true
+      source_domain_event_identity_remains_after_outbox_cleanup_while_retention_policy_requires_it: true
+      cleanup_must_not_use_attempt_count_age_or_queue_pressure_as_substitute_for_terminal_state: true
+      requires_reconciliation_must_be_resolved_or_explicitly_reviewed_not_deleted_to_silence_backlog: true
+
+    projection_cleanup_boundary:
+      activity_or_notification_retention_may_remove_projection_only_when_external_policy_for_that_data_class_allows: true
+      projection_cleanup_must_not_cascade_delete_business_audit_or_domain_event_authority: true
+      notification_read_at_or_activity_snapshot_not_rewritten_to_make_row_retention_eligible: true
+      deletion_of_projection_does_not_recreate_source_event_or_outbox: true
+
+    go_live_and_reconciliation_gate:
+      unresolved_migration_cases_for_required_current_constraints_at_go_live: forbidden
+      migration_report_must_count_exact_backfilled_reviewed_nonconforming_and_open_by_table_and_issue_code: true
+      unsafe_payload_cases_require_security_review_before_go_live_or explicit_approved_containment: true
+      final_constraint_validation_and_runtime_smoke_tests_required_before_DB4_10_aggregate_sync_can_claim_implementation_ready_blueprint: true
+      DB4_10_aggregate_sync_is_separate_documentation_gate_not_executed_here: true
+
+    required_tests:
+      - exact_legacy_relation_backfills_only_exactly_proven_fields
+      - timestamp_same_tenant_request_event_type_payload_or_UUID_similarity_never_selects_lineage
+      - partial_evidence_creates_open_case_and_blocks_full_constraint_validation
+      - conflicting_candidates_are_not_auto_reparented_merged_or_deleted
+      - unsafe_payload_is_not_copied_into_migration_case_or_used_as_lineage_authority
+      - legacy_audit_policy_version_actor_entity_or_reason_is_not_guessed
+      - synthetic_domain_event_is_not_created_from_old_outbox_activity_or_notification_similarity
+      - legacy_outbox_published_at_or_attempts_alone_do_not_infer_current_publication_state
+      - legacy_activity_without_exact_event_is_not_auto_linked_or_deduplicated_by_similarity
+      - legacy_notification_current_membership_match_alone_does_not_prove_historical_recipient
+      - legacy_shared_organization_read_at_is_not_fanned_out_to_new_recipient_rows
+      - legacy_notification_read_at_is_never_cleared_retimestamped_or_auto_filled
+      - new_runtime_writes_satisfy_current_contract_before_legacy_backfill_finishes
+      - NOT_VALID_or_equivalent_expand_phase_does_not_allow_new_runtime_legacy_exceptions
+      - unresolved_cases_block_constraint_validation_and_go_live_for_affected_contract
+      - exact_retention_duration_is_not_invented_in_database_contract
+      - normal_application_role_cannot_execute_privileged_retention
+      - retention_execution_requires_policy_reference_reason_scope_evidence_and_hold_check
+      - audit_append_only_runtime_guard_remains_effective_outside_retention_procedure
+      - outbox_pending_leased_or_reconciliation_rows_are_not_deleted_by_cleanup
+      - outbox_published_cleanup_does_not_delete_domain_event_or_business_authority
+      - projection_cleanup_does_not_cascade_delete_source_event_audit_or_business_history
+      - DB_EVT_001_does_not_modify_frozen_aggregates_or_enter_DB4_11_Stage5_Laravel_or_UI
+
 diagnosis_summary:
   diagnosed_P0: 0
   diagnosed_P1: 8
   fixes_applied_in_diagnosis_step: 0
-  resolved_after_diagnosis: 7
-  open_P0_P1: 1
-  result: FAIL_WITH_1_P1_BLOCKER
+  resolved_after_diagnosis: 8
+  open_P0_P1: 0
+  result: BLOCKERS_RESOLVED_PENDING_DB4_10_FINAL_AGGREGATE_SYNC
   blockers_in_required_fix_order:
     - DB-AUD-001
     - DB-AUD-002
@@ -1452,17 +1698,17 @@ diagnosis_summary:
     - DB-EVT-001
 
 next_single_step_after_central_gate:
-  id: DB_EVT_001_LEGACY_EVENT_PROJECTION_BACKFILL_RETENTION_AND_CLEANUP_SAFETY
-  action: resolve_DB_EVT_001_only_after_next_explicit_user_instruction
+  id: DB4_10_FINAL_AGGREGATE_SYNC
+  action: synchronize_DB4_10_aggregates_only_after_next_explicit_user_instruction
   allowed_files_only:
+    - specs/database/core-schema.yml
+    - docs/87-physical-database-schema.md
     - specs/database/audit-outbox-notifications.yml
     - docs/115-stage-4-audit-outbox-notifications-audit.md
     - specs/gates/stage-4-database-contract-gate.yml
   aggregate_files_currently_frozen: true
   scope_lock: >-
-    DB-AUD-001, DB-AUD-002, DB-OUT-001, DB-OUT-002, DB-ACT-001, DB-NOT-001
-    and DB-NOT-002 are PASS. Resolve DB-EVT-001 only in the next fixer
-    transaction. Do not modify core-schema.yml or docs/87, do not enter DB4_11,
-    Stage 5, Laravel migrations or UI. DB4_10 final aggregate sync remains
-    blocked until DB-EVT-001 is closed and separately authorized.
-  stop_before: DB_EVT_001
+    All eight DB4_10 blockers are PASS. Do not modify frozen aggregate files in
+    this DB-EVT-001 fixer. The next separately authorized step is DB4_10 final
+    aggregate sync only. Do not enter DB4_11, Stage 5, Laravel migrations or UI.
+  stop_before: DB4_10_FINAL_AGGREGATE_SYNC
