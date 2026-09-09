@@ -103,13 +103,13 @@ stage_4_slices:
     final_aggregate_sync: PASS
     result: PASS
   - id: DB4_9_STUDENT_FINANCE_COMMERCE
-    status: FAIL_WITH_4_P1_BLOCKERS
+    status: FAIL_WITH_3_P1_BLOCKERS
     diagnosis: COMPLETE
     blockers_diagnosed: 10
-    blockers_resolved: 6
-    open_P0_P1: 4
+    blockers_resolved: 7
+    open_P0_P1: 3
     final_aggregate_sync: NOT_STARTED
-    result: FAIL_WITH_4_P1_BLOCKERS
+    result: FAIL_WITH_3_P1_BLOCKERS
   - id: DB4_10_AUDIT_OUTBOX_NOTIFICATIONS
     status: NOT_STARTED
   - id: DB4_11_FINAL_MIGRATION_ORDER_AND_INVARIANT_TEST_MATRIX
@@ -3391,6 +3391,71 @@ quality_checks:
       Laravel_migrations_created: false
       UI_or_feature_implementation_started: false
 
+
+  commerce_generic_service_entitlement_source_activation_integrity:
+    status: PASS
+    resolved_blocker_id: DB-COM-007
+    severity: P1
+    machine_source: specs/database/student-finance-commerce.yml
+    narrative_source: docs/114-stage-4-student-finance-commerce-audit.md
+    machine_commit: fabdf0cb8dafc2de2fc1b1d20cd6a0753bfe46b9
+    machine_blob: 570cccaef98c94a3bbec085ad79ab1154091e88e
+    narrative_commit: 407719d5fe2989d8bccebd4858f5dedaa6db24ae
+    narrative_blob: d99e99ecbaa0e6642c0f5e16bb1b15c9f1671fed
+    decision:
+      entitlement_source_kinds_derived_not_second_mutable_authority: [purchase, operator_grant]
+      purchase_source_requires_order_item_and_grant_ordinal_and_null_grant_reference: true
+      operator_source_requires_null_order_item_and_ordinal_and_nonblank_grant_reference: true
+      neither_or_both_source_states_allowed: false
+      purchase_exact_same_tenant_order_item_binding_preserved_from_DB_COM_004: true
+      purchase_parent_product_kind_must_equal_generic_service: true
+      generic_service_order_item_snapshot_contains_service_type_and_activation_mode: true
+      purchase_entitlement_service_type_and_activation_mode_match_parent_snapshot: true
+      service_products_table_invented: false
+      operator_grant_creates_order_payment_or_purchase_history_row: false
+      operator_grant_reference_is_not_idempotency_authority: true
+      operator_grant_idempotency_operation: commerce.service_entitlement.operator_grant
+      service_activation_exact_same_tenant_entitlement_binding: true
+      one_activation_per_exact_entitlement: true
+      service_activation_append_only: true
+      explicit_activation_idempotency_operation: commerce.service_entitlement.activate
+      explicit_purchase_fulfillment_creates_available_without_activation: true
+      immediate_purchase_fulfillment_creates_entitlement_and_activation_atomically: true
+      payment_or_provider_retry_activates_explicit_entitlement: false
+      runtime_committed_granted_status_after_cutover: forbidden
+      available_requires_explicit_and_zero_activation_rows: true
+      activated_requires_exactly_one_activation_row: true
+      immediate_requires_exactly_one_activation_after_grant: true
+      expired_or_revoked_block_new_activation_and_preserve_existing_activation_history: true
+      migration_guess_or_fabricate_source_or_activation: forbidden
+      exact_legacy_reconciliation_matrix_deferred_to_DB_COM_006: true
+      purchase_history_projection_deferred_to_DB_COM_005: true
+      global_cross_domain_lock_order_deferred_to_DB_COM_008: true
+    checks:
+      machine_contract_yaml_valid: PASS
+      narrative_contract_synchronized: PASS
+      source_XOR_closed: PASS
+      no_source_entitlement_rejected: PASS
+      dual_source_entitlement_rejected: PASS
+      purchase_wrong_tenant_or_wrong_kind_order_item_rejected: PASS
+      purchase_service_type_or_activation_mode_snapshot_mismatch_rejected: PASS
+      operator_grant_not_misrepresented_as_purchase: PASS
+      activation_wrong_tenant_entitlement_rejected: PASS
+      duplicate_activation_rejected: PASS
+      explicit_payment_success_does_not_activate_service: PASS
+      explicit_activation_retry_safe: PASS
+      immediate_grant_activation_atomicity_closed: PASS
+      activation_mode_status_activation_final_state_equivalence_closed: PASS
+      terminal_activation_history_preserved: PASS
+      legacy_ambiguous_source_or_activation_fails_without_guess_or_regrant: PASS
+      DB_COM_005_DB_COM_008_DB_COM_006_remain_open: PASS
+      aggregate_core_schema_modified: false
+      aggregate_docs87_modified: false
+      DB4_10_or_later_entered: false
+      Stage5_started: false
+      Laravel_migrations_created: false
+      UI_or_feature_implementation_started: false
+
 resolved_blockers:
   - DB-FOUND-001
   - DB-FOUND-002
@@ -3451,9 +3516,9 @@ resolved_blockers:
   - DB-COM-002
   - DB-COM-003
   - DB-COM-004
+  - DB-COM-007
 
 open_blockers_current_diagnosed_scope:
-  - DB-COM-007
   - DB-COM-005
   - DB-COM-008
   - DB-COM-006
@@ -3466,7 +3531,7 @@ gate_definition:
     - migration_order_dependency_safe
     - database_invariant_test_matrix_exists
     - reverse_engineering_preservation_traceable
-  current_result: DB4_9_FAIL_WITH_4_P1_BLOCKERS
+  current_result: DB4_9_FAIL_WITH_3_P1_BLOCKERS
   DB4_1_result: PASS
   DB4_2_result: PASS
   DB4_3_result: PASS
@@ -3530,7 +3595,8 @@ gate_definition:
   DB4_9_DB_COM_002_result: PASS
   DB4_9_DB_COM_003_result: PASS
   DB4_9_DB_COM_004_result: PASS
-  DB4_9_result: FAIL_WITH_4_P1_BLOCKERS
+  DB4_9_DB_COM_007_result: PASS
+  DB4_9_result: FAIL_WITH_3_P1_BLOCKERS
   may_start_DB4_4_fixes: false
   may_start_DB4_5: false
   may_start_DB4_5_fixes: false
@@ -3546,8 +3612,8 @@ gate_definition:
   may_start_UI_or_feature_implementation: false
 
 next_single_step:
-  id: DB_COM_007_GENERIC_SERVICE_ENTITLEMENT_PURCHASE_GRANT_AND_ACTIVATION_SOURCE_INTEGRITY
-  action: resolve_DB_COM_007_only_after_next_explicit_user_instruction
+  id: DB_COM_005_DETERMINISTIC_PURCHASE_HISTORY_DISPLAY_NUMBER_BOOKING_DATE_STATUS_AND_PAGINATION_PROJECTION
+  action: resolve_DB_COM_005_only_after_next_explicit_user_instruction
   allowed_scope:
     - specs/database/student-finance-commerce.yml
     - docs/114-stage-4-student-finance-commerce-audit.md
@@ -3556,6 +3622,6 @@ next_single_step:
     - specs/database/core-schema.yml
     - docs/87-physical-database-schema.md
   scope_lock: >-
-    Resolve DB-COM-007 only. Preserve DB-COM-005, DB-COM-008 and DB-COM-006 as OPEN.
-    Do not enter DB-COM-005, DB4_10, Stage 5, Laravel migrations or UI in the same step.
-  after_action: rerun_DB_COM_007_machine_narrative_central_gate_and_STOP_before_DB_COM_005
+    Resolve DB-COM-005 only. Preserve DB-COM-008 and DB-COM-006 as OPEN.
+    Do not enter DB-COM-008, DB4_10, Stage 5, Laravel migrations or UI in the same step.
+  after_action: rerun_DB_COM_005_machine_narrative_central_gate_and_STOP_before_DB_COM_008
