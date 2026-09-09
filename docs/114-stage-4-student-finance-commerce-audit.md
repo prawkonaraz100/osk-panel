@@ -3,8 +3,8 @@
 Data: 2026-09-08
 
 **Etap:** `DB4_9_STUDENT_FINANCE_COMMERCE`  
-**Aktualny krok:** `DB_COM_001_ORDER_ITEM_TENANT_PRODUCT_SNAPSHOT_PRICE_TOTAL_AND_QUANTITY_INTEGRITY`
-**Status:** `FAIL_WITH_7_P1_BLOCKERS / 0 P0 / 7 P1 OPEN`
+**Aktualny krok:** `DB_COM_002_PAYMENT_ATTEMPT_EVENT_ORDER_STATE_IDEMPOTENCY_AND_RECONCILIATION`
+**Status:** `FAIL_WITH_6_P1_BLOCKERS / 0 P0 / 6 P1 OPEN`
 
 Machine-readable diagnoza: `specs/database/student-finance-commerce.yml`.
 
@@ -492,3 +492,154 @@ Stan po fixerze:
 Następny dozwolony krok po central gate: **DB-COM-002 only**.
 
 **STOP przed DB-COM-002.**
+
+
+## 22. DB-COM-002 — wynik fixera: PASS
+
+DB-COM-002 domyka lifecycle payment attempt, exact PaymentEvent binding, trusted confirmation, idempotency/retry oraz pojedynczy business settlement Orderu. Nie przyznaje jeszcze licencji, egzaminów ani service entitlements — fulfillment pozostaje DB-COM-003.
+
+### 22.1. Payment attempt nie jest jeszcze skutkiem biznesowym Orderu
+
+Tabela `payments` pozostaje ledgerem **prób płatności**. Jeden Order może mieć więcej niż jeden attempt, bo retry, timeout operatora albo ponowienie płatności są poprawnymi scenariuszami.
+
+Każdy Payment jest związany z exact tenant Order oraz jego niezmiennym payable snapshotem:
+
+`payments(organization_id, order_id, amount_minor, currency)` → `orders(organization_id, id, total_amount_minor, currency)`.
+
+Dla obecnego full-payment modelu attempt zawsze dotyczy całej kwoty Orderu. Nie można więc utworzyć płatności dla innego tenant, innej waluty albo innej kwoty i później uznać jej za płatność tego Orderu.
+
+Potwierdzenie pieniędzy u operatora i zastosowanie jednego business effect dla Orderu są celowo rozdzielone. To pozwala zachować prawdę o drugim rzeczywiście potwierdzonym attempt bez przyznania produktów po raz drugi.
+
+### 22.2. Zamknięty lifecycle Payment
+
+Canonical status attemptu ma trzy wartości:
+- `pending`,
+- `confirmed`,
+- `failed`.
+
+Macierz timestampów jest zamknięta:
+- `pending` → `confirmed_at = NULL`, `failed_at = NULL`,
+- `confirmed` → tylko `confirmed_at` jest non-null,
+- `failed` → tylko `failed_at` jest non-null.
+
+`confirmed_at` i `failed_at` są write-once. Nie ma zwykłego patchowania stringa statusu.
+
+Dozwolone automatyczne przejścia to tylko `pending -> confirmed` po trusted confirmation albo `pending -> failed` po trusted terminal failure. `confirmed` nie może zostać cofnięty przez późne `failed`. Jeżeli po stanie terminalnym pojawi się sprzeczne zdarzenie terminalne, nie przepisujemy historii — oznaczamy konflikt do reconciliation.
+
+### 22.3. PaymentEvent musi wskazywać dokładnie ten Payment operatora
+
+`payment_events` dostaje własny `organization_id` oraz `provider_payment_id`. Event nie może być związany z Payment wyłącznie przez luźne `payment_id` i string `provider`.
+
+Exact relation wiąże:
+
+`payment_events(organization_id, payment_id, provider, provider_payment_id)` → `payments(organization_id, id, provider, provider_payment_id)`.
+
+Zachowujemy istniejący dedupe `(provider, provider_event_id)`. Dedupe eventu i idempotency komendy płatniczej są jednak dwiema różnymi granicami bezpieczeństwa.
+
+Raw event pozostaje append-only evidence. Adapter serwera normalizuje jego wynik do `pending | confirmed | failed | informational`; dokładne mapowanie payloadu PayU lub innego operatora pozostaje Stage 5. Po obsłużeniu event zapisuje `processed_at` i wynik `state_applied`, `no_change_duplicate_or_stale` albo `conflict_requires_reconciliation`.
+
+### 22.4. Browser return nigdy nie oznacza `paid`
+
+Wiarygodne źródło potwierdzenia jest tylko jedno z dwóch:
+
+1. zweryfikowany podpisem provider event związany z exact provider payment reference i znormalizowany do `confirmed`, albo
+2. jawna privileged reconciliation oparta o niezależny dowód operatora/banku.
+
+Powrót przeglądarki, parametr URL, ekran „sukces” albo wartość z frontendu nie mogą ustawić `confirmed` ani rozliczyć Orderu.
+
+Dla `Przelewu bezpośredniego` Payment pozostaje `pending`, dopóki zaufana reconciliation nie potwierdzi księgowania. Samo oświadczenie użytkownika, że wykonał przelew, nie jest authority.
+
+### 22.5. Jeden `order_payment_settlement` = jeden paid business effect
+
+Wprowadzamy `order_payment_settlements` jako trwałą authority, że non-zero Order został rozliczony. Klucz `(organization_id, order_id)` jest unique, więc jeden Order może mieć dokładnie jeden settlement.
+
+Settlement wskazuje exact Payment tego samego Orderu i zapisuje:
+- `settled_at`,
+- `confirmation_source = provider_event | reconciliation`,
+- dla provider event: exact `source_payment_event_id`,
+- dla reconciliation: actor oraz reason/reference.
+
+Macierz source jest XOR: nie mieszamy provider-event provenance i manual reconciliation provenance.
+
+Pierwszy trusted confirmed attempt, gdy Order nie ma settlementu, w jednej transakcji:
+1. serializuje się na exact Order,
+2. zapisuje `Payment=confirmed`,
+3. tworzy settlement,
+4. powoduje canonical paid projection Orderu.
+
+Jeżeli inny attempt tego samego Orderu również zostanie później rzeczywiście potwierdzony, zachowujemy tę zewnętrzną prawdę jako `Payment=confirmed`, ale **nie tworzymy drugiego settlementu i nie wykonujemy drugiego purchase/grant effect**. Taki confirmed non-settling attempt wymaga reconciliation.
+
+DB-COM-003 będzie konsumował settlement, a nie browser return, raw webhook ani sam luźny string `payments.status`.
+
+### 22.6. Order payment status jest zamkniętą projekcją
+
+Canonical payment projection Orderu ma tylko:
+- `unpaid`,
+- `pending`,
+- `paid`.
+
+`orders.status` nie może pozostać niezależnym client-mutable authority. Jeżeli projekcja jest materializowana dla wydajności, musi być transakcyjnie zgodna z canonical facts.
+
+Reguły:
+- `paid` — istnieje valid `order_payment_settlement` albo valid zero-total internal settlement,
+- `pending` — brak paid resolution i istnieje co najmniej jeden pending Payment,
+- `unpaid` — brak paid resolution i brak pending Payment.
+
+Failed attempt nie robi Orderu `paid`. Dokładna etykieta pokazywana w historii zakupów oraz `booked_at` pozostają DB-COM-005.
+
+### 22.7. Zero-total Order
+
+DB-COM-001 dopuścił możliwość `total_amount_minor = 0`, np. przy pełnym rabacie, ale odroczył payment semantics do tego blockera.
+
+Dla takiego Orderu nie tworzymy sztucznej zewnętrznej płatności na 0. Backend atomowo z utworzeniem poprawnego zero-total Orderu zapisuje server-owned, write-once `zero_total_settled_at`. Pole jest zabronione dla Orderu z kwotą większą od zera.
+
+Zero-total resolution daje canonical `paid`, ale dokładny fulfillment tej transakcji nadal należy do DB-COM-003.
+
+### 22.8. Idempotency i retry
+
+Tworzenie payment attempt korzysta ze wspólnego `infrastructure_idempotency_records` z operation key `commerce.payment.create`. Reconciliation używa osobnego `commerce.payment.reconcile`.
+
+Ten sam `Idempotency-Key` + ten sam request hash replayuje ten sam wynik bez nowego attemptu lub efektu. Ten sam klucz z innym payloadem powoduje conflict.
+
+Provider webhook ma niezależny dedupe `(provider, provider_event_id)`. Powtórzony event nie może ponownie wykonać transition ani settlementu.
+
+Nowy attempt z nowym idempotency key może powstać tylko, gdy Order nie ma jeszcze settlementu. Równoległe/powtórzone attempty są bezpieczne dlatego, że finalną granicą jest unique settlement Orderu, a nie założenie „zawsze istnieje tylko jeden Payment”.
+
+### 22.9. Migration safety
+
+Legacy migration może backfillować tenant i `provider_payment_id` Eventu wyłącznie z exact parent Payment.
+
+Nie wolno:
+- uznać samego starego `orders.status=paid` za dowód płatności,
+- uznać browser-return timestamp za potwierdzenie,
+- wybierać „zwycięskiego” Payment po najbliższym timestampie, amount albo podobnym provider string,
+- automatycznie wybierać jednego z kilku prawdopodobnych confirmed Payments,
+- oznaczać przelewu bezpośredniego jako paid bez trusted reconciliation evidence,
+- usuwać Payment/Event, aby constraint przeszedł.
+
+Settlement można odtworzyć tylko wtedy, gdy istnieje dokładnie jeden udowodniony confirmed Payment i wiarygodny confirmation evidence. Ambiguous payment history = FAIL + reviewed remediation.
+
+### 22.10. Preservation gate
+
+Zachowane bez zmian:
+- DB-FIN-001 i DB-FIN-002,
+- DB-COM-001 tenant/catalog/pricing snapshot,
+- wspólna historia zamówień i możliwość późniejszego opłacenia unpaid Orderu,
+- potwierdzone metody `Płatności online PayU` i `Przelew bezpośredni` bez wymyślania payload schema,
+- browser return != payment confirmation,
+- generic command idempotency i provider-event dedupe jako osobne mechanizmy,
+- License/Exam Inventory nie są jeszcze grantowane,
+- explicit ServiceActivation != payment success,
+- DB-COM-003…008 pozostają OPEN,
+- `core-schema.yml` i `docs/87...` pozostają zamrożone,
+- DB4_10+, Stage 5, Laravel migrations i UI pozostają nieruszone.
+
+Stan po fixerze:
+- P0 OPEN: **0**,
+- P1 OPEN: **6**,
+- resolved: **4/10**,
+- result: **FAIL_WITH_6_P1_BLOCKERS**.
+
+Następny dozwolony krok po central gate: **DB-COM-003 only**.
+
+**STOP przed DB-COM-003.**
