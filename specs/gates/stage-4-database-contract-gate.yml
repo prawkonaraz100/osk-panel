@@ -111,13 +111,13 @@ stage_4_slices:
     final_aggregate_sync: PASS
     result: PASS
   - id: DB4_10_AUDIT_OUTBOX_NOTIFICATIONS
-    status: FAIL_WITH_7_P1_BLOCKERS
+    status: FAIL_WITH_6_P1_BLOCKERS
     diagnosis: COMPLETE
     blockers_diagnosed: 8
-    blockers_resolved: 1
-    open_P0_P1: 7
+    blockers_resolved: 2
+    open_P0_P1: 6
     final_aggregate_sync: NOT_STARTED
-    result: FAIL_WITH_7_P1_BLOCKERS
+    result: FAIL_WITH_6_P1_BLOCKERS
   - id: DB4_11_FINAL_MIGRATION_ORDER_AND_INVARIANT_TEST_MATRIX
     status: NOT_STARTED
 
@@ -3798,8 +3798,42 @@ quality_checks:
       Laravel_migrations_created: false
       UI_or_feature_implementation_started: false
 
+  audit_safe_payload_redaction_version_and_elevated_reason_integrity:
+    status: PASS
+    resolved_blocker_id: DB-AUD-002
+    machine_source: specs/database/audit-outbox-notifications.yml
+    narrative_source: docs/115-stage-4-audit-outbox-notifications-audit.md#9
+    machine_commit: 50ba1838e6be08a95691db6a8cc394c49da44b86
+    machine_blob: 50de1e6d950769908d070a7ac5628d562c53882b
+    narrative_commit: c8f4206133619dd51c06a8d11e662eb15304d159
+    narrative_blob: c5a4ba6d61c3d4b5ae308d8cb1f76bccd0b67fbe
+    checks:
+      immutable_action_policy_revision_history: PASS
+      action_policy_version_is_persisted_audit_redaction_provenance: PASS
+      current_policy_pointer_required_for_new_runtime_rows: PASS
+      client_or_stale_policy_version_cannot_weaken_runtime_audit: PASS
+      arbitrary_raw_JSON_or_model_serialization_forbidden: PASS
+      exact_versioned_payload_validator_required: PASS
+      unknown_keys_paths_and_unapproved_nested_shapes_rejected: PASS
+      plaintext_password_hash_token_provider_secret_full_PESEL_full_PKK_forbidden: PASS
+      masked_sensitive_value_requires_exact_validator_allowlist: PASS
+      before_after_forbidden_optional_required_matrix_closed: PASS
+      reason_optional_required_matrix_closed: PASS
+      upstream_reason_required_contract_cannot_be_downgraded: PASS
+      policy_change_creates_new_revision_without_rewriting_history: PASS
+      required_audit_validation_failure_rolls_back_business_transaction: PASS
+      legacy_policy_version_not_guessed_and_deferred_DB_EVT_001: PASS
+      DB_OUT_001_remains_open: PASS
+      aggregate_core_schema_modified: false
+      aggregate_docs87_modified: false
+      DB4_11_started: false
+      Stage5_started: false
+      Laravel_migrations_created: false
+      UI_or_feature_implementation_started: false
+
 resolved_blockers:
   - DB-AUD-001
+  - DB-AUD-002
   - DB-FOUND-001
   - DB-FOUND-002
   - DB-FOUND-003
@@ -3874,7 +3908,7 @@ gate_definition:
     - migration_order_dependency_safe
     - database_invariant_test_matrix_exists
     - reverse_engineering_preservation_traceable
-  current_result: DB4_10_FAIL_WITH_7_P1_BLOCKERS
+  current_result: DB4_10_FAIL_WITH_6_P1_BLOCKERS
   DB4_1_result: PASS
   DB4_2_result: PASS
   DB4_3_result: PASS
@@ -3946,7 +3980,8 @@ gate_definition:
   DB4_9_result: PASS
   DB4_10_diagnosis_result: PASS_DIAGNOSIS_COMPLETE
   DB4_10_DB_AUD_001_result: PASS
-  DB4_10_result: FAIL_WITH_7_P1_BLOCKERS
+  DB4_10_DB_AUD_002_result: PASS
+  DB4_10_result: FAIL_WITH_6_P1_BLOCKERS
   may_start_DB4_4_fixes: false
   may_start_DB4_5: false
   may_start_DB4_5_fixes: false
@@ -3966,8 +4001,8 @@ gate_definition:
   may_start_UI_or_feature_implementation: false
 
 next_single_step:
-  id: DB_AUD_002_AUDIT_SAFE_PAYLOAD_REDACTION_VERSION_AND_ELEVATED_REASON_INTEGRITY
-  action: resolve_DB_AUD_002_only_after_next_explicit_user_instruction
+  id: DB_OUT_001_TRANSACTIONAL_DOMAIN_EVENT_OUTBOX_IDENTITY_AND_SAME_TRANSACTION_COUPLING
+  action: resolve_DB_OUT_001_only_after_next_explicit_user_instruction
   allowed_scope:
     - specs/database/audit-outbox-notifications.yml
     - docs/115-stage-4-audit-outbox-notifications-audit.md
@@ -3976,7 +4011,8 @@ next_single_step:
     specs/database/core-schema.yml: f3519060967085517329bc668fac02e5c1fd2dbd
     docs/87-physical-database-schema.md: f3ebb764a5279cbabc9c75c2fcf9733f36ed22a8
   scope_lock: >-
-    DB-AUD-001 is PASS. Resolve DB-AUD-002 only. Keep DB-OUT-001, DB-OUT-002,
-    DB-ACT-001, DB-NOT-001, DB-NOT-002 and DB-EVT-001 OPEN. Do not modify
-    aggregate files, do not enter DB4_11, Stage 5, Laravel migrations or UI.
-  after_action: rerun_DB_AUD_002_machine_narrative_central_gate_and_STOP_before_DB_OUT_001
+    DB-AUD-001 and DB-AUD-002 are PASS. Resolve DB-OUT-001 only. Keep
+    DB-OUT-002, DB-ACT-001, DB-NOT-001, DB-NOT-002 and DB-EVT-001 OPEN.
+    Do not modify aggregate files, do not enter DB4_11, Stage 5, Laravel
+    migrations or UI.
+  after_action: rerun_DB_OUT_001_machine_narrative_central_gate_and_STOP_before_DB_OUT_002
