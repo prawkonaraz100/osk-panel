@@ -103,13 +103,13 @@ stage_4_slices:
     final_aggregate_sync: PASS
     result: PASS
   - id: DB4_9_STUDENT_FINANCE_COMMERCE
-    status: FAIL_WITH_7_P1_BLOCKERS
+    status: FAIL_WITH_6_P1_BLOCKERS
     diagnosis: COMPLETE
     blockers_diagnosed: 10
-    blockers_resolved: 3
-    open_P0_P1: 7
+    blockers_resolved: 4
+    open_P0_P1: 6
     final_aggregate_sync: NOT_STARTED
-    result: FAIL_WITH_7_P1_BLOCKERS
+    result: FAIL_WITH_6_P1_BLOCKERS
   - id: DB4_10_AUDIT_OUTBOX_NOTIFICATIONS
     status: NOT_STARTED
   - id: DB4_11_FINAL_MIGRATION_ORDER_AND_INVARIANT_TEST_MATRIX
@@ -3217,6 +3217,53 @@ quality_checks:
       Laravel_migrations_created: false
       UI_or_feature_implementation_started: false
 
+  commerce_payment_attempt_event_order_settlement_reconciliation_integrity:
+    status: PASS
+    resolved_blocker_id: DB-COM-002
+    severity: P1
+    machine_source: specs/database/student-finance-commerce.yml
+    narrative_source: docs/114-stage-4-student-finance-commerce-audit.md
+    machine_commit: 53d61d9fa92b877abbdcdcfdc3a40b7f4b7cf467
+    machine_blob: 6062cca8ee3d897e13c00d8ecd6381dc451a12a9
+    narrative_commit: 6c4537d3350966a9df75f5b50d36247d0e039fef
+    narrative_blob: 4be9c92766009b7b2c4c66ae7c5b5fe38c2db836
+    decision:
+      payment_status_values: [pending, confirmed, failed]
+      payment_exact_order_snapshot_FK: [organization_id, order_id, amount_minor, currency]
+      payment_event_exact_provider_payment_binding: true
+      provider_event_dedupe_key: [provider, provider_event_id]
+      browser_return_confirmation_authority: false
+      trusted_confirmation_sources: [provider_event, reconciliation]
+      multiple_payment_attempts_per_order_allowed: true
+      order_payment_settlement_unique_per_order: true
+      second_confirmed_attempt_second_business_effect: forbidden
+      conflicting_terminal_event_action: reconciliation_required
+      direct_bank_transfer_confirmation: trusted_reconciliation_only
+      order_payment_projection_values: [unpaid, pending, paid]
+      zero_total_order_external_payment_required: false
+      payment_create_idempotency_operation: commerce.payment.create
+      payment_reconcile_idempotency_operation: commerce.payment.reconcile
+      heuristic_legacy_payment_winner_selection: forbidden
+    checks:
+      payment_same_tenant_order_amount_currency: PASS
+      payment_status_timestamp_matrix: PASS
+      payment_event_provider_and_provider_payment_reference_exact: PASS
+      duplicate_event_cannot_reapply_state_or_settlement: PASS
+      late_failed_event_cannot_revert_confirmed_payment: PASS
+      one_order_business_settlement: PASS
+      second_confirmed_attempt_requires_reconciliation_without_second_effect: PASS
+      browser_return_cannot_mark_paid: PASS
+      direct_bank_transfer_pending_until_reconciled: PASS
+      zero_total_resolution_closed: PASS
+      DB_COM_001_contract_preserved: PASS
+      DB_COM_003_through_DB_COM_008_remain_open: PASS
+      aggregate_core_schema_modified: false
+      aggregate_docs87_modified: false
+      DB4_10_or_later_entered: false
+      Stage5_started: false
+      Laravel_migrations_created: false
+      UI_or_feature_implementation_started: false
+
 resolved_blockers:
   - DB-FOUND-001
   - DB-FOUND-002
@@ -3274,9 +3321,9 @@ resolved_blockers:
   - DB-FIN-001
   - DB-FIN-002
   - DB-COM-001
+  - DB-COM-002
 
 open_blockers_current_diagnosed_scope:
-  - DB-COM-002
   - DB-COM-003
   - DB-COM-004
   - DB-COM-005
@@ -3292,7 +3339,7 @@ gate_definition:
     - migration_order_dependency_safe
     - database_invariant_test_matrix_exists
     - reverse_engineering_preservation_traceable
-  current_result: DB4_9_FAIL_WITH_7_P1_BLOCKERS
+  current_result: DB4_9_FAIL_WITH_6_P1_BLOCKERS
   DB4_1_result: PASS
   DB4_2_result: PASS
   DB4_3_result: PASS
@@ -3353,7 +3400,8 @@ gate_definition:
   DB4_9_DB_FIN_001_result: PASS
   DB4_9_DB_FIN_002_result: PASS
   DB4_9_DB_COM_001_result: PASS
-  DB4_9_result: FAIL_WITH_7_P1_BLOCKERS
+  DB4_9_DB_COM_002_result: PASS
+  DB4_9_result: FAIL_WITH_6_P1_BLOCKERS
   may_start_DB4_4_fixes: false
   may_start_DB4_5: false
   may_start_DB4_5_fixes: false
@@ -3369,8 +3417,8 @@ gate_definition:
   may_start_UI_or_feature_implementation: false
 
 next_single_step:
-  id: DB_COM_002_PAYMENT_ATTEMPT_EVENT_ORDER_STATE_IDEMPOTENCY_AND_RECONCILIATION
-  action: resolve_DB_COM_002_only_after_next_explicit_user_instruction
+  id: DB_COM_003_PAID_ORDER_EXACTLY_ONCE_GRANT_ORCHESTRATION_AND_ATOMICITY
+  action: resolve_DB_COM_003_only_after_next_explicit_user_instruction
   allowed_scope:
     - specs/database/student-finance-commerce.yml
     - docs/114-stage-4-student-finance-commerce-audit.md
@@ -3379,6 +3427,6 @@ next_single_step:
     - specs/database/core-schema.yml
     - docs/87-physical-database-schema.md
   scope_lock: >-
-    Resolve DB-COM-002 only. Preserve DB-COM-003 through DB-COM-008 as OPEN.
-    Do not enter DB-COM-003, DB4_10, Stage 5, Laravel migrations or UI in the same step.
-  after_action: rerun_DB_COM_002_machine_narrative_central_gate_and_STOP_before_DB_COM_003
+    Resolve DB-COM-003 only. Preserve DB-COM-004 through DB-COM-008 as OPEN.
+    Do not enter DB-COM-004, DB4_10, Stage 5, Laravel migrations or UI in the same step.
+  after_action: rerun_DB_COM_003_machine_narrative_central_gate_and_STOP_before_DB_COM_004
