@@ -103,13 +103,13 @@ stage_4_slices:
     final_aggregate_sync: PASS
     result: PASS
   - id: DB4_9_STUDENT_FINANCE_COMMERCE
-    status: FAIL_WITH_8_P1_BLOCKERS
+    status: FAIL_WITH_7_P1_BLOCKERS
     diagnosis: COMPLETE
     blockers_diagnosed: 10
-    blockers_resolved: 2
-    open_P0_P1: 8
+    blockers_resolved: 3
+    open_P0_P1: 7
     final_aggregate_sync: NOT_STARTED
-    result: FAIL_WITH_8_P1_BLOCKERS
+    result: FAIL_WITH_7_P1_BLOCKERS
   - id: DB4_10_AUDIT_OUTBOX_NOTIFICATIONS
     status: NOT_STARTED
   - id: DB4_11_FINAL_MIGRATION_ORDER_AND_INVARIANT_TEST_MATRIX
@@ -3160,6 +3160,63 @@ quality_checks:
       Laravel_migrations_created: false
       UI_or_feature_implementation_started: false
 
+  commerce_order_item_tenant_product_snapshot_price_total_quantity_integrity:
+    status: PASS
+    resolved_blocker_id: DB-COM-001
+    severity: P1
+    machine_source: specs/database/student-finance-commerce.yml
+    narrative_source: docs/114-stage-4-student-finance-commerce-audit.md
+    machine_commit: 96dd1ea0242db4bc392e7355ba629b96d67eb392
+    machine_blob: 84211f9b7b9d637a4b5be9a55462f1821f9b8827
+    narrative_commit: c1f51d79aaf1c48805afd3452902ca7b0fb9485b
+    narrative_blob: e395127bf2397b55964adf522a31ef0bde03fef8
+    decision:
+      canonical_sale_SKU_table: commerce_catalog_items
+      canonical_sale_SKU_is_tenant_owned: false
+      product_kind_values: [license, internal_exam, generic_service]
+      license_kind_requires_exact_license_product_id: true
+      nonlicense_kind_forbids_license_product_id: true
+      fake_polymorphic_product_reference: forbidden
+      order_items_add_nonnull_organization_id: true
+      order_exact_currency_candidate_key: [organization_id, id, currency]
+      order_item_tenant_candidate_key: [organization_id, id]
+      catalog_kind_candidate_key: [id, product_kind]
+      order_item_exact_order_currency_FK: [organization_id, order_id, currency]
+      order_item_exact_catalog_kind_FK: [commerce_catalog_item_id, product_kind]
+      quantity_check: gt_0
+      amount_storage: minor_units
+      unit_discount_formula: list_unit_amount_minor_minus_unit_amount_minor
+      line_total_formula: quantity_times_unit_amount_minor
+      order_total_formula: SUM_order_items_total_amount_minor
+      VAT_rate_snapshot_unit: basis_points
+      product_snapshot_server_owned_and_immutable: true
+      pricing_snapshot_server_owned_and_immutable: true
+      snapshot_hash_required: true
+      client_price_discount_vat_total_authority: forbidden
+      catalog_or_price_change_rewrites_historical_order_item: false
+      ambiguous_legacy_product_or_pricing_mapping: fail_and_require_reviewed_remediation
+      legacy_organization_and_currency_backfill_source: exact_parent_order_only
+      hard_delete_order_item_to_make_constraints_pass: forbidden
+    checks:
+      same_tenant_OrderItem_Order_boundary: PASS
+      OrderItem_currency_matches_exact_Order: PASS
+      OrderItem_product_kind_matches_exact_catalog_item: PASS
+      license_catalog_item_exact_LicenseProduct_binding: PASS
+      nonlicense_catalog_item_cannot_fake_LicenseProduct_binding: PASS
+      quantity_positive_and_line_price_formulas_closed: PASS
+      Order_total_equals_sum_line_totals_at_transaction_boundary: PASS
+      server_does_not_trust_client_price_discount_vat_or_total: PASS
+      immutable_product_and_pricing_snapshot_preserves_history: PASS
+      legacy_ambiguous_mapping_not_repaired_heuristically: PASS
+      DB_FIN_001_and_DB_FIN_002_contracts_preserved: PASS
+      DB_COM_002_through_DB_COM_008_remain_open: PASS
+      aggregate_core_schema_modified: false
+      aggregate_docs87_modified: false
+      DB4_10_or_later_entered: false
+      Stage5_started: false
+      Laravel_migrations_created: false
+      UI_or_feature_implementation_started: false
+
 resolved_blockers:
   - DB-FOUND-001
   - DB-FOUND-002
@@ -3216,9 +3273,9 @@ resolved_blockers:
   - DB-PKK-008
   - DB-FIN-001
   - DB-FIN-002
+  - DB-COM-001
 
 open_blockers_current_diagnosed_scope:
-  - DB-COM-001
   - DB-COM-002
   - DB-COM-003
   - DB-COM-004
@@ -3235,7 +3292,7 @@ gate_definition:
     - migration_order_dependency_safe
     - database_invariant_test_matrix_exists
     - reverse_engineering_preservation_traceable
-  current_result: DB4_9_FAIL_WITH_8_P1_BLOCKERS
+  current_result: DB4_9_FAIL_WITH_7_P1_BLOCKERS
   DB4_1_result: PASS
   DB4_2_result: PASS
   DB4_3_result: PASS
@@ -3295,7 +3352,8 @@ gate_definition:
   DB4_9_diagnosis_result: PASS_DIAGNOSIS_COMPLETE
   DB4_9_DB_FIN_001_result: PASS
   DB4_9_DB_FIN_002_result: PASS
-  DB4_9_result: FAIL_WITH_8_P1_BLOCKERS
+  DB4_9_DB_COM_001_result: PASS
+  DB4_9_result: FAIL_WITH_7_P1_BLOCKERS
   may_start_DB4_4_fixes: false
   may_start_DB4_5: false
   may_start_DB4_5_fixes: false
@@ -3311,8 +3369,8 @@ gate_definition:
   may_start_UI_or_feature_implementation: false
 
 next_single_step:
-  id: DB_COM_001_ORDER_ITEM_TENANT_PRODUCT_SNAPSHOT_PRICE_TOTAL_AND_QUANTITY_INTEGRITY
-  action: resolve_DB_COM_001_only_after_next_explicit_user_instruction
+  id: DB_COM_002_PAYMENT_ATTEMPT_EVENT_ORDER_STATE_IDEMPOTENCY_AND_RECONCILIATION
+  action: resolve_DB_COM_002_only_after_next_explicit_user_instruction
   allowed_scope:
     - specs/database/student-finance-commerce.yml
     - docs/114-stage-4-student-finance-commerce-audit.md
@@ -3321,6 +3379,6 @@ next_single_step:
     - specs/database/core-schema.yml
     - docs/87-physical-database-schema.md
   scope_lock: >-
-    Resolve DB-COM-001 only. Preserve DB-COM-002 through DB-COM-008 as OPEN.
-    Do not enter DB-COM-002, DB4_10, Stage 5, Laravel migrations or UI in the same step.
-  after_action: rerun_DB_COM_001_machine_narrative_central_gate_and_STOP_before_DB_COM_002
+    Resolve DB-COM-002 only. Preserve DB-COM-003 through DB-COM-008 as OPEN.
+    Do not enter DB-COM-003, DB4_10, Stage 5, Laravel migrations or UI in the same step.
+  after_action: rerun_DB_COM_002_machine_narrative_central_gate_and_STOP_before_DB_COM_003
