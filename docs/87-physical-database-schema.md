@@ -2,7 +2,7 @@
 
 Data: 2026-09-07
 
-**Status:** `IMPLEMENTATION_BLUEPRINT / DB4_9_STUDENT_FINANCE_COMMERCE_AGGREGATE_SYNC_PASS`
+**Status:** `IMPLEMENTATION_BLUEPRINT / DB4_10_AUDIT_OUTBOX_NOTIFICATIONS_AGGREGATE_SYNC_PASS`
 
 > To nie są jeszcze migracje Laravel. To fizyczny blueprint tabel, indeksów, constraintów i najważniejszych transakcji zgodny z canonical domain model. Machine-readable odpowiednik: `specs/database/core-schema.yml`. Przy konflikcie machine spec + późniejszy ADR wygrywa. Reverse-engineered scope chronią `docs/96-reverse-engineering-preservation-contract.md` i `specs/reverse-engineering-manifest.yml`. Cross-layer kompletność kontroluje `specs/traceability/core-v1.yml`.
 
@@ -2365,69 +2365,250 @@ Refund/chargeback/invoice oraz provider-specific payload schema nie są wymyśla
 
 ---
 
-# 20. Audit / activity / outbox / notifications
+# 20. Audit / domain events / outbox / activity / notifications — DB4_10 aggregate
 
-## `audit_logs`
+Canonical bounded-context source: `specs/database/audit-outbox-notifications.yml`, narrative audit: `docs/115-stage-4-audit-outbox-notifications-audit.md`.
 
-Append-only:
-- `id uuid PK`
-- `organization_id uuid null`
-- `actor_user_id uuid null`
-- `action varchar(128)`
-- `entity_type varchar(128)`
-- `entity_id varchar(128) null`
-- `before_redacted_json jsonb null`
-- `after_redacted_json jsonb null`
-- `reason text null`
-- `request_id varchar(64)`
-- `ip_hash varchar(128) null`
-- `user_agent varchar(512) null`
+DB4_10 rozdziela pięć ról, które nie mogą stać się jednym wspólnym „event logiem”:
+1. `audit_logs` — append-only historia bezpieczeństwa i krytycznych mutacji,
+2. `domain_events` — trwała tożsamość committed zdarzenia domenowego dla retryable projections,
+3. `outbox_messages` — techniczny intent publikacji z lifecycle publishera,
+4. `organization_activity_events` — bezpieczna projekcja dashboardowego activity feedu,
+5. `notifications` — per-membership inbox z własnym stanem `read_at`.
+
+Żaden z tych read/technical models nie staje się drugim business source of truth.
+
+## 20.1 Audit policy history
+
+### `audit_action_policy_revisions`
+
+Immutable revision contract per `action`:
+- `action varchar(128) not null`,
+- `policy_version bigint not null`,
+- `payload_validator_code varchar(...) not null`,
+- `before_payload_requirement`,
+- `after_payload_requirement`,
+- `reason_requirement` — `optional|required`,
+- `policy_hash`,
+- `created_at timestamptz not null`.
+
+PK/unique: `(action,policy_version)`. Revision po użyciu nie jest update/delete przez normalną aplikację.
+
+Validator jest closed allowlistą. Unknown key/path, raw ORM/request/provider serialization, password/hash/token/provider secret, pełny PESEL/PKK i external OSK credentials są odrzucane. Zmiana polityki tworzy nową revision; stare audyty zachowują własny `audit_policy_version`.
+
+### `audit_action_policy_currents`
+
+- `action PK`,
+- `policy_version`,
+- `updated_at`.
+
+Exact FK `(action,policy_version) -> audit_action_policy_revisions(action,policy_version) RESTRICT`. Nowy runtime audit musi używać exact current revision; klient nie wybiera revision.
+
+## 20.2 `audit_logs` — append-only history
+
+Finalne pola obejmują:
+- `id uuid PK`,
+- `audit_scope varchar(...) not null` — `organization|platform_global`,
+- `organization_id uuid null`,
+- `actor_kind varchar(...) not null` — `organization_membership|global_user|system`,
+- `actor_organization_membership_id uuid null`,
+- `actor_user_id uuid null`,
+- `action varchar(128) not null`,
+- `audit_policy_version bigint not null`,
+- `entity_reference_mode varchar(...) not null` — `none|tenant_relational|global_relational|snapshot_only`,
+- `entity_type varchar(128) null`,
+- `entity_id varchar(128) null`,
+- `before_redacted_json jsonb null`,
+- `after_redacted_json jsonb null`,
+- `reason text null`,
+- `request_id varchar(64) not null`,
+- `ip_hash varchar(128) null`,
+- `user_agent varchar(512) null`,
+- `created_at timestamptz not null`.
+
+Scope matrix:
+- `organization` wymaga server-derived `organization_id`,
+- `platform_global` wymaga `organization_id IS NULL` i nie pojawia się w tenant `/audit-logs`.
+
+Actor matrix:
+- organization membership actor: exact composite FK `(organization_id,actor_organization_membership_id,actor_user_id) -> organization_memberships(organization_id,id,user_id)`,
+- global user actor jest tylko platform-global,
+- system actor ma NULL membership/user; organization-system event nadal wymaga exact `organization_id`.
+
+`entity_reference_mode=tenant_relational` przechodzi closed allowlist + same-tenant DB guard. `snapshot_only` jawnie nie udaje FK.
+
+Normalny application role nie może UPDATE ani DELETE audit row. Retention nie jest zwykłym lifecycle audytu i jest opisane osobno w 20.8.
+
+Tenant audit list zawsze filtruje exact organization przed pagination i sortuje `created_at DESC, id DESC`.
+
+## 20.3 `domain_events` — canonical event identity
+
+`domain_events.id` jest trwałą identity logical committed eventu używaną przez outbox i retryable projections.
+
+Pola:
+- `id uuid PK`,
+- `event_scope` — `organization|platform_global`,
+- `organization_id uuid null`,
+- `event_type varchar(128) not null`,
+- `aggregate_reference_mode` — `none|tenant_relational|global_relational|snapshot_only`,
+- `aggregate_type varchar(128) null`,
+- `aggregate_id varchar(128) null`,
+- `request_id varchar(64) not null`,
+- `causation_event_id uuid null`,
+- `required_audit_log_id uuid null`,
+- `occurred_at timestamptz not null`,
+- `created_at timestamptz not null`.
+
+`request_id` jest correlation, nie unique event id. `causation_event_id`, gdy istnieje, jest exact self-FK i nie jest zgadywane po czasie/request id.
+
+Organization event ma candidate key `(organization_id,id)`, exact server-derived tenant i closed allowlist dla tenant relational aggregate reference. Global event ma `organization_id=NULL`.
+
+Tam, gdzie wcześniejszy domain slice wymaga audytu, `required_audit_log_id` wskazuje exact audit row ze zgodnym scope/tenant. DomainEvent nie kopiuje raw audit payloadu.
+
+Business effect + required audit + exactly one domain event + exactly one outbox intent commitują się w jednej lokalnej transakcji, gdy upstream kontrakt wymaga event/outbox. Failure wymaganej części rollbackuje business effect. External network publish odbywa się dopiero po commit.
+
+## 20.4 `outbox_messages` — durable publisher state
+
+Każdy nowy runtime outbox row ma exact `domain_event_id`; unique `domain_event_id` daje najwyżej jeden lokalny outbox intent per logical event. Event scope, tenant, type, aggregate reference i request correlation muszą odpowiadać source eventowi.
+
+Finalne publisher pola obejmują:
+- `publication_state` — `pending|leased|published|requires_reconciliation`,
+- `next_attempt_at`,
+- `lease_token`,
+- `lease_version`,
+- `leased_by`,
+- `lease_expires_at`,
+- `attempts` — lifetime successful claims,
+- `attempts_in_cycle`,
+- `replay_count`,
+- `published_at`,
+- allowlisted `last_error_code`,
+- krótkie safe `last_error`.
+
+Claim due `pending` albo expired `leased` jest atomowy przez row lock / `UPDATE ... RETURNING` / `SKIP LOCKED` lub równoważny mechanizm. ACK/failure wymaga exact `(message_id,lease_token,lease_version)`, więc stale worker nie może nadpisać nowszego lease.
+
+State rules:
+- success: `leased -> published`, `published_at` tylko raz,
+- retryable/ambiguous failure przed limitem: `leased -> pending` + server backoff,
+- nonretryable lub cycle exhausted: `leased -> requires_reconciliation`,
+- `requires_reconciliation` nie jest auto-claimowane.
+
+Delivery semantic to **at-least-once**, nie exactly-once. External publish może się udać przed utratą DB ACK i późniejszy reclaim może wysłać event ponownie. Canonical downstream dedupe key = `domain_event_id`.
+
+Manual replay jest privileged, tylko z reconciliation, z audytem i nonblank reason. Używa tego samego outbox row i `domain_event_id`; nie zeruje lifetime attempts ani historii.
+
+## 20.5 Activity projection
+
+### Policy
+
+`activity_projection_policy_revisions(event_type,policy_version)` jest immutable allowlistą visible event types i display builders. Przechowuje m.in. payload validator, description builder, actor snapshot, subject/Student/navigation rules.
+
+`activity_projection_policy_currents(event_type -> policy_version)` wskazuje exact current revision. Event bez current activity policy nie jest automatycznie feed itemem.
+
+### `organization_activity_events`
+
+Każdy nowy row wymaga exact `(organization_id,source_event_id) -> domain_events(organization_id,id)` oraz source event `event_scope=organization`.
+
+Unique `(organization_id,source_event_id)` oznacza jeden activity item per logical source event mimo at-least-once redelivery. `request_id`, outbox id i timestamp nie zastępują source identity.
+
+Activity row zapisuje immutable `projection_policy_version` i historyczny safe display snapshot, m.in.:
+- `description_snapshot`,
+- optional allowlisted `safe_payload`,
+- actor reference mode + membership/user reference,
+- `actor_display_name_snapshot`,
+- subject type/id,
+- optional `related_student_id`,
+- `event_type`, `occurred_at` copied z source event.
+
+Zmiana aktualnej roli/nazwy/projection policy nie przepisuje istniejącego feedu. Retry po unique source zwraca/pozostawia istniejący snapshot.
+
+Canonical list/dashboard order: `occurred_at DESC, id DESC`.
+
+Dashboardowa karta nazwana „Powiadomienia” pozostaje **activity feedem**; nie jest `/notifications` inboxem.
+
+## 20.6 Notification recipients i organization broadcast
+
+Każdy fizyczny `notifications` row należy do jednego exact membershipu. Finalne pola obejmują:
+- `id uuid PK`,
+- `organization_id uuid not null`,
+- `source_event_id uuid not null`,
+- `organization_membership_id uuid not null`,
+- `user_id uuid not null`,
+- `audience_kind` — `direct_membership|organization_broadcast`,
+- `type`,
+- safe `payload`,
+- `read_at timestamptz null`,
 - `created_at`.
 
-Dla membership authorization mutation audit musi dodatkowo zawierać logicznie `membership_version before/after` i `authorization_version before/after` w bezpiecznym domain diff/snapshot.
+Recipient FK:
+`(organization_id,organization_membership_id,user_id) -> organization_memberships(organization_id,id,user_id) RESTRICT`.
 
-Learning credential/license audit jest również redacted: może przechowywać identyfikatory row, statusy, credential version i effective periods, ale nigdy plaintext password, password hash ani secret-bearing PDF bytes.
+Source FK:
+`(organization_id,source_event_id) -> domain_events(organization_id,id) RESTRICT`; source musi być organization-scoped.
 
-## `organization_activity_events`
+Unique `(organization_id,source_event_id,organization_membership_id)` daje najwyżej jeden notification per logical event i exact recipient. Audience kind nie jest częścią dedupe key.
 
-- `id uuid PK`
-- `organization_id uuid FK`
-- `event_type varchar(128)`
-- `actor_user_id uuid null`
-- `subject_type varchar(128) null`
-- `subject_id varchar(128) null`
-- `related_student_id uuid null`
-- `safe_payload jsonb not null`
-- `occurred_at timestamptz`
-- `source_event_id varchar(128) null`
-- `created_at`.
+`direct_membership` materializuje jeden aktywny exact membership. `organization_broadcast` materializuje osobny row dla każdego aktywnego membershipu ze snapshotu transakcji — fan-out all-or-none. Nie istnieje jeden organization row ze wspólnym `read_at`.
 
-## `outbox_messages`
+Nowy membership dołączony później nie dostaje historycznych broadcastów. Suspend/revoke nie usuwa historycznych rows, ale bieżący dostęp/mark-read wymaga aktywnego wybranego membershipu.
 
-- `id uuid PK`
-- `aggregate_type varchar(128)`
-- `aggregate_id varchar(128)`
-- `event_type varchar(128)`
-- `payload jsonb`
-- `request_id varchar(64)`
-- `created_at`
-- `published_at timestamptz null`
-- `attempts integer default 0`
-- `last_error text null`.
+## 20.7 Notification read lifecycle
 
-Membership permission/scope/status/Owner mutation zapisuje outbox w tej samej transakcji co current state + audit. Learning-access/license mutation również zapisuje tylko bezpieczne metadata i commituję audit/outbox atomowo z biznesowym stanem.
+Nowy notification ma `read_at=NULL`. Jedyna zwykła mutacja:
 
-## `notifications`
+`NULL -> server-derived timestamp`
 
-- `id uuid PK`
-- `organization_id uuid FK`
-- `user_id uuid null`
-- `type varchar(64)`
-- `payload jsonb`
-- `read_at timestamptz null`
-- `created_at`.
+Dokładnie raz. `read -> unread`, retimestamp i client-supplied timestamp są zabronione przez DB guard lub równoważną column boundary.
 
----
+`POST /notifications/{id}/read` musi targetować exact:
+- notification id,
+- selected organization,
+- selected membership,
+- authenticated user.
+
+Pierwszy writer ustawia `read_at`; concurrent/retry writers zwracają ten sam persisted timestamp bez rewrite. Stage-3 Idempotency-Key pozostaje command replay layer, ale source of truth to write-once `notifications.read_at`.
+
+`unread_only=true` stosujemy dopiero po exact recipient scope i oznacza `read_at IS NULL`.
+
+Nie dodajemy mark-unread/delete ani e-mail/SMS/push delivery semantics.
+
+## 20.8 Legacy migration, retention i cleanup
+
+Legacy backfill używa tylko exact durable evidence. Zabronione jako lineage/recipient/policy proof są m.in.:
+- timestamp proximity,
+- same tenant alone,
+- request-id similarity,
+- event/payload text similarity,
+- aggregate similarity bez recorded exact relation,
+- current membership uniqueness,
+- current policy revision,
+- UUID/creation order.
+
+Nie tworzymy synthetic DomainEvents tylko po to, aby stare outbox/activity/notification rows spełniły nowe constraints. Wspólny legacy organization `read_at` nie jest kopiowany do wielu odbiorców bez exact evidence. Istniejącego non-NULL `read_at` nie czyścimy ani nie retimestampujemy.
+
+`event_projection_migration_cases` jest append-only review evidence z unique `(source_table,source_row_id,issue_code)`, safe source fingerprint, issue/evidence class i resolution state `open|proven_backfillable|reviewed_nonconforming|resolved`. Raw sensitive payload nie może być kopiowany do case.
+
+Cutover:
+1. expand,
+2. new-runtime write fence,
+3. inventory legacy rows,
+4. exact backfill,
+5. reconciliation/review,
+6. validate constraints,
+7. contract.
+
+Unresolved case wymagany przez current contract blokuje full constraint validation i go-live; nie jest automatycznie usuwany/merge'owany.
+
+Exact retention duration **nie jest definiowane w DB4_10**. Źródłem jest zatwierdzona external privacy/legal policy per data class. Normal application role nie wykonuje retention delete/rewrite.
+
+Privileged retention run ma append-only `data_retention_execution_runs` z policy version reference, data class, server-derived cutoff, optional tenant scope, actor/system identity, nonblank reason, candidate count i deleted/redacted count. Legal/incident hold wygrywa nad ordinary cleanup.
+
+Audit append-only oznacza brak zwykłych lifecycle update/delete; nie oznacza „nigdy nie usuwać niezależnie od prawa”. Retention odbywa się wyłącznie dedykowaną policy-controlled ścieżką z immutable execution evidence.
+
+Automatic outbox cleanup jest dozwolony tylko dla `published` i dopiero gdy external policy pozwala. `pending`, `leased`, `requires_reconciliation` oraz ambiguous legacy delivery rows nie są kasowane, aby uciszyć backlog. Outbox cleanup nie usuwa DomainEvent, audytu, business history, activity ani notification.
+
+Activity/notification retention usuwa wyłącznie projekcję zgodnie z właściwą data-class policy; nie kaskaduje do business/domain-event authority i nie przepisuje read/display state, aby sztucznie zrobić row eligible.
+
 
 # 21. Foreign-key delete policy
 
@@ -2476,7 +2657,11 @@ Minimum pod obserwowane query:
 - license assignments: Inventory current lookup, LearningAccount + `assignment_sequence`, Student/status, capability pointer,
 - license activations: Assignment unique, LearningAccount + `entitlement_sequence`, LearningAccount + `effective_to`,
 - exam attempts: course/student/date/status/language/category,
-- activity events: organization + occurred_at,
+- audit: organization + created_at/id, actor membership, action/policy revision and entity reference lookups,
+- domain events: organization + occurred_at/id, event type, causation and required-audit lookups,
+- outbox: unique domain_event_id, `(publication_state,next_attempt_at,created_at,id)` claim scan and reconciliation visibility,
+- activity events: unique `(organization_id,source_event_id)` plus `(organization_id,occurred_at,id)` feed order,
+- notifications: unique `(organization_id,source_event_id,organization_membership_id)` plus exact recipient/unread lookup,
 - commerce: orders `(organization_id,ordered_at,order_sequence,id)`, order_items Order/catalog, payments Order/provider/status, payment_events provider-event dedupe, settlements Order/Payment, fulfillments Order/status, ServiceEntitlements purchase source/status i ServiceActivations unique Entitlement.
 
 ---
@@ -2501,6 +2686,29 @@ Student Finance / Platform Commerce DB4_9:
 - legacy migration nie zgaduje Payment winner/event/product/inventory lineage,
 - settled legacy Order bez proven complete grant set kończy jako `requires_reconciliation` i nie jest automatycznie regrantowany,
 - migration zachowuje consumed/activated/assigned/reserved/financial history i blokuje cutover na unresolved ambiguity.
+
+Audit / Domain Events / Outbox / Activity / Notifications DB4_10:
+- organization audit nie może targetować actor membershipu ani tenant relational entity z innego OSK,
+- normal application UPDATE/DELETE audit row jest odrzucone,
+- nowy audit bez exact current action-policy revision jest odrzucony; historyczny row zachowuje swoją revision,
+- unknown/sensitive audit payload path jest odrzucony, a upstream-required reason nie może zostać obniżony do optional,
+- business effect + required audit + DomainEvent + Outbox commitują lub rollbackują razem,
+- `domain_events.id` jest canonical projection identity; `request_id` i outbox id nie zastępują go,
+- jeden DomainEvent ma najwyżej jeden outbox intent,
+- concurrent publishers używają fenced lease; stale worker nie ACKuje nowszego lease,
+- publish-success-before-DB-ACK race pozostaje at-least-once, a downstream dedupe używa DomainEvent id,
+- `requires_reconciliation` nie jest auto-claimowane; audited manual replay nie tworzy nowego Event/Outbox,
+- activity row wymaga exact same-tenant DomainEvent i unique source, retry nie przebudowuje historycznego snapshotu,
+- activity sort jest deterministyczny `occurred_at DESC, id DESC`,
+- direct notification wymaga exact active membership; organization broadcast tworzy niezależne per-membership rows all-or-none,
+- notification source+recipient unique chroni przed duplicate projector retry,
+- `read_at` może zmienić się tylko `NULL -> server timestamp` raz; wrong membership/user/tenant mark-read jest odrzucone,
+- concurrent/replayed mark-read zachowuje jeden persisted timestamp,
+- legacy backfill nie zgaduje source/actor/recipient/policy/read state z podobieństwa ani bieżącego stanu,
+- synthetic DomainEvent nie jest tworzony, aby wymusić constraint pass,
+- unresolved migration case blokuje final constraint validation/go-live dla wymaganego kontraktu,
+- retention wymaga approved external policy evidence; normal app nie omija append-only przez delete,
+- outbox cleanup nie usuwa pending/leased/reconciliation ani DomainEvent/audit/business authority.
 
 Identity / Tenant / RBAC:
 - role template nie jest runtime authorization source,
