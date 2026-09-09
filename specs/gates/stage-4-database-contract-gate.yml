@@ -3122,8 +3122,11 @@ quality_checks:
     severity: P1
     machine_source: specs/database/student-finance-commerce.yml
     narrative_source: docs/114-stage-4-student-finance-commerce-audit.md
-    machine_commit: 1ac3288fb52a842066586384c598c286d8d31d4b
-    machine_blob: ffb447a0eebe5a6b79b291c787ffec4af4196e5f
+    machine_commit: 89b485d62d9477f5ae096111530fea68c51a0335
+    machine_blob: 3e5a8405d889fac0b83ab851677d69c3c7e6abf6
+    machine_initial_commit: 1ac3288fb52a842066586384c598c286d8d31d4b
+    machine_initial_blob: ffb447a0eebe5a6b79b291c787ffec4af4196e5f
+    machine_correction_reason: diagnosis_summary_resolved_list_and_future_fix_order_only
     narrative_commit: a19ce134e572c633f8f2629de6f7b0a70f2ffd34
     narrative_blob: 1bc9152a8210d88bd413383072fd632de54054ba
     decision:
