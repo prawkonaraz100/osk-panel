@@ -2,15 +2,15 @@ meta:
   project: osk-panel
   stage: 4
   slice: DB4_10_AUDIT_OUTBOX_NOTIFICATIONS
-  step: DB_AUD_001_FIXER
-  status: FAIL_WITH_7_P1_BLOCKERS
+  step: DB_AUD_002_FIXER
+  status: FAIL_WITH_6_P1_BLOCKERS
   diagnosed_at: 2026-09-09
   branch: docs-consolidation-2026-09-05
   diagnosis_only: false
   fixes_applied_in_diagnosis_step: 0
-  current_fixer: DB-AUD-001
-  blockers_resolved: 1
-  open_P0_P1: 7
+  current_fixer: DB-AUD-002
+  blockers_resolved: 2
+  open_P0_P1: 6
   implementation_started: false
   Laravel_migrations_created: false
   Stage5_started: false
@@ -18,8 +18,8 @@ meta:
 
 scope_rule:
   diagnose_before_fixing: true
-  fixes_allowed_in_this_step: true_DB_AUD_001_only
-  current_step_scope: DB_AUD_001_only
+  fixes_allowed_in_this_step: true_DB_AUD_002_only
+  current_step_scope: DB_AUD_002_only
   one_blocker_per_future_step: true
   aggregate_files_frozen:
     specs/database/core-schema.yml: f3519060967085517329bc668fac02e5c1fd2dbd
@@ -186,6 +186,7 @@ blockers:
 
   - id: DB-AUD-002
     severity: P1
+    status: PASS
     title: audit_safe_payload_redaction_version_and_elevated_reason_integrity
     evidence:
       - before_redacted_json_and_after_redacted_json_are_arbitrary_jsonb_without_a_closed_payload_contract
@@ -461,13 +462,163 @@ resolved_contracts:
       - new_runtime_audit_row_after_write_fence_cannot_omit_required_scope_actor_entity_reference_mode
       - DB_AUD_001_does_not_guess_legacy_actor_membership_or_entity_lineage
 
+  DB-AUD-002:
+    status: PASS
+    title: audit_safe_payload_redaction_version_and_elevated_reason_integrity
+    policy_revision_authority:
+      table: audit_action_policy_revisions
+      purpose: immutable_action_specific_safe_payload_and_reason_contract_history
+      fields:
+        - action
+        - policy_version
+        - payload_validator_code
+        - before_payload_requirement
+        - after_payload_requirement
+        - reason_requirement
+        - policy_hash
+        - created_at
+      candidate_key: [action, policy_version]
+      policy_version_type: integer_positive
+      payload_requirement_values: [forbidden, optional, required]
+      reason_requirement_values: [optional, required]
+      immutable_after_insert: true
+      normal_application_update_delete: forbidden
+      action_without_registered_policy_revision: forbidden_for_new_runtime_audit
+      business_action_catalog_expansion_by_DB_AUD_002: forbidden
+      seed_rule: only_actions_already_required_or_emitted_by_confirmed_domain_contracts_may_be_registered
+      reason_requirement_source: upstream_domain_contract_or_security_requirement_not_UI_guess
+      policy_hash_covers_revision_metadata_and_versioned_validator_contract: true
+    current_policy_authority:
+      table: audit_action_policy_currents
+      fields: [action, policy_version, updated_at]
+      primary_key: action
+      exact_revision_FK:
+        source_columns: [action, policy_version]
+        target_table: audit_action_policy_revisions
+        target_columns: [action, policy_version]
+        on_update: RESTRICT
+        on_delete: RESTRICT
+      runtime_audit_insert_must_use_exact_current_revision: true
+      client_supplied_policy_version_as_authority: forbidden
+      stale_runtime_policy_revision_after_current_pointer_change: reject
+      changing_policy_creates_new_immutable_revision_then_moves_current_pointer: true
+      old_audit_rows_continue_to_reference_original_revision: true
+    audit_log_policy_binding:
+      add_field: audit_policy_version
+      immutable_after_insert: true
+      exact_policy_revision_FK:
+        source_columns: [action, audit_policy_version]
+        target_table: audit_action_policy_revisions
+        target_columns: [action, policy_version]
+        on_update: RESTRICT
+        on_delete: RESTRICT
+      new_runtime_rows_require_registered_current_policy_revision: true
+      policy_version_is_redaction_and_reason_provenance: true
+      policy_revision_is_not_business_source_of_truth: true
+    safe_payload_contract:
+      before_field: before_redacted_json_nullable
+      after_field: after_redacted_json_nullable
+      semantic: safe_allowlisted_projection_or_domain_diff_never_raw_entity_serialization
+      top_level_type_when_nonnull: json_object_only
+      validator_selection: exact_action_policy_revision_payload_validator_code
+      database_guard: BEFORE_INSERT_constraint_trigger_or_equivalent_calls_versioned_closed_validator
+      application_writer: typed_allowlist_projection_builder_before_database_insert
+      unknown_payload_validator_code: reject
+      unknown_key_or_JSON_path: reject
+      nested_object_or_array_allowed_only_when_exact_validator_explicitly_allows_path_and_shape: true
+      raw_ORM_model_request_provider_response_or_arbitrary_JSON_serialization: forbidden
+      payload_requirement_enforcement:
+        forbidden: corresponding_payload_must_be_null
+        optional: null_or_validated_object
+        required: validated_nonnull_object
+      global_forbidden_secret_classes_even_if_source_domain_contains_them:
+        - plaintext_or_reversible_passwords_and_one_time_credentials
+        - password_hashes_and_credential_verifiers
+        - auth_session_reset_access_bearer_or_one_time_tokens
+        - provider_credentials_secrets_signatures_or_private_keys
+        - full_PESEL
+        - full_PKK
+        - external_OSK_credentials
+        - payment_card_or_provider_secret_material
+        - secret_bearing_file_or_PDF_bytes
+        - raw_provider_request_or_response_payloads
+      sensitive_identifier_rule: masked_or_minimized_display_value_only_when_exact_validator_allowlists_it
+      nonsecret_reference_or_evidence_hash_rule: allowed_only_when_exact_validator_allowlists_semantics_and_format
+      renaming_sensitive_value_under_arbitrary_key_does_not_bypass_allowlist: true
+      free_form_dump_field_or_catch_all_metadata_key: forbidden
+      before_after_may_preserve_domain_specific_safe_fields: true
+      examples_of_preservable_classes_without_making_them_globally_allowed:
+        - resource_identifiers_and_status_transitions
+        - category_language_and_nonsecret_configuration_values
+        - monetary_minor_units_and_currency
+        - formal_time_or_duration_values
+        - masked_identifiers
+        - safe_request_or_provider_correlation_identifiers
+      exact_fields_remain_action_policy_specific: true
+    reason_integrity:
+      field: reason_nullable
+      append_only_via_DB_AUD_001: true
+      required_policy:
+        rule: reason_requirement_required_implies_nonnull_trimmed_nonempty_reason
+        database_guard: same_policy_validation_trigger_or_equivalent
+      optional_policy:
+        rule: null_allowed_but_present_reason_must_be_trimmed_nonempty_safe_text
+      empty_or_whitespace_only_reason: reject
+      raw_request_provider_payload_or_secret_as_reason: forbidden
+      exact_reason_required_actions_are_not_invented_here: true
+      upstream_action_already_declared_reason_required_must_bind_only_to_reason_requirement_required_revision: true
+      policy_revision_cannot_downgrade_existing_upstream_reason_requirement: migration_or_seed_validation_guard
+      elevated_permission_alone_does_not_automatically_invent_reason_requirement_without_upstream_contract: true
+    policy_change_and_history:
+      policy_revision_rows_append_only: true
+      changing_allowed_payload_shape_or_redaction_semantics_requires_new_policy_version: true
+      changing_reason_requirement_requires_new_policy_version: true
+      historical_audit_row_policy_provenance_never_rewritten_to_new_revision: true
+      old_revision_remains_queryable_for_historical_interpretation: true
+      current_pointer_change_does_not_mutate_existing_audit_rows: true
+    write_transaction_boundary:
+      audit_payload_is_constructed_after_business_validation_from_safe_snapshot_inputs: true
+      required_audit_failure_due_to_payload_or_reason_policy_rolls_back_business_transaction: true
+      audit_insert_remains_same_transaction_where_prior_slice_requires_audit: true
+      database_validation_is_final_persistence_boundary_not_a_replacement_for_application_minimization: true
+    legacy_boundary:
+      existing_rows_missing_audit_policy_version_are_not_assigned_revision_by_timestamp_action_name_similarity_or_payload_shape_guess: true
+      legacy_policy_provenance_backfill_and_quarantine: deferred_to_DB_EVT_001
+      new_runtime_write_fence_requires_current_policy_revision_before_legacy_backfill_is_complete: true
+    explicitly_not_closed_here:
+      - durable_outbox_event_identity_DB_OUT_001
+      - outbox_retry_and_reconciliation_DB_OUT_002
+      - activity_projection_DB_ACT_001
+      - notification_recipient_and_read_state_DB_NOT_001_DB_NOT_002
+      - legacy_backfill_retention_cleanup_DB_EVT_001
+      - exact_privacy_retention_duration
+    required_tests:
+      - new_runtime_audit_row_without_registered_action_policy_revision_is_rejected
+      - new_runtime_audit_row_using_stale_noncurrent_policy_version_is_rejected
+      - action_policy_revision_update_or_delete_is_rejected_for_normal_application_role
+      - policy_change_creates_new_revision_and_old_audit_row_keeps_original_policy_version
+      - nonnull_payload_must_be_json_object_and_scalar_or_unapproved_array_shape_is_rejected
+      - payload_unknown_key_or_nested_path_is_rejected_by_exact_validator
+      - raw_model_or_arbitrary_metadata_dump_is_rejected
+      - plaintext_password_hash_token_provider_secret_full_PESEL_full_PKK_or_external_OSK_credential_payload_is_rejected
+      - masked_sensitive_identifier_is_allowed_only_by_exact_action_validator
+      - required_before_or_after_payload_cannot_be_null
+      - forbidden_before_or_after_payload_must_be_null
+      - reason_required_policy_rejects_null_empty_and_whitespace_reason
+      - optional_reason_policy_allows_null_but_rejects_blank_present_reason
+      - upstream_reason_required_action_cannot_be_registered_with_optional_reason_revision
+      - client_cannot_select_old_or_weaker_policy_revision_for_runtime_audit
+      - safe_domain_specific_amount_status_duration_and_reference_fields_survive_when_explicitly_allowlisted
+      - required_audit_policy_validation_failure_rolls_back_business_effect
+      - DB_AUD_002_does_not_guess_legacy_policy_version_or_rewrite_historical_payload
+
 diagnosis_summary:
   diagnosed_P0: 0
   diagnosed_P1: 8
   fixes_applied_in_diagnosis_step: 0
-  resolved_after_diagnosis: 1
-  open_P0_P1: 7
-  result: FAIL_WITH_7_P1_BLOCKERS
+  resolved_after_diagnosis: 2
+  open_P0_P1: 6
+  result: FAIL_WITH_6_P1_BLOCKERS
   blockers_in_required_fix_order:
     - DB-AUD-001
     - DB-AUD-002
@@ -479,16 +630,16 @@ diagnosis_summary:
     - DB-EVT-001
 
 next_single_step_after_central_gate:
-  id: DB_AUD_002_AUDIT_SAFE_PAYLOAD_REDACTION_VERSION_AND_ELEVATED_REASON_INTEGRITY
-  action: resolve_DB_AUD_002_only_after_next_explicit_user_instruction
+  id: DB_OUT_001_TRANSACTIONAL_DOMAIN_EVENT_OUTBOX_IDENTITY_AND_SAME_TRANSACTION_COUPLING
+  action: resolve_DB_OUT_001_only_after_next_explicit_user_instruction
   allowed_files_only:
     - specs/database/audit-outbox-notifications.yml
     - docs/115-stage-4-audit-outbox-notifications-audit.md
     - specs/gates/stage-4-database-contract-gate.yml
   aggregate_files_currently_frozen: true
   scope_lock: >-
-    DB-AUD-001 is PASS. Resolve DB-AUD-002 only in the next fixer transaction.
-    Keep DB-OUT-001, DB-OUT-002, DB-ACT-001, DB-NOT-001, DB-NOT-002 and
-    DB-EVT-001 OPEN. Do not modify core-schema.yml or docs/87, do not enter
-    DB4_11, Stage 5, Laravel migrations or UI.
-  stop_before: DB_AUD_002
+    DB-AUD-001 and DB-AUD-002 are PASS. Resolve DB-OUT-001 only in the next
+    fixer transaction. Keep DB-OUT-002, DB-ACT-001, DB-NOT-001, DB-NOT-002
+    and DB-EVT-001 OPEN. Do not modify core-schema.yml or docs/87, do not
+    enter DB4_11, Stage 5, Laravel migrations or UI.
+  stop_before: DB_OUT_001
