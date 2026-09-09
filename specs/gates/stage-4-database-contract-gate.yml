@@ -111,7 +111,13 @@ stage_4_slices:
     final_aggregate_sync: PASS
     result: PASS
   - id: DB4_10_AUDIT_OUTBOX_NOTIFICATIONS
-    status: NOT_STARTED
+    status: FAIL_WITH_8_P1_BLOCKERS
+    diagnosis: COMPLETE
+    blockers_diagnosed: 8
+    blockers_resolved: 0
+    open_P0_P1: 8
+    final_aggregate_sync: NOT_STARTED
+    result: FAIL_WITH_8_P1_BLOCKERS
   - id: DB4_11_FINAL_MIGRATION_ORDER_AND_INVARIANT_TEST_MATRIX
     status: NOT_STARTED
 
@@ -3715,6 +3721,50 @@ quality_checks:
       Laravel_migrations_created: false
       UI_or_feature_implementation_started: false
 
+  DB4_10_diagnosis:
+    status: PASS_DIAGNOSIS_COMPLETE
+    machine_source: specs/database/audit-outbox-notifications.yml
+    narrative_source: docs/115-stage-4-audit-outbox-notifications-audit.md
+    machine_commit: 7ba5fbfdf8caba52b990bed1cd858049b9c850be
+    machine_blob: 98731db1ab78ecdbf2611e24d41f89d328b44aed
+    narrative_commit: 7e4827922036d08697844a7ef12088b016c11a31
+    narrative_blob: a2634efc47281d5b86d65a4850190aea465c3e5d
+    diagnosed_P0: 0
+    diagnosed_P1: 8
+    fixes_applied_in_diagnosis_step: 0
+    blockers_resolved: 0
+    open_P0_P1: 8
+    result: FAIL_WITH_8_P1_BLOCKERS
+    blockers_in_required_fix_order:
+      - DB-AUD-001
+      - DB-AUD-002
+      - DB-OUT-001
+      - DB-OUT-002
+      - DB-ACT-001
+      - DB-NOT-001
+      - DB-NOT-002
+      - DB-EVT-001
+    frozen_aggregate_blobs:
+      specs/database/core-schema.yml: f3519060967085517329bc668fac02e5c1fd2dbd
+      docs/87-physical-database-schema.md: f3ebb764a5279cbabc9c75c2fcf9733f36ed22a8
+    preservation_checks:
+      no_blocker_fixed_during_diagnosis: PASS
+      DB4_1_through_DB4_9_preserved: PASS
+      dashboard_notifications_card_remains_organization_activity_feed: PASS
+      separate_API_notifications_capability_preserved: PASS
+      audit_activity_outbox_notifications_remain_distinct_concepts: PASS
+      raw_audit_log_as_dashboard_feed_forbidden: PASS
+      PKK_password_token_PESEL_redaction_rules_preserved: PASS
+      no_external_delivery_channel_invented: PASS
+      no_exact_retention_duration_invented: PASS
+      aggregate_core_schema_modified_in_diagnosis: false
+      aggregate_docs87_modified_in_diagnosis: false
+      API_files_modified_in_diagnosis: false
+      DB4_11_or_later_entered: false
+      Stage5_started: false
+      Laravel_migrations_created: false
+      UI_or_feature_implementation_started: false
+
 resolved_blockers:
   - DB-FOUND-001
   - DB-FOUND-002
@@ -3790,7 +3840,7 @@ gate_definition:
     - migration_order_dependency_safe
     - database_invariant_test_matrix_exists
     - reverse_engineering_preservation_traceable
-  current_result: DB4_9_PASS
+  current_result: DB4_10_FAIL_WITH_8_P1_BLOCKERS
   DB4_1_result: PASS
   DB4_2_result: PASS
   DB4_3_result: PASS
@@ -3860,6 +3910,8 @@ gate_definition:
   DB4_9_DB_COM_006_result: PASS
   DB4_9_final_aggregate_sync_result: PASS
   DB4_9_result: PASS
+  DB4_10_diagnosis_result: PASS_DIAGNOSIS_COMPLETE
+  DB4_10_result: FAIL_WITH_8_P1_BLOCKERS
   may_start_DB4_4_fixes: false
   may_start_DB4_5: false
   may_start_DB4_5_fixes: false
@@ -3871,19 +3923,25 @@ gate_definition:
   may_start_DB4_8_fixes: false
   may_start_DB4_9: false
   may_start_DB4_9_fixes: false
-  may_start_DB4_10: true
-  may_start_DB4_10_fixes: false
+  may_start_DB4_10: false
+  may_start_DB4_10_fixes: true
+  may_start_DB4_11: false
+  may_start_DB4_11_fixes: false
   may_start_stage_5: false
   may_start_UI_or_feature_implementation: false
 
 next_single_step:
-  id: DB4_10_AUDIT_OUTBOX_NOTIFICATIONS_DIAGNOSIS
-  action: begin_DB4_10_diagnosis_only_after_next_explicit_user_instruction
-  aggregate_files_frozen_until_DB4_10_diagnosis_is_closed:
-    - specs/database/core-schema.yml
-    - docs/87-physical-database-schema.md
+  id: DB_AUD_001_AUDIT_APPEND_ONLY_OWNERSHIP_ACTOR_AND_ENTITY_CONTEXT_INTEGRITY
+  action: resolve_DB_AUD_001_only_after_next_explicit_user_instruction
+  allowed_scope:
+    - specs/database/audit-outbox-notifications.yml
+    - docs/115-stage-4-audit-outbox-notifications-audit.md
+    - specs/gates/stage-4-database-contract-gate.yml
+  aggregate_files_frozen_until_DB4_10_blockers_are_closed:
+    specs/database/core-schema.yml: f3519060967085517329bc668fac02e5c1fd2dbd
+    docs/87-physical-database-schema.md: f3ebb764a5279cbabc9c75c2fcf9733f36ed22a8
   scope_lock: >-
-    Diagnose DB4_10 Audit / Outbox / Notifications only. Do not fix DB4_10
-    blockers, do not enter DB4_11, Stage 5, Laravel migrations or UI in the
-    diagnosis step. Do not invent the DB4_10 blocker count before diagnosis.
-  after_action: record_DB4_10_diagnosis_gate_and_STOP_before_first_DB4_10_fixer
+    Resolve DB-AUD-001 only. Keep DB-AUD-002, DB-OUT-001, DB-OUT-002,
+    DB-ACT-001, DB-NOT-001, DB-NOT-002 and DB-EVT-001 OPEN. Do not modify
+    aggregate files, do not enter DB4_11, Stage 5, Laravel migrations or UI.
+  after_action: rerun_DB_AUD_001_machine_narrative_central_gate_and_STOP_before_DB_AUD_002
