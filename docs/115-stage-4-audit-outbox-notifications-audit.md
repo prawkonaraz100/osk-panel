@@ -3,8 +3,8 @@
 Data: 2026-09-09
 
 **Etap:** `DB4_10_AUDIT_OUTBOX_NOTIFICATIONS`
-**Aktualny krok:** `DB-NOT-002`
-**Status:** `FAIL_WITH_1_P1_BLOCKER / 0 P0 / 1 P1 OPEN`
+**Aktualny krok:** `DB-EVT-001`
+**Status:** `BLOCKERS_RESOLVED_PENDING_DB4_10_FINAL_AGGREGATE_SYNC / 0 P0 / 0 P1 OPEN`
 
 Machine-readable diagnoza: `specs/database/audit-outbox-notifications.yml`.
 
@@ -560,6 +560,62 @@ Legacy notification bez exact source event nie jest dopasowywany po timestampie,
 
 Nie tworzymy synthetic domain eventów wyłącznie po to, aby legacy row spełnił nowe constraints. Backfill, quarantine, phased constraint activation i retention pozostają DB-EVT-001.
 
-Po fixerze: **7/8 resolved, 1 P1 OPEN**. Następny dozwolony krok: **DB-EVT-001 only**, dopiero po kolejnym jawnym poleceniu użytkownika.
+Po fixerze DB-NOT-002 pozostaje **PASS**.
 
-**STOP przed DB-EVT-001.**
+## 15. DB-EVT-001 — wynik fixera: PASS
+
+DB-EVT-001 domyka bezpieczny cutover danych historycznych dla audytu, domain events, outboxu, activity i notifications. Nie zmienia żadnego z siedmiu wcześniejszych kontraktów DB4_10 i nie wykonuje jeszcze finalnego aggregate sync. Zasada nadrzędna jest fail-closed: **brak exact durable evidence nie jest pozwoleniem na zgadywanie**.
+
+### 15.1. Klasy dowodów i trwały review trail
+
+Powstaje migration-only, append-only `event_projection_migration_cases`. Rekord identyfikuje source table + source row + issue code, przechowuje bezpieczny fingerprint, klasę dowodu, stan review i bezpieczne referencje dowodowe. Nie kopiuje raw payloadów ani sekretów.
+
+Klasy są cztery: `exact_durable_evidence`, `partial_but_nonconflicting`, `ambiguous_or_conflicting`, `unsafe_payload_detected`. Tylko pierwsza może automatycznie zasilić backfill i wyłącznie dla pól dokładnie udowodnionych. Partial evidence nie pozwala dopowiedzieć brakujących pól. Konflikt nie pozwala wybrać „najbardziej prawdopodobnego” targetu. Unsafe payload nie może zostać użyty do zgadywania lineage.
+
+Zabronione są m.in. dopasowania po timestampie, samym tenantcie, request id bez exact historycznego bindingu, event type, payload similarity, aggregate similarity, nazwie/e-mailu aktora, aktualnej roli, aktualnej policy, UUID order oraz current-membership uniqueness bez historycznego recipient evidence.
+
+### 15.2. Zasady per tabela
+
+Legacy `audit_logs` dostaje policy version, actor membership i entity relation tylko wtedy, gdy istnieje dokładny historyczny dowód. Nie re-redagujemy starego before/after według bieżącej policy i nie fabricujemy reason.
+
+Nie tworzymy synthetic `domain_events` z podobieństwa starego audytu, outboxu, activity albo notification. Event scope, tenant, required-audit i causation wymagają exact historical evidence.
+
+Legacy `outbox_messages` nie staje się źródłem domain-event identity. Sam `published_at` albo licznik attempts nie wystarcza do odtworzenia nowego publication-state matrix. Niejasny delivery state przechodzi do review zamiast do automatycznego `published`.
+
+Legacy activity bez exact event id nie jest podpinane do eventu po timestampie/event type i nie może samo posłużyć do stworzenia własnego source eventu. Actor/subject/student/policy version nie są odtwarzane z bieżącego stanu.
+
+Legacy notification wymaga exact event identity i exact historical recipient membership evidence. Aktualnie jedyny pasujący membership usera nie jest wystarczającym dowodem, jeżeli nie wiadomo, jaki był recipient context w chwili utworzenia rekordu. Wspólny organization-level `read_at` nie jest kopiowany do wielu osób. Istniejący exact-recipient `read_at` zachowujemy; NULL nie jest automatycznie oznaczany jako read, a non-NULL nie jest przestawiany.
+
+### 15.3. Expand → write fence → exact backfill → validate → contract
+
+Migration order jest jawny. Najpierw expand: nowe tabele/kolumny/indexy i compatibility paths bez destrukcyjnego drop/rename. Następnie wdrażamy current writers i write fence dla **nowych** rekordów. Dopuszczalne są PostgreSQL `NOT VALID` constraints lub równoważna technika, ale nowe inserty/updates nie mogą tworzyć kolejnych legacy exceptions.
+
+Potem inventory wszystkich legacy gaps tworzy idempotentne migration cases. Backfill wykonuje wyłącznie exact durable evidence. Wszystkie unresolved partial/ambiguous/conflicting/unsafe rows pozostają jawne i blokują validation/go-live dla danego contractu. Nie usuwamy ich ani nie ukrywamy, aby gate zrobił się zielony.
+
+FK/CHECK/unique/trigger validation odbywa się dopiero po `zero unresolved` dla wymaganej populacji. Legacy compatibility/drop trafia dopiero do osobnego reviewed release po backup/restore gate. Dzięki temu nie robimy destrukcyjnego one-shot migration.
+
+### 15.4. Append-only kontra legal/privacy retention
+
+Normalny runtime append-only pozostaje bez zmian: aplikacja nie dostaje prawa do kasowania lub przepisywania audytu/domain-event/activity history. Retention jest **osobnym uprzywilejowanym execution path**, nie zwykłym `DELETE` endpointem.
+
+DB-EVT-001 nie wymyśla `X dni`. Exact duration pochodzi wyłącznie z zatwierdzonej zewnętrznej privacy/legal policy. Retention jest per data class i respektuje legal/incident hold. Wykonanie wymaga policy version reference, exact data class, server-derived cutoff, niepustego reason, pre-execution count/dry-run evidence oraz immutable execution record poza usuwanymi rekordami.
+
+Do tego służy append-only `data_retention_execution_runs`, który zapisuje policy reference, data class, cutoff, zakres, aktora/system execution, reason, counts i wynik, ale nigdy raw deleted payload ani sekret. Retention nie może najpierw przepisać business facts, reason, actor, payload lub read state tylko po to, aby rekord stał się „eligible”.
+
+### 15.5. Outbox cleanup bez shadow-ledgera
+
+Outbox pozostaje techniczną historią dostawy, nie business ledgerem. Automatyczny cleanup może obejmować wyłącznie `published` i tylko po spełnieniu zewnętrznej retention policy. `pending`, `leased`, `requires_reconciliation` oraz legacy ambiguous publication state nie mogą być kasowane przez cleanup.
+
+Usunięcie outbox row nie usuwa domain eventu, audytu, business row, activity ani notification. Próba „wyczyszczenia backlogu” przez delete `requires_reconciliation` jest niedozwolona. Attempts, age ani queue pressure nie zastępują terminal state.
+
+Activity/notification projection może zostać usunięta tylko wtedy, gdy zatwierdzona policy dla danej klasy danych na to pozwala; cleanup projekcji nie może kaskadowo usunąć source eventu, audytu ani business authority.
+
+### 15.6. Go-live i zakres stop
+
+Każdy unresolved migration case wymagany przez current constraint blokuje jego final validation i produkcyjny cutover. Raport migracji musi policzyć exact-backfilled, reviewed-nonconforming i open per tabela/issue code. Unsafe payload wymaga security review lub jawnie zatwierdzonego containment przed go-live.
+
+DB-EVT-001 nie dotyka jeszcze `core-schema.yml` ani `docs/87...`. Wszystkie **8/8 DB4_10 blockers są teraz PASS**, ale slice pozostaje w stanie `BLOCKERS_RESOLVED_PENDING_DB4_10_FINAL_AGGREGATE_SYNC`.
+
+Następny i jedyny dozwolony krok to **DB4_10_FINAL_AGGREGATE_SYNC**, dopiero po kolejnym jawnym poleceniu użytkownika.
+
+**STOP przed DB4_10 final aggregate sync.**
