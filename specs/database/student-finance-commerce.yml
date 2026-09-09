@@ -2,8 +2,8 @@ meta:
   project: osk-panel
   stage: 4
   slice: DB4_9_STUDENT_FINANCE_COMMERCE
-  step: DB_COM_004_ORDER_ITEM_TO_LICENSE_EXAM_SERVICE_GRANT_EXACT_PROVENANCE_AND_QUANTITY_EQUIVALENCE
-  status: FAIL_WITH_4_P1_BLOCKERS
+  step: DB_COM_007_GENERIC_SERVICE_ENTITLEMENT_PURCHASE_GRANT_AND_ACTIVATION_SOURCE_INTEGRITY
+  status: FAIL_WITH_3_P1_BLOCKERS
   diagnosed_at: 2026-09-08
   branch: docs-consolidation-2026-09-05
   diagnosis_only: false
@@ -16,7 +16,7 @@ meta:
 scope_rule:
   diagnose_before_fixing: true
   fixes_allowed_in_this_step: true
-  current_step_scope: DB_COM_004_only
+  current_step_scope: DB_COM_007_only
   one_blocker_per_future_step: true
   aggregate_files_frozen:
     specs/database/core-schema.yml:
@@ -1487,6 +1487,239 @@ resolved_contracts:
       Laravel_migrations_created: false
       UI_or_feature_implementation_started: false
 
+
+  DB-COM-007:
+    status: PASS
+    severity: P1
+    title: generic_service_entitlement_purchase_grant_and_activation_source_integrity
+    scope_boundary:
+      closes_only_generic_service_entitlement_source_XOR_purchase_binding_activation_mode_and_activation_equivalence: true
+      DB_COM_005_purchase_history_projection_unchanged: true
+      DB_COM_008_global_cross_domain_lock_order_unchanged: true
+      DB_COM_006_legacy_reconciliation_matrix_unchanged: true
+      DB4_10_audit_outbox_physical_storage_unchanged: true
+      no_new_service_product_table_invented: true
+      Stage3_API_files_unchanged: true
+
+    entitlement_source_authority:
+      durable_table: service_entitlements
+      tenant_owned: true
+      organization_id_nonnull: true
+      service_type_nonblank: true
+      activation_mode_values: [immediate, explicit]
+      source_kind_is_derived_from_existing_source_fields_not_independent_mutable_authority: true
+      purchase_source_matrix:
+        source_order_item_id: nonnull
+        source_order_item_grant_ordinal: nonnull
+        source_grant_reference: null
+      operator_grant_source_matrix:
+        source_order_item_id: null
+        source_order_item_grant_ordinal: null
+        source_grant_reference: nonnull_nonblank
+      neither_source_valid: false
+      both_sources_valid: false
+      source_XOR_final_state_check_required: true
+      source_order_item_id_immutable_after_insert: true
+      source_order_item_grant_ordinal_immutable_after_insert: true
+      source_grant_reference_immutable_after_insert: true
+      service_type_immutable_after_insert: true
+      activation_mode_immutable_after_insert: true
+      organization_id_immutable_after_insert: true
+      hard_delete_after_business_grant: forbidden
+
+    purchase_source_integrity:
+      exact_same_tenant_parent_relation_from_DB_COM_004_preserved: true
+      source_relation:
+        source: service_entitlements[organization_id,source_order_item_id]
+        target: order_items[organization_id,id]
+        nullable_relation: true
+        nullability_driver: source_order_item_id
+        on_update: RESTRICT
+        on_delete: RESTRICT
+      parent_order_item_product_kind_must_equal_generic_service: true
+      source_order_item_grant_ordinal_positive_and_lte_parent_quantity: true
+      unique_purchase_unit:
+        columns: [organization_id, source_order_item_id, source_order_item_grant_ordinal]
+        where: source_order_item_id_is_not_null
+      parent_generic_service_snapshot_requirements:
+        immutable_product_snapshot_contains_normalized_service_type: true
+        immutable_product_snapshot_contains_activation_mode: true
+        activation_mode_values: [immediate, explicit]
+        source: DB_COM_001_immutable_order_item_product_snapshot
+        client_supplied_snapshot_authority: false
+      purchase_entitlement_snapshot_equivalence:
+        service_type_equals_exact_parent_order_item_service_type_snapshot: true
+        activation_mode_equals_exact_parent_order_item_activation_mode_snapshot: true
+        enforcement: deferred_cross_table_final_state_guard_or_equivalent_database_trigger
+      purchase_quantity_equivalence_from_DB_COM_004_preserved: true
+      order_fulfillment_means_entitlement_granted_not_explicit_service_activated: true
+      payment_settlement_or_browser_return_direct_entitlement_activation: forbidden
+      separate_service_products_table_required: false
+
+    operator_grant_integrity:
+      source_grant_reference_role: durable_nonblank_operator_grant_provenance_reference_not_purchase_order_reference
+      source_grant_reference_is_not_payment_id_or_browser_return_token: true
+      source_grant_reference_is_not_itself_idempotency_authority: true
+      service_type_and_activation_mode_are_server_or_privileged_operator_validated: true
+      operator_grant_creates_order_or_payment_or_purchase_history_row: false
+      operator_grant_may_reuse_same_business_case_reference_for_multiple_units: true
+      therefore_global_unique_source_grant_reference_not_invented: true
+      generic_idempotency_operation_key: commerce.service_entitlement.operator_grant
+      same_idempotency_key_same_request_hash_replays_same_result: true
+      same_idempotency_key_different_request_hash_conflict: true
+      HTTP_surface_not_added_in_DB4_9: true
+
+    service_activation_authority:
+      durable_table: service_activations
+      service_activations_organization_id_nonnull: true
+      exact_same_tenant_entitlement_relation:
+        source: service_activations[organization_id,service_entitlement_id]
+        target: service_entitlements[organization_id,id]
+        nullable_relation: false
+        on_update: RESTRICT
+        on_delete: RESTRICT
+      unique_activation_per_exact_entitlement:
+        columns: [organization_id, service_entitlement_id]
+      activation_row_append_only_after_insert: true
+      activation_row_hard_delete: forbidden
+      activated_at_nonnull: true
+      effective_from_nonnull: true
+      effective_to_if_nonnull_gte_effective_from: true
+      activated_by_user_id_nullable_for_system_immediate_activation: true
+      explicit_activation_generic_idempotency_operation_key: commerce.service_entitlement.activate
+      explicit_activation_requires_activation_mode_explicit: true
+      explicit_activation_requires_nonterminal_available_state: true
+      explicit_activation_retry_after_success_creates_second_activation: false
+      payment_retry_or_provider_event_may_call_explicit_activation_command: false
+
+    activation_mode_and_status_equivalence:
+      status_values_preserved: [granted, available, activated, expired, revoked]
+      status_is_server_owned_lifecycle_projection_not_client_mutable_authority: true
+      granted:
+        runtime_post_transaction_final_state_allowed_after_cutover: false
+        role: legacy_or_in_transaction_transitional_value_only_until_reconciled
+      available:
+        activation_mode_must_equal: explicit
+        exact_activation_row_count: 0
+      activated:
+        exact_activation_row_count: 1
+      expired:
+        expires_at_must_be_nonnull: true
+        new_activation_after_terminal_transition: forbidden
+        explicit_mode_existing_activation_count_allowed: [0, 1]
+        immediate_mode_activation_count_required: 1
+      revoked:
+        new_activation_after_terminal_transition: forbidden
+        explicit_mode_existing_activation_count_allowed: [0, 1]
+        immediate_mode_activation_count_required: 1
+      immediate_mode:
+        exact_activation_row_count_after_grant_transaction: 1
+        initial_runtime_status: activated
+        available_status_forbidden: true
+      explicit_mode:
+        initial_runtime_status: available
+        initial_activation_row_count: 0
+        activate_transition: available_to_activated_exactly_once
+      activation_exists_and_nonterminal_status_is_available: forbidden
+      status_activated_without_activation_row: forbidden
+      terminal_state_to_available_or_activated_transition: forbidden
+      activation_row_is_never_deleted_when_status_becomes_expired_or_revoked: true
+
+    transaction_boundaries:
+      purchase_explicit:
+        DB_COM_003_fulfillment_transaction_creates_entitlement: true
+        activation_row_created_in_same_purchase_fulfillment: false
+        final_entitlement_status: available
+      purchase_immediate:
+        DB_COM_003_fulfillment_transaction_creates_entitlement_and_single_activation_atomically: true
+        final_entitlement_status: activated
+        payment_or_webhook_direct_activation_bypass: forbidden
+      operator_grant_explicit:
+        entitlement_created_available_without_activation: true
+      operator_grant_immediate:
+        entitlement_and_single_activation_created_atomically: true
+        final_entitlement_status: activated
+      external_network_side_effect_inside_entitlement_or_activation_transaction: forbidden
+
+    concurrency_and_retry:
+      purchase_entitlement_exactly_once_boundary: DB_COM_004_source_order_item_plus_grant_ordinal_unique
+      explicit_activation_serialization_root: exact_service_entitlement_row_FOR_UPDATE
+      activation_command_order:
+        - atomically_claim_generic_idempotency_record
+        - lock_exact_service_entitlement_FOR_UPDATE
+        - require_activation_mode_explicit
+        - require_not_expired_or_revoked
+        - if_activation_exists_return_existing_success_without_new_side_effect
+        - insert_single_service_activation
+        - set_nonterminal_status_activated
+        - complete_idempotency_record_with_safe_result
+      immediate_purchase_retry_after_fulfillment_success_creates_second_activation: false
+      provider_payment_retry_changes_explicit_entitlement_from_available_to_activated: false
+
+    migration_policy:
+      preflight_before_constraints:
+        - classify_every_entitlement_as_exact_purchase_or_exact_operator_grant_source
+        - verify_every_purchase_entitlement_resolves_same_tenant_generic_service_order_item_and_DB_COM_004_ordinal
+        - verify_purchase_service_type_and_activation_mode_against_immutable_parent_order_item_snapshot_evidence
+        - verify_every_service_activation_resolves_exact_same_tenant_entitlement
+        - verify_no_entitlement_has_more_than_one_activation
+        - classify_legacy_granted_status_before_runtime_final_state_constraint
+        - verify_available_activated_terminal_status_against_activation_history
+      synthesize_source_grant_reference_only_to_satisfy_XOR: forbidden
+      infer_purchase_order_item_from_timestamp_amount_price_tenant_service_type_or_SKU_similarity: forbidden
+      reparent_wrong_tenant_activation_or_entitlement: forbidden
+      fabricate_activation_row_from_status_activated_without_historical_evidence: forbidden
+      fabricate_immediate_activation_timestamp_without_historical_evidence: forbidden
+      delete_existing_activation_to_make_available_status_pass: forbidden
+      convert_operator_grant_to_purchase_or_purchase_to_operator_grant_without_evidence: forbidden
+      regrant_service_entitlement_during_schema_migration: forbidden
+      ambiguous_provenance_or_activation_history: fail_and_require_reviewed_remediation
+      exact_legacy_evidence_classification_and_reconciliation_remains_DB_COM_006: true
+
+    required_tests:
+      - entitlement_with_neither_purchase_nor_operator_source_rejected
+      - entitlement_with_both_purchase_and_operator_sources_rejected
+      - purchase_entitlement_requires_source_order_item_and_ordinal_and_null_grant_reference
+      - operator_grant_requires_nonblank_source_grant_reference_and_null_order_item_and_ordinal
+      - purchase_entitlement_wrong_tenant_order_item_rejected
+      - purchase_entitlement_non_generic_service_order_item_rejected
+      - purchase_entitlement_service_type_snapshot_mismatch_rejected
+      - purchase_entitlement_activation_mode_snapshot_mismatch_rejected
+      - duplicate_purchase_entitlement_ordinal_rejected
+      - service_activation_wrong_tenant_entitlement_rejected
+      - duplicate_service_activation_for_same_entitlement_rejected
+      - explicit_purchase_fulfillment_creates_available_entitlement_without_activation
+      - explicit_activation_command_creates_exactly_one_activation_and_activated_state
+      - explicit_activation_retry_does_not_create_second_activation
+      - payment_or_provider_event_retry_does_not_activate_explicit_entitlement
+      - immediate_purchase_fulfillment_creates_entitlement_and_activation_atomically
+      - immediate_operator_grant_creates_entitlement_and_activation_atomically
+      - immediate_entitlement_without_activation_rejected_at_final_state
+      - available_entitlement_with_activation_rejected
+      - activated_entitlement_without_activation_rejected
+      - terminal_entitlement_rejects_new_activation
+      - terminal_immediate_entitlement_retains_exactly_one_activation
+      - runtime_committed_granted_status_rejected_after_cutover
+      - legacy_ambiguous_source_or_activation_history_fails_without_guessing_or_regrant
+
+    preservation_checks:
+      DB_FIN_001_and_DB_FIN_002_preserved: PASS
+      DB_COM_001_catalog_product_pricing_and_immutable_snapshot_contract_preserved: PASS
+      DB_COM_002_payment_settlement_and_browser_return_not_authority_preserved: PASS
+      DB_COM_003_order_fulfillment_atomicity_preserved: PASS
+      DB_COM_004_exact_order_item_grant_provenance_and_quantity_equivalence_preserved: PASS
+      DB4_6_license_inventory_assignment_activation_contract_preserved: PASS
+      DB4_7_internal_exam_inventory_reservation_consume_contract_preserved: PASS
+      explicit_activation_remains_separate_from_payment_success: PASS
+      generic_service_operator_grant_remains_separate_from_purchase_history: PASS
+      DB_COM_005_DB_COM_008_DB_COM_006_remain_open: PASS
+      aggregate_core_schema_modified: false
+      aggregate_docs87_modified: false
+      DB4_10_or_later_entered: false
+      Stage5_started: false
+      Laravel_migrations_created: false
+      UI_or_feature_implementation_started: false
+
 blockers:
   - id: DB-FIN-001
     title: student_finance_same_tenant_exact_charge_payment_course_integrity
@@ -1679,7 +1912,8 @@ blockers:
   - id: DB-COM-007
     title: generic_service_entitlement_purchase_grant_and_activation_source_integrity
     severity: P1
-    status: OPEN
+    status: RESOLVED
+    resolution_ref: resolved_contracts.DB-COM-007
     diagnosis:
       - service_entitlements_are_preserved_for_paid_or_operator_granted_services_not_modeled_as_license_or_exam_inventory
       - source_order_item_id_and_source_grant_reference_are both nullable in current provisional shape and no exact source XOR matrix is closed
@@ -1722,9 +1956,9 @@ blockers:
 diagnosis_summary:
   diagnosed_P0: 0
   diagnosed_P1: 10
-  resolved_after_diagnosis: 6
-  open_P0_P1: 4
-  result: FAIL_WITH_4_P1_BLOCKERS
+  resolved_after_diagnosis: 7
+  open_P0_P1: 3
+  result: FAIL_WITH_3_P1_BLOCKERS
   resolved_blockers:
     - DB-FIN-001
     - DB-FIN-002
@@ -1732,13 +1966,13 @@ diagnosis_summary:
     - DB-COM-002
     - DB-COM-003
     - DB-COM-004
-  blockers_in_required_fix_order:
     - DB-COM-007
+  blockers_in_required_fix_order:
     - DB-COM-005
     - DB-COM-008
     - DB-COM-006
 preservation_gate:
-  status: PASS_DB_COM_004_MACHINE_CONTRACT
+  status: PASS_DB_COM_007_MACHINE_CONTRACT
   checks:
     student_finance_and_platform_commerce_remain_distinct: true
     DB4_6_license_inventory_assignment_activation_contract_preserved: true
@@ -1762,6 +1996,6 @@ preservation_gate:
     UI_or_feature_implementation_started: false
 
 next_single_step_after_central_gate:
-  id: DB_COM_007_GENERIC_SERVICE_ENTITLEMENT_PURCHASE_GRANT_AND_ACTIVATION_SOURCE_INTEGRITY
-  action: resolve_DB_COM_007_only_after_next_explicit_user_instruction
-  stop_before: DB_COM_005_DETERMINISTIC_PURCHASE_HISTORY_DISPLAY_NUMBER_BOOKING_DATE_STATUS_AND_PAGINATION_PROJECTION
+  id: DB_COM_005_DETERMINISTIC_PURCHASE_HISTORY_DISPLAY_NUMBER_BOOKING_DATE_STATUS_AND_PAGINATION_PROJECTION
+  action: resolve_DB_COM_005_only_after_next_explicit_user_instruction
+  stop_before: DB_COM_008_GLOBAL_CROSS_DOMAIN_LOCK_ORDER_AND_RACE_WINNER_SEMANTICS
