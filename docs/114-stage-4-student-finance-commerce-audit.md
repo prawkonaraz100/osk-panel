@@ -3,8 +3,8 @@
 Data: 2026-09-08
 
 **Etap:** `DB4_9_STUDENT_FINANCE_COMMERCE`  
-**Aktualny krok:** `DB_COM_006_LEGACY_MIGRATION_RECONCILIATION_AND_BACKFILL_SAFETY`
-**Status:** `BLOCKERS_RESOLVED_PENDING_DB4_9_FINAL_AGGREGATE_SYNC / 0 P0 / 0 P1 OPEN`
+**Aktualny krok:** `DB4_9_FINAL_AGGREGATE_SYNC`
+**Status:** `PASS / 0 P0 / 0 P1 OPEN`
 
 Machine-readable diagnoza: `specs/database/student-finance-commerce.yml`.
 
@@ -1393,9 +1393,71 @@ Frozen agregaty nadal pozostają nietknięte. Ich synchronizacja jest osobną br
 - P0 OPEN: **0**,
 - P1 OPEN: **0**,
 - resolved: **10/10**,
-- blocker result: **BLOCKERS_RESOLVED_PENDING_DB4_9_FINAL_AGGREGATE_SYNC**,
-- final aggregate sync: **NOT STARTED**.
+- blocker result: **PASS**,
+- final aggregate sync: **PASS**.
 
-Następny dozwolony krok po central gate: **DB4_9 FINAL AGGREGATE SYNC only**, dopiero po następnym jawnym poleceniu użytkownika.
+DB-COM-006 pozostaje ostatnim zamkniętym blockerem; jego legacy/reconciliation contract nie został zmieniony podczas aggregate sync.
 
-**STOP przed finalnym DB4_9 aggregate sync.**
+---
+
+## 29. DB4_9 final aggregate sync — PASS
+
+Finalny sync został wykonany dopiero po zamknięciu wszystkich 10 blockerów DB4_9. Nie powstała nowa decyzja biznesowa; agregaty są projekcją zamkniętych kontraktów bounded contextu.
+
+### 29.1. Provenance aggregate sync
+
+- base po central gate DB-COM-006: `d899491bc8dd73a7b82d1c28c50f32b6eea1a169`,
+- machine aggregate commit: `9c06a7928aecb61627ccb52c083cda58b2505c25`,
+- machine aggregate blob `specs/database/core-schema.yml`: `f3519060967085517329bc668fac02e5c1fd2dbd`,
+- narrative aggregate commit: `05a030bc4513ab06514f748909559e35d0c78996`,
+- narrative aggregate blob `docs/87-physical-database-schema.md`: `f3ebb764a5279cbabc9c75c2fcf9733f36ed22a8`,
+- bounded source close commit: `19a6e51692d37299508c046f9a65ea99af72bd90`,
+- bounded source blob `specs/database/student-finance-commerce.yml`: `a5ac5c33fcc38c251531d815c18918691b170076`.
+
+### 29.2. Semantic-loss gate
+
+PASS. Machine i narrative aggregate zachowują:
+- rozdział Student Finance i Platform Commerce,
+- exact tenant/student/course/payment relations,
+- derived Student Finance balance oraz reversal/cancellation history,
+- `course_cost_charge_origins` jako exact source effect,
+- immutable OrderItem/catalog/pricing snapshots,
+- trusted payment confirmation + one-per-order settlement authority,
+- zero-total settlement boundary,
+- paid ≠ fulfilled oraz durable exactly-once fulfillment,
+- exact downstream `OrderItem + grant ordinal` provenance,
+- License exact product lineage bez zmiany DB4_6 lifecycle,
+- paid Exam lineage bez zmiany DB4_7 Reservation/consume-on-start lifecycle,
+- generic service purchase/operator provenance XOR i activation equivalence,
+- deterministic purchase-history number/date/booking/status/order,
+- global Commerce lock hierarchy i bounded-context race separation,
+- fail-closed legacy reconciliation/backfill bez heurystyk i bez regrantu.
+
+Nie zachowano żadnego starego provisional skrótu jako równoległej authority.
+
+### 29.3. Migration order i invariant tests
+
+PASS. `core-schema.yml` oraz `docs/87...` zawierają DB4_9 migration ordering i invariant-test obligations wymagane przez DB-FIN-001/002 i DB-COM-001..008. Finalny DB4_11 nadal pozostaje osobnym Stage-4 slice i nie został rozpoczęty tutaj.
+
+### 29.4. Preservation / scope gate
+
+PASS:
+- DB4_6 License lifecycle zachowany,
+- DB4_7 Internal Exam lifecycle zachowany,
+- DB4_8 PKK zachowany,
+- payment browser return nadal nie jest payment-confirmation authority,
+- Student Finance Payment nadal nie jest Platform Commerce Payment,
+- audit/outbox business intent jest zachowany, ale jego finalny physical model pozostaje DB4_10,
+- nie rozpoczęto DB4_10 ani DB4_11,
+- Stage 5 pozostaje zablokowany,
+- nie utworzono migracji Laravel,
+- nie rozpoczęto UI/feature implementation.
+
+### 29.5. Wynik slice
+
+**DB4_9_STUDENT_FINANCE_COMMERCE = PASS.**
+**10/10 blockerów resolved. 0 P0 / 0 P1 OPEN. Final aggregate sync PASS.**
+
+Następny dozwolony krok: **DB4_10_AUDIT_OUTBOX_NOTIFICATIONS_DIAGNOSIS**, wyłącznie po kolejnym jawnym poleceniu użytkownika. Nie wolno wcześniej przejść do DB4_11, Stage 5, Laravel migrations ani UI.
+
+**STOP przed DB4_10.**
