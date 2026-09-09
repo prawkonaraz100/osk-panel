@@ -2,13 +2,13 @@ meta:
   project: osk-panel
   stage: 4
   slice: DB4_10_AUDIT_OUTBOX_NOTIFICATIONS
-  step: DB_EVT_001_FIXER
-  status: BLOCKERS_RESOLVED_PENDING_DB4_10_FINAL_AGGREGATE_SYNC
+  step: DB4_10_FINAL_AGGREGATE_SYNC
+  status: PASS
   diagnosed_at: 2026-09-09
   branch: docs-consolidation-2026-09-05
   diagnosis_only: false
+  aggregate_sync_status: PASS
   fixes_applied_in_diagnosis_step: 0
-  current_fixer: DB-EVT-001
   blockers_resolved: 8
   open_P0_P1: 0
   implementation_started: false
@@ -18,12 +18,12 @@ meta:
 
 scope_rule:
   diagnose_before_fixing: true
-  fixes_allowed_in_this_step: true_DB_EVT_001_only
-  current_step_scope: DB_EVT_001_only
+  fixes_allowed_in_this_step: true
+  current_step_scope: DB4_10_FINAL_AGGREGATE_SYNC_only
   one_blocker_per_future_step: true
   aggregate_files_frozen:
-    specs/database/core-schema.yml: f3519060967085517329bc668fac02e5c1fd2dbd
-    docs/87-physical-database-schema.md: f3ebb764a5279cbabc9c75c2fcf9733f36ed22a8
+    - specs/database/core-schema.yml
+    - docs/87-physical-database-schema.md
   later_slices_forbidden_in_this_step:
     - DB4_11_FINAL_MIGRATION_ORDER_AND_INVARIANT_TEST_MATRIX
     - Stage5_ACCEPTANCE_TRACEABILITY
@@ -143,7 +143,7 @@ provisional_physical_model:
     read_at_write_once_contract_defined: false
 
 preservation_gate:
-  status: PASS_DIAGNOSIS_ONLY
+  status: PASS_DB4_10_FINAL_AGGREGATE_SYNC
   checks:
     DB4_1_through_DB4_9_preserved: true
     dashboard_notifications_card_remains_organization_activity_feed: true
@@ -154,8 +154,8 @@ preservation_gate:
     PKK_and_credential_secret_redaction_rules_preserved: true
     no_external_delivery_channel_invented: true
     no_exact_retention_duration_invented: true
-    aggregate_core_schema_modified_in_diagnosis: false
-    aggregate_docs87_modified_in_diagnosis: false
+    aggregate_core_schema_modified: true
+    aggregate_docs87_modified: true
     API_files_modified_in_diagnosis: false
     DB4_11_or_later_entered: false
     Stage5_started: false
@@ -1686,8 +1686,8 @@ diagnosis_summary:
   fixes_applied_in_diagnosis_step: 0
   resolved_after_diagnosis: 8
   open_P0_P1: 0
-  result: BLOCKERS_RESOLVED_PENDING_DB4_10_FINAL_AGGREGATE_SYNC
-  blockers_in_required_fix_order:
+  result: PASS
+  resolved_blockers:
     - DB-AUD-001
     - DB-AUD-002
     - DB-OUT-001
@@ -1696,19 +1696,42 @@ diagnosis_summary:
     - DB-NOT-001
     - DB-NOT-002
     - DB-EVT-001
+  blockers_in_required_fix_order: []
+
+final_aggregate_sync:
+  status: PASS
+  blocker_contracts_closed:
+    - DB-AUD-001
+    - DB-AUD-002
+    - DB-OUT-001
+    - DB-OUT-002
+    - DB-ACT-001
+    - DB-NOT-001
+    - DB-NOT-002
+    - DB-EVT-001
+  aggregate_base_after_DB_EVT_001_central_gate: b70eb701624a05d53f0d859b5538edecf3c23ab3
+  machine_aggregate_commit: 8a95e5a4cc1535c0cda413051583da1b5f17be20
+  machine_aggregate_blob: 39958721c99550cfc27c3774e8dfa1af0d0637e6
+  narrative_aggregate_commit: 6de2143d8a23de93943c2f13da1c46cf273b8c81
+  narrative_aggregate_blob: 6c090b082604b6b42c283667fcf08e9033a5b523
+  machine_and_narrative_semantic_loss_gate: PASS
+  migration_order_and_invariant_test_gate: PASS
+  stale_provisional_shortcut_gate: PASS
+  audit_activity_outbox_notifications_remain_distinct: PASS
+  domain_event_is_projection_identity_not_business_authority: PASS
+  outbox_at_least_once_not_exactly_once: PASS
+  exact_retention_duration_not_invented: PASS
+  DB4_11_entered: false
+  Stage5_started: false
+  Laravel_migrations_created: false
+  UI_or_feature_implementation_started: false
 
 next_single_step_after_central_gate:
-  id: DB4_10_FINAL_AGGREGATE_SYNC
-  action: synchronize_DB4_10_aggregates_only_after_next_explicit_user_instruction
-  allowed_files_only:
-    - specs/database/core-schema.yml
-    - docs/87-physical-database-schema.md
-    - specs/database/audit-outbox-notifications.yml
-    - docs/115-stage-4-audit-outbox-notifications-audit.md
-    - specs/gates/stage-4-database-contract-gate.yml
-  aggregate_files_currently_frozen: true
+  id: DB4_11_FINAL_MIGRATION_ORDER_AND_INVARIANT_TEST_MATRIX_DIAGNOSIS
+  action: diagnose_DB4_11_only_after_DB4_10_central_final_sync_close_and_next_explicit_user_instruction
+  DB4_11_fixes_allowed_in_same_step: false
   scope_lock: >-
-    All eight DB4_10 blockers are PASS. Do not modify frozen aggregate files in
-    this DB-EVT-001 fixer. The next separately authorized step is DB4_10 final
-    aggregate sync only. Do not enter DB4_11, Stage 5, Laravel migrations or UI.
-  stop_before: DB4_10_FINAL_AGGREGATE_SYNC
+    DB4_10 bounded source and aggregates are synchronized. Do not enter DB4_11
+    diagnosis until the DB4_10 audit and central final-sync close are complete.
+    Do not start Stage 5, Laravel migrations or UI in this step.
+  stop_before: DB4_11_DIAGNOSIS
