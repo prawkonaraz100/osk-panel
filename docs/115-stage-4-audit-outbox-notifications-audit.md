@@ -3,8 +3,8 @@
 Data: 2026-09-09
 
 **Etap:** `DB4_10_AUDIT_OUTBOX_NOTIFICATIONS`
-**Aktualny krok:** `DB-AUD-002`
-**Status:** `FAIL_WITH_6_P1_BLOCKERS / 0 P0 / 6 P1 OPEN`
+**Aktualny krok:** `DB-OUT-001`
+**Status:** `FAIL_WITH_5_P1_BLOCKERS / 0 P0 / 5 P1 OPEN`
 
 Machine-readable diagnoza: `specs/database/audit-outbox-notifications.yml`.
 
@@ -230,9 +230,9 @@ PASS:
 - P0: **0**,
 - P1: **8**,
 - fixes applied in diagnosis: **0**,
-- resolved: **2/8**,
-- open: **6/8**,
-- result: **FAIL_WITH_6_P1_BLOCKERS**.
+- resolved: **3/8**,
+- open: **5/8**,
+- result: **FAIL_WITH_5_P1_BLOCKERS**.
 
 ## 8. DB-AUD-001 — wynik fixera: PASS
 
@@ -318,6 +318,52 @@ Nie przypisujemy starym audit rows policy version po timestampie, nazwie action,
 
 DB-AUD-002 nie zamyka durable event/outbox identity (DB-OUT-001), publisher retry/reconciliation (DB-OUT-002), activity projection (DB-ACT-001), notification recipient/read lifecycle (DB-NOT-001/002) ani legacy/retention cleanup (DB-EVT-001). Exact privacy retention durations nadal nie są wymyślane.
 
-Po fixerze: **2/8 resolved, 6 P1 OPEN**. Następny dozwolony krok: **DB-OUT-001 only**, dopiero po następnym jawnym poleceniu użytkownika.
+Po fixerze DB-AUD-002 pozostaje **PASS**.
 
-**STOP przed DB-OUT-001.**
+## 10. DB-OUT-001 — wynik fixera: PASS
+
+DB-OUT-001 zamyka trwałą tożsamość domenowego zdarzenia oraz atomowe powiązanie business effect + wymagany audit + domain event + outbox intent. Nie definiuje jeszcze publisher retry/lease/DLQ — to pozostaje DB-OUT-002.
+
+### 10.1. `domain_events` jako trwała tożsamość
+
+Powstaje append-only `domain_events`. `id` jest server-generated, globalnie unikalnym i immutable `event_id`. To właśnie ten identyfikator jest canonical source identity dla późniejszych projekcji activity i notifications. `request_id` pozostaje wyłącznie correlation dla request/job chain: nie jest unique, może obejmować wiele eventów i nie może służyć jako event dedupe ani tenant authority.
+
+Każdy event ma jawny `event_scope`: `organization` albo `platform_global`. Organization event wymaga server-derived `organization_id`; global event wymaga `organization_id=NULL`. Event type pochodzi wyłącznie z potwierdzonego katalogu kontraktów domenowych — DB-OUT-001 nie tworzy marketingowych ani nieobserwowanych event types.
+
+### 10.2. Causation i aggregate reference nie zastępują event identity
+
+Opcjonalny `causation_event_id` ma exact FK do istniejącego `domain_events.id`, ale nie jest zgadywany po request id, timestampie ani podobieństwie. Causation nie nadpisuje scope/organization bieżącego eventu.
+
+`aggregate_type/aggregate_id` opisują subject/business aggregate, a nie event. `aggregate_reference_mode` rozróżnia `none`, `tenant_relational`, `global_relational`, `snapshot_only`. Tenant relational target przechodzi closed allowlist + exact same-tenant guard; snapshot-only nie udaje FK i nie może przenosić sensitive identifier w aggregate id.
+
+### 10.3. Powiązanie z wymaganym audytem
+
+`domain_events.required_audit_log_id` jest wymagane tam, gdzie wcześniejszy slice już wymaga audytu dla event-producing mutation. Ma exact FK do `audit_logs.id`, a DB guard wymusza zgodność scope/organization. Nie kopiujemy raw audit payloadu do eventu, a audit nadal nie staje się business source of truth.
+
+### 10.4. Exact binding `outbox_messages -> domain_events`
+
+Nowy runtime outbox row wymaga `domain_event_id`, `event_scope` i `organization_id`. `domain_event_id` ma exact FK do `domain_events.id` oraz uniqueness — jeden committed logical domain event ma dokładnie jeden lokalny outbox intent.
+
+Event scope, tenant, event type, aggregate snapshot i request id w outboxie są server-copied i muszą odpowiadać dokładnie source domain eventowi. Outbox `id` jest wyłącznie techniczną identity wiadomości; nie zastępuje event id i nie staje się business authority. Outbox payload pozostaje publisher-safe/secret-free i nie może być raw auditem ani raw provider response.
+
+### 10.5. Jedna transakcja lokalna
+
+Jeżeli wcześniejszy kontrakt wymaga outboxu, jedna lokalna transakcja obejmuje: canonical business effect, wymagany audit, exactly one `domain_event` dla logical event oraz exactly one outbox intent. Kolejność: istniejący domain lock/race winner -> business write -> audit -> domain event -> outbox -> commit.
+
+Failure wymaganej części rollbackuje business effect. Zabroniony jest normalny model `commit business, potem best-effort insert outbox` oraz późniejsze odtwarzanie eventów przez polling tabel biznesowych. External publish odbywa się dopiero po commit; network call wewnątrz business transaction jest zabroniony. Losing concurrent command i no-op idempotent replay nie emitują drugiego eventu/outboxu.
+
+### 10.6. Source dla activity i notifications
+
+Przyszłe `organization_activity_events.source_event_id` i notification source mają wskazywać `domain_events.id`, nie `outbox_messages.id`, `request_id` ani timestamp. Dla organization projection tenant musi odpowiadać source event tenantowi. Exact projection dedupe/display rules pozostają odpowiednio DB-ACT-001 i DB-NOT-001/002.
+
+Dzięki temu późniejszy cleanup technicznego outboxu nie niszczy lineage projekcji.
+
+### 10.7. Legacy boundary i zakres stop
+
+Nie tworzymy synthetic domain events tylko po to, aby stare rekordy przeszły constraints. Legacy outbox/projection lineage bez exact evidence nie jest dopasowywany po timestampie, request id, aggregate similarity ani samym tenant. Backfill/quarantine i phased activation pozostają DB-EVT-001.
+
+DB-OUT-001 nie zamyka publisher claim/retry/backoff/DLQ/manual replay (DB-OUT-002), activity display/dedupe/order (DB-ACT-001), notification recipient/read/source lifecycle (DB-NOT-001/002) ani legacy retention cleanup (DB-EVT-001).
+
+Po fixerze: **3/8 resolved, 5 P1 OPEN**. Następny dozwolony krok: **DB-OUT-002 only**, dopiero po kolejnym jawnym poleceniu użytkownika.
+
+**STOP przed DB-OUT-002.**
