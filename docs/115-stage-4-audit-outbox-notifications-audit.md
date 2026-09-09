@@ -3,8 +3,8 @@
 Data: 2026-09-09
 
 **Etap:** `DB4_10_AUDIT_OUTBOX_NOTIFICATIONS`
-**Aktualny krok:** `DB-ACT-001`
-**Status:** `FAIL_WITH_3_P1_BLOCKERS / 0 P0 / 3 P1 OPEN`
+**Aktualny krok:** `DB-NOT-001`
+**Status:** `FAIL_WITH_2_P1_BLOCKERS / 0 P0 / 2 P1 OPEN`
 
 Machine-readable diagnoza: `specs/database/audit-outbox-notifications.yml`.
 
@@ -454,6 +454,64 @@ Legacy row bez exact source event, policy version, actor/subject/student evidenc
 
 DB-ACT-001 nie zamyka notification recipient/read-state (DB-NOT-001), notification source/mark-read dedupe (DB-NOT-002) ani legacy retention cleanup (DB-EVT-001).
 
-Po fixerze: **5/8 resolved, 3 P1 OPEN**. Następny dozwolony krok: **DB-NOT-001 only**, dopiero po kolejnym jawnym poleceniu użytkownika.
+Po fixerze DB-ACT-001 pozostaje **PASS**.
 
-**STOP przed DB-NOT-001.**
+## 13. DB-NOT-001 — wynik fixera: PASS
+
+DB-NOT-001 domyka odbiorcę powiadomienia jako exact tenant membership i usuwa błąd modelowy wspólnego `read_at` dla całej organizacji. `notifications` pozostaje projekcją, nie business authority, a każdy nowy runtime row reprezentuje dokładnie jednego odbiorcę w jednym OSK.
+
+### 13.1. Exact recipient membership
+
+Do `notifications` dochodzi `organization_membership_id`, a istniejący `user_id` ma jednoznaczną semantykę recipient user. Nowy rekord wymaga niepustych `organization_id`, `organization_membership_id` i `user_id`, a DB wymusza exact composite relation `(organization_id, organization_membership_id, user_id) -> organization_memberships(organization_id, id, user_id)` z RESTRICT.
+
+Sam globalny `user_id` nie jest już authority odbiorcy. Ten sam User może należeć do dwóch OSK, ale notification z organizacji A nie może zostać przypisane do membershipu organizacji B. Recipient identity jest server-derived z trusted audience resolution, nie z client override.
+
+W chwili materializacji recipient membership musi mieć `status=active`. Status nie wchodzi do FK, bo może później legalnie zmienić się na suspended/revoked; active eligibility jest sprawdzana przy insert/materialization. Późniejsza zmiana statusu nie przepisuje historycznego recipienta.
+
+### 13.2. Direct membership vs organization broadcast
+
+Jawne `audience_kind` ma dwie wartości: `direct_membership` i `organization_broadcast`.
+
+`direct_membership` oznacza dokładnie jeden aktywny membership w jednym OSK. Nie wolno wysłać „do usera” na podstawie samego globalnego User bez rozwiązania exact membership context.
+
+`organization_broadcast` **nie tworzy jednego wspólnego row z nullable recipientem**. Zamiast tego w jednym lokalnym transaction snapshot wyznaczamy wszystkie aktywne memberships tej Organization i materializujemy po jednym niezależnym notification row dla każdego z nich. Cały fan-out commit albo rollbackuje razem. Jeśli aktywnych membershipów jest zero, nie tworzymy sztucznego shared placeholder row.
+
+Nie wymyślamy audience filters po roli, permission, staff/location ani kanałów e-mail/SMS/push. Takie rozszerzenia wymagają osobnego potwierdzonego kontraktu.
+
+### 13.3. Niezależny read state
+
+`read_at` pozostaje na recipient-scoped notification row. Dzięki temu każdy odbiorca broadcastu ma własny stan odczytu; oznaczenie przez jedną osobę nie może zmienić stanu innych membershipów.
+
+DB-NOT-001 zamyka wyłącznie ownership/read-state **boundary**. Exact transition `NULL -> non-NULL` tylko raz, `Idempotency-Key`, source event relation i source+recipient dedupe pozostają świadomie DB-NOT-002.
+
+Nie dodajemy `mark unread` ani delete, ponieważ Stage-3 API ich nie potwierdza.
+
+### 13.4. Membership snapshot i historia
+
+Organization broadcast używa jednego DB transaction snapshotu. Membership aktywny i widoczny w tym snapshotcie wchodzi do recipient set; membership dołączający później nie dostaje retroaktywnie starego broadcastu. Późniejsza suspension/revocation nie usuwa historycznego row i nie przenosi go na innego usera.
+
+Podczas suspension/revocation list/read są niedozwolone, ponieważ API zawsze wymaga aktualnie aktywnego selected membership. Jeżeli ten sam membership zostanie później ponownie aktywowany, historyczny row nadal jest związany z tym samym membership id i zwykła active-membership boundary znowu decyduje o dostępie. Nie tworzymy nowej notification identity tylko z powodu reaktywacji.
+
+### 13.5. API tenant boundary
+
+`GET /notifications` zawsze zaczyna się od exact current context:
+
+`organization_id = selected_membership.organization_id`
+
+`organization_membership_id = selected_membership.id`
+
+`user_id = authenticated_user.id`
+
+Dopiero potem stosujemy `unread_only`. Nie ma `recipient IS NULL OR ...` dla broadcastów, więc organization-wide notification nie tworzy furtki do cross-user lub cross-tenant odczytu.
+
+`POST /notifications/{notificationId}/read` musi również znaleźć row wewnątrz tego samego exact recipient scope. Wrong membership lub wrong organization nie może stać się authority tylko dlatego, że ktoś zna notification UUID. Sam write-once lifecycle tej komendy pozostaje DB-NOT-002.
+
+### 13.6. Legacy boundary i zakres stop
+
+Stary `notifications` row z null `user_id`, bez exact membership albo ze wspólnym organization-level `read_at` nie jest automatycznie przypisywany po e-mailu, nazwie, samym user id, tenant similarity ani timestampie. Nie kopiujemy też jednego starego `read_at` do wszystkich potencjalnych recipientów bez exact evidence.
+
+Backfill/quarantine, phased constraint activation oraz retention pozostają DB-EVT-001. DB-NOT-001 nie tworzy synthetic membershipów i nie dodaje external delivery channels.
+
+Po fixerze: **6/8 resolved, 2 P1 OPEN**. Następny dozwolony krok: **DB-NOT-002 only**, dopiero po kolejnym jawnym poleceniu użytkownika.
+
+**STOP przed DB-NOT-002.**
