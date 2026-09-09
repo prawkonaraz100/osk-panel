@@ -1,0 +1,48 @@
+name: Temporary DB-COM-001 Narrative Gate V2
+
+on:
+  push:
+    branches: [tmp-db-com-001-narrative-v2]
+    paths:
+      - '.stage4-tmp/TRIGGER_DB_COM_001_NARRATIVE_V2'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: tmp-db-com-001-narrative-v2
+      - name: Patch and validate DB-COM-001 narrative
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('docs/114-stage-4-student-finance-commerce-audit.md')
+          s=p.read_text().rstrip('\n')
+          old='''**Aktualny krok:** `DB_FIN_002_CHARGE_PAYMENT_REVERSAL_LIFECYCLE_BALANCE_OVERPAYMENT_AND_CONCURRENCY`\n**Status:** `FAIL_WITH_8_P1_BLOCKERS / 0 P0 / 8 P1 OPEN`'''
+          new='''**Aktualny krok:** `DB_COM_001_ORDER_ITEM_TENANT_PRODUCT_SNAPSHOT_PRICE_TOTAL_AND_QUANTITY_INTEGRITY`\n**Status:** `FAIL_WITH_7_P1_BLOCKERS / 0 P0 / 7 P1 OPEN`'''
+          assert s.count(old)==1,s.count(old)
+          assert '## 21. DB-COM-001 — wynik fixera: PASS' not in s
+          fragment=Path('.stage4-tmp/DB_COM_001_NARRATIVE.md').read_text().strip('\n')
+          s=s.replace(old,new,1)+'\n\n'+fragment+'\n'
+          p.write_text(s)
+          text=p.read_text()
+          assert text.count('## 21. DB-COM-001 — wynik fixera: PASS')==1
+          assert '**STOP przed DB-COM-002.**' in text
+          assert 'resolved: **3/10**' in text
+          assert 'P1 OPEN: **7**' in text
+          PY
+          test "$(git hash-object specs/database/student-finance-commerce.yml)" = "84211f9b7b9d637a4b5be9a55462f1821f9b8827"
+          test "$(git hash-object specs/database/core-schema.yml)" = "65c6daab0330a2c6cf57a6a2caaba288a13a7a70"
+          test "$(git hash-object docs/87-physical-database-schema.md)" = "4d5f24f2948bdb55e7367c7b013ed918dade40ae"
+          git diff --check -- docs/114-stage-4-student-finance-commerce-audit.md
+          test "$(git diff --name-only | grep -v '^\.github/workflows/tmp-db-com-001-narrative-v2.yml$' | grep -v '^\.stage4-tmp/' | sort -u)" = "docs/114-stage-4-student-finance-commerce-audit.md"
+          git config user.name 'prawkonaraz100'
+          git config user.email 'prawkonaraz100@gmail.com'
+          git add docs/114-stage-4-student-finance-commerce-audit.md
+          git commit -m 'DB-COM-001: add order item catalog pricing audit'
+          git push origin HEAD:tmp-db-com-001-narrative-v2
