@@ -2,8 +2,8 @@ meta:
   project: osk-panel
   stage: 4
   slice: DB4_9_STUDENT_FINANCE_COMMERCE
-  step: DB_COM_005_DETERMINISTIC_PURCHASE_HISTORY_DISPLAY_NUMBER_BOOKING_DATE_STATUS_AND_PAGINATION_PROJECTION
-  status: FAIL_WITH_2_P1_BLOCKERS
+  step: DB_COM_008_GLOBAL_CROSS_DOMAIN_LOCK_ORDER_AND_RACE_WINNER_SEMANTICS
+  status: FAIL_WITH_1_P1_BLOCKER
   diagnosed_at: 2026-09-08
   branch: docs-consolidation-2026-09-05
   diagnosis_only: false
@@ -16,7 +16,7 @@ meta:
 scope_rule:
   diagnose_before_fixing: true
   fixes_allowed_in_this_step: true
-  current_step_scope: DB_COM_005_only
+  current_step_scope: DB_COM_008_only
   one_blocker_per_future_step: true
   aggregate_files_frozen:
     specs/database/core-schema.yml:
@@ -1947,6 +1947,287 @@ resolved_contracts:
       Laravel_migrations_created: false
       UI_or_feature_implementation_started: false
 
+
+  DB-COM-008:
+    status: PASS
+    severity: P1
+    title: commerce_command_lock_order_and_cross_domain_race_boundary
+    scope_boundary:
+      closes_only_concurrency_roots_lock_order_race_winner_and_course_cost_charge_exact_source_dedupe: true
+      payment_status_event_and_settlement_semantics_remain_DB_COM_002: true
+      order_fulfillment_state_and_atomicity_remain_DB_COM_003: true
+      downstream_purchase_grant_lineage_and_quantity_remain_DB_COM_004: true
+      generic_service_entitlement_activation_semantics_remain_DB_COM_007: true
+      purchase_history_projection_remains_DB_COM_005: true
+      DB_COM_006_legacy_reconciliation_and_backfill_evidence_matrix_unchanged: true
+      DB4_10_audit_outbox_physical_storage_not_entered: true
+      API_contract_files_modified: false
+
+    concurrency_domain_separation:
+      StudentFinance_and_PlatformCommerce_share_one_money_lock_root: false
+      student_finance_payment_may_lock_platform_commerce_order_or_payment: false
+      platform_commerce_payment_may_lock_student_charge_or_student_payment: false
+      create_charge_from_course_cost_is_student_finance_source_effect_not_platform_purchase: true
+      downstream_license_assignment_or_exam_reservation_command_may_call_back_into_commerce_transaction: false
+      explicit_service_activation_may_lock_commerce_order: false
+      rationale: bounded_contexts_remain_independent_and_cross_domain_lock_cycles_are_forbidden
+
+    commerce_canonical_root:
+      root: exact_orders_row_FOR_UPDATE
+      applies_to_commands:
+        - create_platform_payment_attempt
+        - apply_trusted_provider_payment_event
+        - reconcile_platform_payment_attempt
+        - create_or_observe_order_payment_settlement
+        - create_or_observe_order_fulfillment_authority
+        - run_order_fulfillment
+        - retry_order_fulfillment
+        - privileged_fulfillment_reconciliation_transition
+      all_order_level_business_decisions_rechecked_after_root_lock: true
+      order_lock_must_be_acquired_before_payment_or_fulfillment_or_purchase_grant_row_lock: true
+      command_may_lock_payment_or_fulfillment_then_later_lock_order: false
+      external_provider_network_call_while_holding_order_lock_or_DB_transaction: forbidden
+      browser_redirect_wait_while_holding_database_lock: forbidden
+
+    command_local_dedupe_before_business_root:
+      generic_idempotency_claim_before_business_row_locks: true
+      provider_event_signature_verification_before_business_transaction: true
+      provider_event_dedupe_claim_before_order_business_effect: true
+      command_may_acquire_unrelated_second_idempotency_claim_while_holding_order_or_charge_root: false
+      dedupe_or_idempotency_row_is_business_concurrency_root: false
+      unique_idempotency_or_event_constraint_remains_final_retry_boundary_for_same_key: true
+
+    commerce_lock_order:
+      canonical_sequence:
+        - command_local_idempotency_or_provider_event_dedupe_claim_when_applicable
+        - exact_order_FOR_UPDATE
+        - exact_relevant_payment_attempt_rows_FOR_UPDATE_in_payment_id_ASC_when_existing_rows_need_mutation
+        - exact_order_payment_settlement_row_FOR_UPDATE_if_existing_and_mutated_or_checked_for_reconciliation
+        - exact_order_fulfillment_row_FOR_UPDATE_if_existing
+        - immutable_order_items_read_in_order_item_id_ASC_without_lock_escalation
+        - existing_purchase_grant_rows_if_retry_check_requires_lock_in_order_item_id_ASC_then_grant_ordinal_ASC
+        - insert_new_purchase_grant_units_in_same_order_item_id_ASC_then_grant_ordinal_ASC
+      order_payment_settlement_absent_row_claim:
+        serialized_by_exact_order_root: true
+        unique_organization_order_constraint_is_final_duplicate_boundary: true
+      order_fulfillment_absent_row_claim:
+        serialized_by_exact_order_root: true
+        unique_organization_order_constraint_is_final_duplicate_boundary: true
+      immutable_order_items_FOR_UPDATE_required: false
+      reason_order_items_do_not_need_lock: DB_COM_001_makes_placed_order_item_identity_quantity_and_pricing_immutable
+      lock_more_than_one_payment_attempt:
+        deterministic_sort: payment_id_ASC
+      grant_iteration:
+        order_item_sort: order_items.id_ASC
+        grant_ordinal_sort: 1_to_quantity_ASC
+        product_kind_specific_table_order_not_used_as_primary_sort: true
+        mixed_order_is_deterministic_from_order_item_identity_then_ordinal: true
+      reverse_lock_acquisition_forbidden_examples:
+        - fulfillment_then_order
+        - payment_then_order
+        - purchase_grant_then_fulfillment_then_order
+        - service_entitlement_then_order
+        - license_inventory_then_order
+        - internal_exam_inventory_then_order
+
+    downstream_domain_noncycle_rule:
+      license_purchase_fulfillment_creates_new_available_inventory_units_only: true
+      purchase_fulfillment_does_not_assign_or_activate_license: true
+      internal_exam_purchase_fulfillment_creates_new_available_units_only: true
+      purchase_fulfillment_does_not_reserve_start_or_consume_exam_attempt: true
+      explicit_service_activation_after_purchase:
+        serialization_root: exact_service_entitlement_row_FOR_UPDATE
+        may_read_immutable_purchase_provenance: true
+        may_acquire_order_or_fulfillment_lock: false
+      immediate_service_activation_inside_purchase_fulfillment:
+        entitlement_and_activation_are_new_rows_in_same_order_fulfillment_transaction: true
+        no_preexisting_entitlement_lock_before_order_root: true
+      later_license_exam_service_domain_commands_use_their_own_roots_without_reentering_commerce: true
+
+    race_winner_semantics:
+      create_payment_attempt_vs_existing_or_concurrent_settlement:
+        both_serialize_on_exact_order: true
+        create_attempt_rechecks_order_payment_projection_after_order_lock: true
+        settlement_committed_before_create_attempt_lock:
+          create_new_payment_attempt: false
+          result: already_paid_or_conflict_without_new_payable_effect
+        create_attempt_committed_before_other_attempt_settlement:
+          pending_attempt_may_exist_when_order_later_becomes_paid: true
+          later_confirmation_of_that_attempt_after_other_settlement_may_create_second_order_settlement: false
+          later_confirmation_external_money_truth_preserved_per_DB_COM_002: true
+          confirmed_nonsettling_attempt_requires_reconciliation_per_DB_COM_002: true
+      trusted_webhook_vs_manual_payment_reconciliation:
+        both_lock_order_before_payment: true
+        first_transaction_that_inserts_unique_order_payment_settlement_wins_business_settlement: true
+        same_payment_same_confirmed_truth_after_winner: no_change_replay
+        different_payment_confirmed_after_winner:
+          payment_external_truth_may_be_confirmed: true
+          rewrite_order_payment_settlement: false
+          create_second_fulfillment: false
+          requires_reconciliation: true
+      payment_settlement_vs_fulfillment_worker:
+        settlement_and_pending_fulfillment_authority_created_atomically_under_order_root: true
+        worker_arrives_before_paid_resolution_commit:
+          may_create_fulfillment_from_raw_payment_status: false
+          result: no_runnable_fulfillment
+        worker_arrives_after_paid_resolution_commit:
+          locks_order_then_fulfillment: true
+          may_execute_exact_pending_fulfillment: true
+      duplicate_fulfillment_workers:
+        both_lock_order_then_same_fulfillment: true
+        first_pending_to_fulfilled_commit_wins: true
+        second_worker_after_success: already_fulfilled_no_new_grants
+      fulfillment_worker_vs_privileged_reconciliation:
+        both_lock_order_then_fulfillment: true
+        pending_to_fulfilled_commits_first:
+          later_mark_requires_reconciliation: forbidden
+          fulfilled_business_fact_rewrite: forbidden
+        pending_to_requires_reconciliation_commits_first:
+          worker_may_create_grants: false
+          worker_result: reconciliation_required_noop
+        reviewed_requires_reconciliation_to_pending:
+          locks_order_then_fulfillment: true
+          creates_purchase_grants_in_same_remediation_transition: false
+          subsequent_worker_may_retry_after_commit: true
+      second_payment_confirmation_vs_running_fulfillment:
+        second_confirmation_waits_on_same_order_root: true
+        second_confirmation_may_create_second_business_settlement_or_grant_set: false
+
+    projection_consistency_under_locks:
+      order_payment_projection_recomputed_from_DB_COM_002_authorities_under_order_root: true
+      fulfillment_projection_recomputed_from_DB_COM_003_authority_under_order_root: true
+      purchase_history_status_DB_COM_005_never_drives_command_transition: true
+      paid_projection_may_exist_with_pending_or_reconciliation_fulfillment: true
+      fulfilled_projection_requires_committed_full_local_grant_set: true
+      no_transaction_may_publish_fulfilled_before_grants_and_fulfilled_marker_commit_atomically: true
+
+    course_cost_charge_exact_source_boundary:
+      context: StudentFinance_only
+      table: course_cost_charge_origins
+      role: durable_exactly_once_source_link_for_create_charge_from_course_cost
+      required_fields:
+        - organization_id
+        - course_enrollment_id
+        - student_id
+        - student_charge_id
+        - source_amount_minor
+        - source_currency
+        - created_at
+      exact_course_source_candidate_key:
+        columns: [organization_id, course_enrollment_id]
+        unique_constraint_required: true
+        meaning: at_most_one_charge_created_by_the_initial_create_from_course_cost_source_effect_per_exact_course
+      exact_course_student_relation:
+        source: course_cost_charge_origins[organization_id,course_enrollment_id,student_id]
+        target: course_enrollments[organization_id,id,student_id]
+        on_update: RESTRICT
+        on_delete: RESTRICT
+      exact_created_charge_relation:
+        source: course_cost_charge_origins[organization_id,student_charge_id,student_id,source_currency]
+        target: student_charges[organization_id,id,student_id,currency]
+        on_update: RESTRICT
+        on_delete: RESTRICT
+      source_amount_minor_equals_created_charge_amount_minor:
+        enforcement: DEFERRABLE_constraint_trigger_or_equivalent_transactional_DB_guard
+        required: true
+      source_snapshot_server_owned: true
+      source_origin_fields_immutable_after_insert: true
+      manual_charge_with_optional_course_context_is_not_course_cost_source_effect: true
+      ordinary_manual_charge_may_share_same_course_enrollment_without_source_origin_row: true
+      second_auto_charge_from_same_course_using_different_idempotency_key: rejected_or_replays_existing_origin_charge
+      later_course_price_adjustment_or_repricing_semantics: not_invented_in_DB_COM_008
+      create_from_course_cost_command:
+        generic_idempotency_operation_key: student_finance.charge.create_from_course_cost
+        root: exact_course_enrollment_row_FOR_UPDATE
+        sequence:
+          - atomically_claim_generic_idempotency_record
+          - lock_exact_course_enrollment_FOR_UPDATE
+          - recheck_exact_course_student_and_current_trusted_course_cost_source
+          - if_course_cost_charge_origin_exists_return_same_student_charge_without_second_effect
+          - create_student_charge_with_server_owned_amount_currency_and_course_context
+          - insert_course_cost_charge_origin_in_same_transaction
+          - complete_idempotency_record_with_safe_result
+        application_MAX_or_count_then_insert_dedupe: forbidden
+        unique_course_cost_origin_is_final_cross_key_concurrency_boundary: true
+        may_lock_platform_orders_payments_or_fulfillment: false
+      course_create_retry_and_create_charge_from_cost_race:
+        course_must_exist_before_source_effect_targets_it: true
+        both_paths_that_may_initiate_same_source_effect_must_converge_on_exact_course_row_and_unique_origin: true
+        duplicate_charge_from_two_different_request_keys: forbidden
+      zero_or_changed_course_cost_business_policy: deferred_not_invented
+
+    StudentFinance_existing_lock_order_preservation:
+      record_reverse_cancel_payment_root: exact_student_charge_row_FOR_UPDATE
+      reverse_payment_additional_lock_after_charge: exact_student_payment_row_FOR_UPDATE
+      create_charge_from_course_cost_uses_course_root_before_new_charge_exists: true
+      existing_charge_money_mutation_may_lock_course_after_charge: false
+      StudentFinance_command_may_acquire_platform_commerce_root: false
+      platform_commerce_command_may_acquire_course_or_student_charge_root: false
+
+    audit_outbox_intent_boundary:
+      state_changing_commands_must_record_audit_and_outbox_intent_atomically_with_business_commit: true
+      exact_physical_audit_outbox_tables_columns_indexes_worker_delivery_and_retention: DB4_10
+      audit_or_outbox_record_is_concurrency_root_for_order_or_charge: false
+      audit_outbox_write_must_not_be_locked_before_canonical_order_or_charge_or_course_root: true
+      no_external_delivery_inside_business_row_lock_transaction: true
+
+    failure_and_retry_policy:
+      database_deadlock_or_serialization_failure: retry_whole_command_from_idempotency_boundary
+      partial_retry_from_middle_of_lock_sequence: forbidden
+      retry_may_skip_root_recheck_because_prior_attempt_almost_committed: false
+      external_provider_timeout_may_not_keep_database_transaction_open: true
+      fulfillment_retry_always_rechecks_order_and_fulfillment_canonical_facts: true
+      unique_constraints_remain_final_boundary_but_do_not_replace_root_lock_and_recheck: true
+
+    migration_policy:
+      no_new_legacy_lineage_backfill_performed_in_DB_COM_008: true
+      existing_ambiguous_payment_fulfillment_or_grant_rows_deferred_to_DB_COM_006: true
+      existing_course_charge_with_same_amount_and_course_may_be_auto_labeled_as_course_cost_origin: false
+      timestamp_amount_title_or_course_context_is_not_proof_of_course_cost_origin: true
+      migration_may_not_create_course_cost_origin_without_exact_trusted_source_evidence: true
+      no_regrant_or_payment_winner_reconstruction_in_this_step: true
+
+    required_tests:
+      - create_payment_attempt_and_settlement_race_serializes_on_order_and_cannot_create_post_paid_new_attempt_when_settlement_wins_first
+      - create_attempt_first_then_other_settlement_preserves_attempt_but_cannot_create_second_business_settlement
+      - webhook_and_manual_reconciliation_same_payment_are_idempotent_after_first_settlement
+      - webhook_and_manual_reconciliation_different_payments_can_preserve_external_truth_but_only_one_business_settlement
+      - fulfillment_worker_before_settlement_commit_cannot_create_fulfillment_from_raw_payment_state
+      - duplicate_fulfillment_workers_commit_exactly_one_grant_set
+      - fulfillment_success_wins_before_reconciliation_and_cannot_be_downgraded
+      - reconciliation_state_wins_before_worker_and_worker_creates_no_grants
+      - reviewed_reconciliation_to_pending_does_not_create_grants_until_subsequent_worker
+      - mixed_order_grants_iterate_order_item_id_ASC_and_grant_ordinal_ASC
+      - payment_or_fulfillment_command_never_acquires_order_after_payment_fulfillment_or_grant_lock
+      - explicit_service_activation_never_acquires_order_lock
+      - license_assignment_and_exam_reservation_do_not_reenter_commerce_order_transaction
+      - no_provider_network_wait_occurs_while_business_row_locks_are_held
+      - same_course_two_different_idempotency_keys_create_at_most_one_course_cost_charge_origin_and_charge
+      - course_cost_origin_exact_course_student_and_charge_currency_relations_reject_mismatch
+      - manual_course_context_charge_is_not_misrepresented_as_course_cost_origin
+      - StudentFinance_create_from_course_cost_never_locks_platform_commerce_order_or_payment
+      - legacy_same_amount_course_charge_is_not_heuristically_backfilled_as_course_cost_origin
+      - audit_outbox_intent_does_not_become_pre_business_lock_concurrency_root
+
+    preservation_checks:
+      DB_FIN_001_same_tenant_exact_relations_unchanged: PASS
+      DB_FIN_002_charge_payment_reversal_balance_and_charge_root_unchanged: PASS
+      DB_COM_001_order_item_snapshot_and_total_contract_unchanged: PASS
+      DB_COM_002_payment_event_settlement_and_reconciliation_contract_unchanged: PASS
+      DB_COM_003_fulfillment_authority_atomicity_and_retry_contract_unchanged: PASS
+      DB_COM_004_purchase_grant_lineage_and_quantity_contract_unchanged: PASS
+      DB_COM_007_service_entitlement_source_activation_contract_unchanged: PASS
+      DB_COM_005_purchase_history_sequence_booking_status_projection_unchanged: PASS
+      StudentFinance_remains_distinct_from_PlatformCommerce: PASS
+      downstream_license_exam_lifecycles_not_redefined: PASS
+      DB_COM_006_not_solved_early: PASS
+      DB4_10_or_later_entered: false
+      aggregate_core_schema_modified: false
+      aggregate_docs87_modified: false
+      Stage5_started: false
+      Laravel_migrations_created: false
+      UI_or_feature_implementation_started: false
+
 blockers:
   - id: DB-FIN-001
     title: student_finance_same_tenant_exact_charge_payment_course_integrity
@@ -2162,7 +2443,8 @@ blockers:
   - id: DB-COM-008
     title: commerce_command_lock_order_and_cross_domain_race_boundary
     severity: P1
-    status: OPEN
+    status: RESOLVED
+    resolution_ref: resolved_contracts.DB-COM-008
     diagnosis:
       - DB4_9_spans Order Payment fulfillment plus three possible downstream grant models and StudentFinance has independent money mutations
       - no canonical lock ordering is defined for order payment confirmation fulfillment and downstream grant insertion
@@ -2184,9 +2466,9 @@ blockers:
 diagnosis_summary:
   diagnosed_P0: 0
   diagnosed_P1: 10
-  resolved_after_diagnosis: 8
-  open_P0_P1: 2
-  result: FAIL_WITH_2_P1_BLOCKERS
+  resolved_after_diagnosis: 9
+  open_P0_P1: 1
+  result: FAIL_WITH_1_P1_BLOCKER
   resolved_blockers:
     - DB-FIN-001
     - DB-FIN-002
@@ -2196,11 +2478,11 @@ diagnosis_summary:
     - DB-COM-004
     - DB-COM-007
     - DB-COM-005
-  blockers_in_required_fix_order:
     - DB-COM-008
+  blockers_in_required_fix_order:
     - DB-COM-006
 preservation_gate:
-  status: PASS_DB_COM_005_MACHINE_CONTRACT
+  status: PASS_DB_COM_008_MACHINE_CONTRACT
   checks:
     student_finance_and_platform_commerce_remain_distinct: true
     DB4_6_license_inventory_assignment_activation_contract_preserved: true
@@ -2224,6 +2506,6 @@ preservation_gate:
     UI_or_feature_implementation_started: false
 
 next_single_step_after_central_gate:
-  id: DB_COM_008_GLOBAL_CROSS_DOMAIN_LOCK_ORDER_AND_RACE_WINNER_SEMANTICS
-  action: resolve_DB_COM_008_only_after_next_explicit_user_instruction
-  stop_before: DB_COM_006_LEGACY_MIGRATION_RECONCILIATION_AND_BACKFILL_SAFETY
+  id: DB_COM_006_LEGACY_MIGRATION_RECONCILIATION_AND_BACKFILL_SAFETY
+  action: resolve_DB_COM_006_only_after_next_explicit_user_instruction
+  stop_before: DB4_9_FINAL_AGGREGATE_SYNC
