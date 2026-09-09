@@ -1,0 +1,62 @@
+name: Temporary DB-FIN-002 Summary Correction
+
+on:
+  push:
+    branches: [tmp-db-fin-002-summary-correction]
+    paths:
+      - '.stage4-tmp/TRIGGER_DB_FIN_002_SUMMARY_CORRECTION'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: tmp-db-fin-002-summary-correction
+      - name: Correct and validate DB-FIN-002 diagnosis summary only
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import yaml, copy
+          p=Path('specs/database/student-finance-commerce.yml')
+          s=p.read_text()
+          before=yaml.safe_load(s)
+          resolved_contracts_before=copy.deepcopy(before['resolved_contracts'])
+          blockers_before=copy.deepcopy(before['blockers'])
+
+          old='''  resolved_blockers:\n    - DB-FIN-001\n  blockers_in_required_fix_order:\n    - DB-FIN-002\n    - DB-COM-001\n'''
+          new='''  resolved_blockers:\n    - DB-FIN-001\n    - DB-FIN-002\n  blockers_in_required_fix_order:\n    - DB-COM-001\n'''
+          assert s.count(old)==1,s.count(old)
+          s=s.replace(old,new,1)
+          p.write_text(s)
+
+          after=yaml.safe_load(s)
+          assert after['resolved_contracts']==resolved_contracts_before
+          assert after['blockers']==blockers_before
+          assert after['meta']['step']=='DB_FIN_002_CHARGE_PAYMENT_REVERSAL_LIFECYCLE_BALANCE_OVERPAYMENT_AND_CONCURRENCY'
+          assert after['meta']['status']=='FAIL_WITH_8_P1_BLOCKERS'
+          assert after['diagnosis_summary']['resolved_after_diagnosis']==2
+          assert after['diagnosis_summary']['open_P0_P1']==8
+          assert after['diagnosis_summary']['result']=='FAIL_WITH_8_P1_BLOCKERS'
+          assert after['diagnosis_summary']['resolved_blockers']==['DB-FIN-001','DB-FIN-002']
+          assert after['diagnosis_summary']['blockers_in_required_fix_order']==['DB-COM-001','DB-COM-002','DB-COM-003','DB-COM-004','DB-COM-007','DB-COM-005','DB-COM-008','DB-COM-006']
+          statuses={x['id']:x['status'] for x in after['blockers']}
+          assert statuses['DB-FIN-001']=='RESOLVED'
+          assert statuses['DB-FIN-002']=='RESOLVED'
+          assert all(statuses[x]=='OPEN' for x in ['DB-COM-001','DB-COM-002','DB-COM-003','DB-COM-004','DB-COM-005','DB-COM-006','DB-COM-007','DB-COM-008'])
+          assert after['preservation_gate']['status']=='PASS_DB_FIN_002_MACHINE_CONTRACT'
+          assert after['next_single_step_after_central_gate']['id']=='DB_COM_001_ORDER_ITEM_TENANT_PRODUCT_SNAPSHOT_PRICE_TOTAL_AND_QUANTITY_INTEGRITY'
+          PY
+          test "$(git hash-object specs/database/core-schema.yml)" = "65c6daab0330a2c6cf57a6a2caaba288a13a7a70"
+          test "$(git hash-object docs/87-physical-database-schema.md)" = "4d5f24f2948bdb55e7367c7b013ed918dade40ae"
+          git diff --check -- specs/database/student-finance-commerce.yml
+          test "$(git diff --name-only | grep -v '^\.github/workflows/tmp-db-fin-002-summary-correction.yml$' | grep -v '^\.stage4-tmp/' | sort -u)" = "specs/database/student-finance-commerce.yml"
+          git config user.name 'prawkonaraz100'
+          git config user.email 'prawkonaraz100@gmail.com'
+          git add specs/database/student-finance-commerce.yml
+          git commit -m 'DB-FIN-002: correct resolved blocker summary preservation'
+          git push origin HEAD:tmp-db-fin-002-summary-correction
