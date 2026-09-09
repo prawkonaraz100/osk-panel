@@ -2,8 +2,8 @@ meta:
   project: osk-panel
   stage: 4
   slice: DB4_9_STUDENT_FINANCE_COMMERCE
-  step: DB_COM_007_GENERIC_SERVICE_ENTITLEMENT_PURCHASE_GRANT_AND_ACTIVATION_SOURCE_INTEGRITY
-  status: FAIL_WITH_3_P1_BLOCKERS
+  step: DB_COM_005_DETERMINISTIC_PURCHASE_HISTORY_DISPLAY_NUMBER_BOOKING_DATE_STATUS_AND_PAGINATION_PROJECTION
+  status: FAIL_WITH_2_P1_BLOCKERS
   diagnosed_at: 2026-09-08
   branch: docs-consolidation-2026-09-05
   diagnosis_only: false
@@ -16,7 +16,7 @@ meta:
 scope_rule:
   diagnose_before_fixing: true
   fixes_allowed_in_this_step: true
-  current_step_scope: DB_COM_007_only
+  current_step_scope: DB_COM_005_only
   one_blocker_per_future_step: true
   aggregate_files_frozen:
     specs/database/core-schema.yml:
@@ -1720,6 +1720,233 @@ resolved_contracts:
       Laravel_migrations_created: false
       UI_or_feature_implementation_started: false
 
+
+  DB-COM-005:
+    status: PASS
+    severity: P1
+    title: deterministic_purchase_history_display_number_booking_date_status_and_pagination_projection
+    scope_boundary:
+      closes_only_purchase_history_identity_dates_status_and_stable_ordering_projection: true
+      DB_COM_008_global_cross_domain_lock_order_unchanged: true
+      DB_COM_006_legacy_reconciliation_and_backfill_evidence_matrix_unchanged: true
+      API_contract_files_modified: false
+      unconfirmed_UI_labels_sort_controls_search_filters_or_invoice_actions_not_invented: true
+
+    order_history_identity:
+      orders_add_order_sequence:
+        type: bigint
+        nullable: false_for_new_orders_after_cutover
+        minimum: 1
+        organization_scoped: true
+        immutable_after_insert: true
+      candidate_key:
+        table: orders
+        columns: [organization_id, order_sequence]
+        unique_constraint_required: true
+      allocation_authority:
+        model: organization_commerce_order_sequences
+        fields: [organization_id, next_order_sequence]
+        organization_id_primary_key_and_FK_to_organizations: true
+        next_order_sequence_type: bigint
+        minimum: 1
+        allocation_transaction:
+          - lock_exact_organization_sequence_row_FOR_UPDATE
+          - reserve_current_next_order_sequence_for_new_order
+          - increment_next_order_sequence
+          - insert_order_with_reserved_sequence_in_same_transaction
+        application_MAX_plus_1_allocation: forbidden
+        client_supplied_sequence: forbidden
+        sequence_reuse_after_committed_order: forbidden
+        gapless_business_numbering_requirement: false
+      display_number_projection:
+        authority: orders.order_sequence
+        representation: canonical_base10_decimal_string_without_secret_semantics
+        separately_mutable_display_number_column_required: false
+        payment_or_tenant_authorization_by_display_number_alone: forbidden
+        public_payment_reference_remains_distinct_opaque_identifier: true
+      historical_sequence_backfill_for_legacy_orders: DB_COM_006
+
+    order_business_dates:
+      orders_add_ordered_at:
+        type: timestamptz
+        nullable: false_for_new_orders_after_cutover
+        server_owned: true
+        set_once_when_order_is_placed: true
+        immutable_after_insert: true
+        client_supplied_business_time_authority: false
+        created_at_may_equal_ordered_at_initially_but_created_at_is_not_substitute_for_business_field: true
+      orders_add_booked_at:
+        type: timestamptz_nullable
+        server_owned: true
+        write_once_null_to_nonnull_only: true
+        second_write_or_clear_after_nonnull: forbidden
+      booked_at_source_matrix:
+        unpaid:
+          booked_at: null
+        payment_pending:
+          booked_at: null
+        paid_nonzero_order:
+          source: exact_order_payment_settlement.settled_at
+          equality_required: true
+          set_atomically_with_first_valid_order_payment_settlement: true
+        paid_zero_total_order:
+          source: orders.zero_total_settled_at
+          equality_required: true
+          set_atomically_with_zero_total_paid_resolution: true
+        later_confirmed_nonsettling_payment_attempt_changes_booked_at: false
+        fulfillment_pending_or_reconciliation_changes_booked_at: false
+      cross_row_guard:
+        implementation: constraint_trigger_or_equivalent_transactional_database_guard
+        invariant: booked_at_null_iff_order_payment_projection_is_not_paid_and_nonnull_equal_exact_paid_resolution_time_when_paid
+      refund_chargeback_or_rebooking_semantics: not_invented_in_DB4_9
+      legacy_booked_at_backfill_without_exact_trusted_evidence: forbidden_and_deferred_to_DB_COM_006
+
+    purchase_history_status_projection:
+      persisted_independent_mutable_status_authority: false
+      canonical_values:
+        - unpaid
+        - payment_pending
+        - paid_processing
+        - completed
+        - requires_reconciliation
+      mapping:
+        unpaid:
+          predicate: order_payment_projection_equals_unpaid
+          booked_at_must_be_null: true
+          observed_Polish_UI_label_confirmed: Nieopłacone
+          pay_unpaid_action_may_be_available_subject_to_API_RBAC_and_current_payment_preconditions: true
+        payment_pending:
+          predicate: order_payment_projection_equals_pending
+          booked_at_must_be_null: true
+          Polish_UI_label_not_confirmed: true
+        paid_processing:
+          predicate: order_payment_projection_equals_paid_and_order_fulfillment_state_equals_pending
+          booked_at_must_be_nonnull: true
+          Polish_UI_label_not_confirmed: true
+        requires_reconciliation:
+          predicate: order_payment_projection_equals_paid_and_order_fulfillment_state_equals_requires_reconciliation
+          booked_at_must_be_nonnull: true
+          Polish_UI_label_not_confirmed: true
+        completed:
+          predicate: order_payment_projection_equals_paid_and_order_fulfillment_state_equals_fulfilled
+          booked_at_must_be_nonnull: true
+          Polish_UI_label_not_confirmed: true
+      impossible_or_rejected_projection_states:
+        - payment_unpaid_with_fulfilled_order
+        - payment_pending_with_fulfilled_order
+        - paid_order_without_recoverable_order_fulfillment_authority
+      materialized_projection_if_retained:
+        must_be_transactionally_guarded_against_canonical_payment_and_fulfillment_facts: true
+        frontend_or_client_mutation: forbidden
+      legacy_orders_status_column_as_independent_business_authority_after_cutover: forbidden
+
+    purchase_history_row_projection:
+      tenant_scope: exact_authenticated_organization_only
+      columns:
+        Number:
+          source: canonical_decimal_projection_of_orders.order_sequence
+        Zamowienie:
+          source: immutable_order_items_and_their_DB_COM_001_snapshots
+          product_name_and_variant_never_reloaded_from_current_catalog_for_history: true
+        Data:
+          source: orders.ordered_at
+          display_date_timezone: organization_IANA_timezone
+        Data_ksiegowania:
+          source: orders.booked_at_nullable
+          display_date_timezone: organization_IANA_timezone
+        Kwota:
+          source: [orders.total_amount_minor, orders.currency]
+          float_money: forbidden
+        Status:
+          source: purchase_history_status_projection
+      purchase_history_separate_from_student_finance: true
+      operator_granted_service_entitlements_without_order_not_in_purchase_history: true
+
+    stable_ordering_and_pagination:
+      default_sort:
+        - orders.ordered_at_DESC
+        - orders.order_sequence_DESC
+        - orders.id_DESC
+      deterministic_total_order_within_organization: true
+      equal_ordered_at_rows_have_unique_order_sequence_tie_breaker: true
+      UUID_is_final_defensive_tie_breaker_not_primary_business_ordering_authority: true
+      default_query_must_include_organization_predicate_before_pagination: true
+      offset_page_contract_from_Stage3_preserved_for_now: true
+      deterministic_membership_for_unchanged_dataset: true
+      cross_request_snapshot_stability_during_concurrent_new_order_inserts_is_not_claimed_without_API_snapshot_cursor: true
+      Stage5_may_sync_cursor_or_snapshot_semantics_if_product_requires_cross_request_snapshot_stability: true
+      page_size:
+        Stage3_API_accepts_range_1_through_100: true
+        observed_UI_selector_values: [10, 25, 50, 100]
+        DB_contract_does_not_narrow_existing_Stage3_API_to_selector_values_only: true
+      status_filter_if_used_must_filter_canonical_derived_status_not_legacy_mutable_label: true
+      unconfirmed_search_sort_filter_UI_controls_not_added: true
+
+    immutability_and_history_preservation:
+      immutable_after_order_placement:
+        - organization_id
+        - order_sequence
+        - ordered_at
+        - currency
+        - total_amount_minor
+        - order_item_product_identity
+        - order_item_quantity
+        - order_item_price_discount_VAT_and_display_snapshots
+      booked_at_only_allowed_mutation: single_null_to_exact_trusted_paid_resolution_time
+      purchase_history_hard_delete_to_hide_failed_or_unpaid_order: forbidden
+      catalog_change_rewrites_historical_order_row_or_items: false
+      downstream_license_exam_service_consumption_rewrites_purchase_history: false
+
+    migration_policy:
+      new_runtime_orders_require_sequence_and_ordered_at_before_enabling_normal_writes: true
+      legacy_sequence_assignment_or_ordered_at_booked_at_reconstruction: DB_COM_006_only
+      timestamp_UUID_amount_same_tenant_or_current_row_order_as_legacy_number_evidence: insufficient
+      fabricate_booked_at_from_browser_return_payment_created_at_or_last_updated_at: forbidden
+      rewrite_order_item_snapshot_from_current_catalog_during_history_migration: forbidden
+      rewrite_existing_payment_or_fulfillment_truth_to_fit_display_status: forbidden
+
+    required_tests:
+      - concurrent_same_tenant_order_creation_gets_distinct_order_sequences_without_MAX_plus_1_race
+      - same_sequence_in_same_organization_rejected
+      - same_numeric_sequence_in_different_organizations_allowed
+      - committed_order_sequence_cannot_be_reused_or_mutated
+      - display_number_is_deterministic_projection_and_not_payment_authorization_secret
+      - ordered_at_is_server_owned_and_write_once
+      - unpaid_order_booked_at_is_null
+      - pending_payment_order_booked_at_is_null
+      - nonzero_paid_order_booked_at_equals_first_valid_settlement_settled_at
+      - zero_total_paid_order_booked_at_equals_zero_total_settled_at
+      - second_confirmed_nonsettling_payment_does_not_change_booked_at
+      - booked_at_cannot_be_cleared_or_rewritten_after_set
+      - purchase_history_unpaid_status_matches_DB_COM_002_payment_projection
+      - purchase_history_payment_pending_status_matches_DB_COM_002_payment_projection
+      - purchase_history_paid_processing_status_requires_paid_plus_pending_fulfillment
+      - purchase_history_completed_status_requires_paid_plus_fulfilled
+      - purchase_history_requires_reconciliation_status_requires_paid_plus_fulfillment_reconciliation
+      - legacy_mutable_orders_status_cannot_disagree_with_canonical_projection_after_cutover
+      - equal_ordered_at_rows_sort_deterministically_by_order_sequence_then_id
+      - purchase_history_query_cannot_cross_organization_boundary
+      - UI_selector_page_sizes_10_25_50_100_supported_without_narrowing_API_range
+      - purchase_history_uses_immutable_item_snapshots_after_catalog_change
+      - legacy_missing_sequence_or_booked_at_is_not_heuristically_backfilled_in_DB_COM_005
+
+    preservation_checks:
+      DB_COM_001_order_item_snapshot_pricing_total_contract_unchanged: PASS
+      DB_COM_002_payment_projection_settlement_zero_total_contract_unchanged: PASS
+      DB_COM_003_fulfillment_authority_and_atomicity_contract_unchanged: PASS
+      DB_COM_004_purchase_grant_quantity_and_lineage_contract_unchanged: PASS
+      DB_COM_007_service_entitlement_source_activation_contract_unchanged: PASS
+      only_confirmed_unpaid_Polish_label_frozen: PASS
+      unconfirmed_UI_labels_and_actions_not_invented: PASS
+      DB_COM_008_not_solved_early: PASS
+      DB_COM_006_not_solved_early: PASS
+      aggregate_core_schema_modified: false
+      aggregate_docs87_modified: false
+      DB4_10_or_later_entered: false
+      Stage5_started: false
+      Laravel_migrations_created: false
+      UI_or_feature_implementation_started: false
+
 blockers:
   - id: DB-FIN-001
     title: student_finance_same_tenant_exact_charge_payment_course_integrity
@@ -1867,7 +2094,8 @@ blockers:
   - id: DB-COM-005
     title: deterministic_purchase_history_display_number_booking_date_status_and_pagination_projection
     severity: P1
-    status: OPEN
+    status: RESOLVED
+    resolution_ref: resolved_contracts.DB-COM-005
     diagnosis:
       - confirmed purchase history exposes Number Order Date BookingDate Amount Status and paginated rows
       - current orders have no deterministic display_number_or_per_tenant_order_sequence
@@ -1956,9 +2184,9 @@ blockers:
 diagnosis_summary:
   diagnosed_P0: 0
   diagnosed_P1: 10
-  resolved_after_diagnosis: 7
-  open_P0_P1: 3
-  result: FAIL_WITH_3_P1_BLOCKERS
+  resolved_after_diagnosis: 8
+  open_P0_P1: 2
+  result: FAIL_WITH_2_P1_BLOCKERS
   resolved_blockers:
     - DB-FIN-001
     - DB-FIN-002
@@ -1967,12 +2195,12 @@ diagnosis_summary:
     - DB-COM-003
     - DB-COM-004
     - DB-COM-007
-  blockers_in_required_fix_order:
     - DB-COM-005
+  blockers_in_required_fix_order:
     - DB-COM-008
     - DB-COM-006
 preservation_gate:
-  status: PASS_DB_COM_007_MACHINE_CONTRACT
+  status: PASS_DB_COM_005_MACHINE_CONTRACT
   checks:
     student_finance_and_platform_commerce_remain_distinct: true
     DB4_6_license_inventory_assignment_activation_contract_preserved: true
@@ -1996,6 +2224,6 @@ preservation_gate:
     UI_or_feature_implementation_started: false
 
 next_single_step_after_central_gate:
-  id: DB_COM_005_DETERMINISTIC_PURCHASE_HISTORY_DISPLAY_NUMBER_BOOKING_DATE_STATUS_AND_PAGINATION_PROJECTION
-  action: resolve_DB_COM_005_only_after_next_explicit_user_instruction
-  stop_before: DB_COM_008_GLOBAL_CROSS_DOMAIN_LOCK_ORDER_AND_RACE_WINNER_SEMANTICS
+  id: DB_COM_008_GLOBAL_CROSS_DOMAIN_LOCK_ORDER_AND_RACE_WINNER_SEMANTICS
+  action: resolve_DB_COM_008_only_after_next_explicit_user_instruction
+  stop_before: DB_COM_006_LEGACY_MIGRATION_RECONCILIATION_AND_BACKFILL_SAFETY
