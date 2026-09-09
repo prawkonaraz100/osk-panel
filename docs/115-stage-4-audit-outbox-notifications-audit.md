@@ -3,8 +3,8 @@
 Data: 2026-09-09
 
 **Etap:** `DB4_10_AUDIT_OUTBOX_NOTIFICATIONS`
-**Aktualny krok:** `DB4_10_DIAGNOSIS`
-**Status:** `FAIL_WITH_8_P1_BLOCKERS / 0 P0 / 8 P1 OPEN`
+**Aktualny krok:** `DB-AUD-001`
+**Status:** `FAIL_WITH_7_P1_BLOCKERS / 0 P0 / 7 P1 OPEN`
 
 Machine-readable diagnoza: `specs/database/audit-outbox-notifications.yml`.
 
@@ -230,10 +230,50 @@ PASS:
 - P0: **0**,
 - P1: **8**,
 - fixes applied in diagnosis: **0**,
-- resolved: **0/8**,
-- open: **8/8**,
-- result: **FAIL_WITH_8_P1_BLOCKERS**.
+- resolved: **1/8**,
+- open: **7/8**,
+- result: **FAIL_WITH_7_P1_BLOCKERS**.
 
-Następny dozwolony krok po central gate: **DB-AUD-001 only**, dopiero po następnym jawnym poleceniu użytkownika.
+## 8. DB-AUD-001 — wynik fixera: PASS
 
-**STOP przed DB-AUD-001.**
+DB-AUD-001 zamyka fizyczną granicę własności i niezmienności `audit_logs`, bez rozwiązywania jeszcze zawartości payloadów/redakcji z DB-AUD-002.
+
+### 8.1. Scope audytu
+
+Każdy nowy runtime row ma jawne, immutable `audit_scope`: `organization` albo `platform_global`. Dla `organization` wymagane jest server-derived `organization_id`; dla `platform_global` `organization_id` musi być `NULL`. Nie wolno pozostawiać scope implicit na podstawie samej nullowalności tenant id.
+
+`GET /audit-logs` pozostaje wyłącznie organization-scoped: wymaga aktywnego selected membership i `organization.audit.view`, a query zawsze zaczyna się od `audit_scope=organization AND organization_id=current organization`. Globalne i obce tenantowo rekordy nie mogą pojawić się w tym endpointcie. Filtry entity/request działają dopiero wewnątrz tej granicy. Kolejność jest deterministyczna: `created_at DESC, id DESC`.
+
+### 8.2. Actor context
+
+Jawny `actor_kind` ma trzy wartości: `organization_membership`, `global_user`, `system`.
+
+Dla organizacyjnego użytkownika sam `actor_user_id` jest niewystarczający. Audit zapisuje również `actor_organization_membership_id`, a DB wymusza exact composite relation `(organization_id, membership_id, user_id)` do `organization_memberships`. Dzięki temu ten sam globalny User należący do dwóch OSK nie może zostać przypisany do niewłaściwego tenant contextu. Status membership w przyszłości nie kasuje historii — authorization jest sprawdzane w chwili command write, a audit przechowuje historyczną referencję.
+
+`global_user` jest dopuszczony wyłącznie dla `platform_global`; organization-scoped business mutation nie może użyć globalnego User bez membership context. `system` ma null user/membership i może działać globalnie lub w exact organization scope. Actor/scope są server-derived, nigdy authority z request body.
+
+### 8.3. Polymorphic entity reference
+
+Nie tworzymy fałszywego uniwersalnego FK. `entity_reference_mode` rozróżnia `none`, `tenant_relational`, `global_relational`, `snapshot_only`.
+
+Dla `tenant_relational` closed allowlist + DEFERRABLE constraint trigger (lub równoważny DB guard) musi dowieść istnienia exact entity w `audit.organization_id`; unknown type albo wrong-tenant target jest reject. `global_relational` dowodzi tylko istnienia globalnego obiektu i nie udaje tenant ownership. `snapshot_only` jest jawnie allowlisted dla external/nonrelational referencji i nie może być traktowane jako potwierdzony FK; sensitive identifier w `entity_id` jest zabroniony. Nie wolno inferować modelu po nazwie, UUID-shape albo podobieństwie.
+
+### 8.4. Append-only
+
+Normalna rola aplikacyjna może insertować wymagany audit i czytać tylko przez autoryzowaną projekcję; UPDATE i DELETE są zabronione zarówno privilege boundary, jak i `BEFORE UPDATE OR DELETE` guardem (lub równoważnym). Wszystkie business fields audytu są immutable po insert.
+
+Wyjątek policy-driven retention nie jest definiowany tutaj — pozostaje DB-EVT-001 wraz z exact retention policy. DB-AUD-001 nie wymyśla okresów przechowywania i nie daje normalnej aplikacji furtki do kasowania historii.
+
+### 8.5. Atomic write i legacy boundary
+
+Tam, gdzie wcześniejszy slice wymaga `business state + audit`, audit insert jest częścią tej samej transakcji; failure audytu rollbackuje command. Audit nadal nie jest business source of truth.
+
+Nie backfillujemy teraz starych actor membership/entity lineage heurystycznie. Legacy rows bez wystarczającego dowodu pozostają problemem DB-EVT-001; po runtime write fence wszystkie nowe rekordy muszą spełniać DB-AUD-001.
+
+### 8.6. Co pozostaje OPEN
+
+DB-AUD-001 nie zamyka: redaction/payload-policy/reason (DB-AUD-002), durable outbox event identity (DB-OUT-001), publisher retry (DB-OUT-002), activity projection (DB-ACT-001), notification recipient/read lifecycle (DB-NOT-001/002) ani legacy/retention cleanup (DB-EVT-001).
+
+Po fixerze: **1/8 resolved, 7 P1 OPEN**. Następny dozwolony krok: **DB-AUD-002 only**, dopiero po następnym jawnym poleceniu użytkownika.
+
+**STOP przed DB-AUD-002.**
