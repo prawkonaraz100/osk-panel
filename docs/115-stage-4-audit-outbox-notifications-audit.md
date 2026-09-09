@@ -3,8 +3,8 @@
 Data: 2026-09-09
 
 **Etap:** `DB4_10_AUDIT_OUTBOX_NOTIFICATIONS`
-**Aktualny krok:** `DB-NOT-001`
-**Status:** `FAIL_WITH_2_P1_BLOCKERS / 0 P0 / 2 P1 OPEN`
+**Aktualny krok:** `DB-NOT-002`
+**Status:** `FAIL_WITH_1_P1_BLOCKER / 0 P0 / 1 P1 OPEN`
 
 Machine-readable diagnoza: `specs/database/audit-outbox-notifications.yml`.
 
@@ -512,6 +512,54 @@ Stary `notifications` row z null `user_id`, bez exact membership albo ze wspóln
 
 Backfill/quarantine, phased constraint activation oraz retention pozostają DB-EVT-001. DB-NOT-001 nie tworzy synthetic membershipów i nie dodaje external delivery channels.
 
-Po fixerze: **6/8 resolved, 2 P1 OPEN**. Następny dozwolony krok: **DB-NOT-002 only**, dopiero po kolejnym jawnym poleceniu użytkownika.
+Po fixerze DB-NOT-001 pozostaje **PASS**.
 
-**STOP przed DB-NOT-002.**
+## 14. DB-NOT-002 — wynik fixera: PASS
+
+DB-NOT-002 domyka exact source identity, deduplikację projekcji oraz jedyny dozwolony lifecycle `read_at`. Nie zmienia modelu odbiorcy z DB-NOT-001: każdy notification nadal należy do jednego exact membershipu, a organization broadcast nadal materializuje osobne recipient rows.
+
+### 14.1. Exact source event i dedupe per recipient
+
+Każdy nowy runtime notification wymaga `source_event_id` oraz exact same-tenant relacji `(organization_id, source_event_id) -> domain_events(organization_id, id)`. Source musi być organization-scoped. `request_id`, outbox id, timestamp, aggregate id ani podobieństwo payloadu nie mogą zastąpić source identity.
+
+Fizyczny unique `(organization_id, source_event_id, organization_membership_id)` oznacza najwyżej jeden notification dla jednego logical domain eventu i jednego exact recipient membershipu. `audience_kind` nie jest częścią dedupe key: ten sam event nie może utworzyć dla tego samego membershipu drugiego notification tylko dlatego, że projector spróbuje potraktować go raz jako direct, a raz jako broadcast.
+
+At-least-once retry outboxu/projektora jest oczekiwane. Dwa równoległe inserty wybierają jednego winnera przez unique conflict; loser robi no-op i nie może przebudować payloadu, recipienta ani wyzerować `read_at`. Jeden source event może natomiast prawidłowo utworzyć osobne rows dla różnych membershipów broadcastu.
+
+### 14.2. Notification lifecycle i write-once `read_at`
+
+Nowy notification zaczyna zawsze jako unread, czyli `read_at = NULL`. Source, recipient, payload, type, audience i `created_at` są immutable po insert. Normalny projector nie aktualizuje istniejącego notification row i normalna aplikacja go nie usuwa; retention/legacy cleanup pozostają DB-EVT-001.
+
+Jedyna zwykła mutacja rekordu to:
+
+`read_at: NULL -> server-derived timestamp`
+
+Dokładnie raz. `read -> unread`, przepisanie istniejącego timestampu oraz client-supplied `read_at` są zabronione. DB guard blokuje generic model update/direct SQL próbujące wyczyścić albo zmienić zapisany timestamp.
+
+### 14.3. Mark-read authorization i concurrency
+
+`POST /notifications/{notificationId}/read` najpierw zamyka exact recipient scope z DB-NOT-001: notification id + selected active membership organization + selected membership id + authenticated user id. Znajomość UUID nie daje prawa do rekordu innego membershipu, usera albo OSK.
+
+Pierwszy writer wykonuje row lock albo równoważny atomic conditional update `WHERE read_at IS NULL` i zapisuje server/database transaction time. Przy dwóch równoległych requestach tylko jeden ustawia timestamp; drugi odczytuje już istniejący row i zwraca dokładnie ten sam `read_at` bez rewrite. Suspended/revoked membership nie może wykonać mark-read, nawet jeśli historyczny notification row nadal istnieje.
+
+### 14.4. `Idempotency-Key` nie zastępuje fizycznej idempotencji
+
+Stage-3 nadal wymaga `Idempotency-Key`. Scope komendy obejmuje authenticated user + selected membership + operację `notifications.mark_read`, a target identity to notification id. Ten sam key dla tego samego principal/scope/target replayuje ten sam sukces; użycie key dla innego targetu albo principal scope jest konfliktem zgodnie z istniejącym cross-cutting idempotency contract.
+
+Najważniejsze: podstawową ochroną business state nie jest cache odpowiedzi, tylko write-once `read_at`. Jeżeli proces zapisze `read_at`, ale padnie zanim utrwali idempotency response, retry nadal odczyta ten sam timestamp i zakończy się no-op. Również nowy, inny Idempotency-Key użyty już po przeczytaniu notification nie ustawia nowej daty — zwraca istniejący stan.
+
+### 14.5. Side effects i list consistency
+
+DB-NOT-002 nie inventuje domain eventu, outboxu, recursive notification ani nowego audytu dla zwykłego mark-read, ponieważ wcześniejsze kontrakty nie wymagają takiego efektu. Jeżeli cross-cutting idempotency infrastructure zapisuje techniczny command record, nie staje się on business authority; source of truth dla odczytu pozostaje `notifications.read_at`.
+
+`unread_only=true` oznacza `read_at IS NULL`, ale dopiero po mandatory exact recipient scope. Po commit mark-read row znika z kolejnych unread-only wyników, a zwykła lista nadal pokazuje go z pierwotnym, niezmiennym `read_at`. Nie dodajemy mark-unread ani delete API.
+
+### 14.6. Legacy boundary i zakres stop
+
+Legacy notification bez exact source event nie jest dopasowywany po timestampie, request id, outbox id, type, payloadzie ani samym tenant. Podejrzane duplikaty nie są usuwane/merge'owane tylko po to, żeby unique przeszedł. Istniejący non-null `read_at` nie jest przepisywany, a null nie jest automatycznie oznaczany jako read podczas migracji.
+
+Nie tworzymy synthetic domain eventów wyłącznie po to, aby legacy row spełnił nowe constraints. Backfill, quarantine, phased constraint activation i retention pozostają DB-EVT-001.
+
+Po fixerze: **7/8 resolved, 1 P1 OPEN**. Następny dozwolony krok: **DB-EVT-001 only**, dopiero po kolejnym jawnym poleceniu użytkownika.
+
+**STOP przed DB-EVT-001.**
