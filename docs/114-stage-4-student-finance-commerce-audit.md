@@ -3,8 +3,8 @@
 Data: 2026-09-08
 
 **Etap:** `DB4_9_STUDENT_FINANCE_COMMERCE`  
-**Aktualny krok:** `DB_COM_007_GENERIC_SERVICE_ENTITLEMENT_PURCHASE_GRANT_AND_ACTIVATION_SOURCE_INTEGRITY`
-**Status:** `FAIL_WITH_3_P1_BLOCKERS / 0 P0 / 3 P1 OPEN`
+**Aktualny krok:** `DB_COM_005_DETERMINISTIC_PURCHASE_HISTORY_DISPLAY_NUMBER_BOOKING_DATE_STATUS_AND_PAGINATION_PROJECTION`
+**Status:** `FAIL_WITH_2_P1_BLOCKERS / 0 P0 / 2 P1 OPEN`
 
 Machine-readable diagnoza: `specs/database/student-finance-commerce.yml`.
 
@@ -1036,3 +1036,125 @@ Stan po fixerze:
 Następny dozwolony krok po central gate: **DB-COM-005 only**.
 
 **STOP przed DB-COM-005.**
+
+## 26. DB-COM-005 — wynik fixera: PASS
+
+DB-COM-005 domyka wyłącznie deterministyczną projekcję `Historia zakupów`: prezentacyjny numer zamówienia, biznesową datę zamówienia, osobną datę księgowania, status wynikający z canonical payment/fulfillment facts oraz stabilny porządek paginacji. Nie zmieniamy API Stage 3, nie projektujemy jeszcze globalnego lock order i nie wykonujemy legacy backfillu.
+
+### 26.1. `Number` ma jedną authority
+
+Nowy Order otrzymuje niezmienny `order_sequence BIGINT` w zakresie jednego Organization. Candidate key `(organization_id, order_sequence)` jest finalną granicą unikalności.
+
+Sekwencja nie powstaje przez `MAX(order_sequence)+1`. Wprowadzamy tenantowy licznik `organization_commerce_order_sequences`, którego dokładny wiersz jest blokowany `FOR UPDATE`; rezerwacja numeru, zwiększenie licznika i insert Orderu należą do jednej transakcji.
+
+Nie wymagamy numeracji bez luk. Raz przypisany numer committed Orderu nie może zostać ponownie użyty ani zmieniony.
+
+Widoczne `Number` jest deterministycznym dziesiętnym renderingiem `order_sequence`, a nie osobnym mutable polem. Nie jest też sekretem ani payment authority — publiczny identyfikator płatności pozostaje osobnym opaque reference.
+
+### 26.2. `Data` używa `ordered_at`, nie technicznego przypadku `created_at`
+
+Order dostaje server-owned `ordered_at timestamptz`, ustawiane raz przy złożeniu zamówienia. Dla nowego Orderu może początkowo być równe `created_at`, ale jest osobnym business field i po zapisie jest immutable.
+
+Klient nie może podać własnego authoritative czasu zamówienia.
+
+### 26.3. `Data księgowania` ma exact trusted source
+
+`orders.booked_at` jest nullable i może przejść wyłącznie `NULL -> exact trusted paid-resolution timestamp`.
+
+Macierz źródeł:
+- `unpaid` → `booked_at = NULL`,
+- `payment_pending` → `booked_at = NULL`,
+- non-zero paid Order → `booked_at = order_payment_settlements.settled_at`,
+- zero-total paid Order → `booked_at = zero_total_settled_at`.
+
+Ustawienie jest atomowe z pierwszym canonical paid resolution. Późniejszy confirmed payment attempt, który nie jest settlement winnerem, nie może zmienić `booked_at`. Fulfillment pending/reconciliation również nie zmienia daty księgowania.
+
+Po ustawieniu `booked_at` nie wolno go wyczyścić ani przepisać. Legacy backfill bez exact trusted evidence pozostaje DB-COM-006.
+
+### 26.4. Purchase-history status nie jest drugim mutable statusem
+
+Canonical projection ma wartości:
+- `unpaid`,
+- `payment_pending`,
+- `paid_processing`,
+- `completed`,
+- `requires_reconciliation`.
+
+Mapowanie jest czysto po canonical facts:
+- payment projection `unpaid` → `unpaid`,
+- payment projection `pending` → `payment_pending`,
+- `paid + fulfillment.pending` → `paid_processing`,
+- `paid + fulfillment.fulfilled` → `completed`,
+- `paid + fulfillment.requires_reconciliation` → `requires_reconciliation`.
+
+`orders.status` nie może po cutover pozostać niezależnym business authority. Jeżeli projection jest materializowana, musi być transactionally guarded względem źródłowych payment/fulfillment facts.
+
+### 26.5. Nie wymyślamy niepotwierdzonych polskich etykiet
+
+Z obserwowanego ekranu potwierdzona jest wyłącznie etykieta `Nieopłacone`. Pozostałe polskie labelki nie są zamrażane w DB4_9.
+
+To samo dotyczy niepotwierdzonych search/sort/filter controls, faktur oraz innych akcji historycznych.
+
+### 26.6. Projekcja każdego wiersza historii jest jednoznaczna
+
+Źródła kolumn:
+- `Number` → `orders.order_sequence`,
+- `Zamówienie` → immutable `order_items` + snapshot DB-COM-001,
+- `Data` → `orders.ordered_at`,
+- `Data księgowania` → `orders.booked_at`,
+- `Kwota` → `orders.total_amount_minor + currency`,
+- `Status` → canonical purchase-history status projection.
+
+Nazwy i ceny historycznych pozycji nie mogą być ponownie pobierane z bieżącego katalogu. Zmiana katalogu nie może zmienić starej historii.
+
+Operator-granted generic service bez Orderu nie trafia do purchase history.
+
+### 26.7. Stable pagination ma pełny tie-breaker
+
+Domyślny porządek to:
+
+`ordered_at DESC, order_sequence DESC, id DESC`.
+
+Dzięki tenantowo unikalnemu `order_sequence` dwa Ordery z identycznym timestampem nie mają niedeterministycznej kolejności. UUID pozostaje ostatnim defensywnym tie-breakerem, nie główną business ordering authority.
+
+Stage-3 `page/per_page` pozostaje bez zmian. Dla niezmiennego zbioru wynik jest deterministyczny. Nie deklarujemy fałszywie snapshot-stable offset pagination pomiędzy osobnymi requestami, gdy w międzyczasie powstają nowe Ordery; ewentualny snapshot/cursor contract może zostać zsynchronizowany dopiero w Stage 5, jeśli produkt będzie tego wymagał.
+
+### 26.8. Page size zachowuje istniejący API contract
+
+UI potwierdza selektor `10 / 25 / 50 / 100`. Jednocześnie Stage-3 API dopuszcza zakres `1..100`, więc DB-COM-005 nie zawęża API tylko do czterech wartości.
+
+Jeżeli używany jest filtr statusu, filtruje canonical derived status, nie legacy mutable label.
+
+### 26.9. Historia jest immutable po złożeniu Orderu
+
+Po order placement immutable są m.in. tenant, `order_sequence`, `ordered_at`, currency, total oraz item product/quantity/pricing/VAT/discount/display snapshots. Jedyną późniejszą zmianą z tego zestawu projekcyjnego jest pojedyncze trusted ustawienie `booked_at`.
+
+Nieopłaconego lub nieudanego Orderu nie wolno hard-delete tylko po to, by zniknął z historii. Późniejsze assignment/activation/consumption licencji, egzaminu lub usługi nie przepisuje historii zakupu.
+
+### 26.10. Legacy data nie jest naprawiana heurystycznie w tym kroku
+
+DB-COM-005 definiuje runtime contract dla nowych Orderów. Nie przypisuje numerów ani `booked_at` starym rekordom na podstawie timestampu, UUID, amount, bieżącej kolejności czy `updated_at`. Nie fabrykuje też booking date z browser-return albo payment-attempt creation time.
+
+Pełna evidence-class migration/reconciliation matrix pozostaje DB-COM-006.
+
+### 26.11. Preservation gate
+
+Zachowane bez zmiany:
+- DB-COM-001 immutable items/pricing snapshots,
+- DB-COM-002 payment/settlement/zero-total authority,
+- DB-COM-003 fulfillment authority,
+- DB-COM-004 grant lineage i quantity equivalence,
+- DB-COM-007 ServiceEntitlement source/activation integrity.
+
+Nie rozwiązano DB-COM-008 ani DB-COM-006. Frozen agregaty, Stage 5, migracje Laravel i UI pozostają nietknięte.
+
+### 26.12. Wynik po DB-COM-005
+
+- P0 OPEN: **0**,
+- P1 OPEN: **2**,
+- resolved: **8/10**,
+- result: **FAIL_WITH_2_P1_BLOCKERS**.
+
+Następny dozwolony krok po central gate: **DB-COM-008 only**.
+
+**STOP przed DB-COM-008.**
