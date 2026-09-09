@@ -1,0 +1,347 @@
+meta:
+  project: osk-panel
+  stage: 4
+  slice: DB4_10_AUDIT_OUTBOX_NOTIFICATIONS
+  step: DB4_10_DIAGNOSIS
+  status: FAIL_WITH_8_P1_BLOCKERS
+  diagnosed_at: 2026-09-09
+  branch: docs-consolidation-2026-09-05
+  diagnosis_only: true
+  fixes_applied_in_diagnosis_step: 0
+  implementation_started: false
+  Laravel_migrations_created: false
+  Stage5_started: false
+  UI_or_feature_implementation_started: false
+
+scope_rule:
+  diagnose_before_fixing: true
+  fixes_allowed_in_this_step: false
+  current_step_scope: DB4_10_diagnosis_only
+  one_blocker_per_future_step: true
+  aggregate_files_frozen:
+    specs/database/core-schema.yml: f3519060967085517329bc668fac02e5c1fd2dbd
+    docs/87-physical-database-schema.md: f3ebb764a5279cbabc9c75c2fcf9733f36ed22a8
+  later_slices_forbidden_in_this_step:
+    - DB4_11_FINAL_MIGRATION_ORDER_AND_INVARIANT_TEST_MATRIX
+    - Stage5_ACCEPTANCE_TRACEABILITY
+  Stage5_or_API_contract_sync_in_this_step: forbidden
+  Laravel_migration_generation_in_this_step: forbidden
+
+canonical_sources:
+  aggregate_machine: specs/database/core-schema.yml
+  aggregate_narrative: docs/87-physical-database-schema.md
+  security: docs/08-security-compliance.md
+  test_policy: docs/84-test-strategy.md
+  production_operations: docs/85-production-operations.md
+  traceability: specs/traceability/core-v1.yml
+  dashboard_screen: specs/screens/main-dashboard.yml
+  dashboard_narrative: docs/74-main-dashboard.md
+  api_paths: specs/api/paths/commerce-dashboard.yaml
+  api_components: specs/api/openapi-components-v1.yaml
+  permissions: specs/security/permissions.yml
+  central_gate: specs/gates/stage-4-database-contract-gate.yml
+
+confirmed_capabilities:
+  audit:
+    - restricted_organization_audit_history
+    - append_only_business_and_security_history
+    - critical_mutations_write_audit
+    - actor_organization_entity_request_context
+    - redacted_or_allowlisted_before_after_or_domain_diff
+    - elevated_correction_reason_where_required
+    - no_plaintext_password_tokens_full_PESEL_full_PKK_by_default
+  activity:
+    - dashboard_safe_organization_activity_feed
+    - activity_is_projection_not_raw_audit_serialization
+    - allowlisted_safe_payload
+    - actor_subject_related_student_or_entity_context
+    - optional_expand_and_target_navigation
+    - observed_event_types_across_students_courses_finance_licenses_exams_calendar
+  outbox:
+    - critical_mutations_commit_business_state_audit_and_outbox_intent_atomically
+    - asynchronous_publication
+    - retry_and_reconciliation_required
+    - no_sensitive_secret_payloads
+  notifications:
+    - list_notifications
+    - unread_only_filter
+    - mark_notification_read
+    - active_membership_access
+    - own_notification_scope_for_mark_read
+    - user_or_organization_notification_projection
+
+provisional_physical_model:
+  audit_logs:
+    fields:
+      - id
+      - organization_id_nullable
+      - actor_user_id_nullable
+      - action
+      - entity_type
+      - entity_id_nullable_string
+      - before_redacted_json_nullable
+      - after_redacted_json_nullable
+      - reason_nullable
+      - request_id
+      - ip_hash_nullable
+      - user_agent_nullable
+      - created_at
+    declared_append_only: true
+    exact_database_append_only_guard_defined: false
+    exact_actor_membership_or_system_actor_boundary_defined: false
+    exact_polymorphic_entity_tenant_integrity_defined: false
+    redaction_policy_version_or_payload_contract_defined: false
+  organization_activity_events:
+    fields:
+      - id
+      - organization_id
+      - event_type
+      - actor_user_id_nullable
+      - subject_type_nullable
+      - subject_id_nullable
+      - related_student_id_nullable
+      - safe_payload
+      - occurred_at
+      - source_event_id_nullable_string
+      - created_at
+    source_event_exact_FK_defined: false
+    source_dedupe_defined: false
+    deterministic_projection_order_defined: false
+  outbox_messages:
+    fields:
+      - id
+      - aggregate_type
+      - aggregate_id
+      - event_type
+      - payload
+      - request_id
+      - created_at
+      - published_at_nullable
+      - attempts_default_0
+      - last_error_nullable
+    organization_id_defined: false
+    stable_domain_event_identity_defined: false
+    publisher_claim_or_lease_defined: false
+    retry_schedule_or_terminal_reconciliation_state_defined: false
+    external_exactly_once_claimed: false
+  notifications:
+    fields:
+      - id
+      - organization_id
+      - user_id_nullable
+      - type
+      - payload
+      - read_at_nullable
+      - created_at
+    exact_recipient_membership_relation_defined: false
+    organization_wide_read_state_semantics_defined: false
+    exact_source_event_relation_defined: false
+    source_recipient_dedupe_defined: false
+    read_at_write_once_contract_defined: false
+
+preservation_gate:
+  status: PASS_DIAGNOSIS_ONLY
+  checks:
+    DB4_1_through_DB4_9_preserved: true
+    dashboard_notifications_card_remains_organization_activity_feed: true
+    separate_API_notifications_capability_preserved: true
+    raw_audit_log_as_dashboard_feed_forbidden: true
+    audit_and_activity_remain_separate_concepts: true
+    StudentFinance_and_PlatformCommerce_remain_distinct: true
+    PKK_and_credential_secret_redaction_rules_preserved: true
+    no_external_delivery_channel_invented: true
+    no_exact_retention_duration_invented: true
+    aggregate_core_schema_modified_in_diagnosis: false
+    aggregate_docs87_modified_in_diagnosis: false
+    API_files_modified_in_diagnosis: false
+    DB4_11_or_later_entered: false
+    Stage5_started: false
+    Laravel_migrations_created: false
+    UI_or_feature_implementation_started: false
+
+blockers:
+  - id: DB-AUD-001
+    severity: P1
+    title: audit_append_only_ownership_actor_and_entity_context_integrity
+    evidence:
+      - audit_logs_is_declared_append_only_but_database_immutability_boundary_is_not_defined
+      - organization_id_is_nullable_and_actor_user_id_does_not_capture_exact_organization_membership_context
+      - polymorphic_entity_type_entity_id_has_no_declared_same_tenant_target_validation_contract
+      - organization_audit_API_must_never_leak_global_or_other_tenant_rows
+    risk:
+      - historical_audit_mutation_or_deletion_by_application_role
+      - ambiguous_actor_context_for_user_with_multiple_organizations
+      - cross_tenant_or_unverifiable_entity_reference_in_audit_history
+      - tenant_leakage_from_audit_list
+    closure_scope_only:
+      - define_physical_append_only_and_normal_application_delete_update_policy
+      - define_organization_vs_global_audit_row_boundary
+      - define_actor_user_membership_system_actor_context_without_fake_tenant_scoping_global_user
+      - define_polymorphic_entity_reference_validation_or_snapshot_rule
+      - define_query_tenant_boundary_and_required_candidate_keys
+
+  - id: DB-AUD-002
+    severity: P1
+    title: audit_safe_payload_redaction_version_and_elevated_reason_integrity
+    evidence:
+      - before_redacted_json_and_after_redacted_json_are_arbitrary_jsonb_without_a_closed_payload_contract
+      - security_contract_requires_allowlisted_or_redacted_payloads_and_forbids_password_token_full_PESEL_full_PKK
+      - elevated_corrections_require_reason_but_no_action_to_reason_completeness_contract_is_defined
+      - redaction_policy_change_has_no_persisted_provenance
+    risk:
+      - sensitive_data_written_to_long_lived_audit_history
+      - impossible_to_prove_which_redaction_contract_created_historical_payload
+      - high_risk_mutation_without_required_reason
+    closure_scope_only:
+      - define_safe_audit_payload_contract_and_policy_version_provenance
+      - define_forbidden_secret_classes_and_validation_boundary
+      - define_action_or_event_class_reason_requirement_without_inventing_unobserved_business_actions
+      - preserve_domain_specific_audit_fields_required_by_existing_slices
+
+  - id: DB-OUT-001
+    severity: P1
+    title: transactional_domain_event_outbox_identity_and_same_transaction_coupling
+    evidence:
+      - multiple_closed_slices_require_business_state_audit_and_outbox_intent_in_one_transaction
+      - outbox_messages_has_no_organization_id_and_no_stable_domain_event_or_causation_identity
+      - activity_source_event_id_is_only_nullable_string_and_notifications_have_no_source_event
+      - retryable_projections_need_a_durable_source_identity_to_dedupe
+    risk:
+      - committed_business_effect_without_recoverable_event_projection
+      - duplicate_or_untraceable_activity_and_notification_projection
+      - cross_tenant_event_routing_error
+    closure_scope_only:
+      - define_durable_event_identity_and_exact_tenant_context
+      - define_business_state_audit_outbox_atomic_write_boundary
+      - define_request_correlation_vs_event_identity_vs_aggregate_reference_roles
+      - define_projection_source_linkage_without_making_outbox_the_business_source_of_truth
+
+  - id: DB-OUT-002
+    severity: P1
+    title: outbox_publisher_claim_retry_reconciliation_and_at_least_once_semantics
+    evidence:
+      - current_outbox_has_only_published_at_attempts_last_error
+      - production_policy_requires_timeout_max_attempts_backoff_failed_job_visibility_manual_replay_and_outbox_reconciliation
+      - concurrent_publishers_and_publish_success_before_database_ack_are_not_closed
+    risk:
+      - two_workers_publish_same_message_concurrently
+      - stuck_message_never_retried_or_permanently_hidden
+      - duplicate_external_delivery_after_publish_ack_race
+      - unsafe_manual_replay
+    closure_scope_only:
+      - define_claim_or_lease_and_retry_state_machine
+      - define_next_attempt_and_reconciliation_or_dead_letter_visibility
+      - define_at_least_once_publication_and_downstream_idempotency_contract
+      - explicitly_forbid_claim_of_exactly_once_external_delivery
+      - define_safe_last_error_storage_and_replay_audit_boundary
+
+  - id: DB-ACT-001
+    severity: P1
+    title: organization_activity_exact_source_dedupe_order_and_safe_historical_display
+    evidence:
+      - dashboard_requires_safe_activity_projection_with_actor_subject_optional_expand_and_target_navigation
+      - source_event_id_has_no_exact_relation_or_uniqueness
+      - duplicate_projector_retries_can_create_duplicate_feed_rows
+      - actor_display_or_role_snapshot_required_for_historical_display_is_not_physically_closed
+      - pagination_order_is_not_declared
+    risk:
+      - duplicate_activity_items
+      - activity_row_attached_to_wrong_tenant_or_source_event
+      - historical_display_changes_when_actor_profile_or_role_changes
+      - unstable_feed_pagination
+    closure_scope_only:
+      - define_exact_same_tenant_source_event_relation_and_projection_dedupe
+      - define_immutable_allowlisted_display_snapshot_boundary
+      - define_subject_related_student_entity_integrity_where_relationally_possible
+      - define_deterministic_order_for_activity_list_and_dashboard_preview
+      - preserve_observed_event_types_without_hardcoding_marketing_or_deferred_modules_as_core_requirements
+
+  - id: DB-NOT-001
+    severity: P1
+    title: notification_recipient_membership_and_organization_audience_read_state_integrity
+    evidence:
+      - notifications_user_id_is_nullable_while_API_describes_user_or_organization_notifications
+      - one_shared_read_at_on_an_organization_wide_row_cannot_represent_per_user_read_state
+      - same_global_user_can_belong_to_multiple_organizations
+      - mark_read_requires_own_notification_scope
+    risk:
+      - one_user_marks_notification_read_for_everyone
+      - same_user_notification_leaks_across_organization_contexts
+      - notification_target_cannot_be_proven_to_belong_to_the_organization
+    closure_scope_only:
+      - define_notification_recipient_as_exact_tenant_membership_or_equivalent_tenant_user_context
+      - define_user_specific_vs_organization_audience_materialization_without_shared_read_state_bug
+      - define_same_tenant_recipient_constraints_and_historical_membership_behavior
+      - do_not_invent_email_SMS_push_delivery_channels
+
+  - id: DB-NOT-002
+    severity: P1
+    title: notification_source_dedupe_mark_read_idempotency_and_lifecycle
+    evidence:
+      - notifications_have_no_exact_source_event_relation
+      - outbox_retry_can_duplicate_same_recipient_notification
+      - read_at_nullability_exists_but_write_once_or_unread_transition_policy_is_not_defined
+      - mark_read_API_is_idempotent_command_with_Idempotency_Key
+    risk:
+      - duplicate_notifications_for_one_logical_event
+      - cross_recipient_or_cross_tenant_mark_read
+      - read_timestamp_rewritten_or_cleared
+      - duplicate_mark_read_side_effects
+    closure_scope_only:
+      - define_exact_source_plus_recipient_dedupe_key
+      - define_read_at_null_to_nonnull_once_semantics_and_idempotent_replay
+      - define_authorization_root_for_mark_read_under_active_membership
+      - preserve_API_without_adding_unread_or_delete_actions_not_in_contract
+
+  - id: DB-EVT-001
+    severity: P1
+    title: legacy_event_projection_backfill_retention_and_cleanup_safety
+    evidence:
+      - provisional_rows_may_lack_new_source_event_recipient_membership_policy_version_or_publisher_state
+      - exact_privacy_retention_schedule_is_external_production_blocker
+      - audit_append_only_normal_runtime_semantics_must_coexist_with_policy_controlled_retention
+      - outbox_is_technical_delivery_history_and_must_not_become_a_shadow_business_ledger
+    risk:
+      - fabricated_event_lineage_during_migration
+      - guessed_recipient_or_read_timestamp
+      - destructive_cleanup_of_required_audit_or_business_history
+      - indefinite_secret_bearing_technical_payload_retention
+    closure_scope_only:
+      - define_fail_closed_evidence_classes_for_legacy_source_recipient_actor_and_read_state
+      - forbid_timestamp_similarity_or_same_tenant_heuristics_for_lineage
+      - define_write_fence_and_phased_constraint_activation
+      - separate_normal_append_only_runtime_policy_from_privileged_retention_execution
+      - preserve_exact_retention_durations_as_external_privacy_policy_not_invented_here
+      - define_outbox_cleanup_only_after_safe_publication_or_reconciliation_without_using_outbox_as_business_authority
+
+diagnosis_summary:
+  diagnosed_P0: 0
+  diagnosed_P1: 8
+  fixes_applied_in_diagnosis_step: 0
+  resolved_after_diagnosis: 0
+  open_P0_P1: 8
+  result: FAIL_WITH_8_P1_BLOCKERS
+  blockers_in_required_fix_order:
+    - DB-AUD-001
+    - DB-AUD-002
+    - DB-OUT-001
+    - DB-OUT-002
+    - DB-ACT-001
+    - DB-NOT-001
+    - DB-NOT-002
+    - DB-EVT-001
+
+next_single_step_after_central_gate:
+  id: DB_AUD_001_AUDIT_APPEND_ONLY_OWNERSHIP_ACTOR_AND_ENTITY_CONTEXT_INTEGRITY
+  action: resolve_DB_AUD_001_only_after_next_explicit_user_instruction
+  allowed_files_only:
+    - specs/database/audit-outbox-notifications.yml
+    - docs/115-stage-4-audit-outbox-notifications-audit.md
+    - specs/gates/stage-4-database-contract-gate.yml
+  aggregate_files_currently_frozen: true
+  scope_lock: >-
+    Diagnosis is complete. Resolve DB-AUD-001 only in the next fixer transaction.
+    Keep DB-AUD-002, DB-OUT-001, DB-OUT-002, DB-ACT-001, DB-NOT-001,
+    DB-NOT-002 and DB-EVT-001 OPEN. Do not modify core-schema.yml or docs/87,
+    do not enter DB4_11, Stage 5, Laravel migrations or UI.
+  stop_before: DB_AUD_001
