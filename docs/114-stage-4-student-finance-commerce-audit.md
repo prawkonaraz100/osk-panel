@@ -3,8 +3,8 @@
 Data: 2026-09-08
 
 **Etap:** `DB4_9_STUDENT_FINANCE_COMMERCE`  
-**Aktualny krok:** `DB_COM_002_PAYMENT_ATTEMPT_EVENT_ORDER_STATE_IDEMPOTENCY_AND_RECONCILIATION`
-**Status:** `FAIL_WITH_6_P1_BLOCKERS / 0 P0 / 6 P1 OPEN`
+**Aktualny krok:** `DB_COM_003_PAID_ORDER_EXACTLY_ONCE_GRANT_ORCHESTRATION_AND_ATOMICITY`
+**Status:** `FAIL_WITH_5_P1_BLOCKERS / 0 P0 / 5 P1 OPEN`
 
 Machine-readable diagnoza: `specs/database/student-finance-commerce.yml`.
 
@@ -643,3 +643,140 @@ Stan po fixerze:
 Następny dozwolony krok po central gate: **DB-COM-003 only**.
 
 **STOP przed DB-COM-003.**
+
+
+## 23. DB-COM-003 — wynik fixera: PASS
+
+DB-COM-003 domyka **order-level fulfillment orchestration** po trusted payment resolution. Nie rozwiązuje jeszcze exact `OrderItem -> downstream grant` provenance ani quantity equivalence — to pozostaje DB-COM-004. Nie zmienia też lifecycle przypisania/aktywacji licencji ani reservation/consume-on-start egzaminu.
+
+### 23.1. `paid` i `fulfilled` to dwa różne fakty
+
+DB-COM-002 zdefiniował canonical paid resolution:
+- dla Orderu z kwotą > 0: `order_payment_settlements`,
+- dla zero-total Orderu: server-owned `zero_total_settled_at`.
+
+DB-COM-003 dodaje osobną durable authority `order_fulfillments`.
+
+To oznacza, że poprawne są przejściowe stany:
+- `paid + fulfillment pending`,
+- `paid + fulfillment requires_reconciliation`,
+- `paid + fulfilled`.
+
+Nie wolno natomiast traktować samego `paid` jako dowodu, że licencje, egzaminy lub entitlementy zostały już przyznane. Purchase-history display mapping pozostaje DB-COM-005.
+
+### 23.2. Jeden trwały `order_fulfillment` na dokładny Order
+
+`order_fulfillments` jest tenant-owned i ma unique `(organization_id, order_id)`.
+
+Źródło fulfillmentu ma zamkniętą macierz:
+- `payment_settlement` — dla non-zero Order, z exact relacją `(organization_id, order_id, settlement_payment_id)` do `order_payment_settlements`,
+- `zero_total` — tylko dla Orderu z authoritative total = 0 i valid `zero_total_settled_at`, bez zewnętrznego Payment.
+
+`source_kind` jest server-derived. Browser return, frontend success flag ani raw webhook nie mogą samodzielnie utworzyć fulfillmentu.
+
+Lifecycle `order_fulfillments` ma trzy stany:
+- `pending`,
+- `fulfilled`,
+- `requires_reconciliation`.
+
+`fulfilled` jest finalnym write-once business fact. Zwykły lifecycle nie cofa go do pending.
+
+### 23.3. Paid resolution nie może zostać bez recoverable work record
+
+Dla non-zero Orderu pierwsze valid settlement i `pending order_fulfillment` powstają w **tej samej transakcji**.
+
+Dla zero-total Orderu atomowa granica obejmuje:
+1. poprawny Order i jego immutable items,
+2. `zero_total_settled_at`,
+3. jeden `pending order_fulfillment`.
+
+W efekcie nie może powstać stan: „płatność rozliczona, ale system nie ma żadnego trwałego śladu, że trzeba przyznać produkt”.
+
+Powtórzony provider event albo retry settlementu nie tworzy drugiego fulfillmentu — unique Order boundary powoduje reuse/no-op.
+
+### 23.4. Wszystkie lokalne grant effects są jednym commitem
+
+Właściwa komenda fulfillmentu serializuje się na exact `order_fulfillment` i przed grantem ponownie sprawdza canonical payment resolution.
+
+Dla jednego Orderu wszystkie wymagane **lokalne** downstream grant rows muszą powstać w jednej transakcji PostgreSQL razem z przejściem `order_fulfillments -> fulfilled`.
+
+Dotyczy to docelowo:
+- jednostek `license_inventory_entries`,
+- płatnych `internal_exam_inventory_entries` oraz ich canonical grant-ledger effect,
+- generic service entitlement, którego exact source/activation model zostanie zamknięty w DB-COM-007.
+
+Jeżeli choć jeden item nie może zostać poprawnie zgrantowany, cała transakcja grantów jest rollbackowana. Partial commit mixed/multi-item Orderu jest zabroniony.
+
+Exact per-item provenance, ordinal i quantity equivalence nie są tu projektowane przedwcześnie — to DB-COM-004.
+
+### 23.5. Retry i crash są bezpieczne
+
+Fulfillment ma jedną durable identity per Order.
+
+Jeżeli proces padnie **przed commit**, nie ma committed częściowych grantów ani `fulfilled_at`; ten sam `pending fulfillment` może zostać ponowiony.
+
+Jeżeli proces padnie **po commit**, granty i `fulfilled` są już zapisane razem. Retry widzi `fulfilled` i zwraca idempotentne „already fulfilled” bez drugiego zestawu skutków.
+
+Retryable błąd infrastrukturalny pozostawia recoverable `pending`. Semantyczna niespójność, której nie wolno automatycznie zgadywać, prowadzi do `requires_reconciliation`, bez częściowego grantu.
+
+Globalna kolejność locków Payment -> Fulfillment -> downstream inventory pozostaje świadomie DB-COM-008.
+
+### 23.6. Fulfillment nie przejmuje lifecycle licencji ani egzaminu
+
+Dla licencji commerce może jedynie utworzyć zakupione **one-unit inventory rows**. Nie przypisuje kursanta, nie aktywuje licencji, nie wykonuje revoke i nie modyfikuje entitlement stacking — te reguły pozostają authority DB4_6.
+
+Dla egzaminu commerce może jedynie utworzyć płatne jednostki inventory i wymagany grant-ledger effect. Nie tworzy Attempt, Reservation, Access i nie konsumuje jednostki. `consume-on-start` pozostaje authority DB4_7.
+
+Dla generic service payment/fulfillment **nie może oznaczać explicit activation**. Exact entitlement source i activation matrix pozostają DB-COM-007.
+
+### 23.7. Fulfillment attempts są historią, nie drugim source of truth
+
+`order_fulfillment_attempts` zapisuje append-only operational retry evidence: kolejny numer próby, czas rozpoczęcia/zakończenia, wynik `succeeded | retryable_failure | requires_reconciliation` oraz bezpieczny error code.
+
+Attempt history nie może sam oznaczyć Orderu jako fulfilled. Canonical completion nadal wynika wyłącznie z `order_fulfillments.fulfilled_at + state=fulfilled` zapisanych w tym samym commicie co wszystkie lokalne grant effects.
+
+Raw provider payload, sekrety i wrażliwe snapshoty nie są przechowywane w attempt history.
+
+### 23.8. External side effects nie wchodzą do transakcji grantu
+
+Atomowa granica DB-COM-003 dotyczy lokalnych rekordów biznesowych w PostgreSQL. Nie wykonujemy requestu do zewnętrznego providera wewnątrz transakcji, aby „dokończyć” fulfillment.
+
+Jeżeli dany produkt kiedyś wymaga zewnętrznej dostawy, najpierw musi istnieć committed lokalna authority, a dalsze delivery idzie przez późniejszy durable outbox/event contract. Fizyczne domknięcie outbox pozostaje DB4_10.
+
+### 23.9. Migration safety
+
+Stare `orders.status=paid` nie jest wystarczającym dowodem, aby backfillować `fulfilled`.
+
+Nie wolno również:
+- uznać przypadkowo istniejącego inventory za dowód fulfillmentu bez exact lineage,
+- uruchamiać nowych grantów tylko po to, aby migration wyglądała spójnie,
+- odtwarzać fulfillment z timestamp proximity albo podobieństwa kwoty/SKU.
+
+Dokładne legacy evidence classes i inventory-to-order-item reconciliation pozostają DB-COM-006. W tym blockerze zamykamy jedynie zasadę: **schema migration nie regrantuje produktów i nie fabrykuje fulfillment completion**.
+
+### 23.10. Preservation gate
+
+Zachowane bez zmian:
+- DB-FIN-001 i DB-FIN-002,
+- DB-COM-001 immutable order/item/catalog/pricing contract,
+- DB-COM-002 trusted payment settlement, zero-total resolution i reconciliation,
+- DB4_6 License Inventory / Assignment / Activation / Revoke,
+- DB4_7 Exam Inventory ledger / Reservation / consume-on-start,
+- explicit ServiceActivation != payment success,
+- exact item provenance i quantity pozostają DB-COM-004,
+- generic service entitlement source/activation pozostaje DB-COM-007,
+- purchase-history projection pozostaje DB-COM-005,
+- global lock order pozostaje DB-COM-008,
+- legacy reconciliation pozostaje DB-COM-006,
+- `core-schema.yml` i `docs/87...` nadal zamrożone,
+- DB4_10+, Stage 5, Laravel migrations i UI nieruszone.
+
+Stan po fixerze:
+- P0 OPEN: **0**,
+- P1 OPEN: **5**,
+- resolved: **5/10**,
+- result: **FAIL_WITH_5_P1_BLOCKERS**.
+
+Następny dozwolony krok po central gate: **DB-COM-004 only**.
+
+**STOP przed DB-COM-004.**
