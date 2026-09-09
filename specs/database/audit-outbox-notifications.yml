@@ -2,15 +2,15 @@ meta:
   project: osk-panel
   stage: 4
   slice: DB4_10_AUDIT_OUTBOX_NOTIFICATIONS
-  step: DB_NOT_001_FIXER
-  status: FAIL_WITH_2_P1_BLOCKERS
+  step: DB_NOT_002_FIXER
+  status: FAIL_WITH_1_P1_BLOCKER
   diagnosed_at: 2026-09-09
   branch: docs-consolidation-2026-09-05
   diagnosis_only: false
   fixes_applied_in_diagnosis_step: 0
-  current_fixer: DB-NOT-001
-  blockers_resolved: 6
-  open_P0_P1: 2
+  current_fixer: DB-NOT-002
+  blockers_resolved: 7
+  open_P0_P1: 1
   implementation_started: false
   Laravel_migrations_created: false
   Stage5_started: false
@@ -18,8 +18,8 @@ meta:
 
 scope_rule:
   diagnose_before_fixing: true
-  fixes_allowed_in_this_step: true_DB_NOT_001_only
-  current_step_scope: DB_NOT_001_only
+  fixes_allowed_in_this_step: true_DB_NOT_002_only
+  current_step_scope: DB_NOT_002_only
   one_blocker_per_future_step: true
   aggregate_files_frozen:
     specs/database/core-schema.yml: f3519060967085517329bc668fac02e5c1fd2dbd
@@ -285,6 +285,7 @@ blockers:
 
   - id: DB-NOT-002
     severity: P1
+    status: PASS
     title: notification_source_dedupe_mark_read_idempotency_and_lifecycle
     evidence:
       - notifications_have_no_exact_source_event_relation
@@ -1303,13 +1304,143 @@ resolved_contracts:
       - email_SMS_push_or_other_external_channel_not_added
       - DB_NOT_001_does_not_guess_legacy_membership_or_copy_shared_read_state
 
+
+  DB-NOT-002:
+    status: PASS
+    title: notification_source_dedupe_mark_read_idempotency_and_lifecycle
+    source_event_boundary:
+      add_field: source_event_id
+      required_for_new_runtime_rows: true
+      immutable_after_insert: true
+      exact_same_tenant_relation:
+        source_columns: [organization_id, source_event_id]
+        target_table: domain_events
+        target_columns: [organization_id, id]
+        on_update: RESTRICT
+        on_delete: RESTRICT
+      source_domain_event_must_have_event_scope: organization
+      notification_organization_id_must_equal_source_event_organization_id: true
+      source_event_id_is_server_derived_from_projector_input: true
+      client_request_id_outbox_id_timestamp_or_aggregate_similarity_as_source_identity: forbidden
+      notification_projection_is_read_model_not_business_authority: true
+    source_recipient_dedupe:
+      unique_key: [organization_id, source_event_id, organization_membership_id]
+      semantic: at_most_one_notification_row_for_one_logical_domain_event_and_exact_recipient_membership
+      user_id_equivalence_with_recipient_membership_still_required_by_DB_NOT_001: true
+      audience_kind_not_part_of_dedupe_identity: true
+      duplicate_direct_and_broadcast_projection_for_same_event_and_membership: reject_or_conflict_noop
+      at_least_once_outbox_or_projector_retry_expected: true
+      repeated_or_concurrent_projection_uses_unique_conflict_as_race_winner: true
+      loser_returns_or_skips_existing_notification_without_mutating_payload_recipient_or_read_state: true
+      same_source_event_may_create_distinct_rows_for_distinct_memberships: true
+      same_global_user_in_two_organizations_never_collides_or_cross_targets: true
+      request_id_or_Idempotency_Key_not_projection_dedupe_identity: true
+    notification_creation_lifecycle:
+      new_runtime_notification_read_at_initial_value: null
+      source_recipient_payload_type_audience_created_at_immutable_after_insert: true
+      normal_projector_UPDATE_existing_notification: forbidden
+      normal_application_DELETE_notification: forbidden
+      projector_retry_after_existing_row_does_not_reset_read_at: true
+      projector_retry_after_existing_row_does_not_rebuild_payload: true
+      notification_projection_failure_does_not_rollback_already_committed_domain_event: true
+      privileged_retention_or_legacy_cleanup: deferred_to_DB_EVT_001
+    read_at_state_machine:
+      states:
+        unread: read_at_IS_NULL
+        read: read_at_IS_NOT_NULL
+      allowed_normal_transition: unread_to_read_once
+      read_to_unread: forbidden
+      read_to_new_read_timestamp: forbidden
+      client_supplied_read_at: forbidden
+      first_transition_timestamp: server_database_or_transaction_time
+      write_once_database_guard: BEFORE_UPDATE_constraint_trigger_or_equivalent_column_guard
+      all_other_notification_fields_immutable_during_mark_read: true
+      direct_SQL_or_generic_model_update_cannot_clear_or_rewrite_read_at: true
+    mark_read_authorization_and_atomicity:
+      endpoint: POST_/notifications/{notificationId}/read
+      authorization_root: active_selected_organization_membership_plus_authenticated_user
+      mandatory_row_scope:
+        - id_equals_notificationId
+        - organization_id_equals_selected_membership_organization_id
+        - organization_membership_id_equals_selected_membership_id
+        - user_id_equals_authenticated_user_id
+      wrong_tenant_wrong_membership_or_wrong_user_uuid: not_found_or_forbidden_without_existence_leakage
+      row_lock_or_atomic_conditional_update_required: true
+      first_writer_transition: UPDATE_exact_scoped_row_SET_read_at_server_time_WHERE_read_at_IS_NULL
+      concurrent_writers:
+        one_writer_sets_read_at: true
+        all_losers_return_same_persisted_notification_without_rewrite: true
+      membership_must_still_be_active_at_command_time: true
+      suspended_or_revoked_membership_mark_read: denied
+      no_organization_admin_override_to_mark_another_membership_row_read_in_this_API: true
+    Idempotency_Key_contract:
+      Stage3_header_required: true
+      command_scope: authenticated_user_plus_selected_membership_plus_notifications_mark_read
+      request_target_identity: notification_id
+      same_key_same_target_and_same_principal: replay_same_success_without_second_transition
+      same_key_different_notification_or_principal_scope: conflict_or_reject_per_existing_idempotency_contract
+      different_key_after_already_read: semantic_noop_return_existing_notification
+      database_write_once_read_at_is_primary_business_idempotency_guard: true
+      idempotency_record_or_response_cache_loss_after_committed_read_does_not_permit_second_timestamp: true
+      retry_after_crash_reads_persisted_read_at_and_returns_stable_result: true
+      Idempotency_Key_does_not_replace_recipient_authorization_or_source_dedupe: true
+    mark_read_side_effect_boundary:
+      no_new_domain_event_required_by_DB_NOT_002_without_upstream_requirement: true
+      no_recursive_notification_or_outbox_created_for_mark_read: true
+      no_audit_requirement_invented_for_low_risk_read_state_when_not_required_upstream: true
+      if_existing_cross_cutting_idempotency_infrastructure_records_command_it_must_not_be_business_authority: true
+      notification_read_state_remains_authoritative_on_notifications_row: true
+    notifications_list_consistency:
+      unread_only_true_predicate: read_at_IS_NULL
+      unread_filter_applied_after_DB_NOT_001_exact_recipient_scope: true
+      read_row_disappears_from_future_unread_only_results_after_commit: true
+      ordinary_list_still_returns_read_row_with_original_read_at: true
+      no_mark_unread_or_delete_lifecycle_added: true
+    legacy_boundary:
+      existing_notification_without_exact_source_event_is_not_linked_by_timestamp_request_id_outbox_id_type_payload_or_same_tenant_similarity: true
+      existing_duplicate_candidates_are_not_deleted_or_merged_to_force_unique_constraint: true
+      existing_nonnull_read_at_is_not_rewritten_to_new_timestamp_or_cleared: true
+      existing_null_read_at_is_not_marked_read_during_migration: true
+      synthetic_domain_event_created_only_to_force_notification_source_constraint_pass: forbidden
+      legacy_source_dedupe_read_state_backfill_quarantine_and_phased_constraint_activation: deferred_to_DB_EVT_001
+      new_runtime_write_fence_requires_DB_NOT_002_contract: true
+    explicitly_not_closed_here:
+      - legacy_event_projection_backfill_retention_cleanup_DB_EVT_001
+      - exact_privacy_retention_duration
+      - external_notification_delivery_channels
+      - notification_delete_or_mark_unread_API
+      - new_notification_audience_segmentation
+      - DB4_10_final_aggregate_sync
+    required_tests:
+      - new_runtime_notification_requires_nonnull_exact_same_tenant_source_domain_event
+      - global_domain_event_cannot_source_organization_notification
+      - wrong_tenant_source_event_binding_is_rejected
+      - request_id_outbox_id_timestamp_or_aggregate_similarity_cannot_replace_source_event_id
+      - duplicate_projection_same_source_event_same_membership_creates_one_notification_row
+      - concurrent_projectors_same_source_event_same_membership_choose_one_insert_winner
+      - same_source_event_can_materialize_independent_rows_for_distinct_broadcast_memberships
+      - same_user_other_organization_notification_does_not_collide_or_cross_target
+      - projector_retry_does_not_reset_read_at_or_rebuild_existing_payload
+      - new_runtime_notification_starts_unread_with_read_at_null
+      - first_authorized_mark_read_sets_server_derived_read_at_once
+      - client_cannot_choose_read_at_timestamp
+      - second_same_Idempotency_Key_replay_returns_same_read_at_without_second_transition
+      - different_Idempotency_Key_after_already_read_is_noop_with_same_read_at
+      - concurrent_mark_read_requests_result_in_one_persisted_read_at_value
+      - read_at_cannot_be_cleared_or_rewritten_by_normal_application
+      - mark_read_wrong_membership_wrong_user_or_wrong_organization_cannot_target_row
+      - suspended_or_revoked_membership_cannot_mark_retained_notification_read
+      - unread_only_filter_applies_after_exact_recipient_scope_and_excludes_committed_read_row
+      - mark_read_does_not_invent_recursive_domain_event_outbox_or_notification
+      - DB_NOT_002_does_not_guess_legacy_source_or_rewrite_legacy_read_state
+
 diagnosis_summary:
   diagnosed_P0: 0
   diagnosed_P1: 8
   fixes_applied_in_diagnosis_step: 0
-  resolved_after_diagnosis: 6
-  open_P0_P1: 2
-  result: FAIL_WITH_2_P1_BLOCKERS
+  resolved_after_diagnosis: 7
+  open_P0_P1: 1
+  result: FAIL_WITH_1_P1_BLOCKER
   blockers_in_required_fix_order:
     - DB-AUD-001
     - DB-AUD-002
@@ -1321,16 +1452,17 @@ diagnosis_summary:
     - DB-EVT-001
 
 next_single_step_after_central_gate:
-  id: DB_NOT_002_NOTIFICATION_SOURCE_DEDUPE_MARK_READ_IDEMPOTENCY_AND_LIFECYCLE
-  action: resolve_DB_NOT_002_only_after_next_explicit_user_instruction
+  id: DB_EVT_001_LEGACY_EVENT_PROJECTION_BACKFILL_RETENTION_AND_CLEANUP_SAFETY
+  action: resolve_DB_EVT_001_only_after_next_explicit_user_instruction
   allowed_files_only:
     - specs/database/audit-outbox-notifications.yml
     - docs/115-stage-4-audit-outbox-notifications-audit.md
     - specs/gates/stage-4-database-contract-gate.yml
   aggregate_files_currently_frozen: true
   scope_lock: >-
-    DB-AUD-001, DB-AUD-002, DB-OUT-001, DB-OUT-002, DB-ACT-001 and
-    DB-NOT-001 are PASS. Resolve DB-NOT-002 only in the next fixer transaction.
-    Keep DB-EVT-001 OPEN. Do not modify core-schema.yml or docs/87, do not
-    enter DB4_11, Stage 5, Laravel migrations or UI.
-  stop_before: DB_NOT_002
+    DB-AUD-001, DB-AUD-002, DB-OUT-001, DB-OUT-002, DB-ACT-001, DB-NOT-001
+    and DB-NOT-002 are PASS. Resolve DB-EVT-001 only in the next fixer
+    transaction. Do not modify core-schema.yml or docs/87, do not enter DB4_11,
+    Stage 5, Laravel migrations or UI. DB4_10 final aggregate sync remains
+    blocked until DB-EVT-001 is closed and separately authorized.
+  stop_before: DB_EVT_001
