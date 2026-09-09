@@ -2,8 +2,8 @@ meta:
   project: osk-panel
   stage: 4
   slice: DB4_9_STUDENT_FINANCE_COMMERCE
-  step: DB_COM_001_ORDER_ITEM_TENANT_PRODUCT_SNAPSHOT_PRICE_TOTAL_AND_QUANTITY_INTEGRITY
-  status: FAIL_WITH_7_P1_BLOCKERS
+  step: DB_COM_002_PAYMENT_ATTEMPT_EVENT_ORDER_STATE_IDEMPOTENCY_AND_RECONCILIATION
+  status: FAIL_WITH_6_P1_BLOCKERS
   diagnosed_at: 2026-09-08
   branch: docs-consolidation-2026-09-05
   diagnosis_only: false
@@ -16,7 +16,7 @@ meta:
 scope_rule:
   diagnose_before_fixing: true
   fixes_allowed_in_this_step: true
-  current_step_scope: DB_COM_001_only
+  current_step_scope: DB_COM_002_only
   one_blocker_per_future_step: true
   aggregate_files_frozen:
     specs/database/core-schema.yml:
@@ -688,6 +688,297 @@ resolved_contracts:
       Laravel_migrations_created: false
       UI_or_feature_implementation_started: false
 
+  DB-COM-002:
+    status: PASS
+    severity: P1
+    title: payment_attempt_event_order_state_idempotency_and_reconciliation
+    scope_boundary:
+      closes_only_payment_attempt_event_order_payment_resolution_and_reconciliation_integrity: true
+      paid_order_fulfillment_and_inventory_grant_deferred_to_DB_COM_003: true
+      order_item_to_downstream_grant_provenance_deferred_to_DB_COM_004_and_DB_COM_007: true
+      purchase_history_display_status_and_booked_at_projection_deferred_to_DB_COM_005: true
+      global_cross_domain_lock_order_deferred_to_DB_COM_008: true
+      refund_chargeback_invoice_and_provider_specific_payload_contracts_not_invented: true
+    payment_model:
+      payments_table_role: platform_payment_attempt_ledger
+      multiple_attempts_per_order_allowed: true
+      external_money_confirmation_is_not_the_same_as_order_business_settlement: true
+      exactly_one_order_business_settlement_for_nonzero_order: true
+      browser_return_is_confirmation_authority: false
+      direct_bank_transfer_supported_as_reconciliation_confirmed_payment_rail: true
+    required_candidate_keys:
+      orders_exact_payable_snapshot:
+        columns: [organization_id, id, total_amount_minor, currency]
+        unique_constraint_required: true
+      payments_exact_event_target:
+        columns: [organization_id, id, provider, provider_payment_id]
+        unique_constraint_required_when_provider_payment_id_nonnull: true
+      payments_exact_order_target:
+        columns: [organization_id, id, order_id]
+        unique_constraint_required: true
+      payment_events_exact_payment_target:
+        columns: [organization_id, id, payment_id]
+        unique_constraint_required: true
+      order_payment_settlements_exact_source:
+        columns: [organization_id, order_id, payment_id]
+        unique_constraint_required: true
+    payments_final_fields_or_semantics:
+      organization_id:
+        nullable: false
+        derived_from_exact_order: true
+      order_id: {nullable: false}
+      provider:
+        nullable: false
+        meaning: stable_payment_provider_or_internal_payment_rail_code
+        direct_bank_transfer_internal_rail_allowed: true
+      provider_payment_id:
+        nullable: true
+        nullable_only_before_external_reference_exists_or_for_rail_without_provider_transaction_id: true
+        partial_unique: [provider, provider_payment_id]
+        partial_unique_where: provider_payment_id_is_not_null
+        immutable_once_nonnull: true
+      public_payment_reference:
+        required: true
+        unpredictable: true
+        globally_unique_or_equivalent_high_entropy_unique_boundary: true
+        order_display_number_reuse_for_public_payment_reference: forbidden
+      status:
+        values: [pending, confirmed, failed]
+        initial: pending
+        direct_mutable_string_patch: forbidden
+      amount_minor:
+        nullable: false
+        check: gte_0
+        exact_parent_authority: orders.total_amount_minor
+      currency:
+        nullable: false
+        exact_parent_authority: orders.currency
+      confirmed_at: {nullable: true, write_once: true}
+      failed_at: {nullable: true, write_once: true}
+      terminal_timestamp_matrix:
+        pending: {confirmed_at: null, failed_at: null}
+        confirmed: {confirmed_at: nonnull, failed_at: null}
+        failed: {confirmed_at: null, failed_at: nonnull}
+      terminal_state_rewrite_in_place: forbidden
+    relations:
+      payment_exact_order_amount_currency:
+        source: payments[organization_id,order_id,amount_minor,currency]
+        target: orders[organization_id,id,total_amount_minor,currency]
+        on_update: RESTRICT
+        on_delete: RESTRICT
+        effect: every_attempt_is_for_the_exact_tenant_order_full_payable_snapshot
+      payment_event_exact_payment_provider_reference:
+        source: payment_events[organization_id,payment_id,provider,provider_payment_id]
+        target: payments[organization_id,id,provider,provider_payment_id]
+        applies_when: payment_event_exists
+        on_update: RESTRICT
+        on_delete: RESTRICT
+        effect: event_cannot_be_attached_to_another_tenant_provider_or_provider_payment_reference
+      settlement_exact_order:
+        source: order_payment_settlements[organization_id,order_id]
+        target: orders[organization_id,id]
+        on_update: RESTRICT
+        on_delete: RESTRICT
+      settlement_exact_payment_order:
+        source: order_payment_settlements[organization_id,payment_id,order_id]
+        target: payments[organization_id,id,order_id]
+        on_update: RESTRICT
+        on_delete: RESTRICT
+        effect: settlement_payment_must_be_an_attempt_for_the_exact_same_order
+      settlement_optional_source_event_exact_payment:
+        source: order_payment_settlements[organization_id,source_payment_event_id,payment_id]
+        target: payment_events[organization_id,id,payment_id]
+        nullable_relation: true
+        nullability_driver: source_payment_event_id
+        on_update: RESTRICT
+        on_delete: RESTRICT
+    payment_events_final_fields_or_semantics:
+      organization_id:
+        nullable: false
+        derived_from_exact_payment: true
+      payment_id: {nullable: false}
+      provider: {nullable: false}
+      provider_payment_id: {nullable: false}
+      provider_event_id: {nullable: false}
+      provider_event_dedupe_unique: [provider, provider_event_id]
+      event_type:
+        retained_raw_provider_event_type: true
+        business_state_authority_without_adapter_normalization: false
+      normalized_outcome:
+        values: [pending, confirmed, failed, informational]
+        server_adapter_owned: true
+        exact_provider_payload_mapping_deferred_to_Stage5: true
+      payload_hash:
+        immutable: true
+        payload_is_not_client_business_authority: true
+      received_at: {nullable: false}
+      processed_at: {nullable: true, write_once: true}
+      application_result:
+        values: [state_applied, no_change_duplicate_or_stale, conflict_requires_reconciliation]
+        nullable_until_processed: true
+      append_only_raw_event_identity: true
+    payment_attempt_state_machine:
+      pending_to_pending_event: no_state_change
+      pending_to_confirmed_on_trusted_confirmation: allowed
+      pending_to_failed_on_trusted_terminal_failure: allowed
+      confirmed_to_pending_or_failed: forbidden
+      failed_to_pending_or_confirmed_automatically: forbidden
+      same_terminal_outcome_again: no_state_change_duplicate_or_stale
+      conflicting_terminal_outcome_after_terminal_state: conflict_requires_reconciliation
+      late_failure_cannot_revert_confirmed_payment: true
+      late_confirmation_after_recorded_terminal_failure_is_not_silently_applied: true
+    trusted_confirmation_authority:
+      provider_event:
+        signature_verified_before_event_acceptance: true
+        provider_and_provider_payment_reference_exact_binding_required: true
+        normalized_confirmed_outcome_required: true
+      reconciliation:
+        explicit_authenticated_privileged_command: true
+        independent_provider_or_bank_evidence_required: true
+        reconciliation_reason_or_reference_required: true
+        generic_Idempotency_Key_required: true
+        may_confirm_or_fail_pending_attempt: true
+        may_silently_rewrite_terminal_attempt: false
+      browser_redirect_or_frontend_success_flag: forbidden
+      unverified_provider_payload: forbidden
+    order_payment_settlements:
+      role: single_business_authority_that_a_nonzero_order_is_paid
+      fields:
+        - organization_id
+        - order_id
+        - payment_id
+        - settled_at
+        - confirmation_source
+        - source_payment_event_id_nullable
+        - reconciled_by_user_id_nullable
+        - reconciliation_reason_nullable
+        - created_at
+      one_settlement_per_order:
+        unique: [organization_id, order_id]
+      one_payment_settles_at_most_one_order:
+        unique: [organization_id, payment_id]
+      confirmation_source_values: [provider_event, reconciliation]
+      source_matrix:
+        provider_event:
+          source_payment_event_id: required
+          reconciled_by_user_id: null
+          reconciliation_reason: null
+        reconciliation:
+          source_payment_event_id: null
+          reconciled_by_user_id: required
+          reconciliation_reason: required
+      insertion_requires_payment_status_confirmed: true
+      insertion_and_first_paid_business_effect_same_transaction: true
+      settlement_row_update_to_different_payment: forbidden
+      settlement_hard_delete_as_normal_correction: forbidden
+    confirmation_transaction:
+      exact_order_is_local_serialization_root_for_settlement_claim: true
+      first_trusted_confirmed_attempt_when_no_settlement:
+        - lock_exact_order
+        - record_payment_attempt_confirmed_state_and_timestamp
+        - insert_exact_order_payment_settlement
+        - derive_order_payment_projection_paid
+        - commit_once
+      second_trusted_confirmed_attempt_when_settlement_already_exists:
+        record_external_payment_truth_as_confirmed: true
+        insert_second_settlement: false
+        trigger_second_purchase_or_grant_business_effect: false
+        confirmed_nonsettling_attempt_requires_reconciliation: true
+        physical_audit_outbox_notification_storage_deferred_to_DB4_10: true
+      unique_order_settlement_constraint_is_final_concurrency_boundary: true
+      DB_COM_003_consumes_settlement_not_browser_return_or_raw_payment_status: true
+      global_lock_order_with_fulfillment_and_downstream_inventory: DB_COM_008
+    order_payment_projection:
+      canonical_values: [unpaid, pending, paid]
+      independent_client_mutable_orders_status_authority: forbidden
+      paid_when:
+        - valid_nonzero_order_payment_settlement_exists
+        - valid_zero_total_internal_settlement_exists
+      pending_when: no_paid_resolution_and_at_least_one_payment_attempt_pending
+      unpaid_when: no_paid_resolution_and_no_payment_attempt_pending
+      failed_attempts_do_not_make_order_paid: true
+      materialized_projection_if_kept_must_be_transactionally_guarded: true
+      purchase_history_display_label_mapping: DB_COM_005
+    zero_total_order_semantics:
+      allowed_only_when_authoritative_order_total_amount_minor_eq_0: true
+      external_payment_attempt_required: false
+      orders_add_zero_total_settled_at_nullable: true
+      zero_total_settled_at_required_for_zero_total_order_after_creation_commit: true
+      zero_total_settled_at_for_nonzero_order: forbidden
+      zero_total_settled_at_server_owned_write_once: true
+      zero_total_paid_resolution_created_atomically_with_order_creation: true
+      zero_total_resolution_may_trigger_DB_COM_003_fulfillment_but_that_grant_contract_is_not_defined_here: true
+    idempotency_and_retry:
+      payment_initiation_authority: infrastructure_idempotency_records
+      payment_initiation_operation_key: commerce.payment.create
+      reconciliation_operation_key: commerce.payment.reconcile
+      same_Idempotency_Key_same_hash_completed: replay_same_result_without_new_attempt_or_second_effect
+      same_Idempotency_Key_different_request_hash: conflict
+      event_deduplication_is_independent_from_command_idempotency: true
+      provider_event_dedupe_key: [provider, provider_event_id]
+      duplicate_event_never_reapplies_state_or_settlement: true
+      new_payment_attempt_with_new_idempotency_key_allowed_only_when_order_has_no_settlement: true
+      multiple_pending_attempts_may_exist_when_external_provider_or_timeout_semantics_require_it: true
+      safety_against_parallel_success_comes_from_order_settlement_uniqueness_not_from_assuming_one_attempt: true
+    direct_bank_transfer:
+      represented_as_payment_attempt_with_stable_internal_provider_or_rail_code: true
+      browser_or_user_claim_of_transfer_is_confirmation: false
+      provider_event_required: false
+      confirmed_only_by_trusted_reconciliation_evidence_in_current_contract: true
+      remains_pending_until_reconciled_or_explicitly_failed: true
+    migration_policy:
+      payment_events_add_organization_id_backfill_source: exact_parent_payment_only
+      payment_events_add_provider_payment_id_backfill_source: exact_parent_payment_only
+      event_provider_mismatch_with_parent_payment: fail_and_require_reviewed_remediation
+      payment_amount_or_currency_different_from_exact_order_snapshot: fail_and_require_reviewed_remediation
+      legacy_paid_order_status_alone_is_not_evidence_to_fabricate_settlement: true
+      browser_return_timestamp_is_not_payment_confirmation_evidence: true
+      if_exactly_one_proven_confirmed_payment_for_order_and_trustworthy_confirmation_evidence_exists_settlement_may_be_backfilled: true
+      multiple_plausible_confirmed_payments_for_one_order_auto_choose_winner: forbidden
+      choose_payment_by_nearest_timestamp_amount_or_provider_guess: forbidden
+      direct_bank_transfer_paid_backfill_without_trusted_reconciliation_evidence: forbidden
+      zero_total_order_resolution_backfill_requires_proven_zero_authoritative_total_and_valid_order_lines: true
+      ambiguous_payment_or_settlement_history: fail_and_require_reviewed_remediation
+      hard_delete_payment_or_event_to_make_constraints_pass: forbidden
+    required_tests:
+      - payment_wrong_tenant_order_rejected
+      - payment_amount_different_from_order_total_rejected
+      - payment_currency_different_from_order_currency_rejected
+      - payment_event_wrong_tenant_payment_rejected
+      - payment_event_provider_different_from_payment_rejected
+      - payment_event_provider_payment_id_different_from_payment_rejected
+      - duplicate_provider_event_id_replays_without_second_state_or_settlement_effect
+      - browser_return_cannot_confirm_payment_or_settle_order
+      - pending_payment_confirmation_sets_confirmed_at_and_not_failed_at
+      - pending_payment_terminal_failure_sets_failed_at_and_not_confirmed_at
+      - late_failure_cannot_revert_confirmed_payment
+      - conflicting_terminal_event_is_recorded_for_reconciliation_without_silent_terminal_rewrite
+      - two_concurrent_confirmed_attempts_can_create_only_one_order_settlement
+      - second_confirmed_attempt_after_settlement_cannot_trigger_second_business_effect
+      - same_payment_creation_idempotency_key_same_hash_returns_same_attempt
+      - same_payment_creation_idempotency_key_different_hash_conflicts
+      - direct_bank_transfer_remains_pending_until_trusted_reconciliation
+      - zero_total_order_is_paid_without_external_payment_and_nonzero_order_cannot_use_zero_total_resolution
+      - legacy_paid_status_without_proven_confirmation_fails_migration_without_fabricated_settlement
+      - ambiguous_multiple_legacy_payment_candidates_fail_without_timestamp_winner_heuristic
+    preservation_checks:
+      DB_FIN_001_and_DB_FIN_002_contracts_unchanged: PASS
+      DB_COM_001_order_item_catalog_pricing_snapshot_contract_unchanged: PASS
+      one_order_may_have_multiple_payment_attempts_preserved: PASS
+      unpaid_order_can_be_paid_later_preserved: PASS
+      PayU_and_direct_bank_transfer_capabilities_preserved_without_provider_payload_invention: PASS
+      browser_return_not_paid_authority_preserved: PASS
+      generic_command_idempotency_and_provider_event_dedupe_remain_distinct: PASS
+      license_and_exam_inventory_not_granted_in_DB_COM_002: PASS
+      explicit_service_activation_not_payment_success_preserved: PASS
+      DB_COM_003_through_DB_COM_008_unchanged: PASS
+      aggregate_core_schema_modified: false
+      aggregate_docs87_modified: false
+      DB4_10_or_later_entered: false
+      Stage5_started: false
+      Laravel_migrations_created: false
+      UI_or_feature_implementation_started: false
+
 blockers:
   - id: DB-FIN-001
     title: student_finance_same_tenant_exact_charge_payment_course_integrity
@@ -764,7 +1055,8 @@ blockers:
   - id: DB-COM-002
     title: payment_attempt_event_order_state_idempotency_and_reconciliation
     severity: P1
-    status: OPEN
+    status: RESOLVED
+    resolution_ref: resolved_contracts.DB-COM-002
     diagnosis:
       - unpaid_order_can_have_later_payment_attempts_and_browser_return_alone_must_not_mark_it_paid
       - current_order_and_payment_status_columns_are open strings without a closed transition matrix
@@ -920,15 +1212,15 @@ blockers:
 diagnosis_summary:
   diagnosed_P0: 0
   diagnosed_P1: 10
-  resolved_after_diagnosis: 3
-  open_P0_P1: 7
-  result: FAIL_WITH_7_P1_BLOCKERS
+  resolved_after_diagnosis: 4
+  open_P0_P1: 6
+  result: FAIL_WITH_6_P1_BLOCKERS
   resolved_blockers:
     - DB-FIN-001
     - DB-FIN-002
     - DB-COM-001
-  blockers_in_required_fix_order:
     - DB-COM-002
+  blockers_in_required_fix_order:
     - DB-COM-003
     - DB-COM-004
     - DB-COM-007
@@ -936,15 +1228,19 @@ diagnosis_summary:
     - DB-COM-008
     - DB-COM-006
 preservation_gate:
-  status: PASS_DB_COM_001_MACHINE_CONTRACT
+  status: PASS_DB_COM_002_MACHINE_CONTRACT
   checks:
     student_finance_and_platform_commerce_remain_distinct: true
     DB4_6_license_inventory_assignment_activation_contract_preserved: true
     DB4_7_internal_exam_inventory_reservation_consumption_contract_preserved: true
     DB4_8_PKK_contract_preserved: true
+    DB_COM_001_order_item_catalog_pricing_snapshot_contract_preserved: true
     generic_idempotency_model_preserved: true
     payment_event_dedupe_provider_event_id_preserved: true
+    browser_return_not_payment_confirmation_authority_preserved: true
+    direct_bank_transfer_capability_preserved: true
     explicit_service_activation_not_payment_success_preserved: true
+    DB_COM_003_through_DB_COM_008_not_fixed_early: true
     no_refund_chargeback_invoice_provider_specific_semantics_invented: true
     aggregate_core_schema_modified: false
     aggregate_docs87_modified: false
@@ -954,6 +1250,6 @@ preservation_gate:
     UI_or_feature_implementation_started: false
 
 next_single_step_after_central_gate:
-  id: DB_COM_002_PAYMENT_ATTEMPT_EVENT_ORDER_STATE_IDEMPOTENCY_AND_RECONCILIATION
-  action: resolve_DB_COM_002_only_after_next_explicit_user_instruction
-  stop_before: DB_COM_003_PAID_ORDER_EXACTLY_ONCE_GRANT_ORCHESTRATION_AND_ATOMICITY
+  id: DB_COM_003_PAID_ORDER_EXACTLY_ONCE_GRANT_ORCHESTRATION_AND_ATOMICITY
+  action: resolve_DB_COM_003_only_after_next_explicit_user_instruction
+  stop_before: DB_COM_004_ORDER_ITEM_TO_LICENSE_EXAM_SERVICE_GRANT_EXACT_PROVENANCE_AND_QUANTITY_EQUIVALENCE
