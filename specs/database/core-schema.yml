@@ -11,6 +11,7 @@ meta:
   DB4_6_licenses_learning_access_aggregate_sync: PASS
   DB4_7_internal_exams_machine_aggregate_sync: PASS
   DB4_8_PKK_machine_aggregate_sync: PASS
+  DB4_9_student_finance_commerce_machine_aggregate_sync: PASS
 
 conventions:
   primary_key:
@@ -162,6 +163,7 @@ core_tables:
   student_finance:
     - student_charges
     - student_payments
+    - course_cost_charge_origins
 
   licenses:
     - license_products
@@ -190,10 +192,13 @@ core_tables:
     - internal_exam_documents
 
   commerce:
+    - commerce_catalog_items
     - orders
     - order_items
     - payments
     - payment_events
+    - order_payment_settlements
+    - order_fulfillments
     - service_entitlements
     - service_activations
 
@@ -1630,6 +1635,237 @@ internal_exams_model:
     DB4_9_payment_grant_boundary_not_entered: true
     DB4_10_final_audit_outbox_shape_not_entered: true
 
+student_finance_commerce_model:
+  bounded_context_source: specs/database/student-finance-commerce.yml
+  audit_source: docs/114-stage-4-student-finance-commerce-audit.md
+  aggregate_sync_status: PASS
+  resolved_blockers: [DB-FIN-001, DB-FIN-002, DB-COM-001, DB-COM-002, DB-COM-003, DB-COM-004, DB-COM-007, DB-COM-005, DB-COM-008, DB-COM-006]
+
+  bounded_context_boundary:
+    student_finance_role: OSK_internal_student_receivables_and_received_payment_ledger
+    platform_commerce_role: OSK_purchase_of_platform_products_and_services
+    student_payments_are_platform_payments: false
+    platform_payments_are_student_payments: false
+    cross_domain_money_lock_root_shared: false
+    license_inventory_lifecycle_owner: specs/database/licenses-learning-access.yml
+    internal_exam_inventory_lifecycle_owner: specs/database/internal-exams.yml
+    DB4_9_role_for_specialized_inventory: exact_purchase_provenance_and_exactly_once_grant_only
+
+  student_finance:
+    exact_target_integrity:
+      charge_student_same_tenant_FK: student_charges[organization_id,student_id]_to_students[organization_id,id]
+      optional_charge_course_exact_student_FK: student_charges[organization_id,course_enrollment_id,student_id]_to_course_enrollments[organization_id,id,student_id]
+      payment_exact_charge_student_currency_FK: student_payments[organization_id,charge_id,student_id,currency]_to_student_charges[organization_id,id,student_id,currency]
+      formal_relation_on_update: RESTRICT
+      formal_relation_on_delete: RESTRICT
+      repeated_tenant_student_currency_fields_are_integrity_keys_not_client_authority: true
+      cross_tenant_or_wrong_student_auto_reparent: forbidden
+    charge_authority:
+      durable_state_source: cancelled_at_tuple_plus_payment_ledger
+      mutable_status_column_as_second_authority_after_cutover: forbidden
+      cancellation_tuple: [cancelled_at, cancelled_by_user_id, cancellation_reason]
+      cancellation_tuple_all_null_or_all_nonnull: true
+      cancellation_write_once: true
+      uncancel: forbidden
+      cancellation_requires_zero_valid_payment_total: true
+      immutable_after_insert: [organization_id, student_id, course_enrollment_id, amount_minor, currency]
+    payment_authority:
+      amount_minor_positive: true
+      valid_payment_predicate: reversed_at_is_null
+      reversal_tuple: [reversed_at, reversed_by_user_id, reversal_reason]
+      reversal_tuple_all_null_or_all_nonnull: true
+      reversal_write_once: true
+      second_reversal: forbidden
+      unreverse: forbidden
+      hard_delete_after_insert: forbidden
+      immutable_except_reversal_tuple: [organization_id, student_id, charge_id, amount_minor, currency, paid_at, payment_method, note, received_by_user_id, created_at]
+    derived_projection:
+      paid_amount_minor: SUM_student_payments_amount_minor_where_reversed_at_is_null
+      remaining_amount_minor: charge_amount_minor_minus_paid_amount_minor
+      remaining_amount_minor_gte_zero: true
+      collection_states: [open, partially_paid, paid, cancelled]
+      overdue_is_modifier_not_second_persisted_business_state: true
+      frontend_mutable_finance_summary: forbidden
+    idempotency:
+      authority: idempotency_records
+      commands:
+        create_charge: student_finance.charge.create
+        record_payment: student_finance.payment.record
+        reverse_payment: student_finance.payment.reverse
+        cancel_charge: student_finance.charge.cancel
+        create_from_course_cost: student_finance.charge.create_from_course_cost
+      same_key_same_request_replay_second_effect: false
+      same_key_different_request: conflict
+    concurrency:
+      money_command_root: exact_student_charge_row_FOR_UPDATE
+      money_affecting_commands: [record_payment, reverse_payment, cancel_charge]
+      remaining_balance_recomputed_under_charge_lock: true
+      MVP_overpayment_allowed: false
+      cancel_vs_payment_vs_reversal_serialized: true
+      audit_outbox_intent_same_transaction: true
+      audit_outbox_physical_shape: DB4_10
+    course_cost_source_effect:
+      durable_origin_table: course_cost_charge_origins
+      unique_source: [organization_id, course_enrollment_id]
+      exact_course_student_relation_required: true
+      exact_created_charge_relation_required: true
+      source_amount_currency_snapshot_server_owned_immutable: true
+      concurrency_root: exact_course_enrollment_row_FOR_UPDATE
+      second_idempotency_key_for_same_course_may_create_second_auto_charge: false
+      manual_charge_with_optional_course_context_is_course_cost_origin: false
+      later_repricing_semantics_invented: false
+
+  platform_commerce:
+    catalog:
+      table: commerce_catalog_items
+      tenant_owned: false
+      product_kind_values: [license, internal_exam, generic_service]
+      stable_code_unique: true
+      license_kind_requires_exact_license_product_id: true
+      nonlicense_kind_does_not_invent_specialized_product_table: true
+      immutable_identity_after_first_order_reference: [code, product_kind, license_product_id]
+    order:
+      tenant_candidate_key: [organization_id, id]
+      currency_candidate_key: [organization_id, id, currency]
+      order_sequence_scope: [organization_id, order_sequence]
+      order_sequence_minimum: 1
+      order_sequence_server_allocated_and_immutable: true
+      display_number_is_not_payment_or_authorization_secret: true
+      ordered_at_server_owned_write_once: true
+      booked_at_server_owned_null_to_nonnull_once: true
+      booked_at_cannot_be_cleared_or_rewritten: true
+      zero_total_settled_at_server_owned_write_once_at_order_creation_when_total_zero: true
+      mutable_legacy_status_as_second_authority_after_cutover: forbidden
+    order_item:
+      organization_id_required: true
+      exact_order_currency_relation: order_items[organization_id,order_id,currency]_to_orders[organization_id,id,currency]
+      exact_catalog_kind_relation: order_items[commerce_catalog_item_id,product_kind]_to_commerce_catalog_items[id,product_kind]
+      quantity_positive: true
+      money_minor_units_not_float: true
+      immutable_product_display_price_VAT_discount_snapshot_required: true
+      line_total_formula_server_authoritative: true
+      order_total_equals_sum_line_totals: true
+      client_price_discount_VAT_or_total_authority: false
+      legacy_product_type_plus_generic_reference_runtime_authority_after_cutover: false
+    payment_attempt:
+      table: payments
+      statuses: [pending, confirmed, failed]
+      exact_order_amount_currency_snapshot_relation_required: true
+      provider_payment_id_partial_unique_preserved: true
+      terminal_status_never_silently_rewritten: true
+      late_failed_event_cannot_revert_confirmed: true
+      conflicting_terminal_outcome: conflict_requires_reconciliation
+      browser_redirect_confirmation_authority: false
+      direct_bank_transfer_starts_as_pending_until_trusted_reconciliation: true
+    payment_event:
+      table: payment_events
+      organization_id_required: true
+      exact_payment_provider_binding_required: true
+      provider_event_dedupe: [provider, provider_event_id]
+      duplicate_or_out_of_order_event_rechecks_current_payment_state: true
+      raw_or_unverified_webhook_is_payment_confirmation_authority: false
+    trusted_confirmation:
+      accepted_sources: [signature_verified_provider_event_normalized_confirmed, privileged_reviewed_reconciliation_with_independent_provider_or_bank_evidence]
+      browser_return_or_frontend_success_accepted: false
+      amount_provider_timestamp_or_UUID_heuristic_accepted: false
+    settlement:
+      durable_table: order_payment_settlements
+      role: sole_one_per_order_nonzero_payment_business_settlement_authority
+      unique_per_order: true
+      payment_applied_to_at_most_one_settlement: true
+      first_trusted_confirmed_attempt_under_order_serialization_creates_settlement: true
+      second_confirmed_payment_preserves_external_truth_but_creates_second_business_effect: false
+      confirmed_nonsettling_payment_requires_reconciliation: true
+      nonzero_paid_projection_requires_settlement: true
+      zero_total_paid_resolution_uses_order_zero_total_settled_at: true
+    payment_projection:
+      canonical_values: [unpaid, pending, paid]
+      derived_not_independent_mutable_label: true
+    fulfillment:
+      durable_table: order_fulfillments
+      one_row_per_order: true
+      statuses: [pending, fulfilled, requires_reconciliation]
+      nonzero_trigger_authority: exact_order_payment_settlement
+      zero_total_trigger_authority: orders.zero_total_settled_at
+      payment_resolution_and_pending_fulfillment_created_atomically: true
+      fulfillment_transaction_creates_all_local_grant_effects_or_none: true
+      fulfilled_only_after_complete_exact_grant_set: true
+      retry_after_fulfilled_creates_second_grant_set: false
+      requires_reconciliation_blocks_automatic_grant_worker: true
+      browser_return_raw_webhook_or_loose_payment_status_can_trigger_fulfillment: false
+    purchase_grant_provenance:
+      purchase_source_fields: [source_order_item_id, source_order_item_grant_ordinal]
+      ordinal_minimum: 1
+      ordinal_maximum: exact_parent_order_item_quantity
+      unique_purchase_unit_per_order_item_ordinal: true
+      quantity_N_requires_exactly_N_proven_downstream_units: true
+      paid_license_requires_exact_license_product_match: true
+      paid_internal_exam_requires_source_type_paid: true
+      generic_service_purchase_requires_exact_generic_service_order_item: true
+      free_adjustment_operator_grant_may_be_relabelled_paid: false
+      downstream_lifecycle_redefined_by_commerce: false
+    generic_service_entitlement:
+      table: service_entitlements
+      source_XOR: exact_purchase_or_operator_grant_never_both_or_neither
+      purchase_source_same_tenant_exact_order_item_required: true
+      activation_modes: [immediate, explicit]
+      explicit_payment_success_is_activation: false
+      explicit_fulfillment_finishes_as_available_without_activation: true
+      immediate_fulfillment_creates_entitlement_and_exact_activation_atomically: true
+      activation_table: service_activations
+      activation_unique_per_entitlement: true
+      activation_same_tenant_exact_entitlement_binding_required: true
+      activation_mode_status_activation_final_state_equivalence_required: true
+    purchase_history:
+      number_source: orders.order_sequence
+      order_date_source: orders.ordered_at
+      booking_date_source: orders.booked_at
+      amount_source: immutable_order_total_snapshot
+      status_source: payment_projection_plus_fulfillment_projection
+      default_order: [ordered_at_DESC, order_sequence_DESC, id_DESC]
+      mutable_history_status_or_number_second_authority: forbidden
+      Stage3_per_page_1_to_100_preserved: true
+      offset_pagination_snapshot_stability_under_new_concurrent_orders_claimed: false
+    concurrency:
+      platform_commerce_root: exact_orders_row_FOR_UPDATE
+      command_local_idempotency_or_provider_event_dedupe_before_business_row_locks: true
+      canonical_lock_order: [exact_order, relevant_payments_by_id_ASC, existing_order_payment_settlement, existing_order_fulfillment, immutable_order_items_by_id_ASC, purchase_grants_by_order_item_id_ASC_then_grant_ordinal_ASC]
+      reverse_downstream_to_order_lock_path: forbidden
+      provider_network_or_browser_wait_while_business_DB_lock_held: false
+      payment_creation_vs_settlement_serialized_on_order: true
+      webhook_vs_manual_reconciliation_serialized_on_order_then_payment: true
+      duplicate_fulfillment_workers_commit_at_most_one_grant_set: true
+      explicit_service_activation_reenters_order_lock: false
+      later_license_assignment_or_exam_reservation_reenters_commerce_transaction: false
+      deadlock_or_serialization_retry: whole_command_from_idempotency_boundary
+      audit_outbox_intent_same_transaction: true
+      audit_outbox_physical_shape: DB4_10
+
+  migration_safety:
+    evidence_classes: [safe_exact_derivation, proven_historical_fact, reviewed_exact_remediation, unresolved_ambiguity]
+    unresolved_ambiguity: fail_and_block_constraint_activation
+    timestamp_UUID_amount_same_tenant_name_duration_current_price_nearest_row_as_lineage_evidence: forbidden
+    browser_return_created_at_updated_at_or_migration_current_time_as_payment_or_business_date_authority: forbidden
+    order_item_tenant_may_be_exactly_derived_from_proven_parent_order: true
+    product_linkage_requires_exact_reference_or_reviewed_mapping: true
+    historical_price_recomputed_from_current_catalog: forbidden
+    settlement_reconstructed_from_legacy_paid_string_alone: forbidden
+    payment_winner_or_provider_event_selected_heuristically: forbidden
+    inventory_to_order_item_pairing_heuristic: forbidden
+    migration_runs_fulfillment_worker_or_grant_command: forbidden
+    settled_order_without_proven_complete_grants: requires_reconciliation_not_pending_or_fulfilled
+    migration_regrants_missing_units: forbidden
+    migration_deletes_extra_units_to_force_quantity: forbidden
+    consumed_activated_assigned_or_reserved_downstream_history_rewritten: forbidden
+    course_cost_origin_inferred_from_same_course_student_amount_currency_title_or_timestamp: forbidden
+    deterministic_order_sequence_technical_allocation_allowed_only_as_reviewable_nonhistorical_physical_backfill: true
+    write_fence_or_new_contract_only_writes_required_before_final_preflight: true
+    constraint_activation_after_exact_cleanup_and_review_only: true
+    reconciliation_manifest_is_migration_artifact_not_runtime_business_authority: true
+    migration_restart_may_duplicate_settlement_fulfillment_or_grants: false
+    financial_or_downstream_history_hard_delete_to_make_constraints_pass: forbidden
+    DB4_10_audit_outbox_physical_shape_not_entered: true
+
 structural_decisions:
   identity_tenant_rbac:
     bounded_context_source: specs/database/identity-rbac.yml
@@ -2735,14 +2971,35 @@ migration_order:
   - enable_btree_gist_before_calendar_resource_claim_exclusion_constraints
   - calendar_events_availability_lifecycle_claims_training_session_calendar_details_and_formalization_links
   - pkk_integration_configuration_revisions_provider_snapshots_operations_lifecycle_attempts_reconciliations_signature_handoffs_protected_payloads_redacted_projections_and_XML_crypto_bindings
-  - student_finance
+  - student_charges_payments_reversal_guards_course_cost_charge_origins_and_finance_concurrency
   - license_products_language_capability_history_inventory_assignments_and_activations
   - internal_exam_capability_history_inventory_ledger_attempt_lifecycle_access_tokens_station_credentials_sessions_definitions_question_result_template_document_and_management_projection
-  - orders_payments_service_entitlements_and_activations
+  - commerce_catalog_orders_order_items_payment_attempts_events_settlements_fulfillments_purchase_grants_service_entitlements_and_activations
   - audit_activity_outbox_notifications
   - final_partial_indexes_and_cross_table_constraints_including_learning_identity_password_authority_inventory_assignment_activation_entitlement_and_language_capability_guards
 
 migration_tests_required:
+  - student_finance_charge_course_payment_exact_same_tenant_student_currency_relations_reject_mismatch
+  - student_finance_valid_payment_sum_never_exceeds_charge_amount_under_concurrent_record_payment
+  - student_finance_cancel_payment_reversal_races_serialize_on_exact_charge_and_preserve_ledger_history
+  - student_finance_reversal_and_cancellation_tuples_are_write_once_and_hard_delete_is_forbidden
+  - student_finance_same_idempotency_key_same_request_does_not_duplicate_charge_payment_reversal_or_cancel_effect
+  - course_cost_charge_origin_is_unique_per_exact_course_and_manual_course_context_charge_is_not_auto_origin
+  - commerce_order_item_requires_same_tenant_order_currency_and_exact_catalog_product_kind_binding
+  - commerce_server_snapshot_price_VAT_discount_line_and_order_totals_are_immutable_and_equivalent
+  - commerce_browser_return_or_untrusted_webhook_cannot_confirm_payment_or_trigger_fulfillment
+  - commerce_first_trusted_confirmed_payment_creates_at_most_one_order_settlement_and_second_confirmed_payment_has_no_second_business_effect
+  - commerce_zero_total_order_uses_write_once_zero_total_settlement_without_external_zero_payment
+  - commerce_payment_resolution_creates_recoverable_pending_fulfillment_and duplicate_workers_commit_at_most_one_complete_grant_set
+  - commerce_quantity_N_requires_exactly_N_purchase_grants_with_unique_ordinals_and_exact_product_lineage
+  - commerce_generic_service_source_is_purchase_XOR_operator_grant_and_explicit_payment_success_is_not_activation
+  - commerce_order_sequence_is_unique_per_tenant_immutable_and_purchase_history_sort_is_deterministic
+  - commerce_booked_at_is_write_once_from_trusted_payment_resolution_or_zero_total_source
+  - commerce_lock_order_is_order_then_payment_settlement_fulfillment_items_grants_and_reverse_lock_path_is_forbidden
+  - commerce_provider_network_IO_does_not_run_while_business_row_locks_are_held
+  - DB4_9_legacy_migration_never_guesses_payment_winner_provider_event_product_or_inventory_lineage
+  - DB4_9_settled_legacy_order_without_proven_complete_grants_becomes_requires_reconciliation_and_is_never_regranted_automatically
+  - DB4_9_migration_preserves_consumed_activated_assigned_reserved_and_financial_history_and_blocks_cutover_on_unresolved_ambiguity
   - generated_synthetic_domain_ids_are_UUIDv7_and_stored_as_native_uuid
   - organization_contact_address_has_exactly_one_row_per_organization_when_present
   - company_contact_address_is_not_a_training_location_record
