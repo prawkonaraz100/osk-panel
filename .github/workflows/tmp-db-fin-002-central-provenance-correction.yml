@@ -1,0 +1,60 @@
+name: Temporary DB-FIN-002 Central Provenance Correction
+
+on:
+  push:
+    branches: [tmp-db-fin-002-central-provenance-correction]
+    paths:
+      - '.stage4-tmp/TRIGGER_DB_FIN_002_CENTRAL_PROVENANCE_CORRECTION'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: tmp-db-fin-002-central-provenance-correction
+      - name: Correct DB-FIN-002 machine provenance only
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import yaml, copy
+          p=Path('specs/gates/stage-4-database-contract-gate.yml')
+          s=p.read_text()
+          before=yaml.safe_load(s)
+          slices_before=copy.deepcopy(before['stage_4_slices'])
+          resolved_before=copy.deepcopy(before['resolved_blockers'])
+          open_before=copy.deepcopy(before['open_blockers_current_diagnosed_scope'])
+          gate_before=copy.deepcopy(before['gate_definition'])
+
+          old='''    machine_commit: 1ac3288fb52a842066586384c598c286d8d31d4b\n    machine_blob: ffb447a0eebe5a6b79b291c787ffec4af4196e5f\n    narrative_commit: a19ce134e572c633f8f2629de6f7b0a70f2ffd34\n'''
+          new='''    machine_commit: 89b485d62d9477f5ae096111530fea68c51a0335\n    machine_blob: 3e5a8405d889fac0b83ab851677d69c3c7e6abf6\n    machine_initial_commit: 1ac3288fb52a842066586384c598c286d8d31d4b\n    machine_initial_blob: ffb447a0eebe5a6b79b291c787ffec4af4196e5f\n    machine_correction_reason: diagnosis_summary_resolved_list_and_future_fix_order_only\n    narrative_commit: a19ce134e572c633f8f2629de6f7b0a70f2ffd34\n'''
+          assert s.count(old)==1,s.count(old)
+          s=s.replace(old,new,1)
+          p.write_text(s)
+
+          after=yaml.safe_load(s)
+          assert after['stage_4_slices']==slices_before
+          assert after['resolved_blockers']==resolved_before
+          assert after['open_blockers_current_diagnosed_scope']==open_before
+          assert after['gate_definition']==gate_before
+          q=after['quality_checks']['student_finance_lifecycle_balance_reversal_overpayment_concurrency']
+          assert q['status']=='PASS'
+          assert q['machine_commit']=='89b485d62d9477f5ae096111530fea68c51a0335'
+          assert q['machine_blob']=='3e5a8405d889fac0b83ab851677d69c3c7e6abf6'
+          assert q['machine_initial_commit']=='1ac3288fb52a842066586384c598c286d8d31d4b'
+          assert after['next_single_step']['id']=='DB_COM_001_ORDER_ITEM_TENANT_PRODUCT_SNAPSHOT_PRICE_TOTAL_AND_QUANTITY_INTEGRITY'
+          PY
+          test "$(git hash-object specs/database/student-finance-commerce.yml)" = "3e5a8405d889fac0b83ab851677d69c3c7e6abf6"
+          test "$(git hash-object specs/database/core-schema.yml)" = "65c6daab0330a2c6cf57a6a2caaba288a13a7a70"
+          test "$(git hash-object docs/87-physical-database-schema.md)" = "4d5f24f2948bdb55e7367c7b013ed918dade40ae"
+          git diff --check -- specs/gates/stage-4-database-contract-gate.yml
+          test "$(git diff --name-only | grep -v '^\.github/workflows/tmp-db-fin-002-central-provenance-correction.yml$' | grep -v '^\.stage4-tmp/' | sort -u)" = "specs/gates/stage-4-database-contract-gate.yml"
+          git config user.name 'prawkonaraz100'
+          git config user.email 'prawkonaraz100@gmail.com'
+          git add specs/gates/stage-4-database-contract-gate.yml
+          git commit -m 'DB-FIN-002: correct central machine provenance'
+          git push origin HEAD:tmp-db-fin-002-central-provenance-correction
