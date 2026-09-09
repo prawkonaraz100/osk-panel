@@ -68,7 +68,7 @@ jobs:
           assert slices['DB4_9_STUDENT_FINANCE_COMMERCE']['open_P0_P1']==9
           assert slices['DB4_10_AUDIT_OUTBOX_NOTIFICATIONS']['status']=='NOT_STARTED'
           assert after['resolved_blockers']==resolved_before+['DB-FIN-001']
-          assert after['open_blockers_current_diagnosed_scope']==['DB-FIN-002','DB-COM-001','DB-COM-002','DB-COM-003','DB-COM-004','DB-COM-007','DB-COM-005','DB-COM-008','DB-COM-006']
+          assert after['open_blockers_current_diagnosed_scope']==['DB-FIN-002','DB-COM-001','DB-COM-002','DB-COM-003','DB-COM-004','DB-COM-005','DB-COM-006','DB-COM-007','DB-COM-008']
           assert after['gate_definition']['current_result']=='DB4_9_FAIL_WITH_9_P1_BLOCKERS'
           assert after['gate_definition']['DB4_9_DB_FIN_001_result']=='PASS'
           assert after['gate_definition']['DB4_9_result']=='FAIL_WITH_9_P1_BLOCKERS'
