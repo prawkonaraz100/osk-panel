@@ -3,8 +3,8 @@
 Data: 2026-09-09
 
 **Etap:** `DB4_10_AUDIT_OUTBOX_NOTIFICATIONS`
-**Aktualny krok:** `DB-AUD-001`
-**Status:** `FAIL_WITH_7_P1_BLOCKERS / 0 P0 / 7 P1 OPEN`
+**Aktualny krok:** `DB-AUD-002`
+**Status:** `FAIL_WITH_6_P1_BLOCKERS / 0 P0 / 6 P1 OPEN`
 
 Machine-readable diagnoza: `specs/database/audit-outbox-notifications.yml`.
 
@@ -230,9 +230,9 @@ PASS:
 - P0: **0**,
 - P1: **8**,
 - fixes applied in diagnosis: **0**,
-- resolved: **1/8**,
-- open: **7/8**,
-- result: **FAIL_WITH_7_P1_BLOCKERS**.
+- resolved: **2/8**,
+- open: **6/8**,
+- result: **FAIL_WITH_6_P1_BLOCKERS**.
 
 ## 8. DB-AUD-001 — wynik fixera: PASS
 
@@ -274,6 +274,50 @@ Nie backfillujemy teraz starych actor membership/entity lineage heurystycznie. L
 
 DB-AUD-001 nie zamyka: redaction/payload-policy/reason (DB-AUD-002), durable outbox event identity (DB-OUT-001), publisher retry (DB-OUT-002), activity projection (DB-ACT-001), notification recipient/read lifecycle (DB-NOT-001/002) ani legacy/retention cleanup (DB-EVT-001).
 
-Po fixerze: **1/8 resolved, 7 P1 OPEN**. Następny dozwolony krok: **DB-AUD-002 only**, dopiero po następnym jawnym poleceniu użytkownika.
+Po fixerze DB-AUD-001 pozostaje **PASS**.
 
-**STOP przed DB-AUD-002.**
+## 9. DB-AUD-002 — wynik fixera: PASS
+
+DB-AUD-002 zamyka safe-payload/redaction provenance oraz reason completeness bez rozszerzania katalogu biznesowych akcji. Nie definiuje jeszcze durable event identity/outboxu.
+
+### 9.1. Immutable action-policy revisions
+
+Powstaje immutable `audit_action_policy_revisions`. Klucz `(action, policy_version)` wskazuje dokładną wersję kontraktu użytego do zbudowania audytu. Revision zapisuje versioned `payload_validator_code`, wymagania dla before/after (`forbidden|optional|required`), `reason_requirement` (`optional|required`) oraz `policy_hash`. Normalna aplikacja nie może aktualizować ani usuwać revision.
+
+DB-AUD-002 nie tworzy nowych biznesowych action names. Rejestrujemy tylko akcje już wymagane albo emitowane przez potwierdzone kontrakty domenowe. Zmiana allowed payload shape, redaction semantics lub reason requirement oznacza **nową revision**, nigdy przepisywanie starej.
+
+Osobny current pointer `audit_action_policy_currents(action, policy_version)` wskazuje revision obowiązującą dla nowych runtime writes. `audit_logs.audit_policy_version` ma exact FK do `(action, policy_version)`, a nowy runtime insert musi użyć dokładnie current revision. Klient nie wybiera policy version i nie może użyć starej słabszej wersji po zmianie policy. Historyczne rekordy nadal wskazują revision, z którą zostały zapisane.
+
+### 9.2. Safe payload zamiast raw serialization
+
+`before_redacted_json` i `after_redacted_json` nie są już arbitrary JSONB. Semantycznie są wyłącznie allowlisted safe projection/domain diff. Gdy pole jest nie-NULL, top-level musi być JSON object, a versioned validator dla exact action-policy revision sprawdza dozwolone keys/paths, typy i zagnieżdżenia. Unknown key/path, nieznany validator, catch-all metadata oraz raw ORM/request/provider serialization są reject.
+
+Finalna granica persistence to DB trigger/constraint guard (lub równoważny DB guard), ale payload jest najpierw budowany przez typed application allowlist. DB validation nie zastępuje data minimization — jest drugim, fail-closed poziomem.
+
+Globalnie zabronione pozostają m.in. plaintext/reversible passwords i one-time credentials, password hashes/verifiers, auth/session/reset/access tokens, provider credentials/secrets/signatures/private keys, pełny PESEL, pełny PKK, external OSK credentials, payment-card/provider secret material, secret-bearing file/PDF bytes oraz raw provider request/response payloads. Samo przemianowanie sensitive value pod innym kluczem nie daje obejścia, bo arbitrary keys nie przechodzą allowlisty.
+
+Masked/minimized identifier albo non-secret evidence/correlation hash może wystąpić tylko wtedy, gdy exact validator jawnie pozwala jego semantykę i format. Zachowujemy potrzebne domenowo bezpieczne klasy danych — np. resource IDs, status transitions, category/language, money minor units/currency, formal time/duration oraz masked identifiers — ale **nie robimy z nich globalnej allowlisty**.
+
+### 9.3. Reason integrity
+
+`reason` pozostaje immutable razem z audit row. Revision określa `reason_requirement`. Dla `required` DB odrzuca NULL, pusty i whitespace-only reason. Dla `optional` NULL jest dozwolony, ale podany reason również nie może być pusty/whitespace i nie może służyć jako kanał do kopiowania raw request/provider payloadu lub secretu.
+
+DB-AUD-002 nie zgaduje, które akcje wymagają reason. Jeżeli wcześniejszy kontrakt domenowy już wymaga reason (np. konkretna correction/invalidation ścieżka), jego revision musi mieć `reason_requirement=required`; seed/migration guard nie może obniżyć takiego upstream requirement do `optional`. Sam fakt elevated permission nie tworzy automatycznie nowego requirement bez wcześniejszego kontraktu.
+
+### 9.4. Policy history i transactional failure
+
+Każda zmiana policy tworzy nową immutable revision i przesuwa current pointer. Stare audyty nie są re-redagowane ani przepinane do nowej revision. Dzięki temu historycznie wiadomo, według którego kontraktu payload został zapisany.
+
+Tam, gdzie wcześniejszy slice wymaga audit w tej samej transakcji co business mutation, błąd payload validatora albo brak wymaganego reason rollbackuje cały command. Audit nadal nie staje się business source of truth.
+
+### 9.5. Legacy boundary
+
+Nie przypisujemy starym audit rows policy version po timestampie, nazwie action, podobieństwie payloadu ani aktualnej policy. Legacy provenance/backfill/quarantine pozostaje DB-EVT-001. Po runtime write fence wszystkie nowe audyty muszą używać exact current revision.
+
+### 9.6. Co pozostaje OPEN
+
+DB-AUD-002 nie zamyka durable event/outbox identity (DB-OUT-001), publisher retry/reconciliation (DB-OUT-002), activity projection (DB-ACT-001), notification recipient/read lifecycle (DB-NOT-001/002) ani legacy/retention cleanup (DB-EVT-001). Exact privacy retention durations nadal nie są wymyślane.
+
+Po fixerze: **2/8 resolved, 6 P1 OPEN**. Następny dozwolony krok: **DB-OUT-001 only**, dopiero po następnym jawnym poleceniu użytkownika.
+
+**STOP przed DB-OUT-001.**
