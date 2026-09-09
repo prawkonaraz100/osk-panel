@@ -2,12 +2,15 @@ meta:
   project: osk-panel
   stage: 4
   slice: DB4_10_AUDIT_OUTBOX_NOTIFICATIONS
-  step: DB4_10_DIAGNOSIS
-  status: FAIL_WITH_8_P1_BLOCKERS
+  step: DB_AUD_001_FIXER
+  status: FAIL_WITH_7_P1_BLOCKERS
   diagnosed_at: 2026-09-09
   branch: docs-consolidation-2026-09-05
-  diagnosis_only: true
+  diagnosis_only: false
   fixes_applied_in_diagnosis_step: 0
+  current_fixer: DB-AUD-001
+  blockers_resolved: 1
+  open_P0_P1: 7
   implementation_started: false
   Laravel_migrations_created: false
   Stage5_started: false
@@ -15,8 +18,8 @@ meta:
 
 scope_rule:
   diagnose_before_fixing: true
-  fixes_allowed_in_this_step: false
-  current_step_scope: DB4_10_diagnosis_only
+  fixes_allowed_in_this_step: true_DB_AUD_001_only
+  current_step_scope: DB_AUD_001_only
   one_blocker_per_future_step: true
   aggregate_files_frozen:
     specs/database/core-schema.yml: f3519060967085517329bc668fac02e5c1fd2dbd
@@ -162,6 +165,7 @@ preservation_gate:
 blockers:
   - id: DB-AUD-001
     severity: P1
+    status: PASS
     title: audit_append_only_ownership_actor_and_entity_context_integrity
     evidence:
       - audit_logs_is_declared_append_only_but_database_immutability_boundary_is_not_defined
@@ -314,13 +318,156 @@ blockers:
       - preserve_exact_retention_durations_as_external_privacy_policy_not_invented_here
       - define_outbox_cleanup_only_after_safe_publication_or_reconciliation_without_using_outbox_as_business_authority
 
+resolved_contracts:
+  DB-AUD-001:
+    status: PASS
+    title: audit_append_only_ownership_actor_and_entity_context_integrity
+    scope_boundary:
+      audit_scope_field:
+        name: audit_scope
+        values: [organization, platform_global]
+        immutable_after_insert: true
+      organization_scope:
+        organization_id_required: true
+        organization_id_server_derived: true
+        organization_id_client_override_forbidden: true
+        organization_candidate_key: [organization_id, id]
+      platform_global_scope:
+        organization_id_required_null: true
+        excluded_from_organization_audit_API: true
+      mixed_or_implicit_scope: forbidden
+    actor_boundary:
+      actor_kind_field:
+        name: actor_kind
+        values: [organization_membership, global_user, system]
+        immutable_after_insert: true
+      actor_user_id:
+        nullable_by_actor_kind: true
+        immutable_after_insert: true
+      actor_organization_membership_id:
+        nullable_by_actor_kind: true
+        immutable_after_insert: true
+      organization_membership_actor:
+        allowed_scope: organization
+        organization_id_required: true
+        actor_user_id_required: true
+        actor_organization_membership_id_required: true
+        exact_relation:
+          source_columns: [organization_id, actor_organization_membership_id, actor_user_id]
+          target_table: organization_memberships
+          target_columns: [organization_id, id, user_id]
+          on_update: RESTRICT
+          on_delete: RESTRICT
+          target_candidate_key_required: [organization_id, id, user_id]
+        actor_membership_status_is_historical_reference_not_read_time_authority: true
+        command_authorization_must_have_been_validated_at_write_time: true
+      global_user_actor:
+        allowed_scope: platform_global
+        actor_user_id_required: true
+        actor_organization_membership_id_required_null: true
+        user_FK: users.id_RESTRICT
+        organization_scoped_business_mutation_with_global_user_actor: forbidden
+      system_actor:
+        actor_user_id_required_null: true
+        actor_organization_membership_id_required_null: true
+        may_be_organization_or_platform_global_scope: true
+        organization_system_event_requires_exact_organization_id: true
+      actor_context_server_derived_from_authenticated_session_membership_or_trusted_system_execution: true
+      client_supplied_actor_context_as_authority: forbidden
+    entity_reference_boundary:
+      entity_reference_mode_field:
+        name: entity_reference_mode
+        values: [none, tenant_relational, global_relational, snapshot_only]
+        immutable_after_insert: true
+      entity_type_immutable: true
+      entity_id_immutable: true
+      none:
+        entity_type_required_null: true
+        entity_id_required_null: true
+      tenant_relational:
+        allowed_only_for_organization_scope: true
+        entity_type_required: true
+        entity_id_required: true
+        exact_same_tenant_validation: >-
+          DEFERRABLE INITIALLY DEFERRED constraint trigger or equivalent database guard
+          generated from a closed allowlist of tenant-owned auditable entity types; the
+          guard must prove the referenced row exists with the exact audit organization_id.
+        unknown_or_unregistered_entity_type: reject
+      global_relational:
+        entity_type_required: true
+        entity_id_required: true
+        exact_existence_validation: >-
+          database guard against a closed allowlist of global auditable entity types;
+          no tenant ownership is implied by a global relation.
+        unknown_or_unregistered_entity_type: reject
+      snapshot_only:
+        purpose: external_or_nonrelational_reference_without_false_FK_claim
+        entity_type_required: true
+        entity_id_nullable_when_action_has_no_stable_external_identifier: true
+        type_must_be_explicitly_allowlisted_as_snapshot_only: true
+        same_tenant_or_existence_claim: none
+        sensitive_identifier_in_entity_id: forbidden
+      polymorphic_target_inference_from_name_or_UUID_shape: forbidden
+    append_only_boundary:
+      all_business_fields_immutable_after_insert: true
+      normal_application_UPDATE: forbidden
+      normal_application_DELETE: forbidden
+      database_guard: BEFORE_UPDATE_OR_DELETE_trigger_or_equivalent_plus_role_privilege_boundary
+      normal_application_role_has_insert_and_authorized_select_only: true
+      privileged_policy_driven_retention_exception: deferred_to_DB_EVT_001
+      DB_AUD_001_does_not_define_retention_duration_or_cleanup_authority: true
+    organization_audit_query_boundary:
+      endpoint: GET_/audit-logs
+      requires_active_selected_organization_membership: true
+      permission_required: organization.audit.view
+      mandatory_predicate:
+        - audit_scope_equals_organization
+        - organization_id_equals_selected_membership_organization_id
+      platform_global_rows_visible_via_endpoint: false
+      other_tenant_rows_visible_via_endpoint: false
+      entity_filters_applied_after_mandatory_tenant_scope: true
+      request_id_filter_applied_after_mandatory_tenant_scope: true
+      deterministic_order: [created_at_DESC, id_DESC]
+    write_boundary:
+      audit_insert_is_part_of_same_business_transaction_where_prior_slice_requires_audit: true
+      audit_row_does_not_become_business_source_of_truth: true
+      append_only_failure_rolls_back_business_command_when_audit_is_required: true
+      actor_and_scope_fields_are_not_mutable_projection_fields: true
+    legacy_boundary:
+      existing_rows_missing_new_scope_actor_or_entity_reference_evidence_are_not_guessed_in_DB_AUD_001: true
+      backfill_and_phased_constraint_activation: deferred_to_DB_EVT_001
+      new_runtime_rows_after_write_fence_must_satisfy_DB_AUD_001_contract: true
+    explicitly_not_closed_here:
+      - safe_payload_redaction_policy_version_and_reason_matrix_DB_AUD_002
+      - durable_outbox_event_identity_DB_OUT_001
+      - publisher_retry_DB_OUT_002
+      - activity_projection_DB_ACT_001
+      - notification_recipient_and_read_state_DB_NOT_001_DB_NOT_002
+      - legacy_backfill_retention_cleanup_DB_EVT_001
+    required_tests:
+      - normal_application_update_of_audit_row_is_rejected
+      - normal_application_delete_of_audit_row_is_rejected
+      - organization_scope_requires_nonnull_organization_id
+      - platform_global_scope_requires_null_organization_id
+      - organization_membership_actor_requires_exact_same_tenant_membership_user_triple
+      - same_global_user_membership_from_other_organization_cannot_be_used_as_actor_context
+      - global_user_actor_is_forbidden_for_organization_scoped_business_audit
+      - system_actor_requires_null_user_and_membership_and_preserves_explicit_scope
+      - tenant_relational_entity_wrong_tenant_target_is_rejected
+      - unknown_tenant_relational_entity_type_is_rejected
+      - snapshot_only_reference_does_not_claim_relational_or_tenant_integrity
+      - organization_audit_API_never_returns_platform_global_or_other_tenant_rows
+      - actor_membership_later_suspension_or_revocation_does_not_destroy_historical_audit_row
+      - new_runtime_audit_row_after_write_fence_cannot_omit_required_scope_actor_entity_reference_mode
+      - DB_AUD_001_does_not_guess_legacy_actor_membership_or_entity_lineage
+
 diagnosis_summary:
   diagnosed_P0: 0
   diagnosed_P1: 8
   fixes_applied_in_diagnosis_step: 0
-  resolved_after_diagnosis: 0
-  open_P0_P1: 8
-  result: FAIL_WITH_8_P1_BLOCKERS
+  resolved_after_diagnosis: 1
+  open_P0_P1: 7
+  result: FAIL_WITH_7_P1_BLOCKERS
   blockers_in_required_fix_order:
     - DB-AUD-001
     - DB-AUD-002
@@ -332,16 +479,16 @@ diagnosis_summary:
     - DB-EVT-001
 
 next_single_step_after_central_gate:
-  id: DB_AUD_001_AUDIT_APPEND_ONLY_OWNERSHIP_ACTOR_AND_ENTITY_CONTEXT_INTEGRITY
-  action: resolve_DB_AUD_001_only_after_next_explicit_user_instruction
+  id: DB_AUD_002_AUDIT_SAFE_PAYLOAD_REDACTION_VERSION_AND_ELEVATED_REASON_INTEGRITY
+  action: resolve_DB_AUD_002_only_after_next_explicit_user_instruction
   allowed_files_only:
     - specs/database/audit-outbox-notifications.yml
     - docs/115-stage-4-audit-outbox-notifications-audit.md
     - specs/gates/stage-4-database-contract-gate.yml
   aggregate_files_currently_frozen: true
   scope_lock: >-
-    Diagnosis is complete. Resolve DB-AUD-001 only in the next fixer transaction.
-    Keep DB-AUD-002, DB-OUT-001, DB-OUT-002, DB-ACT-001, DB-NOT-001,
-    DB-NOT-002 and DB-EVT-001 OPEN. Do not modify core-schema.yml or docs/87,
-    do not enter DB4_11, Stage 5, Laravel migrations or UI.
-  stop_before: DB_AUD_001
+    DB-AUD-001 is PASS. Resolve DB-AUD-002 only in the next fixer transaction.
+    Keep DB-OUT-001, DB-OUT-002, DB-ACT-001, DB-NOT-001, DB-NOT-002 and
+    DB-EVT-001 OPEN. Do not modify core-schema.yml or docs/87, do not enter
+    DB4_11, Stage 5, Laravel migrations or UI.
+  stop_before: DB_AUD_002
