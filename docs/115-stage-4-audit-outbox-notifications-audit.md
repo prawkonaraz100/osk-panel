@@ -3,8 +3,8 @@
 Data: 2026-09-09
 
 **Etap:** `DB4_10_AUDIT_OUTBOX_NOTIFICATIONS`
-**Aktualny krok:** `DB-EVT-001`
-**Status:** `BLOCKERS_RESOLVED_PENDING_DB4_10_FINAL_AGGREGATE_SYNC / 0 P0 / 0 P1 OPEN`
+**Aktualny krok:** `DB4_10_FINAL_AGGREGATE_SYNC`
+**Status:** `PASS / DB4_10_FINAL_AGGREGATE_SYNC_PASS / 0 P0 / 0 P1 OPEN`
 
 Machine-readable diagnoza: `specs/database/audit-outbox-notifications.yml`.
 
@@ -21,11 +21,11 @@ DB4_10 domyka fizyczny model czterech powiązanych, ale różnych konceptów:
 
 Nie wolno tych konceptów scalić w jeden „event table”. Audit nie jest dashboard feedem. Outbox nie jest business ledgerem. Powiadomienie nie jest audytem. Dashboardowa karta nazwana w UI `Powiadomienia` została wcześniej zidentyfikowana jako **organization activity feed** i pozostaje osobnym konceptem od API `/notifications`.
 
-Diagnoza nie zmienia Stage-3 API, nie modyfikuje `core-schema.yml` ani `docs/87...`, nie tworzy migracji Laravel i nie rozpoczyna DB4_11 ani Stage 5.
+Finalny DB4_10 aggregate sync nie zmienia Stage-3 API, nie tworzy migracji Laravel i nie rozpoczyna DB4_11 ani Stage 5. Bounded source pozostaje źródłem szczegółowych invariantów, a agregaty są jego zsynchronizowaną projekcją.
 
-Frozen aggregate blobs:
-- `specs/database/core-schema.yml` = `f3519060967085517329bc668fac02e5c1fd2dbd`,
-- `docs/87-physical-database-schema.md` = `f3ebb764a5279cbabc9c75c2fcf9733f36ed22a8`.
+Final aggregate blobs:
+- `specs/database/core-schema.yml` = `39958721c99550cfc27c3774e8dfa1af0d0637e6`,
+- `docs/87-physical-database-schema.md` = `6c090b082604b6b42c283667fcf08e9033a5b523`.
 
 ## 2. Potwierdzone wymagania, które muszą zostać zachowane
 
@@ -614,8 +614,40 @@ Activity/notification projection może zostać usunięta tylko wtedy, gdy zatwie
 
 Każdy unresolved migration case wymagany przez current constraint blokuje jego final validation i produkcyjny cutover. Raport migracji musi policzyć exact-backfilled, reviewed-nonconforming i open per tabela/issue code. Unsafe payload wymaga security review lub jawnie zatwierdzonego containment przed go-live.
 
-DB-EVT-001 nie dotyka jeszcze `core-schema.yml` ani `docs/87...`. Wszystkie **8/8 DB4_10 blockers są teraz PASS**, ale slice pozostaje w stanie `BLOCKERS_RESOLVED_PENDING_DB4_10_FINAL_AGGREGATE_SYNC`.
+DB-EVT-001 pozostaje PASS. Finalny aggregate sync został wykonany w osobnej, jawnie autoryzowanej bramce i nie zmienił jego fail-closed migration/retention semantics. Wszystkie **8/8 DB4_10 blockers są PASS**.
 
-Następny i jedyny dozwolony krok to **DB4_10_FINAL_AGGREGATE_SYNC**, dopiero po kolejnym jawnym poleceniu użytkownika.
+## 16. DB4_10 final aggregate sync — PASS
 
-**STOP przed DB4_10 final aggregate sync.**
+Finalna synchronizacja została wykonana dopiero po zamknięciu DB-AUD-001, DB-AUD-002, DB-OUT-001, DB-OUT-002, DB-ACT-001, DB-NOT-001, DB-NOT-002 i DB-EVT-001. Nie powstały migracje Laravel ani implementacja UI.
+
+### 16.1. Machine aggregate
+
+- base po DB-EVT-001 central gate: `b70eb701624a05d53f0d859b5538edecf3c23ab3`,
+- clean machine aggregate commit: `8a95e5a4cc1535c0cda413051583da1b5f17be20`,
+- `core-schema.yml` blob: `39958721c99550cfc27c3774e8dfa1af0d0637e6`.
+
+Machine aggregate dodaje finalne authority tables, constraints, event/outbox lifecycle, activity/notification source keys, legacy review evidence i retention execution evidence. Usuwa również stale shortcut `domain_events_or_outbox_projection`: activity source jest wyłącznie `domain_events`.
+
+### 16.2. Narrative aggregate
+
+- clean narrative aggregate commit: `6de2143d8a23de93943c2f13da1c46cf273b8c81`,
+- `docs/87-physical-database-schema.md` blob: `6c090b082604b6b42c283667fcf08e9033a5b523`.
+
+Sekcja 20 w `docs/87...` została zastąpiona finalnym modelem DB4_10 zamiast pozostawienia starego provisional modelu obok nowego. Zsynchronizowane są także indeksy i migration/invariant tests. Narrative nie zawiera już nullable organization-wide notification jako wspólnego read-state ani stringowego source event bez exact relation.
+
+### 16.3. Bounded source close
+
+- clean bounded source commit: `738e4c2cf95e303ebbf295e31e760daa4c0b84d1`,
+- `specs/database/audit-outbox-notifications.yml` blob: `335f675ab1c09649ecf9850714d4c5acb0086782`.
+
+Bounded source ma `status: PASS`, `aggregate_sync_status: PASS`, 8/8 resolved, 0 OPEN i dokładne provenance obu aggregate blobs.
+
+### 16.4. Semantic preservation gate
+
+PASS: audit, DomainEvent, Outbox, Activity i Notification pozostają osobnymi rolami; delivery pozostaje at-least-once; DomainEvent pozostaje projection identity, nie business authority; dashboardowa karta „Powiadomienia” pozostaje activity feedem; exact retention duration nie została wymyślona; legacy backfill pozostaje fail-closed.
+
+DB4_11, Stage 5, Laravel migrations i UI nie zostały rozpoczęte w DB4_10 final sync.
+
+Następny krok może zostać odblokowany dopiero przez central final-sync gate i kolejne jawne polecenie użytkownika.
+
+**STOP przed DB4_11 diagnosis.**
