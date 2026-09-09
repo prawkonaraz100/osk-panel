@@ -3,8 +3,8 @@
 Data: 2026-09-09
 
 **Etap:** `DB4_10_AUDIT_OUTBOX_NOTIFICATIONS`
-**Aktualny krok:** `DB-OUT-002`
-**Status:** `FAIL_WITH_4_P1_BLOCKERS / 0 P0 / 4 P1 OPEN`
+**Aktualny krok:** `DB-ACT-001`
+**Status:** `FAIL_WITH_3_P1_BLOCKERS / 0 P0 / 3 P1 OPEN`
 
 Machine-readable diagnoza: `specs/database/audit-outbox-notifications.yml`.
 
@@ -230,9 +230,9 @@ PASS:
 - P0: **0**,
 - P1: **8**,
 - fixes applied in diagnosis: **0**,
-- resolved: **4/8**,
-- open: **4/8**,
-- result: **FAIL_WITH_4_P1_BLOCKERS**.
+- resolved: **5/8**,
+- open: **3/8**,
+- result: **FAIL_WITH_3_P1_BLOCKERS**.
 
 ## 8. DB-AUD-001 — wynik fixera: PASS
 
@@ -408,6 +408,52 @@ Legacy rows bez wiarygodnego final publication state, lease/policy metadata albo
 
 DB-OUT-002 nie zamyka activity projection (DB-ACT-001), notification recipient/read/source lifecycle (DB-NOT-001/002) ani legacy retention cleanup (DB-EVT-001).
 
-Po fixerze: **4/8 resolved, 4 P1 OPEN**. Następny dozwolony krok: **DB-ACT-001 only**, dopiero po kolejnym jawnym poleceniu użytkownika.
+Po fixerze DB-OUT-002 pozostaje **PASS**.
 
-**STOP przed DB-ACT-001.**
+## 12. DB-ACT-001 — wynik fixera: PASS
+
+DB-ACT-001 domyka `organization_activity_events` jako bezpieczną, immutable projekcję organizacyjnych `domain_events`. Activity nie jest audytem, outboxem ani źródłem prawdy biznesowej. Nie każdy domain event musi być widoczny w feedzie — projekcja obejmuje wyłącznie organization-scoped event types zarejestrowane w versioned activity policy.
+
+### 12.1. Exact source i dedupe
+
+Każdy nowy activity row wymaga `source_event_id` i exact same-tenant relacji `(organization_id, source_event_id) -> domain_events(organization_id, id)`. Source event musi mieć `event_scope=organization`. `organization_id`, `event_type` oraz `occurred_at` są kopiowane z source eventu i DB guard nie pozwala im się rozjechać.
+
+Unique `(organization_id, source_event_id)` oznacza najwyżej jeden activity row dla jednego logical domain eventu. At-least-once retry projektora, dwa równoległe workery albo redelivery outboxu nie mogą utworzyć drugiego wpisu. `request_id`, outbox id, timestamp ani aggregate similarity nie zastępują `source_event_id`.
+
+### 12.2. Versioned safe display contract
+
+Powstają immutable `activity_projection_policy_revisions(event_type, policy_version)` oraz current pointer. Revision definiuje dokładny safe payload validator, builder opisu, regułę aktora, subject/related-student, navigation oraz możliwość `Rozwiń`. Rejestrować można wyłącznie event types istniejące w potwierdzonym katalogu domenowym; samo istnienie policy nie zmusza odroczonego modułu do emitowania eventów.
+
+Activity row zapisuje `projection_policy_version`. Zmiana current policy dotyczy tylko nowych projekcji i nigdy nie przepisuje wcześniejszych activity rows. Retry po istniejącym unique source zwraca/zachowuje istniejący snapshot zamiast przebudowywać go według nowszej policy.
+
+`description_snapshot` jest required, trimmed safe text. `safe_payload` jest opcjonalnym allowlisted JSON objectem. Raw audit before/after, raw outbox/provider payload, model serialization, catch-all metadata, hasła, tokeny, sekrety, pełny PESEL/PKK i external OSK credentials są zabronione. Safe diff dla zdarzeń `changed_*` jest dozwolony tylko wtedy, gdy exact policy version definiuje jego shape.
+
+### 12.3. Historyczny actor snapshot
+
+`actor_reference_mode` rozróżnia `organization_membership`, `system`, `snapshot_only`, `none`. Dla membership activity zapisuje exact `(organization_id, membership_id, user_id)` oraz immutable display/role snapshots. Późniejsza zmiana profilu, roli lub statusu membership nie może zmieniać historycznego wpisu.
+
+`system` nie udaje użytkownika. `snapshot_only` nie udaje live membership relation i jest dozwolony wyłącznie przez exact policy dla nie-relacyjnego historycznego aktora. Jeżeli source event wskazuje wymagany audit i activity używa relacyjnego aktora, actor nie może być sprzeczny z exact audit actor context.
+
+### 12.4. Subject, related student i nawigacja
+
+`subject_reference_mode` rozróżnia `none`, `tenant_relational` i `snapshot_only`. Relacyjny subject przechodzi closed allowlist + exact same-tenant guard. `snapshot_only` służy historycznemu/usuniętemu lub nierelacyjnemu subjectowi bez fałszywego FK i nie daje live target-navigation claim.
+
+`related_student_id`, jeśli występuje, ma exact same-tenant FK do `students(organization_id,id)`. Dla relacyjnego subjectu typu student source i related student muszą być równoważne. Nie zapisujemy arbitrary/client-supplied URL; target navigation jest wyprowadzana wyłącznie z allowlisted projection policy i poprawnej relacji.
+
+### 12.5. API i deterministyczna kolejność
+
+Stage-3 `/activity` pozostaje bez zmian. Mapping do `ActivityEvent` jest jednoznaczny: `timestamp=occurred_at`, `actor_display_name=actor snapshot`, related entity z bezpiecznego subjectu, `description=description_snapshot`, `safe_details=safe_payload`. Dashboardowa karta `Powiadomienia` nadal czyta ten sam activity feed i nie staje się `/notifications` inboxem.
+
+Canonical order dla listy i dashboard preview to `occurred_at DESC, id DESC`, z indeksem zaczynającym się od `organization_id`. `created_at` jest czasem persistence projekcji, a nie chronology zdarzenia. Offset pagination może przesunąć się przy nowych insertach; nie deklarujemy nieprawdziwej snapshot-stability.
+
+### 12.6. Immutability, retry i legacy boundary
+
+Normalny projector nie aktualizuje istniejącego activity row, a normalna aplikacja go nie usuwa. Unique source-event race wybiera jednego insert winnera; pozostali kończą jako no-op bez zmiany historycznego snapshotu. Failure projekcji nie cofa już committed business eventu, bo activity jest read model.
+
+Legacy row bez exact source event, policy version, actor/subject/student evidence nie jest backfillowany po timestampie, event type, request id, nazwie aktora ani samym tenant. Synthetic domain event/policy history tylko po to, by constraint przeszedł, jest zabroniony. Backfill/quarantine/retention i phased activation pozostają DB-EVT-001.
+
+DB-ACT-001 nie zamyka notification recipient/read-state (DB-NOT-001), notification source/mark-read dedupe (DB-NOT-002) ani legacy retention cleanup (DB-EVT-001).
+
+Po fixerze: **5/8 resolved, 3 P1 OPEN**. Następny dozwolony krok: **DB-NOT-001 only**, dopiero po kolejnym jawnym poleceniu użytkownika.
+
+**STOP przed DB-NOT-001.**
