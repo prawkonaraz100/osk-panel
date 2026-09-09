@@ -2,8 +2,8 @@ meta:
   project: osk-panel
   stage: 4
   slice: DB4_9_STUDENT_FINANCE_COMMERCE
-  step: DB_COM_002_PAYMENT_ATTEMPT_EVENT_ORDER_STATE_IDEMPOTENCY_AND_RECONCILIATION
-  status: FAIL_WITH_6_P1_BLOCKERS
+  step: DB_COM_003_PAID_ORDER_EXACTLY_ONCE_GRANT_ORCHESTRATION_AND_ATOMICITY
+  status: FAIL_WITH_5_P1_BLOCKERS
   diagnosed_at: 2026-09-08
   branch: docs-consolidation-2026-09-05
   diagnosis_only: false
@@ -16,7 +16,7 @@ meta:
 scope_rule:
   diagnose_before_fixing: true
   fixes_allowed_in_this_step: true
-  current_step_scope: DB_COM_002_only
+  current_step_scope: DB_COM_003_only
   one_blocker_per_future_step: true
   aggregate_files_frozen:
     specs/database/core-schema.yml:
@@ -979,6 +979,242 @@ resolved_contracts:
       Laravel_migrations_created: false
       UI_or_feature_implementation_started: false
 
+  DB-COM-003:
+    status: PASS
+    severity: P1
+    title: paid_order_exactly_once_grant_orchestration_and_atomicity
+    scope_boundary:
+      closes_only_order_level_fulfillment_authority_trigger_atomicity_and_retry_semantics: true
+      DB_COM_004_exact_order_item_grant_provenance_and_quantity_equivalence_unchanged: true
+      DB_COM_007_generic_service_entitlement_source_and_activation_integrity_unchanged: true
+      DB_COM_005_purchase_history_projection_unchanged: true
+      DB_COM_008_global_cross_domain_lock_order_unchanged: true
+      DB_COM_006_legacy_reconciliation_matrix_unchanged: true
+      DB4_6_license_assignment_activation_revoke_lifecycle_unchanged: true
+      DB4_7_exam_reservation_consume_on_start_lifecycle_unchanged: true
+      DB4_10_audit_outbox_physical_storage_not_entered: true
+
+    authority_model:
+      nonzero_order_payment_resolution_authority: order_payment_settlements
+      zero_total_order_payment_resolution_authority: orders.zero_total_settled_at_under_DB_COM_002_matrix
+      durable_order_fulfillment_authority: order_fulfillments
+      fulfillment_completion_authority: order_fulfillments.fulfilled_at_and_state_fulfilled_in_same_local_grant_commit
+      payment_state_and_fulfillment_state_are_distinct_projections: true
+      paid_never_means_fulfilled_without_fulfillment_fact: true
+      payment_webhook_browser_return_or_payment_row_may_write_downstream_grants_directly: false
+      downstream_local_grants_must_be_created_only_by_order_fulfillment_orchestrator: true
+      one_order_has_at_most_one_durable_fulfillment_authority: true
+
+    order_fulfillments:
+      role: durable_exact_order_work_and_completion_authority_after_trusted_payment_resolution
+      required_fields:
+        - organization_id
+        - order_id
+        - source_kind
+        - settlement_payment_id_nullable
+        - state
+        - created_at
+        - fulfilled_at_nullable
+        - requires_reconciliation_at_nullable
+        - reconciliation_reason_nullable
+      candidate_key:
+        columns: [organization_id, order_id]
+        unique_constraint_required: true
+      exact_order_relation:
+        source: order_fulfillments[organization_id,order_id]
+        target: orders[organization_id,id]
+        on_update: RESTRICT
+        on_delete: RESTRICT
+      source_kind_catalog: [payment_settlement, zero_total]
+      source_matrix:
+        payment_settlement:
+          order_total_predicate: total_amount_minor_gt_0
+          settlement_payment_id: nonnull
+          exact_settlement_relation:
+            source: order_fulfillments[organization_id,order_id,settlement_payment_id]
+            target: order_payment_settlements[organization_id,order_id,payment_id]
+            on_update: RESTRICT
+            on_delete: RESTRICT
+          zero_total_settled_at_must_be_null: true
+        zero_total:
+          order_total_predicate: total_amount_minor_eq_0
+          settlement_payment_id: null
+          order_zero_total_settled_at_must_be_nonnull: true
+          order_payment_settlement_row_must_not_exist: true
+      source_matrix_enforcement:
+        database_boundary: DEFERRABLE_constraint_trigger_or_equivalent_transactional_DB_guard
+        browser_or_client_may_choose_source_kind: false
+        source_kind_derived_from_canonical_payment_resolution: true
+      lifecycle_state_catalog: [pending, fulfilled, requires_reconciliation]
+      lifecycle_matrix:
+        pending:
+          fulfilled_at: null
+          requires_reconciliation_at: null
+          reconciliation_reason: null
+        fulfilled:
+          fulfilled_at: nonnull
+          requires_reconciliation_at: null
+          reconciliation_reason: null
+        requires_reconciliation:
+          fulfilled_at: null
+          requires_reconciliation_at: nonnull
+          reconciliation_reason: nonblank
+      automatic_transitions:
+        - pending_to_fulfilled
+        - pending_to_requires_reconciliation
+      fulfilled_to_pending_or_requires_reconciliation: forbidden
+      requires_reconciliation_to_pending:
+        allowed_only_by_privileged_reviewed_remediation: true
+        must_not_create_grants_in_remediation_transaction: true
+      fulfilled_row_is_write_once_business_completion_fact: true
+      hard_delete_after_creation: forbidden
+
+    durable_trigger_boundary:
+      nonzero_order:
+        same_transaction_as_first_order_payment_settlement:
+          - insert_exact_unique_order_payment_settlement
+          - insert_exact_unique_pending_order_fulfillment_with_source_payment_settlement
+        requirement: settlement_must_not_commit_without_durable_fulfillment_row
+      zero_total_order:
+        same_transaction_as_order_creation_and_zero_total_resolution:
+          - persist_authoritative_zero_total_order_and_lines
+          - set_zero_total_settled_at_write_once
+          - insert_exact_unique_pending_order_fulfillment_with_source_zero_total
+        requirement: zero_total_paid_resolution_must_not_commit_without_durable_fulfillment_row
+      duplicate_payment_event_or_settlement_retry:
+        may_create_second_fulfillment_row: false
+        exact_existing_fulfillment_is_reused_or_noop: true
+      paid_order_without_fulfillment_completion:
+        permitted_only_as_explicit_pending_or_requires_reconciliation_fulfillment_state: true
+        silently_presented_as_fulfilled: false
+
+    fulfillment_execution_transaction:
+      eligibility:
+        requires_existing_exact_order_fulfillment: true
+        source_resolution_revalidated_before_grant: true
+        state_pending_required_for_new_effects: true
+        state_fulfilled_returns_idempotent_already_fulfilled_result: true
+        state_requires_reconciliation_rejects_automatic_grant_until_reviewed_remediation: true
+      serialization_root:
+        exact_order_fulfillment_row_FOR_UPDATE: true
+        broader_payment_fulfillment_inventory_lock_order: deferred_to_DB_COM_008
+      local_atomic_boundary:
+        all_required_downstream_local_grant_rows_for_every_order_item_and_fulfilled_transition_in_one_PostgreSQL_transaction: true
+        downstream_local_targets_include:
+          - license_inventory_entries_as_defined_by_DB4_6
+          - internal_exam_inventory_entries_and_ledger_grant_effect_as_defined_by_DB4_7
+          - generic_service_entitlement_target_to_be_closed_by_DB_COM_007
+        any_item_grant_failure_rolls_back_entire_local_grant_transaction: true
+        partial_multi_item_local_grant_commit: forbidden
+        fulfilled_at_and_state_fulfilled_written_only_after_all_required_local_grants_succeed: true
+        external_provider_or_network_side_effect_inside_atomic_grant_transaction: forbidden
+        later_external_delivery_if_any_must_follow_committed_local_authority_and_DB4_10_outbox_contract: true
+      retry_semantics:
+        retry_after_transaction_rollback_reenters_same_pending_fulfillment: true
+        retry_after_committed_fulfillment_observes_fulfilled_and_creates_no_second_effect: true
+        process_crash_before_commit_leaves_no_partial_committed_grants_or_fulfilled_marker: true
+        process_crash_after_commit_is_safe_because_fulfilled_marker_and_grants_committed_together: true
+        item_level_exact_provenance_and_quantity_dedupe_is_DB_COM_004_not_solved_here: true
+      unsupported_or_semantically_invalid_item:
+        automatic_partial_skip: forbidden
+        classify_as_requires_reconciliation_without_committed_partial_grants: true
+
+    fulfillment_attempt_history:
+      table: order_fulfillment_attempts
+      role: append_only_operational_retry_evidence_not_second_fulfillment_authority
+      required_fields:
+        - organization_id
+        - id
+        - order_id
+        - attempt_no
+        - started_at
+        - finished_at
+        - outcome
+        - safe_error_code_nullable
+      outcome_catalog: [succeeded, retryable_failure, requires_reconciliation]
+      candidate_key:
+        columns: [organization_id, order_id, attempt_no]
+        unique_constraint_required: true
+      exact_fulfillment_relation:
+        source: order_fulfillment_attempts[organization_id,order_id]
+        target: order_fulfillments[organization_id,order_id]
+        on_update: RESTRICT
+        on_delete: RESTRICT
+      append_only: true
+      raw_payment_payload_secret_or_sensitive_snapshot_storage: forbidden
+      attempt_history_may_mark_order_fulfilled_without_order_fulfillment_completion_fact: false
+      crash_before_attempt_evidence_write_does_not_block_safe_retry: true
+
+    specialized_domain_preservation:
+      licenses:
+        commerce_grant_effect: create_one_unit_license_inventory_rows_only
+        assignment_activation_revoke_and_entitlement_stacking_remain_DB4_6_authority: true
+        paid_fulfillment_may_auto_assign_or_activate_license: false
+      internal_exams:
+        commerce_grant_effect: create_paid_exam_inventory_units_and_required_grant_ledger_effect_only
+        reservation_release_consume_on_start_adjustment_remain_DB4_7_authority: true
+        paid_fulfillment_may_create_exam_attempt_or_consume_inventory: false
+      generic_services:
+        exact_entitlement_purchase_source_and_activation_matrix: deferred_to_DB_COM_007
+        explicit_activation_mode_may_be_activated_by_payment_or_fulfillment: false
+      product_kind_dispatch_source: immutable_order_item_catalog_kind_snapshot_from_DB_COM_001
+      order_fulfillment_does_not_reprice_or_reinterpret_product_kind: true
+
+    payment_and_projection_semantics:
+      nonzero_order_paid_projection_source: order_payment_settlements
+      zero_total_order_paid_projection_source: zero_total_settled_at
+      fulfillment_projection_source: order_fulfillments
+      allowed_combined_states_include:
+        - paid_and_fulfillment_pending
+        - paid_and_fulfillment_requires_reconciliation
+        - paid_and_fulfilled
+      unpaid_and_fulfilled_final_state: forbidden
+      purchase_history_display_status_mapping: deferred_to_DB_COM_005
+      booked_at_semantics: deferred_to_DB_COM_005
+
+    reconciliation_and_migration_boundary:
+      fulfillment_retry_job_or_operator_replay_must_use_same_exact_order_fulfillment_row: true
+      paid_status_alone_may_not_backfill_fulfilled: true
+      existing_inventory_coincidence_may_not_backfill_fulfilled_without_proven_exact_purchase_lineage: true
+      migration_or_schema_backfill_may_execute_new_grant_effects: false
+      exact_legacy_evidence_classes_and_inventory_lineage_reconciliation: deferred_to_DB_COM_006
+      existing_paid_order_without_proven_fulfillment_must_remain_unresolved_or_reviewed_not_silently_marked_fulfilled: true
+
+    required_tests:
+      - nonzero_order_settlement_and_pending_fulfillment_are_created_atomically
+      - zero_total_order_resolution_and_pending_fulfillment_are_created_atomically
+      - fulfillment_cannot_exist_from_browser_return_or_untrusted_payment_state
+      - duplicate_provider_event_or_settlement_retry_cannot_create_second_order_fulfillment
+      - paid_order_with_pending_fulfillment_is_not_reported_as_fulfilled
+      - fulfillment_transaction_failure_rolls_back_all_local_grants_and_fulfilled_marker
+      - multi_item_order_one_item_failure_leaves_zero_committed_new_grants_from_that_attempt
+      - retry_after_rollback_uses_same_fulfillment_and_can_succeed_once
+      - retry_after_success_returns_already_fulfilled_without_second_grant_set
+      - fulfilled_transition_and_all_local_grant_effects_commit_atomically
+      - unsupported_or_semantically_invalid_item_enters_reconciliation_without_partial_grants
+      - license_purchase_fulfillment_does_not_assign_activate_or_revoke_license
+      - exam_purchase_fulfillment_does_not_create_attempt_reservation_or_consumption
+      - explicit_activation_service_is_not_activated_by_payment_or_fulfillment
+      - legacy_paid_status_alone_does_not_mark_fulfilled_or_regrant_inventory
+
+    preservation_checks:
+      DB_FIN_001_and_DB_FIN_002_contracts_unchanged: PASS
+      DB_COM_001_order_item_catalog_pricing_snapshot_contract_unchanged: PASS
+      DB_COM_002_payment_settlement_zero_total_and_reconciliation_contract_unchanged: PASS
+      DB4_6_license_inventory_assignment_activation_contract_preserved: PASS
+      DB4_7_exam_inventory_ledger_reservation_consume_on_start_contract_preserved: PASS
+      exact_item_grant_provenance_and_quantity_not_solved_before_DB_COM_004: PASS
+      generic_service_entitlement_source_and_activation_not_solved_before_DB_COM_007: PASS
+      purchase_history_projection_not_solved_before_DB_COM_005: PASS
+      global_cross_domain_lock_order_not_solved_before_DB_COM_008: PASS
+      legacy_reconciliation_matrix_not_solved_before_DB_COM_006: PASS
+      aggregate_core_schema_modified: false
+      aggregate_docs87_modified: false
+      DB4_10_or_later_entered: false
+      Stage5_started: false
+      Laravel_migrations_created: false
+      UI_or_feature_implementation_started: false
+
 blockers:
   - id: DB-FIN-001
     title: student_finance_same_tenant_exact_charge_payment_course_integrity
@@ -1080,7 +1316,8 @@ blockers:
   - id: DB-COM-003
     title: paid_order_exactly_once_grant_orchestration_and_atomicity
     severity: P1
-    status: OPEN
+    status: RESOLVED
+    resolution_ref: resolved_contracts.DB-COM-003
     diagnosis:
       - license_and_exam_purchase_screens_require inventory grant after trusted payment confirmation
       - DB4_6_and_DB4_7_intentionally_deferred purchase-to-inventory grant trigger to DB4_9
@@ -1212,23 +1449,23 @@ blockers:
 diagnosis_summary:
   diagnosed_P0: 0
   diagnosed_P1: 10
-  resolved_after_diagnosis: 4
-  open_P0_P1: 6
-  result: FAIL_WITH_6_P1_BLOCKERS
+  resolved_after_diagnosis: 5
+  open_P0_P1: 5
+  result: FAIL_WITH_5_P1_BLOCKERS
   resolved_blockers:
     - DB-FIN-001
     - DB-FIN-002
     - DB-COM-001
     - DB-COM-002
-  blockers_in_required_fix_order:
     - DB-COM-003
+  blockers_in_required_fix_order:
     - DB-COM-004
     - DB-COM-007
     - DB-COM-005
     - DB-COM-008
     - DB-COM-006
 preservation_gate:
-  status: PASS_DB_COM_002_MACHINE_CONTRACT
+  status: PASS_DB_COM_003_MACHINE_CONTRACT
   checks:
     student_finance_and_platform_commerce_remain_distinct: true
     DB4_6_license_inventory_assignment_activation_contract_preserved: true
@@ -1240,7 +1477,8 @@ preservation_gate:
     browser_return_not_payment_confirmation_authority_preserved: true
     direct_bank_transfer_capability_preserved: true
     explicit_service_activation_not_payment_success_preserved: true
-    DB_COM_003_through_DB_COM_008_not_fixed_early: true
+    DB_COM_003_order_fulfillment_orchestration_closed: true
+    DB_COM_004_DB_COM_005_DB_COM_006_DB_COM_007_DB_COM_008_not_fixed_early: true
     no_refund_chargeback_invoice_provider_specific_semantics_invented: true
     aggregate_core_schema_modified: false
     aggregate_docs87_modified: false
@@ -1250,6 +1488,6 @@ preservation_gate:
     UI_or_feature_implementation_started: false
 
 next_single_step_after_central_gate:
-  id: DB_COM_003_PAID_ORDER_EXACTLY_ONCE_GRANT_ORCHESTRATION_AND_ATOMICITY
-  action: resolve_DB_COM_003_only_after_next_explicit_user_instruction
-  stop_before: DB_COM_004_ORDER_ITEM_TO_LICENSE_EXAM_SERVICE_GRANT_EXACT_PROVENANCE_AND_QUANTITY_EQUIVALENCE
+  id: DB_COM_004_ORDER_ITEM_TO_LICENSE_EXAM_SERVICE_GRANT_EXACT_PROVENANCE_AND_QUANTITY_EQUIVALENCE
+  action: resolve_DB_COM_004_only_after_next_explicit_user_instruction
+  stop_before: DB_COM_007_GENERIC_SERVICE_ENTITLEMENT_PURCHASE_GRANT_AND_ACTIVATION_SOURCE_INTEGRITY
