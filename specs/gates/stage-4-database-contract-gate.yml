@@ -111,13 +111,13 @@ stage_4_slices:
     final_aggregate_sync: PASS
     result: PASS
   - id: DB4_10_AUDIT_OUTBOX_NOTIFICATIONS
-    status: FAIL_WITH_1_P1_BLOCKER
+    status: BLOCKERS_RESOLVED_PENDING_DB4_10_FINAL_AGGREGATE_SYNC
     diagnosis: COMPLETE
     blockers_diagnosed: 8
-    blockers_resolved: 7
-    open_P0_P1: 1
+    blockers_resolved: 8
+    open_P0_P1: 0
     final_aggregate_sync: NOT_STARTED
-    result: FAIL_WITH_1_P1_BLOCKER
+    result: BLOCKERS_RESOLVED_PENDING_DB4_10_FINAL_AGGREGATE_SYNC
   - id: DB4_11_FINAL_MIGRATION_ORDER_AND_INVARIANT_TEST_MATRIX
     status: NOT_STARTED
 
@@ -4012,6 +4012,47 @@ quality_checks:
       Laravel_migrations_created: false
       UI_or_feature_implementation_started: false
 
+
+  legacy_event_projection_backfill_retention_and_cleanup_safety:
+    status: PASS
+    resolved_blocker_id: DB-EVT-001
+    machine_source: specs/database/audit-outbox-notifications.yml
+    narrative_source: docs/115-stage-4-audit-outbox-notifications-audit.md#15
+    machine_commit: edee557f39792e355b2f89b3a5e5a0a9e5838e95
+    machine_blob: fe7bae609186ada5826f8e8f8e04083ad592d6a7
+    narrative_commit: b101a2cfe63175860f731b401ffe1111408ff36c
+    narrative_blob: f9cdd2930ea1372279a8746b5b8e6bb7bdf7158f
+    checks:
+      exact_durable_evidence_is_only_automatic_backfill_authority: PASS
+      partial_or_ambiguous_evidence_blocks_auto_backfill: PASS
+      timestamp_tenant_request_event_payload_actor_or_UUID_similarity_for_lineage_forbidden: PASS
+      append_only_migration_case_review_authority_defined_without_raw_sensitive_payload_copy: PASS
+      audit_policy_actor_entity_reason_not_guessed: PASS
+      synthetic_domain_event_from_old_audit_outbox_activity_notification_similarity_forbidden: PASS
+      legacy_outbox_state_not_inferred_from_published_at_or_attempts_alone: PASS
+      legacy_activity_source_actor_subject_student_policy_not_guessed: PASS
+      legacy_notification_source_membership_and_read_state_not_guessed_or_rewritten: PASS
+      expand_write_fence_inventory_exact_backfill_validate_contract_sequence_closed: PASS
+      new_runtime_writes_cannot_create_new_legacy_exceptions_during_backfill: PASS
+      unresolved_cases_block_constraint_validation_and_go_live_for_affected_contract: PASS
+      exact_retention_duration_remains_external_privacy_legal_policy: PASS
+      global_delete_everything_after_X_days_forbidden: PASS
+      privileged_retention_execution_separate_from_normal_append_only_runtime: PASS
+      immutable_retention_execution_evidence_defined: PASS
+      legal_or_incident_hold_overrides_ordinary_cleanup_when_applicable: PASS
+      outbox_cleanup_only_published_plus_external_policy: PASS
+      pending_leased_reconciliation_or_ambiguous_legacy_outbox_cleanup_forbidden: PASS
+      outbox_cleanup_does_not_delete_domain_event_audit_business_or_projection_authority: PASS
+      activity_notification_projection_cleanup_cannot_cascade_delete_source_authority: PASS
+      all_eight_DB4_10_blockers_resolved: PASS
+      aggregate_core_schema_modified: false
+      aggregate_docs87_modified: false
+      final_DB4_10_aggregate_sync_performed_in_DB_EVT_001: false
+      DB4_11_started: false
+      Stage5_started: false
+      Laravel_migrations_created: false
+      UI_or_feature_implementation_started: false
+
 resolved_blockers:
   - DB-AUD-001
   - DB-AUD-002
@@ -4020,6 +4061,7 @@ resolved_blockers:
   - DB-ACT-001
   - DB-NOT-001
   - DB-NOT-002
+  - DB-EVT-001
   - DB-FOUND-001
   - DB-FOUND-002
   - DB-FOUND-003
@@ -4094,7 +4136,7 @@ gate_definition:
     - migration_order_dependency_safe
     - database_invariant_test_matrix_exists
     - reverse_engineering_preservation_traceable
-  current_result: DB4_10_FAIL_WITH_1_P1_BLOCKER
+  current_result: DB4_10_BLOCKERS_RESOLVED_PENDING_FINAL_AGGREGATE_SYNC
   DB4_1_result: PASS
   DB4_2_result: PASS
   DB4_3_result: PASS
@@ -4172,7 +4214,9 @@ gate_definition:
   DB4_10_DB_ACT_001_result: PASS
   DB4_10_DB_NOT_001_result: PASS
   DB4_10_DB_NOT_002_result: PASS
-  DB4_10_result: FAIL_WITH_1_P1_BLOCKER
+  DB4_10_DB_EVT_001_result: PASS
+  DB4_10_final_aggregate_sync_result: NOT_STARTED
+  DB4_10_result: BLOCKERS_RESOLVED_PENDING_DB4_10_FINAL_AGGREGATE_SYNC
   may_start_DB4_4_fixes: false
   may_start_DB4_5: false
   may_start_DB4_5_fixes: false
@@ -4185,25 +4229,27 @@ gate_definition:
   may_start_DB4_9: false
   may_start_DB4_9_fixes: false
   may_start_DB4_10: false
-  may_start_DB4_10_fixes: true
+  may_start_DB4_10_fixes: false
   may_start_DB4_11: false
   may_start_DB4_11_fixes: false
   may_start_stage_5: false
   may_start_UI_or_feature_implementation: false
 
 next_single_step:
-  id: DB_EVT_001_LEGACY_EVENT_PROJECTION_BACKFILL_RETENTION_AND_CLEANUP_SAFETY
-  action: resolve_DB_EVT_001_only_after_next_explicit_user_instruction
+  id: DB4_10_FINAL_AGGREGATE_SYNC
+  action: synchronize_DB4_10_aggregates_only_after_next_explicit_user_instruction
   allowed_scope:
+    - specs/database/core-schema.yml
+    - docs/87-physical-database-schema.md
     - specs/database/audit-outbox-notifications.yml
     - docs/115-stage-4-audit-outbox-notifications-audit.md
     - specs/gates/stage-4-database-contract-gate.yml
-  aggregate_files_frozen_until_DB4_10_blockers_are_closed:
+  aggregate_files_frozen_until_separate_DB4_10_final_sync_authorization:
     specs/database/core-schema.yml: f3519060967085517329bc668fac02e5c1fd2dbd
     docs/87-physical-database-schema.md: f3ebb764a5279cbabc9c75c2fcf9733f36ed22a8
   scope_lock: >-
-    DB-AUD-001, DB-AUD-002, DB-OUT-001, DB-OUT-002, DB-ACT-001, DB-NOT-001
-    and DB-NOT-002 are PASS. Resolve DB-EVT-001 only. Do not modify aggregate
-    files, do not enter DB4_11, Stage 5, Laravel migrations or UI. DB4_10 final
-    aggregate sync remains blocked until DB-EVT-001 is closed and separately authorized.
-  after_action: rerun_DB_EVT_001_machine_narrative_central_gate_and_STOP_before_DB4_10_final_aggregate_sync
+    DB-AUD-001, DB-AUD-002, DB-OUT-001, DB-OUT-002, DB-ACT-001, DB-NOT-001,
+    DB-NOT-002 and DB-EVT-001 are PASS. Do not enter DB4_11, Stage 5, Laravel
+    migrations or UI. The only next step is separately authorized DB4_10 final
+    aggregate sync.
+  after_action: run_DB4_10_final_aggregate_sync_and_STOP_before_DB4_11
