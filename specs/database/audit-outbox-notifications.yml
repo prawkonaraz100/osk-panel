@@ -2,15 +2,15 @@ meta:
   project: osk-panel
   stage: 4
   slice: DB4_10_AUDIT_OUTBOX_NOTIFICATIONS
-  step: DB_OUT_001_FIXER
-  status: FAIL_WITH_5_P1_BLOCKERS
+  step: DB_OUT_002_FIXER
+  status: FAIL_WITH_4_P1_BLOCKERS
   diagnosed_at: 2026-09-09
   branch: docs-consolidation-2026-09-05
   diagnosis_only: false
   fixes_applied_in_diagnosis_step: 0
-  current_fixer: DB-OUT-001
-  blockers_resolved: 3
-  open_P0_P1: 5
+  current_fixer: DB-OUT-002
+  blockers_resolved: 4
+  open_P0_P1: 4
   implementation_started: false
   Laravel_migrations_created: false
   Stage5_started: false
@@ -18,8 +18,8 @@ meta:
 
 scope_rule:
   diagnose_before_fixing: true
-  fixes_allowed_in_this_step: true_DB_OUT_001_only
-  current_step_scope: DB_OUT_001_only
+  fixes_allowed_in_this_step: true_DB_OUT_002_only
+  current_step_scope: DB_OUT_002_only
   one_blocker_per_future_step: true
   aggregate_files_frozen:
     specs/database/core-schema.yml: f3519060967085517329bc668fac02e5c1fd2dbd
@@ -224,6 +224,7 @@ blockers:
 
   - id: DB-OUT-002
     severity: P1
+    status: PASS
     title: outbox_publisher_claim_retry_reconciliation_and_at_least_once_semantics
     evidence:
       - current_outbox_has_only_published_at_attempts_last_error
@@ -778,13 +779,135 @@ resolved_contracts:
       - activity_or_notification_projection_source_must_use_domain_event_identity_not_outbox_or_request_id
       - DB_OUT_001_does_not_guess_legacy_event_lineage_or_create_synthetic_event_to_force_constraints
 
+
+  DB-OUT-002:
+    status: PASS
+    title: outbox_publisher_claim_retry_reconciliation_and_at_least_once_semantics
+    publication_state_authority:
+      table: outbox_messages
+      state_field: publication_state
+      values: [pending, leased, published, requires_reconciliation]
+      initial_state: pending
+      published_is_terminal_for_normal_publisher: true
+      requires_reconciliation_is_not_auto_claimable: true
+      normal_application_delete: forbidden
+      business_identity_fields_from_DB_OUT_001_remain_immutable: true
+      technical_delivery_state_fields_mutable_only_by_publisher_or_privileged_reconciliation_commands: true
+      published_at:
+        required_only_for_published_state: true
+        server_written: true
+        semantic: at_least_one_publish_call_was_acknowledged_not_exactly_one_external_delivery
+        rewrite_or_clear_after_nonnull: forbidden
+      next_attempt_at:
+        required_for_pending: true
+        server_derived: true
+      retry_policy_snapshot:
+        max_attempts_per_cycle_positive_integer: true
+        retry_policy_code_allowlisted: true
+        lease_timeout_seconds_positive_bounded_config_snapshot: true
+        immutable_after_insert: true
+        exact_numeric_values_are_operational_configuration_not_invented_by_DB_OUT_002: true
+    claim_and_lease:
+      claimable_rows: [pending_due, expired_lease]
+      claim_algorithm: transactionally_lock_or_UPDATE_RETURNING_with_SKIP_LOCKED_equivalent
+      lease_fields: [lease_token_nullable, lease_version, leased_by_nullable_opaque_worker_instance, lease_expires_at_nullable]
+      leased_state_requires_nonnull_lease_token_worker_and_expiry: true
+      nonleased_states_require_lease_token_worker_and_expiry_null: true
+      lease_version_monotonic_never_decreases: true
+      attempts_existing_field_semantic: monotonic_lifetime_publish_claim_count
+      add_field_attempts_in_cycle: true
+      attempts_and_attempts_in_cycle_increment_exactly_once_per_successful_claim: true
+      no_two_unexpired_current_leases_for_same_outbox_row: true
+      every_ack_failure_or_state_transition_from_leased_requires_exact_message_id_lease_token_and_lease_version_match: true
+      stale_or_expired_lease_owner_cannot_ack_publish_or_overwrite_newer_worker_state: true
+      lease_expiry_does_not_prove_publish_failed: true
+      expired_lease_reclaim_may_redeliver_same_domain_event: true
+    publish_result_state_machine:
+      successful_publish_ack:
+        transition: leased_to_published
+        exact_current_lease_fence_required: true
+        set_published_at_once: true
+        clear_lease_fields: true
+      retryable_or_ambiguous_failure_before_cycle_limit:
+        transition: leased_to_pending
+        clear_lease_fields: true
+        next_attempt_at_from_allowlisted_server_backoff_policy: true
+      nonretryable_failure_or_cycle_limit_reached:
+        transition: leased_to_requires_reconciliation
+        clear_lease_fields: true
+        next_attempt_at_null: true
+      publisher_crash_or_DB_ack_failure_after_external_publish:
+        later_reclaim_and_redelivery_allowed: true
+        exactly_once_delivery_inference_forbidden: true
+      forbidden_direct_transitions: [pending_to_published_without_current_lease, published_to_pending, published_to_leased, published_to_requires_reconciliation_by_normal_publisher]
+    at_least_once_contract:
+      delivery_guarantee: at_least_once_subject_to_operational_availability_and_reconciliation
+      exactly_once_external_delivery_claim: forbidden
+      duplicate_delivery_expected_after_timeout_crash_or_publish_ack_race: true
+      stable_dedupe_identity_sent_to_consumers: domain_event_id
+      request_id_outbox_id_timestamp_or_aggregate_id_as_consumer_dedupe_identity: forbidden
+      internal_side_effecting_consumer_must_persist_domain_event_id_dedupe_before_or_atomically_with_side_effect: true
+      activity_and_notification_exact_uniqueness_deferred_to_DB_ACT_001_and_DB_NOT_002: true
+      external_consumer_uses_domain_event_id_as_idempotency_key_when_supported: true
+      published_state_does_not_prove_consumer_processed_event_exactly_once: true
+    failure_metadata_safety:
+      existing_last_error_field_semantic: bounded_safe_summary_only_not_raw_exception_or_provider_payload
+      add_fields: [last_error_code_nullable, last_error_at_nullable, last_attempt_at_nullable, last_reconciliation_flagged_at_nullable, attempts_in_cycle, replay_count]
+      error_code_closed_catalog_or_generic_safe_fallback: true
+      last_error_max_length_and_control_character_guard: required
+      forbidden_content: [password_or_token, provider_secret_or_signature, full_PESEL_or_full_PKK, external_OSK_credentials, raw_provider_request_or_response, stack_trace_or_SQL_with_sensitive_values]
+      arbitrary_exception_serialization_to_last_error: forbidden
+    reconciliation:
+      periodic_reconciliation_required: true
+      must_surface: [requires_reconciliation_rows, exhausted_or_invalid_pending_rows, stale_expired_leases, invalid_state_timestamp_or_lease_matrix]
+      must_not_infer_business_success_from_timestamp_or_attempt_count: true
+      must_not_mutate_domain_event_business_fact: true
+      action_requires_row_lock_and_current_state_recheck: true
+      silent_delete_or_mark_published_to_clear_backlog: forbidden
+    manual_replay:
+      available_only_from_requires_reconciliation: true
+      privileged_internal_operation_not_new_public_UI_or_API_contract: true
+      requires_audit_with_nonblank_reason: true
+      audit_entity_reference_exact_outbox_message: true
+      transaction: [lock_message, verify_state, write_audit, increment_replay_count, reset_attempts_in_cycle, transition_pending, schedule_next_attempt, preserve_ids_and_lifetime_attempts, commit]
+      creates_second_domain_event_or_outbox_message: false
+      reset_lifetime_attempt_count: forbidden
+      erase_prior_audit_history: forbidden
+      replay_failure_rolls_back_state_change_and_audit_together: true
+    concurrency_and_locking:
+      normal_publisher_lock_root: exact_outbox_message_row
+      claim_batch_order: [next_attempt_at_ASC, created_at_ASC, id_ASC]
+      SKIP_LOCKED_or_equivalent_allowed: true
+      network_publish_while_holding_business_aggregate_lock: forbidden
+      reenter_DB4_9_business_lock_graph_while_holding_outbox_lease: forbidden
+      ack_transaction_short_and_contains_no_network_call: true
+    legacy_boundary:
+      missing_final_publication_state_lease_policy_or_safe_error_evidence_not_guessed_here: true
+      legacy_attempt_count_or_published_at_does_not_prove_exact_delivery: true
+      backfill_quarantine_and_phased_constraints: deferred_to_DB_EVT_001
+      new_runtime_write_fence_requires_DB_OUT_002_state_matrix: true
+    explicitly_not_closed_here: [DB_ACT_001, DB_NOT_001, DB_NOT_002, DB_EVT_001, exact_privacy_retention_duration, public_admin_UI_for_replay]
+    required_tests:
+      - concurrent_workers_cannot_hold_two_current_unexpired_leases
+      - stale_lease_fence_cannot_ack_or_overwrite_newer_state
+      - publish_ack_sets_published_once_and_published_is_not_reclaimable
+      - retryable_failure_schedules_server_backoff
+      - exhausted_or_nonretryable_failure_requires_reconciliation
+      - crash_after_publish_before_DB_ack_allows_redelivery_without_exactly_once_claim
+      - duplicate_delivery_uses_same_domain_event_id
+      - raw_sensitive_error_payload_is_rejected
+      - reconciliation_does_not_guess_published_state
+      - manual_replay_requires_audit_reason_and_preserves_identity_and_lifetime_attempts
+      - network_publish_not_inside_business_or_ack_DB_transaction
+      - legacy_delivery_state_not_guessed
+
 diagnosis_summary:
   diagnosed_P0: 0
   diagnosed_P1: 8
   fixes_applied_in_diagnosis_step: 0
-  resolved_after_diagnosis: 3
-  open_P0_P1: 5
-  result: FAIL_WITH_5_P1_BLOCKERS
+  resolved_after_diagnosis: 4
+  open_P0_P1: 4
+  result: FAIL_WITH_4_P1_BLOCKERS
   blockers_in_required_fix_order:
     - DB-AUD-001
     - DB-AUD-002
@@ -796,16 +919,16 @@ diagnosis_summary:
     - DB-EVT-001
 
 next_single_step_after_central_gate:
-  id: DB_OUT_002_OUTBOX_PUBLISHER_CLAIM_RETRY_RECONCILIATION_AND_AT_LEAST_ONCE_SEMANTICS
-  action: resolve_DB_OUT_002_only_after_next_explicit_user_instruction
+  id: DB_ACT_001_ORGANIZATION_ACTIVITY_EXACT_SOURCE_DEDUPE_ORDER_AND_SAFE_HISTORICAL_DISPLAY
+  action: resolve_DB_ACT_001_only_after_next_explicit_user_instruction
   allowed_files_only:
     - specs/database/audit-outbox-notifications.yml
     - docs/115-stage-4-audit-outbox-notifications-audit.md
     - specs/gates/stage-4-database-contract-gate.yml
   aggregate_files_currently_frozen: true
   scope_lock: >-
-    DB-AUD-001, DB-AUD-002 and DB-OUT-001 are PASS. Resolve DB-OUT-002 only
-    in the next fixer transaction. Keep DB-ACT-001, DB-NOT-001, DB-NOT-002
-    and DB-EVT-001 OPEN. Do not modify core-schema.yml or docs/87, do not
-    enter DB4_11, Stage 5, Laravel migrations or UI.
-  stop_before: DB_OUT_002
+    DB-AUD-001, DB-AUD-002, DB-OUT-001 and DB-OUT-002 are PASS. Resolve
+    DB-ACT-001 only in the next fixer transaction. Keep DB-NOT-001,
+    DB-NOT-002 and DB-EVT-001 OPEN. Do not modify core-schema.yml or docs/87,
+    do not enter DB4_11, Stage 5, Laravel migrations or UI.
+  stop_before: DB_ACT_001
