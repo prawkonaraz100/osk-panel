@@ -3,8 +3,8 @@
 Data: 2026-09-08
 
 **Etap:** `DB4_9_STUDENT_FINANCE_COMMERCE`  
-**Aktualny krok:** `DB_COM_008_GLOBAL_CROSS_DOMAIN_LOCK_ORDER_AND_RACE_WINNER_SEMANTICS`
-**Status:** `FAIL_WITH_1_P1_BLOCKER / 0 P0 / 1 P1 OPEN`
+**Aktualny krok:** `DB_COM_006_LEGACY_MIGRATION_RECONCILIATION_AND_BACKFILL_SAFETY`
+**Status:** `BLOCKERS_RESOLVED_PENDING_DB4_9_FINAL_AGGREGATE_SYNC / 0 P0 / 0 P1 OPEN`
 
 Machine-readable diagnoza: `specs/database/student-finance-commerce.yml`.
 
@@ -1291,4 +1291,111 @@ DB-COM-006 pozostaje **OPEN**. Nie wykonaliśmy żadnego legacy backfillu, payme
 
 Następny dozwolony krok po central gate: **DB-COM-006 only**.
 
-**STOP przed DB-COM-006.**
+**STOP przed DB-COM-006.**## 28. DB-COM-006 — wynik fixera: PASS
+
+DB-COM-006 domyka ostatni blocker DB4_9: bezpieczne przejście danych legacy do kontraktów Student Finance i Platform Commerce. Zasada nadrzędna jest fail-closed: migracja może odtworzyć tylko fakt wynikający z dokładnej relacji, wiarygodnego historycznego dowodu albo jawnie zatwierdzonej remediacji. Podobieństwo nie jest dowodem.
+
+### 28.1. Cztery klasy dowodu
+
+Każdy brakujący fakt trafia do jednej z czterech klas:
+- `safe_exact_derivation` — wynik jednoznaczny z istniejącego exact parentu, np. tenant OrderItem z jego dokładnego Order,
+- `proven_historical_fact` — trwały historyczny dowód bezpośrednio potwierdza fakt,
+- `reviewed_exact_remediation` — dokładne ID rekordów + evidence reference + reviewer/actor + reason,
+- `unresolved_ambiguity` — automatyczny backfill zabroniony; cutover zatrzymany.
+
+Timestamp proximity, UUID, sama kwota, ten sam tenant, podobna nazwa, czas trwania, aktualna cena, nearest row, `created_at`, `updated_at`, browser redirect i czas uruchomienia migracji nie mogą być dowodem exact lineage ani payment causality.
+
+### 28.2. OrderItem, produkt i historyczna cena
+
+`order_items.organization_id` wolno wyprowadzić z dokładnego istniejącego parent Order. Brak albo niejednoznaczny parent zatrzymuje migrację; nie wolno przepinać itemu do „najbardziej pasującego” Order.
+
+Exact SKU/product/catalog reference wymaga trwałego exact reference albo reviewed mapping z dowodem. Nie wolno wybierać produktu po nazwie, długości licencji, cenie, VAT, kwocie czy czasie.
+
+Historycznych cen nie przeliczamy z aktualnego cennika. Legacy snapshot można zachować, jeśli jest autorytatywny i spełnia formułę DB-COM-001. Brak lub niespójność ceny/VAT/discount/total wymaga reviewed remediation albo FAIL.
+
+### 28.3. Numer zamówienia i daty
+
+Istniejący wiarygodny, unikalny numer zamówienia zachowujemy. Gdy fizyczne `order_sequence` musi zostać uzupełnione, a historycznej kolejności nie da się udowodnić, dopuszczalna jest wyłącznie reviewable techniczna alokacja per tenant. Taki numer nie może być przedstawiany jako odtworzona historyczna chronologia.
+
+`ordered_at` wymaga udowodnionego historycznego czasu lub reviewed exact remediation. `booked_at` wymaga trusted payment resolution, zero-total settlement albo reviewed exact evidence. Browser return, ogólne `created_at/updated_at` i migration current time są zakazane jako substytut.
+
+### 28.4. Payment, PaymentEvent i Settlement
+
+Legacy `paid` string nie tworzy settlementu. Settlement może zostać odtworzony tylko dla exact Payment z trusted confirmation zgodną z DB-COM-002.
+
+Nie wybieramy zwycięzcy po najbliższym czasie, kwocie, providerze czy UUID. Jeżeli istnieje więcej niż jeden wiarygodny kandydat, zachowujemy external payment truths, ale settlement wymaga review. Direct bank transfer wymaga niezależnego bank/provider evidence.
+
+Jeżeli dokładnego eventu sprawczego nie można udowodnić, nie fabrykujemy `source_event`. `reviewed_reconciliation` jest legalne wyłącznie wtedy, gdy istnieje realny niezależny dowód i komplet reviewer/reason metadata.
+
+### 28.5. Fulfillment: paid nie znaczy fulfilled
+
+Migracja nie uruchamia fulfillment worker ani żadnego grant command. Sam paid/settled status oraz „pasujące” inventory nie dowodzą fulfillmentu.
+
+Jeżeli settlement jest udowodniony, lecz kompletny exact grant set nie jest, `order_fulfillment` ma być `requires_reconciliation` — nie `pending` i nie `fulfilled`. Dzięki temu worker nie może automatycznie dograntować brakujących jednostek i stworzyć duplikatów.
+
+`fulfilled` wolno odtworzyć dopiero po udowodnieniu settlement/zero-total source oraz kompletnego exact grant set dla każdej pozycji Order.
+
+### 28.6. Downstream inventory i quantity
+
+Legacy License Inventory, Internal Exam Inventory i ServiceEntitlement można połączyć z OrderItem wyłącznie przy exact purchase lineage. Free, adjustment, manual/operator grant nie mogą zostać przemianowane na paid tylko po to, aby constraints przeszły.
+
+Dla `quantity=N` wymagamy dokładnie N udowodnionych właściwych jednostek. Dopiero po udowodnieniu całego setu można technicznie przypisać ordinals `1..N`, np. stabilnie po immutable row id. Ordinal jest enumeracją — nie dowodem lineage ani chronologii.
+
+Migracja nie tworzy brakujących units, nie klonuje istniejących i nie usuwa „nadmiarowych”, aby wymusić zgodność quantity.
+
+### 28.7. Istniejący lifecycle pozostaje nietknięty
+
+Nie wolno delete/recreate ani przepisywać:
+- License Assignment / Activation,
+- Exam Reservation / Attempt / Consumption,
+- Service Activation.
+
+Ambiguous ServiceEntitlement source pozostaje unresolved. Payment success nadal nie fabrykuje explicit activation.
+
+### 28.8. Legacy `course_cost_charge_origins`
+
+Origin wolno odtworzyć tylko wtedy, gdy trusted history bezpośrednio dowodzi, że exact StudentCharge powstał przez `create from Course cost`. Ten sam Course, Student, amount, currency, title lub timestamp nie wystarczają.
+
+Jeżeli fakt nie jest udowodniony, Charge pozostaje zwykłą historyczną należnością z optional Course context. Migracja nie tworzy drugiego Charge tylko po to, aby wypełnić origin.
+
+### 28.9. Write fence i kolejność cutover
+
+Finalny preflight nie może ścigać się ze starymi write paths. Przed finalną walidacją i aktywacją constraints potrzebny jest maintenance write fence albo równoważny tryb, w którym wszystkie writes już przechodzą przez nowy kontrakt.
+
+Kolejność:
+1. write fence / new-contract-only writes,
+2. structural fields i constraints jako temporary nullable/not-valid gdzie potrzebne,
+3. tylko safe exact derivations,
+4. row-level reconciliation manifest,
+5. tylko reviewed exact remediations,
+6. pełny preflight pod fence,
+7. NOT NULL/FK/unique/check/transactional guards,
+8. przełączenie runtime i wznowienie writes,
+9. post-cutover invariant verification.
+
+Jakikolwiek `unresolved_ambiguity` blokuje activation constraints.
+
+### 28.10. Reconciliation manifest i brak regrantu
+
+Manifest jest artefaktem migracyjnym/review report, a nie nową runtime business authority. Dla każdego case przechowuje exact row ID, problem, evidence class/reference, mapping, reviewer/reason i disposition. Raw legacy evidence pozostaje zachowany.
+
+Restart migracji nie może powielić Settlement, Fulfillment ani grantów. Formalnej historii finansowej i downstream business history nie wolno hard-delete, aby „naprawić” constraints.
+
+### 28.11. Preservation gate
+
+Zachowane są DB-FIN-001/002 oraz DB-COM-001/002/003/004/005/007/008, rozdział Student Finance ≠ Platform Commerce, DB4_6 License lifecycle, DB4_7 Exam lifecycle i DB4_8 PKK. Nie powstały Laravel migrations, nie zmieniono Stage-3 API, nie rozpoczęto DB4_10 ani Stage 5.
+
+Frozen agregaty nadal pozostają nietknięte. Ich synchronizacja jest osobną bramką.
+
+### 28.12. Wynik po DB-COM-006
+
+- DB-COM-006: **PASS**,
+- P0 OPEN: **0**,
+- P1 OPEN: **0**,
+- resolved: **10/10**,
+- blocker result: **BLOCKERS_RESOLVED_PENDING_DB4_9_FINAL_AGGREGATE_SYNC**,
+- final aggregate sync: **NOT STARTED**.
+
+Następny dozwolony krok po central gate: **DB4_9 FINAL AGGREGATE SYNC only**, dopiero po następnym jawnym poleceniu użytkownika.
+
+**STOP przed finalnym DB4_9 aggregate sync.**
