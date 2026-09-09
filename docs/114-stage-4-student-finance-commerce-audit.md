@@ -3,8 +3,8 @@
 Data: 2026-09-08
 
 **Etap:** `DB4_9_STUDENT_FINANCE_COMMERCE`  
-**Aktualny krok:** `DB_COM_004_ORDER_ITEM_TO_LICENSE_EXAM_SERVICE_GRANT_EXACT_PROVENANCE_AND_QUANTITY_EQUIVALENCE`
-**Status:** `FAIL_WITH_4_P1_BLOCKERS / 0 P0 / 4 P1 OPEN`
+**Aktualny krok:** `DB_COM_007_GENERIC_SERVICE_ENTITLEMENT_PURCHASE_GRANT_AND_ACTIVATION_SOURCE_INTEGRITY`
+**Status:** `FAIL_WITH_3_P1_BLOCKERS / 0 P0 / 3 P1 OPEN`
 
 Machine-readable diagnoza: `specs/database/student-finance-commerce.yml`.
 
@@ -900,3 +900,139 @@ Stan po fixerze:
 Następny dozwolony krok po central gate: **DB-COM-007 only**.
 
 **STOP przed DB-COM-007.**
+
+## 25. DB-COM-007 — wynik fixera: PASS
+
+DB-COM-007 domyka brakującą granicę dla `service_entitlements`: każda jednostka generic service ma dokładnie jedno źródło biznesowe — **purchase** albo **operator grant** — oraz zamkniętą relację między `activation_mode`, bieżącym stanem entitlementu i dokładnie jedną historyczną `service_activation`. Nie zmieniamy modeli licencji ani egzaminów i nie tworzymy sztucznej tabeli `service_products`.
+
+### 25.1. Provenance ma twardy XOR
+
+`service_entitlements` pozostaje tenant-owned. Źródło nie jest osobnym mutable stringiem, tylko wynika z istniejących pól.
+
+Dla **purchase** wymagamy jednocześnie:
+- `source_order_item_id != NULL`,
+- `source_order_item_grant_ordinal != NULL`,
+- `source_grant_reference = NULL`.
+
+Dla **operator grant** wymagamy:
+- `source_order_item_id = NULL`,
+- `source_order_item_grant_ordinal = NULL`,
+- `source_grant_reference` non-null i niepuste.
+
+Stan „oba źródła” oraz „brak źródła” są niedozwolone. `organization_id`, provenance, `service_type` i `activation_mode` są po insercie niezmienne.
+
+### 25.2. Purchase entitlement wskazuje exact generic-service OrderItem
+
+Zachowujemy lineage DB-COM-004:
+
+`service_entitlements(organization_id, source_order_item_id)` → `order_items(organization_id, id)`.
+
+Parent musi mieć `product_kind=generic_service`, ordinal musi mieścić się w `1..OrderItem.quantity`, a `(organization_id, source_order_item_id, source_order_item_grant_ordinal)` jest unique dla purchase-sourced service units.
+
+Dodatkowo immutable `OrderItem.product_snapshot` dla generic service musi zawierać znormalizowane:
+- `service_type`,
+- `activation_mode = immediate | explicit`.
+
+Purchase entitlement musi odzwierciedlać dokładnie te wartości. Nie dodajemy osobnej tabeli produktu tylko po to, aby powielić SKU — canonical sale SKU nadal pozostaje `commerce_catalog_item_id` zapisany na OrderItem.
+
+To ważne rozróżnienie: dla generic service `Order fulfilled` oznacza **entitlement przyznany**, a nie automatycznie „usługa explicit została aktywowana”.
+
+### 25.3. Operator grant nie udaje zakupu
+
+Operator-granted entitlement nie ma OrderItem, Payment ani purchase-history Orderu. `source_grant_reference` jest trwałą, niepustą referencją provenance i nie może być payment ID, browser-return tokenem ani drugim źródłem płatności.
+
+Nie narzucamy globalnej unique na `source_grant_reference`, ponieważ jedna sprawa/operator action może legalnie obejmować kilka jednostek. Exactly-once komendy operator grant realizuje wspólny `idempotency_records` z operation key `commerce.service_entitlement.operator_grant`; sama referencja provenance nie jest idempotency authority.
+
+Nie dodajemy w tym fixerze nowego HTTP endpointu operator grant — Stage-3 API pozostaje frozen.
+
+### 25.4. `service_activation` musi należeć do exact tenant entitlementu
+
+`service_activations` dostaje zamkniętą same-tenant relację:
+
+`service_activations(organization_id, service_entitlement_id)` → `service_entitlements(organization_id, id)`.
+
+Na exact entitlement może istnieć najwyżej jedna activation. Activation row jest append-only po insercie i nie jest usuwany po późniejszym expiry/revoke, bo jest historycznym dowodem, że aktywacja rzeczywiście nastąpiła.
+
+`effective_to`, jeśli istnieje, nie może być wcześniejsze niż `effective_from`. `activated_by_user_id` może pozostać null dla systemowej aktywacji w trybie immediate.
+
+### 25.5. `immediate` i `explicit` mają różne transakcje
+
+Dla `activation_mode=explicit` purchase fulfillment tworzy entitlement w stanie `available` i **zero** `service_activations`. Dopiero osobna akcja `/service-entitlements/{id}/activate` może utworzyć activation. API już wymaga dla niej `Idempotency-Key`; database contract korzysta z operation key `commerce.service_entitlement.activate`.
+
+Dla `activation_mode=immediate` grant transaction tworzy entitlement i dokładnie jedną activation atomowo, a bieżący stan po commit to `activated`.
+
+Ta sama reguła działa dla operator grant:
+- explicit → `available`, bez activation,
+- immediate → entitlement + activation w jednej transakcji.
+
+W purchase flow payment settlement lub webhook nie wywołują bezpośrednio activation. Najpierw działa canonical order fulfillment. Tylko polityka entitlementu `immediate` może spowodować activation w tej samej lokalnej transakcji grantowej. Dla `explicit` payment success nigdy nie jest activation.
+
+### 25.6. Final-state equivalence `activation_mode ↔ status ↔ activation`
+
+Zachowujemy katalog statusów `granted | available | activated | expired | revoked`, ale po cutover `granted` nie jest poprawnym committed runtime final state. Jest wyłącznie wartością legacy / przejściową wewnątrz transakcji do czasu klasyfikacji.
+
+Macierz finalna:
+- `available` → tylko `explicit` i dokładnie 0 activation rows,
+- `activated` → dokładnie 1 activation row,
+- `immediate` → po grant transaction zawsze dokładnie 1 activation row i nigdy `available`,
+- `expired` → nowa aktywacja zabroniona; immediate zachowuje 1 historyczną activation, explicit może mieć 0 albo 1 zależnie od tego, czy wygasł przed czy po aktywacji,
+- `revoked` → analogicznie blokuje nową aktywację i nie kasuje wcześniejszego dowodu activation.
+
+`activated` bez activation row oraz `available` z activation row są stanami niespójnymi. Terminalnego entitlementu nie cofamy do `available` ani `activated` zwykłą mutacją statusu.
+
+### 25.7. Exactly-once i concurrency
+
+Purchase exactly-once pozostaje oparte na DB-COM-004 `source_order_item_id + grant_ordinal`.
+
+Explicit activation serializuje się na exact `service_entitlement FOR UPDATE` i dodatkowo korzysta z generic idempotency record. Kolejność operacji:
+1. claim idempotency record,
+2. lock entitlement,
+3. sprawdzenie `activation_mode=explicit` i braku terminalnego stanu,
+4. jeżeli activation już istnieje — zwrot istniejącego sukcesu bez drugiego efektu,
+5. insert jednej activation,
+6. ustawienie nonterminal current state na `activated`,
+7. zapis bezpiecznego wyniku idempotency.
+
+Retry płatności albo provider event nie może zmienić explicit entitlementu z `available` na `activated`.
+
+### 25.8. Migration safety
+
+Przed włączeniem constraints każdy legacy entitlement musi zostać sklasyfikowany jako exact purchase albo exact operator grant.
+
+Nie wolno:
+- tworzyć sztucznego `source_grant_reference`, tylko żeby przejść XOR,
+- zgadywać OrderItem po timestampie, kwocie, cenie, tenant, service type lub podobnym SKU,
+- przepinać wrong-tenant entitlement/activation,
+- tworzyć activation row tylko dlatego, że legacy status brzmi `activated`,
+- wymyślać timestampu immediate activation bez historycznego evidence,
+- usuwać istniejącej activation, żeby otrzymać `available`,
+- zamieniać operator grant w purchase lub odwrotnie bez dowodu,
+- robić regrant podczas migracji schematu.
+
+Ambiguous source lub activation history = FAIL + reviewed remediation. Pełne klasy legacy evidence pozostają DB-COM-006.
+
+### 25.9. Preservation gate
+
+Zachowane bez zmian:
+- DB-FIN-001/002,
+- DB-COM-001 catalog, pricing i immutable OrderItem snapshot,
+- DB-COM-002 trusted payment settlement i browser-return != paid authority,
+- DB-COM-003 order-level fulfillment atomicity,
+- DB-COM-004 exact OrderItem provenance i quantity equivalence,
+- DB4_6 License Inventory / Assignment / Activation,
+- DB4_7 Internal Exam Inventory / Reservation / consume-on-start,
+- explicit service activation pozostaje oddzielona od payment success,
+- operator grants nie stają się zakupami,
+- DB-COM-005, DB-COM-008 i DB-COM-006 pozostają OPEN,
+- `core-schema.yml` i `docs/87...` nadal są zamrożone,
+- DB4_10+, Stage 5, Laravel migrations i UI pozostają nieruszone.
+
+Stan po fixerze:
+- P0 OPEN: **0**,
+- P1 OPEN: **3**,
+- resolved: **7/10**,
+- result: **FAIL_WITH_3_P1_BLOCKERS**.
+
+Następny dozwolony krok po central gate: **DB-COM-005 only**.
+
+**STOP przed DB-COM-005.**
