@@ -103,13 +103,13 @@ stage_4_slices:
     final_aggregate_sync: PASS
     result: PASS
   - id: DB4_9_STUDENT_FINANCE_COMMERCE
-    status: FAIL_WITH_3_P1_BLOCKERS
+    status: FAIL_WITH_2_P1_BLOCKERS
     diagnosis: COMPLETE
     blockers_diagnosed: 10
-    blockers_resolved: 7
-    open_P0_P1: 3
+    blockers_resolved: 8
+    open_P0_P1: 2
     final_aggregate_sync: NOT_STARTED
-    result: FAIL_WITH_3_P1_BLOCKERS
+    result: FAIL_WITH_2_P1_BLOCKERS
   - id: DB4_10_AUDIT_OUTBOX_NOTIFICATIONS
     status: NOT_STARTED
   - id: DB4_11_FINAL_MIGRATION_ORDER_AND_INVARIANT_TEST_MATRIX
@@ -3456,6 +3456,72 @@ quality_checks:
       Laravel_migrations_created: false
       UI_or_feature_implementation_started: false
 
+
+  commerce_purchase_history_number_booking_status_and_pagination_integrity:
+    status: PASS
+    resolved_blocker_id: DB-COM-005
+    severity: P1
+    machine_source: specs/database/student-finance-commerce.yml
+    narrative_source: docs/114-stage-4-student-finance-commerce-audit.md
+    machine_commit: 7da1a19df9fd7ecc8a1a740b06521e5642fe438c
+    machine_blob: b24be7b5e5ce8a4467f4e749c1833f61523e97dc
+    narrative_commit: e44bc437aac37489ddf8891b2b485bdcd0d12850
+    narrative_blob: a8ee0633e0a17c5bfa97c19a2332e935f72be59b
+    decision:
+      order_number_authority: orders.order_sequence
+      order_sequence_scope: per_organization
+      order_sequence_candidate_key: [organization_id, order_sequence]
+      organization_commerce_order_sequences_is_allocation_authority: true
+      sequence_allocation_uses_exact_counter_row_FOR_UPDATE: true
+      application_MAX_plus_1_forbidden: true
+      committed_sequence_reuse_or_mutation_forbidden: true
+      gapless_numbering_requirement: false
+      display_number_is_decimal_projection_not_secret_or_payment_authority: true
+      ordered_at_is_server_owned_write_once_business_timestamp: true
+      booked_at_is_nullable_write_once_trusted_paid_resolution_timestamp: true
+      nonzero_booked_at_equals_exact_order_payment_settlement_settled_at: true
+      zero_total_booked_at_equals_zero_total_settled_at: true
+      unpaid_or_payment_pending_booked_at_null: true
+      second_confirmed_nonsettling_payment_does_not_change_booked_at: true
+      purchase_history_status_values: [unpaid, payment_pending, paid_processing, completed, requires_reconciliation]
+      purchase_history_status_is_derived_not_independent_mutable_authority: true
+      unpaid_Polish_UI_label_confirmed: Nieopłacone
+      other_Polish_UI_labels_frozen: false
+      purchase_history_items_use_immutable_DB_COM_001_snapshots: true
+      default_history_order: [ordered_at_DESC, order_sequence_DESC, id_DESC]
+      equal_timestamp_total_order_is_deterministic: true
+      Stage3_offset_page_contract_preserved: true
+      cross_request_snapshot_stability_under_concurrent_inserts_claimed: false
+      observed_UI_page_sizes: [10, 25, 50, 100]
+      Stage3_API_range_1_through_100_preserved: true
+      legacy_sequence_ordered_at_booked_at_reconstruction_deferred_to_DB_COM_006: true
+      heuristic_legacy_number_or_booking_backfill_forbidden: true
+      DB_COM_008_global_lock_order_deferred: true
+    checks:
+      machine_contract_yaml_valid: PASS
+      narrative_contract_synchronized: PASS
+      same_tenant_concurrent_order_number_allocation_serialized: PASS
+      same_tenant_duplicate_order_sequence_rejected: PASS
+      same_numeric_sequence_different_tenants_allowed: PASS
+      display_number_not_reused_as_public_payment_secret: PASS
+      ordered_at_write_once_server_owned: PASS
+      booked_at_source_matrix_closed: PASS
+      booked_at_cannot_be_cleared_or_rewritten: PASS
+      payment_and_fulfillment_projection_status_mapping_closed: PASS
+      legacy_orders_status_second_authority_forbidden: PASS
+      only_observed_unpaid_Polish_label_frozen: PASS
+      history_item_snapshot_immutability_preserved: PASS
+      deterministic_sort_tie_breaker_closed: PASS
+      UI_page_sizes_supported_without_narrowing_Stage3_API: PASS
+      legacy_backfill_not_solved_heuristically: PASS
+      DB_COM_008_and_DB_COM_006_remain_open: PASS
+      aggregate_core_schema_modified: false
+      aggregate_docs87_modified: false
+      DB4_10_or_later_entered: false
+      Stage5_started: false
+      Laravel_migrations_created: false
+      UI_or_feature_implementation_started: false
+
 resolved_blockers:
   - DB-FOUND-001
   - DB-FOUND-002
@@ -3517,9 +3583,9 @@ resolved_blockers:
   - DB-COM-003
   - DB-COM-004
   - DB-COM-007
+  - DB-COM-005
 
 open_blockers_current_diagnosed_scope:
-  - DB-COM-005
   - DB-COM-008
   - DB-COM-006
 
@@ -3531,7 +3597,7 @@ gate_definition:
     - migration_order_dependency_safe
     - database_invariant_test_matrix_exists
     - reverse_engineering_preservation_traceable
-  current_result: DB4_9_FAIL_WITH_3_P1_BLOCKERS
+  current_result: DB4_9_FAIL_WITH_2_P1_BLOCKERS
   DB4_1_result: PASS
   DB4_2_result: PASS
   DB4_3_result: PASS
@@ -3596,7 +3662,8 @@ gate_definition:
   DB4_9_DB_COM_003_result: PASS
   DB4_9_DB_COM_004_result: PASS
   DB4_9_DB_COM_007_result: PASS
-  DB4_9_result: FAIL_WITH_3_P1_BLOCKERS
+  DB4_9_DB_COM_005_result: PASS
+  DB4_9_result: FAIL_WITH_2_P1_BLOCKERS
   may_start_DB4_4_fixes: false
   may_start_DB4_5: false
   may_start_DB4_5_fixes: false
@@ -3612,8 +3679,8 @@ gate_definition:
   may_start_UI_or_feature_implementation: false
 
 next_single_step:
-  id: DB_COM_005_DETERMINISTIC_PURCHASE_HISTORY_DISPLAY_NUMBER_BOOKING_DATE_STATUS_AND_PAGINATION_PROJECTION
-  action: resolve_DB_COM_005_only_after_next_explicit_user_instruction
+  id: DB_COM_008_GLOBAL_CROSS_DOMAIN_LOCK_ORDER_AND_RACE_WINNER_SEMANTICS
+  action: resolve_DB_COM_008_only_after_next_explicit_user_instruction
   allowed_scope:
     - specs/database/student-finance-commerce.yml
     - docs/114-stage-4-student-finance-commerce-audit.md
@@ -3622,6 +3689,6 @@ next_single_step:
     - specs/database/core-schema.yml
     - docs/87-physical-database-schema.md
   scope_lock: >-
-    Resolve DB-COM-005 only. Preserve DB-COM-008 and DB-COM-006 as OPEN.
-    Do not enter DB-COM-008, DB4_10, Stage 5, Laravel migrations or UI in the same step.
-  after_action: rerun_DB_COM_005_machine_narrative_central_gate_and_STOP_before_DB_COM_008
+    Resolve DB-COM-008 only. Preserve DB-COM-006 as OPEN.
+    Do not enter DB-COM-006, DB4_10, Stage 5, Laravel migrations or UI in the same step.
+  after_action: rerun_DB_COM_008_machine_narrative_central_gate_and_STOP_before_DB_COM_006
