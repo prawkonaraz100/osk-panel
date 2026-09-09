@@ -2,15 +2,15 @@ meta:
   project: osk-panel
   stage: 4
   slice: DB4_10_AUDIT_OUTBOX_NOTIFICATIONS
-  step: DB_AUD_002_FIXER
-  status: FAIL_WITH_6_P1_BLOCKERS
+  step: DB_OUT_001_FIXER
+  status: FAIL_WITH_5_P1_BLOCKERS
   diagnosed_at: 2026-09-09
   branch: docs-consolidation-2026-09-05
   diagnosis_only: false
   fixes_applied_in_diagnosis_step: 0
-  current_fixer: DB-AUD-002
-  blockers_resolved: 2
-  open_P0_P1: 6
+  current_fixer: DB-OUT-001
+  blockers_resolved: 3
+  open_P0_P1: 5
   implementation_started: false
   Laravel_migrations_created: false
   Stage5_started: false
@@ -18,8 +18,8 @@ meta:
 
 scope_rule:
   diagnose_before_fixing: true
-  fixes_allowed_in_this_step: true_DB_AUD_002_only
-  current_step_scope: DB_AUD_002_only
+  fixes_allowed_in_this_step: true_DB_OUT_001_only
+  current_step_scope: DB_OUT_001_only
   one_blocker_per_future_step: true
   aggregate_files_frozen:
     specs/database/core-schema.yml: f3519060967085517329bc668fac02e5c1fd2dbd
@@ -205,6 +205,7 @@ blockers:
 
   - id: DB-OUT-001
     severity: P1
+    status: PASS
     title: transactional_domain_event_outbox_identity_and_same_transaction_coupling
     evidence:
       - multiple_closed_slices_require_business_state_audit_and_outbox_intent_in_one_transaction
@@ -612,13 +613,178 @@ resolved_contracts:
       - required_audit_policy_validation_failure_rolls_back_business_effect
       - DB_AUD_002_does_not_guess_legacy_policy_version_or_rewrite_historical_payload
 
+  DB-OUT-001:
+    status: PASS
+    title: transactional_domain_event_outbox_identity_and_same_transaction_coupling
+    durable_domain_event_authority:
+      table: domain_events
+      purpose: durable_immutable_identity_for_committed_domain_event_facts_used_by_outbox_and_retryable_projections
+      business_source_of_truth: false
+      fields:
+        - id
+        - event_scope
+        - organization_id_nullable
+        - event_type
+        - aggregate_reference_mode
+        - aggregate_type_nullable
+        - aggregate_id_nullable_string
+        - request_id
+        - causation_event_id_nullable
+        - required_audit_log_id_nullable
+        - occurred_at
+        - created_at
+      primary_key: id
+      id_server_generated_globally_unique_immutable: true
+      organization_candidate_key: [organization_id, id]
+      immutable_after_insert: true
+      normal_application_update_delete: forbidden
+      event_scope_values: [organization, platform_global]
+      organization_scope:
+        organization_id_required: true
+        organization_id_server_derived_from_business_authority: true
+      platform_global_scope:
+        organization_id_required_null: true
+      event_type_source: confirmed_domain_contract_catalog_only
+      ad_hoc_marketing_or_unobserved_event_type_invention: forbidden
+      occurred_at_server_derived_from_committed_business_effect_time: true
+      created_at_is_persistence_time_not_business_effect_identity: true
+    identity_roles:
+      event_id:
+        authority: domain_events.id
+        role: durable_source_identity_for_outbox_activity_notifications_and_other_retryable_projections
+        request_id_or_timestamp_may_replace_event_id: false
+      request_id:
+        role: request_job_trace_correlation_only
+        unique: false
+        may_be_shared_by_multiple_domain_events: true
+        may_be_used_as_projection_dedupe_identity: false
+        may_be_used_as_business_authorization_or_tenant_authority: false
+      causation_event_id:
+        nullable: true
+        exact_FK: domain_events.id_RESTRICT
+        role: optional_exact_prior_domain_event_identity_when_a_real_causal_event_exists
+        missing_causation_must_not_be_inferred_from_request_id_or_timestamp: true
+        causation_scope_does_not_override_current_event_scope_or_organization: true
+      aggregate_reference:
+        role: subject_or_business_aggregate_reference_not_event_identity
+        aggregate_type_and_id_immutable: true
+        aggregate_reference_mode_values: [none, tenant_relational, global_relational, snapshot_only]
+        none_requires_type_and_id_null: true
+        tenant_relational:
+          event_scope_must_be_organization: true
+          exact_same_tenant_target_guard: closed_allowlist_DEFERRABLE_constraint_trigger_or_equivalent
+        global_relational:
+          exact_global_target_guard: closed_allowlist_constraint_trigger_or_equivalent
+        snapshot_only:
+          explicit_allowlist_required: true
+          no_false_relational_or_tenant_integrity_claim: true
+          sensitive_identifier_in_aggregate_id: forbidden
+        polymorphic_target_inference_by_name_UUID_shape_or_timestamp: forbidden
+    audit_coupling_reference:
+      field: required_audit_log_id_nullable
+      exact_FK: audit_logs.id_RESTRICT
+      when_upstream_slice_requires_audit_for_event_producing_business_effect: required
+      when_upstream_slice_does_not_require_audit: nullable
+      scope_and_organization_equivalence_guard: required
+      audit_row_remains_append_only_and_not_business_source_of_truth: true
+      event_does_not_copy_raw_audit_payload: true
+    outbox_domain_event_binding:
+      outbox_table: outbox_messages
+      add_fields:
+        - domain_event_id
+        - event_scope
+        - organization_id_nullable
+      domain_event_id_required_for_new_runtime_rows: true
+      exact_event_FK: domain_events.id_RESTRICT
+      unique_domain_event_outbox_intent: domain_event_id
+      scope_matrix:
+        organization_event_requires_exact_same_nonnull_organization_id: true
+        platform_global_event_requires_null_organization_id: true
+      copied_identity_fields_must_equal_domain_event:
+        - event_scope
+        - organization_id
+        - event_type
+        - aggregate_type
+        - aggregate_id
+        - request_id
+      database_equivalence_guard: DEFERRABLE_INITIALLY_DEFERRED_constraint_trigger_or_equivalent
+      outbox_id_is_technical_message_identity_not_domain_event_identity: true
+      outbox_row_is_not_business_source_of_truth: true
+      outbox_payload_must_remain_publisher_safe_and_secret_free_under_existing_security_contract: true
+      raw_audit_payload_or_raw_provider_payload_as_outbox_payload: forbidden
+    same_transaction_coupling:
+      applies_when_prior_domain_slice_requires_outbox_for_committed_mutation: true
+      one_local_database_transaction_contains:
+        - canonical_business_state_change_or_append_only_business_effect
+        - required_audit_log_insert_when_upstream_contract_requires_audit
+        - exactly_one_domain_event_for_each_required_logical_event
+        - exactly_one_outbox_message_for_each_new_domain_event
+      required_ordering:
+        - acquire_and_validate_existing_domain_lock_or_race_winner_root
+        - apply_business_effect
+        - insert_required_audit
+        - insert_domain_event
+        - insert_outbox_intent
+        - commit
+      any_required_audit_event_or_outbox_insert_failure_rolls_back_business_effect: true
+      post_commit_best_effort_outbox_insert_for_required_event: forbidden
+      reconstructing_required_event_later_by_polling_business_tables_as_normal_path: forbidden
+      external_network_publish_inside_business_transaction: forbidden
+      asynchronous_publisher_may_run_only_after_commit: true
+      loser_of_business_race_or_noop_idempotent_replay_emits_no_second_event_or_outbox: true
+      successful_idempotent_replay_returns_existing_business_result_without_second_logical_event: true
+      DB_OUT_001_does_not_define_publisher_claim_retry_or_DLQ_state: true
+    projection_source_contract:
+      canonical_source_for_activity_and_notifications: domain_events.id
+      outbox_messages.id_as_projection_source: forbidden
+      request_id_as_projection_source: forbidden
+      timestamp_similarity_as_projection_source: forbidden
+      organization_scoped_projection_must_match_domain_event_organization_id: true
+      activity_exact_FK_and_dedupe_details: deferred_to_DB_ACT_001
+      notification_exact_FK_recipient_dedupe_details: deferred_to_DB_NOT_001_and_DB_NOT_002
+      outbox_cleanup_must_not_destroy_domain_event_projection_lineage: true
+    legacy_boundary:
+      existing_outbox_or_projection_row_without_proven_exact_domain_event_is_not_backfilled_by_timestamp_request_id_aggregate_similarity_or_same_tenant_guess: true
+      legacy_lineage_backfill_quarantine_and_phased_constraint_activation: deferred_to_DB_EVT_001
+      new_runtime_write_fence_requires_domain_event_and_exact_outbox_binding: true
+      no_synthetic_domain_event_may_be_created_only_to_force_legacy_constraint_pass: true
+    explicitly_not_closed_here:
+      - publisher_claim_retry_backoff_DLQ_manual_replay_DB_OUT_002
+      - activity_projection_display_dedupe_order_DB_ACT_001
+      - notification_recipient_read_state_DB_NOT_001
+      - notification_source_dedupe_mark_read_DB_NOT_002
+      - legacy_backfill_retention_cleanup_DB_EVT_001
+      - exact_privacy_retention_duration
+    required_tests:
+      - organization_domain_event_requires_server_derived_nonnull_organization_id
+      - platform_global_domain_event_requires_null_organization_id
+      - domain_event_id_is_immutable_and_cannot_be_replaced_by_request_id
+      - request_id_can_correlate_multiple_events_without_becoming_dedupe_identity
+      - causation_event_requires_exact_existing_event_when_present_and_is_never_guessed
+      - tenant_relational_aggregate_wrong_tenant_target_is_rejected
+      - unknown_relational_aggregate_type_is_rejected
+      - event_requiring_audit_rejects_missing_required_audit_log_reference
+      - event_audit_scope_or_organization_mismatch_is_rejected
+      - new_runtime_outbox_requires_exact_domain_event_id
+      - organization_outbox_wrong_tenant_event_binding_is_rejected
+      - platform_global_outbox_with_organization_id_is_rejected
+      - outbox_event_type_aggregate_request_snapshot_mismatch_is_rejected
+      - second_outbox_intent_for_same_domain_event_is_rejected
+      - required_business_effect_audit_event_and_outbox_commit_or_rollback_together
+      - business_effect_is_not_committed_when_required_event_or_outbox_insert_fails
+      - no_external_publish_occurs_inside_business_transaction
+      - losing_concurrent_command_does_not_emit_domain_event_or_outbox
+      - successful_idempotent_replay_does_not_emit_second_domain_event
+      - activity_or_notification_projection_source_must_use_domain_event_identity_not_outbox_or_request_id
+      - DB_OUT_001_does_not_guess_legacy_event_lineage_or_create_synthetic_event_to_force_constraints
+
 diagnosis_summary:
   diagnosed_P0: 0
   diagnosed_P1: 8
   fixes_applied_in_diagnosis_step: 0
-  resolved_after_diagnosis: 2
-  open_P0_P1: 6
-  result: FAIL_WITH_6_P1_BLOCKERS
+  resolved_after_diagnosis: 3
+  open_P0_P1: 5
+  result: FAIL_WITH_5_P1_BLOCKERS
   blockers_in_required_fix_order:
     - DB-AUD-001
     - DB-AUD-002
@@ -630,16 +796,16 @@ diagnosis_summary:
     - DB-EVT-001
 
 next_single_step_after_central_gate:
-  id: DB_OUT_001_TRANSACTIONAL_DOMAIN_EVENT_OUTBOX_IDENTITY_AND_SAME_TRANSACTION_COUPLING
-  action: resolve_DB_OUT_001_only_after_next_explicit_user_instruction
+  id: DB_OUT_002_OUTBOX_PUBLISHER_CLAIM_RETRY_RECONCILIATION_AND_AT_LEAST_ONCE_SEMANTICS
+  action: resolve_DB_OUT_002_only_after_next_explicit_user_instruction
   allowed_files_only:
     - specs/database/audit-outbox-notifications.yml
     - docs/115-stage-4-audit-outbox-notifications-audit.md
     - specs/gates/stage-4-database-contract-gate.yml
   aggregate_files_currently_frozen: true
   scope_lock: >-
-    DB-AUD-001 and DB-AUD-002 are PASS. Resolve DB-OUT-001 only in the next
-    fixer transaction. Keep DB-OUT-002, DB-ACT-001, DB-NOT-001, DB-NOT-002
+    DB-AUD-001, DB-AUD-002 and DB-OUT-001 are PASS. Resolve DB-OUT-002 only
+    in the next fixer transaction. Keep DB-ACT-001, DB-NOT-001, DB-NOT-002
     and DB-EVT-001 OPEN. Do not modify core-schema.yml or docs/87, do not
     enter DB4_11, Stage 5, Laravel migrations or UI.
-  stop_before: DB_OUT_001
+  stop_before: DB_OUT_002
