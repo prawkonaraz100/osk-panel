@@ -2,12 +2,12 @@ meta:
   project: osk-panel
   stage: 4
   slice: DB4_9_STUDENT_FINANCE_COMMERCE
-  step: DB_COM_008_GLOBAL_CROSS_DOMAIN_LOCK_ORDER_AND_RACE_WINNER_SEMANTICS
-  status: FAIL_WITH_1_P1_BLOCKER
+  step: DB_COM_006_LEGACY_MIGRATION_RECONCILIATION_AND_BACKFILL_SAFETY
+  status: BLOCKERS_RESOLVED_PENDING_DB4_9_FINAL_AGGREGATE_SYNC
   diagnosed_at: 2026-09-08
   branch: docs-consolidation-2026-09-05
   diagnosis_only: false
-  aggregate_sync_status: FROZEN_DURING_DB4_9_DIAGNOSIS_AND_FIXERS
+  aggregate_sync_status: FROZEN_PENDING_DB4_9_FINAL_AGGREGATE_SYNC
   implementation_started: false
   Laravel_migrations_created: false
   Stage5_started: false
@@ -16,7 +16,7 @@ meta:
 scope_rule:
   diagnose_before_fixing: true
   fixes_allowed_in_this_step: true
-  current_step_scope: DB_COM_008_only
+  current_step_scope: DB_COM_006_only
   one_blocker_per_future_step: true
   aggregate_files_frozen:
     specs/database/core-schema.yml:
@@ -2228,6 +2228,312 @@ resolved_contracts:
       Laravel_migrations_created: false
       UI_or_feature_implementation_started: false
 
+
+  DB-COM-006:
+    status: PASS
+    title: legacy_migration_reconciliation_and_backfill_safety
+    severity: P1
+    goal: >-
+      Close the final DB4_9 legacy cutover boundary so historical Student Finance
+      and Platform Commerce rows can be migrated to the resolved contracts without
+      guessing purchase lineage, inventing payment causality, regranting inventory,
+      or rewriting already-consumed, activated, assigned, reserved or completed history.
+
+    authority_and_scope:
+      legacy_migration_is_not_business_command_replay: true
+      legacy_migration_may_not_create_new_commerce_money_effect: true
+      legacy_migration_may_not_create_new_student_finance_money_effect: true
+      legacy_migration_may_not_create_new_purchase_grant: true
+      legacy_migration_may_not_fabricate_missing_historical_fact_with_current_time: true
+      raw_legacy_evidence_preserved_for_review: true
+      permanent_runtime_reconciliation_domain_table_invented_here: false
+      migration_only_reconciliation_manifest_or_report_allowed: true
+      DB4_9_final_aggregate_sync_performed_here: false
+      DB4_10_or_later_entered: false
+
+    evidence_classification:
+      safe_exact_derivation:
+        definition: target_fact_is_deterministically_implied_by_an_existing_exact_trusted_relation
+        examples:
+          - order_item_organization_id_from_its_exact_existing_parent_order
+        human_review_required: false
+      proven_historical_fact:
+        definition: durable_authoritative_historical_evidence_directly_proves_the_target_fact
+        examples:
+          - exact_historical_catalog_or_product_reference
+          - signature_verified_provider_confirmation_bound_to_exact_payment
+          - independently_preserved_bank_or_provider_reconciliation_evidence
+          - exact_historical_purchase_to_downstream_unit_reference
+        human_review_required: false
+      reviewed_exact_remediation:
+        definition: explicit_exact_row_identifiers_plus_evidence_reference_plus_reviewer_and_reason
+        human_review_required: true
+        required_fields:
+          - affected_exact_row_ids
+          - evidence_reference
+          - approved_mapping_or_fact
+          - reviewed_by_user_or_migration_actor
+          - review_reason
+          - reviewed_at
+      unresolved_ambiguity:
+        automatic_backfill: forbidden
+        required_action: fail_preflight_and_require_review_before_constraint_cutover
+
+    forbidden_inference_as_proof:
+      - timestamp_proximity
+      - UUID_order_or_similarity
+      - amount_equality_alone
+      - title_or_name_similarity
+      - current_catalog_lookup
+      - current_price_similarity
+      - VAT_similarity_alone
+      - same_tenant_alone
+      - duration_similarity
+      - current_row_order
+      - nearest_record
+      - generic_created_at_or_updated_at
+      - browser_redirect_or_success_page
+      - migration_execution_time
+
+    structural_parent_derivation:
+      order_items_organization_id:
+        allowed_derivation: exact_existing_parent_order_organization_id
+        requires_exact_existing_order_id: true
+        missing_parent: fail
+        ambiguous_parent: fail
+        moving_item_to_guessed_order_or_tenant: forbidden
+      tenant_owned_child_rows:
+        exact_parent_before_tenant_backfill_required: true
+        tenant_reassignment_to_make_constraint_pass: forbidden
+
+    catalog_product_and_pricing_reconciliation:
+      exact_product_or_catalog_linkage:
+        automatic_mapping_allowed_only_from_existing_exact_durable_reference: true
+        reviewed_exact_mapping_allowed_with_evidence: true
+        infer_from_title_name_duration_current_price_amount_or_timestamp: forbidden
+        infer_nearest_or_current_SKU: forbidden
+        unresolved_product_kind_or_reference: fail
+      historical_pricing_snapshot:
+        current_catalog_repricing_of_history: forbidden
+        preserve_authoritative_legacy_line_values_when_internally_consistent: true
+        closed_formula_from_DB_COM_001_must_hold_after_backfill: true
+        missing_or_inconsistent_unit_price_VAT_discount_or_total:
+          automatic_current_catalog_fill: forbidden
+          required_action: reviewed_exact_remediation_or_fail
+
+    deterministic_order_history_backfill:
+      authoritative_existing_order_number:
+        preserve_when_valid_unique_and_tenant_consistent: true
+      missing_order_sequence:
+        historic_chronology_inferred_from_timestamp_or_UUID: forbidden
+        technical_migration_allocation_may_be_used_if_required_for_physical_not_null: true
+        technical_allocation_scope: per_organization
+        technical_allocation_must_be_precomputed_reviewable_and_collision_free: true
+        technical_allocation_must_not_claim_historical_business_order: true
+      ordered_at:
+        accepted_source: proven_historical_order_timestamp_or_reviewed_exact_remediation
+        generic_created_at_or_migration_time_as_substitute: forbidden
+        unresolved_required_value: fail
+      booked_at:
+        accepted_source:
+          - trusted_canonical_payment_resolution_evidence
+          - proven_zero_total_settlement_fact
+          - reviewed_exact_remediation_with_evidence
+        browser_return_timestamp: forbidden
+        generic_created_at_or_updated_at: forbidden
+        migration_current_time: forbidden
+        settled_order_without_proven_booking_time: unresolved_ambiguity
+
+    payment_event_and_settlement_reconciliation:
+      exact_event_payment_provider_binding_required: true
+      trusted_confirmation_sources_preserved_from_DB_COM_002:
+        - signature_verified_provider_event_for_exact_payment
+        - privileged_reviewed_reconciliation_based_on_independent_bank_or_provider_evidence
+      legacy_paid_status_string_alone_creates_settlement: false
+      browser_success_or_redirect_creates_settlement: false
+      closest_timestamp_amount_or_provider_event_winner: forbidden
+      exactly_one_proven_confirmed_payment_may_backfill_order_settlement: true
+      multiple_plausible_or_conflicting_confirmed_payments:
+        choose_automatic_winner: forbidden
+        preserve_external_payment_truths: true
+        required_action: reviewed_reconciliation
+      direct_bank_transfer:
+        user_claim_or_order_status_as_evidence: forbidden
+        trusted_independent_reconciliation_evidence_required: true
+      source_event_when_exact_causal_event_not_proven:
+        fabricated_event_reference: forbidden
+        reviewed_reconciliation_source_allowed_only_with_real_independent_evidence_and_review_metadata: true
+
+    fulfillment_reconciliation:
+      paid_or_settled_does_not_prove_fulfillment: true
+      matching_inventory_by_amount_time_or_tenant_does_not_prove_fulfillment: true
+      migration_executes_fulfillment_worker_or_grant_command: false
+      proven_settlement_but_unproven_complete_grant_set:
+        order_fulfillment_state: requires_reconciliation
+        pending_state_for_automatic_worker: forbidden
+        fulfilled_state: forbidden
+        reason_required: true
+      fulfilled_backfill_requires:
+        - exact_trusted_settlement_or_zero_total_source
+        - exact_complete_grant_set_for_every_required_order_item
+        - exact_product_kind_and_product_reference_equivalence
+        - exact_quantity_cardinality_equivalence
+      legacy_paid_flag_directly_becomes_fulfilled: false
+      reviewed_requires_reconciliation_to_pending:
+        may_occur_only_after_evidence_resolution: true
+        creates_grants_in_remediation_transaction: false
+        later_worker_must_use_DB_COM_008_lock_order: true
+
+    downstream_purchase_unit_reconciliation:
+      license_inventory_entries:
+        exact_order_item_purchase_lineage_required_before_link: true
+        free_or_manual_unit_relabelled_as_paid: forbidden
+        existing_assignment_or_activation_rewritten: forbidden
+        delete_and_recreate_to_fit_purchase_constraints: forbidden
+      internal_exam_inventory_entries:
+        exact_order_item_purchase_lineage_required_before_link: true
+        free_or_adjustment_unit_relabelled_as_paid: forbidden
+        existing_reservation_attempt_or_consumption_rewritten: forbidden
+        delete_and_recreate_to_fit_purchase_constraints: forbidden
+      service_entitlements:
+        purchase_vs_operator_source_XOR_preserved: true
+        source_order_item_inferred_from_service_name_type_or_time: forbidden
+        existing_service_activation_rewritten_or_fabricated: forbidden
+      full_cardinality_proof:
+        required_for_fulfilled_purchase_line: true
+        formula: order_item_quantity_equals_exact_count_of_proven_correct_purchase_sourced_units
+        missing_or_extra_unit: unresolved_ambiguity
+      grant_ordinal_backfill:
+        only_after_exact_full_grant_set_is_already_proven: true
+        deterministic_enumeration_allowed: stable_immutable_downstream_row_id_ASC
+        range: 1_to_exact_order_item_quantity
+        ordinal_is_lineage_proof: false
+        ordinal_is_historical_creation_or_consumption_order: false
+      no_regrant_rule:
+        create_missing_unit_during_migration_to_reach_quantity: forbidden
+        clone_existing_unit_during_migration: forbidden
+        delete_extra_unit_to_reach_quantity: forbidden
+
+    student_finance_course_cost_origin_reconciliation:
+      course_cost_charge_origin_legacy_backfill_requires_exact_trusted_source_fact: true
+      same_course_student_amount_currency_title_or_timestamp_as_source_proof: forbidden
+      ordinary_charge_with_optional_course_context_may_remain_without_course_cost_origin: true
+      multiple_or_conflicting_candidates:
+        automatic_choice: forbidden
+        required_action: reviewed_exact_remediation_or_leave_without_origin_when_fact_is_unproven
+      migration_creates_second_student_charge_to_complete_origin: forbidden
+
+    cutover_write_fence_and_order:
+      problem: validation_then_live_writes_can_reintroduce_invalid_rows_before_constraints_activate
+      required_boundary: maintenance_write_fence_or_equivalent_new_contract_only_write_mode
+      external_provider_network_call_under_cutover_row_locks: forbidden
+      phases:
+        - enter_write_fence_or_route_all_domain_writes_through_new_contract
+        - add_required_structural_fields_and_constraints_as_temporarily_nullable_or_not_valid_where_needed
+        - apply_safe_exact_derivations_only
+        - produce_row_level_reconciliation_manifest_and_preflight_report
+        - apply_reviewed_exact_remediations_only
+        - rerun_full_preflight_under_write_fence
+        - activate_not_null_foreign_keys_uniques_checks_and_transactional_guards
+        - switch_runtime_to_new_contract_and_resume_normal_writes
+        - run_post_cutover_invariant_verification
+      partial_constraint_activation_while_unresolved_ambiguities_exist: forbidden
+      unresolved_ambiguity_blocks_cutover: true
+
+    reconciliation_manifest_minimum:
+      persistence_kind: migration_artifact_or_review_report_not_new_runtime_business_authority
+      per_case_fields:
+        - bounded_context
+        - exact_table_and_row_id
+        - missing_or_conflicting_fact
+        - evidence_class
+        - evidence_reference
+        - proposed_or_applied_exact_mapping
+        - reviewer_or_actor_when_reviewed
+        - reason_when_reviewed
+        - disposition
+      allowed_dispositions:
+        - safe_exact_derivation_applied
+        - proven_historical_fact_applied
+        - reviewed_exact_remediation_applied
+        - unresolved_blocks_cutover
+      raw_evidence_deleted_after_remediation: false
+
+    required_preflight_checks:
+      - every_order_item_has_exact_parent_order_and_same_organization
+      - every_order_item_has_exact_valid_product_kind_and_product_reference
+      - every_order_item_historical_pricing_snapshot_satisfies_DB_COM_001_formula
+      - every_order_sequence_is_unique_per_organization_without_claiming_guessed_chronology
+      - every_required_ordered_at_is_proven_or_reviewed
+      - every_nonnull_booked_at_has_trusted_payment_or_zero_total_evidence
+      - every_settlement_has_exact_trusted_payment_or_zero_total_source
+      - no_settlement_winner_was_selected_by_paid_string_timestamp_amount_or_UUID_heuristic
+      - every_fulfilled_order_has_complete_exact_grant_set_for_all_order_items
+      - every_purchase_sourced_license_exam_or_service_unit_has_exact_order_item_lineage
+      - every_purchase_grant_ordinal_is_unique_positive_and_within_parent_quantity
+      - no_free_adjustment_or_operator_grant_was_relabelled_as_paid
+      - existing_license_assignment_activation_history_is_unchanged
+      - existing_exam_reservation_attempt_consumption_history_is_unchanged
+      - existing_service_activation_history_is_unchanged
+      - no_missing_purchase_unit_was_created_by_migration
+      - every_course_cost_charge_origin_has_exact_trusted_historical_source_fact
+      - zero_unresolved_ambiguity_cases_before_constraint_activation
+
+    failure_and_rollback_policy:
+      preflight_ambiguity: stop_before_destructive_or_authoritative_cutover
+      reviewed_remediation_must_be_repeatable_and_row_exact: true
+      migration_restart_must_not_duplicate_settlement_fulfillment_or_grant_effects: true
+      already_consumed_activated_assigned_or_reserved_history_may_be_rolled_back_by_recreate: false
+      financial_history_hard_delete_to_make_constraints_pass: forbidden
+      downstream_business_history_hard_delete_to_make_constraints_pass: forbidden
+
+    required_tests:
+      - exact_order_parent_safely_derives_order_item_organization_id
+      - missing_or_ambiguous_order_parent_blocks_cutover
+      - title_duration_current_price_or_same_tenant_never_auto_selects_catalog_item
+      - current_catalog_change_never_reprices_legacy_order_item
+      - paid_status_alone_never_creates_settlement
+      - browser_return_timestamp_never_becomes_booked_at_or_payment_confirmation
+      - two_plausible_confirmed_payments_never_get_automatic_settlement_winner
+      - direct_bank_transfer_requires_independent_reviewed_evidence
+      - proven_settlement_with_unproven_grants_becomes_requires_reconciliation_not_pending_or_fulfilled
+      - migration_never_invokes_fulfillment_to_create_missing_units
+      - exact_quantity_N_requires_exactly_N_proven_purchase_units_before_fulfilled_backfill
+      - grant_ordinals_are_assigned_only_after_lineage_and_cardinality_are_proven
+      - ordinal_sort_does_not_claim_historical_creation_or_consumption_order
+      - free_exam_or_manual_license_unit_is_never_relabelled_as_paid
+      - existing_license_assignment_activation_is_unchanged
+      - existing_exam_reservation_attempt_consumption_is_unchanged
+      - existing_service_activation_is_unchanged
+      - ambiguous_service_entitlement_source_blocks_cutover
+      - same_course_amount_and_time_do_not_create_course_cost_charge_origin
+      - unresolved_reconciliation_case_blocks_final_constraint_activation
+      - live_old_contract_writes_cannot_race_after_final_preflight
+      - restart_after_failed_cutover_does_not_regrant_or_duplicate_business_effect
+
+    self_audit:
+      evidence_classes_are_closed_and_fail_closed: PASS
+      heuristic_purchase_product_payment_and_inventory_matching_forbidden: PASS
+      current_catalog_repricing_of_history_forbidden: PASS
+      payment_causality_not_fabricated: PASS
+      order_booking_timestamp_not_fabricated: PASS
+      paid_does_not_imply_fulfilled: PASS
+      migration_never_regrants_missing_units: PASS
+      downstream_assignment_activation_reservation_consumption_history_preserved: PASS
+      full_quantity_cardinality_required_before_fulfilled_backfill: PASS
+      grant_ordinal_is_not_used_as_lineage_or_chronology_proof: PASS
+      service_entitlement_source_and_activation_history_preserved: PASS
+      course_cost_charge_origin_not_guessed: PASS
+      write_fence_closes_preflight_vs_live_write_race: PASS
+      DB_COM_008_runtime_lock_order_preserved: PASS
+      financial_and_downstream_hard_delete_not_introduced: PASS
+      aggregate_core_schema_modified: false
+      aggregate_docs87_modified: false
+      DB4_10_or_later_entered: false
+      Stage5_started: false
+      Laravel_migrations_created: false
+      UI_or_feature_implementation_started: false
+
 blockers:
   - id: DB-FIN-001
     title: student_finance_same_tenant_exact_charge_payment_course_integrity
@@ -2398,7 +2704,8 @@ blockers:
   - id: DB-COM-006
     title: migration_and_legacy_order_payment_grant_reconciliation_safety
     severity: P1
-    status: OPEN
+    status: RESOLVED
+    resolution_ref: resolved_contracts.DB-COM-006
     diagnosis:
       - existing provisional commerce rows may lack tenant_key_on_order_item exact product linkage booked_at and exact downstream grant provenance
       - historical payment events may be insufficient to prove which event caused a paid state
@@ -2466,9 +2773,9 @@ blockers:
 diagnosis_summary:
   diagnosed_P0: 0
   diagnosed_P1: 10
-  resolved_after_diagnosis: 9
-  open_P0_P1: 1
-  result: FAIL_WITH_1_P1_BLOCKER
+  resolved_after_diagnosis: 10
+  open_P0_P1: 0
+  result: BLOCKERS_RESOLVED_PENDING_DB4_9_FINAL_AGGREGATE_SYNC
   resolved_blockers:
     - DB-FIN-001
     - DB-FIN-002
@@ -2479,10 +2786,10 @@ diagnosis_summary:
     - DB-COM-007
     - DB-COM-005
     - DB-COM-008
-  blockers_in_required_fix_order:
     - DB-COM-006
+  blockers_in_required_fix_order: []
 preservation_gate:
-  status: PASS_DB_COM_008_MACHINE_CONTRACT
+  status: PASS_DB_COM_006_MACHINE_CONTRACT
   checks:
     student_finance_and_platform_commerce_remain_distinct: true
     DB4_6_license_inventory_assignment_activation_contract_preserved: true
@@ -2496,7 +2803,8 @@ preservation_gate:
     explicit_service_activation_not_payment_success_preserved: true
     DB_COM_003_order_fulfillment_orchestration_closed: true
     DB_COM_004_exact_purchase_provenance_and_quantity_equivalence_closed: true
-    DB_COM_005_DB_COM_006_DB_COM_007_DB_COM_008_not_fixed_early: true
+    DB_COM_005_DB_COM_007_DB_COM_008_preserved: true
+    DB_COM_006_legacy_migration_reconciliation_and_backfill_safety_closed: true
     no_refund_chargeback_invoice_provider_specific_semantics_invented: true
     aggregate_core_schema_modified: false
     aggregate_docs87_modified: false
@@ -2506,6 +2814,16 @@ preservation_gate:
     UI_or_feature_implementation_started: false
 
 next_single_step_after_central_gate:
-  id: DB_COM_006_LEGACY_MIGRATION_RECONCILIATION_AND_BACKFILL_SAFETY
-  action: resolve_DB_COM_006_only_after_next_explicit_user_instruction
+  id: DB4_9_FINAL_AGGREGATE_SYNC
+  action: sync_DB4_9_resolved_contracts_to_aggregates_only_after_next_explicit_user_instruction
+  allowed_scope:
+    - specs/database/student-finance-commerce.yml
+    - docs/114-stage-4-student-finance-commerce-audit.md
+    - specs/database/core-schema.yml
+    - docs/87-physical-database-schema.md
+    - specs/gates/stage-4-database-contract-gate.yml
+  aggregate_files_currently_frozen: true
+  scope_lock: >-
+    DB-COM-006 is closed. Do not start final DB4_9 aggregate synchronization in
+    this fixer transaction. Do not enter DB4_10, Stage 5, Laravel migrations or UI.
   stop_before: DB4_9_FINAL_AGGREGATE_SYNC
