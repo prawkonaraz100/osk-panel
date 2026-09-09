@@ -103,13 +103,13 @@ stage_4_slices:
     final_aggregate_sync: PASS
     result: PASS
   - id: DB4_9_STUDENT_FINANCE_COMMERCE
-    status: BLOCKERS_RESOLVED_PENDING_DB4_9_FINAL_AGGREGATE_SYNC
+    status: PASS
     diagnosis: COMPLETE
     blockers_diagnosed: 10
     blockers_resolved: 10
     open_P0_P1: 0
-    final_aggregate_sync: PENDING
-    result: BLOCKERS_RESOLVED_PENDING_DB4_9_FINAL_AGGREGATE_SYNC
+    final_aggregate_sync: PASS
+    result: PASS
   - id: DB4_10_AUDIT_OUTBOX_NOTIFICATIONS
     status: NOT_STARTED
   - id: DB4_11_FINAL_MIGRATION_ORDER_AND_INVARIANT_TEST_MATRIX
@@ -3674,6 +3674,47 @@ quality_checks:
       Laravel_migrations_created: false
       UI_or_feature_implementation_started: false
 
+
+  DB4_9_final_aggregate_sync:
+    status: PASS
+    bounded_context_source: specs/database/student-finance-commerce.yml
+    blocker_audit_source: docs/114-stage-4-student-finance-commerce-audit.md
+    final_sync_audit_source: docs/114-stage-4-student-finance-commerce-audit.md#29
+    aggregate_machine_source: specs/database/core-schema.yml
+    aggregate_narrative_source: docs/87-physical-database-schema.md
+    aggregate_base_after_DB_COM_006_central_gate: d899491bc8dd73a7b82d1c28c50f32b6eea1a169
+    machine_aggregate_commit: 9c06a7928aecb61627ccb52c083cda58b2505c25
+    machine_aggregate_blob: f3519060967085517329bc668fac02e5c1fd2dbd
+    narrative_aggregate_commit: 05a030bc4513ab06514f748909559e35d0c78996
+    narrative_aggregate_blob: f3ebb764a5279cbabc9c75c2fcf9733f36ed22a8
+    bounded_final_sync_commit: 19a6e51692d37299508c046f9a65ea99af72bd90
+    bounded_final_sync_blob: a5ac5c33fcc38c251531d815c18918691b170076
+    final_sync_audit_commit: 79718712ff62c11917e7afaf6afc4dd446fb21b4
+    final_sync_audit_blob: a76b93ca09ddf0925ca72e3142e3757b6f0d3055
+    checks:
+      all_ten_DB4_9_blockers_PASS: PASS
+      machine_aggregate_YAML_valid: PASS
+      narrative_aggregate_sync: PASS
+      bounded_final_sync_YAML_valid: PASS
+      cross_file_semantic_loss_gate: PASS
+      stale_provisional_shortcut_gate: PASS
+      migration_order_and_invariant_test_gate: PASS
+      aggregate_only_scope_gate: PASS
+      final_sync_audit_preservation_gate: PASS
+      core_schema_blob_matches_final_sync_record: PASS
+      docs87_blob_matches_final_sync_record: PASS
+      student_finance_commerce_bounded_blob_matches_final_sync_record: PASS
+      final_audit_blob_matches_final_sync_record: PASS
+      StudentFinance_and_PlatformCommerce_remain_distinct: PASS
+      DB4_6_license_lifecycle_preserved: PASS
+      DB4_7_internal_exam_lifecycle_preserved: PASS
+      DB4_8_PKK_preserved: PASS
+      DB4_10_remains_not_started: PASS
+      DB4_11_remains_not_started: PASS
+      Stage5_remains_blocked: PASS
+      Laravel_migrations_created: false
+      UI_or_feature_implementation_started: false
+
 resolved_blockers:
   - DB-FOUND-001
   - DB-FOUND-002
@@ -3749,7 +3790,7 @@ gate_definition:
     - migration_order_dependency_safe
     - database_invariant_test_matrix_exists
     - reverse_engineering_preservation_traceable
-  current_result: DB4_9_BLOCKERS_RESOLVED_PENDING_DB4_9_FINAL_AGGREGATE_SYNC
+  current_result: DB4_9_PASS
   DB4_1_result: PASS
   DB4_2_result: PASS
   DB4_3_result: PASS
@@ -3817,7 +3858,8 @@ gate_definition:
   DB4_9_DB_COM_005_result: PASS
   DB4_9_DB_COM_008_result: PASS
   DB4_9_DB_COM_006_result: PASS
-  DB4_9_result: BLOCKERS_RESOLVED_PENDING_DB4_9_FINAL_AGGREGATE_SYNC
+  DB4_9_final_aggregate_sync_result: PASS
+  DB4_9_result: PASS
   may_start_DB4_4_fixes: false
   may_start_DB4_5: false
   may_start_DB4_5_fixes: false
@@ -3828,25 +3870,20 @@ gate_definition:
   may_start_DB4_8: false
   may_start_DB4_8_fixes: false
   may_start_DB4_9: false
-  may_start_DB4_9_fixes: true
+  may_start_DB4_9_fixes: false
+  may_start_DB4_10: true
+  may_start_DB4_10_fixes: false
   may_start_stage_5: false
   may_start_UI_or_feature_implementation: false
 
 next_single_step:
-  id: DB4_9_FINAL_AGGREGATE_SYNC
-  action: sync_DB4_9_resolved_contracts_to_aggregate_only_after_next_explicit_user_instruction
-  allowed_scope:
-    - specs/database/student-finance-commerce.yml
-    - docs/114-stage-4-student-finance-commerce-audit.md
-    - specs/gates/stage-4-database-contract-gate.yml
-    - specs/database/core-schema.yml
-    - docs/87-physical-database-schema.md
-  aggregate_files_frozen_until_next_explicit_user_instruction:
+  id: DB4_10_AUDIT_OUTBOX_NOTIFICATIONS_DIAGNOSIS
+  action: begin_DB4_10_diagnosis_only_after_next_explicit_user_instruction
+  aggregate_files_frozen_until_DB4_10_diagnosis_is_closed:
     - specs/database/core-schema.yml
     - docs/87-physical-database-schema.md
   scope_lock: >-
-    Synchronize only resolved DB-FIN-001/002 and DB-COM-001 through DB-COM-008
-    contracts into the DB4_9 aggregate machine and narrative documents, then update
-    bounded audit and central gate. Do not enter DB4_10, Stage 5, Laravel migrations
-    or UI in the same step.
-  after_action: rerun_DB4_9_final_aggregate_sync_gate_and_STOP_before_DB4_10
+    Diagnose DB4_10 Audit / Outbox / Notifications only. Do not fix DB4_10
+    blockers, do not enter DB4_11, Stage 5, Laravel migrations or UI in the
+    diagnosis step. Do not invent the DB4_10 blocker count before diagnosis.
+  after_action: record_DB4_10_diagnosis_gate_and_STOP_before_first_DB4_10_fixer
