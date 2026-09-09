@@ -111,13 +111,13 @@ stage_4_slices:
     final_aggregate_sync: PASS
     result: PASS
   - id: DB4_10_AUDIT_OUTBOX_NOTIFICATIONS
-    status: FAIL_WITH_5_P1_BLOCKERS
+    status: FAIL_WITH_4_P1_BLOCKERS
     diagnosis: COMPLETE
     blockers_diagnosed: 8
-    blockers_resolved: 3
-    open_P0_P1: 5
+    blockers_resolved: 4
+    open_P0_P1: 4
     final_aggregate_sync: NOT_STARTED
-    result: FAIL_WITH_5_P1_BLOCKERS
+    result: FAIL_WITH_4_P1_BLOCKERS
   - id: DB4_11_FINAL_MIGRATION_ORDER_AND_INVARIANT_TEST_MATRIX
     status: NOT_STARTED
 
@@ -3864,10 +3864,45 @@ quality_checks:
       Laravel_migrations_created: false
       UI_or_feature_implementation_started: false
 
+
+  outbox_publisher_claim_retry_reconciliation_and_at_least_once_semantics:
+    status: PASS
+    resolved_blocker_id: DB-OUT-002
+    machine_source: specs/database/audit-outbox-notifications.yml
+    narrative_source: docs/115-stage-4-audit-outbox-notifications-audit.md#11
+    machine_commit: 3d6c14d7e6c024b5d4ab0abad2ae40a01c6905f2
+    machine_blob: d77705de110cc315e7d896eff21095cda0ce03aa
+    narrative_commit: 658bf77f35f6a5870b384a807bf1b0a9ed8d2d12
+    narrative_blob: 698df719d0c2174aaeec690ce16c21af1ab871b8
+    checks:
+      pending_leased_published_requires_reconciliation_state_machine_closed: PASS
+      lease_token_and_monotonic_fencing_version_prevent_stale_ack: PASS
+      concurrent_workers_cannot_hold_two_current_unexpired_leases: PASS
+      retry_backoff_and_cycle_limit_server_derived: PASS
+      expired_lease_may_redeliver_same_event_under_at_least_once: PASS
+      exactly_once_external_delivery_claim_forbidden: PASS
+      domain_event_id_is_consumer_dedupe_identity: PASS
+      request_outbox_timestamp_aggregate_ids_not_dedupe_identity: PASS
+      safe_last_error_contract_forbids_raw_secret_provider_payloads: PASS
+      periodic_reconciliation_and_failed_visibility_required: PASS
+      manual_replay_requires_privileged_audit_and_nonblank_reason: PASS
+      manual_replay_preserves_outbox_and_domain_event_identity: PASS
+      manual_replay_preserves_lifetime_attempts_and_prior_audit_history: PASS
+      network_publish_outside_business_and_ack_transactions: PASS
+      legacy_delivery_state_not_guessed_and_deferred_DB_EVT_001: PASS
+      DB_ACT_001_remains_open: PASS
+      aggregate_core_schema_modified: false
+      aggregate_docs87_modified: false
+      DB4_11_started: false
+      Stage5_started: false
+      Laravel_migrations_created: false
+      UI_or_feature_implementation_started: false
+
 resolved_blockers:
   - DB-AUD-001
   - DB-AUD-002
   - DB-OUT-001
+  - DB-OUT-002
   - DB-FOUND-001
   - DB-FOUND-002
   - DB-FOUND-003
@@ -3942,7 +3977,7 @@ gate_definition:
     - migration_order_dependency_safe
     - database_invariant_test_matrix_exists
     - reverse_engineering_preservation_traceable
-  current_result: DB4_10_FAIL_WITH_5_P1_BLOCKERS
+  current_result: DB4_10_FAIL_WITH_4_P1_BLOCKERS
   DB4_1_result: PASS
   DB4_2_result: PASS
   DB4_3_result: PASS
@@ -4016,7 +4051,8 @@ gate_definition:
   DB4_10_DB_AUD_001_result: PASS
   DB4_10_DB_AUD_002_result: PASS
   DB4_10_DB_OUT_001_result: PASS
-  DB4_10_result: FAIL_WITH_5_P1_BLOCKERS
+  DB4_10_DB_OUT_002_result: PASS
+  DB4_10_result: FAIL_WITH_4_P1_BLOCKERS
   may_start_DB4_4_fixes: false
   may_start_DB4_5: false
   may_start_DB4_5_fixes: false
@@ -4036,8 +4072,8 @@ gate_definition:
   may_start_UI_or_feature_implementation: false
 
 next_single_step:
-  id: DB_OUT_002_OUTBOX_PUBLISHER_CLAIM_RETRY_RECONCILIATION_AND_AT_LEAST_ONCE_SEMANTICS
-  action: resolve_DB_OUT_002_only_after_next_explicit_user_instruction
+  id: DB_ACT_001_ORGANIZATION_ACTIVITY_EXACT_SOURCE_DEDUPE_ORDER_AND_SAFE_HISTORICAL_DISPLAY
+  action: resolve_DB_ACT_001_only_after_next_explicit_user_instruction
   allowed_scope:
     - specs/database/audit-outbox-notifications.yml
     - docs/115-stage-4-audit-outbox-notifications-audit.md
@@ -4046,8 +4082,8 @@ next_single_step:
     specs/database/core-schema.yml: f3519060967085517329bc668fac02e5c1fd2dbd
     docs/87-physical-database-schema.md: f3ebb764a5279cbabc9c75c2fcf9733f36ed22a8
   scope_lock: >-
-    DB-AUD-001, DB-AUD-002 and DB-OUT-001 are PASS. Resolve DB-OUT-002 only.
-    Keep DB-ACT-001, DB-NOT-001, DB-NOT-002 and DB-EVT-001 OPEN. Do not
+    DB-AUD-001, DB-AUD-002, DB-OUT-001 and DB-OUT-002 are PASS. Resolve
+    DB-ACT-001 only. Keep DB-NOT-001, DB-NOT-002 and DB-EVT-001 OPEN. Do not
     modify aggregate files, do not enter DB4_11, Stage 5, Laravel migrations
     or UI.
-  after_action: rerun_DB_OUT_002_machine_narrative_central_gate_and_STOP_before_DB_ACT_001
+  after_action: rerun_DB_ACT_001_machine_narrative_central_gate_and_STOP_before_DB_NOT_001
