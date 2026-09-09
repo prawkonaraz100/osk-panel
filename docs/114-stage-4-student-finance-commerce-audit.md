@@ -3,8 +3,8 @@
 Data: 2026-09-08
 
 **Etap:** `DB4_9_STUDENT_FINANCE_COMMERCE`  
-**Aktualny krok:** `DB_COM_005_DETERMINISTIC_PURCHASE_HISTORY_DISPLAY_NUMBER_BOOKING_DATE_STATUS_AND_PAGINATION_PROJECTION`
-**Status:** `FAIL_WITH_2_P1_BLOCKERS / 0 P0 / 2 P1 OPEN`
+**Aktualny krok:** `DB_COM_008_GLOBAL_CROSS_DOMAIN_LOCK_ORDER_AND_RACE_WINNER_SEMANTICS`
+**Status:** `FAIL_WITH_1_P1_BLOCKER / 0 P0 / 1 P1 OPEN`
 
 Machine-readable diagnoza: `specs/database/student-finance-commerce.yml`.
 
@@ -1158,3 +1158,137 @@ Nie rozwiązano DB-COM-008 ani DB-COM-006. Frozen agregaty, Stage 5, migracje La
 Następny dozwolony krok po central gate: **DB-COM-008 only**.
 
 **STOP przed DB-COM-008.**
+
+## 27. DB-COM-008 — wynik fixera: PASS
+
+DB-COM-008 domyka wyłącznie concurrency boundary dla Student Finance i Platform Commerce. Nie zmieniamy semantyki Payment/PaymentEvent, fulfillmentu, purchase grantów ani purchase history; ustalamy wspólny porządek blokad i jednoznaczne race-winner semantics, aby retry, webhook, manual reconciliation i fulfillment worker nie mogły wejść w lock inversion albo wykonać drugiego business effectu.
+
+### 27.1. Student Finance i Platform Commerce nie dostają wspólnego money root
+
+`student_payments` oraz platformowe `payments` nadal należą do różnych bounded contexts. Komenda Student Finance nie może dla swojej operacji blokować `orders`, platformowego `payments` ani `order_fulfillments`; analogicznie komenda Platform Commerce nie może blokować `student_charges` ani `student_payments`.
+
+To jest ważne również dla `create charge from Course cost`: ta operacja tworzy należność kursanta w Student Finance. Nie jest zakupem platformowym i nie może być modelowana przez platformowy Order/Payment.
+
+### 27.2. Canonical Commerce root = exact `orders` row
+
+Wszystkie komendy, które mogą zmienić business state tego samego Order, serializują się na dokładnym `orders` row przez `FOR UPDATE`.
+
+Dotyczy to co najmniej:
+- utworzenia payment attempt,
+- zastosowania trusted provider event,
+- manual reconciliation payment attemptu,
+- utworzenia lub odczytu jedynego settlementu Order,
+- utworzenia lub odczytu durable fulfillment authority,
+- fulfillment/retry fulfillment,
+- reviewed fulfillment reconciliation transition.
+
+Po przejęciu locka system ponownie odczytuje canonical payment i fulfillment facts. Stan przeczytany przed lockiem nie może być podstawą finalnej decyzji.
+
+### 27.3. Jedna kolejność blokad
+
+Po command-local idempotency/event dedupe obowiązuje:
+
+`Order -> relevant Payment(s) -> OrderPaymentSettlement -> OrderFulfillment -> purchase grant rows`.
+
+Jeżeli komenda dotyka więcej niż jednego Payment, istniejące rows blokuje po `payment_id ASC`. OrderItems po placement są immutable, więc fulfillment czyta je deterministycznie bez `FOR UPDATE`, w kolejności `order_items.id ASC`.
+
+Granty mixed Order są tworzone w kolejności:
+
+`order_item.id ASC -> source_order_item_grant_ordinal 1..quantity ASC`.
+
+Zakazane są odwrotne ścieżki typu Payment→Order, Fulfillment→Order, Inventory→Order albo Entitlement→Order.
+
+### 27.4. Payment creation vs settlement
+
+Jeżeli settlement zdąży się zatwierdzić przed zdobyciem locka przez `create payment attempt`, komenda po rechecku widzi Order jako paid i nie tworzy nowego payable effectu.
+
+Jeżeli nowy attempt zdąży powstać przed settlementem innego attemptu, taki pending attempt może historycznie pozostać. Jego późniejsze potwierdzenie nie może jednak utworzyć drugiego `order_payment_settlement`, drugiego fulfillmentu ani drugiego grant setu. External money truth jest zachowywana zgodnie z DB-COM-002, a konflikt trafia do reconciliation.
+
+### 27.5. Webhook vs manual reconciliation
+
+Obie ścieżki serializują się na tym samym Order i dopiero później blokują odpowiedni Payment.
+
+Pierwsza transakcja, która zgodnie z trusted confirmation rules utworzy unique `order_payment_settlement`, wygrywa business settlement.
+
+Dla tego samego Payment późniejsza zgodna informacja jest no-op/replay. Dla innego, rzeczywiście potwierdzonego Payment zachowujemy external payment truth, ale nie przepinamy settlementu i nie wykonujemy ponownie fulfillmentu; taki przypadek wymaga reconciliation.
+
+### 27.6. Settlement vs fulfillment worker
+
+Settlement oraz pending `order_fulfillment` dla non-zero Order powstają atomowo pod tym samym Order root.
+
+Worker, który przyjdzie przed commit paid resolution, nie może tworzyć fulfillmentu na podstawie luźnego payment status — zwraca `no runnable fulfillment`. Worker po commit widzi exact pending fulfillment, blokuje `Order -> OrderFulfillment` i dopiero wtedy wykonuje lokalne granty.
+
+Dwa fulfillment workers nie mogą wykonać dwóch zestawów grantów: pierwszy, który przeprowadzi `pending -> fulfilled`, wygrywa; kolejny po locku widzi `fulfilled` i kończy jako `already fulfilled`.
+
+### 27.7. Fulfillment vs reviewed reconciliation
+
+Worker i reviewed reconciliation używają identycznej kolejności `Order -> OrderFulfillment`.
+
+Jeżeli `pending -> fulfilled` zatwierdzi się pierwszy, nie wolno później zdegradować row do `requires_reconciliation`. Jeżeli najpierw zatwierdzi się `pending -> requires_reconciliation`, worker nie tworzy żadnych grantów.
+
+Przejście `requires_reconciliation -> pending` pozostaje wyłącznie reviewed remediation i samo nie może tworzyć grantów. Dopiero późniejszy worker, po nowym lock/recheck, może ponowić fulfillment.
+
+### 27.8. Downstream domains nie mogą zamknąć cyklu locków
+
+Commerce fulfillment tworzy nowe available License Inventory i Internal Exam Inventory units. Nie przypisuje licencji, nie aktywuje jej, nie rezerwuje egzaminu i nie konsumuje attemptu. Późniejsze komendy tych domen używają własnych roots i nie wracają do transakcji Commerce.
+
+Explicit `ServiceActivation` po zakupie serializuje się na exact `service_entitlement` row zgodnie z DB-COM-007 i nie przejmuje Order locka. Immediate activation wykonywana wewnątrz purchase fulfillment tworzy nowe Entitlement + Activation rows w tej samej transakcji — nie zaczyna od blokowania istniejącego Entitlement.
+
+### 27.9. `create charge from Course cost` ma exact source boundary
+
+Sam HTTP `Idempotency-Key` nie chroni przed dwiema różnymi request keys dla tego samego kursu. Dlatego wprowadzamy durable `course_cost_charge_origins`.
+
+Dla source effectu `create from course cost` obowiązuje unique `(organization_id, course_enrollment_id)`. Origin wskazuje exact Course/Student oraz exact utworzony StudentCharge i przechowuje server-owned amount/currency snapshot źródłowego kosztu.
+
+Komenda używa operation key `student_finance.charge.create_from_course_cost`, a concurrency root to exact `course_enrollment` row:
+
+1. claim generic idempotency,
+2. lock exact CourseEnrollment,
+3. ponowny odczyt trusted cost source,
+4. jeżeli origin istnieje — zwróć ten sam Charge,
+5. w przeciwnym razie utwórz Charge i origin atomowo.
+
+Zwykły ręczny Charge z optional Course context nie staje się przez podobieństwo kwoty `course_cost` origin. Dwie różne idempotency keys dla tego samego source effectu nie mogą stworzyć dwóch należności.
+
+Semantyki późniejszej zmiany ceny kursu, repricingu albo kolejnej korekty kosztu nie wymyślamy w DB-COM-008.
+
+### 27.10. Brak provider I/O pod lockiem
+
+Nie wolno trzymać Order/Charge/Course locka ani otwartej business DB transaction podczas oczekiwania na zewnętrzny provider network call, browser redirect lub inne zewnętrzne I/O.
+
+Deadlock/serialization failure oznacza retry całej komendy od jej idempotency boundary. Nie wolno ponawiać wykonania od środka lock sequence na podstawie założenia, że poprzednia próba „prawie się udała”.
+
+### 27.11. Audit/outbox intent bez wchodzenia w DB4_10
+
+Każda state-changing komenda ma atomowo zapisać business audit/outbox intent razem ze zmianą domenową. Audit/outbox nie jest jednak concurrency root i nie może być blokowany przed Order/Charge/Course root.
+
+Dokładne tabele, kolumny, indeksy, retry worker, retention i delivery semantics pozostają wyłącznie DB4_10.
+
+### 27.12. Preservation gate
+
+Zachowane bez zmiany:
+- DB-FIN-001 i DB-FIN-002,
+- DB-COM-001 pricing/snapshot,
+- DB-COM-002 Payment/Event/Settlement,
+- DB-COM-003 fulfillment authority,
+- DB-COM-004 exact purchase grant lineage + quantity,
+- DB-COM-007 ServiceEntitlement activation,
+- DB-COM-005 purchase history projection,
+- License Assignment/Activation lifecycle z DB4_6,
+- Internal Exam Reservation/Consumption lifecycle z DB4_7,
+- frozen agregaty,
+- Stage 3 API.
+
+DB-COM-006 pozostaje **OPEN**. Nie wykonaliśmy żadnego legacy backfillu, payment-winner reconstruction ani inventory lineage guessing.
+
+### 27.13. Wynik po DB-COM-008
+
+- DB-COM-008: **PASS**,
+- P0 OPEN: **0**,
+- P1 OPEN: **1**,
+- resolved: **9/10**,
+- result: **FAIL_WITH_1_P1_BLOCKER**.
+
+Następny dozwolony krok po central gate: **DB-COM-006 only**.
+
+**STOP przed DB-COM-006.**
