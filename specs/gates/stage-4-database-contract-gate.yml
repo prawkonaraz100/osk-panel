@@ -111,13 +111,13 @@ stage_4_slices:
     final_aggregate_sync: PASS
     result: PASS
   - id: DB4_10_AUDIT_OUTBOX_NOTIFICATIONS
-    status: FAIL_WITH_8_P1_BLOCKERS
+    status: FAIL_WITH_7_P1_BLOCKERS
     diagnosis: COMPLETE
     blockers_diagnosed: 8
-    blockers_resolved: 0
-    open_P0_P1: 8
+    blockers_resolved: 1
+    open_P0_P1: 7
     final_aggregate_sync: NOT_STARTED
-    result: FAIL_WITH_8_P1_BLOCKERS
+    result: FAIL_WITH_7_P1_BLOCKERS
   - id: DB4_11_FINAL_MIGRATION_ORDER_AND_INVARIANT_TEST_MATRIX
     status: NOT_STARTED
 
@@ -3765,7 +3765,41 @@ quality_checks:
       Laravel_migrations_created: false
       UI_or_feature_implementation_started: false
 
+  audit_append_only_ownership_actor_and_entity_context_integrity:
+    status: PASS
+    resolved_blocker_id: DB-AUD-001
+    machine_source: specs/database/audit-outbox-notifications.yml
+    narrative_source: docs/115-stage-4-audit-outbox-notifications-audit.md#8
+    machine_commit: 277b7a4d2a320b70d446b5595088978e2f2f6612
+    machine_blob: 28fc275a680e2b8be4074e32e11c800021258fe1
+    narrative_commit: 80d7c13faf6fcd13fb982fed6178df380a489284
+    narrative_blob: 002733c87400b4f2dc627260f0892015e2196f15
+    checks:
+      audit_scope_organization_vs_platform_global_closed: PASS
+      organization_scope_requires_server_derived_organization_id: PASS
+      platform_global_scope_forbids_organization_id: PASS
+      actor_kind_organization_membership_global_user_system_closed: PASS
+      organization_actor_exact_membership_user_tenant_composite_relation: PASS
+      global_user_actor_for_organization_business_audit_forbidden: PASS
+      system_actor_explicit_scope_without_fake_user_or_membership: PASS
+      entity_reference_modes_none_tenant_global_snapshot_only_closed: PASS
+      tenant_relational_entity_exact_same_tenant_guard: PASS
+      unknown_relational_entity_type_rejected: PASS
+      normal_application_update_delete_forbidden: PASS
+      append_only_database_guard_and_privilege_boundary: PASS
+      organization_audit_API_mandatory_tenant_predicate: PASS
+      deterministic_order_created_at_id_desc: PASS
+      legacy_backfill_not_guessed_and_deferred_DB_EVT_001: PASS
+      DB_AUD_002_remains_open: PASS
+      aggregate_core_schema_modified: false
+      aggregate_docs87_modified: false
+      DB4_11_started: false
+      Stage5_started: false
+      Laravel_migrations_created: false
+      UI_or_feature_implementation_started: false
+
 resolved_blockers:
+  - DB-AUD-001
   - DB-FOUND-001
   - DB-FOUND-002
   - DB-FOUND-003
@@ -3840,7 +3874,7 @@ gate_definition:
     - migration_order_dependency_safe
     - database_invariant_test_matrix_exists
     - reverse_engineering_preservation_traceable
-  current_result: DB4_10_FAIL_WITH_8_P1_BLOCKERS
+  current_result: DB4_10_FAIL_WITH_7_P1_BLOCKERS
   DB4_1_result: PASS
   DB4_2_result: PASS
   DB4_3_result: PASS
@@ -3911,7 +3945,8 @@ gate_definition:
   DB4_9_final_aggregate_sync_result: PASS
   DB4_9_result: PASS
   DB4_10_diagnosis_result: PASS_DIAGNOSIS_COMPLETE
-  DB4_10_result: FAIL_WITH_8_P1_BLOCKERS
+  DB4_10_DB_AUD_001_result: PASS
+  DB4_10_result: FAIL_WITH_7_P1_BLOCKERS
   may_start_DB4_4_fixes: false
   may_start_DB4_5: false
   may_start_DB4_5_fixes: false
@@ -3931,8 +3966,8 @@ gate_definition:
   may_start_UI_or_feature_implementation: false
 
 next_single_step:
-  id: DB_AUD_001_AUDIT_APPEND_ONLY_OWNERSHIP_ACTOR_AND_ENTITY_CONTEXT_INTEGRITY
-  action: resolve_DB_AUD_001_only_after_next_explicit_user_instruction
+  id: DB_AUD_002_AUDIT_SAFE_PAYLOAD_REDACTION_VERSION_AND_ELEVATED_REASON_INTEGRITY
+  action: resolve_DB_AUD_002_only_after_next_explicit_user_instruction
   allowed_scope:
     - specs/database/audit-outbox-notifications.yml
     - docs/115-stage-4-audit-outbox-notifications-audit.md
@@ -3941,7 +3976,7 @@ next_single_step:
     specs/database/core-schema.yml: f3519060967085517329bc668fac02e5c1fd2dbd
     docs/87-physical-database-schema.md: f3ebb764a5279cbabc9c75c2fcf9733f36ed22a8
   scope_lock: >-
-    Resolve DB-AUD-001 only. Keep DB-AUD-002, DB-OUT-001, DB-OUT-002,
+    DB-AUD-001 is PASS. Resolve DB-AUD-002 only. Keep DB-OUT-001, DB-OUT-002,
     DB-ACT-001, DB-NOT-001, DB-NOT-002 and DB-EVT-001 OPEN. Do not modify
     aggregate files, do not enter DB4_11, Stage 5, Laravel migrations or UI.
-  after_action: rerun_DB_AUD_001_machine_narrative_central_gate_and_STOP_before_DB_AUD_002
+  after_action: rerun_DB_AUD_002_machine_narrative_central_gate_and_STOP_before_DB_OUT_001
