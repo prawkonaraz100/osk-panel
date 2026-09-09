@@ -2,7 +2,7 @@
 
 Data: 2026-09-07
 
-**Status:** `IMPLEMENTATION_BLUEPRINT / DB4_8_PKK_AGGREGATE_SYNC_PASS`
+**Status:** `IMPLEMENTATION_BLUEPRINT / DB4_9_STUDENT_FINANCE_COMMERCE_AGGREGATE_SYNC_PASS`
 
 > To nie są jeszcze migracje Laravel. To fizyczny blueprint tabel, indeksów, constraintów i najważniejszych transakcji zgodny z canonical domain model. Machine-readable odpowiednik: `specs/database/core-schema.yml`. Przy konflikcie machine spec + późniejszy ADR wygrywa. Reverse-engineered scope chronią `docs/96-reverse-engineering-preservation-contract.md` i `specs/reverse-engineering-manifest.yml`. Cross-layer kompletność kontroluje `specs/traceability/core-v1.yml`.
 
@@ -15,6 +15,8 @@ DB4_6 Licenses / Learning Access został zsynchronizowany z `specs/database/lice
 DB4_7 Internal Exams został zsynchronizowany z `specs/database/internal-exams.yml` po zamknięciu DB-EXAM-001..008. Sekcja 18 oraz odpowiadające jej same-tenant boundaries, inventory ledger, Attempt/Access lifecycle, token i Station security, immutable exam evidence, deterministyczna management projection, lock orders, migration safety i invariant tests są agregatową projekcją zamkniętego kontraktu.
 
 DB4_8 PKK został zsynchronizowany z `specs/database/pkk.yml` po zamknięciu DB-PKK-001..008. Sekcja 14 oraz odpowiadające jej exact same-tenant provider boundaries, snapshot/lifecycle/attempt/reconciliation history, signed XML evidence, payload encryption/redaction, execution-configuration revision binding, deterministyczna course operation history, migration safety i invariant tests są agregatową projekcją zamkniętego kontraktu.
+
+DB4_9 Student Finance / Platform Commerce został zsynchronizowany z `specs/database/student-finance-commerce.yml` po zamknięciu DB-FIN-001/002 oraz DB-COM-001..008. Sekcje 16 i 19, exact finance/payment relations, derived balance, settlement/fulfillment authorities, purchase-grant provenance, deterministic purchase history, global lock order, legacy reconciliation safety, migration order i invariant tests są agregatową projekcją zamkniętego kontraktu. Student Finance i Platform Commerce pozostają dwoma oddzielnymi bounded contextami.
 
 ---
 
@@ -1362,7 +1364,7 @@ Dla legacy Course z równymi `created_at` i bez silniejszego wiarygodnego dowodu
 
 DB4_8 nie zmienia Stage-3 API. Do acceptance/API sync pozostają m.in. exact provider adapter request/response schema, dokładny HTTP flow signed XML, safe projection nowych signature states, jawne dokumentowanie kolejności historii/paginacji oraz provider-specific error/status mapping. Te braki nie zmieniają fizycznych authority i invariantów DB4_8.
 
-**DB4_8 aggregate conclusion:** provider lifecycle jest teraz domknięty jako exact same-tenant, history-preserving, retry/reconciliation-safe, evidence-bound i deterministic read-model contract. DB4_9 finance/commerce nie został rozpoczęty.
+**DB4_8 aggregate conclusion:** provider lifecycle jest domknięty jako exact same-tenant, history-preserving, retry/reconciliation-safe, evidence-bound i deterministic read-model contract. DB4_9 finance/commerce jest teraz również zsynchronizowany; DB4_10 audit/outbox physical finalization pozostaje osobnym późniejszym slice.
 
 ---
 
@@ -1647,44 +1649,89 @@ Najpierw prechecks/reviewed remediation, potem candidate keys/composite FKs/hist
 
 ---
 
-# 16. Student finance
+# 16. Student finance — DB4_9 aggregate
 
-## `student_charges`
+Canonical bounded-context source: `specs/database/student-finance-commerce.yml`, audit: `docs/114-stage-4-student-finance-commerce-audit.md`. Student Finance opisuje należności OSK wobec kursanta i rzeczywiście otrzymane wpłaty. To **nie jest** Platform Commerce Payment.
 
-- `id uuid PK`
-- `organization_id uuid FK`
-- `student_id uuid FK`
-- `course_enrollment_id uuid null FK`
-- `title varchar(255)`
-- `amount_minor bigint check >= 0`
-- `currency char(3) default 'PLN'`
-- `due_at date null`
-- `status varchar(32)`
-- `created_by_user_id uuid`
-- `cancelled_at timestamptz null`
-- `cancelled_by_user_id uuid null`
-- `cancellation_reason text null`
-- `created_at`.
+## 16.1 `student_charges` — należność i exact target integrity
 
-## `student_payments`
+Każdy Charge ma tenant, exact Student, optional exact Course tego samego Studenta, amount/currency i immutable financial identity. Same-tenant/exact-target boundaries:
+- `(organization_id,student_id) -> students(organization_id,id)`,
+- optional `(organization_id,course_enrollment_id,student_id) -> course_enrollments(organization_id,id,student_id)`,
+- candidate key `(organization_id,id,student_id,currency)` dla exact Payment target.
 
-- `id uuid PK`
-- `organization_id uuid FK`
-- `student_id uuid FK`
-- `charge_id uuid FK`
-- `amount_minor bigint check > 0`
-- `currency char(3)`
-- `paid_at timestamptz`
-- `payment_method varchar(32) null`
-- `note text null`
-- `received_by_user_id uuid`
-- `idempotency_key uuid null`
-- `reversed_at timestamptz null`
-- `reversed_by_user_id uuid null`
-- `reversal_reason text null`
-- `created_at`.
+`organization_id`, repeated `student_id` i `currency` są kluczami integralności, nie wartościami sterowanymi przez klienta. Formalne relacje używają `RESTRICT`; cross-tenant/wrong-Student legacy rows nie są automatycznie przepinane.
 
-Balance = charge - nieodwrócone payments.
+Durable Charge state wynika z cancellation tuple + Payment ledger, nie z drugiego mutable `status`. Cancellation tuple:
+- `cancelled_at`,
+- `cancelled_by_user_id`,
+- `cancellation_reason`.
+
+Tuple jest all-NULL albo all-non-NULL, reason nonblank i write-once. `uncancel` jest zabroniony. Normalna cancellation jest dozwolona tylko przy zerowym total valid payments. Immutable po insert: organization, Student, optional Course, amount i currency.
+
+## 16.2 `student_payments` — append-history, reversal zamiast delete
+
+Payment wskazuje dokładny Charge/Student/currency przez composite FK:
+`(organization_id,charge_id,student_id,currency) -> student_charges(organization_id,id,student_id,currency)`.
+
+`amount_minor > 0`. Valid Payment = `reversed_at IS NULL`. Reversal tuple:
+- `reversed_at`,
+- `reversed_by_user_id`,
+- `reversal_reason`.
+
+Tuple jest all-NULL albo all-non-NULL i przechodzi tylko raz `unreversed -> reversed`. Drugi reversal, unreverse i hard-delete historycznego Payment są zabronione. Pozostałe pola Payment są immutable po insert.
+
+## 16.3 Balance i statusy są projekcją
+
+Canonical:
+- `paid_amount_minor = SUM(amount_minor WHERE reversed_at IS NULL)`,
+- `remaining_amount_minor = charge.amount_minor - paid_amount_minor`,
+- `remaining_amount_minor >= 0`.
+
+Collection state jest derived:
+- `open`,
+- `partially_paid`,
+- `paid`,
+- `cancelled`.
+
+`overdue` jest modifierem wynikającym z due date + dodatniego remaining balance, nie drugim persisted business state. Student finance summary (`total_due`, `total_paid`, `total_remaining`) jest projekcją, nie mutable frontend authority.
+
+## 16.4 Idempotency i concurrency
+
+Generic authority = `idempotency_records`. Operation keys:
+- `student_finance.charge.create`,
+- `student_finance.payment.record`,
+- `student_finance.payment.reverse`,
+- `student_finance.charge.cancel`,
+- `student_finance.charge.create_from_course_cost`.
+
+Ten sam key + ten sam request zwraca bezpieczny ten sam rezultat bez drugiego effectu; ten sam key + inny request = conflict.
+
+Money-affecting commands `record_payment|reverse_payment|cancel_charge` współdzielą concurrency root: exact `student_charges` row `FOR UPDATE`. Po locku ponownie liczymy valid payments i remaining. MVP nie pozwala na overpayment. Cancel-vs-payment-vs-reversal race ma dokładnie jednego poprawnego winnera.
+
+Audit/outbox business intent commituję z efektem domenowym, ale dokładny physical audit/outbox model pozostaje DB4_10.
+
+## 16.5 `course_cost_charge_origins`
+
+To dokładna provenance tylko dla jawnego effectu `create charge from Course cost`, nie dla każdego Charge z optional Course context.
+
+- unique `(organization_id,course_enrollment_id)`,
+- exact Course + Student relation,
+- exact utworzony StudentCharge relation,
+- server-owned source amount/currency snapshot,
+- provenance immutable po insert.
+
+Command root = exact `CourseEnrollment FOR UPDATE`. Po locku system ponownie odczytuje trusted Course-cost source. Druga idempotency key dla tego samego exact source effectu nie może stworzyć drugiego auto-Charge. Zwykły ręczny Charge przypięty do Course nie staje się przez podobieństwo `course_cost` origin. Semantyki późniejszego repricingu nie są wymyślane w DB4_9.
+
+## 16.6 Student Finance migration safety
+
+Najpierw exact relation preflight, potem reviewed remediation. Zabronione:
+- cross-tenant auto-reparent,
+- przepisywanie Payment Student/currency tak, aby FK przeszedł,
+- hard-delete historii,
+- odtwarzanie `course_cost_charge_origin` po samej kwocie, Course, Student, tytule lub timestampie.
+
+Niejednoznaczność = migration FAIL + reviewed exact remediation.
 
 ---
 
@@ -1733,7 +1780,8 @@ Jeden row = jedna jednostka licencji:
 - `id uuid PK`
 - `organization_id uuid not null`
 - `license_product_id uuid not null FK license_products`
-- `source_order_item_id uuid null` — exact commerce tenant boundary domykamy w DB4_9,
+- `source_order_item_id uuid null` — purchase source; exact same-tenant OrderItem relation domknięta w DB4_9,
+- `source_order_item_grant_ordinal integer null` — dla purchase source wymagany, immutable, `>=1` i nie większy niż quantity parent OrderItem; null dla nonpurchase source,
 - `status varchar(32) not null` — `available|assigned|consumed|expired|adjusted`
 - `granted_at timestamptz not null`
 - `created_at timestamptz not null`.
@@ -1965,7 +2013,7 @@ Runtime events:
 
 `migration_baseline` jest dozwolony wyłącznie przy kontrolowanym cutover i nie może być emitowany runtime po migracji.
 
-Formalny Attempt rezerwuje dokładnie jedną jednostkę w transakcji create. Start konsumuje ją dokładnie raz. Revoke/expire/cancel przed startem zwalnia rezerwację dokładnie raz. Technical abort po starcie nie przywraca jednostki; refund to osobny dodatni adjustment zachowujący pierwotną consumed history. Kolejność free-vs-paid nie jest hardcodowanym constraintem DB. Payment/grant trigger pozostaje DB4_9.
+Formalny Attempt rezerwuje dokładnie jedną jednostkę w transakcji create. Start konsumuje ją dokładnie raz. Revoke/expire/cancel przed startem zwalnia rezerwację dokładnie raz. Technical abort po starcie nie przywraca jednostki; refund to osobny dodatni adjustment zachowujący pierwotną consumed history. Kolejność free-vs-paid nie jest hardcodowanym constraintem DB. Payment/grant trigger i exact paid Inventory provenance są domknięte w DB4_9; Reservation/Consumption lifecycle nadal pozostaje wyłączną authority DB4_7.
 
 ## 18.3 Attempt lifecycle i concurrency
 
@@ -2142,89 +2190,178 @@ DB4_7 migruje fail-closed. Zabronione jest automatyczne zgadywanie:
 
 Dozwolone są wyłącznie deterministyczne transformacje z kompletnego, udowodnionego legacy evidence. Ambiguity = migration FAIL + reviewed remediation.
 
-DB4_8 provider lifecycle, DB4_9 payment/grant trigger oraz DB4_10 final audit/outbox physical shape nie są rozwiązywane w tym sync.
+DB4_8 provider lifecycle oraz DB4_9 payment/grant boundary są już zsynchronizowane. DB4_10 final audit/outbox physical shape nadal pozostaje osobnym późniejszym slice.
 
 ---
 
-# 19. Platform commerce
+# 19. Platform commerce — DB4_9 aggregate
 
-## `orders`
+Canonical bounded-context source: `specs/database/student-finance-commerce.yml`, audit: `docs/114-stage-4-student-finance-commerce-audit.md`. Platform Commerce opisuje zakupy produktów/usług PrawkoNaRaz przez OSK. `payments` tej sekcji nie są `student_payments`.
 
-- `id uuid PK`
-- `organization_id uuid FK`
-- `status varchar(32)`
-- `total_amount_minor bigint`
-- `currency char(3)`
-- `created_by_user_id uuid`
-- `created_at`
-- `updated_at`.
+## 19.1 `commerce_catalog_items`
 
-## `order_items`
-
-- `id uuid PK`
-- `order_id uuid FK`
-- `product_type varchar(64)`
-- `product_reference uuid/null`
-- `quantity integer`
-- `unit_amount_minor bigint`
-- `vat_rate numeric(5,2)`
-- `total_amount_minor bigint`
-- `snapshot jsonb`.
-
-## `payments`
-
-- `id uuid PK`
-- `organization_id uuid FK`
-- `order_id uuid FK`
-- `provider varchar(32)`
-- `provider_payment_id varchar(128) null`
-- `status varchar(32)`
-- `amount_minor bigint`
-- `currency char(3)`
-- `created_at`
-- `confirmed_at timestamptz null`.
-
-Unique `(provider,provider_payment_id)` where not null.
-
-## `payment_events`
-
-Immutable:
-- `id uuid PK`
-- `payment_id uuid FK`
-- `provider varchar(32)`
-- `provider_event_id varchar(128)`
-- `event_type varchar(64)`
-- `payload_hash char(64)`
-- `received_at timestamptz`
-- `processed_at timestamptz null`.
-
-Unique `(provider,provider_event_id)`.
-
-## `service_entitlements`
-
-- `id uuid PK`
-- `organization_id uuid FK`
-- `service_type varchar(64)`
-- `source_order_item_id uuid null FK order_items`
-- `source_grant_reference varchar(128) null`
-- `activation_mode varchar(32)` — `immediate|explicit`
-- `status varchar(32)` — `granted|available|activated|expired|revoked`
-- `granted_at timestamptz`
-- `expires_at timestamptz null`
+Stabilna globalna identity sprzedawalnego SKU używana przez checkout i historyczne OrderItem:
+- `id uuid PK`,
+- `code` unique,
+- `product_kind` — `license|internal_exam|generic_service`,
+- `license_product_id null` — wymagany wyłącznie dla `license`,
+- `active`,
 - `created_at`.
 
-## `service_activations`
+`code`, `product_kind` i specialized target identity nie są przepisywane po pierwszym historycznym Order reference. Dla `license` katalog wskazuje exact `license_products.id`; dla exam/generic service DB4_9 nie wymyśla niepotwierdzonych product tables.
 
-- `id uuid PK`
-- `organization_id uuid FK`
-- `service_entitlement_id uuid unique FK service_entitlements`
-- `activated_by_user_id uuid null`
-- `activated_at timestamptz`
-- `effective_from timestamptz`
-- `effective_to timestamptz null`
-- `created_at`.
+## 19.2 `orders` — history identity i business dates
 
-Dla `activation_mode=explicit` payment success nie jest aktywacją.
+Order ma exact tenant, immutable money snapshot i deterministic tenant sequence:
+- `order_sequence bigint >= 1`, unique per Organization, server-allocated i immutable,
+- `ordered_at timestamptz` — server-owned, write-once business order date,
+- `booked_at timestamptz null` — server-owned, tylko `NULL -> non-NULL` raz,
+- `zero_total_settled_at timestamptz null` — write-once wyłącznie dla zero-total Order utworzonego jako settled bez external zero Payment,
+- `total_amount_minor`, `currency`, creator/provenance i timestamps.
+
+Display Number wynika z tenantowego `order_sequence`; nie jest payment secret ani authorization key. Legacy mutable `orders.status` nie jest drugim authority po cutover.
+
+Booking Date pochodzi z trusted payment resolution albo zero-total settlement. Browser return, frontend success, zwykłe `created_at/updated_at` i migration current time nie mogą jej fabrykować.
+
+## 19.3 `order_items` — exact SKU i immutable pricing snapshot
+
+OrderItem ma własne `organization_id`, exact parent Order/currency i exact catalog kind:
+- `(organization_id,order_id,currency) -> orders(organization_id,id,currency)`,
+- `(commerce_catalog_item_id,product_kind) -> commerce_catalog_items(id,product_kind)`.
+
+`quantity > 0`. Money jest w minor units, nigdy float. Server zamraża product/display/price/VAT/discount snapshot. Client nie jest authority ceny, rabatu, VAT ani totals.
+
+Line total i Order total muszą być algebraicznie zgodne z frozen snapshotem; historycznego OrderItem nie przeliczamy po zmianie current catalog. Stare `product_type + generic product_reference` przestaje być runtime authority po cutover.
+
+## 19.4 `payments` — attempt ledger, nie business settlement
+
+Wiele Payment attempts dla jednego Order jest dozwolone. Canonical attempt states:
+- `pending`,
+- `confirmed`,
+- `failed`.
+
+Payment jest exact-bound do tenant/Order/amount/currency snapshot. Terminal outcome nie jest po cichu przepisywany; late failure nie może cofnąć confirmed truth. Konflikt terminalnych outcome'ów wymaga reconciliation.
+
+Browser redirect/frontend success **nie jest** confirmation authority. Trusted confirmation pochodzi wyłącznie z:
+- signature-verified provider event znormalizowanego jako confirmed,
+- privileged reviewed reconciliation opartego o niezależny provider/bank evidence.
+
+Direct bank transfer pozostaje `pending` do trusted reconciliation.
+
+## 19.5 `payment_events`
+
+Immutable provider event history zachowuje tenant, exact Payment/provider binding, provider event ID, hash i receive/process metadata. Dedupe `(provider,provider_event_id)` pozostaje wymagane.
+
+Duplicate/out-of-order event zawsze re-checkuje current Payment state; event dla innego providera nie może zostać przypięty do Payment. Raw/unverified webhook nie powoduje business paid effect.
+
+## 19.6 `order_payment_settlements` — jedyna business paid authority dla nonzero Order
+
+`order_payment_settlements` jest one-per-Order authority, że konkretny nonzero Order został biznesowo rozliczony. Exact Payment może zostać zastosowany do najwyżej jednego settlement.
+
+Pod `Order FOR UPDATE` pierwszy trusted confirmed Payment tworzy atomowo Payment confirmed truth + settlement. Drugi naprawdę confirmed Payment zachowujemy jako external truth, ale:
+- nie tworzy drugiego settlement,
+- nie uruchamia drugiego purchase/grant effectu,
+- wymaga reconciliation.
+
+Canonical Order payment projection: `unpaid|pending|paid`; jest derived z Payment attempts + settlement/zero-total source, nie z niezależnego mutable label.
+
+## 19.7 `order_fulfillments` — recoverable exactly-once grant authority
+
+Dokładnie jeden durable Fulfillment per Order. States:
+- `pending`,
+- `fulfilled`,
+- `requires_reconciliation`.
+
+Dla nonzero Order settlement i `pending fulfillment` powstają atomowo. Dla zero-total źródłem jest write-once `zero_total_settled_at`. Payment resolution i Fulfillment są osobnymi faktami.
+
+Fulfillment transaction tworzy **cały** local grant set Order albo rollbackuje wszystko. `fulfilled` jest legalne dopiero, gdy komplet exact downstream grantów istnieje. Retry po `fulfilled` nie tworzy drugiego setu.
+
+`requires_reconciliation` blokuje automatic grant worker. Browser return, raw webhook ani luźny Payment status nie mogą wywołać fulfillment.
+
+## 19.8 Exact OrderItem -> downstream purchase grant provenance
+
+Każda zakupiona jednostka ma immutable:
+- `source_order_item_id`,
+- `source_order_item_grant_ordinal`.
+
+Ordinal zaczyna się od 1 i nie może przekroczyć `OrderItem.quantity`. Dla `quantity=N` finalny fulfilled OrderItem musi mieć dokładnie N właściwych grantów z unikalnymi ordinalami `1..N`.
+
+Specialized rules:
+- License Inventory purchase source musi odpowiadać exact license OrderItem i exact `license_product_id`,
+- paid Internal Exam Inventory zachowuje `source_type=paid` i exact OrderItem provenance,
+- generic service purchase wskazuje exact `generic_service` OrderItem.
+
+Free/adjustment/operator grant nie może być przemianowany na paid. DB4_9 nie zmienia późniejszego License Assignment/Activation ani Exam Reservation/Consumption lifecycle.
+
+## 19.9 `service_entitlements` i `service_activations`
+
+Generic ServiceEntitlement ma twardy source XOR:
+- exact purchase (`source_order_item_id + grant_ordinal`), albo
+- exact operator grant source,
+- nigdy oba i nigdy żaden.
+
+`activation_mode=explicit`: successful payment/fulfillment daje dostępny entitlement bez Activation; jawna aktywacja jest osobnym idempotentnym exactly-once commandem.
+
+`activation_mode=immediate`: Entitlement i dokładnie jedna ServiceActivation powstają atomowo w fulfillment transaction.
+
+ServiceActivation ma exact same-tenant Entitlement binding i unique one-per-entitlement. Finalny status musi być zgodny z activation mode i rzeczywistym istnieniem Activation. Payment success nie jest ukrytą explicit activation.
+
+## 19.10 Purchase history projection
+
+Historia zakupów jest derived z canonical facts:
+- Number -> `orders.order_sequence`,
+- Order Date -> `orders.ordered_at`,
+- Booking Date -> `orders.booked_at`,
+- Amount -> immutable Order snapshot,
+- Status -> payment projection + fulfillment projection.
+
+Default deterministic sort:
+`ordered_at DESC -> order_sequence DESC -> id DESC`.
+
+UI może pokazywać page-size presets, ale Stage-3 `per_page=1..100` pozostaje zachowane. Nie deklarujemy snapshot-stability offset pagination przy równoległym dopisywaniu nowych Orderów.
+
+## 19.11 Canonical lock order i race winners
+
+Platform Commerce concurrency root = exact `orders` row `FOR UPDATE`. Command-local idempotency/provider-event dedupe następuje przed business row locks.
+
+Canonical order:
+1. exact Order,
+2. relevant Payments po `id ASC`,
+3. existing Settlement,
+4. existing Fulfillment,
+5. immutable OrderItems po `id ASC`,
+6. purchase grants po `(order_item_id ASC, grant_ordinal ASC)`.
+
+Reverse downstream -> Order lock path jest zabroniony. Provider network call/browser wait nie odbywa się pod business DB lockiem. Webhook vs manual reconciliation serializuje się `Order -> Payment`; duplicate fulfillment workers commitują najwyżej jeden grant set.
+
+Późniejsze License Assignment, Exam Reservation i explicit ServiceActivation nie wracają do Commerce transaction/Order lock. Deadlock/serialization failure = retry całej komendy od idempotency boundary.
+
+Student Finance i Platform Commerce nie współdzielą money root i nie blokują swoich Payment/Charge rows krzyżowo.
+
+## 19.12 DB4_9 legacy migration / reconciliation safety
+
+Każdy brakujący legacy fakt jest klasyfikowany jako:
+- `safe_exact_derivation`,
+- `proven_historical_fact`,
+- `reviewed_exact_remediation`,
+- `unresolved_ambiguity`.
+
+`unresolved_ambiguity` blokuje cutover/constraint activation. Timestamp proximity, UUID, kwota, ten sam tenant, nazwa, duration, current price, nearest row, browser return, `created_at/updated_at` nie są dowodem exact lineage/payment causality.
+
+Migracja nie może:
+- wybierać Payment winner/provider event heurystycznie,
+- rekonstruować settlement z samego legacy `paid`,
+- dopasowywać Inventory do OrderItem heurystycznie,
+- uruchamiać fulfillment/grant command,
+- tworzyć brakujących units, klonować albo usuwać istniejących, aby wymusić quantity,
+- przepisywać consumed/activated/assigned/reserved downstream history,
+- hard-delete formalnej lub finansowej historii.
+
+Udowodniony settled Order bez udowodnionego kompletnego grant setu dostaje `requires_reconciliation`, **nie `pending`** i nie `fulfilled`; dzięki temu worker nie dograntuje drugi raz.
+
+Finalny preflight wymaga maintenance write fence albo równoważnego new-contract-only write mode. Constraints włączamy dopiero po exact cleanup/review. Reconciliation manifest jest migration/review artefaktem, nie nową runtime business authority. Restart migracji nie może duplikować Settlement, Fulfillment ani grantów.
+
+Refund/chargeback/invoice oraz provider-specific payload schema nie są wymyślane w DB4_9.
 
 ---
 
@@ -2333,18 +2470,37 @@ Minimum pod obserwowane query:
 - availability_slot_lifecycle_events: `(organization_id,availability_slot_id,slot_version_after)` + occurred_at,
 - calendar_resource_claims: owner lookup `(organization_id,claim_owner_kind,claim_owner_id)` plus indeksy wspierające cztery GiST exclusion constraints,
 - training_session_calendar_details: `(organization_id,training_session_id)` unique lookup,
-- student_charges/payments: student + date/status,
+- student_charges: `(organization_id,student_id,due_at)` + active/cancel lookup; student_payments: `(organization_id,charge_id,paid_at)` + reversal lookup; course_cost_charge_origins: exact Course unique lookup,
 - license products/capabilities: product code oraz `(license_product_id,language_code,disabled_at)`,
 - license inventory: `(organization_id,license_product_id,status)`,
 - license assignments: Inventory current lookup, LearningAccount + `assignment_sequence`, Student/status, capability pointer,
 - license activations: Assignment unique, LearningAccount + `entitlement_sequence`, LearningAccount + `effective_to`,
 - exam attempts: course/student/date/status/language/category,
 - activity events: organization + occurred_at,
-- orders: organization + status/date.
+- commerce: orders `(organization_id,ordered_at,order_sequence,id)`, order_items Order/catalog, payments Order/provider/status, payment_events provider-event dedupe, settlements Order/Payment, fulfillments Order/status, ServiceEntitlements purchase source/status i ServiceActivations unique Entitlement.
 
 ---
 
 # 23. Obowiązkowe migration/invariant tests
+
+Student Finance / Platform Commerce DB4_9:
+- Charge->Student, optional Charge->exact Course Student i Payment->exact Charge/Student/currency cross-tenant lub wrong-target mismatch są odrzucane,
+- concurrent Student payments nie mogą przekroczyć Charge amount; cancel/payment/reversal races serializują się na exact Charge,
+- reversal/cancellation metadata są write-once, a finansowa historia nie jest hard-delete,
+- generic Idempotency-Key replay nie tworzy drugiego Charge/Payment/Reversal/Cancel effectu,
+- `course_cost_charge_origins` ma najwyżej jeden exact source effect per Course; manual Charge z Course context nie staje się originem przez podobieństwo,
+- OrderItem wymaga same-tenant Order/currency i exact Catalog kind; server pricing snapshot/line total/Order total pozostają zgodne i immutable,
+- browser return lub untrusted webhook nie może potwierdzić Payment ani uruchomić Fulfillment,
+- pierwszy trusted confirmed Payment tworzy najwyżej jeden Settlement; drugi confirmed Payment nie tworzy drugiego business effectu,
+- zero-total Order nie tworzy external zero Payment i używa write-once local settlement fact,
+- Payment resolution tworzy recoverable Fulfillment; duplicate workers commitują najwyżej jeden kompletny grant set,
+- `quantity=N` daje dokładnie N purchase grants z exact product lineage i unikalnymi ordinalami,
+- generic ServiceEntitlement source jest purchase XOR operator grant; explicit payment success nie jest Activation,
+- tenantowy `order_sequence` jest unique/immutable, `booked_at` write-once, a purchase-history sort deterministyczny,
+- Commerce lock order zawsze zaczyna się od Order; reverse downstream lock path i provider I/O pod business lockiem są zabronione,
+- legacy migration nie zgaduje Payment winner/event/product/inventory lineage,
+- settled legacy Order bez proven complete grant set kończy jako `requires_reconciliation` i nie jest automatycznie regrantowany,
+- migration zachowuje consumed/activated/assigned/reserved/financial history i blokuje cutover na unresolved ambiguity.
 
 Identity / Tenant / RBAC:
 - role template nie jest runtime authorization source,
@@ -2553,9 +2709,9 @@ Zamknięte:
 - **Licenses / Learning Access DB4_6**: exact same-tenant Assignment target; current same-user AuthLoginIdentifier bez niezależnej login projection; durable LearningAccount lifecycle/version i operational eligibility; fail-closed global password management authority + credential epoch; memory-only secret-bearing credential PDFs i non-secret handoff/batch metadata; Inventory↔Assignment↔Activation final-state equivalence; immutable serialized entitlement ledger z duration snapshot/sequence; versioned product-language capability; immutable Assignment language/order snapshots oraz czysto derived management projection.
 - **PKK DB4_8**: exact Course/Profile/Operation/Attempt tenant integrity; immutable provider snapshot i lifecycle history; fail-closed idempotency/retry/reconciliation dla unknown external effect; signed-XML FileAsset evidence; authenticated raw-payload encryption + allowlisted redaction + key-wrapping history; exact execution-configuration revision binding; immutable `course_operation_sequence` oraz derived latest/count bez drugiego summary authority.
 
-Po DB4_8 nadal osobno wymagają dalszych slice/ADR:
+Po DB4_9 nadal osobno wymagają dalszych slice/ADR:
 - DB4_7 Internal Exams aggregate contract — synchronized / PASS,
-- Student Finance i exact commerce/source-order tenant boundary — DB4_9,
+- Student Finance i exact commerce/source-order tenant boundary — synchronized / DB4_9 PASS,
 - application encryption + key rotation dla PESEL/PKK/provider snapshots,
 - immutable snapshot canonicalization/hash,
 - auth account merge/recovery/email verification policy,
