@@ -103,13 +103,13 @@ stage_4_slices:
     final_aggregate_sync: PASS
     result: PASS
   - id: DB4_9_STUDENT_FINANCE_COMMERCE
-    status: FAIL_WITH_2_P1_BLOCKERS
+    status: FAIL_WITH_1_P1_BLOCKER
     diagnosis: COMPLETE
     blockers_diagnosed: 10
-    blockers_resolved: 8
-    open_P0_P1: 2
+    blockers_resolved: 9
+    open_P0_P1: 1
     final_aggregate_sync: NOT_STARTED
-    result: FAIL_WITH_2_P1_BLOCKERS
+    result: FAIL_WITH_1_P1_BLOCKER
   - id: DB4_10_AUDIT_OUTBOX_NOTIFICATIONS
     status: NOT_STARTED
   - id: DB4_11_FINAL_MIGRATION_ORDER_AND_INVARIANT_TEST_MATRIX
@@ -3522,6 +3522,81 @@ quality_checks:
       Laravel_migrations_created: false
       UI_or_feature_implementation_started: false
 
+
+  commerce_command_lock_order_and_cross_domain_race_integrity:
+    status: PASS
+    resolved_blocker_id: DB-COM-008
+    severity: P1
+    machine_source: specs/database/student-finance-commerce.yml
+    narrative_source: docs/114-stage-4-student-finance-commerce-audit.md
+    machine_commit: 062f8e4f0ebc900242cd90f47610a866ca5c8b48
+    machine_blob: 79bd32f5508253835a9c0ffa2a59ab4b113bf8bd
+    narrative_commit: 91fd735633e77f403bbc472a3ef6305ecfe7831f
+    narrative_blob: 13874eae44d4a990452f50ca88bfee1f6281a1a4
+    decision:
+      bounded_context_money_roots_shared_between_student_finance_and_platform_commerce: false
+      platform_commerce_root: exact_orders_row_FOR_UPDATE
+      order_level_commands_recheck_canonical_facts_after_order_lock: true
+      command_local_idempotency_or_provider_event_dedupe_precedes_business_row_locks: true
+      canonical_commerce_lock_order:
+        - exact_order
+        - relevant_payments_by_id_ASC
+        - existing_order_payment_settlement
+        - existing_order_fulfillment
+        - immutable_order_items_read_by_id_ASC
+        - purchase_grants_by_order_item_id_ASC_then_grant_ordinal_ASC
+      reverse_payment_or_fulfillment_or_grant_to_order_lock_path_forbidden: true
+      provider_network_or_browser_wait_while_business_DB_lock_held: false
+      payment_creation_vs_settlement_serialized_on_order: true
+      webhook_vs_manual_reconciliation_serialized_on_order_then_payment: true
+      unique_order_payment_settlement_first_valid_insert_is_business_winner: true
+      second_confirmed_payment_preserves_external_truth_but_not_second_business_effect: true
+      settlement_and_pending_fulfillment_authority_atomic_under_order_root: true
+      duplicate_fulfillment_workers_commit_at_most_one_grant_set: true
+      fulfillment_vs_reconciliation_serialized_on_order_then_fulfillment: true
+      pending_to_fulfilled_winner_cannot_be_downgraded: true
+      pending_to_requires_reconciliation_winner_blocks_worker_grants: true
+      reviewed_reconciliation_to_pending_creates_grants_in_same_transition: false
+      explicit_service_activation_may_acquire_order_lock: false
+      later_license_assignment_or_exam_reservation_may_reenter_commerce_transaction: false
+      mixed_order_grant_sort: [order_item_id_ASC, grant_ordinal_ASC]
+      course_cost_charge_source_table: course_cost_charge_origins
+      course_cost_origin_unique: [organization_id, course_enrollment_id]
+      course_cost_command_root: exact_course_enrollment_row_FOR_UPDATE
+      course_cost_generic_idempotency_operation: student_finance.charge.create_from_course_cost
+      manual_course_context_charge_is_automatically_course_cost_origin: false
+      course_cost_source_may_lock_platform_commerce: false
+      audit_outbox_business_intent_atomic_with_domain_commit: true
+      audit_outbox_physical_shape_deferred_to_DB4_10: true
+      retry_after_deadlock_or_serialization_failure: whole_command_from_idempotency_boundary
+      DB_COM_006_legacy_backfill_or_lineage_reconstruction_performed: false
+    checks:
+      machine_YAML_valid: PASS
+      machine_provenance_matches_clean_commit_and_blob: PASS
+      narrative_provenance_matches_clean_commit_and_blob: PASS
+      StudentFinance_and_PlatformCommerce_remain_distinct: PASS
+      DB_FIN_001_same_tenant_relations_preserved: PASS
+      DB_FIN_002_charge_payment_reversal_and_charge_root_preserved: PASS
+      DB_COM_001_order_item_snapshot_pricing_total_preserved: PASS
+      DB_COM_002_payment_event_settlement_reconciliation_preserved: PASS
+      DB_COM_003_fulfillment_authority_atomicity_preserved: PASS
+      DB_COM_004_purchase_grant_lineage_quantity_preserved: PASS
+      DB_COM_007_service_entitlement_activation_preserved: PASS
+      DB_COM_005_purchase_history_projection_preserved: PASS
+      commerce_order_root_and_lock_order_closed: PASS
+      payment_reconciliation_fulfillment_race_winners_closed: PASS
+      downstream_lock_cycle_prevention_closed: PASS
+      course_cost_charge_cross_key_duplicate_boundary_closed: PASS
+      provider_external_IO_under_business_lock_forbidden: PASS
+      audit_outbox_physical_design_not_entered: PASS
+      DB_COM_006_remains_open: PASS
+      aggregate_core_schema_modified: false
+      aggregate_docs87_modified: false
+      DB4_10_or_later_entered: false
+      Stage5_started: false
+      Laravel_migrations_created: false
+      UI_or_feature_implementation_started: false
+
 resolved_blockers:
   - DB-FOUND-001
   - DB-FOUND-002
@@ -3584,9 +3659,9 @@ resolved_blockers:
   - DB-COM-004
   - DB-COM-007
   - DB-COM-005
+  - DB-COM-008
 
 open_blockers_current_diagnosed_scope:
-  - DB-COM-008
   - DB-COM-006
 
 gate_definition:
@@ -3663,7 +3738,8 @@ gate_definition:
   DB4_9_DB_COM_004_result: PASS
   DB4_9_DB_COM_007_result: PASS
   DB4_9_DB_COM_005_result: PASS
-  DB4_9_result: FAIL_WITH_2_P1_BLOCKERS
+  DB4_9_DB_COM_008_result: PASS
+  DB4_9_result: FAIL_WITH_1_P1_BLOCKER
   may_start_DB4_4_fixes: false
   may_start_DB4_5: false
   may_start_DB4_5_fixes: false
@@ -3679,8 +3755,8 @@ gate_definition:
   may_start_UI_or_feature_implementation: false
 
 next_single_step:
-  id: DB_COM_008_GLOBAL_CROSS_DOMAIN_LOCK_ORDER_AND_RACE_WINNER_SEMANTICS
-  action: resolve_DB_COM_008_only_after_next_explicit_user_instruction
+  id: DB_COM_006_LEGACY_MIGRATION_RECONCILIATION_AND_BACKFILL_SAFETY
+  action: resolve_DB_COM_006_only_after_next_explicit_user_instruction
   allowed_scope:
     - specs/database/student-finance-commerce.yml
     - docs/114-stage-4-student-finance-commerce-audit.md
@@ -3689,6 +3765,6 @@ next_single_step:
     - specs/database/core-schema.yml
     - docs/87-physical-database-schema.md
   scope_lock: >-
-    Resolve DB-COM-008 only. Preserve DB-COM-006 as OPEN.
-    Do not enter DB-COM-006, DB4_10, Stage 5, Laravel migrations or UI in the same step.
-  after_action: rerun_DB_COM_008_machine_narrative_central_gate_and_STOP_before_DB_COM_006
+    Resolve DB-COM-006 only. Do not enter DB4_9 final aggregate sync, DB4_10,
+    Stage 5, Laravel migrations or UI in the same step.
+  after_action: rerun_DB_COM_006_machine_narrative_central_gate_and_STOP_before_DB4_9_FINAL_AGGREGATE_SYNC
