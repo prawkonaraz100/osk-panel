@@ -925,9 +925,9 @@ diagnosis_summary:
   result: FAIL_WITH_7_P1_BLOCKERS
   resolved_blockers:
     - DB-FIN-001
-  blockers_in_required_fix_order:
     - DB-FIN-002
     - DB-COM-001
+  blockers_in_required_fix_order:
     - DB-COM-002
     - DB-COM-003
     - DB-COM-004
