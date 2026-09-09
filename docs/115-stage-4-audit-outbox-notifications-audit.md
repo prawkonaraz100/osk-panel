@@ -3,8 +3,8 @@
 Data: 2026-09-09
 
 **Etap:** `DB4_10_AUDIT_OUTBOX_NOTIFICATIONS`
-**Aktualny krok:** `DB-OUT-001`
-**Status:** `FAIL_WITH_5_P1_BLOCKERS / 0 P0 / 5 P1 OPEN`
+**Aktualny krok:** `DB-OUT-002`
+**Status:** `FAIL_WITH_4_P1_BLOCKERS / 0 P0 / 4 P1 OPEN`
 
 Machine-readable diagnoza: `specs/database/audit-outbox-notifications.yml`.
 
@@ -230,9 +230,9 @@ PASS:
 - P0: **0**,
 - P1: **8**,
 - fixes applied in diagnosis: **0**,
-- resolved: **3/8**,
-- open: **5/8**,
-- result: **FAIL_WITH_5_P1_BLOCKERS**.
+- resolved: **4/8**,
+- open: **4/8**,
+- result: **FAIL_WITH_4_P1_BLOCKERS**.
 
 ## 8. DB-AUD-001 — wynik fixera: PASS
 
@@ -364,6 +364,50 @@ Nie tworzymy synthetic domain events tylko po to, aby stare rekordy przeszły co
 
 DB-OUT-001 nie zamyka publisher claim/retry/backoff/DLQ/manual replay (DB-OUT-002), activity display/dedupe/order (DB-ACT-001), notification recipient/read/source lifecycle (DB-NOT-001/002) ani legacy retention cleanup (DB-EVT-001).
 
-Po fixerze: **3/8 resolved, 5 P1 OPEN**. Następny dozwolony krok: **DB-OUT-002 only**, dopiero po kolejnym jawnym poleceniu użytkownika.
+Po fixerze DB-OUT-001 pozostaje **PASS**.
 
-**STOP przed DB-OUT-002.**
+## 11. DB-OUT-002 — wynik fixera: PASS
+
+DB-OUT-002 domyka techniczny lifecycle publikacji outboxu. Nie zmienia canonical event identity z DB-OUT-001 i nie udaje exactly-once delivery.
+
+### 11.1. Publication state i lease fencing
+
+`outbox_messages.publication_state` ma cztery stany: `pending`, `leased`, `published`, `requires_reconciliation`. Nowy rekord zaczyna jako `pending`; `published` jest terminalny dla normalnego publishera, a `requires_reconciliation` nie jest automatycznie claimowany.
+
+Claim jest atomowy i oparty o exact outbox row. Worker może przejąć due `pending` albo wygasły `leased` row przez row lock / `UPDATE ... RETURNING` / `SKIP LOCKED` lub równoważny mechanizm. Przy claimie powstaje opaque `lease_token`, rośnie monotoniczny `lease_version`, lifetime `attempts` oraz `attempts_in_cycle`, a `leased_by` i `lease_expires_at` stają się wymagane.
+
+Każdy późniejszy ACK/failure transition wymaga zgodności `message_id + lease_token + lease_version`. Stary worker po wygaśnięciu lease nie może oznaczyć rekordu jako published ani nadpisać wyniku nowszego workera.
+
+### 11.2. Retry, backoff i najtrudniejszy ACK race
+
+Publish ACK przeprowadza wyłącznie aktualny lease `leased -> published` i zapisuje `published_at` tylko raz. Retryable albo ambiguous failure przed limitem przechodzi `leased -> pending` z server-derived `next_attempt_at`. Non-retryable failure albo wyczerpanie cyklu przechodzi do `requires_reconciliation`.
+
+Jeżeli external publish faktycznie się udał, ale proces padł albo DB ACK nie został zapisany, rekord może pozostać `leased` do wygaśnięcia i później zostać dostarczony ponownie. To jest świadome zachowanie **at-least-once**. `published_at` oznacza, że co najmniej jeden publish call został potwierdzony publisherowi; nie dowodzi jednej i tylko jednej dostawy ani exactly-once processing po stronie odbiorcy.
+
+### 11.3. At-least-once i deduplikacja
+
+Canonical dedupe identity dla konsumenta pozostaje `domain_event_id`. Nie wolno używać w tej roli `request_id`, `outbox_messages.id`, timestampu ani aggregate id.
+
+Wewnętrzny consumer wykonujący side effect musi utrwalić dedupe po `domain_event_id` przed albo atomowo z efektem. Konkretne unique constraints dla activity i notifications zostają zamknięte odpowiednio w DB-ACT-001 i DB-NOT-002. Dla zewnętrznego destination przekazujemy `domain_event_id` jako idempotency/dedupe key, jeśli destination to wspiera. Brak takiego wsparcia nigdy nie uprawnia nas do reklamowania exactly-once.
+
+### 11.4. Safe failure metadata
+
+`last_error` jest wyłącznie krótkim, bezpiecznym summary. Nie może zawierać raw exception dump, stack trace z danymi, raw provider request/response, tokenów, sekretów, pełnego PESEL/PKK ani credentials OSK. Osobny allowlisted `last_error_code`, timestamp błędu i operacyjne correlation references wystarczają do diagnostyki; pełne bezpieczne szczegóły należą do security-compliant logs.
+
+### 11.5. Reconciliation i manual replay
+
+Reconciliation musi widzieć `requires_reconciliation`, exhausted/invalid pending rows, stare expired leases i naruszenia state matrix. Nie wolno markować rekordu jako published tylko dlatego, że ma dużo attempts, podobny timestamp albo wygląda na wysłany.
+
+Manual replay jest wyłącznie uprzywilejowaną operacją techniczną, nie nowym publicznym UI/API. Jest dozwolony tylko z `requires_reconciliation`, wymaga dokładnego row lock, obowiązkowego audytu z niepustym reason i exact entity reference do outbox message. Replay zwiększa `replay_count`, resetuje wyłącznie `attempts_in_cycle`, wraca do `pending`, zachowuje ten sam `outbox id` i `domain_event_id`, lifetime attempts oraz historyczne audit evidence. Nie powstaje drugi domain event ani drugi outbox row.
+
+### 11.6. Locking, legacy i granica stop
+
+Network publish nie odbywa się podczas trzymania business aggregate lock ani wewnątrz krótkiej DB ACK transaction. Publisher nie może re-enterować lock graphu DB4_9 podczas posiadania lease. Batch claim ma deterministyczny order `next_attempt_at ASC, created_at ASC, id ASC`.
+
+Legacy rows bez wiarygodnego final publication state, lease/policy metadata albo bezpiecznego error evidence nie są tutaj zgadywane. Sam `published_at` albo `attempts` nie dowodzi exactly-once delivery. Backfill/quarantine pozostaje DB-EVT-001.
+
+DB-OUT-002 nie zamyka activity projection (DB-ACT-001), notification recipient/read/source lifecycle (DB-NOT-001/002) ani legacy retention cleanup (DB-EVT-001).
+
+Po fixerze: **4/8 resolved, 4 P1 OPEN**. Następny dozwolony krok: **DB-ACT-001 only**, dopiero po kolejnym jawnym poleceniu użytkownika.
+
+**STOP przed DB-ACT-001.**
