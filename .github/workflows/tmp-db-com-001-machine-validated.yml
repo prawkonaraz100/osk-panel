@@ -1,0 +1,76 @@
+name: Temporary DB-COM-001 Validated Machine Gate
+
+on:
+  push:
+    branches: [tmp-db-com-001-machine-validated]
+    paths:
+      - '.stage4-tmp/TRIGGER_DB_COM_001_VALIDATED_MACHINE'
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: tmp-db-com-001-machine-validated
+      - name: Correct inherited summary and validate DB-COM-001 only
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import yaml, copy
+          p=Path('specs/database/student-finance-commerce.yml')
+          s=p.read_text()
+          before=yaml.safe_load(s)
+          com1_before=copy.deepcopy(before['resolved_contracts']['DB-COM-001'])
+          blockers_before=copy.deepcopy(before['blockers'])
+
+          old='''  resolved_blockers:\n    - DB-FIN-001\n  blockers_in_required_fix_order:\n    - DB-FIN-002\n    - DB-COM-001\n    - DB-COM-002\n'''
+          new='''  resolved_blockers:\n    - DB-FIN-001\n    - DB-FIN-002\n    - DB-COM-001\n  blockers_in_required_fix_order:\n    - DB-COM-002\n'''
+          assert s.count(old)==1,s.count(old)
+          s=s.replace(old,new,1)
+          p.write_text(s)
+
+          after=yaml.safe_load(s)
+          assert after['resolved_contracts']['DB-COM-001']==com1_before
+          statuses={x['id']:x['status'] for x in after['blockers']}
+          assert statuses['DB-FIN-001']=='RESOLVED'
+          assert statuses['DB-FIN-002']=='RESOLVED'
+          assert statuses['DB-COM-001']=='RESOLVED'
+          assert all(statuses[x]=='OPEN' for x in ['DB-COM-002','DB-COM-003','DB-COM-004','DB-COM-005','DB-COM-006','DB-COM-007','DB-COM-008'])
+          assert after['meta']['step']=='DB_COM_001_ORDER_ITEM_TENANT_PRODUCT_SNAPSHOT_PRICE_TOTAL_AND_QUANTITY_INTEGRITY'
+          assert after['meta']['status']=='FAIL_WITH_7_P1_BLOCKERS'
+          assert after['scope_rule']['current_step_scope']=='DB_COM_001_only'
+          assert after['diagnosis_summary']['resolved_after_diagnosis']==3
+          assert after['diagnosis_summary']['open_P0_P1']==7
+          assert after['diagnosis_summary']['result']=='FAIL_WITH_7_P1_BLOCKERS'
+          assert after['diagnosis_summary']['resolved_blockers']==['DB-FIN-001','DB-FIN-002','DB-COM-001']
+          assert after['diagnosis_summary']['blockers_in_required_fix_order']==['DB-COM-002','DB-COM-003','DB-COM-004','DB-COM-007','DB-COM-005','DB-COM-008','DB-COM-006']
+          c=after['resolved_contracts']['DB-COM-001']
+          assert c['status']=='PASS'
+          assert c['commerce_catalog_items']['tenant_owned'] is False
+          assert c['commerce_catalog_items']['product_kind_values']==['license','internal_exam','generic_service']
+          assert c['commerce_catalog_items']['fake_polymorphic_foreign_key']=='forbidden'
+          assert c['candidate_keys']['orders_exact_currency']['columns']==['organization_id','id','currency']
+          assert c['candidate_keys']['order_items_tenant_identity']['columns']==['organization_id','id']
+          assert c['relations']['order_item_exact_order_and_currency']['source']=='order_items[organization_id,order_id,currency]'
+          assert c['order_items_final_fields_or_semantics']['quantity']['check']=='gt_0'
+          assert c['pricing_and_total_authority']['client_supplied_price_discount_vat_or_total_as_authority']=='forbidden'
+          assert c['pricing_and_total_authority']['order_total_amount_minor_formula']=='SUM_order_items_total_amount_minor'
+          assert c['immutable_order_item_policy']['after_order_creation_commit_business_fields_mutable'] is False
+          assert c['migration_policy']['infer_catalog_item_from_display_name_price_or_timestamp']=='forbidden'
+          assert after['preservation_gate']['status']=='PASS_DB_COM_001_MACHINE_CONTRACT'
+          assert after['next_single_step_after_central_gate']['id']=='DB_COM_002_PAYMENT_ATTEMPT_EVENT_ORDER_STATE_IDEMPOTENCY_AND_RECONCILIATION'
+          PY
+          test "$(git hash-object specs/database/core-schema.yml)" = "65c6daab0330a2c6cf57a6a2caaba288a13a7a70"
+          test "$(git hash-object docs/87-physical-database-schema.md)" = "4d5f24f2948bdb55e7367c7b013ed918dade40ae"
+          git diff --check -- specs/database/student-finance-commerce.yml
+          test "$(git diff --name-only | grep -v '^\.github/workflows/tmp-db-com-001-machine-validated.yml$' | grep -v '^\.stage4-tmp/' | sort -u)" = "specs/database/student-finance-commerce.yml"
+          git config user.name 'prawkonaraz100'
+          git config user.email 'prawkonaraz100@gmail.com'
+          git add specs/database/student-finance-commerce.yml
+          git commit -m 'DB-COM-001: correct self-audit and validate machine contract'
+          git push origin HEAD:tmp-db-com-001-machine-validated
