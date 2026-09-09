@@ -2,12 +2,12 @@ meta:
   project: osk-panel
   stage: 4
   slice: DB4_9_STUDENT_FINANCE_COMMERCE
-  step: DB_COM_006_LEGACY_MIGRATION_RECONCILIATION_AND_BACKFILL_SAFETY
-  status: BLOCKERS_RESOLVED_PENDING_DB4_9_FINAL_AGGREGATE_SYNC
+  step: DB4_9_FINAL_AGGREGATE_SYNC
+  status: PASS
   diagnosed_at: 2026-09-08
   branch: docs-consolidation-2026-09-05
   diagnosis_only: false
-  aggregate_sync_status: FROZEN_PENDING_DB4_9_FINAL_AGGREGATE_SYNC
+  aggregate_sync_status: PASS
   implementation_started: false
   Laravel_migrations_created: false
   Stage5_started: false
@@ -16,13 +16,11 @@ meta:
 scope_rule:
   diagnose_before_fixing: true
   fixes_allowed_in_this_step: true
-  current_step_scope: DB_COM_006_only
+  current_step_scope: DB4_9_FINAL_AGGREGATE_SYNC_only
   one_blocker_per_future_step: true
   aggregate_files_frozen:
-    specs/database/core-schema.yml:
-      blob_sha: 65c6daab0330a2c6cf57a6a2caaba288a13a7a70
-    docs/87-physical-database-schema.md:
-      blob_sha: 4d5f24f2948bdb55e7367c7b013ed918dade40ae
+    - specs/database/core-schema.yml
+    - docs/87-physical-database-schema.md
   later_slices_forbidden_in_this_step:
     - DB4_10_AUDIT_OUTBOX_NOTIFICATIONS
     - DB4_11_FINAL_MIGRATION_ORDER_AND_INVARIANT_TEST_MATRIX
@@ -2775,7 +2773,7 @@ diagnosis_summary:
   diagnosed_P1: 10
   resolved_after_diagnosis: 10
   open_P0_P1: 0
-  result: BLOCKERS_RESOLVED_PENDING_DB4_9_FINAL_AGGREGATE_SYNC
+  result: PASS
   resolved_blockers:
     - DB-FIN-001
     - DB-FIN-002
@@ -2789,7 +2787,7 @@ diagnosis_summary:
     - DB-COM-006
   blockers_in_required_fix_order: []
 preservation_gate:
-  status: PASS_DB_COM_006_MACHINE_CONTRACT
+  status: PASS_DB4_9_FINAL_AGGREGATE_SYNC
   checks:
     student_finance_and_platform_commerce_remain_distinct: true
     DB4_6_license_inventory_assignment_activation_contract_preserved: true
@@ -2805,25 +2803,51 @@ preservation_gate:
     DB_COM_004_exact_purchase_provenance_and_quantity_equivalence_closed: true
     DB_COM_005_DB_COM_007_DB_COM_008_preserved: true
     DB_COM_006_legacy_migration_reconciliation_and_backfill_safety_closed: true
+    DB4_9_final_aggregate_sync_completed_after_all_10_blockers_closed: true
     no_refund_chargeback_invoice_provider_specific_semantics_invented: true
-    aggregate_core_schema_modified: false
-    aggregate_docs87_modified: false
+    aggregate_core_schema_modified: true
+    aggregate_docs87_modified: true
     DB4_10_or_later_entered: false
     Stage5_started: false
     Laravel_migrations_created: false
     UI_or_feature_implementation_started: false
 
+final_aggregate_sync:
+  status: PASS
+  blocker_contracts_closed:
+    - DB-FIN-001
+    - DB-FIN-002
+    - DB-COM-001
+    - DB-COM-002
+    - DB-COM-003
+    - DB-COM-004
+    - DB-COM-007
+    - DB-COM-005
+    - DB-COM-008
+    - DB-COM-006
+  aggregate_base_after_DB_COM_006_central_gate: d899491bc8dd73a7b82d1c28c50f32b6eea1a169
+  machine_aggregate_commit: 9c06a7928aecb61627ccb52c083cda58b2505c25
+  machine_aggregate_blob: f3519060967085517329bc668fac02e5c1fd2dbd
+  narrative_aggregate_commit: 05a030bc4513ab06514f748909559e35d0c78996
+  narrative_aggregate_blob: f3ebb764a5279cbabc9c75c2fcf9733f36ed22a8
+  machine_and_narrative_semantic_loss_gate: PASS
+  migration_order_and_invariant_test_gate: PASS
+  stale_provisional_shortcut_gate: PASS
+  StudentFinance_and_PlatformCommerce_remain_distinct: PASS
+  DB4_6_license_lifecycle_preserved: PASS
+  DB4_7_exam_lifecycle_preserved: PASS
+  DB4_8_PKK_preserved: PASS
+  DB4_10_or_later_entered: false
+  Laravel_migrations_created: false
+  Stage5_started: false
+  UI_or_feature_implementation_started: false
+
 next_single_step_after_central_gate:
-  id: DB4_9_FINAL_AGGREGATE_SYNC
-  action: sync_DB4_9_resolved_contracts_to_aggregates_only_after_next_explicit_user_instruction
+  id: DB4_10_AUDIT_OUTBOX_NOTIFICATIONS_DIAGNOSIS
+  action: begin_DB4_10_only_after_next_explicit_user_instruction
   allowed_scope:
-    - specs/database/student-finance-commerce.yml
-    - docs/114-stage-4-student-finance-commerce-audit.md
-    - specs/database/core-schema.yml
-    - docs/87-physical-database-schema.md
-    - specs/gates/stage-4-database-contract-gate.yml
-  aggregate_files_currently_frozen: true
+    - DB4_10_AUDIT_OUTBOX_NOTIFICATIONS_diagnosis_only
   scope_lock: >-
-    DB-COM-006 is closed. Do not start final DB4_9 aggregate synchronization in
-    this fixer transaction. Do not enter DB4_10, Stage 5, Laravel migrations or UI.
-  stop_before: DB4_9_FINAL_AGGREGATE_SYNC
+    DB4_9 is fully synchronized and PASS. Do not begin DB4_10 in this aggregate
+    sync transaction. Do not enter DB4_11, Stage 5, Laravel migrations or UI.
+  stop_before: DB4_10_AUDIT_OUTBOX_NOTIFICATIONS_DIAGNOSIS
