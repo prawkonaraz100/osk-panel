@@ -2,8 +2,8 @@ meta:
   project: osk-panel
   stage: 4
   slice: DB4_9_STUDENT_FINANCE_COMMERCE
-  step: DB_COM_003_PAID_ORDER_EXACTLY_ONCE_GRANT_ORCHESTRATION_AND_ATOMICITY
-  status: FAIL_WITH_5_P1_BLOCKERS
+  step: DB_COM_004_ORDER_ITEM_TO_LICENSE_EXAM_SERVICE_GRANT_EXACT_PROVENANCE_AND_QUANTITY_EQUIVALENCE
+  status: FAIL_WITH_4_P1_BLOCKERS
   diagnosed_at: 2026-09-08
   branch: docs-consolidation-2026-09-05
   diagnosis_only: false
@@ -16,7 +16,7 @@ meta:
 scope_rule:
   diagnose_before_fixing: true
   fixes_allowed_in_this_step: true
-  current_step_scope: DB_COM_003_only
+  current_step_scope: DB_COM_004_only
   one_blocker_per_future_step: true
   aggregate_files_frozen:
     specs/database/core-schema.yml:
@@ -1215,6 +1215,278 @@ resolved_contracts:
       Laravel_migrations_created: false
       UI_or_feature_implementation_started: false
 
+
+  DB-COM-004:
+    status: PASS
+    severity: P1
+    title: order_item_to_license_exam_service_grant_exact_provenance_and_quantity_equivalence
+    scope_boundary:
+      closes_only_exact_purchase_lineage_product_kind_and_quantity_equivalence: true
+      order_level_paid_to_fulfillment_orchestration_remains_DB_COM_003: true
+      generic_service_operator_grant_XOR_and_activation_matrix_remain_DB_COM_007: true
+      purchase_history_display_number_booked_at_status_pagination_remain_DB_COM_005: true
+      global_payment_fulfillment_downstream_lock_order_remains_DB_COM_008: true
+      exact_legacy_reconciliation_evidence_classes_remain_DB_COM_006: true
+      license_assignment_activation_revoke_entitlement_lifecycle_remains_DB4_6: true
+      internal_exam_reservation_release_consume_adjustment_lifecycle_remains_DB4_7: true
+      no_internal_exam_product_table_invented: true
+      no_generic_service_product_table_invented: true
+
+    purchase_grant_authority:
+      purchased_quantity_authority: immutable_order_items.quantity
+      purchased_product_kind_authority: immutable_order_items.product_kind
+      purchased_sale_SKU_authority: immutable_order_items.commerce_catalog_item_id
+      license_product_identity_authority_when_kind_license: immutable_order_items.license_product_id
+      aggregate_mutable_inventory_counter_as_purchase_authority: forbidden
+      downstream_concrete_unit_rows_are_business_effects_not_price_or_quantity_authority: true
+      source_order_item_reference_on_purchase_grant_is_immutable: true
+      per_unit_grant_ordinal_has_no_temporal_or_pricing_meaning: true
+      per_unit_grant_ordinal_purpose: exactly_once_cardinality_identity_within_one_order_item
+
+    required_order_item_candidate_keys:
+      tenant_item:
+        columns: [organization_id, id]
+        unique_constraint_required: true
+        source: DB_COM_001
+      tenant_item_kind:
+        columns: [organization_id, id, product_kind]
+        unique_constraint_required: true
+      tenant_item_license_product:
+        columns: [organization_id, id, license_product_id]
+        unique_constraint_required: true
+        purpose: exact_license_inventory_purchase_source_product_binding
+      tenant_item_catalog_SKU:
+        columns: [organization_id, id, commerce_catalog_item_id]
+        unique_constraint_required: true
+        purpose: immutable_exact_sale_SKU_lineage_for_nonlicense_kinds_without_invented_product_tables
+
+    common_purchase_unit_ordinal_contract:
+      field_name: source_order_item_grant_ordinal
+      physical_type: integer
+      purchase_sourced_row_requires_nonnull: true
+      nonpurchase_row_requires_null: true
+      minimum: 1
+      maximum: exact_parent_order_item_quantity
+      immutable_after_insert: true
+      runtime_assignment: deterministic_1_through_quantity_within_exact_order_item_fulfillment
+      direct_client_authority: false
+      ordinal_is_not_creation_order_or_consumption_order: true
+      ordinal_gap_or_duplicate_at_fulfilled_final_state: forbidden
+
+    license_inventory_purchase_provenance:
+      existing_source_field: license_inventory_entries.source_order_item_id
+      add_or_finalize_field: license_inventory_entries.source_order_item_grant_ordinal
+      purchase_sourced_predicate: source_order_item_id_is_not_null
+      exact_source_relation:
+        source: license_inventory_entries[organization_id,source_order_item_id,license_product_id]
+        target: order_items[organization_id,id,license_product_id]
+        nullable_relation: true
+        nullability_driver: source_order_item_id
+        on_update: RESTRICT
+        on_delete: RESTRICT
+        effect: purchase_sourced_license_unit_is_same_tenant_and_exact_license_product_as_order_item
+      DB_COM_001_parent_matrix_implication:
+        nonlicense_order_item_license_product_id_is_null: true
+        therefore_nonnull_license_inventory_product_cannot_bind_internal_exam_or_generic_service_item: true
+      ordinal_unique_for_purchase_units:
+        type: partial_unique
+        columns: [organization_id, source_order_item_id, source_order_item_grant_ordinal]
+        where: source_order_item_id_is_not_null
+      purchase_grant_initial_state:
+        required_inventory_status: available
+        current_assignment_count: 0
+        assignment_or_activation_created_by_commerce_fulfillment: false
+        granted_at_required: true
+      nonpurchase_license_inventory:
+        source_order_item_id: null
+        source_order_item_grant_ordinal: null
+        may_be_counted_as_paid_purchase: false
+        exact_manual_adjustment_or_operator_grant_source_model_invented_here: false
+        note: DB_COM_004_distinguishes_purchase_from_nonpurchase_without_fabricating_an_unconfirmed_license_source_catalog
+
+    internal_exam_inventory_purchase_provenance:
+      existing_source_type_authority: internal_exam_inventory_entries.source_type
+      source_type_values_preserved: [free, paid, adjustment]
+      existing_source_order_item_field: internal_exam_inventory_entries.source_order_item_id
+      add_or_finalize_field: internal_exam_inventory_entries.source_order_item_grant_ordinal
+      exact_same_tenant_source_relation:
+        source: internal_exam_inventory_entries[organization_id,source_order_item_id]
+        target: order_items[organization_id,id]
+        applies_when: source_type_paid
+        on_update: RESTRICT
+        on_delete: RESTRICT
+      source_matrix:
+        paid:
+          source_order_item_id: nonnull
+          source_order_item_grant_ordinal: nonnull
+          exact_parent_order_item_product_kind: internal_exam
+          current_state_at_grant: available
+          initial_ledger_event: unit_granted
+          initial_ledger_event_sequence: 1
+          initial_ledger_available_delta: 1
+        free:
+          source_order_item_id: null
+          source_order_item_grant_ordinal: null
+        adjustment:
+          source_order_item_id: null
+          source_order_item_grant_ordinal: null
+      parent_kind_guard:
+        enforcement: DEFERRABLE_constraint_trigger_or_equivalent_transactional_DB_guard
+        paid_exam_unit_parent_kind_must_equal_internal_exam: true
+        timestamp_name_price_or_catalog_similarity_may_not_substitute_for_exact_order_item_reference: true
+      ordinal_unique_for_paid_units:
+        type: partial_unique
+        columns: [organization_id, source_order_item_id, source_order_item_grant_ordinal]
+        where: source_type_equals_paid
+      paid_purchase_does_not_create_attempt_reservation_access_or_consumption: true
+      free_or_adjustment_unit_may_be_misrepresented_as_paid_purchase: false
+
+    generic_service_purchase_provenance:
+      existing_source_field: service_entitlements.source_order_item_id_nullable
+      existing_nonpurchase_reference_field: service_entitlements.source_grant_reference_nullable
+      add_or_finalize_field: service_entitlements.source_order_item_grant_ordinal_nullable
+      purchase_sourced_predicate_for_this_contract: source_order_item_id_is_not_null
+      exact_same_tenant_source_relation:
+        source: service_entitlements[organization_id,source_order_item_id]
+        target: order_items[organization_id,id]
+        nullable_relation: true
+        nullability_driver: source_order_item_id
+        on_update: RESTRICT
+        on_delete: RESTRICT
+      purchase_parent_kind_guard:
+        enforcement: DEFERRABLE_constraint_trigger_or_equivalent_transactional_DB_guard
+        parent_product_kind_must_equal_generic_service: true
+        exact_sale_SKU_is_reached_through_immutable_source_order_item: true
+        invented_service_product_table_required: false
+      ordinal_unique_for_purchase_entitlements:
+        type: partial_unique
+        columns: [organization_id, source_order_item_id, source_order_item_grant_ordinal]
+        where: source_order_item_id_is_not_null
+      purchase_source_field_and_ordinal_immutable: true
+      source_grant_reference_may_be_treated_as_purchase_order_item_reference: false
+      source_order_item_vs_source_grant_reference_XOR_for_all_entitlements: deferred_to_DB_COM_007
+      service_type_to_operator_grant_and_activation_status_equivalence: deferred_to_DB_COM_007
+      explicit_activation_created_by_DB_COM_004: false
+
+    fulfilled_order_quantity_equivalence:
+      enforcement: DEFERRABLE_INITIALLY_DEFERRED_constraint_trigger_or_equivalent_transactional_DB_guard
+      evaluation_root: exact_order_fulfillment_and_its_immutable_order_items
+      only_final_fulfilled_state_may_have_committed_runtime_purchase_grants: true
+      pending_or_requires_reconciliation_runtime_purchase_grant_count_for_order: 0
+      per_item_rules:
+        license:
+          exact_downstream_table: license_inventory_entries
+          exact_purchase_row_count: order_item.quantity
+          required_ordinal_set: contiguous_1_through_quantity
+          wrong_kind_exam_purchase_rows_for_same_order_item: 0
+          wrong_kind_service_purchase_rows_for_same_order_item: 0
+        internal_exam:
+          exact_downstream_table: internal_exam_inventory_entries
+          exact_purchase_row_predicate: source_type_equals_paid
+          exact_purchase_row_count: order_item.quantity
+          required_ordinal_set: contiguous_1_through_quantity
+          each_unit_has_DB4_7_initial_unit_granted_ledger_equivalence: true
+          wrong_kind_license_purchase_rows_for_same_order_item: 0
+          wrong_kind_service_purchase_rows_for_same_order_item: 0
+        generic_service:
+          exact_downstream_table: service_entitlements
+          exact_purchase_row_predicate: source_order_item_id_is_not_null
+          exact_purchase_row_count: order_item.quantity
+          required_ordinal_set: contiguous_1_through_quantity
+          wrong_kind_license_purchase_rows_for_same_order_item: 0
+          wrong_kind_exam_purchase_rows_for_same_order_item: 0
+          activation_count_is_not_part_of_DB_COM_004_quantity_equivalence: true
+      quantity_N_means_exactly_N_concrete_purchase_grants_not_counter_delta_N: true
+      quantity_zero_or_negative_already_forbidden_by_DB_COM_001: true
+      fulfilled_with_missing_or_extra_purchase_grant_unit: rejected_at_commit
+      purchase_grant_row_for_order_without_valid_fulfilled_order_fulfillment: rejected_for_runtime_after_cutover
+
+    fulfillment_transaction_integration:
+      entrypoint_authority: DB_COM_003_order_fulfillment_orchestrator
+      exact_order_fulfillment_row_is_locked_before_new_purchase_grants: true
+      source_order_item_ids_are_loaded_from_same_fulfillment_order_only: true
+      per_item_quantity_read_from_immutable_order_item: true
+      purchase_grant_ordinal_allocated_in_memory_or_transaction_as_1_through_quantity: true
+      all_item_grants_and_fulfilled_transition_commit_or_rollback_together: true
+      retry_after_rollback_may_recreate_same_uncommitted_ordinals: true
+      retry_after_fulfilled_may_create_second_rows_for_same_ordinals: false
+      unique_source_item_ordinal_is_local_exactly_once_boundary: true
+      global_cross_domain_lock_order_and_item_processing_order: deferred_to_DB_COM_008
+
+    product_match_rules:
+      license:
+        parent_kind: license
+        exact_product_match: downstream_license_product_id_equals_order_item_license_product_id_via_composite_FK
+      internal_exam:
+        parent_kind: internal_exam
+        separate_internal_exam_product_identity_required: false
+        rationale: confirmed_product_is_quantity_exam_unit_and_DB_COM_001_sale_SKU_is_the_purchase_product_identity
+      generic_service:
+        parent_kind: generic_service
+        purchase_product_identity: exact_immutable_source_order_item_and_its_commerce_catalog_item_id
+        service_type_semantic_mapping_and_nonpurchase_source_matrix: DB_COM_007
+      downstream_row_may_reinterpret_product_kind_from_current_catalog_after_order_creation: false
+
+    migration_and_reconciliation_boundary:
+      schema_migration_may_create_missing_purchase_grants_to_match_quantity: false
+      schema_migration_may_delete_extra_downstream_rows_to_match_quantity: false
+      schema_migration_may_relabel_free_adjustment_or_operator_grant_as_purchase_by_coincidence: false
+      source_order_item_backfill_requires_exact_proven_lineage: true
+      timestamp_UUID_amount_price_name_same_tenant_or_catalog_similarity_is_not_lineage_proof: true
+      ordinal_backfill_requires_exact_purchase_row_set_first: true
+      ordinal_has_no_temporal_business_meaning_but_must_not_be_used_to_choose_or_invent_lineage: true
+      mismatched_quantity_or_ambiguous_downstream_lineage: defer_to_DB_COM_006_reviewed_reconciliation_and_fail_closed
+      existing_consumed_assigned_activated_reserved_or_historical_downstream_state_may_be_rewritten_to_make_purchase_constraints_pass: false
+      no_regrant_during_migration: true
+
+    required_tests:
+      - purchase_license_inventory_wrong_tenant_order_item_rejected
+      - purchase_license_inventory_wrong_license_product_order_item_rejected
+      - purchase_license_inventory_cannot_bind_internal_exam_or_generic_service_order_item
+      - two_purchase_license_units_same_order_item_ordinal_rejected
+      - license_order_item_quantity_N_requires_exactly_N_available_purchase_inventory_rows_at_fulfilled_commit
+      - purchase_license_fulfillment_creates_no_assignment_or_activation
+      - paid_exam_unit_requires_nonnull_exact_same_tenant_source_order_item_and_ordinal
+      - paid_exam_unit_parent_order_item_must_be_internal_exam_kind
+      - free_exam_unit_forbids_purchase_order_item_and_ordinal
+      - adjustment_exam_unit_forbids_purchase_order_item_and_ordinal
+      - paid_exam_order_item_quantity_N_requires_exactly_N_paid_inventory_rows_and_matching_initial_unit_granted_ledger_effects
+      - paid_exam_purchase_fulfillment_does_not_create_attempt_reservation_or_consumption
+      - purchase_service_entitlement_source_order_item_must_be_same_tenant_generic_service_item
+      - purchase_service_entitlement_same_order_item_ordinal_duplicate_rejected
+      - generic_service_order_item_quantity_N_requires_exactly_N_purchase_entitlement_rows_at_fulfilled_commit
+      - explicit_service_activation_is_not_created_by_DB_COM_004_purchase_grant
+      - fulfilled_order_item_missing_one_required_grant_unit_is_rejected
+      - fulfilled_order_item_with_extra_purchase_grant_unit_is_rejected
+      - grant_ordinal_zero_negative_or_greater_than_parent_quantity_rejected
+      - grant_ordinal_gap_at_fulfilled_final_state_rejected
+      - wrong_downstream_kind_row_for_order_item_rejected
+      - runtime_purchase_grant_for_pending_or_reconciliation_fulfillment_rejected
+      - retry_after_success_cannot_create_duplicate_source_order_item_ordinal
+      - mixed_order_all_kind_quantities_must_match_or_entire_fulfillment_rolls_back
+      - migration_does_not_pair_inventory_to_order_item_by_timestamp_UUID_amount_price_name_or_same_tenant_coincidence
+      - migration_does_not_create_or_delete_grants_to_force_quantity_equivalence
+      - nonpurchase_exam_or_service_provenance_is_not_silently_reclassified_as_paid_purchase
+
+    preservation_checks:
+      DB_FIN_001_and_DB_FIN_002_contracts_unchanged: PASS
+      DB_COM_001_order_item_catalog_product_price_quantity_snapshot_contract_unchanged: PASS
+      DB_COM_002_payment_settlement_zero_total_and_reconciliation_contract_unchanged: PASS
+      DB_COM_003_order_fulfillment_atomicity_and_retry_contract_unchanged: PASS
+      DB4_6_license_one_unit_assignment_activation_revoke_contract_preserved: PASS
+      DB4_7_exam_unit_ledger_reservation_release_consume_adjustment_contract_preserved: PASS
+      generic_service_operator_grant_XOR_and_activation_not_solved_before_DB_COM_007: PASS
+      purchase_history_projection_not_solved_before_DB_COM_005: PASS
+      global_cross_domain_lock_order_not_solved_before_DB_COM_008: PASS
+      exact_legacy_reconciliation_matrix_not_solved_before_DB_COM_006: PASS
+      no_unconfirmed_internal_exam_or_service_product_table_invented: PASS
+      aggregate_core_schema_modified: false
+      aggregate_docs87_modified: false
+      DB4_10_or_later_entered: false
+      Stage5_started: false
+      Laravel_migrations_created: false
+      UI_or_feature_implementation_started: false
+
 blockers:
   - id: DB-FIN-001
     title: student_finance_same_tenant_exact_charge_payment_course_integrity
@@ -1339,7 +1611,8 @@ blockers:
   - id: DB-COM-004
     title: order_item_to_license_exam_service_grant_exact_provenance_and_quantity_equivalence
     severity: P1
-    status: OPEN
+    status: RESOLVED
+    resolution_ref: resolved_contracts.DB-COM-004
     diagnosis:
       - license_inventory_entries_source_order_item_same_tenant_relation_is_explicitly_deferred_from_DB4_6
       - internal_exam_paid_inventory_source_order_item_same_tenant_relation_is_explicitly_deferred_from_DB4_7
@@ -1449,23 +1722,23 @@ blockers:
 diagnosis_summary:
   diagnosed_P0: 0
   diagnosed_P1: 10
-  resolved_after_diagnosis: 5
-  open_P0_P1: 5
-  result: FAIL_WITH_5_P1_BLOCKERS
+  resolved_after_diagnosis: 6
+  open_P0_P1: 4
+  result: FAIL_WITH_4_P1_BLOCKERS
   resolved_blockers:
     - DB-FIN-001
     - DB-FIN-002
     - DB-COM-001
     - DB-COM-002
     - DB-COM-003
-  blockers_in_required_fix_order:
     - DB-COM-004
+  blockers_in_required_fix_order:
     - DB-COM-007
     - DB-COM-005
     - DB-COM-008
     - DB-COM-006
 preservation_gate:
-  status: PASS_DB_COM_003_MACHINE_CONTRACT
+  status: PASS_DB_COM_004_MACHINE_CONTRACT
   checks:
     student_finance_and_platform_commerce_remain_distinct: true
     DB4_6_license_inventory_assignment_activation_contract_preserved: true
@@ -1478,7 +1751,8 @@ preservation_gate:
     direct_bank_transfer_capability_preserved: true
     explicit_service_activation_not_payment_success_preserved: true
     DB_COM_003_order_fulfillment_orchestration_closed: true
-    DB_COM_004_DB_COM_005_DB_COM_006_DB_COM_007_DB_COM_008_not_fixed_early: true
+    DB_COM_004_exact_purchase_provenance_and_quantity_equivalence_closed: true
+    DB_COM_005_DB_COM_006_DB_COM_007_DB_COM_008_not_fixed_early: true
     no_refund_chargeback_invoice_provider_specific_semantics_invented: true
     aggregate_core_schema_modified: false
     aggregate_docs87_modified: false
@@ -1488,6 +1762,6 @@ preservation_gate:
     UI_or_feature_implementation_started: false
 
 next_single_step_after_central_gate:
-  id: DB_COM_004_ORDER_ITEM_TO_LICENSE_EXAM_SERVICE_GRANT_EXACT_PROVENANCE_AND_QUANTITY_EQUIVALENCE
-  action: resolve_DB_COM_004_only_after_next_explicit_user_instruction
-  stop_before: DB_COM_007_GENERIC_SERVICE_ENTITLEMENT_PURCHASE_GRANT_AND_ACTIVATION_SOURCE_INTEGRITY
+  id: DB_COM_007_GENERIC_SERVICE_ENTITLEMENT_PURCHASE_GRANT_AND_ACTIVATION_SOURCE_INTEGRITY
+  action: resolve_DB_COM_007_only_after_next_explicit_user_instruction
+  stop_before: DB_COM_005_DETERMINISTIC_PURCHASE_HISTORY_DISPLAY_NUMBER_BOOKING_DATE_STATUS_AND_PAGINATION_PROJECTION
