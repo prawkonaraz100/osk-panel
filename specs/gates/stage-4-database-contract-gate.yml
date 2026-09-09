@@ -111,13 +111,13 @@ stage_4_slices:
     final_aggregate_sync: PASS
     result: PASS
   - id: DB4_10_AUDIT_OUTBOX_NOTIFICATIONS
-    status: FAIL_WITH_3_P1_BLOCKERS
+    status: FAIL_WITH_2_P1_BLOCKERS
     diagnosis: COMPLETE
     blockers_diagnosed: 8
-    blockers_resolved: 5
-    open_P0_P1: 3
+    blockers_resolved: 6
+    open_P0_P1: 2
     final_aggregate_sync: NOT_STARTED
-    result: FAIL_WITH_3_P1_BLOCKERS
+    result: FAIL_WITH_2_P1_BLOCKERS
   - id: DB4_11_FINAL_MIGRATION_ORDER_AND_INVARIANT_TEST_MATRIX
     status: NOT_STARTED
 
@@ -3937,12 +3937,49 @@ quality_checks:
       Laravel_migrations_created: false
       UI_or_feature_implementation_started: false
 
+
+  notification_recipient_membership_and_organization_audience_read_state_integrity:
+    status: PASS
+    resolved_blocker_id: DB-NOT-001
+    machine_source: specs/database/audit-outbox-notifications.yml
+    narrative_source: docs/115-stage-4-audit-outbox-notifications-audit.md#13
+    machine_commit: e0fa524b8bf22a3e6f513760dd0eda402769f059
+    machine_blob: d9b551c17b40f038a71f912f6f8b4f9b54b56e56
+    narrative_commit: 7721da7271e80d25e5e79dc7e078f20496877bc9
+    narrative_blob: c2d95837871e32511b55f4cfb9181abbac1bd55b
+    checks:
+      one_runtime_notification_row_per_exact_membership_recipient: PASS
+      recipient_organization_membership_user_triple_exact_same_tenant: PASS
+      global_user_without_exact_membership_not_recipient_authority: PASS
+      new_delivery_requires_active_membership_at_materialization: PASS
+      direct_membership_targets_one_exact_active_membership: PASS
+      organization_broadcast_materializes_independent_rows_per_active_membership_snapshot: PASS
+      shared_recipient_null_organization_row_forbidden: PASS
+      zero_recipient_broadcast_creates_no_placeholder_row: PASS
+      organization_broadcast_fanout_commits_all_or_none: PASS
+      later_membership_join_not_retroactively_added: PASS
+      later_membership_status_change_does_not_delete_or_reassign_history: PASS
+      per_recipient_read_at_not_shared_between_memberships: PASS
+      notifications_list_exact_selected_membership_user_organization_scope: PASS
+      unread_only_cannot_bypass_recipient_scope: PASS
+      mark_read_row_ownership_root_exact_recipient_scope: PASS
+      source_event_dedupe_and_read_write_once_remain_DB_NOT_002: PASS
+      legacy_membership_or_shared_read_state_not_guessed: PASS
+      email_SMS_push_or_external_delivery_channel_not_invented: PASS
+      aggregate_core_schema_modified: false
+      aggregate_docs87_modified: false
+      DB4_11_started: false
+      Stage5_started: false
+      Laravel_migrations_created: false
+      UI_or_feature_implementation_started: false
+
 resolved_blockers:
   - DB-AUD-001
   - DB-AUD-002
   - DB-OUT-001
   - DB-OUT-002
   - DB-ACT-001
+  - DB-NOT-001
   - DB-FOUND-001
   - DB-FOUND-002
   - DB-FOUND-003
@@ -4017,7 +4054,7 @@ gate_definition:
     - migration_order_dependency_safe
     - database_invariant_test_matrix_exists
     - reverse_engineering_preservation_traceable
-  current_result: DB4_10_FAIL_WITH_3_P1_BLOCKERS
+  current_result: DB4_10_FAIL_WITH_2_P1_BLOCKERS
   DB4_1_result: PASS
   DB4_2_result: PASS
   DB4_3_result: PASS
@@ -4093,7 +4130,8 @@ gate_definition:
   DB4_10_DB_OUT_001_result: PASS
   DB4_10_DB_OUT_002_result: PASS
   DB4_10_DB_ACT_001_result: PASS
-  DB4_10_result: FAIL_WITH_3_P1_BLOCKERS
+  DB4_10_DB_NOT_001_result: PASS
+  DB4_10_result: FAIL_WITH_2_P1_BLOCKERS
   may_start_DB4_4_fixes: false
   may_start_DB4_5: false
   may_start_DB4_5_fixes: false
@@ -4113,8 +4151,8 @@ gate_definition:
   may_start_UI_or_feature_implementation: false
 
 next_single_step:
-  id: DB_NOT_001_NOTIFICATION_RECIPIENT_MEMBERSHIP_AND_ORGANIZATION_AUDIENCE_READ_STATE_INTEGRITY
-  action: resolve_DB_NOT_001_only_after_next_explicit_user_instruction
+  id: DB_NOT_002_NOTIFICATION_SOURCE_DEDUPE_MARK_READ_IDEMPOTENCY_AND_LIFECYCLE
+  action: resolve_DB_NOT_002_only_after_next_explicit_user_instruction
   allowed_scope:
     - specs/database/audit-outbox-notifications.yml
     - docs/115-stage-4-audit-outbox-notifications-audit.md
@@ -4123,8 +4161,8 @@ next_single_step:
     specs/database/core-schema.yml: f3519060967085517329bc668fac02e5c1fd2dbd
     docs/87-physical-database-schema.md: f3ebb764a5279cbabc9c75c2fcf9733f36ed22a8
   scope_lock: >-
-    DB-AUD-001, DB-AUD-002, DB-OUT-001, DB-OUT-002 and DB-ACT-001 are PASS.
-    Resolve DB-NOT-001 only. Keep DB-NOT-002 and DB-EVT-001 OPEN. Do not
+    DB-AUD-001, DB-AUD-002, DB-OUT-001, DB-OUT-002, DB-ACT-001 and
+    DB-NOT-001 are PASS. Resolve DB-NOT-002 only. Keep DB-EVT-001 OPEN. Do not
     modify aggregate files, do not enter DB4_11, Stage 5, Laravel migrations
     or UI.
-  after_action: rerun_DB_NOT_001_machine_narrative_central_gate_and_STOP_before_DB_NOT_002
+  after_action: rerun_DB_NOT_002_machine_narrative_central_gate_and_STOP_before_DB_EVT_001
