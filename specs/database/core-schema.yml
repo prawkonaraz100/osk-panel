@@ -12,6 +12,7 @@ meta:
   DB4_7_internal_exams_machine_aggregate_sync: PASS
   DB4_8_PKK_machine_aggregate_sync: PASS
   DB4_9_student_finance_commerce_machine_aggregate_sync: PASS
+  DB4_10_audit_outbox_notifications_machine_aggregate_sync: PASS
 
 conventions:
   primary_key:
@@ -203,10 +204,17 @@ core_tables:
     - service_activations
 
   infrastructure_events:
+    - audit_action_policy_revisions
+    - audit_action_policy_currents
     - audit_logs
-    - organization_activity_events
+    - domain_events
     - outbox_messages
+    - activity_projection_policy_revisions
+    - activity_projection_policy_currents
+    - organization_activity_events
     - notifications
+    - event_projection_migration_cases
+    - data_retention_execution_runs
 
 identity_model:
   users:
@@ -1866,6 +1874,282 @@ student_finance_commerce_model:
     financial_or_downstream_history_hard_delete_to_make_constraints_pass: forbidden
     DB4_10_audit_outbox_physical_shape_not_entered: true
 
+
+audit_outbox_notifications_model:
+  bounded_context_source: specs/database/audit-outbox-notifications.yml
+  audit_source: docs/115-stage-4-audit-outbox-notifications-audit.md
+  aggregate_machine_sync_status: PASS
+  resolved_blockers: [DB-AUD-001, DB-AUD-002, DB-OUT-001, DB-OUT-002, DB-ACT-001, DB-NOT-001, DB-NOT-002, DB-EVT-001]
+
+  audit_history:
+    table: audit_logs
+    role: append_only_security_and_business_history_not_business_source_of_truth
+    fields:
+      - id
+      - audit_scope
+      - organization_id_nullable
+      - actor_kind
+      - actor_organization_membership_id_nullable
+      - actor_user_id_nullable
+      - action
+      - audit_policy_version
+      - entity_reference_mode
+      - entity_type_nullable
+      - entity_id_nullable_string
+      - before_redacted_json_nullable
+      - after_redacted_json_nullable
+      - reason_nullable
+      - request_id
+      - ip_hash_nullable
+      - user_agent_nullable
+      - created_at
+    audit_scope_values: [organization, platform_global]
+    organization_scope_requires_server_derived_organization_id: true
+    platform_global_scope_requires_null_organization_id: true
+    organization_candidate_key: [organization_id, id]
+    actor_kind_values: [organization_membership, global_user, system]
+    organization_membership_actor_exact_relation:
+      source_columns: [organization_id, actor_organization_membership_id, actor_user_id]
+      target_table: organization_memberships
+      target_columns: [organization_id, id, user_id]
+      on_update: RESTRICT
+      on_delete: RESTRICT
+    platform_global_global_user_actor_only: true
+    system_actor_has_null_membership_and_user: true
+    entity_reference_mode_values: [none, tenant_relational, global_relational, snapshot_only]
+    tenant_relational_entity_guard: closed_allowlist_same_tenant_DEFERRABLE_constraint_trigger_or_equivalent
+    global_relational_entity_guard: closed_allowlist_exact_global_target_guard
+    snapshot_only_does_not_claim_relational_FK: true
+    normal_application_update_or_delete: forbidden
+    organization_audit_query_requires_exact_organization_predicate: true
+    organization_audit_order: [created_at_DESC, id_DESC]
+
+  audit_policy_history:
+    revision_table: audit_action_policy_revisions
+    current_table: audit_action_policy_currents
+    revision_primary_key: [action, policy_version]
+    revision_fields: [action, policy_version, payload_validator_code, before_payload_requirement, after_payload_requirement, reason_requirement, policy_hash, created_at]
+    revisions_immutable: true
+    current_primary_key: action
+    current_exact_revision_FK: [action, policy_version]
+    new_runtime_audit_requires_exact_current_revision: true
+    audit_row_binds_revision: [action, audit_policy_version]
+    safe_payload_top_level_when_nonnull: json_object
+    payload_validator_is_closed_versioned_allowlist: true
+    unknown_key_or_JSON_path: reject
+    raw_model_request_provider_or_arbitrary_JSON_serialization: forbidden
+    forbidden_payload_classes: [plaintext_password, password_hash, auth_token, provider_secret, full_PESEL, full_PKK, external_OSK_credentials]
+    reason_requirement_values: [optional, required]
+    required_reason_null_empty_or_whitespace: reject
+    domain_specific_upstream_required_reason_may_not_be_downgraded: true
+    policy_change_does_not_rewrite_historical_audit_payload: true
+
+  domain_events:
+    table: domain_events
+    role: durable_immutable_event_identity_for_outbox_activity_and_notification_projections
+    business_source_of_truth: false
+    fields:
+      - id
+      - event_scope
+      - organization_id_nullable
+      - event_type
+      - aggregate_reference_mode
+      - aggregate_type_nullable
+      - aggregate_id_nullable_string
+      - request_id
+      - causation_event_id_nullable
+      - required_audit_log_id_nullable
+      - occurred_at
+      - created_at
+    event_scope_values: [organization, platform_global]
+    organization_candidate_key: [organization_id, id]
+    organization_event_requires_server_derived_organization_id: true
+    platform_global_event_requires_null_organization_id: true
+    id_is_canonical_projection_dedupe_identity: true
+    request_id_is_correlation_only_not_unique_or_authority: true
+    causation_event_id_exact_self_FK_RESTRICT_when_present: true
+    aggregate_reference_mode_values: [none, tenant_relational, global_relational, snapshot_only]
+    tenant_relational_aggregate_reference_same_tenant_allowlist_guard: true
+    required_audit_link_exact_scope_and_tenant_guard_when_upstream_contract_requires_audit: true
+    raw_audit_payload_copy: forbidden
+    immutable_after_insert: true
+    normal_application_update_or_delete: forbidden
+
+  transactional_event_outbox_boundary:
+    outbox_table: outbox_messages
+    one_outbox_intent_per_domain_event_unique: domain_event_id
+    new_runtime_outbox_requires_exact_domain_event_id: true
+    copied_identity_fields_match_event: [event_scope, organization_id, event_type, aggregate_type, aggregate_id, request_id]
+    one_local_transaction_when_prior_domain_contract_requires_event_and_outbox:
+      - canonical_business_effect
+      - required_audit
+      - exactly_one_domain_event
+      - exactly_one_outbox_intent
+    missing_required_audit_event_or_outbox_rolls_back_business_effect: true
+    external_network_publish_inside_business_transaction: forbidden
+    losing_race_or_idempotent_noop_emits_second_event: false
+
+  outbox_publisher:
+    table: outbox_messages
+    publication_state_values: [pending, leased, published, requires_reconciliation]
+    initial_state: pending
+    fields_finalized:
+      - domain_event_id
+      - event_scope
+      - organization_id_nullable
+      - publication_state
+      - next_attempt_at_nullable
+      - lease_token_nullable
+      - lease_version
+      - leased_by_nullable_opaque_worker_instance
+      - lease_expires_at_nullable
+      - attempts
+      - attempts_in_cycle
+      - replay_count
+      - published_at_nullable
+      - last_error_code_nullable
+      - last_error_nullable_safe_summary
+    claimable_rows: [pending_due, expired_lease]
+    claim_algorithm: exact_row_lock_or_UPDATE_RETURNING_with_SKIP_LOCKED_equivalent
+    leased_requires_token_worker_and_expiry: true
+    lease_version_monotonic: true
+    stale_lease_cannot_ack_or_overwrite_newer_worker: true
+    attempts_are_monotonic_lifetime_claim_count: true
+    successful_ack_sets_published_at_once: true
+    retryable_or_ambiguous_failure_returns_to_pending_with_server_backoff: true
+    nonretryable_or_cycle_exhausted_goes_requires_reconciliation: true
+    requires_reconciliation_auto_claim: forbidden
+    publication_semantic: at_least_once
+    exactly_once_external_delivery_claim: forbidden
+    downstream_dedupe_identity: domain_event_id
+    manual_replay_only_from_requires_reconciliation_with_privileged_audited_nonblank_reason: true
+    manual_replay_reuses_same_outbox_row_and_domain_event: true
+    safe_last_error_forbids_raw_provider_payload_secret_full_PESEL_full_PKK: true
+    normal_application_delete: forbidden
+
+  activity_projection:
+    table: organization_activity_events
+    source_authority: domain_events
+    source_subset: organization_events_with_registered_current_activity_policy
+    raw_audit_or_outbox_as_source: forbidden
+    exact_source_relation: [organization_id, source_event_id]
+    unique_source_projection: [organization_id, source_event_id]
+    copied_source_fields: [organization_id, event_type, occurred_at]
+    canonical_order: [occurred_at_DESC, id_DESC]
+    policy_revision_table: activity_projection_policy_revisions
+    policy_current_table: activity_projection_policy_currents
+    policy_revision_primary_key: [event_type, policy_version]
+    policy_fields: [payload_validator_code, description_builder_code, actor_snapshot_rule_code, subject_reference_rule_code, related_student_rule_code, navigation_rule_code]
+    row_projection_policy_version_required_and_immutable: true
+    immutable_display_fields:
+      - description_snapshot
+      - safe_payload_nullable
+      - actor_reference_mode
+      - actor_organization_membership_id_nullable
+      - actor_user_id_nullable
+      - actor_display_name_snapshot_nullable
+      - subject_type_nullable
+      - subject_id_nullable
+      - related_student_id_nullable
+    safe_payload_closed_allowlist: true
+    raw_audit_outbox_provider_model_or_secret_payload: forbidden
+    retry_or_concurrent_projector_uses_source_unique_race_winner: true
+    retry_never_rebuilds_existing_snapshot_under_new_policy: true
+    dashboard_notifications_card_is_activity_feed: true
+    normal_projector_update_existing_row: forbidden
+    normal_application_delete: forbidden
+
+  notification_projection:
+    table: notifications
+    semantic: one_physical_row_per_exact_organization_membership_recipient
+    fields_finalized:
+      - id
+      - organization_id
+      - source_event_id
+      - organization_membership_id
+      - user_id
+      - audience_kind
+      - type
+      - payload
+      - read_at_nullable
+      - created_at
+    exact_recipient_relation:
+      source_columns: [organization_id, organization_membership_id, user_id]
+      target_table: organization_memberships
+      target_columns: [organization_id, id, user_id]
+      on_update: RESTRICT
+      on_delete: RESTRICT
+    exact_source_event_relation: [organization_id, source_event_id]
+    source_event_must_be_organization_scoped: true
+    unique_source_recipient: [organization_id, source_event_id, organization_membership_id]
+    audience_kind_values: [direct_membership, organization_broadcast]
+    nullable_recipient_runtime_row: forbidden
+    direct_requires_one_active_exact_membership_at_materialization: true
+    organization_broadcast_materializes_one_row_per_active_membership_snapshot: true
+    broadcast_all_or_none_transaction: true
+    later_membership_join_not_retroactive: true
+    read_state_is_per_recipient_row_not_shared: true
+    new_runtime_read_at: null
+    only_normal_transition: read_at_NULL_to_server_timestamp_once
+    read_to_unread_or_retimestamp: forbidden
+    mark_read_scope: [notification_id, organization_id, organization_membership_id, authenticated_user_id]
+    mark_read_requires_active_selected_membership: true
+    concurrent_mark_read_one_persisted_timestamp: true
+    Idempotency_Key_is_command_replay_layer_not_business_state_authority: true
+    unread_only_applies_after_exact_recipient_scope: true
+    normal_projector_update_existing_row_except_mark_read: forbidden
+    normal_application_delete: forbidden
+
+  legacy_migration_and_retention:
+    migration_case_table: event_projection_migration_cases
+    migration_case_unique: [source_table, source_row_id, issue_code]
+    migration_case_resolution_states: [open, proven_backfillable, reviewed_nonconforming, resolved]
+    evidence_classes: [safe_exact_derivation, proven_historical_fact, reviewed_exact_remediation, unresolved_ambiguity]
+    exact_evidence_only_backfill: true
+    forbidden_legacy_matching_evidence:
+      - timestamp_proximity
+      - request_id_similarity
+      - same_tenant_alone
+      - event_or_payload_text_similarity
+      - current_membership_uniqueness
+      - current_policy_revision
+      - UUID_or_creation_order
+    synthetic_domain_event_to_force_constraint_pass: forbidden
+    shared_legacy_read_at_fanout_without_exact_recipient_evidence: forbidden
+    existing_nonnull_read_at_rewrite_or_clear: forbidden
+    phased_cutover: [expand, new_runtime_write_fence, inventory, exact_backfill, reconciliation, constraint_validation, contract]
+    unresolved_required_case_blocks_constraint_validation_and_go_live: true
+    retention_duration_source: external_approved_privacy_legal_policy_not_invented_in_DB4_10
+    normal_application_retention_delete_or_rewrite: forbidden
+    retention_execution_table: data_retention_execution_runs
+    retention_execution_append_only: true
+    retention_requires: [approved_policy_version_reference, exact_data_class, server_derived_cutoff, nonblank_reason, dry_run_or_scope_count, immutable_execution_audit]
+    legal_or_incident_hold_overrides_ordinary_cleanup: true
+    audit_append_only_runtime_rule_coexists_with_privileged_policy_retention_path: true
+    outbox_automatic_cleanup_requires_external_policy_and_published_terminal_state: true
+    pending_leased_or_requires_reconciliation_outbox_cleanup: forbidden
+    cleanup_outbox_does_not_delete_domain_event_audit_business_activity_or_notification: true
+    activity_or_notification_retention_does_not_cascade_to_domain_event_or_business_authority: true
+
+  migration_tests_required:
+    - organization_audit_scope_and_actor_membership_wrong_tenant_is_rejected
+    - normal_application_cannot_update_or_delete_audit_history
+    - new_runtime_audit_requires_registered_current_action_policy_revision
+    - audit_payload_unknown_or_sensitive_field_is_rejected_and_required_reason_is_enforced
+    - business_effect_required_audit_domain_event_and_outbox_commit_or_rollback_together
+    - one_domain_event_has_at_most_one_outbox_intent_and_request_id_is_not_event_identity
+    - concurrent_outbox_workers_use_fenced_lease_and_stale_worker_cannot_ack
+    - external_publish_ack_race_is_at_least_once_and_consumer_dedupe_uses_domain_event_id
+    - activity_projection_is_unique_per_source_event_same_tenant_and_ordered_occurred_at_then_id
+    - activity_retry_preserves_immutable_historical_display_snapshot_and_policy_version
+    - notification_recipient_is_exact_membership_and_broadcast_materializes_independent_rows
+    - notification_projection_unique_per_source_event_recipient_and_read_at_is_write_once
+    - mark_read_wrong_membership_user_or_tenant_is_rejected_and_concurrent_retry_preserves_one_timestamp
+    - legacy_event_projection_backfill_never_uses_similarity_or_synthetic_event
+    - unresolved_legacy_case_blocks_constraint_validation_and_go_live
+    - retention_execution_requires_external_policy_evidence_and_does_not_mutate_business_truth
+    - outbox_cleanup_never_removes_pending_leased_or_reconciliation_rows_or source_authorities
+
 structural_decisions:
   identity_tenant_rbac:
     bounded_context_source: specs/database/identity-rbac.yml
@@ -2040,13 +2324,83 @@ structural_decisions:
     provider_full_response_storage: encrypted_only_if_business_need
     integration_log_payloads_redacted: true
   activity_feed:
-    source: domain_events_or_outbox_projection
+    bounded_context_source: specs/database/audit-outbox-notifications.yml
+    source: domain_events
     table: organization_activity_events
-    raw_audit_log_as_ui_feed_forbidden: true
+    source_requires_registered_current_activity_projection_policy: true
+    unique_projection_per_source_event: [organization_id, source_event_id]
+    canonical_order: [occurred_at_DESC, id_DESC]
+    immutable_historical_display_snapshot: true
+    raw_audit_log_or_outbox_as_ui_feed_forbidden: true
     payload_allowlist_required: true
     pesel_pkk_tokens_secrets_forbidden_in_safe_payload: true
+    dashboard_notifications_card_is_not_notifications_inbox: true
 
 critical_constraints:
+  audit_action_policy_revision_primary_key:
+    columns: [action, policy_version]
+  audit_action_policy_current_exact_revision_FK:
+    source_columns: [action, policy_version]
+    target_table: audit_action_policy_revisions
+    target_columns: [action, policy_version]
+    on_update: RESTRICT
+    on_delete: RESTRICT
+  audit_log_candidate_key_org_id:
+    columns: [organization_id, id]
+  audit_log_actor_membership_same_tenant_user_composite_FK:
+    source_columns: [organization_id, actor_organization_membership_id, actor_user_id]
+    target_table: organization_memberships
+    target_columns: [organization_id, id, user_id]
+    on_update: RESTRICT
+    on_delete: RESTRICT
+  audit_log_append_only_guard:
+    type: BEFORE_UPDATE_DELETE_trigger_or_equivalent_privilege_boundary
+    normal_application_update_delete: forbidden
+  audit_log_payload_policy_guard:
+    type: BEFORE_INSERT_constraint_trigger_or_equivalent
+    exact_action_policy_revision_and_closed_validator_required: true
+  domain_event_candidate_key_org_id:
+    columns: [organization_id, id]
+  domain_event_immutable_guard:
+    type: BEFORE_UPDATE_DELETE_trigger_or_equivalent_privilege_boundary
+  outbox_domain_event_unique:
+    columns: [domain_event_id]
+  outbox_domain_event_scope_tenant_equivalence_guard:
+    type: DEFERRABLE_INITIALLY_DEFERRED_constraint_trigger_or_equivalent
+  outbox_lease_fencing_guard:
+    type: state_matrix_plus_lease_token_version_guard
+  activity_projection_policy_revision_primary_key:
+    columns: [event_type, policy_version]
+  activity_projection_source_event_unique:
+    columns: [organization_id, source_event_id]
+  activity_source_event_same_tenant_composite_FK:
+    source_columns: [organization_id, source_event_id]
+    target_table: domain_events
+    target_columns: [organization_id, id]
+    on_update: RESTRICT
+    on_delete: RESTRICT
+  notification_recipient_same_tenant_membership_user_composite_FK:
+    source_columns: [organization_id, organization_membership_id, user_id]
+    target_table: organization_memberships
+    target_columns: [organization_id, id, user_id]
+    on_update: RESTRICT
+    on_delete: RESTRICT
+  notification_source_event_same_tenant_composite_FK:
+    source_columns: [organization_id, source_event_id]
+    target_table: domain_events
+    target_columns: [organization_id, id]
+    on_update: RESTRICT
+    on_delete: RESTRICT
+  notification_source_recipient_unique:
+    columns: [organization_id, source_event_id, organization_membership_id]
+  notification_read_at_write_once_guard:
+    type: BEFORE_UPDATE_constraint_trigger_or_equivalent
+    allowed_normal_change: null_to_server_timestamp_once
+  event_projection_migration_case_unique:
+    columns: [source_table, source_row_id, issue_code]
+  data_retention_execution_run_append_only_guard:
+    type: privilege_boundary_or_trigger
+    normal_application_update_delete: forbidden
   auth_login_identifier_global_current_unique:
     type: partial_unique
     columns: [identifier_normalized]
@@ -2975,7 +3329,7 @@ migration_order:
   - license_products_language_capability_history_inventory_assignments_and_activations
   - internal_exam_capability_history_inventory_ledger_attempt_lifecycle_access_tokens_station_credentials_sessions_definitions_question_result_template_document_and_management_projection
   - commerce_catalog_orders_order_items_payment_attempts_events_settlements_fulfillments_purchase_grants_service_entitlements_and_activations
-  - audit_activity_outbox_notifications
+  - audit_policy_revisions_audit_logs_domain_events_outbox_publisher_activity_projection_policies_activity_notifications_migration_review_and_retention_evidence
   - final_partial_indexes_and_cross_table_constraints_including_learning_identity_password_authority_inventory_assignment_activation_entitlement_and_language_capability_guards
 
 migration_tests_required:
@@ -3000,6 +3354,16 @@ migration_tests_required:
   - DB4_9_legacy_migration_never_guesses_payment_winner_provider_event_product_or_inventory_lineage
   - DB4_9_settled_legacy_order_without_proven_complete_grants_becomes_requires_reconciliation_and_is_never_regranted_automatically
   - DB4_9_migration_preserves_consumed_activated_assigned_reserved_and_financial_history_and_blocks_cutover_on_unresolved_ambiguity
+  - DB4_10_audit_scope_actor_membership_entity_policy_and_append_only_guards_reject_cross_tenant_or_unsafe_history
+  - DB4_10_audit_payload_is_closed_allowlist_with_versioned_policy_and_required_reason_where_upstream_contract_requires_it
+  - DB4_10_business_effect_required_audit_domain_event_and_outbox_intent_commit_or_rollback_atomically
+  - DB4_10_domain_event_is_canonical_projection_identity_and_one_event_has_at_most_one_outbox_intent
+  - DB4_10_outbox_lease_fencing_retry_reconciliation_and_at_least_once_delivery_do_not_claim_exactly_once
+  - DB4_10_activity_projection_is_unique_per_same_tenant_source_event_with_immutable_policy_versioned_display_snapshot
+  - DB4_10_notification_recipient_is_exact_membership_and_broadcast_has_independent_per_recipient_rows
+  - DB4_10_notification_source_recipient_is_unique_and_read_at_changes_null_to_server_timestamp_once
+  - DB4_10_legacy_backfill_never_guesses_event_actor_recipient_policy_or_read_state_and_unresolved_cases_block_cutover
+  - DB4_10_retention_requires_external_approved_policy_evidence_and_outbox_cleanup_only_removes_safe_published_technical_rows
   - generated_synthetic_domain_ids_are_UUIDv7_and_stored_as_native_uuid
   - organization_contact_address_has_exactly_one_row_per_organization_when_present
   - company_contact_address_is_not_a_training_location_record
