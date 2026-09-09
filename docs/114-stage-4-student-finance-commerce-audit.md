@@ -3,8 +3,8 @@
 Data: 2026-09-08
 
 **Etap:** `DB4_9_STUDENT_FINANCE_COMMERCE`  
-**Aktualny krok:** `DB_COM_003_PAID_ORDER_EXACTLY_ONCE_GRANT_ORCHESTRATION_AND_ATOMICITY`
-**Status:** `FAIL_WITH_5_P1_BLOCKERS / 0 P0 / 5 P1 OPEN`
+**Aktualny krok:** `DB_COM_004_ORDER_ITEM_TO_LICENSE_EXAM_SERVICE_GRANT_EXACT_PROVENANCE_AND_QUANTITY_EQUIVALENCE`
+**Status:** `FAIL_WITH_4_P1_BLOCKERS / 0 P0 / 4 P1 OPEN`
 
 Machine-readable diagnoza: `specs/database/student-finance-commerce.yml`.
 
@@ -780,3 +780,123 @@ Stan po fixerze:
 Następny dozwolony krok po central gate: **DB-COM-004 only**.
 
 **STOP przed DB-COM-004.**
+
+## 24. DB-COM-004 — wynik fixera: PASS
+
+DB-COM-004 domyka **dokładną lineage każdej zakupionej jednostki** od niezmiennego `OrderItem` do właściwego downstream inventory/entitlement oraz wymusza, że `quantity=N` oznacza dokładnie `N` lokalnych grantów. Nie zmienia order-level fulfillment z DB-COM-003 i nie rozwiązuje jeszcze pełnego source XOR / activation lifecycle generic service — to pozostaje DB-COM-007.
+
+### 24.1. `OrderItem.quantity` jest jedyną authority ilości zakupu
+
+Nie wprowadzamy mutable countera jako drugiego źródła prawdy. Dla zakupionych produktów canonical quantity pochodzi wyłącznie z immutable `order_items.quantity` zamkniętego w DB-COM-001.
+
+Każda konkretna zakupiona jednostka dostaje niezmienną parę:
+- `source_order_item_id`,
+- `source_order_item_grant_ordinal`.
+
+Ordinal jest tylko techniczną tożsamością jednostki w obrębie jednej pozycji zamówienia. Nie oznacza czasu utworzenia, kolejności aktywacji ani ceny. Dla `quantity=5` poprawny finalny zbiór ordinali to dokładnie `1..5`.
+
+### 24.2. Licencja musi wskazywać exact OrderItem i exact LicenseProduct
+
+`license_inventory_entries.source_order_item_id` pozostaje purchase lineage. Dla zakupionych jednostek dokładna relacja używa również `license_product_id`:
+
+`license_inventory_entries(organization_id, source_order_item_id, license_product_id)`
+→ `order_items(organization_id, id, license_product_id)`.
+
+Dzięki macierzy DB-COM-001 non-license OrderItem nie może mieć `license_product_id`, więc jednostka licencji nie może zostać podpięta do pozycji egzaminu albo generic service.
+
+Każdy purchase-sourced LicenseInventoryEntry ma dodatkowo `source_order_item_grant_ordinal`, unique w ramach exact OrderItem. Po fulfillment grant zaczyna jako `available`, bez Assignment i bez Activation. Commerce nie przejmuje lifecycle DB4_6.
+
+Jeżeli LicenseInventoryEntry nie pochodzi z zakupu, `source_order_item_id` i ordinal są `NULL` i taki rekord nigdy nie może być policzony jako płatny purchase grant. Nie wymyślamy w tym blockerze niepotwierdzonego katalogu manual/operator license grants.
+
+### 24.3. Egzamin zachowuje własny `source_type`
+
+DB4_7 już zdefiniował `internal_exam_inventory_entries.source_type = free | paid | adjustment`. DB-COM-004 tylko domyka purchase lineage:
+
+- `paid` → exact same-tenant `source_order_item_id`, ordinal oraz parent `product_kind=internal_exam`,
+- `free` → brak `source_order_item_id` i brak purchase ordinal,
+- `adjustment` → brak `source_order_item_id` i brak purchase ordinal.
+
+Każda płatna jednostka zaczyna jako `available` i ma wymagany przez DB4_7 initial ledger event `unit_granted`, `event_sequence=1`, `available_delta=1`.
+
+Zakup nie tworzy Attempt, Reservation ani Access i nie konsumuje jednostki. Consume-on-start pozostaje authority DB4_7.
+
+### 24.4. Generic service dostaje exact purchase source, ale nie rozwiązujemy przedwcześnie DB-COM-007
+
+Dla `service_entitlements` istniejący `source_order_item_id` może być źródłem zakupu. Jeśli jest non-null, DB wymaga:
+- tego samego tenant,
+- exact OrderItem,
+- `product_kind=generic_service`,
+- non-null `source_order_item_grant_ordinal`,
+- unique ordinal w obrębie OrderItem.
+
+Nie tworzymy osobnej tabeli `service_products`, ponieważ obecne dowody jej nie wymagają. Exact sale-SKU pozostaje immutable `commerce_catalog_item_id` na wskazanym OrderItem.
+
+W tym blockerze **nie** zamykamy jeszcze globalnej macierzy `source_order_item_id XOR source_grant_reference`, semantyki `service_type`, activation-mode ani status/activation equivalence. To jest dokładnie DB-COM-007.
+
+### 24.5. Final-state quantity equivalence
+
+Deferrable final-state guard ocenia cały exact Order fulfillment.
+
+Dla każdego fulfilled OrderItem:
+- `license` → dokładnie `quantity` purchase-sourced `license_inventory_entries`, ordinal `1..quantity`, zero purchase grants w pozostałych downstream kinds,
+- `internal_exam` → dokładnie `quantity` `source_type=paid` exam inventory units z ordinalami `1..quantity` i poprawnym initial ledger effect,
+- `generic_service` → dokładnie `quantity` purchase-sourced service entitlement rows z ordinalami `1..quantity`.
+
+Brak jednej jednostki, dodatkowa jednostka, luka ordinali albo grant w niewłaściwej domenie powoduje rollback finalnego fulfillment commit.
+
+`pending` oraz `requires_reconciliation` nie mogą po runtime cutover mieć committed purchase grantów. Jest to zgodne z DB-COM-003, gdzie wszystkie lokalne granty i `state=fulfilled` commitują albo rollbackują się razem.
+
+### 24.6. Exactly-once na poziomie każdej jednostki
+
+Partial unique `(organization_id, source_order_item_id, source_order_item_grant_ordinal)` daje lokalną granicę exactly-once dla każdego typu downstream.
+
+Retry po rollbacku może ponownie spróbować stworzyć ordinal `1..N`, bo poprzednia transakcja nie zostawiła committed rows. Retry po sukcesie widzi `fulfilled`, a nawet błędna próba ponownego insertu tego samego ordinalu zostałaby odrzucona.
+
+Nie definiujemy tutaj globalnej kolejności locków ani kolejności przetwarzania mixed OrderItemów — to świadomie DB-COM-008.
+
+### 24.7. Purchased i non-purchased provenance nie mogą się mieszać
+
+Najważniejsza reguła provenance:
+- purchase row musi mieć exact `source_order_item_id + ordinal`,
+- non-purchase row nie może być policzony jako purchase tylko dlatego, że ma podobny timestamp, SKU, kwotę, tenant albo status.
+
+Dla Exam granicę dodatkowo wzmacnia `source_type`. Dla License brak source OrderItem oznacza „nieudowodniony jako purchase”, a nie „automatycznie darmowy/operator”. Dla Service pełna alternatywna provenance zostaje DB-COM-007.
+
+### 24.8. Migration safety
+
+Schema migration nie może:
+- tworzyć brakujących inventory/entitlements, aby liczba zgadzała się z quantity,
+- usuwać nadmiarowych grantów,
+- łączyć istniejącego inventory z OrderItem po timestampie, UUID, cenie, nazwie, tym samym tenant albo podobnym SKU,
+- zamieniać free/adjustment/operator grant w purchase,
+- przepisywać już assigned/activated/consumed/reserved historii, aby constraint przeszedł,
+- wykonywać regrantów.
+
+Ordinal można nadać dopiero po udowodnieniu exact purchase row set; sam ordinal nie może służyć do zgadywania lineage. Pełna klasyfikacja legacy evidence oraz reconciliation pozostaje DB-COM-006.
+
+### 24.9. Preservation gate
+
+Zachowane bez zmian:
+- DB-FIN-001 i DB-FIN-002,
+- DB-COM-001 immutable OrderItem/SKU/quantity/pricing,
+- DB-COM-002 trusted payment settlement,
+- DB-COM-003 durable fulfillment i all-or-none local grant transaction,
+- DB4_6 License Inventory / Assignment / Activation / Revoke,
+- DB4_7 Exam Inventory ledger / Reservation / consume-on-start,
+- brak wymyślonej `internal_exam_products` lub `service_products` jako wymagania,
+- generic service source XOR i activation pozostają DB-COM-007,
+- purchase-history pozostaje DB-COM-005,
+- global lock order pozostaje DB-COM-008,
+- legacy reconciliation pozostaje DB-COM-006,
+- `core-schema.yml` i `docs/87...` nadal zamrożone,
+- DB4_10+, Stage 5, Laravel migrations i UI nieruszone.
+
+Stan po fixerze:
+- P0 OPEN: **0**,
+- P1 OPEN: **4**,
+- resolved: **6/10**,
+- result: **FAIL_WITH_4_P1_BLOCKERS**.
+
+Następny dozwolony krok po central gate: **DB-COM-007 only**.
+
+**STOP przed DB-COM-007.**
