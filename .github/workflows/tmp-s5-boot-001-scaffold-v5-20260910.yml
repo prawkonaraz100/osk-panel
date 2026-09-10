@@ -1,0 +1,457 @@
+name: tmp-s5-boot-001-scaffold-v5-20260910
+on:
+  push:
+    branches: [tmp-s5-boot-001-scaffold-v5-20260910]
+permissions:
+  contents: write
+jobs:
+  validate-bootstrap:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: tmp-s5-boot-001-scaffold-v5-20260910
+          fetch-depth: 0
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          extensions: mbstring, intl, pdo_pgsql
+          coverage: none
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.20.0'
+
+      - name: Generate preservation-safe Laravel 13 + Vue scaffold
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=edd92902ba21415df2643ca8b5cf54b0ac92fe58
+          test "$(git rev-parse origin/docs-consolidation-2026-09-05)" = "$BASE"
+          test ! -e composer.json
+          test ! -e artisan
+          test ! -e package.json
+
+          rm -rf /tmp/osk-app
+          composer create-project laravel/laravel:^13.0 /tmp/osk-app --no-interaction --prefer-dist
+          rm -rf /tmp/osk-app/.git /tmp/osk-app/vendor /tmp/osk-app/node_modules
+          rm -f /tmp/osk-app/.env
+
+          rsync -a \
+            --exclude='.github/' \
+            --exclude='.gitignore' \
+            --exclude='README.md' \
+            --exclude='AGENTS.md' \
+            --exclude='CLAUDE.md' \
+            --exclude='database/migrations/*' \
+            --exclude='database/factories/UserFactory.php' \
+            --exclude='app/Models/User.php' \
+            /tmp/osk-app/ ./
+
+          mkdir -p database/migrations app/Modules resources/js tests/Feature tests/Unit
+          rm -f database/migrations/*.php database/database.sqlite
+          rm -f resources/views/welcome.blade.php resources/js/app.js resources/js/bootstrap.js
+          rm -f tests/Feature/ExampleTest.php tests/Unit/ExampleTest.php
+          rm -f CLAUDE.md public/favicon.ico
+
+          cat > database/migrations/README.md <<'EOF'
+          # Stage 5 migration materialization
+
+          Intentionally empty after S5-BOOT-001. Executable domain migrations are owned by S5-MIG-001 and must be materialized from the Stage 4 migration DAG and seven-phase cutover authority.
+          EOF
+
+          cat > app/Modules/README.md <<'EOF'
+          # Application modules
+
+          This directory is the modular-monolith boundary for OSK Panel application modules. Domain modules are introduced only by their dedicated Stage 5 foundation/feature gates; S5-BOOT-001 contains no domain implementation.
+          EOF
+
+          cat > database/seeders/DatabaseSeeder.php <<'EOF'
+          <?php
+
+          namespace Database\Seeders;
+
+          use Illuminate\Database\Seeder;
+
+          class DatabaseSeeder extends Seeder
+          {
+              public function run(): void
+              {
+                  // Domain seed data is introduced by later, explicitly gated implementation steps.
+              }
+          }
+          EOF
+
+          cat > routes/web.php <<'EOF'
+          <?php
+
+          use Illuminate\Support\Facades\Route;
+
+          Route::view('/', 'app');
+          EOF
+
+          cat > resources/views/app.blade.php <<'EOF'
+          <!doctype html>
+          <html lang="pl">
+          <head>
+              <meta charset="utf-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1">
+              <title>OSK Panel</title>
+              @vite(['resources/css/app.css', 'resources/js/app.ts'])
+          </head>
+          <body>
+              <div id="app"></div>
+          </body>
+          </html>
+          EOF
+
+          cat > resources/js/app.ts <<'EOF'
+          import { createApp } from 'vue';
+          import App from './App.vue';
+
+          createApp(App).mount('#app');
+          EOF
+
+          cat > resources/js/App.vue <<'EOF'
+          <template>
+            <main class="bootstrap-shell">
+              <h1>OSK Panel</h1>
+              <p>Application bootstrap ready.</p>
+            </main>
+          </template>
+          EOF
+
+          cat > resources/js/env.d.ts <<'EOF'
+          /// <reference types="vite/client" />
+          declare module '*.vue' {
+            import type { DefineComponent } from 'vue';
+            const component: DefineComponent<Record<string, never>, Record<string, never>, unknown>;
+            export default component;
+          }
+          EOF
+
+          cat > resources/css/app.css <<'EOF'
+          :root {
+            font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+            color: #111827;
+            background: #ffffff;
+          }
+
+          body {
+            margin: 0;
+          }
+
+          .bootstrap-shell {
+            padding: 2rem;
+          }
+          EOF
+
+          cat > vite.config.ts <<'EOF'
+          import { defineConfig } from 'vite';
+          import laravel from 'laravel-vite-plugin';
+          import vue from '@vitejs/plugin-vue';
+
+          export default defineConfig({
+            plugins: [
+              laravel({ input: ['resources/css/app.css', 'resources/js/app.ts'], refresh: true }),
+              vue(),
+            ],
+          });
+          EOF
+          rm -f vite.config.js
+
+          cat > tsconfig.json <<'EOF'
+          {
+            "compilerOptions": {
+              "target": "ES2022",
+              "module": "ESNext",
+              "moduleResolution": "Bundler",
+              "strict": true,
+              "skipLibCheck": true,
+              "types": ["vite/client"],
+              "allowJs": false,
+              "isolatedModules": true
+            },
+            "include": ["resources/js/**/*.ts", "resources/js/**/*.vue", "vite.config.ts"]
+          }
+          EOF
+
+          cat > tests/Unit/BootstrapTest.php <<'EOF'
+          <?php
+
+          namespace Tests\Unit;
+
+          use PHPUnit\Framework\TestCase;
+
+          class BootstrapTest extends TestCase
+          {
+              public function test_phpunit_runner_executes(): void
+              {
+                  $this->assertTrue(true);
+              }
+          }
+          EOF
+
+          cat > tests/Feature/ApplicationBootstrapTest.php <<'EOF'
+          <?php
+
+          namespace Tests\Feature;
+
+          use Tests\TestCase;
+
+          class ApplicationBootstrapTest extends TestCase
+          {
+              public function test_laravel_application_container_boots_in_testing_environment(): void
+              {
+                  $this->assertTrue($this->app->bound('config'));
+                  $this->assertSame('testing', $this->app->environment());
+              }
+          }
+          EOF
+
+          python3 <<'PY'
+          from pathlib import Path
+
+          db = Path('config/database.php')
+          text = db.read_text()
+          old = "'default' => env('DB_CONNECTION', 'sqlite'),"
+          assert old in text
+          db.write_text(text.replace(old, "'default' => env('DB_CONNECTION', 'pgsql'),", 1))
+
+          p = Path('phpunit.xml')
+          text = p.read_text()
+          text = '\n'.join(
+              line for line in text.splitlines()
+              if 'DB_CONNECTION' not in line and 'DB_DATABASE' not in line
+          ) + '\n'
+          assert '<php>' in text
+          text = text.replace(
+              '<php>',
+              '<php>\n        <env name="APP_KEY" value="base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="/>',
+              1,
+          )
+          p.write_text(text)
+          PY
+
+          php <<'PHP'
+          <?php
+          $p = json_decode(file_get_contents('composer.json'), true, 512, JSON_THROW_ON_ERROR);
+          $p['name'] = 'prawkonaraz/osk-panel';
+          $p['description'] = 'PrawkoNaRaz OSK Panel modular monolith application.';
+          $p['keywords'] = ['osk', 'laravel', 'vue'];
+          $p['license'] = 'proprietary';
+          $p['require']['php'] = '^8.5';
+          unset($p['require']['laravel/tinker']);
+          unset($p['require-dev']['laravel/sail']);
+          unset($p['require-dev']['laravel/pail']);
+          unset($p['require-dev']['laravel/pao']);
+          unset($p['scripts']['setup']);
+          unset($p['scripts']['dev']);
+          unset($p['scripts']['post-create-project-cmd']);
+          unset($p['config']['allow-plugins']);
+          file_put_contents('composer.json', json_encode($p, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)."\n");
+          PHP
+          composer update --no-interaction --prefer-dist
+
+          php <<'PHP'
+          <?php
+          $p = json_decode(file_get_contents('package.json'), true, 512, JSON_THROW_ON_ERROR);
+          $p['private'] = true;
+          $p['type'] = 'module';
+          $p['engines'] = ['node' => '24.20.x', 'npm' => '11.x'];
+          $p['scripts'] = ['dev' => 'vite', 'build' => 'vite build', 'typecheck' => 'vue-tsc --noEmit'];
+          $p['dependencies'] = [];
+          $p['devDependencies'] = [];
+          unset($p['optionalDependencies']);
+          file_put_contents('package.json', json_encode($p, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)."\n");
+          PHP
+          rm -f package-lock.json
+          npm install --save-exact vue@latest
+          npm install --save-dev --save-exact vite@latest laravel-vite-plugin@latest @vitejs/plugin-vue@latest typescript@6.0.3 vue-tsc@latest
+
+          printf '24.20.0\n' > .nvmrc
+          printf '8.5\n' > .php-version
+
+          cat > .env.example <<'EOF'
+          APP_NAME="OSK Panel"
+          APP_ENV=local
+          APP_KEY=
+          APP_DEBUG=true
+          APP_URL=http://localhost
+
+          LOG_CHANNEL=stack
+          LOG_LEVEL=debug
+
+          DB_CONNECTION=pgsql
+          DB_HOST=127.0.0.1
+          DB_PORT=5432
+          DB_DATABASE=osk_panel
+          DB_USERNAME=osk_panel
+          DB_PASSWORD=
+
+          CACHE_STORE=array
+          SESSION_DRIVER=array
+          QUEUE_CONNECTION=sync
+          FILESYSTEM_DISK=local
+          MAIL_MAILER=log
+          EOF
+
+          cat > .gitignore <<'EOF'
+          .DS_Store
+          .idea/
+          .vscode/
+          *.log
+          .env
+          .env.*
+          !.env.example
+          /vendor/
+          /node_modules/
+          /public/build/
+          /public/hot
+          /bootstrap/cache/*.php
+          /storage/*.key
+          /storage/framework/cache/data/*
+          /storage/framework/sessions/*
+          /storage/framework/testing/*
+          /storage/framework/views/*
+          /storage/logs/*
+          /.phpunit.cache/
+          /.phpunit.result.cache
+          EOF
+
+      - name: Execute bootstrap quality gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          composer validate --strict
+          php artisan --version | grep -E '^Laravel Framework 13\.'
+
+          : > .env
+          php artisan test --fail-on-warning
+          rm .env
+
+          npm run typecheck
+          npm run build
+
+          test ! -e app/Models/User.php
+          test ! -e database/factories/UserFactory.php
+          test ! -e database/database.sqlite
+          test ! -e resources/views/welcome.blade.php
+          test ! -e resources/js/app.js
+          test ! -e resources/js/bootstrap.js
+          test ! -e CLAUDE.md
+          test ! -e public/favicon.ico
+          test "$(find database/migrations -maxdepth 1 -name '*.php' | wc -l)" -eq 0
+          test ! -e .env
+          test -e composer.lock
+          test -e package-lock.json
+          test "$(cat .nvmrc)" = '24.20.0'
+          test "$(cat .php-version)" = '8.5'
+          grep -Fq "'default' => env('DB_CONNECTION', 'pgsql')" config/database.php
+          grep -Fq 'APP_KEY" value="base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=' phpunit.xml
+          grep -Fq '"license": "proprietary"' composer.json
+          ! grep -Fq 'laravel/pail' composer.json
+          ! grep -Fq 'laravel/pao' composer.json
+          ! grep -Fq 'laravel/tinker' composer.json
+          ! grep -Fq 'laravel/sail' composer.json
+          ! grep -Fq '@laravel/multiplex' package.json
+          git diff --check
+
+      - name: Close S5-BOOT-001 in Stage 5 gate and audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          from pathlib import Path
+
+          gate = Path('specs/gates/stage-5-implementation-gate.yml')
+          s = gate.read_text()
+
+          def rep(old: str, new: str):
+              global s
+              assert s.count(old) == 1, (s.count(old), old[:180])
+              s = s.replace(old, new, 1)
+
+          rep('  status: FAIL_WITH_6_P1_BLOCKERS\n', '  status: FAIL_WITH_5_P1_BLOCKERS\n')
+          rep('  implementation_started: false\n', '  implementation_started: true\n')
+
+          old_entry = '''entry_observations:\n  repository_contains_application_scaffold: false\n  composer_json_present: false\n  artisan_present: false\n  package_json_present: false\n  backend_application_directories_present: false\n  frontend_application_directories_present: false\n  executable_Laravel_migrations_present: false\n  executable_framework_test_suite_present: false\n  implementation_CI_present: false\n  existing_contract_CI_present: true\n  application_feature_code_present: false\n  conclusion: implementation_must_begin_with_foundation_not_feature_UI\n'''
+          new_entry = '''entry_observations:\n  repository_contains_application_scaffold: true\n  composer_json_present: true\n  artisan_present: true\n  package_json_present: true\n  backend_application_directories_present: true\n  frontend_application_directories_present: true\n  executable_Laravel_migrations_present: false\n  executable_framework_test_suite_present: false\n  implementation_CI_present: false\n  existing_contract_CI_present: true\n  application_feature_code_present: false\n  conclusion: application_bootstrap_present_runtime_services_are_next\n'''
+          rep(old_entry, new_entry)
+
+          rep(
+              '  - id: S5-BOOT-001\n    severity: P1\n    status: OPEN\n',
+              '  - id: S5-BOOT-001\n    severity: P1\n    status: PASS\n',
+          )
+
+          rep(
+              '  fixes_applied_in_diagnosis: 0\n  open_P0_P1: 6\n  result: FAIL_WITH_6_P1_BLOCKERS\n',
+              '  fixes_applied_in_diagnosis: 0\n  fixes_applied_total: 1\n  open_P0_P1: 5\n  result: FAIL_WITH_5_P1_BLOCKERS\n',
+          )
+
+          old_next = '''next_single_step:\n  id: S5-BOOT-001\n  action: resolve_application_scaffold_and_toolchain_only_after_next_explicit_user_instruction\n  allowed_scope:\n    - application_scaffold\n    - dependency_manifests_and_lockfiles\n    - minimal_environment_templates_without_secrets\n    - bootstrap_test_and_build_configuration\n    - Stage_5_gate_and_audit_updates\n  forbidden_scope:\n    - domain_feature_implementation\n    - UI_screen_implementation\n    - database_migration_materialization_beyond_bootstrap_framework_defaults_until_S5_MIG_001\n  after_action: rerun_S5_BOOT_001_gate_and_STOP_before_S5_ENV_001\n'''
+          new_next = '''next_single_step:\n  id: S5-ENV-001\n  action: resolve_deterministic_local_and_CI_runtime_services_only_after_next_explicit_user_instruction\n  prerequisite_S5_BOOT_001: PASS\n  allowed_scope:\n    - PostgreSQL_local_test_CI_runtime\n    - Redis_local_test_CI_runtime\n    - nonproduction_object_storage_adapter_configuration\n    - environment_documentation_and_health_checks\n    - Stage_5_gate_and_audit_updates\n  forbidden_scope:\n    - domain_feature_implementation\n    - UI_screen_implementation\n    - Stage_4_domain_migration_materialization_until_S5_MIG_001\n  after_action: rerun_S5_ENV_001_gate_and_STOP_before_S5_MIG_001\n'''
+          rep(old_next, new_next)
+
+          s += '''\nS5_BOOT_001_closure:\n  status: PASS\n  accepted_scope: application_bootstrap_only\n  toolchain:\n    php: 8.5\n    laravel_major: 13\n    node: 24.20.0_LTS\n    npm_major: 11\n    vue_major: 3\n    frontend_build: Vite\n    frontend_language: TypeScript\n    typescript: 6.0.3\n  architecture:\n    modular_monolith_boundary_present: true\n    PostgreSQL_default_connection_selected: true\n    project_license_manifest: proprietary\n    domain_modules_implemented: false\n    UI_screens_implemented: false\n  proof:\n    composer_validate_strict: PASS\n    artisan_framework_major: PASS\n    phpunit_bootstrap_suite_fail_on_warning: PASS\n    phpunit_ephemeral_env_file_removed_before_commit: true\n    phpunit_test_only_APP_KEY_present: true\n    vue_typecheck: PASS\n    vite_production_build: PASS\n    committed_environment_secrets: false\n    Laravel_default_domain_migrations_retained: false\n    Laravel_default_SQLite_database_retained: false\n    Laravel_default_User_model_retained: false\n    Laravel_default_UserFactory_retained: false\n    Laravel_default_welcome_view_retained: false\n    Laravel_default_CLAUDE_instructions_retained: false\n    project_AGENTS_md_preserved: true\n    feature_modules_implemented: false\n    UI_screens_implemented: false\n'''
+          gate.write_text(s)
+
+          audit = Path('docs/117-stage-5-implementation-entry-audit.md')
+          s = audit.read_text()
+          assert s.count('**Aktualny krok:** `S5_0_IMPLEMENTATION_ENTRY_DIAGNOSIS`') == 1
+          s = s.replace('**Aktualny krok:** `S5_0_IMPLEMENTATION_ENTRY_DIAGNOSIS`', '**Aktualny krok:** `S5-BOOT-001`', 1)
+          assert s.count('**Status:** `FAIL_WITH_6_P1_BLOCKERS / 0 P0 / 6 P1 OPEN`') == 1
+          s = s.replace('**Status:** `FAIL_WITH_6_P1_BLOCKERS / 0 P0 / 6 P1 OPEN`', '**Status:** `S5-BOOT-001 PASS / 0 P0 / 5 P1 OPEN`', 1)
+          s += '''\n\n---\n\n## 10. S5-BOOT-001 — closure\n\n**PASS.** Utworzono minimalny, preservation-safe bootstrap aplikacji bez implementacji domenowych feature'ów i ekranów.\n\nPrzypięty toolchain: PHP 8.5, Laravel 13, Node 24.20.0 LTS, npm 11 oraz Vue 3 + Vite + TypeScript 6.0.3. Dokładne wersje zależności są zamrożone w `composer.lock` i `package-lock.json`. Manifest Composer ma własny opis projektu i `license: proprietary`; usunięto niepotrzebne bootstrapowi `tinker`, `sail`, `pail`, `pao` oraz frontendowy `@laravel/multiplex`.\n\nDomyślne migracje Laravel, SQLite bootstrap database, przykładowy `User`/`UserFactory`, `welcome.blade.php`, przykładowe JS-y, favicon oraz skeletonowe instrukcje `CLAUDE.md` nie zostały zachowane. Istniejący projektowy `AGENTS.md` i wszystkie zamknięte authority Stage 4 pozostały byte-for-byte bez zmian.\n\nBootstrap ustawia PostgreSQL jako domyślny driver DB, ale nie konfiguruje jeszcze deterministycznych usług PostgreSQL/Redis dla local/test/CI — to jest wyłączny zakres następnego `S5-ENV-001`.\n\nBramka wykonała `composer validate --strict`, `php artisan --version`, `php artisan test --fail-on-warning`, `npm run typecheck` oraz `npm run build`. Na czas PHPUnit tworzony jest pusty `.env` wyłącznie efemerycznie na runnerze i usuwany przed diffem; testowy `APP_KEY` jest jawny w `phpunit.xml`. Żaden local/production `.env` ani sekret nie trafia do repo.\n\nPozostałe blockery: `S5-ENV-001`, `S5-MIG-001`, `S5-TST-001`, `S5-CI-001`, `S5-FOUND-001`.\n\nNastępny pojedynczy krok: **S5-ENV-001**.\n\n**STOP przed S5-ENV-001.**\n'''
+          audit.write_text(s)
+          PY
+
+          ruby -e "require 'yaml'; require 'date'; YAML.safe_load(File.read('specs/gates/stage-5-implementation-gate.yml'), permitted_classes:[Date], aliases:true); puts 'STAGE5_YAML_PARSE=PASS'"
+          git diff --check
+
+      - name: Prove preservation and commit validated helper tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=edd92902ba21415df2643ca8b5cf54b0ac92fe58
+
+          test "$(git rev-parse ${BASE}:AGENTS.md)" = 96ec177c82ac6f031eb22f443295147a83482baf
+          test "$(git rev-parse ${BASE}:README.md)" = 710166c3189451a765c2314609e37607cc39e529
+          test "$(git rev-parse ${BASE}:.github/workflows/api-contract-gate.yml)" = 8e2f12552f939b04bb93bbd9b4c69133ae9c1240
+          test "$(git rev-parse ${BASE}:specs/gates/stage-4-database-contract-gate.yml)" = 306dabaa58223abe2f3b2a34b888b075c88e9ec4
+          test "$(git rev-parse ${BASE}:specs/database/core-schema.yml)" = b0629cc48e26798d945356eaa1d0c9b1187aa542
+          test "$(git rev-parse ${BASE}:specs/database/final-migration-order-invariant-matrix.yml)" = ad5f2aa2e14ef248b95dd3dda0d1cbcb2e69d441
+          test "$(git rev-parse ${BASE}:docs/87-physical-database-schema.md)" = a48eacd92d4a9c8e989f5d70c3bec95b9231a77c
+          test "$(git rev-parse ${BASE}:docs/116-stage-4-final-migration-order-invariant-matrix-audit.md)" = 6f76255742d4902546f45c28d54c1da6ee3d3fd7
+
+          test "$(git hash-object AGENTS.md)" = 96ec177c82ac6f031eb22f443295147a83482baf
+          test "$(git hash-object README.md)" = 710166c3189451a765c2314609e37607cc39e529
+          test "$(git hash-object .github/workflows/api-contract-gate.yml)" = 8e2f12552f939b04bb93bbd9b4c69133ae9c1240
+          test "$(git hash-object specs/gates/stage-4-database-contract-gate.yml)" = 306dabaa58223abe2f3b2a34b888b075c88e9ec4
+          test "$(git hash-object specs/database/core-schema.yml)" = b0629cc48e26798d945356eaa1d0c9b1187aa542
+          test "$(git hash-object specs/database/final-migration-order-invariant-matrix.yml)" = ad5f2aa2e14ef248b95dd3dda0d1cbcb2e69d441
+          test "$(git hash-object docs/87-physical-database-schema.md)" = a48eacd92d4a9c8e989f5d70c3bec95b9231a77c
+          test "$(git hash-object docs/116-stage-4-final-migration-order-invariant-matrix-audit.md)" = 6f76255742d4902546f45c28d54c1da6ee3d3fd7
+
+          test ! -e .env
+          test ! -e CLAUDE.md
+          test ! -e public/favicon.ico
+          rm .github/workflows/tmp-s5-boot-001-scaffold-v5-20260910.yml
+          git add -A
+          git diff --cached --check
+
+          test -z "$(git diff --cached --diff-filter=D --name-only "$BASE")"
+          mapfile -t modified < <(git diff --cached --diff-filter=M --name-only "$BASE" | sort)
+          test "${#modified[@]}" -eq 3
+          test "${modified[0]}" = '.gitignore'
+          test "${modified[1]}" = 'docs/117-stage-5-implementation-entry-audit.md'
+          test "${modified[2]}" = 'specs/gates/stage-5-implementation-gate.yml'
+
+          test -z "$(git diff --cached --name-only "$BASE" | grep -E '^specs/database/|^specs/gates/stage-4-|^docs/87-|^docs/116-' || true)"
+          test -z "$(git diff --cached --name-only "$BASE" | grep -E '^database/migrations/.*\.php$' || true)"
+          test -z "$(git diff --cached --name-only "$BASE" | grep '^\.github/' || true)"
+          test -z "$(git diff --cached --name-only "$BASE" | grep -E '^(AGENTS.md|README.md|CLAUDE.md|public/favicon.ico)$' || true)"
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'S5-BOOT-001: bootstrap Laravel Vue application'
+          git push origin HEAD:tmp-s5-boot-001-scaffold-v5-20260910
