@@ -67,6 +67,7 @@ jobs:
 
           python3 <<'PY'
           from pathlib import Path
+
           p = Path('routes/console.php')
           s = p.read_text()
           start = s.index("Artisan::command('migration:controlled")
@@ -77,6 +78,12 @@ jobs:
           block = block.replace('$plan', '$migrationPlan')
           s = s[:start] + block + s[end:]
           p.write_text(s)
+
+          p = Path('database/migrations/2026_09_10_000010_enable_btree_gist_extension.php')
+          s = p.read_text()
+          old = 'use LogicException;\n'
+          assert s.count(old) == 1
+          p.write_text(s.replace(old, '', 1))
           PY
 
           bash /tmp/validate.sh
