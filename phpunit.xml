@@ -23,11 +23,29 @@
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="BROADCAST_CONNECTION" value="null"/>
-        <env name="CACHE_STORE" value="array"/>
-        <env name="DB_URL" value=""/>
+        <env name="CACHE_STORE" value="redis"/>
+        <env name="DB_CONNECTION" value="pgsql"/>
+        <env name="DB_HOST" value="127.0.0.1"/>
+        <env name="DB_PORT" value="5432"/>
+        <env name="DB_DATABASE" value="osk_panel"/>
+        <env name="DB_USERNAME" value="osk_panel"/>
+        <env name="DB_PASSWORD" value="osk_panel_local_only"/>
         <env name="MAIL_MAILER" value="array"/>
-        <env name="QUEUE_CONNECTION" value="sync"/>
-        <env name="SESSION_DRIVER" value="array"/>
+        <env name="QUEUE_CONNECTION" value="redis"/>
+        <env name="SESSION_DRIVER" value="redis"/>
+        <env name="SESSION_CONNECTION" value="default"/>
+        <env name="REDIS_CLIENT" value="phpredis"/>
+        <env name="REDIS_HOST" value="127.0.0.1"/>
+        <env name="REDIS_PORT" value="6379"/>
+        <env name="REDIS_DB" value="0"/>
+        <env name="REDIS_CACHE_DB" value="1"/>
+        <env name="FILESYSTEM_DISK" value="s3"/>
+        <env name="AWS_ACCESS_KEY_ID" value="test"/>
+        <env name="AWS_SECRET_ACCESS_KEY" value="test"/>
+        <env name="AWS_DEFAULT_REGION" value="us-east-1"/>
+        <env name="AWS_BUCKET" value="osk-panel-test"/>
+        <env name="AWS_ENDPOINT" value="http://localhost:5000"/>
+        <env name="AWS_USE_PATH_STYLE_ENDPOINT" value="true"/>
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>

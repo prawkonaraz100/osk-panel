@@ -156,3 +156,19 @@ Następny pojedynczy krok: **S5-ENV-001**.
 ### 10.1. Korekty finalnego bootstrapu
 
 Przed transferem do accepted history wykryto dwie pozostałości scaffoldingu. Laravel 13 scala frameworkowe defaulty auth, więc samo usunięcie `App\\Models\\User` nie wystarczało: `config/auth.php` neutralizuje teraz domyślny guard/provider/model przez jawne wartości `null`, a test potwierdza, że guard `web` nie może zostać utworzony przed `S5-FOUND-001`. Dodatkowo przywrócono marker files wymaganych katalogów `bootstrap/cache` i `storage/*`, dzięki czemu świeży checkout przechodzi `composer install`. Nie utworzono domenowych modeli, providerów, tabel ani migracji.
+
+---
+
+## 11. S5-ENV-001 — closure
+
+**PASS.** Dodano deterministyczny local/test runtime bez wejścia w warstwę migracji domenowych. `compose.yml` uruchamia przypięte PostgreSQL 17.11, Redis 8.10.1 i Moto Server 5.2.2 jako hermetyczny endpoint S3-compatible. Moto zastępuje pierwotnie sprawdzony LocalStack: aktualny LocalStack wymaga zewnętrznego Auth Token już do uruchomienia kontenera, więc nie spełniał naszego wymogu token-free reproducibility dla local/test.
+
+`phpunit.xml` nie korzysta już z array/sync/local fallbacków dla infrastruktury objętej tym gate: testy wskazują PostgreSQL, Redis i S3-compatible endpoint. `RuntimeServicesTest` wykonuje realny SQL connect, Redis cache/queue/lock oraz S3 create-bucket/write/read/delete. Dodano wymagany adapter Flysystem S3 i PHP Redis extension do manifestu Composer; flaga path-style jest normalizowana do boolean przed przekazaniem do AWS SDK.
+
+Konfiguracja zawiera wyłącznie jawne local/test credentials (`osk_panel_local_only`, `test/test`), oznaczone jako nieprodukcyjne. Nie dodano żadnych danych osobowych, sekretów produkcyjnych, migracji domenowych, modeli, providerów auth ani feature/UI. Pełne CI pozostaje `S5-CI-001`; ten krok jedynie udowadnia, że ten sam kontrakt środowiska jest wykonywalny na świeżym runnerze.
+
+Pozostałe blockery: `S5-MIG-001`, `S5-TST-001`, `S5-CI-001`, `S5-FOUND-001`.
+
+Następny pojedynczy krok: **S5-MIG-001**.
+
+**STOP przed S5-MIG-001.**
