@@ -3,8 +3,8 @@
 Data: 2026-09-10
 
 **Etap:** `DB4_11_FINAL_MIGRATION_ORDER_AND_INVARIANT_TEST_MATRIX`
-**Aktualny krok:** `DB-MIG-003`
-**Status:** `FAIL_WITH_3_P1_BLOCKERS / 0 P0 / 3 P1 OPEN`
+**Aktualny krok:** `DB-TST-001`
+**Status:** `FAIL_WITH_2_P1_BLOCKERS / 0 P0 / 2 P1 OPEN`
 
 Machine-readable authority: `specs/database/final-migration-order-invariant-matrix.yml`.
 
@@ -14,21 +14,21 @@ Machine-readable authority: `specs/database/final-migration-order-invariant-matr
 
 DB4_11 nie projektuje nowej domeny biznesowej. To ostatni slice Etapu 4, którego zadaniem jest udowodnić, że wszystkie zamknięte kontrakty DB4_1–DB4_10 można bez zgadywania przełożyć na bezpieczną kolejność migracji oraz kompletną macierz testów inwariantów.
 
-DB-MIG-001 zamknął wykonawczy graf zależności i kanoniczną kolejność topologiczną obiektów migracyjnych. DB-MIG-002 dodał nad tym DAG siedmiofazową kompozycję `expand/preflight/write_fence/backfill/reconcile/validate/contract`. DB-MIG-003 domyka warstwę wykonawczą: definiuje entry/exit/abort, restart/failure handling i bezpieczny rollback, nie zmieniając `requires`, `topological_order` ani `phase_order`.
+DB-MIG-001 zamknął wykonawczy graf zależności i kanoniczną kolejność topologiczną obiektów migracyjnych. DB-MIG-002 dodał nad tym DAG siedmiofazową kompozycję `expand/preflight/write_fence/backfill/reconcile/validate/contract`. DB-MIG-003 domknął entry/exit/abort, restart/failure handling i bezpieczny rollback. DB-TST-001 dodaje nad tymi authority stabilną machine-readable macierz testów inwariantów bez zmiany DAG, faz ani cutover contract.
 
-W tym kroku domykamy wyłącznie cutover/restart/failure/rollback. Nie tworzymy jeszcze macierzy testów DB-TST-001/002, nie synchronizujemy finalnych agregatów DB-FINAL-001, nie generujemy migracji Laravel, nie rozpoczynamy Stage 5 i nie zmieniamy UI/API.
+W tym kroku domykamy wyłącznie strukturę finalnego katalogu testów: stabilne `test_id`, klasę wykonania, source invariant, expected outcome, execution phase, fixture profile, concurrency profile i blocking severity. Nie wykonujemy jeszcze completeness/coverage joinu DB-TST-002, nie synchronizujemy finalnych agregatów DB-FINAL-001, nie generujemy testów frameworkowych ani migracji Laravel, nie rozpoczynamy Stage 5 i nie zmieniamy UI/API.
 
-Po DB4_10 obowiązuje 71 wcześniej zamkniętych blockerów Stage 4. DB-MIG-001, DB-MIG-002 i DB-MIG-003 są kolejnymi trzema zamkniętymi blockerami; żaden wcześniejszy kontrakt nie został otwarty ponownie. Zamrożone pozostają:
+Po DB4_10 obowiązuje 71 wcześniej zamkniętych blockerów Stage 4. DB-MIG-001, DB-MIG-002, DB-MIG-003 i DB-TST-001 są kolejnymi czterema zamkniętymi blockerami; żaden wcześniejszy kontrakt nie został otwarty ponownie. Zamrożone pozostają:
 - `specs/database/core-schema.yml` — blob `39958721c99550cfc27c3774e8dfa1af0d0637e6`,
 - `docs/87-physical-database-schema.md` — blob `6c090b082604b6b42c283667fcf08e9033a5b523`.
 
-## 2. Wynik po DB-MIG-003
+## 2. Wynik po DB-TST-001
 
-Wynik po DB-MIG-003: **0 P0, 3 P1 OPEN**.
+Wynik po DB-TST-001: **0 P0, 2 P1 OPEN**.
 
 Pozostała wymagana kolejność fixerów:
 
-`DB-TST-001 → DB-TST-002 → DB-FINAL-001`
+`DB-TST-002 → DB-FINAL-001`
 
 Nie wolno scalać tych fixerów w jeden krok. Po każdym blockerze obowiązuje osobny machine + narrative + central gate.
 
@@ -192,26 +192,63 @@ Ten smoke/integrity gate jest **release-level execution evidence**, a nie macier
 
 ## 6. DB-TST-001 — machine-readable invariant test matrix
 
-**Status: OPEN / P1**
+**Status: PASS / P1 RESOLVED**
 
-`core-schema.yml` posiada dużą listę `migration_tests_required`, ale są to wolne teksty bez stabilnych ID. `docs/87` opisuje je w sekcji 23 jako prose bullets.
+Machine authority `invariant_test_matrix` przekształca istniejące `migration_tests_required` z `core-schema.yml` z listy wolnych tekstów w stabilny kontrakt wykonawczy. Parser znalazł **261 source occurrences i 261 unikalnych source invariants**, czyli w aktualnym aggregate nie ma duplikatów wymagających scalenia semantycznego.
 
-To nie pozwala jednoznacznie powiedzieć, czy dany test jest:
-- schema-constraint integration testem,
-- transactional testem,
-- prawdziwym concurrency/race testem,
-- migration preflight testem,
-- migration postcheckiem,
-- projection testem,
-- security-storage testem.
+Każdy finalny wpis ma:
+- trwały `test_id` w formacie `DBT-<DOMAIN>-NNN`,
+- dokładny `source_invariant`,
+- co najmniej jeden `source_ref` do konkretnego `migration_tests_required[index]`,
+- `test_class`,
+- `execution_phase`,
+- `blocking_severity: P1`,
+- `expected_outcome`,
+- `fixture_profile`,
+- `concurrency_profile`,
+- jawny status `contract_only_no_framework_test_generated`.
 
-Finalna macierz musi mieć stabilne `test_id`, source invariant, klasę wykonania, expected outcome, fazę wykonania i wymagany kształt fixture/concurrency na poziomie kontraktu. Nie tworzymy tu jeszcze PHPUnit/Pest/Laravel test files.
+ID są przydzielone w kolejności pierwszego wystąpienia source invariant w zaakceptowanym aggregate. Po zamknięciu DB-TST-001 istniejących ID nie wolno renumerować bez jawnej migracji authority; nowe testy dopisują następny wolny numer w swojej domenie. Dzięki temu późniejsze implementacje testów i coverage joins mogą wskazywać stabilny identyfikator zamiast fragmentu prose.
+
+### 6.1. Siedem klas wykonania
+
+Macierz deklaruje dokładnie siedem wartości `test_class`:
+- `schema_constraint`,
+- `transaction`,
+- `concurrency`,
+- `migration_preflight`,
+- `migration_postcheck`,
+- `projection`,
+- `security_storage`.
+
+Aktualny rozkład 261 testów po quality review wynosi: **142 transaction, 46 security/storage, 23 schema-constraint, 21 projection, 15 concurrency, 14 migration-preflight i 0 migration-postcheck**. Zerowy count `migration_postcheck` jest jawny i prawidłowy: klasa pozostaje częścią stabilnego enumu, ale żaden obecny source invariant nie wymaga jej jako klasy podstawowej. Post-schema constraint checks pozostają klasyfikowane jako `schema_constraint`, a coverage/completeness zostanie udowodnione osobno w DB-TST-002.
+
+Quality review skorygował oczywiste przypadki, których nie wolno redukować do zwykłego integration transaction testu: m.in. duplicate-worker grant race ma klasę `concurrency`, audit append-only/current-row uniqueness/DB-enforced immutability mają `schema_constraint`, a activity retry z historycznym snapshotem ma `projection`.
+
+### 6.2. Fixture i concurrency contract
+
+DB-TST-001 nie tworzy jeszcze PHPUnit/Pest/Laravel test files. Zamiast tego definiuje wymagany kształt testu na poziomie kontraktu. Profile obejmują minimalny valid+invalid tuple dla constraintów, success+forced-failure dla transakcji, dwa niezależne połączenia DB z deterministyczną barierą dla race tests, legacy population z exact/ambiguous cases dla migration preflight, canonical source + replay dla projection oraz authorized control + wrong-tenant/forbidden/sensitive negative context dla security/storage.
+
+Każdy test klasy `concurrency` musi używać niepustego concurrency profile. Retry/replay projection ma odrębny profil od prawdziwego two-transaction race, dzięki czemu implementator nie może zastąpić concurrency testu sekwencyjnym unit testem.
+
+`blocking_severity: P1` oznacza tutaj, że failure blokuje akceptację kontraktu bazy Stage 4; nie jest to produkcyjna klasyfikacja incydentu.
+
+### 6.3. Twarda granica DB-TST-001
+
+DB-TST-001 zapewnia stabilny katalog i execution contract testów, ale **nie twierdzi jeszcze, że katalog jest kompletny względem wszystkich local bounded specs i 75 zamkniętych blockerów**. Następujące dowody pozostają wyłącznie DB-TST-002:
+- `resolved blocker -> final test IDs`,
+- `critical constraint -> test IDs`,
+- required cross-table/final-state transaction guard -> test IDs,
+- local bounded `required_tests` -> final test lub jawny stronger-equivalent mapping,
+- zero unknown source refs, orphan tests i coverage gaps.
+
+DB-FINAL-001 nadal pozostaje jedynym krokiem uprawnionym do synchronizacji `core-schema.yml` i `docs/87`.
 
 ## 7. DB-TST-002 — coverage i completeness proof
 
 **Status: OPEN / P1**
 
-Stage 4 zamknął przed DB4_11 71 blockerów; DB-MIG-001, DB-MIG-002 i DB-MIG-003 są już kolejnymi PASS, ale nadal nie istnieje finalna machine-readable relacja `resolved blocker -> final test IDs` dla całego Etapu 4.
+Stage 4 zamknął przed DB4_11 71 blockerów; DB-MIG-001, DB-MIG-002, DB-MIG-003 i DB-TST-001 są już kolejnymi PASS. Mamy teraz 261 stabilnych final test IDs, ale nadal nie istnieje finalna machine-readable relacja `resolved blocker -> final test IDs` dla całego Etapu 4.
 
 Nie ma również kompletnego joinu:
 - `critical_constraints -> tests`,
@@ -257,29 +294,26 @@ Nie rozwiązujemy też w tym slice zewnętrznych production blockers takich jak 
 
 ## 10. Preservation gate
 
-DB-MIG-003 zachowuje:
+DB-TST-001 zachowuje:
 - DB4_1–DB4_10 bez zmian,
-- 71 wcześniejszych blockerów bez reopen oraz DB-MIG-001, DB-MIG-002 i DB-MIG-003 jako kolejne PASS,
+- 71 wcześniejszych blockerów bez reopen oraz DB-MIG-001, DB-MIG-002, DB-MIG-003 i DB-TST-001 jako kolejne PASS,
 - executable DAG i `topological_order` DB-MIG-001 bez zmian,
 - siedmiofazowy `migration_phase_composition` DB-MIG-002 bez zmian,
+- `migration_cutover_execution_contract` DB-MIG-003 bez zmian,
 - `core-schema.yml` bez zmian — blob `39958721c99550cfc27c3774e8dfa1af0d0637e6`,
 - `docs/87...` bez zmian — blob `6c090b082604b6b42c283667fcf08e9033a5b523`,
 - wszystkie bounded-context specs jako read-only,
-- DB-TST-001, DB-TST-002 i DB-FINAL-001 jako nierozwiązane w tym kroku,
-- brak stabilnych `test_id` lub test matrix w DB-MIG-003,
-- brak wymyślonych produkcyjnych RPO/RTO lub retention duration,
-- brak migracji Laravel,
-- brak Stage 5,
-- brak UI/feature implementation.
+- DB-TST-002 i DB-FINAL-001 jako nierozwiązane w tym kroku,
+- brak framework test files, migracji Laravel, Stage 5 i UI/feature implementation.
 
 ## 11. Następny pojedynczy krok
 
-Po domknięciu machine + narrative + central gate DB-MIG-003 następny krok może dotyczyć wyłącznie:
+Po domknięciu machine + narrative + central gate DB-TST-001 następny krok może dotyczyć wyłącznie:
 
-**`DB-TST-001 — machine_readable_invariant_test_matrix`**
+**`DB-TST-002 — invariant_test_coverage_traceability_and_completeness_gate`**
 
 I dopiero po kolejnym jawnym poleceniu użytkownika.
 
-`core-schema.yml` i `docs/87...` pozostają zamrożone do DB-FINAL-001. DB-TST-002 i DB-FINAL-001 pozostają OPEN.
+`core-schema.yml` i `docs/87...` pozostają zamrożone do DB-FINAL-001. DB-FINAL-001 pozostaje OPEN.
 
-**STOP przed fixerem DB-TST-001.**
+**STOP przed fixerem DB-TST-002.**
