@@ -1,0 +1,210 @@
+name: tmp-s5-mig-001-phase-aware-validation-20260910
+
+on:
+  push:
+    branches: [tmp-s5-mig-001-validation-20260910]
+
+permissions:
+  contents: read
+
+jobs:
+  validate-phase-aware-executor:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: tmp-s5-mig-001-validation-20260910
+          fetch-depth: 0
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          extensions: mbstring, intl, pdo_pgsql, redis
+          coverage: none
+
+      - name: Install and boot deterministic services
+        shell: bash
+        run: |
+          set -euo pipefail
+          composer install --no-interaction --prefer-dist
+          cp .env.example .env
+          php artisan key:generate
+          docker compose config >/tmp/compose.rendered.yml
+          docker compose up -d --wait
+
+      - name: Validate registry, bypass resistance, phases, lock, retry and PostgreSQL execution
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          reset_db() {
+            docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -U osk_panel -d osk_panel <<'SQL' >/dev/null
+          DROP SCHEMA public CASCADE;
+          CREATE SCHEMA public;
+          GRANT ALL ON SCHEMA public TO osk_panel;
+          GRANT ALL ON SCHEMA public TO public;
+          SQL
+            rm -f storage/logs/migration-execution.jsonl /tmp/migration-execution.jsonl
+          }
+
+          extension_count() {
+            docker compose exec -T postgres psql -At -U osk_panel -d osk_panel -c "select count(*) from pg_extension where extname='btree_gist'"
+          }
+
+          migration_count() {
+            docker compose exec -T postgres psql -At -U osk_panel -d osk_panel -c "select case when to_regclass('public.migrations') is null then 0 else (select count(*) from migrations where migration='2026_09_10_000010_enable_btree_gist_extension') end"
+          }
+
+          php artisan migration:plan:validate --json >/tmp/plan.json
+          PLAN=$(php -r '$v=json_decode(file_get_contents("/tmp/plan.json"),true); echo $v["plan_identity"];')
+          EXECUTION=$(php -r '$v=json_decode(file_get_contents("/tmp/plan.json"),true); echo $v["execution_identity"];')
+          test "$PLAN" = 'd2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10'
+          test "$EXECUTION" = '05243ae2bd1d283ad53e33ab8dbc887317ef27128bb08ebcce381e3c8f7857ec'
+          php -r '$v=json_decode(file_get_contents("/tmp/plan.json"),true); if($v["nodes"]!==170||$v["review_batches"]!==17||$v["implemented_nodes"]!==1||$v["implemented_steps"]!==1) exit(1);'
+
+          MIG='database/migrations/stage4/expand/MIG-EXT-BTREE-GIST/2026_09_10_000010_enable_btree_gist_extension.php'
+          test "$(sha256sum "$MIG" | cut -d' ' -f1)" = '2f6d4840939d22e37546cac3db5bfd25c7c2f128db983f0acfdc083c5b1a6a3d'
+          test -z "$(find database/migrations -maxdepth 1 -type f -name '*_*.php' -print)"
+
+          cp "$MIG" /tmp/migration.backup.php
+          printf '\n' >> "$MIG"
+          set +e
+          php artisan migration:plan:validate >/tmp/tamper.log 2>&1
+          CODE=$?
+          set -e
+          test "$CODE" -ne 0
+          grep -q 'Migration file hash mismatch' /tmp/tamper.log
+          mv /tmp/migration.backup.php "$MIG"
+
+          ROGUE='database/migrations/stage4/expand/MIG-EXT-BTREE-GIST/9999_99_99_999999_rogue.php'
+          printf '%s\n' '<?php return null;' > "$ROGUE"
+          set +e
+          php artisan migration:plan:validate >/tmp/rogue.log 2>&1
+          CODE=$?
+          set -e
+          test "$CODE" -ne 0
+          grep -q 'unregistered or missing PHP migration' /tmp/rogue.log
+          rm "$ROGUE"
+          php artisan migration:plan:validate >/dev/null
+
+          reset_db
+          php artisan migrate --force >/tmp/default-migrate.log
+          test "$(extension_count)" = '0'
+
+          reset_db
+          set +e
+          php artisan migrate --path=database/migrations/stage4/expand/MIG-EXT-BTREE-GIST --force >/tmp/direct-path.log 2>&1
+          CODE=$?
+          set -e
+          test "$CODE" -ne 0
+          grep -q 'must run through migration:controlled' /tmp/direct-path.log
+          test "$(extension_count)" = '0'
+
+          reset_db
+          set +e
+          php artisan migration:controlled --plan=wrong --execution="$EXECUTION" --phase=expand --force >/tmp/wrong-plan.log 2>&1
+          CODE=$?
+          set -e
+          test "$CODE" -ne 0
+          grep -q 'Migration plan identity mismatch' /tmp/wrong-plan.log
+          test "$(extension_count)" = '0'
+
+          set +e
+          php artisan migration:controlled --plan="$PLAN" --execution=wrong --phase=expand --force >/tmp/wrong-execution.log 2>&1
+          CODE=$?
+          set -e
+          test "$CODE" -ne 0
+          grep -q 'Migration execution identity mismatch' /tmp/wrong-execution.log
+          test "$(extension_count)" = '0'
+
+          set +e
+          php artisan migration:controlled --plan="$PLAN" --execution="$EXECUTION" --force >/tmp/missing-phase.log 2>&1
+          CODE=$?
+          set -e
+          test "$CODE" -ne 0
+          grep -q 'Explicit migration phase is required' /tmp/missing-phase.log
+          test "$(extension_count)" = '0'
+
+          set +e
+          php artisan migration:controlled --plan="$PLAN" --execution="$EXECUTION" --phase=preflight --force >/tmp/premature-preflight.log 2>&1
+          CODE=$?
+          set -e
+          test "$CODE" -ne 0
+          grep -q 'No materialized migration steps for phase preflight' /tmp/premature-preflight.log
+          test "$(extension_count)" = '0'
+
+          reset_db
+          set +e
+          APP_ENV=production MIGRATION_EVIDENCE_PATH='' php artisan migration:controlled --plan="$PLAN" --execution="$EXECUTION" --phase=expand --force >/tmp/no-evidence.log 2>&1
+          CODE=$?
+          set -e
+          test "$CODE" -ne 0
+          grep -q 'Production controlled migration requires MIGRATION_EVIDENCE_PATH' /tmp/no-evidence.log
+          test "$(extension_count)" = '0'
+
+          reset_db
+          (docker compose exec -T postgres psql -U osk_panel -d osk_panel -c 'select pg_advisory_lock(519662,5001); select pg_sleep(6);' >/tmp/lock-holder.log 2>&1) &
+          LOCK_PID=$!
+          sleep 1
+          set +e
+          php artisan migration:controlled --plan="$PLAN" --execution="$EXECUTION" --phase=expand --force >/tmp/locked.log 2>&1
+          CODE=$?
+          set -e
+          test "$CODE" -ne 0
+          grep -q 'Another migration executor holds the PostgreSQL advisory lock' /tmp/locked.log
+          test "$(extension_count)" = '0'
+          wait "$LOCK_PID"
+
+          reset_db
+          MIGRATION_EVIDENCE_PATH="$PWD/storage/logs/migration-execution.jsonl" php artisan migration:controlled --plan="$PLAN" --execution="$EXECUTION" --phase=expand --force >/tmp/controlled-first.log
+          test "$(extension_count)" = '1'
+          test "$(migration_count)" = '1'
+          grep -q 'migration_node_started' storage/logs/migration-execution.jsonl
+          grep -q 'migration_node_succeeded' storage/logs/migration-execution.jsonl
+          grep -q 'MIG-EXT-BTREE-GIST' storage/logs/migration-execution.jsonl
+          grep -q "$EXECUTION" storage/logs/migration-execution.jsonl
+
+          MIGRATION_EVIDENCE_PATH="$PWD/storage/logs/migration-execution.jsonl" php artisan migration:controlled --plan="$PLAN" --execution="$EXECUTION" --phase=expand --force >/tmp/controlled-second.log
+          test "$(extension_count)" = '1'
+          test "$(migration_count)" = '1'
+          test "$(grep -c 'migration_run_succeeded' storage/logs/migration-execution.jsonl)" = '2'
+
+          php artisan test --fail-on-warning
+          composer validate --strict
+          php -l app/Support/Migrations/ControlledMigrationContext.php
+          php -l app/Support/Migrations/MigrationExecutionJournal.php
+          php -l app/Support/Migrations/MigrationPlan.php
+          php -l app/Support/Migrations/PostgresMigrationLock.php
+          php -l routes/console.php
+          php -l "$MIG"
+
+      - name: Preservation and net-scope gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f .env storage/logs/migration-execution.jsonl
+          git diff --check
+          test "$(git hash-object specs/database/final-migration-order-invariant-matrix.yml)" = 'ad5f2aa2e14ef248b95dd3dda0d1cbcb2e69d441'
+          test "$(git hash-object specs/database/core-schema.yml)" = 'b0629cc48e26798d945356eaa1d0c9b1187aa542'
+          test "$(git hash-object specs/gates/stage-4-database-contract-gate.yml)" = '306dabaa58223abe2f3b2a34b888b075c88e9ec4'
+          test "$(git hash-object docs/87-physical-database-schema.md)" = 'a48eacd92d4a9c8e989f5d70c3bec95b9231a77c'
+          test "$(git hash-object docs/116-stage-4-final-migration-order-invariant-matrix-audit.md)" = '6f76255742d4902546f45c28d54c1da6ee3d3fd7'
+
+          git diff --name-only 163e5ba7a3d9da3bd924aa648ffa93c002cd7a3f...HEAD | grep -v '^\.github/workflows/tmp-s5-mig-001-phase-aware-validation-20260910.yml$' | sort >/tmp/actual-files
+          cat > /tmp/allowed-files <<'EOF'
+          app/Support/Migrations/ControlledMigrationContext.php
+          app/Support/Migrations/MigrationExecutionJournal.php
+          app/Support/Migrations/MigrationPlan.php
+          app/Support/Migrations/PostgresMigrationLock.php
+          config/migration.php
+          database/migration-plan/implementations.json
+          database/migration-plan/plan.json
+          database/migrations/stage4/expand/MIG-EXT-BTREE-GIST/2026_09_10_000010_enable_btree_gist_extension.php
+          docs/117-stage-5-implementation-entry-audit.md
+          docs/119-stage-5-migration-execution-contract.md
+          routes/console.php
+          specs/gates/stage-5-implementation-gate.yml
+          tests/Unit/MigrationPlanContractTest.php
+          EOF
+          sort -o /tmp/allowed-files /tmp/allowed-files
+          diff -u /tmp/allowed-files /tmp/actual-files
+          echo 'S5_MIG_001_PHASE_AWARE_GATE=PASS'
