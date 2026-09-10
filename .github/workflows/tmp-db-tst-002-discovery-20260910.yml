@@ -1,0 +1,69 @@
+name: tmp-db-tst-002-discovery-20260910
+on:
+  push:
+    branches:
+      - tmp-db-tst-002-discovery-20260910
+permissions:
+  contents: read
+jobs:
+  discover:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: tmp-db-tst-002-discovery-20260910
+          fetch-depth: 0
+      - name: Inventory DB-TST-002 source contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse 6419481d39721238792a2a0bbb852622936fb993^{tree})" = "$(git rev-parse HEAD~1^{tree})"
+          ruby <<'RUBY'
+          require 'yaml'
+          require 'json'
+          files = %w[
+            specs/database/organization-settings.yml
+            specs/database/identity-rbac.yml
+            specs/database/staff-locations-vehicles.yml
+            specs/database/students-courses-training.yml
+            specs/database/calendar.yml
+            specs/database/licenses-learning-access.yml
+            specs/database/internal-exams.yml
+            specs/database/pkk.yml
+            specs/database/student-finance-commerce.yml
+            specs/database/audit-outbox-notifications.yml
+          ]
+          def walk(v, path=[], out=[])
+            case v
+            when Hash
+              v.each do |k,val|
+                p2 = path + [k.to_s]
+                if k.to_s.match?(/tests_required$/) || k.to_s.match?(/critical.*constraint/i) || k.to_s.match?(/constraint.*critical/i) || k.to_s.match?(/guard/i)
+                  out << [p2.join('.'), val]
+                end
+                walk(val,p2,out)
+              end
+            when Array
+              v.each_with_index { |x,i| walk(x,path+[i.to_s],out) }
+            end
+            out
+          end
+          summary = {}
+          files.each do |f|
+            data = YAML.load_file(f, aliases: true)
+            hits = walk(data)
+            summary[f] = hits.map do |path,val|
+              count = val.is_a?(Array) || val.is_a?(Hash) ? val.length : 1
+              {path: path, type: val.class.name, count: count, sample: (val.is_a?(Array) ? val.first(3) : val)}
+            end
+          end
+          central = YAML.load_file('specs/gates/stage-4-database-contract-gate.yml', aliases: true)
+          matrix = YAML.load_file('specs/database/final-migration-order-invariant-matrix.yml', aliases: true)
+          puts "=== SOURCE INVENTORY ==="
+          puts JSON.pretty_generate(summary)
+          puts "=== RESOLVED BLOCKERS ==="
+          puts JSON.generate(central['resolved_blockers'])
+          tests = matrix.dig('invariant_test_matrix','tests') || []
+          puts "=== FINAL TEST IDS ==="
+          puts JSON.generate(tests.map{|t| [t['test_id'],t['source_invariant'],t['source_refs'],t['test_class']]})
+          RUBY
