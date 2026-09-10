@@ -1,0 +1,372 @@
+name: tmp-s5-env-001-validation-v2-20260910
+
+on:
+  push:
+    branches: [tmp-s5-env-001-validation-v2-20260910]
+
+permissions:
+  contents: write
+
+jobs:
+  validate-env:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: tmp-s5-env-001-validation-v2-20260910
+          fetch-depth: 0
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          extensions: mbstring, intl, pdo_pgsql, redis
+          coverage: none
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24.20.0'
+
+      - name: Materialize S5-ENV-001 candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=1c0735b3a92a2fcc3f021cdb401950ddf4239d5d
+          git fetch origin docs-consolidation-2026-09-05 --quiet
+          test "$(git rev-parse origin/docs-consolidation-2026-09-05)" = "$BASE"
+
+          cat > compose.yml <<'YAML'
+          name: osk-panel-local
+          services:
+            postgres:
+              image: postgres:17.11-alpine
+              environment:
+                POSTGRES_DB: osk_panel
+                POSTGRES_USER: osk_panel
+                POSTGRES_PASSWORD: osk_panel_local_only
+              ports:
+                - "127.0.0.1:5432:5432"
+              healthcheck:
+                test: ["CMD-SHELL", "pg_isready -U osk_panel -d osk_panel"]
+                interval: 2s
+                timeout: 3s
+                retries: 30
+              volumes:
+                - postgres-data:/var/lib/postgresql/data
+            redis:
+              image: redis:8.10.1-alpine
+              command: ["redis-server", "--save", "", "--appendonly", "no"]
+              ports:
+                - "127.0.0.1:6379:6379"
+              healthcheck:
+                test: ["CMD", "redis-cli", "ping"]
+                interval: 2s
+                timeout: 3s
+                retries: 30
+            moto:
+              image: ghcr.io/getmoto/motoserver:5.2.2
+              environment:
+                MOTO_PORT: "5000"
+              ports:
+                - "127.0.0.1:5000:5000"
+              healthcheck:
+                test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/moto-api/config').read()"]
+                interval: 2s
+                timeout: 5s
+                retries: 30
+          volumes:
+            postgres-data:
+          YAML
+
+          mkdir -p scripts
+          cat > scripts/runtime-up.sh <<'SH'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          diagnose() {
+            docker compose ps -a || true
+            docker compose logs --no-color --tail=120 postgres redis moto || true
+          }
+          trap 'diagnose' ERR
+          docker compose up -d --wait --wait-timeout 90 postgres redis moto
+          ./scripts/runtime-health.sh
+          SH
+          chmod +x scripts/runtime-up.sh
+
+          cat > scripts/runtime-health.sh <<'SH'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          docker compose exec -T postgres pg_isready -U osk_panel -d osk_panel >/dev/null
+          db="$(docker compose exec -T postgres psql -U osk_panel -d osk_panel -Atqc "select current_database()")"
+          test "$(printf '%s' "$db" | tr -d '\r')" = "osk_panel"
+          test "$(docker compose exec -T redis redis-cli ping | tr -d '\r')" = "PONG"
+          curl -fsS http://localhost:5000/moto-api/config >/dev/null
+          echo "S5_ENV_RUNTIME_HEALTH=PASS"
+          SH
+          chmod +x scripts/runtime-health.sh
+
+          cat > scripts/runtime-down.sh <<'SH'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          docker compose down "$@"
+          SH
+          chmod +x scripts/runtime-down.sh
+
+          cat > .env.example <<'ENV'
+          APP_NAME="OSK Panel"
+          APP_ENV=local
+          APP_KEY=
+          APP_DEBUG=true
+          APP_URL=http://localhost
+
+          LOG_CHANNEL=stack
+          LOG_LEVEL=debug
+
+          DB_CONNECTION=pgsql
+          DB_HOST=127.0.0.1
+          DB_PORT=5432
+          DB_DATABASE=osk_panel
+          DB_USERNAME=osk_panel
+          DB_PASSWORD=osk_panel_local_only
+
+          REDIS_CLIENT=phpredis
+          REDIS_HOST=127.0.0.1
+          REDIS_PORT=6379
+          REDIS_DB=0
+          REDIS_CACHE_DB=1
+          CACHE_STORE=redis
+          SESSION_DRIVER=redis
+          SESSION_CONNECTION=default
+          QUEUE_CONNECTION=redis
+
+          FILESYSTEM_DISK=s3
+          AWS_ACCESS_KEY_ID=test
+          AWS_SECRET_ACCESS_KEY=test
+          AWS_DEFAULT_REGION=us-east-1
+          AWS_BUCKET=osk-panel-test
+          AWS_ENDPOINT=http://localhost:5000
+          AWS_USE_PATH_STYLE_ENDPOINT=true
+
+          MAIL_MAILER=log
+          ENV
+
+          python3 <<'PY'
+          from pathlib import Path
+          import json
+
+          p = Path('composer.json')
+          data = json.loads(p.read_text())
+          req = data['require']
+          req['ext-redis'] = '*'
+          req['league/flysystem-aws-s3-v3'] = '^3.0'
+          data['require'] = dict(sorted(req.items()))
+          p.write_text(json.dumps(data, ensure_ascii=False, indent=4) + '\n')
+
+          p = Path('phpunit.xml')
+          s = p.read_text()
+          s = s.replace('<env name="CACHE_STORE" value="array"/>', '<env name="CACHE_STORE" value="redis"/>')
+          s = s.replace('<env name="DB_URL" value=""/>', '<env name="DB_CONNECTION" value="pgsql"/>\n        <env name="DB_HOST" value="127.0.0.1"/>\n        <env name="DB_PORT" value="5432"/>\n        <env name="DB_DATABASE" value="osk_panel"/>\n        <env name="DB_USERNAME" value="osk_panel"/>\n        <env name="DB_PASSWORD" value="osk_panel_local_only"/>')
+          s = s.replace('<env name="QUEUE_CONNECTION" value="sync"/>', '<env name="QUEUE_CONNECTION" value="redis"/>')
+          s = s.replace('<env name="SESSION_DRIVER" value="array"/>', '<env name="SESSION_DRIVER" value="redis"/>\n        <env name="SESSION_CONNECTION" value="default"/>\n        <env name="REDIS_CLIENT" value="phpredis"/>\n        <env name="REDIS_HOST" value="127.0.0.1"/>\n        <env name="REDIS_PORT" value="6379"/>\n        <env name="REDIS_DB" value="0"/>\n        <env name="REDIS_CACHE_DB" value="1"/>\n        <env name="FILESYSTEM_DISK" value="s3"/>\n        <env name="AWS_ACCESS_KEY_ID" value="test"/>\n        <env name="AWS_SECRET_ACCESS_KEY" value="test"/>\n        <env name="AWS_DEFAULT_REGION" value="us-east-1"/>\n        <env name="AWS_BUCKET" value="osk-panel-test"/>\n        <env name="AWS_ENDPOINT" value="http://localhost:5000"/>\n        <env name="AWS_USE_PATH_STYLE_ENDPOINT" value="true"/>')
+          p.write_text(s)
+          PY
+
+          cat > tests/Feature/RuntimeServicesTest.php <<'PHP'
+          <?php
+
+          namespace Tests\Feature;
+
+          use Aws\Exception\AwsException;
+          use Aws\S3\S3Client;
+          use Illuminate\Support\Facades\Cache;
+          use Illuminate\Support\Facades\DB;
+          use Illuminate\Support\Facades\Queue;
+          use Illuminate\Support\Facades\Redis;
+          use Illuminate\Support\Facades\Storage;
+          use Tests\TestCase;
+
+          class RuntimeServicesTest extends TestCase
+          {
+              public function test_postgresql_is_the_testing_database(): void
+              {
+                  $this->assertSame('pgsql', config('database.default'));
+                  $row = DB::selectOne('select current_database() as database_name');
+                  $this->assertSame('osk_panel', $row->database_name);
+              }
+
+              public function test_redis_is_available_for_cache_queue_and_locks(): void
+              {
+                  $this->assertNotFalse(Redis::connection()->command('ping'));
+                  Cache::store('redis')->put('s5-env-cache', 'ok', 30);
+                  $this->assertSame('ok', Cache::store('redis')->get('s5-env-cache'));
+                  $lock = Cache::store('redis')->lock('s5-env-lock', 10);
+                  $this->assertTrue($lock->get());
+                  $lock->release();
+                  $this->assertIsInt(Queue::connection('redis')->size());
+              }
+
+              public function test_s3_compatible_nonproduction_storage_round_trip(): void
+              {
+                  $client = new S3Client([
+                      'version' => 'latest',
+                      'region' => 'us-east-1',
+                      'endpoint' => 'http://localhost:5000',
+                      'use_path_style_endpoint' => true,
+                      'credentials' => ['key' => 'test', 'secret' => 'test'],
+                  ]);
+
+                  try {
+                      $client->headBucket(['Bucket' => 'osk-panel-test']);
+                  } catch (AwsException) {
+                      $client->createBucket(['Bucket' => 'osk-panel-test']);
+                  }
+
+                  $disk = Storage::disk('s3');
+                  $key = 's5-env/smoke.txt';
+                  $this->assertTrue($disk->put($key, 'environment-ok'));
+                  $this->assertSame('environment-ok', $disk->get($key));
+                  $this->assertTrue($disk->delete($key));
+              }
+          }
+          PHP
+
+          cat > docs/118-stage-5-environment-contract.md <<'MD'
+          # 118. Stage 5 deterministic environment contract
+
+          Status: `S5-ENV-001 PASS candidate`
+
+          ## Scope
+          Ten krok materializuje wyłącznie lokalne i testowe usługi runtime wymagane przed migracjami domenowymi: PostgreSQL, Redis oraz nieprodukcyjny endpoint S3-compatible. Nie tworzy migracji Stage 4, domenowych modeli ani feature/UI.
+
+          ## Pinned local services
+          - PostgreSQL `17.11-alpine` — jedyny runtime/test DB driver.
+          - Redis `8.10.1-alpine` — cache, queue i distributed lock test substrate; nigdy source of truth.
+          - Moto Server `5.2.2` — hermetyczny, token-free adapter AWS SDK/S3 do local/test.
+
+          Moto jest celowo używany zamiast współczesnego LocalStack, ponieważ S5-ENV-001 nie może wymagać zewnętrznego konta/licencji ani sekretnego auth tokenu tylko do uruchomienia testowego S3. Piny obrazów są konkretne; ich aktualizacja wymaga ponownego smoke gate.
+
+          ## Local flow
+          Wymagania hosta: Docker Compose, PHP 8.5 z `pdo_pgsql` i `redis`, Composer oraz Node 24.20.0.
+
+          ```bash
+          cp .env.example .env
+          php artisan key:generate
+          composer install
+          npm ci
+          ./scripts/runtime-up.sh
+          php artisan test
+          ```
+
+          `runtime-up.sh` czeka na health wszystkich usług i uruchamia `runtime-health.sh`. Ręczny health check: `./scripts/runtime-health.sh`. Zatrzymanie: `./scripts/runtime-down.sh`. Pełne wyczyszczenie danych developerskich PostgreSQL: `./scripts/runtime-down.sh -v`.
+
+          ## Test contract
+          `phpunit.xml` wskazuje jawnie PostgreSQL, Redis oraz lokalny S3 endpoint. `RuntimeServicesTest` wykonuje realne połączenie SQL, Redis cache/queue/lock oraz S3 create-bucket/write/read/delete przez AWS SDK/Flysystem. Brak usług jest failure, nie fallbackiem do SQLite/array/local storage.
+
+          ## Data and secret policy
+          Hasło `osk_panel_local_only` oraz AWS `test/test` są wyłącznie stałymi developerskimi dla izolowanego local/test runtime i nie są credentials produkcyjnymi. Fixtures i smoke tests nie mogą zawierać prawdziwych danych osobowych ani sekretów produkcyjnych. Production provisioning, secret manager, backup i RPO/RTO nie są rozstrzygane przez S5-ENV-001.
+
+          ## CI parity
+          Ten sam `compose.yml`, konfiguracja PHPUnit i smoke tests są uruchamiane na świeżym runnerze jako bramka S5-ENV-001. Stały implementation CI, jego trigger matrix i policy gates należą wyłącznie do `S5-CI-001`.
+
+          ## Boundary
+          S5-ENV-001 nie materializuje 170-node migration DAG, nie wdraża 491 finalnych kontraktów jako testów frameworkowych i nie tworzy feature/UI. Kolejny krok to wyłącznie `S5-MIG-001`, po osobnej instrukcji.
+          MD
+
+          python3 <<'PY'
+          from pathlib import Path
+
+          gate = Path('specs/gates/stage-5-implementation-gate.yml')
+          s = gate.read_text()
+          pairs = [
+              ('status: FAIL_WITH_5_P1_BLOCKERS', 'status: FAIL_WITH_4_P1_BLOCKERS'),
+              ('  - id: S5-ENV-001\n    severity: P1\n    status: OPEN', '  - id: S5-ENV-001\n    severity: P1\n    status: PASS'),
+              ('  fixes_applied_total: 1\n  open_P0_P1: 5\n  result: FAIL_WITH_5_P1_BLOCKERS', '  fixes_applied_total: 2\n  open_P0_P1: 4\n  result: FAIL_WITH_4_P1_BLOCKERS'),
+          ]
+          for old, new in pairs:
+              assert s.count(old) == 1, old
+              s = s.replace(old, new, 1)
+
+          old = '''next_single_step:\n  id: S5-ENV-001\n  action: resolve_deterministic_local_and_CI_runtime_services_only_after_next_explicit_user_instruction\n  prerequisite_S5_BOOT_001: PASS\n  allowed_scope:\n    - PostgreSQL_local_test_CI_runtime\n    - Redis_local_test_CI_runtime\n    - nonproduction_object_storage_adapter_configuration\n    - environment_documentation_and_health_checks\n    - Stage_5_gate_and_audit_updates\n  forbidden_scope:\n    - domain_feature_implementation\n    - UI_screen_implementation\n    - Stage_4_domain_migration_materialization_until_S5_MIG_001\n  after_action: rerun_S5_ENV_001_gate_and_STOP_before_S5_MIG_001\n'''
+          new = '''next_single_step:\n  id: S5-MIG-001\n  action: resolve_executable_database_migration_layer_only_after_next_explicit_user_instruction\n  prerequisite_S5_BOOT_001: PASS\n  prerequisite_S5_ENV_001: PASS\n  allowed_scope:\n    - migration_executor_and_reviewable_batches\n    - exact_170_node_dependency_authority_materialization\n    - seven_phase_migration_contract\n    - restart_failure_and_safe_rollback_controls\n    - Stage_5_gate_and_audit_updates\n  forbidden_scope:\n    - domain_feature_UI\n    - shortening_or_reinterpreting_Stage_4_database_authority\n    - blanket_destructive_down_migrations\n  after_action: rerun_S5_MIG_001_gate_and_STOP_before_S5_TST_001\n'''
+          assert s.count(old) == 1
+          s = s.replace(old, new, 1)
+
+          s = s.rstrip() + '''\n\nS5_ENV_001_closure:\n  status: PASS\n  accepted_scope: deterministic_local_and_test_runtime_services_only\n  service_images:\n    PostgreSQL: postgres:17.11-alpine\n    Redis: redis:8.10.1-alpine\n    S3_test_adapter: ghcr.io/getmoto/motoserver:5.2.2\n  runtime_contract:\n    PostgreSQL_test_and_runtime_database: true\n    Redis_cache_queue_lock_substrate: true\n    Redis_source_of_truth: false\n    S3_compatible_nonproduction_adapter: true\n    S3_test_adapter_requires_external_auth_token: false\n    production_credentials_committed: false\n    real_personal_data_in_fixtures: false\n  executable_evidence:\n    docker_compose_config: PASS\n    PostgreSQL_health_and_SQL_round_trip: PASS\n    Redis_ping_cache_queue_lock: PASS\n    S3_create_write_read_delete_round_trip: PASS\n    Laravel_test_suite_with_services: PASS\n  intentionally_not_closed_here:\n    S5_MIG_001: OPEN\n    S5_TST_001: OPEN\n    S5_CI_001: OPEN\n    S5_FOUND_001: OPEN\n'''
+          gate.write_text(s)
+
+          audit = Path('docs/117-stage-5-implementation-entry-audit.md')
+          s = audit.read_text().rstrip() + '''\n\n---\n\n## 11. S5-ENV-001 — closure\n\n**PASS.** Dodano deterministyczny local/test runtime bez wejścia w warstwę migracji domenowych. `compose.yml` uruchamia przypięte PostgreSQL 17.11, Redis 8.10.1 i Moto Server 5.2.2 jako hermetyczny endpoint S3-compatible. Moto zastępuje pierwotnie sprawdzony LocalStack: aktualny LocalStack wymaga zewnętrznego Auth Token już do uruchomienia kontenera, więc nie spełniał naszego wymogu token-free reproducibility dla local/test.\n\n`phpunit.xml` nie korzysta już z array/sync/local fallbacków dla infrastruktury objętej tym gate: testy wskazują PostgreSQL, Redis i S3-compatible endpoint. `RuntimeServicesTest` wykonuje realny SQL connect, Redis cache/queue/lock oraz S3 create-bucket/write/read/delete. Dodano wymagany adapter Flysystem S3 i PHP Redis extension do manifestu Composer.\n\nKonfiguracja zawiera wyłącznie jawne local/test credentials (`osk_panel_local_only`, `test/test`), oznaczone jako nieprodukcyjne. Nie dodano żadnych danych osobowych, sekretów produkcyjnych, migracji domenowych, modeli, providerów auth ani feature/UI. Pełne CI pozostaje `S5-CI-001`; ten krok jedynie udowadnia, że ten sam kontrakt środowiska jest wykonywalny na świeżym runnerze.\n\nPozostałe blockery: `S5-MIG-001`, `S5-TST-001`, `S5-CI-001`, `S5-FOUND-001`.\n\nNastępny pojedynczy krok: **S5-MIG-001**.\n\n**STOP przed S5-MIG-001.**\n'''
+          audit.write_text(s)
+          PY
+
+          composer update league/flysystem-aws-s3-v3 --with-all-dependencies --no-interaction
+
+      - name: Validate deterministic services and application integration
+        shell: bash
+        run: |
+          set -euo pipefail
+          cleanup() {
+            rc=$?
+            if [ "$rc" -ne 0 ]; then
+              docker compose ps -a || true
+              docker compose logs --no-color --tail=160 postgres redis moto || true
+            fi
+            docker compose down -v || true
+            exit "$rc"
+          }
+          trap cleanup EXIT
+
+          docker compose config --quiet
+          ./scripts/runtime-up.sh
+          composer validate --strict
+          php -m | grep -qi '^redis$'
+          php -m | grep -qi '^pdo_pgsql$'
+          php artisan test --fail-on-warning
+          npm ci
+          npm run typecheck
+          npm run build
+          composer audit --locked --no-interaction
+          npm audit
+          git diff --check
+          ruby -e "require 'yaml'; require 'date'; YAML.safe_load(File.read('specs/gates/stage-5-implementation-gate.yml'), permitted_classes:[Date], aliases:true); puts 'STAGE5_YAML_PARSE=PASS'"
+
+      - name: Preservation gate and helper final commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=1c0735b3a92a2fcc3f021cdb401950ddf4239d5d
+          test "$(git hash-object AGENTS.md)" = 96ec177c82ac6f031eb22f443295147a83482baf
+          test "$(git hash-object README.md)" = 710166c3189451a765c2314609e37607cc39e529
+          test "$(git hash-object specs/gates/stage-4-database-contract-gate.yml)" = 306dabaa58223abe2f3b2a34b888b075c88e9ec4
+          test "$(git hash-object specs/database/core-schema.yml)" = b0629cc48e26798d945356eaa1d0c9b1187aa542
+          test "$(git hash-object specs/database/final-migration-order-invariant-matrix.yml)" = ad5f2aa2e14ef248b95dd3dda0d1cbcb2e69d441
+          test "$(git hash-object docs/87-physical-database-schema.md)" = a48eacd92d4a9c8e989f5d70c3bec95b9231a77c
+          test "$(git hash-object docs/116-stage-4-final-migration-order-invariant-matrix-audit.md)" = 6f76255742d4902546f45c28d54c1da6ee3d3fd7
+          test "$(find database/migrations -maxdepth 1 -name '*.php' | wc -l)" -eq 0
+          test ! -e app/Models/User.php
+
+          rm .github/workflows/tmp-s5-env-001-validation-v2-20260910.yml
+          git add -A
+          git diff --cached --check
+
+          cat > /tmp/expected-files <<'EOF'
+          .env.example
+          composer.json
+          composer.lock
+          compose.yml
+          docs/117-stage-5-implementation-entry-audit.md
+          docs/118-stage-5-environment-contract.md
+          phpunit.xml
+          scripts/runtime-down.sh
+          scripts/runtime-health.sh
+          scripts/runtime-up.sh
+          specs/gates/stage-5-implementation-gate.yml
+          tests/Feature/RuntimeServicesTest.php
+          EOF
+          git diff --cached --name-only "$BASE" | sort > /tmp/actual-files
+          diff -u /tmp/expected-files /tmp/actual-files
+
+          test -z "$(git diff --cached --name-only "$BASE" | grep -E '^specs/database/|^specs/gates/stage-4-|^docs/87-|^docs/116-' || true)"
+          test -z "$(git diff --cached --name-only "$BASE" | grep -E '^database/migrations/.*\.php$' || true)"
+          test -z "$(git diff --cached --name-only "$BASE" | grep '^\.github/' || true)"
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'S5-ENV-001: validate deterministic runtime services'
+          git push origin HEAD:tmp-s5-env-001-validation-v2-20260910
