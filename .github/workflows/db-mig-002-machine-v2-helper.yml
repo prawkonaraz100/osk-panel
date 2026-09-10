@@ -1,0 +1,55 @@
+name: DB-MIG-002 machine v2 helper
+
+on:
+  push:
+    branches: [tmp-db-mig-002-machine-validation-20260910]
+    paths: [.stage4-tmp/TRIGGER_DB_MIG_002_MACHINE_V2]
+permissions:
+  contents: write
+jobs:
+  validate-and-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - name: Apply and validate DB-MIG-002 v2
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=ff9cb2c4cf9696eff1635d48edc560430b9e7704
+          test "$(git rev-parse "$BASE:specs/database/final-migration-order-invariant-matrix.yml")" = "b6b7b7513fa537ca416f921284b9dc631679a3de"
+          test "$(git rev-parse HEAD:docs/116-stage-4-final-migration-order-invariant-matrix-audit.md)" = "403e5e36437af613491868984e4f8c28e4b6efdc"
+          test "$(git rev-parse HEAD:specs/gates/stage-4-database-contract-gate.yml)" = "8c503b4777060531c723f7e9a1272440be5947c8"
+          test "$(git rev-parse HEAD:specs/database/core-schema.yml)" = "39958721c99550cfc27c3774e8dfa1af0d0637e6"
+          test "$(git rev-parse HEAD:docs/87-physical-database-schema.md)" = "6c090b082604b6b42c283667fcf08e9033a5b523"
+          python .stage4-tmp/DB_MIG_002_MACHINE_PATCH_V2.py
+          ruby -e "require 'psych'; Psych.parse_file('specs/database/final-migration-order-invariant-matrix.yml')"
+          ruby <<'RUBY'
+          require 'psych'; require 'date'
+          d=Psych.safe_load(File.read('specs/database/final-migration-order-invariant-matrix.yml'), permitted_classes:[Date], aliases:true)
+          raise unless d.dig('meta','step')=='DB-MIG-002' && d.dig('meta','status')=='FAIL_WITH_4_P1_BLOCKERS' && d.dig('meta','fixes_applied_total')==2
+          dag=d.fetch('migration_dependency_dag'); raise unless dag['status']=='PASS_DB_MIG_001'
+          p=d.fetch('migration_phase_composition'); raise unless p['status']=='PASS_DB_MIG_002'
+          phases=%w[expand preflight write_fence backfill reconcile validate contract]; raise unless p['phase_order']==phases
+          pos=phases.each_with_index.to_h; defs=p.dig('node_phase_resolution','defaults_by_node_type'); raise unless defs.keys.sort==dag.fetch('node_type_values').sort
+          known=dag.fetch('nodes').map{|n|n['id']}.to_h{|x|[x,true]}; ovs=p.dig('node_phase_resolution','exact_overrides')
+          ovs.keys.each{|id| raise "unknown override #{id}" unless known[id]}
+          dag.fetch('nodes').each do |n|
+            path=ovs.dig(n['id'],'phases') || defs[n['type']]; raise "unmapped #{n['id']}" if !path || path.empty?
+            nums=path.map{|x| raise("unknown phase #{x}") unless pos.key?(x); pos[x]}; raise "bad phase order #{n['id']}" unless nums==nums.sort && nums.uniq.length==nums.length
+          end
+          pg=p.fetch('PostgreSQL_activation_strategy'); raise unless pg.dig('candidate_key_or_unique_constraint','NOT_VALID_supported')==false && pg.dig('exclusion_constraint','NOT_VALID_supported')==false
+          raise unless p.dig('global_validation_gate','validation_requires_zero_unresolved_required_reconciliation_cases')==true
+          cs=p.fetch('legacy_safety_cohorts'); raise unless cs.length==6; cs.each{|name,c| raise name unless c['write_fence_before_backfill']==true && c['unresolved_before_validate']=='zero'}
+          b=d.fetch('blockers').to_h{|x|[x['id'],x]}; raise unless b['DB-MIG-001']['status']=='PASS' && b['DB-MIG-002']['status']=='PASS'; %w[DB-MIG-003 DB-TST-001 DB-TST-002 DB-FINAL-001].each{|id|raise id unless b[id]['status']=='OPEN'}
+          s=d.fetch('diagnosis_summary'); raise unless s['resolved_after_diagnosis']==2 && s['open_P0_P1']==4 && s['result']=='FAIL_WITH_4_P1_BLOCKERS'
+          raise unless d.dig('next_single_step_after_central_gate','id')=='DB-MIG-003'
+          raise unless p.dig('preservation_boundary','DB_MIG_003_cutover_restart_failure_rollback_not_solved')==true
+          raise unless d.dig('meta','Stage5_started')==false && d.dig('meta','Laravel_migrations_created')==false
+          RUBY
+          git diff --check -- specs/database/final-migration-order-invariant-matrix.yml
+          mapfile -t changed < <(git diff --name-only | sort); test "${#changed[@]}" -eq 1; test "${changed[0]}" = specs/database/final-migration-order-invariant-matrix.yml
+          git config user.name prawkonaraz100; git config user.email prawkonaraz100@gmail.com
+          git add specs/database/final-migration-order-invariant-matrix.yml
+          git commit -m "Validate DB-MIG-002 migration phase composition"
+          git push origin HEAD:tmp-db-mig-002-machine-validation-20260910
