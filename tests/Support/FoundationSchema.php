@@ -3,6 +3,7 @@
 namespace Tests\Support;
 
 use App\Support\Migrations\MigrationPlan;
+use Database\Seeders\FoundationReferenceCatalogSeeder;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -55,6 +56,8 @@ final class FoundationSchema
         foreach (self::TABLES as $table) {
             DB::table($table)->delete();
         }
+
+        app(FoundationReferenceCatalogSeeder::class)->run();
     }
 
     /** @return array{organization_id:string,user_id:string,membership_id:string,session_id:string} */
@@ -67,27 +70,45 @@ final class FoundationSchema
         $now = now();
 
         DB::table('organizations')->insert([
-            'id' => $org, 'name' => 'Synthetic OSK', 'status' => 'active',
-            'created_at' => $now, 'updated_at' => $now,
+            'id' => $org,
+            'name' => 'Synthetic OSK',
+            'status' => 'active',
+            'created_at' => $now,
+            'updated_at' => $now,
         ]);
         DB::table('organization_settings')->insert([
-            'organization_id' => $org, 'version' => 1, 'created_at' => $now, 'updated_at' => $now,
+            'organization_id' => $org,
+            'version' => 1,
+            'created_at' => $now,
+            'updated_at' => $now,
         ]);
         DB::table('users')->insert([
-            'id' => $user, 'first_name' => 'Test', 'last_name' => 'Owner', 'status' => 'active',
-            'created_at' => $now, 'updated_at' => $now,
+            'id' => $user,
+            'first_name' => 'Test',
+            'last_name' => 'Owner',
+            'status' => 'active',
+            'created_at' => $now,
+            'updated_at' => $now,
         ]);
         DB::table('organization_memberships')->insert([
-            'id' => $membership, 'organization_id' => $org, 'user_id' => $user,
-            'status' => 'active', 'is_owner' => $owner, 'version' => 1, 'authorization_version' => 1,
-            'created_at' => $now, 'updated_at' => $now,
+            'id' => $membership,
+            'organization_id' => $org,
+            'user_id' => $user,
+            'status' => 'active',
+            'is_owner' => $owner,
+            'version' => 1,
+            'authorization_version' => 1,
+            'created_at' => $now,
+            'updated_at' => $now,
         ]);
         DB::table('auth_sessions')->insert([
-            'id' => $session, 'user_id' => $user, 'organization_membership_id' => $membership,
-            'token_or_framework_session_hash' => hash('sha256', $session), 'created_at' => $now,
+            'id' => $session,
+            'user_id' => $user,
+            'organization_membership_id' => $membership,
+            'token_or_framework_session_hash' => hash('sha256', $session),
+            'created_at' => $now,
         ]);
 
-        self::seedScopes();
         self::grant($membership, 'staff.permissions.manage', ['organization']);
         self::grant($membership, 'organization.members.manage', ['organization']);
         self::grant($membership, 'organization.settings.manage', ['organization']);
@@ -98,8 +119,6 @@ final class FoundationSchema
             }
         }
 
-        self::installAuditPolicies();
-
         return [
             'organization_id' => $org,
             'user_id' => $user,
@@ -108,19 +127,22 @@ final class FoundationSchema
         ];
     }
 
-    /** @param list<string> $scopes */
+    /** @param  list<string>  $scopes */
     public static function grant(string $membershipId, string $permission, array $scopes): void
     {
-        DB::table('permissions')->updateOrInsert(
-            ['code' => $permission],
-            ['description' => $permission],
-        );
-        foreach ($scopes as $scope) {
-            DB::table('permission_scope_options')->updateOrInsert(
-                ['permission_code' => $permission, 'scope_code' => $scope],
-                ['resolver_code' => $scope === 'organization' ? 'tenant_resource' : 'not_materialized'],
-            );
+        if (! DB::table('permissions')->where('code', $permission)->exists()) {
+            throw new LogicException("Synthetic fixture attempted unknown permission {$permission}.");
         }
+
+        foreach ($scopes as $scope) {
+            if (! DB::table('permission_scope_options')
+                ->where('permission_code', $permission)
+                ->where('scope_code', $scope)
+                ->exists()) {
+                throw new LogicException("Synthetic fixture attempted unsupported scope {$scope} for {$permission}.");
+            }
+        }
+
         DB::table('membership_permissions')->updateOrInsert(
             ['membership_id' => $membershipId, 'permission_code' => $permission],
             ['granted' => true, 'created_at' => now()],
@@ -144,53 +166,25 @@ final class FoundationSchema
         $user = (string) Str::uuid7();
         $membership = (string) Str::uuid7();
         DB::table('users')->insert([
-            'id' => $user, 'first_name' => 'Synthetic', 'last_name' => 'Member', 'status' => 'active',
-            'created_at' => now(), 'updated_at' => now(),
+            'id' => $user,
+            'first_name' => 'Synthetic',
+            'last_name' => 'Member',
+            'status' => 'active',
+            'created_at' => now(),
+            'updated_at' => now(),
         ]);
         DB::table('organization_memberships')->insert([
-            'id' => $membership, 'organization_id' => $organizationId, 'user_id' => $user,
-            'status' => 'active', 'is_owner' => $owner, 'version' => 1, 'authorization_version' => 1,
-            'created_at' => now(), 'updated_at' => now(),
+            'id' => $membership,
+            'organization_id' => $organizationId,
+            'user_id' => $user,
+            'status' => 'active',
+            'is_owner' => $owner,
+            'version' => 1,
+            'authorization_version' => 1,
+            'created_at' => now(),
+            'updated_at' => now(),
         ]);
 
         return $membership;
-    }
-
-    public static function installAuditPolicies(): void
-    {
-        $policies = [
-            'authorization.permission.changed' => 'foundation.authorization.v1',
-            'authorization.owner.transferred' => 'foundation.authorization.v1',
-            'organization.settings.updated' => 'foundation.settings.v1',
-        ];
-        foreach ($policies as $action => $validator) {
-            DB::table('audit_action_policy_revisions')->updateOrInsert(
-                ['action' => $action, 'policy_version' => 1],
-                [
-                    'payload_validator_code' => $validator,
-                    'before_payload_requirement' => 'required',
-                    'after_payload_requirement' => 'required',
-                    'reason_requirement' => 'optional',
-                    'policy_hash' => hash('sha256', $action.'|1|'.$validator),
-                    'created_at' => now(),
-                ],
-            );
-            DB::table('audit_action_policy_currents')->updateOrInsert(
-                ['action' => $action],
-                ['policy_version' => 1, 'updated_at' => now()],
-            );
-        }
-    }
-
-    private static function seedScopes(): void
-    {
-        foreach ([
-            'organization' => 'Tenant-wide resource scope',
-            'own' => 'Own resource scope',
-            'assigned_students' => 'Assigned students scope',
-            'assigned_locations' => 'Assigned locations scope',
-        ] as $code => $description) {
-            DB::table('data_scopes')->updateOrInsert(['code' => $code], ['description' => $description]);
-        }
     }
 }
