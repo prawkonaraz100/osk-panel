@@ -226,22 +226,25 @@ quality_gate:
     - S5-FOUND-001
 
 next_single_step:
-  id: CORE-V1-LOC-STAFF-VEH-001-CLOSE
-  action: validate_locations_staff_vehicles_closure_payload_on_accepted_branch_and_STOP
-  prerequisite_implementation_commit: bac644cf46e64e63b149196c15f76f2efb683810
+  id: CORE-V1-STUDENTS-COURSE-ENROLLMENT-001
+  action: begin_students_course_enrollment_slice_only_after_next_explicit_user_instruction
+  prerequisite_previous_slice: CORE-V1-LOC-STAFF-VEH-001_PASS
   implementation_order_source: AGENTS.md
   allowed_scope:
-    - closure_documentation
-    - stage_5_gate_state_for_current_slice
+    - Students
+    - Course_Enrollment
+    - dependency_closed_migrations_for_this_slice
+    - module_API_permissions_tests_and_traceability
+    - own_UI_for_confirmed_screen_scope
   forbidden_scope:
-    - Students_or_later_core_modules
-    - feature_code_changes
+    - Calendar_or_Training_Session_Hour_Ledger
+    - Student_Finance_or_later_core_modules
     - Stage_4_authority_rewrite
     - weakening_existing_CI_or_tenant_authority
-  after_action: only_after_5_of_5_success_flip_current_slice_to_PASS_and_expose_students_course_enrollment_as_next_step
+  after_action: run_machine_narrative_central_gate_and_STOP_before_calendar_training_session_hour_ledger_slice
 
 CORE_V1_LOC_STAFF_VEH_001_closure:
-  status: PENDING_CENTRAL_VALIDATION
+  status: PASS
   accepted_scope:
     - Locations
     - Staff
@@ -256,6 +259,10 @@ CORE_V1_LOC_STAFF_VEH_001_closure:
     helper_free_PR_validation_run: 34540278440
     accepted_branch_implementation_run: 34540533039
     accepted_branch_API_contract_run: 34540533016
+    narrative_closure_candidate_commit: 7b363e51fd34e0a46c4da4c67b89549107914d11
+    narrative_closure_validation_run: 34540745188
+    narrative_closure_validation_jobs_passed: 5
+    narrative_closure_validation_jobs_total: 5
     PR_secret_scan_limitation: Resource_not_accessible_by_integration_before_scan
     accepted_branch_push_secret_scan: PASS
   migration_materialization:
@@ -333,8 +340,8 @@ CORE_V1_LOC_STAFF_VEH_001_closure:
     Stage_4_authority_preservation: PASS
   tranche_result:
     machine_implementation: PASS
-    narrative_payload: READY
-    central_closure: PENDING
+    narrative_payload: PASS
+    central_closure: PASS
     next_core_slice: Students_Course_Enrollment
     next_core_slice_started: false
 

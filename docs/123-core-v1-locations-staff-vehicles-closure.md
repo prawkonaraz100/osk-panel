@@ -5,7 +5,7 @@ Data: 2026-09-11
 **Slice:** `CORE-V1-LOC-STAFF-VEH-001`  
 **Implementation machine:** PASS  
 **Narrative payload:** READY  
-**Central closure:** PENDING — ten commit jest payloadem closure i nie może sam ogłosić swojego wyniku przed własnym CI.
+**Central closure:** PASS
 
 ## 1. Zakres
 
@@ -165,6 +165,22 @@ Są to jawne granice kolejnych slice'ów, a nie ukryte braki oznaczone jako wyko
 
 Implementation machine = **PASS**.
 
-Ten dokument i odpowiadająca mu sekcja w `stage-5-implementation-gate.yml` są closure candidate. Finalne `CORE-V1-LOC-STAFF-VEH-001 = PASS` wolno ustawić dopiero po 5/5 SUCCESS na accepted branch dla tego closure payload.
+Closure candidate `7b363e51fd34e0a46c4da4c67b89549107914d11` przeszedł accepted-branch Implementation CI run `34540745188` z wynikiem **5/5 SUCCESS**:
 
-**STOP przed Students + Course Enrollment.**
+- backend-quality — PASS,
+- frontend-quality — PASS,
+- runtime-tests-and-migrations — PASS,
+- contracts-and-traceability — PASS,
+- secret-scan — PASS.
+
+W konsekwencji:
+
+**CORE-V1-LOC-STAFF-VEH-001 = PASS.**
+
+Następny pojedynczy krok zgodnie z `AGENTS.md`:
+
+`CORE-V1-STUDENTS-COURSE-ENROLLMENT-001`
+
+Nie został jeszcze rozpoczęty.
+
+**STOP przed Students + Course Enrollment do następnej jawnej instrukcji.**
