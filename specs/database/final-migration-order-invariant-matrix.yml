@@ -13576,11 +13576,13 @@ next_single_step_after_central_gate:
   id: DB-FINAL-001
   action: resolve_DB_FINAL_001_only_after_next_explicit_user_instruction
   allowed_files_only:
+    - specs/database/core-schema.yml
+    - docs/87-physical-database-schema.md
     - specs/database/final-migration-order-invariant-matrix.yml
     - docs/116-stage-4-final-migration-order-invariant-matrix-audit.md
     - specs/gates/stage-4-database-contract-gate.yml
   prior_bounded_context_specs_read_only: true
-  aggregate_core_schema_and_docs87_frozen_until_DB_FINAL_001: true
+  aggregate_core_schema_and_docs87_frozen_until_entry_to_DB_FINAL_001: true
   scope_lock: >-
     DB-MIG-001, DB-MIG-002, DB-MIG-003, DB-TST-001 and DB-TST-002 are PASS. Resolve DB-FINAL-001 only.
     DB-FINAL-001 owns the aggregate sync of core-schema.yml and docs/87. Do not enter Stage 5,
