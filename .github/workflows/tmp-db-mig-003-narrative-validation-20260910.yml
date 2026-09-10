@@ -1,0 +1,51 @@
+name: tmp-db-mig-003-narrative-validation-20260910
+
+on:
+  push:
+    branches:
+      - tmp-db-mig-003-narrative-validation-20260910
+
+permissions:
+  contents: write
+
+jobs:
+  validate-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: tmp-db-mig-003-narrative-validation-20260910
+          fetch-depth: 0
+
+      - name: Build and validate DB-MIG-003 narrative
+        shell: bash
+        run: |
+          test "$(git hash-object docs/116-stage-4-final-migration-order-invariant-matrix-audit.md)" = "71f84a7581f8fe2a7fdbb3747cefffb1e1954faf"
+          test "$(git hash-object specs/database/final-migration-order-invariant-matrix.yml)" = "df06baca7947d74e04adc5912fb40fdb972fa38e"
+          test "$(git hash-object specs/database/core-schema.yml)" = "39958721c99550cfc27c3774e8dfa1af0d0637e6"
+          test "$(git hash-object docs/87-physical-database-schema.md)" = "6c090b082604b6b42c283667fcf08e9033a5b523"
+          python3 .tmp/db-mig-003-narrative-validator.py
+          git diff --check
+          test "$(git hash-object specs/database/final-migration-order-invariant-matrix.yml)" = "df06baca7947d74e04adc5912fb40fdb972fa38e"
+          test "$(git hash-object specs/database/core-schema.yml)" = "39958721c99550cfc27c3774e8dfa1af0d0637e6"
+          test "$(git hash-object docs/87-physical-database-schema.md)" = "6c090b082604b6b42c283667fcf08e9033a5b523"
+
+      - name: Remove helper artifacts and verify net diff
+        shell: bash
+        run: |
+          rm .github/workflows/tmp-db-mig-003-narrative-validation-20260910.yml
+          rm .tmp/db-mig-003-narrative-section.md
+          rm .tmp/db-mig-003-narrative-validator.py
+          rmdir .tmp 2>/dev/null || true
+          test "$(git diff --name-only | sort)" = $'.github/workflows/tmp-db-mig-003-narrative-validation-20260910.yml\n.tmp/db-mig-003-narrative-section.md\n.tmp/db-mig-003-narrative-validator.py\ndocs/116-stage-4-final-migration-order-invariant-matrix-audit.md'
+          git diff --check
+          git diff --stat
+
+      - name: Commit validated narrative result
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "DB-MIG-003: align cutover safety narrative"
+          git push origin HEAD:tmp-db-mig-003-narrative-validation-20260910
