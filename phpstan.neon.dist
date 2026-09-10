@@ -1,0 +1,10 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+
+parameters:
+    paths:
+        - app
+        - routes
+    level: 8
+    tmpDir: storage/framework/testing/phpstan
+    checkMissingIterableValueType: true
