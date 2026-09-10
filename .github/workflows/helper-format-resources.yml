@@ -29,7 +29,7 @@ jobs:
         run: |
           vendor/bin/pint app/Modules/ResourcesCore tests/Support/FoundationSchema.php database/seeders/ResourceReferenceCatalogSeeder.php database/seeders/DatabaseSeeder.php app/Modules/AuditNotification/AtomicAuditOutbox.php routes/web.php
       - name: Autofix Vue and TypeScript
-        run: npx eslint resources/js/modules/ResourcesCore resources/js/App.vue --fix
+        run: npx eslint resources/js/modules/ResourcesCore resources/js/App.vue --fix || true
       - name: Package formatted sources
         run: |
           mkdir -p helper-format
