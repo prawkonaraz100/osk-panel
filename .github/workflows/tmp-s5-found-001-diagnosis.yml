@@ -1,0 +1,91 @@
+name: tmp-s5-found-001-diagnosis
+
+on:
+  push:
+    branches:
+      - tmp-s5-found-001-diagnosis-20260910
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - run: python -m pip install pyyaml
+      - name: Diagnose foundation migration and DBT scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, yaml
+          from pathlib import Path
+
+          plan = json.loads(Path('database/migration-plan/plan.json').read_text())
+          nodes = {n['node_id']: n for n in plan['nodes']}
+          order = [n['node_id'] for n in plan['nodes']]
+
+          wanted_objects = {
+            'organizations','users','permissions','data_scopes','organization_settings',
+            'organization_contact_addresses','auth_login_identifiers','organization_memberships',
+            'membership_permissions','permission_scope_options','membership_permission_scopes',
+            'auth_sessions','audit_action_policy_revisions','audit_action_policy_currents',
+            'audit_logs','domain_events','outbox_messages'
+          }
+          seeds = [n['node_id'] for n in plan['nodes'] if n['object_name'] in wanted_objects]
+          seeds += [n['node_id'] for n in plan['nodes'] if n['node_id'] in {
+            'MIG-CK-IDENTITY','MIG-IDX-IDENTITY','MIG-FK-IDENTITY','MIG-CON-IDENTITY','MIG-TRG-IDENTITY',
+            'MIG-CK-EVENTS','MIG-IDX-EVENTS','MIG-FK-EVENTS','MIG-CON-EVENTS','MIG-TRG-EVENTS'
+          }]
+          seeds = list(dict.fromkeys(seeds))
+
+          closure=set()
+          def add(nid):
+            if nid in closure: return
+            closure.add(nid)
+            for dep in nodes[nid]['requires']:
+              add(dep)
+          for s in seeds: add(s)
+          closure_ordered=[nid for nid in order if nid in closure]
+          max_idx=max(order.index(nid) for nid in closure_ordered)
+          prefix=order[:max_idx+1]
+          unrelated=[nid for nid in prefix if nid not in closure]
+
+          print('FOUNDATION_SEEDS=', len(seeds))
+          for nid in seeds:
+            n=nodes[nid]
+            print('SEED', n['order'], nid, n['object_name'], 'requires=', ','.join(n['requires']), 'phases=', ','.join(n['phases']))
+          print('DEPENDENCY_CLOSURE_COUNT=', len(closure_ordered))
+          print('DEPENDENCY_CLOSURE_IDS=', ','.join(closure_ordered))
+          print('CANONICAL_PREFIX_TO_MAX_FOUNDATION_COUNT=', len(prefix))
+          print('CANONICAL_PREFIX_UNRELATED_COUNT=', len(unrelated))
+          print('CANONICAL_PREFIX_UNRELATED_IDS=', ','.join(unrelated))
+
+          matrix = yaml.safe_load(Path('specs/database/final-migration-order-invariant-matrix.yml').read_text())
+          tests=[]
+          def walk(v, path=()):
+            if isinstance(v, dict):
+              if isinstance(v.get('test_id'), str) and v['test_id'].startswith('DBT-'):
+                tests.append((v['test_id'], path, v))
+              for k,x in v.items(): walk(x, path+(str(k),))
+            elif isinstance(v, list):
+              for i,x in enumerate(v): walk(x, path+(str(i),))
+          walk(matrix)
+          print('MATRIX_TEST_ROWS=', len(tests))
+          source_needles=['specs/database/identity-rbac.yml','specs/database/organization-settings.yml','specs/database/audit-outbox-notifications.yml','specs/security/permissions.yml']
+          relevant=[]
+          for tid,path,row in tests:
+            blob=yaml.safe_dump(row, sort_keys=False)
+            if any(n in blob for n in source_needles):
+              relevant.append((tid,path,row))
+          print('FOUNDATION_SOURCE_DBT_COUNT=', len(relevant))
+          for tid,path,row in relevant:
+            name=row.get('source_invariant') or row.get('name') or row.get('expected_outcome') or ''
+            cls=row.get('test_class') or row.get('class') or ''
+            phase=row.get('execution_phase') or ''
+            print('DBT', tid, 'class=', cls, 'phase=', phase, 'name=', str(name)[:220].replace('\n',' '))
+          PY
