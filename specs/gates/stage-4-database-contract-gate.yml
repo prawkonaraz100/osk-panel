@@ -119,12 +119,12 @@ stage_4_slices:
     final_aggregate_sync: PASS
     result: PASS
   - id: DB4_11_FINAL_MIGRATION_ORDER_AND_INVARIANT_TEST_MATRIX
-    status: FAIL_WITH_2_P1_BLOCKERS
+    status: FAIL_WITH_1_P1_BLOCKER
     diagnosis: COMPLETE
     blockers_diagnosed: 6
-    blockers_resolved: 4
-    open_P0_P1: 2
-    result: FAIL_WITH_2_P1_BLOCKERS
+    blockers_resolved: 5
+    open_P0_P1: 1
+    result: FAIL_WITH_1_P1_BLOCKER
 
 quality_checks:
   DB4_1_foundation:
@@ -4265,6 +4265,43 @@ quality_checks:
       Stage5_started: false
       UI_or_feature_implementation_started: false
 
+  DB4_11_DB_TST_002:
+    status: PASS
+    resolved_blocker_id: DB-TST-002
+    machine_source: specs/database/final-migration-order-invariant-matrix.yml
+    narrative_source: docs/116-stage-4-final-migration-order-invariant-matrix-audit.md
+    machine_commit: 5d2a3ec3196ece9dc94da0d66858629e51ee0501
+    machine_blob: 87f6d7ec516336148be2a253acb1675e72b3f563
+    narrative_commit: 6fce050bfb40221714b0a239c71b83c65df2ef60
+    narrative_blob: 1b962ab102956f15c59be4af24c84b8dfdf2eba5
+    aggregate_core_schema_blob_frozen: 39958721c99550cfc27c3774e8dfa1af0d0637e6
+    aggregate_docs87_blob_frozen: 6c090b082604b6b42c283667fcf08e9033a5b523
+    checks:
+      DB_MIG_001_DAG_authority_unchanged: PASS
+      DB_MIG_002_phase_composition_authority_unchanged: PASS
+      DB_MIG_003_cutover_execution_authority_unchanged: PASS
+      DB_TST_001_base_test_catalog_preserved_unchanged: PASS
+      base_test_count: 261
+      coverage_anchor_test_count: 229
+      final_test_catalog_total: 490
+      resolved_stage4_blockers_covered_after_this_step: 76
+      critical_constraints_covered: 183
+      transactional_invariants_covered: 45
+      bounded_local_required_test_occurrences_preserved: 1581
+      bounded_local_unique_test_names_preserved: 1576
+      fuzzy_equivalence_not_assumed: PASS
+      migration_postcheck_anchor_defined: PASS
+      unknown_final_test_refs: 0
+      unknown_or_orphan_source_refs: 0
+      coverage_gaps: 0
+      DB_FINAL_001_aggregate_sync_not_solved_early: PASS
+      core_schema_modified_in_DB_TST_002: false
+      docs87_modified_in_DB_TST_002: false
+      framework_test_files_generated: false
+      Laravel_migrations_created: false
+      Stage5_started: false
+      UI_or_feature_implementation_started: false
+
 resolved_blockers:
   - DB-AUD-001
   - DB-AUD-002
@@ -4341,9 +4378,9 @@ resolved_blockers:
   - DB-MIG-002
   - DB-MIG-003
   - DB-TST-001
+  - DB-TST-002
 
 open_blockers_current_diagnosed_scope:
-  - DB-TST-002
   - DB-FINAL-001
 
 gate_definition:
@@ -4354,7 +4391,7 @@ gate_definition:
     - migration_order_dependency_safe
     - database_invariant_test_matrix_exists
     - reverse_engineering_preservation_traceable
-  current_result: DB4_11_FAIL_WITH_2_P1_BLOCKERS
+  current_result: DB4_11_FAIL_WITH_1_P1_BLOCKER
   DB4_1_result: PASS
   DB4_2_result: PASS
   DB4_3_result: PASS
@@ -4440,9 +4477,9 @@ gate_definition:
   DB4_11_DB_MIG_002_result: PASS
   DB4_11_DB_MIG_003_result: PASS
   DB4_11_DB_TST_001_result: PASS
-  DB4_11_DB_TST_002_result: OPEN
+  DB4_11_DB_TST_002_result: PASS
   DB4_11_DB_FINAL_001_result: OPEN
-  DB4_11_result: FAIL_WITH_2_P1_BLOCKERS
+  DB4_11_result: FAIL_WITH_1_P1_BLOCKER
   may_start_DB4_4_fixes: false
   may_start_DB4_5: false
   may_start_DB4_5_fixes: false
@@ -4462,18 +4499,20 @@ gate_definition:
   may_start_UI_or_feature_implementation: false
 
 next_single_step:
-  id: DB-TST-002
-  action: resolve_DB_TST_002_only_after_next_explicit_user_instruction
+  id: DB-FINAL-001
+  action: resolve_DB_FINAL_001_only_after_next_explicit_user_instruction
   diagnosis_only: false
   fixes_allowed_in_same_step: true
   allowed_scope:
+    - specs/database/core-schema.yml
+    - docs/87-physical-database-schema.md
     - specs/database/final-migration-order-invariant-matrix.yml
     - docs/116-stage-4-final-migration-order-invariant-matrix-audit.md
     - specs/gates/stage-4-database-contract-gate.yml
   prior_bounded_context_specs_read_only: true
-  aggregate_core_schema_and_docs87_frozen_until_DB_FINAL_001: true
+  aggregate_core_schema_and_docs87_frozen_until_entry_to_DB_FINAL_001: true
   scope_lock: >-
-    DB-MIG-001, DB-MIG-002, DB-MIG-003 and DB-TST-001 are PASS. Resolve DB-TST-002 only.
-    Preserve DB-FINAL-001 as OPEN. Do not modify core-schema.yml or docs/87, enter Stage 5,
-    generate Laravel migrations, or implement UI/features.
-  after_action: run_DB_TST_002_machine_narrative_central_gate_and_STOP_before_DB_FINAL_001
+    DB-MIG-001, DB-MIG-002, DB-MIG-003, DB-TST-001 and DB-TST-002 are PASS. Resolve DB-FINAL-001 only.
+    DB-FINAL-001 owns aggregate sync of core-schema.yml and docs/87. Do not enter Stage 5,
+    generate Laravel migrations, or implement UI/features before DB-FINAL-001 passes.
+  after_action: run_DB_FINAL_001_machine_narrative_central_gate_and_STOP_before_Stage_5
