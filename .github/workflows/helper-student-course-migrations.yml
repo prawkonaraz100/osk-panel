@@ -1,0 +1,197 @@
+name: Helper validate student course migrations
+
+on:
+  push:
+    branches:
+      - tmp-core-v1-students-course-enrollment-001-20260911
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: tmp-core-v1-students-course-enrollment-001-20260911
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          extensions: mbstring, intl, pdo_pgsql, redis
+          coverage: none
+      - run: composer install --no-interaction --prefer-dist --no-progress
+      - name: Bind review batch to migration registry
+        run: |
+          cat > /tmp/register_batch.php <<'PHP'
+          <?php
+          $registryPath = 'database/migration-plan/implementations.json';
+          $planPath = 'database/migration-plan/plan.json';
+          $testPath = 'tests/Unit/MigrationPlanContractTest.php';
+
+          $registry = json_decode((string) file_get_contents($registryPath), true, 512, JSON_THROW_ON_ERROR);
+          $plan = json_decode((string) file_get_contents($planPath), true, 512, JSON_THROW_ON_ERROR);
+
+          $batch = [
+              'MIG-TBL-STUDENTS',
+              'MIG-TBL-COURSE_ENROLLMENTS',
+              'MIG-TBL-COURSE_ENROLLMENT_LIFECYCLE_EVENTS',
+              'MIG-TBL-TRAINING_REQUIREMENT_RULE_SETS',
+              'MIG-TBL-COURSE_REQUIREMENT_CONTEXTS',
+              'MIG-TBL-COURSE_REQUIREMENT_CONTEXT_HELD_CATEGORIES',
+              'MIG-TBL-COURSE_REQUIREMENT_OVERRIDE_DECISIONS',
+              'MIG-TBL-TRAINING_REQUIREMENT_PROFILES',
+              'MIG-TBL-COURSE_EXEMPTION_DECISIONS',
+              'MIG-TBL-RECOGNIZED_EXTERNAL_TRAINING',
+          ];
+
+          $nodes = [];
+          foreach ($plan['nodes'] as $node) {
+              $nodes[$node['node_id']] = $node;
+          }
+
+          $existing = [];
+          foreach ($registry['implemented_steps'] as $step) {
+              $existing[$step['node_id'].'|'.$step['phase']] = $step;
+          }
+
+          foreach ($batch as $nodeId) {
+              if (! isset($nodes[$nodeId])) {
+                  throw new RuntimeException("Unknown migration plan node {$nodeId}");
+              }
+              $node = $nodes[$nodeId];
+              if ($node['phases'] !== ['expand']) {
+                  throw new RuntimeException("Unexpected phase shape for {$nodeId}");
+              }
+
+              $dir = 'database/migrations/stage4/expand/'.$nodeId;
+              $files = glob($dir.'/*.php');
+              if (! is_array($files) || count($files) !== 1) {
+                  throw new RuntimeException("Expected exactly one migration for {$nodeId}");
+              }
+              $file = $files[0];
+              $hash = hash_file('sha256', $file);
+              if (! is_string($hash)) {
+                  throw new RuntimeException("Cannot hash {$file}");
+              }
+
+              $existing[$nodeId.'|expand'] = [
+                  'node_id' => $nodeId,
+                  'phase' => 'expand',
+                  'migration_file' => $file,
+                  'migration_name' => pathinfo($file, PATHINFO_FILENAME),
+                  'file_sha256' => $hash,
+                  'restart_classification' => $node['restart_classification'],
+                  'safe_down' => false,
+              ];
+          }
+
+          $phaseOrder = array_flip($plan['phase_order']);
+          usort($registry['implemented_steps'] = array_values($existing), static function (array $a, array $b) use ($nodes, $phaseOrder): int {
+              $ao = $nodes[$a['node_id']]['order'];
+              $bo = $nodes[$b['node_id']]['order'];
+
+              return $ao <=> $bo ?: $phaseOrder[$a['phase']] <=> $phaseOrder[$b['phase']];
+          });
+
+          $oldIdentity = (string) $registry['execution_identity'];
+          $lines = [
+              'schema_version|'.$registry['schema_version'],
+              'plan_identity|'.$registry['plan_identity'],
+              'stage4_root|'.$registry['stage4_root'],
+          ];
+          foreach ($registry['implemented_steps'] as $step) {
+              $lines[] = implode('|', [
+                  'step',
+                  $step['node_id'],
+                  $step['phase'],
+                  $step['migration_file'],
+                  $step['migration_name'],
+                  $step['file_sha256'],
+                  $step['restart_classification'],
+                  $step['safe_down'] ? '1' : '0',
+              ]);
+          }
+          $newIdentity = hash('sha256', implode("\n", $lines)."\n");
+          $registry['execution_identity'] = $newIdentity;
+          file_put_contents($registryPath, json_encode($registry, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES).PHP_EOL);
+
+          $test = (string) file_get_contents($testPath);
+          $test = str_replace('$this->assertSame(34, $plan->implementedNodeCount());', '$this->assertSame(44, $plan->implementedNodeCount());', $test);
+          $test = str_replace('$this->assertSame(34, $plan->implementedStepCount());', '$this->assertSame(44, $plan->implementedStepCount());', $test);
+          $test = str_replace("'".$oldIdentity."', \$plan->executionIdentity()", "'".$newIdentity."', \$plan->executionIdentity()", $test);
+
+          $insertBefore = "            'MIG-TBL-AUDIT_ACTION_POLICY_REVISIONS',";
+          if (! str_contains($test, "            'MIG-TBL-STUDENTS',")) {
+              $newNodes = '';
+              foreach ($batch as $nodeId) {
+                  $newNodes .= "            '".$nodeId."',\n";
+              }
+              if (! str_contains($test, $insertBefore)) {
+                  throw new RuntimeException('Migration node-list insertion anchor missing.');
+              }
+              $test = str_replace($insertBefore, $newNodes.$insertBefore, $test);
+          }
+
+          file_put_contents($testPath, $test);
+          file_put_contents('/tmp/execution_identity', $newIdentity);
+          fwrite(STDOUT, "EXECUTION_IDENTITY={$newIdentity}\n");
+          PHP
+          php /tmp/register_batch.php
+          vendor/bin/pint tests/Unit/MigrationPlanContractTest.php
+          php artisan migration:plan:validate --json
+
+      - name: Boot deterministic PostgreSQL runtime
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+          docker compose up -d --wait
+
+      - name: Execute controlled expand and verify tables
+        run: |
+          EXECUTION_IDENTITY="$(cat /tmp/execution_identity)"
+          php artisan migration:controlled             --plan=d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10             --execution="$EXECUTION_IDENTITY"             --phase=expand             --force
+          php artisan migration:controlled             --plan=d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10             --execution="$EXECUTION_IDENTITY"             --phase=expand             --force
+          php -r '
+            require "vendor/autoload.php";
+            $app = require "bootstrap/app.php";
+            $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+            $tables = [
+              "students",
+              "course_enrollments",
+              "course_enrollment_lifecycle_events",
+              "training_requirement_rule_sets",
+              "course_requirement_contexts",
+              "course_requirement_context_held_categories",
+              "course_requirement_override_decisions",
+              "training_requirement_profiles",
+              "course_exemption_decisions",
+              "recognized_external_training",
+            ];
+            foreach ($tables as $table) {
+              if (!Illuminate\Support\Facades\Schema::hasTable($table)) {
+                fwrite(STDERR, "Missing table: {$table}\n");
+                exit(1);
+              }
+            }
+          '
+
+      - name: Run existing PostgreSQL suite
+        run: php artisan test --fail-on-warning
+
+      - name: Commit validated registry
+        run: |
+          git config user.name "stage5-helper"
+          git config user.email "stage5-helper@users.noreply.github.com"
+          git add database/migration-plan/implementations.json tests/Unit/MigrationPlanContractTest.php
+          if git diff --cached --quiet; then
+            echo "Registry already normalized."
+          else
+            git commit -m "CORE-V1-STUDENTS-COURSE-ENROLLMENT-001: bind first migration batch"
+            git push origin HEAD:tmp-core-v1-students-course-enrollment-001-20260911
+          fi
+
+      - name: Cleanup runtime
+        if: always()
+        run: docker compose down -v
