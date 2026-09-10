@@ -44,20 +44,8 @@ jobs:
           from pathlib import Path
           p=Path('app/Support/Migrations/MigrationPlan.php')
           s=p.read_text()
-          old="""        $canonicalIds = array_column($this->plan['nodes'], 'node_id');
-          $this->assert($implementedNodeIds === array_slice($canonicalIds, 0, count($implementedNodeIds)), 'Implemented nodes must form a canonical topological prefix.');
-
-          foreach ($implementedNodeIds as $id) {
-"""
-          new="""        $implementedNodeSet = array_fill_keys($implementedNodeIds, true);
-          $canonicalImplementedNodeIds = array_values(array_filter(
-              array_column($this->plan['nodes'], 'node_id'),
-              fn (string $id): bool => isset($implementedNodeSet[$id]),
-          ));
-          $this->assert($implementedNodeIds === $canonicalImplementedNodeIds, 'Implemented nodes must preserve canonical topological order.');
-
-          foreach ($implementedNodeIds as $id) {
-"""
+          old = "        $canonicalIds = array_column($this->plan['nodes'], 'node_id');\n        $this->assert($implementedNodeIds === array_slice($canonicalIds, 0, count($implementedNodeIds)), 'Implemented nodes must form a canonical topological prefix.');\n"
+          new = "        $implementedNodeSet = array_fill_keys($implementedNodeIds, true);\n        $canonicalImplementedNodeIds = array_values(array_filter(\n            array_column($this->plan['nodes'], 'node_id'),\n            fn (string $id): bool => isset($implementedNodeSet[$id]),\n        ));\n        $this->assert($implementedNodeIds === $canonicalImplementedNodeIds, 'Implemented nodes must preserve canonical topological order.');\n"
           if s.count(old) != 1:
               raise SystemExit('exact prefix assertion fragment not found once')
           p.write_text(s.replace(old,new,1))
@@ -78,11 +66,11 @@ jobs:
           grep -Fq '"nodes":170' /tmp/migration-plan.json
           git diff --check
 
-      - name: Prove Stage 4 requires dependency edges not prefix materialization
+      - name: Prove Stage 4 dependency authority is preserved
         shell: bash
         run: |
           set -euo pipefail
-          ruby -e "require 'yaml'; require 'date'; y=YAML.safe_load(File.read('specs/database/final-migration-order-invariant-matrix.yml'), permitted_classes:[Date], aliases:true); s=File.read('specs/database/final-migration-order-invariant-matrix.yml'); abort('Stage4 prefix authority unexpectedly present') if s.include?('canonical_topological_prefix'); abort('edge rule missing') unless s.include?('requires_means_all_named_nodes_must_complete_successfully_before_this_node_may_execute')"
+          ruby -e "require 'yaml'; require 'date'; YAML.safe_load(File.read('specs/database/final-migration-order-invariant-matrix.yml'), permitted_classes:[Date], aliases:true); s=File.read('specs/database/final-migration-order-invariant-matrix.yml'); abort('Stage4 prefix authority unexpectedly present') if s.include?('canonical_topological_prefix'); abort('edge rule missing') unless s.include?('requires_means_all_named_nodes_must_complete_successfully_before_this_node_may_execute')"
           echo 'S5_MIG_PREFIX_DIAGNOSIS=PASS_DEPENDENCY_CLOSED_SUBSET'
 
       - name: Remove helper workflow and commit final helper state
