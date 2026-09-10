@@ -1,0 +1,100 @@
+name: tmp-db-tst-002-narrative-validation-20260910
+on:
+  push:
+    branches:
+      - tmp-db-tst-002-narrative-validation-20260910
+permissions:
+  contents: write
+jobs:
+  validate-narrative:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: tmp-db-tst-002-narrative-validation-20260910
+          fetch-depth: 0
+      - name: Patch narrative from validated machine authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=0dbaf455c1a1da00288fad27546af53198b9728c
+          DOC=docs/116-stage-4-final-migration-order-invariant-matrix-audit.md
+          test "$(git rev-parse ${BASE}:specs/database/final-migration-order-invariant-matrix.yml)" = 063de6a60732e370f006b3970cee8df06811d00c
+          test "$(git rev-parse ${BASE}:$DOC)" = 45f584bd36206c0b13592dbaf40bb55801cfac63
+          test "$(git rev-parse ${BASE}:specs/database/core-schema.yml)" = 39958721c99550cfc27c3774e8dfa1af0d0637e6
+          test "$(git rev-parse ${BASE}:docs/87-physical-database-schema.md)" = 6c090b082604b6b42c283667fcf08e9033a5b523
+          python3 <<'PY'
+          from pathlib import Path
+          p=Path('docs/116-stage-4-final-migration-order-invariant-matrix-audit.md')
+          s=p.read_text()
+          reps={
+          '**Aktualny krok:** `DB-TST-001`\n**Status:** `FAIL_WITH_2_P1_BLOCKERS / 0 P0 / 2 P1 OPEN`': '**Aktualny krok:** `DB-TST-002`\n**Status:** `FAIL_WITH_1_P1_BLOCKER / 0 P0 / 1 P1 OPEN`',
+          'DB-MIG-001 zamknął wykonawczy graf zależności i kanoniczną kolejność topologiczną obiektów migracyjnych. DB-MIG-002 dodał nad tym DAG siedmiofazową kompozycję `expand/preflight/write_fence/backfill/reconcile/validate/contract`. DB-MIG-003 domknął entry/exit/abort, restart/failure handling i bezpieczny rollback. DB-TST-001 dodaje nad tymi authority stabilną machine-readable macierz testów inwariantów bez zmiany DAG, faz ani cutover contract.\n\nW tym kroku domykamy wyłącznie strukturę finalnego katalogu testów: stabilne `test_id`, klasę wykonania, source invariant, expected outcome, execution phase, fixture profile, concurrency profile i blocking severity. Nie wykonujemy jeszcze completeness/coverage joinu DB-TST-002, nie synchronizujemy finalnych agregatów DB-FINAL-001, nie generujemy testów frameworkowych ani migracji Laravel, nie rozpoczynamy Stage 5 i nie zmieniamy UI/API.': 'DB-MIG-001 zamknął wykonawczy graf zależności i kanoniczną kolejność topologiczną obiektów migracyjnych. DB-MIG-002 dodał nad tym DAG siedmiofazową kompozycję `expand/preflight/write_fence/backfill/reconcile/validate/contract`. DB-MIG-003 domknął entry/exit/abort, restart/failure handling i bezpieczny rollback. DB-TST-001 dodał stabilną machine-readable macierz 261 testów inwariantów. DB-TST-002 domyka nad tym katalogiem machine-readable coverage/traceability proof bez zmiany DAG, faz, cutover contract ani istniejących 261 identyfikatorów.\n\nW tym kroku domykamy wyłącznie completeness join: resolved blockers, `critical_constraints`, `transactional_invariants` oraz wszystkie lokalne required-test sets mają jawny status pokrycia albo zachowania. Nie synchronizujemy jeszcze agregatów DB-FINAL-001, nie generujemy framework test files ani migracji Laravel, nie rozpoczynamy Stage 5 i nie zmieniamy UI/API.',
+          'Po DB4_10 obowiązuje 71 wcześniej zamkniętych blockerów Stage 4. DB-MIG-001, DB-MIG-002, DB-MIG-003 i DB-TST-001 są kolejnymi czterema zamkniętymi blockerami; żaden wcześniejszy kontrakt nie został otwarty ponownie. Zamrożone pozostają:': 'Po DB4_10 obowiązuje 71 wcześniej zamkniętych blockerów Stage 4. DB-MIG-001, DB-MIG-002, DB-MIG-003, DB-TST-001 i DB-TST-002 są kolejnymi pięcioma zamkniętymi blockerami, czyli po tym kroku coverage obejmuje 76 resolved blockerów. Żaden wcześniejszy kontrakt nie został otwarty ponownie. Zamrożone pozostają:',
+          '## 2. Wynik po DB-TST-001\n\nWynik po DB-TST-001: **0 P0, 2 P1 OPEN**.\n\nPozostała wymagana kolejność fixerów:\n\n`DB-TST-002 → DB-FINAL-001`\n\nNie wolno scalać tych fixerów w jeden krok. Po każdym blockerze obowiązuje osobny machine + narrative + central gate.': '## 2. Wynik po DB-TST-002\n\nWynik po DB-TST-002: **0 P0, 1 P1 OPEN**.\n\nPozostał dokładnie jeden fixer:\n\n`DB-FINAL-001`\n\nDB-FINAL-001 nadal musi przejść osobny machine + narrative + central gate. Nie wolno rozpocząć Stage 5 przed jego zamknięciem.',
+          'DB-TST-001 zapewnia stabilny katalog i execution contract testów, ale **nie twierdzi jeszcze, że katalog jest kompletny względem wszystkich local bounded specs i 75 zamkniętych blockerów**. Następujące dowody pozostają wyłącznie DB-TST-002:\n- `resolved blocker -> final test IDs`,\n- `critical constraint -> test IDs`,\n- required cross-table/final-state transaction guard -> test IDs,\n- local bounded `required_tests` -> final test lub jawny stronger-equivalent mapping,\n- zero unknown source refs, orphan tests i coverage gaps.\n\nDB-FINAL-001 nadal pozostaje jedynym krokiem uprawnionym do synchronizacji `core-schema.yml` i `docs/87`.': 'DB-TST-001 zapewnił stabilny katalog i execution contract 261 testów, ale celowo nie twierdził jeszcze, że katalog jest kompletny względem wszystkich local bounded specs i zamkniętych blockerów. Te dowody należały do DB-TST-002 i są obecnie domknięte w sekcji 7.\n\nDB-FINAL-001 nadal pozostaje jedynym krokiem uprawnionym do synchronizacji `core-schema.yml` i `docs/87`.'
+          }
+          for old,new in reps.items():
+              c=s.count(old)
+              assert c==1,(old[:80],c)
+              s=s.replace(old,new,1)
+          start=s.index('## 7. DB-TST-002 — coverage i completeness proof')
+          end=s.index('## 8. DB-FINAL-001 — final machine/narrative semantic sync')
+          sec='''## 7. DB-TST-002 — coverage i completeness proof\n\n**Status: PASS / P1 RESOLVED**\n\nDB-TST-002 domyka lukę między stabilnym katalogiem DB-TST-001 a rzeczywistą kompletnością Stage 4. Discovery wykazało **75 blockerów resolved przed tym krokiem**, **183 `critical_constraints`**, **45 `transactional_invariants`** oraz **64 lokalne required-test groups obejmujące 1 581 wystąpień i 1 576 unikalnych nazw testów**. Tylko 8 lokalnych nazw było identycznych 1:1 z `source_invariant` istniejących testów DB-TST-001, dlatego fuzzy string matching nie został użyty jako dowód równoważności.\n\n### 7.1. Final test catalog: 261 + 229 = 490\n\nIstniejący katalog DB-TST-001 pozostaje byte-for-semantic-content immutable: **261 dotychczasowych `DBT-*` nie zostało renumerowanych ani przedefiniowanych**. DB-TST-002 dodaje osobny zestaw **229 coverage-anchor tests**:\n- 183 anchor tests z bezpośrednim `source_ref` do każdego `core-schema.yml::critical_constraints.<key>`,\n- 45 anchor tests z bezpośrednim `source_ref` do każdego `core-schema.yml::transactional_invariants.<key>`,\n- 1 anchor `migration_postcheck` dla samego zero-gap coverage gate.\n\nŁączny finalny katalog ma więc **490 unikalnych test IDs**. Anchor nie powstaje z heurystycznego podobieństwa nazwy; jego source key jest dokładnie tym constraintem albo transaction invariantem, którego regresję ma chronić. Każdy anchor ma tę samą minimalną strukturę wykonawczą co DB-TST-001: `test_class`, execution phase, severity, expected outcome, fixture i concurrency profile.\n\nDodatkowy `migration_postcheck` nie zmienia historycznego faktu, że bazowe 261 testów DB-TST-001 miało 0 wpisów tej klasy. DB-TST-002 dodaje pierwszy jawny postcheck coverage, który wymaga zero unknown refs i zero wymaganych gaps po zbudowaniu finalnych joinów.\n\n### 7.2. Local bounded tests są zachowane, nie „dopasowane na siłę”\n\nMachine contract przechowuje każdy z 64 lokalnych required-test sets jako source-preservation record z dokładnym plikiem, ścieżką YAML, blob SHA, listą nazw, countem i SHA-256 całego zestawu. Łącznie zachowanych jest **1 581 wystąpień**. Jeżeli lokalna nazwa jest exact match istniejącego final testu, kontrakt zapisuje ten `DBT-*`; w pozostałych przypadkach używa statusu `preserved_local_requirement_set_not_collapsed_by_fuzzy_matching`.\n\nOznacza to, że lokalny test nie znika tylko dlatego, że aggregate ma bardziej ogólny test o podobnej nazwie. Implementation Stage 5 nadal musi zrealizować zachowane local requirements albo później przedstawić jawny, recenzowany dowód stronger-equivalent. DB-TST-002 nie fabrykuje takiego dowodu automatycznie.\n\nPrzed właściwym fixerem discovery ujawniło jeden stary błąd składni YAML w `licenses-learning-access.yml`. Został naprawiony w osobnym prerequisite clean commit przez dopisanie brakującego `: true`; semantic gate potwierdził, że restore nie wykonuje resume, a resume nadal wymaga własnej autoryzowanej komendy. W samym DB-TST-002 bounded specs pozostały read-only.\n\n### 7.3. Resolved blocker traceability\n\nCoverage contract mapuje **76 blockerów** — 75 wcześniejszych oraz bieżący DB-TST-002 — do znanych final test IDs. DB-TST-001 mapuje się do niezmienionego bazowego katalogu; DB-TST-002 do własnego zero-gap `migration_postcheck`. DB-MIG-001..003 zachowują dodatkowy structural machine gate i są związane z migration-preflight/postcheck regression set, zamiast udawać, że pojedynczy biznesowy test dowodzi poprawności DAG lub restart contract.\n\nFoundation i wczesny IAM mają jawne contract-regression mappings oparte na ich faktycznych decyzjach: UUIDv7/native uuid, NULL-safe uniqueness, canonical organization address, atomic settings, runtime permission authority, per-permission scope, same-user session context oraz Owner/last-owner/grant-ceiling. Pozostałe bounded blockers wykorzystują domain regression set, przy czym ich pełne lokalne wymagania testowe pozostają niezależnie zachowane.\n\n### 7.4. Zero-gap gate\n\nMachine validator wymaga jednocześnie:\n- 76/76 resolved blockers ma niepusty zestaw znanych final test IDs,\n- 183/183 critical constraints ma dokładnie zakotwiczony final test,\n- 45/45 transactional invariants ma dokładnie zakotwiczony final test,\n- 1 581/1 581 local required-test occurrences pozostaje zachowane,\n- wszystkie final refs należą do katalogu 490 IDs,\n- brak ID collision,\n- brak unknown/orphan source refs,\n- migration preflight pozostaje niepusty,\n- migration postcheck jest jawnie obecny,\n- DB-TST-001, DB-MIG-001/002/003 pozostają semantic-equal do wejściowych authority.\n\nWynik zero-gap contract: **`PASS_ZERO_GAPS`**. DB-TST-002 nie generuje PHPUnit/Pest/Laravel tests; zapisuje wykonawczy kontrakt i traceability, które Stage 5 musi zaimplementować.\n\n'''
+          s=s[:start]+sec+s[end:]
+          old='''## 10. Preservation gate\n\nDB-TST-001 zachowuje:\n- DB4_1–DB4_10 bez zmian,\n- 71 wcześniejszych blockerów bez reopen oraz DB-MIG-001, DB-MIG-002, DB-MIG-003 i DB-TST-001 jako kolejne PASS,\n- executable DAG i `topological_order` DB-MIG-001 bez zmian,\n- siedmiofazowy `migration_phase_composition` DB-MIG-002 bez zmian,\n- `migration_cutover_execution_contract` DB-MIG-003 bez zmian,\n- `core-schema.yml` bez zmian — blob `39958721c99550cfc27c3774e8dfa1af0d0637e6`,\n- `docs/87...` bez zmian — blob `6c090b082604b6b42c283667fcf08e9033a5b523`,\n- wszystkie bounded-context specs jako read-only,\n- DB-TST-002 i DB-FINAL-001 jako nierozwiązane w tym kroku,\n- brak framework test files, migracji Laravel, Stage 5 i UI/feature implementation.\n\n## 11. Następny pojedynczy krok\n\nPo domknięciu machine + narrative + central gate DB-TST-001 następny krok może dotyczyć wyłącznie:\n\n**`DB-TST-002 — invariant_test_coverage_traceability_and_completeness_gate`**\n\nI dopiero po kolejnym jawnym poleceniu użytkownika.\n\n`core-schema.yml` i `docs/87...` pozostają zamrożone do DB-FINAL-001. DB-FINAL-001 pozostaje OPEN.\n\n**STOP przed fixerem DB-TST-002.**'''
+          new='''## 10. Preservation gate\n\nDB-TST-002 zachowuje:\n- DB4_1–DB4_10 bez reopen,\n- DB-MIG-001, DB-MIG-002, DB-MIG-003 i bazowy katalog DB-TST-001 bez zmian semantycznych,\n- executable DAG i `topological_order` DB-MIG-001 bez zmian,\n- siedmiofazowy `migration_phase_composition` DB-MIG-002 bez zmian,\n- `migration_cutover_execution_contract` DB-MIG-003 bez zmian,\n- 261 istniejących DB-TST-001 IDs i ich definicje bez zmian,\n- `core-schema.yml` bez zmian — blob `39958721c99550cfc27c3774e8dfa1af0d0637e6`,\n- `docs/87...` bez zmian — blob `6c090b082604b6b42c283667fcf08e9033a5b523`,\n- bounded-context specs jako read-only w samym DB-TST-002 po osobnym prerequisite YAML repair,\n- DB-FINAL-001 jako jedyny nierozwiązany P1,\n- brak framework test files, migracji Laravel, Stage 5 i UI/feature implementation.\n\n## 11. Następny pojedynczy krok\n\nPo domknięciu machine + narrative + central gate DB-TST-002 następny krok może dotyczyć wyłącznie:\n\n**`DB-FINAL-001 — final_machine_narrative_migration_and_test_semantic_sync`**\n\nI dopiero po kolejnym jawnym poleceniu użytkownika. DB-FINAL-001 jest pierwszym krokiem uprawnionym do synchronizacji `core-schema.yml` i `docs/87...`. Do tego momentu oba agregaty pozostają zamrożone.\n\n**STOP przed fixerem DB-FINAL-001.**'''
+          assert s.count(old)==1,s.count(old)
+          s=s.replace(old,new,1)
+          p.write_text(s)
+          PY
+          git diff --check
+      - name: Validate narrative against machine authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          ruby <<'RUBY'
+          require 'yaml'; require 'date'
+          m=YAML.safe_load(File.read('specs/database/final-migration-order-invariant-matrix.yml'), permitted_classes:[Date], aliases:true)
+          d=File.read('docs/116-stage-4-final-migration-order-invariant-matrix-audit.md')
+          c=m['test_coverage_traceability_contract'] or abort 'machine coverage missing'
+          abort unless c['status']=='PASS_DB_TST_002'
+          abort unless c.dig('final_test_catalog','base_test_count')==261
+          abort unless c.dig('final_test_catalog','coverage_anchor_test_count')==229
+          abort unless c.dig('final_test_catalog','total_final_test_ids')==490
+          abort unless c.dig('zero_gap_summary','result')=='PASS_ZERO_GAPS'
+          abort unless c.dig('zero_gap_summary','critical_constraints_total')==183
+          abort unless c.dig('zero_gap_summary','transactional_invariants_total')==45
+          abort unless c.dig('zero_gap_summary','bounded_local_required_test_occurrences')==1581
+          abort unless d.include?('**Aktualny krok:** `DB-TST-002`')
+          abort unless d.include?('**Status: PASS / P1 RESOLVED**')
+          abort unless d.include?('**490 unikalnych test IDs**')
+          abort unless d.include?('**`PASS_ZERO_GAPS`**')
+          abort unless d.include?('**STOP przed fixerem DB-FINAL-001.**')
+          abort if d.include?('**STOP przed fixerem DB-TST-002.**')
+          puts 'DB_TST_002_NARRATIVE_VALIDATION=PASS'
+          RUBY
+          test "$(git hash-object specs/database/final-migration-order-invariant-matrix.yml)" = 063de6a60732e370f006b3970cee8df06811d00c
+          test "$(git hash-object specs/database/core-schema.yml)" = 39958721c99550cfc27c3774e8dfa1af0d0637e6
+          test "$(git hash-object docs/87-physical-database-schema.md)" = 6c090b082604b6b42c283667fcf08e9033a5b523
+          test "$(git hash-object specs/gates/stage-4-database-contract-gate.yml)" = 61ab952b37f31b410634b3db4c5aaa1e67749550
+      - name: Remove helper and prove narrative-only net tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=0dbaf455c1a1da00288fad27546af53198b9728c
+          git rm .github/workflows/tmp-db-tst-002-narrative-validation-20260910.yml
+          git add docs/116-stage-4-final-migration-order-invariant-matrix-audit.md
+          mapfile -t changed < <(git diff --cached --name-only "$BASE")
+          test "${#changed[@]}" -eq 1
+          test "${changed[0]}" = docs/116-stage-4-final-migration-order-invariant-matrix-audit.md
+          git diff --cached --check
+          git diff --cached --stat "$BASE"
+      - name: Commit validated helper tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'DB-TST-002: align coverage completeness narrative'
+          git push origin HEAD:tmp-db-tst-002-narrative-validation-20260910
