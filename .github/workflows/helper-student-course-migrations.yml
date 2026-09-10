@@ -88,12 +88,14 @@ jobs:
           }
 
           $phaseOrder = array_flip($plan['phase_order']);
-          usort($registry['implemented_steps'] = array_values($existing), static function (array $a, array $b) use ($nodes, $phaseOrder): int {
+          $implementedSteps = array_values($existing);
+          usort($implementedSteps, static function (array $a, array $b) use ($nodes, $phaseOrder): int {
               $ao = $nodes[$a['node_id']]['order'];
               $bo = $nodes[$b['node_id']]['order'];
 
               return $ao <=> $bo ?: $phaseOrder[$a['phase']] <=> $phaseOrder[$b['phase']];
           });
+          $registry['implemented_steps'] = $implementedSteps;
 
           $oldIdentity = (string) $registry['execution_identity'];
           $lines = [
