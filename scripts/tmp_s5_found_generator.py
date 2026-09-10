@@ -388,14 +388,15 @@ final class TenantAuthorizer
             return [];
         }
 
-        return DB::table('membership_permission_scopes')
+        $scopes = DB::table('membership_permission_scopes')
             ->where('membership_id', $membershipId)
             ->where('permission_code', $permission)
             ->orderBy('scope_code')
             ->pluck('scope_code')
             ->map(static fn ($value): string => (string) $value)
-            ->values()
             ->all();
+
+        return array_values($scopes);
     }
 }
 """
