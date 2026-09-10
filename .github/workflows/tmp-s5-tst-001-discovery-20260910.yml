@@ -22,9 +22,11 @@ jobs:
           ruby <<'RUBY'
           require 'yaml'
           require 'date'
+          require 'json'
           m = YAML.safe_load(File.read('specs/database/final-migration-order-invariant-matrix.yml'), permitted_classes: [Date], aliases: true)
           base = m.fetch('invariant_test_matrix').fetch('tests')
-          catalog = m.fetch('test_coverage_traceability_contract').fetch('final_test_catalog')
+          contract = m.fetch('test_coverage_traceability_contract')
+          catalog = contract.fetch('final_test_catalog')
           anchors = catalog.fetch('coverage_anchor_tests')
           all = base + anchors
           ids = all.map { |t| t.fetch('test_id') }
@@ -32,6 +34,7 @@ jobs:
           counts = all.group_by { |t| t.fetch('test_class') }.transform_values(&:size)
           puts "TOTAL=#{all.size}"
           counts.sort.each { |k,v| puts "CLASS #{k}=#{v}" }
+          puts "ZERO_GAP_SUMMARY=#{JSON.generate(contract.fetch('zero_gap_summary'))}"
           %w[migration_preflight migration_postcheck].each do |klass|
             puts "--- #{klass} ---"
             all.select { |t| t['test_class'] == klass }.first(30).each do |t|
