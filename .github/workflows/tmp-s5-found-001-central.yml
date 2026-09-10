@@ -1,0 +1,96 @@
+name: tmp S5-FOUND-001 central gate
+
+on:
+  push:
+    branches:
+      - tmp-s5-found-001-central-20260910
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tmp-s5-found-001-central-20260910
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Parse and validate Stage 5 central semantics
+        run: |
+          ruby - <<'RUBY'
+          require 'yaml'
+          require 'date'
+          path = 'specs/gates/stage-5-implementation-gate.yml'
+          d = YAML.safe_load(File.read(path), permitted_classes: [Date], aliases: true)
+
+          abort 'meta status must be PASS' unless d.dig('meta', 'status') == 'PASS'
+          abort 'feature implementation flag must be true' unless d.dig('meta', 'UI_or_feature_implementation_started') == true
+          abort 'entry observation must show feature code' unless d.dig('entry_observations', 'application_feature_code_present') == true
+
+          blockers = d.fetch('blockers')
+          abort 'expected 6 blockers' unless blockers.length == 6
+          abort 'all Stage 5 blockers must be PASS' unless blockers.all? { |b| b['status'] == 'PASS' }
+          found = blockers.find { |b| b['id'] == 'S5-FOUND-001' }
+          abort 'S5-FOUND-001 missing' unless found
+          abort 'S5-FOUND-001 must be PASS' unless found['status'] == 'PASS'
+
+          q = d.fetch('quality_gate')
+          abort 'historical diagnosed P0 changed' unless q['diagnosed_P0'] == 0
+          abort 'historical diagnosed P1 changed' unless q['diagnosed_P1'] == 6
+          abort 'expected six applied fixes' unless q['fixes_applied_total'] == 6
+          abort 'open P0/P1 must be zero' unless q['open_P0_P1'] == 0
+          abort 'quality result must be PASS' unless q['result'] == 'PASS'
+
+          n = d.fetch('next_single_step')
+          abort 'wrong next slice' unless n['id'] == 'CORE-V1-LOC-STAFF-VEH-001'
+          abort 'foundation prerequisite not PASS' unless n['prerequisite_stage_5_foundation'] == 'PASS'
+          abort 'next slice started too early' unless d.dig('S5_FOUND_001_closure', 'tranche_result', 'next_core_slice_started') == false
+
+          c = d.fetch('S5_FOUND_001_closure')
+          abort 'foundation closure not PASS' unless c['status'] == 'PASS'
+          abort 'wrong migration count' unless c.dig('migration_materialization', 'implemented_nodes_current') == 18
+          abort 'wrong executable DBT count' unless c.dig('runtime_traceability', 'implemented_executable_assertions_current') == 13
+          abort 'wrong pending DBT count' unless c.dig('runtime_traceability', 'pending_domain_materialization_current') == 478
+          abort 'accepted CI not fully green' unless c.dig('executable_evidence', 'permanent_Implementation_CI_jobs_passed') == 5
+          abort 'wrong accepted PHPUnit count' unless c.dig('executable_evidence', 'accepted_PostgreSQL_suite_tests') == 35
+          abort 'wrong accepted assertion count' unless c.dig('executable_evidence', 'accepted_PostgreSQL_suite_assertions') == 1181
+          abort 'Stage 4 preservation not PASS' unless c.dig('executable_evidence', 'Stage_4_authority_preservation') == 'PASS'
+
+          puts 'S5_FOUND_001_CENTRAL_SEMANTICS=PASS'
+          RUBY
+
+      - name: Preservation and pre-cleanup scope
+        run: |
+          git diff --check 1ed24f0e3da0c468d0606ce9d47e883285c50ce8...HEAD
+          test "$(git rev-parse HEAD:specs/gates/stage-4-database-contract-gate.yml)" = "306dabaa58223abe2f3b2a34b888b075c88e9ec4"
+          test "$(git rev-parse HEAD:specs/database/core-schema.yml)" = "b0629cc48e26798d945356eaa1d0c9b1187aa542"
+          test "$(git rev-parse HEAD:specs/database/final-migration-order-invariant-matrix.yml)" = "ad5f2aa2e14ef248b95dd3dda0d1cbcb2e69d441"
+          test "$(git rev-parse HEAD:docs/87-physical-database-schema.md)" = "a48eacd92d4a9c8e989f5d70c3bec95b9231a77c"
+          test "$(git rev-parse HEAD:docs/116-stage-4-final-migration-order-invariant-matrix-audit.md)" = "6f76255742d4902546f45c28d54c1da6ee3d3fd7"
+          test "$(git rev-parse HEAD:AGENTS.md)" = "96ec177c82ac6f031eb22f443295147a83482baf"
+          test "$(git rev-parse HEAD:README.md)" = "710166c3189451a765c2314609e37607cc39e529"
+          files=$(git diff --name-only 1ed24f0e3da0c468d0606ce9d47e883285c50ce8...HEAD | sort)
+          expected=$(printf '%s\n' '.github/workflows/tmp-s5-found-001-central.yml' 'specs/gates/stage-5-implementation-gate.yml' | sort)
+          test "$files" = "$expected"
+          echo "S5_FOUND_001_CENTRAL_PRESERVATION=PASS"
+
+      - name: Remove validator
+        run: |
+          git config user.name "prawkonaraz100"
+          git config user.email "prawkonaraz100@gmail.com"
+          rm .github/workflows/tmp-s5-found-001-central.yml
+          git add -A
+          git commit -m "helper: remove S5-FOUND-001 central validator"
+          git push
+
+      - name: Final helper scope
+        run: |
+          git diff --check 1ed24f0e3da0c468d0606ce9d47e883285c50ce8...HEAD
+          test "$(git diff --name-only 1ed24f0e3da0c468d0606ce9d47e883285c50ce8...HEAD)" = "specs/gates/stage-5-implementation-gate.yml"
+          echo "S5_FOUND_001_CENTRAL_SCOPE=PASS"
