@@ -2,9 +2,9 @@
 
 Data: 2026-09-10
 
-**Krok:** `S5-FOUND-001`  
-**Machine:** PASS  
-**Narrative:** PASS  
+**Krok:** `S5-FOUND-001`
+**Machine:** PASS
+**Narrative:** PASS
 **Central:** PENDING
 
 ## 1. Przyjęty zakres
