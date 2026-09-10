@@ -15,10 +15,10 @@ class MigrationPlanContractTest extends TestCase
 
         $this->assertSame(170, $plan->nodeCount());
         $this->assertSame(17, $plan->batchCount());
-        $this->assertSame(34, $plan->implementedNodeCount());
-        $this->assertSame(34, $plan->implementedStepCount());
+        $this->assertSame(44, $plan->implementedNodeCount());
+        $this->assertSame(44, $plan->implementedStepCount());
         $this->assertSame('ad5f2aa2e14ef248b95dd3dda0d1cbcb2e69d441', $plan->summary()['authority_blob']);
-        $this->assertSame('6e39b3c71a7a2ad44bfb78513506b8a3e53cc4a5ff443a89b066d8b44917cc1f', $plan->executionIdentity());
+        $this->assertSame('8d39fe6550963eece079f78e34a2bee15d4c7ab068230e81b4b8335fecfbdfc9', $plan->executionIdentity());
         $this->assertSame([
             'MIG-EXT-BTREE-GIST',
             'MIG-TBL-ORGANIZATIONS',
@@ -49,6 +49,16 @@ class MigrationPlanContractTest extends TestCase
             'MIG-TBL-VEHICLE_DOCUMENTS',
             'MIG-TBL-VEHICLE_CATEGORY_ASSIGNMENTS',
             'MIG-TBL-VEHICLE_LOCATION_ASSIGNMENTS',
+            'MIG-TBL-STUDENTS',
+            'MIG-TBL-COURSE_ENROLLMENTS',
+            'MIG-TBL-COURSE_ENROLLMENT_LIFECYCLE_EVENTS',
+            'MIG-TBL-TRAINING_REQUIREMENT_RULE_SETS',
+            'MIG-TBL-COURSE_REQUIREMENT_CONTEXTS',
+            'MIG-TBL-COURSE_REQUIREMENT_CONTEXT_HELD_CATEGORIES',
+            'MIG-TBL-COURSE_REQUIREMENT_OVERRIDE_DECISIONS',
+            'MIG-TBL-TRAINING_REQUIREMENT_PROFILES',
+            'MIG-TBL-COURSE_EXEMPTION_DECISIONS',
+            'MIG-TBL-RECOGNIZED_EXTERNAL_TRAINING',
             'MIG-TBL-AUDIT_ACTION_POLICY_REVISIONS',
             'MIG-TBL-AUDIT_ACTION_POLICY_CURRENTS',
             'MIG-TBL-AUDIT_LOGS',
