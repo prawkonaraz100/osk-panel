@@ -600,7 +600,7 @@ resolved_contracts:
       restore_vs_explicit_account_resume:
         shared_prefix: students_then_learning_account
         restore_does_not_perform_resume: true
-        explicit_resume_still_requires_its_own_authorized_command_and_current_state
+        explicit_resume_still_requires_its_own_authorized_command_and_current_state: true
     migration_design:
       order:
         - precheck_existing_learning_account_status_values
