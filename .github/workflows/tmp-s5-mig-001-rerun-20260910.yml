@@ -54,6 +54,10 @@ jobs:
           assert validate.count(old) == 1
           validate = validate.replace(old, new, 1)
 
+          marker = 'wrong_rc=$?\nset -e'
+          assert validate.count(marker) == 1
+          validate = validate.replace(marker, "wrong_rc=$?\necho WRONG_PLAN_RC=$wrong_rc\ncat /tmp/wrong-plan.log\nset -e", 1)
+
           old_rm = 'rm .github/workflows/tmp-s5-mig-001-validation-20260910.yml'
           assert preserve.count(old_rm) == 1
           preserve = preserve.replace(old_rm, old_rm + '\nrm .github/workflows/tmp-s5-mig-001-rerun-20260910.yml', 1)
