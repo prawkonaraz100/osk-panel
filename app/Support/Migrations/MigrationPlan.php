@@ -6,15 +6,26 @@ use LogicException;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 
+/**
+ * @phpstan-type MigrationSource array{authority_path: string, authority_git_blob: string, dag_contract_version: int, phase_contract_version: int, cutover_contract_version: int}
+ * @phpstan-type MigrationNode array{node_id: string, type: string, order: int, object_name: string, requires: list<string>, phases: list<string>, restart_classification: string, batch_id: string}
+ * @phpstan-type MigrationReviewBatch array{batch_id: string, review_limit: int, node_count: int, first_order: int, last_order: int, node_ids: list<string>}
+ * @phpstan-type MigrationPlanDocument array{schema_version: int, plan_identity: string, source: MigrationSource, phase_order: list<string>, execution_control: array<string, mixed>, review_batches: list<MigrationReviewBatch>, nodes: list<MigrationNode>}
+ * @phpstan-type MigrationStep array{node_id: string, phase: string, migration_file: string, migration_name: string, file_sha256: string, restart_classification: string, safe_down: bool}
+ * @phpstan-type MigrationImplementationDocument array{schema_version: int, plan_identity: string, execution_identity: string, stage4_root: string, implemented_steps: list<MigrationStep>, remaining_nodes_materialize_in_review_batches: bool, claim_all_170_DDL_nodes_implemented: bool}
+ */
 final class MigrationPlan
 {
+    /** @var MigrationPlanDocument */
     private array $plan;
+
+    /** @var MigrationImplementationDocument */
     private array $implementations;
 
     public function __construct()
     {
-        $this->plan = $this->decode(base_path('database/migration-plan/plan.json'));
-        $this->implementations = $this->decode(base_path('database/migration-plan/implementations.json'));
+        $this->plan = $this->decodePlan(base_path('database/migration-plan/plan.json'));
+        $this->implementations = $this->decodeImplementations(base_path('database/migration-plan/implementations.json'));
     }
 
     public function validate(): void
@@ -26,7 +37,9 @@ final class MigrationPlan
         $this->assert($this->gitBlobSha(base_path($this->plan['source']['authority_path'])) === $this->plan['source']['authority_git_blob'], 'Stage-4 migration authority blob mismatch.');
         $this->assert($this->plan['source']['authority_git_blob'] === 'ad5f2aa2e14ef248b95dd3dda0d1cbcb2e69d441', 'Unexpected Stage-4 authority identity.');
 
+        /** @var array<string, MigrationNode> $nodesById */
         $nodesById = [];
+        /** @var array<int, true> $orders */
         $orders = [];
         foreach ($this->plan['nodes'] as $node) {
             $id = $node['node_id'];
@@ -38,7 +51,9 @@ final class MigrationPlan
             $last = -1;
             foreach ($node['phases'] as $phase) {
                 $index = array_search($phase, $expectedPhases, true);
-                $this->assert($index !== false && $index > $last, "Invalid phase path for {$id}");
+                if ($index === false || $index <= $last) {
+                    throw new LogicException("Invalid phase path for {$id}");
+                }
                 $last = $index;
             }
             $this->assert(in_array($node['restart_classification'], ['restart_safe', 'manual_review'], true), "Invalid restart classification for {$id}");
@@ -61,9 +76,9 @@ final class MigrationPlan
 
         $material = implode('|', [
             $this->plan['source']['authority_git_blob'],
-            $this->plan['source']['dag_contract_version'],
-            $this->plan['source']['phase_contract_version'],
-            $this->plan['source']['cutover_contract_version'],
+            (string) $this->plan['source']['dag_contract_version'],
+            (string) $this->plan['source']['phase_contract_version'],
+            (string) $this->plan['source']['cutover_contract_version'],
         ])."\n";
         $material .= implode("\n", array_map(
             fn (array $node): string => implode('|', [$node['node_id'], $node['order'], implode(',', $node['phases']), $node['restart_classification']]),
@@ -76,9 +91,13 @@ final class MigrationPlan
         $this->assert($this->implementations['stage4_root'] === 'database/migrations/stage4', 'Unexpected Stage-4 migration root.');
         $this->assert($this->implementations['claim_all_170_DDL_nodes_implemented'] === false, 'Do not falsely claim all domain DDL is implemented.');
 
+        /** @var array<string, true> $seenSteps */
         $seenSteps = [];
+        /** @var array<string, true> $seenFiles */
         $seenFiles = [];
+        /** @var array<string, list<string>> $phasesByNode */
         $phasesByNode = [];
+        /** @var list<string> $implementedNodeIds */
         $implementedNodeIds = [];
 
         foreach ($this->implementations['implemented_steps'] as $step) {
@@ -182,6 +201,9 @@ final class MigrationPlan
         return count($this->implementations['implemented_steps']);
     }
 
+    /**
+     * @return list<MigrationStep>
+     */
     public function phaseSteps(string $phase): array
     {
         $this->assert(in_array($phase, $this->plan['phase_order'], true), "Unknown migration phase {$phase}");
@@ -192,10 +214,15 @@ final class MigrationPlan
         ));
     }
 
+    /**
+     * @param  list<string>  $appliedMigrations
+     */
     public function assertPhaseEntry(string $phase, array $appliedMigrations): void
     {
         $phaseIndex = array_search($phase, $this->plan['phase_order'], true);
-        $this->assert($phaseIndex !== false, "Unknown migration phase {$phase}");
+        if ($phaseIndex === false) {
+            throw new LogicException("Unknown migration phase {$phase}");
+        }
         $this->assert($this->phaseSteps($phase) !== [], "No materialized migration steps for phase {$phase}");
 
         $applied = array_fill_keys($appliedMigrations, true);
@@ -217,6 +244,9 @@ final class MigrationPlan
         }
     }
 
+    /**
+     * @return array{plan_identity: string, execution_identity: string, authority_blob: string, nodes: int, review_batches: int, implemented_nodes: int, implemented_steps: int, phase_order: list<string>}
+     */
     public function summary(): array
     {
         return [
@@ -255,10 +285,37 @@ final class MigrationPlan
         return hash('sha256', implode("\n", $lines)."\n");
     }
 
+    /**
+     * @return MigrationPlanDocument
+     */
+    private function decodePlan(string $path): array
+    {
+        $decoded = $this->decode($path);
+
+        /** @var MigrationPlanDocument $decoded */
+        return $decoded;
+    }
+
+    /**
+     * @return MigrationImplementationDocument
+     */
+    private function decodeImplementations(string $path): array
+    {
+        $decoded = $this->decode($path);
+
+        /** @var MigrationImplementationDocument $decoded */
+        return $decoded;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
     private function decode(string $path): array
     {
         $decoded = json_decode((string) file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
-        $this->assert(is_array($decoded), "Invalid JSON document: {$path}");
+        if (! is_array($decoded)) {
+            throw new LogicException("Invalid JSON document: {$path}");
+        }
 
         return $decoded;
     }
