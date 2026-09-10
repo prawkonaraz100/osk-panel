@@ -32,6 +32,12 @@ jobs:
           vendor/bin/pint app/Modules/ResourcesCore tests/Support/FoundationSchema.php database/seeders/ResourceReferenceCatalogSeeder.php database/seeders/DatabaseSeeder.php app/Modules/AuditNotification/AtomicAuditOutbox.php routes/web.php
       - name: Format Vue and TypeScript
         run: npx eslint resources/js/modules/ResourcesCore resources/js/App.vue --fix
+      - name: Normalize migration filenames to canonical order
+        run: |
+          find database/migrations/stage4/expand -type f -name '2026_09_11_*.php' -print0 | while IFS= read -r -d '' file; do
+            target="${file/2026_09_11_/2026_09_10_}"
+            mv "$file" "$target"
+          done
       - name: Repair migration registry with runtime SHA-256
         run: |
           cat > /tmp/repair_registry.php <<'PHP'
@@ -42,6 +48,11 @@ jobs:
 
           foreach ($impl['implemented_steps'] as &$step) {
               $file = (string) $step['migration_file'];
+              if (str_contains($file, '/2026_09_11_')) {
+                  $file = str_replace('/2026_09_11_', '/2026_09_10_', $file);
+                  $step['migration_file'] = $file;
+                  $step['migration_name'] = pathinfo($file, PATHINFO_FILENAME);
+              }
               $hash = hash_file('sha256', $file);
               if (! is_string($hash)) {
                   throw new RuntimeException("Cannot hash {$file}");
