@@ -1,0 +1,185 @@
+name: helper-db-mig-002-central-gate-v2
+
+on:
+  push:
+    branches:
+      - helper-db-mig-002-central-gate-v2
+
+permissions:
+  contents: write
+
+jobs:
+  patch-central-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: helper-db-mig-002-central-gate-v2
+          fetch-depth: 0
+
+      - name: Apply exact DB-MIG-002 central gate patch
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          p = Path('specs/gates/stage-4-database-contract-gate.yml')
+          text = p.read_text()
+          original = text
+
+          def replace_once(old, new, label):
+              global text
+              count = text.count(old)
+              assert count == 1, f'{label}: expected exactly 1 match, got {count}'
+              text = text.replace(old, new, 1)
+
+          replace_once(
+          '''  - id: DB4_11_FINAL_MIGRATION_ORDER_AND_INVARIANT_TEST_MATRIX
+            status: FAIL_WITH_5_P1_BLOCKERS
+            diagnosis: COMPLETE
+            blockers_diagnosed: 6
+            blockers_resolved: 1
+            open_P0_P1: 5
+            result: FAIL_WITH_5_P1_BLOCKERS
+          ''',
+          '''  - id: DB4_11_FINAL_MIGRATION_ORDER_AND_INVARIANT_TEST_MATRIX
+            status: FAIL_WITH_4_P1_BLOCKERS
+            diagnosis: COMPLETE
+            blockers_diagnosed: 6
+            blockers_resolved: 2
+            open_P0_P1: 4
+            result: FAIL_WITH_4_P1_BLOCKERS
+          ''',
+          'DB4_11 slice counters')
+
+          mig002 = '''  DB4_11_DB_MIG_002:
+            status: PASS
+            resolved_blocker_id: DB-MIG-002
+            machine_source: specs/database/final-migration-order-invariant-matrix.yml
+            narrative_source: docs/116-stage-4-final-migration-order-invariant-matrix-audit.md
+            machine_commit: 6769f0fe003c76440ef1992a37de948e7524af00
+            machine_blob: 1df9476a116677b07f8f1725c765c09c044d4aac
+            narrative_commit: 1252a6fa2208d7924ef0bd26727edac8ef054428
+            narrative_blob: 71f84a7581f8fe2a7fdbb3747cefffb1e1954faf
+            aggregate_core_schema_blob_frozen: 39958721c99550cfc27c3774e8dfa1af0d0637e6
+            aggregate_docs87_blob_frozen: 6c090b082604b6b42c283667fcf08e9033a5b523
+            checks:
+              dependency_order_remains_DB_MIG_001_DAG_authority: PASS
+              seven_phase_order_expand_preflight_write_fence_backfill_reconcile_validate_contract_defined: PASS
+              every_DAG_node_has_nonempty_phase_path: PASS
+              all_DAG_node_types_have_default_or_exact_mapping: PASS
+              zero_unmapped_nodes_unknown_phases_or_phase_order_violations: PASS
+              DB_MIG_001_topological_order_not_rewritten: PASS
+              new_write_fence_precedes_legacy_backfill: PASS
+              exact_evidence_only_backfill_and_reconciliation_preserved: PASS
+              validation_requires_zero_unresolved_required_cases: PASS
+              foreign_key_and_check_NOT_VALID_strategy_scoped_to_supported_mechanisms: PASS
+              unique_NOT_VALID_false_claim_forbidden: PASS
+              exclusion_NOT_VALID_false_claim_forbidden: PASS
+              DB_MIG_003_cutover_restart_failure_rollback_not_solved_early: PASS
+              DB_TST_001_and_DB_TST_002_not_solved_early: PASS
+              DB_FINAL_001_aggregate_sync_not_solved_early: PASS
+              core_schema_modified_in_DB_MIG_002: false
+              docs87_modified_in_DB_MIG_002: false
+              Laravel_migrations_created: false
+              Stage5_started: false
+              UI_or_feature_implementation_started: false
+
+          '''
+          replace_once('\nresolved_blockers:\n', '\n' + mig002 + 'resolved_blockers:\n', 'insert DB-MIG-002 quality gate')
+
+          replace_once(
+          '''  - DB-COM-006
+            - DB-MIG-001
+
+          open_blockers_current_diagnosed_scope:
+            - DB-MIG-002
+            - DB-MIG-003
+            - DB-TST-001
+            - DB-TST-002
+            - DB-FINAL-001
+          ''',
+          '''  - DB-COM-006
+            - DB-MIG-001
+            - DB-MIG-002
+
+          open_blockers_current_diagnosed_scope:
+            - DB-MIG-003
+            - DB-TST-001
+            - DB-TST-002
+            - DB-FINAL-001
+          ''',
+          'resolved/open blocker lists')
+
+          replace_once('  current_result: DB4_11_FAIL_WITH_5_P1_BLOCKERS\n', '  current_result: DB4_11_FAIL_WITH_4_P1_BLOCKERS\n', 'current result')
+          replace_once('  DB4_11_DB_MIG_002_result: OPEN\n', '  DB4_11_DB_MIG_002_result: PASS\n', 'DB-MIG-002 result')
+          replace_once('  DB4_11_result: FAIL_WITH_5_P1_BLOCKERS\n', '  DB4_11_result: FAIL_WITH_4_P1_BLOCKERS\n', 'DB4_11 result')
+
+          replace_once(
+          '''next_single_step:
+            id: DB-MIG-002
+            action: resolve_DB_MIG_002_only_after_next_explicit_user_instruction
+            diagnosis_only: false
+            fixes_allowed_in_same_step: true
+            allowed_scope:
+              - specs/database/final-migration-order-invariant-matrix.yml
+              - docs/116-stage-4-final-migration-order-invariant-matrix-audit.md
+              - specs/database/core-schema.yml
+              - docs/87-physical-database-schema.md
+              - specs/gates/stage-4-database-contract-gate.yml
+            prior_bounded_context_specs_read_only: true
+            scope_lock: >-
+              DB-MIG-001 is PASS. Resolve DB-MIG-002 only. Preserve DB-MIG-003, DB-TST-001,
+              DB-TST-002 and DB-FINAL-001 as OPEN. Do not enter Stage 5, generate Laravel
+              migrations, or implement UI/features in the same step.
+            after_action: run_DB_MIG_002_machine_narrative_central_gate_and_STOP_before_DB_MIG_003
+          ''',
+          '''next_single_step:
+            id: DB-MIG-003
+            action: resolve_DB_MIG_003_only_after_next_explicit_user_instruction
+            diagnosis_only: false
+            fixes_allowed_in_same_step: true
+            allowed_scope:
+              - specs/database/final-migration-order-invariant-matrix.yml
+              - docs/116-stage-4-final-migration-order-invariant-matrix-audit.md
+              - specs/database/core-schema.yml
+              - docs/87-physical-database-schema.md
+              - specs/gates/stage-4-database-contract-gate.yml
+            prior_bounded_context_specs_read_only: true
+            scope_lock: >-
+              DB-MIG-001 and DB-MIG-002 are PASS. Resolve DB-MIG-003 only. Preserve DB-TST-001,
+              DB-TST-002 and DB-FINAL-001 as OPEN. Do not enter Stage 5, generate Laravel
+              migrations, or implement UI/features in the same step.
+            after_action: run_DB_MIG_003_machine_narrative_central_gate_and_STOP_before_DB_TST_001
+          ''',
+          'next single step')
+
+          assert text != original
+          assert '  DB4_11_diagnosis:\n    status: FAIL_WITH_6_P1_BLOCKERS\n' in text
+          assert '  course_lifecycle_stage_history_cancel_restore:\n' in text
+          assert '  DB4_8_final_aggregate_sync:\n' in text
+          assert '  DB4_10_final_aggregate_sync:\n' in text
+          assert text.count('  DB4_11_DB_MIG_002:\n') == 1
+          assert text.count('  DB4_11_DB_MIG_002_result: PASS\n') == 1
+          assert text.count('  - DB-MIG-002\n') >= 2  # historical diagnosis order + resolved list
+          assert len(text.splitlines()) > 4300
+
+          p.write_text(text)
+          PY
+
+      - name: Remove helper workflow and validate net diff
+        shell: bash
+        run: |
+          rm .github/workflows/helper-db-mig-002-central-gate-v2.yml
+          git diff --check
+          test "$(git diff --name-only | sort)" = "specs/gates/stage-4-database-contract-gate.yml"
+          git diff --stat
+
+      - name: Commit helper result
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "DB-MIG-002: close central database contract gate"
+          git push origin HEAD:helper-db-mig-002-central-gate-v2
