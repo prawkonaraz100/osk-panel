@@ -420,7 +420,7 @@ final class StaffService
 
     /** @param list<string> $requested */
     /**
-     * @param list<string> $requested
+     * @param  list<string>  $requested
      * @return array{permissions:list<string>}
      */
     public function replacePermissions(string $sessionId, string $staffId, array $requested, string $requestId): array
