@@ -3,8 +3,8 @@
 Data: 2026-09-10
 
 **Etap:** `DB4_11_FINAL_MIGRATION_ORDER_AND_INVARIANT_TEST_MATRIX`
-**Aktualny krok:** `DB-TST-002`
-**Status:** `FAIL_WITH_1_P1_BLOCKER / 0 P0 / 1 P1 OPEN`
+**Aktualny krok:** `DB-FINAL-001`
+**Status:** `PASS_DB_FINAL_001_NARRATIVE_PENDING_CENTRAL / 0 P0 / 0 P1 OPEN`
 
 Machine-readable authority: `specs/database/final-migration-order-invariant-matrix.yml`.
 
@@ -12,25 +12,17 @@ Machine-readable authority: `specs/database/final-migration-order-invariant-matr
 
 ## 1. Cel i twarda granica tego kroku
 
-DB4_11 nie projektuje nowej domeny biznesowej. To ostatni slice Etapu 4, którego zadaniem jest udowodnić, że wszystkie zamknięte kontrakty DB4_1–DB4_10 można bez zgadywania przełożyć na bezpieczną kolejność migracji oraz kompletną macierz testów inwariantów.
+DB-FINAL-001 jest ostatnim fixerem DB4_11. Nie projektuje nowej domeny i nie zmienia zamkniętych kontraktów DB4_1-DB4_10; synchronizuje finalne agregaty z authority wypracowanymi przez DB-MIG-001/002/003 i DB-TST-001/002.
 
-DB-MIG-001 zamknął wykonawczy graf zależności i kanoniczną kolejność topologiczną obiektów migracyjnych. DB-MIG-002 dodał nad tym DAG siedmiofazową kompozycję `expand/preflight/write_fence/backfill/reconcile/validate/contract`. DB-MIG-003 domknął entry/exit/abort, restart/failure handling i bezpieczny rollback. DB-TST-001 dodał stabilną machine-readable macierz 261 testów inwariantów. DB-TST-002 domyka nad tym katalogiem machine-readable coverage/traceability proof bez zmiany DAG, faz, cutover contract ani istniejących 261 identyfikatorów.
+Machine gate wycofał provisional 17-step `core-schema.yml::migration_order` jako wykonawcze authority. Aggregate wskazuje teraz na 170-node `migration_dependency_dag`, siedmiofazowy `migration_phase_composition` oraz `migration_cutover_execution_contract`. Narrative gate synchronizuje `docs/87` z tym samym modelem i usuwa skróty, które mogły ponownie zgubić Commerce fulfillment/purchase lineage albo DB4_10 DomainEvent/policy/retention authority.
 
-W tym kroku domykamy wyłącznie completeness join: resolved blockers, `critical_constraints`, `transactional_invariants` oraz wszystkie lokalne required-test sets mają jawny status pokrycia albo zachowania. Nie synchronizujemy jeszcze agregatów DB-FINAL-001, nie generujemy framework test files ani migracji Laravel, nie rozpoczynamy Stage 5 i nie zmieniamy UI/API.
+DB-FINAL-001 dopisuje jeden append-only coverage anchor `DBT-CORE-100`, ponieważ po rozwiązaniu tego blockera Stage 4 ma 77 zamkniętych blockerów i każdy musi nadal mieć finalny test ID. Wcześniejsze 490 IDs pozostają niezmienione. Nie generujemy testów frameworkowych ani migracji Laravel i nie rozpoczynamy Stage 5/UI.
 
-Po DB4_10 obowiązuje 71 wcześniej zamkniętych blockerów Stage 4. DB-MIG-001, DB-MIG-002, DB-MIG-003, DB-TST-001 i DB-TST-002 są kolejnymi pięcioma zamkniętymi blockerami, czyli po tym kroku coverage obejmuje 76 resolved blockerów. Żaden wcześniejszy kontrakt nie został otwarty ponownie. Zamrożone pozostają:
-- `specs/database/core-schema.yml` — blob `39958721c99550cfc27c3774e8dfa1af0d0637e6`,
-- `docs/87-physical-database-schema.md` — blob `6c090b082604b6b42c283667fcf08e9033a5b523`.
+## 2. Wynik po DB-FINAL-001 narrative gate
 
-## 2. Wynik po DB-TST-002
+Machine + narrative DB-FINAL-001: **0 P0, 0 P1 OPEN; central gate pending**.
 
-Wynik po DB-TST-002: **0 P0, 1 P1 OPEN**.
-
-Pozostał dokładnie jeden fixer:
-
-`DB-FINAL-001`
-
-DB-FINAL-001 nadal musi przejść osobny machine + narrative + central gate. Nie wolno rozpocząć Stage 5 przed jego zamknięciem.
+Nie pozostał już żaden merytoryczny blocker w DB4_11. Stage 4 może zostać uznany za PASS dopiero po osobnym central gate, który zweryfikuje provenance, finalne bloby, zero-gap coverage oraz brak semantic drift.
 
 ## 3. DB-MIG-001 — executable migration dependency DAG
 
@@ -288,15 +280,15 @@ Wynik zero-gap contract: **`PASS_ZERO_GAPS`**. DB-TST-002 nie generuje PHPUnit/P
 
 ## 8. DB-FINAL-001 — final machine/narrative semantic sync
 
-**Status: OPEN / P1**
+**Status: PASS / P1 RESOLVED — CENTRAL GATE PENDING**
 
-Diagnoza znalazła konkretny drift pomiędzy finalnym machine aggregate a `docs/87`.
+Machine aggregate `core-schema.yml` został zsynchronizowany bez zmiany domenowych tabel, constraintów, transactional invariants ani 261 source obligations. Stary 17-elementowy `migration_order` został zastąpiony referencyjnym kontraktem do finalnych authority: 170-node `migration_dependency_dag`, `migration_phase_composition` oraz `migration_cutover_execution_contract`. Aggregate jawnie zabrania traktowania wszystkich constraintów jako blanket final step i zachowuje write-fence-before-backfill, exact-evidence-only reconciliation, zero unresolved przed validate oraz backup+restore evidence przed destructive contract.
 
-W sekcji 24 narrative krok Commerce nadal streszcza tylko `orders/payments/service entitlements/activations`, podczas gdy machine aggregate po DB4_9 obejmuje również m.in. catalog items, OrderItems, payment events, settlements, fulfillments i purchase-grant lineage.
+W testach rozróżnione są dwie metryki źródłowe: top-level `migration_tests_required` ma 244 wpisy, a rekurencyjnie wszystkie wystąpienia tego klucza dają 261 source occurrences. DB-TST-001 nadal posiada 261 niezmienionych bazowych IDs. DB-TST-002 historycznie dodał 229 anchors i zamknął katalog 490 IDs. DB-FINAL-001 dopisuje tylko `DBT-CORE-100`, klasę `migration_postcheck`, mapującą finalny aggregate semantic sync; aktualny finalny katalog ma więc **491 unikalnych IDs** i obejmuje **77/77** resolved Stage-4 blockers.
 
-Krok DB4_10 w narrative nadal używa skrótu `audit/activity/outbox/notifications`, podczas gdy finalny machine contract ma zależności obejmujące audit policy revisions, AuditLog, DomainEvent jako canonical projection identity, Outbox, activity projection policies, Activity, Notifications, migration review oraz retention execution evidence.
+Narrative `docs/87` został wyrównany do tego samego modelu. Sekcja 24 nie używa już kroków `orders/payments/service entitlements/activations`, `audit/activity/outbox/notifications` ani zbiorczego final-constraint bucketu jako kolejności wykonawczej. Commerce jawnie obejmuje catalog, Orders/OrderItems, payment attempts/events, settlements, fulfillments, purchase-grant lineage oraz service entitlements/activations. DB4_10 jawnie obejmuje audit policy revisions, AuditLog, DomainEvent, Outbox, activity projection policies/Activity, Notifications, migration review i retention execution evidence.
 
-DB-FINAL-001 ma zostać wykonany **na końcu**, po ustaleniu DAG i macierzy testów, aby oba agregaty otrzymały już finalną reprezentację. Wtedy trzeba ponownie uruchomić semantic-loss gate przez DB4_1–DB4_10 i usunąć wszystkie stare provisional shortcuts.
+Finalny coverage proof po DB-FINAL-001: 491 IDs, 77 resolved blockers, 183 critical constraints, 45 transactional invariants, 1 581 local required-test occurrences / 1 576 unique names, zero unknown final refs, zero orphan source refs i zero coverage gaps. DB-FINAL-001 nie generuje PHPUnit/Pest/Laravel tests ani fizycznych migracji.
 
 ## 9. Co nie jest blockerem DB4_11
 
@@ -315,25 +307,21 @@ Nie rozwiązujemy też w tym slice zewnętrznych production blockers takich jak 
 
 ## 10. Preservation gate
 
-DB-TST-002 zachowuje:
-- DB4_1–DB4_10 bez reopen,
-- DB-MIG-001, DB-MIG-002, DB-MIG-003 i bazowy katalog DB-TST-001 bez zmian semantycznych,
-- executable DAG i `topological_order` DB-MIG-001 bez zmian,
-- siedmiofazowy `migration_phase_composition` DB-MIG-002 bez zmian,
-- `migration_cutover_execution_contract` DB-MIG-003 bez zmian,
-- 261 istniejących DB-TST-001 IDs i ich definicje bez zmian,
-- `core-schema.yml` bez zmian — blob `39958721c99550cfc27c3774e8dfa1af0d0637e6`,
-- `docs/87...` bez zmian — blob `6c090b082604b6b42c283667fcf08e9033a5b523`,
-- bounded-context specs jako read-only w samym DB-TST-002 po osobnym prerequisite YAML repair,
-- DB-FINAL-001 jako jedyny nierozwiązany P1,
-- brak framework test files, migracji Laravel, Stage 5 i UI/feature implementation.
+DB-FINAL-001 zachowuje:
+- DB4_1-DB4_10 bez reopen i bez zmiany business authority,
+- 170-node DAG DB-MIG-001, siedem faz DB-MIG-002 i cutover/restart/rollback DB-MIG-003 bez semantic rewrite,
+- wszystkie 261 bazowych DB-TST-001 IDs bez renumeracji i przedefiniowania,
+- historyczny DB-TST-002 wynik 229 anchors / 490 IDs jako stan tego kroku,
+- wyłącznie append-only `DBT-CORE-100` dla finalnego aggregate sync, co daje 491 IDs,
+- 183/183 critical constraints, 45/45 transactional invariants i wszystkie 1 581 local required-test occurrences,
+- bounded-context specs jako read-only,
+- brak wymyślonych RPO/RTO, retention duration, provider schema ani nowych decyzji prawnych,
+- brak Laravel migrations, Stage 5 i UI/feature implementation.
 
 ## 11. Następny pojedynczy krok
 
-Po domknięciu machine + narrative + central gate DB-TST-002 następny krok może dotyczyć wyłącznie:
+Pozostał wyłącznie **central Stage-4 gate dla DB-FINAL-001**. Ma on potwierdzić finalne bloby machine+narrative, 77 resolved blockers, 491 test IDs, zero-gap coverage, wycofanie provisional migration shortcuts oraz pełny PASS DB4_11.
 
-**`DB-FINAL-001 — final_machine_narrative_migration_and_test_semantic_sync`**
+Dopiero po central PASS Stage 4 może zostać zamknięty. Stage 5 nie jest uruchamiany w tym kroku i wymaga osobnego jawnego polecenia użytkownika.
 
-I dopiero po kolejnym jawnym poleceniu użytkownika. DB-FINAL-001 jest pierwszym krokiem uprawnionym do synchronizacji `core-schema.yml` i `docs/87...`. Do tego momentu oba agregaty pozostają zamrożone.
-
-**STOP przed fixerem DB-FINAL-001.**
+**STOP przed Stage 5.**
