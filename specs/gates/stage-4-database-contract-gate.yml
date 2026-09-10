@@ -119,12 +119,12 @@ stage_4_slices:
     final_aggregate_sync: PASS
     result: PASS
   - id: DB4_11_FINAL_MIGRATION_ORDER_AND_INVARIANT_TEST_MATRIX
-    status: FAIL_WITH_4_P1_BLOCKERS
+    status: FAIL_WITH_3_P1_BLOCKERS
     diagnosis: COMPLETE
     blockers_diagnosed: 6
-    blockers_resolved: 2
-    open_P0_P1: 4
-    result: FAIL_WITH_4_P1_BLOCKERS
+    blockers_resolved: 3
+    open_P0_P1: 3
+    result: FAIL_WITH_3_P1_BLOCKERS
 
 quality_checks:
   DB4_1_foundation:
@@ -4184,6 +4184,43 @@ quality_checks:
       Stage5_started: false
       UI_or_feature_implementation_started: false
 
+  DB4_11_DB_MIG_003:
+    status: PASS
+    resolved_blocker_id: DB-MIG-003
+    machine_source: specs/database/final-migration-order-invariant-matrix.yml
+    narrative_source: docs/116-stage-4-final-migration-order-invariant-matrix-audit.md
+    machine_commit: a7c00bb726944ba3e6a29a1b9fc974a67b0ae082
+    machine_blob: df06baca7947d74e04adc5912fb40fdb972fa38e
+    narrative_commit: dfc329fd034a0d5f0fc98c0de8dcc0cc5b6230c0
+    narrative_blob: 5668ed5d3e555953e8dafa3b37ad68ddd447089a
+    aggregate_core_schema_blob_frozen: 39958721c99550cfc27c3774e8dfa1af0d0637e6
+    aggregate_docs87_blob_frozen: 6c090b082604b6b42c283667fcf08e9033a5b523
+    checks:
+      DB_MIG_001_DAG_authority_unchanged: PASS
+      DB_MIG_002_seven_phase_authority_unchanged: PASS
+      all_170_DAG_nodes_resolve_restart_classification: PASS
+      restart_classes_are_restart_safe_or_manual_review_only: PASS
+      restart_safe_requires_exact_postcondition_before_retry: PASS
+      blind_retry_forbidden: PASS
+      all_seven_phases_have_entry_exit_abort_restart_and_rollback_contract: PASS
+      nontransactional_or_concurrent_partial_index_requires_manual_review: PASS
+      interrupted_backfill_requires_exact_idempotent_checkpoint_or_manual_review: PASS
+      interrupted_reconciliation_not_replayed_blindly: PASS
+      validation_failure_keeps_write_fence_and_blocks_contract: PASS
+      rollback_modes_limited_to_application_rollback_schema_forward_fix_explicit_safe_down: PASS
+      automatic_destructive_down_for_required_history_forbidden: PASS
+      destructive_contract_requires_zero_required_unresolved_cases: PASS
+      destructive_contract_requires_backup_health_and_restore_test_evidence: PASS
+      final_cutover_smoke_integrity_gate_defined_without_stable_test_ids: PASS
+      DB_TST_001_and_DB_TST_002_not_solved_early: PASS
+      DB_FINAL_001_aggregate_sync_not_solved_early: PASS
+      production_specific_RPO_RTO_not_invented: PASS
+      core_schema_modified_in_DB_MIG_003: false
+      docs87_modified_in_DB_MIG_003: false
+      Laravel_migrations_created: false
+      Stage5_started: false
+      UI_or_feature_implementation_started: false
+
 resolved_blockers:
   - DB-AUD-001
   - DB-AUD-002
@@ -4258,9 +4295,9 @@ resolved_blockers:
   - DB-COM-006
   - DB-MIG-001
   - DB-MIG-002
+  - DB-MIG-003
 
 open_blockers_current_diagnosed_scope:
-  - DB-MIG-003
   - DB-TST-001
   - DB-TST-002
   - DB-FINAL-001
@@ -4273,7 +4310,7 @@ gate_definition:
     - migration_order_dependency_safe
     - database_invariant_test_matrix_exists
     - reverse_engineering_preservation_traceable
-  current_result: DB4_11_FAIL_WITH_4_P1_BLOCKERS
+  current_result: DB4_11_FAIL_WITH_3_P1_BLOCKERS
   DB4_1_result: PASS
   DB4_2_result: PASS
   DB4_3_result: PASS
@@ -4357,11 +4394,11 @@ gate_definition:
   DB4_11_diagnosis_result: FAIL_WITH_6_P1_BLOCKERS
   DB4_11_DB_MIG_001_result: PASS
   DB4_11_DB_MIG_002_result: PASS
-  DB4_11_DB_MIG_003_result: OPEN
+  DB4_11_DB_MIG_003_result: PASS
   DB4_11_DB_TST_001_result: OPEN
   DB4_11_DB_TST_002_result: OPEN
   DB4_11_DB_FINAL_001_result: OPEN
-  DB4_11_result: FAIL_WITH_4_P1_BLOCKERS
+  DB4_11_result: FAIL_WITH_3_P1_BLOCKERS
   may_start_DB4_4_fixes: false
   may_start_DB4_5: false
   may_start_DB4_5_fixes: false
@@ -4381,19 +4418,18 @@ gate_definition:
   may_start_UI_or_feature_implementation: false
 
 next_single_step:
-  id: DB-MIG-003
-  action: resolve_DB_MIG_003_only_after_next_explicit_user_instruction
+  id: DB-TST-001
+  action: resolve_DB_TST_001_only_after_next_explicit_user_instruction
   diagnosis_only: false
   fixes_allowed_in_same_step: true
   allowed_scope:
     - specs/database/final-migration-order-invariant-matrix.yml
     - docs/116-stage-4-final-migration-order-invariant-matrix-audit.md
-    - specs/database/core-schema.yml
-    - docs/87-physical-database-schema.md
     - specs/gates/stage-4-database-contract-gate.yml
   prior_bounded_context_specs_read_only: true
+  aggregate_core_schema_and_docs87_frozen_until_DB_FINAL_001: true
   scope_lock: >-
-    DB-MIG-001 and DB-MIG-002 are PASS. Resolve DB-MIG-003 only. Preserve DB-TST-001,
-    DB-TST-002 and DB-FINAL-001 as OPEN. Do not enter Stage 5, generate Laravel
-    migrations, or implement UI/features in the same step.
-  after_action: run_DB_MIG_003_machine_narrative_central_gate_and_STOP_before_DB_TST_001
+    DB-MIG-001, DB-MIG-002 and DB-MIG-003 are PASS. Resolve DB-TST-001 only.
+    Preserve DB-TST-002 and DB-FINAL-001 as OPEN. Do not modify core-schema.yml
+    or docs/87, enter Stage 5, generate Laravel migrations, or implement UI/features.
+  after_action: run_DB_TST_001_machine_narrative_central_gate_and_STOP_before_DB_TST_002
