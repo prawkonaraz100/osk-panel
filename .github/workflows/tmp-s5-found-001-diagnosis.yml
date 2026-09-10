@@ -63,29 +63,37 @@ jobs:
           print('DEPENDENCY_CLOSURE_IDS=', ','.join(closure_ordered))
           print('CANONICAL_PREFIX_TO_MAX_FOUNDATION_COUNT=', len(prefix))
           print('CANONICAL_PREFIX_UNRELATED_COUNT=', len(unrelated))
-          print('CANONICAL_PREFIX_UNRELATED_IDS=', ','.join(unrelated))
 
           matrix = yaml.safe_load(Path('specs/database/final-migration-order-invariant-matrix.yml').read_text())
-          tests=[]
-          def walk(v, path=()):
+          tests={}
+          blocker_maps={}
+          def walk(v):
             if isinstance(v, dict):
-              if isinstance(v.get('test_id'), str) and v['test_id'].startswith('DBT-'):
-                tests.append((v['test_id'], path, v))
-              for k,x in v.items(): walk(x, path+(str(k),))
+              tid=v.get('test_id')
+              if isinstance(tid, str) and tid.startswith('DBT-'):
+                tests[tid]=v
+              bid=v.get('blocker_id')
+              ids=v.get('final_test_ids')
+              if isinstance(bid, str) and isinstance(ids, list):
+                blocker_maps[bid]=ids
+              for x in v.values(): walk(x)
             elif isinstance(v, list):
-              for i,x in enumerate(v): walk(x, path+(str(i),))
+              for x in v: walk(x)
           walk(matrix)
           print('MATRIX_TEST_ROWS=', len(tests))
-          source_needles=['specs/database/identity-rbac.yml','specs/database/organization-settings.yml','specs/database/audit-outbox-notifications.yml','specs/security/permissions.yml']
-          relevant=[]
-          for tid,path,row in tests:
-            blob=yaml.safe_dump(row, sort_keys=False)
-            if any(n in blob for n in source_needles):
-              relevant.append((tid,path,row))
-          print('FOUNDATION_SOURCE_DBT_COUNT=', len(relevant))
-          for tid,path,row in relevant:
-            name=row.get('source_invariant') or row.get('name') or row.get('expected_outcome') or ''
-            cls=row.get('test_class') or row.get('class') or ''
-            phase=row.get('execution_phase') or ''
-            print('DBT', tid, 'class=', cls, 'phase=', phase, 'name=', str(name)[:220].replace('\n',' '))
+          targets=[f'DB-IAM-{i:03d}' for i in range(1,6)] + ['DB-AUD-001','DB-AUD-002','DB-OUT-001','DB-OUT-002']
+          selected=[]
+          for bid in targets:
+            ids=blocker_maps.get(bid, [])
+            print('BLOCKER', bid, 'IDS=', ','.join(ids))
+            for tid in ids:
+              if tid not in selected: selected.append(tid)
+          print('SELECTED_DBT_UNION_COUNT=', len(selected))
+          for tid in selected:
+            row=tests.get(tid)
+            if not row:
+              print('DBT_MISSING_ROW', tid)
+              continue
+            print('DBT_DETAIL', tid)
+            print(yaml.safe_dump(row, sort_keys=False, width=160).rstrip())
           PY
