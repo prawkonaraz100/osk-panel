@@ -6,6 +6,9 @@ use LogicException;
 
 final class MigrationExecutionJournal
 {
+    /**
+     * @param  array<string, mixed>  $event
+     */
     public function append(array $event): void
     {
         $path = $this->path();

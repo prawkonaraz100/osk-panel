@@ -9,6 +9,7 @@ use Symfony\Component\Yaml\Yaml;
 final class Stage4TestCatalog
 {
     public const AUTHORITY_PATH = 'specs/database/final-migration-order-invariant-matrix.yml';
+
     public const AUTHORITY_BLOB = 'ad5f2aa2e14ef248b95dd3dda0d1cbcb2e69d441';
 
     /** @var array<int, array<string, mixed>> */

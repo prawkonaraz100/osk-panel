@@ -7,8 +7,11 @@ use PDO;
 final class SyntheticTenantFixtureFactory
 {
     public const TENANT_A = '018f0000-0000-7000-8000-000000000001';
+
     public const TENANT_B = '018f0000-0000-7000-8000-000000000002';
+
     public const RESOURCE_A = '018f0000-0000-7000-8000-000000000101';
+
     public const RESOURCE_B = '018f0000-0000-7000-8000-000000000102';
 
     public static function reset(PDO $pdo): void

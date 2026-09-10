@@ -7,6 +7,7 @@ use App\Support\Migrations\PostgresMigrationLock;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Symfony\Component\Console\Command\Command;
 
 Artisan::command('migration:plan:validate {--json}', function (MigrationPlan $plan): int {
     $plan->validate();
@@ -22,7 +23,7 @@ Artisan::command('migration:plan:validate {--json}', function (MigrationPlan $pl
         $this->line('implemented_steps='.$plan->implementedStepCount());
     }
 
-    return self::SUCCESS;
+    return Command::SUCCESS;
 })->purpose('Validate the immutable Stage-4 migration authority and registered executable steps.');
 
 Artisan::command(
@@ -43,40 +44,60 @@ Artisan::command(
         if (! is_string($phase) || $phase === '') {
             $this->error('Explicit migration phase is required; refusing execution.');
 
-            return self::FAILURE;
+            return Command::FAILURE;
         }
 
         if ($this->option('plan') !== $migrationPlan->identity()) {
             $this->error('Migration plan identity mismatch; refusing execution.');
 
-            return self::FAILURE;
+            return Command::FAILURE;
         }
 
         if ($this->option('execution') !== $migrationPlan->executionIdentity()) {
             $this->error('Migration execution identity mismatch; refusing execution.');
 
-            return self::FAILURE;
+            return Command::FAILURE;
         }
 
         if (! $lock->acquire()) {
             $this->error('Another migration executor holds the PostgreSQL advisory lock.');
 
-            return self::FAILURE;
+            return Command::FAILURE;
         }
 
         $executionIdentity = $migrationPlan->executionIdentity();
         $activeNode = null;
 
+        /**
+         * @return list<string>
+         */
+        $loadAppliedMigrations = static function (): array {
+            if (! Schema::hasTable('migrations')) {
+                return [];
+            }
+
+            $values = DB::table('migrations')->pluck('migration')->all();
+            foreach ($values as $value) {
+                if (! is_string($value)) {
+                    throw new LogicException('Laravel migration repository contains a non-string migration name.');
+                }
+            }
+
+            /** @var list<string> $values */
+            return $values;
+        };
+
         try {
-            $applied = Schema::hasTable('migrations')
-                ? DB::table('migrations')->pluck('migration')->all()
-                : [];
+            $applied = $loadAppliedMigrations();
             $migrationPlan->assertPhaseEntry($phase, $applied);
 
+            $reviewedResumeOption = $this->option('reviewed-resume');
+            $reviewedResumeValues = is_array($reviewedResumeOption) ? $reviewedResumeOption : [];
             $reviewedResume = array_values(array_unique(array_filter(
-                $this->option('reviewed-resume'),
+                $reviewedResumeValues,
                 fn ($value): bool => is_string($value) && $value !== '',
             )));
+            /** @var list<string> $reviewedResume */
             $phaseSteps = $migrationPlan->phaseSteps($phase);
             $phaseNodeIds = array_column($phaseSteps, 'node_id');
 
@@ -84,7 +105,7 @@ Artisan::command(
                 if (! in_array($nodeId, $phaseNodeIds, true)) {
                     $this->error("Reviewed-resume node {$nodeId} is not registered in phase {$phase}; refusing execution.");
 
-                    return self::FAILURE;
+                    return Command::FAILURE;
                 }
             }
 
@@ -107,7 +128,7 @@ Artisan::command(
                 if ($requiresReview && ! in_array($activeNode, $reviewedResume, true)) {
                     $this->error("Manual-review node {$activeNode} has interrupted or failed evidence; explicit --reviewed-resume={$activeNode} is required.");
 
-                    return self::FAILURE;
+                    return Command::FAILURE;
                 }
 
                 if ($requiresReview) {
@@ -140,7 +161,7 @@ Artisan::command(
                     ControlledMigrationContext::leave();
                 }
 
-                if ($exit !== self::SUCCESS) {
+                if ($exit !== Command::SUCCESS) {
                     $journal->append([
                         'event' => 'migration_node_failed',
                         'plan_identity' => $migrationPlan->identity(),
@@ -153,9 +174,7 @@ Artisan::command(
                     return $exit;
                 }
 
-                $applied = Schema::hasTable('migrations')
-                    ? DB::table('migrations')->pluck('migration')->all()
-                    : [];
+                $applied = $loadAppliedMigrations();
                 if (! in_array($step['migration_name'], $applied, true)) {
                     throw new LogicException("Laravel migration repository did not record {$activeNode}/{$phase} as applied.");
                 }
@@ -177,7 +196,7 @@ Artisan::command(
                 'phase' => $phase,
             ]);
 
-            return self::SUCCESS;
+            return Command::SUCCESS;
         } catch (Throwable $exception) {
             if ($activeNode !== null) {
                 try {
