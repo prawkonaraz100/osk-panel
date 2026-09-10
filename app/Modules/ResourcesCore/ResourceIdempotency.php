@@ -8,8 +8,8 @@ use Illuminate\Support\Str;
 final class ResourceIdempotency
 {
     /**
-     * @param array<string,mixed> $payload
-     * @param callable():array{status:int,resource_type:string,resource_id:string,body:array<string,mixed>} $callback
+     * @param  array<string,mixed>  $payload
+     * @param  callable():array{status:int,resource_type:string,resource_id:string,body:array<string,mixed>}  $callback
      * @return array{status:int,resource_type:string,resource_id:string,body:array<string,mixed>}
      */
     public function execute(string $organizationId, string $operationKey, string $idempotencyKey, array $payload, callable $callback): array
@@ -77,7 +77,6 @@ final class ResourceIdempotency
         });
     }
 
-    /** @return mixed */
     private function canonicalize(mixed $value): mixed
     {
         if (! is_array($value)) {

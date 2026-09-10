@@ -659,37 +659,89 @@ function togglePermission(permission: string): void {
 <template>
   <div class="app-shell">
     <aside class="sidebar">
-      <a class="brand" href="/">OSK <strong>Panel</strong></a>
-      <nav class="main-nav" aria-label="Główna nawigacja">
-        <a href="/lokalizacje" :class="{ active: section === 'locations' }">Lokalizacje</a>
-        <a href="/pracownicy" :class="{ active: section === 'staff' }">Pracownicy</a>
-        <a href="/pojazdy" :class="{ active: section === 'vehicles' }">Pojazdy</a>
+      <a
+        class="brand"
+        href="/"
+      >OSK <strong>Panel</strong></a>
+      <nav
+        class="main-nav"
+        aria-label="Główna nawigacja"
+      >
+        <a
+          href="/lokalizacje"
+          :class="{ active: section === 'locations' }"
+        >Lokalizacje</a>
+        <a
+          href="/pracownicy"
+          :class="{ active: section === 'staff' }"
+        >Pracownicy</a>
+        <a
+          href="/pojazdy"
+          :class="{ active: section === 'vehicles' }"
+        >Pojazdy</a>
       </nav>
-      <div class="sidebar-foot">Stage 5 · Core v1</div>
+      <div class="sidebar-foot">
+        Stage 5 · Core v1
+      </div>
     </aside>
 
     <main class="workspace">
       <header class="workspace-header">
         <div>
-          <div class="eyebrow">PrawkoNaRaz · OSK</div>
+          <div class="eyebrow">
+            PrawkoNaRaz · OSK
+          </div>
           <h1>{{ pageTitle }}</h1>
         </div>
         <div class="header-actions">
-          <a v-if="detailId && section === 'staff'" class="button ghost" href="/pracownicy">Wróć do listy</a>
-          <a v-if="detailId && section === 'vehicles'" class="button ghost" href="/pojazdy">Wróć do listy</a>
+          <a
+            v-if="detailId && section === 'staff'"
+            class="button ghost"
+            href="/pracownicy"
+          >Wróć do listy</a>
+          <a
+            v-if="detailId && section === 'vehicles'"
+            class="button ghost"
+            href="/pojazdy"
+          >Wróć do listy</a>
         </div>
       </header>
 
-      <div v-if="notice" class="notice success" role="status">
+      <div
+        v-if="notice"
+        class="notice success"
+        role="status"
+      >
         <span>{{ notice }}</span>
-        <button type="button" aria-label="Zamknij" @click="notice = ''">×</button>
+        <button
+          type="button"
+          aria-label="Zamknij"
+          @click="notice = ''"
+        >
+          ×
+        </button>
       </div>
-      <div v-if="error" class="notice error" role="alert">
+      <div
+        v-if="error"
+        class="notice error"
+        role="alert"
+      >
         <span>{{ error }}</span>
-        <button type="button" aria-label="Zamknij" @click="error = ''">×</button>
+        <button
+          type="button"
+          aria-label="Zamknij"
+          @click="error = ''"
+        >
+          ×
+        </button>
       </div>
 
-      <div v-if="loading" class="loading-card">Ładowanie danych…</div>
+      <div
+        v-if="loading"
+        class="loading-card"
+      >
+        Ładowanie danych…
+      </div>
 
       <template v-else-if="section === 'home'">
         <section class="intro-card">
@@ -697,9 +749,18 @@ function togglePermission(permission: string): void {
           <h2>Pierwsze moduły operacyjne OSK</h2>
           <p>Lokalizacje, pracownicy i pojazdy korzystają z jednego tenantowego modelu uprawnień, historii i audytu.</p>
           <div class="intro-links">
-            <a class="button primary" href="/lokalizacje">Otwórz lokalizacje</a>
-            <a class="button ghost" href="/pracownicy">Pracownicy</a>
-            <a class="button ghost" href="/pojazdy">Pojazdy</a>
+            <a
+              class="button primary"
+              href="/lokalizacje"
+            >Otwórz lokalizacje</a>
+            <a
+              class="button ghost"
+              href="/pracownicy"
+            >Pracownicy</a>
+            <a
+              class="button ghost"
+              href="/pojazdy"
+            >Pojazdy</a>
           </div>
         </section>
       </template>
@@ -712,11 +773,25 @@ function togglePermission(permission: string): void {
             Kontekst zasobu został zachowany w adresie. Silnik zdarzeń, dostępności i konfliktów nie jest pozorowany
             w tym slice i zostanie podpięty w dedykowanym module Calendar.
           </p>
-          <div v-if="calendarQuery" class="context-chip">{{ calendarQuery }}</div>
+          <div
+            v-if="calendarQuery"
+            class="context-chip"
+          >
+            {{ calendarQuery }}
+          </div>
           <div class="intro-links">
-            <a class="button ghost" href="/pracownicy">Pracownicy</a>
-            <a class="button ghost" href="/pojazdy">Pojazdy</a>
-            <a class="button ghost" href="/lokalizacje">Lokalizacje</a>
+            <a
+              class="button ghost"
+              href="/pracownicy"
+            >Pracownicy</a>
+            <a
+              class="button ghost"
+              href="/pojazdy"
+            >Pojazdy</a>
+            <a
+              class="button ghost"
+              href="/lokalizacje"
+            >Lokalizacje</a>
           </div>
         </section>
       </template>
@@ -724,9 +799,17 @@ function togglePermission(permission: string): void {
       <template v-else-if="section === 'locations'">
         <section class="toolbar">
           <div>
-            <p class="section-description">Miejsca prowadzenia działalności i szkolenia w obrębie tego OSK.</p>
+            <p class="section-description">
+              Miejsca prowadzenia działalności i szkolenia w obrębie tego OSK.
+            </p>
           </div>
-          <button class="button primary" type="button" @click="openLocationCreate">Dodaj lokalizację</button>
+          <button
+            class="button primary"
+            type="button"
+            @click="openLocationCreate"
+          >
+            Dodaj lokalizację
+          </button>
         </section>
 
         <section class="table-card">
@@ -737,26 +820,66 @@ function togglePermission(permission: string): void {
                 <th>Nazwa</th>
                 <th>Adres</th>
                 <th>Status</th>
-                <th class="actions-column">Akcje</th>
+                <th class="actions-column">
+                  Akcje
+                </th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="item in locations" :key="item.id" :class="{ archived: item.archived_at }">
+              <tr
+                v-for="item in locations"
+                :key="item.id"
+                :class="{ archived: item.archived_at }"
+              >
                 <td>{{ locationTypeMap.get(item.type_code) ?? item.type_code }}</td>
                 <td><strong>{{ item.name }}</strong></td>
                 <td>{{ item.street_and_number }}, {{ item.postal_code }} {{ item.city_name }}</td>
-                <td><span class="status-pill" :class="{ muted: item.archived_at }">{{ item.archived_at ? 'Archiwalna' : 'Aktywna' }}</span></td>
+                <td>
+                  <span
+                    class="status-pill"
+                    :class="{ muted: item.archived_at }"
+                  >{{ item.archived_at ? 'Archiwalna' : 'Aktywna' }}</span>
+                </td>
                 <td>
                   <div class="row-actions">
-                    <a class="text-link" :href="`/kalendarz?b=${item.id}`">Kalendarz</a>
-                    <button v-if="!item.archived_at" class="text-button" type="button" @click="openLocationEdit(item)">Edytuj</button>
-                    <button v-if="!item.archived_at" class="text-button danger" type="button" @click="archiveLocation(item)">Archiwizuj</button>
-                    <button v-else class="text-button" type="button" @click="restoreLocation(item)">Przywróć</button>
+                    <a
+                      class="text-link"
+                      :href="`/kalendarz?b=${item.id}`"
+                    >Kalendarz</a>
+                    <button
+                      v-if="!item.archived_at"
+                      class="text-button"
+                      type="button"
+                      @click="openLocationEdit(item)"
+                    >
+                      Edytuj
+                    </button>
+                    <button
+                      v-if="!item.archived_at"
+                      class="text-button danger"
+                      type="button"
+                      @click="archiveLocation(item)"
+                    >
+                      Archiwizuj
+                    </button>
+                    <button
+                      v-else
+                      class="text-button"
+                      type="button"
+                      @click="restoreLocation(item)"
+                    >
+                      Przywróć
+                    </button>
                   </div>
                 </td>
               </tr>
               <tr v-if="locations.length === 0">
-                <td colspan="5" class="empty-cell">Nie dodano jeszcze żadnej lokalizacji.</td>
+                <td
+                  colspan="5"
+                  class="empty-cell"
+                >
+                  Nie dodano jeszcze żadnej lokalizacji.
+                </td>
               </tr>
             </tbody>
           </table>
@@ -767,9 +890,20 @@ function togglePermission(permission: string): void {
         <section class="toolbar">
           <div class="search-box">
             <label for="staff-search">Szukaj</label>
-            <input id="staff-search" v-model="search" type="search" placeholder="Imię, nazwisko lub e-mail" />
+            <input
+              id="staff-search"
+              v-model="search"
+              type="search"
+              placeholder="Imię, nazwisko lub e-mail"
+            >
           </div>
-          <button class="button primary" type="button" @click="openStaffCreate">Dodaj pracownika</button>
+          <button
+            class="button primary"
+            type="button"
+            @click="openStaffCreate"
+          >
+            Dodaj pracownika
+          </button>
         </section>
 
         <section class="table-card">
@@ -781,14 +915,22 @@ function togglePermission(permission: string): void {
                 <th>Rodzaj</th>
                 <th>Dokumenty</th>
                 <th>Konto</th>
-                <th class="actions-column">Akcje</th>
+                <th class="actions-column">
+                  Akcje
+                </th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="item in filteredStaff" :key="item.id" :class="{ archived: item.archived_at }">
+              <tr
+                v-for="item in filteredStaff"
+                :key="item.id"
+                :class="{ archived: item.archived_at }"
+              >
                 <td>
                   <div class="person-cell">
-                    <div class="avatar">{{ item.first_name.charAt(0) }}{{ item.last_name.charAt(0) }}</div>
+                    <div class="avatar">
+                      {{ item.first_name.charAt(0) }}{{ item.last_name.charAt(0) }}
+                    </div>
                     <div><strong>{{ item.first_name }} {{ item.last_name }}</strong><small>{{ item.archived_at ? 'Archiwalny profil' : 'Aktywny profil' }}</small></div>
                   </div>
                 </td>
@@ -803,13 +945,24 @@ function togglePermission(permission: string): void {
                 <td>{{ item.has_login_account ? 'Powiązane' : 'Brak' }}</td>
                 <td>
                   <div class="row-actions">
-                    <a class="text-link" :href="`/kalendarz?w=${item.id}`">Kalendarz</a>
-                    <a class="text-link strong" :href="`/pracownicy/${item.id}`">Zobacz</a>
+                    <a
+                      class="text-link"
+                      :href="`/kalendarz?w=${item.id}`"
+                    >Kalendarz</a>
+                    <a
+                      class="text-link strong"
+                      :href="`/pracownicy/${item.id}`"
+                    >Zobacz</a>
                   </div>
                 </td>
               </tr>
               <tr v-if="filteredStaff.length === 0">
-                <td colspan="6" class="empty-cell">Brak pracowników spełniających kryteria.</td>
+                <td
+                  colspan="6"
+                  class="empty-cell"
+                >
+                  Brak pracowników spełniających kryteria.
+                </td>
               </tr>
             </tbody>
           </table>
@@ -819,16 +972,43 @@ function togglePermission(permission: string): void {
       <template v-else-if="section === 'staff' && currentStaff">
         <section class="detail-hero">
           <div class="detail-identity">
-            <div class="avatar large">{{ currentStaff.first_name.charAt(0) }}{{ currentStaff.last_name.charAt(0) }}</div>
+            <div class="avatar large">
+              {{ currentStaff.first_name.charAt(0) }}{{ currentStaff.last_name.charAt(0) }}
+            </div>
             <div>
-              <div class="detail-title">{{ currentStaff.first_name }} {{ currentStaff.last_name }}</div>
-              <div class="detail-subtitle">{{ currentStaff.email }}</div>
+              <div class="detail-title">
+                {{ currentStaff.first_name }} {{ currentStaff.last_name }}
+              </div>
+              <div class="detail-subtitle">
+                {{ currentStaff.email }}
+              </div>
             </div>
           </div>
           <div class="detail-actions">
-            <button v-if="!currentStaff.archived_at" class="button ghost" type="button" @click="openStaffEdit(currentStaff)">Edytuj dane</button>
-            <button v-if="!currentStaff.archived_at" class="button danger-outline" type="button" @click="archiveStaff">Archiwizuj</button>
-            <button v-else class="button primary" type="button" @click="restoreStaff">Przywróć profil</button>
+            <button
+              v-if="!currentStaff.archived_at"
+              class="button ghost"
+              type="button"
+              @click="openStaffEdit(currentStaff)"
+            >
+              Edytuj dane
+            </button>
+            <button
+              v-if="!currentStaff.archived_at"
+              class="button danger-outline"
+              type="button"
+              @click="archiveStaff"
+            >
+              Archiwizuj
+            </button>
+            <button
+              v-else
+              class="button primary"
+              type="button"
+              @click="restoreStaff"
+            >
+              Przywróć profil
+            </button>
           </div>
         </section>
 
@@ -863,15 +1043,44 @@ function togglePermission(permission: string): void {
           <div class="card-heading split">
             <div><span class="section-kicker">Dostęp do panelu</span><h2>Konto i uprawnienia</h2></div>
             <div class="row-actions">
-              <button v-if="currentStaff.has_login_account" class="button ghost" type="button" @click="openPermissions">Uprawnienia</button>
-              <button v-if="currentStaff.has_login_account" class="button danger-outline" type="button" @click="revokePanelAccount">Odłącz konto</button>
-              <button v-else-if="!currentStaff.archived_at" class="button primary" type="button" @click="createPanelAccount">Utwórz konto do logowania</button>
+              <button
+                v-if="currentStaff.has_login_account"
+                class="button ghost"
+                type="button"
+                @click="openPermissions"
+              >
+                Uprawnienia
+              </button>
+              <button
+                v-if="currentStaff.has_login_account"
+                class="button danger-outline"
+                type="button"
+                @click="revokePanelAccount"
+              >
+                Odłącz konto
+              </button>
+              <button
+                v-else-if="!currentStaff.archived_at"
+                class="button primary"
+                type="button"
+                @click="createPanelAccount"
+              >
+                Utwórz konto do logowania
+              </button>
             </div>
           </div>
-          <p v-if="currentStaff.has_login_account" class="muted-copy">
+          <p
+            v-if="currentStaff.has_login_account"
+            class="muted-copy"
+          >
             Profil ma jawne powiązanie z kontem. Typ pracownika nie nadaje uprawnień automatycznie.
           </p>
-          <p v-else class="muted-copy">Profil kadrowy może istnieć bez konta do logowania.</p>
+          <p
+            v-else
+            class="muted-copy"
+          >
+            Profil kadrowy może istnieć bez konta do logowania.
+          </p>
         </section>
 
         <CalendarShell :resource-query="`w=${currentStaff.id}`" />
@@ -881,9 +1090,20 @@ function togglePermission(permission: string): void {
         <section class="toolbar">
           <div class="search-box">
             <label for="vehicle-search">Szukaj</label>
-            <input id="vehicle-search" v-model="search" type="search" placeholder="Rejestracja, marka lub model" />
+            <input
+              id="vehicle-search"
+              v-model="search"
+              type="search"
+              placeholder="Rejestracja, marka lub model"
+            >
           </div>
-          <button class="button primary" type="button" @click="openVehicleCreate">Dodaj pojazd</button>
+          <button
+            class="button primary"
+            type="button"
+            @click="openVehicleCreate"
+          >
+            Dodaj pojazd
+          </button>
         </section>
 
         <section class="table-card">
@@ -894,11 +1114,17 @@ function togglePermission(permission: string): void {
                 <th>Marka i model</th>
                 <th>Kategorie</th>
                 <th>Dokumenty</th>
-                <th class="actions-column">Akcje</th>
+                <th class="actions-column">
+                  Akcje
+                </th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="item in filteredVehicles" :key="item.id" :class="{ archived: item.archived_at }">
+              <tr
+                v-for="item in filteredVehicles"
+                :key="item.id"
+                :class="{ archived: item.archived_at }"
+              >
                 <td><strong>{{ item.registration_number }}</strong><small class="table-subline">{{ item.side_number ?? 'Bez nr bocznego' }}</small></td>
                 <td>{{ item.make }} {{ item.model }}</td>
                 <td>{{ joinLabels(item.category_ids, categoryMap) }}</td>
@@ -911,13 +1137,24 @@ function togglePermission(permission: string): void {
                 </td>
                 <td>
                   <div class="row-actions">
-                    <a class="text-link" :href="`/kalendarz?v=${item.id}`">Kalendarz</a>
-                    <a class="text-link strong" :href="`/pojazdy/${item.id}`">Zobacz</a>
+                    <a
+                      class="text-link"
+                      :href="`/kalendarz?v=${item.id}`"
+                    >Kalendarz</a>
+                    <a
+                      class="text-link strong"
+                      :href="`/pojazdy/${item.id}`"
+                    >Zobacz</a>
                   </div>
                 </td>
               </tr>
               <tr v-if="filteredVehicles.length === 0">
-                <td colspan="5" class="empty-cell">Nie dodano jeszcze żadnego pojazdu.</td>
+                <td
+                  colspan="5"
+                  class="empty-cell"
+                >
+                  Nie dodano jeszcze żadnego pojazdu.
+                </td>
               </tr>
             </tbody>
           </table>
@@ -927,23 +1164,59 @@ function togglePermission(permission: string): void {
       <template v-else-if="section === 'vehicles' && currentVehicle">
         <section class="detail-hero">
           <div class="detail-identity">
-            <div class="vehicle-mark">AUTO</div>
+            <div class="vehicle-mark">
+              AUTO
+            </div>
             <div>
-              <div class="detail-title">{{ currentVehicle.registration_number }}</div>
-              <div class="detail-subtitle">{{ currentVehicle.make }} {{ currentVehicle.model }}</div>
+              <div class="detail-title">
+                {{ currentVehicle.registration_number }}
+              </div>
+              <div class="detail-subtitle">
+                {{ currentVehicle.make }} {{ currentVehicle.model }}
+              </div>
             </div>
           </div>
           <div class="detail-actions">
-            <button v-if="!currentVehicle.archived_at" class="button ghost" type="button" @click="openVehicleEdit(currentVehicle)">Edytuj dane</button>
-            <button v-if="!currentVehicle.archived_at" class="button ghost" type="button" @click="archiveVehicle(false)">Archiwizuj</button>
-            <button v-if="!currentVehicle.archived_at" class="button danger-outline" type="button" @click="archiveVehicle(true)">Usuń</button>
-            <button v-else class="button primary" type="button" @click="restoreVehicle">Przywróć pojazd</button>
+            <button
+              v-if="!currentVehicle.archived_at"
+              class="button ghost"
+              type="button"
+              @click="openVehicleEdit(currentVehicle)"
+            >
+              Edytuj dane
+            </button>
+            <button
+              v-if="!currentVehicle.archived_at"
+              class="button ghost"
+              type="button"
+              @click="archiveVehicle(false)"
+            >
+              Archiwizuj
+            </button>
+            <button
+              v-if="!currentVehicle.archived_at"
+              class="button danger-outline"
+              type="button"
+              @click="archiveVehicle(true)"
+            >
+              Usuń
+            </button>
+            <button
+              v-else
+              class="button primary"
+              type="button"
+              @click="restoreVehicle"
+            >
+              Przywróć pojazd
+            </button>
           </div>
         </section>
 
         <div class="detail-grid">
           <section class="detail-card">
-            <div class="card-heading"><div><span class="section-kicker">Pojazd</span><h2>Dane techniczne</h2></div></div>
+            <div class="card-heading">
+              <div><span class="section-kicker">Pojazd</span><h2>Dane techniczne</h2></div>
+            </div>
             <dl class="details-list">
               <div><dt>Marka / model</dt><dd>{{ currentVehicle.make }} {{ currentVehicle.model }}</dd></div>
               <div><dt>Nr rejestracyjny</dt><dd>{{ currentVehicle.registration_number }}</dd></div>
@@ -957,7 +1230,9 @@ function togglePermission(permission: string): void {
           </section>
 
           <section class="detail-card">
-            <div class="card-heading"><div><span class="section-kicker">Ważności</span><h2>Dokumenty</h2></div></div>
+            <div class="card-heading">
+              <div><span class="section-kicker">Ważności</span><h2>Dokumenty</h2></div>
+            </div>
             <div class="validity-cards">
               <div><span>Przegląd techniczny</span><strong>{{ currentVehicle.next_inspection_at ?? 'Brak daty' }}</strong><small>{{ dateStatus(currentVehicle.next_inspection_at) }}</small></div>
               <div><span>Ubezpieczenie OC</span><strong>{{ currentVehicle.oc_valid_until ?? 'Brak daty' }}</strong><small>{{ dateStatus(currentVehicle.oc_valid_until) }}</small></div>
@@ -969,8 +1244,16 @@ function togglePermission(permission: string): void {
         <CalendarShell :resource-query="`v=${currentVehicle.id}`" />
       </template>
 
-      <div v-if="drawer" class="drawer-backdrop" @click.self="closeDrawer">
-        <section class="drawer" role="dialog" aria-modal="true">
+      <div
+        v-if="drawer"
+        class="drawer-backdrop"
+        @click.self="closeDrawer"
+      >
+        <section
+          class="drawer"
+          role="dialog"
+          aria-modal="true"
+        >
           <header class="drawer-header">
             <div>
               <span class="section-kicker">{{ drawer === 'location' ? 'Lokalizacja' : drawer === 'staff' ? 'Pracownik' : 'Pojazd' }}</span>
@@ -982,78 +1265,179 @@ function togglePermission(permission: string): void {
                     : (vehicleForm.id ? `Pojazd: ${vehicleForm.registration_number}` : 'Dodaj pojazd') }}
               </h2>
             </div>
-            <button class="icon-button" type="button" aria-label="Zamknij" @click="closeDrawer">×</button>
+            <button
+              class="icon-button"
+              type="button"
+              aria-label="Zamknij"
+              @click="closeDrawer"
+            >
+              ×
+            </button>
           </header>
 
-          <form v-if="drawer === 'location'" class="form-grid" @submit.prevent="saveLocation">
+          <form
+            v-if="drawer === 'location'"
+            class="form-grid"
+            @submit.prevent="saveLocation"
+          >
             <label>Rodzaj *
-              <select v-model="locationForm.type_code" required>
-                <option v-for="item in locationTypes" :key="item.code" :value="item.code">{{ item.label }}</option>
+              <select
+                v-model="locationForm.type_code"
+                required
+              >
+                <option
+                  v-for="item in locationTypes"
+                  :key="item.code"
+                  :value="item.code"
+                >{{ item.label }}</option>
               </select>
             </label>
             <label>Nazwa *
-              <input v-model="locationForm.name" required maxlength="255" />
+              <input
+                v-model="locationForm.name"
+                required
+                maxlength="255"
+              >
             </label>
             <label class="full">Ulica i numer *
-              <input v-model="locationForm.street_and_number" required maxlength="255" />
+              <input
+                v-model="locationForm.street_and_number"
+                required
+                maxlength="255"
+              >
             </label>
             <label>Kod pocztowy *
-              <input v-model="locationForm.postal_code" required inputmode="numeric" placeholder="00-000" />
+              <input
+                v-model="locationForm.postal_code"
+                required
+                inputmode="numeric"
+                placeholder="00-000"
+              >
             </label>
             <label>Miasto *
-              <input v-model="locationForm.city_reference" required maxlength="160" list="city-hints" />
+              <input
+                v-model="locationForm.city_reference"
+                required
+                maxlength="160"
+                list="city-hints"
+              >
               <datalist id="city-hints"><option :value="locationForm.city_reference" /></datalist>
               <small>Do czasu wyboru centralnego katalogu miejscowości zapisujemy zweryfikowaną nazwę jako referencję.</small>
             </label>
             <div class="form-actions full">
-              <button class="button ghost" type="button" @click="closeDrawer">Anuluj</button>
-              <button class="button primary" type="submit" :disabled="saving">Zapisz</button>
+              <button
+                class="button ghost"
+                type="button"
+                @click="closeDrawer"
+              >
+                Anuluj
+              </button>
+              <button
+                class="button primary"
+                type="submit"
+                :disabled="saving"
+              >
+                Zapisz
+              </button>
             </div>
           </form>
 
-          <form v-else-if="drawer === 'staff'" class="form-grid" @submit.prevent="saveStaff">
+          <form
+            v-else-if="drawer === 'staff'"
+            class="form-grid"
+            @submit.prevent="saveStaff"
+          >
             <label>E-mail *
-              <input v-model="staffForm.email" required type="email" maxlength="320" />
+              <input
+                v-model="staffForm.email"
+                required
+                type="email"
+                maxlength="320"
+              >
             </label>
             <label>Imię *
-              <input v-model="staffForm.first_name" required maxlength="120" />
+              <input
+                v-model="staffForm.first_name"
+                required
+                maxlength="120"
+              >
             </label>
             <label>Nazwisko *
-              <input v-model="staffForm.last_name" required maxlength="120" />
+              <input
+                v-model="staffForm.last_name"
+                required
+                maxlength="120"
+              >
             </label>
             <fieldset class="full">
               <legend>Rodzaj pracownika *</legend>
               <div class="checkbox-grid">
-                <label v-for="item in staffTypes" :key="item.code" class="check">
-                  <input v-model="staffForm.staff_type_codes" type="checkbox" :value="item.code" />
+                <label
+                  v-for="item in staffTypes"
+                  :key="item.code"
+                  class="check"
+                >
+                  <input
+                    v-model="staffForm.staff_type_codes"
+                    type="checkbox"
+                    :value="item.code"
+                  >
                   <span>{{ item.label }}</span>
                 </label>
               </div>
             </fieldset>
             <label>PESEL
-              <input v-model="staffForm.pesel" inputmode="numeric" maxlength="11" :placeholder="staffForm.id ? 'Pozostaw puste, aby nie zmieniać' : ''" />
+              <input
+                v-model="staffForm.pesel"
+                inputmode="numeric"
+                maxlength="11"
+                :placeholder="staffForm.id ? 'Pozostaw puste, aby nie zmieniać' : ''"
+              >
               <small v-if="staffForm.id">Istniejący PESEL nie jest zwracany do formularza.</small>
             </label>
             <label>Telefon
-              <input v-model="staffForm.phone" maxlength="40" />
+              <input
+                v-model="staffForm.phone"
+                maxlength="40"
+              >
             </label>
             <label>Numer uprawnień
-              <input v-model="staffForm.authorization_number" maxlength="128" />
+              <input
+                v-model="staffForm.authorization_number"
+                maxlength="128"
+              >
             </label>
             <label>Ważność legitymacji
-              <input v-model="staffForm.card_valid_until" type="date" />
+              <input
+                v-model="staffForm.card_valid_until"
+                type="date"
+              >
             </label>
             <label>Ważność badań lekarskich
-              <input v-model="staffForm.medical_exam_valid_until" type="date" />
+              <input
+                v-model="staffForm.medical_exam_valid_until"
+                type="date"
+              >
             </label>
             <label>Ważność badań psychologicznych
-              <input v-model="staffForm.psychological_exam_valid_until" type="date" />
+              <input
+                v-model="staffForm.psychological_exam_valid_until"
+                type="date"
+              >
             </label>
             <fieldset class="full">
               <legend>Kategorie</legend>
               <div class="checkbox-grid">
-                <label v-for="item in categories" :key="item.id" class="check">
-                  <input v-model="staffForm.category_ids" type="checkbox" :value="item.id" />
+                <label
+                  v-for="item in categories"
+                  :key="item.id"
+                  class="check"
+                >
+                  <input
+                    v-model="staffForm.category_ids"
+                    type="checkbox"
+                    :value="item.id"
+                  >
                   <span>{{ item.code }}</span>
                 </label>
               </div>
@@ -1061,62 +1445,141 @@ function togglePermission(permission: string): void {
             <fieldset class="full">
               <legend>Lokalizacje</legend>
               <div class="checkbox-grid">
-                <label v-for="item in locations.filter((location) => !location.archived_at)" :key="item.id" class="check">
-                  <input v-model="staffForm.location_ids" type="checkbox" :value="item.id" />
+                <label
+                  v-for="item in locations.filter((location) => !location.archived_at)"
+                  :key="item.id"
+                  class="check"
+                >
+                  <input
+                    v-model="staffForm.location_ids"
+                    type="checkbox"
+                    :value="item.id"
+                  >
                   <span>{{ item.name }}</span>
                 </label>
               </div>
             </fieldset>
             <label class="full file-field">Dodaj zdjęcie (opcjonalnie)
-              <input type="file" accept="image/*" @change="handlePhoto" />
+              <input
+                type="file"
+                accept="image/*"
+                @change="handlePhoto"
+              >
               <small>{{ pendingPhotoName || 'Bezpieczny transport pliku zostanie podpięty w dedykowanym module UploadsAssets. Sam wybór pliku nie wysyła go teraz.' }}</small>
             </label>
-            <label v-if="!staffForm.id" class="check full">
-              <input v-model="staffForm.create_login_account" type="checkbox" />
+            <label
+              v-if="!staffForm.id"
+              class="check full"
+            >
+              <input
+                v-model="staffForm.create_login_account"
+                type="checkbox"
+              >
               <span>Utwórz konto do logowania</span>
             </label>
             <div class="form-actions full">
-              <button class="button ghost" type="button" @click="closeDrawer">Anuluj</button>
-              <button class="button primary" type="submit" :disabled="saving || staffForm.staff_type_codes.length === 0">Zapisz</button>
+              <button
+                class="button ghost"
+                type="button"
+                @click="closeDrawer"
+              >
+                Anuluj
+              </button>
+              <button
+                class="button primary"
+                type="submit"
+                :disabled="saving || staffForm.staff_type_codes.length === 0"
+              >
+                Zapisz
+              </button>
             </div>
           </form>
 
-          <form v-else class="form-grid" @submit.prevent="saveVehicle">
+          <form
+            v-else
+            class="form-grid"
+            @submit.prevent="saveVehicle"
+          >
             <label>Nr rejestracyjny *
-              <input v-model="vehicleForm.registration_number" required maxlength="32" />
+              <input
+                v-model="vehicleForm.registration_number"
+                required
+                maxlength="32"
+              >
             </label>
             <label>Numer boczny
-              <input v-model="vehicleForm.side_number" maxlength="64" />
+              <input
+                v-model="vehicleForm.side_number"
+                maxlength="64"
+              >
             </label>
             <label>Marka *
-              <input v-model="vehicleForm.make" required maxlength="120" />
+              <input
+                v-model="vehicleForm.make"
+                required
+                maxlength="120"
+              >
             </label>
             <label>Model *
-              <input v-model="vehicleForm.model" required maxlength="120" />
+              <input
+                v-model="vehicleForm.model"
+                required
+                maxlength="120"
+              >
             </label>
             <label>Rok produkcji
-              <input v-model="vehicleForm.production_year" type="number" min="1900" max="2100" />
+              <input
+                v-model="vehicleForm.production_year"
+                type="number"
+                min="1900"
+                max="2100"
+              >
             </label>
             <label>Pojemność (w cm³)
-              <input v-model="vehicleForm.engine_capacity_cm3" type="number" min="1" max="100000" />
+              <input
+                v-model="vehicleForm.engine_capacity_cm3"
+                type="number"
+                min="1"
+                max="100000"
+              >
             </label>
             <label class="full">Numer VIN
-              <input v-model="vehicleForm.vin" maxlength="17" />
+              <input
+                v-model="vehicleForm.vin"
+                maxlength="17"
+              >
             </label>
             <label>Następny przegląd
-              <input v-model="vehicleForm.next_inspection_at" type="date" />
+              <input
+                v-model="vehicleForm.next_inspection_at"
+                type="date"
+              >
             </label>
             <label>Ważność OC
-              <input v-model="vehicleForm.oc_valid_until" type="date" />
+              <input
+                v-model="vehicleForm.oc_valid_until"
+                type="date"
+              >
             </label>
             <label>Ważność AC
-              <input v-model="vehicleForm.ac_valid_until" type="date" />
+              <input
+                v-model="vehicleForm.ac_valid_until"
+                type="date"
+              >
             </label>
             <fieldset class="full">
               <legend>Wybierz kategorie obsługiwane przez pojazd</legend>
               <div class="checkbox-grid">
-                <label v-for="item in categories" :key="item.id" class="check">
-                  <input v-model="vehicleForm.category_ids" type="checkbox" :value="item.id" />
+                <label
+                  v-for="item in categories"
+                  :key="item.id"
+                  class="check"
+                >
+                  <input
+                    v-model="vehicleForm.category_ids"
+                    type="checkbox"
+                    :value="item.id"
+                  >
                   <span>{{ item.code }}</span>
                 </label>
               </div>
@@ -1124,44 +1587,102 @@ function togglePermission(permission: string): void {
             <fieldset class="full">
               <legend>Lokalizacje</legend>
               <div class="checkbox-grid">
-                <label v-for="item in locations.filter((location) => !location.archived_at)" :key="item.id" class="check">
-                  <input v-model="vehicleForm.location_ids" type="checkbox" :value="item.id" />
+                <label
+                  v-for="item in locations.filter((location) => !location.archived_at)"
+                  :key="item.id"
+                  class="check"
+                >
+                  <input
+                    v-model="vehicleForm.location_ids"
+                    type="checkbox"
+                    :value="item.id"
+                  >
                   <span>{{ item.name }}</span>
                 </label>
               </div>
             </fieldset>
             <label class="full file-field">Dodaj zdjęcie (opcjonalnie)
-              <input type="file" accept="image/*" @change="handlePhoto" />
+              <input
+                type="file"
+                accept="image/*"
+                @change="handlePhoto"
+              >
               <small>{{ pendingPhotoName || 'Pole jest zachowane. Transfer pliku zostanie uruchomiony dopiero z bezpiecznym pipeline UploadsAssets.' }}</small>
             </label>
             <div class="form-actions full">
-              <button class="button ghost" type="button" @click="closeDrawer">Anuluj</button>
-              <button class="button primary" type="submit" :disabled="saving">Zapisz</button>
+              <button
+                class="button ghost"
+                type="button"
+                @click="closeDrawer"
+              >
+                Anuluj
+              </button>
+              <button
+                class="button primary"
+                type="submit"
+                :disabled="saving"
+              >
+                Zapisz
+              </button>
             </div>
           </form>
         </section>
       </div>
 
-      <div v-if="permissionsOpen" class="drawer-backdrop" @click.self="permissionsOpen = false">
-        <section class="drawer compact" role="dialog" aria-modal="true">
+      <div
+        v-if="permissionsOpen"
+        class="drawer-backdrop"
+        @click.self="permissionsOpen = false"
+      >
+        <section
+          class="drawer compact"
+          role="dialog"
+          aria-modal="true"
+        >
           <header class="drawer-header">
             <div><span class="section-kicker">Dostęp panelowy</span><h2>Uprawnienia pracownika</h2></div>
-            <button class="icon-button" type="button" aria-label="Zamknij" @click="permissionsOpen = false">×</button>
+            <button
+              class="icon-button"
+              type="button"
+              aria-label="Zamknij"
+              @click="permissionsOpen = false"
+            >
+              ×
+            </button>
           </header>
-          <p class="muted-copy">Uprawnienia są jawne. Rodzaj pracownika nie jest rolą bezpieczeństwa.</p>
+          <p class="muted-copy">
+            Uprawnienia są jawne. Rodzaj pracownika nie jest rolą bezpieczeństwa.
+          </p>
           <div class="permission-list">
-            <label v-for="permission in permissionOptions" :key="permission" class="check">
+            <label
+              v-for="permission in permissionOptions"
+              :key="permission"
+              class="check"
+            >
               <input
                 type="checkbox"
                 :checked="currentPermissions.includes(permission)"
                 @change="togglePermission(permission)"
-              />
+              >
               <span>{{ permission }}</span>
             </label>
           </div>
           <div class="form-actions">
-            <button class="button ghost" type="button" @click="permissionsOpen = false">Anuluj</button>
-            <button class="button primary" type="button" :disabled="saving" @click="savePermissions">Zapisz uprawnienia</button>
+            <button
+              class="button ghost"
+              type="button"
+              @click="permissionsOpen = false"
+            >
+              Anuluj
+            </button>
+            <button
+              class="button primary"
+              type="button"
+              :disabled="saving"
+              @click="savePermissions"
+            >
+              Zapisz uprawnienia
+            </button>
           </div>
         </section>
       </div>

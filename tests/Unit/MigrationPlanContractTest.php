@@ -18,7 +18,7 @@ class MigrationPlanContractTest extends TestCase
         $this->assertSame(34, $plan->implementedNodeCount());
         $this->assertSame(34, $plan->implementedStepCount());
         $this->assertSame('ad5f2aa2e14ef248b95dd3dda0d1cbcb2e69d441', $plan->summary()['authority_blob']);
-        $this->assertSame('30563cdc980aa77f1911ec6c81f2ee34a1f24a831bb97ad5a037ebf4dc94df62', $plan->executionIdentity());
+        $this->assertSame('6e39b3c71a7a2ad44bfb78513506b8a3e53cc4a5ff443a89b066d8b44917cc1f', $plan->executionIdentity());
         $this->assertSame([
             'MIG-EXT-BTREE-GIST',
             'MIG-TBL-ORGANIZATIONS',

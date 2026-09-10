@@ -492,7 +492,7 @@ final class ResourceController
     }
 
     /** @param array<string,array<int,string>> $rules
-     *  @return array<string,mixed>
+     * @return array<string,mixed>
      */
     private function validated(Request $request, array $rules): array
     {

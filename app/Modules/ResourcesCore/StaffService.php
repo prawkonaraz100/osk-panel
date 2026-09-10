@@ -561,7 +561,7 @@ final class StaffService
     }
 
     /**
-     * @param array{id:string,organization_id:string,user_id:string,status:string,is_owner:bool,version:int,authorization_version:int} $actor
+     * @param  array{id:string,organization_id:string,user_id:string,status:string,is_owner:bool,version:int,authorization_version:int}  $actor
      */
     private function replaceDocumentLocked(array $actor, string $staffId, string $documentType, ?string $validUntil): void
     {
@@ -589,7 +589,7 @@ final class StaffService
     }
 
     /**
-     * @param array{id:string,organization_id:string,user_id:string,status:string,is_owner:bool,version:int,authorization_version:int} $actor
+     * @param  array{id:string,organization_id:string,user_id:string,status:string,is_owner:bool,version:int,authorization_version:int}  $actor
      */
     private function createPanelAccountLocked(array $actor, string $staffId, string $requestId): void
     {
