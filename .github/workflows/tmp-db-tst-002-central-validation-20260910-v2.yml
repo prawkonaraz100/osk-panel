@@ -1,0 +1,106 @@
+name: tmp-db-tst-002-central-validation-20260910-v2
+on:
+  push:
+    branches:
+      - tmp-db-tst-002-central-validation-20260910-v2
+permissions:
+  contents: write
+jobs:
+  validate-central:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: tmp-db-tst-002-central-validation-20260910-v2
+          fetch-depth: 0
+      - name: Assert accepted authorities and patch central gate only
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=5d2a3ec3196ece9dc94da0d66858629e51ee0501
+          TARGET=specs/gates/stage-4-database-contract-gate.yml
+          test "$(git rev-parse ${BASE}:$TARGET)" = 61ab952b37f31b410634b3db4c5aaa1e67749550
+          test "$(git rev-parse ${BASE}:specs/database/final-migration-order-invariant-matrix.yml)" = 87f6d7ec516336148be2a253acb1675e72b3f563
+          test "$(git rev-parse ${BASE}:docs/116-stage-4-final-migration-order-invariant-matrix-audit.md)" = 1b962ab102956f15c59be4af24c84b8dfdf2eba5
+          test "$(git rev-parse ${BASE}:specs/database/core-schema.yml)" = 39958721c99550cfc27c3774e8dfa1af0d0637e6
+          test "$(git rev-parse ${BASE}:docs/87-physical-database-schema.md)" = 6c090b082604b6b42c283667fcf08e9033a5b523
+          python3 <<'PY'
+          from pathlib import Path
+          p=Path('specs/gates/stage-4-database-contract-gate.yml')
+          s=p.read_text()
+          def rep(old,new):
+              global s
+              c=s.count(old)
+              assert c==1, (c, old[:160])
+              s=s.replace(old,new,1)
+          rep('''  - id: DB4_11_FINAL_MIGRATION_ORDER_AND_INVARIANT_TEST_MATRIX\n    status: FAIL_WITH_2_P1_BLOCKERS\n    diagnosis: COMPLETE\n    blockers_diagnosed: 6\n    blockers_resolved: 4\n    open_P0_P1: 2\n    result: FAIL_WITH_2_P1_BLOCKERS\n''','''  - id: DB4_11_FINAL_MIGRATION_ORDER_AND_INVARIANT_TEST_MATRIX\n    status: FAIL_WITH_1_P1_BLOCKER\n    diagnosis: COMPLETE\n    blockers_diagnosed: 6\n    blockers_resolved: 5\n    open_P0_P1: 1\n    result: FAIL_WITH_1_P1_BLOCKER\n''')
+          marker='''\nresolved_blockers:\n'''
+          block='''\n  DB4_11_DB_TST_002:\n    status: PASS\n    resolved_blocker_id: DB-TST-002\n    machine_source: specs/database/final-migration-order-invariant-matrix.yml\n    narrative_source: docs/116-stage-4-final-migration-order-invariant-matrix-audit.md\n    machine_commit: 5d2a3ec3196ece9dc94da0d66858629e51ee0501\n    machine_blob: 87f6d7ec516336148be2a253acb1675e72b3f563\n    narrative_commit: 6fce050bfb40221714b0a239c71b83c65df2ef60\n    narrative_blob: 1b962ab102956f15c59be4af24c84b8dfdf2eba5\n    aggregate_core_schema_blob_frozen: 39958721c99550cfc27c3774e8dfa1af0d0637e6\n    aggregate_docs87_blob_frozen: 6c090b082604b6b42c283667fcf08e9033a5b523\n    checks:\n      DB_MIG_001_DAG_authority_unchanged: PASS\n      DB_MIG_002_phase_composition_authority_unchanged: PASS\n      DB_MIG_003_cutover_execution_authority_unchanged: PASS\n      DB_TST_001_base_test_catalog_preserved_unchanged: PASS\n      base_test_count: 261\n      coverage_anchor_test_count: 229\n      final_test_catalog_total: 490\n      resolved_stage4_blockers_covered_after_this_step: 76\n      critical_constraints_covered: 183\n      transactional_invariants_covered: 45\n      bounded_local_required_test_occurrences_preserved: 1581\n      bounded_local_unique_test_names_preserved: 1576\n      fuzzy_equivalence_not_assumed: PASS\n      migration_postcheck_anchor_defined: PASS\n      unknown_final_test_refs: 0\n      unknown_or_orphan_source_refs: 0\n      coverage_gaps: 0\n      DB_FINAL_001_aggregate_sync_not_solved_early: PASS\n      core_schema_modified_in_DB_TST_002: false\n      docs87_modified_in_DB_TST_002: false\n      framework_test_files_generated: false\n      Laravel_migrations_created: false\n      Stage5_started: false\n      UI_or_feature_implementation_started: false\n'''
+          assert s.count(marker)==1
+          s=s.replace(marker,block+marker,1)
+          rep('''  - DB-MIG-001\n  - DB-MIG-002\n  - DB-MIG-003\n  - DB-TST-001\n\nopen_blockers_current_diagnosed_scope:\n  - DB-TST-002\n  - DB-FINAL-001\n''','''  - DB-MIG-001\n  - DB-MIG-002\n  - DB-MIG-003\n  - DB-TST-001\n  - DB-TST-002\n\nopen_blockers_current_diagnosed_scope:\n  - DB-FINAL-001\n''')
+          rep('''  current_result: DB4_11_FAIL_WITH_2_P1_BLOCKERS\n''','''  current_result: DB4_11_FAIL_WITH_1_P1_BLOCKER\n''')
+          rep('''  DB4_11_DB_TST_001_result: PASS\n  DB4_11_DB_TST_002_result: OPEN\n  DB4_11_DB_FINAL_001_result: OPEN\n  DB4_11_result: FAIL_WITH_2_P1_BLOCKERS\n''','''  DB4_11_DB_TST_001_result: PASS\n  DB4_11_DB_TST_002_result: PASS\n  DB4_11_DB_FINAL_001_result: OPEN\n  DB4_11_result: FAIL_WITH_1_P1_BLOCKER\n''')
+          rep('''next_single_step:\n  id: DB-TST-002\n  action: resolve_DB_TST_002_only_after_next_explicit_user_instruction\n  diagnosis_only: false\n  fixes_allowed_in_same_step: true\n  allowed_scope:\n    - specs/database/final-migration-order-invariant-matrix.yml\n    - docs/116-stage-4-final-migration-order-invariant-matrix-audit.md\n    - specs/gates/stage-4-database-contract-gate.yml\n  prior_bounded_context_specs_read_only: true\n  aggregate_core_schema_and_docs87_frozen_until_DB_FINAL_001: true\n  scope_lock: >-\n    DB-MIG-001, DB-MIG-002, DB-MIG-003 and DB-TST-001 are PASS. Resolve DB-TST-002 only.\n    Preserve DB-FINAL-001 as OPEN. Do not modify core-schema.yml or docs/87, enter Stage 5,\n    generate Laravel migrations, or implement UI/features.\n  after_action: run_DB_TST_002_machine_narrative_central_gate_and_STOP_before_DB_FINAL_001\n''','''next_single_step:\n  id: DB-FINAL-001\n  action: resolve_DB_FINAL_001_only_after_next_explicit_user_instruction\n  diagnosis_only: false\n  fixes_allowed_in_same_step: true\n  allowed_scope:\n    - specs/database/core-schema.yml\n    - docs/87-physical-database-schema.md\n    - specs/database/final-migration-order-invariant-matrix.yml\n    - docs/116-stage-4-final-migration-order-invariant-matrix-audit.md\n    - specs/gates/stage-4-database-contract-gate.yml\n  prior_bounded_context_specs_read_only: true\n  aggregate_core_schema_and_docs87_frozen_until_entry_to_DB_FINAL_001: true\n  scope_lock: >-\n    DB-MIG-001, DB-MIG-002, DB-MIG-003, DB-TST-001 and DB-TST-002 are PASS. Resolve DB-FINAL-001 only.\n    DB-FINAL-001 owns aggregate sync of core-schema.yml and docs/87. Do not enter Stage 5,\n    generate Laravel migrations, or implement UI/features before DB-FINAL-001 passes.\n  after_action: run_DB_FINAL_001_machine_narrative_central_gate_and_STOP_before_Stage_5\n''')
+          p.write_text(s)
+          PY
+          git diff --check
+      - name: Validate central semantics against machine and narrative
+        shell: bash
+        run: |
+          set -euo pipefail
+          ruby <<'RUBY'
+          require 'yaml'; require 'date'; require 'set'
+          def y(p); YAML.safe_load(File.read(p), permitted_classes:[Date], aliases:true); end
+          g=y('specs/gates/stage-4-database-contract-gate.yml')
+          m=y('specs/database/final-migration-order-invariant-matrix.yml')
+          c=m['test_coverage_traceability_contract'] or abort 'missing machine coverage contract'
+          abort 'machine coverage not PASS' unless c['status']=='PASS_DB_TST_002'
+          abort 'machine zero-gap not PASS' unless c.dig('zero_gap_summary','result')=='PASS_ZERO_GAPS'
+          slice=(g['stage_4_slices']||[]).find{|x|x['id']=='DB4_11_FINAL_MIGRATION_ORDER_AND_INVARIANT_TEST_MATRIX'} or abort 'missing DB4_11 slice'
+          abort 'slice status' unless slice['status']=='FAIL_WITH_1_P1_BLOCKER' && slice['blockers_resolved']==5 && slice['open_P0_P1']==1
+          q=g.dig('quality_checks','DB4_11_DB_TST_002') or abort 'missing central DB-TST-002 provenance'
+          abort 'central TST002 not PASS' unless q['status']=='PASS' && q['resolved_blocker_id']=='DB-TST-002'
+          abort 'machine provenance mismatch' unless q['machine_commit']=='5d2a3ec3196ece9dc94da0d66858629e51ee0501' && q['machine_blob']=='87f6d7ec516336148be2a253acb1675e72b3f563'
+          abort 'narrative provenance mismatch' unless q['narrative_commit']=='6fce050bfb40221714b0a239c71b83c65df2ef60' && q['narrative_blob']=='1b962ab102956f15c59be4af24c84b8dfdf2eba5'
+          checks=q['checks']||{}
+          abort 'coverage counts' unless checks['base_test_count']==261 && checks['coverage_anchor_test_count']==229 && checks['final_test_catalog_total']==490
+          abort 'source counts' unless checks['critical_constraints_covered']==183 && checks['transactional_invariants_covered']==45 && checks['bounded_local_required_test_occurrences_preserved']==1581 && checks['bounded_local_unique_test_names_preserved']==1576
+          abort 'gaps remain' unless checks['unknown_final_test_refs']==0 && checks['unknown_or_orphan_source_refs']==0 && checks['coverage_gaps']==0
+          rb=g['resolved_blockers']||[]
+          abort 'resolved blocker count' unless rb.length==76 && rb.uniq.length==76 && rb.include?('DB-TST-002') && !rb.include?('DB-FINAL-001')
+          abort 'open blockers wrong' unless g['open_blockers_current_diagnosed_scope']==['DB-FINAL-001']
+          gd=g['gate_definition']||{}
+          abort 'current result wrong' unless gd['current_result']=='DB4_11_FAIL_WITH_1_P1_BLOCKER' && gd['DB4_11_DB_TST_002_result']=='PASS' && gd['DB4_11_DB_FINAL_001_result']=='OPEN' && gd['DB4_11_result']=='FAIL_WITH_1_P1_BLOCKER'
+          n=g['next_single_step']||{}
+          expected=['specs/database/core-schema.yml','docs/87-physical-database-schema.md','specs/database/final-migration-order-invariant-matrix.yml','docs/116-stage-4-final-migration-order-invariant-matrix-audit.md','specs/gates/stage-4-database-contract-gate.yml']
+          abort 'next step wrong' unless n['id']=='DB-FINAL-001' && n['allowed_scope']==expected && n['aggregate_core_schema_and_docs87_frozen_until_entry_to_DB_FINAL_001']==true
+          abort 'historical diagnosis lost' unless gd['DB4_11_diagnosis_result']=='FAIL_WITH_6_P1_BLOCKERS'
+          d=File.read('docs/116-stage-4-final-migration-order-invariant-matrix-audit.md')
+          abort 'narrative not TST002' unless d.include?('**Aktualny krok:** `DB-TST-002`') && d.include?('**Status:** `FAIL_WITH_1_P1_BLOCKER / 0 P0 / 1 P1 OPEN`')
+          puts 'DB_TST_002_CENTRAL_VALIDATION=PASS'
+          RUBY
+          test "$(git hash-object specs/database/final-migration-order-invariant-matrix.yml)" = 87f6d7ec516336148be2a253acb1675e72b3f563
+          test "$(git hash-object docs/116-stage-4-final-migration-order-invariant-matrix-audit.md)" = 1b962ab102956f15c59be4af24c84b8dfdf2eba5
+          test "$(git hash-object specs/database/core-schema.yml)" = 39958721c99550cfc27c3774e8dfa1af0d0637e6
+          test "$(git hash-object docs/87-physical-database-schema.md)" = 6c090b082604b6b42c283667fcf08e9033a5b523
+      - name: Remove helper and prove central-only net tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=5d2a3ec3196ece9dc94da0d66858629e51ee0501
+          git rm .github/workflows/tmp-db-tst-002-central-validation-20260910-v2.yml
+          git add specs/gates/stage-4-database-contract-gate.yml
+          mapfile -t changed < <(git diff --cached --name-only "$BASE")
+          test "${#changed[@]}" -eq 1
+          test "${changed[0]}" = specs/gates/stage-4-database-contract-gate.yml
+          git diff --cached --check
+          git diff --cached --stat "$BASE"
+      - name: Commit validated helper tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'DB-TST-002: close central coverage completeness gate'
+          git push origin HEAD:tmp-db-tst-002-central-validation-20260910-v2
