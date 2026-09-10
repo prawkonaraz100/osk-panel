@@ -13,6 +13,8 @@ meta:
   DB4_8_PKK_machine_aggregate_sync: PASS
   DB4_9_student_finance_commerce_machine_aggregate_sync: PASS
   DB4_10_audit_outbox_notifications_machine_aggregate_sync: PASS
+  DB4_11_final_migration_and_test_machine_aggregate_sync: PASS
+  final_migration_and_test_authority: specs/database/final-migration-order-invariant-matrix.yml
 
 conventions:
   primary_key:
@@ -3314,23 +3316,42 @@ security_storage_rules:
     secret_bearing_PDF_bytes_response_snapshot_forbidden: true
 
 migration_order:
-  - identity_organization_users_auth_identifiers_memberships_permissions_scopes_sessions_closure_requests_and_user_password_management_base
-  - legal_documents_terms_and_settings
-  - dictionaries_and_capabilities
-  - file_assets_and_idempotency
-  - staff_locations_vehicles_and_assignment_tables
-  - students_identity_version_learning_accounts_access_handoff_batches_and_same_user_identifier_boundary
-  - course_enrollments_lifecycle_requirement_rules_context_profiles_exemptions_and_PKK_identity
-  - training_sessions_attendance_ledger_and_recognized_external_training
-  - enable_btree_gist_before_calendar_resource_claim_exclusion_constraints
-  - calendar_events_availability_lifecycle_claims_training_session_calendar_details_and_formalization_links
-  - pkk_integration_configuration_revisions_provider_snapshots_operations_lifecycle_attempts_reconciliations_signature_handoffs_protected_payloads_redacted_projections_and_XML_crypto_bindings
-  - student_charges_payments_reversal_guards_course_cost_charge_origins_and_finance_concurrency
-  - license_products_language_capability_history_inventory_assignments_and_activations
-  - internal_exam_capability_history_inventory_ledger_attempt_lifecycle_access_tokens_station_credentials_sessions_definitions_question_result_template_document_and_management_projection
-  - commerce_catalog_orders_order_items_payment_attempts_events_settlements_fulfillments_purchase_grants_service_entitlements_and_activations
-  - audit_policy_revisions_audit_logs_domain_events_outbox_publisher_activity_projection_policies_activity_notifications_migration_review_and_retention_evidence
-  - final_partial_indexes_and_cross_table_constraints_including_learning_identity_password_authority_inventory_assignment_activation_entitlement_and_language_capability_guards
+  status: FINAL_DB4_11_SYNC
+  executable_authority: specs/database/final-migration-order-invariant-matrix.yml#migration_dependency_dag
+  dependency_node_count: 170
+  exact_topological_order_owned_by_executable_authority: true
+  legacy_high_level_17_step_order_retired: true
+  phase_authority: specs/database/final-migration-order-invariant-matrix.yml#migration_phase_composition
+  phase_order: [expand, preflight, write_fence, backfill, reconcile, validate, contract]
+  cutover_authority: specs/database/final-migration-order-invariant-matrix.yml#migration_cutover_execution_contract
+  constraints_are_not_a_blanket_final_step: true
+  new_write_fence_precedes_legacy_backfill_where_required: true
+  exact_evidence_only_backfill_and_reconciliation: true
+  zero_required_unresolved_before_validate: true
+  destructive_contract_requires_backup_health_and_restore_test_evidence: true
+  automatic_destructive_down_for_required_history: forbidden
+  Laravel_migration_files_generated: false
+
+invariant_test_plan:
+  status: FINAL_DB4_11_SYNC
+  source_invariant_key: migration_tests_required
+  top_level_source_invariant_count: 244
+  recursive_migration_tests_required_occurrences: 261
+  source_invariants_are_not_the_final_test_catalog: true
+  stable_base_test_authority: specs/database/final-migration-order-invariant-matrix.yml#invariant_test_matrix
+  coverage_authority: specs/database/final-migration-order-invariant-matrix.yml#test_coverage_traceability_contract
+  stable_base_test_ids: 261
+  coverage_anchor_test_ids: 230
+  final_test_catalog_total: 491
+  resolved_stage4_blockers_covered_after_DB_FINAL_001: 77
+  critical_constraints_covered: 183
+  transactional_invariants_covered: 45
+  bounded_local_required_test_occurrences_preserved: 1581
+  bounded_local_unique_test_names_preserved: 1576
+  unknown_final_test_refs: 0
+  unknown_or_orphan_source_refs: 0
+  coverage_gaps: 0
+  framework_test_files_generated: false
 
 migration_tests_required:
   - student_finance_charge_course_payment_exact_same_tenant_student_currency_relations_reject_mismatch
