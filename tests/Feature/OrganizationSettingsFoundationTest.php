@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Modules\OrganizationSettings\OrganizationSettingsService;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use LogicException;
@@ -65,4 +66,33 @@ final class OrganizationSettingsFoundationTest extends TestCase
             $this->assertDatabaseCount('outbox_messages', 0);
         }
     }
+
+    public function test_settings_write_rechecks_current_permission_before_mutation(): void
+    {
+        $actor = FoundationSchema::actor();
+        DB::table('membership_permissions')
+            ->where('membership_id', $actor['membership_id'])
+            ->where('permission_code', 'organization.settings.manage')
+            ->update(['granted' => false]);
+        DB::table('membership_permission_scopes')
+            ->where('membership_id', $actor['membership_id'])
+            ->where('permission_code', 'organization.settings.manage')
+            ->delete();
+
+        try {
+            app(OrganizationSettingsService::class)->update(
+                $actor['session_id'],
+                1,
+                ['company_name' => 'Must Not Persist'],
+                (string) Str::uuid7(),
+            );
+            $this->fail('Expected current authorization rejection.');
+        } catch (AuthorizationException) {
+            $this->assertSame('Synthetic OSK', DB::table('organizations')->where('id', $actor['organization_id'])->value('name'));
+            $this->assertSame(1, (int) DB::table('organization_settings')->where('organization_id', $actor['organization_id'])->value('version'));
+            $this->assertDatabaseCount('audit_logs', 0);
+            $this->assertDatabaseCount('outbox_messages', 0);
+        }
+    }
+
 }
