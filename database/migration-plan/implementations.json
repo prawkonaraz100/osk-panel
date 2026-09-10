@@ -1,7 +1,7 @@
 {
     "schema_version": 2,
     "plan_identity": "d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10",
-    "execution_identity": "8d39fe6550963eece079f78e34a2bee15d4c7ab068230e81b4b8335fecfbdfc9",
+    "execution_identity": "59ed166d900d2701df2b8ca6e534b6b59d0de78ecf8fa0f04204f255020e5bcc",
     "stage4_root": "database/migrations/stage4",
     "implemented_steps": [
         {
@@ -352,6 +352,15 @@
             "migration_file": "database/migrations/stage4/expand/MIG-TBL-RECOGNIZED_EXTERNAL_TRAINING/2026_09_10_000490_create_recognized_external_training_table.php",
             "migration_name": "2026_09_10_000490_create_recognized_external_training_table",
             "file_sha256": "7ec6841798f81e5fbb8de5a777d9e8c0bf7ee0140404ff80d0a65ef1bebf148a",
+            "restart_classification": "restart_safe",
+            "safe_down": false
+        },
+        {
+            "node_id": "MIG-TBL-PKK_PROFILES",
+            "phase": "expand",
+            "migration_file": "database/migrations/stage4/expand/MIG-TBL-PKK_PROFILES/2026_09_10_000610_create_pkk_profiles_table.php",
+            "migration_name": "2026_09_10_000610_create_pkk_profiles_table",
+            "file_sha256": "d8939a762a2bd9a90f7aa324547d39ad54fe8bfd4a2775bcc30f62ea5a5aeebd",
             "restart_classification": "restart_safe",
             "safe_down": false
         },
