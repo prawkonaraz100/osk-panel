@@ -13,8 +13,8 @@ class Stage4MigrationPostcheckTest extends TestCase
         $summary = $catalog->zeroGapSummary();
 
         $this->assertCount(491, $catalog->entries());
-        $this->assertSame(['DBT-CORE-099', 'DBT-CORE-100'], $catalog->implementedIds());
-        $this->assertCount(489, $catalog->pendingIds());
+        $this->assertSame(['DBT-CORE-009', 'DBT-CORE-015', 'DBT-IAM-005', 'DBT-IAM-009', 'DBT-IAM-013', 'DBT-IAM-015', 'DBT-IAM-016', 'DBT-IAM-017', 'DBT-IAM-020', 'DBT-AUD-003', 'DBT-AUD-005', 'DBT-CORE-099', 'DBT-CORE-100'], $catalog->implementedIds());
+        $this->assertCount(478, $catalog->pendingIds());
         $this->assertSame([
             'concurrency' => 29,
             'migration_postcheck' => 2,
