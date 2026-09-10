@@ -44,3 +44,4 @@ Route::view('/pracownicy', 'app');
 Route::view('/pracownicy/{staffId}', 'app');
 Route::view('/pojazdy', 'app');
 Route::view('/pojazdy/{vehicleId}', 'app');
+Route::view('/kalendarz', 'app');
