@@ -43,34 +43,61 @@ final class MembershipGovernance
             $scopeCodes,
             $requestId,
         ): array {
-            $target = DB::table('organization_memberships')
+            $targetSnapshot = DB::table('organization_memberships')
                 ->where('id', $targetMembershipId)
-                ->lockForUpdate()
                 ->first();
-
-            if ($target === null) {
+            if ($targetSnapshot === null) {
                 throw new LogicException('Target membership not found.');
+            }
+
+            $organizationId = (string) $targetSnapshot->organization_id;
+            $actorSnapshot = $this->authorizer->activeMembershipForSession($actorSessionId);
+            if ($actorSnapshot['organization_id'] !== $organizationId) {
+                throw new AuthorizationException('Cross-tenant membership mutation denied.');
+            }
+
+            if (DB::table('organizations')->where('id', $organizationId)->lockForUpdate()->first() === null) {
+                throw new LogicException('Organization not found.');
+            }
+
+            $membershipIds = array_values(array_unique([$actorSnapshot['id'], $targetMembershipId]));
+            sort($membershipIds);
+            $lockedRows = DB::table('organization_memberships')
+                ->where('organization_id', $organizationId)
+                ->whereIn('id', $membershipIds)
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->get()
+                ->keyBy('id');
+
+            $target = $lockedRows->get($targetMembershipId);
+            $lockedActor = $lockedRows->get($actorSnapshot['id']);
+            if ($target === null || $lockedActor === null) {
+                throw new AuthorizationException('Actor and target membership must belong to the same tenant.');
             }
             if ((int) $target->version !== $expectedVersion) {
                 throw new LogicException('Stale membership version.');
             }
+            if ($target->status === 'revoked') {
+                throw new AuthorizationException('Revoked membership cannot be reconfigured by the normal permission flow.');
+            }
 
-            $organizationId = (string) $target->organization_id;
             $actor = $this->authorizer->requireOrganizationPermission(
                 $actorSessionId,
                 $organizationId,
                 'staff.permissions.manage',
             );
 
-            if ((string) $target->organization_id !== $actor['organization_id']) {
-                throw new AuthorizationException('Cross-tenant membership mutation denied.');
-            }
-
             $requestedScopes = array_values(array_unique($scopeCodes));
             sort($requestedScopes);
 
             if (! $granted && $requestedScopes !== []) {
                 throw new LogicException('Denied permission cannot retain scopes.');
+            }
+            if ((bool) $target->is_owner
+                && in_array($permission, self::OWNER_BASELINE, true)
+                && (! $granted || ! in_array('organization', $requestedScopes, true))) {
+                throw new AuthorizationException('Active owner protected permission baseline cannot be weakened by normal permission mutation.');
             }
 
             $currentGranted = DB::table('membership_permissions')
@@ -194,11 +221,37 @@ final class MembershipGovernance
                 throw new LogicException('Owner transfer requires two memberships.');
             }
 
-            $from = DB::table('organization_memberships')->where('id', $fromMembershipId)->first();
-            if ($from === null) {
+            $fromSnapshot = DB::table('organization_memberships')->where('id', $fromMembershipId)->first();
+            if ($fromSnapshot === null) {
                 throw new LogicException('Current owner membership not found.');
             }
-            $organizationId = (string) $from->organization_id;
+            $organizationId = (string) $fromSnapshot->organization_id;
+            $actorSnapshot = $this->authorizer->activeMembershipForSession($actorSessionId);
+            if ($actorSnapshot['organization_id'] !== $organizationId) {
+                throw new AuthorizationException('Cross-tenant owner transfer denied.');
+            }
+
+            if (DB::table('organizations')->where('id', $organizationId)->lockForUpdate()->first() === null) {
+                throw new LogicException('Organization not found.');
+            }
+
+            $membershipIds = array_values(array_unique([$actorSnapshot['id'], $fromMembershipId, $toMembershipId]));
+            sort($membershipIds);
+            $rows = DB::table('organization_memberships')
+                ->where('organization_id', $organizationId)
+                ->whereIn('id', $membershipIds)
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->get()
+                ->keyBy('id');
+
+            $lockedActor = $rows->get($actorSnapshot['id']);
+            $lockedFrom = $rows->get($fromMembershipId);
+            $lockedTo = $rows->get($toMembershipId);
+            if ($lockedActor === null || $lockedFrom === null || $lockedTo === null) {
+                throw new AuthorizationException('Owner transfer memberships must share one tenant.');
+            }
+
             $actor = $this->authorizer->requireOrganizationPermission(
                 $actorSessionId,
                 $organizationId,
@@ -206,22 +259,6 @@ final class MembershipGovernance
             );
             if (! $actor['is_owner']) {
                 throw new AuthorizationException('Owner transfer requires an active owner actor.');
-            }
-
-            DB::table('organizations')->where('id', $organizationId)->lockForUpdate()->first();
-
-            $rows = DB::table('organization_memberships')
-                ->where('organization_id', $organizationId)
-                ->whereIn('id', [$fromMembershipId, $toMembershipId])
-                ->orderBy('id')
-                ->lockForUpdate()
-                ->get()
-                ->keyBy('id');
-
-            $lockedFrom = $rows->get($fromMembershipId);
-            $lockedTo = $rows->get($toMembershipId);
-            if ($lockedFrom === null || $lockedTo === null) {
-                throw new AuthorizationException('Owner transfer memberships must share one tenant.');
             }
             if ($lockedFrom->status !== 'active' || ! (bool) $lockedFrom->is_owner || $lockedTo->status !== 'active') {
                 throw new AuthorizationException('Owner transfer requires active source owner and active successor.');
