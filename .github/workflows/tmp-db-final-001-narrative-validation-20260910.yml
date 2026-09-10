@@ -1,0 +1,122 @@
+name: tmp-db-final-001-narrative-validation-20260910
+on:
+  push:
+    branches:
+      - tmp-db-final-001-narrative-validation-20260910
+permissions:
+  contents: write
+jobs:
+  validate-narrative:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: tmp-db-final-001-narrative-validation-20260910
+          fetch-depth: 0
+      - name: Assert machine inputs and synchronize narrative authorities
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=5e0371f5ea9b8916b1ed5777a4ea28b4fd392b18
+          test "$(git rev-parse ${BASE}:specs/database/core-schema.yml)" = b0629cc48e26798d945356eaa1d0c9b1187aa542
+          test "$(git rev-parse ${BASE}:specs/database/final-migration-order-invariant-matrix.yml)" = ad5f2aa2e14ef248b95dd3dda0d1cbcb2e69d441
+          test "$(git rev-parse ${BASE}:docs/87-physical-database-schema.md)" = 6c090b082604b6b42c283667fcf08e9033a5b523
+          test "$(git rev-parse ${BASE}:docs/116-stage-4-final-migration-order-invariant-matrix-audit.md)" = 1b962ab102956f15c59be4af24c84b8dfdf2eba5
+          test "$(git rev-parse ${BASE}:specs/gates/stage-4-database-contract-gate.yml)" = d3c94ea818637bedd06234c9c1b2b2629fc0252c
+          python3 <<'PY'
+          from pathlib import Path
+          import re
+
+          p=Path('docs/87-physical-database-schema.md'); s=p.read_text()
+          old='**Status:** `IMPLEMENTATION_BLUEPRINT / DB4_10_AUDIT_OUTBOX_NOTIFICATIONS_AGGREGATE_SYNC_PASS`'
+          new='**Status:** `IMPLEMENTATION_BLUEPRINT / DB4_11_FINAL_MIGRATION_AND_INVARIANT_TEST_AGGREGATE_SYNC_PASS`'
+          assert s.count(old)==1; s=s.replace(old,new,1)
+
+          anchor='Student Finance i Platform Commerce pozostają dwoma oddzielnymi bounded contextami.\n\n---\n\n# 1. Konwencje DB'
+          assert s.count(anchor)==1
+          intro='''Student Finance i Platform Commerce pozostają dwoma oddzielnymi bounded contextami.\n\nDB4_10 Audit / DomainEvent / Outbox / Activity / Notifications został zsynchronizowany po zamknięciu DB-AUD-001/002, DB-OUT-001/002, DB-ACT-001, DB-NOT-001/002 i DB-EVT-001. Finalny model obejmuje versioned audit policy, append-only AuditLog, `DomainEvent` jako canonical projection identity, Outbox, activity projection policy/history, exact-recipient Notifications, migration review oraz retention execution evidence.\n\nDB4_11 zamyka finalną warstwę wykonawczą Stage 4. `core-schema.yml` pozostaje aggregate blueprintem domenowym, ale nie posiada już własnej konkurencyjnej 17-krokowej kolejności migracji. Wykonawczym authority jest `specs/database/final-migration-order-invariant-matrix.yml`: 170-node dependency DAG, siedem faz `expand -> preflight -> write_fence -> backfill -> reconcile -> validate -> contract`, cutover/restart/rollback contract oraz finalny katalog 491 test IDs.\n\n---\n\n# 1. Konwencje DB'''
+          s=s.replace(anchor,intro,1)
+
+          # Add final test-plan summary immediately before section 24.
+          marker='\n---\n\n# 24. Kolejność migracji high-level\n'
+          assert s.count(marker)==1
+          summary='''\n### Finalny kontrakt testowy DB4_11\n\nLista `migration_tests_required` w `core-schema.yml` pozostaje źródłem obowiązków regresyjnych, a nie finalnym katalogiem wykonawczym. Top-level lista ma 244 pozycje; rekurencyjnie wszystkie klucze `migration_tests_required` w aggregate dają 261 source occurrences. DB-TST-001 zachowuje 261 stabilnych bazowych `DBT-*`. DB-TST-002 dodał 229 coverage anchors, a DB-FINAL-001 dopisuje wyłącznie `DBT-CORE-100` jako append-only `migration_postcheck` finalnej synchronizacji machine/narrative. Finalnie istnieje **491 unikalnych test IDs**.\n\nCoverage obejmuje 77/77 zamkniętych blockerów Stage 4, 183/183 `critical_constraints`, 45/45 `transactional_invariants` oraz zachowuje 1 581 lokalnych required-test occurrences / 1 576 unikalnych nazw. Gate wymaga 0 unknown final refs, 0 orphan source refs i 0 coverage gaps. Żaden z wcześniejszych 490 test IDs nie został renumerowany ani przedefiniowany przez DB-FINAL-001.\n'''
+          s=s.replace(marker,'\n'+summary+marker,1)
+
+          # Replace entire provisional Section 24, preserving the separator before Section 25.
+          pat=r'# 24\. Kolejność migracji high-level\n.*?(?=\n---\n\n# 25\.)'
+          matches=list(re.finditer(pat,s,flags=re.S)); assert len(matches)==1, len(matches)
+          sec24='''# 24. Finalna kolejność migracji i cutover — DB4_11\n\n17-punktowa lista high-level używana podczas wcześniejszych slice'ów jest **wycofana jako authority wykonawcze**. Nie wolno na jej podstawie numerować ani generować migracji Laravel. Jedynym authority dla dokładnej kolejności zależności jest `specs/database/final-migration-order-invariant-matrix.yml -> migration_dependency_dag`: **170 stabilnych node'ów** z `requires` i jedną kanoniczną `topological_order`.\n\nKażdy node DAG jest wykonywany w ramach finalnej kompozycji fazowej:\n\n`expand -> preflight -> write_fence -> backfill -> reconcile -> validate -> contract`\n\n`migration_phase_composition` określa phase path dla node'ów, a `migration_cutover_execution_contract` określa entry/exit/abort, restart posture i bezpieczne strategie rollbacku. Constraintów, triggerów i indeksów nie wolno odkładać zbiorczo do jednego „finalnego kroku”: tam, gdzie nowy write contract ma chronić dane przed backfillem, write fence musi wejść wcześniej. Backfill i reconciliation pozostają exact-evidence-only, a wymagane unresolved cases muszą być równe zero przed final validation. Destructive `contract` wymaga backup health oraz skutecznego restore-test evidence; generic destructive `down` dla wymaganej historii pozostaje zabroniony.\n\nDomenowa zawartość DAG zachowuje wszystkie zamknięte slice'y DB4_1-DB4_10. W szczególności Commerce nie oznacza już skrótu `orders/payments/service entitlements/activations`: obejmuje catalog, Orders, OrderItems, payment attempts/events, settlements, fulfillments, purchase-grant provenance, ServiceEntitlements i ServiceActivations wraz z downstream License/Internal Exam/Service lineage. DB4_10 nie jest skrótem `audit/activity/outbox/notifications`: obejmuje audit policy revisions, AuditLog, DomainEvent jako canonical projection identity, Outbox, activity projection policies i Activity, exact-recipient Notifications, migration review oraz retention execution evidence.\n\nLokalne migration-safety zasady opisane wcześniej w tym dokumencie nadal obowiązują, ale w razie różnicy nie tworzą alternatywnego porządku: globalne `migration_dependency_dag`, `migration_phase_composition` i `migration_cutover_execution_contract` są finalnym authority Stage 4. DB-FINAL-001 nie generuje fizycznych migracji Laravel.\n'''
+          s=s[:matches[0].start()]+sec24+s[matches[0].end():]
+
+          stale='''Po DB4_9 nadal osobno wymagają dalszych slice/ADR:\n- DB4_7 Internal Exams aggregate contract — synchronized / PASS,\n- Student Finance i exact commerce/source-order tenant boundary — synchronized / DB4_9 PASS,\n'''
+          assert s.count(stale)==1
+          s=s.replace(stale,'''Po zamknięciu DB4_11 osobno pozostają decyzje implementacyjne/produkcyjne, które nie są ponownymi blockerami zamkniętych slice'ów Stage 4:\n''',1)
+          p.write_text(s)
+
+          p=Path('docs/116-stage-4-final-migration-order-invariant-matrix-audit.md'); d=p.read_text()
+          d=d.replace('**Aktualny krok:** `DB-TST-002`','**Aktualny krok:** `DB-FINAL-001`',1)
+          d=d.replace('**Status:** `FAIL_WITH_1_P1_BLOCKER / 0 P0 / 1 P1 OPEN`','**Status:** `PASS_DB_FINAL_001_NARRATIVE_PENDING_CENTRAL / 0 P0 / 0 P1 OPEN`',1)
+
+          def replace_section(start_heading,next_heading,new_text):
+              global d
+              pat=re.escape(start_heading)+r'.*?(?='+re.escape(next_heading)+r')'
+              ms=list(re.finditer(pat,d,flags=re.S)); assert len(ms)==1,(start_heading,len(ms))
+              d=d[:ms[0].start()]+new_text+d[ms[0].end():]
+
+          replace_section('## 1. Cel i twarda granica tego kroku\n','## 2. Wynik po DB-TST-002\n','''## 1. Cel i twarda granica tego kroku\n\nDB-FINAL-001 jest ostatnim fixerem DB4_11. Nie projektuje nowej domeny i nie zmienia zamkniętych kontraktów DB4_1-DB4_10; synchronizuje finalne agregaty z authority wypracowanymi przez DB-MIG-001/002/003 i DB-TST-001/002.\n\nMachine gate wycofał provisional 17-step `core-schema.yml::migration_order` jako wykonawcze authority. Aggregate wskazuje teraz na 170-node `migration_dependency_dag`, siedmiofazowy `migration_phase_composition` oraz `migration_cutover_execution_contract`. Narrative gate synchronizuje `docs/87` z tym samym modelem i usuwa skróty, które mogły ponownie zgubić Commerce fulfillment/purchase lineage albo DB4_10 DomainEvent/policy/retention authority.\n\nDB-FINAL-001 dopisuje jeden append-only coverage anchor `DBT-CORE-100`, ponieważ po rozwiązaniu tego blockera Stage 4 ma 77 zamkniętych blockerów i każdy musi nadal mieć finalny test ID. Wcześniejsze 490 IDs pozostają niezmienione. Nie generujemy testów frameworkowych ani migracji Laravel i nie rozpoczynamy Stage 5/UI.\n\n''')
+          replace_section('## 2. Wynik po DB-TST-002\n','## 3. DB-MIG-001','''## 2. Wynik po DB-FINAL-001 narrative gate\n\nMachine + narrative DB-FINAL-001: **0 P0, 0 P1 OPEN; central gate pending**.\n\nNie pozostał już żaden merytoryczny blocker w DB4_11. Stage 4 może zostać uznany za PASS dopiero po osobnym central gate, który zweryfikuje provenance, finalne bloby, zero-gap coverage oraz brak semantic drift.\n\n''')
+
+          replace_section('## 8. DB-FINAL-001 — final machine/narrative semantic sync\n','## 9. Co nie jest blockerem DB4_11\n','''## 8. DB-FINAL-001 — final machine/narrative semantic sync\n\n**Status: PASS / P1 RESOLVED — CENTRAL GATE PENDING**\n\nMachine aggregate `core-schema.yml` został zsynchronizowany bez zmiany domenowych tabel, constraintów, transactional invariants ani 261 source obligations. Stary 17-elementowy `migration_order` został zastąpiony referencyjnym kontraktem do finalnych authority: 170-node `migration_dependency_dag`, `migration_phase_composition` oraz `migration_cutover_execution_contract`. Aggregate jawnie zabrania traktowania wszystkich constraintów jako blanket final step i zachowuje write-fence-before-backfill, exact-evidence-only reconciliation, zero unresolved przed validate oraz backup+restore evidence przed destructive contract.\n\nW testach rozróżnione są dwie metryki źródłowe: top-level `migration_tests_required` ma 244 wpisy, a rekurencyjnie wszystkie wystąpienia tego klucza dają 261 source occurrences. DB-TST-001 nadal posiada 261 niezmienionych bazowych IDs. DB-TST-002 historycznie dodał 229 anchors i zamknął katalog 490 IDs. DB-FINAL-001 dopisuje tylko `DBT-CORE-100`, klasę `migration_postcheck`, mapującą finalny aggregate semantic sync; aktualny finalny katalog ma więc **491 unikalnych IDs** i obejmuje **77/77** resolved Stage-4 blockers.\n\nNarrative `docs/87` został wyrównany do tego samego modelu. Sekcja 24 nie używa już kroków `orders/payments/service entitlements/activations`, `audit/activity/outbox/notifications` ani zbiorczego final-constraint bucketu jako kolejności wykonawczej. Commerce jawnie obejmuje catalog, Orders/OrderItems, payment attempts/events, settlements, fulfillments, purchase-grant lineage oraz service entitlements/activations. DB4_10 jawnie obejmuje audit policy revisions, AuditLog, DomainEvent, Outbox, activity projection policies/Activity, Notifications, migration review i retention execution evidence.\n\nFinalny coverage proof po DB-FINAL-001: 491 IDs, 77 resolved blockers, 183 critical constraints, 45 transactional invariants, 1 581 local required-test occurrences / 1 576 unique names, zero unknown final refs, zero orphan source refs i zero coverage gaps. DB-FINAL-001 nie generuje PHPUnit/Pest/Laravel tests ani fizycznych migracji.\n\n''')
+
+          replace_section('## 10. Preservation gate\n','## 11. Następny pojedynczy krok\n','''## 10. Preservation gate\n\nDB-FINAL-001 zachowuje:\n- DB4_1-DB4_10 bez reopen i bez zmiany business authority,\n- 170-node DAG DB-MIG-001, siedem faz DB-MIG-002 i cutover/restart/rollback DB-MIG-003 bez semantic rewrite,\n- wszystkie 261 bazowych DB-TST-001 IDs bez renumeracji i przedefiniowania,\n- historyczny DB-TST-002 wynik 229 anchors / 490 IDs jako stan tego kroku,\n- wyłącznie append-only `DBT-CORE-100` dla finalnego aggregate sync, co daje 491 IDs,\n- 183/183 critical constraints, 45/45 transactional invariants i wszystkie 1 581 local required-test occurrences,\n- bounded-context specs jako read-only,\n- brak wymyślonych RPO/RTO, retention duration, provider schema ani nowych decyzji prawnych,\n- brak Laravel migrations, Stage 5 i UI/feature implementation.\n\n''')
+          replace_section('## 11. Następny pojedynczy krok\n','**STOP przed fixerem DB-FINAL-001.**','''## 11. Następny pojedynczy krok\n\nPozostał wyłącznie **central Stage-4 gate dla DB-FINAL-001**. Ma on potwierdzić finalne bloby machine+narrative, 77 resolved blockers, 491 test IDs, zero-gap coverage, wycofanie provisional migration shortcuts oraz pełny PASS DB4_11.\n\nDopiero po central PASS Stage 4 może zostać zamknięty. Stage 5 nie jest uruchamiany w tym kroku i wymaga osobnego jawnego polecenia użytkownika.\n\n**STOP przed Stage 5.**''')
+          # remove old stop phrase left as terminal replacement target suffix
+          d=d.replace('**STOP przed Stage 5.****STOP przed fixerem DB-FINAL-001.**','**STOP przed Stage 5.**')
+          p.write_text(d)
+          PY
+          git diff --check
+      - name: Validate narrative semantic parity and preservation
+        shell: bash
+        run: |
+          set -euo pipefail
+          ruby <<'RUBY'
+          require 'yaml'; require 'date'
+          def yf(p); YAML.safe_load(File.read(p), permitted_classes:[Date], aliases:true); end
+          core=yf('specs/database/core-schema.yml'); matrix=yf('specs/database/final-migration-order-invariant-matrix.yml')
+          d87=File.read('docs/87-physical-database-schema.md'); d116=File.read('docs/116-stage-4-final-migration-order-invariant-matrix-audit.md')
+          abort 'docs87 status' unless d87.include?('DB4_11_FINAL_MIGRATION_AND_INVARIANT_TEST_AGGREGATE_SYNC_PASS')
+          %w[170 491 77 DBT-CORE-100].each{|x| abort "docs87 missing #{x}" unless d87.include?(x)}
+          ['expand -> preflight -> write_fence -> backfill -> reconcile -> validate -> contract','payment attempts/events','settlements','fulfillments','purchase-grant','audit policy revisions','DomainEvent','migration review','retention execution evidence'].each{|x| abort "docs87 semantic #{x}" unless d87.include?(x)}
+          ['15. orders/payments/service entitlements/activations,','16. audit/activity/outbox/notifications,','17. final partial indexes/cross-table constraints'].each{|x| abort "stale docs87 shortcut #{x}" if d87.include?(x)}
+          abort 'stale post-DB4_9 future wording' if d87.include?('Po DB4_9 nadal osobno wymagają dalszych slice/ADR')
+          abort 'docs116 step' unless d116.include?('**Aktualny krok:** `DB-FINAL-001`') && d116.include?('PASS_DB_FINAL_001_NARRATIVE_PENDING_CENTRAL')
+          ['**Status: PASS / P1 RESOLVED — CENTRAL GATE PENDING**','491 unikalnych IDs','77/77','DBT-CORE-100','0 P1 OPEN','STOP przed Stage 5'].each{|x| abort "docs116 missing #{x}" unless d116.include?(x)}
+          mo=core['migration_order']; itp=core['invariant_test_plan']; cat=matrix.dig('test_coverage_traceability_contract','final_test_catalog')
+          abort 'machine parity' unless mo['dependency_node_count']==170 && itp['final_test_catalog_total']==491 && itp['resolved_stage4_blockers_covered_after_DB_FINAL_001']==77 && cat['total_final_test_ids']==491
+          abort 'central changed early' unless `git hash-object specs/gates/stage-4-database-contract-gate.yml`.strip=='d3c94ea818637bedd06234c9c1b2b2629fc0252c'
+          abort 'core changed in narrative' unless `git hash-object specs/database/core-schema.yml`.strip=='b0629cc48e26798d945356eaa1d0c9b1187aa542'
+          abort 'matrix changed in narrative' unless `git hash-object specs/database/final-migration-order-invariant-matrix.yml`.strip=='ad5f2aa2e14ef248b95dd3dda0d1cbcb2e69d441'
+          puts 'DB_FINAL_001_NARRATIVE_GATE=PASS'
+          RUBY
+      - name: Remove helper and prove narrative-only net tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=5e0371f5ea9b8916b1ed5777a4ea28b4fd392b18
+          git rm .github/workflows/tmp-db-final-001-narrative-validation-20260910.yml
+          git add docs/87-physical-database-schema.md docs/116-stage-4-final-migration-order-invariant-matrix-audit.md
+          mapfile -t changed < <(git diff --cached --name-only "$BASE")
+          test "${#changed[@]}" -eq 2
+          test "${changed[0]}" = docs/116-stage-4-final-migration-order-invariant-matrix-audit.md
+          test "${changed[1]}" = docs/87-physical-database-schema.md
+          git diff --cached --check
+          git diff --cached --stat "$BASE"
+      - name: Commit validated helper tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'DB-FINAL-001: align final database narrative authorities'
+          git push origin HEAD:tmp-db-final-001-narrative-validation-20260910
