@@ -2574,12 +2574,13 @@ invariant_test_matrix:
     CP-RETRY-OR-REPLAY: same logical event_or_command delivered at least twice and
       when relevant in alternate ordering without duplicate durable effect
   class_counts:
-    concurrency: 14
+    concurrency: 15
+    migration_postcheck: 0
     migration_preflight: 14
-    projection: 20
-    schema_constraint: 13
+    projection: 21
+    schema_constraint: 23
     security_storage: 46
-    transaction: 154
+    transaction: 142
   domain_counts:
     AUD: 22
     CAL: 26
@@ -2609,11 +2610,11 @@ invariant_test_matrix:
     source_invariant: normal_application_cannot_update_or_delete_audit_history
     source_refs:
     - specs/database/core-schema.yml::audit_outbox_notifications_model.migration_tests_required[1]
-    test_class: transaction
-    execution_phase: runtime_integration
+    test_class: schema_constraint
+    execution_phase: post_schema
     blocking_severity: P1
-    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
-    fixture_profile: FP-TRANSACTION-ATOMICITY
+    expected_outcome: invalid_tuple_or_mutation_is_rejected_and_valid_control_case_succeeds
+    fixture_profile: FP-SCHEMA-NEGATIVE
     concurrency_profile: none
     implementation_status: contract_only_no_framework_test_generated
   - test_id: DBT-AUD-003
@@ -2697,12 +2698,12 @@ invariant_test_matrix:
     source_invariant: activity_retry_preserves_immutable_historical_display_snapshot_and_policy_version
     source_refs:
     - specs/database/core-schema.yml::audit_outbox_notifications_model.migration_tests_required[9]
-    test_class: transaction
-    execution_phase: runtime_integration
+    test_class: projection
+    execution_phase: projection_validation
     blocking_severity: P1
-    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
-    fixture_profile: FP-TRANSACTION-ATOMICITY
-    concurrency_profile: none
+    expected_outcome: canonical_source_projection_and_dedupe_semantics_remain_consistent_under_retry_or_replay
+    fixture_profile: FP-PROJECTION-REPLAY
+    concurrency_profile: CP-RETRY-OR-REPLAY
     implementation_status: contract_only_no_framework_test_generated
   - test_id: DBT-AUD-011
     source_invariant: notification_recipient_is_exact_membership_and_broadcast_materializes_independent_rows
@@ -2863,11 +2864,11 @@ invariant_test_matrix:
     source_invariant: commerce_server_snapshot_price_VAT_discount_line_and_order_totals_are_immutable_and_equivalent
     source_refs:
     - specs/database/core-schema.yml::migration_tests_required[7]
-    test_class: transaction
-    execution_phase: runtime_integration
+    test_class: schema_constraint
+    execution_phase: post_schema
     blocking_severity: P1
-    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
-    fixture_profile: FP-TRANSACTION-ATOMICITY
+    expected_outcome: invalid_tuple_or_mutation_is_rejected_and_valid_control_case_succeeds
+    fixture_profile: FP-SCHEMA-NEGATIVE
     concurrency_profile: none
     implementation_status: contract_only_no_framework_test_generated
   - test_id: DBT-COM-003
@@ -2908,12 +2909,12 @@ invariant_test_matrix:
       duplicate_workers_commit_at_most_one_complete_grant_set
     source_refs:
     - specs/database/core-schema.yml::migration_tests_required[11]
-    test_class: transaction
-    execution_phase: runtime_integration
+    test_class: concurrency
+    execution_phase: runtime_concurrency
     blocking_severity: P1
-    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
-    fixture_profile: FP-TRANSACTION-ATOMICITY
-    concurrency_profile: none
+    expected_outcome: all_interleavings_preserve_one_legal_final_state_without_duplicate_or_lost_effect
+    fixture_profile: FP-CONCURRENCY-RACE
+    concurrency_profile: CP-TWO-TRANSACTIONS
     implementation_status: contract_only_no_framework_test_generated
   - test_id: DBT-COM-007
     source_invariant: commerce_quantity_N_requires_exactly_N_purchase_grants_with_unique_ordinals_and_exact_product_lineage
@@ -3216,11 +3217,11 @@ invariant_test_matrix:
     source_invariant: generic_login_identifier_resolves_to_at_most_one_current_user
     source_refs:
     - specs/database/core-schema.yml::migration_tests_required[39]
-    test_class: transaction
-    execution_phase: runtime_integration
+    test_class: schema_constraint
+    execution_phase: post_schema
     blocking_severity: P1
-    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
-    fixture_profile: FP-TRANSACTION-ATOMICITY
+    expected_outcome: invalid_tuple_or_mutation_is_rejected_and_valid_control_case_succeeds
+    fixture_profile: FP-SCHEMA-NEGATIVE
     concurrency_profile: none
     implementation_status: contract_only_no_framework_test_generated
   - test_id: DBT-CORE-006
@@ -3293,11 +3294,11 @@ invariant_test_matrix:
     source_invariant: organization_membership_user_id_is_immutable
     source_refs:
     - specs/database/core-schema.yml::migration_tests_required[46]
-    test_class: transaction
-    execution_phase: runtime_integration
+    test_class: schema_constraint
+    execution_phase: post_schema
     blocking_severity: P1
-    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
-    fixture_profile: FP-TRANSACTION-ATOMICITY
+    expected_outcome: invalid_tuple_or_mutation_is_rejected_and_valid_control_case_succeeds
+    fixture_profile: FP-SCHEMA-NEGATIVE
     concurrency_profile: none
     implementation_status: contract_only_no_framework_test_generated
   - test_id: DBT-CORE-007
@@ -3744,22 +3745,22 @@ invariant_test_matrix:
     source_invariant: staff_document_has_at_most_one_current_row_per_type
     source_refs:
     - specs/database/core-schema.yml::migration_tests_required[87]
-    test_class: transaction
-    execution_phase: runtime_integration
+    test_class: schema_constraint
+    execution_phase: post_schema
     blocking_severity: P1
-    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
-    fixture_profile: FP-TRANSACTION-ATOMICITY
+    expected_outcome: invalid_tuple_or_mutation_is_rejected_and_valid_control_case_succeeds
+    fixture_profile: FP-SCHEMA-NEGATIVE
     concurrency_profile: none
     implementation_status: contract_only_no_framework_test_generated
   - test_id: DBT-RES-011
     source_invariant: vehicle_document_has_at_most_one_current_row_per_type
     source_refs:
     - specs/database/core-schema.yml::migration_tests_required[88]
-    test_class: transaction
-    execution_phase: runtime_integration
+    test_class: schema_constraint
+    execution_phase: post_schema
     blocking_severity: P1
-    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
-    fixture_profile: FP-TRANSACTION-ATOMICITY
+    expected_outcome: invalid_tuple_or_mutation_is_rejected_and_valid_control_case_succeeds
+    fixture_profile: FP-SCHEMA-NEGATIVE
     concurrency_profile: none
     implementation_status: contract_only_no_framework_test_generated
   - test_id: DBT-CORE-018
@@ -3777,11 +3778,11 @@ invariant_test_matrix:
     source_invariant: superseded_document_business_fields_are_immutable
     source_refs:
     - specs/database/core-schema.yml::migration_tests_required[90]
-    test_class: transaction
-    execution_phase: runtime_integration
+    test_class: schema_constraint
+    execution_phase: post_schema
     blocking_severity: P1
-    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
-    fixture_profile: FP-TRANSACTION-ATOMICITY
+    expected_outcome: invalid_tuple_or_mutation_is_rejected_and_valid_control_case_succeeds
+    fixture_profile: FP-SCHEMA-NEGATIVE
     concurrency_profile: none
     implementation_status: contract_only_no_framework_test_generated
   - test_id: DBT-RES-012
@@ -4899,11 +4900,11 @@ invariant_test_matrix:
     source_invariant: activation_targets_exact_assignment_learning_account_and_is_immutable
     source_refs:
     - specs/database/core-schema.yml::migration_tests_required[192]
-    test_class: transaction
-    execution_phase: runtime_integration
+    test_class: schema_constraint
+    execution_phase: post_schema
     blocking_severity: P1
-    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
-    fixture_profile: FP-TRANSACTION-ATOMICITY
+    expected_outcome: invalid_tuple_or_mutation_is_rejected_and_valid_control_case_succeeds
+    fixture_profile: FP-SCHEMA-NEGATIVE
     concurrency_profile: none
     implementation_status: contract_only_no_framework_test_generated
   - test_id: DBT-CORE-043
@@ -4921,11 +4922,11 @@ invariant_test_matrix:
     source_invariant: product_duration_and_inventory_product_binding_are_immutable_after_inventory_reference
     source_refs:
     - specs/database/core-schema.yml::migration_tests_required[194]
-    test_class: transaction
-    execution_phase: runtime_integration
+    test_class: schema_constraint
+    execution_phase: post_schema
     blocking_severity: P1
-    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
-    fixture_profile: FP-TRANSACTION-ATOMICITY
+    expected_outcome: invalid_tuple_or_mutation_is_rejected_and_valid_control_case_succeeds
+    fixture_profile: FP-SCHEMA-NEGATIVE
     concurrency_profile: none
     implementation_status: contract_only_no_framework_test_generated
   - test_id: DBT-IAM-038
@@ -5306,11 +5307,11 @@ invariant_test_matrix:
     source_invariant: result_score_max_pass_and_question_evidence_match_frozen_scoring_policy_and_are_immutable
     source_refs:
     - specs/database/core-schema.yml::migration_tests_required[229]
-    test_class: transaction
-    execution_phase: runtime_integration
+    test_class: schema_constraint
+    execution_phase: post_schema
     blocking_severity: P1
-    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
-    fixture_profile: FP-TRANSACTION-ATOMICITY
+    expected_outcome: invalid_tuple_or_mutation_is_rejected_and_valid_control_case_succeeds
+    fixture_profile: FP-SCHEMA-NEGATIVE
     concurrency_profile: none
     implementation_status: contract_only_no_framework_test_generated
   - test_id: DBT-CORE-070
@@ -5471,6 +5472,8 @@ invariant_test_matrix:
     unique_test_ids: PASS
     every_test_has_source_invariant_and_nonempty_source_refs: PASS
     every_test_has_allowed_test_class: PASS
+    all_seven_declared_test_classes_have_explicit_count: PASS
+    zero_count_class_is_allowed_when_no_current_source_invariant_requires_it: PASS
     every_test_has_expected_outcome: PASS
     every_test_has_fixture_profile: PASS
     every_concurrency_test_uses_non_none_concurrency_profile: PASS
