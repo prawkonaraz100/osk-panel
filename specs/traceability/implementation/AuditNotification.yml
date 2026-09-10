@@ -1,6 +1,9 @@
 module: AuditNotification
 core_traceability_modules:
   - dashboard_activity
+  - locations
+  - staff
+  - vehicles
 changed_scope:
   - evidence: specs/database/audit-outbox-notifications.yml
     requirement: critical mutation commits business state audit domain event and outbox intent atomically
@@ -8,5 +11,13 @@ changed_scope:
     api_use_case: atomic audit outbox foundation
     permission: inherited_from_calling_authorized_command
     ui: NOT_APPLICABLE_FOUNDATION_NO_UI
-    acceptance_test: Tests\\Feature\\AuditOutboxFoundationTest
+    acceptance_test: Tests\Feature\AuditOutboxFoundationTest
+    status: IMPLEMENTED
+  - evidence: specs/database/staff-locations-vehicles.yml
+    requirement: resource lifecycle audit snapshots are allowlisted and never contain plaintext PESEL or secret payloads
+    domain_data: audit_action_policy_revisions + audit_action_policy_currents + audit_logs + domain_events + outbox_messages
+    api_use_case: resource create update archive restore account-link and document-replacement commands
+    permission: inherited_from_authorized_resources_command
+    ui: resource mutations surface only business success or safe error envelopes
+    acceptance_test: Tests\Feature\ResourcesCoreTest::test_staff_pesel_never_enters_audit_payload
     status: IMPLEMENTED
