@@ -41,6 +41,7 @@ jobs:
         run: |
           set -euo pipefail
           rm -f .tmp/db-tst-001-builder.rb
+          rm -f .tmp/db-tst-001-trigger
           rm -f .github/workflows/tmp-db-tst-001-machine-validation-20260910.yml
           git add -A
           git diff --cached --check
