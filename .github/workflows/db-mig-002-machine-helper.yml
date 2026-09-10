@@ -1,0 +1,91 @@
+name: DB-MIG-002 machine helper
+
+on:
+  push:
+    branches:
+      - tmp-db-mig-002-machine-validation-20260910
+    paths:
+      - .stage4-tmp/TRIGGER_DB_MIG_002_MACHINE
+
+permissions:
+  contents: write
+
+jobs:
+  validate-and-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply and validate DB-MIG-002 phase composition
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=ff9cb2c4cf9696eff1635d48edc560430b9e7704
+          test "$(git rev-parse "$BASE:specs/database/final-migration-order-invariant-matrix.yml")" = "b6b7b7513fa537ca416f921284b9dc631679a3de"
+          test "$(git rev-parse HEAD:docs/116-stage-4-final-migration-order-invariant-matrix-audit.md)" = "403e5e36437af613491868984e4f8c28e4b6efdc"
+          test "$(git rev-parse HEAD:specs/gates/stage-4-database-contract-gate.yml)" = "8c503b4777060531c723f7e9a1272440be5947c8"
+          test "$(git rev-parse HEAD:specs/database/core-schema.yml)" = "39958721c99550cfc27c3774e8dfa1af0d0637e6"
+          test "$(git rev-parse HEAD:docs/87-physical-database-schema.md)" = "6c090b082604b6b42c283667fcf08e9033a5b523"
+          python .stage4-tmp/DB_MIG_002_MACHINE_PATCH.py
+          ruby -e "require 'psych'; Psych.parse_file('specs/database/final-migration-order-invariant-matrix.yml')"
+          ruby <<'RUBY'
+          require 'psych'
+          require 'date'
+          d = Psych.safe_load(File.read('specs/database/final-migration-order-invariant-matrix.yml'), permitted_classes: [Date], aliases: true)
+          raise 'wrong step' unless d.dig('meta','step') == 'DB-MIG-002'
+          raise 'wrong status' unless d.dig('meta','status') == 'FAIL_WITH_4_P1_BLOCKERS'
+          raise 'wrong fix count' unless d.dig('meta','fixes_applied_total') == 2
+          dag = d.fetch('migration_dependency_dag')
+          raise 'DB-MIG-001 DAG changed status' unless dag['status'] == 'PASS_DB_MIG_001'
+          phase = d.fetch('migration_phase_composition')
+          raise 'phase contract not PASS' unless phase['status'] == 'PASS_DB_MIG_002'
+          expected = %w[expand preflight write_fence backfill reconcile validate contract]
+          raise 'wrong phase order' unless phase['phase_order'] == expected
+          defaults = phase.dig('node_phase_resolution','defaults_by_node_type')
+          raise 'node type mapping mismatch' unless defaults.keys.sort == dag.fetch('node_type_values').sort
+          positions = expected.each_with_index.to_h
+          dag.fetch('nodes').each do |n|
+            path = phase.dig('node_phase_resolution','exact_overrides',n['id'],'phases') || defaults[n['type']]
+            raise "unmapped node #{n['id']}" if path.nil? || path.empty?
+            raise "unknown phase #{n['id']}" unless path.all? { |x| positions.key?(x) }
+            nums = path.map { |x| positions[x] }
+            raise "phase order violation #{n['id']}" unless nums == nums.sort && nums.uniq.length == nums.length
+          end
+          overrides = phase.dig('node_phase_resolution','exact_overrides')
+          known = dag.fetch('nodes').map { |n| n['id'] }.to_h { |x| [x,true] }
+          overrides.keys.each { |id| raise "unknown override #{id}" unless known[id] }
+          pg = phase.fetch('PostgreSQL_activation_strategy')
+          raise 'false UNIQUE NOT VALID claim' unless pg.dig('candidate_key_or_unique_constraint','NOT_VALID_supported') == false
+          raise 'false exclusion NOT VALID claim' unless pg.dig('exclusion_constraint','NOT_VALID_supported') == false
+          raise 'missing zero unresolved gate' unless phase.dig('global_validation_gate','validation_requires_zero_unresolved_required_reconciliation_cases') == true
+          cohorts = phase.fetch('legacy_safety_cohorts')
+          raise 'wrong cohort count' unless cohorts.length == 6
+          cohorts.each do |name,c|
+            raise "#{name} lacks fence" unless c['write_fence_before_backfill'] == true
+            raise "#{name} lacks zero unresolved" unless c['unresolved_before_validate'] == 'zero'
+          end
+          blockers = d.fetch('blockers').to_h { |x| [x['id'],x] }
+          raise 'DB-MIG-001 reopened' unless blockers.fetch('DB-MIG-001')['status'] == 'PASS'
+          raise 'DB-MIG-002 not PASS' unless blockers.fetch('DB-MIG-002')['status'] == 'PASS'
+          %w[DB-MIG-003 DB-TST-001 DB-TST-002 DB-FINAL-001].each { |id| raise "#{id} changed" unless blockers.fetch(id)['status'] == 'OPEN' }
+          s = d.fetch('diagnosis_summary')
+          raise 'wrong resolved count' unless s['resolved_after_diagnosis'] == 2
+          raise 'wrong open count' unless s['open_P0_P1'] == 4
+          raise 'wrong result' unless s['result'] == 'FAIL_WITH_4_P1_BLOCKERS'
+          raise 'wrong next step' unless d.dig('next_single_step_after_central_gate','id') == 'DB-MIG-003'
+          raise 'cutover solved early' unless phase.dig('preservation_boundary','DB_MIG_003_cutover_restart_failure_rollback_not_solved') == true
+          raise 'Stage5 started' unless d.dig('meta','Stage5_started') == false
+          raise 'Laravel migrations created' unless d.dig('meta','Laravel_migrations_created') == false
+          RUBY
+          git diff --check -- specs/database/final-migration-order-invariant-matrix.yml
+          mapfile -t changed < <(git diff --name-only | sort)
+          test "${#changed[@]}" -eq 1
+          test "${changed[0]}" = "specs/database/final-migration-order-invariant-matrix.yml"
+          test "$(git rev-parse HEAD:specs/database/core-schema.yml)" = "39958721c99550cfc27c3774e8dfa1af0d0637e6"
+          test "$(git rev-parse HEAD:docs/87-physical-database-schema.md)" = "6c090b082604b6b42c283667fcf08e9033a5b523"
+          git config user.name prawkonaraz100
+          git config user.email prawkonaraz100@gmail.com
+          git add specs/database/final-migration-order-invariant-matrix.yml
+          git commit -m "Validate DB-MIG-002 migration phase composition"
+          git push origin HEAD:tmp-db-mig-002-machine-validation-20260910
