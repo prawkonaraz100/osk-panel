@@ -3,7 +3,7 @@ meta:
   stage: 5
   name: implementation_entry_and_foundation_gate
   branch: docs-consolidation-2026-09-05
-  status: FAIL_WITH_2_P1_BLOCKERS
+  status: FAIL_WITH_1_P1_BLOCKER
   entered_at: 2026-09-10
   diagnosis_only: false
   implementation_started: true
@@ -57,10 +57,10 @@ entry_observations:
   frontend_application_directories_present: true
   executable_Laravel_migrations_present: true
   executable_framework_test_suite_present: true
-  implementation_CI_present: false
+  implementation_CI_present: true
   existing_contract_CI_present: true
   application_feature_code_present: false
-  conclusion: S5_TST_001_pass_and_S5_CI_001_is_next
+  conclusion: S5_CI_001_pass_and_S5_FOUND_001_is_next
 
 closed_stage_4_authorities:
   migration_dependency_DAG_nodes: 170
@@ -159,7 +159,7 @@ blockers:
 
   - id: S5-CI-001
     severity: P1
-    status: OPEN
+    status: PASS
     title: implementation_CI_gate_absent
     depends_on:
       - S5-BOOT-001
@@ -214,9 +214,9 @@ quality_gate:
   diagnosed_P0: 0
   diagnosed_P1: 6
   fixes_applied_in_diagnosis: 0
-  fixes_applied_total: 4
-  open_P0_P1: 2
-  result: FAIL_WITH_2_P1_BLOCKERS
+  fixes_applied_total: 5
+  open_P0_P1: 1
+  result: FAIL_WITH_1_P1_BLOCKER
   blocker_fix_order:
     - S5-BOOT-001
     - S5-ENV-001
@@ -226,26 +226,27 @@ quality_gate:
     - S5-FOUND-001
 
 next_single_step:
-  id: S5-CI-001
-  action: resolve_implementation_CI_gate_only_after_next_explicit_user_instruction
+  id: S5-FOUND-001
+  action: resolve_first_core_foundation_slice_only_after_next_explicit_user_instruction
   prerequisite_S5_BOOT_001: PASS
   prerequisite_S5_ENV_001: PASS
   prerequisite_S5_MIG_001: PASS
   prerequisite_S5_TST_001: PASS
+  prerequisite_S5_CI_001: PASS
   allowed_scope:
-    - implementation_CI_workflow
-    - backend_lint_and_static_analysis
-    - frontend_lint_typecheck_and_build
-    - PostgreSQL_unit_integration_and_migration_validation
-    - OpenAPI_contract_gate_preservation
-    - secret_scan
-    - changed_module_traceability
+    - IdentityTenant
+    - OrganizationSettings
+    - minimal_AuditNotification_foundation_needed_for_atomic_audit_outbox
+    - foundation_migrations_in_canonical_dependency_closed_prefix
+    - foundation_executable_tests_and_DBT_traceability
+    - reverse_engineering_traceability_for_changed_scope
     - Stage_5_gate_and_audit_updates
   forbidden_scope:
-    - domain_feature_UI
-    - S5_FOUND_001_implementation
-    - weakening_existing_contract_or_test_gates
-  after_action: rerun_S5_CI_001_gate_and_STOP_before_S5_FOUND_001
+    - later_core_modules
+    - broad_UI_feature_implementation
+    - Stage_4_authority_rewrite
+    - weakening_CI_migration_or_test_gates
+  after_action: rerun_S5_FOUND_001_machine_narrative_central_gate_and_STOP_before_next_core_slice
 
 S5_BOOT_001_closure:
   status: PASS
@@ -439,3 +440,67 @@ S5_TST_001_closure:
     full_491_domain_contract_implementation: false
     S5_CI_001: OPEN
     S5_FOUND_001: OPEN
+
+S5_CI_001_closure:
+  status: PASS
+  accepted_scope: permanent_implementation_quality_gate_only
+  provenance:
+    machine_clean_commit: 55b6d0af82ee018cb3c0a201e4d4e6a6358c6a06
+    machine_parent_commit: 6c195d8520714d771be4f4a074e7e1c81d635bd5
+    permanent_workflow_blob: 2ef64a3b668fc384df62ad29a69740c81a91caf4
+    narrative_clean_commit: 7355c6ae11b4e07e1487256e5c4aac28297c8283
+    docs117_blob: ee97e0173b0c6ea08baeb6d4c39337edc2d546f1
+    docs121_blob: c6b98acc50eb59970a110052524f61e85a4e1105
+    helper_validation_run: 34504826574
+    accepted_branch_validation_run: 34505180921
+  permanent_jobs:
+    backend_quality: PASS
+    frontend_quality: PASS
+    runtime_tests_and_migrations: PASS
+    contracts_and_traceability: PASS
+    secret_scan: PASS
+    accepted_branch_jobs_passed: 5
+    accepted_branch_jobs_total: 5
+  backend_quality:
+    composer_validate_strict: PASS
+    Pint_test: PASS
+    Larastan_version: 3.12.0
+    PHPStan_version: 2.2.13
+    PHPStan_level: 8
+    analysis_paths: [app, routes]
+    baseline_added: false
+    ignored_errors_added_for_gate: false
+    suppressions_added_for_gate: false
+    static_analysis_findings_fixed_not_hidden: 18
+    final_static_analysis: PASS_ZERO_ERRORS
+  frontend_quality:
+    npm_ci: PASS
+    ESLint: 10.10.0
+    ESLint_max_warnings: 0
+    Vue_TypeScript_typecheck: PASS
+    Vite_production_build: PASS
+    npm_audit_high: PASS
+  runtime_quality:
+    deterministic_S5_ENV_001_services: PASS
+    migration_plan_registry_validation: PASS
+    PostgreSQL_framework_suite_fail_on_warning: PASS
+    SQLite_substitution_for_integration_gate: false
+  contract_traceability:
+    existing_OpenAPI_validator_preserved_and_executed: PASS
+    changed_module_traceability_validator: PASS
+    changed_module_traceability_self_test: PASS
+    changed_module_traceability_mode: fail_closed
+    module_change_requires_same_diff_traceability: true
+  security:
+    gitleaks_committed_change_scan: PASS
+    production_secrets_committed: false
+    real_personal_data_added: false
+  preservation:
+    Stage_4_gate_blob: 306dabaa58223abe2f3b2a34b888b075c88e9ec4
+    Stage_4_core_schema_blob: b0629cc48e26798d945356eaa1d0c9b1187aa542
+    Stage_4_final_matrix_blob: ad5f2aa2e14ef248b95dd3dda0d1cbcb2e69d441
+    Stage_4_docs87_blob: a48eacd92d4a9c8e989f5d70c3bec95b9231a77c
+    Stage_4_docs116_blob: 6f76255742d4902546f45c28d54c1da6ee3d3fd7
+    Stage_4_authority_rewritten: false
+    S5_FOUND_001_started: false
+    domain_feature_UI_started: false
