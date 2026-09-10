@@ -19,7 +19,7 @@ jobs:
           set -euo pipefail
           BASE=6419481d39721238792a2a0bbb852622936fb993
           TARGET=specs/database/licenses-learning-access.yml
-          test "$(git rev-parse HEAD~1^{tree})" = "$(git rev-parse ${BASE}^{tree})"
+          git diff --quiet "$BASE" -- specs/database specs/gates docs/116-stage-4-final-migration-order-invariant-matrix-audit.md docs/87-physical-database-schema.md
           python3 <<'PY'
           from pathlib import Path
           p = Path('specs/database/licenses-learning-access.yml')
@@ -52,11 +52,14 @@ jobs:
           ]
           files.each { |f| load_yaml(f) }
           lic = load_yaml('specs/database/licenses-learning-access.yml')
-          race = lic.dig('resolved_contracts','DB-LIC-003','student_archive_restore_learning_access_lifecycle','archive_restore_race_semantics','restore_vs_explicit_account_resume')
+          race = lic.dig('resolved_contracts','DB-LIC-003','archive_restore_race_semantics','restore_vs_explicit_account_resume')
           abort 'missing restore_vs_explicit_account_resume' unless race.is_a?(Hash)
           abort 'restore must not perform resume' unless race['restore_does_not_perform_resume'] == true
           abort 'explicit resume authority must remain true' unless race['explicit_resume_still_requires_its_own_authorized_command_and_current_state'] == true
-          tests = lic.dig('resolved_contracts','DB-LIC-003','student_archive_restore_learning_access_lifecycle','required_integration_tests') || []
+          status = lic.dig('resolved_contracts','DB-LIC-003','account_status_lifecycle','suspended_to_active') || {}
+          abort 'suspended to active must remain explicit resume only' unless status['allowed'] == 'explicit_resume_command_only'
+          abort 'generic PATCH must remain forbidden for resume' unless status['generic_PATCH'] == 'forbidden'
+          tests = lic.dig('resolved_contracts','DB-LIC-003','required_integration_tests') || []
           abort 'missing explicit lifecycle command test' unless tests.include?('active_to_suspended_and_suspended_to_active_require_explicit_lifecycle_command')
           abort 'missing restore suspension preservation test' unless tests.include?('restore_does_not_reactivate_explicitly_suspended_learning_account')
           puts 'YAML_PARSE_AND_SEMANTIC_GATE=PASS'
