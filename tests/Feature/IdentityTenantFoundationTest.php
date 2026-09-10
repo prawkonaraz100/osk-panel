@@ -91,11 +91,6 @@ final class IdentityTenantFoundationTest extends TestCase
     {
         $actor = FoundationSchema::actor();
         $target = FoundationSchema::member($actor['organization_id']);
-        DB::table('permissions')->insert(['code' => 'students.create', 'description' => 'students.create']);
-        DB::table('permission_scope_options')->insert([
-            'permission_code' => 'students.create', 'scope_code' => 'organization', 'resolver_code' => 'tenant_resource',
-        ]);
-
         $this->expectException(AuthorizationException::class);
         app(MembershipGovernance::class)->replacePermissionScopes(
             $actor['session_id'],
@@ -208,5 +203,4 @@ final class IdentityTenantFoundationTest extends TestCase
         $this->assertDatabaseCount('domain_events', 1);
         $this->assertDatabaseCount('outbox_messages', 1);
     }
-
 }
