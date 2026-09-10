@@ -94,5 +94,4 @@ final class OrganizationSettingsFoundationTest extends TestCase
             $this->assertDatabaseCount('outbox_messages', 0);
         }
     }
-
 }
