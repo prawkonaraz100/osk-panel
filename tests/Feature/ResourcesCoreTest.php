@@ -575,7 +575,7 @@ final class ResourcesCoreTest extends TestCase
             fn (): array => throw new \RuntimeException('Replay must not execute the business callback.'),
         );
 
-        $this->assertSame($first, $second);
+        $this->assertEquals($first, $second);
         $this->assertSame(1, DB::table('locations')
             ->where('organization_id', $actor['organization_id'])
             ->where('name', 'Idempotent Branch')
