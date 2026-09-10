@@ -111,13 +111,13 @@ stage_4_slices:
     final_aggregate_sync: PASS
     result: PASS
   - id: DB4_10_AUDIT_OUTBOX_NOTIFICATIONS
-    status: BLOCKERS_RESOLVED_PENDING_DB4_10_FINAL_AGGREGATE_SYNC
+    status: PASS
     diagnosis: COMPLETE
     blockers_diagnosed: 8
     blockers_resolved: 8
     open_P0_P1: 0
-    final_aggregate_sync: NOT_STARTED
-    result: BLOCKERS_RESOLVED_PENDING_DB4_10_FINAL_AGGREGATE_SYNC
+    final_aggregate_sync: PASS
+    result: PASS
   - id: DB4_11_FINAL_MIGRATION_ORDER_AND_INVARIANT_TEST_MATRIX
     status: NOT_STARTED
 
@@ -4053,6 +4053,33 @@ quality_checks:
       Laravel_migrations_created: false
       UI_or_feature_implementation_started: false
 
+
+  DB4_10_final_aggregate_sync:
+    status: PASS
+    aggregate_base_after_DB_EVT_001_central_gate: b70eb701624a05d53f0d859b5538edecf3c23ab3
+    machine_aggregate_commit: 8a95e5a4cc1535c0cda413051583da1b5f17be20
+    machine_aggregate_blob: 39958721c99550cfc27c3774e8dfa1af0d0637e6
+    narrative_aggregate_commit: 6de2143d8a23de93943c2f13da1c46cf273b8c81
+    narrative_aggregate_blob: 6c090b082604b6b42c283667fcf08e9033a5b523
+    bounded_source_commit: 738e4c2cf95e303ebbf295e31e760daa4c0b84d1
+    bounded_source_blob: 335f675ab1c09649ecf9850714d4c5acb0086782
+    bounded_audit_commit: a79e737d13a6095e3946df8e0d2c8a8c764499d9
+    bounded_audit_blob: d98c97bcfe31b544b696cdb85ae9fa28758c1b97
+    checks:
+      all_eight_DB4_10_blockers_resolved_before_aggregate_sync: PASS
+      core_schema_contains_final_audit_policy_domain_event_outbox_activity_notification_and_retention_authorities: PASS
+      docs87_section20_replaced_stale_provisional_model: PASS
+      activity_source_is_domain_events_not_outbox_or_raw_audit: PASS
+      outbox_delivery_semantic_remains_at_least_once_not_exactly_once: PASS
+      notification_recipient_and_read_state_remain_per_exact_membership: PASS
+      legacy_backfill_remains_exact_evidence_only_and_fail_closed: PASS
+      exact_retention_duration_remains_external_privacy_legal_policy: PASS
+      bounded_machine_and_narrative_match_aggregate_blobs: PASS
+      DB4_11_started: false
+      Stage5_started: false
+      Laravel_migrations_created: false
+      UI_or_feature_implementation_started: false
+
 resolved_blockers:
   - DB-AUD-001
   - DB-AUD-002
@@ -4136,7 +4163,7 @@ gate_definition:
     - migration_order_dependency_safe
     - database_invariant_test_matrix_exists
     - reverse_engineering_preservation_traceable
-  current_result: DB4_10_BLOCKERS_RESOLVED_PENDING_FINAL_AGGREGATE_SYNC
+  current_result: DB4_10_PASS
   DB4_1_result: PASS
   DB4_2_result: PASS
   DB4_3_result: PASS
@@ -4215,8 +4242,8 @@ gate_definition:
   DB4_10_DB_NOT_001_result: PASS
   DB4_10_DB_NOT_002_result: PASS
   DB4_10_DB_EVT_001_result: PASS
-  DB4_10_final_aggregate_sync_result: NOT_STARTED
-  DB4_10_result: BLOCKERS_RESOLVED_PENDING_DB4_10_FINAL_AGGREGATE_SYNC
+  DB4_10_final_aggregate_sync_result: PASS
+  DB4_10_result: PASS
   may_start_DB4_4_fixes: false
   may_start_DB4_5: false
   may_start_DB4_5_fixes: false
@@ -4230,26 +4257,24 @@ gate_definition:
   may_start_DB4_9_fixes: false
   may_start_DB4_10: false
   may_start_DB4_10_fixes: false
-  may_start_DB4_11: false
+  may_start_DB4_11: true
   may_start_DB4_11_fixes: false
   may_start_stage_5: false
   may_start_UI_or_feature_implementation: false
 
 next_single_step:
-  id: DB4_10_FINAL_AGGREGATE_SYNC
-  action: synchronize_DB4_10_aggregates_only_after_next_explicit_user_instruction
+  id: DB4_11_FINAL_MIGRATION_ORDER_AND_INVARIANT_TEST_MATRIX_DIAGNOSIS
+  action: diagnose_DB4_11_only_after_next_explicit_user_instruction
+  diagnosis_only: true
+  fixes_allowed_in_same_step: false
   allowed_scope:
+    - specs/gates/stage-4-database-contract-gate.yml
     - specs/database/core-schema.yml
     - docs/87-physical-database-schema.md
-    - specs/database/audit-outbox-notifications.yml
-    - docs/115-stage-4-audit-outbox-notifications-audit.md
-    - specs/gates/stage-4-database-contract-gate.yml
-  aggregate_files_frozen_until_separate_DB4_10_final_sync_authorization:
-    specs/database/core-schema.yml: f3519060967085517329bc668fac02e5c1fd2dbd
-    docs/87-physical-database-schema.md: f3ebb764a5279cbabc9c75c2fcf9733f36ed22a8
+    - existing_stage_4_bounded_context_specs_and_audits_read_only_unless_diagnosis_artifact_requires_new_file
   scope_lock: >-
-    DB-AUD-001, DB-AUD-002, DB-OUT-001, DB-OUT-002, DB-ACT-001, DB-NOT-001,
-    DB-NOT-002 and DB-EVT-001 are PASS. Do not enter DB4_11, Stage 5, Laravel
-    migrations or UI. The only next step is separately authorized DB4_10 final
-    aggregate sync.
-  after_action: run_DB4_10_final_aggregate_sync_and_STOP_before_DB4_11
+    DB4_10 is PASS with final aggregate sync PASS. DB4_11 may begin with diagnosis
+    only after the next explicit user instruction. Do not guess blocker counts before
+    diagnosis, do not apply DB4_11 fixes in the diagnosis step, and do not start
+    Stage 5, Laravel migrations or UI.
+  after_action: run_DB4_11_diagnosis_machine_narrative_central_gate_and_STOP_before_first_fixer
