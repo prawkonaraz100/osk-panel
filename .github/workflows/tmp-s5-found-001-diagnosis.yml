@@ -17,50 +17,34 @@ jobs:
         with:
           python-version: '3.12'
       - run: python -m pip install pyyaml
-      - name: Extract exact foundation authorities recursively
+      - name: Extract remaining foundation authorities
         shell: bash
         run: |
           set -euo pipefail
           python - <<'PY'
-          import yaml
+          import yaml, json
           from pathlib import Path
           core=yaml.safe_load(Path('specs/database/core-schema.yml').read_text())
+          for key in ['core_tables','audit_outbox_notifications_model']:
+              print('===CORE_SECTION',key,'===')
+              print(yaml.safe_dump(core.get(key),sort_keys=False,width=180).rstrip())
+          org=core['organization_model']
+          print('===ORGANIZATION_MODEL===')
+          print(yaml.safe_dump(org,sort_keys=False,width=180).rstrip())
+          ident=core['identity_model']
+          for key in ['organizations','users','permissions','data_scopes','auth_login_identifiers','organization_memberships','membership_permissions','permission_scope_options','membership_permission_scopes','auth_sessions']:
+              if key in ident:
+                  print('===IDENTITY',key,'===')
+                  print(yaml.safe_dump(ident[key],sort_keys=False,width=180).rstrip())
+          aud=yaml.safe_load(Path('specs/database/audit-outbox-notifications.yml').read_text())
+          print('===AUDIT_RESOLVED_CONTRACTS===')
+          print(yaml.safe_dump(aud.get('resolved_contracts'),sort_keys=False,width=180).rstrip())
+          print('===AUDIT_PROVISIONAL_PHYSICAL_MODEL===')
+          print(yaml.safe_dump(aud.get('provisional_physical_model'),sort_keys=False,width=180).rstrip())
+          plan=json.loads(Path('database/migration-plan/plan.json').read_text())
           wanted={'organizations','users','permissions','data_scopes','organization_settings','organization_contact_addresses','auth_login_identifiers','organization_memberships','membership_permissions','permission_scope_options','membership_permission_scopes','auth_sessions','audit_action_policy_revisions','audit_action_policy_currents','audit_logs','domain_events','outbox_messages'}
-          found={}
-          def walk(v,path=()):
-              if isinstance(v,dict):
-                  for k,x in v.items():
-                      p=path+(str(k),)
-                      if str(k) in wanted:
-                          found.setdefault(str(k),[]).append((p,x))
-                      walk(x,p)
-              elif isinstance(v,list):
-                  for i,x in enumerate(v): walk(x,path+(str(i),))
-          walk(core)
-          print('CORE_TOP_KEYS=', ','.join(core.keys()))
-          for name in sorted(wanted):
-              print('===FOUND',name,'COUNT',len(found.get(name,[])),'===')
-              for path,val in found.get(name,[]):
-                  print('PATH','.'.join(path))
-                  print(yaml.safe_dump(val,sort_keys=False,width=180).rstrip())
-          trace=yaml.safe_load(Path('specs/traceability/core-v1.yml').read_text())
-          mods=trace.get('modules',{})
-          print('TRACE_MODULE_KEYS=', ','.join(mods.keys()))
-          for k,v in mods.items():
-              lk=k.lower()
-              if any(n in lk for n in ['auth','identity','organization','audit','dashboard']):
-                  print('===TRACE',k,'===')
-                  print(yaml.safe_dump(v,sort_keys=False,width=180).rstrip())
-          perm=yaml.safe_load(Path('specs/security/permissions.yml').read_text())
-          groups=perm.get('permission_groups',{})
-          print('PERMISSION_GROUP_KEYS=',','.join(groups.keys()))
-          for g,v in groups.items():
-              s=yaml.safe_dump(v,sort_keys=False,width=180)
-              if any(n in s for n in ['organization.view','organization.settings.manage','organization.members.manage','staff.permissions.manage','sessions.manage.organization']):
-                  print('===PERM_GROUP',g,'===')
-                  print(s.rstrip())
-          prof=perm.get('permission_scope_profile_by_code',{})
-          for code in ['organization.view','organization.settings.manage','organization.members.manage','staff.permissions.manage','sessions.manage.organization']:
-              print('===SCOPE_PROFILE',code,'===')
-              print(yaml.safe_dump(prof.get(code),sort_keys=False,width=180).rstrip())
+          print('===PLAN_FOUNDATION_NODES===')
+          for n in plan['nodes']:
+              if n['object_name'] in wanted:
+                  print(json.dumps(n,separators=(',',':')))
           PY
