@@ -9,7 +9,7 @@ final class MigrationExecutionJournal
     public function append(array $event): void
     {
         $path = config('migration.evidence_path');
-        if (app()->environment('production') && ! is_string($path)) {
+        if (app()->environment('production') && (! is_string($path) || $path === '')) {
             throw new LogicException('Production controlled migration requires MIGRATION_EVIDENCE_PATH backed by durable deployment evidence storage.');
         }
 
