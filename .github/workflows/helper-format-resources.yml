@@ -29,7 +29,7 @@ jobs:
       - run: npm ci
       - name: Format PHP
         run: |
-          vendor/bin/pint app/Modules/ResourcesCore tests/Support/FoundationSchema.php database/seeders/ResourceReferenceCatalogSeeder.php database/seeders/DatabaseSeeder.php app/Modules/AuditNotification/AtomicAuditOutbox.php routes/web.php
+          vendor/bin/pint app/Modules/ResourcesCore tests/Feature/ResourcesCoreTest.php tests/Feature/Stage4MigrationPostcheckTest.php tests/Contracts/stage4-test-implementations.php tests/Support/FoundationSchema.php database/seeders/ResourceReferenceCatalogSeeder.php database/seeders/DatabaseSeeder.php app/Modules/AuditNotification/AtomicAuditOutbox.php routes/web.php
       - name: Format Vue and TypeScript
         run: npx eslint resources/js/modules/ResourcesCore resources/js/App.vue --fix
       - name: Normalize migration filenames to canonical order
@@ -100,7 +100,7 @@ jobs:
         run: |
           git config user.name "stage5-helper"
           git config user.email "stage5-helper@users.noreply.github.com"
-          git add             app/Modules/ResourcesCore             app/Modules/AuditNotification/AtomicAuditOutbox.php             database/seeders/DatabaseSeeder.php             database/seeders/ResourceReferenceCatalogSeeder.php             database/migration-plan/implementations.json             resources/js/App.vue             resources/js/modules/ResourcesCore             routes/web.php             tests/Support/FoundationSchema.php             tests/Unit/MigrationPlanContractTest.php
+          git add             app/Modules/ResourcesCore             app/Modules/AuditNotification/AtomicAuditOutbox.php             database/seeders/DatabaseSeeder.php             database/seeders/ResourceReferenceCatalogSeeder.php             database/migration-plan/implementations.json             resources/js/App.vue             resources/js/modules/ResourcesCore             routes/web.php             tests/Feature/ResourcesCoreTest.php             tests/Feature/Stage4MigrationPostcheckTest.php             tests/Contracts/stage4-test-implementations.php             tests/Support/FoundationSchema.php             tests/Unit/MigrationPlanContractTest.php
           if git diff --cached --quiet; then
             echo "No formatter changes to commit."
           else

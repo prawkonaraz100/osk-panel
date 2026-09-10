@@ -3,6 +3,7 @@
 use Tests\Feature\AuditOutboxFoundationTest;
 use Tests\Feature\IdentityTenantFoundationTest;
 use Tests\Feature\OrganizationSettingsFoundationTest;
+use Tests\Feature\ResourcesCoreTest;
 use Tests\Feature\Stage4MigrationPostcheckTest;
 
 return [
@@ -70,5 +71,120 @@ return [
         'class' => Stage4MigrationPostcheckTest::class,
         'method' => 'test_dbt_core_100_final_aggregate_sync_is_executable',
         'scope' => 'Final Stage-4 aggregate authority blobs and 491-test catalog remain synchronized.',
+    ],
+    'DBT-RES-001' => [
+        'class' => ResourcesCoreTest::class,
+        'method' => 'test_dbt_res_001_assigned_location_scope_without_active_staff_link_is_empty',
+        'scope' => 'Assigned-location scope resolves to empty without an active staff membership link.',
+    ],
+    'DBT-RES-002' => [
+        'class' => ResourcesCoreTest::class,
+        'method' => 'test_dbt_res_002_staff_can_exist_without_membership_link',
+        'scope' => 'Staff profile may exist independently from panel identity and membership.',
+    ],
+    'DBT-RES-003' => [
+        'class' => ResourcesCoreTest::class,
+        'method' => 'test_dbt_res_003_staff_membership_link_command_never_builds_cross_tenant_pair',
+        'scope' => 'Panel-account linking never creates a cross-tenant staff-to-membership pair.',
+    ],
+    'DBT-RES-004' => [
+        'class' => ResourcesCoreTest::class,
+        'method' => 'test_dbt_res_004_archived_staff_cannot_receive_active_staff_membership_link',
+        'scope' => 'Archived staff cannot receive a current panel membership link.',
+    ],
+    'DBT-RES-005' => [
+        'class' => ResourcesCoreTest::class,
+        'method' => 'test_dbt_res_005_staff_can_have_multiple_categories_and_locations',
+        'scope' => 'Staff supports multiple category and tenant-location assignments.',
+    ],
+    'DBT-RES-006' => [
+        'class' => ResourcesCoreTest::class,
+        'method' => 'test_dbt_res_006_staff_location_assignment_cross_tenant_pair_is_rejected',
+        'scope' => 'Staff location assignment rejects foreign-tenant location IDs.',
+    ],
+    'DBT-RES-007' => [
+        'class' => ResourcesCoreTest::class,
+        'method' => 'test_dbt_res_007_vehicle_can_have_multiple_categories_and_locations',
+        'scope' => 'Vehicle supports multiple category and tenant-location assignments.',
+    ],
+    'DBT-RES-008' => [
+        'class' => ResourcesCoreTest::class,
+        'method' => 'test_dbt_res_008_vehicle_location_assignment_cross_tenant_pair_is_rejected',
+        'scope' => 'Vehicle location assignment rejects foreign-tenant location IDs.',
+    ],
+    'DBT-RES-009' => [
+        'class' => ResourcesCoreTest::class,
+        'method' => 'test_dbt_res_009_private_assets_require_same_tenant_correct_purpose_and_ready_state',
+        'scope' => 'Private staff/vehicle asset references require tenant ownership, purpose, and ready state.',
+    ],
+    'DBT-RES-010' => [
+        'class' => ResourcesCoreTest::class,
+        'method' => 'test_dbt_res_010_staff_document_has_at_most_one_current_row_per_type',
+        'scope' => 'Staff document replacement leaves one current version and preserves superseded history.',
+    ],
+    'DBT-RES-011' => [
+        'class' => ResourcesCoreTest::class,
+        'method' => 'test_dbt_res_011_vehicle_document_has_at_most_one_current_row_per_type',
+        'scope' => 'Vehicle document replacement leaves one current version and preserves superseded history.',
+    ],
+    'DBT-RES-012' => [
+        'class' => ResourcesCoreTest::class,
+        'method' => 'test_dbt_res_012_archived_staff_still_blocks_duplicate_pesel_in_same_organization',
+        'scope' => 'Archived staff history continues to reserve the tenant PESEL identity.',
+    ],
+    'DBT-RES-013' => [
+        'class' => ResourcesCoreTest::class,
+        'method' => 'test_dbt_res_013_archived_vehicle_still_blocks_duplicate_vin_in_same_organization',
+        'scope' => 'Archived fleet history continues to reserve the tenant VIN identity.',
+    ],
+    'DBT-RES-014' => [
+        'class' => ResourcesCoreTest::class,
+        'method' => 'test_dbt_res_014_vehicle_archive_releases_registration_for_current_fleet_but_preserves_history',
+        'scope' => 'Vehicle archive releases current-fleet registration while preserving the archived record.',
+    ],
+    'DBT-RES-015' => [
+        'class' => ResourcesCoreTest::class,
+        'method' => 'test_dbt_res_015_vehicle_restore_conflicts_if_registration_is_held_by_another_current_vehicle',
+        'scope' => 'Vehicle restore fails without implicit swap when registration is held by another current vehicle.',
+    ],
+    'DBT-RES-016' => [
+        'class' => ResourcesCoreTest::class,
+        'method' => 'test_dbt_res_016_staff_archive_nonowner_unlinks_suspends_and_clears_bound_sessions_atomically',
+        'scope' => 'Non-owner staff archive unlinks panel access, suspends membership, and clears bound session tenant context.',
+    ],
+    'DBT-RES-017' => [
+        'class' => ResourcesCoreTest::class,
+        'method' => 'test_dbt_res_017_staff_archive_owner_unlinks_staff_without_changing_owner_governance',
+        'scope' => 'Owner staff archive ends staff link without silently changing owner governance.',
+    ],
+    'DBT-RES-018' => [
+        'class' => ResourcesCoreTest::class,
+        'method' => 'test_dbt_res_018_staff_restore_does_not_auto_restore_panel_access_or_old_sessions',
+        'scope' => 'Staff restore restores only the profile and never old access or sessions.',
+    ],
+    'DBT-RES-046' => [
+        'class' => ResourcesCoreTest::class,
+        'method' => 'test_dbt_res_016_staff_archive_nonowner_unlinks_suspends_and_clears_bound_sessions_atomically',
+        'scope' => 'Transactional archive_staff_profile invariant is executable.',
+    ],
+    'DBT-RES-047' => [
+        'class' => ResourcesCoreTest::class,
+        'method' => 'test_dbt_res_009_private_assets_require_same_tenant_correct_purpose_and_ready_state',
+        'scope' => 'Transactional private attachment invariant is executable at current materialized boundary.',
+    ],
+    'DBT-RES-048' => [
+        'class' => ResourcesCoreTest::class,
+        'method' => 'test_dbt_res_048_create_staff_membership_link_is_same_tenant_and_idempotent_at_domain_level',
+        'scope' => 'Staff membership link creation is serialized, same-tenant, and does not duplicate current links.',
+    ],
+    'DBT-RES-049' => [
+        'class' => ResourcesCoreTest::class,
+        'method' => 'test_dbt_res_049_replace_staff_or_vehicle_document_preserves_superseded_history',
+        'scope' => 'Document replacement preserves historical versions for staff and vehicles.',
+    ],
+    'DBT-RES-050' => [
+        'class' => ResourcesCoreTest::class,
+        'method' => 'test_dbt_res_050_restore_staff_profile_restores_record_only',
+        'scope' => 'Transactional restore_staff_profile invariant restores record only.',
     ],
 ];
