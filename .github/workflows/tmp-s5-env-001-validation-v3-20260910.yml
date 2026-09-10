@@ -361,9 +361,9 @@ jobs:
 
           cat > /tmp/expected-files <<'EOF'
           .env.example
+          compose.yml
           composer.json
           composer.lock
-          compose.yml
           config/filesystems.php
           docs/117-stage-5-implementation-entry-audit.md
           docs/118-stage-5-environment-contract.md
