@@ -31,11 +31,11 @@ final class FoundationReferenceCatalogTest extends TestCase
             ->where('permission_code', 'students.view')
             ->where('scope_code', 'assigned_students')
             ->exists());
-        $this->assertSame(3, DB::table('audit_action_policy_currents')->count());
+        $this->assertSame(18, DB::table('audit_action_policy_currents')->count());
 
         app(FoundationReferenceCatalogSeeder::class)->run();
 
         $this->assertSame(4, DB::table('data_scopes')->count());
-        $this->assertSame(3, DB::table('audit_action_policy_currents')->count());
+        $this->assertSame(18, DB::table('audit_action_policy_currents')->count());
     }
 }

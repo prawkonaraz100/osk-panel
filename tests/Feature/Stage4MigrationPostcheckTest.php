@@ -13,8 +13,8 @@ class Stage4MigrationPostcheckTest extends TestCase
         $summary = $catalog->zeroGapSummary();
 
         $this->assertCount(491, $catalog->entries());
-        $this->assertSame(['DBT-CORE-009', 'DBT-CORE-015', 'DBT-IAM-005', 'DBT-IAM-009', 'DBT-IAM-013', 'DBT-IAM-015', 'DBT-IAM-016', 'DBT-IAM-017', 'DBT-IAM-020', 'DBT-AUD-003', 'DBT-AUD-005', 'DBT-CORE-099', 'DBT-CORE-100'], $catalog->implementedIds());
-        $this->assertCount(478, $catalog->pendingIds());
+        $this->assertSame(['DBT-CORE-009', 'DBT-CORE-015', 'DBT-IAM-005', 'DBT-IAM-009', 'DBT-IAM-013', 'DBT-IAM-015', 'DBT-IAM-016', 'DBT-IAM-017', 'DBT-IAM-020', 'DBT-AUD-003', 'DBT-AUD-005', 'DBT-CORE-099', 'DBT-CORE-100', 'DBT-RES-001', 'DBT-RES-002', 'DBT-RES-003', 'DBT-RES-004', 'DBT-RES-005', 'DBT-RES-006', 'DBT-RES-007', 'DBT-RES-008', 'DBT-RES-009', 'DBT-RES-010', 'DBT-RES-011', 'DBT-RES-012', 'DBT-RES-013', 'DBT-RES-014', 'DBT-RES-015', 'DBT-RES-016', 'DBT-RES-017', 'DBT-RES-018', 'DBT-RES-046', 'DBT-RES-047', 'DBT-RES-048', 'DBT-RES-049', 'DBT-RES-050'], $catalog->implementedIds());
+        $this->assertCount(455, $catalog->pendingIds());
         $this->assertSame([
             'concurrency' => 29,
             'migration_postcheck' => 2,

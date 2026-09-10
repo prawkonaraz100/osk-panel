@@ -1,0 +1,63 @@
+module: ResourcesCore
+core_traceability_modules:
+  - locations
+  - staff
+  - vehicles
+  - dictionaries
+changed_scope:
+  - evidence: specs/screens/locations.yml
+    requirement: tenant-scoped location list create edit archive restore and confirmed location-type choices
+    domain_data: locations + location_types
+    api_use_case: locations.list/create/get/update/archive/restore + location_types.list + geography.cities
+    permission: locations.view/create/edit/archive/restore with organization or assigned_locations read scope
+    ui: /lokalizacje list plus create/edit drawer archive/restore controls and calendar entry point
+    acceptance_test: Tests\Feature\ResourcesCoreTest::test_locations_are_tenant_scoped_idempotent_and_soft_archived
+    status: IMPLEMENTED
+  - evidence: specs/screens/staff.yml
+    requirement: staff profile remains separate from panel identity with explicit account and permission governance
+    domain_data: staff_profiles + staff assignments + staff_documents + staff_membership_links + organization_memberships
+    api_use_case: staff list/detail/create/update/archive/restore account-link and permission commands
+    permission: staff.view/create/edit/archive/restore/accounts.manage/permissions.manage
+    ui: /pracownicy list/detail/edit account-access and confirmed calendar entry-point controls
+    acceptance_test: Tests\Feature\ResourcesCoreTest::test_staff_archive_respects_nonowner_and_owner_membership_lifecycle
+    status: IMPLEMENTED
+  - evidence: specs/screens/vehicles.yml
+    requirement: tenant-scoped fleet CRUD-equivalent lifecycle with independent inspection OC and AC validity history
+    domain_data: vehicles + vehicle assignments + vehicle_documents
+    api_use_case: vehicles list/detail/create/update/archive/restore + vehicle_documents list/create/update
+    permission: vehicles.view/create/edit/archive/restore
+    ui: /pojazdy list/detail/create/edit archive/restore/delete-as-safe-archive and calendar entry points
+    acceptance_test: Tests\Feature\ResourcesCoreTest::test_vehicle_identity_history_and_restore_conflict_are_preserved
+    status: IMPLEMENTED
+  - evidence: specs/database/staff-locations-vehicles.yml
+    requirement: cross-tenant assignments and staff-derived assigned_locations scope fail closed
+    domain_data: staff_location_assignments + vehicle_location_assignments + staff_membership_links
+    api_use_case: ResourceScopeAuthorizer target and collection visibility
+    permission: explicit membership permission plus organization or assigned_locations scope
+    ui: filtered resource lists and hidden cross-tenant targets
+    acceptance_test: Tests\Feature\ResourcesCoreTest::test_assigned_location_scope_is_empty_without_active_staff_link
+    status: IMPLEMENTED
+  - evidence: specs/design/core-lifecycle.yml
+    requirement: destructive-looking resource actions preserve history through archive and explicit restore
+    domain_data: archived_at + archived_by_user_id + superseded document history
+    api_use_case: location staff vehicle archive/restore and vehicle document replacement
+    permission: resource-specific archive/restore/edit permissions
+    ui: confirmation-driven archive actions with restore state
+    acceptance_test: Tests\Feature\ResourcesCoreTest::test_vehicle_document_replacement_preserves_superseded_history
+    status: IMPLEMENTED
+  - evidence: specs/screens/staff-create.yml
+    requirement: staff photo field remains visible but secure upload transport must not be invented inside this slice
+    domain_data: staff_profiles.photo_asset_id + file_assets
+    api_use_case: existing photo_asset_id is validated for same tenant purpose and ready state; upload transport deferred
+    permission: staff.create/edit plus future active_membership_plus_parent_domain_permission for upload
+    ui: photo picker visible with explicit dependency notice until uploads_assets slice
+    acceptance_test: Tests\Feature\ResourcesCoreTest::test_private_asset_reference_requires_tenant_purpose_and_ready_state
+    status: DEFERRED_OUTSIDE_CORE_WITH_EXPLICIT_DECISION
+  - evidence: specs/screens/vehicle-detail.yml
+    requirement: calendar controls and context links are preserved while calendar scheduling engine remains a later core module
+    domain_data: vehicle and staff resource identifiers only in this slice
+    api_use_case: calendar query entry points only; calendar event CRUD remains deferred
+    permission: current resource view permission for entry point; calendar permission enforced by later module
+    ui: confirmed month/week/day and full-calendar entry points rendered without fabricated event data
+    acceptance_test: Tests\Feature\ResourcesCoreTest::test_resource_calendar_links_preserve_tenant_resource_identifiers
+    status: DEFERRED_OUTSIDE_CORE_WITH_EXPLICIT_DECISION
