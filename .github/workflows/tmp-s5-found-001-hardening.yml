@@ -66,7 +66,7 @@ jobs:
           print('FOUNDATION_MIGRATION_REGISTRY=PASS')
           PY
           php -r '$r=require "tests/Contracts/stage4-test-implementations.php"; if (count($r)!==13) { exit(1); } echo "FOUNDATION_DBT_TRACEABILITY=PASS\n";'
-          php artisan tinker --execute="throw_unless(DB::table('permissions')->where('code','organization.settings.manage')->exists()); throw_unless(DB::table('data_scopes')->count() === 4); throw_unless(DB::table('audit_action_policy_currents')->count() === 3);"
+          php -r 'require "vendor/autoload.php"; $app=require "bootstrap/app.php"; $app->make(Illuminate\\Contracts\\Console\\Kernel::class)->bootstrap(); if (!Illuminate\\Support\\Facades\\DB::table("permissions")->where("code","organization.settings.manage")->exists()) { exit(1); } if (Illuminate\\Support\\Facades\\DB::table("data_scopes")->count() !== 4) { exit(1); } if (Illuminate\\Support\\Facades\\DB::table("audit_action_policy_currents")->count() !== 3) { exit(1); }'
           echo "FOUNDATION_REFERENCE_CATALOG=PASS"
 
       - name: PostgreSQL test suite
