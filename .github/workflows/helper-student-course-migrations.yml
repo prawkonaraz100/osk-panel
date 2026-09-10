@@ -34,16 +34,7 @@ jobs:
           $plan = json_decode((string) file_get_contents($planPath), true, 512, JSON_THROW_ON_ERROR);
 
           $batch = [
-              'MIG-TBL-STUDENTS',
-              'MIG-TBL-COURSE_ENROLLMENTS',
-              'MIG-TBL-COURSE_ENROLLMENT_LIFECYCLE_EVENTS',
-              'MIG-TBL-TRAINING_REQUIREMENT_RULE_SETS',
-              'MIG-TBL-COURSE_REQUIREMENT_CONTEXTS',
-              'MIG-TBL-COURSE_REQUIREMENT_CONTEXT_HELD_CATEGORIES',
-              'MIG-TBL-COURSE_REQUIREMENT_OVERRIDE_DECISIONS',
-              'MIG-TBL-TRAINING_REQUIREMENT_PROFILES',
-              'MIG-TBL-COURSE_EXEMPTION_DECISIONS',
-              'MIG-TBL-RECOGNIZED_EXTERNAL_TRAINING',
+              'MIG-TBL-PKK_PROFILES',
           ];
 
           $nodes = [];
@@ -120,12 +111,12 @@ jobs:
           file_put_contents($registryPath, json_encode($registry, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES).PHP_EOL);
 
           $test = (string) file_get_contents($testPath);
-          $test = str_replace('$this->assertSame(34, $plan->implementedNodeCount());', '$this->assertSame(44, $plan->implementedNodeCount());', $test);
-          $test = str_replace('$this->assertSame(34, $plan->implementedStepCount());', '$this->assertSame(44, $plan->implementedStepCount());', $test);
+          $test = str_replace('$this->assertSame(44, $plan->implementedNodeCount());', '$this->assertSame(45, $plan->implementedNodeCount());', $test);
+          $test = str_replace('$this->assertSame(44, $plan->implementedStepCount());', '$this->assertSame(45, $plan->implementedStepCount());', $test);
           $test = str_replace("'".$oldIdentity."', \$plan->executionIdentity()", "'".$newIdentity."', \$plan->executionIdentity()", $test);
 
           $insertBefore = "            'MIG-TBL-AUDIT_ACTION_POLICY_REVISIONS',";
-          if (! str_contains($test, "            'MIG-TBL-STUDENTS',")) {
+          if (! str_contains($test, "            'MIG-TBL-PKK_PROFILES',")) {
               $newNodes = '';
               foreach ($batch as $nodeId) {
                   $newNodes .= "            '".$nodeId."',\n";
@@ -170,6 +161,7 @@ jobs:
               "training_requirement_profiles",
               "course_exemption_decisions",
               "recognized_external_training",
+              "pkk_profiles",
             ];
             foreach ($tables as $table) {
               if (!Illuminate\Support\Facades\Schema::hasTable($table)) {
@@ -190,7 +182,7 @@ jobs:
           if git diff --cached --quiet; then
             echo "Registry already normalized."
           else
-            git commit -m "CORE-V1-STUDENTS-COURSE-ENROLLMENT-001: bind first migration batch"
+            git commit -m "CORE-V1-STUDENTS-COURSE-ENROLLMENT-001: bind PKK identity migration"
             git push origin HEAD:tmp-core-v1-students-course-enrollment-001-20260911
           fi
 
