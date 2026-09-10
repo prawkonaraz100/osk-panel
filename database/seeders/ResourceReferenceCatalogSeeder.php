@@ -34,6 +34,10 @@ final class ResourceReferenceCatalogSeeder extends Seeder
         'staff.panel_account.created', 'staff.panel_account.revoked',
         'vehicle.created', 'vehicle.updated', 'vehicle.archived', 'vehicle.restored',
         'vehicle.document.replaced',
+        'student.created', 'student.updated', 'student.archived', 'student.restored',
+        'course.created', 'course.updated', 'course.stage_changed', 'course.cancelled', 'course.restored',
+        'course.requirements.updated', 'course.exemption.updated',
+        'course.external_training.recognized', 'course.external_training.revoked',
     ];
 
     public function run(): void

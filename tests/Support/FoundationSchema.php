@@ -14,6 +14,17 @@ final class FoundationSchema
 {
     /** @var list<string> */
     private const TABLES = [
+        'pkk_profiles',
+        'recognized_external_training',
+        'course_exemption_decisions',
+        'training_requirement_profiles',
+        'course_requirement_override_decisions',
+        'course_requirement_context_held_categories',
+        'course_requirement_contexts',
+        'training_requirement_rule_sets',
+        'course_enrollment_lifecycle_events',
+        'course_enrollments',
+        'students',
         'vehicle_location_assignments',
         'vehicle_category_assignments',
         'vehicle_documents',
@@ -134,6 +145,9 @@ final class FoundationSchema
             'locations.view', 'locations.create', 'locations.edit', 'locations.archive', 'locations.restore',
             'staff.view', 'staff.create', 'staff.edit', 'staff.archive', 'staff.restore', 'staff.accounts.manage',
             'vehicles.view', 'vehicles.create', 'vehicles.edit', 'vehicles.archive', 'vehicles.restore',
+            'students.view', 'students.create', 'students.edit', 'students.archive', 'students.restore',
+            'courses.view', 'courses.create', 'courses.edit', 'courses.cancel', 'courses.restore', 'courses.stage.change',
+            'course_requirements.correct', 'external_training.recognize',
         ] as $permission) {
             self::grant($membership, $permission, ['organization']);
         }
