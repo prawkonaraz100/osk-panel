@@ -1,0 +1,12 @@
+module: OrganizationSettings
+core_traceability_modules:
+  - auth_identity
+changed_scope:
+  - evidence: specs/database/organization-settings.yml
+    requirement: settings write is tenant-authorized optimistic-concurrency transaction
+    domain_data: organization_settings + organizations + users + organization_contact_addresses
+    api_use_case: update organization settings foundation service
+    permission: organization.settings.manage
+    ui: DEFERRED_UI_UNTIL_FEATURE_SLICE
+    acceptance_test: Tests\\Feature\\OrganizationSettingsFoundationTest
+    status: IMPLEMENTED

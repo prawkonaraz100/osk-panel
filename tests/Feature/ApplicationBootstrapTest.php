@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use InvalidArgumentException;
+use App\Modules\IdentityTenant\Models\User;
 use Tests\TestCase;
 
 class ApplicationBootstrapTest extends TestCase
@@ -13,21 +13,19 @@ class ApplicationBootstrapTest extends TestCase
         $this->assertSame('testing', $this->app->environment());
     }
 
-    public function test_authentication_configuration_neutralizes_framework_defaults_until_foundation_gate(): void
+    public function test_foundation_gate_enables_only_the_real_user_session_guard(): void
     {
-        $this->assertNull(config('auth.defaults.guard'));
+        $this->assertSame('web', config('auth.defaults.guard'));
         $this->assertNull(config('auth.defaults.passwords'));
-        $this->assertNull(config('auth.guards.web.driver'));
-        $this->assertNull(config('auth.guards.web.provider'));
-        $this->assertNull(config('auth.providers.users.driver'));
-        $this->assertNull(config('auth.providers.users.model'));
-        $this->assertNull(config('auth.passwords.users.provider'));
+        $this->assertSame('session', config('auth.guards.web.driver'));
+        $this->assertSame('users', config('auth.guards.web.provider'));
+        $this->assertSame('eloquent', config('auth.providers.users.driver'));
+        $this->assertSame(User::class, config('auth.providers.users.model'));
         $this->assertNull(config('auth.passwords.users.table'));
     }
 
-    public function test_web_guard_cannot_be_instantiated_before_foundation_gate(): void
+    public function test_web_guard_is_instantiable_after_identity_foundation_materialization(): void
     {
-        $this->expectException(InvalidArgumentException::class);
-        $this->app['auth']->guard('web');
+        $this->assertNotNull($this->app['auth']->guard('web'));
     }
 }

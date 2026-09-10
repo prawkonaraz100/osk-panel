@@ -1,27 +1,27 @@
 <?php
 
+use App\Modules\IdentityTenant\Models\User;
+
 return [
-    /* S5-FOUND-001 owns the real IdentityTenant auth contract. */
     'defaults' => [
-        'guard' => null,
+        'guard' => 'web',
         'passwords' => null,
     ],
-    /* Explicit nulls neutralize Laravel's merged framework defaults. */
     'guards' => [
         'web' => [
-            'driver' => null,
-            'provider' => null,
+            'driver' => 'session',
+            'provider' => 'users',
         ],
     ],
     'providers' => [
         'users' => [
-            'driver' => null,
-            'model' => null,
+            'driver' => 'eloquent',
+            'model' => User::class,
         ],
     ],
     'passwords' => [
         'users' => [
-            'provider' => null,
+            'provider' => 'users',
             'table' => null,
             'expire' => null,
             'throttle' => null,

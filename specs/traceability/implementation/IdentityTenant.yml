@@ -1,0 +1,20 @@
+module: IdentityTenant
+core_traceability_modules:
+  - auth_identity
+changed_scope:
+  - evidence: specs/database/identity-rbac.yml
+    requirement: tenant operations derive organization from an active same-user membership context
+    domain_data: auth_sessions + organization_memberships
+    api_use_case: tenant authorization foundation
+    permission: explicit membership permission plus per-permission scope
+    ui: NOT_APPLICABLE_FOUNDATION_NO_UI
+    acceptance_test: Tests\\Feature\\IdentityTenantFoundationTest
+    status: IMPLEMENTED
+  - evidence: docs/87-physical-database-schema.md
+    requirement: owner marker is governance state and cannot bypass runtime permission authority
+    domain_data: organization_memberships + membership_permissions + membership_permission_scopes
+    api_use_case: owner governance foundation
+    permission: organization.members.manage
+    ui: NOT_APPLICABLE_FOUNDATION_NO_UI
+    acceptance_test: Tests\\Feature\\IdentityTenantFoundationTest
+    status: IMPLEMENTED
