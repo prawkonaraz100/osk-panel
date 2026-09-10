@@ -1,0 +1,74 @@
+name: tmp-stage-5-entry-diagnosis-20260910
+on:
+  push:
+    branches: [tmp-stage-5-entry-diagnosis-20260910]
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: tmp-stage-5-entry-diagnosis-20260910
+          fetch-depth: 0
+      - name: Validate Stage 5 diagnosis gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=2e4204d53f37a009a7bafa99bf727c8d1ab23836
+          test "$(git rev-parse ${BASE}:specs/gates/stage-4-database-contract-gate.yml)" = 306dabaa58223abe2f3b2a34b888b075c88e9ec4
+          test "$(git rev-parse ${BASE}:specs/database/core-schema.yml)" = b0629cc48e26798d945356eaa1d0c9b1187aa542
+          test "$(git rev-parse ${BASE}:specs/database/final-migration-order-invariant-matrix.yml)" = ad5f2aa2e14ef248b95dd3dda0d1cbcb2e69d441
+          test "$(git rev-parse ${BASE}:docs/87-physical-database-schema.md)" = a48eacd92d4a9c8e989f5d70c3bec95b9231a77c
+          test "$(git rev-parse ${BASE}:docs/116-stage-4-final-migration-order-invariant-matrix-audit.md)" = 6f76255742d4902546f45c28d54c1da6ee3d3fd7
+          python3 <<'PY'
+          import yaml
+          from pathlib import Path
+          class UniqueKeyLoader(yaml.SafeLoader): pass
+          def construct_mapping(loader,node,deep=False):
+              mapping={}
+              for key_node,value_node in node.value:
+                  key=loader.construct_object(key_node,deep=deep)
+                  if key in mapping:
+                      raise ValueError(f'duplicate YAML key: {key}')
+                  mapping[key]=loader.construct_object(value_node,deep=deep)
+              return mapping
+          UniqueKeyLoader.add_constructor(yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG,construct_mapping)
+          p=Path('specs/gates/stage-5-implementation-gate.yml')
+          with p.open() as f:
+              g=yaml.load(f,Loader=UniqueKeyLoader)
+          assert g['meta']['stage']==5
+          assert g['meta']['status']=='FAIL_WITH_6_P1_BLOCKERS'
+          assert g['meta']['diagnosis_only'] is True
+          assert g['prerequisite']['stage_4_database_contract_gate']['observed_result']=='PASS'
+          assert g['closed_stage_4_authorities']['migration_dependency_DAG_nodes']==170
+          assert g['closed_stage_4_authorities']['final_stage_4_test_catalog_total']==491
+          assert g['closed_stage_4_authorities']['resolved_stage_4_blockers']==77
+          assert g['closed_stage_4_authorities']['coverage_gaps']==0
+          blockers=g['blockers']
+          assert len(blockers)==6
+          assert [x['id'] for x in blockers]==['S5-BOOT-001','S5-ENV-001','S5-MIG-001','S5-TST-001','S5-CI-001','S5-FOUND-001']
+          assert all(x['severity']=='P1' and x['status']=='OPEN' for x in blockers)
+          q=g['quality_gate']
+          assert q['diagnosed_P0']==0 and q['diagnosed_P1']==6 and q['open_P0_P1']==6
+          assert q['result']=='FAIL_WITH_6_P1_BLOCKERS'
+          assert g['next_single_step']['id']=='S5-BOOT-001'
+          assert g['stage_5_working_rule']['do_not_generate_all_170_migrations_in_one_unreviewed_batch'] is True
+          assert g['stage_5_working_rule']['do_not_start_feature_UI_before_foundation_and_database_runtime_gates_pass'] is True
+          d=Path('docs/117-stage-5-implementation-entry-audit.md').read_text()
+          for token in ['FAIL_WITH_6_P1_BLOCKERS','S5-BOOT-001','S5-ENV-001','S5-MIG-001','S5-TST-001','S5-CI-001','S5-FOUND-001','170-node','491','77/77','STOP przed S5-BOOT-001']:
+              assert token in d, token
+          print('STAGE5_ENTRY_DIAGNOSIS_GATE=PASS')
+          PY
+          test ! -e composer.json
+          test ! -e artisan
+          test ! -e package.json
+          git diff --check "$BASE"
+          mapfile -t changed < <(git diff --name-only "$BASE" -- ':!.github/workflows/tmp-stage-5-entry-diagnosis-20260910.yml')
+          test "${#changed[@]}" -eq 2
+          printf '%s\n' "${changed[@]}" | grep -qx 'docs/117-stage-5-implementation-entry-audit.md'
+          printf '%s\n' "${changed[@]}" | grep -qx 'specs/gates/stage-5-implementation-gate.yml'
+          test "$(git rev-parse HEAD:specs/gates/stage-4-database-contract-gate.yml)" = 306dabaa58223abe2f3b2a34b888b075c88e9ec4
+          test "$(git rev-parse HEAD:specs/database/core-schema.yml)" = b0629cc48e26798d945356eaa1d0c9b1187aa542
+          test "$(git rev-parse HEAD:specs/database/final-migration-order-invariant-matrix.yml)" = ad5f2aa2e14ef248b95dd3dda0d1cbcb2e69d441
