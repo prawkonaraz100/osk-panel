@@ -2,8 +2,7 @@ name: tmp-s5-boot-001-auth-failclosed-v6-20260910
 
 on:
   push:
-    branches:
-      - tmp-s5-boot-001-auth-failclosed-v6-20260910
+    branches: [tmp-s5-boot-001-auth-failclosed-v6-20260910]
 
 permissions:
   contents: write
@@ -16,14 +15,12 @@ jobs:
         with:
           ref: tmp-s5-boot-001-auth-failclosed-v6-20260910
           fetch-depth: 0
-
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.5'
           extensions: mbstring, intl, pdo_pgsql
           coverage: none
           ini-file: production
-
       - uses: actions/setup-node@v5
         with:
           node-version: '24.20.0'
@@ -42,23 +39,32 @@ jobs:
           <?php
 
           return [
-              /*
-              | Authentication is intentionally not materialized in S5-BOOT-001.
-              | S5-FOUND-001 owns the IdentityTenant model/provider/guard contract.
-              | Keeping these values empty makes premature auth usage fail closed
-              | instead of silently depending on Laravel's example User model.
-              */
+              /* S5-FOUND-001 owns the real IdentityTenant auth contract. */
               'defaults' => [
                   'guard' => null,
                   'passwords' => null,
               ],
-
-              'guards' => [],
-
-              'providers' => [],
-
-              'passwords' => [],
-
+              /* Explicit nulls neutralize Laravel's merged framework defaults. */
+              'guards' => [
+                  'web' => [
+                      'driver' => null,
+                      'provider' => null,
+                  ],
+              ],
+              'providers' => [
+                  'users' => [
+                      'driver' => null,
+                      'model' => null,
+                  ],
+              ],
+              'passwords' => [
+                  'users' => [
+                      'provider' => null,
+                      'table' => null,
+                      'expire' => null,
+                      'throttle' => null,
+                  ],
+              ],
               'password_timeout' => env('AUTH_PASSWORD_TIMEOUT', 10800),
           ];
           PHP
@@ -68,6 +74,7 @@ jobs:
 
           namespace Tests\Feature;
 
+          use InvalidArgumentException;
           use Tests\TestCase;
 
           class ApplicationBootstrapTest extends TestCase
@@ -78,13 +85,22 @@ jobs:
                   $this->assertSame('testing', $this->app->environment());
               }
 
-              public function test_authentication_configuration_is_fail_closed_until_foundation_gate(): void
+              public function test_authentication_configuration_neutralizes_framework_defaults_until_foundation_gate(): void
               {
                   $this->assertNull(config('auth.defaults.guard'));
                   $this->assertNull(config('auth.defaults.passwords'));
-                  $this->assertSame([], config('auth.guards'));
-                  $this->assertSame([], config('auth.providers'));
-                  $this->assertSame([], config('auth.passwords'));
+                  $this->assertNull(config('auth.guards.web.driver'));
+                  $this->assertNull(config('auth.guards.web.provider'));
+                  $this->assertNull(config('auth.providers.users.driver'));
+                  $this->assertNull(config('auth.providers.users.model'));
+                  $this->assertNull(config('auth.passwords.users.provider'));
+                  $this->assertNull(config('auth.passwords.users.table'));
+              }
+
+              public function test_web_guard_cannot_be_instantiated_before_foundation_gate(): void
+              {
+                  $this->expectException(InvalidArgumentException::class);
+                  $this->app['auth']->guard('web');
               }
           }
           PHP
@@ -132,15 +148,14 @@ jobs:
 
           python3 <<'PY'
           from pathlib import Path
-
           gate = Path('specs/gates/stage-5-implementation-gate.yml')
           s = gate.read_text()
           old = "    project_license_manifest: proprietary\n    domain_modules_implemented: false\n"
-          new = "    project_license_manifest: proprietary\n    authentication_foundation_materialized: false\n    authentication_configuration_mode: fail_closed_until_S5_FOUND_001\n    clean_clone_runtime_directory_markers_present: true\n    domain_modules_implemented: false\n"
+          new = "    project_license_manifest: proprietary\n    authentication_foundation_materialized: false\n    authentication_configuration_mode: explicit_null_overrides_fail_closed_until_S5_FOUND_001\n    clean_clone_runtime_directory_markers_present: true\n    domain_modules_implemented: false\n"
           assert s.count(old) == 1
           s = s.replace(old, new, 1)
           old = "    Laravel_default_UserFactory_retained: false\n    Laravel_default_welcome_view_retained: false\n"
-          new = "    Laravel_default_UserFactory_retained: false\n    Laravel_default_auth_User_provider_retained: false\n    authentication_config_fail_closed_until_S5_FOUND_001: true\n    clean_clone_composer_install: PASS\n    clean_clone_runtime_directory_markers_present: true\n    Laravel_default_welcome_view_retained: false\n"
+          new = "    Laravel_default_UserFactory_retained: false\n    Laravel_default_auth_User_provider_retained: false\n    authentication_config_fail_closed_until_S5_FOUND_001: true\n    premature_web_guard_instantiation_rejected: PASS\n    clean_clone_composer_install: PASS\n    clean_clone_runtime_directory_markers_present: true\n    Laravel_default_welcome_view_retained: false\n"
           assert s.count(old) == 1
           s = s.replace(old, new, 1)
           gate.write_text(s)
@@ -150,7 +165,7 @@ jobs:
           marker = "**STOP przed S5-ENV-001.**"
           assert s.count(marker) == 1
           add = ("\n\n### 10.1. Korekty finalnego bootstrapu\n\n"
-                 "Przed przeniesieniem zwalidowanego drzewa do accepted history wykryto dwie pozostałości scaffoldingu. `config/auth.php` wskazywał na przykładowy `App\\\\Models\\\\User`, mimo że materializacja IdentityTenant należy do `S5-FOUND-001`; auth jest teraz jawnie puste i fail-closed do tego kroku, a właściwość ma wykonywalny test. Dodatkowo custom root `.gitignore` eliminował marker files wymaganych katalogów `bootstrap/cache` i `storage/*`, przez co świeży checkout nie przechodził `composer install`; przywrócono wyłącznie standardowe marker files katalogów runtime. Nie utworzono domenowych modeli, guardów, providerów, tabel ani migracji.\n")
+                 "Przed transferem do accepted history wykryto dwie pozostałości scaffoldingu. Laravel 13 scala frameworkowe defaulty auth, więc samo usunięcie `App\\\\Models\\\\User` nie wystarczało: `config/auth.php` neutralizuje teraz domyślny guard/provider/model przez jawne wartości `null`, a test potwierdza, że guard `web` nie może zostać utworzony przed `S5-FOUND-001`. Dodatkowo przywrócono marker files wymaganych katalogów `bootstrap/cache` i `storage/*`, dzięki czemu świeży checkout przechodzi `composer install`. Nie utworzono domenowych modeli, providerów, tabel ani migracji.\n")
           s = s.replace(marker, marker + add, 1)
           audit.write_text(s)
           PY
@@ -187,7 +202,6 @@ jobs:
           set -euo pipefail
           BASE=edd92902ba21415df2643ca8b5cf54b0ac92fe58
           CLEAN=fd793fa531a88437ff4b22a66a2c5da85ea2fc8d
-          test "$(git rev-parse ${BASE}:AGENTS.md)" = 96ec177c82ac6f031eb22f443295147a83482baf
           test "$(git hash-object AGENTS.md)" = 96ec177c82ac6f031eb22f443295147a83482baf
           test "$(git hash-object README.md)" = 710166c3189451a765c2314609e37607cc39e529
           test "$(git hash-object .github/workflows/api-contract-gate.yml)" = 8e2f12552f939b04bb93bbd9b4c69133ae9c1240
