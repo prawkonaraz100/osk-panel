@@ -2,12 +2,13 @@ meta:
   project: osk-panel
   stage: 4
   slice: DB4_11_FINAL_MIGRATION_ORDER_AND_INVARIANT_TEST_MATRIX
-  step: DIAGNOSIS
-  status: FAIL_WITH_6_P1_BLOCKERS
+  step: DB-MIG-001
+  status: FAIL_WITH_5_P1_BLOCKERS
   diagnosed_at: 2026-09-10
   branch: docs-consolidation-2026-09-05
-  diagnosis_only: true
+  diagnosis_only: false
   fixes_applied_in_diagnosis_step: 0
+  fixes_applied_total: 1
   implementation_started: false
   Laravel_migrations_created: false
   Stage5_started: false
@@ -15,8 +16,8 @@ meta:
 
 scope_rule:
   diagnose_before_fixing: true
-  fixes_allowed_in_this_step: false
-  current_step_scope: DB4_11_DIAGNOSIS_only
+  fixes_allowed_in_this_step: true
+  current_step_scope: DB_MIG_001_only
   one_blocker_per_future_step: true
   aggregate_files_frozen_in_diagnosis:
     specs/database/core-schema.yml: 39958721c99550cfc27c3774e8dfa1af0d0637e6
@@ -124,10 +125,1950 @@ specific_diagnosis_evidence:
     backup_and_restore_path_required_before_destructive_contract_phase: true
     current_global_DB4_11_artifact_defines_these_as_executable_gate: false
 
+migration_dependency_dag:
+  status: PASS_DB_MIG_001
+  contract_version: 1
+  scope: dependency_DAG_and_topological_order_only
+  phase_assignment: deferred_to_DB_MIG_002
+  cutover_restart_and_rollback: deferred_to_DB_MIG_003
+  Laravel_migration_files_generated: false
+  node_type_values:
+  - extension
+  - table
+  - candidate_key
+  - index
+  - foreign_key
+  - trigger
+  - projection
+  - constraint
+  stable_id_rule: node_id_is_semantic_and_must_not_be_reused_for_different_object_or_operation_class
+  edge_rule: requires_means_all_named_nodes_must_complete_successfully_before_this_node_may_execute
+  topological_tie_breaker: explicit_order_is_canonical_and_must_not_be_rederived_ad_hoc_by_implementers
+  table_coverage:
+    source: specs/database/core-schema.yml core_tables
+    every_core_table_exactly_once: true
+    count: 117
+  nodes:
+  - id: MIG-EXT-BTREE-GIST
+    type: extension
+    order: 10
+    object_name: btree_gist
+    requires: []
+    produces:
+    - btree_gist
+  - id: MIG-TBL-ORGANIZATIONS
+    type: table
+    order: 20
+    object_name: organizations
+    requires: []
+    produces:
+    - organizations
+  - id: MIG-TBL-USERS
+    type: table
+    order: 30
+    object_name: users
+    requires: []
+    produces:
+    - users
+  - id: MIG-TBL-PERMISSIONS
+    type: table
+    order: 40
+    object_name: permissions
+    requires: []
+    produces:
+    - permissions
+  - id: MIG-TBL-DATA_SCOPES
+    type: table
+    order: 50
+    object_name: data_scopes
+    requires: []
+    produces:
+    - data_scopes
+  - id: MIG-TBL-LANGUAGES
+    type: table
+    order: 60
+    object_name: languages
+    requires: []
+    produces:
+    - languages
+  - id: MIG-TBL-DRIVING_CATEGORIES
+    type: table
+    order: 70
+    object_name: driving_categories
+    requires: []
+    produces:
+    - driving_categories
+  - id: MIG-TBL-LOCATION_TYPES
+    type: table
+    order: 80
+    object_name: location_types
+    requires: []
+    produces:
+    - location_types
+  - id: MIG-TBL-STAFF_TYPES
+    type: table
+    order: 90
+    object_name: staff_types
+    requires: []
+    produces:
+    - staff_types
+  - id: MIG-TBL-INTERNAL_EXAM_CAPABILITIES
+    type: table
+    order: 100
+    object_name: internal_exam_capabilities
+    requires: []
+    produces:
+    - internal_exam_capabilities
+  - id: MIG-TBL-LEGAL_DOCUMENTS
+    type: table
+    order: 110
+    object_name: legal_documents
+    requires: []
+    produces:
+    - legal_documents
+  - id: MIG-TBL-ORGANIZATION_SETTINGS
+    type: table
+    order: 120
+    object_name: organization_settings
+    requires:
+    - MIG-TBL-ORGANIZATIONS
+    produces:
+    - organization_settings
+  - id: MIG-TBL-ORGANIZATION_CONTACT_ADDRESSES
+    type: table
+    order: 130
+    object_name: organization_contact_addresses
+    requires:
+    - MIG-TBL-ORGANIZATIONS
+    produces:
+    - organization_contact_addresses
+  - id: MIG-TBL-USER_PASSWORD_MANAGEMENT
+    type: table
+    order: 140
+    object_name: user_password_management
+    requires:
+    - MIG-TBL-USERS
+    produces:
+    - user_password_management
+  - id: MIG-TBL-AUTH_LOGIN_IDENTIFIERS
+    type: table
+    order: 150
+    object_name: auth_login_identifiers
+    requires:
+    - MIG-TBL-USERS
+    produces:
+    - auth_login_identifiers
+  - id: MIG-TBL-AUTH_SOCIAL_ACCOUNTS
+    type: table
+    order: 160
+    object_name: auth_social_accounts
+    requires:
+    - MIG-TBL-USERS
+    produces:
+    - auth_social_accounts
+  - id: MIG-TBL-ORGANIZATION_MEMBERSHIPS
+    type: table
+    order: 170
+    object_name: organization_memberships
+    requires:
+    - MIG-TBL-ORGANIZATIONS
+    - MIG-TBL-USERS
+    produces:
+    - organization_memberships
+  - id: MIG-TBL-MEMBERSHIP_PERMISSIONS
+    type: table
+    order: 180
+    object_name: membership_permissions
+    requires:
+    - MIG-TBL-ORGANIZATION_MEMBERSHIPS
+    - MIG-TBL-PERMISSIONS
+    produces:
+    - membership_permissions
+  - id: MIG-TBL-PERMISSION_SCOPE_OPTIONS
+    type: table
+    order: 190
+    object_name: permission_scope_options
+    requires:
+    - MIG-TBL-PERMISSIONS
+    - MIG-TBL-DATA_SCOPES
+    produces:
+    - permission_scope_options
+  - id: MIG-TBL-MEMBERSHIP_PERMISSION_SCOPES
+    type: table
+    order: 200
+    object_name: membership_permission_scopes
+    requires:
+    - MIG-TBL-MEMBERSHIP_PERMISSIONS
+    - MIG-TBL-PERMISSION_SCOPE_OPTIONS
+    produces:
+    - membership_permission_scopes
+  - id: MIG-TBL-AUTH_SESSIONS
+    type: table
+    order: 210
+    object_name: auth_sessions
+    requires:
+    - MIG-TBL-USERS
+    - MIG-TBL-ORGANIZATION_MEMBERSHIPS
+    produces:
+    - auth_sessions
+  - id: MIG-TBL-ACCOUNT_CLOSURE_REQUESTS
+    type: table
+    order: 220
+    object_name: account_closure_requests
+    requires:
+    - MIG-TBL-USERS
+    - MIG-TBL-ORGANIZATIONS
+    produces:
+    - account_closure_requests
+  - id: MIG-TBL-TERMS_ACCEPTANCES
+    type: table
+    order: 230
+    object_name: terms_acceptances
+    requires:
+    - MIG-TBL-ORGANIZATIONS
+    - MIG-TBL-USERS
+    - MIG-TBL-LEGAL_DOCUMENTS
+    produces:
+    - terms_acceptances
+  - id: MIG-TBL-FILE_ASSETS
+    type: table
+    order: 240
+    object_name: file_assets
+    requires:
+    - MIG-TBL-ORGANIZATIONS
+    produces:
+    - file_assets
+  - id: MIG-TBL-IDEMPOTENCY_RECORDS
+    type: table
+    order: 250
+    object_name: idempotency_records
+    requires:
+    - MIG-TBL-ORGANIZATIONS
+    produces:
+    - idempotency_records
+  - id: MIG-TBL-LOCATIONS
+    type: table
+    order: 260
+    object_name: locations
+    requires:
+    - MIG-TBL-ORGANIZATIONS
+    produces:
+    - locations
+  - id: MIG-TBL-VEHICLES
+    type: table
+    order: 270
+    object_name: vehicles
+    requires:
+    - MIG-TBL-ORGANIZATIONS
+    produces:
+    - vehicles
+  - id: MIG-TBL-STAFF_PROFILES
+    type: table
+    order: 280
+    object_name: staff_profiles
+    requires:
+    - MIG-TBL-ORGANIZATIONS
+    produces:
+    - staff_profiles
+  - id: MIG-TBL-STAFF_TYPE_ASSIGNMENTS
+    type: table
+    order: 290
+    object_name: staff_type_assignments
+    requires:
+    - MIG-TBL-STAFF_PROFILES
+    - MIG-TBL-STAFF_TYPES
+    produces:
+    - staff_type_assignments
+  - id: MIG-TBL-STAFF_CATEGORY_ASSIGNMENTS
+    type: table
+    order: 300
+    object_name: staff_category_assignments
+    requires:
+    - MIG-TBL-STAFF_PROFILES
+    - MIG-TBL-DRIVING_CATEGORIES
+    produces:
+    - staff_category_assignments
+  - id: MIG-TBL-STAFF_LOCATION_ASSIGNMENTS
+    type: table
+    order: 310
+    object_name: staff_location_assignments
+    requires:
+    - MIG-TBL-STAFF_PROFILES
+    - MIG-TBL-LOCATIONS
+    produces:
+    - staff_location_assignments
+  - id: MIG-TBL-STAFF_MEMBERSHIP_LINKS
+    type: table
+    order: 320
+    object_name: staff_membership_links
+    requires:
+    - MIG-TBL-STAFF_PROFILES
+    - MIG-TBL-ORGANIZATION_MEMBERSHIPS
+    produces:
+    - staff_membership_links
+  - id: MIG-TBL-STAFF_DOCUMENTS
+    type: table
+    order: 330
+    object_name: staff_documents
+    requires:
+    - MIG-TBL-STAFF_PROFILES
+    - MIG-TBL-FILE_ASSETS
+    produces:
+    - staff_documents
+  - id: MIG-TBL-VEHICLE_DOCUMENTS
+    type: table
+    order: 340
+    object_name: vehicle_documents
+    requires:
+    - MIG-TBL-VEHICLES
+    - MIG-TBL-FILE_ASSETS
+    produces:
+    - vehicle_documents
+  - id: MIG-TBL-VEHICLE_CATEGORY_ASSIGNMENTS
+    type: table
+    order: 350
+    object_name: vehicle_category_assignments
+    requires:
+    - MIG-TBL-VEHICLES
+    - MIG-TBL-DRIVING_CATEGORIES
+    produces:
+    - vehicle_category_assignments
+  - id: MIG-TBL-VEHICLE_LOCATION_ASSIGNMENTS
+    type: table
+    order: 360
+    object_name: vehicle_location_assignments
+    requires:
+    - MIG-TBL-VEHICLES
+    - MIG-TBL-LOCATIONS
+    produces:
+    - vehicle_location_assignments
+  - id: MIG-TBL-STUDENTS
+    type: table
+    order: 370
+    object_name: students
+    requires:
+    - MIG-TBL-ORGANIZATIONS
+    - MIG-TBL-LOCATIONS
+    produces:
+    - students
+  - id: MIG-TBL-STUDENT_LEARNING_ACCOUNTS
+    type: table
+    order: 380
+    object_name: student_learning_accounts
+    requires:
+    - MIG-TBL-ORGANIZATIONS
+    - MIG-TBL-STUDENTS
+    - MIG-TBL-USERS
+    - MIG-TBL-AUTH_LOGIN_IDENTIFIERS
+    - MIG-TBL-LANGUAGES
+    produces:
+    - student_learning_accounts
+  - id: MIG-TBL-STUDENT_ACCESS_HANDOFFS
+    type: table
+    order: 390
+    object_name: student_access_handoffs
+    requires:
+    - MIG-TBL-STUDENT_LEARNING_ACCOUNTS
+    - MIG-TBL-USERS
+    - MIG-TBL-FILE_ASSETS
+    produces:
+    - student_access_handoffs
+  - id: MIG-TBL-STUDENT_ACCESS_EXPORT_BATCHES
+    type: table
+    order: 400
+    object_name: student_access_export_batches
+    requires:
+    - MIG-TBL-ORGANIZATIONS
+    - MIG-TBL-USERS
+    produces:
+    - student_access_export_batches
+  - id: MIG-TBL-COURSE_ENROLLMENTS
+    type: table
+    order: 410
+    object_name: course_enrollments
+    requires:
+    - MIG-TBL-ORGANIZATIONS
+    - MIG-TBL-STUDENTS
+    - MIG-TBL-STAFF_PROFILES
+    - MIG-TBL-LOCATIONS
+    - MIG-TBL-DRIVING_CATEGORIES
+    produces:
+    - course_enrollments
+  - id: MIG-TBL-COURSE_ENROLLMENT_LIFECYCLE_EVENTS
+    type: table
+    order: 420
+    object_name: course_enrollment_lifecycle_events
+    requires:
+    - MIG-TBL-COURSE_ENROLLMENTS
+    produces:
+    - course_enrollment_lifecycle_events
+  - id: MIG-TBL-TRAINING_REQUIREMENT_RULE_SETS
+    type: table
+    order: 430
+    object_name: training_requirement_rule_sets
+    requires:
+    - MIG-TBL-DRIVING_CATEGORIES
+    produces:
+    - training_requirement_rule_sets
+  - id: MIG-TBL-COURSE_REQUIREMENT_CONTEXTS
+    type: table
+    order: 440
+    object_name: course_requirement_contexts
+    requires:
+    - MIG-TBL-COURSE_ENROLLMENTS
+    - MIG-TBL-TRAINING_REQUIREMENT_RULE_SETS
+    produces:
+    - course_requirement_contexts
+  - id: MIG-TBL-COURSE_REQUIREMENT_CONTEXT_HELD_CATEGORIES
+    type: table
+    order: 450
+    object_name: course_requirement_context_held_categories
+    requires:
+    - MIG-TBL-COURSE_REQUIREMENT_CONTEXTS
+    - MIG-TBL-DRIVING_CATEGORIES
+    produces:
+    - course_requirement_context_held_categories
+  - id: MIG-TBL-COURSE_REQUIREMENT_OVERRIDE_DECISIONS
+    type: table
+    order: 460
+    object_name: course_requirement_override_decisions
+    requires:
+    - MIG-TBL-COURSE_REQUIREMENT_CONTEXTS
+    - MIG-TBL-USERS
+    produces:
+    - course_requirement_override_decisions
+  - id: MIG-TBL-TRAINING_REQUIREMENT_PROFILES
+    type: table
+    order: 470
+    object_name: training_requirement_profiles
+    requires:
+    - MIG-TBL-COURSE_ENROLLMENTS
+    - MIG-TBL-TRAINING_REQUIREMENT_RULE_SETS
+    produces:
+    - training_requirement_profiles
+  - id: MIG-TBL-COURSE_EXEMPTION_DECISIONS
+    type: table
+    order: 480
+    object_name: course_exemption_decisions
+    requires:
+    - MIG-TBL-COURSE_ENROLLMENTS
+    - MIG-TBL-USERS
+    produces:
+    - course_exemption_decisions
+  - id: MIG-TBL-RECOGNIZED_EXTERNAL_TRAINING
+    type: table
+    order: 490
+    object_name: recognized_external_training
+    requires:
+    - MIG-TBL-COURSE_ENROLLMENTS
+    produces:
+    - recognized_external_training
+  - id: MIG-TBL-TRAINING_SESSIONS
+    type: table
+    order: 500
+    object_name: training_sessions
+    requires:
+    - MIG-TBL-COURSE_ENROLLMENTS
+    - MIG-TBL-STAFF_PROFILES
+    - MIG-TBL-VEHICLES
+    - MIG-TBL-LOCATIONS
+    produces:
+    - training_sessions
+  - id: MIG-TBL-TRAINING_SESSION_ATTENDANCE
+    type: table
+    order: 510
+    object_name: training_session_attendance
+    requires:
+    - MIG-TBL-TRAINING_SESSIONS
+    - MIG-TBL-STUDENTS
+    produces:
+    - training_session_attendance
+  - id: MIG-TBL-TRAINING_HOUR_LEDGER_ENTRIES
+    type: table
+    order: 520
+    object_name: training_hour_ledger_entries
+    requires:
+    - MIG-TBL-COURSE_ENROLLMENTS
+    - MIG-TBL-TRAINING_SESSIONS
+    produces:
+    - training_hour_ledger_entries
+  - id: MIG-TBL-CALENDAR_EVENTS
+    type: table
+    order: 530
+    object_name: calendar_events
+    requires:
+    - MIG-TBL-ORGANIZATIONS
+    - MIG-TBL-STUDENTS
+    - MIG-TBL-STAFF_PROFILES
+    - MIG-TBL-VEHICLES
+    - MIG-TBL-LOCATIONS
+    - MIG-TBL-USERS
+    produces:
+    - calendar_events
+  - id: MIG-TBL-CALENDAR_EVENT_LIFECYCLE_EVENTS
+    type: table
+    order: 540
+    object_name: calendar_event_lifecycle_events
+    requires:
+    - MIG-TBL-CALENDAR_EVENTS
+    produces:
+    - calendar_event_lifecycle_events
+  - id: MIG-TBL-AVAILABILITY_SLOTS
+    type: table
+    order: 550
+    object_name: availability_slots
+    requires:
+    - MIG-TBL-ORGANIZATIONS
+    - MIG-TBL-STUDENTS
+    - MIG-TBL-STAFF_PROFILES
+    - MIG-TBL-VEHICLES
+    - MIG-TBL-LOCATIONS
+    produces:
+    - availability_slots
+  - id: MIG-TBL-AVAILABILITY_SLOT_LIFECYCLE_EVENTS
+    type: table
+    order: 560
+    object_name: availability_slot_lifecycle_events
+    requires:
+    - MIG-TBL-AVAILABILITY_SLOTS
+    produces:
+    - availability_slot_lifecycle_events
+  - id: MIG-TBL-CALENDAR_RESOURCE_CLAIMS
+    type: table
+    order: 570
+    object_name: calendar_resource_claims
+    requires:
+    - MIG-TBL-ORGANIZATIONS
+    - MIG-TBL-STUDENTS
+    - MIG-TBL-STAFF_PROFILES
+    - MIG-TBL-VEHICLES
+    - MIG-TBL-LOCATIONS
+    - MIG-TBL-CALENDAR_EVENTS
+    - MIG-TBL-AVAILABILITY_SLOTS
+    - MIG-TBL-TRAINING_SESSIONS
+    produces:
+    - calendar_resource_claims
+  - id: MIG-TBL-TRAINING_SESSION_CALENDAR_DETAILS
+    type: table
+    order: 580
+    object_name: training_session_calendar_details
+    requires:
+    - MIG-TBL-TRAINING_SESSIONS
+    - MIG-TBL-AVAILABILITY_SLOTS
+    produces:
+    - training_session_calendar_details
+  - id: MIG-TBL-PKK_INTEGRATION_SETTINGS
+    type: table
+    order: 590
+    object_name: pkk_integration_settings
+    requires:
+    - MIG-TBL-ORGANIZATIONS
+    produces:
+    - pkk_integration_settings
+  - id: MIG-TBL-PKK_INTEGRATION_CONFIGURATION_REVISIONS
+    type: table
+    order: 600
+    object_name: pkk_integration_configuration_revisions
+    requires:
+    - MIG-TBL-PKK_INTEGRATION_SETTINGS
+    produces:
+    - pkk_integration_configuration_revisions
+  - id: MIG-TBL-PKK_PROFILES
+    type: table
+    order: 610
+    object_name: pkk_profiles
+    requires:
+    - MIG-TBL-ORGANIZATIONS
+    - MIG-TBL-COURSE_ENROLLMENTS
+    produces:
+    - pkk_profiles
+  - id: MIG-TBL-PKK_PROVIDER_PROFILE_SNAPSHOTS
+    type: table
+    order: 620
+    object_name: pkk_provider_profile_snapshots
+    requires:
+    - MIG-TBL-PKK_PROFILES
+    produces:
+    - pkk_provider_profile_snapshots
+  - id: MIG-TBL-PKK_OPERATIONS
+    type: table
+    order: 630
+    object_name: pkk_operations
+    requires:
+    - MIG-TBL-PKK_PROFILES
+    - MIG-TBL-COURSE_ENROLLMENTS
+    produces:
+    - pkk_operations
+  - id: MIG-TBL-PKK_OPERATION_LIFECYCLE_EVENTS
+    type: table
+    order: 640
+    object_name: pkk_operation_lifecycle_events
+    requires:
+    - MIG-TBL-PKK_OPERATIONS
+    produces:
+    - pkk_operation_lifecycle_events
+  - id: MIG-TBL-PKK_OPERATION_ATTEMPTS
+    type: table
+    order: 650
+    object_name: pkk_operation_attempts
+    requires:
+    - MIG-TBL-PKK_OPERATIONS
+    - MIG-TBL-PKK_INTEGRATION_CONFIGURATION_REVISIONS
+    produces:
+    - pkk_operation_attempts
+  - id: MIG-TBL-PKK_OPERATION_ATTEMPT_RECONCILIATIONS
+    type: table
+    order: 660
+    object_name: pkk_operation_attempt_reconciliations
+    requires:
+    - MIG-TBL-PKK_OPERATION_ATTEMPTS
+    - MIG-TBL-USERS
+    produces:
+    - pkk_operation_attempt_reconciliations
+  - id: MIG-TBL-PKK_SIGNATURE_HANDOFFS
+    type: table
+    order: 670
+    object_name: pkk_signature_handoffs
+    requires:
+    - MIG-TBL-PKK_OPERATIONS
+    - MIG-TBL-FILE_ASSETS
+    produces:
+    - pkk_signature_handoffs
+  - id: MIG-TBL-PKK_SIGNATURE_HANDOFF_UPLOAD_RESERVATIONS
+    type: table
+    order: 680
+    object_name: pkk_signature_handoff_upload_reservations
+    requires:
+    - MIG-TBL-PKK_SIGNATURE_HANDOFFS
+    - MIG-TBL-FILE_ASSETS
+    produces:
+    - pkk_signature_handoff_upload_reservations
+  - id: MIG-TBL-PKK_PROTECTED_PAYLOADS
+    type: table
+    order: 690
+    object_name: pkk_protected_payloads
+    requires:
+    - MIG-TBL-PKK_OPERATIONS
+    produces:
+    - pkk_protected_payloads
+  - id: MIG-TBL-PKK_PROTECTED_PAYLOAD_KEY_WRAPPINGS
+    type: table
+    order: 700
+    object_name: pkk_protected_payload_key_wrappings
+    requires:
+    - MIG-TBL-PKK_PROTECTED_PAYLOADS
+    produces:
+    - pkk_protected_payload_key_wrappings
+  - id: MIG-TBL-PKK_PAYLOAD_REDACTED_PROJECTIONS
+    type: table
+    order: 710
+    object_name: pkk_payload_redacted_projections
+    requires:
+    - MIG-TBL-PKK_OPERATIONS
+    produces:
+    - pkk_payload_redacted_projections
+  - id: MIG-TBL-PKK_SIGNATURE_FILE_ASSET_PROTECTIONS
+    type: table
+    order: 720
+    object_name: pkk_signature_file_asset_protections
+    requires:
+    - MIG-TBL-FILE_ASSETS
+    - MIG-TBL-PKK_SIGNATURE_HANDOFFS
+    produces:
+    - pkk_signature_file_asset_protections
+  - id: MIG-TBL-PKK_SIGNATURE_FILE_ASSET_KEY_WRAPPINGS
+    type: table
+    order: 730
+    object_name: pkk_signature_file_asset_key_wrappings
+    requires:
+    - MIG-TBL-PKK_SIGNATURE_FILE_ASSET_PROTECTIONS
+    produces:
+    - pkk_signature_file_asset_key_wrappings
+  - id: MIG-TBL-STUDENT_CHARGES
+    type: table
+    order: 740
+    object_name: student_charges
+    requires:
+    - MIG-TBL-ORGANIZATIONS
+    - MIG-TBL-STUDENTS
+    - MIG-TBL-COURSE_ENROLLMENTS
+    - MIG-TBL-USERS
+    produces:
+    - student_charges
+  - id: MIG-TBL-STUDENT_PAYMENTS
+    type: table
+    order: 750
+    object_name: student_payments
+    requires:
+    - MIG-TBL-STUDENT_CHARGES
+    - MIG-TBL-STUDENTS
+    - MIG-TBL-USERS
+    produces:
+    - student_payments
+  - id: MIG-TBL-COURSE_COST_CHARGE_ORIGINS
+    type: table
+    order: 760
+    object_name: course_cost_charge_origins
+    requires:
+    - MIG-TBL-COURSE_ENROLLMENTS
+    - MIG-TBL-STUDENT_CHARGES
+    produces:
+    - course_cost_charge_origins
+  - id: MIG-TBL-LICENSE_PRODUCTS
+    type: table
+    order: 770
+    object_name: license_products
+    requires: []
+    produces:
+    - license_products
+  - id: MIG-TBL-LICENSE_PRODUCT_LANGUAGE_CAPABILITIES
+    type: table
+    order: 780
+    object_name: license_product_language_capabilities
+    requires:
+    - MIG-TBL-LICENSE_PRODUCTS
+    - MIG-TBL-LANGUAGES
+    produces:
+    - license_product_language_capabilities
+  - id: MIG-TBL-LICENSE_INVENTORY_ENTRIES
+    type: table
+    order: 790
+    object_name: license_inventory_entries
+    requires:
+    - MIG-TBL-ORGANIZATIONS
+    - MIG-TBL-LICENSE_PRODUCTS
+    produces:
+    - license_inventory_entries
+  - id: MIG-TBL-LICENSE_ASSIGNMENTS
+    type: table
+    order: 800
+    object_name: license_assignments
+    requires:
+    - MIG-TBL-LICENSE_INVENTORY_ENTRIES
+    - MIG-TBL-STUDENTS
+    - MIG-TBL-STUDENT_LEARNING_ACCOUNTS
+    - MIG-TBL-USERS
+    - MIG-TBL-LANGUAGES
+    produces:
+    - license_assignments
+  - id: MIG-TBL-LICENSE_ACTIVATIONS
+    type: table
+    order: 810
+    object_name: license_activations
+    requires:
+    - MIG-TBL-LICENSE_ASSIGNMENTS
+    - MIG-TBL-USERS
+    produces:
+    - license_activations
+  - id: MIG-TBL-EXAM_STATIONS
+    type: table
+    order: 820
+    object_name: exam_stations
+    requires:
+    - MIG-TBL-ORGANIZATIONS
+    produces:
+    - exam_stations
+  - id: MIG-TBL-EXAM_STATION_CREDENTIALS
+    type: table
+    order: 830
+    object_name: exam_station_credentials
+    requires:
+    - MIG-TBL-EXAM_STATIONS
+    produces:
+    - exam_station_credentials
+  - id: MIG-TBL-INTERNAL_EXAM_DEFINITIONS
+    type: table
+    order: 840
+    object_name: internal_exam_definitions
+    requires:
+    - MIG-TBL-INTERNAL_EXAM_CAPABILITIES
+    produces:
+    - internal_exam_definitions
+  - id: MIG-TBL-INTERNAL_EXAM_DOCUMENT_TEMPLATES
+    type: table
+    order: 850
+    object_name: internal_exam_document_templates
+    requires:
+    - MIG-TBL-ORGANIZATIONS
+    produces:
+    - internal_exam_document_templates
+  - id: MIG-TBL-INTERNAL_EXAM_INVENTORY_ENTRIES
+    type: table
+    order: 860
+    object_name: internal_exam_inventory_entries
+    requires:
+    - MIG-TBL-ORGANIZATIONS
+    produces:
+    - internal_exam_inventory_entries
+  - id: MIG-TBL-INTERNAL_EXAM_INVENTORY_ADJUSTMENTS
+    type: table
+    order: 870
+    object_name: internal_exam_inventory_adjustments
+    requires:
+    - MIG-TBL-INTERNAL_EXAM_INVENTORY_ENTRIES
+    - MIG-TBL-USERS
+    produces:
+    - internal_exam_inventory_adjustments
+  - id: MIG-TBL-INTERNAL_EXAM_INVENTORY_LEDGER_ENTRIES
+    type: table
+    order: 880
+    object_name: internal_exam_inventory_ledger_entries
+    requires:
+    - MIG-TBL-INTERNAL_EXAM_INVENTORY_ENTRIES
+    produces:
+    - internal_exam_inventory_ledger_entries
+  - id: MIG-TBL-INTERNAL_EXAM_ATTEMPTS
+    type: table
+    order: 890
+    object_name: internal_exam_attempts
+    requires:
+    - MIG-TBL-COURSE_ENROLLMENTS
+    - MIG-TBL-STUDENTS
+    - MIG-TBL-INTERNAL_EXAM_CAPABILITIES
+    produces:
+    - internal_exam_attempts
+  - id: MIG-TBL-INTERNAL_EXAM_ATTEMPT_LIFECYCLE_EVENTS
+    type: table
+    order: 900
+    object_name: internal_exam_attempt_lifecycle_events
+    requires:
+    - MIG-TBL-INTERNAL_EXAM_ATTEMPTS
+    produces:
+    - internal_exam_attempt_lifecycle_events
+  - id: MIG-TBL-INTERNAL_EXAM_RESERVATIONS
+    type: table
+    order: 910
+    object_name: internal_exam_reservations
+    requires:
+    - MIG-TBL-INTERNAL_EXAM_ATTEMPTS
+    - MIG-TBL-INTERNAL_EXAM_INVENTORY_ENTRIES
+    produces:
+    - internal_exam_reservations
+  - id: MIG-TBL-INTERNAL_EXAM_ACCESSES
+    type: table
+    order: 920
+    object_name: internal_exam_accesses
+    requires:
+    - MIG-TBL-INTERNAL_EXAM_ATTEMPTS
+    - MIG-TBL-EXAM_STATIONS
+    produces:
+    - internal_exam_accesses
+  - id: MIG-TBL-INTERNAL_EXAM_ACCESS_LIFECYCLE_EVENTS
+    type: table
+    order: 930
+    object_name: internal_exam_access_lifecycle_events
+    requires:
+    - MIG-TBL-INTERNAL_EXAM_ACCESSES
+    produces:
+    - internal_exam_access_lifecycle_events
+  - id: MIG-TBL-INTERNAL_EXAM_ACCESS_TOKENS
+    type: table
+    order: 940
+    object_name: internal_exam_access_tokens
+    requires:
+    - MIG-TBL-INTERNAL_EXAM_ACCESSES
+    produces:
+    - internal_exam_access_tokens
+  - id: MIG-TBL-INTERNAL_EXAM_STATION_SESSIONS
+    type: table
+    order: 950
+    object_name: internal_exam_station_sessions
+    requires:
+    - MIG-TBL-INTERNAL_EXAM_ATTEMPTS
+    - MIG-TBL-INTERNAL_EXAM_ACCESSES
+    - MIG-TBL-EXAM_STATIONS
+    - MIG-TBL-EXAM_STATION_CREDENTIALS
+    produces:
+    - internal_exam_station_sessions
+  - id: MIG-TBL-INTERNAL_EXAM_ATTEMPT_QUESTIONS
+    type: table
+    order: 960
+    object_name: internal_exam_attempt_questions
+    requires:
+    - MIG-TBL-INTERNAL_EXAM_ATTEMPTS
+    - MIG-TBL-INTERNAL_EXAM_DEFINITIONS
+    produces:
+    - internal_exam_attempt_questions
+  - id: MIG-TBL-INTERNAL_EXAM_RESULTS
+    type: table
+    order: 970
+    object_name: internal_exam_results
+    requires:
+    - MIG-TBL-INTERNAL_EXAM_ATTEMPTS
+    produces:
+    - internal_exam_results
+  - id: MIG-TBL-INTERNAL_EXAM_DOCUMENTS
+    type: table
+    order: 980
+    object_name: internal_exam_documents
+    requires:
+    - MIG-TBL-INTERNAL_EXAM_ATTEMPTS
+    - MIG-TBL-INTERNAL_EXAM_RESULTS
+    - MIG-TBL-INTERNAL_EXAM_DOCUMENT_TEMPLATES
+    - MIG-TBL-FILE_ASSETS
+    produces:
+    - internal_exam_documents
+  - id: MIG-TBL-COMMERCE_CATALOG_ITEMS
+    type: table
+    order: 990
+    object_name: commerce_catalog_items
+    requires:
+    - MIG-TBL-LICENSE_PRODUCTS
+    produces:
+    - commerce_catalog_items
+  - id: MIG-TBL-ORDERS
+    type: table
+    order: 1000
+    object_name: orders
+    requires:
+    - MIG-TBL-ORGANIZATIONS
+    - MIG-TBL-USERS
+    produces:
+    - orders
+  - id: MIG-TBL-ORDER_ITEMS
+    type: table
+    order: 1010
+    object_name: order_items
+    requires:
+    - MIG-TBL-ORDERS
+    - MIG-TBL-COMMERCE_CATALOG_ITEMS
+    - MIG-TBL-LICENSE_PRODUCTS
+    produces:
+    - order_items
+  - id: MIG-TBL-PAYMENTS
+    type: table
+    order: 1020
+    object_name: payments
+    requires:
+    - MIG-TBL-ORDERS
+    produces:
+    - payments
+  - id: MIG-TBL-PAYMENT_EVENTS
+    type: table
+    order: 1030
+    object_name: payment_events
+    requires:
+    - MIG-TBL-PAYMENTS
+    produces:
+    - payment_events
+  - id: MIG-TBL-ORDER_PAYMENT_SETTLEMENTS
+    type: table
+    order: 1040
+    object_name: order_payment_settlements
+    requires:
+    - MIG-TBL-ORDERS
+    - MIG-TBL-PAYMENTS
+    produces:
+    - order_payment_settlements
+  - id: MIG-TBL-ORDER_FULFILLMENTS
+    type: table
+    order: 1050
+    object_name: order_fulfillments
+    requires:
+    - MIG-TBL-ORDERS
+    - MIG-TBL-ORDER_PAYMENT_SETTLEMENTS
+    produces:
+    - order_fulfillments
+  - id: MIG-TBL-SERVICE_ENTITLEMENTS
+    type: table
+    order: 1060
+    object_name: service_entitlements
+    requires:
+    - MIG-TBL-ORDERS
+    - MIG-TBL-ORDER_ITEMS
+    produces:
+    - service_entitlements
+  - id: MIG-TBL-SERVICE_ACTIVATIONS
+    type: table
+    order: 1070
+    object_name: service_activations
+    requires:
+    - MIG-TBL-SERVICE_ENTITLEMENTS
+    - MIG-TBL-USERS
+    produces:
+    - service_activations
+  - id: MIG-TBL-AUDIT_ACTION_POLICY_REVISIONS
+    type: table
+    order: 1080
+    object_name: audit_action_policy_revisions
+    requires: []
+    produces:
+    - audit_action_policy_revisions
+  - id: MIG-TBL-AUDIT_ACTION_POLICY_CURRENTS
+    type: table
+    order: 1090
+    object_name: audit_action_policy_currents
+    requires:
+    - MIG-TBL-AUDIT_ACTION_POLICY_REVISIONS
+    produces:
+    - audit_action_policy_currents
+  - id: MIG-TBL-AUDIT_LOGS
+    type: table
+    order: 1100
+    object_name: audit_logs
+    requires:
+    - MIG-TBL-ORGANIZATIONS
+    - MIG-TBL-USERS
+    - MIG-TBL-ORGANIZATION_MEMBERSHIPS
+    - MIG-TBL-AUDIT_ACTION_POLICY_CURRENTS
+    produces:
+    - audit_logs
+  - id: MIG-TBL-DOMAIN_EVENTS
+    type: table
+    order: 1110
+    object_name: domain_events
+    requires:
+    - MIG-TBL-ORGANIZATIONS
+    - MIG-TBL-AUDIT_LOGS
+    produces:
+    - domain_events
+  - id: MIG-TBL-OUTBOX_MESSAGES
+    type: table
+    order: 1120
+    object_name: outbox_messages
+    requires:
+    - MIG-TBL-DOMAIN_EVENTS
+    produces:
+    - outbox_messages
+  - id: MIG-TBL-ACTIVITY_PROJECTION_POLICY_REVISIONS
+    type: table
+    order: 1130
+    object_name: activity_projection_policy_revisions
+    requires: []
+    produces:
+    - activity_projection_policy_revisions
+  - id: MIG-TBL-ACTIVITY_PROJECTION_POLICY_CURRENTS
+    type: table
+    order: 1140
+    object_name: activity_projection_policy_currents
+    requires:
+    - MIG-TBL-ACTIVITY_PROJECTION_POLICY_REVISIONS
+    produces:
+    - activity_projection_policy_currents
+  - id: MIG-TBL-ORGANIZATION_ACTIVITY_EVENTS
+    type: table
+    order: 1150
+    object_name: organization_activity_events
+    requires:
+    - MIG-TBL-ORGANIZATIONS
+    - MIG-TBL-DOMAIN_EVENTS
+    - MIG-TBL-ACTIVITY_PROJECTION_POLICY_CURRENTS
+    - MIG-TBL-USERS
+    - MIG-TBL-STUDENTS
+    produces:
+    - organization_activity_events
+  - id: MIG-TBL-NOTIFICATIONS
+    type: table
+    order: 1160
+    object_name: notifications
+    requires:
+    - MIG-TBL-ORGANIZATIONS
+    - MIG-TBL-DOMAIN_EVENTS
+    - MIG-TBL-ORGANIZATION_MEMBERSHIPS
+    - MIG-TBL-USERS
+    produces:
+    - notifications
+  - id: MIG-TBL-EVENT_PROJECTION_MIGRATION_CASES
+    type: table
+    order: 1170
+    object_name: event_projection_migration_cases
+    requires:
+    - MIG-TBL-DOMAIN_EVENTS
+    produces:
+    - event_projection_migration_cases
+  - id: MIG-TBL-DATA_RETENTION_EXECUTION_RUNS
+    type: table
+    order: 1180
+    object_name: data_retention_execution_runs
+    requires:
+    - MIG-TBL-ORGANIZATIONS
+    - MIG-TBL-USERS
+    - MIG-TBL-AUDIT_LOGS
+    produces:
+    - data_retention_execution_runs
+  - id: MIG-CK-IDENTITY
+    type: candidate_key
+    order: 1190
+    object_name: identity
+    requires:
+    - MIG-TBL-ORGANIZATION_MEMBERSHIPS
+    - MIG-TBL-AUTH_LOGIN_IDENTIFIERS
+    produces:
+    - organization_membership_candidate_key_id_user
+    - organization_membership_candidate_key_org_id
+    - organization_membership_candidate_key_org_id_user
+    - auth_login_identifier_candidate_key_id_user
+  - id: MIG-CK-ASSETS_RESOURCES
+    type: candidate_key
+    order: 1200
+    object_name: assets_resources
+    requires:
+    - MIG-TBL-FILE_ASSETS
+    - MIG-TBL-STAFF_PROFILES
+    - MIG-TBL-LOCATIONS
+    - MIG-TBL-VEHICLES
+    produces:
+    - file_asset_candidate_key_org_id
+    - staff_profile_candidate_key_org_id
+    - location_candidate_key_org_id
+    - vehicle_candidate_key_org_id
+  - id: MIG-CK-TRAINING
+    type: candidate_key
+    order: 1210
+    object_name: training
+    requires:
+    - MIG-TBL-STUDENTS
+    - MIG-TBL-STUDENT_LEARNING_ACCOUNTS
+    - MIG-TBL-COURSE_ENROLLMENTS
+    - MIG-TBL-TRAINING_SESSIONS
+    produces:
+    - student_candidate_key_org_id
+    - student_learning_account_candidate_key_org_id
+    - student_learning_account_candidate_key_org_id_student
+    - course_enrollment_candidate_key_org_id
+    - course_enrollment_candidate_key_org_id_student
+    - training_session_candidate_key_org_id
+  - id: MIG-CK-FINANCE
+    type: candidate_key
+    order: 1220
+    object_name: finance
+    requires:
+    - MIG-TBL-STUDENT_CHARGES
+    produces:
+    - student_charge_candidate_key_org_id_student_currency
+  - id: MIG-CK-LICENSES
+    type: candidate_key
+    order: 1230
+    object_name: licenses
+    requires:
+    - MIG-TBL-LICENSE_INVENTORY_ENTRIES
+    - MIG-TBL-LICENSE_ASSIGNMENTS
+    produces:
+    - license_inventory_entry_candidate_key_org_id
+    - license_assignment_candidate_key_org_id
+  - id: MIG-CK-EXAMS
+    type: candidate_key
+    order: 1240
+    object_name: exams
+    requires:
+    - MIG-TBL-INTERNAL_EXAM_INVENTORY_ENTRIES
+    - MIG-TBL-INTERNAL_EXAM_ATTEMPTS
+    - MIG-TBL-INTERNAL_EXAM_ACCESSES
+    - MIG-TBL-EXAM_STATIONS
+    produces:
+    - internal_exam_inventory_entry_candidate_key_org_id
+    - internal_exam_attempt_candidate_key_org_id
+    - internal_exam_access_candidate_key_org_id
+    - exam_station_candidate_key_org_id
+  - id: MIG-CK-COMMERCE
+    type: candidate_key
+    order: 1250
+    object_name: commerce
+    requires:
+    - MIG-TBL-ORDERS
+    - MIG-TBL-ORDER_ITEMS
+    produces:
+    - order_candidate_key_org_id
+    - order_item_candidate_key_org_id
+    - order_item_candidate_key_org_id_product_kind
+    - order_item_candidate_key_org_id_license_product
+    - order_item_candidate_key_org_id_catalog_item
+  - id: MIG-CK-EVENTS
+    type: candidate_key
+    order: 1260
+    object_name: events
+    requires:
+    - MIG-TBL-AUDIT_LOGS
+    - MIG-TBL-DOMAIN_EVENTS
+    produces:
+    - audit_log_candidate_key_org_id
+    - domain_event_candidate_key_org_id
+  - id: MIG-IDX-IDENTITY
+    type: index
+    order: 1270
+    object_name: identity
+    requires:
+    - MIG-TBL-AUTH_LOGIN_IDENTIFIERS
+    - MIG-TBL-ORGANIZATION_MEMBERSHIPS
+    - MIG-TBL-MEMBERSHIP_PERMISSIONS
+    - MIG-TBL-MEMBERSHIP_PERMISSION_SCOPES
+    - MIG-TBL-ACCOUNT_CLOSURE_REQUESTS
+    produces:
+    - auth_login_identifier_global_current_unique
+    - auth_login_identifier_primary_current_unique_per_user_type
+    - organization_membership_unique_org_user
+    - membership_permission_unique
+    - membership_permission_scope_unique
+    - account_closure_pending_unique_organization_scope
+    - account_closure_pending_unique_global_scope
+  - id: MIG-IDX-RESOURCES
+    type: index
+    order: 1280
+    object_name: resources
+    requires:
+    - MIG-TBL-STAFF_PROFILES
+    - MIG-TBL-STAFF_MEMBERSHIP_LINKS
+    - MIG-TBL-STAFF_DOCUMENTS
+    - MIG-TBL-VEHICLES
+    - MIG-TBL-VEHICLE_DOCUMENTS
+    produces:
+    - staff_active_membership_link_unique_per_profile
+    - staff_active_membership_link_unique_per_membership
+    - staff_pesel_unique_per_organization_including_archived
+    - staff_document_current_unique
+    - vehicle_vin_unique_per_organization_including_archived
+    - vehicle_registration_unique_per_organization_current_fleet
+    - vehicle_document_current_unique
+  - id: MIG-IDX-TRAINING
+    type: index
+    order: 1290
+    object_name: training
+    requires:
+    - MIG-TBL-STUDENTS
+    - MIG-TBL-COURSE_ENROLLMENTS
+    - MIG-TBL-TRAINING_REQUIREMENT_PROFILES
+    - MIG-TBL-RECOGNIZED_EXTERNAL_TRAINING
+    - MIG-TBL-TRAINING_HOUR_LEDGER_ENTRIES
+    produces:
+    - student_pesel_unique_per_organization_including_archived
+    - training_requirement_profile_current_unique
+    - recognized_external_training_current_projection_uniques
+    - training_hour_ledger_base_credit_unique
+  - id: MIG-IDX-CALENDAR_GIST
+    type: index
+    order: 1300
+    object_name: calendar_gist
+    requires:
+    - MIG-TBL-CALENDAR_RESOURCE_CLAIMS
+    - MIG-EXT-BTREE-GIST
+    produces:
+    - calendar_claim_student_no_overlap
+    - calendar_claim_instructor_no_overlap
+    - calendar_claim_vehicle_no_overlap
+    - calendar_claim_location_no_overlap
+  - id: MIG-IDX-PKK
+    type: index
+    order: 1310
+    object_name: pkk
+    requires:
+    - MIG-TBL-PKK_PROFILES
+    - MIG-TBL-PKK_OPERATIONS
+    - MIG-TBL-PKK_OPERATION_ATTEMPTS
+    produces:
+    - pkk_one_current_profile_per_course
+    - pkk_one_active_operation_per_profile
+    - pkk_operation_course_sequence_unique
+    - pkk_provider_attempt_idempotency_unique
+  - id: MIG-IDX-FINANCE
+    type: index
+    order: 1320
+    object_name: finance
+    requires:
+    - MIG-TBL-STUDENT_CHARGES
+    - MIG-TBL-STUDENT_PAYMENTS
+    - MIG-TBL-COURSE_COST_CHARGE_ORIGINS
+    produces:
+    - student_payment_idempotency_unique
+    - course_cost_charge_origin_unique_per_course
+  - id: MIG-IDX-LICENSES
+    type: index
+    order: 1330
+    object_name: licenses
+    requires:
+    - MIG-TBL-LICENSE_ASSIGNMENTS
+    - MIG-TBL-LICENSE_ACTIVATIONS
+    produces:
+    - license_current_assignment_unique_per_inventory
+    - license_assignment_sequence_unique
+    - license_activation_unique_per_assignment
+  - id: MIG-IDX-EXAMS
+    type: index
+    order: 1340
+    object_name: exams
+    requires:
+    - MIG-TBL-INTERNAL_EXAM_INVENTORY_LEDGER_ENTRIES
+    - MIG-TBL-INTERNAL_EXAM_ATTEMPTS
+    - MIG-TBL-INTERNAL_EXAM_RESERVATIONS
+    - MIG-TBL-INTERNAL_EXAM_ACCESSES
+    - MIG-TBL-INTERNAL_EXAM_STATION_SESSIONS
+    produces:
+    - internal_exam_inventory_ledger_sequence_unique
+    - internal_exam_course_attempt_sequence_unique
+    - internal_exam_one_reservation_per_attempt
+    - internal_exam_one_started_access_per_attempt
+    - internal_exam_one_active_station_session_per_attempt
+  - id: MIG-IDX-COMMERCE
+    type: index
+    order: 1350
+    object_name: commerce
+    requires:
+    - MIG-TBL-ORDERS
+    - MIG-TBL-ORDER_ITEMS
+    - MIG-TBL-PAYMENT_EVENTS
+    - MIG-TBL-ORDER_PAYMENT_SETTLEMENTS
+    - MIG-TBL-ORDER_FULFILLMENTS
+    - MIG-TBL-SERVICE_ENTITLEMENTS
+    - MIG-TBL-SERVICE_ACTIVATIONS
+    produces:
+    - commerce_order_sequence_unique_per_tenant
+    - order_item_source_ordinal_uniques
+    - payment_provider_event_unique
+    - order_payment_settlement_unique_per_order
+    - order_fulfillment_unique_per_order
+    - service_entitlement_purchase_ordinal_unique
+    - service_activation_unique_per_entitlement
+  - id: MIG-IDX-EVENTS
+    type: index
+    order: 1360
+    object_name: events
+    requires:
+    - MIG-TBL-OUTBOX_MESSAGES
+    - MIG-TBL-ORGANIZATION_ACTIVITY_EVENTS
+    - MIG-TBL-NOTIFICATIONS
+    - MIG-TBL-EVENT_PROJECTION_MIGRATION_CASES
+    produces:
+    - outbox_domain_event_unique
+    - activity_projection_source_event_unique
+    - notification_source_recipient_unique
+    - event_projection_migration_case_unique
+  - id: MIG-FK-IDENTITY
+    type: foreign_key
+    order: 1370
+    object_name: identity
+    requires:
+    - MIG-TBL-ORGANIZATION_MEMBERSHIPS
+    - MIG-TBL-AUTH_SESSIONS
+    - MIG-TBL-MEMBERSHIP_PERMISSIONS
+    - MIG-TBL-PERMISSION_SCOPE_OPTIONS
+    - MIG-TBL-MEMBERSHIP_PERMISSION_SCOPES
+    - MIG-TBL-TERMS_ACCEPTANCES
+    - MIG-CK-IDENTITY
+    produces:
+    - organization_memberships_declared_foreign_keys
+    - auth_sessions_declared_foreign_keys
+    - membership_permissions_declared_foreign_keys
+    - permission_scope_options_declared_foreign_keys
+    - membership_permission_scopes_declared_foreign_keys
+    - terms_acceptances_declared_foreign_keys
+  - id: MIG-FK-RESOURCES
+    type: foreign_key
+    order: 1380
+    object_name: resources
+    requires:
+    - MIG-TBL-STAFF_LOCATION_ASSIGNMENTS
+    - MIG-TBL-STAFF_MEMBERSHIP_LINKS
+    - MIG-TBL-STAFF_DOCUMENTS
+    - MIG-TBL-VEHICLE_DOCUMENTS
+    - MIG-TBL-VEHICLE_LOCATION_ASSIGNMENTS
+    - MIG-TBL-STUDENTS
+    - MIG-CK-IDENTITY
+    - MIG-CK-ASSETS_RESOURCES
+    produces:
+    - staff_location_assignments_declared_foreign_keys
+    - staff_membership_links_declared_foreign_keys
+    - staff_documents_declared_foreign_keys
+    - vehicle_documents_declared_foreign_keys
+    - vehicle_location_assignments_declared_foreign_keys
+    - students_declared_foreign_keys
+  - id: MIG-FK-TRAINING
+    type: foreign_key
+    order: 1390
+    object_name: training
+    requires:
+    - MIG-TBL-STUDENT_LEARNING_ACCOUNTS
+    - MIG-TBL-COURSE_ENROLLMENTS
+    - MIG-TBL-TRAINING_REQUIREMENT_PROFILES
+    - MIG-TBL-COURSE_EXEMPTION_DECISIONS
+    - MIG-TBL-RECOGNIZED_EXTERNAL_TRAINING
+    - MIG-TBL-TRAINING_SESSIONS
+    - MIG-TBL-TRAINING_SESSION_ATTENDANCE
+    - MIG-TBL-TRAINING_HOUR_LEDGER_ENTRIES
+    - MIG-CK-IDENTITY
+    - MIG-CK-ASSETS_RESOURCES
+    - MIG-CK-TRAINING
+    produces:
+    - student_learning_accounts_declared_foreign_keys
+    - course_enrollments_declared_foreign_keys
+    - training_requirement_profiles_declared_foreign_keys
+    - course_exemption_decisions_declared_foreign_keys
+    - recognized_external_training_declared_foreign_keys
+    - training_sessions_declared_foreign_keys
+    - training_session_attendance_declared_foreign_keys
+    - training_hour_ledger_entries_declared_foreign_keys
+  - id: MIG-FK-CALENDAR
+    type: foreign_key
+    order: 1400
+    object_name: calendar
+    requires:
+    - MIG-TBL-CALENDAR_EVENTS
+    - MIG-TBL-AVAILABILITY_SLOTS
+    - MIG-TBL-CALENDAR_RESOURCE_CLAIMS
+    - MIG-TBL-TRAINING_SESSION_CALENDAR_DETAILS
+    - MIG-CK-ASSETS_RESOURCES
+    - MIG-CK-TRAINING
+    produces:
+    - calendar_events_declared_foreign_keys
+    - availability_slots_declared_foreign_keys
+    - calendar_resource_claims_declared_foreign_keys
+    - training_session_calendar_details_declared_foreign_keys
+  - id: MIG-FK-PKK
+    type: foreign_key
+    order: 1410
+    object_name: pkk
+    requires:
+    - MIG-TBL-PKK_PROFILES
+    - MIG-TBL-PKK_OPERATIONS
+    - MIG-TBL-PKK_OPERATION_ATTEMPTS
+    - MIG-TBL-PKK_SIGNATURE_HANDOFFS
+    - MIG-TBL-PKK_SIGNATURE_HANDOFF_UPLOAD_RESERVATIONS
+    - MIG-TBL-PKK_SIGNATURE_FILE_ASSET_PROTECTIONS
+    - MIG-CK-ASSETS_RESOURCES
+    - MIG-CK-TRAINING
+    produces:
+    - pkk_profiles_declared_foreign_keys
+    - pkk_operations_declared_foreign_keys
+    - pkk_operation_attempts_declared_foreign_keys
+    - pkk_signature_handoffs_declared_foreign_keys
+    - pkk_signature_handoff_upload_reservations_declared_foreign_keys
+    - pkk_signature_file_asset_protections_declared_foreign_keys
+  - id: MIG-FK-FINANCE
+    type: foreign_key
+    order: 1420
+    object_name: finance
+    requires:
+    - MIG-TBL-STUDENT_CHARGES
+    - MIG-TBL-STUDENT_PAYMENTS
+    - MIG-TBL-COURSE_COST_CHARGE_ORIGINS
+    - MIG-CK-TRAINING
+    - MIG-CK-FINANCE
+    produces:
+    - student_charges_declared_foreign_keys
+    - student_payments_declared_foreign_keys
+    - course_cost_charge_origins_declared_foreign_keys
+  - id: MIG-FK-LICENSES
+    type: foreign_key
+    order: 1430
+    object_name: licenses
+    requires:
+    - MIG-TBL-STUDENT_ACCESS_HANDOFFS
+    - MIG-TBL-LICENSE_ASSIGNMENTS
+    - MIG-TBL-LICENSE_ACTIVATIONS
+    - MIG-CK-ASSETS_RESOURCES
+    - MIG-CK-TRAINING
+    - MIG-CK-LICENSES
+    produces:
+    - student_access_handoffs_declared_foreign_keys
+    - license_assignments_declared_foreign_keys
+    - license_activations_declared_foreign_keys
+  - id: MIG-FK-EXAMS
+    type: foreign_key
+    order: 1440
+    object_name: exams
+    requires:
+    - MIG-TBL-INTERNAL_EXAM_RESERVATIONS
+    - MIG-TBL-INTERNAL_EXAM_ACCESSES
+    - MIG-TBL-INTERNAL_EXAM_STATION_SESSIONS
+    - MIG-TBL-INTERNAL_EXAM_ATTEMPT_QUESTIONS
+    - MIG-TBL-INTERNAL_EXAM_DOCUMENTS
+    - MIG-CK-ASSETS_RESOURCES
+    - MIG-CK-TRAINING
+    - MIG-CK-EXAMS
+    produces:
+    - internal_exam_reservations_declared_foreign_keys
+    - internal_exam_accesses_declared_foreign_keys
+    - internal_exam_station_sessions_declared_foreign_keys
+    - internal_exam_attempt_questions_declared_foreign_keys
+    - internal_exam_documents_declared_foreign_keys
+  - id: MIG-FK-COMMERCE
+    type: foreign_key
+    order: 1450
+    object_name: commerce
+    requires:
+    - MIG-TBL-ORDER_ITEMS
+    - MIG-TBL-PAYMENTS
+    - MIG-TBL-PAYMENT_EVENTS
+    - MIG-TBL-ORDER_PAYMENT_SETTLEMENTS
+    - MIG-TBL-ORDER_FULFILLMENTS
+    - MIG-TBL-SERVICE_ENTITLEMENTS
+    - MIG-TBL-SERVICE_ACTIVATIONS
+    - MIG-CK-COMMERCE
+    produces:
+    - order_items_declared_foreign_keys
+    - payments_declared_foreign_keys
+    - payment_events_declared_foreign_keys
+    - order_payment_settlements_declared_foreign_keys
+    - order_fulfillments_declared_foreign_keys
+    - service_entitlements_declared_foreign_keys
+    - service_activations_declared_foreign_keys
+  - id: MIG-FK-PURCHASE_DOWNSTREAM
+    type: foreign_key
+    order: 1460
+    object_name: purchase_downstream
+    requires:
+    - MIG-TBL-LICENSE_INVENTORY_ENTRIES
+    - MIG-TBL-INTERNAL_EXAM_INVENTORY_ENTRIES
+    - MIG-TBL-SERVICE_ENTITLEMENTS
+    - MIG-CK-LICENSES
+    - MIG-CK-EXAMS
+    - MIG-CK-COMMERCE
+    produces:
+    - license_inventory_entries_declared_foreign_keys
+    - internal_exam_inventory_entries_declared_foreign_keys
+    - service_entitlements_declared_foreign_keys
+  - id: MIG-FK-EVENTS
+    type: foreign_key
+    order: 1470
+    object_name: events
+    requires:
+    - MIG-TBL-AUDIT_LOGS
+    - MIG-TBL-DOMAIN_EVENTS
+    - MIG-TBL-OUTBOX_MESSAGES
+    - MIG-TBL-ORGANIZATION_ACTIVITY_EVENTS
+    - MIG-TBL-NOTIFICATIONS
+    - MIG-CK-IDENTITY
+    - MIG-CK-TRAINING
+    - MIG-CK-EVENTS
+    produces:
+    - audit_logs_declared_foreign_keys
+    - domain_events_declared_foreign_keys
+    - outbox_messages_declared_foreign_keys
+    - organization_activity_events_declared_foreign_keys
+    - notifications_declared_foreign_keys
+  - id: MIG-CON-IDENTITY
+    type: constraint
+    order: 1480
+    object_name: identity
+    requires:
+    - MIG-TBL-ORGANIZATION_MEMBERSHIPS
+    - MIG-TBL-MEMBERSHIP_PERMISSIONS
+    - MIG-TBL-MEMBERSHIP_PERMISSION_SCOPES
+    - MIG-TBL-AUTH_SESSIONS
+    - MIG-FK-IDENTITY
+    - MIG-IDX-IDENTITY
+    produces:
+    - identity_closed_checks_and_state_matrices
+  - id: MIG-CON-RESOURCES
+    type: constraint
+    order: 1490
+    object_name: resources
+    requires:
+    - MIG-TBL-STAFF_PROFILES
+    - MIG-TBL-STAFF_MEMBERSHIP_LINKS
+    - MIG-TBL-STAFF_DOCUMENTS
+    - MIG-TBL-VEHICLES
+    - MIG-TBL-VEHICLE_DOCUMENTS
+    - MIG-FK-RESOURCES
+    - MIG-IDX-RESOURCES
+    produces:
+    - resources_closed_checks_and_state_matrices
+  - id: MIG-CON-TRAINING
+    type: constraint
+    order: 1500
+    object_name: training
+    requires:
+    - MIG-TBL-STUDENTS
+    - MIG-TBL-COURSE_ENROLLMENTS
+    - MIG-TBL-TRAINING_REQUIREMENT_PROFILES
+    - MIG-TBL-TRAINING_SESSIONS
+    - MIG-TBL-TRAINING_SESSION_ATTENDANCE
+    - MIG-TBL-TRAINING_HOUR_LEDGER_ENTRIES
+    - MIG-FK-TRAINING
+    - MIG-IDX-TRAINING
+    produces:
+    - training_closed_checks_and_state_matrices
+  - id: MIG-CON-CALENDAR
+    type: constraint
+    order: 1510
+    object_name: calendar
+    requires:
+    - MIG-TBL-CALENDAR_EVENTS
+    - MIG-TBL-AVAILABILITY_SLOTS
+    - MIG-TBL-CALENDAR_RESOURCE_CLAIMS
+    - MIG-FK-CALENDAR
+    - MIG-IDX-CALENDAR_GIST
+    produces:
+    - calendar_closed_checks_and_state_matrices
+  - id: MIG-CON-PKK
+    type: constraint
+    order: 1520
+    object_name: pkk
+    requires:
+    - MIG-TBL-PKK_PROFILES
+    - MIG-TBL-PKK_OPERATIONS
+    - MIG-TBL-PKK_OPERATION_ATTEMPTS
+    - MIG-TBL-PKK_SIGNATURE_HANDOFFS
+    - MIG-FK-PKK
+    - MIG-IDX-PKK
+    produces:
+    - pkk_closed_checks_and_state_matrices
+  - id: MIG-CON-FINANCE
+    type: constraint
+    order: 1530
+    object_name: finance
+    requires:
+    - MIG-TBL-STUDENT_CHARGES
+    - MIG-TBL-STUDENT_PAYMENTS
+    - MIG-TBL-COURSE_COST_CHARGE_ORIGINS
+    - MIG-FK-FINANCE
+    - MIG-IDX-FINANCE
+    produces:
+    - finance_closed_checks_and_state_matrices
+  - id: MIG-CON-LICENSES
+    type: constraint
+    order: 1540
+    object_name: licenses
+    requires:
+    - MIG-TBL-STUDENT_LEARNING_ACCOUNTS
+    - MIG-TBL-LICENSE_INVENTORY_ENTRIES
+    - MIG-TBL-LICENSE_ASSIGNMENTS
+    - MIG-TBL-LICENSE_ACTIVATIONS
+    - MIG-FK-LICENSES
+    - MIG-IDX-LICENSES
+    produces:
+    - licenses_closed_checks_and_state_matrices
+  - id: MIG-CON-EXAMS
+    type: constraint
+    order: 1550
+    object_name: exams
+    requires:
+    - MIG-TBL-INTERNAL_EXAM_INVENTORY_ENTRIES
+    - MIG-TBL-INTERNAL_EXAM_INVENTORY_LEDGER_ENTRIES
+    - MIG-TBL-INTERNAL_EXAM_ATTEMPTS
+    - MIG-TBL-INTERNAL_EXAM_ACCESSES
+    - MIG-TBL-INTERNAL_EXAM_STATION_SESSIONS
+    - MIG-FK-EXAMS
+    - MIG-IDX-EXAMS
+    produces:
+    - exams_closed_checks_and_state_matrices
+  - id: MIG-CON-COMMERCE
+    type: constraint
+    order: 1560
+    object_name: commerce
+    requires:
+    - MIG-TBL-ORDERS
+    - MIG-TBL-ORDER_ITEMS
+    - MIG-TBL-PAYMENTS
+    - MIG-TBL-ORDER_PAYMENT_SETTLEMENTS
+    - MIG-TBL-ORDER_FULFILLMENTS
+    - MIG-TBL-SERVICE_ENTITLEMENTS
+    - MIG-TBL-SERVICE_ACTIVATIONS
+    - MIG-FK-COMMERCE
+    - MIG-FK-PURCHASE_DOWNSTREAM
+    - MIG-IDX-COMMERCE
+    produces:
+    - commerce_closed_checks_and_state_matrices
+  - id: MIG-CON-EVENTS
+    type: constraint
+    order: 1570
+    object_name: events
+    requires:
+    - MIG-TBL-AUDIT_LOGS
+    - MIG-TBL-DOMAIN_EVENTS
+    - MIG-TBL-OUTBOX_MESSAGES
+    - MIG-TBL-ORGANIZATION_ACTIVITY_EVENTS
+    - MIG-TBL-NOTIFICATIONS
+    - MIG-FK-EVENTS
+    - MIG-IDX-EVENTS
+    produces:
+    - events_closed_checks_and_state_matrices
+  - id: MIG-TRG-IDENTITY
+    type: trigger
+    order: 1580
+    object_name: identity
+    requires:
+    - MIG-CON-IDENTITY
+    produces:
+    - identity_deferrable_final_state_and_append_only_guards
+  - id: MIG-TRG-TRAINING
+    type: trigger
+    order: 1590
+    object_name: training
+    requires:
+    - MIG-CON-TRAINING
+    produces:
+    - training_deferrable_final_state_and_append_only_guards
+  - id: MIG-TRG-CALENDAR
+    type: trigger
+    order: 1600
+    object_name: calendar
+    requires:
+    - MIG-CON-CALENDAR
+    produces:
+    - calendar_deferrable_final_state_and_append_only_guards
+  - id: MIG-TRG-PKK
+    type: trigger
+    order: 1610
+    object_name: pkk
+    requires:
+    - MIG-CON-PKK
+    produces:
+    - pkk_deferrable_final_state_and_append_only_guards
+  - id: MIG-TRG-FINANCE
+    type: trigger
+    order: 1620
+    object_name: finance
+    requires:
+    - MIG-CON-FINANCE
+    produces:
+    - finance_deferrable_final_state_and_append_only_guards
+  - id: MIG-TRG-LICENSES
+    type: trigger
+    order: 1630
+    object_name: licenses
+    requires:
+    - MIG-CON-LICENSES
+    produces:
+    - licenses_deferrable_final_state_and_append_only_guards
+  - id: MIG-TRG-EXAMS
+    type: trigger
+    order: 1640
+    object_name: exams
+    requires:
+    - MIG-CON-EXAMS
+    produces:
+    - exams_deferrable_final_state_and_append_only_guards
+  - id: MIG-TRG-COMMERCE
+    type: trigger
+    order: 1650
+    object_name: commerce
+    requires:
+    - MIG-CON-COMMERCE
+    produces:
+    - commerce_deferrable_final_state_and_append_only_guards
+  - id: MIG-TRG-EVENTS
+    type: trigger
+    order: 1660
+    object_name: events
+    requires:
+    - MIG-CON-EVENTS
+    produces:
+    - events_deferrable_final_state_and_append_only_guards
+  - id: MIG-PRJ-CALENDAR-RESOURCE-CLAIMS
+    type: projection
+    order: 1670
+    object_name: calendar_resource_claims_projection
+    requires:
+    - MIG-TRG-CALENDAR
+    produces:
+    - calendar_resource_claims_runtime_projection_ready
+  - id: MIG-PRJ-PURCHASE-HISTORY
+    type: projection
+    order: 1680
+    object_name: purchase_history_projection
+    requires:
+    - MIG-TRG-COMMERCE
+    produces:
+    - purchase_history_projection_ready
+  - id: MIG-PRJ-ORGANIZATION-ACTIVITY
+    type: projection
+    order: 1690
+    object_name: organization_activity_projection
+    requires:
+    - MIG-TRG-EVENTS
+    - MIG-TBL-ACTIVITY_PROJECTION_POLICY_CURRENTS
+    produces:
+    - organization_activity_projection_ready
+  - id: MIG-PRJ-NOTIFICATIONS
+    type: projection
+    order: 1700
+    object_name: notification_projection
+    requires:
+    - MIG-TRG-EVENTS
+    - MIG-TBL-NOTIFICATIONS
+    produces:
+    - notification_projection_ready
+  topological_order:
+  - MIG-EXT-BTREE-GIST
+  - MIG-TBL-ORGANIZATIONS
+  - MIG-TBL-USERS
+  - MIG-TBL-PERMISSIONS
+  - MIG-TBL-DATA_SCOPES
+  - MIG-TBL-LANGUAGES
+  - MIG-TBL-DRIVING_CATEGORIES
+  - MIG-TBL-LOCATION_TYPES
+  - MIG-TBL-STAFF_TYPES
+  - MIG-TBL-INTERNAL_EXAM_CAPABILITIES
+  - MIG-TBL-LEGAL_DOCUMENTS
+  - MIG-TBL-ORGANIZATION_SETTINGS
+  - MIG-TBL-ORGANIZATION_CONTACT_ADDRESSES
+  - MIG-TBL-USER_PASSWORD_MANAGEMENT
+  - MIG-TBL-AUTH_LOGIN_IDENTIFIERS
+  - MIG-TBL-AUTH_SOCIAL_ACCOUNTS
+  - MIG-TBL-ORGANIZATION_MEMBERSHIPS
+  - MIG-TBL-MEMBERSHIP_PERMISSIONS
+  - MIG-TBL-PERMISSION_SCOPE_OPTIONS
+  - MIG-TBL-MEMBERSHIP_PERMISSION_SCOPES
+  - MIG-TBL-AUTH_SESSIONS
+  - MIG-TBL-ACCOUNT_CLOSURE_REQUESTS
+  - MIG-TBL-TERMS_ACCEPTANCES
+  - MIG-TBL-FILE_ASSETS
+  - MIG-TBL-IDEMPOTENCY_RECORDS
+  - MIG-TBL-LOCATIONS
+  - MIG-TBL-VEHICLES
+  - MIG-TBL-STAFF_PROFILES
+  - MIG-TBL-STAFF_TYPE_ASSIGNMENTS
+  - MIG-TBL-STAFF_CATEGORY_ASSIGNMENTS
+  - MIG-TBL-STAFF_LOCATION_ASSIGNMENTS
+  - MIG-TBL-STAFF_MEMBERSHIP_LINKS
+  - MIG-TBL-STAFF_DOCUMENTS
+  - MIG-TBL-VEHICLE_DOCUMENTS
+  - MIG-TBL-VEHICLE_CATEGORY_ASSIGNMENTS
+  - MIG-TBL-VEHICLE_LOCATION_ASSIGNMENTS
+  - MIG-TBL-STUDENTS
+  - MIG-TBL-STUDENT_LEARNING_ACCOUNTS
+  - MIG-TBL-STUDENT_ACCESS_HANDOFFS
+  - MIG-TBL-STUDENT_ACCESS_EXPORT_BATCHES
+  - MIG-TBL-COURSE_ENROLLMENTS
+  - MIG-TBL-COURSE_ENROLLMENT_LIFECYCLE_EVENTS
+  - MIG-TBL-TRAINING_REQUIREMENT_RULE_SETS
+  - MIG-TBL-COURSE_REQUIREMENT_CONTEXTS
+  - MIG-TBL-COURSE_REQUIREMENT_CONTEXT_HELD_CATEGORIES
+  - MIG-TBL-COURSE_REQUIREMENT_OVERRIDE_DECISIONS
+  - MIG-TBL-TRAINING_REQUIREMENT_PROFILES
+  - MIG-TBL-COURSE_EXEMPTION_DECISIONS
+  - MIG-TBL-RECOGNIZED_EXTERNAL_TRAINING
+  - MIG-TBL-TRAINING_SESSIONS
+  - MIG-TBL-TRAINING_SESSION_ATTENDANCE
+  - MIG-TBL-TRAINING_HOUR_LEDGER_ENTRIES
+  - MIG-TBL-CALENDAR_EVENTS
+  - MIG-TBL-CALENDAR_EVENT_LIFECYCLE_EVENTS
+  - MIG-TBL-AVAILABILITY_SLOTS
+  - MIG-TBL-AVAILABILITY_SLOT_LIFECYCLE_EVENTS
+  - MIG-TBL-CALENDAR_RESOURCE_CLAIMS
+  - MIG-TBL-TRAINING_SESSION_CALENDAR_DETAILS
+  - MIG-TBL-PKK_INTEGRATION_SETTINGS
+  - MIG-TBL-PKK_INTEGRATION_CONFIGURATION_REVISIONS
+  - MIG-TBL-PKK_PROFILES
+  - MIG-TBL-PKK_PROVIDER_PROFILE_SNAPSHOTS
+  - MIG-TBL-PKK_OPERATIONS
+  - MIG-TBL-PKK_OPERATION_LIFECYCLE_EVENTS
+  - MIG-TBL-PKK_OPERATION_ATTEMPTS
+  - MIG-TBL-PKK_OPERATION_ATTEMPT_RECONCILIATIONS
+  - MIG-TBL-PKK_SIGNATURE_HANDOFFS
+  - MIG-TBL-PKK_SIGNATURE_HANDOFF_UPLOAD_RESERVATIONS
+  - MIG-TBL-PKK_PROTECTED_PAYLOADS
+  - MIG-TBL-PKK_PROTECTED_PAYLOAD_KEY_WRAPPINGS
+  - MIG-TBL-PKK_PAYLOAD_REDACTED_PROJECTIONS
+  - MIG-TBL-PKK_SIGNATURE_FILE_ASSET_PROTECTIONS
+  - MIG-TBL-PKK_SIGNATURE_FILE_ASSET_KEY_WRAPPINGS
+  - MIG-TBL-STUDENT_CHARGES
+  - MIG-TBL-STUDENT_PAYMENTS
+  - MIG-TBL-COURSE_COST_CHARGE_ORIGINS
+  - MIG-TBL-LICENSE_PRODUCTS
+  - MIG-TBL-LICENSE_PRODUCT_LANGUAGE_CAPABILITIES
+  - MIG-TBL-LICENSE_INVENTORY_ENTRIES
+  - MIG-TBL-LICENSE_ASSIGNMENTS
+  - MIG-TBL-LICENSE_ACTIVATIONS
+  - MIG-TBL-EXAM_STATIONS
+  - MIG-TBL-EXAM_STATION_CREDENTIALS
+  - MIG-TBL-INTERNAL_EXAM_DEFINITIONS
+  - MIG-TBL-INTERNAL_EXAM_DOCUMENT_TEMPLATES
+  - MIG-TBL-INTERNAL_EXAM_INVENTORY_ENTRIES
+  - MIG-TBL-INTERNAL_EXAM_INVENTORY_ADJUSTMENTS
+  - MIG-TBL-INTERNAL_EXAM_INVENTORY_LEDGER_ENTRIES
+  - MIG-TBL-INTERNAL_EXAM_ATTEMPTS
+  - MIG-TBL-INTERNAL_EXAM_ATTEMPT_LIFECYCLE_EVENTS
+  - MIG-TBL-INTERNAL_EXAM_RESERVATIONS
+  - MIG-TBL-INTERNAL_EXAM_ACCESSES
+  - MIG-TBL-INTERNAL_EXAM_ACCESS_LIFECYCLE_EVENTS
+  - MIG-TBL-INTERNAL_EXAM_ACCESS_TOKENS
+  - MIG-TBL-INTERNAL_EXAM_STATION_SESSIONS
+  - MIG-TBL-INTERNAL_EXAM_ATTEMPT_QUESTIONS
+  - MIG-TBL-INTERNAL_EXAM_RESULTS
+  - MIG-TBL-INTERNAL_EXAM_DOCUMENTS
+  - MIG-TBL-COMMERCE_CATALOG_ITEMS
+  - MIG-TBL-ORDERS
+  - MIG-TBL-ORDER_ITEMS
+  - MIG-TBL-PAYMENTS
+  - MIG-TBL-PAYMENT_EVENTS
+  - MIG-TBL-ORDER_PAYMENT_SETTLEMENTS
+  - MIG-TBL-ORDER_FULFILLMENTS
+  - MIG-TBL-SERVICE_ENTITLEMENTS
+  - MIG-TBL-SERVICE_ACTIVATIONS
+  - MIG-TBL-AUDIT_ACTION_POLICY_REVISIONS
+  - MIG-TBL-AUDIT_ACTION_POLICY_CURRENTS
+  - MIG-TBL-AUDIT_LOGS
+  - MIG-TBL-DOMAIN_EVENTS
+  - MIG-TBL-OUTBOX_MESSAGES
+  - MIG-TBL-ACTIVITY_PROJECTION_POLICY_REVISIONS
+  - MIG-TBL-ACTIVITY_PROJECTION_POLICY_CURRENTS
+  - MIG-TBL-ORGANIZATION_ACTIVITY_EVENTS
+  - MIG-TBL-NOTIFICATIONS
+  - MIG-TBL-EVENT_PROJECTION_MIGRATION_CASES
+  - MIG-TBL-DATA_RETENTION_EXECUTION_RUNS
+  - MIG-CK-IDENTITY
+  - MIG-CK-ASSETS_RESOURCES
+  - MIG-CK-TRAINING
+  - MIG-CK-FINANCE
+  - MIG-CK-LICENSES
+  - MIG-CK-EXAMS
+  - MIG-CK-COMMERCE
+  - MIG-CK-EVENTS
+  - MIG-IDX-IDENTITY
+  - MIG-IDX-RESOURCES
+  - MIG-IDX-TRAINING
+  - MIG-IDX-CALENDAR_GIST
+  - MIG-IDX-PKK
+  - MIG-IDX-FINANCE
+  - MIG-IDX-LICENSES
+  - MIG-IDX-EXAMS
+  - MIG-IDX-COMMERCE
+  - MIG-IDX-EVENTS
+  - MIG-FK-IDENTITY
+  - MIG-FK-RESOURCES
+  - MIG-FK-TRAINING
+  - MIG-FK-CALENDAR
+  - MIG-FK-PKK
+  - MIG-FK-FINANCE
+  - MIG-FK-LICENSES
+  - MIG-FK-EXAMS
+  - MIG-FK-COMMERCE
+  - MIG-FK-PURCHASE_DOWNSTREAM
+  - MIG-FK-EVENTS
+  - MIG-CON-IDENTITY
+  - MIG-CON-RESOURCES
+  - MIG-CON-TRAINING
+  - MIG-CON-CALENDAR
+  - MIG-CON-PKK
+  - MIG-CON-FINANCE
+  - MIG-CON-LICENSES
+  - MIG-CON-EXAMS
+  - MIG-CON-COMMERCE
+  - MIG-CON-EVENTS
+  - MIG-TRG-IDENTITY
+  - MIG-TRG-TRAINING
+  - MIG-TRG-CALENDAR
+  - MIG-TRG-PKK
+  - MIG-TRG-FINANCE
+  - MIG-TRG-LICENSES
+  - MIG-TRG-EXAMS
+  - MIG-TRG-COMMERCE
+  - MIG-TRG-EVENTS
+  - MIG-PRJ-CALENDAR-RESOURCE-CLAIMS
+  - MIG-PRJ-PURCHASE-HISTORY
+  - MIG-PRJ-ORGANIZATION-ACTIVITY
+  - MIG-PRJ-NOTIFICATIONS
+  validation_gate:
+    duplicate_node_id: FAIL
+    duplicate_order: FAIL
+    unknown_node_type: FAIL
+    unknown_requires_node: FAIL
+    cycle: FAIL
+    dependency_after_dependent_in_topological_order: FAIL
+    missing_or_extra_core_table_node: FAIL
+    Laravel_migration_generation_in_DB_MIG_001: FAIL
+  preservation_boundary:
+    DB_MIG_002_phase_composition_not_solved: true
+    DB_MIG_003_cutover_restart_rollback_not_solved: true
+    DB_TST_001_test_matrix_not_solved: true
+    DB_TST_002_coverage_not_solved: true
+    DB_FINAL_001_aggregate_machine_narrative_sync_not_solved: true
+    core_schema_and_docs87_remain_frozen_in_this_step: true
+
 blockers:
   - id: DB-MIG-001
     severity: P1
-    status: OPEN
+    status: PASS
     title: executable_stage4_migration_dependency_DAG_and_topological_order
     evidence:
       - core_schema_migration_order_is_only_17_high_level_strings
@@ -249,15 +2190,30 @@ blockers:
       - remove_stale_provisional_order_shortcuts
       - rerun_semantic_loss_gate_across_all_DB4_1_through_DB4_10 contracts
 
+resolved_contracts:
+  DB-MIG-001:
+    status: PASS
+    title: executable_stage4_migration_dependency_DAG_and_topological_order
+    machine_authority: migration_dependency_dag
+    stable_nodes: true
+    explicit_requires_edges: true
+    explicit_topological_order: true
+    all_core_tables_covered_exactly_once: true
+    required_node_types_present: [extension, table, candidate_key, index, foreign_key, trigger, projection, constraint]
+    cycle_unknown_dependency_and_missing_table_are_gate_failures: true
+    local_bounded_context_ordering_preserved: true
+    phase_assignment_deferred_to_DB_MIG_002: true
+    cutover_restart_and_rollback_deferred_to_DB_MIG_003: true
+    Laravel_migrations_generated: false
+
 diagnosis_summary:
   diagnosed_P0: 0
   diagnosed_P1: 6
   fixes_applied_in_diagnosis_step: 0
-  resolved_after_diagnosis: 0
-  open_P0_P1: 6
-  result: FAIL_WITH_6_P1_BLOCKERS
+  resolved_after_diagnosis: 1
+  open_P0_P1: 5
+  result: FAIL_WITH_5_P1_BLOCKERS
   blockers_in_required_fix_order:
-    - DB-MIG-001
     - DB-MIG-002
     - DB-MIG-003
     - DB-TST-001
@@ -265,10 +2221,11 @@ diagnosis_summary:
     - DB-FINAL-001
 
 preservation_gate:
-  status: PASS_DIAGNOSIS_ONLY
+  status: PASS_DB_MIG_001
   checks:
     DB4_1_through_DB4_10_contracts_modified: false
     aggregate_core_schema_modified: false
+    DB_MIG_001_executable_DAG_closed: true
     aggregate_docs87_modified: false
     prior_71_resolved_blockers_reopened: false
     external_legal_privacy_provider_values_invented: false
@@ -277,8 +2234,8 @@ preservation_gate:
     UI_or_feature_implementation_started: false
 
 next_single_step_after_central_gate:
-  id: DB-MIG-001
-  action: resolve_DB_MIG_001_only_after_next_explicit_user_instruction
+  id: DB-MIG-002
+  action: resolve_DB_MIG_002_only_after_next_explicit_user_instruction
   allowed_files_only:
     - specs/database/final-migration-order-invariant-matrix.yml
     - docs/116-stage-4-final-migration-order-invariant-matrix-audit.md
@@ -287,7 +2244,7 @@ next_single_step_after_central_gate:
     - specs/gates/stage-4-database-contract-gate.yml
   prior_bounded_context_specs_read_only: true
   scope_lock: >-
-    Resolve DB-MIG-001 only. Preserve DB-MIG-002, DB-MIG-003, DB-TST-001,
+    DB-MIG-001 is PASS. Resolve DB-MIG-002 only. Preserve DB-MIG-003, DB-TST-001,
     DB-TST-002 and DB-FINAL-001 as OPEN. Do not enter Stage 5, generate Laravel
     migrations, or implement UI/features in the same step.
-  after_action: rerun_DB_MIG_001_machine_narrative_central_gate_and_STOP_before_DB_MIG_002
+  after_action: rerun_DB_MIG_002_machine_narrative_central_gate_and_STOP_before_DB_MIG_003
