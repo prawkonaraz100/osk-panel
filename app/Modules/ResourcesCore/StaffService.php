@@ -61,7 +61,7 @@ final class StaffService
         $rows = $query->orderBy($sortColumn, $direction)->orderBy('first_name')->forPage($page, $perPage)->get();
 
         return [
-            'data' => $rows->map(fn ($row): array => $this->present($row))->all(),
+            'data' => array_values($rows->map(fn ($row): array => $this->present($row))->all()),
             'meta' => [
                 'page' => $page,
                 'per_page' => $perPage,
@@ -229,6 +229,7 @@ final class StaffService
         });
     }
 
+    /** @return array<string,mixed> */
     public function archive(string $sessionId, string $staffId, string $requestId, ?string $reason): array
     {
         $snapshot = $this->tenantAuthorizer->activeMembershipForSession($sessionId);
@@ -297,6 +298,7 @@ final class StaffService
         });
     }
 
+    /** @return array<string,mixed> */
     public function restore(string $sessionId, string $staffId, string $requestId): array
     {
         $snapshot = $this->tenantAuthorizer->activeMembershipForSession($sessionId);
@@ -417,6 +419,10 @@ final class StaffService
     }
 
     /** @param list<string> $requested */
+    /**
+     * @param list<string> $requested
+     * @return array{permissions:list<string>}
+     */
     public function replacePermissions(string $sessionId, string $staffId, array $requested, string $requestId): array
     {
         $snapshot = $this->tenantAuthorizer->activeMembershipForSession($sessionId);
@@ -461,6 +467,7 @@ final class StaffService
         });
     }
 
+    /** @param array<string,mixed> $staff */
     public function etag(array $staff): string
     {
         return '"'.hash('sha256', json_encode($staff, JSON_THROW_ON_ERROR)).'"';
@@ -691,32 +698,36 @@ final class StaffService
     /** @return array<string,mixed> */
     private function present(object $row): array
     {
-        $types = DB::table('staff_type_assignments')->where('staff_profile_id', $row->id)
+        $data = get_object_vars($row);
+        $id = (string) ($data['id'] ?? '');
+        $organizationId = (string) ($data['organization_id'] ?? '');
+
+        $types = DB::table('staff_type_assignments')->where('staff_profile_id', $id)
             ->pluck('staff_type_code')->map(static fn ($v): string => (string) $v)->all();
-        $categories = DB::table('staff_category_assignments')->where('staff_profile_id', $row->id)
+        $categories = DB::table('staff_category_assignments')->where('staff_profile_id', $id)
             ->pluck('driving_category_id')->map(static fn ($v): string => (string) $v)->all();
-        $locations = DB::table('staff_location_assignments')->where('organization_id', $row->organization_id)
-            ->where('staff_profile_id', $row->id)->pluck('location_id')->map(static fn ($v): string => (string) $v)->all();
-        $documents = DB::table('staff_documents')->where('organization_id', $row->organization_id)
-            ->where('staff_profile_id', $row->id)->whereNull('superseded_at')->get()->keyBy('document_type');
+        $locations = DB::table('staff_location_assignments')->where('organization_id', $organizationId)
+            ->where('staff_profile_id', $id)->pluck('location_id')->map(static fn ($v): string => (string) $v)->all();
+        $documents = DB::table('staff_documents')->where('organization_id', $organizationId)
+            ->where('staff_profile_id', $id)->whereNull('superseded_at')->get()->keyBy('document_type');
 
         return [
-            'id' => (string) $row->id,
-            'first_name' => (string) $row->first_name,
-            'last_name' => (string) $row->last_name,
-            'email' => (string) $row->email_normalized,
-            'pesel_masked' => $row->pesel_ciphertext === null ? null : '***********',
-            'phone' => $row->phone === null ? null : (string) $row->phone,
-            'authorization_number' => $row->authorization_number === null ? null : (string) $row->authorization_number,
+            'id' => $id,
+            'first_name' => (string) ($data['first_name'] ?? ''),
+            'last_name' => (string) ($data['last_name'] ?? ''),
+            'email' => (string) ($data['email_normalized'] ?? ''),
+            'pesel_masked' => ($data['pesel_ciphertext'] ?? null) === null ? null : '***********',
+            'phone' => ($data['phone'] ?? null) === null ? null : (string) $data['phone'],
+            'authorization_number' => ($data['authorization_number'] ?? null) === null ? null : (string) $data['authorization_number'],
             'staff_type_codes' => array_values($types),
             'category_ids' => array_values($categories),
             'location_ids' => array_values($locations),
             'card_valid_until' => isset($documents['card_or_authorization']) ? (string) $documents['card_or_authorization']->valid_until : null,
             'medical_exam_valid_until' => isset($documents['medical_exam']) ? (string) $documents['medical_exam']->valid_until : null,
             'psychological_exam_valid_until' => isset($documents['psychological_exam']) ? (string) $documents['psychological_exam']->valid_until : null,
-            'photo_asset_id' => $row->photo_asset_id === null ? null : (string) $row->photo_asset_id,
-            'has_login_account' => $this->hasCurrentLink((string) $row->organization_id, (string) $row->id),
-            'archived_at' => $row->archived_at === null ? null : (string) $row->archived_at,
+            'photo_asset_id' => ($data['photo_asset_id'] ?? null) === null ? null : (string) $data['photo_asset_id'],
+            'has_login_account' => $this->hasCurrentLink($organizationId, $id),
+            'archived_at' => ($data['archived_at'] ?? null) === null ? null : (string) $data['archived_at'],
         ];
     }
 }

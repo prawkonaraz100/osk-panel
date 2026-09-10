@@ -17,7 +17,7 @@ final class ResourceCatalogService
     {
         $this->scopeAuthorizer->visibility($sessionId, 'locations.view');
 
-        return DB::table('location_types')
+        return array_values(DB::table('location_types')
             ->where('active', true)
             ->orderBy('code')
             ->get()
@@ -25,7 +25,7 @@ final class ResourceCatalogService
                 'code' => (string) $row->code,
                 'label' => (string) $row->label_key,
             ])
-            ->all();
+            ->all());
     }
 
     /** @return list<array{code:string,label:string}> */
@@ -33,7 +33,7 @@ final class ResourceCatalogService
     {
         $this->scopeAuthorizer->visibility($sessionId, 'staff.view');
 
-        return DB::table('staff_types')
+        return array_values(DB::table('staff_types')
             ->where('active', true)
             ->orderBy('code')
             ->get()
@@ -41,7 +41,7 @@ final class ResourceCatalogService
                 'code' => (string) $row->code,
                 'label' => (string) $row->label_key,
             ])
-            ->all();
+            ->all());
     }
 
     /** @return list<array{id:string,code:string,label:string,active:bool}> */
@@ -49,7 +49,7 @@ final class ResourceCatalogService
     {
         $this->tenantAuthorizer->activeMembershipForSession($sessionId);
 
-        return DB::table('driving_categories')
+        return array_values(DB::table('driving_categories')
             ->where('active', true)
             ->orderBy('code')
             ->get()

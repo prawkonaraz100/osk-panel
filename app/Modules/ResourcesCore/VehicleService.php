@@ -60,7 +60,7 @@ final class VehicleService
         $rows = $query->orderBy($sortColumn, $direction)->forPage($page, $perPage)->get();
 
         return [
-            'data' => $rows->map(fn ($row): array => $this->present($row))->all(),
+            'data' => array_values($rows->map(fn ($row): array => $this->present($row))->all()),
             'meta' => [
                 'page' => $page,
                 'per_page' => $perPage,
@@ -213,11 +213,13 @@ final class VehicleService
         });
     }
 
+    /** @return array<string,mixed> */
     public function archive(string $sessionId, string $vehicleId, string $requestId, ?string $reason): array
     {
         return $this->archiveState($sessionId, $vehicleId, $requestId, $reason, true);
     }
 
+    /** @return array<string,mixed> */
     public function restore(string $sessionId, string $vehicleId, string $requestId): array
     {
         return $this->archiveState($sessionId, $vehicleId, $requestId, null, false);
@@ -231,16 +233,17 @@ final class VehicleService
             throw ResourceDomainException::notFound();
         }
 
-        return DB::table('vehicle_documents')
+        return array_values(DB::table('vehicle_documents')
             ->where('organization_id', $membership['organization_id'])
             ->where('vehicle_id', $vehicleId)
             ->whereNull('superseded_at')
             ->orderBy('document_type')
             ->get()
             ->map(fn ($row): array => $this->presentDocument($row))
-            ->all();
+            ->all());
     }
 
+    /** @return array<string,mixed> */
     public function replaceDocument(
         string $sessionId,
         string $vehicleId,
@@ -274,11 +277,13 @@ final class VehicleService
         });
     }
 
+    /** @param array<string,mixed> $vehicle */
     public function etag(array $vehicle): string
     {
         return '"'.hash('sha256', json_encode($vehicle, JSON_THROW_ON_ERROR)).'"';
     }
 
+    /** @return array<string,mixed> */
     private function archiveState(string $sessionId, string $vehicleId, string $requestId, ?string $reason, bool $archive): array
     {
         $snapshot = $this->tenantAuthorizer->activeMembershipForSession($sessionId);
@@ -494,40 +499,46 @@ final class VehicleService
     /** @return array<string,mixed> */
     private function present(object $row): array
     {
-        $categoryIds = DB::table('vehicle_category_assignments')->where('vehicle_id', $row->id)
+        $data = get_object_vars($row);
+        $id = (string) ($data['id'] ?? '');
+        $organizationId = (string) ($data['organization_id'] ?? '');
+
+        $categoryIds = DB::table('vehicle_category_assignments')->where('vehicle_id', $id)
             ->pluck('driving_category_id')->map(static fn ($v): string => (string) $v)->all();
-        $locationIds = DB::table('vehicle_location_assignments')->where('organization_id', $row->organization_id)->where('vehicle_id', $row->id)
+        $locationIds = DB::table('vehicle_location_assignments')->where('organization_id', $organizationId)->where('vehicle_id', $id)
             ->pluck('location_id')->map(static fn ($v): string => (string) $v)->all();
-        $documents = DB::table('vehicle_documents')->where('organization_id', $row->organization_id)->where('vehicle_id', $row->id)
+        $documents = DB::table('vehicle_documents')->where('organization_id', $organizationId)->where('vehicle_id', $id)
             ->whereNull('superseded_at')->get()->keyBy('document_type');
 
         return [
-            'id' => (string) $row->id,
-            'registration_number' => (string) $row->registration_number_normalized,
-            'side_number' => $row->side_number === null ? null : (string) $row->side_number,
-            'make' => (string) $row->make,
-            'model' => (string) $row->model,
-            'production_year' => $row->production_year === null ? null : (int) $row->production_year,
-            'engine_capacity_cm3' => $row->engine_capacity_cm3 === null ? null : (int) $row->engine_capacity_cm3,
-            'vin' => $row->vin_normalized === null ? null : (string) $row->vin_normalized,
+            'id' => $id,
+            'registration_number' => (string) ($data['registration_number_normalized'] ?? ''),
+            'side_number' => ($data['side_number'] ?? null) === null ? null : (string) $data['side_number'],
+            'make' => (string) ($data['make'] ?? ''),
+            'model' => (string) ($data['model'] ?? ''),
+            'production_year' => ($data['production_year'] ?? null) === null ? null : (int) $data['production_year'],
+            'engine_capacity_cm3' => ($data['engine_capacity_cm3'] ?? null) === null ? null : (int) $data['engine_capacity_cm3'],
+            'vin' => ($data['vin_normalized'] ?? null) === null ? null : (string) $data['vin_normalized'],
             'category_ids' => array_values($categoryIds),
             'location_ids' => array_values($locationIds),
             'next_inspection_at' => isset($documents['technical_inspection']) ? (string) $documents['technical_inspection']->valid_until : null,
             'oc_valid_until' => isset($documents['oc_insurance']) ? (string) $documents['oc_insurance']->valid_until : null,
             'ac_valid_until' => isset($documents['ac_insurance']) ? (string) $documents['ac_insurance']->valid_until : null,
-            'photo_asset_id' => $row->photo_asset_id === null ? null : (string) $row->photo_asset_id,
-            'archived_at' => $row->archived_at === null ? null : (string) $row->archived_at,
+            'photo_asset_id' => ($data['photo_asset_id'] ?? null) === null ? null : (string) $data['photo_asset_id'],
+            'archived_at' => ($data['archived_at'] ?? null) === null ? null : (string) $data['archived_at'],
         ];
     }
 
     /** @return array<string,mixed> */
     private function presentDocument(object $row): array
     {
+        $data = get_object_vars($row);
+
         return [
-            'id' => (string) $row->id,
-            'document_type' => (string) $row->document_type,
-            'valid_until' => $row->valid_until === null ? null : (string) $row->valid_until,
-            'asset_id' => $row->asset_id === null ? null : (string) $row->asset_id,
+            'id' => (string) ($data['id'] ?? ''),
+            'document_type' => (string) ($data['document_type'] ?? ''),
+            'valid_until' => ($data['valid_until'] ?? null) === null ? null : (string) $data['valid_until'],
+            'asset_id' => ($data['asset_id'] ?? null) === null ? null : (string) $data['asset_id'],
         ];
     }
 }

@@ -55,6 +55,7 @@ final class ResourceScopeAuthorizer
         return ['membership' => $membership, 'unrestricted' => false, 'location_ids' => array_values($locationIds)];
     }
 
+    /** @return array{id:string,organization_id:string,user_id:string,status:string,is_owner:bool,version:int,authorization_version:int} */
     public function requireLocationTarget(string $sessionId, string $permission, string $locationId): array
     {
         $visibility = $this->visibility($sessionId, $permission);
@@ -65,6 +66,7 @@ final class ResourceScopeAuthorizer
         return $visibility['membership'];
     }
 
+    /** @return array{id:string,organization_id:string,user_id:string,status:string,is_owner:bool,version:int,authorization_version:int} */
     public function requireStaffTarget(string $sessionId, string $permission, string $staffProfileId): array
     {
         $visibility = $this->visibility($sessionId, $permission);
@@ -85,6 +87,7 @@ final class ResourceScopeAuthorizer
         return $visibility['membership'];
     }
 
+    /** @return array{id:string,organization_id:string,user_id:string,status:string,is_owner:bool,version:int,authorization_version:int} */
     public function requireVehicleTarget(string $sessionId, string $permission, string $vehicleId): array
     {
         $visibility = $this->visibility($sessionId, $permission);

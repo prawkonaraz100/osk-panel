@@ -36,6 +36,7 @@ final class ResourceController
             'postal_code' => ['required', 'string', 'max:20'],
             'city_reference' => ['required', 'string', 'max:160'],
         ]);
+        /** @var array{type_code:string,name:string,street_and_number:string,postal_code:string,city_reference:string} $input */
         $sessionId = $this->sessionId($request);
         $organizationId = $this->tenantAuthorizer->activeMembershipForSession($sessionId)['organization_id'];
 
@@ -498,7 +499,11 @@ final class ResourceController
     {
         $input = $request->all();
         $allowedRoots = array_values(array_unique(array_map(
-            static fn (string $key): string => str_contains($key, '.') ? strstr($key, '.', true) : $key,
+            static function (string $key): string {
+                $dot = strpos($key, '.');
+
+                return $dot === false ? $key : substr($key, 0, $dot);
+            },
             array_keys($rules),
         )));
         $unknown = array_values(array_diff(array_keys($input), $allowedRoots));

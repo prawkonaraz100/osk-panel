@@ -31,7 +31,7 @@ final class LocationService
             $query->whereIn('id', $visibility['location_ids']);
         }
 
-        return $query->get()->map(fn ($row): array => $this->present($row))->all();
+        return array_values($query->get()->map(fn ($row): array => $this->present($row))->all());
     }
 
     /** @return array<string,mixed> */
@@ -149,21 +149,25 @@ final class LocationService
         });
     }
 
+    /** @return array<string,mixed> */
     public function archive(string $sessionId, string $locationId, string $requestId, ?string $reason): array
     {
         return $this->setArchived($sessionId, $locationId, $requestId, $reason, true);
     }
 
+    /** @return array<string,mixed> */
     public function restore(string $sessionId, string $locationId, string $requestId): array
     {
         return $this->setArchived($sessionId, $locationId, $requestId, null, false);
     }
 
+    /** @param array<string,mixed> $location */
     public function etag(array $location): string
     {
         return '"'.hash('sha256', json_encode($location, JSON_THROW_ON_ERROR)).'"';
     }
 
+    /** @return array<string,mixed> */
     private function setArchived(string $sessionId, string $locationId, string $requestId, ?string $reason, bool $archive): array
     {
         $snapshot = $this->tenantAuthorizer->activeMembershipForSession($sessionId);
@@ -245,15 +249,17 @@ final class LocationService
     /** @return array<string,mixed> */
     private function present(object $row): array
     {
+        $data = get_object_vars($row);
+
         return [
-            'id' => (string) $row->id,
-            'type_code' => (string) $row->type_code,
-            'name' => (string) $row->name,
-            'street_and_number' => (string) $row->street_and_number,
-            'postal_code' => (string) $row->postal_code,
-            'city_name' => (string) $row->city_name,
-            'voivodeship_name' => $row->voivodeship_name === null ? null : (string) $row->voivodeship_name,
-            'archived_at' => $row->archived_at === null ? null : (string) $row->archived_at,
+            'id' => (string) ($data['id'] ?? ''),
+            'type_code' => (string) ($data['type_code'] ?? ''),
+            'name' => (string) ($data['name'] ?? ''),
+            'street_and_number' => (string) ($data['street_and_number'] ?? ''),
+            'postal_code' => (string) ($data['postal_code'] ?? ''),
+            'city_name' => (string) ($data['city_name'] ?? ''),
+            'voivodeship_name' => ($data['voivodeship_name'] ?? null) === null ? null : (string) $data['voivodeship_name'],
+            'archived_at' => ($data['archived_at'] ?? null) === null ? null : (string) $data['archived_at'],
         ];
     }
 }
