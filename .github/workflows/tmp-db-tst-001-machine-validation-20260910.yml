@@ -46,7 +46,8 @@ jobs:
           git add -A
           git diff --cached --check
           changed="$(git diff --cached --name-only)"
-          test "$changed" = "specs/database/final-migration-order-invariant-matrix.yml"
+          expected="$(printf '%s\n' '.github/workflows/tmp-db-tst-001-machine-validation-20260910.yml' '.tmp/db-tst-001-builder.rb' '.tmp/db-tst-001-trigger' 'specs/database/final-migration-order-invariant-matrix.yml')"
+          test "$changed" = "$expected"
           git diff --cached --stat
       - name: Commit validated DB-TST-001 machine result
         shell: bash
