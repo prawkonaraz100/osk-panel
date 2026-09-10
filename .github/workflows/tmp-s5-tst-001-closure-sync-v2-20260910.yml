@@ -1,0 +1,33 @@
+name: tmp-s5-tst-001-closure-sync-v2-20260910
+
+on:
+  push:
+    branches: [tmp-s5-tst-001-validation-20260910]
+
+permissions:
+  contents: write
+
+jobs:
+  sync-closure:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: tmp-s5-tst-001-validation-20260910
+          fetch-depth: 0
+      - name: Apply and validate S5-TST-001 closure
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 .tmp/s5_tst_001_closure.py
+          ruby -ryaml -rdate -e 'g=YAML.safe_load(File.read("specs/gates/stage-5-implementation-gate.yml"), permitted_classes:[Date], aliases:true); b=g.fetch("blockers").to_h{|x|[x.fetch("id"),x.fetch("status")]}; abort unless g.dig("meta","status")=="FAIL_WITH_2_P1_BLOCKERS" && b["S5-TST-001"]=="PASS" && b["S5-CI-001"]=="OPEN" && b["S5-FOUND-001"]=="OPEN" && g.dig("quality_gate","fixes_applied_total")==4 && g.dig("quality_gate","open_P0_P1")==2 && g.dig("quality_gate","result")=="FAIL_WITH_2_P1_BLOCKERS" && g.dig("next_single_step","id")=="S5-CI-001" && g.dig("S5_TST_001_closure","runtime_traceability","implemented_executable_assertions")==2 && g.dig("S5_TST_001_closure","runtime_traceability","pending_domain_materialization")==489 && g.dig("S5_TST_001_closure","executable_evidence","suite_tests_passed")==19 && g.dig("S5_TST_001_closure","executable_evidence","suite_assertions")==1096'
+          grep -q '^Status: `S5-TST-001 PASS`$' docs/120-stage-5-executable-test-harness.md
+          grep -q '^\*\*Aktualny krok:\*\* `S5-TST-001`$' docs/117-stage-5-implementation-entry-audit.md
+          grep -q '^\*\*Status:\*\* `S5-TST-001 PASS / 0 P0 / 2 P1 OPEN`$' docs/117-stage-5-implementation-entry-audit.md
+          git diff --check
+          rm .github/workflows/tmp-s5-tst-001-closure-sync-v2-20260910.yml .tmp/s5_tst_001_closure.py
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add specs/gates/stage-5-implementation-gate.yml docs/117-stage-5-implementation-entry-audit.md docs/120-stage-5-executable-test-harness.md .github/workflows/tmp-s5-tst-001-closure-sync-v2-20260910.yml .tmp/s5_tst_001_closure.py
+          git commit -m 'S5-TST-001: synchronize gate and narrative closure'
+          git push origin HEAD:tmp-s5-tst-001-validation-20260910
