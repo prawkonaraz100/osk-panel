@@ -167,7 +167,7 @@ jobs:
           add = ("\n\n### 10.1. Korekty finalnego bootstrapu\n\n"
                  "Przed transferem do accepted history wykryto dwie pozostałości scaffoldingu. Laravel 13 scala frameworkowe defaulty auth, więc samo usunięcie `App\\\\Models\\\\User` nie wystarczało: `config/auth.php` neutralizuje teraz domyślny guard/provider/model przez jawne wartości `null`, a test potwierdza, że guard `web` nie może zostać utworzony przed `S5-FOUND-001`. Dodatkowo przywrócono marker files wymaganych katalogów `bootstrap/cache` i `storage/*`, dzięki czemu świeży checkout przechodzi `composer install`. Nie utworzono domenowych modeli, providerów, tabel ani migracji.\n")
           s = s.replace(marker, marker + add, 1)
-          audit.write_text(s)
+          audit.write_text(s.rstrip() + "\n")
           PY
 
       - name: Execute corrected clean-clone bootstrap gate
