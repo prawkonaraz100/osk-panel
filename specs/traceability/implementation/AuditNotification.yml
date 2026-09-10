@@ -1,0 +1,12 @@
+module: AuditNotification
+core_traceability_modules:
+  - dashboard_activity
+changed_scope:
+  - evidence: specs/database/audit-outbox-notifications.yml
+    requirement: critical mutation commits business state audit domain event and outbox intent atomically
+    domain_data: audit_logs + domain_events + outbox_messages
+    api_use_case: atomic audit outbox foundation
+    permission: inherited_from_calling_authorized_command
+    ui: NOT_APPLICABLE_FOUNDATION_NO_UI
+    acceptance_test: Tests\\Feature\\AuditOutboxFoundationTest
+    status: IMPLEMENTED
