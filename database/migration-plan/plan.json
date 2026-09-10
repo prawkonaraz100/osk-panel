@@ -1,0 +1,3085 @@
+{
+  "schema_version": 1,
+  "plan_identity": "d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10",
+  "source": {
+    "authority_path": "specs/database/final-migration-order-invariant-matrix.yml",
+    "authority_git_blob": "ad5f2aa2e14ef248b95dd3dda0d1cbcb2e69d441",
+    "dag_contract_version": 1,
+    "phase_contract_version": 1,
+    "cutover_contract_version": 1
+  },
+  "phase_order": [
+    "expand",
+    "preflight",
+    "write_fence",
+    "backfill",
+    "reconcile",
+    "validate",
+    "contract"
+  ],
+  "execution_control": {
+    "single_executor": "postgres_advisory_lock",
+    "advisory_lock_keys": [
+      519662,
+      5001
+    ],
+    "blind_retry": false,
+    "production_evidence_path_required": true,
+    "automatic_destructive_down": false,
+    "allowed_rollback_modes": [
+      "application_rollback",
+      "schema_forward_fix",
+      "explicit_safe_down"
+    ]
+  },
+  "review_batches": [
+    {
+      "batch_id": "B01",
+      "review_limit": 10,
+      "node_count": 10,
+      "first_order": 10,
+      "last_order": 100,
+      "node_ids": [
+        "MIG-EXT-BTREE-GIST",
+        "MIG-TBL-ORGANIZATIONS",
+        "MIG-TBL-USERS",
+        "MIG-TBL-PERMISSIONS",
+        "MIG-TBL-DATA_SCOPES",
+        "MIG-TBL-LANGUAGES",
+        "MIG-TBL-DRIVING_CATEGORIES",
+        "MIG-TBL-LOCATION_TYPES",
+        "MIG-TBL-STAFF_TYPES",
+        "MIG-TBL-INTERNAL_EXAM_CAPABILITIES"
+      ]
+    },
+    {
+      "batch_id": "B02",
+      "review_limit": 10,
+      "node_count": 10,
+      "first_order": 110,
+      "last_order": 200,
+      "node_ids": [
+        "MIG-TBL-LEGAL_DOCUMENTS",
+        "MIG-TBL-ORGANIZATION_SETTINGS",
+        "MIG-TBL-ORGANIZATION_CONTACT_ADDRESSES",
+        "MIG-TBL-USER_PASSWORD_MANAGEMENT",
+        "MIG-TBL-AUTH_LOGIN_IDENTIFIERS",
+        "MIG-TBL-AUTH_SOCIAL_ACCOUNTS",
+        "MIG-TBL-ORGANIZATION_MEMBERSHIPS",
+        "MIG-TBL-MEMBERSHIP_PERMISSIONS",
+        "MIG-TBL-PERMISSION_SCOPE_OPTIONS",
+        "MIG-TBL-MEMBERSHIP_PERMISSION_SCOPES"
+      ]
+    },
+    {
+      "batch_id": "B03",
+      "review_limit": 10,
+      "node_count": 10,
+      "first_order": 210,
+      "last_order": 300,
+      "node_ids": [
+        "MIG-TBL-AUTH_SESSIONS",
+        "MIG-TBL-ACCOUNT_CLOSURE_REQUESTS",
+        "MIG-TBL-TERMS_ACCEPTANCES",
+        "MIG-TBL-FILE_ASSETS",
+        "MIG-TBL-IDEMPOTENCY_RECORDS",
+        "MIG-TBL-LOCATIONS",
+        "MIG-TBL-VEHICLES",
+        "MIG-TBL-STAFF_PROFILES",
+        "MIG-TBL-STAFF_TYPE_ASSIGNMENTS",
+        "MIG-TBL-STAFF_CATEGORY_ASSIGNMENTS"
+      ]
+    },
+    {
+      "batch_id": "B04",
+      "review_limit": 10,
+      "node_count": 10,
+      "first_order": 310,
+      "last_order": 400,
+      "node_ids": [
+        "MIG-TBL-STAFF_LOCATION_ASSIGNMENTS",
+        "MIG-TBL-STAFF_MEMBERSHIP_LINKS",
+        "MIG-TBL-STAFF_DOCUMENTS",
+        "MIG-TBL-VEHICLE_DOCUMENTS",
+        "MIG-TBL-VEHICLE_CATEGORY_ASSIGNMENTS",
+        "MIG-TBL-VEHICLE_LOCATION_ASSIGNMENTS",
+        "MIG-TBL-STUDENTS",
+        "MIG-TBL-STUDENT_LEARNING_ACCOUNTS",
+        "MIG-TBL-STUDENT_ACCESS_HANDOFFS",
+        "MIG-TBL-STUDENT_ACCESS_EXPORT_BATCHES"
+      ]
+    },
+    {
+      "batch_id": "B05",
+      "review_limit": 10,
+      "node_count": 10,
+      "first_order": 410,
+      "last_order": 500,
+      "node_ids": [
+        "MIG-TBL-COURSE_ENROLLMENTS",
+        "MIG-TBL-COURSE_ENROLLMENT_LIFECYCLE_EVENTS",
+        "MIG-TBL-TRAINING_REQUIREMENT_RULE_SETS",
+        "MIG-TBL-COURSE_REQUIREMENT_CONTEXTS",
+        "MIG-TBL-COURSE_REQUIREMENT_CONTEXT_HELD_CATEGORIES",
+        "MIG-TBL-COURSE_REQUIREMENT_OVERRIDE_DECISIONS",
+        "MIG-TBL-TRAINING_REQUIREMENT_PROFILES",
+        "MIG-TBL-COURSE_EXEMPTION_DECISIONS",
+        "MIG-TBL-RECOGNIZED_EXTERNAL_TRAINING",
+        "MIG-TBL-TRAINING_SESSIONS"
+      ]
+    },
+    {
+      "batch_id": "B06",
+      "review_limit": 10,
+      "node_count": 10,
+      "first_order": 510,
+      "last_order": 600,
+      "node_ids": [
+        "MIG-TBL-TRAINING_SESSION_ATTENDANCE",
+        "MIG-TBL-TRAINING_HOUR_LEDGER_ENTRIES",
+        "MIG-TBL-CALENDAR_EVENTS",
+        "MIG-TBL-CALENDAR_EVENT_LIFECYCLE_EVENTS",
+        "MIG-TBL-AVAILABILITY_SLOTS",
+        "MIG-TBL-AVAILABILITY_SLOT_LIFECYCLE_EVENTS",
+        "MIG-TBL-CALENDAR_RESOURCE_CLAIMS",
+        "MIG-TBL-TRAINING_SESSION_CALENDAR_DETAILS",
+        "MIG-TBL-PKK_INTEGRATION_SETTINGS",
+        "MIG-TBL-PKK_INTEGRATION_CONFIGURATION_REVISIONS"
+      ]
+    },
+    {
+      "batch_id": "B07",
+      "review_limit": 10,
+      "node_count": 10,
+      "first_order": 610,
+      "last_order": 700,
+      "node_ids": [
+        "MIG-TBL-PKK_PROFILES",
+        "MIG-TBL-PKK_PROVIDER_PROFILE_SNAPSHOTS",
+        "MIG-TBL-PKK_OPERATIONS",
+        "MIG-TBL-PKK_OPERATION_LIFECYCLE_EVENTS",
+        "MIG-TBL-PKK_OPERATION_ATTEMPTS",
+        "MIG-TBL-PKK_OPERATION_ATTEMPT_RECONCILIATIONS",
+        "MIG-TBL-PKK_SIGNATURE_HANDOFFS",
+        "MIG-TBL-PKK_SIGNATURE_HANDOFF_UPLOAD_RESERVATIONS",
+        "MIG-TBL-PKK_PROTECTED_PAYLOADS",
+        "MIG-TBL-PKK_PROTECTED_PAYLOAD_KEY_WRAPPINGS"
+      ]
+    },
+    {
+      "batch_id": "B08",
+      "review_limit": 10,
+      "node_count": 10,
+      "first_order": 710,
+      "last_order": 800,
+      "node_ids": [
+        "MIG-TBL-PKK_PAYLOAD_REDACTED_PROJECTIONS",
+        "MIG-TBL-PKK_SIGNATURE_FILE_ASSET_PROTECTIONS",
+        "MIG-TBL-PKK_SIGNATURE_FILE_ASSET_KEY_WRAPPINGS",
+        "MIG-TBL-STUDENT_CHARGES",
+        "MIG-TBL-STUDENT_PAYMENTS",
+        "MIG-TBL-COURSE_COST_CHARGE_ORIGINS",
+        "MIG-TBL-LICENSE_PRODUCTS",
+        "MIG-TBL-LICENSE_PRODUCT_LANGUAGE_CAPABILITIES",
+        "MIG-TBL-LICENSE_INVENTORY_ENTRIES",
+        "MIG-TBL-LICENSE_ASSIGNMENTS"
+      ]
+    },
+    {
+      "batch_id": "B09",
+      "review_limit": 10,
+      "node_count": 10,
+      "first_order": 810,
+      "last_order": 900,
+      "node_ids": [
+        "MIG-TBL-LICENSE_ACTIVATIONS",
+        "MIG-TBL-EXAM_STATIONS",
+        "MIG-TBL-EXAM_STATION_CREDENTIALS",
+        "MIG-TBL-INTERNAL_EXAM_DEFINITIONS",
+        "MIG-TBL-INTERNAL_EXAM_DOCUMENT_TEMPLATES",
+        "MIG-TBL-INTERNAL_EXAM_INVENTORY_ENTRIES",
+        "MIG-TBL-INTERNAL_EXAM_INVENTORY_ADJUSTMENTS",
+        "MIG-TBL-INTERNAL_EXAM_INVENTORY_LEDGER_ENTRIES",
+        "MIG-TBL-INTERNAL_EXAM_ATTEMPTS",
+        "MIG-TBL-INTERNAL_EXAM_ATTEMPT_LIFECYCLE_EVENTS"
+      ]
+    },
+    {
+      "batch_id": "B10",
+      "review_limit": 10,
+      "node_count": 10,
+      "first_order": 910,
+      "last_order": 1000,
+      "node_ids": [
+        "MIG-TBL-INTERNAL_EXAM_RESERVATIONS",
+        "MIG-TBL-INTERNAL_EXAM_ACCESSES",
+        "MIG-TBL-INTERNAL_EXAM_ACCESS_LIFECYCLE_EVENTS",
+        "MIG-TBL-INTERNAL_EXAM_ACCESS_TOKENS",
+        "MIG-TBL-INTERNAL_EXAM_STATION_SESSIONS",
+        "MIG-TBL-INTERNAL_EXAM_ATTEMPT_QUESTIONS",
+        "MIG-TBL-INTERNAL_EXAM_RESULTS",
+        "MIG-TBL-INTERNAL_EXAM_DOCUMENTS",
+        "MIG-TBL-COMMERCE_CATALOG_ITEMS",
+        "MIG-TBL-ORDERS"
+      ]
+    },
+    {
+      "batch_id": "B11",
+      "review_limit": 10,
+      "node_count": 10,
+      "first_order": 1010,
+      "last_order": 1100,
+      "node_ids": [
+        "MIG-TBL-ORDER_ITEMS",
+        "MIG-TBL-PAYMENTS",
+        "MIG-TBL-PAYMENT_EVENTS",
+        "MIG-TBL-ORDER_PAYMENT_SETTLEMENTS",
+        "MIG-TBL-ORDER_FULFILLMENTS",
+        "MIG-TBL-SERVICE_ENTITLEMENTS",
+        "MIG-TBL-SERVICE_ACTIVATIONS",
+        "MIG-TBL-AUDIT_ACTION_POLICY_REVISIONS",
+        "MIG-TBL-AUDIT_ACTION_POLICY_CURRENTS",
+        "MIG-TBL-AUDIT_LOGS"
+      ]
+    },
+    {
+      "batch_id": "B12",
+      "review_limit": 10,
+      "node_count": 10,
+      "first_order": 1110,
+      "last_order": 1200,
+      "node_ids": [
+        "MIG-TBL-DOMAIN_EVENTS",
+        "MIG-TBL-OUTBOX_MESSAGES",
+        "MIG-TBL-ACTIVITY_PROJECTION_POLICY_REVISIONS",
+        "MIG-TBL-ACTIVITY_PROJECTION_POLICY_CURRENTS",
+        "MIG-TBL-ORGANIZATION_ACTIVITY_EVENTS",
+        "MIG-TBL-NOTIFICATIONS",
+        "MIG-TBL-EVENT_PROJECTION_MIGRATION_CASES",
+        "MIG-TBL-DATA_RETENTION_EXECUTION_RUNS",
+        "MIG-CK-IDENTITY",
+        "MIG-CK-ASSETS_RESOURCES"
+      ]
+    },
+    {
+      "batch_id": "B13",
+      "review_limit": 10,
+      "node_count": 10,
+      "first_order": 1210,
+      "last_order": 1300,
+      "node_ids": [
+        "MIG-CK-TRAINING",
+        "MIG-CK-FINANCE",
+        "MIG-CK-LICENSES",
+        "MIG-CK-EXAMS",
+        "MIG-CK-COMMERCE",
+        "MIG-CK-EVENTS",
+        "MIG-IDX-IDENTITY",
+        "MIG-IDX-RESOURCES",
+        "MIG-IDX-TRAINING",
+        "MIG-IDX-CALENDAR_GIST"
+      ]
+    },
+    {
+      "batch_id": "B14",
+      "review_limit": 10,
+      "node_count": 10,
+      "first_order": 1310,
+      "last_order": 1400,
+      "node_ids": [
+        "MIG-IDX-PKK",
+        "MIG-IDX-FINANCE",
+        "MIG-IDX-LICENSES",
+        "MIG-IDX-EXAMS",
+        "MIG-IDX-COMMERCE",
+        "MIG-IDX-EVENTS",
+        "MIG-FK-IDENTITY",
+        "MIG-FK-RESOURCES",
+        "MIG-FK-TRAINING",
+        "MIG-FK-CALENDAR"
+      ]
+    },
+    {
+      "batch_id": "B15",
+      "review_limit": 10,
+      "node_count": 10,
+      "first_order": 1410,
+      "last_order": 1500,
+      "node_ids": [
+        "MIG-FK-PKK",
+        "MIG-FK-FINANCE",
+        "MIG-FK-LICENSES",
+        "MIG-FK-EXAMS",
+        "MIG-FK-COMMERCE",
+        "MIG-FK-PURCHASE_DOWNSTREAM",
+        "MIG-FK-EVENTS",
+        "MIG-CON-IDENTITY",
+        "MIG-CON-RESOURCES",
+        "MIG-CON-TRAINING"
+      ]
+    },
+    {
+      "batch_id": "B16",
+      "review_limit": 10,
+      "node_count": 10,
+      "first_order": 1510,
+      "last_order": 1600,
+      "node_ids": [
+        "MIG-CON-CALENDAR",
+        "MIG-CON-PKK",
+        "MIG-CON-FINANCE",
+        "MIG-CON-LICENSES",
+        "MIG-CON-EXAMS",
+        "MIG-CON-COMMERCE",
+        "MIG-CON-EVENTS",
+        "MIG-TRG-IDENTITY",
+        "MIG-TRG-TRAINING",
+        "MIG-TRG-CALENDAR"
+      ]
+    },
+    {
+      "batch_id": "B17",
+      "review_limit": 10,
+      "node_count": 10,
+      "first_order": 1610,
+      "last_order": 1700,
+      "node_ids": [
+        "MIG-TRG-PKK",
+        "MIG-TRG-FINANCE",
+        "MIG-TRG-LICENSES",
+        "MIG-TRG-EXAMS",
+        "MIG-TRG-COMMERCE",
+        "MIG-TRG-EVENTS",
+        "MIG-PRJ-CALENDAR-RESOURCE-CLAIMS",
+        "MIG-PRJ-PURCHASE-HISTORY",
+        "MIG-PRJ-ORGANIZATION-ACTIVITY",
+        "MIG-PRJ-NOTIFICATIONS"
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "node_id": "MIG-EXT-BTREE-GIST",
+      "type": "extension",
+      "order": 10,
+      "object_name": "btree_gist",
+      "requires": [],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B01"
+    },
+    {
+      "node_id": "MIG-TBL-ORGANIZATIONS",
+      "type": "table",
+      "order": 20,
+      "object_name": "organizations",
+      "requires": [],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B01"
+    },
+    {
+      "node_id": "MIG-TBL-USERS",
+      "type": "table",
+      "order": 30,
+      "object_name": "users",
+      "requires": [],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B01"
+    },
+    {
+      "node_id": "MIG-TBL-PERMISSIONS",
+      "type": "table",
+      "order": 40,
+      "object_name": "permissions",
+      "requires": [],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B01"
+    },
+    {
+      "node_id": "MIG-TBL-DATA_SCOPES",
+      "type": "table",
+      "order": 50,
+      "object_name": "data_scopes",
+      "requires": [],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B01"
+    },
+    {
+      "node_id": "MIG-TBL-LANGUAGES",
+      "type": "table",
+      "order": 60,
+      "object_name": "languages",
+      "requires": [],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B01"
+    },
+    {
+      "node_id": "MIG-TBL-DRIVING_CATEGORIES",
+      "type": "table",
+      "order": 70,
+      "object_name": "driving_categories",
+      "requires": [],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B01"
+    },
+    {
+      "node_id": "MIG-TBL-LOCATION_TYPES",
+      "type": "table",
+      "order": 80,
+      "object_name": "location_types",
+      "requires": [],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B01"
+    },
+    {
+      "node_id": "MIG-TBL-STAFF_TYPES",
+      "type": "table",
+      "order": 90,
+      "object_name": "staff_types",
+      "requires": [],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B01"
+    },
+    {
+      "node_id": "MIG-TBL-INTERNAL_EXAM_CAPABILITIES",
+      "type": "table",
+      "order": 100,
+      "object_name": "internal_exam_capabilities",
+      "requires": [],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B01"
+    },
+    {
+      "node_id": "MIG-TBL-LEGAL_DOCUMENTS",
+      "type": "table",
+      "order": 110,
+      "object_name": "legal_documents",
+      "requires": [],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B02"
+    },
+    {
+      "node_id": "MIG-TBL-ORGANIZATION_SETTINGS",
+      "type": "table",
+      "order": 120,
+      "object_name": "organization_settings",
+      "requires": [
+        "MIG-TBL-ORGANIZATIONS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B02"
+    },
+    {
+      "node_id": "MIG-TBL-ORGANIZATION_CONTACT_ADDRESSES",
+      "type": "table",
+      "order": 130,
+      "object_name": "organization_contact_addresses",
+      "requires": [
+        "MIG-TBL-ORGANIZATIONS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B02"
+    },
+    {
+      "node_id": "MIG-TBL-USER_PASSWORD_MANAGEMENT",
+      "type": "table",
+      "order": 140,
+      "object_name": "user_password_management",
+      "requires": [
+        "MIG-TBL-USERS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B02"
+    },
+    {
+      "node_id": "MIG-TBL-AUTH_LOGIN_IDENTIFIERS",
+      "type": "table",
+      "order": 150,
+      "object_name": "auth_login_identifiers",
+      "requires": [
+        "MIG-TBL-USERS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B02"
+    },
+    {
+      "node_id": "MIG-TBL-AUTH_SOCIAL_ACCOUNTS",
+      "type": "table",
+      "order": 160,
+      "object_name": "auth_social_accounts",
+      "requires": [
+        "MIG-TBL-USERS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B02"
+    },
+    {
+      "node_id": "MIG-TBL-ORGANIZATION_MEMBERSHIPS",
+      "type": "table",
+      "order": 170,
+      "object_name": "organization_memberships",
+      "requires": [
+        "MIG-TBL-ORGANIZATIONS",
+        "MIG-TBL-USERS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B02"
+    },
+    {
+      "node_id": "MIG-TBL-MEMBERSHIP_PERMISSIONS",
+      "type": "table",
+      "order": 180,
+      "object_name": "membership_permissions",
+      "requires": [
+        "MIG-TBL-ORGANIZATION_MEMBERSHIPS",
+        "MIG-TBL-PERMISSIONS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B02"
+    },
+    {
+      "node_id": "MIG-TBL-PERMISSION_SCOPE_OPTIONS",
+      "type": "table",
+      "order": 190,
+      "object_name": "permission_scope_options",
+      "requires": [
+        "MIG-TBL-PERMISSIONS",
+        "MIG-TBL-DATA_SCOPES"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B02"
+    },
+    {
+      "node_id": "MIG-TBL-MEMBERSHIP_PERMISSION_SCOPES",
+      "type": "table",
+      "order": 200,
+      "object_name": "membership_permission_scopes",
+      "requires": [
+        "MIG-TBL-MEMBERSHIP_PERMISSIONS",
+        "MIG-TBL-PERMISSION_SCOPE_OPTIONS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B02"
+    },
+    {
+      "node_id": "MIG-TBL-AUTH_SESSIONS",
+      "type": "table",
+      "order": 210,
+      "object_name": "auth_sessions",
+      "requires": [
+        "MIG-TBL-USERS",
+        "MIG-TBL-ORGANIZATION_MEMBERSHIPS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B03"
+    },
+    {
+      "node_id": "MIG-TBL-ACCOUNT_CLOSURE_REQUESTS",
+      "type": "table",
+      "order": 220,
+      "object_name": "account_closure_requests",
+      "requires": [
+        "MIG-TBL-USERS",
+        "MIG-TBL-ORGANIZATIONS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B03"
+    },
+    {
+      "node_id": "MIG-TBL-TERMS_ACCEPTANCES",
+      "type": "table",
+      "order": 230,
+      "object_name": "terms_acceptances",
+      "requires": [
+        "MIG-TBL-ORGANIZATIONS",
+        "MIG-TBL-USERS",
+        "MIG-TBL-LEGAL_DOCUMENTS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B03"
+    },
+    {
+      "node_id": "MIG-TBL-FILE_ASSETS",
+      "type": "table",
+      "order": 240,
+      "object_name": "file_assets",
+      "requires": [
+        "MIG-TBL-ORGANIZATIONS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B03"
+    },
+    {
+      "node_id": "MIG-TBL-IDEMPOTENCY_RECORDS",
+      "type": "table",
+      "order": 250,
+      "object_name": "idempotency_records",
+      "requires": [
+        "MIG-TBL-ORGANIZATIONS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B03"
+    },
+    {
+      "node_id": "MIG-TBL-LOCATIONS",
+      "type": "table",
+      "order": 260,
+      "object_name": "locations",
+      "requires": [
+        "MIG-TBL-ORGANIZATIONS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B03"
+    },
+    {
+      "node_id": "MIG-TBL-VEHICLES",
+      "type": "table",
+      "order": 270,
+      "object_name": "vehicles",
+      "requires": [
+        "MIG-TBL-ORGANIZATIONS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B03"
+    },
+    {
+      "node_id": "MIG-TBL-STAFF_PROFILES",
+      "type": "table",
+      "order": 280,
+      "object_name": "staff_profiles",
+      "requires": [
+        "MIG-TBL-ORGANIZATIONS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B03"
+    },
+    {
+      "node_id": "MIG-TBL-STAFF_TYPE_ASSIGNMENTS",
+      "type": "table",
+      "order": 290,
+      "object_name": "staff_type_assignments",
+      "requires": [
+        "MIG-TBL-STAFF_PROFILES",
+        "MIG-TBL-STAFF_TYPES"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B03"
+    },
+    {
+      "node_id": "MIG-TBL-STAFF_CATEGORY_ASSIGNMENTS",
+      "type": "table",
+      "order": 300,
+      "object_name": "staff_category_assignments",
+      "requires": [
+        "MIG-TBL-STAFF_PROFILES",
+        "MIG-TBL-DRIVING_CATEGORIES"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B03"
+    },
+    {
+      "node_id": "MIG-TBL-STAFF_LOCATION_ASSIGNMENTS",
+      "type": "table",
+      "order": 310,
+      "object_name": "staff_location_assignments",
+      "requires": [
+        "MIG-TBL-STAFF_PROFILES",
+        "MIG-TBL-LOCATIONS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B04"
+    },
+    {
+      "node_id": "MIG-TBL-STAFF_MEMBERSHIP_LINKS",
+      "type": "table",
+      "order": 320,
+      "object_name": "staff_membership_links",
+      "requires": [
+        "MIG-TBL-STAFF_PROFILES",
+        "MIG-TBL-ORGANIZATION_MEMBERSHIPS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B04"
+    },
+    {
+      "node_id": "MIG-TBL-STAFF_DOCUMENTS",
+      "type": "table",
+      "order": 330,
+      "object_name": "staff_documents",
+      "requires": [
+        "MIG-TBL-STAFF_PROFILES",
+        "MIG-TBL-FILE_ASSETS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B04"
+    },
+    {
+      "node_id": "MIG-TBL-VEHICLE_DOCUMENTS",
+      "type": "table",
+      "order": 340,
+      "object_name": "vehicle_documents",
+      "requires": [
+        "MIG-TBL-VEHICLES",
+        "MIG-TBL-FILE_ASSETS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B04"
+    },
+    {
+      "node_id": "MIG-TBL-VEHICLE_CATEGORY_ASSIGNMENTS",
+      "type": "table",
+      "order": 350,
+      "object_name": "vehicle_category_assignments",
+      "requires": [
+        "MIG-TBL-VEHICLES",
+        "MIG-TBL-DRIVING_CATEGORIES"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B04"
+    },
+    {
+      "node_id": "MIG-TBL-VEHICLE_LOCATION_ASSIGNMENTS",
+      "type": "table",
+      "order": 360,
+      "object_name": "vehicle_location_assignments",
+      "requires": [
+        "MIG-TBL-VEHICLES",
+        "MIG-TBL-LOCATIONS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B04"
+    },
+    {
+      "node_id": "MIG-TBL-STUDENTS",
+      "type": "table",
+      "order": 370,
+      "object_name": "students",
+      "requires": [
+        "MIG-TBL-ORGANIZATIONS",
+        "MIG-TBL-LOCATIONS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B04"
+    },
+    {
+      "node_id": "MIG-TBL-STUDENT_LEARNING_ACCOUNTS",
+      "type": "table",
+      "order": 380,
+      "object_name": "student_learning_accounts",
+      "requires": [
+        "MIG-TBL-ORGANIZATIONS",
+        "MIG-TBL-STUDENTS",
+        "MIG-TBL-USERS",
+        "MIG-TBL-AUTH_LOGIN_IDENTIFIERS",
+        "MIG-TBL-LANGUAGES"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B04"
+    },
+    {
+      "node_id": "MIG-TBL-STUDENT_ACCESS_HANDOFFS",
+      "type": "table",
+      "order": 390,
+      "object_name": "student_access_handoffs",
+      "requires": [
+        "MIG-TBL-STUDENT_LEARNING_ACCOUNTS",
+        "MIG-TBL-USERS",
+        "MIG-TBL-FILE_ASSETS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B04"
+    },
+    {
+      "node_id": "MIG-TBL-STUDENT_ACCESS_EXPORT_BATCHES",
+      "type": "table",
+      "order": 400,
+      "object_name": "student_access_export_batches",
+      "requires": [
+        "MIG-TBL-ORGANIZATIONS",
+        "MIG-TBL-USERS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B04"
+    },
+    {
+      "node_id": "MIG-TBL-COURSE_ENROLLMENTS",
+      "type": "table",
+      "order": 410,
+      "object_name": "course_enrollments",
+      "requires": [
+        "MIG-TBL-ORGANIZATIONS",
+        "MIG-TBL-STUDENTS",
+        "MIG-TBL-STAFF_PROFILES",
+        "MIG-TBL-LOCATIONS",
+        "MIG-TBL-DRIVING_CATEGORIES"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B05"
+    },
+    {
+      "node_id": "MIG-TBL-COURSE_ENROLLMENT_LIFECYCLE_EVENTS",
+      "type": "table",
+      "order": 420,
+      "object_name": "course_enrollment_lifecycle_events",
+      "requires": [
+        "MIG-TBL-COURSE_ENROLLMENTS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B05"
+    },
+    {
+      "node_id": "MIG-TBL-TRAINING_REQUIREMENT_RULE_SETS",
+      "type": "table",
+      "order": 430,
+      "object_name": "training_requirement_rule_sets",
+      "requires": [
+        "MIG-TBL-DRIVING_CATEGORIES"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B05"
+    },
+    {
+      "node_id": "MIG-TBL-COURSE_REQUIREMENT_CONTEXTS",
+      "type": "table",
+      "order": 440,
+      "object_name": "course_requirement_contexts",
+      "requires": [
+        "MIG-TBL-COURSE_ENROLLMENTS",
+        "MIG-TBL-TRAINING_REQUIREMENT_RULE_SETS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B05"
+    },
+    {
+      "node_id": "MIG-TBL-COURSE_REQUIREMENT_CONTEXT_HELD_CATEGORIES",
+      "type": "table",
+      "order": 450,
+      "object_name": "course_requirement_context_held_categories",
+      "requires": [
+        "MIG-TBL-COURSE_REQUIREMENT_CONTEXTS",
+        "MIG-TBL-DRIVING_CATEGORIES"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B05"
+    },
+    {
+      "node_id": "MIG-TBL-COURSE_REQUIREMENT_OVERRIDE_DECISIONS",
+      "type": "table",
+      "order": 460,
+      "object_name": "course_requirement_override_decisions",
+      "requires": [
+        "MIG-TBL-COURSE_REQUIREMENT_CONTEXTS",
+        "MIG-TBL-USERS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B05"
+    },
+    {
+      "node_id": "MIG-TBL-TRAINING_REQUIREMENT_PROFILES",
+      "type": "table",
+      "order": 470,
+      "object_name": "training_requirement_profiles",
+      "requires": [
+        "MIG-TBL-COURSE_ENROLLMENTS",
+        "MIG-TBL-TRAINING_REQUIREMENT_RULE_SETS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B05"
+    },
+    {
+      "node_id": "MIG-TBL-COURSE_EXEMPTION_DECISIONS",
+      "type": "table",
+      "order": 480,
+      "object_name": "course_exemption_decisions",
+      "requires": [
+        "MIG-TBL-COURSE_ENROLLMENTS",
+        "MIG-TBL-USERS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B05"
+    },
+    {
+      "node_id": "MIG-TBL-RECOGNIZED_EXTERNAL_TRAINING",
+      "type": "table",
+      "order": 490,
+      "object_name": "recognized_external_training",
+      "requires": [
+        "MIG-TBL-COURSE_ENROLLMENTS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B05"
+    },
+    {
+      "node_id": "MIG-TBL-TRAINING_SESSIONS",
+      "type": "table",
+      "order": 500,
+      "object_name": "training_sessions",
+      "requires": [
+        "MIG-TBL-COURSE_ENROLLMENTS",
+        "MIG-TBL-STAFF_PROFILES",
+        "MIG-TBL-VEHICLES",
+        "MIG-TBL-LOCATIONS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B05"
+    },
+    {
+      "node_id": "MIG-TBL-TRAINING_SESSION_ATTENDANCE",
+      "type": "table",
+      "order": 510,
+      "object_name": "training_session_attendance",
+      "requires": [
+        "MIG-TBL-TRAINING_SESSIONS",
+        "MIG-TBL-STUDENTS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B06"
+    },
+    {
+      "node_id": "MIG-TBL-TRAINING_HOUR_LEDGER_ENTRIES",
+      "type": "table",
+      "order": 520,
+      "object_name": "training_hour_ledger_entries",
+      "requires": [
+        "MIG-TBL-COURSE_ENROLLMENTS",
+        "MIG-TBL-TRAINING_SESSIONS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B06"
+    },
+    {
+      "node_id": "MIG-TBL-CALENDAR_EVENTS",
+      "type": "table",
+      "order": 530,
+      "object_name": "calendar_events",
+      "requires": [
+        "MIG-TBL-ORGANIZATIONS",
+        "MIG-TBL-STUDENTS",
+        "MIG-TBL-STAFF_PROFILES",
+        "MIG-TBL-VEHICLES",
+        "MIG-TBL-LOCATIONS",
+        "MIG-TBL-USERS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B06"
+    },
+    {
+      "node_id": "MIG-TBL-CALENDAR_EVENT_LIFECYCLE_EVENTS",
+      "type": "table",
+      "order": 540,
+      "object_name": "calendar_event_lifecycle_events",
+      "requires": [
+        "MIG-TBL-CALENDAR_EVENTS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B06"
+    },
+    {
+      "node_id": "MIG-TBL-AVAILABILITY_SLOTS",
+      "type": "table",
+      "order": 550,
+      "object_name": "availability_slots",
+      "requires": [
+        "MIG-TBL-ORGANIZATIONS",
+        "MIG-TBL-STUDENTS",
+        "MIG-TBL-STAFF_PROFILES",
+        "MIG-TBL-VEHICLES",
+        "MIG-TBL-LOCATIONS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B06"
+    },
+    {
+      "node_id": "MIG-TBL-AVAILABILITY_SLOT_LIFECYCLE_EVENTS",
+      "type": "table",
+      "order": 560,
+      "object_name": "availability_slot_lifecycle_events",
+      "requires": [
+        "MIG-TBL-AVAILABILITY_SLOTS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B06"
+    },
+    {
+      "node_id": "MIG-TBL-CALENDAR_RESOURCE_CLAIMS",
+      "type": "table",
+      "order": 570,
+      "object_name": "calendar_resource_claims",
+      "requires": [
+        "MIG-TBL-ORGANIZATIONS",
+        "MIG-TBL-STUDENTS",
+        "MIG-TBL-STAFF_PROFILES",
+        "MIG-TBL-VEHICLES",
+        "MIG-TBL-LOCATIONS",
+        "MIG-TBL-CALENDAR_EVENTS",
+        "MIG-TBL-AVAILABILITY_SLOTS",
+        "MIG-TBL-TRAINING_SESSIONS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B06"
+    },
+    {
+      "node_id": "MIG-TBL-TRAINING_SESSION_CALENDAR_DETAILS",
+      "type": "table",
+      "order": 580,
+      "object_name": "training_session_calendar_details",
+      "requires": [
+        "MIG-TBL-TRAINING_SESSIONS",
+        "MIG-TBL-AVAILABILITY_SLOTS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B06"
+    },
+    {
+      "node_id": "MIG-TBL-PKK_INTEGRATION_SETTINGS",
+      "type": "table",
+      "order": 590,
+      "object_name": "pkk_integration_settings",
+      "requires": [
+        "MIG-TBL-ORGANIZATIONS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B06"
+    },
+    {
+      "node_id": "MIG-TBL-PKK_INTEGRATION_CONFIGURATION_REVISIONS",
+      "type": "table",
+      "order": 600,
+      "object_name": "pkk_integration_configuration_revisions",
+      "requires": [
+        "MIG-TBL-PKK_INTEGRATION_SETTINGS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B06"
+    },
+    {
+      "node_id": "MIG-TBL-PKK_PROFILES",
+      "type": "table",
+      "order": 610,
+      "object_name": "pkk_profiles",
+      "requires": [
+        "MIG-TBL-ORGANIZATIONS",
+        "MIG-TBL-COURSE_ENROLLMENTS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B07"
+    },
+    {
+      "node_id": "MIG-TBL-PKK_PROVIDER_PROFILE_SNAPSHOTS",
+      "type": "table",
+      "order": 620,
+      "object_name": "pkk_provider_profile_snapshots",
+      "requires": [
+        "MIG-TBL-PKK_PROFILES"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B07"
+    },
+    {
+      "node_id": "MIG-TBL-PKK_OPERATIONS",
+      "type": "table",
+      "order": 630,
+      "object_name": "pkk_operations",
+      "requires": [
+        "MIG-TBL-PKK_PROFILES",
+        "MIG-TBL-COURSE_ENROLLMENTS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B07"
+    },
+    {
+      "node_id": "MIG-TBL-PKK_OPERATION_LIFECYCLE_EVENTS",
+      "type": "table",
+      "order": 640,
+      "object_name": "pkk_operation_lifecycle_events",
+      "requires": [
+        "MIG-TBL-PKK_OPERATIONS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B07"
+    },
+    {
+      "node_id": "MIG-TBL-PKK_OPERATION_ATTEMPTS",
+      "type": "table",
+      "order": 650,
+      "object_name": "pkk_operation_attempts",
+      "requires": [
+        "MIG-TBL-PKK_OPERATIONS",
+        "MIG-TBL-PKK_INTEGRATION_CONFIGURATION_REVISIONS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B07"
+    },
+    {
+      "node_id": "MIG-TBL-PKK_OPERATION_ATTEMPT_RECONCILIATIONS",
+      "type": "table",
+      "order": 660,
+      "object_name": "pkk_operation_attempt_reconciliations",
+      "requires": [
+        "MIG-TBL-PKK_OPERATION_ATTEMPTS",
+        "MIG-TBL-USERS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B07"
+    },
+    {
+      "node_id": "MIG-TBL-PKK_SIGNATURE_HANDOFFS",
+      "type": "table",
+      "order": 670,
+      "object_name": "pkk_signature_handoffs",
+      "requires": [
+        "MIG-TBL-PKK_OPERATIONS",
+        "MIG-TBL-FILE_ASSETS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B07"
+    },
+    {
+      "node_id": "MIG-TBL-PKK_SIGNATURE_HANDOFF_UPLOAD_RESERVATIONS",
+      "type": "table",
+      "order": 680,
+      "object_name": "pkk_signature_handoff_upload_reservations",
+      "requires": [
+        "MIG-TBL-PKK_SIGNATURE_HANDOFFS",
+        "MIG-TBL-FILE_ASSETS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B07"
+    },
+    {
+      "node_id": "MIG-TBL-PKK_PROTECTED_PAYLOADS",
+      "type": "table",
+      "order": 690,
+      "object_name": "pkk_protected_payloads",
+      "requires": [
+        "MIG-TBL-PKK_OPERATIONS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B07"
+    },
+    {
+      "node_id": "MIG-TBL-PKK_PROTECTED_PAYLOAD_KEY_WRAPPINGS",
+      "type": "table",
+      "order": 700,
+      "object_name": "pkk_protected_payload_key_wrappings",
+      "requires": [
+        "MIG-TBL-PKK_PROTECTED_PAYLOADS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B07"
+    },
+    {
+      "node_id": "MIG-TBL-PKK_PAYLOAD_REDACTED_PROJECTIONS",
+      "type": "table",
+      "order": 710,
+      "object_name": "pkk_payload_redacted_projections",
+      "requires": [
+        "MIG-TBL-PKK_OPERATIONS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B08"
+    },
+    {
+      "node_id": "MIG-TBL-PKK_SIGNATURE_FILE_ASSET_PROTECTIONS",
+      "type": "table",
+      "order": 720,
+      "object_name": "pkk_signature_file_asset_protections",
+      "requires": [
+        "MIG-TBL-FILE_ASSETS",
+        "MIG-TBL-PKK_SIGNATURE_HANDOFFS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B08"
+    },
+    {
+      "node_id": "MIG-TBL-PKK_SIGNATURE_FILE_ASSET_KEY_WRAPPINGS",
+      "type": "table",
+      "order": 730,
+      "object_name": "pkk_signature_file_asset_key_wrappings",
+      "requires": [
+        "MIG-TBL-PKK_SIGNATURE_FILE_ASSET_PROTECTIONS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B08"
+    },
+    {
+      "node_id": "MIG-TBL-STUDENT_CHARGES",
+      "type": "table",
+      "order": 740,
+      "object_name": "student_charges",
+      "requires": [
+        "MIG-TBL-ORGANIZATIONS",
+        "MIG-TBL-STUDENTS",
+        "MIG-TBL-COURSE_ENROLLMENTS",
+        "MIG-TBL-USERS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B08"
+    },
+    {
+      "node_id": "MIG-TBL-STUDENT_PAYMENTS",
+      "type": "table",
+      "order": 750,
+      "object_name": "student_payments",
+      "requires": [
+        "MIG-TBL-STUDENT_CHARGES",
+        "MIG-TBL-STUDENTS",
+        "MIG-TBL-USERS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B08"
+    },
+    {
+      "node_id": "MIG-TBL-COURSE_COST_CHARGE_ORIGINS",
+      "type": "table",
+      "order": 760,
+      "object_name": "course_cost_charge_origins",
+      "requires": [
+        "MIG-TBL-COURSE_ENROLLMENTS",
+        "MIG-TBL-STUDENT_CHARGES"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B08"
+    },
+    {
+      "node_id": "MIG-TBL-LICENSE_PRODUCTS",
+      "type": "table",
+      "order": 770,
+      "object_name": "license_products",
+      "requires": [],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B08"
+    },
+    {
+      "node_id": "MIG-TBL-LICENSE_PRODUCT_LANGUAGE_CAPABILITIES",
+      "type": "table",
+      "order": 780,
+      "object_name": "license_product_language_capabilities",
+      "requires": [
+        "MIG-TBL-LICENSE_PRODUCTS",
+        "MIG-TBL-LANGUAGES"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B08"
+    },
+    {
+      "node_id": "MIG-TBL-LICENSE_INVENTORY_ENTRIES",
+      "type": "table",
+      "order": 790,
+      "object_name": "license_inventory_entries",
+      "requires": [
+        "MIG-TBL-ORGANIZATIONS",
+        "MIG-TBL-LICENSE_PRODUCTS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B08"
+    },
+    {
+      "node_id": "MIG-TBL-LICENSE_ASSIGNMENTS",
+      "type": "table",
+      "order": 800,
+      "object_name": "license_assignments",
+      "requires": [
+        "MIG-TBL-LICENSE_INVENTORY_ENTRIES",
+        "MIG-TBL-STUDENTS",
+        "MIG-TBL-STUDENT_LEARNING_ACCOUNTS",
+        "MIG-TBL-USERS",
+        "MIG-TBL-LANGUAGES"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B08"
+    },
+    {
+      "node_id": "MIG-TBL-LICENSE_ACTIVATIONS",
+      "type": "table",
+      "order": 810,
+      "object_name": "license_activations",
+      "requires": [
+        "MIG-TBL-LICENSE_ASSIGNMENTS",
+        "MIG-TBL-USERS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B09"
+    },
+    {
+      "node_id": "MIG-TBL-EXAM_STATIONS",
+      "type": "table",
+      "order": 820,
+      "object_name": "exam_stations",
+      "requires": [
+        "MIG-TBL-ORGANIZATIONS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B09"
+    },
+    {
+      "node_id": "MIG-TBL-EXAM_STATION_CREDENTIALS",
+      "type": "table",
+      "order": 830,
+      "object_name": "exam_station_credentials",
+      "requires": [
+        "MIG-TBL-EXAM_STATIONS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B09"
+    },
+    {
+      "node_id": "MIG-TBL-INTERNAL_EXAM_DEFINITIONS",
+      "type": "table",
+      "order": 840,
+      "object_name": "internal_exam_definitions",
+      "requires": [
+        "MIG-TBL-INTERNAL_EXAM_CAPABILITIES"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B09"
+    },
+    {
+      "node_id": "MIG-TBL-INTERNAL_EXAM_DOCUMENT_TEMPLATES",
+      "type": "table",
+      "order": 850,
+      "object_name": "internal_exam_document_templates",
+      "requires": [
+        "MIG-TBL-ORGANIZATIONS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B09"
+    },
+    {
+      "node_id": "MIG-TBL-INTERNAL_EXAM_INVENTORY_ENTRIES",
+      "type": "table",
+      "order": 860,
+      "object_name": "internal_exam_inventory_entries",
+      "requires": [
+        "MIG-TBL-ORGANIZATIONS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B09"
+    },
+    {
+      "node_id": "MIG-TBL-INTERNAL_EXAM_INVENTORY_ADJUSTMENTS",
+      "type": "table",
+      "order": 870,
+      "object_name": "internal_exam_inventory_adjustments",
+      "requires": [
+        "MIG-TBL-INTERNAL_EXAM_INVENTORY_ENTRIES",
+        "MIG-TBL-USERS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B09"
+    },
+    {
+      "node_id": "MIG-TBL-INTERNAL_EXAM_INVENTORY_LEDGER_ENTRIES",
+      "type": "table",
+      "order": 880,
+      "object_name": "internal_exam_inventory_ledger_entries",
+      "requires": [
+        "MIG-TBL-INTERNAL_EXAM_INVENTORY_ENTRIES"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B09"
+    },
+    {
+      "node_id": "MIG-TBL-INTERNAL_EXAM_ATTEMPTS",
+      "type": "table",
+      "order": 890,
+      "object_name": "internal_exam_attempts",
+      "requires": [
+        "MIG-TBL-COURSE_ENROLLMENTS",
+        "MIG-TBL-STUDENTS",
+        "MIG-TBL-INTERNAL_EXAM_CAPABILITIES"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B09"
+    },
+    {
+      "node_id": "MIG-TBL-INTERNAL_EXAM_ATTEMPT_LIFECYCLE_EVENTS",
+      "type": "table",
+      "order": 900,
+      "object_name": "internal_exam_attempt_lifecycle_events",
+      "requires": [
+        "MIG-TBL-INTERNAL_EXAM_ATTEMPTS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B09"
+    },
+    {
+      "node_id": "MIG-TBL-INTERNAL_EXAM_RESERVATIONS",
+      "type": "table",
+      "order": 910,
+      "object_name": "internal_exam_reservations",
+      "requires": [
+        "MIG-TBL-INTERNAL_EXAM_ATTEMPTS",
+        "MIG-TBL-INTERNAL_EXAM_INVENTORY_ENTRIES"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B10"
+    },
+    {
+      "node_id": "MIG-TBL-INTERNAL_EXAM_ACCESSES",
+      "type": "table",
+      "order": 920,
+      "object_name": "internal_exam_accesses",
+      "requires": [
+        "MIG-TBL-INTERNAL_EXAM_ATTEMPTS",
+        "MIG-TBL-EXAM_STATIONS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B10"
+    },
+    {
+      "node_id": "MIG-TBL-INTERNAL_EXAM_ACCESS_LIFECYCLE_EVENTS",
+      "type": "table",
+      "order": 930,
+      "object_name": "internal_exam_access_lifecycle_events",
+      "requires": [
+        "MIG-TBL-INTERNAL_EXAM_ACCESSES"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B10"
+    },
+    {
+      "node_id": "MIG-TBL-INTERNAL_EXAM_ACCESS_TOKENS",
+      "type": "table",
+      "order": 940,
+      "object_name": "internal_exam_access_tokens",
+      "requires": [
+        "MIG-TBL-INTERNAL_EXAM_ACCESSES"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B10"
+    },
+    {
+      "node_id": "MIG-TBL-INTERNAL_EXAM_STATION_SESSIONS",
+      "type": "table",
+      "order": 950,
+      "object_name": "internal_exam_station_sessions",
+      "requires": [
+        "MIG-TBL-INTERNAL_EXAM_ATTEMPTS",
+        "MIG-TBL-INTERNAL_EXAM_ACCESSES",
+        "MIG-TBL-EXAM_STATIONS",
+        "MIG-TBL-EXAM_STATION_CREDENTIALS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B10"
+    },
+    {
+      "node_id": "MIG-TBL-INTERNAL_EXAM_ATTEMPT_QUESTIONS",
+      "type": "table",
+      "order": 960,
+      "object_name": "internal_exam_attempt_questions",
+      "requires": [
+        "MIG-TBL-INTERNAL_EXAM_ATTEMPTS",
+        "MIG-TBL-INTERNAL_EXAM_DEFINITIONS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B10"
+    },
+    {
+      "node_id": "MIG-TBL-INTERNAL_EXAM_RESULTS",
+      "type": "table",
+      "order": 970,
+      "object_name": "internal_exam_results",
+      "requires": [
+        "MIG-TBL-INTERNAL_EXAM_ATTEMPTS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B10"
+    },
+    {
+      "node_id": "MIG-TBL-INTERNAL_EXAM_DOCUMENTS",
+      "type": "table",
+      "order": 980,
+      "object_name": "internal_exam_documents",
+      "requires": [
+        "MIG-TBL-INTERNAL_EXAM_ATTEMPTS",
+        "MIG-TBL-INTERNAL_EXAM_RESULTS",
+        "MIG-TBL-INTERNAL_EXAM_DOCUMENT_TEMPLATES",
+        "MIG-TBL-FILE_ASSETS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B10"
+    },
+    {
+      "node_id": "MIG-TBL-COMMERCE_CATALOG_ITEMS",
+      "type": "table",
+      "order": 990,
+      "object_name": "commerce_catalog_items",
+      "requires": [
+        "MIG-TBL-LICENSE_PRODUCTS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B10"
+    },
+    {
+      "node_id": "MIG-TBL-ORDERS",
+      "type": "table",
+      "order": 1000,
+      "object_name": "orders",
+      "requires": [
+        "MIG-TBL-ORGANIZATIONS",
+        "MIG-TBL-USERS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B10"
+    },
+    {
+      "node_id": "MIG-TBL-ORDER_ITEMS",
+      "type": "table",
+      "order": 1010,
+      "object_name": "order_items",
+      "requires": [
+        "MIG-TBL-ORDERS",
+        "MIG-TBL-COMMERCE_CATALOG_ITEMS",
+        "MIG-TBL-LICENSE_PRODUCTS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B11"
+    },
+    {
+      "node_id": "MIG-TBL-PAYMENTS",
+      "type": "table",
+      "order": 1020,
+      "object_name": "payments",
+      "requires": [
+        "MIG-TBL-ORDERS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B11"
+    },
+    {
+      "node_id": "MIG-TBL-PAYMENT_EVENTS",
+      "type": "table",
+      "order": 1030,
+      "object_name": "payment_events",
+      "requires": [
+        "MIG-TBL-PAYMENTS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B11"
+    },
+    {
+      "node_id": "MIG-TBL-ORDER_PAYMENT_SETTLEMENTS",
+      "type": "table",
+      "order": 1040,
+      "object_name": "order_payment_settlements",
+      "requires": [
+        "MIG-TBL-ORDERS",
+        "MIG-TBL-PAYMENTS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B11"
+    },
+    {
+      "node_id": "MIG-TBL-ORDER_FULFILLMENTS",
+      "type": "table",
+      "order": 1050,
+      "object_name": "order_fulfillments",
+      "requires": [
+        "MIG-TBL-ORDERS",
+        "MIG-TBL-ORDER_PAYMENT_SETTLEMENTS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B11"
+    },
+    {
+      "node_id": "MIG-TBL-SERVICE_ENTITLEMENTS",
+      "type": "table",
+      "order": 1060,
+      "object_name": "service_entitlements",
+      "requires": [
+        "MIG-TBL-ORDERS",
+        "MIG-TBL-ORDER_ITEMS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B11"
+    },
+    {
+      "node_id": "MIG-TBL-SERVICE_ACTIVATIONS",
+      "type": "table",
+      "order": 1070,
+      "object_name": "service_activations",
+      "requires": [
+        "MIG-TBL-SERVICE_ENTITLEMENTS",
+        "MIG-TBL-USERS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B11"
+    },
+    {
+      "node_id": "MIG-TBL-AUDIT_ACTION_POLICY_REVISIONS",
+      "type": "table",
+      "order": 1080,
+      "object_name": "audit_action_policy_revisions",
+      "requires": [],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B11"
+    },
+    {
+      "node_id": "MIG-TBL-AUDIT_ACTION_POLICY_CURRENTS",
+      "type": "table",
+      "order": 1090,
+      "object_name": "audit_action_policy_currents",
+      "requires": [
+        "MIG-TBL-AUDIT_ACTION_POLICY_REVISIONS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B11"
+    },
+    {
+      "node_id": "MIG-TBL-AUDIT_LOGS",
+      "type": "table",
+      "order": 1100,
+      "object_name": "audit_logs",
+      "requires": [
+        "MIG-TBL-ORGANIZATIONS",
+        "MIG-TBL-USERS",
+        "MIG-TBL-ORGANIZATION_MEMBERSHIPS",
+        "MIG-TBL-AUDIT_ACTION_POLICY_CURRENTS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B11"
+    },
+    {
+      "node_id": "MIG-TBL-DOMAIN_EVENTS",
+      "type": "table",
+      "order": 1110,
+      "object_name": "domain_events",
+      "requires": [
+        "MIG-TBL-ORGANIZATIONS",
+        "MIG-TBL-AUDIT_LOGS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B12"
+    },
+    {
+      "node_id": "MIG-TBL-OUTBOX_MESSAGES",
+      "type": "table",
+      "order": 1120,
+      "object_name": "outbox_messages",
+      "requires": [
+        "MIG-TBL-DOMAIN_EVENTS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B12"
+    },
+    {
+      "node_id": "MIG-TBL-ACTIVITY_PROJECTION_POLICY_REVISIONS",
+      "type": "table",
+      "order": 1130,
+      "object_name": "activity_projection_policy_revisions",
+      "requires": [],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B12"
+    },
+    {
+      "node_id": "MIG-TBL-ACTIVITY_PROJECTION_POLICY_CURRENTS",
+      "type": "table",
+      "order": 1140,
+      "object_name": "activity_projection_policy_currents",
+      "requires": [
+        "MIG-TBL-ACTIVITY_PROJECTION_POLICY_REVISIONS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B12"
+    },
+    {
+      "node_id": "MIG-TBL-ORGANIZATION_ACTIVITY_EVENTS",
+      "type": "table",
+      "order": 1150,
+      "object_name": "organization_activity_events",
+      "requires": [
+        "MIG-TBL-ORGANIZATIONS",
+        "MIG-TBL-DOMAIN_EVENTS",
+        "MIG-TBL-ACTIVITY_PROJECTION_POLICY_CURRENTS",
+        "MIG-TBL-USERS",
+        "MIG-TBL-STUDENTS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B12"
+    },
+    {
+      "node_id": "MIG-TBL-NOTIFICATIONS",
+      "type": "table",
+      "order": 1160,
+      "object_name": "notifications",
+      "requires": [
+        "MIG-TBL-ORGANIZATIONS",
+        "MIG-TBL-DOMAIN_EVENTS",
+        "MIG-TBL-ORGANIZATION_MEMBERSHIPS",
+        "MIG-TBL-USERS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B12"
+    },
+    {
+      "node_id": "MIG-TBL-EVENT_PROJECTION_MIGRATION_CASES",
+      "type": "table",
+      "order": 1170,
+      "object_name": "event_projection_migration_cases",
+      "requires": [
+        "MIG-TBL-DOMAIN_EVENTS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B12"
+    },
+    {
+      "node_id": "MIG-TBL-DATA_RETENTION_EXECUTION_RUNS",
+      "type": "table",
+      "order": 1180,
+      "object_name": "data_retention_execution_runs",
+      "requires": [
+        "MIG-TBL-ORGANIZATIONS",
+        "MIG-TBL-USERS",
+        "MIG-TBL-AUDIT_LOGS"
+      ],
+      "phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B12"
+    },
+    {
+      "node_id": "MIG-CK-IDENTITY",
+      "type": "candidate_key",
+      "order": 1190,
+      "object_name": "identity",
+      "requires": [
+        "MIG-TBL-ORGANIZATION_MEMBERSHIPS",
+        "MIG-TBL-AUTH_LOGIN_IDENTIFIERS"
+      ],
+      "phases": [
+        "preflight",
+        "write_fence"
+      ],
+      "restart_classification": "manual_review",
+      "batch_id": "B12"
+    },
+    {
+      "node_id": "MIG-CK-ASSETS_RESOURCES",
+      "type": "candidate_key",
+      "order": 1200,
+      "object_name": "assets_resources",
+      "requires": [
+        "MIG-TBL-FILE_ASSETS",
+        "MIG-TBL-STAFF_PROFILES",
+        "MIG-TBL-LOCATIONS",
+        "MIG-TBL-VEHICLES"
+      ],
+      "phases": [
+        "preflight",
+        "write_fence"
+      ],
+      "restart_classification": "manual_review",
+      "batch_id": "B12"
+    },
+    {
+      "node_id": "MIG-CK-TRAINING",
+      "type": "candidate_key",
+      "order": 1210,
+      "object_name": "training",
+      "requires": [
+        "MIG-TBL-STUDENTS",
+        "MIG-TBL-STUDENT_LEARNING_ACCOUNTS",
+        "MIG-TBL-COURSE_ENROLLMENTS",
+        "MIG-TBL-TRAINING_SESSIONS"
+      ],
+      "phases": [
+        "preflight",
+        "write_fence"
+      ],
+      "restart_classification": "manual_review",
+      "batch_id": "B13"
+    },
+    {
+      "node_id": "MIG-CK-FINANCE",
+      "type": "candidate_key",
+      "order": 1220,
+      "object_name": "finance",
+      "requires": [
+        "MIG-TBL-STUDENT_CHARGES"
+      ],
+      "phases": [
+        "preflight",
+        "write_fence"
+      ],
+      "restart_classification": "manual_review",
+      "batch_id": "B13"
+    },
+    {
+      "node_id": "MIG-CK-LICENSES",
+      "type": "candidate_key",
+      "order": 1230,
+      "object_name": "licenses",
+      "requires": [
+        "MIG-TBL-LICENSE_INVENTORY_ENTRIES",
+        "MIG-TBL-LICENSE_ASSIGNMENTS"
+      ],
+      "phases": [
+        "preflight",
+        "write_fence"
+      ],
+      "restart_classification": "manual_review",
+      "batch_id": "B13"
+    },
+    {
+      "node_id": "MIG-CK-EXAMS",
+      "type": "candidate_key",
+      "order": 1240,
+      "object_name": "exams",
+      "requires": [
+        "MIG-TBL-INTERNAL_EXAM_INVENTORY_ENTRIES",
+        "MIG-TBL-INTERNAL_EXAM_ATTEMPTS",
+        "MIG-TBL-INTERNAL_EXAM_ACCESSES",
+        "MIG-TBL-EXAM_STATIONS"
+      ],
+      "phases": [
+        "preflight",
+        "write_fence"
+      ],
+      "restart_classification": "manual_review",
+      "batch_id": "B13"
+    },
+    {
+      "node_id": "MIG-CK-COMMERCE",
+      "type": "candidate_key",
+      "order": 1250,
+      "object_name": "commerce",
+      "requires": [
+        "MIG-TBL-ORDERS",
+        "MIG-TBL-ORDER_ITEMS"
+      ],
+      "phases": [
+        "preflight",
+        "write_fence"
+      ],
+      "restart_classification": "manual_review",
+      "batch_id": "B13"
+    },
+    {
+      "node_id": "MIG-CK-EVENTS",
+      "type": "candidate_key",
+      "order": 1260,
+      "object_name": "events",
+      "requires": [
+        "MIG-TBL-AUDIT_LOGS",
+        "MIG-TBL-DOMAIN_EVENTS"
+      ],
+      "phases": [
+        "preflight",
+        "write_fence"
+      ],
+      "restart_classification": "manual_review",
+      "batch_id": "B13"
+    },
+    {
+      "node_id": "MIG-IDX-IDENTITY",
+      "type": "index",
+      "order": 1270,
+      "object_name": "identity",
+      "requires": [
+        "MIG-TBL-AUTH_LOGIN_IDENTIFIERS",
+        "MIG-TBL-ORGANIZATION_MEMBERSHIPS",
+        "MIG-TBL-MEMBERSHIP_PERMISSIONS",
+        "MIG-TBL-MEMBERSHIP_PERMISSION_SCOPES",
+        "MIG-TBL-ACCOUNT_CLOSURE_REQUESTS"
+      ],
+      "phases": [
+        "preflight",
+        "write_fence"
+      ],
+      "restart_classification": "manual_review",
+      "batch_id": "B13"
+    },
+    {
+      "node_id": "MIG-IDX-RESOURCES",
+      "type": "index",
+      "order": 1280,
+      "object_name": "resources",
+      "requires": [
+        "MIG-TBL-STAFF_PROFILES",
+        "MIG-TBL-STAFF_MEMBERSHIP_LINKS",
+        "MIG-TBL-STAFF_DOCUMENTS",
+        "MIG-TBL-VEHICLES",
+        "MIG-TBL-VEHICLE_DOCUMENTS"
+      ],
+      "phases": [
+        "preflight",
+        "write_fence"
+      ],
+      "restart_classification": "manual_review",
+      "batch_id": "B13"
+    },
+    {
+      "node_id": "MIG-IDX-TRAINING",
+      "type": "index",
+      "order": 1290,
+      "object_name": "training",
+      "requires": [
+        "MIG-TBL-STUDENTS",
+        "MIG-TBL-COURSE_ENROLLMENTS",
+        "MIG-TBL-TRAINING_REQUIREMENT_PROFILES",
+        "MIG-TBL-RECOGNIZED_EXTERNAL_TRAINING",
+        "MIG-TBL-TRAINING_HOUR_LEDGER_ENTRIES"
+      ],
+      "phases": [
+        "preflight",
+        "write_fence"
+      ],
+      "restart_classification": "manual_review",
+      "batch_id": "B13"
+    },
+    {
+      "node_id": "MIG-IDX-CALENDAR_GIST",
+      "type": "index",
+      "order": 1300,
+      "object_name": "calendar_gist",
+      "requires": [
+        "MIG-TBL-CALENDAR_RESOURCE_CLAIMS",
+        "MIG-EXT-BTREE-GIST"
+      ],
+      "phases": [
+        "preflight",
+        "write_fence"
+      ],
+      "restart_classification": "manual_review",
+      "batch_id": "B13"
+    },
+    {
+      "node_id": "MIG-IDX-PKK",
+      "type": "index",
+      "order": 1310,
+      "object_name": "pkk",
+      "requires": [
+        "MIG-TBL-PKK_PROFILES",
+        "MIG-TBL-PKK_OPERATIONS",
+        "MIG-TBL-PKK_OPERATION_ATTEMPTS"
+      ],
+      "phases": [
+        "preflight",
+        "write_fence"
+      ],
+      "restart_classification": "manual_review",
+      "batch_id": "B14"
+    },
+    {
+      "node_id": "MIG-IDX-FINANCE",
+      "type": "index",
+      "order": 1320,
+      "object_name": "finance",
+      "requires": [
+        "MIG-TBL-STUDENT_CHARGES",
+        "MIG-TBL-STUDENT_PAYMENTS",
+        "MIG-TBL-COURSE_COST_CHARGE_ORIGINS"
+      ],
+      "phases": [
+        "preflight",
+        "write_fence"
+      ],
+      "restart_classification": "manual_review",
+      "batch_id": "B14"
+    },
+    {
+      "node_id": "MIG-IDX-LICENSES",
+      "type": "index",
+      "order": 1330,
+      "object_name": "licenses",
+      "requires": [
+        "MIG-TBL-LICENSE_ASSIGNMENTS",
+        "MIG-TBL-LICENSE_ACTIVATIONS"
+      ],
+      "phases": [
+        "preflight",
+        "write_fence"
+      ],
+      "restart_classification": "manual_review",
+      "batch_id": "B14"
+    },
+    {
+      "node_id": "MIG-IDX-EXAMS",
+      "type": "index",
+      "order": 1340,
+      "object_name": "exams",
+      "requires": [
+        "MIG-TBL-INTERNAL_EXAM_INVENTORY_LEDGER_ENTRIES",
+        "MIG-TBL-INTERNAL_EXAM_ATTEMPTS",
+        "MIG-TBL-INTERNAL_EXAM_RESERVATIONS",
+        "MIG-TBL-INTERNAL_EXAM_ACCESSES",
+        "MIG-TBL-INTERNAL_EXAM_STATION_SESSIONS"
+      ],
+      "phases": [
+        "preflight",
+        "write_fence"
+      ],
+      "restart_classification": "manual_review",
+      "batch_id": "B14"
+    },
+    {
+      "node_id": "MIG-IDX-COMMERCE",
+      "type": "index",
+      "order": 1350,
+      "object_name": "commerce",
+      "requires": [
+        "MIG-TBL-ORDERS",
+        "MIG-TBL-ORDER_ITEMS",
+        "MIG-TBL-PAYMENT_EVENTS",
+        "MIG-TBL-ORDER_PAYMENT_SETTLEMENTS",
+        "MIG-TBL-ORDER_FULFILLMENTS",
+        "MIG-TBL-SERVICE_ENTITLEMENTS",
+        "MIG-TBL-SERVICE_ACTIVATIONS"
+      ],
+      "phases": [
+        "preflight",
+        "write_fence"
+      ],
+      "restart_classification": "manual_review",
+      "batch_id": "B14"
+    },
+    {
+      "node_id": "MIG-IDX-EVENTS",
+      "type": "index",
+      "order": 1360,
+      "object_name": "events",
+      "requires": [
+        "MIG-TBL-OUTBOX_MESSAGES",
+        "MIG-TBL-ORGANIZATION_ACTIVITY_EVENTS",
+        "MIG-TBL-NOTIFICATIONS",
+        "MIG-TBL-EVENT_PROJECTION_MIGRATION_CASES"
+      ],
+      "phases": [
+        "preflight",
+        "write_fence"
+      ],
+      "restart_classification": "manual_review",
+      "batch_id": "B14"
+    },
+    {
+      "node_id": "MIG-FK-IDENTITY",
+      "type": "foreign_key",
+      "order": 1370,
+      "object_name": "identity",
+      "requires": [
+        "MIG-TBL-ORGANIZATION_MEMBERSHIPS",
+        "MIG-TBL-AUTH_SESSIONS",
+        "MIG-TBL-MEMBERSHIP_PERMISSIONS",
+        "MIG-TBL-PERMISSION_SCOPE_OPTIONS",
+        "MIG-TBL-MEMBERSHIP_PERMISSION_SCOPES",
+        "MIG-TBL-TERMS_ACCEPTANCES",
+        "MIG-CK-IDENTITY"
+      ],
+      "phases": [
+        "preflight",
+        "write_fence",
+        "validate"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B14"
+    },
+    {
+      "node_id": "MIG-FK-RESOURCES",
+      "type": "foreign_key",
+      "order": 1380,
+      "object_name": "resources",
+      "requires": [
+        "MIG-TBL-STAFF_LOCATION_ASSIGNMENTS",
+        "MIG-TBL-STAFF_MEMBERSHIP_LINKS",
+        "MIG-TBL-STAFF_DOCUMENTS",
+        "MIG-TBL-VEHICLE_DOCUMENTS",
+        "MIG-TBL-VEHICLE_LOCATION_ASSIGNMENTS",
+        "MIG-TBL-STUDENTS",
+        "MIG-CK-IDENTITY",
+        "MIG-CK-ASSETS_RESOURCES"
+      ],
+      "phases": [
+        "preflight",
+        "write_fence",
+        "validate"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B14"
+    },
+    {
+      "node_id": "MIG-FK-TRAINING",
+      "type": "foreign_key",
+      "order": 1390,
+      "object_name": "training",
+      "requires": [
+        "MIG-TBL-STUDENT_LEARNING_ACCOUNTS",
+        "MIG-TBL-COURSE_ENROLLMENTS",
+        "MIG-TBL-TRAINING_REQUIREMENT_PROFILES",
+        "MIG-TBL-COURSE_EXEMPTION_DECISIONS",
+        "MIG-TBL-RECOGNIZED_EXTERNAL_TRAINING",
+        "MIG-TBL-TRAINING_SESSIONS",
+        "MIG-TBL-TRAINING_SESSION_ATTENDANCE",
+        "MIG-TBL-TRAINING_HOUR_LEDGER_ENTRIES",
+        "MIG-CK-IDENTITY",
+        "MIG-CK-ASSETS_RESOURCES",
+        "MIG-CK-TRAINING"
+      ],
+      "phases": [
+        "preflight",
+        "write_fence",
+        "validate"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B14"
+    },
+    {
+      "node_id": "MIG-FK-CALENDAR",
+      "type": "foreign_key",
+      "order": 1400,
+      "object_name": "calendar",
+      "requires": [
+        "MIG-TBL-CALENDAR_EVENTS",
+        "MIG-TBL-AVAILABILITY_SLOTS",
+        "MIG-TBL-CALENDAR_RESOURCE_CLAIMS",
+        "MIG-TBL-TRAINING_SESSION_CALENDAR_DETAILS",
+        "MIG-CK-ASSETS_RESOURCES",
+        "MIG-CK-TRAINING"
+      ],
+      "phases": [
+        "preflight",
+        "write_fence",
+        "validate"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B14"
+    },
+    {
+      "node_id": "MIG-FK-PKK",
+      "type": "foreign_key",
+      "order": 1410,
+      "object_name": "pkk",
+      "requires": [
+        "MIG-TBL-PKK_PROFILES",
+        "MIG-TBL-PKK_OPERATIONS",
+        "MIG-TBL-PKK_OPERATION_ATTEMPTS",
+        "MIG-TBL-PKK_SIGNATURE_HANDOFFS",
+        "MIG-TBL-PKK_SIGNATURE_HANDOFF_UPLOAD_RESERVATIONS",
+        "MIG-TBL-PKK_SIGNATURE_FILE_ASSET_PROTECTIONS",
+        "MIG-CK-ASSETS_RESOURCES",
+        "MIG-CK-TRAINING"
+      ],
+      "phases": [
+        "preflight",
+        "write_fence",
+        "validate"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B15"
+    },
+    {
+      "node_id": "MIG-FK-FINANCE",
+      "type": "foreign_key",
+      "order": 1420,
+      "object_name": "finance",
+      "requires": [
+        "MIG-TBL-STUDENT_CHARGES",
+        "MIG-TBL-STUDENT_PAYMENTS",
+        "MIG-TBL-COURSE_COST_CHARGE_ORIGINS",
+        "MIG-CK-TRAINING",
+        "MIG-CK-FINANCE"
+      ],
+      "phases": [
+        "preflight",
+        "write_fence",
+        "validate"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B15"
+    },
+    {
+      "node_id": "MIG-FK-LICENSES",
+      "type": "foreign_key",
+      "order": 1430,
+      "object_name": "licenses",
+      "requires": [
+        "MIG-TBL-STUDENT_ACCESS_HANDOFFS",
+        "MIG-TBL-LICENSE_ASSIGNMENTS",
+        "MIG-TBL-LICENSE_ACTIVATIONS",
+        "MIG-CK-ASSETS_RESOURCES",
+        "MIG-CK-TRAINING",
+        "MIG-CK-LICENSES"
+      ],
+      "phases": [
+        "preflight",
+        "write_fence",
+        "validate"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B15"
+    },
+    {
+      "node_id": "MIG-FK-EXAMS",
+      "type": "foreign_key",
+      "order": 1440,
+      "object_name": "exams",
+      "requires": [
+        "MIG-TBL-INTERNAL_EXAM_RESERVATIONS",
+        "MIG-TBL-INTERNAL_EXAM_ACCESSES",
+        "MIG-TBL-INTERNAL_EXAM_STATION_SESSIONS",
+        "MIG-TBL-INTERNAL_EXAM_ATTEMPT_QUESTIONS",
+        "MIG-TBL-INTERNAL_EXAM_DOCUMENTS",
+        "MIG-CK-ASSETS_RESOURCES",
+        "MIG-CK-TRAINING",
+        "MIG-CK-EXAMS"
+      ],
+      "phases": [
+        "preflight",
+        "write_fence",
+        "validate"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B15"
+    },
+    {
+      "node_id": "MIG-FK-COMMERCE",
+      "type": "foreign_key",
+      "order": 1450,
+      "object_name": "commerce",
+      "requires": [
+        "MIG-TBL-ORDER_ITEMS",
+        "MIG-TBL-PAYMENTS",
+        "MIG-TBL-PAYMENT_EVENTS",
+        "MIG-TBL-ORDER_PAYMENT_SETTLEMENTS",
+        "MIG-TBL-ORDER_FULFILLMENTS",
+        "MIG-TBL-SERVICE_ENTITLEMENTS",
+        "MIG-TBL-SERVICE_ACTIVATIONS",
+        "MIG-CK-COMMERCE"
+      ],
+      "phases": [
+        "preflight",
+        "write_fence",
+        "validate"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B15"
+    },
+    {
+      "node_id": "MIG-FK-PURCHASE_DOWNSTREAM",
+      "type": "foreign_key",
+      "order": 1460,
+      "object_name": "purchase_downstream",
+      "requires": [
+        "MIG-TBL-LICENSE_INVENTORY_ENTRIES",
+        "MIG-TBL-INTERNAL_EXAM_INVENTORY_ENTRIES",
+        "MIG-TBL-SERVICE_ENTITLEMENTS",
+        "MIG-CK-LICENSES",
+        "MIG-CK-EXAMS",
+        "MIG-CK-COMMERCE"
+      ],
+      "phases": [
+        "preflight",
+        "write_fence",
+        "backfill",
+        "reconcile",
+        "validate"
+      ],
+      "restart_classification": "manual_review",
+      "batch_id": "B15"
+    },
+    {
+      "node_id": "MIG-FK-EVENTS",
+      "type": "foreign_key",
+      "order": 1470,
+      "object_name": "events",
+      "requires": [
+        "MIG-TBL-AUDIT_LOGS",
+        "MIG-TBL-DOMAIN_EVENTS",
+        "MIG-TBL-OUTBOX_MESSAGES",
+        "MIG-TBL-ORGANIZATION_ACTIVITY_EVENTS",
+        "MIG-TBL-NOTIFICATIONS",
+        "MIG-CK-IDENTITY",
+        "MIG-CK-TRAINING",
+        "MIG-CK-EVENTS"
+      ],
+      "phases": [
+        "preflight",
+        "write_fence",
+        "backfill",
+        "reconcile",
+        "validate"
+      ],
+      "restart_classification": "manual_review",
+      "batch_id": "B15"
+    },
+    {
+      "node_id": "MIG-CON-IDENTITY",
+      "type": "constraint",
+      "order": 1480,
+      "object_name": "identity",
+      "requires": [
+        "MIG-TBL-ORGANIZATION_MEMBERSHIPS",
+        "MIG-TBL-MEMBERSHIP_PERMISSIONS",
+        "MIG-TBL-MEMBERSHIP_PERMISSION_SCOPES",
+        "MIG-TBL-AUTH_SESSIONS",
+        "MIG-FK-IDENTITY",
+        "MIG-IDX-IDENTITY"
+      ],
+      "phases": [
+        "preflight",
+        "write_fence",
+        "validate"
+      ],
+      "restart_classification": "manual_review",
+      "batch_id": "B15"
+    },
+    {
+      "node_id": "MIG-CON-RESOURCES",
+      "type": "constraint",
+      "order": 1490,
+      "object_name": "resources",
+      "requires": [
+        "MIG-TBL-STAFF_PROFILES",
+        "MIG-TBL-STAFF_MEMBERSHIP_LINKS",
+        "MIG-TBL-STAFF_DOCUMENTS",
+        "MIG-TBL-VEHICLES",
+        "MIG-TBL-VEHICLE_DOCUMENTS",
+        "MIG-FK-RESOURCES",
+        "MIG-IDX-RESOURCES"
+      ],
+      "phases": [
+        "preflight",
+        "write_fence",
+        "validate"
+      ],
+      "restart_classification": "manual_review",
+      "batch_id": "B15"
+    },
+    {
+      "node_id": "MIG-CON-TRAINING",
+      "type": "constraint",
+      "order": 1500,
+      "object_name": "training",
+      "requires": [
+        "MIG-TBL-STUDENTS",
+        "MIG-TBL-COURSE_ENROLLMENTS",
+        "MIG-TBL-TRAINING_REQUIREMENT_PROFILES",
+        "MIG-TBL-TRAINING_SESSIONS",
+        "MIG-TBL-TRAINING_SESSION_ATTENDANCE",
+        "MIG-TBL-TRAINING_HOUR_LEDGER_ENTRIES",
+        "MIG-FK-TRAINING",
+        "MIG-IDX-TRAINING"
+      ],
+      "phases": [
+        "preflight",
+        "write_fence",
+        "validate"
+      ],
+      "restart_classification": "manual_review",
+      "batch_id": "B15"
+    },
+    {
+      "node_id": "MIG-CON-CALENDAR",
+      "type": "constraint",
+      "order": 1510,
+      "object_name": "calendar",
+      "requires": [
+        "MIG-TBL-CALENDAR_EVENTS",
+        "MIG-TBL-AVAILABILITY_SLOTS",
+        "MIG-TBL-CALENDAR_RESOURCE_CLAIMS",
+        "MIG-FK-CALENDAR",
+        "MIG-IDX-CALENDAR_GIST"
+      ],
+      "phases": [
+        "preflight",
+        "write_fence",
+        "validate"
+      ],
+      "restart_classification": "manual_review",
+      "batch_id": "B16"
+    },
+    {
+      "node_id": "MIG-CON-PKK",
+      "type": "constraint",
+      "order": 1520,
+      "object_name": "pkk",
+      "requires": [
+        "MIG-TBL-PKK_PROFILES",
+        "MIG-TBL-PKK_OPERATIONS",
+        "MIG-TBL-PKK_OPERATION_ATTEMPTS",
+        "MIG-TBL-PKK_SIGNATURE_HANDOFFS",
+        "MIG-FK-PKK",
+        "MIG-IDX-PKK"
+      ],
+      "phases": [
+        "preflight",
+        "write_fence",
+        "validate"
+      ],
+      "restart_classification": "manual_review",
+      "batch_id": "B16"
+    },
+    {
+      "node_id": "MIG-CON-FINANCE",
+      "type": "constraint",
+      "order": 1530,
+      "object_name": "finance",
+      "requires": [
+        "MIG-TBL-STUDENT_CHARGES",
+        "MIG-TBL-STUDENT_PAYMENTS",
+        "MIG-TBL-COURSE_COST_CHARGE_ORIGINS",
+        "MIG-FK-FINANCE",
+        "MIG-IDX-FINANCE"
+      ],
+      "phases": [
+        "preflight",
+        "write_fence",
+        "validate"
+      ],
+      "restart_classification": "manual_review",
+      "batch_id": "B16"
+    },
+    {
+      "node_id": "MIG-CON-LICENSES",
+      "type": "constraint",
+      "order": 1540,
+      "object_name": "licenses",
+      "requires": [
+        "MIG-TBL-STUDENT_LEARNING_ACCOUNTS",
+        "MIG-TBL-LICENSE_INVENTORY_ENTRIES",
+        "MIG-TBL-LICENSE_ASSIGNMENTS",
+        "MIG-TBL-LICENSE_ACTIVATIONS",
+        "MIG-FK-LICENSES",
+        "MIG-IDX-LICENSES"
+      ],
+      "phases": [
+        "preflight",
+        "write_fence",
+        "validate"
+      ],
+      "restart_classification": "manual_review",
+      "batch_id": "B16"
+    },
+    {
+      "node_id": "MIG-CON-EXAMS",
+      "type": "constraint",
+      "order": 1550,
+      "object_name": "exams",
+      "requires": [
+        "MIG-TBL-INTERNAL_EXAM_INVENTORY_ENTRIES",
+        "MIG-TBL-INTERNAL_EXAM_INVENTORY_LEDGER_ENTRIES",
+        "MIG-TBL-INTERNAL_EXAM_ATTEMPTS",
+        "MIG-TBL-INTERNAL_EXAM_ACCESSES",
+        "MIG-TBL-INTERNAL_EXAM_STATION_SESSIONS",
+        "MIG-FK-EXAMS",
+        "MIG-IDX-EXAMS"
+      ],
+      "phases": [
+        "preflight",
+        "write_fence",
+        "validate"
+      ],
+      "restart_classification": "manual_review",
+      "batch_id": "B16"
+    },
+    {
+      "node_id": "MIG-CON-COMMERCE",
+      "type": "constraint",
+      "order": 1560,
+      "object_name": "commerce",
+      "requires": [
+        "MIG-TBL-ORDERS",
+        "MIG-TBL-ORDER_ITEMS",
+        "MIG-TBL-PAYMENTS",
+        "MIG-TBL-ORDER_PAYMENT_SETTLEMENTS",
+        "MIG-TBL-ORDER_FULFILLMENTS",
+        "MIG-TBL-SERVICE_ENTITLEMENTS",
+        "MIG-TBL-SERVICE_ACTIVATIONS",
+        "MIG-FK-COMMERCE",
+        "MIG-FK-PURCHASE_DOWNSTREAM",
+        "MIG-IDX-COMMERCE"
+      ],
+      "phases": [
+        "preflight",
+        "write_fence",
+        "validate"
+      ],
+      "restart_classification": "manual_review",
+      "batch_id": "B16"
+    },
+    {
+      "node_id": "MIG-CON-EVENTS",
+      "type": "constraint",
+      "order": 1570,
+      "object_name": "events",
+      "requires": [
+        "MIG-TBL-AUDIT_LOGS",
+        "MIG-TBL-DOMAIN_EVENTS",
+        "MIG-TBL-OUTBOX_MESSAGES",
+        "MIG-TBL-ORGANIZATION_ACTIVITY_EVENTS",
+        "MIG-TBL-NOTIFICATIONS",
+        "MIG-FK-EVENTS",
+        "MIG-IDX-EVENTS"
+      ],
+      "phases": [
+        "preflight",
+        "write_fence",
+        "validate"
+      ],
+      "restart_classification": "manual_review",
+      "batch_id": "B16"
+    },
+    {
+      "node_id": "MIG-TRG-IDENTITY",
+      "type": "trigger",
+      "order": 1580,
+      "object_name": "identity",
+      "requires": [
+        "MIG-CON-IDENTITY"
+      ],
+      "phases": [
+        "write_fence",
+        "validate"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B16"
+    },
+    {
+      "node_id": "MIG-TRG-TRAINING",
+      "type": "trigger",
+      "order": 1590,
+      "object_name": "training",
+      "requires": [
+        "MIG-CON-TRAINING"
+      ],
+      "phases": [
+        "write_fence",
+        "validate"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B16"
+    },
+    {
+      "node_id": "MIG-TRG-CALENDAR",
+      "type": "trigger",
+      "order": 1600,
+      "object_name": "calendar",
+      "requires": [
+        "MIG-CON-CALENDAR"
+      ],
+      "phases": [
+        "write_fence",
+        "validate"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B16"
+    },
+    {
+      "node_id": "MIG-TRG-PKK",
+      "type": "trigger",
+      "order": 1610,
+      "object_name": "pkk",
+      "requires": [
+        "MIG-CON-PKK"
+      ],
+      "phases": [
+        "write_fence",
+        "validate"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B17"
+    },
+    {
+      "node_id": "MIG-TRG-FINANCE",
+      "type": "trigger",
+      "order": 1620,
+      "object_name": "finance",
+      "requires": [
+        "MIG-CON-FINANCE"
+      ],
+      "phases": [
+        "write_fence",
+        "validate"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B17"
+    },
+    {
+      "node_id": "MIG-TRG-LICENSES",
+      "type": "trigger",
+      "order": 1630,
+      "object_name": "licenses",
+      "requires": [
+        "MIG-CON-LICENSES"
+      ],
+      "phases": [
+        "write_fence",
+        "validate"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B17"
+    },
+    {
+      "node_id": "MIG-TRG-EXAMS",
+      "type": "trigger",
+      "order": 1640,
+      "object_name": "exams",
+      "requires": [
+        "MIG-CON-EXAMS"
+      ],
+      "phases": [
+        "write_fence",
+        "validate"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B17"
+    },
+    {
+      "node_id": "MIG-TRG-COMMERCE",
+      "type": "trigger",
+      "order": 1650,
+      "object_name": "commerce",
+      "requires": [
+        "MIG-CON-COMMERCE"
+      ],
+      "phases": [
+        "write_fence",
+        "validate"
+      ],
+      "restart_classification": "restart_safe",
+      "batch_id": "B17"
+    },
+    {
+      "node_id": "MIG-TRG-EVENTS",
+      "type": "trigger",
+      "order": 1660,
+      "object_name": "events",
+      "requires": [
+        "MIG-CON-EVENTS"
+      ],
+      "phases": [
+        "write_fence",
+        "backfill",
+        "reconcile",
+        "validate"
+      ],
+      "restart_classification": "manual_review",
+      "batch_id": "B17"
+    },
+    {
+      "node_id": "MIG-PRJ-CALENDAR-RESOURCE-CLAIMS",
+      "type": "projection",
+      "order": 1670,
+      "object_name": "calendar_resource_claims_projection",
+      "requires": [
+        "MIG-TRG-CALENDAR"
+      ],
+      "phases": [
+        "write_fence",
+        "backfill",
+        "reconcile",
+        "validate",
+        "contract"
+      ],
+      "restart_classification": "manual_review",
+      "batch_id": "B17"
+    },
+    {
+      "node_id": "MIG-PRJ-PURCHASE-HISTORY",
+      "type": "projection",
+      "order": 1680,
+      "object_name": "purchase_history_projection",
+      "requires": [
+        "MIG-TRG-COMMERCE"
+      ],
+      "phases": [
+        "write_fence",
+        "backfill",
+        "reconcile",
+        "validate",
+        "contract"
+      ],
+      "restart_classification": "manual_review",
+      "batch_id": "B17"
+    },
+    {
+      "node_id": "MIG-PRJ-ORGANIZATION-ACTIVITY",
+      "type": "projection",
+      "order": 1690,
+      "object_name": "organization_activity_projection",
+      "requires": [
+        "MIG-TRG-EVENTS",
+        "MIG-TBL-ACTIVITY_PROJECTION_POLICY_CURRENTS"
+      ],
+      "phases": [
+        "write_fence",
+        "backfill",
+        "reconcile",
+        "validate",
+        "contract"
+      ],
+      "restart_classification": "manual_review",
+      "batch_id": "B17"
+    },
+    {
+      "node_id": "MIG-PRJ-NOTIFICATIONS",
+      "type": "projection",
+      "order": 1700,
+      "object_name": "notification_projection",
+      "requires": [
+        "MIG-TRG-EVENTS",
+        "MIG-TBL-NOTIFICATIONS"
+      ],
+      "phases": [
+        "write_fence",
+        "backfill",
+        "reconcile",
+        "validate",
+        "contract"
+      ],
+      "restart_classification": "manual_review",
+      "batch_id": "B17"
+    }
+  ]
+}

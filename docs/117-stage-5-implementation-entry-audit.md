@@ -172,3 +172,23 @@ Pozostałe blockery: `S5-MIG-001`, `S5-TST-001`, `S5-CI-001`, `S5-FOUND-001`.
 Następny pojedynczy krok: **S5-MIG-001**.
 
 **STOP przed S5-MIG-001.**
+
+---
+
+## 12. S5-MIG-001 — closure
+
+**PASS.** Zamknięto brak warstwy wykonawczej migracji bez wygenerowania 170 domenowych DDL jako jednej nieprzeglądalnej zmiany. `database/migration-plan/plan.json` pozostaje byte-for-byte związany z finalnym Stage-4 matrix blob `ad5f2aa2…`, zawiera dokładnie 170 node'ów, canonical topological order, 17 review batches, siedem faz oraz restart classification z DB-MIG-003.
+
+Po końcowym review pierwotny wrapper został dodatkowo utwardzony. Stage-4 migracje są izolowane pod `database/migrations/stage4/<phase>/<node>/...`, więc zwykły `php artisan migrate` ich nie odkrywa. Każda phase-step jest jawnie wpisana do `implementations.json` z node ID, fazą, restart classification i SHA-256 pliku. Registry musi tworzyć canonical topological prefix pełnego DAG, być dependency-closed, a zarejestrowane fazy każdego node'a muszą być prefiksem authoritative phase path.
+
+Controlled executor wymaga teraz jednocześnie exact `plan_identity`, exact `execution_identity` związanej z bytes registry/migracji oraz jawnego `--phase`. Bezpośrednie `migrate --path=...` nie omija tego kontraktu: sam plik migracji wymaga aktywnego `ControlledMigrationContext` z właściwą fazą i node ID. Późniejsza faza pozostaje fail-closed, dopóki wszystkie authoritative stepy wcześniejszych faz nie są w pełni zmaterializowane i zastosowane.
+
+Execution journal zapisuje run-level oraz node-level evidence. W production pusty lub brakujący `MIGRATION_EVIDENCE_PATH` zatrzymuje wykonanie przed DDL. Dla przyszłych `manual_review` stepów przerwane albo failed evidence blokuje automatyczny retry; wznowienie wymaga jawnego `--reviewed-resume=<node-id>` i zostaje zapisane w evidence. PostgreSQL advisory lock `(519662, 5001)`, zakaz blind retry i generic destructive down pozostają bez zmian.
+
+Pierwszą i jedyną zmaterializowaną stepą nadal jest `MIG-EXT-BTREE-GIST / expand`. Restart-safe migracja sprawdza exact postcondition przed efektem, tworzy `btree_gist` tylko gdy extension nie istnieje i odmawia automatycznego `down()`. Mechanizm nie jest jednak hardcodowany do jednego node'a: kolejne implementacje mogą rozszerzać tylko canonical dependency-closed prefix oraz authoritative phase prefixes.
+
+Machine gate na świeżym PostgreSQL potwierdził plan 170/170, 17 review batches, hash/execution identity tamper rejection, rogue-file rejection, brak odkrycia przez default `migrate`, odmowę direct `--path`, zły plan i execution identity, brak jawnej fazy, przedwczesny `preflight`, production bez durable evidence, konkurencyjny lock, poprawne pierwsze wykonanie i brak ponownej aplikacji po sukcesie. PHPUnit `--fail-on-warning`, PHP syntax checks oraz preservation wszystkich zamkniętych Stage-4 authority również przeszły.
+
+Pozostałe blockery: `S5-TST-001`, `S5-CI-001`, `S5-FOUND-001`. Następny pojedynczy krok: **S5-TST-001**.
+
+**STOP przed S5-TST-001.**

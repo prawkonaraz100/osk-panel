@@ -3,11 +3,11 @@ meta:
   stage: 5
   name: implementation_entry_and_foundation_gate
   branch: docs-consolidation-2026-09-05
-  status: FAIL_WITH_4_P1_BLOCKERS
+  status: FAIL_WITH_3_P1_BLOCKERS
   entered_at: 2026-09-10
-  diagnosis_only: true
+  diagnosis_only: false
   implementation_started: true
-  Laravel_migrations_created: false
+  Laravel_migrations_created: true
   UI_or_feature_implementation_started: false
 
 stage_numbering_note:
@@ -55,12 +55,12 @@ entry_observations:
   package_json_present: true
   backend_application_directories_present: true
   frontend_application_directories_present: true
-  executable_Laravel_migrations_present: false
+  executable_Laravel_migrations_present: true
   executable_framework_test_suite_present: false
   implementation_CI_present: false
   existing_contract_CI_present: true
   application_feature_code_present: false
-  conclusion: application_bootstrap_present_runtime_services_are_next
+  conclusion: S5_MIG_001_pass_and_S5_TST_001_is_next
 
 closed_stage_4_authorities:
   migration_dependency_DAG_nodes: 170
@@ -128,7 +128,7 @@ blockers:
 
   - id: S5-MIG-001
     severity: P1
-    status: OPEN
+    status: PASS
     title: executable_database_migration_layer_absent
     depends_on:
       - S5-BOOT-001
@@ -148,6 +148,7 @@ blockers:
     depends_on:
       - S5-BOOT-001
       - S5-ENV-001
+      - S5-MIG-001
     required_closure:
       - framework_test_runner_executes_against_PostgreSQL
       - test_factories_are_synthetic_and_tenant_separated
@@ -213,9 +214,9 @@ quality_gate:
   diagnosed_P0: 0
   diagnosed_P1: 6
   fixes_applied_in_diagnosis: 0
-  fixes_applied_total: 2
-  open_P0_P1: 4
-  result: FAIL_WITH_4_P1_BLOCKERS
+  fixes_applied_total: 3
+  open_P0_P1: 3
+  result: FAIL_WITH_3_P1_BLOCKERS
   blocker_fix_order:
     - S5-BOOT-001
     - S5-ENV-001
@@ -225,21 +226,22 @@ quality_gate:
     - S5-FOUND-001
 
 next_single_step:
-  id: S5-MIG-001
-  action: resolve_executable_database_migration_layer_only_after_next_explicit_user_instruction
+  id: S5-TST-001
+  action: resolve_executable_PostgreSQL_backed_framework_test_harness_only_after_next_explicit_user_instruction
   prerequisite_S5_BOOT_001: PASS
   prerequisite_S5_ENV_001: PASS
+  prerequisite_S5_MIG_001: PASS
   allowed_scope:
-    - migration_executor_and_reviewable_batches
-    - exact_170_node_dependency_authority_materialization
-    - seven_phase_migration_contract
-    - restart_failure_and_safe_rollback_controls
+    - PostgreSQL_backed_test_runner_and_synthetic_factories
+    - independent_database_connection_concurrency_primitives
+    - DBT_ID_to_executable_test_traceability_mechanism
+    - executable_migration_preflight_and_postcheck_test_classes
     - Stage_5_gate_and_audit_updates
   forbidden_scope:
+    - marking_DB_TST_contracts_implemented_without_executable_assertions
     - domain_feature_UI
-    - shortening_or_reinterpreting_Stage_4_database_authority
-    - blanket_destructive_down_migrations
-  after_action: rerun_S5_MIG_001_gate_and_STOP_before_S5_TST_001
+    - full_implementation_CI_until_S5_CI_001
+  after_action: rerun_S5_TST_001_gate_and_STOP_before_S5_CI_001
 
 S5_BOOT_001_closure:
   status: PASS
@@ -310,6 +312,76 @@ S5_ENV_001_closure:
     Laravel_test_suite_with_services: PASS
   intentionally_not_closed_here:
     S5_MIG_001: OPEN
+    S5_TST_001: OPEN
+    S5_CI_001: OPEN
+    S5_FOUND_001: OPEN
+
+S5_MIG_001_closure:
+  status: PASS
+  accepted_scope: phase_aware_migration_execution_layer_and_first_restart_safe_node
+  authority_binding:
+    final_matrix_blob: ad5f2aa2e14ef248b95dd3dda0d1cbcb2e69d441
+    DAG_nodes: 170
+    review_batches: 17
+    max_nodes_per_review_batch: 10
+    phase_order: [expand, preflight, write_fence, backfill, reconcile, validate, contract]
+    restart_classification_values: [restart_safe, manual_review]
+    topological_order_rewritten: false
+  registry_contract:
+    schema_version: 2
+    plan_identity: d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10
+    execution_identity: 05243ae2bd1d283ad53e33ab8dbc887317ef27128bb08ebcce381e3c8f7857ec
+    migration_file_SHA256_bound: true
+    canonical_topological_prefix_required: true
+    dependency_closed_subset_required: true
+    per_node_registered_phases_must_be_authority_prefix: true
+    unregistered_stage4_PHP_migration_rejected: true
+  execution_control:
+    controlled_command: migration:controlled
+    exact_plan_identity_required: true
+    exact_execution_identity_required: true
+    explicit_phase_required: true
+    single_executor: PostgreSQL_advisory_lock
+    advisory_lock_keys: [519662, 5001]
+    stage4_migrations_hidden_from_default_Laravel_migrate: true
+    direct_stage4_migrate_path_without_controlled_context_rejected: true
+    previous_authoritative_phases_must_be_fully_materialized_and_applied: true
+    production_external_evidence_path_required: true
+    node_level_execution_evidence: true
+    manual_review_interrupted_retry_requires_explicit_reviewed_resume: true
+    new_core_execution_evidence_table_created: false
+    blind_retry: forbidden
+    generic_destructive_down: forbidden
+    allowed_rollback_modes: [application_rollback, schema_forward_fix, explicit_safe_down]
+  materialization:
+    implemented_DAG_nodes: 1
+    implemented_phase_steps: 1
+    first_node: MIG-EXT-BTREE-GIST
+    first_node_phase: expand
+    first_node_restart_classification: restart_safe
+    first_node_postcondition_verified: true
+    remaining_DAG_nodes_claimed_implemented: false
+    remaining_nodes_materialize_in_review_batches_with_domain_slices: true
+  executable_evidence:
+    plan_runtime_validation: PASS
+    execution_identity_and_file_hash_validation: PASS
+    tampered_migration_file_negative_test: PASS
+    unregistered_migration_file_negative_test: PASS
+    default_migrate_does_not_discover_stage4_tree: PASS
+    direct_migrate_path_bypass_negative_test: PASS
+    plan_identity_negative_test: PASS
+    execution_identity_negative_test: PASS
+    missing_phase_negative_test: PASS
+    premature_later_phase_negative_test: PASS
+    production_empty_evidence_path_negative_test_before_DDL: PASS
+    concurrent_executor_lock_negative_test: PASS
+    first_node_controlled_migration: PASS
+    first_node_repeat_run_no_reapply: PASS
+    PostgreSQL_extension_postcondition: PASS
+    phpunit_fail_on_warning: PASS
+    Stage_4_authority_preservation: PASS
+  intentionally_not_closed_here:
+    full_170_node_domain_DDL_materialization: false
     S5_TST_001: OPEN
     S5_CI_001: OPEN
     S5_FOUND_001: OPEN
