@@ -1,0 +1,39 @@
+name: DB-MIG-002 narrative helper
+
+on:
+  push:
+    branches: [tmp-db-mig-002-narrative-validation-20260910]
+    paths: [.stage4-tmp/TRIGGER_DB_MIG_002_NARRATIVE]
+permissions:
+  contents: write
+jobs:
+  validate-and-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - name: Apply and validate DB-MIG-002 narrative
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=6769f0fe003c76440ef1992a37de948e7524af00
+          test "$(git rev-parse "$BASE:specs/database/final-migration-order-invariant-matrix.yml")" = "1df9476a116677b07f8f1725c765c09c044d4aac"
+          test "$(git rev-parse HEAD:docs/116-stage-4-final-migration-order-invariant-matrix-audit.md)" = "403e5e36437af613491868984e4f8c28e4b6efdc"
+          test "$(git rev-parse HEAD:specs/gates/stage-4-database-contract-gate.yml)" = "8c503b4777060531c723f7e9a1272440be5947c8"
+          test "$(git rev-parse HEAD:specs/database/core-schema.yml)" = "39958721c99550cfc27c3774e8dfa1af0d0637e6"
+          test "$(git rev-parse HEAD:docs/87-physical-database-schema.md)" = "6c090b082604b6b42c283667fcf08e9033a5b523"
+          python .stage4-tmp/DB_MIG_002_NARRATIVE_PATCH.py
+          grep -Fq '**Aktualny krok:** `DB-MIG-002`' docs/116-stage-4-final-migration-order-invariant-matrix-audit.md
+          grep -Fq '**Status:** `FAIL_WITH_4_P1_BLOCKERS / 0 P0 / 4 P1 OPEN`' docs/116-stage-4-final-migration-order-invariant-matrix-audit.md
+          grep -Fq '## 4. DB-MIG-002 — expand / write fence / backfill / validate / contract' docs/116-stage-4-final-migration-order-invariant-matrix-audit.md
+          grep -Fq '**Status: PASS / P1 RESOLVED**' docs/116-stage-4-final-migration-order-invariant-matrix-audit.md
+          grep -Fq 'UNIQUE`/candidate keys oraz exclusion constraints **nie** dostają fikcyjnego `NOT VALID`' docs/116-stage-4-final-migration-order-invariant-matrix-audit.md
+          grep -Fq 'wymagane unresolved P0/P1 migration/reconciliation cases muszą wynosić **0**' docs/116-stage-4-final-migration-order-invariant-matrix-audit.md
+          grep -Fq '**STOP przed fixerem DB-MIG-003.**' docs/116-stage-4-final-migration-order-invariant-matrix-audit.md
+          ! grep -Fq '**STOP przed fixerem DB-MIG-002.**' docs/116-stage-4-final-migration-order-invariant-matrix-audit.md
+          git diff --check -- docs/116-stage-4-final-migration-order-invariant-matrix-audit.md
+          mapfile -t changed < <(git diff --name-only | sort); test "${#changed[@]}" -eq 1; test "${changed[0]}" = docs/116-stage-4-final-migration-order-invariant-matrix-audit.md
+          git config user.name prawkonaraz100; git config user.email prawkonaraz100@gmail.com
+          git add docs/116-stage-4-final-migration-order-invariant-matrix-audit.md
+          git commit -m "Validate DB-MIG-002 narrative phase composition"
+          git push origin HEAD:tmp-db-mig-002-narrative-validation-20260910
