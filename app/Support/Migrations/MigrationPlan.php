@@ -3,6 +3,8 @@
 namespace App\Support\Migrations;
 
 use LogicException;
+use RecursiveDirectoryIterator;
+use RecursiveIteratorIterator;
 
 final class MigrationPlan
 {
@@ -68,26 +70,96 @@ final class MigrationPlan
             $this->plan['nodes'],
         ));
         $this->assert(hash('sha256', $material) === $this->plan['plan_identity'], 'Migration plan identity mismatch.');
-        $this->assert($this->implementations['plan_identity'] === $this->plan['plan_identity'], 'Implementation registry plan mismatch.');
 
-        $seen = [];
-        foreach ($this->implementations['implemented_nodes'] as $implementation) {
-            $id = $implementation['node_id'];
-            $this->assert(isset($nodesById[$id]), "Implementation references unknown node {$id}");
-            $this->assert(! isset($seen[$id]), "Duplicate implementation node {$id}");
-            $seen[$id] = true;
-            $this->assert(is_file(base_path($implementation['migration_file'])), "Missing migration file for {$id}");
-            $this->assert($implementation['restart_classification'] === $nodesById[$id]['restart_classification'], "Restart class mismatch for {$id}");
-            $this->assert(array_values(array_intersect($implementation['implemented_phases'], $nodesById[$id]['phases'])) === $implementation['implemented_phases'], "Implemented phase outside authority for {$id}");
-            $this->assert($implementation['safe_down'] === false, "S5-MIG-001 must not invent destructive down for {$id}");
-        }
-        $this->assert(array_keys($seen) === ['MIG-EXT-BTREE-GIST'], 'S5-MIG-001 may materialize only the first restart-safe DAG node.');
+        $this->assert($this->implementations['schema_version'] === 2, 'Unsupported implementation registry schema.');
+        $this->assert($this->implementations['plan_identity'] === $this->plan['plan_identity'], 'Implementation registry plan mismatch.');
+        $this->assert($this->implementations['stage4_root'] === 'database/migrations/stage4', 'Unexpected Stage-4 migration root.');
         $this->assert($this->implementations['claim_all_170_DDL_nodes_implemented'] === false, 'Do not falsely claim all domain DDL is implemented.');
+
+        $seenSteps = [];
+        $seenFiles = [];
+        $phasesByNode = [];
+        $implementedNodeIds = [];
+
+        foreach ($this->implementations['implemented_steps'] as $step) {
+            $id = $step['node_id'];
+            $phase = $step['phase'];
+            $this->assert(isset($nodesById[$id]), "Implementation references unknown node {$id}");
+            $this->assert(in_array($phase, $nodesById[$id]['phases'], true), "Implementation phase outside authority for {$id}");
+
+            $stepKey = "{$id}|{$phase}";
+            $this->assert(! isset($seenSteps[$stepKey]), "Duplicate implementation step {$stepKey}");
+            $seenSteps[$stepKey] = true;
+
+            $file = $step['migration_file'];
+            $this->assert(! isset($seenFiles[$file]), "Duplicate migration file {$file}");
+            $seenFiles[$file] = true;
+            $this->assert(str_starts_with($file, $this->implementations['stage4_root'].'/'.$phase.'/'.$id.'/'), "Migration file outside node/phase directory for {$stepKey}");
+            $this->assert(is_file(base_path($file)), "Missing migration file for {$stepKey}");
+            $this->assert(pathinfo($file, PATHINFO_FILENAME) === $step['migration_name'], "Migration name mismatch for {$stepKey}");
+            $this->assert(hash_file('sha256', base_path($file)) === $step['file_sha256'], "Migration file hash mismatch for {$stepKey}");
+            $this->assert($step['restart_classification'] === $nodesById[$id]['restart_classification'], "Restart class mismatch for {$id}");
+            $this->assert($step['safe_down'] === false, "S5-MIG-001 must not invent destructive down for {$id}");
+
+            $phasesByNode[$id][] = $phase;
+            if (! in_array($id, $implementedNodeIds, true)) {
+                $implementedNodeIds[] = $id;
+            }
+        }
+
+        $canonicalIds = array_column($this->plan['nodes'], 'node_id');
+        $this->assert($implementedNodeIds === array_slice($canonicalIds, 0, count($implementedNodeIds)), 'Implemented nodes must form a canonical topological prefix.');
+
+        foreach ($implementedNodeIds as $id) {
+            foreach ($nodesById[$id]['requires'] as $dependency) {
+                $this->assert(in_array($dependency, $implementedNodeIds, true), "Implementation subset is not dependency-closed at {$id}");
+            }
+
+            $registeredPhases = $phasesByNode[$id] ?? [];
+            $authoritativePhases = $nodesById[$id]['phases'];
+            $this->assert($registeredPhases === array_slice($authoritativePhases, 0, count($registeredPhases)), "Registered phases must be an authority prefix for {$id}");
+        }
+
+        foreach ($expectedPhases as $phase) {
+            $phaseSteps = array_values(array_filter(
+                $this->implementations['implemented_steps'],
+                fn (array $step): bool => $step['phase'] === $phase,
+            ));
+            $expectedNames = array_column($phaseSteps, 'migration_name');
+            $sortedNames = $expectedNames;
+            sort($sortedNames, SORT_STRING);
+            $this->assert($expectedNames === $sortedNames, "Migration filenames must preserve canonical order in phase {$phase}");
+        }
+
+        $rootFiles = glob(base_path('database/migrations/*_*.php')) ?: [];
+        $this->assert($rootFiles === [], 'Stage-4 migrations must not be discoverable by default php artisan migrate.');
+
+        $actualFiles = [];
+        $stage4Root = base_path($this->implementations['stage4_root']);
+        if (is_dir($stage4Root)) {
+            $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($stage4Root));
+            foreach ($iterator as $item) {
+                if ($item->isFile() && $item->getExtension() === 'php') {
+                    $actualFiles[] = str_replace('\\', '/', substr($item->getPathname(), strlen(base_path()) + 1));
+                }
+            }
+        }
+        sort($actualFiles, SORT_STRING);
+        $registeredFiles = array_keys($seenFiles);
+        sort($registeredFiles, SORT_STRING);
+        $this->assert($actualFiles === $registeredFiles, 'Stage-4 migration tree contains an unregistered or missing PHP migration.');
+
+        $this->assert($this->executionIdentityMaterial() === $this->implementations['execution_identity'], 'Implementation execution identity mismatch.');
     }
 
     public function identity(): string
     {
         return $this->plan['plan_identity'];
+    }
+
+    public function executionIdentity(): string
+    {
+        return $this->implementations['execution_identity'];
     }
 
     public function nodeCount(): int
@@ -102,19 +174,85 @@ final class MigrationPlan
 
     public function implementedNodeCount(): int
     {
-        return count($this->implementations['implemented_nodes']);
+        return count(array_unique(array_column($this->implementations['implemented_steps'], 'node_id')));
+    }
+
+    public function implementedStepCount(): int
+    {
+        return count($this->implementations['implemented_steps']);
+    }
+
+    public function phaseSteps(string $phase): array
+    {
+        $this->assert(in_array($phase, $this->plan['phase_order'], true), "Unknown migration phase {$phase}");
+
+        return array_values(array_filter(
+            $this->implementations['implemented_steps'],
+            fn (array $step): bool => $step['phase'] === $phase,
+        ));
+    }
+
+    public function assertPhaseEntry(string $phase, array $appliedMigrations): void
+    {
+        $phaseIndex = array_search($phase, $this->plan['phase_order'], true);
+        $this->assert($phaseIndex !== false, "Unknown migration phase {$phase}");
+        $this->assert($this->phaseSteps($phase) !== [], "No materialized migration steps for phase {$phase}");
+
+        $applied = array_fill_keys($appliedMigrations, true);
+        foreach (array_slice($this->plan['phase_order'], 0, $phaseIndex) as $previousPhase) {
+            $requiredNodeIds = [];
+            foreach ($this->plan['nodes'] as $node) {
+                if (in_array($previousPhase, $node['phases'], true)) {
+                    $requiredNodeIds[] = $node['node_id'];
+                }
+            }
+
+            $registeredSteps = $this->phaseSteps($previousPhase);
+            $registeredNodeIds = array_column($registeredSteps, 'node_id');
+            $this->assert($registeredNodeIds === $requiredNodeIds, "Earlier phase {$previousPhase} is not fully materialized.");
+
+            foreach ($registeredSteps as $step) {
+                $this->assert(isset($applied[$step['migration_name']]), "Earlier phase {$previousPhase} is not fully applied: {$step['node_id']}");
+            }
+        }
     }
 
     public function summary(): array
     {
         return [
             'plan_identity' => $this->identity(),
+            'execution_identity' => $this->executionIdentity(),
             'authority_blob' => $this->plan['source']['authority_git_blob'],
             'nodes' => $this->nodeCount(),
             'review_batches' => $this->batchCount(),
             'implemented_nodes' => $this->implementedNodeCount(),
+            'implemented_steps' => $this->implementedStepCount(),
             'phase_order' => $this->plan['phase_order'],
         ];
+    }
+
+    private function executionIdentityMaterial(): string
+    {
+        $lines = [
+            'schema_version|'.$this->implementations['schema_version'],
+            'plan_identity|'.$this->implementations['plan_identity'],
+            'stage4_root|'.$this->implementations['stage4_root'],
+        ];
+
+        foreach ($this->implementations['implemented_steps'] as $step) {
+            $lines[] = implode('|', [
+                'step',
+                $step['node_id'],
+                $step['phase'],
+                $step['migration_file'],
+                $step['migration_name'],
+                $step['file_sha256'],
+                $step['restart_classification'],
+                $step['safe_down'] ? '1' : '0',
+            ]);
+        }
+
+        return hash('sha256', implode("\n", $lines)."\n");
     }
 
     private function decode(string $path): array
