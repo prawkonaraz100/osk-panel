@@ -2,13 +2,13 @@ meta:
   project: osk-panel
   stage: 4
   slice: DB4_11_FINAL_MIGRATION_ORDER_AND_INVARIANT_TEST_MATRIX
-  step: DB-MIG-003
-  status: FAIL_WITH_3_P1_BLOCKERS
+  step: DB-TST-001
+  status: FAIL_WITH_2_P1_BLOCKERS
   diagnosed_at: 2026-09-10
   branch: docs-consolidation-2026-09-05
   diagnosis_only: false
   fixes_applied_in_diagnosis_step: 0
-  fixes_applied_total: 3
+  fixes_applied_total: 4
   implementation_started: false
   Laravel_migrations_created: false
   Stage5_started: false
@@ -17,7 +17,7 @@ meta:
 scope_rule:
   diagnose_before_fixing: true
   fixes_allowed_in_this_step: true
-  current_step_scope: DB_MIG_003_only
+  current_step_scope: DB_TST_001_only
   one_blocker_per_future_step: true
   aggregate_files_frozen_in_diagnosis:
     specs/database/core-schema.yml: 39958721c99550cfc27c3774e8dfa1af0d0637e6
@@ -2516,6 +2516,2968 @@ migration_cutover_execution_contract:
     core_schema_and_docs87_remain_frozen: true
     Stage5_or_Laravel_migration_generation_in_this_step: forbidden
 
+invariant_test_matrix:
+  authority: DB-TST-001
+  status: PASS
+  purpose: stable_machine_readable_stage4_invariant_test_contract
+  source_boundary:
+    aggregate_source: specs/database/core-schema.yml
+    source_key: migration_tests_required
+    source_occurrences: 261
+    unique_source_invariants: 261
+    duplicate_source_occurrences_collapsed_into_source_refs: 0
+    local_bounded_context_completeness_proof_deferred_to_DB_TST_002: true
+    resolved_blocker_to_test_coverage_mapping_deferred_to_DB_TST_002: true
+    critical_constraint_and_transaction_guard_coverage_join_deferred_to_DB_TST_002: true
+  stable_id_contract:
+    format: DBT-<DOMAIN>-NNN
+    assigned_in_source_first_occurrence_order: true
+    renumber_existing_ids_after_DB_TST_001: forbidden_without_explicit_authority_migration
+    new_tests_append_next_free_domain_sequence: true
+  allowed_test_classes:
+  - concurrency
+  - migration_postcheck
+  - migration_preflight
+  - projection
+  - schema_constraint
+  - security_storage
+  - transaction
+  blocking_severity_semantics:
+    allowed_values:
+    - P1
+    P1: failure_blocks_stage4_database_contract_acceptance_not_a_production_incident_severity_label
+  execution_phase_values:
+  - post_schema
+  - runtime_integration
+  - runtime_concurrency
+  - migration_preflight
+  - migration_postcheck
+  - projection_validation
+  - security_storage_validation
+  fixture_profiles:
+    FP-SCHEMA-NEGATIVE: minimal_valid_control_plus_minimal_invalid_tuple_or_mutation_that_targets_exact_named_constraint_or_relation
+    FP-TRANSACTION-ATOMICITY: valid_prestate_plus_one_business_command_with_success_and_forced_failure_observation_of_all_durable_rows
+    FP-CONCURRENCY-RACE: same_authoritative_aggregate_or_competing_key_loaded by two
+      independent database transactions with deterministic synchronization barrier
+    FP-MIGRATION-LEGACY: legacy population containing conforming exact_evidence_resolvable
+      and ambiguous_or_conflicting rows without fabricated lineage
+    FP-MIGRATION-POSTCHECK: completed write_fence_backfill_reconcile fixture with
+      final constraints guards and projections available for invariant verification
+    FP-PROJECTION-REPLAY: canonical source rows plus duplicate retry replay or out_of_order
+      delivery where the bounded contract permits that shape
+    FP-SECURITY-NEGATIVE: authorized control context plus wrong_tenant forbidden_actor
+      forbidden_plaintext_or_sensitive_payload negative context as applicable
+  concurrency_profiles:
+    none: single_transaction_or_non_racing_contract_test
+    CP-TWO-TRANSACTIONS: two independent database connections synchronized immediately
+      before competing write then both complete or one fails according to invariant
+    CP-RETRY-OR-REPLAY: same logical event_or_command delivered at least twice and
+      when relevant in alternate ordering without duplicate durable effect
+  class_counts:
+    concurrency: 14
+    migration_preflight: 14
+    projection: 20
+    schema_constraint: 13
+    security_storage: 46
+    transaction: 154
+  domain_counts:
+    AUD: 22
+    CAL: 26
+    COM: 15
+    CORE: 78
+    EVT: 6
+    EXAM: 3
+    FIN: 5
+    IAM: 40
+    LIC: 6
+    PKK: 22
+    RES: 18
+    TRN: 20
+  tests:
+  - test_id: DBT-AUD-001
+    source_invariant: organization_audit_scope_and_actor_membership_wrong_tenant_is_rejected
+    source_refs:
+    - specs/database/core-schema.yml::audit_outbox_notifications_model.migration_tests_required[0]
+    test_class: security_storage
+    execution_phase: security_storage_validation
+    blocking_severity: P1
+    expected_outcome: forbidden_access_or_storage_shape_fails_closed_without_secret_or_cross_tenant_leakage
+    fixture_profile: FP-SECURITY-NEGATIVE
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-AUD-002
+    source_invariant: normal_application_cannot_update_or_delete_audit_history
+    source_refs:
+    - specs/database/core-schema.yml::audit_outbox_notifications_model.migration_tests_required[1]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-AUD-003
+    source_invariant: new_runtime_audit_requires_registered_current_action_policy_revision
+    source_refs:
+    - specs/database/core-schema.yml::audit_outbox_notifications_model.migration_tests_required[2]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-AUD-004
+    source_invariant: audit_payload_unknown_or_sensitive_field_is_rejected_and_required_reason_is_enforced
+    source_refs:
+    - specs/database/core-schema.yml::audit_outbox_notifications_model.migration_tests_required[3]
+    test_class: security_storage
+    execution_phase: security_storage_validation
+    blocking_severity: P1
+    expected_outcome: forbidden_access_or_storage_shape_fails_closed_without_secret_or_cross_tenant_leakage
+    fixture_profile: FP-SECURITY-NEGATIVE
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-AUD-005
+    source_invariant: business_effect_required_audit_domain_event_and_outbox_commit_or_rollback_together
+    source_refs:
+    - specs/database/core-schema.yml::audit_outbox_notifications_model.migration_tests_required[4]
+    test_class: projection
+    execution_phase: projection_validation
+    blocking_severity: P1
+    expected_outcome: canonical_source_projection_and_dedupe_semantics_remain_consistent_under_retry_or_replay
+    fixture_profile: FP-PROJECTION-REPLAY
+    concurrency_profile: CP-RETRY-OR-REPLAY
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-AUD-006
+    source_invariant: one_domain_event_has_at_most_one_outbox_intent_and_request_id_is_not_event_identity
+    source_refs:
+    - specs/database/core-schema.yml::audit_outbox_notifications_model.migration_tests_required[5]
+    test_class: projection
+    execution_phase: projection_validation
+    blocking_severity: P1
+    expected_outcome: canonical_source_projection_and_dedupe_semantics_remain_consistent_under_retry_or_replay
+    fixture_profile: FP-PROJECTION-REPLAY
+    concurrency_profile: CP-RETRY-OR-REPLAY
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-AUD-007
+    source_invariant: concurrent_outbox_workers_use_fenced_lease_and_stale_worker_cannot_ack
+    source_refs:
+    - specs/database/core-schema.yml::audit_outbox_notifications_model.migration_tests_required[6]
+    test_class: concurrency
+    execution_phase: runtime_concurrency
+    blocking_severity: P1
+    expected_outcome: all_interleavings_preserve_one_legal_final_state_without_duplicate_or_lost_effect
+    fixture_profile: FP-CONCURRENCY-RACE
+    concurrency_profile: CP-TWO-TRANSACTIONS
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-AUD-008
+    source_invariant: external_publish_ack_race_is_at_least_once_and_consumer_dedupe_uses_domain_event_id
+    source_refs:
+    - specs/database/core-schema.yml::audit_outbox_notifications_model.migration_tests_required[7]
+    test_class: projection
+    execution_phase: projection_validation
+    blocking_severity: P1
+    expected_outcome: canonical_source_projection_and_dedupe_semantics_remain_consistent_under_retry_or_replay
+    fixture_profile: FP-PROJECTION-REPLAY
+    concurrency_profile: CP-RETRY-OR-REPLAY
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-AUD-009
+    source_invariant: activity_projection_is_unique_per_source_event_same_tenant_and_ordered_occurred_at_then_id
+    source_refs:
+    - specs/database/core-schema.yml::audit_outbox_notifications_model.migration_tests_required[8]
+    test_class: projection
+    execution_phase: projection_validation
+    blocking_severity: P1
+    expected_outcome: canonical_source_projection_and_dedupe_semantics_remain_consistent_under_retry_or_replay
+    fixture_profile: FP-PROJECTION-REPLAY
+    concurrency_profile: CP-RETRY-OR-REPLAY
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-AUD-010
+    source_invariant: activity_retry_preserves_immutable_historical_display_snapshot_and_policy_version
+    source_refs:
+    - specs/database/core-schema.yml::audit_outbox_notifications_model.migration_tests_required[9]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-AUD-011
+    source_invariant: notification_recipient_is_exact_membership_and_broadcast_materializes_independent_rows
+    source_refs:
+    - specs/database/core-schema.yml::audit_outbox_notifications_model.migration_tests_required[10]
+    test_class: projection
+    execution_phase: projection_validation
+    blocking_severity: P1
+    expected_outcome: canonical_source_projection_and_dedupe_semantics_remain_consistent_under_retry_or_replay
+    fixture_profile: FP-PROJECTION-REPLAY
+    concurrency_profile: CP-RETRY-OR-REPLAY
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-AUD-012
+    source_invariant: notification_projection_unique_per_source_event_recipient_and_read_at_is_write_once
+    source_refs:
+    - specs/database/core-schema.yml::audit_outbox_notifications_model.migration_tests_required[11]
+    test_class: projection
+    execution_phase: projection_validation
+    blocking_severity: P1
+    expected_outcome: canonical_source_projection_and_dedupe_semantics_remain_consistent_under_retry_or_replay
+    fixture_profile: FP-PROJECTION-REPLAY
+    concurrency_profile: CP-RETRY-OR-REPLAY
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-AUD-013
+    source_invariant: mark_read_wrong_membership_user_or_tenant_is_rejected_and_concurrent_retry_preserves_one_timestamp
+    source_refs:
+    - specs/database/core-schema.yml::audit_outbox_notifications_model.migration_tests_required[12]
+    test_class: concurrency
+    execution_phase: runtime_concurrency
+    blocking_severity: P1
+    expected_outcome: all_interleavings_preserve_one_legal_final_state_without_duplicate_or_lost_effect
+    fixture_profile: FP-CONCURRENCY-RACE
+    concurrency_profile: CP-TWO-TRANSACTIONS
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-AUD-014
+    source_invariant: legacy_event_projection_backfill_never_uses_similarity_or_synthetic_event
+    source_refs:
+    - specs/database/core-schema.yml::audit_outbox_notifications_model.migration_tests_required[13]
+    test_class: migration_preflight
+    execution_phase: migration_preflight
+    blocking_severity: P1
+    expected_outcome: legacy_population_is_classified_by_exact_evidence_and_ambiguous_cases_fail_closed
+    fixture_profile: FP-MIGRATION-LEGACY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-AUD-015
+    source_invariant: unresolved_legacy_case_blocks_constraint_validation_and_go_live
+    source_refs:
+    - specs/database/core-schema.yml::audit_outbox_notifications_model.migration_tests_required[14]
+    test_class: migration_preflight
+    execution_phase: migration_preflight
+    blocking_severity: P1
+    expected_outcome: legacy_population_is_classified_by_exact_evidence_and_ambiguous_cases_fail_closed
+    fixture_profile: FP-MIGRATION-LEGACY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-AUD-016
+    source_invariant: retention_execution_requires_external_policy_evidence_and_does_not_mutate_business_truth
+    source_refs:
+    - specs/database/core-schema.yml::audit_outbox_notifications_model.migration_tests_required[15]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-AUD-017
+    source_invariant: outbox_cleanup_never_removes_pending_leased_or_reconciliation_rows_or
+      source_authorities
+    source_refs:
+    - specs/database/core-schema.yml::audit_outbox_notifications_model.migration_tests_required[16]
+    test_class: migration_preflight
+    execution_phase: migration_preflight
+    blocking_severity: P1
+    expected_outcome: legacy_population_is_classified_by_exact_evidence_and_ambiguous_cases_fail_closed
+    fixture_profile: FP-MIGRATION-LEGACY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-FIN-001
+    source_invariant: student_finance_charge_course_payment_exact_same_tenant_student_currency_relations_reject_mismatch
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[0]
+    test_class: security_storage
+    execution_phase: security_storage_validation
+    blocking_severity: P1
+    expected_outcome: forbidden_access_or_storage_shape_fails_closed_without_secret_or_cross_tenant_leakage
+    fixture_profile: FP-SECURITY-NEGATIVE
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-FIN-002
+    source_invariant: student_finance_valid_payment_sum_never_exceeds_charge_amount_under_concurrent_record_payment
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[1]
+    test_class: concurrency
+    execution_phase: runtime_concurrency
+    blocking_severity: P1
+    expected_outcome: all_interleavings_preserve_one_legal_final_state_without_duplicate_or_lost_effect
+    fixture_profile: FP-CONCURRENCY-RACE
+    concurrency_profile: CP-TWO-TRANSACTIONS
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-FIN-003
+    source_invariant: student_finance_cancel_payment_reversal_races_serialize_on_exact_charge_and_preserve_ledger_history
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[2]
+    test_class: concurrency
+    execution_phase: runtime_concurrency
+    blocking_severity: P1
+    expected_outcome: all_interleavings_preserve_one_legal_final_state_without_duplicate_or_lost_effect
+    fixture_profile: FP-CONCURRENCY-RACE
+    concurrency_profile: CP-TWO-TRANSACTIONS
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-FIN-004
+    source_invariant: student_finance_reversal_and_cancellation_tuples_are_write_once_and_hard_delete_is_forbidden
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[3]
+    test_class: schema_constraint
+    execution_phase: post_schema
+    blocking_severity: P1
+    expected_outcome: invalid_tuple_or_mutation_is_rejected_and_valid_control_case_succeeds
+    fixture_profile: FP-SCHEMA-NEGATIVE
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-FIN-005
+    source_invariant: student_finance_same_idempotency_key_same_request_does_not_duplicate_charge_payment_reversal_or_cancel_effect
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[4]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-TRN-001
+    source_invariant: course_cost_charge_origin_is_unique_per_exact_course_and_manual_course_context_charge_is_not_auto_origin
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[5]
+    test_class: schema_constraint
+    execution_phase: post_schema
+    blocking_severity: P1
+    expected_outcome: invalid_tuple_or_mutation_is_rejected_and_valid_control_case_succeeds
+    fixture_profile: FP-SCHEMA-NEGATIVE
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-COM-001
+    source_invariant: commerce_order_item_requires_same_tenant_order_currency_and_exact_catalog_product_kind_binding
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[6]
+    test_class: schema_constraint
+    execution_phase: post_schema
+    blocking_severity: P1
+    expected_outcome: invalid_tuple_or_mutation_is_rejected_and_valid_control_case_succeeds
+    fixture_profile: FP-SCHEMA-NEGATIVE
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-COM-002
+    source_invariant: commerce_server_snapshot_price_VAT_discount_line_and_order_totals_are_immutable_and_equivalent
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[7]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-COM-003
+    source_invariant: commerce_browser_return_or_untrusted_webhook_cannot_confirm_payment_or_trigger_fulfillment
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[8]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-COM-004
+    source_invariant: commerce_first_trusted_confirmed_payment_creates_at_most_one_order_settlement_and_second_confirmed_payment_has_no_second_business_effect
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[9]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-COM-005
+    source_invariant: commerce_zero_total_order_uses_write_once_zero_total_settlement_without_external_zero_payment
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[10]
+    test_class: schema_constraint
+    execution_phase: post_schema
+    blocking_severity: P1
+    expected_outcome: invalid_tuple_or_mutation_is_rejected_and_valid_control_case_succeeds
+    fixture_profile: FP-SCHEMA-NEGATIVE
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-COM-006
+    source_invariant: commerce_payment_resolution_creates_recoverable_pending_fulfillment_and
+      duplicate_workers_commit_at_most_one_complete_grant_set
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[11]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-COM-007
+    source_invariant: commerce_quantity_N_requires_exactly_N_purchase_grants_with_unique_ordinals_and_exact_product_lineage
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[12]
+    test_class: schema_constraint
+    execution_phase: post_schema
+    blocking_severity: P1
+    expected_outcome: invalid_tuple_or_mutation_is_rejected_and_valid_control_case_succeeds
+    fixture_profile: FP-SCHEMA-NEGATIVE
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-COM-008
+    source_invariant: commerce_generic_service_source_is_purchase_XOR_operator_grant_and_explicit_payment_success_is_not_activation
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[13]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-COM-009
+    source_invariant: commerce_order_sequence_is_unique_per_tenant_immutable_and_purchase_history_sort_is_deterministic
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[14]
+    test_class: schema_constraint
+    execution_phase: post_schema
+    blocking_severity: P1
+    expected_outcome: invalid_tuple_or_mutation_is_rejected_and_valid_control_case_succeeds
+    fixture_profile: FP-SCHEMA-NEGATIVE
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-COM-010
+    source_invariant: commerce_booked_at_is_write_once_from_trusted_payment_resolution_or_zero_total_source
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[15]
+    test_class: schema_constraint
+    execution_phase: post_schema
+    blocking_severity: P1
+    expected_outcome: invalid_tuple_or_mutation_is_rejected_and_valid_control_case_succeeds
+    fixture_profile: FP-SCHEMA-NEGATIVE
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-COM-011
+    source_invariant: commerce_lock_order_is_order_then_payment_settlement_fulfillment_items_grants_and_reverse_lock_path_is_forbidden
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[16]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-COM-012
+    source_invariant: commerce_provider_network_IO_does_not_run_while_business_row_locks_are_held
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[17]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CORE-001
+    source_invariant: DB4_9_legacy_migration_never_guesses_payment_winner_provider_event_product_or_inventory_lineage
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[18]
+    test_class: migration_preflight
+    execution_phase: migration_preflight
+    blocking_severity: P1
+    expected_outcome: legacy_population_is_classified_by_exact_evidence_and_ambiguous_cases_fail_closed
+    fixture_profile: FP-MIGRATION-LEGACY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-COM-013
+    source_invariant: DB4_9_settled_legacy_order_without_proven_complete_grants_becomes_requires_reconciliation_and_is_never_regranted_automatically
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[19]
+    test_class: migration_preflight
+    execution_phase: migration_preflight
+    blocking_severity: P1
+    expected_outcome: legacy_population_is_classified_by_exact_evidence_and_ambiguous_cases_fail_closed
+    fixture_profile: FP-MIGRATION-LEGACY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CORE-002
+    source_invariant: DB4_9_migration_preserves_consumed_activated_assigned_reserved_and_financial_history_and_blocks_cutover_on_unresolved_ambiguity
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[20]
+    test_class: migration_preflight
+    execution_phase: migration_preflight
+    blocking_severity: P1
+    expected_outcome: legacy_population_is_classified_by_exact_evidence_and_ambiguous_cases_fail_closed
+    fixture_profile: FP-MIGRATION-LEGACY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-AUD-018
+    source_invariant: DB4_10_audit_scope_actor_membership_entity_policy_and_append_only_guards_reject_cross_tenant_or_unsafe_history
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[21]
+    test_class: security_storage
+    execution_phase: security_storage_validation
+    blocking_severity: P1
+    expected_outcome: forbidden_access_or_storage_shape_fails_closed_without_secret_or_cross_tenant_leakage
+    fixture_profile: FP-SECURITY-NEGATIVE
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-AUD-019
+    source_invariant: DB4_10_audit_payload_is_closed_allowlist_with_versioned_policy_and_required_reason_where_upstream_contract_requires_it
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[22]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-AUD-020
+    source_invariant: DB4_10_business_effect_required_audit_domain_event_and_outbox_intent_commit_or_rollback_atomically
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[23]
+    test_class: projection
+    execution_phase: projection_validation
+    blocking_severity: P1
+    expected_outcome: canonical_source_projection_and_dedupe_semantics_remain_consistent_under_retry_or_replay
+    fixture_profile: FP-PROJECTION-REPLAY
+    concurrency_profile: CP-RETRY-OR-REPLAY
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-EVT-001
+    source_invariant: DB4_10_domain_event_is_canonical_projection_identity_and_one_event_has_at_most_one_outbox_intent
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[24]
+    test_class: projection
+    execution_phase: projection_validation
+    blocking_severity: P1
+    expected_outcome: canonical_source_projection_and_dedupe_semantics_remain_consistent_under_retry_or_replay
+    fixture_profile: FP-PROJECTION-REPLAY
+    concurrency_profile: CP-RETRY-OR-REPLAY
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-EVT-002
+    source_invariant: DB4_10_outbox_lease_fencing_retry_reconciliation_and_at_least_once_delivery_do_not_claim_exactly_once
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[25]
+    test_class: migration_preflight
+    execution_phase: migration_preflight
+    blocking_severity: P1
+    expected_outcome: legacy_population_is_classified_by_exact_evidence_and_ambiguous_cases_fail_closed
+    fixture_profile: FP-MIGRATION-LEGACY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-EVT-003
+    source_invariant: DB4_10_activity_projection_is_unique_per_same_tenant_source_event_with_immutable_policy_versioned_display_snapshot
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[26]
+    test_class: projection
+    execution_phase: projection_validation
+    blocking_severity: P1
+    expected_outcome: canonical_source_projection_and_dedupe_semantics_remain_consistent_under_retry_or_replay
+    fixture_profile: FP-PROJECTION-REPLAY
+    concurrency_profile: CP-RETRY-OR-REPLAY
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-EVT-004
+    source_invariant: DB4_10_notification_recipient_is_exact_membership_and_broadcast_has_independent_per_recipient_rows
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[27]
+    test_class: projection
+    execution_phase: projection_validation
+    blocking_severity: P1
+    expected_outcome: canonical_source_projection_and_dedupe_semantics_remain_consistent_under_retry_or_replay
+    fixture_profile: FP-PROJECTION-REPLAY
+    concurrency_profile: CP-RETRY-OR-REPLAY
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-EVT-005
+    source_invariant: DB4_10_notification_source_recipient_is_unique_and_read_at_changes_null_to_server_timestamp_once
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[28]
+    test_class: projection
+    execution_phase: projection_validation
+    blocking_severity: P1
+    expected_outcome: canonical_source_projection_and_dedupe_semantics_remain_consistent_under_retry_or_replay
+    fixture_profile: FP-PROJECTION-REPLAY
+    concurrency_profile: CP-RETRY-OR-REPLAY
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CORE-003
+    source_invariant: DB4_10_legacy_backfill_never_guesses_event_actor_recipient_policy_or_read_state_and_unresolved_cases_block_cutover
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[29]
+    test_class: migration_preflight
+    execution_phase: migration_preflight
+    blocking_severity: P1
+    expected_outcome: legacy_population_is_classified_by_exact_evidence_and_ambiguous_cases_fail_closed
+    fixture_profile: FP-MIGRATION-LEGACY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-EVT-006
+    source_invariant: DB4_10_retention_requires_external_approved_policy_evidence_and_outbox_cleanup_only_removes_safe_published_technical_rows
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[30]
+    test_class: projection
+    execution_phase: projection_validation
+    blocking_severity: P1
+    expected_outcome: canonical_source_projection_and_dedupe_semantics_remain_consistent_under_retry_or_replay
+    fixture_profile: FP-PROJECTION-REPLAY
+    concurrency_profile: CP-RETRY-OR-REPLAY
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CORE-004
+    source_invariant: generated_synthetic_domain_ids_are_UUIDv7_and_stored_as_native_uuid
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[31]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-IAM-001
+    source_invariant: organization_contact_address_has_exactly_one_row_per_organization_when_present
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[32]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-TRN-002
+    source_invariant: company_contact_address_is_not_a_training_location_record
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[33]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-IAM-002
+    source_invariant: settings_projection_reads_user_names_from_users
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[34]
+    test_class: projection
+    execution_phase: projection_validation
+    blocking_severity: P1
+    expected_outcome: canonical_source_projection_and_dedupe_semantics_remain_consistent_under_retry_or_replay
+    fixture_profile: FP-PROJECTION-REPLAY
+    concurrency_profile: CP-RETRY-OR-REPLAY
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-IAM-003
+    source_invariant: settings_projection_reads_primary_email_from_current_primary_auth_identifier
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[35]
+    test_class: projection
+    execution_phase: projection_validation
+    blocking_severity: P1
+    expected_outcome: canonical_source_projection_and_dedupe_semantics_remain_consistent_under_retry_or_replay
+    fixture_profile: FP-PROJECTION-REPLAY
+    concurrency_profile: CP-RETRY-OR-REPLAY
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-IAM-004
+    source_invariant: two_current_primary_identifiers_of_same_type_for_one_user_are_rejected
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[36]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-IAM-005
+    source_invariant: organization_settings_version_is_at_least_one_and_increments_once_per_successful_atomic_settings_write
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[37]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-PKK-001
+    source_invariant: pkk_settings_external_login_is_not_application_login_and_plaintext_is_not_persisted
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[38]
+    test_class: security_storage
+    execution_phase: security_storage_validation
+    blocking_severity: P1
+    expected_outcome: forbidden_access_or_storage_shape_fails_closed_without_secret_or_cross_tenant_leakage
+    fixture_profile: FP-SECURITY-NEGATIVE
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CORE-005
+    source_invariant: generic_login_identifier_resolves_to_at_most_one_current_user
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[39]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CORE-006
+    source_invariant: revoked_login_identifier_can_be_reissued_only_by_explicit_policy
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[40]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-IAM-006
+    source_invariant: auth_session_can_be_listed_and_revoked_without_exposing_raw_secret
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[41]
+    test_class: security_storage
+    execution_phase: security_storage_validation
+    blocking_severity: P1
+    expected_outcome: forbidden_access_or_storage_shape_fails_closed_without_secret_or_cross_tenant_leakage
+    fixture_profile: FP-SECURITY-NEGATIVE
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-IAM-007
+    source_invariant: session_with_membership_of_different_user_is_rejected_by_composite_FK
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[42]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-IAM-008
+    source_invariant: session_with_null_membership_is_valid_only_for_global_or_pre_tenant_context
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[43]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-IAM-009
+    source_invariant: tenant_request_without_membership_context_is_denied
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[44]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-IAM-010
+    source_invariant: same_user_can_switch_between_own_memberships_in_two_organizations
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[45]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-IAM-011
+    source_invariant: organization_membership_user_id_is_immutable
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[46]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CORE-007
+    source_invariant: role_template_code_is_not_runtime_authorization_source
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[47]
+    test_class: security_storage
+    execution_phase: security_storage_validation
+    blocking_severity: P1
+    expected_outcome: forbidden_access_or_storage_shape_fails_closed_without_secret_or_cross_tenant_leakage
+    fixture_profile: FP-SECURITY-NEGATIVE
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-IAM-012
+    source_invariant: future_permission_defaults_to_denied_for_existing_membership
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[48]
+    test_class: security_storage
+    execution_phase: security_storage_validation
+    blocking_severity: P1
+    expected_outcome: forbidden_access_or_storage_shape_fails_closed_without_secret_or_cross_tenant_leakage
+    fixture_profile: FP-SECURITY-NEGATIVE
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-IAM-013
+    source_invariant: granted_permission_without_scope_is_denied
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[49]
+    test_class: security_storage
+    execution_phase: security_storage_validation
+    blocking_severity: P1
+    expected_outcome: forbidden_access_or_storage_shape_fails_closed_without_secret_or_cross_tenant_leakage
+    fixture_profile: FP-SECURITY-NEGATIVE
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-IAM-014
+    source_invariant: unsupported_permission_scope_pair_is_rejected
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[50]
+    test_class: security_storage
+    execution_phase: security_storage_validation
+    blocking_severity: P1
+    expected_outcome: forbidden_access_or_storage_shape_fails_closed_without_secret_or_cross_tenant_leakage
+    fixture_profile: FP-SECURITY-NEGATIVE
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-IAM-015
+    source_invariant: organization_scope_never_bypasses_cross_tenant_validation
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[51]
+    test_class: security_storage
+    execution_phase: security_storage_validation
+    blocking_severity: P1
+    expected_outcome: forbidden_access_or_storage_shape_fails_closed_without_secret_or_cross_tenant_leakage
+    fixture_profile: FP-SECURITY-NEGATIVE
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CORE-008
+    source_invariant: own_scope_without_canonical_owner_relation_is_denied
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[52]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-RES-001
+    source_invariant: assigned_student_or_location_scope_without_active_staff_link_is_empty
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[53]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CORE-009
+    source_invariant: owner_marker_alone_does_not_grant_permissions
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[54]
+    test_class: security_storage
+    execution_phase: security_storage_validation
+    blocking_severity: P1
+    expected_outcome: forbidden_access_or_storage_shape_fails_closed_without_secret_or_cross_tenant_leakage
+    fixture_profile: FP-SECURITY-NEGATIVE
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-IAM-016
+    source_invariant: owner_requires_materialized_protected_permission_baseline
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[55]
+    test_class: security_storage
+    execution_phase: security_storage_validation
+    blocking_severity: P1
+    expected_outcome: forbidden_access_or_storage_shape_fails_closed_without_secret_or_cross_tenant_leakage
+    fixture_profile: FP-SECURITY-NEGATIVE
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CORE-010
+    source_invariant: normal_admin_self_promotion_self_grant_and_scope_broadening_are_rejected
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[56]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-IAM-017
+    source_invariant: actor_cannot_grant_permission_or_scope_above_own_ceiling
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[57]
+    test_class: security_storage
+    execution_phase: security_storage_validation
+    blocking_severity: P1
+    expected_outcome: forbidden_access_or_storage_shape_fails_closed_without_secret_or_cross_tenant_leakage
+    fixture_profile: FP-SECURITY-NEGATIVE
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CORE-011
+    source_invariant: transaction_leaving_zero_active_owners_is_rejected
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[58]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CORE-012
+    source_invariant: concurrent_owner_demotions_cannot_both_commit_if_result_would_be_zero_owners
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[59]
+    test_class: concurrency
+    execution_phase: runtime_concurrency
+    blocking_severity: P1
+    expected_outcome: all_interleavings_preserve_one_legal_final_state_without_duplicate_or_lost_effect
+    fixture_profile: FP-CONCURRENCY-RACE
+    concurrency_profile: CP-TWO-TRANSACTIONS
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CORE-013
+    source_invariant: owner_transfer_is_atomic
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[60]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-IAM-018
+    source_invariant: elevated_permission_revoke_changes_authorization_version_and_stale_cache_cannot_authorize
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[61]
+    test_class: security_storage
+    execution_phase: security_storage_validation
+    blocking_severity: P1
+    expected_outcome: forbidden_access_or_storage_shape_fails_closed_without_secret_or_cross_tenant_leakage
+    fixture_profile: FP-SECURITY-NEGATIVE
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-IAM-019
+    source_invariant: membership_hard_delete_is_not_used_for_suspend_or_revoke
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[62]
+    test_class: schema_constraint
+    execution_phase: post_schema
+    blocking_severity: P1
+    expected_outcome: invalid_tuple_or_mutation_is_rejected_and_valid_control_case_succeeds
+    fixture_profile: FP-SCHEMA-NEGATIVE
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-IAM-020
+    source_invariant: suspended_membership_cannot_authorize_even_with_retained_permission_rows
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[63]
+    test_class: security_storage
+    execution_phase: security_storage_validation
+    blocking_severity: P1
+    expected_outcome: forbidden_access_or_storage_shape_fails_closed_without_secret_or_cross_tenant_leakage
+    fixture_profile: FP-SECURITY-NEGATIVE
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-IAM-021
+    source_invariant: revoked_membership_has_no_granted_permission_or_scope_rows_after_commit
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[64]
+    test_class: security_storage
+    execution_phase: security_storage_validation
+    blocking_severity: P1
+    expected_outcome: forbidden_access_or_storage_shape_fails_closed_without_secret_or_cross_tenant_leakage
+    fixture_profile: FP-SECURITY-NEGATIVE
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-IAM-022
+    source_invariant: revoked_reactivation_requires_fresh_permission_or_template_provisioning
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[65]
+    test_class: security_storage
+    execution_phase: security_storage_validation
+    blocking_severity: P1
+    expected_outcome: forbidden_access_or_storage_shape_fails_closed_without_secret_or_cross_tenant_leakage
+    fixture_profile: FP-SECURITY-NEGATIVE
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CORE-014
+    source_invariant: revoked_reactivation_does_not_restore_owner_or_old_session_binding
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[66]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-IAM-023
+    source_invariant: two_admins_same_expected_membership_version_cannot_both_overwrite_authorization_config
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[67]
+    test_class: security_storage
+    execution_phase: security_storage_validation
+    blocking_severity: P1
+    expected_outcome: forbidden_access_or_storage_shape_fails_closed_without_secret_or_cross_tenant_leakage
+    fixture_profile: FP-SECURITY-NEGATIVE
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-IAM-024
+    source_invariant: stale_membership_version_conflict_has_no_partial_permission_or_scope_write
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[68]
+    test_class: security_storage
+    execution_phase: security_storage_validation
+    blocking_severity: P1
+    expected_outcome: forbidden_access_or_storage_shape_fails_closed_without_secret_or_cross_tenant_leakage
+    fixture_profile: FP-SECURITY-NEGATIVE
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-IAM-025
+    source_invariant: logical_authorization_mutation_increments_membership_version_once
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[69]
+    test_class: security_storage
+    execution_phase: security_storage_validation
+    blocking_severity: P1
+    expected_outcome: forbidden_access_or_storage_shape_fails_closed_without_secret_or_cross_tenant_leakage
+    fixture_profile: FP-SECURITY-NEGATIVE
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CORE-015
+    source_invariant: authorization_affecting_mutation_increments_authorization_version_once
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[70]
+    test_class: security_storage
+    execution_phase: security_storage_validation
+    blocking_severity: P1
+    expected_outcome: forbidden_access_or_storage_shape_fails_closed_without_secret_or_cross_tenant_leakage
+    fixture_profile: FP-SECURITY-NEGATIVE
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-IAM-026
+    source_invariant: suspend_or_revoke_clears_all_bound_session_tenant_contexts_same_transaction
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[71]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-IAM-027
+    source_invariant: suspend_or_revoke_does_not_remove_other_organization_memberships_for_same_global_user
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[72]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-AUD-021
+    source_invariant: audit_and_outbox_commit_atomically_with_membership_authorization_mutation
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[73]
+    test_class: security_storage
+    execution_phase: security_storage_validation
+    blocking_severity: P1
+    expected_outcome: forbidden_access_or_storage_shape_fails_closed_without_secret_or_cross_tenant_leakage
+    fixture_profile: FP-SECURITY-NEGATIVE
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-IAM-028
+    source_invariant: duplicate_pending_account_closure_request_same_organization_scope_is_rejected_or_idempotent
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[74]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-IAM-029
+    source_invariant: duplicate_pending_global_account_closure_request_for_same_user_is_rejected_or_idempotent
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[75]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CORE-016
+    source_invariant: pending_account_closure_for_two_different_organizations_does_not_collide
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[76]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-IAM-030
+    source_invariant: same_user_can_have_memberships_in_two_organizations
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[77]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-RES-002
+    source_invariant: staff_can_exist_without_membership_link
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[78]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-RES-003
+    source_invariant: staff_membership_link_cross_tenant_pair_is_rejected
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[79]
+    test_class: security_storage
+    execution_phase: security_storage_validation
+    blocking_severity: P1
+    expected_outcome: forbidden_access_or_storage_shape_fails_closed_without_secret_or_cross_tenant_leakage
+    fixture_profile: FP-SECURITY-NEGATIVE
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-RES-004
+    source_invariant: archived_staff_cannot_have_or_receive_active_staff_membership_link
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[80]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-RES-005
+    source_invariant: staff_can_have_multiple_categories_and_locations
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[81]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-RES-006
+    source_invariant: staff_location_assignment_cross_tenant_pair_is_rejected
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[82]
+    test_class: security_storage
+    execution_phase: security_storage_validation
+    blocking_severity: P1
+    expected_outcome: forbidden_access_or_storage_shape_fails_closed_without_secret_or_cross_tenant_leakage
+    fixture_profile: FP-SECURITY-NEGATIVE
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-RES-007
+    source_invariant: vehicle_can_have_multiple_categories_and_locations
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[83]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-RES-008
+    source_invariant: vehicle_location_assignment_cross_tenant_pair_is_rejected
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[84]
+    test_class: security_storage
+    execution_phase: security_storage_validation
+    blocking_severity: P1
+    expected_outcome: forbidden_access_or_storage_shape_fails_closed_without_secret_or_cross_tenant_leakage
+    fixture_profile: FP-SECURITY-NEGATIVE
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-RES-009
+    source_invariant: staff_and_vehicle_private_assets_require_same_tenant_correct_purpose_and_ready_state
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[85]
+    test_class: schema_constraint
+    execution_phase: post_schema
+    blocking_severity: P1
+    expected_outcome: invalid_tuple_or_mutation_is_rejected_and_valid_control_case_succeeds
+    fixture_profile: FP-SCHEMA-NEGATIVE
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CORE-017
+    source_invariant: concurrent_asset_state_change_and_private_attachment_cannot_bypass_ready_validation
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[86]
+    test_class: concurrency
+    execution_phase: runtime_concurrency
+    blocking_severity: P1
+    expected_outcome: all_interleavings_preserve_one_legal_final_state_without_duplicate_or_lost_effect
+    fixture_profile: FP-CONCURRENCY-RACE
+    concurrency_profile: CP-TWO-TRANSACTIONS
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-RES-010
+    source_invariant: staff_document_has_at_most_one_current_row_per_type
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[87]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-RES-011
+    source_invariant: vehicle_document_has_at_most_one_current_row_per_type
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[88]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CORE-018
+    source_invariant: document_replacement_preserves_history_and_concurrency_cannot_leave_two_current_rows
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[89]
+    test_class: concurrency
+    execution_phase: runtime_concurrency
+    blocking_severity: P1
+    expected_outcome: all_interleavings_preserve_one_legal_final_state_without_duplicate_or_lost_effect
+    fixture_profile: FP-CONCURRENCY-RACE
+    concurrency_profile: CP-TWO-TRANSACTIONS
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CORE-019
+    source_invariant: superseded_document_business_fields_are_immutable
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[90]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-RES-012
+    source_invariant: archived_staff_still_blocks_duplicate_PESEL_in_same_organization
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[91]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-RES-013
+    source_invariant: archived_vehicle_still_blocks_duplicate_VIN_in_same_organization
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[92]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-IAM-031
+    source_invariant: two_nonarchived_vehicles_same_registration_in_same_organization_are_rejected
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[93]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-RES-014
+    source_invariant: vehicle_archive_releases_registration_for_current_fleet_but_preserves_history
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[94]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-RES-015
+    source_invariant: vehicle_restore_conflicts_if_registration_is_held_by_another_nonarchived_vehicle
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[95]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-RES-016
+    source_invariant: staff_archive_nonowner_unlinks_and_suspends_membership_atomically
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[96]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-RES-017
+    source_invariant: staff_archive_owner_unlinks_staff_but_does_not_silently_change_owner_governance
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[97]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-RES-018
+    source_invariant: staff_restore_does_not_auto_restore_panel_access_or_old_sessions
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[98]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-TRN-003
+    source_invariant: pre_course_student_can_exist_without_formal_identity_but_course_create_is_rejected_until_identity_complete
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[99]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CORE-020
+    source_invariant: explicit_no_PESEL_requires_birth_date_and_forbids_PESEL_pair
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[100]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-IAM-032
+    source_invariant: student_PESEL_pair_is_atomic_and_duplicate_same_organization_is_rejected_including_archived
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[101]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CORE-021
+    source_invariant: two_student_profile_mutations_same_expected_version_cannot_both_commit
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[102]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-TRN-004
+    source_invariant: course_create_and_student_archive_race_cannot_commit_archived_student_with_open_course
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[103]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-TRN-005
+    source_invariant: course_lifecycle_terminal_timestamps_are_mutually_exclusive_and_training_completed_matches_completed_at
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[104]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-TRN-006
+    source_invariant: exactly_one_lifecycle_event_exists_per_material_course_version
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[105]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-TRN-007
+    source_invariant: restore_only_reopens_cancelled_course_and_cannot_reopen_under_archived_student
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[106]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-TRN-008
+    source_invariant: current_requirement_profile_revision_equals_course_requirements_revision
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[107]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CORE-022
+    source_invariant: rule_set_version_references_immutable_hashed_rule_artifact
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[108]
+    test_class: security_storage
+    execution_phase: security_storage_validation
+    blocking_severity: P1
+    expected_outcome: forbidden_access_or_storage_shape_fails_closed_without_secret_or_cross_tenant_leakage
+    fixture_profile: FP-SECURITY-NEGATIVE
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CORE-023
+    source_invariant: requirement_source_fact_change_cannot_commit_without_new_current_profile
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[109]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-TRN-009
+    source_invariant: attendance_is_exact_session_course_and_exact_course_student
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[110]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CORE-024
+    source_invariant: completed_verified_present_session_has_exactly_one_base_credit
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[111]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CORE-025
+    source_invariant: completed_absent_planned_or_cancelled_session_has_zero_base_credit
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[112]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CORE-026
+    source_invariant: duplicate_base_credit_per_session_is_rejected
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[113]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-TRN-010
+    source_invariant: correction_and_reversal_source_is_same_tenant_course_and_training_part
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[114]
+    test_class: schema_constraint
+    execution_phase: post_schema
+    blocking_severity: P1
+    expected_outcome: invalid_tuple_or_mutation_is_rejected_and_valid_control_case_succeeds
+    fixture_profile: FP-SCHEMA-NEGATIVE
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CORE-027
+    source_invariant: same_source_cannot_be_reversed_twice_and_reversal_of_reversal_is_rejected
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[115]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-TRN-011
+    source_invariant: declared_course_hours_do_not_change_credited_training_hours_without_ledger_entry
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[116]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-TRN-012
+    source_invariant: course_form_external_projection_has_at_most_one_current_row_per_course_part
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[117]
+    test_class: projection
+    execution_phase: projection_validation
+    blocking_severity: P1
+    expected_outcome: canonical_source_projection_and_dedupe_semantics_remain_consistent_under_retry_or_replay
+    fixture_profile: FP-PROJECTION-REPLAY
+    concurrency_profile: CP-RETRY-OR-REPLAY
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CORE-028
+    source_invariant: documented_external_transfers_are_additive_and_correction_replacement_does_not_double_count
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[118]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-TRN-013
+    source_invariant: current_external_row_cannot_survive_category_or_training_type_change_without_revalidation
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[119]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-TRN-014
+    source_invariant: combined_current_OSK_plus_external_minutes_are_deterministic_per_training_part
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[120]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-PKK-002
+    source_invariant: course_create_cannot_commit_without_exactly_one_current_PKK_identity
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[121]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-PKK-003
+    source_invariant: current_PKK_identity_has_ciphertext_and_lookup_hash_and_plaintext_is_not_persisted
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[122]
+    test_class: security_storage
+    execution_phase: security_storage_validation
+    blocking_severity: P1
+    expected_outcome: forbidden_access_or_storage_shape_fails_closed_without_secret_or_cross_tenant_leakage
+    fixture_profile: FP-SECURITY-NEGATIVE
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-PKK-004
+    source_invariant: PKK_identity_replacement_preserves_prior_profile_and_leaves_exactly_one_current
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[123]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-PKK-005
+    source_invariant: category_or_training_type_change_cannot_commit_with_stale_current_PKK_identity
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[124]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-PKK-006
+    source_invariant: DB4_4_migration_does_not_guess_no_PESEL_requirement_context_external_lineage_or_PKK_history_when_legacy_evidence_is_ambiguous
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[125]
+    test_class: migration_preflight
+    execution_phase: migration_preflight
+    blocking_severity: P1
+    expected_outcome: legacy_population_is_classified_by_exact_evidence_and_ambiguous_cases_fail_closed
+    fixture_profile: FP-MIGRATION-LEGACY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-PKK-007
+    source_invariant: PKK_operation_course_profile_and_attempt_exact_context_cross_tenant_or_cross_course_mismatch_is_rejected
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[126]
+    test_class: security_storage
+    execution_phase: security_storage_validation
+    blocking_severity: P1
+    expected_outcome: forbidden_access_or_storage_shape_fails_closed_without_secret_or_cross_tenant_leakage
+    fixture_profile: FP-SECURITY-NEGATIVE
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-PKK-008
+    source_invariant: PKK_provider_snapshot_history_is_append_only_and_current_projection_uses_max_snapshot_revision_for_exact_current_profile
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[127]
+    test_class: projection
+    execution_phase: projection_validation
+    blocking_severity: P1
+    expected_outcome: canonical_source_projection_and_dedupe_semantics_remain_consistent_under_retry_or_replay
+    fixture_profile: FP-PROJECTION-REPLAY
+    concurrency_profile: CP-RETRY-OR-REPLAY
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-PKK-009
+    source_invariant: PKK_business_operation_status_matches_append_only_lifecycle_history_and_one_active_operation_per_exact_profile
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[128]
+    test_class: schema_constraint
+    execution_phase: post_schema
+    blocking_severity: P1
+    expected_outcome: invalid_tuple_or_mutation_is_rejected_and_valid_control_case_succeeds
+    fixture_profile: FP-SCHEMA-NEGATIVE
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-PKK-010
+    source_invariant: PKK_same_idempotency_key_same_hash_does_not_duplicate_operation_or_provider_attempt
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[129]
+    test_class: security_storage
+    execution_phase: security_storage_validation
+    blocking_severity: P1
+    expected_outcome: forbidden_access_or_storage_shape_fails_closed_without_secret_or_cross_tenant_leakage
+    fixture_profile: FP-SECURITY-NEGATIVE
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-PKK-011
+    source_invariant: PKK_effect_unknown_blocks_retry_until_conclusive_no_effect_reconciliation
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[130]
+    test_class: migration_preflight
+    execution_phase: migration_preflight
+    blocking_severity: P1
+    expected_outcome: legacy_population_is_classified_by_exact_evidence_and_ambiguous_cases_fail_closed
+    fixture_profile: FP-MIGRATION-LEGACY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-PKK-012
+    source_invariant: PKK_signature_handoff_requires_exact_ready_same_tenant_unsigned_and_signed_FileAsset_hash_binding
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[131]
+    test_class: security_storage
+    execution_phase: security_storage_validation
+    blocking_severity: P1
+    expected_outcome: forbidden_access_or_storage_shape_fails_closed_without_secret_or_cross_tenant_leakage
+    fixture_profile: FP-SECURITY-NEGATIVE
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-PKK-013
+    source_invariant: PKK_signed_XML_submit_creates_exact_attempt_and_submitted_transition_atomically_before_provider_dispatch
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[132]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-PKK-014
+    source_invariant: PKK_raw_provider_payload_is_never_persisted_plaintext_and_safe_projection_is_allowlisted_versioned_history
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[133]
+    test_class: security_storage
+    execution_phase: security_storage_validation
+    blocking_severity: P1
+    expected_outcome: forbidden_access_or_storage_shape_fails_closed_without_secret_or_cross_tenant_leakage
+    fixture_profile: FP-SECURITY-NEGATIVE
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-PKK-015
+    source_invariant: PKK_key_rotation_rewraps_DEK_without_rewriting_business_ciphertext_or_snapshot_hash_history
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[134]
+    test_class: security_storage
+    execution_phase: security_storage_validation
+    blocking_severity: P1
+    expected_outcome: forbidden_access_or_storage_shape_fails_closed_without_secret_or_cross_tenant_leakage
+    fixture_profile: FP-SECURITY-NEGATIVE
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-PKK-016
+    source_invariant: PKK_XML_final_storage_is_application_encrypted_while_FileAsset_sha256_remains_plaintext_content_hash
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[135]
+    test_class: security_storage
+    execution_phase: security_storage_validation
+    blocking_severity: P1
+    expected_outcome: forbidden_access_or_storage_shape_fails_closed_without_secret_or_cross_tenant_leakage
+    fixture_profile: FP-SECURITY-NEGATIVE
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-PKK-017
+    source_invariant: PKK_provider_attempt_binds_exact_integration_configuration_revision_and_stale_prepared_attempt_cannot_silently_use_new_configuration
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[136]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-PKK-018
+    source_invariant: PKK_material_configuration_change_is_blocked_while_dispatching_or_effect_unknown_attempt_requires_old_context
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[137]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-PKK-019
+    source_invariant: PKK_course_operation_sequence_is_unique_immutable_contiguous_for_runtime_and_allocated_under_course_lock
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[138]
+    test_class: schema_constraint
+    execution_phase: post_schema
+    blocking_severity: P1
+    expected_outcome: invalid_tuple_or_mutation_is_rejected_and_valid_control_case_succeeds
+    fixture_profile: FP-SCHEMA-NEGATIVE
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-PKK-020
+    source_invariant: PKK_latest_operation_uses_max_course_operation_sequence_not_created_at_completed_at_or_UUID
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[139]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-PKK-021
+    source_invariant: PKK_history_count_counts_business_operations_not_transport_attempts_or_retries
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[140]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-PKK-022
+    source_invariant: PKK_legacy_equal_created_at_without_stronger_order_evidence_fails_sequence_backfill_instead_of_guessing
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[141]
+    test_class: migration_preflight
+    execution_phase: migration_preflight
+    blocking_severity: P1
+    expected_outcome: legacy_population_is_classified_by_exact_evidence_and_ambiguous_cases_fail_closed
+    fixture_profile: FP-MIGRATION-LEGACY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CAL-001
+    source_invariant: calendar_manual_event_cross_tenant_student_instructor_vehicle_location_is_rejected
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[142]
+    test_class: security_storage
+    execution_phase: security_storage_validation
+    blocking_severity: P1
+    expected_outcome: forbidden_access_or_storage_shape_fails_closed_without_secret_or_cross_tenant_leakage
+    fixture_profile: FP-SECURITY-NEGATIVE
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CAL-002
+    source_invariant: calendar_manual_event_location_and_custom_meeting_place_cannot_both_be_persisted
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[143]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CAL-003
+    source_invariant: important_date_is_source_projection_and_never_manual_calendar_event_row
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[144]
+    test_class: projection
+    execution_phase: projection_validation
+    blocking_severity: P1
+    expected_outcome: canonical_source_projection_and_dedupe_semantics_remain_consistent_under_retry_or_replay
+    fixture_profile: FP-PROJECTION-REPLAY
+    concurrency_profile: CP-RETRY-OR-REPLAY
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CAL-004
+    source_invariant: calendar_half_open_intervals_allow_adjacent_same_resource_reservations
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[145]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CAL-005
+    source_invariant: calendar_same_student_overlap_same_organization_is_rejected_by_GiST
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[146]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CAL-006
+    source_invariant: calendar_same_instructor_overlap_same_organization_is_rejected_by_GiST
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[147]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CAL-007
+    source_invariant: calendar_same_vehicle_overlap_same_organization_is_rejected_by_GiST
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[148]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CAL-008
+    source_invariant: calendar_same_location_overlap_same_organization_is_rejected_by_GiST
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[149]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CAL-009
+    source_invariant: calendar_same_resource_in_different_organizations_does_not_conflict
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[150]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CAL-010
+    source_invariant: unknown_calendar_claim_owner_kind_is_rejected
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[151]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CORE-029
+    source_invariant: scheduled_general_event_has_exact_claim_set_and_terminal_general_event_has_zero_claims
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[152]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CAL-011
+    source_invariant: calendar_event_current_version_has_exactly_one_matching_lifecycle_history_row
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[153]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CAL-012
+    source_invariant: two_calendar_event_mutations_same_expected_version_cannot_both_commit
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[154]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CAL-013
+    source_invariant: calendar_own_scope_requires_active_staff_link_to_target_instructor_and_creator_is_not_owner_shortcut
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[155]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CAL-014
+    source_invariant: availability_slot_state_booking_fields_and_version_history_are_consistent
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[156]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CAL-015
+    source_invariant: two_concurrent_bookings_same_availability_slot_allow_at_most_one_commit
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[157]
+    test_class: concurrency
+    execution_phase: runtime_concurrency
+    blocking_severity: P1
+    expected_outcome: all_interleavings_preserve_one_legal_final_state_without_duplicate_or_lost_effect
+    fixture_profile: FP-CONCURRENCY-RACE
+    concurrency_profile: CP-TWO-TRANSACTIONS
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CAL-016
+    source_invariant: availability_booking_conflicting_with_existing_general_event_rolls_back_entire_booking
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[158]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CORE-030
+    source_invariant: booked_slot_has_exact_booking_claim_set_until_formalized
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[159]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CAL-017
+    source_invariant: cancelled_availability_slot_has_zero_claims_and_is_not_auto_republished
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[160]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-TRN-015
+    source_invariant: planned_training_session_has_exact_course_student_instructor_and_optional_vehicle_location_claims
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[161]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-TRN-016
+    source_invariant: training_session_conflicts_with_general_event_booking_or_other_session_on_same_resource_and_overlap
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[162]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-TRN-017
+    source_invariant: training_session_claim_insert_never_creates_attendance_or_training_credit
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[163]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-TRN-018
+    source_invariant: completed_or_cancelled_training_session_has_zero_resource_claims
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[164]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CAL-018
+    source_invariant: practical_training_session_projects_as_driving_lesson_without_calendar_event_copy
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[165]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CAL-019
+    source_invariant: training_session_calendar_details_preserves_optional_name_or_custom_place_without_schedule_duplication
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[166]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CAL-020
+    source_invariant: training_session_location_and_calendar_custom_place_cannot_both_be_active
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[167]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CAL-021
+    source_invariant: formal_lesson_calendar_mutation_requires_training_permission_not_calendar_manage_permission
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[168]
+    test_class: security_storage
+    execution_phase: security_storage_validation
+    blocking_severity: P1
+    expected_outcome: forbidden_access_or_storage_shape_fails_closed_without_secret_or_cross_tenant_leakage
+    fixture_profile: FP-SECURITY-NEGATIVE
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CAL-022
+    source_invariant: calendar_complete_never_bypasses_DB_TRN_006_credit_pipeline
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[169]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CAL-023
+    source_invariant: availability_formalization_requires_explicit_or_unambiguous_active_course_and_never_latest_first_guess
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[170]
+    test_class: migration_preflight
+    execution_phase: migration_preflight
+    blocking_severity: P1
+    expected_outcome: legacy_population_is_classified_by_exact_evidence_and_ambiguous_cases_fail_closed
+    fixture_profile: FP-MIGRATION-LEGACY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CAL-024
+    source_invariant: availability_formalization_transfers_claim_owner_atomically_without_duplicate_reservation
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[171]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CAL-025
+    source_invariant: formalized_slot_has_training_session_link_zero_booking_claims_and_no_second_calendar_item
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[172]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CORE-031
+    source_invariant: formalized_slot_cannot_cancel_independently_and_linked_session_terminal_state_does_not_auto_republish_slot
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[173]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CAL-026
+    source_invariant: legacy_driving_lesson_calendar_row_is_not_heuristically_mapped_to_training_session
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[174]
+    test_class: migration_preflight
+    execution_phase: migration_preflight
+    blocking_severity: P1
+    expected_outcome: legacy_population_is_classified_by_exact_evidence_and_ambiguous_cases_fail_closed
+    fixture_profile: FP-MIGRATION-LEGACY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CORE-032
+    source_invariant: DB4_5_migration_does_not_auto_shift_cancel_reassign_or_choose_overlap_winner
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[175]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-IAM-033
+    source_invariant: learning_account_identifier_must_belong_to_same_global_user_and_be_current_at_commit
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[176]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-IAM-034
+    source_invariant: learning_account_login_projection_is_joined_from_auth_identifier_not_independent_persisted_authority
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[177]
+    test_class: projection
+    execution_phase: projection_validation
+    blocking_severity: P1
+    expected_outcome: canonical_source_projection_and_dedupe_semantics_remain_consistent_under_retry_or_replay
+    fixture_profile: FP-PROJECTION-REPLAY
+    concurrency_profile: CP-RETRY-OR-REPLAY
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-IAM-035
+    source_invariant: same_global_user_identifier_may_back_learning_accounts_in_multiple_organizations
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[178]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CORE-033
+    source_invariant: learning_account_version_and_active_suspended_status_are_database_constrained
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[179]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-LIC-001
+    source_invariant: archived_student_blocks_new_learning_operational_effects_without_rewriting_license_history
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[180]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CORE-034
+    source_invariant: OSK_password_reset_requires_matching_management_authority_and_exclusive_learner_principal
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[181]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CORE-035
+    source_invariant: every_local_password_mutation_increments_one_global_credential_version
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[182]
+    test_class: security_storage
+    execution_phase: security_storage_validation
+    blocking_severity: P1
+    expected_outcome: forbidden_access_or_storage_shape_fails_closed_without_secret_or_cross_tenant_leakage
+    fixture_profile: FP-SECURITY-NEGATIVE
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-AUD-022
+    source_invariant: plaintext_password_and_secret_bearing_PDF_are_absent_from_durable_storage_audit_outbox_logs_and_idempotency_snapshot
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[183]
+    test_class: security_storage
+    execution_phase: security_storage_validation
+    blocking_severity: P1
+    expected_outcome: forbidden_access_or_storage_shape_fails_closed_without_secret_or_cross_tenant_leakage
+    fixture_profile: FP-SECURITY-NEGATIVE
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CORE-036
+    source_invariant: secret_bearing_PDF_is_immediate_memory_only_and_later_reprint_requires_new_reset
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[184]
+    test_class: security_storage
+    execution_phase: security_storage_validation
+    blocking_severity: P1
+    expected_outcome: forbidden_access_or_storage_shape_fails_closed_without_secret_or_cross_tenant_leakage
+    fixture_profile: FP-SECURITY-NEGATIVE
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-IAM-036
+    source_invariant: bulk_secret_reset_is_all_or_none_and_duplicate_learning_accounts_same_user_reset_once
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[185]
+    test_class: security_storage
+    execution_phase: security_storage_validation
+    blocking_severity: P1
+    expected_outcome: forbidden_access_or_storage_shape_fails_closed_without_secret_or_cross_tenant_leakage
+    fixture_profile: FP-SECURITY-NEGATIVE
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-IAM-037
+    source_invariant: assignment_cross_tenant_inventory_student_or_account_and_wrong_student_account_pair_are_rejected
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[186]
+    test_class: security_storage
+    execution_phase: security_storage_validation
+    blocking_severity: P1
+    expected_outcome: forbidden_access_or_storage_shape_fails_closed_without_secret_or_cross_tenant_leakage
+    fixture_profile: FP-SECURITY-NEGATIVE
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CORE-037
+    source_invariant: inventory_and_assignment_status_catalogs_and_final_state_equivalence_are_enforced
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[187]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CORE-038
+    source_invariant: two_concurrent_assignments_same_inventory_allow_at_most_one_commit
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[188]
+    test_class: concurrency
+    execution_phase: runtime_concurrency
+    blocking_severity: P1
+    expected_outcome: all_interleavings_preserve_one_legal_final_state_without_duplicate_or_lost_effect
+    fixture_profile: FP-CONCURRENCY-RACE
+    concurrency_profile: CP-TWO-TRANSACTIONS
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CORE-039
+    source_invariant: create_new_learning_account_and_assignment_commit_all_or_none
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[189]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CORE-040
+    source_invariant: revoke_unactivated_restores_same_inventory_entry_exactly_once_and_preserves_assignment_history
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[190]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CORE-041
+    source_invariant: activate_and_revoke_same_assignment_have_exactly_one_winner
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[191]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CORE-042
+    source_invariant: activation_targets_exact_assignment_learning_account_and_is_immutable
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[192]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CORE-043
+    source_invariant: entitlement_sequence_is_unique_contiguous_and_serialized_on_learning_account
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[193]
+    test_class: concurrency
+    execution_phase: runtime_concurrency
+    blocking_severity: P1
+    expected_outcome: all_interleavings_preserve_one_legal_final_state_without_duplicate_or_lost_effect
+    fixture_profile: FP-CONCURRENCY-RACE
+    concurrency_profile: CP-TWO-TRANSACTIONS
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CORE-044
+    source_invariant: product_duration_and_inventory_product_binding_are_immutable_after_inventory_reference
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[194]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-IAM-038
+    source_invariant: runtime_activation_snapshots_positive_duration_and_uses_real_learner_or_organization_actor
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[195]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CORE-045
+    source_invariant: extension_before_expiry_preserves_remaining_time_and_activation_after_expiry_does_not_backfill_gap
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[196]
+    test_class: migration_preflight
+    execution_phase: migration_preflight
+    blocking_severity: P1
+    expected_outcome: legacy_population_is_classified_by_exact_evidence_and_ambiguous_cases_fail_closed
+    fixture_profile: FP-MIGRATION-LEGACY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CORE-046
+    source_invariant: two_concurrent_extensions_same_learning_account_do_not_lose_entitlement_time
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[197]
+    test_class: concurrency
+    execution_phase: runtime_concurrency
+    blocking_severity: P1
+    expected_outcome: all_interleavings_preserve_one_legal_final_state_without_duplicate_or_lost_effect
+    fixture_profile: FP-CONCURRENCY-RACE
+    concurrency_profile: CP-TWO-TRANSACTIONS
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CORE-047
+    source_invariant: current_entitlement_end_is_MAX_activation_effective_to_not_mutable_projection
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[198]
+    test_class: projection
+    execution_phase: projection_validation
+    blocking_severity: P1
+    expected_outcome: canonical_source_projection_and_dedupe_semantics_remain_consistent_under_retry_or_replay
+    fixture_profile: FP-PROJECTION-REPLAY
+    concurrency_profile: CP-RETRY-OR-REPLAY
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CORE-048
+    source_invariant: product_language_support_requires_capability_row_not_global_language_or_screen_list
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[199]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CORE-049
+    source_invariant: assignment_language_is_immutable_snapshot_bound_to_exact_inventory_product_capability_and_assignment_time
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[200]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CORE-050
+    source_invariant: existing_account_assignment_inherits_locked_account_language_and_cannot_silently_change_it
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[201]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CORE-051
+    source_invariant: language_change_with_pending_assignment_or_live_future_entitlement_is_rejected
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[202]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CORE-052
+    source_invariant: capability_retirement_does_not_retroactively_revoke_already_assigned_right
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[203]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CORE-053
+    source_invariant: assignment_sequence_determines_latest_without_timestamp_or_UUID_heuristic
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[204]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CORE-054
+    source_invariant: management_latest_status_count_expiry_remaining_and_hide_finished_are_derived_from_canonical_history
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[205]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CORE-055
+    source_invariant: bulk_credentials_PDF_localizes_each_access_from_current_learning_account_language
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[206]
+    test_class: security_storage
+    execution_phase: security_storage_validation
+    blocking_severity: P1
+    expected_outcome: forbidden_access_or_storage_shape_fails_closed_without_secret_or_cross_tenant_leakage
+    fixture_profile: FP-SECURITY-NEGATIVE
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-COM-014
+    source_invariant: DB4_6_migration_does_not_guess_tenant_target_identity_password_authority_inventory_state_activation_chain_assignment_order_or_language_capability
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[207]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-LIC-002
+    source_invariant: revoked_license_assignment_allows_same_inventory_entry_to_be_reassigned_later
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[208]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-LIC-003
+    source_invariant: two_current_license_assignments_for_same_inventory_entry_are_rejected
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[209]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-LIC-004
+    source_invariant: second_activation_for_same_license_assignment_is_rejected
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[210]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-LIC-005
+    source_invariant: concurrent_license_extensions_do_not_lose_entitlement_days
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[211]
+    test_class: concurrency
+    execution_phase: runtime_concurrency
+    blocking_severity: P1
+    expected_outcome: all_interleavings_preserve_one_legal_final_state_without_duplicate_or_lost_effect
+    fixture_profile: FP-CONCURRENCY-RACE
+    concurrency_profile: CP-TWO-TRANSACTIONS
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-LIC-006
+    source_invariant: license_effective_periods_follow_serialized_contiguous_activation_sequence
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[212]
+    test_class: concurrency
+    execution_phase: runtime_concurrency
+    blocking_severity: P1
+    expected_outcome: all_interleavings_preserve_one_legal_final_state_without_duplicate_or_lost_effect
+    fixture_profile: FP-CONCURRENCY-RACE
+    concurrency_profile: CP-TWO-TRANSACTIONS
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-EXAM-001
+    source_invariant: internal_exam_attempt_rejects_cross_tenant_or_wrong_course_student_category_requirement_or_capability_target
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[213]
+    test_class: security_storage
+    execution_phase: security_storage_validation
+    blocking_severity: P1
+    expected_outcome: forbidden_access_or_storage_shape_fails_closed_without_secret_or_cross_tenant_leakage
+    fixture_profile: FP-SECURITY-NEGATIVE
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-TRN-019
+    source_invariant: theory_exempt_course_rejects_new_formal_theory_attempt
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[214]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-EXAM-002
+    source_invariant: internal_exam_available_count_matches_append_only_ledger_and_guarded_unit_projection
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[215]
+    test_class: projection
+    execution_phase: projection_validation
+    blocking_severity: P1
+    expected_outcome: canonical_source_projection_and_dedupe_semantics_remain_consistent_under_retry_or_replay
+    fixture_profile: FP-PROJECTION-REPLAY
+    concurrency_profile: CP-RETRY-OR-REPLAY
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CORE-056
+    source_invariant: attempt_create_reserves_exactly_one_inventory_unit_and_failed_create_rolls_back_sequence_and_reservation
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[216]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CORE-057
+    source_invariant: two_active_exam_reservations_for_same_inventory_entry_or_attempt_are_rejected
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[217]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CORE-058
+    source_invariant: start_consumes_reserved_exam_unit_exactly_once_and_prestart_release_is_exactly_once
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[218]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CORE-059
+    source_invariant: technical_abort_after_start_does_not_auto_restore_exam_inventory
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[219]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CORE-060
+    source_invariant: attempt_and_access_status_timestamp_version_and_lifecycle_history_are_consistent
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[220]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CORE-061
+    source_invariant: start_vs_revoke_expire_and_submit_vs_abort_invalidate_have_one_serialized_winner
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[221]
+    test_class: concurrency
+    execution_phase: runtime_concurrency
+    blocking_severity: P1
+    expected_outcome: all_interleavings_preserve_one_legal_final_state_without_duplicate_or_lost_effect
+    fixture_profile: FP-CONCURRENCY-RACE
+    concurrency_profile: CP-TWO-TRANSACTIONS
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CORE-062
+    source_invariant: raw_exam_bearer_tokens_and_station_secrets_are_never_recoverably_persisted_or_logged
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[222]
+    test_class: security_storage
+    execution_phase: security_storage_validation
+    blocking_severity: P1
+    expected_outcome: forbidden_access_or_storage_shape_fails_closed_without_secret_or_cross_tenant_leakage
+    fixture_profile: FP-SECURITY-NEGATIVE
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CORE-063
+    source_invariant: execution_and_finished_result_token_purposes_cannot_escalate_into_each_other_or_document_download
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[223]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CORE-064
+    source_invariant: two_active_local_exam_sessions_on_same_station_are_rejected
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[224]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CORE-065
+    source_invariant: same_attempt_cannot_have_two_active_station_sessions
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[225]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CORE-066
+    source_invariant: station_failover_keeps_same_attempt_access_and_consumed_reservation_and_does_not_consume_second_credit
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[226]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CORE-067
+    source_invariant: offline_disabled_or_reconnect_station_flow_does_not_silently_end_transfer_or_refund_active_attempt
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[227]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CORE-068
+    source_invariant: exam_definition_and_exact_question_media_points_evidence_are_frozen_at_start_without_global_32_or_74_hardcode
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[228]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CORE-069
+    source_invariant: result_score_max_pass_and_question_evidence_match_frozen_scoring_policy_and_are_immutable
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[229]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CORE-070
+    source_invariant: answer_sheet_template_evidence_asset_and_content_hash_lineage_is_deterministic_and_immutable
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[230]
+    test_class: security_storage
+    execution_phase: security_storage_validation
+    blocking_severity: P1
+    expected_outcome: forbidden_access_or_storage_shape_fails_closed_without_secret_or_cross_tenant_leakage
+    fixture_profile: FP-SECURITY-NEGATIVE
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CORE-071
+    source_invariant: postfinish_invalidation_preserves_original_result_question_document_evidence
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[231]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-TRN-020
+    source_invariant: course_attempt_sequence_is_unique_contiguous_and_selects_latest_without_timestamp_or_UUID_heuristic
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[232]
+    test_class: schema_constraint
+    execution_phase: post_schema
+    blocking_severity: P1
+    expected_outcome: invalid_tuple_or_mutation_is_rejected_and_valid_control_case_succeeds
+    fixture_profile: FP-SCHEMA-NEGATIVE
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-EXAM-003
+    source_invariant: internal_exam_management_status_counts_pass_rate_hide_finished_search_filter_sort_and_pagination_are_derived_deterministically
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[233]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-IAM-039
+    source_invariant: DB4_7_migration_does_not_guess_tenant_target_requirement_capability_inventory_state_lifecycle_token_station_transfer_question_scoring_template_or_attempt_order
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[234]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-COM-015
+    source_invariant: explicit_service_entitlement_activation_is_exactly_once
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[235]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CORE-072
+    source_invariant: payment_success_does_not_activate_explicit_mode_entitlement_early
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[236]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CORE-073
+    source_invariant: duplicate_provider_event_with_same_provider_is_rejected
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[237]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CORE-074
+    source_invariant: same_provider_event_id_from_different_provider_does_not_collide
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[238]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-IAM-040
+    source_invariant: duplicate_tenant_idempotency_key_same_scope_same_request_does_not_repeat_business_effect
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[239]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CORE-075
+    source_invariant: duplicate_global_idempotency_key_same_scope_same_request_does_not_repeat_business_effect
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[240]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CORE-076
+    source_invariant: same_idempotency_key_in_different_organizations_does_not_collide
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[241]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CORE-077
+    source_invariant: duplicate_idempotency_key_same_scope_different_request_is_rejected
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[242]
+    test_class: transaction
+    execution_phase: runtime_integration
+    blocking_severity: P1
+    expected_outcome: command_preserves_declared_atomicity_state_and_history_invariant
+    fixture_profile: FP-TRANSACTION-ATOMICITY
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  - test_id: DBT-CORE-078
+    source_invariant: activity_safe_payload_rejects_or_redacts_sensitive_fields
+    source_refs:
+    - specs/database/core-schema.yml::migration_tests_required[243]
+    test_class: security_storage
+    execution_phase: security_storage_validation
+    blocking_severity: P1
+    expected_outcome: forbidden_access_or_storage_shape_fails_closed_without_secret_or_cross_tenant_leakage
+    fixture_profile: FP-SECURITY-NEGATIVE
+    concurrency_profile: none
+    implementation_status: contract_only_no_framework_test_generated
+  validation_gate:
+    unique_test_ids: PASS
+    every_test_has_source_invariant_and_nonempty_source_refs: PASS
+    every_test_has_allowed_test_class: PASS
+    every_test_has_expected_outcome: PASS
+    every_test_has_fixture_profile: PASS
+    every_concurrency_test_uses_non_none_concurrency_profile: PASS
+    no_framework_tests_generated: PASS
+    DB_TST_002_coverage_proof_not_closed_here: PASS
+    DB_FINAL_001_aggregate_sync_not_closed_here: PASS
+
 blockers:
   - id: DB-MIG-001
     severity: P1
@@ -2582,7 +5544,7 @@ blockers:
 
   - id: DB-TST-001
     severity: P1
-    status: OPEN
+    status: PASS
     title: machine_readable_invariant_test_matrix_schema_and_execution_classification
     evidence:
       - core_schema_migration_tests_required_is_a_flat_list_of_free_text_strings
@@ -2694,26 +5656,41 @@ resolved_contracts:
     DB_FINAL_001_aggregate_sync_closed_here: false
     Laravel_migrations_generated: false
 
+DB-TST-001:
+  status: PASS
+  title: machine_readable_invariant_test_matrix
+  machine_authority: invariant_test_matrix
+  source_requirement_occurrences: 261
+  unique_final_tests: 261
+  stable_test_ids_defined: true
+  allowed_test_classes: [schema_constraint, transaction, concurrency, migration_preflight, migration_postcheck, projection, security_storage]
+  every_test_has_source_invariant_expected_outcome_fixture_and_execution_phase: true
+  concurrency_tests_have_explicit_race_shape: true
+  blocking_severity_defined: true
+  framework_test_files_generated: false
+  DB_TST_002_coverage_traceability_deferred: true
+  DB_FINAL_001_aggregate_sync_deferred: true
+
 diagnosis_summary:
   diagnosed_P0: 0
   diagnosed_P1: 6
   fixes_applied_in_diagnosis_step: 0
-  resolved_after_diagnosis: 3
-  open_P0_P1: 3
-  result: FAIL_WITH_3_P1_BLOCKERS
+  resolved_after_diagnosis: 4
+  open_P0_P1: 2
+  result: FAIL_WITH_2_P1_BLOCKERS
   blockers_in_required_fix_order:
-    - DB-TST-001
     - DB-TST-002
     - DB-FINAL-001
 
 preservation_gate:
-  status: PASS_DB_MIG_003
+  status: PASS_DB_TST_001
   checks:
     DB4_1_through_DB4_10_contracts_modified: false
     aggregate_core_schema_modified: false
     DB_MIG_001_executable_DAG_closed: true
     DB_MIG_002_phase_composition_closed: true
     DB_MIG_003_cutover_restart_failure_rollback_closed: true
+    DB_TST_001_machine_readable_invariant_test_matrix_closed: true
     aggregate_docs87_modified: false
     prior_71_resolved_blockers_reopened: false
     external_legal_privacy_provider_values_invented: false
@@ -2722,8 +5699,8 @@ preservation_gate:
     UI_or_feature_implementation_started: false
 
 next_single_step_after_central_gate:
-  id: DB-TST-001
-  action: resolve_DB_TST_001_only_after_next_explicit_user_instruction
+  id: DB-TST-002
+  action: resolve_DB_TST_002_only_after_next_explicit_user_instruction
   allowed_files_only:
     - specs/database/final-migration-order-invariant-matrix.yml
     - docs/116-stage-4-final-migration-order-invariant-matrix-audit.md
@@ -2731,7 +5708,7 @@ next_single_step_after_central_gate:
   prior_bounded_context_specs_read_only: true
   aggregate_core_schema_and_docs87_frozen_until_DB_FINAL_001: true
   scope_lock: >-
-    DB-MIG-001, DB-MIG-002 and DB-MIG-003 are PASS. Resolve DB-TST-001 only.
-    Preserve DB-TST-002 and DB-FINAL-001 as OPEN. Do not modify core-schema.yml
-    or docs/87, enter Stage 5, generate Laravel migrations, or implement UI/features.
-  after_action: rerun_DB_TST_001_machine_narrative_central_gate_and_STOP_before_DB_TST_002
+    DB-MIG-001, DB-MIG-002, DB-MIG-003 and DB-TST-001 are PASS. Resolve DB-TST-002 only.
+    Preserve DB-FINAL-001 as OPEN. Do not modify core-schema.yml or docs/87, enter
+    Stage 5, generate Laravel migrations, or implement UI/features.
+  after_action: rerun_DB_TST_002_machine_narrative_central_gate_and_STOP_before_DB_FINAL_001
