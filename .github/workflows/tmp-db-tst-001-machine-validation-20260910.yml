@@ -1,0 +1,49 @@
+name: tmp-db-tst-001-machine-validation-20260910
+on:
+  push:
+    branches:
+      - tmp-db-tst-001-machine-validation-20260910
+permissions:
+  contents: write
+jobs:
+  validate-and-build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: tmp-db-tst-001-machine-validation-20260910
+          fetch-depth: 0
+      - name: Build and validate DB-TST-001 machine matrix
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git hash-object specs/database/final-migration-order-invariant-matrix.yml)" = "df06baca7947d74e04adc5912fb40fdb972fa38e"
+          test "$(git hash-object specs/database/core-schema.yml)" = "39958721c99550cfc27c3774e8dfa1af0d0637e6"
+          test "$(git hash-object docs/87-physical-database-schema.md)" = "6c090b082604b6b42c283667fcf08e9033a5b523"
+          test "$(git hash-object docs/116-stage-4-final-migration-order-invariant-matrix-audit.md)" = "5668ed5d3e555953e8dafa3b37ad68ddd447089a"
+          test "$(git hash-object specs/gates/stage-4-database-contract-gate.yml)" = "bcf645967d19a0c02a4db4cd13c8fa046d36a954"
+          ruby .tmp/db-tst-001-builder.rb
+          git diff --check
+          test "$(git hash-object specs/database/core-schema.yml)" = "39958721c99550cfc27c3774e8dfa1af0d0637e6"
+          test "$(git hash-object docs/87-physical-database-schema.md)" = "6c090b082604b6b42c283667fcf08e9033a5b523"
+          test "$(git hash-object docs/116-stage-4-final-migration-order-invariant-matrix-audit.md)" = "5668ed5d3e555953e8dafa3b37ad68ddd447089a"
+          test "$(git hash-object specs/gates/stage-4-database-contract-gate.yml)" = "bcf645967d19a0c02a4db4cd13c8fa046d36a954"
+      - name: Remove helper artifacts and verify net diff
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f .tmp/db-tst-001-builder.rb
+          rm -f .github/workflows/tmp-db-tst-001-machine-validation-20260910.yml
+          git add -A
+          git diff --cached --check
+          changed="$(git diff --cached --name-only)"
+          test "$changed" = "specs/database/final-migration-order-invariant-matrix.yml"
+          git diff --cached --stat
+      - name: Commit validated DB-TST-001 machine result
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "DB-TST-001: define invariant test matrix"
+          git push origin HEAD:tmp-db-tst-001-machine-validation-20260910
