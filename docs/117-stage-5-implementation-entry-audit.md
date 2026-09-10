@@ -3,8 +3,8 @@
 Data: 2026-09-10
 
 **Etap:** `STAGE_5_IMPLEMENTATION`
-**Aktualny krok:** `S5-CI-001`
-**Status:** `S5-CI-001 PASS / 0 P0 / 1 P1 OPEN`
+**Aktualny krok:** `S5-FOUND-001`
+**Status:** `S5-FOUND-001 PASS / 0 P0 / 0 P1 OPEN`
 
 Machine-readable gate: `specs/gates/stage-5-implementation-gate.yml`.
 
