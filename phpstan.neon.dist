@@ -7,4 +7,3 @@ parameters:
         - routes
     level: 8
     tmpDir: storage/framework/testing/phpstan
-    checkMissingIterableValueType: true
