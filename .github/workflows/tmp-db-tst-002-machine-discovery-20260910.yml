@@ -1,0 +1,120 @@
+name: tmp-db-tst-002-machine-discovery-20260910
+on:
+  push:
+    branches:
+      - tmp-db-tst-002-machine-validation-20260910
+permissions:
+  contents: read
+jobs:
+  discover:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: tmp-db-tst-002-machine-validation-20260910
+          fetch-depth: 0
+      - name: Inventory DB-TST-002 joins
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=fce172975531c9643d907d3b43ea503d6a249b42
+          git diff --quiet "$BASE" -- specs/database specs/gates docs/116-stage-4-final-migration-order-invariant-matrix-audit.md docs/87-physical-database-schema.md
+          ruby <<'RUBY'
+          require 'yaml'
+          require 'date'
+          require 'json'
+          def load_yaml(path)
+            YAML.safe_load(File.read(path), permitted_classes: [Date], aliases: true)
+          end
+          files = %w[
+            specs/database/organization-settings.yml
+            specs/database/identity-rbac.yml
+            specs/database/staff-locations-vehicles.yml
+            specs/database/students-courses-training.yml
+            specs/database/calendar.yml
+            specs/database/licenses-learning-access.yml
+            specs/database/internal-exams.yml
+            specs/database/pkk.yml
+            specs/database/student-finance-commerce.yml
+            specs/database/audit-outbox-notifications.yml
+          ]
+          matrix = load_yaml('specs/database/final-migration-order-invariant-matrix.yml')
+          central = load_yaml('specs/gates/stage-4-database-contract-gate.yml')
+          final_tests = matrix.dig('invariant_test_matrix','tests') || []
+          abort 'expected 261 final tests' unless final_tests.length == 261
+          final_by_name = final_tests.to_h { |t| [t['source_invariant'], t] }
+          resolved = central['resolved_blockers'] || []
+          puts "RESOLVED_COUNT=#{resolved.length}"
+          puts "RESOLVED_IDS=#{resolved.join(',')}"
+
+          test_key = ->(k) {
+            s=k.to_s
+            s.include?('test') && (s.include?('required') || s.include?('acceptance') || s.include?('migration') || s.include?('vector'))
+          }
+          local = []
+          blocker_tests = Hash.new { |h,k| h[k]=[] }
+          blocker_paths = Hash.new { |h,k| h[k]=[] }
+          walk = nil
+          walk = lambda do |v, file, path, blocker|
+            case v
+            when Hash
+              b = blocker
+              if v['blocker'].is_a?(String) && v['blocker'].match?(/^DB-[A-Z]+-\d{3}$/)
+                b = v['blocker']
+                blocker_paths[b] << "#{file}::#{path.join('.')}"
+              end
+              v.each do |k,val|
+                child_b = b
+                if k.to_s.match?(/^DB-[A-Z]+-\d{3}$/) && val.is_a?(Hash)
+                  child_b = k.to_s
+                  blocker_paths[child_b] << "#{file}::#{(path+[k.to_s]).join('.')}"
+                end
+                if test_key.call(k) && val.is_a?(Array) && val.all?{|x| x.is_a?(String)}
+                  val.each_with_index do |name,i|
+                    rec={file:file,path:(path+[k.to_s,i.to_s]).join('.'),name:name,blocker:child_b}
+                    local << rec
+                    blocker_tests[child_b] << rec if child_b
+                  end
+                end
+                walk.call(val,file,path+[k.to_s],child_b)
+              end
+            when Array
+              v.each_with_index{|x,i| walk.call(x,file,path+[i.to_s],blocker)}
+            end
+          end
+          files.each { |f| walk.call(load_yaml(f),f,[],nil) }
+          exact = local.count{|r| final_by_name.key?(r[:name])}
+          puts "LOCAL_REQUIRED_OCCURRENCES=#{local.length}"
+          puts "LOCAL_REQUIRED_UNIQUE=#{local.map{|r|r[:name]}.uniq.length}"
+          puts "LOCAL_EXACT_FINAL_MATCHES=#{exact}"
+          puts "LOCAL_WITH_BLOCKER=#{local.count{|r|r[:blocker]}}"
+          puts "LOCAL_WITHOUT_BLOCKER=#{local.count{|r|r[:blocker].nil?}}"
+          puts "BLOCKERS_LOCATED_IN_BOUNDED=#{resolved.count{|b| blocker_paths.key?(b)}}"
+          puts "BLOCKERS_WITH_LOCAL_TESTS=#{resolved.count{|b| blocker_tests[b].any?}}"
+
+          prefix_domain = {
+            'IAM'=>'IAM','RES'=>'RES','TRN'=>'TRN','CAL'=>'CAL','LIC'=>'LIC','EXAM'=>'EXAM','PKK'=>'PKK',
+            'FIN'=>'FIN','COM'=>'COM','AUD'=>'AUD','OUT'=>'AUD','ACT'=>'AUD','NOT'=>'AUD','EVT'=>'EVT',
+            'MIG'=>'CORE','TST'=>'CORE'
+          }
+          stop=%w[the a an and or is are be to of for from with without by on in at as per one same exact current final required require requires database db true false commit commits row rows state]
+          tok = ->(s) { s.to_s.downcase.gsub(/[^a-z0-9]+/,' ').split.reject{|x| stop.include?(x) || x.length < 3}.uniq }
+          score = ->(a,b) {
+            aa=tok.call(a); bb=tok.call(b); u=(aa|bb); u.empty? ? 0.0 : (aa&bb).length.to_f/u.length
+          }
+          puts '=== BLOCKER_CANDIDATES ==='
+          resolved.each do |b|
+            prefix=b.split('-')[1]
+            dom=prefix_domain[prefix]
+            tests=dom ? final_tests.select{|t| t['test_id'].start_with?("DBT-#{dom}-")} : final_tests
+            local_names=blocker_tests[b].map{|r|r[:name]}
+            candidates=tests.map do |t|
+              s=local_names.empty? ? score.call(b,t['source_invariant']) : local_names.map{|n| score.call(n,t['source_invariant'])}.max
+              [s,t['test_id'],t['source_invariant']]
+            end.sort_by{|x| [-x[0],x[1]]}.first(4)
+            puts JSON.generate({blocker:b,domain:dom,located:blocker_paths.key?(b),local_tests:local_names.length,top:candidates})
+          end
+          puts '=== UNOWNED_LOCAL_TEST_GROUPS ==='
+          unowned=local.select{|r|r[:blocker].nil?}.group_by{|r|[r[:file], r[:path].split('.')[0..-2].join('.')]}
+          unowned.each{|k,v| puts JSON.generate({file:k[0],path:k[1],count:v.length,sample:v.first(4).map{|r|r[:name]}})}
+          RUBY
