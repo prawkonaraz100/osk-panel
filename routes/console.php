@@ -84,7 +84,7 @@ Artisan::command(
             }
 
             /** @var list<string> $values */
-            return array_values($values);
+            return $values;
         };
 
         try {
