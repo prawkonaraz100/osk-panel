@@ -28,7 +28,7 @@ jobs:
         with:
           node-version: '24.20.0'
 
-      - name: Apply fail-closed auth bootstrap correction
+      - name: Apply final bootstrap corrections
         shell: bash
         run: |
           set -euo pipefail
@@ -89,17 +89,58 @@ jobs:
           }
           PHP
 
+          cat > .gitignore <<'EOF'
+          .DS_Store
+          .idea/
+          .vscode/
+          *.log
+          .env
+          .env.*
+          !.env.example
+          /vendor/
+          /node_modules/
+          /public/build/
+          /public/hot
+          /storage/*.key
+          /.phpunit.cache/
+          /.phpunit.result.cache
+          EOF
+
+          mkdir -p bootstrap/cache storage/app/private storage/app/public storage/framework/cache/data storage/framework/sessions storage/framework/testing storage/framework/views storage/logs
+          printf '*\n!.gitignore\n' > bootstrap/cache/.gitignore
+          printf '*\n!private/\n!public/\n!.gitignore\n' > storage/app/.gitignore
+          printf '*\n!.gitignore\n' > storage/app/private/.gitignore
+          printf '*\n!.gitignore\n' > storage/app/public/.gitignore
+          cat > storage/framework/.gitignore <<'EOF'
+          compiled.php
+          config.php
+          down
+          events.scanned.php
+          lsp-*.php
+          maintenance.php
+          routes.php
+          routes.scanned.php
+          schedule-*
+          services.json
+          EOF
+          printf '*\n!data/\n!.gitignore\n' > storage/framework/cache/.gitignore
+          printf '*\n!.gitignore\n' > storage/framework/cache/data/.gitignore
+          printf '*\n!.gitignore\n' > storage/framework/sessions/.gitignore
+          printf '*\n!.gitignore\n' > storage/framework/testing/.gitignore
+          printf '*\n!.gitignore\n' > storage/framework/views/.gitignore
+          printf '*\n!.gitignore\n' > storage/logs/.gitignore
+
           python3 <<'PY'
           from pathlib import Path
 
           gate = Path('specs/gates/stage-5-implementation-gate.yml')
           s = gate.read_text()
           old = "    project_license_manifest: proprietary\n    domain_modules_implemented: false\n"
-          new = "    project_license_manifest: proprietary\n    authentication_foundation_materialized: false\n    authentication_configuration_mode: fail_closed_until_S5_FOUND_001\n    domain_modules_implemented: false\n"
+          new = "    project_license_manifest: proprietary\n    authentication_foundation_materialized: false\n    authentication_configuration_mode: fail_closed_until_S5_FOUND_001\n    clean_clone_runtime_directory_markers_present: true\n    domain_modules_implemented: false\n"
           assert s.count(old) == 1
           s = s.replace(old, new, 1)
           old = "    Laravel_default_UserFactory_retained: false\n    Laravel_default_welcome_view_retained: false\n"
-          new = "    Laravel_default_UserFactory_retained: false\n    Laravel_default_auth_User_provider_retained: false\n    authentication_config_fail_closed_until_S5_FOUND_001: true\n    Laravel_default_welcome_view_retained: false\n"
+          new = "    Laravel_default_UserFactory_retained: false\n    Laravel_default_auth_User_provider_retained: false\n    authentication_config_fail_closed_until_S5_FOUND_001: true\n    clean_clone_composer_install: PASS\n    clean_clone_runtime_directory_markers_present: true\n    Laravel_default_welcome_view_retained: false\n"
           assert s.count(old) == 1
           s = s.replace(old, new, 1)
           gate.write_text(s)
@@ -108,16 +149,18 @@ jobs:
           s = audit.read_text()
           marker = "**STOP przed S5-ENV-001.**"
           assert s.count(marker) == 1
-          add = ("\n\n### 10.1. Korekta bootstrapu auth\n\n"
-                 "Przed przeniesieniem zwalidowanego drzewa do accepted history wykryto pozostałość Laravel skeletonu: `config/auth.php` wskazywał na przykładowy `App\\\\Models\\\\User`, mimo że model ten został celowo usunięty i materializacja IdentityTenant należy do `S5-FOUND-001`. Bootstrap został skorygowany tak, aby konfiguracja auth była jawnie pusta i fail-closed do czasu `S5-FOUND-001`; dodano wykonywalny test tej właściwości. Nie utworzono modelu użytkownika, guardu, providera ani tabel auth i nie rozszerzono zakresu na foundation.\n")
+          add = ("\n\n### 10.1. Korekty finalnego bootstrapu\n\n"
+                 "Przed przeniesieniem zwalidowanego drzewa do accepted history wykryto dwie pozostałości scaffoldingu. `config/auth.php` wskazywał na przykładowy `App\\\\Models\\\\User`, mimo że materializacja IdentityTenant należy do `S5-FOUND-001`; auth jest teraz jawnie puste i fail-closed do tego kroku, a właściwość ma wykonywalny test. Dodatkowo custom root `.gitignore` eliminował marker files wymaganych katalogów `bootstrap/cache` i `storage/*`, przez co świeży checkout nie przechodził `composer install`; przywrócono wyłącznie standardowe marker files katalogów runtime. Nie utworzono domenowych modeli, guardów, providerów, tabel ani migracji.\n")
           s = s.replace(marker, marker + add, 1)
           audit.write_text(s)
           PY
 
-      - name: Execute corrected bootstrap quality gate
+      - name: Execute corrected clean-clone bootstrap gate
         shell: bash
         run: |
           set -euo pipefail
+          test -d bootstrap/cache
+          test -d storage/framework/views
           composer install --no-interaction --prefer-dist
           npm ci
           composer validate --strict
@@ -156,16 +199,30 @@ jobs:
           rm .github/workflows/tmp-s5-boot-001-auth-failclosed-v6-20260910.yml
           git add -A
           git diff --cached --check
-          mapfile -t changed < <(git diff --cached --name-only "$CLEAN" | sort)
-          test "${#changed[@]}" -eq 4
-          test "${changed[0]}" = 'config/auth.php'
-          test "${changed[1]}" = 'docs/117-stage-5-implementation-entry-audit.md'
-          test "${changed[2]}" = 'specs/gates/stage-5-implementation-gate.yml'
-          test "${changed[3]}" = 'tests/Feature/ApplicationBootstrapTest.php'
+          cat > /tmp/expected-files <<'EOF'
+          .gitignore
+          bootstrap/cache/.gitignore
+          config/auth.php
+          docs/117-stage-5-implementation-entry-audit.md
+          specs/gates/stage-5-implementation-gate.yml
+          storage/app/.gitignore
+          storage/app/private/.gitignore
+          storage/app/public/.gitignore
+          storage/framework/.gitignore
+          storage/framework/cache/.gitignore
+          storage/framework/cache/data/.gitignore
+          storage/framework/sessions/.gitignore
+          storage/framework/testing/.gitignore
+          storage/framework/views/.gitignore
+          storage/logs/.gitignore
+          tests/Feature/ApplicationBootstrapTest.php
+          EOF
+          git diff --cached --name-only "$CLEAN" | sort > /tmp/actual-files
+          diff -u /tmp/expected-files /tmp/actual-files
           test -z "$(git diff --cached --name-only "$BASE" | grep -E '^specs/database/|^specs/gates/stage-4-|^docs/87-|^docs/116-' || true)"
           test -z "$(git diff --cached --name-only "$BASE" | grep -E '^database/migrations/.*\.php$' || true)"
           test -z "$(git diff --cached --name-only "$BASE" | grep '^\.github/' || true)"
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git commit -m 'S5-BOOT-001: make bootstrap auth fail closed'
+          git commit -m 'S5-BOOT-001: finalize clean-clone bootstrap'
           git push origin HEAD:tmp-s5-boot-001-auth-failclosed-v6-20260910
