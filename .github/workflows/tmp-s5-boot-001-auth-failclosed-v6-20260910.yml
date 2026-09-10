@@ -94,12 +94,10 @@ jobs:
 
           gate = Path('specs/gates/stage-5-implementation-gate.yml')
           s = gate.read_text()
-
           old = "    project_license_manifest: proprietary\n    domain_modules_implemented: false\n"
           new = "    project_license_manifest: proprietary\n    authentication_foundation_materialized: false\n    authentication_configuration_mode: fail_closed_until_S5_FOUND_001\n    domain_modules_implemented: false\n"
           assert s.count(old) == 1
           s = s.replace(old, new, 1)
-
           old = "    Laravel_default_UserFactory_retained: false\n    Laravel_default_welcome_view_retained: false\n"
           new = "    Laravel_default_UserFactory_retained: false\n    Laravel_default_auth_User_provider_retained: false\n    authentication_config_fail_closed_until_S5_FOUND_001: true\n    Laravel_default_welcome_view_retained: false\n"
           assert s.count(old) == 1
@@ -110,12 +108,8 @@ jobs:
           s = audit.read_text()
           marker = "**STOP przed S5-ENV-001.**"
           assert s.count(marker) == 1
-          add = """
-
-### 10.1. Korekta bootstrapu auth
-
-Przed przeniesieniem zwalidowanego drzewa do accepted history wykryto pozostałość Laravel skeletonu: `config/auth.php` wskazywał na przykładowy `App\\Models\\User`, mimo że model ten został celowo usunięty i materializacja IdentityTenant należy do `S5-FOUND-001`. Bootstrap został skorygowany tak, aby konfiguracja auth była jawnie pusta i fail-closed do czasu `S5-FOUND-001`; dodano wykonywalny test tej właściwości. Nie utworzono modelu użytkownika, guardu, providera ani tabel auth i nie rozszerzono zakresu na foundation.
-"""
+          add = ("\n\n### 10.1. Korekta bootstrapu auth\n\n"
+                 "Przed przeniesieniem zwalidowanego drzewa do accepted history wykryto pozostałość Laravel skeletonu: `config/auth.php` wskazywał na przykładowy `App\\\\Models\\\\User`, mimo że model ten został celowo usunięty i materializacja IdentityTenant należy do `S5-FOUND-001`. Bootstrap został skorygowany tak, aby konfiguracja auth była jawnie pusta i fail-closed do czasu `S5-FOUND-001`; dodano wykonywalny test tej właściwości. Nie utworzono modelu użytkownika, guardu, providera ani tabel auth i nie rozszerzono zakresu na foundation.\n")
           s = s.replace(marker, marker + add, 1)
           audit.write_text(s)
           PY
@@ -126,20 +120,16 @@ Przed przeniesieniem zwalidowanego drzewa do accepted history wykryto pozostało
           set -euo pipefail
           composer install --no-interaction --prefer-dist
           npm ci
-
           composer validate --strict
           php artisan --version | grep -E '^Laravel Framework 13\.'
           php -l config/auth.php
-
           : > .env
           php artisan test --fail-on-warning
           rm .env
-
           npm run typecheck
           npm run build
           composer audit --locked --no-interaction
           npm audit
-
           test ! -e app/Models/User.php
           test ! -e database/factories/UserFactory.php
           test "$(find database/migrations -maxdepth 1 -name '*.php' | wc -l)" -eq 0
@@ -154,7 +144,6 @@ Przed przeniesieniem zwalidowanego drzewa do accepted history wykryto pozostało
           set -euo pipefail
           BASE=edd92902ba21415df2643ca8b5cf54b0ac92fe58
           CLEAN=fd793fa531a88437ff4b22a66a2c5da85ea2fc8d
-
           test "$(git rev-parse ${BASE}:AGENTS.md)" = 96ec177c82ac6f031eb22f443295147a83482baf
           test "$(git hash-object AGENTS.md)" = 96ec177c82ac6f031eb22f443295147a83482baf
           test "$(git hash-object README.md)" = 710166c3189451a765c2314609e37607cc39e529
@@ -164,11 +153,9 @@ Przed przeniesieniem zwalidowanego drzewa do accepted history wykryto pozostało
           test "$(git hash-object specs/database/final-migration-order-invariant-matrix.yml)" = ad5f2aa2e14ef248b95dd3dda0d1cbcb2e69d441
           test "$(git hash-object docs/87-physical-database-schema.md)" = a48eacd92d4a9c8e989f5d70c3bec95b9231a77c
           test "$(git hash-object docs/116-stage-4-final-migration-order-invariant-matrix-audit.md)" = 6f76255742d4902546f45c28d54c1da6ee3d3fd7
-
           rm .github/workflows/tmp-s5-boot-001-auth-failclosed-v6-20260910.yml
           git add -A
           git diff --cached --check
-
           mapfile -t changed < <(git diff --cached --name-only "$CLEAN" | sort)
           test "${#changed[@]}" -eq 4
           test "${changed[0]}" = 'config/auth.php'
@@ -178,7 +165,6 @@ Przed przeniesieniem zwalidowanego drzewa do accepted history wykryto pozostało
           test -z "$(git diff --cached --name-only "$BASE" | grep -E '^specs/database/|^specs/gates/stage-4-|^docs/87-|^docs/116-' || true)"
           test -z "$(git diff --cached --name-only "$BASE" | grep -E '^database/migrations/.*\.php$' || true)"
           test -z "$(git diff --cached --name-only "$BASE" | grep '^\.github/' || true)"
-
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git commit -m 'S5-BOOT-001: make bootstrap auth fail closed'
