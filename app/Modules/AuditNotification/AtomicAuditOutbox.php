@@ -15,6 +15,7 @@ final class AtomicAuditOutbox
             'from_owner_membership_id', 'to_owner_membership_id',
         ],
         'foundation.settings.v1' => ['fields', 'version'],
+        'resources.lifecycle.v1' => ['fields', 'state', 'document_type', 'membership_id', 'archived', 'has_login_account'],
     ];
 
     /**

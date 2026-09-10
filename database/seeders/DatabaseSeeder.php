@@ -8,6 +8,9 @@ class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
-        $this->call(FoundationReferenceCatalogSeeder::class);
+        $this->call([
+            FoundationReferenceCatalogSeeder::class,
+            ResourceReferenceCatalogSeeder::class,
+        ]);
     }
 }

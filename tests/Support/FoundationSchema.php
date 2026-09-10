@@ -4,6 +4,7 @@ namespace Tests\Support;
 
 use App\Support\Migrations\MigrationPlan;
 use Database\Seeders\FoundationReferenceCatalogSeeder;
+use Database\Seeders\ResourceReferenceCatalogSeeder;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -13,6 +14,22 @@ final class FoundationSchema
 {
     /** @var list<string> */
     private const TABLES = [
+        'vehicle_location_assignments',
+        'vehicle_category_assignments',
+        'vehicle_documents',
+        'staff_documents',
+        'staff_membership_links',
+        'staff_location_assignments',
+        'staff_category_assignments',
+        'staff_type_assignments',
+        'staff_profiles',
+        'vehicles',
+        'locations',
+        'idempotency_records',
+        'file_assets',
+        'staff_types',
+        'location_types',
+        'driving_categories',
         'outbox_messages',
         'domain_events',
         'audit_logs',
@@ -37,7 +54,7 @@ final class FoundationSchema
         $plan = app(MigrationPlan::class);
         $plan->validate();
 
-        if (! DB::getSchemaBuilder()->hasTable('organizations')) {
+        if (! DB::getSchemaBuilder()->hasTable('locations')) {
             $exit = Artisan::call('migration:controlled', [
                 '--plan' => $plan->identity(),
                 '--execution' => $plan->executionIdentity(),
@@ -45,7 +62,7 @@ final class FoundationSchema
                 '--force' => true,
             ]);
             if ($exit !== 0) {
-                throw new LogicException('Foundation controlled migration failed: '.Artisan::output());
+                throw new LogicException('Controlled migration failed: '.Artisan::output());
             }
         }
     }
@@ -58,6 +75,7 @@ final class FoundationSchema
         }
 
         app(FoundationReferenceCatalogSeeder::class)->run();
+        app(ResourceReferenceCatalogSeeder::class)->run();
     }
 
     /** @return array{organization_id:string,user_id:string,membership_id:string,session_id:string} */
@@ -109,9 +127,16 @@ final class FoundationSchema
             'created_at' => $now,
         ]);
 
-        self::grant($membership, 'staff.permissions.manage', ['organization']);
-        self::grant($membership, 'organization.members.manage', ['organization']);
-        self::grant($membership, 'organization.settings.manage', ['organization']);
+        foreach ([
+            'staff.permissions.manage',
+            'organization.members.manage',
+            'organization.settings.manage',
+            'locations.view', 'locations.create', 'locations.edit', 'locations.archive', 'locations.restore',
+            'staff.view', 'staff.create', 'staff.edit', 'staff.archive', 'staff.restore', 'staff.accounts.manage',
+            'vehicles.view', 'vehicles.create', 'vehicles.edit', 'vehicles.archive', 'vehicles.restore',
+        ] as $permission) {
+            self::grant($membership, $permission, ['organization']);
+        }
 
         if ($owner) {
             foreach (['organization.view', 'sessions.manage.organization'] as $permission) {
@@ -127,7 +152,7 @@ final class FoundationSchema
         ];
     }
 
-    /** @param  list<string>  $scopes */
+    /** @param list<string> $scopes */
     public static function grant(string $membershipId, string $permission, array $scopes): void
     {
         if (! DB::table('permissions')->where('code', $permission)->exists()) {
