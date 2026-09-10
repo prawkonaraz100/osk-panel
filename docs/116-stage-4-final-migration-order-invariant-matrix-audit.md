@@ -3,8 +3,8 @@
 Data: 2026-09-10
 
 **Etap:** `DB4_11_FINAL_MIGRATION_ORDER_AND_INVARIANT_TEST_MATRIX`
-**Aktualny krok:** `DIAGNOSIS`
-**Status:** `FAIL_WITH_6_P1_BLOCKERS / 0 P0 / 6 P1 OPEN`
+**Aktualny krok:** `DB-MIG-001`
+**Status:** `FAIL_WITH_5_P1_BLOCKERS / 0 P0 / 5 P1 OPEN`
 
 Machine-readable diagnoza: `specs/database/final-migration-order-invariant-matrix.yml`.
 
@@ -14,33 +14,50 @@ Machine-readable diagnoza: `specs/database/final-migration-order-invariant-matri
 
 DB4_11 nie projektuje nowej domeny biznesowej. To ostatni slice Etapu 4, którego zadaniem jest udowodnić, że wszystkie zamknięte kontrakty DB4_1–DB4_10 można bez zgadywania przełożyć na bezpieczną kolejność migracji oraz kompletną macierz testów inwariantów.
 
-Ten krok jest **wyłącznie diagnozą**. Nie naprawia żadnego z wykrytych problemów, nie generuje migracji Laravel, nie rozpoczyna Stage 5 i nie zmienia UI/API.
+DB-MIG-001 jest pierwszym fixerem DB4_11. Zamykamy wyłącznie wykonawczy graf zależności i kanoniczną kolejność topologiczną obiektów migracyjnych. Nie przypisujemy jeszcze faz `expand/preflight/write_fence/backfill/reconcile/validate/contract`, nie definiujemy cutover/rollback, nie tworzymy macierzy testów, nie generujemy migracji Laravel, nie rozpoczynamy Stage 5 i nie zmieniamy UI/API.
 
-Po DB4_10 obowiązuje 71 wcześniej zamkniętych blockerów Stage 4. Żaden z nich nie został w tej diagnozie otwarty ponownie. Zamrożone pozostają:
+Po DB4_10 obowiązuje 71 wcześniej zamkniętych blockerów Stage 4; DB-MIG-001 staje się 72. zamkniętym blockerem. Żaden wcześniejszy kontrakt nie został otwarty ponownie. Zamrożone pozostają:
 - `specs/database/core-schema.yml` — blob `39958721c99550cfc27c3774e8dfa1af0d0637e6`,
 - `docs/87-physical-database-schema.md` — blob `6c090b082604b6b42c283667fcf08e9033a5b523`.
 
 ## 2. Wynik diagnozy
 
-Wynik: **0 P0, 6 P1**.
+Wynik po DB-MIG-001: **0 P0, 5 P1 OPEN**.
 
-Wymagana kolejność przyszłych fixerów:
+Pozostała wymagana kolejność fixerów:
 
-`DB-MIG-001 → DB-MIG-002 → DB-MIG-003 → DB-TST-001 → DB-TST-002 → DB-FINAL-001`
+`DB-MIG-002 → DB-MIG-003 → DB-TST-001 → DB-TST-002 → DB-FINAL-001`
 
 Nie wolno scalać tych fixerów w jeden krok. Po każdym blockerze obowiązuje osobny machine + narrative + central gate.
 
 ## 3. DB-MIG-001 — executable migration dependency DAG
 
-**Status: OPEN / P1**
+**Status: PASS / P1 RESOLVED**
 
-Obecny `core-schema.yml` ma `migration_order` jako 17 wysokopoziomowych stringów. Taki zapis mówi, że np. Commerce ma być po Exams, ale nie mówi, który konkretny parent table, candidate key, FK, trigger, extension albo projection musi istnieć przed którym kolejnym obiektem.
+Machine authority `specs/database/final-migration-order-invariant-matrix.yml` zawiera teraz `migration_dependency_dag` z trwałymi semantic node IDs, jawnym `requires` oraz jedną kanoniczną `topological_order`. Każda tabela z `core-schema.yml -> core_tables` ma dokładnie jeden node `table`; nie ma już jednego kroku grupującego wiele parent/child tabel i pozostawiającego numerację migracji implementatorowi.
 
-To nie jest jeszcze wykonawczy kontrakt migracyjny. Dwie osoby mogą z tej samej listy stworzyć różną numerację migracji i obie uznać ją za zgodną z dokumentacją.
+DAG rozróżnia dokładnie osiem klas node'ów wymaganych przez ten blocker:
+- `extension`,
+- `table`,
+- `candidate_key`,
+- `index`,
+- `foreign_key`,
+- `trigger`,
+- `projection`,
+- `constraint`.
 
-DB-MIG-001 musi przyszłościowo zdefiniować stabilne machine-readable migration nodes, jawne `requires` edges oraz topological order. Musi też rozróżnić co najmniej extension, table, candidate key, index, FK, trigger/guard, projection i constraint activation. Gate ma odrzucać cykle, brakujące dependency oraz nieznane node ids.
+`btree_gist` jest osobnym node'em i wyprzedza indeksy/exclusion constraints Calendar. Candidate-key bundles wyprzedzają zależne same-tenant/composite FK bundles. Commerce ma osobny cross-domain node dla purchase provenance do License/Internal Exam/Service, więc wcześniejsze utworzenie downstream inventory nie wymusza błędnego FK przed `order_items`. DB4_10 ma kolejność Audit Policy → Audit → DomainEvent → Outbox → activity/notification projection, a projection nodes zależą od gotowych source/guard nodes.
 
-W tym kroku nic z tego jeszcze nie zostało naprawione.
+Gate machine sprawdza automatycznie:
+- unikalność node ID i `order`,
+- dozwolony katalog typów,
+- istnienie każdego `requires`,
+- brak cyklu niezależnie od zadeklarowanej kolejności,
+- że każdy dependency występuje wcześniej w `topological_order`,
+- że zbiór node'ów `table` jest dokładnie równy zbiorowi `core_tables`, bez braków i dodatków,
+- że żadna migracja Laravel nie powstaje w DB-MIG-001.
+
+Istotna granica: node'y nie mają jeszcze `phase` ani `migration_phase`. Składanie ich do `expand/preflight/write_fence/backfill/reconcile/validate/contract` pozostaje wyłącznie DB-MIG-002. Cutover/restart/rollback pozostaje DB-MIG-003, a machine-readable test matrix DB-TST-001/002.
 
 ## 4. DB-MIG-002 — expand / write fence / backfill / validate / contract
 
@@ -145,9 +162,9 @@ Nie rozwiązujemy też w tym slice zewnętrznych production blockers takich jak 
 
 ## 10. Preservation gate
 
-Diagnoza zachowuje:
+DB-MIG-001 zachowuje:
 - DB4_1–DB4_10 bez zmian,
-- 71 wcześniej zamkniętych blockerów bez reopen,
+- 71 wcześniejszych blockerów bez reopen oraz DB-MIG-001 jako nowy PASS,
 - `core-schema.yml` bez zmian,
 - `docs/87...` bez zmian,
 - wszystkie bounded-context specs jako read-only,
@@ -157,12 +174,12 @@ Diagnoza zachowuje:
 
 ## 11. Następny pojedynczy krok
 
-Po domknięciu machine + narrative + central diagnosis gate następny krok może dotyczyć wyłącznie:
+Po domknięciu machine + narrative + central gate DB-MIG-001 następny krok może dotyczyć wyłącznie:
 
-**`DB-MIG-001 — executable_stage4_migration_dependency_DAG_and_topological_order`**
+**`DB-MIG-002 — expand_write_fence_backfill_validate_contract_phase_composition`**
 
 I dopiero po kolejnym jawnym poleceniu użytkownika.
 
-DB-MIG-002, DB-MIG-003, DB-TST-001, DB-TST-002 i DB-FINAL-001 pozostają OPEN.
+DB-MIG-003, DB-TST-001, DB-TST-002 i DB-FINAL-001 pozostają OPEN.
 
-**STOP przed fixerem DB-MIG-001.**
+**STOP przed fixerem DB-MIG-002.**
