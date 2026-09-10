@@ -3,8 +3,8 @@
 Data: 2026-09-10
 
 **Etap:** `STAGE_5_IMPLEMENTATION`
-**Aktualny krok:** `S5-TST-001`
-**Status:** `S5-TST-001 PASS / 0 P0 / 2 P1 OPEN`
+**Aktualny krok:** `S5-CI-001`
+**Status:** `S5-CI-001 PASS / 0 P0 / 1 P1 OPEN`
 
 Machine-readable gate: `specs/gates/stage-5-implementation-gate.yml`.
 
@@ -210,3 +210,25 @@ Nie utworzono domenowych modeli, endpointów, UI ani kolejnych migracji Stage 4.
 Następny pojedynczy krok: **S5-CI-001**.
 
 **STOP przed S5-CI-001.**
+
+---
+
+## 14. S5-CI-001 — closure
+
+**PASS.** Dodano stały `Implementation CI`, który działa dla pull requestów oraz pushy na accepted branch. Machine layer został przyjęty jako clean commit `55b6d0af82ee018cb3c0a201e4d4e6a6358c6a06`; helper history nie weszła do accepted.
+
+Backend gate wykonuje `composer validate --strict`, Pint oraz Larastan/PHPStan na poziomie 8 dla `app` i `routes`. Machine validation ujawnił 18 rzeczywistych problemów statycznego typowania w istniejącej warstwie migracji i command wrapperze; zostały poprawione jawnie, bez baseline'u, ignored errors ani suppressions. Finalny backend gate przechodzi z zerem błędów.
+
+Frontend gate wykonuje `npm ci`, ESLint z `--max-warnings=0`, Vue/TypeScript typecheck, production build oraz `npm audit --audit-level=high`. Przypięte narzędzia obejmują ESLint 10.10.0, `@eslint/js` 10.0.1, `eslint-plugin-vue` 10.11.0 i `typescript-eslint` 8.70.0; TypeScript pozostaje 6.0.3.
+
+Runtime gate uruchamia deterministyczne usługi `S5-ENV-001`, waliduje migration plan/registry przez `php artisan migration:plan:validate --json` i wykonuje framework suite na rzeczywistym PostgreSQL z `--fail-on-warning`. OpenAPI validator pozostaje aktywny w osobnym jobie contracts-and-traceability. Ten sam job wykonuje self-test oraz fail-closed `validate_changed_module_traceability.py`, aby przyszła zmiana pod `app/Modules/<Module>/` lub `resources/js/modules/<Module>/` nie mogła wejść bez odpowiadającego traceability w tym samym diffie. Osobny job Gitleaks skanuje committed changes pod kątem sekretów.
+
+Kluczowym closure evidence jest permanentny accepted-branch run `34505180921`: **5/5 jobów SUCCESS** — `backend-quality`, `frontend-quality`, `runtime-tests-and-migrations`, `contracts-and-traceability` i `secret-scan`. To potwierdza działanie docelowego workflow, a nie wyłącznie tymczasowego helpera. Szczegółowy kontrakt i provenance zapisano w `docs/121-stage-5-implementation-ci.md`.
+
+Stage-4 authority pozostały byte-for-byte bez zmian. Nie rozpoczęto domenowych modeli, endpointów, ekranów ani `S5-FOUND-001`; statyczny hardening migration executora nie zmienia 170-node plan/order/restart/cutover authority.
+
+Po centralnym gate jedynym pozostałym blockerem entry/foundation tranche ma być `S5-FOUND-001`.
+
+Następny pojedynczy krok: **S5-FOUND-001 — first core foundation slice**.
+
+**STOP przed S5-FOUND-001.**
