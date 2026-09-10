@@ -37,8 +37,8 @@ jobs:
             --exclude='database/factories/UserFactory.php' \
             --exclude='app/Models/User.php' \
             /tmp/osk-app/ ./
-          mkdir -p database/migrations app/Modules resources/js tests-js
-          rm -f database/migrations/*.php
+          mkdir -p database/migrations app/Modules resources/js
+          rm -f database/migrations/*.php database/database.sqlite
           cat > database/migrations/README.md <<'EOF'
           # Stage 5 migration materialization
 
@@ -156,7 +156,7 @@ jobs:
           php -r '$p=json_decode(file_get_contents("package.json"),true,512,JSON_THROW_ON_ERROR); $p["private"]=true; $p["type"]="module"; $p["engines"]=["node"=>"24.20.x","npm"=>"11.x"]; $p["scripts"]=["dev"=>"vite","build"=>"vite build","typecheck"=>"vue-tsc --noEmit"]; $p["dependencies"]=[]; $p["devDependencies"]=[]; file_put_contents("package.json", json_encode($p, JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES)."\n");'
           rm -f package-lock.json
           npm install --save-exact vue@latest
-          npm install --save-dev --save-exact vite@latest laravel-vite-plugin@latest @vitejs/plugin-vue@latest typescript@latest vue-tsc@latest
+          npm install --save-dev --save-exact vite@latest laravel-vite-plugin@latest @vitejs/plugin-vue@latest typescript@6.0.3 vue-tsc@latest
           printf '24.20.0\n' > .nvmrc
           printf '8.5\n' > .php-version
           cat > .env.example <<'EOF'
@@ -208,6 +208,7 @@ jobs:
           php artisan test
           test ! -e app/Models/User.php
           test ! -e database/factories/UserFactory.php
+          test ! -e database/database.sqlite
           test "$(find database/migrations -maxdepth 1 -name '*.php' | wc -l)" -eq 0
           test ! -e .env
           test -e composer.lock
@@ -231,12 +232,12 @@ jobs:
           oldnext='''next_single_step:\n  id: S5-BOOT-001\n  action: resolve_application_scaffold_and_toolchain_only_after_next_explicit_user_instruction\n  allowed_scope:\n    - application_scaffold\n    - dependency_manifests_and_lockfiles\n    - minimal_environment_templates_without_secrets\n    - bootstrap_test_and_build_configuration\n    - Stage_5_gate_and_audit_updates\n  forbidden_scope:\n    - domain_feature_implementation\n    - UI_screen_implementation\n    - database_migration_materialization_beyond_bootstrap_framework_defaults_until_S5_MIG_001\n  after_action: rerun_S5_BOOT_001_gate_and_STOP_before_S5_ENV_001\n'''
           newnext='''next_single_step:\n  id: S5-ENV-001\n  action: resolve_deterministic_local_and_CI_runtime_services_only_after_next_explicit_user_instruction\n  prerequisite_S5_BOOT_001: PASS\n  allowed_scope:\n    - PostgreSQL_local_test_CI_runtime\n    - Redis_local_test_CI_runtime\n    - nonproduction_object_storage_adapter_configuration\n    - environment_documentation_and_health_checks\n    - Stage_5_gate_and_audit_updates\n  forbidden_scope:\n    - domain_feature_implementation\n    - UI_screen_implementation\n    - Stage_4_domain_migration_materialization_until_S5_MIG_001\n  after_action: rerun_S5_ENV_001_gate_and_STOP_before_S5_MIG_001\n'''
           assert s.count(oldnext)==1; s=s.replace(oldnext,newnext,1)
-          s += '''\nS5_BOOT_001_closure:\n  status: PASS\n  toolchain:\n    php: 8.5\n    laravel_major: 13\n    node: 24.20.0_LTS\n    vue_major: 3\n    frontend_build: Vite\n    frontend_language: TypeScript\n  proof:\n    composer_validate_strict: PASS\n    artisan_framework_major: PASS\n    phpunit_bootstrap_suite: PASS\n    vue_typecheck: PASS\n    vite_production_build: PASS\n    committed_environment_secrets: false\n    Laravel_default_domain_migrations_retained: false\n    Laravel_default_User_model_retained: false\n    feature_modules_implemented: false\n    UI_screens_implemented: false\n'''
+          s += '''\nS5_BOOT_001_closure:\n  status: PASS\n  toolchain:\n    php: 8.5\n    laravel_major: 13\n    node: 24.20.0_LTS\n    vue_major: 3\n    frontend_build: Vite\n    frontend_language: TypeScript\n    typescript: 6.0.3\n  proof:\n    composer_validate_strict: PASS\n    artisan_framework_major: PASS\n    phpunit_bootstrap_suite: PASS\n    vue_typecheck: PASS\n    vite_production_build: PASS\n    committed_environment_secrets: false\n    Laravel_default_domain_migrations_retained: false\n    Laravel_default_User_model_retained: false\n    feature_modules_implemented: false\n    UI_screens_implemented: false\n'''
           p.write_text(s)
           p=Path('docs/117-stage-5-implementation-entry-audit.md'); s=p.read_text()
           s=s.replace('**Aktualny krok:** `S5_0_IMPLEMENTATION_ENTRY_DIAGNOSIS`','**Aktualny krok:** `S5-BOOT-001`',1)
           s=s.replace('**Status:** `FAIL_WITH_6_P1_BLOCKERS / 0 P0 / 6 P1 OPEN`','**Status:** `S5-BOOT-001 PASS / 0 P0 / 5 P1 OPEN`',1)
-          s += '''\n\n---\n\n## 10. S5-BOOT-001 — closure\n\n**PASS.** Utworzono minimalny bootstrap aplikacji bez implementacji domenowych feature'ów i ekranów.\n\nPrzypięty toolchain: PHP 8.5, Laravel 13, Node 24.20.0 LTS oraz Vue 3 + Vite + TypeScript. Wersje frameworkowych zależności JavaScript/PHP są dodatkowo zamrożone w `composer.lock` i `package-lock.json`.\n\nDomyślne migracje Laravel i przykładowy `User`/`UserFactory` nie zostały zachowane, ponieważ materializacja modelu danych należy do `S5-MIG-001`/`S5-FOUND-001` i musi wynikać z zamkniętych authority Stage 4.\n\nBramka wykonała `composer validate --strict`, `php artisan --version`, `php artisan test`, `npm run typecheck` oraz `npm run build`. Wszystkie zakończyły się powodzeniem. `.env` nie jest commitowany; `.env.example` zawiera wyłącznie bezsekretowy bootstrap.\n\nPozostałe blockery: `S5-ENV-001`, `S5-MIG-001`, `S5-TST-001`, `S5-CI-001`, `S5-FOUND-001`.\n\nNastępny pojedynczy krok: **S5-ENV-001**.\n\n**STOP przed S5-ENV-001.**\n'''
+          s += '''\n\n---\n\n## 10. S5-BOOT-001 — closure\n\n**PASS.** Utworzono minimalny bootstrap aplikacji bez implementacji domenowych feature'ów i ekranów.\n\nPrzypięty toolchain: PHP 8.5, Laravel 13, Node 24.20.0 LTS oraz Vue 3 + Vite + TypeScript 6.0.3. Wersje frameworkowych zależności JavaScript/PHP są dodatkowo zamrożone w `composer.lock` i `package-lock.json`.\n\nDomyślne migracje Laravel, SQLite bootstrap database oraz przykładowy `User`/`UserFactory` nie zostały zachowane, ponieważ materializacja modelu danych należy do `S5-MIG-001`/`S5-FOUND-001` i musi wynikać z zamkniętych authority Stage 4.\n\nBramka wykonała `composer validate --strict`, `php artisan --version`, `php artisan test`, `npm run typecheck` oraz `npm run build`. Wszystkie zakończyły się powodzeniem. `.env` nie jest commitowany; `.env.example` zawiera wyłącznie bezsekretowy bootstrap.\n\nPozostałe blockery: `S5-ENV-001`, `S5-MIG-001`, `S5-TST-001`, `S5-CI-001`, `S5-FOUND-001`.\n\nNastępny pojedynczy krok: **S5-ENV-001**.\n\n**STOP przed S5-ENV-001.**\n'''
           p.write_text(s)
           PY
           git diff --check
