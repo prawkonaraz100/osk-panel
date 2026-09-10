@@ -24,7 +24,7 @@ jobs:
           require 'date'
           m = YAML.safe_load(File.read('specs/database/final-migration-order-invariant-matrix.yml'), permitted_classes: [Date], aliases: true)
           base = m.fetch('invariant_test_matrix').fetch('tests')
-          catalog = m.dig('final_stage_4_aggregate_sync','final_test_catalog') || m.fetch('final_test_catalog')
+          catalog = m.fetch('test_coverage_traceability_contract').fetch('final_test_catalog')
           anchors = catalog.fetch('coverage_anchor_tests')
           all = base + anchors
           ids = all.map { |t| t.fetch('test_id') }
