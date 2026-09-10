@@ -37,6 +37,7 @@ jobs:
           set -euo pipefail
           composer require --dev 'larastan/larastan:^3.11' --no-interaction --no-progress
           npm install --save-dev --save-exact eslint@10.10.0 @eslint/js@10.0.1 eslint-plugin-vue@10.11.0 typescript-eslint@8.70.0
+          npm pkg set scripts.lint='eslint resources/js --max-warnings=0'
           python -m pip install --disable-pip-version-check -r scripts/contract-validation/requirements.txt
 
       - name: Backend lint and static analysis
@@ -44,6 +45,7 @@ jobs:
         run: |
           set -euo pipefail
           composer validate --strict
+          vendor/bin/pint
           vendor/bin/pint --test
           vendor/bin/phpstan analyse --no-progress --memory-limit=1G
 
@@ -91,15 +93,15 @@ jobs:
           test "$(git hash-object docs/87-physical-database-schema.md)" = 'a48eacd92d4a9c8e989f5d70c3bec95b9231a77c'
           test "$(git hash-object docs/116-stage-4-final-migration-order-invariant-matrix-audit.md)" = '6f76255742d4902546f45c28d54c1da6ee3d3fd7'
 
-      - name: Commit materialized lockfiles and remove helper
+      - name: Commit validated materialization and remove helper
         shell: bash
         run: |
           set -euo pipefail
           rm -f .github/workflows/tmp-s5-ci-001-materialize-validate.yml
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add composer.json composer.lock package.json package-lock.json .github/workflows/tmp-s5-ci-001-materialize-validate.yml
-          git commit -m 'S5-CI-001 helper: materialize validated quality lockfiles'
+          git add -A
+          git commit -m 'S5-CI-001 helper: materialize validated quality dependencies and formatting'
           git push origin HEAD:tmp-s5-ci-001-validation-20260910
 
       - name: Cleanup runtime
