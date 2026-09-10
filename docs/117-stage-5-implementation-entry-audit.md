@@ -172,3 +172,19 @@ Pozostałe blockery: `S5-MIG-001`, `S5-TST-001`, `S5-CI-001`, `S5-FOUND-001`.
 Następny pojedynczy krok: **S5-MIG-001**.
 
 **STOP przed S5-MIG-001.**
+
+---
+
+## 12. S5-MIG-001 — closure
+
+**PASS.** Zamknięto brak warstwy wykonawczej migracji bez wygenerowania 170 domenowych DDL jako jednej nieprzeglądalnej zmiany. `database/migration-plan/plan.json` wiąże runtime byte-for-byte z finalnym Stage-4 matrix blob `ad5f2aa2…`, zawiera dokładnie 170 node'ów, pełny canonical topological order, rozwiązane ścieżki siedmiu faz oraz restart classification z DB-MIG-003. Plan jest dzielony deterministycznie na 17 review batches po maksymalnie 10 node'ów.
+
+Dodano fail-closed controlled executor. `migration:controlled` wymaga dokładnego plan identity, bierze PostgreSQL advisory lock `(519662, 5001)` i zapisuje execution journal poza core schema. W production brak jawnego `MIGRATION_EVIDENCE_PATH` zatrzymuje wykonanie. Blind retry oraz generic destructive down pozostają zabronione.
+
+Jako pierwszy realny node materializowany jest wyłącznie `MIG-EXT-BTREE-GIST`: restart-safe expand migration `CREATE EXTENSION IF NOT EXISTS btree_gist` z jawnym postcondition. Registry celowo deklaruje tylko 1/170 zaimplementowanych node'ów; nie powstaje fałszywe twierdzenie, że pozostałe 169 DDL są gotowe. Będą dochodziły małymi partiami podczas właściwych core slices i muszą przechodzić ten sam authority/plan gate.
+
+Machine gate potwierdza również negatywne ścieżki: błędny plan identity jest odrzucany, równoległy executor jest blokowany przez advisory lock, ponowne wykonanie po sukcesie nie aplikuje migracji drugi raz, a extension postcondition pozostaje spełniony. Nie dodano modeli domenowych, API, UI ani pełnego test harnessu 491 kontraktów.
+
+Pozostałe blockery: `S5-TST-001`, `S5-CI-001`, `S5-FOUND-001`. Następny pojedynczy krok: **S5-TST-001**.
+
+**STOP przed S5-TST-001.**

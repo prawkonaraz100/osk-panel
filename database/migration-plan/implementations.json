@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "plan_identity": "d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10",
+  "implemented_nodes": [
+    {
+      "node_id": "MIG-EXT-BTREE-GIST",
+      "migration_file": "database/migrations/2026_09_10_000010_enable_btree_gist_extension.php",
+      "implemented_phases": [
+        "expand"
+      ],
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    }
+  ],
+  "remaining_nodes_materialize_in_review_batches": true,
+  "claim_all_170_DDL_nodes_implemented": false
+}
