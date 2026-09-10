@@ -37,8 +37,8 @@ jobs:
         run: |
           set -euo pipefail
           python - <<'PY'
+          import base64
           from pathlib import Path
-
           path = Path('docs/117-stage-5-implementation-entry-audit.md')
           text = path.read_text()
           old_step = '**Aktualny krok:** `S5-TST-001`'
@@ -49,33 +49,9 @@ jobs:
               raise SystemExit('unexpected docs/117 header state')
           if '## 14. S5-CI-001 — closure' in text:
               raise SystemExit('S5-CI-001 closure already present')
+          appendix = base64.b64decode('CgotLS0KCiMjIDE0LiBTNS1DSS0wMDEg4oCUIGNsb3N1cmUKCioqUEFTUy4qKiBEb2Rhbm8gc3RhxYJ5IGBJbXBsZW1lbnRhdGlvbiBDSWAsIGt0w7NyeSBkemlhxYJhIGRsYSBwdWxsIHJlcXVlc3TDs3cgb3JheiBwdXNoeSBuYSBhY2NlcHRlZCBicmFuY2guIE1hY2hpbmUgbGF5ZXIgem9zdGHFgiBwcnp5asSZdHkgamFrbyBjbGVhbiBjb21taXQgYDU1YjZkMGFmODJlZTAxOGNiM2MwYTIwMWU0ZDRlNmE2MzU4YzZhMDZgOyBoZWxwZXIgaGlzdG9yeSBuaWUgd2VzesWCYSBkbyBhY2NlcHRlZC4KCkJhY2tlbmQgZ2F0ZSB3eWtvbnVqZSBgY29tcG9zZXIgdmFsaWRhdGUgLS1zdHJpY3RgLCBQaW50IG9yYXogTGFyYXN0YW4vUEhQU3RhbiBuYSBwb3ppb21pZSA4IGRsYSBgYXBwYCBpIGByb3V0ZXNgLiBNYWNoaW5lIHZhbGlkYXRpb24gdWphd25pxYIgMTggcnplY3p5d2lzdHljaCBwcm9ibGVtw7N3IHN0YXR5Y3puZWdvIHR5cG93YW5pYSB3IGlzdG5pZWrEhWNlaiB3YXJzdHdpZSBtaWdyYWNqaSBpIGNvbW1hbmQgd3JhcHBlcnplOyB6b3N0YcWCeSBwb3ByYXdpb25lIGphd25pZSwgYmV6IGJhc2VsaW5lJ3UsIGlnbm9yZWQgZXJyb3JzIGFuaSBzdXBwcmVzc2lvbnMuIEZpbmFsbnkgYmFja2VuZCBnYXRlIHByemVjaG9kemkgeiB6ZXJlbSBixYLEmWTDs3cuCgpGcm9udGVuZCBnYXRlIHd5a29udWplIGBucG0gY2lgLCBFU0xpbnQgeiBgLS1tYXgtd2FybmluZ3M9MGAsIFZ1ZS9UeXBlU2NyaXB0IHR5cGVjaGVjaywgcHJvZHVjdGlvbiBidWlsZCBvcmF6IGBucG0gYXVkaXQgLS1hdWRpdC1sZXZlbD1oaWdoYC4gUHJ6eXBpxJl0ZSBuYXJ6xJlkemlhIG9iZWptdWrEhSBFU0xpbnQgMTAuMTAuMCwgYEBlc2xpbnQvanNgIDEwLjAuMSwgYGVzbGludC1wbHVnaW4tdnVlYCAxMC4xMS4wIGkgYHR5cGVzY3JpcHQtZXNsaW50YCA4LjcwLjA7IFR5cGVTY3JpcHQgcG96b3N0YWplIDYuMC4zLgoKUnVudGltZSBnYXRlIHVydWNoYW1pYSBkZXRlcm1pbmlzdHljem5lIHVzxYJ1Z2kgYFM1LUVOVi0wMDFgLCB3YWxpZHVqZSBtaWdyYXRpb24gcGxhbi9yZWdpc3RyeSBwcnpleiBgcGhwIGFydGlzYW4gbWlncmF0aW9uOnBsYW46dmFsaWRhdGUgLS1qc29uYCBpIHd5a29udWplIGZyYW1ld29yayBzdWl0ZSBuYSByemVjenl3aXN0eW0gUG9zdGdyZVNRTCB6IGAtLWZhaWwtb24td2FybmluZ2AuIE9wZW5BUEkgdmFsaWRhdG9yIHBvem9zdGFqZSBha3R5d255IHcgb3NvYm55bSBqb2JpZSBjb250cmFjdHMtYW5kLXRyYWNlYWJpbGl0eS4gVGVuIHNhbSBqb2Igd3lrb251amUgc2VsZi10ZXN0IG9yYXogZmFpbC1jbG9zZWQgYHZhbGlkYXRlX2NoYW5nZWRfbW9kdWxlX3RyYWNlYWJpbGl0eS5weWAsIGFieSBwcnp5c3rFgmEgem1pYW5hIHBvZCBgYXBwL01vZHVsZXMvPE1vZHVsZT4vYCBsdWIgYHJlc291cmNlcy9qcy9tb2R1bGVzLzxNb2R1bGU+L2AgbmllIG1vZ8WCYSB3ZWrFm8SHIGJleiBvZHBvd2lhZGFqxIVjZWdvIHRyYWNlYWJpbGl0eSB3IHR5bSBzYW15bSBkaWZmaWUuIE9zb2JueSBqb2IgR2l0bGVha3Mgc2thbnVqZSBjb21taXR0ZWQgY2hhbmdlcyBwb2Qga8SFdGVtIHNla3JldMOzdy4KCktsdWN6b3d5bSBjbG9zdXJlIGV2aWRlbmNlIGplc3QgcGVybWFuZW50bnkgYWNjZXB0ZWQtYnJhbmNoIHJ1biBgMzQ1MDUxODA5MjFgOiAqKjUvNSBqb2LDs3cgU1VDQ0VTUyoqIOKAlCBgYmFja2VuZC1xdWFsaXR5YCwgYGZyb250ZW5kLXF1YWxpdHlgLCBgcnVudGltZS10ZXN0cy1hbmQtbWlncmF0aW9uc2AsIGBjb250cmFjdHMtYW5kLXRyYWNlYWJpbGl0eWAgaSBgc2VjcmV0LXNjYW5gLiBUbyBwb3R3aWVyZHphIGR6aWHFgmFuaWUgZG9jZWxvd2VnbyB3b3JrZmxvdywgYSBuaWUgd3nFgsSFY3puaWUgdHltY3phc293ZWdvIGhlbHBlcmEuIFN6Y3plZ8OzxYJvd3kga29udHJha3QgaSBwcm92ZW5hbmNlIHphcGlzYW5vIHcgYGRvY3MvMTIxLXN0YWdlLTUtaW1wbGVtZW50YXRpb24tY2kubWRgLgoKU3RhZ2UtNCBhdXRob3JpdHkgcG96b3N0YcWCeSBieXRlLWZvci1ieXRlIGJleiB6bWlhbi4gTmllIHJvenBvY3rEmXRvIGRvbWVub3d5Y2ggbW9kZWxpLCBlbmRwb2ludMOzdywgZWtyYW7Ds3cgYW5pIGBTNS1GT1VORC0wMDFgOyBzdGF0eWN6bnkgaGFyZGVuaW5nIG1pZ3JhdGlvbiBleGVjdXRvcmEgbmllIHptaWVuaWEgMTcwLW5vZGUgcGxhbi9vcmRlci9yZXN0YXJ0L2N1dG92ZXIgYXV0aG9yaXR5LgoKUG8gY2VudHJhbG55bSBnYXRlIGplZHlueW0gcG96b3N0YcWCeW0gYmxvY2tlcmVtIGVudHJ5L2ZvdW5kYXRpb24gdHJhbmNoZSBtYSBiecSHIGBTNS1GT1VORC0wMDFgLgoKTmFzdMSZcG55IHBvamVkeW5jenkga3JvazogKipTNS1GT1VORC0wMDEg4oCUIGZpcnN0IGNvcmUgZm91bmRhdGlvbiBzbGljZSoqLgoKKipTVE9QIHByemVkIFM1LUZPVU5ELTAwMS4qKgo=').decode('utf-8')
           text = text.replace(old_step, new_step, 1).replace(old_status, new_status, 1)
-          text = text.rstrip() + '''
-
-
----
-
-## 14. S5-CI-001 — closure
-
-**PASS.** Dodano stały `Implementation CI`, który działa dla pull requestów oraz pushy na accepted branch. Machine layer został przyjęty jako clean commit `55b6d0af82ee018cb3c0a201e4d4e6a6358c6a06`; helper history nie weszła do accepted.
-
-Backend gate wykonuje `composer validate --strict`, Pint oraz Larastan/PHPStan na poziomie 8 dla `app` i `routes`. Machine validation ujawnił 18 rzeczywistych problemów statycznego typowania w istniejącej warstwie migracji i command wrapperze; zostały poprawione jawnie, bez baseline'u, ignored errors ani suppressions. Finalny backend gate przechodzi z zerem błędów.
-
-Frontend gate wykonuje `npm ci`, ESLint z `--max-warnings=0`, Vue/TypeScript typecheck, production build oraz `npm audit --audit-level=high`. Przypięte narzędzia obejmują ESLint 10.10.0, `@eslint/js` 10.0.1, `eslint-plugin-vue` 10.11.0 i `typescript-eslint` 8.70.0; TypeScript pozostaje 6.0.3.
-
-Runtime gate uruchamia deterministyczne usługi `S5-ENV-001`, waliduje migration plan/registry przez `php artisan migration:plan:validate --json` i wykonuje framework suite na rzeczywistym PostgreSQL z `--fail-on-warning`. OpenAPI validator pozostaje aktywny w osobnym jobie contracts-and-traceability. Ten sam job wykonuje self-test oraz fail-closed `validate_changed_module_traceability.py`, aby przyszła zmiana pod `app/Modules/<Module>/` lub `resources/js/modules/<Module>/` nie mogła wejść bez odpowiadającego traceability w tym samym diffie. Osobny job Gitleaks skanuje committed changes pod kątem sekretów.
-
-Kluczowym closure evidence jest permanentny accepted-branch run `34505180921`: **5/5 jobów SUCCESS** — `backend-quality`, `frontend-quality`, `runtime-tests-and-migrations`, `contracts-and-traceability` i `secret-scan`. To potwierdza działanie docelowego workflow, a nie wyłącznie tymczasowego helpera. Szczegółowy kontrakt i provenance zapisano w `docs/121-stage-5-implementation-ci.md`.
-
-Stage-4 authority pozostały byte-for-byte bez zmian. Nie rozpoczęto domenowych modeli, endpointów, ekranów ani `S5-FOUND-001`; statyczny hardening migration executora nie zmienia 170-node plan/order/restart/cutover authority.
-
-Po centralnym gate jedynym pozostałym blockerem entry/foundation tranche ma być `S5-FOUND-001`.
-
-Następny pojedynczy krok: **S5-FOUND-001 — first core foundation slice**.
-
-**STOP przed S5-FOUND-001.**
-'''
-          path.write_text(text)
+          path.write_text(text.rstrip() + appendix)
           PY
 
       - name: Validate narrative evidence and scope
