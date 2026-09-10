@@ -256,6 +256,9 @@ S5_BOOT_001_closure:
     modular_monolith_boundary_present: true
     PostgreSQL_default_connection_selected: true
     project_license_manifest: proprietary
+    authentication_foundation_materialized: false
+    authentication_configuration_mode: explicit_null_overrides_fail_closed_until_S5_FOUND_001
+    clean_clone_runtime_directory_markers_present: true
     domain_modules_implemented: false
     UI_screens_implemented: false
   proof:
@@ -271,6 +274,11 @@ S5_BOOT_001_closure:
     Laravel_default_SQLite_database_retained: false
     Laravel_default_User_model_retained: false
     Laravel_default_UserFactory_retained: false
+    Laravel_default_auth_User_provider_retained: false
+    authentication_config_fail_closed_until_S5_FOUND_001: true
+    premature_web_guard_instantiation_rejected: PASS
+    clean_clone_composer_install: PASS
+    clean_clone_runtime_directory_markers_present: true
     Laravel_default_welcome_view_retained: false
     Laravel_default_CLAUDE_instructions_retained: false
     project_AGENTS_md_preserved: true

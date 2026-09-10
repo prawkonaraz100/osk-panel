@@ -152,3 +152,7 @@ Pozostałe blockery: `S5-ENV-001`, `S5-MIG-001`, `S5-TST-001`, `S5-CI-001`, `S5-
 Następny pojedynczy krok: **S5-ENV-001**.
 
 **STOP przed S5-ENV-001.**
+
+### 10.1. Korekty finalnego bootstrapu
+
+Przed transferem do accepted history wykryto dwie pozostałości scaffoldingu. Laravel 13 scala frameworkowe defaulty auth, więc samo usunięcie `App\\Models\\User` nie wystarczało: `config/auth.php` neutralizuje teraz domyślny guard/provider/model przez jawne wartości `null`, a test potwierdza, że guard `web` nie może zostać utworzony przed `S5-FOUND-001`. Dodatkowo przywrócono marker files wymaganych katalogów `bootstrap/cache` i `storage/*`, dzięki czemu świeży checkout przechodzi `composer install`. Nie utworzono domenowych modeli, providerów, tabel ani migracji.
