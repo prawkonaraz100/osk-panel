@@ -1,0 +1,82 @@
+name: tmp-s5-mig-prefix-repair-central
+
+on:
+  push:
+    branches:
+      - tmp-s5-mig-prefix-repair-central-20260910
+
+permissions:
+  contents: write
+
+jobs:
+  validate-and-finalize:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: tmp-s5-mig-prefix-repair-central-20260910
+          fetch-depth: 0
+      - name: Assert exact central repair base
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE='bbe4dd71a203eef965bec6d557c51cc255236568'
+          test "$(git merge-base "$BASE" HEAD)" = "$BASE"
+          test "$(git rev-parse HEAD:specs/gates/stage-5-implementation-gate.yml)" = 'b7daa561f4d66f625712ac031b6f676b59aece07'
+          test "$(git rev-parse HEAD:specs/database/final-migration-order-invariant-matrix.yml)" = 'ad5f2aa2e14ef248b95dd3dda0d1cbcb2e69d441'
+      - name: Correct Stage 5 central subset rule
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('specs/gates/stage-5-implementation-gate.yml')
+          s=p.read_text()
+          replacements={
+            '    - foundation_migrations_in_canonical_dependency_closed_prefix\n':'    - foundation_migrations_in_canonical_order_dependency_closed_subset\n',
+            '    canonical_topological_prefix_required: true\n':'    canonical_topological_prefix_required: false\n    canonical_order_dependency_closed_subset_required: true\n    independent_lower_order_nodes_required_only_by_order: false\n    subset_rule_machine_correction_commit: 6e4947c6c0b1b1237a0973523897ceccb03d0d41\n    subset_rule_narrative_correction_commit: bbe4dd71a203eef965bec6d557c51cc255236568\n',
+          }
+          for old,new in replacements.items():
+              if s.count(old) != 1:
+                  raise SystemExit(f'expected central fragment count !=1: {old!r}')
+              s=s.replace(old,new,1)
+          p.write_text(s)
+          PY
+      - name: Parse and validate corrected central gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          ruby - <<'RUBY'
+          require 'yaml'
+          require 'date'
+          y=YAML.safe_load(File.read('specs/gates/stage-5-implementation-gate.yml'), permitted_classes:[Date], aliases:true)
+          mig=y.fetch('S5_MIG_001_closure').fetch('registry_contract')
+          raise unless mig.fetch('canonical_topological_prefix_required') == false
+          raise unless mig.fetch('canonical_order_dependency_closed_subset_required') == true
+          raise unless mig.fetch('dependency_closed_subset_required') == true
+          raise unless mig.fetch('independent_lower_order_nodes_required_only_by_order') == false
+          raise unless y.fetch('quality_gate').fetch('diagnosed_P1') == 6
+          raise unless y.fetch('quality_gate').fetch('open_P0_P1') == 1
+          raise unless y.fetch('next_single_step').fetch('id') == 'S5-FOUND-001'
+          raise unless y.fetch('blockers').find{|b| b['id']=='S5-MIG-001'}.fetch('status') == 'PASS'
+          RUBY
+          git diff --check
+      - name: Remove helper and commit final state
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rm .github/workflows/tmp-s5-mig-prefix-repair-central.yml
+          git add specs/gates/stage-5-implementation-gate.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'S5-MIG-001 helper: synchronize subset-rule central gate'
+          git push origin HEAD:tmp-s5-mig-prefix-repair-central-20260910
+      - name: Validate net central diff
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE='bbe4dd71a203eef965bec6d557c51cc255236568'
+          mapfile -t files < <(git diff --name-only "$BASE"..HEAD)
+          test "${#files[@]}" -eq 1
+          test "${files[0]}" = 'specs/gates/stage-5-implementation-gate.yml'
+          echo 'S5_MIG_PREFIX_REPAIR_CENTRAL=PASS'
