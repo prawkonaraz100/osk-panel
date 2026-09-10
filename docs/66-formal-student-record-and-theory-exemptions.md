@@ -82,8 +82,7 @@ Dla **szkolenia podstawowego** § 9 ust. 1 rozporządzenia (tekst jednolity Dz.U
 - B + posiadane B1: praktyka −10 h,
 - C1 + posiadane D1: praktyka −10 h,
 - C + posiadane D: praktyka −10 h,
-- D1 + posiadane C1: praktyka −20 h,
-- D + posiadane C: praktyka −20 h.
+- D + posiadane C1 albo C: praktyka −20 h.
 
 Osobno obowiązują już opisane zwolnienia z teorii. Redukcji zależnych od **szkolenia równoległego** nie wolno odgadywać na podstawie samej kategorii lub daty kursu; wymagają one osobnego trwałego inputu i pozostają fail-closed do czasu jego materializacji.
 

@@ -135,7 +135,7 @@ basic_training_adjustments:
     - target: C
       held: D
       reduction: 600
-    - target: D1
+    - target: D
       held: C1
       reduction: 1200
     - target: D
