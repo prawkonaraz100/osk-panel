@@ -119,12 +119,12 @@ stage_4_slices:
     final_aggregate_sync: PASS
     result: PASS
   - id: DB4_11_FINAL_MIGRATION_ORDER_AND_INVARIANT_TEST_MATRIX
-    status: FAIL_WITH_6_P1_BLOCKERS
+    status: FAIL_WITH_5_P1_BLOCKERS
     diagnosis: COMPLETE
     blockers_diagnosed: 6
-    blockers_resolved: 0
-    open_P0_P1: 6
-    result: FAIL_WITH_6_P1_BLOCKERS
+    blockers_resolved: 1
+    open_P0_P1: 5
+    result: FAIL_WITH_5_P1_BLOCKERS
 
 quality_checks:
   DB4_1_foundation:
@@ -4124,6 +4124,33 @@ quality_checks:
       Laravel_migrations_created: false
       UI_or_feature_implementation_started: false
 
+  DB4_11_DB_MIG_001:
+    status: PASS
+    resolved_blocker_id: DB-MIG-001
+    machine_source: specs/database/final-migration-order-invariant-matrix.yml
+    narrative_source: docs/116-stage-4-final-migration-order-invariant-matrix-audit.md
+    machine_commit: 6ca5f96f8bfb71f2cbf14fa82e01f66e7a2cb2dd
+    machine_blob: b6b7b7513fa537ca416f921284b9dc631679a3de
+    narrative_commit: 9bb97e53d9abd1f36809d749cb8e064572cb2175
+    narrative_blob: 403e5e36437af613491868984e4f8c28e4b6efdc
+    aggregate_core_schema_blob_frozen: 39958721c99550cfc27c3774e8dfa1af0d0637e6
+    aggregate_docs87_blob_frozen: 6c090b082604b6b42c283667fcf08e9033a5b523
+    checks:
+      stable_machine_readable_migration_node_ids_defined: PASS
+      explicit_requires_edges_defined: PASS
+      deterministic_topological_order_defined: PASS
+      all_core_tables_covered_exactly_once: PASS
+      extension_table_candidate_key_index_foreign_key_trigger_projection_constraint_node_types_present: PASS
+      cycle_unknown_dependency_duplicate_order_and_missing_table_fail_gate: PASS
+      DB_MIG_002_phase_composition_not_solved_early: PASS
+      DB_MIG_003_cutover_restart_rollback_not_solved_early: PASS
+      DB_TST_001_and_DB_TST_002_not_solved_early: PASS
+      core_schema_modified_in_DB_MIG_001: false
+      docs87_modified_in_DB_MIG_001: false
+      Laravel_migrations_created: false
+      Stage5_started: false
+      UI_or_feature_implementation_started: false
+
 resolved_blockers:
   - DB-AUD-001
   - DB-AUD-002
@@ -4196,9 +4223,9 @@ resolved_blockers:
   - DB-COM-005
   - DB-COM-008
   - DB-COM-006
+  - DB-MIG-001
 
 open_blockers_current_diagnosed_scope:
-  - DB-MIG-001
   - DB-MIG-002
   - DB-MIG-003
   - DB-TST-001
@@ -4213,7 +4240,7 @@ gate_definition:
     - migration_order_dependency_safe
     - database_invariant_test_matrix_exists
     - reverse_engineering_preservation_traceable
-  current_result: DB4_11_FAIL_WITH_6_P1_BLOCKERS
+  current_result: DB4_11_FAIL_WITH_5_P1_BLOCKERS
   DB4_1_result: PASS
   DB4_2_result: PASS
   DB4_3_result: PASS
@@ -4295,13 +4322,13 @@ gate_definition:
   DB4_10_final_aggregate_sync_result: PASS
   DB4_10_result: PASS
   DB4_11_diagnosis_result: FAIL_WITH_6_P1_BLOCKERS
-  DB4_11_DB_MIG_001_result: OPEN
+  DB4_11_DB_MIG_001_result: PASS
   DB4_11_DB_MIG_002_result: OPEN
   DB4_11_DB_MIG_003_result: OPEN
   DB4_11_DB_TST_001_result: OPEN
   DB4_11_DB_TST_002_result: OPEN
   DB4_11_DB_FINAL_001_result: OPEN
-  DB4_11_result: FAIL_WITH_6_P1_BLOCKERS
+  DB4_11_result: FAIL_WITH_5_P1_BLOCKERS
   may_start_DB4_4_fixes: false
   may_start_DB4_5: false
   may_start_DB4_5_fixes: false
@@ -4321,8 +4348,8 @@ gate_definition:
   may_start_UI_or_feature_implementation: false
 
 next_single_step:
-  id: DB-MIG-001
-  action: resolve_DB_MIG_001_only_after_next_explicit_user_instruction
+  id: DB-MIG-002
+  action: resolve_DB_MIG_002_only_after_next_explicit_user_instruction
   diagnosis_only: false
   fixes_allowed_in_same_step: true
   allowed_scope:
@@ -4333,7 +4360,7 @@ next_single_step:
     - specs/gates/stage-4-database-contract-gate.yml
   prior_bounded_context_specs_read_only: true
   scope_lock: >-
-    DB4_11 diagnosis is COMPLETE with 0 P0 and 6 P1 open. Resolve DB-MIG-001 only.
-    Preserve DB-MIG-002, DB-MIG-003, DB-TST-001, DB-TST-002 and DB-FINAL-001 as
-    OPEN. Do not enter Stage 5, generate Laravel migrations, or implement UI/features.
-  after_action: run_DB_MIG_001_machine_narrative_central_gate_and_STOP_before_DB_MIG_002
+    DB-MIG-001 is PASS. Resolve DB-MIG-002 only. Preserve DB-MIG-003, DB-TST-001,
+    DB-TST-002 and DB-FINAL-001 as OPEN. Do not enter Stage 5, generate Laravel
+    migrations, or implement UI/features in the same step.
+  after_action: run_DB_MIG_002_machine_narrative_central_gate_and_STOP_before_DB_MIG_003
