@@ -82,7 +82,10 @@ final class VehicleService
         return $this->present($row);
     }
 
-    /** @param array<string,mixed> $input */
+    /**
+     * @param array<string,mixed> $input
+     * @return array<string,mixed>
+     */
     public function create(string $sessionId, array $input, string $requestId): array
     {
         $snapshot = $this->tenantAuthorizer->activeMembershipForSession($sessionId);
@@ -130,7 +133,10 @@ final class VehicleService
         });
     }
 
-    /** @param array<string,mixed> $input */
+    /**
+     * @param array<string,mixed> $input
+     * @return array<string,mixed>
+     */
     public function update(string $sessionId, string $vehicleId, array $input, string $requestId, ?string $expectedTag = null): array
     {
         $snapshot = $this->tenantAuthorizer->activeMembershipForSession($sessionId);
