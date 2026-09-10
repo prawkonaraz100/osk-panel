@@ -1,0 +1,128 @@
+name: tmp-s5-mig-001-final-hardening-20260910
+
+on:
+  push:
+    branches: [tmp-s5-mig-001-validation-20260910]
+
+permissions:
+  contents: write
+
+jobs:
+  validate-final-hardening:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: tmp-s5-mig-001-validation-20260910
+          fetch-depth: 0
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          extensions: mbstring, intl, pdo_pgsql, redis
+          coverage: none
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24.20.0'
+
+      - name: Patch and validate production evidence fail-closed
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=163e5ba7a3d9da3bd924aa648ffa93c002cd7a3f
+          git fetch origin docs-consolidation-2026-09-05 --quiet
+          test "$(git rev-parse origin/docs-consolidation-2026-09-05)" = "$BASE"
+
+          python3 <<'PY'
+          from pathlib import Path
+          p = Path('app/Support/Migrations/MigrationExecutionJournal.php')
+          s = p.read_text()
+          old = "        if (app()->environment('production') && ! is_string($path)) {"
+          new = "        if (app()->environment('production') && (! is_string($path) || $path === '')) {"
+          assert s.count(old) == 1
+          p.write_text(s.replace(old, new, 1))
+          PY
+
+          composer install --no-interaction --prefer-dist
+          cp .env.example .env
+          php artisan key:generate --force
+          ./scripts/runtime-up.sh
+          php artisan migration:plan:validate
+          PLAN="$(php -r '$p=json_decode(file_get_contents("database/migration-plan/plan.json"),true); echo $p["plan_identity"];')"
+          test -n "$PLAN"
+
+          # Production must fail before DDL if durable execution evidence path is missing/empty.
+          set +e
+          APP_ENV=production MIGRATION_EVIDENCE_PATH='' php artisan migration:controlled --plan="$PLAN" --force >/tmp/prod-empty-evidence.log 2>&1
+          prod_rc=$?
+          set -e
+          test "$prod_rc" -ne 0
+          grep -q 'Production controlled migration requires MIGRATION_EVIDENCE_PATH' /tmp/prod-empty-evidence.log
+          test "$(docker compose exec -T postgres psql -U osk_panel -d osk_panel -Atqc "select count(*) from pg_extension where extname='btree_gist'" | tr -d '\r')" = "0"
+
+          # Normal local/test controlled execution remains functional and idempotent.
+          php artisan migration:controlled --plan="$PLAN" --force
+          test "$(docker compose exec -T postgres psql -U osk_panel -d osk_panel -Atqc "select count(*) from pg_extension where extname='btree_gist'" | tr -d '\r')" = "1"
+          php artisan migration:controlled --plan="$PLAN" --force
+          test "$(docker compose exec -T postgres psql -U osk_panel -d osk_panel -Atqc "select count(*) from migrations where migration='2026_09_10_000010_enable_btree_gist_extension'" | tr -d '\r')" = "1"
+
+          : > .env
+          php artisan test --fail-on-warning
+          rm .env
+          npm ci
+          npm run typecheck
+          npm run build
+          composer validate --strict
+          composer audit --locked --no-interaction
+          npm audit
+          git diff --check
+          ruby -e "require 'yaml'; require 'date'; YAML.safe_load(File.read('specs/gates/stage-5-implementation-gate.yml'), permitted_classes:[Date], aliases:true); puts 'STAGE5_YAML_PARSE=PASS'"
+
+          rm -f storage/logs/migration-execution.jsonl
+          docker compose down -v
+
+      - name: Preservation gate and final helper commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=163e5ba7a3d9da3bd924aa648ffa93c002cd7a3f
+          git fetch origin docs-consolidation-2026-09-05 --quiet
+          test "$(git rev-parse origin/docs-consolidation-2026-09-05)" = "$BASE"
+
+          test "$(git hash-object specs/gates/stage-4-database-contract-gate.yml)" = 306dabaa58223abe2f3b2a34b888b075c88e9ec4
+          test "$(git hash-object specs/database/core-schema.yml)" = b0629cc48e26798d945356eaa1d0c9b1187aa542
+          test "$(git hash-object specs/database/final-migration-order-invariant-matrix.yml)" = ad5f2aa2e14ef248b95dd3dda0d1cbcb2e69d441
+          test "$(git hash-object docs/87-physical-database-schema.md)" = a48eacd92d4a9c8e989f5d70c3bec95b9231a77c
+          test "$(git hash-object docs/116-stage-4-final-migration-order-invariant-matrix-audit.md)" = 6f76255742d4902546f45c28d54c1da6ee3d3fd7
+
+          rm -f .env storage/logs/migration-execution.jsonl
+          rm .github/workflows/tmp-s5-mig-001-final-hardening-20260910.yml
+          git add -A
+          git diff --cached --check
+
+          cat > /tmp/expected-files <<'EOF'
+          app/Support/Migrations/MigrationExecutionJournal.php
+          app/Support/Migrations/MigrationPlan.php
+          app/Support/Migrations/PostgresMigrationLock.php
+          config/migration.php
+          database/migration-plan/implementations.json
+          database/migration-plan/plan.json
+          database/migrations/2026_09_10_000010_enable_btree_gist_extension.php
+          docs/117-stage-5-implementation-entry-audit.md
+          docs/119-stage-5-migration-execution-contract.md
+          routes/console.php
+          specs/gates/stage-5-implementation-gate.yml
+          tests/Unit/MigrationPlanContractTest.php
+          EOF
+          sort /tmp/expected-files -o /tmp/expected-files
+          git diff --cached --name-only "$BASE" | sort > /tmp/actual-files
+          diff -u /tmp/expected-files /tmp/actual-files
+
+          test "$(find database/migrations -maxdepth 1 -name '*.php' | wc -l)" -eq 1
+          test -z "$(git diff --cached --name-only "$BASE" | grep -E '^specs/database/|^specs/gates/stage-4-|^docs/87-|^docs/116-' || true)"
+          test -z "$(git diff --cached --name-only "$BASE" | grep '^\.github/' || true)"
+          test -z "$(git diff --cached --name-only "$BASE" | grep -E '^resources/js/.+\.(vue|ts)$' || true)"
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'S5-MIG-001: harden durable execution evidence fail-closed'
+          git push origin HEAD:tmp-s5-mig-001-validation-20260910
