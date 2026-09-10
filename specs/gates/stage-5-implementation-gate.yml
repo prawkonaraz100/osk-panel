@@ -226,22 +226,117 @@ quality_gate:
     - S5-FOUND-001
 
 next_single_step:
-  id: CORE-V1-LOC-STAFF-VEH-001
-  action: begin_locations_staff_vehicles_slice_only_after_next_explicit_user_instruction
-  prerequisite_stage_5_foundation: PASS
+  id: CORE-V1-LOC-STAFF-VEH-001-CLOSE
+  action: validate_locations_staff_vehicles_closure_payload_on_accepted_branch_and_STOP
+  prerequisite_implementation_commit: bac644cf46e64e63b149196c15f76f2efb683810
   implementation_order_source: AGENTS.md
   allowed_scope:
+    - closure_documentation
+    - stage_5_gate_state_for_current_slice
+  forbidden_scope:
+    - Students_or_later_core_modules
+    - feature_code_changes
+    - Stage_4_authority_rewrite
+    - weakening_existing_CI_or_tenant_authority
+  after_action: only_after_5_of_5_success_flip_current_slice_to_PASS_and_expose_students_course_enrollment_as_next_step
+
+CORE_V1_LOC_STAFF_VEH_001_closure:
+  status: PENDING_CENTRAL_VALIDATION
+  accepted_scope:
     - Locations
     - Staff
     - Vehicles
-    - dependency_closed_migrations_for_this_slice
-    - module_API_permissions_tests_and_traceability
+    - dependency_closed_expand_migrations
+    - resource_API_permissions_tests_and_traceability
     - own_UI_for_confirmed_screen_scope
-  forbidden_scope:
-    - Students_or_later_core_modules
-    - Stage_4_authority_rewrite
-    - weakening_existing_CI_or_tenant_authority
-  after_action: run_machine_narrative_central_gate_and_STOP_before_students_course_enrollment_slice
+  provenance:
+    implementation_clean_commit: bac644cf46e64e63b149196c15f76f2efb683810
+    implementation_parent_commit: 2b35b92358fc64db54f27e56bb0b36a4d77a016f
+    validated_helper_tree: fab3cd8369f2b07c35c3dce67408a37130da3d0a
+    helper_free_PR_validation_run: 34540278440
+    accepted_branch_implementation_run: 34540533039
+    accepted_branch_API_contract_run: 34540533016
+    PR_secret_scan_limitation: Resource_not_accessible_by_integration_before_scan
+    accepted_branch_push_secret_scan: PASS
+  migration_materialization:
+    stage_4_DAG_nodes_total: 170
+    implemented_nodes_current: 34
+    implemented_phase_steps_current: 34
+    nodes_added_by_slice: 16
+    phase: expand
+    execution_identity: 6e39b3c71a7a2ad44bfb78513506b8a3e53cc4a5ff443a89b066d8b44917cc1f
+    canonical_order_preserved: true
+    dependency_closed_subset: true
+    later_phase_constraint_nodes_materialized: false
+    later_phase_constraint_nodes_reason: global_phase_barrier_and_dependencies_on_later_domain_tables
+    Stage_4_authority_rewritten: false
+  runtime_traceability:
+    final_DBT_IDs_total: 491
+    implemented_executable_assertions_current: 36
+    implemented_resource_DBT_added: 23
+    pending_domain_materialization_current: 455
+    physical_resource_constraint_DBTs_claimed_before_constraint_phase: false
+    false_implemented_claims_allowed: false
+  locations:
+    tenant_scoped_list_get_create_update: true
+    archive_restore_history_preserved: true
+    location_type_dictionary: true
+    assigned_locations_scope_supported: true
+    cross_tenant_visibility_fails_closed: true
+  staff:
+    staff_profile_separate_from_panel_identity: true
+    PESEL_plaintext_persisted: false
+    PESEL_encrypted_at_rest: true
+    PESEL_lookup_hash: true
+    PESEL_audit_redaction: true
+    staff_types_not_permissions: true
+    category_and_location_assignments: true
+    versioned_validity_documents: true
+    panel_account_link_history: true
+    account_provisioning_requires_explicit_permission: true
+    nonowner_archive_suspends_membership_and_clears_bound_session_context: true
+    owner_archive_does_not_silently_change_owner_governance: true
+    restore_does_not_implicitly_restore_panel_access: true
+  vehicles:
+    tenant_scoped_list_get_create_update: true
+    category_and_location_assignments: true
+    VIN_history_reserved_across_archive: true
+    current_registration_reusable_after_archive: true
+    restore_registration_conflict_fails_without_implicit_swap: true
+    independent_inspection_OC_AC_validities: true
+    versioned_document_history: true
+    archive_restore_history_preserved: true
+  API_and_UI:
+    OpenAPI_contract_preserved: PASS
+    idempotency_required_commands_backed_by_storage: true
+    ETag_If_Match_supported_for_confirmed_updates: true
+    confirmed_locations_UI: implemented
+    confirmed_staff_UI: implemented
+    confirmed_vehicles_UI: implemented
+    calendar_entry_points_preserved: true
+    calendar_engine_fabricated_in_this_slice: false
+    upload_transport_fabricated_in_this_slice: false
+  explicit_deferred_dependencies:
+    - physical_resource_FK_index_constraint_phases_until_global_migration_phase_barrier_allows_them
+    - UploadsAssets_transport_pipeline
+    - Calendar_event_availability_conflict_engine
+    - canonical_external_locality_directory_selection
+  executable_evidence:
+    accepted_branch_Implementation_CI_jobs_passed: 5
+    accepted_branch_Implementation_CI_jobs_total: 5
+    accepted_PostgreSQL_suite_tests: 58
+    accepted_PostgreSQL_suite_assertions: 1290
+    accepted_API_contract_gate: PASS
+    backend_static_analysis: PASS_ZERO_ERRORS
+    frontend_lint_typecheck_build_audit: PASS
+    accepted_push_secret_scan: PASS
+    Stage_4_authority_preservation: PASS
+  tranche_result:
+    machine_implementation: PASS
+    narrative_payload: READY
+    central_closure: PENDING
+    next_core_slice: Students_Course_Enrollment
+    next_core_slice_started: false
 
 S5_BOOT_001_closure:
   status: PASS
