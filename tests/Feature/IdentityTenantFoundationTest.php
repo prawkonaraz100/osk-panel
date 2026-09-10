@@ -91,9 +91,9 @@ final class IdentityTenantFoundationTest extends TestCase
     {
         $actor = FoundationSchema::actor();
         $target = FoundationSchema::member($actor['organization_id']);
-        DB::table('permissions')->insert(['code' => 'students.manage', 'description' => 'students.manage']);
+        DB::table('permissions')->insert(['code' => 'students.create', 'description' => 'students.create']);
         DB::table('permission_scope_options')->insert([
-            'permission_code' => 'students.manage', 'scope_code' => 'organization', 'resolver_code' => 'tenant_resource',
+            'permission_code' => 'students.create', 'scope_code' => 'organization', 'resolver_code' => 'tenant_resource',
         ]);
 
         $this->expectException(AuthorizationException::class);
@@ -101,7 +101,7 @@ final class IdentityTenantFoundationTest extends TestCase
             $actor['session_id'],
             $target,
             1,
-            'students.manage',
+            'students.create',
             true,
             ['organization'],
             (string) Str::uuid7(),
@@ -126,13 +126,13 @@ final class IdentityTenantFoundationTest extends TestCase
     {
         $actor = FoundationSchema::actor();
         $target = FoundationSchema::member($actor['organization_id']);
-        FoundationSchema::grant($actor['membership_id'], 'students.manage', ['organization']);
+        FoundationSchema::grant($actor['membership_id'], 'students.create', ['organization']);
 
         $result = app(MembershipGovernance::class)->replacePermissionScopes(
             $actor['session_id'],
             $target,
             1,
-            'students.manage',
+            'students.create',
             true,
             ['organization'],
             (string) Str::uuid7(),
@@ -147,4 +147,66 @@ final class IdentityTenantFoundationTest extends TestCase
         $this->assertDatabaseCount('domain_events', 1);
         $this->assertDatabaseCount('outbox_messages', 1);
     }
+
+    public function test_active_owner_protected_baseline_cannot_be_weakened_by_normal_permission_mutation(): void
+    {
+        $actor = FoundationSchema::actor();
+
+        try {
+            app(MembershipGovernance::class)->replacePermissionScopes(
+                $actor['session_id'],
+                $actor['membership_id'],
+                1,
+                'organization.view',
+                false,
+                [],
+                (string) Str::uuid7(),
+            );
+            $this->fail('Expected protected owner baseline rejection.');
+        } catch (AuthorizationException) {
+            $row = DB::table('organization_memberships')->where('id', $actor['membership_id'])->first();
+            $this->assertSame(1, (int) $row->version);
+            $this->assertSame(1, (int) $row->authorization_version);
+            $this->assertTrue(DB::table('membership_permissions')
+                ->where('membership_id', $actor['membership_id'])
+                ->where('permission_code', 'organization.view')
+                ->where('granted', true)
+                ->exists());
+            $this->assertDatabaseCount('audit_logs', 0);
+            $this->assertDatabaseCount('outbox_messages', 0);
+        }
+    }
+
+    public function test_owner_transfer_is_atomic_and_leaves_one_active_owner(): void
+    {
+        $actor = FoundationSchema::actor();
+        $successor = FoundationSchema::member($actor['organization_id']);
+        foreach ([
+            'organization.view',
+            'organization.members.manage',
+            'staff.permissions.manage',
+            'sessions.manage.organization',
+        ] as $permission) {
+            FoundationSchema::grant($successor, $permission, ['organization']);
+        }
+
+        app(MembershipGovernance::class)->transferOwner(
+            $actor['session_id'],
+            $actor['membership_id'],
+            $successor,
+            (string) Str::uuid7(),
+        );
+
+        $this->assertFalse((bool) DB::table('organization_memberships')->where('id', $actor['membership_id'])->value('is_owner'));
+        $this->assertTrue((bool) DB::table('organization_memberships')->where('id', $successor)->value('is_owner'));
+        $this->assertSame(1, DB::table('organization_memberships')
+            ->where('organization_id', $actor['organization_id'])
+            ->where('status', 'active')
+            ->where('is_owner', true)
+            ->count());
+        $this->assertDatabaseCount('audit_logs', 1);
+        $this->assertDatabaseCount('domain_events', 1);
+        $this->assertDatabaseCount('outbox_messages', 1);
+    }
+
 }
