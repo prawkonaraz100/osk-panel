@@ -237,7 +237,7 @@ next_single_step:
     - IdentityTenant
     - OrganizationSettings
     - minimal_AuditNotification_foundation_needed_for_atomic_audit_outbox
-    - foundation_migrations_in_canonical_dependency_closed_prefix
+    - foundation_migrations_in_canonical_order_dependency_closed_subset
     - foundation_executable_tests_and_DBT_traceability
     - reverse_engineering_traceability_for_changed_scope
     - Stage_5_gate_and_audit_updates
@@ -337,7 +337,11 @@ S5_MIG_001_closure:
     plan_identity: d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10
     execution_identity: 05243ae2bd1d283ad53e33ab8dbc887317ef27128bb08ebcce381e3c8f7857ec
     migration_file_SHA256_bound: true
-    canonical_topological_prefix_required: true
+    canonical_topological_prefix_required: false
+    canonical_order_dependency_closed_subset_required: true
+    independent_lower_order_nodes_required_only_by_order: false
+    subset_rule_machine_correction_commit: 6e4947c6c0b1b1237a0973523897ceccb03d0d41
+    subset_rule_narrative_correction_commit: bbe4dd71a203eef965bec6d557c51cc255236568
     dependency_closed_subset_required: true
     per_node_registered_phases_must_be_authority_prefix: true
     unregistered_stage4_PHP_migration_rejected: true
