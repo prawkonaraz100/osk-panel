@@ -51,7 +51,7 @@ final class LocationService
     }
 
     /**
-     * @param array{type_code:string,name:string,street_and_number:string,postal_code:string,city_reference:string} $input
+     * @param  array{type_code:string,name:string,street_and_number:string,postal_code:string,city_reference:string}  $input
      * @return array<string,mixed>
      */
     public function create(string $sessionId, array $input, string $requestId): array
@@ -98,7 +98,7 @@ final class LocationService
     }
 
     /**
-     * @param array<string,mixed> $input
+     * @param  array<string,mixed>  $input
      * @return array<string,mixed>
      */
     public function update(string $sessionId, string $locationId, array $input, string $requestId, ?string $expectedTag = null): array

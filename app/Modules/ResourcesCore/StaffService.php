@@ -84,7 +84,7 @@ final class StaffService
     }
 
     /**
-     * @param array<string,mixed> $input
+     * @param  array<string,mixed>  $input
      * @return array<string,mixed>
      */
     public function create(string $sessionId, array $input, string $requestId): array
@@ -148,7 +148,7 @@ final class StaffService
     }
 
     /**
-     * @param array<string,mixed> $input
+     * @param  array<string,mixed>  $input
      * @return array<string,mixed>
      */
     public function update(string $sessionId, string $staffId, array $input, string $requestId, ?string $expectedTag = null): array
