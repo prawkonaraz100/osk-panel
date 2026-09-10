@@ -2,7 +2,7 @@
 
 Data: 2026-09-07
 
-**Status:** `IMPLEMENTATION_BLUEPRINT / DB4_10_AUDIT_OUTBOX_NOTIFICATIONS_AGGREGATE_SYNC_PASS`
+**Status:** `IMPLEMENTATION_BLUEPRINT / DB4_11_FINAL_MIGRATION_AND_INVARIANT_TEST_AGGREGATE_SYNC_PASS`
 
 > To nie są jeszcze migracje Laravel. To fizyczny blueprint tabel, indeksów, constraintów i najważniejszych transakcji zgodny z canonical domain model. Machine-readable odpowiednik: `specs/database/core-schema.yml`. Przy konflikcie machine spec + późniejszy ADR wygrywa. Reverse-engineered scope chronią `docs/96-reverse-engineering-preservation-contract.md` i `specs/reverse-engineering-manifest.yml`. Cross-layer kompletność kontroluje `specs/traceability/core-v1.yml`.
 
@@ -17,6 +17,10 @@ DB4_7 Internal Exams został zsynchronizowany z `specs/database/internal-exams.y
 DB4_8 PKK został zsynchronizowany z `specs/database/pkk.yml` po zamknięciu DB-PKK-001..008. Sekcja 14 oraz odpowiadające jej exact same-tenant provider boundaries, snapshot/lifecycle/attempt/reconciliation history, signed XML evidence, payload encryption/redaction, execution-configuration revision binding, deterministyczna course operation history, migration safety i invariant tests są agregatową projekcją zamkniętego kontraktu.
 
 DB4_9 Student Finance / Platform Commerce został zsynchronizowany z `specs/database/student-finance-commerce.yml` po zamknięciu DB-FIN-001/002 oraz DB-COM-001..008. Sekcje 16 i 19, exact finance/payment relations, derived balance, settlement/fulfillment authorities, purchase-grant provenance, deterministic purchase history, global lock order, legacy reconciliation safety, migration order i invariant tests są agregatową projekcją zamkniętego kontraktu. Student Finance i Platform Commerce pozostają dwoma oddzielnymi bounded contextami.
+
+DB4_10 Audit / DomainEvent / Outbox / Activity / Notifications został zsynchronizowany po zamknięciu DB-AUD-001/002, DB-OUT-001/002, DB-ACT-001, DB-NOT-001/002 i DB-EVT-001. Finalny model obejmuje versioned audit policy, append-only AuditLog, `DomainEvent` jako canonical projection identity, Outbox, activity projection policy/history, exact-recipient Notifications, migration review oraz retention execution evidence.
+
+DB4_11 zamyka finalną warstwę wykonawczą Stage 4. `core-schema.yml` pozostaje aggregate blueprintem domenowym, ale nie posiada już własnej konkurencyjnej 17-krokowej kolejności migracji. Wykonawczym authority jest `specs/database/final-migration-order-invariant-matrix.yml`: 170-node dependency DAG, siedem faz `expand -> preflight -> write_fence -> backfill -> reconcile -> validate -> contract`, cutover/restart/rollback contract oraz finalny katalog 491 test IDs.
 
 ---
 
@@ -2873,35 +2877,28 @@ Pozostałe obowiązkowe testy:
 - idempotency działa osobno dla global i tenant scope,
 - safe activity payload nie przepuszcza sensitive fields.
 
+
+### Finalny kontrakt testowy DB4_11
+
+Lista `migration_tests_required` w `core-schema.yml` pozostaje źródłem obowiązków regresyjnych, a nie finalnym katalogiem wykonawczym. Top-level lista ma 244 pozycje; rekurencyjnie wszystkie klucze `migration_tests_required` w aggregate dają 261 source occurrences. DB-TST-001 zachowuje 261 stabilnych bazowych `DBT-*`. DB-TST-002 dodał 229 coverage anchors, a DB-FINAL-001 dopisuje wyłącznie `DBT-CORE-100` jako append-only `migration_postcheck` finalnej synchronizacji machine/narrative. Finalnie istnieje **491 unikalnych test IDs**.
+
+Coverage obejmuje 77/77 zamkniętych blockerów Stage 4, 183/183 `critical_constraints`, 45/45 `transactional_invariants` oraz zachowuje 1 581 lokalnych required-test occurrences / 1 576 unikalnych nazw. Gate wymaga 0 unknown final refs, 0 orphan source refs i 0 coverage gaps. Żaden z wcześniejszych 490 test IDs nie został renumerowany ani przedefiniowany przez DB-FINAL-001.
+
 ---
 
-# 24. Kolejność migracji high-level
+# 24. Finalna kolejność migracji i cutover — DB4_11
 
-1. organizations/users/auth identifiers + `user_password_management` baseline + organization memberships + permissions + scope catalogs + membership permission/scope rows + sessions + account closure,
-2. organization settings + company contact address + legal documents/terms acceptance,
-3. dictionaries/capabilities,
-4. file assets + idempotency,
-5. staff/locations/vehicles + assignment tables,
-6. Student identity/version + LearningAccount version/status + access handoff/export-batch metadata + same-user auth-identifier boundary,
-7. CourseEnrollment lifecycle + requirement rule/context/profile/exemption/override + **local required PKK identity**,
-8. TrainingSession + exact Attendance + immutable Ledger + recognized external training,
-9. włączyć `btree_gist` przed materializacją finalnych calendar resource exclusion constraints,
-10. Calendar: manual event/slot lifecycle history, same-tenant relations, `calendar_resource_claims`, `training_session_calendar_details`, slot→Session link/formalization i TrainingSession claim integration,
-11. PKK execution-configuration revisions + provider snapshots + operations/lifecycle + attempts/reconciliations + signed-XML handoff/reservations + protected payload/redaction + XML crypto bindings + deterministic course operation sequence,
-12. Student finance,
-13. LicenseProduct language capability history + Inventory + Assignment sequences/current uniqueness + immutable Activation entitlement ledger,
-14. internal exam capability history, inventory units/adjustments/ledger/reservations, Attempt/Access lifecycle+tokens, Station credentials/sessions, immutable definitions/questions/results/templates/documents and deterministic management projection,
-15. orders/payments/service entitlements/activations,
-16. audit/activity/outbox/notifications,
-17. final partial indexes/cross-table constraints, w tym LearningAccount current-identifier, password-authority/exclusive-principal, Inventory↔Assignment↔Activation equivalence, contiguous sequences, entitlement chain i language-capability guards.
+17-punktowa lista high-level używana podczas wcześniejszych slice'ów jest **wycofana jako authority wykonawcze**. Nie wolno na jej podstawie numerować ani generować migracji Laravel. Jedynym authority dla dokładnej kolejności zależności jest `specs/database/final-migration-order-invariant-matrix.yml -> migration_dependency_dag`: **170 stabilnych node'ów** z `requires` i jedną kanoniczną `topological_order`.
 
-W obrębie DB4_4 migracja najpierw robi legacy prechecks/remediation, dopiero potem NOT NULL/unique/composite FK/deferrable guards. Nie wybiera „latest row” ani nie fabrykuje brakującej formalnej tożsamości, actorów, lineage, attendance czy creditów.
+Każdy node DAG jest wykonywany w ramach finalnej kompozycji fazowej:
 
-W obrębie DB4_5 kolejność jest równie rygorystyczna: najpierw precheck same-tenant/event-type/status/booking-state/overlap oraz jawna klasyfikacja legacy `driving_lesson`; potem lifecycle baselines i candidate keys; następnie `btree_gist`, technical claims + owner guards + exact-set guards + GiST; dopiero po dowodliwej migracji włączamy finalne constraints. Nie naprawiamy overlapów ani nie tworzymy TrainingSession przez heurystykę.
+`expand -> preflight -> write_fence -> backfill -> reconcile -> validate -> contract`
 
-W obrębie DB4_6 najpierw precheckujemy LearningAccount identity, tenant/exact-target relacje, password authority, legacy credential artifacts, Inventory/Assignment/Activation consistency, activation order/effective periods oraz product-language evidence. Niejednoznaczności trafiają do reviewed remediation. Dopiero potem backfillujemy bezpieczne baselines/sequences/capability history i włączamy same-user/composite FK, credential authority, final-state equivalence, contiguous sequence i entitlement-chain guards. Nie zgadujemy na podstawie timestampów, UUID, creatora, ekranu ani globalnego language dictionary.
+`migration_phase_composition` określa phase path dla node'ów, a `migration_cutover_execution_contract` określa entry/exit/abort, restart posture i bezpieczne strategie rollbacku. Constraintów, triggerów i indeksów nie wolno odkładać zbiorczo do jednego „finalnego kroku”: tam, gdzie nowy write contract ma chronić dane przed backfillem, write fence musi wejść wcześniej. Backfill i reconciliation pozostają exact-evidence-only, a wymagane unresolved cases muszą być równe zero przed final validation. Destructive `contract` wymaga backup health oraz skutecznego restore-test evidence; generic destructive `down` dla wymaganej historii pozostaje zabroniony.
 
-W obrębie DB4_8 najpierw precheckujemy exact tenant/Course/Profile/Operation/Attempt context, provider snapshot i lifecycle history, idempotency/attempt state, signed-XML provenance, crypto-envelope lineage, execution-configuration revisions oraz legacy business-operation order. Niejednoznaczności trafiają do reviewed remediation. Dopiero potem backfillujemy dowodliwe snapshot/attempt/configuration/operation sequences i włączamy composite FK, partial unique, append-only/final-state guards oraz crypto/evidence bindings. Nie zgadujemy current Profile, external effect, XML role, key version, configuration revision ani kolejności business operations na podstawie timestampów, UUID, filename lub provider completion time.
+Domenowa zawartość DAG zachowuje wszystkie zamknięte slice'y DB4_1-DB4_10. W szczególności Commerce nie oznacza już skrótu `orders/payments/service entitlements/activations`: obejmuje catalog, Orders, OrderItems, payment attempts/events, settlements, fulfillments, purchase-grant provenance, ServiceEntitlements i ServiceActivations wraz z downstream License/Internal Exam/Service lineage. DB4_10 nie jest skrótem `audit/activity/outbox/notifications`: obejmuje audit policy revisions, AuditLog, DomainEvent jako canonical projection identity, Outbox, activity projection policies i Activity, exact-recipient Notifications, migration review oraz retention execution evidence.
+
+Lokalne migration-safety zasady opisane wcześniej w tym dokumencie nadal obowiązują, ale w razie różnicy nie tworzą alternatywnego porządku: globalne `migration_dependency_dag`, `migration_phase_composition` i `migration_cutover_execution_contract` są finalnym authority Stage 4. DB-FINAL-001 nie generuje fizycznych migracji Laravel.
 
 ---
 
@@ -2917,9 +2914,7 @@ Zamknięte:
 - **Licenses / Learning Access DB4_6**: exact same-tenant Assignment target; current same-user AuthLoginIdentifier bez niezależnej login projection; durable LearningAccount lifecycle/version i operational eligibility; fail-closed global password management authority + credential epoch; memory-only secret-bearing credential PDFs i non-secret handoff/batch metadata; Inventory↔Assignment↔Activation final-state equivalence; immutable serialized entitlement ledger z duration snapshot/sequence; versioned product-language capability; immutable Assignment language/order snapshots oraz czysto derived management projection.
 - **PKK DB4_8**: exact Course/Profile/Operation/Attempt tenant integrity; immutable provider snapshot i lifecycle history; fail-closed idempotency/retry/reconciliation dla unknown external effect; signed-XML FileAsset evidence; authenticated raw-payload encryption + allowlisted redaction + key-wrapping history; exact execution-configuration revision binding; immutable `course_operation_sequence` oraz derived latest/count bez drugiego summary authority.
 
-Po DB4_9 nadal osobno wymagają dalszych slice/ADR:
-- DB4_7 Internal Exams aggregate contract — synchronized / PASS,
-- Student Finance i exact commerce/source-order tenant boundary — synchronized / DB4_9 PASS,
+Po zamknięciu DB4_11 osobno pozostają decyzje implementacyjne/produkcyjne, które nie są ponownymi blockerami zamkniętych slice'ów Stage 4:
 - application encryption + key rotation dla PESEL/PKK/provider snapshots,
 - immutable snapshot canonicalization/hash,
 - auth account merge/recovery/email verification policy,
