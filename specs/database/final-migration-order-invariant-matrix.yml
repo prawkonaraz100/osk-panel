@@ -1,0 +1,293 @@
+meta:
+  project: osk-panel
+  stage: 4
+  slice: DB4_11_FINAL_MIGRATION_ORDER_AND_INVARIANT_TEST_MATRIX
+  step: DIAGNOSIS
+  status: FAIL_WITH_6_P1_BLOCKERS
+  diagnosed_at: 2026-09-10
+  branch: docs-consolidation-2026-09-05
+  diagnosis_only: true
+  fixes_applied_in_diagnosis_step: 0
+  implementation_started: false
+  Laravel_migrations_created: false
+  Stage5_started: false
+  UI_or_feature_implementation_started: false
+
+scope_rule:
+  diagnose_before_fixing: true
+  fixes_allowed_in_this_step: false
+  current_step_scope: DB4_11_DIAGNOSIS_only
+  one_blocker_per_future_step: true
+  aggregate_files_frozen_in_diagnosis:
+    specs/database/core-schema.yml: 39958721c99550cfc27c3774e8dfa1af0d0637e6
+    docs/87-physical-database-schema.md: 6c090b082604b6b42c283667fcf08e9033a5b523
+  prior_bounded_context_specs_read_only_in_diagnosis: true
+  Stage5_or_API_contract_sync_in_this_step: forbidden
+  Laravel_migration_generation_in_this_step: forbidden
+  UI_or_feature_implementation_in_this_step: forbidden
+
+canonical_sources:
+  aggregate_machine: specs/database/core-schema.yml
+  aggregate_narrative: docs/87-physical-database-schema.md
+  central_gate: specs/gates/stage-4-database-contract-gate.yml
+  stage_process: docs/99-staged-design-and-implementation-plan.md
+  test_strategy: docs/84-test-strategy.md
+  production_operations: docs/85-production-operations.md
+  preservation:
+    - docs/96-reverse-engineering-preservation-contract.md
+    - specs/reverse-engineering-manifest.yml
+    - specs/traceability/core-v1.yml
+  bounded_contexts:
+    - specs/database/organization-settings.yml
+    - specs/database/identity-rbac.yml
+    - specs/database/staff-locations-vehicles.yml
+    - specs/database/students-courses-training.yml
+    - specs/database/calendar.yml
+    - specs/database/licenses-learning-access.yml
+    - specs/database/internal-exams.yml
+    - specs/database/pkk.yml
+    - specs/database/student-finance-commerce.yml
+    - specs/database/audit-outbox-notifications.yml
+
+observed_stage4_state:
+  DB4_1_through_DB4_10_result: PASS
+  previously_resolved_stage4_blockers: 71
+  prior_open_P0_P1: 0
+  DB4_10_final_aggregate_sync: PASS
+  current_aggregate_machine_migration_order:
+    representation: ordered_high_level_string_list
+    entries: 17
+    executable_dependency_edges_declared: false
+    per_step_preconditions_and_postconditions_declared: false
+  current_aggregate_narrative_migration_order:
+    representation: numbered_high_level_list
+    entries: 17
+    machine_semantic_equivalence_after_DB4_9_DB4_10: false
+  current_invariant_tests:
+    machine_representation: flat_string_list_under_migration_tests_required
+    narrative_representation: prose_bullets_grouped_by_domain
+    stable_test_ids: false
+    source_blocker_mapping: false
+    enforcement_mechanism_mapping: false
+    migration_phase_mapping: false
+    execution_class_mapping: false
+    completeness_proof: false
+
+specific_diagnosis_evidence:
+  machine_vs_narrative_commerce_order:
+    machine_includes:
+      - commerce_catalog_items
+      - orders
+      - order_items
+      - payment_attempts
+      - payment_events
+      - order_payment_settlements
+      - order_fulfillments
+      - purchase_grants
+      - service_entitlements
+      - service_activations
+    narrative_step_15_currently_summarizes_only:
+      - orders
+      - payments
+      - service_entitlements
+      - service_activations
+    semantic_loss_present: true
+  machine_vs_narrative_DB4_10_order:
+    machine_includes:
+      - audit_policy_revisions
+      - audit_logs
+      - domain_events
+      - outbox_publisher
+      - activity_projection_policies
+      - organization_activity_events
+      - notifications
+      - event_projection_migration_review
+      - retention_execution_evidence
+    narrative_step_16_currently_summarizes_only:
+      - audit
+      - activity
+      - outbox
+      - notifications
+    domain_event_and_policy_and_migration_retention_authorities_omitted: true
+    stale_activity_before_outbox_wording_present: true
+  constraint_phase_conflict:
+    aggregate_final_step_says_final_partial_indexes_and_cross_table_constraints: true
+    local_contracts_require_expand_write_fence_before_legacy_backfill_for_selected_constraints: true
+    DB4_10_NOT_VALID_or_equivalent_new_write_fence_before_legacy_backfill: true
+    DB4_9_and_other_legacy_slices_require_preflight_then_safe_backfill_then_validation: true
+    one_blanket_final_constraint_step_is_not_sufficiently_safe: true
+  operations_policy:
+    controlled_DB_migration_required: true
+    expand_contract_preferred: true
+    migration_dry_run_test_DB_required_in_CI: true
+    rollback_only_when_explicitly_safe: true
+    backup_and_restore_path_required_before_destructive_contract_phase: true
+    current_global_DB4_11_artifact_defines_these_as_executable_gate: false
+
+blockers:
+  - id: DB-MIG-001
+    severity: P1
+    status: OPEN
+    title: executable_stage4_migration_dependency_DAG_and_topological_order
+    evidence:
+      - core_schema_migration_order_is_only_17_high_level_strings
+      - one_list_item_groups_multiple_parent_child_tables_constraints_and_runtime_guards
+      - exact_dependency_edges_between_tables_candidate_keys_FKs_triggers_extensions_and_projections_are_not_machine_declared
+      - Laravel_migration_generation_is_blocked_until_final_design_can_be_translated_without_guessing
+    risk:
+      - child_FK_or_trigger_created_before_required_parent_candidate_key
+      - implementation_team_invents_migration_numbering_and_dependency_order
+      - circular_or_hidden_dependency_discovered_only_during_migration_execution
+      - different_developers_produce_incompatible_order_from_same_blueprint
+    closure_scope_only:
+      - define_machine_readable_migration_nodes_with_stable_ids
+      - define_requires_edges_and_topological_order
+      - distinguish_extension_table_candidate_key_index_FK_trigger_projection_and_constraint_nodes
+      - preserve_all_bounded_context_local_ordering_without_generating_Laravel_files
+      - fail_gate_on_cycle_missing_dependency_or_unknown_node
+
+  - id: DB-MIG-002
+    severity: P1
+    status: OPEN
+    title: expand_write_fence_backfill_validate_contract_phase_composition
+    evidence:
+      - aggregate_step_17_defers_final_partial_indexes_and_cross_table_constraints_as_one_late_bucket
+      - DB4_10_requires_new_runtime_write_fence_before_legacy_backfill
+      - local_slice_migration_contracts_require_preflight_reviewed_remediation_and_phased_constraint_activation
+      - PostgreSQL_NOT_VALID_or_equivalent_is_used specifically_to_enforce_new_rows_before_old_population_validation
+    risk:
+      - live_writes_create_new_legacy_exceptions_while_backfill_runs
+      - constraint_validation_races_with_old_writer_contract
+      - final_constraint_activation_fails_after_application_has_already_switched_source_of_truth
+      - blanket_final_phase_reorders_a_required_early_guard_after_backfill
+    closure_scope_only:
+      - compose_each_migration_node_into_expand_preflight_write_fence_backfill_reconcile_validate_contract_phases
+      - identify_constraints_required_as_early_new_write_fences_vs_final_validation_only
+      - record_not_valid_or_equivalent_then_validate sequence_where_supported
+      - require_zero_unresolved_cases_before_each_affected_final_validation
+      - preserve_non_destructive_expand_contract_policy
+
+  - id: DB-MIG-003
+    severity: P1
+    status: OPEN
+    title: global_cutover_restart_failure_and_safe_rollback_gate
+    evidence:
+      - production_operations_requires_controlled_DB_migration_backup_health_and_known_rollback_strategy
+      - local_DB4_9_and_DB4_10_contracts_define_fail_closed_reconciliation_and_restart_boundaries
+      - current_global_migration_order_has_no_machine_precondition_postcondition_stop_or_resume_contract
+      - destructive_contract_phase_is_not_bound_to_backup_restore_and_zero_unresolved evidence_in_one_final_stage_gate
+    risk:
+      - operator_continues_after_partial_failed_backfill_or validation
+      - rerun_duplicates_non_idempotent_migration_effects
+      - unsafe_down_migration_rewrites_formal_financial_or_audit_history
+      - production_cutover_claimed_complete_with_unresolved_reconciliation_case
+    closure_scope_only:
+      - define per_phase entry_exit_and_abort_conditions
+      - define restart_safe_or_manual_review classification_for_migration_nodes
+      - define rollback_as_app_rollback_schema_forward_fix_or_explicit_safe_down_only
+      - bind destructive_contract_phase_to_backup_restore_evidence_and_zero_unresolved_gate
+      - define final_stage4_database_cutover_smoke_and_integrity_gate_without_setting_production_specific_RPO_RTO_values
+
+  - id: DB-TST-001
+    severity: P1
+    status: OPEN
+    title: machine_readable_invariant_test_matrix_schema_and_execution_classification
+    evidence:
+      - core_schema_migration_tests_required_is_a_flat_list_of_free_text_strings
+      - docs87_section_23_is_prose_bullets_not_a_test_matrix
+      - test_strategy_requires_integration_race_idempotency_contract_and_migration_dry_run_layers
+      - no_stable_test_id_or_test_class_is_declared_for_stage4_database_invariants
+    risk:
+      - same_requirement_is_tested_at_wrong_layer_or_not_at_all
+      - race_invariant_is_reduced_to_nonconcurrent_unit_test
+      - migration_preflight_test_is_confused_with_post_schema_constraint_test
+      - implementation_cannot_generate deterministic_test_plan_from_design
+    closure_scope_only:
+      - define_stable_test_ids
+      - define test_class_values_for_schema_constraint_transaction_concurrency_migration_preflight_migration_postcheck_projection_security_storage
+      - define source_invariant_and_expected_outcome
+      - define required_fixture_or_concurrency_shape_at_contract_level_without_writing_framework_tests
+      - define execution_phase_and_blocking_severity
+
+  - id: DB-TST-002
+    severity: P1
+    status: OPEN
+    title: invariant_test_coverage_traceability_and_completeness_gate
+    evidence:
+      - 71_prior_stage4_blockers_are_closed_but_no_machine_relation_maps_each_closed_blocker_to_final_invariant_tests
+      - critical_constraints_and_transaction_templates_have_no completeness_join_to_migration_tests_required
+      - flat_test_list_cannot_prove_that_every_bounded_required_test_survived_aggregate_sync
+      - duplicate_stale_or_orphan_test_text_cannot_be_detected_by_current_gate
+    risk:
+      - semantic_loss_in_final_test_plan_despite_all_bounded_slices_showing_PASS
+      - critical_constraint_or_cross_domain_transaction_has_no regression_test
+      - orphan_test_remains_after_authority_changes_and_gives_false_confidence
+      - Stage4_passes_without executable evidence for one_resolved_P1
+    closure_scope_only:
+      - map_every_resolved_stage4_blocker_to_one_or_more final_test_ids
+      - map_every_critical_constraint_and_required_cross_table_transaction_guard_to_test_ids
+      - preserve local_required_tests_or_explicitly_mark_covered_by_equivalent_stronger_test
+      - reject_unknown_or_orphan_source references
+      - define machine coverage counts and zero_gap_gate
+
+  - id: DB-FINAL-001
+    severity: P1
+    status: OPEN
+    title: final_machine_narrative_migration_and_test_semantic_sync
+    evidence:
+      - docs87_migration_step_15_omits_multiple_DB4_9_authorities_present_in_core_schema
+      - docs87_migration_step_16_omits_domain_event_policy_migration_review_and_retention_authorities
+      - narrative_DB4_10_order_uses_stale_audit_activity_outbox_notifications_shortcut
+      - final_Stage4_gate_requires_physical_schema_and_narrative_schema_synchronized
+    risk:
+      - developer_follows_narrative_and_builds_a_different_schema_or_migration_order_than_machine_contract
+      - DB4_9_exactly_once_fulfillment_or_DB4_10_event_identity_is_accidentally_skipped
+      - later_docs_or_acceptance_work_reintroduces_stale_provisional_model
+    closure_scope_only:
+      - synchronize core_schema_final_migration_plan_and_docs87_section_24_after_DB_MIG_and_DB_TST_contracts_are_closed
+      - synchronize machine_and_narrative_invariant_matrix_summary_without_losing_stable_ids_or_coverage
+      - remove_stale_provisional_order_shortcuts
+      - rerun_semantic_loss_gate_across_all_DB4_1_through_DB4_10 contracts
+
+diagnosis_summary:
+  diagnosed_P0: 0
+  diagnosed_P1: 6
+  fixes_applied_in_diagnosis_step: 0
+  resolved_after_diagnosis: 0
+  open_P0_P1: 6
+  result: FAIL_WITH_6_P1_BLOCKERS
+  blockers_in_required_fix_order:
+    - DB-MIG-001
+    - DB-MIG-002
+    - DB-MIG-003
+    - DB-TST-001
+    - DB-TST-002
+    - DB-FINAL-001
+
+preservation_gate:
+  status: PASS_DIAGNOSIS_ONLY
+  checks:
+    DB4_1_through_DB4_10_contracts_modified: false
+    aggregate_core_schema_modified: false
+    aggregate_docs87_modified: false
+    prior_71_resolved_blockers_reopened: false
+    external_legal_privacy_provider_values_invented: false
+    Stage5_started: false
+    Laravel_migrations_created: false
+    UI_or_feature_implementation_started: false
+
+next_single_step_after_central_gate:
+  id: DB-MIG-001
+  action: resolve_DB_MIG_001_only_after_next_explicit_user_instruction
+  allowed_files_only:
+    - specs/database/final-migration-order-invariant-matrix.yml
+    - docs/116-stage-4-final-migration-order-invariant-matrix-audit.md
+    - specs/database/core-schema.yml
+    - docs/87-physical-database-schema.md
+    - specs/gates/stage-4-database-contract-gate.yml
+  prior_bounded_context_specs_read_only: true
+  scope_lock: >-
+    Resolve DB-MIG-001 only. Preserve DB-MIG-002, DB-MIG-003, DB-TST-001,
+    DB-TST-002 and DB-FINAL-001 as OPEN. Do not enter Stage 5, generate Laravel
+    migrations, or implement UI/features in the same step.
+  after_action: rerun_DB_MIG_001_machine_narrative_central_gate_and_STOP_before_DB_MIG_002
