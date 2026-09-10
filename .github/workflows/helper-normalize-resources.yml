@@ -1,0 +1,40 @@
+name: Helper normalize ResourcesCore
+
+on:
+  push:
+    branches:
+      - tmp-core-v1-loc-staff-veh-001-20260911
+
+permissions:
+  contents: write
+
+jobs:
+  normalize:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: tmp-core-v1-loc-staff-veh-001-20260911
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          extensions: mbstring, intl, pdo_pgsql, redis
+          coverage: none
+      - run: composer install --no-interaction --prefer-dist --no-progress
+      - name: Normalize PHP
+        run: |
+          vendor/bin/pint             app/Modules/ResourcesCore             tests/Feature/ResourcesCoreTest.php             tests/Unit/Stage4TraceabilityRegistryTest.php             tests/Feature/FoundationReferenceCatalogTest.php
+      - name: Commit normalization
+        run: |
+          git config user.name "stage5-helper"
+          git config user.email "stage5-helper@users.noreply.github.com"
+          git add             app/Modules/ResourcesCore             tests/Feature/ResourcesCoreTest.php             tests/Unit/Stage4TraceabilityRegistryTest.php             tests/Feature/FoundationReferenceCatalogTest.php
+          if git diff --cached --quiet; then
+            echo "No formatting changes."
+          else
+            git commit -m "CORE-V1-LOC-STAFF-VEH-001: normalize static-type changes"
+            git push origin HEAD:tmp-core-v1-loc-staff-veh-001-20260911
+          fi
+      - name: Report PHPStan
+        run: vendor/bin/phpstan analyse --no-progress --memory-limit=1G
