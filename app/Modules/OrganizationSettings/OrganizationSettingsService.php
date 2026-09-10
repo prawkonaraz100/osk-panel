@@ -30,21 +30,27 @@ final class OrganizationSettingsService
             throw new InvalidArgumentException('Unknown or not-yet-materialized settings field: '.implode(',', $unknown));
         }
 
-        $sessionMembership = $this->authorizer->activeMembershipForSession($sessionId);
-        $organizationId = $sessionMembership['organization_id'];
-        $actor = $this->authorizer->requireOrganizationPermission(
-            $sessionId,
-            $organizationId,
-            'organization.settings.manage',
-        );
+        return DB::transaction(function () use ($sessionId, $expectedVersion, $changes, $requestId): array {
+            $actorSnapshot = $this->authorizer->activeMembershipForSession($sessionId);
+            $organizationId = $actorSnapshot['organization_id'];
 
-        return DB::transaction(function () use (
-            $expectedVersion,
-            $changes,
-            $requestId,
-            $organizationId,
-            $actor,
-        ): array {
+            if (DB::table('organizations')->where('id', $organizationId)->lockForUpdate()->first() === null) {
+                throw new LogicException('Organization not found.');
+            }
+            if (DB::table('organization_memberships')
+                ->where('id', $actorSnapshot['id'])
+                ->where('organization_id', $organizationId)
+                ->lockForUpdate()
+                ->first() === null) {
+                throw new LogicException('Actor membership disappeared during settings mutation.');
+            }
+
+            $actor = $this->authorizer->requireOrganizationPermission(
+                $sessionId,
+                $organizationId,
+                'organization.settings.manage',
+            );
+
             $settings = DB::table('organization_settings')
                 ->where('organization_id', $organizationId)
                 ->lockForUpdate()
