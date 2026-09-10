@@ -3,7 +3,7 @@ meta:
   stage: 5
   name: implementation_entry_and_foundation_gate
   branch: docs-consolidation-2026-09-05
-  status: FAIL_WITH_5_P1_BLOCKERS
+  status: FAIL_WITH_4_P1_BLOCKERS
   entered_at: 2026-09-10
   diagnosis_only: true
   implementation_started: true
@@ -115,7 +115,7 @@ blockers:
 
   - id: S5-ENV-001
     severity: P1
-    status: OPEN
+    status: PASS
     title: deterministic_local_and_CI_runtime_services_absent
     depends_on:
       - S5-BOOT-001
@@ -213,9 +213,9 @@ quality_gate:
   diagnosed_P0: 0
   diagnosed_P1: 6
   fixes_applied_in_diagnosis: 0
-  fixes_applied_total: 1
-  open_P0_P1: 5
-  result: FAIL_WITH_5_P1_BLOCKERS
+  fixes_applied_total: 2
+  open_P0_P1: 4
+  result: FAIL_WITH_4_P1_BLOCKERS
   blocker_fix_order:
     - S5-BOOT-001
     - S5-ENV-001
@@ -225,20 +225,21 @@ quality_gate:
     - S5-FOUND-001
 
 next_single_step:
-  id: S5-ENV-001
-  action: resolve_deterministic_local_and_CI_runtime_services_only_after_next_explicit_user_instruction
+  id: S5-MIG-001
+  action: resolve_executable_database_migration_layer_only_after_next_explicit_user_instruction
   prerequisite_S5_BOOT_001: PASS
+  prerequisite_S5_ENV_001: PASS
   allowed_scope:
-    - PostgreSQL_local_test_CI_runtime
-    - Redis_local_test_CI_runtime
-    - nonproduction_object_storage_adapter_configuration
-    - environment_documentation_and_health_checks
+    - migration_executor_and_reviewable_batches
+    - exact_170_node_dependency_authority_materialization
+    - seven_phase_migration_contract
+    - restart_failure_and_safe_rollback_controls
     - Stage_5_gate_and_audit_updates
   forbidden_scope:
-    - domain_feature_implementation
-    - UI_screen_implementation
-    - Stage_4_domain_migration_materialization_until_S5_MIG_001
-  after_action: rerun_S5_ENV_001_gate_and_STOP_before_S5_MIG_001
+    - domain_feature_UI
+    - shortening_or_reinterpreting_Stage_4_database_authority
+    - blanket_destructive_down_migrations
+  after_action: rerun_S5_MIG_001_gate_and_STOP_before_S5_TST_001
 
 S5_BOOT_001_closure:
   status: PASS
@@ -284,3 +285,31 @@ S5_BOOT_001_closure:
     project_AGENTS_md_preserved: true
     feature_modules_implemented: false
     UI_screens_implemented: false
+
+S5_ENV_001_closure:
+  status: PASS
+  accepted_scope: deterministic_local_and_test_runtime_services_only
+  service_images:
+    PostgreSQL: postgres:17.11-alpine
+    Redis: redis:8.10.1-alpine
+    S3_test_adapter: ghcr.io/getmoto/motoserver:5.2.2
+  runtime_contract:
+    PostgreSQL_test_and_runtime_database: true
+    Redis_cache_queue_lock_substrate: true
+    Redis_source_of_truth: false
+    S3_compatible_nonproduction_adapter: true
+    S3_test_adapter_requires_external_auth_token: false
+    S3_path_style_flag_typed_boolean: true
+    production_credentials_committed: false
+    real_personal_data_in_fixtures: false
+  executable_evidence:
+    docker_compose_config: PASS
+    PostgreSQL_health_and_SQL_round_trip: PASS
+    Redis_ping_cache_queue_lock: PASS
+    S3_create_write_read_delete_round_trip: PASS
+    Laravel_test_suite_with_services: PASS
+  intentionally_not_closed_here:
+    S5_MIG_001: OPEN
+    S5_TST_001: OPEN
+    S5_CI_001: OPEN
+    S5_FOUND_001: OPEN
