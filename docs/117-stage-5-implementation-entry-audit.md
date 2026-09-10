@@ -239,3 +239,25 @@ Po centralnym gate jedynym pozostałym blockerem entry/foundation tranche ma by�
 Następny pojedynczy krok: **S5-FOUND-001 — first core foundation slice**.
 
 **STOP przed S5-FOUND-001.**
+
+---
+
+## 15. S5-FOUND-001 — foundation closure
+
+**Machine: PASS. Narrative: PASS. Central: PENDING.**
+
+Pierwszy core foundation slice został zaimplementowany w clean commit `f32d5c77bb844aac6e2ea0770b70b415fd28354e`, bez helper history. Zakres pozostał ograniczony do `IdentityTenant`, `OrganizationSettings` oraz minimalnego `AuditNotification`.
+
+Migration registry materializuje 18/170 node'ów: wcześniejszy `MIG-EXT-BTREE-GIST` oraz 17 dependency-closed foundation table nodes. Stage-4 DAG, siedem faz i immutable authority pozostały bez zmian. Finalny DBT catalog nadal zawiera 491 IDs; 13 jest już związanych z wykonywalnymi foundation assertions, a 478 pozostaje jawnie pending do kolejnych domenowych slices.
+
+Foundation ma realny Laravel auth provider, active tenant membership context, explicit permission authority, per-permission scopes, same-tenant validation, authorization versioning oraz Owner governance. Końcowy review zatrzymał pierwszy zielony kandydat i wymusił hardening dwóch ryzyk: protected Owner baseline nie może zostać osłabiony zwykłym permission mutation, a krytyczne authorization/settings writes serializują tenant/membership rows przed finalnym permission check, eliminując wykryte TOCTOU.
+
+`OrganizationSettingsService` używa optimistic concurrency i atomowo zapisuje audit/domain-event/outbox. Minimalny audit layer wymaga current audit policy i allowlistuje payload. `FoundationReferenceCatalogSeeder` czyta permission/scope authority bezpośrednio z `specs/security/permissions.yml`; nie istnieje niezależna ręczna lista runtime.
+
+Helper hardening run `34532023466` zakończył się SUCCESS. Po clean promotion accepted-branch `Implementation CI` run `34532350584` przeszedł 5/5 jobów, osobny API Contract Gate `34532350492` również przeszedł, a PostgreSQL suite zakończył się wynikiem **35 tests / 1181 assertions PASS**.
+
+Szczegółowy zakres, hardening, testy i provenance: `docs/122-stage-5-foundation.md`.
+
+Centralny gate może teraz zamknąć `S5-FOUND-001` i ustawić brak otwartych P0/P1, ale dopiero po własnej machine consistency/preservation validation.
+
+**STOP przed następnym core slice.**
