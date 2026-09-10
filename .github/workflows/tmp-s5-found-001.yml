@@ -97,8 +97,10 @@ jobs:
           git config user.name "prawkonaraz100"
           git config user.email "prawkonaraz100@gmail.com"
           git add app config database tests specs/traceability
-          git commit -m "S5-FOUND-001: materialize identity tenant foundation candidate"
-          git push
+          if ! git diff --cached --quiet; then
+            git commit -m "S5-FOUND-001: materialize identity tenant foundation candidate"
+            git push
+          fi
           echo "CANDIDATE_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
 
       - name: Boot deterministic runtime
