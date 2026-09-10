@@ -7,8 +7,11 @@ use LogicException;
 final class ControlledMigrationContext
 {
     private static bool $active = false;
+
     private static ?string $phase = null;
+
     private static ?string $nodeId = null;
+
     private static ?string $executionIdentity = null;
 
     public static function enter(string $phase, string $nodeId, string $executionIdentity): void

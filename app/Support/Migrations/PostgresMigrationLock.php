@@ -8,6 +8,7 @@ use LogicException;
 final class PostgresMigrationLock
 {
     public const KEY_NAMESPACE = 519662;
+
     public const KEY_PLAN = 5001;
 
     private bool $acquired = false;
