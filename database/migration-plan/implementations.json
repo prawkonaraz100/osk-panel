@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
   "plan_identity": "d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10",
-  "execution_identity": "d71cb6c1da973d8a5b9e8277c47f843f06f4c7c643bba34ec83a146d049707db",
+  "execution_identity": "30563cdc980aa77f1911ec6c81f2ee34a1f24a831bb97ad5a037ebf4dc94df62",
   "stage4_root": "database/migrations/stage4",
   "implemented_steps": [
     {
@@ -154,6 +154,15 @@
       "migration_file": "database/migrations/stage4/expand/MIG-TBL-FILE_ASSETS/2026_09_11_000240_create_file_assets_table.php",
       "migration_name": "2026_09_11_000240_create_file_assets_table",
       "file_sha256": "3cf3e0cff5efd08176f7156edfd817362eff87fa2ee931b7b367a2d6efc49644",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-IDEMPOTENCY_RECORDS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-IDEMPOTENCY_RECORDS/2026_09_11_000250_create_idempotency_records_table.php",
+      "migration_name": "2026_09_11_000250_create_idempotency_records_table",
+      "file_sha256": "40ab444f1e787b029f7fbfef0860c1b7a6f392a9b4d94d353957be5475b4b1c2",
       "restart_classification": "restart_safe",
       "safe_down": false
     },

@@ -15,10 +15,10 @@ class MigrationPlanContractTest extends TestCase
 
         $this->assertSame(170, $plan->nodeCount());
         $this->assertSame(17, $plan->batchCount());
-        $this->assertSame(33, $plan->implementedNodeCount());
-        $this->assertSame(33, $plan->implementedStepCount());
+        $this->assertSame(34, $plan->implementedNodeCount());
+        $this->assertSame(34, $plan->implementedStepCount());
         $this->assertSame('ad5f2aa2e14ef248b95dd3dda0d1cbcb2e69d441', $plan->summary()['authority_blob']);
-        $this->assertSame('d71cb6c1da973d8a5b9e8277c47f843f06f4c7c643bba34ec83a146d049707db', $plan->executionIdentity());
+        $this->assertSame('30563cdc980aa77f1911ec6c81f2ee34a1f24a831bb97ad5a037ebf4dc94df62', $plan->executionIdentity());
         $this->assertSame([
             'MIG-EXT-BTREE-GIST',
             'MIG-TBL-ORGANIZATIONS',
@@ -37,6 +37,7 @@ class MigrationPlanContractTest extends TestCase
             'MIG-TBL-MEMBERSHIP_PERMISSION_SCOPES',
             'MIG-TBL-AUTH_SESSIONS',
             'MIG-TBL-FILE_ASSETS',
+            'MIG-TBL-IDEMPOTENCY_RECORDS',
             'MIG-TBL-LOCATIONS',
             'MIG-TBL-VEHICLES',
             'MIG-TBL-STAFF_PROFILES',
