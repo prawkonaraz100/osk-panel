@@ -3,7 +3,7 @@ meta:
   stage: 5
   name: implementation_entry_and_foundation_gate
   branch: docs-consolidation-2026-09-05
-  status: FAIL_WITH_3_P1_BLOCKERS
+  status: FAIL_WITH_2_P1_BLOCKERS
   entered_at: 2026-09-10
   diagnosis_only: false
   implementation_started: true
@@ -56,11 +56,11 @@ entry_observations:
   backend_application_directories_present: true
   frontend_application_directories_present: true
   executable_Laravel_migrations_present: true
-  executable_framework_test_suite_present: false
+  executable_framework_test_suite_present: true
   implementation_CI_present: false
   existing_contract_CI_present: true
   application_feature_code_present: false
-  conclusion: S5_MIG_001_pass_and_S5_TST_001_is_next
+  conclusion: S5_TST_001_pass_and_S5_CI_001_is_next
 
 closed_stage_4_authorities:
   migration_dependency_DAG_nodes: 170
@@ -143,7 +143,7 @@ blockers:
 
   - id: S5-TST-001
     severity: P1
-    status: OPEN
+    status: PASS
     title: executable_framework_test_harness_absent
     depends_on:
       - S5-BOOT-001
@@ -214,9 +214,9 @@ quality_gate:
   diagnosed_P0: 0
   diagnosed_P1: 6
   fixes_applied_in_diagnosis: 0
-  fixes_applied_total: 3
-  open_P0_P1: 3
-  result: FAIL_WITH_3_P1_BLOCKERS
+  fixes_applied_total: 4
+  open_P0_P1: 2
+  result: FAIL_WITH_2_P1_BLOCKERS
   blocker_fix_order:
     - S5-BOOT-001
     - S5-ENV-001
@@ -226,22 +226,26 @@ quality_gate:
     - S5-FOUND-001
 
 next_single_step:
-  id: S5-TST-001
-  action: resolve_executable_PostgreSQL_backed_framework_test_harness_only_after_next_explicit_user_instruction
+  id: S5-CI-001
+  action: resolve_implementation_CI_gate_only_after_next_explicit_user_instruction
   prerequisite_S5_BOOT_001: PASS
   prerequisite_S5_ENV_001: PASS
   prerequisite_S5_MIG_001: PASS
+  prerequisite_S5_TST_001: PASS
   allowed_scope:
-    - PostgreSQL_backed_test_runner_and_synthetic_factories
-    - independent_database_connection_concurrency_primitives
-    - DBT_ID_to_executable_test_traceability_mechanism
-    - executable_migration_preflight_and_postcheck_test_classes
+    - implementation_CI_workflow
+    - backend_lint_and_static_analysis
+    - frontend_lint_typecheck_and_build
+    - PostgreSQL_unit_integration_and_migration_validation
+    - OpenAPI_contract_gate_preservation
+    - secret_scan
+    - changed_module_traceability
     - Stage_5_gate_and_audit_updates
   forbidden_scope:
-    - marking_DB_TST_contracts_implemented_without_executable_assertions
     - domain_feature_UI
-    - full_implementation_CI_until_S5_CI_001
-  after_action: rerun_S5_TST_001_gate_and_STOP_before_S5_CI_001
+    - S5_FOUND_001_implementation
+    - weakening_existing_contract_or_test_gates
+  after_action: rerun_S5_CI_001_gate_and_STOP_before_S5_FOUND_001
 
 S5_BOOT_001_closure:
   status: PASS
@@ -383,5 +387,55 @@ S5_MIG_001_closure:
   intentionally_not_closed_here:
     full_170_node_domain_DDL_materialization: false
     S5_TST_001: OPEN
+    S5_CI_001: OPEN
+    S5_FOUND_001: OPEN
+
+S5_TST_001_closure:
+  status: PASS
+  accepted_scope: PostgreSQL_backed_framework_test_harness_and_truthful_DBT_traceability
+  authority_binding:
+    final_matrix_blob: ad5f2aa2e14ef248b95dd3dda0d1cbcb2e69d441
+    final_stage_4_test_IDs: 491
+    catalog_class_counts:
+      schema_constraint: 180
+      transaction: 178
+      security_storage: 57
+      projection: 31
+      concurrency: 29
+      migration_preflight: 14
+      migration_postcheck: 2
+  harness:
+    framework_runner_database: PostgreSQL
+    SQLite_substitution_for_integration_tests: false
+    synthetic_tenant_separated_fixture_factory: true
+    real_personal_data_in_fixtures: false
+    independent_PostgreSQL_connections: true
+    distinct_backend_sessions_proven: true
+    uncommitted_transaction_visibility_isolation_proven: true
+    concurrency_advisory_lock_primitive_proven: true
+    generic_fail_closed_migration_preflight_harness: PASS
+  runtime_traceability:
+    every_final_DBT_ID_has_runtime_state: true
+    allowed_runtime_states: [implemented_executable_assertion, pending_domain_materialization]
+    implemented_executable_assertions: 2
+    implemented_test_IDs: [DBT-CORE-099, DBT-CORE-100]
+    pending_domain_materialization: 489
+    migration_preflight_catalog_IDs: 14
+    migration_preflight_domain_IDs_implemented_here: 0
+    migration_postcheck_catalog_IDs: 2
+    migration_postcheck_IDs_implemented_here: 2
+    implementation_registry_requires_existing_public_PHPUnit_method: true
+    false_implemented_claims_allowed: false
+  executable_evidence:
+    phpunit_fail_on_warning: PASS
+    suite_tests_passed: 19
+    suite_assertions: 1096
+    DBT_CORE_099_zero_gap_postcheck: PASS
+    DBT_CORE_100_final_aggregate_postcheck: PASS
+    composer_validate_strict: PASS
+    PHP_syntax_checks: PASS
+    Stage_4_authority_preservation: PASS
+  intentionally_not_closed_here:
+    full_491_domain_contract_implementation: false
     S5_CI_001: OPEN
     S5_FOUND_001: OPEN

@@ -1,6 +1,6 @@
 # 120. Stage 5 executable test harness
 
-Status: `S5-TST-001 PASS candidate`
+Status: `S5-TST-001 PASS`
 
 ## Scope
 

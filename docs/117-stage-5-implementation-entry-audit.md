@@ -3,8 +3,8 @@
 Data: 2026-09-10
 
 **Etap:** `STAGE_5_IMPLEMENTATION`
-**Aktualny krok:** `S5-BOOT-001`
-**Status:** `S5-BOOT-001 PASS / 0 P0 / 5 P1 OPEN`
+**Aktualny krok:** `S5-TST-001`
+**Status:** `S5-TST-001 PASS / 0 P0 / 2 P1 OPEN`
 
 Machine-readable gate: `specs/gates/stage-5-implementation-gate.yml`.
 
@@ -192,3 +192,21 @@ Machine gate na świeżym PostgreSQL potwierdził plan 170/170, 17 review batche
 Pozostałe blockery: `S5-TST-001`, `S5-CI-001`, `S5-FOUND-001`. Następny pojedynczy krok: **S5-TST-001**.
 
 **STOP przed S5-TST-001.**
+
+---
+
+## 13. S5-TST-001 — closure
+
+**PASS.** Utworzono wykonywalny framework test harness działający na rzeczywistym PostgreSQL. Harness ma syntetyczne, tenant-separated fixtures oraz niezależne połączenia PDO; testy potwierdzają różne backend PID, niewidoczność niezatwierdzonej transakcji w drugiej sesji i zachowanie advisory lock między połączeniami.
+
+Finalny katalog Stage 4 jest parsowany bezpośrednio z immutable matrix blob `ad5f2aa2…` i zawiera dokładnie 491 unikalnych `DBT-*`. Traceability nie udaje implementacji domenowej: tylko `DBT-CORE-099` i `DBT-CORE-100` mają status `implemented_executable_assertion`, ponieważ wskazują istniejącą publiczną metodę PHPUnit z realnymi assertions. Pozostałe 489 mają `pending_domain_materialization`.
+
+W katalogu jest 14 `migration_preflight` oraz 2 `migration_postcheck`. Wszystkie 14 domenowych preflightów pozostaje pending do materializacji ich DDL/slices; jednocześnie sam fail-closed preflight harness jest wykonany na syntetycznym przypadku unresolved legacy row. Oba postchecki Stage 4 są realnie wykonywane: `DBT-CORE-099` sprawdza `PASS_ZERO_GAPS`, a `DBT-CORE-100` immutable final aggregate authority.
+
+Pełny przebieg na usługach S5-ENV-001 zakończył się **19 testów / 1096 assertions — PASS**, przy `--fail-on-warning`. Composer validation, PHP syntax oraz preservation Stage-4 authority również przeszły.
+
+Nie utworzono domenowych modeli, endpointów, UI ani kolejnych migracji Stage 4. Pełny implementation CI pozostaje `S5-CI-001`, a core foundation `S5-FOUND-001`.
+
+Następny pojedynczy krok: **S5-CI-001**.
+
+**STOP przed S5-CI-001.**
