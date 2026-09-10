@@ -3,8 +3,8 @@
 Data: 2026-09-10
 
 **Etap:** `STAGE_5_IMPLEMENTATION`
-**Aktualny krok:** `S5_0_IMPLEMENTATION_ENTRY_DIAGNOSIS`
-**Status:** `FAIL_WITH_6_P1_BLOCKERS / 0 P0 / 6 P1 OPEN`
+**Aktualny krok:** `S5-BOOT-001`
+**Status:** `S5-BOOT-001 PASS / 0 P0 / 5 P1 OPEN`
 
 Machine-readable gate: `specs/gates/stage-5-implementation-gate.yml`.
 
@@ -131,3 +131,24 @@ Diagnoza: **0 P0 / 6 P1**.
 Zakres następnego fixera jest ograniczony do scaffoldingu aplikacji, manifestów/lockfiles, bezsekretowych environment templates oraz podstawowych komend build/test. Nie wolno jeszcze implementować domenowych feature'ów ani materializować finalnych migracji poza ewentualnymi technicznymi defaultami scaffoldingu, które muszą zostać ocenione przed zachowaniem.
 
 **STOP przed S5-BOOT-001.**
+
+
+---
+
+## 10. S5-BOOT-001 — closure
+
+**PASS.** Utworzono minimalny, preservation-safe bootstrap aplikacji bez implementacji domenowych feature'ów i ekranów.
+
+Przypięty toolchain: PHP 8.5, Laravel 13, Node 24.20.0 LTS, npm 11 oraz Vue 3 + Vite + TypeScript 6.0.3. Dokładne wersje zależności są zamrożone w `composer.lock` i `package-lock.json`. Manifest Composer ma własny opis projektu i `license: proprietary`; usunięto niepotrzebne bootstrapowi `tinker`, `sail`, `pail`, `pao` oraz frontendowy `@laravel/multiplex`.
+
+Domyślne migracje Laravel, SQLite bootstrap database, przykładowy `User`/`UserFactory`, `welcome.blade.php`, przykładowe JS-y, favicon oraz skeletonowe instrukcje `CLAUDE.md` nie zostały zachowane. Istniejący projektowy `AGENTS.md` i wszystkie zamknięte authority Stage 4 pozostały byte-for-byte bez zmian.
+
+Bootstrap ustawia PostgreSQL jako domyślny driver DB, ale nie konfiguruje jeszcze deterministycznych usług PostgreSQL/Redis dla local/test/CI — to jest wyłączny zakres następnego `S5-ENV-001`.
+
+Bramka wykonała `composer validate --strict`, `php artisan --version`, `php artisan test --fail-on-warning`, `npm run typecheck` oraz `npm run build`. Na czas PHPUnit tworzony jest pusty `.env` wyłącznie efemerycznie na runnerze i usuwany przed diffem; testowy `APP_KEY` jest jawny w `phpunit.xml`. Żaden local/production `.env` ani sekret nie trafia do repo.
+
+Pozostałe blockery: `S5-ENV-001`, `S5-MIG-001`, `S5-TST-001`, `S5-CI-001`, `S5-FOUND-001`.
+
+Następny pojedynczy krok: **S5-ENV-001**.
+
+**STOP przed S5-ENV-001.**
