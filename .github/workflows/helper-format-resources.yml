@@ -1,0 +1,48 @@
+name: Helper format ResourcesCore
+
+on:
+  push:
+    branches:
+      - tmp-core-v1-loc-staff-veh-001-20260911
+
+permissions:
+  contents: read
+
+jobs:
+  format:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          extensions: mbstring, intl, pdo_pgsql, redis
+          coverage: none
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+          cache: npm
+      - run: composer install --no-interaction --prefer-dist --no-progress
+      - run: npm ci
+      - name: Format PHP
+        run: |
+          vendor/bin/pint app/Modules/ResourcesCore tests/Support/FoundationSchema.php database/seeders/ResourceReferenceCatalogSeeder.php database/seeders/DatabaseSeeder.php app/Modules/AuditNotification/AtomicAuditOutbox.php routes/web.php
+      - name: Autofix Vue and TypeScript
+        run: npx eslint resources/js/modules/ResourcesCore resources/js/App.vue --fix
+      - name: Package formatted sources
+        run: |
+          mkdir -p helper-format
+          cp --parents app/Modules/ResourcesCore/*.php helper-format/
+          cp --parents tests/Support/FoundationSchema.php helper-format/
+          cp --parents database/seeders/ResourceReferenceCatalogSeeder.php helper-format/
+          cp --parents database/seeders/DatabaseSeeder.php helper-format/
+          cp --parents app/Modules/AuditNotification/AtomicAuditOutbox.php helper-format/
+          cp --parents routes/web.php helper-format/
+          cp --parents resources/js/modules/ResourcesCore/*.vue helper-format/
+          cp --parents resources/js/modules/ResourcesCore/*.ts helper-format/
+          cp --parents resources/js/App.vue helper-format/
+      - uses: actions/upload-artifact@v6
+        with:
+          name: resources-core-formatted
+          path: helper-format
