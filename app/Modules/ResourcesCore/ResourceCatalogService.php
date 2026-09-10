@@ -59,7 +59,7 @@ final class ResourceCatalogService
                 'label' => (string) $row->label,
                 'active' => (bool) $row->active,
             ])
-            ->all();
+            ->all());
     }
 
     /**
