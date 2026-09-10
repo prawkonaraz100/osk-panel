@@ -1,0 +1,84 @@
+name: DB-MIG-001 machine helper
+
+on:
+  push:
+    branches:
+      - tmp-db-mig-001-machine-validation-20260910
+    paths:
+      - .stage4-tmp/TRIGGER_DB_MIG_001_MACHINE
+
+permissions:
+  contents: write
+
+jobs:
+  validate-and-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply and validate DB-MIG-001 machine contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=3af0e00c67ddd130cc18df16afc6af287c35c18d
+          test "$(git rev-parse "$BASE:specs/database/final-migration-order-invariant-matrix.yml")" = "73853ef1350a4743740b6b3f1555fa836c3f1a0a"
+          test "$(git rev-parse HEAD:docs/116-stage-4-final-migration-order-invariant-matrix-audit.md)" = "5562e23d6bd37553f63d08d3f2e4f385457c9618"
+          test "$(git rev-parse HEAD:specs/database/core-schema.yml)" = "39958721c99550cfc27c3774e8dfa1af0d0637e6"
+          test "$(git rev-parse HEAD:docs/87-physical-database-schema.md)" = "6c090b082604b6b42c283667fcf08e9033a5b523"
+          python .stage4-tmp/DB_MIG_001_MACHINE_PATCH.py
+          ruby -e "require 'psych'; Psych.parse_file('specs/database/final-migration-order-invariant-matrix.yml')"
+          ruby <<'RUBY'
+          require 'psych'
+          require 'date'
+          d = Psych.safe_load(File.read('specs/database/final-migration-order-invariant-matrix.yml'), permitted_classes: [Date], aliases: true)
+          raise 'wrong meta step' unless d.dig('meta','step') == 'DB_MIG_001'
+          raise 'wrong meta status' unless d.dig('meta','status') == 'FAIL_WITH_5_P1_BLOCKERS'
+          dag = d.fetch('migration_dependency_dag')
+          raise 'DAG not PASS' unless dag['status'] == 'PASS'
+          nodes = dag.fetch('nodes')
+          raise 'wrong node count' unless nodes.length == 37
+          ids = nodes.map { |n| n.fetch('id') }
+          raise 'duplicate node id' unless ids.uniq.length == ids.length
+          kinds = nodes.map { |n| n.fetch('kind') }.uniq.sort
+          expected_kinds = %w[candidate_key constraint_activation extension foreign_key index projection table trigger_guard].sort
+          raise 'wrong kind catalog' unless kinds == expected_kinds
+          known = ids.to_h { |id| [id, true] }
+          nodes.each do |n|
+            reqs = n.fetch('requires')
+            raise 'self dependency' if reqs.include?(n['id'])
+            unknown = reqs.reject { |r| known[r] }
+            raise "unknown dependency #{unknown.inspect}" unless unknown.empty?
+          end
+          topo = dag.fetch('topological_order')
+          raise 'topological order is not exact node permutation' unless topo.length == ids.length && topo.uniq.length == ids.length && topo.sort == ids.sort
+          pos = topo.each_with_index.to_h
+          nodes.each do |n|
+            n.fetch('requires').each do |r|
+              raise "dependency after dependent #{r} -> #{n['id']}" unless pos[r] < pos[n['id']]
+            end
+          end
+          raise 'phase scope creep' unless dag.dig('phase_boundary','phase_assignment') == 'deferred_to_DB_MIG_002'
+          raise 'cutover scope creep' unless dag.dig('phase_boundary','restart_abort_rollback_cutover_semantics') == 'deferred_to_DB_MIG_003'
+          b = d.fetch('blockers').to_h { |x| [x['id'], x] }
+          raise 'DB-MIG-001 not PASS' unless b.fetch('DB-MIG-001')['status'] == 'PASS'
+          %w[DB-MIG-002 DB-MIG-003 DB-TST-001 DB-TST-002 DB-FINAL-001].each { |id| raise "#{id} changed" unless b.fetch(id)['status'] == 'OPEN' }
+          s = d.fetch('diagnosis_summary')
+          raise 'wrong resolved count' unless s['resolved_after_diagnosis'] == 1
+          raise 'wrong open count' unless s['open_P0_P1'] == 5
+          raise 'wrong result' unless s['result'] == 'FAIL_WITH_5_P1_BLOCKERS'
+          raise 'wrong next step' unless d.dig('next_single_step_after_central_gate','id') == 'DB-MIG-002'
+          raise 'Laravel migrations accidentally created' unless d.dig('meta','Laravel_migrations_created') == false
+          raise 'Stage5 accidentally started' unless d.dig('meta','Stage5_started') == false
+          RUBY
+          git diff --check -- specs/database/final-migration-order-invariant-matrix.yml
+          mapfile -t changed < <(git diff --name-only | sort)
+          test "${#changed[@]}" -eq 1
+          test "${changed[0]}" = "specs/database/final-migration-order-invariant-matrix.yml"
+          test "$(git rev-parse HEAD:specs/database/core-schema.yml)" = "39958721c99550cfc27c3774e8dfa1af0d0637e6"
+          test "$(git rev-parse HEAD:docs/87-physical-database-schema.md)" = "6c090b082604b6b42c283667fcf08e9033a5b523"
+          git config user.name prawkonaraz100
+          git config user.email prawkonaraz100@gmail.com
+          git add specs/database/final-migration-order-invariant-matrix.yml
+          git commit -m "Validate DB-MIG-001 executable migration DAG"
+          git push origin HEAD:tmp-db-mig-001-machine-validation-20260910
