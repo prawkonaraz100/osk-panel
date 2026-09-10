@@ -31,8 +31,8 @@ jobs:
             docs/122-stage-5-foundation.md | sort)
           test "$ACTUAL" = "$EXPECTED"
 
-          grep -q 'Machine: PASS' docs/122-stage-5-foundation.md
-          grep -q 'Central: PENDING' docs/122-stage-5-foundation.md
+          grep -Fq '**Machine:** PASS' docs/122-stage-5-foundation.md
+          grep -Fq '**Central:** PENDING' docs/122-stage-5-foundation.md
           grep -q '34532350584' docs/122-stage-5-foundation.md
           grep -q '35 tests / 1181 assertions PASS' docs/122-stage-5-foundation.md
           grep -q '## 15. S5-FOUND-001' docs/117-stage-5-implementation-entry-audit.md
