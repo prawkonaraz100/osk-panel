@@ -53,18 +53,35 @@ jobs:
             out
           end
           summary = {}
+          parse_errors = {}
           files.each do |f|
-            data = load_yaml(f)
-            hits = walk(data)
-            summary[f] = hits.map do |path,val|
-              count = val.is_a?(Array) || val.is_a?(Hash) ? val.length : 1
-              {path: path, type: val.class.name, count: count, sample: (val.is_a?(Array) ? val.first(3) : val)}
+            begin
+              data = load_yaml(f)
+              hits = walk(data)
+              summary[f] = hits.map do |path,val|
+                count = val.is_a?(Array) || val.is_a?(Hash) ? val.length : 1
+                {path: path, type: val.class.name, count: count, sample: (val.is_a?(Array) ? val.first(3) : val)}
+              end
+            rescue => e
+              parse_errors[f] = "#{e.class}: #{e.message}"
+              lines = File.readlines(f)
+              line = e.message[/line (\d+)/, 1]&.to_i
+              if line
+                lo = [line-4, 1].max
+                hi = [line+4, lines.length].min
+                parse_errors[f] += "\nCONTEXT #{lo}-#{hi}:\n" + lines[(lo-1)..(hi-1)].join
+              end
             end
+          end
+          puts "=== PARSE ERRORS ==="
+          puts JSON.pretty_generate(parse_errors)
+          puts "=== SOURCE INVENTORY ==="
+          puts JSON.pretty_generate(summary)
+          if parse_errors.any?
+            exit 2
           end
           central = load_yaml('specs/gates/stage-4-database-contract-gate.yml')
           matrix = load_yaml('specs/database/final-migration-order-invariant-matrix.yml')
-          puts "=== SOURCE INVENTORY ==="
-          puts JSON.pretty_generate(summary)
           puts "=== RESOLVED BLOCKERS ==="
           puts JSON.generate(central['resolved_blockers'])
           tests = matrix.dig('invariant_test_matrix','tests') || []
