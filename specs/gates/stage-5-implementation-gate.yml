@@ -1,0 +1,239 @@
+meta:
+  project: osk-panel
+  stage: 5
+  name: implementation_entry_and_foundation_gate
+  branch: docs-consolidation-2026-09-05
+  status: FAIL_WITH_6_P1_BLOCKERS
+  entered_at: 2026-09-10
+  diagnosis_only: true
+  implementation_started: false
+  Laravel_migrations_created: false
+  UI_or_feature_implementation_started: false
+
+stage_numbering_note:
+  this_stage: repository_delivery_stage_after_Stage_4_database_contract
+  docs_09_roadmap_phase_5: student_finance_module_phase
+  same_number_different_axis: true
+  rule: do_not_confuse_stage_5_delivery_gate_with_docs_09_module_phase_5
+
+prerequisite:
+  stage_4_database_contract_gate:
+    required_result: PASS
+    observed_result: PASS
+    closure_commit: 2e4204d53f37a009a7bafa99bf727c8d1ab23836
+    gate_blob: 306dabaa58223abe2f3b2a34b888b075c88e9ec4
+    core_schema_blob: b0629cc48e26798d945356eaa1d0c9b1187aa542
+    final_migration_test_matrix_blob: ad5f2aa2e14ef248b95dd3dda0d1cbcb2e69d441
+    docs87_blob: a48eacd92d4a9c8e989f5d70c3bec95b9231a77c
+    docs116_blob: 6f76255742d4902546f45c28d54c1da6ee3d3fd7
+    status: PASS
+
+sources:
+  implementation_policy:
+    - AGENTS.md
+    - specs/implementation-baseline-v1.yml
+  architecture:
+    - docs/07-architecture.md
+  testing:
+    - docs/84-test-strategy.md
+    - specs/database/final-migration-order-invariant-matrix.yml
+  database:
+    - specs/database/core-schema.yml
+    - docs/87-physical-database-schema.md
+  api:
+    - specs/api/common-contract.yml
+    - specs/api/required-operations-v1.yml
+    - specs/api/openapi-v1.yaml
+  preservation:
+    - docs/96-reverse-engineering-preservation-contract.md
+    - specs/reverse-engineering-manifest.yml
+
+entry_observations:
+  repository_contains_application_scaffold: false
+  composer_json_present: false
+  artisan_present: false
+  package_json_present: false
+  backend_application_directories_present: false
+  frontend_application_directories_present: false
+  executable_Laravel_migrations_present: false
+  executable_framework_test_suite_present: false
+  implementation_CI_present: false
+  existing_contract_CI_present: true
+  application_feature_code_present: false
+  conclusion: implementation_must_begin_with_foundation_not_feature_UI
+
+closed_stage_4_authorities:
+  migration_dependency_DAG_nodes: 170
+  migration_phase_order:
+    - expand
+    - preflight
+    - write_fence
+    - backfill
+    - reconcile
+    - validate
+    - contract
+  final_stage_4_test_catalog_total: 491
+  resolved_stage_4_blockers: 77
+  critical_constraints_covered: 183
+  transactional_invariants_covered: 45
+  coverage_gaps: 0
+  rule: Stage_5_must_implement_these_authorities_without_reinterpreting_or_shortening_them
+
+stage_5_working_rule:
+  one_blocker_at_a_time: true
+  diagnose_before_fixing: true
+  rerun_gate_after_each_fixer: true
+  helper_workflow_commits_must_not_enter_accepted_history: true
+  accepted_branch_updates_must_be_fast_forward_only: true
+  detect_concurrent_accepted_branch_movement_before_each_update: true
+  stage_4_machine_and_narrative_authorities_are_read_only_unless_a_new_defect_is_proven: true
+  do_not_generate_all_170_migrations_in_one_unreviewed_batch: true
+  do_not_start_feature_UI_before_foundation_and_database_runtime_gates_pass: true
+  do_not_replace_PostgreSQL_invariant_guards_with_application_only_checks: true
+  do_not_fake_491_contracts_as_framework_tests_without_executable_assertions: true
+
+blockers:
+  - id: S5-BOOT-001
+    severity: P1
+    status: OPEN
+    title: application_scaffold_and_toolchain_absent
+    evidence:
+      composer_json_present: false
+      artisan_present: false
+      package_json_present: false
+    required_closure:
+      - pin_supported_backend_and_frontend_toolchain_versions_from_authoritative_sources
+      - create_clean_modular_monolith_application_scaffold
+      - preserve_Laravel_backend_and_Vue_frontend_architecture
+      - include_only_foundation_dependencies_needed_for_the_next_gates
+      - establish_environment_configuration_without_committed_secrets
+      - prove_bootstrap_build_and_basic_test_command_are_executable
+    forbidden:
+      - feature_module_implementation
+      - UI_screen_implementation
+      - speculative_vendor_specific_integrations
+
+  - id: S5-ENV-001
+    severity: P1
+    status: OPEN
+    title: deterministic_local_and_CI_runtime_services_absent
+    depends_on:
+      - S5-BOOT-001
+    required_closure:
+      - PostgreSQL_is_the_test_and_runtime_database
+      - Redis_available_for_queue_cache_and_lock_integration_tests_where_needed
+      - object_storage_adapter_has_nonproduction_test_configuration
+      - local_test_and_CI_environment_contract_is_documented
+      - no_real_personal_data_or_production_secrets_in_fixtures
+
+  - id: S5-MIG-001
+    severity: P1
+    status: OPEN
+    title: executable_database_migration_layer_absent
+    depends_on:
+      - S5-BOOT-001
+      - S5-ENV-001
+    required_closure:
+      - migration_executor_respects_the_170_node_dependency_authority
+      - seven_phase_contract_is_preserved
+      - write_fence_backfill_reconcile_validate_contract_order_is_not_flattened
+      - migration_restart_and_failure_handling_matches_DB_MIG_003
+      - no_destructive_blanket_down_strategy
+      - migrations_are_split_into_reviewable_batches_with_machine_validation
+
+  - id: S5-TST-001
+    severity: P1
+    status: OPEN
+    title: executable_framework_test_harness_absent
+    depends_on:
+      - S5-BOOT-001
+      - S5-ENV-001
+    required_closure:
+      - framework_test_runner_executes_against_PostgreSQL
+      - test_factories_are_synthetic_and_tenant_separated
+      - integration_and_concurrency_tests_can_use_independent_database_connections
+      - Stage_4_final_491_test_IDs_have_an_implementation_traceability_mechanism
+      - migration_preflight_and_postcheck_test_classes_are_executable
+      - no_test_is_marked_implemented_without_an_executable_assertion
+
+  - id: S5-CI-001
+    severity: P1
+    status: OPEN
+    title: implementation_CI_gate_absent
+    depends_on:
+      - S5-BOOT-001
+      - S5-TST-001
+    required_closure:
+      - backend_lint_and_static_analysis_gate
+      - frontend_lint_typecheck_and_build_gate
+      - unit_and_PostgreSQL_integration_test_gate
+      - migration_validation_gate
+      - OpenAPI_contract_gate_remains_active
+      - secret_scan_gate
+      - changed_module_traceability_gate
+
+  - id: S5-FOUND-001
+    severity: P1
+    status: OPEN
+    title: first_core_foundation_slice_not_implemented
+    depends_on:
+      - S5-BOOT-001
+      - S5-ENV-001
+      - S5-MIG-001
+      - S5-TST-001
+      - S5-CI-001
+    implementation_order_source: AGENTS.md
+    required_scope:
+      - IdentityTenant
+      - OrganizationSettings
+      - minimal_AuditNotification_foundation_needed_for_atomic_audit_outbox
+    required_closure:
+      - tenant_isolation
+      - memberships_and_runtime_permission_authority
+      - per_permission_scope
+      - session_tenant_context
+      - Owner_and_last_owner_governance
+      - authorization_versioning
+      - atomic_audit_and_outbox_for_critical_authorization_mutations
+      - policy_and_cross_tenant_tests
+      - reverse_engineering_traceability_for_changed_scope
+
+non_blocking_later_decisions:
+  before_related_sensitive_production_data:
+    - final_sensitive_identifier_encryption_and_key_rotation_ADR
+    - legal_category_dictionary_reverification_including_PT_mapping
+    - calendar_overlap_enforcement_operational_ADR_if_implementation_requires_runtime_choice
+  before_production_go_live:
+    - privacy_and_retention_schedule
+    - approved_RPO_RTO
+    - restore_drill
+    - provider_reconciliation_jobs
+
+quality_gate:
+  diagnosed_P0: 0
+  diagnosed_P1: 6
+  fixes_applied_in_diagnosis: 0
+  open_P0_P1: 6
+  result: FAIL_WITH_6_P1_BLOCKERS
+  blocker_fix_order:
+    - S5-BOOT-001
+    - S5-ENV-001
+    - S5-MIG-001
+    - S5-TST-001
+    - S5-CI-001
+    - S5-FOUND-001
+
+next_single_step:
+  id: S5-BOOT-001
+  action: resolve_application_scaffold_and_toolchain_only_after_next_explicit_user_instruction
+  allowed_scope:
+    - application_scaffold
+    - dependency_manifests_and_lockfiles
+    - minimal_environment_templates_without_secrets
+    - bootstrap_test_and_build_configuration
+    - Stage_5_gate_and_audit_updates
+  forbidden_scope:
+    - domain_feature_implementation
+    - UI_screen_implementation
+    - database_migration_materialization_beyond_bootstrap_framework_defaults_until_S5_MIG_001
+  after_action: rerun_S5_BOOT_001_gate_and_STOP_before_S5_ENV_001
