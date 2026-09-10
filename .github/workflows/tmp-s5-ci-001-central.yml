@@ -1,0 +1,128 @@
+name: tmp-s5-ci-001-central
+
+on:
+  push:
+    branches:
+      - tmp-s5-ci-001-central-validation-20260910
+
+permissions:
+  contents: write
+
+jobs:
+  validate-and-finalize:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: tmp-s5-ci-001-central-validation-20260910
+          fetch-depth: 0
+
+      - name: Assert exact central base and provenance
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE='7355c6ae11b4e07e1487256e5c4aac28297c8283'
+          test "$(git merge-base "$BASE" HEAD)" = "$BASE"
+          test "$(git rev-parse HEAD:specs/gates/stage-5-implementation-gate.yml)" = 'b668f28d71a2229dc0d6f524eb3d37d27df070b3'
+          test "$(git rev-parse HEAD:docs/117-stage-5-implementation-entry-audit.md)" = 'ee97e0173b0c6ea08baeb6d4c39337edc2d546f1'
+          test "$(git rev-parse HEAD:docs/121-stage-5-implementation-ci.md)" = 'c6b98acc50eb59970a110052524f61e85a4e1105'
+          test "$(git rev-parse HEAD:.github/workflows/implementation-ci.yml)" = '2ef64a3b668fc384df62ad29a69740c81a91caf4'
+          test "$(git rev-parse HEAD:specs/gates/stage-4-database-contract-gate.yml)" = '306dabaa58223abe2f3b2a34b888b075c88e9ec4'
+          test "$(git rev-parse HEAD:specs/database/core-schema.yml)" = 'b0629cc48e26798d945356eaa1d0c9b1187aa542'
+          test "$(git rev-parse HEAD:specs/database/final-migration-order-invariant-matrix.yml)" = 'ad5f2aa2e14ef248b95dd3dda0d1cbcb2e69d441'
+          test "$(git rev-parse HEAD:docs/87-physical-database-schema.md)" = 'a48eacd92d4a9c8e989f5d70c3bec95b9231a77c'
+          test "$(git rev-parse HEAD:docs/116-stage-4-final-migration-order-invariant-matrix-audit.md)" = '6f76255742d4902546f45c28d54c1da6ee3d3fd7'
+
+      - name: Apply exact S5-CI-001 central closure
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import base64
+          from pathlib import Path
+          path = Path('specs/gates/stage-5-implementation-gate.yml')
+          text = path.read_text()
+          replacements = [
+              ('  status: FAIL_WITH_2_P1_BLOCKERS', '  status: FAIL_WITH_1_P1_BLOCKER'),
+              ('  implementation_CI_present: false', '  implementation_CI_present: true'),
+              ('  conclusion: S5_TST_001_pass_and_S5_CI_001_is_next', '  conclusion: S5_CI_001_pass_and_S5_FOUND_001_is_next'),
+              ('  - id: S5-CI-001\n    severity: P1\n    status: OPEN\n    title: implementation_CI_gate_absent', '  - id: S5-CI-001\n    severity: P1\n    status: PASS\n    title: implementation_CI_gate_absent'),
+              ('  fixes_applied_total: 4\n  open_P0_P1: 2\n  result: FAIL_WITH_2_P1_BLOCKERS', '  fixes_applied_total: 5\n  open_P0_P1: 1\n  result: FAIL_WITH_1_P1_BLOCKER'),
+          ]
+          for old, new in replacements:
+              if text.count(old) != 1:
+                  raise SystemExit(f'unexpected replacement count for: {old!r}')
+              text = text.replace(old, new, 1)
+          old_next = base64.b64decode('bmV4dF9zaW5nbGVfc3RlcDoKICBpZDogUzUtQ0ktMDAxCiAgYWN0aW9uOiByZXNvbHZlX2ltcGxlbWVudGF0aW9uX0NJX2dhdGVfb25seV9hZnRlcl9uZXh0X2V4cGxpY2l0X3VzZXJfaW5zdHJ1Y3Rpb24KICBwcmVyZXF1aXNpdGVfUzVfQk9PVF8wMDE6IFBBU1MKICBwcmVyZXF1aXNpdGVfUzVfRU5WXzAwMTogUEFTUwogIHByZXJlcXVpc2l0ZV9TNV9NSUdfMDAxOiBQQVNTCiAgcHJlcmVxdWlzaXRlX1M1X1RTVF8wMDE6IFBBU1MKICBhbGxvd2VkX3Njb3BlOgogICAgLSBpbXBsZW1lbnRhdGlvbl9DSV93b3JrZmxvdwogICAgLSBiYWNrZW5kX2xpbnRfYW5kX3N0YXRpY19hbmFseXNpcwogICAgLSBmcm9udGVuZF9saW50X3R5cGVjaGVja19hbmRfYnVpbGQKICAgIC0gUG9zdGdyZVNRTF91bml0X2ludGVncmF0aW9uX2FuZF9taWdyYXRpb25fdmFsaWRhdGlvbgogICAgLSBPcGVuQVBJX2NvbnRyYWN0X2dhdGVfcHJlc2VydmF0aW9uCiAgICAtIHNlY3JldF9zY2FuCiAgICAtIGNoYW5nZWRfbW9kdWxlX3RyYWNlYWJpbGl0eQogICAgLSBTdGFnZV81X2dhdGVfYW5kX2F1ZGl0X3VwZGF0ZXMKICBmb3JiaWRkZW5fc2NvcGU6CiAgICAtIGRvbWFpbl9mZWF0dXJlX1VJCiAgICAtIFM1X0ZPVU5EXzAwMV9pbXBsZW1lbnRhdGlvbgogICAgLSB3ZWFrZW5pbmdfZXhpc3RpbmdfY29udHJhY3Rfb3JfdGVzdF9nYXRlcwogIGFmdGVyX2FjdGlvbjogcmVydW5fUzVfQ0lfMDAxX2dhdGVfYW5kX1NUT1BfYmVmb3JlX1M1X0ZPVU5EXzAwMQo=').decode()
+          new_next = base64.b64decode('bmV4dF9zaW5nbGVfc3RlcDoKICBpZDogUzUtRk9VTkQtMDAxCiAgYWN0aW9uOiByZXNvbHZlX2ZpcnN0X2NvcmVfZm91bmRhdGlvbl9zbGljZV9vbmx5X2FmdGVyX25leHRfZXhwbGljaXRfdXNlcl9pbnN0cnVjdGlvbgogIHByZXJlcXVpc2l0ZV9TNV9CT09UXzAwMTogUEFTUwogIHByZXJlcXVpc2l0ZV9TNV9FTlZfMDAxOiBQQVNTCiAgcHJlcmVxdWlzaXRlX1M1X01JR18wMDE6IFBBU1MKICBwcmVyZXF1aXNpdGVfUzVfVFNUXzAwMTogUEFTUwogIHByZXJlcXVpc2l0ZV9TNV9DSV8wMDE6IFBBU1MKICBhbGxvd2VkX3Njb3BlOgogICAgLSBJZGVudGl0eVRlbmFudAogICAgLSBPcmdhbml6YXRpb25TZXR0aW5ncwogICAgLSBtaW5pbWFsX0F1ZGl0Tm90aWZpY2F0aW9uX2ZvdW5kYXRpb25fbmVlZGVkX2Zvcl9hdG9taWNfYXVkaXRfb3V0Ym94CiAgICAtIGZvdW5kYXRpb25fbWlncmF0aW9uc19pbl9jYW5vbmljYWxfZGVwZW5kZW5jeV9jbG9zZWRfcHJlZml4CiAgICAtIGZvdW5kYXRpb25fZXhlY3V0YWJsZV90ZXN0c19hbmRfREJUX3RyYWNlYWJpbGl0eQogICAgLSByZXZlcnNlX2VuZ2luZWVyaW5nX3RyYWNlYWJpbGl0eV9mb3JfY2hhbmdlZF9zY29wZQogICAgLSBTdGFnZV81X2dhdGVfYW5kX2F1ZGl0X3VwZGF0ZXMKICBmb3JiaWRkZW5fc2NvcGU6CiAgICAtIGxhdGVyX2NvcmVfbW9kdWxlcwogICAgLSBicm9hZF9VSV9mZWF0dXJlX2ltcGxlbWVudGF0aW9uCiAgICAtIFN0YWdlXzRfYXV0aG9yaXR5X3Jld3JpdGUKICAgIC0gd2Vha2VuaW5nX0NJX21pZ3JhdGlvbl9vcl90ZXN0X2dhdGVzCiAgYWZ0ZXJfYWN0aW9uOiByZXJ1bl9TNV9GT1VORF8wMDFfbWFjaGluZV9uYXJyYXRpdmVfY2VudHJhbF9nYXRlX2FuZF9TVE9QX2JlZm9yZV9uZXh0X2NvcmVfc2xpY2UK').decode()
+          if text.count(old_next) != 1:
+              raise SystemExit('unexpected next_single_step block')
+          text = text.replace(old_next, new_next, 1)
+          if 'S5_CI_001_closure:' in text:
+              raise SystemExit('S5_CI_001_closure already exists')
+          closure = base64.b64decode('ClM1X0NJXzAwMV9jbG9zdXJlOgogIHN0YXR1czogUEFTUwogIGFjY2VwdGVkX3Njb3BlOiBwZXJtYW5lbnRfaW1wbGVtZW50YXRpb25fcXVhbGl0eV9nYXRlX29ubHkKICBwcm92ZW5hbmNlOgogICAgbWFjaGluZV9jbGVhbl9jb21taXQ6IDU1YjZkMGFmODJlZTAxOGNiM2MwYTIwMWU0ZDRlNmE2MzU4YzZhMDYKICAgIG1hY2hpbmVfcGFyZW50X2NvbW1pdDogNmMxOTVkODUyMDcxNGQ3NzFiZTRmNGEwNzRlN2UxYzgxZDYzNWJkNQogICAgcGVybWFuZW50X3dvcmtmbG93X2Jsb2I6IDJlZjY0YTNiNjY4ZmMzODRkZjYyYWQyOWE2OTc0MGM4MWE5MWNhZjQKICAgIG5hcnJhdGl2ZV9jbGVhbl9jb21taXQ6IDczNTVjNmFlMTFiNGUwN2UxNDg3MjU2ZTVjNGFhYzI4Mjk3YzgyODMKICAgIGRvY3MxMTdfYmxvYjogZWU5N2UwMTczYjBjNmVhMDhiYWViNmQ0YzM5MzM3ZWRjMmQ1NDZmMQogICAgZG9jczEyMV9ibG9iOiBjNmI5OGFjYzUwZWI1OTk3MGExMTAwNTI1MjRmNjFlODVhNGUxMTA1CiAgICBoZWxwZXJfdmFsaWRhdGlvbl9ydW46IDM0NTA0ODI2NTc0CiAgICBhY2NlcHRlZF9icmFuY2hfdmFsaWRhdGlvbl9ydW46IDM0NTA1MTgwOTIxCiAgcGVybWFuZW50X2pvYnM6CiAgICBiYWNrZW5kX3F1YWxpdHk6IFBBU1MKICAgIGZyb250ZW5kX3F1YWxpdHk6IFBBU1MKICAgIHJ1bnRpbWVfdGVzdHNfYW5kX21pZ3JhdGlvbnM6IFBBU1MKICAgIGNvbnRyYWN0c19hbmRfdHJhY2VhYmlsaXR5OiBQQVNTCiAgICBzZWNyZXRfc2NhbjogUEFTUwogICAgYWNjZXB0ZWRfYnJhbmNoX2pvYnNfcGFzc2VkOiA1CiAgICBhY2NlcHRlZF9icmFuY2hfam9ic190b3RhbDogNQogIGJhY2tlbmRfcXVhbGl0eToKICAgIGNvbXBvc2VyX3ZhbGlkYXRlX3N0cmljdDogUEFTUwogICAgUGludF90ZXN0OiBQQVNTCiAgICBMYXJhc3Rhbl92ZXJzaW9uOiAzLjEyLjAKICAgIFBIUFN0YW5fdmVyc2lvbjogMi4yLjEzCiAgICBQSFBTdGFuX2xldmVsOiA4CiAgICBhbmFseXNpc19wYXRoczogW2FwcCwgcm91dGVzXQogICAgYmFzZWxpbmVfYWRkZWQ6IGZhbHNlCiAgICBpZ25vcmVkX2Vycm9yc19hZGRlZF9mb3JfZ2F0ZTogZmFsc2UKICAgIHN1cHByZXNzaW9uc19hZGRlZF9mb3JfZ2F0ZTogZmFsc2UKICAgIHN0YXRpY19hbmFseXNpc19maW5kaW5nc19maXhlZF9ub3RfaGlkZGVuOiAxOAogICAgZmluYWxfc3RhdGljX2FuYWx5c2lzOiBQQVNTX1pFUk9fRVJST1JTCiAgZnJvbnRlbmRfcXVhbGl0eToKICAgIG5wbV9jaTogUEFTUwogICAgRVNMaW50OiAxMC4xMC4wCiAgICBFU0xpbnRfbWF4X3dhcm5pbmdzOiAwCiAgICBWdWVfVHlwZVNjcmlwdF90eXBlY2hlY2s6IFBBU1MKICAgIFZpdGVfcHJvZHVjdGlvbl9idWlsZDogUEFTUwogICAgbnBtX2F1ZGl0X2hpZ2g6IFBBU1MKICBydW50aW1lX3F1YWxpdHk6CiAgICBkZXRlcm1pbmlzdGljX1M1X0VOVl8wMDFfc2VydmljZXM6IFBBU1MKICAgIG1pZ3JhdGlvbl9wbGFuX3JlZ2lzdHJ5X3ZhbGlkYXRpb246IFBBU1MKICAgIFBvc3RncmVTUUxfZnJhbWV3b3JrX3N1aXRlX2ZhaWxfb25fd2FybmluZzogUEFTUwogICAgU1FMaXRlX3N1YnN0aXR1dGlvbl9mb3JfaW50ZWdyYXRpb25fZ2F0ZTogZmFsc2UKICBjb250cmFjdF90cmFjZWFiaWxpdHk6CiAgICBleGlzdGluZ19PcGVuQVBJX3ZhbGlkYXRvcl9wcmVzZXJ2ZWRfYW5kX2V4ZWN1dGVkOiBQQVNTCiAgICBjaGFuZ2VkX21vZHVsZV90cmFjZWFiaWxpdHlfdmFsaWRhdG9yOiBQQVNTCiAgICBjaGFuZ2VkX21vZHVsZV90cmFjZWFiaWxpdHlfc2VsZl90ZXN0OiBQQVNTCiAgICBjaGFuZ2VkX21vZHVsZV90cmFjZWFiaWxpdHlfbW9kZTogZmFpbF9jbG9zZWQKICAgIG1vZHVsZV9jaGFuZ2VfcmVxdWlyZXNfc2FtZV9kaWZmX3RyYWNlYWJpbGl0eTogdHJ1ZQogIHNlY3VyaXR5OgogICAgZ2l0bGVha3NfY29tbWl0dGVkX2NoYW5nZV9zY2FuOiBQQVNTCiAgICBwcm9kdWN0aW9uX3NlY3JldHNfY29tbWl0dGVkOiBmYWxzZQogICAgcmVhbF9wZXJzb25hbF9kYXRhX2FkZGVkOiBmYWxzZQogIHByZXNlcnZhdGlvbjoKICAgIFN0YWdlXzRfZ2F0ZV9ibG9iOiAzMDZkYWJhYTU4MjIzYWJlMmYzYjJhMzRiODg4YjA3NWM4OGU5ZWM0CiAgICBTdGFnZV80X2NvcmVfc2NoZW1hX2Jsb2I6IGIwNjI5Y2M0OGUyNjc5OGQ5NDUzNTZlYWExZDBjOWIxMTg3YWE1NDIKICAgIFN0YWdlXzRfZmluYWxfbWF0cml4X2Jsb2I6IGFkNWYyYWEyZTE0ZWYyNDhiOTVkZDNkZGEwZDFjYmNiMmU2OWQ0NDEKICAgIFN0YWdlXzRfZG9jczg3X2Jsb2I6IGE0OGVhY2Q5MmQ0YTljOGU5ODlmNWQ3MGMzYmVjOTViOTIzMWE3N2MKICAgIFN0YWdlXzRfZG9jczExNl9ibG9iOiA2Zjc2MjU1NzQyZDQ5MDI1NDZmNDVjMjhkNTRjMWRhNmVlM2QzZmQ3CiAgICBTdGFnZV80X2F1dGhvcml0eV9yZXdyaXR0ZW46IGZhbHNlCiAgICBTNV9GT1VORF8wMDFfc3RhcnRlZDogZmFsc2UKICAgIGRvbWFpbl9mZWF0dXJlX1VJX3N0YXJ0ZWQ6IGZhbHNlCg==').decode()
+          path.write_text(text.rstrip() + '\n' + closure)
+          PY
+
+      - name: Parse and assert central gate semantics
+        shell: bash
+        run: |
+          set -euo pipefail
+          ruby - <<'RUBY'
+          require 'yaml'
+          require 'date'
+          path = 'specs/gates/stage-5-implementation-gate.yml'
+          data = YAML.safe_load(File.read(path), permitted_classes: [Date], aliases: true)
+          abort 'meta status' unless data.dig('meta','status') == 'FAIL_WITH_1_P1_BLOCKER'
+          abort 'implementation CI observation' unless data.dig('entry_observations','implementation_CI_present') == true
+          abort 'conclusion' unless data.dig('entry_observations','conclusion') == 'S5_CI_001_pass_and_S5_FOUND_001_is_next'
+          blockers = data.fetch('blockers').to_h { |b| [b.fetch('id'), b.fetch('status')] }
+          abort 'S5-CI-001 not PASS' unless blockers['S5-CI-001'] == 'PASS'
+          abort 'S5-FOUND-001 not OPEN' unless blockers['S5-FOUND-001'] == 'OPEN'
+          q = data.fetch('quality_gate')
+          abort 'historical diagnosis changed' unless q['diagnosed_P1'] == 6 && q['diagnosed_P0'] == 0
+          abort 'fix total' unless q['fixes_applied_total'] == 5
+          abort 'open count' unless q['open_P0_P1'] == 1
+          abort 'quality result' unless q['result'] == 'FAIL_WITH_1_P1_BLOCKER'
+          abort 'fix order changed' unless q['blocker_fix_order'] == %w[S5-BOOT-001 S5-ENV-001 S5-MIG-001 S5-TST-001 S5-CI-001 S5-FOUND-001]
+          n = data.fetch('next_single_step')
+          abort 'next step' unless n['id'] == 'S5-FOUND-001'
+          abort 'CI prereq missing' unless n['prerequisite_S5_CI_001'] == 'PASS'
+          c = data.fetch('S5_CI_001_closure')
+          abort 'closure status' unless c['status'] == 'PASS'
+          abort 'machine provenance' unless c.dig('provenance','machine_clean_commit') == '55b6d0af82ee018cb3c0a201e4d4e6a6358c6a06'
+          abort 'narrative provenance' unless c.dig('provenance','narrative_clean_commit') == '7355c6ae11b4e07e1487256e5c4aac28297c8283'
+          abort 'accepted run' unless c.dig('provenance','accepted_branch_validation_run') == 34505180921
+          abort '5/5 jobs' unless c.dig('permanent_jobs','accepted_branch_jobs_passed') == 5 && c.dig('permanent_jobs','accepted_branch_jobs_total') == 5
+          abort 'baseline/suppressions' unless c.dig('backend_quality','baseline_added') == false && c.dig('backend_quality','suppressions_added_for_gate') == false
+          abort 'static findings' unless c.dig('backend_quality','static_analysis_findings_fixed_not_hidden') == 18
+          abort 'Stage4 rewritten' unless c.dig('preservation','Stage_4_authority_rewritten') == false
+          abort 'foundation started early' unless c.dig('preservation','S5_FOUND_001_started') == false
+          puts 'CENTRAL_SEMANTICS=PASS'
+          RUBY
+          git diff --check
+
+      - name: Remove helper workflow and create final helper state
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rm .github/workflows/tmp-s5-ci-001-central.yml
+          git add specs/gates/stage-5-implementation-gate.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'S5-CI-001 helper: finalize central gate'
+          git push origin HEAD:tmp-s5-ci-001-central-validation-20260910
+
+      - name: Validate final net central diff
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE='7355c6ae11b4e07e1487256e5c4aac28297c8283'
+          mapfile -t files < <(git diff --name-only "$BASE"..HEAD)
+          test "${#files[@]}" -eq 1
+          test "${files[0]}" = 'specs/gates/stage-5-implementation-gate.yml'
+          git diff --check "$BASE"..HEAD
+          test "$(git rev-parse HEAD:specs/gates/stage-4-database-contract-gate.yml)" = '306dabaa58223abe2f3b2a34b888b075c88e9ec4'
+          test "$(git rev-parse HEAD:specs/database/final-migration-order-invariant-matrix.yml)" = 'ad5f2aa2e14ef248b95dd3dda0d1cbcb2e69d441'
+          echo 'S5_CI_001_CENTRAL=PASS'
