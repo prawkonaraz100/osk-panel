@@ -121,6 +121,11 @@ final class StaffService
             }
 
             if (($input['create_login_account'] ?? false) === true) {
+                $this->tenantAuthorizer->requireOrganizationPermission(
+                    $sessionId,
+                    $actor['organization_id'],
+                    'staff.accounts.manage',
+                );
                 $this->createPanelAccountLocked($actor, $id, $requestId);
             }
 
@@ -201,6 +206,11 @@ final class StaffService
                 }
             }
             if (($input['create_login_account'] ?? false) === true && ! $this->hasCurrentLink($actor['organization_id'], $staffId)) {
+                $this->tenantAuthorizer->requireOrganizationPermission(
+                    $sessionId,
+                    $actor['organization_id'],
+                    'staff.accounts.manage',
+                );
                 $this->createPanelAccountLocked($actor, $staffId, $requestId);
             }
 
