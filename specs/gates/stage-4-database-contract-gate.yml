@@ -119,7 +119,12 @@ stage_4_slices:
     final_aggregate_sync: PASS
     result: PASS
   - id: DB4_11_FINAL_MIGRATION_ORDER_AND_INVARIANT_TEST_MATRIX
-    status: NOT_STARTED
+    status: FAIL_WITH_6_P1_BLOCKERS
+    diagnosis: COMPLETE
+    blockers_diagnosed: 6
+    blockers_resolved: 0
+    open_P0_P1: 6
+    result: FAIL_WITH_6_P1_BLOCKERS
 
 quality_checks:
   DB4_1_foundation:
@@ -4080,6 +4085,45 @@ quality_checks:
       Laravel_migrations_created: false
       UI_or_feature_implementation_started: false
 
+
+  DB4_11_diagnosis:
+    status: FAIL_WITH_6_P1_BLOCKERS
+    machine_source: specs/database/final-migration-order-invariant-matrix.yml
+    narrative_source: docs/116-stage-4-final-migration-order-invariant-matrix-audit.md
+    machine_commit: c966cd34ee9a0fac45ea9d507eb7f356a2531052
+    machine_blob: 73853ef1350a4743740b6b3f1555fa836c3f1a0a
+    narrative_commit: 75e811752ff80841988d3d3de00cd3f4db7b0a59
+    narrative_blob: 5562e23d6bd37553f63d08d3f2e4f385457c9618
+    diagnosed_P0: 0
+    diagnosed_P1: 6
+    blockers_resolved: 0
+    open_P0_P1: 6
+    fixes_applied_in_diagnosis_step: 0
+    aggregate_core_schema_blob_frozen: 39958721c99550cfc27c3774e8dfa1af0d0637e6
+    aggregate_docs87_blob_frozen: 6c090b082604b6b42c283667fcf08e9033a5b523
+    blockers_in_required_fix_order:
+      - DB-MIG-001
+      - DB-MIG-002
+      - DB-MIG-003
+      - DB-TST-001
+      - DB-TST-002
+      - DB-FINAL-001
+    checks:
+      DB4_1_through_DB4_10_remain_PASS: PASS
+      prior_71_resolved_stage4_blockers_not_reopened: PASS
+      executable_dependency_DAG_missing: FAIL_DB_MIG_001
+      migration_phase_composition_missing: FAIL_DB_MIG_002
+      global_cutover_restart_rollback_gate_missing: FAIL_DB_MIG_003
+      machine_readable_invariant_test_matrix_missing: FAIL_DB_TST_001
+      invariant_test_coverage_completeness_proof_missing: FAIL_DB_TST_002
+      final_machine_narrative_semantic_drift_present: FAIL_DB_FINAL_001
+      aggregate_core_schema_modified_in_diagnosis: false
+      aggregate_docs87_modified_in_diagnosis: false
+      bounded_context_contracts_modified_in_diagnosis: false
+      Stage5_started: false
+      Laravel_migrations_created: false
+      UI_or_feature_implementation_started: false
+
 resolved_blockers:
   - DB-AUD-001
   - DB-AUD-002
@@ -4153,7 +4197,13 @@ resolved_blockers:
   - DB-COM-008
   - DB-COM-006
 
-open_blockers_current_diagnosed_scope: []
+open_blockers_current_diagnosed_scope:
+  - DB-MIG-001
+  - DB-MIG-002
+  - DB-MIG-003
+  - DB-TST-001
+  - DB-TST-002
+  - DB-FINAL-001
 
 gate_definition:
   PASS_requires_for_entire_stage_4:
@@ -4163,7 +4213,7 @@ gate_definition:
     - migration_order_dependency_safe
     - database_invariant_test_matrix_exists
     - reverse_engineering_preservation_traceable
-  current_result: DB4_10_PASS
+  current_result: DB4_11_FAIL_WITH_6_P1_BLOCKERS
   DB4_1_result: PASS
   DB4_2_result: PASS
   DB4_3_result: PASS
@@ -4244,6 +4294,14 @@ gate_definition:
   DB4_10_DB_EVT_001_result: PASS
   DB4_10_final_aggregate_sync_result: PASS
   DB4_10_result: PASS
+  DB4_11_diagnosis_result: FAIL_WITH_6_P1_BLOCKERS
+  DB4_11_DB_MIG_001_result: OPEN
+  DB4_11_DB_MIG_002_result: OPEN
+  DB4_11_DB_MIG_003_result: OPEN
+  DB4_11_DB_TST_001_result: OPEN
+  DB4_11_DB_TST_002_result: OPEN
+  DB4_11_DB_FINAL_001_result: OPEN
+  DB4_11_result: FAIL_WITH_6_P1_BLOCKERS
   may_start_DB4_4_fixes: false
   may_start_DB4_5: false
   may_start_DB4_5_fixes: false
@@ -4257,24 +4315,25 @@ gate_definition:
   may_start_DB4_9_fixes: false
   may_start_DB4_10: false
   may_start_DB4_10_fixes: false
-  may_start_DB4_11: true
-  may_start_DB4_11_fixes: false
+  may_start_DB4_11: false
+  may_start_DB4_11_fixes: true
   may_start_stage_5: false
   may_start_UI_or_feature_implementation: false
 
 next_single_step:
-  id: DB4_11_FINAL_MIGRATION_ORDER_AND_INVARIANT_TEST_MATRIX_DIAGNOSIS
-  action: diagnose_DB4_11_only_after_next_explicit_user_instruction
-  diagnosis_only: true
-  fixes_allowed_in_same_step: false
+  id: DB-MIG-001
+  action: resolve_DB_MIG_001_only_after_next_explicit_user_instruction
+  diagnosis_only: false
+  fixes_allowed_in_same_step: true
   allowed_scope:
-    - specs/gates/stage-4-database-contract-gate.yml
+    - specs/database/final-migration-order-invariant-matrix.yml
+    - docs/116-stage-4-final-migration-order-invariant-matrix-audit.md
     - specs/database/core-schema.yml
     - docs/87-physical-database-schema.md
-    - existing_stage_4_bounded_context_specs_and_audits_read_only_unless_diagnosis_artifact_requires_new_file
+    - specs/gates/stage-4-database-contract-gate.yml
+  prior_bounded_context_specs_read_only: true
   scope_lock: >-
-    DB4_10 is PASS with final aggregate sync PASS. DB4_11 may begin with diagnosis
-    only after the next explicit user instruction. Do not guess blocker counts before
-    diagnosis, do not apply DB4_11 fixes in the diagnosis step, and do not start
-    Stage 5, Laravel migrations or UI.
-  after_action: run_DB4_11_diagnosis_machine_narrative_central_gate_and_STOP_before_first_fixer
+    DB4_11 diagnosis is COMPLETE with 0 P0 and 6 P1 open. Resolve DB-MIG-001 only.
+    Preserve DB-MIG-002, DB-MIG-003, DB-TST-001, DB-TST-002 and DB-FINAL-001 as
+    OPEN. Do not enter Stage 5, generate Laravel migrations, or implement UI/features.
+  after_action: run_DB_MIG_001_machine_narrative_central_gate_and_STOP_before_DB_MIG_002
