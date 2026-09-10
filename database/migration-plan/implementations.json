@@ -1,13 +1,15 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "plan_identity": "d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10",
-  "implemented_nodes": [
+  "execution_identity": "05243ae2bd1d283ad53e33ab8dbc887317ef27128bb08ebcce381e3c8f7857ec",
+  "stage4_root": "database/migrations/stage4",
+  "implemented_steps": [
     {
       "node_id": "MIG-EXT-BTREE-GIST",
-      "migration_file": "database/migrations/2026_09_10_000010_enable_btree_gist_extension.php",
-      "implemented_phases": [
-        "expand"
-      ],
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-EXT-BTREE-GIST/2026_09_10_000010_enable_btree_gist_extension.php",
+      "migration_name": "2026_09_10_000010_enable_btree_gist_extension",
+      "file_sha256": "2f6d4840939d22e37546cac3db5bfd25c7c2f128db983f0acfdc083c5b1a6a3d",
       "restart_classification": "restart_safe",
       "safe_down": false
     }
