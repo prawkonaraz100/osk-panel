@@ -583,8 +583,8 @@ final class ResourcesCoreTest extends TestCase
     }
 
     /**
-     * @param array{organization_id:string,user_id:string,membership_id:string,session_id:string} $actor
-     * @param array<string,mixed> $overrides
+     * @param  array{organization_id:string,user_id:string,membership_id:string,session_id:string}  $actor
+     * @param  array<string,mixed>  $overrides
      * @return array<string,mixed>
      */
     private function createLocation(array $actor, string $name = 'Main Branch', array $overrides = []): array
@@ -604,8 +604,8 @@ final class ResourcesCoreTest extends TestCase
     }
 
     /**
-     * @param array{organization_id:string,user_id:string,membership_id:string,session_id:string} $actor
-     * @param array<string,mixed> $overrides
+     * @param  array{organization_id:string,user_id:string,membership_id:string,session_id:string}  $actor
+     * @param  array<string,mixed>  $overrides
      * @return array<string,mixed>
      */
     private function createStaff(array $actor, array $overrides = []): array
@@ -626,8 +626,8 @@ final class ResourcesCoreTest extends TestCase
     }
 
     /**
-     * @param array{organization_id:string,user_id:string,membership_id:string,session_id:string} $actor
-     * @param array<string,mixed> $overrides
+     * @param  array{organization_id:string,user_id:string,membership_id:string,session_id:string}  $actor
+     * @param  array<string,mixed>  $overrides
      * @return array<string,mixed>
      */
     private function createVehicle(array $actor, array $overrides = []): array
