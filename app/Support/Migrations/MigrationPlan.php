@@ -126,8 +126,12 @@ final class MigrationPlan
             }
         }
 
-        $canonicalIds = array_column($this->plan['nodes'], 'node_id');
-        $this->assert($implementedNodeIds === array_slice($canonicalIds, 0, count($implementedNodeIds)), 'Implemented nodes must form a canonical topological prefix.');
+        $implementedNodeSet = array_fill_keys($implementedNodeIds, true);
+        $canonicalImplementedNodeIds = array_values(array_filter(
+            array_column($this->plan['nodes'], 'node_id'),
+            fn (string $id): bool => isset($implementedNodeSet[$id]),
+        ));
+        $this->assert($implementedNodeIds === $canonicalImplementedNodeIds, 'Implemented nodes must preserve canonical topological order.');
 
         foreach ($implementedNodeIds as $id) {
             foreach ($nodesById[$id]['requires'] as $dependency) {
