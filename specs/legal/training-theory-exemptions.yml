@@ -1,7 +1,7 @@
 legal_rule_set:
   id: formal_osk_training_theory_exemptions
   jurisdiction: PL
-  verified_at: 2026-09-05
+  verified_at: 2026-09-11
   status: LEGAL_VERIFIED
   doc: docs/66-formal-student-record-and-theory-exemptions.md
 
@@ -21,6 +21,143 @@ recordkeeping:
   record_completion_or_interruption_date: true
   practical_hour_minutes: 60
   theory_hour_minutes: 45
+
+authority_gap_repair_2026_09_11:
+  reason: complete_minimum_training_matrix_was_missing_from_verified_rule_artifact
+  stage_4_database_DAG_changed: false
+  source:
+    consolidated_regulation: Dz.U. 2018 poz. 1885
+    title: Rozporządzenie Ministra Infrastruktury i Budownictwa z dnia 4 marca 2016 r. w sprawie szkolenia osób ubiegających się o uprawnienia do kierowania pojazdami, instruktorów i wykładowców
+    relevant_provisions: [par_5_ust_1_2, par_9_ust_1_2, par_10]
+    amendment_after_consolidated_text: Dz.U. 2023 poz. 2317
+    amendment_changes_par_9_or_par_10: false
+    verified_against_official_PDF: true
+    verification_date: 2026-09-11
+  interpretation_boundary:
+    basic_training_minima_come_from_par_9: true
+    supplementary_training_has_no_par_9_statutory_minimum: true
+    supplementary_scope_is_agreed_by_student_and_OSK_manager_under_par_5: true
+    declared_course_minutes_are_plan_not_credited_training_time: true
+    credited_training_time_owner_remains_training_hour_ledger: true
+
+basic_training_minimum_minutes:
+  AM:
+    theory: 270
+    theory_components:
+      general: 225
+      first_aid: 45
+    practical: 300
+  A1:
+    theory: 1350
+    theory_components:
+      general: 1170
+      first_aid: 180
+    practical: 1200
+  A2:
+    theory: 1350
+    theory_components:
+      general: 1170
+      first_aid: 180
+    practical: 1200
+  A:
+    theory: 1350
+    theory_components:
+      general: 1170
+      first_aid: 180
+    practical: 1200
+  B1:
+    theory: 1350
+    theory_components:
+      general: 1170
+      first_aid: 180
+    practical: 1800
+  B:
+    theory: 1350
+    theory_components:
+      general: 1170
+      first_aid: 180
+    practical: 1800
+  B+E:
+    theory: 0
+    practical: 900
+  C1:
+    theory: 900
+    practical: 1200
+  C:
+    theory: 900
+    practical: 1800
+  C1+E:
+    theory: 0
+    practical: 1200
+  C+E:
+    theory: 0
+    practical: 1500
+  D1:
+    theory: 900
+    practical: 1800
+  D:
+    theory: 900
+    practical: 3600
+  D1+E:
+    theory: 0
+    practical: 1200
+  D+E:
+    theory: 0
+    practical: 1500
+  T:
+    theory: 1350
+    theory_components:
+      general: 1170
+      first_aid: 180
+    practical: 1200
+
+basic_training_adjustments:
+  theory_minimum_to_zero_when_held_category_matches:
+    A2: [A1]
+    A: [A1, A2]
+    B: [B1]
+    C: [C1]
+    D: [D1]
+  theory_minimum_to_zero_when_state_theory_passed: true
+  practical_reduction_minutes_for_held_category:
+    - target: A2
+      held: A1
+      reduction: 600
+    - target: A
+      held: A2
+      reduction: 600
+    - target: B
+      held: B1
+      reduction: 600
+    - target: C1
+      held: D1
+      reduction: 600
+    - target: C
+      held: D
+      reduction: 600
+    - target: D1
+      held: C1
+      reduction: 1200
+    - target: D
+      held: C
+      reduction: 1200
+  parallel_training_reductions:
+    supported_by_rule_artifact: true
+    runtime_input_materialized_in_current_slice: false
+    rule: do_not_guess_parallel_training_status_from_other_fields
+
+supplementary_training_requirements:
+  statutory_minimum_from_par_9: not_applicable
+  scope_basis: agreement_between_student_and_OSK_manager_under_par_5
+  effective_requirement_source:
+    theory: course_enrollment.declared_theory_minutes
+    practical: course_enrollment.declared_practical_minutes
+  declared_minutes_are_credited_time: false
+  practical_training_required_when_declared_practical_minutes_positive: true
+  theory_training_required_when_declared_theory_minutes_positive: true
+  internal_exam_requirement:
+    derive_from_actual_agreed_scope_and_category_rules: true
+    do_not_inherit_basic_training_minimum_automatically: true
 
 state_theory_exam_categories:
   required_categories:

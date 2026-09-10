@@ -1,6 +1,6 @@
 # 66. Formalny kurs OSK — obowiązek ewidencji kursanta i zwolnienia z teorii
 
-Data weryfikacji: 2026-09-05
+Data weryfikacji: 2026-09-11
 
 **Zakres:** własny panel admin OSK / formalne szkolenie kandydatów na kierowców  
 **Status:** `LEGAL_VERIFIED`  
@@ -49,6 +49,49 @@ W naszym systemie godziny nie mogą być tylko polem ręcznie nadpisywanym na ko
 Dla praktyki godzina szkolenia = 60 minut. Dla teorii godzina szkolenia = 45 minut.
 
 ---
+
+## 3a. Pełna baza minimalnych wymiarów szkolenia podstawowego
+
+Ponowna weryfikacja 2026-09-11 ujawniła, że wcześniejszy artefakt prawny zawierał wyjątki i przykłady, ale nie zawierał pełnej tabeli minimów potrzebnej do deterministycznego `training_requirements_engine`.
+
+Dla **szkolenia podstawowego** § 9 ust. 1 rozporządzenia (tekst jednolity Dz.U. 2018 poz. 1885) daje następujący wymiar. Poniżej od razu przeliczamy go do minut zgodnie z § 10:
+
+| Kategoria | Teoria | Praktyka |
+|---|---:|---:|
+| AM | 6 × 45 = 270 min (5 h + 1 h pierwszej pomocy) | 5 × 60 = 300 min |
+| A1 | 30 × 45 = 1350 min (26 h + 4 h pierwszej pomocy) | 20 × 60 = 1200 min |
+| A2 | 1350 min | 1200 min |
+| A | 1350 min | 1200 min |
+| B1 | 1350 min | 1800 min |
+| B | 1350 min | 1800 min |
+| B+E | 0 min | 900 min |
+| C1 | 900 min | 1200 min |
+| C | 900 min | 1800 min |
+| C1+E | 0 min | 1200 min |
+| C+E | 0 min | 1500 min |
+| D1 | 900 min | 1800 min |
+| D | 900 min | 3600 min |
+| D1+E | 0 min | 1200 min |
+| D+E | 0 min | 1500 min |
+| T | 1350 min | 1200 min |
+
+§ 9 przewiduje również redukcje zależne od już posiadanych uprawnień. Dla runtime rule engine materializujemy te, dla których mamy trwały input `held_categories`:
+
+- A2 + posiadane A1: praktyka −10 h,
+- A + posiadane A2: praktyka −10 h,
+- B + posiadane B1: praktyka −10 h,
+- C1 + posiadane D1: praktyka −10 h,
+- C + posiadane D: praktyka −10 h,
+- D1 + posiadane C1: praktyka −20 h,
+- D + posiadane C: praktyka −20 h.
+
+Osobno obowiązują już opisane zwolnienia z teorii. Redukcji zależnych od **szkolenia równoległego** nie wolno odgadywać na podstawie samej kategorii lub daty kursu; wymagają one osobnego trwałego inputu i pozostają fail-closed do czasu jego materializacji.
+
+### Szkolenie uzupełniające
+
+§ 5 rozróżnia szkolenie podstawowe i uzupełniające. Dla szkolenia uzupełniającego zakres ustala osoba szkolona z kierownikiem OSK na podstawie programu szkolenia. Nie stosujemy więc automatycznie tabeli minimów § 9 przeznaczonej dla szkolenia podstawowego.
+
+W naszym modelu pola `declared_theory_minutes` i `declared_practical_minutes` dla `training_type=supplementary` są **uzgodnionym planem zakresu szkolenia**, a nie formalnym dowodem odbycia zajęć. Faktyczny credited time nadal pochodzi wyłącznie z ledgeru.
 
 ## 4. C+E po C — brak teorii, ale kursant nadal jest formalnie ewidencjonowany
 
@@ -217,10 +260,13 @@ Jeżeli UI konkurenta ma `Dodaj nowego kursanta` bezpośrednio w drawerze egzami
    - art. 23 i 23a,
    - art. 51 ust. 2.
 2. Rozporządzenie Ministra Infrastruktury i Budownictwa z 4 marca 2016 r. w sprawie szkolenia osób ubiegających się o uprawnienia do kierowania pojazdami, instruktorów i wykładowców — tekst jednolity Dz.U. 2018 poz. 1885, z późn. zm.:
+   - § 5,
    - § 6,
    - § 8,
    - § 9,
+   - § 10,
    - § 17–21.
+   - po tekście jednolitym: Dz.U. 2023 poz. 2317; zmiana nie modyfikuje § 5, § 9 ani § 10.
 3. Rozporządzenie Ministra Infrastruktury z 24 listopada 2023 r. w sprawie egzaminowania osób ubiegających się o uprawnienia do kierowania pojazdami, szkolenia, egzaminowania i uzyskiwania uprawnień przez egzaminatorów oraz wzorów dokumentów stosowanych w tych sprawach — Dz.U. 2023 poz. 2659, z późn. zm.:
    - § 10 ust. 1.
 
