@@ -84,6 +84,13 @@ jobs:
           old = 'use LogicException;\n'
           assert s.count(old) == 1
           p.write_text(s.replace(old, '', 1))
+
+          p = Path('tests/Unit/MigrationPlanContractTest.php')
+          s = p.read_text()
+          old = 'use PHPUnit\\Framework\\TestCase;\n'
+          new = 'use Tests\\TestCase;\n'
+          assert s.count(old) == 1
+          p.write_text(s.replace(old, new, 1))
           PY
 
           bash /tmp/validate.sh
