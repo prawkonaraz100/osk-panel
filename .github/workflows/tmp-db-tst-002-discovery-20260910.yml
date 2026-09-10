@@ -17,10 +17,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse 6419481d39721238792a2a0bbb852622936fb993^{tree})" = "$(git rev-parse HEAD~1^{tree})"
+          git diff --quiet 6419481d39721238792a2a0bbb852622936fb993 -- specs/database specs/gates docs/116-stage-4-final-migration-order-invariant-matrix-audit.md docs/87-physical-database-schema.md
           ruby <<'RUBY'
           require 'yaml'
           require 'json'
+          require 'date'
+          def load_yaml(path)
+            YAML.safe_load(File.read(path), permitted_classes: [Date], aliases: true)
+          end
           files = %w[
             specs/database/organization-settings.yml
             specs/database/identity-rbac.yml
@@ -50,15 +54,15 @@ jobs:
           end
           summary = {}
           files.each do |f|
-            data = YAML.load_file(f, aliases: true)
+            data = load_yaml(f)
             hits = walk(data)
             summary[f] = hits.map do |path,val|
               count = val.is_a?(Array) || val.is_a?(Hash) ? val.length : 1
               {path: path, type: val.class.name, count: count, sample: (val.is_a?(Array) ? val.first(3) : val)}
             end
           end
-          central = YAML.load_file('specs/gates/stage-4-database-contract-gate.yml', aliases: true)
-          matrix = YAML.load_file('specs/database/final-migration-order-invariant-matrix.yml', aliases: true)
+          central = load_yaml('specs/gates/stage-4-database-contract-gate.yml')
+          matrix = load_yaml('specs/database/final-migration-order-invariant-matrix.yml')
           puts "=== SOURCE INVENTORY ==="
           puts JSON.pretty_generate(summary)
           puts "=== RESOLVED BLOCKERS ==="
