@@ -179,7 +179,7 @@ Następny pojedynczy krok: **S5-MIG-001**.
 
 **PASS.** Zamknięto brak warstwy wykonawczej migracji bez wygenerowania 170 domenowych DDL jako jednej nieprzeglądalnej zmiany. `database/migration-plan/plan.json` pozostaje byte-for-byte związany z finalnym Stage-4 matrix blob `ad5f2aa2…`, zawiera dokładnie 170 node'ów, canonical topological order, 17 review batches, siedem faz oraz restart classification z DB-MIG-003.
 
-Po końcowym review pierwotny wrapper został dodatkowo utwardzony. Stage-4 migracje są izolowane pod `database/migrations/stage4/<phase>/<node>/...`, więc zwykły `php artisan migrate` ich nie odkrywa. Każda phase-step jest jawnie wpisana do `implementations.json` z node ID, fazą, restart classification i SHA-256 pliku. Registry musi tworzyć canonical topological prefix pełnego DAG, być dependency-closed, a zarejestrowane fazy każdego node'a muszą być prefiksem authoritative phase path.
+Po końcowym review pierwotny wrapper został dodatkowo utwardzony. Stage-4 migracje są izolowane pod `database/migrations/stage4/<phase>/<node>/...`, więc zwykły `php artisan migrate` ich nie odkrywa. Każda phase-step jest jawnie wpisana do `implementations.json` z node ID, fazą, restart classification i SHA-256 pliku. Registry musi zachowywać canonical topological order dla materializowanego podzbioru, być dependency-closed względem wszystkich `requires`, a zarejestrowane fazy każdego node'a muszą być prefiksem authoritative phase path. Materializacja nie wymaga niezależnych wcześniejszych node'ów wyłącznie z powodu niższego `order`.
 
 Controlled executor wymaga teraz jednocześnie exact `plan_identity`, exact `execution_identity` związanej z bytes registry/migracji oraz jawnego `--phase`. Bezpośrednie `migrate --path=...` nie omija tego kontraktu: sam plik migracji wymaga aktywnego `ControlledMigrationContext` z właściwą fazą i node ID. Późniejsza faza pozostaje fail-closed, dopóki wszystkie authoritative stepy wcześniejszych faz nie są w pełni zmaterializowane i zastosowane.
 
@@ -192,6 +192,13 @@ Machine gate na świeżym PostgreSQL potwierdził plan 170/170, 17 review batche
 Pozostałe blockery: `S5-TST-001`, `S5-CI-001`, `S5-FOUND-001`. Następny pojedynczy krok: **S5-TST-001**.
 
 **STOP przed S5-TST-001.**
+
+
+### 12.1. Korekta reguły materializacji podzbioru
+
+Przy wejściu do `S5-FOUND-001` machine diagnosis wykazał, że lokalna implementacja `S5-MIG-001` była bardziej restrykcyjna niż zamknięty Stage-4 DAG: wymóg pełnego canonical prefixu zmuszałby foundation audit/outbox do materializacji 166/170 node'ów, w tym 121 niezwiązanych z pierwszym modułem. Stage-4 authority wymaga kolejności topologicznej i ukończenia wszystkich jawnych `requires`, ale nie nakazuje materializacji niezależnych node'ów o niższym `order`.
+
+Regułę wykonawczą skorygowano preservation-safe: materializowany podzbiór musi zachować canonical order i być dependency-closed, bez przeskakiwania zależności. Siedem faz, plan identity, 170-node DAG, restart classification, phase-entry i cutover/rollback contract pozostają bez zmian. Machine repair: `6e4947c6c0b1b1237a0973523897ceccb03d0d41`.
 
 ---
 
