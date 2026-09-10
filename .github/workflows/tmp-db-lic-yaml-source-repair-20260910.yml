@@ -1,0 +1,85 @@
+name: tmp-db-lic-yaml-source-repair-20260910
+on:
+  push:
+    branches:
+      - tmp-db-lic-yaml-source-repair-20260910
+permissions:
+  contents: write
+jobs:
+  validate-repair:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: tmp-db-lic-yaml-source-repair-20260910
+          fetch-depth: 0
+      - name: Patch exactly one malformed scalar and validate authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=6419481d39721238792a2a0bbb852622936fb993
+          TARGET=specs/database/licenses-learning-access.yml
+          test "$(git rev-parse HEAD~1^{tree})" = "$(git rev-parse ${BASE}^{tree})"
+          python3 <<'PY'
+          from pathlib import Path
+          p = Path('specs/database/licenses-learning-access.yml')
+          s = p.read_text()
+          bad = '        explicit_resume_still_requires_its_own_authorized_command_and_current_state\n'
+          good = '        explicit_resume_still_requires_its_own_authorized_command_and_current_state: true\n'
+          assert s.count(bad) == 1, f'expected exactly one malformed line, got {s.count(bad)}'
+          assert good not in s, 'repaired key already exists unexpectedly'
+          p.write_text(s.replace(bad, good, 1))
+          PY
+          ruby <<'RUBY'
+          require 'yaml'
+          require 'date'
+          def load_yaml(path)
+            YAML.safe_load(File.read(path), permitted_classes: [Date], aliases: true)
+          end
+          files = %w[
+            specs/database/organization-settings.yml
+            specs/database/identity-rbac.yml
+            specs/database/staff-locations-vehicles.yml
+            specs/database/students-courses-training.yml
+            specs/database/calendar.yml
+            specs/database/licenses-learning-access.yml
+            specs/database/internal-exams.yml
+            specs/database/pkk.yml
+            specs/database/student-finance-commerce.yml
+            specs/database/audit-outbox-notifications.yml
+            specs/gates/stage-4-database-contract-gate.yml
+            specs/database/final-migration-order-invariant-matrix.yml
+          ]
+          files.each { |f| load_yaml(f) }
+          lic = load_yaml('specs/database/licenses-learning-access.yml')
+          race = lic.dig('resolved_contracts','DB-LIC-003','student_archive_restore_learning_access_lifecycle','archive_restore_race_semantics','restore_vs_explicit_account_resume')
+          abort 'missing restore_vs_explicit_account_resume' unless race.is_a?(Hash)
+          abort 'restore must not perform resume' unless race['restore_does_not_perform_resume'] == true
+          abort 'explicit resume authority must remain true' unless race['explicit_resume_still_requires_its_own_authorized_command_and_current_state'] == true
+          tests = lic.dig('resolved_contracts','DB-LIC-003','student_archive_restore_learning_access_lifecycle','required_integration_tests') || []
+          abort 'missing explicit lifecycle command test' unless tests.include?('active_to_suspended_and_suspended_to_active_require_explicit_lifecycle_command')
+          abort 'missing restore suspension preservation test' unless tests.include?('restore_does_not_reactivate_explicitly_suspended_learning_account')
+          puts 'YAML_PARSE_AND_SEMANTIC_GATE=PASS'
+          RUBY
+          test "$(git rev-parse ${BASE}:specs/database/core-schema.yml)" = "$(git hash-object specs/database/core-schema.yml)"
+          test "$(git rev-parse ${BASE}:docs/87-physical-database-schema.md)" = "$(git hash-object docs/87-physical-database-schema.md)"
+      - name: Remove helper and prove one-file net repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=6419481d39721238792a2a0bbb852622936fb993
+          TARGET=specs/database/licenses-learning-access.yml
+          git rm .github/workflows/tmp-db-lic-yaml-source-repair-20260910.yml
+          git add "$TARGET"
+          test "$(git diff --cached --name-only "$BASE" | wc -l)" -eq 1
+          test "$(git diff --cached --name-only "$BASE")" = "$TARGET"
+          test "$(git diff --cached --numstat "$BASE" -- "$TARGET")" = $'1\t1\tspecs/database/licenses-learning-access.yml'
+          git diff --cached "$BASE" -- "$TARGET"
+      - name: Commit validated repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'DB-TST-002 prerequisite: repair licenses YAML source'
+          git push origin HEAD:tmp-db-lic-yaml-source-repair-20260910
