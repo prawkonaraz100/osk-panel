@@ -3,6 +3,7 @@
 namespace App\Modules\LearningAccess;
 
 use App\Modules\IdentityTenant\TenantAuthorizer;
+use App\Modules\ResourcesCore\ResourceDomainException;
 use App\Modules\ResourcesCore\ResourceIdempotency;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Http\JsonResponse;
@@ -311,7 +312,7 @@ final class LearningAccessController
         $tag = trim(trim($tag), '"');
         $tag = str_starts_with($tag, 'v') ? substr($tag, 1) : $tag;
         if ($tag === '' || ! ctype_digit($tag)) {
-            throw new \App\Modules\ResourcesCore\ResourceDomainException(
+            throw new ResourceDomainException(
                 'PRECONDITION_REQUIRED',
                 428,
                 'If-Match with current '.$label.' version is required.',

@@ -5,6 +5,7 @@ namespace App\Modules\LearningAccess;
 use App\Modules\AuditNotification\AtomicAuditOutbox;
 use App\Modules\ResourcesCore\ResourceDomainException;
 use App\Modules\StudentsCourses\StudentCourseScopeAuthorizer;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -335,7 +336,7 @@ final class LicenseService
             $expiryBefore = $latest === null ? null : (string) $latest->effective_to;
             $effectiveFrom = $effectiveAt->copy();
             if ($latest !== null) {
-                $previousEnd = \Illuminate\Support\Carbon::parse((string) $latest->effective_to);
+                $previousEnd = Carbon::parse((string) $latest->effective_to);
                 if ($previousEnd->gt($effectiveFrom)) {
                     $effectiveFrom = $previousEnd;
                 }
@@ -730,7 +731,7 @@ final class LicenseService
         $presentation = match ((string) $row->status) {
             'assigned' => 'not_activated',
             'revoked_before_activation' => 'revoked',
-            'activated' => $activation !== null && $activation->effective_to > $effectiveAt ? 'active' : 'expired',
+            'activated' => $activation !== null && Carbon::parse((string) $activation->effective_to)->gt($effectiveAt) ? 'active' : 'expired',
             default => 'unknown',
         };
 
