@@ -214,7 +214,7 @@ final class InternalExamAnswerSheetRenderer
             $bytes .= match ($char) {
                 '–', '—' => '-',
                 '„', '”', '“' => '"',
-                '’', '‘' => "'",
+                '’', '‘' => '\'',
                 default => '?',
             };
         }
