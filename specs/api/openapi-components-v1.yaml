@@ -60,6 +60,13 @@ components:
     AssignmentId: { name: assignmentId, in: path, required: true, schema: { type: string, format: uuid } }
     AttemptId: { name: attemptId, in: path, required: true, schema: { type: string, format: uuid } }
     AccessId: { name: accessId, in: path, required: true, schema: { type: string, format: uuid } }
+    StationId: { name: stationId, in: path, required: true, schema: { type: string, format: uuid } }
+    ExamStationCredential:
+      name: X-Exam-Station-Credential
+      in: header
+      required: true
+      schema: { type: string, minLength: 45 }
+      description: Opaque station credential presented only by the exact logical workstation. Never log or persist recoverably.
     OrderId: { name: orderId, in: path, required: true, schema: { type: string, format: uuid } }
     Provider: { name: provider, in: path, required: true, schema: { type: string } }
     NotificationId: { name: notificationId, in: path, required: true, schema: { type: string, format: uuid } }
@@ -1028,6 +1035,38 @@ components:
               product_id: { type: string, format: uuid }
               quantity: { type: integer, minimum: 1 }
         payment_method: { type: string }
+
+    ExamStation:
+      type: object
+      required: [id, administrative_status, connectivity, occupancy, has_current_credential, available_for_new_execution, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        administrative_status: { type: string, enum: [enabled, disabled] }
+        connectivity: { type: string, enum: [online, offline] }
+        occupancy: { type: string, enum: [free, occupied] }
+        has_current_credential: { type: boolean }
+        available_for_new_execution: { type: boolean }
+        last_authenticated_heartbeat_at: { type: [string, 'null'], format: date-time }
+        created_at: { type: string, format: date-time }
+    ExamStationProvisioningResponse:
+      allOf:
+        - { $ref: '#/components/schemas/ExamStation' }
+        - type: object
+          required: [credential_sequence]
+          properties:
+            credential_sequence: { type: integer, minimum: 1 }
+            one_time_station_credential:
+              type: [string, 'null']
+              readOnly: true
+              x-one-time-secret: true
+              x-secret-transport: response-body
+              description: Returned only on the first successful provisioning or rotation response and null on idempotent replay. Never persisted recoverably.
+    ExamStationHeartbeat:
+      type: object
+      required: [station_id, authenticated_at]
+      properties:
+        station_id: { type: string, format: uuid }
+        authenticated_at: { type: string, format: date-time }
 
     InternalExamInventoryEntry:
       type: object
