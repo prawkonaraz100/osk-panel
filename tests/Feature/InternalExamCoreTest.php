@@ -174,13 +174,12 @@ final class InternalExamCoreTest extends TestCase
             ->where('event_type', 'unit_consumed')
             ->count();
 
-        app(ExamStationCredentialService::class)->heartbeat(
-            $this->stationCredential($stationB),
-            $actor['organization_id'],
-        );
-
         $transfer = $service->transferStation(
-            $actor['session_id'], $attempt['id'], $stationB, 'workstation failure', (string) Str::uuid7(),
+            $actor['session_id'],
+            $attempt['id'],
+            $this->stationCredential($stationB),
+            'workstation failure',
+            (string) Str::uuid7(),
         );
 
         $this->assertSame(2, $transfer['session_sequence']);
@@ -194,6 +193,131 @@ final class InternalExamCoreTest extends TestCase
                 ->where('internal_exam_attempt_id', $attempt['id'])
                 ->where('event_type', 'unit_consumed')
                 ->count(),
+        );
+    }
+
+    public function test_http_station_transfer_requires_current_target_credential_and_replays_without_second_consume(): void
+    {
+        $actor = $this->examActor();
+        $course = $this->course($actor);
+        $this->examFixtures($actor, $course);
+        $stationA = $this->station($actor);
+        $stationB = $this->station($actor);
+        $service = app(InternalExamService::class);
+        $credentials = app(ExamStationCredentialService::class);
+
+        $attempt = $service->createAttempt(
+            $actor['session_id'],
+            $course['id'],
+            'theory',
+            'pl',
+            (string) Str::uuid7(),
+        );
+        $access = $service->createAccess(
+            $actor['session_id'],
+            $attempt['id'],
+            'assigned_exam_station',
+            $stationA,
+            null,
+            null,
+            (string) Str::uuid7(),
+        );
+        $service->startLocal(
+            $actor['session_id'],
+            $access['id'],
+            $this->stationCredential($stationA),
+            (string) Str::uuid7(),
+        );
+
+        $consumedBefore = DB::table('internal_exam_inventory_ledger_entries')
+            ->where('internal_exam_attempt_id', $attempt['id'])
+            ->where('event_type', 'unit_consumed')
+            ->count();
+        $oldTargetCredential = $this->stationCredential($stationB);
+        $rotated = $credentials->rotate(
+            $actor['organization_id'],
+            $stationB,
+            $actor['user_id'],
+            'failover_target_rotation',
+        );
+        $newTargetCredential = (string) $rotated['raw_credential'];
+        $this->stationCredentialSecrets[$stationB] = $newTargetCredential;
+
+        $revokedTarget = $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->withHeader('X-Exam-Station-Credential', $oldTargetCredential)
+            ->withHeader('Idempotency-Key', (string) Str::uuid7())
+            ->postJson("/api/v1/internal-exam-attempts/{$attempt['id']}/station-transfer", [
+                'reason' => 'workstation failure',
+            ]);
+        $revokedTarget->assertStatus(401)
+            ->assertJsonPath('error.code', 'INVALID_EXAM_STATION_CREDENTIAL');
+        $this->assertSame(
+            1,
+            DB::table('internal_exam_station_sessions')
+                ->where('internal_exam_attempt_id', $attempt['id'])
+                ->whereNull('ended_at')
+                ->count(),
+        );
+
+        $key = (string) Str::uuid7();
+        $transferred = $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->withHeader('X-Exam-Station-Credential', $newTargetCredential)
+            ->withHeader('Idempotency-Key', $key)
+            ->postJson("/api/v1/internal-exam-attempts/{$attempt['id']}/station-transfer", [
+                'reason' => 'workstation failure',
+            ]);
+        $transferred->assertOk()
+            ->assertJsonPath('exam_station_id', $stationB)
+            ->assertJsonPath('session_sequence', 2);
+        $newSessionId = (string) $transferred->json('station_session_id');
+
+        $replay = $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->withHeader('X-Exam-Station-Credential', $newTargetCredential)
+            ->withHeader('Idempotency-Key', $key)
+            ->postJson("/api/v1/internal-exam-attempts/{$attempt['id']}/station-transfer", [
+                'reason' => 'workstation failure',
+            ]);
+        $replay->assertOk()
+            ->assertJsonPath('station_session_id', $newSessionId)
+            ->assertJsonPath('session_sequence', 2);
+
+        $this->assertSame(
+            2,
+            DB::table('internal_exam_station_sessions')
+                ->where('internal_exam_attempt_id', $attempt['id'])
+                ->count(),
+        );
+        $this->assertSame(
+            1,
+            DB::table('internal_exam_station_sessions')
+                ->where('internal_exam_attempt_id', $attempt['id'])
+                ->whereNull('ended_at')
+                ->count(),
+        );
+        $this->assertSame(
+            $stationA,
+            DB::table('internal_exam_accesses')->where('id', $access['id'])->value('station_id'),
+        );
+        $this->assertSame(
+            $consumedBefore,
+            DB::table('internal_exam_inventory_ledger_entries')
+                ->where('internal_exam_attempt_id', $attempt['id'])
+                ->where('event_type', 'unit_consumed')
+                ->count(),
+        );
+        $this->assertSame(
+            'transferred',
+            DB::table('internal_exam_station_sessions')
+                ->where('internal_exam_attempt_id', $attempt['id'])
+                ->where('session_sequence', 1)
+                ->value('end_reason'),
+        );
+        $this->assertSame(
+            $stationB,
+            DB::table('internal_exam_station_sessions')
+                ->where('id', $newSessionId)
+                ->whereNull('ended_at')
+                ->value('exam_station_id'),
         );
     }
 
