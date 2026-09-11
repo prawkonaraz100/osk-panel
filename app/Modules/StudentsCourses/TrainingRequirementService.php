@@ -79,7 +79,7 @@ final class TrainingRequirementService
             'course_started_at' => (string) $courseData['started_at'],
             'state_theory_passed' => (bool) $context->state_theory_passed,
             'context_evidence_reference' => $context->evidence_reference === null ? null : (string) $context->evidence_reference,
-            'held_categories' => array_values($heldCategoryCodes),
+            'held_categories' => $heldCategoryCodes,
             'exemption_basis_code' => $exemption?->basis_code === null ? null : (string) $exemption->basis_code,
             'exemption_evidence_reference' => $exemption?->evidence_reference === null ? null : (string) $exemption->evidence_reference,
             'rule_set_version' => self::RULE_SET_VERSION,
