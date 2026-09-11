@@ -40,6 +40,7 @@ components:
     IfMatch:
       name: If-Match
       in: header
+      required: true
       schema: { type: string }
     StudentId: { name: studentId, in: path, required: true, schema: { type: string, format: uuid } }
     AccountId: { name: accountId, in: path, required: true, schema: { type: string, format: uuid } }
