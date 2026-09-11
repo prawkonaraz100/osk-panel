@@ -73,7 +73,7 @@ changed_scope:
     domain_data: student_charges + course_cost_charge_origins + training_hour_ledger_entries; CourseEnrollment stores no parallel financial balance and declared hours are not credited hours
     api_use_case: course_enrollments.create may create one exact finance charge from initial_cost; import_existing_current_osk_hours remains separately owned by Training Hour Ledger
     permission: courses.create plus student_finance.create_charge for initial_cost; training_hours permissions remain separate
-    ui: cost activation is owned by the Student Finance UI gate and no fake CourseEnrollment balance exists
+    ui: resources/js/modules/StudentsCourses/CourseFormFields.vue; create-time Cost emits initial_cost while edit mode shows the finance projection read-only
     acceptance_test: Tests\Feature\StudentFinanceCoreTest::test_course_initial_cost_creates_one_exact_origin_and_retry_does_not_duplicate_charge
     status: IMPLEMENTED
   - evidence: specs/screens/student-create.yml
