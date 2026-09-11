@@ -226,22 +226,25 @@ quality_gate:
     - S5-FOUND-001
 
 next_single_step:
-  id: CORE-V1-STUDENTS-COURSE-ENROLLMENT-001
-  action: begin_students_course_enrollment_slice_only_after_next_explicit_user_instruction
-  prerequisite_previous_slice: CORE-V1-LOC-STAFF-VEH-001_PASS
+  id: CORE-V1-CALENDAR-TRAINING-SESSION-HOUR-LEDGER-001
+  action: begin_calendar_training_session_hour_ledger_slice_only_after_current_closure_validation_and_next_explicit_user_instruction
+  prerequisite_previous_slice: CORE-V1-STUDENTS-COURSE-ENROLLMENT-001_PASS_PENDING_CENTRAL_CLOSURE
   implementation_order_source: AGENTS.md
   allowed_scope:
-    - Students
-    - Course_Enrollment
+    - Calendar
+    - Training_Session
+    - formal_Training_Hour_Ledger
     - dependency_closed_migrations_for_this_slice
     - module_API_permissions_tests_and_traceability
     - own_UI_for_confirmed_screen_scope
   forbidden_scope:
-    - Calendar_or_Training_Session_Hour_Ledger
-    - Student_Finance_or_later_core_modules
+    - Student_Finance
+    - Learning_Access_or_Licenses
+    - Internal_Exams
+    - later_core_modules
     - Stage_4_authority_rewrite
     - weakening_existing_CI_or_tenant_authority
-  after_action: run_machine_narrative_central_gate_and_STOP_before_calendar_training_session_hour_ledger_slice
+  after_action: run_machine_narrative_central_gate_and_STOP_before_student_finance_slice
 
 CORE_V1_LOC_STAFF_VEH_001_closure:
   status: PASS
@@ -343,6 +346,110 @@ CORE_V1_LOC_STAFF_VEH_001_closure:
     narrative_payload: PASS
     central_closure: PASS
     next_core_slice: Students_Course_Enrollment
+    next_core_slice_started: false
+
+
+CORE_V1_STUDENTS_COURSE_ENROLLMENT_001_closure:
+  status: VALIDATION_PENDING
+  accepted_scope:
+    - Students
+    - Course_Enrollment
+    - training_requirement_engine
+    - recognized_external_training
+    - course_scoped_PKK_identity
+    - dependency_closed_expand_migrations
+    - module_API_permissions_tests_and_traceability
+    - own_UI_for_confirmed_screen_scope
+  provenance:
+    clean_accepted_implementation_commit: 4715db135738bc9a002b87d44bb11511c4a83452
+    accepted_final_runtime_hardening_head: e97caebfe355dafc0d92a077b15135b358173aa7
+    accepted_branch_implementation_run: 34547755876
+    helper_workflow_entered_accepted_history: false
+  migration_materialization:
+    stage_4_DAG_nodes_total: 170
+    implemented_nodes_current: 45
+    implemented_phase_steps_current: 45
+    nodes_added_by_slice: 11
+    phase: expand
+    execution_identity: 59ed166d900d2701df2b8ca6e534b6b59d0de78ecf8fa0f04204f255020e5bcc
+    canonical_order_preserved: true
+    dependency_closed_subset: true
+    later_phase_constraint_nodes_materialized: false
+    later_phase_constraint_nodes_reason: global_phase_barrier_and_dependencies_on_training_session_learning_access_and_later_domain_tables
+    Stage_4_authority_rewritten: false
+  runtime_traceability:
+    final_DBT_IDs_total: 491
+    implemented_executable_assertions_current: 47
+    implemented_DBT_added_by_slice: 11
+    pending_domain_materialization_current: 444
+    later_training_session_hour_ledger_and_physical_constraint_DBTs_claimed_early: false
+    false_implemented_claims_allowed: false
+  students:
+    pre_course_incomplete_profile_allowed: true
+    formal_course_requires_complete_formal_identity: true
+    PESEL_plaintext_persisted: false
+    PESEL_encrypted_at_rest: true
+    PESEL_lookup_hash: true
+    duplicate_Pesel_same_organization_including_archived_blocked_at_current_runtime_boundary: true
+    explicit_no_PESEL_requires_birth_date: true
+    optimistic_version_If_Match: true
+    archive_restore_preserves_profile_history: true
+    active_course_blocks_student_archive: true
+    assigned_students_scope_supported: true
+  courses:
+    multiple_courses_per_student: true
+    lifecycle_history_versioned: true
+    normal_restore_only_cancelled_course: true
+    restore_under_archived_student_rejected: true
+    nonterminal_training_stage_changes: true
+    training_completed_without_hour_and_exam_evidence: fail_closed
+    category_or_training_type_change_requires_PKK_context_revalidation: true
+    course_cost_parallel_source_of_truth_created: false
+  requirements_and_external_training:
+    rule_set_hash_bound: true
+    requirement_profiles_versioned: true
+    source_fact_change_creates_new_current_profile: true
+    held_category_reductions_supported_for_verified_matrix: true
+    art_23a_explicit_theory_exemption_history: true
+    recognized_external_training_append_revoke_history: true
+    category_or_training_type_change_revalidates_current_external_projection: true
+  API_and_UI:
+    OpenAPI_contract_preserved: PASS
+    idempotent_course_create_replay: PASS
+    ETag_If_Match_for_student_and_course_mutations: true
+    confirmed_students_list_preview_detail_UI: implemented
+    confirmed_student_create_edit_archive_restore_UI: implemented
+    confirmed_course_create_edit_cancel_restore_stage_UI: implemented
+    requirements_and_external_training_UI: implemented
+    provider_PKK_fetch_fabricated_in_this_slice: false
+    Learning_Access_state_fabricated_in_this_slice: false
+    Student_Finance_state_fabricated_in_this_slice: false
+    Internal_Exam_state_fabricated_in_this_slice: false
+  explicit_deferred_dependencies:
+    - Calendar_event_availability_conflict_engine
+    - Training_Session_and_formal_Hour_Ledger
+    - Student_Finance_course_cost_side_effect
+    - Learning_Access_and_Licenses
+    - Internal_Exams
+    - provider_backed_PKK_fetch_and_return_operations
+    - later_candidate_key_FK_index_and_constraint_phases_until_global_phase_barrier_allows_them
+  executable_evidence:
+    accepted_branch_Implementation_CI_run: 34547755876
+    accepted_branch_Implementation_CI_jobs_passed: 5
+    accepted_branch_Implementation_CI_jobs_total: 5
+    accepted_PostgreSQL_suite_tests: 77
+    accepted_PostgreSQL_suite_assertions: 1417
+    backend_static_analysis: PASS_ZERO_ERRORS
+    frontend_lint_typecheck_build_audit: PASS
+    contracts_and_traceability: PASS
+    accepted_push_secret_scan: PASS
+    migration_authority_and_registry: PASS
+    Stage_4_authority_preservation: PASS
+  tranche_result:
+    machine_implementation: PASS
+    narrative_payload: READY
+    central_closure: PENDING
+    next_core_slice: Calendar_Training_Session_Formal_Hour_Ledger
     next_core_slice_started: false
 
 S5_BOOT_001_closure:
