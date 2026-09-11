@@ -405,6 +405,120 @@ final class LearningAccessCoreTest extends TestCase
         }
     }
 
+    public function test_confirmed_license_search_supports_learning_login_and_exact_pesel_hash(): void
+    {
+        $actor = $this->accessActor();
+        $student = app(StudentService::class)->create($actor['session_id'], [
+            'first_name' => 'Maria',
+            'last_name' => 'Szukana',
+            'pesel' => '90010112345',
+        ], (string) Str::uuid7());
+        app(LearningAccountService::class)->create($actor['session_id'], $student['id'], [
+            'login_identifier' => 'maria.login.test',
+            'language_code' => 'pl',
+        ], (string) Str::uuid7());
+
+        $byLogin = app(StudentService::class)->list(
+            $actor['session_id'], 1, 25, 'maria.login', 'full_name', 'asc', [], [], false, false,
+        );
+        $this->assertSame([$student['id']], array_column($byLogin['data'], 'id'));
+
+        $byPesel = app(StudentService::class)->list(
+            $actor['session_id'], 1, 25, '90010112345', 'full_name', 'asc', [], [], false, false,
+        );
+        $this->assertSame([$student['id']], array_column($byPesel['data'], 'id'));
+    }
+
+    public function test_single_credentials_pdf_is_authorized_audited_and_never_recovers_password(): void
+    {
+        $actor = $this->accessActor();
+        $student = $this->student($actor);
+        $accounts = app(LearningAccountService::class);
+        $account = $accounts->create($actor['session_id'], $student['id'], [
+            'login_identifier' => 'pdf.single@example.test',
+            'language_code' => 'en',
+        ], (string) Str::uuid7());
+        $handoff = $accounts->createNonSecretHandoff(
+            $actor['session_id'],
+            $student['id'],
+            $account['id'],
+            (string) Str::uuid7(),
+        );
+
+        $response = $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->get("/api/v1/students/{$student['id']}/learning-accounts/{$account['id']}/access-handoffs/{$handoff['id']}/pdf")
+            ->assertOk()
+            ->assertHeader('Content-Type', 'application/pdf')
+            ->assertHeader('Cache-Control', 'private, no-store');
+
+        $pdf = $response->getContent();
+        $this->assertIsString($pdf);
+        $this->assertStringStartsWith('%PDF-1.4', $pdf);
+        $this->assertStringContainsString('% locale=en', $pdf);
+        $this->assertStringNotContainsString($this->syntheticPassword(), $pdf);
+        $this->assertSame(
+            1,
+            DB::table('audit_logs')
+                ->where('action', 'learning_access_credentials_exported')
+                ->where('entity_id', $handoff['id'])
+                ->count(),
+        );
+    }
+
+    public function test_bulk_credentials_pdf_is_one_idempotent_audited_batch_with_localized_pages(): void
+    {
+        $actor = $this->accessActor();
+        $firstStudent = $this->student($actor);
+        $secondStudent = app(StudentService::class)->create($actor['session_id'], [
+            'first_name' => 'Olena',
+            'last_name' => 'Kursantka',
+            'no_pesel' => true,
+            'birth_date' => '1993-06-07',
+        ], (string) Str::uuid7());
+
+        $accounts = app(LearningAccountService::class);
+        $first = $accounts->create($actor['session_id'], $firstStudent['id'], [
+            'login_identifier' => 'bulk.pl@example.test',
+            'language_code' => 'pl',
+        ], (string) Str::uuid7());
+        $second = $accounts->create($actor['session_id'], $secondStudent['id'], [
+            'login_identifier' => 'bulk.uk@example.test',
+            'language_code' => 'uk',
+        ], (string) Str::uuid7());
+
+        $key = (string) Str::uuid7();
+        $url = '/api/v1/learning-accesses/bulk-access-document';
+        $payload = ['learning_account_ids' => [$first['id'], $second['id']]];
+        $firstResponse = $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->withHeaders(['Idempotency-Key' => $key])
+            ->postJson($url, $payload)
+            ->assertOk()
+            ->assertHeader('Content-Type', 'application/pdf');
+        $pdf = $firstResponse->getContent();
+        $this->assertIsString($pdf);
+        $this->assertStringStartsWith('%PDF-1.4', $pdf);
+        $this->assertSame(3, substr_count($pdf, '/Type /Page '));
+        $this->assertStringContainsString('% locale=pl', $pdf);
+        $this->assertStringContainsString('% locale=uk', $pdf);
+
+        $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->withHeaders(['Idempotency-Key' => $key])
+            ->postJson($url, $payload)
+            ->assertOk();
+
+        $this->assertSame(1, DB::table('student_access_export_batches')->count());
+        $batchId = (string) DB::table('student_access_export_batches')->value('id');
+        $this->assertSame(2, DB::table('student_access_handoffs')->where('batch_id', $batchId)->count());
+        $this->assertSame(
+            1,
+            DB::table('audit_logs')
+                ->where('action', 'learning_access_credentials_exported')
+                ->where('entity_type', 'student_access_export_batch')
+                ->where('entity_id', $batchId)
+                ->count(),
+        );
+    }
+
     /** @return array{organization_id:string,user_id:string,membership_id:string,session_id:string} */
     private function accessActor(): array
     {
@@ -412,7 +526,9 @@ final class LearningAccessCoreTest extends TestCase
         foreach ([
             'students.view', 'students.create', 'students.archive', 'students.restore',
             'student_access.view', 'student_access.create', 'student_access.manage_credentials', 'student_access.reset_password',
+            'student_access.download_credentials_pdf',
             'licenses.view', 'licenses.assign', 'licenses.activate', 'licenses.revoke_unactivated', 'licenses.progress.view',
+            'licenses.access_documents.download',
         ] as $permission) {
             FoundationSchema::grant($actor['membership_id'], $permission, ['organization']);
         }
