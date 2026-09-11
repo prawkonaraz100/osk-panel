@@ -379,7 +379,16 @@ paths:
         - { $ref: '../openapi-components-v1.yaml#/components/parameters/AttemptId' }
       responses:
         '200':
-          description: Versioned answer-sheet/course-exam card PDF for the attempt
+          description: Immutable canonical answer-sheet PDF bound to the finished attempt evidence and template version
+          headers:
+            ETag:
+              description: SHA-256 content identity of the canonical PDF bytes.
+              schema: { type: string }
+            Content-Disposition:
+              description: Attachment filename for the attempt answer sheet.
+              schema: { type: string }
+            Cache-Control:
+              schema: { type: string, example: 'no-store, private' }
           content:
             application/pdf:
               schema: { type: string, format: binary }
