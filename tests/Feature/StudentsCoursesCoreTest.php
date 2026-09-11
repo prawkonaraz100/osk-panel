@@ -362,8 +362,8 @@ final class StudentsCoursesCoreTest extends TestCase
     }
 
     /**
-     * @param array{organization_id:string,user_id:string,membership_id:string,session_id:string} $actor
-     * @param array<string,mixed> $overrides
+     * @param  array{organization_id:string,user_id:string,membership_id:string,session_id:string}  $actor
+     * @param  array<string,mixed>  $overrides
      * @return array<string,mixed>
      */
     private function student(array $actor, array $overrides = []): array
@@ -382,8 +382,8 @@ final class StudentsCoursesCoreTest extends TestCase
     }
 
     /**
-     * @param array{organization_id:string,user_id:string,membership_id:string,session_id:string} $actor
-     * @param array<string,mixed> $overrides
+     * @param  array{organization_id:string,user_id:string,membership_id:string,session_id:string}  $actor
+     * @param  array<string,mixed>  $overrides
      * @return array<string,mixed>
      */
     private function instructor(array $actor, array $overrides = []): array
@@ -404,8 +404,8 @@ final class StudentsCoursesCoreTest extends TestCase
     }
 
     /**
-     * @param array{organization_id:string,user_id:string,membership_id:string,session_id:string} $actor
-     * @param array<string,mixed> $overrides
+     * @param  array{organization_id:string,user_id:string,membership_id:string,session_id:string}  $actor
+     * @param  array<string,mixed>  $overrides
      * @return array<string,mixed>
      */
     private function course(array $actor, string $studentId, array $overrides = [], bool $createInstructor = true): array

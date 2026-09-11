@@ -357,8 +357,8 @@ final class StudentCourseController
     }
 
     /**
-     * @param array<string,mixed> $payload
-     * @param callable(string):array<string,mixed> $callback
+     * @param  array<string,mixed>  $payload
+     * @param  callable(string):array<string,mixed>  $callback
      */
     private function courseIdempotent(
         Request $request,

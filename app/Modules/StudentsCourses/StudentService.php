@@ -20,8 +20,8 @@ final class StudentService
     ) {}
 
     /**
-     * @param list<string> $categories
-     * @param list<string> $stages
+     * @param  list<string>  $categories
+     * @param  list<string>  $stages
      * @return array{data:list<array<string,mixed>>,meta:array<string,int>}
      */
     public function list(
@@ -141,7 +141,7 @@ final class StudentService
     }
 
     /**
-     * @param array<string,mixed> $input
+     * @param  array<string,mixed>  $input
      * @return array<string,mixed>
      */
     public function create(string $sessionId, array $input, string $requestId): array
@@ -205,7 +205,7 @@ final class StudentService
     }
 
     /**
-     * @param array<string,mixed> $input
+     * @param  array<string,mixed>  $input
      * @return array<string,mixed>
      */
     public function update(string $sessionId, string $studentId, array $input, string $requestId, ?string $expectedTag): array

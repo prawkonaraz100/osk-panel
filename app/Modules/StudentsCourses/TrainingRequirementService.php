@@ -157,7 +157,7 @@ final class TrainingRequirementService
     }
 
     /**
-     * @param list<string> $heldCategories
+     * @param  list<string>  $heldCategories
      * @return array<string,mixed>
      */
     private function calculateBase(

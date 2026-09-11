@@ -58,7 +58,7 @@ final class CourseEnrollmentService
     }
 
     /**
-     * @param array<string,mixed> $input
+     * @param  array<string,mixed>  $input
      * @return array<string,mixed>
      */
     public function create(string $sessionId, string $studentId, array $input, string $requestId): array
@@ -191,7 +191,7 @@ final class CourseEnrollmentService
     }
 
     /**
-     * @param array<string,mixed> $input
+     * @param  array<string,mixed>  $input
      * @return array<string,mixed>
      */
     public function update(string $sessionId, string $courseId, array $input, string $requestId, ?string $expectedTag): array
@@ -515,7 +515,7 @@ final class CourseEnrollmentService
     }
 
     /**
-     * @param array<string,mixed> $input
+     * @param  array<string,mixed>  $input
      * @return array<string,mixed>
      */
     public function updateRequirementContext(string $sessionId, string $courseId, array $input, string $requestId, ?string $expectedTag): array
