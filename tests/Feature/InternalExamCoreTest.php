@@ -342,6 +342,151 @@ final class InternalExamCoreTest extends TestCase
         $this->assertNull(DB::table('internal_exam_attempts')->where('id', $attempt['id'])->value('internal_exam_definition_id'));
     }
 
+    public function test_candidate_snapshot_patch_is_prestart_versioned_and_optimistically_concurrent(): void
+    {
+        $actor = $this->examActor();
+        $course = $this->course($actor);
+        $this->examFixtures($actor, $course);
+        $service = app(InternalExamService::class);
+
+        $attempt = $service->createAttempt(
+            $actor['session_id'],
+            $course['id'],
+            'theory',
+            'pl',
+            (string) Str::uuid7(),
+        );
+        $attemptId = (string) $attempt['id'];
+
+        $loaded = $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->getJson("/api/v1/internal-exam-attempts/{$attemptId}");
+        $loaded->assertOk()
+            ->assertHeader('ETag', '"v1"')
+            ->assertJsonPath('version', 1)
+            ->assertJsonPath('candidate_snapshot.first_name', 'Anna')
+            ->assertJsonPath('course_enrollment_id', $course['id'])
+            ->assertJsonPath('driving_category_code', 'B')
+            ->assertJsonPath('language_code', 'pl');
+
+        $missingVersion = $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->patchJson("/api/v1/internal-exam-attempts/{$attemptId}", [
+                'candidate_snapshot' => ['first_name' => 'Anna Maria'],
+            ]);
+        $missingVersion
+            ->assertStatus(428)
+            ->assertJsonPath('error.code', 'PRECONDITION_REQUIRED');
+
+        $updated = $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->withHeader('If-Match', '"v1"')
+            ->patchJson("/api/v1/internal-exam-attempts/{$attemptId}", [
+                'candidate_snapshot' => [
+                    'first_name' => 'Anna Maria',
+                    'contact_email' => 'Anna.Edit@example.com',
+                ],
+            ]);
+        $updated->assertOk()
+            ->assertHeader('ETag', '"v2"')
+            ->assertJsonPath('version', 2)
+            ->assertJsonPath('candidate_snapshot.first_name', 'Anna Maria')
+            ->assertJsonPath('candidate_snapshot.contact_email', 'anna.edit@example.com')
+            ->assertJsonPath('course_enrollment_id', $course['id'])
+            ->assertJsonPath('driving_category_code', 'B')
+            ->assertJsonPath('language_code', 'pl');
+
+        $event = DB::table('internal_exam_attempt_lifecycle_events')
+            ->where('internal_exam_attempt_id', $attemptId)
+            ->where('event_type', 'candidate_snapshot_updated')
+            ->firstOrFail();
+        $this->assertSame('created', $event->from_status);
+        $this->assertSame('created', $event->to_status);
+        $this->assertSame(1, (int) $event->version_before);
+        $this->assertSame(2, (int) $event->version_after);
+        $this->assertSame($actor['user_id'], (string) $event->actor_user_id);
+        $this->assertNull($event->reason);
+        $eventColumns = array_keys((array) $event);
+        $this->assertNotContains('candidate_snapshot', $eventColumns);
+        $this->assertNotContains('pesel', $eventColumns);
+        $this->assertNotContains('pkk_number', $eventColumns);
+
+        $stale = $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->withHeader('If-Match', '"v1"')
+            ->patchJson("/api/v1/internal-exam-attempts/{$attemptId}", [
+                'candidate_snapshot' => ['last_name' => 'Stale'],
+            ]);
+        $stale
+            ->assertStatus(409)
+            ->assertJsonPath('error.code', 'RESOURCE_VERSION_CONFLICT');
+
+        $immutableField = $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->withHeader('If-Match', '"v2"')
+            ->patchJson("/api/v1/internal-exam-attempts/{$attemptId}", [
+                'candidate_snapshot' => ['language_code' => 'de'],
+            ]);
+        $immutableField->assertStatus(422);
+
+        $noOp = $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->withHeader('If-Match', '"v2"')
+            ->patchJson("/api/v1/internal-exam-attempts/{$attemptId}", [
+                'candidate_snapshot' => ['first_name' => 'Anna Maria'],
+            ]);
+        $noOp->assertOk()
+            ->assertHeader('ETag', '"v2"')
+            ->assertJsonPath('version', 2);
+        $this->assertSame(
+            1,
+            DB::table('internal_exam_attempt_lifecycle_events')
+                ->where('internal_exam_attempt_id', $attemptId)
+                ->where('event_type', 'candidate_snapshot_updated')
+                ->count(),
+        );
+
+        $stationId = $this->station($actor);
+        $access = $service->createAccess(
+            $actor['session_id'],
+            $attemptId,
+            'assigned_exam_station',
+            $stationId,
+            null,
+            null,
+            (string) Str::uuid7(),
+        );
+        $service->startLocal(
+            $actor['session_id'],
+            (string) $access['id'],
+            $this->stationCredential($stationId),
+            (string) Str::uuid7(),
+        );
+
+        $started = $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->getJson("/api/v1/internal-exam-attempts/{$attemptId}");
+        $started->assertOk();
+        $currentTag = $started->headers->get('ETag');
+        $this->assertIsString($currentTag);
+        $this->assertSame('in_progress', $started->json('status'));
+
+        $afterStart = $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->withHeader('If-Match', $currentTag)
+            ->patchJson("/api/v1/internal-exam-attempts/{$attemptId}", [
+                'candidate_snapshot' => ['first_name' => 'Too Late'],
+            ]);
+        $afterStart
+            ->assertStatus(409)
+            ->assertJsonPath('error.code', 'RESOURCE_VERSION_CONFLICT');
+
+        $final = $service->attemptGet($actor['session_id'], $attemptId);
+        $this->assertSame('Anna Maria', $final['candidate_snapshot']['first_name']);
+        $this->assertSame($course['id'], $final['course_enrollment_id']);
+        $this->assertSame('B', $final['driving_category_code']);
+        $this->assertSame('pl', $final['language_code']);
+        $this->assertSame(
+            1,
+            DB::table('internal_exam_attempt_lifecycle_events')
+                ->where('internal_exam_attempt_id', $attemptId)
+                ->where('event_type', 'candidate_snapshot_updated')
+                ->count(),
+        );
+    }
+
     public function test_attempt_creation_without_available_inventory_rolls_back_without_orphan_attempt(): void
     {
         $actor = $this->examActor();
