@@ -138,7 +138,7 @@ final class ScheduleClaimService
     }
 
     /**
-     * @param list<object> $rows
+     * @param  list<object>  $rows
      * @return list<array{kind:string,id:string}>
      */
     private function resourcesFromClaims(array $rows): array
@@ -157,7 +157,7 @@ final class ScheduleClaimService
     }
 
     /**
-     * @param list<array{kind:string,id:string}> $resources
+     * @param  list<array{kind:string,id:string}>  $resources
      */
     private function lockResources(string $organizationId, array $resources): void
     {

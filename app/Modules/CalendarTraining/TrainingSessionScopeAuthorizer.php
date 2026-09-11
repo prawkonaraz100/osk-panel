@@ -198,7 +198,7 @@ final class TrainingSessionScopeAuthorizer
     }
 
     /**
-     * @param array{id:string,organization_id:string,user_id:string,status:string,is_owner:bool,version:int,authorization_version:int} $membership
+     * @param  array{id:string,organization_id:string,user_id:string,status:string,is_owner:bool,version:int,authorization_version:int}  $membership
      */
     private function linkedStaffProfileId(array $membership): ?string
     {

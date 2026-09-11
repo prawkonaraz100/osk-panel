@@ -1,0 +1,37 @@
+module: CalendarTraining
+core_traceability_modules:
+  - course_enrollment_training
+  - calendar
+changed_scope:
+  - evidence: specs/database/students-courses-training.yml
+    requirement: planned TrainingSession mutations preserve optimistic concurrency, verified attendance and atomic terminal completion or cancellation
+    domain_data: course_enrollments + training_sessions + training_session_attendance
+    api_use_case: training_sessions.list/create/get/update/attendance/complete/cancel
+    permission: training_sessions.view/create/edit/cancel with organization assigned_students or instructor-own scope as declared
+    ui: DEFERRED_UI_UNTIL_CALENDAR_FEATURE_SLICE
+    acceptance_test: Tests\\Feature\\TrainingSessionCoreTest::test_attendance_and_patch_use_training_session_version_and_patch_cannot_change_session_type
+    status: IMPLEMENTED
+  - evidence: docs/adr/0003-training-hour-ledger.md
+    requirement: current-OSK formal credited time is created only from completed present TrainingSession evidence and later changes are append-only corrections or reversals
+    domain_data: training_sessions + training_session_attendance + training_hour_ledger_entries + course_enrollment_lifecycle_events
+    api_use_case: training_sessions.complete + training_hours.get/correct
+    permission: training_sessions.edit + training_hours.correct
+    ui: DEFERRED_UI_UNTIL_CALENDAR_FEATURE_SLICE
+    acceptance_test: Tests\\Feature\\TrainingSessionCoreTest::test_manual_correction_is_append_only_requires_fresh_course_version_and_preserves_nonnegative_projection
+    status: IMPLEMENTED
+  - evidence: docs/adr/0008-calendar-resource-conflict-boundary.md
+    requirement: pre-GiST scheduling uses one transaction with deterministic advisory locks overlap detection and exact shared claim replacement without pretending the final database exclusion constraint exists
+    domain_data: calendar_resource_claims + training_sessions + course_enrollments
+    api_use_case: training_sessions.create/update/complete/cancel
+    permission: inherited from the authorized TrainingSession command
+    ui: NOT_APPLICABLE_RUNTIME_GATE_NO_UI
+    acceptance_test: Tests\\Feature\\TrainingSessionCoreTest::test_planned_session_creates_exact_shared_claims_and_rejects_overlap_but_allows_adjacent_interval
+    status: IMPLEMENTED
+  - evidence: specs/security/permissions.yml
+    requirement: training session own scope resolves through the active staff-profile membership link and instructor identity rather than creator identity
+    domain_data: staff_membership_links + staff_profiles + training_sessions + course_enrollments
+    api_use_case: TrainingSessionScopeAuthorizer collection create and target visibility
+    permission: training_sessions.view/create/edit/cancel with own scope
+    ui: NOT_APPLICABLE_RUNTIME_GATE_NO_UI
+    acceptance_test: Tests\\Feature\\TrainingSessionCoreTest::test_own_scope_is_bound_to_active_staff_profile_and_session_instructor
+    status: IMPLEMENTED

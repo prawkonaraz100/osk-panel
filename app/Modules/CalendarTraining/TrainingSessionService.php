@@ -49,7 +49,7 @@ final class TrainingSessionService
     }
 
     /**
-     * @param array{session_type:string,starts_at:string,ends_at:string,instructor_id:string,vehicle_id?:?string,location_id?:?string} $input
+     * @param  array{session_type:string,starts_at:string,ends_at:string,instructor_id:string,vehicle_id?:?string,location_id?:?string}  $input
      * @return array<string,mixed>
      */
     public function create(string $sessionId, string $courseId, array $input, string $requestId): array
@@ -120,7 +120,7 @@ final class TrainingSessionService
     }
 
     /**
-     * @param array{starts_at?:string,ends_at?:string,instructor_id?:string,vehicle_id?:?string,location_id?:?string} $input
+     * @param  array{starts_at?:string,ends_at?:string,instructor_id?:string,vehicle_id?:?string,location_id?:?string}  $input
      * @return array<string,mixed>
      */
     public function update(

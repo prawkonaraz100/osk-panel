@@ -157,8 +157,8 @@ final class TrainingSessionController
     }
 
     /**
-     * @param array<string,mixed> $payload
-     * @param callable(string):array<string,mixed> $callback
+     * @param  array<string,mixed>  $payload
+     * @param  callable(string):array<string,mixed>  $callback
      */
     private function sessionCommand(
         Request $request,
@@ -187,7 +187,7 @@ final class TrainingSessionController
     }
 
     /**
-     * @param array<string,mixed> $rules
+     * @param  array<string,mixed>  $rules
      * @return array<string,mixed>
      */
     private function validated(Request $request, array $rules): array

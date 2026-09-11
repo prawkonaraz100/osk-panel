@@ -270,7 +270,6 @@ final class TrainingSessionCoreTest extends TestCase
         $this->assertSame('RESOURCE_NOT_FOUND', $denied->machineCode);
     }
 
-    /** @return TrainingSessionService */
     private function training(): TrainingSessionService
     {
         return app(TrainingSessionService::class);
@@ -324,7 +323,7 @@ final class TrainingSessionCoreTest extends TestCase
     }
 
     /**
-     * @param array{organization_id:string,user_id:string,membership_id:string,session_id:string} $actor
+     * @param  array{organization_id:string,user_id:string,membership_id:string,session_id:string}  $actor
      * @return array<string,mixed>
      */
     private function instructor(array $actor): array
