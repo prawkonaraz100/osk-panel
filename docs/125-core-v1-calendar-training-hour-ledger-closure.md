@@ -4,8 +4,8 @@ Data: 2026-09-11
 
 **Slice:** `CORE-V1-CALENDAR-TRAINING-SESSION-HOUR-LEDGER-001`  
 **Implementation machine:** PASS  
-**Narrative payload:** READY  
-**Central closure:** PENDING
+**Narrative payload:** PASS  
+**Central closure:** PASS
 
 ## 1. Zakres
 
@@ -338,9 +338,21 @@ Nie są częścią PASS tego slice:
 
 Implementation machine = **PASS**.
 
-Ten dokument jest narrative closure candidate. Po jego accepted-branch central validation można zamknąć:
+Narrative closure candidate:
 
-`CORE-V1-CALENDAR-TRAINING-SESSION-HOUR-LEDGER-001 = PASS`.
+`edc77c1a974924d60318164233a492fb71e739af`
+
+Accepted-branch closure validation run `34600220489` zakończył się **5/5 SUCCESS**:
+
+- backend-quality — PASS,
+- frontend-quality — PASS,
+- runtime-tests-and-migrations — PASS,
+- contracts-and-traceability — PASS,
+- secret-scan — PASS.
+
+W konsekwencji:
+
+**CORE-V1-CALENDAR-TRAINING-SESSION-HOUR-LEDGER-001 = PASS.**
 
 Następny pojedynczy krok zgodnie z `AGENTS.md` i Stage-5 order:
 

@@ -226,8 +226,8 @@ quality_gate:
 
 next_single_step:
   id: CORE-V1-STUDENT-FINANCE-001
-  action: begin_student_finance_slice_only_after_current_closure_validation_and_next_explicit_user_instruction
-  prerequisite_previous_slice: CORE-V1-CALENDAR-TRAINING-SESSION-HOUR-LEDGER-001_PASS_PENDING_CENTRAL_CLOSURE
+  action: begin_student_finance_slice_only_after_next_explicit_user_instruction
+  prerequisite_previous_slice: CORE-V1-CALENDAR-TRAINING-SESSION-HOUR-LEDGER-001_PASS
   implementation_order_source: AGENTS.md
   allowed_scope:
     - Student_Finance
@@ -454,7 +454,7 @@ CORE_V1_STUDENTS_COURSE_ENROLLMENT_001_closure:
     next_core_slice_started: false
 
 CORE_V1_CALENDAR_TRAINING_SESSION_HOUR_LEDGER_001_closure:
-  status: VALIDATION_PENDING
+  status: PASS
   accepted_scope:
     - Calendar
     - Training_Session
@@ -470,6 +470,10 @@ CORE_V1_CALENDAR_TRAINING_SESSION_HOUR_LEDGER_001_closure:
     accepted_final_runtime_hardening_head: 802c673521adb1e883a1c6ab4494d2c387374eb5
     accepted_branch_implementation_run: 34599765192
     accepted_branch_API_contract_run: 34598964044
+    narrative_closure_candidate_commit: edc77c1a974924d60318164233a492fb71e739af
+    narrative_closure_validation_run: 34600220489
+    narrative_closure_validation_jobs_passed: 5
+    narrative_closure_validation_jobs_total: 5
     helper_workflow_entered_accepted_history: false
   migration_materialization:
     stage_4_DAG_nodes_total: 170
@@ -560,8 +564,8 @@ CORE_V1_CALENDAR_TRAINING_SESSION_HOUR_LEDGER_001_closure:
     Stage_4_authority_preservation: PASS
   tranche_result:
     machine_implementation: PASS
-    narrative_payload: READY
-    central_closure: PENDING
+    narrative_payload: PASS
+    central_closure: PASS
     next_core_slice: Student_Finance
     next_core_slice_started: false
 
