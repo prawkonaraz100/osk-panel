@@ -442,7 +442,7 @@ function handleError(caught: unknown): void {
             <tr
               v-for="charge in charges"
               :key="charge.id"
-              :class="{ finance-cancelled: charge.status === 'cancelled' }"
+               :class="{ 'finance-cancelled': charge.status === 'cancelled' }"
             >
               <td>
                 <strong>{{ charge.title }}</strong>
@@ -452,7 +452,12 @@ function handleError(caught: unknown): void {
               <td><strong>{{ money(charge.remaining_amount) }}</strong></td>
               <td>{{ paymentsForCharge(charge.id) }} · {{ money(charge.paid_amount) }}</td>
               <td>{{ formatDate(charge.created_at) }}</td>
-              <td><span class="status-pill" :class="{ muted: charge.status === 'cancelled' }">{{ statusLabel(charge.status) }}</span></td>
+              <td>
+                <span
+                  class="status-pill"
+                  :class="{ muted: charge.status === 'cancelled' }"
+                >{{ statusLabel(charge.status) }}</span>
+              </td>
               <td>
                 <div class="row-actions">
                   <button
