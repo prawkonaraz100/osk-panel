@@ -457,6 +457,15 @@ final class StudentCourseController
             'initial_course.location_id' => ['sometimes', 'nullable', 'uuid'],
             'initial_course.import_existing_current_osk_hours' => ['sometimes', 'boolean'],
             'initial_license' => ['sometimes', 'nullable', 'array'],
+            'initial_license.license_inventory_entry_id' => ['required_with:initial_license', 'uuid'],
+            'initial_license.language_code' => ['required_with:initial_license', 'string', 'max:16'],
+            'initial_license.target' => ['required_with:initial_license', 'array'],
+            'initial_license.target.new_learning_account' => ['required_with:initial_license', 'array'],
+            'initial_license.target.new_learning_account.login_identifier' => ['required_with:initial_license.target.new_learning_account', 'string', 'max:320'],
+            'initial_license.target.new_learning_account.language_code' => ['required_with:initial_license.target.new_learning_account', 'string', 'max:16'],
+            'initial_license.target.new_learning_account.initial_password' => ['sometimes', 'nullable', 'string', 'min:12', 'max:255'],
+            'initial_license.target.student_id' => ['prohibited'],
+            'initial_license.target.existing_learning_account_id' => ['prohibited'],
         ];
     }
 

@@ -301,7 +301,7 @@ components:
         birth_date: { type: [string, 'null'], format: date }
         location_id: { type: [string, 'null'], format: uuid }
         initial_course: { anyOf: [{ $ref: '#/components/schemas/CreateCourseEnrollmentRequest' }, { type: 'null' }] }
-        initial_license: { anyOf: [{ $ref: '#/components/schemas/CreateLicenseAssignmentRequest' }, { type: 'null' }] }
+        initial_license: { anyOf: [{ $ref: '#/components/schemas/CreateInitialLicenseAssignmentRequest' }, { type: 'null' }] }
     UpdateStudentRequest:
       type: object
       properties:
@@ -950,6 +950,8 @@ components:
         active: { type: boolean }
         price: { anyOf: [{ $ref: '#/components/schemas/Money' }, { type: 'null' }] }
         languages: { type: array, items: { type: string } }
+        available_count: { type: integer, minimum: 0, readOnly: true }
+        active_count: { type: integer, minimum: 0, readOnly: true }
     LicenseInventoryEntry:
       type: object
       required: [id, product_id, status]
@@ -970,6 +972,20 @@ components:
         assigned_at: { type: string, format: date-time }
         revoked_at: { type: [string, 'null'], format: date-time }
         version: { type: integer }
+    CreateInitialLicenseAssignmentRequest:
+      type: object
+      additionalProperties: false
+      required: [license_inventory_entry_id, language_code, target]
+      properties:
+        license_inventory_entry_id: { type: string, format: uuid }
+        language_code: { type: string }
+        target:
+          type: object
+          additionalProperties: false
+          required: [new_learning_account]
+          properties:
+            new_learning_account: { $ref: '#/components/schemas/CreateLearningAccountRequest' }
+
     CreateLicenseAssignmentRequest:
       type: object
       additionalProperties: false

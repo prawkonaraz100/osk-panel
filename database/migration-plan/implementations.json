@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
   "plan_identity": "d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10",
-  "execution_identity": "75312e6bd283334be21a38975fa868e742dd1c649acf07abaafe1cf5842cd4fb",
+  "execution_identity": "e2bbaff93f281685224ae47d83d8815a67feef5e09256b7dff0c4f8cd2413401",
   "stage4_root": "database/migrations/stage4",
   "implemented_steps": [
     {
@@ -50,6 +50,15 @@
       "safe_down": false
     },
     {
+      "node_id": "MIG-TBL-LANGUAGES",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-LANGUAGES/2026_09_10_000060_create_languages_table.php",
+      "migration_name": "2026_09_10_000060_create_languages_table",
+      "file_sha256": "51716504f6292dd607dfebbae04c962d332c9bce528c2097abc3ce6dc13052a5",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
       "node_id": "MIG-TBL-DRIVING_CATEGORIES",
       "phase": "expand",
       "migration_file": "database/migrations/stage4/expand/MIG-TBL-DRIVING_CATEGORIES/2026_09_10_000070_create_driving_categories_table.php",
@@ -91,6 +100,15 @@
       "migration_file": "database/migrations/stage4/expand/MIG-TBL-ORGANIZATION_CONTACT_ADDRESSES/2026_09_10_000130_create_organization_contact_addresses_table.php",
       "migration_name": "2026_09_10_000130_create_organization_contact_addresses_table",
       "file_sha256": "0ce443cecce89b9b2d2b21b0e4420b161cfd9d77b36ee2e89861ebe462c15ad3",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-USER_PASSWORD_MANAGEMENT",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-USER_PASSWORD_MANAGEMENT/2026_09_10_000140_create_user_password_management_table.php",
+      "migration_name": "2026_09_10_000140_create_user_password_management_table",
+      "file_sha256": "7f1275d0950fc90817da377a12d8f51d1a59f8c5aaeda14b0961e7f6e4ec2a80",
       "restart_classification": "restart_safe",
       "safe_down": false
     },
@@ -271,6 +289,33 @@
       "migration_file": "database/migrations/stage4/expand/MIG-TBL-STUDENTS/2026_09_10_000370_create_students_table.php",
       "migration_name": "2026_09_10_000370_create_students_table",
       "file_sha256": "c4397f696297c594ecde1d1c2a82816e8c9cf96e5416002315358aa4cf4f6d94",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-STUDENT_LEARNING_ACCOUNTS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-STUDENT_LEARNING_ACCOUNTS/2026_09_10_000380_create_student_learning_accounts_table.php",
+      "migration_name": "2026_09_10_000380_create_student_learning_accounts_table",
+      "file_sha256": "24c50c3840e2018cd08d9211cb898806688e58a065d4aa776b7a66454a2ba6ff",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-STUDENT_ACCESS_HANDOFFS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-STUDENT_ACCESS_HANDOFFS/2026_09_10_000390_create_student_access_handoffs_table.php",
+      "migration_name": "2026_09_10_000390_create_student_access_handoffs_table",
+      "file_sha256": "d157fbc1df2c60ec4f1129b5eadaf749d5d156fbbddee843711881a1fd13a065",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-STUDENT_ACCESS_EXPORT_BATCHES",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-STUDENT_ACCESS_EXPORT_BATCHES/2026_09_10_000400_create_student_access_export_batches_table.php",
+      "migration_name": "2026_09_10_000400_create_student_access_export_batches_table",
+      "file_sha256": "4732df15c01375a1d48ff918d541b02323d7b45217950184db6953945d43cd00",
       "restart_classification": "restart_safe",
       "safe_down": false
     },
@@ -469,6 +514,51 @@
       "migration_file": "database/migrations/stage4/expand/MIG-TBL-COURSE_COST_CHARGE_ORIGINS/2026_09_10_000760_create_course_cost_charge_origins_table.php",
       "migration_name": "2026_09_10_000760_create_course_cost_charge_origins_table",
       "file_sha256": "fa9aff14a981ead495464aed542317f8804c0d42d8222db33c06970f420480a3",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-LICENSE_PRODUCTS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-LICENSE_PRODUCTS/2026_09_10_000770_create_license_products_table.php",
+      "migration_name": "2026_09_10_000770_create_license_products_table",
+      "file_sha256": "a99e1a36b108393facc651ad254803e5f79922a6a687ba06dba11a0969c85c12",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-LICENSE_PRODUCT_LANGUAGE_CAPABILITIES",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-LICENSE_PRODUCT_LANGUAGE_CAPABILITIES/2026_09_10_000780_create_license_product_language_capabilities_table.php",
+      "migration_name": "2026_09_10_000780_create_license_product_language_capabilities_table",
+      "file_sha256": "a91a9520289be568a07c879a11b20f4960adb4ad47e7f2f1596b6fb8cada43d4",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-LICENSE_INVENTORY_ENTRIES",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-LICENSE_INVENTORY_ENTRIES/2026_09_10_000790_create_license_inventory_entries_table.php",
+      "migration_name": "2026_09_10_000790_create_license_inventory_entries_table",
+      "file_sha256": "229303588a6d021296757556115808cebb8a25905b2b083e89ab7073a90997ed",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-LICENSE_ASSIGNMENTS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-LICENSE_ASSIGNMENTS/2026_09_10_000800_create_license_assignments_table.php",
+      "migration_name": "2026_09_10_000800_create_license_assignments_table",
+      "file_sha256": "60fb9942f9426e28c62ca225253e387b24bcd00226f912e8508333391d17646b",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-LICENSE_ACTIVATIONS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-LICENSE_ACTIVATIONS/2026_09_10_000810_create_license_activations_table.php",
+      "migration_name": "2026_09_10_000810_create_license_activations_table",
+      "file_sha256": "3620394cbc60127d05b834f8ba17490044067b9733cd3e03735b9bb9d0695800",
       "restart_classification": "restart_safe",
       "safe_down": false
     },

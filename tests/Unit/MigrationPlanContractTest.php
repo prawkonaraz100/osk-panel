@@ -15,21 +15,23 @@ class MigrationPlanContractTest extends TestCase
 
         $this->assertSame(170, $plan->nodeCount());
         $this->assertSame(17, $plan->batchCount());
-        $this->assertSame(57, $plan->implementedNodeCount());
-        $this->assertSame(57, $plan->implementedStepCount());
+        $this->assertSame(67, $plan->implementedNodeCount());
+        $this->assertSame(67, $plan->implementedStepCount());
         $this->assertSame('ad5f2aa2e14ef248b95dd3dda0d1cbcb2e69d441', $plan->summary()['authority_blob']);
-        $this->assertSame('75312e6bd283334be21a38975fa868e742dd1c649acf07abaafe1cf5842cd4fb', $plan->executionIdentity());
+        $this->assertSame('e2bbaff93f281685224ae47d83d8815a67feef5e09256b7dff0c4f8cd2413401', $plan->executionIdentity());
         $this->assertSame([
             'MIG-EXT-BTREE-GIST',
             'MIG-TBL-ORGANIZATIONS',
             'MIG-TBL-USERS',
             'MIG-TBL-PERMISSIONS',
             'MIG-TBL-DATA_SCOPES',
+            'MIG-TBL-LANGUAGES',
             'MIG-TBL-DRIVING_CATEGORIES',
             'MIG-TBL-LOCATION_TYPES',
             'MIG-TBL-STAFF_TYPES',
             'MIG-TBL-ORGANIZATION_SETTINGS',
             'MIG-TBL-ORGANIZATION_CONTACT_ADDRESSES',
+            'MIG-TBL-USER_PASSWORD_MANAGEMENT',
             'MIG-TBL-AUTH_LOGIN_IDENTIFIERS',
             'MIG-TBL-ORGANIZATION_MEMBERSHIPS',
             'MIG-TBL-MEMBERSHIP_PERMISSIONS',
@@ -50,6 +52,9 @@ class MigrationPlanContractTest extends TestCase
             'MIG-TBL-VEHICLE_CATEGORY_ASSIGNMENTS',
             'MIG-TBL-VEHICLE_LOCATION_ASSIGNMENTS',
             'MIG-TBL-STUDENTS',
+            'MIG-TBL-STUDENT_LEARNING_ACCOUNTS',
+            'MIG-TBL-STUDENT_ACCESS_HANDOFFS',
+            'MIG-TBL-STUDENT_ACCESS_EXPORT_BATCHES',
             'MIG-TBL-COURSE_ENROLLMENTS',
             'MIG-TBL-COURSE_ENROLLMENT_LIFECYCLE_EVENTS',
             'MIG-TBL-TRAINING_REQUIREMENT_RULE_SETS',
@@ -72,6 +77,11 @@ class MigrationPlanContractTest extends TestCase
             'MIG-TBL-STUDENT_CHARGES',
             'MIG-TBL-STUDENT_PAYMENTS',
             'MIG-TBL-COURSE_COST_CHARGE_ORIGINS',
+            'MIG-TBL-LICENSE_PRODUCTS',
+            'MIG-TBL-LICENSE_PRODUCT_LANGUAGE_CAPABILITIES',
+            'MIG-TBL-LICENSE_INVENTORY_ENTRIES',
+            'MIG-TBL-LICENSE_ASSIGNMENTS',
+            'MIG-TBL-LICENSE_ACTIVATIONS',
             'MIG-TBL-AUDIT_ACTION_POLICY_REVISIONS',
             'MIG-TBL-AUDIT_ACTION_POLICY_CURRENTS',
             'MIG-TBL-AUDIT_LOGS',

@@ -4,6 +4,7 @@ namespace App\Modules\StudentsCourses;
 
 use App\Modules\AuditNotification\AtomicAuditOutbox;
 use App\Modules\IdentityTenant\TenantAuthorizer;
+use App\Modules\LearningAccess\LicenseService;
 use App\Modules\ResourcesCore\ResourceDomainException;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
@@ -17,6 +18,7 @@ final class StudentService
         private readonly StudentCourseScopeAuthorizer $scopeAuthorizer,
         private readonly AtomicAuditOutbox $auditOutbox,
         private readonly CourseEnrollmentService $courses,
+        private readonly LicenseService $licenses,
     ) {}
 
     /**
@@ -195,8 +197,25 @@ final class StudentService
                 'students.create',
             );
 
-            if (($input['initial_license'] ?? null) !== null) {
-                throw ResourceDomainException::rule('Initial license assignment belongs to the later Learning Access/Licenses slice.');
+            $initialLicense = $input['initial_license'] ?? null;
+            if ($initialLicense !== null) {
+                if (! is_array($initialLicense)) {
+                    throw ResourceDomainException::rule('Initial license payload must be an object.');
+                }
+                $this->tenantAuthorizer->requireOrganizationPermission(
+                    $sessionId,
+                    $snapshot['organization_id'],
+                    'licenses.assign',
+                );
+                $initialAccount = $initialLicense['target']['new_learning_account'] ?? null;
+                if (is_array($initialAccount)
+                    && trim((string) ($initialAccount['initial_password'] ?? '')) !== '') {
+                    $this->tenantAuthorizer->requireOrganizationPermission(
+                        $sessionId,
+                        $snapshot['organization_id'],
+                        'student_access.manage_credentials',
+                    );
+                }
             }
 
             $this->assertLocation($actor['organization_id'], $input['location_id'] ?? null);
@@ -237,6 +256,17 @@ final class StudentService
                     throw ResourceDomainException::rule('Initial course payload must be an object.');
                 }
                 $this->courses->create($sessionId, $id, $input['initial_course'], $requestId);
+            }
+
+            if ($initialLicense !== null) {
+                /** @var object{id:mixed,organization_id:mixed,first_name:mixed,last_name:mixed,archived_at:mixed} $createdStudent */
+                $createdStudent = DB::table('students')->where('id', $id)->lockForUpdate()->firstOrFail();
+                $this->licenses->createAssignmentForNewStudent(
+                    $actor,
+                    $createdStudent,
+                    $initialLicense,
+                    $requestId,
+                );
             }
 
             return $this->present(DB::table('students')->where('id', $id)->firstOrFail());

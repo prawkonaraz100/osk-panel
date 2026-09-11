@@ -7,6 +7,7 @@ use Tests\Feature\CalendarDrivingLessonCoreTest;
 use Tests\Feature\CalendarEventCoreTest;
 use Tests\Feature\CalendarImportantDateProjectionCoreTest;
 use Tests\Feature\IdentityTenantFoundationTest;
+use Tests\Feature\LearningAccessCoreTest;
 use Tests\Feature\OrganizationSettingsFoundationTest;
 use Tests\Feature\ResourcesCoreTest;
 use Tests\Feature\Stage4MigrationPostcheckTest;
@@ -380,5 +381,30 @@ return [
         'class' => StudentFinanceCoreTest::class,
         'method' => 'test_same_idempotency_key_replays_charge_payment_reversal_and_cancel_without_second_effect',
         'scope' => 'Same idempotency key and request replays charge, payment, reversal, and cancellation without a second financial effect.',
+    ],
+    'DBT-LIC-001' => [
+        'class' => LearningAccessCoreTest::class,
+        'method' => 'test_dbt_lic_001_archive_blocks_new_effects_without_rewriting_access_history',
+        'scope' => 'Archived Student blocks new operational learning-access effects while preserving account, assignment, inventory, and entitlement history.',
+    ],
+    'DBT-LIC-002' => [
+        'class' => LearningAccessCoreTest::class,
+        'method' => 'test_dbt_lic_002_003_revoke_restores_same_unit_and_rejects_second_current_assignment',
+        'scope' => 'Revoking an unactivated assignment preserves history and restores the same concrete inventory unit for a later fresh assignment.',
+    ],
+    'DBT-LIC-003' => [
+        'class' => LearningAccessCoreTest::class,
+        'method' => 'test_dbt_lic_002_003_revoke_restores_same_unit_and_rejects_second_current_assignment',
+        'scope' => 'A concrete inventory unit cannot receive a second current assignment while its first assignment remains current.',
+    ],
+    'DBT-LIC-004' => [
+        'class' => LearningAccessCoreTest::class,
+        'method' => 'test_dbt_lic_004_second_activation_is_rejected_and_entitlement_history_stacks',
+        'scope' => 'A license assignment can produce at most one activation effect and a second fresh activation attempt fails closed.',
+    ],
+    'DBT-LIC-051' => [
+        'class' => LearningAccessCoreTest::class,
+        'method' => 'test_dbt_lic_051_password_reset_persists_only_hash_and_sanitized_idempotent_replay',
+        'scope' => 'OSK-managed credential reset persists only the password hash and redacted metadata; plaintext is one-time and absent from replay/audit/outbox storage.',
     ],
 ];

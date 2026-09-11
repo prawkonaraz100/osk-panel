@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { ApiError, api } from '../ResourcesCore/api'
 import CourseFormFields from './CourseFormFields.vue'
 import StudentFinancePanel from './StudentFinancePanel.vue'
+import StudentLearningAccessPanel from '../LearningAccess/StudentLearningAccessPanel.vue'
 
 type CourseSummary = {
   id: string
@@ -1168,15 +1169,10 @@ function handleError(caught: unknown): void {
             </dl>
           </section>
 
-          <section class="detail-card">
-            <div class="card-heading">
-              <div><span class="section-kicker">Dostęp do nauki</span><h2>Konto kursanta</h2></div>
-            </div>
-            <div class="pending-module">
-              <strong>Learning Access jest kolejnym niezależnym modułem.</strong>
-              <p>Login, język, hasło i licencje nie są przechowywane w profilu Student i nie są tutaj pozorowane.</p>
-            </div>
-          </section>
+          <StudentLearningAccessPanel
+            :student-id="currentStudent.id"
+            :archived="Boolean(currentStudent.archived_at)"
+          />
         </div>
 
         <section class="detail-card">
@@ -1418,7 +1414,7 @@ function handleError(caught: unknown): void {
 
             <div class="full module-note-box">
               <strong>Licencja do platformy</strong>
-              <span>Przypisanie loginu i licencji zostanie dodane w dedykowanym module Learning Access/Licenses.</span>
+              <span>Po utworzeniu kursanta licencję możesz przypisać od razu z jego profilu albo z panelu Licencje.</span>
             </div>
 
             <div class="form-actions full">

@@ -1423,3 +1423,199 @@ fieldset legend {
     flex-direction: column;
   }
 }
+
+
+/* Learning Access / Licenses */
+.learning-access-panel {
+  min-width: 0;
+}
+
+.learning-account-list,
+.license-history,
+.search-result-list {
+  display: grid;
+  gap: 10px;
+}
+
+.learning-account-card {
+  padding: 15px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fcfcfb;
+}
+
+.learning-account-head,
+.license-history-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.learning-account-head > div:first-child,
+.license-history-row > div:first-child {
+  display: grid;
+  gap: 4px;
+}
+
+.learning-account-head span,
+.license-history-row span {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.license-history {
+  margin-top: 12px;
+  padding-top: 4px;
+  border-top: 1px solid var(--line);
+}
+
+.license-history-row {
+  min-height: 54px;
+  padding: 10px 0;
+  border-bottom: 1px solid #efeeeb;
+}
+
+.license-history-row:last-child {
+  border-bottom: 0;
+}
+
+.compact-empty {
+  margin-top: 12px;
+  padding: 14px;
+}
+
+.secret-handoff {
+  margin-bottom: 16px;
+  padding: 15px;
+  border: 1px solid #d7c06f;
+  border-radius: 11px;
+  background: #fffaf0;
+  display: grid;
+  gap: 5px;
+}
+
+.secret-handoff span,
+.secret-handoff small {
+  color: #76652e;
+  font-size: 11px;
+}
+
+.secret-handoff strong {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 18px;
+  word-break: break-all;
+}
+
+.license-product-grid {
+  margin-bottom: 24px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 12px;
+}
+
+.license-product-card {
+  min-height: 130px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  display: grid;
+  gap: 8px;
+}
+
+.license-product-card > span {
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+
+.license-product-card > strong {
+  font-size: 24px;
+}
+
+.license-product-card > div {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.license-product-card b {
+  font-size: 18px;
+}
+
+.license-product-card small {
+  color: var(--muted);
+}
+
+.license-toolbar {
+  align-items: center;
+}
+
+.license-filters {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.license-filters input,
+.license-filters select {
+  min-height: 40px;
+  padding: 8px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 9px;
+  background: #fff;
+}
+
+.license-table {
+  min-width: 1040px;
+}
+
+.license-expanded-row td {
+  padding: 8px 28px 18px;
+  background: #fbfbfa;
+}
+
+.compact-search {
+  width: 100%;
+  justify-content: flex-start;
+}
+
+.compact-search input {
+  width: 100%;
+}
+
+.search-result {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: #fff;
+  display: grid;
+  gap: 3px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.search-result:hover {
+  border-color: var(--line-strong);
+  background: #fbfbfa;
+}
+
+.search-result span {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+@media (max-width: 760px) {
+  .learning-account-head,
+  .license-history-row,
+  .license-toolbar,
+  .license-filters {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
