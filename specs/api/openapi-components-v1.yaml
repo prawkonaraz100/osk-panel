@@ -1077,26 +1077,63 @@ components:
         status: { type: string }
     ExamSubject:
       type: object
+      required: [student_id, course_enrollment_id, exam_part, assignment_eligible_now, first_name, last_name, full_name, course_category, status, exam_count, passed_count, failed_count]
       properties:
         student_id: { type: string, format: uuid }
+        course_enrollment_id: { type: string, format: uuid }
+        exam_part: { type: string, enum: [theory, practical] }
+        assignment_eligible_now: { type: boolean }
+        first_name: { type: string }
+        last_name: { type: string }
         full_name: { type: string }
         email: { type: [string, 'null'] }
         login: { type: [string, 'null'] }
-        categories: { type: array, items: { type: string } }
-        status: { type: string }
+        course_category: { type: string }
+        status: { type: string, enum: [not_assigned, not_conducted, failed, passed] }
+        latest_attempt_id: { type: [string, 'null'], format: uuid }
+        latest_attempt_sequence: { type: [integer, 'null'], minimum: 1 }
+        latest_attempt_status: { type: [string, 'null'] }
+        latest_exam_category: { type: [string, 'null'] }
+        latest_exam_at: { type: [string, 'null'], format: date-time }
+        latest_exam_language: { type: [string, 'null'] }
+        latest_attempt_started_at: { type: [string, 'null'], format: date-time }
+        latest_attempt_finished_at: { type: [string, 'null'], format: date-time }
+        exam_count: { type: integer, minimum: 0 }
+        passed_count: { type: integer, minimum: 0 }
+        failed_count: { type: integer, minimum: 0 }
+        pass_rate: { type: [number, 'null'], minimum: 0, maximum: 1 }
+    InternalExamManagementStatistics:
+      type: object
+      required: [subject_count, exam_count, passed_count, failed_count, valid_conducted_count, pass_rate]
+      properties:
+        subject_count: { type: integer, minimum: 0 }
+        exam_count: { type: integer, minimum: 0 }
+        passed_count: { type: integer, minimum: 0 }
+        failed_count: { type: integer, minimum: 0 }
+        valid_conducted_count: { type: integer, minimum: 0 }
+        pass_rate: { type: [number, 'null'], minimum: 0, maximum: 1 }
+    InternalExamManagementMeta:
+      allOf:
+        - { $ref: '#/components/schemas/PaginationMeta' }
+        - type: object
+          required: [statistics]
+          properties:
+            statistics: { $ref: '#/components/schemas/InternalExamManagementStatistics' }
     InternalExamAttempt:
       type: object
-      required: [id, student_id, course_enrollment_id, exam_part, status, version]
+      required: [id, student_id, course_enrollment_id, course_attempt_sequence, exam_part, status, created_at, version]
       properties:
         id: { type: string, format: uuid }
         student_id: { type: string, format: uuid }
         course_enrollment_id: { type: string, format: uuid }
+        course_attempt_sequence: { type: integer, minimum: 1 }
         exam_part: { type: string, enum: [theory, practical] }
         driving_category_code: { type: string }
         language_code: { type: string }
         status: { type: string }
         started_at: { type: [string, 'null'], format: date-time }
         finished_at: { type: [string, 'null'], format: date-time }
+        created_at: { type: string, format: date-time }
         version: { type: integer }
     CreateInternalExamAttemptRequest:
       type: object
