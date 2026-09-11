@@ -41,7 +41,7 @@ final class TrainingSessionScopeAuthorizer
 
         return [
             'membership' => $membership,
-            'scopes' => array_values($scopes),
+            'scopes' => $scopes,
             'staff_profile_id' => $staffProfileId,
             'assigned_student_ids' => $assignedStudentIds,
         ];
@@ -184,7 +184,7 @@ final class TrainingSessionScopeAuthorizer
                 && in_array($studentId, $context['assigned_student_ids'], true));
     }
 
-    private function course(string $organizationId, string $courseId): object
+    private function course(string $organizationId, string $courseId): \stdClass
     {
         $course = DB::table('course_enrollments')
             ->where('organization_id', $organizationId)

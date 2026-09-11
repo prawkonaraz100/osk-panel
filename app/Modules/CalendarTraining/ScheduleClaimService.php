@@ -138,7 +138,7 @@ final class ScheduleClaimService
     }
 
     /**
-     * @param  list<object>  $rows
+     * @param  array<int, \stdClass>  $rows
      * @return list<array{kind:string,id:string}>
      */
     private function resourcesFromClaims(array $rows): array

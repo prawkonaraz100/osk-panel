@@ -26,6 +26,7 @@ final class TrainingSessionController
 
     public function create(Request $request, string $courseEnrollmentId): JsonResponse
     {
+        /** @var array{session_type:string,starts_at:string,ends_at:string,instructor_id:string,vehicle_id?:?string,location_id?:?string} $input */
         $input = $this->validated($request, $this->sessionRules(true));
         $sessionId = $this->sessionId($request);
         $organizationId = $this->tenantAuthorizer->activeMembershipForSession($sessionId)['organization_id'];

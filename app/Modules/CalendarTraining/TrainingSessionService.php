@@ -30,7 +30,7 @@ final class TrainingSessionService
             $query->where('instructor_id', $access['own_instructor_id']);
         }
 
-        return array_values($query->get()->map(fn (object $row): array => $this->present($row))->all());
+        return array_values($query->get()->map(fn (\stdClass $row): array => $this->present($row))->all());
     }
 
     /** @return array<string,mixed> */
@@ -663,7 +663,7 @@ final class TrainingSessionService
         return '"v'.$version.'"';
     }
 
-    private function lockedCourse(string $organizationId, string $courseId): object
+    private function lockedCourse(string $organizationId, string $courseId): \stdClass
     {
         $row = DB::table('course_enrollments')
             ->where('organization_id', $organizationId)
@@ -677,7 +677,7 @@ final class TrainingSessionService
         return $row;
     }
 
-    private function lockedSession(string $organizationId, string $trainingSessionId): object
+    private function lockedSession(string $organizationId, string $trainingSessionId): \stdClass
     {
         $row = DB::table('training_sessions')
             ->where('organization_id', $organizationId)
@@ -691,14 +691,14 @@ final class TrainingSessionService
         return $row;
     }
 
-    private function assertCourseActive(object $course): void
+    private function assertCourseActive(\stdClass $course): void
     {
         if ($this->courseLifecycleState($course) !== 'active') {
             throw ResourceDomainException::conflict('TrainingSession mutation requires an active CourseEnrollment.');
         }
     }
 
-    private function assertPlanned(object $session): void
+    private function assertPlanned(\stdClass $session): void
     {
         if ((string) $session->status !== 'planned') {
             throw ResourceDomainException::conflict('Only a planned TrainingSession may be changed by this command.');
@@ -763,7 +763,7 @@ final class TrainingSessionService
         }
     }
 
-    private function assertSessionVersion(object $row, ?string $expectedTag): void
+    private function assertSessionVersion(\stdClass $row, ?string $expectedTag): void
     {
         if ($expectedTag === null || trim($expectedTag) === '') {
             throw new ResourceDomainException('PRECONDITION_REQUIRED', 428, 'If-Match with current TrainingSession version is required.');
@@ -775,7 +775,7 @@ final class TrainingSessionService
         }
     }
 
-    private function assertCourseVersion(object $row, ?string $expectedTag): void
+    private function assertCourseVersion(\stdClass $row, ?string $expectedTag): void
     {
         if ($expectedTag === null || trim($expectedTag) === '') {
             throw new ResourceDomainException('PRECONDITION_REQUIRED', 428, 'If-Match with current CourseEnrollment version is required.');
@@ -806,7 +806,7 @@ final class TrainingSessionService
         return $value === '' ? null : $value;
     }
 
-    private function courseLifecycleState(object $row): string
+    private function courseLifecycleState(\stdClass $row): string
     {
         if ($row->completed_at !== null) {
             return 'completed';
@@ -822,7 +822,7 @@ final class TrainingSessionService
     }
 
     /** @return array<string,mixed> */
-    private function present(object $row): array
+    private function present(\stdClass $row): array
     {
         return [
             'id' => (string) $row->id,
@@ -845,7 +845,7 @@ final class TrainingSessionService
     }
 
     /** @return array<string,mixed> */
-    private function presentAttendance(object $row, int $sessionVersion): array
+    private function presentAttendance(\stdClass $row, int $sessionVersion): array
     {
         return [
             'training_session_id' => (string) $row->training_session_id,
@@ -859,7 +859,7 @@ final class TrainingSessionService
     }
 
     /** @return array<string,mixed> */
-    private function presentLedgerEntry(object $row): array
+    private function presentLedgerEntry(\stdClass $row): array
     {
         return [
             'id' => (string) $row->id,
