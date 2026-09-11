@@ -1,6 +1,6 @@
 module: StudentsCourses
 core_traceability_modules:
-  - students
+  - students_learning_access
   - course_enrollment_training
   - pkk
 changed_scope:
