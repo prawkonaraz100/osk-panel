@@ -15,6 +15,7 @@ final class CalendarEventService
         private readonly CalendarEventScopeAuthorizer $scopeAuthorizer,
         private readonly CalendarDrivingLessonService $drivingLessons,
         private readonly CalendarAvailabilityBookingProjectionService $availabilityBookings,
+        private readonly CalendarImportantDateProjectionService $importantDates,
         private readonly ScheduleClaimService $claims,
         private readonly AtomicAuditOutbox $auditOutbox,
     ) {}
@@ -72,6 +73,10 @@ final class CalendarEventService
                 ...$this->availabilityBookings->list($sessionId, $filters),
                 ...$this->drivingLessons->list($sessionId, $filters),
             ];
+        }
+
+        if ($types === [] || in_array('important_date', $types, true)) {
+            $items = [...$items, ...$this->importantDates->list($sessionId, $filters)];
         }
 
         usort($items, static function (array $left, array $right): int {

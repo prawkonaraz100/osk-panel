@@ -148,3 +148,27 @@ changed_scope:
     ui: DEFERRED_UNTIL_CALENDAR_UI_GATE
     acceptance_test: Tests\\Feature\\CalendarAvailabilityProjectionCoreTest::test_formalization_switches_calendar_source_without_duplicate_item
     status: IMPLEMENTED
+  - evidence: docs/51-calendar-important-dates.md
+    requirement: important dates are system-generated read-only calendar items from authoritative source-domain expiry dates and are never persisted as manual CalendarEvent rows
+    domain_data: current staff_documents + staff_profiles + current vehicle_documents + vehicles
+    api_use_case: calendar.events.important_dates_projection
+    permission: calendar.view with organization own or assigned_locations source visibility
+    ui: DEFERRED_UNTIL_CALENDAR_UI_GATE
+    acceptance_test: Tests\\Feature\\CalendarImportantDateProjectionCoreTest::test_staff_and_vehicle_expiry_dates_project_without_calendar_rows_or_claims
+    status: IMPLEMENTED
+  - evidence: specs/database/calendar.yml#important_date_projection
+    requirement: current non-superseded document valid_until remains authoritative so replacing or removing a source date automatically replaces or removes the calendar projection
+    domain_data: staff_documents + vehicle_documents
+    api_use_case: calendar.events.important_dates_projection
+    permission: calendar.view
+    ui: DEFERRED_UNTIL_CALENDAR_UI_GATE
+    acceptance_test: Tests\\Feature\\CalendarImportantDateProjectionCoreTest::test_source_document_replacement_moves_important_date_without_calendar_mutation
+    status: IMPLEMENTED
+  - evidence: docs/51-calendar-important-dates.md#4-zasada-architektoniczna
+    requirement: important date resource filters resolve against Staff and Vehicle source relations while archived source owners and null expiry dates do not project
+    domain_data: staff_location_assignments + vehicle_location_assignments + staff_profiles + vehicles
+    api_use_case: calendar.events.important_dates_projection
+    permission: calendar.view
+    ui: DEFERRED_UNTIL_CALENDAR_UI_GATE
+    acceptance_test: Tests\\Feature\\CalendarImportantDateProjectionCoreTest::test_important_date_filters_and_archived_sources_fail_closed
+    status: IMPLEMENTED

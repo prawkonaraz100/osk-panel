@@ -416,6 +416,7 @@ modules:
       - specs/screens/calendar.yml
       - specs/screens/calendar-add-event.yml
       - docs/50-own-calendar-event-lifecycle.md
+      - docs/51-calendar-important-dates.md
     preserved_capabilities:
       - month_week_day_views
       - today_previous_next_navigation
@@ -451,6 +452,8 @@ modules:
       - training_sessions
       - training_session_calendar_details
       - availability_slots
+      - staff_documents
+      - vehicle_documents
       - students
       - staff_profiles
       - vehicles
@@ -478,6 +481,9 @@ modules:
       - booked_unformalized_slot_projects_once_as_driving_lesson_from_availability_source
       - formalized_slot_suppresses_availability_projection_and_projects_once_from_training_session
       - formalized_slot_keeps_immutable_booking_snapshot_and_cannot_cancel_independently
+      - important_dates_are_read_only_projections_of_current_source_document_expiry_dates
+      - important_date_projection_creates_no_calendar_event_or_resource_claim
+      - superseding_or_archiving_source_document_owner_changes_projection_without_calendar_copy
       - cancelled_availability_slot_is_terminal_and_not_auto_republished
     production_blockers:
       - calendar_overlap_enforcement_ADR

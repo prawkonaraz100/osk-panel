@@ -571,7 +571,7 @@ components:
       required: [id, source_kind, source_id, event_type, starts_at, ends_at, status, version]
       properties:
         id: { type: string, format: uuid }
-        source_kind: { type: string, enum: [calendar_event, availability_slot_booking, training_session, important_date], readOnly: true }
+        source_kind: { type: string, enum: [calendar_event, availability_slot_booking, training_session, staff_document, vehicle_document, important_date], readOnly: true }
         source_id: { type: string, readOnly: true }
         course_enrollment_id: { type: [string, 'null'], format: uuid, readOnly: true }
         event_type: { type: string, enum: [general_event, driving_lesson, important_date] }
@@ -585,6 +585,9 @@ components:
         custom_meeting_place: { type: [string, 'null'] }
         status: { type: string }
         version: { type: integer }
+        all_day: { type: boolean, readOnly: true }
+        source_date: { type: [string, 'null'], format: date, readOnly: true }
+        important_date_kind: { type: [string, 'null'], readOnly: true }
     CreateCalendarEventRequest:
       type: object
       additionalProperties: false
