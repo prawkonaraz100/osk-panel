@@ -581,8 +581,7 @@ function handleError(caught: unknown): void {
                 <th>
                   Licencje
                 </th>
-                <th>
-                </th>
+                <th />
               </tr>
             </thead>
             <tbody>
