@@ -26,6 +26,7 @@ final class InternalExamService
 
     public function __construct(
         private readonly InternalExamScopeAuthorizer $scope,
+        private readonly InternalExamTokenService $tokens,
         private readonly AtomicAuditOutbox $auditOutbox,
     ) {}
 
@@ -295,6 +296,22 @@ final class InternalExamService
                 $actor['user_id'], null, $now,
             );
 
+            $oneTimeToken = null;
+            if ($mode === 'remote_link') {
+                if ($expiresAt === null) {
+                    throw new LogicException('Remote access expiry disappeared inside the transaction.');
+                }
+                $issued = $this->tokens->issueExecution(
+                    $actor['organization_id'],
+                    $id,
+                    $attemptId,
+                    $actor['user_id'],
+                    $now,
+                    $expiresAt,
+                );
+                $oneTimeToken = $issued['raw_token'];
+            }
+
             $this->auditOutbox->recordOrganizationEvent(
                 $actor['organization_id'], $actor['id'], $actor['user_id'],
                 'internal_exam.access.created', 'internal_exam_access', $id, $requestId,
@@ -302,7 +319,92 @@ final class InternalExamService
                 ['fields' => ['attempt', 'mode', 'station'], 'state' => $status],
             );
 
-            return $this->presentAccess($actor['organization_id'], $id);
+            $presented = $this->presentAccess($actor['organization_id'], $id);
+            $presented['one_time_remote_token'] = $oneTimeToken;
+
+            return $presented;
+        });
+    }
+
+    /** @return array<string,mixed> */
+    public function sendRemoteAccess(
+        string $sessionId,
+        string $accessId,
+        string $requestId,
+    ): array {
+        $actor = $this->scope->requireAccess($sessionId, 'exams.access.send', $accessId);
+
+        return DB::transaction(function () use ($actor, $accessId, $requestId): array {
+            /** @var AccessRow|null $accessSnapshot */
+            $accessSnapshot = DB::table('internal_exam_accesses')
+                ->where('organization_id', $actor['organization_id'])
+                ->where('id', $accessId)
+                ->first();
+            if ($accessSnapshot === null) {
+                throw ResourceDomainException::notFound();
+            }
+
+            $attempt = $this->lockAttempt($actor['organization_id'], (string) $accessSnapshot->internal_exam_attempt_id);
+            /** @var AccessRow $access */
+            $access = DB::table('internal_exam_accesses')
+                ->where('organization_id', $actor['organization_id'])
+                ->where('id', $accessId)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if ((string) $attempt->status !== 'created'
+                || (string) $access->launch_mode !== 'remote_link'
+                || ! in_array((string) $access->status, ['ready', 'delivered_or_assigned', 'opened'], true)) {
+                throw ResourceDomainException::conflict('Remote access is not eligible for send or resend.');
+            }
+
+            $expiresAtValue = DB::table('internal_exam_accesses')->where('id', $accessId)->value('expires_at');
+            if (! is_string($expiresAtValue)) {
+                throw ResourceDomainException::conflict('Remote access expiry is missing.');
+            }
+            $now = CarbonImmutable::now();
+            $accessExpiresAt = CarbonImmutable::parse($expiresAtValue);
+            if (! $now->lt($accessExpiresAt)) {
+                throw ResourceDomainException::conflict('Remote access has expired.');
+            }
+
+            $issued = $this->tokens->rotateExecution(
+                $actor['organization_id'],
+                $accessId,
+                (string) $attempt->id,
+                $actor['user_id'],
+                $now,
+                $accessExpiresAt,
+                'rotated_for_send',
+            );
+
+            $afterStatus = (string) $access->status;
+            if ((string) $access->status === 'ready') {
+                $afterStatus = 'delivered_or_assigned';
+                $versionAfter = (int) $access->version + 1;
+                DB::table('internal_exam_accesses')->where('id', $accessId)->update([
+                    'status' => $afterStatus,
+                    'version' => $versionAfter,
+                    'delivered_or_assigned_at' => $now,
+                ]);
+                $this->appendAccessEvent(
+                    $actor['organization_id'], $accessId, (string) $attempt->id, 'delivered',
+                    'ready', $afterStatus, (int) $access->version, $versionAfter,
+                    $actor['user_id'], null, $now,
+                );
+            }
+
+            $this->auditOutbox->recordOrganizationEvent(
+                $actor['organization_id'], $actor['id'], $actor['user_id'],
+                'internal_exam.access.sent', 'internal_exam_access', $accessId, $requestId,
+                ['fields' => ['status'], 'state' => (string) $access->status],
+                ['fields' => ['status', 'delivery'], 'state' => $afterStatus],
+            );
+
+            $presented = $this->presentAccess($actor['organization_id'], $accessId);
+            $presented['one_time_remote_token'] = $issued['raw_token'];
+
+            return $presented;
         });
     }
 
@@ -359,6 +461,12 @@ final class InternalExamService
             }
 
             $now = CarbonImmutable::now();
+            $this->tokens->revokeExecution(
+                $actor['organization_id'],
+                $accessId,
+                'prestart_revoked',
+                $now,
+            );
             $accessVersion = (int) $access->version + 1;
             DB::table('internal_exam_accesses')->where('id', $accessId)->update([
                 'status' => 'revoked',

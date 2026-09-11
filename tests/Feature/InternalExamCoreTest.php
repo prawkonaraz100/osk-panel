@@ -3,6 +3,8 @@
 namespace Tests\Feature;
 
 use App\Modules\InternalExams\InternalExamService;
+use App\Modules\InternalExams\InternalExamTokenService;
+use Carbon\CarbonImmutable;
 use App\Modules\ResourcesCore\ResourceDomainException;
 use App\Modules\ResourcesCore\StaffService;
 use App\Modules\StudentsCourses\CourseEnrollmentService;
@@ -18,6 +20,9 @@ final class InternalExamCoreTest extends TestCase
     {
         parent::setUp();
         config()->set('internal_exams.station_heartbeat_fresh_seconds', 120);
+        config()->set('internal_exams.execution_token_ttl_minutes', 60);
+        config()->set('internal_exams.result_token_ttl_minutes', 1440);
+        config()->set('internal_exams.token_verifier_key_v1', 'synthetic-internal-exam-verifier-key-v1-2026-09-11');
         FoundationSchema::reset();
     }
 
@@ -262,6 +267,142 @@ final class InternalExamCoreTest extends TestCase
         );
     }
 
+    public function test_remote_access_token_is_nonrecoverable_purpose_scoped_and_exact_expiry_fails_closed(): void
+    {
+        $actor = $this->examActor();
+        $course = $this->course($actor);
+        $this->examFixtures($actor, $course);
+        $service = app(InternalExamService::class);
+        $tokens = app(InternalExamTokenService::class);
+
+        $attempt = $service->createAttempt($actor['session_id'], $course['id'], 'theory', 'pl', (string) Str::uuid7());
+        $access = $service->createAccess(
+            $actor['session_id'],
+            $attempt['id'],
+            'remote_link',
+            null,
+            null,
+            CarbonImmutable::now()->addMinutes(90),
+            (string) Str::uuid7(),
+        );
+
+        $raw = $access['one_time_remote_token'];
+        $this->assertIsString($raw);
+        $this->assertNotSame('', $raw);
+        $tokenRow = DB::table('internal_exam_access_tokens')->where('internal_exam_access_id', $access['id'])->firstOrFail();
+        $this->assertSame(64, strlen((string) $tokenRow->secret_verifier));
+        $this->assertStringNotContainsString($raw, (string) $tokenRow->secret_verifier);
+
+        $context = $tokens->verify($raw, 'exam_execution');
+        $this->assertSame($attempt['id'], $context['attempt_id']);
+        $this->assertSame($access['id'], $context['access_id']);
+        $this->assertSame($actor['organization_id'], $context['organization_id']);
+
+        $wrongPurpose = $this->captureDomainException(fn () => $tokens->verify($raw, 'finished_result_read'));
+        $this->assertSame('INVALID_EXAM_ACCESS_TOKEN', $wrongPurpose->machineCode);
+
+        [$locator, $secret] = explode('.', $raw, 2);
+        $last = substr($secret, -1);
+        $tampered = $locator.'.'.substr($secret, 0, -1).($last === 'A' ? 'B' : 'A');
+        $wrongSecret = $this->captureDomainException(fn () => $tokens->verify($tampered, 'exam_execution'));
+        $this->assertSame('INVALID_EXAM_ACCESS_TOKEN', $wrongSecret->machineCode);
+
+        $atBoundary = $this->captureDomainException(fn () => $tokens->verify(
+            $raw,
+            'exam_execution',
+            CarbonImmutable::parse((string) $tokenRow->expires_at),
+        ));
+        $this->assertSame('INVALID_EXAM_ACCESS_TOKEN', $atBoundary->machineCode);
+
+        $auditText = DB::table('audit_logs')->get()->map(
+            static fn (object $row): string => (string) ($row->before_redacted_json ?? '').(string) ($row->after_redacted_json ?? ''),
+        )->implode('|');
+        $outboxText = DB::table('outbox_messages')->pluck('payload')->implode('|');
+        $this->assertStringNotContainsString($raw, $auditText);
+        $this->assertStringNotContainsString($raw, $outboxText);
+    }
+
+    public function test_remote_send_rotates_secret_on_same_access_and_reservation_without_new_inventory_effect(): void
+    {
+        $actor = $this->examActor();
+        $course = $this->course($actor);
+        $fixtures = $this->examFixtures($actor, $course);
+        $service = app(InternalExamService::class);
+        $tokens = app(InternalExamTokenService::class);
+
+        $attempt = $service->createAttempt($actor['session_id'], $course['id'], 'theory', 'pl', (string) Str::uuid7());
+        $access = $service->createAccess(
+            $actor['session_id'],
+            $attempt['id'],
+            'remote_link',
+            null,
+            null,
+            CarbonImmutable::now()->addMinutes(90),
+            (string) Str::uuid7(),
+        );
+        $first = (string) $access['one_time_remote_token'];
+
+        $sent = $service->sendRemoteAccess($actor['session_id'], $access['id'], (string) Str::uuid7());
+        $second = (string) $sent['one_time_remote_token'];
+
+        $this->assertNotSame($first, $second);
+        $this->assertSame('delivered_or_assigned', $sent['status']);
+        $this->assertSame(2, $sent['version']);
+        $this->assertSame(2, DB::table('internal_exam_access_tokens')->where('internal_exam_access_id', $access['id'])->count());
+        $this->assertSame(1, DB::table('internal_exam_access_tokens')->where('internal_exam_access_id', $access['id'])->whereNull('revoked_at')->count());
+        $this->assertSame(1, DB::table('internal_exam_reservations')->where('internal_exam_attempt_id', $attempt['id'])->count());
+        $this->assertSame('reserved', DB::table('internal_exam_inventory_entries')->where('id', $fixtures['inventory_id'])->value('current_state'));
+        $this->assertSame(
+            0,
+            DB::table('internal_exam_inventory_ledger_entries')
+                ->where('internal_exam_attempt_id', $attempt['id'])
+                ->where('event_type', 'unit_consumed')
+                ->count(),
+        );
+
+        $old = $this->captureDomainException(fn () => $tokens->verify($first, 'exam_execution'));
+        $this->assertSame('INVALID_EXAM_ACCESS_TOKEN', $old->machineCode);
+        $this->assertSame($access['id'], $tokens->verify($second, 'exam_execution')['access_id']);
+
+        $resent = $service->sendRemoteAccess($actor['session_id'], $access['id'], (string) Str::uuid7());
+        $third = (string) $resent['one_time_remote_token'];
+        $this->assertNotSame($second, $third);
+        $this->assertSame(2, $resent['version']);
+        $this->assertSame(3, DB::table('internal_exam_access_tokens')->where('internal_exam_access_id', $access['id'])->count());
+        $this->assertSame(1, DB::table('internal_exam_access_tokens')->where('internal_exam_access_id', $access['id'])->whereNull('revoked_at')->count());
+        $this->assertSame(1, DB::table('internal_exam_reservations')->where('internal_exam_attempt_id', $attempt['id'])->count());
+    }
+
+    public function test_remote_prestart_revoke_revokes_current_secret_and_releases_reserved_unit(): void
+    {
+        $actor = $this->examActor();
+        $course = $this->course($actor);
+        $fixtures = $this->examFixtures($actor, $course);
+        $service = app(InternalExamService::class);
+        $tokens = app(InternalExamTokenService::class);
+
+        $attempt = $service->createAttempt($actor['session_id'], $course['id'], 'theory', 'pl', (string) Str::uuid7());
+        $access = $service->createAccess(
+            $actor['session_id'],
+            $attempt['id'],
+            'remote_link',
+            null,
+            null,
+            CarbonImmutable::now()->addMinutes(90),
+            (string) Str::uuid7(),
+        );
+        $raw = (string) $access['one_time_remote_token'];
+
+        $service->revokePrestart($actor['session_id'], $access['id'], 'candidate cancelled', (string) Str::uuid7());
+
+        $invalid = $this->captureDomainException(fn () => $tokens->verify($raw, 'exam_execution'));
+        $this->assertSame('INVALID_EXAM_ACCESS_TOKEN', $invalid->machineCode);
+        $this->assertNotNull(DB::table('internal_exam_access_tokens')->where('internal_exam_access_id', $access['id'])->value('revoked_at'));
+        $this->assertSame('prestart_revoked', DB::table('internal_exam_access_tokens')->where('internal_exam_access_id', $access['id'])->value('revoke_reason_code'));
+        $this->assertSame('released', DB::table('internal_exam_reservations')->where('internal_exam_attempt_id', $attempt['id'])->value('status'));
+        $this->assertSame('available', DB::table('internal_exam_inventory_entries')->where('id', $fixtures['inventory_id'])->value('current_state'));
+    }
+
     /** @return array{organization_id:string,user_id:string,membership_id:string,session_id:string} */
     private function examActor(): array
     {
@@ -269,7 +410,7 @@ final class InternalExamCoreTest extends TestCase
         foreach ([
             'students.view', 'students.create', 'students.edit',
             'courses.view', 'courses.create', 'courses.edit', 'course_requirements.correct',
-            'exams.view', 'exams.generate', 'exams.start.local', 'exams.results.view',
+            'exams.view', 'exams.generate', 'exams.access.send', 'exams.start.local', 'exams.results.view',
             'exams.documents.download', 'exams.inventory.adjust',
         ] as $permission) {
             FoundationSchema::grant($actor['membership_id'], $permission, ['organization']);
