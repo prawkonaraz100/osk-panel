@@ -292,35 +292,43 @@ final class InternalExamManagementService
 
     private function applySort(Builder $query, string $sort, string $direction): void
     {
+        $descending = $direction === 'desc';
+
         if ($sort === 'identity_or_login') {
-            $query->orderByRaw("LOWER(COALESCE(m.email, m.login, '')) {$direction}");
-
+            $query->orderByRaw(
+                $descending
+                    ? "LOWER(COALESCE(m.email, m.login, '')) DESC"
+                    : "LOWER(COALESCE(m.email, m.login, '')) ASC",
+            );
         } elseif ($sort === 'student_full_name') {
-            $query->orderByRaw("LOWER(m.last_name) {$direction}")
-                ->orderByRaw("LOWER(m.first_name) {$direction}");
-
+            $query->orderByRaw($descending ? 'LOWER(m.last_name) DESC' : 'LOWER(m.last_name) ASC')
+                ->orderByRaw($descending ? 'LOWER(m.first_name) DESC' : 'LOWER(m.first_name) ASC');
         } elseif ($sort === 'latest_exam_status') {
             $query->orderByRaw(
-                "CASE m.status
-                    WHEN 'not_assigned' THEN 1
-                    WHEN 'not_conducted' THEN 2
-                    WHEN 'failed' THEN 3
-                    WHEN 'passed' THEN 4
-                    ELSE 5
-                END {$direction}",
+                $descending
+                    ? "CASE m.status
+                        WHEN 'not_assigned' THEN 1
+                        WHEN 'not_conducted' THEN 2
+                        WHEN 'failed' THEN 3
+                        WHEN 'passed' THEN 4
+                        ELSE 5
+                    END DESC"
+                    : "CASE m.status
+                        WHEN 'not_assigned' THEN 1
+                        WHEN 'not_conducted' THEN 2
+                        WHEN 'failed' THEN 3
+                        WHEN 'passed' THEN 4
+                        ELSE 5
+                    END ASC",
             );
-
         } elseif ($sort === 'exam_count') {
-            $query->orderBy('m.exam_count', $direction);
-
+            $query->orderBy('m.exam_count', $descending ? 'desc' : 'asc');
+        } elseif ($sort === 'latest_exam_category') {
+            $query->orderByRaw($descending ? 'm.latest_exam_category DESC NULLS LAST' : 'm.latest_exam_category ASC NULLS LAST');
+        } elseif ($sort === 'latest_exam_language') {
+            $query->orderByRaw($descending ? 'm.latest_exam_language DESC NULLS LAST' : 'm.latest_exam_language ASC NULLS LAST');
         } else {
-            $column = match ($sort) {
-                'latest_exam_category' => 'latest_exam_category',
-                'latest_exam_at' => 'latest_exam_at',
-                'latest_exam_language' => 'latest_exam_language',
-                default => 'latest_exam_at',
-            };
-            $query->orderByRaw("m.{$column} {$direction} NULLS LAST");
+            $query->orderByRaw($descending ? 'm.latest_exam_at DESC NULLS LAST' : 'm.latest_exam_at ASC NULLS LAST');
         }
 
         $query->orderBy('m.course_enrollment_id')
