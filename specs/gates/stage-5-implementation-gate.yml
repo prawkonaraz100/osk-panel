@@ -225,32 +225,23 @@ quality_gate:
     - S5-FOUND-001
 
 next_single_step:
-  id: CORE-V1-CALENDAR-TRAINING-SESSION-HOUR-LEDGER-001
-  action: implement_calendar_training_session_hour_ledger_slice_in_staged_gates
-  prerequisite_previous_slice: CORE-V1-STUDENTS-COURSE-ENROLLMENT-001_PASS
-  started: true
-  started_from_accepted_head: 626cfe33403079b3cd68c76759cf599330b30164
-  diagnosis:
-    calendar_overlap_operational_ADR: RESOLVED_BY_ADR_0008
-    final_production_conflict_boundary: PostgreSQL_GiST_exclusion
-    current_global_phase_barrier_allows_GiST_materialization: false
-    transitional_runtime_boundary_may_replace_final_GiST: false
+  id: CORE-V1-STUDENT-FINANCE-001
+  action: begin_student_finance_slice_only_after_current_closure_validation_and_next_explicit_user_instruction
+  prerequisite_previous_slice: CORE-V1-CALENDAR-TRAINING-SESSION-HOUR-LEDGER-001_PASS_PENDING_CENTRAL_CLOSURE
   implementation_order_source: AGENTS.md
   allowed_scope:
-    - Calendar
-    - Training_Session
-    - formal_Training_Hour_Ledger
+    - Student_Finance
     - dependency_closed_migrations_for_this_slice
     - module_API_permissions_tests_and_traceability
     - own_UI_for_confirmed_screen_scope
   forbidden_scope:
-    - Student_Finance
     - Learning_Access_or_Licenses
     - Internal_Exams
+    - PKK_adapter
     - later_core_modules
     - Stage_4_authority_rewrite
     - weakening_existing_CI_or_tenant_authority
-  after_action: run_machine_narrative_central_gate_and_STOP_before_student_finance_slice
+  after_action: run_machine_narrative_central_gate_and_STOP_before_learning_access_licenses_slice
 
 CORE_V1_LOC_STAFF_VEH_001_closure:
   status: PASS
@@ -460,6 +451,118 @@ CORE_V1_STUDENTS_COURSE_ENROLLMENT_001_closure:
     narrative_payload: PASS
     central_closure: PASS
     next_core_slice: Calendar_Training_Session_Formal_Hour_Ledger
+    next_core_slice_started: false
+
+CORE_V1_CALENDAR_TRAINING_SESSION_HOUR_LEDGER_001_closure:
+  status: VALIDATION_PENDING
+  accepted_scope:
+    - Calendar
+    - Training_Session
+    - verified_Attendance
+    - formal_Training_Hour_Ledger
+    - Availability_booking_and_formalization
+    - Calendar_read_model_projections
+    - dependency_closed_expand_migrations
+    - module_API_permissions_tests_and_traceability
+    - own_UI_for_confirmed_calendar_screen_scope
+  provenance:
+    clean_accepted_implementation_commit: 0bf3e1c484f21c3b94f079e1202d196d7375fcff
+    accepted_final_runtime_hardening_head: 802c673521adb1e883a1c6ab4494d2c387374eb5
+    accepted_branch_implementation_run: 34599765192
+    accepted_branch_API_contract_run: 34598964044
+    helper_workflow_entered_accepted_history: false
+  migration_materialization:
+    stage_4_DAG_nodes_total: 170
+    implemented_nodes_current: 54
+    implemented_phase_steps_current: 54
+    nodes_added_by_slice: 9
+    phase: expand
+    execution_identity: 1495b3bbccb44db2bbc6f466391a6fa8f70dc6ad5f3154dbe84de68e0d2c4422
+    canonical_order_preserved: true
+    dependency_closed_subset: true
+    later_phase_constraint_nodes_materialized: false
+    final_GiST_materialized: false
+    Stage_4_authority_rewritten: false
+  runtime_traceability:
+    final_DBT_IDs_total: 491
+    implemented_executable_assertions_current: 71
+    implemented_DBT_added_by_slice: 24
+    pending_domain_materialization_current: 420
+    migration_preflight_DBTs_total: 14
+    migration_preflight_DBTs_claimed_early: false
+    concurrency_DBTs_claimed_without_two_writer_test: false
+    physical_GiST_FK_constraint_DBTs_claimed_early: false
+    false_implemented_claims_allowed: false
+  training_session_and_hour_ledger:
+    planned_session_version_root: true
+    verified_attendance_required_for_completion: true
+    present_completion_creates_exactly_one_base_credit: true
+    absent_completion_creates_credit: false
+    cancellation_creates_credit: false
+    terminal_session_releases_schedule_claims: true
+    manual_corrections_append_only: true
+    negative_formal_subtotal_rejected: true
+  calendar_conflict_boundary:
+    shared_claim_owner_types_materialized: true
+    half_open_interval_semantics: true
+    transitional_PostgreSQL_advisory_locks: true
+    deterministic_lock_order: [Student, Instructor, Vehicle, Location]
+    final_production_boundary: PostgreSQL_GiST_exclusion
+    final_GiST_deferred_by_global_phase_barrier: true
+    application_lock_replaces_final_GiST: false
+  calendar_and_availability:
+    manual_calendar_event_storage: general_event_only
+    formal_driving_lesson_schedule_owner: TrainingSession
+    duplicate_formal_calendar_event_copy_created: false
+    availability_publication_is_reserving: false
+    availability_booking_uses_exact_shared_claims: true
+    availability_booking_creates_training_credit: false
+    formalization_claim_handoff_atomic: true
+    formalized_slot_duplicate_calendar_item: false
+    important_dates_are_source_projections: true
+    important_dates_create_calendar_rows_or_claims: false
+  API_and_UI:
+    OpenAPI_contract_preserved: PASS
+    If_Match_on_versioned_calendar_training_commands: true
+    idempotency_on_declared_commands: true
+    calendar_manage_permission_escalates_to_formal_training_mutation: false
+    canonical_own_scope_uses_active_staff_profile: true
+    confirmed_calendar_month_week_day_UI: implemented
+    confirmed_event_type_and_resource_filters_UI: implemented
+    confirmed_shared_general_event_driving_lesson_form_UI: implemented
+    resource_embedded_calendar_uses_live_read_model: true
+    self_booking_UI_fabricated: false
+  explicit_deferred_dependencies:
+    - final_candidate_key_FK_index_check_and_GiST_phases_until_global_phase_barrier_allows_them
+    - two_writer_concurrency_tests_for_still_pending_concurrency_DBTs
+    - Availability_self_booking_UI_beyond_confirmed_main_Calendar_screen
+    - Work_Time_UI
+    - Notifications
+    - Recurrence
+    - Drag_and_drop
+    - Student_Finance
+    - Learning_Access_and_Licenses
+    - Internal_Exams
+    - provider_backed_PKK_operations
+  executable_evidence:
+    accepted_branch_Implementation_CI_run: 34599765192
+    accepted_branch_Implementation_CI_jobs_passed: 5
+    accepted_branch_Implementation_CI_jobs_total: 5
+    accepted_PostgreSQL_suite_tests: 110
+    accepted_PostgreSQL_suite_assertions: 1772
+    accepted_API_contract_gate_run: 34598964044
+    accepted_API_contract_gate: PASS
+    backend_static_analysis: PASS_ZERO_ERRORS
+    frontend_lint_typecheck_build_audit: PASS
+    contracts_and_traceability: PASS
+    accepted_push_secret_scan: PASS
+    migration_authority_and_registry: PASS
+    Stage_4_authority_preservation: PASS
+  tranche_result:
+    machine_implementation: PASS
+    narrative_payload: READY
+    central_closure: PENDING
+    next_core_slice: Student_Finance
     next_core_slice_started: false
 
 S5_BOOT_001_closure:
