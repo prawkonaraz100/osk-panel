@@ -62,6 +62,8 @@ Route::middleware(ResourceApiMiddleware::class)->prefix('api/v1')->group(functio
 });
 
 Route::view('/', 'app');
+Route::view('/kursanci', 'app');
+Route::view('/kursanci/{studentId}', 'app');
 Route::view('/lokalizacje', 'app');
 Route::view('/pracownicy', 'app');
 Route::view('/pracownicy/{staffId}', 'app');
