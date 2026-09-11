@@ -28,6 +28,69 @@ final class LearningAccessCoreTest extends TestCase
         parent::tearDown();
     }
 
+    public function test_student_create_initial_license_is_atomic_and_server_binds_new_student_id(): void
+    {
+        $actor = $this->accessActor();
+        $fixture = $this->inventory($actor['organization_id'], 30);
+
+        $student = app(StudentService::class)->create($actor['session_id'], [
+            'first_name' => 'Anna',
+            'last_name' => 'Atomowa',
+            'no_pesel' => true,
+            'birth_date' => '1991-02-03',
+            'initial_license' => [
+                'license_inventory_entry_id' => $fixture['inventory_id'],
+                'language_code' => 'pl',
+                'target' => [
+                    'new_learning_account' => [
+                        'login_identifier' => 'anna.atomowa@example.test',
+                        'language_code' => 'pl',
+                    ],
+                ],
+            ],
+        ], (string) Str::uuid7());
+
+        $account = DB::table('student_learning_accounts')
+            ->where('organization_id', $actor['organization_id'])
+            ->where('student_id', $student['id'])
+            ->first();
+        $this->assertNotNull($account);
+        $assignment = DB::table('license_assignments')
+            ->where('organization_id', $actor['organization_id'])
+            ->where('student_id', $student['id'])
+            ->first();
+        $this->assertNotNull($assignment);
+        $this->assertSame((string) $account->id, (string) $assignment->student_learning_account_id);
+        $this->assertSame('assigned', DB::table('license_inventory_entries')->where('id', $fixture['inventory_id'])->value('status'));
+
+        $badFixture = $this->inventory($actor['organization_id'], 30);
+        try {
+            app(StudentService::class)->create($actor['session_id'], [
+                'first_name' => 'Rollback',
+                'last_name' => 'Test',
+                'no_pesel' => true,
+                'birth_date' => '1992-03-04',
+                'initial_license' => [
+                    'license_inventory_entry_id' => $badFixture['inventory_id'],
+                    'language_code' => 'en',
+                    'target' => [
+                        'new_learning_account' => [
+                            'login_identifier' => 'rollback@example.test',
+                            'language_code' => 'en',
+                        ],
+                    ],
+                ],
+            ], (string) Str::uuid7());
+            $this->fail('Unsupported product language must roll back the entire Student create.');
+        } catch (ResourceDomainException $exception) {
+            $this->assertSame('VALIDATION_FAILED', $exception->machineCode);
+        }
+
+        $this->assertFalse(DB::table('students')->where('first_name', 'Rollback')->where('last_name', 'Test')->exists());
+        $this->assertFalse(DB::table('auth_login_identifiers')->where('identifier_normalized', 'rollback@example.test')->exists());
+        $this->assertSame('available', DB::table('license_inventory_entries')->where('id', $badFixture['inventory_id'])->value('status'));
+    }
+
     public function test_dbt_lic_001_archive_blocks_new_effects_without_rewriting_access_history(): void
     {
         $actor = $this->accessActor();
