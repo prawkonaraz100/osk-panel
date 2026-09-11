@@ -67,10 +67,10 @@ final class InternalExamManagementService
             $like = '%'.$search.'%';
             $filtered->where(function (Builder $query) use ($like): void {
                 $query
-                    ->whereRaw("LOWER(COALESCE(m.first_name, '')) LIKE ?", [$like])
-                    ->orWhereRaw("LOWER(COALESCE(m.last_name, '')) LIKE ?", [$like])
-                    ->orWhereRaw("LOWER(COALESCE(m.email, '')) LIKE ?", [$like])
-                    ->orWhereRaw("LOWER(COALESCE(m.search_logins, '')) LIKE ?", [$like]);
+                    ->whereRaw('LOWER(COALESCE(m.first_name, \'\')) LIKE ?', [$like])
+                    ->orWhereRaw('LOWER(COALESCE(m.last_name, \'\')) LIKE ?', [$like])
+                    ->orWhereRaw('LOWER(COALESCE(m.email, \'\')) LIKE ?', [$like])
+                    ->orWhereRaw('LOWER(COALESCE(m.search_logins, \'\')) LIKE ?', [$like]);
             });
         }
 
@@ -154,7 +154,7 @@ final class InternalExamManagementService
                 'c.organization_id',
                 'c.id as course_enrollment_id',
                 'c.student_id',
-                DB::raw("'theory'::varchar AS exam_part"),
+                DB::raw('\'theory\'::varchar AS exam_part'),
             ]);
 
         $practical = DB::table('course_enrollments as c')
@@ -165,7 +165,7 @@ final class InternalExamManagementService
                 'c.organization_id',
                 'c.id as course_enrollment_id',
                 'c.student_id',
-                DB::raw("'practical'::varchar AS exam_part"),
+                DB::raw('\'practical\'::varchar AS exam_part'),
             ]);
 
         $history = DB::table('internal_exam_attempts as a')
@@ -190,8 +190,8 @@ final class InternalExamManagementService
             ])
             ->selectRaw('MAX(a.course_attempt_sequence) AS latest_sequence')
             ->selectRaw('COUNT(*) AS exam_count')
-            ->selectRaw("SUM(CASE WHEN a.status = 'passed' THEN 1 ELSE 0 END) AS passed_count")
-            ->selectRaw("SUM(CASE WHEN a.status = 'failed' THEN 1 ELSE 0 END) AS failed_count");
+            ->selectRaw('SUM(CASE WHEN a.status = \'passed\' THEN 1 ELSE 0 END) AS passed_count')
+            ->selectRaw('SUM(CASE WHEN a.status = \'failed\' THEN 1 ELSE 0 END) AS failed_count');
 
         $logins = DB::table('student_learning_accounts as la')
             ->join('auth_login_identifiers as li', function ($join): void {
@@ -204,7 +204,7 @@ final class InternalExamManagementService
             ->groupBy('la.organization_id', 'la.student_id')
             ->select(['la.organization_id', 'la.student_id'])
             ->selectRaw('MIN(li.identifier_normalized) AS login')
-            ->selectRaw("string_agg(DISTINCT li.identifier_normalized, ' ') AS search_logins");
+            ->selectRaw('string_agg(DISTINCT li.identifier_normalized, \' \') AS search_logins');
 
         return DB::query()
             ->fromSub($contexts, 'ctx')
@@ -260,31 +260,31 @@ final class InternalExamManagementService
                 'latest.started_at as latest_attempt_started_at',
                 'latest.finished_at as latest_attempt_finished_at',
             ])
-            ->selectRaw("TRIM(CONCAT_WS(' ', s.first_name, s.last_name)) AS full_name")
+            ->selectRaw('TRIM(CONCAT_WS(\' \', s.first_name, s.last_name)) AS full_name')
             ->selectRaw(
-                "CASE
+                'CASE
                     WHEN p.id IS NULL THEN FALSE
-                    WHEN ctx.exam_part = 'theory' THEN p.internal_theory_exam_required
+                    WHEN ctx.exam_part = \'theory\' THEN p.internal_theory_exam_required
                     ELSE p.internal_practical_exam_required
-                END AS assignment_eligible_now",
+                END AS assignment_eligible_now',
             )
             ->selectRaw(
-                "CASE
-                    WHEN latest.id IS NULL THEN 'not_assigned'
-                    WHEN latest.status = 'passed' THEN 'passed'
-                    WHEN latest.status = 'failed' THEN 'failed'
-                    ELSE 'not_conducted'
-                END AS status",
+                'CASE
+                    WHEN latest.id IS NULL THEN \'not_assigned\'
+                    WHEN latest.status = \'passed\' THEN \'passed\'
+                    WHEN latest.status = \'failed\' THEN \'failed\'
+                    ELSE \'not_conducted\'
+                END AS status',
             )
             ->selectRaw('COALESCE(agg.exam_count, 0) AS exam_count')
             ->selectRaw('COALESCE(agg.passed_count, 0) AS passed_count')
             ->selectRaw('COALESCE(agg.failed_count, 0) AS failed_count')
             ->selectRaw(
-                "CASE
+                'CASE
                     WHEN COALESCE(agg.passed_count, 0) + COALESCE(agg.failed_count, 0) = 0 THEN NULL
                     ELSE COALESCE(agg.passed_count, 0)::numeric
                         / (COALESCE(agg.passed_count, 0) + COALESCE(agg.failed_count, 0))
-                END AS pass_rate",
+                END AS pass_rate',
             );
     }
 
