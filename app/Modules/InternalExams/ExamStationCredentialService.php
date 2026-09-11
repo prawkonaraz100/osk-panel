@@ -36,12 +36,13 @@ final class ExamStationCredentialService
                 throw ResourceDomainException::conflict('Disabled exam station cannot receive a credential.');
             }
 
-            if (DB::table('exam_station_credentials')
+            $current = DB::table('exam_station_credentials')
                 ->where('organization_id', $organizationId)
                 ->where('exam_station_id', $stationId)
                 ->whereNull('revoked_at')
                 ->lockForUpdate()
-                ->exists()) {
+                ->first();
+            if ($current !== null) {
                 throw ResourceDomainException::conflict('Exam station already has a current credential.');
             }
 
