@@ -10,6 +10,9 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use LogicException;
 
+/**
+ * @phpstan-type StationRow object{id:mixed,organization_id:mixed,administrative_status:mixed,last_authenticated_heartbeat_at:mixed,created_at:mixed,updated_at:mixed}
+ */
 final class ExamStationService
 {
     public function __construct(
@@ -203,8 +206,10 @@ final class ExamStationService
         });
     }
 
+    /** @return StationRow */
     private function requireStation(string $organizationId, string $stationId): object
     {
+        /** @var StationRow|null $row */
         $row = DB::table('exam_stations')
             ->where('organization_id', $organizationId)
             ->where('id', $stationId)
@@ -216,7 +221,10 @@ final class ExamStationService
         return $row;
     }
 
-    /** @return array<string,mixed> */
+    /**
+     * @param  StationRow  $row
+     * @return array<string,mixed>
+     */
     private function present(string $organizationId, object $row, CarbonImmutable $now): array
     {
         $lastHeartbeat = $row->last_authenticated_heartbeat_at === null
