@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Modules\CalendarTraining\CalendarEventService;
 use App\Modules\CalendarTraining\TrainingSessionService;
+use App\Modules\ResourcesCore\LocationService;
 use App\Modules\ResourcesCore\ResourceDomainException;
 use App\Modules\ResourcesCore\StaffService;
 use App\Modules\StudentsCourses\CourseEnrollmentService;
@@ -105,15 +106,18 @@ final class CalendarEventCoreTest extends TestCase
         ));
         $this->assertSame('RESOURCE_VERSION_CONFLICT', $stale->machineCode);
 
-        $locationId = (string) Str::uuid7();
-        DB::table('locations')->insert([
-            'id' => $locationId,
-            'organization_id' => $fixture['actor']['organization_id'],
-            'location_type_code' => 'branch',
-            'name' => 'Filia',
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
+        $location = app(LocationService::class)->create(
+            $fixture['actor']['session_id'],
+            [
+                'type_code' => 'branch',
+                'name' => 'Filia',
+                'street_and_number' => 'Testowa 1',
+                'postal_code' => '00-001',
+                'city_reference' => 'Warszawa',
+            ],
+            (string) Str::uuid7(),
+        );
+        $locationId = (string) $location['id'];
         $exclusive = $this->captureDomainException(fn () => $this->calendar()->update(
             $fixture['actor']['session_id'],
             $event['id'],
@@ -209,6 +213,7 @@ final class CalendarEventCoreTest extends TestCase
         $actor = FoundationSchema::actor();
         foreach ([
             'calendar.view', 'calendar.manage.organization',
+            'locations.create',
             'students.view', 'students.create', 'courses.view', 'courses.create',
             'training_sessions.view', 'training_sessions.create', 'training_sessions.edit', 'training_sessions.cancel',
         ] as $permission) {
