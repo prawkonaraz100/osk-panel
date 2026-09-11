@@ -45,20 +45,20 @@ final class InternalExamManagementService
         $visibility = $this->scope->visibility($sessionId, 'exams.view');
         $organizationId = $visibility['membership']['organization_id'];
 
-        if (! in_array($sort, self::SORTS, true)) {
+        if (in_array($sort, self::SORTS, true) === false) {
             $sort = 'student_full_name';
         }
         $direction = $direction === 'desc' ? 'desc' : 'asc';
         $page = max(1, $page);
         $perPage = min(100, max(1, $perPage));
 
-        if (! $visibility['unrestricted'] && $visibility['student_ids'] === []) {
+        if ($visibility['unrestricted'] === false && $visibility['student_ids'] === []) {
             return $this->empty($page, $perPage);
         }
 
         $filtered = DB::query()->fromSub($this->projection($organizationId), 'm');
 
-        if (! $visibility['unrestricted']) {
+        if ($visibility['unrestricted'] === false) {
             $filtered->whereIn('m.student_id', $visibility['student_ids']);
         }
 
