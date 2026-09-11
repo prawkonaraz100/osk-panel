@@ -115,7 +115,7 @@ final class LearningAccessCoreTest extends TestCase
                     'new_learning_account' => [
                         'login_identifier' => 'permission.denied@example.test',
                         'language_code' => 'pl',
-                        'initial_password' => 'InitialPassphrase2026',
+                        'initial_password' => $this->syntheticPassword(),
                     ],
                 ],
                 'language_code' => 'pl',
@@ -144,7 +144,7 @@ final class LearningAccessCoreTest extends TestCase
                         'new_learning_account' => [
                             'login_identifier' => 'create.permission.denied@example.test',
                             'language_code' => 'pl',
-                            'initial_password' => 'InitialPassphrase2026',
+                            'initial_password' => $this->syntheticPassword(),
                         ],
                     ],
                 ],
@@ -362,7 +362,7 @@ final class LearningAccessCoreTest extends TestCase
         $account = app(LearningAccountService::class)->create($actor['session_id'], $student['id'], [
             'login_identifier' => 'password.reset@example.test',
             'language_code' => 'pl',
-            'initial_password' => 'InitialPassphrase2026',
+            'initial_password' => $this->syntheticPassword(),
         ], (string) Str::uuid7());
 
         $key = (string) Str::uuid7();
@@ -468,6 +468,11 @@ final class LearningAccessCoreTest extends TestCase
         ]);
 
         return ['product_id' => $product, 'capability_id' => $capability, 'inventory_id' => $inventory];
+    }
+
+    private function syntheticPassword(): string
+    {
+        return str_repeat('x', 16);
     }
 
     /** @param callable():mixed $callback */
