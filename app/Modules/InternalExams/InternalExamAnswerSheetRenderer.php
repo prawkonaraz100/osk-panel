@@ -249,8 +249,9 @@ final class InternalExamAnswerSheetRenderer
         $objects[2] = '<< /Type /Pages /Count '.count($streams).' /Kids ['.implode(' ', $kids).'] >>';
         ksort($objects);
 
+        $safeTemplateVersion = preg_replace('/[^A-Za-z0-9_.-]/', '_', $templateVersion) ?? 'unknown';
         $pdf = "%PDF-1.4\n%\xE2\xE3\xCF\xD3\n"
-            .'% PNR-TEMPLATE '.preg_replace('/[^A-Za-z0-9_.-]/', '_', $templateVersion)." {$templateHash}\n"
+            .'% PNR-TEMPLATE '.$safeTemplateVersion." {$templateHash}\n"
             ."% PNR-EVIDENCE {$evidenceHash}\n";
         $offsets = [0 => 0];
         foreach ($objects as $id => $object) {
