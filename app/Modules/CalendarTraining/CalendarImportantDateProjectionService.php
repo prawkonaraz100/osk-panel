@@ -88,14 +88,14 @@ final class CalendarImportantDateProjectionService
     }
 
     /**
-     * @param  array{
+     * @param array{
      *   membership:array{id:string,organization_id:string,user_id:string,status:string,is_owner:bool,version:int,authorization_version:int},
      *   unrestricted:bool,
      *   own_instructor_id:?string,
      *   assigned_student_ids:list<string>,
      *   assigned_location_ids:list<string>
-     * }  $visibility
-     * @param  array{from?:?string,to?:?string,student_id?:?string,staff_id?:?string,vehicle_id?:?string,location_id?:?string,event_type?:list<string>} $filters
+     * } $visibility
+     * @param  array{from?:?string,to?:?string,student_id?:?string,staff_id?:?string,vehicle_id?:?string,location_id?:?string,event_type?:list<string>}  $filters
      * @return list<\stdClass>
      */
     private function staffRows(array $visibility, array $filters): array
@@ -153,14 +153,14 @@ final class CalendarImportantDateProjectionService
     }
 
     /**
-     * @param  array{
+     * @param array{
      *   membership:array{id:string,organization_id:string,user_id:string,status:string,is_owner:bool,version:int,authorization_version:int},
      *   unrestricted:bool,
      *   own_instructor_id:?string,
      *   assigned_student_ids:list<string>,
      *   assigned_location_ids:list<string>
-     * }  $visibility
-     * @param  array{from?:?string,to?:?string,student_id?:?string,staff_id?:?string,vehicle_id?:?string,location_id?:?string,event_type?:list<string>} $filters
+     * } $visibility
+     * @param  array{from?:?string,to?:?string,student_id?:?string,staff_id?:?string,vehicle_id?:?string,location_id?:?string,event_type?:list<string>}  $filters
      * @return list<\stdClass>
      */
     private function vehicleRows(array $visibility, array $filters): array
@@ -296,7 +296,7 @@ final class CalendarImportantDateProjectionService
 
     /**
      * @param  array<string,mixed>  $item
-     * @param  array{from?:?string,to?:?string,student_id?:?string,staff_id?:?string,vehicle_id?:?string,location_id?:?string,event_type?:list<string>} $filters
+     * @param  array{from?:?string,to?:?string,student_id?:?string,staff_id?:?string,vehicle_id?:?string,location_id?:?string,event_type?:list<string>}  $filters
      */
     private function overlapsRange(array $item, array $filters): bool
     {
