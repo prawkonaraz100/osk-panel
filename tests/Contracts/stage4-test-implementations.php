@@ -5,6 +5,7 @@ use Tests\Feature\IdentityTenantFoundationTest;
 use Tests\Feature\OrganizationSettingsFoundationTest;
 use Tests\Feature\ResourcesCoreTest;
 use Tests\Feature\Stage4MigrationPostcheckTest;
+use Tests\Feature\StudentsCoursesCoreTest;
 
 return [
     'DBT-CORE-009' => [
@@ -186,5 +187,60 @@ return [
         'class' => ResourcesCoreTest::class,
         'method' => 'test_dbt_res_050_restore_staff_profile_restores_record_only',
         'scope' => 'Transactional restore_staff_profile invariant restores record only.',
+    ],
+    'DBT-TRN-003' => [
+        'class' => StudentsCoursesCoreTest::class,
+        'method' => 'test_pre_course_incomplete_student_is_allowed_but_formal_course_is_rejected',
+        'scope' => 'Pre-course Student may be incomplete, while formal CourseEnrollment creation fails until formal identity is complete.',
+    ],
+    'DBT-IAM-032' => [
+        'class' => StudentsCoursesCoreTest::class,
+        'method' => 'test_duplicate_student_pesel_is_blocked_even_after_archive',
+        'scope' => 'Student PESEL identity remains unique per organization including archived Student history at the current runtime boundary.',
+    ],
+    'DBT-CORE-021' => [
+        'class' => StudentsCoursesCoreTest::class,
+        'method' => 'test_student_two_mutations_with_same_expected_version_cannot_both_commit',
+        'scope' => 'Two Student mutations carrying the same expected version cannot both commit.',
+    ],
+    'DBT-TRN-006' => [
+        'class' => StudentsCoursesCoreTest::class,
+        'method' => 'test_each_material_course_version_has_exactly_one_lifecycle_event',
+        'scope' => 'Each material CourseEnrollment version emitted by implemented lifecycle commands has exactly one lifecycle event.',
+    ],
+    'DBT-TRN-007' => [
+        'class' => StudentsCoursesCoreTest::class,
+        'method' => 'test_course_restore_rejects_archived_student_and_succeeds_after_student_restore',
+        'scope' => 'Normal restore reopens only a cancelled CourseEnrollment and cannot reopen it under an archived Student.',
+    ],
+    'DBT-TRN-008' => [
+        'class' => StudentsCoursesCoreTest::class,
+        'method' => 'test_held_b1_recalculates_basic_b_theory_to_zero_and_practice_down_by_600',
+        'scope' => 'Current requirement profile revision equals CourseEnrollment requirements_revision after source-fact recalculation.',
+    ],
+    'DBT-CORE-023' => [
+        'class' => StudentsCoursesCoreTest::class,
+        'method' => 'test_held_b1_recalculates_basic_b_theory_to_zero_and_practice_down_by_600',
+        'scope' => 'A requirement source-fact change commits together with a new single current requirement profile.',
+    ],
+    'DBT-TRN-013' => [
+        'class' => StudentsCoursesCoreTest::class,
+        'method' => 'test_category_change_supersedes_external_projection_and_revalidates_context',
+        'scope' => 'A current external-training projection cannot survive a category change without supersession and context revalidation.',
+    ],
+    'DBT-TRN-035' => [
+        'class' => StudentsCoursesCoreTest::class,
+        'method' => 'test_http_student_create_and_course_create_require_idempotency_and_emit_version_etag',
+        'scope' => 'CreateCourseEnrollment commits its projection atomically and same-key replay returns the same CourseEnrollment without a second effect.',
+    ],
+    'DBT-TRN-037' => [
+        'class' => StudentsCoursesCoreTest::class,
+        'method' => 'test_external_training_is_append_history_and_revoke_does_not_delete_record',
+        'scope' => 'Recognized external training mutation preserves append/revoke history rather than destructively deleting the source record.',
+    ],
+    'DBT-TRN-038' => [
+        'class' => StudentsCoursesCoreTest::class,
+        'method' => 'test_student_archive_restore_mutation_preserves_single_profile_history',
+        'scope' => 'Student profile archive/restore mutates one persistent profile with versioned audited state rather than replacing history.',
     ],
 ];

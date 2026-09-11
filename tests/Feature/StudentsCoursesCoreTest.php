@@ -110,6 +110,15 @@ final class StudentsCoursesCoreTest extends TestCase
         $this->assertSame('recognized_prior_theory', $profile['exemption_basis_code']);
         $this->assertSame(2, DB::table('training_requirement_profiles')->where('course_enrollment_id', $course['id'])->count());
         $this->assertSame(1, DB::table('training_requirement_profiles')->where('course_enrollment_id', $course['id'])->whereNull('superseded_at')->count());
+
+        $courseRevision = (int) DB::table('course_enrollments')->where('id', $course['id'])->value('requirements_revision');
+        $currentProfile = DB::table('training_requirement_profiles')
+            ->where('course_enrollment_id', $course['id'])
+            ->whereNull('superseded_at')
+            ->firstOrFail();
+        $this->assertSame(2, $courseRevision);
+        $this->assertSame($courseRevision, (int) $currentProfile->requirements_revision);
+        $this->assertSame(2, (int) $currentProfile->course_version_after);
     }
 
     public function test_art_23a_exemption_preserves_profile_history_and_disables_theory(): void
@@ -296,6 +305,149 @@ final class StudentsCoursesCoreTest extends TestCase
         $this->assertDatabaseCount('course_enrollments', 0);
     }
 
+    public function test_student_two_mutations_with_same_expected_version_cannot_both_commit(): void
+    {
+        $actor = $this->studentCourseActor();
+        $student = $this->student($actor);
+
+        $first = app(StudentService::class)->update(
+            $actor['session_id'],
+            $student['id'],
+            ['phone' => '500600700'],
+            (string) Str::uuid7(),
+            '"v1"',
+        );
+        $this->assertSame(2, $first['version']);
+        $this->assertSame('500600700', $first['phone']);
+
+        $stale = $this->captureDomainException(fn () => app(StudentService::class)->update(
+            $actor['session_id'],
+            $student['id'],
+            ['phone' => '111222333'],
+            (string) Str::uuid7(),
+            '"v1"',
+        ));
+
+        $this->assertSame('RESOURCE_VERSION_CONFLICT', $stale->machineCode);
+        $current = app(StudentService::class)->get($actor['session_id'], $student['id']);
+        $this->assertSame(2, $current['version']);
+        $this->assertSame('500600700', $current['phone']);
+    }
+
+    public function test_each_material_course_version_has_exactly_one_lifecycle_event(): void
+    {
+        $actor = $this->studentCourseActor();
+        $student = $this->student($actor);
+        $course = $this->course($actor, $student['id']);
+
+        $stage = app(CourseEnrollmentService::class)->changeStage(
+            $actor['session_id'],
+            $course['id'],
+            'theory',
+            null,
+            (string) Str::uuid7(),
+            '"v1"',
+        );
+        $cancelled = app(CourseEnrollmentService::class)->cancel(
+            $actor['session_id'],
+            $course['id'],
+            'closed for DBT',
+            (string) Str::uuid7(),
+            '"v2"',
+        );
+        $restored = app(CourseEnrollmentService::class)->restore(
+            $actor['session_id'],
+            $course['id'],
+            (string) Str::uuid7(),
+            '"v3"',
+        );
+
+        $this->assertSame(2, $stage['version']);
+        $this->assertSame(3, $cancelled['version']);
+        $this->assertSame(4, $restored['version']);
+
+        $events = DB::table('course_enrollment_lifecycle_events')
+            ->where('course_enrollment_id', $course['id'])
+            ->orderBy('course_version_after')
+            ->get(['course_version_before', 'course_version_after']);
+
+        $this->assertCount(4, $events);
+        $this->assertSame([1, 2, 3, 4], $events->pluck('course_version_after')->map(static fn ($v): int => (int) $v)->all());
+        $this->assertSame([null, 1, 2, 3], $events->pluck('course_version_before')->map(static fn ($v): ?int => $v === null ? null : (int) $v)->all());
+        $this->assertSame(4, $events->pluck('course_version_after')->unique()->count());
+    }
+
+    public function test_category_change_supersedes_external_projection_and_revalidates_context(): void
+    {
+        $actor = $this->studentCourseActor();
+        $student = $this->student($actor);
+        $course = $this->course($actor, $student['id'], [
+            'driving_category_code' => 'B',
+            'recognized_external_practical_minutes' => 120,
+        ]);
+
+        $original = DB::table('recognized_external_training')
+            ->where('course_enrollment_id', $course['id'])
+            ->whereNull('superseded_at')
+            ->firstOrFail();
+
+        $updated = app(CourseEnrollmentService::class)->update(
+            $actor['session_id'],
+            $course['id'],
+            ['driving_category_code' => 'C', 'pkk_number' => 'PKK-REVALIDATED'],
+            (string) Str::uuid7(),
+            '"v1"',
+        );
+        $this->assertSame('C', $updated['driving_category_code']);
+
+        $old = DB::table('recognized_external_training')->where('id', $original->id)->firstOrFail();
+        $current = DB::table('recognized_external_training')
+            ->where('course_enrollment_id', $course['id'])
+            ->whereNull('superseded_at')
+            ->whereNull('revoked_at')
+            ->firstOrFail();
+        $categoryC = (string) DB::table('driving_categories')->where('code', 'C')->value('id');
+
+        $this->assertNotNull($old->superseded_at);
+        $this->assertNotSame((string) $old->id, (string) $current->id);
+        $this->assertSame((string) $old->id, (string) $current->supersedes_record_id);
+        $this->assertSame($categoryC, (string) $current->recognized_for_driving_category_id);
+        $this->assertSame('basic', (string) $current->recognized_for_training_type);
+        $this->assertSame('context_revalidation', (string) $current->source_kind);
+        $this->assertSame(1, DB::table('recognized_external_training')->where('course_enrollment_id', $course['id'])->whereNull('superseded_at')->whereNull('revoked_at')->count());
+    }
+
+    public function test_student_archive_restore_mutation_preserves_single_profile_history(): void
+    {
+        $actor = $this->studentCourseActor();
+        $student = $this->student($actor);
+
+        $archived = app(StudentService::class)->archive(
+            $actor['session_id'],
+            $student['id'],
+            (string) Str::uuid7(),
+            'DBT archive',
+        );
+        $restored = app(StudentService::class)->restore(
+            $actor['session_id'],
+            $student['id'],
+            (string) Str::uuid7(),
+        );
+
+        $this->assertNotNull($archived['archived_at']);
+        $this->assertSame(2, $archived['version']);
+        $this->assertNull($restored['archived_at']);
+        $this->assertSame(3, $restored['version']);
+        $this->assertSame(1, DB::table('students')->where('id', $student['id'])->count());
+        $this->assertSame(
+            2,
+            DB::table('audit_logs')
+                ->where('entity_id', $student['id'])
+                ->whereIn('action', ['student.archived', 'student.restored'])
+                ->count(),
+        );
+    }
+
     public function test_assigned_students_scope_resolves_only_non_cancelled_lead_instructor_courses(): void
     {
         $owner = $this->studentCourseActor();
@@ -346,19 +498,30 @@ final class StudentsCoursesCoreTest extends TestCase
         $studentResponse->assertCreated()->assertHeader('ETag', '"v1"');
         $studentId = (string) $studentResponse->json('id');
 
+        $courseKey = (string) Str::uuid7();
+        $coursePayload = [
+            'training_type' => 'basic',
+            'driving_category_code' => 'B',
+            'pkk_number' => 'HTTP-PKK-123',
+            'started_at' => '2026-09-11T10:00:00+02:00',
+            'lead_instructor_id' => $instructor['id'],
+        ];
+
         $courseResponse = $this->withSession(['auth_session_id' => $actor['session_id']])
-            ->withHeader('Idempotency-Key', (string) Str::uuid7())
-            ->postJson("/api/v1/students/{$studentId}/course-enrollments", [
-                'training_type' => 'basic',
-                'driving_category_code' => 'B',
-                'pkk_number' => 'HTTP-PKK-123',
-                'started_at' => '2026-09-11T10:00:00+02:00',
-                'lead_instructor_id' => $instructor['id'],
-            ]);
+            ->withHeader('Idempotency-Key', $courseKey)
+            ->postJson("/api/v1/students/{$studentId}/course-enrollments", $coursePayload);
 
         $courseResponse->assertCreated()->assertHeader('ETag', '"v1"');
         $this->assertSame('B', $courseResponse->json('driving_category_code'));
         $this->assertNotSame('HTTP-PKK-123', $courseResponse->json('pkk_reference_masked'));
+
+        $replay = $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->withHeader('Idempotency-Key', $courseKey)
+            ->postJson("/api/v1/students/{$studentId}/course-enrollments", $coursePayload);
+
+        $replay->assertCreated()->assertHeader('ETag', '"v1"');
+        $this->assertSame($courseResponse->json('id'), $replay->json('id'));
+        $this->assertSame(1, DB::table('course_enrollments')->where('student_id', $studentId)->count());
     }
 
     /** @return array{organization_id:string,user_id:string,membership_id:string,session_id:string} */
