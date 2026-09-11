@@ -139,7 +139,7 @@ final class ExamStationCredentialService
         $credential = DB::table('exam_station_credentials')
             ->where('lookup_id', $lookupId)
             ->first();
-        $this->assertCredential(
+        $credential = $this->requireCredential(
             $credential,
             $secret,
             $expectedOrganizationId,
@@ -226,7 +226,7 @@ final class ExamStationCredentialService
             ->where('exam_station_id', $expectedStationId)
             ->lockForUpdate()
             ->first();
-        $this->assertCredential(
+        $credential = $this->requireCredential(
             $credential,
             $secret,
             $expectedOrganizationId,
@@ -295,13 +295,16 @@ final class ExamStationCredentialService
         ];
     }
 
-    /** @param  CredentialRow|null  $credential */
-    private function assertCredential(
+    /**
+     * @param  CredentialRow|null  $credential
+     * @return CredentialRow
+     */
+    private function requireCredential(
         ?object $credential,
         string $secret,
         ?string $expectedOrganizationId,
         ?string $expectedStationId,
-    ): void {
+    ): object {
         if ($credential === null || $credential->revoked_at !== null) {
             throw $this->invalid();
         }
@@ -319,6 +322,8 @@ final class ExamStationCredentialService
         if (! hash_equals((string) $credential->secret_verifier, $computed)) {
             throw $this->invalid();
         }
+
+        return $credential;
     }
 
     /** @return array{0:string,1:string} */
