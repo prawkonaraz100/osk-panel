@@ -11,13 +11,14 @@ use LogicException;
 
 /**
  * @phpstan-type AttemptRow object{id:mixed,status:mixed,started_at:mixed,version:mixed,internal_exam_definition_id:mixed,candidate_snapshot:mixed,driving_category_id:mixed,exam_part:mixed,language_code:mixed,requirement_basis_snapshot:mixed,exam_definition_version_snapshot:mixed,exam_definition_hash_snapshot:mixed,evidence_schema_version:mixed,question_set_hash:mixed}
- * @phpstan-type AccessRow object{id:mixed,internal_exam_attempt_id:mixed,status:mixed,launch_mode:mixed,station_id:mixed,version:mixed}
+ * @phpstan-type AccessRow object{id:mixed,internal_exam_attempt_id:mixed,status:mixed,launch_mode:mixed,station_id:mixed,version:mixed,expires_at:mixed}
  * @phpstan-type ReservationRow object{id:mixed,internal_exam_inventory_entry_id:mixed,version:mixed}
  * @phpstan-type InventoryRow object{id:mixed,current_state:mixed}
  * @phpstan-type DefinitionRow object{id:mixed,driving_category_id:mixed,exam_part:mixed,language_code:mixed,engine_kind:mixed,definition_version:mixed,definition_content_hash:mixed,definition_schema_version:mixed,composition_snapshot:mixed,scoring_policy_snapshot:mixed}
  * @phpstan-type StationRow object{id:mixed,administrative_status:mixed,last_authenticated_heartbeat_at:mixed}
  * @phpstan-type StationSessionRow object{id:mixed,exam_station_id:mixed}
  * @phpstan-type QuestionRow object{id:mixed,ordinal:mixed,question_snapshot:mixed,max_points_snapshot:mixed,question_snapshot_hash:mixed}
+ * @phpstan-type ReviewQuestionRow object{ordinal:mixed,group:mixed,question_snapshot:mixed,candidate_answer:mixed,is_correct:mixed,points_awarded:mixed,max_points_snapshot:mixed}
  * @phpstan-type LedgerRow object{event_type:mixed}
  */
 final class InternalExamService
@@ -671,6 +672,138 @@ final class InternalExamService
         });
     }
 
+    /** @return array<string,mixed> */
+    public function startRemote(
+        string $rawToken,
+        string $accessId,
+        string $requestId,
+    ): array {
+        $context = $this->tokens->verify($rawToken, 'exam_execution');
+        if ($context['access_id'] !== $accessId) {
+            throw $this->invalidExamToken();
+        }
+
+        return DB::transaction(function () use ($rawToken, $context, $accessId, $requestId): array {
+            $attempt = $this->lockAttempt($context['organization_id'], $context['attempt_id']);
+
+            /** @var AccessRow|null $access */
+            $access = DB::table('internal_exam_accesses')
+                ->where('organization_id', $context['organization_id'])
+                ->where('id', $accessId)
+                ->where('internal_exam_attempt_id', $context['attempt_id'])
+                ->lockForUpdate()
+                ->first();
+            if ($access === null) {
+                throw $this->invalidExamToken();
+            }
+
+            $lockedContext = $this->tokens->verifyForUpdate($rawToken, 'exam_execution');
+            if ($lockedContext['organization_id'] !== $context['organization_id']
+                || $lockedContext['access_id'] !== $accessId
+                || $lockedContext['attempt_id'] !== (string) $attempt->id) {
+                throw $this->invalidExamToken();
+            }
+
+            if ((string) $access->launch_mode !== 'remote_link'
+                || (string) $attempt->status !== 'created'
+                || ! in_array((string) $access->status, ['ready', 'delivered_or_assigned', 'opened'], true)) {
+                throw ResourceDomainException::conflict('Remote attempt and access are not startable.');
+            }
+
+            $now = CarbonImmutable::now();
+            if ($access->expires_at === null || ! $now->lt(CarbonImmutable::parse((string) $access->expires_at))) {
+                throw $this->invalidExamToken();
+            }
+
+            $definition = $this->lockCurrentDefinition($attempt);
+
+            /** @var ReservationRow|null $reservation */
+            $reservation = DB::table('internal_exam_reservations')
+                ->where('organization_id', $context['organization_id'])
+                ->where('internal_exam_attempt_id', $attempt->id)
+                ->where('status', 'reserved')
+                ->lockForUpdate()
+                ->first();
+            if ($reservation === null) {
+                throw ResourceDomainException::conflict('Start requires exactly one reserved inventory unit.');
+            }
+
+            /** @var InventoryRow|null $inventory */
+            $inventory = DB::table('internal_exam_inventory_entries')
+                ->where('organization_id', $context['organization_id'])
+                ->where('id', $reservation->internal_exam_inventory_entry_id)
+                ->lockForUpdate()
+                ->first();
+            if ($inventory === null || (string) $inventory->current_state !== 'reserved') {
+                throw ResourceDomainException::conflict('Reserved inventory state is inconsistent.');
+            }
+
+            $questionSetHash = $this->materializeDefinitionEvidence($context['organization_id'], $attempt, $definition);
+            $attemptVersion = (int) $attempt->version + 1;
+            $accessVersion = (int) $access->version + 1;
+
+            DB::table('internal_exam_attempts')->where('id', $attempt->id)->update([
+                'status' => 'in_progress',
+                'version' => $attemptVersion,
+                'started_at' => $now,
+                'internal_exam_definition_id' => (string) $definition->id,
+                'exam_definition_version_snapshot' => (string) $definition->definition_version,
+                'exam_definition_hash_snapshot' => (string) $definition->definition_content_hash,
+                'evidence_schema_version' => (int) $definition->definition_schema_version,
+                'question_set_hash' => $questionSetHash,
+            ]);
+            $this->appendAttemptEvent(
+                $context['organization_id'], (string) $attempt->id, 'started',
+                'created', 'in_progress', (int) $attempt->version, $attemptVersion,
+                null, null, $now,
+            );
+
+            DB::table('internal_exam_accesses')->where('id', $accessId)->update([
+                'status' => 'started',
+                'version' => $accessVersion,
+                'started_at' => $now,
+            ]);
+            $this->appendAccessEvent(
+                $context['organization_id'], $accessId, (string) $attempt->id, 'started',
+                (string) $access->status, 'started', (int) $access->version, $accessVersion,
+                null, null, $now,
+            );
+
+            DB::table('internal_exam_reservations')->where('id', $reservation->id)->update([
+                'status' => 'consumed',
+                'version' => (int) $reservation->version + 1,
+                'consumed_at' => $now,
+            ]);
+            $this->appendInventoryLedger(
+                $context['organization_id'],
+                (string) $inventory->id,
+                (string) $reservation->id,
+                (string) $attempt->id,
+                null,
+                'unit_consumed',
+                0,
+                null,
+                null,
+                $now,
+            );
+            DB::table('internal_exam_inventory_entries')
+                ->where('id', $inventory->id)
+                ->update(['current_state' => 'consumed']);
+
+            $this->auditOutbox->recordOrganizationSystemEvent(
+                $context['organization_id'],
+                'internal_exam.started',
+                'internal_exam_attempt',
+                (string) $attempt->id,
+                $requestId,
+                ['fields' => ['status'], 'state' => 'created'],
+                ['fields' => ['status', 'definition', 'inventory'], 'state' => 'in_progress'],
+            );
+
+            return $this->presentAttempt($context['organization_id'], (string) $attempt->id);
+        });
+    }
+
     /**
      * @param  list<array<string,mixed>>  $answers
      * @return array<string,mixed>
@@ -863,6 +996,24 @@ final class InternalExamService
                 ->whereNull('ended_at')
                 ->update(['ended_at' => $now, 'end_reason' => 'exam_completed']);
 
+            $oneTimeResultToken = null;
+            if ((string) $access->launch_mode === 'remote_link') {
+                $this->tokens->revokeExecution(
+                    $actor['organization_id'],
+                    (string) $access->id,
+                    'attempt_completed',
+                    $now,
+                );
+                $issued = $this->tokens->issueResultRead(
+                    $actor['organization_id'],
+                    (string) $access->id,
+                    $attemptId,
+                    $actor['user_id'],
+                    $now,
+                );
+                $oneTimeResultToken = $issued['raw_token'];
+            }
+
             $this->auditOutbox->recordOrganizationEvent(
                 $actor['organization_id'], $actor['id'], $actor['user_id'],
                 'internal_exam.submitted', 'internal_exam_attempt', $attemptId, $requestId,
@@ -870,7 +1021,340 @@ final class InternalExamService
                 ['fields' => ['status', 'result'], 'state' => $status],
             );
 
-            return $this->presentResult($actor['organization_id'], $resultId);
+            $presented = $this->presentResult($actor['organization_id'], $resultId);
+            $presented['one_time_result_token'] = $oneTimeResultToken;
+
+            return $presented;
+        });
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $answers
+     * @return array<string,mixed>
+     */
+    public function submitRemote(
+        string $rawToken,
+        string $attemptId,
+        array $answers,
+        string $requestId,
+    ): array {
+        $context = $this->tokens->verify($rawToken, 'exam_execution');
+        if ($context['attempt_id'] !== $attemptId) {
+            throw $this->invalidExamToken();
+        }
+
+        return DB::transaction(function () use ($rawToken, $context, $attemptId, $answers, $requestId): array {
+            $attempt = $this->lockAttempt($context['organization_id'], $attemptId);
+            if ((string) $attempt->status !== 'in_progress' || $attempt->started_at === null) {
+                throw ResourceDomainException::conflict('Only an in-progress attempt can be submitted.');
+            }
+
+            /** @var AccessRow|null $access */
+            $access = DB::table('internal_exam_accesses')
+                ->where('organization_id', $context['organization_id'])
+                ->where('id', $context['access_id'])
+                ->where('internal_exam_attempt_id', $attemptId)
+                ->where('status', 'started')
+                ->lockForUpdate()
+                ->first();
+            if ($access === null || (string) $access->launch_mode !== 'remote_link') {
+                throw $this->invalidExamToken();
+            }
+
+            $lockedContext = $this->tokens->verifyForUpdate($rawToken, 'exam_execution');
+            if ($lockedContext['organization_id'] !== $context['organization_id']
+                || $lockedContext['access_id'] !== (string) $access->id
+                || $lockedContext['attempt_id'] !== $attemptId) {
+                throw $this->invalidExamToken();
+            }
+
+            /** @var ReservationRow|null $reservation */
+            $reservation = DB::table('internal_exam_reservations')
+                ->where('organization_id', $context['organization_id'])
+                ->where('internal_exam_attempt_id', $attemptId)
+                ->where('status', 'consumed')
+                ->lockForUpdate()
+                ->first();
+            if ($reservation === null) {
+                throw ResourceDomainException::conflict('Submit requires previously consumed inventory.');
+            }
+
+            if (DB::table('internal_exam_results')
+                ->where('organization_id', $context['organization_id'])
+                ->where('internal_exam_attempt_id', $attemptId)
+                ->exists()) {
+                throw ResourceDomainException::conflict('Attempt already has an immutable result.');
+            }
+
+            /** @var DefinitionRow|null $definition */
+            $definition = DB::table('internal_exam_definitions')
+                ->where('id', $attempt->internal_exam_definition_id)
+                ->first();
+            if ($definition === null || (string) $definition->engine_kind !== 'question_test') {
+                throw ResourceDomainException::conflict('This submit path currently requires a frozen question-test definition.');
+            }
+
+            $scoring = json_decode((string) $definition->scoring_policy_snapshot, true, 512, JSON_THROW_ON_ERROR);
+            if (! is_array($scoring)
+                || ($scoring['question_scoring'] ?? null) !== 'all_or_nothing'
+                || ($scoring['pass_rule'] ?? null) !== 'minimum_score'
+                || ! isset($scoring['pass_threshold'])
+                || ! is_int($scoring['pass_threshold'])) {
+                throw ResourceDomainException::conflict('Frozen scoring policy is unsupported or incomplete.');
+            }
+            $threshold = (int) $scoring['pass_threshold'];
+
+            $answerMap = [];
+            foreach ($answers as $answer) {
+                if (! isset($answer['ordinal']) || ! is_int($answer['ordinal']) || ! array_key_exists('answer', $answer)) {
+                    throw ResourceDomainException::rule('Every submitted answer requires integer ordinal and answer.');
+                }
+                $ordinal = (int) $answer['ordinal'];
+                if ($ordinal < 1 || array_key_exists($ordinal, $answerMap)) {
+                    throw ResourceDomainException::rule('Answer ordinals must be unique positive integers.');
+                }
+                $answerMap[$ordinal] = $answer['answer'];
+            }
+
+            $questions = DB::table('internal_exam_attempt_questions')
+                ->where('organization_id', $context['organization_id'])
+                ->where('internal_exam_attempt_id', $attemptId)
+                ->orderBy('ordinal')
+                ->lockForUpdate()
+                ->get();
+            if ($questions->count() === 0 || count($answerMap) !== $questions->count()) {
+                throw ResourceDomainException::rule('Submitted answers must exactly cover the frozen question set.');
+            }
+
+            $score = 0;
+            $maxScore = 0;
+            $finalEvidence = [];
+            $now = CarbonImmutable::now();
+            foreach ($questions as $question) {
+                /** @var QuestionRow $question */
+                $ordinal = (int) $question->ordinal;
+                if (! array_key_exists($ordinal, $answerMap)) {
+                    throw ResourceDomainException::rule('Submitted answers must exactly cover the frozen question set.');
+                }
+                $snapshot = json_decode((string) $question->question_snapshot, true, 512, JSON_THROW_ON_ERROR);
+                if (! is_array($snapshot) || ! array_key_exists('correct_answer', $snapshot)) {
+                    throw ResourceDomainException::conflict('Frozen question evaluation key is missing.');
+                }
+                $candidate = $answerMap[$ordinal];
+                $correct = $this->canonicalJson($candidate) === $this->canonicalJson($snapshot['correct_answer']);
+                $points = $correct ? (int) $question->max_points_snapshot : 0;
+                $score += $points;
+                $maxScore += (int) $question->max_points_snapshot;
+                DB::table('internal_exam_attempt_questions')->where('id', $question->id)->update([
+                    'candidate_answer' => json_encode($candidate, JSON_THROW_ON_ERROR),
+                    'is_correct' => $correct,
+                    'points_awarded' => $points,
+                    'answered_at' => $now,
+                ]);
+                $finalEvidence[] = [
+                    'ordinal' => $ordinal,
+                    'question_snapshot_hash' => (string) $question->question_snapshot_hash,
+                    'candidate_answer' => $candidate,
+                    'is_correct' => $correct,
+                    'points_awarded' => $points,
+                    'max_points' => (int) $question->max_points_snapshot,
+                ];
+            }
+
+            if ($threshold < 0 || $threshold > $maxScore) {
+                throw ResourceDomainException::conflict('Frozen numeric pass threshold is outside the frozen score range.');
+            }
+
+            $passed = $score >= $threshold;
+            $status = $passed ? 'passed' : 'failed';
+            $resultSnapshot = [
+                'engine_kind' => 'question_test',
+                'score' => $score,
+                'max_score' => $maxScore,
+                'pass_threshold' => $threshold,
+                'passed' => $passed,
+                'questions' => $finalEvidence,
+            ];
+            $evidenceBundle = [
+                'attempt_id' => $attemptId,
+                'organization_id' => $context['organization_id'],
+                'candidate_snapshot' => json_decode((string) $attempt->candidate_snapshot, true, 512, JSON_THROW_ON_ERROR),
+                'driving_category_id' => (string) $attempt->driving_category_id,
+                'exam_part' => (string) $attempt->exam_part,
+                'language_code' => (string) $attempt->language_code,
+                'requirement_basis_snapshot' => json_decode((string) $attempt->requirement_basis_snapshot, true, 512, JSON_THROW_ON_ERROR),
+                'internal_exam_definition_id' => (string) $attempt->internal_exam_definition_id,
+                'exam_definition_version_snapshot' => (string) $attempt->exam_definition_version_snapshot,
+                'exam_definition_hash_snapshot' => (string) $attempt->exam_definition_hash_snapshot,
+                'questions' => $finalEvidence,
+                'scoring_policy_snapshot' => $scoring,
+                'score' => $score,
+                'max_score' => $maxScore,
+                'passed' => $passed,
+                'finished_at' => $now->toIso8601String(),
+            ];
+
+            $resultId = (string) Str::uuid7();
+            DB::table('internal_exam_results')->insert([
+                'id' => $resultId,
+                'organization_id' => $context['organization_id'],
+                'internal_exam_attempt_id' => $attemptId,
+                'evidence_schema_version' => (int) $attempt->evidence_schema_version,
+                'score' => $score,
+                'max_score' => $maxScore,
+                'pass_threshold_snapshot' => $threshold,
+                'passed' => $passed,
+                'scoring_policy_snapshot' => json_encode($scoring, JSON_THROW_ON_ERROR),
+                'question_set_hash' => $attempt->question_set_hash,
+                'evidence_bundle_hash' => hash('sha256', $this->canonicalJson($evidenceBundle)),
+                'answer_sheet_template_binding_snapshot' => null,
+                'result_snapshot' => json_encode($resultSnapshot, JSON_THROW_ON_ERROR),
+                'result_snapshot_hash' => hash('sha256', $this->canonicalJson($resultSnapshot)),
+                'created_at' => $now,
+            ]);
+
+            $attemptVersion = (int) $attempt->version + 1;
+            $accessVersion = (int) $access->version + 1;
+            DB::table('internal_exam_attempts')->where('id', $attemptId)->update([
+                'status' => $status,
+                'version' => $attemptVersion,
+                'finished_at' => $now,
+            ]);
+            $this->appendAttemptEvent(
+                $context['organization_id'], $attemptId, 'submitted',
+                'in_progress', $status, (int) $attempt->version, $attemptVersion,
+                null, null, $now,
+            );
+
+            DB::table('internal_exam_accesses')->where('id', $access->id)->update([
+                'status' => 'completed',
+                'version' => $accessVersion,
+                'completed_at' => $now,
+            ]);
+            $this->appendAccessEvent(
+                $context['organization_id'], (string) $access->id, $attemptId, 'completed',
+                'started', 'completed', (int) $access->version, $accessVersion,
+                null, null, $now,
+            );
+
+            $this->tokens->revokeExecution(
+                $context['organization_id'],
+                (string) $access->id,
+                'attempt_completed',
+                $now,
+            );
+            $issued = $this->tokens->issueResultRead(
+                $context['organization_id'],
+                (string) $access->id,
+                $attemptId,
+                null,
+                $now,
+            );
+
+            $this->auditOutbox->recordOrganizationSystemEvent(
+                $context['organization_id'],
+                'internal_exam.submitted',
+                'internal_exam_attempt',
+                $attemptId,
+                $requestId,
+                ['fields' => ['status'], 'state' => 'in_progress'],
+                ['fields' => ['status', 'result'], 'state' => $status],
+            );
+
+            $presented = $this->presentResult($context['organization_id'], $resultId);
+            $presented['one_time_result_token'] = $issued['raw_token'];
+
+            return $presented;
+        });
+    }
+
+    /** @return array<string,mixed> */
+    public function resultWithToken(string $rawToken, string $attemptId): array
+    {
+        $context = $this->tokens->verify($rawToken, 'finished_result_read');
+        if ($context['attempt_id'] !== $attemptId) {
+            throw $this->invalidExamToken();
+        }
+
+        return DB::transaction(function () use ($rawToken, $context, $attemptId): array {
+            $attempt = $this->lockAttempt($context['organization_id'], $attemptId);
+
+            /** @var AccessRow|null $access */
+            $access = DB::table('internal_exam_accesses')
+                ->where('organization_id', $context['organization_id'])
+                ->where('id', $context['access_id'])
+                ->where('internal_exam_attempt_id', $attemptId)
+                ->lockForUpdate()
+                ->first();
+            if ($access === null
+                || (string) $access->launch_mode !== 'remote_link'
+                || (string) $access->status !== 'completed'
+                || ! in_array((string) $attempt->status, ['passed', 'failed'], true)) {
+                throw $this->invalidExamToken();
+            }
+
+            $this->tokens->verifyForUpdate($rawToken, 'finished_result_read');
+
+            $resultId = DB::table('internal_exam_results')
+                ->where('organization_id', $context['organization_id'])
+                ->where('internal_exam_attempt_id', $attemptId)
+                ->value('id');
+            if (! is_string($resultId) || $resultId === '') {
+                throw $this->invalidExamToken();
+            }
+
+            return $this->presentResult($context['organization_id'], $resultId);
+        });
+    }
+
+    /** @return list<array<string,mixed>> */
+    public function questionsWithToken(string $rawToken, string $attemptId): array
+    {
+        $context = $this->tokens->verify($rawToken, 'finished_result_read');
+        if ($context['attempt_id'] !== $attemptId) {
+            throw $this->invalidExamToken();
+        }
+
+        return DB::transaction(function () use ($rawToken, $context, $attemptId): array {
+            $attempt = $this->lockAttempt($context['organization_id'], $attemptId);
+
+            /** @var AccessRow|null $access */
+            $access = DB::table('internal_exam_accesses')
+                ->where('organization_id', $context['organization_id'])
+                ->where('id', $context['access_id'])
+                ->where('internal_exam_attempt_id', $attemptId)
+                ->lockForUpdate()
+                ->first();
+            if ($access === null
+                || (string) $access->launch_mode !== 'remote_link'
+                || (string) $access->status !== 'completed'
+                || ! in_array((string) $attempt->status, ['passed', 'failed'], true)) {
+                throw $this->invalidExamToken();
+            }
+
+            $this->tokens->verifyForUpdate($rawToken, 'finished_result_read');
+
+            return DB::table('internal_exam_attempt_questions')
+                ->where('organization_id', $context['organization_id'])
+                ->where('internal_exam_attempt_id', $attemptId)
+                ->orderBy('ordinal')
+                ->get()
+                ->map(static function (object $row): array {
+                    /** @var ReviewQuestionRow $row */
+                    return [
+                        'ordinal' => (int) $row->ordinal,
+                        'group' => (string) $row->group,
+                        'question_snapshot' => json_decode((string) $row->question_snapshot, true, 512, JSON_THROW_ON_ERROR),
+                        'candidate_answer' => $row->candidate_answer === null
+                            ? null
+                            : json_decode((string) $row->candidate_answer, true, 512, JSON_THROW_ON_ERROR),
+                        'is_correct' => $row->is_correct === null ? null : (bool) $row->is_correct,
+                        'points_awarded' => $row->points_awarded === null ? null : (int) $row->points_awarded,
+                        'max_points' => (int) $row->max_points_snapshot,
+                    ];
+                })
+                ->values()
+                ->all();
         });
     }
 
@@ -911,6 +1395,14 @@ final class InternalExamService
             }
 
             $now = CarbonImmutable::now();
+            if ((string) $access->launch_mode === 'remote_link') {
+                $this->tokens->revokeExecution(
+                    $actor['organization_id'],
+                    (string) $access->id,
+                    'technical_abort',
+                    $now,
+                );
+            }
             $attemptVersion = (int) $attempt->version + 1;
             $accessVersion = (int) $access->version + 1;
             DB::table('internal_exam_attempts')->where('id', $attemptId)->update([
@@ -1368,6 +1860,15 @@ final class InternalExamService
             'pass_threshold' => $row->pass_threshold_snapshot === null ? null : (int) $row->pass_threshold_snapshot,
             'evidence_bundle_hash' => (string) $row->evidence_bundle_hash,
         ];
+    }
+
+    private function invalidExamToken(): ResourceDomainException
+    {
+        return new ResourceDomainException(
+            'INVALID_EXAM_ACCESS_TOKEN',
+            401,
+            'Invalid or expired internal exam access token.',
+        );
     }
 
     private function canonicalJson(mixed $value): string

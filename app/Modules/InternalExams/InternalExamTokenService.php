@@ -68,13 +68,66 @@ final class InternalExamTokenService
         $this->revokeCurrent($organizationId, $accessId, 'exam_execution', $reasonCode, $revokedAt);
     }
 
+    /** @return array{raw_token:string,token_id:string,expires_at:string} */
+    public function issueResultRead(
+        string $organizationId,
+        string $accessId,
+        string $attemptId,
+        ?string $issuedByUserId,
+        CarbonImmutable $issuedAt,
+    ): array {
+        return $this->issue(
+            $organizationId,
+            $accessId,
+            $attemptId,
+            'finished_result_read',
+            $issuedByUserId,
+            $issuedAt,
+            $this->ttlMinutes('result_token_ttl_minutes'),
+            null,
+        );
+    }
+
+    public function revokeResultRead(
+        string $organizationId,
+        string $accessId,
+        string $reasonCode,
+        CarbonImmutable $revokedAt,
+    ): void {
+        $this->assertTransaction();
+        $this->revokeCurrent($organizationId, $accessId, 'finished_result_read', $reasonCode, $revokedAt);
+    }
+
     /** @return TokenContext */
     public function verify(string $rawToken, string $expectedPurpose, ?CarbonImmutable $effectiveAt = null): array
     {
+        return $this->verifyResolved($rawToken, $expectedPurpose, $effectiveAt, false);
+    }
+
+    /** @return TokenContext */
+    public function verifyForUpdate(string $rawToken, string $expectedPurpose, ?CarbonImmutable $effectiveAt = null): array
+    {
+        $this->assertTransaction();
+
+        return $this->verifyResolved($rawToken, $expectedPurpose, $effectiveAt, true);
+    }
+
+    /** @return TokenContext */
+    private function verifyResolved(
+        string $rawToken,
+        string $expectedPurpose,
+        ?CarbonImmutable $effectiveAt,
+        bool $forUpdate,
+    ): array {
         [$lookupId, $secret] = $this->parse($rawToken);
 
+        $query = DB::table('internal_exam_access_tokens')->where('lookup_id', $lookupId);
+        if ($forUpdate) {
+            $query->lockForUpdate();
+        }
+
         /** @var TokenRow|null $row */
-        $row = DB::table('internal_exam_access_tokens')->where('lookup_id', $lookupId)->first();
+        $row = $query->first();
         if ($row === null || (string) $row->purpose !== $expectedPurpose) {
             throw $this->invalid();
         }

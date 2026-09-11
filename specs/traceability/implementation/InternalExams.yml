@@ -58,3 +58,19 @@ changed_scope:
     ui: DEFERRED_UNTIL_INTERNAL_EXAMS_UI_GATE
     acceptance_test: Tests\\Feature\\InternalExamCoreTest::test_remote_access_token_is_nonrecoverable_purpose_scoped_and_exact_expiry_fails_closed
     status: IMPLEMENTED
+  - evidence: specs/database/internal-exams.yml#DB-EXAM-005
+    requirement: valid exam_execution token can start and submit only its exact remote Access and Attempt; pass or fail retires execution privilege and atomically creates one finished_result_read token while technical abort creates none
+    domain_data: internal_exam_access_tokens + internal_exam_accesses + internal_exam_attempts + internal_exam_results + internal_exam_reservations + internal_exam_inventory_entries
+    api_use_case: SERVICE_RUNTIME_3B2_remote_start_submit_result_read
+    permission: examAccessToken purpose exam_execution or finished_result_read
+    ui: DEFERRED_UNTIL_INTERNAL_EXAMS_UI_GATE
+    acceptance_test: Tests\\Feature\\InternalExamCoreTest::test_remote_submit_retires_execution_token_mints_result_token_and_scopes_review_to_frozen_evidence
+    status: IMPLEMENTED
+  - evidence: specs/database/internal-exams.yml#DB-EXAM-007
+    requirement: finished-result bearer review reads only immutable result and ordered frozen attempt-question evidence and never current question-bank state
+    domain_data: internal_exam_results + internal_exam_attempt_questions + internal_exam_access_tokens
+    api_use_case: SERVICE_RUNTIME_3B2_result_and_question_review
+    permission: examAccessToken purpose finished_result_read
+    ui: DEFERRED_UNTIL_INTERNAL_EXAMS_UI_GATE
+    acceptance_test: Tests\\Feature\\InternalExamCoreTest::test_remote_submit_retires_execution_token_mints_result_token_and_scopes_review_to_frozen_evidence
+    status: IMPLEMENTED
