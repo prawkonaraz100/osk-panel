@@ -297,7 +297,7 @@ final class StudentFinanceCoreTest extends TestCase
     }
 
     /**
-     * @param array{organization_id:string,user_id:string,membership_id:string,session_id:string} $actor
+     * @param  array{organization_id:string,user_id:string,membership_id:string,session_id:string}  $actor
      * @return array<string,mixed>
      */
     private function student(array $actor): array
@@ -311,7 +311,7 @@ final class StudentFinanceCoreTest extends TestCase
     }
 
     /**
-     * @param array{organization_id:string,user_id:string,membership_id:string,session_id:string} $actor
+     * @param  array{organization_id:string,user_id:string,membership_id:string,session_id:string}  $actor
      * @return array<string,mixed>
      */
     private function instructor(array $actor): array
