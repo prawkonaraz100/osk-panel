@@ -1,11 +1,17 @@
 <?php
 
 use Tests\Feature\AuditOutboxFoundationTest;
+use Tests\Feature\AvailabilityFormalizationCoreTest;
+use Tests\Feature\AvailabilitySlotCoreTest;
+use Tests\Feature\CalendarDrivingLessonCoreTest;
+use Tests\Feature\CalendarEventCoreTest;
+use Tests\Feature\CalendarImportantDateProjectionCoreTest;
 use Tests\Feature\IdentityTenantFoundationTest;
 use Tests\Feature\OrganizationSettingsFoundationTest;
 use Tests\Feature\ResourcesCoreTest;
 use Tests\Feature\Stage4MigrationPostcheckTest;
 use Tests\Feature\StudentsCoursesCoreTest;
+use Tests\Feature\TrainingSessionCoreTest;
 
 return [
     'DBT-CORE-009' => [
@@ -187,6 +193,132 @@ return [
         'class' => ResourcesCoreTest::class,
         'method' => 'test_dbt_res_050_restore_staff_profile_restores_record_only',
         'scope' => 'Transactional restore_staff_profile invariant restores record only.',
+    ],
+
+    'DBT-CAL-002' => [
+        'class' => CalendarEventCoreTest::class,
+        'method' => 'test_material_patch_is_versioned_noop_is_not_and_meeting_place_sources_are_exclusive',
+        'scope' => 'Manual CalendarEvent cannot persist managed location and custom meeting place at the same time.',
+    ],
+    'DBT-CAL-003' => [
+        'class' => CalendarImportantDateProjectionCoreTest::class,
+        'method' => 'test_staff_and_vehicle_expiry_dates_project_without_calendar_rows_or_claims',
+        'scope' => 'Important dates are source projections and never manual CalendarEvent or reservation rows.',
+    ],
+    'DBT-CAL-004' => [
+        'class' => TrainingSessionCoreTest::class,
+        'method' => 'test_planned_session_creates_exact_shared_claims_and_rejects_overlap_but_allows_adjacent_interval',
+        'scope' => 'Shared calendar occupancy uses half-open intervals so adjacent reservations are legal.',
+    ],
+    'DBT-CAL-011' => [
+        'class' => CalendarEventCoreTest::class,
+        'method' => 'test_material_patch_is_versioned_noop_is_not_and_meeting_place_sources_are_exclusive',
+        'scope' => 'Material CalendarEvent versions emit matching lifecycle history while semantic no-ops do not.',
+    ],
+    'DBT-CAL-012' => [
+        'class' => CalendarEventCoreTest::class,
+        'method' => 'test_material_patch_is_versioned_noop_is_not_and_meeting_place_sources_are_exclusive',
+        'scope' => 'A stale expected CalendarEvent version cannot commit a second mutation.',
+    ],
+    'DBT-CAL-013' => [
+        'class' => CalendarEventCoreTest::class,
+        'method' => 'test_calendar_manage_own_is_canonical_instructor_ownership_and_cannot_transfer',
+        'scope' => 'Calendar own scope resolves through active StaffProfile instructor ownership and cannot transfer ownership.',
+    ],
+    'DBT-CAL-014' => [
+        'class' => AvailabilitySlotCoreTest::class,
+        'method' => 'test_booking_is_idempotent_versioned_and_creates_exact_claims_without_training_effect',
+        'scope' => 'Availability booking state, booking fields, version, and lifecycle history remain consistent.',
+    ],
+    'DBT-CAL-016' => [
+        'class' => AvailabilitySlotCoreTest::class,
+        'method' => 'test_booking_conflict_rolls_back_slot_to_available_without_partial_claims',
+        'scope' => 'Availability booking conflict rolls back status, version, booking fields, claims, and history atomically.',
+    ],
+    'DBT-CAL-017' => [
+        'class' => AvailabilitySlotCoreTest::class,
+        'method' => 'test_cancel_booked_slot_releases_claims_preserves_student_snapshot_and_cannot_rebook',
+        'scope' => 'Cancelled AvailabilitySlot releases booking claims, preserves evidence, and remains terminal.',
+    ],
+    'DBT-TRN-015' => [
+        'class' => TrainingSessionCoreTest::class,
+        'method' => 'test_planned_session_creates_exact_shared_claims_and_rejects_overlap_but_allows_adjacent_interval',
+        'scope' => 'Planned TrainingSession creates the exact current course Student and Instructor resource claim set.',
+    ],
+    'DBT-TRN-017' => [
+        'class' => TrainingSessionCoreTest::class,
+        'method' => 'test_planned_session_creates_exact_shared_claims_and_rejects_overlap_but_allows_adjacent_interval',
+        'scope' => 'Planning and claiming a TrainingSession does not create attendance or formal training credit.',
+    ],
+    'DBT-TRN-018' => [
+        'class' => TrainingSessionCoreTest::class,
+        'method' => 'test_absent_completion_and_cancellation_never_credit_formal_time',
+        'scope' => 'Completed or cancelled TrainingSession releases all shared schedule claims.',
+    ],
+    'DBT-CAL-018' => [
+        'class' => CalendarDrivingLessonCoreTest::class,
+        'method' => 'test_calendar_create_and_list_project_one_practical_training_session_without_calendar_event_copy',
+        'scope' => 'Practical TrainingSession projects exactly once as driving_lesson without a CalendarEvent copy.',
+    ],
+    'DBT-CAL-019' => [
+        'class' => CalendarDrivingLessonCoreTest::class,
+        'method' => 'test_calendar_metadata_patch_uses_training_session_version_and_preserves_meeting_place_xor',
+        'scope' => 'TrainingSession calendar companion metadata preserves optional display name and custom meeting place without schedule duplication.',
+    ],
+    'DBT-CAL-020' => [
+        'class' => CalendarDrivingLessonCoreTest::class,
+        'method' => 'test_calendar_metadata_patch_uses_training_session_version_and_preserves_meeting_place_xor',
+        'scope' => 'Formal TrainingSession managed location and custom meeting place are mutually exclusive.',
+    ],
+    'DBT-CAL-021' => [
+        'class' => CalendarDrivingLessonCoreTest::class,
+        'method' => 'test_calendar_manage_permission_alone_cannot_create_formal_training',
+        'scope' => 'Calendar management permission cannot escalate into formal TrainingSession mutation.',
+    ],
+    'DBT-CAL-022' => [
+        'class' => CalendarEventCoreTest::class,
+        'method' => 'test_terminal_commands_require_if_match_are_idempotent_and_never_credit_training_hours',
+        'scope' => 'Completing a manual CalendarEvent never bypasses the formal TrainingSession credit pipeline.',
+    ],
+    'DBT-CAL-023' => [
+        'class' => AvailabilityFormalizationCoreTest::class,
+        'method' => 'test_ambiguous_course_context_rolls_back_and_preserves_booking',
+        'scope' => 'Availability formalization requires explicit or uniquely resolvable active course context and never guesses latest or first.',
+    ],
+    'DBT-CAL-024' => [
+        'class' => AvailabilityFormalizationCoreTest::class,
+        'method' => 'test_formalization_transfers_booking_to_one_practical_training_session_atomically',
+        'scope' => 'Formalization atomically transfers booking ownership from AvailabilitySlot claims to one practical TrainingSession.',
+    ],
+    'DBT-CAL-025' => [
+        'class' => AvailabilityFormalizationCoreTest::class,
+        'method' => 'test_formalization_transfers_booking_to_one_practical_training_session_atomically',
+        'scope' => 'Formalized slot keeps one TrainingSession link, zero booking claims, and one calendar item.',
+    ],
+    'DBT-CAL-051' => [
+        'class' => AvailabilitySlotCoreTest::class,
+        'method' => 'test_booking_is_idempotent_versioned_and_creates_exact_claims_without_training_effect',
+        'scope' => 'book_availability_slot preserves atomic booking state, history, and exact shared claims.',
+    ],
+    'DBT-CAL-052' => [
+        'class' => CalendarEventCoreTest::class,
+        'method' => 'test_general_event_uses_shared_claim_boundary_and_formal_driving_lesson_row_is_rejected',
+        'scope' => 'calendar_conflict rejects overlap at the shared runtime boundary without partial CalendarEvent state.',
+    ],
+    'DBT-CAL-053' => [
+        'class' => AvailabilitySlotCoreTest::class,
+        'method' => 'test_cancel_booked_slot_releases_claims_preserves_student_snapshot_and_cannot_rebook',
+        'scope' => 'cancel_availability_slot preserves terminal history while releasing current booking claims atomically.',
+    ],
+    'DBT-CAL-054' => [
+        'class' => CalendarEventCoreTest::class,
+        'method' => 'test_terminal_commands_require_if_match_are_idempotent_and_never_credit_training_hours',
+        'scope' => 'complete_or_cancel_manual_calendar_event preserves versioned terminal history and releases claims without training credit.',
+    ],
+    'DBT-CAL-055' => [
+        'class' => CalendarEventCoreTest::class,
+        'method' => 'test_material_patch_is_versioned_noop_is_not_and_meeting_place_sources_are_exclusive',
+        'scope' => 'create_or_update_manual_calendar_event preserves optimistic concurrency and lifecycle atomicity.',
     ],
     'DBT-TRN-003' => [
         'class' => StudentsCoursesCoreTest::class,

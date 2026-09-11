@@ -31,6 +31,8 @@ final class TrainingSessionCoreTest extends TestCase
         );
 
         $this->assertSame(2, DB::table('calendar_resource_claims')->where('claim_owner_id', $first['id'])->count());
+        $this->assertSame(0, DB::table('training_session_attendance')->where('training_session_id', $first['id'])->count());
+        $this->assertSame(0, DB::table('training_hour_ledger_entries')->where('training_session_id', $first['id'])->count());
 
         $exception = $this->captureDomainException(fn () => $this->training()->create(
             $fixture['actor']['session_id'],
@@ -100,6 +102,7 @@ final class TrainingSessionCoreTest extends TestCase
         $this->training()->recordAttendance($fixture['actor']['session_id'], $absent['id'], 'absent', (string) Str::uuid7(), '"v1"');
         $this->training()->complete($fixture['actor']['session_id'], $absent['id'], (string) Str::uuid7());
         $this->assertSame(0, DB::table('training_hour_ledger_entries')->where('training_session_id', $absent['id'])->count());
+        $this->assertSame(0, DB::table('calendar_resource_claims')->where('claim_owner_id', $absent['id'])->count());
 
         $cancelled = $this->training()->create(
             $fixture['actor']['session_id'],
