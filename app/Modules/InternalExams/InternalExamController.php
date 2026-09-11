@@ -19,12 +19,34 @@ final class InternalExamController
     public function __construct(
         private readonly InternalExamService $exams,
         private readonly InternalExamManagementService $management,
+        private readonly InternalExamReadService $reads,
         private readonly InternalExamTokenService $tokens,
         private readonly ExamStationCredentialService $stationCredentials,
         private readonly ExamStationService $stations,
         private readonly ResourceIdempotency $idempotency,
         private readonly TenantAuthorizer $tenantAuthorizer,
     ) {}
+
+    public function inventory(Request $request): JsonResponse
+    {
+        return response()->json(
+            $this->reads->inventory($this->sessionId($request)),
+        );
+    }
+
+    public function capabilities(Request $request): JsonResponse
+    {
+        $input = $this->validated($request, [
+            'category' => ['required', 'string', 'max:16'],
+            'part' => ['required', 'string', 'in:theory,practical'],
+        ]);
+
+        return response()->json($this->reads->capability(
+            $this->sessionId($request),
+            (string) $input['category'],
+            (string) $input['part'],
+        ));
+    }
 
     public function subjects(Request $request): JsonResponse
     {
