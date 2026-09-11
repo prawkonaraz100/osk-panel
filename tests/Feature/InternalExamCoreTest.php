@@ -28,8 +28,8 @@ final class InternalExamCoreTest extends TestCase
         config()->set('internal_exams.result_token_ttl_minutes', 1440);
         config()->set('internal_exams.remote_access_ttl_minutes', 120);
         config()->set('internal_exams.remote_public_base_url', 'https://learn.example.test/internal-exam');
-        config()->set('internal_exams.token_verifier_key_v1', 'synthetic-internal-exam-verifier-key-v1-2026-09-11');
-        config()->set('internal_exams.station_verifier_key_v1', 'synthetic-station-verifier-key-v1-2026-09-11');
+        config()->set('internal_exams.token_verifier_key_v1', str_repeat('t', 32));
+        config()->set('internal_exams.station_verifier_key_v1', str_repeat('s', 32));
         $this->stationCredentialSecrets = [];
         FoundationSchema::reset();
     }
