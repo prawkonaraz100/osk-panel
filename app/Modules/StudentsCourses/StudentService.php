@@ -51,12 +51,37 @@ final class StudentService
             $query->whereNull('archived_at');
         }
         if ($q !== null && trim($q) !== '') {
-            $needle = '%'.mb_strtolower(trim($q)).'%';
-            $query->where(function ($builder) use ($needle): void {
+            $normalizedQuery = trim($q);
+            $needle = '%'.mb_strtolower($normalizedQuery).'%';
+            $peselDigits = (string) preg_replace('/\D/', '', $normalizedQuery);
+            $peselHash = null;
+            if (strlen($peselDigits) === 11) {
+                $key = (string) config('app.key');
+                if ($key !== '') {
+                    $peselHash = hash_hmac('sha256', $peselDigits, $key);
+                }
+            }
+
+            $query->where(function ($builder) use ($needle, $peselHash): void {
                 $builder->whereRaw('LOWER(first_name) LIKE ?', [$needle])
                     ->orWhereRaw('LOWER(last_name) LIKE ?', [$needle])
                     ->orWhereRaw('LOWER(COALESCE(contact_email_normalized, \'\')) LIKE ?', [$needle])
-                    ->orWhereRaw('LOWER(COALESCE(phone, \'\')) LIKE ?', [$needle]);
+                    ->orWhereRaw('LOWER(COALESCE(phone, \'\')) LIKE ?', [$needle])
+                    ->orWhereExists(function ($sub) use ($needle): void {
+                        $sub->selectRaw('1')
+                            ->from('student_learning_accounts as la')
+                            ->join('auth_login_identifiers as li', function ($join): void {
+                                $join->on('li.id', '=', 'la.auth_login_identifier_id')
+                                    ->on('li.user_id', '=', 'la.user_id');
+                            })
+                            ->whereColumn('la.organization_id', 'students.organization_id')
+                            ->whereColumn('la.student_id', 'students.id')
+                            ->whereNull('li.revoked_at')
+                            ->whereRaw('LOWER(li.identifier_normalized) LIKE ?', [$needle]);
+                    });
+                if ($peselHash !== null) {
+                    $builder->orWhere('pesel_lookup_hash', $peselHash);
+                }
             });
         }
 

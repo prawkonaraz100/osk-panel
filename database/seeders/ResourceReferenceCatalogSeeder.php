@@ -30,6 +30,10 @@ final class ResourceReferenceCatalogSeeder extends Seeder
     /** @var list<string> */
     private const LANGUAGES = [
         'pl' => 'Polski',
+        'en' => 'Angielski',
+        'de' => 'Niemiecki',
+        'ru' => 'Rosyjski',
+        'uk' => 'Ukraiński',
     ];
 
     /** @var list<string> */
@@ -50,6 +54,7 @@ final class ResourceReferenceCatalogSeeder extends Seeder
         'student_charge_created', 'student_charge_cancelled', 'student_payment_recorded', 'student_payment_reversed',
         'learning_account_created', 'learning_account_updated', 'learning_account_password_reset', 'learning_account_handoff_created',
         'license_assignment_created', 'license_assignment_activated', 'license_assignment_revoked',
+        'learning_access_credentials_exported',
     ];
 
     public function run(): void

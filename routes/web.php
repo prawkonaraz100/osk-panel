@@ -57,6 +57,7 @@ Route::middleware(ResourceApiMiddleware::class)->prefix('api/v1')->group(functio
     Route::patch('/students/{studentId}/learning-accounts/{accountId}', [LearningAccessController::class, 'accountsUpdate']);
     Route::post('/students/{studentId}/learning-accounts/{accountId}/password-reset', [LearningAccessController::class, 'resetPassword']);
     Route::post('/students/{studentId}/learning-accounts/{accountId}/access-handoffs', [LearningAccessController::class, 'createHandoff']);
+    Route::get('/students/{studentId}/learning-accounts/{accountId}/access-handoffs/{handoffId}/pdf', [LearningAccessController::class, 'handoffPdf']);
 
     Route::get('/license-products', [LearningAccessController::class, 'products']);
     Route::get('/license-products/{productId}/languages', [LearningAccessController::class, 'productLanguages']);
@@ -67,6 +68,7 @@ Route::middleware(ResourceApiMiddleware::class)->prefix('api/v1')->group(functio
     Route::post('/license-assignments/{assignmentId}/activate', [LearningAccessController::class, 'assignmentActivate']);
     Route::post('/license-assignments/{assignmentId}/revoke-unactivated', [LearningAccessController::class, 'assignmentRevoke']);
     Route::get('/students/{studentId}/learning-accounts/{accountId}/license-assignments', [LearningAccessController::class, 'history']);
+    Route::post('/learning-accesses/bulk-access-document', [LearningAccessController::class, 'bulkAccessDocument']);
 
     Route::get('/students/{studentId}/charges', [StudentFinanceController::class, 'chargesList']);
     Route::post('/students/{studentId}/charges', [StudentFinanceController::class, 'chargesCreate']);

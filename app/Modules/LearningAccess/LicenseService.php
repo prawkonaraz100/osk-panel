@@ -843,6 +843,9 @@ final class LicenseService
             'assigned_at' => (string) $row->assigned_at,
             'revoked_at' => $row->revoked_at === null ? null : (string) $row->revoked_at,
             'expires_at' => $activation === null ? null : (string) $activation->effective_to,
+            'remaining_days' => $activation === null
+                ? null
+                : max(0, (int) ceil(($effectiveAt->diffInSeconds(Carbon::parse((string) $activation->effective_to), false)) / 86400)),
             'version' => (int) $row->version,
         ];
     }

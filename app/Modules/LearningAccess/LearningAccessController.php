@@ -11,6 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpFoundation\Response;
 
 final class LearningAccessController
 {
@@ -19,6 +20,7 @@ final class LearningAccessController
         private readonly LicenseService $licenses,
         private readonly ResourceIdempotency $idempotency,
         private readonly TenantAuthorizer $tenantAuthorizer,
+        private readonly LearningAccessPdfRenderer $pdf,
     ) {}
 
     public function accountsList(Request $request, string $studentId): JsonResponse
@@ -116,6 +118,81 @@ final class LearningAccessController
                 $sessionId, $studentId, $accountId, $this->requestId($request),
             ),
         );
+    }
+
+    public function handoffPdf(
+        Request $request,
+        string $studentId,
+        string $accountId,
+        string $handoffId,
+    ): Response {
+        $document = $this->accounts->documentForHandoff(
+            $this->sessionId($request),
+            $studentId,
+            $accountId,
+            $handoffId,
+            $this->requestId($request),
+        );
+        $pdf = $this->pdf->renderSingle($document);
+
+        return response($pdf, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="prawkonaraz-dostep.pdf"',
+            'Cache-Control' => 'private, no-store',
+        ]);
+    }
+
+    public function bulkAccessDocument(Request $request): Response
+    {
+        $input = $this->validated($request, [
+            'learning_account_ids' => ['required', 'array', 'min:1', 'max:100'],
+            'learning_account_ids.*' => ['required', 'uuid', 'distinct'],
+            'regenerate_credentials_when_required' => ['sometimes', 'boolean'],
+        ]);
+        if (($input['regenerate_credentials_when_required'] ?? false) === true) {
+            throw ValidationException::withMessages([
+                'regenerate_credentials_when_required' => [
+                    'Bulk export never resets credentials implicitly. Reset must be an explicit per-account command.',
+                ],
+            ]);
+        }
+
+        /** @var list<string> $accountIds */
+        $accountIds = array_values(array_map('strval', $input['learning_account_ids']));
+        $sessionId = $this->sessionId($request);
+        $organizationId = $this->tenantAuthorizer->activeMembershipForSession($sessionId)['organization_id'];
+        $result = $this->idempotency->execute(
+            $organizationId,
+            'learning_access.bulk_credentials_pdf',
+            $this->idempotencyKey($request),
+            ['learning_account_ids' => $accountIds],
+            function () use ($sessionId, $accountIds, $request): array {
+                $batch = $this->accounts->createBulkExport(
+                    $sessionId,
+                    $accountIds,
+                    $this->requestId($request),
+                );
+
+                return [
+                    'status' => 200,
+                    'resource_type' => 'student_access_export_batch',
+                    'resource_id' => $batch['id'],
+                    'body' => [
+                        'batch_id' => $batch['id'],
+                        'selected_account_count' => $batch['selected_account_count'],
+                    ],
+                ];
+            },
+        );
+
+        $documents = $this->accounts->bulkExportDocuments($sessionId, (string) $result['body']['batch_id']);
+        $pdf = $this->pdf->renderBulk($documents);
+
+        return response($pdf, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="prawkonaraz-dostepy.pdf"',
+            'Cache-Control' => 'private, no-store',
+        ]);
     }
 
     public function products(Request $request): JsonResponse

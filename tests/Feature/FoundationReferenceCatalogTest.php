@@ -31,7 +31,7 @@ final class FoundationReferenceCatalogTest extends TestCase
             ->where('permission_code', 'students.view')
             ->where('scope_code', 'assigned_students')
             ->exists());
-        $this->assertSame(57, DB::table('audit_action_policy_currents')->count());
+        $this->assertSame(58, DB::table('audit_action_policy_currents')->count());
         $this->assertTrue(DB::table('audit_action_policy_currents')->where('action', 'student.created')->exists());
         $this->assertTrue(DB::table('audit_action_policy_currents')->where('action', 'course.created')->exists());
         $this->assertTrue(DB::table('audit_action_policy_currents')->where('action', 'training.session.completed')->exists());
@@ -50,10 +50,12 @@ final class FoundationReferenceCatalogTest extends TestCase
         $this->assertTrue(DB::table('audit_action_policy_currents')->where('action', 'license_assignment_created')->exists());
         $this->assertTrue(DB::table('audit_action_policy_currents')->where('action', 'license_assignment_activated')->exists());
         $this->assertTrue(DB::table('audit_action_policy_currents')->where('action', 'license_assignment_revoked')->exists());
+        $this->assertTrue(DB::table('audit_action_policy_currents')->where('action', 'learning_access_credentials_exported')->exists());
+        $this->assertSame(['de', 'en', 'pl', 'ru', 'uk'], DB::table('languages')->orderBy('code')->pluck('code')->all());
 
         app(FoundationReferenceCatalogSeeder::class)->run();
 
         $this->assertSame(4, DB::table('data_scopes')->count());
-        $this->assertSame(57, DB::table('audit_action_policy_currents')->count());
+        $this->assertSame(58, DB::table('audit_action_policy_currents')->count());
     }
 }
