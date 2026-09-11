@@ -39,7 +39,7 @@ final class InternalExamService
         $ids = DB::table('internal_exam_attempts')
             ->where('organization_id', $actor['organization_id'])
             ->where('course_enrollment_id', $courseId)
-            ->orderBy('course_attempt_sequence')
+            ->orderByDesc('course_attempt_sequence')
             ->pluck('id')
             ->map(static fn ($id): string => (string) $id)
             ->all();
@@ -1898,12 +1898,14 @@ final class InternalExamService
             'id' => (string) $row->id,
             'student_id' => (string) $row->student_id,
             'course_enrollment_id' => (string) $row->course_enrollment_id,
+            'course_attempt_sequence' => (int) $row->course_attempt_sequence,
             'exam_part' => (string) $row->exam_part,
             'driving_category_code' => (string) $row->driving_category_code,
             'language_code' => (string) $row->language_code,
             'status' => (string) $row->status,
             'started_at' => $row->started_at === null ? null : (string) $row->started_at,
             'finished_at' => $row->finished_at === null ? null : (string) $row->finished_at,
+            'created_at' => (string) $row->created_at,
             'version' => (int) $row->version,
         ];
     }
