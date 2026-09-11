@@ -172,6 +172,921 @@ paths:
       responses:
         '200':
           description: Internal exam attempt snapshot
+          headers:
+            ETag:
+              description: Current version of the internal exam Attempt.
+              schema: { type: string, pattern: '^"v[0-9]+"
+      tags: [InternalExams]
+      operationId: internalExamAttemptsEditCandidateSnapshot
+      x-requirement-id: exam_attempts.edit_candidate_before_start
+      x-permission: exams.generate
+      x-condition: before_start_only
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/AttemptId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IfMatch' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/EditInternalExamCandidateSnapshotRequest' }
+      responses:
+        '200':
+          description: Candidate snapshot updated before exam start
+          headers:
+            ETag:
+              description: Current version of the internal exam Attempt after applying the patch.
+              schema: { type: string, pattern: '^"v[0-9]+"
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /internal-exam-attempts/{attemptId}/accesses:
+    post:
+      tags: [InternalExams]
+      operationId: internalExamAccessesCreate
+      x-requirement-id: exam_accesses.create
+      x-permission: exams.generate
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/AttemptId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/CreateExamAccessRequest' }
+      responses:
+        '201':
+          description: Remote/local access created; reservation remains one active reservation per attempt
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/InternalExamAccess' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /internal-exam-accesses/{accessId}/send:
+    post:
+      tags: [InternalExams]
+      operationId: internalExamAccessesSend
+      x-requirement-id: exam_accesses.send_remote
+      x-permission: exams.access.send
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/AccessId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+      responses:
+        '202':
+          description: Remote access delivery materialized with a newly rotated one-time URL; raw token is not persisted recoverably
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/InternalExamAccess' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /internal-exam-accesses/{accessId}/revoke:
+    post:
+      tags: [InternalExams]
+      operationId: internalExamAccessesRevoke
+      x-requirement-id: exam_accesses.revoke
+      x-permission: exams.generate
+      x-condition: before_start_only
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/AccessId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/ReasonRequest' }
+      responses:
+        '200': { description: Access revoked; unused reservation released before start }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /internal-exam-accesses/{accessId}/start:
+    post:
+      tags: [InternalExams]
+      operationId: internalExamAccessesStart
+      x-requirement-id: exam_accesses.start
+      x-permission: exams.start.local_or_exam_access_token
+      x-invariants:
+        - consume_inventory_exactly_once_on_start
+        - station_single_active_attempt_when_local
+        - finish_does_not_consume_again
+      security:
+        - sessionCookie: []
+        - examAccessToken: []
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/AccessId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+      responses:
+        '200':
+          description: Exam started and inventory consumed exactly once
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/InternalExamAttempt' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /internal-exam-attempts/{attemptId}/submit:
+    post:
+      tags: [InternalExams]
+      operationId: internalExamAttemptsSubmit
+      x-requirement-id: exam_attempts.submit
+      x-permission: active_exam_session_or_authorized_staff
+      security:
+        - sessionCookie: []
+        - examAccessToken: []
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/AttemptId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [answers]
+              properties:
+                answers:
+                  type: array
+                  items: { $ref: '../openapi-components-v1.yaml#/components/schemas/GenericObject' }
+      responses:
+        '200':
+          description: Exam finished; immutable question/answer snapshot and result persisted without second inventory consumption
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/InternalExamResult' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /internal-exam-attempts/{attemptId}/technical-abort:
+    post:
+      tags: [InternalExams]
+      operationId: internalExamAttemptsTechnicalAbort
+      x-requirement-id: exam_attempts.technical_abort
+      x-permission: exams.generate
+      x-invariant: technical_abort_after_start_does_not_auto_restore_inventory
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/AttemptId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/ReasonRequest' }
+      responses:
+        '200': { description: Attempt technically aborted with audit; inventory remains consumed after start }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /internal-exam-attempts/{attemptId}/result:
+    get:
+      tags: [InternalExams]
+      operationId: internalExamAttemptsResult
+      x-requirement-id: exam_attempts.result
+      x-permission: exams.results.view_or_finished_exam_access_token
+      x-condition: exam_access_token_allowed_only_for_matching_finished_attempt_result_scope
+      security:
+        - sessionCookie: []
+        - examAccessToken: []
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/AttemptId' }
+      responses:
+        '200':
+          description: Exam result for authorized OSK user or the matching finished-attempt result token
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/InternalExamResult' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /internal-exam-attempts/{attemptId}/questions:
+    get:
+      tags: [InternalExams]
+      operationId: internalExamAttemptsQuestions
+      x-requirement-id: exam_attempts.questions
+      x-permission: exams.results.view_or_finished_exam_access_token
+      x-covers-requirement: exam_result.question_review
+      x-condition: exam_access_token_allowed_only_for_matching_finished_attempt_result_scope
+      security:
+        - sessionCookie: []
+        - examAccessToken: []
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/AttemptId' }
+      responses:
+        '200':
+          description: Immutable post-finish question review snapshot including basic/specialized groups and media references
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '../openapi-components-v1.yaml#/components/schemas/ExamQuestionSnapshot' } }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /internal-exam-attempts/{attemptId}/documents/answer-sheet.pdf:
+    get:
+      tags: [InternalExams]
+      operationId: internalExamAttemptsAnswerSheetPdf
+      x-requirement-id: exam_attempts.answer_sheet_pdf
+      x-permission: exams.documents.download
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/AttemptId' }
+      responses:
+        '200':
+          description: Versioned answer-sheet/course-exam card PDF for the attempt
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+
+  /exam-stations:
+    get:
+      tags: [InternalExams]
+      operationId: examStationsList
+      x-requirement-id: exam_stations.list
+      x-permission: exams.stations.view
+      responses:
+        '200':
+          description: Logical exam stations with derived connectivity, occupancy and effective availability.
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '../openapi-components-v1.yaml#/components/schemas/ExamStation' } }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+    post:
+      tags: [InternalExams]
+      operationId: examStationRegister
+      x-requirement-id: exam_stations.register_and_provision
+      x-permission: exams.stations.manage
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+      responses:
+        '201':
+          description: Logical station registered and first credential provisioned; raw credential is returned once.
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/ExamStationProvisioningResponse' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /exam-stations/{stationId}/credential:
+    post:
+      tags: [InternalExams]
+      operationId: examStationCredentialProvision
+      x-requirement-id: exam_stations.credential.provision
+      x-permission: exams.stations.manage
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/StationId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+      responses:
+        '200':
+          description: A credential is explicitly provisioned only when the station has no current nonrevoked credential.
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/ExamStationProvisioningResponse' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /exam-stations/{stationId}/credential/rotate:
+    post:
+      tags: [InternalExams]
+      operationId: examStationCredentialRotate
+      x-requirement-id: exam_stations.credential.rotate
+      x-permission: exams.stations.manage
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/StationId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/ReasonRequest' }
+      responses:
+        '200':
+          description: Current station credential revoked and replaced; new raw credential is returned once and authenticated heartbeat is cleared.
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/ExamStationProvisioningResponse' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /exam-stations/heartbeat:
+    post:
+      tags: [InternalExams]
+      operationId: examStationHeartbeat
+      x-requirement-id: exam_stations.authenticated_heartbeat
+      x-permission: exact_station_credential
+      security: []
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/ExamStationCredential' }
+      responses:
+        '200':
+          description: Current exact station credential authenticated and liveness refreshed without creating an exam session or consuming inventory.
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/ExamStationHeartbeat' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /internal-exam-attempts/{attemptId}/station-transfer:
+    post:
+      tags: [InternalExams]
+      operationId: internalExamAttemptStationTransfer
+      x-requirement-id: exam_station.transfer_after_technical_failure
+      x-permission: exams.start.local_and_exact_target_station_credential
+      x-invariants:
+        - target_station_identity_derived_from_X_Exam_Station_Credential
+        - attempt_must_already_be_started
+        - close_old_station_session
+        - create_new_station_session
+        - do_not_rebind_access_station_id
+        - do_not_consume_inventory_again
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/AttemptId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/ExamStationCredential' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/ReasonRequest' }
+      responses:
+        '200': { description: Active station session transferred to the authenticated target station without second inventory consumption }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+ }
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/InternalExamAttempt' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+    patch:
+      tags: [InternalExams]
+      operationId: internalExamAttemptsEditCandidateSnapshot
+      x-requirement-id: exam_attempts.edit_candidate_before_start
+      x-permission: exams.generate
+      x-condition: before_start_only
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/AttemptId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IfMatch' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                candidate_snapshot: { $ref: '../openapi-components-v1.yaml#/components/schemas/GenericObject' }
+      responses:
+        '200':
+          description: Candidate snapshot updated before exam start
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/InternalExamAttempt' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /internal-exam-attempts/{attemptId}/accesses:
+    post:
+      tags: [InternalExams]
+      operationId: internalExamAccessesCreate
+      x-requirement-id: exam_accesses.create
+      x-permission: exams.generate
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/AttemptId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/CreateExamAccessRequest' }
+      responses:
+        '201':
+          description: Remote/local access created; reservation remains one active reservation per attempt
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/InternalExamAccess' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /internal-exam-accesses/{accessId}/send:
+    post:
+      tags: [InternalExams]
+      operationId: internalExamAccessesSend
+      x-requirement-id: exam_accesses.send_remote
+      x-permission: exams.access.send
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/AccessId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+      responses:
+        '202':
+          description: Remote access delivery materialized with a newly rotated one-time URL; raw token is not persisted recoverably
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/InternalExamAccess' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /internal-exam-accesses/{accessId}/revoke:
+    post:
+      tags: [InternalExams]
+      operationId: internalExamAccessesRevoke
+      x-requirement-id: exam_accesses.revoke
+      x-permission: exams.generate
+      x-condition: before_start_only
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/AccessId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/ReasonRequest' }
+      responses:
+        '200': { description: Access revoked; unused reservation released before start }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /internal-exam-accesses/{accessId}/start:
+    post:
+      tags: [InternalExams]
+      operationId: internalExamAccessesStart
+      x-requirement-id: exam_accesses.start
+      x-permission: exams.start.local_or_exam_access_token
+      x-invariants:
+        - consume_inventory_exactly_once_on_start
+        - station_single_active_attempt_when_local
+        - finish_does_not_consume_again
+      security:
+        - sessionCookie: []
+        - examAccessToken: []
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/AccessId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+      responses:
+        '200':
+          description: Exam started and inventory consumed exactly once
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/InternalExamAttempt' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /internal-exam-attempts/{attemptId}/submit:
+    post:
+      tags: [InternalExams]
+      operationId: internalExamAttemptsSubmit
+      x-requirement-id: exam_attempts.submit
+      x-permission: active_exam_session_or_authorized_staff
+      security:
+        - sessionCookie: []
+        - examAccessToken: []
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/AttemptId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [answers]
+              properties:
+                answers:
+                  type: array
+                  items: { $ref: '../openapi-components-v1.yaml#/components/schemas/GenericObject' }
+      responses:
+        '200':
+          description: Exam finished; immutable question/answer snapshot and result persisted without second inventory consumption
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/InternalExamResult' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /internal-exam-attempts/{attemptId}/technical-abort:
+    post:
+      tags: [InternalExams]
+      operationId: internalExamAttemptsTechnicalAbort
+      x-requirement-id: exam_attempts.technical_abort
+      x-permission: exams.generate
+      x-invariant: technical_abort_after_start_does_not_auto_restore_inventory
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/AttemptId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/ReasonRequest' }
+      responses:
+        '200': { description: Attempt technically aborted with audit; inventory remains consumed after start }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /internal-exam-attempts/{attemptId}/result:
+    get:
+      tags: [InternalExams]
+      operationId: internalExamAttemptsResult
+      x-requirement-id: exam_attempts.result
+      x-permission: exams.results.view_or_finished_exam_access_token
+      x-condition: exam_access_token_allowed_only_for_matching_finished_attempt_result_scope
+      security:
+        - sessionCookie: []
+        - examAccessToken: []
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/AttemptId' }
+      responses:
+        '200':
+          description: Exam result for authorized OSK user or the matching finished-attempt result token
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/InternalExamResult' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /internal-exam-attempts/{attemptId}/questions:
+    get:
+      tags: [InternalExams]
+      operationId: internalExamAttemptsQuestions
+      x-requirement-id: exam_attempts.questions
+      x-permission: exams.results.view_or_finished_exam_access_token
+      x-covers-requirement: exam_result.question_review
+      x-condition: exam_access_token_allowed_only_for_matching_finished_attempt_result_scope
+      security:
+        - sessionCookie: []
+        - examAccessToken: []
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/AttemptId' }
+      responses:
+        '200':
+          description: Immutable post-finish question review snapshot including basic/specialized groups and media references
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '../openapi-components-v1.yaml#/components/schemas/ExamQuestionSnapshot' } }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /internal-exam-attempts/{attemptId}/documents/answer-sheet.pdf:
+    get:
+      tags: [InternalExams]
+      operationId: internalExamAttemptsAnswerSheetPdf
+      x-requirement-id: exam_attempts.answer_sheet_pdf
+      x-permission: exams.documents.download
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/AttemptId' }
+      responses:
+        '200':
+          description: Versioned answer-sheet/course-exam card PDF for the attempt
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+
+  /exam-stations:
+    get:
+      tags: [InternalExams]
+      operationId: examStationsList
+      x-requirement-id: exam_stations.list
+      x-permission: exams.stations.view
+      responses:
+        '200':
+          description: Logical exam stations with derived connectivity, occupancy and effective availability.
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '../openapi-components-v1.yaml#/components/schemas/ExamStation' } }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+    post:
+      tags: [InternalExams]
+      operationId: examStationRegister
+      x-requirement-id: exam_stations.register_and_provision
+      x-permission: exams.stations.manage
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+      responses:
+        '201':
+          description: Logical station registered and first credential provisioned; raw credential is returned once.
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/ExamStationProvisioningResponse' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /exam-stations/{stationId}/credential:
+    post:
+      tags: [InternalExams]
+      operationId: examStationCredentialProvision
+      x-requirement-id: exam_stations.credential.provision
+      x-permission: exams.stations.manage
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/StationId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+      responses:
+        '200':
+          description: A credential is explicitly provisioned only when the station has no current nonrevoked credential.
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/ExamStationProvisioningResponse' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /exam-stations/{stationId}/credential/rotate:
+    post:
+      tags: [InternalExams]
+      operationId: examStationCredentialRotate
+      x-requirement-id: exam_stations.credential.rotate
+      x-permission: exams.stations.manage
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/StationId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/ReasonRequest' }
+      responses:
+        '200':
+          description: Current station credential revoked and replaced; new raw credential is returned once and authenticated heartbeat is cleared.
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/ExamStationProvisioningResponse' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /exam-stations/heartbeat:
+    post:
+      tags: [InternalExams]
+      operationId: examStationHeartbeat
+      x-requirement-id: exam_stations.authenticated_heartbeat
+      x-permission: exact_station_credential
+      security: []
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/ExamStationCredential' }
+      responses:
+        '200':
+          description: Current exact station credential authenticated and liveness refreshed without creating an exam session or consuming inventory.
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/ExamStationHeartbeat' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /internal-exam-attempts/{attemptId}/station-transfer:
+    post:
+      tags: [InternalExams]
+      operationId: internalExamAttemptStationTransfer
+      x-requirement-id: exam_station.transfer_after_technical_failure
+      x-permission: exams.start.local_and_exact_target_station_credential
+      x-invariants:
+        - target_station_identity_derived_from_X_Exam_Station_Credential
+        - attempt_must_already_be_started
+        - close_old_station_session
+        - create_new_station_session
+        - do_not_rebind_access_station_id
+        - do_not_consume_inventory_again
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/AttemptId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/ExamStationCredential' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/ReasonRequest' }
+      responses:
+        '200': { description: Active station session transferred to the authenticated target station without second inventory consumption }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+ }
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/InternalExamAttempt' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /internal-exam-attempts/{attemptId}/accesses:
+    post:
+      tags: [InternalExams]
+      operationId: internalExamAccessesCreate
+      x-requirement-id: exam_accesses.create
+      x-permission: exams.generate
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/AttemptId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/CreateExamAccessRequest' }
+      responses:
+        '201':
+          description: Remote/local access created; reservation remains one active reservation per attempt
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/InternalExamAccess' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /internal-exam-accesses/{accessId}/send:
+    post:
+      tags: [InternalExams]
+      operationId: internalExamAccessesSend
+      x-requirement-id: exam_accesses.send_remote
+      x-permission: exams.access.send
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/AccessId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+      responses:
+        '202':
+          description: Remote access delivery materialized with a newly rotated one-time URL; raw token is not persisted recoverably
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/InternalExamAccess' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /internal-exam-accesses/{accessId}/revoke:
+    post:
+      tags: [InternalExams]
+      operationId: internalExamAccessesRevoke
+      x-requirement-id: exam_accesses.revoke
+      x-permission: exams.generate
+      x-condition: before_start_only
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/AccessId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/ReasonRequest' }
+      responses:
+        '200': { description: Access revoked; unused reservation released before start }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /internal-exam-accesses/{accessId}/start:
+    post:
+      tags: [InternalExams]
+      operationId: internalExamAccessesStart
+      x-requirement-id: exam_accesses.start
+      x-permission: exams.start.local_or_exam_access_token
+      x-invariants:
+        - consume_inventory_exactly_once_on_start
+        - station_single_active_attempt_when_local
+        - finish_does_not_consume_again
+      security:
+        - sessionCookie: []
+        - examAccessToken: []
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/AccessId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+      responses:
+        '200':
+          description: Exam started and inventory consumed exactly once
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/InternalExamAttempt' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /internal-exam-attempts/{attemptId}/submit:
+    post:
+      tags: [InternalExams]
+      operationId: internalExamAttemptsSubmit
+      x-requirement-id: exam_attempts.submit
+      x-permission: active_exam_session_or_authorized_staff
+      security:
+        - sessionCookie: []
+        - examAccessToken: []
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/AttemptId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [answers]
+              properties:
+                answers:
+                  type: array
+                  items: { $ref: '../openapi-components-v1.yaml#/components/schemas/GenericObject' }
+      responses:
+        '200':
+          description: Exam finished; immutable question/answer snapshot and result persisted without second inventory consumption
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/InternalExamResult' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /internal-exam-attempts/{attemptId}/technical-abort:
+    post:
+      tags: [InternalExams]
+      operationId: internalExamAttemptsTechnicalAbort
+      x-requirement-id: exam_attempts.technical_abort
+      x-permission: exams.generate
+      x-invariant: technical_abort_after_start_does_not_auto_restore_inventory
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/AttemptId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/ReasonRequest' }
+      responses:
+        '200': { description: Attempt technically aborted with audit; inventory remains consumed after start }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /internal-exam-attempts/{attemptId}/result:
+    get:
+      tags: [InternalExams]
+      operationId: internalExamAttemptsResult
+      x-requirement-id: exam_attempts.result
+      x-permission: exams.results.view_or_finished_exam_access_token
+      x-condition: exam_access_token_allowed_only_for_matching_finished_attempt_result_scope
+      security:
+        - sessionCookie: []
+        - examAccessToken: []
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/AttemptId' }
+      responses:
+        '200':
+          description: Exam result for authorized OSK user or the matching finished-attempt result token
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/InternalExamResult' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /internal-exam-attempts/{attemptId}/questions:
+    get:
+      tags: [InternalExams]
+      operationId: internalExamAttemptsQuestions
+      x-requirement-id: exam_attempts.questions
+      x-permission: exams.results.view_or_finished_exam_access_token
+      x-covers-requirement: exam_result.question_review
+      x-condition: exam_access_token_allowed_only_for_matching_finished_attempt_result_scope
+      security:
+        - sessionCookie: []
+        - examAccessToken: []
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/AttemptId' }
+      responses:
+        '200':
+          description: Immutable post-finish question review snapshot including basic/specialized groups and media references
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '../openapi-components-v1.yaml#/components/schemas/ExamQuestionSnapshot' } }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /internal-exam-attempts/{attemptId}/documents/answer-sheet.pdf:
+    get:
+      tags: [InternalExams]
+      operationId: internalExamAttemptsAnswerSheetPdf
+      x-requirement-id: exam_attempts.answer_sheet_pdf
+      x-permission: exams.documents.download
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/AttemptId' }
+      responses:
+        '200':
+          description: Versioned answer-sheet/course-exam card PDF for the attempt
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+
+  /exam-stations:
+    get:
+      tags: [InternalExams]
+      operationId: examStationsList
+      x-requirement-id: exam_stations.list
+      x-permission: exams.stations.view
+      responses:
+        '200':
+          description: Logical exam stations with derived connectivity, occupancy and effective availability.
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '../openapi-components-v1.yaml#/components/schemas/ExamStation' } }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+    post:
+      tags: [InternalExams]
+      operationId: examStationRegister
+      x-requirement-id: exam_stations.register_and_provision
+      x-permission: exams.stations.manage
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+      responses:
+        '201':
+          description: Logical station registered and first credential provisioned; raw credential is returned once.
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/ExamStationProvisioningResponse' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /exam-stations/{stationId}/credential:
+    post:
+      tags: [InternalExams]
+      operationId: examStationCredentialProvision
+      x-requirement-id: exam_stations.credential.provision
+      x-permission: exams.stations.manage
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/StationId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+      responses:
+        '200':
+          description: A credential is explicitly provisioned only when the station has no current nonrevoked credential.
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/ExamStationProvisioningResponse' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /exam-stations/{stationId}/credential/rotate:
+    post:
+      tags: [InternalExams]
+      operationId: examStationCredentialRotate
+      x-requirement-id: exam_stations.credential.rotate
+      x-permission: exams.stations.manage
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/StationId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/ReasonRequest' }
+      responses:
+        '200':
+          description: Current station credential revoked and replaced; new raw credential is returned once and authenticated heartbeat is cleared.
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/ExamStationProvisioningResponse' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /exam-stations/heartbeat:
+    post:
+      tags: [InternalExams]
+      operationId: examStationHeartbeat
+      x-requirement-id: exam_stations.authenticated_heartbeat
+      x-permission: exact_station_credential
+      security: []
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/ExamStationCredential' }
+      responses:
+        '200':
+          description: Current exact station credential authenticated and liveness refreshed without creating an exam session or consuming inventory.
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/ExamStationHeartbeat' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /internal-exam-attempts/{attemptId}/station-transfer:
+    post:
+      tags: [InternalExams]
+      operationId: internalExamAttemptStationTransfer
+      x-requirement-id: exam_station.transfer_after_technical_failure
+      x-permission: exams.start.local_and_exact_target_station_credential
+      x-invariants:
+        - target_station_identity_derived_from_X_Exam_Station_Credential
+        - attempt_must_already_be_started
+        - close_old_station_session
+        - create_new_station_session
+        - do_not_rebind_access_station_id
+        - do_not_consume_inventory_again
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/AttemptId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/ExamStationCredential' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/ReasonRequest' }
+      responses:
+        '200': { description: Active station session transferred to the authenticated target station without second inventory consumption }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+ }
           content:
             application/json:
               schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/InternalExamAttempt' }
