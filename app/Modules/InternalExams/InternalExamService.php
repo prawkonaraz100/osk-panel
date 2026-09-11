@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 /**
- * @phpstan-type AttemptRow object{id:mixed,status:mixed,started_at:mixed,version:mixed,internal_exam_definition_id:mixed,candidate_snapshot:mixed,driving_category_id:mixed,exam_part:mixed,language_code:mixed,requirement_basis_snapshot:mixed,exam_definition_version_snapshot:mixed,exam_definition_hash_snapshot:mixed,evidence_schema_version:mixed,question_set_hash:mixed}
+ * @phpstan-type AttemptRow object{id:mixed,student_id:mixed,status:mixed,started_at:mixed,version:mixed,internal_exam_definition_id:mixed,candidate_snapshot:mixed,driving_category_id:mixed,exam_part:mixed,language_code:mixed,requirement_basis_snapshot:mixed,exam_definition_version_snapshot:mixed,exam_definition_hash_snapshot:mixed,evidence_schema_version:mixed,question_set_hash:mixed}
  * @phpstan-type AccessRow object{id:mixed,internal_exam_attempt_id:mixed,status:mixed,launch_mode:mixed,station_id:mixed,version:mixed,expires_at:mixed}
  * @phpstan-type ReservationRow object{id:mixed,internal_exam_inventory_entry_id:mixed,version:mixed}
  * @phpstan-type InventoryRow object{id:mixed,current_state:mixed}
@@ -117,7 +117,7 @@ final class InternalExamService
             $versionAfter = $versionBefore + 1;
             $now = CarbonImmutable::now();
 
-            DB::table('internal_exam_attempts')
+            $updated = DB::table('internal_exam_attempts')
                 ->where('organization_id', $actor['organization_id'])
                 ->where('id', $attemptId)
                 ->where('version', $versionBefore)
@@ -125,6 +125,9 @@ final class InternalExamService
                     'candidate_snapshot' => json_encode($next, JSON_THROW_ON_ERROR),
                     'version' => $versionAfter,
                 ]);
+            if ($updated !== 1) {
+                throw ResourceDomainException::conflict('Internal exam Attempt changed since it was loaded.');
+            }
 
             $this->appendAttemptEvent(
                 $actor['organization_id'],
