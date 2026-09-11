@@ -12,6 +12,7 @@ use App\Modules\StudentsCourses\CourseEnrollmentService;
 use App\Modules\StudentsCourses\StudentService;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Tests\Support\FoundationSchema;
 use Tests\TestCase;
@@ -1308,6 +1309,131 @@ final class InternalExamCoreTest extends TestCase
         $this->assertSame('prestart_revoked', DB::table('internal_exam_access_tokens')->where('internal_exam_access_id', $access['id'])->value('revoke_reason_code'));
         $this->assertSame('released', DB::table('internal_exam_reservations')->where('internal_exam_attempt_id', $attempt['id'])->value('status'));
         $this->assertSame('available', DB::table('internal_exam_inventory_entries')->where('id', $fixtures['inventory_id'])->value('current_state'));
+    }
+
+    public function test_answer_sheet_pdf_freezes_template_and_reuses_hash_verified_immutable_artifact(): void
+    {
+        Storage::fake('local');
+        config()->set('internal_exams.document_storage_disk', 'local');
+
+        $actor = $this->examActor();
+        $course = $this->course($actor);
+        $this->examFixtures($actor, $course);
+        $station = $this->station($actor);
+        $service = app(InternalExamService::class);
+
+        $attempt = $service->createAttempt(
+            $actor['session_id'],
+            $course['id'],
+            'theory',
+            'pl',
+            (string) Str::uuid7(),
+        );
+
+        $beforeFinish = $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->get("/api/v1/internal-exam-attempts/{$attempt['id']}/documents/answer-sheet.pdf");
+        $beforeFinish
+            ->assertStatus(409)
+            ->assertJsonPath('error.code', 'RESOURCE_VERSION_CONFLICT');
+
+        $access = $service->createAccess(
+            $actor['session_id'],
+            $attempt['id'],
+            'assigned_exam_station',
+            $station,
+            null,
+            null,
+            (string) Str::uuid7(),
+        );
+        $service->startLocal(
+            $actor['session_id'],
+            $access['id'],
+            $this->stationCredential($station),
+            (string) Str::uuid7(),
+        );
+        $service->submitAsStaff(
+            $actor['session_id'],
+            $attempt['id'],
+            [
+                ['ordinal' => 1, 'answer' => 'A'],
+                ['ordinal' => 2, 'answer' => true],
+            ],
+            (string) Str::uuid7(),
+        );
+
+        $resultRow = DB::table('internal_exam_results')
+            ->where('internal_exam_attempt_id', $attempt['id'])
+            ->firstOrFail();
+        $binding = json_decode((string) $resultRow->answer_sheet_template_binding_snapshot, true, 512, JSON_THROW_ON_ERROR);
+        $this->assertIsArray($binding);
+        $this->assertSame('internal_exam_answer_sheet', $binding['document_type']);
+        $this->assertSame('theory', $binding['exam_part']);
+        $this->assertSame('v1', $binding['template_version']);
+        $this->assertSame('answer-sheet-v1', $binding['renderer_version']);
+
+        $first = $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->get("/api/v1/internal-exam-attempts/{$attempt['id']}/documents/answer-sheet.pdf");
+        $first->assertOk()
+            ->assertHeader('Content-Type', 'application/pdf')
+            ->assertHeader('Cache-Control', 'no-store, private');
+        $firstBytes = (string) $first->getContent();
+        $this->assertStringStartsWith('%PDF-1.4', $firstBytes);
+        $firstHash = hash('sha256', $firstBytes);
+        $firstEtag = $first->headers->get('ETag');
+        $this->assertSame('"sha256-'.$firstHash.'"', $firstEtag);
+
+        $document = DB::table('internal_exam_documents')
+            ->where('internal_exam_attempt_id', $attempt['id'])
+            ->where('document_type', 'internal_exam_answer_sheet')
+            ->firstOrFail();
+        $asset = DB::table('file_assets')->where('id', $document->asset_id)->firstOrFail();
+        $this->assertSame((string) $resultRow->evidence_bundle_hash, (string) $document->evidence_bundle_hash);
+        $this->assertSame($binding['id'], (string) $document->internal_exam_document_template_id);
+        $this->assertSame($binding['template_version'], (string) $document->template_version_snapshot);
+        $this->assertSame($binding['renderer_version'], (string) $document->renderer_version_snapshot);
+        $this->assertSame($binding['template_content_hash'], (string) $document->template_hash_snapshot);
+        $this->assertSame($firstHash, (string) $document->content_hash);
+        $this->assertSame($firstHash, (string) $asset->sha256);
+        $this->assertSame('internal_exam_answer_sheet', (string) $asset->purpose);
+        $this->assertSame('ready', (string) $asset->status);
+        $this->assertSame(strlen($firstBytes), (int) $asset->size_bytes);
+        $this->assertTrue(Storage::disk((string) $asset->storage_disk)->exists((string) $asset->storage_key));
+
+        $studentId = (string) DB::table('internal_exam_attempts')
+            ->where('id', $attempt['id'])
+            ->value('student_id');
+        DB::table('students')->where('id', $studentId)->update([
+            'first_name' => 'Bieżące',
+            'last_name' => 'Dane',
+            'updated_at' => now(),
+        ]);
+        Storage::disk((string) $asset->storage_disk)->delete((string) $asset->storage_key);
+
+        $second = $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->get("/api/v1/internal-exam-attempts/{$attempt['id']}/documents/answer-sheet.pdf");
+        $second->assertOk()
+            ->assertHeader('Content-Type', 'application/pdf')
+            ->assertHeader('ETag', (string) $firstEtag);
+        $secondBytes = (string) $second->getContent();
+
+        $this->assertSame($firstBytes, $secondBytes);
+        $this->assertSame($firstHash, hash('sha256', $secondBytes));
+        $this->assertSame(
+            1,
+            DB::table('internal_exam_documents')
+                ->where('internal_exam_attempt_id', $attempt['id'])
+                ->where('document_type', 'internal_exam_answer_sheet')
+                ->count(),
+        );
+        $this->assertSame(1, DB::table('file_assets')->where('id', $asset->id)->count());
+        $this->assertTrue(Storage::disk((string) $asset->storage_disk)->exists((string) $asset->storage_key));
+        $this->assertSame(
+            2,
+            DB::table('audit_logs')
+                ->where('action', 'internal_exam.answer_sheet.downloaded')
+                ->where('entity_id', $document->id)
+                ->count(),
+        );
     }
 
     public function test_remote_execution_token_starts_exact_access_once_and_remains_submit_capable_until_finish(): void
