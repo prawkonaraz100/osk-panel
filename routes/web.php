@@ -140,6 +140,7 @@ Route::middleware(ResourceApiMiddleware::class)->prefix('api/v1')->group(functio
     Route::post('/internal-exam-attempts/{attemptId}/technical-abort', [InternalExamController::class, 'technicalAbort']);
     Route::get('/internal-exam-attempts/{attemptId}/result', [InternalExamController::class, 'result']);
     Route::get('/internal-exam-attempts/{attemptId}/questions', [InternalExamController::class, 'questions']);
+    Route::get('/internal-exam-attempts/{attemptId}/documents/answer-sheet.pdf', [InternalExamController::class, 'answerSheetPdf']);
 });
 
 Route::view('/', 'app');
