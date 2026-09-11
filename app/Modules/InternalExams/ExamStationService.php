@@ -221,38 +221,37 @@ final class ExamStationService
         return $row;
     }
 
-    /**
-     * @param  StationRow  $row
-     * @return array<string,mixed>
-     */
+    /** @return array<string,mixed> */
     private function present(string $organizationId, object $row, CarbonImmutable $now): array
     {
-        $lastHeartbeat = $row->last_authenticated_heartbeat_at === null
+        /** @var StationRow $station */
+        $station = $row;
+        $lastHeartbeat = $station->last_authenticated_heartbeat_at === null
             ? null
-            : CarbonImmutable::parse((string) $row->last_authenticated_heartbeat_at);
+            : CarbonImmutable::parse((string) $station->last_authenticated_heartbeat_at);
         $online = $lastHeartbeat !== null
             && $lastHeartbeat->addSeconds($this->heartbeatFreshSeconds())->gt($now);
         $occupied = DB::table('internal_exam_station_sessions')
             ->where('organization_id', $organizationId)
-            ->where('exam_station_id', $row->id)
+            ->where('exam_station_id', $station->id)
             ->whereNull('ended_at')
             ->exists();
         $hasCurrentCredential = DB::table('exam_station_credentials')
             ->where('organization_id', $organizationId)
-            ->where('exam_station_id', $row->id)
+            ->where('exam_station_id', $station->id)
             ->whereNull('revoked_at')
             ->exists();
-        $enabled = (string) $row->administrative_status === 'enabled';
+        $enabled = (string) $station->administrative_status === 'enabled';
 
         return [
-            'id' => (string) $row->id,
-            'administrative_status' => (string) $row->administrative_status,
+            'id' => (string) $station->id,
+            'administrative_status' => (string) $station->administrative_status,
             'connectivity' => $online ? 'online' : 'offline',
             'occupancy' => $occupied ? 'occupied' : 'free',
             'has_current_credential' => $hasCurrentCredential,
             'available_for_new_execution' => $enabled && $online && ! $occupied && $hasCurrentCredential,
             'last_authenticated_heartbeat_at' => $lastHeartbeat?->toIso8601String(),
-            'created_at' => (string) $row->created_at,
+            'created_at' => (string) $station->created_at,
         ];
     }
 
