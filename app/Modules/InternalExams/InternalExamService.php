@@ -1794,7 +1794,6 @@ final class InternalExamService
         }
     }
 
-    /** @param  StationRow  $station */
     private function appendInventoryLedger(
         string $organizationId,
         string $inventoryId,
