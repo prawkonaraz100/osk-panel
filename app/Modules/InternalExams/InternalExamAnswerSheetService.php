@@ -168,7 +168,7 @@ final class InternalExamAnswerSheetService
         $disk = $this->storageDisk();
         $storageKey = 'internal-exams/'.$organizationId.'/'.$attempt->id.'/answer-sheet/'.$contentHash.'.pdf';
 
-        if (! Storage::disk($disk)->put($storageKey, $bytes)) {
+        if (!Storage::disk($disk)->put($storageKey, $bytes)) {
             throw ResourceDomainException::conflict('Unable to persist canonical answer-sheet artifact.');
         }
 
@@ -270,7 +270,7 @@ final class InternalExamAnswerSheetService
         if (hash('sha256', $bytes) !== (string) $document->content_hash) {
             throw ResourceDomainException::conflict('Deterministic answer-sheet regeneration does not match immutable document hash.');
         }
-        if (! Storage::disk($disk)->put($key, $bytes)) {
+        if (!Storage::disk($disk)->put($key, $bytes)) {
             throw ResourceDomainException::conflict('Unable to restore verified canonical answer-sheet bytes.');
         }
 
