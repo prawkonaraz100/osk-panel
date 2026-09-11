@@ -13,6 +13,8 @@ use Tests\TestCase;
 
 final class CalendarImportantDateProjectionCoreTest extends TestCase
 {
+    private int $vehicleSequence = 0;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -281,7 +283,7 @@ final class CalendarImportantDateProjectionCoreTest extends TestCase
         return app(VehicleService::class)->create(
             $actor['session_id'],
             [
-                'registration_number' => 'IM'.substr(str_replace('-', '', (string) Str::uuid7()), 0, 6),
+                'registration_number' => 'IM'.str_pad((string) ++$this->vehicleSequence, 6, '0', STR_PAD_LEFT),
                 'make' => 'Toyota',
                 'model' => 'Yaris',
                 'category_ids' => [],
