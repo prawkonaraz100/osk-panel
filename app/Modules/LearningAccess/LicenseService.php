@@ -664,7 +664,7 @@ final class LicenseService
         });
 
         $total = count($all);
-        $data = array_values(array_slice($all, ($page - 1) * $perPage, $perPage));
+        $data = array_slice($all, ($page - 1) * $perPage, $perPage);
 
         return [
             'data' => $data,
