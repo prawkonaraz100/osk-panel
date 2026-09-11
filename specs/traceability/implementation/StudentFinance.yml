@@ -1,6 +1,6 @@
 module: StudentFinance
 core_traceability_modules:
-  - student_finance_commerce
+  - student_finance
 changed_scope:
   - evidence: specs/design/student-finance-ledger.yml
     requirement: Student Finance keeps charge and payment as separate ledger records with derived paid and remaining projections and no mutable balance authority
