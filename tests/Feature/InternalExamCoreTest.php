@@ -1,0 +1,474 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Modules\InternalExams\InternalExamService;
+use App\Modules\ResourcesCore\ResourceDomainException;
+use App\Modules\ResourcesCore\StaffService;
+use App\Modules\StudentsCourses\CourseEnrollmentService;
+use App\Modules\StudentsCourses\StudentService;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+use Tests\Support\FoundationSchema;
+use Tests\TestCase;
+
+final class InternalExamCoreTest extends TestCase
+{
+    protected function setUp(): void
+    {
+        parent::setUp();
+        config()->set('internal_exams.station_heartbeat_fresh_seconds', 120);
+        FoundationSchema::reset();
+    }
+
+    public function test_attempt_creation_reserves_exactly_one_consistent_inventory_unit_atomically(): void
+    {
+        $actor = $this->examActor();
+        $course = $this->course($actor);
+        $fixtures = $this->examFixtures($actor, $course);
+
+        $attempt = app(InternalExamService::class)->createAttempt(
+            $actor['session_id'], $course['id'], 'theory', 'pl', (string) Str::uuid7(),
+        );
+
+        $this->assertSame('created', $attempt['status']);
+        $this->assertSame(1, $attempt['version']);
+        $reservation = DB::table('internal_exam_reservations')->where('internal_exam_attempt_id', $attempt['id'])->firstOrFail();
+        $this->assertSame('reserved', $reservation->status);
+        $this->assertSame('reserved', DB::table('internal_exam_inventory_entries')->where('id', $fixtures['inventory_id'])->value('current_state'));
+        $this->assertSame(
+            ['unit_granted', 'unit_reserved'],
+            DB::table('internal_exam_inventory_ledger_entries')
+                ->where('internal_exam_inventory_entry_id', $fixtures['inventory_id'])
+                ->orderBy('event_sequence')
+                ->pluck('event_type')
+                ->all(),
+        );
+        $this->assertSame(1, DB::table('internal_exam_attempt_lifecycle_events')->where('internal_exam_attempt_id', $attempt['id'])->count());
+        $this->assertNull(DB::table('internal_exam_attempts')->where('id', $attempt['id'])->value('internal_exam_definition_id'));
+    }
+
+    public function test_attempt_creation_without_available_inventory_rolls_back_without_orphan_attempt(): void
+    {
+        $actor = $this->examActor();
+        $course = $this->course($actor);
+        $this->capabilityAndDefinition($course);
+
+        $exception = $this->captureDomainException(fn () => app(InternalExamService::class)->createAttempt(
+            $actor['session_id'], $course['id'], 'theory', 'pl', (string) Str::uuid7(),
+        ));
+
+        $this->assertSame('RESOURCE_VERSION_CONFLICT', $exception->machineCode);
+        $this->assertDatabaseCount('internal_exam_attempts', 0);
+        $this->assertDatabaseCount('internal_exam_reservations', 0);
+    }
+
+    public function test_prestart_revoke_releases_same_unit_and_next_attempt_can_reserve_it_again(): void
+    {
+        $actor = $this->examActor();
+        $course = $this->course($actor);
+        $fixtures = $this->examFixtures($actor, $course);
+        $station = $this->station($actor);
+        $service = app(InternalExamService::class);
+
+        $attempt = $service->createAttempt($actor['session_id'], $course['id'], 'theory', 'pl', (string) Str::uuid7());
+        $access = $service->createAccess(
+            $actor['session_id'], $attempt['id'], 'assigned_exam_station', $station, null, null, (string) Str::uuid7(),
+        );
+        $revoked = $service->revokePrestart(
+            $actor['session_id'], $access['id'], 'candidate unavailable', (string) Str::uuid7(),
+        );
+
+        $this->assertSame('revoked', $revoked['status']);
+        $this->assertSame('created', DB::table('internal_exam_attempts')->where('id', $attempt['id'])->value('status'));
+        $this->assertSame('released', DB::table('internal_exam_reservations')->where('internal_exam_attempt_id', $attempt['id'])->value('status'));
+        $this->assertSame('available', DB::table('internal_exam_inventory_entries')->where('id', $fixtures['inventory_id'])->value('current_state'));
+
+        $second = $service->createAttempt($actor['session_id'], $course['id'], 'theory', 'pl', (string) Str::uuid7());
+        $this->assertNotSame($attempt['id'], $second['id']);
+        $this->assertSame(
+            $fixtures['inventory_id'],
+            DB::table('internal_exam_reservations')->where('internal_exam_attempt_id', $second['id'])->value('internal_exam_inventory_entry_id'),
+        );
+        $this->assertSame(
+            ['unit_granted', 'unit_reserved', 'unit_released', 'unit_reserved'],
+            DB::table('internal_exam_inventory_ledger_entries')
+                ->where('internal_exam_inventory_entry_id', $fixtures['inventory_id'])
+                ->orderBy('event_sequence')
+                ->pluck('event_type')
+                ->all(),
+        );
+    }
+
+    public function test_local_start_consumes_once_and_freezes_definition_and_question_evidence(): void
+    {
+        $actor = $this->examActor();
+        $course = $this->course($actor);
+        $fixtures = $this->examFixtures($actor, $course);
+        $station = $this->station($actor);
+        $service = app(InternalExamService::class);
+
+        $attempt = $service->createAttempt($actor['session_id'], $course['id'], 'theory', 'pl', (string) Str::uuid7());
+        $access = $service->createAccess(
+            $actor['session_id'], $attempt['id'], 'assigned_exam_station', $station, null, null, (string) Str::uuid7(),
+        );
+        $started = $service->startLocal($actor['session_id'], $access['id'], $station, (string) Str::uuid7());
+
+        $this->assertSame('in_progress', $started['status']);
+        $this->assertSame(2, $started['version']);
+        $this->assertSame('consumed', DB::table('internal_exam_inventory_entries')->where('id', $fixtures['inventory_id'])->value('current_state'));
+        $this->assertSame('consumed', DB::table('internal_exam_reservations')->where('internal_exam_attempt_id', $attempt['id'])->value('status'));
+        $this->assertSame(2, DB::table('internal_exam_attempt_questions')->where('internal_exam_attempt_id', $attempt['id'])->count());
+        $this->assertNotNull(DB::table('internal_exam_attempts')->where('id', $attempt['id'])->value('question_set_hash'));
+        $this->assertSame(1, DB::table('internal_exam_station_sessions')->where('internal_exam_attempt_id', $attempt['id'])->whereNull('ended_at')->count());
+        $this->assertSame(
+            1,
+            DB::table('internal_exam_inventory_ledger_entries')
+                ->where('internal_exam_attempt_id', $attempt['id'])
+                ->where('event_type', 'unit_consumed')
+                ->count(),
+        );
+
+        $retry = $this->captureDomainException(fn () => $service->startLocal(
+            $actor['session_id'], $access['id'], $station, (string) Str::uuid7(),
+        ));
+        $this->assertSame('RESOURCE_VERSION_CONFLICT', $retry->machineCode);
+        $this->assertSame(
+            1,
+            DB::table('internal_exam_inventory_ledger_entries')
+                ->where('internal_exam_attempt_id', $attempt['id'])
+                ->where('event_type', 'unit_consumed')
+                ->count(),
+        );
+    }
+
+    public function test_station_failover_preserves_access_binding_and_does_not_consume_inventory_again(): void
+    {
+        $actor = $this->examActor();
+        $course = $this->course($actor);
+        $this->examFixtures($actor, $course);
+        $stationA = $this->station($actor);
+        $stationB = $this->station($actor);
+        $service = app(InternalExamService::class);
+
+        $attempt = $service->createAttempt($actor['session_id'], $course['id'], 'theory', 'pl', (string) Str::uuid7());
+        $access = $service->createAccess(
+            $actor['session_id'], $attempt['id'], 'assigned_exam_station', $stationA, null, null, (string) Str::uuid7(),
+        );
+        $service->startLocal($actor['session_id'], $access['id'], $stationA, (string) Str::uuid7());
+        $beforeConsumed = DB::table('internal_exam_inventory_ledger_entries')
+            ->where('internal_exam_attempt_id', $attempt['id'])
+            ->where('event_type', 'unit_consumed')
+            ->count();
+
+        $transfer = $service->transferStation(
+            $actor['session_id'], $attempt['id'], $stationB, 'workstation failure', (string) Str::uuid7(),
+        );
+
+        $this->assertSame(2, $transfer['session_sequence']);
+        $this->assertSame($stationB, $transfer['exam_station_id']);
+        $this->assertSame($stationA, DB::table('internal_exam_accesses')->where('id', $access['id'])->value('station_id'));
+        $this->assertSame('transferred', DB::table('internal_exam_station_sessions')->where('session_sequence', 1)->value('end_reason'));
+        $this->assertSame($stationB, DB::table('internal_exam_station_sessions')->where('session_sequence', 2)->whereNull('ended_at')->value('exam_station_id'));
+        $this->assertSame(
+            $beforeConsumed,
+            DB::table('internal_exam_inventory_ledger_entries')
+                ->where('internal_exam_attempt_id', $attempt['id'])
+                ->where('event_type', 'unit_consumed')
+                ->count(),
+        );
+    }
+
+    public function test_submit_scores_only_from_frozen_evidence_and_finishes_without_second_consumption(): void
+    {
+        $actor = $this->examActor();
+        $course = $this->course($actor);
+        $this->examFixtures($actor, $course);
+        $station = $this->station($actor);
+        $service = app(InternalExamService::class);
+
+        $attempt = $service->createAttempt($actor['session_id'], $course['id'], 'theory', 'pl', (string) Str::uuid7());
+        $access = $service->createAccess(
+            $actor['session_id'], $attempt['id'], 'assigned_exam_station', $station, null, null, (string) Str::uuid7(),
+        );
+        $service->startLocal($actor['session_id'], $access['id'], $station, (string) Str::uuid7());
+
+        $result = $service->submitAsStaff(
+            $actor['session_id'],
+            $attempt['id'],
+            [
+                ['ordinal' => 1, 'answer' => 'A'],
+                ['ordinal' => 2, 'answer' => true],
+            ],
+            (string) Str::uuid7(),
+        );
+
+        $this->assertTrue($result['passed']);
+        $this->assertSame(5, $result['score']);
+        $this->assertSame(5, $result['max_score']);
+        $this->assertSame(4, $result['pass_threshold']);
+        $this->assertSame('passed', DB::table('internal_exam_attempts')->where('id', $attempt['id'])->value('status'));
+        $this->assertSame('completed', DB::table('internal_exam_accesses')->where('id', $access['id'])->value('status'));
+        $this->assertSame(1, DB::table('internal_exam_results')->where('internal_exam_attempt_id', $attempt['id'])->count());
+        $this->assertSame(0, DB::table('internal_exam_attempt_questions')->where('internal_exam_attempt_id', $attempt['id'])->whereNull('points_awarded')->count());
+        $this->assertSame(
+            1,
+            DB::table('internal_exam_inventory_ledger_entries')
+                ->where('internal_exam_attempt_id', $attempt['id'])
+                ->where('event_type', 'unit_consumed')
+                ->count(),
+        );
+
+        $retry = $this->captureDomainException(fn () => $service->submitAsStaff(
+            $actor['session_id'], $attempt['id'], [
+                ['ordinal' => 1, 'answer' => 'A'],
+                ['ordinal' => 2, 'answer' => true],
+            ], (string) Str::uuid7(),
+        ));
+        $this->assertSame('RESOURCE_VERSION_CONFLICT', $retry->machineCode);
+        $this->assertSame(1, DB::table('internal_exam_results')->where('internal_exam_attempt_id', $attempt['id'])->count());
+    }
+
+    public function test_technical_abort_preserves_consumed_inventory_and_frozen_question_evidence(): void
+    {
+        $actor = $this->examActor();
+        $course = $this->course($actor);
+        $fixtures = $this->examFixtures($actor, $course);
+        $station = $this->station($actor);
+        $service = app(InternalExamService::class);
+
+        $attempt = $service->createAttempt($actor['session_id'], $course['id'], 'theory', 'pl', (string) Str::uuid7());
+        $access = $service->createAccess(
+            $actor['session_id'], $attempt['id'], 'assigned_exam_station', $station, null, null, (string) Str::uuid7(),
+        );
+        $service->startLocal($actor['session_id'], $access['id'], $station, (string) Str::uuid7());
+
+        $aborted = $service->technicalAbort(
+            $actor['session_id'], $attempt['id'], 'station failure', (string) Str::uuid7(),
+        );
+
+        $this->assertSame('technical_abort', $aborted['status']);
+        $this->assertSame('consumed', DB::table('internal_exam_inventory_entries')->where('id', $fixtures['inventory_id'])->value('current_state'));
+        $this->assertSame('consumed', DB::table('internal_exam_reservations')->where('internal_exam_attempt_id', $attempt['id'])->value('status'));
+        $this->assertSame(2, DB::table('internal_exam_attempt_questions')->where('internal_exam_attempt_id', $attempt['id'])->count());
+        $this->assertDatabaseCount('internal_exam_results', 0);
+        $this->assertSame('technical_abort', DB::table('internal_exam_station_sessions')->where('internal_exam_attempt_id', $attempt['id'])->value('end_reason'));
+        $this->assertSame(
+            1,
+            DB::table('internal_exam_inventory_ledger_entries')
+                ->where('internal_exam_attempt_id', $attempt['id'])
+                ->where('event_type', 'unit_consumed')
+                ->count(),
+        );
+    }
+
+    /** @return array{organization_id:string,user_id:string,membership_id:string,session_id:string} */
+    private function examActor(): array
+    {
+        $actor = FoundationSchema::actor();
+        foreach ([
+            'students.view', 'students.create', 'students.edit',
+            'courses.view', 'courses.create', 'courses.edit', 'course_requirements.correct',
+            'exams.view', 'exams.generate', 'exams.start.local', 'exams.results.view',
+            'exams.documents.download', 'exams.inventory.adjust',
+        ] as $permission) {
+            FoundationSchema::grant($actor['membership_id'], $permission, ['organization']);
+        }
+
+        return $actor;
+    }
+
+    /**
+     * @param array{organization_id:string,user_id:string,membership_id:string,session_id:string} $actor
+     * @return array<string,mixed>
+     */
+    private function course(array $actor): array
+    {
+        $student = app(StudentService::class)->create($actor['session_id'], [
+            'first_name' => 'Anna',
+            'last_name' => 'Egzamin',
+            'pesel' => '02070803628',
+            'no_pesel' => false,
+        ], (string) Str::uuid7());
+
+        $instructor = app(StaffService::class)->create($actor['session_id'], [
+            'email' => 'exam.'.str_replace('-', '', (string) Str::uuid7()).'@example.test',
+            'first_name' => 'Jan',
+            'last_name' => 'Instruktor',
+            'staff_type_codes' => ['Instructor'],
+            'category_ids' => [],
+            'location_ids' => [],
+        ], (string) Str::uuid7());
+
+        return app(CourseEnrollmentService::class)->create($actor['session_id'], $student['id'], [
+            'training_type' => 'basic',
+            'driving_category_code' => 'B',
+            'pkk_number' => 'PKK-'.str_replace('-', '', (string) Str::uuid7()),
+            'started_at' => '2026-09-11T08:00:00+02:00',
+            'declared_theory_minutes' => 0,
+            'declared_practical_minutes' => 0,
+            'recognized_external_theory_minutes' => 0,
+            'recognized_external_practical_minutes' => 0,
+            'lead_instructor_id' => $instructor['id'],
+            'location_id' => null,
+        ], (string) Str::uuid7());
+    }
+
+    /**
+     * @param array{organization_id:string,user_id:string,membership_id:string,session_id:string} $actor
+     * @param array<string,mixed> $course
+     * @return array{inventory_id:string,capability_id:string,definition_id:string}
+     */
+    private function examFixtures(array $actor, array $course): array
+    {
+        $base = $this->capabilityAndDefinition($course);
+        $inventoryId = (string) Str::uuid7();
+        $now = now()->subMinute();
+        DB::table('internal_exam_inventory_entries')->insert([
+            'id' => $inventoryId,
+            'organization_id' => $actor['organization_id'],
+            'source_type' => 'free',
+            'source_order_item_id' => null,
+            'source_adjustment_id' => null,
+            'current_state' => 'available',
+            'created_at' => $now,
+        ]);
+        DB::table('internal_exam_inventory_ledger_entries')->insert([
+            'id' => (string) Str::uuid7(),
+            'organization_id' => $actor['organization_id'],
+            'internal_exam_inventory_entry_id' => $inventoryId,
+            'internal_exam_reservation_id' => null,
+            'internal_exam_attempt_id' => null,
+            'internal_exam_inventory_adjustment_id' => null,
+            'event_sequence' => 1,
+            'event_type' => 'unit_granted',
+            'available_delta' => 1,
+            'actor_user_id' => null,
+            'reason' => null,
+            'occurred_at' => $now,
+            'created_at' => $now,
+        ]);
+
+        return ['inventory_id' => $inventoryId, ...$base];
+    }
+
+    /** @param array<string,mixed> $course
+     *  @return array{capability_id:string,definition_id:string}
+     */
+    private function capabilityAndDefinition(array $course): array
+    {
+        $categoryId = (string) DB::table('driving_categories')->where('code', $course['driving_category_code'])->value('id');
+        $capabilityId = (string) Str::uuid7();
+        $definitionId = (string) Str::uuid7();
+        $now = now()->subMinute();
+
+        DB::table('internal_exam_capabilities')->insert([
+            'id' => $capabilityId,
+            'driving_category_id' => $categoryId,
+            'exam_part' => 'theory',
+            'language_code' => 'pl',
+            'enabled_at' => $now,
+            'disabled_at' => null,
+            'source_reference' => 'test-fixture',
+            'created_at' => $now,
+        ]);
+
+        $composition = [
+            'questions' => [
+                [
+                    'group' => 'basic',
+                    'source_question_identifier' => 'fixture-q1',
+                    'source_question_revision_identifier' => 'v1',
+                    'question_snapshot_schema_version' => 1,
+                    'question_snapshot' => [
+                        'text' => 'Fixture question one',
+                        'answer_type' => 'single',
+                        'ordered_answer_options' => ['A', 'B'],
+                        'correct_answer' => 'A',
+                        'category_context' => 'B',
+                    ],
+                    'max_points' => 3,
+                ],
+                [
+                    'group' => 'specialized',
+                    'source_question_identifier' => 'fixture-q2',
+                    'source_question_revision_identifier' => 'v1',
+                    'question_snapshot_schema_version' => 1,
+                    'question_snapshot' => [
+                        'text' => 'Fixture question two',
+                        'answer_type' => 'boolean',
+                        'ordered_answer_options' => [true, false],
+                        'correct_answer' => true,
+                        'category_context' => 'B',
+                    ],
+                    'max_points' => 2,
+                ],
+            ],
+        ];
+        $scoring = [
+            'question_scoring' => 'all_or_nothing',
+            'pass_rule' => 'minimum_score',
+            'pass_threshold' => 4,
+        ];
+        DB::table('internal_exam_definitions')->insert([
+            'id' => $definitionId,
+            'driving_category_id' => $categoryId,
+            'exam_part' => 'theory',
+            'language_code' => 'pl',
+            'engine_kind' => 'question_test',
+            'definition_version' => 'fixture-v1',
+            'definition_schema_version' => 1,
+            'composition_snapshot' => json_encode($composition, JSON_THROW_ON_ERROR),
+            'scoring_policy_snapshot' => json_encode($scoring, JSON_THROW_ON_ERROR),
+            'definition_content_hash' => hash('sha256', json_encode([$composition, $scoring], JSON_THROW_ON_ERROR)),
+            'published_at' => $now,
+            'retired_at' => null,
+            'created_at' => $now,
+        ]);
+
+        return ['capability_id' => $capabilityId, 'definition_id' => $definitionId];
+    }
+
+    /** @param array{organization_id:string,user_id:string,membership_id:string,session_id:string} $actor */
+    private function station(array $actor): string
+    {
+        $stationId = (string) Str::uuid7();
+        $now = now();
+        DB::table('exam_stations')->insert([
+            'id' => $stationId,
+            'organization_id' => $actor['organization_id'],
+            'administrative_status' => 'enabled',
+            'last_authenticated_heartbeat_at' => $now,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+        DB::table('exam_station_credentials')->insert([
+            'id' => (string) Str::uuid7(),
+            'organization_id' => $actor['organization_id'],
+            'exam_station_id' => $stationId,
+            'credential_sequence' => 1,
+            'lookup_id' => (string) Str::uuid7(),
+            'secret_verifier' => hash('sha256', (string) Str::uuid7()),
+            'verifier_key_version' => 1,
+            'issued_at' => $now,
+            'revoked_at' => null,
+            'revoke_reason_code' => null,
+            'issued_by_user_id' => $actor['user_id'],
+            'created_at' => $now,
+        ]);
+
+        return $stationId;
+    }
+
+    /** @param callable():mixed $callback */
+    private function captureDomainException(callable $callback): ResourceDomainException
+    {
+        try {
+            $callback();
+        } catch (ResourceDomainException $exception) {
+            return $exception;
+        }
+
+        $this->fail('Expected ResourceDomainException.');
+    }
+}
