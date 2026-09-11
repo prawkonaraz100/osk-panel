@@ -31,7 +31,7 @@ final class StudentFinanceService
     }
 
     /** @param array<string,mixed> $input
-     *  @return array<string,mixed>
+     * @return array<string,mixed>
      */
     public function createCharge(string $sessionId, string $studentId, array $input, string $requestId): array
     {
@@ -90,7 +90,7 @@ final class StudentFinanceService
     }
 
     /** @param array<string,mixed> $money
-     *  @return array<string,mixed>
+     * @return array<string,mixed>
      */
     public function createFromCourseCost(string $sessionId, string $courseId, array $money, string $requestId): array
     {
@@ -215,7 +215,7 @@ final class StudentFinanceService
     }
 
     /** @param array<string,mixed> $input
-     *  @return array<string,mixed>
+     * @return array<string,mixed>
      */
     public function recordPayment(string $sessionId, string $studentId, array $input, string $requestId): array
     {
