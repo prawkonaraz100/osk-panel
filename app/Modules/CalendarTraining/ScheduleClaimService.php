@@ -73,6 +73,31 @@ final class ScheduleClaimService
         $this->release($organizationId, 'calendar_event', $eventId);
     }
 
+    public function replaceForAvailabilityBooking(
+        string $organizationId,
+        string $slotId,
+        string $studentId,
+        ?string $instructorId,
+        ?string $vehicleId,
+        ?string $locationId,
+        string $startsAt,
+        string $endsAt,
+    ): void {
+        $this->replace(
+            $organizationId,
+            'availability_slot_booking',
+            $slotId,
+            $this->desiredResources($studentId, $instructorId, $vehicleId, $locationId),
+            $startsAt,
+            $endsAt,
+        );
+    }
+
+    public function releaseAvailabilityBooking(string $organizationId, string $slotId): void
+    {
+        $this->release($organizationId, 'availability_slot_booking', $slotId);
+    }
+
     /**
      * @param  list<array{kind:string,id:string}>  $desired
      */

@@ -469,6 +469,10 @@ modules:
       - all_relation_ids_belong_to_same_tenant
       - times_are_stored_UTC_and_rendered_in_organization_timezone
       - self_booking_is_atomic
+      - availability_publication_creates_no_reservation_claim
+      - availability_booking_uses_slot_version_and_exact_shared_resource_claim_set
+      - availability_booking_does_not_create_training_session_or_training_credit
+      - cancelled_availability_slot_is_terminal_and_not_auto_republished
     production_blockers:
       - calendar_overlap_enforcement_ADR
     test_obligations:

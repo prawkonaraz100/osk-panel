@@ -408,6 +408,7 @@ paths:
       parameters:
         - { $ref: '../openapi-components-v1.yaml#/components/parameters/SlotId' }
         - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IfMatch' }
       requestBody:
         required: true
         content:
@@ -429,6 +430,11 @@ paths:
       parameters:
         - { $ref: '../openapi-components-v1.yaml#/components/parameters/SlotId' }
         - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IfMatch' }
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/ReasonRequest' }
       responses:
-        '200': { description: Slot cancelled or booking released according to lifecycle }
+        '200': { description: Slot cancelled terminally with history preserved; no automatic re-publication }
         default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }

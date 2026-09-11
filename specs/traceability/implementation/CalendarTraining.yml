@@ -76,3 +76,27 @@ changed_scope:
     ui: DEFERRED_UNTIL_CALENDAR_UI_GATE
     acceptance_test: Tests\\Feature\\CalendarDrivingLessonCoreTest::test_calendar_metadata_patch_uses_training_session_version_and_preserves_meeting_place_xor
     status: IMPLEMENTED
+  - evidence: specs/database/calendar.yml#DB-CAL-006
+    requirement: AvailabilitySlot publication is non-reserving while booking atomically changes available to booked and materializes the exact shared Student Instructor Vehicle Location claim set
+    domain_data: availability_slots + availability_slot_lifecycle_events + calendar_resource_claims
+    api_use_case: availability.list/create/update/book/cancel
+    permission: calendar.view + calendar.publish_student_slots + calendar.book_for_student
+    ui: DEFERRED_UNTIL_CALENDAR_UI_GATE
+    acceptance_test: Tests\\Feature\\AvailabilitySlotCoreTest::test_booking_is_idempotent_versioned_and_creates_exact_claims_without_training_effect
+    status: IMPLEMENTED
+  - evidence: specs/database/calendar.yml#DB-CAL-005
+    requirement: availability publish own scope is canonically bound to the active StaffProfile through slot instructor_id and cannot transfer ownership under own scope
+    domain_data: staff_membership_links + staff_profiles + availability_slots
+    api_use_case: availability.create/update/cancel
+    permission: calendar.publish_student_slots with organization or own scope
+    ui: DEFERRED_UNTIL_CALENDAR_UI_GATE
+    acceptance_test: Tests\\Feature\\AvailabilitySlotCoreTest::test_publish_own_scope_cannot_transfer_slot_to_another_instructor
+    status: IMPLEMENTED
+  - evidence: specs/database/calendar.yml#DB-CAL-006-cancellation
+    requirement: cancelling an available or booked slot is terminal preserves booking Student in lifecycle history releases booking claims and never auto republishes availability
+    domain_data: availability_slots + availability_slot_lifecycle_events + calendar_resource_claims
+    api_use_case: availability.cancel
+    permission: calendar.publish_student_slots
+    ui: DEFERRED_UNTIL_CALENDAR_UI_GATE
+    acceptance_test: Tests\\Feature\\AvailabilitySlotCoreTest::test_cancel_booked_slot_releases_claims_preserves_student_snapshot_and_cannot_rebook
+    status: IMPLEMENTED

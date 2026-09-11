@@ -1,5 +1,6 @@
 <?php
 
+use App\Modules\CalendarTraining\AvailabilitySlotController;
 use App\Modules\CalendarTraining\CalendarDrivingLessonController;
 use App\Modules\CalendarTraining\CalendarEventController;
 use App\Modules\CalendarTraining\TrainingSessionController;
@@ -72,6 +73,12 @@ Route::middleware(ResourceApiMiddleware::class)->prefix('api/v1')->group(functio
     Route::post('/training-sessions/{sessionId}/cancel', [TrainingSessionController::class, 'cancel']);
     Route::get('/course-enrollments/{courseEnrollmentId}/training-hours', [TrainingSessionController::class, 'hours']);
     Route::post('/course-enrollments/{courseEnrollmentId}/training-hour-corrections', [TrainingSessionController::class, 'correctHours']);
+
+    Route::get('/availability-slots', [AvailabilitySlotController::class, 'list']);
+    Route::post('/availability-slots', [AvailabilitySlotController::class, 'create']);
+    Route::patch('/availability-slots/{slotId}', [AvailabilitySlotController::class, 'update']);
+    Route::post('/availability-slots/{slotId}/book', [AvailabilitySlotController::class, 'book']);
+    Route::post('/availability-slots/{slotId}/cancel', [AvailabilitySlotController::class, 'cancel']);
 
     Route::post('/calendar/driving-lessons', [CalendarDrivingLessonController::class, 'create']);
     Route::get('/calendar/driving-lessons/{sessionId}', [CalendarDrivingLessonController::class, 'get']);

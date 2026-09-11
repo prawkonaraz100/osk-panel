@@ -637,11 +637,14 @@ components:
         location_id: { type: [string, 'null'], format: uuid }
         starts_at: { type: string, format: date-time }
         ends_at: { type: string, format: date-time }
-        status: { type: string }
-        booked_student_id: { type: [string, 'null'], format: uuid }
-        version: { type: integer }
+        status: { type: string, enum: [available, booked, cancelled], readOnly: true }
+        booked_student_id: { type: [string, 'null'], format: uuid, readOnly: true }
+        booked_at: { type: [string, 'null'], format: date-time, readOnly: true }
+        training_session_id: { type: [string, 'null'], format: uuid, readOnly: true }
+        version: { type: integer, readOnly: true }
     CreateAvailabilitySlotRequest:
       type: object
+      additionalProperties: false
       required: [starts_at, ends_at]
       properties:
         instructor_id: { type: [string, 'null'], format: uuid }
@@ -660,6 +663,7 @@ components:
         ends_at: { type: string, format: date-time }
     BookAvailabilitySlotRequest:
       type: object
+      additionalProperties: false
       required: [student_id]
       properties:
         student_id: { type: string, format: uuid }
