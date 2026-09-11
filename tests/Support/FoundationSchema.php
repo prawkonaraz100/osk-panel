@@ -14,6 +14,15 @@ final class FoundationSchema
 {
     /** @var list<string> */
     private const TABLES = [
+        'training_session_calendar_details',
+        'calendar_resource_claims',
+        'availability_slot_lifecycle_events',
+        'availability_slots',
+        'calendar_event_lifecycle_events',
+        'calendar_events',
+        'training_hour_ledger_entries',
+        'training_session_attendance',
+        'training_sessions',
         'pkk_profiles',
         'recognized_external_training',
         'course_exemption_decisions',

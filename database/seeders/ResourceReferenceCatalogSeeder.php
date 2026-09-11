@@ -38,6 +38,8 @@ final class ResourceReferenceCatalogSeeder extends Seeder
         'course.created', 'course.updated', 'course.stage_changed', 'course.cancelled', 'course.restored',
         'course.requirements.updated', 'course.exemption.updated',
         'course.external_training.recognized', 'course.external_training.revoked',
+        'training.session.created', 'training.session.updated', 'training.session.attendance_recorded',
+        'training.session.completed', 'training.session.cancelled', 'training.hours.corrected',
     ];
 
     public function run(): void
