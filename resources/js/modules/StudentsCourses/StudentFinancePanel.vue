@@ -442,7 +442,7 @@ function handleError(caught: unknown): void {
             <tr
               v-for="charge in charges"
               :key="charge.id"
-               :class="{ 'finance-cancelled': charge.status === 'cancelled' }"
+              :class="{ 'finance-cancelled': charge.status === 'cancelled' }"
             >
               <td>
                 <strong>{{ charge.title }}</strong>
