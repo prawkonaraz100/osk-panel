@@ -1527,7 +1527,7 @@ final class InternalExamService
     public function transferStation(
         string $sessionId,
         string $attemptId,
-        string $targetStationId,
+        string $rawTargetStationCredential,
         string $reason,
         string $requestId,
     ): array {
@@ -1535,12 +1535,25 @@ final class InternalExamService
             throw ResourceDomainException::rule('Station-transfer reason is required.');
         }
         $actor = $this->scope->requireAttempt($sessionId, 'exams.start.local', $attemptId);
+        $targetBinding = $this->stationCredentials->resolveCurrent(
+            $rawTargetStationCredential,
+            $actor['organization_id'],
+        );
+        $targetStationId = $targetBinding['station_id'];
 
-        return DB::transaction(function () use ($actor, $attemptId, $targetStationId, $reason, $requestId): array {
+        return DB::transaction(function () use (
+            $actor,
+            $attemptId,
+            $targetStationId,
+            $rawTargetStationCredential,
+            $reason,
+            $requestId,
+        ): array {
             $attempt = $this->lockAttempt($actor['organization_id'], $attemptId);
             if ((string) $attempt->status !== 'in_progress') {
                 throw ResourceDomainException::conflict('Station transfer requires an in-progress attempt.');
             }
+
             /** @var AccessRow|null $access */
             $access = DB::table('internal_exam_accesses')
                 ->where('organization_id', $actor['organization_id'])
@@ -1551,6 +1564,7 @@ final class InternalExamService
             if ($access === null || (string) $access->launch_mode === 'remote_link') {
                 throw ResourceDomainException::conflict('Station transfer requires a started station-bound access.');
             }
+
             /** @var StationSessionRow|null $current */
             $current = DB::table('internal_exam_station_sessions')
                 ->where('organization_id', $actor['organization_id'])
@@ -1561,21 +1575,39 @@ final class InternalExamService
             if ($current === null) {
                 throw ResourceDomainException::conflict('Active station session is missing.');
             }
-            if ((string) $current->exam_station_id === $targetStationId) {
+
+            $currentStationId = (string) $current->exam_station_id;
+            if ($currentStationId === $targetStationId) {
                 throw ResourceDomainException::rule('Target station must differ from the active station.');
             }
 
-            /** @var StationRow|null $target */
-            $target = DB::table('exam_stations')
+            $stationIds = [$currentStationId, $targetStationId];
+            sort($stationIds, SORT_STRING);
+            $lockedStations = DB::table('exam_stations')
                 ->where('organization_id', $actor['organization_id'])
-                ->where('id', $targetStationId)
+                ->whereIn('id', $stationIds)
+                ->orderBy('id')
                 ->lockForUpdate()
-                ->first();
-            if ($target === null) {
-                throw ResourceDomainException::notFound('Target exam station not found.');
+                ->get();
+            if ($lockedStations->count() !== 2) {
+                throw ResourceDomainException::notFound('Exam station not found.');
             }
+
             $now = CarbonImmutable::now();
-            $this->assertStationOperational($actor['organization_id'], $target, $now);
+            $targetContext = $this->stationCredentials->authenticateForStation(
+                $rawTargetStationCredential,
+                $actor['organization_id'],
+                $targetStationId,
+                $now,
+            );
+            if ($targetContext['station_id'] !== $targetStationId) {
+                throw new ResourceDomainException(
+                    'INVALID_EXAM_STATION_CREDENTIAL',
+                    401,
+                    'Invalid or revoked exam station credential.',
+                );
+            }
+
             if (DB::table('internal_exam_station_sessions')
                 ->where('organization_id', $actor['organization_id'])
                 ->where('exam_station_id', $targetStationId)
