@@ -225,24 +225,22 @@ quality_gate:
     - S5-FOUND-001
 
 next_single_step:
-  id: CORE-V1-LICENSES-LEARNING-ACCESS-001
-  action: begin_licenses_learning_access_slice_only_after_next_explicit_user_instruction
-  prerequisite_previous_slice: CORE-V1-STUDENT-FINANCE-001_PASS
+  id: CORE-V1-INTERNAL-EXAMS-001
+  action: begin_internal_exams_slice_only_after_next_explicit_user_instruction
+  prerequisite_previous_slice: CORE-V1-LICENSES-LEARNING-ACCESS-001_PASS
   implementation_order_source: AGENTS.md
   allowed_scope:
-    - Licenses
-    - Learning_Access
+    - Internal_Exams
     - dependency_closed_migrations_for_this_slice
     - module_API_permissions_tests_and_traceability
     - own_UI_for_confirmed_screen_scope
   forbidden_scope:
-    - Internal_Exams
     - PKK_adapter
     - Dashboard_Notifications_Purchase_History
     - later_core_modules
     - Stage_4_authority_rewrite
     - weakening_existing_CI_or_tenant_authority
-  after_action: run_machine_narrative_central_gate_and_STOP_before_internal_exams_slice
+  after_action: run_machine_narrative_central_gate_and_STOP_before_PKK_adapter_slice
 
 CORE_V1_LOC_STAFF_VEH_001_closure:
   status: PASS
@@ -670,6 +668,117 @@ CORE_V1_STUDENT_FINANCE_001_closure:
     narrative_payload: PASS
     central_closure: PASS
     next_core_slice: Licenses_Learning_Access
+    next_core_slice_started: false
+
+CORE_V1_LICENSES_LEARNING_ACCESS_001_closure:
+  status: PASS
+  accepted_scope:
+    - Licenses
+    - Learning_Access
+    - student_initial_license_handoff
+    - dependency_closed_expand_migrations
+    - module_API_permissions_tests_and_traceability
+    - own_UI_for_confirmed_license_and_learning_access_scope
+  provenance:
+    clean_accepted_implementation_commit: 6806ae10aa3f138c0f3b3ad5867399ae38f967a8
+    final_accepted_implementation_tip: ea3bedb0bf1f4dc59807d6d2dd907b20150298f7
+    accepted_branch_implementation_run: 34620888683
+    accepted_branch_API_contract_run: 34620788836
+    narrative_closure_candidate_commit: 86cb2a3ec76babc9f19229bf498cff2c4f8eedae
+    narrative_closure_validation_run: 34623538579
+    narrative_closure_validation_jobs_passed: 5
+    narrative_closure_validation_jobs_total: 5
+    helper_workflow_entered_accepted_history: false
+    PR_secret_scan_limitation: Resource_not_accessible_by_integration_before_scan
+    accepted_branch_push_secret_scan: PASS
+  migration_materialization:
+    stage_4_DAG_nodes_total: 170
+    implemented_nodes_current: 67
+    implemented_phase_steps_current: 67
+    nodes_added_by_slice: 10
+    phase: expand
+    execution_identity: e2bbaff93f281685224ae47d83d8815a67feef5e09256b7dff0c4f8cd2413401
+    canonical_order_preserved: true
+    dependency_closed_subset: true
+    later_phase_constraint_nodes_materialized: false
+    Stage_4_authority_rewritten: false
+  runtime_traceability:
+    final_DBT_IDs_total: 491
+    implemented_executable_assertions_current: 78
+    implemented_DBT_added_by_slice: 5
+    implemented_license_DBTs: [DBT-LIC-001, DBT-LIC-002, DBT-LIC-003, DBT-LIC-004, DBT-LIC-051]
+    pending_domain_materialization_current: 413
+    migration_preflight_DBTs_total: 14
+    migration_preflight_DBTs_claimed_early: false
+    concurrency_DBTs_claimed_without_two_writer_test: false
+    physical_FK_candidate_key_check_DBTs_claimed_early: false
+    false_implemented_claims_allowed: false
+  learning_access:
+    Student_User_LearningAccount_kept_separate: true
+    hidden_identity_merge_by_email_PESEL_or_name: false
+    global_login_identifier_authority_preserved: true
+    archived_student_blocks_new_access_effects: true
+    archived_student_history_preserved: true
+    OSK_managed_password_authority_explicit: true
+    plaintext_password_persisted: false
+    idempotent_secret_replay_returns_plaintext: false
+    initial_password_requires_manage_credentials_permission: true
+  licenses:
+    concrete_inventory_units: true
+    current_assignment_history_preserved: true
+    revoke_before_activation_restores_same_inventory_unit: true
+    activated_assignment_uses_unactivated_revoke_flow: false
+    activation_is_append_only_entitlement_effect: true
+    duration_snapshotted_at_activation: true
+    entitlement_periods_stack_without_overlap: true
+    assignment_language_is_snapshot: true
+  student_initial_license_handoff:
+    student_id_is_server_owned: true
+    learning_account_and_assignment_atomic_with_student_create: true
+    unsupported_language_rolls_back_student_create: true
+    missing_permission_rolls_back_student_create: true
+    initial_password_requires_additional_credential_permission: true
+  API_and_UI:
+    OpenAPI_contract_preserved: PASS
+    license_management_panel_route: /licencje/panel
+    student_learning_access_panel: implemented
+    assignment_create_UI: implemented
+    assignment_history_UI: implemented
+    activation_UI: implemented
+    revoke_before_activation_UI: implemented
+    one_time_password_reset_UI: implemented
+    search_sort_hide_finished_UI: implemented
+    platform_commerce_checkout_implemented_in_this_slice: false
+  explicit_deferred_dependencies:
+    - later_candidate_key_FK_index_check_and_preflight_phases_until_global_phase_barrier_allows_them
+    - CP_TWO_WRITERS_concurrency_DBTs_without_two_connection_evidence
+    - Platform_Commerce_orders_checkout_provider_payments_and_purchase_history
+    - full_bulk_PDF_export_pipeline_beyond_materialized_storage_boundary
+    - Internal_Exams
+    - provider_backed_PKK_operations
+    - Dashboard_Notifications_Purchase_History
+  executable_evidence:
+    accepted_branch_Implementation_CI_run: 34620888683
+    accepted_branch_Implementation_CI_jobs_passed: 5
+    accepted_branch_Implementation_CI_jobs_total: 5
+    accepted_PostgreSQL_suite_tests: 124
+    accepted_PostgreSQL_suite_assertions: 1910
+    accepted_API_contract_gate_run: 34620788836
+    accepted_API_contract_gate: PASS
+    narrative_closure_validation_run: 34623538579
+    narrative_closure_validation_jobs_passed: 5
+    narrative_closure_validation_jobs_total: 5
+    backend_static_analysis: PASS_ZERO_ERRORS
+    frontend_lint_typecheck_build_audit: PASS
+    contracts_and_traceability: PASS
+    accepted_push_secret_scan: PASS
+    migration_authority_and_registry: PASS
+    Stage_4_authority_preservation: PASS
+  tranche_result:
+    machine_implementation: PASS
+    narrative_payload: PASS
+    central_closure: PASS
+    next_core_slice: Internal_Exams
     next_core_slice_started: false
 
 S5_BOOT_001_closure:

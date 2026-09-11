@@ -4,8 +4,8 @@ Data: 2026-09-11
 
 **Slice:** `CORE-V1-LICENSES-LEARNING-ACCESS-001`  
 **Implementation machine:** PASS  
-**Narrative payload:** CANDIDATE  
-**Central closure:** PENDING
+**Narrative payload:** PASS  
+**Central closure:** PASS
 
 ## 1. Zakres
 
@@ -320,10 +320,18 @@ Accepted machine validation:
 - PostgreSQL — **124 / 1910 PASS**,
 - accepted-push secret-scan — **PASS**.
 
-Ten commit jest **narrative closure candidate**. Central Stage-5 gate pozostaje świadomie niezmieniony do czasu osobnego 5/5 CI PASS na tym dokumencie.
+Narrative closure candidate commit:
 
-Po PASS narrative candidate jedynym dozwolonym następnym krokiem jest centralne oznaczenie:
+`86cb2a3ec76babc9f19229bf498cff2c4f8eedae`
+
+Narrative validation:
+
+- Implementation CI `34623538579` — **5/5 SUCCESS**,
+- accepted-push secret-scan — **PASS**,
+- PostgreSQL runtime/migrations — **PASS**.
+
+Finalny wynik central closure:
 
 `CORE-V1-LICENSES-LEARNING-ACCESS-001 = PASS`
 
-i ustawienie następnego slice zgodnie z `AGENTS.md` na **Internal Exams**, bez jego rozpoczynania w ramach tego closure.
+Następny dozwolony slice zgodnie z `AGENTS.md` to `CORE-V1-INTERNAL-EXAMS-001`. Nie został rozpoczęty; wymaga kolejnej jawnej instrukcji użytkownika.
