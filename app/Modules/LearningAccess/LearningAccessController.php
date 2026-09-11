@@ -149,6 +149,8 @@ final class LearningAccessController
             'per_page' => $request->integer('per_page', 25),
             'search' => $request->query('search'),
             'hide_finished' => $request->boolean('hide_finished'),
+            'sort' => $request->query('sort'),
+            'direction' => $request->query('direction'),
         ]));
     }
 

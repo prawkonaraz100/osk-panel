@@ -950,6 +950,8 @@ components:
         active: { type: boolean }
         price: { anyOf: [{ $ref: '#/components/schemas/Money' }, { type: 'null' }] }
         languages: { type: array, items: { type: string } }
+        available_count: { type: integer, minimum: 0, readOnly: true }
+        active_count: { type: integer, minimum: 0, readOnly: true }
     LicenseInventoryEntry:
       type: object
       required: [id, product_id, status]

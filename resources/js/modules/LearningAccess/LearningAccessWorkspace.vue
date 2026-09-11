@@ -341,8 +341,12 @@ function handleError(caught: unknown): void {
             <span>Licencja</span>
             <strong>{{ product.duration_days }} dni</strong>
             <div>
-              <b>{{ inventory.filter((row) => row.product_id === product.id && row.status === 'available').length }}</b>
+              <b>{{ product.available_count ?? inventory.filter((row) => row.product_id === product.id && row.status === 'available').length }}</b>
               <small>dostępnych</small>
+            </div>
+            <div>
+              <b>{{ product.active_count ?? 0 }}</b>
+              <small>aktywnych</small>
             </div>
           </article>
           <div v-if="products.length === 0" class="empty-inline">

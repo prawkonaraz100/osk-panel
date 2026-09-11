@@ -31,13 +31,15 @@ final class LicenseService
     public function products(string $sessionId): array
     {
         $visibility = $this->scopeAuthorizer->visibility($sessionId, 'licenses.view');
-        unset($visibility);
+        $organizationId = $visibility['membership']['organization_id'];
+        $effectiveAt = now();
 
         return array_values(DB::table('license_products')
             ->where('active', true)
             ->orderBy('code')
             ->get()
-            ->map(function (object $row): array {
+            ->map(function (object $row) use ($organizationId, $effectiveAt): array {
+                /** @var LicenseProductRow $row */
                 $languages = DB::table('license_product_language_capabilities')
                     ->where('license_product_id', $row->id)
                     ->whereNull('disabled_at')
@@ -46,12 +48,35 @@ final class LicenseService
                     ->map(static fn ($code): string => (string) $code)
                     ->all();
 
+                $availableCount = DB::table('license_inventory_entries')
+                    ->where('organization_id', $organizationId)
+                    ->where('license_product_id', $row->id)
+                    ->where('status', 'available')
+                    ->count();
+
+                $activeCount = DB::table('license_inventory_entries as li')
+                    ->join('license_assignments as la', function ($join): void {
+                        $join->on('la.organization_id', '=', 'li.organization_id')
+                            ->on('la.license_inventory_entry_id', '=', 'li.id');
+                    })
+                    ->join('license_activations as ac', function ($join): void {
+                        $join->on('ac.organization_id', '=', 'la.organization_id')
+                            ->on('ac.license_assignment_id', '=', 'la.id');
+                    })
+                    ->where('li.organization_id', $organizationId)
+                    ->where('li.license_product_id', $row->id)
+                    ->where('la.status', 'activated')
+                    ->where('ac.effective_to', '>', $effectiveAt)
+                    ->count();
+
                 return [
                     'id' => (string) $row->id,
                     'code' => (string) $row->code,
                     'duration_days' => (int) $row->duration_days,
                     'active' => (bool) $row->active,
                     'languages' => array_values($languages),
+                    'available_count' => $availableCount,
+                    'active_count' => $activeCount,
                 ];
             })
             ->values()
@@ -576,17 +601,27 @@ final class LicenseService
 
         $page = max(1, (int) ($filters['page'] ?? 1));
         $perPage = min(100, max(1, (int) ($filters['per_page'] ?? 25)));
-        $total = (clone $query)->count();
+        $sort = (string) ($filters['sort'] ?? 'latest_license_generated_at');
+        $direction = strtolower((string) ($filters['direction'] ?? 'desc')) === 'asc' ? 'asc' : 'desc';
+        $allowedSorts = [
+            'learning_identifier',
+            'student_full_name',
+            'latest_license_generated_at',
+            'learning_access_language',
+            'latest_license_status',
+            'assigned_license_count',
+        ];
+        if (! in_array($sort, $allowedSorts, true)) {
+            $sort = 'latest_license_generated_at';
+        }
 
-        $rows = $query->orderBy('s.last_name')->orderBy('s.first_name')->orderBy('a.id')
-            ->forPage($page, $perPage)
-            ->get([
-                'a.id as account_id', 'a.student_id', 'a.language_code',
-                'i.identifier_normalized as login_identifier',
-                's.first_name', 's.last_name',
-            ]);
+        $rows = $query->get([
+            'a.id as account_id', 'a.student_id', 'a.language_code',
+            'i.identifier_normalized as login_identifier',
+            's.first_name', 's.last_name',
+        ]);
 
-        $data = array_values($rows->map(function (object $row) use ($org, $effectiveAt): array {
+        $all = array_values($rows->map(function (object $row) use ($org, $effectiveAt): array {
             /** @var ManagementRow $row */
             $history = $this->assignmentHistoryProjection($org, (string) $row->account_id, $effectiveAt);
             $latest = $history[0] ?? null;
@@ -610,6 +645,26 @@ final class LicenseService
                 'current_learning_access_expiry' => $expiry === null ? null : (string) $expiry,
             ];
         })->values()->all());
+
+        usort($all, static function (array $left, array $right) use ($sort, $direction): int {
+            $leftValue = $left[$sort] ?? null;
+            $rightValue = $right[$sort] ?? null;
+            if (is_string($leftValue)) {
+                $leftValue = mb_strtolower($leftValue);
+            }
+            if (is_string($rightValue)) {
+                $rightValue = mb_strtolower($rightValue);
+            }
+            $comparison = ($leftValue ?? '') <=> ($rightValue ?? '');
+            if ($comparison === 0) {
+                $comparison = (string) $left['learning_account_id'] <=> (string) $right['learning_account_id'];
+            }
+
+            return $direction === 'asc' ? $comparison : -$comparison;
+        });
+
+        $total = count($all);
+        $data = array_values(array_slice($all, ($page - 1) * $perPage, $perPage));
 
         return [
             'data' => $data,
