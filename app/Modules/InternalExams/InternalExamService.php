@@ -28,6 +28,7 @@ final class InternalExamService
     public function __construct(
         private readonly InternalExamScopeAuthorizer $scope,
         private readonly InternalExamTokenService $tokens,
+        private readonly ExamStationCredentialService $stationCredentials,
         private readonly AtomicAuditOutbox $auditOutbox,
     ) {}
 
@@ -583,12 +584,12 @@ final class InternalExamService
     public function startLocal(
         string $sessionId,
         string $accessId,
-        string $trustedStationId,
+        string $rawStationCredential,
         string $requestId,
     ): array {
         $actor = $this->scope->requireAccess($sessionId, 'exams.start.local', $accessId);
 
-        return DB::transaction(function () use ($actor, $accessId, $trustedStationId, $requestId): array {
+        return DB::transaction(function () use ($actor, $accessId, $rawStationCredential, $requestId): array {
             /** @var AccessRow|null $accessSnapshot */
             $accessSnapshot = DB::table('internal_exam_accesses')
                 ->where('organization_id', $actor['organization_id'])
@@ -611,21 +612,27 @@ final class InternalExamService
             if ((string) $access->launch_mode === 'remote_link') {
                 throw ResourceDomainException::conflict('Remote access must start through the execution-token boundary.');
             }
-            if ($access->station_id === null || (string) $access->station_id !== $trustedStationId) {
-                throw ResourceDomainException::conflict('Authenticated station context does not match the access station.');
+            if ($access->station_id === null) {
+                throw ResourceDomainException::conflict('Station-bound access is missing its station binding.');
+            }
+
+            $trustedStationId = (string) $access->station_id;
+            $now = CarbonImmutable::now();
+            $stationContext = $this->stationCredentials->authenticateForStation(
+                $rawStationCredential,
+                $actor['organization_id'],
+                $trustedStationId,
+                $now,
+            );
+            if ($stationContext['station_id'] !== $trustedStationId) {
+                throw new ResourceDomainException(
+                    'INVALID_EXAM_STATION_CREDENTIAL',
+                    401,
+                    'Invalid or revoked exam station credential.',
+                );
             }
 
             $definition = $this->lockCurrentDefinition($attempt);
-            /** @var StationRow|null $station */
-            $station = DB::table('exam_stations')
-                ->where('organization_id', $actor['organization_id'])
-                ->where('id', $trustedStationId)
-                ->lockForUpdate()
-                ->first();
-            if ($station === null) {
-                throw ResourceDomainException::notFound('Exam station not found.');
-            }
-            $this->assertStationOperational($actor['organization_id'], $station, CarbonImmutable::now());
 
             if (DB::table('internal_exam_station_sessions')
                 ->where('organization_id', $actor['organization_id'])
@@ -663,7 +670,6 @@ final class InternalExamService
             }
 
             $questionSetHash = $this->materializeDefinitionEvidence($actor['organization_id'], $attempt, $definition);
-            $now = CarbonImmutable::now();
             $attemptVersion = (int) $attempt->version + 1;
             $accessVersion = (int) $access->version + 1;
 
