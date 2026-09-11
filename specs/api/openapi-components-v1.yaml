@@ -1084,7 +1084,8 @@ components:
           type: [string, 'null']
           readOnly: true
           x-one-time-secret: true
-          description: May be returned once when creating remote access; raw token is never recoverable later.
+          x-secret-transport: url-fragment
+          description: May be returned once when creating or explicitly resending remote access. The opaque bearer secret is carried only in the URL fragment, is never persisted recoverably, and is omitted on idempotent replay.
     InternalExamResult:
       type: object
       required: [attempt_id, passed, score, max_score]
@@ -1093,6 +1094,12 @@ components:
         passed: { type: boolean }
         score: { type: integer }
         max_score: { type: integer }
+        one_time_result_url:
+          type: [string, 'null']
+          readOnly: true
+          x-one-time-secret: true
+          x-secret-transport: url-fragment
+          description: May be returned once when a remote attempt finishes. It carries a finished-result-read bearer secret in the URL fragment and is null on idempotent replay.
     ExamQuestionSnapshot:
       type: object
       required: [ordinal, group, question_snapshot]

@@ -22,6 +22,8 @@ final class InternalExamCoreTest extends TestCase
         config()->set('internal_exams.station_heartbeat_fresh_seconds', 120);
         config()->set('internal_exams.execution_token_ttl_minutes', 60);
         config()->set('internal_exams.result_token_ttl_minutes', 1440);
+        config()->set('internal_exams.remote_access_ttl_minutes', 120);
+        config()->set('internal_exams.remote_public_base_url', 'https://learn.example.test/internal-exam');
         config()->set('internal_exams.token_verifier_key_v1', 'synthetic-internal-exam-verifier-key-v1-2026-09-11');
         FoundationSchema::reset();
     }
@@ -661,6 +663,157 @@ final class InternalExamCoreTest extends TestCase
         $this->assertDatabaseCount('internal_exam_results', 0);
     }
 
+    public function test_http_remote_exam_secret_responses_are_nonreplayable_and_bearer_lifecycle_is_scoped(): void
+    {
+        $actor = $this->examActor();
+        $course = $this->course($actor);
+        $fixtures = $this->examFixtures($actor, $course);
+
+        $attemptKey = (string) Str::uuid7();
+        $attemptResponse = $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->withHeader('Idempotency-Key', $attemptKey)
+            ->postJson("/api/v1/course-enrollments/{$course['id']}/internal-exam-attempts", [
+                'exam_part' => 'theory',
+                'language_code' => 'pl',
+            ]);
+        $attemptResponse->assertCreated();
+        $attemptId = (string) $attemptResponse->json('id');
+        $this->assertSame('created', $attemptResponse->json('status'));
+
+        $accessKey = (string) Str::uuid7();
+        $accessResponse = $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->withHeader('Idempotency-Key', $accessKey)
+            ->postJson("/api/v1/internal-exam-attempts/{$attemptId}/accesses", [
+                'mode' => 'remote_link',
+            ]);
+        $accessResponse->assertCreated()
+            ->assertHeader('Cache-Control', 'no-store, private')
+            ->assertHeader('Referrer-Policy', 'no-referrer');
+        $accessId = (string) $accessResponse->json('id');
+        $firstUrl = (string) $accessResponse->json('one_time_remote_url');
+        $this->assertStringStartsWith('https://learn.example.test/internal-exam#exam_access_token=', $firstUrl);
+        $firstToken = $this->tokenFromOneTimeUrl($firstUrl);
+
+        $accessReplay = $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->withHeader('Idempotency-Key', $accessKey)
+            ->postJson("/api/v1/internal-exam-attempts/{$attemptId}/accesses", [
+                'mode' => 'remote_link',
+            ]);
+        $accessReplay->assertCreated();
+        $this->assertSame($accessId, $accessReplay->json('id'));
+        $this->assertNull($accessReplay->json('one_time_remote_url'));
+        $this->assertSame(1, DB::table('internal_exam_access_tokens')->where('internal_exam_access_id', $accessId)->count());
+
+        $sendKey = (string) Str::uuid7();
+        $sendResponse = $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->withHeader('Idempotency-Key', $sendKey)
+            ->postJson("/api/v1/internal-exam-accesses/{$accessId}/send");
+        $sendResponse->assertStatus(202)
+            ->assertHeader('Cache-Control', 'no-store, private')
+            ->assertHeader('Referrer-Policy', 'no-referrer');
+        $secondUrl = (string) $sendResponse->json('one_time_remote_url');
+        $secondToken = $this->tokenFromOneTimeUrl($secondUrl);
+        $this->assertNotSame($firstToken, $secondToken);
+
+        $sendReplay = $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->withHeader('Idempotency-Key', $sendKey)
+            ->postJson("/api/v1/internal-exam-accesses/{$accessId}/send");
+        $sendReplay->assertStatus(202);
+        $this->assertNull($sendReplay->json('one_time_remote_url'));
+        $this->assertSame(2, DB::table('internal_exam_access_tokens')->where('internal_exam_access_id', $accessId)->count());
+
+        $oldToken = $this->captureDomainException(
+            fn () => app(InternalExamTokenService::class)->verify($firstToken, 'exam_execution'),
+        );
+        $this->assertSame('INVALID_EXAM_ACCESS_TOKEN', $oldToken->machineCode);
+
+        $staffStart = $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->withHeader('Idempotency-Key', (string) Str::uuid7())
+            ->postJson("/api/v1/internal-exam-accesses/{$accessId}/start");
+        $staffStart->assertStatus(409)->assertJsonPath('error.code', 'STATION_AUTH_REQUIRED');
+        $this->assertSame('reserved', DB::table('internal_exam_inventory_entries')->where('id', $fixtures['inventory_id'])->value('current_state'));
+
+        $startKey = (string) Str::uuid7();
+        $startResponse = $this->withHeader('Authorization', 'Bearer '.$secondToken)
+            ->withHeader('Idempotency-Key', $startKey)
+            ->postJson("/api/v1/internal-exam-accesses/{$accessId}/start");
+        $startResponse->assertOk();
+        $this->assertSame('in_progress', $startResponse->json('status'));
+        $this->assertSame('consumed', DB::table('internal_exam_inventory_entries')->where('id', $fixtures['inventory_id'])->value('current_state'));
+
+        $startReplay = $this->withHeader('Authorization', 'Bearer '.$secondToken)
+            ->withHeader('Idempotency-Key', $startKey)
+            ->postJson("/api/v1/internal-exam-accesses/{$accessId}/start");
+        $startReplay->assertOk();
+        $this->assertSame('in_progress', $startReplay->json('status'));
+        $this->assertSame(
+            1,
+            DB::table('internal_exam_inventory_ledger_entries')
+                ->where('internal_exam_attempt_id', $attemptId)
+                ->where('event_type', 'unit_consumed')
+                ->count(),
+        );
+
+        $submitKey = (string) Str::uuid7();
+        $answers = [
+            ['ordinal' => 1, 'answer' => 'A'],
+            ['ordinal' => 2, 'answer' => true],
+        ];
+        $submitResponse = $this->withHeader('Authorization', 'Bearer '.$secondToken)
+            ->withHeader('Idempotency-Key', $submitKey)
+            ->postJson("/api/v1/internal-exam-attempts/{$attemptId}/submit", ['answers' => $answers]);
+        $submitResponse->assertOk()
+            ->assertHeader('Cache-Control', 'no-store, private')
+            ->assertHeader('Referrer-Policy', 'no-referrer');
+        $this->assertTrue($submitResponse->json('passed'));
+        $resultUrl = (string) $submitResponse->json('one_time_result_url');
+        $resultToken = $this->tokenFromOneTimeUrl($resultUrl);
+
+        $submitReplay = $this->withHeader('Authorization', 'Bearer '.$secondToken)
+            ->withHeader('Idempotency-Key', $submitKey)
+            ->postJson("/api/v1/internal-exam-attempts/{$attemptId}/submit", ['answers' => $answers]);
+        $submitReplay->assertOk();
+        $this->assertTrue($submitReplay->json('passed'));
+        $this->assertNull($submitReplay->json('one_time_result_url'));
+        $this->assertSame(
+            1,
+            DB::table('internal_exam_access_tokens')
+                ->where('internal_exam_access_id', $accessId)
+                ->where('purpose', 'finished_result_read')
+                ->count(),
+        );
+
+        $resultResponse = $this->withHeader('Authorization', 'Bearer '.$resultToken)
+            ->getJson("/api/v1/internal-exam-attempts/{$attemptId}/result");
+        $resultResponse->assertOk();
+        $this->assertTrue($resultResponse->json('passed'));
+
+        $questionsResponse = $this->withHeader('Authorization', 'Bearer '.$resultToken)
+            ->getJson("/api/v1/internal-exam-attempts/{$attemptId}/questions");
+        $questionsResponse->assertOk()->assertJsonCount(2);
+        $this->assertSame('A', $questionsResponse->json('0.candidate_answer'));
+
+        $resultCannotStart = $this->withHeader('Authorization', 'Bearer '.$resultToken)
+            ->withHeader('Idempotency-Key', (string) Str::uuid7())
+            ->postJson("/api/v1/internal-exam-accesses/{$accessId}/start");
+        $resultCannotStart->assertStatus(401)->assertJsonPath('error.code', 'INVALID_EXAM_ACCESS_TOKEN');
+
+        $invalidAuthorizationDoesNotFallBackToSession = $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->withHeader('Authorization', 'Basic not-an-exam-token')
+            ->getJson("/api/v1/internal-exam-attempts/{$attemptId}/result");
+        $invalidAuthorizationDoesNotFallBackToSession
+            ->assertStatus(401)
+            ->assertJsonPath('error.code', 'INVALID_EXAM_ACCESS_TOKEN');
+
+        $safeSnapshots = DB::table('idempotency_records')
+            ->where('organization_id', $actor['organization_id'])
+            ->pluck('safe_response_snapshot')
+            ->implode('|');
+        $this->assertStringNotContainsString($firstToken, $safeSnapshots);
+        $this->assertStringNotContainsString($secondToken, $safeSnapshots);
+        $this->assertStringNotContainsString($resultToken, $safeSnapshots);
+    }
+
     /** @return array{organization_id:string,user_id:string,membership_id:string,session_id:string} */
     private function examActor(): array
     {
@@ -858,6 +1011,22 @@ final class InternalExamCoreTest extends TestCase
         ]);
 
         return $stationId;
+    }
+
+    private function tokenFromOneTimeUrl(string $url): string
+    {
+        $fragment = parse_url($url, PHP_URL_FRAGMENT);
+        if (! is_string($fragment) || $fragment === '') {
+            $this->fail('Expected one-time URL fragment.');
+        }
+
+        parse_str($fragment, $parts);
+        $token = $parts['exam_access_token'] ?? null;
+        if (! is_string($token) || $token === '') {
+            $this->fail('Expected exam_access_token in one-time URL fragment.');
+        }
+
+        return $token;
     }
 
     /** @param  callable():mixed  $callback */

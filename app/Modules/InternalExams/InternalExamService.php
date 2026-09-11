@@ -31,6 +31,77 @@ final class InternalExamService
         private readonly AtomicAuditOutbox $auditOutbox,
     ) {}
 
+    /** @return list<array<string,mixed>> */
+    public function attemptsForCourse(string $sessionId, string $courseId): array
+    {
+        $actor = $this->scope->requireCourse($sessionId, 'exams.view', $courseId);
+
+        $ids = DB::table('internal_exam_attempts')
+            ->where('organization_id', $actor['organization_id'])
+            ->where('course_enrollment_id', $courseId)
+            ->orderBy('course_attempt_sequence')
+            ->pluck('id')
+            ->map(static fn ($id): string => (string) $id)
+            ->all();
+
+        return array_values(array_map(
+            fn (string $id): array => $this->presentAttempt($actor['organization_id'], $id),
+            $ids,
+        ));
+    }
+
+    /** @return array<string,mixed> */
+    public function attemptGet(string $sessionId, string $attemptId): array
+    {
+        $actor = $this->scope->requireAttempt($sessionId, 'exams.view', $attemptId);
+
+        return $this->presentAttempt($actor['organization_id'], $attemptId);
+    }
+
+    /** @return array<string,mixed> */
+    public function resultAsStaff(string $sessionId, string $attemptId): array
+    {
+        $actor = $this->scope->requireAttempt($sessionId, 'exams.results.view', $attemptId);
+        $resultId = DB::table('internal_exam_results')
+            ->where('organization_id', $actor['organization_id'])
+            ->where('internal_exam_attempt_id', $attemptId)
+            ->value('id');
+        if (! is_string($resultId) || $resultId === '') {
+            throw ResourceDomainException::notFound('Internal exam result not found.');
+        }
+
+        return $this->presentResult($actor['organization_id'], $resultId);
+    }
+
+    /** @return list<array<string,mixed>> */
+    public function questionsAsStaff(string $sessionId, string $attemptId): array
+    {
+        $actor = $this->scope->requireAttempt($sessionId, 'exams.results.view', $attemptId);
+        $rows = DB::table('internal_exam_attempt_questions')
+            ->where('organization_id', $actor['organization_id'])
+            ->where('internal_exam_attempt_id', $attemptId)
+            ->orderBy('ordinal')
+            ->get()
+            ->map(static function (object $row): array {
+                /** @var ReviewQuestionRow $row */
+                return [
+                    'ordinal' => (int) $row->ordinal,
+                    'group' => (string) $row->group,
+                    'question_snapshot' => json_decode((string) $row->question_snapshot, true, 512, JSON_THROW_ON_ERROR),
+                    'candidate_answer' => $row->candidate_answer === null
+                        ? null
+                        : json_decode((string) $row->candidate_answer, true, 512, JSON_THROW_ON_ERROR),
+                    'is_correct' => $row->is_correct === null ? null : (bool) $row->is_correct,
+                    'points_awarded' => $row->points_awarded === null ? null : (int) $row->points_awarded,
+                    'max_points' => (int) $row->max_points_snapshot,
+                ];
+            })
+            ->values()
+            ->all();
+
+        return array_values($rows);
+    }
+
     /** @return array<string,mixed> */
     public function createAttempt(
         string $sessionId,

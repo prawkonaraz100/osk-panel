@@ -74,3 +74,11 @@ changed_scope:
     ui: DEFERRED_UNTIL_INTERNAL_EXAMS_UI_GATE
     acceptance_test: Tests\\Feature\\InternalExamCoreTest::test_remote_submit_retires_execution_token_mints_result_token_and_scopes_review_to_frozen_evidence
     status: IMPLEMENTED
+  - evidence: specs/api/paths/internal-exams.yaml
+    requirement: Stage5 remote Internal Exam HTTP binding uses session authority for staff commands and purpose-scoped Bearer authority for remote start submit result and frozen-question review; one-time URLs use fragment transport and idempotent replay persists only nonsecret response snapshots
+    domain_data: idempotency_records + internal_exam_access_tokens + internal_exam_accesses + internal_exam_attempts + internal_exam_results + internal_exam_attempt_questions
+    api_use_case: HTTP_GATE_4A_remote_and_staff_internal_exam_binding
+    permission: exams.generate/exams.access.send/exams.results.view or exact examAccessToken purpose
+    ui: remote_public_base_url_is_explicit_deployment_configuration
+    acceptance_test: Tests\\Feature\\InternalExamCoreTest::test_http_remote_exam_secret_responses_are_nonreplayable_and_bearer_lifecycle_is_scoped
+    status: IMPLEMENTED

@@ -104,6 +104,42 @@ final class InternalExamTokenService
         return $this->verifyResolved($rawToken, $expectedPurpose, $effectiveAt, false);
     }
 
+    /**
+     * Resolve exact token binding after constant-time verifier validation without
+     * granting lifecycle authority. Used only to locate a tenant idempotency record;
+     * the business callback must still call verify()/verifyForUpdate().
+     *
+     * @return TokenContext
+     */
+    public function resolveBindingForIdempotency(string $rawToken, string $expectedPurpose): array
+    {
+        [$lookupId, $secret] = $this->parse($rawToken);
+
+        /** @var TokenRow|null $row */
+        $row = DB::table('internal_exam_access_tokens')->where('lookup_id', $lookupId)->first();
+        if ($row === null || (string) $row->purpose !== $expectedPurpose) {
+            throw $this->invalid();
+        }
+
+        $computed = hash_hmac(
+            'sha256',
+            $secret,
+            $this->verifierKey((int) $row->verifier_key_version),
+        );
+        if (! hash_equals((string) $row->secret_verifier, $computed)) {
+            throw $this->invalid();
+        }
+
+        return [
+            'token_id' => (string) $row->id,
+            'organization_id' => (string) $row->organization_id,
+            'access_id' => (string) $row->internal_exam_access_id,
+            'attempt_id' => (string) $row->internal_exam_attempt_id,
+            'purpose' => (string) $row->purpose,
+            'expires_at' => (string) $row->expires_at,
+        ];
+    }
+
     /** @return TokenContext */
     public function verifyForUpdate(string $rawToken, string $expectedPurpose, ?CarbonImmutable $effectiveAt = null): array
     {
