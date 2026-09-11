@@ -6,6 +6,10 @@ use App\Modules\StudentsCourses\StudentCourseScopeAuthorizer;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
 
+/**
+ * @phpstan-type StatisticsRow object{exam_count:mixed,passed_count:mixed,failed_count:mixed}
+ * @phpstan-type ManagementRow object{student_id:mixed,course_enrollment_id:mixed,exam_part:mixed,assignment_eligible_now:mixed,first_name:mixed,last_name:mixed,full_name:mixed,email:mixed,login:mixed,course_category:mixed,status:mixed,latest_attempt_id:mixed,latest_attempt_sequence:mixed,latest_attempt_status:mixed,latest_exam_category:mixed,latest_exam_at:mixed,latest_exam_language:mixed,latest_attempt_started_at:mixed,latest_attempt_finished_at:mixed,exam_count:mixed,passed_count:mixed,failed_count:mixed,pass_rate:mixed}
+ */
 final class InternalExamManagementService
 {
     private const STATUSES = ['not_assigned', 'not_conducted', 'failed', 'passed'];
@@ -92,6 +96,7 @@ final class InternalExamManagementService
 
         $total = (int) (clone $filtered)->count();
 
+        /** @var StatisticsRow|null $statistics */
         $statistics = (clone $filtered)
             ->selectRaw('COALESCE(SUM(m.exam_count), 0) AS exam_count')
             ->selectRaw('COALESCE(SUM(m.passed_count), 0) AS passed_count')
@@ -323,30 +328,33 @@ final class InternalExamManagementService
     /** @return array<string,mixed> */
     private function present(object $row): array
     {
+        /** @var ManagementRow $projection */
+        $projection = $row;
+
         return [
-            'student_id' => (string) $row->student_id,
-            'course_enrollment_id' => (string) $row->course_enrollment_id,
-            'exam_part' => (string) $row->exam_part,
-            'assignment_eligible_now' => (bool) $row->assignment_eligible_now,
-            'first_name' => (string) $row->first_name,
-            'last_name' => (string) $row->last_name,
-            'full_name' => (string) $row->full_name,
-            'email' => $row->email === null ? null : (string) $row->email,
-            'login' => $row->login === null ? null : (string) $row->login,
-            'course_category' => (string) $row->course_category,
-            'status' => (string) $row->status,
-            'latest_attempt_id' => $row->latest_attempt_id === null ? null : (string) $row->latest_attempt_id,
-            'latest_attempt_sequence' => $row->latest_attempt_sequence === null ? null : (int) $row->latest_attempt_sequence,
-            'latest_attempt_status' => $row->latest_attempt_status === null ? null : (string) $row->latest_attempt_status,
-            'latest_exam_category' => $row->latest_exam_category === null ? null : (string) $row->latest_exam_category,
-            'latest_exam_at' => $row->latest_exam_at === null ? null : (string) $row->latest_exam_at,
-            'latest_exam_language' => $row->latest_exam_language === null ? null : (string) $row->latest_exam_language,
-            'latest_attempt_started_at' => $row->latest_attempt_started_at === null ? null : (string) $row->latest_attempt_started_at,
-            'latest_attempt_finished_at' => $row->latest_attempt_finished_at === null ? null : (string) $row->latest_attempt_finished_at,
-            'exam_count' => (int) $row->exam_count,
-            'passed_count' => (int) $row->passed_count,
-            'failed_count' => (int) $row->failed_count,
-            'pass_rate' => $row->pass_rate === null ? null : (float) $row->pass_rate,
+            'student_id' => (string) $projection->student_id,
+            'course_enrollment_id' => (string) $projection->course_enrollment_id,
+            'exam_part' => (string) $projection->exam_part,
+            'assignment_eligible_now' => (bool) $projection->assignment_eligible_now,
+            'first_name' => (string) $projection->first_name,
+            'last_name' => (string) $projection->last_name,
+            'full_name' => (string) $projection->full_name,
+            'email' => $projection->email === null ? null : (string) $projection->email,
+            'login' => $projection->login === null ? null : (string) $projection->login,
+            'course_category' => (string) $projection->course_category,
+            'status' => (string) $projection->status,
+            'latest_attempt_id' => $projection->latest_attempt_id === null ? null : (string) $projection->latest_attempt_id,
+            'latest_attempt_sequence' => $projection->latest_attempt_sequence === null ? null : (int) $projection->latest_attempt_sequence,
+            'latest_attempt_status' => $projection->latest_attempt_status === null ? null : (string) $projection->latest_attempt_status,
+            'latest_exam_category' => $projection->latest_exam_category === null ? null : (string) $projection->latest_exam_category,
+            'latest_exam_at' => $projection->latest_exam_at === null ? null : (string) $projection->latest_exam_at,
+            'latest_exam_language' => $projection->latest_exam_language === null ? null : (string) $projection->latest_exam_language,
+            'latest_attempt_started_at' => $projection->latest_attempt_started_at === null ? null : (string) $projection->latest_attempt_started_at,
+            'latest_attempt_finished_at' => $projection->latest_attempt_finished_at === null ? null : (string) $projection->latest_attempt_finished_at,
+            'exam_count' => (int) $projection->exam_count,
+            'passed_count' => (int) $projection->passed_count,
+            'failed_count' => (int) $projection->failed_count,
+            'pass_rate' => $projection->pass_rate === null ? null : (float) $projection->pass_rate,
         ];
     }
 
