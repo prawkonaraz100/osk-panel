@@ -6,8 +6,8 @@ use App\Modules\CalendarTraining\CalendarEventController;
 use App\Modules\CalendarTraining\TrainingSessionController;
 use App\Modules\ResourcesCore\ResourceApiMiddleware;
 use App\Modules\ResourcesCore\ResourceController;
-use App\Modules\StudentsCourses\StudentCourseController;
 use App\Modules\StudentFinance\StudentFinanceController;
+use App\Modules\StudentsCourses\StudentCourseController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(ResourceApiMiddleware::class)->prefix('api/v1')->group(function (): void {
