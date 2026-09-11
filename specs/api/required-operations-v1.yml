@@ -352,10 +352,10 @@ coverage_status:
   frozen_at: 2026-09-05
   validator_command: python scripts/contract-validation/validate_openapi_contract.py
   ci_workflow: .github/workflows/api-contract-gate.yml
-  http_requirement_rows: 169
-  unique_openapi_path_method_operations_required: 158
+  http_requirement_rows: 170
+  unique_openapi_path_method_operations_required: 159
   shared_capability_rows_reusing_existing_operationId: 11
-  direct_and_shared_http_requirements_with_operationId_mapping: 169
+  direct_and_shared_http_requirements_with_operationId_mapping: 170
   direct_and_shared_http_requirements_without_operationId_mapping: 0
   openapi_complete_against_this_inventory: true
   operationIds_present_for_all_http_requirements: true
