@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 /**
- * @phpstan-type StudentRow object{id:mixed,organization_id:mixed,archived_at:mixed}
+ * @phpstan-type StudentRow object{id:mixed,organization_id:mixed,first_name:mixed,last_name:mixed,archived_at:mixed}
  * @phpstan-type LearningAccountRow object{id:mixed,student_id:mixed,language_code:mixed}
  * @phpstan-type LicenseProductRow object{id:mixed,code:mixed,duration_days:mixed,active:mixed}
  * @phpstan-type InventoryRow object{id:mixed,license_product_id:mixed,status:mixed,granted_at:mixed}
@@ -316,6 +316,7 @@ final class LicenseService
                 throw ResourceDomainException::notFound();
             }
 
+            /** @var AssignmentRow $assignment */
             /** @var AssignmentRow $assignment */
             $assignment = DB::table('license_assignments')
                 ->where('organization_id', $actor['organization_id'])

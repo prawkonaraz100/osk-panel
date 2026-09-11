@@ -41,7 +41,10 @@ final class LearningAccountService
                 'a.*',
                 'i.identifier_normalized as login_identifier',
             ])
-            ->map(fn (object $row): array => $this->present($row))
+            ->map(function (object $row): array {
+                /** @var LearningAccountProjectionRow $row */
+                return $this->present($row);
+            })
             ->values()
             ->all());
     }

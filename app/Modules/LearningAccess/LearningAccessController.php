@@ -130,18 +130,15 @@ final class LearningAccessController
 
     public function inventory(Request $request): JsonResponse
     {
-        $statuses = $request->query('status', []);
-        if (is_string($statuses)) {
-            $statuses = [$statuses];
-        }
-        if (! is_array($statuses)) {
-            $statuses = [];
-        }
+        $statusInput = $request->query('status');
+        $statuses = is_array($statusInput)
+            ? array_values(array_map('strval', $statusInput))
+            : (is_string($statusInput) && $statusInput !== '' ? [$statusInput] : []);
 
         return response()->json($this->licenses->inventory(
             $this->sessionId($request),
             $request->query('product_id'),
-            array_values(array_map('strval', $statuses)),
+            $statuses,
         ));
     }
 
