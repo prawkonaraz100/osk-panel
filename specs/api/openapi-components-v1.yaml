@@ -267,17 +267,19 @@ components:
 
     Student:
       type: object
-      required: [id, first_name, last_name, version]
+      required: [id, first_name, last_name, no_pesel, created_at, version]
       properties:
         id: { type: string, format: uuid }
         first_name: { type: string }
         last_name: { type: string }
         birth_date: { type: [string, 'null'], format: date }
+        no_pesel: { type: boolean }
         pesel_masked: { type: [string, 'null'] }
         contact_email: { type: [string, 'null'], format: email }
         phone: { type: [string, 'null'] }
         default_location_id: { type: [string, 'null'], format: uuid }
         archived_at: { type: [string, 'null'], format: date-time }
+        created_at: { type: string, format: date-time, readOnly: true }
         version: { type: integer }
     StudentPreview:
       allOf:

@@ -102,8 +102,47 @@ final class StudentService
             ->forPage($page, $perPage)
             ->get();
 
+        $studentIds = $rows
+            ->pluck('id')
+            ->map(static fn ($value): string => (string) $value)
+            ->all();
+        $coursesByStudent = [];
+        if ($studentIds !== []) {
+            $courseRows = DB::table('course_enrollments as c')
+                ->join('driving_categories as d', 'd.id', '=', 'c.driving_category_id')
+                ->where('c.organization_id', $visibility['membership']['organization_id'])
+                ->whereIn('c.student_id', $studentIds)
+                ->orderByDesc('c.started_at')
+                ->orderByDesc('c.id')
+                ->get([
+                    'c.id',
+                    'c.student_id',
+                    'c.training_type',
+                    'c.training_stage',
+                    'c.cancelled_at',
+                    'd.code as driving_category_code',
+                ]);
+            foreach ($courseRows as $course) {
+                $studentKey = (string) $course->student_id;
+                $coursesByStudent[$studentKey] ??= [];
+                $coursesByStudent[$studentKey][] = [
+                    'id' => (string) $course->id,
+                    'training_type' => (string) $course->training_type,
+                    'driving_category_code' => (string) $course->driving_category_code,
+                    'training_stage' => (string) $course->training_stage,
+                    'cancelled_at' => $course->cancelled_at === null ? null : (string) $course->cancelled_at,
+                ];
+            }
+        }
+
         return [
-            'data' => array_values($rows->map(fn ($row): array => $this->present($row))->all()),
+            'data' => array_values($rows->map(function ($row) use ($coursesByStudent): array {
+                return [
+                    ...$this->present($row),
+                    'courses_summary' => $coursesByStudent[(string) $row->id] ?? [],
+                    'payments_summary' => (object) [],
+                ];
+            })->all()),
             'meta' => [
                 'page' => $page,
                 'per_page' => $perPage,
@@ -517,11 +556,13 @@ final class StudentService
             'first_name' => (string) $row->first_name,
             'last_name' => (string) $row->last_name,
             'birth_date' => $row->birth_date === null ? null : (string) $row->birth_date,
+            'no_pesel' => (bool) $row->no_pesel_declared,
             'pesel_masked' => $row->pesel_ciphertext === null ? null : '***********',
             'contact_email' => $row->contact_email_normalized === null ? null : (string) $row->contact_email_normalized,
             'phone' => $row->phone === null ? null : (string) $row->phone,
             'default_location_id' => $row->default_location_id === null ? null : (string) $row->default_location_id,
             'archived_at' => $row->archived_at === null ? null : (string) $row->archived_at,
+            'created_at' => (string) $row->created_at,
             'version' => (int) $row->version,
         ];
     }

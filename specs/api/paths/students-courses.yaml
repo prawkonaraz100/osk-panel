@@ -36,7 +36,7 @@ paths:
                 type: object
                 required: [data, meta]
                 properties:
-                  data: { type: array, items: { $ref: '../openapi-components-v1.yaml#/components/schemas/Student' } }
+                  data: { type: array, items: { $ref: '../openapi-components-v1.yaml#/components/schemas/StudentPreview' } }
                   meta: { $ref: '../openapi-components-v1.yaml#/components/schemas/PaginationMeta' }
         default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
     post:
