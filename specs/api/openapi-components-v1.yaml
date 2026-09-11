@@ -40,6 +40,7 @@ components:
     IfMatch:
       name: If-Match
       in: header
+      required: true
       schema: { type: string }
     StudentId: { name: studentId, in: path, required: true, schema: { type: string, format: uuid } }
     AccountId: { name: accountId, in: path, required: true, schema: { type: string, format: uuid } }
@@ -1142,14 +1143,42 @@ components:
           required: [statistics]
           properties:
             statistics: { $ref: '#/components/schemas/InternalExamManagementStatistics' }
+    InternalExamCandidateSnapshot:
+      type: object
+      required: [student_id, first_name, last_name, birth_date, contact_email, no_pesel_declared]
+      additionalProperties: false
+      properties:
+        student_id: { type: string, format: uuid }
+        first_name: { type: string, minLength: 1, maxLength: 120 }
+        last_name: { type: string, minLength: 1, maxLength: 120 }
+        birth_date: { type: [string, 'null'], format: date }
+        contact_email: { type: [string, 'null'], format: email, maxLength: 320 }
+        no_pesel_declared: { type: boolean }
+    InternalExamCandidateSnapshotPatch:
+      type: object
+      minProperties: 1
+      additionalProperties: false
+      properties:
+        first_name: { type: string, minLength: 1, maxLength: 120 }
+        last_name: { type: string, minLength: 1, maxLength: 120 }
+        birth_date: { type: [string, 'null'], format: date }
+        contact_email: { type: [string, 'null'], format: email, maxLength: 320 }
+        no_pesel_declared: { type: boolean }
+    EditInternalExamCandidateSnapshotRequest:
+      type: object
+      required: [candidate_snapshot]
+      additionalProperties: false
+      properties:
+        candidate_snapshot: { $ref: '#/components/schemas/InternalExamCandidateSnapshotPatch' }
     InternalExamAttempt:
       type: object
-      required: [id, student_id, course_enrollment_id, course_attempt_sequence, exam_part, status, created_at, version]
+      required: [id, student_id, course_enrollment_id, course_attempt_sequence, candidate_snapshot, exam_part, status, created_at, version]
       properties:
         id: { type: string, format: uuid }
         student_id: { type: string, format: uuid }
         course_enrollment_id: { type: string, format: uuid }
         course_attempt_sequence: { type: integer, minimum: 1 }
+        candidate_snapshot: { $ref: '#/components/schemas/InternalExamCandidateSnapshot' }
         exam_part: { type: string, enum: [theory, practical] }
         driving_category_code: { type: string }
         language_code: { type: string }

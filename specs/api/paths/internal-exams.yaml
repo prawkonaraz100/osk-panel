@@ -172,6 +172,10 @@ paths:
       responses:
         '200':
           description: Internal exam attempt snapshot
+          headers:
+            ETag:
+              description: Current version of the internal exam Attempt.
+              schema: { type: string, pattern: '^"v[0-9]+"$' }
           content:
             application/json:
               schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/InternalExamAttempt' }
@@ -189,13 +193,14 @@ paths:
         required: true
         content:
           application/json:
-            schema:
-              type: object
-              properties:
-                candidate_snapshot: { $ref: '../openapi-components-v1.yaml#/components/schemas/GenericObject' }
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/EditInternalExamCandidateSnapshotRequest' }
       responses:
         '200':
           description: Candidate snapshot updated before exam start
+          headers:
+            ETag:
+              description: Current version of the internal exam Attempt after applying the patch.
+              schema: { type: string, pattern: '^"v[0-9]+"$' }
           content:
             application/json:
               schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/InternalExamAttempt' }

@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 /**
- * @phpstan-type AttemptRow object{id:mixed,status:mixed,started_at:mixed,version:mixed,internal_exam_definition_id:mixed,candidate_snapshot:mixed,driving_category_id:mixed,exam_part:mixed,language_code:mixed,requirement_basis_snapshot:mixed,exam_definition_version_snapshot:mixed,exam_definition_hash_snapshot:mixed,evidence_schema_version:mixed,question_set_hash:mixed}
+ * @phpstan-type AttemptRow object{id:mixed,student_id:mixed,status:mixed,started_at:mixed,version:mixed,internal_exam_definition_id:mixed,candidate_snapshot:mixed,driving_category_id:mixed,exam_part:mixed,language_code:mixed,requirement_basis_snapshot:mixed,exam_definition_version_snapshot:mixed,exam_definition_hash_snapshot:mixed,evidence_schema_version:mixed,question_set_hash:mixed}
  * @phpstan-type AccessRow object{id:mixed,internal_exam_attempt_id:mixed,status:mixed,launch_mode:mixed,station_id:mixed,version:mixed,expires_at:mixed}
  * @phpstan-type ReservationRow object{id:mixed,internal_exam_inventory_entry_id:mixed,version:mixed}
  * @phpstan-type InventoryRow object{id:mixed,current_state:mixed}
@@ -23,6 +23,14 @@ use Illuminate\Support\Str;
 final class InternalExamService
 {
     private const PRESTART_ACCESS = ['draft', 'ready', 'delivered_or_assigned', 'opened'];
+
+    private const CANDIDATE_SNAPSHOT_PATCH_FIELDS = [
+        'first_name',
+        'last_name',
+        'birth_date',
+        'contact_email',
+        'no_pesel_declared',
+    ];
 
     public function __construct(
         private readonly InternalExamScopeAuthorizer $scope,
@@ -56,6 +64,86 @@ final class InternalExamService
         $actor = $this->scope->requireAttempt($sessionId, 'exams.view', $attemptId);
 
         return $this->presentAttempt($actor['organization_id'], $attemptId);
+    }
+
+    /** @param array<string,mixed> $attempt */
+    public function etag(array $attempt): string
+    {
+        return '"v'.(int) $attempt['version'].'"';
+    }
+
+    /**
+     * @param  array<string,mixed>  $patch
+     * @return array<string,mixed>
+     */
+    public function editCandidateSnapshot(
+        string $sessionId,
+        string $attemptId,
+        array $patch,
+        ?string $expectedTag,
+    ): array {
+        $actor = $this->scope->requireAttempt($sessionId, 'exams.generate', $attemptId);
+
+        return DB::transaction(function () use ($actor, $attemptId, $patch, $expectedTag): array {
+            /** @var AttemptRow|null $attempt */
+            $attempt = DB::table('internal_exam_attempts')
+                ->where('organization_id', $actor['organization_id'])
+                ->where('id', $attemptId)
+                ->lockForUpdate()
+                ->first();
+            if ($attempt === null) {
+                throw ResourceDomainException::notFound();
+            }
+
+            $this->assertAttemptExpectedVersion($attempt, $expectedTag);
+            if ((string) $attempt->status !== 'created' || $attempt->started_at !== null) {
+                throw ResourceDomainException::conflict('Candidate snapshot can be edited only before internal exam start.');
+            }
+
+            $current = json_decode((string) $attempt->candidate_snapshot, true, 512, JSON_THROW_ON_ERROR);
+            if (! is_array($current)) {
+                throw ResourceDomainException::conflict('Internal exam candidate snapshot is invalid.');
+            }
+            if (($current['student_id'] ?? null) !== (string) $attempt->student_id) {
+                throw ResourceDomainException::conflict('Internal exam candidate snapshot student binding is inconsistent.');
+            }
+
+            $next = $this->applyCandidateSnapshotPatch($current, $patch);
+            if ($this->canonicalJson($next) === $this->canonicalJson($current)) {
+                return $this->presentAttempt($actor['organization_id'], $attemptId);
+            }
+
+            $versionBefore = (int) $attempt->version;
+            $versionAfter = $versionBefore + 1;
+            $now = CarbonImmutable::now();
+
+            $updated = DB::table('internal_exam_attempts')
+                ->where('organization_id', $actor['organization_id'])
+                ->where('id', $attemptId)
+                ->where('version', $versionBefore)
+                ->update([
+                    'candidate_snapshot' => json_encode($next, JSON_THROW_ON_ERROR),
+                    'version' => $versionAfter,
+                ]);
+            if ($updated !== 1) {
+                throw ResourceDomainException::conflict('Internal exam Attempt changed since it was loaded.');
+            }
+
+            $this->appendAttemptEvent(
+                $actor['organization_id'],
+                $attemptId,
+                'candidate_snapshot_updated',
+                'created',
+                'created',
+                $versionBefore,
+                $versionAfter,
+                $actor['user_id'],
+                null,
+                $now,
+            );
+
+            return $this->presentAttempt($actor['organization_id'], $attemptId);
+        });
     }
 
     /** @return array<string,mixed> */
@@ -1899,6 +1987,7 @@ final class InternalExamService
             'student_id' => (string) $row->student_id,
             'course_enrollment_id' => (string) $row->course_enrollment_id,
             'course_attempt_sequence' => (int) $row->course_attempt_sequence,
+            'candidate_snapshot' => json_decode((string) $row->candidate_snapshot, true, 512, JSON_THROW_ON_ERROR),
             'exam_part' => (string) $row->exam_part,
             'driving_category_code' => (string) $row->driving_category_code,
             'language_code' => (string) $row->language_code,
@@ -1945,6 +2034,93 @@ final class InternalExamService
             'pass_threshold' => $row->pass_threshold_snapshot === null ? null : (int) $row->pass_threshold_snapshot,
             'evidence_bundle_hash' => (string) $row->evidence_bundle_hash,
         ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $current
+     * @param  array<string,mixed>  $patch
+     * @return array<string,mixed>
+     */
+    private function applyCandidateSnapshotPatch(array $current, array $patch): array
+    {
+        if ($patch === []) {
+            throw ResourceDomainException::rule('Candidate snapshot patch must contain at least one editable field.');
+        }
+
+        $unknown = array_diff(array_keys($patch), self::CANDIDATE_SNAPSHOT_PATCH_FIELDS);
+        if ($unknown !== []) {
+            throw ResourceDomainException::rule('Candidate snapshot patch contains a non-editable field.');
+        }
+
+        $next = $current;
+
+        foreach (['first_name', 'last_name'] as $field) {
+            if (! array_key_exists($field, $patch)) {
+                continue;
+            }
+            if (! is_string($patch[$field])) {
+                throw ResourceDomainException::rule('Candidate name fields must be strings.');
+            }
+            $value = trim($patch[$field]);
+            if ($value === '' || mb_strlen($value) > 120) {
+                throw ResourceDomainException::rule('Candidate name fields must be nonblank and at most 120 characters.');
+            }
+            $next[$field] = $value;
+        }
+
+        if (array_key_exists('birth_date', $patch)) {
+            $birthDate = $patch['birth_date'];
+            if ($birthDate !== null && (! is_string($birthDate) || ! preg_match('/^\\d{4}-\\d{2}-\\d{2}$/', $birthDate))) {
+                throw ResourceDomainException::rule('Candidate birth_date must be null or YYYY-MM-DD.');
+            }
+            $next['birth_date'] = $birthDate;
+        }
+
+        if (array_key_exists('contact_email', $patch)) {
+            $email = $patch['contact_email'];
+            if ($email !== null && ! is_string($email)) {
+                throw ResourceDomainException::rule('Candidate contact_email must be null or a valid email.');
+            }
+            $normalized = $email === null ? null : mb_strtolower(trim($email));
+            if ($normalized === '') {
+                $normalized = null;
+            }
+            if ($normalized !== null && (mb_strlen($normalized) > 320 || filter_var($normalized, FILTER_VALIDATE_EMAIL) === false)) {
+                throw ResourceDomainException::rule('Candidate contact_email must be null or a valid email.');
+            }
+            $next['contact_email'] = $normalized;
+        }
+
+        if (array_key_exists('no_pesel_declared', $patch)) {
+            if (! is_bool($patch['no_pesel_declared'])) {
+                throw ResourceDomainException::rule('Candidate no_pesel_declared must be boolean.');
+            }
+            $next['no_pesel_declared'] = $patch['no_pesel_declared'];
+        }
+
+        if (($next['no_pesel_declared'] ?? false) === true && ($next['birth_date'] ?? null) === null) {
+            throw ResourceDomainException::rule('Candidate birth_date is required when no PESEL is declared.');
+        }
+
+        return $next;
+    }
+
+    /** @param AttemptRow $attempt */
+    private function assertAttemptExpectedVersion(object $attempt, ?string $expectedTag): void
+    {
+        if ($expectedTag === null || trim($expectedTag) === '') {
+            throw new ResourceDomainException(
+                'PRECONDITION_REQUIRED',
+                428,
+                'If-Match with current internal exam Attempt version is required.',
+            );
+        }
+
+        $normalized = trim(trim($expectedTag), '"');
+        $normalized = str_starts_with($normalized, 'v') ? substr($normalized, 1) : $normalized;
+        if (! ctype_digit($normalized) || (int) $normalized !== (int) $attempt->version) {
+            throw ResourceDomainException::conflict('Internal exam Attempt changed since it was loaded.');
+        }
     }
 
     private function invalidExamToken(): ResourceDomainException

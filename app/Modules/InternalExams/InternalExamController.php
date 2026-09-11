@@ -114,9 +114,34 @@ final class InternalExamController
 
     public function attemptGet(Request $request, string $attemptId): JsonResponse
     {
-        return response()->json(
-            $this->exams->attemptGet($this->sessionId($request), $attemptId),
+        $body = $this->exams->attemptGet($this->sessionId($request), $attemptId);
+
+        return response()->json($body)
+            ->header('ETag', $this->exams->etag($body));
+    }
+
+    public function attemptPatch(Request $request, string $attemptId): JsonResponse
+    {
+        $input = $this->validated($request, [
+            'candidate_snapshot' => ['required', 'array:first_name,last_name,birth_date,contact_email,no_pesel_declared', 'min:1'],
+            'candidate_snapshot.first_name' => ['sometimes', 'string', 'max:120'],
+            'candidate_snapshot.last_name' => ['sometimes', 'string', 'max:120'],
+            'candidate_snapshot.birth_date' => ['sometimes', 'nullable', 'date_format:Y-m-d'],
+            'candidate_snapshot.contact_email' => ['sometimes', 'nullable', 'email', 'max:320'],
+            'candidate_snapshot.no_pesel_declared' => ['sometimes', 'boolean'],
+        ]);
+
+        /** @var array<string,mixed> $patch */
+        $patch = $input['candidate_snapshot'];
+        $body = $this->exams->editCandidateSnapshot(
+            $this->sessionId($request),
+            $attemptId,
+            $patch,
+            $request->header('If-Match'),
         );
+
+        return response()->json($body)
+            ->header('ETag', $this->exams->etag($body));
     }
 
     public function accessCreate(Request $request, string $attemptId): JsonResponse

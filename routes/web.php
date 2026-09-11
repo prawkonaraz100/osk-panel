@@ -124,6 +124,7 @@ Route::middleware(ResourceApiMiddleware::class)->prefix('api/v1')->group(functio
     Route::get('/course-enrollments/{courseEnrollmentId}/internal-exam-attempts', [InternalExamController::class, 'attemptsForCourse']);
     Route::post('/course-enrollments/{courseEnrollmentId}/internal-exam-attempts', [InternalExamController::class, 'attemptCreate']);
     Route::get('/internal-exam-attempts/{attemptId}', [InternalExamController::class, 'attemptGet']);
+    Route::patch('/internal-exam-attempts/{attemptId}', [InternalExamController::class, 'attemptPatch']);
     Route::post('/internal-exam-attempts/{attemptId}/accesses', [InternalExamController::class, 'accessCreate']);
     Route::post('/internal-exam-accesses/{accessId}/send', [InternalExamController::class, 'accessSend']);
     Route::post('/internal-exam-accesses/{accessId}/revoke', [InternalExamController::class, 'accessRevoke']);
