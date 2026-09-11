@@ -9,6 +9,13 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
+/**
+ * @phpstan-type AnswerSheetAttempt object{id:mixed,organization_id:mixed,status:mixed,finished_at:mixed,candidate_snapshot:mixed,driving_category_id:mixed,exam_part:mixed}
+ * @phpstan-type AnswerSheetResult object{answer_sheet_template_binding_snapshot:mixed,evidence_bundle_hash:mixed,result_snapshot:mixed,score:mixed,max_score:mixed,passed:mixed}
+ * @phpstan-type AnswerSheetTemplate object{id:mixed,document_type:mixed,exam_part:mixed,template_version:mixed,renderer_version:mixed,template_content_hash:mixed}
+ * @phpstan-type AnswerSheetDocument object{id:mixed,internal_exam_document_template_id:mixed,template_version_snapshot:mixed,renderer_version_snapshot:mixed,template_hash_snapshot:mixed,evidence_bundle_hash:mixed,asset_id:mixed,content_hash:mixed}
+ * @phpstan-type AnswerSheetAsset object{storage_disk:mixed,storage_key:mixed,status:mixed,purpose:mixed,deleted_at:mixed,sha256:mixed,size_bytes:mixed}
+ */
 final class InternalExamAnswerSheetService
 {
     public const DOCUMENT_TYPE = 'internal_exam_answer_sheet';
@@ -39,8 +46,9 @@ final class InternalExamAnswerSheetService
             throw ResourceDomainException::conflict('Exactly one answer-sheet template must be effective when the exam finishes.');
         }
 
+        /** @var AnswerSheetTemplate|null $template */
         $template = $rows->first();
-        if (! is_object($template)
+        if ($template === null
             || (string) $template->renderer_version !== InternalExamAnswerSheetRenderer::RENDERER_VERSION
             || ! preg_match('/^[a-f0-9]{64}$/', (string) $template->template_content_hash)) {
             throw ResourceDomainException::conflict('Effective answer-sheet template is unsupported or invalid.');
@@ -62,6 +70,7 @@ final class InternalExamAnswerSheetService
         $actor = $this->scope->requireAttempt($sessionId, 'exams.documents.download', $attemptId);
 
         return DB::transaction(function () use ($actor, $attemptId, $requestId): array {
+            /** @var AnswerSheetAttempt|null $attempt */
             $attempt = DB::table('internal_exam_attempts')
                 ->where('organization_id', $actor['organization_id'])
                 ->where('id', $attemptId)
@@ -74,6 +83,7 @@ final class InternalExamAnswerSheetService
                 throw ResourceDomainException::conflict('Answer sheet is available only for a finished scored attempt.');
             }
 
+            /** @var AnswerSheetResult|null $result */
             $result = DB::table('internal_exam_results')
                 ->where('organization_id', $actor['organization_id'])
                 ->where('internal_exam_attempt_id', $attemptId)
@@ -83,6 +93,7 @@ final class InternalExamAnswerSheetService
             }
 
             $binding = $this->decodeBinding($result->answer_sheet_template_binding_snapshot);
+            /** @var AnswerSheetTemplate|null $template */
             $template = DB::table('internal_exam_document_templates')->where('id', $binding['id'])->first();
             if ($template === null
                 || (string) $template->document_type !== $binding['document_type']
@@ -93,6 +104,7 @@ final class InternalExamAnswerSheetService
                 throw ResourceDomainException::conflict('Frozen answer-sheet template binding no longer matches immutable template history.');
             }
 
+            /** @var AnswerSheetDocument|null $document */
             $document = DB::table('internal_exam_documents')
                 ->where('organization_id', $actor['organization_id'])
                 ->where('internal_exam_attempt_id', $attemptId)
@@ -139,8 +151,8 @@ final class InternalExamAnswerSheetService
     }
 
     /**
-     * @param object $attempt
-     * @param object $result
+     * @param AnswerSheetAttempt $attempt
+     * @param AnswerSheetResult $result
      * @param array{id:string,document_type:string,exam_part:string,template_version:string,renderer_version:string,template_content_hash:string} $binding
      * @return array{0:object,1:string}
      */
@@ -209,9 +221,10 @@ final class InternalExamAnswerSheetService
     }
 
     /**
-     * @param object $attempt
-     * @param object $result
+     * @param AnswerSheetAttempt $attempt
+     * @param AnswerSheetResult $result
      * @param array{id:string,document_type:string,exam_part:string,template_version:string,renderer_version:string,template_content_hash:string} $binding
+     * @param AnswerSheetDocument $document
      */
     private function readOrRestoreDocument(
         string $organizationId,
@@ -228,6 +241,7 @@ final class InternalExamAnswerSheetService
             throw ResourceDomainException::conflict('Canonical answer-sheet document does not match frozen evidence/template binding.');
         }
 
+        /** @var AnswerSheetAsset|null $asset */
         $asset = DB::table('file_assets')
             ->where('organization_id', $organizationId)
             ->where('id', $document->asset_id)
@@ -264,8 +278,8 @@ final class InternalExamAnswerSheetService
     }
 
     /**
-     * @param object $attempt
-     * @param object $result
+     * @param AnswerSheetAttempt $attempt
+     * @param AnswerSheetResult $result
      * @param array{id:string,document_type:string,exam_part:string,template_version:string,renderer_version:string,template_content_hash:string} $binding
      */
     private function renderFrozen(object $attempt, object $result, array $binding): string
