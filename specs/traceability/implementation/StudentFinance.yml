@@ -1,0 +1,44 @@
+module: StudentFinance
+core_traceability_modules:
+  - student_finance_commerce
+changed_scope:
+  - evidence: specs/design/student-finance-ledger.yml
+    requirement: Student Finance keeps charge and payment as separate ledger records with derived paid and remaining projections and no mutable balance authority
+    domain_data: student_charges + student_payments
+    api_use_case: charges.list/create + student_payments.list/record + student_finance.summary
+    permission: student_finance.view/create_charge/record_payment
+    ui: DEFERRED_TO_STUDENT_FINANCE_UI_GATE
+    acceptance_test: Tests\\Feature\\StudentFinanceCoreTest::test_partial_payments_and_reversal_drive_finance_projection_without_mutable_balance
+    status: IMPLEMENTED
+  - evidence: specs/database/student-finance-commerce.yml#DB-FIN-002
+    requirement: record payment reverse payment and cancel charge serialize on the exact charge root and reject overpayment cancellation with active payments and payment on cancelled charge
+    domain_data: student_charges + student_payments
+    api_use_case: student_payments.record/reverse + charges.cancel
+    permission: student_finance.record_payment/reverse_payment/cancel_charge
+    ui: DEFERRED_TO_STUDENT_FINANCE_UI_GATE
+    acceptance_test: Tests\\Feature\\StudentFinanceCoreTest::test_overpayment_cancellation_and_payment_after_cancellation_fail_closed
+    status: IMPLEMENTED
+  - evidence: specs/database/student-finance-commerce.yml#idempotency
+    requirement: generic idempotency records replay the same completed charge payment reversal or cancellation without a second financial effect
+    domain_data: idempotency_records + student_charges + student_payments
+    api_use_case: all Student Finance mutation endpoints
+    permission: command-specific Student Finance permissions
+    ui: NOT_APPLICABLE_RUNTIME_GATE
+    acceptance_test: Tests\\Feature\\StudentFinanceCoreTest::test_same_idempotency_key_replays_charge_payment_reversal_and_cancel_without_second_effect
+    status: IMPLEMENTED
+  - evidence: specs/database/student-finance-commerce.yml#DB-COM-008
+    requirement: create-time course cost is an atomic Student Finance source effect with one durable course-cost origin and never a parallel CourseEnrollment balance
+    domain_data: course_enrollments + student_charges + course_cost_charge_origins
+    api_use_case: course_enrollments.create with initial_cost
+    permission: courses.create plus student_finance.create_charge
+    ui: Course cost field activation deferred to Student Finance UI gate
+    acceptance_test: Tests\\Feature\\StudentFinanceCoreTest::test_course_initial_cost_creates_one_exact_origin_and_retry_does_not_duplicate_charge
+    status: IMPLEMENTED
+  - evidence: specs/security/permissions.yml
+    requirement: Student Finance read and mutation rights remain separate student-scoped permissions and cross-tenant targets fail closed
+    domain_data: membership permission scopes + students + student_charges + student_payments
+    api_use_case: StudentFinanceService target authorization
+    permission: student_finance.*
+    ui: DEFERRED_TO_STUDENT_FINANCE_UI_GATE
+    acceptance_test: Tests\\Feature\\StudentFinanceCoreTest::test_cross_tenant_finance_target_is_not_visible
+    status: IMPLEMENTED
