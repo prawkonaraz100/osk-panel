@@ -9,6 +9,14 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
+/**
+ * @phpstan-type StudentRow object{id:mixed,organization_id:mixed,first_name:mixed,last_name:mixed,archived_at:mixed}
+ * @phpstan-type LearningAccountRow object{id:mixed,organization_id:mixed,student_id:mixed,user_id:mixed,auth_login_identifier_id:mixed,language_code:mixed,status:mixed,version:mixed,created_at:mixed}
+ * @phpstan-type LearningAccountProjectionRow object{id:mixed,student_id:mixed,user_id:mixed,login_identifier:mixed,language_code:mixed,status:mixed,version:mixed,created_at:mixed}
+ * @phpstan-type IdentifierRow object{id:mixed,user_id:mixed,identifier_normalized:mixed}
+ * @phpstan-type UserRow object{status:mixed}
+ * @phpstan-type PasswordManagementRow object{management_mode:mixed,managing_organization_id:mixed,credential_version:mixed}
+ */
 final class LearningAccountService
 {
     public function __construct(
@@ -21,7 +29,7 @@ final class LearningAccountService
     {
         $actor = $this->scopeAuthorizer->requireStudentTarget($sessionId, 'student_access.view', $studentId);
 
-        return DB::table('student_learning_accounts as a')
+        return array_values(DB::table('student_learning_accounts as a')
             ->join('auth_login_identifiers as i', function ($join): void {
                 $join->on('i.id', '=', 'a.auth_login_identifier_id')
                     ->on('i.user_id', '=', 'a.user_id');
@@ -35,7 +43,7 @@ final class LearningAccountService
             ])
             ->map(fn (object $row): array => $this->present($row))
             ->values()
-            ->all();
+            ->all());
     }
 
     /**
@@ -61,6 +69,7 @@ final class LearningAccountService
      * Caller must already hold the enclosing domain permission and transaction.
      *
      * @param  array{id:string,organization_id:string,user_id:string}  $actor
+     * @param  StudentRow  $student
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
      */
@@ -175,6 +184,7 @@ final class LearningAccountService
 
             if (array_key_exists('login_identifier', $input)) {
                 $login = $this->normalizeLogin((string) $input['login_identifier']);
+                /** @var IdentifierRow|null $current */
                 $current = DB::table('auth_login_identifiers')
                     ->where('id', $account->auth_login_identifier_id)
                     ->where('user_id', $account->user_id)
@@ -184,6 +194,7 @@ final class LearningAccountService
                     throw ResourceDomainException::conflict('Learning account points to a non-current login identifier.');
                 }
                 if ((string) $current->identifier_normalized !== $login) {
+                    /** @var IdentifierRow|null $candidate */
                     $candidate = DB::table('auth_login_identifiers')
                         ->where('identifier_normalized', $login)
                         ->whereNull('revoked_at')
@@ -275,7 +286,9 @@ final class LearningAccountService
             $account = $this->lockAccount($actor['organization_id'], $studentId, $accountId);
             $this->assertOperationalAccount($account);
 
+            /** @var UserRow|null $user */
             $user = DB::table('users')->where('id', $account->user_id)->lockForUpdate()->first();
+            /** @var PasswordManagementRow|null $management */
             $management = DB::table('user_password_management')->where('user_id', $account->user_id)->lockForUpdate()->first();
             if ($user === null || $management === null) {
                 throw ResourceDomainException::conflict('Global password management authority is incomplete.');
@@ -367,6 +380,7 @@ final class LearningAccountService
             $this->lockStudent($actor['organization_id'], $studentId, true);
             $account = $this->lockAccount($actor['organization_id'], $studentId, $accountId);
             $this->assertOperationalAccount($account);
+            /** @var PasswordManagementRow|null $management */
             $management = DB::table('user_password_management')->where('user_id', $account->user_id)->first();
             $credentialVersion = $management === null ? 0 : (int) $management->credential_version;
             $id = (string) Str::uuid7();
@@ -427,6 +441,7 @@ final class LearningAccountService
         return $value;
     }
 
+    /** @param LearningAccountRow $account */
     public function assertOperationalAccount(object $account): void
     {
         if ((string) $account->status !== 'active') {
@@ -446,6 +461,7 @@ final class LearningAccountService
         }
     }
 
+    /** @return LearningAccountRow */
     public function lockAccount(string $organizationId, string $studentId, string $accountId): object
     {
         $row = DB::table('student_learning_accounts')
@@ -458,9 +474,11 @@ final class LearningAccountService
             throw ResourceDomainException::notFound();
         }
 
+        /** @var LearningAccountRow $row */
         return $row;
     }
 
+    /** @return StudentRow */
     private function lockStudent(string $organizationId, string $studentId, bool $requireCurrent): object
     {
         $row = DB::table('students')
@@ -475,6 +493,7 @@ final class LearningAccountService
             throw ResourceDomainException::conflict('Archived Student cannot receive a new learning-access effect.');
         }
 
+        /** @var StudentRow $row */
         return $row;
     }
 
@@ -515,6 +534,7 @@ final class LearningAccountService
         return $value;
     }
 
+    /** @param LearningAccountRow $account */
     private function assertAccountExpectedVersion(object $account, ?string $expectedTag): void
     {
         if ($expectedTag === null || trim($expectedTag) === '') {
@@ -534,6 +554,7 @@ final class LearningAccountService
     /** @return array<string,mixed> */
     private function getLockedProjection(string $organizationId, string $studentId, string $accountId): array
     {
+        /** @var LearningAccountProjectionRow|null $row */
         $row = DB::table('student_learning_accounts as a')
             ->join('auth_login_identifiers as i', function ($join): void {
                 $join->on('i.id', '=', 'a.auth_login_identifier_id')
@@ -553,9 +574,13 @@ final class LearningAccountService
         return $this->present($row);
     }
 
-    /** @return array<string,mixed> */
+    /**
+     * @param  LearningAccountProjectionRow  $row
+     * @return array<string,mixed>
+     */
     private function present(object $row): array
     {
+        /** @var PasswordManagementRow|null $management */
         $management = DB::table('user_password_management')->where('user_id', $row->user_id)->first();
 
         return [

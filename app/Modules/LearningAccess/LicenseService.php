@@ -9,6 +9,16 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
+/**
+ * @phpstan-type StudentRow object{id:mixed,organization_id:mixed,archived_at:mixed}
+ * @phpstan-type LearningAccountRow object{id:mixed,student_id:mixed,language_code:mixed}
+ * @phpstan-type LicenseProductRow object{id:mixed,code:mixed,duration_days:mixed,active:mixed}
+ * @phpstan-type InventoryRow object{id:mixed,license_product_id:mixed,status:mixed,granted_at:mixed}
+ * @phpstan-type CapabilityRow object{id:mixed,enabled_at:mixed,disabled_at:mixed}
+ * @phpstan-type AssignmentRow object{id:mixed,student_id:mixed,student_learning_account_id:mixed,license_inventory_entry_id:mixed,language_code:mixed,status:mixed,version:mixed,assignment_sequence:mixed,assigned_at:mixed,revoked_at:mixed}
+ * @phpstan-type ActivationRow object{effective_to:mixed,entitlement_sequence:mixed}
+ * @phpstan-type ManagementRow object{account_id:mixed,student_id:mixed,language_code:mixed,login_identifier:mixed,first_name:mixed,last_name:mixed}
+ */
 final class LicenseService
 {
     public function __construct(
@@ -23,7 +33,7 @@ final class LicenseService
         $visibility = $this->scopeAuthorizer->visibility($sessionId, 'licenses.view');
         unset($visibility);
 
-        return DB::table('license_products')
+        return array_values(DB::table('license_products')
             ->where('active', true)
             ->orderBy('code')
             ->get()
@@ -45,7 +55,7 @@ final class LicenseService
                 ];
             })
             ->values()
-            ->all();
+            ->all());
     }
 
     /** @return list<array{code:string,label:string}> */
@@ -58,7 +68,7 @@ final class LicenseService
             throw ResourceDomainException::notFound();
         }
 
-        return DB::table('license_product_language_capabilities as c')
+        return array_values(DB::table('license_product_language_capabilities as c')
             ->join('languages as l', 'l.code', '=', 'c.language_code')
             ->where('c.license_product_id', $productId)
             ->whereNull('c.disabled_at')
@@ -70,10 +80,13 @@ final class LicenseService
                 'label' => (string) $row->label_key,
             ])
             ->values()
-            ->all();
+            ->all());
     }
 
-    /** @return list<array<string,mixed>> */
+    /**
+     * @param  list<string>  $statuses
+     * @return list<array<string,mixed>>
+     */
     public function inventory(string $sessionId, ?string $productId, array $statuses): array
     {
         $visibility = $this->scopeAuthorizer->visibility($sessionId, 'licenses.view');
@@ -86,7 +99,7 @@ final class LicenseService
             $query->whereIn('status', $statuses);
         }
 
-        return $query->orderBy('granted_at')->orderBy('id')->get()
+        return array_values($query->orderBy('granted_at')->orderBy('id')->get()
             ->map(static fn (object $row): array => [
                 'id' => (string) $row->id,
                 'product_id' => (string) $row->license_product_id,
@@ -94,7 +107,7 @@ final class LicenseService
                 'granted_at' => (string) $row->granted_at,
             ])
             ->values()
-            ->all();
+            ->all());
     }
 
     /**
@@ -118,6 +131,7 @@ final class LicenseService
         }
 
         if ($existingBranch) {
+            /** @var LearningAccountRow|null $accountSnapshot */
             $accountSnapshot = DB::table('student_learning_accounts')->where('id', $existingAccountId)->first();
             if ($accountSnapshot === null) {
                 throw ResourceDomainException::notFound();
@@ -133,6 +147,7 @@ final class LicenseService
             $actor, $studentId, $inventoryId, $input, $requestId,
             $existingBranch, $existingAccountId, $newAccount,
         ): array {
+            /** @var StudentRow|null $student */
             $student = DB::table('students')
                 ->where('organization_id', $actor['organization_id'])
                 ->where('id', $studentId)
@@ -164,6 +179,7 @@ final class LicenseService
                 $account = $this->accounts->lockAccount($actor['organization_id'], $studentId, $accountId);
             }
 
+            /** @var InventoryRow|null $inventory */
             $inventory = DB::table('license_inventory_entries')
                 ->where('organization_id', $actor['organization_id'])
                 ->where('id', $inventoryId)
@@ -184,6 +200,7 @@ final class LicenseService
                 throw ResourceDomainException::conflict('License inventory entry already has a current assignment.');
             }
 
+            /** @var CapabilityRow|null $capability */
             $capability = DB::table('license_product_language_capabilities')
                 ->where('license_product_id', $inventory->license_product_id)
                 ->where('language_code', $requestedLanguage)
@@ -250,6 +267,7 @@ final class LicenseService
         string $requestId,
         ?string $expectedTag,
     ): array {
+        /** @var AssignmentRow|null $snapshot */
         $snapshot = DB::table('license_assignments')->where('id', $assignmentId)->first();
         if ($snapshot === null) {
             throw ResourceDomainException::notFound();
@@ -261,6 +279,7 @@ final class LicenseService
         );
 
         return DB::transaction(function () use ($actor, $assignmentId, $requestId, $expectedTag): array {
+            /** @var AssignmentRow|null $snapshot */
             $snapshot = DB::table('license_assignments')
                 ->where('organization_id', $actor['organization_id'])
                 ->where('id', $assignmentId)
@@ -297,6 +316,7 @@ final class LicenseService
                 throw ResourceDomainException::notFound();
             }
 
+            /** @var AssignmentRow $assignment */
             $assignment = DB::table('license_assignments')
                 ->where('organization_id', $actor['organization_id'])
                 ->where('id', $assignmentId)
@@ -318,6 +338,7 @@ final class LicenseService
                 throw ResourceDomainException::conflict('Assignment no longer matches the learning-account activation boundary.');
             }
 
+            /** @var LicenseProductRow|null $product */
             $product = DB::table('license_products')
                 ->where('id', $inventory->license_product_id)
                 ->lock('FOR SHARE')
@@ -326,6 +347,7 @@ final class LicenseService
                 throw ResourceDomainException::conflict('License product duration is invalid.');
             }
 
+            /** @var ActivationRow|null $latest */
             $latest = DB::table('license_activations')
                 ->where('organization_id', $actor['organization_id'])
                 ->where('student_learning_account_id', $account->id)
@@ -562,7 +584,8 @@ final class LicenseService
                 's.first_name', 's.last_name',
             ]);
 
-        $data = $rows->map(function (object $row) use ($org, $effectiveAt): array {
+        $data = array_values($rows->map(function (object $row) use ($org, $effectiveAt): array {
+            /** @var ManagementRow $row */
             $history = $this->assignmentHistoryProjection($org, (string) $row->account_id, $effectiveAt);
             $latest = $history[0] ?? null;
             $expiry = DB::table('license_activations')
@@ -584,7 +607,7 @@ final class LicenseService
                 'latest_license_generated_at' => $latest['assigned_at'] ?? null,
                 'current_learning_access_expiry' => $expiry === null ? null : (string) $expiry,
             ];
-        })->values()->all();
+        })->values()->all());
 
         return [
             'data' => $data,
@@ -618,6 +641,7 @@ final class LicenseService
      * outer Student transaction is still active.
      *
      * @param  array{id:string,organization_id:string,user_id:string}  $actor
+     * @param  StudentRow  $student
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
      */
@@ -640,6 +664,7 @@ final class LicenseService
 
     /**
      * @param  array{id:string,organization_id:string,user_id:string}  $actor
+     * @param  StudentRow  $student
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
      */
@@ -662,6 +687,7 @@ final class LicenseService
         $accountId = (string) $created['id'];
 
         $inventoryId = (string) ($input['license_inventory_entry_id'] ?? '');
+        /** @var InventoryRow|null $inventory */
         $inventory = DB::table('license_inventory_entries')
             ->where('organization_id', $actor['organization_id'])
             ->where('id', $inventoryId)
@@ -670,6 +696,7 @@ final class LicenseService
         if ($inventory === null || $inventory->status !== 'available') {
             throw ResourceDomainException::conflict('Initial license inventory entry is unavailable.');
         }
+        /** @var CapabilityRow|null $capability */
         $capability = DB::table('license_product_language_capabilities')
             ->where('license_product_id', $inventory->license_product_id)
             ->where('language_code', $requestedLanguage)
@@ -714,8 +741,9 @@ final class LicenseService
     }
 
     /** @return array<string,mixed> */
-    private function assignmentProjection(string $organizationId, string $assignmentId, $effectiveAt): array
+    private function assignmentProjection(string $organizationId, string $assignmentId, Carbon $effectiveAt): array
     {
+        /** @var AssignmentRow|null $row */
         $row = DB::table('license_assignments')
             ->where('organization_id', $organizationId)
             ->where('id', $assignmentId)
@@ -723,6 +751,7 @@ final class LicenseService
         if ($row === null) {
             throw ResourceDomainException::notFound();
         }
+        /** @var ActivationRow|null $activation */
         $activation = DB::table('license_activations')
             ->where('organization_id', $organizationId)
             ->where('license_assignment_id', $assignmentId)
@@ -752,9 +781,9 @@ final class LicenseService
     }
 
     /** @return list<array<string,mixed>> */
-    private function assignmentHistoryProjection(string $organizationId, string $accountId, $effectiveAt): array
+    private function assignmentHistoryProjection(string $organizationId, string $accountId, Carbon $effectiveAt): array
     {
-        return DB::table('license_assignments')
+        return array_values(DB::table('license_assignments')
             ->where('organization_id', $organizationId)
             ->where('student_learning_account_id', $accountId)
             ->orderByDesc('assignment_sequence')
@@ -765,9 +794,10 @@ final class LicenseService
                 $effectiveAt,
             ))
             ->values()
-            ->all();
+            ->all());
     }
 
+    /** @param AssignmentRow $assignment */
     private function assertAssignmentVersion(object $assignment, ?string $expectedTag): void
     {
         if ($expectedTag === null || trim($expectedTag) === '') {
