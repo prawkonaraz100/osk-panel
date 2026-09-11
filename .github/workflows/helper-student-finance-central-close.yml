@@ -28,7 +28,7 @@ jobs:
           docs = Path('docs/126-core-v1-student-finance-closure.md')
           text = docs.read_text(encoding='utf-8')
           old_status = "**Narrative payload:** CANDIDATE  \n**Central closure:** PENDING"
-          new_status = "**Narrative payload:** PASS  \n**Central closure:** PASS"
+          new_status = "**Narrative payload:** PASS\n**Central closure:** PASS"
           if text.count(old_status) != 1:
               raise SystemExit('docs/126 status anchor mismatch')
           text = text.replace(old_status, new_status, 1)
