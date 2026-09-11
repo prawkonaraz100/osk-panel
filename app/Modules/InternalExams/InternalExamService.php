@@ -1795,32 +1795,6 @@ final class InternalExamService
     }
 
     /** @param  StationRow  $station */
-    private function assertStationOperational(string $organizationId, object $station, CarbonImmutable $now): void
-    {
-        if ((string) $station->administrative_status !== 'enabled' || $station->last_authenticated_heartbeat_at === null) {
-            throw ResourceDomainException::conflict('Exam station is not operational.');
-        }
-        $threshold = config('internal_exams.station_heartbeat_fresh_seconds');
-        if (! is_int($threshold) && ! (is_string($threshold) && ctype_digit($threshold))) {
-            throw new LogicException('INTERNAL_EXAM_STATION_HEARTBEAT_FRESH_SECONDS must be configured.');
-        }
-        $threshold = (int) $threshold;
-        if ($threshold < 1) {
-            throw new LogicException('Internal exam station heartbeat threshold must be positive.');
-        }
-        $heartbeat = CarbonImmutable::parse((string) $station->last_authenticated_heartbeat_at);
-        if ($heartbeat->lt($now->subSeconds($threshold))) {
-            throw ResourceDomainException::conflict('Exam station heartbeat is stale.');
-        }
-        if (! DB::table('exam_station_credentials')
-            ->where('organization_id', $organizationId)
-            ->where('exam_station_id', $station->id)
-            ->whereNull('revoked_at')
-            ->exists()) {
-            throw ResourceDomainException::conflict('Exam station has no current credential.');
-        }
-    }
-
     private function appendInventoryLedger(
         string $organizationId,
         string $inventoryId,
