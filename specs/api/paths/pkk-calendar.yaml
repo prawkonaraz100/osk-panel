@@ -181,6 +181,42 @@ paths:
               schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/PkkOperation' }
         default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
 
+  /calendar/driving-lessons:
+    post:
+      tags: [Calendar, Training]
+      operationId: calendarDrivingLessonsCreate
+      x-requirement-id: calendar.driving_lessons.create
+      x-permission: training_sessions.create
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/CreateCalendarDrivingLessonRequest' }
+      responses:
+        '201':
+          description: Formal practical TrainingSession created and returned as a driving-lesson calendar projection
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/CalendarEvent' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /calendar/driving-lessons/{sessionId}:
+    get:
+      tags: [Calendar, Training]
+      operationId: calendarDrivingLessonsGet
+      x-requirement-id: calendar.driving_lessons.get
+      x-permission: calendar.view
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/SessionId' }
+      responses:
+        '200':
+          description: Practical TrainingSession read as a source-specific driving-lesson calendar projection
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/CalendarEvent' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+
   /calendar/events:
     get:
       tags: [Calendar]
@@ -276,6 +312,7 @@ paths:
       parameters:
         - { $ref: '../openapi-components-v1.yaml#/components/parameters/EventId' }
         - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IfMatch' }
       requestBody:
         content:
           application/json:
@@ -292,6 +329,7 @@ paths:
       parameters:
         - { $ref: '../openapi-components-v1.yaml#/components/parameters/EventId' }
         - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IfMatch' }
       responses:
         '200': { description: Calendar event completed; domain-specific training effects remain in training use case }
         default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
@@ -370,6 +408,7 @@ paths:
       parameters:
         - { $ref: '../openapi-components-v1.yaml#/components/parameters/SlotId' }
         - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IfMatch' }
       requestBody:
         required: true
         content:
@@ -382,6 +421,27 @@ paths:
             application/json:
               schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/AvailabilitySlot' }
         default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /availability-slots/{slotId}/formalize:
+    post:
+      tags: [Calendar, Training]
+      operationId: availabilitySlotsFormalize
+      x-requirement-id: availability.formalize
+      x-permission: training_sessions.create
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/SlotId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IfMatch' }
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/FormalizeAvailabilitySlotRequest' }
+      responses:
+        '201':
+          description: Booked slot atomically handed off to one practical TrainingSession
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/FormalizedAvailabilityBooking' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
   /availability-slots/{slotId}/cancel:
     post:
       tags: [Calendar]
@@ -391,6 +451,11 @@ paths:
       parameters:
         - { $ref: '../openapi-components-v1.yaml#/components/parameters/SlotId' }
         - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IfMatch' }
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/ReasonRequest' }
       responses:
-        '200': { description: Slot cancelled or booking released according to lifecycle }
+        '200': { description: Slot cancelled terminally with history preserved; no automatic re-publication }
         default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }

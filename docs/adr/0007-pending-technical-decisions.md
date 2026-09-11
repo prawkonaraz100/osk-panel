@@ -29,18 +29,18 @@ Do decyzji:
 
 Nie używać zwykłego globalnego SHA-256 jako lookup hash dla PESEL.
 
-## 3. Calendar overlap
+## 3. Calendar overlap — RESOLVED
 
-Opcje:
-- PostgreSQL range + exclusion constraint,
-- transaction query + row/advisory locks.
+Rozstrzygnięte przez `ADR-0008 — Calendar resource conflict boundary`.
 
-Kryteria:
-- prostota,
-- obsługa statusów anulowanych,
-- multi-resource event,
-- wydajność,
-- czytelność błędów.
+Finalna granica produkcyjna jest zgodna z zamkniętym Stage-4 authority:
+PostgreSQL half-open `tstzrange` + `btree_gist` + partial GiST exclusion
+constraints na tenant-scoped `calendar_resource_claims`.
+
+Do czasu materializacji późniejszych faz `MIG-IDX-CALENDAR_GIST` Stage-5 może
+używać wyłącznie jawnej warstwy przejściowej opisanej w ADR-0008. Nie wolno
+traktować application check ani advisory locka jako zamiennika finalnej
+fizycznej boundary ani oznaczać odpowiadających DBT jako wykonanych.
 
 ## 4. Snapshot canonicalization
 

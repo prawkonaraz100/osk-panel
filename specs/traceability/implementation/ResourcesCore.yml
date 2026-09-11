@@ -61,3 +61,12 @@ changed_scope:
     ui: confirmed month/week/day and full-calendar entry points rendered without fabricated event data
     acceptance_test: Tests\Feature\ResourcesCoreTest::test_resource_calendar_links_preserve_tenant_resource_identifiers
     status: DEFERRED_OUTSIDE_CORE_WITH_EXPLICIT_DECISION
+
+  - evidence: docs/48-calendar-main-screen.md
+    requirement: resource detail calendar entry points remain live adapters into the canonical CalendarTraining read model after that downstream module materializes
+    domain_data: staff_profiles + vehicles + locations through calendar source projections
+    api_use_case: calendar.events.list
+    permission: calendar.view
+    ui: resources/js/modules/ResourcesCore/CalendarShell.vue
+    acceptance_test: frontend-quality npm_lint_typecheck_build
+    status: IMPLEMENTED

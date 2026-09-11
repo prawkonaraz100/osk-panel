@@ -1,5 +1,9 @@
 <?php
 
+use App\Modules\CalendarTraining\AvailabilitySlotController;
+use App\Modules\CalendarTraining\CalendarDrivingLessonController;
+use App\Modules\CalendarTraining\CalendarEventController;
+use App\Modules\CalendarTraining\TrainingSessionController;
 use App\Modules\ResourcesCore\ResourceApiMiddleware;
 use App\Modules\ResourcesCore\ResourceController;
 use App\Modules\StudentsCourses\StudentCourseController;
@@ -59,6 +63,33 @@ Route::middleware(ResourceApiMiddleware::class)->prefix('api/v1')->group(functio
     Route::get('/course-enrollments/{courseEnrollmentId}/recognized-external-training', [StudentCourseController::class, 'externalTrainingList']);
     Route::post('/course-enrollments/{courseEnrollmentId}/recognized-external-training', [StudentCourseController::class, 'externalTrainingCreate']);
     Route::post('/course-enrollments/{courseEnrollmentId}/recognized-external-training/{recordId}/revoke', [StudentCourseController::class, 'externalTrainingRevoke']);
+
+    Route::get('/course-enrollments/{courseEnrollmentId}/training-sessions', [TrainingSessionController::class, 'list']);
+    Route::post('/course-enrollments/{courseEnrollmentId}/training-sessions', [TrainingSessionController::class, 'create']);
+    Route::get('/training-sessions/{sessionId}', [TrainingSessionController::class, 'get']);
+    Route::patch('/training-sessions/{sessionId}', [TrainingSessionController::class, 'update']);
+    Route::put('/training-sessions/{sessionId}/attendance', [TrainingSessionController::class, 'attendance']);
+    Route::post('/training-sessions/{sessionId}/complete', [TrainingSessionController::class, 'complete']);
+    Route::post('/training-sessions/{sessionId}/cancel', [TrainingSessionController::class, 'cancel']);
+    Route::get('/course-enrollments/{courseEnrollmentId}/training-hours', [TrainingSessionController::class, 'hours']);
+    Route::post('/course-enrollments/{courseEnrollmentId}/training-hour-corrections', [TrainingSessionController::class, 'correctHours']);
+
+    Route::get('/availability-slots', [AvailabilitySlotController::class, 'list']);
+    Route::post('/availability-slots', [AvailabilitySlotController::class, 'create']);
+    Route::patch('/availability-slots/{slotId}', [AvailabilitySlotController::class, 'update']);
+    Route::post('/availability-slots/{slotId}/book', [AvailabilitySlotController::class, 'book']);
+    Route::post('/availability-slots/{slotId}/formalize', [AvailabilitySlotController::class, 'formalize']);
+    Route::post('/availability-slots/{slotId}/cancel', [AvailabilitySlotController::class, 'cancel']);
+
+    Route::post('/calendar/driving-lessons', [CalendarDrivingLessonController::class, 'create']);
+    Route::get('/calendar/driving-lessons/{sessionId}', [CalendarDrivingLessonController::class, 'get']);
+
+    Route::get('/calendar/events', [CalendarEventController::class, 'list']);
+    Route::post('/calendar/events', [CalendarEventController::class, 'create']);
+    Route::get('/calendar/events/{eventId}', [CalendarEventController::class, 'get']);
+    Route::patch('/calendar/events/{eventId}', [CalendarEventController::class, 'update']);
+    Route::post('/calendar/events/{eventId}/cancel', [CalendarEventController::class, 'cancel']);
+    Route::post('/calendar/events/{eventId}/complete', [CalendarEventController::class, 'complete']);
 });
 
 Route::view('/', 'app');

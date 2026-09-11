@@ -203,7 +203,6 @@ non_blocking_later_decisions:
   before_related_sensitive_production_data:
     - final_sensitive_identifier_encryption_and_key_rotation_ADR
     - legal_category_dictionary_reverification_including_PT_mapping
-    - calendar_overlap_enforcement_operational_ADR_if_implementation_requires_runtime_choice
   before_production_go_live:
     - privacy_and_retention_schedule
     - approved_RPO_RTO
@@ -227,8 +226,15 @@ quality_gate:
 
 next_single_step:
   id: CORE-V1-CALENDAR-TRAINING-SESSION-HOUR-LEDGER-001
-  action: begin_calendar_training_session_hour_ledger_slice_only_after_next_explicit_user_instruction
+  action: implement_calendar_training_session_hour_ledger_slice_in_staged_gates
   prerequisite_previous_slice: CORE-V1-STUDENTS-COURSE-ENROLLMENT-001_PASS
+  started: true
+  started_from_accepted_head: 626cfe33403079b3cd68c76759cf599330b30164
+  diagnosis:
+    calendar_overlap_operational_ADR: RESOLVED_BY_ADR_0008
+    final_production_conflict_boundary: PostgreSQL_GiST_exclusion
+    current_global_phase_barrier_allows_GiST_materialization: false
+    transitional_runtime_boundary_may_replace_final_GiST: false
   implementation_order_source: AGENTS.md
   allowed_scope:
     - Calendar

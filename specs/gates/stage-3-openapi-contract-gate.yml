@@ -75,9 +75,9 @@ quality_checks:
     status: PASS
     stage_step: STAGE3_STEP_2
     counts:
-      http_requirement_rows: 169
-      unique_openapi_path_method_operations_required: 158
-      shared_capability_rows_reusing_existing_operationId: 11
+      http_requirement_rows: 175
+      unique_openapi_path_method_operations_required: 162
+      shared_capability_rows_reusing_existing_operationId: 13
       unmapped_http_requirements: 0
     reverse_engineering_preservation_note: >-
       Shared mappings do not remove observed capabilities. They only state that
@@ -166,7 +166,7 @@ quality_checks:
         - root_vs_module_path_parity
         - unique_operationId
         - required_operations_bidirectional_coverage
-        - frozen_169_requirement_and_158_operation_counts
+        - stage5_attendance_sync_170_requirement_and_159_operation_counts
         - security_scheme_resolution
         - nonpublic_permission_annotations
         - request_schema_readOnly_rejection

@@ -416,6 +416,7 @@ modules:
       - specs/screens/calendar.yml
       - specs/screens/calendar-add-event.yml
       - docs/50-own-calendar-event-lifecycle.md
+      - docs/51-calendar-important-dates.md
     preserved_capabilities:
       - month_week_day_views
       - today_previous_next_navigation
@@ -427,7 +428,11 @@ modules:
       - self_booking_slots
       - important_date_projection
     api_requirements:
+      - calendar.driving_lessons.create
+      - calendar.driving_lessons.get
       - calendar.events.list
+      - calendar.events.driving_lesson_projection
+      - calendar.events.unformalized_booking_projection
       - calendar.events.create
       - calendar.events.get
       - calendar.events.update
@@ -439,11 +444,16 @@ modules:
       - availability.create
       - availability.update
       - availability.book
+      - availability.formalize
       - availability.cancel
       - calendar.server_conflict_detection
     database:
       - calendar_events
+      - training_sessions
+      - training_session_calendar_details
       - availability_slots
+      - staff_documents
+      - vehicle_documents
       - students
       - staff_profiles
       - vehicles
@@ -459,9 +469,22 @@ modules:
       - worktime.manage
     invariants:
       - conflict_detection_is_server_side
+      - formal_driving_lesson_schedule_owner_is_training_session
+      - calendar_events_never_persists_formal_driving_lesson_copy
       - all_relation_ids_belong_to_same_tenant
       - times_are_stored_UTC_and_rendered_in_organization_timezone
       - self_booking_is_atomic
+      - availability_publication_creates_no_reservation_claim
+      - availability_booking_uses_slot_version_and_exact_shared_resource_claim_set
+      - availability_booking_does_not_create_training_session_or_training_credit
+      - formalization_transfers_reservation_owner_atomically_to_one_practical_training_session
+      - booked_unformalized_slot_projects_once_as_driving_lesson_from_availability_source
+      - formalized_slot_suppresses_availability_projection_and_projects_once_from_training_session
+      - formalized_slot_keeps_immutable_booking_snapshot_and_cannot_cancel_independently
+      - important_dates_are_read_only_projections_of_current_source_document_expiry_dates
+      - important_date_projection_creates_no_calendar_event_or_resource_claim
+      - superseding_or_archiving_source_document_owner_changes_projection_without_calendar_copy
+      - cancelled_availability_slot_is_terminal_and_not_auto_republished
     production_blockers:
       - calendar_overlap_enforcement_ADR
     test_obligations:

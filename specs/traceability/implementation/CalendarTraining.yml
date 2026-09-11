@@ -1,0 +1,199 @@
+module: CalendarTraining
+core_traceability_modules:
+  - course_enrollment_training
+  - calendar
+changed_scope:
+  - evidence: specs/database/students-courses-training.yml
+    requirement: planned TrainingSession mutations preserve optimistic concurrency, verified attendance and atomic terminal completion or cancellation
+    domain_data: course_enrollments + training_sessions + training_session_attendance
+    api_use_case: training_sessions.list/create/get/update/attendance/complete/cancel
+    permission: training_sessions.view/create/edit/cancel with organization assigned_students or instructor-own scope as declared
+    ui: DEFERRED_UI_UNTIL_CALENDAR_FEATURE_SLICE
+    acceptance_test: Tests\\Feature\\TrainingSessionCoreTest::test_attendance_and_patch_use_training_session_version_and_patch_cannot_change_session_type
+    status: IMPLEMENTED
+  - evidence: docs/adr/0003-training-hour-ledger.md
+    requirement: current-OSK formal credited time is created only from completed present TrainingSession evidence and later changes are append-only corrections or reversals
+    domain_data: training_sessions + training_session_attendance + training_hour_ledger_entries + course_enrollment_lifecycle_events
+    api_use_case: training_sessions.complete + training_hours.get/correct
+    permission: training_sessions.edit + training_hours.correct
+    ui: DEFERRED_UI_UNTIL_CALENDAR_FEATURE_SLICE
+    acceptance_test: Tests\\Feature\\TrainingSessionCoreTest::test_manual_correction_is_append_only_requires_fresh_course_version_and_preserves_nonnegative_projection
+    status: IMPLEMENTED
+  - evidence: docs/adr/0008-calendar-resource-conflict-boundary.md
+    requirement: pre-GiST scheduling uses one transaction with deterministic advisory locks overlap detection and exact shared claim replacement without pretending the final database exclusion constraint exists
+    domain_data: calendar_resource_claims + training_sessions + course_enrollments
+    api_use_case: training_sessions.create/update/complete/cancel
+    permission: inherited from the authorized TrainingSession command
+    ui: NOT_APPLICABLE_RUNTIME_GATE_NO_UI
+    acceptance_test: Tests\\Feature\\TrainingSessionCoreTest::test_planned_session_creates_exact_shared_claims_and_rejects_overlap_but_allows_adjacent_interval
+    status: IMPLEMENTED
+  - evidence: specs/security/permissions.yml
+    requirement: training session own scope resolves through the active staff-profile membership link and instructor identity rather than creator identity
+    domain_data: staff_membership_links + staff_profiles + training_sessions + course_enrollments
+    api_use_case: TrainingSessionScopeAuthorizer collection create and target visibility
+    permission: training_sessions.view/create/edit/cancel with own scope
+    ui: NOT_APPLICABLE_RUNTIME_GATE_NO_UI
+    acceptance_test: Tests\\Feature\\TrainingSessionCoreTest::test_own_scope_is_bound_to_active_staff_profile_and_session_instructor
+    status: IMPLEMENTED
+
+  - evidence: docs/50-own-calendar-event-lifecycle.md
+    requirement: manual general events use scheduled completed cancelled lifecycle with versioned append-only history and terminal claim release
+    domain_data: calendar_events + calendar_event_lifecycle_events + calendar_resource_claims
+    api_use_case: calendar.events.list/create/get/update/cancel/complete
+    permission: calendar.view plus calendar.manage.organization or canonical instructor-owned calendar.manage.own
+    ui: DEFERRED_UNTIL_CALENDAR_UI_GATE
+    acceptance_test: Tests\\Feature\\CalendarEventCoreTest::test_terminal_commands_require_if_match_are_idempotent_and_never_credit_training_hours
+    status: IMPLEMENTED
+  - evidence: specs/database/calendar.yml#DB-CAL-007
+    requirement: runtime calendar_events persists only manual general_event facts and rejects a formal driving_lesson copy because TrainingSession is the canonical formal schedule owner
+    domain_data: calendar_events + training_sessions + training_session_calendar_details
+    api_use_case: calendar.events.create/update rejects driving_lesson row persistence; formal projection routing remains next gate
+    permission: calendar manage permission cannot escalate into formal training mutation
+    ui: DRIVING_LESSON_OPTION_PRESERVED_FOR_NEXT_FORMAL_ROUTING_GATE
+    acceptance_test: Tests\\Feature\\CalendarEventCoreTest::test_general_event_uses_shared_claim_boundary_and_formal_driving_lesson_row_is_rejected
+    status: IMPLEMENTED
+  - evidence: specs/database/calendar.yml#DB-CAL-007
+    requirement: formal driving lessons are practical TrainingSession projections with source-specific identity and no mutable calendar_events copy
+    domain_data: training_sessions + course_enrollments + training_session_calendar_details + calendar_resource_claims
+    api_use_case: calendar.driving_lessons.create/get + calendar.events.driving_lesson_projection; update cancel complete route through training-sessions commands
+    permission: calendar.view for read projection; training_sessions.create/edit/cancel for formal mutations
+    ui: DEFERRED_UNTIL_CALENDAR_UI_GATE
+    acceptance_test: Tests\\Feature\\CalendarDrivingLessonCoreTest::test_calendar_create_and_list_project_one_practical_training_session_without_calendar_event_copy
+    status: IMPLEMENTED
+  - evidence: specs/database/calendar.yml#DB-CAL-007-course_context_resolution
+    requirement: student-only formal lesson creation resolves a course only when exactly one eligible active CourseEnrollment exists and never chooses latest or first under ambiguity
+    domain_data: students + course_enrollments + training_sessions
+    api_use_case: calendar.driving_lessons.create
+    permission: training_sessions.create
+    ui: DEFERRED_UNTIL_CALENDAR_UI_GATE
+    acceptance_test: Tests\\Feature\\CalendarDrivingLessonCoreTest::test_student_only_create_requires_exactly_one_active_course
+    status: IMPLEMENTED
+  - evidence: specs/database/calendar.yml#training_session_calendar_details
+    requirement: optional calendar name and custom meeting place remain companion metadata under the same TrainingSession version and cannot coexist with managed location
+    domain_data: training_sessions + training_session_calendar_details
+    api_use_case: training_sessions.create/update + calendar.driving_lessons.create/get
+    permission: training_sessions.create/edit
+    ui: DEFERRED_UNTIL_CALENDAR_UI_GATE
+    acceptance_test: Tests\\Feature\\CalendarDrivingLessonCoreTest::test_calendar_metadata_patch_uses_training_session_version_and_preserves_meeting_place_xor
+    status: IMPLEMENTED
+  - evidence: specs/database/calendar.yml#DB-CAL-006
+    requirement: AvailabilitySlot publication is non-reserving while booking atomically changes available to booked and materializes the exact shared Student Instructor Vehicle Location claim set
+    domain_data: availability_slots + availability_slot_lifecycle_events + calendar_resource_claims
+    api_use_case: availability.list/create/update/book/cancel
+    permission: calendar.view + calendar.publish_student_slots + calendar.book_for_student
+    ui: DEFERRED_UNTIL_CALENDAR_UI_GATE
+    acceptance_test: Tests\\Feature\\AvailabilitySlotCoreTest::test_booking_is_idempotent_versioned_and_creates_exact_claims_without_training_effect
+    status: IMPLEMENTED
+  - evidence: specs/database/calendar.yml#DB-CAL-005
+    requirement: availability publish own scope is canonically bound to the active StaffProfile through slot instructor_id and cannot transfer ownership under own scope
+    domain_data: staff_membership_links + staff_profiles + availability_slots
+    api_use_case: availability.create/update/cancel
+    permission: calendar.publish_student_slots with organization or own scope
+    ui: DEFERRED_UNTIL_CALENDAR_UI_GATE
+    acceptance_test: Tests\\Feature\\AvailabilitySlotCoreTest::test_publish_own_scope_cannot_transfer_slot_to_another_instructor
+    status: IMPLEMENTED
+  - evidence: specs/database/calendar.yml#DB-CAL-006-cancellation
+    requirement: cancelling an available or booked slot is terminal preserves booking Student in lifecycle history releases booking claims and never auto republishes availability
+    domain_data: availability_slots + availability_slot_lifecycle_events + calendar_resource_claims
+    api_use_case: availability.cancel
+    permission: calendar.publish_student_slots
+    ui: DEFERRED_UNTIL_CALENDAR_UI_GATE
+    acceptance_test: Tests\\Feature\\AvailabilitySlotCoreTest::test_cancel_booked_slot_releases_claims_preserves_student_snapshot_and_cannot_rebook
+    status: IMPLEMENTED
+  - evidence: specs/database/calendar.yml#DB-CAL-007-formalized_availability_booking_handoff
+    requirement: booked AvailabilitySlot formalization is a dedicated idempotent command that requires the current slot version and training_sessions.create permission
+    domain_data: availability_slots + availability_slot_lifecycle_events + training_sessions + training_session_calendar_details + calendar_resource_claims
+    api_use_case: availability.formalize
+    permission: training_sessions.create
+    ui: DEFERRED_UNTIL_CALENDAR_UI_GATE
+    acceptance_test: Tests\\Feature\\AvailabilityFormalizationCoreTest::test_formalization_transfers_booking_to_one_practical_training_session_atomically
+    status: IMPLEMENTED
+  - evidence: specs/database/calendar.yml#DB-CAL-007-course_context_rule
+    requirement: formalization uses an explicit same-Student CourseEnrollment or exactly one eligible active course and never guesses latest or first
+    domain_data: course_enrollments + availability_slots
+    api_use_case: availability.formalize
+    permission: training_sessions.create
+    ui: DEFERRED_UNTIL_CALENDAR_UI_GATE
+    acceptance_test: Tests\\Feature\\AvailabilityFormalizationCoreTest::test_ambiguous_course_context_rolls_back_and_preserves_booking
+    status: IMPLEMENTED
+  - evidence: specs/database/calendar.yml#DB-CAL-007-claim_handoff
+    requirement: availability booking claims are replaced by TrainingSession claims in the same transaction with rollback preserving the original booking on failure
+    domain_data: calendar_resource_claims + availability_slots + training_sessions
+    api_use_case: availability.formalize
+    permission: training_sessions.create
+    ui: DEFERRED_UNTIL_CALENDAR_UI_GATE
+    acceptance_test: Tests\\Feature\\AvailabilityFormalizationCoreTest::test_invalid_calendar_metadata_rolls_back_session_link_and_preserves_booking_claims
+    status: IMPLEMENTED
+  - evidence: specs/database/calendar.yml#DB-CAL-007-idempotency
+    requirement: same formalization idempotency key replays the original TrainingSession result and a fresh second handoff is rejected
+    domain_data: idempotency_records + availability_slots + training_sessions
+    api_use_case: availability.formalize
+    permission: training_sessions.create
+    ui: DEFERRED_UNTIL_CALENDAR_UI_GATE
+    acceptance_test: Tests\\Feature\\AvailabilityFormalizationCoreTest::test_same_formalization_idempotency_key_does_not_create_second_session
+    status: IMPLEMENTED
+  - evidence: specs/database/calendar.yml#DB-CAL-007-read_model_union
+    requirement: calendar read model projects only booked unformalized AvailabilitySlot rows as driving_lesson with source_kind availability_slot_booking
+    domain_data: availability_slots
+    api_use_case: calendar.events.unformalized_booking_projection
+    permission: calendar.view with organization own assigned_students or assigned_locations scope
+    ui: DEFERRED_UNTIL_CALENDAR_UI_GATE
+    acceptance_test: Tests\\Feature\\CalendarAvailabilityProjectionCoreTest::test_only_booked_unformalized_slot_projects_as_driving_lesson_and_filters_by_source_resources
+    status: IMPLEMENTED
+  - evidence: specs/database/calendar.yml#DB-CAL-007-formalized_slot_projection_suppressed
+    requirement: formalization swaps read source from availability_slot_booking to training_session without producing two calendar items
+    domain_data: availability_slots + training_sessions + training_session_calendar_details
+    api_use_case: calendar.events.list + availability.formalize
+    permission: calendar.view for projection; training_sessions.create for handoff
+    ui: DEFERRED_UNTIL_CALENDAR_UI_GATE
+    acceptance_test: Tests\\Feature\\CalendarAvailabilityProjectionCoreTest::test_formalization_switches_calendar_source_without_duplicate_item
+    status: IMPLEMENTED
+  - evidence: docs/51-calendar-important-dates.md
+    requirement: important dates are system-generated read-only calendar items from authoritative source-domain expiry dates and are never persisted as manual CalendarEvent rows
+    domain_data: current staff_documents + staff_profiles + current vehicle_documents + vehicles
+    api_use_case: calendar.events.important_dates_projection
+    permission: calendar.view with organization own or assigned_locations source visibility
+    ui: DEFERRED_UNTIL_CALENDAR_UI_GATE
+    acceptance_test: Tests\\Feature\\CalendarImportantDateProjectionCoreTest::test_staff_and_vehicle_expiry_dates_project_without_calendar_rows_or_claims
+    status: IMPLEMENTED
+  - evidence: specs/database/calendar.yml#important_date_projection
+    requirement: current non-superseded document valid_until remains authoritative so replacing or removing a source date automatically replaces or removes the calendar projection
+    domain_data: staff_documents + vehicle_documents
+    api_use_case: calendar.events.important_dates_projection
+    permission: calendar.view
+    ui: DEFERRED_UNTIL_CALENDAR_UI_GATE
+    acceptance_test: Tests\\Feature\\CalendarImportantDateProjectionCoreTest::test_source_document_replacement_moves_important_date_without_calendar_mutation
+    status: IMPLEMENTED
+  - evidence: docs/51-calendar-important-dates.md#4-zasada-architektoniczna
+    requirement: important date resource filters resolve against Staff and Vehicle source relations while archived source owners and null expiry dates do not project
+    domain_data: staff_location_assignments + vehicle_location_assignments + staff_profiles + vehicles
+    api_use_case: calendar.events.important_dates_projection
+    permission: calendar.view
+    ui: DEFERRED_UNTIL_CALENDAR_UI_GATE
+    acceptance_test: Tests\\Feature\\CalendarImportantDateProjectionCoreTest::test_important_date_filters_and_archived_sources_fail_closed
+    status: IMPLEMENTED
+
+  - evidence: docs/48-calendar-main-screen.md
+    requirement: confirmed Calendar screen provides month week day navigation event-type filtering resource filtering and one central read model for manual events formal driving lessons booked reservations and important dates
+    domain_data: calendar_events + training_sessions + availability_slots + staff_documents + vehicle_documents
+    api_use_case: calendar.events.list
+    permission: calendar.view
+    ui: resources/js/modules/CalendarTraining/CalendarWorkspace.vue
+    acceptance_test: frontend-quality npm_lint_typecheck_build plus Calendar read-model feature suites
+    status: IMPLEMENTED
+  - evidence: docs/49-calendar-add-event-form.md
+    requirement: one visible create form preserves Wydarzenie and Jazda type choice optional name start duration Student Instructor Vehicle and saved-location-or-custom-place XOR while routing each type to its canonical backend owner
+    domain_data: calendar_events for general_event; training_sessions plus training_session_calendar_details for driving_lesson
+    api_use_case: calendar.events.create + calendar.driving_lessons.create
+    permission: calendar.manage organization-or-own for general event and training_sessions.create for formal driving lesson
+    ui: resources/js/modules/CalendarTraining/CalendarWorkspace.vue
+    acceptance_test: frontend-quality npm_lint_typecheck_build and backend CalendarEventCoreTest plus CalendarDrivingLessonCoreTest
+    status: IMPLEMENTED
+  - evidence: docs/48-calendar-main-screen.md#połączenia-z-innymi-modułami
+    requirement: Staff Vehicle and Location calendar entry points reuse the central calendar read model instead of rendering fake placeholder schedules
+    domain_data: source-specific calendar projections
+    api_use_case: calendar.events.list with staff vehicle or location filter
+    permission: calendar.view
+    ui: resources/js/modules/ResourcesCore/CalendarShell.vue
+    acceptance_test: frontend-quality npm_lint_typecheck_build
+    status: IMPLEMENTED

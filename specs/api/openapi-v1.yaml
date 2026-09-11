@@ -75,6 +75,7 @@ paths:
   /course-enrollments/{courseEnrollmentId}/exemption-decisions: { $ref: './paths/students-courses.yaml#/paths/~1course-enrollments~1{courseEnrollmentId}~1exemption-decisions' }
   /course-enrollments/{courseEnrollmentId}/training-sessions: { $ref: './paths/students-courses.yaml#/paths/~1course-enrollments~1{courseEnrollmentId}~1training-sessions' }
   /training-sessions/{sessionId}: { $ref: './paths/students-courses.yaml#/paths/~1training-sessions~1{sessionId}' }
+  /training-sessions/{sessionId}/attendance: { $ref: './paths/students-courses.yaml#/paths/~1training-sessions~1{sessionId}~1attendance' }
   /training-sessions/{sessionId}/complete: { $ref: './paths/students-courses.yaml#/paths/~1training-sessions~1{sessionId}~1complete' }
   /training-sessions/{sessionId}/cancel: { $ref: './paths/students-courses.yaml#/paths/~1training-sessions~1{sessionId}~1cancel' }
   /course-enrollments/{courseEnrollmentId}/training-hours: { $ref: './paths/students-courses.yaml#/paths/~1course-enrollments~1{courseEnrollmentId}~1training-hours' }
@@ -92,6 +93,8 @@ paths:
   /course-enrollments/{courseEnrollmentId}/pkk/operations/{operationId}: { $ref: './paths/pkk-calendar.yaml#/paths/~1course-enrollments~1{courseEnrollmentId}~1pkk~1operations~1{operationId}' }
   /course-enrollments/{courseEnrollmentId}/pkk/operations/{operationId}/retry: { $ref: './paths/pkk-calendar.yaml#/paths/~1course-enrollments~1{courseEnrollmentId}~1pkk~1operations~1{operationId}~1retry' }
 
+  /calendar/driving-lessons: { $ref: './paths/pkk-calendar.yaml#/paths/~1calendar~1driving-lessons' }
+  /calendar/driving-lessons/{sessionId}: { $ref: './paths/pkk-calendar.yaml#/paths/~1calendar~1driving-lessons~1{sessionId}' }
   /calendar/events: { $ref: './paths/pkk-calendar.yaml#/paths/~1calendar~1events' }
   /calendar/events/{eventId}: { $ref: './paths/pkk-calendar.yaml#/paths/~1calendar~1events~1{eventId}' }
   /calendar/events/{eventId}/cancel: { $ref: './paths/pkk-calendar.yaml#/paths/~1calendar~1events~1{eventId}~1cancel' }
@@ -99,6 +102,7 @@ paths:
   /availability-slots: { $ref: './paths/pkk-calendar.yaml#/paths/~1availability-slots' }
   /availability-slots/{slotId}: { $ref: './paths/pkk-calendar.yaml#/paths/~1availability-slots~1{slotId}' }
   /availability-slots/{slotId}/book: { $ref: './paths/pkk-calendar.yaml#/paths/~1availability-slots~1{slotId}~1book' }
+  /availability-slots/{slotId}/formalize: { $ref: './paths/pkk-calendar.yaml#/paths/~1availability-slots~1{slotId}~1formalize' }
   /availability-slots/{slotId}/cancel: { $ref: './paths/pkk-calendar.yaml#/paths/~1availability-slots~1{slotId}~1cancel' }
 
   /locations: { $ref: './paths/resources.yaml#/paths/~1locations' }

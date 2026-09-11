@@ -87,6 +87,7 @@ operations:
     - { id: training_sessions.create, method: POST, path: '/course-enrollments/{courseEnrollmentId}/training-sessions' }
     - { id: training_sessions.get, method: GET, path: '/training-sessions/{sessionId}' }
     - { id: training_sessions.update, method: PATCH, path: '/training-sessions/{sessionId}' }
+    - { id: training_sessions.attendance.update, method: PUT, path: '/training-sessions/{sessionId}/attendance' }
     - { id: training_sessions.complete, method: POST, path: '/training-sessions/{sessionId}/complete' }
     - { id: training_sessions.cancel, method: POST, path: '/training-sessions/{sessionId}/cancel' }
     - { id: training_hours.get, method: GET, path: '/course-enrollments/{courseEnrollmentId}/training-hours' }
@@ -122,6 +123,8 @@ operations:
       requirement: redacted_ui_projection_and_encrypted_or_minimized_sensitive_provider_snapshot
 
   calendar:
+    - { id: calendar.driving_lessons.create, method: POST, path: /calendar/driving-lessons }
+    - { id: calendar.driving_lessons.get, method: GET, path: '/calendar/driving-lessons/{sessionId}' }
     - { id: calendar.events.list, method: GET, path: /calendar/events }
     - { id: calendar.events.create, method: POST, path: /calendar/events }
     - { id: calendar.events.get, method: GET, path: '/calendar/events/{eventId}' }
@@ -131,6 +134,16 @@ operations:
     - id: calendar.events.custom_meeting_place
       type: request_capability
       requirement: meeting_place_can_be_location_or_custom_text
+    - id: calendar.events.driving_lesson_projection
+      method: GET
+      path: /calendar/events
+      covered_by_operationId: calendarEventsList
+      requirement: practical_training_sessions_are_projected_as_driving_lesson_without_calendar_event_copy
+    - id: calendar.events.unformalized_booking_projection
+      method: GET
+      path: /calendar/events
+      covered_by_operationId: calendarEventsList
+      requirement: booked_unformalized_availability_slot_is_projected_as_driving_lesson_until_training_session_handoff
     - id: calendar.events.important_dates_projection
       method: GET
       path: /calendar/events
@@ -140,6 +153,7 @@ operations:
     - { id: availability.create, method: POST, path: /availability-slots }
     - { id: availability.update, method: PATCH, path: '/availability-slots/{slotId}' }
     - { id: availability.book, method: POST, path: '/availability-slots/{slotId}/book' }
+    - { id: availability.formalize, method: POST, path: '/availability-slots/{slotId}/formalize' }
     - { id: availability.cancel, method: POST, path: '/availability-slots/{slotId}/cancel' }
     - id: calendar.server_conflict_detection
       type: invariant
@@ -351,10 +365,10 @@ coverage_status:
   frozen_at: 2026-09-05
   validator_command: python scripts/contract-validation/validate_openapi_contract.py
   ci_workflow: .github/workflows/api-contract-gate.yml
-  http_requirement_rows: 169
-  unique_openapi_path_method_operations_required: 158
-  shared_capability_rows_reusing_existing_operationId: 11
-  direct_and_shared_http_requirements_with_operationId_mapping: 169
+  http_requirement_rows: 175
+  unique_openapi_path_method_operations_required: 162
+  shared_capability_rows_reusing_existing_operationId: 13
+  direct_and_shared_http_requirements_with_operationId_mapping: 175
   direct_and_shared_http_requirements_without_operationId_mapping: 0
   openapi_complete_against_this_inventory: true
   operationIds_present_for_all_http_requirements: true
@@ -366,6 +380,7 @@ coverage_status:
   shared_operation_mappings:
     students.list_filters: studentsList
     students.list_sort: studentsList
+    calendar.events.driving_lesson_projection: calendarEventsList
     calendar.events.important_dates_projection: calendarEventsList
     license_management.search: licenseAssignmentsList
     license_management.sort: licenseAssignmentsList

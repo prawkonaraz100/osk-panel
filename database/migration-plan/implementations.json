@@ -1,7 +1,7 @@
 {
     "schema_version": 2,
     "plan_identity": "d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10",
-    "execution_identity": "59ed166d900d2701df2b8ca6e534b6b59d0de78ecf8fa0f04204f255020e5bcc",
+    "execution_identity": "1495b3bbccb44db2bbc6f466391a6fa8f70dc6ad5f3154dbe84de68e0d2c4422",
     "stage4_root": "database/migrations/stage4",
     "implemented_steps": [
         {
@@ -352,6 +352,87 @@
             "migration_file": "database/migrations/stage4/expand/MIG-TBL-RECOGNIZED_EXTERNAL_TRAINING/2026_09_10_000490_create_recognized_external_training_table.php",
             "migration_name": "2026_09_10_000490_create_recognized_external_training_table",
             "file_sha256": "7ec6841798f81e5fbb8de5a777d9e8c0bf7ee0140404ff80d0a65ef1bebf148a",
+            "restart_classification": "restart_safe",
+            "safe_down": false
+        },
+        {
+            "node_id": "MIG-TBL-TRAINING_SESSIONS",
+            "phase": "expand",
+            "migration_file": "database/migrations/stage4/expand/MIG-TBL-TRAINING_SESSIONS/2026_09_10_000500_create_training_sessions_table.php",
+            "migration_name": "2026_09_10_000500_create_training_sessions_table",
+            "file_sha256": "3fbc48c138ad1c8956bb213a20d32d990aeb4fa4ffdeea73a65fc49cf044502b",
+            "restart_classification": "restart_safe",
+            "safe_down": false
+        },
+        {
+            "node_id": "MIG-TBL-TRAINING_SESSION_ATTENDANCE",
+            "phase": "expand",
+            "migration_file": "database/migrations/stage4/expand/MIG-TBL-TRAINING_SESSION_ATTENDANCE/2026_09_10_000510_create_training_session_attendance_table.php",
+            "migration_name": "2026_09_10_000510_create_training_session_attendance_table",
+            "file_sha256": "b7fa79896b83259361faa79c7e9d34b12e8be37b26af841e87a86f758d786624",
+            "restart_classification": "restart_safe",
+            "safe_down": false
+        },
+        {
+            "node_id": "MIG-TBL-TRAINING_HOUR_LEDGER_ENTRIES",
+            "phase": "expand",
+            "migration_file": "database/migrations/stage4/expand/MIG-TBL-TRAINING_HOUR_LEDGER_ENTRIES/2026_09_10_000520_create_training_hour_ledger_entries_table.php",
+            "migration_name": "2026_09_10_000520_create_training_hour_ledger_entries_table",
+            "file_sha256": "49d0fd746561c14261df3ed979985517d1459b0ace9c5e56acc3ffc7ff71ffe3",
+            "restart_classification": "restart_safe",
+            "safe_down": false
+        },
+        {
+            "node_id": "MIG-TBL-CALENDAR_EVENTS",
+            "phase": "expand",
+            "migration_file": "database/migrations/stage4/expand/MIG-TBL-CALENDAR_EVENTS/2026_09_10_000530_create_calendar_events_table.php",
+            "migration_name": "2026_09_10_000530_create_calendar_events_table",
+            "file_sha256": "e6e55feb84690523111aa4bca217b1470a5a7bb6c61a124f0fde5235beeba3f0",
+            "restart_classification": "restart_safe",
+            "safe_down": false
+        },
+        {
+            "node_id": "MIG-TBL-CALENDAR_EVENT_LIFECYCLE_EVENTS",
+            "phase": "expand",
+            "migration_file": "database/migrations/stage4/expand/MIG-TBL-CALENDAR_EVENT_LIFECYCLE_EVENTS/2026_09_10_000540_create_calendar_event_lifecycle_events_table.php",
+            "migration_name": "2026_09_10_000540_create_calendar_event_lifecycle_events_table",
+            "file_sha256": "c5d2210be046807faed1fa13b522a03cc57a12dde5198b00ce05c806f611df34",
+            "restart_classification": "restart_safe",
+            "safe_down": false
+        },
+        {
+            "node_id": "MIG-TBL-AVAILABILITY_SLOTS",
+            "phase": "expand",
+            "migration_file": "database/migrations/stage4/expand/MIG-TBL-AVAILABILITY_SLOTS/2026_09_10_000550_create_availability_slots_table.php",
+            "migration_name": "2026_09_10_000550_create_availability_slots_table",
+            "file_sha256": "0288cf9493da98abc286d5f9df3ec4db44811ff4dc46e7bb5294615e43586983",
+            "restart_classification": "restart_safe",
+            "safe_down": false
+        },
+        {
+            "node_id": "MIG-TBL-AVAILABILITY_SLOT_LIFECYCLE_EVENTS",
+            "phase": "expand",
+            "migration_file": "database/migrations/stage4/expand/MIG-TBL-AVAILABILITY_SLOT_LIFECYCLE_EVENTS/2026_09_10_000560_create_availability_slot_lifecycle_events_table.php",
+            "migration_name": "2026_09_10_000560_create_availability_slot_lifecycle_events_table",
+            "file_sha256": "17e8b9cf8565d0d934c62fedba285936bebf419205d6752fd5c16ad6fba7222a",
+            "restart_classification": "restart_safe",
+            "safe_down": false
+        },
+        {
+            "node_id": "MIG-TBL-CALENDAR_RESOURCE_CLAIMS",
+            "phase": "expand",
+            "migration_file": "database/migrations/stage4/expand/MIG-TBL-CALENDAR_RESOURCE_CLAIMS/2026_09_10_000570_create_calendar_resource_claims_table.php",
+            "migration_name": "2026_09_10_000570_create_calendar_resource_claims_table",
+            "file_sha256": "7c1d5a9b39c5cc58a4859ffeba7ac0311fd2c0354cc6abb3cc97e0eed76888e9",
+            "restart_classification": "restart_safe",
+            "safe_down": false
+        },
+        {
+            "node_id": "MIG-TBL-TRAINING_SESSION_CALENDAR_DETAILS",
+            "phase": "expand",
+            "migration_file": "database/migrations/stage4/expand/MIG-TBL-TRAINING_SESSION_CALENDAR_DETAILS/2026_09_10_000580_create_training_session_calendar_details_table.php",
+            "migration_name": "2026_09_10_000580_create_training_session_calendar_details_table",
+            "file_sha256": "c43caaf4060b802692df660f058a6b3031027f24f81a72e2b7ed65f51bcad181",
             "restart_classification": "restart_safe",
             "safe_down": false
         },
