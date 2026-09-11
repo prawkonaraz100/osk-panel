@@ -110,8 +110,8 @@ final class StudentFinanceController
     }
 
     /**
-     * @param array<string,mixed> $payload
-     * @param callable(string):array<string,mixed> $callback
+     * @param  array<string,mixed>  $payload
+     * @param  callable(string):array<string,mixed>  $callback
      */
     private function command(
         Request $request,
@@ -144,7 +144,7 @@ final class StudentFinanceController
     }
 
     /** @param array<string,array<int,string>> $rules
-     *  @return array<string,mixed>
+     * @return array<string,mixed>
      */
     private function validated(Request $request, array $rules): array
     {
