@@ -2105,6 +2105,7 @@ final class InternalExamService
         return $next;
     }
 
+    /** @param AttemptRow $attempt */
     private function assertAttemptExpectedVersion(object $attempt, ?string $expectedTag): void
     {
         if ($expectedTag === null || trim($expectedTag) === '') {
