@@ -760,8 +760,8 @@ final class CourseEnrollmentService
                 $evidenceReference,
                 $reason,
                 $actor['user_id'],
-                (string) ($courseData['driving_category_id'] ?? ''),
-                (string) ($courseData['training_type'] ?? ''),
+                (string) $course->driving_category_id,
+                (string) $course->training_type,
             );
 
             DB::table('course_enrollments')->where('id', $courseId)->update([
