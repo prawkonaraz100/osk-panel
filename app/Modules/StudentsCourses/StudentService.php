@@ -207,6 +207,15 @@ final class StudentService
                     $snapshot['organization_id'],
                     'licenses.assign',
                 );
+                $initialAccount = $initialLicense['target']['new_learning_account'] ?? null;
+                if (is_array($initialAccount)
+                    && trim((string) ($initialAccount['initial_password'] ?? '')) !== '') {
+                    $this->tenantAuthorizer->requireOrganizationPermission(
+                        $sessionId,
+                        $snapshot['organization_id'],
+                        'student_access.manage_credentials',
+                    );
+                }
             }
 
             $this->assertLocation($actor['organization_id'], $input['location_id'] ?? null);

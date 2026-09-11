@@ -167,6 +167,16 @@ final class LicenseService
         }
 
         $actor = $this->scopeAuthorizer->requireStudentTarget($sessionId, 'licenses.assign', $studentId);
+        if ($newBranch && is_array($newAccount)) {
+            $initialPassword = trim((string) ($newAccount['initial_password'] ?? ''));
+            if ($initialPassword !== '') {
+                $this->scopeAuthorizer->requireStudentTarget(
+                    $sessionId,
+                    'student_access.manage_credentials',
+                    $studentId,
+                );
+            }
+        }
 
         return DB::transaction(function () use (
             $actor, $studentId, $inventoryId, $input, $requestId,

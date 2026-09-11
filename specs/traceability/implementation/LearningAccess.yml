@@ -50,3 +50,12 @@ changed_scope:
     ui: pending_confirmed_screen_gate
     acceptance_test: Tests\\Feature\\LearningAccessCoreTest::test_dbt_lic_002_003_020_050_054_revoke_restores_same_unit_and_reassignment_uses_new_contiguous_history
     status: IMPLEMENTED
+
+  - evidence: specs/database/licenses-learning-access.yml#DB-LIC-004
+    requirement: creating an OSK-managed initial password requires explicit credential-management authority in addition to license assignment authority
+    domain_data: users + user_password_management + student_learning_accounts
+    api_use_case: students.create initial_license + license_assignments.create new_learning_account
+    permission: licenses.assign plus student_access.manage_credentials when initial_password is supplied
+    ui: resources/js/modules/LearningAccess/StudentLearningAccessPanel.vue + resources/js/modules/LearningAccess/LearningAccessWorkspace.vue
+    acceptance_test: Tests\\Feature\\LearningAccessCoreTest::test_initial_password_requires_explicit_manage_credentials_permission
+    status: IMPLEMENTED

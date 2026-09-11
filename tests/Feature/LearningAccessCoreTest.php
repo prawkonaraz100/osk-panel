@@ -6,6 +6,7 @@ use App\Modules\LearningAccess\LearningAccountService;
 use App\Modules\LearningAccess\LicenseService;
 use App\Modules\ResourcesCore\ResourceDomainException;
 use App\Modules\StudentsCourses\StudentService;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -89,6 +90,72 @@ final class LearningAccessCoreTest extends TestCase
         $this->assertFalse(DB::table('students')->where('first_name', 'Rollback')->where('last_name', 'Test')->exists());
         $this->assertFalse(DB::table('auth_login_identifiers')->where('identifier_normalized', 'rollback@example.test')->exists());
         $this->assertSame('available', DB::table('license_inventory_entries')->where('id', $badFixture['inventory_id'])->value('status'));
+    }
+
+    public function test_initial_password_requires_explicit_manage_credentials_permission(): void
+    {
+        $actor = $this->accessActor();
+        DB::table('membership_permission_scopes')
+            ->where('membership_id', $actor['membership_id'])
+            ->where('permission_code', 'student_access.manage_credentials')
+            ->delete();
+        DB::table('membership_permissions')
+            ->where('membership_id', $actor['membership_id'])
+            ->where('permission_code', 'student_access.manage_credentials')
+            ->delete();
+
+        $student = $this->student($actor);
+        $fixture = $this->inventory($actor['organization_id'], 30);
+
+        try {
+            app(LicenseService::class)->createAssignment($actor['session_id'], [
+                'license_inventory_entry_id' => $fixture['inventory_id'],
+                'target' => [
+                    'student_id' => $student['id'],
+                    'new_learning_account' => [
+                        'login_identifier' => 'permission.denied@example.test',
+                        'language_code' => 'pl',
+                        'initial_password' => 'InitialPassphrase2026',
+                    ],
+                ],
+                'language_code' => 'pl',
+            ], (string) Str::uuid7());
+            $this->fail('Expected credential-management permission denial.');
+        } catch (AuthorizationException) {
+            $this->assertTrue(true);
+        }
+
+        $this->assertFalse(DB::table('student_learning_accounts')->where('student_id', $student['id'])->exists());
+        $this->assertFalse(DB::table('auth_login_identifiers')->where('identifier_normalized', 'permission.denied@example.test')->exists());
+        $this->assertSame('available', DB::table('license_inventory_entries')->where('id', $fixture['inventory_id'])->value('status'));
+
+        $studentCount = DB::table('students')->count();
+        $secondFixture = $this->inventory($actor['organization_id'], 30);
+        try {
+            app(StudentService::class)->create($actor['session_id'], [
+                'first_name' => 'No',
+                'last_name' => 'Credential Permission',
+                'no_pesel' => true,
+                'birth_date' => '1994-04-05',
+                'initial_license' => [
+                    'license_inventory_entry_id' => $secondFixture['inventory_id'],
+                    'language_code' => 'pl',
+                    'target' => [
+                        'new_learning_account' => [
+                            'login_identifier' => 'create.permission.denied@example.test',
+                            'language_code' => 'pl',
+                            'initial_password' => 'InitialPassphrase2026',
+                        ],
+                    ],
+                ],
+            ], (string) Str::uuid7());
+            $this->fail('Expected create-time credential-management permission denial.');
+        } catch (AuthorizationException) {
+            $this->assertTrue(true);
+        }
+
+        $this->assertSame($studentCount, DB::table('students')->count());
+        $this->assertSame('available', DB::table('license_inventory_entries')->where('id', $secondFixture['inventory_id'])->value('status'));
     }
 
     public function test_dbt_lic_001_archive_blocks_new_effects_without_rewriting_access_history(): void
