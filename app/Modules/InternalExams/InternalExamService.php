@@ -298,9 +298,6 @@ final class InternalExamService
 
             $oneTimeToken = null;
             if ($mode === 'remote_link') {
-                if ($expiresAt === null) {
-                    throw new LogicException('Remote access expiry disappeared inside the transaction.');
-                }
                 $issued = $this->tokens->issueExecution(
                     $actor['organization_id'],
                     $id,
