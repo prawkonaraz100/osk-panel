@@ -304,11 +304,11 @@ final class CalendarImportantDateProjectionService
         $end = CarbonImmutable::parse((string) $item['ends_at']);
 
         if (($filters['from'] ?? null) !== null
-            && ! $end->greaterThan(CarbonImmutable::parse((string) $filters['from']))) {
+            && $end->lessThanOrEqualTo(CarbonImmutable::parse((string) $filters['from']))) {
             return false;
         }
         if (($filters['to'] ?? null) !== null
-            && ! $start->lessThan(CarbonImmutable::parse((string) $filters['to']))) {
+            && $start->greaterThanOrEqualTo(CarbonImmutable::parse((string) $filters['to']))) {
             return false;
         }
 
