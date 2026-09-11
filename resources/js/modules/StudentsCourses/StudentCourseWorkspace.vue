@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { ApiError, api } from '../ResourcesCore/api'
 import CourseFormFields from './CourseFormFields.vue'
+import StudentFinancePanel from './StudentFinancePanel.vue'
 
 type CourseSummary = {
   id: string
@@ -31,6 +32,11 @@ type StudentPreview = Student & {
   payments_summary: Record<string, unknown>
 }
 
+type Money = {
+  amount_minor: number
+  currency: string
+}
+
 type Course = {
   id: string
   student_id: string
@@ -38,7 +44,7 @@ type Course = {
   driving_category_code: string
   pkk_reference_masked: string | null
   started_at: string
-  initial_cost: null
+  initial_cost: Money | null
   declared_theory_minutes: number
   declared_practical_minutes: number
   lead_instructor_id: string
@@ -321,7 +327,7 @@ function openCourseEdit(course: Course): void {
     pkk_number: '',
     pkk_masked: course.pkk_reference_masked ?? '',
     started_at: toDateTimeLocal(course.started_at),
-    cost: '',
+    cost: course.initial_cost ? minorToInput(course.initial_cost.amount_minor) : '',
     theory_hours_current: minutesToHours(course.declared_theory_minutes, 45),
     theory_hours_previous: '',
     practice_hours_current: minutesToHours(course.declared_practical_minutes, 60),
@@ -498,6 +504,12 @@ function coursePayload(form: CourseForm, create: boolean): Record<string, unknow
   if (create) {
     payload.recognized_external_theory_minutes = hoursToMinutes(form.theory_hours_previous, 45)
     payload.recognized_external_practical_minutes = hoursToMinutes(form.practice_hours_previous, 60)
+    if (form.cost.trim()) {
+      payload.initial_cost = {
+        amount_minor: plnToMinor(form.cost, true),
+        currency: 'PLN',
+      }
+    }
   }
 
   return payload
@@ -708,6 +720,27 @@ async function revokeExternal(record: ExternalTraining): Promise<void> {
   } finally {
     saving.value = false
   }
+}
+
+function minorToInput(amountMinor: number): string {
+  const whole = Math.floor(amountMinor / 100)
+  const cents = String(amountMinor % 100).padStart(2, '0')
+  return `${whole},${cents}`
+}
+
+function plnToMinor(raw: string, allowZero: boolean): number {
+  const normalized = raw.trim().replace(/\s+/g, '').replace(',', '.')
+  const match = normalized.match(/^(\d+)(?:\.(\d{1,2}))?$/)
+  if (!match) throw new Error('Podaj poprawną kwotę, np. 3500 lub 3500,50.')
+
+  const whole = Number.parseInt(match[1] ?? '0', 10)
+  const cents = Number.parseInt((match[2] ?? '').padEnd(2, '0') || '0', 10)
+  const amountMinor = whole * 100 + cents
+  if (!Number.isSafeInteger(amountMinor) || (allowZero ? amountMinor < 0 : amountMinor <= 0)) {
+    throw new Error(allowZero ? 'Kwota nie może być ujemna.' : 'Kwota musi być większa od zera.')
+  }
+
+  return amountMinor
 }
 
 function hoursToMinutes(value: string, unit: 45 | 60): number {
@@ -1241,12 +1274,13 @@ function handleError(caught: unknown): void {
           </div>
         </section>
 
-        <div class="detail-grid">
-          <section class="detail-card muted-module-card">
-            <span class="section-kicker">Płatności</span>
-            <h2>Finanse kursanta</h2>
-            <p>Koszt kursu, należności i wpłaty zostaną podpięte w osobnym module Student Finance.</p>
-          </section>
+        <StudentFinancePanel
+          :student-id="currentStudent.id"
+          :courses="currentCourses"
+          :archived="Boolean(currentStudent.archived_at)"
+        />
+
+        <div class="detail-grid single-deferred-card">
           <section class="detail-card muted-module-card">
             <span class="section-kicker">Egzamin i postęp</span>
             <h2>Kolejne moduły</h2>
