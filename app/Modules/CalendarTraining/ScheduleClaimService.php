@@ -26,8 +26,8 @@ final class ScheduleClaimService
     public function replaceForTrainingSession(
         string $organizationId,
         string $trainingSessionId,
-        ?string $studentId,
-        ?string $instructorId,
+        string $studentId,
+        string $instructorId,
         ?string $vehicleId,
         ?string $locationId,
         string $startsAt,
@@ -168,8 +168,8 @@ final class ScheduleClaimService
      * @return list<array{kind:string,id:string}>
      */
     private function desiredResources(
-        string $studentId,
-        string $instructorId,
+        ?string $studentId,
+        ?string $instructorId,
         ?string $vehicleId,
         ?string $locationId,
     ): array {

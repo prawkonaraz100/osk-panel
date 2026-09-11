@@ -208,7 +208,7 @@ final class CalendarEventCoreTest extends TestCase
     {
         $actor = FoundationSchema::actor();
         foreach ([
-            'calendar.view', 'calendar.manage.organization', 'calendar.manage.own',
+            'calendar.view', 'calendar.manage.organization',
             'students.view', 'students.create', 'courses.view', 'courses.create',
             'training_sessions.view', 'training_sessions.create', 'training_sessions.edit', 'training_sessions.cancel',
         ] as $permission) {
