@@ -123,7 +123,7 @@ final class InternalExamController
     public function attemptPatch(Request $request, string $attemptId): JsonResponse
     {
         $input = $this->validated($request, [
-            'candidate_snapshot' => ['required', 'array', 'min:1'],
+            'candidate_snapshot' => ['required', 'array:first_name,last_name,birth_date,contact_email,no_pesel_declared', 'min:1'],
             'candidate_snapshot.first_name' => ['sometimes', 'string', 'max:120'],
             'candidate_snapshot.last_name' => ['sometimes', 'string', 'max:120'],
             'candidate_snapshot.birth_date' => ['sometimes', 'nullable', 'date_format:Y-m-d'],
