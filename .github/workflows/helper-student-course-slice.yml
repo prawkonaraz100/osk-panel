@@ -10,6 +10,23 @@ permissions:
   contents: write
 
 jobs:
+  frontend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: tmp-core-v1-students-course-enrollment-001-20260911
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run build
+      - run: npm audit --audit-level=high
+
   validate:
     runs-on: ubuntu-24.04
     timeout-minutes: 18
