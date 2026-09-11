@@ -284,11 +284,21 @@ function handleError(caught: unknown): void {
 </script>
 
 <template>
-  <section class="detail-card learning-access-panel">
-    <div class="card-heading split">
+  <section
+    class="detail-card learning-access-panel"
+  >
+    <div
+      class="card-heading split"
+    >
       <div>
-        <span class="section-kicker">Dostęp do nauki</span>
-        <h2>Konta i licencje</h2>
+        <span
+          class="section-kicker"
+        >
+          Dostęp do nauki
+        </span>
+        <h2>
+          Konta i licencje
+        </h2>
       </div>
       <button
         class="button primary"
@@ -299,52 +309,140 @@ function handleError(caught: unknown): void {
         Przydziel licencję
       </button>
     </div>
-
-    <div v-if="notice" class="notice success" role="status">{{ notice }}</div>
-    <div v-if="error" class="notice error" role="alert">{{ error }}</div>
-    <div v-if="oneTimeSecret" class="secret-handoff">
-      <span>Hasło jednorazowo widoczne</span>
-      <strong>{{ oneTimeSecret }}</strong>
-      <small>Skopiuj je przed opuszczeniem strony. Nie jest zapisywane w postaci możliwej do odtworzenia.</small>
+    <div
+      v-if="notice"
+      class="notice success"
+      role="status"
+    >
+      {{ notice }}
     </div>
-
-    <div v-if="loading" class="loading-card">Ładowanie dostępów…</div>
-    <div v-else-if="accounts.length === 0" class="empty-inline">
-      <strong>Brak konta do nauki.</strong>
-      <span>Utwórz je podczas przypisywania pierwszej licencji.</span>
+    <div
+      v-if="error"
+      class="notice error"
+      role="alert"
+    >
+      {{ error }}
     </div>
-    <div v-else class="learning-account-list">
-      <article v-for="account in accounts" :key="account.id" class="learning-account-card">
-        <div class="learning-account-head">
+    <div
+      v-if="oneTimeSecret"
+      class="secret-handoff"
+    >
+      <span>
+        Hasło jednorazowo widoczne
+      </span>
+      <strong>
+        {{ oneTimeSecret }}
+      </strong>
+      <small>
+        Skopiuj je przed opuszczeniem strony. Nie jest zapisywane w postaci możliwej do odtworzenia.
+      </small>
+    </div>
+    <div
+      v-if="loading"
+      class="loading-card"
+    >
+      Ładowanie dostępów…
+    </div>
+    <div
+      v-else-if="accounts.length === 0"
+      class="empty-inline"
+    >
+      <strong>
+        Brak konta do nauki.
+      </strong>
+      <span>
+        Utwórz je podczas przypisywania pierwszej licencji.
+      </span>
+    </div>
+    <div
+      v-else
+      class="learning-account-list"
+    >
+      <article
+        v-for="account in accounts"
+        :key="account.id"
+        class="learning-account-card"
+      >
+        <div
+          class="learning-account-head"
+        >
           <div>
-            <strong>{{ account.login_identifier }}</strong>
-            <span>{{ account.language_code.toUpperCase() }} · {{ account.status === 'active' ? 'Aktywne konto' : 'Konto wstrzymane' }}</span>
+            <strong>
+              {{ account.login_identifier }}
+            </strong>
+            <span>
+              {{ account.language_code.toUpperCase() }} · {{ account.status === 'active' ? 'Aktywne konto' : 'Konto wstrzymane' }}
+            </span>
           </div>
-          <div class="row-actions">
-            <button class="text-button" type="button" :disabled="archived || saving" @click="openAssign(account.id)">
+          <div
+            class="row-actions"
+          >
+            <button
+              class="text-button"
+              type="button"
+              :disabled="archived || saving"
+              @click="openAssign(account.id)"
+            >
               Przydziel licencję
             </button>
-            <button class="text-button" type="button" :disabled="archived || saving" @click="resetPassword(account)">
+            <button
+              class="text-button"
+              type="button"
+              :disabled="archived || saving"
+              @click="resetPassword(account)"
+            >
               Nowe hasło
             </button>
           </div>
         </div>
-
-        <div v-if="(historyByAccount[account.id] ?? []).length === 0" class="empty-inline compact-empty">
-          <span>Brak historii licencji.</span>
+        <div
+          v-if="(historyByAccount[account.id] ?? []).length === 0"
+          class="empty-inline compact-empty"
+        >
+          <span>
+            Brak historii licencji.
+          </span>
         </div>
-        <div v-else class="license-history">
-          <div v-for="assignment in historyByAccount[account.id]" :key="assignment.id" class="license-history-row">
+        <div
+          v-else
+          class="license-history"
+        >
+          <div
+            v-for="assignment in historyByAccount[account.id]"
+            :key="assignment.id"
+            class="license-history-row"
+          >
             <div>
-              <strong>#{{ assignment.assignment_sequence }} · {{ statusLabel(assignment.presentation_status) }}</strong>
-              <span>Przypisano {{ formatDate(assignment.assigned_at) }}</span>
-              <span v-if="assignment.expires_at">Ważna do {{ formatDate(assignment.expires_at) }}</span>
+              <strong>
+                #{{ assignment.assignment_sequence }} · {{ statusLabel(assignment.presentation_status) }}
+              </strong>
+              <span>
+                Przypisano {{ formatDate(assignment.assigned_at) }}
+              </span>
+              <span
+                v-if="assignment.expires_at"
+              >
+                Ważna do {{ formatDate(assignment.expires_at) }}
+              </span>
             </div>
-            <div v-if="assignment.status === 'assigned'" class="row-actions">
-              <button class="text-button strong" type="button" :disabled="archived || saving" @click="activate(assignment)">
+            <div
+              v-if="assignment.status === 'assigned'"
+              class="row-actions"
+            >
+              <button
+                class="text-button strong"
+                type="button"
+                :disabled="archived || saving"
+                @click="activate(assignment)"
+              >
                 Aktywuj
               </button>
-              <button class="text-button danger" type="button" :disabled="saving" @click="revoke(assignment)">
+              <button
+                class="text-button danger"
+                type="button"
+                :disabled="saving"
+                @click="revoke(assignment)"
+              >
                 Zwolnij
               </button>
             </div>
@@ -352,74 +450,170 @@ function handleError(caught: unknown): void {
         </div>
       </article>
     </div>
-
-    <div v-if="drawerOpen" class="drawer-backdrop finance-drawer-backdrop" @click.self="drawerOpen = false">
-      <aside class="drawer compact">
-        <div class="drawer-header">
+    <div
+      v-if="drawerOpen"
+      class="drawer-backdrop finance-drawer-backdrop"
+      @click.self="drawerOpen = false"
+    >
+      <aside
+        class="drawer compact"
+      >
+        <div
+          class="drawer-header"
+        >
           <div>
-            <span class="section-kicker">Dostęp do nauki</span>
-            <h2>Przydzielanie licencji</h2>
+            <span
+              class="section-kicker"
+            >
+              Dostęp do nauki
+            </span>
+            <h2>
+              Przydzielanie licencji
+            </h2>
           </div>
-          <button class="icon-button" type="button" aria-label="Zamknij" @click="drawerOpen = false">×</button>
+          <button
+            class="icon-button"
+            type="button"
+            aria-label="Zamknij"
+            @click="drawerOpen = false"
+          >
+            ×
+          </button>
         </div>
-
-        <form class="form-grid" @submit.prevent="assign">
-          <label class="full">
+        <form
+          class="form-grid"
+          @submit.prevent="assign"
+        >
+          <label
+            class="full"
+          >
             Rodzaj licencji
-            <select v-model="selectedProductId">
-              <option value="">Wybierz</option>
-              <option v-for="product in products" :key="product.id" :value="product.id">
+            <select
+              v-model="selectedProductId"
+            >
+              <option
+                value=""
+              >
+                Wybierz
+              </option>
+              <option
+                v-for="product in products"
+                :key="product.id"
+                :value="product.id"
+              >
                 {{ product.duration_days }} dni · dostępne {{ inventory.filter((row) => row.product_id === product.id && row.status === 'available').length }}
               </option>
             </select>
           </label>
-
-          <fieldset class="full">
-            <legend>Konto do nauki</legend>
-            <div class="permission-list">
-              <label v-for="account in accounts" :key="account.id" class="check">
-                <input v-model="targetMode" type="radio" value="existing" @change="selectedAccountId = account.id">
-                <span>{{ account.login_identifier }} · {{ account.language_code.toUpperCase() }}</span>
+          <fieldset
+            class="full"
+          >
+            <legend>
+              Konto do nauki
+            </legend>
+            <div
+              class="permission-list"
+            >
+              <label
+                v-for="account in accounts"
+                :key="account.id"
+                class="check"
+              >
+                <input
+                  v-model="targetMode"
+                  type="radio"
+                  value="existing"
+                  @change="selectedAccountId = account.id"
+                >
+                <span>
+                  {{ account.login_identifier }} · {{ account.language_code.toUpperCase() }}
+                </span>
               </label>
-              <label class="check">
-                <input v-model="targetMode" type="radio" value="new">
-                <span>Dodaj nowy dostęp</span>
+              <label
+                class="check"
+              >
+                <input
+                  v-model="targetMode"
+                  type="radio"
+                  value="new"
+                >
+                <span>
+                  Dodaj nowy dostęp
+                </span>
               </label>
             </div>
           </fieldset>
-
-          <label v-if="targetMode === 'existing'" class="full">
+          <label
+            v-if="targetMode === 'existing'"
+            class="full"
+          >
             Istniejące konto
-            <select v-model="selectedAccountId">
-              <option v-for="account in accounts" :key="account.id" :value="account.id">
+            <select
+              v-model="selectedAccountId"
+            >
+              <option
+                v-for="account in accounts"
+                :key="account.id"
+                :value="account.id"
+              >
                 {{ account.login_identifier }} · {{ account.language_code.toUpperCase() }}
               </option>
             </select>
-            <small>Język istniejącego konta nie jest zmieniany przez przypisanie licencji.</small>
+            <small>
+              Język istniejącego konta nie jest zmieniany przez przypisanie licencji.
+            </small>
           </label>
-
-          <template v-else>
-            <label class="full">
+          <template
+            v-else
+          >
+            <label
+              class="full"
+            >
               Login lub e-mail
-              <input v-model="newLogin" autocomplete="off">
+              <input
+                v-model="newLogin"
+                autocomplete="off"
+              >
             </label>
             <label>
               Język
-              <select v-model="newLanguage">
-                <option v-for="language in selectedProduct?.languages ?? []" :key="language" :value="language">
+              <select
+                v-model="newLanguage"
+              >
+                <option
+                  v-for="language in selectedProduct?.languages ?? []"
+                  :key="language"
+                  :value="language"
+                >
                   {{ language.toUpperCase() }}
                 </option>
               </select>
             </label>
             <label>
               Hasło początkowe
-              <input v-model="initialPassword" type="password" autocomplete="new-password" placeholder="Opcjonalnie">
+              <input
+                v-model="initialPassword"
+                type="password"
+                autocomplete="new-password"
+                placeholder="Opcjonalnie"
+              >
             </label>
           </template>
-
-          <div class="form-actions full">
-            <button class="button ghost" type="button" @click="drawerOpen = false">Anuluj</button>
-            <button class="button primary" type="submit" :disabled="saving || availableInventory.length === 0">
+          <div
+            class="form-actions full"
+          >
+            <button
+              class="button ghost"
+              type="button"
+              @click="drawerOpen = false"
+            >
+              Anuluj
+            </button>
+            <button
+              class="button primary"
+              type="submit"
+              :disabled="saving || availableInventory.length === 0"
+            >
               {{ saving ? 'Zapisywanie…' : 'Przydziel licencję' }}
             </button>
           </div>

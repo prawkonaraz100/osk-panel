@@ -305,208 +305,608 @@ function handleError(caught: unknown): void {
 </script>
 
 <template>
-  <div class="app-shell">
-    <aside class="sidebar">
-      <a class="brand" href="/">OSK <strong>Panel</strong></a>
-      <nav class="main-nav" aria-label="Główna nawigacja">
-        <a href="/kursanci">Kursanci</a>
-        <a href="/lokalizacje">Lokalizacje</a>
-        <a href="/pracownicy">Pracownicy</a>
-        <a href="/pojazdy">Pojazdy</a>
-        <a href="/kalendarz">Kalendarz</a>
-        <a href="/licencje/panel" class="active">Licencje</a>
+  <div
+    class="app-shell"
+  >
+    <aside
+      class="sidebar"
+    >
+      <a
+        class="brand"
+        href="/"
+      >
+        OSK
+        <strong>
+          Panel
+        </strong>
+      </a>
+      <nav
+        class="main-nav"
+        aria-label="Główna nawigacja"
+      >
+        <a
+          href="/kursanci"
+        >
+          Kursanci
+        </a>
+        <a
+          href="/lokalizacje"
+        >
+          Lokalizacje
+        </a>
+        <a
+          href="/pracownicy"
+        >
+          Pracownicy
+        </a>
+        <a
+          href="/pojazdy"
+        >
+          Pojazdy
+        </a>
+        <a
+          href="/kalendarz"
+        >
+          Kalendarz
+        </a>
+        <a
+          href="/licencje/panel"
+          class="active"
+        >
+          Licencje
+        </a>
       </nav>
-      <div class="sidebar-foot">Stage 5 · Core v1</div>
+      <div
+        class="sidebar-foot"
+      >
+        Stage 5 · Core v1
+      </div>
     </aside>
-
-    <main class="workspace">
-      <header class="workspace-header">
+    <main
+      class="workspace"
+    >
+      <header
+        class="workspace-header"
+      >
         <div>
-          <div class="eyebrow">PrawkoNaRaz · OSK</div>
-          <h1>Generowanie dostępu</h1>
+          <div
+            class="eyebrow"
+          >
+            PrawkoNaRaz · OSK
+          </div>
+          <h1>
+            Generowanie dostępu
+          </h1>
         </div>
-        <div class="header-actions">
-          <a class="button ghost" href="/kursanci">Dodaj kursanta</a>
-          <button class="button primary" type="button" @click="openGenerate">Przydziel licencję</button>
+        <div
+          class="header-actions"
+        >
+          <a
+            class="button ghost"
+            href="/kursanci"
+          >
+            Dodaj kursanta
+          </a>
+          <button
+            class="button primary"
+            type="button"
+            @click="openGenerate"
+          >
+            Przydziel licencję
+          </button>
         </div>
       </header>
-
-      <div v-if="notice" class="notice success" role="status">{{ notice }}</div>
-      <div v-if="error" class="notice error" role="alert">{{ error }}</div>
-      <div v-if="loading" class="loading-card">Ładowanie licencji…</div>
-
-      <template v-else>
-        <section class="license-product-grid">
-          <article v-for="product in products" :key="product.id" class="license-product-card">
-            <span>Licencja</span>
-            <strong>{{ product.duration_days }} dni</strong>
+      <div
+        v-if="notice"
+        class="notice success"
+        role="status"
+      >
+        {{ notice }}
+      </div>
+      <div
+        v-if="error"
+        class="notice error"
+        role="alert"
+      >
+        {{ error }}
+      </div>
+      <div
+        v-if="loading"
+        class="loading-card"
+      >
+        Ładowanie licencji…
+      </div>
+      <template
+        v-else
+      >
+        <section
+          class="license-product-grid"
+        >
+          <article
+            v-for="product in products"
+            :key="product.id"
+            class="license-product-card"
+          >
+            <span>
+              Licencja
+            </span>
+            <strong>
+              {{ product.duration_days }} dni
+            </strong>
             <div>
-              <b>{{ product.available_count ?? inventory.filter((row) => row.product_id === product.id && row.status === 'available').length }}</b>
-              <small>dostępnych</small>
+              <b>
+                {{ product.available_count ?? inventory.filter((row) => row.product_id === product.id && row.status === 'available').length }}
+              </b>
+              <small>
+                dostępnych
+              </small>
             </div>
             <div>
-              <b>{{ product.active_count ?? 0 }}</b>
-              <small>aktywnych</small>
+              <b>
+                {{ product.active_count ?? 0 }}
+              </b>
+              <small>
+                aktywnych
+              </small>
             </div>
           </article>
-          <div v-if="products.length === 0" class="empty-inline">
-            <strong>Brak aktywnych produktów licencyjnych.</strong>
-            <span>Zakup i zasilanie puli należy do osobnego modułu Commerce.</span>
+          <div
+            v-if="products.length === 0"
+            class="empty-inline"
+          >
+            <strong>
+              Brak aktywnych produktów licencyjnych.
+            </strong>
+            <span>
+              Zakup i zasilanie puli należy do osobnego modułu Commerce.
+            </span>
           </div>
         </section>
-
-        <section class="toolbar license-toolbar">
+        <section
+          class="toolbar license-toolbar"
+        >
           <div>
-            <span class="section-kicker">Przydzielone licencje</span>
-            <p class="section-description">Jedno konto do nauki może mieć wiele historycznych przypisań.</p>
+            <span
+              class="section-kicker"
+            >
+              Przydzielone licencje
+            </span>
+            <p
+              class="section-description"
+            >
+              Jedno konto do nauki może mieć wiele historycznych przypisań.
+            </p>
           </div>
-          <div class="license-filters">
-            <input v-model="search" type="search" placeholder="Szukaj loginu lub kursanta…" @keyup.enter="page = 1; loadRows()">
-            <select v-model="sort" @change="page = 1; loadRows()">
-              <option value="latest_license_generated_at">Najnowsza licencja</option>
-              <option value="learning_identifier">Login</option>
-              <option value="student_full_name">Kursant</option>
-              <option value="learning_access_language">Język</option>
-              <option value="latest_license_status">Status</option>
-              <option value="assigned_license_count">Liczba licencji</option>
+          <div
+            class="license-filters"
+          >
+            <input
+              v-model="search"
+              type="search"
+              placeholder="Szukaj loginu lub kursanta…"
+              @keyup.enter="page = 1; loadRows()"
+            >
+            <select
+              v-model="sort"
+              @change="page = 1; loadRows()"
+            >
+              <option
+                value="latest_license_generated_at"
+              >
+                Najnowsza licencja
+              </option>
+              <option
+                value="learning_identifier"
+              >
+                Login
+              </option>
+              <option
+                value="student_full_name"
+              >
+                Kursant
+              </option>
+              <option
+                value="learning_access_language"
+              >
+                Język
+              </option>
+              <option
+                value="latest_license_status"
+              >
+                Status
+              </option>
+              <option
+                value="assigned_license_count"
+              >
+                Liczba licencji
+              </option>
             </select>
-            <select v-model="direction" @change="page = 1; loadRows()">
-              <option value="desc">Malejąco</option>
-              <option value="asc">Rosnąco</option>
+            <select
+              v-model="direction"
+              @change="page = 1; loadRows()"
+            >
+              <option
+                value="desc"
+              >
+                Malejąco
+              </option>
+              <option
+                value="asc"
+              >
+                Rosnąco
+              </option>
             </select>
-            <label class="check">
-              <input v-model="hideFinished" type="checkbox" @change="page = 1; loadRows()">
+            <label
+              class="check"
+            >
+              <input
+                v-model="hideFinished"
+                type="checkbox"
+                @change="page = 1; loadRows()"
+              >
               Ukryj zakończone
             </label>
-            <button class="button ghost" type="button" @click="page = 1; loadRows()">Szukaj</button>
+            <button
+              class="button ghost"
+              type="button"
+              @click="page = 1; loadRows()"
+            >
+              Szukaj
+            </button>
           </div>
         </section>
-
-        <section class="table-card">
-          <table class="license-table">
+        <section
+          class="table-card"
+        >
+          <table
+            class="license-table"
+          >
             <thead>
               <tr>
-                <th>Dane do nauki</th>
-                <th>Kursant</th>
-                <th>Najnowsza licencja</th>
-                <th>Język</th>
-                <th>Status</th>
-                <th>Licencje</th>
-                <th></th>
+                <th>
+                  Dane do nauki
+                </th>
+                <th>
+                  Kursant
+                </th>
+                <th>
+                  Najnowsza licencja
+                </th>
+                <th>
+                  Język
+                </th>
+                <th>
+                  Status
+                </th>
+                <th>
+                  Licencje
+                </th>
+                <th>
+                </th>
               </tr>
             </thead>
             <tbody>
-              <template v-for="row in rows" :key="row.learning_account_id">
+              <template
+                v-for="row in rows"
+                :key="row.learning_account_id"
+              >
                 <tr>
-                  <td><strong>{{ row.learning_identifier }}</strong></td>
-                  <td>{{ row.student_full_name }}</td>
-                  <td>{{ formatDate(row.latest_license_generated_at) }}</td>
-                  <td>{{ row.learning_access_language.toUpperCase() }}</td>
-                  <td><span class="status-pill" :class="{ muted: row.latest_license_status !== 'active' }">{{ statusLabel(row.latest_license_status) }}</span></td>
-                  <td>{{ row.assigned_license_count }}</td>
-                  <td class="actions-column">
-                    <button class="text-button strong" type="button" @click="toggleExpanded(row)">
+                  <td>
+                    <strong>
+                      {{ row.learning_identifier }}
+                    </strong>
+                  </td>
+                  <td>
+                    {{ row.student_full_name }}
+                  </td>
+                  <td>
+                    {{ formatDate(row.latest_license_generated_at) }}
+                  </td>
+                  <td>
+                    {{ row.learning_access_language.toUpperCase() }}
+                  </td>
+                  <td>
+                    <span
+                      class="status-pill"
+                      :class="{ muted: row.latest_license_status !== 'active' }"
+                    >
+                      {{ statusLabel(row.latest_license_status) }}
+                    </span>
+                  </td>
+                  <td>
+                    {{ row.assigned_license_count }}
+                  </td>
+                  <td
+                    class="actions-column"
+                  >
+                    <button
+                      class="text-button strong"
+                      type="button"
+                      @click="toggleExpanded(row)"
+                    >
                       {{ expanded === row.learning_account_id ? 'Zwiń' : 'Rozwiń' }}
                     </button>
                   </td>
                 </tr>
-                <tr v-if="expanded === row.learning_account_id" class="license-expanded-row">
-                  <td colspan="7">
-                    <div class="license-history">
-                      <div v-for="item in history[row.learning_account_id] ?? []" :key="item.id" class="license-history-row">
+                <tr
+                  v-if="expanded === row.learning_account_id"
+                  class="license-expanded-row"
+                >
+                  <td
+                    colspan="7"
+                  >
+                    <div
+                      class="license-history"
+                    >
+                      <div
+                        v-for="item in history[row.learning_account_id] ?? []"
+                        :key="item.id"
+                        class="license-history-row"
+                      >
                         <div>
-                          <strong>#{{ item.assignment_sequence }} · {{ statusLabel(item.presentation_status) }}</strong>
-                          <span>Przypisano {{ formatDate(item.assigned_at) }}</span>
-                          <span>Wygasa {{ formatDate(item.expires_at) }}</span>
+                          <strong>
+                            #{{ item.assignment_sequence }} · {{ statusLabel(item.presentation_status) }}
+                          </strong>
+                          <span>
+                            Przypisano {{ formatDate(item.assigned_at) }}
+                          </span>
+                          <span>
+                            Wygasa {{ formatDate(item.expires_at) }}
+                          </span>
                         </div>
-                        <div v-if="item.status === 'assigned'" class="row-actions">
-                          <button class="text-button strong" type="button" :disabled="saving" @click="activate(item)">Aktywuj</button>
-                          <button class="text-button danger" type="button" :disabled="saving" @click="revoke(item)">Zwolnij</button>
+                        <div
+                          v-if="item.status === 'assigned'"
+                          class="row-actions"
+                        >
+                          <button
+                            class="text-button strong"
+                            type="button"
+                            :disabled="saving"
+                            @click="activate(item)"
+                          >
+                            Aktywuj
+                          </button>
+                          <button
+                            class="text-button danger"
+                            type="button"
+                            :disabled="saving"
+                            @click="revoke(item)"
+                          >
+                            Zwolnij
+                          </button>
                         </div>
                       </div>
                     </div>
                   </td>
                 </tr>
               </template>
-              <tr v-if="rows.length === 0"><td colspan="7" class="empty-cell">Brak dostępów spełniających filtry.</td></tr>
+              <tr
+                v-if="rows.length === 0"
+              >
+                <td
+                  colspan="7"
+                  class="empty-cell"
+                >
+                  Brak dostępów spełniających filtry.
+                </td>
+              </tr>
             </tbody>
           </table>
         </section>
-
-        <div class="pagination-row">
-          <span>Strona {{ meta.page }} z {{ meta.last_page }} · {{ meta.total }} kont</span>
-          <div class="row-actions">
-            <button class="button ghost" type="button" :disabled="page <= 1" @click="page--; loadRows()">Wstecz</button>
-            <button class="button ghost" type="button" :disabled="page >= meta.last_page" @click="page++; loadRows()">Dalej</button>
+        <div
+          class="pagination-row"
+        >
+          <span>
+            Strona {{ meta.page }} z {{ meta.last_page }} · {{ meta.total }} kont
+          </span>
+          <div
+            class="row-actions"
+          >
+            <button
+              class="button ghost"
+              type="button"
+              :disabled="page <= 1"
+              @click="page--; loadRows()"
+            >
+              Wstecz
+            </button>
+            <button
+              class="button ghost"
+              type="button"
+              :disabled="page >= meta.last_page"
+              @click="page++; loadRows()"
+            >
+              Dalej
+            </button>
           </div>
         </div>
       </template>
-
-      <div v-if="drawerOpen" class="drawer-backdrop" @click.self="drawerOpen = false">
-        <aside class="drawer">
-          <div class="drawer-header">
+      <div
+        v-if="drawerOpen"
+        class="drawer-backdrop"
+        @click.self="drawerOpen = false"
+      >
+        <aside
+          class="drawer"
+        >
+          <div
+            class="drawer-header"
+          >
             <div>
-              <span class="section-kicker">Licencje</span>
-              <h2>Przydzielanie licencji</h2>
+              <span
+                class="section-kicker"
+              >
+                Licencje
+              </span>
+              <h2>
+                Przydzielanie licencji
+              </h2>
             </div>
-            <button class="icon-button" type="button" aria-label="Zamknij" @click="drawerOpen = false">×</button>
+            <button
+              class="icon-button"
+              type="button"
+              aria-label="Zamknij"
+              @click="drawerOpen = false"
+            >
+              ×
+            </button>
           </div>
-
-          <form class="form-grid" @submit.prevent="assign">
-            <label class="full">
+          <form
+            class="form-grid"
+            @submit.prevent="assign"
+          >
+            <label
+              class="full"
+            >
               Rodzaj licencji
-              <select v-model="selectedProductId" @change="newLanguage = selectedProduct?.languages[0] ?? 'pl'">
-                <option value="">Wybierz</option>
-                <option v-for="product in products" :key="product.id" :value="product.id">
+              <select
+                v-model="selectedProductId"
+                @change="newLanguage = selectedProduct?.languages[0] ?? 'pl'"
+              >
+                <option
+                  value=""
+                >
+                  Wybierz
+                </option>
+                <option
+                  v-for="product in products"
+                  :key="product.id"
+                  :value="product.id"
+                >
                   {{ product.duration_days }} dni · dostępne {{ inventory.filter((row) => row.product_id === product.id).length }}
                 </option>
               </select>
             </label>
-
-            <label class="full">
+            <label
+              class="full"
+            >
               Wyszukaj kursanta
-              <div class="student-search compact-search">
-                <input v-model="studentSearch" type="search" placeholder="Imię, nazwisko lub e-mail" @input="searchStudents">
-                <button class="button ghost" type="button" @click="searchStudents">Szukaj</button>
+              <div
+                class="student-search compact-search"
+              >
+                <input
+                  v-model="studentSearch"
+                  type="search"
+                  placeholder="Imię, nazwisko lub e-mail"
+                  @input="searchStudents"
+                >
+                <button
+                  class="button ghost"
+                  type="button"
+                  @click="searchStudents"
+                >
+                  Szukaj
+                </button>
               </div>
             </label>
-
-            <div v-if="studentOptions.length && !selectedStudentId" class="full search-result-list">
-              <button v-for="student in studentOptions" :key="student.id" type="button" class="search-result" @click="selectStudent(student)">
-                <strong>{{ student.first_name }} {{ student.last_name }}</strong>
-                <span>{{ student.contact_email ?? 'Brak e-maila kontaktowego' }}</span>
+            <div
+              v-if="studentOptions.length && !selectedStudentId"
+              class="full search-result-list"
+            >
+              <button
+                v-for="student in studentOptions"
+                :key="student.id"
+                type="button"
+                class="search-result"
+                @click="selectStudent(student)"
+              >
+                <strong>
+                  {{ student.first_name }} {{ student.last_name }}
+                </strong>
+                <span>
+                  {{ student.contact_email ?? 'Brak e-maila kontaktowego' }}
+                </span>
               </button>
             </div>
-
-            <template v-if="selectedStudentId">
-              <fieldset class="full">
-                <legend>Konto do nauki</legend>
-                <div class="permission-list">
-                  <label v-for="account in studentAccounts" :key="account.id" class="check">
-                    <input v-model="selectedAccountId" type="radio" :value="account.id" @change="targetMode = 'existing'">
+            <template
+              v-if="selectedStudentId"
+            >
+              <fieldset
+                class="full"
+              >
+                <legend>
+                  Konto do nauki
+                </legend>
+                <div
+                  class="permission-list"
+                >
+                  <label
+                    v-for="account in studentAccounts"
+                    :key="account.id"
+                    class="check"
+                  >
+                    <input
+                      v-model="selectedAccountId"
+                      type="radio"
+                      :value="account.id"
+                      @change="targetMode = 'existing'"
+                    >
                     {{ account.login_identifier }} · {{ account.language_code.toUpperCase() }}
                   </label>
-                  <label class="check">
-                    <input v-model="targetMode" type="radio" value="new" @change="selectedAccountId = ''">
+                  <label
+                    class="check"
+                  >
+                    <input
+                      v-model="targetMode"
+                      type="radio"
+                      value="new"
+                      @change="selectedAccountId = ''"
+                    >
                     Dodaj nowy dostęp
                   </label>
                 </div>
               </fieldset>
-
-              <template v-if="targetMode === 'new'">
-                <label class="full">Login lub e-mail<input v-model="newLogin"></label>
-                <label>Język
-                  <select v-model="newLanguage">
-                    <option v-for="language in selectedProduct?.languages ?? []" :key="language" :value="language">{{ language.toUpperCase() }}</option>
+              <template
+                v-if="targetMode === 'new'"
+              >
+                <label
+                  class="full"
+                >
+                  Login lub e-mail
+                  <input
+                    v-model="newLogin"
+                  >
+                </label>
+                <label>
+                  Język
+                  <select
+                    v-model="newLanguage"
+                  >
+                    <option
+                      v-for="language in selectedProduct?.languages ?? []"
+                      :key="language"
+                      :value="language"
+                    >
+                      {{ language.toUpperCase() }}
+                    </option>
                   </select>
                 </label>
-                <label>Hasło początkowe<input v-model="initialPassword" type="password" autocomplete="new-password" placeholder="Opcjonalnie"></label>
+                <label>
+                  Hasło początkowe
+                  <input
+                    v-model="initialPassword"
+                    type="password"
+                    autocomplete="new-password"
+                    placeholder="Opcjonalnie"
+                  >
+                </label>
               </template>
             </template>
-
-            <div class="form-actions full">
-              <button class="button ghost" type="button" @click="drawerOpen = false">Anuluj</button>
-              <button class="button primary" type="submit" :disabled="saving || !selectedStudentId || availableForSelectedProduct.length === 0">
+            <div
+              class="form-actions full"
+            >
+              <button
+                class="button ghost"
+                type="button"
+                @click="drawerOpen = false"
+              >
+                Anuluj
+              </button>
+              <button
+                class="button primary"
+                type="submit"
+                :disabled="saving || !selectedStudentId || availableForSelectedProduct.length === 0"
+              >
                 {{ saving ? 'Zapisywanie…' : 'Przydziel licencję' }}
               </button>
             </div>
