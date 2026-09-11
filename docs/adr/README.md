@@ -8,7 +8,8 @@ Aktualny rejestr ADR core OSK v1:
 - `0004-internal-exam-consume-on-start.md` — moment zużycia inventory egzaminu,
 - `0005-permission-based-rbac.md` — permissions zamiast sztywnych ról,
 - `0006-archive-correction-over-hard-delete.md` — lifecycle danych formalnych,
-- `0007-pending-technical-decisions.md` — decyzje jeszcze nierozstrzygnięte.
+- `0007-pending-technical-decisions.md` — rejestr decyzji nadal nierozstrzygniętych,
+- `0008-calendar-resource-conflict-boundary.md` — finalna i przejściowa granica konfliktów Calendar/Training.
 
 Statusy:
 - `Accepted` — obowiązuje implementację,
