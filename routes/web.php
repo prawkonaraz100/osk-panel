@@ -6,6 +6,7 @@ use App\Modules\CalendarTraining\CalendarEventController;
 use App\Modules\CalendarTraining\TrainingSessionController;
 use App\Modules\ResourcesCore\ResourceApiMiddleware;
 use App\Modules\ResourcesCore\ResourceController;
+use App\Modules\StudentFinance\StudentFinanceController;
 use App\Modules\StudentsCourses\StudentCourseController;
 use Illuminate\Support\Facades\Route;
 
@@ -49,6 +50,14 @@ Route::middleware(ResourceApiMiddleware::class)->prefix('api/v1')->group(functio
     Route::get('/students/{studentId}/preview', [StudentCourseController::class, 'studentsPreview']);
     Route::post('/students/{studentId}/archive', [StudentCourseController::class, 'studentsArchive']);
     Route::post('/students/{studentId}/restore', [StudentCourseController::class, 'studentsRestore']);
+
+    Route::get('/students/{studentId}/charges', [StudentFinanceController::class, 'chargesList']);
+    Route::post('/students/{studentId}/charges', [StudentFinanceController::class, 'chargesCreate']);
+    Route::post('/students/{studentId}/charges/{chargeId}/cancel', [StudentFinanceController::class, 'chargesCancel']);
+    Route::get('/students/{studentId}/payments', [StudentFinanceController::class, 'paymentsList']);
+    Route::post('/students/{studentId}/payments', [StudentFinanceController::class, 'paymentsRecord']);
+    Route::post('/students/{studentId}/payments/{paymentId}/reverse', [StudentFinanceController::class, 'paymentsReverse']);
+    Route::get('/students/{studentId}/finance-summary', [StudentFinanceController::class, 'summary']);
 
     Route::get('/students/{studentId}/course-enrollments', [StudentCourseController::class, 'coursesList']);
     Route::post('/students/{studentId}/course-enrollments', [StudentCourseController::class, 'coursesCreate']);

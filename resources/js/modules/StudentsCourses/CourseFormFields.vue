@@ -100,12 +100,18 @@ function selectValue(event: Event): string {
   </label>
 
   <label>Koszt
-    <input
-      :value="modelValue.cost"
-      disabled
-      placeholder="Obsługiwany w module Finanse"
-    >
-    <small>Koszt nie jest drugim polem finansowym na CourseEnrollment.</small>
+    <div class="money-input">
+      <input
+        :value="modelValue.cost"
+        inputmode="decimal"
+        :disabled="editing"
+        :placeholder="editing ? 'Koszt początkowy kursu' : 'np. 3500,00'"
+        @input="set('cost', inputValue($event))"
+      >
+      <span>zł</span>
+    </div>
+    <small v-if="!editing">Wpisanie kwoty utworzy jedną należność w finansach kursanta przy zapisie kursu.</small>
+    <small v-else>Koszt początkowy jest tylko projekcją należności i nie jest edytowany z poziomu kursu.</small>
   </label>
 
   <label>Godzin teorii

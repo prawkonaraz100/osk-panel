@@ -10,6 +10,7 @@ use Tests\Feature\IdentityTenantFoundationTest;
 use Tests\Feature\OrganizationSettingsFoundationTest;
 use Tests\Feature\ResourcesCoreTest;
 use Tests\Feature\Stage4MigrationPostcheckTest;
+use Tests\Feature\StudentFinanceCoreTest;
 use Tests\Feature\StudentsCoursesCoreTest;
 use Tests\Feature\TrainingSessionCoreTest;
 
@@ -369,5 +370,15 @@ return [
         'class' => StudentsCoursesCoreTest::class,
         'method' => 'test_student_archive_restore_mutation_preserves_single_profile_history',
         'scope' => 'Student profile archive/restore mutates one persistent profile with versioned audited state rather than replacing history.',
+    ],
+    'DBT-FIN-001' => [
+        'class' => StudentFinanceCoreTest::class,
+        'method' => 'test_dbt_fin_001_exact_student_course_charge_payment_currency_relations_fail_closed',
+        'scope' => 'Student Finance runtime rejects wrong-student or foreign-tenant course links and mismatched payment currency without persisting an invalid finance relation.',
+    ],
+    'DBT-FIN-005' => [
+        'class' => StudentFinanceCoreTest::class,
+        'method' => 'test_same_idempotency_key_replays_charge_payment_reversal_and_cancel_without_second_effect',
+        'scope' => 'Same idempotency key and request replays charge, payment, reversal, and cancellation without a second financial effect.',
     ],
 ];

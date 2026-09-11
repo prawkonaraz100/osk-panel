@@ -371,8 +371,7 @@ components:
         started_at: { type: string, format: date-time }
         initial_cost:
           anyOf: [{ $ref: '#/components/schemas/Money' }, { type: 'null' }]
-          description: Optional create-time finance side effect. Runtime persistence requires the Student Finance slice; CourseEnrollment is not the financial source of truth.
-          x-stage5-dependency: student_finance
+          description: Optional create-time Student Finance side effect. CourseEnrollment remains a projection only and is not the financial source of truth.
         declared_theory_minutes: { type: integer, minimum: 0 }
         declared_practical_minutes: { type: integer, minimum: 0 }
         lead_instructor_id: { type: string, format: uuid }
@@ -390,8 +389,7 @@ components:
         started_at: { type: string, format: date-time }
         initial_cost:
           anyOf: [{ $ref: '#/components/schemas/Money' }, { type: 'null' }]
-          description: Optional create-time finance side effect. Runtime persistence requires the Student Finance slice; CourseEnrollment is not the financial source of truth.
-          x-stage5-dependency: student_finance
+          description: Optional create-time Student Finance side effect. CourseEnrollment remains a projection only and is not the financial source of truth.
         declared_theory_minutes: { type: integer, minimum: 0, default: 0 }
         declared_practical_minutes: { type: integer, minimum: 0, default: 0 }
         recognized_external_theory_minutes: { type: integer, minimum: 0, default: 0 }
@@ -888,34 +886,45 @@ components:
 
     StudentCharge:
       type: object
-      required: [id, title, original_amount, status]
+      required: [id, student_id, title, original_amount, paid_amount, remaining_amount, status, created_at]
       properties:
         id: { type: string, format: uuid }
+        student_id: { type: string, format: uuid }
+        course_enrollment_id: { type: [string, 'null'], format: uuid }
         title: { type: string }
         original_amount: { $ref: '#/components/schemas/Money' }
+        paid_amount: { $ref: '#/components/schemas/Money' }
         remaining_amount: { $ref: '#/components/schemas/Money' }
-        status: { type: string }
+        status: { type: string, enum: [open, partially_paid, paid, cancelled] }
+        due_at: { type: [string, 'null'], format: date }
+        cancelled_at: { type: [string, 'null'], format: date-time }
         created_at: { type: string, format: date-time }
     CreateChargeRequest:
       type: object
+      additionalProperties: false
       required: [title, amount]
       properties:
-        title: { type: string }
+        title: { type: string, minLength: 1, maxLength: 255 }
         amount: { $ref: '#/components/schemas/Money' }
         course_enrollment_id: { type: [string, 'null'], format: uuid }
         due_at: { type: [string, 'null'], format: date }
     StudentPayment:
       type: object
-      required: [id, charge_id, amount, paid_at]
+      required: [id, student_id, charge_id, amount, paid_at, created_at]
       properties:
         id: { type: string, format: uuid }
+        student_id: { type: string, format: uuid }
         charge_id: { type: string, format: uuid }
         amount: { $ref: '#/components/schemas/Money' }
         paid_at: { type: string, format: date-time }
         payment_method: { type: [string, 'null'] }
+        note: { type: [string, 'null'] }
         reversed_at: { type: [string, 'null'], format: date-time }
+        reversal_reason: { type: [string, 'null'] }
+        created_at: { type: string, format: date-time }
     RecordStudentPaymentRequest:
       type: object
+      additionalProperties: false
       required: [charge_id, amount, paid_at]
       properties:
         charge_id: { type: string, format: uuid }
@@ -925,6 +934,7 @@ components:
         note: { type: [string, 'null'] }
     StudentFinanceSummary:
       type: object
+      required: [total_charged, total_paid, balance]
       properties:
         total_charged: { $ref: '#/components/schemas/Money' }
         total_paid: { $ref: '#/components/schemas/Money' }

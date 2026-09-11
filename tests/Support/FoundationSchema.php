@@ -23,6 +23,9 @@ final class FoundationSchema
         'training_hour_ledger_entries',
         'training_session_attendance',
         'training_sessions',
+        'course_cost_charge_origins',
+        'student_payments',
+        'student_charges',
         'pkk_profiles',
         'recognized_external_training',
         'course_exemption_decisions',
@@ -74,7 +77,7 @@ final class FoundationSchema
         $plan = app(MigrationPlan::class);
         $plan->validate();
 
-        if (! DB::getSchemaBuilder()->hasTable('locations')) {
+        if (! DB::getSchemaBuilder()->hasTable('course_cost_charge_origins')) {
             $exit = Artisan::call('migration:controlled', [
                 '--plan' => $plan->identity(),
                 '--execution' => $plan->executionIdentity(),

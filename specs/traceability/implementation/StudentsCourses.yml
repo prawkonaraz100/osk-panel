@@ -69,13 +69,13 @@ changed_scope:
     acceptance_test: Tests\Feature\StudentsCoursesCoreTest::test_assigned_students_scope_resolves_only_non_cancelled_lead_instructor_courses
     status: IMPLEMENTED
   - evidence: specs/screens/course-create.yml
-    requirement: course cost remains a Student Finance side effect and existing-current-OSK credited-hour import remains a Training Hour Ledger side effect rather than being fabricated inside CourseEnrollment
-    domain_data: future student_charges + training_hour_ledger_entries; CourseEnrollment stores no parallel financial balance and declared hours are not credited hours
-    api_use_case: initial_cost and import_existing_current_osk_hours remain contract-visible dependencies but runtime rejects unsupported side effects in this slice
-    permission: future Student Finance and training_hours permissions remain outside this module slice
-    ui: course form keeps Cost visible as a disabled Finance dependency and does not offer fake opening-balance credit
-    acceptance_test: Tests\Feature\StudentsCoursesCoreTest::test_course_create_is_atomic_across_pkk_requirements_external_history_and_audit
-    status: DEFERRED_OUTSIDE_CORE_WITH_EXPLICIT_DECISION
+    requirement: course initial_cost is an atomic Student Finance source effect while existing-current-OSK credited-hour import remains a Training Hour Ledger side effect rather than being fabricated inside CourseEnrollment
+    domain_data: student_charges + course_cost_charge_origins + training_hour_ledger_entries; CourseEnrollment stores no parallel financial balance and declared hours are not credited hours
+    api_use_case: course_enrollments.create may create one exact finance charge from initial_cost; import_existing_current_osk_hours remains separately owned by Training Hour Ledger
+    permission: courses.create plus student_finance.create_charge for initial_cost; training_hours permissions remain separate
+    ui: resources/js/modules/StudentsCourses/CourseFormFields.vue; create-time Cost emits initial_cost while edit mode shows the finance projection read-only
+    acceptance_test: Tests\Feature\StudentFinanceCoreTest::test_course_initial_cost_creates_one_exact_origin_and_retry_does_not_duplicate_charge
+    status: IMPLEMENTED
   - evidence: specs/screens/student-create.yml
     requirement: optional learning account and license assignment remain separate domain entities and are not flattened into Student persistence
     domain_data: future student_learning_accounts + license_assignments; students remains profile-only
