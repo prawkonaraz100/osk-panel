@@ -7,7 +7,6 @@ use App\Modules\ResourcesCore\ResourceDomainException;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use LogicException;
 
 /**
  * @phpstan-type AttemptRow object{id:mixed,status:mixed,started_at:mixed,version:mixed,internal_exam_definition_id:mixed,candidate_snapshot:mixed,driving_category_id:mixed,exam_part:mixed,language_code:mixed,requirement_basis_snapshot:mixed,exam_definition_version_snapshot:mixed,exam_definition_hash_snapshot:mixed,evidence_schema_version:mixed,question_set_hash:mixed}
