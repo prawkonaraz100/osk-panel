@@ -49,7 +49,7 @@ final class TrainingSessionService
     }
 
     /**
-     * @param  array{session_type:string,starts_at:string,ends_at:string,instructor_id:string,vehicle_id?:?string,location_id?:?string}  $input
+     * @param  array{session_type:string,starts_at:string,ends_at:string,instructor_id:string,vehicle_id?:?string,location_id?:?string,display_name?:?string,custom_meeting_place?:?string}  $input
      * @return array<string,mixed>
      */
     public function create(string $sessionId, string $courseId, array $input, string $requestId): array
@@ -70,7 +70,10 @@ final class TrainingSessionService
             $instructorId = $input['instructor_id'];
             $vehicleId = $input['vehicle_id'] ?? null;
             $locationId = $input['location_id'] ?? null;
+            $displayName = $this->nullableText($input['display_name'] ?? null);
+            $customMeetingPlace = $this->nullableText($input['custom_meeting_place'] ?? null);
             $this->assertResources($actor['organization_id'], $instructorId, $vehicleId, $locationId);
+            $this->assertCalendarMetadata($sessionType, $locationId, $displayName, $customMeetingPlace);
 
             $id = (string) Str::uuid7();
             $now = now();
@@ -92,6 +95,13 @@ final class TrainingSessionService
                 'updated_at' => $now,
             ]);
 
+            $this->writeCalendarDetails(
+                $actor['organization_id'],
+                $id,
+                $displayName,
+                $customMeetingPlace,
+            );
+
             $this->claims->replaceForTrainingSession(
                 $actor['organization_id'],
                 $id,
@@ -112,7 +122,7 @@ final class TrainingSessionService
                 $id,
                 $requestId,
                 ['fields' => [], 'state' => 'absent'],
-                ['fields' => ['session_type', 'starts_at', 'ends_at', 'duration_minutes', 'instructor_id', 'vehicle_id', 'location_id'], 'state' => 'planned'],
+                ['fields' => ['session_type', 'starts_at', 'ends_at', 'duration_minutes', 'instructor_id', 'vehicle_id', 'location_id', 'display_name', 'custom_meeting_place'], 'state' => 'planned'],
             );
 
             return $this->present(DB::table('training_sessions')->where('id', $id)->firstOrFail());
@@ -120,7 +130,7 @@ final class TrainingSessionService
     }
 
     /**
-     * @param  array{starts_at?:string,ends_at?:string,instructor_id?:string,vehicle_id?:?string,location_id?:?string}  $input
+     * @param  array{starts_at?:string,ends_at?:string,instructor_id?:string,vehicle_id?:?string,location_id?:?string,display_name?:?string,custom_meeting_place?:?string}  $input
      * @return array<string,mixed>
      */
     public function update(
@@ -153,7 +163,15 @@ final class TrainingSessionService
             $instructorId = array_key_exists('instructor_id', $input) ? (string) $input['instructor_id'] : (string) $row->instructor_id;
             $vehicleId = array_key_exists('vehicle_id', $input) ? $this->nullableUuidValue($input['vehicle_id']) : $this->nullableUuidValue($row->vehicle_id);
             $locationId = array_key_exists('location_id', $input) ? $this->nullableUuidValue($input['location_id']) : $this->nullableUuidValue($row->location_id);
+            $details = $this->calendarDetails($actor['organization_id'], $trainingSessionId, true);
+            $displayName = array_key_exists('display_name', $input)
+                ? $this->nullableText($input['display_name'])
+                : $this->nullableText($details?->display_name);
+            $customMeetingPlace = array_key_exists('custom_meeting_place', $input)
+                ? $this->nullableText($input['custom_meeting_place'])
+                : $this->nullableText($details?->custom_meeting_place);
             $this->assertResources($actor['organization_id'], $instructorId, $vehicleId, $locationId);
+            $this->assertCalendarMetadata((string) $row->session_type, $locationId, $displayName, $customMeetingPlace);
 
             $changed = [];
             if (! $this->sameInstant((string) $row->starts_at, $startsAt)) {
@@ -174,21 +192,32 @@ final class TrainingSessionService
                     $changed[] = $field;
                 }
             }
+            if ($this->nullableText($details?->display_name) !== $displayName) {
+                $changed[] = 'display_name';
+            }
+            if ($this->nullableText($details?->custom_meeting_place) !== $customMeetingPlace) {
+                $changed[] = 'custom_meeting_place';
+            }
 
             if ($changed === []) {
                 return $this->present($row);
             }
 
-            $this->claims->replaceForTrainingSession(
-                $actor['organization_id'],
-                $trainingSessionId,
-                (string) $course->student_id,
-                $instructorId,
-                $vehicleId,
-                $locationId,
-                $startsAt,
-                $endsAt,
-            );
+            if (array_intersect(
+                ['starts_at', 'ends_at', 'duration_minutes', 'instructor_id', 'vehicle_id', 'location_id'],
+                $changed,
+            ) !== []) {
+                $this->claims->replaceForTrainingSession(
+                    $actor['organization_id'],
+                    $trainingSessionId,
+                    (string) $course->student_id,
+                    $instructorId,
+                    $vehicleId,
+                    $locationId,
+                    $startsAt,
+                    $endsAt,
+                );
+            }
 
             DB::table('training_sessions')->where('id', $trainingSessionId)->update([
                 'starts_at' => $startsAt,
@@ -200,6 +229,12 @@ final class TrainingSessionService
                 'version' => (int) $row->version + 1,
                 'updated_at' => now(),
             ]);
+            $this->writeCalendarDetails(
+                $actor['organization_id'],
+                $trainingSessionId,
+                $displayName,
+                $customMeetingPlace,
+            );
 
             $this->auditOutbox->recordOrganizationEvent(
                 $actor['organization_id'],
@@ -796,6 +831,80 @@ final class TrainingSessionService
         }
     }
 
+    private function assertCalendarMetadata(
+        string $sessionType,
+        ?string $locationId,
+        ?string $displayName,
+        ?string $customMeetingPlace,
+    ): void {
+        if ($sessionType !== 'practical' && ($displayName !== null || $customMeetingPlace !== null)) {
+            throw ResourceDomainException::rule('Calendar-only metadata is allowed only for practical TrainingSession records.');
+        }
+        if ($locationId !== null && $customMeetingPlace !== null) {
+            throw ResourceDomainException::rule('Saved location and custom meeting place are mutually exclusive.');
+        }
+    }
+
+    private function calendarDetails(string $organizationId, string $trainingSessionId, bool $lock = false): ?\stdClass
+    {
+        $query = DB::table('training_session_calendar_details')
+            ->where('organization_id', $organizationId)
+            ->where('training_session_id', $trainingSessionId)
+            ->limit(2);
+        if ($lock) {
+            $query->lockForUpdate();
+        }
+        $rows = $query->get();
+        if ($rows->count() > 1) {
+            throw ResourceDomainException::conflict('TrainingSession has ambiguous calendar metadata.');
+        }
+
+        return $rows->first();
+    }
+
+    private function writeCalendarDetails(
+        string $organizationId,
+        string $trainingSessionId,
+        ?string $displayName,
+        ?string $customMeetingPlace,
+    ): void {
+        $current = $this->calendarDetails($organizationId, $trainingSessionId, true);
+        if ($current === null) {
+            if ($displayName === null && $customMeetingPlace === null) {
+                return;
+            }
+            DB::table('training_session_calendar_details')->insert([
+                'organization_id' => $organizationId,
+                'training_session_id' => $trainingSessionId,
+                'display_name' => $displayName,
+                'custom_meeting_place' => $customMeetingPlace,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            return;
+        }
+
+        DB::table('training_session_calendar_details')
+            ->where('organization_id', $organizationId)
+            ->where('training_session_id', $trainingSessionId)
+            ->update([
+                'display_name' => $displayName,
+                'custom_meeting_place' => $customMeetingPlace,
+                'updated_at' => now(),
+            ]);
+    }
+
+    private function nullableText(mixed $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+        $value = trim((string) $value);
+
+        return $value === '' ? null : $value;
+    }
+
     private function nullableUuidValue(mixed $value): ?string
     {
         if ($value === null) {
@@ -824,6 +933,8 @@ final class TrainingSessionService
     /** @return array<string,mixed> */
     private function present(\stdClass $row): array
     {
+        $details = $this->calendarDetails((string) $row->organization_id, (string) $row->id);
+
         return [
             'id' => (string) $row->id,
             'course_enrollment_id' => (string) $row->course_enrollment_id,
@@ -834,6 +945,8 @@ final class TrainingSessionService
             'instructor_id' => (string) $row->instructor_id,
             'vehicle_id' => $this->nullableUuidValue($row->vehicle_id),
             'location_id' => $this->nullableUuidValue($row->location_id),
+            'display_name' => $details === null ? null : $this->nullableText($details->display_name),
+            'custom_meeting_place' => $details === null ? null : $this->nullableText($details->custom_meeting_place),
             'status' => (string) $row->status,
             'completed_at' => $row->completed_at === null ? null : (string) $row->completed_at,
             'completed_by_user_id' => $this->nullableUuidValue($row->completed_by_user_id),

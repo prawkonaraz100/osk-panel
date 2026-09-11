@@ -427,7 +427,10 @@ modules:
       - self_booking_slots
       - important_date_projection
     api_requirements:
+      - calendar.driving_lessons.create
+      - calendar.driving_lessons.get
       - calendar.events.list
+      - calendar.events.driving_lesson_projection
       - calendar.events.create
       - calendar.events.get
       - calendar.events.update
@@ -443,6 +446,8 @@ modules:
       - calendar.server_conflict_detection
     database:
       - calendar_events
+      - training_sessions
+      - training_session_calendar_details
       - availability_slots
       - students
       - staff_profiles
@@ -459,6 +464,8 @@ modules:
       - worktime.manage
     invariants:
       - conflict_detection_is_server_side
+      - formal_driving_lesson_schedule_owner_is_training_session
+      - calendar_events_never_persists_formal_driving_lesson_copy
       - all_relation_ids_belong_to_same_tenant
       - times_are_stored_UTC_and_rendered_in_organization_timezone
       - self_booking_is_atomic

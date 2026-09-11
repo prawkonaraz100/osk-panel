@@ -93,6 +93,8 @@ paths:
   /course-enrollments/{courseEnrollmentId}/pkk/operations/{operationId}: { $ref: './paths/pkk-calendar.yaml#/paths/~1course-enrollments~1{courseEnrollmentId}~1pkk~1operations~1{operationId}' }
   /course-enrollments/{courseEnrollmentId}/pkk/operations/{operationId}/retry: { $ref: './paths/pkk-calendar.yaml#/paths/~1course-enrollments~1{courseEnrollmentId}~1pkk~1operations~1{operationId}~1retry' }
 
+  /calendar/driving-lessons: { $ref: './paths/pkk-calendar.yaml#/paths/~1calendar~1driving-lessons' }
+  /calendar/driving-lessons/{sessionId}: { $ref: './paths/pkk-calendar.yaml#/paths/~1calendar~1driving-lessons~1{sessionId}' }
   /calendar/events: { $ref: './paths/pkk-calendar.yaml#/paths/~1calendar~1events' }
   /calendar/events/{eventId}: { $ref: './paths/pkk-calendar.yaml#/paths/~1calendar~1events~1{eventId}' }
   /calendar/events/{eventId}/cancel: { $ref: './paths/pkk-calendar.yaml#/paths/~1calendar~1events~1{eventId}~1cancel' }

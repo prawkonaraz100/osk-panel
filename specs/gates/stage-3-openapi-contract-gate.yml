@@ -75,9 +75,9 @@ quality_checks:
     status: PASS
     stage_step: STAGE3_STEP_2
     counts:
-      http_requirement_rows: 170
-      unique_openapi_path_method_operations_required: 159
-      shared_capability_rows_reusing_existing_operationId: 11
+      http_requirement_rows: 173
+      unique_openapi_path_method_operations_required: 161
+      shared_capability_rows_reusing_existing_operationId: 12
       unmapped_http_requirements: 0
     reverse_engineering_preservation_note: >-
       Shared mappings do not remove observed capabilities. They only state that

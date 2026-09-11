@@ -70,6 +70,24 @@ final class CalendarEventScopeAuthorizer
     }
 
     /** @return array{id:string,organization_id:string,user_id:string,status:string,is_owner:bool,version:int,authorization_version:int} */
+    public function requireTrainingProjectionTarget(string $sessionId, \stdClass $projection): array
+    {
+        $visibility = $this->visibility($sessionId);
+        if ($projection->organization_id !== $visibility['membership']['organization_id']) {
+            throw ResourceDomainException::notFound();
+        }
+
+        if ($visibility['unrestricted']
+            || ($visibility['own_instructor_id'] !== null && $projection->instructor_id === $visibility['own_instructor_id'])
+            || ($projection->course_student_id !== null && in_array((string) $projection->course_student_id, $visibility['assigned_student_ids'], true))
+            || ($projection->location_id !== null && in_array((string) $projection->location_id, $visibility['assigned_location_ids'], true))) {
+            return $visibility['membership'];
+        }
+
+        throw ResourceDomainException::notFound();
+    }
+
+    /** @return array{id:string,organization_id:string,user_id:string,status:string,is_owner:bool,version:int,authorization_version:int} */
     public function requireCreate(string $sessionId, ?string $proposedInstructorId): array
     {
         $membership = $this->tenantAuthorizer->activeMembershipForSession($sessionId);

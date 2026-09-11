@@ -52,3 +52,27 @@ changed_scope:
     ui: DRIVING_LESSON_OPTION_PRESERVED_FOR_NEXT_FORMAL_ROUTING_GATE
     acceptance_test: Tests\\Feature\\CalendarEventCoreTest::test_general_event_uses_shared_claim_boundary_and_formal_driving_lesson_row_is_rejected
     status: IMPLEMENTED
+  - evidence: specs/database/calendar.yml#DB-CAL-007
+    requirement: formal driving lessons are practical TrainingSession projections with source-specific identity and no mutable calendar_events copy
+    domain_data: training_sessions + course_enrollments + training_session_calendar_details + calendar_resource_claims
+    api_use_case: calendar.driving_lessons.create/get + calendar.events.driving_lesson_projection; update cancel complete route through training-sessions commands
+    permission: calendar.view for read projection; training_sessions.create/edit/cancel for formal mutations
+    ui: DEFERRED_UNTIL_CALENDAR_UI_GATE
+    acceptance_test: Tests\\Feature\\CalendarDrivingLessonCoreTest::test_calendar_create_and_list_project_one_practical_training_session_without_calendar_event_copy
+    status: IMPLEMENTED
+  - evidence: specs/database/calendar.yml#DB-CAL-007-course_context_resolution
+    requirement: student-only formal lesson creation resolves a course only when exactly one eligible active CourseEnrollment exists and never chooses latest or first under ambiguity
+    domain_data: students + course_enrollments + training_sessions
+    api_use_case: calendar.driving_lessons.create
+    permission: training_sessions.create
+    ui: DEFERRED_UNTIL_CALENDAR_UI_GATE
+    acceptance_test: Tests\\Feature\\CalendarDrivingLessonCoreTest::test_student_only_create_requires_exactly_one_active_course
+    status: IMPLEMENTED
+  - evidence: specs/database/calendar.yml#training_session_calendar_details
+    requirement: optional calendar name and custom meeting place remain companion metadata under the same TrainingSession version and cannot coexist with managed location
+    domain_data: training_sessions + training_session_calendar_details
+    api_use_case: training_sessions.create/update + calendar.driving_lessons.create/get
+    permission: training_sessions.create/edit
+    ui: DEFERRED_UNTIL_CALENDAR_UI_GATE
+    acceptance_test: Tests\\Feature\\CalendarDrivingLessonCoreTest::test_calendar_metadata_patch_uses_training_session_version_and_preserves_meeting_place_xor
+    status: IMPLEMENTED

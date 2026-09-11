@@ -13,6 +13,7 @@ final class CalendarEventService
 {
     public function __construct(
         private readonly CalendarEventScopeAuthorizer $scopeAuthorizer,
+        private readonly CalendarDrivingLessonService $drivingLessons,
         private readonly ScheduleClaimService $claims,
         private readonly AtomicAuditOutbox $auditOutbox,
     ) {}
@@ -24,41 +25,57 @@ final class CalendarEventService
     public function list(string $sessionId, array $filters): array
     {
         $visibility = $this->scopeAuthorizer->visibility($sessionId);
-        $query = DB::table('calendar_events')
-            ->where('organization_id', $visibility['membership']['organization_id'])
-            ->where('event_type', 'general_event');
+        $items = [];
+        $types = $filters['event_type'] ?? [];
 
-        $this->applyRangeAndResourceFilters($query, $filters);
+        if ($types === [] || in_array('general_event', $types, true)) {
+            $query = DB::table('calendar_events')
+                ->where('organization_id', $visibility['membership']['organization_id'])
+                ->where('event_type', 'general_event');
 
-        if (isset($filters['event_type']) && ! in_array('general_event', $filters['event_type'], true)) {
-            return [];
+            $this->applyRangeAndResourceFilters($query, $filters);
+
+            if (! $visibility['unrestricted']) {
+                $query->where(function (Builder $scope) use ($visibility): void {
+                    $hasClause = false;
+                    if ($visibility['own_instructor_id'] !== null) {
+                        $scope->where('instructor_id', $visibility['own_instructor_id']);
+                        $hasClause = true;
+                    }
+                    if ($visibility['assigned_student_ids'] !== []) {
+                        if ($hasClause) {
+                            $scope->orWhereIn('student_id', $visibility['assigned_student_ids']);
+                        } else {
+                            $scope->whereIn('student_id', $visibility['assigned_student_ids']);
+                        }
+                        $hasClause = true;
+                    }
+                    if ($visibility['assigned_location_ids'] !== []) {
+                        if ($hasClause) {
+                            $scope->orWhereIn('location_id', $visibility['assigned_location_ids']);
+                        } else {
+                            $scope->whereIn('location_id', $visibility['assigned_location_ids']);
+                        }
+                    }
+                });
+            }
+
+            foreach ($query->get() as $row) {
+                $items[] = $this->present($row);
+            }
         }
 
-        if (! $visibility['unrestricted']) {
-            $query->where(function (Builder $scope) use ($visibility): void {
-                $hasClause = false;
-                if ($visibility['own_instructor_id'] !== null) {
-                    $scope->where('instructor_id', $visibility['own_instructor_id']);
-                    $hasClause = true;
-                }
-                if ($visibility['assigned_student_ids'] !== []) {
-                    $method = $hasClause ? 'orWhereIn' : 'whereIn';
-                    $scope->{$method}('student_id', $visibility['assigned_student_ids']);
-                    $hasClause = true;
-                }
-                if ($visibility['assigned_location_ids'] !== []) {
-                    $method = $hasClause ? 'orWhereIn' : 'whereIn';
-                    $scope->{$method}('location_id', $visibility['assigned_location_ids']);
-                }
-            });
+        if ($types === [] || in_array('driving_lesson', $types, true)) {
+            $items = [...$items, ...$this->drivingLessons->list($sessionId, $filters)];
         }
 
-        return array_values($query
-            ->orderBy('starts_at')
-            ->orderBy('id')
-            ->get()
-            ->map(fn (\stdClass $row): array => $this->present($row))
-            ->all());
+        usort($items, static function (array $left, array $right): int {
+            $time = strcmp((string) $left['starts_at'], (string) $right['starts_at']);
+
+            return $time !== 0 ? $time : strcmp((string) $left['id'], (string) $right['id']);
+        });
+
+        return array_values($items);
     }
 
     /** @return array<string,mixed> */
@@ -564,6 +581,9 @@ final class CalendarEventService
     {
         return [
             'id' => (string) $row->id,
+            'source_kind' => 'calendar_event',
+            'source_id' => (string) $row->id,
+            'course_enrollment_id' => null,
             'event_type' => (string) $row->event_type,
             'name' => $this->nullableText($row->name),
             'starts_at' => (string) $row->starts_at,

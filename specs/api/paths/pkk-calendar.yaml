@@ -181,6 +181,42 @@ paths:
               schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/PkkOperation' }
         default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
 
+  /calendar/driving-lessons:
+    post:
+      tags: [Calendar, Training]
+      operationId: calendarDrivingLessonsCreate
+      x-requirement-id: calendar.driving_lessons.create
+      x-permission: training_sessions.create
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/CreateCalendarDrivingLessonRequest' }
+      responses:
+        '201':
+          description: Formal practical TrainingSession created and returned as a driving-lesson calendar projection
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/CalendarEvent' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /calendar/driving-lessons/{sessionId}:
+    get:
+      tags: [Calendar, Training]
+      operationId: calendarDrivingLessonsGet
+      x-requirement-id: calendar.driving_lessons.get
+      x-permission: calendar.view
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/SessionId' }
+      responses:
+        '200':
+          description: Practical TrainingSession read as a source-specific driving-lesson calendar projection
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/CalendarEvent' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+
   /calendar/events:
     get:
       tags: [Calendar]

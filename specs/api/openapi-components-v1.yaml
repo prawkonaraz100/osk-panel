@@ -463,6 +463,8 @@ components:
         instructor_id: { type: string, format: uuid }
         vehicle_id: { type: [string, 'null'], format: uuid }
         location_id: { type: [string, 'null'], format: uuid }
+        display_name: { type: [string, 'null'], readOnly: true }
+        custom_meeting_place: { type: [string, 'null'], readOnly: true }
         status: { type: string, enum: [planned, completed, cancelled], readOnly: true }
         completed_at: { type: [string, 'null'], format: date-time, readOnly: true }
         completed_by_user_id: { type: [string, 'null'], format: uuid, readOnly: true }
@@ -480,6 +482,8 @@ components:
         instructor_id: { type: string, format: uuid }
         vehicle_id: { type: [string, 'null'], format: uuid }
         location_id: { type: [string, 'null'], format: uuid }
+        display_name: { type: [string, 'null'] }
+        custom_meeting_place: { type: [string, 'null'] }
     UpdateTrainingSessionRequest:
       type: object
       additionalProperties: false
@@ -489,6 +493,8 @@ components:
         instructor_id: { type: string, format: uuid }
         vehicle_id: { type: [string, 'null'], format: uuid }
         location_id: { type: [string, 'null'], format: uuid }
+        display_name: { type: [string, 'null'] }
+        custom_meeting_place: { type: [string, 'null'] }
     TrainingSessionAttendance:
       type: object
       required: [training_session_id, course_enrollment_id, student_id, status, confirmed_by_user_id, confirmed_at, session_version]
@@ -562,10 +568,13 @@ components:
 
     CalendarEvent:
       type: object
-      required: [id, event_type, starts_at, ends_at, status, version]
+      required: [id, source_kind, source_id, event_type, starts_at, ends_at, status, version]
       properties:
         id: { type: string, format: uuid }
-        event_type: { type: string }
+        source_kind: { type: string, enum: [calendar_event, training_session, important_date], readOnly: true }
+        source_id: { type: string, readOnly: true }
+        course_enrollment_id: { type: [string, 'null'], format: uuid, readOnly: true }
+        event_type: { type: string, enum: [general_event, driving_lesson, important_date] }
         name: { type: [string, 'null'] }
         starts_at: { type: string, format: date-time }
         ends_at: { type: string, format: date-time }
@@ -578,9 +587,10 @@ components:
         version: { type: integer }
     CreateCalendarEventRequest:
       type: object
+      additionalProperties: false
       required: [event_type, starts_at, ends_at]
       properties:
-        event_type: { type: string }
+        event_type: { type: string, enum: [general_event] }
         name: { type: [string, 'null'] }
         starts_at: { type: string, format: date-time }
         ends_at: { type: string, format: date-time }
@@ -593,7 +603,7 @@ components:
       type: object
       additionalProperties: false
       properties:
-        event_type: { type: string }
+        event_type: { type: string, enum: [general_event] }
         name: { type: [string, 'null'] }
         starts_at: { type: string, format: date-time }
         ends_at: { type: string, format: date-time }
@@ -602,6 +612,21 @@ components:
         vehicle_id: { type: [string, 'null'], format: uuid }
         location_id: { type: [string, 'null'], format: uuid }
         custom_meeting_place: { type: [string, 'null'] }
+    CreateCalendarDrivingLessonRequest:
+      type: object
+      additionalProperties: false
+      required: [starts_at, ends_at, instructor_id]
+      properties:
+        course_enrollment_id: { type: [string, 'null'], format: uuid }
+        student_id: { type: [string, 'null'], format: uuid }
+        name: { type: [string, 'null'] }
+        starts_at: { type: string, format: date-time }
+        ends_at: { type: string, format: date-time }
+        instructor_id: { type: string, format: uuid }
+        vehicle_id: { type: [string, 'null'], format: uuid }
+        location_id: { type: [string, 'null'], format: uuid }
+        custom_meeting_place: { type: [string, 'null'] }
+
     AvailabilitySlot:
       type: object
       required: [id, starts_at, ends_at, status, version]

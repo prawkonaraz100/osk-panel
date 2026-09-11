@@ -123,6 +123,8 @@ operations:
       requirement: redacted_ui_projection_and_encrypted_or_minimized_sensitive_provider_snapshot
 
   calendar:
+    - { id: calendar.driving_lessons.create, method: POST, path: /calendar/driving-lessons }
+    - { id: calendar.driving_lessons.get, method: GET, path: '/calendar/driving-lessons/{sessionId}' }
     - { id: calendar.events.list, method: GET, path: /calendar/events }
     - { id: calendar.events.create, method: POST, path: /calendar/events }
     - { id: calendar.events.get, method: GET, path: '/calendar/events/{eventId}' }
@@ -132,6 +134,11 @@ operations:
     - id: calendar.events.custom_meeting_place
       type: request_capability
       requirement: meeting_place_can_be_location_or_custom_text
+    - id: calendar.events.driving_lesson_projection
+      method: GET
+      path: /calendar/events
+      covered_by_operationId: calendarEventsList
+      requirement: practical_training_sessions_are_projected_as_driving_lesson_without_calendar_event_copy
     - id: calendar.events.important_dates_projection
       method: GET
       path: /calendar/events
@@ -352,10 +359,10 @@ coverage_status:
   frozen_at: 2026-09-05
   validator_command: python scripts/contract-validation/validate_openapi_contract.py
   ci_workflow: .github/workflows/api-contract-gate.yml
-  http_requirement_rows: 170
-  unique_openapi_path_method_operations_required: 159
-  shared_capability_rows_reusing_existing_operationId: 11
-  direct_and_shared_http_requirements_with_operationId_mapping: 170
+  http_requirement_rows: 173
+  unique_openapi_path_method_operations_required: 161
+  shared_capability_rows_reusing_existing_operationId: 12
+  direct_and_shared_http_requirements_with_operationId_mapping: 173
   direct_and_shared_http_requirements_without_operationId_mapping: 0
   openapi_complete_against_this_inventory: true
   operationIds_present_for_all_http_requirements: true
@@ -367,6 +374,7 @@ coverage_status:
   shared_operation_mappings:
     students.list_filters: studentsList
     students.list_sort: studentsList
+    calendar.events.driving_lesson_projection: calendarEventsList
     calendar.events.important_dates_projection: calendarEventsList
     license_management.search: licenseAssignmentsList
     license_management.sort: licenseAssignmentsList
