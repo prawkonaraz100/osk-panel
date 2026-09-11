@@ -280,11 +280,6 @@ return [
         'method' => 'test_terminal_commands_require_if_match_are_idempotent_and_never_credit_training_hours',
         'scope' => 'Completing a manual CalendarEvent never bypasses the formal TrainingSession credit pipeline.',
     ],
-    'DBT-CAL-023' => [
-        'class' => AvailabilityFormalizationCoreTest::class,
-        'method' => 'test_ambiguous_course_context_rolls_back_and_preserves_booking',
-        'scope' => 'Availability formalization requires explicit or uniquely resolvable active course context and never guesses latest or first.',
-    ],
     'DBT-CAL-024' => [
         'class' => AvailabilityFormalizationCoreTest::class,
         'method' => 'test_formalization_transfers_booking_to_one_practical_training_session_atomically',
