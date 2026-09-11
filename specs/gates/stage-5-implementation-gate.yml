@@ -227,8 +227,8 @@ quality_gate:
 
 next_single_step:
   id: CORE-V1-CALENDAR-TRAINING-SESSION-HOUR-LEDGER-001
-  action: begin_calendar_training_session_hour_ledger_slice_only_after_current_closure_validation_and_next_explicit_user_instruction
-  prerequisite_previous_slice: CORE-V1-STUDENTS-COURSE-ENROLLMENT-001_PASS_PENDING_CENTRAL_CLOSURE
+  action: begin_calendar_training_session_hour_ledger_slice_only_after_next_explicit_user_instruction
+  prerequisite_previous_slice: CORE-V1-STUDENTS-COURSE-ENROLLMENT-001_PASS
   implementation_order_source: AGENTS.md
   allowed_scope:
     - Calendar
@@ -350,7 +350,7 @@ CORE_V1_LOC_STAFF_VEH_001_closure:
 
 
 CORE_V1_STUDENTS_COURSE_ENROLLMENT_001_closure:
-  status: VALIDATION_PENDING
+  status: PASS
   accepted_scope:
     - Students
     - Course_Enrollment
@@ -364,6 +364,10 @@ CORE_V1_STUDENTS_COURSE_ENROLLMENT_001_closure:
     clean_accepted_implementation_commit: 4715db135738bc9a002b87d44bb11511c4a83452
     accepted_final_runtime_hardening_head: e97caebfe355dafc0d92a077b15135b358173aa7
     accepted_branch_implementation_run: 34547755876
+    narrative_closure_candidate_commit: 86012521e1a4d2920858c9bf19402fcac719c137
+    narrative_closure_validation_run: 34548028352
+    narrative_closure_validation_jobs_passed: 5
+    narrative_closure_validation_jobs_total: 5
     helper_workflow_entered_accepted_history: false
   migration_materialization:
     stage_4_DAG_nodes_total: 170
@@ -447,8 +451,8 @@ CORE_V1_STUDENTS_COURSE_ENROLLMENT_001_closure:
     Stage_4_authority_preservation: PASS
   tranche_result:
     machine_implementation: PASS
-    narrative_payload: READY
-    central_closure: PENDING
+    narrative_payload: PASS
+    central_closure: PASS
     next_core_slice: Calendar_Training_Session_Formal_Hour_Ledger
     next_core_slice_started: false
 

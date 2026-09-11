@@ -5,7 +5,7 @@ Data: 2026-09-11
 **Slice:** `CORE-V1-STUDENTS-COURSE-ENROLLMENT-001`  
 **Implementation machine:** PASS  
 **Narrative payload:** READY  
-**Central closure:** PENDING
+**Central closure:** PASS
 
 ## 1. Zakres
 
@@ -205,9 +205,21 @@ Nie są częścią PASS tego slice:
 
 Implementation machine = **PASS**.
 
-Ten dokument jest narrative closure candidate. Po jego accepted-branch central validation można zamknąć:
+Narrative closure candidate:
 
-`CORE-V1-STUDENTS-COURSE-ENROLLMENT-001 = PASS`.
+`86012521e1a4d2920858c9bf19402fcac719c137`
+
+Accepted-branch closure validation run `34548028352` zakończył się **5/5 SUCCESS**:
+
+- backend-quality — PASS,
+- frontend-quality — PASS,
+- runtime-tests-and-migrations — PASS,
+- contracts-and-traceability — PASS,
+- secret-scan — PASS.
+
+W konsekwencji:
+
+**CORE-V1-STUDENTS-COURSE-ENROLLMENT-001 = PASS.**
 
 Następny pojedynczy krok zgodnie z `AGENTS.md` i Stage-5 order:
 
