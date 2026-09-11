@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { ApiError, api } from '../ResourcesCore/api'
+import CourseFormFields from './CourseFormFields.vue'
 
 type CourseSummary = {
   id: string
@@ -1652,100 +1653,3 @@ function handleError(caught: unknown): void {
     </main>
   </div>
 </template>
-
-<script lang="ts">
-import { defineComponent, type PropType } from 'vue'
-
-type EmbeddedCourseForm = {
-  id: string | null
-  version: number | null
-  training_type: 'basic' | 'supplementary'
-  driving_category_code: string
-  pkk_number: string
-  pkk_masked: string
-  started_at: string
-  cost: string
-  theory_hours_current: string
-  theory_hours_previous: string
-  practice_hours_current: string
-  practice_hours_previous: string
-  lead_instructor_id: string
-  location_id: string
-}
-type EmbeddedCategory = { id: string; code: string; label: string; active: boolean }
-type EmbeddedInstructor = { id: string; first_name: string; last_name: string }
-type EmbeddedLocation = { id: string; name: string }
-
-export const CourseFormFields = defineComponent({
-  name: 'CourseFormFields',
-  props: {
-    modelValue: { type: Object as PropType<EmbeddedCourseForm>, required: true },
-    categories: { type: Array as PropType<EmbeddedCategory[]>, required: true },
-    instructors: { type: Array as PropType<EmbeddedInstructor[]>, required: true },
-    locations: { type: Array as PropType<EmbeddedLocation[]>, required: true },
-    editing: { type: Boolean, required: true },
-  },
-  emits: ['update:modelValue'],
-  methods: {
-    set<K extends keyof EmbeddedCourseForm>(key: K, value: EmbeddedCourseForm[K]) {
-      this.$emit('update:modelValue', { ...this.modelValue, [key]: value })
-    },
-  },
-  template: `
-    <label>Rodzaj *
-      <select :value="modelValue.training_type" required @change="set('training_type', ($event.target as HTMLSelectElement).value as EmbeddedCourseForm['training_type'])">
-        <option value="basic">Szkolenie podstawowe</option>
-        <option value="supplementary">Szkolenie uzupełniające</option>
-      </select>
-    </label>
-    <label>Kategoria *
-      <select :value="modelValue.driving_category_code" required @change="set('driving_category_code', ($event.target as HTMLSelectElement).value)">
-        <option v-for="item in categories" :key="item.id" :value="item.code">{{ item.code }}</option>
-      </select>
-    </label>
-    <label class="full">PKK *
-      <input
-        :value="modelValue.pkk_number"
-        :required="!editing"
-        maxlength="128"
-        :placeholder="editing && modelValue.pkk_masked ? 'Obecny: ' + modelValue.pkk_masked + ' · wpisz tylko przy zmianie' : 'Numer PKK'"
-        @input="set('pkk_number', ($event.target as HTMLInputElement).value)"
-      >
-      <small v-if="editing">Pełny numer nie jest odczytywany z bazy. Puste pole pozostawia bieżący PKK bez zmian.</small>
-    </label>
-    <label>Data i godzina rozpoczęcia *
-      <input :value="modelValue.started_at" type="datetime-local" required @input="set('started_at', ($event.target as HTMLInputElement).value)">
-    </label>
-    <label>Koszt
-      <input :value="modelValue.cost" disabled placeholder="Obsługiwany w module Finanse">
-      <small>Koszt nie jest drugim polem finansowym na CourseEnrollment.</small>
-    </label>
-    <label>Godzin teorii
-      <input :value="modelValue.theory_hours_current" type="number" min="0" step="0.25" @input="set('theory_hours_current', ($event.target as HTMLInputElement).value)">
-      <small>1 godzina teorii = 45 min. To plan/deklaracja, nie zaliczony czas.</small>
-    </label>
-    <label v-if="!editing">Teoria odbyta w innej szkole
-      <input :value="modelValue.theory_hours_previous" type="number" min="0" step="0.25" @input="set('theory_hours_previous', ($event.target as HTMLInputElement).value)">
-    </label>
-    <label>Godzin praktyki *
-      <input :value="modelValue.practice_hours_current" type="number" min="0" step="0.25" required @input="set('practice_hours_current', ($event.target as HTMLInputElement).value)">
-      <small>1 godzina praktyki = 60 min. To plan/deklaracja, nie zaliczony czas.</small>
-    </label>
-    <label v-if="!editing">Praktyka odbyta w innej szkole
-      <input :value="modelValue.practice_hours_previous" type="number" min="0" step="0.25" @input="set('practice_hours_previous', ($event.target as HTMLInputElement).value)">
-    </label>
-    <label>Instruktor *
-      <select :value="modelValue.lead_instructor_id" required @change="set('lead_instructor_id', ($event.target as HTMLSelectElement).value)">
-        <option value="">Wybierz instruktora</option>
-        <option v-for="item in instructors" :key="item.id" :value="item.id">{{ item.first_name }} {{ item.last_name }}</option>
-      </select>
-    </label>
-    <label>Lokalizacja
-      <select :value="modelValue.location_id" @change="set('location_id', ($event.target as HTMLSelectElement).value)">
-        <option value="">Brak</option>
-        <option v-for="item in locations" :key="item.id" :value="item.id">{{ item.name }}</option>
-      </select>
-    </label>
-  `,
-})
-</script>
