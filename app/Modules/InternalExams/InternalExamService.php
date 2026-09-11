@@ -546,8 +546,9 @@ final class InternalExamService
         });
     }
 
-    /** @param list<array<string,mixed>> $answers
-     *  @return array<string,mixed>
+    /**
+     * @param  list<array<string,mixed>>  $answers
+     * @return array<string,mixed>
      */
     public function submitAsStaff(
         string $sessionId,

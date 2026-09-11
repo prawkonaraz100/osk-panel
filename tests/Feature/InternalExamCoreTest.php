@@ -279,7 +279,7 @@ final class InternalExamCoreTest extends TestCase
     }
 
     /**
-     * @param array{organization_id:string,user_id:string,membership_id:string,session_id:string} $actor
+     * @param  array{organization_id:string,user_id:string,membership_id:string,session_id:string}  $actor
      * @return array<string,mixed>
      */
     private function course(array $actor): array
@@ -315,8 +315,8 @@ final class InternalExamCoreTest extends TestCase
     }
 
     /**
-     * @param array{organization_id:string,user_id:string,membership_id:string,session_id:string} $actor
-     * @param array<string,mixed> $course
+     * @param  array{organization_id:string,user_id:string,membership_id:string,session_id:string}  $actor
+     * @param  array<string,mixed>  $course
      * @return array{inventory_id:string,capability_id:string,definition_id:string}
      */
     private function examFixtures(array $actor, array $course): array
@@ -352,8 +352,9 @@ final class InternalExamCoreTest extends TestCase
         return ['inventory_id' => $inventoryId, ...$base];
     }
 
-    /** @param array<string,mixed> $course
-     *  @return array{capability_id:string,definition_id:string}
+    /**
+     * @param  array<string,mixed>  $course
+     * @return array{capability_id:string,definition_id:string}
      */
     private function capabilityAndDefinition(array $course): array
     {
@@ -429,7 +430,7 @@ final class InternalExamCoreTest extends TestCase
         return ['capability_id' => $capabilityId, 'definition_id' => $definitionId];
     }
 
-    /** @param array{organization_id:string,user_id:string,membership_id:string,session_id:string} $actor */
+    /** @param  array{organization_id:string,user_id:string,membership_id:string,session_id:string}  $actor */
     private function station(array $actor): string
     {
         $stationId = (string) Str::uuid7();
@@ -460,7 +461,7 @@ final class InternalExamCoreTest extends TestCase
         return $stationId;
     }
 
-    /** @param callable():mixed $callback */
+    /** @param  callable():mixed  $callback */
     private function captureDomainException(callable $callback): ResourceDomainException
     {
         try {
