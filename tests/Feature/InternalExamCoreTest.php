@@ -355,6 +355,168 @@ final class InternalExamCoreTest extends TestCase
         );
     }
 
+    public function test_http_station_provisioning_rotation_and_projection_are_one_time_and_audited(): void
+    {
+        $actor = $this->examActor();
+
+        $registerKey = (string) Str::uuid7();
+        $registered = $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->withHeader('Idempotency-Key', $registerKey)
+            ->postJson('/api/v1/exam-stations');
+        $registered->assertCreated()
+            ->assertJsonPath('administrative_status', 'enabled')
+            ->assertJsonPath('connectivity', 'offline')
+            ->assertJsonPath('occupancy', 'free')
+            ->assertJsonPath('has_current_credential', true)
+            ->assertJsonPath('available_for_new_execution', false)
+            ->assertJsonPath('credential_sequence', 1);
+        $stationId = (string) $registered->json('id');
+        $firstCredential = (string) $registered->json('one_time_station_credential');
+        $this->assertNotSame('', $firstCredential);
+
+        $registerReplay = $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->withHeader('Idempotency-Key', $registerKey)
+            ->postJson('/api/v1/exam-stations');
+        $registerReplay->assertCreated()
+            ->assertJsonPath('id', $stationId)
+            ->assertJsonPath('one_time_station_credential', null);
+        $this->assertSame(
+            1,
+            DB::table('exam_stations')
+                ->where('organization_id', $actor['organization_id'])
+                ->where('id', $stationId)
+                ->count(),
+        );
+        $this->assertSame(
+            1,
+            DB::table('exam_station_credentials')
+                ->where('organization_id', $actor['organization_id'])
+                ->where('exam_station_id', $stationId)
+                ->count(),
+        );
+
+        $beforeHeartbeat = $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->getJson('/api/v1/exam-stations');
+        $beforeHeartbeat->assertOk()
+            ->assertJsonPath('0.id', $stationId)
+            ->assertJsonPath('0.connectivity', 'offline')
+            ->assertJsonPath('0.occupancy', 'free')
+            ->assertJsonPath('0.available_for_new_execution', false);
+
+        $this->withHeader('X-Exam-Station-Credential', $firstCredential)
+            ->postJson('/api/v1/exam-stations/heartbeat')
+            ->assertOk()
+            ->assertJsonPath('station_id', $stationId);
+
+        $afterHeartbeat = $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->getJson('/api/v1/exam-stations');
+        $afterHeartbeat->assertOk()
+            ->assertJsonPath('0.id', $stationId)
+            ->assertJsonPath('0.connectivity', 'online')
+            ->assertJsonPath('0.occupancy', 'free')
+            ->assertJsonPath('0.available_for_new_execution', true);
+
+        $rotateKey = (string) Str::uuid7();
+        $rotated = $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->withHeader('Idempotency-Key', $rotateKey)
+            ->postJson("/api/v1/exam-stations/{$stationId}/credential/rotate", [
+                'reason' => 'planned workstation credential rotation',
+            ]);
+        $rotated->assertOk()
+            ->assertJsonPath('id', $stationId)
+            ->assertJsonPath('credential_sequence', 2)
+            ->assertJsonPath('connectivity', 'offline')
+            ->assertJsonPath('available_for_new_execution', false);
+        $secondCredential = (string) $rotated->json('one_time_station_credential');
+        $this->assertNotSame('', $secondCredential);
+        $this->assertNotSame($firstCredential, $secondCredential);
+
+        $rotateReplay = $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->withHeader('Idempotency-Key', $rotateKey)
+            ->postJson("/api/v1/exam-stations/{$stationId}/credential/rotate", [
+                'reason' => 'planned workstation credential rotation',
+            ]);
+        $rotateReplay->assertOk()
+            ->assertJsonPath('credential_sequence', 2)
+            ->assertJsonPath('one_time_station_credential', null);
+        $this->assertSame(
+            2,
+            DB::table('exam_station_credentials')
+                ->where('organization_id', $actor['organization_id'])
+                ->where('exam_station_id', $stationId)
+                ->count(),
+        );
+
+        $this->withHeader('X-Exam-Station-Credential', $firstCredential)
+            ->postJson('/api/v1/exam-stations/heartbeat')
+            ->assertStatus(401)
+            ->assertJsonPath('error.code', 'INVALID_EXAM_STATION_CREDENTIAL');
+        $this->withHeader('X-Exam-Station-Credential', $secondCredential)
+            ->postJson('/api/v1/exam-stations/heartbeat')
+            ->assertOk()
+            ->assertJsonPath('station_id', $stationId);
+
+        $legacyStationId = (string) Str::uuid7();
+        $now = now();
+        DB::table('exam_stations')->insert([
+            'id' => $legacyStationId,
+            'organization_id' => $actor['organization_id'],
+            'administrative_status' => 'enabled',
+            'last_authenticated_heartbeat_at' => null,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        $provisionKey = (string) Str::uuid7();
+        $provisioned = $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->withHeader('Idempotency-Key', $provisionKey)
+            ->postJson("/api/v1/exam-stations/{$legacyStationId}/credential");
+        $provisioned->assertOk()
+            ->assertJsonPath('id', $legacyStationId)
+            ->assertJsonPath('credential_sequence', 1)
+            ->assertJsonPath('has_current_credential', true);
+        $legacyCredential = (string) $provisioned->json('one_time_station_credential');
+        $this->assertNotSame('', $legacyCredential);
+
+        $provisionReplay = $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->withHeader('Idempotency-Key', $provisionKey)
+            ->postJson("/api/v1/exam-stations/{$legacyStationId}/credential");
+        $provisionReplay->assertOk()
+            ->assertJsonPath('one_time_station_credential', null);
+        $this->assertSame(
+            1,
+            DB::table('exam_station_credentials')
+                ->where('exam_station_id', $legacyStationId)
+                ->whereNull('revoked_at')
+                ->count(),
+        );
+
+        $this->assertSame(
+            1,
+            DB::table('audit_logs')
+                ->where('organization_id', $actor['organization_id'])
+                ->where('action', 'internal_exam.station.registered')
+                ->where('entity_id', $stationId)
+                ->count(),
+        );
+        $this->assertSame(
+            1,
+            DB::table('audit_logs')
+                ->where('organization_id', $actor['organization_id'])
+                ->where('action', 'internal_exam.station_credential.rotated')
+                ->where('entity_id', $stationId)
+                ->count(),
+        );
+        $this->assertSame(
+            1,
+            DB::table('audit_logs')
+                ->where('organization_id', $actor['organization_id'])
+                ->where('action', 'internal_exam.station_credential.provisioned')
+                ->where('entity_id', $legacyStationId)
+                ->count(),
+        );
+    }
+
     public function test_station_credential_rotation_revokes_old_secret_and_clears_authenticated_heartbeat(): void
     {
         $actor = $this->examActor();
@@ -1139,7 +1301,7 @@ final class InternalExamCoreTest extends TestCase
             'students.view', 'students.create', 'students.edit',
             'courses.view', 'courses.create', 'courses.edit', 'course_requirements.correct',
             'exams.view', 'exams.generate', 'exams.access.send', 'exams.start.local', 'exams.results.view',
-            'exams.documents.download', 'exams.inventory.adjust',
+            'exams.documents.download', 'exams.inventory.adjust', 'exams.stations.view', 'exams.stations.manage',
         ] as $permission) {
             FoundationSchema::grant($actor['membership_id'], $permission, ['organization']);
         }
