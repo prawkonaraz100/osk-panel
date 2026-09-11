@@ -172,3 +172,28 @@ changed_scope:
     ui: DEFERRED_UNTIL_CALENDAR_UI_GATE
     acceptance_test: Tests\\Feature\\CalendarImportantDateProjectionCoreTest::test_important_date_filters_and_archived_sources_fail_closed
     status: IMPLEMENTED
+
+  - evidence: docs/48-calendar-main-screen.md
+    requirement: confirmed Calendar screen provides month week day navigation event-type filtering resource filtering and one central read model for manual events formal driving lessons booked reservations and important dates
+    domain_data: calendar_events + training_sessions + availability_slots + staff_documents + vehicle_documents
+    api_use_case: calendar.events.list
+    permission: calendar.view
+    ui: resources/js/modules/CalendarTraining/CalendarWorkspace.vue
+    acceptance_test: frontend-quality npm_lint_typecheck_build plus Calendar read-model feature suites
+    status: IMPLEMENTED
+  - evidence: docs/49-calendar-add-event-form.md
+    requirement: one visible create form preserves Wydarzenie and Jazda type choice optional name start duration Student Instructor Vehicle and saved-location-or-custom-place XOR while routing each type to its canonical backend owner
+    domain_data: calendar_events for general_event; training_sessions plus training_session_calendar_details for driving_lesson
+    api_use_case: calendar.events.create + calendar.driving_lessons.create
+    permission: calendar.manage organization-or-own for general event and training_sessions.create for formal driving lesson
+    ui: resources/js/modules/CalendarTraining/CalendarWorkspace.vue
+    acceptance_test: frontend-quality npm_lint_typecheck_build and backend CalendarEventCoreTest plus CalendarDrivingLessonCoreTest
+    status: IMPLEMENTED
+  - evidence: docs/48-calendar-main-screen.md#połączenia-z-innymi-modułami
+    requirement: Staff Vehicle and Location calendar entry points reuse the central calendar read model instead of rendering fake placeholder schedules
+    domain_data: source-specific calendar projections
+    api_use_case: calendar.events.list with staff vehicle or location filter
+    permission: calendar.view
+    ui: resources/js/modules/ResourcesCore/CalendarShell.vue
+    acceptance_test: frontend-quality npm_lint_typecheck_build
+    status: IMPLEMENTED
