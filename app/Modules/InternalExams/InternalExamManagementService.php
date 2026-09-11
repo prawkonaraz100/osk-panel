@@ -94,10 +94,12 @@ final class InternalExamManagementService
             $filtered->whereNotIn('m.status', ['passed', 'failed']);
         }
 
-        $total = (int) (clone $filtered)->count();
+        $countQuery = clone $filtered;
+        $total = (int) $countQuery->count();
 
+        $statisticsQuery = clone $filtered;
         /** @var StatisticsRow|null $statistics */
-        $statistics = (clone $filtered)
+        $statistics = $statisticsQuery
             ->selectRaw('COALESCE(SUM(m.exam_count), 0) AS exam_count')
             ->selectRaw('COALESCE(SUM(m.passed_count), 0) AS passed_count')
             ->selectRaw('COALESCE(SUM(m.failed_count), 0) AS failed_count')
