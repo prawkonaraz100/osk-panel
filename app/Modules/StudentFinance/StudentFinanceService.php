@@ -424,6 +424,9 @@ final class StudentFinanceService
         if (preg_match('/^[A-Z]{3}$/', $currency) !== 1) {
             throw ResourceDomainException::rule('Currency must be a three-letter code.');
         }
+        if ($currency !== 'PLN') {
+            throw ResourceDomainException::rule('Student Finance MVP supports PLN only.');
+        }
 
         return [(int) $amountMinor, $currency];
     }
