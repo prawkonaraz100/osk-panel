@@ -8,6 +8,33 @@ use App\Modules\StudentsCourses\StudentCourseScopeAuthorizer;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
+/**
+ * @phpstan-type StudentChargeRow object{
+ *     id: mixed,
+ *     organization_id: mixed,
+ *     student_id: mixed,
+ *     course_enrollment_id: mixed,
+ *     title: mixed,
+ *     amount_minor: mixed,
+ *     currency: mixed,
+ *     due_at: mixed,
+ *     cancelled_at: mixed,
+ *     created_at: mixed
+ * }
+ * @phpstan-type StudentPaymentRow object{
+ *     id: mixed,
+ *     student_id: mixed,
+ *     charge_id: mixed,
+ *     amount_minor: mixed,
+ *     currency: mixed,
+ *     paid_at: mixed,
+ *     payment_method: mixed,
+ *     note: mixed,
+ *     reversed_at: mixed,
+ *     reversal_reason: mixed,
+ *     created_at: mixed
+ * }
+ */
 final class StudentFinanceService
 {
     public function __construct(
@@ -356,6 +383,7 @@ final class StudentFinanceService
         ];
     }
 
+    /** @return StudentChargeRow */
     private function lockedCharge(string $organizationId, string $studentId, string $chargeId): object
     {
         $charge = DB::table('student_charges')
@@ -368,6 +396,7 @@ final class StudentFinanceService
             throw ResourceDomainException::notFound();
         }
 
+        /** @var StudentChargeRow $charge */
         return $charge;
     }
 
@@ -402,6 +431,7 @@ final class StudentFinanceService
     /** @return array<string,mixed> */
     private function presentCharge(object $row): array
     {
+        /** @var StudentChargeRow $row */
         $paidMinor = $this->validPaidMinor((string) $row->organization_id, (string) $row->id);
         $remainingMinor = max(0, (int) $row->amount_minor - $paidMinor);
         $status = $row->cancelled_at !== null
@@ -426,6 +456,7 @@ final class StudentFinanceService
     /** @return array<string,mixed> */
     private function presentPayment(object $row): array
     {
+        /** @var StudentPaymentRow $row */
         return [
             'id' => (string) $row->id,
             'student_id' => (string) $row->student_id,
