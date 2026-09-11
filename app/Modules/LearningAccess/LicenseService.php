@@ -459,6 +459,7 @@ final class LicenseService
                 ->where('id', $snapshot->license_inventory_entry_id)
                 ->lockForUpdate()
                 ->first();
+            /** @var AssignmentRow $assignment */
             $assignment = DB::table('license_assignments')
                 ->where('organization_id', $actor['organization_id'])
                 ->where('id', $assignmentId)
