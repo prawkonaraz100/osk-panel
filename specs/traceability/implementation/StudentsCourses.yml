@@ -1,0 +1,86 @@
+module: StudentsCourses
+core_traceability_modules:
+  - students
+  - course_enrollment_training
+  - pkk
+changed_scope:
+  - evidence: specs/screens/students.yml
+    requirement: tenant-scoped student list search filters sort preview detail create edit archive and restore preserve the confirmed admin workflow
+    domain_data: students + course_enrollments + driving_categories
+    api_use_case: students.list/create/get/update/preview/archive/restore
+    permission: students.view/create/edit/archive/restore with organization or assigned_students scope
+    ui: /kursanci list with search filters sort preview drawer manual create and /kursanci/{student_id} profile
+    acceptance_test: Tests\Feature\StudentsCoursesCoreTest::test_http_student_create_and_course_create_require_idempotency_and_emit_version_etag
+    status: IMPLEMENTED
+  - evidence: docs/66-formal-student-record-and-theory-exemptions.md
+    requirement: pre-course Student may be incomplete but formal CourseEnrollment requires PESEL or explicit no-PESEL declaration with birth date
+    domain_data: students.pesel_ciphertext + students.pesel_lookup_hash + students.no_pesel_declared + students.birth_date + course_enrollments
+    api_use_case: students.create/update + course_enrollments.create
+    permission: students.create/edit + courses.create
+    ui: student create/edit drawer with PESEL and no-PESEL branch plus course create gating
+    acceptance_test: Tests\Feature\StudentsCoursesCoreTest::test_pre_course_incomplete_student_is_allowed_but_formal_course_is_rejected
+    status: IMPLEMENTED
+  - evidence: specs/screens/course-create.yml
+    requirement: create CourseEnrollment preserves training type category course-scoped PKK start declared current-OSK hours external-school hours instructor and location without self-crediting formal time
+    domain_data: course_enrollments + pkk_profiles + recognized_external_training + course_enrollment_lifecycle_events
+    api_use_case: course_enrollments.list_for_student/create/get/update
+    permission: courses.view/create/edit
+    ui: /kursanci/{student_id} course list plus create/edit course drawer
+    acceptance_test: Tests\Feature\StudentsCoursesCoreTest::test_course_create_is_atomic_across_pkk_requirements_external_history_and_audit
+    status: IMPLEMENTED
+  - evidence: specs/database/students-courses-training.yml
+    requirement: Course lifecycle and nonterminal training-stage changes preserve append-only history and fail closed for completion until hour-ledger and exam evidence are active
+    domain_data: course_enrollments + course_enrollment_lifecycle_events
+    api_use_case: course_enrollments.change_stage/cancel/restore
+    permission: courses.stage.change/cancel/restore
+    ui: course stage selector plus cancel and restore controls on student detail
+    acceptance_test: Tests\Feature\StudentsCoursesCoreTest::test_nonterminal_stage_change_is_audited_but_training_completed_is_fail_closed
+    status: IMPLEMENTED
+  - evidence: specs/legal/training-theory-exemptions.yml
+    requirement: versioned training requirements derive from verified category training-type prior-category and explicit theory-exemption context without overwriting prior profiles
+    domain_data: training_requirement_rule_sets + course_requirement_contexts + course_requirement_context_held_categories + course_exemption_decisions + training_requirement_profiles
+    api_use_case: course_requirements.get/update_context/add_exemption_decision
+    permission: courses.view + course_requirements.correct
+    ui: course details requirement summary and explicit art. 23a exemption decision form
+    acceptance_test: Tests\Feature\StudentsCoursesCoreTest::test_art_23a_exemption_preserves_profile_history_and_disables_theory
+    status: IMPLEMENTED
+  - evidence: specs/screens/course-edit.yml
+    requirement: category or training-type change requires explicit PKK context revalidation and requirement recalculation while prior PKK identity remains historical
+    domain_data: course_enrollments + pkk_profiles + training_requirement_profiles + recognized_external_training
+    api_use_case: course_enrollments.update
+    permission: courses.edit
+    ui: course edit drawer requires PKK re-entry when formal course context changes
+    acceptance_test: Tests\Feature\StudentsCoursesCoreTest::test_course_update_requires_current_version_and_category_change_requires_pkk_revalidation
+    status: IMPLEMENTED
+  - evidence: specs/screens/course-create.yml
+    requirement: previous-OSK theory and practice are auditable recognized external training records and later corrections revoke or supersede rather than delete history
+    domain_data: recognized_external_training + course_enrollments + course_enrollment_lifecycle_events
+    api_use_case: external_training.list/create/revoke
+    permission: courses.view + external_training.recognize
+    ui: course details external-training history add and revoke controls
+    acceptance_test: Tests\Feature\StudentsCoursesCoreTest::test_external_training_is_append_history_and_revoke_does_not_delete_record
+    status: IMPLEMENTED
+  - evidence: specs/security/permissions.yml
+    requirement: assigned_students scope resolves only students connected through active staff linkage and non-cancelled lead-instructor course assignment
+    domain_data: staff_membership_links + staff_profiles + course_enrollments + students
+    api_use_case: StudentCourseScopeAuthorizer collection and target visibility
+    permission: students.view and course read permissions with assigned_students scope
+    ui: student collection and detail fail closed outside resolved assignment scope
+    acceptance_test: Tests\Feature\StudentsCoursesCoreTest::test_assigned_students_scope_resolves_only_non_cancelled_lead_instructor_courses
+    status: IMPLEMENTED
+  - evidence: specs/screens/course-create.yml
+    requirement: course cost remains a Student Finance side effect and existing-current-OSK credited-hour import remains a Training Hour Ledger side effect rather than being fabricated inside CourseEnrollment
+    domain_data: future student_charges + training_hour_ledger_entries; CourseEnrollment stores no parallel financial balance and declared hours are not credited hours
+    api_use_case: initial_cost and import_existing_current_osk_hours remain contract-visible dependencies but runtime rejects unsupported side effects in this slice
+    permission: future Student Finance and training_hours permissions remain outside this module slice
+    ui: course form keeps Cost visible as a disabled Finance dependency and does not offer fake opening-balance credit
+    acceptance_test: Tests\Feature\StudentsCoursesCoreTest::test_course_create_is_atomic_across_pkk_requirements_external_history_and_audit
+    status: DEFERRED_OUTSIDE_CORE_WITH_EXPLICIT_DECISION
+  - evidence: specs/screens/student-create.yml
+    requirement: optional learning account and license assignment remain separate domain entities and are not flattened into Student persistence
+    domain_data: future student_learning_accounts + license_assignments; students remains profile-only
+    api_use_case: initial_license remains contract-visible but runtime rejects it until Learning Access and Licenses slices
+    permission: future student_access and license permissions remain outside this module slice
+    ui: student create and detail show explicit Learning Access dependency without fabricated login license or password state
+    acceptance_test: Tests\Feature\StudentsCoursesCoreTest::test_http_student_create_and_course_create_require_idempotency_and_emit_version_etag
+    status: DEFERRED_OUTSIDE_CORE_WITH_EXPLICIT_DECISION
