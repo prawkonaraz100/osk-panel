@@ -75,6 +75,7 @@ paths:
   /course-enrollments/{courseEnrollmentId}/exemption-decisions: { $ref: './paths/students-courses.yaml#/paths/~1course-enrollments~1{courseEnrollmentId}~1exemption-decisions' }
   /course-enrollments/{courseEnrollmentId}/training-sessions: { $ref: './paths/students-courses.yaml#/paths/~1course-enrollments~1{courseEnrollmentId}~1training-sessions' }
   /training-sessions/{sessionId}: { $ref: './paths/students-courses.yaml#/paths/~1training-sessions~1{sessionId}' }
+  /training-sessions/{sessionId}/attendance: { $ref: './paths/students-courses.yaml#/paths/~1training-sessions~1{sessionId}~1attendance' }
   /training-sessions/{sessionId}/complete: { $ref: './paths/students-courses.yaml#/paths/~1training-sessions~1{sessionId}~1complete' }
   /training-sessions/{sessionId}/cancel: { $ref: './paths/students-courses.yaml#/paths/~1training-sessions~1{sessionId}~1cancel' }
   /course-enrollments/{courseEnrollmentId}/training-hours: { $ref: './paths/students-courses.yaml#/paths/~1course-enrollments~1{courseEnrollmentId}~1training-hours' }
