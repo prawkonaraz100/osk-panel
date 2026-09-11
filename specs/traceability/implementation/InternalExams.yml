@@ -139,4 +139,11 @@ changed_scope:
     ui: DEFERRED_UNTIL_INTERNAL_EXAMS_UI_GATE
     acceptance_test: Tests\\Feature\\InternalExamCoreTest::test_inventory_and_capability_reads_use_ledger_and_current_capability_authority
     status: IMPLEMENTED
-
+  - evidence: specs/database/internal-exams.yml#DB-EXAM-004
+    requirement: prestart candidate snapshot edits are restricted to the snapshot identity fields, require current Attempt If-Match, increment Attempt version exactly once on material change, preserve formal course category language and requirement basis, and append lifecycle history without copying sensitive snapshot data
+    domain_data: internal_exam_attempts + internal_exam_attempt_lifecycle_events
+    api_use_case: HTTP_GATE_5C_prestart_candidate_snapshot_patch
+    permission: exams.generate
+    ui: DEFERRED_UNTIL_INTERNAL_EXAMS_UI_GATE
+    acceptance_test: Tests\\Feature\\InternalExamCoreTest::test_candidate_snapshot_patch_is_prestart_versioned_and_optimistically_concurrent
+    status: IMPLEMENTED
