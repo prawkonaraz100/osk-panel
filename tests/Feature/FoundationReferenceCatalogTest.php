@@ -31,7 +31,7 @@ final class FoundationReferenceCatalogTest extends TestCase
             ->where('permission_code', 'students.view')
             ->where('scope_code', 'assigned_students')
             ->exists());
-        $this->assertSame(50, DB::table('audit_action_policy_currents')->count());
+        $this->assertSame(57, DB::table('audit_action_policy_currents')->count());
         $this->assertTrue(DB::table('audit_action_policy_currents')->where('action', 'student.created')->exists());
         $this->assertTrue(DB::table('audit_action_policy_currents')->where('action', 'course.created')->exists());
         $this->assertTrue(DB::table('audit_action_policy_currents')->where('action', 'training.session.completed')->exists());
@@ -43,10 +43,17 @@ final class FoundationReferenceCatalogTest extends TestCase
         $this->assertTrue(DB::table('audit_action_policy_currents')->where('action', 'student_charge_cancelled')->exists());
         $this->assertTrue(DB::table('audit_action_policy_currents')->where('action', 'student_payment_recorded')->exists());
         $this->assertTrue(DB::table('audit_action_policy_currents')->where('action', 'student_payment_reversed')->exists());
+        $this->assertTrue(DB::table('audit_action_policy_currents')->where('action', 'learning_account_created')->exists());
+        $this->assertTrue(DB::table('audit_action_policy_currents')->where('action', 'learning_account_updated')->exists());
+        $this->assertTrue(DB::table('audit_action_policy_currents')->where('action', 'learning_account_password_reset')->exists());
+        $this->assertTrue(DB::table('audit_action_policy_currents')->where('action', 'learning_account_handoff_created')->exists());
+        $this->assertTrue(DB::table('audit_action_policy_currents')->where('action', 'license_assignment_created')->exists());
+        $this->assertTrue(DB::table('audit_action_policy_currents')->where('action', 'license_assignment_activated')->exists());
+        $this->assertTrue(DB::table('audit_action_policy_currents')->where('action', 'license_assignment_revoked')->exists());
 
         app(FoundationReferenceCatalogSeeder::class)->run();
 
         $this->assertSame(4, DB::table('data_scopes')->count());
-        $this->assertSame(50, DB::table('audit_action_policy_currents')->count());
+        $this->assertSame(57, DB::table('audit_action_policy_currents')->count());
     }
 }

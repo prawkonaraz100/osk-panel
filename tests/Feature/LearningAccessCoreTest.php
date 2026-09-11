@@ -263,7 +263,10 @@ final class LearningAccessCoreTest extends TestCase
             ->where('idempotency_key', $key)
             ->value('safe_response_snapshot');
         $this->assertStringNotContainsString($plaintext, $snapshot);
-        $this->assertStringContainsString('"one_time_plaintext_password":null', $snapshot);
+        $safeReplay = json_decode($snapshot, true, 512, JSON_THROW_ON_ERROR);
+        $this->assertIsArray($safeReplay);
+        $this->assertArrayHasKey('one_time_plaintext_password', $safeReplay);
+        $this->assertNull($safeReplay['one_time_plaintext_password']);
 
         foreach (['audit_logs', 'domain_events', 'outbox_messages'] as $table) {
             $payloads = DB::table($table)->get()->map(static fn (object $row): string => json_encode($row, JSON_THROW_ON_ERROR))->implode("\n");
@@ -288,7 +291,7 @@ final class LearningAccessCoreTest extends TestCase
     }
 
     /**
-     * @param array{organization_id:string,user_id:string,membership_id:string,session_id:string} $actor
+     * @param  array{organization_id:string,user_id:string,membership_id:string,session_id:string}  $actor
      * @return array<string,mixed>
      */
     private function student(array $actor): array
