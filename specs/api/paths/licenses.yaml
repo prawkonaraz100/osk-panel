@@ -104,7 +104,7 @@ paths:
               schema:
                 type: object
                 properties:
-                  data: { type: array, items: { $ref: '../openapi-components-v1.yaml#/components/schemas/LicenseAssignment' } }
+                  data: { type: array, items: { $ref: '../openapi-components-v1.yaml#/components/schemas/LicenseManagementRow' } }
                   meta: { $ref: '../openapi-components-v1.yaml#/components/schemas/PaginationMeta' }
         default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
     post:

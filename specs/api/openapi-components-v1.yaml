@@ -959,18 +959,35 @@ components:
         id: { type: string, format: uuid }
         product_id: { type: string, format: uuid }
         status: { type: string }
+    LicenseManagementRow:
+      type: object
+      required: [learning_account_id, student_id, student_full_name, learning_identifier, learning_access_language, assigned_license_count]
+      properties:
+        learning_account_id: { type: string, format: uuid }
+        student_id: { type: string, format: uuid }
+        student_full_name: { type: string }
+        learning_identifier: { type: string }
+        learning_access_language: { type: string }
+        assigned_license_count: { type: integer, minimum: 0 }
+        latest_license_status: { type: [string, 'null'] }
+        latest_license_generated_at: { type: [string, 'null'], format: date-time }
+        current_learning_access_expiry: { type: [string, 'null'], format: date-time }
     LicenseAssignment:
       type: object
-      required: [id, inventory_entry_id, student_id, learning_account_id, language_code, status, version]
+      required: [id, inventory_entry_id, student_id, learning_account_id, language_code, assignment_sequence, status, presentation_status, version]
       properties:
         id: { type: string, format: uuid }
         inventory_entry_id: { type: string, format: uuid }
         student_id: { type: string, format: uuid }
         learning_account_id: { type: string, format: uuid }
         language_code: { type: string }
+        assignment_sequence: { type: integer, minimum: 1 }
         status: { type: string }
+        presentation_status: { type: string, enum: [not_activated, active, expired, revoked, unknown] }
         assigned_at: { type: string, format: date-time }
         revoked_at: { type: [string, 'null'], format: date-time }
+        expires_at: { type: [string, 'null'], format: date-time }
+        remaining_days: { type: [integer, 'null'], minimum: 0 }
         version: { type: integer }
     CreateInitialLicenseAssignmentRequest:
       type: object
