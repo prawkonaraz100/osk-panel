@@ -1,19 +1,15 @@
-name: Helper Calendar Training Slice CI
+name: Helper Pint Probe
 
 on:
   push:
     branches:
-      - tmp-core-v1-calendar-training-hour-ledger-001-20260911
+      - tmp-core-v1-calendar-pint-probe-20260911
 
 permissions:
   contents: read
 
-concurrency:
-  group: helper-calendar-training-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
-  backend-quality:
+  pint-diff:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -21,86 +17,9 @@ jobs:
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.5'
-          extensions: mbstring, intl, pdo_pgsql, redis
           coverage: none
       - run: composer install --no-interaction --prefer-dist --no-progress
-      - run: composer validate --strict
-      - run: vendor/bin/pint --test
-      - run: vendor/bin/phpstan analyse --no-progress --memory-limit=1G
-
-  frontend-quality:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v7
-        with:
-          node-version-file: '.nvmrc'
-          cache: npm
-      - run: npm ci
-      - run: npm run lint
-      - run: npm run typecheck
-      - run: npm run build
-      - run: npm audit --audit-level=high
-
-  runtime-tests-and-migrations:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v6
-      - uses: shivammathur/setup-php@v2
-        with:
-          php-version: '8.5'
-          extensions: mbstring, intl, pdo_pgsql, redis
-          coverage: none
-      - run: composer install --no-interaction --prefer-dist --no-progress
-      - name: Boot deterministic test runtime
+      - name: Canonical Pint formatting diff
         run: |
-          cp .env.example .env
-          php artisan key:generate
-          docker compose config >/tmp/compose.rendered.yml
-          docker compose up -d --wait
-      - name: Validate migration authority and registry
-        run: php artisan migration:plan:validate --json
-      - name: Run PostgreSQL-backed test suite
-        run: php artisan test --fail-on-warning
-      - name: Cleanup runtime
-        if: always()
-        run: docker compose down -v
-
-  contracts-and-traceability:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-      - uses: actions/setup-python@v7
-        with:
-          python-version: '3.12'
-          cache: pip
-          cache-dependency-path: scripts/contract-validation/requirements.txt
-      - run: python -m pip install --disable-pip-version-check -r scripts/contract-validation/requirements.txt
-      - name: Preserve OpenAPI contract gate
-        run: python scripts/contract-validation/validate_openapi_contract.py
-      - name: Self-test changed-module traceability validator
-        run: python scripts/ci/validate_changed_module_traceability.py --self-test
-      - name: Validate changed-module traceability
-        env:
-          CI_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
-          CI_HEAD_SHA: ${{ github.sha }}
-        run: python scripts/ci/validate_changed_module_traceability.py
-
-  secret-scan:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-      - name: Scan committed changes for secrets
-        uses: gitleaks/gitleaks-action@v3
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITLEAKS_ENABLE_COMMENTS: 'false'
-          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: 'false'
+          vendor/bin/pint
+          git diff -- app/Modules/CalendarTraining tests/Feature/TrainingSessionCoreTest.php
