@@ -160,6 +160,8 @@ permission_groups:
     - exams.generate
     - exams.access.send
     - exams.start.local
+    - exams.stations.view
+    - exams.stations.manage
     - exams.results.view
     - exams.documents.download
     - exams.inventory.adjust
@@ -304,6 +306,8 @@ permission_scope_profile_by_code:
   exams.generate: student_scoped
   exams.access.send: student_scoped
   exams.start.local: student_scoped
+  exams.stations.view: organization_only
+  exams.stations.manage: organization_only
   exams.results.view: student_scoped
   exams.documents.download: student_scoped
   exams.inventory.adjust: organization_only
