@@ -14,6 +14,17 @@ final class FoundationSchema
 {
     /** @var list<string> */
     private const TABLES = [
+        'pkk_profiles',
+        'recognized_external_training',
+        'course_exemption_decisions',
+        'training_requirement_profiles',
+        'course_requirement_override_decisions',
+        'course_requirement_context_held_categories',
+        'course_requirement_contexts',
+        'training_requirement_rule_sets',
+        'course_enrollment_lifecycle_events',
+        'course_enrollments',
+        'students',
         'vehicle_location_assignments',
         'vehicle_category_assignments',
         'vehicle_documents',

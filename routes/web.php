@@ -2,6 +2,7 @@
 
 use App\Modules\ResourcesCore\ResourceApiMiddleware;
 use App\Modules\ResourcesCore\ResourceController;
+use App\Modules\StudentsCourses\StudentCourseController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(ResourceApiMiddleware::class)->prefix('api/v1')->group(function (): void {
@@ -36,9 +37,33 @@ Route::middleware(ResourceApiMiddleware::class)->prefix('api/v1')->group(functio
     Route::get('/vehicles/{vehicleId}/documents', [ResourceController::class, 'vehicleDocumentsList']);
     Route::post('/vehicles/{vehicleId}/documents', [ResourceController::class, 'vehicleDocumentsCreate']);
     Route::patch('/vehicles/{vehicleId}/documents/{documentId}', [ResourceController::class, 'vehicleDocumentsUpdate']);
+
+    Route::get('/students', [StudentCourseController::class, 'studentsList']);
+    Route::post('/students', [StudentCourseController::class, 'studentsCreate']);
+    Route::get('/students/{studentId}', [StudentCourseController::class, 'studentsGet']);
+    Route::patch('/students/{studentId}', [StudentCourseController::class, 'studentsUpdate']);
+    Route::get('/students/{studentId}/preview', [StudentCourseController::class, 'studentsPreview']);
+    Route::post('/students/{studentId}/archive', [StudentCourseController::class, 'studentsArchive']);
+    Route::post('/students/{studentId}/restore', [StudentCourseController::class, 'studentsRestore']);
+
+    Route::get('/students/{studentId}/course-enrollments', [StudentCourseController::class, 'coursesList']);
+    Route::post('/students/{studentId}/course-enrollments', [StudentCourseController::class, 'coursesCreate']);
+    Route::get('/course-enrollments/{courseEnrollmentId}', [StudentCourseController::class, 'coursesGet']);
+    Route::patch('/course-enrollments/{courseEnrollmentId}', [StudentCourseController::class, 'coursesUpdate']);
+    Route::post('/course-enrollments/{courseEnrollmentId}/cancel', [StudentCourseController::class, 'coursesCancel']);
+    Route::post('/course-enrollments/{courseEnrollmentId}/restore', [StudentCourseController::class, 'coursesRestore']);
+    Route::post('/course-enrollments/{courseEnrollmentId}/stage-transitions', [StudentCourseController::class, 'coursesChangeStage']);
+    Route::get('/course-enrollments/{courseEnrollmentId}/requirements', [StudentCourseController::class, 'courseRequirementsGet']);
+    Route::post('/course-enrollments/{courseEnrollmentId}/requirement-context', [StudentCourseController::class, 'courseRequirementsUpdateContext']);
+    Route::post('/course-enrollments/{courseEnrollmentId}/exemption-decisions', [StudentCourseController::class, 'courseRequirementsAddExemptionDecision']);
+    Route::get('/course-enrollments/{courseEnrollmentId}/recognized-external-training', [StudentCourseController::class, 'externalTrainingList']);
+    Route::post('/course-enrollments/{courseEnrollmentId}/recognized-external-training', [StudentCourseController::class, 'externalTrainingCreate']);
+    Route::post('/course-enrollments/{courseEnrollmentId}/recognized-external-training/{recordId}/revoke', [StudentCourseController::class, 'externalTrainingRevoke']);
 });
 
 Route::view('/', 'app');
+Route::view('/kursanci', 'app');
+Route::view('/kursanci/{studentId}', 'app');
 Route::view('/lokalizacje', 'app');
 Route::view('/pracownicy', 'app');
 Route::view('/pracownicy/{staffId}', 'app');

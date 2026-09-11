@@ -1,7 +1,7 @@
 {
     "schema_version": 2,
     "plan_identity": "d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10",
-    "execution_identity": "6e39b3c71a7a2ad44bfb78513506b8a3e53cc4a5ff443a89b066d8b44917cc1f",
+    "execution_identity": "59ed166d900d2701df2b8ca6e534b6b59d0de78ecf8fa0f04204f255020e5bcc",
     "stage4_root": "database/migrations/stage4",
     "implemented_steps": [
         {
@@ -262,6 +262,105 @@
             "migration_file": "database/migrations/stage4/expand/MIG-TBL-VEHICLE_LOCATION_ASSIGNMENTS/2026_09_10_000360_create_vehicle_location_assignments_table.php",
             "migration_name": "2026_09_10_000360_create_vehicle_location_assignments_table",
             "file_sha256": "6b35e754848f0ae085cf2252de9387517569f9940a75919c2b2efe8bf6139a72",
+            "restart_classification": "restart_safe",
+            "safe_down": false
+        },
+        {
+            "node_id": "MIG-TBL-STUDENTS",
+            "phase": "expand",
+            "migration_file": "database/migrations/stage4/expand/MIG-TBL-STUDENTS/2026_09_10_000370_create_students_table.php",
+            "migration_name": "2026_09_10_000370_create_students_table",
+            "file_sha256": "c4397f696297c594ecde1d1c2a82816e8c9cf96e5416002315358aa4cf4f6d94",
+            "restart_classification": "restart_safe",
+            "safe_down": false
+        },
+        {
+            "node_id": "MIG-TBL-COURSE_ENROLLMENTS",
+            "phase": "expand",
+            "migration_file": "database/migrations/stage4/expand/MIG-TBL-COURSE_ENROLLMENTS/2026_09_10_000410_create_course_enrollments_table.php",
+            "migration_name": "2026_09_10_000410_create_course_enrollments_table",
+            "file_sha256": "d71bd621f5de3964e21d67b206b6decf40e2dc4aa918a50e37f2f0731863b001",
+            "restart_classification": "restart_safe",
+            "safe_down": false
+        },
+        {
+            "node_id": "MIG-TBL-COURSE_ENROLLMENT_LIFECYCLE_EVENTS",
+            "phase": "expand",
+            "migration_file": "database/migrations/stage4/expand/MIG-TBL-COURSE_ENROLLMENT_LIFECYCLE_EVENTS/2026_09_10_000420_create_course_enrollment_lifecycle_events_table.php",
+            "migration_name": "2026_09_10_000420_create_course_enrollment_lifecycle_events_table",
+            "file_sha256": "c9eb44c0a61699d9cc4077fa0b549e54542b415c20dc8d3be481faba790c2a8b",
+            "restart_classification": "restart_safe",
+            "safe_down": false
+        },
+        {
+            "node_id": "MIG-TBL-TRAINING_REQUIREMENT_RULE_SETS",
+            "phase": "expand",
+            "migration_file": "database/migrations/stage4/expand/MIG-TBL-TRAINING_REQUIREMENT_RULE_SETS/2026_09_10_000430_create_training_requirement_rule_sets_table.php",
+            "migration_name": "2026_09_10_000430_create_training_requirement_rule_sets_table",
+            "file_sha256": "22a97f30bbef6dc9d15511ef5ccc81bd024e706bcb9f50c1c3099f522abae638",
+            "restart_classification": "restart_safe",
+            "safe_down": false
+        },
+        {
+            "node_id": "MIG-TBL-COURSE_REQUIREMENT_CONTEXTS",
+            "phase": "expand",
+            "migration_file": "database/migrations/stage4/expand/MIG-TBL-COURSE_REQUIREMENT_CONTEXTS/2026_09_10_000440_create_course_requirement_contexts_table.php",
+            "migration_name": "2026_09_10_000440_create_course_requirement_contexts_table",
+            "file_sha256": "f4b46dad041bb015d501bbb24683b7ce9db912c98bcb47fddf4eca5c736e261e",
+            "restart_classification": "restart_safe",
+            "safe_down": false
+        },
+        {
+            "node_id": "MIG-TBL-COURSE_REQUIREMENT_CONTEXT_HELD_CATEGORIES",
+            "phase": "expand",
+            "migration_file": "database/migrations/stage4/expand/MIG-TBL-COURSE_REQUIREMENT_CONTEXT_HELD_CATEGORIES/2026_09_10_000450_create_course_requirement_context_held_categories_table.php",
+            "migration_name": "2026_09_10_000450_create_course_requirement_context_held_categories_table",
+            "file_sha256": "7e6833360f98bc66e5ed44605d7b4fed50a51fd71d39b807a28bef028892a6b7",
+            "restart_classification": "restart_safe",
+            "safe_down": false
+        },
+        {
+            "node_id": "MIG-TBL-COURSE_REQUIREMENT_OVERRIDE_DECISIONS",
+            "phase": "expand",
+            "migration_file": "database/migrations/stage4/expand/MIG-TBL-COURSE_REQUIREMENT_OVERRIDE_DECISIONS/2026_09_10_000460_create_course_requirement_override_decisions_table.php",
+            "migration_name": "2026_09_10_000460_create_course_requirement_override_decisions_table",
+            "file_sha256": "b7d0ca2af5733c45f8066eb8ea61d547e073ce38fd53f53b15b83cc096826e06",
+            "restart_classification": "restart_safe",
+            "safe_down": false
+        },
+        {
+            "node_id": "MIG-TBL-TRAINING_REQUIREMENT_PROFILES",
+            "phase": "expand",
+            "migration_file": "database/migrations/stage4/expand/MIG-TBL-TRAINING_REQUIREMENT_PROFILES/2026_09_10_000470_create_training_requirement_profiles_table.php",
+            "migration_name": "2026_09_10_000470_create_training_requirement_profiles_table",
+            "file_sha256": "5b9227f31f3a399b9cd92da4332676cd929ff9d4839e10144018b8118a7f5931",
+            "restart_classification": "restart_safe",
+            "safe_down": false
+        },
+        {
+            "node_id": "MIG-TBL-COURSE_EXEMPTION_DECISIONS",
+            "phase": "expand",
+            "migration_file": "database/migrations/stage4/expand/MIG-TBL-COURSE_EXEMPTION_DECISIONS/2026_09_10_000480_create_course_exemption_decisions_table.php",
+            "migration_name": "2026_09_10_000480_create_course_exemption_decisions_table",
+            "file_sha256": "2a7af5ebdd300b03298ad7dbcaca1fdede7b2dce1a19aa1d75bfc14fe9ca9101",
+            "restart_classification": "restart_safe",
+            "safe_down": false
+        },
+        {
+            "node_id": "MIG-TBL-RECOGNIZED_EXTERNAL_TRAINING",
+            "phase": "expand",
+            "migration_file": "database/migrations/stage4/expand/MIG-TBL-RECOGNIZED_EXTERNAL_TRAINING/2026_09_10_000490_create_recognized_external_training_table.php",
+            "migration_name": "2026_09_10_000490_create_recognized_external_training_table",
+            "file_sha256": "7ec6841798f81e5fbb8de5a777d9e8c0bf7ee0140404ff80d0a65ef1bebf148a",
+            "restart_classification": "restart_safe",
+            "safe_down": false
+        },
+        {
+            "node_id": "MIG-TBL-PKK_PROFILES",
+            "phase": "expand",
+            "migration_file": "database/migrations/stage4/expand/MIG-TBL-PKK_PROFILES/2026_09_10_000610_create_pkk_profiles_table.php",
+            "migration_name": "2026_09_10_000610_create_pkk_profiles_table",
+            "file_sha256": "d8939a762a2bd9a90f7aa324547d39ad54fe8bfd4a2775bcc30f62ea5a5aeebd",
             "restart_classification": "restart_safe",
             "safe_down": false
         },

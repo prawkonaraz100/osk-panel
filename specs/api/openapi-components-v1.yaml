@@ -267,17 +267,19 @@ components:
 
     Student:
       type: object
-      required: [id, first_name, last_name, version]
+      required: [id, first_name, last_name, no_pesel, created_at, version]
       properties:
         id: { type: string, format: uuid }
         first_name: { type: string }
         last_name: { type: string }
         birth_date: { type: [string, 'null'], format: date }
+        no_pesel: { type: boolean }
         pesel_masked: { type: [string, 'null'] }
         contact_email: { type: [string, 'null'], format: email }
         phone: { type: [string, 'null'] }
         default_location_id: { type: [string, 'null'], format: uuid }
         archived_at: { type: [string, 'null'], format: date-time }
+        created_at: { type: string, format: date-time, readOnly: true }
         version: { type: integer }
     StudentPreview:
       allOf:
@@ -367,12 +369,15 @@ components:
         driving_category_code: { type: string }
         pkk_reference_masked: { type: [string, 'null'] }
         started_at: { type: string, format: date-time }
-        initial_cost: { anyOf: [{ $ref: '#/components/schemas/Money' }, { type: 'null' }] }
+        initial_cost:
+          anyOf: [{ $ref: '#/components/schemas/Money' }, { type: 'null' }]
+          description: Optional create-time finance side effect. Runtime persistence requires the Student Finance slice; CourseEnrollment is not the financial source of truth.
+          x-stage5-dependency: student_finance
         declared_theory_minutes: { type: integer, minimum: 0 }
         declared_practical_minutes: { type: integer, minimum: 0 }
         lead_instructor_id: { type: string, format: uuid }
         location_id: { type: [string, 'null'], format: uuid }
-        training_stage: { type: string }
+        training_stage: { type: string, enum: [unassigned, theory, practice, documentation, word_exam, supplementary_training, training_completed] }
         cancelled_at: { type: [string, 'null'], format: date-time }
         version: { type: integer }
     CreateCourseEnrollmentRequest:
@@ -383,14 +388,21 @@ components:
         driving_category_code: { type: string }
         pkk_number: { type: string }
         started_at: { type: string, format: date-time }
-        initial_cost: { anyOf: [{ $ref: '#/components/schemas/Money' }, { type: 'null' }] }
+        initial_cost:
+          anyOf: [{ $ref: '#/components/schemas/Money' }, { type: 'null' }]
+          description: Optional create-time finance side effect. Runtime persistence requires the Student Finance slice; CourseEnrollment is not the financial source of truth.
+          x-stage5-dependency: student_finance
         declared_theory_minutes: { type: integer, minimum: 0, default: 0 }
         declared_practical_minutes: { type: integer, minimum: 0, default: 0 }
         recognized_external_theory_minutes: { type: integer, minimum: 0, default: 0 }
         recognized_external_practical_minutes: { type: integer, minimum: 0, default: 0 }
         lead_instructor_id: { type: string, format: uuid }
         location_id: { type: [string, 'null'], format: uuid }
-        import_existing_current_osk_hours: { type: boolean, default: false, description: Explicit audited opening-balance mode only. }
+        import_existing_current_osk_hours:
+          type: boolean
+          default: false
+          description: Explicit audited opening-balance mode only; true requires the Training Session/Hour Ledger slice.
+          x-stage5-dependency: training_hour_ledger
     UpdateCourseEnrollmentRequest:
       type: object
       properties:
@@ -422,12 +434,20 @@ components:
         exemption_basis_code: { type: [string, 'null'] }
     RequirementContextRequest:
       type: object
-      additionalProperties: true
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        state_theory_passed: { type: boolean }
+        evidence_reference: { type: [string, 'null'], maxLength: 255 }
+        held_categories:
+          type: array
+          uniqueItems: true
+          items: { type: string, maxLength: 16 }
     ExemptionDecisionRequest:
       type: object
       required: [basis_code, reason]
       properties:
-        basis_code: { type: string }
+        basis_code: { type: string, enum: [art_23a] }
         evidence_reference: { type: [string, 'null'] }
         reason: { type: string }
     TrainingSession:
@@ -494,7 +514,7 @@ components:
       required: [training_part, recognized_minutes, reason]
       properties:
         training_part: { type: string, enum: [theory, practical] }
-        recognized_minutes: { type: integer, minimum: 0 }
+        recognized_minutes: { type: integer, minimum: 1 }
         source_school_reference: { type: [string, 'null'] }
         evidence_reference: { type: [string, 'null'] }
         reason: { type: string }

@@ -24,6 +24,8 @@ Pracownik OSK (np. sekretariat) musi móc na późniejszym etapie poprawić pods
 
 Zmiana podstawy powoduje ponowne wyliczenie wymagań kursu.
 
+Dla `training_type=supplementary` ustawowe minima szkolenia podstawowego z § 9 nie są kopiowane. Zakres szkolenia uzupełniającego jest uzgadniany przez osobę szkoloną i kierownika OSK; w produkcie jego trwałym planem są `declared_theory_minutes` i `declared_practical_minutes`. Pola te nie są credited time.
+
 ## 2. UX
 
 Na profilu kursu należy udostępnić sekcję `Wymagania szkolenia / Zwolnienia`.
@@ -109,6 +111,11 @@ Rekomendowane encje/pola:
 - reason,
 - actor,
 - timestamp.
+
+Źródła dla szkolenia uzupełniającego:
+- `course_enrollment.declared_theory_minutes` -> uzgodniony zakres teorii,
+- `course_enrollment.declared_practical_minutes` -> uzgodniony zakres praktyki,
+- nie są one dowodem odbycia zajęć i nie zastępują ledgeru.
 
 Wyliczane outputy:
 - `theory_training_required`,

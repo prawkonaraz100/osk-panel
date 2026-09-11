@@ -667,6 +667,7 @@ function togglePermission(permission: string): void {
         class="main-nav"
         aria-label="Główna nawigacja"
       >
+        <a href="/kursanci">Kursanci</a>
         <a
           href="/lokalizacje"
           :class="{ active: section === 'locations' }"

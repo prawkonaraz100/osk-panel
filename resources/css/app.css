@@ -870,3 +870,436 @@ fieldset legend {
     padding: 20px 16px;
   }
 }
+
+
+/* Students + Course Enrollment */
+.student-list-head {
+  margin-bottom: 16px;
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 22px;
+}
+
+.student-list-head h2 {
+  margin: 5px 0 0;
+  font-size: 22px;
+  letter-spacing: -0.025em;
+}
+
+.student-search {
+  width: min(620px, 100%);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.student-search input,
+.filter-row select,
+.course-stage select,
+.inline-form input,
+.inline-form select {
+  min-height: 40px;
+  padding: 8px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.student-search input {
+  width: min(300px, 100%);
+}
+
+.filter-panel {
+  margin-bottom: 16px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  display: grid;
+  gap: 18px;
+}
+
+.filter-block {
+  display: grid;
+  gap: 10px;
+}
+
+.filter-block > strong,
+.preview-courses > strong {
+  font-size: 13px;
+}
+
+.filter-row {
+  display: flex;
+  align-items: end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.filter-row > label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.module-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.module-note-box {
+  padding: 13px 14px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 10px;
+  background: #fbfaf7;
+  display: grid;
+  gap: 5px;
+}
+
+.module-note-box strong {
+  font-size: 13px;
+}
+
+.module-note-box span {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.student-table small {
+  max-width: 290px;
+}
+
+.pagination-row {
+  padding: 14px 2px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.student-tabs {
+  margin: 0 0 16px;
+  padding: 0 4px;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  gap: 22px;
+}
+
+.student-tabs button {
+  margin-bottom: -1px;
+  padding: 12px 1px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-weight: 650;
+}
+
+.student-tabs button.active {
+  border-bottom-color: var(--accent-strong);
+  color: var(--text);
+}
+
+.student-tabs button:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+.pending-module {
+  padding: 18px;
+  border: 1px dashed #d7d4ce;
+  border-radius: 12px;
+  background: #fbfaf7;
+}
+
+.pending-module strong {
+  display: block;
+  font-size: 14px;
+}
+
+.pending-module p {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.muted-module-card {
+  background: #fbfbfa;
+}
+
+.muted-module-card h2 {
+  margin: 5px 0 8px;
+  font-size: 18px;
+}
+
+.muted-module-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.empty-inline {
+  padding: 24px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 12px;
+  background: #fbfaf7;
+  display: grid;
+  gap: 5px;
+  text-align: center;
+}
+
+.empty-inline span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.course-list {
+  display: grid;
+}
+
+.course-row {
+  padding: 14px 0;
+  border-top: 1px solid #efeeeb;
+  display: grid;
+  grid-template-columns: minmax(260px, 1.4fr) minmax(180px, 0.8fr) auto;
+  align-items: center;
+  gap: 18px;
+}
+
+.course-row:first-child {
+  border-top: 0;
+}
+
+.course-row.cancelled {
+  opacity: 0.66;
+}
+
+.course-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.course-main > div:last-child {
+  display: grid;
+  gap: 4px;
+}
+
+.course-main span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.course-category {
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  border-radius: 50%;
+  background: #f2e8c9;
+  display: grid;
+  place-items: center;
+  color: #594719;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.course-stage label {
+  display: grid;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.course-stage select {
+  width: 100%;
+}
+
+.course-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 11px;
+  flex-wrap: wrap;
+}
+
+.toggle-field {
+  padding: 10px 0;
+  display: flex !important;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.toggle-field input {
+  width: 18px !important;
+  height: 18px;
+  min-height: auto !important;
+}
+
+.wide-check {
+  width: 100%;
+}
+
+.preview-stack,
+.course-detail-stack {
+  display: grid;
+  gap: 18px;
+}
+
+.preview-courses {
+  display: grid;
+  gap: 8px;
+}
+
+.mini-course,
+.external-row {
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.mini-course span {
+  font-weight: 750;
+}
+
+.mini-course small,
+.external-row span {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.drawer-section {
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.drawer-section:last-child {
+  border-bottom: 0;
+}
+
+.drawer-section h3 {
+  margin: 5px 0 0;
+  font-size: 18px;
+  letter-spacing: -0.025em;
+}
+
+.drawer-section-heading {
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.requirement-grid {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.requirement-grid > div {
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fbfbfa;
+  display: grid;
+  gap: 4px;
+}
+
+.requirement-grid span {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.requirement-grid strong {
+  font-size: 13px;
+}
+
+.inline-form {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 8px;
+}
+
+.external-form {
+  grid-template-columns: 120px 110px 1fr 1fr;
+}
+
+.external-form .wide,
+.external-form .button {
+  grid-column: span 2;
+}
+
+.external-list {
+  margin-top: 12px;
+  display: grid;
+  gap: 8px;
+}
+
+.external-row > div {
+  display: grid;
+  gap: 4px;
+}
+
+.external-row.revoked {
+  opacity: 0.55;
+}
+
+@media (max-width: 980px) {
+  .student-list-head,
+  .student-search,
+  .pagination-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .student-search {
+    width: 100%;
+  }
+
+  .student-search input {
+    width: 100%;
+  }
+
+  .course-row {
+    grid-template-columns: 1fr;
+  }
+
+  .course-actions {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 760px) {
+  .student-tabs {
+    overflow-x: auto;
+  }
+
+  .requirement-grid,
+  .inline-form,
+  .external-form {
+    grid-template-columns: 1fr;
+  }
+
+  .external-form .wide,
+  .external-form .button {
+    grid-column: auto;
+  }
+}

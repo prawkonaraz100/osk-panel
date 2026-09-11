@@ -15,6 +15,15 @@ editable_inputs:
   - state_theory_passed
   - exemption_basis_code
   - evidence_reference
+  - supplementary_agreed_theory_minutes
+  - supplementary_agreed_practical_minutes
+
+supplementary_input_mapping:
+  applies_when: training_type == supplementary
+  supplementary_agreed_theory_minutes: course_enrollment.declared_theory_minutes
+  supplementary_agreed_practical_minutes: course_enrollment.declared_practical_minutes
+  semantics: agreed_training_scope_under_par_5_not_credited_time
+  basic_training_legal_minima_inherited: false
 
 allowed_stages:
   - course_created
