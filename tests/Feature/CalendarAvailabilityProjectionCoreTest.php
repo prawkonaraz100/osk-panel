@@ -7,6 +7,7 @@ use App\Modules\ResourcesCore\StaffService;
 use App\Modules\StudentsCourses\CourseEnrollmentService;
 use App\Modules\StudentsCourses\StudentService;
 use Illuminate\Support\Str;
+use Illuminate\Testing\TestResponse;
 use Tests\Support\FoundationSchema;
 use Tests\TestCase;
 
@@ -141,7 +142,7 @@ final class CalendarAvailabilityProjectionCoreTest extends TestCase
         $afterCancel->assertOk()->assertJsonCount(0);
     }
 
-    private function calendar(string $sessionId): \Illuminate\Testing\TestResponse
+    private function calendar(string $sessionId): TestResponse
     {
         return $this->withSession(['auth_session_id' => $sessionId])
             ->getJson('/api/v1/calendar/events?event_type[]=driving_lesson');
