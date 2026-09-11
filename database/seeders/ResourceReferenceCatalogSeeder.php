@@ -28,6 +28,11 @@ final class ResourceReferenceCatalogSeeder extends Seeder
     ];
 
     /** @var list<string> */
+    private const LANGUAGES = [
+        'pl' => 'Polski',
+    ];
+
+    /** @var list<string> */
     private const AUDIT_ACTIONS = [
         'location.created', 'location.updated', 'location.archived', 'location.restored',
         'staff.created', 'staff.updated', 'staff.archived', 'staff.restored',
@@ -43,11 +48,20 @@ final class ResourceReferenceCatalogSeeder extends Seeder
         'calendar.event.created', 'calendar.event.updated', 'calendar.event.completed', 'calendar.event.cancelled',
         'availability.slot.created', 'availability.slot.updated', 'availability.slot.booked', 'availability.slot.formalized', 'availability.slot.cancelled',
         'student_charge_created', 'student_charge_cancelled', 'student_payment_recorded', 'student_payment_reversed',
+        'learning_account_created', 'learning_account_updated', 'learning_account_password_reset', 'learning_account_handoff_created',
+        'license_assignment_created', 'license_assignment_activated', 'license_assignment_revoked',
     ];
 
     public function run(): void
     {
         DB::transaction(function (): void {
+            foreach (self::LANGUAGES as $code => $label) {
+                DB::table('languages')->updateOrInsert(
+                    ['code' => $code],
+                    ['label_key' => $label, 'active' => true],
+                );
+            }
+
             foreach (self::LOCATION_TYPES as $code => $label) {
                 DB::table('location_types')->updateOrInsert(
                     ['code' => $code],

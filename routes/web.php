@@ -4,6 +4,7 @@ use App\Modules\CalendarTraining\AvailabilitySlotController;
 use App\Modules\CalendarTraining\CalendarDrivingLessonController;
 use App\Modules\CalendarTraining\CalendarEventController;
 use App\Modules\CalendarTraining\TrainingSessionController;
+use App\Modules\LearningAccess\LearningAccessController;
 use App\Modules\ResourcesCore\ResourceApiMiddleware;
 use App\Modules\ResourcesCore\ResourceController;
 use App\Modules\StudentFinance\StudentFinanceController;
@@ -50,6 +51,22 @@ Route::middleware(ResourceApiMiddleware::class)->prefix('api/v1')->group(functio
     Route::get('/students/{studentId}/preview', [StudentCourseController::class, 'studentsPreview']);
     Route::post('/students/{studentId}/archive', [StudentCourseController::class, 'studentsArchive']);
     Route::post('/students/{studentId}/restore', [StudentCourseController::class, 'studentsRestore']);
+
+    Route::get('/students/{studentId}/learning-accounts', [LearningAccessController::class, 'accountsList']);
+    Route::post('/students/{studentId}/learning-accounts', [LearningAccessController::class, 'accountsCreate']);
+    Route::patch('/students/{studentId}/learning-accounts/{accountId}', [LearningAccessController::class, 'accountsUpdate']);
+    Route::post('/students/{studentId}/learning-accounts/{accountId}/password-reset', [LearningAccessController::class, 'resetPassword']);
+    Route::post('/students/{studentId}/learning-accounts/{accountId}/access-handoffs', [LearningAccessController::class, 'createHandoff']);
+
+    Route::get('/license-products', [LearningAccessController::class, 'products']);
+    Route::get('/license-products/{productId}/languages', [LearningAccessController::class, 'productLanguages']);
+    Route::get('/license-inventory', [LearningAccessController::class, 'inventory']);
+    Route::get('/license-assignments', [LearningAccessController::class, 'assignments']);
+    Route::post('/license-assignments', [LearningAccessController::class, 'assignmentCreate']);
+    Route::get('/license-assignments/{assignmentId}', [LearningAccessController::class, 'assignmentGet']);
+    Route::post('/license-assignments/{assignmentId}/activate', [LearningAccessController::class, 'assignmentActivate']);
+    Route::post('/license-assignments/{assignmentId}/revoke-unactivated', [LearningAccessController::class, 'assignmentRevoke']);
+    Route::get('/students/{studentId}/learning-accounts/{accountId}/license-assignments', [LearningAccessController::class, 'history']);
 
     Route::get('/students/{studentId}/charges', [StudentFinanceController::class, 'chargesList']);
     Route::post('/students/{studentId}/charges', [StudentFinanceController::class, 'chargesCreate']);

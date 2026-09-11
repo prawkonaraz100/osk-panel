@@ -14,6 +14,16 @@ final class FoundationSchema
 {
     /** @var list<string> */
     private const TABLES = [
+        'license_activations',
+        'license_assignments',
+        'license_inventory_entries',
+        'license_product_language_capabilities',
+        'license_products',
+        'student_access_handoffs',
+        'student_access_export_batches',
+        'student_learning_accounts',
+        'user_password_management',
+        'languages',
         'training_session_calendar_details',
         'calendar_resource_claims',
         'availability_slot_lifecycle_events',
