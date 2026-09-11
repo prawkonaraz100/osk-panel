@@ -292,6 +292,11 @@ operations:
       path: /internal-exam/subjects
       covered_by_operationId: internalExamSubjectsList
       requirement: confirmed_sort_fields_and_asc_desc
+    - id: exam_management.hide_finished
+      method: GET
+      path: /internal-exam/subjects
+      covered_by_operationId: internalExamSubjectsList
+      requirement: hide_latest_passed_and_failed_subject_rows_without_hiding_attempt_history
     - { id: exam_attempts.list_for_course, method: GET, path: '/course-enrollments/{courseEnrollmentId}/internal-exam-attempts' }
     - { id: exam_attempts.create_and_reserve, method: POST, path: '/course-enrollments/{courseEnrollmentId}/internal-exam-attempts' }
     - { id: exam_attempts.get, method: GET, path: '/internal-exam-attempts/{attemptId}' }
@@ -369,10 +374,10 @@ coverage_status:
   frozen_at: 2026-09-05
   validator_command: python scripts/contract-validation/validate_openapi_contract.py
   ci_workflow: .github/workflows/api-contract-gate.yml
-  http_requirement_rows: 179
+  http_requirement_rows: 180
   unique_openapi_path_method_operations_required: 166
-  shared_capability_rows_reusing_existing_operationId: 13
-  direct_and_shared_http_requirements_with_operationId_mapping: 179
+  shared_capability_rows_reusing_existing_operationId: 14
+  direct_and_shared_http_requirements_with_operationId_mapping: 180
   direct_and_shared_http_requirements_without_operationId_mapping: 0
   openapi_complete_against_this_inventory: true
   operationIds_present_for_all_http_requirements: true
@@ -393,6 +398,7 @@ coverage_status:
     exam_management.search: internalExamSubjectsList
     exam_management.filter: internalExamSubjectsList
     exam_management.sort: internalExamSubjectsList
+    exam_management.hide_finished: internalExamSubjectsList
     purchase_history.pay_unpaid: orderPaymentsCreate
   modular_path_files:
     - specs/api/paths/auth-organization.yaml

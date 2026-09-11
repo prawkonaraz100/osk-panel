@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Modules\InternalExams\ExamStationCredentialService;
 use App\Modules\InternalExams\InternalExamService;
 use App\Modules\InternalExams\InternalExamTokenService;
+use App\Modules\LearningAccess\LearningAccountService;
 use App\Modules\ResourcesCore\ResourceDomainException;
 use App\Modules\ResourcesCore\StaffService;
 use App\Modules\StudentsCourses\CourseEnrollmentService;
@@ -32,6 +33,158 @@ final class InternalExamCoreTest extends TestCase
         config()->set('internal_exams.station_verifier_key_v1', str_repeat('s', 32));
         $this->stationCredentialSecrets = [];
         FoundationSchema::reset();
+    }
+
+    public function test_management_projection_uses_course_sequence_filters_statistics_and_history_order(): void
+    {
+        $actor = $this->examActor();
+        $course = $this->course($actor);
+        $this->examFixtures($actor, $course);
+        $station = $this->station($actor);
+        $service = app(InternalExamService::class);
+
+        FoundationSchema::grant($actor['membership_id'], 'student_access.create', ['organization']);
+        app(LearningAccountService::class)->create(
+            $actor['session_id'],
+            (string) $course['student_id'],
+            [
+                'login_identifier' => 'anna.exam.login',
+                'language_code' => 'pl',
+                'initial_password' => null,
+            ],
+            (string) Str::uuid7(),
+        );
+
+        DB::table('training_requirement_profiles')
+            ->where('organization_id', $actor['organization_id'])
+            ->where('course_enrollment_id', $course['id'])
+            ->whereNull('superseded_at')
+            ->update([
+                'internal_theory_exam_required' => true,
+                'internal_practical_exam_required' => true,
+            ]);
+
+        $unassigned = $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->getJson('/api/v1/internal-exam/subjects?q=anna.exam.login&category%5B0%5D=B&status%5B0%5D=not_assigned');
+        $unassigned->assertOk();
+        $this->assertSame(2, $unassigned->json('meta.total'));
+        $this->assertSame(2, $unassigned->json('meta.statistics.subject_count'));
+        $this->assertSame(0, $unassigned->json('meta.statistics.exam_count'));
+        $this->assertNull($unassigned->json('meta.statistics.pass_rate'));
+
+        $peselSearch = $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->getJson('/api/v1/internal-exam/subjects?q=02070803628');
+        $peselSearch->assertOk()->assertJsonPath('meta.total', 0);
+
+        $first = $service->createAttempt(
+            $actor['session_id'],
+            $course['id'],
+            'theory',
+            'pl',
+            (string) Str::uuid7(),
+        );
+        $firstAccess = $service->createAccess(
+            $actor['session_id'],
+            $first['id'],
+            'assigned_exam_station',
+            $station,
+            null,
+            null,
+            (string) Str::uuid7(),
+        );
+        $service->startLocal(
+            $actor['session_id'],
+            $firstAccess['id'],
+            $this->stationCredential($station),
+            (string) Str::uuid7(),
+        );
+        $firstResult = $service->submitAsStaff(
+            $actor['session_id'],
+            $first['id'],
+            [
+                ['ordinal' => 1, 'answer' => 'B'],
+                ['ordinal' => 2, 'answer' => false],
+            ],
+            (string) Str::uuid7(),
+        );
+        $this->assertFalse($firstResult['passed']);
+
+        $this->grantInventory($actor);
+        $second = $service->createAttempt(
+            $actor['session_id'],
+            $course['id'],
+            'theory',
+            'pl',
+            (string) Str::uuid7(),
+        );
+        $secondAccess = $service->createAccess(
+            $actor['session_id'],
+            $second['id'],
+            'assigned_exam_station',
+            $station,
+            null,
+            null,
+            (string) Str::uuid7(),
+        );
+        $service->startLocal(
+            $actor['session_id'],
+            $secondAccess['id'],
+            $this->stationCredential($station),
+            (string) Str::uuid7(),
+        );
+        $secondResult = $service->submitAsStaff(
+            $actor['session_id'],
+            $second['id'],
+            [
+                ['ordinal' => 1, 'answer' => 'A'],
+                ['ordinal' => 2, 'answer' => true],
+            ],
+            (string) Str::uuid7(),
+        );
+        $this->assertTrue($secondResult['passed']);
+
+        $sameCreatedAt = CarbonImmutable::parse('2026-09-11T10:00:00+02:00');
+        DB::table('internal_exam_attempts')
+            ->whereIn('id', [$first['id'], $second['id']])
+            ->update(['created_at' => $sameCreatedAt]);
+
+        $management = $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->getJson('/api/v1/internal-exam/subjects?q=anna.exam.login&sort=latest_exam_at&direction=asc');
+        $management->assertOk()
+            ->assertJsonPath('meta.total', 2)
+            ->assertJsonPath('meta.statistics.exam_count', 2)
+            ->assertJsonPath('meta.statistics.passed_count', 1)
+            ->assertJsonPath('meta.statistics.failed_count', 1)
+            ->assertJsonPath('meta.statistics.valid_conducted_count', 2)
+            ->assertJsonPath('meta.statistics.pass_rate', 0.5);
+
+        $theory = collect($management->json('data'))->firstWhere('exam_part', 'theory');
+        $this->assertIsArray($theory);
+        $this->assertSame($second['id'], $theory['latest_attempt_id']);
+        $this->assertSame(2, $theory['latest_attempt_sequence']);
+        $this->assertSame('passed', $theory['latest_attempt_status']);
+        $this->assertSame('passed', $theory['status']);
+        $this->assertSame(2, $theory['exam_count']);
+        $this->assertSame(1, $theory['passed_count']);
+        $this->assertSame(1, $theory['failed_count']);
+        $this->assertSame(0.5, $theory['pass_rate']);
+
+        $passedOnly = $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->getJson('/api/v1/internal-exam/subjects?q=anna.exam.login&status%5B0%5D=passed');
+        $passedOnly->assertOk()->assertJsonPath('meta.total', 1);
+        $this->assertSame('theory', $passedOnly->json('data.0.exam_part'));
+
+        $hideFinished = $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->getJson('/api/v1/internal-exam/subjects?q=anna.exam.login&hide_finished=true');
+        $hideFinished->assertOk()->assertJsonPath('meta.total', 1);
+        $this->assertSame('practical', $hideFinished->json('data.0.exam_part'));
+        $this->assertSame('not_assigned', $hideFinished->json('data.0.status'));
+
+        $history = $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->getJson("/api/v1/course-enrollments/{$course['id']}/internal-exam-attempts");
+        $history->assertOk();
+        $this->assertSame([2, 1], array_column($history->json(), 'course_attempt_sequence'));
+        $this->assertSame([$second['id'], $first['id']], array_column($history->json(), 'id'));
     }
 
     public function test_attempt_creation_reserves_exactly_one_consistent_inventory_unit_atomically(): void

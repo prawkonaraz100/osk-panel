@@ -18,12 +18,47 @@ final class InternalExamController
 {
     public function __construct(
         private readonly InternalExamService $exams,
+        private readonly InternalExamManagementService $management,
         private readonly InternalExamTokenService $tokens,
         private readonly ExamStationCredentialService $stationCredentials,
         private readonly ExamStationService $stations,
         private readonly ResourceIdempotency $idempotency,
         private readonly TenantAuthorizer $tenantAuthorizer,
     ) {}
+
+    public function subjects(Request $request): JsonResponse
+    {
+        $input = $this->validated($request, [
+            'page' => ['sometimes', 'integer', 'min:1'],
+            'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
+            'q' => ['sometimes', 'nullable', 'string', 'max:320'],
+            'category' => ['sometimes', 'array'],
+            'category.*' => ['string', 'max:16'],
+            'status' => ['sometimes', 'array'],
+            'status.*' => ['string', 'in:not_assigned,not_conducted,failed,passed'],
+            'hide_finished' => ['sometimes', 'in:0,1,true,false'],
+            'sort' => ['sometimes', 'string', 'in:identity_or_login,student_full_name,latest_exam_category,latest_exam_status,latest_exam_at,latest_exam_language,exam_count'],
+            'direction' => ['sometimes', 'string', 'in:asc,desc'],
+        ]);
+
+        /** @var list<string> $categories */
+        $categories = array_values($input['category'] ?? []);
+        /** @var list<string> $statuses */
+        $statuses = array_values($input['status'] ?? []);
+        $hideFinished = in_array($input['hide_finished'] ?? false, [true, 1, '1', 'true'], true);
+
+        return response()->json($this->management->subjects(
+            $this->sessionId($request),
+            (int) ($input['page'] ?? 1),
+            (int) ($input['per_page'] ?? 25),
+            isset($input['q']) && is_string($input['q']) ? $input['q'] : null,
+            $categories,
+            $statuses,
+            $hideFinished,
+            (string) ($input['sort'] ?? 'student_full_name'),
+            (string) ($input['direction'] ?? 'asc'),
+        ));
+    }
 
     public function attemptsForCourse(Request $request, string $courseEnrollmentId): JsonResponse
     {
