@@ -7,10 +7,10 @@ paths:
       x-permission: exams.view
       responses:
         '200':
-          description: Internal exam inventory including free/paid/adjustment source type
+          description: Ledger-backed internal exam inventory projection with source-aware availability and operational state totals
           content:
             application/json:
-              schema: { type: array, items: { $ref: '../openapi-components-v1.yaml#/components/schemas/InternalExamInventoryEntry' } }
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/InternalExamInventoryProjection' }
         default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
   /internal-exam/orders:
     post:

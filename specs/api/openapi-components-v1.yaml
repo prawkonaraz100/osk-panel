@@ -1070,11 +1070,34 @@ components:
 
     InternalExamInventoryEntry:
       type: object
-      required: [id, source_type, status]
+      required: [id, source_type, status, created_at]
       properties:
         id: { type: string, format: uuid }
         source_type: { type: string, enum: [free, paid, adjustment] }
-        status: { type: string }
+        status: { type: string, enum: [available, reserved, consumed, adjusted_out] }
+        created_at: { type: string, format: date-time }
+    InternalExamInventoryAvailableBySourceType:
+      type: object
+      required: [free, paid, adjustment]
+      properties:
+        free: { type: integer, minimum: 0 }
+        paid: { type: integer, minimum: 0 }
+        adjustment: { type: integer, minimum: 0 }
+    InternalExamInventorySummary:
+      type: object
+      required: [available_total, available_by_source_type, reserved_total, consumed_total, adjusted_out_total]
+      properties:
+        available_total: { type: integer, minimum: 0 }
+        available_by_source_type: { $ref: '#/components/schemas/InternalExamInventoryAvailableBySourceType' }
+        reserved_total: { type: integer, minimum: 0 }
+        consumed_total: { type: integer, minimum: 0 }
+        adjusted_out_total: { type: integer, minimum: 0 }
+    InternalExamInventoryProjection:
+      type: object
+      required: [entries, summary]
+      properties:
+        entries: { type: array, items: { $ref: '#/components/schemas/InternalExamInventoryEntry' } }
+        summary: { $ref: '#/components/schemas/InternalExamInventorySummary' }
     ExamSubject:
       type: object
       required: [student_id, course_enrollment_id, exam_part, assignment_eligible_now, first_name, last_name, full_name, course_category, status, exam_count, passed_count, failed_count]
@@ -1195,10 +1218,11 @@ components:
         related_attempt_id: { type: [string, 'null'], format: uuid }
     ExamCapability:
       type: object
+      required: [category_code, exam_part, languages]
       properties:
         category_code: { type: string }
-        exam_part: { type: string }
-        languages: { type: array, items: { type: string } }
+        exam_part: { type: string, enum: [theory, practical] }
+        languages: { type: array, items: { type: string }, uniqueItems: true }
 
     Order:
       type: object
