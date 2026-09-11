@@ -1303,3 +1303,123 @@ fieldset legend {
     grid-column: auto;
   }
 }
+
+
+/* Student Finance */
+.finance-panel {
+  overflow: visible;
+}
+
+.finance-summary-grid {
+  margin-bottom: 18px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.finance-summary-grid > div {
+  padding: 15px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: #fbfbfa;
+  display: grid;
+  gap: 5px;
+}
+
+.finance-summary-grid span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.finance-summary-grid strong {
+  font-size: 19px;
+  letter-spacing: -0.025em;
+}
+
+.finance-table-wrap {
+  overflow-x: auto;
+}
+
+.finance-table {
+  min-width: 900px;
+}
+
+.finance-table td:first-child {
+  min-width: 190px;
+}
+
+.finance-cancelled {
+  opacity: 0.58;
+}
+
+.money-input {
+  position: relative;
+}
+
+.money-input input {
+  padding-right: 42px !important;
+}
+
+.money-input span {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  transform: translateY(-50%);
+  color: var(--muted);
+  font-size: 12px;
+  pointer-events: none;
+}
+
+.payment-history {
+  display: grid;
+}
+
+.payment-history-row {
+  padding: 14px 0;
+  border-top: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.payment-history-row:first-child {
+  border-top: 0;
+}
+
+.payment-history-row > div {
+  display: grid;
+  gap: 4px;
+}
+
+.payment-history-row span,
+.payment-history-row small {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.payment-history-row.reversed {
+  opacity: 0.62;
+}
+
+.finance-drawer-backdrop {
+  z-index: 30;
+}
+
+.single-deferred-card {
+  grid-template-columns: 1fr;
+}
+
+@media (max-width: 760px) {
+  .finance-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .payment-history-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
