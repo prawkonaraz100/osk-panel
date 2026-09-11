@@ -466,7 +466,7 @@ final class StudentService
         if ($noPesel === false && $ciphertext !== null) {
             return;
         }
-        if ($noPesel && $birthDate !== null) {
+        if ($noPesel) {
             return;
         }
         if ($formalIdentityRequired) {
@@ -509,9 +509,10 @@ final class StudentService
         if ($expectedTag === null || trim($expectedTag) === '') {
             throw new ResourceDomainException('PRECONDITION_REQUIRED', 428, 'If-Match with current Student version is required.');
         }
+        $data = get_object_vars($row);
         $normalized = trim(trim($expectedTag), '"');
         $normalized = str_starts_with($normalized, 'v') ? substr($normalized, 1) : $normalized;
-        if (! ctype_digit($normalized) || (int) $normalized !== (int) $row->version) {
+        if (! ctype_digit($normalized) || (int) $normalized !== (int) ($data['version'] ?? 0)) {
             throw ResourceDomainException::conflict('Student changed since it was loaded.');
         }
     }
@@ -533,7 +534,10 @@ final class StudentService
         return $value === null ? null : mb_strtolower($value);
     }
 
-    /** @param array<string,mixed> $input @return list<string> */
+    /**
+     * @param  array<string,mixed>  $input
+     * @return list<string>
+     */
     private function auditFields(array $input): array
     {
         $fields = [];
@@ -551,19 +555,21 @@ final class StudentService
     /** @return array<string,mixed> */
     private function present(object $row): array
     {
+        $data = get_object_vars($row);
+
         return [
-            'id' => (string) $row->id,
-            'first_name' => (string) $row->first_name,
-            'last_name' => (string) $row->last_name,
-            'birth_date' => $row->birth_date === null ? null : (string) $row->birth_date,
-            'no_pesel' => (bool) $row->no_pesel_declared,
-            'pesel_masked' => $row->pesel_ciphertext === null ? null : '***********',
-            'contact_email' => $row->contact_email_normalized === null ? null : (string) $row->contact_email_normalized,
-            'phone' => $row->phone === null ? null : (string) $row->phone,
-            'default_location_id' => $row->default_location_id === null ? null : (string) $row->default_location_id,
-            'archived_at' => $row->archived_at === null ? null : (string) $row->archived_at,
-            'created_at' => (string) $row->created_at,
-            'version' => (int) $row->version,
+            'id' => (string) ($data['id'] ?? ''),
+            'first_name' => (string) ($data['first_name'] ?? ''),
+            'last_name' => (string) ($data['last_name'] ?? ''),
+            'birth_date' => ($data['birth_date'] ?? null) === null ? null : (string) $data['birth_date'],
+            'no_pesel' => (bool) ($data['no_pesel_declared'] ?? false),
+            'pesel_masked' => ($data['pesel_ciphertext'] ?? null) === null ? null : '***********',
+            'contact_email' => ($data['contact_email_normalized'] ?? null) === null ? null : (string) $data['contact_email_normalized'],
+            'phone' => ($data['phone'] ?? null) === null ? null : (string) $data['phone'],
+            'default_location_id' => ($data['default_location_id'] ?? null) === null ? null : (string) $data['default_location_id'],
+            'archived_at' => ($data['archived_at'] ?? null) === null ? null : (string) $data['archived_at'],
+            'created_at' => (string) ($data['created_at'] ?? ''),
+            'version' => (int) ($data['version'] ?? 0),
         ];
     }
 }

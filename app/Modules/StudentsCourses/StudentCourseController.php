@@ -402,7 +402,10 @@ final class StudentCourseController
         return $response;
     }
 
-    /** @return array<string,mixed> */
+    /**
+     * @param  array<string,mixed>  $rules
+     * @return array<string,mixed>
+     */
     private function validated(Request $request, array $rules): array
     {
         $input = $request->all();
@@ -523,12 +526,12 @@ final class StudentCourseController
     /** @return list<string> */
     private function queryList(Request $request, string $key): array
     {
-        $value = $request->query($key, []);
+        $value = $request->query($key);
+        if ($value === null) {
+            return [];
+        }
         if (is_string($value)) {
             $value = [$value];
-        }
-        if (! is_array($value)) {
-            return [];
         }
 
         return array_values(array_filter(

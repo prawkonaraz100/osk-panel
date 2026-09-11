@@ -35,8 +35,9 @@ final class TrainingRequirementService
     public function recalculate(object $course, int $courseVersionAfter, string $triggerCode, ?string $actorUserId): array
     {
         $rule = $this->ensureRuleSet();
-        $organizationId = (string) $course->organization_id;
-        $courseId = (string) $course->id;
+        $courseData = get_object_vars($course);
+        $organizationId = (string) ($courseData['organization_id'] ?? '');
+        $courseId = (string) ($courseData['id'] ?? '');
 
         $context = DB::table('course_requirement_contexts')
             ->where('organization_id', $organizationId)
@@ -46,16 +47,16 @@ final class TrainingRequirementService
             throw ResourceDomainException::conflict('Course requirement context is missing.');
         }
 
-        $heldCategoryCodes = DB::table('course_requirement_context_held_categories as h')
+        $heldCategoryCodes = array_values(DB::table('course_requirement_context_held_categories as h')
             ->join('driving_categories as d', 'd.id', '=', 'h.driving_category_id')
             ->where('h.organization_id', $organizationId)
             ->where('h.course_enrollment_id', $courseId)
             ->orderBy('d.code')
             ->pluck('d.code')
             ->map(static fn ($value): string => (string) $value)
-            ->all();
+            ->all());
 
-        $categoryCode = DB::table('driving_categories')->where('id', $course->driving_category_id)->value('code');
+        $categoryCode = DB::table('driving_categories')->where('id', $courseData['driving_category_id'])->value('code');
         if (! is_string($categoryCode) || $categoryCode === '') {
             throw ResourceDomainException::conflict('Course driving category is unavailable.');
         }
@@ -74,8 +75,8 @@ final class TrainingRequirementService
 
         $source = [
             'target_category' => $categoryCode,
-            'training_type' => (string) $course->training_type,
-            'course_started_at' => (string) $course->started_at,
+            'training_type' => (string) $courseData['training_type'],
+            'course_started_at' => (string) $courseData['started_at'],
             'state_theory_passed' => (bool) $context->state_theory_passed,
             'context_evidence_reference' => $context->evidence_reference === null ? null : (string) $context->evidence_reference,
             'held_categories' => array_values($heldCategoryCodes),
@@ -87,9 +88,9 @@ final class TrainingRequirementService
 
         $base = $this->calculateBase(
             $categoryCode,
-            (string) $course->training_type,
-            (int) ($course->declared_theory_minutes ?? 0),
-            (int) ($course->declared_practical_minutes ?? 0),
+            (string) $courseData['training_type'],
+            (int) ($courseData['declared_theory_minutes'] ?? 0),
+            (int) ($courseData['declared_practical_minutes'] ?? 0),
             $heldCategoryCodes,
             (bool) $context->state_theory_passed,
             $exemption?->basis_code === null ? null : (string) $exemption->basis_code,
@@ -131,7 +132,7 @@ final class TrainingRequirementService
             'id' => $id,
             'organization_id' => $organizationId,
             'course_enrollment_id' => $courseId,
-            'requirements_revision' => (int) $course->requirements_revision,
+            'requirements_revision' => (int) $courseData['requirements_revision'],
             'course_version_after' => $courseVersionAfter,
             'rule_set_version' => self::RULE_SET_VERSION,
             'trigger_code' => $triggerCode,
@@ -267,15 +268,17 @@ final class TrainingRequirementService
     /** @return array<string,mixed> */
     private function present(object $row): array
     {
+        $data = get_object_vars($row);
+
         return [
-            'rule_set_version' => (string) $row->rule_set_version,
-            'theory_training_required' => (bool) $row->theory_training_required,
-            'minimum_theory_minutes' => (int) $row->minimum_theory_minutes,
-            'internal_theory_exam_required' => (bool) $row->internal_theory_exam_required,
-            'practical_training_required' => (bool) $row->practical_training_required,
-            'minimum_practical_minutes' => (int) $row->minimum_practical_minutes,
-            'internal_practical_exam_required' => (bool) $row->internal_practical_exam_required,
-            'exemption_basis_code' => $row->exemption_basis_code === null ? null : (string) $row->exemption_basis_code,
+            'rule_set_version' => (string) ($data['rule_set_version'] ?? ''),
+            'theory_training_required' => (bool) ($data['theory_training_required'] ?? false),
+            'minimum_theory_minutes' => (int) ($data['minimum_theory_minutes'] ?? 0),
+            'internal_theory_exam_required' => (bool) ($data['internal_theory_exam_required'] ?? false),
+            'practical_training_required' => (bool) ($data['practical_training_required'] ?? false),
+            'minimum_practical_minutes' => (int) ($data['minimum_practical_minutes'] ?? 0),
+            'internal_practical_exam_required' => (bool) ($data['internal_practical_exam_required'] ?? false),
+            'exemption_basis_code' => ($data['exemption_basis_code'] ?? null) === null ? null : (string) $data['exemption_basis_code'],
         ];
     }
 }

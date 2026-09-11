@@ -113,7 +113,7 @@ final class CourseEnrollmentService
                 'organization_id' => $actor['organization_id'],
                 'student_id' => $studentId,
                 'training_type' => $trainingType,
-                'driving_category_id' => $category->id,
+                'driving_category_id' => $category['id'],
                 'started_at' => (string) $input['started_at'],
                 'lead_instructor_id' => $instructorId,
                 'location_id' => $locationId,
@@ -144,7 +144,7 @@ final class CourseEnrollmentService
                 'pkk_number_ciphertext' => $pkkCiphertext,
                 'pkk_lookup_hash' => $pkkHash,
                 'identity_revision' => 1,
-                'bound_driving_category_id' => $category->id,
+                'bound_driving_category_id' => $category['id'],
                 'bound_training_type' => $trainingType,
                 'record_origin' => 'course_create',
                 'recorded_at' => $now,
@@ -169,7 +169,7 @@ final class CourseEnrollmentService
                         null,
                         'Initial course form projection',
                         $actor['user_id'],
-                        (string) $category->id,
+                        (string) $category['id'],
                         $trainingType,
                     );
                 }
@@ -227,7 +227,7 @@ final class CourseEnrollmentService
             }
             if (array_key_exists('driving_category_code', $input)) {
                 $category = $this->categoryByCode((string) $input['driving_category_code']);
-                $finalCategoryId = (string) $category->id;
+                $finalCategoryId = (string) $category['id'];
                 $updates['driving_category_id'] = $finalCategoryId;
                 $requirementInputsChanged = $requirementInputsChanged || $finalCategoryId !== (string) $row->driving_category_id;
             }
@@ -760,8 +760,8 @@ final class CourseEnrollmentService
                 $evidenceReference,
                 $reason,
                 $actor['user_id'],
-                (string) $course->driving_category_id,
-                (string) $course->training_type,
+                (string) ($courseData['driving_category_id'] ?? ''),
+                (string) ($courseData['training_type'] ?? ''),
             );
 
             DB::table('course_enrollments')->where('id', $courseId)->update([
@@ -848,14 +848,20 @@ final class CourseEnrollmentService
 
     private function studentHasFormalIdentity(object $student): bool
     {
-        $hasPesel = ! (bool) $student->no_pesel_declared
-            && $student->pesel_ciphertext !== null
-            && $student->pesel_lookup_hash !== null;
+        $data = get_object_vars($student);
+        $noPesel = (bool) ($data['no_pesel_declared'] ?? false);
+        $peselCiphertext = $data['pesel_ciphertext'] ?? null;
+        $peselLookupHash = $data['pesel_lookup_hash'] ?? null;
+        $birthDate = $data['birth_date'] ?? null;
 
-        return $hasPesel || ((bool) $student->no_pesel_declared
-            && $student->pesel_ciphertext === null
-            && $student->pesel_lookup_hash === null
-            && $student->birth_date !== null);
+        $hasPesel = ! $noPesel
+            && $peselCiphertext !== null
+            && $peselLookupHash !== null;
+
+        return $hasPesel || ($noPesel
+            && $peselCiphertext === null
+            && $peselLookupHash === null
+            && $birthDate !== null);
     }
 
     private function trainingType(string $value): string
@@ -867,17 +873,25 @@ final class CourseEnrollmentService
         return $value;
     }
 
-    private function categoryByCode(string $code): object
+    /** @return array{id:string,code:string} */
+    private function categoryByCode(string $code): array
     {
         $row = DB::table('driving_categories')->where('code', $code)->where('active', true)->first();
         if ($row === null) {
             throw ResourceDomainException::rule('Unknown, inactive or not-yet-verified driving category.');
         }
+        $data = get_object_vars($row);
 
-        return $row;
+        return [
+            'id' => (string) ($data['id'] ?? ''),
+            'code' => (string) ($data['code'] ?? ''),
+        ];
     }
 
-    /** @param array<mixed> $codes @return list<string> */
+    /**
+     * @param  array<mixed>  $codes
+     * @return list<string>
+     */
     private function categoryIdsByCodes(array $codes): array
     {
         $codes = array_values(array_unique(array_map(static fn ($v): string => trim((string) $v), $codes)));
@@ -944,22 +958,24 @@ final class CourseEnrollmentService
         if ($expectedTag === null || trim($expectedTag) === '') {
             throw new ResourceDomainException('PRECONDITION_REQUIRED', 428, 'If-Match with current CourseEnrollment version is required.');
         }
+        $data = get_object_vars($row);
         $normalized = trim(trim($expectedTag), '"');
         $normalized = str_starts_with($normalized, 'v') ? substr($normalized, 1) : $normalized;
-        if (! ctype_digit($normalized) || (int) $normalized !== (int) $row->version) {
+        if (! ctype_digit($normalized) || (int) $normalized !== (int) ($data['version'] ?? 0)) {
             throw ResourceDomainException::conflict('CourseEnrollment changed since it was loaded.');
         }
     }
 
     private function lifecycleState(object $row): string
     {
-        if ($row->completed_at !== null) {
+        $data = get_object_vars($row);
+        if (($data['completed_at'] ?? null) !== null) {
             return 'completed';
         }
-        if ($row->interrupted_at !== null) {
+        if (($data['interrupted_at'] ?? null) !== null) {
             return 'interrupted';
         }
-        if ($row->cancelled_at !== null) {
+        if (($data['cancelled_at'] ?? null) !== null) {
             return 'cancelled';
         }
 
@@ -977,17 +993,18 @@ final class CourseEnrollmentService
         ?string $actorUserId,
         ?int $versionBefore = null,
     ): void {
+        $data = get_object_vars($course);
         DB::table('course_enrollment_lifecycle_events')->insert([
             'id' => (string) Str::uuid7(),
-            'organization_id' => (string) $course->organization_id,
-            'course_enrollment_id' => (string) $course->id,
+            'organization_id' => (string) ($data['organization_id'] ?? ''),
+            'course_enrollment_id' => (string) ($data['id'] ?? ''),
             'event_type' => $eventType,
             'from_lifecycle_state' => $fromState,
             'to_lifecycle_state' => $toState,
             'from_training_stage' => $fromStage,
             'to_training_stage' => $toStage,
             'course_version_before' => $versionBefore,
-            'course_version_after' => (int) $course->version,
+            'course_version_after' => (int) ($data['version'] ?? 0),
             'reason' => $reason,
             'actor_user_id' => $actorUserId,
             'correction_of_event_id' => null,
@@ -1035,24 +1052,25 @@ final class CourseEnrollmentService
 
     private function revalidateExternalContext(string $organizationId, object $course, string $actorUserId): void
     {
+        $courseData = get_object_vars($course);
         $current = DB::table('recognized_external_training')
             ->where('organization_id', $organizationId)
-            ->where('course_enrollment_id', $course->id)
+            ->where('course_enrollment_id', (string) ($courseData['id'] ?? ''))
             ->whereNull('superseded_at')
             ->whereNull('revoked_at')
             ->lockForUpdate()
             ->get();
 
         foreach ($current as $record) {
-            if ((string) ($record->recognized_for_driving_category_id ?? '') === (string) $course->driving_category_id
-                && (string) ($record->recognized_for_training_type ?? '') === (string) $course->training_type) {
+            if ((string) ($record->recognized_for_driving_category_id ?? '') === (string) ($courseData['driving_category_id'] ?? '')
+                && (string) ($record->recognized_for_training_type ?? '') === (string) ($courseData['training_type'] ?? '')) {
                 continue;
             }
 
             DB::table('recognized_external_training')->where('id', $record->id)->update(['superseded_at' => now()]);
             $this->insertExternal(
                 $organizationId,
-                (string) $course->id,
+                (string) ($courseData['id'] ?? ''),
                 (string) $record->training_part,
                 (int) $record->recognized_minutes,
                 (string) $record->record_role,
@@ -1061,8 +1079,8 @@ final class CourseEnrollmentService
                 $record->evidence_reference === null ? null : (string) $record->evidence_reference,
                 'Course context revalidation',
                 $actorUserId,
-                (string) $course->driving_category_id,
-                (string) $course->training_type,
+                (string) ($courseData['driving_category_id'] ?? ''),
+                (string) ($courseData['training_type'] ?? ''),
                 (string) $record->id,
             );
         }
@@ -1078,7 +1096,10 @@ final class CourseEnrollmentService
         return $value === '' ? null : $value;
     }
 
-    /** @param array<string,mixed> $input @return list<string> */
+    /**
+     * @param  array<string,mixed>  $input
+     * @return list<string>
+     */
     private function auditFields(array $input): array
     {
         $fields = [];
@@ -1096,28 +1117,31 @@ final class CourseEnrollmentService
     /** @return array<string,mixed> */
     private function present(object $row): array
     {
-        $categoryCode = DB::table('driving_categories')->where('id', $row->driving_category_id)->value('code');
+        $data = get_object_vars($row);
+        $organizationId = (string) ($data['organization_id'] ?? '');
+        $courseId = (string) ($data['id'] ?? '');
+        $categoryCode = DB::table('driving_categories')->where('id', $data['driving_category_id'] ?? null)->value('code');
         $pkk = DB::table('pkk_profiles')
-            ->where('organization_id', $row->organization_id)
-            ->where('course_enrollment_id', $row->id)
+            ->where('organization_id', $organizationId)
+            ->where('course_enrollment_id', $courseId)
             ->whereNull('superseded_at')
             ->first();
 
         return [
-            'id' => (string) $row->id,
-            'student_id' => (string) $row->student_id,
-            'training_type' => (string) $row->training_type,
+            'id' => $courseId,
+            'student_id' => (string) ($data['student_id'] ?? ''),
+            'training_type' => (string) ($data['training_type'] ?? ''),
             'driving_category_code' => is_string($categoryCode) ? $categoryCode : '',
             'pkk_reference_masked' => $pkk === null ? null : $this->maskedPkk((string) $pkk->pkk_number_ciphertext),
-            'started_at' => (string) $row->started_at,
+            'started_at' => (string) ($data['started_at'] ?? ''),
             'initial_cost' => null,
-            'declared_theory_minutes' => (int) ($row->declared_theory_minutes ?? 0),
-            'declared_practical_minutes' => (int) ($row->declared_practical_minutes ?? 0),
-            'lead_instructor_id' => (string) $row->lead_instructor_id,
-            'location_id' => $row->location_id === null ? null : (string) $row->location_id,
-            'training_stage' => (string) $row->training_stage,
-            'cancelled_at' => $row->cancelled_at === null ? null : (string) $row->cancelled_at,
-            'version' => (int) $row->version,
+            'declared_theory_minutes' => (int) ($data['declared_theory_minutes'] ?? 0),
+            'declared_practical_minutes' => (int) ($data['declared_practical_minutes'] ?? 0),
+            'lead_instructor_id' => (string) ($data['lead_instructor_id'] ?? ''),
+            'location_id' => ($data['location_id'] ?? null) === null ? null : (string) $data['location_id'],
+            'training_stage' => (string) ($data['training_stage'] ?? ''),
+            'cancelled_at' => ($data['cancelled_at'] ?? null) === null ? null : (string) $data['cancelled_at'],
+            'version' => (int) ($data['version'] ?? 0),
         ];
     }
 
@@ -1139,14 +1163,16 @@ final class CourseEnrollmentService
     /** @return array<string,mixed> */
     private function presentExternal(object $row): array
     {
+        $data = get_object_vars($row);
+
         return [
-            'id' => (string) $row->id,
-            'training_part' => (string) $row->training_part,
-            'recognized_minutes' => (int) $row->recognized_minutes,
-            'source_school_reference' => $row->source_school_reference === null ? null : (string) $row->source_school_reference,
-            'evidence_reference' => $row->evidence_reference === null ? null : (string) $row->evidence_reference,
-            'created_at' => (string) $row->created_at,
-            'revoked_at' => $row->revoked_at === null ? null : (string) $row->revoked_at,
+            'id' => (string) ($data['id'] ?? ''),
+            'training_part' => (string) ($data['training_part'] ?? ''),
+            'recognized_minutes' => (int) ($data['recognized_minutes'] ?? 0),
+            'source_school_reference' => ($data['source_school_reference'] ?? null) === null ? null : (string) $data['source_school_reference'],
+            'evidence_reference' => ($data['evidence_reference'] ?? null) === null ? null : (string) $data['evidence_reference'],
+            'created_at' => (string) ($data['created_at'] ?? ''),
+            'revoked_at' => ($data['revoked_at'] ?? null) === null ? null : (string) $data['revoked_at'],
         ];
     }
 }
