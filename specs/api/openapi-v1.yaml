@@ -166,6 +166,9 @@ paths:
   /internal-exam-attempts/{attemptId}/questions: { $ref: './paths/internal-exams.yaml#/paths/~1internal-exam-attempts~1{attemptId}~1questions' }
   /internal-exam-attempts/{attemptId}/documents/answer-sheet.pdf: { $ref: './paths/internal-exams.yaml#/paths/~1internal-exam-attempts~1{attemptId}~1documents~1answer-sheet.pdf' }
   /exam-stations: { $ref: './paths/internal-exams.yaml#/paths/~1exam-stations' }
+  /exam-stations/{stationId}/credential: { $ref: './paths/internal-exams.yaml#/paths/~1exam-stations~1{stationId}~1credential' }
+  /exam-stations/{stationId}/credential/rotate: { $ref: './paths/internal-exams.yaml#/paths/~1exam-stations~1{stationId}~1credential~1rotate' }
+  /exam-stations/heartbeat: { $ref: './paths/internal-exams.yaml#/paths/~1exam-stations~1heartbeat' }
   /internal-exam-attempts/{attemptId}/station-transfer: { $ref: './paths/internal-exams.yaml#/paths/~1internal-exam-attempts~1{attemptId}~1station-transfer' }
 
   /orders: { $ref: './paths/commerce-dashboard.yaml#/paths/~1orders' }

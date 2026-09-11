@@ -82,3 +82,28 @@ changed_scope:
     ui: remote_public_base_url_is_explicit_deployment_configuration
     acceptance_test: Tests\\Feature\\InternalExamCoreTest::test_http_remote_exam_secret_responses_are_nonreplayable_and_bearer_lifecycle_is_scoped
     status: IMPLEMENTED
+
+  - evidence: specs/database/internal-exams.yml#DB-EXAM-006
+    requirement: local and assigned station execution uses an opaque exact-station credential header; authenticated heartbeat refreshes derived liveness while revoked rotated wrong-tenant or wrong-station credentials fail closed
+    domain_data: exam_stations + exam_station_credentials + internal_exam_station_sessions
+    api_use_case: HTTP_GATE_4B_station_authentication_and_heartbeat
+    permission: exams.start.local plus exact X-Exam-Station-Credential device authority
+    ui: DEFERRED_UNTIL_INTERNAL_EXAMS_UI_GATE
+    acceptance_test: Tests\\Feature\\InternalExamCoreTest::test_http_station_credential_exact_binding_rotation_and_local_assigned_start_consume_once
+    status: IMPLEMENTED
+  - evidence: specs/database/internal-exams.yml#DB-EXAM-006
+    requirement: recovery transfer derives the target station exclusively from its current credential reauthenticates it inside the transfer transaction preserves Access launch binding and creates one successor StationSession without a second inventory effect
+    domain_data: exam_stations + exam_station_credentials + internal_exam_station_sessions + internal_exam_accesses + internal_exam_inventory_ledger_entries
+    api_use_case: HTTP_GATE_4C_authenticated_station_failover
+    permission: exams.start.local plus exact target X-Exam-Station-Credential
+    ui: DEFERRED_UNTIL_INTERNAL_EXAMS_UI_GATE
+    acceptance_test: Tests\\Feature\\InternalExamCoreTest::test_http_station_transfer_requires_current_target_credential_and_replays_without_second_consume
+    status: IMPLEMENTED
+  - evidence: specs/database/internal-exams.yml#DB-EXAM-006
+    requirement: Stage5 station administration exposes organization-scoped list register explicit provisioning and credential rotation while connectivity and occupancy remain derived projections and raw station credentials are returned only once
+    domain_data: exam_stations + exam_station_credentials + internal_exam_station_sessions + audit_logs + domain_events + outbox_messages
+    api_use_case: HTTP_GATE_4D_station_contract_provisioning_sync
+    permission: exams.stations.view + exams.stations.manage
+    ui: DEFERRED_UNTIL_INTERNAL_EXAMS_UI_GATE
+    acceptance_test: Tests\\Feature\\InternalExamCoreTest::test_http_station_provisioning_rotation_and_projection_are_one_time_and_audited
+    status: IMPLEMENTED

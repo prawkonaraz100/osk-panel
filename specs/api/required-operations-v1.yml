@@ -308,6 +308,10 @@ operations:
     - { id: exam_inventory.adjust, method: POST, path: /internal-exam/inventory-adjustments }
     - { id: exam_capabilities.get, method: GET, path: /internal-exam/capabilities }
     - { id: exam_stations.list, method: GET, path: /exam-stations }
+    - { id: exam_stations.register_and_provision, method: POST, path: /exam-stations }
+    - { id: exam_stations.credential.provision, method: POST, path: '/exam-stations/{stationId}/credential' }
+    - { id: exam_stations.credential.rotate, method: POST, path: '/exam-stations/{stationId}/credential/rotate' }
+    - { id: exam_stations.authenticated_heartbeat, method: POST, path: /exam-stations/heartbeat }
     - { id: exam_station.transfer_after_technical_failure, method: POST, path: '/internal-exam-attempts/{attemptId}/station-transfer' }
     - id: exam_generation.selected_student_entry
       type: ui_orchestration_capability
@@ -365,10 +369,10 @@ coverage_status:
   frozen_at: 2026-09-05
   validator_command: python scripts/contract-validation/validate_openapi_contract.py
   ci_workflow: .github/workflows/api-contract-gate.yml
-  http_requirement_rows: 175
-  unique_openapi_path_method_operations_required: 162
+  http_requirement_rows: 179
+  unique_openapi_path_method_operations_required: 166
   shared_capability_rows_reusing_existing_operationId: 13
-  direct_and_shared_http_requirements_with_operationId_mapping: 175
+  direct_and_shared_http_requirements_with_operationId_mapping: 179
   direct_and_shared_http_requirements_without_operationId_mapping: 0
   openapi_complete_against_this_inventory: true
   operationIds_present_for_all_http_requirements: true

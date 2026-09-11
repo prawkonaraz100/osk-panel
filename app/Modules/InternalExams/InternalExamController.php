@@ -20,6 +20,7 @@ final class InternalExamController
         private readonly InternalExamService $exams,
         private readonly InternalExamTokenService $tokens,
         private readonly ExamStationCredentialService $stationCredentials,
+        private readonly ExamStationService $stations,
         private readonly ResourceIdempotency $idempotency,
         private readonly TenantAuthorizer $tenantAuthorizer,
     ) {}
@@ -119,7 +120,7 @@ final class InternalExamController
                     'resource_type' => 'internal_exam_access',
                     'resource_id' => (string) $body['id'],
                     'body' => $public,
-                    'replay_body' => $this->withoutOneTimeUrl($public, 'one_time_remote_url'),
+                    'replay_body' => $this->withoutOneTimeValue($public, 'one_time_remote_url'),
                 ];
             },
         );
@@ -149,7 +150,7 @@ final class InternalExamController
                     'resource_type' => 'internal_exam_access',
                     'resource_id' => $accessId,
                     'body' => $public,
-                    'replay_body' => $this->withoutOneTimeUrl($public, 'one_time_remote_url'),
+                    'replay_body' => $this->withoutOneTimeValue($public, 'one_time_remote_url'),
                 ];
             },
         );
@@ -247,6 +248,105 @@ final class InternalExamController
         return response()->json($result['body'], $result['status']);
     }
 
+    public function stationsList(Request $request): JsonResponse
+    {
+        return response()->json(
+            $this->stations->list($this->sessionId($request)),
+        );
+    }
+
+    public function stationRegister(Request $request): JsonResponse
+    {
+        $this->validated($request, []);
+        $sessionId = $this->sessionId($request);
+        $organizationId = $this->tenantAuthorizer->activeMembershipForSession($sessionId)['organization_id'];
+
+        $result = $this->idempotency->executeWithSanitizedReplay(
+            $organizationId,
+            'internal_exams.station.register',
+            $this->idempotencyKey($request),
+            [],
+            function () use ($sessionId, $request): array {
+                $body = $this->stations->register($sessionId, $this->requestId($request));
+
+                return [
+                    'status' => 201,
+                    'resource_type' => 'exam_station',
+                    'resource_id' => (string) $body['id'],
+                    'body' => $body,
+                    'replay_body' => $this->withoutOneTimeValue($body, 'one_time_station_credential'),
+                ];
+            },
+        );
+
+        return $this->secretResponse($result['body'], $result['status']);
+    }
+
+    public function stationCredentialProvision(Request $request, string $stationId): JsonResponse
+    {
+        $this->validated($request, []);
+        $sessionId = $this->sessionId($request);
+        $organizationId = $this->tenantAuthorizer->activeMembershipForSession($sessionId)['organization_id'];
+
+        $result = $this->idempotency->executeWithSanitizedReplay(
+            $organizationId,
+            'internal_exams.station.credential.provision',
+            $this->idempotencyKey($request),
+            ['station_id' => $stationId],
+            function () use ($sessionId, $stationId, $request): array {
+                $body = $this->stations->provisionCredential(
+                    $sessionId,
+                    $stationId,
+                    $this->requestId($request),
+                );
+
+                return [
+                    'status' => 200,
+                    'resource_type' => 'exam_station',
+                    'resource_id' => $stationId,
+                    'body' => $body,
+                    'replay_body' => $this->withoutOneTimeValue($body, 'one_time_station_credential'),
+                ];
+            },
+        );
+
+        return $this->secretResponse($result['body'], $result['status']);
+    }
+
+    public function stationCredentialRotate(Request $request, string $stationId): JsonResponse
+    {
+        $input = $this->validated($request, [
+            'reason' => ['required', 'string', 'max:1000'],
+        ]);
+        $sessionId = $this->sessionId($request);
+        $organizationId = $this->tenantAuthorizer->activeMembershipForSession($sessionId)['organization_id'];
+
+        $result = $this->idempotency->executeWithSanitizedReplay(
+            $organizationId,
+            'internal_exams.station.credential.rotate',
+            $this->idempotencyKey($request),
+            ['station_id' => $stationId, 'reason' => (string) $input['reason']],
+            function () use ($sessionId, $stationId, $input, $request): array {
+                $body = $this->stations->rotateCredential(
+                    $sessionId,
+                    $stationId,
+                    (string) $input['reason'],
+                    $this->requestId($request),
+                );
+
+                return [
+                    'status' => 200,
+                    'resource_type' => 'exam_station',
+                    'resource_id' => $stationId,
+                    'body' => $body,
+                    'replay_body' => $this->withoutOneTimeValue($body, 'one_time_station_credential'),
+                ];
+            },
+        );
+
+        return $this->secretResponse($result['body'], $result['status']);
+    }
+
     public function stationHeartbeat(Request $request): JsonResponse
     {
         $context = $this->stationCredentials->heartbeat(
@@ -341,7 +441,7 @@ final class InternalExamController
                         'resource_type' => 'internal_exam_result',
                         'resource_id' => $attemptId,
                         'body' => $public,
-                        'replay_body' => $this->withoutOneTimeUrl($public, 'one_time_result_url'),
+                        'replay_body' => $this->withoutOneTimeValue($public, 'one_time_result_url'),
                     ];
                 },
             );
@@ -370,7 +470,7 @@ final class InternalExamController
                     'resource_type' => 'internal_exam_result',
                     'resource_id' => $attemptId,
                     'body' => $public,
-                    'replay_body' => $this->withoutOneTimeUrl($public, 'one_time_result_url'),
+                    'replay_body' => $this->withoutOneTimeValue($public, 'one_time_result_url'),
                 ];
             },
         );
@@ -605,7 +705,7 @@ final class InternalExamController
     /** @param  array<string,mixed>  $body
      * @return array<string,mixed>
      */
-    private function withoutOneTimeUrl(array $body, string $key): array
+    private function withoutOneTimeValue(array $body, string $key): array
     {
         $body[$key] = null;
 

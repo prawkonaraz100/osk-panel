@@ -374,38 +374,103 @@ paths:
       tags: [InternalExams]
       operationId: examStationsList
       x-requirement-id: exam_stations.list
-      x-permission: exams.view
+      x-permission: exams.stations.view
       responses:
         '200':
-          description: Exam stations including active/availability status
+          description: Logical exam stations with derived connectivity, occupancy and effective availability.
           content:
             application/json:
-              schema: { type: array, items: { $ref: '../openapi-components-v1.yaml#/components/schemas/GenericObject' } }
+              schema: { type: array, items: { $ref: '../openapi-components-v1.yaml#/components/schemas/ExamStation' } }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+    post:
+      tags: [InternalExams]
+      operationId: examStationRegister
+      x-requirement-id: exam_stations.register_and_provision
+      x-permission: exams.stations.manage
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+      responses:
+        '201':
+          description: Logical station registered and first credential provisioned; raw credential is returned once.
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/ExamStationProvisioningResponse' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /exam-stations/{stationId}/credential:
+    post:
+      tags: [InternalExams]
+      operationId: examStationCredentialProvision
+      x-requirement-id: exam_stations.credential.provision
+      x-permission: exams.stations.manage
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/StationId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+      responses:
+        '200':
+          description: A credential is explicitly provisioned only when the station has no current nonrevoked credential.
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/ExamStationProvisioningResponse' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /exam-stations/{stationId}/credential/rotate:
+    post:
+      tags: [InternalExams]
+      operationId: examStationCredentialRotate
+      x-requirement-id: exam_stations.credential.rotate
+      x-permission: exams.stations.manage
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/StationId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/ReasonRequest' }
+      responses:
+        '200':
+          description: Current station credential revoked and replaced; new raw credential is returned once and authenticated heartbeat is cleared.
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/ExamStationProvisioningResponse' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /exam-stations/heartbeat:
+    post:
+      tags: [InternalExams]
+      operationId: examStationHeartbeat
+      x-requirement-id: exam_stations.authenticated_heartbeat
+      x-permission: exact_station_credential
+      security: []
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/ExamStationCredential' }
+      responses:
+        '200':
+          description: Current exact station credential authenticated and liveness refreshed without creating an exam session or consuming inventory.
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/ExamStationHeartbeat' }
         default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
   /internal-exam-attempts/{attemptId}/station-transfer:
     post:
       tags: [InternalExams]
       operationId: internalExamAttemptStationTransfer
       x-requirement-id: exam_station.transfer_after_technical_failure
-      x-permission: exams.start.local
+      x-permission: exams.start.local_and_exact_target_station_credential
       x-invariants:
+        - target_station_identity_derived_from_X_Exam_Station_Credential
         - attempt_must_already_be_started
         - close_old_station_session
         - create_new_station_session
+        - do_not_rebind_access_station_id
         - do_not_consume_inventory_again
       parameters:
         - { $ref: '../openapi-components-v1.yaml#/components/parameters/AttemptId' }
         - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/ExamStationCredential' }
       requestBody:
         required: true
         content:
           application/json:
-            schema:
-              type: object
-              required: [target_station_id, reason]
-              properties:
-                target_station_id: { type: string, format: uuid }
-                reason: { type: string }
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/ReasonRequest' }
       responses:
-        '200': { description: Active station session transferred without second inventory consumption }
+        '200': { description: Active station session transferred to the authenticated target station without second inventory consumption }
         default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }

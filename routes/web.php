@@ -125,6 +125,11 @@ Route::middleware(ResourceApiMiddleware::class)->prefix('api/v1')->group(functio
     Route::post('/internal-exam-accesses/{accessId}/send', [InternalExamController::class, 'accessSend']);
     Route::post('/internal-exam-accesses/{accessId}/revoke', [InternalExamController::class, 'accessRevoke']);
     Route::post('/internal-exam-accesses/{accessId}/start', [InternalExamController::class, 'accessStart']);
+    Route::get('/exam-stations', [InternalExamController::class, 'stationsList']);
+    Route::post('/exam-stations', [InternalExamController::class, 'stationRegister']);
+    Route::post('/exam-stations/{stationId}/credential', [InternalExamController::class, 'stationCredentialProvision']);
+    Route::post('/exam-stations/{stationId}/credential/rotate', [InternalExamController::class, 'stationCredentialRotate']);
+    Route::post('/exam-stations/heartbeat', [InternalExamController::class, 'stationHeartbeat']);
     Route::post('/internal-exam-stations/heartbeat', [InternalExamController::class, 'stationHeartbeat']);
     Route::post('/internal-exam-attempts/{attemptId}/station-transfer', [InternalExamController::class, 'stationTransfer']);
     Route::post('/internal-exam-attempts/{attemptId}/submit', [InternalExamController::class, 'attemptSubmit']);
