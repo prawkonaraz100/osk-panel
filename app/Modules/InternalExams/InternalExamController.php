@@ -9,6 +9,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -20,6 +21,7 @@ final class InternalExamController
         private readonly InternalExamService $exams,
         private readonly InternalExamManagementService $management,
         private readonly InternalExamReadService $reads,
+        private readonly InternalExamAnswerSheetService $answerSheets,
         private readonly InternalExamTokenService $tokens,
         private readonly ExamStationCredentialService $stationCredentials,
         private readonly ExamStationService $stations,
@@ -602,6 +604,24 @@ final class InternalExamController
 
         return response()->json($body)->withHeaders([
             'Cache-Control' => 'no-store, private',
+        ]);
+    }
+
+    public function answerSheetPdf(Request $request, string $attemptId): Response
+    {
+        $document = $this->answerSheets->download(
+            $this->sessionId($request),
+            $attemptId,
+            $this->requestId($request),
+        );
+
+        return response($document['bytes'], 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="'.$document['filename'].'"',
+            'Content-Length' => (string) strlen($document['bytes']),
+            'Cache-Control' => 'no-store, private',
+            'X-Content-Type-Options' => 'nosniff',
+            'ETag' => '"sha256-'.$document['content_hash'].'"',
         ]);
     }
 
