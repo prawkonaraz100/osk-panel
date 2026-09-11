@@ -35,6 +35,134 @@ final class InternalExamCoreTest extends TestCase
         FoundationSchema::reset();
     }
 
+    public function test_inventory_and_capability_reads_use_ledger_and_current_capability_authority(): void
+    {
+        $actor = $this->examActor();
+        $course = $this->course($actor);
+        $fixtures = $this->examFixtures($actor, $course);
+        $service = app(InternalExamService::class);
+
+        $attempt = $service->createAttempt(
+            $actor['session_id'],
+            $course['id'],
+            'theory',
+            'pl',
+            (string) Str::uuid7(),
+        );
+        $this->assertSame(
+            'reserved',
+            DB::table('internal_exam_inventory_entries')->where('id', $fixtures['inventory_id'])->value('current_state'),
+        );
+
+        $adjustmentId = (string) Str::uuid7();
+        $adjustmentInventoryId = (string) Str::uuid7();
+        $now = now();
+        DB::table('internal_exam_inventory_adjustments')->insert([
+            'id' => $adjustmentId,
+            'organization_id' => $actor['organization_id'],
+            'delta' => 1,
+            'reason' => 'synthetic technical compensation',
+            'related_attempt_id' => null,
+            'created_by_user_id' => $actor['user_id'],
+            'created_at' => $now,
+        ]);
+        DB::table('internal_exam_inventory_entries')->insert([
+            'id' => $adjustmentInventoryId,
+            'organization_id' => $actor['organization_id'],
+            'source_type' => 'adjustment',
+            'source_order_item_id' => null,
+            'source_adjustment_id' => $adjustmentId,
+            'current_state' => 'available',
+            'created_at' => $now,
+        ]);
+        DB::table('internal_exam_inventory_ledger_entries')->insert([
+            'id' => (string) Str::uuid7(),
+            'organization_id' => $actor['organization_id'],
+            'internal_exam_inventory_entry_id' => $adjustmentInventoryId,
+            'internal_exam_reservation_id' => null,
+            'internal_exam_attempt_id' => null,
+            'internal_exam_inventory_adjustment_id' => $adjustmentId,
+            'event_sequence' => 1,
+            'event_type' => 'unit_adjustment_granted',
+            'available_delta' => 1,
+            'actor_user_id' => $actor['user_id'],
+            'reason' => 'synthetic technical compensation',
+            'occurred_at' => $now,
+            'created_at' => $now,
+        ]);
+
+        $inventory = $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->getJson('/api/v1/internal-exam/inventory');
+        $inventory->assertOk()
+            ->assertJsonPath('summary.available_total', 1)
+            ->assertJsonPath('summary.available_by_source_type.free', 0)
+            ->assertJsonPath('summary.available_by_source_type.paid', 0)
+            ->assertJsonPath('summary.available_by_source_type.adjustment', 1)
+            ->assertJsonPath('summary.reserved_total', 1)
+            ->assertJsonPath('summary.consumed_total', 0)
+            ->assertJsonPath('summary.adjusted_out_total', 0)
+            ->assertJsonCount(2, 'entries');
+
+        $entryById = collect($inventory->json('entries'))->keyBy('id');
+        $this->assertSame('free', $entryById[$fixtures['inventory_id']]['source_type']);
+        $this->assertSame('reserved', $entryById[$fixtures['inventory_id']]['status']);
+        $this->assertSame('adjustment', $entryById[$adjustmentInventoryId]['source_type']);
+        $this->assertSame('available', $entryById[$adjustmentInventoryId]['status']);
+
+        $capability = $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->getJson('/api/v1/internal-exam/capabilities?category=B&part=theory');
+        $capability->assertOk()
+            ->assertJsonPath('category_code', 'B')
+            ->assertJsonPath('exam_part', 'theory')
+            ->assertJsonPath('languages.0', 'pl')
+            ->assertJsonCount(1, 'languages');
+
+        $categoryId = (string) DB::table('driving_categories')->where('code', 'B')->value('id');
+        DB::table('internal_exam_capabilities')->insert([
+            'id' => (string) Str::uuid7(),
+            'driving_category_id' => $categoryId,
+            'exam_part' => 'practical',
+            'language_code' => 'pl',
+            'enabled_at' => $now->copy()->subMinute(),
+            'disabled_at' => $now,
+            'source_reference' => 'disabled-test-history',
+            'created_at' => $now->copy()->subMinute(),
+        ]);
+
+        $practical = $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->getJson('/api/v1/internal-exam/capabilities?category=B&part=practical');
+        $practical->assertOk()
+            ->assertJsonPath('category_code', 'B')
+            ->assertJsonPath('exam_part', 'practical')
+            ->assertJsonCount(0, 'languages');
+
+        DB::table('internal_exam_inventory_entries')
+            ->where('id', $adjustmentInventoryId)
+            ->update(['current_state' => 'consumed']);
+
+        $drift = $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->getJson('/api/v1/internal-exam/inventory');
+        $drift->assertStatus(409)
+            ->assertJsonPath('error.code', 'RESOURCE_VERSION_CONFLICT');
+
+        DB::table('internal_exam_inventory_entries')
+            ->where('id', $adjustmentInventoryId)
+            ->update(['current_state' => 'available']);
+
+        $unknownCategory = $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->getJson('/api/v1/internal-exam/capabilities?category=ZZ&part=theory');
+        $unknownCategory->assertNotFound()
+            ->assertJsonPath('error.code', 'RESOURCE_NOT_FOUND');
+
+        $this->assertSame(
+            1,
+            DB::table('internal_exam_reservations')
+                ->where('internal_exam_attempt_id', $attempt['id'])
+                ->where('status', 'reserved')
+                ->count(),
+        );
+    }
+
     public function test_management_projection_uses_course_sequence_filters_statistics_and_history_order(): void
     {
         $actor = $this->examActor();
