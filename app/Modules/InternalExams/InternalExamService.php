@@ -1334,7 +1334,7 @@ final class InternalExamService
 
             $this->tokens->verifyForUpdate($rawToken, 'finished_result_read');
 
-            return DB::table('internal_exam_attempt_questions')
+            $rows = DB::table('internal_exam_attempt_questions')
                 ->where('organization_id', $context['organization_id'])
                 ->where('internal_exam_attempt_id', $attemptId)
                 ->orderBy('ordinal')
@@ -1355,6 +1355,8 @@ final class InternalExamService
                 })
                 ->values()
                 ->all();
+
+            return array_values($rows);
         });
     }
 
