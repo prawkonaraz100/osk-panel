@@ -27,8 +27,8 @@ final class InternalExamManagementService
     public function __construct(private readonly StudentCourseScopeAuthorizer $scope) {}
 
     /**
-     * @param list<string> $categories
-     * @param list<string> $statuses
+     * @param  list<string>  $categories
+     * @param  list<string>  $statuses
      * @return array{data:list<array<string,mixed>>,meta:array<string,mixed>}
      */
     public function subjects(
