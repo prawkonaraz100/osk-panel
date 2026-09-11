@@ -86,3 +86,59 @@ export async function api<T>(
     etag: response.headers.get('ETag'),
   }
 }
+
+
+export async function downloadPdf(
+  path: string,
+  filename: string,
+  init: RequestInit & { idempotent?: boolean } = {},
+): Promise<void> {
+  const headers = new Headers(init.headers)
+  headers.set('Accept', 'application/pdf')
+  headers.set('X-Request-Id', uuid())
+
+  if (init.body !== undefined) {
+    headers.set('Content-Type', 'application/json')
+  }
+
+  const token = csrfToken()
+  if (token) {
+    headers.set('X-CSRF-TOKEN', token)
+  }
+
+  if (init.idempotent) {
+    headers.set('Idempotency-Key', uuid())
+  }
+
+  const response = await fetch(path, {
+    ...init,
+    credentials: 'same-origin',
+    headers,
+  })
+
+  if (!response.ok) {
+    let payload: ApiErrorPayload = {}
+    try {
+      payload = (await response.json()) as ApiErrorPayload
+    } catch {
+      // Keep the safe generic fallback.
+    }
+
+    throw new ApiError(
+      response.status,
+      payload.error?.code ?? 'REQUEST_FAILED',
+      payload.error?.message ?? 'Nie udało się pobrać dokumentu.',
+      payload.error?.fields ?? {},
+    )
+  }
+
+  const blob = await response.blob()
+  const objectUrl = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = objectUrl
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(objectUrl)
+}
