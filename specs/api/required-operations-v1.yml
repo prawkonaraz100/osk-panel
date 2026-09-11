@@ -87,6 +87,7 @@ operations:
     - { id: training_sessions.create, method: POST, path: '/course-enrollments/{courseEnrollmentId}/training-sessions' }
     - { id: training_sessions.get, method: GET, path: '/training-sessions/{sessionId}' }
     - { id: training_sessions.update, method: PATCH, path: '/training-sessions/{sessionId}' }
+    - { id: training_sessions.attendance.update, method: PUT, path: '/training-sessions/{sessionId}/attendance' }
     - { id: training_sessions.complete, method: POST, path: '/training-sessions/{sessionId}/complete' }
     - { id: training_sessions.cancel, method: POST, path: '/training-sessions/{sessionId}/cancel' }
     - { id: training_hours.get, method: GET, path: '/course-enrollments/{courseEnrollmentId}/training-hours' }

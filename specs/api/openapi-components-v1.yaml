@@ -452,18 +452,24 @@ components:
         reason: { type: string }
     TrainingSession:
       type: object
-      required: [id, course_enrollment_id, session_type, starts_at, ends_at, status, version]
+      required: [id, course_enrollment_id, session_type, starts_at, ends_at, duration_minutes, instructor_id, status, version]
       properties:
         id: { type: string, format: uuid }
         course_enrollment_id: { type: string, format: uuid }
-        session_type: { type: string }
+        session_type: { type: string, enum: [theory, practical] }
         starts_at: { type: string, format: date-time }
         ends_at: { type: string, format: date-time }
+        duration_minutes: { type: integer, minimum: 1, readOnly: true }
         instructor_id: { type: string, format: uuid }
         vehicle_id: { type: [string, 'null'], format: uuid }
         location_id: { type: [string, 'null'], format: uuid }
-        status: { type: string }
-        version: { type: integer }
+        status: { type: string, enum: [planned, completed, cancelled], readOnly: true }
+        completed_at: { type: [string, 'null'], format: date-time, readOnly: true }
+        completed_by_user_id: { type: [string, 'null'], format: uuid, readOnly: true }
+        cancelled_at: { type: [string, 'null'], format: date-time, readOnly: true }
+        cancelled_by_user_id: { type: [string, 'null'], format: uuid, readOnly: true }
+        cancellation_reason: { type: [string, 'null'], readOnly: true }
+        version: { type: integer, minimum: 1, readOnly: true }
     CreateTrainingSessionRequest:
       type: object
       required: [session_type, starts_at, ends_at, instructor_id]
@@ -478,12 +484,28 @@ components:
       type: object
       additionalProperties: false
       properties:
-        session_type: { type: string }
         starts_at: { type: string, format: date-time }
         ends_at: { type: string, format: date-time }
         instructor_id: { type: string, format: uuid }
         vehicle_id: { type: [string, 'null'], format: uuid }
         location_id: { type: [string, 'null'], format: uuid }
+    TrainingSessionAttendance:
+      type: object
+      required: [training_session_id, course_enrollment_id, student_id, status, confirmed_by_user_id, confirmed_at, session_version]
+      properties:
+        training_session_id: { type: string, format: uuid }
+        course_enrollment_id: { type: string, format: uuid }
+        student_id: { type: string, format: uuid }
+        status: { type: string, enum: [present, absent] }
+        confirmed_by_user_id: { type: string, format: uuid }
+        confirmed_at: { type: string, format: date-time }
+        session_version: { type: integer, minimum: 1 }
+    RecordTrainingSessionAttendanceRequest:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status: { type: string, enum: [present, absent] }
     TrainingHoursProjection:
       type: object
       properties:

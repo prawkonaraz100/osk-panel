@@ -128,6 +128,9 @@ optimistic_concurrency:
   required_or_recommended_for:
     - calendar_event
     - course_enrollment
+    - training_session
+    - training_session_attendance
+    - training_hour_correction
     - license_assignment
     - internal_exam_access
     - internal_exam_attempt_state

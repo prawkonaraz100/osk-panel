@@ -512,6 +512,27 @@ paths:
             application/json:
               schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/TrainingSession' }
         default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /training-sessions/{sessionId}/attendance:
+    put:
+      tags: [Training]
+      operationId: trainingSessionAttendanceUpdate
+      x-requirement-id: training_sessions.attendance.update
+      x-permission: training_sessions.edit
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/SessionId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IfMatch' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/RecordTrainingSessionAttendanceRequest' }
+      responses:
+        '200':
+          description: Verified attendance recorded while the TrainingSession is still planned
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/TrainingSessionAttendance' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
   /training-sessions/{sessionId}/complete:
     post:
       tags: [Training]
@@ -564,6 +585,7 @@ paths:
       parameters:
         - { $ref: '../openapi-components-v1.yaml#/components/parameters/CourseEnrollmentId' }
         - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IfMatch' }
       requestBody:
         required: true
         content:
