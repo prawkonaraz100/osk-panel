@@ -132,3 +132,19 @@ changed_scope:
     ui: DEFERRED_UNTIL_CALENDAR_UI_GATE
     acceptance_test: Tests\\Feature\\AvailabilityFormalizationCoreTest::test_same_formalization_idempotency_key_does_not_create_second_session
     status: IMPLEMENTED
+  - evidence: specs/database/calendar.yml#DB-CAL-007-read_model_union
+    requirement: calendar read model projects only booked unformalized AvailabilitySlot rows as driving_lesson with source_kind availability_slot_booking
+    domain_data: availability_slots
+    api_use_case: calendar.events.unformalized_booking_projection
+    permission: calendar.view with organization own assigned_students or assigned_locations scope
+    ui: DEFERRED_UNTIL_CALENDAR_UI_GATE
+    acceptance_test: Tests\\Feature\\CalendarAvailabilityProjectionCoreTest::test_only_booked_unformalized_slot_projects_as_driving_lesson_and_filters_by_source_resources
+    status: IMPLEMENTED
+  - evidence: specs/database/calendar.yml#DB-CAL-007-formalized_slot_projection_suppressed
+    requirement: formalization swaps read source from availability_slot_booking to training_session without producing two calendar items
+    domain_data: availability_slots + training_sessions + training_session_calendar_details
+    api_use_case: calendar.events.list + availability.formalize
+    permission: calendar.view for projection; training_sessions.create for handoff
+    ui: DEFERRED_UNTIL_CALENDAR_UI_GATE
+    acceptance_test: Tests\\Feature\\CalendarAvailabilityProjectionCoreTest::test_formalization_switches_calendar_source_without_duplicate_item
+    status: IMPLEMENTED

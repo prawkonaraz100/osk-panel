@@ -571,7 +571,7 @@ components:
       required: [id, source_kind, source_id, event_type, starts_at, ends_at, status, version]
       properties:
         id: { type: string, format: uuid }
-        source_kind: { type: string, enum: [calendar_event, training_session, important_date], readOnly: true }
+        source_kind: { type: string, enum: [calendar_event, availability_slot_booking, training_session, important_date], readOnly: true }
         source_id: { type: string, readOnly: true }
         course_enrollment_id: { type: [string, 'null'], format: uuid, readOnly: true }
         event_type: { type: string, enum: [general_event, driving_lesson, important_date] }

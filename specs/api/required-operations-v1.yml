@@ -139,6 +139,11 @@ operations:
       path: /calendar/events
       covered_by_operationId: calendarEventsList
       requirement: practical_training_sessions_are_projected_as_driving_lesson_without_calendar_event_copy
+    - id: calendar.events.unformalized_booking_projection
+      method: GET
+      path: /calendar/events
+      covered_by_operationId: calendarEventsList
+      requirement: booked_unformalized_availability_slot_is_projected_as_driving_lesson_until_training_session_handoff
     - id: calendar.events.important_dates_projection
       method: GET
       path: /calendar/events
@@ -360,10 +365,10 @@ coverage_status:
   frozen_at: 2026-09-05
   validator_command: python scripts/contract-validation/validate_openapi_contract.py
   ci_workflow: .github/workflows/api-contract-gate.yml
-  http_requirement_rows: 174
+  http_requirement_rows: 175
   unique_openapi_path_method_operations_required: 162
-  shared_capability_rows_reusing_existing_operationId: 12
-  direct_and_shared_http_requirements_with_operationId_mapping: 174
+  shared_capability_rows_reusing_existing_operationId: 13
+  direct_and_shared_http_requirements_with_operationId_mapping: 175
   direct_and_shared_http_requirements_without_operationId_mapping: 0
   openapi_complete_against_this_inventory: true
   operationIds_present_for_all_http_requirements: true

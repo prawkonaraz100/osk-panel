@@ -431,6 +431,7 @@ modules:
       - calendar.driving_lessons.get
       - calendar.events.list
       - calendar.events.driving_lesson_projection
+      - calendar.events.unformalized_booking_projection
       - calendar.events.create
       - calendar.events.get
       - calendar.events.update
@@ -474,6 +475,8 @@ modules:
       - availability_booking_uses_slot_version_and_exact_shared_resource_claim_set
       - availability_booking_does_not_create_training_session_or_training_credit
       - formalization_transfers_reservation_owner_atomically_to_one_practical_training_session
+      - booked_unformalized_slot_projects_once_as_driving_lesson_from_availability_source
+      - formalized_slot_suppresses_availability_projection_and_projects_once_from_training_session
       - formalized_slot_keeps_immutable_booking_snapshot_and_cannot_cancel_independently
       - cancelled_availability_slot_is_terminal_and_not_auto_republished
     production_blockers:

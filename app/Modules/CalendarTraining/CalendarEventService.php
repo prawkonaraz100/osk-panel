@@ -14,6 +14,7 @@ final class CalendarEventService
     public function __construct(
         private readonly CalendarEventScopeAuthorizer $scopeAuthorizer,
         private readonly CalendarDrivingLessonService $drivingLessons,
+        private readonly CalendarAvailabilityBookingProjectionService $availabilityBookings,
         private readonly ScheduleClaimService $claims,
         private readonly AtomicAuditOutbox $auditOutbox,
     ) {}
@@ -66,7 +67,11 @@ final class CalendarEventService
         }
 
         if ($types === [] || in_array('driving_lesson', $types, true)) {
-            $items = [...$items, ...$this->drivingLessons->list($sessionId, $filters)];
+            $items = [
+                ...$items,
+                ...$this->availabilityBookings->list($sessionId, $filters),
+                ...$this->drivingLessons->list($sessionId, $filters),
+            ];
         }
 
         usort($items, static function (array $left, array $right): int {
