@@ -1,0 +1,84 @@
+module: InternalExams
+core_traceability_modules:
+  - internal_exams
+changed_scope:
+  - evidence: specs/database/internal-exams.yml#DB-EXAM-002
+    requirement: formal attempt creation derives exact Student CourseEnrollment category requirement-profile revision and current category-part-language capability rather than accepting an ad-hoc candidate or client-owned formal target
+    domain_data: students + course_enrollments + training_requirement_profiles + internal_exam_capabilities + internal_exam_attempts
+    api_use_case: SERVICE_RUNTIME_3A_create_internal_exam_attempt
+    permission: exams.generate
+    ui: DEFERRED_UNTIL_INTERNAL_EXAMS_UI_GATE
+    acceptance_test: Tests\\Feature\\InternalExamCoreTest::test_attempt_creation_reserves_exactly_one_consistent_inventory_unit_atomically
+    status: IMPLEMENTED
+  - evidence: specs/database/internal-exams.yml#DB-EXAM-003
+    requirement: one concrete available inventory unit is reserved with append-only ledger history at attempt creation released exactly once before start and consumed exactly once at start without hardcoding free-versus-paid priority
+    domain_data: internal_exam_inventory_entries + internal_exam_inventory_ledger_entries + internal_exam_reservations + internal_exam_attempts
+    api_use_case: SERVICE_RUNTIME_3A_create_revoke_start
+    permission: exams.generate + exams.start.local
+    ui: DEFERRED_UNTIL_INTERNAL_EXAMS_UI_GATE
+    acceptance_test: Tests\\Feature\\InternalExamCoreTest::test_prestart_revoke_releases_same_unit_and_next_attempt_can_reserve_it_again
+    status: IMPLEMENTED
+  - evidence: specs/database/internal-exams.yml#DB-EXAM-004
+    requirement: Attempt remains the lifecycle concurrency root while prestart revoke leaves Attempt created start moves Attempt and Access once and technical abort is terminal without restoring consumed inventory
+    domain_data: internal_exam_attempts + internal_exam_attempt_lifecycle_events + internal_exam_accesses + internal_exam_access_lifecycle_events + internal_exam_reservations
+    api_use_case: SERVICE_RUNTIME_3A_access_lifecycle
+    permission: exams.generate + exams.start.local
+    ui: DEFERRED_UNTIL_INTERNAL_EXAMS_UI_GATE
+    acceptance_test: Tests\\Feature\\InternalExamCoreTest::test_technical_abort_preserves_consumed_inventory_and_frozen_question_evidence
+    status: IMPLEMENTED
+  - evidence: specs/database/internal-exams.yml#DB-EXAM-006
+    requirement: local station execution requires an enabled authenticated fresh station and failover closes the old session creates a same-attempt transfer-chain successor and never rebinds Access or consumes inventory twice
+    domain_data: exam_stations + exam_station_credentials + internal_exam_station_sessions + internal_exam_accesses + internal_exam_attempts
+    api_use_case: SERVICE_RUNTIME_3A_start_local_and_station_transfer
+    permission: exams.start.local
+    ui: DEFERRED_UNTIL_INTERNAL_EXAMS_UI_GATE
+    acceptance_test: Tests\\Feature\\InternalExamCoreTest::test_station_failover_preserves_access_binding_and_does_not_consume_inventory_again
+    status: IMPLEMENTED
+  - evidence: specs/database/internal-exams.yml#DB-EXAM-007
+    requirement: actual start freezes the exact current definition and ordered question evidence and submit evaluates only frozen question and scoring snapshots without global 32-question 74-point or pass-threshold constants
+    domain_data: internal_exam_definitions + internal_exam_attempt_questions + internal_exam_results + internal_exam_attempts
+    api_use_case: SERVICE_RUNTIME_3A_start_and_submit_question_test
+    permission: exams.start.local + exams.generate
+    ui: DEFERRED_UNTIL_INTERNAL_EXAMS_UI_GATE
+    acceptance_test: Tests\\Feature\\InternalExamCoreTest::test_submit_scores_only_from_frozen_evidence_and_finishes_without_second_consumption
+    status: IMPLEMENTED
+  - evidence: specs/security/permissions.yml
+    requirement: Internal Exam service targets remain tenant and Student scoped through canonical exams permissions and cross-tenant ids are not accepted as authority
+    domain_data: organization_memberships + membership_permissions + membership_permission_scopes + students + course_enrollments + internal_exam_attempts
+    api_use_case: InternalExamScopeAuthorizer
+    permission: exams.view/generate/start.local/results.view/documents.download/inventory.adjust
+    ui: NOT_APPLICABLE_RUNTIME_GATE
+    acceptance_test: Tests\\Feature\\InternalExamCoreTest
+    status: IMPLEMENTED
+  - evidence: specs/database/internal-exams.yml#DB-EXAM-005
+    requirement: remote execution bearer secrets are purpose scoped nonrecoverable verifier records with explicit TTL exact-expiry fail-closed semantics and resend rotation on the same Access and Reservation without a second inventory allocation
+    domain_data: internal_exam_access_tokens + internal_exam_accesses + internal_exam_reservations + internal_exam_inventory_entries
+    api_use_case: SERVICE_RUNTIME_3B1_remote_token_issue_verify_rotate_revoke
+    permission: exams.generate + exams.access.send
+    ui: DEFERRED_UNTIL_INTERNAL_EXAMS_UI_GATE
+    acceptance_test: Tests\\Feature\\InternalExamCoreTest::test_remote_access_token_is_nonrecoverable_purpose_scoped_and_exact_expiry_fails_closed
+    status: IMPLEMENTED
+  - evidence: specs/database/internal-exams.yml#DB-EXAM-005
+    requirement: valid exam_execution token can start and submit only its exact remote Access and Attempt; pass or fail retires execution privilege and atomically creates one finished_result_read token while technical abort creates none
+    domain_data: internal_exam_access_tokens + internal_exam_accesses + internal_exam_attempts + internal_exam_results + internal_exam_reservations + internal_exam_inventory_entries
+    api_use_case: SERVICE_RUNTIME_3B2_remote_start_submit_result_read
+    permission: examAccessToken purpose exam_execution or finished_result_read
+    ui: DEFERRED_UNTIL_INTERNAL_EXAMS_UI_GATE
+    acceptance_test: Tests\\Feature\\InternalExamCoreTest::test_remote_submit_retires_execution_token_mints_result_token_and_scopes_review_to_frozen_evidence
+    status: IMPLEMENTED
+  - evidence: specs/database/internal-exams.yml#DB-EXAM-007
+    requirement: finished-result bearer review reads only immutable result and ordered frozen attempt-question evidence and never current question-bank state
+    domain_data: internal_exam_results + internal_exam_attempt_questions + internal_exam_access_tokens
+    api_use_case: SERVICE_RUNTIME_3B2_result_and_question_review
+    permission: examAccessToken purpose finished_result_read
+    ui: DEFERRED_UNTIL_INTERNAL_EXAMS_UI_GATE
+    acceptance_test: Tests\\Feature\\InternalExamCoreTest::test_remote_submit_retires_execution_token_mints_result_token_and_scopes_review_to_frozen_evidence
+    status: IMPLEMENTED
+  - evidence: specs/api/paths/internal-exams.yaml
+    requirement: Stage5 remote Internal Exam HTTP binding uses session authority for staff commands and purpose-scoped Bearer authority for remote start submit result and frozen-question review; one-time URLs use fragment transport and idempotent replay persists only nonsecret response snapshots
+    domain_data: idempotency_records + internal_exam_access_tokens + internal_exam_accesses + internal_exam_attempts + internal_exam_results + internal_exam_attempt_questions
+    api_use_case: HTTP_GATE_4A_remote_and_staff_internal_exam_binding
+    permission: exams.generate/exams.access.send/exams.results.view or exact examAccessToken purpose
+    ui: remote_public_base_url_is_explicit_deployment_configuration
+    acceptance_test: Tests\\Feature\\InternalExamCoreTest::test_http_remote_exam_secret_responses_are_nonreplayable_and_bearer_lifecycle_is_scoped
+    status: IMPLEMENTED

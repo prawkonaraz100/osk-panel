@@ -220,7 +220,11 @@ paths:
         - { $ref: '../openapi-components-v1.yaml#/components/parameters/AccessId' }
         - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
       responses:
-        '202': { description: Remote link delivery queued; raw token is not persisted recoverably }
+        '202':
+          description: Remote access delivery materialized with a newly rotated one-time URL; raw token is not persisted recoverably
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/InternalExamAccess' }
         default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
   /internal-exam-accesses/{accessId}/revoke:
     post:

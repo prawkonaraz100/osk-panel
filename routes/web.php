@@ -4,6 +4,7 @@ use App\Modules\CalendarTraining\AvailabilitySlotController;
 use App\Modules\CalendarTraining\CalendarDrivingLessonController;
 use App\Modules\CalendarTraining\CalendarEventController;
 use App\Modules\CalendarTraining\TrainingSessionController;
+use App\Modules\InternalExams\InternalExamController;
 use App\Modules\LearningAccess\LearningAccessController;
 use App\Modules\ResourcesCore\ResourceApiMiddleware;
 use App\Modules\ResourcesCore\ResourceController;
@@ -116,6 +117,20 @@ Route::middleware(ResourceApiMiddleware::class)->prefix('api/v1')->group(functio
     Route::patch('/calendar/events/{eventId}', [CalendarEventController::class, 'update']);
     Route::post('/calendar/events/{eventId}/cancel', [CalendarEventController::class, 'cancel']);
     Route::post('/calendar/events/{eventId}/complete', [CalendarEventController::class, 'complete']);
+
+    Route::get('/course-enrollments/{courseEnrollmentId}/internal-exam-attempts', [InternalExamController::class, 'attemptsForCourse']);
+    Route::post('/course-enrollments/{courseEnrollmentId}/internal-exam-attempts', [InternalExamController::class, 'attemptCreate']);
+    Route::get('/internal-exam-attempts/{attemptId}', [InternalExamController::class, 'attemptGet']);
+    Route::post('/internal-exam-attempts/{attemptId}/accesses', [InternalExamController::class, 'accessCreate']);
+    Route::post('/internal-exam-accesses/{accessId}/send', [InternalExamController::class, 'accessSend']);
+    Route::post('/internal-exam-accesses/{accessId}/revoke', [InternalExamController::class, 'accessRevoke']);
+    Route::post('/internal-exam-accesses/{accessId}/start', [InternalExamController::class, 'accessStart']);
+    Route::post('/internal-exam-stations/heartbeat', [InternalExamController::class, 'stationHeartbeat']);
+    Route::post('/internal-exam-attempts/{attemptId}/station-transfer', [InternalExamController::class, 'stationTransfer']);
+    Route::post('/internal-exam-attempts/{attemptId}/submit', [InternalExamController::class, 'attemptSubmit']);
+    Route::post('/internal-exam-attempts/{attemptId}/technical-abort', [InternalExamController::class, 'technicalAbort']);
+    Route::get('/internal-exam-attempts/{attemptId}/result', [InternalExamController::class, 'result']);
+    Route::get('/internal-exam-attempts/{attemptId}/questions', [InternalExamController::class, 'questions']);
 });
 
 Route::view('/', 'app');
