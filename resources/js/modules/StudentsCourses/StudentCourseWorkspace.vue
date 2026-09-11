@@ -767,39 +767,95 @@ function handleError(caught: unknown): void {
 <template>
   <div class="app-shell">
     <aside class="sidebar">
-      <a class="brand" href="/">OSK <strong>Panel</strong></a>
-      <nav class="main-nav" aria-label="Główna nawigacja">
-        <a href="/kursanci" class="active">Kursanci</a>
+      <a
+        class="brand"
+        href="/"
+      >OSK <strong>Panel</strong></a>
+      <nav
+        class="main-nav"
+        aria-label="Główna nawigacja"
+      >
+        <a
+          href="/kursanci"
+          class="active"
+        >Kursanci</a>
         <a href="/lokalizacje">Lokalizacje</a>
         <a href="/pracownicy">Pracownicy</a>
         <a href="/pojazdy">Pojazdy</a>
       </nav>
-      <div class="sidebar-foot">Stage 5 · Core v1</div>
+      <div class="sidebar-foot">
+        Stage 5 · Core v1
+      </div>
     </aside>
 
     <main class="workspace">
       <header class="workspace-header">
         <div>
-          <div class="eyebrow">PrawkoNaRaz · OSK</div>
+          <div class="eyebrow">
+            PrawkoNaRaz · OSK
+          </div>
           <h1>{{ pageTitle }}</h1>
         </div>
         <div class="header-actions">
-          <a v-if="detailId" class="button ghost" href="/kursanci">Wróć do listy</a>
-          <button v-if="!detailId" class="button ghost" type="button" @click="openPkkEntrypoint">Dodaj z PKK</button>
-          <button v-if="!detailId" class="button primary" type="button" @click="openStudentCreate">Dodaj ręcznie</button>
+          <a
+            v-if="detailId"
+            class="button ghost"
+            href="/kursanci"
+          >Wróć do listy</a>
+          <button
+            v-if="!detailId"
+            class="button ghost"
+            type="button"
+            @click="openPkkEntrypoint"
+          >
+            Dodaj z PKK
+          </button>
+          <button
+            v-if="!detailId"
+            class="button primary"
+            type="button"
+            @click="openStudentCreate"
+          >
+            Dodaj ręcznie
+          </button>
         </div>
       </header>
 
-      <div v-if="notice" class="notice success" role="status">
+      <div
+        v-if="notice"
+        class="notice success"
+        role="status"
+      >
         <span>{{ notice }}</span>
-        <button type="button" aria-label="Zamknij" @click="notice = ''">×</button>
+        <button
+          type="button"
+          aria-label="Zamknij"
+          @click="notice = ''"
+        >
+          ×
+        </button>
       </div>
-      <div v-if="error" class="notice error" role="alert">
+      <div
+        v-if="error"
+        class="notice error"
+        role="alert"
+      >
         <span>{{ error }}</span>
-        <button type="button" aria-label="Zamknij" @click="error = ''">×</button>
+        <button
+          type="button"
+          aria-label="Zamknij"
+          @click="error = ''"
+        >
+          ×
+        </button>
       </div>
 
-      <div v-if="loading" class="loading-card">Ładowanie danych…</div>
+      <div
+        v-if="loading"
+        class="loading-card"
+      >
+        Ładowanie danych…
+      </div>
 
       <template v-else-if="!detailId">
         <section class="student-list-head">
@@ -807,21 +863,48 @@ function handleError(caught: unknown): void {
             <span class="section-kicker">Twoi kursanci</span>
             <h2>Wyszukano {{ meta.total }} kursantów</h2>
           </div>
-          <form class="student-search" @submit.prevent="applyListFilters">
-            <input v-model="search" type="search" placeholder="Szukaj kursanta...">
-            <button class="button ghost" type="submit">Szukaj</button>
-            <button class="button ghost" type="button" @click="filtersOpen = !filtersOpen">
+          <form
+            class="student-search"
+            @submit.prevent="applyListFilters"
+          >
+            <input
+              v-model="search"
+              type="search"
+              placeholder="Szukaj kursanta..."
+            >
+            <button
+              class="button ghost"
+              type="submit"
+            >
+              Szukaj
+            </button>
+            <button
+              class="button ghost"
+              type="button"
+              @click="filtersOpen = !filtersOpen"
+            >
               {{ filtersOpen ? 'Ukryj filtry' : 'Filtry' }}
             </button>
           </form>
         </section>
 
-        <section v-if="filtersOpen" class="filter-panel">
+        <section
+          v-if="filtersOpen"
+          class="filter-panel"
+        >
           <div class="filter-block">
             <strong>Kategoria kursu</strong>
             <div class="checkbox-grid">
-              <label v-for="item in activeCategories" :key="item.id" class="check">
-                <input v-model="selectedCategories" type="checkbox" :value="item.code">
+              <label
+                v-for="item in activeCategories"
+                :key="item.id"
+                class="check"
+              >
+                <input
+                  v-model="selectedCategories"
+                  type="checkbox"
+                  :value="item.code"
+                >
                 {{ item.code }}
               </label>
             </div>
@@ -829,15 +912,26 @@ function handleError(caught: unknown): void {
           <div class="filter-block">
             <strong>Etap szkolenia</strong>
             <div class="checkbox-grid">
-              <label v-for="item in stageOptions" :key="item.value" class="check">
-                <input v-model="selectedStages" type="checkbox" :value="item.value">
+              <label
+                v-for="item in stageOptions"
+                :key="item.value"
+                class="check"
+              >
+                <input
+                  v-model="selectedStages"
+                  type="checkbox"
+                  :value="item.value"
+                >
                 {{ item.label }}
               </label>
             </div>
           </div>
           <div class="filter-row">
             <label class="check">
-              <input v-model="includeArchived" type="checkbox">
+              <input
+                v-model="includeArchived"
+                type="checkbox"
+              >
               Pokaż archiwalnych
             </label>
             <label>
@@ -855,9 +949,17 @@ function handleError(caught: unknown): void {
                 <option value="desc">Malejąco</option>
               </select>
             </label>
-            <button class="button primary" type="button" @click="applyListFilters">Zastosuj</button>
+            <button
+              class="button primary"
+              type="button"
+              @click="applyListFilters"
+            >
+              Zastosuj
+            </button>
           </div>
-          <p class="module-note">Filtr „Egzamin wewnętrzny niezdany” pojawi się razem z modułem Egzaminu wewnętrznego.</p>
+          <p class="module-note">
+            Filtr „Egzamin wewnętrzny niezdany” pojawi się razem z modułem Egzaminu wewnętrznego.
+          </p>
         </section>
 
         <section class="table-card">
@@ -870,14 +972,22 @@ function handleError(caught: unknown): void {
                 <th>Telefon</th>
                 <th>Dodano</th>
                 <th>Egzamin wewnętrzny</th>
-                <th class="actions-column">Akcje</th>
+                <th class="actions-column">
+                  Akcje
+                </th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="student in students" :key="student.id" :class="{ archived: student.archived_at }">
+              <tr
+                v-for="student in students"
+                :key="student.id"
+                :class="{ archived: student.archived_at }"
+              >
                 <td>
                   <div class="person-cell">
-                    <div class="avatar">{{ student.first_name.charAt(0) }}{{ student.last_name.charAt(0) }}</div>
+                    <div class="avatar">
+                      {{ student.first_name.charAt(0) }}{{ student.last_name.charAt(0) }}
+                    </div>
                     <div>
                       <strong>{{ student.first_name }} {{ student.last_name }}</strong>
                       <small>{{ student.archived_at ? 'Archiwalny profil' : (student.contact_email ?? 'Brak e-maila kontaktowego') }}</small>
@@ -894,13 +1004,27 @@ function handleError(caught: unknown): void {
                 <td><span class="status-pill muted">Moduł egzaminu</span></td>
                 <td>
                   <div class="row-actions">
-                    <button class="text-button" type="button" @click="openPreview(student)">Podgląd</button>
-                    <a class="text-link strong" :href="`/kursanci/${student.id}`">Przejdź do</a>
+                    <button
+                      class="text-button"
+                      type="button"
+                      @click="openPreview(student)"
+                    >
+                      Podgląd
+                    </button>
+                    <a
+                      class="text-link strong"
+                      :href="`/kursanci/${student.id}`"
+                    >Przejdź do</a>
                   </div>
                 </td>
               </tr>
               <tr v-if="students.length === 0">
-                <td colspan="7" class="empty-cell">Brak kursantów spełniających kryteria.</td>
+                <td
+                  colspan="7"
+                  class="empty-cell"
+                >
+                  Brak kursantów spełniających kryteria.
+                </td>
               </tr>
             </tbody>
           </table>
@@ -909,8 +1033,22 @@ function handleError(caught: unknown): void {
         <div class="pagination-row">
           <span>Strona {{ meta.page }} z {{ meta.last_page }}</span>
           <div class="row-actions">
-            <button class="button ghost" type="button" :disabled="meta.page <= 1" @click="changePage(meta.page - 1)">Poprzednia</button>
-            <button class="button ghost" type="button" :disabled="meta.page >= meta.last_page" @click="changePage(meta.page + 1)">Następna</button>
+            <button
+              class="button ghost"
+              type="button"
+              :disabled="meta.page <= 1"
+              @click="changePage(meta.page - 1)"
+            >
+              Poprzednia
+            </button>
+            <button
+              class="button ghost"
+              type="button"
+              :disabled="meta.page >= meta.last_page"
+              @click="changePage(meta.page + 1)"
+            >
+              Następna
+            </button>
           </div>
         </div>
       </template>
@@ -918,25 +1056,68 @@ function handleError(caught: unknown): void {
       <template v-else-if="currentStudent">
         <section class="detail-hero">
           <div class="detail-identity">
-            <div class="avatar large">{{ currentStudent.first_name.charAt(0) }}{{ currentStudent.last_name.charAt(0) }}</div>
+            <div class="avatar large">
+              {{ currentStudent.first_name.charAt(0) }}{{ currentStudent.last_name.charAt(0) }}
+            </div>
             <div>
-              <div class="detail-title">{{ currentStudent.first_name }} {{ currentStudent.last_name }}</div>
+              <div class="detail-title">
+                {{ currentStudent.first_name }} {{ currentStudent.last_name }}
+              </div>
               <div class="detail-subtitle">
                 {{ currentStudent.archived_at ? 'Profil archiwalny' : 'Aktywny kursant' }} · dodano {{ formatDate(currentStudent.created_at) }}
               </div>
             </div>
           </div>
           <div class="detail-actions">
-            <button v-if="!currentStudent.archived_at" class="button ghost" type="button" @click="openStudentEdit">Edytuj dane</button>
-            <button v-if="!currentStudent.archived_at" class="button danger-outline" type="button" @click="archiveStudent">Archiwizuj</button>
-            <button v-else class="button primary" type="button" @click="restoreStudent">Przywróć profil</button>
+            <button
+              v-if="!currentStudent.archived_at"
+              class="button ghost"
+              type="button"
+              @click="openStudentEdit"
+            >
+              Edytuj dane
+            </button>
+            <button
+              v-if="!currentStudent.archived_at"
+              class="button danger-outline"
+              type="button"
+              @click="archiveStudent"
+            >
+              Archiwizuj
+            </button>
+            <button
+              v-else
+              class="button primary"
+              type="button"
+              @click="restoreStudent"
+            >
+              Przywróć profil
+            </button>
           </div>
         </section>
 
-        <div class="student-tabs" role="tablist">
-          <button class="active" type="button">Profil kursanta</button>
-          <button type="button" disabled>Egzamin wewnętrzny</button>
-          <button type="button" disabled>Postęp</button>
+        <div
+          class="student-tabs"
+          role="tablist"
+        >
+          <button
+            class="active"
+            type="button"
+          >
+            Profil kursanta
+          </button>
+          <button
+            type="button"
+            disabled
+          >
+            Egzamin wewnętrzny
+          </button>
+          <button
+            type="button"
+            disabled
+          >
+            Postęp
+          </button>
         </div>
 
         <div class="detail-grid">
@@ -967,18 +1148,38 @@ function handleError(caught: unknown): void {
         <section class="detail-card">
           <div class="card-heading split">
             <div><span class="section-kicker">Kursy · PKK</span><h2>Kursy kursanta</h2></div>
-            <button class="button primary" type="button" :disabled="Boolean(currentStudent.archived_at)" @click="openCourseCreate">Dodaj kurs</button>
+            <button
+              class="button primary"
+              type="button"
+              :disabled="Boolean(currentStudent.archived_at)"
+              @click="openCourseCreate"
+            >
+              Dodaj kurs
+            </button>
           </div>
 
-          <div v-if="currentCourses.length === 0" class="empty-inline">
+          <div
+            v-if="currentCourses.length === 0"
+            class="empty-inline"
+          >
             <strong>Brak przypisanego kursu.</strong>
             <span>Dodaj kurs, aby ustawić PKK, kategorię i etap szkolenia.</span>
           </div>
 
-          <div v-else class="course-list">
-            <article v-for="course in currentCourses" :key="course.id" class="course-row" :class="{ cancelled: course.cancelled_at }">
+          <div
+            v-else
+            class="course-list"
+          >
+            <article
+              v-for="course in currentCourses"
+              :key="course.id"
+              class="course-row"
+              :class="{ cancelled: course.cancelled_at }"
+            >
               <div class="course-main">
-                <div class="course-category">{{ course.driving_category_code }}</div>
+                <div class="course-category">
+                  {{ course.driving_category_code }}
+                </div>
                 <div>
                   <strong>{{ course.training_type === 'basic' ? 'Szkolenie podstawowe' : 'Szkolenie uzupełniające' }}</strong>
                   <span>PKK {{ course.pkk_reference_masked ?? '—' }} · od {{ formatDate(course.started_at) }}</span>
@@ -987,7 +1188,11 @@ function handleError(caught: unknown): void {
 
               <div class="course-stage">
                 <label>Etap
-                  <select :value="course.training_stage" :disabled="Boolean(course.cancelled_at) || saving" @change="changeStage(course, $event)">
+                  <select
+                    :value="course.training_stage"
+                    :disabled="Boolean(course.cancelled_at) || saving"
+                    @change="changeStage(course, $event)"
+                  >
                     <option
                       v-for="stage in stageOptions"
                       :key="stage.value"
@@ -999,10 +1204,37 @@ function handleError(caught: unknown): void {
               </div>
 
               <div class="course-actions">
-                <button class="text-button strong" type="button" @click="openCourseDetail(course)">Szczegóły</button>
-                <button v-if="!course.cancelled_at" class="text-button" type="button" @click="openCourseEdit(course)">Edytuj</button>
-                <button v-if="!course.cancelled_at" class="text-button danger" type="button" @click="cancelCourse(course)">Anuluj</button>
-                <button v-else class="text-button" type="button" @click="restoreCourse(course)">Przywróć</button>
+                <button
+                  class="text-button strong"
+                  type="button"
+                  @click="openCourseDetail(course)"
+                >
+                  Szczegóły
+                </button>
+                <button
+                  v-if="!course.cancelled_at"
+                  class="text-button"
+                  type="button"
+                  @click="openCourseEdit(course)"
+                >
+                  Edytuj
+                </button>
+                <button
+                  v-if="!course.cancelled_at"
+                  class="text-button danger"
+                  type="button"
+                  @click="cancelCourse(course)"
+                >
+                  Anuluj
+                </button>
+                <button
+                  v-else
+                  class="text-button"
+                  type="button"
+                  @click="restoreCourse(course)"
+                >
+                  Przywróć
+                </button>
               </div>
             </article>
           </div>
@@ -1022,8 +1254,17 @@ function handleError(caught: unknown): void {
         </div>
       </template>
 
-      <div v-if="drawer" class="drawer-backdrop" @click.self="closeDrawer">
-        <section class="drawer" :class="{ compact: drawer === 'preview' || drawer === 'pkk-entry' }" role="dialog" aria-modal="true">
+      <div
+        v-if="drawer"
+        class="drawer-backdrop"
+        @click.self="closeDrawer"
+      >
+        <section
+          class="drawer"
+          :class="{ compact: drawer === 'preview' || drawer === 'pkk-entry' }"
+          role="dialog"
+          aria-modal="true"
+        >
           <header class="drawer-header">
             <div>
               <span class="section-kicker">
@@ -1041,43 +1282,91 @@ function handleError(caught: unknown): void {
                         : 'Dodaj z PKK' }}
               </h2>
             </div>
-            <button class="icon-button" type="button" aria-label="Zamknij" @click="closeDrawer">×</button>
+            <button
+              class="icon-button"
+              type="button"
+              aria-label="Zamknij"
+              @click="closeDrawer"
+            >
+              ×
+            </button>
           </header>
 
-          <form v-if="drawer === 'student'" class="form-grid" @submit.prevent="saveStudent">
+          <form
+            v-if="drawer === 'student'"
+            class="form-grid"
+            @submit.prevent="saveStudent"
+          >
             <label>Imię *
-              <input v-model="studentForm.first_name" required maxlength="120">
+              <input
+                v-model="studentForm.first_name"
+                required
+                maxlength="120"
+              >
             </label>
             <label>Nazwisko *
-              <input v-model="studentForm.last_name" required maxlength="120">
+              <input
+                v-model="studentForm.last_name"
+                required
+                maxlength="120"
+              >
             </label>
             <label>Telefon
-              <input v-model="studentForm.phone" maxlength="40">
+              <input
+                v-model="studentForm.phone"
+                maxlength="40"
+              >
             </label>
             <label>E-mail do kontaktu
-              <input v-model="studentForm.contact_email" type="email" maxlength="320">
+              <input
+                v-model="studentForm.contact_email"
+                type="email"
+                maxlength="320"
+              >
             </label>
             <label>PESEL
-              <input v-model="studentForm.pesel" inputmode="numeric" :disabled="studentForm.no_pesel" placeholder="Wpisz tylko przy dodaniu lub zmianie">
+              <input
+                v-model="studentForm.pesel"
+                inputmode="numeric"
+                :disabled="studentForm.no_pesel"
+                placeholder="Wpisz tylko przy dodaniu lub zmianie"
+              >
             </label>
             <label class="toggle-field">
               <span>Kursant nie posiada numeru PESEL</span>
-              <input v-model="studentForm.no_pesel" type="checkbox">
+              <input
+                v-model="studentForm.no_pesel"
+                type="checkbox"
+              >
             </label>
             <label v-if="studentForm.no_pesel">Data urodzenia *
-              <input v-model="studentForm.birth_date" type="date" required>
+              <input
+                v-model="studentForm.birth_date"
+                type="date"
+                required
+              >
             </label>
             <label>Lokalizacja
               <select v-model="studentForm.location_id">
                 <option value="">Brak</option>
-                <option v-for="item in activeLocations" :key="item.id" :value="item.id">{{ item.name }}</option>
+                <option
+                  v-for="item in activeLocations"
+                  :key="item.id"
+                  :value="item.id"
+                >{{ item.name }}</option>
               </select>
             </label>
 
-            <fieldset v-if="!editingStudent" class="full">
+            <fieldset
+              v-if="!editingStudent"
+              class="full"
+            >
               <legend>Kurs (PKK) — opcjonalnie</legend>
               <label class="check wide-check">
-                <input v-model="studentForm.add_course" type="checkbox">
+                <input
+                  v-model="studentForm.add_course"
+                  type="checkbox"
+                >
                 Dodaj pierwszy kurs razem z kursantem
               </label>
             </fieldset>
@@ -1098,12 +1387,27 @@ function handleError(caught: unknown): void {
             </div>
 
             <div class="form-actions full">
-              <button class="button ghost" type="button" @click="closeDrawer">Anuluj</button>
-              <button class="button primary" type="submit" :disabled="saving">{{ saving ? 'Zapisywanie…' : 'Zapisz' }}</button>
+              <button
+                class="button ghost"
+                type="button"
+                @click="closeDrawer"
+              >
+                Anuluj
+              </button>
+              <button
+                class="button primary"
+                type="submit"
+                :disabled="saving"
+              >
+                {{ saving ? 'Zapisywanie…' : 'Zapisz' }}
+              </button>
             </div>
           </form>
 
-          <div v-else-if="drawer === 'preview' && previewStudent" class="preview-stack">
+          <div
+            v-else-if="drawer === 'preview' && previewStudent"
+            class="preview-stack"
+          >
             <dl class="details-list">
               <div><dt>Kursant</dt><dd>{{ previewStudent.first_name }} {{ previewStudent.last_name }}</dd></div>
               <div><dt>Data urodzenia</dt><dd>{{ previewStudent.birth_date ?? '—' }}</dd></div>
@@ -1114,25 +1418,56 @@ function handleError(caught: unknown): void {
             </dl>
             <div class="preview-courses">
               <strong>Kursy ({{ previewStudent.courses_summary.length }})</strong>
-              <div v-for="course in previewStudent.courses_summary" :key="course.id" class="mini-course">
+              <div
+                v-for="course in previewStudent.courses_summary"
+                :key="course.id"
+                class="mini-course"
+              >
                 <span>{{ course.driving_category_code }}</span>
                 <small>{{ stageLabel(course.training_stage) }}{{ course.cancelled_at ? ' · anulowany' : '' }}</small>
               </div>
-              <p v-if="previewStudent.courses_summary.length === 0" class="module-note">Brak kursów.</p>
+              <p
+                v-if="previewStudent.courses_summary.length === 0"
+                class="module-note"
+              >
+                Brak kursów.
+              </p>
             </div>
-            <a class="button primary" :href="`/kursanci/${previewStudent.id}`">Przejdź do profilu</a>
+            <a
+              class="button primary"
+              :href="`/kursanci/${previewStudent.id}`"
+            >Przejdź do profilu</a>
           </div>
 
-          <div v-else-if="drawer === 'pkk-entry'" class="pending-module">
+          <div
+            v-else-if="drawer === 'pkk-entry'"
+            class="pending-module"
+          >
             <strong>Import kursanta bezpośrednio z systemu PKK wymaga aktywnego provider adaptera.</strong>
             <p>Nie symulujemy pobrania z zewnętrznego systemu. Obecny slice pozwala bezpiecznie zapisać lokalnego kursanta i jego course-scoped PKK; pobranie profilu z providera zostanie podłączone w module PKK.</p>
             <div class="form-actions">
-              <button class="button ghost" type="button" @click="closeDrawer">Zamknij</button>
-              <button class="button primary" type="button" @click="closeDrawer(); openStudentCreate()">Dodaj ręcznie</button>
+              <button
+                class="button ghost"
+                type="button"
+                @click="closeDrawer"
+              >
+                Zamknij
+              </button>
+              <button
+                class="button primary"
+                type="button"
+                @click="closeDrawer(); openStudentCreate()"
+              >
+                Dodaj ręcznie
+              </button>
             </div>
           </div>
 
-          <form v-else-if="drawer === 'course'" class="form-grid" @submit.prevent="saveCourse">
+          <form
+            v-else-if="drawer === 'course'"
+            class="form-grid"
+            @submit.prevent="saveCourse"
+          >
             <CourseFormFields
               v-model="courseForm"
               :categories="activeCategories"
@@ -1141,19 +1476,40 @@ function handleError(caught: unknown): void {
               :editing="Boolean(courseForm.id)"
             />
             <div class="form-actions full">
-              <button class="button ghost" type="button" @click="closeDrawer">Anuluj</button>
-              <button class="button primary" type="submit" :disabled="saving">{{ saving ? 'Zapisywanie…' : 'Zapisz kurs' }}</button>
+              <button
+                class="button ghost"
+                type="button"
+                @click="closeDrawer"
+              >
+                Anuluj
+              </button>
+              <button
+                class="button primary"
+                type="submit"
+                :disabled="saving"
+              >
+                {{ saving ? 'Zapisywanie…' : 'Zapisz kurs' }}
+              </button>
             </div>
           </form>
 
-          <div v-else-if="drawer === 'course-detail' && selectedCourse" class="course-detail-stack">
+          <div
+            v-else-if="drawer === 'course-detail' && selectedCourse"
+            class="course-detail-stack"
+          >
             <section class="drawer-section">
               <div class="drawer-section-heading">
                 <div>
                   <span class="section-kicker">Dane kursu</span>
                   <h3>{{ selectedCourse.training_type === 'basic' ? 'Szkolenie podstawowe' : 'Szkolenie uzupełniające' }}</h3>
                 </div>
-                <button class="button ghost" type="button" @click="openCourseEdit(selectedCourse)">Edytuj</button>
+                <button
+                  class="button ghost"
+                  type="button"
+                  @click="openCourseEdit(selectedCourse)"
+                >
+                  Edytuj
+                </button>
               </div>
               <dl class="details-list">
                 <div><dt>Kategoria</dt><dd>{{ selectedCourse.driving_category_code }}</dd></div>
@@ -1165,7 +1521,10 @@ function handleError(caught: unknown): void {
               </dl>
             </section>
 
-            <section v-if="selectedRequirement" class="drawer-section">
+            <section
+              v-if="selectedRequirement"
+              class="drawer-section"
+            >
               <span class="section-kicker">Wymagania szkolenia</span>
               <div class="requirement-grid">
                 <div>
@@ -1185,41 +1544,106 @@ function handleError(caught: unknown): void {
                   <strong>{{ selectedRequirement.internal_practical_exam_required ? 'Wymagany' : 'Niewymagany' }}</strong>
                 </div>
               </div>
-              <p v-if="selectedRequirement.exemption_basis_code" class="module-note">Podstawa zwolnienia: {{ selectedRequirement.exemption_basis_code }}</p>
+              <p
+                v-if="selectedRequirement.exemption_basis_code"
+                class="module-note"
+              >
+                Podstawa zwolnienia: {{ selectedRequirement.exemption_basis_code }}
+              </p>
             </section>
 
             <section class="drawer-section">
               <span class="section-kicker">Zwolnienie z teorii</span>
-              <p class="module-note">Użyj tylko, gdy kursant zdał państwową teorię przed kursem i masz podstawę do decyzji art. 23a.</p>
+              <p class="module-note">
+                Użyj tylko, gdy kursant zdał państwową teorię przed kursem i masz podstawę do decyzji art. 23a.
+              </p>
               <div class="inline-form">
-                <input v-model="exemptionEvidence" placeholder="Dowód / referencja (opcjonalnie)">
-                <input v-model="exemptionReason" placeholder="Powód decyzji *">
-                <button class="button ghost" type="button" :disabled="saving" @click="applyTheoryExemption">Zapisz decyzję</button>
+                <input
+                  v-model="exemptionEvidence"
+                  placeholder="Dowód / referencja (opcjonalnie)"
+                >
+                <input
+                  v-model="exemptionReason"
+                  placeholder="Powód decyzji *"
+                >
+                <button
+                  class="button ghost"
+                  type="button"
+                  :disabled="saving"
+                  @click="applyTheoryExemption"
+                >
+                  Zapisz decyzję
+                </button>
               </div>
             </section>
 
             <section class="drawer-section">
               <span class="section-kicker">Szkolenie w innym OSK</span>
-              <div v-if="externalTraining.length" class="external-list">
-                <div v-for="record in externalTraining" :key="record.id" class="external-row" :class="{ revoked: record.revoked_at }">
+              <div
+                v-if="externalTraining.length"
+                class="external-list"
+              >
+                <div
+                  v-for="record in externalTraining"
+                  :key="record.id"
+                  class="external-row"
+                  :class="{ revoked: record.revoked_at }"
+                >
                   <div>
                     <strong>{{ record.training_part === 'theory' ? 'Teoria' : 'Praktyka' }} · {{ record.recognized_minutes / (record.training_part === 'theory' ? 45 : 60) }} h</strong>
                     <span>{{ record.source_school_reference ?? 'Bez oznaczenia szkoły' }} · {{ formatDate(record.created_at) }}</span>
                   </div>
-                  <button v-if="!record.revoked_at" class="text-button danger" type="button" @click="revokeExternal(record)">Wycofaj</button>
-                  <span v-else class="status-pill muted">Wycofane</span>
+                  <button
+                    v-if="!record.revoked_at"
+                    class="text-button danger"
+                    type="button"
+                    @click="revokeExternal(record)"
+                  >
+                    Wycofaj
+                  </button>
+                  <span
+                    v-else
+                    class="status-pill muted"
+                  >Wycofane</span>
                 </div>
               </div>
               <div class="inline-form external-form">
                 <select v-model="externalPart">
-                  <option value="theory">Teoria</option>
-                  <option value="practical">Praktyka</option>
+                  <option value="theory">
+                    Teoria
+                  </option>
+                  <option value="practical">
+                    Praktyka
+                  </option>
                 </select>
-                <input v-model="externalHours" type="number" min="0" step="0.25" placeholder="Godziny *">
-                <input v-model="externalSchool" placeholder="Poprzedni OSK">
-                <input v-model="externalEvidence" placeholder="Dowód / dokument">
-                <input v-model="externalReason" class="wide" placeholder="Powód uznania *">
-                <button class="button primary" type="button" :disabled="saving" @click="addExternalTraining">Dodaj wpis</button>
+                <input
+                  v-model="externalHours"
+                  type="number"
+                  min="0"
+                  step="0.25"
+                  placeholder="Godziny *"
+                >
+                <input
+                  v-model="externalSchool"
+                  placeholder="Poprzedni OSK"
+                >
+                <input
+                  v-model="externalEvidence"
+                  placeholder="Dowód / dokument"
+                >
+                <input
+                  v-model="externalReason"
+                  class="wide"
+                  placeholder="Powód uznania *"
+                >
+                <button
+                  class="button primary"
+                  type="button"
+                  :disabled="saving"
+                  @click="addExternalTraining"
+                >
+                  Dodaj wpis
+                </button>
               </div>
             </section>
           </div>
