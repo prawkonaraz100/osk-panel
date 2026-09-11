@@ -19,6 +19,7 @@ final class InternalExamController
     public function __construct(
         private readonly InternalExamService $exams,
         private readonly InternalExamTokenService $tokens,
+        private readonly ExamStationCredentialService $stationCredentials,
         private readonly ResourceIdempotency $idempotency,
         private readonly TenantAuthorizer $tenantAuthorizer,
     ) {}
@@ -71,20 +72,28 @@ final class InternalExamController
             ? $input['station_id']
             : null;
 
-        if ($mode === 'local_current_workstation') {
-            throw new ResourceDomainException(
-                'STATION_AUTH_REQUIRED',
-                409,
-                'Authenticated exam station context is required for current-workstation access.',
-            );
-        }
-
         $sessionId = $this->sessionId($request);
         $organizationId = $this->tenantAuthorizer->activeMembershipForSession($sessionId)['organization_id'];
+        $trustedStationId = null;
+
+        if ($mode === 'local_current_workstation') {
+            if ($stationId !== null) {
+                throw ResourceDomainException::rule(
+                    'Current-workstation access derives station identity from the authenticated station credential.',
+                );
+            }
+
+            $stationContext = $this->stationCredentials->heartbeat(
+                $this->requiredStationCredential($request),
+                $organizationId,
+            );
+            $trustedStationId = $stationContext['station_id'];
+        }
+
         $payload = [
             'attempt_id' => $attemptId,
             'mode' => $mode,
-            'station_id' => $stationId,
+            'station_id' => $mode === 'local_current_workstation' ? $trustedStationId : $stationId,
         ];
 
         $result = $this->idempotency->executeWithSanitizedReplay(
@@ -92,14 +101,14 @@ final class InternalExamController
             'internal_exams.access.create',
             $this->idempotencyKey($request),
             $payload,
-            function () use ($sessionId, $attemptId, $mode, $stationId, $request): array {
+            function () use ($sessionId, $attemptId, $mode, $stationId, $trustedStationId, $request): array {
                 $expiresAt = $mode === 'remote_link' ? $this->remoteAccessExpiresAt() : null;
                 $body = $this->exams->createAccess(
                     $sessionId,
                     $attemptId,
                     $mode,
                     $mode === 'assigned_exam_station' ? $stationId : null,
-                    null,
+                    $mode === 'local_current_workstation' ? $trustedStationId : null,
                     $expiresAt,
                     $this->requestId($request),
                 );
@@ -172,30 +181,57 @@ final class InternalExamController
     public function accessStart(Request $request, string $accessId): JsonResponse
     {
         $rawToken = $this->optionalBearerToken($request);
-        if ($rawToken === null) {
-            $this->sessionId($request);
+        if ($rawToken !== null) {
+            $binding = $this->tokens->resolveBindingForIdempotency($rawToken, 'exam_execution');
+            if ($binding['access_id'] !== $accessId) {
+                throw $this->invalidExamToken();
+            }
 
-            throw new ResourceDomainException(
-                'STATION_AUTH_REQUIRED',
-                409,
-                'Authenticated exam station context is required for local or assigned-station start.',
+            $result = $this->idempotency->execute(
+                $binding['organization_id'],
+                'internal_exams.access.start',
+                $this->idempotencyKey($request),
+                ['access_id' => $accessId],
+                function () use ($rawToken, $accessId, $request): array {
+                    $body = $this->exams->startRemote(
+                        $rawToken,
+                        $accessId,
+                        $this->requestId($request),
+                    );
+
+                    return [
+                        'status' => 200,
+                        'resource_type' => 'internal_exam_attempt',
+                        'resource_id' => (string) $body['id'],
+                        'body' => $body,
+                    ];
+                },
             );
+
+            return response()->json($result['body'], $result['status']);
         }
 
-        $binding = $this->tokens->resolveBindingForIdempotency($rawToken, 'exam_execution');
-        if ($binding['access_id'] !== $accessId) {
-            throw $this->invalidExamToken();
-        }
+        $sessionId = $this->sessionId($request);
+        $organizationId = $this->tenantAuthorizer->activeMembershipForSession($sessionId)['organization_id'];
+        $rawStationCredential = $this->requiredStationCredential($request);
+        $stationBinding = $this->stationCredentials->resolveCurrent(
+            $rawStationCredential,
+            $organizationId,
+        );
 
         $result = $this->idempotency->execute(
-            $binding['organization_id'],
+            $organizationId,
             'internal_exams.access.start',
             $this->idempotencyKey($request),
-            ['access_id' => $accessId],
-            function () use ($rawToken, $accessId, $request): array {
-                $body = $this->exams->startRemote(
-                    $rawToken,
+            [
+                'access_id' => $accessId,
+                'station_id' => $stationBinding['station_id'],
+            ],
+            function () use ($sessionId, $accessId, $rawStationCredential, $request): array {
+                $body = $this->exams->startLocal(
+                    $sessionId,
                     $accessId,
+                    $rawStationCredential,
                     $this->requestId($request),
                 );
 
@@ -209,6 +245,20 @@ final class InternalExamController
         );
 
         return response()->json($result['body'], $result['status']);
+    }
+
+    public function stationHeartbeat(Request $request): JsonResponse
+    {
+        $context = $this->stationCredentials->heartbeat(
+            $this->stationCredentialOrInvalid($request),
+        );
+
+        return response()->json([
+            'station_id' => $context['station_id'],
+            'authenticated_at' => $context['authenticated_at'],
+        ])->withHeaders([
+            'Cache-Control' => 'no-store, private',
+        ]);
     }
 
     public function attemptSubmit(Request $request, string $attemptId): JsonResponse
@@ -413,6 +463,30 @@ final class InternalExamController
         return $token;
     }
 
+    private function requiredStationCredential(Request $request): string
+    {
+        $credential = trim((string) $request->header('X-Exam-Station-Credential'));
+        if ($credential === '') {
+            throw new ResourceDomainException(
+                'STATION_AUTH_REQUIRED',
+                409,
+                'Authenticated exam station context is required for this operation.',
+            );
+        }
+
+        return $credential;
+    }
+
+    private function stationCredentialOrInvalid(Request $request): string
+    {
+        $credential = trim((string) $request->header('X-Exam-Station-Credential'));
+        if ($credential === '') {
+            throw $this->invalidStationCredential();
+        }
+
+        return $credential;
+    }
+
     private function idempotencyKey(Request $request): string
     {
         $key = trim((string) $request->header('Idempotency-Key'));
@@ -502,6 +576,15 @@ final class InternalExamController
             'Cache-Control' => 'no-store, private',
             'Referrer-Policy' => 'no-referrer',
         ]);
+    }
+
+    private function invalidStationCredential(): ResourceDomainException
+    {
+        return new ResourceDomainException(
+            'INVALID_EXAM_STATION_CREDENTIAL',
+            401,
+            'Invalid or revoked exam station credential.',
+        );
     }
 
     private function invalidExamToken(): ResourceDomainException
