@@ -1,0 +1,68 @@
+name: Helper validate student course slice
+
+on:
+  push:
+    branches:
+      - tmp-core-v1-students-course-enrollment-001-20260911
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: tmp-core-v1-students-course-enrollment-001-20260911
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          extensions: mbstring, intl, pdo_pgsql, redis
+          coverage: none
+      - run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Static student course gate
+        run: |
+          vendor/bin/pint --test \
+            app/Modules/StudentsCourses \
+            database/seeders/ResourceReferenceCatalogSeeder.php \
+            tests/Support/FoundationSchema.php \
+            tests/Feature/StudentsCoursesCoreTest.php \
+            routes/web.php
+          php -l app/Modules/StudentsCourses/StudentCourseController.php
+          php -l app/Modules/StudentsCourses/StudentCourseScopeAuthorizer.php
+          php -l app/Modules/StudentsCourses/StudentService.php
+          php -l app/Modules/StudentsCourses/CourseEnrollmentService.php
+          php -l app/Modules/StudentsCourses/TrainingRequirementService.php
+          php artisan migration:plan:validate --json
+
+      - name: Boot deterministic PostgreSQL runtime
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+          docker compose up -d --wait
+
+      - name: Controlled migration restart gate
+        run: |
+          php artisan migration:controlled \
+            --plan=d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10 \
+            --execution=59ed166d900d2701df2b8ca6e534b6b59d0de78ecf8fa0f04204f255020e5bcc \
+            --phase=expand \
+            --force
+          php artisan migration:controlled \
+            --plan=d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10 \
+            --execution=59ed166d900d2701df2b8ca6e534b6b59d0de78ecf8fa0f04204f255020e5bcc \
+            --phase=expand \
+            --force
+
+      - name: Route and PostgreSQL suite
+        run: |
+          php artisan route:list --path=api/v1/students
+          php artisan route:list --path=api/v1/course-enrollments
+          php artisan test --fail-on-warning
+
+      - name: Cleanup runtime
+        if: always()
+        run: docker compose down -v
