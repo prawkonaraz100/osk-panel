@@ -107,3 +107,20 @@ changed_scope:
     ui: DEFERRED_UNTIL_INTERNAL_EXAMS_UI_GATE
     acceptance_test: Tests\\Feature\\InternalExamCoreTest::test_http_station_provisioning_rotation_and_projection_are_one_time_and_audited
     status: IMPLEMENTED
+  - evidence: specs/database/internal-exams.yml#DB-EXAM-008
+    requirement: exam management subjects are a deterministic projection at organization course enrollment and exam part grain; current requirement profile controls assignment eligibility while historical attempts remain visible
+    domain_data: course_enrollments + training_requirement_profiles + students + student_learning_accounts + internal_exam_attempts + internal_exam_results
+    api_use_case: HTTP_GATE_5A_deterministic_management_subjects_projection
+    permission: exams.view with organization or assigned_students scope
+    ui: DEFERRED_UNTIL_INTERNAL_EXAMS_UI_GATE
+    acceptance_test: Tests\\Feature\\InternalExamCoreTest::test_management_projection_uses_course_sequence_filters_statistics_and_history_order
+    status: IMPLEMENTED
+  - evidence: specs/database/internal-exams.yml#DB-EXAM-008
+    requirement: latest attempt selection and expanded history use immutable course_attempt_sequence rather than timestamp or UUID; latest public status filters hide_finished counts pass rate and pagination are derived without mutable summary authority
+    domain_data: internal_exam_attempts + internal_exam_results
+    api_use_case: HTTP_GATE_5A_management_latest_statistics_and_history_order
+    permission: exams.view
+    ui: DEFERRED_UNTIL_INTERNAL_EXAMS_UI_GATE
+    acceptance_test: Tests\\Feature\\InternalExamCoreTest::test_management_projection_uses_course_sequence_filters_statistics_and_history_order
+    status: IMPLEMENTED
+
