@@ -100,3 +100,35 @@ changed_scope:
     ui: DEFERRED_UNTIL_CALENDAR_UI_GATE
     acceptance_test: Tests\\Feature\\AvailabilitySlotCoreTest::test_cancel_booked_slot_releases_claims_preserves_student_snapshot_and_cannot_rebook
     status: IMPLEMENTED
+  - evidence: specs/database/calendar.yml#DB-CAL-007-formalized_availability_booking_handoff
+    requirement: booked AvailabilitySlot formalization is a dedicated idempotent command that requires the current slot version and training_sessions.create permission
+    domain_data: availability_slots + availability_slot_lifecycle_events + training_sessions + training_session_calendar_details + calendar_resource_claims
+    api_use_case: availability.formalize
+    permission: training_sessions.create
+    ui: DEFERRED_UNTIL_CALENDAR_UI_GATE
+    acceptance_test: Tests\\Feature\\AvailabilityFormalizationCoreTest::test_formalization_transfers_booking_to_one_practical_training_session_atomically
+    status: IMPLEMENTED
+  - evidence: specs/database/calendar.yml#DB-CAL-007-course_context_rule
+    requirement: formalization uses an explicit same-Student CourseEnrollment or exactly one eligible active course and never guesses latest or first
+    domain_data: course_enrollments + availability_slots
+    api_use_case: availability.formalize
+    permission: training_sessions.create
+    ui: DEFERRED_UNTIL_CALENDAR_UI_GATE
+    acceptance_test: Tests\\Feature\\AvailabilityFormalizationCoreTest::test_ambiguous_course_context_rolls_back_and_preserves_booking
+    status: IMPLEMENTED
+  - evidence: specs/database/calendar.yml#DB-CAL-007-claim_handoff
+    requirement: availability booking claims are replaced by TrainingSession claims in the same transaction with rollback preserving the original booking on failure
+    domain_data: calendar_resource_claims + availability_slots + training_sessions
+    api_use_case: availability.formalize
+    permission: training_sessions.create
+    ui: DEFERRED_UNTIL_CALENDAR_UI_GATE
+    acceptance_test: Tests\\Feature\\AvailabilityFormalizationCoreTest::test_invalid_calendar_metadata_rolls_back_session_link_and_preserves_booking_claims
+    status: IMPLEMENTED
+  - evidence: specs/database/calendar.yml#DB-CAL-007-idempotency
+    requirement: same formalization idempotency key replays the original TrainingSession result and a fresh second handoff is rejected
+    domain_data: idempotency_records + availability_slots + training_sessions
+    api_use_case: availability.formalize
+    permission: training_sessions.create
+    ui: DEFERRED_UNTIL_CALENDAR_UI_GATE
+    acceptance_test: Tests\\Feature\\AvailabilityFormalizationCoreTest::test_same_formalization_idempotency_key_does_not_create_second_session
+    status: IMPLEMENTED

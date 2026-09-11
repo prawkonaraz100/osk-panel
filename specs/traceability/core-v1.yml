@@ -442,6 +442,7 @@ modules:
       - availability.create
       - availability.update
       - availability.book
+      - availability.formalize
       - availability.cancel
       - calendar.server_conflict_detection
     database:
@@ -472,6 +473,8 @@ modules:
       - availability_publication_creates_no_reservation_claim
       - availability_booking_uses_slot_version_and_exact_shared_resource_claim_set
       - availability_booking_does_not_create_training_session_or_training_credit
+      - formalization_transfers_reservation_owner_atomically_to_one_practical_training_session
+      - formalized_slot_keeps_immutable_booking_snapshot_and_cannot_cancel_independently
       - cancelled_availability_slot_is_terminal_and_not_auto_republished
     production_blockers:
       - calendar_overlap_enforcement_ADR

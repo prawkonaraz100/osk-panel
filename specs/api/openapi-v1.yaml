@@ -102,6 +102,7 @@ paths:
   /availability-slots: { $ref: './paths/pkk-calendar.yaml#/paths/~1availability-slots' }
   /availability-slots/{slotId}: { $ref: './paths/pkk-calendar.yaml#/paths/~1availability-slots~1{slotId}' }
   /availability-slots/{slotId}/book: { $ref: './paths/pkk-calendar.yaml#/paths/~1availability-slots~1{slotId}~1book' }
+  /availability-slots/{slotId}/formalize: { $ref: './paths/pkk-calendar.yaml#/paths/~1availability-slots~1{slotId}~1formalize' }
   /availability-slots/{slotId}/cancel: { $ref: './paths/pkk-calendar.yaml#/paths/~1availability-slots~1{slotId}~1cancel' }
 
   /locations: { $ref: './paths/resources.yaml#/paths/~1locations' }

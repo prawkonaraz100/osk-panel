@@ -98,6 +98,55 @@ final class ScheduleClaimService
         $this->release($organizationId, 'availability_slot_booking', $slotId);
     }
 
+    public function transferAvailabilityBookingToTrainingSession(
+        string $organizationId,
+        string $slotId,
+        string $trainingSessionId,
+        string $studentId,
+        string $instructorId,
+        ?string $vehicleId,
+        ?string $locationId,
+        string $startsAt,
+        string $endsAt,
+    ): void {
+        $this->assertTransaction();
+
+        $desired = $this->desiredResources($studentId, $instructorId, $vehicleId, $locationId);
+        $existingRows = DB::table('calendar_resource_claims')
+            ->where('organization_id', $organizationId)
+            ->where('claim_owner_kind', 'availability_slot_booking')
+            ->where('claim_owner_id', $slotId)
+            ->get();
+        $existing = $this->resourcesFromClaims($existingRows->all());
+        $matchingIntervalCount = DB::table('calendar_resource_claims')
+            ->where('organization_id', $organizationId)
+            ->where('claim_owner_kind', 'availability_slot_booking')
+            ->where('claim_owner_id', $slotId)
+            ->whereRaw(
+                'starts_at = CAST(? AS timestamptz) AND ends_at = CAST(? AS timestamptz)',
+                [$startsAt, $endsAt],
+            )
+            ->count();
+
+        if (count($existing) !== count($desired)
+            || $matchingIntervalCount !== count($desired)
+            || $this->resourceKeys($existing) !== $this->resourceKeys($desired)) {
+            throw ResourceDomainException::conflict(
+                'AvailabilitySlot booking claims do not match the reservation being formalized.',
+            );
+        }
+
+        $this->release($organizationId, 'availability_slot_booking', $slotId);
+        $this->replace(
+            $organizationId,
+            'training_session',
+            $trainingSessionId,
+            $desired,
+            $startsAt,
+            $endsAt,
+        );
+    }
+
     /**
      * @param  list<array{kind:string,id:string}>  $desired
      */
@@ -232,6 +281,21 @@ final class ScheduleClaimService
         }
 
         return $resources;
+    }
+
+    /**
+     * @param  list<array{kind:string,id:string}>  $resources
+     * @return list<string>
+     */
+    private function resourceKeys(array $resources): array
+    {
+        $keys = array_map(
+            static fn (array $resource): string => $resource['kind'].'|'.$resource['id'],
+            $resources,
+        );
+        sort($keys);
+
+        return array_values(array_unique($keys));
     }
 
     /**

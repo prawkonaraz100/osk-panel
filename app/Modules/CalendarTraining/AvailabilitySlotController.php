@@ -17,6 +17,7 @@ final class AvailabilitySlotController
         private readonly TenantAuthorizer $tenantAuthorizer,
         private readonly ResourceIdempotency $idempotency,
         private readonly AvailabilitySlotService $slots,
+        private readonly AvailabilityFormalizationService $formalization,
     ) {}
 
     public function list(Request $request): JsonResponse
@@ -89,6 +90,47 @@ final class AvailabilitySlotController
                 $request->header('If-Match'),
             ),
         );
+    }
+
+    public function formalize(Request $request, string $slotId): JsonResponse
+    {
+        /** @var array{course_enrollment_id?:?string,display_name?:?string,custom_meeting_place?:?string} $input */
+        $input = $this->validatedInput($request->all(), [
+            'course_enrollment_id' => ['sometimes', 'nullable', 'uuid'],
+            'display_name' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'custom_meeting_place' => ['sometimes', 'nullable', 'string', 'max:255'],
+        ]);
+        $authSessionId = $this->sessionId($request);
+        $organizationId = $this->tenantAuthorizer->activeMembershipForSession($authSessionId)['organization_id'];
+
+        $result = $this->idempotency->execute(
+            $organizationId,
+            'availability.formalize',
+            $this->idempotencyKey($request),
+            ['slot_id' => $slotId, 'if_match' => $request->header('If-Match'), ...$input],
+            function () use ($authSessionId, $slotId, $input, $request): array {
+                $body = $this->formalization->formalize(
+                    $authSessionId,
+                    $slotId,
+                    $input,
+                    $this->requestId($request),
+                    $request->header('If-Match'),
+                );
+
+                return [
+                    'status' => 201,
+                    'resource_type' => 'training_session',
+                    'resource_id' => (string) $body['training_session']['id'],
+                    'body' => $body,
+                ];
+            },
+        );
+
+        /** @var array{availability_slot:array<string,mixed>,training_session:array<string,mixed>} $body */
+        $body = $result['body'];
+
+        return response()->json($body, $result['status'])
+            ->header('ETag', '"v'.(int) $body['availability_slot']['version'].'"');
     }
 
     public function cancel(Request $request, string $slotId): JsonResponse

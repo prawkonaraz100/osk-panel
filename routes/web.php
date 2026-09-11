@@ -78,6 +78,7 @@ Route::middleware(ResourceApiMiddleware::class)->prefix('api/v1')->group(functio
     Route::post('/availability-slots', [AvailabilitySlotController::class, 'create']);
     Route::patch('/availability-slots/{slotId}', [AvailabilitySlotController::class, 'update']);
     Route::post('/availability-slots/{slotId}/book', [AvailabilitySlotController::class, 'book']);
+    Route::post('/availability-slots/{slotId}/formalize', [AvailabilitySlotController::class, 'formalize']);
     Route::post('/availability-slots/{slotId}/cancel', [AvailabilitySlotController::class, 'cancel']);
 
     Route::post('/calendar/driving-lessons', [CalendarDrivingLessonController::class, 'create']);

@@ -667,6 +667,19 @@ components:
       required: [student_id]
       properties:
         student_id: { type: string, format: uuid }
+    FormalizeAvailabilitySlotRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        course_enrollment_id: { type: [string, 'null'], format: uuid }
+        display_name: { type: [string, 'null'] }
+        custom_meeting_place: { type: [string, 'null'] }
+    FormalizedAvailabilityBooking:
+      type: object
+      required: [availability_slot, training_session]
+      properties:
+        availability_slot: { $ref: '#/components/schemas/AvailabilitySlot' }
+        training_session: { $ref: '#/components/schemas/TrainingSession' }
 
     Location:
       type: object

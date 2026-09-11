@@ -75,8 +75,8 @@ quality_checks:
     status: PASS
     stage_step: STAGE3_STEP_2
     counts:
-      http_requirement_rows: 173
-      unique_openapi_path_method_operations_required: 161
+      http_requirement_rows: 174
+      unique_openapi_path_method_operations_required: 162
       shared_capability_rows_reusing_existing_operationId: 12
       unmapped_http_requirements: 0
     reverse_engineering_preservation_note: >-

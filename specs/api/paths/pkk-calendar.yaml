@@ -421,6 +421,27 @@ paths:
             application/json:
               schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/AvailabilitySlot' }
         default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /availability-slots/{slotId}/formalize:
+    post:
+      tags: [Calendar, Training]
+      operationId: availabilitySlotsFormalize
+      x-requirement-id: availability.formalize
+      x-permission: training_sessions.create
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/SlotId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IfMatch' }
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/FormalizeAvailabilitySlotRequest' }
+      responses:
+        '201':
+          description: Booked slot atomically handed off to one practical TrainingSession
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/FormalizedAvailabilityBooking' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
   /availability-slots/{slotId}/cancel:
     post:
       tags: [Calendar]

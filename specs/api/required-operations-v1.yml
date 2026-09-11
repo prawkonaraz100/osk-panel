@@ -148,6 +148,7 @@ operations:
     - { id: availability.create, method: POST, path: /availability-slots }
     - { id: availability.update, method: PATCH, path: '/availability-slots/{slotId}' }
     - { id: availability.book, method: POST, path: '/availability-slots/{slotId}/book' }
+    - { id: availability.formalize, method: POST, path: '/availability-slots/{slotId}/formalize' }
     - { id: availability.cancel, method: POST, path: '/availability-slots/{slotId}/cancel' }
     - id: calendar.server_conflict_detection
       type: invariant
@@ -359,10 +360,10 @@ coverage_status:
   frozen_at: 2026-09-05
   validator_command: python scripts/contract-validation/validate_openapi_contract.py
   ci_workflow: .github/workflows/api-contract-gate.yml
-  http_requirement_rows: 173
-  unique_openapi_path_method_operations_required: 161
+  http_requirement_rows: 174
+  unique_openapi_path_method_operations_required: 162
   shared_capability_rows_reusing_existing_operationId: 12
-  direct_and_shared_http_requirements_with_operationId_mapping: 173
+  direct_and_shared_http_requirements_with_operationId_mapping: 174
   direct_and_shared_http_requirements_without_operationId_mapping: 0
   openapi_complete_against_this_inventory: true
   operationIds_present_for_all_http_requirements: true
