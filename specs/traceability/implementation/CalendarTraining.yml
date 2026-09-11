@@ -35,3 +35,20 @@ changed_scope:
     ui: NOT_APPLICABLE_RUNTIME_GATE_NO_UI
     acceptance_test: Tests\\Feature\\TrainingSessionCoreTest::test_own_scope_is_bound_to_active_staff_profile_and_session_instructor
     status: IMPLEMENTED
+
+  - evidence: docs/50-own-calendar-event-lifecycle.md
+    requirement: manual general events use scheduled completed cancelled lifecycle with versioned append-only history and terminal claim release
+    domain_data: calendar_events + calendar_event_lifecycle_events + calendar_resource_claims
+    api_use_case: calendar.events.list/create/get/update/cancel/complete
+    permission: calendar.view plus calendar.manage.organization or canonical instructor-owned calendar.manage.own
+    ui: DEFERRED_UNTIL_CALENDAR_UI_GATE
+    acceptance_test: Tests\\Feature\\CalendarEventCoreTest::test_terminal_commands_require_if_match_are_idempotent_and_never_credit_training_hours
+    status: IMPLEMENTED
+  - evidence: specs/database/calendar.yml#DB-CAL-007
+    requirement: runtime calendar_events persists only manual general_event facts and rejects a formal driving_lesson copy because TrainingSession is the canonical formal schedule owner
+    domain_data: calendar_events + training_sessions + training_session_calendar_details
+    api_use_case: calendar.events.create/update rejects driving_lesson row persistence; formal projection routing remains next gate
+    permission: calendar manage permission cannot escalate into formal training mutation
+    ui: DRIVING_LESSON_OPTION_PRESERVED_FOR_NEXT_FORMAL_ROUTING_GATE
+    acceptance_test: Tests\\Feature\\CalendarEventCoreTest::test_general_event_uses_shared_claim_boundary_and_formal_driving_lesson_row_is_rejected
+    status: IMPLEMENTED

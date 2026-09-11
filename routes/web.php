@@ -1,5 +1,6 @@
 <?php
 
+use App\Modules\CalendarTraining\CalendarEventController;
 use App\Modules\CalendarTraining\TrainingSessionController;
 use App\Modules\ResourcesCore\ResourceApiMiddleware;
 use App\Modules\ResourcesCore\ResourceController;
@@ -70,6 +71,13 @@ Route::middleware(ResourceApiMiddleware::class)->prefix('api/v1')->group(functio
     Route::post('/training-sessions/{sessionId}/cancel', [TrainingSessionController::class, 'cancel']);
     Route::get('/course-enrollments/{courseEnrollmentId}/training-hours', [TrainingSessionController::class, 'hours']);
     Route::post('/course-enrollments/{courseEnrollmentId}/training-hour-corrections', [TrainingSessionController::class, 'correctHours']);
+
+    Route::get('/calendar/events', [CalendarEventController::class, 'list']);
+    Route::post('/calendar/events', [CalendarEventController::class, 'create']);
+    Route::get('/calendar/events/{eventId}', [CalendarEventController::class, 'get']);
+    Route::patch('/calendar/events/{eventId}', [CalendarEventController::class, 'update']);
+    Route::post('/calendar/events/{eventId}/cancel', [CalendarEventController::class, 'cancel']);
+    Route::post('/calendar/events/{eventId}/complete', [CalendarEventController::class, 'complete']);
 });
 
 Route::view('/', 'app');

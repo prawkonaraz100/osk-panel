@@ -26,20 +26,70 @@ final class ScheduleClaimService
     public function replaceForTrainingSession(
         string $organizationId,
         string $trainingSessionId,
-        string $studentId,
-        string $instructorId,
+        ?string $studentId,
+        ?string $instructorId,
         ?string $vehicleId,
         ?string $locationId,
         string $startsAt,
         string $endsAt,
     ): void {
+        $this->replace(
+            $organizationId,
+            'training_session',
+            $trainingSessionId,
+            $this->desiredResources($studentId, $instructorId, $vehicleId, $locationId),
+            $startsAt,
+            $endsAt,
+        );
+    }
+
+    public function releaseTrainingSession(string $organizationId, string $trainingSessionId): void
+    {
+        $this->release($organizationId, 'training_session', $trainingSessionId);
+    }
+
+    public function replaceForCalendarEvent(
+        string $organizationId,
+        string $eventId,
+        ?string $studentId,
+        ?string $instructorId,
+        ?string $vehicleId,
+        ?string $locationId,
+        string $startsAt,
+        string $endsAt,
+    ): void {
+        $this->replace(
+            $organizationId,
+            'calendar_event',
+            $eventId,
+            $this->desiredResources($studentId, $instructorId, $vehicleId, $locationId),
+            $startsAt,
+            $endsAt,
+        );
+    }
+
+    public function releaseCalendarEvent(string $organizationId, string $eventId): void
+    {
+        $this->release($organizationId, 'calendar_event', $eventId);
+    }
+
+    /**
+     * @param  list<array{kind:string,id:string}>  $desired
+     */
+    private function replace(
+        string $organizationId,
+        string $ownerKind,
+        string $ownerId,
+        array $desired,
+        string $startsAt,
+        string $endsAt,
+    ): void {
         $this->assertTransaction();
 
-        $desired = $this->desiredResources($studentId, $instructorId, $vehicleId, $locationId);
         $existingRows = DB::table('calendar_resource_claims')
             ->where('organization_id', $organizationId)
-            ->where('claim_owner_kind', 'training_session')
-            ->where('claim_owner_id', $trainingSessionId)
+            ->where('claim_owner_kind', $ownerKind)
+            ->where('claim_owner_id', $ownerId)
             ->get();
         $existing = $this->resourcesFromClaims($existingRows->all());
 
@@ -50,9 +100,9 @@ final class ScheduleClaimService
             $conflict = DB::table('calendar_resource_claims')
                 ->where('organization_id', $organizationId)
                 ->where($column, $resource['id'])
-                ->where(function ($query) use ($trainingSessionId): void {
-                    $query->where('claim_owner_kind', '!=', 'training_session')
-                        ->orWhere('claim_owner_id', '!=', $trainingSessionId);
+                ->where(function ($query) use ($ownerKind, $ownerId): void {
+                    $query->where('claim_owner_kind', '!=', $ownerKind)
+                        ->orWhere('claim_owner_id', '!=', $ownerId);
                 })
                 ->whereRaw(
                     "tstzrange(starts_at, ends_at, '[)') && tstzrange(CAST(? AS timestamptz), CAST(? AS timestamptz), '[)')",
@@ -71,8 +121,8 @@ final class ScheduleClaimService
 
         DB::table('calendar_resource_claims')
             ->where('organization_id', $organizationId)
-            ->where('claim_owner_kind', 'training_session')
-            ->where('claim_owner_id', $trainingSessionId)
+            ->where('claim_owner_kind', $ownerKind)
+            ->where('claim_owner_id', $ownerId)
             ->delete();
 
         $now = now();
@@ -80,8 +130,8 @@ final class ScheduleClaimService
             $row = [
                 'id' => (string) Str::uuid7(),
                 'organization_id' => $organizationId,
-                'claim_owner_kind' => 'training_session',
-                'claim_owner_id' => $trainingSessionId,
+                'claim_owner_kind' => $ownerKind,
+                'claim_owner_id' => $ownerId,
                 'student_id' => null,
                 'instructor_id' => null,
                 'vehicle_id' => null,
@@ -95,22 +145,22 @@ final class ScheduleClaimService
         }
     }
 
-    public function releaseTrainingSession(string $organizationId, string $trainingSessionId): void
+    private function release(string $organizationId, string $ownerKind, string $ownerId): void
     {
         $this->assertTransaction();
 
         $rows = DB::table('calendar_resource_claims')
             ->where('organization_id', $organizationId)
-            ->where('claim_owner_kind', 'training_session')
-            ->where('claim_owner_id', $trainingSessionId)
+            ->where('claim_owner_kind', $ownerKind)
+            ->where('claim_owner_id', $ownerId)
             ->get();
 
         $this->lockResources($organizationId, $this->resourcesFromClaims($rows->all()));
 
         DB::table('calendar_resource_claims')
             ->where('organization_id', $organizationId)
-            ->where('claim_owner_kind', 'training_session')
-            ->where('claim_owner_id', $trainingSessionId)
+            ->where('claim_owner_kind', $ownerKind)
+            ->where('claim_owner_id', $ownerId)
             ->delete();
     }
 
@@ -123,10 +173,13 @@ final class ScheduleClaimService
         ?string $vehicleId,
         ?string $locationId,
     ): array {
-        $resources = [
-            ['kind' => 'student', 'id' => $studentId],
-            ['kind' => 'instructor', 'id' => $instructorId],
-        ];
+        $resources = [];
+        if ($studentId !== null) {
+            $resources[] = ['kind' => 'student', 'id' => $studentId];
+        }
+        if ($instructorId !== null) {
+            $resources[] = ['kind' => 'instructor', 'id' => $instructorId];
+        }
         if ($vehicleId !== null) {
             $resources[] = ['kind' => 'vehicle', 'id' => $vehicleId];
         }

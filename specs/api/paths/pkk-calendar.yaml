@@ -276,6 +276,7 @@ paths:
       parameters:
         - { $ref: '../openapi-components-v1.yaml#/components/parameters/EventId' }
         - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IfMatch' }
       requestBody:
         content:
           application/json:
@@ -292,6 +293,7 @@ paths:
       parameters:
         - { $ref: '../openapi-components-v1.yaml#/components/parameters/EventId' }
         - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IfMatch' }
       responses:
         '200': { description: Calendar event completed; domain-specific training effects remain in training use case }
         default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
