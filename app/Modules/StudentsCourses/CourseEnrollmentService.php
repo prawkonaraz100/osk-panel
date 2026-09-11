@@ -5,6 +5,7 @@ namespace App\Modules\StudentsCourses;
 use App\Modules\AuditNotification\AtomicAuditOutbox;
 use App\Modules\IdentityTenant\TenantAuthorizer;
 use App\Modules\ResourcesCore\ResourceDomainException;
+use App\Modules\StudentFinance\StudentFinanceService;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -25,6 +26,7 @@ final class CourseEnrollmentService
         private readonly StudentCourseScopeAuthorizer $scopeAuthorizer,
         private readonly TrainingRequirementService $requirements,
         private readonly AtomicAuditOutbox $auditOutbox,
+        private readonly StudentFinanceService $studentFinance,
     ) {}
 
     /** @return list<array<string,mixed>> */
@@ -83,9 +85,6 @@ final class CourseEnrollmentService
             }
             if (! $this->studentHasFormalIdentity($student)) {
                 throw ResourceDomainException::rule('Formal CourseEnrollment requires PESEL or explicit no-PESEL declaration with birth date.');
-            }
-            if (($input['initial_cost'] ?? null) !== null) {
-                throw ResourceDomainException::rule('Course cost persistence belongs to the later Student Finance slice.');
             }
             if (($input['import_existing_current_osk_hours'] ?? false) === true) {
                 throw ResourceDomainException::rule('Opening-balance formal hours require the later Training Hour Ledger slice.');
@@ -176,6 +175,11 @@ final class CourseEnrollmentService
             }
 
             $course = DB::table('course_enrollments')->where('id', $id)->lockForUpdate()->firstOrFail();
+            if (($input['initial_cost'] ?? null) !== null) {
+                /** @var array<string,mixed> $initialCost */
+                $initialCost = $input['initial_cost'];
+                $this->studentFinance->createFromCourseCost($sessionId, $id, $initialCost, $requestId);
+            }
             $this->requirements->recalculate($course, 1, 'course_create', $actor['user_id']);
             $this->appendHistory($course, 'created', null, 'active', null, 'unassigned', null, $actor['user_id']);
 
@@ -212,7 +216,7 @@ final class CourseEnrollmentService
                 throw ResourceDomainException::conflict('Terminal CourseEnrollment requires explicit correction mode.');
             }
             if (array_key_exists('initial_cost', $input)) {
-                throw ResourceDomainException::rule('Course cost persistence belongs to the later Student Finance slice.');
+                throw ResourceDomainException::rule('Initial course cost is create-time only; later pricing changes require an explicit Student Finance command.');
             }
 
             $updates = [];
@@ -1134,7 +1138,7 @@ final class CourseEnrollmentService
             'driving_category_code' => is_string($categoryCode) ? $categoryCode : '',
             'pkk_reference_masked' => $pkk === null ? null : $this->maskedPkk((string) $pkk->pkk_number_ciphertext),
             'started_at' => (string) ($data['started_at'] ?? ''),
-            'initial_cost' => null,
+            'initial_cost' => $this->studentFinance->courseCostProjection($organizationId, $courseId),
             'declared_theory_minutes' => (int) ($data['declared_theory_minutes'] ?? 0),
             'declared_practical_minutes' => (int) ($data['declared_practical_minutes'] ?? 0),
             'lead_instructor_id' => (string) ($data['lead_instructor_id'] ?? ''),
