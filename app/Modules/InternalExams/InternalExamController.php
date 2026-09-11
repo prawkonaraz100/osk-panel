@@ -261,6 +261,49 @@ final class InternalExamController
         ]);
     }
 
+    public function stationTransfer(Request $request, string $attemptId): JsonResponse
+    {
+        $input = $this->validated($request, [
+            'reason' => ['required', 'string', 'max:1000'],
+        ]);
+        $sessionId = $this->sessionId($request);
+        $organizationId = $this->tenantAuthorizer->activeMembershipForSession($sessionId)['organization_id'];
+        $rawTargetCredential = $this->requiredStationCredential($request);
+        $targetBinding = $this->stationCredentials->resolveCurrent(
+            $rawTargetCredential,
+            $organizationId,
+        );
+
+        $result = $this->idempotency->execute(
+            $organizationId,
+            'internal_exams.station.transfer',
+            $this->idempotencyKey($request),
+            [
+                'attempt_id' => $attemptId,
+                'target_station_id' => $targetBinding['station_id'],
+                'reason' => (string) $input['reason'],
+            ],
+            function () use ($sessionId, $attemptId, $rawTargetCredential, $input, $request): array {
+                $body = $this->exams->transferStation(
+                    $sessionId,
+                    $attemptId,
+                    $rawTargetCredential,
+                    (string) $input['reason'],
+                    $this->requestId($request),
+                );
+
+                return [
+                    'status' => 200,
+                    'resource_type' => 'internal_exam_station_session',
+                    'resource_id' => (string) $body['station_session_id'],
+                    'body' => $body,
+                ];
+            },
+        );
+
+        return response()->json($result['body'], $result['status']);
+    }
+
     public function attemptSubmit(Request $request, string $attemptId): JsonResponse
     {
         $input = $this->validated($request, [
