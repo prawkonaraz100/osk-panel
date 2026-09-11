@@ -346,6 +346,7 @@ paths:
       parameters:
         - { $ref: '../openapi-components-v1.yaml#/components/parameters/CourseEnrollmentId' }
         - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IfMatch' }
       requestBody:
         required: true
         content:
@@ -364,6 +365,7 @@ paths:
       parameters:
         - { $ref: '../openapi-components-v1.yaml#/components/parameters/CourseEnrollmentId' }
         - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IfMatch' }
       responses:
         '200': { description: Course restored when lifecycle policy allows it }
         default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
@@ -376,6 +378,7 @@ paths:
       parameters:
         - { $ref: '../openapi-components-v1.yaml#/components/parameters/CourseEnrollmentId' }
         - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IfMatch' }
       requestBody:
         required: true
         content:
@@ -408,6 +411,7 @@ paths:
       parameters:
         - { $ref: '../openapi-components-v1.yaml#/components/parameters/CourseEnrollmentId' }
         - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IfMatch' }
       requestBody:
         required: true
         content:
@@ -429,6 +433,7 @@ paths:
       parameters:
         - { $ref: '../openapi-components-v1.yaml#/components/parameters/CourseEnrollmentId' }
         - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IfMatch' }
       requestBody:
         required: true
         content:
@@ -590,6 +595,7 @@ paths:
       parameters:
         - { $ref: '../openapi-components-v1.yaml#/components/parameters/CourseEnrollmentId' }
         - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IfMatch' }
       requestBody:
         required: true
         content:
@@ -612,6 +618,7 @@ paths:
         - { $ref: '../openapi-components-v1.yaml#/components/parameters/CourseEnrollmentId' }
         - { $ref: '../openapi-components-v1.yaml#/components/parameters/RecordId' }
         - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IfMatch' }
       requestBody:
         required: true
         content:
