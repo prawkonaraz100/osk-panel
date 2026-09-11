@@ -43,12 +43,17 @@ paths:
       operationId: internalExamSubjectsList
       x-requirement-id: exam_management.list
       x-permission: exams.view
-      x-covers-requirements: [exam_management.search, exam_management.filter, exam_management.sort]
+      x-covers-requirements: [exam_management.search, exam_management.filter, exam_management.sort, exam_management.hide_finished]
       parameters:
         - { $ref: '../openapi-components-v1.yaml#/components/parameters/Page' }
         - { $ref: '../openapi-components-v1.yaml#/components/parameters/PerPage' }
         - { $ref: '../openapi-components-v1.yaml#/components/parameters/Search' }
-        - { $ref: '../openapi-components-v1.yaml#/components/parameters/Sort' }
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [identity_or_login, student_full_name, latest_exam_category, latest_exam_status, latest_exam_at, latest_exam_language, exam_count]
+            default: student_full_name
         - { $ref: '../openapi-components-v1.yaml#/components/parameters/Direction' }
         - name: category
           in: query
@@ -57,9 +62,14 @@ paths:
           explode: true
         - name: status
           in: query
-          schema: { type: array, items: { type: string } }
+          schema:
+            type: array
+            items: { type: string, enum: [not_assigned, not_conducted, failed, passed] }
           style: form
           explode: true
+        - name: hide_finished
+          in: query
+          schema: { type: boolean, default: false }
       responses:
         '200':
           description: Existing students/course contexts eligible for exam management; q searches first name, last name, email and login
@@ -67,9 +77,10 @@ paths:
             application/json:
               schema:
                 type: object
+                required: [data, meta]
                 properties:
                   data: { type: array, items: { $ref: '../openapi-components-v1.yaml#/components/schemas/ExamSubject' } }
-                  meta: { $ref: '../openapi-components-v1.yaml#/components/schemas/PaginationMeta' }
+                  meta: { $ref: '../openapi-components-v1.yaml#/components/schemas/InternalExamManagementMeta' }
         default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
   /internal-exam/capabilities:
     get:
