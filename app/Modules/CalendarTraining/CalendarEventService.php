@@ -75,7 +75,7 @@ final class CalendarEventService
             return $time !== 0 ? $time : strcmp((string) $left['id'], (string) $right['id']);
         });
 
-        return array_values($items);
+        return $items;
     }
 
     /** @return array<string,mixed> */
