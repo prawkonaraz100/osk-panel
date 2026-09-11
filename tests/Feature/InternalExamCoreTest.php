@@ -319,6 +319,40 @@ final class InternalExamCoreTest extends TestCase
                 ->whereNull('ended_at')
                 ->value('exam_station_id'),
         );
+
+        $service->technicalAbort(
+            $actor['session_id'],
+            $attempt['id'],
+            'recovery failed after transfer',
+            (string) Str::uuid7(),
+        );
+        $this->assertSame(
+            0,
+            DB::table('internal_exam_station_sessions')
+                ->where('internal_exam_attempt_id', $attempt['id'])
+                ->whereNull('ended_at')
+                ->count(),
+        );
+        $this->assertSame(
+            'transferred',
+            DB::table('internal_exam_station_sessions')
+                ->where('internal_exam_attempt_id', $attempt['id'])
+                ->where('session_sequence', 1)
+                ->value('end_reason'),
+        );
+        $this->assertSame(
+            'technical_abort',
+            DB::table('internal_exam_station_sessions')
+                ->where('id', $newSessionId)
+                ->value('end_reason'),
+        );
+        $this->assertSame(
+            $consumedBefore,
+            DB::table('internal_exam_inventory_ledger_entries')
+                ->where('internal_exam_attempt_id', $attempt['id'])
+                ->where('event_type', 'unit_consumed')
+                ->count(),
+        );
     }
 
     public function test_station_credential_rotation_revokes_old_secret_and_clears_authenticated_heartbeat(): void
