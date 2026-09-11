@@ -123,4 +123,20 @@ changed_scope:
     ui: DEFERRED_UNTIL_INTERNAL_EXAMS_UI_GATE
     acceptance_test: Tests\\Feature\\InternalExamCoreTest::test_management_projection_uses_course_sequence_filters_statistics_and_history_order
     status: IMPLEMENTED
+  - evidence: specs/database/internal-exams.yml#DB-EXAM-002
+    requirement: current exam capability read groups only nonretired category part language capability rows; the global language dictionary alone never implies exam support
+    domain_data: driving_categories + internal_exam_capabilities + languages
+    api_use_case: HTTP_GATE_5B_current_exam_capability_read
+    permission: exams.view
+    ui: DEFERRED_UNTIL_INTERNAL_EXAMS_UI_GATE
+    acceptance_test: Tests\\Feature\\InternalExamCoreTest::test_inventory_and_capability_reads_use_ledger_and_current_capability_authority
+    status: IMPLEMENTED
+  - evidence: specs/database/internal-exams.yml#DB-EXAM-003
+    requirement: inventory read derives source-aware availability from append-only ledger deltas and validates equivalence with guarded unit state instead of exposing a mutable available counter as authority
+    domain_data: internal_exam_inventory_entries + internal_exam_inventory_ledger_entries + internal_exam_inventory_adjustments
+    api_use_case: HTTP_GATE_5B_ledger_backed_inventory_read
+    permission: exams.view
+    ui: DEFERRED_UNTIL_INTERNAL_EXAMS_UI_GATE
+    acceptance_test: Tests\\Feature\\InternalExamCoreTest::test_inventory_and_capability_reads_use_ledger_and_current_capability_authority
+    status: IMPLEMENTED
 
