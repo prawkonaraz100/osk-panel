@@ -4,8 +4,8 @@ Data: 2026-09-11
 
 **Slice:** `CORE-V1-STUDENT-FINANCE-001`  
 **Implementation machine:** PASS  
-**Narrative payload:** CANDIDATE  
-**Central closure:** PENDING
+**Narrative payload:** PASS
+**Central closure:** PASS
 
 ## 1. Zakres
 
@@ -281,10 +281,17 @@ Accepted machine validation:
 - Implementation CI `34606896087` — 5/5 SUCCESS,
 - API Contract Gate `34606896081` — PASS.
 
-Ten commit jest **narrative closure candidate**. Central Stage-5 gate pozostaje świadomie niezmieniony do czasu osobnego 5/5 CI PASS na tym dokumencie.
+Narrative closure candidate commit:
 
-Po PASS narrative candidate jedynym dozwolonym następnym krokiem jest centralne oznaczenie:
+`fc85d8861209a694d646e0dd71d060f0dc41a038`
+
+Narrative validation:
+
+- Implementation CI `34609560215` — **5/5 SUCCESS**,
+- accepted-push secret-scan — **PASS**.
+
+Finalny wynik central closure:
 
 `CORE-V1-STUDENT-FINANCE-001 = PASS`
 
-i ustawienie następnego slice zgodnie z `AGENTS.md` na Learning Access / Licenses, bez jego rozpoczynania do kolejnej jawnej instrukcji użytkownika.
+Następny dozwolony slice zgodnie z `AGENTS.md` to `CORE-V1-LICENSES-LEARNING-ACCESS-001`. Nie został rozpoczęty; wymaga kolejnej jawnej instrukcji użytkownika.

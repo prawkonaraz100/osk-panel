@@ -225,23 +225,24 @@ quality_gate:
     - S5-FOUND-001
 
 next_single_step:
-  id: CORE-V1-STUDENT-FINANCE-001
-  action: begin_student_finance_slice_only_after_next_explicit_user_instruction
-  prerequisite_previous_slice: CORE-V1-CALENDAR-TRAINING-SESSION-HOUR-LEDGER-001_PASS
+  id: CORE-V1-LICENSES-LEARNING-ACCESS-001
+  action: begin_licenses_learning_access_slice_only_after_next_explicit_user_instruction
+  prerequisite_previous_slice: CORE-V1-STUDENT-FINANCE-001_PASS
   implementation_order_source: AGENTS.md
   allowed_scope:
-    - Student_Finance
+    - Licenses
+    - Learning_Access
     - dependency_closed_migrations_for_this_slice
     - module_API_permissions_tests_and_traceability
     - own_UI_for_confirmed_screen_scope
   forbidden_scope:
-    - Learning_Access_or_Licenses
     - Internal_Exams
     - PKK_adapter
+    - Dashboard_Notifications_Purchase_History
     - later_core_modules
     - Stage_4_authority_rewrite
     - weakening_existing_CI_or_tenant_authority
-  after_action: run_machine_narrative_central_gate_and_STOP_before_learning_access_licenses_slice
+  after_action: run_machine_narrative_central_gate_and_STOP_before_internal_exams_slice
 
 CORE_V1_LOC_STAFF_VEH_001_closure:
   status: PASS
@@ -567,6 +568,108 @@ CORE_V1_CALENDAR_TRAINING_SESSION_HOUR_LEDGER_001_closure:
     narrative_payload: PASS
     central_closure: PASS
     next_core_slice: Student_Finance
+    next_core_slice_started: false
+
+CORE_V1_STUDENT_FINANCE_001_closure:
+  status: PASS
+  accepted_scope:
+    - Student_Finance
+    - separate_charge_and_payment_ledgers
+    - course_initial_cost_finance_handoff
+    - dependency_closed_expand_migrations
+    - module_API_permissions_tests_and_traceability
+    - own_UI_for_confirmed_student_finance_scope
+  provenance:
+    clean_accepted_implementation_commit: ed09193e3e0b9135d687651dcd2db1c67e47b7db
+    accepted_branch_implementation_run: 34606896087
+    accepted_branch_API_contract_run: 34606896081
+    narrative_closure_candidate_commit: fc85d8861209a694d646e0dd71d060f0dc41a038
+    narrative_closure_validation_run: 34609560215
+    narrative_closure_validation_jobs_passed: 5
+    narrative_closure_validation_jobs_total: 5
+    helper_workflow_entered_accepted_history: false
+    PR_secret_scan_limitation: Resource_not_accessible_by_integration_before_scan
+    accepted_branch_push_secret_scan: PASS
+  migration_materialization:
+    stage_4_DAG_nodes_total: 170
+    implemented_nodes_current: 57
+    implemented_phase_steps_current: 57
+    nodes_added_by_slice: 3
+    phase: expand
+    execution_identity: 75312e6bd283334be21a38975fa868e742dd1c649acf07abaafe1cf5842cd4fb
+    canonical_order_preserved: true
+    dependency_closed_subset: true
+    later_phase_constraint_nodes_materialized: false
+    Stage_4_authority_rewritten: false
+  runtime_traceability:
+    final_DBT_IDs_total: 491
+    implemented_executable_assertions_current: 73
+    implemented_DBT_added_by_slice: 2
+    implemented_finance_DBTs: [DBT-FIN-001, DBT-FIN-005]
+    pending_domain_materialization_current: 418
+    migration_preflight_DBTs_total: 14
+    migration_preflight_DBTs_claimed_early: false
+    concurrency_DBTs_claimed_without_two_writer_test: false
+    physical_FK_candidate_key_check_DBTs_claimed_early: false
+    false_implemented_claims_allowed: false
+  student_finance:
+    charge_and_payment_ledgers_separate: true
+    mutable_balance_source_of_truth_created: false
+    money_float_used_as_contract: false
+    payment_overcharge_rejected: true
+    payment_currency_must_match_charge: true
+    cancellation_preserves_history: true
+    reversal_preserves_history: true
+    active_payments_block_charge_cancellation_until_reversed: true
+    cancelled_charge_accepts_new_payment: false
+    mutation_idempotency_backed_by_generic_store: true
+    student_finance_separate_from_platform_commerce: true
+  course_cost_handoff:
+    initial_cost_create_time_side_effect: true
+    durable_origin_table: course_cost_charge_origins
+    exactly_one_origin_charge_per_course_create_retry: true
+    course_enrollment_parallel_financial_balance_created: false
+    missing_finance_permission_rolls_back_course_create: true
+  API_and_UI:
+    OpenAPI_contract_preserved: PASS
+    confirmed_student_finance_UI: implemented
+    charge_create_UI: implemented
+    payment_create_UI: implemented
+    payment_history_UI: implemented
+    cancellation_and_reversal_UI: implemented
+    course_cost_create_handoff_UI: implemented
+    platform_purchase_history_implemented_in_this_slice: false
+  explicit_deferred_dependencies:
+    - later_candidate_key_FK_index_check_and_preflight_phases_until_global_phase_barrier_allows_them
+    - two_writer_concurrency_tests_for_still_pending_finance_concurrency_DBTs
+    - Platform_Commerce_orders_and_purchase_history
+    - payment_provider_webhook_and_reconciliation
+    - Learning_Access_and_Licenses
+    - Internal_Exams
+    - provider_backed_PKK_operations
+    - Dashboard_and_Notifications
+  executable_evidence:
+    accepted_branch_Implementation_CI_run: 34606896087
+    accepted_branch_Implementation_CI_jobs_passed: 5
+    accepted_branch_Implementation_CI_jobs_total: 5
+    accepted_PostgreSQL_suite_tests: 117
+    accepted_PostgreSQL_suite_assertions: 1834
+    accepted_API_contract_gate_run: 34606896081
+    accepted_API_contract_gate: PASS
+    narrative_closure_validation_run: 34609560215
+    narrative_closure_validation_jobs_passed: 5
+    narrative_closure_validation_jobs_total: 5
+    backend_static_analysis: PASS_ZERO_ERRORS
+    frontend_lint_typecheck_build_audit: PASS
+    contracts_and_traceability: PASS
+    accepted_push_secret_scan: PASS
+    migration_authority_and_registry: PASS
+    Stage_4_authority_preservation: PASS
+  tranche_result:
+    machine_implementation: PASS
+    narrative_payload: PASS
+    central_closure: PASS
+    next_core_slice: Licenses_Learning_Access
     next_core_slice_started: false
 
 S5_BOOT_001_closure:
