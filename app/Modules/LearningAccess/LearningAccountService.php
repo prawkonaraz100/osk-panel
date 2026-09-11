@@ -425,6 +425,184 @@ final class LearningAccountService
         });
     }
 
+    /**
+     * @return array<string,mixed>
+     */
+    public function documentForHandoff(
+        string $sessionId,
+        string $studentId,
+        string $accountId,
+        string $handoffId,
+        string $requestId,
+    ): array {
+        $actor = $this->scopeAuthorizer->requireStudentTarget(
+            $sessionId,
+            'student_access.download_credentials_pdf',
+            $studentId,
+        );
+
+        return DB::transaction(function () use ($actor, $studentId, $accountId, $handoffId, $requestId): array {
+            $handoff = DB::table('student_access_handoffs')
+                ->where('organization_id', $actor['organization_id'])
+                ->where('student_learning_account_id', $accountId)
+                ->where('id', $handoffId)
+                ->first();
+            if ($handoff === null) {
+                throw ResourceDomainException::notFound();
+            }
+
+            $document = $this->documentProjection(
+                $actor['organization_id'],
+                $studentId,
+                $accountId,
+            );
+
+            $this->auditOutbox->recordOrganizationEvent(
+                $actor['organization_id'],
+                $actor['id'],
+                $actor['user_id'],
+                'learning_access_credentials_exported',
+                'student_access_handoff',
+                $handoffId,
+                $requestId,
+                ['fields' => ['account_id'], 'state' => 'ready'],
+                ['fields' => ['account_id', 'export_mode'], 'state' => 'downloaded'],
+            );
+
+            return $document;
+        });
+    }
+
+    /**
+     * @param list<string> $accountIds
+     * @return array{id:string,selected_account_count:int}
+     */
+    public function createBulkExport(
+        string $sessionId,
+        array $accountIds,
+        string $requestId,
+    ): array {
+        $visibility = $this->scopeAuthorizer->visibility($sessionId, 'licenses.access_documents.download');
+        $organizationId = $visibility['membership']['organization_id'];
+        $actor = $visibility['membership'];
+        $accountIds = array_values(array_unique($accountIds));
+
+        if ($accountIds === [] || count($accountIds) > 100) {
+            throw ResourceDomainException::rule('Bulk credentials export requires between 1 and 100 unique learning accounts.');
+        }
+
+        return DB::transaction(function () use ($sessionId, $actor, $organizationId, $accountIds, $requestId): array {
+            $rows = DB::table('student_learning_accounts')
+                ->where('organization_id', $organizationId)
+                ->whereIn('id', $accountIds)
+                ->get(['id', 'student_id'])
+                ->keyBy(static fn (object $row): string => (string) $row->id);
+            if ($rows->count() !== count($accountIds)) {
+                throw ResourceDomainException::notFound();
+            }
+
+            foreach ($accountIds as $accountId) {
+                $row = $rows->get($accountId);
+                if (! is_object($row)) {
+                    throw ResourceDomainException::notFound();
+                }
+                $this->scopeAuthorizer->requireStudentTarget(
+                    $sessionId,
+                    'licenses.access_documents.download',
+                    (string) $row->student_id,
+                );
+            }
+
+            $batchId = (string) Str::uuid7();
+            $now = now();
+            DB::table('student_access_export_batches')->insert([
+                'id' => $batchId,
+                'organization_id' => $organizationId,
+                'requested_by_user_id' => $actor['user_id'],
+                'export_mode' => 'combined_credentials_pdf',
+                'selected_account_count' => count($accountIds),
+                'created_at' => $now,
+            ]);
+
+            foreach ($accountIds as $ordinal => $accountId) {
+                DB::table('student_access_handoffs')->insert([
+                    'id' => (string) Str::uuid7(),
+                    'organization_id' => $organizationId,
+                    'student_learning_account_id' => $accountId,
+                    'handoff_type' => 'credentials_document',
+                    'generated_by_user_id' => $actor['user_id'],
+                    'document_asset_id' => null,
+                    'credential_version_snapshot' => $this->credentialVersion($accountId),
+                    'contains_fresh_secret' => false,
+                    'fresh_secret_issued_at' => null,
+                    'batch_id' => $batchId,
+                    'batch_ordinal' => $ordinal + 1,
+                    'created_at' => $now,
+                ]);
+            }
+
+            $this->auditOutbox->recordOrganizationEvent(
+                $organizationId,
+                $actor['id'],
+                $actor['user_id'],
+                'learning_access_credentials_exported',
+                'student_access_export_batch',
+                $batchId,
+                $requestId,
+                ['fields' => [], 'state' => 'absent'],
+                ['fields' => ['selected_account_count', 'export_mode'], 'state' => 'created'],
+            );
+
+            return ['id' => $batchId, 'selected_account_count' => count($accountIds)];
+        });
+    }
+
+    /**
+     * @return list<array<string,mixed>>
+     */
+    public function bulkExportDocuments(string $sessionId, string $batchId): array
+    {
+        $visibility = $this->scopeAuthorizer->visibility($sessionId, 'licenses.access_documents.download');
+        $organizationId = $visibility['membership']['organization_id'];
+        $batch = DB::table('student_access_export_batches')
+            ->where('organization_id', $organizationId)
+            ->where('id', $batchId)
+            ->first();
+        if ($batch === null) {
+            throw ResourceDomainException::notFound();
+        }
+
+        $handoffs = DB::table('student_access_handoffs')
+            ->where('organization_id', $organizationId)
+            ->where('batch_id', $batchId)
+            ->orderBy('batch_ordinal')
+            ->get(['student_learning_account_id']);
+
+        $documents = [];
+        foreach ($handoffs as $handoff) {
+            $accountId = (string) $handoff->student_learning_account_id;
+            $studentId = DB::table('student_learning_accounts')
+                ->where('organization_id', $organizationId)
+                ->where('id', $accountId)
+                ->value('student_id');
+            if (! is_string($studentId) || $studentId === '') {
+                throw ResourceDomainException::notFound();
+            }
+            $this->scopeAuthorizer->requireStudentTarget(
+                $sessionId,
+                'licenses.access_documents.download',
+                $studentId,
+            );
+            $documents[] = $this->documentProjection($organizationId, $studentId, $accountId);
+        }
+
+        if (count($documents) !== (int) $batch->selected_account_count) {
+            throw ResourceDomainException::conflict('Credential export batch item count does not match its immutable snapshot.');
+        }
+
+        return $documents;
+    }
+
     public function loginIdentifierForAccount(string $organizationId, string $accountId): string
     {
         $value = DB::table('student_learning_accounts as a')
@@ -515,6 +693,62 @@ final class LearningAccountService
             ->exists()) {
             throw ResourceDomainException::conflict('Organization-managed learner User cannot be shared across organizations.');
         }
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function documentProjection(string $organizationId, string $studentId, string $accountId): array
+    {
+        $row = DB::table('student_learning_accounts as a')
+            ->join('students as s', function ($join): void {
+                $join->on('s.id', '=', 'a.student_id')
+                    ->on('s.organization_id', '=', 'a.organization_id');
+            })
+            ->join('auth_login_identifiers as i', function ($join): void {
+                $join->on('i.id', '=', 'a.auth_login_identifier_id')
+                    ->on('i.user_id', '=', 'a.user_id');
+            })
+            ->where('a.organization_id', $organizationId)
+            ->where('a.student_id', $studentId)
+            ->where('a.id', $accountId)
+            ->whereNull('i.revoked_at')
+            ->first([
+                'a.id',
+                'a.language_code',
+                'i.identifier_normalized as login_identifier',
+                's.first_name',
+                's.last_name',
+            ]);
+        if ($row === null) {
+            throw ResourceDomainException::notFound();
+        }
+
+        $active = DB::table('license_activations')
+            ->where('organization_id', $organizationId)
+            ->where('student_learning_account_id', $accountId)
+            ->where('effective_to', '>', now())
+            ->exists();
+
+        return [
+            'learning_account_id' => $accountId,
+            'student_id' => $studentId,
+            'student_full_name' => trim((string) $row->first_name.' '.(string) $row->last_name),
+            'login_identifier' => (string) $row->login_identifier,
+            'language_code' => (string) $row->language_code,
+            'access_status' => $active ? 'active' : 'not_active',
+            'login_url' => rtrim((string) config('app.url'), '/').'/nauka?lang='.(string) $row->language_code,
+        ];
+    }
+
+    private function credentialVersion(string $accountId): int
+    {
+        $userId = DB::table('student_learning_accounts')->where('id', $accountId)->value('user_id');
+        if (! is_string($userId) || $userId === '') {
+            throw ResourceDomainException::notFound();
+        }
+
+        return (int) DB::table('user_password_management')->where('user_id', $userId)->value('credential_version');
     }
 
     private function activeLanguage(string $code): string
