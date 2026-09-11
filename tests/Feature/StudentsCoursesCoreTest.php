@@ -22,7 +22,7 @@ final class StudentsCoursesCoreTest extends TestCase
 
     public function test_pre_course_incomplete_student_is_allowed_but_formal_course_is_rejected(): void
     {
-        $actor = FoundationSchema::actor();
+        $actor = $this->studentCourseActor();
         $student = $this->student($actor, ['pesel' => null, 'no_pesel' => false]);
 
         $this->assertNull($student['pesel_masked']);
@@ -34,7 +34,7 @@ final class StudentsCoursesCoreTest extends TestCase
 
     public function test_no_pesel_with_birth_date_is_valid_formal_identity(): void
     {
-        $actor = FoundationSchema::actor();
+        $actor = $this->studentCourseActor();
         $student = $this->student($actor, [
             'pesel' => null,
             'no_pesel' => true,
@@ -49,7 +49,7 @@ final class StudentsCoursesCoreTest extends TestCase
 
     public function test_course_create_is_atomic_across_pkk_requirements_external_history_and_audit(): void
     {
-        $actor = FoundationSchema::actor();
+        $actor = $this->studentCourseActor();
         $student = $this->student($actor);
         $pkk = 'PKK-SECRET-123456';
         $course = $this->course($actor, $student['id'], [
@@ -78,7 +78,7 @@ final class StudentsCoursesCoreTest extends TestCase
 
     public function test_verified_basic_b_requirement_profile_uses_1350_theory_and_1800_practical_minutes(): void
     {
-        $actor = FoundationSchema::actor();
+        $actor = $this->studentCourseActor();
         $student = $this->student($actor);
         $course = $this->course($actor, $student['id'], ['driving_category_code' => 'B']);
 
@@ -92,7 +92,7 @@ final class StudentsCoursesCoreTest extends TestCase
 
     public function test_held_b1_recalculates_basic_b_theory_to_zero_and_practice_down_by_600(): void
     {
-        $actor = FoundationSchema::actor();
+        $actor = $this->studentCourseActor();
         $student = $this->student($actor);
         $course = $this->course($actor, $student['id'], ['driving_category_code' => 'B']);
 
@@ -114,7 +114,7 @@ final class StudentsCoursesCoreTest extends TestCase
 
     public function test_art_23a_exemption_preserves_profile_history_and_disables_theory(): void
     {
-        $actor = FoundationSchema::actor();
+        $actor = $this->studentCourseActor();
         $student = $this->student($actor);
         $course = $this->course($actor, $student['id'], ['driving_category_code' => 'C']);
 
@@ -137,7 +137,7 @@ final class StudentsCoursesCoreTest extends TestCase
 
     public function test_duplicate_student_pesel_is_blocked_even_after_archive(): void
     {
-        $actor = FoundationSchema::actor();
+        $actor = $this->studentCourseActor();
         $first = $this->student($actor, ['pesel' => '44051401458']);
         app(StudentService::class)->archive($actor['session_id'], $first['id'], (string) Str::uuid7(), null);
 
@@ -149,7 +149,7 @@ final class StudentsCoursesCoreTest extends TestCase
 
     public function test_active_course_blocks_student_archive_and_cancel_then_archive_preserves_history(): void
     {
-        $actor = FoundationSchema::actor();
+        $actor = $this->studentCourseActor();
         $student = $this->student($actor);
         $course = $this->course($actor, $student['id']);
 
@@ -173,7 +173,7 @@ final class StudentsCoursesCoreTest extends TestCase
 
     public function test_course_restore_rejects_archived_student_and_succeeds_after_student_restore(): void
     {
-        $actor = FoundationSchema::actor();
+        $actor = $this->studentCourseActor();
         $student = $this->student($actor);
         $course = $this->course($actor, $student['id']);
         app(CourseEnrollmentService::class)->cancel(
@@ -196,7 +196,7 @@ final class StudentsCoursesCoreTest extends TestCase
 
     public function test_nonterminal_stage_change_is_audited_but_training_completed_is_fail_closed(): void
     {
-        $actor = FoundationSchema::actor();
+        $actor = $this->studentCourseActor();
         $student = $this->student($actor);
         $course = $this->course($actor, $student['id']);
 
@@ -215,7 +215,7 @@ final class StudentsCoursesCoreTest extends TestCase
 
     public function test_course_update_requires_current_version_and_category_change_requires_pkk_revalidation(): void
     {
-        $actor = FoundationSchema::actor();
+        $actor = $this->studentCourseActor();
         $student = $this->student($actor);
         $course = $this->course($actor, $student['id']);
 
@@ -248,7 +248,7 @@ final class StudentsCoursesCoreTest extends TestCase
 
     public function test_external_training_is_append_history_and_revoke_does_not_delete_record(): void
     {
-        $actor = FoundationSchema::actor();
+        $actor = $this->studentCourseActor();
         $student = $this->student($actor);
         $course = $this->course($actor, $student['id']);
 
@@ -280,8 +280,8 @@ final class StudentsCoursesCoreTest extends TestCase
 
     public function test_cross_tenant_instructor_is_rejected(): void
     {
-        $actor = FoundationSchema::actor();
-        $other = FoundationSchema::actor();
+        $actor = $this->studentCourseActor();
+        $other = $this->studentCourseActor();
         $student = $this->student($actor);
         $foreignInstructor = $this->instructor($other);
 
@@ -298,7 +298,7 @@ final class StudentsCoursesCoreTest extends TestCase
 
     public function test_assigned_students_scope_resolves_only_non_cancelled_lead_instructor_courses(): void
     {
-        $owner = FoundationSchema::actor();
+        $owner = $this->studentCourseActor();
         $instructor = $this->instructor($owner);
         $student = $this->student($owner);
         $course = $this->course($owner, $student['id'], ['lead_instructor_id' => $instructor['id']], false);
@@ -332,7 +332,7 @@ final class StudentsCoursesCoreTest extends TestCase
 
     public function test_http_student_create_and_course_create_require_idempotency_and_emit_version_etag(): void
     {
-        $actor = FoundationSchema::actor();
+        $actor = $this->studentCourseActor();
         $instructor = $this->instructor($actor);
 
         $studentResponse = $this->withSession(['auth_session_id' => $actor['session_id']])
@@ -359,6 +359,21 @@ final class StudentsCoursesCoreTest extends TestCase
         $courseResponse->assertCreated()->assertHeader('ETag', '"v1"');
         $this->assertSame('B', $courseResponse->json('driving_category_code'));
         $this->assertNotSame('HTTP-PKK-123', $courseResponse->json('pkk_reference_masked'));
+    }
+
+    /** @return array{organization_id:string,user_id:string,membership_id:string,session_id:string} */
+    private function studentCourseActor(): array
+    {
+        $actor = FoundationSchema::actor();
+        foreach ([
+            'students.view', 'students.create', 'students.edit', 'students.archive', 'students.restore',
+            'courses.view', 'courses.create', 'courses.edit', 'courses.cancel', 'courses.restore', 'courses.stage.change',
+            'course_requirements.correct', 'external_training.recognize',
+        ] as $permission) {
+            FoundationSchema::grant($actor['membership_id'], $permission, ['organization']);
+        }
+
+        return $actor;
     }
 
     /**

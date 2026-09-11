@@ -6,7 +6,6 @@ use App\Modules\ResourcesCore\ResourceDomainException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use LogicException;
-use Symfony\Component\Yaml\Yaml;
 
 final class TrainingRequirementService
 {
@@ -240,15 +239,12 @@ final class TrainingRequirementService
     private function ensureRuleSet(): array
     {
         $path = base_path('specs/legal/training-theory-exemptions.yml');
-        $document = Yaml::parseFile($path);
-        if (! is_array($document) || ($document['legal_rule_set']['status'] ?? null) !== 'LEGAL_VERIFIED') {
+        $artifact = file_get_contents($path);
+        if (! is_string($artifact) || ! preg_match('/^\\s*status:\\s*LEGAL_VERIFIED\\s*$/m', $artifact)) {
             throw new LogicException('Verified training requirement rule artifact is unavailable.');
         }
 
-        $hash = hash_file('sha256', $path);
-        if (! is_string($hash)) {
-            throw new LogicException('Training requirement rule artifact cannot be hashed.');
-        }
+        $hash = hash('sha256', $artifact);
 
         $existing = DB::table('training_requirement_rule_sets')->where('version', self::RULE_SET_VERSION)->first();
         if ($existing === null) {

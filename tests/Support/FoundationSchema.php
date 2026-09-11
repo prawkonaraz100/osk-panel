@@ -145,9 +145,6 @@ final class FoundationSchema
             'locations.view', 'locations.create', 'locations.edit', 'locations.archive', 'locations.restore',
             'staff.view', 'staff.create', 'staff.edit', 'staff.archive', 'staff.restore', 'staff.accounts.manage',
             'vehicles.view', 'vehicles.create', 'vehicles.edit', 'vehicles.archive', 'vehicles.restore',
-            'students.view', 'students.create', 'students.edit', 'students.archive', 'students.restore',
-            'courses.view', 'courses.create', 'courses.edit', 'courses.cancel', 'courses.restore', 'courses.stage.change',
-            'course_requirements.correct', 'external_training.recognize',
         ] as $permission) {
             self::grant($membership, $permission, ['organization']);
         }
