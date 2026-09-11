@@ -141,7 +141,7 @@ final class LearningAccessCoreTest extends TestCase
         $this->assertSame('assigned', DB::table('license_inventory_entries')->where('id', $inventory['inventory_id'])->value('status'));
     }
 
-    public function test_dbt_lic_002_003_020_050_054_revoke_restores_same_unit_and_reassignment_uses_new_contiguous_history(): void
+    public function test_dbt_lic_002_003_revoke_restores_same_unit_and_rejects_second_current_assignment(): void
     {
         $actor = $this->accessActor();
         $student = $this->student($actor);
@@ -192,7 +192,7 @@ final class LearningAccessCoreTest extends TestCase
         $this->assertSame(1, DB::table('license_assignments')->where('license_inventory_entry_id', $fixture['inventory_id'])->where('status', 'assigned')->count());
     }
 
-    public function test_dbt_lic_004_008_027_047_048_activation_is_single_effect_and_stacks_exact_86400_second_segments(): void
+    public function test_dbt_lic_004_second_activation_is_rejected_and_entitlement_history_stacks(): void
     {
         $actor = $this->accessActor();
         $student = $this->student($actor);
@@ -251,7 +251,7 @@ final class LearningAccessCoreTest extends TestCase
         $this->assertSame(2, DB::table('license_activations')->where('student_learning_account_id', $account['id'])->count());
     }
 
-    public function test_dbt_lic_039_052_login_patch_is_versioned_and_old_global_identifier_is_not_hiddenly_revoked(): void
+    public function test_login_patch_is_versioned_and_old_global_identifier_is_not_hiddenly_revoked(): void
     {
         $actor = $this->accessActor();
         $student = $this->student($actor);
@@ -288,7 +288,7 @@ final class LearningAccessCoreTest extends TestCase
         $this->assertSame('RESOURCE_VERSION_CONFLICT', $stale->machineCode);
     }
 
-    public function test_dbt_lic_036_044_045_046_051_053_password_reset_persists_only_hash_and_sanitized_idempotent_replay(): void
+    public function test_dbt_lic_051_password_reset_persists_only_hash_and_sanitized_idempotent_replay(): void
     {
         $actor = $this->accessActor();
         $student = $this->student($actor);

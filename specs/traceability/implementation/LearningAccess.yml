@@ -8,7 +8,7 @@ changed_scope:
     api_use_case: learning_accounts.list/create/update
     permission: student_access.view/create/manage_credentials
     ui: pending_confirmed_screen_gate
-    acceptance_test: Tests\\Feature\\LearningAccessCoreTest::test_dbt_lic_039_052_login_patch_is_versioned_and_old_global_identifier_is_not_hiddenly_revoked
+    acceptance_test: Tests\\Feature\\LearningAccessCoreTest::test_login_patch_is_versioned_and_old_global_identifier_is_not_hiddenly_revoked
     status: IMPLEMENTED
   - evidence: specs/database/licenses-learning-access.yml#DB-LIC-003
     requirement: Student archive blocks new operational learning-access effects while preserving learning account assignment inventory and entitlement history
@@ -24,7 +24,7 @@ changed_scope:
     api_use_case: learning_accounts.password_reset
     permission: student_access.reset_password
     ui: pending_confirmed_screen_gate
-    acceptance_test: Tests\\Feature\\LearningAccessCoreTest::test_dbt_lic_036_044_045_046_051_053_password_reset_persists_only_hash_and_sanitized_idempotent_replay
+    acceptance_test: Tests\\Feature\\LearningAccessCoreTest::test_dbt_lic_051_password_reset_persists_only_hash_and_sanitized_idempotent_replay
     status: IMPLEMENTED
   - evidence: specs/database/licenses-learning-access.yml#DB-LIC-005
     requirement: unactivated revoke preserves historical assignment and restores the same concrete inventory unit exactly once while a current inventory unit cannot have two assignments
@@ -32,7 +32,7 @@ changed_scope:
     api_use_case: license_assignments.create/revoke_unactivated
     permission: licenses.assign/revoke_unactivated
     ui: pending_confirmed_screen_gate
-    acceptance_test: Tests\\Feature\\LearningAccessCoreTest::test_dbt_lic_002_003_020_050_054_revoke_restores_same_unit_and_reassignment_uses_new_contiguous_history
+    acceptance_test: Tests\\Feature\\LearningAccessCoreTest::test_dbt_lic_002_003_revoke_restores_same_unit_and_rejects_second_current_assignment
     status: IMPLEMENTED
   - evidence: specs/database/licenses-learning-access.yml#DB-LIC-006
     requirement: activation is an immutable entitlement effect with snapshotted duration exact 86400-second days and contiguous stacked periods
@@ -40,7 +40,7 @@ changed_scope:
     api_use_case: license_assignments.activate
     permission: licenses.activate
     ui: pending_confirmed_screen_gate
-    acceptance_test: Tests\\Feature\\LearningAccessCoreTest::test_dbt_lic_004_008_027_047_048_activation_is_single_effect_and_stacks_exact_86400_second_segments
+    acceptance_test: Tests\\Feature\\LearningAccessCoreTest::test_dbt_lic_004_second_activation_is_rejected_and_entitlement_history_stacks
     status: IMPLEMENTED
   - evidence: specs/database/licenses-learning-access.yml#DB-LIC-007
     requirement: product language support is capability-driven and assignment language is an immutable snapshot while current account language remains separate
