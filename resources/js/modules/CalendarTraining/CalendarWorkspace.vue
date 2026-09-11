@@ -600,7 +600,10 @@ function handleError(caught: unknown): void {
               :checked="selectedTypes.includes(type)"
               @change="toggleType(type)"
             >
-            <span class="filter-dot" :class="type === 'driving_lesson' ? 'drive' : type === 'important_date' ? 'important' : 'general'" />
+            <span
+              class="filter-dot"
+              :class="type === 'driving_lesson' ? 'drive' : type === 'important_date' ? 'important' : 'general'"
+            />
             <span>{{ typeLabel(type) }}</span>
           </label>
         </section>
@@ -611,8 +614,18 @@ function handleError(caught: unknown): void {
             <a href="/pracownicy">Dodaj</a>
           </div>
           <div class="select-actions">
-            <button type="button" @click="selectAll('staff')">Zaznacz wszystko</button>
-            <button type="button" @click="clearAll('staff')">Wyczyść</button>
+            <button
+              type="button"
+              @click="selectAll('staff')"
+            >
+              Zaznacz wszystko
+            </button>
+            <button
+              type="button"
+              @click="clearAll('staff')"
+            >
+              Wyczyść
+            </button>
           </div>
           <label
             v-for="item in activeStaff"
@@ -626,7 +639,12 @@ function handleError(caught: unknown): void {
             >
             <span>{{ item.first_name }} {{ item.last_name }}</span>
           </label>
-          <p v-if="activeStaff.length === 0" class="empty-filter">Brak dostępnych pracowników.</p>
+          <p
+            v-if="activeStaff.length === 0"
+            class="empty-filter"
+          >
+            Brak dostępnych pracowników.
+          </p>
         </section>
 
         <section class="filter-section">
@@ -635,8 +653,18 @@ function handleError(caught: unknown): void {
             <a href="/pojazdy">Dodaj</a>
           </div>
           <div class="select-actions">
-            <button type="button" @click="selectAll('vehicles')">Zaznacz wszystko</button>
-            <button type="button" @click="clearAll('vehicles')">Wyczyść</button>
+            <button
+              type="button"
+              @click="selectAll('vehicles')"
+            >
+              Zaznacz wszystko
+            </button>
+            <button
+              type="button"
+              @click="clearAll('vehicles')"
+            >
+              Wyczyść
+            </button>
           </div>
           <label
             v-for="item in activeVehicles"
@@ -651,7 +679,12 @@ function handleError(caught: unknown): void {
             <span>{{ item.make }} {{ item.model }}</span>
             <small>{{ item.registration_number }}</small>
           </label>
-          <p v-if="activeVehicles.length === 0" class="empty-filter">Brak dostępnych pojazdów.</p>
+          <p
+            v-if="activeVehicles.length === 0"
+            class="empty-filter"
+          >
+            Brak dostępnych pojazdów.
+          </p>
         </section>
 
         <section class="filter-section">
@@ -660,8 +693,18 @@ function handleError(caught: unknown): void {
             <a href="/lokalizacje">Dodaj</a>
           </div>
           <div class="select-actions">
-            <button type="button" @click="selectAll('locations')">Zaznacz wszystko</button>
-            <button type="button" @click="clearAll('locations')">Wyczyść</button>
+            <button
+              type="button"
+              @click="selectAll('locations')"
+            >
+              Zaznacz wszystko
+            </button>
+            <button
+              type="button"
+              @click="clearAll('locations')"
+            >
+              Wyczyść
+            </button>
           </div>
           <label
             v-for="item in activeLocations"
@@ -676,7 +719,12 @@ function handleError(caught: unknown): void {
             <span>{{ item.name }}</span>
             <small>{{ item.street_and_number }}, {{ item.city_name }}</small>
           </label>
-          <p v-if="activeLocations.length === 0" class="empty-filter">Brak dostępnych lokalizacji.</p>
+          <p
+            v-if="activeLocations.length === 0"
+            class="empty-filter"
+          >
+            Brak dostępnych lokalizacji.
+          </p>
         </section>
       </aside>
 
@@ -690,7 +738,12 @@ function handleError(caught: unknown): void {
             >
               ‹
             </button>
-            <button type="button" @click="goToday">Dzisiaj</button>
+            <button
+              type="button"
+              @click="goToday"
+            >
+              Dzisiaj
+            </button>
             <button
               type="button"
               aria-label="Następny okres"
@@ -727,11 +780,19 @@ function handleError(caught: unknown): void {
           </div>
         </div>
 
-        <div v-if="loading" class="calendar-state">Ładowanie kalendarza…</div>
+        <div
+          v-if="loading"
+          class="calendar-state"
+        >
+          Ładowanie kalendarza…
+        </div>
 
         <template v-else-if="view === 'month'">
           <div class="weekday-row">
-            <span v-for="label in WEEKDAY_LABELS" :key="label">{{ label }}</span>
+            <span
+              v-for="label in WEEKDAY_LABELS"
+              :key="label"
+            >{{ label }}</span>
           </div>
           <div class="month-grid">
             <button
@@ -753,19 +814,29 @@ function handleError(caught: unknown): void {
                 <b>{{ eventMeta(item) }}</b>
                 {{ eventLabel(item) }}
               </span>
-              <span v-if="day.items.length > 4" class="more-items">+{{ day.items.length - 4 }} więcej</span>
+              <span
+                v-if="day.items.length > 4"
+                class="more-items"
+              >+{{ day.items.length - 4 }} więcej</span>
             </button>
           </div>
         </template>
 
-        <div v-else-if="view === 'week'" class="week-grid">
+        <div
+          v-else-if="view === 'week'"
+          class="week-grid"
+        >
           <section
             v-for="(day, index) in weekDays"
             :key="day.key"
             class="week-day"
             :class="{ today: day.today }"
           >
-            <button class="week-day-heading" type="button" @click="openCreate(day.date)">
+            <button
+              class="week-day-heading"
+              type="button"
+              @click="openCreate(day.date)"
+            >
               <span>{{ WEEKDAY_LABELS[index] }}</span>
               <strong>{{ formatDayNumber(day.date) }}</strong>
             </button>
@@ -779,12 +850,24 @@ function handleError(caught: unknown): void {
               <strong>{{ eventLabel(item) }}</strong>
               <span>{{ eventDetails(item) }}</span>
             </article>
-            <p v-if="day.items.length === 0" class="empty-day">Brak wpisów</p>
+            <p
+              v-if="day.items.length === 0"
+              class="empty-day"
+            >
+              Brak wpisów
+            </p>
           </section>
         </div>
 
-        <div v-else class="day-view">
-          <button class="day-create" type="button" @click="openCreate(cursor)">
+        <div
+          v-else
+          class="day-view"
+        >
+          <button
+            class="day-create"
+            type="button"
+            @click="openCreate(cursor)"
+          >
             + Dodaj wpis w tym dniu
           </button>
           <article
@@ -793,13 +876,18 @@ function handleError(caught: unknown): void {
             class="day-agenda-item"
             :class="typeClass(item)"
           >
-            <div class="day-time">{{ eventMeta(item) }}</div>
+            <div class="day-time">
+              {{ eventMeta(item) }}
+            </div>
             <div>
               <strong>{{ eventLabel(item) }}</strong>
               <p>{{ eventDetails(item) || 'Bez przypisanych zasobów' }}</p>
             </div>
           </article>
-          <div v-if="dayEvents.length === 0" class="calendar-state">
+          <div
+            v-if="dayEvents.length === 0"
+            class="calendar-state"
+          >
             Brak wpisów w tym dniu.
           </div>
         </div>
@@ -820,7 +908,9 @@ function handleError(caught: unknown): void {
         <header class="drawer-header">
           <div>
             <span class="section-kicker">Kalendarz</span>
-            <h2 id="calendar-create-title">Dodaj wydarzenie</h2>
+            <h2 id="calendar-create-title">
+              Dodaj wydarzenie
+            </h2>
           </div>
           <button
             class="close-button"
@@ -832,10 +922,16 @@ function handleError(caught: unknown): void {
           </button>
         </header>
 
-        <form class="event-form" @submit.prevent="saveEvent">
+        <form
+          class="event-form"
+          @submit.prevent="saveEvent"
+        >
           <label class="full">
             Rodzaj wydarzenia *
-            <select v-model="form.event_type" required>
+            <select
+              v-model="form.event_type"
+              required
+            >
               <option value="general_event">Wydarzenie</option>
               <option value="driving_lesson">Jazda</option>
             </select>
@@ -843,17 +939,28 @@ function handleError(caught: unknown): void {
 
           <label class="full">
             Nazwa wydarzenia (opcjonalnie)
-            <input v-model="form.name" maxlength="255">
+            <input
+              v-model="form.name"
+              maxlength="255"
+            >
           </label>
 
           <label>
             Data rozpoczęcia *
-            <input v-model="form.start_date" type="date" required>
+            <input
+              v-model="form.start_date"
+              type="date"
+              required
+            >
           </label>
 
           <label>
             Godzina *
-            <input v-model="form.start_time" type="time" required>
+            <input
+              v-model="form.start_time"
+              type="time"
+              required
+            >
           </label>
 
           <label class="full">
@@ -949,10 +1056,18 @@ function handleError(caught: unknown): void {
           </p>
 
           <div class="drawer-actions full">
-            <button class="button ghost" type="button" @click="closeDrawer">
+            <button
+              class="button ghost"
+              type="button"
+              @click="closeDrawer"
+            >
               Anuluj
             </button>
-            <button class="button primary" type="submit" :disabled="saving">
+            <button
+              class="button primary"
+              type="submit"
+              :disabled="saving"
+            >
               {{ saving ? 'Zapisywanie…' : 'Zapisz' }}
             </button>
           </div>
