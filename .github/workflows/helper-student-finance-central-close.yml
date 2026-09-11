@@ -1,0 +1,75 @@
+name: Helper Student Finance Central Close
+
+on:
+  push:
+    branches:
+      - tmp-core-v1-student-finance-central-close-20260911
+
+permissions:
+  contents: write
+
+jobs:
+  close-central-gate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: docs-consolidation-2026-09-05
+          fetch-depth: 0
+      - name: Verify exact accepted parent
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "fc85d8861209a694d646e0dd71d060f0dc41a038"
+      - name: Apply exact Student Finance central closure
+        run: |
+          python <<'PY'
+          from pathlib import Path
+
+          docs = Path('docs/126-core-v1-student-finance-closure.md')
+          text = docs.read_text(encoding='utf-8')
+          old_status = "**Narrative payload:** CANDIDATE  \n**Central closure:** PENDING"
+          new_status = "**Narrative payload:** PASS  \n**Central closure:** PASS"
+          if text.count(old_status) != 1:
+              raise SystemExit('docs/126 status anchor mismatch')
+          text = text.replace(old_status, new_status, 1)
+
+          old_tail = """Ten commit jest **narrative closure candidate**. Central Stage-5 gate pozostaje świadomie niezmieniony do czasu osobnego 5/5 CI PASS na tym dokumencie.\n\nPo PASS narrative candidate jedynym dozwolonym następnym krokiem jest centralne oznaczenie:\n\n`CORE-V1-STUDENT-FINANCE-001 = PASS`\n\ni ustawienie następnego slice zgodnie z `AGENTS.md` na Learning Access / Licenses, bez jego rozpoczynania do kolejnej jawnej instrukcji użytkownika.\n"""
+          new_tail = """Narrative closure candidate commit:\n\n`fc85d8861209a694d646e0dd71d060f0dc41a038`\n\nNarrative validation:\n\n- Implementation CI `34609560215` — **5/5 SUCCESS**,\n- accepted-push secret-scan — **PASS**.\n\nFinalny wynik central closure:\n\n`CORE-V1-STUDENT-FINANCE-001 = PASS`\n\nNastępny dozwolony slice zgodnie z `AGENTS.md` to `CORE-V1-LICENSES-LEARNING-ACCESS-001`. Nie został rozpoczęty; wymaga kolejnej jawnej instrukcji użytkownika.\n"""
+          if text.count(old_tail) != 1:
+              raise SystemExit('docs/126 tail anchor mismatch')
+          docs.write_text(text.replace(old_tail, new_tail, 1), encoding='utf-8')
+
+          gate = Path('specs/gates/stage-5-implementation-gate.yml')
+          text = gate.read_text(encoding='utf-8')
+          old_next = """next_single_step:\n  id: CORE-V1-STUDENT-FINANCE-001\n  action: begin_student_finance_slice_only_after_next_explicit_user_instruction\n  prerequisite_previous_slice: CORE-V1-CALENDAR-TRAINING-SESSION-HOUR-LEDGER-001_PASS\n  implementation_order_source: AGENTS.md\n  allowed_scope:\n    - Student_Finance\n    - dependency_closed_migrations_for_this_slice\n    - module_API_permissions_tests_and_traceability\n    - own_UI_for_confirmed_screen_scope\n  forbidden_scope:\n    - Learning_Access_or_Licenses\n    - Internal_Exams\n    - PKK_adapter\n    - later_core_modules\n    - Stage_4_authority_rewrite\n    - weakening_existing_CI_or_tenant_authority\n  after_action: run_machine_narrative_central_gate_and_STOP_before_learning_access_licenses_slice\n"""
+          new_next = """next_single_step:\n  id: CORE-V1-LICENSES-LEARNING-ACCESS-001\n  action: begin_licenses_learning_access_slice_only_after_next_explicit_user_instruction\n  prerequisite_previous_slice: CORE-V1-STUDENT-FINANCE-001_PASS\n  implementation_order_source: AGENTS.md\n  allowed_scope:\n    - Licenses\n    - Learning_Access\n    - dependency_closed_migrations_for_this_slice\n    - module_API_permissions_tests_and_traceability\n    - own_UI_for_confirmed_screen_scope\n  forbidden_scope:\n    - Internal_Exams\n    - PKK_adapter\n    - Dashboard_Notifications_Purchase_History\n    - later_core_modules\n    - Stage_4_authority_rewrite\n    - weakening_existing_CI_or_tenant_authority\n  after_action: run_machine_narrative_central_gate_and_STOP_before_internal_exams_slice\n"""
+          if text.count(old_next) != 1:
+              raise SystemExit('central next_single_step anchor mismatch')
+          text = text.replace(old_next, new_next, 1)
+
+          if 'CORE_V1_STUDENT_FINANCE_001_closure:' in text:
+              raise SystemExit('Student Finance closure already present')
+
+          closure = """\nCORE_V1_STUDENT_FINANCE_001_closure:\n  status: PASS\n  accepted_scope:\n    - Student_Finance\n    - separate_charge_and_payment_ledgers\n    - course_initial_cost_finance_handoff\n    - dependency_closed_expand_migrations\n    - module_API_permissions_tests_and_traceability\n    - own_UI_for_confirmed_student_finance_scope\n  provenance:\n    clean_accepted_implementation_commit: ed09193e3e0b9135d687651dcd2db1c67e47b7db\n    accepted_branch_implementation_run: 34606896087\n    accepted_branch_API_contract_run: 34606896081\n    narrative_closure_candidate_commit: fc85d8861209a694d646e0dd71d060f0dc41a038\n    narrative_closure_validation_run: 34609560215\n    narrative_closure_validation_jobs_passed: 5\n    narrative_closure_validation_jobs_total: 5\n    helper_workflow_entered_accepted_history: false\n    PR_secret_scan_limitation: Resource_not_accessible_by_integration_before_scan\n    accepted_branch_push_secret_scan: PASS\n  migration_materialization:\n    stage_4_DAG_nodes_total: 170\n    implemented_nodes_current: 57\n    implemented_phase_steps_current: 57\n    nodes_added_by_slice: 3\n    phase: expand\n    execution_identity: 75312e6bd283334be21a38975fa868e742dd1c649acf07abaafe1cf5842cd4fb\n    canonical_order_preserved: true\n    dependency_closed_subset: true\n    later_phase_constraint_nodes_materialized: false\n    Stage_4_authority_rewritten: false\n  runtime_traceability:\n    final_DBT_IDs_total: 491\n    implemented_executable_assertions_current: 73\n    implemented_DBT_added_by_slice: 2\n    implemented_finance_DBTs: [DBT-FIN-001, DBT-FIN-005]\n    pending_domain_materialization_current: 418\n    migration_preflight_DBTs_total: 14\n    migration_preflight_DBTs_claimed_early: false\n    concurrency_DBTs_claimed_without_two_writer_test: false\n    physical_FK_candidate_key_check_DBTs_claimed_early: false\n    false_implemented_claims_allowed: false\n  student_finance:\n    charge_and_payment_ledgers_separate: true\n    mutable_balance_source_of_truth_created: false\n    money_float_used_as_contract: false\n    payment_overcharge_rejected: true\n    payment_currency_must_match_charge: true\n    cancellation_preserves_history: true\n    reversal_preserves_history: true\n    active_payments_block_charge_cancellation_until_reversed: true\n    cancelled_charge_accepts_new_payment: false\n    mutation_idempotency_backed_by_generic_store: true\n    student_finance_separate_from_platform_commerce: true\n  course_cost_handoff:\n    initial_cost_create_time_side_effect: true\n    durable_origin_table: course_cost_charge_origins\n    exactly_one_origin_charge_per_course_create_retry: true\n    course_enrollment_parallel_financial_balance_created: false\n    missing_finance_permission_rolls_back_course_create: true\n  API_and_UI:\n    OpenAPI_contract_preserved: PASS\n    confirmed_student_finance_UI: implemented\n    charge_create_UI: implemented\n    payment_create_UI: implemented\n    payment_history_UI: implemented\n    cancellation_and_reversal_UI: implemented\n    course_cost_create_handoff_UI: implemented\n    platform_purchase_history_implemented_in_this_slice: false\n  explicit_deferred_dependencies:\n    - later_candidate_key_FK_index_check_and_preflight_phases_until_global_phase_barrier_allows_them\n    - two_writer_concurrency_tests_for_still_pending_finance_concurrency_DBTs\n    - Platform_Commerce_orders_and_purchase_history\n    - payment_provider_webhook_and_reconciliation\n    - Learning_Access_and_Licenses\n    - Internal_Exams\n    - provider_backed_PKK_operations\n    - Dashboard_and_Notifications\n  executable_evidence:\n    accepted_branch_Implementation_CI_run: 34606896087\n    accepted_branch_Implementation_CI_jobs_passed: 5\n    accepted_branch_Implementation_CI_jobs_total: 5\n    accepted_PostgreSQL_suite_tests: 117\n    accepted_PostgreSQL_suite_assertions: 1834\n    accepted_API_contract_gate_run: 34606896081\n    accepted_API_contract_gate: PASS\n    narrative_closure_validation_run: 34609560215\n    narrative_closure_validation_jobs_passed: 5\n    narrative_closure_validation_jobs_total: 5\n    backend_static_analysis: PASS_ZERO_ERRORS\n    frontend_lint_typecheck_build_audit: PASS\n    contracts_and_traceability: PASS\n    accepted_push_secret_scan: PASS\n    migration_authority_and_registry: PASS\n    Stage_4_authority_preservation: PASS\n  tranche_result:\n    machine_implementation: PASS\n    narrative_payload: PASS\n    central_closure: PASS\n    next_core_slice: Licenses_Learning_Access\n    next_core_slice_started: false\n"""
+          anchor = '\nS5_BOOT_001_closure:\n'
+          if text.count(anchor) != 1:
+              raise SystemExit('S5_BOOT insertion anchor mismatch')
+          gate.write_text(text.replace(anchor, closure + anchor, 1), encoding='utf-8')
+          PY
+      - name: Validate exact diff boundaries
+        run: |
+          set -euo pipefail
+          git diff --check
+          test "$(git diff --name-only | sort)" = "$(printf '%s\n' 'docs/126-core-v1-student-finance-closure.md' 'specs/gates/stage-5-implementation-gate.yml' | sort)"
+          grep -q '^  id: CORE-V1-LICENSES-LEARNING-ACCESS-001$' specs/gates/stage-5-implementation-gate.yml
+          grep -q '^CORE_V1_STUDENT_FINANCE_001_closure:$' specs/gates/stage-5-implementation-gate.yml
+          test "$(grep -c '^next_single_step:$' specs/gates/stage-5-implementation-gate.yml)" = "1"
+          test "$(grep -c '^CORE_V1_STUDENT_FINANCE_001_closure:$' specs/gates/stage-5-implementation-gate.yml)" = "1"
+      - name: Commit and fast-forward accepted branch
+        run: |
+          set -euo pipefail
+          git config user.name 'prawkonaraz100'
+          git config user.email 'prawkonaraz100@gmail.com'
+          git add docs/126-core-v1-student-finance-closure.md specs/gates/stage-5-implementation-gate.yml
+          git commit -m 'CORE-V1-STUDENT-FINANCE-001: close slice'
+          git push origin HEAD:docs-consolidation-2026-09-05
