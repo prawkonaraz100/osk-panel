@@ -15,10 +15,10 @@ class MigrationPlanContractTest extends TestCase
 
         $this->assertSame(170, $plan->nodeCount());
         $this->assertSame(17, $plan->batchCount());
-        $this->assertSame(45, $plan->implementedNodeCount());
-        $this->assertSame(45, $plan->implementedStepCount());
+        $this->assertSame(54, $plan->implementedNodeCount());
+        $this->assertSame(54, $plan->implementedStepCount());
         $this->assertSame('ad5f2aa2e14ef248b95dd3dda0d1cbcb2e69d441', $plan->summary()['authority_blob']);
-        $this->assertSame('59ed166d900d2701df2b8ca6e534b6b59d0de78ecf8fa0f04204f255020e5bcc', $plan->executionIdentity());
+        $this->assertSame('1495b3bbccb44db2bbc6f466391a6fa8f70dc6ad5f3154dbe84de68e0d2c4422', $plan->executionIdentity());
         $this->assertSame([
             'MIG-EXT-BTREE-GIST',
             'MIG-TBL-ORGANIZATIONS',
@@ -59,6 +59,15 @@ class MigrationPlanContractTest extends TestCase
             'MIG-TBL-TRAINING_REQUIREMENT_PROFILES',
             'MIG-TBL-COURSE_EXEMPTION_DECISIONS',
             'MIG-TBL-RECOGNIZED_EXTERNAL_TRAINING',
+            'MIG-TBL-TRAINING_SESSIONS',
+            'MIG-TBL-TRAINING_SESSION_ATTENDANCE',
+            'MIG-TBL-TRAINING_HOUR_LEDGER_ENTRIES',
+            'MIG-TBL-CALENDAR_EVENTS',
+            'MIG-TBL-CALENDAR_EVENT_LIFECYCLE_EVENTS',
+            'MIG-TBL-AVAILABILITY_SLOTS',
+            'MIG-TBL-AVAILABILITY_SLOT_LIFECYCLE_EVENTS',
+            'MIG-TBL-CALENDAR_RESOURCE_CLAIMS',
+            'MIG-TBL-TRAINING_SESSION_CALENDAR_DETAILS',
             'MIG-TBL-PKK_PROFILES',
             'MIG-TBL-AUDIT_ACTION_POLICY_REVISIONS',
             'MIG-TBL-AUDIT_ACTION_POLICY_CURRENTS',
