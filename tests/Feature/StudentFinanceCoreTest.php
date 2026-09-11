@@ -252,6 +252,97 @@ final class StudentFinanceCoreTest extends TestCase
         }
     }
 
+    public function test_dbt_fin_001_exact_student_course_charge_payment_currency_relations_fail_closed(): void
+    {
+        $actor = $this->financeActor();
+        $studentA = $this->student($actor);
+        $studentB = $this->student($actor, [
+            'pesel' => null,
+            'no_pesel' => true,
+            'birth_date' => '1992-03-14',
+        ]);
+        $instructor = $this->instructor($actor);
+
+        $studentBCourse = app(CourseEnrollmentService::class)->create(
+            $actor['session_id'],
+            $studentB['id'],
+            [
+                'training_type' => 'basic',
+                'driving_category_code' => 'B',
+                'pkk_number' => 'PKK-FIN-REL-B',
+                'started_at' => '2026-09-11T08:00:00+02:00',
+                'lead_instructor_id' => $instructor['id'],
+            ],
+            (string) Str::uuid7(),
+        );
+
+        $finance = app(StudentFinanceService::class);
+        $wrongStudentCourse = $this->captureDomainException(fn () => $finance->createCharge(
+            $actor['session_id'],
+            $studentA['id'],
+            [
+                'title' => 'Nieprawidłowy kurs',
+                'amount' => ['amount_minor' => 10000, 'currency' => 'PLN'],
+                'course_enrollment_id' => $studentBCourse['id'],
+            ],
+            (string) Str::uuid7(),
+        ));
+        $this->assertSame('VALIDATION_FAILED', $wrongStudentCourse->machineCode);
+        $this->assertDatabaseCount('student_charges', 0);
+
+        $other = $this->financeActor();
+        $otherStudent = $this->student($other);
+        $otherInstructor = $this->instructor($other);
+        $foreignCourse = app(CourseEnrollmentService::class)->create(
+            $other['session_id'],
+            $otherStudent['id'],
+            [
+                'training_type' => 'basic',
+                'driving_category_code' => 'B',
+                'pkk_number' => 'PKK-FIN-REL-FOREIGN',
+                'started_at' => '2026-09-11T09:00:00+02:00',
+                'lead_instructor_id' => $otherInstructor['id'],
+            ],
+            (string) Str::uuid7(),
+        );
+
+        $foreignCourseAttempt = $this->captureDomainException(fn () => $finance->createCharge(
+            $actor['session_id'],
+            $studentA['id'],
+            [
+                'title' => 'Obcy kurs',
+                'amount' => ['amount_minor' => 10000, 'currency' => 'PLN'],
+                'course_enrollment_id' => $foreignCourse['id'],
+            ],
+            (string) Str::uuid7(),
+        ));
+        $this->assertSame('VALIDATION_FAILED', $foreignCourseAttempt->machineCode);
+        $this->assertDatabaseCount('student_charges', 0);
+
+        $charge = $finance->createCharge($actor['session_id'], $studentA['id'], [
+            'title' => 'Prawidłowa należność',
+            'amount' => ['amount_minor' => 20000, 'currency' => 'PLN'],
+        ], (string) Str::uuid7());
+
+        $wrongCurrency = $this->captureDomainException(fn () => $finance->recordPayment(
+            $actor['session_id'],
+            $studentA['id'],
+            [
+                'charge_id' => $charge['id'],
+                'amount' => ['amount_minor' => 5000, 'currency' => 'EUR'],
+                'paid_at' => '2026-09-11T10:00:00+02:00',
+            ],
+            (string) Str::uuid7(),
+        ));
+        $this->assertSame('VALIDATION_FAILED', $wrongCurrency->machineCode);
+        $this->assertDatabaseCount('student_payments', 0);
+
+        $stored = DB::table('student_charges')->where('id', $charge['id'])->firstOrFail();
+        $this->assertSame($actor['organization_id'], (string) $stored->organization_id);
+        $this->assertSame($studentA['id'], (string) $stored->student_id);
+        $this->assertSame('PLN', (string) $stored->currency);
+    }
+
     public function test_cross_tenant_finance_target_is_not_visible(): void
     {
         $owner = $this->financeActor();
@@ -298,15 +389,17 @@ final class StudentFinanceCoreTest extends TestCase
 
     /**
      * @param  array{organization_id:string,user_id:string,membership_id:string,session_id:string}  $actor
+     * @param  array<string,mixed>  $overrides
      * @return array<string,mixed>
      */
-    private function student(array $actor): array
+    private function student(array $actor, array $overrides = []): array
     {
         return app(StudentService::class)->create($actor['session_id'], [
             'first_name' => 'Anna',
             'last_name' => 'Nowak',
             'pesel' => '02070803628',
             'no_pesel' => false,
+            ...$overrides,
         ], (string) Str::uuid7());
     }
 
