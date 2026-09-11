@@ -15,10 +15,10 @@ class MigrationPlanContractTest extends TestCase
 
         $this->assertSame(170, $plan->nodeCount());
         $this->assertSame(17, $plan->batchCount());
-        $this->assertSame(54, $plan->implementedNodeCount());
-        $this->assertSame(54, $plan->implementedStepCount());
+        $this->assertSame(57, $plan->implementedNodeCount());
+        $this->assertSame(57, $plan->implementedStepCount());
         $this->assertSame('ad5f2aa2e14ef248b95dd3dda0d1cbcb2e69d441', $plan->summary()['authority_blob']);
-        $this->assertSame('1495b3bbccb44db2bbc6f466391a6fa8f70dc6ad5f3154dbe84de68e0d2c4422', $plan->executionIdentity());
+        $this->assertSame('75312e6bd283334be21a38975fa868e742dd1c649acf07abaafe1cf5842cd4fb', $plan->executionIdentity());
         $this->assertSame([
             'MIG-EXT-BTREE-GIST',
             'MIG-TBL-ORGANIZATIONS',
@@ -69,6 +69,9 @@ class MigrationPlanContractTest extends TestCase
             'MIG-TBL-CALENDAR_RESOURCE_CLAIMS',
             'MIG-TBL-TRAINING_SESSION_CALENDAR_DETAILS',
             'MIG-TBL-PKK_PROFILES',
+            'MIG-TBL-STUDENT_CHARGES',
+            'MIG-TBL-STUDENT_PAYMENTS',
+            'MIG-TBL-COURSE_COST_CHARGE_ORIGINS',
             'MIG-TBL-AUDIT_ACTION_POLICY_REVISIONS',
             'MIG-TBL-AUDIT_ACTION_POLICY_CURRENTS',
             'MIG-TBL-AUDIT_LOGS',
