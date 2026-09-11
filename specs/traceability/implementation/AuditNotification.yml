@@ -21,3 +21,11 @@ changed_scope:
     ui: resource mutations surface only business success or safe error envelopes
     acceptance_test: Tests\Feature\ResourcesCoreTest::test_staff_pesel_never_enters_audit_payload
     status: IMPLEMENTED
+  - evidence: specs/database/audit-outbox-notifications.yml#DB-AUD-001
+    requirement: trusted organization-scoped token execution records audit with actor_kind system and null user/membership instead of fabricating an OSK membership while preserving exact organization scope and atomic outbox coupling
+    domain_data: audit_logs + domain_events + outbox_messages
+    api_use_case: remote internal exam start and submit through trusted bearer-token execution
+    permission: inherited_from_valid_exam_access_token
+    ui: NOT_APPLICABLE_RUNTIME_GATE
+    acceptance_test: Tests\\Feature\\InternalExamCoreTest::test_remote_submit_retires_execution_token_mints_result_token_and_scopes_review_to_frozen_evidence
+    status: IMPLEMENTED

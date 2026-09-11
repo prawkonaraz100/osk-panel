@@ -14,6 +14,24 @@ final class FoundationSchema
 {
     /** @var list<string> */
     private const TABLES = [
+        'internal_exam_documents',
+        'internal_exam_results',
+        'internal_exam_attempt_questions',
+        'internal_exam_station_sessions',
+        'internal_exam_access_tokens',
+        'internal_exam_access_lifecycle_events',
+        'internal_exam_accesses',
+        'internal_exam_reservations',
+        'internal_exam_attempt_lifecycle_events',
+        'internal_exam_attempts',
+        'internal_exam_inventory_ledger_entries',
+        'internal_exam_inventory_adjustments',
+        'internal_exam_inventory_entries',
+        'internal_exam_document_templates',
+        'internal_exam_definitions',
+        'exam_station_credentials',
+        'exam_stations',
+        'internal_exam_capabilities',
         'license_activations',
         'license_assignments',
         'license_inventory_entries',
@@ -87,7 +105,7 @@ final class FoundationSchema
         $plan = app(MigrationPlan::class);
         $plan->validate();
 
-        if (! DB::getSchemaBuilder()->hasTable('course_cost_charge_origins')) {
+        if (! DB::getSchemaBuilder()->hasTable('internal_exam_documents')) {
             $exit = Artisan::call('migration:controlled', [
                 '--plan' => $plan->identity(),
                 '--execution' => $plan->executionIdentity(),

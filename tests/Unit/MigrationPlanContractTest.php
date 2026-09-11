@@ -15,10 +15,10 @@ class MigrationPlanContractTest extends TestCase
 
         $this->assertSame(170, $plan->nodeCount());
         $this->assertSame(17, $plan->batchCount());
-        $this->assertSame(67, $plan->implementedNodeCount());
-        $this->assertSame(67, $plan->implementedStepCount());
+        $this->assertSame(85, $plan->implementedNodeCount());
+        $this->assertSame(85, $plan->implementedStepCount());
         $this->assertSame('ad5f2aa2e14ef248b95dd3dda0d1cbcb2e69d441', $plan->summary()['authority_blob']);
-        $this->assertSame('e2bbaff93f281685224ae47d83d8815a67feef5e09256b7dff0c4f8cd2413401', $plan->executionIdentity());
+        $this->assertSame('bd695611d07723f344c5571ea21de2fcb7ef3f09a4673ace9b2f5a46d652f0c8', $plan->executionIdentity());
         $this->assertSame([
             'MIG-EXT-BTREE-GIST',
             'MIG-TBL-ORGANIZATIONS',
@@ -29,6 +29,7 @@ class MigrationPlanContractTest extends TestCase
             'MIG-TBL-DRIVING_CATEGORIES',
             'MIG-TBL-LOCATION_TYPES',
             'MIG-TBL-STAFF_TYPES',
+            'MIG-TBL-INTERNAL_EXAM_CAPABILITIES',
             'MIG-TBL-ORGANIZATION_SETTINGS',
             'MIG-TBL-ORGANIZATION_CONTACT_ADDRESSES',
             'MIG-TBL-USER_PASSWORD_MANAGEMENT',
@@ -82,6 +83,23 @@ class MigrationPlanContractTest extends TestCase
             'MIG-TBL-LICENSE_INVENTORY_ENTRIES',
             'MIG-TBL-LICENSE_ASSIGNMENTS',
             'MIG-TBL-LICENSE_ACTIVATIONS',
+            'MIG-TBL-EXAM_STATIONS',
+            'MIG-TBL-EXAM_STATION_CREDENTIALS',
+            'MIG-TBL-INTERNAL_EXAM_DEFINITIONS',
+            'MIG-TBL-INTERNAL_EXAM_DOCUMENT_TEMPLATES',
+            'MIG-TBL-INTERNAL_EXAM_INVENTORY_ENTRIES',
+            'MIG-TBL-INTERNAL_EXAM_INVENTORY_ADJUSTMENTS',
+            'MIG-TBL-INTERNAL_EXAM_INVENTORY_LEDGER_ENTRIES',
+            'MIG-TBL-INTERNAL_EXAM_ATTEMPTS',
+            'MIG-TBL-INTERNAL_EXAM_ATTEMPT_LIFECYCLE_EVENTS',
+            'MIG-TBL-INTERNAL_EXAM_RESERVATIONS',
+            'MIG-TBL-INTERNAL_EXAM_ACCESSES',
+            'MIG-TBL-INTERNAL_EXAM_ACCESS_LIFECYCLE_EVENTS',
+            'MIG-TBL-INTERNAL_EXAM_ACCESS_TOKENS',
+            'MIG-TBL-INTERNAL_EXAM_STATION_SESSIONS',
+            'MIG-TBL-INTERNAL_EXAM_ATTEMPT_QUESTIONS',
+            'MIG-TBL-INTERNAL_EXAM_RESULTS',
+            'MIG-TBL-INTERNAL_EXAM_DOCUMENTS',
             'MIG-TBL-AUDIT_ACTION_POLICY_REVISIONS',
             'MIG-TBL-AUDIT_ACTION_POLICY_CURRENTS',
             'MIG-TBL-AUDIT_LOGS',

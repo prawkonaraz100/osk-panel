@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
   "plan_identity": "d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10",
-  "execution_identity": "e2bbaff93f281685224ae47d83d8815a67feef5e09256b7dff0c4f8cd2413401",
+  "execution_identity": "bd695611d07723f344c5571ea21de2fcb7ef3f09a4673ace9b2f5a46d652f0c8",
   "stage4_root": "database/migrations/stage4",
   "implemented_steps": [
     {
@@ -82,6 +82,15 @@
       "migration_file": "database/migrations/stage4/expand/MIG-TBL-STAFF_TYPES/2026_09_10_000090_create_staff_types_table.php",
       "migration_name": "2026_09_10_000090_create_staff_types_table",
       "file_sha256": "5a83b3243ed50fecb1391e04444ab44ca1473069a2c3786d21a9bfe462568f39",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-INTERNAL_EXAM_CAPABILITIES",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-INTERNAL_EXAM_CAPABILITIES/2026_09_10_000100_create_internal_exam_capabilities_table.php",
+      "migration_name": "2026_09_10_000100_create_internal_exam_capabilities_table",
+      "file_sha256": "52febd4fb066b45ebed843fa940ad5b67110ba2af63cba8d24db9079820e9dcc",
       "restart_classification": "restart_safe",
       "safe_down": false
     },
@@ -559,6 +568,159 @@
       "migration_file": "database/migrations/stage4/expand/MIG-TBL-LICENSE_ACTIVATIONS/2026_09_10_000810_create_license_activations_table.php",
       "migration_name": "2026_09_10_000810_create_license_activations_table",
       "file_sha256": "3620394cbc60127d05b834f8ba17490044067b9733cd3e03735b9bb9d0695800",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-EXAM_STATIONS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-EXAM_STATIONS/2026_09_10_000820_create_exam_stations_table.php",
+      "migration_name": "2026_09_10_000820_create_exam_stations_table",
+      "file_sha256": "78c24d4a6db676d4c71ca209c30b1f15b6abb17f71043d20b9216f72d6e3f0f0",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-EXAM_STATION_CREDENTIALS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-EXAM_STATION_CREDENTIALS/2026_09_10_000830_create_exam_station_credentials_table.php",
+      "migration_name": "2026_09_10_000830_create_exam_station_credentials_table",
+      "file_sha256": "fcd02b29271d5d1835db2314fae78c819f48acd4b13738cabc83d9ba22349178",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-INTERNAL_EXAM_DEFINITIONS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-INTERNAL_EXAM_DEFINITIONS/2026_09_10_000840_create_internal_exam_definitions_table.php",
+      "migration_name": "2026_09_10_000840_create_internal_exam_definitions_table",
+      "file_sha256": "c5b515c427040466976e7a5b9f15bad00fbe3b0b7d5513536e43e0ebbf2cb26e",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-INTERNAL_EXAM_DOCUMENT_TEMPLATES",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-INTERNAL_EXAM_DOCUMENT_TEMPLATES/2026_09_10_000850_create_internal_exam_document_templates_table.php",
+      "migration_name": "2026_09_10_000850_create_internal_exam_document_templates_table",
+      "file_sha256": "f7528c354a2cdb4539173d70c1d1b9e12a02c7fdabcb3e3882c2fb786dd40be9",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-INTERNAL_EXAM_INVENTORY_ENTRIES",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-INTERNAL_EXAM_INVENTORY_ENTRIES/2026_09_10_000860_create_internal_exam_inventory_entries_table.php",
+      "migration_name": "2026_09_10_000860_create_internal_exam_inventory_entries_table",
+      "file_sha256": "fe12974b4d6552f5252e54800b9ccad8cbeaf0957b7f464bc2fd53a3278af0bf",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-INTERNAL_EXAM_INVENTORY_ADJUSTMENTS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-INTERNAL_EXAM_INVENTORY_ADJUSTMENTS/2026_09_10_000870_create_internal_exam_inventory_adjustments_table.php",
+      "migration_name": "2026_09_10_000870_create_internal_exam_inventory_adjustments_table",
+      "file_sha256": "66c86507a610911c893925e5b08aa45c03ba77f4984e2f370ad7b7e3e2a7b965",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-INTERNAL_EXAM_INVENTORY_LEDGER_ENTRIES",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-INTERNAL_EXAM_INVENTORY_LEDGER_ENTRIES/2026_09_10_000880_create_internal_exam_inventory_ledger_entries_table.php",
+      "migration_name": "2026_09_10_000880_create_internal_exam_inventory_ledger_entries_table",
+      "file_sha256": "49454764f264a719e181c9e0f85a8b92e735ea4e8f81332b49bd1e5b9c6b3207",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-INTERNAL_EXAM_ATTEMPTS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-INTERNAL_EXAM_ATTEMPTS/2026_09_10_000890_create_internal_exam_attempts_table.php",
+      "migration_name": "2026_09_10_000890_create_internal_exam_attempts_table",
+      "file_sha256": "9a09b852c25d63833fc00eba09e5f7d0423f17a1b503758f43fbd63624bd63f9",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-INTERNAL_EXAM_ATTEMPT_LIFECYCLE_EVENTS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-INTERNAL_EXAM_ATTEMPT_LIFECYCLE_EVENTS/2026_09_10_000900_create_internal_exam_attempt_lifecycle_events_table.php",
+      "migration_name": "2026_09_10_000900_create_internal_exam_attempt_lifecycle_events_table",
+      "file_sha256": "d7f4479803cc213d51e12ff5afdc2b162465cb49b4fe0c223e2b91c66b882c90",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-INTERNAL_EXAM_RESERVATIONS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-INTERNAL_EXAM_RESERVATIONS/2026_09_10_000910_create_internal_exam_reservations_table.php",
+      "migration_name": "2026_09_10_000910_create_internal_exam_reservations_table",
+      "file_sha256": "9993dcfb1a7e4c76d675b3badb4074cd3bc21030b0881427f6198e40d800e5ee",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-INTERNAL_EXAM_ACCESSES",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-INTERNAL_EXAM_ACCESSES/2026_09_10_000920_create_internal_exam_accesses_table.php",
+      "migration_name": "2026_09_10_000920_create_internal_exam_accesses_table",
+      "file_sha256": "4fcc50f20beffdd747e7b0c2c11e3bcb360478dde11ccf96cf5a3cb04c8a831e",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-INTERNAL_EXAM_ACCESS_LIFECYCLE_EVENTS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-INTERNAL_EXAM_ACCESS_LIFECYCLE_EVENTS/2026_09_10_000930_create_internal_exam_access_lifecycle_events_table.php",
+      "migration_name": "2026_09_10_000930_create_internal_exam_access_lifecycle_events_table",
+      "file_sha256": "c918308d006dcd73030a88420feb32cf110f50196ed4e111c2a0bbc1152a8fac",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-INTERNAL_EXAM_ACCESS_TOKENS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-INTERNAL_EXAM_ACCESS_TOKENS/2026_09_10_000940_create_internal_exam_access_tokens_table.php",
+      "migration_name": "2026_09_10_000940_create_internal_exam_access_tokens_table",
+      "file_sha256": "4546805a9d20c17f46b823942575562d37e93c88d286d33e94db4abbcf095a7c",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-INTERNAL_EXAM_STATION_SESSIONS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-INTERNAL_EXAM_STATION_SESSIONS/2026_09_10_000950_create_internal_exam_station_sessions_table.php",
+      "migration_name": "2026_09_10_000950_create_internal_exam_station_sessions_table",
+      "file_sha256": "645611e4cffcfc3df22b8ba75a63cd3ed8107ee3d4a5ff5503aa1c332b1437f5",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-INTERNAL_EXAM_ATTEMPT_QUESTIONS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-INTERNAL_EXAM_ATTEMPT_QUESTIONS/2026_09_10_000960_create_internal_exam_attempt_questions_table.php",
+      "migration_name": "2026_09_10_000960_create_internal_exam_attempt_questions_table",
+      "file_sha256": "519e40fed42c4826325c13ae3c2a46a2d8746a2ca4189e8717807ebbd94882ab",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-INTERNAL_EXAM_RESULTS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-INTERNAL_EXAM_RESULTS/2026_09_10_000970_create_internal_exam_results_table.php",
+      "migration_name": "2026_09_10_000970_create_internal_exam_results_table",
+      "file_sha256": "535c5c74a563bda34f7b050191089eb8cfeebd4aeddd05495f642907dbde33ae",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-INTERNAL_EXAM_DOCUMENTS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-INTERNAL_EXAM_DOCUMENTS/2026_09_10_000980_create_internal_exam_documents_table.php",
+      "migration_name": "2026_09_10_000980_create_internal_exam_documents_table",
+      "file_sha256": "85a1c1bbbeb98892563ce6d3ec06c181c979473ed4e3bd1d8301adcc3264d347",
       "restart_classification": "restart_safe",
       "safe_down": false
     },
