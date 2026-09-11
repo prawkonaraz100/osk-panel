@@ -9,6 +9,17 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use LogicException;
 
+/**
+ * @phpstan-type AttemptRow object{id:mixed,status:mixed,started_at:mixed,version:mixed,internal_exam_definition_id:mixed,candidate_snapshot:mixed,driving_category_id:mixed,exam_part:mixed,language_code:mixed,requirement_basis_snapshot:mixed,exam_definition_version_snapshot:mixed,exam_definition_hash_snapshot:mixed,evidence_schema_version:mixed,question_set_hash:mixed}
+ * @phpstan-type AccessRow object{id:mixed,internal_exam_attempt_id:mixed,status:mixed,launch_mode:mixed,station_id:mixed,version:mixed}
+ * @phpstan-type ReservationRow object{id:mixed,internal_exam_inventory_entry_id:mixed,version:mixed}
+ * @phpstan-type InventoryRow object{id:mixed,current_state:mixed}
+ * @phpstan-type DefinitionRow object{id:mixed,driving_category_id:mixed,exam_part:mixed,language_code:mixed,engine_kind:mixed,definition_version:mixed,definition_content_hash:mixed,definition_schema_version:mixed,composition_snapshot:mixed,scoring_policy_snapshot:mixed}
+ * @phpstan-type StationRow object{id:mixed,administrative_status:mixed,last_authenticated_heartbeat_at:mixed}
+ * @phpstan-type StationSessionRow object{id:mixed,exam_station_id:mixed}
+ * @phpstan-type QuestionRow object{id:mixed,ordinal:mixed,question_snapshot:mixed,max_points_snapshot:mixed,question_snapshot_hash:mixed}
+ * @phpstan-type LedgerRow object{event_type:mixed}
+ */
 final class InternalExamService
 {
     private const PRESTART_ACCESS = ['draft', 'ready', 'delivered_or_assigned', 'opened'];
@@ -308,6 +319,7 @@ final class InternalExamService
         $actor = $this->scope->requireAccess($sessionId, 'exams.generate', $accessId);
 
         return DB::transaction(function () use ($actor, $accessId, $reason, $requestId): array {
+            /** @var AccessRow|null $accessSnapshot */
             $accessSnapshot = DB::table('internal_exam_accesses')
                 ->where('organization_id', $actor['organization_id'])
                 ->where('id', $accessId)
@@ -316,6 +328,7 @@ final class InternalExamService
                 throw ResourceDomainException::notFound();
             }
             $attempt = $this->lockAttempt($actor['organization_id'], (string) $accessSnapshot->internal_exam_attempt_id);
+            /** @var AccessRow $access */
             $access = DB::table('internal_exam_accesses')
                 ->where('organization_id', $actor['organization_id'])
                 ->where('id', $accessId)
@@ -325,6 +338,7 @@ final class InternalExamService
                 throw ResourceDomainException::conflict('Only a pre-start access can be revoked.');
             }
 
+            /** @var ReservationRow|null $reservation */
             $reservation = DB::table('internal_exam_reservations')
                 ->where('organization_id', $actor['organization_id'])
                 ->where('internal_exam_attempt_id', $attempt->id)
@@ -334,6 +348,7 @@ final class InternalExamService
             if ($reservation === null) {
                 throw ResourceDomainException::conflict('Reserved inventory is missing for pre-start revocation.');
             }
+            /** @var InventoryRow|null $inventory */
             $inventory = DB::table('internal_exam_inventory_entries')
                 ->where('organization_id', $actor['organization_id'])
                 ->where('id', $reservation->internal_exam_inventory_entry_id)
@@ -397,6 +412,7 @@ final class InternalExamService
         $actor = $this->scope->requireAccess($sessionId, 'exams.start.local', $accessId);
 
         return DB::transaction(function () use ($actor, $accessId, $trustedStationId, $requestId): array {
+            /** @var AccessRow|null $accessSnapshot */
             $accessSnapshot = DB::table('internal_exam_accesses')
                 ->where('organization_id', $actor['organization_id'])
                 ->where('id', $accessId)
@@ -405,6 +421,7 @@ final class InternalExamService
                 throw ResourceDomainException::notFound();
             }
             $attempt = $this->lockAttempt($actor['organization_id'], (string) $accessSnapshot->internal_exam_attempt_id);
+            /** @var AccessRow $access */
             $access = DB::table('internal_exam_accesses')
                 ->where('organization_id', $actor['organization_id'])
                 ->where('id', $accessId)
@@ -422,6 +439,7 @@ final class InternalExamService
             }
 
             $definition = $this->lockCurrentDefinition($attempt);
+            /** @var StationRow|null $station */
             $station = DB::table('exam_stations')
                 ->where('organization_id', $actor['organization_id'])
                 ->where('id', $trustedStationId)
@@ -447,6 +465,7 @@ final class InternalExamService
                 throw ResourceDomainException::conflict('Attempt already has an active station session.');
             }
 
+            /** @var ReservationRow|null $reservation */
             $reservation = DB::table('internal_exam_reservations')
                 ->where('organization_id', $actor['organization_id'])
                 ->where('internal_exam_attempt_id', $attempt->id)
@@ -456,6 +475,7 @@ final class InternalExamService
             if ($reservation === null) {
                 throw ResourceDomainException::conflict('Start requires exactly one reserved inventory unit.');
             }
+            /** @var InventoryRow|null $inventory */
             $inventory = DB::table('internal_exam_inventory_entries')
                 ->where('organization_id', $actor['organization_id'])
                 ->where('id', $reservation->internal_exam_inventory_entry_id)
@@ -563,6 +583,7 @@ final class InternalExamService
             if ((string) $attempt->status !== 'in_progress' || $attempt->started_at === null) {
                 throw ResourceDomainException::conflict('Only an in-progress attempt can be submitted.');
             }
+            /** @var AccessRow|null $access */
             $access = DB::table('internal_exam_accesses')
                 ->where('organization_id', $actor['organization_id'])
                 ->where('internal_exam_attempt_id', $attemptId)
@@ -588,6 +609,7 @@ final class InternalExamService
                 throw ResourceDomainException::conflict('Attempt already has an immutable result.');
             }
 
+            /** @var DefinitionRow|null $definition */
             $definition = DB::table('internal_exam_definitions')->where('id', $attempt->internal_exam_definition_id)->first();
             if ($definition === null || (string) $definition->engine_kind !== 'question_test') {
                 throw ResourceDomainException::conflict('This submit path currently requires a frozen question-test definition.');
@@ -629,6 +651,7 @@ final class InternalExamService
             $finalEvidence = [];
             $now = CarbonImmutable::now();
             foreach ($questions as $question) {
+                /** @var QuestionRow $question */
                 $ordinal = (int) $question->ordinal;
                 if (! array_key_exists($ordinal, $answerMap)) {
                     throw ResourceDomainException::rule('Submitted answers must exactly cover the frozen question set.');
@@ -763,6 +786,7 @@ final class InternalExamService
             if ((string) $attempt->status !== 'in_progress') {
                 throw ResourceDomainException::conflict('Technical abort requires an in-progress attempt.');
             }
+            /** @var AccessRow|null $access */
             $access = DB::table('internal_exam_accesses')
                 ->where('organization_id', $actor['organization_id'])
                 ->where('internal_exam_attempt_id', $attemptId)
@@ -841,6 +865,7 @@ final class InternalExamService
             if ((string) $attempt->status !== 'in_progress') {
                 throw ResourceDomainException::conflict('Station transfer requires an in-progress attempt.');
             }
+            /** @var AccessRow|null $access */
             $access = DB::table('internal_exam_accesses')
                 ->where('organization_id', $actor['organization_id'])
                 ->where('internal_exam_attempt_id', $attemptId)
@@ -850,6 +875,7 @@ final class InternalExamService
             if ($access === null || (string) $access->launch_mode === 'remote_link') {
                 throw ResourceDomainException::conflict('Station transfer requires a started station-bound access.');
             }
+            /** @var StationSessionRow|null $current */
             $current = DB::table('internal_exam_station_sessions')
                 ->where('organization_id', $actor['organization_id'])
                 ->where('internal_exam_attempt_id', $attemptId)
@@ -863,6 +889,7 @@ final class InternalExamService
                 throw ResourceDomainException::rule('Target station must differ from the active station.');
             }
 
+            /** @var StationRow|null $target */
             $target = DB::table('exam_stations')
                 ->where('organization_id', $actor['organization_id'])
                 ->where('id', $targetStationId)
@@ -922,8 +949,10 @@ final class InternalExamService
         });
     }
 
+    /** @return AttemptRow */
     private function lockAttempt(string $organizationId, string $attemptId): object
     {
+        /** @var AttemptRow|null $attempt */
         $attempt = DB::table('internal_exam_attempts')
             ->where('organization_id', $organizationId)
             ->where('id', $attemptId)
@@ -936,6 +965,7 @@ final class InternalExamService
         return $attempt;
     }
 
+    /** @return InventoryRow */
     private function lockAvailableInventory(string $organizationId): object
     {
         $candidates = DB::table('internal_exam_inventory_entries')
@@ -946,6 +976,8 @@ final class InternalExamService
             ->get();
 
         foreach ($candidates as $candidate) {
+            /** @var InventoryRow $candidate */
+            /** @var LedgerRow|null $latest */
             $latest = DB::table('internal_exam_inventory_ledger_entries')
                 ->where('organization_id', $organizationId)
                 ->where('internal_exam_inventory_entry_id', $candidate->id)
@@ -959,6 +991,10 @@ final class InternalExamService
         throw ResourceDomainException::conflict('No internally consistent available exam inventory unit exists.');
     }
 
+    /**
+     * @param  AttemptRow  $attempt
+     * @return DefinitionRow
+     */
     private function lockCurrentDefinition(object $attempt): object
     {
         $definitions = DB::table('internal_exam_definitions')
@@ -972,9 +1008,19 @@ final class InternalExamService
             throw ResourceDomainException::conflict('Exactly one current exam definition is required for this attempt.');
         }
 
-        return $definitions->first();
+        $definition = $definitions->first();
+        if ($definition === null) {
+            throw ResourceDomainException::conflict('Exactly one current exam definition is required for this attempt.');
+        }
+        /** @var DefinitionRow $definition */
+
+        return $definition;
     }
 
+    /**
+     * @param  AttemptRow  $attempt
+     * @param  DefinitionRow  $definition
+     */
     private function materializeDefinitionEvidence(string $organizationId, object $attempt, object $definition): ?string
     {
         if ((string) $definition->engine_kind === 'non_question_assessment') {
@@ -1040,6 +1086,7 @@ final class InternalExamService
         }
     }
 
+    /** @param  StationRow  $station */
     private function assertStationOperational(string $organizationId, object $station, CarbonImmutable $now): void
     {
         if ((string) $station->administrative_status !== 'enabled' || $station->last_authenticated_heartbeat_at === null) {
