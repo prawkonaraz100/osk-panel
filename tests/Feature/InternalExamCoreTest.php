@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Modules\InternalExams\ExamStationCredentialService;
 use App\Modules\InternalExams\InternalExamService;
 use App\Modules\InternalExams\InternalExamTokenService;
 use App\Modules\ResourcesCore\ResourceDomainException;
@@ -16,6 +17,9 @@ use Tests\TestCase;
 
 final class InternalExamCoreTest extends TestCase
 {
+    /** @var array<string,string> */
+    private array $stationCredentialSecrets = [];
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -25,6 +29,8 @@ final class InternalExamCoreTest extends TestCase
         config()->set('internal_exams.remote_access_ttl_minutes', 120);
         config()->set('internal_exams.remote_public_base_url', 'https://learn.example.test/internal-exam');
         config()->set('internal_exams.token_verifier_key_v1', 'synthetic-internal-exam-verifier-key-v1-2026-09-11');
+        config()->set('internal_exams.station_verifier_key_v1', 'synthetic-station-verifier-key-v1-2026-09-11');
+        $this->stationCredentialSecrets = [];
         FoundationSchema::reset();
     }
 
@@ -119,7 +125,7 @@ final class InternalExamCoreTest extends TestCase
         $access = $service->createAccess(
             $actor['session_id'], $attempt['id'], 'assigned_exam_station', $station, null, null, (string) Str::uuid7(),
         );
-        $started = $service->startLocal($actor['session_id'], $access['id'], $station, (string) Str::uuid7());
+        $started = $service->startLocal($actor['session_id'], $access['id'], $this->stationCredential($station), (string) Str::uuid7());
 
         $this->assertSame('in_progress', $started['status']);
         $this->assertSame(2, $started['version']);
@@ -137,7 +143,7 @@ final class InternalExamCoreTest extends TestCase
         );
 
         $retry = $this->captureDomainException(fn () => $service->startLocal(
-            $actor['session_id'], $access['id'], $station, (string) Str::uuid7(),
+            $actor['session_id'], $access['id'], $this->stationCredential($station), (string) Str::uuid7(),
         ));
         $this->assertSame('RESOURCE_VERSION_CONFLICT', $retry->machineCode);
         $this->assertSame(
@@ -162,11 +168,16 @@ final class InternalExamCoreTest extends TestCase
         $access = $service->createAccess(
             $actor['session_id'], $attempt['id'], 'assigned_exam_station', $stationA, null, null, (string) Str::uuid7(),
         );
-        $service->startLocal($actor['session_id'], $access['id'], $stationA, (string) Str::uuid7());
+        $service->startLocal($actor['session_id'], $access['id'], $this->stationCredential($stationA), (string) Str::uuid7());
         $beforeConsumed = DB::table('internal_exam_inventory_ledger_entries')
             ->where('internal_exam_attempt_id', $attempt['id'])
             ->where('event_type', 'unit_consumed')
             ->count();
+
+        app(ExamStationCredentialService::class)->heartbeat(
+            $this->stationCredential($stationB),
+            $actor['organization_id'],
+        );
 
         $transfer = $service->transferStation(
             $actor['session_id'], $attempt['id'], $stationB, 'workstation failure', (string) Str::uuid7(),
@@ -186,6 +197,154 @@ final class InternalExamCoreTest extends TestCase
         );
     }
 
+    public function test_station_credential_rotation_revokes_old_secret_and_clears_authenticated_heartbeat(): void
+    {
+        $actor = $this->examActor();
+        $station = $this->station($actor);
+        $credentials = app(ExamStationCredentialService::class);
+        $oldCredential = $this->stationCredential($station);
+
+        $firstHeartbeat = $credentials->heartbeat($oldCredential, $actor['organization_id']);
+        $this->assertSame($station, $firstHeartbeat['station_id']);
+        $this->assertNotNull(DB::table('exam_stations')->where('id', $station)->value('last_authenticated_heartbeat_at'));
+
+        $storedVerifier = (string) DB::table('exam_station_credentials')
+            ->where('exam_station_id', $station)
+            ->whereNull('revoked_at')
+            ->value('secret_verifier');
+        $this->assertNotSame($oldCredential, $storedVerifier);
+
+        $rotated = $credentials->rotate(
+            $actor['organization_id'],
+            $station,
+            $actor['user_id'],
+            'operator_rotation',
+        );
+        $this->assertSame(2, $rotated['credential_sequence']);
+        $this->assertNull(DB::table('exam_stations')->where('id', $station)->value('last_authenticated_heartbeat_at'));
+
+        $oldRejected = $this->captureDomainException(
+            fn () => $credentials->heartbeat($oldCredential, $actor['organization_id']),
+        );
+        $this->assertSame('INVALID_EXAM_STATION_CREDENTIAL', $oldRejected->machineCode);
+
+        $newCredential = (string) $rotated['raw_credential'];
+        $this->stationCredentialSecrets[$station] = $newCredential;
+        $secondHeartbeat = $credentials->heartbeat($newCredential, $actor['organization_id']);
+        $this->assertSame($station, $secondHeartbeat['station_id']);
+        $this->assertNotNull(DB::table('exam_stations')->where('id', $station)->value('last_authenticated_heartbeat_at'));
+    }
+
+    public function test_http_station_credential_exact_binding_rotation_and_local_assigned_start_consume_once(): void
+    {
+        $actor = $this->examActor();
+        $course = $this->course($actor);
+        $fixtures = $this->examFixtures($actor, $course);
+        $stationA = $this->station($actor);
+        $stationB = $this->station($actor);
+        $credentialA = $this->stationCredential($stationA);
+        $credentialB = $this->stationCredential($stationB);
+        $service = app(InternalExamService::class);
+        $credentials = app(ExamStationCredentialService::class);
+
+        $attempt = $service->createAttempt(
+            $actor['session_id'],
+            $course['id'],
+            'theory',
+            'pl',
+            (string) Str::uuid7(),
+        );
+
+        $accessResponse = $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->withHeader('X-Exam-Station-Credential', $credentialA)
+            ->withHeader('Idempotency-Key', (string) Str::uuid7())
+            ->postJson("/api/v1/internal-exam-attempts/{$attempt['id']}/accesses", [
+                'mode' => 'local_current_workstation',
+            ]);
+        $accessResponse->assertCreated();
+        $accessId = (string) $accessResponse->json('id');
+        $this->assertSame($stationA, $accessResponse->json('station_id'));
+
+        $wrongStationStart = $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->withHeader('X-Exam-Station-Credential', $credentialB)
+            ->withHeader('Idempotency-Key', (string) Str::uuid7())
+            ->postJson("/api/v1/internal-exam-accesses/{$accessId}/start");
+        $wrongStationStart->assertStatus(401)
+            ->assertJsonPath('error.code', 'INVALID_EXAM_STATION_CREDENTIAL');
+        $this->assertSame('reserved', DB::table('internal_exam_inventory_entries')->where('id', $fixtures['inventory_id'])->value('current_state'));
+
+        $rotated = $credentials->rotate(
+            $actor['organization_id'],
+            $stationA,
+            $actor['user_id'],
+            'prestart_rotation',
+        );
+        $newCredentialA = (string) $rotated['raw_credential'];
+        $this->stationCredentialSecrets[$stationA] = $newCredentialA;
+
+        $revokedStart = $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->withHeader('X-Exam-Station-Credential', $credentialA)
+            ->withHeader('Idempotency-Key', (string) Str::uuid7())
+            ->postJson("/api/v1/internal-exam-accesses/{$accessId}/start");
+        $revokedStart->assertStatus(401)
+            ->assertJsonPath('error.code', 'INVALID_EXAM_STATION_CREDENTIAL');
+
+        $startKey = (string) Str::uuid7();
+        $started = $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->withHeader('X-Exam-Station-Credential', $newCredentialA)
+            ->withHeader('Idempotency-Key', $startKey)
+            ->postJson("/api/v1/internal-exam-accesses/{$accessId}/start");
+        $started->assertOk()->assertJsonPath('status', 'in_progress');
+
+        $replay = $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->withHeader('X-Exam-Station-Credential', $newCredentialA)
+            ->withHeader('Idempotency-Key', $startKey)
+            ->postJson("/api/v1/internal-exam-accesses/{$accessId}/start");
+        $replay->assertOk()->assertJsonPath('status', 'in_progress');
+        $this->assertSame(
+            1,
+            DB::table('internal_exam_inventory_ledger_entries')
+                ->where('internal_exam_attempt_id', $attempt['id'])
+                ->where('event_type', 'unit_consumed')
+                ->count(),
+        );
+
+        $heartbeat = $this->withHeader('X-Exam-Station-Credential', $newCredentialA)
+            ->postJson('/api/v1/internal-exam-stations/heartbeat');
+        $heartbeat->assertOk()->assertJsonPath('station_id', $stationA);
+
+        $secondInventoryId = $this->grantInventory($actor);
+        $secondAttempt = $service->createAttempt(
+            $actor['session_id'],
+            $course['id'],
+            'theory',
+            'pl',
+            (string) Str::uuid7(),
+        );
+        $assigned = $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->withHeader('Idempotency-Key', (string) Str::uuid7())
+            ->postJson("/api/v1/internal-exam-attempts/{$secondAttempt['id']}/accesses", [
+                'mode' => 'assigned_exam_station',
+                'station_id' => $stationB,
+            ]);
+        $assigned->assertCreated();
+        $assignedAccessId = (string) $assigned->json('id');
+
+        $assignedStart = $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->withHeader('X-Exam-Station-Credential', $credentialB)
+            ->withHeader('Idempotency-Key', (string) Str::uuid7())
+            ->postJson("/api/v1/internal-exam-accesses/{$assignedAccessId}/start");
+        $assignedStart->assertOk()->assertJsonPath('status', 'in_progress');
+        $this->assertSame(
+            1,
+            DB::table('internal_exam_inventory_ledger_entries')
+                ->where('internal_exam_attempt_id', $secondAttempt['id'])
+                ->where('event_type', 'unit_consumed')
+                ->count(),
+        );
+        $this->assertSame('consumed', DB::table('internal_exam_inventory_entries')->where('id', $secondInventoryId)->value('current_state'));
+    }
+
     public function test_submit_scores_only_from_frozen_evidence_and_finishes_without_second_consumption(): void
     {
         $actor = $this->examActor();
@@ -198,7 +357,7 @@ final class InternalExamCoreTest extends TestCase
         $access = $service->createAccess(
             $actor['session_id'], $attempt['id'], 'assigned_exam_station', $station, null, null, (string) Str::uuid7(),
         );
-        $service->startLocal($actor['session_id'], $access['id'], $station, (string) Str::uuid7());
+        $service->startLocal($actor['session_id'], $access['id'], $this->stationCredential($station), (string) Str::uuid7());
 
         $result = $service->submitAsStaff(
             $actor['session_id'],
@@ -248,7 +407,7 @@ final class InternalExamCoreTest extends TestCase
         $access = $service->createAccess(
             $actor['session_id'], $attempt['id'], 'assigned_exam_station', $station, null, null, (string) Str::uuid7(),
         );
-        $service->startLocal($actor['session_id'], $access['id'], $station, (string) Str::uuid7());
+        $service->startLocal($actor['session_id'], $access['id'], $this->stationCredential($station), (string) Str::uuid7());
 
         $aborted = $service->technicalAbort(
             $actor['session_id'], $attempt['id'], 'station failure', (string) Str::uuid7(),
@@ -991,26 +1150,63 @@ final class InternalExamCoreTest extends TestCase
             'id' => $stationId,
             'organization_id' => $actor['organization_id'],
             'administrative_status' => 'enabled',
-            'last_authenticated_heartbeat_at' => $now,
+            'last_authenticated_heartbeat_at' => null,
             'created_at' => $now,
             'updated_at' => $now,
         ]);
-        DB::table('exam_station_credentials')->insert([
+
+        $issued = app(ExamStationCredentialService::class)->issue(
+            $actor['organization_id'],
+            $stationId,
+            $actor['user_id'],
+            CarbonImmutable::instance($now),
+        );
+        $this->stationCredentialSecrets[$stationId] = (string) $issued['raw_credential'];
+
+        return $stationId;
+    }
+
+    private function stationCredential(string $stationId): string
+    {
+        $credential = $this->stationCredentialSecrets[$stationId] ?? null;
+        if (! is_string($credential) || $credential === '') {
+            $this->fail('Expected provisioned station credential.');
+        }
+
+        return $credential;
+    }
+
+    /** @param  array{organization_id:string,user_id:string,membership_id:string,session_id:string}  $actor */
+    private function grantInventory(array $actor): string
+    {
+        $inventoryId = (string) Str::uuid7();
+        $now = now()->subMinute();
+        DB::table('internal_exam_inventory_entries')->insert([
+            'id' => $inventoryId,
+            'organization_id' => $actor['organization_id'],
+            'source_type' => 'free',
+            'source_order_item_id' => null,
+            'source_adjustment_id' => null,
+            'current_state' => 'available',
+            'created_at' => $now,
+        ]);
+        DB::table('internal_exam_inventory_ledger_entries')->insert([
             'id' => (string) Str::uuid7(),
             'organization_id' => $actor['organization_id'],
-            'exam_station_id' => $stationId,
-            'credential_sequence' => 1,
-            'lookup_id' => (string) Str::uuid7(),
-            'secret_verifier' => hash('sha256', (string) Str::uuid7()),
-            'verifier_key_version' => 1,
-            'issued_at' => $now,
-            'revoked_at' => null,
-            'revoke_reason_code' => null,
-            'issued_by_user_id' => $actor['user_id'],
+            'internal_exam_inventory_entry_id' => $inventoryId,
+            'internal_exam_reservation_id' => null,
+            'internal_exam_attempt_id' => null,
+            'internal_exam_inventory_adjustment_id' => null,
+            'event_sequence' => 1,
+            'event_type' => 'unit_granted',
+            'available_delta' => 1,
+            'actor_user_id' => null,
+            'reason' => null,
+            'occurred_at' => $now,
             'created_at' => $now,
         ]);
 
-        return $stationId;
+        return $inventoryId;
     }
 
     private function tokenFromOneTimeUrl(string $url): string
