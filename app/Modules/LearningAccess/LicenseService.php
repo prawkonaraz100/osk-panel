@@ -167,7 +167,7 @@ final class LicenseService
         }
 
         $actor = $this->scopeAuthorizer->requireStudentTarget($sessionId, 'licenses.assign', $studentId);
-        if ($newBranch && is_array($newAccount)) {
+        if ($newBranch) {
             $initialPassword = trim((string) ($newAccount['initial_password'] ?? ''));
             if ($initialPassword !== '') {
                 $this->scopeAuthorizer->requireStudentTarget(
