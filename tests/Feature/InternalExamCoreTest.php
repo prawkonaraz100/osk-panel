@@ -202,6 +202,22 @@ final class InternalExamCoreTest extends TestCase
         $this->assertSame(0, $unassigned->json('meta.statistics.exam_count'));
         $this->assertNull($unassigned->json('meta.statistics.pass_rate'));
 
+        $exactStudent = $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->getJson('/api/v1/internal-exam/subjects?student_id='.$course['student_id'].'&sort=latest_exam_at&direction=desc');
+        $exactStudent->assertOk()->assertJsonPath('meta.total', 2);
+        $this->assertSame(
+            [$course['student_id']],
+            array_values(array_unique(array_column($exactStudent->json('data'), 'student_id'))),
+        );
+
+        $unknownStudent = $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->getJson('/api/v1/internal-exam/subjects?student_id='.(string) Str::uuid7());
+        $unknownStudent->assertOk()->assertJsonPath('meta.total', 0);
+
+        $invalidStudent = $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->getJson('/api/v1/internal-exam/subjects?student_id=not-a-uuid');
+        $invalidStudent->assertStatus(422);
+
         $peselSearch = $this->withSession(['auth_session_id' => $actor['session_id']])
             ->getJson('/api/v1/internal-exam/subjects?q=02070803628');
         $peselSearch->assertOk()->assertJsonPath('meta.total', 0);

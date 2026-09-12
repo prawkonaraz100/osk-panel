@@ -48,6 +48,10 @@ paths:
         - { $ref: '../openapi-components-v1.yaml#/components/parameters/Page' }
         - { $ref: '../openapi-components-v1.yaml#/components/parameters/PerPage' }
         - { $ref: '../openapi-components-v1.yaml#/components/parameters/Search' }
+        - name: student_id
+          in: query
+          description: Exact student UUID filter for student-profile exam views; tenant and assigned-student scope still apply.
+          schema: { type: string, format: uuid }
         - name: sort
           in: query
           schema:
@@ -72,7 +76,7 @@ paths:
           schema: { type: boolean, default: false }
       responses:
         '200':
-          description: Existing students/course contexts eligible for exam management; q searches first name, last name, email and login
+          description: Existing students/course contexts eligible for exam management; student_id filters exactly one visible student while q searches first name, last name, email and login
           content:
             application/json:
               schema:
