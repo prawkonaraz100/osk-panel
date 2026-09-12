@@ -179,3 +179,11 @@ changed_scope:
     ui: resources/js/modules/InternalExams/StudentInternalExamPanel.vue embedded in resources/js/modules/StudentsCourses/StudentCourseWorkspace.vue at /kursanci/<student_id>
     acceptance_test: Tests\\Feature\\InternalExamCoreTest::test_management_projection_uses_course_sequence_filters_statistics_and_history_order
     status: IMPLEMENTED
+  - evidence: specs/screens/internal-exam-generation-access.yml
+    requirement: remote exam access supports a distinct email-delivery command that resolves the exact candidate snapshot email while Attempt and Access are locked, fails before token rotation when no valid email exists, commits the idempotent token rotation without persisting the raw secret, then sends the one-time URL after commit; replay of the same idempotency key cannot send a duplicate email while a new resend command rotates and delivers a new link
+    domain_data: internal_exam_attempts + internal_exam_accesses + internal_exam_access_tokens + idempotency_records + audit_logs + outbox_messages
+    api_use_case: email_send
+    permission: exams.access.send
+    ui: resources/js/modules/InternalExams/InternalExamWorkspace.vue and resources/js/modules/InternalExams/StudentInternalExamPanel.vue
+    acceptance_test: Tests\\Feature\\InternalExamCoreTest::test_http_remote_exam_secret_responses_are_nonreplayable_and_bearer_lifecycle_is_scoped + Tests\\Feature\\InternalExamCoreTest::test_remote_email_delivery_requires_snapshot_email_before_rotating_token
+    status: IMPLEMENTED
