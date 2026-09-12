@@ -1153,8 +1153,9 @@ function handleError(caught: unknown): void {
             <button
               class="button ghost"
               type="button"
-              :disabled="meta.page
-            >= meta.last_page" @click="goToPage(meta.page + 1)">
+              :disabled="meta.page >= meta.last_page"
+              @click="goToPage(meta.page + 1)"
+            >
               Następna
             </button>
           </div>
