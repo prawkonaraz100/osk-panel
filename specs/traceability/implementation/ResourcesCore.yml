@@ -70,3 +70,12 @@ changed_scope:
     ui: resources/js/modules/ResourcesCore/CalendarShell.vue
     acceptance_test: frontend-quality npm_lint_typecheck_build
     status: IMPLEMENTED
+  - evidence: specs/legal/driving-entitlement-dictionary.yml
+    requirement: production driving-category catalogs and rule-engine inputs expose exactly the legally verified driving-licence categories while preserving observed PT only as an inactive tram-permit UI alias
+    domain_data: driving_categories.code + active + metadata
+    api_use_case: driving_categories.list and all active-category validation in course staff vehicle and rule-engine boundaries
+    permission: active membership plus existing resource permission boundary
+    ui: confirmed PT evidence remains preserved but is not emitted by the active /api/v1/driving-categories catalog
+    acceptance_test: Tests\\Feature\\FoundationReferenceCatalogTest::test_legal_driving_entitlement_dictionary_keeps_tram_permit_alias_out_of_rule_engine_catalog
+    status: IMPLEMENTED
+

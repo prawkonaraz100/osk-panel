@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Modules\ResourcesCore\ResourceCatalogService;
 use Database\Seeders\FoundationReferenceCatalogSeeder;
 use Illuminate\Support\Facades\DB;
 use Tests\Support\FoundationSchema;
@@ -13,6 +14,42 @@ final class FoundationReferenceCatalogTest extends TestCase
     {
         parent::setUp();
         FoundationSchema::reset();
+    }
+
+    public function test_legal_driving_entitlement_dictionary_keeps_tram_permit_alias_out_of_rule_engine_catalog(): void
+    {
+        $expected = [
+            'AM', 'A1', 'A2', 'A', 'B1', 'B', 'B+E', 'C1',
+            'C', 'C1+E', 'C+E', 'D1', 'D', 'D1+E', 'D+E', 'T',
+        ];
+        sort($expected);
+
+        $actual = DB::table('driving_categories')
+            ->where('active', true)
+            ->pluck('code')
+            ->map(static fn ($code): string => (string) $code)
+            ->all();
+        sort($actual);
+
+        $this->assertSame($expected, $actual);
+        $this->assertCount(16, $actual);
+
+        $tramAlias = DB::table('driving_categories')->where('code', 'PT')->firstOrFail();
+        $metadata = json_decode((string) $tramAlias->metadata, true, 512, JSON_THROW_ON_ERROR);
+
+        $this->assertFalse((bool) $tramAlias->active);
+        $this->assertSame('tram_permit', $metadata['entitlement_kind']);
+        $this->assertSame('Pozwolenie na kierowanie tramwajem', $metadata['official_label']);
+        $this->assertFalse($metadata['is_driving_licence_category']);
+        $this->assertFalse($metadata['rule_engine_eligible']);
+        $this->assertSame('USER_CONFIRMED_AUTH_SCREEN_ALIAS', $metadata['preservation_status']);
+
+        $actor = FoundationSchema::actor();
+        $catalog = app(ResourceCatalogService::class)->drivingCategories($actor['session_id']);
+        $codes = array_column($catalog, 'code');
+
+        $this->assertCount(16, $codes);
+        $this->assertNotContains('PT', $codes);
     }
 
     public function test_production_seeder_materializes_permission_scope_and_audit_policy_catalogs(): void
