@@ -8,7 +8,7 @@ changed_scope:
     domain_data: orders + order_items + order_payment_settlements + order_fulfillments
     api_use_case: orders.list + orders.get + purchase_history.list
     permission: purchases.view with organization scope
-    ui: NOT_APPLICABLE_RUNTIME_GATE_UI_FOLLOWS_IN_LATER_GATE
+    ui: resources/js/modules/CommerceDashboard/PurchaseHistoryWorkspace.vue
     acceptance_test: Tests\\Feature\\CommercePurchaseHistoryCoreTest::test_purchase_history_is_tenant_scoped_and_preserves_multi_item_snapshots
     status: IMPLEMENTED
   - evidence: specs/database/student-finance-commerce.yml#DB-COM-005
@@ -16,7 +16,7 @@ changed_scope:
     domain_data: orders + payments + order_payment_settlements + order_fulfillments
     api_use_case: orders.get + purchase_history.list
     permission: purchases.view
-    ui: NOT_APPLICABLE_RUNTIME_GATE_UI_FOLLOWS_IN_LATER_GATE
+    ui: resources/js/modules/CommerceDashboard/PurchaseHistoryWorkspace.vue
     acceptance_test: Tests\\Feature\\CommercePurchaseHistoryCoreTest::test_purchase_status_is_derived_from_settlement_and_fulfillment_not_raw_payment_label
     status: IMPLEMENTED
   - evidence: docs/17-history-purchases-screen.md#3-Potwierdzona-akcja-Opłać
@@ -24,7 +24,7 @@ changed_scope:
     domain_data: payments + orders + idempotency_records + audit_logs + domain_events + outbox_messages
     api_use_case: order_payments.create + purchase_history.pay_unpaid
     permission: purchases.pay with organization scope
-    ui: NOT_APPLICABLE_RUNTIME_GATE_UI_FOLLOWS_IN_LATER_GATE
+    ui: resources/js/modules/CommerceDashboard/PurchaseHistoryWorkspace.vue
     acceptance_test: Tests\\Feature\\CommercePurchaseHistoryCoreTest::test_payment_start_is_idempotent_opaque_audited_and_does_not_mark_order_paid
     status: IMPLEMENTED
   - evidence: specs/security/permissions.yml
@@ -32,7 +32,7 @@ changed_scope:
     domain_data: organization_memberships + membership_permissions + membership_permission_scopes + orders
     api_use_case: CommerceDashboardService tenant authorization
     permission: purchases.view + purchases.pay
-    ui: NOT_APPLICABLE_RUNTIME_GATE_UI_FOLLOWS_IN_LATER_GATE
+    ui: resources/js/modules/CommerceDashboard/PurchaseHistoryWorkspace.vue
     acceptance_test: Tests\\Feature\\CommercePurchaseHistoryCoreTest::test_cross_tenant_order_is_not_visible_and_purchase_permissions_fail_closed
     status: IMPLEMENTED
   - evidence: specs/database/student-finance-commerce.yml#DB-COM-002
@@ -48,7 +48,7 @@ changed_scope:
     domain_data: license_inventory_entries + license_assignments + license_activations + internal_exam_inventory_ledger_entries + internal_exam_inventory_entries + organization_activity_events + calendar_events
     api_use_case: GET /api/v1/dashboard
     permission: active_membership
-    ui: NOT_APPLICABLE_RUNTIME_GATE_UI_FOLLOWS_IN_LATER_GATE
+    ui: resources/js/modules/CommerceDashboard/DashboardWorkspace.vue
     acceptance_test: Tests\\Feature\\DashboardCoreTest::test_dashboard_aggregates_dynamic_tenant_scoped_license_exam_activity_and_calendar_projections
     status: IMPLEMENTED
   - evidence: specs/screens/main-dashboard.yml#internal_exams_card
@@ -56,7 +56,7 @@ changed_scope:
     domain_data: internal_exam_inventory_ledger_entries + internal_exam_inventory_entries
     api_use_case: dashboard.get
     permission: active_membership
-    ui: NOT_APPLICABLE_RUNTIME_GATE_UI_FOLLOWS_IN_LATER_GATE
+    ui: resources/js/modules/CommerceDashboard/DashboardWorkspace.vue
     acceptance_test: Tests\\Feature\\DashboardCoreTest::test_dashboard_fails_closed_when_internal_exam_ledger_and_operational_projection_drift
     status: IMPLEMENTED
   - evidence: specs/screens/main-dashboard.yml#architecture
@@ -64,7 +64,31 @@ changed_scope:
     domain_data: auth_sessions + organization_memberships + dashboard source tables
     api_use_case: dashboard.get
     permission: active_membership
-    ui: NOT_APPLICABLE_RUNTIME_GATE_UI_FOLLOWS_IN_LATER_GATE
+    ui: resources/js/modules/CommerceDashboard/DashboardWorkspace.vue
     acceptance_test: Tests\\Feature\\DashboardCoreTest::test_dashboard_requires_current_active_membership
     status: IMPLEMENTED
+  - evidence: specs/screens/main-dashboard.yml
+    requirement: confirmed dashboard screen renders license and exam summaries safe activity plus embedded calendar navigation from existing runtime authorities
+    domain_data: dashboard projection + unified calendar read projection
+    api_use_case: GET /api/v1/dashboard + GET /api/v1/calendar/events
+    permission: active_membership
+    ui: resources/js/modules/CommerceDashboard/DashboardWorkspace.vue
+    acceptance_test: Tests\\Unit\\DashboardPurchaseHistoryUiContractTest
+    status: IMPLEMENTED
+  - evidence: specs/screens/purchase-history.yml
+    requirement: confirmed purchase history screen renders Number Zamówienie Data Data księgowania Kwota Status with page sizes 10 25 50 100 and Opłać for unpaid orders
+    domain_data: purchase-history projection + payment attempts
+    api_use_case: GET /api/v1/purchase-history + POST /api/v1/orders/{orderId}/payments
+    permission: purchases.view + purchases.pay
+    ui: resources/js/modules/CommerceDashboard/PurchaseHistoryWorkspace.vue
+    acceptance_test: Tests\\Unit\\DashboardPurchaseHistoryUiContractTest
+    status: IMPLEMENTED
+  - evidence: docs/74-main-dashboard.md
+    requirement: buy-license and buy-exam dashboard actions remain visible but disabled until authoritative order-creation checkout runtime exists
+    domain_data: none_no_fake_checkout_state
+    api_use_case: DEFERRED_NO_ORDER_CREATION_API
+    permission: NOT_APPLICABLE_DEFERRED
+    ui: resources/js/modules/CommerceDashboard/DashboardWorkspace.vue
+    acceptance_test: Tests\\Unit\\DashboardPurchaseHistoryUiContractTest
+    status: DEFERRED_BLOCKED_BY_CHECKOUT_RUNTIME
 
