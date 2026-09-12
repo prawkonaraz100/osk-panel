@@ -1,7 +1,7 @@
 module: CommerceDashboard
 core_traceability_modules:
   - commerce_purchase_history
-  - main_dashboard
+  - dashboard_activity
 changed_scope:
   - evidence: specs/screens/purchase-history.yml
     requirement: Purchase History is one tenant-scoped OSK order history with immutable multi-item snapshots, separate order and booking dates, money in minor units and deterministic pagination
