@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
   "plan_identity": "d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10",
-  "execution_identity": "f9116683fbfecbd32cfe46c13b5025e60c22c3197ea87b9f8933e796c1b4f48e",
+  "execution_identity": "1d2f1d3a47a4a09b749d0b164137857a241c07afbaad02789ec21e03cb4118ce",
   "stage4_root": "database/migrations/stage4",
   "implemented_steps": [
     {
@@ -851,6 +851,87 @@
       "safe_down": false
     },
     {
+      "node_id": "MIG-TBL-COMMERCE_CATALOG_ITEMS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-COMMERCE_CATALOG_ITEMS/2026_09_10_000990_create_commerce_catalog_items_table.php",
+      "migration_name": "2026_09_10_000990_create_commerce_catalog_items_table",
+      "file_sha256": "93d53cd2593e32d78d7e91ffb301a75922470ad6967c1694c1e95efb5dab088e",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-ORDERS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-ORDERS/2026_09_10_001000_create_orders_table.php",
+      "migration_name": "2026_09_10_001000_create_orders_table",
+      "file_sha256": "1135062ca4f1e1d2390a748322da95583c75c84463e38d175943939a640c5ac2",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-ORDER_ITEMS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-ORDER_ITEMS/2026_09_10_001010_create_order_items_table.php",
+      "migration_name": "2026_09_10_001010_create_order_items_table",
+      "file_sha256": "cc6261808c4f6987e05de547cbe02b52697e6436d6ccb64971d002fc05ffa49a",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-PAYMENTS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-PAYMENTS/2026_09_10_001020_create_payments_table.php",
+      "migration_name": "2026_09_10_001020_create_payments_table",
+      "file_sha256": "efb9a8781337979b674b9690fec6f94644151c2b4603b38dd3cdcc2c5069937a",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-PAYMENT_EVENTS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-PAYMENT_EVENTS/2026_09_10_001030_create_payment_events_table.php",
+      "migration_name": "2026_09_10_001030_create_payment_events_table",
+      "file_sha256": "b6828dc8def03022a2c0b2f72959e0c2a9fd66f9d3676ef9eda43445c7d9590d",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-ORDER_PAYMENT_SETTLEMENTS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-ORDER_PAYMENT_SETTLEMENTS/2026_09_10_001040_create_order_payment_settlements_table.php",
+      "migration_name": "2026_09_10_001040_create_order_payment_settlements_table",
+      "file_sha256": "e9144d9da9b3f9dd563cee102f7143aebb4341352a144b12d84f8e83a426ed8d",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-ORDER_FULFILLMENTS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-ORDER_FULFILLMENTS/2026_09_10_001050_create_order_fulfillments_table.php",
+      "migration_name": "2026_09_10_001050_create_order_fulfillments_table",
+      "file_sha256": "07abd3cb671d55ab0aecbbee0e9a276297a4bffb383f0f8b414318778834c735",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-SERVICE_ENTITLEMENTS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-SERVICE_ENTITLEMENTS/2026_09_10_001060_create_service_entitlements_table.php",
+      "migration_name": "2026_09_10_001060_create_service_entitlements_table",
+      "file_sha256": "943a43ae27e456c4904ce073b21c4595e0a6bed04f0eefe7afd4c4ef49b884a2",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-SERVICE_ACTIVATIONS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-SERVICE_ACTIVATIONS/2026_09_10_001070_create_service_activations_table.php",
+      "migration_name": "2026_09_10_001070_create_service_activations_table",
+      "file_sha256": "72b9e7ac928218329a26903fd396a9c6a9208eb8b35f487f088bea3b59f40e8b",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
       "node_id": "MIG-TBL-AUDIT_ACTION_POLICY_REVISIONS",
       "phase": "expand",
       "migration_file": "database/migrations/stage4/expand/MIG-TBL-AUDIT_ACTION_POLICY_REVISIONS/2026_09_10_001080_create_audit_action_policy_revisions_table.php",
@@ -892,6 +973,42 @@
       "migration_file": "database/migrations/stage4/expand/MIG-TBL-OUTBOX_MESSAGES/2026_09_10_001120_create_outbox_messages_table.php",
       "migration_name": "2026_09_10_001120_create_outbox_messages_table",
       "file_sha256": "5fcb820b241254f2bd069305c61910d9b7c0dd00a603bf5dbbabd4e5d198b4b8",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-ACTIVITY_PROJECTION_POLICY_REVISIONS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-ACTIVITY_PROJECTION_POLICY_REVISIONS/2026_09_10_001130_create_activity_projection_policy_revisions_table.php",
+      "migration_name": "2026_09_10_001130_create_activity_projection_policy_revisions_table",
+      "file_sha256": "7ea63ff11e89e6a80ede5982d6a2ef8b7d689aa426d4ba1bc02b22ea72affaee",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-ACTIVITY_PROJECTION_POLICY_CURRENTS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-ACTIVITY_PROJECTION_POLICY_CURRENTS/2026_09_10_001140_create_activity_projection_policy_currents_table.php",
+      "migration_name": "2026_09_10_001140_create_activity_projection_policy_currents_table",
+      "file_sha256": "8cea052d90e12543b36d998977920d80f50acaf0c9957296e10fafdb0a69c758",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-ORGANIZATION_ACTIVITY_EVENTS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-ORGANIZATION_ACTIVITY_EVENTS/2026_09_10_001150_create_organization_activity_events_table.php",
+      "migration_name": "2026_09_10_001150_create_organization_activity_events_table",
+      "file_sha256": "a28c855316820cfaa33bb456e8f7bb37be7ef8e91a06cb1188a099ccb46fd2a0",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-NOTIFICATIONS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-NOTIFICATIONS/2026_09_10_001160_create_notifications_table.php",
+      "migration_name": "2026_09_10_001160_create_notifications_table",
+      "file_sha256": "19a6bbb07d752354eb01b6418032700961611c1040a68f84897edd190705073b",
       "restart_classification": "restart_safe",
       "safe_down": false
     }
