@@ -5,8 +5,8 @@ Data: 2026-09-12
 **Slice:** `CORE-V1-DASHBOARD-NOTIFICATIONS-PURCHASE-HISTORY-001`  
 **Implementation machine:** PASS  
 **Machine closure:** PASS  
-**Narrative payload:** CANDIDATE  
-**Central closure:** PENDING
+**Narrative payload:** PASS  
+**Central closure:** PASS
 
 ## 1. Zakres
 
@@ -288,16 +288,30 @@ Nie są częścią PASS tego slice:
 
 Te zależności nie mogą być zastępowane atrapą lokalnego stanu.
 
-## 15. Narrative candidate result
+## 15. Final closure result
 
 Implementation machine = **PASS**.
 
 Machine closure = **PASS**.
 
-Narrative payload opisuje wyłącznie stan już zwalidowany executable evidence i nie dodaje nowych decyzji biznesowych.
+Narrative payload = **PASS**.
 
-Central closure pozostaje **PENDING** do czasu pełnego CI na narrative candidate oraz osobnej promocji/central gate.
+Accepted narrative payload commit:
 
-Po finalnym central closure następny dozwolony etap według `AGENTS.md` to **hardening i formalne dokumenty**.
+`543383c40dec8e24f4449aca323a0cb3a6baa44e`
+
+Accepted narrative validation:
+
+- Implementation CI `34706481532` — **5/5 SUCCESS**,
+- PostgreSQL — **166 tests / 2598 assertions — PASS**,
+- backend / frontend / contracts-and-traceability / secret scan — **PASS**.
+
+Finalny wynik central closure:
+
+`CORE-V1-DASHBOARD-NOTIFICATIONS-PURCHASE-HISTORY-001 = PASS`
+
+Następny etap według `AGENTS.md` to **hardening i formalne dokumenty**, ale nie został rozpoczęty.
 
 PKK pozostaje odroczony i może zostać wznowiony dopiero po otrzymaniu oraz zweryfikowaniu autorytatywnych wytycznych PWPW.
+
+**STOP przed hardeningiem / formalnymi dokumentami / wznowieniem PKK do kolejnej jawnej instrukcji użytkownika.**
