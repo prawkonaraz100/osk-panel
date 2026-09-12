@@ -50,7 +50,7 @@ final class InternalExamAnswerSheetService
         $template = $rows->first();
         if ($template === null
             || (string) $template->renderer_version !== InternalExamAnswerSheetRenderer::RENDERER_VERSION
-            || ! preg_match('/^[a-f0-9]{64}$/', (string) $template->template_content_hash)) {
+            || preg_match('/^[a-f0-9]{64}$/', (string) $template->template_content_hash) !== 1) {
             throw ResourceDomainException::conflict('Effective answer-sheet template is unsupported or invalid.');
         }
 
@@ -168,7 +168,7 @@ final class InternalExamAnswerSheetService
         $disk = $this->storageDisk();
         $storageKey = 'internal-exams/'.$organizationId.'/'.$attempt->id.'/answer-sheet/'.$contentHash.'.pdf';
 
-        if (! Storage::disk($disk)->put($storageKey, $bytes)) {
+        if (Storage::disk($disk)->put($storageKey, $bytes) !== true) {
             throw ResourceDomainException::conflict('Unable to persist canonical answer-sheet artifact.');
         }
 
@@ -270,7 +270,7 @@ final class InternalExamAnswerSheetService
         if (hash('sha256', $bytes) !== (string) $document->content_hash) {
             throw ResourceDomainException::conflict('Deterministic answer-sheet regeneration does not match immutable document hash.');
         }
-        if (! Storage::disk($disk)->put($key, $bytes)) {
+        if (Storage::disk($disk)->put($key, $bytes) !== true) {
             throw ResourceDomainException::conflict('Unable to restore verified canonical answer-sheet bytes.');
         }
 
@@ -364,7 +364,7 @@ final class InternalExamAnswerSheetService
         }
         if ($binding['document_type'] !== self::DOCUMENT_TYPE
             || $binding['renderer_version'] !== InternalExamAnswerSheetRenderer::RENDERER_VERSION
-            || ! preg_match('/^[a-f0-9]{64}$/', $binding['template_content_hash'])) {
+            || preg_match('/^[a-f0-9]{64}$/', $binding['template_content_hash']) !== 1) {
             throw ResourceDomainException::conflict('Frozen answer-sheet template binding is unsupported.');
         }
 
