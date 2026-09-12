@@ -146,6 +146,25 @@ launch_modes:
           allowed: true
           rotates_fresh_execution_token: true
           sends_new_one_time_link: true
+        process_crash_after_prepare:
+          idempotency_state: delivery_prepared
+          persisted_recovery_metadata:
+            - nonsecret_delivery_token_id
+            - prepared_at
+            - sanitized_replay_body
+          raw_link_or_raw_token_persisted: false
+          recovery_lease_seconds_config: INTERNAL_EXAM_REMOTE_DELIVERY_PREPARE_LEASE_SECONDS
+          before_lease_expiry_same_key_retry: conflict
+          after_lease_expiry_when_exact_token_still_current:
+            revoke_exact_prepared_token: true
+            audit_action: internal_exam.access.delivery_failed
+            audit_reason: delivery_prepare_lease_expired
+            same_key_rotates_fresh_token_and_retries_mail: true
+          after_lease_expiry_when_exact_token_was_superseded:
+            idempotency_state: delivery_superseded
+            revoke_newer_token: false
+            send_duplicate_mail: false
+            response: conflict
         completed_same_idempotency_replay_sends_second_email: false
         raw_link_persisted_in_idempotency_audit_or_outbox: false
         resend_with_new_command_rotates_and_delivers_new_link: true
