@@ -144,6 +144,68 @@ final class StudentsCoursesCoreTest extends TestCase
         $this->assertSame(2, DB::table('training_requirement_profiles')->where('course_enrollment_id', $course['id'])->count());
     }
 
+    public function test_sensitive_identifier_lookup_key_is_separate_and_previous_key_blocks_duplicate_after_rotation(): void
+    {
+        $actor = $this->studentCourseActor();
+        $oldKey = hash('sha256', 'rotation-old-key');
+        $newKey = hash('sha256', 'rotation-new-key');
+        config([
+            'security.sensitive_identifiers.lookup_key' => $oldKey,
+            'security.sensitive_identifiers.previous_lookup_keys' => [],
+        ]);
+
+        $this->student($actor, ['pesel' => '44051401458']);
+        $storedHash = (string) DB::table('students')
+            ->where('organization_id', $actor['organization_id'])
+            ->value('pesel_lookup_hash');
+
+        $this->assertSame(hash_hmac('sha256', '44051401458', $oldKey), $storedHash);
+        $this->assertNotSame(hash_hmac('sha256', '44051401458', (string) config('app.key')), $storedHash);
+
+        config([
+            'security.sensitive_identifiers.lookup_key' => $newKey,
+            'security.sensitive_identifiers.previous_lookup_keys' => [$oldKey],
+        ]);
+
+        $exception = $this->captureDomainException(fn () => $this->student(
+            $actor,
+            ['pesel' => '44051401458'],
+        ));
+
+        $this->assertSame('RESOURCE_VERSION_CONFLICT', $exception->machineCode);
+        $this->assertSame(1, DB::table('students')->where('organization_id', $actor['organization_id'])->count());
+    }
+
+    public function test_lookup_key_rotation_does_not_create_fake_pkk_identity_revision_for_same_value(): void
+    {
+        $actor = $this->studentCourseActor();
+        $oldKey = hash('sha256', 'pkk-rotation-old-key');
+        $newKey = hash('sha256', 'pkk-rotation-new-key');
+        config([
+            'security.sensitive_identifiers.lookup_key' => $oldKey,
+            'security.sensitive_identifiers.previous_lookup_keys' => [],
+        ]);
+
+        $student = $this->student($actor);
+        $course = $this->course($actor, $student['id'], ['pkk_number' => 'PKK-ROTATION-STABLE']);
+
+        config([
+            'security.sensitive_identifiers.lookup_key' => $newKey,
+            'security.sensitive_identifiers.previous_lookup_keys' => [$oldKey],
+        ]);
+
+        $updated = app(CourseEnrollmentService::class)->update(
+            $actor['session_id'],
+            $course['id'],
+            ['pkk_number' => 'PKK-ROTATION-STABLE'],
+            (string) Str::uuid7(),
+            '"v1"',
+        );
+
+        $this->assertSame(1, $updated['version']);
+        $this->assertSame(1, DB::table('pkk_profiles')->where('course_enrollment_id', $course['id'])->count());
+    }
+
     public function test_duplicate_student_pesel_is_blocked_even_after_archive(): void
     {
         $actor = $this->studentCourseActor();

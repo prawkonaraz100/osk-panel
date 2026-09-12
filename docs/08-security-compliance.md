@@ -51,9 +51,15 @@ Wymagane:
 PESEL, PKK i inne dane wrażliwe operacyjnie:
 - szyfrować aplikacyjnie tam, gdzie pełna wartość musi być odtwarzalna,
 - exact lookup realizować przez keyed HMAC lub równoważny mechanizm, nie zwykły SHA,
+- keyed lookup secret musi być niezależny od Laravel `APP_KEY`,
+- rotacja szyfrowania korzysta z current `APP_KEY` + jawnego `APP_PREVIOUS_KEYS` na okres odczytu danych zaszyfrowanych starszym kluczem,
+- rotacja lookup HMAC używa current `SENSITIVE_IDENTIFIER_LOOKUP_KEY` oraz jawnej listy `SENSITIVE_IDENTIFIER_PREVIOUS_LOOKUP_KEYS`; write zawsze używa current key, a equality/collision check obejmuje current + previous ring,
+- poprzednie lookup keys wolno usunąć dopiero po wygaśnięciu danych objętych danym kluczem albo po osobnym, audytowanym procesie re-key; nie wykonujemy ukrytego rewrite formalnej historii PKK,
 - maskować tam, gdzie pełna wartość nie jest potrzebna,
 - nie logować w całości bez potrzeby,
 - ograniczać permissionami.
+
+Operacyjny kontrakt rotacji opisuje `docs/131-sensitive-identifier-key-management.md`.
 
 Przed produkcją wymagany jest jawny retention schedule per data class.
 

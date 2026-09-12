@@ -5,12 +5,12 @@ Data: 2026-09-05
 ## P0 before high-risk modules
 
 - legal category dictionary re-verification before final rule-engine production data,
-- final encryption/key-management decision before storing real PESEL/PKK credentials,
 - privacy/retention schedule before production go-live.
 
 ## Resolved after consolidation
 
 - calendar conflict enforcement — rozstrzygnięte przez zamknięty Stage-4 Calendar authority i `ADR-0008`; produkcyjna aktywacja rezerwacji nadal wymaga materializacji GiST exclusion boundary zgodnie z migration phase plan.
+- sensitive identifier key-management decision — rozdzielono Laravel encryption key ring od keyed lookup HMAC ring; current lookup secret nie może być `APP_KEY`, previous lookup keys są jawnie wspierane podczas rollover, a formalna historia PKK nie jest ukrycie przepisywana; authority: `docs/131-sensitive-identifier-key-management.md`.
 
 ## Deferred pending external authority
 

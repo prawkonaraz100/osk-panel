@@ -6,7 +6,7 @@ use App\Modules\AuditNotification\AtomicAuditOutbox;
 use App\Modules\IdentityTenant\TenantAuthorizer;
 use App\Modules\ResourcesCore\ResourceDomainException;
 use App\Modules\StudentFinance\StudentFinanceService;
-use Illuminate\Support\Facades\Crypt;
+use App\Support\Security\SensitiveIdentifierCrypto;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -27,6 +27,7 @@ final class CourseEnrollmentService
         private readonly TrainingRequirementService $requirements,
         private readonly AtomicAuditOutbox $auditOutbox,
         private readonly StudentFinanceService $studentFinance,
+        private readonly SensitiveIdentifierCrypto $sensitiveIdentifiers,
     ) {}
 
     /** @return list<array<string,mixed>> */
@@ -288,8 +289,11 @@ final class CourseEnrollmentService
             $newPkkCiphertext = null;
             $newPkkHash = null;
             if ($pkkSupplied) {
-                [$newPkkCiphertext, $newPkkHash] = $this->pkkStorage($input['pkk_number']);
-                $pkkChanged = ! hash_equals((string) $currentPkk->pkk_lookup_hash, $newPkkHash);
+                [$newPkkCiphertext, $newPkkHash, $normalizedPkk] = $this->pkkStorage($input['pkk_number']);
+                $pkkChanged = ! $this->sensitiveIdentifiers->matchesStoredLookupHash(
+                    $normalizedPkk,
+                    (string) $currentPkk->pkk_lookup_hash,
+                );
             }
 
             $changed = false;
@@ -939,7 +943,7 @@ final class CourseEnrollmentService
         }
     }
 
-    /** @return array{0:string,1:string} */
+    /** @return array{0:string,1:string,2:string} */
     private function pkkStorage(mixed $value): array
     {
         $normalized = trim((string) $value);
@@ -949,12 +953,12 @@ final class CourseEnrollmentService
         if (mb_strlen($normalized) > 128) {
             throw ResourceDomainException::rule('PKK input is too long.');
         }
-        $key = (string) config('app.key');
-        if ($key === '') {
-            throw ResourceDomainException::conflict('Application encryption key is unavailable.');
-        }
 
-        return [Crypt::encryptString($normalized), hash_hmac('sha256', $normalized, $key)];
+        return [
+            $this->sensitiveIdentifiers->encrypt($normalized),
+            $this->sensitiveIdentifiers->currentLookupHash($normalized),
+            $normalized,
+        ];
     }
 
     private function assertExpectedVersion(object $row, ?string $expectedTag): void
@@ -1152,7 +1156,7 @@ final class CourseEnrollmentService
     private function maskedPkk(string $ciphertext): string
     {
         try {
-            $plain = Crypt::decryptString($ciphertext);
+            $plain = $this->sensitiveIdentifiers->decrypt($ciphertext);
         } catch (\Throwable) {
             return '****';
         }

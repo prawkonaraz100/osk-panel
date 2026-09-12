@@ -6,7 +6,7 @@ use App\Modules\AuditNotification\AtomicAuditOutbox;
 use App\Modules\IdentityTenant\TenantAuthorizer;
 use App\Modules\LearningAccess\LicenseService;
 use App\Modules\ResourcesCore\ResourceDomainException;
-use Illuminate\Support\Facades\Crypt;
+use App\Support\Security\SensitiveIdentifierCrypto;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
@@ -19,6 +19,7 @@ final class StudentService
         private readonly AtomicAuditOutbox $auditOutbox,
         private readonly CourseEnrollmentService $courses,
         private readonly LicenseService $licenses,
+        private readonly SensitiveIdentifierCrypto $sensitiveIdentifiers,
     ) {}
 
     /**
@@ -219,11 +220,11 @@ final class StudentService
             }
 
             $this->assertLocation($actor['organization_id'], $input['location_id'] ?? null);
-            [$ciphertext, $lookupHash] = $this->peselStorage($input['pesel'] ?? null);
+            [$ciphertext, $lookupHash, $peselNormalized] = $this->peselStorage($input['pesel'] ?? null);
             $noPesel = (bool) ($input['no_pesel'] ?? false);
             $birthDate = $this->nullableString($input['birth_date'] ?? null);
             $this->assertIdentityBranch($ciphertext, $lookupHash, $noPesel, $birthDate, false);
-            $this->assertPeselAvailable($actor['organization_id'], $lookupHash, null);
+            $this->assertPeselAvailable($actor['organization_id'], $peselNormalized, null);
 
             $id = (string) Str::uuid7();
             $now = now();
@@ -301,9 +302,10 @@ final class StudentService
                 : ($row->birth_date === null ? null : (string) $row->birth_date);
             $nextCiphertext = $row->pesel_ciphertext === null ? null : (string) $row->pesel_ciphertext;
             $nextLookupHash = $row->pesel_lookup_hash === null ? null : (string) $row->pesel_lookup_hash;
+            $nextPeselNormalized = null;
 
             if (array_key_exists('pesel', $input)) {
-                [$nextCiphertext, $nextLookupHash] = $this->peselStorage($input['pesel']);
+                [$nextCiphertext, $nextLookupHash, $nextPeselNormalized] = $this->peselStorage($input['pesel']);
             }
             if ($nextNoPesel) {
                 $nextCiphertext = null;
@@ -315,7 +317,9 @@ final class StudentService
                 ->where('student_id', $studentId)
                 ->exists();
             $this->assertIdentityBranch($nextCiphertext, $nextLookupHash, $nextNoPesel, $nextBirthDate, $hasFormalHistory);
-            $this->assertPeselAvailable($actor['organization_id'], $nextLookupHash, $studentId);
+            if (array_key_exists('pesel', $input)) {
+                $this->assertPeselAvailable($actor['organization_id'], $nextPeselNormalized, $studentId);
+            }
 
             $updates = [];
             $map = [
@@ -462,22 +466,22 @@ final class StudentService
         return '"v'.(int) $student['version'].'"';
     }
 
-    /** @return array{0:?string,1:?string} */
+    /** @return array{0:?string,1:?string,2:?string} */
     private function peselStorage(mixed $value): array
     {
         if ($value === null || trim((string) $value) === '') {
-            return [null, null];
+            return [null, null, null];
         }
         $normalized = (string) preg_replace('/\D/', '', (string) $value);
         if (strlen($normalized) !== 11) {
             throw ResourceDomainException::rule('PESEL must contain 11 digits.');
         }
-        $key = (string) config('app.key');
-        if ($key === '') {
-            throw ResourceDomainException::conflict('Application encryption key is unavailable.');
-        }
 
-        return [Crypt::encryptString($normalized), hash_hmac('sha256', $normalized, $key)];
+        return [
+            $this->sensitiveIdentifiers->encrypt($normalized),
+            $this->sensitiveIdentifiers->currentLookupHash($normalized),
+            $normalized,
+        ];
     }
 
     private function assertIdentityBranch(
@@ -504,14 +508,15 @@ final class StudentService
         }
     }
 
-    private function assertPeselAvailable(string $organizationId, ?string $hash, ?string $ignoreId): void
+    private function assertPeselAvailable(string $organizationId, ?string $normalized, ?string $ignoreId): void
     {
-        if ($hash === null) {
+        if ($normalized === null) {
             return;
         }
+        $hashes = $this->sensitiveIdentifiers->lookupHashes($normalized);
         $query = DB::table('students')
             ->where('organization_id', $organizationId)
-            ->where('pesel_lookup_hash', $hash);
+            ->whereIn('pesel_lookup_hash', $hashes);
         if ($ignoreId !== null) {
             $query->where('id', '<>', $ignoreId);
         }
