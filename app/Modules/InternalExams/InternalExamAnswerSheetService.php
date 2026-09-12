@@ -93,6 +93,9 @@ final class InternalExamAnswerSheetService
             }
 
             $binding = $this->decodeBinding($result->answer_sheet_template_binding_snapshot);
+            if ($binding['exam_part'] !== (string) $attempt->exam_part) {
+                throw ResourceDomainException::conflict('Frozen answer-sheet template binding does not match attempt exam part.');
+            }
             /** @var AnswerSheetTemplate|null $template */
             $template = DB::table('internal_exam_document_templates')->where('id', $binding['id'])->first();
             if ($template === null
