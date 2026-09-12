@@ -84,3 +84,12 @@ changed_scope:
     ui: student create and detail show explicit Learning Access dependency without fabricated login license or password state
     acceptance_test: Tests\Feature\StudentsCoursesCoreTest::test_http_student_create_and_course_create_require_idempotency_and_emit_version_etag
     status: DEFERRED_OUTSIDE_CORE_WITH_EXPLICIT_DECISION
+  - evidence: docs/08-security-compliance.md#3-RODO-prywatnosc
+    requirement: PESEL and local course-scoped PKK identity use application encryption plus a lookup HMAC key independent from APP_KEY, and lookup equality remains safe across an explicit current-plus-previous key rollover window without fabricating business-history revisions
+    domain_data: students.pesel_ciphertext + students.pesel_lookup_hash + pkk_profiles.pkk_number_ciphertext + pkk_profiles.pkk_lookup_hash
+    api_use_case: students.create/update + course_enrollments.create/update sensitive-identifier storage boundary
+    permission: existing students and courses permissions; cryptographic key material is deployment configuration and never client-controlled
+    ui: masked-only projections remain unchanged
+    acceptance_test: Tests\\Feature\\StudentsCoursesCoreTest::test_sensitive_identifier_lookup_key_is_separate_and_previous_key_blocks_duplicate_after_rotation + Tests\\Feature\\StudentsCoursesCoreTest::test_lookup_key_rotation_does_not_create_fake_pkk_identity_revision_for_same_value
+    status: IMPLEMENTED
+
