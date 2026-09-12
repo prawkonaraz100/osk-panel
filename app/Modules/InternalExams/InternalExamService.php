@@ -1053,7 +1053,9 @@ final class InternalExamService
             $maxScore = 0;
             $finalEvidence = [];
             $now = CarbonImmutable::now();
-            $templateBinding = $this->answerSheets->resolveTemplateBinding((string) $attempt->exam_part, $now);
+            $templateBinding = (string) $attempt->exam_part === 'theory'
+                ? $this->answerSheets->resolveTemplateBinding('theory', $now)
+                : null;
             foreach ($questions as $question) {
                 /** @var QuestionRow $question */
                 $ordinal = (int) $question->ordinal;
@@ -1130,7 +1132,9 @@ final class InternalExamService
                 'scoring_policy_snapshot' => json_encode($scoring, JSON_THROW_ON_ERROR),
                 'question_set_hash' => $attempt->question_set_hash,
                 'evidence_bundle_hash' => hash('sha256', $this->canonicalJson($evidenceBundle)),
-                'answer_sheet_template_binding_snapshot' => json_encode($templateBinding, JSON_THROW_ON_ERROR),
+                'answer_sheet_template_binding_snapshot' => $templateBinding === null
+                    ? null
+                    : json_encode($templateBinding, JSON_THROW_ON_ERROR),
                 'result_snapshot' => json_encode($resultSnapshot, JSON_THROW_ON_ERROR),
                 'result_snapshot_hash' => hash('sha256', $this->canonicalJson($resultSnapshot)),
                 'created_at' => $now,
@@ -1298,7 +1302,9 @@ final class InternalExamService
             $maxScore = 0;
             $finalEvidence = [];
             $now = CarbonImmutable::now();
-            $templateBinding = $this->answerSheets->resolveTemplateBinding((string) $attempt->exam_part, $now);
+            $templateBinding = (string) $attempt->exam_part === 'theory'
+                ? $this->answerSheets->resolveTemplateBinding('theory', $now)
+                : null;
             foreach ($questions as $question) {
                 /** @var QuestionRow $question */
                 $ordinal = (int) $question->ordinal;
@@ -1378,7 +1384,9 @@ final class InternalExamService
                 'scoring_policy_snapshot' => json_encode($scoring, JSON_THROW_ON_ERROR),
                 'question_set_hash' => $attempt->question_set_hash,
                 'evidence_bundle_hash' => hash('sha256', $this->canonicalJson($evidenceBundle)),
-                'answer_sheet_template_binding_snapshot' => json_encode($templateBinding, JSON_THROW_ON_ERROR),
+                'answer_sheet_template_binding_snapshot' => $templateBinding === null
+                    ? null
+                    : json_encode($templateBinding, JSON_THROW_ON_ERROR),
                 'result_snapshot' => json_encode($resultSnapshot, JSON_THROW_ON_ERROR),
                 'result_snapshot_hash' => hash('sha256', $this->canonicalJson($resultSnapshot)),
                 'created_at' => $now,
