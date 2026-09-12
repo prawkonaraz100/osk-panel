@@ -26,10 +26,4 @@ final class InternalExamAccessLinkMail extends Mailable
             text: 'mail.internal-exam-access-link',
         );
     }
-
-    /** @return array<int, \Illuminate\Mail\Mailables\Attachment> */
-    public function attachments(): array
-    {
-        return [];
-    }
 }
