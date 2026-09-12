@@ -21,6 +21,7 @@ final class InternalExamController
         private readonly InternalExamService $exams,
         private readonly InternalExamManagementService $management,
         private readonly InternalExamReadService $reads,
+        private readonly InternalExamInventoryAdjustmentService $inventoryAdjustments,
         private readonly InternalExamAnswerSheetService $answerSheets,
         private readonly InternalExamTokenService $tokens,
         private readonly ExamStationCredentialService $stationCredentials,
@@ -33,6 +34,37 @@ final class InternalExamController
     {
         return response()->json(
             $this->reads->inventory($this->sessionId($request)),
+        );
+    }
+
+    public function inventoryAdjust(Request $request): JsonResponse
+    {
+        $input = $this->validated($request, [
+            'delta' => ['required', 'integer', 'not_in:0'],
+            'reason' => ['required', 'string'],
+            'related_attempt_id' => ['sometimes', 'nullable', 'uuid'],
+        ]);
+        $relatedAttemptId = isset($input['related_attempt_id']) && is_string($input['related_attempt_id'])
+            ? $input['related_attempt_id']
+            : null;
+
+        return $this->staffCommand(
+            $request,
+            'internal_exams.inventory.adjust',
+            [
+                'delta' => (int) $input['delta'],
+                'reason' => (string) $input['reason'],
+                'related_attempt_id' => $relatedAttemptId,
+            ],
+            201,
+            'internal_exam_inventory_adjustment',
+            fn (string $sessionId): array => $this->inventoryAdjustments->adjust(
+                $sessionId,
+                (int) $input['delta'],
+                (string) $input['reason'],
+                $relatedAttemptId,
+                $this->requestId($request),
+            ),
         );
     }
 
