@@ -165,7 +165,8 @@ final class InternalExamAnswerSheetService
         object $attempt,
         object $result,
         array $binding,
-    ): array {
+    ): array
+    {
         $bytes = $this->renderFrozen($attempt, $result, $binding);
         $contentHash = hash('sha256', $bytes);
         $disk = $this->storageDisk();
@@ -235,7 +236,8 @@ final class InternalExamAnswerSheetService
         object $result,
         array $binding,
         object $document,
-    ): string {
+    ): string
+    {
         if ((string) $document->internal_exam_document_template_id !== $binding['id']
             || (string) $document->template_version_snapshot !== $binding['template_version']
             || (string) $document->renderer_version_snapshot !== $binding['renderer_version']
