@@ -76,3 +76,23 @@ Nie wolno oznaczyć PITR, object versioning lub off-site copy jako istniejące b
 Zmiana targetów na bardziej rygorystyczne nie wymaga zmiany modelu danych. Rozluźnienie targetów wymaga jawnej zmiany authority i nowego drill.
 
 Provider-specific PKK nadal pozostaje odroczony.
+
+## 9. Closure evidence
+
+Hardening H4 is closed on accepted implementation commit:
+
+- accepted commit: `46c7d9d83c558581a70a956c47c84c5b55b105b0`,
+- accepted tree: `57c618eb4128895807776b04c330958af47269b0`,
+- validation helper: `150c96756346d8a323c8e3ee03f3ccca0789df48`,
+- helper Implementation CI #260: **5/5 PASS**,
+- accepted Implementation CI #261: **5/5 PASS**,
+- accepted PostgreSQL suite: **176 tests / 2654 assertions**,
+- backend Pint + PHPStan: **PASS**,
+- frontend lint + typecheck + build + audit: **PASS**,
+- secret scan: **PASS**,
+- contracts and traceability: **PASS**.
+
+H4 defines recovery targets and required capabilities. It does **not** claim that production PITR, object versioning or off-site backup already exist. Production go-live remains blocked until the restore drill and target-infrastructure evidence pass.
+
+Next production-hardening gate: **restore drill harness and evidence contract**.
+
