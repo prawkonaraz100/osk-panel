@@ -37,8 +37,8 @@ final class InternalExamAnswerSheetRenderer
         if ($payload['renderer_version'] !== self::RENDERER_VERSION) {
             throw new InvalidArgumentException('Unsupported internal exam answer-sheet renderer version.');
         }
-        if (! preg_match('/^[a-f0-9]{64}$/', $payload['template_content_hash'])
-            || ! preg_match('/^[a-f0-9]{64}$/', $payload['evidence_bundle_hash'])) {
+        if (preg_match('/^[a-f0-9]{64}$/', $payload['template_content_hash']) !== 1
+            || preg_match('/^[a-f0-9]{64}$/', $payload['evidence_bundle_hash']) !== 1) {
             throw new InvalidArgumentException('Answer-sheet hashes must be lowercase SHA-256 values.');
         }
 
