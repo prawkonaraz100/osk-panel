@@ -1,0 +1,44 @@
+module: CommerceDashboard
+core_traceability_modules:
+  - commerce_purchase_history
+changed_scope:
+  - evidence: specs/screens/purchase-history.yml
+    requirement: Purchase History is one tenant-scoped OSK order history with immutable multi-item snapshots, separate order and booking dates, money in minor units and deterministic pagination
+    domain_data: orders + order_items + order_payment_settlements + order_fulfillments
+    api_use_case: orders.list + orders.get + purchase_history.list
+    permission: purchases.view with organization scope
+    ui: NOT_APPLICABLE_RUNTIME_GATE_UI_FOLLOWS_IN_LATER_GATE
+    acceptance_test: Tests\\Feature\\CommercePurchaseHistoryCoreTest::test_purchase_history_is_tenant_scoped_and_preserves_multi_item_snapshots
+    status: IMPLEMENTED
+  - evidence: specs/database/student-finance-commerce.yml#DB-COM-005
+    requirement: purchase status is derived from canonical payment settlement and fulfillment facts rather than a client-mutable order status label
+    domain_data: orders + payments + order_payment_settlements + order_fulfillments
+    api_use_case: orders.get + purchase_history.list
+    permission: purchases.view
+    ui: NOT_APPLICABLE_RUNTIME_GATE_UI_FOLLOWS_IN_LATER_GATE
+    acceptance_test: Tests\\Feature\\CommercePurchaseHistoryCoreTest::test_purchase_status_is_derived_from_settlement_and_fulfillment_not_raw_payment_label
+    status: IMPLEMENTED
+  - evidence: docs/17-history-purchases-screen.md#3-Potwierdzona-akcja-Opłać
+    requirement: an unpaid order can start a later tenant-authorized payment attempt using an opaque public payment reference without treating browser return or local pending state as payment confirmation
+    domain_data: payments + orders + idempotency_records + audit_logs + domain_events + outbox_messages
+    api_use_case: order_payments.create + purchase_history.pay_unpaid
+    permission: purchases.pay with organization scope
+    ui: NOT_APPLICABLE_RUNTIME_GATE_UI_FOLLOWS_IN_LATER_GATE
+    acceptance_test: Tests\\Feature\\CommercePurchaseHistoryCoreTest::test_payment_start_is_idempotent_opaque_audited_and_does_not_mark_order_paid
+    status: IMPLEMENTED
+  - evidence: specs/security/permissions.yml
+    requirement: platform purchase reads and payment starts are organization-scoped and foreign-tenant order identifiers never grant visibility or mutation authority
+    domain_data: organization_memberships + membership_permissions + membership_permission_scopes + orders
+    api_use_case: CommerceDashboardService tenant authorization
+    permission: purchases.view + purchases.pay
+    ui: NOT_APPLICABLE_RUNTIME_GATE_UI_FOLLOWS_IN_LATER_GATE
+    acceptance_test: Tests\\Feature\\CommercePurchaseHistoryCoreTest::test_cross_tenant_order_is_not_visible_and_purchase_permissions_fail_closed
+    status: IMPLEMENTED
+  - evidence: specs/database/student-finance-commerce.yml#DB-COM-002
+    requirement: this gate creates only provider-neutral pending payment attempts; provider signature verification callbacks reconciliation settlement fulfillment and network I/O remain later gates and are not fabricated
+    domain_data: payments only for newly started attempts
+    api_use_case: order_payments.create
+    permission: purchases.pay
+    ui: DEFERRED_OUTSIDE_THIS_GATE_WITHIN_SAME_CORE_SLICE
+    acceptance_test: Tests\\Feature\\CommercePurchaseHistoryCoreTest::test_payment_start_is_idempotent_opaque_audited_and_does_not_mark_order_paid
+    status: IMPLEMENTED
