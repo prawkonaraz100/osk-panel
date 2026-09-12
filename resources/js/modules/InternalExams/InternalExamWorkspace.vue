@@ -206,7 +206,10 @@ const statusOptions: Array<{ value: Subject['status']; label: string }> = [
   { value: 'passed', label: 'Zaliczony' },
 ]
 
-onMounted(load)
+onMounted(async () => {
+  await load()
+  await resumeGenerationHandoff()
+})
 
 async function load(): Promise<void> {
   loading.value = true
@@ -289,6 +292,48 @@ function openStandaloneGenerate(): void {
   resetGeneration()
   generationStep.value = 'subject'
   generateOpen.value = true
+}
+
+function openPersistentStudentCreate(): void {
+  window.location.href = '/kursanci?exam_handoff=1'
+}
+
+async function resumeGenerationHandoff(): Promise<void> {
+  const params = new URLSearchParams(window.location.search)
+  const studentId = params.get('resume_student_id')
+  if (!studentId) return
+
+  window.history.replaceState({}, '', window.location.pathname)
+  resetGeneration()
+  generationStep.value = 'subject'
+  generateOpen.value = true
+  saving.value = true
+  error.value = ''
+
+  try {
+    const query = new URLSearchParams({
+      student_id: studentId,
+      page: '1',
+      per_page: '100',
+      sort: 'student_full_name',
+      direction: 'asc',
+    })
+    const result = await api<SubjectPage>('/api/v1/internal-exam/subjects?' + query.toString())
+    standaloneOptions.value = result.data.data.filter((row) => row.assignment_eligible_now)
+
+    if (standaloneOptions.value.length === 1) {
+      await chooseStandalone(standaloneOptions.value[0]!)
+      notice.value = 'Kursant i formalny kurs zostały zapisane. Możesz skonfigurować egzamin.'
+    } else if (standaloneOptions.value.length > 1) {
+      notice.value = 'Kursant został zapisany. Wybierz kategorię i część egzaminu.'
+    } else {
+      error.value = 'Kursant został zapisany, ale nie ma obecnie kwalifikującego kontekstu egzaminacyjnego. Sprawdź kurs i wymagania szkolenia.'
+    }
+  } catch (caught: unknown) {
+    handleError(caught)
+  } finally {
+    saving.value = false
+  }
 }
 
 function resetGeneration(): void {
@@ -1249,6 +1294,18 @@ function handleError(caught: unknown): void {
                 </span>
               </button>
             </div>
+            <div class="exam-persistent-student-handoff">
+              <span class="module-note">
+                Nowy kandydat musi najpierw otrzymać trwały profil kursanta i formalny kurs.
+              </span>
+              <button
+                class="button ghost"
+                type="button"
+                @click="openPersistentStudentCreate"
+              >
+                Dodaj nowego kursanta
+              </button>
+            </div>
             <div
               v-if="standaloneSearch && standaloneOptions.length === 0 && !saving"
               class="empty-inline compact-empty"
@@ -1257,7 +1314,7 @@ function handleError(caught: unknown): void {
                 Brak kwalifikujących się kursów.
               </strong>
               <span>
-                Nowego kursanta lub kurs najpierw zapisz w module Kursanci.
+                Możesz dodać trwałego kursanta z pierwszym kursem i wrócić automatycznie do generatora.
               </span>
             </div>
           </div>
