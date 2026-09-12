@@ -323,12 +323,14 @@ final class InternalExamController
                 'internal_exams.access.send',
                 $idempotencyKey,
                 $payload,
-                fn (): array => $this->exams->failRemoteEmailDelivery(
-                    $sessionId,
-                    $accessId,
-                    $deliveryTokenId,
-                    $this->requestId($request),
-                ),
+                function () use ($sessionId, $accessId, $deliveryTokenId, $request): void {
+                    $this->exams->failRemoteEmailDelivery(
+                        $sessionId,
+                        $accessId,
+                        $deliveryTokenId,
+                        $this->requestId($request),
+                    );
+                },
             );
 
             throw $exception;
