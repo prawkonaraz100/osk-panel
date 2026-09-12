@@ -17,7 +17,7 @@ final class InternalExamAnswerSheetRenderer
     ];
 
     /**
-     * @param array{
+     * @param  array{
      *   template_version:string,
      *   renderer_version:string,
      *   template_content_hash:string,
