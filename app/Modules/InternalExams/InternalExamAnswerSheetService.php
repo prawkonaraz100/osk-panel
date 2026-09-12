@@ -22,6 +22,8 @@ final class InternalExamAnswerSheetService
 
     public const ASSET_PURPOSE = 'internal_exam_answer_sheet';
 
+    private const SUPPORTED_EXAM_PART = 'theory';
+
     public function __construct(
         private readonly InternalExamScopeAuthorizer $scope,
         private readonly InternalExamAnswerSheetRenderer $renderer,
@@ -31,6 +33,10 @@ final class InternalExamAnswerSheetService
     /** @return array{id:string,document_type:string,exam_part:string,template_version:string,renderer_version:string,template_content_hash:string} */
     public function resolveTemplateBinding(string $examPart, CarbonImmutable $finishedAt): array
     {
+        if ($examPart !== self::SUPPORTED_EXAM_PART) {
+            throw ResourceDomainException::conflict('Answer-sheet template binding is supported only for the theory exam part.');
+        }
+
         $rows = DB::table('internal_exam_document_templates')
             ->where('document_type', self::DOCUMENT_TYPE)
             ->where('exam_part', $examPart)
@@ -81,6 +87,9 @@ final class InternalExamAnswerSheetService
             }
             if (in_array((string) $attempt->status, ['passed', 'failed'], true) === false || $attempt->finished_at === null) {
                 throw ResourceDomainException::conflict('Answer sheet is available only for a finished scored attempt.');
+            }
+            if ((string) $attempt->exam_part !== self::SUPPORTED_EXAM_PART) {
+                throw ResourceDomainException::conflict('Answer sheet is available only for a finished theory attempt.');
             }
 
             /** @var AnswerSheetResult|null $result */
@@ -165,8 +174,7 @@ final class InternalExamAnswerSheetService
         object $attempt,
         object $result,
         array $binding,
-    ): array
-    {
+    ): array {
         $bytes = $this->renderFrozen($attempt, $result, $binding);
         $contentHash = hash('sha256', $bytes);
         $disk = $this->storageDisk();
@@ -236,8 +244,7 @@ final class InternalExamAnswerSheetService
         object $result,
         array $binding,
         object $document,
-    ): string
-    {
+    ): string {
         if ((string) $document->internal_exam_document_template_id !== $binding['id']
             || (string) $document->template_version_snapshot !== $binding['template_version']
             || (string) $document->renderer_version_snapshot !== $binding['renderer_version']
