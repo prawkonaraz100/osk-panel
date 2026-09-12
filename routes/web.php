@@ -4,6 +4,7 @@ use App\Modules\CalendarTraining\AvailabilitySlotController;
 use App\Modules\CalendarTraining\CalendarDrivingLessonController;
 use App\Modules\CalendarTraining\CalendarEventController;
 use App\Modules\CalendarTraining\TrainingSessionController;
+use App\Modules\CommerceDashboard\CommerceDashboardController;
 use App\Modules\InternalExams\InternalExamController;
 use App\Modules\LearningAccess\LearningAccessController;
 use App\Modules\ResourcesCore\ResourceApiMiddleware;
@@ -117,6 +118,12 @@ Route::middleware(ResourceApiMiddleware::class)->prefix('api/v1')->group(functio
     Route::patch('/calendar/events/{eventId}', [CalendarEventController::class, 'update']);
     Route::post('/calendar/events/{eventId}/cancel', [CalendarEventController::class, 'cancel']);
     Route::post('/calendar/events/{eventId}/complete', [CalendarEventController::class, 'complete']);
+
+    Route::get('/orders', [CommerceDashboardController::class, 'ordersList']);
+    Route::get('/orders/{orderId}', [CommerceDashboardController::class, 'ordersGet']);
+    Route::post('/orders/{orderId}/payments', [CommerceDashboardController::class, 'orderPaymentsCreate']);
+    Route::get('/payments', [CommerceDashboardController::class, 'paymentsList']);
+    Route::get('/purchase-history', [CommerceDashboardController::class, 'purchaseHistoryList']);
 
     Route::get('/internal-exam/inventory', [InternalExamController::class, 'inventory']);
     Route::post('/internal-exam/inventory-adjustments', [InternalExamController::class, 'inventoryAdjust']);

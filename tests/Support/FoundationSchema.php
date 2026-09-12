@@ -14,6 +14,19 @@ final class FoundationSchema
 {
     /** @var list<string> */
     private const TABLES = [
+        'notifications',
+        'organization_activity_events',
+        'activity_projection_policy_currents',
+        'activity_projection_policy_revisions',
+        'service_activations',
+        'service_entitlements',
+        'order_fulfillments',
+        'order_payment_settlements',
+        'payment_events',
+        'payments',
+        'order_items',
+        'orders',
+        'commerce_catalog_items',
         'internal_exam_documents',
         'internal_exam_results',
         'internal_exam_attempt_questions',
@@ -105,7 +118,7 @@ final class FoundationSchema
         $plan = app(MigrationPlan::class);
         $plan->validate();
 
-        if (! DB::getSchemaBuilder()->hasTable('internal_exam_documents')) {
+        if (! DB::getSchemaBuilder()->hasTable('internal_exam_documents') || ! DB::getSchemaBuilder()->hasTable('notifications')) {
             $exit = Artisan::call('migration:controlled', [
                 '--plan' => $plan->identity(),
                 '--execution' => $plan->executionIdentity(),
