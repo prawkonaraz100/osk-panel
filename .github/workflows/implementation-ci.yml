@@ -26,10 +26,7 @@ jobs:
           coverage: none
       - run: composer install --no-interaction --prefer-dist --no-progress
       - run: composer validate --strict
-      - run: |
-          vendor/bin/pint app/Modules/InternalExams/InternalExamAnswerSheetService.php
-          git diff -- app/Modules/InternalExams/InternalExamAnswerSheetService.php
-          exit 1
+      - run: vendor/bin/pint --test
       - run: vendor/bin/phpstan analyse --no-progress --memory-limit=1G
 
   frontend-quality:
