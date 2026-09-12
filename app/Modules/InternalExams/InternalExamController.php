@@ -2,6 +2,7 @@
 
 namespace App\Modules\InternalExams;
 
+use App\Mail\InternalExamAccessLinkMail;
 use App\Modules\IdentityTenant\TenantAuthorizer;
 use App\Modules\ResourcesCore\ResourceDomainException;
 use App\Modules\ResourcesCore\ResourceIdempotency;
@@ -10,6 +11,7 @@ use Illuminate\Auth\AuthenticationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -250,17 +252,29 @@ final class InternalExamController
     {
         $sessionId = $this->sessionId($request);
         $organizationId = $this->tenantAuthorizer->activeMembershipForSession($sessionId)['organization_id'];
+        /** @var array{email:string,name:string}|null $delivery */
+        $delivery = null;
+
         $result = $this->idempotency->executeWithSanitizedReplay(
             $organizationId,
             'internal_exams.access.send',
             $this->idempotencyKey($request),
             ['access_id' => $accessId],
-            function () use ($sessionId, $accessId, $request): array {
+            function () use ($sessionId, $accessId, $request, &$delivery): array {
                 $body = $this->exams->sendRemoteAccess(
                     $sessionId,
                     $accessId,
                     $this->requestId($request),
                 );
+
+                $recipientEmail = $body['delivery_recipient_email'] ?? null;
+                $recipientName = $body['delivery_recipient_name'] ?? null;
+                if (! is_string($recipientEmail) || $recipientEmail === '' || ! is_string($recipientName)) {
+                    throw new LogicException('Remote exam delivery recipient was not resolved.');
+                }
+                $delivery = ['email' => $recipientEmail, 'name' => $recipientName];
+                unset($body['delivery_recipient_email'], $body['delivery_recipient_name']);
+
                 $public = $this->publicAccessBody($body);
 
                 return [
@@ -272,6 +286,14 @@ final class InternalExamController
                 ];
             },
         );
+
+        $oneTimeUrl = $result['body']['one_time_remote_url'] ?? null;
+        if ($delivery !== null && is_string($oneTimeUrl) && $oneTimeUrl !== '') {
+            Mail::to($delivery['email'])->send(new InternalExamAccessLinkMail(
+                $delivery['name'],
+                $oneTimeUrl,
+            ));
+        }
 
         return $this->secretResponse($result['body'], $result['status']);
     }
