@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 /**
- * @phpstan-type AnswerSheetAttempt object{id:mixed,organization_id:mixed,status:mixed,finished_at:mixed,candidate_snapshot:mixed,driving_category_id:mixed,exam_part:mixed}
+ * @phpstan-type AnswerSheetAttempt object{id:mixed,organization_id:mixed,status:mixed,started_at:mixed,finished_at:mixed,candidate_snapshot:mixed,requirement_basis_snapshot:mixed,exam_part:mixed}
  * @phpstan-type AnswerSheetResult object{answer_sheet_template_binding_snapshot:mixed,evidence_bundle_hash:mixed,result_snapshot:mixed,score:mixed,max_score:mixed,passed:mixed}
  * @phpstan-type AnswerSheetTemplate object{id:mixed,document_type:mixed,exam_part:mixed,template_version:mixed,renderer_version:mixed,template_content_hash:mixed}
  * @phpstan-type AnswerSheetDocument object{id:mixed,internal_exam_document_template_id:mixed,template_version_snapshot:mixed,renderer_version_snapshot:mixed,template_hash_snapshot:mixed,evidence_bundle_hash:mixed,asset_id:mixed,content_hash:mixed}
@@ -293,11 +293,10 @@ final class InternalExamAnswerSheetService
             throw ResourceDomainException::conflict('Immutable result snapshot is invalid.');
         }
 
-        $categoryCode = DB::table('driving_categories')
-            ->where('id', $attempt->driving_category_id)
-            ->value('code');
+        $requirementBasis = json_decode((string) $attempt->requirement_basis_snapshot, true, 512, JSON_THROW_ON_ERROR);
+        $categoryCode = is_array($requirementBasis) ? ($requirementBasis['driving_category_code'] ?? null) : null;
         if (! is_string($categoryCode) || $categoryCode === '') {
-            throw ResourceDomainException::conflict('Frozen exam category reference is unavailable.');
+            throw ResourceDomainException::conflict('Frozen exam category snapshot is unavailable.');
         }
 
         $questions = DB::table('internal_exam_attempt_questions')
@@ -328,7 +327,10 @@ final class InternalExamAnswerSheetService
             ];
         }
 
-        $finishedAt = CarbonImmutable::parse((string) $attempt->finished_at);
+        if ($attempt->started_at === null) {
+            throw ResourceDomainException::conflict('Finished attempt is missing frozen exam start time.');
+        }
+        $startedAt = CarbonImmutable::parse((string) $attempt->started_at);
 
         return $this->renderer->render([
             'template_version' => $binding['template_version'],
@@ -336,7 +338,7 @@ final class InternalExamAnswerSheetService
             'template_content_hash' => $binding['template_content_hash'],
             'evidence_bundle_hash' => (string) $result->evidence_bundle_hash,
             'candidate_snapshot' => $candidate,
-            'exam_date' => $finishedAt->format('d-m-Y'),
+            'exam_date' => $startedAt->format('d-m-Y'),
             'driving_category_code' => $categoryCode,
             'exam_part' => (string) $attempt->exam_part,
             'questions' => $questionPayload,
