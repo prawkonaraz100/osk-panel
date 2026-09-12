@@ -225,28 +225,15 @@ quality_gate:
     - S5-FOUND-001
 
 next_single_step:
-  id: CORE-V1-DASHBOARD-NOTIFICATIONS-PURCHASE-HISTORY-001
-  action: diagnose_then_begin_dashboard_notifications_purchase_history_only_after_next_explicit_user_instruction
-  prerequisite_previous_slice: CORE-V1-INTERNAL-EXAMS-001_PASS
-  scope_exception:
-    module: CORE-V1-PKK-ADAPTER-001
-    status: DEFERRED_PENDING_PWPW_GUIDANCE
-    decision_doc: docs/129-pkk-deferred-pending-pwpw-guidance.md
+  id: STOP_BEFORE_HARDENING_OR_PKK
+  action: STOP_before_hardening_formal_documents_or_resuming_PKK_until_next_explicit_user_instruction
+  prerequisite_previous_slice: CORE-V1-DASHBOARD-NOTIFICATIONS-PURCHASE-HISTORY-001_PASS
   implementation_order_source: AGENTS.md_with_explicit_PKK_deferment_override
-  allowed_scope:
-    - Dashboard
-    - Notifications
-    - Purchase_History
-    - dependency_closed_migrations_for_this_slice
-    - module_API_permissions_tests_and_traceability
-    - own_UI_for_confirmed_screen_scope
-  forbidden_scope:
+  blocked_until_next_explicit_user_instruction:
+    - hardening_and_formal_documents
     - PKK_provider_runtime_or_live_integration
-    - provider_specific_PWPW_contract_assumptions
-    - later_core_modules
-    - Stage_4_authority_rewrite
-    - weakening_existing_CI_or_tenant_authority
-  after_action: run_machine_narrative_central_gate_and_STOP_before_hardening_formal_documents_or_resuming_PKK
+  PKK_resume_requires:
+    - authoritative_PWPW_guidance_or_contract
 
 CORE_V1_PKK_ADAPTER_001_deferment:
   status: DEFERRED_PENDING_PWPW_GUIDANCE
@@ -959,7 +946,7 @@ CORE_V1_INTERNAL_EXAMS_001_closure:
     next_core_slice_started: false
 
 CORE_V1_DASHBOARD_NOTIFICATIONS_PURCHASE_HISTORY_001_closure:
-  status: MACHINE_PASS_NARRATIVE_PENDING_VALIDATION
+  status: PASS
   accepted_scope:
     - Dashboard
     - Notifications
@@ -974,10 +961,8 @@ CORE_V1_DASHBOARD_NOTIFICATIONS_PURCHASE_HISTORY_001_closure:
     accepted_branch_API_contract_run: 34705218209
     machine_closure_commit: c399bb40576218777b9c7fae7acb0ee9d987cbc2
     machine_closure_validation_run: 34706166926
-    narrative_closure_candidate_commit: PENDING
-    narrative_closure_validation_run: PENDING
-    central_closure_commit: PENDING
-    central_closure_validation_run: PENDING
+    narrative_closure_candidate_commit: 543383c40dec8e24f4449aca323a0cb3a6baa44e
+    narrative_closure_validation_run: 34706481532
     helper_workflow_entered_accepted_history: false
     accepted_branch_push_secret_scan: PASS
   migration_materialization:
@@ -1081,8 +1066,8 @@ CORE_V1_DASHBOARD_NOTIFICATIONS_PURCHASE_HISTORY_001_closure:
   tranche_result:
     machine_implementation: PASS
     machine_closure: PASS
-    narrative_payload: PENDING
-    central_closure: PENDING
+    narrative_payload: PASS
+    central_closure: PASS
     next_core_slice: hardening_and_formal_documents
     next_core_slice_started: false
     PKK_resume_requires_authoritative_PWPW_guidance: true
