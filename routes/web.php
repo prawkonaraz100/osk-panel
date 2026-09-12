@@ -1,9 +1,9 @@
 <?php
 
+use App\Modules\AuditNotification\ActivityNotificationController;
 use App\Modules\CalendarTraining\AvailabilitySlotController;
 use App\Modules\CalendarTraining\CalendarDrivingLessonController;
 use App\Modules\CalendarTraining\CalendarEventController;
-use App\Modules\AuditNotification\ActivityNotificationController;
 use App\Modules\CalendarTraining\TrainingSessionController;
 use App\Modules\CommerceDashboard\CommerceDashboardController;
 use App\Modules\InternalExams\InternalExamController;
