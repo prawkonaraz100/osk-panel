@@ -1,5 +1,6 @@
 <?php
 
+use App\Modules\AuditNotification\ActivityNotificationController;
 use App\Modules\CalendarTraining\AvailabilitySlotController;
 use App\Modules\CalendarTraining\CalendarDrivingLessonController;
 use App\Modules\CalendarTraining\CalendarEventController;
@@ -124,6 +125,10 @@ Route::middleware(ResourceApiMiddleware::class)->prefix('api/v1')->group(functio
     Route::post('/orders/{orderId}/payments', [CommerceDashboardController::class, 'orderPaymentsCreate']);
     Route::get('/payments', [CommerceDashboardController::class, 'paymentsList']);
     Route::get('/purchase-history', [CommerceDashboardController::class, 'purchaseHistoryList']);
+
+    Route::get('/activity', [ActivityNotificationController::class, 'activityList']);
+    Route::get('/notifications', [ActivityNotificationController::class, 'notificationsList']);
+    Route::post('/notifications/{notificationId}/read', [ActivityNotificationController::class, 'notificationsMarkRead']);
 
     Route::get('/internal-exam/inventory', [InternalExamController::class, 'inventory']);
     Route::post('/internal-exam/inventory-adjustments', [InternalExamController::class, 'inventoryAdjust']);
