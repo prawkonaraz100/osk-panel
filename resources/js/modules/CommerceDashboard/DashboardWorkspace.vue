@@ -627,9 +627,6 @@ function messageFor(caught: unknown, fallback: string): string {
     </main>
   </div>
 </template>
-    </main>
-  </div>
-</template>
 
 <style scoped>
 .dashboard-workspace {
