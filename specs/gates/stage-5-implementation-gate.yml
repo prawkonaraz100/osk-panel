@@ -1072,6 +1072,74 @@ CORE_V1_DASHBOARD_NOTIFICATIONS_PURCHASE_HISTORY_001_closure:
     next_core_slice_started: false
     PKK_resume_requires_authoritative_PWPW_guidance: true
 
+
+HARDENING_LEGAL_CATEGORY_DICTIONARY_002_closure:
+  status: PASS
+  accepted_scope:
+    - production_driving_licence_category_dictionary
+    - tram_permit_classification_boundary
+    - reverse_engineering_PT_alias_preservation
+    - active_catalog_rule_engine_fail_closed_boundary
+  legal_authority:
+    jurisdiction: PL
+    verified_at: 2026-09-12
+    official_GovPL_category_source_checked: true
+    ISAP_DzU_2025_1226_checked: true
+    driving_licence_categories_active_count: 16
+    active_codes:
+      - AM
+      - A1
+      - A2
+      - A
+      - B1
+      - B
+      - B+E
+      - C1
+      - C
+      - C1+E
+      - C+E
+      - D1
+      - D
+      - D1+E
+      - D+E
+      - T
+    tram_entitlement:
+      official_kind: pozwolenie_na_kierowanie_tramwajem
+      separate_from_driving_licence_category: true
+      observed_alias_PT_preserved: true
+      PT_active: false
+      PT_rule_engine_eligible: false
+  provenance:
+    validation_helper_commit: 11e169ad41ce5f77f18dcba0d303cc54f857586a
+    validation_helper_tree: 2478766f1deaf0237f63549f28060f728bcff6ea
+    helper_Implementation_CI_run: 34711962625
+    helper_API_contract_run: 34711962581
+    accepted_implementation_commit: f7c531748f0fad9508c6ff881cf551d11def552b
+    accepted_implementation_tree: 2478766f1deaf0237f63549f28060f728bcff6ea
+    accepted_Implementation_CI_run: 34712120201
+    accepted_API_contract_run: 34712120198
+  executable_evidence:
+    accepted_Implementation_CI_jobs_passed: 5
+    accepted_Implementation_CI_jobs_total: 5
+    accepted_PostgreSQL_suite_tests: 169
+    accepted_PostgreSQL_suite_assertions: 2614
+    backend_static_analysis: PASS_ZERO_ERRORS
+    frontend_lint_typecheck_build_audit: PASS
+    contracts_and_traceability: PASS
+    accepted_push_secret_scan: PASS
+    exact_active_dictionary_test: PASS
+    PT_excluded_from_active_catalog_test: PASS
+  preservation:
+    observed_PT_screen_evidence_deleted: false
+    Stage_4_database_authority_rewritten: false
+    training_minimum_rules_changed: false
+    age_rules_changed: false
+    provider_specific_PKK_mapping_invented: false
+  tranche_result:
+    hardening_legal_category_dictionary: PASS
+    next_hardening_gate: privacy_retention_schedule
+    next_hardening_gate_started: false
+
 HARDENING_SENSITIVE_IDENTIFIERS_001_closure:
   status: PASS
   accepted_scope:
