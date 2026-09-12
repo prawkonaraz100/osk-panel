@@ -122,6 +122,8 @@ type CourseForm = {
 
 const pathParts = window.location.pathname.split('/').filter(Boolean)
 const detailId = pathParts[0] === 'kursanci' ? (pathParts[1] ?? null) : null
+const pageQuery = new URLSearchParams(window.location.search)
+const examHandoff = !detailId && pageQuery.get('exam_handoff') === '1'
 
 const loading = ref(false)
 const saving = ref(false)
@@ -186,7 +188,12 @@ const pageTitle = computed(() =>
   currentStudent.value ? `${currentStudent.value.first_name} ${currentStudent.value.last_name}` : 'Kursanci',
 )
 
-onMounted(load)
+onMounted(async () => {
+  await load()
+  if (examHandoff) {
+    openStudentCreate()
+  }
+})
 
 async function load(): Promise<void> {
   loading.value = true
@@ -281,6 +288,7 @@ function openStudentCreate(): void {
   editingStudent.value = false
   currentStudentEtag.value = null
   studentForm.value = emptyStudentForm()
+  studentForm.value.add_course = examHandoff
   courseForm.value = emptyCourseForm()
   drawer.value = 'student'
 }
@@ -414,6 +422,10 @@ async function saveStudent(): Promise<void> {
       return
     }
 
+    if (examHandoff && !studentForm.value.add_course) {
+      throw new Error('Egzamin formalny wymaga utworzenia kursanta razem z pierwszym kursem.')
+    }
+
     if (studentForm.value.add_course) {
       validateCourseForm(true)
       body.initial_course = coursePayload(courseForm.value, true)
@@ -426,6 +438,10 @@ async function saveStudent(): Promise<void> {
     })
     notice.value = 'Kursant został dodany.'
     closeDrawer()
+    if (examHandoff) {
+      window.location.href = '/egzamin-wewnetrzny/panel?resume_student_id=' + encodeURIComponent(result.data.id)
+      return
+    }
     window.location.href = `/kursanci/${result.data.id}`
   } catch (caught: unknown) {
     handleError(caught)
@@ -1411,14 +1427,23 @@ function handleError(caught: unknown): void {
               v-if="!editingStudent"
               class="full"
             >
-              <legend>Kurs (PKK) — opcjonalnie</legend>
+              <legend>
+                {{ examHandoff ? 'Kurs (PKK) — wymagany do egzaminu' : 'Kurs (PKK) — opcjonalnie' }}
+              </legend>
               <label class="check wide-check">
                 <input
                   v-model="studentForm.add_course"
                   type="checkbox"
+                  :disabled="examHandoff"
                 >
                 Dodaj pierwszy kurs razem z kursantem
               </label>
+              <span
+                v-if="examHandoff"
+                class="module-note"
+              >
+                Po zapisaniu trwałego kursanta i kursu wrócisz automatycznie do generatora egzaminu.
+              </span>
             </fieldset>
 
             <template v-if="!editingStudent && studentForm.add_course">

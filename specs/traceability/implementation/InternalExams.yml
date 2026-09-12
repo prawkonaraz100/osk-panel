@@ -203,3 +203,11 @@ changed_scope:
     ui: resources/js/modules/InternalExams/InternalExamWorkspace.vue and resources/js/modules/InternalExams/StudentInternalExamPanel.vue
     acceptance_test: Tests\\Feature\\InternalExamCoreTest::test_stale_prepared_remote_email_delivery_recovers_same_key_with_fresh_secret + Tests\\Feature\\InternalExamCoreTest::test_stale_prepared_delivery_does_not_revoke_newer_successful_resend
     status: IMPLEMENTED
+  - evidence: specs/screens/internal-exam-generation-access.yml
+    requirement: the standalone exam generator preserves the observed new-candidate entry capability without creating an ephemeral exam-only candidate by handing off to the canonical Student create flow with a required first formal CourseEnrollment, then returning to the exam panel and resuming generation through the exact created student UUID and current requirement/capability projection
+    domain_data: students + course_enrollments + training_requirement_profiles + internal_exam_capabilities
+    api_use_case: student_handoff
+    permission: students.create + courses.create + exams.view + exams.generate
+    ui: resources/js/modules/InternalExams/InternalExamWorkspace.vue + resources/js/modules/StudentsCourses/StudentCourseWorkspace.vue
+    acceptance_test: Tests\\Unit\\InternalExamUiContractTest::test_new_exam_candidate_handoff_uses_persistent_student_and_course_then_resumes_exact_student
+    status: SUPERSEDED_BY_OWN_PRODUCT_DECISION_WITH_EQUIVALENT_CAPABILITY

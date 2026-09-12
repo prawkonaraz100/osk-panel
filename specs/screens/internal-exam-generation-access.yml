@@ -72,6 +72,17 @@ empty_candidate_state:
     must_create_persistent_student: true
     must_create_or_attach_formal_course_enrollment: true
     must_not_create_ephemeral_exam_only_candidate: true
+    implementation:
+      entry_action: /kursanci?exam_handoff=1
+      student_create_form_reused: true
+      first_course_required_for_exam_handoff: true
+      return_route: /egzamin-wewnetrzny/panel
+      return_exact_student_query: resume_student_id
+      resume_uses_exact_student_id_projection_filter: true
+      one_eligible_context_opens_configuration_directly: true
+      multiple_eligible_contexts_require_operator_choice: true
+      zero_eligible_contexts_fail_closed_with_course_requirement_message: true
+      arbitrary_client_return_url_allowed: false
 
 candidate_selected_state:
   fields:
