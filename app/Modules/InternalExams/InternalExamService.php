@@ -1096,6 +1096,7 @@ final class InternalExamService
                 'pass_threshold' => $threshold,
                 'passed' => $passed,
                 'questions' => $finalEvidence,
+                'answer_sheet_template_binding' => $templateBinding,
             ];
             $evidenceBundle = [
                 'attempt_id' => $attemptId,
@@ -1113,6 +1114,7 @@ final class InternalExamService
                 'score' => $score,
                 'max_score' => $maxScore,
                 'passed' => $passed,
+                'answer_sheet_template_binding' => $templateBinding,
                 'finished_at' => $now->toIso8601String(),
             ];
             $resultId = (string) Str::uuid7();
@@ -1341,6 +1343,7 @@ final class InternalExamService
                 'pass_threshold' => $threshold,
                 'passed' => $passed,
                 'questions' => $finalEvidence,
+                'answer_sheet_template_binding' => $templateBinding,
             ];
             $evidenceBundle = [
                 'attempt_id' => $attemptId,
@@ -1358,6 +1361,7 @@ final class InternalExamService
                 'score' => $score,
                 'max_score' => $maxScore,
                 'passed' => $passed,
+                'answer_sheet_template_binding' => $templateBinding,
                 'finished_at' => $now->toIso8601String(),
             ];
 
