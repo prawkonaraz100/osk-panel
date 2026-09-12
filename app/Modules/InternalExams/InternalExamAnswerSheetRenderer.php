@@ -19,7 +19,7 @@ final class InternalExamAnswerSheetRenderer
         'ó' => 142, 'ś' => 143, 'ź' => 144, 'ż' => 145,
     ];
 
-    /** @param AnswerSheetRenderPayload $payload */
+    /** @param  AnswerSheetRenderPayload  $payload */
     public function render(array $payload): string
     {
         if ($payload['renderer_version'] !== self::RENDERER_VERSION) {
@@ -74,7 +74,7 @@ final class InternalExamAnswerSheetRenderer
             if ($pageIndex === count($chunks) - 1) {
                 $footerY = max(74.0, $y - 18.0);
                 $this->text($commands, 42, $footerY, 10, 'Suma punktów: '.$payload['score'].' / '.$payload['max_score'], true);
-                $this->text($commands, 330, $footerY, 10, 'Próg zaliczenia: '.($payload['passed'] ? 'SPEŁNIONY' : 'NIESPEŁNIONY'), true);
+                $this->text($commands, 330, $footerY, 10, 'Wynik egzaminu: '.($payload['passed'] ? 'POZYTYWNY' : 'NEGATYWNY'), true);
                 $this->line($commands, 58, $footerY - 42, 240, $footerY - 42);
                 $this->line($commands, 355, $footerY - 42, 537, $footerY - 42);
                 $this->text($commands, 82, $footerY - 56, 7.5, 'podpis osoby egzaminowanej');
@@ -92,7 +92,7 @@ final class InternalExamAnswerSheetRenderer
         );
     }
 
-    /** @param list<string> $commands */
+    /** @param  list<string>  $commands */
     private function tableHeader(array &$commands, float $top): void
     {
         $edges = [42.0, 70.0, 120.0, 355.0, 405.0, 480.0, 552.0];
@@ -112,8 +112,8 @@ final class InternalExamAnswerSheetRenderer
     }
 
     /**
-     * @param list<string> $commands
-     * @param array{ordinal:int,group:string,identifier:?string,max_points:int,answer:mixed,awarded_points:int} $row
+     * @param  list<string>  $commands
+     * @param  array{ordinal:int,group:string,identifier:?string,max_points:int,answer:mixed,awarded_points:int}  $row
      */
     private function tableRow(array &$commands, float $top, array $row): void
     {
@@ -132,7 +132,7 @@ final class InternalExamAnswerSheetRenderer
         $this->text($commands, 495, $top - 8.4, 6.8, (string) $row['awarded_points']);
     }
 
-    /** @param list<string> $commands */
+    /** @param  list<string>  $commands */
     private function text(array &$commands, float $x, float $y, float $size, string $value, bool $bold = false): void
     {
         $font = $bold ? 'F2' : 'F1';
@@ -146,7 +146,7 @@ final class InternalExamAnswerSheetRenderer
         );
     }
 
-    /** @param list<string> $commands */
+    /** @param  list<string>  $commands */
     private function line(array &$commands, float $x1, float $y1, float $x2, float $y2): void
     {
         $commands[] = sprintf('0.45 w %.2F %.2F m %.2F %.2F l S', $x1, $y1, $x2, $y2);
@@ -210,7 +210,7 @@ final class InternalExamAnswerSheetRenderer
         return $bytes;
     }
 
-    /** @param list<string> $streams */
+    /** @param  list<string>  $streams */
     private function buildPdf(array $streams, string $templateHash, string $evidenceHash, string $templateVersion): string
     {
         $encoding = '<< /Type /Encoding /BaseEncoding /WinAnsiEncoding /Differences ['
