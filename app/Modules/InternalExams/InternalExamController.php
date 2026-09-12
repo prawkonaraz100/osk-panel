@@ -295,8 +295,18 @@ final class InternalExamController
                     'resource_id' => $accessId,
                     'body' => $public,
                     'replay_body' => $this->withoutOneTimeValue($public, 'one_time_remote_url'),
+                    'delivery_reference' => $preparedTokenId,
                 ];
             },
+            function (string $expiredDeliveryTokenId) use ($sessionId, $accessId, $request): bool {
+                return $this->exams->recoverStaleRemoteEmailDelivery(
+                    $sessionId,
+                    $accessId,
+                    $expiredDeliveryTokenId,
+                    $this->requestId($request),
+                );
+            },
+            $this->remoteDeliveryPrepareLeaseSeconds(),
         );
 
         if ($result['replayed']) {
@@ -874,6 +884,20 @@ final class InternalExamController
         }
 
         return CarbonImmutable::now()->addMinutes($minutes);
+    }
+
+    private function remoteDeliveryPrepareLeaseSeconds(): int
+    {
+        $value = config('internal_exams.remote_delivery_prepare_lease_seconds');
+        if (! is_int($value) && ! (is_string($value) && ctype_digit($value))) {
+            throw new LogicException('Internal exam remote delivery prepare lease must be numeric.');
+        }
+        $seconds = (int) $value;
+        if ($seconds < 1) {
+            throw new LogicException('Internal exam remote delivery prepare lease must be positive.');
+        }
+
+        return $seconds;
     }
 
     /** @param  array<string,mixed>  $body
