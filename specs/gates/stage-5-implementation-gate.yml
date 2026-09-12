@@ -1073,6 +1073,61 @@ CORE_V1_DASHBOARD_NOTIFICATIONS_PURCHASE_HISTORY_001_closure:
     PKK_resume_requires_authoritative_PWPW_guidance: true
 
 
+
+HARDENING_PRIVACY_RETENTION_003_closure:
+  status: PASS
+  accepted_scope:
+    - versioned_retention_policy_per_data_class
+    - statutory_OSK_training_register_retention
+    - statutory_lesson_card_retention
+    - accounting_retention_minimum
+    - purpose_based_personal_data_retention
+    - technical_TTL_classes
+    - legal_and_incident_hold_override
+    - provider_PKK_raw_payload_collection_deferred
+  legal_authority:
+    verified_at: 2026-09-12
+    GDPR_storage_limitation: true
+    UODO_precise_retention_schedule_requirement_checked: true
+    OSK_training_register_months: 120
+    OSK_lesson_card_months: 24
+    accounting_minimum_years: 5
+  provenance:
+    validation_helper_commit: e08656115d42607a71277651b35b978b5abbd9dd
+    validation_helper_tree: 9cc5466b9a84fdd1b84be0a7b56fc8dcc699cb90
+    helper_Implementation_CI_run: 34713254902
+    accepted_implementation_commit: ecf56cc19106a4a8d37d3c79425d8b8adf5a6692
+    accepted_implementation_tree: 9cc5466b9a84fdd1b84be0a7b56fc8dcc699cb90
+    accepted_Implementation_CI_run: 34713455289
+  policy_boundary:
+    policy_version: 2026-09-12-v1
+    global_delete_everything_after_X_days: false
+    normal_application_role_may_purge: false
+    legal_hold_overrides_ordinary_retention: true
+    incident_hold_overrides_ordinary_retention: true
+    provider_specific_PKK_raw_payload_collection_allowed: false
+    retention_executor_materialized: false
+    current_gate_authorizes_destructive_migration: false
+  executable_evidence:
+    accepted_Implementation_CI_jobs_passed: 5
+    accepted_Implementation_CI_jobs_total: 5
+    accepted_PostgreSQL_suite_tests: 173
+    accepted_PostgreSQL_suite_assertions: 2635
+    backend_static_analysis: PASS_ZERO_ERRORS
+    frontend_lint_typecheck_build_audit: PASS
+    contracts_and_traceability: PASS
+    accepted_push_secret_scan: PASS
+    retention_cutoff_unit_contract: PASS
+  P0_status:
+    sensitive_identifier_key_management: PASS
+    legal_driving_entitlement_dictionary: PASS
+    privacy_retention_schedule: PASS
+    open_P0_after_H3: 0
+  tranche_result:
+    hardening_privacy_retention: PASS
+    next_production_hardening_gate: RPO_RTO_and_backup_restore_authority
+    next_production_hardening_gate_started: false
+
 HARDENING_LEGAL_CATEGORY_DICTIONARY_002_closure:
   status: PASS
   accepted_scope:

@@ -95,3 +95,23 @@ Zweryfikowane 12 września 2026:
 - executable contract: Tests\\Unit\\PrivacyRetentionPolicyTest
 
 Polityka musi być wersjonowana. Zmiana terminu nie może po cichu przepisać historycznych business facts ani ominąć legal hold.
+
+## 12. Closure evidence
+
+Hardening H3 is closed on accepted implementation commit:
+
+- accepted commit: ecf56cc19106a4a8d37d3c79425d8b8adf5a6692
+- accepted tree: 9cc5466b9a84fdd1b84be0a7b56fc8dcc699cb90
+- validation helper: e08656115d42607a71277651b35b978b5abbd9dd
+- helper Implementation CI #256: 5/5 PASS
+- accepted Implementation CI #257: 5/5 PASS
+- accepted PostgreSQL suite: 173 tests / 2635 assertions
+- backend Pint + PHPStan: PASS
+- frontend lint + typecheck + build + audit: PASS
+- secret scan: PASS
+- contracts and traceability: PASS
+
+H3 resolves the final open P0 privacy/retention schedule decision. It does not materialize the privileged retention executor and does not authorize ordinary application roles to purge retained business history.
+
+Next production-hardening tranche: RPO/RTO and backup/restore authority.
+
