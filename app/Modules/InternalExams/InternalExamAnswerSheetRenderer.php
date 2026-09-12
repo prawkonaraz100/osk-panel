@@ -36,10 +36,6 @@ final class InternalExamAnswerSheetRenderer
         while ($questions !== []) {
             $chunks[] = array_splice($questions, 0, 45);
         }
-        if ($chunks === []) {
-            $chunks = [[]];
-        }
-
         $streams = [];
         foreach ($chunks as $pageIndex => $rows) {
             $commands = [];
