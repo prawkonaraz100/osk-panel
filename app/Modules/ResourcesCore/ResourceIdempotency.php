@@ -318,7 +318,7 @@ final class ResourceIdempotency
             ];
         });
 
-        if (($outcome['kind'] ?? null) === 'superseded') {
+        if ($outcome['kind'] === 'superseded') {
             throw ResourceDomainException::conflict('Prepared secret delivery was superseded by a newer delivery command.');
         }
 
