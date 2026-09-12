@@ -166,7 +166,7 @@ final class InternalExamAnswerSheetService
      * @param  AnswerSheetAttempt  $attempt
      * @param  AnswerSheetResult  $result
      * @param  array{id:string,document_type:string,exam_part:string,template_version:string,renderer_version:string,template_content_hash:string}  $binding
-     * @return array{0:object,1:string}
+     * @return array{0:AnswerSheetDocument,1:string}
      */
     private function generateDocument(
         string $organizationId,
@@ -270,7 +270,8 @@ final class InternalExamAnswerSheetService
         $key = (string) $asset->storage_key;
         if (Storage::disk($disk)->exists($key)) {
             $bytes = Storage::disk($disk)->get($key);
-            if (hash('sha256', $bytes) !== (string) $document->content_hash
+            if ($bytes === null
+                || hash('sha256', $bytes) !== (string) $document->content_hash
                 || strlen($bytes) !== (int) $asset->size_bytes) {
                 throw ResourceDomainException::conflict('Stored answer-sheet bytes do not match immutable document hash.');
             }
