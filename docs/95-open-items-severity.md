@@ -4,13 +4,14 @@ Data: 2026-09-05
 
 ## P0 before high-risk modules
 
-- privacy/retention schedule before production go-live.
+- none.
 
 ## Resolved after consolidation
 
 - calendar conflict enforcement — rozstrzygnięte przez zamknięty Stage-4 Calendar authority i `ADR-0008`; produkcyjna aktywacja rezerwacji nadal wymaga materializacji GiST exclusion boundary zgodnie z migration phase plan.
 - sensitive identifier key-management decision — rozdzielono Laravel encryption key ring od keyed lookup HMAC ring; current lookup secret nie może być `APP_KEY`, previous lookup keys są jawnie wspierane podczas rollover, a formalna historia PKK nie jest ukrycie przepisywana; authority: `docs/131-sensitive-identifier-key-management.md`.
 - legal driving-entitlement dictionary re-verification — produkcyjny rule-engine ma dokładnie 16 aktywnych kategorii prawa jazdy; zaobserwowane `PT` pozostaje zachowane jako nieaktywny alias UI osobnego dokumentu „pozwolenie na kierowanie tramwajem”, a nie jako siedemnasta kategoria prawa jazdy; authority: `specs/legal/driving-entitlement-dictionary.yml` i `docs/132-legal-driving-entitlement-dictionary.md`.
+- privacy/retention schedule — zdefiniowano wersjonowaną politykę per data class z ustawowymi terminami OSK (10 lat / 24 miesiące), finansowym minimum 5 lat, purpose-based profile cleanup, technicznymi TTL oraz legal-hold override; authority: docs/133-privacy-retention-schedule.md, specs/privacy/retention-schedule.yml i config/retention.php.
 
 ## Deferred pending external authority
 

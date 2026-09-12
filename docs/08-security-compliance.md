@@ -61,7 +61,7 @@ PESEL, PKK i inne dane wrażliwe operacyjnie:
 
 Operacyjny kontrakt rotacji opisuje `docs/131-sensitive-identifier-key-management.md`.
 
-Przed produkcją wymagany jest jawny retention schedule per data class.
+Jawny retention schedule per data class jest zdefiniowany w docs/133-privacy-retention-schedule.md, specs/privacy/retention-schedule.yml i config/retention.php. Retention executor nie może działać bez wersji polityki, legal-hold check i dry-run evidence.
 
 ## 4. Auth / sesje
 
