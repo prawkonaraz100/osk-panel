@@ -1,0 +1,64 @@
+legal_dictionary:
+  id: driving_entitlement_dictionary_pl
+  jurisdiction: PL
+  verified_at: 2026-09-12
+  status: LEGAL_VERIFIED
+
+official_sources:
+  - authority: Ministerstwo_Infrastruktury_GovPL
+    title: Kategorie prawa jazdy
+    url: https://www.gov.pl/web/infrastruktura/kategorie-prawa-jazdy
+    checked_at: 2026-09-12
+  - authority: ISAP
+    publication: Dz.U. 2025 poz. 1226
+    title: Jednolity tekst ustawy o kierujących pojazdami
+    status_checked: obowiązujący
+    checked_at: 2026-09-12
+
+driving_licence_categories:
+  active_rule_engine_codes:
+    - AM
+    - A1
+    - A2
+    - A
+    - B1
+    - B
+    - B+E
+    - C1
+    - C
+    - C1+E
+    - C+E
+    - D1
+    - D
+    - D1+E
+    - D+E
+    - T
+  exact_active_count: 16
+
+tram:
+  legal_document_kind: tram_permit
+  official_label: Pozwolenie na kierowanie tramwajem
+  separate_from_driving_licence_category: true
+  statutory_document_reference: ustawa_o_kierujacych_pojazdami_art_16
+  observed_reference_UI_alias:
+    code: PT
+    preservation_status: USER_CONFIRMED_AUTH_SCREEN_ALIAS
+    active_in_rule_engine: false
+    exposed_by_active_driving_category_catalog: false
+    delete_from_evidence: false
+
+implementation_rules:
+  active_driving_categories_must_match_verified_list_exactly: true
+  unknown_or_inactive_category_fails_closed: true
+  PT_must_not_be_accepted_as_course_driving_category: true
+  PT_must_not_be_accepted_as_held_driving_category: true
+  PT_must_not_be_exposed_by_active_catalog: true
+  observed_PT_option_remains_preserved_in_reverse_engineering_evidence: true
+  future_tram_training_support_requires_separate_entitlement_model: true
+  do_not_reuse_driving_category_rule_engine_for_tram_without_new_legal_product_gate: true
+
+non_goals:
+  - minimum_age_rule_engine
+  - provider_PKK_category_mapping
+  - professional_driver_age_exceptions
+  - tram_training_runtime
