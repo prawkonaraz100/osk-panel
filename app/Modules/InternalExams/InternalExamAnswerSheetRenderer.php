@@ -4,6 +4,9 @@ namespace App\Modules\InternalExams;
 
 use InvalidArgumentException;
 
+/**
+ * @phpstan-type AnswerSheetRenderPayload array{template_version:string,renderer_version:string,template_content_hash:string,evidence_bundle_hash:string,candidate_snapshot:array<string,mixed>,exam_date:string,driving_category_code:string,exam_part:string,questions:list<array{ordinal:int,group:string,identifier:?string,max_points:int,answer:mixed,awarded_points:int}>,score:int,max_score:int,passed:bool}
+ */
 final class InternalExamAnswerSheetRenderer
 {
     public const RENDERER_VERSION = 'answer-sheet-v1';
@@ -16,22 +19,7 @@ final class InternalExamAnswerSheetRenderer
         'ó' => 142, 'ś' => 143, 'ź' => 144, 'ż' => 145,
     ];
 
-    /**
-     * @param  array{
-     *   template_version:string,
-     *   renderer_version:string,
-     *   template_content_hash:string,
-     *   evidence_bundle_hash:string,
-     *   candidate_snapshot:array<string,mixed>,
-     *   exam_date:string,
-     *   driving_category_code:string,
-     *   exam_part:string,
-     *   questions:list<array{ordinal:int,group:string,identifier:?string,max_points:int,answer:mixed,awarded_points:int}>,
-     *   score:int,
-     *   max_score:int,
-     *   passed:bool
-     * } $payload
-     */
+    /** @param AnswerSheetRenderPayload $payload */
     public function render(array $payload): string
     {
         if ($payload['renderer_version'] !== self::RENDERER_VERSION) {
