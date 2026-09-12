@@ -1370,6 +1370,9 @@ final class InternalExamCoreTest extends TestCase
         $this->assertSame('theory', $binding['exam_part']);
         $this->assertSame('v1', $binding['template_version']);
         $this->assertSame('answer-sheet-v1', $binding['renderer_version']);
+        $resultSnapshot = json_decode((string) $resultRow->result_snapshot, true, 512, JSON_THROW_ON_ERROR);
+        $this->assertIsArray($resultSnapshot);
+        $this->assertSame($binding, $resultSnapshot['answer_sheet_template_binding']);
 
         $first = $this->withSession(['auth_session_id' => $actor['session_id']])
             ->get("/api/v1/internal-exam-attempts/{$attempt['id']}/documents/answer-sheet.pdf");
