@@ -181,7 +181,10 @@ final class CommerceDashboardService
         ];
     }
 
-    /** @return array<string,mixed> */
+    /**
+     * @param  object{organization_id:mixed,id:mixed,order_sequence:mixed,projected_status:mixed,total_amount_minor:mixed,currency:mixed,ordered_at:mixed,booked_at:mixed}  $row
+     * @return array<string,mixed>
+     */
     private function presentOrder(object $row): array
     {
         $items = DB::table('order_items')
@@ -228,7 +231,10 @@ final class CommerceDashboardService
         ];
     }
 
-    /** @return array<string,mixed> */
+    /**
+     * @param  object{id:mixed,order_id:mixed,status:mixed,amount_minor:mixed,currency:mixed,provider:mixed,public_payment_reference:mixed,confirmed_at:mixed,created_at:mixed}  $row
+     * @return array<string,mixed>
+     */
     private function presentPayment(object $row): array
     {
         return [
@@ -272,6 +278,7 @@ final class CommerceDashboardService
         ];
     }
 
+    /** @return literal-string */
     private function purchaseStatusSql(): string
     {
         return <<<'SQL'
