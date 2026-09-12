@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Modules\InternalExams\ExamStationCredentialService;
+use App\Modules\InternalExams\InternalExamAnswerSheetService;
 use App\Modules\InternalExams\InternalExamService;
 use App\Modules\InternalExams\InternalExamTokenService;
 use App\Modules\LearningAccess\LearningAccountService;
