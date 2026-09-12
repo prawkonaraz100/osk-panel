@@ -490,9 +490,28 @@ final class InternalExamService
         string $accessId,
         string $requestId,
     ): array {
+        $prepared = $this->prepareRemoteEmailDelivery($sessionId, $accessId);
+        $confirmed = $this->confirmRemoteEmailDelivery(
+            $sessionId,
+            $accessId,
+            (string) $prepared['delivery_token_id'],
+            $requestId,
+        );
+        $confirmed['one_time_remote_token'] = $prepared['one_time_remote_token'];
+        $confirmed['delivery_recipient_email'] = $prepared['delivery_recipient_email'];
+        $confirmed['delivery_recipient_name'] = $prepared['delivery_recipient_name'];
+
+        return $confirmed;
+    }
+
+    /** @return array<string,mixed> */
+    public function prepareRemoteEmailDelivery(
+        string $sessionId,
+        string $accessId,
+    ): array {
         $actor = $this->scope->requireAccess($sessionId, 'exams.access.send', $accessId);
 
-        return DB::transaction(function () use ($actor, $accessId, $requestId): array {
+        return DB::transaction(function () use ($actor, $accessId): array {
             /** @var AccessRow|null $accessSnapshot */
             $accessSnapshot = DB::table('internal_exam_accesses')
                 ->where('organization_id', $actor['organization_id'])
@@ -551,6 +570,62 @@ final class InternalExamService
                 'rotated_for_send',
             );
 
+            $presented = $this->presentAccess($actor['organization_id'], $accessId);
+            $presented['one_time_remote_token'] = $issued['raw_token'];
+            $presented['delivery_token_id'] = $issued['token_id'];
+            $presented['delivery_recipient_email'] = $recipientEmail;
+            $presented['delivery_recipient_name'] = $recipientName;
+
+            return $presented;
+        });
+    }
+
+    /** @return array<string,mixed> */
+    public function confirmRemoteEmailDelivery(
+        string $sessionId,
+        string $accessId,
+        string $deliveryTokenId,
+        string $requestId,
+    ): array {
+        $actor = $this->scope->requireAccess($sessionId, 'exams.access.send', $accessId);
+
+        return DB::transaction(function () use ($actor, $accessId, $deliveryTokenId, $requestId): array {
+            /** @var AccessRow|null $accessSnapshot */
+            $accessSnapshot = DB::table('internal_exam_accesses')
+                ->where('organization_id', $actor['organization_id'])
+                ->where('id', $accessId)
+                ->first();
+            if ($accessSnapshot === null) {
+                throw ResourceDomainException::notFound();
+            }
+
+            $attempt = $this->lockAttempt($actor['organization_id'], (string) $accessSnapshot->internal_exam_attempt_id);
+            /** @var AccessRow $access */
+            $access = DB::table('internal_exam_accesses')
+                ->where('organization_id', $actor['organization_id'])
+                ->where('id', $accessId)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if ((string) $attempt->status !== 'created'
+                || (string) $access->launch_mode !== 'remote_link'
+                || ! in_array((string) $access->status, ['ready', 'delivered_or_assigned', 'opened'], true)) {
+                throw ResourceDomainException::conflict('Remote access is not eligible for delivery confirmation.');
+            }
+
+            $currentToken = DB::table('internal_exam_access_tokens')
+                ->where('organization_id', $actor['organization_id'])
+                ->where('internal_exam_access_id', $accessId)
+                ->where('purpose', 'exam_execution')
+                ->where('id', $deliveryTokenId)
+                ->whereNull('revoked_at')
+                ->lockForUpdate()
+                ->first();
+            if ($currentToken === null) {
+                throw ResourceDomainException::conflict('Prepared remote delivery token is no longer current.');
+            }
+
+            $now = CarbonImmutable::now();
             $afterStatus = (string) $access->status;
             if ((string) $access->status === 'ready') {
                 $afterStatus = 'delivered_or_assigned';
@@ -574,12 +649,71 @@ final class InternalExamService
                 ['fields' => ['status', 'delivery'], 'state' => $afterStatus],
             );
 
-            $presented = $this->presentAccess($actor['organization_id'], $accessId);
-            $presented['one_time_remote_token'] = $issued['raw_token'];
-            $presented['delivery_recipient_email'] = $recipientEmail;
-            $presented['delivery_recipient_name'] = $recipientName;
+            return $this->presentAccess($actor['organization_id'], $accessId);
+        });
+    }
 
-            return $presented;
+    /** @return array<string,mixed> */
+    public function failRemoteEmailDelivery(
+        string $sessionId,
+        string $accessId,
+        string $deliveryTokenId,
+        string $requestId,
+    ): array {
+        $actor = $this->scope->requireAccess($sessionId, 'exams.access.send', $accessId);
+
+        return DB::transaction(function () use ($actor, $accessId, $deliveryTokenId, $requestId): array {
+            /** @var AccessRow|null $accessSnapshot */
+            $accessSnapshot = DB::table('internal_exam_accesses')
+                ->where('organization_id', $actor['organization_id'])
+                ->where('id', $accessId)
+                ->first();
+            if ($accessSnapshot === null) {
+                throw ResourceDomainException::notFound();
+            }
+
+            $attempt = $this->lockAttempt($actor['organization_id'], (string) $accessSnapshot->internal_exam_attempt_id);
+            /** @var AccessRow $access */
+            $access = DB::table('internal_exam_accesses')
+                ->where('organization_id', $actor['organization_id'])
+                ->where('id', $accessId)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if ((string) $attempt->status !== 'created'
+                || (string) $access->launch_mode !== 'remote_link'
+                || ! in_array((string) $access->status, ['ready', 'delivered_or_assigned', 'opened'], true)) {
+                throw ResourceDomainException::conflict('Remote access is not eligible for delivery failure handling.');
+            }
+
+            $currentToken = DB::table('internal_exam_access_tokens')
+                ->where('organization_id', $actor['organization_id'])
+                ->where('internal_exam_access_id', $accessId)
+                ->where('purpose', 'exam_execution')
+                ->where('id', $deliveryTokenId)
+                ->whereNull('revoked_at')
+                ->lockForUpdate()
+                ->first();
+
+            if ($currentToken !== null) {
+                $now = CarbonImmutable::now();
+                $this->tokens->revokeExecution(
+                    $actor['organization_id'],
+                    $accessId,
+                    'mail_delivery_failed',
+                    $now,
+                );
+
+                $this->auditOutbox->recordOrganizationEvent(
+                    $actor['organization_id'], $actor['id'], $actor['user_id'],
+                    'internal_exam.access.delivery_failed', 'internal_exam_access', $accessId, $requestId,
+                    ['fields' => ['status'], 'state' => (string) $access->status],
+                    ['fields' => ['status', 'delivery'], 'state' => (string) $access->status],
+                    'mail_transport_failed',
+                );
+            }
+
+            return $this->presentAccess($actor['organization_id'], $accessId);
         });
     }
 

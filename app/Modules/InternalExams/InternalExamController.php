@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use LogicException;
+use Throwable;
 
 final class InternalExamController
 {
@@ -252,28 +253,39 @@ final class InternalExamController
     {
         $sessionId = $this->sessionId($request);
         $organizationId = $this->tenantAuthorizer->activeMembershipForSession($sessionId)['organization_id'];
+        $idempotencyKey = $this->idempotencyKey($request);
+        $payload = ['access_id' => $accessId];
+
         /** @var array{email:string,name:string}|null $delivery */
         $delivery = null;
+        $deliveryTokenId = null;
 
-        $result = $this->idempotency->executeWithSanitizedReplay(
+        $result = $this->idempotency->prepareRetryableSecretDelivery(
             $organizationId,
             'internal_exams.access.send',
-            $this->idempotencyKey($request),
-            ['access_id' => $accessId],
-            function () use ($sessionId, $accessId, $request, &$delivery): array {
-                $body = $this->exams->sendRemoteAccess(
-                    $sessionId,
-                    $accessId,
-                    $this->requestId($request),
-                );
+            $idempotencyKey,
+            $payload,
+            function () use ($sessionId, $accessId, &$delivery, &$deliveryTokenId): array {
+                $body = $this->exams->prepareRemoteEmailDelivery($sessionId, $accessId);
 
                 $recipientEmail = $body['delivery_recipient_email'] ?? null;
                 $recipientName = $body['delivery_recipient_name'] ?? null;
-                if (! is_string($recipientEmail) || $recipientEmail === '' || ! is_string($recipientName)) {
-                    throw new LogicException('Remote exam delivery recipient was not resolved.');
+                $preparedTokenId = $body['delivery_token_id'] ?? null;
+                if (! is_string($recipientEmail)
+                    || $recipientEmail === ''
+                    || ! is_string($recipientName)
+                    || ! is_string($preparedTokenId)
+                    || $preparedTokenId === '') {
+                    throw new LogicException('Remote exam delivery context was not resolved.');
                 }
+
                 $delivery = ['email' => $recipientEmail, 'name' => $recipientName];
-                unset($body['delivery_recipient_email'], $body['delivery_recipient_name']);
+                $deliveryTokenId = $preparedTokenId;
+                unset(
+                    $body['delivery_recipient_email'],
+                    $body['delivery_recipient_name'],
+                    $body['delivery_token_id'],
+                );
 
                 $public = $this->publicAccessBody($body);
 
@@ -287,15 +299,65 @@ final class InternalExamController
             },
         );
 
+        if ($result['replayed']) {
+            return $this->secretResponse($result['body'], $result['status']);
+        }
+
         $oneTimeUrl = $result['body']['one_time_remote_url'] ?? null;
-        if ($delivery !== null && is_string($oneTimeUrl) && $oneTimeUrl !== '') {
+        if ($delivery === null
+            || ! is_string($deliveryTokenId)
+            || ! is_string($oneTimeUrl)
+            || $oneTimeUrl === '') {
+            throw new LogicException('Prepared remote exam delivery is incomplete.');
+        }
+
+        try {
             Mail::to($delivery['email'])->send(new InternalExamAccessLinkMail(
                 $delivery['name'],
                 $oneTimeUrl,
             ));
+        } catch (Throwable $exception) {
+            $this->idempotency->failRetryableSecretDelivery(
+                $organizationId,
+                'internal_exams.access.send',
+                $idempotencyKey,
+                $payload,
+                function () use ($sessionId, $accessId, $deliveryTokenId, $request): void {
+                    $this->exams->failRemoteEmailDelivery(
+                        $sessionId,
+                        $accessId,
+                        $deliveryTokenId,
+                        $this->requestId($request),
+                    );
+                },
+            );
+
+            throw $exception;
         }
 
-        return $this->secretResponse($result['body'], $result['status']);
+        $confirmedPublic = $this->idempotency->completeRetryableSecretDelivery(
+            $organizationId,
+            'internal_exams.access.send',
+            $idempotencyKey,
+            $payload,
+            function () use ($sessionId, $accessId, $deliveryTokenId, $request): array {
+                $confirmed = $this->exams->confirmRemoteEmailDelivery(
+                    $sessionId,
+                    $accessId,
+                    $deliveryTokenId,
+                    $this->requestId($request),
+                );
+
+                return $this->withoutOneTimeValue(
+                    $this->publicAccessBody($confirmed),
+                    'one_time_remote_url',
+                );
+            },
+        );
+
+        $confirmedPublic['one_time_remote_url'] = $oneTimeUrl;
+
+        return $this->secretResponse($confirmedPublic, $result['status']);
     }
 
     public function accessRevoke(Request $request, string $accessId): JsonResponse

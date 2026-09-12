@@ -37,7 +37,7 @@ final class FoundationReferenceCatalogTest extends TestCase
             ->where('permission_code', 'students.view')
             ->where('scope_code', 'assigned_students')
             ->exists());
-        $this->assertSame(70, DB::table('audit_action_policy_currents')->count());
+        $this->assertSame(71, DB::table('audit_action_policy_currents')->count());
         $this->assertTrue(DB::table('audit_action_policy_currents')->where('action', 'student.created')->exists());
         $this->assertTrue(DB::table('audit_action_policy_currents')->where('action', 'course.created')->exists());
         $this->assertTrue(DB::table('audit_action_policy_currents')->where('action', 'training.session.completed')->exists());
@@ -59,6 +59,7 @@ final class FoundationReferenceCatalogTest extends TestCase
         $this->assertTrue(DB::table('audit_action_policy_currents')->where('action', 'internal_exam.attempt.created')->exists());
         $this->assertTrue(DB::table('audit_action_policy_currents')->where('action', 'internal_exam.access.created')->exists());
         $this->assertTrue(DB::table('audit_action_policy_currents')->where('action', 'internal_exam.access.sent')->exists());
+        $this->assertTrue(DB::table('audit_action_policy_currents')->where('action', 'internal_exam.access.delivery_failed')->exists());
         $this->assertTrue(DB::table('audit_action_policy_currents')->where('action', 'internal_exam.access.revoked')->exists());
         $this->assertTrue(DB::table('audit_action_policy_currents')->where('action', 'internal_exam.started')->exists());
         $this->assertTrue(DB::table('audit_action_policy_currents')->where('action', 'internal_exam.submitted')->exists());
@@ -73,6 +74,6 @@ final class FoundationReferenceCatalogTest extends TestCase
         app(FoundationReferenceCatalogSeeder::class)->run();
 
         $this->assertSame(4, DB::table('data_scopes')->count());
-        $this->assertSame(70, DB::table('audit_action_policy_currents')->count());
+        $this->assertSame(71, DB::table('audit_action_policy_currents')->count());
     }
 }

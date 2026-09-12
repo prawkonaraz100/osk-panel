@@ -132,8 +132,21 @@ launch_modes:
         recipient_resolved_under_attempt_access_lock: true
         valid_email_required_before_token_rotation: true
         rotates_execution_token_before_delivery: true
-        mail_transport_runs_after_database_commit: true
-        same_idempotency_replay_sends_second_email: false
+        idempotency_prepare_state: delivery_prepared
+        mail_transport_runs_after_database_prepare_commit: true
+        access_delivered_state_before_mail_success: false
+        sent_audit_before_mail_success: false
+        transport_failure:
+          revoke_exact_prepared_execution_token: true
+          idempotency_state: delivery_failed
+          access_status_regression: false
+          failure_audit_action: internal_exam.access.delivery_failed
+          raw_link_persisted: false
+        retry_same_idempotency_key_after_delivery_failed:
+          allowed: true
+          rotates_fresh_execution_token: true
+          sends_new_one_time_link: true
+        completed_same_idempotency_replay_sends_second_email: false
         raw_link_persisted_in_idempotency_audit_or_outbox: false
         resend_with_new_command_rotates_and_delivers_new_link: true
     email_required_at_action_time: true
