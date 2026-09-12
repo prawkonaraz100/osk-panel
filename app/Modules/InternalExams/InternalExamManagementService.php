@@ -36,6 +36,7 @@ final class InternalExamManagementService
         int $page,
         int $perPage,
         ?string $search,
+        ?string $studentId,
         array $categories,
         array $statuses,
         bool $hideFinished,
@@ -60,6 +61,10 @@ final class InternalExamManagementService
 
         if ($visibility['unrestricted'] === false) {
             $filtered->whereIn('m.student_id', $visibility['student_ids']);
+        }
+
+        if ($studentId !== null) {
+            $filtered->where('m.student_id', $studentId);
         }
 
         $search = $search === null ? null : mb_strtolower(trim($search));
