@@ -155,7 +155,7 @@ final class CommerceDashboardController
     }
 
     /**
-     * @param array<string,array<int,string>> $rules
+     * @param  array<string,array<int,string>>  $rules
      * @return array<string,mixed>
      */
     private function validated(Request $request, array $rules): array
