@@ -76,34 +76,63 @@ Nie robić w jednym deployu destrukcyjnego rename/drop dla krytycznych danych fo
 
 ## 6. Backup
 
-PostgreSQL:
-- automatyczny backup,
-- point-in-time recovery, jeśli infrastruktura pozwala,
-- szyfrowanie,
-- retencja zgodna z polityką danych.
+Authority:
+- docs/134-disaster-recovery-authority.md,
+- specs/operations/disaster-recovery.yml,
+- config/recovery.php.
 
-Object storage:
-- versioning lub odpowiednia retencja,
-- lifecycle policy,
-- ochrona przed przypadkowym masowym usunięciem.
+PostgreSQL jest źródłem prawdy dla krytycznego stanu transakcyjnego. Produkcja musi zapewnić:
+- ciągły mechanizm pozwalający osiągnąć RPO <= 5 minut dla tier-0,
+- szyfrowane backupy bazowe,
+- point-in-time restore do server-derived recovery point,
+- backup oddzielony administracyjnie od podstawowej instancji,
+- retencję backupów zgodną z privacy/retention authority,
+- brak polegania na Redis jako kopii danych biznesowych.
+
+Object storage dla formalnych załączników musi zapewnić:
+- versioning albo równoważną ochronę przed przypadkowym nadpisaniem/usunięciem,
+- mechanizm osiągający RPO <= 60 minut,
+- restore pojedynczego obiektu i wybranego zakresu,
+- niezależny lifecycle od rekordów tymczasowych.
 
 ## 7. Restore test
 
 Backup bez testu restore nie jest wystarczający.
 
-Minimum kwartalnie przed produkcyjną dojrzałością:
-- restore DB do izolowanego środowiska,
-- restore sample object assets,
-- weryfikacja spójności kluczowych rekordów,
-- czas odtworzenia zapisany w raporcie.
+Przed go-live wymagany jest udokumentowany drill:
+- PostgreSQL restore do izolowanego środowiska,
+- restore reprezentatywnego formalnego obiektu,
+- weryfikacja spójności krytycznych rekordów,
+- pomiar osiągniętego RPO i RTO,
+- potwierdzenie, że Redis/cache nie jest potrzebny do odtworzenia business authority,
+- raport z timestampami, recovery point, result i corrective actions.
+
+Po go-live drill minimum kwartalny oraz po istotnej zmianie architektury backupu.
 
 ## 8. RPO / RTO
 
-Przed go-live biznes musi zatwierdzić:
-- RPO — maksymalna akceptowalna utrata danych czasowa,
-- RTO — maksymalny czas przywrócenia usługi.
+Core-v1 recovery targets są wersjonowane w config/recovery.php.
 
-Dla krytycznych danych egzaminowych, formalnych i płatniczych wymagania powinny być bardziej restrykcyjne niż dla marketingowych assetów.
+Tier 0 — PostgreSQL business authority:
+- RPO: <= 5 minut,
+- RTO: <= 60 minut.
+
+Obejmuje co najmniej formalne kursy/godziny, egzaminy, inventory licencji/egzaminów, finanse, zamówienia/płatności, audyt i durable domain events.
+
+Tier 1 — formalne object assets:
+- RPO: <= 60 minut,
+- RTO: <= 240 minut.
+
+Tier 2 — rebuildable projections:
+- RPO: nie jest liczone jako utrata business authority, jeśli projekcja może być deterministycznie odtworzona z zachowanego źródła,
+- RTO: <= 240 minut.
+
+Redis/cache:
+- nie jest durable authority,
+- po awarii może zostać odtworzony pusty,
+- żadna formalna operacja nie może wymagać odzyskania stanu wyłącznie z Redis.
+
+Cele mogą być zaostrzone przez biznes przed go-live. Ich rozluźnienie wymaga jawnej zmiany authority i ponownego restore drill.
 
 ## 9. Observability
 

@@ -1,0 +1,81 @@
+meta:
+  id: core_v1_disaster_recovery_authority
+  policy_version: 2026-09-13-v1
+  status: PRE_PRODUCTION_AUTHORITY
+
+principles:
+  backup_without_restore_drill_is_not_proven: true
+  redis_is_not_business_authority: true
+  rebuildable_projection_is_not_business_authority: true
+  source_of_truth_backup_is_encrypted: true
+  backup_copy_outside_primary_failure_domain_required: true
+  production_go_live_requires_restore_drill: true
+  drill_interval_days: 90
+  target_relaxation_requires_new_authority_and_drill: true
+
+tiers:
+  tier0_postgresql_business_authority:
+    rpo_minutes: 5
+    rto_minutes: 60
+    source_of_truth: true
+    required:
+      - encrypted_base_backup
+      - continuous_or_equivalent_PITR_capability
+      - off_primary_failure_domain_copy
+      - isolated_restore
+    scope:
+      - formal_training
+      - training_hour_ledger
+      - internal_exams
+      - inventory
+      - student_finance
+      - platform_commerce
+      - audit
+      - durable_domain_events
+  tier1_formal_object_assets:
+    rpo_minutes: 60
+    rto_minutes: 240
+    source_of_truth: true
+    required:
+      - versioning_or_equivalent
+      - encryption
+      - single_object_restore
+      - scoped_bulk_restore
+  tier2_rebuildable_projections:
+    rpo_minutes: null
+    rto_minutes: 240
+    source_of_truth: false
+    rebuild_source_required: true
+  ephemeral_redis:
+    rpo_minutes: null
+    rto_minutes: 30
+    source_of_truth: false
+    restore_from_backup_required: false
+    may_restart_empty: true
+  application_release_artifact:
+    rpo_minutes: 0
+    rto_minutes: 60
+    source_of_truth: false
+
+restore_drill_acceptance:
+  isolated_environment: required
+  database_restore: required
+  representative_formal_object_restore: required
+  critical_integrity_assertions: required
+  measured_recovery_point: required
+  measured_restore_duration: required
+  redis_empty_recovery_test: required
+  report: required
+  failure_requires_corrective_action: true
+
+current_state:
+  production_infrastructure_mechanism_verified: false
+  restore_drill_executed: false
+  RPO_RTO_targets_defined: true
+  production_go_live_allowed: false
+
+non_goals:
+  - select_cloud_vendor
+  - claim_PITR_exists_before_infrastructure_evidence
+  - claim_object_versioning_exists_before_infrastructure_evidence
+  - provider_PKK_recovery
