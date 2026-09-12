@@ -1321,6 +1321,10 @@ final class InternalExamCoreTest extends TestCase
         $this->examFixtures($actor, $course);
         $station = $this->station($actor);
         $service = app(InternalExamService::class);
+        $unsupportedPart = $this->captureDomainException(
+            fn () => app(InternalExamAnswerSheetService::class)->resolveTemplateBinding('practical', CarbonImmutable::now()),
+        );
+        $this->assertSame('RESOURCE_VERSION_CONFLICT', $unsupportedPart->machineCode);
 
         $attempt = $service->createAttempt(
             $actor['session_id'],
