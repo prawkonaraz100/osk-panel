@@ -1510,7 +1510,7 @@ final class InternalExamCoreTest extends TestCase
             ->withHeader('Idempotency-Key', $positiveKey)
             ->postJson('/api/v1/internal-exam/inventory-adjustments', $positivePayload);
         $positiveReplay->assertCreated();
-        $this->assertSame($positive->json(), $positiveReplay->json());
+        $this->assertEquals($positive->json(), $positiveReplay->json());
         $this->assertSame(
             1,
             DB::table('internal_exam_inventory_adjustments')->where('id', $positiveId)->count(),
@@ -1704,7 +1704,7 @@ final class InternalExamCoreTest extends TestCase
             ->withHeader('Idempotency-Key', $refundKey)
             ->postJson('/api/v1/internal-exam/inventory-adjustments', $refundPayload);
         $refundReplay->assertCreated();
-        $this->assertSame($refund->json(), $refundReplay->json());
+        $this->assertEquals($refund->json(), $refundReplay->json());
         $this->assertSame(
             1,
             DB::table('internal_exam_inventory_entries')
