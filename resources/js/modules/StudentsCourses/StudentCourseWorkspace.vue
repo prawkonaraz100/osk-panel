@@ -4,6 +4,7 @@ import { ApiError, api } from '../ResourcesCore/api'
 import CourseFormFields from './CourseFormFields.vue'
 import StudentFinancePanel from './StudentFinancePanel.vue'
 import StudentLearningAccessPanel from '../LearningAccess/StudentLearningAccessPanel.vue'
+import StudentInternalExamPanel from '../InternalExams/StudentInternalExamPanel.vue'
 
 type CourseSummary = {
   id: string
@@ -140,6 +141,7 @@ const meta = ref<Paginated<StudentPreview>['meta']>({ page: 1, per_page: 25, tot
 const currentStudent = ref<Student | null>(null)
 const currentStudentEtag = ref<string | null>(null)
 const currentCourses = ref<Course[]>([])
+const detailTab = ref<'profile' | 'internal_exam'>('profile')
 
 const categories = ref<Category[]>([])
 const locations = ref<LocationResource[]>([])
@@ -1136,26 +1138,37 @@ function handleError(caught: unknown): void {
           role="tablist"
         >
           <button
-            class="active"
+            :class="{ active: detailTab === 'profile' }"
             type="button"
+            role="tab"
+            :aria-selected="detailTab === 'profile'"
+            @click="detailTab = 'profile'"
           >
             Profil kursanta
           </button>
           <button
+            :class="{ active: detailTab === 'internal_exam' }"
             type="button"
-            disabled
+            role="tab"
+            :aria-selected="detailTab === 'internal_exam'"
+            @click="detailTab = 'internal_exam'"
           >
             Egzamin wewnętrzny
           </button>
           <button
             type="button"
+            role="tab"
+            aria-selected="false"
             disabled
           >
             Postęp
           </button>
         </div>
 
-        <div class="detail-grid">
+        <div
+          v-if="detailTab === 'profile'"
+          class="detail-grid"
+        >
           <section class="detail-card">
             <div class="card-heading">
               <div><span class="section-kicker">Dane kursanta</span><h2>Profil</h2></div>
@@ -1175,7 +1188,10 @@ function handleError(caught: unknown): void {
           />
         </div>
 
-        <section class="detail-card">
+        <section
+          v-if="detailTab === 'profile'"
+          class="detail-card"
+        >
           <div class="card-heading split">
             <div><span class="section-kicker">Kursy · PKK</span><h2>Kursy kursanta</h2></div>
             <button
@@ -1271,18 +1287,21 @@ function handleError(caught: unknown): void {
         </section>
 
         <StudentFinancePanel
+          v-if="detailTab === 'profile'"
           :student-id="currentStudent.id"
           :courses="currentCourses"
           :archived="Boolean(currentStudent.archived_at)"
         />
 
-        <div class="detail-grid single-deferred-card">
-          <section class="detail-card muted-module-card">
-            <span class="section-kicker">Egzamin i postęp</span>
-            <h2>Kolejne moduły</h2>
-            <p>Wyniki egzaminu wewnętrznego i postęp nauki mają własne źródła danych i zostaną dołączone bez dublowania stanu.</p>
-          </section>
-        </div>
+        <StudentInternalExamPanel
+          v-if="detailTab === 'internal_exam'"
+          :student-id="currentStudent.id"
+          :student-name="`${currentStudent.first_name} ${currentStudent.last_name}`"
+          :student-email="currentStudent.contact_email"
+          :pesel-masked="currentStudent.pesel_masked"
+          :archived="Boolean(currentStudent.archived_at)"
+          :courses="currentCourses"
+        />
       </template>
 
       <div
