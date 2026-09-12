@@ -35,7 +35,7 @@ final class RestoreDrillHarnessContractTest extends TestCase
         $this->assertStringContainsString('redis-cli FLUSHALL', $script);
 
         $this->assertStringContainsString('putBucketVersioning', $objectScript);
-        $this->assertStringContainsString("'VersionId' => $versionOneId", $objectScript);
+        $this->assertStringContainsString("'VersionId' => \$versionOneId", $objectScript);
         $this->assertStringContainsString("'production_target_evidence' => false", $objectScript);
     }
 }
