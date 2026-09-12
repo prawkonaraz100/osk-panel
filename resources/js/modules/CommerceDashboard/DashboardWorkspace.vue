@@ -193,147 +193,374 @@ function messageFor(caught: unknown, fallback: string): string {
 </script>
 
 <template>
-  <div class="app-shell dashboard-shell">
-    <aside class="sidebar">
-      <a class="brand" href="/">
+  <div
+    class="app-shell dashboard-shell"
+  >
+    <aside
+      class="sidebar"
+    >
+      <a
+        class="brand"
+        href="/"
+      >
         OSK
-        <strong>Panel</strong>
+        <strong>
+          Panel
+        </strong>
       </a>
 
-      <nav class="main-nav" aria-label="Główna nawigacja">
-        <a class="active" href="/">Panel główny</a>
-        <a href="/kursanci">Kursanci</a>
-        <a href="/licencje/panel">Licencje</a>
-        <a href="/egzamin-wewnetrzny/panel">Egzaminy</a>
-        <a href="/kalendarz">Kalendarz</a>
-        <a href="/lokalizacje">Lokalizacje</a>
-        <a href="/pracownicy">Pracownicy</a>
-        <a href="/pojazdy">Pojazdy</a>
+      <nav
+        class="main-nav"
+        aria-label="Główna nawigacja"
+      >
+        <a
+          class="active"
+          href="/"
+        >
+          Panel główny
+        </a>
+        <a
+          href="/kursanci"
+        >
+          Kursanci
+        </a>
+        <a
+          href="/licencje/panel"
+        >
+          Licencje
+        </a>
+        <a
+          href="/egzamin-wewnetrzny/panel"
+        >
+          Egzaminy
+        </a>
+        <a
+          href="/kalendarz"
+        >
+          Kalendarz
+        </a>
+        <a
+          href="/lokalizacje"
+        >
+          Lokalizacje
+        </a>
+        <a
+          href="/pracownicy"
+        >
+          Pracownicy
+        </a>
+        <a
+          href="/pojazdy"
+        >
+          Pojazdy
+        </a>
       </nav>
 
-      <div class="sidebar-foot">Stage 5 · Core v1</div>
+      <div
+        class="sidebar-foot"
+      >
+        Stage 5 · Core v1
+      </div>
     </aside>
 
-    <main class="workspace dashboard-workspace">
-      <header class="workspace-header dashboard-header">
+    <main
+      class="workspace dashboard-workspace"
+    >
+      <header
+        class="workspace-header dashboard-header"
+      >
         <div>
-          <div class="eyebrow">PrawkoNaRaz · OSK</div>
-          <h1>Panel główny</h1>
-          <p>Najważniejsze informacje z Twojej szkoły w jednym miejscu.</p>
+          <div
+            class="eyebrow"
+          >
+            PrawkoNaRaz · OSK
+          </div>
+          <h1>
+            Panel główny
+          </h1>
+          <p>
+            Najważniejsze informacje z Twojej szkoły w jednym miejscu.
+          </p>
         </div>
       </header>
 
-      <div v-if="error" class="notice error" role="alert">
-        <span>{{ error }}</span>
-        <button type="button" aria-label="Zamknij komunikat" @click="error = ''">×</button>
+      <div
+        v-if="error"
+        class="notice error"
+        role="alert"
+      >
+        <span>
+          {{ error }}
+        </span>
+        <button
+          type="button"
+          aria-label="Zamknij komunikat"
+          @click="error = ''"
+        >
+          ×
+        </button>
       </div>
 
-      <div v-if="loading" class="loading-card">
+      <div
+        v-if="loading"
+        class="loading-card"
+      >
         Ładowanie panelu głównego…
       </div>
 
-      <template v-else-if="data">
-        <section class="dashboard-top-grid" aria-label="Podsumowanie">
-          <article class="dashboard-card metric-card">
-            <div class="dashboard-card-head">
+      <template
+        v-else-if="data"
+      >
+        <section
+          class="dashboard-top-grid"
+          aria-label="Podsumowanie"
+        >
+          <article
+            class="dashboard-card metric-card"
+          >
+            <div
+              class="dashboard-card-head"
+            >
               <div>
-                <span class="section-kicker">Dostępy do nauki</span>
-                <h2>Licencje</h2>
+                <span
+                  class="section-kicker"
+                >
+                  Dostępy do nauki
+                </span>
+                <h2>
+                  Licencje
+                </h2>
               </div>
-              <a class="text-link strong" href="/licencje/panel">Więcej</a>
+              <a
+                class="text-link strong"
+                href="/licencje/panel"
+              >
+                Więcej
+              </a>
             </div>
 
-            <div class="metric-pair">
+            <div
+              class="metric-pair"
+            >
               <div>
-                <strong>{{ data.licenses.active_count }}</strong>
-                <span>Aktywne licencje</span>
+                <strong>
+                  {{ data.licenses.active_count }}
+                </strong>
+                <span>
+                  Aktywne licencje
+                </span>
               </div>
               <div>
-                <strong>{{ data.licenses.available_count }}</strong>
-                <span>Dostępne licencje</span>
+                <strong>
+                  {{ data.licenses.available_count }}
+                </strong>
+                <span>
+                  Dostępne licencje
+                </span>
               </div>
             </div>
 
-            <div class="dashboard-actions">
-              <a class="button primary" href="/licencje/panel">Przydziel licencję</a>
-              <a class="button ghost" href="/licencje/panel">Zarządzaj licencjami</a>
+            <div
+              class="dashboard-actions"
+            >
+              <a
+                class="button primary"
+                href="/licencje/panel"
+              >
+                Przydziel licencję
+              </a>
+              <a
+                class="button ghost"
+                href="/licencje/panel"
+              >
+                Zarządzaj licencjami
+              </a>
             </div>
           </article>
 
-          <article class="dashboard-card metric-card">
-            <div class="dashboard-card-head">
+          <article
+            class="dashboard-card metric-card"
+          >
+            <div
+              class="dashboard-card-head"
+            >
               <div>
-                <span class="section-kicker">Egzaminy wewnętrzne</span>
-                <h2>Egzaminy</h2>
+                <span
+                  class="section-kicker"
+                >
+                  Egzaminy wewnętrzne
+                </span>
+                <h2>
+                  Egzaminy
+                </h2>
               </div>
-              <a class="text-link strong" href="/egzamin-wewnetrzny/panel">Więcej</a>
+              <a
+                class="text-link strong"
+                href="/egzamin-wewnetrzny/panel"
+              >
+                Więcej
+              </a>
             </div>
 
-            <div class="exam-metric">
-              <strong>{{ data.internal_exams.available_count }}</strong>
-              <span>Dostępne egzaminy</span>
+            <div
+              class="exam-metric"
+            >
+              <strong>
+                {{ data.internal_exams.available_count }}
+              </strong>
+              <span>
+                Dostępne egzaminy
+              </span>
             </div>
 
-            <div class="dashboard-actions">
-              <a class="button primary" href="/egzamin-wewnetrzny/panel">Przeprowadź egzamin</a>
-              <a class="button ghost" href="/egzamin-wewnetrzny/panel">Panel egzaminów</a>
+            <div
+              class="dashboard-actions"
+            >
+              <a
+                class="button primary"
+                href="/egzamin-wewnetrzny/panel"
+              >
+                Przeprowadź egzamin
+              </a>
+              <a
+                class="button ghost"
+                href="/egzamin-wewnetrzny/panel"
+              >
+                Panel egzaminów
+              </a>
             </div>
           </article>
         </section>
 
-        <section class="dashboard-bottom-grid">
-          <article class="dashboard-card activity-card">
-            <div class="dashboard-card-head">
+        <section
+          class="dashboard-bottom-grid"
+        >
+          <article
+            class="dashboard-card activity-card"
+          >
+            <div
+              class="dashboard-card-head"
+            >
               <div>
-                <span class="section-kicker">Aktywność OSK</span>
-                <h2>Powiadomienia</h2>
+                <span
+                  class="section-kicker"
+                >
+                  Aktywność OSK
+                </span>
+                <h2>
+                  Powiadomienia
+                </h2>
               </div>
             </div>
 
-            <div v-if="data.activity.length" class="activity-feed">
+            <div
+              v-if="data.activity.length"
+              class="activity-feed"
+            >
               <article
                 v-for="item in data.activity"
                 :key="item.id"
                 class="activity-item"
               >
-                <span class="activity-dot" aria-hidden="true" />
+                <span
+                  class="activity-dot"
+                  aria-hidden="true"
+                />
                 <div>
-                  <strong>{{ item.description }}</strong>
+                  <strong>
+                    {{ item.description }}
+                  </strong>
                   <p>
-                    <span>{{ activityDate(item.timestamp) }}</span>
-                    <span v-if="item.actor_display_name"> · przez {{ item.actor_display_name }}</span>
+                    <span>
+                      {{ activityDate(item.timestamp) }}
+                    </span>
+                    <span
+                      v-if="item.actor_display_name"
+                    >
+                      · przez {{ item.actor_display_name }}
+                    </span>
                   </p>
                 </div>
               </article>
             </div>
 
-            <div v-else class="dashboard-empty">
+            <div
+              v-else
+              class="dashboard-empty"
+            >
               Brak nowych zdarzeń w aktywności organizacji.
             </div>
           </article>
 
-          <article class="dashboard-card calendar-card">
-            <div class="dashboard-card-head calendar-card-head">
+          <article
+            class="dashboard-card calendar-card"
+          >
+            <div
+              class="dashboard-card-head calendar-card-head"
+            >
               <div>
-                <span class="section-kicker">Plan pracy</span>
-                <h2>Kalendarz</h2>
+                <span
+                  class="section-kicker"
+                >
+                  Plan pracy
+                </span>
+                <h2>
+                  Kalendarz
+                </h2>
               </div>
-              <div class="dashboard-actions compact">
-                <a class="button ghost" href="/kalendarz">Pełny kalendarz</a>
-                <a class="button primary" href="/kalendarz?action=create">Dodaj wydarzenie</a>
+              <div
+                class="dashboard-actions compact"
+              >
+                <a
+                  class="button ghost"
+                  href="/kalendarz"
+                >
+                  Pełny kalendarz
+                </a>
+                <a
+                  class="button primary"
+                  href="/kalendarz?action=create"
+                >
+                  Dodaj wydarzenie
+                </a>
               </div>
             </div>
 
-            <div class="dashboard-calendar-toolbar">
-              <div class="period-nav">
-                <button type="button" aria-label="Poprzedni okres" @click="navigateCalendar(-1)">←</button>
-                <button type="button" @click="calendarToday">Dzisiaj</button>
-                <button type="button" aria-label="Następny okres" @click="navigateCalendar(1)">→</button>
+            <div
+              class="dashboard-calendar-toolbar"
+            >
+              <div
+                class="period-nav"
+              >
+                <button
+                  type="button"
+                  aria-label="Poprzedni okres"
+                  @click="navigateCalendar(-1)"
+                >
+                  ←
+                </button>
+                <button
+                  type="button"
+                  @click="calendarToday"
+                >
+                  Dzisiaj
+                </button>
+                <button
+                  type="button"
+                  aria-label="Następny okres"
+                  @click="navigateCalendar(1)"
+                >
+                  →
+                </button>
               </div>
 
-              <strong>{{ periodLabel }}</strong>
+              <strong>
+                {{ periodLabel }}
+              </strong>
 
-              <div class="view-switch">
+              <div
+                class="view-switch"
+              >
                 <button
                   type="button"
                   :class="{ active: calendarView === 'month' }"
@@ -358,30 +585,48 @@ function messageFor(caught: unknown, fallback: string): string {
               </div>
             </div>
 
-            <div v-if="calendarLoading" class="dashboard-empty">
+            <div
+              v-if="calendarLoading"
+              class="dashboard-empty"
+            >
               Odświeżanie kalendarza…
             </div>
 
-            <div v-else-if="calendarEvents.length" class="dashboard-agenda">
+            <div
+              v-else-if="calendarEvents.length"
+              class="dashboard-agenda"
+            >
               <article
                 v-for="item in calendarEvents.slice(0, 12)"
                 :key="item.id"
                 class="dashboard-event"
               >
-                <time>{{ eventDate(item) }}</time>
+                <time>
+                  {{ eventDate(item) }}
+                </time>
                 <div>
-                  <strong>{{ eventTitle(item) }}</strong>
-                  <span>{{ item.event_type }}</span>
+                  <strong>
+                    {{ eventTitle(item) }}
+                  </strong>
+                  <span>
+                    {{ item.event_type }}
+                  </span>
                 </div>
               </article>
             </div>
 
-            <div v-else class="dashboard-empty">
+            <div
+              v-else
+              class="dashboard-empty"
+            >
               Brak zaplanowanych wydarzeń w tym okresie.
             </div>
           </article>
         </section>
       </template>
+    </main>
+  </div>
+</template>
     </main>
   </div>
 </template>
