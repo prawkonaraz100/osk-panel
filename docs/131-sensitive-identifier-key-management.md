@@ -95,3 +95,30 @@ Hardening tests verify:
 - the rollover does not create a fake PKK identity revision.
 
 This document resolves the key-management design blocker in `docs/95-open-items-severity.md`; privacy/retention, legal category re-verification, backup/restore and business RPO/RTO remain separate production-hardening gates.
+
+## 8. Accepted implementation evidence
+
+Clean accepted hardening commit:
+
+`d25c1dbf9020bbee529c1df689993ec48aff5fda`
+
+Exact tree:
+
+`4579add17af634fcdbdc0a4df1b249d36e9fd3cd`
+
+Accepted validation:
+
+- Implementation CI `34708710575` — **5/5 PASS**,
+- PostgreSQL — **168 tests / 2604 assertions — PASS**,
+- API Contract Gate `34708710604` — **PASS**,
+- Pint / PHPStan — PASS,
+- frontend lint / typecheck / build / audit — PASS,
+- contracts-and-traceability — PASS,
+- accepted-push secret scan — PASS.
+
+Final result:
+
+`HARDENING-SENSITIVE-IDENTIFIERS-001 = PASS`
+
+The next P0 hardening gate is legal category dictionary re-verification. Privacy/retention remains a separate production hardening gate. Provider-backed PKK remains deferred pending authoritative PWPW guidance.
+

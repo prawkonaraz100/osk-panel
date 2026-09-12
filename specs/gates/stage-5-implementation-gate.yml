@@ -1072,6 +1072,59 @@ CORE_V1_DASHBOARD_NOTIFICATIONS_PURCHASE_HISTORY_001_closure:
     next_core_slice_started: false
     PKK_resume_requires_authoritative_PWPW_guidance: true
 
+HARDENING_SENSITIVE_IDENTIFIERS_001_closure:
+  status: PASS
+  accepted_scope:
+    - PESEL_application_encryption_boundary
+    - local_course_scoped_PKK_identity_encryption_boundary
+    - lookup_HMAC_key_separation_from_APP_KEY
+    - current_plus_previous_lookup_key_rollover
+    - documented_encryption_key_rollover_via_APP_PREVIOUS_KEYS
+    - fail_closed_secret_configuration
+  provenance:
+    accepted_implementation_commit: d25c1dbf9020bbee529c1df689993ec48aff5fda
+    accepted_implementation_tree: 4579add17af634fcdbdc0a4df1b249d36e9fd3cd
+    helper_validation_run: 34708545520
+    helper_API_contract_run: 34708545534
+    accepted_branch_implementation_run: 34708710575
+    accepted_branch_API_contract_run: 34708710604
+  cryptographic_boundary:
+    recoverable_identifier_encryption: Laravel_application_encrypter
+    encryption_current_key: APP_KEY
+    encryption_previous_key_ring: APP_PREVIOUS_KEYS
+    lookup_current_key: SENSITIVE_IDENTIFIER_LOOKUP_KEY
+    lookup_previous_key_ring: SENSITIVE_IDENTIFIER_PREVIOUS_LOOKUP_KEYS
+    current_lookup_key_may_equal_APP_KEY: false
+    current_lookup_key_minimum_secret_material_bytes: 32
+    plain_SHA256_lookup: forbidden
+    new_writes_use_current_lookup_key_only: true
+    equality_and_collision_checks_use_current_plus_previous_ring: true
+    implicit_fallback_to_APP_KEY_for_lookup: false
+  formal_history:
+    PKK_business_identity_revision_created_only_due_to_lookup_key_rotation: false
+    hidden_bulk_rewrite_of_formal_PKK_history: false
+    future_bulk_rekey_requires_separate_reviewed_audited_maintenance_design: true
+  executable_evidence:
+    accepted_Implementation_CI_jobs_passed: 5
+    accepted_Implementation_CI_jobs_total: 5
+    accepted_PostgreSQL_suite_tests: 168
+    accepted_PostgreSQL_suite_assertions: 2604
+    accepted_API_contract_gate: PASS
+    backend_static_analysis: PASS_ZERO_ERRORS
+    frontend_lint_typecheck_build_audit: PASS
+    contracts_and_traceability: PASS
+    accepted_push_secret_scan: PASS
+  exclusions:
+    provider_backed_PKK_runtime: DEFERRED_PENDING_PWPW_GUIDANCE
+    provider_credentials_and_signatures: NOT_IMPLEMENTED
+    privacy_retention_schedule: OPEN_SEPARATE_HARDENING_GATE
+    legal_category_dictionary_reverification: OPEN_SEPARATE_HARDENING_GATE
+    business_RPO_RTO_approval: OPEN_SEPARATE_PRODUCTION_GATE
+  tranche_result:
+    hardening_sensitive_identifiers: PASS
+    next_hardening_gate: legal_category_dictionary_reverification
+    next_hardening_gate_started: false
+
 S5_BOOT_001_closure:
   status: PASS
   accepted_scope: application_bootstrap_only
