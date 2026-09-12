@@ -15,4 +15,6 @@ jobs:
           php-version: '8.5'
       - run: composer install --no-interaction --prefer-dist --no-progress
       - name: Show Pint diff
-        run: vendor/bin/pint --test --diff app/Modules/CommerceDashboard/CommerceDashboardController.php || true
+        run: |
+          vendor/bin/pint app/Modules/CommerceDashboard/CommerceDashboardController.php
+          git diff -- app/Modules/CommerceDashboard/CommerceDashboardController.php
