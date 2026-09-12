@@ -637,98 +637,210 @@ function handleError(caught: unknown): void {
 <template>
   <div class="app-shell">
     <aside class="sidebar">
-      <a class="brand" href="/">
+      <a
+        class="brand"
+        href="/"
+      >
         OSK
-        <strong>Panel</strong>
+        <strong>
+          Panel
+        </strong>
       </a>
-      <nav class="main-nav" aria-label="Główna nawigacja">
-        <a href="/kursanci">Kursanci</a>
-        <a href="/lokalizacje">Lokalizacje</a>
-        <a href="/pracownicy">Pracownicy</a>
-        <a href="/pojazdy">Pojazdy</a>
-        <a href="/kalendarz">Kalendarz</a>
-        <a href="/licencje/panel">Licencje</a>
-        <a href="/egzamin-wewnetrzny/panel" class="active">Egzaminy</a>
+      <nav
+        class="main-nav"
+        aria-label="Główna nawigacja"
+      >
+        <a
+          href="/kursanci"
+        >
+          Kursanci
+        </a>
+        <a
+          href="/lokalizacje"
+        >
+          Lokalizacje
+        </a>
+        <a
+          href="/pracownicy"
+        >
+          Pracownicy
+        </a>
+        <a
+          href="/pojazdy"
+        >
+          Pojazdy
+        </a>
+        <a
+          href="/kalendarz"
+        >
+          Kalendarz
+        </a>
+        <a
+          href="/licencje/panel"
+        >
+          Licencje
+        </a>
+        <a
+          href="/egzamin-wewnetrzny/panel"
+          class="active"
+        >Egzaminy</a>
       </nav>
-      <div class="sidebar-foot">Stage 5 · Core v1</div>
+      <div
+        class="sidebar-foot"
+      >
+        Stage 5 · Core v1
+      </div>
     </aside>
 
     <main class="workspace">
       <header class="workspace-header">
         <div>
-          <div class="eyebrow">PrawkoNaRaz · OSK</div>
-          <h1>Egzaminy wewnętrzne</h1>
+          <div
+            class="eyebrow"
+          >
+            PrawkoNaRaz · OSK
+          </div>
+          <h1>
+            Egzaminy wewnętrzne
+          </h1>
         </div>
         <div class="header-actions">
-          <button class="button ghost" type="button" @click="openPurchaseDeferred">
+          <button
+            class="button ghost"
+            type="button"
+            @click="openPurchaseDeferred"
+          >
             Wykup egzaminy
           </button>
-          <button class="button primary" type="button" @click="openStandaloneGenerate">
+          <button
+            class="button primary"
+            type="button"
+            @click="openStandaloneGenerate"
+          >
             Generuj egzamin
           </button>
         </div>
       </header>
 
-      <div v-if="notice" class="notice success" role="status">
+      <div
+        v-if="notice"
+        class="notice success"
+        role="status"
+      >
         {{ notice }}
       </div>
-      <div v-if="error" class="notice error" role="alert">
+      <div
+        v-if="error"
+        class="notice error"
+        role="alert"
+      >
         {{ error }}
       </div>
-      <div v-if="loading" class="loading-card">
+      <div
+        v-if="loading"
+        class="loading-card"
+      >
         Ładowanie egzaminów…
       </div>
 
       <template v-else>
         <section class="exam-summary-grid">
           <article class="exam-summary-card">
-            <span>Dostępne</span>
-            <strong>{{ inventory?.summary.available_total ?? 0 }}</strong>
-            <small>wszystkie jednostki</small>
+            <span>
+              Dostępne
+            </span>
+            <strong>
+              {{ inventory?.summary.available_total ?? 0 }}
+            </strong>
+            <small>
+              wszystkie jednostki
+            </small>
           </article>
           <article class="exam-summary-card">
-            <span>Darmowe</span>
-            <strong>{{ inventory?.summary.available_by_source_type.free ?? 0 }}</strong>
-            <small>dostępne teraz</small>
+            <span>
+              Darmowe
+            </span>
+            <strong>
+              {{ inventory?.summary.available_by_source_type.free ?? 0 }}
+            </strong>
+            <small>
+              dostępne teraz
+            </small>
           </article>
           <article class="exam-summary-card">
-            <span>Opłacone</span>
-            <strong>{{ inventory?.summary.available_by_source_type.paid ?? 0 }}</strong>
-            <small>dostępne teraz</small>
+            <span>
+              Opłacone
+            </span>
+            <strong>
+              {{ inventory?.summary.available_by_source_type.paid ?? 0 }}
+            </strong>
+            <small>
+              dostępne teraz
+            </small>
           </article>
           <article class="exam-summary-card">
-            <span>Korekty</span>
-            <strong>{{ inventory?.summary.available_by_source_type.adjustment ?? 0 }}</strong>
-            <small>dostępne teraz</small>
+            <span>
+              Korekty
+            </span>
+            <strong>
+              {{ inventory?.summary.available_by_source_type.adjustment ?? 0 }}
+            </strong>
+            <small>
+              dostępne teraz
+            </small>
           </article>
         </section>
 
         <section class="exam-stat-strip">
           <div>
-            <span>Kursanci / wymagania</span>
-            <strong>{{ meta.statistics.subject_count }}</strong>
+            <span>
+              Kursanci / wymagania
+            </span>
+            <strong>
+              {{ meta.statistics.subject_count }}
+            </strong>
           </div>
           <div>
-            <span>Próby</span>
-            <strong>{{ meta.statistics.exam_count }}</strong>
+            <span>
+              Próby
+            </span>
+            <strong>
+              {{ meta.statistics.exam_count }}
+            </strong>
           </div>
           <div>
-            <span>Zaliczone</span>
-            <strong>{{ meta.statistics.passed_count }}</strong>
+            <span>
+              Zaliczone
+            </span>
+            <strong>
+              {{ meta.statistics.passed_count }}
+            </strong>
           </div>
           <div>
-            <span>Niezaliczone</span>
-            <strong>{{ meta.statistics.failed_count }}</strong>
+            <span>
+              Niezaliczone
+            </span>
+            <strong>
+              {{ meta.statistics.failed_count }}
+            </strong>
           </div>
           <div>
-            <span>Zdawalność</span>
-            <strong>{{ percent(meta.statistics.pass_rate) }}</strong>
+            <span>
+              Zdawalność
+            </span>
+            <strong>
+              {{ percent(meta.statistics.pass_rate) }}
+            </strong>
           </div>
         </section>
 
         <section class="toolbar exam-toolbar">
           <div>
-            <span class="section-kicker">Przypisane egzaminy</span>
+            <span
+              class="section-kicker"
+            >
+              Przypisane egzaminy
+            </span>
             <p class="section-description">
               Wiersz pokazuje kurs i część egzaminu, a historia prób pozostaje rozwijana osobno.
             </p>
@@ -740,37 +852,100 @@ function handleError(caught: unknown): void {
               placeholder="Imię, nazwisko, e-mail lub login…"
               @keyup.enter="applyFilters"
             >
-            <button class="button ghost" type="button" @click="filterOpen = !filterOpen">
+            <button
+              class="button ghost"
+              type="button"
+              @click="filterOpen = !filterOpen"
+            >
               Filtry
             </button>
-            <select v-model="sort" @change="applyFilters">
-              <option value="latest_exam_at">Data egzaminu</option>
-              <option value="identity_or_login">E-mail / login</option>
-              <option value="student_full_name">Kursant</option>
-              <option value="latest_exam_category">Kategoria</option>
-              <option value="latest_exam_status">Status</option>
-              <option value="latest_exam_language">Język</option>
-              <option value="exam_count">Liczba prób</option>
+            <select
+              v-model="sort"
+              @change="applyFilters"
+            >
+              <option
+                value="latest_exam_at"
+              >
+                Data egzaminu
+              </option>
+              <option
+                value="identity_or_login"
+              >
+                E-mail / login
+              </option>
+              <option
+                value="student_full_name"
+              >
+                Kursant
+              </option>
+              <option
+                value="latest_exam_category"
+              >
+                Kategoria
+              </option>
+              <option
+                value="latest_exam_status"
+              >
+                Status
+              </option>
+              <option
+                value="latest_exam_language"
+              >
+                Język
+              </option>
+              <option
+                value="exam_count"
+              >
+                Liczba prób
+              </option>
             </select>
-            <select v-model="direction" @change="applyFilters">
-              <option value="desc">Malejąco</option>
-              <option value="asc">Rosnąco</option>
+            <select
+              v-model="direction"
+              @change="applyFilters"
+            >
+              <option
+                value="desc"
+              >
+                Malejąco
+              </option>
+              <option
+                value="asc"
+              >
+                Rosnąco
+              </option>
             </select>
             <label class="check">
-              <input v-model="hideFinished" type="checkbox" @change="applyFilters">
+              <input
+                v-model="hideFinished"
+                type="checkbox"
+                @change="applyFilters"
+              >
               Ukryj zakończone
             </label>
-            <button class="button primary compact-button" type="button" @click="applyFilters">
+            <button
+              class="button primary compact-button"
+              type="button"
+              @click="applyFilters"
+            >
               Szukaj
             </button>
           </div>
         </section>
 
-        <section v-if="filterOpen" class="filter-panel exam-filter-panel">
+        <section
+          v-if="filterOpen"
+          class="filter-panel exam-filter-panel"
+        >
           <div class="filter-block">
-            <strong>Kategoria kursu</strong>
+            <strong>
+              Kategoria kursu
+            </strong>
             <div class="exam-chip-row">
-              <label v-for="category in categoryOptions" :key="category" class="exam-chip">
+              <label
+                v-for="category in categoryOptions"
+                :key="category"
+                class="exam-chip"
+              >
                 <input
                   type="checkbox"
                   :checked="selectedCategories.includes(category)"
@@ -778,13 +953,22 @@ function handleError(caught: unknown): void {
                 >
                 {{ category }}
               </label>
-              <span v-if="categoryOptions.length === 0" class="module-note">Brak kategorii w bieżącym wyniku.</span>
+              <span
+                v-if="categoryOptions.length === 0"
+                class="module-note"
+              >Brak kategorii w bieżącym wyniku.</span>
             </div>
           </div>
           <div class="filter-block">
-            <strong>Status</strong>
+            <strong>
+              Status
+            </strong>
             <div class="exam-chip-row">
-              <label v-for="option in statusOptions" :key="option.value" class="exam-chip">
+              <label
+                v-for="option in statusOptions"
+                :key="option.value"
+                class="exam-chip"
+              >
                 <input
                   type="checkbox"
                   :checked="selectedStatuses.includes(option.value)"
@@ -795,10 +979,18 @@ function handleError(caught: unknown): void {
             </div>
           </div>
           <div class="form-actions">
-            <button class="button ghost" type="button" @click="selectedCategories = []; selectedStatuses = []; applyFilters()">
+            <button
+              class="button ghost"
+              type="button"
+              @click="selectedCategories = []; selectedStatuses = []; applyFilters()"
+            >
               Wyczyść
             </button>
-            <button class="button primary" type="button" @click="applyFilters">
+            <button
+              class="button primary"
+              type="button"
+              @click="applyFilters"
+            >
               Zastosuj
             </button>
           </div>
@@ -808,33 +1000,67 @@ function handleError(caught: unknown): void {
           <table class="exam-table">
             <thead>
               <tr>
-                <th>Kursant</th>
-                <th>Kategoria</th>
-                <th>Część</th>
-                <th>Ostatni egzamin</th>
-                <th>Status</th>
-                <th>Język</th>
-                <th>Próby</th>
+                <th>
+                  Kursant
+                </th>
+                <th>
+                  Kategoria
+                </th>
+                <th>
+                  Część
+                </th>
+                <th>
+                  Ostatni egzamin
+                </th>
+                <th>
+                  Status
+                </th>
+                <th>
+                  Język
+                </th>
+                <th>
+                  Próby
+                </th>
                 <th />
               </tr>
             </thead>
             <tbody>
-              <template v-for="row in rows" :key="row.course_enrollment_id + ':' + row.exam_part">
+              <template
+                v-for="row in rows"
+                :key="row.course_enrollment_id + ':' + row.exam_part"
+              >
                 <tr>
                   <td>
-                    <strong>{{ row.full_name }}</strong>
-                    <small>{{ row.email ?? row.login ?? 'Brak e-mail/loginu' }}</small>
+                    <strong>
+                      {{ row.full_name }}
+                    </strong>
+                    <small>
+                      {{ row.email ?? row.login ?? 'Brak e-mail/loginu' }}
+                    </small>
                   </td>
-                  <td>{{ row.latest_exam_category ?? row.course_category }}</td>
-                  <td>{{ partLabel(row.exam_part) }}</td>
-                  <td>{{ formatDate(row.latest_exam_at) }}</td>
                   <td>
-                    <span class="status-pill" :class="{ muted: row.status === 'not_assigned' || row.status === 'not_conducted' }">
+                    {{ row.latest_exam_category ?? row.course_category }}
+                  </td>
+                  <td>
+                    {{ partLabel(row.exam_part) }}
+                  </td>
+                  <td>
+                    {{ formatDate(row.latest_exam_at) }}
+                  </td>
+                  <td>
+                    <span
+                      class="status-pill"
+                      :class="{ muted: row.status === 'not_assigned' || row.status === 'not_conducted' }"
+                    >
                       {{ statusLabel(row.status) }}
                     </span>
                   </td>
-                  <td>{{ row.latest_exam_language?.toUpperCase() ?? '—' }}</td>
-                  <td>{{ row.exam_count }}</td>
+                  <td>
+                    {{ row.latest_exam_language?.toUpperCase() ?? '—' }}
+                  </td>
+                  <td>
+                    {{ row.exam_count }}
+                  </td>
                   <td class="actions-column">
                     <button
                       v-if="row.assignment_eligible_now"
@@ -844,7 +1070,11 @@ function handleError(caught: unknown): void {
                     >
                       Generuj
                     </button>
-                    <button class="text-button" type="button" @click="toggleHistory(row)">
+                    <button
+                      class="text-button"
+                      type="button"
+                      @click="toggleHistory(row)"
+                    >
                       {{ expandedCourseId === row.course_enrollment_id ? 'Zwiń' : 'Historia' }}
                     </button>
                   </td>
@@ -868,13 +1098,24 @@ function handleError(caught: unknown): void {
                             {{ attempt.driving_category_code }} · {{ attempt.language_code.toUpperCase() }} · {{ formatDate(attempt.finished_at ?? attempt.started_at ?? attempt.created_at) }}
                           </span>
                         </div>
-                        <button class="text-button strong" type="button" @click="openAttemptDetails(attempt.id)">
+                        <button
+                          class="text-button strong"
+                          type="button"
+                          @click="openAttemptDetails(attempt.id)"
+                        >
                           Szczegóły
                         </button>
                       </div>
-                      <div v-if="(history[row.course_enrollment_id] ?? []).length === 0" class="empty-inline compact-empty">
-                        <strong>Brak prób egzaminacyjnych.</strong>
-                        <span>Możesz wygenerować pierwszą próbę dla tego kursu.</span>
+                      <div
+                        v-if="(history[row.course_enrollment_id] ?? []).length === 0"
+                        class="empty-inline compact-empty"
+                      >
+                        <strong>
+                          Brak prób egzaminacyjnych.
+                        </strong>
+                        <span>
+                          Możesz wygenerować pierwszą próbę dla tego kursu.
+                        </span>
                       </div>
                     </div>
                   </td>
@@ -883,8 +1124,12 @@ function handleError(caught: unknown): void {
               <tr v-if="rows.length === 0">
                 <td colspan="8">
                   <div class="empty-inline">
-                    <strong>Brak wyników dla wybranych filtrów.</strong>
-                    <span>Zmień wyszukiwanie albo statusy.</span>
+                    <strong>
+                      Brak wyników dla wybranych filtrów.
+                    </strong>
+                    <span>
+                      Zmień wyszukiwanie albo statusy.
+                    </span>
                   </div>
                 </td>
               </tr>
@@ -893,31 +1138,65 @@ function handleError(caught: unknown): void {
         </section>
 
         <div class="pagination-row">
-          <span>Strona {{ meta.page }} z {{ meta.last_page }} · {{ meta.total }} pozycji</span>
+          <span>
+            Strona {{ meta.page }} z {{ meta.last_page }} · {{ meta.total }} pozycji
+          </span>
           <div class="row-actions">
-            <button class="button ghost" type="button" :disabled="meta.page <= 1" @click="goToPage(meta.page - 1)">
+            <button
+              class="button ghost"
+              type="button"
+              :disabled="meta.page <= 1"
+              @click="goToPage(meta.page - 1)"
+            >
               Poprzednia
             </button>
-            <button class="button ghost" type="button" :disabled="meta.page >= meta.last_page" @click="goToPage(meta.page + 1)">
+            <button
+              class="button ghost"
+              type="button"
+              :disabled="meta.page
+            >= meta.last_page" @click="goToPage(meta.page + 1)">
               Następna
             </button>
           </div>
         </div>
       </template>
 
-      <div v-if="generateOpen" class="drawer-backdrop" @click.self="generateOpen = false">
-        <section class="drawer exam-drawer" role="dialog" aria-modal="true" aria-label="Generuj egzamin wewnętrzny">
+      <div
+        v-if="generateOpen"
+        class="drawer-backdrop"
+        @click.self="generateOpen = false"
+      >
+        <section
+          class="drawer exam-drawer"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Generuj egzamin wewnętrzny"
+        >
           <header class="drawer-header">
             <div>
-              <span class="section-kicker">Egzamin wewnętrzny</span>
-              <h2>Generuj egzamin</h2>
+              <span
+                class="section-kicker"
+              >
+                Egzamin wewnętrzny
+              </span>
+              <h2>
+                Generuj egzamin
+              </h2>
             </div>
-            <button class="icon-button" type="button" aria-label="Zamknij" @click="generateOpen = false">
+            <button
+              class="icon-button"
+              type="button"
+              aria-label="Zamknij"
+              @click="generateOpen = false"
+            >
               ×
             </button>
           </header>
 
-          <div v-if="generationStep === 'subject'" class="exam-drawer-stack">
+          <div
+            v-if="generationStep === 'subject'"
+            class="exam-drawer-stack"
+          >
             <p class="module-note">
               Wyszukaj istniejącego kursanta. Formalna próba zawsze pozostaje powiązana z trwałym kursem.
             </p>
@@ -928,7 +1207,12 @@ function handleError(caught: unknown): void {
                 placeholder="Imię, nazwisko, e-mail lub login…"
                 @keyup.enter="searchStandalone"
               >
-              <button class="button primary" type="button" :disabled="saving" @click="searchStandalone">
+              <button
+                class="button primary"
+                type="button"
+                :disabled="saving"
+                @click="searchStandalone"
+              >
                 Szukaj
               </button>
             </div>
@@ -940,19 +1224,37 @@ function handleError(caught: unknown): void {
                 type="button"
                 @click="chooseStandalone(option)"
               >
-                <strong>{{ option.full_name }}</strong>
-                <span>{{ option.course_category }} · {{ partLabel(option.exam_part) }} · {{ option.email ?? option.login ?? 'bez e-mail/loginu' }}</span>
+                <strong>
+                  {{ option.full_name }}
+                </strong>
+                <span>
+                  {{ option.course_category }} · {{ partLabel(option.exam_part) }} · {{ option.email ?? option.login ?? 'bez e-mail/loginu' }}
+                </span>
               </button>
             </div>
-            <div v-if="standaloneSearch && standaloneOptions.length === 0 && !saving" class="empty-inline compact-empty">
-              <strong>Brak kwalifikujących się kursów.</strong>
-              <span>Nowego kursanta lub kurs najpierw zapisz w module Kursanci.</span>
+            <div
+              v-if="standaloneSearch && standaloneOptions.length === 0 && !saving"
+              class="empty-inline compact-empty"
+            >
+              <strong>
+                Brak kwalifikujących się kursów.
+              </strong>
+              <span>
+                Nowego kursanta lub kurs najpierw zapisz w module Kursanci.
+              </span>
             </div>
           </div>
 
-          <div v-else-if="generationStep === 'configure' && generationSubject" class="exam-drawer-stack">
+          <div
+            v-else-if="generationStep === 'configure' && generationSubject"
+            class="exam-drawer-stack"
+          >
             <section class="drawer-section">
-              <span class="section-kicker">Kandydat</span>
+              <span
+                class="section-kicker"
+              >
+                Kandydat
+              </span>
               <dl class="details-list">
                 <div><dt>Kursant</dt><dd>{{ generationSubject.full_name }}</dd></div>
                 <div><dt>Kategoria</dt><dd>{{ generationSubject.course_category }}</dd></div>
@@ -961,17 +1263,31 @@ function handleError(caught: unknown): void {
               </dl>
             </section>
             <label>Język egzaminu
-              <select v-model="languageCode" :disabled="saving">
-                <option v-for="language in capability?.languages ?? []" :key="language" :value="language">
+              <select
+                v-model="languageCode"
+                :disabled="saving"
+              >
+                <option
+                  v-for="language in capability?.languages ?? []"
+                  :key="language"
+                  :value="language"
+                >
                   {{ language.toUpperCase() }}
                 </option>
               </select>
             </label>
-            <p v-if="capability && capability.languages.length === 0" class="notice error">
+            <p
+              v-if="capability && capability.languages.length === 0"
+              class="notice error"
+            >
               Brak aktywnej capability językowej dla tej kategorii i części.
             </p>
             <div class="form-actions">
-              <button class="button ghost" type="button" @click="generationStep = 'subject'; generationSubject = null">
+              <button
+                class="button ghost"
+                type="button"
+                @click="generationStep = 'subject'; generationSubject = null"
+              >
                 Wróć
               </button>
               <button
@@ -985,65 +1301,140 @@ function handleError(caught: unknown): void {
             </div>
           </div>
 
-          <div v-else-if="generationStep === 'launch' && generatedAttempt" class="exam-drawer-stack">
+          <div
+            v-else-if="generationStep === 'launch' && generatedAttempt"
+            class="exam-drawer-stack"
+          >
             <section class="drawer-section">
-              <span class="section-kicker">Dane kandydata w tej próbie</span>
+              <span
+                class="section-kicker"
+              >
+                Dane kandydata w tej próbie
+              </span>
               <div class="form-grid compact-form-grid">
                 <label>Imię
-                  <input v-model="candidateForm.first_name" maxlength="120">
+                  <input
+                    v-model="candidateForm.first_name"
+                    maxlength="120"
+                  >
                 </label>
                 <label>Nazwisko
-                  <input v-model="candidateForm.last_name" maxlength="120">
+                  <input
+                    v-model="candidateForm.last_name"
+                    maxlength="120"
+                  >
                 </label>
                 <label>E-mail
-                  <input v-model="candidateForm.contact_email" type="email" maxlength="320">
+                  <input
+                    v-model="candidateForm.contact_email"
+                    type="email"
+                    maxlength="320"
+                  >
                 </label>
                 <label>Data urodzenia
-                  <input v-model="candidateForm.birth_date" type="date">
+                  <input
+                    v-model="candidateForm.birth_date"
+                    type="date"
+                  >
                 </label>
                 <label class="check full">
-                  <input v-model="candidateForm.no_pesel_declared" type="checkbox">
+                  <input
+                    v-model="candidateForm.no_pesel_declared"
+                    type="checkbox"
+                  >
                   Brak numeru PESEL
                 </label>
               </div>
               <div class="form-actions">
-                <button class="button ghost" type="button" :disabled="saving" @click="saveCandidateSnapshot">
+                <button
+                  class="button ghost"
+                  type="button"
+                  :disabled="saving"
+                  @click="saveCandidateSnapshot"
+                >
                   Zapisz dane próby
                 </button>
               </div>
             </section>
 
             <section class="drawer-section">
-              <span class="section-kicker">Sposób przeprowadzenia</span>
+              <span
+                class="section-kicker"
+              >
+                Sposób przeprowadzenia
+              </span>
               <div class="exam-launch-options">
                 <label>
-                  <input v-model="launchMode" type="radio" value="remote_link">
-                  <strong>Link zdalny</strong>
-                  <span>Kandydat otrzymuje jednorazowy link. Sekret nie jest odzyskiwalny z bazy.</span>
+                  <input
+                    v-model="launchMode"
+                    type="radio"
+                    value="remote_link"
+                  >
+                  <strong>
+                    Link zdalny
+                  </strong>
+                  <span>
+                    Kandydat otrzymuje jednorazowy link. Sekret nie jest odzyskiwalny z bazy.
+                  </span>
                 </label>
                 <label>
-                  <input v-model="launchMode" type="radio" value="local_current_workstation">
-                  <strong>Ta stacja</strong>
-                  <span>Stacja jest identyfikowana wyłącznie przez aktualne poświadczenie urządzenia.</span>
+                  <input
+                    v-model="launchMode"
+                    type="radio"
+                    value="local_current_workstation"
+                  >
+                  <strong>
+                    Ta stacja
+                  </strong>
+                  <span>
+                    Stacja jest identyfikowana wyłącznie przez aktualne poświadczenie urządzenia.
+                  </span>
                 </label>
                 <label>
-                  <input v-model="launchMode" type="radio" value="assigned_exam_station">
-                  <strong>Wybrana stacja</strong>
-                  <span>Przypisz próbę do dostępnej stacji i uwierzytelnij ją przy starcie.</span>
+                  <input
+                    v-model="launchMode"
+                    type="radio"
+                    value="assigned_exam_station"
+                  >
+                  <strong>
+                    Wybrana stacja
+                  </strong>
+                  <span>
+                    Przypisz próbę do dostępnej stacji i uwierzytelnij ją przy starcie.
+                  </span>
                 </label>
               </div>
 
               <template v-if="launchMode === 'remote_link'">
                 <div class="form-actions">
-                  <button class="button primary" type="button" :disabled="saving || Boolean(createdAccess)" @click="createRemoteAccess">
+                  <button
+                    class="button primary"
+                    type="button"
+                    :disabled="saving || Boolean(createdAccess)"
+                    @click="createRemoteAccess"
+                  >
                     {{ saving ? 'Generowanie…' : 'Wygeneruj link' }}
                   </button>
                 </div>
-                <div v-if="oneTimeRemoteUrl" class="secret-handoff exam-link-handoff">
-                  <span>Jednorazowy link do przekazania kandydatowi</span>
-                  <input :value="oneTimeRemoteUrl" readonly>
-                  <small>Po zamknięciu tego widoku system nie odtworzy jawnego tokenu.</small>
-                  <button class="button ghost" type="button" @click="copyRemoteUrl">
+                <div
+                  v-if="oneTimeRemoteUrl"
+                  class="secret-handoff exam-link-handoff"
+                >
+                  <span>
+                    Jednorazowy link do przekazania kandydatowi
+                  </span>
+                  <input
+                    :value="oneTimeRemoteUrl"
+                    readonly
+                  >
+                  <small>
+                    Po zamknięciu tego widoku system nie odtworzy jawnego tokenu.
+                  </small>
+                  <button
+                    class="button ghost"
+                    type="button"
+                    @click="copyRemoteUrl"
+                  >
                     Kopiuj link
                   </button>
                 </div>
@@ -1052,8 +1443,16 @@ function handleError(caught: unknown): void {
               <template v-else>
                 <label v-if="launchMode === 'assigned_exam_station'">Stacja
                   <select v-model="selectedStationId">
-                    <option value="">Wybierz stację</option>
-                    <option v-for="station in availableStations" :key="station.id" :value="station.id">
+                    <option
+                      value=""
+                    >
+                      Wybierz stację
+                    </option>
+                    <option
+                      v-for="station in availableStations"
+                      :key="station.id"
+                      :value="station.id"
+                    >
                       {{ station.id.slice(0, 8) }} · {{ station.connectivity }} · {{ station.occupancy }}
                     </option>
                   </select>
@@ -1070,7 +1469,12 @@ function handleError(caught: unknown): void {
                   Poświadczenie służy tylko do bieżącego żądania i nie jest zapisywane w stanie domenowym.
                 </p>
                 <div class="form-actions">
-                  <button class="button primary" type="button" :disabled="saving" @click="createAndStartLocal">
+                  <button
+                    class="button primary"
+                    type="button"
+                    :disabled="saving"
+                    @click="createAndStartLocal"
+                  >
                     {{ saving ? 'Uruchamianie…' : 'Utwórz dostęp i uruchom egzamin' }}
                   </button>
                 </div>
@@ -1080,14 +1484,34 @@ function handleError(caught: unknown): void {
         </section>
       </div>
 
-      <div v-if="detailsOpen && selectedAttempt" class="drawer-backdrop" @click.self="detailsOpen = false">
-        <section class="drawer exam-drawer" role="dialog" aria-modal="true" aria-label="Szczegóły egzaminu">
+      <div
+        v-if="detailsOpen && selectedAttempt"
+        class="drawer-backdrop"
+        @click.self="detailsOpen = false"
+      >
+        <section
+          class="drawer exam-drawer"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Szczegóły egzaminu"
+        >
           <header class="drawer-header">
             <div>
-              <span class="section-kicker">Próba #{{ selectedAttempt.course_attempt_sequence }}</span>
-              <h2>Szczegóły egzaminu</h2>
+              <span
+                class="section-kicker"
+              >
+                Próba #{{ selectedAttempt.course_attempt_sequence }}
+              </span>
+              <h2>
+                Szczegóły egzaminu
+              </h2>
             </div>
-            <button class="icon-button" type="button" aria-label="Zamknij" @click="detailsOpen = false">
+            <button
+              class="icon-button"
+              type="button"
+              aria-label="Zamknij"
+              @click="detailsOpen = false"
+            >
               ×
             </button>
           </header>
@@ -1103,10 +1527,22 @@ function handleError(caught: unknown): void {
             </dl>
           </section>
 
-          <section v-if="selectedResult" class="drawer-section">
-            <span class="section-kicker">Wynik</span>
-            <div class="exam-result-card" :class="{ passed: selectedResult.passed }">
-              <strong>{{ selectedResult.passed ? 'Zaliczony' : 'Niezaliczony' }}</strong>
+          <section
+            v-if="selectedResult"
+            class="drawer-section"
+          >
+            <span
+              class="section-kicker"
+            >
+              Wynik
+            </span>
+            <div
+              class="exam-result-card"
+              :class="{ passed: selectedResult.passed }"
+            >
+              <strong>
+                {{ selectedResult.passed ? 'Zaliczony' : 'Niezaliczony' }}
+              </strong>
               <span>
                 {{ selectedResult.score ?? '—' }} / {{ selectedResult.max_score ?? '—' }}
                 · próg {{ selectedResult.pass_threshold ?? '—' }}
@@ -1122,8 +1558,15 @@ function handleError(caught: unknown): void {
             </button>
           </section>
 
-          <section v-if="selectedQuestions.length" class="drawer-section">
-            <span class="section-kicker">Przegląd pytań</span>
+          <section
+            v-if="selectedQuestions.length"
+            class="drawer-section"
+          >
+            <span
+              class="section-kicker"
+            >
+              Przegląd pytań
+            </span>
             <div class="exam-question-list">
               <article
                 v-for="question in selectedQuestions"
@@ -1131,10 +1574,16 @@ function handleError(caught: unknown): void {
                 class="exam-question-card"
               >
                 <div>
-                  <strong>{{ questionTitle(question) }}</strong>
-                  <span>{{ question.group === 'basic' ? 'Podstawowe' : 'Specjalistyczne' }}</span>
+                  <strong>
+                    {{ questionTitle(question) }}
+                  </strong>
+                  <span>
+                    {{ question.group === 'basic' ? 'Podstawowe' : 'Specjalistyczne' }}
+                  </span>
                 </div>
-                <p>{{ answerText(question.candidate_answer) }}</p>
+                <p>
+                  {{ answerText(question.candidate_answer) }}
+                </p>
                 <small>
                   {{ question.is_correct === null ? 'Brak oceny' : question.is_correct ? 'Poprawna' : 'Niepoprawna' }}
                   · {{ question.points_awarded ?? 0 }}/{{ question.max_points }} pkt
@@ -1143,7 +1592,10 @@ function handleError(caught: unknown): void {
             </div>
           </section>
 
-          <p v-if="!selectedResult" class="module-note">
+          <p
+            v-if="!selectedResult"
+            class="module-note"
+          >
             Wynik i przegląd pytań są dostępne po zakończeniu próby. Bieżąca próba pozostaje częścią historii.
           </p>
         </section>
