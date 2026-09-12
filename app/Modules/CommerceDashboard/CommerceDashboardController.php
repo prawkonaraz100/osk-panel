@@ -46,7 +46,7 @@ final class CommerceDashboardController
         return $this->command(
             $request,
             'commerce.payment.start',
-            ['order_id' => $orderId, ...$input],
+            array_merge(['order_id' => $orderId], $input),
             201,
             'platform_payment',
             fn (string $sessionId): array => $this->commerce->startPayment(
@@ -122,14 +122,14 @@ final class CommerceDashboardController
     {
         $pageRaw = $request->query('page', 1);
         $perPageRaw = $request->query('per_page', 25);
-        if (! is_numeric($pageRaw) || (int) $pageRaw < 1) {
+        if (is_numeric($pageRaw) === false || (int) $pageRaw < 1) {
             throw ValidationException::withMessages(['page' => ['page must be an integer greater than or equal to 1.']]);
         }
-        if (! is_numeric($perPageRaw) || (int) $perPageRaw < 1 || (int) $perPageRaw > 100) {
+        if (is_numeric($perPageRaw) === false || (int) $perPageRaw < 1 || (int) $perPageRaw > 100) {
             throw ValidationException::withMessages(['per_page' => ['per_page must be between 1 and 100.']]);
         }
 
-        if (! $withStatuses) {
+        if ($withStatuses === false) {
             return [(int) $pageRaw, (int) $perPageRaw];
         }
 
@@ -137,16 +137,16 @@ final class CommerceDashboardController
         if (is_string($raw)) {
             $raw = [$raw];
         }
-        if (! is_array($raw)) {
+        if (is_array($raw) === false) {
             throw ValidationException::withMessages(['status' => ['status must be a repeated query parameter or array.']]);
         }
 
         $statuses = [];
         foreach ($raw as $value) {
-            if (! is_string($value) || ! in_array($value, CommerceDashboardService::PURCHASE_STATUSES, true)) {
+            if (is_string($value) === false || in_array($value, CommerceDashboardService::PURCHASE_STATUSES, true) === false) {
                 throw ValidationException::withMessages(['status' => ['Unsupported purchase status.']]);
             }
-            if (! in_array($value, $statuses, true)) {
+            if (in_array($value, $statuses, true) === false) {
                 $statuses[] = $value;
             }
         }
@@ -174,7 +174,7 @@ final class CommerceDashboardController
     private function sessionId(Request $request): string
     {
         $sessionId = $request->session()->get('auth_session_id');
-        if (! is_string($sessionId) || $sessionId === '') {
+        if (is_string($sessionId) === false || $sessionId === '') {
             throw new AuthenticationException('Authenticated application session required.');
         }
 
@@ -184,7 +184,7 @@ final class CommerceDashboardController
     private function idempotencyKey(Request $request): string
     {
         $key = trim((string) $request->header('Idempotency-Key'));
-        if ($key === '' || ! Str::isUuid($key)) {
+        if ($key === '' || Str::isUuid($key) === false) {
             throw ValidationException::withMessages([
                 'Idempotency-Key' => ['A UUID Idempotency-Key header is required.'],
             ]);

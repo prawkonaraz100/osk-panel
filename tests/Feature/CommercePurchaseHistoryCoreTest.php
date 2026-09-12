@@ -185,7 +185,7 @@ final class CommercePurchaseHistoryCoreTest extends TestCase
     }
 
     /**
-     * @param list<array{kind:string,name:string,quantity:int,unit:int}> $items
+     * @param  list<array{kind:string,name:string,quantity:int,unit:int}>  $items
      */
     private function order(string $organizationId, int $sequence, array $items): string
     {
