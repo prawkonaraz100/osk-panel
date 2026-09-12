@@ -163,3 +163,11 @@ changed_scope:
     ui: DEFERRED_UNTIL_INTERNAL_EXAMS_UI_GATE
     acceptance_test: Tests\\Feature\\InternalExamCoreTest::test_inventory_adjustment_is_idempotent_unit_backed_audited_and_refunds_by_compensation
     status: IMPLEMENTED
+  - evidence: specs/screens/internal-exam-management-panel.yml
+    requirement: authenticated OSK internal-exam management UI preserves inventory visibility standalone and row generation entry points partial search category/status filters hide-finished sorting expanded attempt history candidate snapshot editing remote/local launch modes result review and theory answer-sheet download while purchase checkout is explicitly deferred to Platform Commerce instead of being simulated
+    domain_data: internal_exam_inventory_entries + internal_exam_inventory_ledger_entries + internal_exam_capabilities + internal_exam_attempts + internal_exam_accesses + exam_stations + internal_exam_results + internal_exam_attempt_questions + internal_exam_documents
+    api_use_case: UI_GATE_5F_internal_exam_management_workspace
+    permission: exams.view + exams.generate + exams.access.send + exams.start.local + exams.results.view + exams.documents.download
+    ui: resources/js/modules/InternalExams/InternalExamWorkspace.vue at /egzamin-wewnetrzny/panel
+    acceptance_test: Tests\\Feature\\InternalExamCoreTest
+    status: IMPLEMENTED
