@@ -444,7 +444,7 @@ async function openDetails(attempt: Attempt): Promise<void> {
   selectedResult.value = null
   selectedQuestions.value = []
   try {
-    if (attempt.finished_at !== null) {
+    if (attempt.status === 'passed' || attempt.status === 'failed') {
       const [result, questions] = await Promise.all([
         api<ExamResult>('/api/v1/internal-exam-attempts/' + attempt.id + '/result'),
         api<ReviewQuestion[]>('/api/v1/internal-exam-attempts/' + attempt.id + '/questions'),
