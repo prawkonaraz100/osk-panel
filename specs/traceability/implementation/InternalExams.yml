@@ -147,3 +147,11 @@ changed_scope:
     ui: DEFERRED_UNTIL_INTERNAL_EXAMS_UI_GATE
     acceptance_test: Tests\\Feature\\InternalExamCoreTest::test_candidate_snapshot_patch_is_prestart_versioned_and_optimistically_concurrent
     status: IMPLEMENTED
+  - evidence: specs/database/internal-exams.yml#DB-EXAM-007
+    requirement: finished theory answer-sheet download is bound at submit to exactly one effective immutable template and serves one canonical tenant-owned PDF asset whose content hash matches frozen result/question/candidate evidence; non-theory results keep the nullable template binding empty and repeated download never reads current student or question-bank content
+    domain_data: internal_exam_results + internal_exam_attempt_questions + internal_exam_document_templates + internal_exam_documents + file_assets
+    api_use_case: HTTP_GATE_5D_immutable_answer_sheet_pdf
+    permission: exams.documents.download
+    ui: DEFERRED_UNTIL_INTERNAL_EXAMS_UI_GATE
+    acceptance_test: Tests\\Feature\\InternalExamCoreTest::test_answer_sheet_pdf_freezes_template_and_reuses_hash_verified_immutable_artifact
+    status: IMPLEMENTED

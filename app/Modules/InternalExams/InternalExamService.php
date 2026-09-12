@@ -36,6 +36,7 @@ final class InternalExamService
         private readonly InternalExamScopeAuthorizer $scope,
         private readonly InternalExamTokenService $tokens,
         private readonly ExamStationCredentialService $stationCredentials,
+        private readonly InternalExamAnswerSheetService $answerSheets,
         private readonly AtomicAuditOutbox $auditOutbox,
     ) {}
 
@@ -1052,6 +1053,9 @@ final class InternalExamService
             $maxScore = 0;
             $finalEvidence = [];
             $now = CarbonImmutable::now();
+            $templateBinding = (string) $attempt->exam_part === 'theory'
+                ? $this->answerSheets->resolveTemplateBinding('theory', $now)
+                : null;
             foreach ($questions as $question) {
                 /** @var QuestionRow $question */
                 $ordinal = (int) $question->ordinal;
@@ -1094,6 +1098,7 @@ final class InternalExamService
                 'pass_threshold' => $threshold,
                 'passed' => $passed,
                 'questions' => $finalEvidence,
+                'answer_sheet_template_binding' => $templateBinding,
             ];
             $evidenceBundle = [
                 'attempt_id' => $attemptId,
@@ -1111,6 +1116,7 @@ final class InternalExamService
                 'score' => $score,
                 'max_score' => $maxScore,
                 'passed' => $passed,
+                'answer_sheet_template_binding' => $templateBinding,
                 'finished_at' => $now->toIso8601String(),
             ];
             $resultId = (string) Str::uuid7();
@@ -1126,7 +1132,9 @@ final class InternalExamService
                 'scoring_policy_snapshot' => json_encode($scoring, JSON_THROW_ON_ERROR),
                 'question_set_hash' => $attempt->question_set_hash,
                 'evidence_bundle_hash' => hash('sha256', $this->canonicalJson($evidenceBundle)),
-                'answer_sheet_template_binding_snapshot' => null,
+                'answer_sheet_template_binding_snapshot' => $templateBinding === null
+                    ? null
+                    : json_encode($templateBinding, JSON_THROW_ON_ERROR),
                 'result_snapshot' => json_encode($resultSnapshot, JSON_THROW_ON_ERROR),
                 'result_snapshot_hash' => hash('sha256', $this->canonicalJson($resultSnapshot)),
                 'created_at' => $now,
@@ -1294,6 +1302,9 @@ final class InternalExamService
             $maxScore = 0;
             $finalEvidence = [];
             $now = CarbonImmutable::now();
+            $templateBinding = (string) $attempt->exam_part === 'theory'
+                ? $this->answerSheets->resolveTemplateBinding('theory', $now)
+                : null;
             foreach ($questions as $question) {
                 /** @var QuestionRow $question */
                 $ordinal = (int) $question->ordinal;
@@ -1338,6 +1349,7 @@ final class InternalExamService
                 'pass_threshold' => $threshold,
                 'passed' => $passed,
                 'questions' => $finalEvidence,
+                'answer_sheet_template_binding' => $templateBinding,
             ];
             $evidenceBundle = [
                 'attempt_id' => $attemptId,
@@ -1355,6 +1367,7 @@ final class InternalExamService
                 'score' => $score,
                 'max_score' => $maxScore,
                 'passed' => $passed,
+                'answer_sheet_template_binding' => $templateBinding,
                 'finished_at' => $now->toIso8601String(),
             ];
 
@@ -1371,7 +1384,9 @@ final class InternalExamService
                 'scoring_policy_snapshot' => json_encode($scoring, JSON_THROW_ON_ERROR),
                 'question_set_hash' => $attempt->question_set_hash,
                 'evidence_bundle_hash' => hash('sha256', $this->canonicalJson($evidenceBundle)),
-                'answer_sheet_template_binding_snapshot' => null,
+                'answer_sheet_template_binding_snapshot' => $templateBinding === null
+                    ? null
+                    : json_encode($templateBinding, JSON_THROW_ON_ERROR),
                 'result_snapshot' => json_encode($resultSnapshot, JSON_THROW_ON_ERROR),
                 'result_snapshot_hash' => hash('sha256', $this->canonicalJson($resultSnapshot)),
                 'created_at' => $now,

@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Modules\InternalExams\InternalExamAnswerSheetRenderer;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -54,6 +55,7 @@ final class ResourceReferenceCatalogSeeder extends Seeder
         'internal_exam.started', 'internal_exam.submitted', 'internal_exam.technical_aborted',
         'internal_exam.station_transferred',
         'internal_exam.station.registered', 'internal_exam.station_credential.provisioned', 'internal_exam.station_credential.rotated',
+        'internal_exam.answer_sheet.downloaded',
     ];
 
     public function run(): void
@@ -99,6 +101,21 @@ final class ResourceReferenceCatalogSeeder extends Seeder
                     DB::table('driving_categories')->where('id', $row->id)->update($values);
                 }
             }
+
+            DB::table('internal_exam_document_templates')->insertOrIgnore([
+                'id' => '0199f88d-8d00-7000-8000-000000000001',
+                'document_type' => 'internal_exam_answer_sheet',
+                'exam_part' => 'theory',
+                'template_version' => 'v1',
+                'renderer_version' => InternalExamAnswerSheetRenderer::RENDERER_VERSION,
+                'template_content_hash' => hash(
+                    'sha256',
+                    'prawkonaraz|internal_exam_answer_sheet|theory|v1|'.InternalExamAnswerSheetRenderer::RENDERER_VERSION,
+                ),
+                'effective_from' => '2026-01-01 00:00:00+00',
+                'effective_to' => null,
+                'created_at' => now(),
+            ]);
 
             foreach (self::AUDIT_ACTIONS as $action) {
                 DB::table('audit_action_policy_revisions')->updateOrInsert(
