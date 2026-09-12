@@ -204,17 +204,22 @@ Każdy krytyczny incydent kończy się:
 
 ## 15. Data retention
 
-Retention jest per typ danych:
-- formalne szkolenie,
-- egzaminy,
-- płatności,
-- audit logs,
-- security logs,
-- temporary uploads.
+Authority:
+- docs/133-privacy-retention-schedule.md,
+- specs/privacy/retention-schedule.yml,
+- runtime-readable config/retention.php.
 
-Nie implementować globalnego `delete everything after X days`.
+Retention jest per typ danych i rozróżnia:
+- ustawowy okres formalnej dokumentacji OSK,
+- ustawowy okres dokumentacji finansowej,
+- purpose-based retention danych osobowych,
+- techniczny TTL dla sesji, idempotency, outbox i temporary assets,
+- osobne activity/notification/audit/security retention,
+- legal hold / incident hold jako nadrzędny blokator purge.
 
-Exact retencja wymaga osobnej legal/privacy policy przed produkcją.
+Nie implementować globalnego delete everything after X days.
+
+Normalna rola aplikacyjna nie może wykonywać retencji. Automatyczny executor wymaga osobnego privileged path, jawnej wersji polityki, server-derived cutoff, dry-run/candidate count i immutable execution evidence. Pending/reconciliation outbox oraz provider-specific PKK raw payload nie mogą być automatycznie usuwane lub nawet zbierane bez osobnego authority.
 
 ## 16. Security operations
 

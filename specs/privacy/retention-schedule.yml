@@ -1,0 +1,93 @@
+meta:
+  id: privacy_retention_schedule_v1
+  jurisdiction: PL_EU
+  verified_at: 2026-09-12
+  policy_version: 2026-09-12-v1
+  status: HARDENING_AUTHORITY
+
+principles:
+  GDPR_storage_limitation: true
+  no_global_delete_everything_after_X_days: true
+  precise_policy_per_data_class: true
+  legal_hold_overrides_ordinary_retention: true
+  incident_hold_overrides_ordinary_retention: true
+  normal_application_role_may_purge: false
+  purge_requires_privileged_executor: true
+  purge_requires_policy_version_reference: true
+  purge_requires_server_derived_cutoff: true
+  purge_requires_dry_run_or_candidate_count: true
+  purge_requires_immutable_execution_evidence: true
+
+official_sources:
+  - authority: UODO
+    rule: GDPR_article_5_1_e_storage_limitation_and_precise_controller_schedule
+    url: https://uodo.gov.pl/pl/676/4260
+  - authority: ELI
+    rule: OSK_training_register_10_years_and_lesson_cards_24_months
+    url: https://eli.gov.pl/api/acts/DU/2018/1885/text.html
+    provision: par_18
+  - authority: ELI
+    rule: accounting_records_minimum_retention
+    url: https://eli.gov.pl/eli/DU/2026/522/ogl
+    provision: art_74
+
+statutory_classes:
+  formal_training_register:
+    duration_months: 120
+    anchor: last_formal_register_entry_at
+  lesson_card_detail:
+    duration_months: 24
+    anchor: last_lesson_card_entry_at
+    pre_delete_condition: required_hours_summary_persisted
+  finance_accounting_records:
+    duration_years: 5
+    anchor_rule: beginning_of_year_following_relevant_fiscal_year
+
+product_policy_classes:
+  student_contact_operational:
+    grace_days_after_purpose_end: 30
+  local_pkk_sensitive_identity:
+    months_after_course_terminal: 24
+    provider_raw_payload_included: false
+  internal_exam_detailed_attempt:
+    months_after_attempt_terminal: 24
+    keep_minimal_result_summary_under_formal_training_policy: true
+  audit_security_evidence:
+    months_after_event: 36
+    privileged_retention_only: true
+  auth_sessions:
+    days_after_terminal_session_state: 90
+  activity_notifications:
+    months_after_projection_creation: 12
+  application_logs:
+    days: 30
+  security_logs:
+    days: 90
+
+technical_TTL:
+  idempotency_records:
+    days_after_completed: 30
+  outbox_published:
+    days_after_published: 30
+    only_publication_state: published
+    pending_leased_requires_reconciliation_auto_purge: false
+  temporary_unattached_assets:
+    days_after_created: 7
+    attached_asset_follows_parent_policy: true
+
+inheritance:
+  student_formal_identity: formal_training_register
+  internal_exam_result_summary: formal_training_register
+
+PKK_provider_boundary:
+  provider_runtime_status: DEFERRED_PENDING_PWPW_GUIDANCE
+  raw_provider_payload_collection_allowed_now: false
+  exact_provider_payload_retention_defined_now: false
+
+executor_boundary:
+  retention_execution_table_materialized: false
+  current_gate_authorizes_automatic_hard_delete: false
+  required_future_executor_contract: DB_EVT_001
+  outbox_unresolved_auto_delete: false
+  cascade_delete_business_authority: false
+  rewrite_business_facts_to_make_row_eligible: false
