@@ -116,7 +116,7 @@ final class CommerceDashboardController
     }
 
     /**
-     * @return array{0:int,1:int,2?:list<string>}
+     * @return array{0:int,1:int,2:list<string>}
      */
     private function pagination(Request $request, bool $withStatuses): array
     {
@@ -130,14 +130,15 @@ final class CommerceDashboardController
         }
 
         if ($withStatuses === false) {
-            return [(int) $pageRaw, (int) $perPageRaw];
+            return [(int) $pageRaw, (int) $perPageRaw, []];
         }
 
-        $raw = $request->query('status', []);
-        if (is_string($raw)) {
+        $raw = $request->query('status');
+        if ($raw === null) {
+            $raw = [];
+        } elseif (is_string($raw)) {
             $raw = [$raw];
-        }
-        if (is_array($raw) === false) {
+        } elseif (is_array($raw) === false) {
             throw ValidationException::withMessages(['status' => ['status must be a repeated query parameter or array.']]);
         }
 
