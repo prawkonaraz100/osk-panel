@@ -306,7 +306,6 @@ final class InternalExamController
         $oneTimeUrl = $result['body']['one_time_remote_url'] ?? null;
         if ($delivery === null
             || ! is_string($deliveryTokenId)
-            || $deliveryTokenId === ''
             || ! is_string($oneTimeUrl)
             || $oneTimeUrl === '') {
             throw new LogicException('Prepared remote exam delivery is incomplete.');
