@@ -959,7 +959,7 @@ CORE_V1_INTERNAL_EXAMS_001_closure:
     next_core_slice_started: false
 
 CORE_V1_DASHBOARD_NOTIFICATIONS_PURCHASE_HISTORY_001_closure:
-  status: MACHINE_PASS_PENDING_NARRATIVE
+  status: MACHINE_PASS_NARRATIVE_PENDING_VALIDATION
   accepted_scope:
     - Dashboard
     - Notifications
@@ -972,8 +972,8 @@ CORE_V1_DASHBOARD_NOTIFICATIONS_PURCHASE_HISTORY_001_closure:
     final_accepted_implementation_tree: ccf1906951f3fe431490ecc685aa52455089f8ac
     accepted_branch_implementation_run: 34705218194
     accepted_branch_API_contract_run: 34705218209
-    machine_closure_commit: PENDING
-    machine_closure_validation_run: PENDING
+    machine_closure_commit: c399bb40576218777b9c7fae7acb0ee9d987cbc2
+    machine_closure_validation_run: 34706166926
     narrative_closure_candidate_commit: PENDING
     narrative_closure_validation_run: PENDING
     central_closure_commit: PENDING
@@ -1080,7 +1080,7 @@ CORE_V1_DASHBOARD_NOTIFICATIONS_PURCHASE_HISTORY_001_closure:
     Stage_4_authority_preservation: PASS
   tranche_result:
     machine_implementation: PASS
-    machine_closure: PENDING_VALIDATION
+    machine_closure: PASS
     narrative_payload: PENDING
     central_closure: PENDING
     next_core_slice: hardening_and_formal_documents
