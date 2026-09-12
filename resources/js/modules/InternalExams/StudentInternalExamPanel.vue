@@ -366,17 +366,33 @@ async function createRemoteAccess(): Promise<void> {
       body: JSON.stringify({ mode: 'remote_link' }),
     })
     createdAccess.value = access.data
+    oneTimeRemoteUrl.value = access.data.one_time_remote_url ?? ''
+    notice.value = oneTimeRemoteUrl.value
+      ? 'Jednorazowy link został wygenerowany. Możesz go skopiować albo wysłać kursantowi e-mailem.'
+      : 'Dostęp zdalny został przygotowany.'
+    await load()
+  } catch (caught: unknown) {
+    handleError(caught)
+  } finally {
+    saving.value = false
+  }
+}
 
-    const sent = await api<ExamAccess>('/api/v1/internal-exam-accesses/' + access.data.id + '/send', {
+async function sendRemoteAccessEmail(): Promise<void> {
+  const access = createdAccess.value
+  if (!access) return
+
+  saving.value = true
+  error.value = ''
+  try {
+    const sent = await api<ExamAccess>('/api/v1/internal-exam-accesses/' + access.id + '/send', {
       method: 'POST',
       idempotent: true,
       body: JSON.stringify({}),
     })
     createdAccess.value = sent.data
     oneTimeRemoteUrl.value = sent.data.one_time_remote_url ?? ''
-    notice.value = oneTimeRemoteUrl.value
-      ? 'Wygenerowano nowy jednorazowy link egzaminacyjny.'
-      : 'Dostęp zdalny został przygotowany.'
+    notice.value = 'Nowy jednorazowy link został wysłany na e-mail zapisany w danych tej próby.'
     await load()
   } catch (caught: unknown) {
     handleError(caught)
@@ -954,13 +970,26 @@ function handleError(caught: unknown): void {
                       readonly
                     >
                     <small>Po zamknięciu widoku jawny token nie może zostać odtworzony z bazy.</small>
-                    <button
-                      class="button ghost"
-                      type="button"
-                      @click="copyRemoteUrl"
-                    >
-                      Kopiuj link
-                    </button>
+                    <div class="form-actions">
+                      <button
+                        class="button ghost"
+                        type="button"
+                        @click="copyRemoteUrl"
+                      >
+                        Kopiuj link
+                      </button>
+                      <button
+                        class="button primary"
+                        type="button"
+                        :disabled="saving || !generatedAttempt?.candidate_snapshot.contact_email"
+                        @click="sendRemoteAccessEmail"
+                      >
+                        {{ saving ? 'Wysyłanie…' : 'Wyślij e-mailem' }}
+                      </button>
+                    </div>
+                    <small v-if="!generatedAttempt?.candidate_snapshot.contact_email">
+                      Aby wysłać link e-mailem, zapisz najpierw adres w danych tej próby.
+                    </small>
                   </div>
                 </template>
 
