@@ -154,3 +154,4 @@ Route::view('/pojazdy', 'app');
 Route::view('/pojazdy/{vehicleId}', 'app');
 Route::view('/kalendarz', 'app');
 Route::view('/licencje/panel', 'app');
+Route::view('/egzamin-wewnetrzny/panel', 'app');
