@@ -258,25 +258,23 @@ final class ResourceIdempotency
 
     /**
      * @param  array<string,mixed>  $payload
-     * @param  array<string,mixed>  $replayBody
-     * @param  callable():void  $callback
+     * @param  callable():array<string,mixed>  $callback
+     * @return array<string,mixed>
      */
     public function completeRetryableSecretDelivery(
         string $organizationId,
         string $operationKey,
         string $idempotencyKey,
         array $payload,
-        array $replayBody,
         callable $callback,
-    ): void {
-        DB::transaction(function () use (
+    ): array {
+        return DB::transaction(function () use (
             $organizationId,
             $operationKey,
             $idempotencyKey,
             $payload,
-            $replayBody,
             $callback,
-        ): void {
+        ): array {
             DB::table('organizations')->where('id', $organizationId)->lockForUpdate()->firstOrFail();
 
             $requestHash = hash('sha256', json_encode($this->canonicalize($payload), JSON_THROW_ON_ERROR));
@@ -291,20 +289,27 @@ final class ResourceIdempotency
                 throw ResourceDomainException::conflict('Prepared secret delivery idempotency record is missing or mismatched.');
             }
 
-            if ($existing->status === 'completed') {
-                return;
+            if ($existing->status === 'completed' && $existing->safe_response_snapshot !== null) {
+                $body = json_decode((string) $existing->safe_response_snapshot, true, 512, JSON_THROW_ON_ERROR);
+                if (! is_array($body)) {
+                    throw ResourceDomainException::conflict('Stored idempotency response is invalid.');
+                }
+
+                return $body;
             }
             if ($existing->status !== 'delivery_prepared') {
                 throw ResourceDomainException::conflict('Secret delivery is not in a completable prepared state.');
             }
 
-            $callback();
+            $replayBody = $callback();
 
             DB::table('idempotency_records')->where('id', $existing->id)->update([
                 'status' => 'completed',
                 'safe_response_snapshot' => json_encode($replayBody, JSON_THROW_ON_ERROR),
                 'completed_at' => now(),
             ]);
+
+            return $replayBody;
         });
     }
 
