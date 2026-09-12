@@ -163,9 +163,9 @@ final class InternalExamAnswerSheetService
     }
 
     /**
-     * @param AnswerSheetAttempt $attempt
-     * @param AnswerSheetResult $result
-     * @param array{id:string,document_type:string,exam_part:string,template_version:string,renderer_version:string,template_content_hash:string} $binding
+     * @param  AnswerSheetAttempt  $attempt
+     * @param  AnswerSheetResult  $result
+     * @param  array{id:string,document_type:string,exam_part:string,template_version:string,renderer_version:string,template_content_hash:string}  $binding
      * @return array{0:object,1:string}
      */
     private function generateDocument(
@@ -233,10 +233,10 @@ final class InternalExamAnswerSheetService
     }
 
     /**
-     * @param AnswerSheetAttempt $attempt
-     * @param AnswerSheetResult $result
-     * @param array{id:string,document_type:string,exam_part:string,template_version:string,renderer_version:string,template_content_hash:string} $binding
-     * @param AnswerSheetDocument $document
+     * @param  AnswerSheetAttempt  $attempt
+     * @param  AnswerSheetResult  $result
+     * @param  array{id:string,document_type:string,exam_part:string,template_version:string,renderer_version:string,template_content_hash:string}  $binding
+     * @param  AnswerSheetDocument  $document
      */
     private function readOrRestoreDocument(
         string $organizationId,
@@ -290,9 +290,9 @@ final class InternalExamAnswerSheetService
     }
 
     /**
-     * @param AnswerSheetAttempt $attempt
-     * @param AnswerSheetResult $result
-     * @param array{id:string,document_type:string,exam_part:string,template_version:string,renderer_version:string,template_content_hash:string} $binding
+     * @param  AnswerSheetAttempt  $attempt
+     * @param  AnswerSheetResult  $result
+     * @param  array{id:string,document_type:string,exam_part:string,template_version:string,renderer_version:string,template_content_hash:string}  $binding
      */
     private function renderFrozen(object $attempt, object $result, array $binding): string
     {
