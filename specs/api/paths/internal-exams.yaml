@@ -111,6 +111,12 @@ paths:
       x-requirement-id: exam_inventory.adjust
       x-permission: exams.inventory.adjust
       x-elevated: true
+      x-invariants:
+        - positive_delta_creates_exactly_delta_new_adjustment_units
+        - negative_delta_withdraws_only_currently_available_units_all_or_none
+        - reserved_consumed_and_adjusted_out_units_are_never_withdrawn
+        - technical_refund_creates_a_new_compensating_unit_without_reopening_consumed_history
+        - ledger_and_operational_available_projections_match_before_and_after_adjustment
       parameters:
         - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
       requestBody:
@@ -119,7 +125,11 @@ paths:
           application/json:
             schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/InventoryAdjustmentRequest' }
       responses:
-        '201': { description: Audited inventory adjustment recorded }
+        '201':
+          description: Audited unit-backed inventory adjustment recorded
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/InventoryAdjustment' }
         default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
 
   /course-enrollments/{courseEnrollmentId}/internal-exam-attempts:

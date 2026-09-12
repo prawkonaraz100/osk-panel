@@ -37,7 +37,7 @@ final class FoundationReferenceCatalogTest extends TestCase
             ->where('permission_code', 'students.view')
             ->where('scope_code', 'assigned_students')
             ->exists());
-        $this->assertSame(69, DB::table('audit_action_policy_currents')->count());
+        $this->assertSame(70, DB::table('audit_action_policy_currents')->count());
         $this->assertTrue(DB::table('audit_action_policy_currents')->where('action', 'student.created')->exists());
         $this->assertTrue(DB::table('audit_action_policy_currents')->where('action', 'course.created')->exists());
         $this->assertTrue(DB::table('audit_action_policy_currents')->where('action', 'training.session.completed')->exists());
@@ -68,10 +68,11 @@ final class FoundationReferenceCatalogTest extends TestCase
         $this->assertTrue(DB::table('audit_action_policy_currents')->where('action', 'internal_exam.station_credential.provisioned')->exists());
         $this->assertTrue(DB::table('audit_action_policy_currents')->where('action', 'internal_exam.station_credential.rotated')->exists());
         $this->assertTrue(DB::table('audit_action_policy_currents')->where('action', 'internal_exam.answer_sheet.downloaded')->exists());
+        $this->assertTrue(DB::table('audit_action_policy_currents')->where('action', 'internal_exam.inventory.adjusted')->exists());
 
         app(FoundationReferenceCatalogSeeder::class)->run();
 
         $this->assertSame(4, DB::table('data_scopes')->count());
-        $this->assertSame(69, DB::table('audit_action_policy_currents')->count());
+        $this->assertSame(70, DB::table('audit_action_policy_currents')->count());
     }
 }

@@ -1448,6 +1448,319 @@ final class InternalExamCoreTest extends TestCase
         );
     }
 
+    public function test_inventory_adjustment_is_idempotent_unit_backed_audited_and_refunds_by_compensation(): void
+    {
+        $actor = $this->examActor();
+        $course = $this->course($actor);
+        $fixtures = $this->examFixtures($actor, $course);
+
+        $unknownField = $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->withHeader('Idempotency-Key', (string) Str::uuid7())
+            ->postJson('/api/v1/internal-exam/inventory-adjustments', [
+                'delta' => 1,
+                'reason' => 'capacity correction',
+                'unexpected' => true,
+            ]);
+        $unknownField->assertStatus(422);
+
+        $zeroDelta = $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->withHeader('Idempotency-Key', (string) Str::uuid7())
+            ->postJson('/api/v1/internal-exam/inventory-adjustments', [
+                'delta' => 0,
+                'reason' => 'invalid no-op',
+            ]);
+        $zeroDelta->assertStatus(422);
+
+        $positiveKey = (string) Str::uuid7();
+        $positivePayload = [
+            'delta' => 2,
+            'reason' => 'capacity correction',
+        ];
+        $positive = $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->withHeader('Idempotency-Key', $positiveKey)
+            ->postJson('/api/v1/internal-exam/inventory-adjustments', $positivePayload);
+        $positive->assertCreated()
+            ->assertJsonPath('delta', 2)
+            ->assertJsonPath('reason', 'capacity correction')
+            ->assertJsonPath('related_attempt_id', null)
+            ->assertJsonPath('applied_units', 2)
+            ->assertJsonStructure(['id', 'delta', 'reason', 'related_attempt_id', 'applied_units', 'created_at']);
+        $positiveId = (string) $positive->json('id');
+
+        $this->assertSame(
+            2,
+            DB::table('internal_exam_inventory_entries')
+                ->where('organization_id', $actor['organization_id'])
+                ->where('source_type', 'adjustment')
+                ->where('source_adjustment_id', $positiveId)
+                ->where('current_state', 'available')
+                ->count(),
+        );
+        $this->assertSame(
+            2,
+            DB::table('internal_exam_inventory_ledger_entries')
+                ->where('organization_id', $actor['organization_id'])
+                ->where('internal_exam_inventory_adjustment_id', $positiveId)
+                ->where('event_type', 'unit_adjustment_granted')
+                ->where('available_delta', 1)
+                ->count(),
+        );
+
+        $positiveReplay = $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->withHeader('Idempotency-Key', $positiveKey)
+            ->postJson('/api/v1/internal-exam/inventory-adjustments', $positivePayload);
+        $positiveReplay->assertCreated();
+        $this->assertEquals($positive->json(), $positiveReplay->json());
+        $this->assertSame(
+            1,
+            DB::table('internal_exam_inventory_adjustments')->where('id', $positiveId)->count(),
+        );
+
+        $reusedKey = $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->withHeader('Idempotency-Key', $positiveKey)
+            ->postJson('/api/v1/internal-exam/inventory-adjustments', [
+                'delta' => 3,
+                'reason' => 'capacity correction',
+            ]);
+        $reusedKey
+            ->assertStatus(409)
+            ->assertJsonPath('error.code', 'IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_PAYLOAD');
+
+        $negativeKey = (string) Str::uuid7();
+        $negative = $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->withHeader('Idempotency-Key', $negativeKey)
+            ->postJson('/api/v1/internal-exam/inventory-adjustments', [
+                'delta' => -2,
+                'reason' => 'remove excess units',
+            ]);
+        $negative->assertCreated()
+            ->assertJsonPath('delta', -2)
+            ->assertJsonPath('applied_units', 2);
+        $negativeId = (string) $negative->json('id');
+
+        $adjustedOutIds = DB::table('internal_exam_inventory_ledger_entries')
+            ->where('organization_id', $actor['organization_id'])
+            ->where('internal_exam_inventory_adjustment_id', $negativeId)
+            ->where('event_type', 'unit_adjusted_out')
+            ->orderBy('internal_exam_inventory_entry_id')
+            ->pluck('internal_exam_inventory_entry_id')
+            ->all();
+        $this->assertCount(2, $adjustedOutIds);
+        $this->assertSame(
+            2,
+            DB::table('internal_exam_inventory_entries')
+                ->whereIn('id', $adjustedOutIds)
+                ->where('current_state', 'adjusted_out')
+                ->count(),
+        );
+        $this->assertSame(
+            1,
+            DB::table('internal_exam_inventory_entries')
+                ->where('organization_id', $actor['organization_id'])
+                ->where('current_state', 'available')
+                ->count(),
+        );
+        $this->assertSame(
+            1,
+            (int) DB::table('internal_exam_inventory_ledger_entries')
+                ->where('organization_id', $actor['organization_id'])
+                ->sum('available_delta'),
+        );
+
+        $adjustmentCountBeforeFailedWithdrawal = DB::table('internal_exam_inventory_adjustments')
+            ->where('organization_id', $actor['organization_id'])
+            ->count();
+        $tooLarge = $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->withHeader('Idempotency-Key', (string) Str::uuid7())
+            ->postJson('/api/v1/internal-exam/inventory-adjustments', [
+                'delta' => -2,
+                'reason' => 'must remain atomic',
+            ]);
+        $tooLarge
+            ->assertStatus(409)
+            ->assertJsonPath('error.code', 'RESOURCE_VERSION_CONFLICT');
+        $this->assertSame(
+            $adjustmentCountBeforeFailedWithdrawal,
+            DB::table('internal_exam_inventory_adjustments')
+                ->where('organization_id', $actor['organization_id'])
+                ->count(),
+        );
+        $this->assertSame(
+            1,
+            DB::table('internal_exam_inventory_entries')
+                ->where('organization_id', $actor['organization_id'])
+                ->where('current_state', 'available')
+                ->count(),
+        );
+
+        $service = app(InternalExamService::class);
+        $attempt = $service->createAttempt(
+            $actor['session_id'],
+            $course['id'],
+            'theory',
+            'pl',
+            (string) Str::uuid7(),
+        );
+        $attemptId = (string) $attempt['id'];
+        $reservation = DB::table('internal_exam_reservations')
+            ->where('internal_exam_attempt_id', $attemptId)
+            ->firstOrFail();
+        $reservedInventoryId = (string) $reservation->internal_exam_inventory_entry_id;
+        $this->assertSame('reserved', $reservation->status);
+        $this->assertSame(
+            'reserved',
+            DB::table('internal_exam_inventory_entries')->where('id', $reservedInventoryId)->value('current_state'),
+        );
+
+        $prematureRefund = $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->withHeader('Idempotency-Key', (string) Str::uuid7())
+            ->postJson('/api/v1/internal-exam/inventory-adjustments', [
+                'delta' => 1,
+                'reason' => 'premature refund',
+                'related_attempt_id' => $attemptId,
+            ]);
+        $prematureRefund
+            ->assertStatus(409)
+            ->assertJsonPath('error.code', 'RESOURCE_VERSION_CONFLICT');
+
+        $reservedWithdrawal = $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->withHeader('Idempotency-Key', (string) Str::uuid7())
+            ->postJson('/api/v1/internal-exam/inventory-adjustments', [
+                'delta' => -1,
+                'reason' => 'reserved unit must not be withdrawn',
+            ]);
+        $reservedWithdrawal
+            ->assertStatus(409)
+            ->assertJsonPath('error.code', 'RESOURCE_VERSION_CONFLICT');
+        $this->assertSame(
+            'reserved',
+            DB::table('internal_exam_inventory_entries')->where('id', $reservedInventoryId)->value('current_state'),
+        );
+
+        $stationId = $this->station($actor);
+        $access = $service->createAccess(
+            $actor['session_id'],
+            $attemptId,
+            'assigned_exam_station',
+            $stationId,
+            null,
+            null,
+            (string) Str::uuid7(),
+        );
+        $service->startLocal(
+            $actor['session_id'],
+            (string) $access['id'],
+            $this->stationCredential($stationId),
+            (string) Str::uuid7(),
+        );
+        $this->assertSame(
+            'consumed',
+            DB::table('internal_exam_inventory_entries')->where('id', $reservedInventoryId)->value('current_state'),
+        );
+
+        $refundKey = (string) Str::uuid7();
+        $refundPayload = [
+            'delta' => 1,
+            'reason' => 'technical abort compensation',
+            'related_attempt_id' => $attemptId,
+        ];
+        $refund = $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->withHeader('Idempotency-Key', $refundKey)
+            ->postJson('/api/v1/internal-exam/inventory-adjustments', $refundPayload);
+        $refund->assertCreated()
+            ->assertJsonPath('delta', 1)
+            ->assertJsonPath('related_attempt_id', $attemptId)
+            ->assertJsonPath('applied_units', 1);
+        $refundId = (string) $refund->json('id');
+
+        $compensatingInventoryId = (string) DB::table('internal_exam_inventory_entries')
+            ->where('organization_id', $actor['organization_id'])
+            ->where('source_type', 'adjustment')
+            ->where('source_adjustment_id', $refundId)
+            ->where('current_state', 'available')
+            ->value('id');
+        $this->assertNotSame('', $compensatingInventoryId);
+        $this->assertNotSame($reservedInventoryId, $compensatingInventoryId);
+        $this->assertSame(
+            'consumed',
+            DB::table('internal_exam_inventory_entries')->where('id', $reservedInventoryId)->value('current_state'),
+        );
+        $this->assertSame(
+            'unit_consumed',
+            DB::table('internal_exam_inventory_ledger_entries')
+                ->where('internal_exam_inventory_entry_id', $reservedInventoryId)
+                ->orderByDesc('event_sequence')
+                ->value('event_type'),
+        );
+        $this->assertSame(
+            'unit_adjustment_granted',
+            DB::table('internal_exam_inventory_ledger_entries')
+                ->where('internal_exam_inventory_entry_id', $compensatingInventoryId)
+                ->orderByDesc('event_sequence')
+                ->value('event_type'),
+        );
+
+        $refundReplay = $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->withHeader('Idempotency-Key', $refundKey)
+            ->postJson('/api/v1/internal-exam/inventory-adjustments', $refundPayload);
+        $refundReplay->assertCreated();
+        $this->assertEquals($refund->json(), $refundReplay->json());
+        $this->assertSame(
+            1,
+            DB::table('internal_exam_inventory_entries')
+                ->where('source_adjustment_id', $refundId)
+                ->count(),
+        );
+
+        $consumedWithdrawal = $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->withHeader('Idempotency-Key', (string) Str::uuid7())
+            ->postJson('/api/v1/internal-exam/inventory-adjustments', [
+                'delta' => -2,
+                'reason' => 'consumed unit must not count as available',
+            ]);
+        $consumedWithdrawal
+            ->assertStatus(409)
+            ->assertJsonPath('error.code', 'RESOURCE_VERSION_CONFLICT');
+        $this->assertSame(
+            'consumed',
+            DB::table('internal_exam_inventory_entries')->where('id', $reservedInventoryId)->value('current_state'),
+        );
+        $this->assertSame(
+            'available',
+            DB::table('internal_exam_inventory_entries')->where('id', $compensatingInventoryId)->value('current_state'),
+        );
+
+        $this->assertSame(
+            3,
+            DB::table('internal_exam_inventory_adjustments')
+                ->where('organization_id', $actor['organization_id'])
+                ->count(),
+        );
+        foreach (['audit_logs' => 'action', 'domain_events' => 'event_type', 'outbox_messages' => 'event_type'] as $table => $column) {
+            $this->assertSame(
+                3,
+                DB::table($table)
+                    ->where('organization_id', $actor['organization_id'])
+                    ->where($column, 'internal_exam.inventory.adjusted')
+                    ->count(),
+            );
+        }
+
+        $this->assertSame(
+            (int) DB::table('internal_exam_inventory_entries')
+                ->where('organization_id', $actor['organization_id'])
+                ->where('current_state', 'available')
+                ->count(),
+            (int) DB::table('internal_exam_inventory_ledger_entries')
+                ->where('organization_id', $actor['organization_id'])
+                ->sum('available_delta'),
+        );
+        $this->assertSame(
+            'adjusted_out',
+            DB::table('internal_exam_inventory_entries')->where('id', $fixtures['inventory_id'])->value('current_state'),
+        );
+    }
+
     public function test_remote_execution_token_starts_exact_access_once_and_remains_submit_capable_until_finish(): void
     {
         $actor = $this->examActor();

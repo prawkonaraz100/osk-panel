@@ -55,7 +55,7 @@ final class ResourceReferenceCatalogSeeder extends Seeder
         'internal_exam.started', 'internal_exam.submitted', 'internal_exam.technical_aborted',
         'internal_exam.station_transferred',
         'internal_exam.station.registered', 'internal_exam.station_credential.provisioned', 'internal_exam.station_credential.rotated',
-        'internal_exam.answer_sheet.downloaded',
+        'internal_exam.answer_sheet.downloaded', 'internal_exam.inventory.adjusted',
     ];
 
     public function run(): void

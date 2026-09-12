@@ -155,3 +155,11 @@ changed_scope:
     ui: DEFERRED_UNTIL_INTERNAL_EXAMS_UI_GATE
     acceptance_test: Tests\\Feature\\InternalExamCoreTest::test_answer_sheet_pdf_freezes_template_and_reuses_hash_verified_immutable_artifact
     status: IMPLEMENTED
+  - evidence: specs/database/internal-exams.yml#DB-EXAM-003
+    requirement: elevated inventory adjustment is an idempotent append-only correction command where positive delta creates concrete adjustment-provenance units, negative delta withdraws only currently available units all-or-none, and a technical refund creates a new compensating unit without reopening consumed history
+    domain_data: internal_exam_inventory_adjustments + internal_exam_inventory_entries + internal_exam_inventory_ledger_entries + internal_exam_reservations + internal_exam_attempts + audit_logs + domain_events + outbox_messages + idempotency_records
+    api_use_case: HTTP_GATE_5E_audited_inventory_adjustment
+    permission: exams.inventory.adjust with organization_only scope
+    ui: DEFERRED_UNTIL_INTERNAL_EXAMS_UI_GATE
+    acceptance_test: Tests\\Feature\\InternalExamCoreTest::test_inventory_adjustment_is_idempotent_unit_backed_audited_and_refunds_by_compensation
+    status: IMPLEMENTED

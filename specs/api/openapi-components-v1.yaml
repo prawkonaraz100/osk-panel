@@ -1240,11 +1240,27 @@ components:
         points_awarded: { type: [integer, 'null'] }
     InventoryAdjustmentRequest:
       type: object
+      additionalProperties: false
       required: [delta, reason]
       properties:
-        delta: { type: integer }
-        reason: { type: string }
+        delta:
+          type: integer
+          not: { const: 0 }
+        reason: { type: string, minLength: 1 }
         related_attempt_id: { type: [string, 'null'], format: uuid }
+    InventoryAdjustment:
+      type: object
+      additionalProperties: false
+      required: [id, delta, reason, related_attempt_id, applied_units, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        delta:
+          type: integer
+          not: { const: 0 }
+        reason: { type: string, minLength: 1 }
+        related_attempt_id: { type: [string, 'null'], format: uuid }
+        applied_units: { type: integer, minimum: 1 }
+        created_at: { type: string, format: date-time }
     ExamCapability:
       type: object
       required: [category_code, exam_part, languages]

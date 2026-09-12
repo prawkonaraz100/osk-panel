@@ -119,6 +119,7 @@ Route::middleware(ResourceApiMiddleware::class)->prefix('api/v1')->group(functio
     Route::post('/calendar/events/{eventId}/complete', [CalendarEventController::class, 'complete']);
 
     Route::get('/internal-exam/inventory', [InternalExamController::class, 'inventory']);
+    Route::post('/internal-exam/inventory-adjustments', [InternalExamController::class, 'inventoryAdjust']);
     Route::get('/internal-exam/capabilities', [InternalExamController::class, 'capabilities']);
     Route::get('/internal-exam/subjects', [InternalExamController::class, 'subjects']);
     Route::get('/course-enrollments/{courseEnrollmentId}/internal-exam-attempts', [InternalExamController::class, 'attemptsForCourse']);
