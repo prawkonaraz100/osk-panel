@@ -109,8 +109,8 @@ final class DashboardService
             ->all();
 
         return [
-            'period_start' => $periodStart->toISOString(),
-            'period_end' => $periodEnd->toISOString(),
+            'period_start' => $periodStart->format(DATE_ATOM),
+            'period_end' => $periodEnd->format(DATE_ATOM),
             'events' => array_values($events),
         ];
     }
