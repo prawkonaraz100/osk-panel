@@ -1,6 +1,7 @@
 module: CommerceDashboard
 core_traceability_modules:
   - commerce_purchase_history
+  - dashboard_activity
 changed_scope:
   - evidence: specs/screens/purchase-history.yml
     requirement: Purchase History is one tenant-scoped OSK order history with immutable multi-item snapshots, separate order and booking dates, money in minor units and deterministic pagination
@@ -42,3 +43,28 @@ changed_scope:
     ui: DEFERRED_OUTSIDE_THIS_GATE_WITHIN_SAME_CORE_SLICE
     acceptance_test: Tests\\Feature\\CommercePurchaseHistoryCoreTest::test_payment_start_is_idempotent_opaque_audited_and_does_not_mark_order_paid
     status: IMPLEMENTED
+  - evidence: specs/screens/main-dashboard.yml
+    requirement: the main dashboard is a tenant-scoped projection that aggregates dynamic license counts, available internal exam inventory, safe organization activity and the embedded current-month calendar without becoming business authority
+    domain_data: license_inventory_entries + license_assignments + license_activations + internal_exam_inventory_ledger_entries + internal_exam_inventory_entries + organization_activity_events + calendar_events
+    api_use_case: GET /api/v1/dashboard
+    permission: active_membership
+    ui: NOT_APPLICABLE_RUNTIME_GATE_UI_FOLLOWS_IN_LATER_GATE
+    acceptance_test: Tests\\Feature\\DashboardCoreTest::test_dashboard_aggregates_dynamic_tenant_scoped_license_exam_activity_and_calendar_projections
+    status: IMPLEMENTED
+  - evidence: specs/screens/main-dashboard.yml#internal_exams_card
+    requirement: dashboard available-exam count is derived from the canonical inventory ledger and fails closed when the operational inventory projection drifts
+    domain_data: internal_exam_inventory_ledger_entries + internal_exam_inventory_entries
+    api_use_case: dashboard.get
+    permission: active_membership
+    ui: NOT_APPLICABLE_RUNTIME_GATE_UI_FOLLOWS_IN_LATER_GATE
+    acceptance_test: Tests\\Feature\\DashboardCoreTest::test_dashboard_fails_closed_when_internal_exam_ledger_and_operational_projection_drift
+    status: IMPLEMENTED
+  - evidence: specs/screens/main-dashboard.yml#architecture
+    requirement: dashboard access never bypasses the selected current active organization membership and never aggregates another tenant
+    domain_data: auth_sessions + organization_memberships + dashboard source tables
+    api_use_case: dashboard.get
+    permission: active_membership
+    ui: NOT_APPLICABLE_RUNTIME_GATE_UI_FOLLOWS_IN_LATER_GATE
+    acceptance_test: Tests\\Feature\\DashboardCoreTest::test_dashboard_requires_current_active_membership
+    status: IMPLEMENTED
+
