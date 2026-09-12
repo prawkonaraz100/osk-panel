@@ -221,6 +221,7 @@ final class InternalExamAnswerSheetService
             'created_at' => $now,
         ]);
 
+        /** @var AnswerSheetDocument|null $document */
         $document = DB::table('internal_exam_documents')
             ->where('organization_id', $organizationId)
             ->where('id', $documentId)
