@@ -244,7 +244,7 @@ final class InternalExamAnswerSheetRenderer
             $kids[] = $pageId.' 0 R';
             $objects[$pageId] = '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] '
                 .'/Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents '.$contentId.' 0 R >>';
-            $objects[$contentId] = '<< /Length '.strlen($stream)." >>\nstream\n".$stream."endstream";
+            $objects[$contentId] = '<< /Length '.strlen($stream)." >>\nstream\n".$stream.'endstream';
         }
         $objects[2] = '<< /Type /Pages /Count '.count($streams).' /Kids ['.implode(' ', $kids).'] >>';
         ksort($objects);
