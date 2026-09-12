@@ -1074,6 +1074,54 @@ CORE_V1_DASHBOARD_NOTIFICATIONS_PURCHASE_HISTORY_001_closure:
 
 
 
+
+HARDENING_DISASTER_RECOVERY_AUTHORITY_004_closure:
+  status: PASS
+  accepted_scope:
+    - core_v1_RPO_RTO_targets
+    - PostgreSQL_business_authority_recovery_tier
+    - formal_object_asset_recovery_tier
+    - rebuildable_projection_boundary
+    - Redis_ephemeral_non_authority_boundary
+    - restore_drill_acceptance_criteria
+  provenance:
+    validation_helper_commit: 150c96756346d8a323c8e3ee03f3ccca0789df48
+    validation_helper_tree: 57c618eb4128895807776b04c330958af47269b0
+    helper_Implementation_CI_run: 34724215954
+    accepted_implementation_commit: 46c7d9d83c558581a70a956c47c84c5b55b105b0
+    accepted_implementation_tree: 57c618eb4128895807776b04c330958af47269b0
+    accepted_Implementation_CI_run: 34724379396
+  recovery_targets:
+    tier0_PostgreSQL_RPO_minutes: 5
+    tier0_PostgreSQL_RTO_minutes: 60
+    tier1_formal_object_RPO_minutes: 60
+    tier1_formal_object_RTO_minutes: 240
+    tier2_rebuildable_projection_RTO_minutes: 240
+    Redis_RTO_minutes: 30
+    Redis_is_business_authority: false
+  policy_boundary:
+    production_PITR_verified: false
+    production_object_versioning_verified: false
+    production_offsite_backup_verified: false
+    production_restore_drill_passed: false
+    go_live_allowed_by_H4_alone: false
+    cloud_vendor_selected: false
+    provider_specific_PKK_recovery_invented: false
+  executable_evidence:
+    accepted_Implementation_CI_jobs_passed: 5
+    accepted_Implementation_CI_jobs_total: 5
+    accepted_PostgreSQL_suite_tests: 176
+    accepted_PostgreSQL_suite_assertions: 2654
+    backend_static_analysis: PASS_ZERO_ERRORS
+    frontend_lint_typecheck_build_audit: PASS
+    contracts_and_traceability: PASS
+    accepted_push_secret_scan: PASS
+    recovery_policy_unit_contract: PASS
+  tranche_result:
+    hardening_disaster_recovery_authority: PASS
+    next_hardening_gate: restore_drill_harness_and_evidence
+    next_hardening_gate_started: false
+
 HARDENING_PRIVACY_RETENTION_003_closure:
   status: PASS
   accepted_scope:
