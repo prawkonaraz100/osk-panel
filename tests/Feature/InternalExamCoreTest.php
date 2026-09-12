@@ -1407,6 +1407,10 @@ final class InternalExamCoreTest extends TestCase
             'last_name' => 'Dane',
             'updated_at' => now(),
         ]);
+        $categoryId = (string) DB::table('internal_exam_attempts')
+            ->where('id', $attempt['id'])
+            ->value('driving_category_id');
+        DB::table('driving_categories')->where('id', $categoryId)->update(['code' => 'ZZ']);
         Storage::disk((string) $asset->storage_disk)->delete((string) $asset->storage_key);
 
         $second = $this->withSession(['auth_session_id' => $actor['session_id']])
