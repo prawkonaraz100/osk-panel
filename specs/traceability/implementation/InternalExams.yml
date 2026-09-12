@@ -171,3 +171,11 @@ changed_scope:
     ui: resources/js/modules/InternalExams/InternalExamWorkspace.vue at /egzamin-wewnetrzny/panel
     acceptance_test: Tests\\Feature\\InternalExamCoreTest
     status: IMPLEMENTED
+  - evidence: specs/screens/student-internal-exam.yml
+    requirement: the authenticated student profile exposes an internal-exam tab scoped by exact student UUID, derives pass-rate passed/failed counts and attempt history from exam attempts/results instead of student booleans, shows masked durable PKK/PESEL context, and supports eligible category/part selection language selection versioned candidate snapshot edits remote one-time-link sharing local authenticated-station start result review and theory answer-sheet download
+    domain_data: students + course_enrollments + training_requirement_profiles + internal_exam_inventory_entries + internal_exam_attempts + internal_exam_results + internal_exam_attempt_questions + internal_exam_accesses + internal_exam_documents
+    api_use_case: UI_GATE_5G_student_internal_exam_tab
+    permission: exams.view + exams.generate + exams.access.send + exams.start.local + exams.results.view + exams.documents.download
+    ui: resources/js/modules/InternalExams/StudentInternalExamPanel.vue embedded in resources/js/modules/StudentsCourses/StudentCourseWorkspace.vue at /kursanci/<student_id>
+    acceptance_test: Tests\\Feature\\InternalExamCoreTest::test_management_projection_uses_course_sequence_filters_statistics_and_history_order
+    status: IMPLEMENTED
