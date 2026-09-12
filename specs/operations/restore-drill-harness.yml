@@ -1,0 +1,72 @@
+meta:
+  id: core_v1_restore_drill_harness
+  status: IMPLEMENTED_CI_EVIDENCE
+  environment_kind: ci_emulated
+  production_target_evidence: false
+  recovery_policy_version: 2026-09-13-v1
+
+postgres:
+  operation: pg_dump_to_isolated_pg_restore
+  source_database_mutated: false
+  target_database_must_differ: true
+  assertions:
+    - public_table_count_equal
+    - public_schema_table_name_fingerprint_equal
+    - critical_table_row_counts_equal
+  critical_tables:
+    - organizations
+    - students
+    - course_enrollments
+    - training_hour_ledger_entries
+    - internal_exam_attempts
+    - license_inventory_entries
+    - student_payments
+    - orders
+    - audit_logs
+    - domain_events
+
+object_storage:
+  provider_in_CI: moto_s3_emulator
+  versioning_enabled: true
+  write_v1_then_v2: true
+  previous_version_readable: true
+  previous_version_restored_as_current: true
+  proves_production_versioning: false
+
+redis:
+  business_authority: false
+  test: flushall_then_ping
+  expected_result: PONG
+  restore_from_backup_required: false
+
+report:
+  format: JSON
+  fields_required:
+    - policy_version
+    - environment_kind
+    - production_target_evidence
+    - source_database
+    - restored_database
+    - source_table_count
+    - restored_table_count
+    - schema_fingerprint
+    - critical_tables_checked
+    - snapshot_rpo_seconds
+    - elapsed_seconds
+    - redis_recovered_empty
+    - object_storage
+
+CI:
+  workflow: .github/workflows/implementation-ci.yml
+  job: runtime-tests-and-migrations
+  order:
+    - PostgreSQL_backed_test_suite
+    - deterministic_restore_drill_harness
+    - cleanup_runtime
+
+production_boundary:
+  target_infrastructure_restore_drill_still_required: true
+  production_PITR_proven_by_CI: false
+  production_offsite_copy_proven_by_CI: false
+  production_object_versioning_proven_by_CI: false
+  production_go_live_unblocked_by_H5_alone: false

@@ -65,6 +65,8 @@ jobs:
         run: php artisan migration:plan:validate --json
       - name: Run PostgreSQL-backed test suite
         run: php artisan test --fail-on-warning
+      - name: Run deterministic restore drill harness
+        run: scripts/ops/restore-drill.sh
       - name: Cleanup runtime
         if: always()
         run: docker compose down -v
