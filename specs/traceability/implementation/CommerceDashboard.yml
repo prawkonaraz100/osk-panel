@@ -8,7 +8,7 @@ changed_scope:
     domain_data: orders + order_items + order_payment_settlements + order_fulfillments
     api_use_case: orders.list + orders.get + purchase_history.list
     permission: purchases.view with organization scope
-    ui: NOT_APPLICABLE_RUNTIME_GATE_UI_FOLLOWS_IN_LATER_GATE
+    ui: resources/js/modules/CommerceDashboard/PurchaseHistoryWorkspace.vue
     acceptance_test: Tests\\Feature\\CommercePurchaseHistoryCoreTest::test_purchase_history_is_tenant_scoped_and_preserves_multi_item_snapshots
     status: IMPLEMENTED
   - evidence: specs/database/student-finance-commerce.yml#DB-COM-005
@@ -24,7 +24,7 @@ changed_scope:
     domain_data: payments + orders + idempotency_records + audit_logs + domain_events + outbox_messages
     api_use_case: order_payments.create + purchase_history.pay_unpaid
     permission: purchases.pay with organization scope
-    ui: NOT_APPLICABLE_RUNTIME_GATE_UI_FOLLOWS_IN_LATER_GATE
+    ui: resources/js/modules/CommerceDashboard/PurchaseHistoryWorkspace.vue
     acceptance_test: Tests\\Feature\\CommercePurchaseHistoryCoreTest::test_payment_start_is_idempotent_opaque_audited_and_does_not_mark_order_paid
     status: IMPLEMENTED
   - evidence: specs/security/permissions.yml
@@ -74,5 +74,21 @@ changed_scope:
     permission: active_membership
     ui: resources/js/modules/CommerceDashboard/DashboardWorkspace.vue + resources/js/App.vue
     acceptance_test: Tests\\Unit\\DashboardUiContractTest::test_main_dashboard_uses_real_projection_and_confirmed_navigation_contract
+    status: IMPLEMENTED
+  - evidence: specs/screens/purchase-history.yml
+    requirement: the confirmed purchase-history screen at /historia-zakupow renders one unified paginated order table with the observed columns, multi-item orders, page sizes 10 25 50 100 and Opłać only for unpaid orders
+    domain_data: GET /api/v1/purchase-history
+    api_use_case: purchase_history.render + purchase_history.pagination
+    permission: purchases.view
+    ui: resources/js/modules/CommerceDashboard/PurchaseHistoryWorkspace.vue + resources/js/App.vue
+    acceptance_test: Tests\\Unit\\PurchaseHistoryUiContractTest::test_purchase_history_renders_confirmed_columns_page_sizes_and_safe_pay_action
+    status: IMPLEMENTED
+  - evidence: docs/17-history-purchases-screen.md#3-Potwierdzona-akcja-Opłać
+    requirement: the UI pay action starts only an idempotent pending payment attempt and never presents browser-local success as payment confirmation
+    domain_data: POST /api/v1/orders/{orderId}/payments
+    api_use_case: purchase_history.pay_unpaid
+    permission: purchases.pay
+    ui: resources/js/modules/CommerceDashboard/PurchaseHistoryWorkspace.vue
+    acceptance_test: Tests\\Unit\\PurchaseHistoryUiContractTest::test_purchase_history_renders_confirmed_columns_page_sizes_and_safe_pay_action
     status: IMPLEMENTED
 

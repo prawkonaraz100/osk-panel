@@ -240,6 +240,11 @@ function messageFor(caught: unknown, fallback: string): string {
           Kalendarz
         </a>
         <a
+          href="/historia-zakupow"
+        >
+          Historia zakupów
+        </a>
+        <a
           href="/lokalizacje"
         >
           Lokalizacje
