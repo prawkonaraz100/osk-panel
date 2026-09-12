@@ -516,6 +516,21 @@ final class InternalExamService
                 throw ResourceDomainException::conflict('Remote access is not eligible for send or resend.');
             }
 
+            $candidate = json_decode((string) $attempt->candidate_snapshot, true, 512, JSON_THROW_ON_ERROR);
+            if (! is_array($candidate)) {
+                throw ResourceDomainException::conflict('Internal exam candidate snapshot is invalid.');
+            }
+            $recipientEmail = $candidate['contact_email'] ?? null;
+            if (! is_string($recipientEmail)
+                || $recipientEmail === ''
+                || filter_var($recipientEmail, FILTER_VALIDATE_EMAIL) === false) {
+                throw ResourceDomainException::rule('Candidate contact email is required to send remote exam access.');
+            }
+            $recipientName = trim(
+                (is_string($candidate['first_name'] ?? null) ? $candidate['first_name'] : '').' '.
+                (is_string($candidate['last_name'] ?? null) ? $candidate['last_name'] : ''),
+            );
+
             $expiresAtValue = DB::table('internal_exam_accesses')->where('id', $accessId)->value('expires_at');
             if (! is_string($expiresAtValue)) {
                 throw ResourceDomainException::conflict('Remote access expiry is missing.');
@@ -561,6 +576,8 @@ final class InternalExamService
 
             $presented = $this->presentAccess($actor['organization_id'], $accessId);
             $presented['one_time_remote_token'] = $issued['raw_token'];
+            $presented['delivery_recipient_email'] = $recipientEmail;
+            $presented['delivery_recipient_name'] = $recipientName;
 
             return $presented;
         });

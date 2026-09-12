@@ -123,7 +123,20 @@ launch_modes:
       - generate_exam_link
       - candidate_can_take_exam_anywhere_with_internet
       - send_link_to_candidate_email
-    email_required_at_action_time: OWN_PRODUCT_RECOMMENDATION
+    own_product_delivery:
+      manual_copy:
+        creates_remote_access_and_returns_one_time_link_without_email_side_effect: true
+      email_send:
+        operation: POST_/internal-exam-accesses/{accessId}/send
+        recipient_source: current_prestart_attempt_candidate_snapshot.contact_email
+        recipient_resolved_under_attempt_access_lock: true
+        valid_email_required_before_token_rotation: true
+        rotates_execution_token_before_delivery: true
+        mail_transport_runs_after_database_commit: true
+        same_idempotency_replay_sends_second_email: false
+        raw_link_persisted_in_idempotency_audit_or_outbox: false
+        resend_with_new_command_rotates_and_delivers_new_link: true
+    email_required_at_action_time: true
     tokenized_link_required_for_own_product: true
     ttl: TO_DECIDE
     revocation: OWN_PRODUCT_REQUIRED
@@ -201,7 +214,6 @@ remaining_gaps:
   - validation_messages
   - no_pesel_birth_date_handling_in_competitor_exam_drawer
   - remote_link_success_state
-  - email_template
   - local_station_transition_screen
   - remote_link_ttl
   - remote_link_revoke_behavior
