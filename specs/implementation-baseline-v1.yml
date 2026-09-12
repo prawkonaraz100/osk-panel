@@ -92,7 +92,9 @@ core_modules:
     preservation_manifest_key: core.dashboard
 
   pkk:
-    status: READY_FOR_IMPLEMENTATION
+    status: DEFERRED_PENDING_PWPW_GUIDANCE
+    implementation_schedule: DEFERRED
+    deferment_decision: docs/129-pkk-deferred-pending-pwpw-guidance.md
     informational_route: /integracja-pkk
     operational_owner: course_enrollment
     specs:
@@ -111,6 +113,17 @@ core_modules:
       - provider_adapter
       - retry_matrix
       - reconciliation_for_unknown_external_state
+    completed_groundwork:
+      - provider_neutral_expand_schema_gate_1
+    resume_only_after:
+      - authoritative_PWPW_guidance_or_contract_received
+      - provider_access_and_onboarding_requirements_verified
+      - exact_provider_request_response_status_idempotency_reconciliation_and_signature_rules_verified
+    forbidden_until_resume:
+      - provider_specific_runtime_adapter
+      - live_PWPW_calls
+      - mutating_PKK_operational_UI
+    does_not_block_remaining_core_v1: true
     preservation_manifest_key: core.pkk
 
   students:

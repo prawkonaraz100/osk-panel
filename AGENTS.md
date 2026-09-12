@@ -207,6 +207,10 @@ Core v1:
 9. Dashboard / Notifications / Purchase History,
 10. hardening i formalne dokumenty.
 
+### Aktywne odroczenie PKK
+
+Od 2026-09-12 moduł **PKK adapter/integration** jest jawnie odroczony do czasu otrzymania i zweryfikowania autorytatywnych wytycznych lub kontraktu PWPW. Zachowaj istniejące evidence/specy oraz provider-neutral groundwork z Gate 1, ale nie implementuj provider-specific runtime, live calls, status mapping, signing/reconciliation semantics ani mutujących flow PKK z założeń. To odroczenie **nie blokuje** przejścia do `Dashboard / Notifications / Purchase History`. Szczegóły: `docs/129-pkk-deferred-pending-pwpw-guidance.md` oraz aktywny `specs/gates/stage-5-implementation-gate.yml`.
+
 Przed implementacją konkretnego modułu sprawdź:
 - `specs/implementation-baseline-v1.yml`,
 - `specs/reverse-engineering-manifest.yml`,

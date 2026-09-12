@@ -225,22 +225,65 @@ quality_gate:
     - S5-FOUND-001
 
 next_single_step:
-  id: CORE-V1-PKK-ADAPTER-001
-  action: begin_PKK_adapter_slice_only_after_next_explicit_user_instruction
+  id: CORE-V1-DASHBOARD-NOTIFICATIONS-PURCHASE-HISTORY-001
+  action: diagnose_then_begin_dashboard_notifications_purchase_history_only_after_next_explicit_user_instruction
   prerequisite_previous_slice: CORE-V1-INTERNAL-EXAMS-001_PASS
-  implementation_order_source: AGENTS.md
+  scope_exception:
+    module: CORE-V1-PKK-ADAPTER-001
+    status: DEFERRED_PENDING_PWPW_GUIDANCE
+    decision_doc: docs/129-pkk-deferred-pending-pwpw-guidance.md
+  implementation_order_source: AGENTS.md_with_explicit_PKK_deferment_override
   allowed_scope:
-    - PKK_adapter_integration
+    - Dashboard
+    - Notifications
+    - Purchase_History
     - dependency_closed_migrations_for_this_slice
     - module_API_permissions_tests_and_traceability
-    - own_UI_for_confirmed_PKK_screen_scope
+    - own_UI_for_confirmed_screen_scope
   forbidden_scope:
-    - Platform_Commerce_orders_payments_and_purchase_history
-    - Dashboard_Notifications_Purchase_History
+    - PKK_provider_runtime_or_live_integration
+    - provider_specific_PWPW_contract_assumptions
     - later_core_modules
     - Stage_4_authority_rewrite
     - weakening_existing_CI_or_tenant_authority
-  after_action: run_machine_narrative_central_gate_and_STOP_before_Dashboard_Notifications_Purchase_History
+  after_action: run_machine_narrative_central_gate_and_STOP_before_hardening_formal_documents_or_resuming_PKK
+
+CORE_V1_PKK_ADAPTER_001_deferment:
+  status: DEFERRED_PENDING_PWPW_GUIDANCE
+  decision_date: 2026-09-12
+  reason: provider_formal_and_technical_requirements_not_yet_authoritatively_available
+  decision_source: explicit_product_scope_decision
+  retained_groundwork:
+    provider_neutral_expand_schema_gate_1: PASS
+    accepted_commit: 389ebc6d7cefba4f1221406ac25a2439bb9fd464
+    accepted_tree: a67db63a7d6d7ddc3e3c033447710591cebe7b9c
+    accepted_Implementation_CI_run: 34696258224
+    accepted_Implementation_CI_jobs_passed: 5
+    accepted_Implementation_CI_jobs_total: 5
+    accepted_PostgreSQL_suite_tests: 153
+    accepted_PostgreSQL_suite_assertions: 2482
+    accepted_push_secret_scan: PASS
+    implemented_migration_nodes_current: 99
+    stage_4_DAG_nodes_total: 170
+    execution_identity: f9116683fbfecbd32cfe46c13b5025e60c22c3197ea87b9f8933e796c1b4f48e
+  not_implemented:
+    - provider_runtime_adapter
+    - live_PWPW_calls
+    - provider_specific_request_response_mapping
+    - provider_status_catalog
+    - provider_idempotency_and_reconciliation_semantics
+    - provider_signature_and_XML_submission_rules
+    - mutating_PKK_operational_UI
+  resume_only_after:
+    - authoritative_PWPW_guidance_or_contract_received
+    - provider_access_and_onboarding_requirements_verified
+    - exact_request_response_status_idempotency_reconciliation_and_signature_rules_verified
+    - legal_and_security_review_of_verified_provider_contract_completed
+  preservation:
+    remove_existing_PKK_specs_or_evidence: false
+    remove_provider_neutral_expand_schema: false
+    treat_gate_1_as_live_integration_support: false
+    PKK_may_block_other_core_slices: false
 
 CORE_V1_LOC_STAFF_VEH_001_closure:
   status: PASS
