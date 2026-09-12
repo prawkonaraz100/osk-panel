@@ -8,8 +8,9 @@ final class InternalExamUiContractTest extends TestCase
 {
     public function test_new_exam_candidate_handoff_uses_persistent_student_and_course_then_resumes_exact_student(): void
     {
-        $examWorkspace = file_get_contents(base_path('resources/js/modules/InternalExams/InternalExamWorkspace.vue'));
-        $studentWorkspace = file_get_contents(base_path('resources/js/modules/StudentsCourses/StudentCourseWorkspace.vue'));
+        $root = dirname(__DIR__, 2);
+        $examWorkspace = file_get_contents($root.'/resources/js/modules/InternalExams/InternalExamWorkspace.vue');
+        $studentWorkspace = file_get_contents($root.'/resources/js/modules/StudentsCourses/StudentCourseWorkspace.vue');
 
         $this->assertIsString($examWorkspace);
         $this->assertIsString($studentWorkspace);
