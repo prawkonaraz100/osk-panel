@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Mail\InternalExamAccessLinkMail;
 use App\Modules\InternalExams\ExamStationCredentialService;
 use App\Modules\InternalExams\InternalExamAnswerSheetService;
 use App\Modules\InternalExams\InternalExamService;
@@ -13,6 +14,7 @@ use App\Modules\StudentsCourses\CourseEnrollmentService;
 use App\Modules\StudentsCourses\StudentService;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Tests\Support\FoundationSchema;
@@ -2037,6 +2039,8 @@ final class InternalExamCoreTest extends TestCase
 
     public function test_http_remote_exam_secret_responses_are_nonreplayable_and_bearer_lifecycle_is_scoped(): void
     {
+        Mail::fake();
+
         $actor = $this->examActor();
         $course = $this->course($actor);
         $fixtures = $this->examFixtures($actor, $course);
@@ -2086,6 +2090,12 @@ final class InternalExamCoreTest extends TestCase
         $secondUrl = (string) $sendResponse->json('one_time_remote_url');
         $secondToken = $this->tokenFromOneTimeUrl($secondUrl);
         $this->assertNotSame($firstToken, $secondToken);
+        Mail::assertSent(InternalExamAccessLinkMail::class, function (InternalExamAccessLinkMail $mail) use ($secondUrl): bool {
+            return $mail->hasTo('anna.exam@example.test')
+                && $mail->candidateName === 'Anna Egzamin'
+                && $mail->examUrl === $secondUrl;
+        });
+        Mail::assertSentCount(1);
 
         $sendReplay = $this->withSession(['auth_session_id' => $actor['session_id']])
             ->withHeader('Idempotency-Key', $sendKey)
@@ -2093,6 +2103,7 @@ final class InternalExamCoreTest extends TestCase
         $sendReplay->assertStatus(202);
         $this->assertNull($sendReplay->json('one_time_remote_url'));
         $this->assertSame(2, DB::table('internal_exam_access_tokens')->where('internal_exam_access_id', $accessId)->count());
+        Mail::assertSentCount(1);
 
         $oldToken = $this->captureDomainException(
             fn () => app(InternalExamTokenService::class)->verify($firstToken, 'exam_execution'),
@@ -2186,6 +2197,63 @@ final class InternalExamCoreTest extends TestCase
         $this->assertStringNotContainsString($resultToken, $safeSnapshots);
     }
 
+    public function test_remote_email_delivery_requires_snapshot_email_before_rotating_token(): void
+    {
+        Mail::fake();
+
+        $actor = $this->examActor();
+        $course = $this->course($actor);
+        $this->examFixtures($actor, $course);
+        $service = app(InternalExamService::class);
+
+        $attempt = $service->createAttempt(
+            $actor['session_id'],
+            $course['id'],
+            'theory',
+            'pl',
+            (string) Str::uuid7(),
+        );
+        $access = $service->createAccess(
+            $actor['session_id'],
+            $attempt['id'],
+            'remote_link',
+            null,
+            null,
+            CarbonImmutable::now()->addMinutes(90),
+            (string) Str::uuid7(),
+        );
+
+        $service->editCandidateSnapshot(
+            $actor['session_id'],
+            $attempt['id'],
+            ['contact_email' => null],
+            '"v1"',
+        );
+
+        $beforeTokenCount = DB::table('internal_exam_access_tokens')
+            ->where('internal_exam_access_id', $access['id'])
+            ->count();
+
+        $response = $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->withHeader('Idempotency-Key', (string) Str::uuid7())
+            ->postJson("/api/v1/internal-exam-accesses/{$access['id']}/send");
+
+        $response
+            ->assertStatus(422)
+            ->assertJsonPath('error.code', 'VALIDATION_FAILED');
+        $this->assertSame(
+            $beforeTokenCount,
+            DB::table('internal_exam_access_tokens')
+                ->where('internal_exam_access_id', $access['id'])
+                ->count(),
+        );
+        $this->assertSame(
+            'ready',
+            DB::table('internal_exam_accesses')->where('id', $access['id'])->value('status'),
+        );
+        Mail::assertNothingSent();
+    }
+
     /** @return array{organization_id:string,user_id:string,membership_id:string,session_id:string} */
     private function examActor(): array
     {
@@ -2211,6 +2279,7 @@ final class InternalExamCoreTest extends TestCase
         $student = app(StudentService::class)->create($actor['session_id'], [
             'first_name' => 'Anna',
             'last_name' => 'Egzamin',
+            'contact_email' => 'anna.exam@example.test',
             'pesel' => '02070803628',
             'no_pesel' => false,
         ], (string) Str::uuid7());
