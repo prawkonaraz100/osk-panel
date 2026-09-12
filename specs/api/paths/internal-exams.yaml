@@ -375,6 +375,7 @@ paths:
       operationId: internalExamAttemptsAnswerSheetPdf
       x-requirement-id: exam_attempts.answer_sheet_pdf
       x-permission: exams.documents.download
+      x-condition: finished_theory_attempt_only
       parameters:
         - { $ref: '../openapi-components-v1.yaml#/components/parameters/AttemptId' }
       responses:
