@@ -6,6 +6,7 @@ use App\Modules\CalendarTraining\CalendarDrivingLessonController;
 use App\Modules\CalendarTraining\CalendarEventController;
 use App\Modules\CalendarTraining\TrainingSessionController;
 use App\Modules\CommerceDashboard\CommerceDashboardController;
+use App\Modules\CommerceDashboard\DashboardController;
 use App\Modules\InternalExams\InternalExamController;
 use App\Modules\LearningAccess\LearningAccessController;
 use App\Modules\ResourcesCore\ResourceApiMiddleware;
@@ -125,6 +126,7 @@ Route::middleware(ResourceApiMiddleware::class)->prefix('api/v1')->group(functio
     Route::post('/orders/{orderId}/payments', [CommerceDashboardController::class, 'orderPaymentsCreate']);
     Route::get('/payments', [CommerceDashboardController::class, 'paymentsList']);
     Route::get('/purchase-history', [CommerceDashboardController::class, 'purchaseHistoryList']);
+    Route::get('/dashboard', [DashboardController::class, 'get']);
 
     Route::get('/activity', [ActivityNotificationController::class, 'activityList']);
     Route::get('/notifications', [ActivityNotificationController::class, 'notificationsList']);
