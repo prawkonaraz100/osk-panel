@@ -48,7 +48,7 @@ changed_scope:
     domain_data: license_inventory_entries + license_assignments + license_activations + internal_exam_inventory_ledger_entries + internal_exam_inventory_entries + organization_activity_events + calendar_events
     api_use_case: GET /api/v1/dashboard
     permission: active_membership
-    ui: NOT_APPLICABLE_RUNTIME_GATE_UI_FOLLOWS_IN_LATER_GATE
+    ui: resources/js/modules/CommerceDashboard/DashboardWorkspace.vue
     acceptance_test: Tests\\Feature\\DashboardCoreTest::test_dashboard_aggregates_dynamic_tenant_scoped_license_exam_activity_and_calendar_projections
     status: IMPLEMENTED
   - evidence: specs/screens/main-dashboard.yml#internal_exams_card
@@ -66,5 +66,13 @@ changed_scope:
     permission: active_membership
     ui: NOT_APPLICABLE_RUNTIME_GATE_UI_FOLLOWS_IN_LATER_GATE
     acceptance_test: Tests\\Feature\\DashboardCoreTest::test_dashboard_requires_current_active_membership
+    status: IMPLEMENTED
+  - evidence: specs/screens/main-dashboard.yml
+    requirement: the confirmed root dashboard renders live license and exam metrics, the safe organization activity feed, and an embedded calendar with previous next today month week day controls and links to the existing operational modules
+    domain_data: GET /api/v1/dashboard + GET /api/v1/calendar/events
+    api_use_case: main_dashboard.render + main_dashboard.calendar_navigation
+    permission: active_membership
+    ui: resources/js/modules/CommerceDashboard/DashboardWorkspace.vue + resources/js/App.vue
+    acceptance_test: Tests\\Unit\\DashboardUiContractTest::test_main_dashboard_uses_real_projection_and_confirmed_navigation_contract
     status: IMPLEMENTED
 
