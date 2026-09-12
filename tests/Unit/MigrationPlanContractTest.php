@@ -15,10 +15,10 @@ class MigrationPlanContractTest extends TestCase
 
         $this->assertSame(170, $plan->nodeCount());
         $this->assertSame(17, $plan->batchCount());
-        $this->assertSame(99, $plan->implementedNodeCount());
-        $this->assertSame(99, $plan->implementedStepCount());
+        $this->assertSame(112, $plan->implementedNodeCount());
+        $this->assertSame(112, $plan->implementedStepCount());
         $this->assertSame('ad5f2aa2e14ef248b95dd3dda0d1cbcb2e69d441', $plan->summary()['authority_blob']);
-        $this->assertSame('f9116683fbfecbd32cfe46c13b5025e60c22c3197ea87b9f8933e796c1b4f48e', $plan->executionIdentity());
+        $this->assertSame('1d2f1d3a47a4a09b749d0b164137857a241c07afbaad02789ec21e03cb4118ce', $plan->executionIdentity());
         $this->assertSame([
             'MIG-EXT-BTREE-GIST',
             'MIG-TBL-ORGANIZATIONS',
@@ -114,11 +114,24 @@ class MigrationPlanContractTest extends TestCase
             'MIG-TBL-INTERNAL_EXAM_ATTEMPT_QUESTIONS',
             'MIG-TBL-INTERNAL_EXAM_RESULTS',
             'MIG-TBL-INTERNAL_EXAM_DOCUMENTS',
+            'MIG-TBL-COMMERCE_CATALOG_ITEMS',
+            'MIG-TBL-ORDERS',
+            'MIG-TBL-ORDER_ITEMS',
+            'MIG-TBL-PAYMENTS',
+            'MIG-TBL-PAYMENT_EVENTS',
+            'MIG-TBL-ORDER_PAYMENT_SETTLEMENTS',
+            'MIG-TBL-ORDER_FULFILLMENTS',
+            'MIG-TBL-SERVICE_ENTITLEMENTS',
+            'MIG-TBL-SERVICE_ACTIVATIONS',
             'MIG-TBL-AUDIT_ACTION_POLICY_REVISIONS',
             'MIG-TBL-AUDIT_ACTION_POLICY_CURRENTS',
             'MIG-TBL-AUDIT_LOGS',
             'MIG-TBL-DOMAIN_EVENTS',
             'MIG-TBL-OUTBOX_MESSAGES',
+            'MIG-TBL-ACTIVITY_PROJECTION_POLICY_REVISIONS',
+            'MIG-TBL-ACTIVITY_PROJECTION_POLICY_CURRENTS',
+            'MIG-TBL-ORGANIZATION_ACTIVITY_EVENTS',
+            'MIG-TBL-NOTIFICATIONS',
         ], array_column($plan->phaseSteps('expand'), 'node_id'));
     }
 
