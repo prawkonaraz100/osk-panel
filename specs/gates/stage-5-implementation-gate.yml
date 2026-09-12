@@ -958,6 +958,135 @@ CORE_V1_INTERNAL_EXAMS_001_closure:
     next_core_slice: PKK_adapter_integration
     next_core_slice_started: false
 
+CORE_V1_DASHBOARD_NOTIFICATIONS_PURCHASE_HISTORY_001_closure:
+  status: MACHINE_PASS_PENDING_NARRATIVE
+  accepted_scope:
+    - Dashboard
+    - Notifications
+    - Purchase_History
+    - dependency_closed_expand_migrations
+    - module_API_permissions_tests_and_traceability
+    - own_UI_for_confirmed_dashboard_and_purchase_history_scope
+  provenance:
+    final_accepted_implementation_tip: 12247c3fa6d1792ec8ac6e59da70322aa60f30ca
+    final_accepted_implementation_tree: ccf1906951f3fe431490ecc685aa52455089f8ac
+    accepted_branch_implementation_run: 34705218194
+    accepted_branch_API_contract_run: 34705218209
+    machine_closure_commit: PENDING
+    machine_closure_validation_run: PENDING
+    narrative_closure_candidate_commit: PENDING
+    narrative_closure_validation_run: PENDING
+    central_closure_commit: PENDING
+    central_closure_validation_run: PENDING
+    helper_workflow_entered_accepted_history: false
+    accepted_branch_push_secret_scan: PASS
+  migration_materialization:
+    stage_4_DAG_nodes_total: 170
+    implemented_nodes_before_slice: 99
+    implemented_nodes_current: 112
+    implemented_phase_steps_current: 112
+    nodes_added_by_slice: 13
+    phase: expand
+    execution_identity: 1d2f1d3a47a4a09b749d0b164137857a241c07afbaad02789ec21e03cb4118ce
+    plan_identity: d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10
+    added_nodes:
+      - MIG-TBL-COMMERCE_CATALOG_ITEMS
+      - MIG-TBL-ORDERS
+      - MIG-TBL-ORDER_ITEMS
+      - MIG-TBL-PAYMENTS
+      - MIG-TBL-PAYMENT_EVENTS
+      - MIG-TBL-ORDER_PAYMENT_SETTLEMENTS
+      - MIG-TBL-ORDER_FULFILLMENTS
+      - MIG-TBL-SERVICE_ENTITLEMENTS
+      - MIG-TBL-SERVICE_ACTIVATIONS
+      - MIG-TBL-ACTIVITY_PROJECTION_POLICY_REVISIONS
+      - MIG-TBL-ACTIVITY_PROJECTION_POLICY_CURRENTS
+      - MIG-TBL-ORGANIZATION_ACTIVITY_EVENTS
+      - MIG-TBL-NOTIFICATIONS
+    canonical_order_preserved: true
+    dependency_closed_subset: true
+    later_phase_constraint_nodes_materialized: false
+    Stage_4_authority_rewritten: false
+  runtime_traceability:
+    final_DBT_IDs_total: 491
+    implemented_executable_assertions_current: 78
+    implemented_DBT_added_by_slice: 0
+    pending_domain_materialization_current: 413
+    feature_integration_tests_promoted_to_DBT_without_exact_contract: false
+    migration_preflight_DBTs_claimed_early: false
+    concurrency_DBTs_claimed_without_two_connection_evidence: false
+    physical_FK_candidate_key_check_DBTs_claimed_early: false
+    false_implemented_claims_allowed: false
+  purchase_history:
+    tenant_scoped_unified_order_projection: true
+    immutable_multi_item_snapshots_preserved: true
+    deterministic_pagination_and_ordering: true
+    order_status_derived_from_settlement_and_fulfillment: true
+    unpaid_order_can_start_idempotent_pending_payment_attempt: true
+    browser_return_or_local_pending_state_confirms_payment: false
+    provider_network_IO_implemented: false
+    provider_webhook_reconciliation_implemented: false
+    route: /historia-zakupow
+    UI_implemented: true
+  notifications_and_activity:
+    organization_activity_reads_safe_projection_only: true
+    raw_audit_or_outbox_payload_exposed: false
+    notifications_exact_recipient_scoped: true
+    unread_filter_after_recipient_scope: true
+    mark_read_idempotent_null_to_timestamp_only: true
+    mark_read_emits_recursive_domain_event_or_outbox: false
+  dashboard:
+    dashboard_is_projection_not_business_authority: true
+    dynamic_license_metrics: true
+    internal_exam_availability_from_canonical_ledger: true
+    internal_exam_projection_drift_fails_closed: true
+    safe_activity_preview: true
+    embedded_calendar_uses_calendar_source: true
+    route: /
+    UI_implemented: true
+  API_and_UI:
+    OpenAPI_contract_preserved: PASS
+    dashboard_API: implemented
+    activity_API: implemented
+    notifications_API: implemented
+    notification_mark_read_API: implemented
+    purchase_history_API: implemented
+    pending_payment_attempt_API: implemented
+    confirmed_main_dashboard_UI: implemented
+    confirmed_purchase_history_UI: implemented
+    license_checkout_UI_implemented_in_this_slice: false
+    internal_exam_checkout_UI_implemented_in_this_slice: false
+  explicit_deferred_dependencies:
+    - provider_payment_webhook_reconciliation_and_external_network_IO
+    - platform_checkout_order_creation_and_server_side_catalog_pricing
+    - license_purchase_checkout_UI
+    - internal_exam_purchase_checkout_UI
+    - later_candidate_key_FK_index_check_and_preflight_phases_until_global_phase_barrier_allows_them
+    - provider_backed_PKK_operations_pending_PWPW_guidance
+    - global_hardening_and_formal_documents
+  executable_evidence:
+    accepted_branch_Implementation_CI_run: 34705218194
+    accepted_branch_Implementation_CI_jobs_passed: 5
+    accepted_branch_Implementation_CI_jobs_total: 5
+    accepted_PostgreSQL_suite_tests: 166
+    accepted_PostgreSQL_suite_assertions: 2598
+    accepted_API_contract_gate_run: 34705218209
+    accepted_API_contract_gate: PASS
+    backend_static_analysis: PASS_ZERO_ERRORS
+    frontend_lint_typecheck_build_audit: PASS
+    contracts_and_traceability: PASS
+    accepted_push_secret_scan: PASS
+    migration_authority_and_registry: PASS
+    Stage_4_authority_preservation: PASS
+  tranche_result:
+    machine_implementation: PASS
+    machine_closure: PENDING_VALIDATION
+    narrative_payload: PENDING
+    central_closure: PENDING
+    next_core_slice: hardening_and_formal_documents
+    next_core_slice_started: false
+    PKK_resume_requires_authoritative_PWPW_guidance: true
+
 S5_BOOT_001_closure:
   status: PASS
   accepted_scope: application_bootstrap_only
