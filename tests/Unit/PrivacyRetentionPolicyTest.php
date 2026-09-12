@@ -49,7 +49,7 @@ final class PrivacyRetentionPolicyTest extends TestCase
         $this->assertSame('published', $outbox['automatic_conditions']['publication_state']);
     }
 
-    public function test_policy_matches_OSK_formal_retention_and_minimization_boundaries(): void
+    public function test_policy_matches_osk_formal_retention_and_minimization_boundaries(): void
     {
         $formal = config('retention.classes.formal_training_register');
         $cards = config('retention.classes.lesson_card_detail');
