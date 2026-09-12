@@ -23,10 +23,12 @@ final class ResourceReferenceCatalogSeeder extends Seeder
     ];
 
     /** @var list<string> */
-    private const DRIVING_CATEGORIES = [
-        'A', 'B', 'C', 'D', 'T', 'A1', 'B1', 'C1', 'D1', 'AM', 'A2',
-        'B+E', 'C1+E', 'C+E', 'D1+E', 'D+E', 'PT',
+    private const DRIVING_LICENCE_CATEGORIES = [
+        'AM', 'A1', 'A2', 'A', 'B1', 'B', 'B+E', 'C1', 'C', 'C1+E',
+        'C+E', 'D1', 'D', 'D1+E', 'D+E', 'T',
     ];
+
+    private const TRAM_PERMIT_OBSERVED_ALIAS = 'PT';
 
     /** @var list<string> */
     private const LANGUAGES = [
@@ -83,14 +85,16 @@ final class ResourceReferenceCatalogSeeder extends Seeder
                 );
             }
 
-            foreach (self::DRIVING_CATEGORIES as $code) {
+            foreach (self::DRIVING_LICENCE_CATEGORIES as $code) {
                 $row = DB::table('driving_categories')->where('code', $code)->first();
                 $values = [
                     'label' => $code,
-                    'active' => $code !== 'PT',
-                    'metadata' => $code === 'PT'
-                        ? json_encode(['verification_required' => true], JSON_THROW_ON_ERROR)
-                        : null,
+                    'active' => true,
+                    'metadata' => json_encode([
+                        'entitlement_kind' => 'driving_licence_category',
+                        'rule_engine_eligible' => true,
+                        'legal_verified_at' => '2026-09-12',
+                    ], JSON_THROW_ON_ERROR),
                 ];
                 if ($row === null) {
                     DB::table('driving_categories')->insert([
@@ -101,6 +105,33 @@ final class ResourceReferenceCatalogSeeder extends Seeder
                 } else {
                     DB::table('driving_categories')->where('id', $row->id)->update($values);
                 }
+            }
+
+            $tramAlias = DB::table('driving_categories')
+                ->where('code', self::TRAM_PERMIT_OBSERVED_ALIAS)
+                ->first();
+            $tramAliasValues = [
+                'label' => self::TRAM_PERMIT_OBSERVED_ALIAS,
+                'active' => false,
+                'metadata' => json_encode([
+                    'entitlement_kind' => 'tram_permit',
+                    'official_label' => 'Pozwolenie na kierowanie tramwajem',
+                    'is_driving_licence_category' => false,
+                    'rule_engine_eligible' => false,
+                    'preservation_status' => 'USER_CONFIRMED_AUTH_SCREEN_ALIAS',
+                    'legal_verified_at' => '2026-09-12',
+                ], JSON_THROW_ON_ERROR),
+            ];
+            if ($tramAlias === null) {
+                DB::table('driving_categories')->insert([
+                    'id' => (string) Str::uuid7(),
+                    'code' => self::TRAM_PERMIT_OBSERVED_ALIAS,
+                    ...$tramAliasValues,
+                ]);
+            } else {
+                DB::table('driving_categories')
+                    ->where('id', $tramAlias->id)
+                    ->update($tramAliasValues);
             }
 
             DB::table('internal_exam_document_templates')->insertOrIgnore([
