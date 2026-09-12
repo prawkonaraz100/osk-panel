@@ -2254,6 +2254,137 @@ final class InternalExamCoreTest extends TestCase
         Mail::assertNothingSent();
     }
 
+    public function test_remote_email_transport_failure_revokes_secret_and_same_key_retries_safely(): void
+    {
+        $actor = $this->examActor();
+        $course = $this->course($actor);
+        $this->examFixtures($actor, $course);
+        $service = app(InternalExamService::class);
+
+        $attempt = $service->createAttempt(
+            $actor['session_id'],
+            $course['id'],
+            'theory',
+            'pl',
+            (string) Str::uuid7(),
+        );
+        $access = $service->createAccess(
+            $actor['session_id'],
+            $attempt['id'],
+            'remote_link',
+            null,
+            null,
+            CarbonImmutable::now()->addMinutes(90),
+            (string) Str::uuid7(),
+        );
+
+        $sendKey = (string) Str::uuid7();
+
+        Mail::shouldReceive('to')
+            ->once()
+            ->with('anna.exam@example.test')
+            ->andReturnSelf();
+        Mail::shouldReceive('send')
+            ->once()
+            ->andThrow(new \RuntimeException('smtp unavailable'));
+
+        $failed = $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->withHeader('Idempotency-Key', $sendKey)
+            ->postJson("/api/v1/internal-exam-accesses/{$access['id']}/send");
+
+        $failed->assertStatus(500);
+
+        $record = DB::table('idempotency_records')
+            ->where('organization_id', $actor['organization_id'])
+            ->where('operation_key', 'internal_exams.access.send')
+            ->where('idempotency_key', $sendKey)
+            ->firstOrFail();
+        $this->assertSame('delivery_failed', $record->status);
+        $this->assertNull($record->completed_at);
+        $this->assertSame(
+            0,
+            DB::table('internal_exam_access_tokens')
+                ->where('internal_exam_access_id', $access['id'])
+                ->where('purpose', 'exam_execution')
+                ->whereNull('revoked_at')
+                ->count(),
+        );
+        $this->assertSame(
+            'ready',
+            DB::table('internal_exam_accesses')->where('id', $access['id'])->value('status'),
+        );
+        $this->assertSame(
+            1,
+            DB::table('audit_logs')
+                ->where('action', 'internal_exam.access.delivery_failed')
+                ->where('entity_id', $access['id'])
+                ->count(),
+        );
+        $this->assertSame(
+            0,
+            DB::table('audit_logs')
+                ->where('action', 'internal_exam.access.sent')
+                ->where('entity_id', $access['id'])
+                ->count(),
+        );
+
+        Mail::fake();
+
+        $retried = $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->withHeader('Idempotency-Key', $sendKey)
+            ->postJson("/api/v1/internal-exam-accesses/{$access['id']}/send");
+
+        $retried->assertStatus(202);
+        $retryUrl = (string) $retried->json('one_time_remote_url');
+        $retryToken = $this->tokenFromOneTimeUrl($retryUrl);
+        Mail::assertSent(InternalExamAccessLinkMail::class, function (InternalExamAccessLinkMail $mail) use ($retryUrl): bool {
+            return $mail->hasTo('anna.exam@example.test')
+                && $mail->examUrl === $retryUrl;
+        });
+        Mail::assertSentCount(1);
+
+        $record = DB::table('idempotency_records')->where('id', $record->id)->firstOrFail();
+        $this->assertSame('completed', $record->status);
+        $this->assertNotNull($record->completed_at);
+        $this->assertSame(
+            1,
+            DB::table('internal_exam_access_tokens')
+                ->where('internal_exam_access_id', $access['id'])
+                ->where('purpose', 'exam_execution')
+                ->whereNull('revoked_at')
+                ->count(),
+        );
+        $this->assertSame(
+            'delivered_or_assigned',
+            DB::table('internal_exam_accesses')->where('id', $access['id'])->value('status'),
+        );
+        $this->assertSame(
+            1,
+            DB::table('audit_logs')
+                ->where('action', 'internal_exam.access.sent')
+                ->where('entity_id', $access['id'])
+                ->count(),
+        );
+
+        $safeSnapshot = (string) DB::table('idempotency_records')->where('id', $record->id)->value('safe_response_snapshot');
+        $this->assertStringNotContainsString($retryToken, $safeSnapshot);
+
+        $replay = $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->withHeader('Idempotency-Key', $sendKey)
+            ->postJson("/api/v1/internal-exam-accesses/{$access['id']}/send");
+
+        $replay->assertStatus(202);
+        $this->assertNull($replay->json('one_time_remote_url'));
+        Mail::assertSentCount(1);
+        $this->assertSame(
+            3,
+            DB::table('internal_exam_access_tokens')
+                ->where('internal_exam_access_id', $access['id'])
+                ->where('purpose', 'exam_execution')
+                ->count(),
+        );
+    }
+
     /** @return array{organization_id:string,user_id:string,membership_id:string,session_id:string} */
     private function examActor(): array
     {
