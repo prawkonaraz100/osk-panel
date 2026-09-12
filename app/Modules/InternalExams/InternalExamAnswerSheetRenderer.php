@@ -86,7 +86,7 @@ final class InternalExamAnswerSheetRenderer
             if ($pageIndex === count($chunks) - 1) {
                 $footerY = max(74.0, $y - 18.0);
                 $this->text($commands, 42, $footerY, 10, 'Suma punktów: '.$payload['score'].' / '.$payload['max_score'], true);
-                $this->text($commands, 330, $footerY, 10, 'Wynik: '.($payload['passed'] ? 'ZALICZONY' : 'NIEZALICZONY'), true);
+                $this->text($commands, 330, $footerY, 10, 'Próg zaliczenia: '.($payload['passed'] ? 'SPEŁNIONY' : 'NIESPEŁNIONY'), true);
                 $this->line($commands, 58, $footerY - 42, 240, $footerY - 42);
                 $this->line($commands, 355, $footerY - 42, 537, $footerY - 42);
                 $this->text($commands, 82, $footerY - 56, 7.5, 'podpis osoby egzaminowanej');
