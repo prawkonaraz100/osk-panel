@@ -5,6 +5,7 @@ return [
     'execution_token_ttl_minutes' => env('INTERNAL_EXAM_EXECUTION_TOKEN_TTL_MINUTES'),
     'result_token_ttl_minutes' => env('INTERNAL_EXAM_RESULT_TOKEN_TTL_MINUTES'),
     'remote_access_ttl_minutes' => env('INTERNAL_EXAM_REMOTE_ACCESS_TTL_MINUTES'),
+    'remote_delivery_prepare_lease_seconds' => env('INTERNAL_EXAM_REMOTE_DELIVERY_PREPARE_LEASE_SECONDS', 300),
     'remote_public_base_url' => env('INTERNAL_EXAM_REMOTE_PUBLIC_BASE_URL'),
     'token_verifier_key_v1' => env('INTERNAL_EXAM_TOKEN_VERIFIER_KEY_V1'),
     'station_verifier_key_v1' => env('INTERNAL_EXAM_STATION_VERIFIER_KEY_V1'),

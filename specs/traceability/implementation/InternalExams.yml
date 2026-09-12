@@ -195,3 +195,11 @@ changed_scope:
     ui: resources/js/modules/InternalExams/InternalExamWorkspace.vue and resources/js/modules/InternalExams/StudentInternalExamPanel.vue
     acceptance_test: Tests\\Feature\\InternalExamCoreTest::test_remote_email_transport_failure_revokes_secret_and_same_key_retries_safely
     status: IMPLEMENTED
+  - evidence: specs/screens/internal-exam-generation-access.yml
+    requirement: a process interruption after secret-safe delivery prepare cannot leave the same idempotency key permanently wedged; prepared state persists only a nonsecret token UUID timestamp and sanitized body, same-key retry before lease expiry conflicts, expired prepare revokes and audits only that exact still-current token before rotating a fresh retry, and a prepare already superseded by a newer delivery becomes delivery_superseded without revoking or resending the newer valid link
+    domain_data: internal_exam_accesses + internal_exam_access_tokens + idempotency_records + audit_logs + domain_events + outbox_messages
+    api_use_case: email_recovery
+    permission: exams.access.send
+    ui: resources/js/modules/InternalExams/InternalExamWorkspace.vue and resources/js/modules/InternalExams/StudentInternalExamPanel.vue
+    acceptance_test: Tests\\Feature\\InternalExamCoreTest::test_stale_prepared_remote_email_delivery_recovers_same_key_with_fresh_secret + Tests\\Feature\\InternalExamCoreTest::test_stale_prepared_delivery_does_not_revoke_newer_successful_resend
+    status: IMPLEMENTED

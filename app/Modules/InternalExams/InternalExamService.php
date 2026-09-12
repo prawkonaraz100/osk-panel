@@ -717,6 +717,71 @@ final class InternalExamService
         });
     }
 
+    public function recoverStaleRemoteEmailDelivery(
+        string $sessionId,
+        string $accessId,
+        string $deliveryTokenId,
+        string $requestId,
+    ): bool {
+        $actor = $this->scope->requireAccess($sessionId, 'exams.access.send', $accessId);
+
+        return DB::transaction(function () use ($actor, $accessId, $deliveryTokenId, $requestId): bool {
+            /** @var AccessRow|null $accessSnapshot */
+            $accessSnapshot = DB::table('internal_exam_accesses')
+                ->where('organization_id', $actor['organization_id'])
+                ->where('id', $accessId)
+                ->first();
+            if ($accessSnapshot === null) {
+                return false;
+            }
+
+            $attempt = $this->lockAttempt($actor['organization_id'], (string) $accessSnapshot->internal_exam_attempt_id);
+            /** @var AccessRow $access */
+            $access = DB::table('internal_exam_accesses')
+                ->where('organization_id', $actor['organization_id'])
+                ->where('id', $accessId)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if ((string) $attempt->status !== 'created'
+                || (string) $access->launch_mode !== 'remote_link'
+                || ! in_array((string) $access->status, ['ready', 'delivered_or_assigned', 'opened'], true)) {
+                return false;
+            }
+
+            $preparedToken = DB::table('internal_exam_access_tokens')
+                ->where('organization_id', $actor['organization_id'])
+                ->where('internal_exam_access_id', $accessId)
+                ->where('purpose', 'exam_execution')
+                ->where('id', $deliveryTokenId)
+                ->whereNull('revoked_at')
+                ->lockForUpdate()
+                ->first();
+
+            if ($preparedToken === null) {
+                return false;
+            }
+
+            $now = CarbonImmutable::now();
+            $this->tokens->revokeExecution(
+                $actor['organization_id'],
+                $accessId,
+                'delivery_prepare_lease_expired',
+                $now,
+            );
+
+            $this->auditOutbox->recordOrganizationEvent(
+                $actor['organization_id'], $actor['id'], $actor['user_id'],
+                'internal_exam.access.delivery_failed', 'internal_exam_access', $accessId, $requestId,
+                ['fields' => ['status'], 'state' => (string) $access->status],
+                ['fields' => ['status', 'delivery'], 'state' => (string) $access->status],
+                'delivery_prepare_lease_expired',
+            );
+
+            return true;
+        });
+    }
+
     /** @return array<string,mixed> */
     public function revokePrestart(
         string $sessionId,
