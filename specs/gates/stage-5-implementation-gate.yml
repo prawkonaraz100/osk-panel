@@ -225,22 +225,22 @@ quality_gate:
     - S5-FOUND-001
 
 next_single_step:
-  id: CORE-V1-INTERNAL-EXAMS-001
-  action: begin_internal_exams_slice_only_after_next_explicit_user_instruction
-  prerequisite_previous_slice: CORE-V1-LICENSES-LEARNING-ACCESS-001_PASS
+  id: CORE-V1-PKK-ADAPTER-001
+  action: begin_PKK_adapter_slice_only_after_next_explicit_user_instruction
+  prerequisite_previous_slice: CORE-V1-INTERNAL-EXAMS-001_PASS
   implementation_order_source: AGENTS.md
   allowed_scope:
-    - Internal_Exams
+    - PKK_adapter_integration
     - dependency_closed_migrations_for_this_slice
     - module_API_permissions_tests_and_traceability
-    - own_UI_for_confirmed_screen_scope
+    - own_UI_for_confirmed_PKK_screen_scope
   forbidden_scope:
-    - PKK_adapter
+    - Platform_Commerce_orders_payments_and_purchase_history
     - Dashboard_Notifications_Purchase_History
     - later_core_modules
     - Stage_4_authority_rewrite
     - weakening_existing_CI_or_tenant_authority
-  after_action: run_machine_narrative_central_gate_and_STOP_before_PKK_adapter_slice
+  after_action: run_machine_narrative_central_gate_and_STOP_before_Dashboard_Notifications_Purchase_History
 
 CORE_V1_LOC_STAFF_VEH_001_closure:
   status: PASS
@@ -779,6 +779,140 @@ CORE_V1_LICENSES_LEARNING_ACCESS_001_closure:
     narrative_payload: PASS
     central_closure: PASS
     next_core_slice: Internal_Exams
+    next_core_slice_started: false
+
+CORE_V1_INTERNAL_EXAMS_001_closure:
+  status: PASS
+  accepted_scope:
+    - Internal_Exams
+    - dependency_closed_expand_migrations
+    - module_API_permissions_tests_and_traceability
+    - own_UI_for_confirmed_internal_exam_scope
+    - persistent_Student_and_CourseEnrollment_generation_handoff
+    - remote_email_delivery_retry_and_crash_recovery
+  provenance:
+    final_accepted_implementation_tip: efeecfde2484fadc0f3c52bd3dc083c60e1d5c31
+    final_accepted_implementation_tree: 5d1e390a8c49a010fc911ebd548becece35962c4
+    accepted_branch_implementation_run: 34688769004
+    accepted_branch_API_contract_run: 34688769006
+    narrative_closure_candidate_commit: 848ba0ac98df27c261ddfeb688d3e1bbaffa4e3c
+    narrative_closure_validation_run: 34689133439
+    narrative_closure_validation_jobs_passed: 5
+    narrative_closure_validation_jobs_total: 5
+    helper_workflow_entered_accepted_history: false
+    PR_secret_scan_limitation: Resource_not_accessible_by_integration_before_scan
+    accepted_branch_push_secret_scan: PASS
+  migration_materialization:
+    stage_4_DAG_nodes_total: 170
+    implemented_nodes_current: 85
+    implemented_phase_steps_current: 85
+    nodes_added_by_slice: 18
+    phase: expand
+    execution_identity: bd695611d07723f344c5571ea21de2fcb7ef3f09a4673ace9b2f5a46d652f0c8
+    plan_identity: d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10
+    canonical_order_preserved: true
+    dependency_closed_subset: true
+    later_phase_constraint_nodes_materialized: false
+    Stage_4_authority_rewritten: false
+  runtime_traceability:
+    final_DBT_IDs_total: 491
+    implemented_executable_assertions_current: 78
+    implemented_DBT_added_by_slice: 0
+    pending_domain_materialization_current: 413
+    feature_integration_tests_promoted_to_DBT_without_exact_contract: false
+    migration_preflight_DBTs_claimed_early: false
+    concurrency_DBTs_claimed_without_two_connection_evidence: false
+    physical_FK_candidate_key_check_DBTs_claimed_early: false
+    false_implemented_claims_allowed: false
+  database_authority:
+    contracts_PASS:
+      - DB-EXAM-001
+      - DB-EXAM-002
+      - DB-EXAM-003
+      - DB-EXAM-004
+      - DB-EXAM-005
+      - DB-EXAM-006
+      - DB-EXAM-007
+      - DB-EXAM-008
+    formal_attempt_requires_persistent_student_and_course: true
+    candidate_snapshot_versioned_prestart: true
+    candidate_snapshot_mutable_after_start: false
+    question_result_document_history_immutable: true
+  inventory:
+    concrete_units_with_provenance: true
+    reserve_before_start: true
+    consume_exactly_once_on_start: true
+    finish_consumes_again: false
+    prestart_release_preserves_history: true
+    technical_abort_auto_refund: false
+    audited_adjustment_all_or_none: true
+    reserved_or_consumed_units_adjusted_out: false
+    technical_refund_is_new_compensating_unit: true
+  access_and_station_security:
+    opaque_remote_execution_tokens: true
+    raw_token_recoverable_storage: false
+    idempotent_secret_replay_returns_secret: false
+    remote_email_recipient_server_resolved_from_candidate_snapshot: true
+    mail_success_required_before_delivered_state_and_sent_audit: true
+    transport_failure_revokes_exact_prepared_token: true
+    same_key_retry_after_transport_failure: true
+    stale_delivery_prepare_has_lease_recovery: true
+    stale_recovery_never_revokes_superseding_newer_token: true
+    authenticated_station_credentials: true
+    station_heartbeat: true
+    one_active_station_attempt_authority_preserved: true
+    technical_station_failover_consumes_second_unit: false
+  result_and_documents:
+    immutable_question_snapshots: true
+    immutable_candidate_answers_and_scoring_history: true
+    result_and_question_review_same_historical_attempt: true
+    theory_answer_sheet_immutable_template_binding: true
+    canonical_tenant_owned_PDF_asset: true
+    answer_sheet_content_hash_verified: true
+  API_and_UI:
+    OpenAPI_contract_preserved: PASS
+    management_panel_route: /egzamin-wewnetrzny/panel
+    student_internal_exam_tab: implemented
+    inventory_projection_UI: implemented
+    search_filter_sort_hide_finished_UI: implemented
+    row_and_standalone_generation_UI: implemented
+    persistent_new_student_handoff_UI: implemented
+    prestart_candidate_edit_UI: implemented
+    remote_link_and_email_UI: implemented
+    local_and_assigned_station_UI: implemented
+    history_result_review_and_PDF_UI: implemented
+    platform_commerce_checkout_implemented_in_this_slice: false
+  explicit_deferred_dependencies:
+    - Platform_Commerce_exam_orders_checkout_payments_callbacks_and_Purchase_History
+    - later_candidate_key_FK_index_check_and_preflight_phases_until_global_phase_barrier_allows_them
+    - production_provider_question_engine_exact_schema_and_contract
+    - final_production_exam_capability_data_per_category_and_language
+    - legal_category_dictionary_reverification_including_PT_mapping
+    - provider_backed_PKK_operations
+    - Dashboard_Notifications_Purchase_History
+    - global_privacy_retention_backup_restore_and_DR_hardening
+  executable_evidence:
+    accepted_branch_Implementation_CI_run: 34688769004
+    accepted_branch_Implementation_CI_jobs_passed: 5
+    accepted_branch_Implementation_CI_jobs_total: 5
+    accepted_PostgreSQL_suite_tests: 153
+    accepted_PostgreSQL_suite_assertions: 2482
+    accepted_API_contract_gate_run: 34688769006
+    accepted_API_contract_gate: PASS
+    narrative_closure_validation_run: 34689133439
+    narrative_closure_validation_jobs_passed: 5
+    narrative_closure_validation_jobs_total: 5
+    backend_static_analysis: PASS_ZERO_ERRORS
+    frontend_lint_typecheck_build_audit: PASS
+    contracts_and_traceability: PASS
+    accepted_push_secret_scan: PASS
+    migration_authority_and_registry: PASS
+    Stage_4_authority_preservation: PASS
+  tranche_result:
+    machine_implementation: PASS
+    narrative_payload: PASS
+    central_closure: PASS
+    next_core_slice: PKK_adapter_integration
     next_core_slice_started: false
 
 S5_BOOT_001_closure:

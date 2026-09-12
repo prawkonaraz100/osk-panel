@@ -4,8 +4,8 @@ Data: 2026-09-12
 
 **Slice:** `CORE-V1-INTERNAL-EXAMS-001`  
 **Implementation machine:** PASS  
-**Narrative payload:** CANDIDATE  
-**Central closure:** PENDING_NARRATIVE_VALIDATION
+**Narrative payload:** PASS  
+**Central closure:** PASS
 
 ## 1. Zakres
 
@@ -366,10 +366,17 @@ Finalny accepted implementation tip:
 
 Narrative closure candidate:
 
-**PENDING VALIDATION**
+`848ba0ac98df27c261ddfeb688d3e1bbaffa4e3c`
 
-Po walidacji tego dokumentu central Stage-5 gate może otrzymać:
+Narrative validation:
+
+- Implementation CI `34689133439` — **5/5 SUCCESS**,
+- PostgreSQL — **153 tests / 2482 assertions — PASS**,
+- accepted-push secret-scan — **PASS**,
+- backend / frontend / contracts-and-traceability — **PASS**.
+
+Finalny wynik central closure:
 
 `CORE-V1-INTERNAL-EXAMS-001 = PASS`
 
-Następny dozwolony slice zgodnie z `AGENTS.md` to **PKK adapter/integration**, ale nie może zostać rozpoczęty w ramach tego closure. Central gate ma po zamknięciu zatrzymać wykonanie przed PKK do kolejnej jawnej instrukcji użytkownika.
+Następny dozwolony slice zgodnie z `AGENTS.md` to **PKK adapter/integration**. Nie został rozpoczęty. Central gate zatrzymuje wykonanie przed PKK do kolejnej jawnej instrukcji użytkownika.
