@@ -250,14 +250,17 @@ paths:
         - recipient_is_current_prestart_candidate_snapshot_contact_email_under_attempt_lock
         - missing_or_invalid_snapshot_email_fails_before_token_rotation
         - raw_rotated_token_is_never_persisted_in_idempotency_audit_or_outbox
-        - email_transport_runs_only_after_the_idempotent_database_transaction_commits
-        - replay_of_same_idempotency_key_does_not_send_a_second_email
+        - token_prepare_commits_before_external_mail_transport
+        - access_delivered_state_and_sent_audit_are_confirmed_only_after_mail_success
+        - mail_transport_failure_revokes_the_prepared_token_and_marks_the_idempotency_record_delivery_failed
+        - same_idempotency_key_after_delivery_failed_rotates_a_fresh_token_and_can_retry
+        - completed_same_idempotency_key_replay_does_not_send_a_second_email
       parameters:
         - { $ref: '../openapi-components-v1.yaml#/components/parameters/AccessId' }
         - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
       responses:
         '202':
-          description: Remote access is rotated and the new one-time URL is sent to the candidate snapshot email after commit; the URL is returned once for operator handoff and is not persisted recoverably
+          description: Remote access prepares a nonrecoverable one-time URL, sends it outside the database transaction, and confirms delivered state only after mail success; a transport failure revokes that prepared token and the same idempotency key may safely retry with a fresh URL
           content:
             application/json:
               schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/InternalExamAccess' }
