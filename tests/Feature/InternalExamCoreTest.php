@@ -2280,13 +2280,22 @@ final class InternalExamCoreTest extends TestCase
 
         $sendKey = (string) Str::uuid7();
 
+        $mailSendCalls = 0;
+        $deliveredMail = null;
         Mail::shouldReceive('to')
-            ->once()
+            ->twice()
             ->with('anna.exam@example.test')
             ->andReturnSelf();
         Mail::shouldReceive('send')
-            ->once()
-            ->andThrow(new \RuntimeException('smtp unavailable'));
+            ->twice()
+            ->andReturnUsing(function (InternalExamAccessLinkMail $mail) use (&$mailSendCalls, &$deliveredMail): void {
+                $mailSendCalls++;
+                if ($mailSendCalls === 1) {
+                    throw new \RuntimeException('smtp unavailable');
+                }
+
+                $deliveredMail = $mail;
+            });
 
         $failed = $this->withSession(['auth_session_id' => $actor['session_id']])
             ->withHeader('Idempotency-Key', $sendKey)
@@ -2328,8 +2337,6 @@ final class InternalExamCoreTest extends TestCase
                 ->count(),
         );
 
-        Mail::fake();
-
         $retried = $this->withSession(['auth_session_id' => $actor['session_id']])
             ->withHeader('Idempotency-Key', $sendKey)
             ->postJson("/api/v1/internal-exam-accesses/{$access['id']}/send");
@@ -2337,11 +2344,10 @@ final class InternalExamCoreTest extends TestCase
         $retried->assertStatus(202);
         $retryUrl = (string) $retried->json('one_time_remote_url');
         $retryToken = $this->tokenFromOneTimeUrl($retryUrl);
-        Mail::assertSent(InternalExamAccessLinkMail::class, function (InternalExamAccessLinkMail $mail) use ($retryUrl): bool {
-            return $mail->hasTo('anna.exam@example.test')
-                && $mail->examUrl === $retryUrl;
-        });
-        Mail::assertSentCount(1);
+        $this->assertSame(2, $mailSendCalls);
+        $this->assertInstanceOf(InternalExamAccessLinkMail::class, $deliveredMail);
+        $this->assertSame('Anna Egzamin', $deliveredMail->candidateName);
+        $this->assertSame($retryUrl, $deliveredMail->examUrl);
 
         $record = DB::table('idempotency_records')->where('id', $record->id)->firstOrFail();
         $this->assertSame('completed', $record->status);
@@ -2375,7 +2381,7 @@ final class InternalExamCoreTest extends TestCase
 
         $replay->assertStatus(202);
         $this->assertNull($replay->json('one_time_remote_url'));
-        Mail::assertSentCount(1);
+        $this->assertSame(2, $mailSendCalls);
         $this->assertSame(
             3,
             DB::table('internal_exam_access_tokens')
