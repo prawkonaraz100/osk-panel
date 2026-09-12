@@ -189,12 +189,6 @@ const eligibleSubjects = computed(() =>
 
 const lastAttempt = computed(() => attempts.value[0] ?? null)
 
-const currentCourse = computed(() => {
-  const courseId = generationSubject.value?.course_enrollment_id
-  if (!courseId) return null
-  return props.courses.find((course) => course.id === courseId) ?? null
-})
-
 onMounted(load)
 
 async function load(): Promise<void> {
