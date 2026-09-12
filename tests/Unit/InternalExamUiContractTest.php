@@ -15,16 +15,16 @@ final class InternalExamUiContractTest extends TestCase
         $this->assertIsString($examWorkspace);
         $this->assertIsString($studentWorkspace);
 
-        $this->assertStringContainsString("window.location.href = '/kursanci?exam_handoff=1'", $examWorkspace);
-        $this->assertStringContainsString("const studentId = params.get('resume_student_id')", $examWorkspace);
-        $this->assertStringContainsString("student_id: studentId", $examWorkspace);
-        $this->assertStringContainsString("row.assignment_eligible_now", $examWorkspace);
+        $this->assertStringContainsString('window.location.href = \'/kursanci?exam_handoff=1\'', $examWorkspace);
+        $this->assertStringContainsString('const studentId = params.get(\'resume_student_id\')', $examWorkspace);
+        $this->assertStringContainsString('student_id: studentId', $examWorkspace);
+        $this->assertStringContainsString('row.assignment_eligible_now', $examWorkspace);
 
-        $this->assertStringContainsString("pageQuery.get('exam_handoff') === '1'", $studentWorkspace);
+        $this->assertStringContainsString('pageQuery.get(\'exam_handoff\') === \'1\'', $studentWorkspace);
         $this->assertStringContainsString('studentForm.value.add_course = examHandoff', $studentWorkspace);
-        $this->assertStringContainsString("body.initial_course = coursePayload(courseForm.value, true)", $studentWorkspace);
+        $this->assertStringContainsString('body.initial_course = coursePayload(courseForm.value, true)', $studentWorkspace);
         $this->assertStringContainsString(
-            "window.location.href = '/egzamin-wewnetrzny/panel?resume_student_id=' + encodeURIComponent(result.data.id)",
+            'window.location.href = \'/egzamin-wewnetrzny/panel?resume_student_id=\' + encodeURIComponent(result.data.id)',
             $studentWorkspace,
         );
 
