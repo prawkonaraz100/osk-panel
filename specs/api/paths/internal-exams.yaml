@@ -246,12 +246,18 @@ paths:
       operationId: internalExamAccessesSend
       x-requirement-id: exam_accesses.send_remote
       x-permission: exams.access.send
+      x-invariants:
+        - recipient_is_current_prestart_candidate_snapshot_contact_email_under_attempt_lock
+        - missing_or_invalid_snapshot_email_fails_before_token_rotation
+        - raw_rotated_token_is_never_persisted_in_idempotency_audit_or_outbox
+        - email_transport_runs_only_after_the_idempotent_database_transaction_commits
+        - replay_of_same_idempotency_key_does_not_send_a_second_email
       parameters:
         - { $ref: '../openapi-components-v1.yaml#/components/parameters/AccessId' }
         - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
       responses:
         '202':
-          description: Remote access delivery materialized with a newly rotated one-time URL; raw token is not persisted recoverably
+          description: Remote access is rotated and the new one-time URL is sent to the candidate snapshot email after commit; the URL is returned once for operator handoff and is not persisted recoverably
           content:
             application/json:
               schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/InternalExamAccess' }
