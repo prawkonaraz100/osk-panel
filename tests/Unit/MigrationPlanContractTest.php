@@ -15,10 +15,10 @@ class MigrationPlanContractTest extends TestCase
 
         $this->assertSame(170, $plan->nodeCount());
         $this->assertSame(17, $plan->batchCount());
-        $this->assertSame(85, $plan->implementedNodeCount());
-        $this->assertSame(85, $plan->implementedStepCount());
+        $this->assertSame(99, $plan->implementedNodeCount());
+        $this->assertSame(99, $plan->implementedStepCount());
         $this->assertSame('ad5f2aa2e14ef248b95dd3dda0d1cbcb2e69d441', $plan->summary()['authority_blob']);
-        $this->assertSame('bd695611d07723f344c5571ea21de2fcb7ef3f09a4673ace9b2f5a46d652f0c8', $plan->executionIdentity());
+        $this->assertSame('f9116683fbfecbd32cfe46c13b5025e60c22c3197ea87b9f8933e796c1b4f48e', $plan->executionIdentity());
         $this->assertSame([
             'MIG-EXT-BTREE-GIST',
             'MIG-TBL-ORGANIZATIONS',
@@ -74,7 +74,21 @@ class MigrationPlanContractTest extends TestCase
             'MIG-TBL-AVAILABILITY_SLOT_LIFECYCLE_EVENTS',
             'MIG-TBL-CALENDAR_RESOURCE_CLAIMS',
             'MIG-TBL-TRAINING_SESSION_CALENDAR_DETAILS',
+            'MIG-TBL-PKK_INTEGRATION_SETTINGS',
+            'MIG-TBL-PKK_INTEGRATION_CONFIGURATION_REVISIONS',
             'MIG-TBL-PKK_PROFILES',
+            'MIG-TBL-PKK_PROVIDER_PROFILE_SNAPSHOTS',
+            'MIG-TBL-PKK_OPERATIONS',
+            'MIG-TBL-PKK_OPERATION_LIFECYCLE_EVENTS',
+            'MIG-TBL-PKK_OPERATION_ATTEMPTS',
+            'MIG-TBL-PKK_OPERATION_ATTEMPT_RECONCILIATIONS',
+            'MIG-TBL-PKK_SIGNATURE_HANDOFFS',
+            'MIG-TBL-PKK_SIGNATURE_HANDOFF_UPLOAD_RESERVATIONS',
+            'MIG-TBL-PKK_PROTECTED_PAYLOADS',
+            'MIG-TBL-PKK_PROTECTED_PAYLOAD_KEY_WRAPPINGS',
+            'MIG-TBL-PKK_PAYLOAD_REDACTED_PROJECTIONS',
+            'MIG-TBL-PKK_SIGNATURE_FILE_ASSET_PROTECTIONS',
+            'MIG-TBL-PKK_SIGNATURE_FILE_ASSET_KEY_WRAPPINGS',
             'MIG-TBL-STUDENT_CHARGES',
             'MIG-TBL-STUDENT_PAYMENTS',
             'MIG-TBL-COURSE_COST_CHARGE_ORIGINS',

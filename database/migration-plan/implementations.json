@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
   "plan_identity": "d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10",
-  "execution_identity": "bd695611d07723f344c5571ea21de2fcb7ef3f09a4673ace9b2f5a46d652f0c8",
+  "execution_identity": "f9116683fbfecbd32cfe46c13b5025e60c22c3197ea87b9f8933e796c1b4f48e",
   "stage4_root": "database/migrations/stage4",
   "implemented_steps": [
     {
@@ -491,11 +491,137 @@
       "safe_down": false
     },
     {
+      "node_id": "MIG-TBL-PKK_INTEGRATION_SETTINGS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-PKK_INTEGRATION_SETTINGS/2026_09_10_000590_create_pkk_integration_settings_table.php",
+      "migration_name": "2026_09_10_000590_create_pkk_integration_settings_table",
+      "file_sha256": "e8723a22a420de72413b3f2e592be0159fda14c47fc0e93722132169ac96a1f2",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-PKK_INTEGRATION_CONFIGURATION_REVISIONS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-PKK_INTEGRATION_CONFIGURATION_REVISIONS/2026_09_10_000600_create_pkk_integration_configuration_revisions_table.php",
+      "migration_name": "2026_09_10_000600_create_pkk_integration_configuration_revisions_table",
+      "file_sha256": "d8d0fac4c9b3bf93e57caa485c94481dc9e60f1c47bc2b4129513f1b3cf9e1ac",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
       "node_id": "MIG-TBL-PKK_PROFILES",
       "phase": "expand",
       "migration_file": "database/migrations/stage4/expand/MIG-TBL-PKK_PROFILES/2026_09_10_000610_create_pkk_profiles_table.php",
       "migration_name": "2026_09_10_000610_create_pkk_profiles_table",
       "file_sha256": "d8939a762a2bd9a90f7aa324547d39ad54fe8bfd4a2775bcc30f62ea5a5aeebd",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-PKK_PROVIDER_PROFILE_SNAPSHOTS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-PKK_PROVIDER_PROFILE_SNAPSHOTS/2026_09_10_000620_create_pkk_provider_profile_snapshots_table.php",
+      "migration_name": "2026_09_10_000620_create_pkk_provider_profile_snapshots_table",
+      "file_sha256": "98bf350acaab7486cdf9d95508ad7275250b8cc7abb08bfbf9c6da03d6b7b6f5",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-PKK_OPERATIONS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-PKK_OPERATIONS/2026_09_10_000630_create_pkk_operations_table.php",
+      "migration_name": "2026_09_10_000630_create_pkk_operations_table",
+      "file_sha256": "ee79b5af1d961de0a2616f5b23df0b67ea174877e834940101cf8439e1dab456",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-PKK_OPERATION_LIFECYCLE_EVENTS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-PKK_OPERATION_LIFECYCLE_EVENTS/2026_09_10_000640_create_pkk_operation_lifecycle_events_table.php",
+      "migration_name": "2026_09_10_000640_create_pkk_operation_lifecycle_events_table",
+      "file_sha256": "701519448fbeeb1940366238b0186e739c792da051fb9778d4b686a34f5c8cf5",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-PKK_OPERATION_ATTEMPTS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-PKK_OPERATION_ATTEMPTS/2026_09_10_000650_create_pkk_operation_attempts_table.php",
+      "migration_name": "2026_09_10_000650_create_pkk_operation_attempts_table",
+      "file_sha256": "0c31a48daa6c28579334a493ee3b5fd7c6b11098e1688ddab5f4429958f10310",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-PKK_OPERATION_ATTEMPT_RECONCILIATIONS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-PKK_OPERATION_ATTEMPT_RECONCILIATIONS/2026_09_10_000660_create_pkk_operation_attempt_reconciliations_table.php",
+      "migration_name": "2026_09_10_000660_create_pkk_operation_attempt_reconciliations_table",
+      "file_sha256": "955e79be40eef0bfacb6974626b980c467752697b467067d06a8b028f531492c",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-PKK_SIGNATURE_HANDOFFS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-PKK_SIGNATURE_HANDOFFS/2026_09_10_000670_create_pkk_signature_handoffs_table.php",
+      "migration_name": "2026_09_10_000670_create_pkk_signature_handoffs_table",
+      "file_sha256": "94501f840efcffa4b7e81c923f112b891bfa5e328662da57932ebbd81dec1f65",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-PKK_SIGNATURE_HANDOFF_UPLOAD_RESERVATIONS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-PKK_SIGNATURE_HANDOFF_UPLOAD_RESERVATIONS/2026_09_10_000680_create_pkk_signature_handoff_upload_reservations_table.php",
+      "migration_name": "2026_09_10_000680_create_pkk_signature_handoff_upload_reservations_table",
+      "file_sha256": "0dd2ec3ea09670f5e57f1aef60910fab29af27c9eb74519c76cf020e1a6d9e8e",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-PKK_PROTECTED_PAYLOADS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-PKK_PROTECTED_PAYLOADS/2026_09_10_000690_create_pkk_protected_payloads_table.php",
+      "migration_name": "2026_09_10_000690_create_pkk_protected_payloads_table",
+      "file_sha256": "6d5a68c505a80ac56a2e5ceba40f0db2eaa3b733338b97ff929335975445b16e",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-PKK_PROTECTED_PAYLOAD_KEY_WRAPPINGS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-PKK_PROTECTED_PAYLOAD_KEY_WRAPPINGS/2026_09_10_000700_create_pkk_protected_payload_key_wrappings_table.php",
+      "migration_name": "2026_09_10_000700_create_pkk_protected_payload_key_wrappings_table",
+      "file_sha256": "f67f3a4838a40028c9c64ec8d13f543256fb83f1c823d4826137088c173fb8b7",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-PKK_PAYLOAD_REDACTED_PROJECTIONS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-PKK_PAYLOAD_REDACTED_PROJECTIONS/2026_09_10_000710_create_pkk_payload_redacted_projections_table.php",
+      "migration_name": "2026_09_10_000710_create_pkk_payload_redacted_projections_table",
+      "file_sha256": "9c5cb40af4d97445daef402c4280369b38dd3dd27e8fe1fc97c5a276e33f6d12",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-PKK_SIGNATURE_FILE_ASSET_PROTECTIONS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-PKK_SIGNATURE_FILE_ASSET_PROTECTIONS/2026_09_10_000720_create_pkk_signature_file_asset_protections_table.php",
+      "migration_name": "2026_09_10_000720_create_pkk_signature_file_asset_protections_table",
+      "file_sha256": "8ebb686e1e461ea869a89a58e431718ef874234575818967d71757c546eb8d49",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-PKK_SIGNATURE_FILE_ASSET_KEY_WRAPPINGS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-PKK_SIGNATURE_FILE_ASSET_KEY_WRAPPINGS/2026_09_10_000730_create_pkk_signature_file_asset_key_wrappings_table.php",
+      "migration_name": "2026_09_10_000730_create_pkk_signature_file_asset_key_wrappings_table",
+      "file_sha256": "b3dc3e7ce5c0b3240f90866ad9bc4531ddcdf71fd54169786b59e347047d2799",
       "restart_classification": "restart_safe",
       "safe_down": false
     },
