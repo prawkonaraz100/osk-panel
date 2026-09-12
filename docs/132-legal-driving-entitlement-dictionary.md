@@ -62,3 +62,25 @@ Provider-specific PKK nadal pozostaje odroczony zgodnie z `docs/129-pkk-deferred
 - braku `PT` w produkcyjnym `ResourceCatalogService::drivingCategories()`.
 
 Dzięki temu historyczny alias nie może przypadkiem zostać aktywowany jako legalna kategoria rule-engine.
+
+## 7. Closure evidence
+
+Hardening H2 is closed on accepted implementation commit:
+
+- accepted commit: `f7c531748f0fad9508c6ff881cf551d11def552b`,
+- accepted tree: `2478766f1deaf0237f63549f28060f728bcff6ea`,
+- validation helper: `11e169ad41ce5f77f18dcba0d303cc54f857586a`,
+- helper Implementation CI #251: **5/5 PASS**,
+- helper API Contract Gate #302: **PASS**,
+- accepted Implementation CI #252: **5/5 PASS**,
+- accepted API Contract Gate #303: **PASS**,
+- accepted PostgreSQL suite: **169 tests / 2614 assertions**,
+- backend Pint + PHPStan: **PASS**,
+- frontend lint + typecheck + build + audit: **PASS**,
+- secret scan: **PASS**,
+- changed-module traceability: **PASS**.
+
+No Stage-4 database authority, training minima, age rules or provider-specific PKK behavior changed in this gate.
+
+Next hardening gate: **privacy / retention schedule**.
+
