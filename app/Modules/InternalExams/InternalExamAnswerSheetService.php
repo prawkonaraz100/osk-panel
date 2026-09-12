@@ -79,7 +79,7 @@ final class InternalExamAnswerSheetService
             if ($attempt === null) {
                 throw ResourceDomainException::notFound();
             }
-            if (! in_array((string) $attempt->status, ['passed', 'failed'], true) || $attempt->finished_at === null) {
+            if (in_array((string) $attempt->status, ['passed', 'failed'], true) === false || $attempt->finished_at === null) {
                 throw ResourceDomainException::conflict('Answer sheet is available only for a finished scored attempt.');
             }
 
@@ -288,17 +288,17 @@ final class InternalExamAnswerSheetService
     private function renderFrozen(object $attempt, object $result, array $binding): string
     {
         $candidate = json_decode((string) $attempt->candidate_snapshot, true, 512, JSON_THROW_ON_ERROR);
-        if (! is_array($candidate)) {
+        if (is_array($candidate) === false) {
             throw ResourceDomainException::conflict('Frozen candidate snapshot is invalid.');
         }
         $resultSnapshot = json_decode((string) $result->result_snapshot, true, 512, JSON_THROW_ON_ERROR);
-        if (! is_array($resultSnapshot)) {
+        if (is_array($resultSnapshot) === false) {
             throw ResourceDomainException::conflict('Immutable result snapshot is invalid.');
         }
 
         $requirementBasis = json_decode((string) $attempt->requirement_basis_snapshot, true, 512, JSON_THROW_ON_ERROR);
         $categoryCode = is_array($requirementBasis) ? ($requirementBasis['driving_category_code'] ?? null) : null;
-        if (! is_string($categoryCode) || $categoryCode === '') {
+        if (is_string($categoryCode) === false || $categoryCode === '') {
             throw ResourceDomainException::conflict('Frozen exam category snapshot is unavailable.');
         }
 
@@ -354,16 +354,16 @@ final class InternalExamAnswerSheetService
     /** @return array{id:string,document_type:string,exam_part:string,template_version:string,renderer_version:string,template_content_hash:string} */
     private function decodeBinding(mixed $raw): array
     {
-        if (! is_string($raw) || $raw === '') {
+        if (is_string($raw) === false || $raw === '') {
             throw ResourceDomainException::conflict('Finished result is missing frozen answer-sheet template binding.');
         }
         $binding = json_decode($raw, true, 512, JSON_THROW_ON_ERROR);
-        if (! is_array($binding)) {
+        if (is_array($binding) === false) {
             throw ResourceDomainException::conflict('Frozen answer-sheet template binding is invalid.');
         }
 
         foreach (['id', 'document_type', 'exam_part', 'template_version', 'renderer_version', 'template_content_hash'] as $key) {
-            if (! isset($binding[$key]) || ! is_string($binding[$key]) || $binding[$key] === '') {
+            if (isset($binding[$key]) === false || is_string($binding[$key]) === false || $binding[$key] === '') {
                 throw ResourceDomainException::conflict('Frozen answer-sheet template binding is incomplete.');
             }
         }
@@ -380,7 +380,7 @@ final class InternalExamAnswerSheetService
     private function storageDisk(): string
     {
         $disk = config('internal_exams.document_storage_disk');
-        if (! is_string($disk) || trim($disk) === '') {
+        if (is_string($disk) === false || trim($disk) === '') {
             throw ResourceDomainException::conflict('Internal exam document storage disk is not configured.');
         }
 
