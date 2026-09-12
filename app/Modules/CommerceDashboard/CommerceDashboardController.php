@@ -138,8 +138,6 @@ final class CommerceDashboardController
             $raw = [];
         } elseif (is_string($raw)) {
             $raw = [$raw];
-        } elseif (is_array($raw) === false) {
-            throw ValidationException::withMessages(['status' => ['status must be a repeated query parameter or array.']]);
         }
 
         $statuses = [];
