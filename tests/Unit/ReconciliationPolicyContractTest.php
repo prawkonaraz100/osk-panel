@@ -24,7 +24,7 @@ final class ReconciliationPolicyContractTest extends TestCase
         $console = file_get_contents(base_path('routes/console.php'));
         $this->assertIsString($console);
         $this->assertStringContainsString(
-            "operations:reconciliation:scan --json --log --fail-on-findings",
+            'operations:reconciliation:scan --json --log --fail-on-findings',
             $console,
         );
         $this->assertStringContainsString('->everyFifteenMinutes()', $console);
@@ -35,6 +35,6 @@ final class ReconciliationPolicyContractTest extends TestCase
     {
         $source = file_get_contents(base_path('app/Modules/AuditNotification/AtomicAuditOutbox.php'));
         $this->assertIsString($source);
-        $this->assertSame(2, substr_count($source, "'next_attempt_at' => \$now"));
+        $this->assertSame(2, substr_count($source, '\'next_attempt_at\' => $now'));
     }
 }

@@ -28,7 +28,7 @@ return [
 
     'repair_boundary' => [
         'scanner_may_mutate_business_state' => false,
-        'manual_or_automated_repair_requires_separate_audited_path' => true,
+        'repair_requires_separate_audited_path' => true,
         'may_infer_payment_confirmation_from_local_pending_state' => false,
         'may_mark_outbox_published_to_clear_backlog' => false,
         'may_fabricate_inventory_or_reservation_history' => false,
