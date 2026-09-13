@@ -90,7 +90,7 @@ final class TriggerWriteFence
         }
 
         $function = self::quoteIdentifier($functionName);
-        DB::unprepared(
+        DB::statement(
             "CREATE FUNCTION {$function}() RETURNS trigger LANGUAGE plpgsql AS \$guard\$\n".
             trim($body).
             "\n\$guard\$",
@@ -131,12 +131,6 @@ final class TriggerWriteFence
         sort($events);
         if ($events === []) {
             throw new LogicException($nodeId.' trigger guard '.$guardName.' has no events.');
-        }
-
-        foreach ($events as $event) {
-            if (! in_array($event, ['INSERT', 'UPDATE', 'DELETE'], true)) {
-                throw new LogicException($nodeId.' trigger guard '.$guardName.' has unsupported event '.$event.'.');
-            }
         }
 
         $constraint = (bool) ($trigger['constraint'] ?? false);
@@ -183,13 +177,13 @@ final class TriggerWriteFence
                 $deferSql .= $initiallyDeferred ? ' INITIALLY DEFERRED' : ' INITIALLY IMMEDIATE';
             }
 
-            DB::unprepared(
+            DB::statement(
                 "CREATE CONSTRAINT TRIGGER {$name} AFTER {$eventSql} ON {$table}".
                 $deferSql.
                 " FOR EACH ROW{$whenSql} EXECUTE FUNCTION {$function}()",
             );
         } else {
-            DB::unprepared(
+            DB::statement(
                 "CREATE TRIGGER {$name} {$trigger['timing']} {$eventSql} ON {$table}".
                 " FOR EACH ROW{$whenSql} EXECUTE FUNCTION {$function}()",
             );
@@ -333,7 +327,8 @@ final class TriggerWriteFence
     /**
      * PostgreSQL tgtype bits: ROW=1, BEFORE=2, INSERT=4, DELETE=8, UPDATE=16.
      *
-     * @param  list<string>  $events
+     * @param  'BEFORE'|'AFTER'  $timing
+     * @param  list<'INSERT'|'UPDATE'|'DELETE'>  $events
      */
     private static function triggerType(string $timing, array $events): int
     {
@@ -346,6 +341,7 @@ final class TriggerWriteFence
                 'INSERT' => 4,
                 'DELETE' => 8,
                 'UPDATE' => 16,
+                default => throw new LogicException('Unsupported trigger event '.$event.'.'),
             };
         }
 
