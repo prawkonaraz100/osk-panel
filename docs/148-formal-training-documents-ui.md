@@ -1,6 +1,6 @@
 # FORMAL-DOC-011 — Formal documents UI
 
-Status: `FORMAL-DOC-011 validation candidate`
+Status: `FORMAL-DOC-011 PASS`
 
 ## Scope
 
@@ -231,3 +231,50 @@ FORMAL-DOC-011 is PASS only if the exact candidate tree proves:
 19. secret scan PASS,
 20. Stage-4/Stage-5 authorities remain unchanged,
 21. PKK provider runtime remains frozen.
+
+
+## Gate closure evidence
+
+FORMAL-DOC-011 is closed as PASS on the exact implementation tree `db8426c9637bf1e1d10a72bcc2ee292721098eaf`.
+
+Validation-only helper:
+
+- helper commit: `f677cf38e22e3b0ca63b731fa82ffee9e7703070`,
+- validation PR: #71,
+- validation PR merged: false,
+- helper Implementation CI: #348 / run `34748913429` — **5/5 PASS**,
+- helper API Contract Gate: #354 / run `34748913371` — **PASS**,
+- PostgreSQL: **231 tests / 3152 assertions**,
+- deterministic restore: **115 source tables → 115 restored tables**, `RESTORE_DRILL_HARNESS=PASS`.
+
+Clean accepted implementation:
+
+- accepted commit: `b519a68c5edb913461ed0b8efdc60eda1ea40c7e`,
+- accepted tree: `db8426c9637bf1e1d10a72bcc2ee292721098eaf`,
+- accepted Implementation CI: #349 / run `34749044793` — **5/5 PASS**,
+- accepted API Contract Gate: #355 / run `34749045062` — **PASS**,
+- PostgreSQL: **231 tests / 3152 assertions**,
+- deterministic restore: **115 → 115**, `RESTORE_DRILL_HARNESS=PASS`.
+
+The accepted UI proves the complete repository-owned formal-document flow:
+
+- server-authoritative preview, list and freshness,
+- exact preview-bound approval,
+- immutable revision download and event history,
+- stale-revision delivery blocking,
+- paper print delivery event,
+- signed-scan presign → private PUT → complete → attach,
+- partial attach recovery without reupload,
+- electronic presentation without statutory e-signature claims,
+- archived/cancelled contexts fail closed for new mutations,
+- no document-mode mutation invented,
+- no new migration or API operation.
+
+Authority preservation remains unchanged:
+
+- Stage-4: **170 nodes / 112 implemented nodes / 112 implemented steps**,
+- Stage-5 formal documents: **11 materialized migration steps**,
+- API inventory: **187 / 173 / 14**,
+- PKK provider runtime: **FROZEN_UNTIL_EXPLICIT_UNFREEZE**.
+
+FORMAL-DOC-011 therefore completes the repository-owned formal-document implementation tranche. The next repository step is a final core-v1 closure audit that separates remaining repository work from deployment-only evidence and externally blocked PKK/provider work.
