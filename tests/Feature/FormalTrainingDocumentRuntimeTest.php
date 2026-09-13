@@ -244,7 +244,7 @@ final class FormalTrainingDocumentRuntimeTest extends TestCase
     }
 
     /**
-     * @param array{organization_id:string,user_id:string,membership_id:string,session_id:string} $actor
+     * @param  array{organization_id:string,user_id:string,membership_id:string,session_id:string}  $actor
      * @return array{id:string}
      */
     private function courseFixture(array $actor): array
@@ -359,7 +359,7 @@ final class FormalTrainingDocumentRuntimeTest extends TestCase
     }
 
     /**
-     * @param array{organization_id:string,user_id:string,membership_id:string,session_id:string} $actor
+     * @param  array{organization_id:string,user_id:string,membership_id:string,session_id:string}  $actor
      * @return array<string,mixed>
      */
     private function preview(array $actor, string $courseId, string $documentType): array
@@ -371,8 +371,8 @@ final class FormalTrainingDocumentRuntimeTest extends TestCase
     }
 
     /**
-     * @param array{organization_id:string,user_id:string,membership_id:string,session_id:string} $actor
-     * @param array<string,mixed> $preview
+     * @param  array{organization_id:string,user_id:string,membership_id:string,session_id:string}  $actor
+     * @param  array<string,mixed>  $preview
      * @return array<string,mixed>
      */
     private function approveFromPreview(array $actor, string $courseId, array $preview, string $etag): array
@@ -386,7 +386,7 @@ final class FormalTrainingDocumentRuntimeTest extends TestCase
     }
 
     /**
-     * @param array<string,mixed> $preview
+     * @param  array<string,mixed>  $preview
      * @return array<string,mixed>
      */
     private function approvalPayload(array $preview): array
