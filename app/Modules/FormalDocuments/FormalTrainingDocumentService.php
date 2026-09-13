@@ -41,6 +41,7 @@ final class FormalTrainingDocumentService
         if ($course === null) {
             throw ResourceDomainException::notFound();
         }
+        $courseRow = (array) $course;
 
         $evidence = $this->buildEvidence($actor['organization_id'], $course, $documentType);
         $binding = $this->resolveTemplateBinding($documentType, CarbonImmutable::now());
@@ -119,6 +120,7 @@ final class FormalTrainingDocumentService
                 if ($course === null) {
                     throw ResourceDomainException::notFound();
                 }
+                $courseRow = (array) $course;
 
                 $this->assertExpectedCourseVersion($course, $expectedCourseTag);
                 if ((int) ($input['requirements_revision'] ?? 0) !== (int) $courseRow['requirements_revision']) {
