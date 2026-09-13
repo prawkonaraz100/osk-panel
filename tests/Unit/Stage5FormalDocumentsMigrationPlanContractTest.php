@@ -10,7 +10,7 @@ use Tests\TestCase;
 
 class Stage5FormalDocumentsMigrationPlanContractTest extends TestCase
 {
-    public function test_formal_documents_validate_registry_is_isolated_from_frozen_stage_four_plan(): void
+    public function test_formal_documents_preserve_frozen_stage_four_baseline_while_live_stage_four_moves_forward(): void
     {
         $stage4 = new MigrationPlan;
         $stage4->validate();
@@ -19,10 +19,14 @@ class Stage5FormalDocumentsMigrationPlanContractTest extends TestCase
         $extension->validate();
 
         $this->assertSame(170, $stage4->nodeCount());
-        $this->assertSame(112, $stage4->implementedNodeCount());
-        $this->assertSame(112, $stage4->implementedStepCount());
+        $this->assertSame(118, $stage4->implementedNodeCount());
+        $this->assertSame(118, $stage4->implementedStepCount());
         $this->assertSame(Stage5FormalDocumentsMigrationPlan::STAGE4_PLAN_IDENTITY, $stage4->identity());
-        $this->assertSame(Stage5FormalDocumentsMigrationPlan::STAGE4_EXECUTION_IDENTITY, $stage4->executionIdentity());
+        $this->assertSame(
+            'bba8fb733d634e180b2133057dd73dcabae116d344496027b2f1ecaf0f48de6c',
+            $stage4->executionIdentity(),
+        );
+        $this->assertNotSame(Stage5FormalDocumentsMigrationPlan::STAGE4_EXECUTION_IDENTITY, $stage4->executionIdentity());
 
         $this->assertSame(4, $extension->nodeCount());
         $this->assertSame(4, $extension->implementedNodeCount());
