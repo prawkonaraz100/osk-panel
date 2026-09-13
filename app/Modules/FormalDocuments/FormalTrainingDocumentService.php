@@ -56,9 +56,9 @@ final class FormalTrainingDocumentService
         return [
             'course_enrollment_id' => $courseId,
             'document_type' => $documentType,
-            'document_mode' => (string) $course->document_mode,
-            'course_version' => (int) $course->version,
-            'requirements_revision' => (int) $course->requirements_revision,
+            'document_mode' => (string) $courseRow['document_mode'],
+            'course_version' => (int) $courseRow['version'],
+            'requirements_revision' => (int) $courseRow['requirements_revision'],
             'evidence_bundle_hash' => $hash,
             'template' => $binding,
             'totals' => $evidence['totals'],
@@ -74,15 +74,14 @@ final class FormalTrainingDocumentService
     {
         $actor = $this->scope->requireCourseTarget($sessionId, 'formal_documents.view', $courseId);
 
-        return DB::table('formal_training_documents')
+        return array_values(DB::table('formal_training_documents')
             ->where('organization_id', $actor['organization_id'])
             ->where('course_enrollment_id', $courseId)
             ->orderBy('document_type')
             ->orderByDesc('revision')
             ->get()
             ->map(fn ($row): array => $this->presentDocument($row))
-            ->values()
-            ->all();
+            ->all());
     }
 
     /**
@@ -122,7 +121,7 @@ final class FormalTrainingDocumentService
                 }
 
                 $this->assertExpectedCourseVersion($course, $expectedCourseTag);
-                if ((int) ($input['requirements_revision'] ?? 0) !== (int) $course->requirements_revision) {
+                if ((int) ($input['requirements_revision'] ?? 0) !== (int) $courseRow['requirements_revision']) {
                     throw ResourceDomainException::conflict('Training requirements changed since formal document preview.');
                 }
 
@@ -198,13 +197,13 @@ final class FormalTrainingDocumentService
                     'course_enrollment_id' => $courseId,
                     'document_type' => $documentType,
                     'revision' => $revision,
-                    'document_mode_snapshot' => (string) $course->document_mode,
+                    'document_mode_snapshot' => (string) $courseRow['document_mode'],
                     'formal_training_document_template_id' => $binding['id'],
                     'template_version_snapshot' => $binding['template_version'],
                     'renderer_version_snapshot' => $binding['renderer_version'],
                     'template_hash_snapshot' => $binding['template_content_hash'],
-                    'course_version_snapshot' => (int) $course->version,
-                    'requirements_revision_snapshot' => (int) $course->requirements_revision,
+                    'course_version_snapshot' => (int) $courseRow['version'],
+                    'requirements_revision_snapshot' => (int) $courseRow['requirements_revision'],
                     'evidence_bundle_hash' => $evidenceHash,
                     'asset_id' => $assetId,
                     'content_hash' => $contentHash,
@@ -381,22 +380,24 @@ final class FormalTrainingDocumentService
     /** @return EvidenceBundle */
     private function buildEvidence(string $organizationId, object $course, string $documentType): array
     {
+        $courseRow = (array) $course;
+
         $student = DB::table('students')
             ->where('organization_id', $organizationId)
-            ->where('id', $course->student_id)
+            ->where('id', $courseRow['student_id'])
             ->first();
         if ($student === null) {
             throw ResourceDomainException::conflict('Course student identity is unavailable.');
         }
 
-        $category = DB::table('driving_categories')->where('id', $course->driving_category_id)->first();
+        $category = DB::table('driving_categories')->where('id', $courseRow['driving_category_id'])->first();
         if ($category === null) {
             throw ResourceDomainException::conflict('Course driving category is unavailable.');
         }
 
         $instructor = DB::table('staff_profiles')
             ->where('organization_id', $organizationId)
-            ->where('id', $course->lead_instructor_id)
+            ->where('id', $courseRow['lead_instructor_id'])
             ->first();
         if ($instructor === null) {
             throw ResourceDomainException::conflict('Course lead instructor is unavailable.');
@@ -404,7 +405,7 @@ final class FormalTrainingDocumentService
 
         $requirements = DB::table('training_requirement_profiles')
             ->where('organization_id', $organizationId)
-            ->where('course_enrollment_id', $course->id)
+            ->where('course_enrollment_id', $courseRow['id'])
             ->whereNull('superseded_at')
             ->get();
         if ($requirements->count() !== 1) {
@@ -412,7 +413,7 @@ final class FormalTrainingDocumentService
         }
         $requirement = $requirements->first();
         if ($requirement === null
-            || (int) $requirement->requirements_revision !== (int) $course->requirements_revision) {
+            || (int) $requirement->requirements_revision !== (int) $courseRow['requirements_revision']) {
             throw ResourceDomainException::conflict('Current training requirement revision does not match CourseEnrollment.');
         }
 
@@ -426,7 +427,7 @@ final class FormalTrainingDocumentService
                     ->on('instructors.organization_id', '=', 'sessions.organization_id');
             })
             ->where('ledger.organization_id', $organizationId)
-            ->where('ledger.course_enrollment_id', $course->id)
+            ->where('ledger.course_enrollment_id', $courseRow['id'])
             ->orderBy('ledger.created_at')
             ->orderBy('ledger.id')
             ->select([
@@ -480,11 +481,11 @@ final class FormalTrainingDocumentService
 
         $externalRows = DB::table('recognized_external_training')
             ->where('organization_id', $organizationId)
-            ->where('course_enrollment_id', $course->id)
+            ->where('course_enrollment_id', $courseRow['id'])
             ->whereNull('superseded_at')
             ->whereNull('revoked_at')
-            ->where('recognized_for_driving_category_id', (string) $course->driving_category_id)
-            ->where('recognized_for_training_type', (string) $course->training_type)
+            ->where('recognized_for_driving_category_id', (string) $courseRow['driving_category_id'])
+            ->where('recognized_for_training_type', (string) $courseRow['training_type'])
             ->orderBy('created_at')
             ->orderBy('id')
             ->get();
@@ -522,16 +523,16 @@ final class FormalTrainingDocumentService
                 'no_pesel_declared' => (bool) $student->no_pesel_declared,
             ],
             'course' => [
-                'id' => (string) $course->id,
-                'version' => (int) $course->version,
-                'requirements_revision' => (int) $course->requirements_revision,
-                'training_type' => (string) $course->training_type,
-                'driving_category_id' => (string) $course->driving_category_id,
+                'id' => (string) $courseRow['id'],
+                'version' => (int) $courseRow['version'],
+                'requirements_revision' => (int) $courseRow['requirements_revision'],
+                'training_type' => (string) $courseRow['training_type'],
+                'driving_category_id' => (string) $courseRow['driving_category_id'],
                 'driving_category_code' => (string) $category->code,
-                'started_at' => $this->timestamp($course->started_at),
-                'lead_instructor_id' => (string) $course->lead_instructor_id,
-                'location_id' => $this->nullableString($course->location_id),
-                'document_mode' => (string) $course->document_mode,
+                'started_at' => $this->timestamp($courseRow['started_at']),
+                'lead_instructor_id' => (string) $courseRow['lead_instructor_id'],
+                'location_id' => $this->nullableString($courseRow['location_id']),
+                'document_mode' => (string) $courseRow['document_mode'],
             ],
             'lead_instructor' => [
                 'id' => (string) $instructor->id,
@@ -592,6 +593,8 @@ final class FormalTrainingDocumentService
 
     private function assertExpectedCourseVersion(object $course, ?string $expectedTag): void
     {
+        $courseRow = (array) $course;
+
         if ($expectedTag === null || trim($expectedTag) === '') {
             throw new ResourceDomainException(
                 'PRECONDITION_REQUIRED',
@@ -602,7 +605,7 @@ final class FormalTrainingDocumentService
 
         $normalized = trim(trim($expectedTag), '"');
         $normalized = str_starts_with($normalized, 'v') ? substr($normalized, 1) : $normalized;
-        if (! ctype_digit($normalized) || (int) $normalized !== (int) $course->version) {
+        if (! ctype_digit($normalized) || (int) $normalized !== (int) $courseRow['version']) {
             throw ResourceDomainException::conflict('CourseEnrollment changed since formal document preview.');
         }
     }
@@ -617,24 +620,26 @@ final class FormalTrainingDocumentService
     /** @return array<string,mixed> */
     private function presentDocument(object $row): array
     {
+        $data = (array) $row;
+
         return [
-            'id' => (string) $row->id,
-            'course_enrollment_id' => (string) $row->course_enrollment_id,
-            'document_type' => (string) $row->document_type,
-            'revision' => (int) $row->revision,
-            'document_mode_snapshot' => (string) $row->document_mode_snapshot,
-            'template_id' => (string) $row->formal_training_document_template_id,
-            'template_version' => (string) $row->template_version_snapshot,
-            'renderer_version' => (string) $row->renderer_version_snapshot,
-            'template_content_hash' => (string) $row->template_hash_snapshot,
-            'course_version' => (int) $row->course_version_snapshot,
-            'requirements_revision' => (int) $row->requirements_revision_snapshot,
-            'evidence_bundle_hash' => (string) $row->evidence_bundle_hash,
-            'content_hash' => (string) $row->content_hash,
-            'approved_by_user_id' => $this->nullableString($row->approved_by_user_id),
-            'approved_at' => $this->nullableTimestamp($row->approved_at),
-            'generated_at' => $this->timestamp($row->generated_at),
-            'created_at' => $this->timestamp($row->created_at),
+            'id' => (string) $data['id'],
+            'course_enrollment_id' => (string) $data['course_enrollment_id'],
+            'document_type' => (string) $data['document_type'],
+            'revision' => (int) $data['revision'],
+            'document_mode_snapshot' => (string) $data['document_mode_snapshot'],
+            'template_id' => (string) $data['formal_training_document_template_id'],
+            'template_version' => (string) $data['template_version_snapshot'],
+            'renderer_version' => (string) $data['renderer_version_snapshot'],
+            'template_content_hash' => (string) $data['template_hash_snapshot'],
+            'course_version' => (int) $data['course_version_snapshot'],
+            'requirements_revision' => (int) $data['requirements_revision_snapshot'],
+            'evidence_bundle_hash' => (string) $data['evidence_bundle_hash'],
+            'content_hash' => (string) $data['content_hash'],
+            'approved_by_user_id' => $this->nullableString($data['approved_by_user_id']),
+            'approved_at' => $this->nullableTimestamp($data['approved_at']),
+            'generated_at' => $this->timestamp($data['generated_at']),
+            'created_at' => $this->timestamp($data['created_at']),
         ];
     }
 
