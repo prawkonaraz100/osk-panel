@@ -230,7 +230,7 @@ next_single_step:
   prerequisite_previous_slice: FORMAL-DOC-006_PASS
   implementation_order_source: AGENTS.md_step_10_hardening_and_formal_documents
   hardening_repo_actionable_P1_status: COMPLETE
-  formal_documents_status: GATE_6_PASS_GATE_7_NOT_STARTED
+  formal_documents_status: GATE_6_PASS_GATE_7_IN_VALIDATION
   PKK_provider_runtime_status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
   PKK_resume_requires:
     - explicit_user_unfreeze
@@ -2340,3 +2340,68 @@ FORMAL_DOCUMENTS_006_gate:
   next_after_PASS:
     id: FORMAL-DOC-007
     action: contract_course_document_mode_columns_to_final_not_null_shape
+
+
+FORMAL_DOCUMENTS_007_gate:
+  id: FORMAL-DOC-007
+  status: IN_VALIDATION
+  prerequisite: FORMAL-DOC-006_PASS
+  scope:
+    - Stage_5_formal_documents_contract_phase
+    - final_course_document_mode_not_null_shape
+    - preserve_legacy_nullable_selection_actor
+    - no_document_generation_runtime
+  authority:
+    extension_plan_identity: 34cada121f4fd4963b1461308fb517c50ee647005ce9421f4d1af40c80d44b99
+    extension_execution_identity: 31704fcab61761aa9a952d824dc543a6f46e7a3717792d0a9349cefaaf57651f
+    contract_file_sha256: 2be16061c5f7b6736071a72712f5f24dd371b1b048ec9dfc64ca1eb1f4c817f9
+    narrative: docs/144-formal-training-documents-document-mode-contract.md
+  frozen_Stage_4_baseline:
+    plan_identity: d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10
+    execution_identity: 1d2f1d3a47a4a09b749d0b164137857a241c07afbaad02789ec21e03cb4118ce
+    DAG_nodes: 170
+    implemented_nodes: 112
+    implemented_steps: 112
+    may_be_rewritten_by_FORMAL_DOC_007: false
+  materialization:
+    expand_steps: 4
+    preflight_steps: 1
+    backfill_steps: 1
+    validate_steps: 4
+    contract_steps: 1
+    total_steps: 11
+  final_shape:
+    document_mode_nullable: false
+    document_mode_selected_at_nullable: false
+    document_mode_selected_by_user_id_nullable: true
+    default_document_mode: paper
+    default_document_mode_selected_at: CURRENT_TIMESTAMP
+  preconditions:
+    zero_incomplete_document_mode_rows: required
+    document_mode_domain_constraint_validated: required
+    document_mode_complete_constraint_validated: required
+    validate_phase_fully_applied: required_by_controlled_executor
+  PKK:
+    provider_runtime_in_scope: false
+    status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+  pass_requires:
+    - exact_contract_file_hash_PASS
+    - extension_execution_identity_31704fca_PASS
+    - eleven_materialized_extension_steps_PASS
+    - exactly_one_contract_step_PASS
+    - validate_before_contract_ordering_PASS
+    - validated_constraint_evidence_required_PASS
+    - final_physical_nullability_NO_NO_YES_PASS
+    - paper_and_server_timestamp_defaults_preserved_PASS
+    - explicit_null_mode_or_timestamp_rejected_PASS
+    - controlled_contract_idempotency_PASS
+    - failed_contract_not_recorded_as_applied_PASS
+    - Stage_4_170_112_112_preservation_PASS
+    - backend_static_analysis_PASS_ZERO_ERRORS
+    - frontend_quality_PASS
+    - contracts_and_traceability_PASS
+    - secret_scan_PASS
+    - deterministic_restore_harness_PASS
+  next_after_PASS:
+    id: FORMAL-DOC-008
+    action: materialize_formal_document_generation_and_approval_runtime

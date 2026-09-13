@@ -26,9 +26,9 @@ class Stage5FormalDocumentsMigrationPlanContractTest extends TestCase
 
         $this->assertSame(4, $extension->nodeCount());
         $this->assertSame(4, $extension->implementedNodeCount());
-        $this->assertSame(10, $extension->implementedStepCount());
+        $this->assertSame(11, $extension->implementedStepCount());
         $this->assertSame('34cada121f4fd4963b1461308fb517c50ee647005ce9421f4d1af40c80d44b99', $extension->identity());
-        $this->assertSame('5fc0930972a65f08406d23cd01a8c37d6ab99e2ca7039307fe3ae928f1286a68', $extension->executionIdentity());
+        $this->assertSame('31704fcab61761aa9a952d824dc543a6f46e7a3717792d0a9349cefaaf57651f', $extension->executionIdentity());
         $this->assertSame(Stage5FormalDocumentsMigrationPlan::AUTHORITY_BLOB, $extension->summary()['authority_blob']);
         $this->assertSame(Stage5FormalDocumentsMigrationPlan::STAGE4_PLAN_IDENTITY, $extension->summary()['stage4_plan_identity']);
         $this->assertSame(Stage5FormalDocumentsMigrationPlan::STAGE4_EXECUTION_IDENTITY, $extension->summary()['stage4_execution_identity']);
@@ -53,7 +53,10 @@ class Stage5FormalDocumentsMigrationPlanContractTest extends TestCase
             'S5DOC-TBL-FORMAL-TRAINING-DOCUMENTS',
             'S5DOC-TBL-FORMAL-TRAINING-DOCUMENT-EVENTS',
         ], array_column($extension->phaseSteps('validate'), 'node_id'));
-        $this->assertSame([], $extension->phaseSteps('contract'));
+        $this->assertSame(
+            ['S5DOC-ALTER-COURSE-ENROLLMENTS-DOCUMENT-MODE'],
+            array_column($extension->phaseSteps('contract'), 'node_id'),
+        );
     }
 
     public function test_validation_command_exposes_validate_registry_and_stage_four_identities(): void
@@ -64,30 +67,22 @@ class Stage5FormalDocumentsMigrationPlanContractTest extends TestCase
         $payload = json_decode(Artisan::output(), true, 512, JSON_THROW_ON_ERROR);
 
         $this->assertSame('34cada121f4fd4963b1461308fb517c50ee647005ce9421f4d1af40c80d44b99', $payload['plan_identity']);
-        $this->assertSame('5fc0930972a65f08406d23cd01a8c37d6ab99e2ca7039307fe3ae928f1286a68', $payload['execution_identity']);
+        $this->assertSame('31704fcab61761aa9a952d824dc543a6f46e7a3717792d0a9349cefaaf57651f', $payload['execution_identity']);
         $this->assertSame(Stage5FormalDocumentsMigrationPlan::STAGE4_PLAN_IDENTITY, $payload['stage4_plan_identity']);
         $this->assertSame(Stage5FormalDocumentsMigrationPlan::STAGE4_EXECUTION_IDENTITY, $payload['stage4_execution_identity']);
         $this->assertSame(4, $payload['nodes']);
         $this->assertSame(4, $payload['implemented_nodes']);
-        $this->assertSame(10, $payload['implemented_steps']);
+        $this->assertSame(11, $payload['implemented_steps']);
     }
 
-    public function test_controlled_executor_fails_closed_before_contract_is_materialized(): void
+    public function test_contract_phase_is_materialized_for_exact_course_document_mode_node(): void
     {
         $extension = new Stage5FormalDocumentsMigrationPlan;
         $extension->validate();
 
-        $exit = Artisan::call('migration:stage5:formal-docs:controlled', [
-            '--plan' => $extension->identity(),
-            '--execution' => $extension->executionIdentity(),
-            '--phase' => 'contract',
-            '--force' => true,
-        ]);
-
-        $this->assertSame(Command::FAILURE, $exit);
-        $this->assertStringContainsString(
-            'No materialized Stage-5 formal-documents migration steps for phase contract',
-            Artisan::output(),
+        $this->assertSame(
+            ['S5DOC-ALTER-COURSE-ENROLLMENTS-DOCUMENT-MODE'],
+            array_column($extension->phaseSteps('contract'), 'node_id'),
         );
     }
 }
