@@ -230,7 +230,7 @@ next_single_step:
   prerequisite_previous_slice: FORMAL-DOC-005_PASS
   implementation_order_source: AGENTS.md_step_10_hardening_and_formal_documents
   hardening_repo_actionable_P1_status: COMPLETE
-  formal_documents_status: GATE_5_PASS_GATE_6_NOT_STARTED
+  formal_documents_status: GATE_5_PASS_GATE_6_IN_VALIDATION
   PKK_provider_runtime_status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
   PKK_resume_requires:
     - explicit_user_unfreeze
@@ -2209,3 +2209,95 @@ FORMAL_DOCUMENTS_005_gate:
   next_after_PASS:
     id: FORMAL-DOC-006
     action: materialize_validate_phase_for_formal_document_relational_and_immutability_constraints
+
+
+FORMAL_DOCUMENTS_006_gate:
+  id: FORMAL-DOC-006
+  status: IN_VALIDATION
+  prerequisite: FORMAL-DOC-005_PASS
+  scope:
+    - Stage_5_formal_documents_validate_phase
+    - course_document_mode_completeness_and_start_lock
+    - template_interval_nonoverlap_and_used_row_immutability
+    - exact_same_tenant_document_relations
+    - immutable_document_revisions
+    - append_only_document_events
+    - ready_optional_event_asset_guard
+    - no_final_column_not_null_contract
+  authority:
+    extension_plan_identity: 34cada121f4fd4963b1461308fb517c50ee647005ce9421f4d1af40c80d44b99
+    extension_execution_identity: 5fc0930972a65f08406d23cd01a8c37d6ab99e2ca7039307fe3ae928f1286a68
+    narrative: docs/143-formal-training-documents-stage5-validate.md
+    validate_file_hashes:
+      course_document_mode: 730018eede38bf2d5232622fb5b2dfb275018fac6f7f1778cf74469847aecf5e
+      templates: df52677b316893f0bc5c8c26310263ba4c70a786ece191cbaf06aa1b754881ac
+      documents: f61ee56ac06bca191a6f277f87e3c7dea2bb40f7fbd0758fb0a9b2cf4be177be
+      events: 498238b1faf7b76f4406a9c8d5fdc9518a6e54a8ead114f811e859a1fc1f4dbb
+  frozen_Stage_4_baseline:
+    plan_identity: d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10
+    execution_identity: 1d2f1d3a47a4a09b749d0b164137857a241c07afbaad02789ec21e03cb4118ce
+    DAG_nodes: 170
+    implemented_nodes: 112
+    implemented_steps: 112
+    may_be_rewritten_by_FORMAL_DOC_006: false
+  materialization:
+    expand_steps: 4
+    preflight_steps: 1
+    backfill_steps: 1
+    validate_steps: 4
+    total_steps: 10
+    contract_steps: 0
+    physical_document_mode_columns_nullable_until_contract: true
+  document_mode_validation:
+    null_mode_or_selection_timestamp_after_backfill: forbidden
+    domain_check_validated: true
+    completeness_check_validated: true
+    change_before_started_at: allowed
+    normal_change_at_or_after_started_at: database_rejected
+  template_validation:
+    effective_interval_semantics: half_open
+    same_document_type_overlap: database_rejected
+    adjacent_intervals: allowed
+    distinct_document_type_overlap: allowed
+    used_template_update_or_delete: database_rejected
+  document_validation:
+    exact_tenant_course_fk: required
+    exact_tenant_asset_fk: required
+    exact_template_snapshot_fk: required
+    revision_update_or_delete: database_rejected
+  event_validation:
+    exact_tenant_document_fk: required
+    optional_asset_same_tenant_fk: required
+    optional_asset_ready_at_attachment: required
+    update_or_delete: database_rejected
+  PKK:
+    provider_runtime_in_scope: false
+    status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+  pass_requires:
+    - exact_four_validate_file_hashes_PASS
+    - extension_execution_identity_5fc09309_PASS
+    - ten_materialized_extension_steps_PASS
+    - controlled_validate_phase_PostgreSQL_PASS
+    - contract_phase_remains_fail_closed_PASS
+    - document_mode_completeness_validation_PASS
+    - document_mode_before_start_change_PASS
+    - document_mode_at_or_after_start_change_rejected_PASS
+    - template_same_type_overlap_rejected_PASS
+    - template_adjacent_interval_PASS
+    - used_template_immutability_PASS
+    - document_same_tenant_course_asset_FK_PASS
+    - exact_template_snapshot_FK_PASS
+    - document_revision_immutability_PASS
+    - event_same_tenant_document_FK_PASS
+    - optional_event_asset_same_tenant_ready_guard_PASS
+    - event_append_only_PASS
+    - final_column_not_null_contract_not_materialized_PASS
+    - Stage_4_170_112_112_preservation_PASS
+    - backend_static_analysis_PASS_ZERO_ERRORS
+    - frontend_quality_PASS
+    - contracts_and_traceability_PASS
+    - secret_scan_PASS
+    - deterministic_restore_harness_PASS
+  next_after_PASS:
+    id: FORMAL-DOC-007
+    action: contract_course_document_mode_columns_to_final_not_null_shape

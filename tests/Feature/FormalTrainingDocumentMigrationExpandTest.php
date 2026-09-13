@@ -35,8 +35,8 @@ final class FormalTrainingDocumentMigrationExpandTest extends TestCase
         $extension->validate();
 
         $this->assertSame(4, $extension->implementedNodeCount());
-        $this->assertSame(6, $extension->implementedStepCount());
-        $this->assertSame('fc32a8fc010561cd395af881a10191c76bc9c53266d34bdab56eaa382f061094', $extension->executionIdentity());
+        $this->assertSame(10, $extension->implementedStepCount());
+        $this->assertSame('5fc0930972a65f08406d23cd01a8c37d6ab99e2ca7039307fe3ae928f1286a68', $extension->executionIdentity());
     }
 
     public function test_new_course_defaults_to_paper_with_server_selection_timestamp(): void
@@ -153,7 +153,7 @@ final class FormalTrainingDocumentMigrationExpandTest extends TestCase
         $this->assertDatabaseCount('formal_training_documents', 1);
     }
 
-    public function test_expand_controlled_executor_is_idempotent_and_validate_remains_closed(): void
+    public function test_expand_controlled_executor_is_idempotent_and_contract_remains_closed(): void
     {
         $extension = app(Stage5FormalDocumentsMigrationPlan::class);
         $extension->validate();
@@ -172,16 +172,16 @@ final class FormalTrainingDocumentMigrationExpandTest extends TestCase
         $this->assertSame(4, $before);
         $this->assertSame(4, DB::table('migrations')->whereIn('migration', $migrationNames)->count());
 
-        $validateExit = Artisan::call('migration:stage5:formal-docs:controlled', [
+        $contractExit = Artisan::call('migration:stage5:formal-docs:controlled', [
             '--plan' => $extension->identity(),
             '--execution' => $extension->executionIdentity(),
-            '--phase' => 'validate',
+            '--phase' => 'contract',
             '--force' => true,
         ]);
 
-        $this->assertSame(Command::FAILURE, $validateExit);
+        $this->assertSame(Command::FAILURE, $contractExit);
         $this->assertStringContainsString(
-            'No materialized Stage-5 formal-documents migration steps for phase validate',
+            'No materialized Stage-5 formal-documents migration steps for phase contract',
             Artisan::output(),
         );
     }

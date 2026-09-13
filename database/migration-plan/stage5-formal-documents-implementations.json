@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "plan_identity": "34cada121f4fd4963b1461308fb517c50ee647005ce9421f4d1af40c80d44b99",
-  "execution_identity": "fc32a8fc010561cd395af881a10191c76bc9c53266d34bdab56eaa382f061094",
+  "execution_identity": "5fc0930972a65f08406d23cd01a8c37d6ab99e2ca7039307fe3ae928f1286a68",
   "stage5_root": "database/migrations/stage5/formal-documents",
   "implemented_steps": [
     {
@@ -56,6 +56,42 @@
       "migration_name": "2026_09_13_000060_backfill_formal_document_mode_legacy_rows",
       "file_sha256": "8ac8fdd6b306480e5ed7f4ec501cb941e911e90c004735ac6ee036d5aee0410c",
       "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "S5DOC-ALTER-COURSE-ENROLLMENTS-DOCUMENT-MODE",
+      "phase": "validate",
+      "migration_file": "database/migrations/stage5/formal-documents/validate/S5DOC-ALTER-COURSE-ENROLLMENTS-DOCUMENT-MODE/2026_09_13_000070_validate_formal_document_mode.php",
+      "migration_name": "2026_09_13_000070_validate_formal_document_mode",
+      "file_sha256": "730018eede38bf2d5232622fb5b2dfb275018fac6f7f1778cf74469847aecf5e",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "S5DOC-TBL-FORMAL-TRAINING-DOCUMENT-TEMPLATES",
+      "phase": "validate",
+      "migration_file": "database/migrations/stage5/formal-documents/validate/S5DOC-TBL-FORMAL-TRAINING-DOCUMENT-TEMPLATES/2026_09_13_000080_validate_formal_training_document_templates.php",
+      "migration_name": "2026_09_13_000080_validate_formal_training_document_templates",
+      "file_sha256": "df52677b316893f0bc5c8c26310263ba4c70a786ece191cbaf06aa1b754881ac",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "S5DOC-TBL-FORMAL-TRAINING-DOCUMENTS",
+      "phase": "validate",
+      "migration_file": "database/migrations/stage5/formal-documents/validate/S5DOC-TBL-FORMAL-TRAINING-DOCUMENTS/2026_09_13_000090_validate_formal_training_documents.php",
+      "migration_name": "2026_09_13_000090_validate_formal_training_documents",
+      "file_sha256": "f61ee56ac06bca191a6f277f87e3c7dea2bb40f7fbd0758fb0a9b2cf4be177be",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "S5DOC-TBL-FORMAL-TRAINING-DOCUMENT-EVENTS",
+      "phase": "validate",
+      "migration_file": "database/migrations/stage5/formal-documents/validate/S5DOC-TBL-FORMAL-TRAINING-DOCUMENT-EVENTS/2026_09_13_000095_validate_formal_training_document_events.php",
+      "migration_name": "2026_09_13_000095_validate_formal_training_document_events",
+      "file_sha256": "498238b1faf7b76f4406a9c8d5fdc9518a6e54a8ead114f811e859a1fc1f4dbb",
+      "restart_classification": "restart_safe",
       "safe_down": false
     }
   ],

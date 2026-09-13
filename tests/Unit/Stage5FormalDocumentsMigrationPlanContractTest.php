@@ -10,7 +10,7 @@ use Tests\TestCase;
 
 class Stage5FormalDocumentsMigrationPlanContractTest extends TestCase
 {
-    public function test_formal_documents_backfill_registry_is_isolated_from_frozen_stage_four_plan(): void
+    public function test_formal_documents_validate_registry_is_isolated_from_frozen_stage_four_plan(): void
     {
         $stage4 = new MigrationPlan;
         $stage4->validate();
@@ -26,9 +26,9 @@ class Stage5FormalDocumentsMigrationPlanContractTest extends TestCase
 
         $this->assertSame(4, $extension->nodeCount());
         $this->assertSame(4, $extension->implementedNodeCount());
-        $this->assertSame(6, $extension->implementedStepCount());
+        $this->assertSame(10, $extension->implementedStepCount());
         $this->assertSame('34cada121f4fd4963b1461308fb517c50ee647005ce9421f4d1af40c80d44b99', $extension->identity());
-        $this->assertSame('fc32a8fc010561cd395af881a10191c76bc9c53266d34bdab56eaa382f061094', $extension->executionIdentity());
+        $this->assertSame('5fc0930972a65f08406d23cd01a8c37d6ab99e2ca7039307fe3ae928f1286a68', $extension->executionIdentity());
         $this->assertSame(Stage5FormalDocumentsMigrationPlan::AUTHORITY_BLOB, $extension->summary()['authority_blob']);
         $this->assertSame(Stage5FormalDocumentsMigrationPlan::STAGE4_PLAN_IDENTITY, $extension->summary()['stage4_plan_identity']);
         $this->assertSame(Stage5FormalDocumentsMigrationPlan::STAGE4_EXECUTION_IDENTITY, $extension->summary()['stage4_execution_identity']);
@@ -47,10 +47,16 @@ class Stage5FormalDocumentsMigrationPlanContractTest extends TestCase
             ['S5DOC-ALTER-COURSE-ENROLLMENTS-DOCUMENT-MODE'],
             array_column($extension->phaseSteps('backfill'), 'node_id'),
         );
-        $this->assertSame([], $extension->phaseSteps('validate'));
+        $this->assertSame([
+            'S5DOC-ALTER-COURSE-ENROLLMENTS-DOCUMENT-MODE',
+            'S5DOC-TBL-FORMAL-TRAINING-DOCUMENT-TEMPLATES',
+            'S5DOC-TBL-FORMAL-TRAINING-DOCUMENTS',
+            'S5DOC-TBL-FORMAL-TRAINING-DOCUMENT-EVENTS',
+        ], array_column($extension->phaseSteps('validate'), 'node_id'));
+        $this->assertSame([], $extension->phaseSteps('contract'));
     }
 
-    public function test_validation_command_exposes_backfill_registry_and_stage_four_identities(): void
+    public function test_validation_command_exposes_validate_registry_and_stage_four_identities(): void
     {
         $exit = Artisan::call('migration:stage5:formal-docs:plan:validate', ['--json' => true]);
 
@@ -58,15 +64,15 @@ class Stage5FormalDocumentsMigrationPlanContractTest extends TestCase
         $payload = json_decode(Artisan::output(), true, 512, JSON_THROW_ON_ERROR);
 
         $this->assertSame('34cada121f4fd4963b1461308fb517c50ee647005ce9421f4d1af40c80d44b99', $payload['plan_identity']);
-        $this->assertSame('fc32a8fc010561cd395af881a10191c76bc9c53266d34bdab56eaa382f061094', $payload['execution_identity']);
+        $this->assertSame('5fc0930972a65f08406d23cd01a8c37d6ab99e2ca7039307fe3ae928f1286a68', $payload['execution_identity']);
         $this->assertSame(Stage5FormalDocumentsMigrationPlan::STAGE4_PLAN_IDENTITY, $payload['stage4_plan_identity']);
         $this->assertSame(Stage5FormalDocumentsMigrationPlan::STAGE4_EXECUTION_IDENTITY, $payload['stage4_execution_identity']);
         $this->assertSame(4, $payload['nodes']);
         $this->assertSame(4, $payload['implemented_nodes']);
-        $this->assertSame(6, $payload['implemented_steps']);
+        $this->assertSame(10, $payload['implemented_steps']);
     }
 
-    public function test_controlled_executor_fails_closed_before_validate_is_materialized(): void
+    public function test_controlled_executor_fails_closed_before_contract_is_materialized(): void
     {
         $extension = new Stage5FormalDocumentsMigrationPlan;
         $extension->validate();
@@ -74,13 +80,13 @@ class Stage5FormalDocumentsMigrationPlanContractTest extends TestCase
         $exit = Artisan::call('migration:stage5:formal-docs:controlled', [
             '--plan' => $extension->identity(),
             '--execution' => $extension->executionIdentity(),
-            '--phase' => 'validate',
+            '--phase' => 'contract',
             '--force' => true,
         ]);
 
         $this->assertSame(Command::FAILURE, $exit);
         $this->assertStringContainsString(
-            'No materialized Stage-5 formal-documents migration steps for phase validate',
+            'No materialized Stage-5 formal-documents migration steps for phase contract',
             Artisan::output(),
         );
     }
