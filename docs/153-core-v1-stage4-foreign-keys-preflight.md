@@ -29,7 +29,7 @@ This gate is read-only. It validates existing relation targets using the frozen 
 - Remaining preflight nodes before write-fence after PASS: **10**.
 - Write-fence materialized steps: **0**.
 - Plan identity remains `d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10`.
-- Candidate execution identity: `f9a0d1adb8b64bf624a31c9c1d3c622c04f60559d07ec0531295ebc6485cfae9`.
+- Candidate execution identity: `488bedcef5d2aabef34e294f8fa0c2b48ef392e804cc83c6cd75c8ba5bfd8b1c`.
 - PKK provider runtime remains **FROZEN_UNTIL_EXPLICIT_UNFREEZE**.
 
 ## Safety rules
