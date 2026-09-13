@@ -119,3 +119,32 @@ Repo nie może samo udowodnić:
 Przed go-live pozostaje P1: **production scheduler + alert-delivery smoke test**.
 
 Każda korekta findingu musi używać osobnego audytowanego business/maintenance path.
+
+## 10. Closure evidence
+
+Hardening H7 is closed on accepted implementation commit:
+
+- accepted commit: `16a56d64981e17d14e803376bad420b05019bf9b`,
+- accepted tree: `7c9c9d46405ba109062fe73b49f4e6b01518ec69`,
+- validation helper: `cb6efddee20c83c3ff5019db2ad012a7b8a7fa16`,
+- validation helper tree: `7c9c9d46405ba109062fe73b49f4e6b01518ec69`,
+- helper Implementation CI #275: **5/5 PASS**,
+- accepted Implementation CI #276: **5/5 PASS**,
+- accepted PostgreSQL suite: **187 tests / 2763 assertions**,
+- deterministic restore harness: **PASS**,
+- backend Pint + PHPStan: **PASS**,
+- frontend lint + typecheck + build + audit: **PASS**,
+- contracts and traceability: **PASS**,
+- secret scan: **PASS**.
+
+The accepted reconciliation runtime is read-only and fail-closed. It does not perform automatic repair, does not claim remote payment-provider truth lookup, and does not include PKK reconciliation. PKK remains frozen until explicit unfreeze after authoritative PWPW guidance.
+
+H7 closes the repository-actionable provider-neutral reconciliation gate. It does **not** prove that production scheduling or alert delivery reaches an operator.
+
+Remaining P1 evidence is environment/operations evidence rather than another repository implementation gate:
+- target-infrastructure restore drill,
+- production incident contact roster + paging smoke test,
+- production reconciliation scheduler + alert-delivery smoke test.
+
+No remaining P1 authorizes unfreezing PKK.
+
