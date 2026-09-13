@@ -198,14 +198,28 @@ Każdy async job:
 
 ## 12. Reconciliation jobs
 
-Wymagane co najmniej dla:
-- payments,
-- exam inventory/reservations,
-- license inventory/assignments,
-- PKK operations w stanie niejednoznacznym,
-- outbox publication.
+Authority:
+- docs/137-provider-neutral-reconciliation.md,
+- specs/operations/reconciliation.yml,
+- config/reconciliation.php,
+- app/Support/Operations/CoreReconciliationScanner.php.
 
-Reconciliation nie może „naprawiać” stanu bez audytowanego wpisu.
+Core-v1 ma read-only reconciliation scanner uruchamiany przez `operations:reconciliation:scan`. Skan obejmuje:
+- platform commerce settlement/fulfillment,
+- purchase-to-license grant cardinality i license inventory/assignment consistency,
+- purchase-to-internal-exam grant cardinality oraz exam ledger/unit/reservation consistency,
+- outbox `requires_reconciliation`, stale lease i state-matrix violations.
+
+Scheduler rejestruje skan co 15 minut z `--fail-on-findings`. Sam scanner:
+- nie zmienia business state,
+- nie oznacza płatności jako potwierdzonej,
+- nie fabricuje settlement/grant/reservation,
+- nie oznacza outbox jako published,
+- nie wykonuje remote provider truth lookup.
+
+PKK jest **zamrożone do odwołania** i wyłączone z H7. Nie tworzymy PKK reconciliation ani provider-specific zachowania do czasu jawnego odmrożenia po authoritative PWPW guidance.
+
+Każda przyszła naprawa findingu musi przejść przez osobny, audytowany maintenance/business path. Produkcja nadal musi dowieść, że scheduler faktycznie działa i że finding failure trafia do operatora.
 
 ## 13. Health endpoints
 

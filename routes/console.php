@@ -4,8 +4,11 @@ use App\Support\Migrations\ControlledMigrationContext;
 use App\Support\Migrations\MigrationExecutionJournal;
 use App\Support\Migrations\MigrationPlan;
 use App\Support\Migrations\PostgresMigrationLock;
+use App\Support\Operations\CoreReconciliationScanner;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schedule;
 use Illuminate\Support\Facades\Schema;
 use Symfony\Component\Console\Command\Command;
 
@@ -230,3 +233,51 @@ Artisan::command(
         }
     }
 )->purpose('Run one registered Stage-4 migration phase under exact identities, node-level evidence, and PostgreSQL advisory lock.');
+
+Artisan::command(
+    'operations:reconciliation:scan
+        {--json : Emit the full machine-readable report}
+        {--log : Emit a safe summary to the application log}
+        {--fail-on-findings : Return a failing exit code when findings exist}',
+    function (CoreReconciliationScanner $scanner): int {
+        $report = $scanner->scan();
+
+        if ($this->option('json')) {
+            $this->line(json_encode($report, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
+        } else {
+            $this->line('RECONCILIATION_SCAN='.$report['status']);
+            $this->line('policy_version='.$report['policy_version']);
+            $this->line('findings_total='.$report['findings_total']);
+            $this->line('pkk_in_scope=false');
+            $this->line('mutations_performed=0');
+        }
+
+        if ($this->option('log')) {
+            $context = [
+                'policy_version' => $report['policy_version'],
+                'status' => $report['status'],
+                'findings_total' => $report['findings_total'],
+                'findings_by_scope' => $report['findings_by_scope'],
+                'pkk_in_scope' => false,
+                'mutations_performed' => 0,
+            ];
+
+            if ($report['findings_total'] > 0) {
+                Log::warning('core_v1_reconciliation_findings', $context);
+            } else {
+                Log::info('core_v1_reconciliation_clean', $context);
+            }
+        }
+
+        if ($this->option('fail-on-findings') && $report['findings_total'] > 0) {
+            return Command::FAILURE;
+        }
+
+        return Command::SUCCESS;
+    },
+)->purpose('Read-only provider-neutral reconciliation scan for core-v1 durable authorities.');
+
+Schedule::command('operations:reconciliation:scan --json --log --fail-on-findings')
+    ->everyFifteenMinutes()
+    ->withoutOverlapping(30);
+
