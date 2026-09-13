@@ -329,9 +329,6 @@ final class UploadAssetService
         return $this->normalizeMime($mime);
     }
 
-    /**
-     * @param  array{id:string,organization_id:string,user_id:string,status:string,is_owner:bool,version:int,authorization_version:int}  $membership
-     */
     private function authorizeParent(
         string $sessionId,
         string $organizationId,
@@ -371,6 +368,15 @@ final class UploadAssetService
                 return;
             }
             if ($parentType === 'staff_profile') {
+                $exists = DB::table('staff_profiles')
+                    ->where('organization_id', $organizationId)
+                    ->where('id', $parentId)
+                    ->whereNull('archived_at')
+                    ->exists();
+                if (! $exists) {
+                    throw ResourceDomainException::notFound();
+                }
+
                 $this->resourceScope->requireStaffTarget($sessionId, 'staff.edit', $parentId);
 
                 return;
@@ -386,6 +392,15 @@ final class UploadAssetService
                 return;
             }
             if ($parentType === 'vehicle') {
+                $exists = DB::table('vehicles')
+                    ->where('organization_id', $organizationId)
+                    ->where('id', $parentId)
+                    ->whereNull('archived_at')
+                    ->exists();
+                if (! $exists) {
+                    throw ResourceDomainException::notFound();
+                }
+
                 $this->resourceScope->requireVehicleTarget($sessionId, 'vehicles.edit', $parentId);
 
                 return;
@@ -397,6 +412,15 @@ final class UploadAssetService
         if ($purpose === 'vehicle_document') {
             if ($parentType !== 'vehicle') {
                 throw ResourceDomainException::rule('Vehicle document upload requires a vehicle parent.');
+            }
+
+            $exists = DB::table('vehicles')
+                ->where('organization_id', $organizationId)
+                ->where('id', $parentId)
+                ->whereNull('archived_at')
+                ->exists();
+            if (! $exists) {
+                throw ResourceDomainException::notFound();
             }
 
             $this->resourceScope->requireVehicleTarget($sessionId, 'vehicles.edit', $parentId);
