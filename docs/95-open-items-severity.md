@@ -1,6 +1,7 @@
 # 95. Open items severity after consolidation
 
-Data: 2026-09-05
+Data konsolidacji: 2026-09-05
+Aktualizacja closure audit: 2026-09-13
 
 ## P0 before high-risk modules
 
@@ -22,9 +23,30 @@ Data: 2026-09-05
 - PKK provider/runtime integration **and PKK reconciliation are frozen until explicit unfreeze** after authoritative PWPW guidance or contract is received and verified. Existing PKK evidence, contracts and provider-neutral Gate 1 schema groundwork are preserved; no provider-specific behavior may be invented in the meantime. This deferment does not block the remaining core v1 slices.
 - remote payment-provider truth lookup remains an adapter-specific boundary. H7 does not invent a provider protocol. Before enabling a provider whose asynchronous state can become ambiguous, its real adapter and reconciliation contract must be validated against that provider's authoritative API/contract.
 
-## P1 before production
+## Repo-actionable P1 after CORE-V1-CLOSURE-AUDIT-001
 
-- formal training documents runtime after Gate 1 authority: Stage-5 schema/migration extension, deterministic generation, review/approval, PAPER/ELECTRONIC workflow and audited revision evidence,
+Closure audit authority: `docs/149-core-v1-closure-audit.md`.
+
+Formal training documents runtime is **resolved** through FORMAL-DOC-011 and is no longer open P1.
+
+Current repository P1:
+
+- Stage-4 executable migration materialization: **58/170 DAG nodes still missing**, including 6 core tables and all remaining candidate-key/index/FK/constraint/trigger/projection groups,
+- Identity/Auth HTTP runtime required by canonical API and usable panel session lifecycle,
+- OSK Settings runtime/UI for the confirmed `/ustawienia` screen,
+- provider-neutral license and internal-exam checkout/order creation plus server-side catalog pricing and service-entitlement effects,
+- learning-access credential PDFs: exact single handoff PDF and combined bulk PDF,
+- confirmed Student Progress API/UI,
+- Staff/Vehicle photo upload handoff and Vehicle document UI over the already materialized UploadsAssets runtime,
+- CourseEnrollment `training_completed` UI wiring to the already materialized server-side evidence gate,
+- remaining small canonical HTTP bindings such as `/languages` and audit-log read API unless explicitly reclassified by a later gate.
+
+Core v1 repository status remains `REPO_P1_REMAINS`; local slice PASS records are preserved and are not rewritten.
+
+## Deployment evidence before production
+
+These are not repository implementation blockers:
+
 - target-infrastructure restore drill proving the core-v1 recovery targets,
 - production incident contact roster + paging channel smoke test,
 - production scheduler + alert-delivery smoke test proving reconciliation findings reach an operator.
