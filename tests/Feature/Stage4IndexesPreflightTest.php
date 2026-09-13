@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Support\Migrations\ControlledMigrationContext;
 use App\Support\Migrations\MigrationPlan;
+use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -105,7 +106,7 @@ final class Stage4IndexesPreflightTest extends TestCase
             ControlledMigrationContext::enter('preflight', 'MIG-IDX-COMMERCE', $plan->executionIdentity());
 
             try {
-                /** @var \Illuminate\Database\Migrations\Migration $migration */
+                /** @var Migration $migration */
                 $migration = require base_path('database/migrations/stage4/preflight/MIG-IDX-COMMERCE/2026_09_10_001350_preflight_indexes_commerce.php');
 
                 try {
