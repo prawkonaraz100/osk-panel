@@ -2106,3 +2106,261 @@ fieldset legend {
     grid-template-columns: 1fr;
   }
 }
+
+
+/* Formal training documents */
+.formal-documents-panel {
+  overflow: visible;
+}
+
+.formal-doc-toolbar {
+  display: flex;
+  align-items: end;
+  justify-content: flex-end;
+  gap: 9px;
+  flex-wrap: wrap;
+}
+
+.formal-doc-toolbar label {
+  min-width: 260px;
+  display: grid;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.formal-doc-toolbar select {
+  min-height: 40px;
+  padding: 8px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.formal-doc-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.formal-doc-card {
+  min-width: 0;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fcfcfb;
+  display: grid;
+  align-content: start;
+  gap: 15px;
+}
+
+.formal-doc-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.formal-doc-card-head > div {
+  display: grid;
+  gap: 4px;
+}
+
+.formal-doc-card-head h3 {
+  margin: 0;
+  font-size: 18px;
+  letter-spacing: -.025em;
+}
+
+.formal-doc-card-head > div > span,
+.formal-doc-note,
+.formal-doc-warning,
+.formal-doc-revision-row span,
+.formal-doc-event-row span,
+.formal-doc-event-row small,
+.formal-doc-recovery span {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.formal-doc-facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.formal-doc-facts > div,
+.formal-doc-current > div {
+  padding: 11px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  display: grid;
+  gap: 4px;
+}
+
+.formal-doc-facts span,
+.formal-doc-current span {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+
+.formal-doc-facts strong,
+.formal-doc-current strong {
+  min-width: 0;
+  font-size: 13px;
+}
+
+.formal-doc-current {
+  display: grid;
+  grid-template-columns: 90px minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+}
+
+.formal-doc-hash strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.formal-doc-warning,
+.formal-doc-recovery {
+  padding: 12px 13px;
+  border: 1px solid #e5cf8c;
+  border-radius: 10px;
+  background: #fffaf0;
+  color: #68571f;
+}
+
+.formal-doc-recovery {
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.formal-doc-recovery > div {
+  display: grid;
+  gap: 4px;
+}
+
+.formal-doc-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.formal-doc-file-button {
+  position: relative;
+  overflow: hidden;
+}
+
+.formal-doc-file-button input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.formal-doc-file-button.disabled {
+  cursor: not-allowed;
+  opacity: .5;
+}
+
+.formal-doc-note {
+  margin: 0;
+}
+
+.formal-doc-revisions {
+  padding-top: 13px;
+  border-top: 1px solid var(--line);
+  display: grid;
+}
+
+.formal-doc-revisions > strong {
+  margin-bottom: 5px;
+  font-size: 12px;
+}
+
+.formal-doc-revision-row {
+  min-height: 52px;
+  padding: 9px 0;
+  border-bottom: 1px solid #efeeeb;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.formal-doc-revision-row:last-child {
+  border-bottom: 0;
+}
+
+.formal-doc-revision-row > div:first-child,
+.formal-doc-event-row > div {
+  display: grid;
+  gap: 3px;
+}
+
+.formal-doc-event-list {
+  display: grid;
+}
+
+.formal-doc-event-row {
+  padding: 13px 0;
+  border-bottom: 1px solid var(--line);
+  display: grid;
+  gap: 5px;
+}
+
+.formal-doc-event-row:last-child {
+  border-bottom: 0;
+}
+
+.formal-doc-loading {
+  margin: 0;
+}
+
+.formal-doc-drawer {
+  width: min(560px, 100%);
+}
+
+@media (max-width: 980px) {
+  .formal-doc-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .formal-doc-toolbar {
+    width: 100%;
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .formal-doc-toolbar label {
+    min-width: 0;
+  }
+}
+
+@media (max-width: 620px) {
+  .formal-doc-facts,
+  .formal-doc-current {
+    grid-template-columns: 1fr;
+  }
+
+  .formal-doc-card-head,
+  .formal-doc-recovery,
+  .formal-doc-revision-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
