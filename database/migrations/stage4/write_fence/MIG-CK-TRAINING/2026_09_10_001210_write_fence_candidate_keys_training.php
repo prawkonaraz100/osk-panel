@@ -40,7 +40,7 @@ return new class extends Migration
                 'name' => 'training_session_candidate_key_org_id',
                 'table' => 'training_sessions',
                 'columns' => ['organization_id', 'id'],
-            ]
+            ],
         ]);
     }
 

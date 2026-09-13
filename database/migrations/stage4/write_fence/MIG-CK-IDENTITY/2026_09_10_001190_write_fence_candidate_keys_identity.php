@@ -30,7 +30,7 @@ return new class extends Migration
                 'name' => 'auth_login_identifier_candidate_key_id_user',
                 'table' => 'auth_login_identifiers',
                 'columns' => ['id', 'user_id'],
-            ]
+            ],
         ]);
     }
 

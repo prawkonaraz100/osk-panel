@@ -41,7 +41,7 @@ The installer is fail-closed:
 - Remaining authoritative write-fence steps after PASS: **44**.
 - Plan identity remains `d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10`.
 - Previous execution identity: `7cdea7410b15a1e1ef884e50d4e2a9ac519eb568569d140f82b19cc5deaa142e`.
-- Candidate execution identity: `d4ae7c11668cbdfd313d2026f1acea573814a490c5ba75f25dcf682c852348f2`.
+- Candidate execution identity: `84108f592c5cdff50cea4316ce05c5ad53db61e177b69c8916e04eed54214429`.
 - PKK provider runtime remains **FROZEN_UNTIL_EXPLICIT_UNFREEZE**.
 
 ## Runtime proof

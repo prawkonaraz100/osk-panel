@@ -30,7 +30,7 @@ return new class extends Migration
                 'name' => 'exam_station_candidate_key_org_id',
                 'table' => 'exam_stations',
                 'columns' => ['organization_id', 'id'],
-            ]
+            ],
         ]);
     }
 

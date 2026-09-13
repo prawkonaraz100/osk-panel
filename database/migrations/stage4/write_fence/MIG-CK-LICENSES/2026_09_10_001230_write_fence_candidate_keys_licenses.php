@@ -20,7 +20,7 @@ return new class extends Migration
                 'name' => 'license_assignment_candidate_key_org_id',
                 'table' => 'license_assignments',
                 'columns' => ['organization_id', 'id'],
-            ]
+            ],
         ]);
     }
 

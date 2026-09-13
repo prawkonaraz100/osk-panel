@@ -35,7 +35,7 @@ return new class extends Migration
                 'name' => 'order_item_candidate_key_org_id_catalog_item',
                 'table' => 'order_items',
                 'columns' => ['organization_id', 'id', 'commerce_catalog_item_id'],
-            ]
+            ],
         ]);
     }
 

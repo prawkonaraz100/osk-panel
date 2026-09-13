@@ -234,7 +234,7 @@ next_single_step:
     plan: database/migration-plan/plan.json
     plan_identity: d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10
     previous_execution_identity: 7cdea7410b15a1e1ef884e50d4e2a9ac519eb568569d140f82b19cc5deaa142e
-    candidate_execution_identity: d4ae7c11668cbdfd313d2026f1acea573814a490c5ba75f25dcf682c852348f2
+    candidate_execution_identity: 84108f592c5cdff50cea4316ce05c5ad53db61e177b69c8916e04eed54214429
   Stage_4_DAG_nodes_total: 170
   Stage_4_materialized_nodes_current: 157
   Stage_4_materialized_steps_current: 157
@@ -3883,7 +3883,7 @@ CORE_V1_STAGE4_CANDIDATE_KEYS_WRITE_FENCE_001_gate:
     plan: database/migration-plan/plan.json
     plan_identity: d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10
     previous_execution_identity: 7cdea7410b15a1e1ef884e50d4e2a9ac519eb568569d140f82b19cc5deaa142e
-    candidate_execution_identity: d4ae7c11668cbdfd313d2026f1acea573814a490c5ba75f25dcf682c852348f2
+    candidate_execution_identity: 84108f592c5cdff50cea4316ce05c5ad53db61e177b69c8916e04eed54214429
   exact_scope:
     phase: write_fence
     materialized_nodes_before: 157
@@ -3937,7 +3937,7 @@ CORE_V1_STAGE4_CANDIDATE_KEYS_WRITE_FENCE_001_gate:
     - target_domain_row_mutation_zero_PASS
     - exact_migration_file_SHA256_registry_PASS
     - Stage_4_plan_identity_unchanged_PASS
-    - Stage_4_execution_identity_d4ae7c11668cbdfd313d2026f1acea573814a490c5ba75f25dcf682c852348f2_PASS
+    - Stage_4_execution_identity_84108f592c5cdff50cea4316ce05c5ad53db61e177b69c8916e04eed54214429_PASS
     - Stage_4_170_157_165_candidate_PASS
     - Stage_5_11_step_authority_preserved_PASS
     - API_187_173_14_preserved_PASS

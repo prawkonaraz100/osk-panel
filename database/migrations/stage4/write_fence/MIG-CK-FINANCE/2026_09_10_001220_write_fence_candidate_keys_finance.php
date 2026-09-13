@@ -15,7 +15,7 @@ return new class extends Migration
                 'name' => 'student_charge_candidate_key_org_id_student_currency',
                 'table' => 'student_charges',
                 'columns' => ['organization_id', 'id', 'student_id', 'currency'],
-            ]
+            ],
         ]);
     }
 

@@ -31,7 +31,7 @@ final class Stage4CandidateKeysWriteFenceTest extends TestCase
         $this->assertSame(170, $plan->nodeCount());
         $this->assertSame(157, $plan->implementedNodeCount());
         $this->assertSame(165, $plan->implementedStepCount());
-        $this->assertSame('d4ae7c11668cbdfd313d2026f1acea573814a490c5ba75f25dcf682c852348f2', $plan->executionIdentity());
+        $this->assertSame('84108f592c5cdff50cea4316ce05c5ad53db61e177b69c8916e04eed54214429', $plan->executionIdentity());
         $this->assertSame($writeFenceNodes, array_column($plan->phaseSteps('write_fence'), 'node_id'));
 
         $expected = [
@@ -376,7 +376,6 @@ final class Stage4CandidateKeysWriteFenceTest extends TestCase
 
     /**
      * @param  list<string>  $tables
-     *
      * @return array<string, int>
      */
     private function rowCounts(array $tables): array

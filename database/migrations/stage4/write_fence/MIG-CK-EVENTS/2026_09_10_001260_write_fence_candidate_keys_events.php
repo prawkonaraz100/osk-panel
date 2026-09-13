@@ -20,7 +20,7 @@ return new class extends Migration
                 'name' => 'domain_event_candidate_key_org_id',
                 'table' => 'domain_events',
                 'columns' => ['organization_id', 'id'],
-            ]
+            ],
         ]);
     }
 

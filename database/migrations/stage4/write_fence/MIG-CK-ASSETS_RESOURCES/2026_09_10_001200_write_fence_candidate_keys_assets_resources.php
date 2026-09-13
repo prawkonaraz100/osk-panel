@@ -30,7 +30,7 @@ return new class extends Migration
                 'name' => 'vehicle_candidate_key_org_id',
                 'table' => 'vehicles',
                 'columns' => ['organization_id', 'id'],
-            ]
+            ],
         ]);
     }
 
