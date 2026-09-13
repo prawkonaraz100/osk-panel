@@ -1,6 +1,6 @@
 # 140. Formal training documents — Stage-5 expand slice
 
-Status: `FORMAL-DOC-003 validation candidate`
+Status: `FORMAL-DOC-003 PASS`
 
 ## Scope
 
@@ -155,3 +155,34 @@ PASS requires one exact tree proving:
 **FORMAL-DOC-004 — legacy document-mode preflight.**
 
 That gate will inspect the existing `course_enrollments` population before any backfill. It must fail closed on states that cannot be deterministically converted to the Gate-1 `paper` default and must not yet perform the backfill itself.
+
+
+## Gate closure evidence
+
+FORMAL-DOC-003 is closed on the exact machine tree `2946856d278ac2f2cedb5c6f46d4ad39bfc2678d`.
+
+Validation-only evidence:
+
+- helper head: `835a6da4165f8f292acbd99531add1bfb846ff65`,
+- validation PR: #55, closed without merge,
+- helper Implementation CI #287 / run `34734143995`: **5/5 PASS**,
+- PostgreSQL suite: **195 tests / 2808 assertions**,
+- deterministic restore drill: **PASS**,
+- restore schema table count: **115 -> 115**.
+
+Clean accepted authority evidence:
+
+- accepted implementation commit: `bd1d8b0a1ce755ad71992eb50d943df0e85f8cfa`,
+- accepted implementation tree: `2946856d278ac2f2cedb5c6f46d4ad39bfc2678d`,
+- accepted Implementation CI #288 / run `34734264265`: **5/5 PASS**,
+- PostgreSQL suite: **195 tests / 2808 assertions**,
+- deterministic restore drill: **PASS**,
+- restore schema table count: **115 -> 115**,
+- backend Pint + PHPStan: **PASS**,
+- frontend lint + typecheck + build + audit: **PASS**,
+- contracts and traceability: **PASS**,
+- accepted push secret scan: **PASS**.
+
+The Stage-4 baseline remains exactly **170 nodes / 112 implemented nodes / 112 implemented steps** with unchanged identities. The Stage-5 formal-documents extension remains a separate authority with exactly four materialized expand steps.
+
+No preflight, backfill, final contract or PKK provider runtime is claimed by FORMAL-DOC-003.
