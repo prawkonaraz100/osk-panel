@@ -1,0 +1,110 @@
+meta:
+  id: formal_documents_stage_5_migration_extension
+  version: 2026-09-13-v1
+  status: FORMAL_DOC_002_AUTHORITY
+  implementation_gate: FORMAL-DOC-002
+
+scope:
+  bounded_context: formal_training_documents
+  PKK_provider_runtime_in_scope: false
+  mutates_Stage_4_DAG: false
+  mutates_Stage_4_execution_identity: false
+
+stage_4_frozen_baseline:
+  plan_identity: d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10
+  execution_identity: 1d2f1d3a47a4a09b749d0b164137857a241c07afbaad02789ec21e03cb4118ce
+  authority_git_blob: ad5f2aa2e14ef248b95dd3dda0d1cbcb2e69d441
+  node_count: 170
+  implemented_node_count: 112
+  implemented_step_count: 112
+
+phase_order:
+  - expand
+  - preflight
+  - write_fence
+  - backfill
+  - reconcile
+  - validate
+  - contract
+
+extension_nodes:
+  - node_id: S5DOC-ALTER-COURSE-ENROLLMENTS-DOCUMENT-MODE
+    order: 10
+    type: alter_table
+    object_name: course_enrollments
+    requires: []
+    phases: [expand, preflight, backfill, validate, contract]
+    restart_classification: manual_review
+    intent:
+      expand: add_nullable_document_mode_columns_and_checks_without_rewriting_existing_rows
+      preflight: verify_every_legacy_row_has_stable_created_at_and_no_invalid_future_mode_value
+      backfill: set_document_mode_paper_and_selected_at_from_created_at_for_legacy_rows
+      validate: prove_mode_domain_and_selection_timestamp_complete
+      contract: enforce_not_null_mode_and_selection_timestamp
+    constraints:
+      document_mode_values: [paper, electronic]
+      document_mode_selected_by_user_id_may_be_null_for_legacy_backfill: true
+      normal_mode_change_at_or_after_started_at_forbidden: true
+
+  - node_id: S5DOC-TBL-FORMAL-TRAINING-DOCUMENT-TEMPLATES
+    order: 20
+    type: create_table
+    object_name: formal_training_document_templates
+    requires: []
+    phases: [expand, validate]
+    restart_classification: restart_safe
+    constraints:
+      ownership: platform_global
+      document_type_values: [training_record_card, theory_delivery_journal]
+      used_template_rows_immutable: true
+      effective_intervals_nonoverlap_per_document_type: required
+
+  - node_id: S5DOC-TBL-FORMAL-TRAINING-DOCUMENTS
+    order: 30
+    type: create_table
+    object_name: formal_training_documents
+    requires:
+      - S5DOC-ALTER-COURSE-ENROLLMENTS-DOCUMENT-MODE
+      - S5DOC-TBL-FORMAL-TRAINING-DOCUMENT-TEMPLATES
+    phases: [expand, validate]
+    restart_classification: restart_safe
+    constraints:
+      ownership: tenant
+      immutable_business_revision: true
+      exact_tenant_course_fk: required
+      exact_tenant_asset_fk: required
+      revision_unique: [organization_id, course_enrollment_id, document_type, revision]
+      deterministic_evidence_unique: [organization_id, course_enrollment_id, document_type, evidence_bundle_hash, template_version_snapshot, renderer_version_snapshot]
+      prior_revision_rewrite: forbidden
+
+  - node_id: S5DOC-TBL-FORMAL-TRAINING-DOCUMENT-EVENTS
+    order: 40
+    type: create_table
+    object_name: formal_training_document_events
+    requires:
+      - S5DOC-TBL-FORMAL-TRAINING-DOCUMENTS
+    phases: [expand, validate]
+    restart_classification: restart_safe
+    constraints:
+      ownership: tenant
+      append_only: true
+      exact_tenant_document_fk: required
+      optional_asset_same_tenant_ready_fk: required
+      raw_personal_data_payload: forbidden
+
+execution_boundary:
+  root: database/migrations/stage5/formal-documents
+  registry_path: database/migration-plan/stage5-formal-documents-implementations.json
+  plan_path: database/migration-plan/stage5-formal-documents-plan.json
+  advisory_lock_shared_with_Stage_4: [519662, 5001]
+  default_php_artisan_migrate_discovers_extension_files: false
+  unregistered_extension_php_migration_forbidden: true
+  automatic_destructive_down: false
+  FORMAL_DOC_002_materialized_steps: 0
+  execution_before_later_DDL_gate: forbidden
+
+next_gate:
+  id: FORMAL-DOC-003
+  action: materialize_exact_expand_preflight_backfill_validate_contract_migrations_in_small_reviewed_steps
+  must_preserve_Stage_4_baseline: true
+  PKK_remains_frozen: true
