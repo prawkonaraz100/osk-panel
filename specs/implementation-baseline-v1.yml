@@ -393,3 +393,68 @@ historical_or_optional:
   impersonation:
     status: HISTORICAL_INDEX
     own_secure_implementation_optional: true
+
+
+closure_audit_2026_09_13:
+  gate: CORE-V1-CLOSURE-AUDIT-001
+  authority: docs/149-core-v1-closure-audit.md
+  status: AUDIT_COMPLETE_REPO_P1_REMAINS
+  P0_repo_open: 0
+  repository_complete: false
+  local_slice_PASS_records_preserved: true
+  stage_4:
+    canonical_DAG_nodes: 170
+    materialized_nodes: 112
+    missing_nodes: 58
+    materialized_node_types:
+      extension: 1
+      table: 111
+    missing_node_types:
+      table: 6
+      candidate_key: 8
+      index: 10
+      foreign_key: 11
+      constraint: 10
+      trigger: 9
+      projection: 4
+    first_corrective_step:
+      id: CORE-V1-STAGE4-MISSING-TABLES-001
+      phase: expand
+      expected_materialized_nodes_after_PASS: 118
+      exact_nodes:
+        - MIG-TBL-LEGAL_DOCUMENTS
+        - MIG-TBL-AUTH_SOCIAL_ACCOUNTS
+        - MIG-TBL-ACCOUNT_CLOSURE_REQUESTS
+        - MIG-TBL-TERMS_ACCEPTANCES
+        - MIG-TBL-EVENT_PROJECTION_MIGRATION_CASES
+        - MIG-TBL-DATA_RETENTION_EXECUTION_RUNS
+  repository_P1_groups:
+    - stage4_remaining_migration_materialization
+    - identity_auth_session_HTTP_runtime
+    - organization_settings_HTTP_and_UI
+    - provider_neutral_license_and_exam_checkout
+    - service_entitlements_runtime
+    - learning_access_single_and_bulk_credential_PDFs
+    - student_progress_projection_and_UI
+    - staff_vehicle_asset_upload_and_vehicle_document_UI
+    - course_training_completed_UI_wiring
+    - remaining_small_canonical_HTTP_bindings
+  external_provider_boundaries_not_repo_P1:
+    - PKK_PWPW_provider_runtime_until_explicit_unfreeze_and_authoritative_contract
+    - payment_provider_signature_remote_truth_and_network_reconciliation_until_adapter_contract
+    - final_production_exam_provider_question_and_capability_data
+  deployment_evidence_not_repo_P1:
+    - target_infrastructure_restore_drill
+    - production_incident_contact_roster_and_paging_smoke_test
+    - production_scheduler_and_alert_delivery_smoke_test
+  consciously_outside_core_v1:
+    - business_cards
+    - advertising
+    - lectures
+    - instructor_training
+    - invoices_historical_index
+    - optional_impersonation
+  closure_rule: >-
+    do_not_mark_core_v1_repository_complete_until_all_repository_P1_groups_are
+    closed_or_explicitly_reclassified_by_authoritative_evidence_and_a_repeat
+    CORE_V1_CLOSURE_AUDIT_returns_zero_repo_actionable_P0_P1
