@@ -1,6 +1,6 @@
 # CORE-V1-STAGE4-FOREIGN-KEYS-WRITE-FENCE-001
 
-Status: `IN_VALIDATION`
+Status: `PASS`
 
 ## Purpose
 
@@ -112,3 +112,42 @@ PASS requires:
 - helper tree clean-promoted unchanged to accepted branch.
 
 After PASS, the next safe prefix is **CORE-V1-STAGE4-CONSTRAINTS-WRITE-FENCE-001**, exactly ten `MIG-CON-*` write-fence steps.
+
+## Closure evidence
+
+`CORE-V1-STAGE4-FOREIGN-KEYS-WRITE-FENCE-001` is closed **PASS**.
+
+Validation-only helper:
+
+- PR **#90** closed without merge,
+- helper commit: `fddc8678cec37f4444e30d6fef8eda470473796d`,
+- helper tree: `77c364fe38674937bd8cc71b60981ccff9c155eb`,
+- helper Implementation CI #425 / run `34787640119`: **5/5 PASS**,
+- PostgreSQL: **241 tests / 4739 assertions**,
+- deterministic restore: **121 -> 121**, `RESTORE_DRILL_HARNESS=PASS`.
+
+Clean accepted implementation:
+
+- accepted commit: `65118865e92e98b83e77cde0c96c2a10cb259944`,
+- accepted tree: `77c364fe38674937bd8cc71b60981ccff9c155eb`,
+- helper/accepted tree match: **PASS**,
+- accepted Implementation CI #426 / run `34787852442`: **5/5 PASS**,
+- PostgreSQL: **241 tests / 4739 assertions**,
+- deterministic restore: **121 -> 121**, `RESTORE_DRILL_HARNESS=PASS`.
+
+Final state:
+
+- Stage-4 DAG: **170 nodes**,
+- materialized nodes: **157**,
+- materialized steps: **186**,
+- global preflight: **39/39 PASS**,
+- write-fence steps: **29/52**,
+- supporting referenced UNIQUE constraints in this tranche: **18 PASS**,
+- foreign keys created in this tranche: **125 PASS**, all initially **NOT VALID**,
+- FK metadata: **MATCH SIMPLE / ON UPDATE RESTRICT / ON DELETE RESTRICT PASS**,
+- target-domain row mutation: **0**,
+- CHECK/user-trigger scope creep: **0**,
+- execution identity: `1c3d384b6b52c68228111f08fb1a1d966f94b2281670a82550860f851cd4745d`,
+- PKK provider runtime remains **FROZEN_UNTIL_EXPLICIT_UNFREEZE**.
+
+Next gate: **CORE-V1-STAGE4-CONSTRAINTS-WRITE-FENCE-001**, exactly ten `MIG-CON-*` write-fence steps, expected to advance Stage-4 to **196 materialized steps / 39 of 52 write-fence steps**.
