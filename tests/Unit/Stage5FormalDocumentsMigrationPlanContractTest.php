@@ -85,5 +85,4 @@ class Stage5FormalDocumentsMigrationPlanContractTest extends TestCase
             array_column($extension->phaseSteps('contract'), 'node_id'),
         );
     }
-
 }
