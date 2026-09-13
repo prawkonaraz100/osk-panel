@@ -225,14 +225,14 @@ quality_gate:
     - S5-FOUND-001
 
 next_single_step:
-  id: CORE-V1-STAGE4-CANDIDATE-KEYS-001
-  action: materialize_eight_stage4_candidate_key_nodes_with_authoritative_preflight_and_write_fence_phases
+  id: CORE-V1-STAGE4-COMMERCE-LINEAGE-PREREQ-001
+  action: restore_order_items_license_product_lineage_column_before_candidate_key_materialization
   prerequisite_previous_slice: CORE-V1-STAGE4-MISSING-TABLES-001_PASS
   implementation_order_source:
+    - specs/database/student-finance-commerce.yml
     - specs/database/final-migration-order-invariant-matrix.yml
-    - docs/149-core-v1-closure-audit.md
-    - docs/150-core-v1-stage4-missing-tables-expand.md
-    - specs/implementation-baseline-v1.yml
+    - docs/114-stage-4-student-finance-commerce-audit.md
+    - docs/151-core-v1-stage4-commerce-lineage-prerequisite.md
   hardening_repo_actionable_P1_status: COMPLETE
   formal_documents_status: GATE_11_PASS_FORMAL_DOCUMENTS_CORE_COMPLETE
   remaining_repo_actionable_P0_status: ZERO
@@ -240,8 +240,9 @@ next_single_step:
   Stage_4_materialized_nodes_current: 118
   Stage_4_materialized_steps_current: 118
   Stage_4_DAG_nodes_total: 170
-  expected_Stage_4_materialized_nodes_after_next_PASS: 126
-  current_corrective_gate_status: NOT_STARTED
+  expected_Stage_4_materialized_nodes_after_next_PASS: 118
+  expected_Stage_4_materialized_steps_after_next_PASS: 118
+  current_corrective_gate_status: IN_VALIDATION
   PKK_provider_runtime_status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
   PKK_resume_requires:
     - explicit_user_unfreeze
@@ -3244,3 +3245,86 @@ CORE_V1_STAGE4_MISSING_TABLES_001_gate:
       - MIG-CK-COMMERCE
       - MIG-CK-EVENTS
     rule: separate_gate_do_not_materialize_here
+
+
+CORE_V1_STAGE4_COMMERCE_LINEAGE_PREREQ_001_gate:
+  id: CORE-V1-STAGE4-COMMERCE-LINEAGE-PREREQ-001
+  status: IN_VALIDATION
+  prerequisite: CORE-V1-STAGE4-MISSING-TABLES-001_PASS
+  authority:
+    bounded_context: specs/database/student-finance-commerce.yml
+    migration_matrix: specs/database/final-migration-order-invariant-matrix.yml
+    narrative: docs/151-core-v1-stage4-commerce-lineage-prerequisite.md
+    plan_identity: d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10
+    authority_git_blob: ad5f2aa2e14ef248b95dd3dda0d1cbcb2e69d441
+    previous_execution_identity: bba8fb733d634e180b2133057dd73dcabae116d344496027b2f1ecaf0f48de6c
+    candidate_execution_identity: d238e4aab3a4364aef855d8f79d765083a05d3757995c6353386306a79e19b1c
+  diagnosis:
+    blocker: order_items_license_product_lineage_column_missing
+    required_by:
+      - DB-COM-001_product_kind_matrix
+      - DB-COM-004_exact_license_inventory_purchase_source_product_binding
+      - MIG-CK-COMMERCE_order_item_candidate_key_org_id_license_product
+    current_physical_column_before_fix: absent
+    candidate_key_gate_may_invent_column: false
+    fail_closed_if_prerequisite_missing: true
+  exact_scope:
+    corrected_existing_node: MIG-TBL-ORDER_ITEMS
+    corrected_existing_phase: expand
+    corrected_column:
+      table: order_items
+      name: license_product_id
+      PostgreSQL_type: uuid
+      nullable: true
+    new_DAG_nodes: 0
+    new_registered_migration_steps: 0
+    materialized_nodes_before: 118
+    materialized_nodes_after_candidate: 118
+    materialized_steps_before: 118
+    materialized_steps_after_candidate: 118
+  preservation:
+    candidate_keys_materialized: false
+    secondary_indexes_materialized: false
+    foreign_keys_materialized: false
+    constraints_materialized: false
+    triggers_materialized: false
+    projections_materialized: false
+    Stage_5_formal_document_steps: 11
+    API_requirement_rows: 187
+    API_unique_operations: 173
+    API_shared_aliases: 14
+    PKK_provider_runtime_status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+  existing_applied_database_rule:
+    modified_repository_migration_name_is_not_assumed_to_rerun: true
+    candidate_key_preflight_must_verify_license_product_id: true
+    missing_column_on_preexisting_database: STOP_REVIEWED_FORWARD_REMEDIATION_REQUIRED
+    blind_column_add_inside_candidate_key_write_fence: forbidden
+  pass_requires:
+    - Stage_4_plan_identity_unchanged_PASS
+    - Stage_4_authority_blob_unchanged_PASS
+    - Stage_4_170_118_118_preserved_PASS
+    - exact_order_items_license_product_id_nullable_uuid_PASS
+    - no_candidate_keys_materialized_PASS
+    - corrected_migration_SHA256_registry_PASS
+    - Stage_4_execution_identity_d238e4aab3a4364aef855d8f79d765083a05d3757995c6353386306a79e19b1c_PASS
+    - full_PostgreSQL_suite_PASS
+    - deterministic_restore_harness_PASS
+    - backend_static_analysis_PASS_ZERO_ERRORS
+    - frontend_quality_PASS
+    - contracts_and_traceability_PASS
+    - secret_scan_PASS
+    - Stage_5_11_step_authority_preserved_PASS
+    - API_187_173_14_preserved_PASS
+    - PKK_provider_runtime_still_frozen_PASS
+  next_after_PASS:
+    id: CORE-V1-STAGE4-CANDIDATE-KEYS-001
+    action: materialize_eight_stage4_candidate_key_nodes_with_authoritative_preflight_and_write_fence_phases
+    exact_nodes:
+      - MIG-CK-IDENTITY
+      - MIG-CK-ASSETS_RESOURCES
+      - MIG-CK-TRAINING
+      - MIG-CK-FINANCE
+      - MIG-CK-LICENSES
+      - MIG-CK-EXAMS
+      - MIG-CK-COMMERCE
+      - MIG-CK-EVENTS
