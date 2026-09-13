@@ -226,12 +226,12 @@ quality_gate:
 
 next_single_step:
   id: CORE-V1-STAGE4-CANDIDATE-KEYS-001
-  action: materialize_eight_stage4_candidate_key_nodes_with_authoritative_preflight_and_write_fence_phases
+  action: materialize_and_execute_eight_candidate_key_preflight_nodes_without_entering_global_write_fence
   prerequisite_previous_slice: CORE-V1-STAGE4-MISSING-TABLES-001_PASS
   implementation_order_source:
     - specs/database/final-migration-order-invariant-matrix.yml
-    - docs/149-core-v1-closure-audit.md
-    - docs/150-core-v1-stage4-missing-tables-expand.md
+    - database/migration-plan/plan.json
+    - docs/151-core-v1-stage4-candidate-keys-preflight.md
     - specs/implementation-baseline-v1.yml
   hardening_repo_actionable_P1_status: COMPLETE
   formal_documents_status: GATE_11_PASS_FORMAL_DOCUMENTS_CORE_COMPLETE
@@ -241,7 +241,14 @@ next_single_step:
   Stage_4_materialized_steps_current: 118
   Stage_4_DAG_nodes_total: 170
   expected_Stage_4_materialized_nodes_after_next_PASS: 126
-  current_corrective_gate_status: NOT_STARTED
+  expected_Stage_4_materialized_steps_after_next_PASS: 126
+  current_corrective_gate_status: IN_VALIDATION
+  global_phase_barrier_correction:
+    authoritative_preflight_nodes: 39
+    authoritative_write_fence_nodes: 52
+    current_safe_preflight_prefix_nodes: 8
+    write_fence_in_current_slice: false
+    canonical_authority_changed: false
   PKK_provider_runtime_status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
   PKK_resume_requires:
     - explicit_user_unfreeze
@@ -3244,3 +3251,111 @@ CORE_V1_STAGE4_MISSING_TABLES_001_gate:
       - MIG-CK-COMMERCE
       - MIG-CK-EVENTS
     rule: separate_gate_do_not_materialize_here
+
+
+CORE_V1_STAGE4_CANDIDATE_KEYS_001_gate:
+  id: CORE-V1-STAGE4-CANDIDATE-KEYS-001
+  status: IN_VALIDATION
+  prerequisite: CORE-V1-STAGE4-MISSING-TABLES-001_PASS
+  authority:
+    matrix: specs/database/final-migration-order-invariant-matrix.yml
+    plan: database/migration-plan/plan.json
+    narrative: docs/151-core-v1-stage4-candidate-keys-preflight.md
+    plan_identity: d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10
+    authority_git_blob: ad5f2aa2e14ef248b95dd3dda0d1cbcb2e69d441
+    previous_execution_identity: bba8fb733d634e180b2133057dd73dcabae116d344496027b2f1ecaf0f48de6c
+    candidate_execution_identity: db1ff3bfdbeacb32f1a0512cc30806cc93e9bcdca35e416ef81b6fadd7a3b303
+  diagnosed_sequence_defect:
+    previous_next_step_requested_candidate_preflight_and_write_fence_together: true
+    executable_runner_uses_global_phase_barrier: true
+    authoritative_preflight_nodes_total: 39
+    authoritative_write_fence_nodes_total: 52
+    bypass_global_phase_barrier: forbidden
+    canonical_Stage_4_authority_modified: false
+    correction: materialize_and_execute_only_first_safe_preflight_prefix
+  exact_scope:
+    phase: preflight
+    materialized_nodes_before: 118
+    materialized_nodes_after_candidate: 126
+    materialized_steps_before: 118
+    materialized_steps_after_candidate: 126
+    exact_nodes:
+      - MIG-CK-IDENTITY
+      - MIG-CK-ASSETS_RESOURCES
+      - MIG-CK-TRAINING
+      - MIG-CK-FINANCE
+      - MIG-CK-LICENSES
+      - MIG-CK-EXAMS
+      - MIG-CK-COMMERCE
+      - MIG-CK-EVENTS
+  preflight_boundary:
+    duplicate_scan_matches_PostgreSQL_UNIQUE_NULL_semantics: true
+    schema_mutation: forbidden
+    row_mutation: forbidden
+    auto_reparent_or_rewrite: forbidden
+    candidate_UNIQUE_constraints_created: false
+    write_fence_steps_registered: 0
+    later_index_FK_constraint_trigger_projection_nodes_materialized: false
+    destructive_down: forbidden
+  future_candidate_key_targets_validated: 28
+  commerce_prerequisite:
+    required_future_key: order_items_organization_id_id_license_product_id
+    currently_missing_column: order_items.license_product_id
+    preflight_may_infer_historical_value: false
+    preflight_may_add_column: false
+    compatibility_column_deferred_to_global_write_fence: true
+  remaining_after_candidate_PASS:
+    Stage_4_DAG_nodes_total: 170
+    Stage_4_materialized_nodes: 126
+    Stage_4_materialized_steps: 126
+    Stage_4_unmaterialized_nodes: 44
+    remaining_preflight_nodes_before_write_fence: 31
+    missing_index_nodes: 10
+    missing_foreign_key_nodes: 11
+    missing_constraint_nodes: 10
+    missing_trigger_nodes: 9
+    missing_projection_nodes: 4
+    candidate_key_write_fence_effects_pending: 8
+  preservation:
+    Stage_5_formal_document_steps: 11
+    API_requirement_rows: 187
+    API_unique_operations: 173
+    API_shared_aliases: 14
+    FORMAL_DOC_011_status: PASS
+    earlier_local_PASS_records_reopened: false
+    PKK_provider_runtime_status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+  pass_requires:
+    - exact_eight_candidate_key_preflight_nodes_registered_in_canonical_order_PASS
+    - exact_migration_file_SHA256_registry_PASS
+    - Stage_4_plan_identity_unchanged_PASS
+    - Stage_4_execution_identity_db1ff3bfdbeacb32f1a0512cc30806cc93e9bcdca35e416ef81b6fadd7a3b303_PASS
+    - controlled_preflight_PostgreSQL_PASS
+    - preflight_duplicate_scan_NULL_semantics_PASS
+    - preflight_schema_mutation_zero_PASS
+    - candidate_UNIQUE_constraints_not_prematurely_created_PASS
+    - global_write_fence_phase_remains_closed_PASS
+    - Stage_4_170_126_126_candidate_PASS
+    - Stage_5_11_step_authority_preserved_PASS
+    - API_187_173_14_preserved_PASS
+    - FORMAL_DOC_011_PASS_preserved
+    - PKK_provider_runtime_still_frozen_PASS
+    - backend_static_analysis_PASS_ZERO_ERRORS
+    - frontend_quality_PASS
+    - contracts_and_traceability_PASS
+    - secret_scan_PASS
+    - deterministic_restore_harness_PASS
+  next_after_PASS:
+    id: CORE-V1-STAGE4-INDEXES-PREFLIGHT-001
+    action: materialize_ten_stage4_index_preflight_nodes_without_entering_write_fence
+    exact_nodes:
+      - MIG-IDX-IDENTITY
+      - MIG-IDX-RESOURCES
+      - MIG-IDX-TRAINING
+      - MIG-IDX-CALENDAR_GIST
+      - MIG-IDX-PKK
+      - MIG-IDX-FINANCE
+      - MIG-IDX-LICENSES
+      - MIG-IDX-EXAMS
+      - MIG-IDX-COMMERCE
+      - MIG-IDX-EVENTS
+    rule: continue_global_preflight_phase_before_any_write_fence
