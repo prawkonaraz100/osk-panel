@@ -3,6 +3,7 @@
 namespace Tests\Support;
 
 use App\Support\Migrations\MigrationPlan;
+use App\Support\Migrations\Stage5FormalDocumentsMigrationPlan;
 use Database\Seeders\FoundationReferenceCatalogSeeder;
 use Database\Seeders\ResourceReferenceCatalogSeeder;
 use Illuminate\Support\Facades\Artisan;
@@ -27,6 +28,9 @@ final class FoundationSchema
         'order_items',
         'orders',
         'commerce_catalog_items',
+        'formal_training_document_events',
+        'formal_training_documents',
+        'formal_training_document_templates',
         'internal_exam_documents',
         'internal_exam_results',
         'internal_exam_attempt_questions',
@@ -127,6 +131,30 @@ final class FoundationSchema
             ]);
             if ($exit !== 0) {
                 throw new LogicException('Controlled migration failed: '.Artisan::output());
+            }
+        }
+
+        $formalDocumentsPlan = app(Stage5FormalDocumentsMigrationPlan::class);
+        $formalDocumentsPlan->validate();
+
+        $formalDocumentsExpandIncomplete = ! DB::getSchemaBuilder()->hasTable('formal_training_document_templates')
+            || ! DB::getSchemaBuilder()->hasTable('formal_training_documents')
+            || ! DB::getSchemaBuilder()->hasTable('formal_training_document_events')
+            || ! DB::getSchemaBuilder()->hasColumns('course_enrollments', [
+                'document_mode',
+                'document_mode_selected_at',
+                'document_mode_selected_by_user_id',
+            ]);
+
+        if ($formalDocumentsExpandIncomplete) {
+            $exit = Artisan::call('migration:stage5:formal-docs:controlled', [
+                '--plan' => $formalDocumentsPlan->identity(),
+                '--execution' => $formalDocumentsPlan->executionIdentity(),
+                '--phase' => 'expand',
+                '--force' => true,
+            ]);
+            if ($exit !== 0) {
+                throw new LogicException('Stage-5 formal-documents controlled migration failed: '.Artisan::output());
             }
         }
     }
