@@ -230,17 +230,26 @@ final class MigrationPlan
         $this->assert($this->phaseSteps($phase) !== [], "No materialized migration steps for phase {$phase}");
 
         $applied = array_fill_keys($appliedMigrations, true);
+        $implementedNodeIds = array_fill_keys(
+            array_values(array_unique(array_column($this->implementations['implemented_steps'], 'node_id'))),
+            true,
+        );
+
         foreach (array_slice($this->plan['phase_order'], 0, $phaseIndex) as $previousPhase) {
             $requiredNodeIds = [];
             foreach ($this->plan['nodes'] as $node) {
-                if (in_array($previousPhase, $node['phases'], true)) {
+                if (isset($implementedNodeIds[$node['node_id']])
+                    && in_array($previousPhase, $node['phases'], true)) {
                     $requiredNodeIds[] = $node['node_id'];
                 }
             }
 
             $registeredSteps = $this->phaseSteps($previousPhase);
             $registeredNodeIds = array_column($registeredSteps, 'node_id');
-            $this->assert($registeredNodeIds === $requiredNodeIds, "Earlier phase {$previousPhase} is not fully materialized.");
+            $this->assert(
+                $registeredNodeIds === $requiredNodeIds,
+                "Earlier phase {$previousPhase} is not fully materialized for the registered Stage-4 implementation prefix.",
+            );
 
             foreach ($registeredSteps as $step) {
                 $this->assert(isset($applied[$step['migration_name']]), "Earlier phase {$previousPhase} is not fully applied: {$step['node_id']}");
