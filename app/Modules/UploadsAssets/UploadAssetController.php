@@ -60,15 +60,30 @@ final class UploadAssetController
                 'upload_id' => $uploadId,
                 ...$input,
             ],
-            function () use ($sessionId, $uploadId, $input): array {
-                $body = $this->uploads->complete($sessionId, $uploadId, $input);
+            function () use ($sessionId, $uploadId, $input, $request): array {
+                try {
+                    $body = $this->uploads->complete($sessionId, $uploadId, $input);
 
-                return [
-                    'status' => 200,
-                    'resource_type' => 'file_asset',
-                    'resource_id' => (string) $body['id'],
-                    'body' => $body,
-                ];
+                    return [
+                        'status' => 200,
+                        'resource_type' => 'file_asset',
+                        'resource_id' => (string) $body['id'],
+                        'body' => $body,
+                    ];
+                } catch (UploadRejectedException $exception) {
+                    return [
+                        'status' => $exception->httpStatus,
+                        'resource_type' => 'file_asset',
+                        'resource_id' => $exception->assetId,
+                        'body' => [
+                            'error' => [
+                                'code' => $exception->machineCode,
+                                'message' => $exception->getMessage(),
+                                'request_id' => $this->requestId($request),
+                            ],
+                        ],
+                    ];
+                }
             },
         );
 
@@ -100,6 +115,11 @@ final class UploadAssetController
         }
 
         return $sessionId;
+    }
+
+    private function requestId(Request $request): string
+    {
+        return (string) $request->attributes->get('request_id');
     }
 
     private function idempotencyKey(Request $request): string
