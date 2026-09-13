@@ -1075,6 +1075,55 @@ CORE_V1_DASHBOARD_NOTIFICATIONS_PURCHASE_HISTORY_001_closure:
 
 
 
+
+HARDENING_RESTORE_DRILL_HARNESS_005_closure:
+  status: PASS
+  accepted_scope:
+    - deterministic_PostgreSQL_dump_restore_harness
+    - isolated_restore_database_boundary
+    - schema_fingerprint_comparison
+    - critical_table_row_count_comparison
+    - object_version_restore_contract
+    - Redis_empty_recovery_contract
+    - machine_readable_restore_report
+  provenance:
+    validation_helper_commit: 48cd9458889f37d2ac659237576876ab507dfdbe
+    validation_helper_tree: 04f92c65883e86fef6677987c026cece51b18eca
+    helper_Implementation_CI_run: 34725120155
+    accepted_implementation_commit: 727ebb962e938aefef5f089c7ad5ba5772350dd8
+    accepted_implementation_tree: 04f92c65883e86fef6677987c026cece51b18eca
+    accepted_Implementation_CI_run: 34727510365
+  executable_evidence:
+    accepted_Implementation_CI_jobs_passed: 5
+    accepted_Implementation_CI_jobs_total: 5
+    accepted_PostgreSQL_suite_tests: 177
+    accepted_PostgreSQL_suite_assertions: 2671
+    restored_public_tables_source: 112
+    restored_public_tables_target: 112
+    critical_tables_checked: 10
+    schema_fingerprint: 3b1d6d3447451b2813253ca1adc9dd7753a161c6183e2e9631adc5f896f25ede
+    snapshot_RPO_seconds: 0
+    accepted_harness_elapsed_seconds: 6
+    PostgreSQL_restore: PASS
+    formal_object_previous_version_restore: PASS
+    Redis_empty_recovery: PASS
+    backend_static_analysis: PASS_ZERO_ERRORS
+    frontend_lint_typecheck_build_audit: PASS
+    contracts_and_traceability: PASS
+    accepted_push_secret_scan: PASS
+  production_boundary:
+    environment_kind: ci_emulated
+    production_target_evidence: false
+    production_PITR_verified: false
+    production_offsite_copy_verified: false
+    production_object_versioning_verified: false
+    target_infrastructure_restore_drill_still_required: true
+    production_go_live_unblocked_by_H5_alone: false
+  tranche_result:
+    hardening_restore_drill_harness: PASS
+    next_repository_actionable_hardening_gate: incident_response_runbooks_and_ownership
+    next_hardening_gate_started: false
+
 HARDENING_DISASTER_RECOVERY_AUTHORITY_004_closure:
   status: PASS
   accepted_scope:
