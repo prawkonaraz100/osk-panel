@@ -1,6 +1,6 @@
 # 141. Formal training documents — legacy document-mode preflight
 
-Status: `FORMAL-DOC-004 validation candidate`
+Status: `FORMAL-DOC-004 PASS`
 
 ## Scope
 
@@ -123,3 +123,35 @@ The backfill must repeat the safety assumptions defensively, then convert only e
 - `document_mode_selected_by_user_id = NULL`.
 
 It must preserve already selected valid rows unchanged and must not yet perform the final `NOT NULL` contract.
+
+
+## Gate closure evidence
+
+FORMAL-DOC-004 is closed on the exact machine tree `5b7ce556755b0744a4573c87a8130c5b7674b45b`.
+
+Validation-only evidence:
+
+- initial validation head `20d539a6ae4ba97608c30ba318019f85b3eb01d9` exposed only two stale FORMAL-DOC-003 regression expectations in CI #291,
+- repair commit `5c6d34e87d2bced13baee1ed92ee6ce0b56bd3db` changed only those stale expand-test expectations,
+- validation PR #57 was closed without merge,
+- helper Implementation CI #292 / run `34735706097`: **5/5 PASS**,
+- PostgreSQL suite: **200 tests / 2827 assertions**,
+- deterministic restore drill: **PASS**,
+- restore schema table count: **115 -> 115**.
+
+Clean accepted implementation evidence:
+
+- accepted implementation commit: `8c3c0b37609f5df521e2b8a08301d0e058fea068`,
+- accepted implementation tree: `5b7ce556755b0744a4573c87a8130c5b7674b45b`,
+- accepted Implementation CI #293 / run `34735837564`: **5/5 PASS**,
+- PostgreSQL suite: **200 tests / 2827 assertions**,
+- deterministic restore drill: **PASS**,
+- restore schema table count: **115 -> 115**,
+- backend Pint + PHPStan: **PASS**,
+- frontend lint + typecheck + build + audit: **PASS**,
+- contracts and traceability: **PASS**,
+- accepted-push secret scan: **PASS**.
+
+The accepted preflight remains read-only for business data. It records only the Laravel migration execution when preflight succeeds; no course document-mode values are backfilled by FORMAL-DOC-004.
+
+The Stage-4 baseline remains exactly **170 nodes / 112 implemented nodes / 112 implemented steps**, with unchanged plan and execution identities. PKK remains frozen and outside this gate.
