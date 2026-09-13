@@ -225,21 +225,23 @@ quality_gate:
     - S5-FOUND-001
 
 next_single_step:
-  id: CORE-V1-STAGE4-MISSING-TABLES-001
-  action: materialize_six_missing_stage4_expand_table_nodes
-  prerequisite_previous_slice: CORE-V1-CLOSURE-AUDIT-001_AUDIT_COMPLETE_REPO_P1_REMAINS
+  id: CORE-V1-STAGE4-CANDIDATE-KEYS-001
+  action: materialize_eight_stage4_candidate_key_nodes_with_authoritative_preflight_and_write_fence_phases
+  prerequisite_previous_slice: CORE-V1-STAGE4-MISSING-TABLES-001_PASS
   implementation_order_source:
     - specs/database/final-migration-order-invariant-matrix.yml
     - docs/149-core-v1-closure-audit.md
+    - docs/150-core-v1-stage4-missing-tables-expand.md
     - specs/implementation-baseline-v1.yml
   hardening_repo_actionable_P1_status: COMPLETE
   formal_documents_status: GATE_11_PASS_FORMAL_DOCUMENTS_CORE_COMPLETE
   remaining_repo_actionable_P0_status: ZERO
   remaining_repo_actionable_P1_status: OPEN_CORRECTIVE_SEQUENCE_REQUIRED
-  Stage_4_materialized_nodes_current: 112
+  Stage_4_materialized_nodes_current: 118
+  Stage_4_materialized_steps_current: 118
   Stage_4_DAG_nodes_total: 170
-  expected_Stage_4_materialized_nodes_after_next_PASS: 118
-  current_corrective_gate_status: IN_VALIDATION
+  expected_Stage_4_materialized_nodes_after_next_PASS: 126
+  current_corrective_gate_status: NOT_STARTED
   PKK_provider_runtime_status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
   PKK_resume_requires:
     - explicit_user_unfreeze
@@ -3127,7 +3129,7 @@ FORMAL_DOCUMENTS_011_gate:
 
 CORE_V1_STAGE4_MISSING_TABLES_001_gate:
   id: CORE-V1-STAGE4-MISSING-TABLES-001
-  status: IN_VALIDATION
+  status: PASS
   prerequisite: CORE-V1-CLOSURE-AUDIT-001_AUDIT_COMPLETE_REPO_P1_REMAINS
   authority:
     matrix: specs/database/final-migration-order-invariant-matrix.yml
@@ -3176,6 +3178,40 @@ CORE_V1_STAGE4_MISSING_TABLES_001_gate:
     API_shared_aliases: 14
     earlier_local_PASS_records_reopened: false
     PKK_provider_runtime_status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+  provenance:
+    validation_PR: 76
+    validation_PR_merged: false
+    validation_helper_commit: ef3d84187ecbe5cad821052cd63c6d9724eba08d
+    validation_helper_tree: af9887d90915f8e487c707c206ea22f035f70a34
+    helper_Implementation_CI_run: 34752826676
+    accepted_implementation_commit: 0fe8c82cfdf7e62cec9dd5c5e442725e68002cd9
+    accepted_implementation_tree: af9887d90915f8e487c707c206ea22f035f70a34
+    accepted_Implementation_CI_run: 34753070688
+    helper_and_accepted_tree_match: true
+  executable_evidence:
+    helper_Implementation_CI_jobs_passed: 5
+    helper_Implementation_CI_jobs_total: 5
+    accepted_Implementation_CI_jobs_passed: 5
+    accepted_Implementation_CI_jobs_total: 5
+    PostgreSQL_suite_tests: 232
+    PostgreSQL_suite_assertions: 3172
+    deterministic_restore_harness: PASS
+    restore_source_table_count: 121
+    restore_restored_table_count: 121
+    Stage_4_plan_identity_unchanged: PASS
+    Stage_4_execution_identity: bba8fb733d634e180b2133057dd73dcabae116d344496027b2f1ecaf0f48de6c
+    Stage_4_materialized_nodes: 118
+    Stage_4_materialized_steps: 118
+    six_missing_table_nodes_materialized: PASS
+    no_missing_table_nodes_remaining: PASS
+    no_premature_candidate_key_index_FK_check_exclusion_trigger_projection: PASS
+    Stage_5_11_step_authority_preserved: PASS
+    API_187_173_14_preserved: PASS
+    backend_static_analysis: PASS_ZERO_ERRORS
+    frontend_quality: PASS
+    contracts_and_traceability: PASS
+    secret_scan: PASS
+    PKK_provider_runtime_still_frozen: PASS
   pass_requires:
     - exact_six_table_nodes_registered_in_canonical_order_PASS
     - exact_migration_file_SHA256_registry_PASS
