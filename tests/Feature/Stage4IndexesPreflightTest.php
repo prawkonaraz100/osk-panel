@@ -19,9 +19,9 @@ final class Stage4IndexesPreflightTest extends TestCase
         $plan->validate();
 
         $this->assertSame(170, $plan->nodeCount());
-        $this->assertSame(147, $plan->implementedNodeCount());
-        $this->assertSame(147, $plan->implementedStepCount());
-        $this->assertSame('488bedcef5d2aabef34e294f8fa0c2b48ef392e804cc83c6cd75c8ba5bfd8b1c', $plan->executionIdentity());
+        $this->assertSame(157, $plan->implementedNodeCount());
+        $this->assertSame(157, $plan->implementedStepCount());
+        $this->assertSame('b1510cc6adc4a551a72f6ca338fb24db5d642c7a96724f4cb196e780e82f0ecd', $plan->executionIdentity());
 
         $indexNodes = [
             'MIG-IDX-IDENTITY',
@@ -37,7 +37,7 @@ final class Stage4IndexesPreflightTest extends TestCase
         ];
         $preflightNodes = array_column($plan->phaseSteps('preflight'), 'node_id');
         $this->assertSame($indexNodes, array_slice($preflightNodes, 8, count($indexNodes)));
-        $this->assertCount(29, $preflightNodes);
+        $this->assertCount(39, $preflightNodes);
         $this->assertSame([], $plan->phaseSteps('write_fence'));
 
         $this->assertFalse(Schema::hasColumn('student_payments', 'idempotency_key'));

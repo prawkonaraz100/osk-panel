@@ -15,10 +15,10 @@ class MigrationPlanContractTest extends TestCase
 
         $this->assertSame(170, $plan->nodeCount());
         $this->assertSame(17, $plan->batchCount());
-        $this->assertSame(147, $plan->implementedNodeCount());
-        $this->assertSame(147, $plan->implementedStepCount());
+        $this->assertSame(157, $plan->implementedNodeCount());
+        $this->assertSame(157, $plan->implementedStepCount());
         $this->assertSame('ad5f2aa2e14ef248b95dd3dda0d1cbcb2e69d441', $plan->summary()['authority_blob']);
-        $this->assertSame('488bedcef5d2aabef34e294f8fa0c2b48ef392e804cc83c6cd75c8ba5bfd8b1c', $plan->executionIdentity());
+        $this->assertSame('b1510cc6adc4a551a72f6ca338fb24db5d642c7a96724f4cb196e780e82f0ecd', $plan->executionIdentity());
         $this->assertSame([
             'MIG-EXT-BTREE-GIST',
             'MIG-TBL-ORGANIZATIONS',
@@ -175,8 +175,20 @@ class MigrationPlanContractTest extends TestCase
             'MIG-FK-PURCHASE_DOWNSTREAM',
             'MIG-FK-EVENTS',
         ];
+        $constraintNodes = [
+            'MIG-CON-IDENTITY',
+            'MIG-CON-RESOURCES',
+            'MIG-CON-TRAINING',
+            'MIG-CON-CALENDAR',
+            'MIG-CON-PKK',
+            'MIG-CON-FINANCE',
+            'MIG-CON-LICENSES',
+            'MIG-CON-EXAMS',
+            'MIG-CON-COMMERCE',
+            'MIG-CON-EVENTS',
+        ];
         $this->assertSame(
-            array_merge($candidateKeyNodes, $indexNodes, $foreignKeyNodes),
+            array_merge($candidateKeyNodes, $indexNodes, $foreignKeyNodes, $constraintNodes),
             array_column($plan->phaseSteps('preflight'), 'node_id'),
         );
         $this->assertSame([], $plan->phaseSteps('write_fence'));

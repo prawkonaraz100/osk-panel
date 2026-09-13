@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
   "plan_identity": "d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10",
-  "execution_identity": "488bedcef5d2aabef34e294f8fa0c2b48ef392e804cc83c6cd75c8ba5bfd8b1c",
+  "execution_identity": "b1510cc6adc4a551a72f6ca338fb24db5d642c7a96724f4cb196e780e82f0ecd",
   "stage4_root": "database/migrations/stage4",
   "implemented_steps": [
     {
@@ -1324,6 +1324,96 @@
       "migration_file": "database/migrations/stage4/preflight/MIG-FK-EVENTS/2026_09_10_001470_preflight_foreign_keys_events.php",
       "migration_name": "2026_09_10_001470_preflight_foreign_keys_events",
       "file_sha256": "02e28bd026b44cd22f9d19ec9a772a8644b99c24619a4dcd2ad452b6cc2738b2",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-CON-IDENTITY",
+      "phase": "preflight",
+      "migration_file": "database/migrations/stage4/preflight/MIG-CON-IDENTITY/2026_09_10_001480_preflight_constraints_identity.php",
+      "migration_name": "2026_09_10_001480_preflight_constraints_identity",
+      "file_sha256": "ce58fdb1b64e47790e10b450eb1ca8a8fcf5dfd874e0ddd8509dbd287a761223",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-CON-RESOURCES",
+      "phase": "preflight",
+      "migration_file": "database/migrations/stage4/preflight/MIG-CON-RESOURCES/2026_09_10_001490_preflight_constraints_resources.php",
+      "migration_name": "2026_09_10_001490_preflight_constraints_resources",
+      "file_sha256": "6ae4bd4ec4a82156ad5db9980c6e80ce4acc639441ef56cb3848e041d22ff370",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-CON-TRAINING",
+      "phase": "preflight",
+      "migration_file": "database/migrations/stage4/preflight/MIG-CON-TRAINING/2026_09_10_001500_preflight_constraints_training.php",
+      "migration_name": "2026_09_10_001500_preflight_constraints_training",
+      "file_sha256": "9de43416ff90ee549aaea805559998561f6e52dcc8f3a45d40dfb178342dc7ff",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-CON-CALENDAR",
+      "phase": "preflight",
+      "migration_file": "database/migrations/stage4/preflight/MIG-CON-CALENDAR/2026_09_10_001510_preflight_constraints_calendar.php",
+      "migration_name": "2026_09_10_001510_preflight_constraints_calendar",
+      "file_sha256": "eeb1841d5bf1f48ef9e7f3b2083c27229ebff6d0520dbd81fa08b95a556a0203",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-CON-PKK",
+      "phase": "preflight",
+      "migration_file": "database/migrations/stage4/preflight/MIG-CON-PKK/2026_09_10_001520_preflight_constraints_pkk.php",
+      "migration_name": "2026_09_10_001520_preflight_constraints_pkk",
+      "file_sha256": "07114aaa8eeabcf58b0cedce61ebf8a7790cf3cd8ab794d9737eab98b598719d",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-CON-FINANCE",
+      "phase": "preflight",
+      "migration_file": "database/migrations/stage4/preflight/MIG-CON-FINANCE/2026_09_10_001530_preflight_constraints_finance.php",
+      "migration_name": "2026_09_10_001530_preflight_constraints_finance",
+      "file_sha256": "24dd53e42ca0b13efce1c996c895e3a931cf3e8df2ce8ccb45b3b2ff828506a8",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-CON-LICENSES",
+      "phase": "preflight",
+      "migration_file": "database/migrations/stage4/preflight/MIG-CON-LICENSES/2026_09_10_001540_preflight_constraints_licenses.php",
+      "migration_name": "2026_09_10_001540_preflight_constraints_licenses",
+      "file_sha256": "8df7ba53ac7fcf42e2cfde77339afe02f6135bffa0aad98ff783a5cea87a6660",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-CON-EXAMS",
+      "phase": "preflight",
+      "migration_file": "database/migrations/stage4/preflight/MIG-CON-EXAMS/2026_09_10_001550_preflight_constraints_exams.php",
+      "migration_name": "2026_09_10_001550_preflight_constraints_exams",
+      "file_sha256": "0c28439107bf85e87d9b57e9987fabfd2de8f0a0384f92361963fe1d752adbaf",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-CON-COMMERCE",
+      "phase": "preflight",
+      "migration_file": "database/migrations/stage4/preflight/MIG-CON-COMMERCE/2026_09_10_001560_preflight_constraints_commerce.php",
+      "migration_name": "2026_09_10_001560_preflight_constraints_commerce",
+      "file_sha256": "beb696663c8491f54ebe70cdc6dd9b04d89f72a83cd173c883e5634809e38f8b",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-CON-EVENTS",
+      "phase": "preflight",
+      "migration_file": "database/migrations/stage4/preflight/MIG-CON-EVENTS/2026_09_10_001570_preflight_constraints_events.php",
+      "migration_name": "2026_09_10_001570_preflight_constraints_events",
+      "file_sha256": "de7919936ef1e021147d16c47b05134315d06704a43ccceee9b9956251998c1a",
       "restart_classification": "manual_review",
       "safe_down": false
     }

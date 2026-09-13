@@ -242,7 +242,7 @@ next_single_step:
   Stage_4_DAG_nodes_total: 170
   expected_Stage_4_materialized_nodes_after_next_PASS: 157
   expected_Stage_4_materialized_steps_after_next_PASS: 157
-  current_corrective_gate_status: NOT_STARTED
+  current_corrective_gate_status: IN_VALIDATION
   global_phase_barrier:
     authoritative_preflight_nodes: 39
     preflight_nodes_materialized_current: 29
@@ -3654,3 +3654,78 @@ CORE_V1_STAGE4_FOREIGN_KEYS_PREFLIGHT_001_gate:
     expected_preflight_nodes_after_PASS: 39
     remaining_preflight_nodes_before_write_fence_after_PASS: 0
     rule: write_fence_remains_forbidden_until_this_gate_is_PASS
+
+CORE_V1_STAGE4_CONSTRAINTS_PREFLIGHT_001_gate:
+  id: CORE-V1-STAGE4-CONSTRAINTS-PREFLIGHT-001
+  status: IN_VALIDATION
+  prerequisite: CORE-V1-STAGE4-FOREIGN-KEYS-PREFLIGHT-001_PASS
+  authority:
+    matrix: specs/database/final-migration-order-invariant-matrix.yml
+    plan: database/migration-plan/plan.json
+    narrative: docs/154-core-v1-stage4-constraints-preflight.md
+    plan_identity: d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10
+    previous_execution_identity: 488bedcef5d2aabef34e294f8fa0c2b48ef392e804cc83c6cd75c8ba5bfd8b1c
+    candidate_execution_identity: b1510cc6adc4a551a72f6ca338fb24db5d642c7a96724f4cb196e780e82f0ecd
+  exact_scope:
+    phase: preflight
+    materialized_nodes_before: 147
+    materialized_nodes_after_candidate: 157
+    materialized_steps_before: 147
+    materialized_steps_after_candidate: 157
+    preflight_nodes_before: 29
+    preflight_nodes_after_candidate: 39
+    exact_nodes:
+      - MIG-CON-IDENTITY
+      - MIG-CON-RESOURCES
+      - MIG-CON-TRAINING
+      - MIG-CON-CALENDAR
+      - MIG-CON-PKK
+      - MIG-CON-FINANCE
+      - MIG-CON-LICENSES
+      - MIG-CON-EXAMS
+      - MIG-CON-COMMERCE
+      - MIG-CON-EVENTS
+  safety_boundary:
+    row_local_closed_checks_only: true
+    legacy_violation_behavior: fail_closed_reviewed_remediation
+    row_mutation: forbidden
+    schema_mutation: forbidden
+    write_fence_steps_registered: 0
+    trigger_phase_invariants_materialized: false
+    backfill_or_reconciliation: forbidden
+  expected_after_candidate_PASS:
+    Stage_4_DAG_nodes_total: 170
+    Stage_4_materialized_nodes: 157
+    Stage_4_materialized_steps: 157
+    preflight_nodes_materialized: 39
+    remaining_preflight_nodes_before_write_fence: 0
+    global_preflight_complete: true
+    write_fence_materialized_steps: 0
+  preservation:
+    Stage_5_formal_document_steps: 11
+    API_requirement_rows: 187
+    API_unique_operations: 173
+    API_shared_aliases: 14
+    FORMAL_DOC_011_status: PASS
+    earlier_local_PASS_records_reopened: false
+    PKK_provider_runtime_status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+  pass_requires:
+    - exact_ten_constraint_preflight_nodes_registered_in_canonical_order_PASS
+    - exact_migration_file_SHA256_registry_PASS
+    - Stage_4_plan_identity_unchanged_PASS
+    - Stage_4_execution_identity_b1510cc6adc4a551a72f6ca338fb24db5d642c7a96724f4cb196e780e82f0ecd_PASS
+    - controlled_preflight_PostgreSQL_PASS
+    - row_local_constraint_scan_PASS
+    - target_schema_mutation_zero_PASS
+    - target_row_mutation_zero_PASS
+    - global_preflight_39_of_39_PASS
+    - write_fence_materialized_steps_zero_PASS
+    - Stage_5_11_step_authority_preserved_PASS
+    - API_187_173_14_preserved_PASS
+    - FORMAL_DOC_011_PASS_preserved
+    - PKK_provider_runtime_still_frozen_PASS
+    - backend_static_analysis_PASS_ZERO_ERRORS
+    - frontend_quality_PASS
+    - contracts_and_traceability_PASS
+    - secret_scan_PASS
+    - deterministic_restore_harness_PASS
