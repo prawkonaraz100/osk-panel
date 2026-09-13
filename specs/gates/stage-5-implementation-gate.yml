@@ -237,7 +237,7 @@ next_single_step:
   Stage_4_materialized_steps_current: 196
   expected_Stage_4_materialized_nodes_after_next_PASS: 157
   expected_Stage_4_materialized_steps_after_next_PASS: 205
-  current_corrective_gate_status: PLANNED
+  current_corrective_gate_status: IN_AUDIT
   global_phase_barrier:
     authoritative_preflight_nodes: 39
     preflight_nodes_materialized_current: 39
@@ -4483,3 +4483,31 @@ CORE_V1_STAGE4_CONSTRAINTS_WRITE_FENCE_001_gate:
     expected_write_fence_steps_after_PASS: 48
     remaining_write_fence_steps_after_PASS: 4
     rule: do_not_pull_projection_backfill_reconcile_validate_or_contract_into_trigger_gate
+
+
+CORE_V1_STAGE4_TRIGGERS_WRITE_FENCE_001_gate:
+  id: CORE-V1-STAGE4-TRIGGERS-WRITE-FENCE-001
+  status: IN_AUDIT
+  authority_audit: docs/161-core-v1-stage4-triggers-write-fence-authority-audit.md
+  exact_nodes:
+    - MIG-TRG-IDENTITY
+    - MIG-TRG-TRAINING
+    - MIG-TRG-CALENDAR
+    - MIG-TRG-PKK
+    - MIG-TRG-FINANCE
+    - MIG-TRG-LICENSES
+    - MIG-TRG-EXAMS
+    - MIG-TRG-COMMERCE
+    - MIG-TRG-EVENTS
+  expected_Stage_4_materialized_nodes_after_PASS: 157
+  expected_Stage_4_materialized_steps_after_PASS: 205
+  expected_write_fence_steps_after_PASS: 48
+  projection_write_fence_steps_deferred: 4
+  provider_runtime_activation: forbidden
+  PKK_provider_runtime_status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+  scope_boundary:
+    trigger_guard_DDL: allowed
+    row_backfill_or_reconcile: forbidden
+    projection_population_or_runtime_projection_trigger: forbidden
+    validate_or_contract_phase: forbidden
+    external_provider_IO: forbidden
