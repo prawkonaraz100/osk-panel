@@ -170,3 +170,26 @@ Przed go-live wymagane są:
 - smoke test potwierdzający, że paging dochodzi do człowieka.
 
 Dopóki te referencje nie są skonfigurowane i przetestowane, incident operational readiness pozostaje P1.
+
+## 14. Closure evidence
+
+Hardening H6 is closed on accepted implementation commit:
+
+- accepted commit: `a15810b54cdc81876affddc8fe47f67dee5e15cf`,
+- accepted tree: `412a1d7c37a927824135ae677f430d301d3c861c`,
+- validation helper: `cd945fdd76d78291f2e8f6c9eb8be5be4e2e6d29`,
+- helper Implementation CI #269: **5/5 PASS**,
+- accepted Implementation CI #270: **5/5 PASS**,
+- accepted PostgreSQL suite: **181 tests / 2729 assertions**,
+- deterministic restore harness: **PASS**,
+- backend Pint + PHPStan: **PASS**,
+- frontend lint + typecheck + build + audit: **PASS**,
+- contracts and traceability: **PASS**,
+- secret scan: **PASS**.
+
+The repository now contains incident severity, role ownership, nine runbooks and the conditional GDPR breach decision contract. It intentionally does not contain private contact details and does not claim that a production paging channel reaches a human.
+
+Production contact roster + paging smoke test remains P1 deployment evidence.
+
+Next repository-actionable hardening gate: **provider-neutral reconciliation jobs and evidence**.
+
