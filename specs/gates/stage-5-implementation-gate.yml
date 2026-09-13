@@ -3520,7 +3520,7 @@ CORE_V1_STAGE4_FOREIGN_KEYS_PREFLIGHT_001_gate:
     plan_identity: d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10
     authority_git_blob: ad5f2aa2e14ef248b95dd3dda0d1cbcb2e69d441
     previous_execution_identity: bf71200c44672f2942071dd15f5c89d3a9a6991563dc3edcdb7bab6cb965af94
-    candidate_execution_identity: f9a0d1adb8b64bf624a31c9c1d3c622c04f60559d07ec0531295ebc6485cfae9
+    candidate_execution_identity: 488bedcef5d2aabef34e294f8fa0c2b48ef392e804cc83c6cd75c8ba5bfd8b1c
   exact_scope:
     phase: preflight
     materialized_nodes_before: 136
@@ -3572,7 +3572,7 @@ CORE_V1_STAGE4_FOREIGN_KEYS_PREFLIGHT_001_gate:
     - exact_eleven_foreign_key_preflight_nodes_registered_in_canonical_order_PASS
     - exact_migration_file_SHA256_registry_PASS
     - Stage_4_plan_identity_unchanged_PASS
-    - Stage_4_execution_identity_f9a0d1adb8b64bf624a31c9c1d3c622c04f60559d07ec0531295ebc6485cfae9_PASS
+    - Stage_4_execution_identity_488bedcef5d2aabef34e294f8fa0c2b48ef392e804cc83c6cd75c8ba5bfd8b1c_PASS
     - controlled_preflight_PostgreSQL_PASS
     - MATCH_SIMPLE_nullable_relations_PASS
     - orphan_and_cross_tenant_scan_PASS
