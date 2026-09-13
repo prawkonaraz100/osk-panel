@@ -15,10 +15,10 @@ class MigrationPlanContractTest extends TestCase
 
         $this->assertSame(170, $plan->nodeCount());
         $this->assertSame(17, $plan->batchCount());
-        $this->assertSame(118, $plan->implementedNodeCount());
-        $this->assertSame(118, $plan->implementedStepCount());
+        $this->assertSame(126, $plan->implementedNodeCount());
+        $this->assertSame(126, $plan->implementedStepCount());
         $this->assertSame('ad5f2aa2e14ef248b95dd3dda0d1cbcb2e69d441', $plan->summary()['authority_blob']);
-        $this->assertSame('bba8fb733d634e180b2133057dd73dcabae116d344496027b2f1ecaf0f48de6c', $plan->executionIdentity());
+        $this->assertSame('ea9cbf83c22be708f22676be11aef4bf18d3c22f1520e13a22cb52743a37b882', $plan->executionIdentity());
         $this->assertSame([
             'MIG-EXT-BTREE-GIST',
             'MIG-TBL-ORGANIZATIONS',
@@ -139,15 +139,32 @@ class MigrationPlanContractTest extends TestCase
             'MIG-TBL-EVENT_PROJECTION_MIGRATION_CASES',
             'MIG-TBL-DATA_RETENTION_EXECUTION_RUNS',
         ], array_column($plan->phaseSteps('expand'), 'node_id'));
+
+        $candidateKeyNodes = [
+            'MIG-CK-IDENTITY',
+            'MIG-CK-ASSETS_RESOURCES',
+            'MIG-CK-TRAINING',
+            'MIG-CK-FINANCE',
+            'MIG-CK-LICENSES',
+            'MIG-CK-EXAMS',
+            'MIG-CK-COMMERCE',
+            'MIG-CK-EVENTS',
+        ];
+        $this->assertSame($candidateKeyNodes, array_column($plan->phaseSteps('preflight'), 'node_id'));
+        $this->assertSame([], $plan->phaseSteps('write_fence'));
+        $this->assertSame([], $plan->phaseSteps('backfill'));
+        $this->assertSame([], $plan->phaseSteps('reconcile'));
+        $this->assertSame([], $plan->phaseSteps('validate'));
+        $this->assertSame([], $plan->phaseSteps('contract'));
     }
 
-    public function test_later_phase_is_closed_until_every_authoritative_earlier_phase_step_is_materialized_and_applied(): void
+    public function test_write_fence_stays_closed_until_the_global_preflight_phase_is_fully_materialized(): void
     {
         $plan = new MigrationPlan;
         $plan->validate();
 
         $this->expectException(LogicException::class);
-        $this->expectExceptionMessage('No materialized migration steps for phase preflight');
-        $plan->assertPhaseEntry('preflight', []);
+        $this->expectExceptionMessage('No materialized migration steps for phase write_fence');
+        $plan->assertPhaseEntry('write_fence', []);
     }
 }

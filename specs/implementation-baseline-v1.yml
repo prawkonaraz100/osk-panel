@@ -458,3 +458,51 @@ closure_audit_2026_09_13:
     do_not_mark_core_v1_repository_complete_until_all_repository_P1_groups_are
     closed_or_explicitly_reclassified_by_authoritative_evidence_and_a_repeat
     CORE_V1_CLOSURE_AUDIT_returns_zero_repo_actionable_P0_P1
+
+
+candidate_key_preflight_correction_2026_09_13:
+  gate: CORE-V1-STAGE4-CANDIDATE-KEYS-001
+  status: IN_VALIDATION
+  defect_class: corrective_sequence_conflicted_with_global_phase_barrier
+  canonical_authority_changed: false
+  evidence:
+    plan_identity: d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10
+    authority_git_blob: ad5f2aa2e14ef248b95dd3dda0d1cbcb2e69d441
+    expand_nodes: 118
+    authoritative_preflight_nodes: 39
+    authoritative_write_fence_nodes: 52
+  safe_slice:
+    phase: preflight
+    exact_node_count: 8
+    exact_nodes:
+      - MIG-CK-IDENTITY
+      - MIG-CK-ASSETS_RESOURCES
+      - MIG-CK-TRAINING
+      - MIG-CK-FINANCE
+      - MIG-CK-LICENSES
+      - MIG-CK-EXAMS
+      - MIG-CK-COMMERCE
+      - MIG-CK-EVENTS
+    materialized_nodes_before: 118
+    materialized_nodes_after_candidate: 126
+    materialized_steps_before: 118
+    materialized_steps_after_candidate: 126
+    write_fence_steps_registered: 0
+    candidate_key_constraints_physically_applied_by_this_slice: false
+    candidate_execution_identity: ea9cbf83c22be708f22676be11aef4bf18d3c22f1520e13a22cb52743a37b882
+  phase_barrier:
+    write_fence_before_all_39_preflights: forbidden
+    remaining_preflight_nodes_after_candidate_PASS: 31
+    next_exact_tranche: 10_index_preflights
+    next_gate: CORE-V1-STAGE4-INDEXES-PREFLIGHT-001
+  commerce_prerequisite:
+    missing_column: order_items.license_product_id
+    historical_value_inference_in_preflight: forbidden
+    schema_mutation_in_preflight: forbidden
+    nullable_compatibility_column_deferred_to_write_fence: true
+  preservation:
+    Stage_5_formal_document_steps: 11
+    API_requirement_rows: 187
+    API_unique_operations: 173
+    API_shared_aliases: 14
+    PKK_provider_runtime_status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
