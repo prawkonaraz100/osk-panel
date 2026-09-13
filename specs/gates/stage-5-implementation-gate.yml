@@ -230,7 +230,7 @@ next_single_step:
   prerequisite_previous_slice: FORMAL-DOC-002_PASS
   implementation_order_source: AGENTS.md_step_10_hardening_and_formal_documents
   hardening_repo_actionable_P1_status: COMPLETE
-  formal_documents_status: GATE_2_PASS_GATE_3_NOT_STARTED
+  formal_documents_status: GATE_2_PASS_GATE_3_IN_VALIDATION
   PKK_provider_runtime_status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
   PKK_resume_requires:
     - explicit_user_unfreeze
@@ -1932,3 +1932,68 @@ FORMAL_DOCUMENTS_002_gate:
   next_after_PASS:
     id: FORMAL-DOC-003
     action: materialize_exact_extension_migration_steps_in_small_reviewed_phase_slices
+
+
+FORMAL_DOCUMENTS_003_gate:
+  id: FORMAL-DOC-003
+  status: IN_VALIDATION
+  prerequisite: FORMAL-DOC-002_PASS
+  scope:
+    - Stage_5_formal_documents_expand_only
+    - four_registered_extension_migration_steps
+    - course_document_mode_nullable_expand_with_new_write_defaults
+    - formal_document_template_revision_event_table_shapes
+    - PostgreSQL_runtime_and_idempotency_proof
+  authority:
+    extension_plan_identity: 34cada121f4fd4963b1461308fb517c50ee647005ce9421f4d1af40c80d44b99
+    extension_execution_identity: 87efc23f47c0eb334f145c278cc3081283c3ca4369ca79348ffc1fcca7ce82f6
+    implementation_registry: database/migration-plan/stage5-formal-documents-implementations.json
+    narrative: docs/140-formal-training-documents-stage5-expand.md
+  frozen_Stage_4_baseline:
+    plan_identity: d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10
+    execution_identity: 1d2f1d3a47a4a09b749d0b164137857a241c07afbaad02789ec21e03cb4118ce
+    DAG_nodes: 170
+    implemented_nodes: 112
+    implemented_steps: 112
+    may_be_rewritten_by_FORMAL_DOC_003: false
+  materialization:
+    phase: expand
+    implemented_nodes: 4
+    implemented_steps: 4
+    legacy_course_rows_backfilled: false
+    final_document_mode_not_null_enforced: false
+    same_tenant_cross_table_FKs_enforced: false
+    template_interval_exclusion_enforced: false
+    document_event_append_only_DB_enforced: false
+  new_write_safety:
+    document_mode_default: paper
+    document_mode_selected_at_default: PostgreSQL_server_timestamp
+    invalid_document_mode_new_write_rejected: required
+    legacy_null_temporarily_allowed: true
+  execution_control:
+    command: migration:stage5:formal-docs:controlled
+    shared_PostgreSQL_advisory_lock: [519662, 5001]
+    default_Laravel_migrate_discovery: false
+    repeated_expand_must_be_idempotent: true
+    preflight_before_FORMAL_DOC_004: forbidden
+  PKK:
+    provider_runtime_in_scope: false
+    status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+  pass_requires:
+    - exact_migration_file_hash_validation_PASS
+    - controlled_PostgreSQL_expand_PASS
+    - repeated_expand_idempotency_PASS
+    - new_course_document_mode_default_PASS
+    - invalid_mode_new_write_rejection_PASS
+    - legacy_null_preservation_PASS
+    - three_formal_document_tables_materialized_PASS
+    - preflight_fail_closed_PASS
+    - Stage_4_170_112_112_preservation_PASS
+    - backend_static_analysis_PASS_ZERO_ERRORS
+    - frontend_quality_PASS
+    - contracts_and_traceability_PASS
+    - secret_scan_PASS
+    - deterministic_restore_harness_PASS
+  next_after_PASS:
+    id: FORMAL-DOC-004
+    action: materialize_and_execute_legacy_document_mode_preflight_without_backfill
