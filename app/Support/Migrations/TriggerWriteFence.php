@@ -336,13 +336,14 @@ final class TriggerWriteFence
         if ($timing === 'BEFORE') {
             $type |= 2;
         }
+        $eventBits = [
+            'INSERT' => 4,
+            'DELETE' => 8,
+            'UPDATE' => 16,
+        ];
+
         foreach ($events as $event) {
-            $type |= match ($event) {
-                'INSERT' => 4,
-                'DELETE' => 8,
-                'UPDATE' => 16,
-                default => throw new LogicException('Unsupported trigger event '.$event.'.'),
-            };
+            $type |= $eventBits[$event];
         }
 
         return $type;
