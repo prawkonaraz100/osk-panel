@@ -109,6 +109,8 @@ Przed go-live wymagany jest udokumentowany drill:
 
 Po go-live drill minimum kwartalny oraz po istotnej zmianie architektury backupu.
 
+Repo zawiera dodatkowo CI restore-drill harness opisany w docs/135-restore-drill-harness.md. Harness uruchamia realny pg_dump/pg_restore, S3-version restore w Moto i restart z pustym Redis. Jest dowodem poprawności procedury i kontraktu aplikacji, ale nie zastępuje target-infrastructure drill dla produkcyjnego PITR, off-site copy i docelowego object storage.
+
 ## 8. RPO / RTO
 
 Core-v1 recovery targets są wersjonowane w config/recovery.php.
