@@ -225,12 +225,12 @@ quality_gate:
     - S5-FOUND-001
 
 next_single_step:
-  id: FORMAL-DOC-008
-  action: materialize_formal_document_generation_and_approval_runtime
-  prerequisite_previous_slice: FORMAL-DOC-007_PASS
+  id: FORMAL-DOC-009
+  action: materialize_document_delivery_lifecycle_and_freshness_projection
+  prerequisite_previous_slice: FORMAL-DOC-008_PASS
   implementation_order_source: AGENTS.md_step_10_hardening_and_formal_documents
   hardening_repo_actionable_P1_status: COMPLETE
-  formal_documents_status: GATE_7_PASS_GATE_8_IN_VALIDATION
+  formal_documents_status: GATE_8_PASS_GATE_9_NOT_STARTED
   PKK_provider_runtime_status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
   PKK_resume_requires:
     - explicit_user_unfreeze
@@ -2440,7 +2440,7 @@ FORMAL_DOCUMENTS_007_gate:
 
 FORMAL_DOCUMENTS_008_gate:
   id: FORMAL-DOC-008
-  status: IN_VALIDATION
+  status: PASS
   prerequisite: FORMAL-DOC-007_PASS
   scope:
     - canonical_formal_document_preview
@@ -2518,6 +2518,37 @@ FORMAL_DOCUMENTS_008_gate:
   PKK:
     provider_runtime_in_scope: false
     status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+  provenance:
+    validation_helper_commit: f579b4edc1583ee75ca4f3cae4f608f2f1c58cbd
+    validation_helper_tree: c09c6ccc780af787adc71ce714a2db55890e64cf
+    validation_PR: 65
+    validation_PR_merged: false
+    helper_Implementation_CI_run: 34743084750
+    helper_API_contract_run: 34743084752
+    accepted_implementation_commit: 05a6f4df9552075a3c34a9ede262654e6ef47404
+    accepted_implementation_tree: c09c6ccc780af787adc71ce714a2db55890e64cf
+    accepted_Implementation_CI_run: 34743244625
+    accepted_API_contract_run: 34743244478
+  executable_evidence:
+    helper_Implementation_CI_jobs_passed: 5
+    helper_Implementation_CI_jobs_total: 5
+    helper_API_contract_gate: PASS
+    accepted_Implementation_CI_jobs_passed: 5
+    accepted_Implementation_CI_jobs_total: 5
+    accepted_API_contract_gate: PASS
+    accepted_PostgreSQL_suite_tests: 224
+    accepted_PostgreSQL_suite_assertions: 3028
+    deterministic_restore_harness: PASS
+    restore_source_table_count: 115
+    restore_restored_table_count: 115
+    backend_static_analysis: PASS_ZERO_ERRORS
+    frontend_lint_typecheck_build_audit: PASS
+    contracts_and_traceability: PASS
+    accepted_push_secret_scan: PASS
+    API_contract_184_rows_170_operations: PASS
+    Stage_4_170_112_112_preservation: PASS
+    Stage_5_11_step_identity_preservation: PASS
+    PKK_provider_runtime_still_frozen: PASS
   pass_requires:
     - formal_document_permissions_and_scopes_PASS
     - deterministic_template_seed_PASS
