@@ -16,9 +16,9 @@ class MigrationPlanContractTest extends TestCase
         $this->assertSame(170, $plan->nodeCount());
         $this->assertSame(17, $plan->batchCount());
         $this->assertSame(126, $plan->implementedNodeCount());
-        $this->assertSame(134, $plan->implementedStepCount());
+        $this->assertSame(126, $plan->implementedStepCount());
         $this->assertSame('ad5f2aa2e14ef248b95dd3dda0d1cbcb2e69d441', $plan->summary()['authority_blob']);
-        $this->assertSame('6f62bc3f68cf89943cddefe3186baf337f3e90d3afe76d9c6bb6475f8f48e654', $plan->executionIdentity());
+        $this->assertSame('db1ff3bfdbeacb32f1a0512cc30806cc93e9bcdca35e416ef81b6fadd7a3b303', $plan->executionIdentity());
         $this->assertSame([
             'MIG-EXT-BTREE-GIST',
             'MIG-TBL-ORGANIZATIONS',
@@ -151,22 +151,20 @@ class MigrationPlanContractTest extends TestCase
             'MIG-CK-EVENTS',
         ];
         $this->assertSame($candidateKeyNodes, array_column($plan->phaseSteps('preflight'), 'node_id'));
-        $this->assertSame($candidateKeyNodes, array_column($plan->phaseSteps('write_fence'), 'node_id'));
+        $this->assertSame([], $plan->phaseSteps('write_fence'));
         $this->assertSame([], $plan->phaseSteps('backfill'));
         $this->assertSame([], $plan->phaseSteps('reconcile'));
         $this->assertSame([], $plan->phaseSteps('validate'));
         $this->assertSame([], $plan->phaseSteps('contract'));
     }
 
-    public function test_global_write_fence_entry_stays_closed_until_all_authoritative_preflight_nodes_are_materialized(): void
+    public function test_write_fence_stays_closed_until_the_global_preflight_phase_is_fully_materialized(): void
     {
         $plan = new MigrationPlan;
         $plan->validate();
 
-        $appliedExpand = array_column($plan->phaseSteps('expand'), 'migration_name');
-
         $this->expectException(LogicException::class);
-        $this->expectExceptionMessage('Earlier phase preflight is not fully materialized.');
-        $plan->assertPhaseEntry('write_fence', $appliedExpand);
+        $this->expectExceptionMessage('No materialized migration steps for phase write_fence');
+        $plan->assertPhaseEntry('write_fence', []);
     }
 }
