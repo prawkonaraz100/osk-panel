@@ -15,10 +15,10 @@ class MigrationPlanContractTest extends TestCase
 
         $this->assertSame(170, $plan->nodeCount());
         $this->assertSame(17, $plan->batchCount());
-        $this->assertSame(112, $plan->implementedNodeCount());
-        $this->assertSame(112, $plan->implementedStepCount());
+        $this->assertSame(118, $plan->implementedNodeCount());
+        $this->assertSame(118, $plan->implementedStepCount());
         $this->assertSame('ad5f2aa2e14ef248b95dd3dda0d1cbcb2e69d441', $plan->summary()['authority_blob']);
-        $this->assertSame('1d2f1d3a47a4a09b749d0b164137857a241c07afbaad02789ec21e03cb4118ce', $plan->executionIdentity());
+        $this->assertSame('bba8fb733d634e180b2133057dd73dcabae116d344496027b2f1ecaf0f48de6c', $plan->executionIdentity());
         $this->assertSame([
             'MIG-EXT-BTREE-GIST',
             'MIG-TBL-ORGANIZATIONS',
@@ -30,15 +30,19 @@ class MigrationPlanContractTest extends TestCase
             'MIG-TBL-LOCATION_TYPES',
             'MIG-TBL-STAFF_TYPES',
             'MIG-TBL-INTERNAL_EXAM_CAPABILITIES',
+            'MIG-TBL-LEGAL_DOCUMENTS',
             'MIG-TBL-ORGANIZATION_SETTINGS',
             'MIG-TBL-ORGANIZATION_CONTACT_ADDRESSES',
             'MIG-TBL-USER_PASSWORD_MANAGEMENT',
             'MIG-TBL-AUTH_LOGIN_IDENTIFIERS',
+            'MIG-TBL-AUTH_SOCIAL_ACCOUNTS',
             'MIG-TBL-ORGANIZATION_MEMBERSHIPS',
             'MIG-TBL-MEMBERSHIP_PERMISSIONS',
             'MIG-TBL-PERMISSION_SCOPE_OPTIONS',
             'MIG-TBL-MEMBERSHIP_PERMISSION_SCOPES',
             'MIG-TBL-AUTH_SESSIONS',
+            'MIG-TBL-ACCOUNT_CLOSURE_REQUESTS',
+            'MIG-TBL-TERMS_ACCEPTANCES',
             'MIG-TBL-FILE_ASSETS',
             'MIG-TBL-IDEMPOTENCY_RECORDS',
             'MIG-TBL-LOCATIONS',
@@ -132,6 +136,8 @@ class MigrationPlanContractTest extends TestCase
             'MIG-TBL-ACTIVITY_PROJECTION_POLICY_CURRENTS',
             'MIG-TBL-ORGANIZATION_ACTIVITY_EVENTS',
             'MIG-TBL-NOTIFICATIONS',
+            'MIG-TBL-EVENT_PROJECTION_MIGRATION_CASES',
+            'MIG-TBL-DATA_RETENTION_EXECUTION_RUNS',
         ], array_column($plan->phaseSteps('expand'), 'node_id'));
     }
 
