@@ -1,6 +1,6 @@
 # CORE-V1-STAGE4-COMMERCE-LINEAGE-PREREQ-RECOVERY-001
 
-Status: `IN_VALIDATION`
+Status: `PASS`
 
 ## Why this recovery gate exists
 
@@ -37,3 +37,41 @@ An environment that already recorded the old OrderItem expand migration but lack
 Full Implementation CI **5/5**, PostgreSQL suite, deterministic restore, exact registry/hash validation, nullable PostgreSQL UUID proof for `order_items.license_product_id`, strict preflight prerequisite enforcement and proof that write-fence remains empty.
 
 After PASS, return to **CORE-V1-STAGE4-CANDIDATE-KEYS-WRITE-FENCE-001**.
+
+
+## Closure evidence
+
+`CORE-V1-STAGE4-COMMERCE-LINEAGE-PREREQ-RECOVERY-001` is closed **PASS**.
+
+Validation-only helper:
+
+- PR **#86** closed without merge,
+- helper commit: `1b4795dbe1d8c9a3ee5bb251cfd0686a0547b8d4`,
+- helper tree: `745f2ce77adad482c2916afd269f2b5f84c8b5f5`,
+- helper Implementation CI #409 / run `34778055847`: **5/5 PASS**,
+- PostgreSQL: **237 tests / 3239 assertions**,
+- restore drill: **121 -> 121**, `RESTORE_DRILL_HARNESS=PASS`.
+
+Clean accepted implementation:
+
+- accepted commit: `65e32ad7cc593fa0b3bcd149d24754e8ed980a93`,
+- accepted tree: `745f2ce77adad482c2916afd269f2b5f84c8b5f5`,
+- helper/accepted tree match: **PASS**,
+- accepted Implementation CI #410 / run `34778288345`: **5/5 PASS**,
+- PostgreSQL: **237 tests / 3239 assertions**,
+- restore drill: **121 -> 121**, `RESTORE_DRILL_HARNESS=PASS`.
+
+Final recovery state:
+
+- Stage-4 DAG: **170**,
+- materialized nodes: **157**,
+- materialized steps: **157**,
+- global preflight: **39/39 PASS**,
+- write-fence materialized steps: **0**,
+- plan identity unchanged,
+- execution identity: `7cdea7410b15a1e1ef884e50d4e2a9ac519eb568569d140f82b19cc5deaa142e`,
+- `order_items.license_product_id`: nullable PostgreSQL `uuid`,
+- `MIG-CK-COMMERCE` preflight now fails closed if the prerequisite is absent,
+- PKK provider runtime remains **FROZEN_UNTIL_EXPLICIT_UNFREEZE**.
+
+Next gate: **CORE-V1-STAGE4-CANDIDATE-KEYS-WRITE-FENCE-001**.
