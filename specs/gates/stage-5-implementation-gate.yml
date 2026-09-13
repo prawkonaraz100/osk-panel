@@ -225,20 +225,114 @@ quality_gate:
     - S5-FOUND-001
 
 next_single_step:
-  id: CORE-V1-CLOSURE-AUDIT-001
-  action: audit_core_v1_repository_completion_and_separate_deployment_external_blockers
-  prerequisite_previous_slice: FORMAL-DOC-011_PASS
+  id: CORE-V1-STAGE4-MISSING-TABLES-001
+  action: materialize_six_missing_stage4_expand_table_nodes
+  prerequisite_previous_slice: CORE-V1-CLOSURE-AUDIT-001_AUDIT_COMPLETE_REPO_P1_REMAINS
   implementation_order_source:
-    - AGENTS.md_step_10_hardening_and_formal_documents
-    - docs/95-open-items-severity.md
+    - specs/database/final-migration-order-invariant-matrix.yml
+    - docs/149-core-v1-closure-audit.md
     - specs/implementation-baseline-v1.yml
   hardening_repo_actionable_P1_status: COMPLETE
   formal_documents_status: GATE_11_PASS_FORMAL_DOCUMENTS_CORE_COMPLETE
-  remaining_repo_actionable_P0_P1_status: TO_VERIFY_IN_CORE_V1_CLOSURE_AUDIT
+  remaining_repo_actionable_P0_status: ZERO
+  remaining_repo_actionable_P1_status: OPEN_CORRECTIVE_SEQUENCE_REQUIRED
+  Stage_4_materialized_nodes_current: 112
+  Stage_4_DAG_nodes_total: 170
+  expected_Stage_4_materialized_nodes_after_next_PASS: 118
   PKK_provider_runtime_status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
   PKK_resume_requires:
     - explicit_user_unfreeze
     - authoritative_PWPW_guidance_or_contract
+
+CORE_V1_CLOSURE_AUDIT_001_gate:
+  id: CORE-V1-CLOSURE-AUDIT-001
+  status: AUDIT_COMPLETE_REPO_P1_REMAINS
+  audited_accepted_tip: 0811e0ce630ab6046f65b2bdbd0fb8a08af4e658
+  audited_accepted_tree: e0e796c00d4513ce2c8e98c4401ea504cd154286
+  authority: docs/149-core-v1-closure-audit.md
+  prerequisite: FORMAL-DOC-011_PASS
+  result:
+    repository_complete: false
+    repo_P0_open: 0
+    repo_P1_open: true
+    local_slice_PASS_records_reopened: false
+    external_or_deployment_blockers_counted_as_repo_P1: false
+  evidence:
+    canonical_API_requirement_rows: 187
+    canonical_API_unique_operations: 173
+    canonical_API_shared_aliases: 14
+    Stage_4_DAG_nodes_total: 170
+    Stage_4_materialized_nodes_current: 112
+    Stage_4_missing_nodes: 58
+    Stage_4_missing_tables: 6
+    Stage_4_missing_candidate_keys: 8
+    Stage_4_missing_indexes: 10
+    Stage_4_missing_foreign_keys: 11
+    Stage_4_missing_constraints: 10
+    Stage_4_missing_triggers: 9
+    Stage_4_missing_projections: 4
+    Stage_5_formal_document_steps: 11
+    FORMAL_DOC_011_status: PASS
+  repo_P1_groups:
+    stage4_migration_materialization:
+      status: OPEN
+      first_safe_phase: expand
+      first_exact_nodes:
+        - MIG-TBL-LEGAL_DOCUMENTS
+        - MIG-TBL-AUTH_SOCIAL_ACCOUNTS
+        - MIG-TBL-ACCOUNT_CLOSURE_REQUESTS
+        - MIG-TBL-TERMS_ACCEPTANCES
+        - MIG-TBL-EVENT_PROJECTION_MIGRATION_CASES
+        - MIG-TBL-DATA_RETENTION_EXECUTION_RUNS
+    identity_auth_session_HTTP_runtime:
+      status: OPEN
+    organization_settings_HTTP_UI:
+      status: OPEN
+    provider_neutral_license_exam_checkout_and_service_entitlements:
+      status: OPEN
+    learning_access_single_bulk_credential_PDF:
+      status: OPEN
+    student_progress_projection_UI:
+      status: OPEN
+    resource_asset_upload_and_vehicle_document_UI:
+      status: OPEN
+    course_training_completed_UI_wiring:
+      status: OPEN
+    remaining_small_canonical_HTTP_bindings:
+      status: OPEN
+  external_provider_boundaries:
+    PKK_PWPW:
+      status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+      repo_P1: false
+    payment_provider_remote_truth:
+      status: DEFERRED_UNTIL_AUTHORITATIVE_ADAPTER_CONTRACT
+      repo_P1: false
+    production_exam_provider_data:
+      status: DEPLOYMENT_EXTERNAL_DATA_EVIDENCE
+      repo_P1: false
+  deployment_evidence:
+    target_infrastructure_restore_drill:
+      repo_P1: false
+    production_incident_contact_roster_and_paging_smoke:
+      repo_P1: false
+    production_scheduler_and_alert_delivery_smoke:
+      repo_P1: false
+  consciously_outside_core_v1:
+    - business_cards
+    - advertising
+    - lectures
+    - instructor_training
+    - invoices_historical_index
+    - optional_impersonation
+  next_after_audit:
+    id: CORE-V1-STAGE4-MISSING-TABLES-001
+    phase: expand
+    expected_materialized_nodes_after_PASS: 118
+    rule: do_not_materialize_later_phase_integrity_nodes_in_the_same_gate
+  closure_rule:
+    repeat_CORE_V1_CLOSURE_AUDIT_required_before_core_repository_complete: true
+    zero_repo_actionable_P0_P1_required_for_repository_complete: true
+    PKK_frozen_boundary_may_not_be_used_to_hide_unrelated_repo_P1: true
 
 CORE_V1_PKK_ADAPTER_001_deferment:
   status: DEFERRED_PENDING_PWPW_GUIDANCE
