@@ -68,6 +68,17 @@ final class Stage4CandidateKeysPreflightTest extends TestCase
             'MIG-IDX-EXAMS',
             'MIG-IDX-COMMERCE',
             'MIG-IDX-EVENTS',
+            'MIG-FK-IDENTITY',
+            'MIG-FK-RESOURCES',
+            'MIG-FK-TRAINING',
+            'MIG-FK-CALENDAR',
+            'MIG-FK-PKK',
+            'MIG-FK-FINANCE',
+            'MIG-FK-LICENSES',
+            'MIG-FK-EXAMS',
+            'MIG-FK-COMMERCE',
+            'MIG-FK-PURCHASE_DOWNSTREAM',
+            'MIG-FK-EVENTS',
         ], array_column($plan->phaseSteps('write_fence'), 'node_id'));
 
         $candidateConstraintNames = [
@@ -148,6 +159,17 @@ final class Stage4CandidateKeysPreflightTest extends TestCase
             'MIG-IDX-EXAMS',
             'MIG-IDX-COMMERCE',
             'MIG-IDX-EVENTS',
+            'MIG-FK-IDENTITY',
+            'MIG-FK-RESOURCES',
+            'MIG-FK-TRAINING',
+            'MIG-FK-CALENDAR',
+            'MIG-FK-PKK',
+            'MIG-FK-FINANCE',
+            'MIG-FK-LICENSES',
+            'MIG-FK-EXAMS',
+            'MIG-FK-COMMERCE',
+            'MIG-FK-PURCHASE_DOWNSTREAM',
+            'MIG-FK-EVENTS',
         ], array_column($plan->phaseSteps('write_fence'), 'node_id'));
     }
 

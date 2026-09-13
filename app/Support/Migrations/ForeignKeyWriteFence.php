@@ -375,7 +375,7 @@ final class ForeignKeyWriteFence
     }
 
     /**
-     * @param list<string> $columns
+     * @param  list<string>  $columns
      */
     private static function targetKeySignature(string $table, array $columns): string
     {
@@ -383,7 +383,7 @@ final class ForeignKeyWriteFence
     }
 
     /**
-     * @param array<string, mixed> $relation
+     * @param  array<string, mixed>  $relation
      */
     private static function signature(array $relation): string
     {
