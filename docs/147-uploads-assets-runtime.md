@@ -1,6 +1,6 @@
 # FORMAL-DOC-010 — Uploads / Assets runtime
 
-Status: `FORMAL-DOC-010 validation candidate`
+Status: `FORMAL-DOC-010 PASS`
 
 ## Scope
 
@@ -160,3 +160,38 @@ FORMAL-DOC-010 must prove:
 - direct canonical PDF editing,
 - statutory electronic-signature mechanisms,
 - PKK/PWPW operations.
+
+
+## Gate closure evidence
+
+FORMAL-DOC-010 is closed as PASS on the exact implementation tree `84ad523a6734d66842755bfc41642c1ce7cfe33e`.
+
+Validation-only helper:
+
+- helper commit: `8809ebf830eb5e7c141d96d273c11ef243265e51`,
+- validation PR: #69,
+- PR merged: false,
+- helper Implementation CI: #344 / run `34747599325` — **5/5 PASS**,
+- helper API Contract Gate: #348 / run `34747599327` — **PASS**,
+- PostgreSQL: **230 tests / 3122 assertions**,
+- deterministic restore: **115 source tables → 115 restored tables**, `RESTORE_DRILL_HARNESS=PASS`.
+
+Clean accepted implementation:
+
+- accepted commit: `994061bac8b30ff19320a5f415efad230c76b80a`,
+- accepted tree: `84ad523a6734d66842755bfc41642c1ce7cfe33e`,
+- accepted Implementation CI: #345 / run `34747883792` — **5/5 PASS**,
+- accepted API Contract Gate: #349 / run `34747883844` — **PASS**,
+- PostgreSQL: **230 tests / 3122 assertions**,
+- deterministic restore: **115 → 115**, `RESTORE_DRILL_HARNESS=PASS`.
+
+The accepted tree preserves:
+
+- Stage-4 authority: **170 nodes / 112 implemented nodes / 112 implemented steps**,
+- Stage-5 formal-document migration authority: **11 materialized steps**, unchanged plan/execution identities,
+- API contract: **187 requirement rows / 173 canonical operations / 14 aliases**,
+- no new migration step,
+- no new API operation,
+- PKK provider runtime: **FROZEN_UNTIL_EXPLICIT_UNFREEZE**.
+
+The next implementation slice is `FORMAL-DOC-011`: formal-documents UI for preview, approval, freshness, delivery history and the signed-scan upload handoff.
