@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
   "plan_identity": "d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10",
-  "execution_identity": "ea9cbf83c22be708f22676be11aef4bf18d3c22f1520e13a22cb52743a37b882",
+  "execution_identity": "bf71200c44672f2942071dd15f5c89d3a9a6991563dc3edcdb7bab6cb965af94",
   "stage4_root": "database/migrations/stage4",
   "implemented_steps": [
     {
@@ -1135,6 +1135,96 @@
       "migration_file": "database/migrations/stage4/preflight/MIG-CK-EVENTS/2026_09_10_001260_preflight_candidate_keys_events.php",
       "migration_name": "2026_09_10_001260_preflight_candidate_keys_events",
       "file_sha256": "d23cb429563349bd6b30c53d49fdc7c77818f13a97ee953640b45bc1d0471226",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-IDX-IDENTITY",
+      "phase": "preflight",
+      "migration_file": "database/migrations/stage4/preflight/MIG-IDX-IDENTITY/2026_09_10_001270_preflight_indexes_identity.php",
+      "migration_name": "2026_09_10_001270_preflight_indexes_identity",
+      "file_sha256": "ea5e6bddbe93e084843084b9db01f10ab8def8347abcba4582d2b9cce14f71b8",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-IDX-RESOURCES",
+      "phase": "preflight",
+      "migration_file": "database/migrations/stage4/preflight/MIG-IDX-RESOURCES/2026_09_10_001280_preflight_indexes_resources.php",
+      "migration_name": "2026_09_10_001280_preflight_indexes_resources",
+      "file_sha256": "91a5aec45cd25b5f518d1f831345872ab8b25fcbf82d5e63266fe97c80b2d385",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-IDX-TRAINING",
+      "phase": "preflight",
+      "migration_file": "database/migrations/stage4/preflight/MIG-IDX-TRAINING/2026_09_10_001290_preflight_indexes_training.php",
+      "migration_name": "2026_09_10_001290_preflight_indexes_training",
+      "file_sha256": "f1f1e6ff067b41e49071f4962a3279c0ccbf4b1c81576ad9431ab3aabcb9bcf8",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-IDX-CALENDAR_GIST",
+      "phase": "preflight",
+      "migration_file": "database/migrations/stage4/preflight/MIG-IDX-CALENDAR_GIST/2026_09_10_001300_preflight_indexes_calendar_gist.php",
+      "migration_name": "2026_09_10_001300_preflight_indexes_calendar_gist",
+      "file_sha256": "cee9a11c175dd0017bb8adbfcad1b10804fcb31bee4714a54828a648e1d0324c",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-IDX-PKK",
+      "phase": "preflight",
+      "migration_file": "database/migrations/stage4/preflight/MIG-IDX-PKK/2026_09_10_001310_preflight_indexes_pkk.php",
+      "migration_name": "2026_09_10_001310_preflight_indexes_pkk",
+      "file_sha256": "77401b610d284ea4c0bcb6487d83c1c7490a447154c4295f08e6ae89e93c0ada",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-IDX-FINANCE",
+      "phase": "preflight",
+      "migration_file": "database/migrations/stage4/preflight/MIG-IDX-FINANCE/2026_09_10_001320_preflight_indexes_finance.php",
+      "migration_name": "2026_09_10_001320_preflight_indexes_finance",
+      "file_sha256": "03170c4fa1b00b127f711ddb64eda23d05613d110e6ffb9e45a7a986730214a5",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-IDX-LICENSES",
+      "phase": "preflight",
+      "migration_file": "database/migrations/stage4/preflight/MIG-IDX-LICENSES/2026_09_10_001330_preflight_indexes_licenses.php",
+      "migration_name": "2026_09_10_001330_preflight_indexes_licenses",
+      "file_sha256": "2d98a7c24b614c7623fe6bb64ee2b98ddc7de160ef3a846b88467c8fe0124c12",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-IDX-EXAMS",
+      "phase": "preflight",
+      "migration_file": "database/migrations/stage4/preflight/MIG-IDX-EXAMS/2026_09_10_001340_preflight_indexes_exams.php",
+      "migration_name": "2026_09_10_001340_preflight_indexes_exams",
+      "file_sha256": "dafb7e6f86dcdbbaa0996d7354ee2f6782a65bacbe73a8660d607d462cb30ee1",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-IDX-COMMERCE",
+      "phase": "preflight",
+      "migration_file": "database/migrations/stage4/preflight/MIG-IDX-COMMERCE/2026_09_10_001350_preflight_indexes_commerce.php",
+      "migration_name": "2026_09_10_001350_preflight_indexes_commerce",
+      "file_sha256": "2d1af6156265d3d991187a4de6033cdf07227e1ee6ef867b9b94cd1e7750525a",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-IDX-EVENTS",
+      "phase": "preflight",
+      "migration_file": "database/migrations/stage4/preflight/MIG-IDX-EVENTS/2026_09_10_001360_preflight_indexes_events.php",
+      "migration_name": "2026_09_10_001360_preflight_indexes_events",
+      "file_sha256": "50241e7e4620e95c4ebb1365bf3e5d35ef147fcaa3494bb3283550e84496c674",
       "restart_classification": "manual_review",
       "safe_down": false
     }

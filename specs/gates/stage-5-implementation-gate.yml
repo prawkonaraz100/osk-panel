@@ -242,7 +242,7 @@ next_single_step:
   Stage_4_DAG_nodes_total: 170
   expected_Stage_4_materialized_nodes_after_next_PASS: 136
   expected_Stage_4_materialized_steps_after_next_PASS: 136
-  current_corrective_gate_status: NOT_STARTED
+  current_corrective_gate_status: IN_VALIDATION
   global_phase_barrier:
     authoritative_preflight_nodes: 39
     preflight_nodes_materialized_current: 8
@@ -3401,3 +3401,49 @@ CORE_V1_STAGE4_CANDIDATE_KEYS_001_gate:
       - MIG-IDX-COMMERCE
       - MIG-IDX-EVENTS
     rule: continue_global_preflight_phase_before_any_write_fence
+
+CORE_V1_STAGE4_INDEXES_PREFLIGHT_001_gate:
+  status: IN_VALIDATION
+  severity: P1
+  prerequisite_gate: CORE-V1-STAGE4-CANDIDATE-KEYS-001_PASS
+  scope:
+    exact_preflight_nodes:
+      - MIG-IDX-IDENTITY
+      - MIG-IDX-RESOURCES
+      - MIG-IDX-TRAINING
+      - MIG-IDX-CALENDAR_GIST
+      - MIG-IDX-PKK
+      - MIG-IDX-FINANCE
+      - MIG-IDX-LICENSES
+      - MIG-IDX-EXAMS
+      - MIG-IDX-COMMERCE
+      - MIG-IDX-EVENTS
+    preflight_only: true
+    schema_mutation_allowed: false
+    write_fence_allowed: false
+    PKK_provider_runtime_status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+  expected_state:
+    Stage_4_DAG_nodes_total: 170
+    Stage_4_materialized_nodes_after_helper: 136
+    Stage_4_materialized_steps_after_helper: 136
+    preflight_nodes_materialized_after_helper: 18
+    remaining_preflight_nodes_before_write_fence: 21
+    write_fence_materialized_steps: 0
+    plan_identity: d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10
+    execution_identity_after_helper: bf71200c44672f2942071dd15f5c89d3a9a6991563dc3edcdb7bab6cb965af94
+  authority_compatibility:
+    student_payment_idempotency_runtime_authority: infrastructure_idempotency_records
+    legacy_student_payments_idempotency_key_may_be_scanned_if_present: true
+    legacy_student_payments_idempotency_key_reauthorized: false
+    missing_internal_exam_purchase_ordinal_column_may_be_invented_in_preflight: false
+  pass_requires:
+    - exact_ten_index_preflight_nodes_in_canonical_order
+    - exact_migration_file_SHA256_registry
+    - controlled_PostgreSQL_preflight_PASS
+    - calendar_GiST_overlap_prechecks_PASS
+    - no_target_schema_mutation
+    - global_write_fence_phase_remains_closed
+    - helper_Implementation_CI_5_of_5_PASS
+    - helper_PR_closed_without_merge
+    - exact_helper_tree_clean_promoted_to_accepted
+    - accepted_push_Implementation_CI_5_of_5_PASS
