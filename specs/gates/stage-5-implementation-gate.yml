@@ -225,12 +225,12 @@ quality_gate:
     - S5-FOUND-001
 
 next_single_step:
-  id: FORMAL-DOC-003
-  action: materialize_exact_extension_migration_steps_in_small_reviewed_phase_slices
-  prerequisite_previous_slice: FORMAL-DOC-002_PASS
+  id: FORMAL-DOC-004
+  action: materialize_and_execute_legacy_document_mode_preflight_without_backfill
+  prerequisite_previous_slice: FORMAL-DOC-003_PASS
   implementation_order_source: AGENTS.md_step_10_hardening_and_formal_documents
   hardening_repo_actionable_P1_status: COMPLETE
-  formal_documents_status: GATE_2_PASS_GATE_3_IN_VALIDATION
+  formal_documents_status: GATE_3_PASS_GATE_4_NOT_STARTED
   PKK_provider_runtime_status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
   PKK_resume_requires:
     - explicit_user_unfreeze
@@ -1936,7 +1936,7 @@ FORMAL_DOCUMENTS_002_gate:
 
 FORMAL_DOCUMENTS_003_gate:
   id: FORMAL-DOC-003
-  status: IN_VALIDATION
+  status: PASS
   prerequisite: FORMAL-DOC-002_PASS
   scope:
     - Stage_5_formal_documents_expand_only
@@ -1979,6 +1979,32 @@ FORMAL_DOCUMENTS_003_gate:
   PKK:
     provider_runtime_in_scope: false
     status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+  provenance:
+    validation_helper_commit: 835a6da4165f8f292acbd99531add1bfb846ff65
+    validation_helper_tree: 2946856d278ac2f2cedb5c6f46d4ad39bfc2678d
+    validation_PR: 55
+    validation_PR_merged: false
+    helper_Implementation_CI_run: 34734143995
+    accepted_implementation_commit: bd1d8b0a1ce755ad71992eb50d943df0e85f8cfa
+    accepted_implementation_tree: 2946856d278ac2f2cedb5c6f46d4ad39bfc2678d
+    accepted_Implementation_CI_run: 34734264265
+  executable_evidence:
+    helper_Implementation_CI_jobs_passed: 5
+    helper_Implementation_CI_jobs_total: 5
+    accepted_Implementation_CI_jobs_passed: 5
+    accepted_Implementation_CI_jobs_total: 5
+    accepted_PostgreSQL_suite_tests: 195
+    accepted_PostgreSQL_suite_assertions: 2808
+    deterministic_restore_harness: PASS
+    restore_source_table_count: 115
+    restore_restored_table_count: 115
+    backend_static_analysis: PASS_ZERO_ERRORS
+    frontend_lint_typecheck_build_audit: PASS
+    contracts_and_traceability: PASS
+    accepted_push_secret_scan: PASS
+    controlled_expand_runtime: PASS
+    repeated_expand_idempotency: PASS
+    Stage_4_170_112_112_preservation: PASS
   pass_requires:
     - exact_migration_file_hash_validation_PASS
     - controlled_PostgreSQL_expand_PASS
