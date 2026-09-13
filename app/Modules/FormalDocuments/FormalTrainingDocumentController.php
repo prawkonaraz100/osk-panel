@@ -41,7 +41,6 @@ final class FormalTrainingDocumentController
         ));
     }
 
-
     public function freshness(Request $request, string $courseEnrollmentId): JsonResponse
     {
         return response()->json($this->documents->freshness(
