@@ -153,3 +153,27 @@ PASS wymaga:
 - PKK explicitly out of scope,
 - Stage-4 DAG/identity untouched,
 - next gate jawnie nazwany jako Stage-5 extension migration authority.
+
+## 12. Gate 1 closure evidence
+
+Gate 1 is closed on accepted authority commit:
+
+- validation helper: `76b6568d7c6485216d985deaf3b15c7baaec4997`,
+- validation tree: `a0bbf4bd9eccf2c9bb9f66973077378906be4305`,
+- helper Implementation CI #279: **5/5 PASS**,
+- accepted authority commit: `abb29ed18da7985ce9c74a11588c735351771da5`,
+- accepted authority tree: `a0bbf4bd9eccf2c9bb9f66973077378906be4305`,
+- accepted Implementation CI #280: **5/5 PASS**,
+- PostgreSQL suite: **187 tests / 2763 assertions**,
+- deterministic restore harness: **PASS**,
+- backend Pint + PHPStan: **PASS**,
+- frontend lint + typecheck + build + audit: **PASS**,
+- contracts and traceability: **PASS**,
+- secret scan: **PASS**.
+
+Gate 1 changes no executable migration and leaves the Stage-4 170-node DAG and its execution identity untouched.
+
+Next gate: **FORMAL-DOC-002 — Stage-5 document schema and migration-extension authority**.
+
+PKK remains frozen until explicit unfreeze after authoritative PWPW guidance.
+

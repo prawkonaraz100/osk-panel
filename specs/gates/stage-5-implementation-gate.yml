@@ -225,12 +225,12 @@ quality_gate:
     - S5-FOUND-001
 
 next_single_step:
-  id: CORE-V1-FORMAL-TRAINING-DOCUMENTS-001_GATE_1
-  action: define_formal_training_document_authority_before_schema_or_runtime
-  prerequisite_previous_slice: HARDENING_PROVIDER_NEUTRAL_RECONCILIATION_007_PASS
+  id: FORMAL-DOC-002
+  action: define_Stage_5_document_schema_and_migration_extension_authority_without_rewriting_Stage_4
+  prerequisite_previous_slice: CORE-V1-FORMAL-TRAINING-DOCUMENTS-001_GATE_1_PASS
   implementation_order_source: AGENTS.md_step_10_hardening_and_formal_documents
   hardening_repo_actionable_P1_status: COMPLETE
-  formal_documents_status: GATE_1_IN_VALIDATION
+  formal_documents_status: GATE_1_PASS_GATE_2_NOT_STARTED
   PKK_provider_runtime_status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
   PKK_resume_requires:
     - explicit_user_unfreeze
@@ -1098,6 +1098,23 @@ FORMAL_TRAINING_DOCUMENTS_001_GATE_1:
     design_spec: specs/design/formal-training-documents.yml
     database_design_spec: specs/database/formal-training-documents.yml
     narrative: docs/138-formal-training-documents-authority.md
+  provenance:
+    validation_helper_commit: 76b6568d7c6485216d985deaf3b15c7baaec4997
+    validation_helper_tree: a0bbf4bd9eccf2c9bb9f66973077378906be4305
+    helper_Implementation_CI_run: 34731057064
+    accepted_authority_commit: abb29ed18da7985ce9c74a11588c735351771da5
+    accepted_authority_tree: a0bbf4bd9eccf2c9bb9f66973077378906be4305
+    accepted_Implementation_CI_run: 34731176200
+  executable_evidence:
+    accepted_Implementation_CI_jobs_passed: 5
+    accepted_Implementation_CI_jobs_total: 5
+    accepted_PostgreSQL_suite_tests: 187
+    accepted_PostgreSQL_suite_assertions: 2763
+    backend_static_analysis: PASS_ZERO_ERRORS
+    frontend_lint_typecheck_build_audit: PASS
+    contracts_and_traceability: PASS
+    accepted_push_secret_scan: PASS
+    deterministic_restore_harness: PASS
   decisions:
     default_document_mode: paper
     optional_document_mode: electronic
