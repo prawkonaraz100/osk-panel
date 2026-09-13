@@ -150,7 +150,6 @@ final class ResourceReferenceCatalogSeeder extends Seeder
                 'created_at' => now(),
             ]);
 
-
             foreach (self::AUDIT_ACTIONS as $action) {
                 DB::table('audit_action_policy_revisions')->updateOrInsert(
                     ['action' => $action, 'policy_version' => 1],
