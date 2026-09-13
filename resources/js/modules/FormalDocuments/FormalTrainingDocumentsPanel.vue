@@ -482,7 +482,8 @@ function documentLabel(type: DocumentType): string {
   return documentTypes.find((item) => item.value === type)?.label ?? type
 }
 
-function modeLabel(mode: DocumentMode): string {
+function modeLabel(mode: DocumentMode | null | undefined): string {
+  if (!mode) return '—'
   return mode === 'paper' ? 'Papierowy' : 'Elektroniczny'
 }
 
