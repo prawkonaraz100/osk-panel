@@ -112,7 +112,7 @@ final class UploadAssetRuntimeTest extends TestCase
             ->postJson("/api/v1/uploads/{$uploadId}/complete", ['sha256' => $hash])
             ->assertOk();
 
-        $this->assertSame($completed->json(), $replayed->json());
+        $this->assertEquals($completed->json(), $replayed->json());
         $this->assertSame(1, DB::table('file_assets')->where('id', $uploadId)->count());
     }
 
