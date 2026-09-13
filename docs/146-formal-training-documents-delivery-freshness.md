@@ -1,6 +1,6 @@
 # FORMAL-DOC-009 — Document delivery lifecycle and freshness projection
 
-Status: `FORMAL-DOC-009 validation candidate`
+Status: `FORMAL-DOC-009 PASS`
 
 ## Scope
 
@@ -130,3 +130,30 @@ FORMAL-DOC-009 must prove:
 - mutating PKK operations,
 - automatic side-effecting `regeneration_detected` on GET freshness.
 
+
+
+## Closure evidence
+
+FORMAL-DOC-009 is closed PASS on the exact clean-promoted implementation tree.
+
+- validation-only PR: #67, closed without merge,
+- validated helper commit: `83d9260c6d5266ccf3f2c418e7a38c0c94946d57`,
+- validated helper tree: `1b017e1647a21db5a5aa93fd4015e1f2ae906310`,
+- helper Implementation CI: run `34745981227`, 5/5 PASS,
+- helper API Contract Gate: run `34745981281`, PASS,
+- accepted implementation commit: `162056c6112a9db92702f8482ab78ad823710a80`,
+- accepted implementation tree: `1b017e1647a21db5a5aa93fd4015e1f2ae906310`,
+- accepted Implementation CI: run `34746171234`, 5/5 PASS,
+- accepted API Contract Gate: run `34746171227`, PASS,
+- PostgreSQL suite: **227 tests / 3088 assertions**,
+- deterministic restore: **115 → 115**, `RESTORE_DRILL_HARNESS=PASS`,
+- backend Pint/PHPStan: PASS,
+- frontend lint/typecheck/build/audit: PASS,
+- contracts and changed-module traceability: PASS,
+- secret scan: PASS,
+- API contract: **187 requirement rows / 173 canonical operations / 14 shared aliases**,
+- Stage-4 authority remains **170 / 112 / 112**,
+- Stage-5 formal-document migration authority remains **11 steps** with execution identity `31704fcab61761aa9a952d824dc543a6f46e7a3717792d0a9349cefaaf57651f`,
+- PKK provider runtime remains `FROZEN_UNTIL_EXPLICIT_UNFREEZE`.
+
+Next gate: **FORMAL-DOC-010 — materialize Uploads/Assets runtime for the existing asset contract and formal signed-scan handoff**.
