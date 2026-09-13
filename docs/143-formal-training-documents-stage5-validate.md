@@ -1,6 +1,6 @@
 # 143. Formal training documents — relational and immutability validation
 
-Status: `FORMAL-DOC-006 validation candidate`
+Status: `FORMAL-DOC-006 PASS`
 
 ## Scope
 
@@ -166,3 +166,35 @@ PASS requires one exact tree proving:
 **FORMAL-DOC-007 — contract the course document-mode columns to the final NOT NULL shape.**
 
 FORMAL-DOC-007 may materialize only the reserved `contract` phase of `S5DOC-ALTER-COURSE-ENROLLMENTS-DOCUMENT-MODE`. Formal document generation/approval runtime and PKK provider runtime remain outside this gate.
+
+
+## Gate closure evidence
+
+FORMAL-DOC-006 is closed on the exact machine tree `4b7ce5dea81cac8034d4ae16774264a7ad3bddf8`.
+
+Validation-only evidence:
+
+- validation helper commit: `3cb4007c317de6705b79b33a08af94abaad7533d`,
+- validation helper tree: `4b7ce5dea81cac8034d4ae16774264a7ad3bddf8`,
+- validation PR: **#61**, closed without merge,
+- helper Implementation CI #301 / run `34738563332`: **5/5 PASS**,
+- PostgreSQL suite: **213 tests / 2913 assertions**,
+- deterministic restore drill: **PASS**,
+- restore schema table count: **115 -> 115**.
+
+Clean accepted implementation evidence:
+
+- accepted implementation commit: `c8003a966a8f1153ac6b8088f6f7595a13fcf368`,
+- accepted implementation tree: `4b7ce5dea81cac8034d4ae16774264a7ad3bddf8`,
+- accepted Implementation CI #302 / run `34738724509`: **5/5 PASS**,
+- PostgreSQL suite: **213 tests / 2913 assertions**,
+- deterministic restore drill: **PASS**,
+- restore schema table count: **115 -> 115**,
+- backend Pint + PHPStan: **PASS**,
+- frontend lint + typecheck + build + audit: **PASS**,
+- contracts and traceability: **PASS**,
+- accepted push secret scan: **PASS**.
+
+The Stage-4 baseline remains exactly **170 nodes / 112 implemented nodes / 112 implemented steps** with unchanged identities.
+
+The Stage-5 formal-documents registry contains exactly **10 steps**: four expand, one preflight, one backfill and four validate. The reserved `contract` phase remains unmaterialized and PKK provider runtime remains frozen.

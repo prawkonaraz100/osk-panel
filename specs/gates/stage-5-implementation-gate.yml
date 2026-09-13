@@ -225,12 +225,12 @@ quality_gate:
     - S5-FOUND-001
 
 next_single_step:
-  id: FORMAL-DOC-006
-  action: materialize_validate_phase_for_formal_document_relational_and_immutability_constraints
-  prerequisite_previous_slice: FORMAL-DOC-005_PASS
+  id: FORMAL-DOC-007
+  action: contract_course_document_mode_columns_to_final_not_null_shape
+  prerequisite_previous_slice: FORMAL-DOC-006_PASS
   implementation_order_source: AGENTS.md_step_10_hardening_and_formal_documents
   hardening_repo_actionable_P1_status: COMPLETE
-  formal_documents_status: GATE_5_PASS_GATE_6_IN_VALIDATION
+  formal_documents_status: GATE_6_PASS_GATE_7_NOT_STARTED
   PKK_provider_runtime_status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
   PKK_resume_requires:
     - explicit_user_unfreeze
@@ -2213,7 +2213,7 @@ FORMAL_DOCUMENTS_005_gate:
 
 FORMAL_DOCUMENTS_006_gate:
   id: FORMAL-DOC-006
-  status: IN_VALIDATION
+  status: PASS
   prerequisite: FORMAL-DOC-005_PASS
   scope:
     - Stage_5_formal_documents_validate_phase
@@ -2273,6 +2273,45 @@ FORMAL_DOCUMENTS_006_gate:
   PKK:
     provider_runtime_in_scope: false
     status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+  provenance:
+    validation_helper_commit: 3cb4007c317de6705b79b33a08af94abaad7533d
+    validation_helper_tree: 4b7ce5dea81cac8034d4ae16774264a7ad3bddf8
+    validation_PR: 61
+    validation_PR_merged: false
+    helper_Implementation_CI_run: 34738563332
+    accepted_implementation_commit: c8003a966a8f1153ac6b8088f6f7595a13fcf368
+    accepted_implementation_tree: 4b7ce5dea81cac8034d4ae16774264a7ad3bddf8
+    accepted_Implementation_CI_run: 34738724509
+  executable_evidence:
+    helper_Implementation_CI_jobs_passed: 5
+    helper_Implementation_CI_jobs_total: 5
+    accepted_Implementation_CI_jobs_passed: 5
+    accepted_Implementation_CI_jobs_total: 5
+    accepted_PostgreSQL_suite_tests: 213
+    accepted_PostgreSQL_suite_assertions: 2913
+    deterministic_restore_harness: PASS
+    restore_source_table_count: 115
+    restore_restored_table_count: 115
+    backend_static_analysis: PASS_ZERO_ERRORS
+    frontend_lint_typecheck_build_audit: PASS
+    contracts_and_traceability: PASS
+    accepted_push_secret_scan: PASS
+    controlled_validate_phase_PostgreSQL: PASS
+    contract_phase_remains_fail_closed: PASS
+    document_mode_completeness_validation: PASS
+    document_mode_before_start_change: PASS
+    document_mode_at_or_after_start_change_rejected: PASS
+    template_same_type_overlap_rejected: PASS
+    template_adjacent_interval: PASS
+    used_template_immutability: PASS
+    document_same_tenant_course_asset_FK: PASS
+    exact_template_snapshot_FK: PASS
+    document_revision_immutability: PASS
+    event_same_tenant_document_FK: PASS
+    optional_event_asset_same_tenant_ready_guard: PASS
+    event_append_only: PASS
+    final_column_not_null_contract_not_materialized: PASS
+    Stage_4_170_112_112_preservation: PASS
   pass_requires:
     - exact_four_validate_file_hashes_PASS
     - extension_execution_identity_5fc09309_PASS
