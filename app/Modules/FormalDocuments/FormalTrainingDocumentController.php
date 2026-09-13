@@ -7,8 +7,8 @@ use App\Modules\ResourcesCore\ResourceIdempotency;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -104,7 +104,7 @@ final class FormalTrainingDocumentController
     }
 
     /**
-     * @param array<string,array<int,string>> $rules
+     * @param  array<string,array<int,string>>  $rules
      * @return array<string,mixed>
      */
     private function validatedBody(Request $request, array $rules): array
@@ -113,7 +113,7 @@ final class FormalTrainingDocumentController
     }
 
     /**
-     * @param array<string,array<int,string>> $rules
+     * @param  array<string,array<int,string>>  $rules
      * @return array<string,mixed>
      */
     private function validatedQuery(Request $request, array $rules): array
@@ -122,8 +122,8 @@ final class FormalTrainingDocumentController
     }
 
     /**
-     * @param array<string,mixed> $input
-     * @param array<string,array<int,string>> $rules
+     * @param  array<string,mixed>  $input
+     * @param  array<string,array<int,string>>  $rules
      * @return array<string,mixed>
      */
     private function strictValidate(array $input, array $rules): array
