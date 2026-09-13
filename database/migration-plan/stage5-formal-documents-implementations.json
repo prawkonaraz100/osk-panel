@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "plan_identity": "34cada121f4fd4963b1461308fb517c50ee647005ce9421f4d1af40c80d44b99",
+  "execution_identity": "8948ce50d6c7f3c8871586945d2e757397600182820cbb0e89d80add12998ade",
+  "stage5_root": "database/migrations/stage5/formal-documents",
+  "implemented_steps": [],
+  "claim_any_DDL_implemented": false
+}
