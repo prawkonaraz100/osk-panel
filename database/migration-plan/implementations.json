@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
   "plan_identity": "d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10",
-  "execution_identity": "d2da7eb3ccb082ca6b0106fbe4b1e543815c9236cc1a8bd62cf470c93459b660",
+  "execution_identity": "7cdea7410b15a1e1ef884e50d4e2a9ac519eb568569d140f82b19cc5deaa142e",
   "stage4_root": "database/migrations/stage4",
   "implemented_steps": [
     {
@@ -909,7 +909,7 @@
       "phase": "expand",
       "migration_file": "database/migrations/stage4/expand/MIG-TBL-ORDER_ITEMS/2026_09_10_001010_create_order_items_table.php",
       "migration_name": "2026_09_10_001010_create_order_items_table",
-      "file_sha256": "cc6261808c4f6987e05de547cbe02b52697e6436d6ccb64971d002fc05ffa49a",
+      "file_sha256": "ed2b9b15cf5e6421b0f1ea215a5bca7538d2b97d237fea33b08d40c3c2f2385e",
       "restart_classification": "restart_safe",
       "safe_down": false
     },
@@ -1125,7 +1125,7 @@
       "phase": "preflight",
       "migration_file": "database/migrations/stage4/preflight/MIG-CK-COMMERCE/2026_09_10_001250_preflight_candidate_keys_commerce.php",
       "migration_name": "2026_09_10_001250_preflight_candidate_keys_commerce",
-      "file_sha256": "1ca826bb188db42b925a772c5077b0c681e37941fdc551fab31092dc2db7c64a",
+      "file_sha256": "5a079d585b26297b9950c540b05139e7fe4f159be70f8420aa3a8d887cdcc647",
       "restart_classification": "manual_review",
       "safe_down": false
     },

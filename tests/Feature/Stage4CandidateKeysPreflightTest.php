@@ -21,7 +21,7 @@ final class Stage4CandidateKeysPreflightTest extends TestCase
         $this->assertSame(157, $plan->implementedNodeCount());
         $this->assertSame(157, $plan->implementedStepCount());
         $this->assertSame(
-            'd2da7eb3ccb082ca6b0106fbe4b1e543815c9236cc1a8bd62cf470c93459b660',
+            '7cdea7410b15a1e1ef884e50d4e2a9ac519eb568569d140f82b19cc5deaa142e',
             $plan->executionIdentity(),
         );
 
@@ -74,7 +74,7 @@ final class Stage4CandidateKeysPreflightTest extends TestCase
 
         $beforeConstraints = $this->constraintNames($candidateConstraintNames);
         $this->assertSame([], $beforeConstraints);
-        $this->assertFalse(Schema::hasColumn('order_items', 'license_product_id'));
+        $this->assertTrue(Schema::hasColumn('order_items', 'license_product_id'));
 
         $exit = Artisan::call('migration:controlled', [
             '--plan' => $plan->identity(),
@@ -95,9 +95,9 @@ final class Stage4CandidateKeysPreflightTest extends TestCase
         $this->assertSame($expectedApplied, array_values($applied));
 
         $this->assertSame([], $this->constraintNames($candidateConstraintNames));
-        $this->assertFalse(
+        $this->assertTrue(
             Schema::hasColumn('order_items', 'license_product_id'),
-            'Read-only candidate-key preflight must not materialize the Commerce compatibility column.',
+            'Read-only candidate-key preflight must preserve the required Commerce lineage column.',
         );
 
         $this->assertSame([], $plan->phaseSteps('write_fence'));

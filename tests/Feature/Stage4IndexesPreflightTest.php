@@ -21,7 +21,7 @@ final class Stage4IndexesPreflightTest extends TestCase
         $this->assertSame(170, $plan->nodeCount());
         $this->assertSame(157, $plan->implementedNodeCount());
         $this->assertSame(157, $plan->implementedStepCount());
-        $this->assertSame('d2da7eb3ccb082ca6b0106fbe4b1e543815c9236cc1a8bd62cf470c93459b660', $plan->executionIdentity());
+        $this->assertSame('7cdea7410b15a1e1ef884e50d4e2a9ac519eb568569d140f82b19cc5deaa142e', $plan->executionIdentity());
 
         $indexNodes = [
             'MIG-IDX-IDENTITY',

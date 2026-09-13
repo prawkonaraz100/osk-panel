@@ -18,7 +18,7 @@ return new class extends Migration
         $this->assertCandidateKey('orders', 'order_candidate_key_org_id', ['organization_id', 'id'], false);
         $this->assertCandidateKey('order_items', 'order_item_candidate_key_org_id', ['organization_id', 'id'], false);
         $this->assertCandidateKey('order_items', 'order_item_candidate_key_org_id_product_kind', ['organization_id', 'id', 'product_kind'], false);
-        $this->assertCandidateKey('order_items', 'order_item_candidate_key_org_id_license_product', ['organization_id', 'id', 'license_product_id'], true);
+        $this->assertCandidateKey('order_items', 'order_item_candidate_key_org_id_license_product', ['organization_id', 'id', 'license_product_id'], false);
         $this->assertCandidateKey('order_items', 'order_item_candidate_key_org_id_catalog_item', ['organization_id', 'id', 'commerce_catalog_item_id'], false);
     }
 
