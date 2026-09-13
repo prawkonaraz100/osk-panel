@@ -93,3 +93,12 @@ changed_scope:
     acceptance_test: Tests\\Feature\\StudentsCoursesCoreTest::test_sensitive_identifier_lookup_key_is_separate_and_previous_key_blocks_duplicate_after_rotation + Tests\\Feature\\StudentsCoursesCoreTest::test_lookup_key_rotation_does_not_create_fake_pkk_identity_revision_for_same_value
     status: IMPLEMENTED
 
+
+  - evidence: specs/screens/student-formal-documents.yml
+    requirement: student detail hosts one course-scoped formal-document workflow after the course list and before finance without creating a second route or duplicating formal-document authority
+    domain_data: students + course_enrollments + formal_training_documents + formal_training_document_events + file_assets
+    api_use_case: student_detail integration delegates preview approval download history delivery and signed-scan operations to FormalDocuments and UploadsAssets
+    permission: formal-document permissions remain server-enforced by FormalDocuments; student profile only supplies current course collection and archived presentation state
+    ui: resources/js/modules/StudentsCourses/StudentCourseWorkspace.vue mounts resources/js/modules/FormalDocuments/FormalTrainingDocumentsPanel.vue
+    acceptance_test: Tests\Unit\FormalDocumentsUiContractTest::test_student_profile_materializes_exact_formal_document_and_signed_scan_workflow
+    status: IMPLEMENTED

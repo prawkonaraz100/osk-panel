@@ -5,6 +5,7 @@ import CourseFormFields from './CourseFormFields.vue'
 import StudentFinancePanel from './StudentFinancePanel.vue'
 import StudentLearningAccessPanel from '../LearningAccess/StudentLearningAccessPanel.vue'
 import StudentInternalExamPanel from '../InternalExams/StudentInternalExamPanel.vue'
+import FormalTrainingDocumentsPanel from '../FormalDocuments/FormalTrainingDocumentsPanel.vue'
 
 type CourseSummary = {
   id: string
@@ -1301,6 +1302,12 @@ function handleError(caught: unknown): void {
             </article>
           </div>
         </section>
+
+        <FormalTrainingDocumentsPanel
+          v-if="detailTab === 'profile'"
+          :courses="currentCourses"
+          :archived="Boolean(currentStudent.archived_at)"
+        />
 
         <StudentFinancePanel
           v-if="detailTab === 'profile'"
