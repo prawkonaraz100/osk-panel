@@ -1,6 +1,6 @@
 # 144. Formal training documents — final document-mode contract
 
-Status: `FORMAL-DOC-007 validation candidate`
+Status: `FORMAL-DOC-007 PASS`
 
 ## Scope
 
@@ -134,3 +134,37 @@ PASS requires one exact tree proving:
 **FORMAL-DOC-008 — formal document generation and approval runtime.**
 
 That gate may begin the application/API service boundary for building an exact evidence bundle, reviewer approval, deterministic revision creation and canonical asset linkage defined by the existing formal-document authority. It must not silently invent an electronic-signature mechanism and must not unfreeze PKK provider runtime.
+
+
+## Gate closure evidence
+
+FORMAL-DOC-007 is closed on the exact machine tree `152abe41b6e6ed4106206e026975823a008271a8`.
+
+Validation-only evidence:
+
+- validation helper commit: `4a5771e82822de805c35d0a621c441a6bda354ab`,
+- validation helper tree: `152abe41b6e6ed4106206e026975823a008271a8`,
+- validation PR: **#63**, closed without merge,
+- helper Implementation CI #306 / run `34739748797`: **5/5 PASS**,
+- PostgreSQL suite: **219 tests / 2952 assertions**,
+- deterministic restore drill: **PASS**,
+- restore schema table count: **115 -> 115**.
+
+Clean accepted implementation evidence:
+
+- accepted implementation commit: `85cd8c8dffa989ccacaa2c5db3ec51fb7bfbf4a6`,
+- accepted implementation tree: `152abe41b6e6ed4106206e026975823a008271a8`,
+- accepted Implementation CI #307 / run `34739895639`: **5/5 PASS**,
+- PostgreSQL suite: **219 tests / 2952 assertions**,
+- deterministic restore drill: **PASS**,
+- restore schema table count: **115 -> 115**,
+- backend Pint + PHPStan: **PASS**,
+- frontend lint + typecheck + build + audit: **PASS**,
+- contracts and traceability: **PASS**,
+- accepted push secret scan: **PASS**.
+
+The Stage-4 baseline remains exactly **170 nodes / 112 implemented nodes / 112 implemented steps** with unchanged identities.
+
+The Stage-5 formal-documents registry contains exactly **11 steps**: four expand, one preflight, one backfill, four validate and one final contract step. The final physical document-mode nullability is **NO / NO / YES** for `document_mode`, `document_mode_selected_at` and `document_mode_selected_by_user_id` respectively.
+
+PKK provider runtime remains frozen until explicit unfreeze after authoritative PWPW guidance.
