@@ -116,7 +116,7 @@ final class FormalTrainingDocumentMigrationPreflightTest extends TestCase
         $this->assertSame(1, DB::table('formal_training_documents')->count());
     }
 
-    public function test_validate_remains_fail_closed_after_backfill_materialization(): void
+    public function test_contract_remains_fail_closed_after_validate_materialization(): void
     {
         $extension = app(Stage5FormalDocumentsMigrationPlan::class);
         $extension->validate();
@@ -124,13 +124,13 @@ final class FormalTrainingDocumentMigrationPreflightTest extends TestCase
         $exit = Artisan::call('migration:stage5:formal-docs:controlled', [
             '--plan' => $extension->identity(),
             '--execution' => $extension->executionIdentity(),
-            '--phase' => 'validate',
+            '--phase' => 'contract',
             '--force' => true,
         ]);
 
         $this->assertSame(Command::FAILURE, $exit);
         $this->assertStringContainsString(
-            'No materialized Stage-5 formal-documents migration steps for phase validate',
+            'No materialized Stage-5 formal-documents migration steps for phase contract',
             Artisan::output(),
         );
         $this->assertDatabaseCount('course_enrollments', 0);
