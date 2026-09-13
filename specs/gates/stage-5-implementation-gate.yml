@@ -225,14 +225,15 @@ quality_gate:
     - S5-FOUND-001
 
 next_single_step:
-  id: STOP_BEFORE_HARDENING_OR_PKK
-  action: STOP_before_hardening_formal_documents_or_resuming_PKK_until_next_explicit_user_instruction
-  prerequisite_previous_slice: CORE-V1-DASHBOARD-NOTIFICATIONS-PURCHASE-HISTORY-001_PASS
-  implementation_order_source: AGENTS.md_with_explicit_PKK_deferment_override
-  blocked_until_next_explicit_user_instruction:
-    - hardening_and_formal_documents
-    - PKK_provider_runtime_or_live_integration
+  id: CORE-V1-FORMAL-TRAINING-DOCUMENTS-001_GATE_1
+  action: define_formal_training_document_authority_before_schema_or_runtime
+  prerequisite_previous_slice: HARDENING_PROVIDER_NEUTRAL_RECONCILIATION_007_PASS
+  implementation_order_source: AGENTS.md_step_10_hardening_and_formal_documents
+  hardening_repo_actionable_P1_status: COMPLETE
+  formal_documents_status: GATE_1_IN_VALIDATION
+  PKK_provider_runtime_status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
   PKK_resume_requires:
+    - explicit_user_unfreeze
     - authoritative_PWPW_guidance_or_contract
 
 CORE_V1_PKK_ADAPTER_001_deferment:
@@ -1077,6 +1078,44 @@ CORE_V1_DASHBOARD_NOTIFICATIONS_PURCHASE_HISTORY_001_closure:
 
 
 
+
+
+FORMAL_TRAINING_DOCUMENTS_001_GATE_1:
+  status: PASS
+  scope:
+    - training_record_card_authority
+    - supplementary_theory_delivery_journal_boundary
+    - PAPER_default_and_ELECTRONIC_option
+    - mode_lock_at_formal_course_start
+    - canonical_training_evidence_sources
+    - evidence_bundle_hash_and_document_revision_contract
+    - source_correction_then_regeneration_not_direct_PDF_edit
+    - paper_print_handwritten_signature_flow
+    - electronic_authenticated_approval_without_invented_e_signature
+    - PKK_frozen_out_of_scope_boundary
+    - Stage_5_extension_schema_boundary
+  authority:
+    design_spec: specs/design/formal-training-documents.yml
+    database_design_spec: specs/database/formal-training-documents.yml
+    narrative: docs/138-formal-training-documents-authority.md
+  decisions:
+    default_document_mode: paper
+    optional_document_mode: electronic
+    normal_mode_change_at_or_after_course_started_at: forbidden
+    formal_time_source: training_hour_ledger
+    theory_lesson_minutes: 45
+    practical_lesson_minutes: 60
+    hardcoded_26_hours_for_every_course: false
+    direct_PDF_business_fact_editing: forbidden
+    prior_revision_rewrite_after_source_correction: forbidden
+    PKK_in_scope: false
+    PKK_provider_call_allowed: false
+  migration_boundary:
+    Stage_4_170_node_DAG_modified: false
+    Stage_4_execution_identity_modified: false
+    unregistered_Laravel_migration_allowed: false
+    next_gate: FORMAL-DOC-002_stage_5_extension_migration_authority
+    next_gate_started: false
 
 HARDENING_PROVIDER_NEUTRAL_RECONCILIATION_007_closure:
   status: PASS
