@@ -226,18 +226,21 @@ quality_gate:
 
 next_single_step:
   id: CORE-V1-STAGE4-CANDIDATE-KEYS-WRITE-FENCE-001
-  action: materialize_and_execute_eight_stage4_candidate_key_write_fence_steps_after_global_preflight_and_commerce_prerequisite_PASS
+  action: materialize_and_execute_eight_candidate_key_write_fence_steps_only
   prerequisite_previous_slice: CORE-V1-STAGE4-COMMERCE-LINEAGE-PREREQ-RECOVERY-001_PASS
-  implementation_order_source:
-    - specs/database/final-migration-order-invariant-matrix.yml
-    - database/migration-plan/plan.json
-    - docs/155-core-v1-stage4-commerce-lineage-prerequisite-recovery.md
+  authority:
+    narrative: docs/156-core-v1-stage4-candidate-keys-write-fence.md
+    matrix: specs/database/final-migration-order-invariant-matrix.yml
+    plan: database/migration-plan/plan.json
+    plan_identity: d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10
+    previous_execution_identity: 7cdea7410b15a1e1ef884e50d4e2a9ac519eb568569d140f82b19cc5deaa142e
+    candidate_execution_identity: 84108f592c5cdff50cea4316ce05c5ad53db61e177b69c8916e04eed54214429
   Stage_4_DAG_nodes_total: 170
   Stage_4_materialized_nodes_current: 157
   Stage_4_materialized_steps_current: 157
   expected_Stage_4_materialized_nodes_after_next_PASS: 157
   expected_Stage_4_materialized_steps_after_next_PASS: 165
-  current_corrective_gate_status: NOT_STARTED
+  current_corrective_gate_status: IN_VALIDATION
   global_phase_barrier:
     authoritative_preflight_nodes: 39
     preflight_nodes_materialized_current: 39
@@ -246,6 +249,7 @@ next_single_step:
     write_fence_steps_materialized_current: 0
     next_safe_write_fence_prefix_steps: 8
     write_fence_in_next_slice: true
+    remaining_write_fence_steps_after_PASS: 44
     canonical_authority_changed: false
   PKK_provider_runtime_status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
 
@@ -3867,3 +3871,80 @@ CORE_V1_STAGE4_COMMERCE_LINEAGE_PREREQ_RECOVERY_001_gate:
     expected_materialized_steps_after_PASS: 165
     expected_write_fence_steps_after_PASS: 8
     rule: do_not_add_compatibility_columns_inside_candidate_key_write_fence
+
+CORE_V1_STAGE4_CANDIDATE_KEYS_WRITE_FENCE_001_gate:
+  id: CORE-V1-STAGE4-CANDIDATE-KEYS-WRITE-FENCE-001
+  status: IN_VALIDATION
+  prerequisite: CORE-V1-STAGE4-COMMERCE-LINEAGE-PREREQ-RECOVERY-001_PASS
+  severity: P1
+  authority:
+    narrative: docs/156-core-v1-stage4-candidate-keys-write-fence.md
+    matrix: specs/database/final-migration-order-invariant-matrix.yml
+    plan: database/migration-plan/plan.json
+    plan_identity: d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10
+    previous_execution_identity: 7cdea7410b15a1e1ef884e50d4e2a9ac519eb568569d140f82b19cc5deaa142e
+    candidate_execution_identity: 84108f592c5cdff50cea4316ce05c5ad53db61e177b69c8916e04eed54214429
+  exact_scope:
+    phase: write_fence
+    materialized_nodes_before: 157
+    materialized_nodes_after_candidate: 157
+    materialized_steps_before: 157
+    materialized_steps_after_candidate: 165
+    preflight_nodes_materialized: 39
+    write_fence_steps_before: 0
+    write_fence_steps_after_candidate: 8
+    unique_constraints_expected: 28
+    exact_nodes:
+      - MIG-CK-IDENTITY
+      - MIG-CK-ASSETS_RESOURCES
+      - MIG-CK-TRAINING
+      - MIG-CK-FINANCE
+      - MIG-CK-LICENSES
+      - MIG-CK-EXAMS
+      - MIG-CK-COMMERCE
+      - MIG-CK-EVENTS
+  safety_boundary:
+    PostgreSQL_unique_constraints_only: true
+    post_preflight_conflict_behavior: PostgreSQL_DDL_FAIL_CLOSED
+    exact_existing_definition_required_on_resume: true
+    compatibility_column_creation: forbidden
+    row_mutation: forbidden
+    index_FK_CHECK_exclusion_trigger_projection_nodes: forbidden
+    backfill_reconcile_validate_contract: forbidden
+    destructive_down: forbidden
+  expected_after_candidate_PASS:
+    Stage_4_DAG_nodes_total: 170
+    Stage_4_materialized_nodes: 157
+    Stage_4_materialized_steps: 165
+    preflight_nodes_materialized: 39
+    write_fence_steps_materialized: 8
+    remaining_write_fence_steps: 44
+  preservation:
+    Stage_5_formal_document_steps: 11
+    API_requirement_rows: 187
+    API_unique_operations: 173
+    API_shared_aliases: 14
+    FORMAL_DOC_011_status: PASS
+    commerce_lineage_prerequisite_recovery_status: PASS
+    PKK_provider_runtime_status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+  pass_requires:
+    - exact_eight_candidate_key_write_fence_steps_registered_in_canonical_order_PASS
+    - exact_28_UNIQUE_constraints_installed_PASS
+    - exact_table_and_ordered_column_definitions_PASS
+    - full_global_preflight_phase_entry_barrier_PASS
+    - post_preflight_duplicate_conflict_fails_closed_by_PostgreSQL_PASS
+    - unrelated_FK_CHECK_exclusion_trigger_mutation_zero_PASS
+    - target_domain_row_mutation_zero_PASS
+    - exact_migration_file_SHA256_registry_PASS
+    - Stage_4_plan_identity_unchanged_PASS
+    - Stage_4_execution_identity_84108f592c5cdff50cea4316ce05c5ad53db61e177b69c8916e04eed54214429_PASS
+    - Stage_4_170_157_165_candidate_PASS
+    - Stage_5_11_step_authority_preserved_PASS
+    - API_187_173_14_preserved_PASS
+    - FORMAL_DOC_011_PASS_preserved
+    - PKK_provider_runtime_still_frozen_PASS
+    - backend_static_analysis_PASS_ZERO_ERRORS
+    - frontend_quality_PASS
+    - contracts_and_traceability_PASS
+    - secret_scan_PASS
+    - deterministic_restore_harness_PASS

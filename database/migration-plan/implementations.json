@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
   "plan_identity": "d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10",
-  "execution_identity": "7cdea7410b15a1e1ef884e50d4e2a9ac519eb568569d140f82b19cc5deaa142e",
+  "execution_identity": "84108f592c5cdff50cea4316ce05c5ad53db61e177b69c8916e04eed54214429",
   "stage4_root": "database/migrations/stage4",
   "implemented_steps": [
     {
@@ -1414,6 +1414,78 @@
       "migration_file": "database/migrations/stage4/preflight/MIG-CON-EVENTS/2026_09_10_001570_preflight_constraints_events.php",
       "migration_name": "2026_09_10_001570_preflight_constraints_events",
       "file_sha256": "27ebb9e1cd3442a5f9d314c6ce7cbcf9eae2359e94386053b391886a30d482ea",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-CK-IDENTITY",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-CK-IDENTITY/2026_09_10_001190_write_fence_candidate_keys_identity.php",
+      "migration_name": "2026_09_10_001190_write_fence_candidate_keys_identity",
+      "file_sha256": "ac18af7dce66ef5b31edbc622c04df4f50a0b6f8cb8f8052d9f5df8c898ec439",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-CK-ASSETS_RESOURCES",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-CK-ASSETS_RESOURCES/2026_09_10_001200_write_fence_candidate_keys_assets_resources.php",
+      "migration_name": "2026_09_10_001200_write_fence_candidate_keys_assets_resources",
+      "file_sha256": "530a744bac96c357f5dd3dd3383985b4b334593d1601543e327f56fc029ce43c",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-CK-TRAINING",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-CK-TRAINING/2026_09_10_001210_write_fence_candidate_keys_training.php",
+      "migration_name": "2026_09_10_001210_write_fence_candidate_keys_training",
+      "file_sha256": "324ca7099ebeb8bceeb459b2aa3793414a53881202afa222dc6a1bd649e40661",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-CK-FINANCE",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-CK-FINANCE/2026_09_10_001220_write_fence_candidate_keys_finance.php",
+      "migration_name": "2026_09_10_001220_write_fence_candidate_keys_finance",
+      "file_sha256": "68c09180696a41fc2b6f0713024f5bc27c1d303a5919cb41e2ab8746cb9e3562",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-CK-LICENSES",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-CK-LICENSES/2026_09_10_001230_write_fence_candidate_keys_licenses.php",
+      "migration_name": "2026_09_10_001230_write_fence_candidate_keys_licenses",
+      "file_sha256": "0270ff12359bbc0cf1ad2bdd2ee97674b92c0021ea6eb1205042519978311973",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-CK-EXAMS",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-CK-EXAMS/2026_09_10_001240_write_fence_candidate_keys_exams.php",
+      "migration_name": "2026_09_10_001240_write_fence_candidate_keys_exams",
+      "file_sha256": "80deba882626a254b8f9f21eae212d5db26852c3850b707f7536aa9a17ed62e8",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-CK-COMMERCE",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-CK-COMMERCE/2026_09_10_001250_write_fence_candidate_keys_commerce.php",
+      "migration_name": "2026_09_10_001250_write_fence_candidate_keys_commerce",
+      "file_sha256": "9fbef87b025e03be118ccf6b3a48b2f0ed05abee7f143ddeba1cf7d35f251cd0",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-CK-EVENTS",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-CK-EVENTS/2026_09_10_001260_write_fence_candidate_keys_events.php",
+      "migration_name": "2026_09_10_001260_write_fence_candidate_keys_events",
+      "file_sha256": "f655914506e1f9af6f825bbc53091069d31439c54ff1845f88cbe4117bcd23b9",
       "restart_classification": "manual_review",
       "safe_down": false
     }

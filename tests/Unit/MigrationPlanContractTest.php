@@ -16,9 +16,9 @@ class MigrationPlanContractTest extends TestCase
         $this->assertSame(170, $plan->nodeCount());
         $this->assertSame(17, $plan->batchCount());
         $this->assertSame(157, $plan->implementedNodeCount());
-        $this->assertSame(157, $plan->implementedStepCount());
+        $this->assertSame(165, $plan->implementedStepCount());
         $this->assertSame('ad5f2aa2e14ef248b95dd3dda0d1cbcb2e69d441', $plan->summary()['authority_blob']);
-        $this->assertSame('7cdea7410b15a1e1ef884e50d4e2a9ac519eb568569d140f82b19cc5deaa142e', $plan->executionIdentity());
+        $this->assertSame('84108f592c5cdff50cea4316ce05c5ad53db61e177b69c8916e04eed54214429', $plan->executionIdentity());
         $this->assertSame([
             'MIG-EXT-BTREE-GIST',
             'MIG-TBL-ORGANIZATIONS',
@@ -191,20 +191,22 @@ class MigrationPlanContractTest extends TestCase
             array_merge($candidateKeyNodes, $indexNodes, $foreignKeyNodes, $constraintNodes),
             array_column($plan->phaseSteps('preflight'), 'node_id'),
         );
-        $this->assertSame([], $plan->phaseSteps('write_fence'));
+        $this->assertSame($candidateKeyNodes, array_column($plan->phaseSteps('write_fence'), 'node_id'));
         $this->assertSame([], $plan->phaseSteps('backfill'));
         $this->assertSame([], $plan->phaseSteps('reconcile'));
         $this->assertSame([], $plan->phaseSteps('validate'));
         $this->assertSame([], $plan->phaseSteps('contract'));
     }
 
-    public function test_write_fence_stays_closed_until_the_global_preflight_phase_is_fully_materialized(): void
+    public function test_write_fence_requires_all_earlier_phases_to_be_fully_applied(): void
     {
         $plan = new MigrationPlan;
         $plan->validate();
 
+        $this->assertCount(8, $plan->phaseSteps('write_fence'));
+
         $this->expectException(LogicException::class);
-        $this->expectExceptionMessage('No materialized migration steps for phase write_fence');
+        $this->expectExceptionMessage('Earlier phase expand is not fully applied: MIG-EXT-BTREE-GIST');
         $plan->assertPhaseEntry('write_fence', []);
     }
 }
