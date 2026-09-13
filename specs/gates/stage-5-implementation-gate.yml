@@ -225,29 +225,29 @@ quality_gate:
     - S5-FOUND-001
 
 next_single_step:
-  id: CORE-V1-STAGE4-INDEXES-PREFLIGHT-001
-  action: materialize_and_execute_ten_stage4_index_preflight_nodes_without_entering_global_write_fence
-  prerequisite_previous_slice: CORE-V1-STAGE4-CANDIDATE-KEYS-001_PASS
+  id: CORE-V1-STAGE4-FOREIGN-KEYS-PREFLIGHT-001
+  action: materialize_and_execute_eleven_stage4_foreign_key_preflight_nodes_without_entering_global_write_fence
+  prerequisite_previous_slice: CORE-V1-STAGE4-INDEXES-PREFLIGHT-001_PASS
   implementation_order_source:
     - specs/database/final-migration-order-invariant-matrix.yml
     - database/migration-plan/plan.json
-    - docs/151-core-v1-stage4-candidate-keys-preflight.md
+    - docs/152-core-v1-stage4-indexes-preflight.md
     - specs/implementation-baseline-v1.yml
   hardening_repo_actionable_P1_status: COMPLETE
   formal_documents_status: GATE_11_PASS_FORMAL_DOCUMENTS_CORE_COMPLETE
   remaining_repo_actionable_P0_status: ZERO
   remaining_repo_actionable_P1_status: OPEN_CORRECTIVE_SEQUENCE_REQUIRED
-  Stage_4_materialized_nodes_current: 126
-  Stage_4_materialized_steps_current: 126
+  Stage_4_materialized_nodes_current: 136
+  Stage_4_materialized_steps_current: 136
   Stage_4_DAG_nodes_total: 170
-  expected_Stage_4_materialized_nodes_after_next_PASS: 136
-  expected_Stage_4_materialized_steps_after_next_PASS: 136
-  current_corrective_gate_status: IN_VALIDATION
+  expected_Stage_4_materialized_nodes_after_next_PASS: 147
+  expected_Stage_4_materialized_steps_after_next_PASS: 147
+  current_corrective_gate_status: NOT_STARTED
   global_phase_barrier:
     authoritative_preflight_nodes: 39
-    preflight_nodes_materialized_current: 8
-    remaining_preflight_nodes_before_write_fence: 31
-    next_safe_preflight_prefix_nodes: 10
+    preflight_nodes_materialized_current: 18
+    remaining_preflight_nodes_before_write_fence: 21
+    next_safe_preflight_prefix_nodes: 11
     authoritative_write_fence_nodes: 52
     write_fence_in_next_slice: false
     canonical_authority_changed: false
@@ -3403,7 +3403,7 @@ CORE_V1_STAGE4_CANDIDATE_KEYS_001_gate:
     rule: continue_global_preflight_phase_before_any_write_fence
 
 CORE_V1_STAGE4_INDEXES_PREFLIGHT_001_gate:
-  status: IN_VALIDATION
+  status: PASS
   severity: P1
   prerequisite_gate: CORE-V1-STAGE4-CANDIDATE-KEYS-001_PASS
   scope:
@@ -3436,6 +3436,47 @@ CORE_V1_STAGE4_INDEXES_PREFLIGHT_001_gate:
     legacy_student_payments_idempotency_key_may_be_scanned_if_present: true
     legacy_student_payments_idempotency_key_reauthorized: false
     missing_internal_exam_purchase_ordinal_column_may_be_invented_in_preflight: false
+  provenance:
+    validation_PR: 82
+    validation_PR_merged: false
+    validation_helper_commit: 012682ec45f138d3ba888f1a63ad69b8b7a14f0b
+    validation_helper_tree: e1da0d8b69eeab5a72d66fd4622382dd0c9e97c2
+    helper_Implementation_CI_run: 34772768005
+    accepted_implementation_commit: 2ee609e1787f33457c0369db26ce9c6f4ae2414d
+    accepted_implementation_tree: e1da0d8b69eeab5a72d66fd4622382dd0c9e97c2
+    accepted_Implementation_CI_run: 34772982881
+    helper_and_accepted_tree_match: true
+  executable_evidence:
+    helper_Implementation_CI_jobs_passed: 5
+    helper_Implementation_CI_jobs_total: 5
+    accepted_Implementation_CI_jobs_passed: 5
+    accepted_Implementation_CI_jobs_total: 5
+    PostgreSQL_suite_tests: 234
+    PostgreSQL_suite_assertions: 3205
+    deterministic_restore_harness: PASS
+    restore_source_table_count: 121
+    restore_restored_table_count: 121
+    Stage_4_plan_identity_unchanged: PASS
+    Stage_4_execution_identity: bf71200c44672f2942071dd15f5c89d3a9a6991563dc3edcdb7bab6cb965af94
+    Stage_4_materialized_nodes: 136
+    Stage_4_materialized_steps: 136
+    preflight_nodes_materialized: 18
+    remaining_preflight_nodes_before_write_fence: 21
+    exact_ten_index_preflight_nodes_in_canonical_order: PASS
+    exact_migration_file_SHA256_registry: PASS
+    controlled_PostgreSQL_preflight: PASS
+    calendar_GiST_overlap_prechecks: PASS
+    no_target_schema_mutation: PASS
+    write_fence_materialized_steps: 0
+    global_write_fence_phase_remains_closed: PASS
+    Stage_5_11_step_authority_preserved: PASS
+    API_187_173_14_preserved: PASS
+    FORMAL_DOC_011_PASS_preserved: PASS
+    backend_static_analysis: PASS_ZERO_ERRORS
+    frontend_quality: PASS
+    contracts_and_traceability: PASS
+    secret_scan: PASS
+    PKK_provider_runtime_still_frozen: PASS
   pass_requires:
     - exact_ten_index_preflight_nodes_in_canonical_order
     - exact_migration_file_SHA256_registry
@@ -3447,3 +3488,23 @@ CORE_V1_STAGE4_INDEXES_PREFLIGHT_001_gate:
     - helper_PR_closed_without_merge
     - exact_helper_tree_clean_promoted_to_accepted
     - accepted_push_Implementation_CI_5_of_5_PASS
+
+  next_after_PASS:
+    id: CORE-V1-STAGE4-FOREIGN-KEYS-PREFLIGHT-001
+    action: materialize_eleven_stage4_foreign_key_preflight_nodes_without_entering_write_fence
+    exact_nodes:
+      - MIG-FK-IDENTITY
+      - MIG-FK-RESOURCES
+      - MIG-FK-TRAINING
+      - MIG-FK-CALENDAR
+      - MIG-FK-PKK
+      - MIG-FK-FINANCE
+      - MIG-FK-LICENSES
+      - MIG-FK-EXAMS
+      - MIG-FK-COMMERCE
+      - MIG-FK-PURCHASE_DOWNSTREAM
+      - MIG-FK-EVENTS
+    expected_materialized_nodes_after_PASS: 147
+    expected_materialized_steps_after_PASS: 147
+    remaining_preflight_nodes_before_write_fence_after_PASS: 10
+    rule: continue_global_preflight_phase_before_any_write_fence

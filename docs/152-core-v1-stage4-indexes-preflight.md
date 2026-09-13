@@ -1,6 +1,6 @@
 # CORE-V1-STAGE4-INDEXES-PREFLIGHT-001
 
-Status: `IN_VALIDATION`
+Status: `PASS`
 
 ## Scope
 
@@ -28,3 +28,47 @@ Commerce source-order-item ordinals are scanned where the canonical physical col
 ## Pass requirements
 
 Exact ten-node canonical suffix; exact SHA-256 registry; PostgreSQL duplicate/overlap scans PASS; `btree_gist` present; target schema signature unchanged; write-fence empty; helper CI 5/5; helper PR closed without merge; exact-tree clean promotion; accepted-push CI 5/5.
+
+
+## Closure evidence
+
+`CORE-V1-STAGE4-INDEXES-PREFLIGHT-001` is closed **PASS**.
+
+Validation-only helper:
+
+- PR: **#82**, closed without merge.
+- helper head: `012682ec45f138d3ba888f1a63ad69b8b7a14f0b`.
+- validated helper tree: `e1da0d8b69eeab5a72d66fd4622382dd0c9e97c2`.
+- helper Implementation CI: run `34772768005` / #390 — **5/5 PASS**.
+- PostgreSQL: **234 tests / 3205 assertions**.
+- deterministic restore: **121 -> 121**, `RESTORE_DRILL_HARNESS=PASS`.
+
+Clean accepted implementation:
+
+- accepted commit: `2ee609e1787f33457c0369db26ce9c6f4ae2414d`.
+- accepted tree: `e1da0d8b69eeab5a72d66fd4622382dd0c9e97c2`.
+- exact helper/accepted tree match: **PASS**.
+- accepted Implementation CI: run `34772982881` / #391 — **5/5 PASS**.
+- PostgreSQL: **234 tests / 3205 assertions**.
+- deterministic restore: **121 -> 121**, `RESTORE_DRILL_HARNESS=PASS`.
+- backend static analysis: **PASS_ZERO_ERRORS**.
+- frontend quality: **PASS**.
+- contracts and traceability: **PASS**.
+- secret scan: **PASS**.
+
+Migration authority after PASS:
+
+- Stage-4 DAG: **170 nodes**.
+- Stage-4 materialized nodes: **136**.
+- Stage-4 materialized steps: **136**.
+- preflight nodes materialized: **18 / 39**.
+- remaining preflight nodes before write-fence: **21**.
+- write-fence steps materialized: **0**.
+- plan identity remains `d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10`.
+- execution identity is `bf71200c44672f2942071dd15f5c89d3a9a6991563dc3edcdb7bab6cb965af94`.
+- Stage-5 formal-document authority remains **11 steps**.
+- API inventory remains **187 / 173 / 14**.
+- FORMAL-DOC-011 remains **PASS**.
+- PKK provider runtime remains **FROZEN_UNTIL_EXPLICIT_UNFREEZE**.
+
+Next gate: **CORE-V1-STAGE4-FOREIGN-KEYS-PREFLIGHT-001**, covering exactly the 11 authoritative `MIG-FK-*` preflight nodes in order 1370-1470. Global write-fence remains closed.
