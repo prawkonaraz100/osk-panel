@@ -225,12 +225,12 @@ quality_gate:
     - S5-FOUND-001
 
 next_single_step:
-  id: FORMAL-DOC-010
-  action: materialize_uploads_assets_runtime_for_formal_signed_scan_handoff_and_existing_asset_contract
-  prerequisite_previous_slice: FORMAL-DOC-009_PASS
+  id: FORMAL-DOC-011
+  action: materialize_formal_documents_UI_for_preview_approval_delivery_history_and_signed_scan_handoff
+  prerequisite_previous_slice: FORMAL-DOC-010_PASS
   implementation_order_source: AGENTS.md_step_10_hardening_and_formal_documents
   hardening_repo_actionable_P1_status: COMPLETE
-  formal_documents_status: GATE_9_PASS_GATE_10_IN_VALIDATION
+  formal_documents_status: GATE_10_PASS_GATE_11_NOT_STARTED
   PKK_provider_runtime_status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
   PKK_resume_requires:
     - explicit_user_unfreeze
@@ -2710,7 +2710,7 @@ FORMAL_DOCUMENTS_009_gate:
 
 FORMAL_DOCUMENTS_010_gate:
   id: FORMAL-DOC-010
-  status: IN_VALIDATION
+  status: PASS
   prerequisite: FORMAL-DOC-009_PASS
   scope:
     - canonical_uploads_presign_runtime
@@ -2790,6 +2790,49 @@ FORMAL_DOCUMENTS_010_gate:
   PKK:
     provider_runtime_in_scope: false
     status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+  provenance:
+    validation_helper_commit: 8809ebf830eb5e7c141d96d273c11ef243265e51
+    validation_helper_tree: 84ad523a6734d66842755bfc41642c1ce7cfe33e
+    validation_PR: 69
+    validation_PR_merged: false
+    helper_Implementation_CI_run: 34747599325
+    helper_API_contract_run: 34747599327
+    accepted_implementation_commit: 994061bac8b30ff19320a5f415efad230c76b80a
+    accepted_implementation_tree: 84ad523a6734d66842755bfc41642c1ce7cfe33e
+    accepted_Implementation_CI_run: 34747883792
+    accepted_API_contract_run: 34747883844
+  executable_evidence:
+    helper_Implementation_CI_jobs_passed: 5
+    helper_Implementation_CI_jobs_total: 5
+    helper_API_contract_gate: PASS
+    accepted_Implementation_CI_jobs_passed: 5
+    accepted_Implementation_CI_jobs_total: 5
+    accepted_API_contract_gate: PASS
+    accepted_PostgreSQL_suite_tests: 230
+    accepted_PostgreSQL_suite_assertions: 3122
+    deterministic_restore_harness: PASS
+    restore_source_table_count: 115
+    restore_restored_table_count: 115
+    backend_static_analysis: PASS_ZERO_ERRORS
+    frontend_lint_typecheck_build_audit: PASS
+    contracts_and_traceability: PASS
+    accepted_push_secret_scan: PASS
+    API_contract_187_rows_173_operations_14_aliases: PASS
+    uploads_presign_runtime: PASS
+    uploads_complete_idempotent_runtime: PASS
+    unsupported_server_generated_purpose_fail_closed: PASS
+    parent_binding_persisted_and_reauthorized: PASS
+    formal_signed_scan_assigned_student_scope: PASS
+    paper_only_signed_scan_parent: PASS
+    exact_size_SHA256_MIME_content_validation: PASS
+    invalid_content_rejected_never_ready: PASS
+    ready_asset_final_hash_verification: PASS
+    reservation_to_immutable_final_key: PASS
+    late_reservation_overwrite_cannot_mutate_ready_asset: PASS
+    FORMAL_DOC_009_signed_scan_attachment_integration: PASS
+    Stage_4_170_112_112_preservation: PASS
+    Stage_5_11_step_identity_preservation: PASS
+    PKK_provider_runtime_still_frozen: PASS
   pass_requires:
     - uploads_presign_runtime_PASS
     - uploads_complete_idempotent_runtime_PASS
