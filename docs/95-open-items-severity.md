@@ -14,6 +14,7 @@ Data: 2026-09-05
 - privacy/retention schedule — zdefiniowano wersjonowaną politykę per data class z ustawowymi terminami OSK (10 lat / 24 miesiące), finansowym minimum 5 lat, purpose-based profile cleanup, technicznymi TTL oraz legal-hold override; authority: docs/133-privacy-retention-schedule.md, specs/privacy/retention-schedule.yml i config/retention.php.
 - RPO/RTO authority — core-v1 recovery targets są jawne i wersjonowane: tier-0 PostgreSQL RPO <= 5 min / RTO <= 60 min, formalne object assets RPO <= 60 min / RTO <= 240 min, rebuildable projections RTO <= 240 min; Redis nie jest durable authority. OpenAPI validator jest również faktycznie aktywny w Implementation CI. Authority: docs/134-disaster-recovery-authority.md, specs/operations/disaster-recovery.yml i config/recovery.php.
 - deterministic restore-drill harness — Implementation CI wykonuje po testach realny PostgreSQL dump/isolated restore z fingerprintem i row-countami, odtwarza poprzednią wersję formalnego obiektu w S3 emulatorze oraz potwierdza pusty Redis. Harness jest CI evidence, nie produkcyjnym PITR/off-site drill. Authority: docs/135-restore-drill-harness.md i specs/operations/restore-drill-harness.yml.
+- incident response runbooks + ownership — zdefiniowano SEV1/SEV2/SEV3, role Incident Commander/Technical/Privacy/Business/Communications, 9 runbooków oraz warunkowy breach flow zgodny z art. 33–34 RODO; actual contact roster pozostaje deployment evidence. Authority: docs/136-incident-response-runbooks.md, specs/operations/incident-response.yml i config/incident_response.php.
 
 ## Deferred pending external authority
 
@@ -22,7 +23,7 @@ Data: 2026-09-05
 ## P1 before production
 
 - target-infrastructure restore drill proving the core-v1 recovery targets,
-- incident runbooks,
+- production incident contact roster + paging channel smoke test,
 - provider reconciliation jobs.
 
 ## P2 can be completed during normal implementation
