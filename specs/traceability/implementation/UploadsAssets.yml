@@ -26,8 +26,8 @@ changed_scope:
     domain_data: formal_training_documents + course_enrollments + students + file_assets
     api_use_case: uploads.presign + uploads.complete + formal_documents.delivery.record
     permission: formal_documents.deliver
-    ui: DEFERRED_UNTIL_FORMAL_DOCUMENTS_UI_GATE
-    acceptance_test: Tests\Feature\UploadAssetRuntimeTest::test_formal_signed_scan_upload_respects_assigned_student_scope_and_attaches_to_paper_document
+    ui: resources/js/modules/FormalDocuments/FormalTrainingDocumentsPanel.vue via student profile signed-scan handoff
+    acceptance_test: Tests\Feature\UploadAssetRuntimeTest::test_formal_signed_scan_upload_respects_assigned_student_scope_and_attaches_to_paper_document + Tests\Unit\FormalDocumentsUiContractTest::test_student_profile_materializes_exact_formal_document_and_signed_scan_workflow
     status: IMPLEMENTED
   - evidence: docs/147-uploads-assets-runtime.md
     requirement: completion copies verified bytes away from the presigned reservation key so a still-valid old PUT URL cannot mutate the ready asset
