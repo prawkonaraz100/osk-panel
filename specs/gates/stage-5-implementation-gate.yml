@@ -225,12 +225,12 @@ quality_gate:
     - S5-FOUND-001
 
 next_single_step:
-  id: FORMAL-DOC-004
-  action: materialize_and_execute_legacy_document_mode_preflight_without_backfill
-  prerequisite_previous_slice: FORMAL-DOC-003_PASS
+  id: FORMAL-DOC-005
+  action: deterministic_legacy_paper_mode_backfill_without_final_contract
+  prerequisite_previous_slice: FORMAL-DOC-004_PASS
   implementation_order_source: AGENTS.md_step_10_hardening_and_formal_documents
   hardening_repo_actionable_P1_status: COMPLETE
-  formal_documents_status: GATE_3_PASS_GATE_4_IN_VALIDATION
+  formal_documents_status: GATE_4_PASS_GATE_5_NOT_STARTED
   PKK_provider_runtime_status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
   PKK_resume_requires:
     - explicit_user_unfreeze
@@ -2027,7 +2027,7 @@ FORMAL_DOCUMENTS_003_gate:
 
 FORMAL_DOCUMENTS_004_gate:
   id: FORMAL-DOC-004
-  status: IN_VALIDATION
+  status: PASS
   prerequisite: FORMAL-DOC-003_PASS
   scope:
     - Stage_5_formal_documents_preflight_only
@@ -2063,6 +2063,38 @@ FORMAL_DOCUMENTS_004_gate:
   PKK:
     provider_runtime_in_scope: false
     status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+  provenance:
+    initial_validation_commit: 20d539a6ae4ba97608c30ba318019f85b3eb01d9
+    initial_validation_run: 34734842879
+    initial_validation_blocker: stale_FORMAL_DOC_003_regression_expectations_only
+    validation_repair_commit: 5c6d34e87d2bced13baee1ed92ee6ce0b56bd3db
+    validation_tree: 5b7ce556755b0744a4573c87a8130c5b7674b45b
+    validation_PR: 57
+    validation_PR_merged: false
+    helper_Implementation_CI_run: 34735706097
+    accepted_implementation_commit: 8c3c0b37609f5df521e2b8a08301d0e058fea068
+    accepted_implementation_tree: 5b7ce556755b0744a4573c87a8130c5b7674b45b
+    accepted_Implementation_CI_run: 34735837564
+  executable_evidence:
+    helper_Implementation_CI_jobs_passed: 5
+    helper_Implementation_CI_jobs_total: 5
+    accepted_Implementation_CI_jobs_passed: 5
+    accepted_Implementation_CI_jobs_total: 5
+    accepted_PostgreSQL_suite_tests: 200
+    accepted_PostgreSQL_suite_assertions: 2827
+    deterministic_restore_harness: PASS
+    restore_source_table_count: 115
+    restore_restored_table_count: 115
+    backend_static_analysis: PASS_ZERO_ERRORS
+    frontend_lint_typecheck_build_audit: PASS
+    contracts_and_traceability: PASS
+    accepted_push_secret_scan: PASS
+    clean_legacy_preflight_PostgreSQL: PASS
+    preflight_no_business_mutation: PASS
+    ambiguous_state_negative_tests: PASS
+    failed_preflight_not_recorded_as_applied: PASS
+    backfill_phase_remains_fail_closed: PASS
+    Stage_4_170_112_112_preservation: PASS
   pass_requires:
     - exact_preflight_file_hash_validation_PASS
     - clean_legacy_preflight_PostgreSQL_PASS
