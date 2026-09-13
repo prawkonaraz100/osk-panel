@@ -105,6 +105,7 @@ permission_groups:
     - formal_documents.view
     - formal_documents.approve
     - formal_documents.download
+    - formal_documents.deliver
 
   pkk:
     - pkk.view
@@ -261,6 +262,7 @@ permission_scope_profile_by_code:
   formal_documents.view: student_scoped
   formal_documents.approve: student_scoped
   formal_documents.download: student_scoped
+  formal_documents.deliver: student_scoped
 
   pkk.view: student_scoped
   pkk.fetch: student_scoped
@@ -403,6 +405,7 @@ role_templates:
     conditional:
       - courses.stage.change
       - formal_documents.approve
+      - formal_documents.deliver
       - pkk.view
       - pkk.fetch
       - exams.generate

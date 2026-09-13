@@ -215,6 +215,195 @@ final class FormalTrainingDocumentRuntimeTest extends TestCase
             ->where('document_type', 'theory_delivery_journal')->count());
     }
 
+    public function test_freshness_projection_detects_source_drift_without_writing_events(): void
+    {
+        $actor = $this->formalActor();
+        $course = $this->courseFixture($actor);
+
+        $preview = $this->preview($actor, $course['id'], 'training_record_card');
+        $document = $this->approveFromPreview($actor, $course['id'], $preview, '"v1"');
+
+        $fresh = $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->getJson("/api/v1/course-enrollments/{$course['id']}/formal-documents/freshness")
+            ->assertOk()
+            ->json();
+
+        $this->assertSame($course['id'], $fresh['course_enrollment_id']);
+        $this->assertSame('training_record_card', $fresh['documents'][0]['document_type']);
+        $this->assertSame('fresh', $fresh['documents'][0]['freshness']);
+        $this->assertSame($document['id'], $fresh['documents'][0]['latest_document_id']);
+        $this->assertSame('regeneration_required', $fresh['documents'][1]['freshness']);
+        $this->assertDatabaseCount('formal_training_document_events', 2);
+
+        DB::table('training_hour_ledger_entries')->insert([
+            'id' => (string) Str::uuid7(),
+            'organization_id' => $actor['organization_id'],
+            'course_enrollment_id' => $course['id'],
+            'training_session_id' => null,
+            'entry_type' => 'correction',
+            'training_part' => 'theory',
+            'minutes' => 15,
+            'source_entry_id' => null,
+            'reason' => 'freshness projection drift proof',
+            'actor_user_id' => $actor['user_id'],
+            'created_at' => now(),
+        ]);
+
+        $stale = $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->getJson("/api/v1/course-enrollments/{$course['id']}/formal-documents/freshness")
+            ->assertOk()
+            ->json();
+
+        $this->assertSame('regeneration_required', $stale['documents'][0]['freshness']);
+        $this->assertNotSame(
+            $stale['documents'][0]['current_evidence_bundle_hash'],
+            $stale['documents'][0]['latest_evidence_bundle_hash'],
+        );
+        $this->assertDatabaseCount('formal_training_document_events', 2);
+        $this->assertSame(
+            0,
+            DB::table('formal_training_document_events')->where('event_type', 'regeneration_detected')->count(),
+        );
+    }
+
+    public function test_paper_delivery_events_are_append_only_idempotent_and_asset_bound(): void
+    {
+        $actor = $this->formalActor();
+        $other = $this->formalActor();
+        $course = $this->courseFixture($actor);
+        $preview = $this->preview($actor, $course['id'], 'training_record_card');
+        $document = $this->approveFromPreview($actor, $course['id'], $preview, '"v1"');
+        $documentId = (string) $document['id'];
+
+        $printKey = (string) Str::uuid7();
+        $printed = $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->withHeader('Idempotency-Key', $printKey)
+            ->postJson("/api/v1/formal-training-documents/{$documentId}/delivery-events", [
+                'event_type' => 'printed',
+                'reason' => 'wydruk do podpisu',
+            ])
+            ->assertCreated();
+
+        $replayed = $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->withHeader('Idempotency-Key', $printKey)
+            ->postJson("/api/v1/formal-training-documents/{$documentId}/delivery-events", [
+                'event_type' => 'printed',
+                'reason' => 'wydruk do podpisu',
+            ])
+            ->assertCreated();
+
+        $this->assertSame($printed->json('id'), $replayed->json('id'));
+        $this->assertSame(
+            1,
+            DB::table('formal_training_document_events')
+                ->where('formal_training_document_id', $documentId)
+                ->where('event_type', 'printed')
+                ->count(),
+        );
+
+        $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->withHeader('Idempotency-Key', (string) Str::uuid7())
+            ->postJson("/api/v1/formal-training-documents/{$documentId}/delivery-events", [
+                'event_type' => 'signed_scan_attached',
+                'optional_asset_id' => $this->readyAsset($other, 'formal_training_signed_scan'),
+            ])
+            ->assertStatus(422);
+
+        $wrongPurpose = $this->readyAsset($actor, 'staff_photo');
+        $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->withHeader('Idempotency-Key', (string) Str::uuid7())
+            ->postJson("/api/v1/formal-training-documents/{$documentId}/delivery-events", [
+                'event_type' => 'signed_scan_attached',
+                'optional_asset_id' => $wrongPurpose,
+            ])
+            ->assertStatus(422);
+
+        $signedScan = $this->readyAsset($actor, 'formal_training_signed_scan');
+        $attached = $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->withHeader('Idempotency-Key', (string) Str::uuid7())
+            ->postJson("/api/v1/formal-training-documents/{$documentId}/delivery-events", [
+                'event_type' => 'signed_scan_attached',
+                'optional_asset_id' => $signedScan,
+                'reason' => 'podpisany skan papierowego dokumentu',
+            ])
+            ->assertCreated();
+
+        $this->assertSame($signedScan, $attached->json('optional_asset_id'));
+
+        $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->withHeader('Idempotency-Key', (string) Str::uuid7())
+            ->postJson("/api/v1/formal-training-documents/{$documentId}/delivery-events", [
+                'event_type' => 'electronic_presented',
+            ])
+            ->assertStatus(422);
+
+        $events = $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->getJson("/api/v1/formal-training-documents/{$documentId}/events")
+            ->assertOk()
+            ->json();
+
+        $eventTypes = array_column($events, 'event_type');
+        $this->assertContains('generated', $eventTypes);
+        $this->assertContains('approved', $eventTypes);
+        $this->assertContains('printed', $eventTypes);
+        $this->assertContains('signed_scan_attached', $eventTypes);
+        $this->assertNotContains('electronic_presented', $eventTypes);
+        $this->assertDatabaseCount('formal_training_documents', 1);
+        $this->assertSame(
+            (string) $document['content_hash'],
+            (string) DB::table('formal_training_documents')->where('id', $documentId)->value('content_hash'),
+        );
+        $this->assertSame(2, DB::table('audit_logs')->where('action', 'formal_document.delivery_recorded')->count());
+        $this->assertSame(2, DB::table('outbox_messages')->where('event_type', 'formal_document.delivery_recorded')->count());
+    }
+
+    public function test_electronic_delivery_rejects_paper_only_events_and_does_not_claim_signature(): void
+    {
+        $actor = $this->formalActor();
+        $course = $this->courseFixture($actor, 'electronic');
+        $preview = $this->preview($actor, $course['id'], 'training_record_card');
+        $document = $this->approveFromPreview($actor, $course['id'], $preview, '"v1"');
+        $documentId = (string) $document['id'];
+
+        $presented = $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->withHeader('Idempotency-Key', (string) Str::uuid7())
+            ->postJson("/api/v1/formal-training-documents/{$documentId}/delivery-events", [
+                'event_type' => 'electronic_presented',
+                'reason' => 'udostępniono elektroniczny rekord',
+            ])
+            ->assertCreated();
+
+        $this->assertSame('electronic_presented', $presented->json('event_type'));
+        $this->assertNull($presented->json('optional_asset_id'));
+
+        foreach (['printed', 'signed_scan_attached'] as $eventType) {
+            $payload = ['event_type' => $eventType];
+            if ($eventType === 'signed_scan_attached') {
+                $payload['optional_asset_id'] = $this->readyAsset($actor, 'formal_training_signed_scan');
+            }
+
+            $this->withSession(['auth_session_id' => $actor['session_id']])
+                ->withHeader('Idempotency-Key', (string) Str::uuid7())
+                ->postJson("/api/v1/formal-training-documents/{$documentId}/delivery-events", $payload)
+                ->assertStatus(422);
+        }
+
+        $this->assertSame(
+            1,
+            DB::table('formal_training_document_events')
+                ->where('formal_training_document_id', $documentId)
+                ->where('event_type', 'electronic_presented')
+                ->count(),
+        );
+        $this->assertSame(
+            0,
+            DB::table('formal_training_document_events')
+                ->where('formal_training_document_id', $documentId)
+                ->whereIn('event_type', ['printed', 'signed_scan_attached'])
+                ->count(),
+        );
+    }
+
     public function test_cross_tenant_document_routes_fail_closed(): void
     {
         $owner = $this->formalActor();
@@ -231,13 +420,28 @@ final class FormalTrainingDocumentRuntimeTest extends TestCase
         $this->withSession(['auth_session_id' => $other['session_id']])
             ->get("/api/v1/formal-training-documents/{$document['id']}/file")
             ->assertNotFound();
+
+        $this->withSession(['auth_session_id' => $other['session_id']])
+            ->getJson("/api/v1/course-enrollments/{$course['id']}/formal-documents/freshness")
+            ->assertNotFound();
+
+        $this->withSession(['auth_session_id' => $other['session_id']])
+            ->getJson("/api/v1/formal-training-documents/{$document['id']}/events")
+            ->assertNotFound();
+
+        $this->withSession(['auth_session_id' => $other['session_id']])
+            ->withHeader('Idempotency-Key', (string) Str::uuid7())
+            ->postJson("/api/v1/formal-training-documents/{$document['id']}/delivery-events", [
+                'event_type' => 'printed',
+            ])
+            ->assertNotFound();
     }
 
     /** @return array{organization_id:string,user_id:string,membership_id:string,session_id:string} */
     private function formalActor(): array
     {
         $actor = FoundationSchema::actor();
-        foreach (['formal_documents.view', 'formal_documents.approve', 'formal_documents.download'] as $permission) {
+        foreach (['formal_documents.view', 'formal_documents.approve', 'formal_documents.download', 'formal_documents.deliver'] as $permission) {
             FoundationSchema::grant($actor['membership_id'], $permission, ['organization']);
         }
 
@@ -248,7 +452,7 @@ final class FormalTrainingDocumentRuntimeTest extends TestCase
      * @param  array{organization_id:string,user_id:string,membership_id:string,session_id:string}  $actor
      * @return array{id:string}
      */
-    private function courseFixture(array $actor): array
+    private function courseFixture(array $actor, string $documentMode = 'paper'): array
     {
         $studentId = (string) Str::uuid7();
         DB::table('students')->insert([
@@ -288,7 +492,7 @@ final class FormalTrainingDocumentRuntimeTest extends TestCase
             'training_stage' => 'theory',
             'version' => 1,
             'requirements_revision' => 1,
-            'document_mode' => 'paper',
+            'document_mode' => $documentMode,
             'document_mode_selected_at' => now()->subDays(11),
             'document_mode_selected_by_user_id' => $actor['user_id'],
             'created_at' => now()->subDays(12),
@@ -357,6 +561,37 @@ final class FormalTrainingDocumentRuntimeTest extends TestCase
         ]);
 
         return ['id' => $courseId];
+    }
+
+    /**
+     * @param  array{organization_id:string,user_id:string,membership_id:string,session_id:string}  $actor
+     */
+    private function readyAsset(array $actor, string $purpose): string
+    {
+        $assetId = (string) Str::uuid7();
+        $bytes = 'synthetic signed scan '.$assetId;
+
+        DB::table('file_assets')->insert([
+            'id' => $assetId,
+            'organization_id' => $actor['organization_id'],
+            'storage_disk' => 'local',
+            'storage_key' => 'test-assets/'.$assetId,
+            'original_filename' => 'scan.pdf',
+            'mime_type_declared' => 'application/pdf',
+            'mime_type_detected' => 'application/pdf',
+            'size_bytes' => strlen($bytes),
+            'sha256' => hash('sha256', $bytes),
+            'purpose' => $purpose,
+            'status' => 'ready',
+            'created_by_user_id' => $actor['user_id'],
+            'created_at' => now(),
+            'ready_at' => now(),
+            'deleted_at' => null,
+        ]);
+
+        Storage::disk('local')->put('test-assets/'.$assetId, $bytes);
+
+        return $assetId;
     }
 
     /**

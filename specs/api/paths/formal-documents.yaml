@@ -112,6 +112,94 @@ paths:
               schema: { $ref: '#/components/schemas/FormalTrainingDocument' }
         default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
 
+  /course-enrollments/{courseEnrollmentId}/formal-documents/freshness:
+    get:
+      tags: [FormalDocuments]
+      operationId: formalDocumentsFreshness
+      x-requirement-id: formal_documents.freshness
+      x-permission: formal_documents.view
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/CourseEnrollmentId' }
+      responses:
+        '200':
+          description: Reusable current-source freshness projection for both formal document types
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [course_enrollment_id, course_version, requirements_revision, documents]
+                properties:
+                  course_enrollment_id: { type: string, format: uuid }
+                  course_version: { type: integer, minimum: 1 }
+                  requirements_revision: { type: integer, minimum: 1 }
+                  documents:
+                    type: array
+                    minItems: 2
+                    maxItems: 2
+                    items: { $ref: '#/components/schemas/FormalDocumentFreshness' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+
+  /formal-training-documents/{documentId}/events:
+    get:
+      tags: [FormalDocuments]
+      operationId: formalDocumentsEventsList
+      x-requirement-id: formal_documents.events.list
+      x-permission: formal_documents.view
+      parameters:
+        - name: documentId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Append-only lifecycle history for one immutable formal document revision
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/FormalTrainingDocumentEvent' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+
+  /formal-training-documents/{documentId}/delivery-events:
+    post:
+      tags: [FormalDocuments]
+      operationId: formalDocumentsDeliveryEventCreate
+      x-requirement-id: formal_documents.delivery.record
+      x-permission: formal_documents.deliver
+      parameters:
+        - name: documentId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [event_type]
+              properties:
+                event_type:
+                  type: string
+                  enum: [printed, signed_scan_attached, electronic_presented]
+                optional_asset_id:
+                  oneOf:
+                    - { type: string, format: uuid }
+                    - { type: 'null' }
+                reason:
+                  oneOf:
+                    - { type: string, maxLength: 1000 }
+                    - { type: 'null' }
+      responses:
+        '201':
+          description: Append-only document delivery lifecycle event
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FormalTrainingDocumentEvent' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+
   /formal-training-documents/{documentId}/file:
     get:
       tags: [FormalDocuments]
@@ -136,6 +224,71 @@ paths:
 
 components:
   schemas:
+    FormalDocumentFreshness:
+      type: object
+      required:
+        - document_type
+        - freshness
+        - current_evidence_bundle_hash
+        - latest_document_id
+        - latest_revision
+        - latest_evidence_bundle_hash
+      properties:
+        document_type:
+          type: string
+          enum: [training_record_card, theory_delivery_journal]
+        freshness:
+          type: string
+          enum: [fresh, regeneration_required]
+        current_evidence_bundle_hash:
+          type: string
+          pattern: '^[a-f0-9]{64}$'
+        latest_document_id:
+          oneOf:
+            - { type: string, format: uuid }
+            - { type: 'null' }
+        latest_revision:
+          oneOf:
+            - { type: integer, minimum: 1 }
+            - { type: 'null' }
+        latest_evidence_bundle_hash:
+          oneOf:
+            - type: string
+              pattern: '^[a-f0-9]{64}$'
+            - { type: 'null' }
+
+    FormalTrainingDocumentEvent:
+      type: object
+      required:
+        - id
+        - formal_training_document_id
+        - event_type
+        - actor_user_id
+        - reason
+        - optional_asset_id
+        - occurred_at
+        - created_at
+      properties:
+        id: { type: string, format: uuid }
+        formal_training_document_id: { type: string, format: uuid }
+        event_type:
+          type: string
+          enum: [generated, approved, printed, signed_scan_attached, electronic_presented, regeneration_detected]
+        actor_user_id:
+          oneOf:
+            - { type: string, format: uuid }
+            - { type: 'null' }
+        reason:
+          oneOf:
+            - { type: string }
+            - { type: 'null' }
+        optional_asset_id:
+          oneOf:
+            - { type: string, format: uuid }
+            - { type: 'null' }
+        occurred_at: { type: string, format: date-time }
+        created_at: { type: string, format: date-time }
+
     FormalDocumentTemplateBinding:
       type: object
       required: [id, document_type, template_version, renderer_version, template_content_hash]

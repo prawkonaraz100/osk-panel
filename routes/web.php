@@ -96,8 +96,11 @@ Route::middleware(ResourceApiMiddleware::class)->prefix('api/v1')->group(functio
     Route::post('/course-enrollments/{courseEnrollmentId}/recognized-external-training/{recordId}/revoke', [StudentCourseController::class, 'externalTrainingRevoke']);
 
     Route::get('/course-enrollments/{courseEnrollmentId}/formal-documents/preview', [FormalTrainingDocumentController::class, 'preview']);
+    Route::get('/course-enrollments/{courseEnrollmentId}/formal-documents/freshness', [FormalTrainingDocumentController::class, 'freshness']);
     Route::get('/course-enrollments/{courseEnrollmentId}/formal-documents', [FormalTrainingDocumentController::class, 'list']);
     Route::post('/course-enrollments/{courseEnrollmentId}/formal-documents', [FormalTrainingDocumentController::class, 'approve']);
+    Route::get('/formal-training-documents/{documentId}/events', [FormalTrainingDocumentController::class, 'events']);
+    Route::post('/formal-training-documents/{documentId}/delivery-events', [FormalTrainingDocumentController::class, 'deliveryEvent']);
     Route::get('/formal-training-documents/{documentId}/file', [FormalTrainingDocumentController::class, 'download']);
 
     Route::get('/course-enrollments/{courseEnrollmentId}/training-sessions', [TrainingSessionController::class, 'list']);

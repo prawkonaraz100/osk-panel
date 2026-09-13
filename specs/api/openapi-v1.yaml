@@ -85,7 +85,10 @@ paths:
   /course-enrollments/{courseEnrollmentId}/recognized-external-training/{recordId}/revoke: { $ref: './paths/students-courses.yaml#/paths/~1course-enrollments~1{courseEnrollmentId}~1recognized-external-training~1{recordId}~1revoke' }
 
   /course-enrollments/{courseEnrollmentId}/formal-documents/preview: { $ref: './paths/formal-documents.yaml#/paths/~1course-enrollments~1{courseEnrollmentId}~1formal-documents~1preview' }
+  /course-enrollments/{courseEnrollmentId}/formal-documents/freshness: { $ref: './paths/formal-documents.yaml#/paths/~1course-enrollments~1{courseEnrollmentId}~1formal-documents~1freshness' }
   /course-enrollments/{courseEnrollmentId}/formal-documents: { $ref: './paths/formal-documents.yaml#/paths/~1course-enrollments~1{courseEnrollmentId}~1formal-documents' }
+  /formal-training-documents/{documentId}/events: { $ref: './paths/formal-documents.yaml#/paths/~1formal-training-documents~1{documentId}~1events' }
+  /formal-training-documents/{documentId}/delivery-events: { $ref: './paths/formal-documents.yaml#/paths/~1formal-training-documents~1{documentId}~1delivery-events' }
   /formal-training-documents/{documentId}/file: { $ref: './paths/formal-documents.yaml#/paths/~1formal-training-documents~1{documentId}~1file' }
 
   /course-enrollments/{courseEnrollmentId}/pkk: { $ref: './paths/pkk-calendar.yaml#/paths/~1course-enrollments~1{courseEnrollmentId}~1pkk' }

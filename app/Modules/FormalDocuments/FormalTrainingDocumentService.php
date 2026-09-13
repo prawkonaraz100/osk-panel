@@ -19,8 +19,13 @@ final class FormalTrainingDocumentService
 {
     public const ASSET_PURPOSE = 'formal_training_document';
 
+    public const SIGNED_SCAN_ASSET_PURPOSE = 'formal_training_signed_scan';
+
     /** @var list<string> */
     private const DOCUMENT_TYPES = ['training_record_card', 'theory_delivery_journal'];
+
+    /** @var list<string> */
+    private const DELIVERY_EVENT_TYPES = ['printed', 'signed_scan_attached', 'electronic_presented'];
 
     public function __construct(
         private readonly StudentCourseScopeAuthorizer $scope,
@@ -83,6 +88,190 @@ final class FormalTrainingDocumentService
             ->get()
             ->map(fn ($row): array => $this->presentDocument($row))
             ->all());
+    }
+
+    /** @return array<string,mixed> */
+    public function freshness(string $sessionId, string $courseId): array
+    {
+        $actor = $this->scope->requireCourseTarget($sessionId, 'formal_documents.view', $courseId);
+
+        $course = DB::table('course_enrollments')
+            ->where('organization_id', $actor['organization_id'])
+            ->where('id', $courseId)
+            ->first();
+        if ($course === null) {
+            throw ResourceDomainException::notFound();
+        }
+        $courseRow = (array) $course;
+
+        $documents = [];
+        foreach (self::DOCUMENT_TYPES as $documentType) {
+            $documents[] = $this->freshnessForType(
+                $actor['organization_id'],
+                $course,
+                $documentType,
+            );
+        }
+
+        return [
+            'course_enrollment_id' => $courseId,
+            'course_version' => (int) $courseRow['version'],
+            'requirements_revision' => (int) $courseRow['requirements_revision'],
+            'documents' => $documents,
+        ];
+    }
+
+    /** @return list<array<string,mixed>> */
+    public function events(string $sessionId, string $documentId): array
+    {
+        $membership = $this->scope->visibility($sessionId, 'formal_documents.view')['membership'];
+
+        $document = DB::table('formal_training_documents')
+            ->where('organization_id', $membership['organization_id'])
+            ->where('id', $documentId)
+            ->first();
+        if ($document === null) {
+            throw ResourceDomainException::notFound();
+        }
+        $documentRow = (array) $document;
+
+        $this->scope->requireCourseTarget(
+            $sessionId,
+            'formal_documents.view',
+            (string) $documentRow['course_enrollment_id'],
+        );
+
+        return array_values(DB::table('formal_training_document_events')
+            ->where('organization_id', $membership['organization_id'])
+            ->where('formal_training_document_id', $documentId)
+            ->orderBy('occurred_at')
+            ->orderBy('id')
+            ->get()
+            ->map(fn ($row): array => $this->presentEvent($row))
+            ->all());
+    }
+
+    /**
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function recordDeliveryEvent(
+        string $sessionId,
+        string $documentId,
+        array $input,
+        string $requestId,
+    ): array {
+        $eventType = (string) ($input['event_type'] ?? '');
+        if (! in_array($eventType, self::DELIVERY_EVENT_TYPES, true)) {
+            throw ResourceDomainException::rule('Unsupported formal document delivery event.');
+        }
+
+        $membership = $this->scope->visibility($sessionId, 'formal_documents.deliver')['membership'];
+
+        return DB::transaction(function () use (
+            $sessionId,
+            $documentId,
+            $eventType,
+            $input,
+            $requestId,
+            $membership,
+        ): array {
+            $document = DB::table('formal_training_documents')
+                ->where('organization_id', $membership['organization_id'])
+                ->where('id', $documentId)
+                ->lockForUpdate()
+                ->first();
+            if ($document === null) {
+                throw ResourceDomainException::notFound();
+            }
+            $documentRow = (array) $document;
+
+            $actor = $this->scope->requireCourseTarget(
+                $sessionId,
+                'formal_documents.deliver',
+                (string) $documentRow['course_enrollment_id'],
+            );
+
+            $assetId = $this->nullableString($input['optional_asset_id'] ?? null);
+            $reason = $this->nullableString($input['reason'] ?? null);
+            $mode = (string) $documentRow['document_mode_snapshot'];
+
+            if ($eventType === 'printed') {
+                if ($mode !== 'paper') {
+                    throw ResourceDomainException::rule('Only paper-mode formal documents may be recorded as printed.');
+                }
+                if ($assetId !== null) {
+                    throw ResourceDomainException::rule('Printed event must not bind an optional asset.');
+                }
+            } elseif ($eventType === 'electronic_presented') {
+                if ($mode !== 'electronic') {
+                    throw ResourceDomainException::rule('Only electronic-mode formal documents may be recorded as electronically presented.');
+                }
+                if ($assetId !== null) {
+                    throw ResourceDomainException::rule('Electronic presentation event must not bind an optional asset.');
+                }
+            } else {
+                if ($mode !== 'paper') {
+                    throw ResourceDomainException::rule('Signed scan attachment is only valid for paper-mode formal documents.');
+                }
+                if ($assetId === null) {
+                    throw ResourceDomainException::rule('Signed scan attachment requires a ready asset.');
+                }
+
+                $asset = DB::table('file_assets')
+                    ->where('organization_id', $actor['organization_id'])
+                    ->where('id', $assetId)
+                    ->where('purpose', self::SIGNED_SCAN_ASSET_PURPOSE)
+                    ->where('status', 'ready')
+                    ->whereNull('deleted_at')
+                    ->first();
+
+                if ($asset === null) {
+                    throw ResourceDomainException::rule('Signed scan asset is not ready for the required tenant purpose.');
+                }
+                $assetRow = (array) $asset;
+                if (preg_match('/^[a-f0-9]{64}$/', (string) ($assetRow['sha256'] ?? '')) !== 1) {
+                    throw ResourceDomainException::rule('Signed scan asset must have a verified SHA-256 before attachment.');
+                }
+            }
+
+            $eventId = (string) Str::uuid7();
+            $now = CarbonImmutable::now();
+
+            DB::table('formal_training_document_events')->insert([
+                'id' => $eventId,
+                'organization_id' => $actor['organization_id'],
+                'formal_training_document_id' => $documentId,
+                'event_type' => $eventType,
+                'actor_user_id' => $actor['user_id'],
+                'reason' => $reason,
+                'optional_asset_id' => $assetId,
+                'occurred_at' => $now,
+                'created_at' => $now,
+            ]);
+
+            $this->auditOutbox->recordOrganizationEvent(
+                $actor['organization_id'],
+                $actor['id'],
+                $actor['user_id'],
+                'formal_document.delivery_recorded',
+                'formal_training_document',
+                $documentId,
+                $requestId,
+                ['fields' => ['delivery_state'], 'state' => 'approved'],
+                ['fields' => ['delivery_state'], 'state' => $eventType],
+            );
+
+            $row = DB::table('formal_training_document_events')
+                ->where('organization_id', $actor['organization_id'])
+                ->where('id', $eventId)
+                ->first();
+            if ($row === null) {
+                throw ResourceDomainException::conflict('Formal document delivery event was not persisted.');
+            }
+
+            return $this->presentEvent($row);
+        });
     }
 
     /**
@@ -610,6 +799,59 @@ final class FormalTrainingDocumentService
         if (! ctype_digit($normalized) || (int) $normalized !== (int) $courseRow['version']) {
             throw ResourceDomainException::conflict('CourseEnrollment changed since formal document preview.');
         }
+    }
+
+    /** @return array<string,mixed> */
+    private function freshnessForType(string $organizationId, object $course, string $documentType): array
+    {
+        $courseRow = (array) $course;
+        $currentHash = $this->evidenceHash($this->buildEvidence($organizationId, $course, $documentType));
+
+        $latest = DB::table('formal_training_documents')
+            ->where('organization_id', $organizationId)
+            ->where('course_enrollment_id', (string) $courseRow['id'])
+            ->where('document_type', $documentType)
+            ->orderByDesc('revision')
+            ->first();
+
+        if ($latest === null) {
+            return [
+                'document_type' => $documentType,
+                'freshness' => 'regeneration_required',
+                'current_evidence_bundle_hash' => $currentHash,
+                'latest_document_id' => null,
+                'latest_revision' => null,
+                'latest_evidence_bundle_hash' => null,
+            ];
+        }
+        $latestRow = (array) $latest;
+        $latestHash = (string) $latestRow['evidence_bundle_hash'];
+
+        return [
+            'document_type' => $documentType,
+            'freshness' => hash_equals($latestHash, $currentHash) ? 'fresh' : 'regeneration_required',
+            'current_evidence_bundle_hash' => $currentHash,
+            'latest_document_id' => (string) $latestRow['id'],
+            'latest_revision' => (int) $latestRow['revision'],
+            'latest_evidence_bundle_hash' => $latestHash,
+        ];
+    }
+
+    /** @return array<string,mixed> */
+    private function presentEvent(object $row): array
+    {
+        $data = (array) $row;
+
+        return [
+            'id' => (string) $data['id'],
+            'formal_training_document_id' => (string) $data['formal_training_document_id'],
+            'event_type' => (string) $data['event_type'],
+            'actor_user_id' => $this->nullableString($data['actor_user_id']),
+            'reason' => $this->nullableString($data['reason']),
+            'optional_asset_id' => $this->nullableString($data['optional_asset_id']),
+            'occurred_at' => $this->timestamp($data['occurred_at']),
+            'created_at' => $this->timestamp($data['created_at']),
+        ];
     }
 
     private function assertDocumentType(string $documentType): void
