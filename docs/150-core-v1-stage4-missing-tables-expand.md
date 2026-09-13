@@ -2,7 +2,7 @@
 
 Date: 2026-09-13
 
-Status: `IN_VALIDATION`
+Status: `PASS`
 
 ## Purpose
 
@@ -191,3 +191,45 @@ This gate:
 - does not reopen earlier local PASS records.
 
 PKK provider runtime remains `FROZEN_UNTIL_EXPLICIT_UNFREEZE`.
+
+
+## Closure evidence
+
+CORE-V1-STAGE4-MISSING-TABLES-001 is closed PASS on the exact validated implementation tree.
+
+Validation-only helper:
+
+- validation PR: **#76**, closed without merge,
+- helper commit: `ef3d84187ecbe5cad821052cd63c6d9724eba08d`,
+- helper tree: `af9887d90915f8e487c707c206ea22f035f70a34`,
+- helper Implementation CI: run `34752826676` — **5/5 PASS**,
+- PostgreSQL: **232 tests / 3172 assertions**,
+- deterministic restore: **121 → 121**, `RESTORE_DRILL_HARNESS=PASS`.
+
+Clean accepted implementation:
+
+- accepted commit: `0fe8c82cfdf7e62cec9dd5c5e442725e68002cd9`,
+- accepted tree: `af9887d90915f8e487c707c206ea22f035f70a34`,
+- exact helper/accepted tree match: **PASS**,
+- accepted Implementation CI: run `34753070688` — **5/5 PASS**,
+- PostgreSQL: **232 tests / 3172 assertions**,
+- deterministic restore: **121 → 121**, `RESTORE_DRILL_HARNESS=PASS`,
+- backend static analysis: **PASS_ZERO_ERRORS**,
+- frontend quality: **PASS**,
+- contracts and traceability: **PASS**,
+- secret scan: **PASS**.
+
+Migration authority after PASS:
+
+- Stage-4 DAG: **170 nodes**,
+- Stage-4 materialized nodes: **118**,
+- Stage-4 materialized steps: **118**,
+- Stage-4 plan identity remains `d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10`,
+- Stage-4 execution identity is `bba8fb733d634e180b2133057dd73dcabae116d344496027b2f1ecaf0f48de6c`,
+- Stage-5 formal-document authority remains **11 steps**,
+- API inventory remains **187 / 173 / 14**,
+- PKK provider runtime remains **FROZEN_UNTIL_EXPLICIT_UNFREEZE**.
+
+The six missing Stage-4 table nodes are now closed. There are no missing table nodes remaining.
+
+Next gate: **CORE-V1-STAGE4-CANDIDATE-KEYS-001** for exactly the eight authoritative `MIG-CK-*` nodes. It remains a separate gate and must not materialize indexes, foreign keys, constraints, triggers or projections.
