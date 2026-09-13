@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
   "plan_identity": "d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10",
-  "execution_identity": "bba8fb733d634e180b2133057dd73dcabae116d344496027b2f1ecaf0f48de6c",
+  "execution_identity": "d238e4aab3a4364aef855d8f79d765083a05d3757995c6353386306a79e19b1c",
   "stage4_root": "database/migrations/stage4",
   "implemented_steps": [
     {
@@ -909,7 +909,7 @@
       "phase": "expand",
       "migration_file": "database/migrations/stage4/expand/MIG-TBL-ORDER_ITEMS/2026_09_10_001010_create_order_items_table.php",
       "migration_name": "2026_09_10_001010_create_order_items_table",
-      "file_sha256": "cc6261808c4f6987e05de547cbe02b52697e6436d6ccb64971d002fc05ffa49a",
+      "file_sha256": "ed2b9b15cf5e6421b0f1ea215a5bca7538d2b97d237fea33b08d40c3c2f2385e",
       "restart_classification": "restart_safe",
       "safe_down": false
     },
