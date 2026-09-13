@@ -3264,7 +3264,7 @@ CORE_V1_STAGE4_CANDIDATE_KEYS_001_gate:
     plan_identity: d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10
     authority_git_blob: ad5f2aa2e14ef248b95dd3dda0d1cbcb2e69d441
     previous_execution_identity: bba8fb733d634e180b2133057dd73dcabae116d344496027b2f1ecaf0f48de6c
-    candidate_execution_identity: db1ff3bfdbeacb32f1a0512cc30806cc93e9bcdca35e416ef81b6fadd7a3b303
+    candidate_execution_identity: ea9cbf83c22be708f22676be11aef4bf18d3c22f1520e13a22cb52743a37b882
   diagnosed_sequence_defect:
     previous_next_step_requested_candidate_preflight_and_write_fence_together: true
     executable_runner_uses_global_phase_barrier: true
@@ -3328,7 +3328,7 @@ CORE_V1_STAGE4_CANDIDATE_KEYS_001_gate:
     - exact_eight_candidate_key_preflight_nodes_registered_in_canonical_order_PASS
     - exact_migration_file_SHA256_registry_PASS
     - Stage_4_plan_identity_unchanged_PASS
-    - Stage_4_execution_identity_db1ff3bfdbeacb32f1a0512cc30806cc93e9bcdca35e416ef81b6fadd7a3b303_PASS
+    - Stage_4_execution_identity_ea9cbf83c22be708f22676be11aef4bf18d3c22f1520e13a22cb52743a37b882_PASS
     - controlled_preflight_PostgreSQL_PASS
     - preflight_duplicate_scan_NULL_semantics_PASS
     - preflight_schema_mutation_zero_PASS
