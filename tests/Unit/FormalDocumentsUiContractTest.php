@@ -22,20 +22,20 @@ final class FormalDocumentsUiContractTest extends TestCase
         $this->assertStringContainsString('<FormalTrainingDocumentsPanel', $studentWorkspace);
 
         foreach ([
-            '/formal-documents\`',
-            '/formal-documents/freshness\`',
+            '/formal-documents`',
+            '/formal-documents/freshness`',
             '/formal-documents/preview?document_type=training_record_card',
             '/formal-documents/preview?document_type=theory_delivery_journal',
-            '/formal-training-documents/\${document.id}/file',
-            '/formal-training-documents/\${document.id}/events',
-            '/formal-training-documents/\${document.id}/delivery-events',
+            '/formal-training-documents/${document.id}/file',
+            '/formal-training-documents/${document.id}/events',
+            '/formal-training-documents/${document.id}/delivery-events',
             '/api/v1/uploads/presign',
-            '/api/v1/uploads/\${presign.data.upload_id}/complete',
+            '/api/v1/uploads/${presign.data.upload_id}/complete',
         ] as $endpoint) {
             $this->assertStringContainsString($endpoint, $panel);
         }
 
-        $this->assertStringContainsString('headers: { \'If-Match\': \`"v\${preview.course_version}"\` }', $panel);
+        $this->assertStringContainsString('headers: { \'If-Match\': `"v${preview.course_version}"` }', $panel);
         $this->assertStringContainsString('requirements_revision: preview.requirements_revision', $panel);
         $this->assertStringContainsString('evidence_bundle_hash: preview.evidence_bundle_hash', $panel);
         $this->assertStringContainsString('template_content_hash: preview.template.template_content_hash', $panel);
