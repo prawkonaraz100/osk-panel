@@ -90,7 +90,6 @@ final class FormalTrainingDocumentService
             ->all());
     }
 
-
     /** @return array<string,mixed> */
     public function freshness(string $sessionId, string $courseId): array
     {
