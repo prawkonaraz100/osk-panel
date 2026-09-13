@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
   "plan_identity": "d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10",
-  "execution_identity": "db1ff3bfdbeacb32f1a0512cc30806cc93e9bcdca35e416ef81b6fadd7a3b303",
+  "execution_identity": "ea9cbf83c22be708f22676be11aef4bf18d3c22f1520e13a22cb52743a37b882",
   "stage4_root": "database/migrations/stage4",
   "implemented_steps": [
     {
@@ -1071,7 +1071,7 @@
       "phase": "preflight",
       "migration_file": "database/migrations/stage4/preflight/MIG-CK-IDENTITY/2026_09_10_001190_preflight_candidate_keys_identity.php",
       "migration_name": "2026_09_10_001190_preflight_candidate_keys_identity",
-      "file_sha256": "fa97bc0b03058332cf5471b91ac9ab6b48bf5a86a8e0d256db4f1496a69c8906",
+      "file_sha256": "ba98d5bcaee4fc5a6e6cae224674cee03f9a47dd9717688e8267da6025eb5e63",
       "restart_classification": "manual_review",
       "safe_down": false
     },
@@ -1080,7 +1080,7 @@
       "phase": "preflight",
       "migration_file": "database/migrations/stage4/preflight/MIG-CK-ASSETS_RESOURCES/2026_09_10_001200_preflight_candidate_keys_assets_resources.php",
       "migration_name": "2026_09_10_001200_preflight_candidate_keys_assets_resources",
-      "file_sha256": "0fe953d66f2a0695c37ad846b83c76b623cd7520bba07b91cfa0faa154eedfb2",
+      "file_sha256": "d30be8e987b076217feacc3c51ae00eb1110dd82b97c4276ea6515384095ece5",
       "restart_classification": "manual_review",
       "safe_down": false
     },
@@ -1089,7 +1089,7 @@
       "phase": "preflight",
       "migration_file": "database/migrations/stage4/preflight/MIG-CK-TRAINING/2026_09_10_001210_preflight_candidate_keys_training.php",
       "migration_name": "2026_09_10_001210_preflight_candidate_keys_training",
-      "file_sha256": "f7272f196118fee5a1ae5475f08be2da41198f5665f5c372e5cff43f4b2c728d",
+      "file_sha256": "896b0e62f3d983688f847de81aeaa0c16145c65e9b048a8918c2dda196f3f724",
       "restart_classification": "manual_review",
       "safe_down": false
     },
@@ -1098,7 +1098,7 @@
       "phase": "preflight",
       "migration_file": "database/migrations/stage4/preflight/MIG-CK-FINANCE/2026_09_10_001220_preflight_candidate_keys_finance.php",
       "migration_name": "2026_09_10_001220_preflight_candidate_keys_finance",
-      "file_sha256": "90e49a2a0f9e96fe60245e96e8cf8bef9367d2b1cf7bc2fc036ca9298a3db730",
+      "file_sha256": "c5e21df994652865229eb708f9da0e15dbbf266f50443d2c262b023405bce116",
       "restart_classification": "manual_review",
       "safe_down": false
     },
@@ -1107,7 +1107,7 @@
       "phase": "preflight",
       "migration_file": "database/migrations/stage4/preflight/MIG-CK-LICENSES/2026_09_10_001230_preflight_candidate_keys_licenses.php",
       "migration_name": "2026_09_10_001230_preflight_candidate_keys_licenses",
-      "file_sha256": "f50955daf45ee14fab8bb224c89efd8b16114a698809122fc7f782d2e1ce23a5",
+      "file_sha256": "e61c2a5871091824fe7b5108ac026bb25052364f557e6406bb1f561dfa22eaf8",
       "restart_classification": "manual_review",
       "safe_down": false
     },
@@ -1116,7 +1116,7 @@
       "phase": "preflight",
       "migration_file": "database/migrations/stage4/preflight/MIG-CK-EXAMS/2026_09_10_001240_preflight_candidate_keys_exams.php",
       "migration_name": "2026_09_10_001240_preflight_candidate_keys_exams",
-      "file_sha256": "248bd94d30df313eddd0ad99ce2737173ff379b570a7094e49b8c7c7f6fe2d0b",
+      "file_sha256": "1aa3e59d7a19435ff5b7e7fe5157b6b98fb6f20f2edae6386135d54435b982b2",
       "restart_classification": "manual_review",
       "safe_down": false
     },
@@ -1125,7 +1125,7 @@
       "phase": "preflight",
       "migration_file": "database/migrations/stage4/preflight/MIG-CK-COMMERCE/2026_09_10_001250_preflight_candidate_keys_commerce.php",
       "migration_name": "2026_09_10_001250_preflight_candidate_keys_commerce",
-      "file_sha256": "810d3b05e9f5a81c8bc6a86a87044111de50f052bdde50dd81dd4f401d1d608e",
+      "file_sha256": "1ca826bb188db42b925a772c5077b0c681e37941fdc551fab31092dc2db7c64a",
       "restart_classification": "manual_review",
       "safe_down": false
     },
@@ -1134,7 +1134,7 @@
       "phase": "preflight",
       "migration_file": "database/migrations/stage4/preflight/MIG-CK-EVENTS/2026_09_10_001260_preflight_candidate_keys_events.php",
       "migration_name": "2026_09_10_001260_preflight_candidate_keys_events",
-      "file_sha256": "c0c0778c14b7fcb2aa04125030c973cbc1037a418c2a39ac88b75bb88b17ce03",
+      "file_sha256": "d23cb429563349bd6b30c53d49fdc7c77818f13a97ee953640b45bc1d0471226",
       "restart_classification": "manual_review",
       "safe_down": false
     }
