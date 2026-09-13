@@ -15,16 +15,18 @@ Data: 2026-09-05
 - RPO/RTO authority — core-v1 recovery targets są jawne i wersjonowane: tier-0 PostgreSQL RPO <= 5 min / RTO <= 60 min, formalne object assets RPO <= 60 min / RTO <= 240 min, rebuildable projections RTO <= 240 min; Redis nie jest durable authority. OpenAPI validator jest również faktycznie aktywny w Implementation CI. Authority: docs/134-disaster-recovery-authority.md, specs/operations/disaster-recovery.yml i config/recovery.php.
 - deterministic restore-drill harness — Implementation CI wykonuje po testach realny PostgreSQL dump/isolated restore z fingerprintem i row-countami, odtwarza poprzednią wersję formalnego obiektu w S3 emulatorze oraz potwierdza pusty Redis. Harness jest CI evidence, nie produkcyjnym PITR/off-site drill. Authority: docs/135-restore-drill-harness.md i specs/operations/restore-drill-harness.yml.
 - incident response runbooks + ownership — zdefiniowano SEV1/SEV2/SEV3, role Incident Commander/Technical/Privacy/Business/Communications, 9 runbooków oraz warunkowy breach flow zgodny z art. 33–34 RODO; actual contact roster pozostaje deployment evidence. Authority: docs/136-incident-response-runbooks.md, specs/operations/incident-response.yml i config/incident_response.php.
+- provider-neutral reconciliation runtime — read-only scanner i scheduler kontrolują commerce settlement/fulfillment, purchase grant cardinality, license inventory, internal-exam ledger/reservations oraz outbox reconciliation bez automatycznej korekty i bez provider-specific truth guessing. PKK jest jawnie poza zakresem i zamrożone. Authority: docs/137-provider-neutral-reconciliation.md, specs/operations/reconciliation.yml i config/reconciliation.php.
 
 ## Deferred pending external authority
 
-- PKK provider/runtime integration is deferred until authoritative PWPW guidance or contract is received and verified. Existing PKK evidence, contracts and provider-neutral Gate 1 schema groundwork are preserved; no provider-specific behavior may be invented in the meantime. This deferment does not block the remaining core v1 slices.
+- PKK provider/runtime integration **and PKK reconciliation are frozen until explicit unfreeze** after authoritative PWPW guidance or contract is received and verified. Existing PKK evidence, contracts and provider-neutral Gate 1 schema groundwork are preserved; no provider-specific behavior may be invented in the meantime. This deferment does not block the remaining core v1 slices.
+- remote payment-provider truth lookup remains an adapter-specific boundary. H7 does not invent a provider protocol. Before enabling a provider whose asynchronous state can become ambiguous, its real adapter and reconciliation contract must be validated against that provider's authoritative API/contract.
 
 ## P1 before production
 
 - target-infrastructure restore drill proving the core-v1 recovery targets,
 - production incident contact roster + paging channel smoke test,
-- provider reconciliation jobs.
+- production scheduler + alert-delivery smoke test proving reconciliation findings reach an operator.
 
 ## P2 can be completed during normal implementation
 
