@@ -90,10 +90,10 @@ final class Stage4MissingTablesExpandTest extends TestCase
         $plan = app(MigrationPlan::class);
         $plan->validate();
         $this->assertSame(170, $plan->nodeCount());
-        $this->assertSame(136, $plan->implementedNodeCount());
-        $this->assertSame(136, $plan->implementedStepCount());
+        $this->assertSame(147, $plan->implementedNodeCount());
+        $this->assertSame(147, $plan->implementedStepCount());
         $this->assertSame(
-            'bf71200c44672f2942071dd15f5c89d3a9a6991563dc3edcdb7bab6cb965af94',
+            '488bedcef5d2aabef34e294f8fa0c2b48ef392e804cc83c6cd75c8ba5bfd8b1c',
             $plan->executionIdentity(),
         );
     }
