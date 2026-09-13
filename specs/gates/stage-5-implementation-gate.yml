@@ -237,7 +237,7 @@ next_single_step:
   Stage_4_materialized_steps_current: 186
   expected_Stage_4_materialized_nodes_after_next_PASS: 157
   expected_Stage_4_materialized_steps_after_next_PASS: 196
-  current_corrective_gate_status: PLANNED
+  current_corrective_gate_status: IN_VALIDATION
   global_phase_barrier:
     authoritative_preflight_nodes: 39
     preflight_nodes_materialized_current: 39
@@ -4385,3 +4385,42 @@ CORE_V1_STAGE4_FOREIGN_KEYS_WRITE_FENCE_001_gate:
     expected_write_fence_steps_after_PASS: 39
     remaining_write_fence_steps_after_PASS: 13
     rule: do_not_pull_triggers_projections_backfill_reconcile_validate_or_contract_into_this_gate
+
+
+CORE_V1_STAGE4_CONSTRAINTS_WRITE_FENCE_001_gate:
+  id: CORE-V1-STAGE4-CONSTRAINTS-WRITE-FENCE-001
+  status: IN_VALIDATION
+  exact_nodes:
+    - MIG-CON-IDENTITY
+    - MIG-CON-RESOURCES
+    - MIG-CON-TRAINING
+    - MIG-CON-CALENDAR
+    - MIG-CON-PKK
+    - MIG-CON-FINANCE
+    - MIG-CON-LICENSES
+    - MIG-CON-EXAMS
+    - MIG-CON-COMMERCE
+    - MIG-CON-EVENTS
+  exact_CHECK_constraints: 48
+  CHECK_initial_validation_state: NOT_VALID
+  expected_Stage_4_materialized_nodes: 157
+  expected_Stage_4_materialized_steps: 196
+  expected_write_fence_steps_materialized: 39
+  remaining_write_fence_steps_after_PASS: 13
+  Stage_4_plan_identity: d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10
+  candidate_Stage_4_execution_identity: 905d440b34b7e88fca28890cdf2bb5d919eb5d98d891e07138cf716873659ef7
+  frozen_authority_changed: false
+  PKK_provider_runtime_status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+  pass_requires:
+    - exact_ten_constraint_write_fence_steps_registered_in_canonical_order
+    - exact_48_signed_CHECK_constraints
+    - every_CHECK_created_NOT_VALID
+    - full_global_preflight_phase_entry_barrier
+    - zero_target_row_mutation
+    - zero_new_indexes
+    - zero_new_user_triggers
+    - no_backfill_reconcile_validate_or_contract_scope
+    - Implementation_CI_5_of_5_PASS
+    - PostgreSQL_runtime_PASS
+    - deterministic_restore_PASS
+    - clean_helper_tree_promoted_unchanged_to_accepted_branch
