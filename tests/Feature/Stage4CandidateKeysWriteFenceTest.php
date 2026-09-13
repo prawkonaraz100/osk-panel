@@ -35,211 +35,211 @@ final class Stage4CandidateKeysWriteFenceTest extends TestCase
         $this->assertSame($writeFenceNodes, array_column($plan->phaseSteps('write_fence'), 'node_id'));
 
         $expected = [
-    'organization_membership_candidate_key_id_user' => [
-        'organization_memberships',
-        [
-            'id',
-            'user_id'
-        ]
-    ],
-    'organization_membership_candidate_key_org_id' => [
-        'organization_memberships',
-        [
-            'organization_id',
-            'id'
-        ]
-    ],
-    'organization_membership_candidate_key_org_id_user' => [
-        'organization_memberships',
-        [
-            'organization_id',
-            'id',
-            'user_id'
-        ]
-    ],
-    'auth_login_identifier_candidate_key_id_user' => [
-        'auth_login_identifiers',
-        [
-            'id',
-            'user_id'
-        ]
-    ],
-    'file_asset_candidate_key_org_id' => [
-        'file_assets',
-        [
-            'organization_id',
-            'id'
-        ]
-    ],
-    'staff_profile_candidate_key_org_id' => [
-        'staff_profiles',
-        [
-            'organization_id',
-            'id'
-        ]
-    ],
-    'location_candidate_key_org_id' => [
-        'locations',
-        [
-            'organization_id',
-            'id'
-        ]
-    ],
-    'vehicle_candidate_key_org_id' => [
-        'vehicles',
-        [
-            'organization_id',
-            'id'
-        ]
-    ],
-    'student_candidate_key_org_id' => [
-        'students',
-        [
-            'organization_id',
-            'id'
-        ]
-    ],
-    'student_learning_account_candidate_key_org_id' => [
-        'student_learning_accounts',
-        [
-            'organization_id',
-            'id'
-        ]
-    ],
-    'student_learning_account_candidate_key_org_id_student' => [
-        'student_learning_accounts',
-        [
-            'organization_id',
-            'id',
-            'student_id'
-        ]
-    ],
-    'course_enrollment_candidate_key_org_id' => [
-        'course_enrollments',
-        [
-            'organization_id',
-            'id'
-        ]
-    ],
-    'course_enrollment_candidate_key_org_id_student' => [
-        'course_enrollments',
-        [
-            'organization_id',
-            'id',
-            'student_id'
-        ]
-    ],
-    'training_session_candidate_key_org_id' => [
-        'training_sessions',
-        [
-            'organization_id',
-            'id'
-        ]
-    ],
-    'student_charge_candidate_key_org_id_student_currency' => [
-        'student_charges',
-        [
-            'organization_id',
-            'id',
-            'student_id',
-            'currency'
-        ]
-    ],
-    'license_inventory_entry_candidate_key_org_id' => [
-        'license_inventory_entries',
-        [
-            'organization_id',
-            'id'
-        ]
-    ],
-    'license_assignment_candidate_key_org_id' => [
-        'license_assignments',
-        [
-            'organization_id',
-            'id'
-        ]
-    ],
-    'internal_exam_inventory_entry_candidate_key_org_id' => [
-        'internal_exam_inventory_entries',
-        [
-            'organization_id',
-            'id'
-        ]
-    ],
-    'internal_exam_attempt_candidate_key_org_id' => [
-        'internal_exam_attempts',
-        [
-            'organization_id',
-            'id'
-        ]
-    ],
-    'internal_exam_access_candidate_key_org_id' => [
-        'internal_exam_accesses',
-        [
-            'organization_id',
-            'id'
-        ]
-    ],
-    'exam_station_candidate_key_org_id' => [
-        'exam_stations',
-        [
-            'organization_id',
-            'id'
-        ]
-    ],
-    'order_candidate_key_org_id' => [
-        'orders',
-        [
-            'organization_id',
-            'id'
-        ]
-    ],
-    'order_item_candidate_key_org_id' => [
-        'order_items',
-        [
-            'organization_id',
-            'id'
-        ]
-    ],
-    'order_item_candidate_key_org_id_product_kind' => [
-        'order_items',
-        [
-            'organization_id',
-            'id',
-            'product_kind'
-        ]
-    ],
-    'order_item_candidate_key_org_id_license_product' => [
-        'order_items',
-        [
-            'organization_id',
-            'id',
-            'license_product_id'
-        ]
-    ],
-    'order_item_candidate_key_org_id_catalog_item' => [
-        'order_items',
-        [
-            'organization_id',
-            'id',
-            'commerce_catalog_item_id'
-        ]
-    ],
-    'audit_log_candidate_key_org_id' => [
-        'audit_logs',
-        [
-            'organization_id',
-            'id'
-        ]
-    ],
-    'domain_event_candidate_key_org_id' => [
-        'domain_events',
-        [
-            'organization_id',
-            'id'
-        ]
-    ]
-];
+            'organization_membership_candidate_key_id_user' => [
+                'organization_memberships',
+                [
+                    'id',
+                    'user_id',
+                ],
+            ],
+            'organization_membership_candidate_key_org_id' => [
+                'organization_memberships',
+                [
+                    'organization_id',
+                    'id',
+                ],
+            ],
+            'organization_membership_candidate_key_org_id_user' => [
+                'organization_memberships',
+                [
+                    'organization_id',
+                    'id',
+                    'user_id',
+                ],
+            ],
+            'auth_login_identifier_candidate_key_id_user' => [
+                'auth_login_identifiers',
+                [
+                    'id',
+                    'user_id',
+                ],
+            ],
+            'file_asset_candidate_key_org_id' => [
+                'file_assets',
+                [
+                    'organization_id',
+                    'id',
+                ],
+            ],
+            'staff_profile_candidate_key_org_id' => [
+                'staff_profiles',
+                [
+                    'organization_id',
+                    'id',
+                ],
+            ],
+            'location_candidate_key_org_id' => [
+                'locations',
+                [
+                    'organization_id',
+                    'id',
+                ],
+            ],
+            'vehicle_candidate_key_org_id' => [
+                'vehicles',
+                [
+                    'organization_id',
+                    'id',
+                ],
+            ],
+            'student_candidate_key_org_id' => [
+                'students',
+                [
+                    'organization_id',
+                    'id',
+                ],
+            ],
+            'student_learning_account_candidate_key_org_id' => [
+                'student_learning_accounts',
+                [
+                    'organization_id',
+                    'id',
+                ],
+            ],
+            'student_learning_account_candidate_key_org_id_student' => [
+                'student_learning_accounts',
+                [
+                    'organization_id',
+                    'id',
+                    'student_id',
+                ],
+            ],
+            'course_enrollment_candidate_key_org_id' => [
+                'course_enrollments',
+                [
+                    'organization_id',
+                    'id',
+                ],
+            ],
+            'course_enrollment_candidate_key_org_id_student' => [
+                'course_enrollments',
+                [
+                    'organization_id',
+                    'id',
+                    'student_id',
+                ],
+            ],
+            'training_session_candidate_key_org_id' => [
+                'training_sessions',
+                [
+                    'organization_id',
+                    'id',
+                ],
+            ],
+            'student_charge_candidate_key_org_id_student_currency' => [
+                'student_charges',
+                [
+                    'organization_id',
+                    'id',
+                    'student_id',
+                    'currency',
+                ],
+            ],
+            'license_inventory_entry_candidate_key_org_id' => [
+                'license_inventory_entries',
+                [
+                    'organization_id',
+                    'id',
+                ],
+            ],
+            'license_assignment_candidate_key_org_id' => [
+                'license_assignments',
+                [
+                    'organization_id',
+                    'id',
+                ],
+            ],
+            'internal_exam_inventory_entry_candidate_key_org_id' => [
+                'internal_exam_inventory_entries',
+                [
+                    'organization_id',
+                    'id',
+                ],
+            ],
+            'internal_exam_attempt_candidate_key_org_id' => [
+                'internal_exam_attempts',
+                [
+                    'organization_id',
+                    'id',
+                ],
+            ],
+            'internal_exam_access_candidate_key_org_id' => [
+                'internal_exam_accesses',
+                [
+                    'organization_id',
+                    'id',
+                ],
+            ],
+            'exam_station_candidate_key_org_id' => [
+                'exam_stations',
+                [
+                    'organization_id',
+                    'id',
+                ],
+            ],
+            'order_candidate_key_org_id' => [
+                'orders',
+                [
+                    'organization_id',
+                    'id',
+                ],
+            ],
+            'order_item_candidate_key_org_id' => [
+                'order_items',
+                [
+                    'organization_id',
+                    'id',
+                ],
+            ],
+            'order_item_candidate_key_org_id_product_kind' => [
+                'order_items',
+                [
+                    'organization_id',
+                    'id',
+                    'product_kind',
+                ],
+            ],
+            'order_item_candidate_key_org_id_license_product' => [
+                'order_items',
+                [
+                    'organization_id',
+                    'id',
+                    'license_product_id',
+                ],
+            ],
+            'order_item_candidate_key_org_id_catalog_item' => [
+                'order_items',
+                [
+                    'organization_id',
+                    'id',
+                    'commerce_catalog_item_id',
+                ],
+            ],
+            'audit_log_candidate_key_org_id' => [
+                'audit_logs',
+                [
+                    'organization_id',
+                    'id',
+                ],
+            ],
+            'domain_event_candidate_key_org_id' => [
+                'domain_events',
+                [
+                    'organization_id',
+                    'id',
+                ],
+            ],
+        ];
 
         $evidencePath = storage_path('framework/testing/stage4-candidate-keys-write-fence-'.getmypid().'.jsonl');
         @unlink($evidencePath);
@@ -376,6 +376,7 @@ final class Stage4CandidateKeysWriteFenceTest extends TestCase
 
     /**
      * @param  list<string>  $tables
+     *
      * @return array<string, int>
      */
     private function rowCounts(array $tables): array
