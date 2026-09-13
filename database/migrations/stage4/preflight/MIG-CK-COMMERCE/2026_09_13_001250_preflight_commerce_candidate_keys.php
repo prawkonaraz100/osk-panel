@@ -44,7 +44,7 @@ return new class extends Migration
             throw new LogicException('MIG-CK-COMMERCE requires exact commerce catalog product identity columns.');
         }
 
-        $conflicts = DB::selectOne(<<<'SQL'
+        $catalogConflicts = DB::selectOne(<<<'SQL'
 SELECT COUNT(*) AS conflict_count
 FROM order_items oi
 LEFT JOIN commerce_catalog_items ci ON ci.id = oi.commerce_catalog_item_id
@@ -54,11 +54,25 @@ WHERE ci.id IS NULL
    OR (oi.product_kind <> 'license' AND ci.license_product_id IS NOT NULL)
 SQL);
 
-        if ((int) ($conflicts->conflict_count ?? 0) !== 0) {
+        if ((int) ($catalogConflicts->conflict_count ?? 0) !== 0) {
             throw new LogicException('MIG-CK-COMMERCE preflight found OrderItem rows without exact catalog/product-kind/license-product evidence.');
         }
 
         if (Schema::hasColumn('order_items', 'license_product_id')) {
+            $snapshotConflicts = DB::selectOne(<<<'SQL'
+SELECT COUNT(*) AS conflict_count
+FROM order_items oi
+JOIN commerce_catalog_items ci ON ci.id = oi.commerce_catalog_item_id
+WHERE (oi.product_kind = 'license'
+       AND oi.license_product_id IS NOT NULL
+       AND oi.license_product_id IS DISTINCT FROM ci.license_product_id)
+   OR (oi.product_kind <> 'license' AND oi.license_product_id IS NOT NULL)
+SQL);
+
+            if ((int) ($snapshotConflicts->conflict_count ?? 0) !== 0) {
+                throw new LogicException('MIG-CK-COMMERCE preflight found conflicting persisted OrderItem license-product snapshots.');
+            }
+
             CandidateKeyMigrationSupport::preflight('MIG-CK-COMMERCE', [[
                 'name' => 'ck_order_items_org_id_license_product',
                 'table' => 'order_items',
