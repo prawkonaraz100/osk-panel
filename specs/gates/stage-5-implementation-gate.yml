@@ -230,7 +230,7 @@ next_single_step:
   prerequisite_previous_slice: FORMAL-DOC-007_PASS
   implementation_order_source: AGENTS.md_step_10_hardening_and_formal_documents
   hardening_repo_actionable_P1_status: COMPLETE
-  formal_documents_status: GATE_7_PASS_GATE_8_NOT_STARTED
+  formal_documents_status: GATE_7_PASS_GATE_8_IN_VALIDATION
   PKK_provider_runtime_status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
   PKK_resume_requires:
     - explicit_user_unfreeze
@@ -2436,3 +2436,112 @@ FORMAL_DOCUMENTS_007_gate:
   next_after_PASS:
     id: FORMAL-DOC-008
     action: materialize_formal_document_generation_and_approval_runtime
+
+
+FORMAL_DOCUMENTS_008_gate:
+  id: FORMAL-DOC-008
+  status: IN_VALIDATION
+  prerequisite: FORMAL-DOC-007_PASS
+  scope:
+    - canonical_formal_document_preview
+    - exact_evidence_hash_and_template_binding
+    - generation_and_authenticated_approval_runtime
+    - deterministic_PDF_asset_materialization
+    - immutable_revision_and_generated_approved_events
+    - verified_document_download
+    - approval_and_download_audit_outbox
+    - no_direct_PDF_editing
+    - no_electronic_signature_claim
+  migration_authority_preservation:
+    Stage_4_DAG_nodes: 170
+    Stage_4_implemented_nodes: 112
+    Stage_4_implemented_steps: 112
+    Stage_5_plan_identity: 34cada121f4fd4963b1461308fb517c50ee647005ce9421f4d1af40c80d44b99
+    Stage_5_execution_identity: 31704fcab61761aa9a952d824dc543a6f46e7a3717792d0a9349cefaaf57651f
+    Stage_5_materialized_steps: 11
+    new_migration_step_in_FORMAL_DOC_008: false
+  permissions:
+    view: formal_documents.view
+    approve: formal_documents.approve
+    download: formal_documents.download
+    scope_profile: student_scoped
+  API:
+    canonical_requirement_rows: 184
+    canonical_unique_operations: 170
+    shared_operation_aliases: 14
+    operations:
+      - formal_documents.preview
+      - formal_documents.list
+      - formal_documents.approve
+      - formal_documents.download
+  evidence:
+    source_facts_client_supplied: false
+    student_plaintext_PESEL_loaded: false
+    PKK_loaded: false
+    exact_course_version_required: true
+    exact_requirements_revision_required: true
+    exact_evidence_SHA256_required: true
+    exact_template_binding_required: true
+    canonical_ledger_order: created_at_then_id
+    canonical_external_training_order: created_at_then_id
+    invented_curriculum_module_names: forbidden
+  renderer:
+    version: formal-training-v1
+    supported_documents:
+      - training_record_card
+      - theory_delivery_journal
+    deterministic_same_evidence_template_renderer_bytes: required
+    hardcoded_26_hours: forbidden
+    approval_actor_or_timestamp_inside_canonical_bytes: false
+  persistence:
+    asset_purpose: formal_training_document
+    asset_status_on_success: ready
+    immutable_document_revision: required
+    generated_event: required
+    approved_event: required
+    prior_revision_rewrite: forbidden
+    exact_evidence_duplicate_creates_fake_revision: false
+  download_integrity:
+    same_tenant_course_authorization: required
+    ready_asset_required: true
+    metadata_hash_must_match_document_hash: true
+    bytes_hash_must_match_document_hash: true
+    bytes_size_must_match_asset_size: true
+    missing_or_corrupt_bytes: fail_closed
+    unverifiable_silent_reconstruction: forbidden
+  audit:
+    actions:
+      - formal_document.approved
+      - formal_document.downloaded
+    raw_PDF_or_evidence_payload_in_audit_outbox: forbidden
+    plaintext_PESEL_or_PKK_in_audit_outbox: forbidden
+  PKK:
+    provider_runtime_in_scope: false
+    status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+  pass_requires:
+    - formal_document_permissions_and_scopes_PASS
+    - deterministic_template_seed_PASS
+    - API_contract_184_rows_170_operations_PASS
+    - preview_exact_evidence_and_template_PASS
+    - approval_requires_exact_If_Match_requirements_hash_template_PASS
+    - stale_preview_direct_evidence_drift_rejected_PASS
+    - exact_same_evidence_idempotent_and_deduplicated_PASS
+    - deterministic_PDF_content_hash_PASS
+    - ready_same_tenant_asset_persistence_PASS
+    - immutable_revision_generated_approved_events_PASS
+    - source_correction_creates_new_revision_preserves_old_PASS
+    - theory_journal_no_invented_module_source_PASS
+    - download_rehash_and_size_verification_PASS
+    - cross_tenant_preview_download_fail_closed_PASS
+    - audit_outbox_approval_download_PASS
+    - Stage_4_170_112_112_preservation_PASS
+    - Stage_5_11_step_identity_preservation_PASS
+    - PKK_provider_runtime_still_frozen_PASS
+    - backend_static_analysis_PASS_ZERO_ERRORS
+    - frontend_quality_PASS
+    - contracts_and_traceability_PASS
+    - secret_scan_PASS
+    - deterministic_restore_harness_PASS
+  next_after_PASS:
+    id: FORMAL-DOC-009
+    action: materialize_document_delivery_lifecycle_and_freshness_projection

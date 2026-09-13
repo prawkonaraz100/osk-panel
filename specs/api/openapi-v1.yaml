@@ -20,6 +20,7 @@ tags:
   - { name: StudentAccess }
   - { name: Courses }
   - { name: Training }
+  - { name: FormalDocuments }
   - { name: PKK }
   - { name: Calendar }
   - { name: Locations }
@@ -82,6 +83,10 @@ paths:
   /course-enrollments/{courseEnrollmentId}/training-hour-corrections: { $ref: './paths/students-courses.yaml#/paths/~1course-enrollments~1{courseEnrollmentId}~1training-hour-corrections' }
   /course-enrollments/{courseEnrollmentId}/recognized-external-training: { $ref: './paths/students-courses.yaml#/paths/~1course-enrollments~1{courseEnrollmentId}~1recognized-external-training' }
   /course-enrollments/{courseEnrollmentId}/recognized-external-training/{recordId}/revoke: { $ref: './paths/students-courses.yaml#/paths/~1course-enrollments~1{courseEnrollmentId}~1recognized-external-training~1{recordId}~1revoke' }
+
+  /course-enrollments/{courseEnrollmentId}/formal-documents/preview: { $ref: './paths/formal-documents.yaml#/paths/~1course-enrollments~1{courseEnrollmentId}~1formal-documents~1preview' }
+  /course-enrollments/{courseEnrollmentId}/formal-documents: { $ref: './paths/formal-documents.yaml#/paths/~1course-enrollments~1{courseEnrollmentId}~1formal-documents' }
+  /formal-training-documents/{documentId}/file: { $ref: './paths/formal-documents.yaml#/paths/~1formal-training-documents~1{documentId}~1file' }
 
   /course-enrollments/{courseEnrollmentId}/pkk: { $ref: './paths/pkk-calendar.yaml#/paths/~1course-enrollments~1{courseEnrollmentId}~1pkk' }
   /course-enrollments/{courseEnrollmentId}/pkk/fetch: { $ref: './paths/pkk-calendar.yaml#/paths/~1course-enrollments~1{courseEnrollmentId}~1pkk~1fetch' }
@@ -207,6 +212,7 @@ x-contract-files:
   path_modules:
     - ./paths/auth-organization.yaml
     - ./paths/students-courses.yaml
+    - ./paths/formal-documents.yaml
     - ./paths/pkk-calendar.yaml
     - ./paths/resources.yaml
     - ./paths/licenses.yaml

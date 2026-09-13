@@ -1,0 +1,38 @@
+module: FormalDocuments
+core_traceability_modules:
+  - course_enrollment_training
+  - uploads_assets
+  - audit_notifications
+changed_scope:
+  - evidence: specs/design/formal-training-documents.yml
+    requirement: current formal-document preview is derived from canonical course requirement training-ledger and recognized-external-training sources rather than client-supplied facts
+    domain_data: students + course_enrollments + training_requirement_profiles + training_hour_ledger_entries + training_sessions + staff_profiles + recognized_external_training
+    api_use_case: formal_documents.preview
+    permission: formal_documents.view
+    ui: DEFERRED_UNTIL_FORMAL_DOCUMENTS_UI_GATE
+    acceptance_test: Tests\Feature\FormalTrainingDocumentRuntimeTest::test_preview_approval_download_and_replay_use_exact_immutable_evidence
+    status: IMPLEMENTED
+  - evidence: docs/145-formal-training-documents-generation-approval-runtime.md
+    requirement: approval verifies current course version requirements revision evidence hash and effective template binding before materializing one canonical artifact and immutable revision
+    domain_data: course_enrollments + formal_training_document_templates + formal_training_documents + file_assets + idempotency_records
+    api_use_case: formal_documents.approve
+    permission: formal_documents.approve
+    ui: DEFERRED_UNTIL_FORMAL_DOCUMENTS_UI_GATE
+    acceptance_test: Tests\Feature\FormalTrainingDocumentRuntimeTest::test_approval_rejects_stale_preview_when_evidence_changes_without_course_version_change
+    status: IMPLEMENTED
+  - evidence: specs/database/formal-training-documents.yml
+    requirement: source correction creates a later formal-document revision while prior approved revisions and lifecycle events remain immutable history
+    domain_data: formal_training_documents + formal_training_document_events + file_assets
+    api_use_case: formal_documents.approve + formal_documents.list
+    permission: formal_documents.approve + formal_documents.view
+    ui: DEFERRED_UNTIL_FORMAL_DOCUMENTS_UI_GATE
+    acceptance_test: Tests\Feature\FormalTrainingDocumentRuntimeTest::test_source_correction_creates_new_revision_and_preserves_old_document
+    status: IMPLEMENTED
+  - evidence: docs/145-formal-training-documents-generation-approval-runtime.md
+    requirement: document download is tenant scoped and verifies immutable asset metadata hash and stored byte integrity before serving while approval and download emit safe audit and outbox records
+    domain_data: formal_training_documents + file_assets + audit_logs + domain_events + outbox_messages
+    api_use_case: formal_documents.download
+    permission: formal_documents.download
+    ui: DEFERRED_UNTIL_FORMAL_DOCUMENTS_UI_GATE
+    acceptance_test: Tests\Feature\FormalTrainingDocumentRuntimeTest::test_cross_tenant_document_routes_fail_closed
+    status: IMPLEMENTED
