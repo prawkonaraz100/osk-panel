@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
   "plan_identity": "d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10",
-  "execution_identity": "1c3d384b6b52c68228111f08fb1a1d966f94b2281670a82550860f851cd4745d",
+  "execution_identity": "905d440b34b7e88fca28890cdf2bb5d919eb5d98d891e07138cf716873659ef7",
   "stage4_root": "database/migrations/stage4",
   "implemented_steps": [
     {
@@ -1675,6 +1675,96 @@
       "migration_file": "database/migrations/stage4/write_fence/MIG-FK-EVENTS/2026_09_10_001470_write_fence_foreign_keys_events.php",
       "migration_name": "2026_09_10_001470_write_fence_foreign_keys_events",
       "file_sha256": "0eb496f97dc0b9d1007c4becbed510b1693f5f525c4ddc75d82ad697381ade92",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-CON-IDENTITY",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-CON-IDENTITY/2026_09_10_001480_write_fence_constraints_identity.php",
+      "migration_name": "2026_09_10_001480_write_fence_constraints_identity",
+      "file_sha256": "efbc0b3ec354a09312a3bde43553728437f0d1a28f1abf43f9812043f69cd352",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-CON-RESOURCES",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-CON-RESOURCES/2026_09_10_001490_write_fence_constraints_resources.php",
+      "migration_name": "2026_09_10_001490_write_fence_constraints_resources",
+      "file_sha256": "5419e8684ba2b4196f8b9aa76bc8f3146618d811a74201ba67c9627fc7a05794",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-CON-TRAINING",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-CON-TRAINING/2026_09_10_001500_write_fence_constraints_training.php",
+      "migration_name": "2026_09_10_001500_write_fence_constraints_training",
+      "file_sha256": "2951f705215f652f57529cf4b2a4cdae22a21d332ac12a2c53e141de8d7039cd",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-CON-CALENDAR",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-CON-CALENDAR/2026_09_10_001510_write_fence_constraints_calendar.php",
+      "migration_name": "2026_09_10_001510_write_fence_constraints_calendar",
+      "file_sha256": "1f079b8d39610dc80fe236b493331a5547ec3b0d3468743755482886146d2111",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-CON-PKK",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-CON-PKK/2026_09_10_001520_write_fence_constraints_pkk.php",
+      "migration_name": "2026_09_10_001520_write_fence_constraints_pkk",
+      "file_sha256": "5f9c9ab19ecd0648b70d6d91fbfbcc90090289d7ec405c148a1d8f22ea0c976e",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-CON-FINANCE",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-CON-FINANCE/2026_09_10_001530_write_fence_constraints_finance.php",
+      "migration_name": "2026_09_10_001530_write_fence_constraints_finance",
+      "file_sha256": "0b7184d2e8097548fdc48dddcb4472409883f0d13c573c3ca3eb6a3c6d5ffa35",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-CON-LICENSES",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-CON-LICENSES/2026_09_10_001540_write_fence_constraints_licenses.php",
+      "migration_name": "2026_09_10_001540_write_fence_constraints_licenses",
+      "file_sha256": "e525ae48ca4f7b09ae2c77d675a445de63ef633dfee5414f714e555bfe43890d",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-CON-EXAMS",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-CON-EXAMS/2026_09_10_001550_write_fence_constraints_exams.php",
+      "migration_name": "2026_09_10_001550_write_fence_constraints_exams",
+      "file_sha256": "d17e782626fd84afd63afda5e9727f482e3a0c36b52faca049e35ea16303fc46",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-CON-COMMERCE",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-CON-COMMERCE/2026_09_10_001560_write_fence_constraints_commerce.php",
+      "migration_name": "2026_09_10_001560_write_fence_constraints_commerce",
+      "file_sha256": "2fd9db13877216526e2d0909cc97c697d26f8c547d7c472e8ff2fc031db09924",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-CON-EVENTS",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-CON-EVENTS/2026_09_10_001570_write_fence_constraints_events.php",
+      "migration_name": "2026_09_10_001570_write_fence_constraints_events",
+      "file_sha256": "d4fc1f17f471e9fbe50550cf80b50218022cf2096dc1d0e1d2770f18f8792b37",
       "restart_classification": "manual_review",
       "safe_down": false
     }
