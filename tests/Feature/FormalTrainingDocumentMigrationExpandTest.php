@@ -35,8 +35,8 @@ final class FormalTrainingDocumentMigrationExpandTest extends TestCase
         $extension->validate();
 
         $this->assertSame(4, $extension->implementedNodeCount());
-        $this->assertSame(10, $extension->implementedStepCount());
-        $this->assertSame('5fc0930972a65f08406d23cd01a8c37d6ab99e2ca7039307fe3ae928f1286a68', $extension->executionIdentity());
+        $this->assertSame(11, $extension->implementedStepCount());
+        $this->assertSame('31704fcab61761aa9a952d824dc543a6f46e7a3717792d0a9349cefaaf57651f', $extension->executionIdentity());
     }
 
     public function test_new_course_defaults_to_paper_with_server_selection_timestamp(): void
@@ -153,7 +153,7 @@ final class FormalTrainingDocumentMigrationExpandTest extends TestCase
         $this->assertDatabaseCount('formal_training_documents', 1);
     }
 
-    public function test_expand_controlled_executor_is_idempotent_and_contract_remains_closed(): void
+    public function test_expand_controlled_executor_is_idempotent_and_contract_is_registered(): void
     {
         $extension = app(Stage5FormalDocumentsMigrationPlan::class);
         $extension->validate();
@@ -172,17 +172,9 @@ final class FormalTrainingDocumentMigrationExpandTest extends TestCase
         $this->assertSame(4, $before);
         $this->assertSame(4, DB::table('migrations')->whereIn('migration', $migrationNames)->count());
 
-        $contractExit = Artisan::call('migration:stage5:formal-docs:controlled', [
-            '--plan' => $extension->identity(),
-            '--execution' => $extension->executionIdentity(),
-            '--phase' => 'contract',
-            '--force' => true,
-        ]);
-
-        $this->assertSame(Command::FAILURE, $contractExit);
-        $this->assertStringContainsString(
-            'No materialized Stage-5 formal-documents migration steps for phase contract',
-            Artisan::output(),
+        $this->assertSame(
+            ['S5DOC-ALTER-COURSE-ENROLLMENTS-DOCUMENT-MODE'],
+            array_column($extension->phaseSteps('contract'), 'node_id'),
         );
     }
 }
