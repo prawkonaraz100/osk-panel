@@ -24,6 +24,7 @@ Data: 2026-09-05
 
 ## P1 before production
 
+- formal training documents runtime after Gate 1 authority: Stage-5 schema/migration extension, deterministic generation, review/approval, PAPER/ELECTRONIC workflow and audited revision evidence,
 - target-infrastructure restore drill proving the core-v1 recovery targets,
 - production incident contact roster + paging channel smoke test,
 - production scheduler + alert-delivery smoke test proving reconciliation findings reach an operator.
