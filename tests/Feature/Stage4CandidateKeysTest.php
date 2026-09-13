@@ -41,9 +41,9 @@ final class Stage4CandidateKeysTest extends TestCase
             'ck_license_inventory_org_id' => ['license_inventory_entries', ['organization_id', 'id']],
             'ck_license_assignments_org_id' => ['license_assignments', ['organization_id', 'id']],
 
-            'ck_internal_exam_inventory_org_id' => ['internal_exam_inventory_entries', ['organization_id', 'id']],
-            'ck_internal_exam_attempts_org_id' => ['internal_exam_attempts', ['organization_id', 'id']],
-            'ck_internal_exam_accesses_org_id' => ['internal_exam_accesses', ['organization_id', 'id']],
+            'ck_exam_inventory_org_id' => ['internal_exam_inventory_entries', ['organization_id', 'id']],
+            'ck_exam_attempts_org_id' => ['internal_exam_attempts', ['organization_id', 'id']],
+            'ck_exam_accesses_org_id' => ['internal_exam_accesses', ['organization_id', 'id']],
             'ck_exam_stations_org_id' => ['exam_stations', ['organization_id', 'id']],
 
             'ck_orders_org_id' => ['orders', ['organization_id', 'id']],
