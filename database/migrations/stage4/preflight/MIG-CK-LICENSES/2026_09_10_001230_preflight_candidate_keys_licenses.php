@@ -5,8 +5,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
-return new class extends Migration
-{
+return new class extends Migration {
     public function up(): void
     {
         ControlledMigrationContext::assertActive('preflight', 'MIG-CK-LICENSES');
@@ -20,16 +19,16 @@ return new class extends Migration
     }
 
     /**
-     * @param list<string> $columns
+     * @param  list<string>  $columns
      */
     private function assertCandidateKey(string $table, string $name, array $columns, bool $allowKnownMissingLicenseProductColumn = false): void
     {
-        if (! Schema::hasTable($table)) {
+        if (!Schema::hasTable($table)) {
             throw new LogicException("MIG-CK-LICENSES preflight missing table {$table}.");
         }
 
         foreach ($columns as $column) {
-            if (! Schema::hasColumn($table, $column)) {
+            if (!Schema::hasColumn($table, $column)) {
                 if ($allowKnownMissingLicenseProductColumn && $table === 'order_items' && $column === 'license_product_id') {
                     return;
                 }
