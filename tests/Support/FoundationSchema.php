@@ -147,6 +147,31 @@ final class FoundationSchema
             }
         }
 
+        $candidateKeysReady = DB::selectOne(
+            "SELECT 1 AS ready
+             FROM pg_constraint con
+             JOIN pg_class cls ON cls.oid = con.conrelid
+             JOIN pg_namespace ns ON ns.oid = cls.relnamespace
+             WHERE ns.nspname = current_schema()
+               AND cls.relname = 'organization_memberships'
+               AND con.conname = 'ck_org_memberships_id_user'
+               AND con.contype = 'u'",
+        ) !== null;
+
+        if (! $candidateKeysReady) {
+            foreach (['preflight', 'write_fence'] as $phase) {
+                $exit = Artisan::call('migration:controlled', [
+                    '--plan' => $plan->identity(),
+                    '--execution' => $plan->executionIdentity(),
+                    '--phase' => $phase,
+                    '--force' => true,
+                ]);
+                if ($exit !== 0) {
+                    throw new LogicException("Controlled candidate-key migration failed in {$phase}: ".Artisan::output());
+                }
+            }
+        }
+
         $formalDocumentsPlan = app(Stage5FormalDocumentsMigrationPlan::class);
         $formalDocumentsPlan->validate();
 
