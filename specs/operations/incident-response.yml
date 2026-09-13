@@ -1,0 +1,82 @@
+meta:
+  id: core_v1_incident_response
+  policy_version: 2026-09-13-v1
+  status: PRE_PRODUCTION_AUTHORITY
+  jurisdiction: PL_EU
+
+principles:
+  role_based_ownership_not_personal_contacts_in_git: true
+  preserve_evidence: true
+  do_not_invent_business_state_during_recovery: true
+  formal_and_financial_integrity_over_blind_availability: true
+  post_incident_review_required_for:
+    - SEV1
+    - SEV2
+
+severity:
+  SEV1:
+    acknowledgement_minutes: 10
+    incident_commander_minutes: 15
+    status_update_minutes: 30
+  SEV2:
+    acknowledgement_minutes: 30
+    incident_commander_minutes: 30
+    status_update_minutes: 60
+  SEV3:
+    acknowledgement_minutes: 240
+    incident_commander_minutes: 240
+    status_update_minutes: 240
+
+owner_roles:
+  - incident_commander
+  - technical_lead
+  - privacy_lead
+  - business_liaison
+  - communications_lead
+  - scribe
+
+runbooks:
+  - database_or_data_integrity
+  - object_storage
+  - redis_or_queue
+  - payment_or_reconciliation
+  - internal_exam
+  - security_or_credentials
+  - personal_data_breach
+  - deployment_or_destructive_operation
+  - PKK_provider_deferred_boundary
+
+personal_data_breach:
+  every_breach_documented: true
+  processor_to_controller: without_undue_delay
+  controller_risk_assessment_required: true
+  supervisory_authority:
+    automatic_notification: false
+    notification_condition: likely_risk_to_rights_or_freedoms
+    when_required:
+      without_undue_delay: true
+      maximum_hours_where_feasible: 72
+      late_report_requires_delay_reasons: true
+      staged_information_allowed: true
+  data_subject:
+    automatic_notification: false
+    notification_condition: likely_high_risk_to_rights_or_freedoms
+    deadline: without_undue_delay
+  official_sources:
+    - authority: UODO
+      url: https://uodo.gov.pl/pl/525/2584
+      subject: notification_deadline_and_controller_risk_decision
+    - authority: UODO
+      url: https://uodo.gov.pl/pl/525/2581
+      subject: which_breaches_require_notification
+    - authority: EUR_Lex
+      url: https://eur-lex.europa.eu/eli/reg/2016/679/oj
+      subject: GDPR_articles_33_34
+
+production_boundary:
+  contact_refs_stored_in_repository: false
+  deployment_contact_roster_required: true
+  paging_channel_required: true
+  paging_smoke_test_required: true
+  current_repo_proves_contact_reachability: false
+  production_go_live_unblocked_by_H6_alone: false

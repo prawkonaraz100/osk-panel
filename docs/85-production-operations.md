@@ -216,22 +216,33 @@ Readiness może sprawdzać m.in. DB/Redis, ale nie powinien blokować całej apl
 
 ## 14. Incident response
 
-Runbook minimum:
-- DB outage,
-- payment provider outage,
-- PKK provider outage,
-- exam incident,
-- credential/security incident,
-- accidental destructive operation,
-- queue backlog,
-- storage outage.
+Authority:
+- docs/136-incident-response-runbooks.md,
+- specs/operations/incident-response.yml,
+- runtime-readable config/incident_response.php.
+
+Severity i ownership są przypisane do ról, nie do nazwisk w repo. Każdy SEV1/SEV2 musi mieć Incident Commander, Technical Lead, scribe/timeline i odpowiedniego właściciela privacy/business/communications.
+
+Minimalny zestaw runbooków:
+- database_or_data_integrity,
+- object_storage,
+- redis_or_queue,
+- payment_or_reconciliation,
+- internal_exam,
+- security_or_credentials,
+- personal_data_breach,
+- deployment_or_destructive_operation,
+- PKK_provider_deferred_boundary.
 
 Każdy krytyczny incydent kończy się:
 - timeline,
 - impact,
 - root cause,
 - corrective actions,
-- regression test/monitoring improvement, jeśli dotyczy.
+- regression test/monitoring improvement, jeśli dotyczy,
+- jawne wskazanie czy wymagany jest legal/privacy follow-up.
+
+Repo nie przechowuje prywatnych danych dyżurnych. Przed produkcją deployment musi dostarczyć contact references i przejść paging smoke test.
 
 ## 15. Data retention
 
