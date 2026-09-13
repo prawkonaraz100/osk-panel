@@ -56,7 +56,7 @@ final class FormalTrainingDocumentRenderer
     }
 
     /** @param array<string,mixed> $payload
-     *  @return list<array{text:string,bold:bool}>
+     * @return list<array{text:string,bold:bool}>
      */
     private function trainingRecordLines(array $payload): array
     {
@@ -129,7 +129,7 @@ final class FormalTrainingDocumentRenderer
     }
 
     /** @param array<string,mixed> $payload
-     *  @return list<array{text:string,bold:bool}>
+     * @return list<array{text:string,bold:bool}>
      */
     private function theoryJournalLines(array $payload): array
     {
@@ -170,7 +170,7 @@ final class FormalTrainingDocumentRenderer
     }
 
     /** @param list<array{text:string,bold:bool}> $lines
-     *  @return list<string>
+     * @return list<string>
      */
     private function pages(array $lines): array
     {
@@ -209,6 +209,7 @@ final class FormalTrainingDocumentRenderer
             $candidate = $current === '' ? $word : $current.' '.$word;
             if (mb_strlen($candidate) <= $limit) {
                 $current = $candidate;
+
                 continue;
             }
             if ($current !== '') {
@@ -311,7 +312,7 @@ final class FormalTrainingDocumentRenderer
     }
 
     /** @param array<string,mixed> $payload
-     *  @return array<string,mixed>
+     * @return array<string,mixed>
      */
     private function map(array $payload, string $key): array
     {
@@ -321,7 +322,7 @@ final class FormalTrainingDocumentRenderer
     }
 
     /** @param array<string,mixed> $payload
-     *  @return list<mixed>
+     * @return list<mixed>
      */
     private function list(array $payload, string $key): array
     {
