@@ -42,13 +42,21 @@ return new class extends Migration
             }
         }
 
-        $group = implode(', ', array_map(
-            static fn (string $column): string => DB::connection()->getQueryGrammar()->wrap($column),
+        $grammar = DB::connection()->getQueryGrammar();
+        $wrappedColumns = array_map(
+            static fn (string $column): string => $grammar->wrap($column),
             $columns,
+        );
+        $group = implode(', ', $wrappedColumns);
+        $nonnullPredicate = implode(' AND ', array_map(
+            static fn (string $column): string => "{$column} IS NOT NULL",
+            $wrappedColumns,
         ));
-        $wrappedTable = DB::connection()->getQueryGrammar()->wrapTable($table);
+        $wrappedTable = $grammar->wrapTable($table);
 
-        $duplicate = DB::selectOne("SELECT 1 AS duplicate_found FROM {$wrappedTable} GROUP BY {$group} HAVING COUNT(*) > 1 LIMIT 1");
+        $duplicate = DB::selectOne(
+            "SELECT 1 AS duplicate_found FROM {$wrappedTable} WHERE {$nonnullPredicate} GROUP BY {$group} HAVING COUNT(*) > 1 LIMIT 1",
+        );
         if ($duplicate !== null) {
             throw new LogicException("MIG-CK-TRAINING preflight found duplicate rows for {$name}; reviewed remediation is required before write-fence.");
         }
