@@ -1,6 +1,6 @@
 # 142. Formal training documents — deterministic legacy paper-mode backfill
 
-Status: `FORMAL-DOC-005 validation candidate`
+Status: `FORMAL-DOC-005 PASS`
 
 ## Scope
 
@@ -137,3 +137,34 @@ PASS requires one exact tree proving:
 **FORMAL-DOC-006 — validate formal-document relational and immutability constraints.**
 
 That gate may materialize the Stage-5 `validate` phase for the document-mode check and the three new formal-document tables. It must not yet perform the final document-mode `NOT NULL` contract unless the validate evidence proves the population is safe.
+
+
+## Gate closure evidence
+
+FORMAL-DOC-005 is closed on the exact machine tree `6e5f5b804395a67c6af4d90ff9dad06dcab117f4`.
+
+Validation-only evidence:
+
+- validation helper head: `8ab1085fc6fa69a79b81b185241f411318684a0e`,
+- validation PR: #59, closed without merge,
+- helper Implementation CI #296 / run `34736928160`: **5/5 PASS**,
+- PostgreSQL suite: **205 tests / 2857 assertions**,
+- deterministic restore drill: **PASS**,
+- restore schema table count: **115 -> 115**.
+
+Clean accepted implementation evidence:
+
+- accepted implementation commit: `9a4179fc34d3bc2f5405273d0656a5978859546d`,
+- accepted implementation tree: `6e5f5b804395a67c6af4d90ff9dad06dcab117f4`,
+- accepted Implementation CI #297 / run `34737088333`: **5/5 PASS**,
+- PostgreSQL suite: **205 tests / 2857 assertions**,
+- deterministic restore drill: **PASS**,
+- restore schema table count: **115 -> 115**,
+- backend Pint + PHPStan: **PASS**,
+- frontend lint + typecheck + build + audit: **PASS**,
+- contracts and traceability: **PASS**,
+- accepted push secret scan: **PASS**.
+
+The Stage-4 baseline remains exactly **170 nodes / 112 implemented nodes / 112 implemented steps** with unchanged identities.
+
+The Stage-5 formal-documents registry contains exactly **6 steps**: four expand, one preflight and one deterministic backfill. No validate/contract step or PKK provider runtime is claimed by FORMAL-DOC-005.
