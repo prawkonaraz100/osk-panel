@@ -230,7 +230,7 @@ next_single_step:
   prerequisite_previous_slice: FORMAL-DOC-003_PASS
   implementation_order_source: AGENTS.md_step_10_hardening_and_formal_documents
   hardening_repo_actionable_P1_status: COMPLETE
-  formal_documents_status: GATE_3_PASS_GATE_4_NOT_STARTED
+  formal_documents_status: GATE_3_PASS_GATE_4_IN_VALIDATION
   PKK_provider_runtime_status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
   PKK_resume_requires:
     - explicit_user_unfreeze
@@ -2023,3 +2023,59 @@ FORMAL_DOCUMENTS_003_gate:
   next_after_PASS:
     id: FORMAL-DOC-004
     action: materialize_and_execute_legacy_document_mode_preflight_without_backfill
+
+
+FORMAL_DOCUMENTS_004_gate:
+  id: FORMAL-DOC-004
+  status: IN_VALIDATION
+  prerequisite: FORMAL-DOC-003_PASS
+  scope:
+    - Stage_5_formal_documents_preflight_only
+    - legacy_document_mode_determinism_check
+    - no_business_data_mutation
+    - ambiguous_historical_state_fail_closed
+  authority:
+    extension_plan_identity: 34cada121f4fd4963b1461308fb517c50ee647005ce9421f4d1af40c80d44b99
+    extension_execution_identity: 7c04995e966765a254785a9a75619cc7b1b7df0bcf514be92516e1c7eee68352
+    preflight_file_sha256: 27d4afecefa1ab5b6a3c4cb9459695bb982799d607c59791baa0901d46ed9704
+    narrative: docs/141-formal-training-documents-document-mode-preflight.md
+  frozen_Stage_4_baseline:
+    plan_identity: d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10
+    execution_identity: 1d2f1d3a47a4a09b749d0b164137857a241c07afbaad02789ec21e03cb4118ce
+    DAG_nodes: 170
+    implemented_nodes: 112
+    implemented_steps: 112
+    may_be_rewritten_by_FORMAL_DOC_004: false
+  materialization:
+    expand_steps: 4
+    preflight_steps: 1
+    total_steps: 5
+    legacy_course_rows_backfilled: false
+    final_document_mode_not_null_enforced: false
+  preflight_rules:
+    clean_legacy_null_null_null: allowed_for_later_backfill
+    partial_null_mode_with_selection_metadata: fail_closed
+    selected_mode_without_selection_timestamp: fail_closed
+    unsupported_nonnull_mode: fail_closed
+    formal_document_bound_to_null_mode_course: fail_closed
+    missing_durable_created_at_for_legacy_backfill: fail_closed
+    business_row_mutation_by_preflight: forbidden
+  PKK:
+    provider_runtime_in_scope: false
+    status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+  pass_requires:
+    - exact_preflight_file_hash_validation_PASS
+    - clean_legacy_preflight_PostgreSQL_PASS
+    - preflight_no_business_mutation_PASS
+    - ambiguous_state_negative_tests_PASS
+    - failed_preflight_not_recorded_as_applied_PASS
+    - backfill_phase_remains_fail_closed_PASS
+    - Stage_4_170_112_112_preservation_PASS
+    - backend_static_analysis_PASS_ZERO_ERRORS
+    - frontend_quality_PASS
+    - contracts_and_traceability_PASS
+    - secret_scan_PASS
+    - deterministic_restore_harness_PASS
+  next_after_PASS:
+    id: FORMAL-DOC-005
+    action: deterministic_legacy_paper_mode_backfill_without_final_contract

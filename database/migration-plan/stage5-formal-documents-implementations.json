@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "plan_identity": "34cada121f4fd4963b1461308fb517c50ee647005ce9421f4d1af40c80d44b99",
-  "execution_identity": "87efc23f47c0eb334f145c278cc3081283c3ca4369ca79348ffc1fcca7ce82f6",
+  "execution_identity": "7c04995e966765a254785a9a75619cc7b1b7df0bcf514be92516e1c7eee68352",
   "stage5_root": "database/migrations/stage5/formal-documents",
   "implemented_steps": [
     {
@@ -38,6 +38,15 @@
       "migration_name": "2026_09_13_000040_create_formal_training_document_events_table",
       "file_sha256": "1964456b4b198f78cca78747861564a0999a0c095e20480c455d88f67c53d8af",
       "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "S5DOC-ALTER-COURSE-ENROLLMENTS-DOCUMENT-MODE",
+      "phase": "preflight",
+      "migration_file": "database/migrations/stage5/formal-documents/preflight/S5DOC-ALTER-COURSE-ENROLLMENTS-DOCUMENT-MODE/2026_09_13_000050_preflight_formal_document_mode_legacy_rows.php",
+      "migration_name": "2026_09_13_000050_preflight_formal_document_mode_legacy_rows",
+      "file_sha256": "27d4afecefa1ab5b6a3c4cb9459695bb982799d607c59791baa0901d46ed9704",
+      "restart_classification": "manual_review",
       "safe_down": false
     }
   ],
