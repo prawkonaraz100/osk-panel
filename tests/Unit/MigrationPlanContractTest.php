@@ -15,10 +15,10 @@ class MigrationPlanContractTest extends TestCase
 
         $this->assertSame(170, $plan->nodeCount());
         $this->assertSame(17, $plan->batchCount());
-        $this->assertSame(126, $plan->implementedNodeCount());
-        $this->assertSame(126, $plan->implementedStepCount());
+        $this->assertSame(136, $plan->implementedNodeCount());
+        $this->assertSame(136, $plan->implementedStepCount());
         $this->assertSame('ad5f2aa2e14ef248b95dd3dda0d1cbcb2e69d441', $plan->summary()['authority_blob']);
-        $this->assertSame('ea9cbf83c22be708f22676be11aef4bf18d3c22f1520e13a22cb52743a37b882', $plan->executionIdentity());
+        $this->assertSame('bf71200c44672f2942071dd15f5c89d3a9a6991563dc3edcdb7bab6cb965af94', $plan->executionIdentity());
         $this->assertSame([
             'MIG-EXT-BTREE-GIST',
             'MIG-TBL-ORGANIZATIONS',
@@ -150,7 +150,22 @@ class MigrationPlanContractTest extends TestCase
             'MIG-CK-COMMERCE',
             'MIG-CK-EVENTS',
         ];
-        $this->assertSame($candidateKeyNodes, array_column($plan->phaseSteps('preflight'), 'node_id'));
+        $indexNodes = [
+            'MIG-IDX-IDENTITY',
+            'MIG-IDX-RESOURCES',
+            'MIG-IDX-TRAINING',
+            'MIG-IDX-CALENDAR_GIST',
+            'MIG-IDX-PKK',
+            'MIG-IDX-FINANCE',
+            'MIG-IDX-LICENSES',
+            'MIG-IDX-EXAMS',
+            'MIG-IDX-COMMERCE',
+            'MIG-IDX-EVENTS',
+        ];
+        $this->assertSame(
+            array_merge($candidateKeyNodes, $indexNodes),
+            array_column($plan->phaseSteps('preflight'), 'node_id'),
+        );
         $this->assertSame([], $plan->phaseSteps('write_fence'));
         $this->assertSame([], $plan->phaseSteps('backfill'));
         $this->assertSame([], $plan->phaseSteps('reconcile'));

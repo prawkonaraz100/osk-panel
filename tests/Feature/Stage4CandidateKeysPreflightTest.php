@@ -18,10 +18,10 @@ final class Stage4CandidateKeysPreflightTest extends TestCase
         $plan = app(MigrationPlan::class);
         $plan->validate();
 
-        $this->assertSame(126, $plan->implementedNodeCount());
-        $this->assertSame(126, $plan->implementedStepCount());
+        $this->assertSame(136, $plan->implementedNodeCount());
+        $this->assertSame(136, $plan->implementedStepCount());
         $this->assertSame(
-            'ea9cbf83c22be708f22676be11aef4bf18d3c22f1520e13a22cb52743a37b882',
+            'bf71200c44672f2942071dd15f5c89d3a9a6991563dc3edcdb7bab6cb965af94',
             $plan->executionIdentity(),
         );
 
@@ -35,7 +35,10 @@ final class Stage4CandidateKeysPreflightTest extends TestCase
             'MIG-CK-COMMERCE',
             'MIG-CK-EVENTS',
         ];
-        $this->assertSame($candidateNodes, array_column($plan->phaseSteps('preflight'), 'node_id'));
+        $this->assertSame(
+            $candidateNodes,
+            array_slice(array_column($plan->phaseSteps('preflight'), 'node_id'), 0, count($candidateNodes)),
+        );
         $this->assertSame([], $plan->phaseSteps('write_fence'));
 
         $candidateConstraintNames = [
