@@ -58,8 +58,8 @@ final class Stage4CommerceLineagePrerequisiteRecoveryTest extends TestCase
         $plan->validate();
         $this->assertSame(170, $plan->nodeCount());
         $this->assertSame(157, $plan->implementedNodeCount());
-        $this->assertSame(165, $plan->implementedStepCount());
-        $this->assertSame('d3d460992bfe56a0c3828689bffffaf842cc9b88bd103a5e71b5c6082ba00cd4', $plan->executionIdentity());
+        $this->assertSame(175, $plan->implementedStepCount());
+        $this->assertSame('411d0c2c1493fb2ea052e89b5c919f2b7e3ae0f746301107b0a7c08610486f71', $plan->executionIdentity());
         $this->assertSame([
             'MIG-CK-IDENTITY',
             'MIG-CK-ASSETS_RESOURCES',
@@ -69,6 +69,16 @@ final class Stage4CommerceLineagePrerequisiteRecoveryTest extends TestCase
             'MIG-CK-EXAMS',
             'MIG-CK-COMMERCE',
             'MIG-CK-EVENTS',
+            'MIG-IDX-IDENTITY',
+            'MIG-IDX-RESOURCES',
+            'MIG-IDX-TRAINING',
+            'MIG-IDX-CALENDAR_GIST',
+            'MIG-IDX-PKK',
+            'MIG-IDX-FINANCE',
+            'MIG-IDX-LICENSES',
+            'MIG-IDX-EXAMS',
+            'MIG-IDX-COMMERCE',
+            'MIG-IDX-EVENTS',
         ], array_column($plan->phaseSteps('write_fence'), 'node_id'));
     }
 }
