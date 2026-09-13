@@ -52,7 +52,7 @@ return new class extends Migration
                 'source_columns' => ['organization_id', 'student_charge_id', 'student_id', 'source_currency'],
                 'target_table' => 'student_charges',
                 'target_columns' => ['organization_id', 'id', 'student_id', 'currency'],
-            ]
+            ],
         ]);
     }
 

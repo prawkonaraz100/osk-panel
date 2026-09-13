@@ -101,7 +101,7 @@ return new class extends Migration
                 'source_columns' => ['legal_document_id'],
                 'target_table' => 'legal_documents',
                 'target_columns' => ['id'],
-            ]
+            ],
         ]);
     }
 

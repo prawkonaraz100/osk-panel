@@ -136,7 +136,7 @@ return new class extends Migration
                 'source_columns' => ['organization_id', 'source_entry_id', 'course_enrollment_id', 'training_part'],
                 'target_table' => 'training_hour_ledger_entries',
                 'target_columns' => ['organization_id', 'id', 'course_enrollment_id', 'training_part'],
-            ]
+            ],
         ]);
     }
 

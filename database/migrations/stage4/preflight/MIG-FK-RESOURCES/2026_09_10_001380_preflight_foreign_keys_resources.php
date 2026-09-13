@@ -87,7 +87,7 @@ return new class extends Migration
                 'source_columns' => ['organization_id', 'default_location_id'],
                 'target_table' => 'locations',
                 'target_columns' => ['organization_id', 'id'],
-            ]
+            ],
         ]);
     }
 

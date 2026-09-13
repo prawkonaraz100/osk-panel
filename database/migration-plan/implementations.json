@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
   "plan_identity": "d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10",
-  "execution_identity": "b304e8759733a69a065f4c2d0c9ea5673c378e55253fe4f8919ea3720e064286",
+  "execution_identity": "f9a0d1adb8b64bf624a31c9c1d3c622c04f60559d07ec0531295ebc6485cfae9",
   "stage4_root": "database/migrations/stage4",
   "implemented_steps": [
     {
@@ -1233,7 +1233,7 @@
       "phase": "preflight",
       "migration_file": "database/migrations/stage4/preflight/MIG-FK-IDENTITY/2026_09_10_001370_preflight_foreign_keys_identity.php",
       "migration_name": "2026_09_10_001370_preflight_foreign_keys_identity",
-      "file_sha256": "dbf8ef1a2f83204faa41cc0cfe79662f09017002b847eabe777b4be1aa91cf5e",
+      "file_sha256": "053ecffa7c8579f22a1342985ef63fbac1da7834657b200654c9b533566988a6",
       "restart_classification": "manual_review",
       "safe_down": false
     },
@@ -1242,7 +1242,7 @@
       "phase": "preflight",
       "migration_file": "database/migrations/stage4/preflight/MIG-FK-RESOURCES/2026_09_10_001380_preflight_foreign_keys_resources.php",
       "migration_name": "2026_09_10_001380_preflight_foreign_keys_resources",
-      "file_sha256": "fbc13a8cca9740bb5ba32972e77d5e3cfd9132cb66a3b458250c8e632fb79106",
+      "file_sha256": "f99a8d1759a0f04b67f4eb77afc8bafd10ce5fde7476ad30b84e51765ca9b641",
       "restart_classification": "manual_review",
       "safe_down": false
     },
@@ -1251,7 +1251,7 @@
       "phase": "preflight",
       "migration_file": "database/migrations/stage4/preflight/MIG-FK-TRAINING/2026_09_10_001390_preflight_foreign_keys_training.php",
       "migration_name": "2026_09_10_001390_preflight_foreign_keys_training",
-      "file_sha256": "3f112ba045d58ad2face6ccb92437acfafe4b2f14c1346a9e5af08b2746d36c0",
+      "file_sha256": "6b110e739275d6bb6a60b0956c1f1822563a22218e009caf152beedd961165a5",
       "restart_classification": "manual_review",
       "safe_down": false
     },
@@ -1260,7 +1260,7 @@
       "phase": "preflight",
       "migration_file": "database/migrations/stage4/preflight/MIG-FK-CALENDAR/2026_09_10_001400_preflight_foreign_keys_calendar.php",
       "migration_name": "2026_09_10_001400_preflight_foreign_keys_calendar",
-      "file_sha256": "ce5c5325b33469c04e770f344315ab3f9ab3833623db63deaf781fbb742fead4",
+      "file_sha256": "a4c875c2b7f7d221890531841e3dc4325c5dc431fcf0f8eaa931f9e4ec68e4ff",
       "restart_classification": "manual_review",
       "safe_down": false
     },
@@ -1269,7 +1269,7 @@
       "phase": "preflight",
       "migration_file": "database/migrations/stage4/preflight/MIG-FK-PKK/2026_09_10_001410_preflight_foreign_keys_pkk.php",
       "migration_name": "2026_09_10_001410_preflight_foreign_keys_pkk",
-      "file_sha256": "c9ca69498f46b2c7cacbf0fcdb3cc1956ea518ff779f9b79795b31056cfa7650",
+      "file_sha256": "1edb0b488693bf0e38cd4d1ed665a3f2fce4d1d3a741790aa5917f6c5f4cf45c",
       "restart_classification": "manual_review",
       "safe_down": false
     },
@@ -1278,7 +1278,7 @@
       "phase": "preflight",
       "migration_file": "database/migrations/stage4/preflight/MIG-FK-FINANCE/2026_09_10_001420_preflight_foreign_keys_finance.php",
       "migration_name": "2026_09_10_001420_preflight_foreign_keys_finance",
-      "file_sha256": "99179c1ab7bd9876e631e223c0e375794f942910e4aa2a851a538de32ada2c9b",
+      "file_sha256": "df27c3fdf1226ede383e6219209dfa51ef8497fe9d25697c08b045741cf81ee1",
       "restart_classification": "manual_review",
       "safe_down": false
     },
@@ -1287,7 +1287,7 @@
       "phase": "preflight",
       "migration_file": "database/migrations/stage4/preflight/MIG-FK-LICENSES/2026_09_10_001430_preflight_foreign_keys_licenses.php",
       "migration_name": "2026_09_10_001430_preflight_foreign_keys_licenses",
-      "file_sha256": "c04ebb100d681ee1458327c55a94111e93cfa5cc400985a8b10ceb4c811e0ffb",
+      "file_sha256": "c6ef8371d020d499e389b909538100e659accfab7a2dc46ebee17da5b05f8a8a",
       "restart_classification": "manual_review",
       "safe_down": false
     },
@@ -1296,7 +1296,7 @@
       "phase": "preflight",
       "migration_file": "database/migrations/stage4/preflight/MIG-FK-EXAMS/2026_09_10_001440_preflight_foreign_keys_exams.php",
       "migration_name": "2026_09_10_001440_preflight_foreign_keys_exams",
-      "file_sha256": "ad0e4fb90e433e528658143ca6e536aecb46be223e3bcd60e128c10e4ecafe34",
+      "file_sha256": "d1441fc54add3c1eec2ec36d0a3ca61cc7937f781801275acaa34649a1f4ba84",
       "restart_classification": "manual_review",
       "safe_down": false
     },
@@ -1305,7 +1305,7 @@
       "phase": "preflight",
       "migration_file": "database/migrations/stage4/preflight/MIG-FK-COMMERCE/2026_09_10_001450_preflight_foreign_keys_commerce.php",
       "migration_name": "2026_09_10_001450_preflight_foreign_keys_commerce",
-      "file_sha256": "bb8374175534ea25e394d59ca6380b545b2c2f682dd4554c77d11ddec4c348ed",
+      "file_sha256": "132e86cf66df0266a9fcc5924d208de8a055dfb378994f1d504e07043b70465a",
       "restart_classification": "manual_review",
       "safe_down": false
     },
@@ -1314,7 +1314,7 @@
       "phase": "preflight",
       "migration_file": "database/migrations/stage4/preflight/MIG-FK-PURCHASE_DOWNSTREAM/2026_09_10_001460_preflight_foreign_keys_purchase_downstream.php",
       "migration_name": "2026_09_10_001460_preflight_foreign_keys_purchase_downstream",
-      "file_sha256": "c953cfd579b44564e9433b00004a4550af596f2e98bc1dc0c7532043d3b36ae1",
+      "file_sha256": "95a5d80e0461b50abe2698e0eeaf1f09075a5b5e4bb34a34ef39b134e6d8a61f",
       "restart_classification": "manual_review",
       "safe_down": false
     },
@@ -1323,7 +1323,7 @@
       "phase": "preflight",
       "migration_file": "database/migrations/stage4/preflight/MIG-FK-EVENTS/2026_09_10_001470_preflight_foreign_keys_events.php",
       "migration_name": "2026_09_10_001470_preflight_foreign_keys_events",
-      "file_sha256": "c50e65ca03eb184f03d72b0ece124c278a6fb6aa5f1b0d667cb9c2fe4e35ad71",
+      "file_sha256": "02e28bd026b44cd22f9d19ec9a772a8644b99c24619a4dcd2ad452b6cc2738b2",
       "restart_classification": "manual_review",
       "safe_down": false
     }

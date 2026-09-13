@@ -66,7 +66,7 @@ return new class extends Migration
                 'source_columns' => ['organization_id', 'student_learning_account_id'],
                 'target_table' => 'student_learning_accounts',
                 'target_columns' => ['organization_id', 'id'],
-            ]
+            ],
         ]);
     }
 

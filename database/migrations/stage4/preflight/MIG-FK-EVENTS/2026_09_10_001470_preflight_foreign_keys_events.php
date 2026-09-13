@@ -94,7 +94,7 @@ return new class extends Migration
                 'source_columns' => ['organization_id', 'organization_membership_id', 'user_id'],
                 'target_table' => 'organization_memberships',
                 'target_columns' => ['organization_id', 'id', 'user_id'],
-            ]
+            ],
         ]);
     }
 

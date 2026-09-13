@@ -31,7 +31,7 @@ return new class extends Migration
                 'source_columns' => ['organization_id', 'source_order_item_id'],
                 'target_table' => 'order_items',
                 'target_columns' => ['organization_id', 'id'],
-            ]
+            ],
         ]);
     }
 
