@@ -232,19 +232,20 @@ next_single_step:
     - specs/database/final-migration-order-invariant-matrix.yml
     - database/migration-plan/plan.json
     - docs/158-core-v1-stage4-indexes-write-fence.md
+    - docs/159-core-v1-stage4-foreign-keys-write-fence.md
   Stage_4_DAG_nodes_total: 170
   Stage_4_materialized_nodes_current: 157
-  Stage_4_materialized_steps_current: 175
+  Stage_4_materialized_steps_current: 186
   expected_Stage_4_materialized_nodes_after_next_PASS: 157
   expected_Stage_4_materialized_steps_after_next_PASS: 186
-  current_corrective_gate_status: NOT_STARTED
+  current_corrective_gate_status: IN_VALIDATION
   global_phase_barrier:
     authoritative_preflight_nodes: 39
     preflight_nodes_materialized_current: 39
     global_preflight_status: PASS
     authoritative_write_fence_nodes: 52
-    write_fence_steps_materialized_current: 18
-    next_safe_write_fence_prefix_steps: 11
+    write_fence_steps_materialized_current: 29
+    write_fence_steps_added_in_this_slice: 11
     expected_write_fence_steps_after_next_PASS: 29
     remaining_write_fence_steps_after_next_PASS: 23
     canonical_authority_changed: false
@@ -260,6 +261,9 @@ next_single_step:
     - MIG-FK-COMMERCE
     - MIG-FK-PURCHASE_DOWNSTREAM
     - MIG-FK-EVENTS
+  supporting_FK_target_UNIQUE_constraints_candidate: 18
+  foreign_keys_NOT_VALID_candidate: 125
+  candidate_execution_identity: 1c3d384b6b52c68228111f08fb1a1d966f94b2281670a82550860f851cd4745d
   PKK_provider_runtime_status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
 
 CORE_V1_CLOSURE_AUDIT_001_gate:
@@ -4240,3 +4244,105 @@ CORE_V1_STAGE4_INDEXES_WRITE_FENCE_001_gate:
     expected_write_fence_steps_after_PASS: 29
     remaining_write_fence_steps_after_PASS: 23
     rule: do_not_pull_constraints_triggers_backfill_reconcile_validate_or_contract_into_this_gate
+
+CORE_V1_STAGE4_FOREIGN_KEYS_WRITE_FENCE_001_gate:
+  id: CORE-V1-STAGE4-FOREIGN-KEYS-WRITE-FENCE-001
+  status: IN_VALIDATION
+  prerequisite: CORE-V1-STAGE4-INDEXES-WRITE-FENCE-001_PASS
+  severity: P1
+  authority:
+    narrative: docs/159-core-v1-stage4-foreign-keys-write-fence.md
+    matrix: specs/database/final-migration-order-invariant-matrix.yml
+    plan: database/migration-plan/plan.json
+    plan_identity: d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10
+    previous_execution_identity: 411d0c2c1493fb2ea052e89b5c919f2b7e3ae0f746301107b0a7c08610486f71
+    candidate_execution_identity: 1c3d384b6b52c68228111f08fb1a1d966f94b2281670a82550860f851cd4745d
+  exact_scope:
+    phase: write_fence
+    materialized_nodes_before: 157
+    materialized_nodes_after_candidate: 157
+    materialized_steps_before: 175
+    materialized_steps_after_candidate: 186
+    preflight_nodes_materialized: 39
+    write_fence_steps_before: 18
+    write_fence_steps_after_candidate: 29
+    supporting_target_UNIQUE_constraints_expected: 18
+    foreign_keys_NOT_VALID_expected: 125
+    exact_nodes:
+      - MIG-FK-IDENTITY
+      - MIG-FK-RESOURCES
+      - MIG-FK-TRAINING
+      - MIG-FK-CALENDAR
+      - MIG-FK-PKK
+      - MIG-FK-FINANCE
+      - MIG-FK-LICENSES
+      - MIG-FK-EXAMS
+      - MIG-FK-COMMERCE
+      - MIG-FK-PURCHASE_DOWNSTREAM
+      - MIG-FK-EVENTS
+  target_key_audit:
+    target_side_uniqueness_rechecked_before_DDL: true
+    eligible_target_authority: PostgreSQL_primary_key_or_UNIQUE_constraint_or_nonpartial_valid_UNIQUE_index
+    missing_exact_target_keys_found: 18
+    separate_DAG_node_added: false
+    earlier_CK_or_IDX_gate_rewritten: false
+    support_keys_installed_inside_new_FK_steps: true
+  foreign_key_policy:
+    match: SIMPLE
+    on_update: RESTRICT
+    on_delete: RESTRICT
+    initial_validation_state: NOT_VALID
+    current_row_preflight_rerun_immediately_before_DDL: true
+    deterministic_definition_signature_required: true
+    exact_existing_definition_required_on_resume: true
+  safety_boundary:
+    row_mutation: forbidden
+    check_constraint_creation: forbidden
+    user_trigger_creation: forbidden
+    projection_creation: forbidden
+    backfill_reconcile_validate_contract: forbidden
+    destructive_down: forbidden
+  preservation:
+    Stage_4_DAG_nodes: 170
+    Stage_5_formal_document_steps: 11
+    API_requirement_rows: 187
+    API_unique_operations: 173
+    API_shared_aliases: 14
+    FORMAL_DOC_011_status: PASS
+    PKK_provider_runtime_status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+  pass_requires:
+    - exact_eleven_FK_write_fence_steps_registered_in_canonical_order_PASS
+    - exact_migration_file_SHA256_registry_PASS
+    - Stage_4_execution_identity_1c3d384b6b52c68228111f08fb1a1d966f94b2281670a82550860f851cd4745d_PASS
+    - Stage_4_170_157_186_candidate_PASS
+    - global_preflight_39_of_39_preserved_PASS
+    - write_fence_29_of_52_candidate_PASS
+    - exact_18_supporting_target_UNIQUE_constraints_PASS
+    - exact_125_foreign_keys_NOT_VALID_PASS
+    - MATCH_SIMPLE_RESTRICT_RESTRICT_metadata_PASS
+    - target_domain_row_mutation_zero_PASS
+    - CHECK_and_user_trigger_scope_creep_zero_PASS
+    - backend_static_analysis_PASS_ZERO_ERRORS
+    - frontend_quality_PASS
+    - contracts_and_traceability_PASS
+    - secret_scan_PASS
+    - deterministic_restore_harness_PASS
+  next_after_PASS:
+    id: CORE-V1-STAGE4-CONSTRAINTS-WRITE-FENCE-001
+    action: materialize_ten_constraint_write_fence_steps_only
+    exact_nodes:
+      - MIG-CON-IDENTITY
+      - MIG-CON-RESOURCES
+      - MIG-CON-TRAINING
+      - MIG-CON-CALENDAR
+      - MIG-CON-PKK
+      - MIG-CON-FINANCE
+      - MIG-CON-LICENSES
+      - MIG-CON-EXAMS
+      - MIG-CON-COMMERCE
+      - MIG-CON-EVENTS
+    expected_materialized_nodes_after_PASS: 157
+    expected_materialized_steps_after_PASS: 196
+    expected_write_fence_steps_after_PASS: 39
+    remaining_write_fence_steps_after_PASS: 13
+    rule: do_not_pull_triggers_projections_backfill_reconcile_validate_or_contract_into_this_gate
