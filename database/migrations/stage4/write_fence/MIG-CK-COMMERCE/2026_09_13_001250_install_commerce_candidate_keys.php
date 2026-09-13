@@ -17,6 +17,35 @@ return new class extends Migration
             DB::statement('ALTER TABLE order_items ADD COLUMN license_product_id uuid NULL');
         }
 
+        DB::statement(<<<'SQL'
+UPDATE order_items oi
+SET license_product_id = ci.license_product_id
+FROM commerce_catalog_items ci
+WHERE ci.id = oi.commerce_catalog_item_id
+  AND oi.product_kind = 'license'
+  AND ci.product_kind = 'license'
+  AND ci.license_product_id IS NOT NULL
+  AND oi.license_product_id IS NULL
+SQL);
+
+        $remainingConflicts = DB::selectOne(<<<'SQL'
+SELECT COUNT(*) AS conflict_count
+FROM order_items oi
+LEFT JOIN commerce_catalog_items ci ON ci.id = oi.commerce_catalog_item_id
+WHERE (oi.product_kind = 'license'
+       AND (
+            ci.id IS NULL
+            OR ci.product_kind <> 'license'
+            OR ci.license_product_id IS NULL
+            OR oi.license_product_id IS DISTINCT FROM ci.license_product_id
+       ))
+   OR (oi.product_kind <> 'license' AND oi.license_product_id IS NOT NULL)
+SQL);
+
+        if ((int) ($remainingConflicts->conflict_count ?? 0) !== 0) {
+            throw new LogicException('MIG-CK-COMMERCE write fence could not materialize exact OrderItem license-product snapshots.');
+        }
+
         CandidateKeyMigrationSupport::install('MIG-CK-COMMERCE', [
             [
                 'name' => 'ck_orders_org_id',
