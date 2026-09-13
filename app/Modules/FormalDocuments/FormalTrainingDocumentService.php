@@ -86,7 +86,7 @@ final class FormalTrainingDocumentService
     }
 
     /**
-     * @param array<string,mixed> $input
+     * @param  array<string,mixed>  $input
      * @return array<string,mixed>
      */
     public function approve(
@@ -359,8 +359,8 @@ final class FormalTrainingDocumentService
     }
 
     /**
-     * @param array<string,mixed> $input
-     * @param TemplateBinding $binding
+     * @param  array<string,mixed>  $input
+     * @param  TemplateBinding  $binding
      */
     private function assertRequestedTemplateBinding(array $binding, array $input): void
     {
