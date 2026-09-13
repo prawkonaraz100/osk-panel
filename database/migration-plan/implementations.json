@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
   "plan_identity": "d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10",
-  "execution_identity": "1d2f1d3a47a4a09b749d0b164137857a241c07afbaad02789ec21e03cb4118ce",
+  "execution_identity": "bba8fb733d634e180b2133057dd73dcabae116d344496027b2f1ecaf0f48de6c",
   "stage4_root": "database/migrations/stage4",
   "implemented_steps": [
     {
@@ -95,6 +95,15 @@
       "safe_down": false
     },
     {
+      "node_id": "MIG-TBL-LEGAL_DOCUMENTS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-LEGAL_DOCUMENTS/2026_09_10_000110_create_legal_documents_table.php",
+      "migration_name": "2026_09_10_000110_create_legal_documents_table",
+      "file_sha256": "0d010d018c3596c2a909bccf894a78d4e679e3311c843d7be9709a63c01ea9ce",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
       "node_id": "MIG-TBL-ORGANIZATION_SETTINGS",
       "phase": "expand",
       "migration_file": "database/migrations/stage4/expand/MIG-TBL-ORGANIZATION_SETTINGS/2026_09_10_000120_create_organization_settings_table.php",
@@ -127,6 +136,15 @@
       "migration_file": "database/migrations/stage4/expand/MIG-TBL-AUTH_LOGIN_IDENTIFIERS/2026_09_10_000150_create_auth_login_identifiers_table.php",
       "migration_name": "2026_09_10_000150_create_auth_login_identifiers_table",
       "file_sha256": "376f79a92bb5bd05ae6daf0d4ed60e5472d9307edd4fb251954e8ff68e0485aa",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-AUTH_SOCIAL_ACCOUNTS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-AUTH_SOCIAL_ACCOUNTS/2026_09_10_000160_create_auth_social_accounts_table.php",
+      "migration_name": "2026_09_10_000160_create_auth_social_accounts_table",
+      "file_sha256": "bc72bc66d360550ae5e772aee4e6920701f01c874eb4d35f420057764c100b7c",
       "restart_classification": "restart_safe",
       "safe_down": false
     },
@@ -172,6 +190,24 @@
       "migration_file": "database/migrations/stage4/expand/MIG-TBL-AUTH_SESSIONS/2026_09_10_000210_create_auth_sessions_table.php",
       "migration_name": "2026_09_10_000210_create_auth_sessions_table",
       "file_sha256": "f1b7ef9178ac7d17e06d342be078e38f594fcf13de05f5092669a947967b2007",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-ACCOUNT_CLOSURE_REQUESTS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-ACCOUNT_CLOSURE_REQUESTS/2026_09_10_000220_create_account_closure_requests_table.php",
+      "migration_name": "2026_09_10_000220_create_account_closure_requests_table",
+      "file_sha256": "a6ca40491c6364bbb2ffab5434c11136b334294d52b550e6a12da6c54a980d76",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-TERMS_ACCEPTANCES",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-TERMS_ACCEPTANCES/2026_09_10_000230_create_terms_acceptances_table.php",
+      "migration_name": "2026_09_10_000230_create_terms_acceptances_table",
+      "file_sha256": "7e07e33634fa85742da40b0f5e4d8b79888be6d9fdfc8f36c5b898264e6113de",
       "restart_classification": "restart_safe",
       "safe_down": false
     },
@@ -1009,6 +1045,24 @@
       "migration_file": "database/migrations/stage4/expand/MIG-TBL-NOTIFICATIONS/2026_09_10_001160_create_notifications_table.php",
       "migration_name": "2026_09_10_001160_create_notifications_table",
       "file_sha256": "19a6bbb07d752354eb01b6418032700961611c1040a68f84897edd190705073b",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-EVENT_PROJECTION_MIGRATION_CASES",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-EVENT_PROJECTION_MIGRATION_CASES/2026_09_10_001170_create_event_projection_migration_cases_table.php",
+      "migration_name": "2026_09_10_001170_create_event_projection_migration_cases_table",
+      "file_sha256": "0c96fd1bad98a61974029ae7c6637457d48e3c907e18c3ba9ab9c0d3cf717578",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-DATA_RETENTION_EXECUTION_RUNS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-DATA_RETENTION_EXECUTION_RUNS/2026_09_10_001180_create_data_retention_execution_runs_table.php",
+      "migration_name": "2026_09_10_001180_create_data_retention_execution_runs_table",
+      "file_sha256": "965d4c98c2689afe84a5672f60f537f59242bc37f4968079a5cbfd271678ff69",
       "restart_classification": "restart_safe",
       "safe_down": false
     }

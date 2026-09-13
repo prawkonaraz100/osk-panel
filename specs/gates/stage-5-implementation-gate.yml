@@ -239,6 +239,7 @@ next_single_step:
   Stage_4_materialized_nodes_current: 112
   Stage_4_DAG_nodes_total: 170
   expected_Stage_4_materialized_nodes_after_next_PASS: 118
+  current_corrective_gate_status: IN_VALIDATION
   PKK_provider_runtime_status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
   PKK_resume_requires:
     - explicit_user_unfreeze
@@ -3122,3 +3123,88 @@ FORMAL_DOCUMENTS_011_gate:
       - docs/95-open-items-severity.md
       - specs/implementation-baseline-v1.yml
       - AGENTS.md
+
+
+CORE_V1_STAGE4_MISSING_TABLES_001_gate:
+  id: CORE-V1-STAGE4-MISSING-TABLES-001
+  status: IN_VALIDATION
+  prerequisite: CORE-V1-CLOSURE-AUDIT-001_AUDIT_COMPLETE_REPO_P1_REMAINS
+  authority:
+    matrix: specs/database/final-migration-order-invariant-matrix.yml
+    narrative: docs/150-core-v1-stage4-missing-tables-expand.md
+    plan_identity: d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10
+    authority_git_blob: ad5f2aa2e14ef248b95dd3dda0d1cbcb2e69d441
+    previous_execution_identity: 1d2f1d3a47a4a09b749d0b164137857a241c07afbaad02789ec21e03cb4118ce
+    candidate_execution_identity: bba8fb733d634e180b2133057dd73dcabae116d344496027b2f1ecaf0f48de6c
+  exact_scope:
+    phase: expand
+    materialized_nodes_before: 112
+    materialized_nodes_after_candidate: 118
+    materialized_steps_before: 112
+    materialized_steps_after_candidate: 118
+    exact_nodes:
+      - MIG-TBL-LEGAL_DOCUMENTS
+      - MIG-TBL-AUTH_SOCIAL_ACCOUNTS
+      - MIG-TBL-ACCOUNT_CLOSURE_REQUESTS
+      - MIG-TBL-TERMS_ACCEPTANCES
+      - MIG-TBL-EVENT_PROJECTION_MIGRATION_CASES
+      - MIG-TBL-DATA_RETENTION_EXECUTION_RUNS
+  expand_boundary:
+    columns_and_primary_keys_only: true
+    candidate_keys_in_scope: false
+    secondary_indexes_in_scope: false
+    foreign_keys_in_scope: false
+    checks_or_exclusions_in_scope: false
+    user_triggers_in_scope: false
+    projections_in_scope: false
+    destructive_down: forbidden
+  remaining_after_candidate_PASS:
+    Stage_4_DAG_nodes_total: 170
+    Stage_4_materialized_nodes: 118
+    Stage_4_missing_nodes: 52
+    missing_tables: 0
+    missing_candidate_keys: 8
+    missing_indexes: 10
+    missing_foreign_keys: 11
+    missing_constraints: 10
+    missing_triggers: 9
+    missing_projections: 4
+  preservation:
+    Stage_5_formal_document_steps: 11
+    API_requirement_rows: 187
+    API_unique_operations: 173
+    API_shared_aliases: 14
+    earlier_local_PASS_records_reopened: false
+    PKK_provider_runtime_status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+  pass_requires:
+    - exact_six_table_nodes_registered_in_canonical_order_PASS
+    - exact_migration_file_SHA256_registry_PASS
+    - Stage_4_plan_identity_unchanged_PASS
+    - Stage_4_execution_identity_bba8fb733d634e180b2133057dd73dcabae116d344496027b2f1ecaf0f48de6c_PASS
+    - controlled_expand_PostgreSQL_PASS
+    - repeated_expand_idempotency_PASS
+    - six_tables_canonical_columns_PASS
+    - six_tables_primary_keys_PASS
+    - no_premature_candidate_key_index_FK_check_exclusion_trigger_projection_PASS
+    - Stage_4_170_118_118_candidate_PASS
+    - Stage_5_11_step_authority_preserved_PASS
+    - API_187_173_14_preserved_PASS
+    - PKK_provider_runtime_still_frozen_PASS
+    - backend_static_analysis_PASS_ZERO_ERRORS
+    - frontend_quality_PASS
+    - contracts_and_traceability_PASS
+    - secret_scan_PASS
+    - deterministic_restore_harness_PASS
+  next_after_PASS:
+    id: CORE-V1-STAGE4-CANDIDATE-KEYS-001
+    action: materialize_eight_stage4_candidate_key_nodes_with_authoritative_preflight_and_write_fence_phases
+    exact_nodes:
+      - MIG-CK-IDENTITY
+      - MIG-CK-ASSETS_RESOURCES
+      - MIG-CK-TRAINING
+      - MIG-CK-FINANCE
+      - MIG-CK-LICENSES
+      - MIG-CK-EXAMS
+      - MIG-CK-COMMERCE
+      - MIG-CK-EVENTS
+    rule: separate_gate_do_not_materialize_here

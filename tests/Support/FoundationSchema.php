@@ -15,6 +15,12 @@ final class FoundationSchema
 {
     /** @var list<string> */
     private const TABLES = [
+        'data_retention_execution_runs',
+        'event_projection_migration_cases',
+        'terms_acceptances',
+        'account_closure_requests',
+        'auth_social_accounts',
+        'legal_documents',
         'notifications',
         'organization_activity_events',
         'activity_projection_policy_currents',
@@ -122,7 +128,14 @@ final class FoundationSchema
         $plan = app(MigrationPlan::class);
         $plan->validate();
 
-        if (! DB::getSchemaBuilder()->hasTable('internal_exam_documents') || ! DB::getSchemaBuilder()->hasTable('notifications')) {
+        if (! DB::getSchemaBuilder()->hasTable('internal_exam_documents')
+            || ! DB::getSchemaBuilder()->hasTable('notifications')
+            || ! DB::getSchemaBuilder()->hasTable('legal_documents')
+            || ! DB::getSchemaBuilder()->hasTable('auth_social_accounts')
+            || ! DB::getSchemaBuilder()->hasTable('account_closure_requests')
+            || ! DB::getSchemaBuilder()->hasTable('terms_acceptances')
+            || ! DB::getSchemaBuilder()->hasTable('event_projection_migration_cases')
+            || ! DB::getSchemaBuilder()->hasTable('data_retention_execution_runs')) {
             $exit = Artisan::call('migration:controlled', [
                 '--plan' => $plan->identity(),
                 '--execution' => $plan->executionIdentity(),
