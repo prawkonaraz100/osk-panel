@@ -224,7 +224,7 @@ final class Stage4ConstraintsWriteFenceTest extends TestCase
     }
 
     /**
-     * @param list<string> $tables
+     * @param  list<string>  $tables
      * @return array<string, int>
      */
     private function rowCounts(array $tables): array

@@ -114,8 +114,8 @@ final class ConstraintWriteFence
     }
 
     /**
-     * @param array{name: string, table: string, columns: list<string>, predicate: string} $expected
-     * @param array{table: string, type: string, validated: bool, signature: string} $actual
+     * @param  array{name: string, table: string, columns: list<string>, predicate: string}  $expected
+     * @param  array{table: string, type: string, validated: bool, signature: string}  $actual
      */
     private static function assertExactDefinition(string $nodeId, array $expected, array $actual): void
     {
@@ -130,7 +130,7 @@ final class ConstraintWriteFence
     }
 
     /**
-     * @param array<string, mixed> $check
+     * @param  array<string, mixed>  $check
      */
     private static function signature(array $check): string
     {
