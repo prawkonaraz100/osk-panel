@@ -225,12 +225,16 @@ quality_gate:
     - S5-FOUND-001
 
 next_single_step:
-  id: FORMAL-DOC-011
-  action: materialize_formal_documents_UI_for_preview_approval_delivery_history_and_signed_scan_handoff
-  prerequisite_previous_slice: FORMAL-DOC-010_PASS
-  implementation_order_source: AGENTS.md_step_10_hardening_and_formal_documents
+  id: CORE-V1-CLOSURE-AUDIT-001
+  action: audit_core_v1_repository_completion_and_separate_deployment_external_blockers
+  prerequisite_previous_slice: FORMAL-DOC-011_PASS
+  implementation_order_source:
+    - AGENTS.md_step_10_hardening_and_formal_documents
+    - docs/95-open-items-severity.md
+    - specs/implementation-baseline-v1.yml
   hardening_repo_actionable_P1_status: COMPLETE
-  formal_documents_status: GATE_10_PASS_GATE_11_IN_VALIDATION
+  formal_documents_status: GATE_11_PASS_FORMAL_DOCUMENTS_CORE_COMPLETE
+  remaining_repo_actionable_P0_P1_status: TO_VERIFY_IN_CORE_V1_CLOSURE_AUDIT
   PKK_provider_runtime_status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
   PKK_resume_requires:
     - explicit_user_unfreeze
@@ -2862,7 +2866,7 @@ FORMAL_DOCUMENTS_010_gate:
 
 FORMAL_DOCUMENTS_011_gate:
   id: FORMAL-DOC-011
-  status: IN_VALIDATION
+  status: PASS
   prerequisite: FORMAL-DOC-010_PASS
   scope:
     - formal_documents_UI_in_existing_student_profile
@@ -2949,6 +2953,50 @@ FORMAL_DOCUMENTS_011_gate:
   PKK:
     provider_runtime_in_scope: false
     status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+  provenance:
+    validation_helper_commit: f677cf38e22e3b0ca63b731fa82ffee9e7703070
+    validation_helper_tree: db8426c9637bf1e1d10a72bcc2ee292721098eaf
+    validation_PR: 71
+    validation_PR_merged: false
+    helper_Implementation_CI_run: 34748913429
+    helper_API_contract_run: 34748913371
+    accepted_implementation_commit: b519a68c5edb913461ed0b8efdc60eda1ea40c7e
+    accepted_implementation_tree: db8426c9637bf1e1d10a72bcc2ee292721098eaf
+    accepted_Implementation_CI_run: 34749044793
+    accepted_API_contract_run: 34749045062
+  executable_evidence:
+    helper_Implementation_CI_jobs_passed: 5
+    helper_Implementation_CI_jobs_total: 5
+    helper_API_contract_gate: PASS
+    accepted_Implementation_CI_jobs_passed: 5
+    accepted_Implementation_CI_jobs_total: 5
+    accepted_API_contract_gate: PASS
+    accepted_PostgreSQL_suite_tests: 231
+    accepted_PostgreSQL_suite_assertions: 3152
+    deterministic_restore_harness: PASS
+    restore_source_table_count: 115
+    restore_restored_table_count: 115
+    backend_static_analysis: PASS_ZERO_ERRORS
+    frontend_lint_typecheck_build_audit: PASS
+    contracts_and_traceability: PASS
+    accepted_push_secret_scan: PASS
+    formal_documents_UI_contract_test: PASS
+    student_profile_mounts_formal_documents_panel: PASS
+    server_preview_list_freshness_wiring: PASS
+    exact_preview_bound_approval: PASS
+    stale_revision_blocks_delivery: PASS
+    immutable_prior_revision_download_and_history: PASS
+    paper_print_delivery_event: PASS
+    signed_scan_presign_PUT_complete_attach: PASS
+    signed_scan_partial_failure_retry_without_reupload: PASS
+    electronic_presented_mode_specific: PASS
+    no_statutory_electronic_signature_claim: PASS
+    archived_cancelled_context_mutation_disable: PASS
+    no_document_mode_mutation_invented: PASS
+    API_contract_187_rows_173_operations_14_aliases_preserved: PASS
+    Stage_4_170_112_112_preservation: PASS
+    Stage_5_11_step_identity_preservation: PASS
+    PKK_provider_runtime_still_frozen: PASS
   pass_requires:
     - student_profile_mounts_formal_documents_panel_PASS
     - server_preview_list_freshness_wiring_PASS
@@ -2974,4 +3022,9 @@ FORMAL_DOCUMENTS_011_gate:
     - PostgreSQL_runtime_suite_PASS
     - deterministic_restore_harness_PASS
   next_after_PASS:
-    status: TO_BE_DERIVED_FROM_POST_GATE_11_OPEN_ITEMS_AND_IMPLEMENTATION_ORDER
+    id: CORE-V1-CLOSURE-AUDIT-001
+    action: audit_core_v1_repository_completion_and_separate_deployment_external_blockers
+    authority_sources:
+      - docs/95-open-items-severity.md
+      - specs/implementation-baseline-v1.yml
+      - AGENTS.md
