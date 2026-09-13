@@ -1,6 +1,6 @@
 # CORE-V1-STAGE4-CANDIDATE-KEYS-001 — candidate-key preflight prefix
 
-Status: `IN_VALIDATION`
+Status: `PASS`
 
 ## Purpose
 
@@ -217,3 +217,48 @@ This slice does not change:
 PKK remains:
 
 `FROZEN_UNTIL_EXPLICIT_UNFREEZE`.
+
+
+## Closure evidence
+
+`CORE-V1-STAGE4-CANDIDATE-KEYS-001` is closed **PASS** on the exact validated implementation tree.
+
+Validation-only helper:
+
+- validation PR: **#80**, closed without merge,
+- helper commit: `87161711afc10288da971fffdc03209a2fb5f038`,
+- helper tree: `56f6ec80671aff4ee7d52f7d09c82249a9a5716d`,
+- helper Implementation CI: run `34765461033` / #386 — **5/5 PASS**,
+- PostgreSQL: **233 tests / 3190 assertions**,
+- deterministic restore: **121 → 121**, `RESTORE_DRILL_HARNESS=PASS`.
+
+Clean accepted implementation:
+
+- accepted commit: `db981e7679ebee63532238c6cfbcc143fbc6699f`,
+- accepted tree: `56f6ec80671aff4ee7d52f7d09c82249a9a5716d`,
+- exact helper/accepted tree match: **PASS**,
+- accepted Implementation CI: run `34770650185` / #387 — **5/5 PASS**,
+- PostgreSQL: **233 tests / 3190 assertions**,
+- deterministic restore: **121 → 121**, `RESTORE_DRILL_HARNESS=PASS`,
+- backend static analysis: **PASS_ZERO_ERRORS**,
+- frontend quality: **PASS**,
+- contracts and traceability: **PASS**,
+- secret scan: **PASS**.
+
+Migration authority after PASS:
+
+- Stage-4 DAG: **170 nodes**,
+- Stage-4 materialized nodes: **126**,
+- Stage-4 materialized steps: **126**,
+- Stage-4 plan identity remains `d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10`,
+- Stage-4 execution identity is `ea9cbf83c22be708f22676be11aef4bf18d3c22f1520e13a22cb52743a37b882`,
+- all **8** candidate-key preflight nodes are materialized,
+- candidate-key UNIQUE effects remain intentionally unmaterialized,
+- global write-fence remains closed,
+- remaining preflight nodes before write-fence: **31**,
+- Stage-5 formal-document authority remains **11 steps**,
+- API inventory remains **187 / 173 / 14**,
+- FORMAL-DOC-011 remains **PASS**,
+- PKK provider runtime remains **FROZEN_UNTIL_EXPLICIT_UNFREEZE**.
+
+Next gate: **CORE-V1-STAGE4-INDEXES-PREFLIGHT-001**, covering exactly the 10 authoritative `MIG-IDX-*` preflight nodes. No write-fence node may execute in that slice.
