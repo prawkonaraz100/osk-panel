@@ -1,6 +1,6 @@
 # CORE-V1-STAGE4-CONSTRAINTS-PREFLIGHT-001
 
-Status: `IN_VALIDATION`
+Status: `PASS`
 
 ## Scope
 
@@ -43,3 +43,49 @@ The helper must leave both target schema signature and target row counts unchang
 ## Gate after PASS
 
 A PASS here completes global preflight **39/39**, but does not itself authorize arbitrary write-fence execution. The next gate must explicitly select the first safe write-fence tranche from the frozen order and cutover contract.
+
+
+## Closure evidence
+
+`CORE-V1-STAGE4-CONSTRAINTS-PREFLIGHT-001` is closed **PASS**.
+
+Validation-only helper:
+
+- validation PR **#85** was closed without merge,
+- validated helper commit: `b7f128e6c0424203c9287da74a21a41dde043319`,
+- validated helper tree: `4712abdf1dc05e24e1ce815559ca62d71e7bd6f3`,
+- helper Implementation CI: run `34776362980` / #406 — **5/5 PASS**,
+- PostgreSQL: **236 tests / 3228 assertions**,
+- deterministic restore: **121 -> 121**, `RESTORE_DRILL_HARNESS=PASS`.
+
+Clean accepted implementation:
+
+- accepted implementation commit: `0405103563b0c9f0e808b9cf61c0aed747445654`,
+- accepted implementation tree: `4712abdf1dc05e24e1ce815559ca62d71e7bd6f3`,
+- exact helper/accepted tree match: **PASS**,
+- accepted Implementation CI: run `34776617578` / #407 — **5/5 PASS**,
+- PostgreSQL: **236 tests / 3228 assertions**,
+- deterministic restore: **121 -> 121**, `RESTORE_DRILL_HARNESS=PASS`,
+- backend static analysis: **PASS_ZERO_ERRORS**,
+- frontend quality: **PASS**,
+- contracts and traceability: **PASS**,
+- secret scan: **PASS**.
+
+Migration authority after PASS:
+
+- Stage-4 DAG: **170 nodes**,
+- Stage-4 materialized nodes: **157**,
+- Stage-4 materialized steps: **157**,
+- global preflight prefix: **39 / 39**,
+- remaining preflight nodes before write-fence: **0**,
+- write-fence steps materialized: **0**,
+- plan identity remains `d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10`,
+- execution identity is `d2da7eb3ccb082ca6b0106fbe4b1e543815c9236cc1a8bd62cf470c93459b660`,
+- Stage-5 formal-document authority remains **11 steps**,
+- API inventory remains **187 / 173 / 14**,
+- FORMAL-DOC-011 remains **PASS**,
+- PKK provider runtime remains **FROZEN_UNTIL_EXPLICIT_UNFREEZE**.
+
+Next gate: **CORE-V1-STAGE4-CANDIDATE-KEYS-WRITE-FENCE-001**.
+
+It covers exactly the eight authoritative `MIG-CK-*` nodes in their `write_fence` phase, orders 1190–1260. Because those nodes are already materialized in `preflight`, a PASS keeps **157 materialized nodes** and increases materialized steps **157 -> 165**. No index, FK, constraint, trigger, backfill or reconciliation node may be pulled into that tranche.
