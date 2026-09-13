@@ -3665,7 +3665,7 @@ CORE_V1_STAGE4_CONSTRAINTS_PREFLIGHT_001_gate:
     narrative: docs/154-core-v1-stage4-constraints-preflight.md
     plan_identity: d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10
     previous_execution_identity: 488bedcef5d2aabef34e294f8fa0c2b48ef392e804cc83c6cd75c8ba5bfd8b1c
-    candidate_execution_identity: b1510cc6adc4a551a72f6ca338fb24db5d642c7a96724f4cb196e780e82f0ecd
+    candidate_execution_identity: d2da7eb3ccb082ca6b0106fbe4b1e543815c9236cc1a8bd62cf470c93459b660
   exact_scope:
     phase: preflight
     materialized_nodes_before: 147
@@ -3713,7 +3713,7 @@ CORE_V1_STAGE4_CONSTRAINTS_PREFLIGHT_001_gate:
     - exact_ten_constraint_preflight_nodes_registered_in_canonical_order_PASS
     - exact_migration_file_SHA256_registry_PASS
     - Stage_4_plan_identity_unchanged_PASS
-    - Stage_4_execution_identity_b1510cc6adc4a551a72f6ca338fb24db5d642c7a96724f4cb196e780e82f0ecd_PASS
+    - Stage_4_execution_identity_d2da7eb3ccb082ca6b0106fbe4b1e543815c9236cc1a8bd62cf470c93459b660_PASS
     - controlled_preflight_PostgreSQL_PASS
     - row_local_constraint_scan_PASS
     - target_schema_mutation_zero_PASS

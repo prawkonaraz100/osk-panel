@@ -40,7 +40,7 @@ return new class extends Migration
                 'table' => 'internal_exam_station_sessions',
                 'columns' => ['session_sequence', 'started_at', 'ended_at', 'end_reason'],
                 'predicate' => 'src.session_sequence >= 1 AND ((src.ended_at IS NULL AND src.end_reason IS NULL) OR (src.ended_at IS NOT NULL AND src.ended_at >= src.started_at AND src.end_reason IS NOT NULL))',
-            ]
+            ],
         ]);
     }
 

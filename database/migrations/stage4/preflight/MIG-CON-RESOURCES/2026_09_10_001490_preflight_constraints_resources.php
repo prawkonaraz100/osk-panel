@@ -34,7 +34,7 @@ return new class extends Migration
                 'table' => 'vehicle_documents',
                 'columns' => ['created_at', 'superseded_at'],
                 'predicate' => 'src.superseded_at IS NULL OR src.superseded_at >= src.created_at',
-            ]
+            ],
         ]);
     }
 

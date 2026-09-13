@@ -34,7 +34,7 @@ return new class extends Migration
                 'table' => 'organization_memberships',
                 'columns' => ['status', 'is_owner'],
                 'predicate' => 'src.status <> \'revoked\' OR src.is_owner = false',
-            ]
+            ],
         ]);
     }
 

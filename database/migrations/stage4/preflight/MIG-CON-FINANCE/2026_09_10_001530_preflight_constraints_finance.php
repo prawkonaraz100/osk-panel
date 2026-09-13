@@ -22,7 +22,7 @@ return new class extends Migration
                 'table' => 'student_payments',
                 'columns' => ['amount_minor', 'reversed_at', 'reversed_by_user_id', 'reversal_reason'],
                 'predicate' => 'src.amount_minor > 0 AND ((src.reversed_at IS NULL AND src.reversed_by_user_id IS NULL AND src.reversal_reason IS NULL) OR (src.reversed_at IS NOT NULL AND src.reversed_by_user_id IS NOT NULL AND NULLIF(BTRIM(src.reversal_reason),\'\') IS NOT NULL))',
-            ]
+            ],
         ]);
     }
 

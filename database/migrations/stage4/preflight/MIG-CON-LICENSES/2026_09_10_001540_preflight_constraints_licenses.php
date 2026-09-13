@@ -34,7 +34,7 @@ return new class extends Migration
                 'table' => 'license_activations',
                 'columns' => ['entitlement_sequence', 'duration_days_snapshot', 'effective_from', 'effective_to'],
                 'predicate' => 'src.entitlement_sequence >= 1 AND src.duration_days_snapshot > 0 AND src.effective_to > src.effective_from',
-            ]
+            ],
         ]);
     }
 

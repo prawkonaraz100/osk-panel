@@ -58,7 +58,7 @@ return new class extends Migration
                 'table' => 'training_session_attendance',
                 'columns' => ['status'],
                 'predicate' => 'src.status IN (\'present\',\'absent\')',
-            ]
+            ],
         ]);
     }
 

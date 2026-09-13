@@ -40,7 +40,7 @@ return new class extends Migration
                 'table' => 'notifications',
                 'columns' => ['audience_kind'],
                 'predicate' => 'src.audience_kind IN (\'direct_membership\',\'organization_broadcast\')',
-            ]
+            ],
         ]);
     }
 

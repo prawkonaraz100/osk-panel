@@ -46,7 +46,7 @@ return new class extends Migration
                 'table' => 'service_activations',
                 'columns' => ['effective_from', 'effective_to'],
                 'predicate' => 'src.effective_to IS NULL OR src.effective_to > src.effective_from',
-            ]
+            ],
         ]);
     }
 

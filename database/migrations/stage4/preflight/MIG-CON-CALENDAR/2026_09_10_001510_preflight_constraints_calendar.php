@@ -46,7 +46,7 @@ return new class extends Migration
                 'table' => 'calendar_resource_claims',
                 'columns' => ['claim_owner_kind', 'student_id', 'instructor_id', 'vehicle_id', 'location_id', 'starts_at', 'ends_at'],
                 'predicate' => 'src.ends_at > src.starts_at AND src.claim_owner_kind IN (\'calendar_event\',\'availability_slot_booking\',\'training_session\') AND num_nonnulls(src.student_id,src.instructor_id,src.vehicle_id,src.location_id) = 1',
-            ]
+            ],
         ]);
     }
 

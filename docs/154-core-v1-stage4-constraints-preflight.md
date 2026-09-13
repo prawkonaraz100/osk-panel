@@ -29,7 +29,7 @@ This slice completes the authoritative global preflight prefix: **39 / 39 nodes*
 - Materialized write-fence steps: **0**.
 - Plan identity remains `d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10`.
 - Previous execution identity: `488bedcef5d2aabef34e294f8fa0c2b48ef392e804cc83c6cd75c8ba5bfd8b1c`.
-- Candidate execution identity: `b1510cc6adc4a551a72f6ca338fb24db5d642c7a96724f4cb196e780e82f0ecd`.
+- Candidate execution identity: `d2da7eb3ccb082ca6b0106fbe4b1e543815c9236cc1a8bd62cf470c93459b660`.
 - PKK provider runtime remains **FROZEN_UNTIL_EXPLICIT_UNFREEZE**.
 
 ## Safety boundary
