@@ -258,8 +258,8 @@ final class FormalTrainingDocumentService
                 'formal_training_document',
                 $documentId,
                 $requestId,
-                ['fields' => ['event_type'], 'state' => 'approved', 'event_type' => null],
-                ['fields' => ['event_type'], 'state' => 'delivery_recorded', 'event_type' => $eventType],
+                ['fields' => ['delivery_state'], 'state' => 'approved'],
+                ['fields' => ['delivery_state'], 'state' => $eventType],
             );
 
             $row = DB::table('formal_training_document_events')
