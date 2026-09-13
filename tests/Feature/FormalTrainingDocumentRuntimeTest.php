@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Support\Migrations\Stage5FormalDocumentsMigrationPlan;
+use Database\Seeders\FormalTrainingDocumentTemplateSeeder;
 use Database\Seeders\ResourceReferenceCatalogSeeder;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
@@ -420,6 +421,7 @@ final class FormalTrainingDocumentRuntimeTest extends TestCase
         }
 
         app(ResourceReferenceCatalogSeeder::class)->run();
+        app(FormalTrainingDocumentTemplateSeeder::class)->run();
     }
 
     private function resetPhaseRegistrations(): void
