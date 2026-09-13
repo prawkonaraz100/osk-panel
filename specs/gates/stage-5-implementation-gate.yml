@@ -230,7 +230,7 @@ next_single_step:
   prerequisite_previous_slice: FORMAL-DOC-004_PASS
   implementation_order_source: AGENTS.md_step_10_hardening_and_formal_documents
   hardening_repo_actionable_P1_status: COMPLETE
-  formal_documents_status: GATE_4_PASS_GATE_5_NOT_STARTED
+  formal_documents_status: GATE_4_PASS_GATE_5_IN_VALIDATION
   PKK_provider_runtime_status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
   PKK_resume_requires:
     - explicit_user_unfreeze
@@ -2111,3 +2111,70 @@ FORMAL_DOCUMENTS_004_gate:
   next_after_PASS:
     id: FORMAL-DOC-005
     action: deterministic_legacy_paper_mode_backfill_without_final_contract
+
+
+FORMAL_DOCUMENTS_005_gate:
+  id: FORMAL-DOC-005
+  status: IN_VALIDATION
+  prerequisite: FORMAL-DOC-004_PASS
+  scope:
+    - Stage_5_formal_documents_backfill_only
+    - deterministic_legacy_paper_mode_conversion
+    - no_final_contract
+    - defensive_revalidation_under_write_lock
+  authority:
+    extension_plan_identity: 34cada121f4fd4963b1461308fb517c50ee647005ce9421f4d1af40c80d44b99
+    extension_execution_identity: fc32a8fc010561cd395af881a10191c76bc9c53266d34bdab56eaa382f061094
+    backfill_file_sha256: 8ac8fdd6b306480e5ed7f4ec501cb941e911e90c004735ac6ee036d5aee0410c
+    narrative: docs/142-formal-training-documents-document-mode-backfill.md
+  frozen_Stage_4_baseline:
+    plan_identity: d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10
+    execution_identity: 1d2f1d3a47a4a09b749d0b164137857a241c07afbaad02789ec21e03cb4118ce
+    DAG_nodes: 170
+    implemented_nodes: 112
+    implemented_steps: 112
+    may_be_rewritten_by_FORMAL_DOC_005: false
+  materialization:
+    expand_steps: 4
+    preflight_steps: 1
+    backfill_steps: 1
+    total_steps: 6
+    final_document_mode_not_null_enforced: false
+    validate_phase_materialized: false
+  deterministic_backfill:
+    legacy_source_state: document_mode_NULL_selected_at_NULL_selected_by_NULL
+    target_document_mode: paper
+    target_document_mode_selected_at: course_enrollments.created_at
+    target_document_mode_selected_by_user_id: null
+    rewrites_existing_explicit_selection: false
+    rewrites_business_updated_at: false
+  concurrency_and_safety:
+    prerequisite_preflight_applied: required
+    PostgreSQL_table_lock: SHARE_ROW_EXCLUSIVE
+    shared_migration_advisory_lock: [519662, 5001]
+    defensive_revalidation_inside_transaction: required
+    ambiguous_drift_after_preflight: fail_closed
+    automatic_destructive_down: forbidden
+  PKK:
+    provider_runtime_in_scope: false
+    status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+  pass_requires:
+    - exact_backfill_file_hash_validation_PASS
+    - preflight_before_backfill_ordering_PASS
+    - deterministic_paper_created_at_backfill_PASS
+    - existing_electronic_selection_preservation_PASS
+    - backfill_does_not_rewrite_business_updated_at_PASS
+    - drift_after_preflight_negative_test_PASS
+    - failed_backfill_not_recorded_as_applied_PASS
+    - repeated_controlled_backfill_idempotency_PASS
+    - successful_fixture_zero_null_document_modes_PASS
+    - validate_phase_remains_fail_closed_PASS
+    - Stage_4_170_112_112_preservation_PASS
+    - backend_static_analysis_PASS_ZERO_ERRORS
+    - frontend_quality_PASS
+    - contracts_and_traceability_PASS
+    - secret_scan_PASS
+    - deterministic_restore_harness_PASS
+  next_after_PASS:
+    id: FORMAL-DOC-006
+    action: materialize_validate_phase_for_formal_document_relational_and_immutability_constraints
