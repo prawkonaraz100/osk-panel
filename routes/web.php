@@ -14,6 +14,7 @@ use App\Modules\ResourcesCore\ResourceApiMiddleware;
 use App\Modules\ResourcesCore\ResourceController;
 use App\Modules\StudentFinance\StudentFinanceController;
 use App\Modules\StudentsCourses\StudentCourseController;
+use App\Modules\UploadsAssets\UploadAssetController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(ResourceApiMiddleware::class)->prefix('api/v1')->group(function (): void {
@@ -26,6 +27,9 @@ Route::middleware(ResourceApiMiddleware::class)->prefix('api/v1')->group(functio
     Route::get('/location-types', [ResourceController::class, 'locationTypes']);
     Route::get('/geography/cities', [ResourceController::class, 'cities']);
     Route::get('/driving-categories', [ResourceController::class, 'drivingCategories']);
+
+    Route::post('/uploads/presign', [UploadAssetController::class, 'presign']);
+    Route::post('/uploads/{uploadId}/complete', [UploadAssetController::class, 'complete']);
 
     Route::get('/staff', [ResourceController::class, 'staffList']);
     Route::post('/staff', [ResourceController::class, 'staffCreate']);
