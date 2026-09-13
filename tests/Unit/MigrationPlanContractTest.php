@@ -15,10 +15,10 @@ class MigrationPlanContractTest extends TestCase
 
         $this->assertSame(170, $plan->nodeCount());
         $this->assertSame(17, $plan->batchCount());
-        $this->assertSame(118, $plan->implementedNodeCount());
-        $this->assertSame(118, $plan->implementedStepCount());
+        $this->assertSame(126, $plan->implementedNodeCount());
+        $this->assertSame(134, $plan->implementedStepCount());
         $this->assertSame('ad5f2aa2e14ef248b95dd3dda0d1cbcb2e69d441', $plan->summary()['authority_blob']);
-        $this->assertSame('bba8fb733d634e180b2133057dd73dcabae116d344496027b2f1ecaf0f48de6c', $plan->executionIdentity());
+        $this->assertSame('7475e9179234a4fd18ed9f19ee2dd172728eacdbfbe0e4451a6615b4eaf1df77', $plan->executionIdentity());
         $this->assertSame([
             'MIG-EXT-BTREE-GIST',
             'MIG-TBL-ORGANIZATIONS',
@@ -141,13 +141,39 @@ class MigrationPlanContractTest extends TestCase
         ], array_column($plan->phaseSteps('expand'), 'node_id'));
     }
 
-    public function test_later_phase_is_closed_until_every_authoritative_earlier_phase_step_is_materialized_and_applied(): void
+    public function test_later_phase_requires_registered_prefix_earlier_phases_to_be_applied_without_waiting_for_future_nodes(): void
     {
         $plan = new MigrationPlan;
         $plan->validate();
 
-        $this->expectException(LogicException::class);
-        $this->expectExceptionMessage('No materialized migration steps for phase preflight');
-        $plan->assertPhaseEntry('preflight', []);
+        $expand = array_column($plan->phaseSteps('expand'), 'migration_name');
+        $preflight = array_column($plan->phaseSteps('preflight'), 'migration_name');
+
+        $plan->assertPhaseEntry('preflight', $expand);
+
+        try {
+            $plan->assertPhaseEntry('write_fence', $expand);
+            $this->fail('Write-fence phase must remain closed until registered candidate-key preflights are applied.');
+        } catch (LogicException $exception) {
+            $this->assertStringContainsString('Earlier phase preflight is not fully applied', $exception->getMessage());
+        }
+
+        $plan->assertPhaseEntry('write_fence', [...$expand, ...$preflight]);
+
+        $this->assertSame([
+            'MIG-CK-IDENTITY',
+            'MIG-CK-ASSETS_RESOURCES',
+            'MIG-CK-TRAINING',
+            'MIG-CK-FINANCE',
+            'MIG-CK-LICENSES',
+            'MIG-CK-EXAMS',
+            'MIG-CK-COMMERCE',
+            'MIG-CK-EVENTS',
+        ], array_column($plan->phaseSteps('preflight'), 'node_id'));
+
+        $this->assertSame(
+            array_column($plan->phaseSteps('preflight'), 'node_id'),
+            array_column($plan->phaseSteps('write_fence'), 'node_id'),
+        );
     }
 }
