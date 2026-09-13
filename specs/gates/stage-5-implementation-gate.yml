@@ -225,12 +225,12 @@ quality_gate:
     - S5-FOUND-001
 
 next_single_step:
-  id: FORMAL-DOC-009
-  action: materialize_document_delivery_lifecycle_and_freshness_projection
-  prerequisite_previous_slice: FORMAL-DOC-008_PASS
+  id: FORMAL-DOC-010
+  action: materialize_uploads_assets_runtime_for_formal_signed_scan_handoff_and_existing_asset_contract
+  prerequisite_previous_slice: FORMAL-DOC-009_PASS
   implementation_order_source: AGENTS.md_step_10_hardening_and_formal_documents
   hardening_repo_actionable_P1_status: COMPLETE
-  formal_documents_status: GATE_8_PASS_GATE_9_IN_VALIDATION
+  formal_documents_status: GATE_9_PASS_GATE_10_NOT_STARTED
   PKK_provider_runtime_status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
   PKK_resume_requires:
     - explicit_user_unfreeze
@@ -2580,7 +2580,7 @@ FORMAL_DOCUMENTS_008_gate:
 
 FORMAL_DOCUMENTS_009_gate:
   id: FORMAL-DOC-009
-  status: IN_VALIDATION
+  status: PASS
   prerequisite: FORMAL-DOC-008_PASS
   scope:
     - reusable_current_source_freshness_projection
@@ -2645,6 +2645,41 @@ FORMAL_DOCUMENTS_009_gate:
   PKK:
     provider_runtime_in_scope: false
     status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+  provenance:
+    validation_helper_commit: 83d9260c6d5266ccf3f2c418e7a38c0c94946d57
+    validation_helper_tree: 1b017e1647a21db5a5aa93fd4015e1f2ae906310
+    validation_PR: 67
+    validation_PR_merged: false
+    helper_Implementation_CI_run: 34745981227
+    helper_API_contract_run: 34745981281
+    accepted_implementation_commit: 162056c6112a9db92702f8482ab78ad823710a80
+    accepted_implementation_tree: 1b017e1647a21db5a5aa93fd4015e1f2ae906310
+    accepted_Implementation_CI_run: 34746171234
+    accepted_API_contract_run: 34746171227
+  executable_evidence:
+    helper_Implementation_CI_jobs_passed: 5
+    helper_Implementation_CI_jobs_total: 5
+    helper_API_contract_gate: PASS
+    accepted_Implementation_CI_jobs_passed: 5
+    accepted_Implementation_CI_jobs_total: 5
+    accepted_API_contract_gate: PASS
+    accepted_PostgreSQL_suite_tests: 227
+    accepted_PostgreSQL_suite_assertions: 3088
+    deterministic_restore_harness: PASS
+    restore_source_table_count: 115
+    restore_restored_table_count: 115
+    backend_static_analysis: PASS_ZERO_ERRORS
+    frontend_lint_typecheck_build_audit: PASS
+    contracts_and_traceability: PASS
+    accepted_push_secret_scan: PASS
+    API_contract_187_rows_173_operations_14_aliases: PASS
+    freshness_projection_no_GET_side_effect: PASS
+    paper_and_electronic_delivery_mode_separation: PASS
+    signed_scan_tenant_ready_purpose_SHA256_boundary: PASS
+    delivery_preserves_immutable_document_revision: PASS
+    Stage_4_170_112_112_preservation: PASS
+    Stage_5_11_step_identity_preservation: PASS
+    PKK_provider_runtime_still_frozen: PASS
   pass_requires:
     - formal_documents_deliver_permission_student_scope_PASS
     - API_contract_187_rows_173_operations_PASS
