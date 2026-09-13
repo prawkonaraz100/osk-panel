@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Modules\FormalDocuments\FormalTrainingDocumentRenderer;
 use App\Modules\InternalExams\InternalExamAnswerSheetRenderer;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
@@ -59,6 +60,7 @@ final class ResourceReferenceCatalogSeeder extends Seeder
         'internal_exam.station_transferred',
         'internal_exam.station.registered', 'internal_exam.station_credential.provisioned', 'internal_exam.station_credential.rotated',
         'internal_exam.answer_sheet.downloaded', 'internal_exam.inventory.adjusted',
+        'formal_document.approved', 'formal_document.downloaded',
     ];
 
     public function run(): void
@@ -148,6 +150,25 @@ final class ResourceReferenceCatalogSeeder extends Seeder
                 'effective_to' => null,
                 'created_at' => now(),
             ]);
+
+            foreach ([
+                ['0199f88d-8d00-7000-8000-000000000101', 'training_record_card'],
+                ['0199f88d-8d00-7000-8000-000000000102', 'theory_delivery_journal'],
+            ] as [$templateId, $documentType]) {
+                DB::table('formal_training_document_templates')->insertOrIgnore([
+                    'id' => $templateId,
+                    'document_type' => $documentType,
+                    'template_version' => 'v1',
+                    'renderer_version' => FormalTrainingDocumentRenderer::RENDERER_VERSION,
+                    'template_content_hash' => hash(
+                        'sha256',
+                        'prawkonaraz|formal_training_document|'.$documentType.'|v1|'.FormalTrainingDocumentRenderer::RENDERER_VERSION,
+                    ),
+                    'effective_from' => '2026-01-01 00:00:00+00',
+                    'effective_to' => null,
+                    'created_at' => now(),
+                ]);
+            }
 
             foreach (self::AUDIT_ACTIONS as $action) {
                 DB::table('audit_action_policy_revisions')->updateOrInsert(
