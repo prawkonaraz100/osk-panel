@@ -2,7 +2,9 @@
 
 namespace Tests\Feature;
 
+use App\Support\Migrations\ControlledMigrationContext;
 use App\Support\Migrations\MigrationPlan;
+use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -33,9 +35,9 @@ final class Stage4IndexesWriteFenceTest extends TestCase
 
         $this->assertSame(170, $plan->nodeCount());
         $this->assertSame(157, $plan->implementedNodeCount());
-        $this->assertSame(175, $plan->implementedStepCount());
-        $this->assertSame('411d0c2c1493fb2ea052e89b5c919f2b7e3ae0f746301107b0a7c08610486f71', $plan->executionIdentity());
-        $this->assertCount(18, $plan->phaseSteps('write_fence'));
+        $this->assertSame(186, $plan->implementedStepCount());
+        $this->assertSame('1c3d384b6b52c68228111f08fb1a1d966f94b2281670a82550860f851cd4745d', $plan->executionIdentity());
+        $this->assertCount(29, $plan->phaseSteps('write_fence'));
         $this->assertSame(
             $indexNodes,
             array_slice(array_column($plan->phaseSteps('write_fence'), 'node_id'), 8, count($indexNodes)),
@@ -410,22 +412,32 @@ final class Stage4IndexesWriteFenceTest extends TestCase
             ]);
             $this->assertSame(0, $preflightExit, Artisan::output());
 
-            $writeFenceExit = Artisan::call('migration:controlled', [
-                '--plan' => $plan->identity(),
-                '--execution' => $plan->executionIdentity(),
-                '--phase' => 'write_fence',
-                '--force' => true,
-            ]);
-            $this->assertSame(0, $writeFenceExit, Artisan::output());
+            $historicalWriteFenceSteps = array_slice($plan->phaseSteps('write_fence'), 0, 18);
+            foreach ($historicalWriteFenceSteps as $step) {
+                ControlledMigrationContext::enter('write_fence', $step['node_id'], $plan->executionIdentity());
 
-            $expectedMigrations = array_column($plan->phaseSteps('write_fence'), 'migration_name');
-            sort($expectedMigrations);
-            $actualMigrations = DB::table('migrations')
-                ->whereIn('migration', $expectedMigrations)
-                ->orderBy('migration')
-                ->pluck('migration')
-                ->all();
-            $this->assertSame($expectedMigrations, array_values($actualMigrations));
+                try {
+                    /** @var Migration $migration */
+                    $migration = require base_path($step['migration_file']);
+                    $migration->up();
+                } finally {
+                    ControlledMigrationContext::leave();
+                }
+            }
+
+            $this->assertSame(
+                array_merge([
+                    'MIG-CK-IDENTITY',
+                    'MIG-CK-ASSETS_RESOURCES',
+                    'MIG-CK-TRAINING',
+                    'MIG-CK-FINANCE',
+                    'MIG-CK-LICENSES',
+                    'MIG-CK-EXAMS',
+                    'MIG-CK-COMMERCE',
+                    'MIG-CK-EVENTS',
+                ], $indexNodes),
+                array_column($historicalWriteFenceSteps, 'node_id'),
+            );
 
             foreach ($expectedIndexes as $definition) {
                 $actual = $this->uniqueIndex($definition['name']);

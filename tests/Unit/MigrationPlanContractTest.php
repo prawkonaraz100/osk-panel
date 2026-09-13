@@ -16,9 +16,9 @@ class MigrationPlanContractTest extends TestCase
         $this->assertSame(170, $plan->nodeCount());
         $this->assertSame(17, $plan->batchCount());
         $this->assertSame(157, $plan->implementedNodeCount());
-        $this->assertSame(175, $plan->implementedStepCount());
+        $this->assertSame(186, $plan->implementedStepCount());
         $this->assertSame('ad5f2aa2e14ef248b95dd3dda0d1cbcb2e69d441', $plan->summary()['authority_blob']);
-        $this->assertSame('411d0c2c1493fb2ea052e89b5c919f2b7e3ae0f746301107b0a7c08610486f71', $plan->executionIdentity());
+        $this->assertSame('1c3d384b6b52c68228111f08fb1a1d966f94b2281670a82550860f851cd4745d', $plan->executionIdentity());
         $this->assertSame([
             'MIG-EXT-BTREE-GIST',
             'MIG-TBL-ORGANIZATIONS',
@@ -191,7 +191,7 @@ class MigrationPlanContractTest extends TestCase
             array_merge($candidateKeyNodes, $indexNodes, $foreignKeyNodes, $constraintNodes),
             array_column($plan->phaseSteps('preflight'), 'node_id'),
         );
-        $this->assertSame(array_merge($candidateKeyNodes, $indexNodes), array_column($plan->phaseSteps('write_fence'), 'node_id'));
+        $this->assertSame(array_merge($candidateKeyNodes, $indexNodes, $foreignKeyNodes), array_column($plan->phaseSteps('write_fence'), 'node_id'));
         $this->assertSame([], $plan->phaseSteps('backfill'));
         $this->assertSame([], $plan->phaseSteps('reconcile'));
         $this->assertSame([], $plan->phaseSteps('validate'));
@@ -203,7 +203,7 @@ class MigrationPlanContractTest extends TestCase
         $plan = new MigrationPlan;
         $plan->validate();
 
-        $this->assertCount(18, $plan->phaseSteps('write_fence'));
+        $this->assertCount(29, $plan->phaseSteps('write_fence'));
 
         $this->expectException(LogicException::class);
         $this->expectExceptionMessage('Earlier phase expand is not fully applied: MIG-EXT-BTREE-GIST');
