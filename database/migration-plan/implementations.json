@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
   "plan_identity": "d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10",
-  "execution_identity": "6f62bc3f68cf89943cddefe3186baf337f3e90d3afe76d9c6bb6475f8f48e654",
+  "execution_identity": "db1ff3bfdbeacb32f1a0512cc30806cc93e9bcdca35e416ef81b6fadd7a3b303",
   "stage4_root": "database/migrations/stage4",
   "implemented_steps": [
     {
@@ -1076,29 +1076,11 @@
       "safe_down": false
     },
     {
-      "node_id": "MIG-CK-IDENTITY",
-      "phase": "write_fence",
-      "migration_file": "database/migrations/stage4/write_fence/MIG-CK-IDENTITY/2026_09_10_001190_write_fence_candidate_keys_identity.php",
-      "migration_name": "2026_09_10_001190_write_fence_candidate_keys_identity",
-      "file_sha256": "fb9e004026b8302023577664730d2641effe466e569217da72599abddfe3edbf",
-      "restart_classification": "manual_review",
-      "safe_down": false
-    },
-    {
       "node_id": "MIG-CK-ASSETS_RESOURCES",
       "phase": "preflight",
       "migration_file": "database/migrations/stage4/preflight/MIG-CK-ASSETS_RESOURCES/2026_09_10_001200_preflight_candidate_keys_assets_resources.php",
       "migration_name": "2026_09_10_001200_preflight_candidate_keys_assets_resources",
       "file_sha256": "0fe953d66f2a0695c37ad846b83c76b623cd7520bba07b91cfa0faa154eedfb2",
-      "restart_classification": "manual_review",
-      "safe_down": false
-    },
-    {
-      "node_id": "MIG-CK-ASSETS_RESOURCES",
-      "phase": "write_fence",
-      "migration_file": "database/migrations/stage4/write_fence/MIG-CK-ASSETS_RESOURCES/2026_09_10_001200_write_fence_candidate_keys_assets_resources.php",
-      "migration_name": "2026_09_10_001200_write_fence_candidate_keys_assets_resources",
-      "file_sha256": "2c4b3f1f8e06d4d8f928936c147b744045ded62f1d992a7ab88fd88440a930be",
       "restart_classification": "manual_review",
       "safe_down": false
     },
@@ -1112,29 +1094,11 @@
       "safe_down": false
     },
     {
-      "node_id": "MIG-CK-TRAINING",
-      "phase": "write_fence",
-      "migration_file": "database/migrations/stage4/write_fence/MIG-CK-TRAINING/2026_09_10_001210_write_fence_candidate_keys_training.php",
-      "migration_name": "2026_09_10_001210_write_fence_candidate_keys_training",
-      "file_sha256": "93245d28c8332d538fa676190116481d187258a230b5dd3b4c02608c427714c0",
-      "restart_classification": "manual_review",
-      "safe_down": false
-    },
-    {
       "node_id": "MIG-CK-FINANCE",
       "phase": "preflight",
       "migration_file": "database/migrations/stage4/preflight/MIG-CK-FINANCE/2026_09_10_001220_preflight_candidate_keys_finance.php",
       "migration_name": "2026_09_10_001220_preflight_candidate_keys_finance",
       "file_sha256": "90e49a2a0f9e96fe60245e96e8cf8bef9367d2b1cf7bc2fc036ca9298a3db730",
-      "restart_classification": "manual_review",
-      "safe_down": false
-    },
-    {
-      "node_id": "MIG-CK-FINANCE",
-      "phase": "write_fence",
-      "migration_file": "database/migrations/stage4/write_fence/MIG-CK-FINANCE/2026_09_10_001220_write_fence_candidate_keys_finance.php",
-      "migration_name": "2026_09_10_001220_write_fence_candidate_keys_finance",
-      "file_sha256": "f01158935457a7baa5583e8f7045c38a043018a60841fde6448f289dc6c99321",
       "restart_classification": "manual_review",
       "safe_down": false
     },
@@ -1148,29 +1112,11 @@
       "safe_down": false
     },
     {
-      "node_id": "MIG-CK-LICENSES",
-      "phase": "write_fence",
-      "migration_file": "database/migrations/stage4/write_fence/MIG-CK-LICENSES/2026_09_10_001230_write_fence_candidate_keys_licenses.php",
-      "migration_name": "2026_09_10_001230_write_fence_candidate_keys_licenses",
-      "file_sha256": "a4e5a7cbcc581aa523440d63b3e9507110ea7ad8f3eacbbafc4a128a2e3119c1",
-      "restart_classification": "manual_review",
-      "safe_down": false
-    },
-    {
       "node_id": "MIG-CK-EXAMS",
       "phase": "preflight",
       "migration_file": "database/migrations/stage4/preflight/MIG-CK-EXAMS/2026_09_10_001240_preflight_candidate_keys_exams.php",
       "migration_name": "2026_09_10_001240_preflight_candidate_keys_exams",
       "file_sha256": "248bd94d30df313eddd0ad99ce2737173ff379b570a7094e49b8c7c7f6fe2d0b",
-      "restart_classification": "manual_review",
-      "safe_down": false
-    },
-    {
-      "node_id": "MIG-CK-EXAMS",
-      "phase": "write_fence",
-      "migration_file": "database/migrations/stage4/write_fence/MIG-CK-EXAMS/2026_09_10_001240_write_fence_candidate_keys_exams.php",
-      "migration_name": "2026_09_10_001240_write_fence_candidate_keys_exams",
-      "file_sha256": "47a08005cc79031158731455303eb59bd1b9a09c0325dbc80c09a4253057d10d",
       "restart_classification": "manual_review",
       "safe_down": false
     },
@@ -1184,29 +1130,11 @@
       "safe_down": false
     },
     {
-      "node_id": "MIG-CK-COMMERCE",
-      "phase": "write_fence",
-      "migration_file": "database/migrations/stage4/write_fence/MIG-CK-COMMERCE/2026_09_10_001250_write_fence_candidate_keys_commerce.php",
-      "migration_name": "2026_09_10_001250_write_fence_candidate_keys_commerce",
-      "file_sha256": "64b434ed7dbbfe9656eae895c1c49457dfd37256ca07970afd0bc1a3ae8f69bb",
-      "restart_classification": "manual_review",
-      "safe_down": false
-    },
-    {
       "node_id": "MIG-CK-EVENTS",
       "phase": "preflight",
       "migration_file": "database/migrations/stage4/preflight/MIG-CK-EVENTS/2026_09_10_001260_preflight_candidate_keys_events.php",
       "migration_name": "2026_09_10_001260_preflight_candidate_keys_events",
       "file_sha256": "c0c0778c14b7fcb2aa04125030c973cbc1037a418c2a39ac88b75bb88b17ce03",
-      "restart_classification": "manual_review",
-      "safe_down": false
-    },
-    {
-      "node_id": "MIG-CK-EVENTS",
-      "phase": "write_fence",
-      "migration_file": "database/migrations/stage4/write_fence/MIG-CK-EVENTS/2026_09_10_001260_write_fence_candidate_keys_events.php",
-      "migration_name": "2026_09_10_001260_write_fence_candidate_keys_events",
-      "file_sha256": "16fb3d7c0205ebb152bf3c097cca787594054b4e4ab7eb9fc73afa96159007d6",
       "restart_classification": "manual_review",
       "safe_down": false
     }
