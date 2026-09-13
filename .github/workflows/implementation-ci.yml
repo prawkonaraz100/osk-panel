@@ -62,7 +62,9 @@ jobs:
           docker compose config >/tmp/compose.rendered.yml
           docker compose up -d --wait
       - name: Validate migration authority and registry
-        run: php artisan migration:plan:validate --json
+        run: |
+          php artisan migration:plan:validate --json
+          php artisan migration:stage5:formal-docs:plan:validate --json
       - name: Run PostgreSQL-backed test suite
         run: php artisan test --fail-on-warning
       - name: Run deterministic restore drill harness
