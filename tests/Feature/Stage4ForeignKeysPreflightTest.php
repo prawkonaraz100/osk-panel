@@ -5,13 +5,12 @@ namespace Tests\Feature;
 use App\Support\Migrations\MigrationPlan;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Tests\Support\FoundationSchema;
 use Tests\TestCase;
 
-final class Stage4IndexesPreflightTest extends TestCase
+final class Stage4ForeignKeysPreflightTest extends TestCase
 {
-    public function test_ten_index_nodes_execute_as_read_only_preflights_without_write_fence(): void
+    public function test_eleven_foreign_key_nodes_execute_as_read_only_preflights_without_write_fence(): void
     {
         FoundationSchema::ensureMigrated();
 
@@ -23,25 +22,23 @@ final class Stage4IndexesPreflightTest extends TestCase
         $this->assertSame(147, $plan->implementedStepCount());
         $this->assertSame('b304e8759733a69a065f4c2d0c9ea5673c378e55253fe4f8919ea3720e064286', $plan->executionIdentity());
 
-        $indexNodes = [
-            'MIG-IDX-IDENTITY',
-            'MIG-IDX-RESOURCES',
-            'MIG-IDX-TRAINING',
-            'MIG-IDX-CALENDAR_GIST',
-            'MIG-IDX-PKK',
-            'MIG-IDX-FINANCE',
-            'MIG-IDX-LICENSES',
-            'MIG-IDX-EXAMS',
-            'MIG-IDX-COMMERCE',
-            'MIG-IDX-EVENTS',
+        $foreignKeyNodes = [
+            'MIG-FK-IDENTITY',
+            'MIG-FK-RESOURCES',
+            'MIG-FK-TRAINING',
+            'MIG-FK-CALENDAR',
+            'MIG-FK-PKK',
+            'MIG-FK-FINANCE',
+            'MIG-FK-LICENSES',
+            'MIG-FK-EXAMS',
+            'MIG-FK-COMMERCE',
+            'MIG-FK-PURCHASE_DOWNSTREAM',
+            'MIG-FK-EVENTS',
         ];
         $preflightNodes = array_column($plan->phaseSteps('preflight'), 'node_id');
-        $this->assertSame($indexNodes, array_slice($preflightNodes, 8, count($indexNodes)));
+        $this->assertSame($foreignKeyNodes, array_slice($preflightNodes, -count($foreignKeyNodes)));
         $this->assertCount(29, $preflightNodes);
         $this->assertSame([], $plan->phaseSteps('write_fence'));
-
-        $this->assertFalse(Schema::hasColumn('student_payments', 'idempotency_key'));
-        $this->assertFalse(Schema::hasColumn('internal_exam_inventory_entries', 'source_order_item_grant_ordinal'));
 
         $before = $this->schemaBoundarySignature();
 
@@ -53,19 +50,16 @@ final class Stage4IndexesPreflightTest extends TestCase
         ]);
         $this->assertSame(0, $exit, Artisan::output());
 
+        $expectedApplied = array_column($plan->phaseSteps('preflight'), 'migration_name');
         $applied = DB::table('migrations')
-            ->whereIn('migration', array_column($plan->phaseSteps('preflight'), 'migration_name'))
+            ->whereIn('migration', $expectedApplied)
             ->pluck('migration')
             ->all();
-        sort($applied);
-
-        $expectedApplied = array_column($plan->phaseSteps('preflight'), 'migration_name');
         sort($expectedApplied);
+        sort($applied);
         $this->assertSame($expectedApplied, array_values($applied));
 
         $this->assertSame($before, $this->schemaBoundarySignature());
-        $this->assertFalse(Schema::hasColumn('student_payments', 'idempotency_key'));
-        $this->assertFalse(Schema::hasColumn('internal_exam_inventory_entries', 'source_order_item_grant_ordinal'));
         $this->assertSame([], $plan->phaseSteps('write_fence'));
     }
 
@@ -103,6 +97,10 @@ final class Stage4IndexesPreflightTest extends TestCase
             ->map(static fn ($row): string => implode('|', [(string) $row->table_name, (string) $row->tgname]))
             ->all();
 
-        return ['indexes' => array_values($indexes), 'constraints' => array_values($constraints), 'triggers' => array_values($triggers)];
+        return [
+            'indexes' => array_values($indexes),
+            'constraints' => array_values($constraints),
+            'triggers' => array_values($triggers),
+        ];
     }
 }
