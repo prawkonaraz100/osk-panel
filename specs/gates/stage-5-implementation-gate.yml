@@ -230,7 +230,7 @@ next_single_step:
   prerequisite_previous_slice: FORMAL-DOC-010_PASS
   implementation_order_source: AGENTS.md_step_10_hardening_and_formal_documents
   hardening_repo_actionable_P1_status: COMPLETE
-  formal_documents_status: GATE_10_PASS_GATE_11_NOT_STARTED
+  formal_documents_status: GATE_10_PASS_GATE_11_IN_VALIDATION
   PKK_provider_runtime_status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
   PKK_resume_requires:
     - explicit_user_unfreeze
@@ -2858,3 +2858,120 @@ FORMAL_DOCUMENTS_010_gate:
   next_after_PASS:
     id: FORMAL-DOC-011
     action: materialize_formal_documents_UI_for_preview_approval_delivery_history_and_signed_scan_handoff
+
+
+FORMAL_DOCUMENTS_011_gate:
+  id: FORMAL-DOC-011
+  status: IN_VALIDATION
+  prerequisite: FORMAL-DOC-010_PASS
+  scope:
+    - formal_documents_UI_in_existing_student_profile
+    - course_scoped_document_selector
+    - server_authoritative_preview_list_and_freshness
+    - exact_preview_bound_approval
+    - immutable_revision_download_and_history
+    - stale_revision_delivery_block
+    - paper_print_delivery_event
+    - paper_signed_scan_upload_handoff
+    - signed_scan_partial_failure_attach_retry
+    - electronic_presented_delivery_event
+    - archived_and_cancelled_context_mutation_disable
+    - no_document_mode_mutation_invented
+    - no_statutory_electronic_signature_claim
+  migration_authority_preservation:
+    Stage_4_DAG_nodes: 170
+    Stage_4_implemented_nodes: 112
+    Stage_4_implemented_steps: 112
+    Stage_5_plan_identity: 34cada121f4fd4963b1461308fb517c50ee647005ce9421f4d1af40c80d44b99
+    Stage_5_execution_identity: 31704fcab61761aa9a952d824dc543a6f46e7a3717792d0a9349cefaaf57651f
+    Stage_5_materialized_steps: 11
+    new_migration_step_in_FORMAL_DOC_011: false
+  API:
+    canonical_requirement_rows: 187
+    canonical_unique_operations: 173
+    shared_operation_aliases: 14
+    new_operation_in_FORMAL_DOC_011: false
+    reused_operations:
+      - formal_documents.preview
+      - formal_documents.list
+      - formal_documents.freshness
+      - formal_documents.approve
+      - formal_documents.download
+      - formal_documents.events.list
+      - formal_documents.delivery.record
+      - uploads.presign
+      - uploads.complete
+  UI:
+    route: /kursanci/{student_id}
+    parent_screen: student_profile
+    component: resources/js/modules/FormalDocuments/FormalTrainingDocumentsPanel.vue
+    screen_authority: specs/screens/student-formal-documents.yml
+    standalone_route_added: false
+    document_types:
+      - training_record_card
+      - theory_delivery_journal
+    client_builds_evidence_bundle: false
+    direct_canonical_PDF_edit: forbidden
+    document_mode_mutation_added: false
+  approval:
+    uses_current_server_preview: true
+    If_Match_uses_preview_course_version: true
+    requirements_revision_exact_match: true
+    evidence_bundle_hash_exact_match: true
+    template_binding_exact_match: true
+    idempotent: true
+  freshness:
+    fresh_allows_delivery_when_context_active: true
+    regeneration_required_blocks_new_delivery: true
+    historical_revision_remains_downloadable: true
+    historical_event_history_remains_readable: true
+    GET_side_effect: forbidden
+  signed_scan:
+    paper_only: true
+    browser_SHA256: true
+    UI_MIME: application/pdf
+    UI_max_size_bytes: 26214400
+    flow:
+      - uploads.presign
+      - direct_private_presigned_PUT
+      - uploads.complete
+      - formal_documents.delivery.record_signed_scan_attached
+    parent_type: formal_training_document
+    purpose: formal_training_signed_scan
+    completed_asset_attach_failure_requires_reupload: false
+    retry_attach_only_supported: true
+    replaces_canonical_PDF: false
+  electronic_delivery:
+    event: electronic_presented
+    qualified_signature_claim: false
+    XAdES_claim: false
+    authenticated_approval_equals_statutory_e_signature_claim: false
+  PKK:
+    provider_runtime_in_scope: false
+    status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+  pass_requires:
+    - student_profile_mounts_formal_documents_panel_PASS
+    - server_preview_list_freshness_wiring_PASS
+    - exact_preview_bound_approval_PASS
+    - stale_revision_blocks_delivery_PASS
+    - immutable_prior_revision_download_and_history_PASS
+    - paper_print_delivery_event_PASS
+    - signed_scan_presign_PUT_complete_attach_PASS
+    - signed_scan_partial_failure_retry_without_reupload_PASS
+    - electronic_presented_mode_specific_PASS
+    - no_statutory_electronic_signature_claim_PASS
+    - archived_cancelled_context_mutation_disable_PASS
+    - no_document_mode_mutation_invented_PASS
+    - API_contract_187_rows_173_operations_14_aliases_preserved_PASS
+    - Stage_4_170_112_112_preservation_PASS
+    - Stage_5_11_step_identity_preservation_PASS
+    - PKK_provider_runtime_still_frozen_PASS
+    - formal_documents_UI_contract_test_PASS
+    - backend_static_analysis_PASS_ZERO_ERRORS
+    - frontend_lint_typecheck_build_audit_PASS
+    - contracts_and_traceability_PASS
+    - secret_scan_PASS
+    - PostgreSQL_runtime_suite_PASS
+    - deterministic_restore_harness_PASS
+  next_after_PASS:
+    status: TO_BE_DERIVED_FROM_POST_GATE_11_OPEN_ITEMS_AND_IMPLEMENTATION_ORDER
