@@ -1,0 +1,45 @@
+# CORE-V1-STAGE4-CONSTRAINTS-PREFLIGHT-001
+
+Status: `IN_VALIDATION`
+
+## Scope
+
+Materialize exactly the ten authoritative Stage-4 constraint nodes in their `preflight` phase only, orders **1480–1570**:
+
+1. `MIG-CON-IDENTITY`
+2. `MIG-CON-RESOURCES`
+3. `MIG-CON-TRAINING`
+4. `MIG-CON-CALENDAR`
+5. `MIG-CON-PKK`
+6. `MIG-CON-FINANCE`
+7. `MIG-CON-LICENSES`
+8. `MIG-CON-EXAMS`
+9. `MIG-CON-COMMERCE`
+10. `MIG-CON-EVENTS`
+
+This slice completes the authoritative global preflight prefix: **39 / 39 nodes**. It remains read-only. No CHECK, FK, UNIQUE, exclusion constraint, trigger, compatibility column, backfill, reconciliation or write-fence effect may be created here.
+
+## Candidate authority
+
+- Stage-4 DAG: **170 nodes**.
+- Materialized before: **147 nodes / 147 steps**.
+- Candidate after this helper: **157 nodes / 157 steps**.
+- Preflight after helper: **39 / 39**.
+- Remaining preflight nodes before write-fence: **0**.
+- Materialized write-fence steps: **0**.
+- Plan identity remains `d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10`.
+- Previous execution identity: `488bedcef5d2aabef34e294f8fa0c2b48ef392e804cc83c6cd75c8ba5bfd8b1c`.
+- Candidate execution identity: `d2da7eb3ccb082ca6b0106fbe4b1e543815c9236cc1a8bd62cf470c93459b660`.
+- PKK provider runtime remains **FROZEN_UNTIL_EXPLICIT_UNFREEZE**.
+
+## Safety boundary
+
+The preflight evaluates row-local closed-value, numeric-bound, time-order, nullable-pair, terminal-tuple, source-XOR and publisher-state predicates that belong to the later constraint layer. Any violating legacy row fails closed and requires reviewed remediation.
+
+Cross-row final-state equivalence, append-only enforcement and exact projection-set guards remain owned by later `MIG-TRG-*` nodes. FK orphan/same-tenant validation remains owned by the already-PASS `MIG-FK-*` preflight. Duplicate/overlap validation remains owned by the already-PASS `MIG-IDX-*` preflight.
+
+The helper must leave both target schema signature and target row counts unchanged.
+
+## Gate after PASS
+
+A PASS here completes global preflight **39/39**, but does not itself authorize arbitrary write-fence execution. The next gate must explicitly select the first safe write-fence tranche from the frozen order and cutover contract.

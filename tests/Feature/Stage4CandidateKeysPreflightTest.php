@@ -18,10 +18,10 @@ final class Stage4CandidateKeysPreflightTest extends TestCase
         $plan = app(MigrationPlan::class);
         $plan->validate();
 
-        $this->assertSame(147, $plan->implementedNodeCount());
-        $this->assertSame(147, $plan->implementedStepCount());
+        $this->assertSame(157, $plan->implementedNodeCount());
+        $this->assertSame(157, $plan->implementedStepCount());
         $this->assertSame(
-            '488bedcef5d2aabef34e294f8fa0c2b48ef392e804cc83c6cd75c8ba5bfd8b1c',
+            'd2da7eb3ccb082ca6b0106fbe4b1e543815c9236cc1a8bd62cf470c93459b660',
             $plan->executionIdentity(),
         );
 

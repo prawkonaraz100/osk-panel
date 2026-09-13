@@ -8,9 +8,9 @@ use Illuminate\Support\Facades\DB;
 use Tests\Support\FoundationSchema;
 use Tests\TestCase;
 
-final class Stage4ForeignKeysPreflightTest extends TestCase
+final class Stage4ConstraintsPreflightTest extends TestCase
 {
-    public function test_eleven_foreign_key_nodes_execute_as_read_only_preflights_without_write_fence(): void
+    public function test_ten_constraint_nodes_complete_global_preflight_without_entering_write_fence(): void
     {
         FoundationSchema::ensureMigrated();
 
@@ -22,25 +22,25 @@ final class Stage4ForeignKeysPreflightTest extends TestCase
         $this->assertSame(157, $plan->implementedStepCount());
         $this->assertSame('d2da7eb3ccb082ca6b0106fbe4b1e543815c9236cc1a8bd62cf470c93459b660', $plan->executionIdentity());
 
-        $foreignKeyNodes = [
-            'MIG-FK-IDENTITY',
-            'MIG-FK-RESOURCES',
-            'MIG-FK-TRAINING',
-            'MIG-FK-CALENDAR',
-            'MIG-FK-PKK',
-            'MIG-FK-FINANCE',
-            'MIG-FK-LICENSES',
-            'MIG-FK-EXAMS',
-            'MIG-FK-COMMERCE',
-            'MIG-FK-PURCHASE_DOWNSTREAM',
-            'MIG-FK-EVENTS',
+        $constraintNodes = [
+            'MIG-CON-IDENTITY',
+            'MIG-CON-RESOURCES',
+            'MIG-CON-TRAINING',
+            'MIG-CON-CALENDAR',
+            'MIG-CON-PKK',
+            'MIG-CON-FINANCE',
+            'MIG-CON-LICENSES',
+            'MIG-CON-EXAMS',
+            'MIG-CON-COMMERCE',
+            'MIG-CON-EVENTS',
         ];
         $preflightNodes = array_column($plan->phaseSteps('preflight'), 'node_id');
-        $this->assertSame($foreignKeyNodes, array_slice($preflightNodes, 18, count($foreignKeyNodes)));
         $this->assertCount(39, $preflightNodes);
+        $this->assertSame($constraintNodes, array_slice($preflightNodes, 29, 10));
         $this->assertSame([], $plan->phaseSteps('write_fence'));
 
-        $before = $this->schemaBoundarySignature();
+        $beforeSchema = $this->schemaBoundarySignature();
+        $beforeRows = $this->targetRowCounts();
 
         $exit = Artisan::call('migration:controlled', [
             '--plan' => $plan->identity(),
@@ -59,8 +59,39 @@ final class Stage4ForeignKeysPreflightTest extends TestCase
         sort($applied);
         $this->assertSame($expectedApplied, array_values($applied));
 
-        $this->assertSame($before, $this->schemaBoundarySignature());
+        $this->assertSame($beforeSchema, $this->schemaBoundarySignature());
+        $this->assertSame($beforeRows, $this->targetRowCounts());
         $this->assertSame([], $plan->phaseSteps('write_fence'));
+    }
+
+    /**
+     * @return array<string, int>
+     */
+    private function targetRowCounts(): array
+    {
+        $tables = [
+            'organization_memberships',
+            'staff_profiles',
+            'students',
+            'training_sessions',
+            'calendar_events',
+            'calendar_resource_claims',
+            'pkk_operations',
+            'student_payments',
+            'license_assignments',
+            'internal_exam_attempts',
+            'orders',
+            'payments',
+            'outbox_messages',
+            'notifications',
+        ];
+
+        $counts = [];
+        foreach ($tables as $table) {
+            $counts[$table] = DB::table($table)->count();
+        }
+
+        return $counts;
     }
 
     /**
