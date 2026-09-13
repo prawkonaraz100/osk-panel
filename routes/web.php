@@ -7,6 +7,7 @@ use App\Modules\CalendarTraining\CalendarEventController;
 use App\Modules\CalendarTraining\TrainingSessionController;
 use App\Modules\CommerceDashboard\CommerceDashboardController;
 use App\Modules\CommerceDashboard\DashboardController;
+use App\Modules\FormalDocuments\FormalTrainingDocumentController;
 use App\Modules\InternalExams\InternalExamController;
 use App\Modules\LearningAccess\LearningAccessController;
 use App\Modules\ResourcesCore\ResourceApiMiddleware;
@@ -93,6 +94,11 @@ Route::middleware(ResourceApiMiddleware::class)->prefix('api/v1')->group(functio
     Route::get('/course-enrollments/{courseEnrollmentId}/recognized-external-training', [StudentCourseController::class, 'externalTrainingList']);
     Route::post('/course-enrollments/{courseEnrollmentId}/recognized-external-training', [StudentCourseController::class, 'externalTrainingCreate']);
     Route::post('/course-enrollments/{courseEnrollmentId}/recognized-external-training/{recordId}/revoke', [StudentCourseController::class, 'externalTrainingRevoke']);
+
+    Route::get('/course-enrollments/{courseEnrollmentId}/formal-documents/preview', [FormalTrainingDocumentController::class, 'preview']);
+    Route::get('/course-enrollments/{courseEnrollmentId}/formal-documents', [FormalTrainingDocumentController::class, 'list']);
+    Route::post('/course-enrollments/{courseEnrollmentId}/formal-documents', [FormalTrainingDocumentController::class, 'approve']);
+    Route::get('/formal-training-documents/{documentId}/file', [FormalTrainingDocumentController::class, 'download']);
 
     Route::get('/course-enrollments/{courseEnrollmentId}/training-sessions', [TrainingSessionController::class, 'list']);
     Route::post('/course-enrollments/{courseEnrollmentId}/training-sessions', [TrainingSessionController::class, 'create']);
