@@ -1,6 +1,6 @@
 # 139. Formal training documents — Stage-5 migration extension authority
 
-Status: `FORMAL-DOC-002 validation candidate`
+Status: `FORMAL-DOC-002 PASS`
 
 ## Scope
 
@@ -134,3 +134,36 @@ After FORMAL-DOC-002 closes, the next single step is:
 **FORMAL-DOC-003 — materialize the exact Stage-5 formal-document migration steps in small reviewed phase slices.**
 
 FORMAL-DOC-003 may populate the extension registry and migration root, but it must not rewrite the Stage-4 plan, Stage-4 execution identity, or PKK freeze.
+
+
+## Gate closure evidence
+
+FORMAL-DOC-002 is closed on the exact authority tree `e1b277b5263856c003d9f7d6e9f507af710a74b2`.
+
+Validation-only evidence:
+
+- helper head: `8f2c9cbf066659b9da29aad51cacb39d61c06608`,
+- validation PR: #53, closed without merge,
+- Implementation CI #283 / run `34733340475`: **5/5 PASS**,
+- PostgreSQL suite: **190 tests / 2785 assertions**,
+- deterministic restore drill harness: **PASS**,
+- restore schema table count: **112 -> 112**,
+- backend Pint + PHPStan: **PASS**,
+- frontend lint + typecheck + build + audit: **PASS**,
+- contracts and traceability: **PASS**,
+- secret scan: **PASS**.
+
+Clean accepted authority evidence:
+
+- accepted authority commit: `07997da83383a3e9cedba5deb34afc13919de3fa`,
+- accepted authority tree: `e1b277b5263856c003d9f7d6e9f507af710a74b2`,
+- accepted Implementation CI #284 / run `34733478967`: **5/5 PASS**,
+- PostgreSQL suite: **190 tests / 2785 assertions**,
+- deterministic restore drill harness: **PASS**,
+- restore schema table count: **112 -> 112**.
+
+The frozen Stage-4 baseline remains exactly **170 nodes / 112 implemented nodes / 112 implemented steps**, with unchanged plan identity `d2fd6bc9...` and execution identity `1d2f1d3a...`.
+
+No Stage-5 formal-document DDL is claimed as implemented by this gate. The executable registry remains intentionally empty and execution remains fail-closed until FORMAL-DOC-003.
+
+PKK remains frozen and outside the formal-documents migration extension.

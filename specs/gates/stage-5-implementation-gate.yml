@@ -225,12 +225,12 @@ quality_gate:
     - S5-FOUND-001
 
 next_single_step:
-  id: FORMAL-DOC-002
-  action: define_Stage_5_document_schema_and_migration_extension_authority_without_rewriting_Stage_4
-  prerequisite_previous_slice: CORE-V1-FORMAL-TRAINING-DOCUMENTS-001_GATE_1_PASS
+  id: FORMAL-DOC-003
+  action: materialize_exact_extension_migration_steps_in_small_reviewed_phase_slices
+  prerequisite_previous_slice: FORMAL-DOC-002_PASS
   implementation_order_source: AGENTS.md_step_10_hardening_and_formal_documents
   hardening_repo_actionable_P1_status: COMPLETE
-  formal_documents_status: GATE_1_PASS_GATE_2_IN_VALIDATION
+  formal_documents_status: GATE_2_PASS_GATE_3_NOT_STARTED
   PKK_provider_runtime_status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
   PKK_resume_requires:
     - explicit_user_unfreeze
@@ -1853,7 +1853,7 @@ S5_FOUND_001_closure:
 
 FORMAL_DOCUMENTS_002_gate:
   id: FORMAL-DOC-002
-  status: IN_VALIDATION
+  status: PASS
   prerequisite: CORE_V1_FORMAL_TRAINING_DOCUMENTS_001_GATE_1_PASS
   scope:
     - isolated_Stage_5_formal_documents_migration_authority
@@ -1893,6 +1893,32 @@ FORMAL_DOCUMENTS_002_gate:
   PKK:
     provider_runtime_in_scope: false
     status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+  provenance:
+    validation_helper_commit: 8f2c9cbf066659b9da29aad51cacb39d61c06608
+    validation_helper_tree: e1b277b5263856c003d9f7d6e9f507af710a74b2
+    validation_PR: 53
+    validation_PR_merged: false
+    helper_Implementation_CI_run: 34733340475
+    accepted_authority_commit: 07997da83383a3e9cedba5deb34afc13919de3fa
+    accepted_authority_tree: e1b277b5263856c003d9f7d6e9f507af710a74b2
+    accepted_Implementation_CI_run: 34733478967
+  executable_evidence:
+    helper_Implementation_CI_jobs_passed: 5
+    helper_Implementation_CI_jobs_total: 5
+    accepted_Implementation_CI_jobs_passed: 5
+    accepted_Implementation_CI_jobs_total: 5
+    accepted_PostgreSQL_suite_tests: 190
+    accepted_PostgreSQL_suite_assertions: 2785
+    deterministic_restore_harness: PASS
+    restore_source_table_count: 112
+    restore_restored_table_count: 112
+    backend_static_analysis: PASS_ZERO_ERRORS
+    frontend_lint_typecheck_build_audit: PASS
+    contracts_and_traceability: PASS
+    accepted_push_secret_scan: PASS
+    Stage_4_170_112_112_preservation: PASS
+    extension_plan_runtime_validation: PASS
+    empty_registry_execution_fail_closed: PASS
   pass_requires:
     - extension_plan_runtime_validation_PASS
     - exact_Stage_4_170_112_112_preservation_PASS
