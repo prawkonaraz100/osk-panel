@@ -17,7 +17,7 @@ return new class extends Migration
 
         $this->assertNoDuplicate('orders', 'commerce_order_sequence_unique_per_tenant', ['organization_id', 'order_sequence']);
         $this->assertNoDuplicateIfColumnsPresent('license_inventory_entries', 'license_inventory_source_order_item_ordinal_unique', ['organization_id', 'source_order_item_id', 'source_order_item_grant_ordinal'], 'source_order_item_id IS NOT NULL');
-        $this->assertNoDuplicateIfColumnsPresent('internal_exam_inventory_entries', 'internal_exam_inventory_source_order_item_ordinal_unique', ['organization_id', 'source_order_item_id', 'source_order_item_grant_ordinal'], "source_type = 'paid' AND source_order_item_id IS NOT NULL");
+        $this->assertNoDuplicate('internal_exam_inventory_entries', 'internal_exam_inventory_source_order_item_ordinal_unique', ['organization_id', 'source_order_item_id', 'source_order_item_grant_ordinal'], "source_type = 'paid' AND source_order_item_id IS NOT NULL");
         $this->assertNoDuplicate('payment_events', 'payment_provider_event_unique', ['provider', 'provider_event_id']);
         $this->assertNoDuplicate('order_payment_settlements', 'order_payment_settlement_unique_per_order', ['organization_id', 'order_id']);
         $this->assertNoDuplicate('order_fulfillments', 'order_fulfillment_unique_per_order', ['organization_id', 'order_id']);

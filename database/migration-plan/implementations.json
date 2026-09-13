@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
   "plan_identity": "d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10",
-  "execution_identity": "84108f592c5cdff50cea4316ce05c5ad53db61e177b69c8916e04eed54214429",
+  "execution_identity": "d3d460992bfe56a0c3828689bffffaf842cc9b88bd103a5e71b5c6082ba00cd4",
   "stage4_root": "database/migrations/stage4",
   "implemented_steps": [
     {
@@ -774,7 +774,7 @@
       "phase": "expand",
       "migration_file": "database/migrations/stage4/expand/MIG-TBL-INTERNAL_EXAM_INVENTORY_ENTRIES/2026_09_10_000860_create_internal_exam_inventory_entries_table.php",
       "migration_name": "2026_09_10_000860_create_internal_exam_inventory_entries_table",
-      "file_sha256": "fe12974b4d6552f5252e54800b9ccad8cbeaf0957b7f464bc2fd53a3278af0bf",
+      "file_sha256": "aa014f17de518c3ac0e3dfc67300c99bb1cdcf74d9ef4953d80cecbf35098998",
       "restart_classification": "restart_safe",
       "safe_down": false
     },
@@ -1215,7 +1215,7 @@
       "phase": "preflight",
       "migration_file": "database/migrations/stage4/preflight/MIG-IDX-COMMERCE/2026_09_10_001350_preflight_indexes_commerce.php",
       "migration_name": "2026_09_10_001350_preflight_indexes_commerce",
-      "file_sha256": "2d1af6156265d3d991187a4de6033cdf07227e1ee6ef867b9b94cd1e7750525a",
+      "file_sha256": "1a564d41d476927e626be4d1f4e3306548b0990ae21b8a050661b839cd158fb3",
       "restart_classification": "manual_review",
       "safe_down": false
     },

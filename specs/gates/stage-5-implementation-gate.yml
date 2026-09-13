@@ -225,41 +225,29 @@ quality_gate:
     - S5-FOUND-001
 
 next_single_step:
-  id: CORE-V1-STAGE4-INDEXES-WRITE-FENCE-001
-  action: materialize_and_execute_ten_stage4_index_write_fence_steps_after_candidate_keys_PASS
+  id: CORE-V1-STAGE4-INTERNAL-EXAM-PURCHASE-ORDINAL-PREREQ-RECOVERY-001
+  action: restore_internal_exam_purchase_ordinal_prerequisite_before_index_write_fence
   prerequisite_previous_slice: CORE-V1-STAGE4-CANDIDATE-KEYS-WRITE-FENCE-001_PASS
-  implementation_order_source:
-    - specs/database/final-migration-order-invariant-matrix.yml
-    - database/migration-plan/plan.json
-    - docs/156-core-v1-stage4-candidate-keys-write-fence.md
+  authority:
+    narrative: docs/157-core-v1-stage4-internal-exam-purchase-ordinal-prerequisite-recovery.md
+    source_contracts: [DB-COM-004]
+    migration_node: MIG-TBL-INTERNAL_EXAM_INVENTORY_ENTRIES
+    dependent_index_node: MIG-IDX-COMMERCE
   Stage_4_DAG_nodes_total: 170
   Stage_4_materialized_nodes_current: 157
   Stage_4_materialized_steps_current: 165
   expected_Stage_4_materialized_nodes_after_next_PASS: 157
-  expected_Stage_4_materialized_steps_after_next_PASS: 175
-  current_corrective_gate_status: NOT_STARTED
+  expected_Stage_4_materialized_steps_after_next_PASS: 165
+  current_corrective_gate_status: IN_VALIDATION
   global_phase_barrier:
     authoritative_preflight_nodes: 39
     preflight_nodes_materialized_current: 39
     global_preflight_status: PASS
     authoritative_write_fence_nodes: 52
     write_fence_steps_materialized_current: 8
-    next_safe_write_fence_prefix_steps: 10
-    expected_write_fence_steps_after_next_PASS: 18
-    remaining_write_fence_steps_after_next_PASS: 34
-    write_fence_in_next_slice: true
+    index_write_fence_in_next_slice: false
     canonical_authority_changed: false
-  exact_nodes:
-    - MIG-IDX-IDENTITY
-    - MIG-IDX-RESOURCES
-    - MIG-IDX-TRAINING
-    - MIG-IDX-CALENDAR_GIST
-    - MIG-IDX-PKK
-    - MIG-IDX-FINANCE
-    - MIG-IDX-LICENSES
-    - MIG-IDX-EXAMS
-    - MIG-IDX-COMMERCE
-    - MIG-IDX-EVENTS
+  candidate_execution_identity: d3d460992bfe56a0c3828689bffffaf842cc9b88bd103a5e71b5c6082ba00cd4
   PKK_provider_runtime_status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
 
 CORE_V1_CLOSURE_AUDIT_001_gate:
@@ -4020,3 +4008,52 @@ CORE_V1_STAGE4_CANDIDATE_KEYS_WRITE_FENCE_001_gate:
     expected_write_fence_steps_after_PASS: 18
     remaining_write_fence_steps_after_PASS: 34
     rule: do_not_pull_foreign_keys_constraints_triggers_backfill_reconcile_validate_or_contract_into_this_gate
+
+CORE_V1_STAGE4_INTERNAL_EXAM_PURCHASE_ORDINAL_PREREQ_RECOVERY_001_gate:
+  id: CORE-V1-STAGE4-INTERNAL-EXAM-PURCHASE-ORDINAL-PREREQ-RECOVERY-001
+  status: IN_VALIDATION
+  prerequisite: CORE-V1-STAGE4-CANDIDATE-KEYS-WRITE-FENCE-001_PASS
+  severity: P1
+  authority:
+    narrative: docs/157-core-v1-stage4-internal-exam-purchase-ordinal-prerequisite-recovery.md
+    plan_identity: d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10
+    previous_execution_identity: 84108f592c5cdff50cea4316ce05c5ad53db61e177b69c8916e04eed54214429
+    candidate_execution_identity: d3d460992bfe56a0c3828689bffffaf842cc9b88bd103a5e71b5c6082ba00cd4
+  exact_scope:
+    Stage_4_DAG_nodes: 170
+    materialized_nodes_before: 157
+    materialized_nodes_after_candidate: 157
+    materialized_steps_before: 165
+    materialized_steps_after_candidate: 165
+    preflight_nodes_materialized: 39
+    write_fence_steps_materialized: 8
+    corrected_expand_node: MIG-TBL-INTERNAL_EXAM_INVENTORY_ENTRIES
+    corrected_preflight_node: MIG-IDX-COMMERCE
+    internal_exam_purchase_ordinal: {type: integer, nullable: true}
+  safety_boundary:
+    index_write_fence_materialization: forbidden
+    row_mutation: forbidden
+    compatibility_backfill: forbidden
+    destructive_down: forbidden
+    already_applied_database_requires_reviewed_forward_remediation: true
+  pass_requires:
+    - canonical_internal_exam_purchase_ordinal_nullable_integer_PASS
+    - MIG_IDX_COMMERCE_missing_internal_exam_purchase_ordinal_fails_closed_PASS
+    - exact_two_migration_file_SHA256_registry_PASS
+    - Stage_4_execution_identity_d3d460992bfe56a0c3828689bffffaf842cc9b88bd103a5e71b5c6082ba00cd4_PASS
+    - Stage_4_170_157_165_preserved_PASS
+    - global_preflight_39_of_39_preserved_PASS
+    - write_fence_8_of_52_preserved_PASS
+    - backend_static_analysis_PASS_ZERO_ERRORS
+    - frontend_quality_PASS
+    - contracts_and_traceability_PASS
+    - secret_scan_PASS
+    - deterministic_restore_harness_PASS
+  next_after_PASS:
+    id: CORE-V1-STAGE4-INDEXES-WRITE-FENCE-001
+    action: materialize_ten_index_write_fence_steps_only
+    expected_materialized_nodes_after_PASS: 157
+    expected_materialized_steps_after_PASS: 175
+    expected_write_fence_steps_after_PASS: 18
+    remaining_write_fence_steps_after_PASS: 34
+    rule: do_not_add_compatibility_columns_inside_index_write_fence
