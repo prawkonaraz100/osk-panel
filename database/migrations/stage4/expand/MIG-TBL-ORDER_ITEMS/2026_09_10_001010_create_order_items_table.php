@@ -26,6 +26,7 @@ CREATE TABLE order_items (
     order_id uuid NOT NULL,
     commerce_catalog_item_id uuid NOT NULL,
     product_kind varchar(32) NOT NULL,
+    license_product_id uuid NULL,
     quantity integer NOT NULL,
     currency char(3) NOT NULL,
     list_unit_amount_minor bigint NOT NULL,
@@ -40,8 +41,8 @@ CREATE TABLE order_items (
 )
 SQL);
 
-        if (! Schema::hasTable('order_items')) {
-            throw new LogicException('MIG-TBL-ORDER_ITEMS postcondition failed.');
+        if (! Schema::hasTable('order_items') || ! Schema::hasColumn('order_items', 'license_product_id')) {
+            throw new LogicException('MIG-TBL-ORDER_ITEMS postcondition failed: canonical commerce lineage columns are incomplete.');
         }
     }
 
