@@ -11,6 +11,7 @@ class DatabaseSeeder extends Seeder
         $this->call([
             FoundationReferenceCatalogSeeder::class,
             ResourceReferenceCatalogSeeder::class,
+            FormalTrainingDocumentTemplateSeeder::class,
         ]);
     }
 }
