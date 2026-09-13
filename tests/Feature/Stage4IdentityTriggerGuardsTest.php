@@ -9,6 +9,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Tests\Support\FoundationSchema;
 use Tests\TestCase;
 
@@ -55,10 +56,20 @@ final class Stage4IdentityTriggerGuardsTest extends TestCase
             DB::statement('SET CONSTRAINTS ALL IMMEDIATE');
             DB::statement('SET CONSTRAINTS ALL DEFERRED');
 
+            $otherUserId = (string) Str::uuid7();
+            DB::table('users')->insert([
+                'id' => $otherUserId,
+                'first_name' => 'Other',
+                'last_name' => 'Principal',
+                'status' => 'active',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
             $this->expectImmediateGuardViolation(
                 fn () => DB::table('organization_memberships')
                     ->where('id', $actor['membership_id'])
-                    ->update(['user_id' => DB::raw('(SELECT id FROM users WHERE id <> \''.$actor['user_id'].'\' LIMIT 1)')]),
+                    ->update(['user_id' => $otherUserId]),
             );
 
             $this->expectImmediateGuardViolation(
@@ -82,16 +93,21 @@ final class Stage4IdentityTriggerGuardsTest extends TestCase
             );
 
             $member = FoundationSchema::member($actor['organization_id']);
+            $this->expectDeferredGuardViolation(function () use ($member): void {
+                DB::table('membership_permissions')->insert([
+                    'membership_id' => $member,
+                    'permission_code' => 'organization.view',
+                    'granted' => true,
+                    'created_at' => now(),
+                ]);
+            });
+
             DB::table('membership_permissions')->insert([
                 'membership_id' => $member,
                 'permission_code' => 'organization.view',
                 'granted' => true,
                 'created_at' => now(),
             ]);
-            $this->expectDeferredGuardViolation(static function (): void {
-                // The pending granted permission has no scope. SET CONSTRAINTS in the helper proves final-state rejection.
-            });
-
             DB::table('membership_permission_scopes')->insert([
                 'membership_id' => $member,
                 'permission_code' => 'organization.view',
