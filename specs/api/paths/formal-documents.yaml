@@ -1,0 +1,213 @@
+paths:
+  /course-enrollments/{courseEnrollmentId}/formal-documents/preview:
+    get:
+      tags: [FormalDocuments]
+      operationId: formalDocumentsPreview
+      x-requirement-id: formal_documents.preview
+      x-permission: formal_documents.view
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/CourseEnrollmentId' }
+        - name: document_type
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [training_record_card, theory_delivery_journal]
+      responses:
+        '200':
+          description: Current canonical evidence hash and exact effective template binding
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - course_enrollment_id
+                  - document_type
+                  - document_mode
+                  - course_version
+                  - requirements_revision
+                  - evidence_bundle_hash
+                  - template
+                  - totals
+                  - freshness
+                properties:
+                  course_enrollment_id: { type: string, format: uuid }
+                  document_type:
+                    type: string
+                    enum: [training_record_card, theory_delivery_journal]
+                  document_mode:
+                    type: string
+                    enum: [paper, electronic]
+                  course_version: { type: integer, minimum: 1 }
+                  requirements_revision: { type: integer, minimum: 1 }
+                  evidence_bundle_hash: { type: string, pattern: '^[a-f0-9]{64}$' }
+                  template:
+                    $ref: '#/components/schemas/FormalDocumentTemplateBinding'
+                  totals:
+                    $ref: '#/components/schemas/FormalDocumentTrainingTotals'
+                  latest_document:
+                    oneOf:
+                      - { $ref: '#/components/schemas/FormalTrainingDocument' }
+                      - { type: 'null' }
+                  freshness:
+                    type: string
+                    enum: [fresh, regeneration_required]
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+
+  /course-enrollments/{courseEnrollmentId}/formal-documents:
+    parameters:
+      - { $ref: '../openapi-components-v1.yaml#/components/parameters/CourseEnrollmentId' }
+    get:
+      tags: [FormalDocuments]
+      operationId: formalDocumentsList
+      x-requirement-id: formal_documents.list
+      x-permission: formal_documents.view
+      responses:
+        '200':
+          description: Immutable formal document revision history for the course
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/FormalTrainingDocument' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+    post:
+      tags: [FormalDocuments]
+      operationId: formalDocumentsApprove
+      x-requirement-id: formal_documents.approve
+      x-permission: formal_documents.approve
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IfMatch' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - document_type
+                - requirements_revision
+                - evidence_bundle_hash
+                - template_id
+                - template_version
+                - renderer_version
+                - template_content_hash
+              properties:
+                document_type:
+                  type: string
+                  enum: [training_record_card, theory_delivery_journal]
+                requirements_revision: { type: integer, minimum: 1 }
+                evidence_bundle_hash: { type: string, pattern: '^[a-f0-9]{64}$' }
+                template_id: { type: string, format: uuid }
+                template_version: { type: string, maxLength: 64 }
+                renderer_version: { type: string, maxLength: 64 }
+                template_content_hash: { type: string, pattern: '^[a-f0-9]{64}$' }
+      responses:
+        '201':
+          description: Exact current evidence approved and materialized as an immutable canonical document revision
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FormalTrainingDocument' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+
+  /formal-training-documents/{documentId}/file:
+    get:
+      tags: [FormalDocuments]
+      operationId: formalDocumentsDownload
+      x-requirement-id: formal_documents.download
+      x-permission: formal_documents.download
+      parameters:
+        - name: documentId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Immutable canonical PDF bytes after asset hash verification
+          headers:
+            ETag:
+              schema: { type: string }
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+
+components:
+  schemas:
+    FormalDocumentTemplateBinding:
+      type: object
+      required: [id, document_type, template_version, renderer_version, template_content_hash]
+      properties:
+        id: { type: string, format: uuid }
+        document_type:
+          type: string
+          enum: [training_record_card, theory_delivery_journal]
+        template_version: { type: string }
+        renderer_version: { type: string }
+        template_content_hash: { type: string, pattern: '^[a-f0-9]{64}$' }
+
+    FormalDocumentTrainingTotals:
+      type: object
+      required:
+        - osk_theory_minutes
+        - osk_practical_minutes
+        - external_theory_minutes
+        - external_practical_minutes
+        - combined_theory_minutes
+        - combined_practical_minutes
+      properties:
+        osk_theory_minutes: { type: integer }
+        osk_practical_minutes: { type: integer }
+        external_theory_minutes: { type: integer }
+        external_practical_minutes: { type: integer }
+        combined_theory_minutes: { type: integer }
+        combined_practical_minutes: { type: integer }
+
+    FormalTrainingDocument:
+      type: object
+      required:
+        - id
+        - course_enrollment_id
+        - document_type
+        - revision
+        - document_mode_snapshot
+        - template_id
+        - template_version
+        - renderer_version
+        - template_content_hash
+        - course_version
+        - requirements_revision
+        - evidence_bundle_hash
+        - content_hash
+        - generated_at
+        - created_at
+      properties:
+        id: { type: string, format: uuid }
+        course_enrollment_id: { type: string, format: uuid }
+        document_type:
+          type: string
+          enum: [training_record_card, theory_delivery_journal]
+        revision: { type: integer, minimum: 1 }
+        document_mode_snapshot:
+          type: string
+          enum: [paper, electronic]
+        template_id: { type: string, format: uuid }
+        template_version: { type: string }
+        renderer_version: { type: string }
+        template_content_hash: { type: string, pattern: '^[a-f0-9]{64}$' }
+        course_version: { type: integer, minimum: 1 }
+        requirements_revision: { type: integer, minimum: 1 }
+        evidence_bundle_hash: { type: string, pattern: '^[a-f0-9]{64}$' }
+        content_hash: { type: string, pattern: '^[a-f0-9]{64}$' }
+        approved_by_user_id:
+          oneOf:
+            - { type: string, format: uuid }
+            - { type: 'null' }
+        approved_at:
+          oneOf:
+            - { type: string, format: date-time }
+            - { type: 'null' }
+        generated_at: { type: string, format: date-time }
+        created_at: { type: string, format: date-time }
