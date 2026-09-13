@@ -267,8 +267,8 @@ async function approve(type: DocumentType): Promise<void> {
   }
 }
 
-async function recordDelivery(document: FormalDocument, eventType: DeliveryEventType): Promise<void> {
-  if (!canDeliver(document.document_type)) return
+async function recordDelivery(document: FormalDocument | null, eventType: DeliveryEventType): Promise<void> {
+  if (!document || !canDeliver(document.document_type)) return
 
   const confirmation = eventType === 'printed'
     ? 'Potwierdzić, że ta dokładna rewizja dokumentu została wydrukowana?'
@@ -295,11 +295,11 @@ async function recordDelivery(document: FormalDocument, eventType: DeliveryEvent
   }
 }
 
-async function uploadSignedScan(document: FormalDocument, event: Event): Promise<void> {
+async function uploadSignedScan(document: FormalDocument | null, event: Event): Promise<void> {
   const input = event.target as HTMLInputElement
   const file = input.files?.[0]
   input.value = ''
-  if (!file || !canDeliver(document.document_type)) return
+  if (!file || !document || !canDeliver(document.document_type)) return
 
   const declaredMime = file.type || (file.name.toLowerCase().endsWith('.pdf') ? 'application/pdf' : '')
   if (declaredMime !== 'application/pdf') {
@@ -393,7 +393,8 @@ async function attachReadyAsset(documentId: string, assetId: string): Promise<vo
   })
 }
 
-async function openHistory(document: FormalDocument): Promise<void> {
+async function openHistory(document: FormalDocument | null): Promise<void> {
+  if (!document) return
   historyDocument.value = document
   historyEvents.value = []
   historyLoading.value = true
@@ -419,7 +420,8 @@ async function refreshHistoryIfOpen(documentId: string): Promise<void> {
   await openHistory(historyDocument.value)
 }
 
-async function downloadPdf(document: FormalDocument): Promise<void> {
+async function downloadPdf(document: FormalDocument | null): Promise<void> {
+  if (!document) return
   error.value = ''
   try {
     const response = await fetch(`/api/v1/formal-training-documents/${document.id}/file`, {
@@ -625,15 +627,15 @@ function shortHash(value: string): string {
           <div class="formal-doc-facts">
             <div>
               <span>Tryb</span>
-              <strong>{{ modeLabel(previewFor(definition.value)!.document_mode) }}</strong>
+              <strong>{{ modeLabel(previewFor(definition.value)?.document_mode) }}</strong>
             </div>
             <div>
               <span>Teoria łącznie</span>
-              <strong>{{ previewFor(definition.value)!.totals.combined_theory_minutes }} min</strong>
+              <strong>{{ previewFor(definition.value)?.totals.combined_theory_minutes ?? 0 }} min</strong>
             </div>
             <div>
               <span>Praktyka łącznie</span>
-              <strong>{{ previewFor(definition.value)!.totals.combined_practical_minutes }} min</strong>
+              <strong>{{ previewFor(definition.value)?.totals.combined_practical_minutes ?? 0 }} min</strong>
             </div>
           </div>
 
@@ -651,15 +653,15 @@ function shortHash(value: string): string {
           >
             <div>
               <span>Ostatnia rewizja</span>
-              <strong>R{{ latestFor(definition.value)!.revision }}</strong>
+              <strong>R{{ latestFor(definition.value)?.revision }}</strong>
             </div>
             <div>
               <span>Zatwierdzono</span>
-              <strong>{{ formatDateTime(latestFor(definition.value)!.approved_at) }}</strong>
+              <strong>{{ formatDateTime(latestFor(definition.value)?.approved_at ?? null) }}</strong>
             </div>
             <div class="formal-doc-hash">
               <span>Hash danych</span>
-              <strong>{{ shortHash(latestFor(definition.value)!.evidence_bundle_hash) }}</strong>
+              <strong>{{ shortHash(latestFor(definition.value)?.evidence_bundle_hash ?? '') }}</strong>
             </div>
           </div>
 
@@ -679,7 +681,7 @@ function shortHash(value: string): string {
               class="button ghost"
               type="button"
               :disabled="saving"
-              @click="downloadPdf(latestFor(definition.value)!)"
+              @click="downloadPdf(latestFor(definition.value))"
             >
               Pobierz PDF
             </button>
@@ -689,7 +691,7 @@ function shortHash(value: string): string {
               class="button ghost"
               type="button"
               :disabled="saving"
-              @click="openHistory(latestFor(definition.value)!)"
+              @click="openHistory(latestFor(definition.value))"
             >
               Historia
             </button>
@@ -699,7 +701,7 @@ function shortHash(value: string): string {
               class="button ghost"
               type="button"
               :disabled="!canDeliver(definition.value) || saving"
-              @click="recordDelivery(latestFor(definition.value)!, 'printed')"
+              @click="recordDelivery(latestFor(definition.value), 'printed')"
             >
               Potwierdź wydruk
             </button>
@@ -714,7 +716,7 @@ function shortHash(value: string): string {
                 type="file"
                 accept="application/pdf,.pdf"
                 :disabled="!canDeliver(definition.value) || saving"
-                @change="uploadSignedScan(latestFor(definition.value)!, $event)"
+                @change="uploadSignedScan(latestFor(definition.value), $event)"
               >
             </label>
 
@@ -723,7 +725,7 @@ function shortHash(value: string): string {
               class="button ghost"
               type="button"
               :disabled="!canDeliver(definition.value) || saving"
-              @click="recordDelivery(latestFor(definition.value)!, 'electronic_presented')"
+              @click="recordDelivery(latestFor(definition.value), 'electronic_presented')"
             >
               Oznacz jako przedstawiony
             </button>
