@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
   "plan_identity": "d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10",
-  "execution_identity": "d3d460992bfe56a0c3828689bffffaf842cc9b88bd103a5e71b5c6082ba00cd4",
+  "execution_identity": "411d0c2c1493fb2ea052e89b5c919f2b7e3ae0f746301107b0a7c08610486f71",
   "stage4_root": "database/migrations/stage4",
   "implemented_steps": [
     {
@@ -1486,6 +1486,96 @@
       "migration_file": "database/migrations/stage4/write_fence/MIG-CK-EVENTS/2026_09_10_001260_write_fence_candidate_keys_events.php",
       "migration_name": "2026_09_10_001260_write_fence_candidate_keys_events",
       "file_sha256": "f655914506e1f9af6f825bbc53091069d31439c54ff1845f88cbe4117bcd23b9",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-IDX-IDENTITY",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-IDX-IDENTITY/2026_09_10_001270_write_fence_indexes_identity.php",
+      "migration_name": "2026_09_10_001270_write_fence_indexes_identity",
+      "file_sha256": "4350ac6c0337cf2e3459299dccbe8c227be08a3e30c56dde68d63faa4178036a",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-IDX-RESOURCES",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-IDX-RESOURCES/2026_09_10_001280_write_fence_indexes_resources.php",
+      "migration_name": "2026_09_10_001280_write_fence_indexes_resources",
+      "file_sha256": "39bbde851976265e67c3f447531d38ae83728475dd060fd313cabc92f294d633",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-IDX-TRAINING",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-IDX-TRAINING/2026_09_10_001290_write_fence_indexes_training.php",
+      "migration_name": "2026_09_10_001290_write_fence_indexes_training",
+      "file_sha256": "a91b00d53edc74e444ebf14032823cceb405a9d32363d47942cd7d9449522b67",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-IDX-CALENDAR_GIST",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-IDX-CALENDAR_GIST/2026_09_10_001300_write_fence_indexes_calendar_gist.php",
+      "migration_name": "2026_09_10_001300_write_fence_indexes_calendar_gist",
+      "file_sha256": "f1fdfeb03c17e83ffaae38d91adfc716ade26ce8bf4e6328eb6d299bbc919603",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-IDX-PKK",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-IDX-PKK/2026_09_10_001310_write_fence_indexes_pkk.php",
+      "migration_name": "2026_09_10_001310_write_fence_indexes_pkk",
+      "file_sha256": "ffcc025a75d32ac225ce2d27fa674a06343d513de6ec663b7225caf01189b201",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-IDX-FINANCE",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-IDX-FINANCE/2026_09_10_001320_write_fence_indexes_finance.php",
+      "migration_name": "2026_09_10_001320_write_fence_indexes_finance",
+      "file_sha256": "6252961c82c19239157262877cfcf333fdade4a1dcf53bca321424d7085ad2cc",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-IDX-LICENSES",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-IDX-LICENSES/2026_09_10_001330_write_fence_indexes_licenses.php",
+      "migration_name": "2026_09_10_001330_write_fence_indexes_licenses",
+      "file_sha256": "69c7e61d1a0b0bab306a6c7b7cfe62470ff70012685179d94882a75f0b734589",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-IDX-EXAMS",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-IDX-EXAMS/2026_09_10_001340_write_fence_indexes_exams.php",
+      "migration_name": "2026_09_10_001340_write_fence_indexes_exams",
+      "file_sha256": "1594a5df4850968b8e26c1b7c6682dc3a75cbb9b311d4657013431f23fb62fb9",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-IDX-COMMERCE",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-IDX-COMMERCE/2026_09_10_001350_write_fence_indexes_commerce.php",
+      "migration_name": "2026_09_10_001350_write_fence_indexes_commerce",
+      "file_sha256": "fa74eabe5af7a74e097a70fe97ddf525f33d6540cdc4b5f5c72f75ea79287d95",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-IDX-EVENTS",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-IDX-EVENTS/2026_09_10_001360_write_fence_indexes_events.php",
+      "migration_name": "2026_09_10_001360_write_fence_indexes_events",
+      "file_sha256": "59c31cea2703b3da13ce0c312669216996c5db687f175a58a9129c2e7e6bd523",
       "restart_classification": "manual_review",
       "safe_down": false
     }
