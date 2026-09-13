@@ -303,10 +303,16 @@ final class UploadAssetService
                 && str_contains(substr($bytes, -2048), '%%EOF');
         }
 
-        if (in_array($mime, ['image/jpeg', 'image/png', 'image/webp'], true)) {
-            $image = @getimagesizefromstring($bytes);
-
-            return is_array($image) && isset($image['mime']) && $this->normalizeMime((string) $image['mime']) === $mime;
+        if ($mime === 'image/png') {
+            return str_starts_with($bytes, "\x89PNG\r\n\x1a\n");
+        }
+        if ($mime === 'image/jpeg') {
+            return str_starts_with($bytes, "\xff\xd8\xff") && str_ends_with($bytes, "\xff\xd9");
+        }
+        if ($mime === 'image/webp') {
+            return strlen($bytes) >= 12
+                && substr($bytes, 0, 4) === 'RIFF'
+                && substr($bytes, 8, 4) === 'WEBP';
         }
 
         return false;
