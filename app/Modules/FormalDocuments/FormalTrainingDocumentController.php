@@ -41,6 +41,15 @@ final class FormalTrainingDocumentController
         ));
     }
 
+
+    public function freshness(Request $request, string $courseEnrollmentId): JsonResponse
+    {
+        return response()->json($this->documents->freshness(
+            $this->sessionId($request),
+            $courseEnrollmentId,
+        ));
+    }
+
     public function approve(Request $request, string $courseEnrollmentId): JsonResponse
     {
         $input = $this->validatedBody($request, [
@@ -78,6 +87,53 @@ final class FormalTrainingDocumentController
                 return [
                     'status' => 201,
                     'resource_type' => 'formal_training_document',
+                    'resource_id' => (string) $body['id'],
+                    'body' => $body,
+                ];
+            },
+        );
+
+        return response()->json($result['body'], $result['status']);
+    }
+
+    public function events(Request $request, string $documentId): JsonResponse
+    {
+        return response()->json($this->documents->events(
+            $this->sessionId($request),
+            $documentId,
+        ));
+    }
+
+    public function deliveryEvent(Request $request, string $documentId): JsonResponse
+    {
+        $input = $this->validatedBody($request, [
+            'event_type' => ['required', 'string', 'in:printed,signed_scan_attached,electronic_presented'],
+            'optional_asset_id' => ['nullable', 'uuid'],
+            'reason' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        $sessionId = $this->sessionId($request);
+        $organizationId = $this->tenantAuthorizer->activeMembershipForSession($sessionId)['organization_id'];
+
+        $result = $this->idempotency->execute(
+            $organizationId,
+            'formal_documents.delivery.record',
+            $this->idempotencyKey($request),
+            [
+                'formal_training_document_id' => $documentId,
+                ...$input,
+            ],
+            function () use ($sessionId, $documentId, $input, $request): array {
+                $body = $this->documents->recordDeliveryEvent(
+                    $sessionId,
+                    $documentId,
+                    $input,
+                    $this->requestId($request),
+                );
+
+                return [
+                    'status' => 201,
+                    'resource_type' => 'formal_training_document_event',
                     'resource_id' => (string) $body['id'],
                     'body' => $body,
                 ];
