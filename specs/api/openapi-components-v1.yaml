@@ -1363,7 +1363,14 @@ components:
         size_bytes: { type: integer, minimum: 1 }
         sha256:
           oneOf:
-            - { type: string, pattern: '^[a-f0-9]{64}    UploadPresignResponse:
+            - type: string
+              pattern: '^[a-f0-9]{64}$'
+            - { type: 'null' }
+        parent_type:
+          type: string
+          enum: [organization, staff_profile, vehicle, formal_training_document]
+        parent_id: { type: string, format: uuid }
+    UploadPresignResponse:
       type: object
       required: [upload_id, upload_url, expires_at]
       properties:
@@ -1376,69 +1383,9 @@ components:
       properties:
         sha256:
           oneOf:
-            - { type: string, pattern: '^[a-f0-9]{64}    FileAsset:
-      type: object
-      required: [id, purpose, media_type, size_bytes, status]
-      properties:
-        id: { type: string, format: uuid }
-        purpose: { type: string }
-        media_type: { type: string }
-        size_bytes: { type: integer }
-        status: { type: string }
- }
+            - type: string
+              pattern: '^[a-f0-9]{64}$'
             - { type: 'null' }
-        parent_type:
-          type: string
-          enum: [organization, staff_profile, vehicle, formal_training_document]
-        parent_id: { type: string, format: uuid }
-    UploadPresignResponse:
-      type: object
-      required: [upload_id, upload_url, expires_at]
-      properties:
-        upload_id: { type: string, format: uuid }
-        upload_url: { type: string, format: uri }
-        expires_at: { type: string, format: date-time }
-    UploadCompleteRequest:
-      type: object
-      properties:
-        sha256: { type: [string, 'null'] }
-    FileAsset:
-      type: object
-      required: [id, purpose, media_type, size_bytes, status]
-      properties:
-        id: { type: string, format: uuid }
-        purpose: { type: string }
-        media_type: { type: string }
-        size_bytes: { type: integer }
-        status: { type: string }
- }
-            - { type: 'null' }
-    FileAsset:
-      type: object
-      required: [id, purpose, media_type, size_bytes, status]
-      properties:
-        id: { type: string, format: uuid }
-        purpose: { type: string }
-        media_type: { type: string }
-        size_bytes: { type: integer }
-        status: { type: string }
- }
-            - { type: 'null' }
-        parent_type:
-          type: string
-          enum: [organization, staff_profile, vehicle, formal_training_document]
-        parent_id: { type: string, format: uuid }
-    UploadPresignResponse:
-      type: object
-      required: [upload_id, upload_url, expires_at]
-      properties:
-        upload_id: { type: string, format: uuid }
-        upload_url: { type: string, format: uri }
-        expires_at: { type: string, format: date-time }
-    UploadCompleteRequest:
-      type: object
-      properties:
-        sha256: { type: [string, 'null'] }
     FileAsset:
       type: object
       required: [id, purpose, media_type, size_bytes, status]
