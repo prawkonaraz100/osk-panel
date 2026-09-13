@@ -133,7 +133,12 @@ final class UploadAssetService
         $createdAt = CarbonImmutable::parse((string) $data['created_at']);
         if ($createdAt->addMinutes($this->ttlMinutes())->isPast()) {
             $this->rejectPending($membership['organization_id'], $uploadId, (string) $data['storage_disk'], (string) $data['storage_key']);
-            throw ResourceDomainException::conflict('Upload reservation expired before completion.');
+            throw new UploadRejectedException(
+                'Upload reservation expired before completion.',
+                $uploadId,
+                'RESOURCE_VERSION_CONFLICT',
+                409,
+            );
         }
 
         $disk = (string) $data['storage_disk'];
@@ -168,7 +173,7 @@ final class UploadAssetService
         );
         if ($rejection !== null) {
             $this->rejectPending($membership['organization_id'], $uploadId, $disk, $reservationKey, $detectedMime);
-            throw ResourceDomainException::rule($rejection);
+            throw new UploadRejectedException($rejection, $uploadId);
         }
 
         $finalKey = $this->storageKey(
