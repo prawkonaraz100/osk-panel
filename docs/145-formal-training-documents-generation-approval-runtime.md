@@ -1,6 +1,6 @@
 # 145. Formal training documents — generation and approval runtime
 
-Status: `FORMAL-DOC-008 validation candidate`
+Status: `FORMAL-DOC-008 PASS`
 
 ## Scope
 
@@ -206,3 +206,29 @@ FORMAL-DOC-008 tests must prove:
 **FORMAL-DOC-009 — materialize document delivery lifecycle and freshness projection.**
 
 That gate may add explicit print, signed-scan attachment and electronic-presentation events plus a reusable stale/current projection. It must not claim any statutory electronic-signature mechanism without separate legal and technical verification.
+
+
+## Closure evidence
+
+FORMAL-DOC-008 is closed PASS on the exact clean-promoted implementation tree.
+
+- validation-only PR: #65, closed without merge,
+- validated helper commit: `f579b4edc1583ee75ca4f3cae4f608f2f1c58cbd`,
+- validated helper tree: `c09c6ccc780af787adc71ce714a2db55890e64cf`,
+- helper Implementation CI: run `34743084750`, 5/5 PASS,
+- helper API Contract Gate: run `34743084752`, PASS,
+- accepted implementation commit: `05a6f4df9552075a3c34a9ede262654e6ef47404`,
+- accepted implementation tree: `c09c6ccc780af787adc71ce714a2db55890e64cf`,
+- accepted Implementation CI: run `34743244625`, 5/5 PASS,
+- accepted API Contract Gate: run `34743244478`, PASS,
+- PostgreSQL suite: **224 tests / 3028 assertions**,
+- deterministic restore: **115 → 115**, `RESTORE_DRILL_HARNESS=PASS`,
+- backend Pint/PHPStan: PASS,
+- frontend lint/typecheck/build/audit: PASS,
+- contracts and changed-module traceability: PASS,
+- secret scan: PASS,
+- Stage-4 authority remains **170 / 112 / 112**,
+- Stage-5 formal-document migration authority remains **11 steps** with execution identity `31704fcab61761aa9a952d824dc543a6f46e7a3717792d0a9349cefaaf57651f`,
+- PKK provider runtime remains `FROZEN_UNTIL_EXPLICIT_UNFREEZE`.
+
+Next gate: **FORMAL-DOC-009 — materialize document delivery lifecycle and freshness projection**.
