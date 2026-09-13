@@ -2,7 +2,8 @@ module: UploadsAssets
 core_traceability_modules:
   - uploads_assets
   - course_enrollment_training
-  - staff_locations_vehicles
+  - staff
+  - vehicles
 changed_scope:
   - evidence: docs/06-api-contract.md
     requirement: uploads use the existing presign direct-object-storage complete flow and become tenant-owned file_assets only after server validation
