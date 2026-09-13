@@ -1,6 +1,6 @@
 # CORE-V1-STAGE4-INDEXES-WRITE-FENCE-001
 
-Status: `IN_VALIDATION`
+Status: `PASS`
 
 ## Purpose
 
@@ -75,3 +75,41 @@ PASS requires:
 - helper tree clean-promoted unchanged to accepted branch.
 
 After PASS, the next safe prefix is **CORE-V1-STAGE4-FOREIGN-KEYS-WRITE-FENCE-001**, exactly 11 `MIG-FK-*` write-fence steps.
+
+
+## Closure evidence
+
+`CORE-V1-STAGE4-INDEXES-WRITE-FENCE-001` is closed **PASS**.
+
+Validation-only helper:
+
+- PR **#89** closed without merge,
+- helper commit: `153f43e16ea8beb54909a479ef455ae37851df31`,
+- helper tree: `738f3c5e069f2bdb76a46cb48ae994c429b2fb88`,
+- helper Implementation CI #420 / run `34783546637`: **5/5 PASS**,
+- PostgreSQL: **240 tests / 3774 assertions**,
+- deterministic restore: **121 -> 121**, `RESTORE_DRILL_HARNESS=PASS`.
+
+Clean accepted implementation:
+
+- accepted commit: `9890cf8a5fbd3c9d772b8a9d5d16eaeda299d7c3`,
+- accepted tree: `738f3c5e069f2bdb76a46cb48ae994c429b2fb88`,
+- helper/accepted tree match: **PASS**,
+- accepted Implementation CI #421 / run `34783752688`: **5/5 PASS**,
+- PostgreSQL: **240 tests / 3774 assertions**,
+- deterministic restore: **121 -> 121**, `RESTORE_DRILL_HARNESS=PASS`.
+
+Final state:
+
+- Stage-4 DAG: **170 nodes**,
+- materialized nodes: **157**,
+- materialized steps: **175**,
+- global preflight: **39/39 PASS**,
+- write-fence steps: **18/52**,
+- active UNIQUE btree indexes in this tranche: **52 PASS**,
+- Calendar GiST exclusions in this tranche: **4 PASS**,
+- legacy `student_payments.idempotency_key` authority resurrection: **0**,
+- execution identity: `411d0c2c1493fb2ea052e89b5c919f2b7e3ae0f746301107b0a7c08610486f71`,
+- PKK provider runtime remains **FROZEN_UNTIL_EXPLICIT_UNFREEZE**.
+
+Next gate: **CORE-V1-STAGE4-FOREIGN-KEYS-WRITE-FENCE-001**, exactly eleven `MIG-FK-*` write-fence steps, orders 1370–1470.
