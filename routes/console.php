@@ -280,4 +280,3 @@ Artisan::command(
 Schedule::command('operations:reconciliation:scan --json --log --fail-on-findings')
     ->everyFifteenMinutes()
     ->withoutOverlapping(30);
-
