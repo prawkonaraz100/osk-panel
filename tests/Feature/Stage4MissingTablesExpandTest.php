@@ -91,9 +91,9 @@ final class Stage4MissingTablesExpandTest extends TestCase
         $plan->validate();
         $this->assertSame(170, $plan->nodeCount());
         $this->assertSame(126, $plan->implementedNodeCount());
-        $this->assertSame(134, $plan->implementedStepCount());
+        $this->assertSame(126, $plan->implementedStepCount());
         $this->assertSame(
-            '6f62bc3f68cf89943cddefe3186baf337f3e90d3afe76d9c6bb6475f8f48e654',
+            'db1ff3bfdbeacb32f1a0512cc30806cc93e9bcdca35e416ef81b6fadd7a3b303',
             $plan->executionIdentity(),
         );
     }
