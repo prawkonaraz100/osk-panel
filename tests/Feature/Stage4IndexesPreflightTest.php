@@ -2,10 +2,12 @@
 
 namespace Tests\Feature;
 
+use App\Support\Migrations\ControlledMigrationContext;
 use App\Support\Migrations\MigrationPlan;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use LogicException;
 use Tests\Support\FoundationSchema;
 use Tests\TestCase;
 
@@ -21,7 +23,7 @@ final class Stage4IndexesPreflightTest extends TestCase
         $this->assertSame(170, $plan->nodeCount());
         $this->assertSame(157, $plan->implementedNodeCount());
         $this->assertSame(165, $plan->implementedStepCount());
-        $this->assertSame('84108f592c5cdff50cea4316ce05c5ad53db61e177b69c8916e04eed54214429', $plan->executionIdentity());
+        $this->assertSame('d3d460992bfe56a0c3828689bffffaf842cc9b88bd103a5e71b5c6082ba00cd4', $plan->executionIdentity());
 
         $indexNodes = [
             'MIG-IDX-IDENTITY',
@@ -50,7 +52,7 @@ final class Stage4IndexesPreflightTest extends TestCase
         ], array_column($plan->phaseSteps('write_fence'), 'node_id'));
 
         $this->assertFalse(Schema::hasColumn('student_payments', 'idempotency_key'));
-        $this->assertFalse(Schema::hasColumn('internal_exam_inventory_entries', 'source_order_item_grant_ordinal'));
+        $this->assertTrue(Schema::hasColumn('internal_exam_inventory_entries', 'source_order_item_grant_ordinal'));
 
         $before = $this->schemaBoundarySignature();
 
@@ -74,7 +76,7 @@ final class Stage4IndexesPreflightTest extends TestCase
 
         $this->assertSame($before, $this->schemaBoundarySignature());
         $this->assertFalse(Schema::hasColumn('student_payments', 'idempotency_key'));
-        $this->assertFalse(Schema::hasColumn('internal_exam_inventory_entries', 'source_order_item_grant_ordinal'));
+        $this->assertTrue(Schema::hasColumn('internal_exam_inventory_entries', 'source_order_item_grant_ordinal'));
         $this->assertSame([
             'MIG-CK-IDENTITY',
             'MIG-CK-ASSETS_RESOURCES',
@@ -85,6 +87,42 @@ final class Stage4IndexesPreflightTest extends TestCase
             'MIG-CK-COMMERCE',
             'MIG-CK-EVENTS',
         ], array_column($plan->phaseSteps('write_fence'), 'node_id'));
+    }
+
+    public function test_commerce_index_preflight_fails_closed_without_internal_exam_purchase_ordinal(): void
+    {
+        FoundationSchema::ensureMigrated();
+
+        $plan = app(MigrationPlan::class);
+        $plan->validate();
+
+        DB::beginTransaction();
+
+        try {
+            DB::statement('ALTER TABLE internal_exam_inventory_entries DROP COLUMN source_order_item_grant_ordinal');
+            $this->assertFalse(Schema::hasColumn('internal_exam_inventory_entries', 'source_order_item_grant_ordinal'));
+
+            ControlledMigrationContext::enter('preflight', 'MIG-IDX-COMMERCE', $plan->executionIdentity());
+
+            try {
+                /** @var \Illuminate\Database\Migrations\Migration $migration */
+                $migration = require base_path('database/migrations/stage4/preflight/MIG-IDX-COMMERCE/2026_09_10_001350_preflight_indexes_commerce.php');
+
+                try {
+                    $migration->up();
+                    $this->fail('MIG-IDX-COMMERCE must fail closed when internal exam purchase ordinal is absent.');
+                } catch (LogicException $exception) {
+                    $this->assertStringContainsString(
+                        'missing internal_exam_inventory_entries.source_order_item_grant_ordinal',
+                        $exception->getMessage(),
+                    );
+                }
+            } finally {
+                ControlledMigrationContext::leave();
+            }
+        } finally {
+            DB::rollBack();
+        }
     }
 
     /**

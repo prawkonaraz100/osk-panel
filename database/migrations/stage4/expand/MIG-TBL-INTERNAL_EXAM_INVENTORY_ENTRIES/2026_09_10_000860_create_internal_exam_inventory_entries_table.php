@@ -25,6 +25,7 @@ CREATE TABLE internal_exam_inventory_entries (
     organization_id uuid NOT NULL,
     source_type varchar(32) NOT NULL,
     source_order_item_id uuid NULL,
+    source_order_item_grant_ordinal integer NULL,
     source_adjustment_id uuid NULL,
     current_state varchar(32) NOT NULL,
     created_at timestamptz NOT NULL
