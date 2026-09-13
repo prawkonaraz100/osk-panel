@@ -225,29 +225,41 @@ quality_gate:
     - S5-FOUND-001
 
 next_single_step:
-  id: CORE-V1-STAGE4-INTERNAL-EXAM-PURCHASE-ORDINAL-PREREQ-RECOVERY-001
-  action: restore_internal_exam_purchase_ordinal_prerequisite_before_index_write_fence
-  prerequisite_previous_slice: CORE-V1-STAGE4-CANDIDATE-KEYS-WRITE-FENCE-001_PASS
-  authority:
-    narrative: docs/157-core-v1-stage4-internal-exam-purchase-ordinal-prerequisite-recovery.md
-    source_contracts: [DB-COM-004]
-    migration_node: MIG-TBL-INTERNAL_EXAM_INVENTORY_ENTRIES
-    dependent_index_node: MIG-IDX-COMMERCE
+  id: CORE-V1-STAGE4-INDEXES-WRITE-FENCE-001
+  action: materialize_and_execute_ten_stage4_index_write_fence_steps_after_internal_exam_purchase_ordinal_recovery_PASS
+  prerequisite_previous_slice: CORE-V1-STAGE4-INTERNAL-EXAM-PURCHASE-ORDINAL-PREREQ-RECOVERY-001_PASS
+  implementation_order_source:
+    - specs/database/final-migration-order-invariant-matrix.yml
+    - database/migration-plan/plan.json
+    - docs/157-core-v1-stage4-internal-exam-purchase-ordinal-prerequisite-recovery.md
   Stage_4_DAG_nodes_total: 170
   Stage_4_materialized_nodes_current: 157
   Stage_4_materialized_steps_current: 165
   expected_Stage_4_materialized_nodes_after_next_PASS: 157
-  expected_Stage_4_materialized_steps_after_next_PASS: 165
-  current_corrective_gate_status: IN_VALIDATION
+  expected_Stage_4_materialized_steps_after_next_PASS: 175
+  current_corrective_gate_status: NOT_STARTED
   global_phase_barrier:
     authoritative_preflight_nodes: 39
     preflight_nodes_materialized_current: 39
     global_preflight_status: PASS
     authoritative_write_fence_nodes: 52
     write_fence_steps_materialized_current: 8
-    index_write_fence_in_next_slice: false
+    next_safe_write_fence_prefix_steps: 10
+    expected_write_fence_steps_after_next_PASS: 18
+    remaining_write_fence_steps_after_next_PASS: 34
+    write_fence_in_next_slice: true
     canonical_authority_changed: false
-  candidate_execution_identity: d3d460992bfe56a0c3828689bffffaf842cc9b88bd103a5e71b5c6082ba00cd4
+  exact_nodes:
+    - MIG-IDX-IDENTITY
+    - MIG-IDX-RESOURCES
+    - MIG-IDX-TRAINING
+    - MIG-IDX-CALENDAR_GIST
+    - MIG-IDX-PKK
+    - MIG-IDX-FINANCE
+    - MIG-IDX-LICENSES
+    - MIG-IDX-EXAMS
+    - MIG-IDX-COMMERCE
+    - MIG-IDX-EVENTS
   PKK_provider_runtime_status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
 
 CORE_V1_CLOSURE_AUDIT_001_gate:
@@ -4011,7 +4023,7 @@ CORE_V1_STAGE4_CANDIDATE_KEYS_WRITE_FENCE_001_gate:
 
 CORE_V1_STAGE4_INTERNAL_EXAM_PURCHASE_ORDINAL_PREREQ_RECOVERY_001_gate:
   id: CORE-V1-STAGE4-INTERNAL-EXAM-PURCHASE-ORDINAL-PREREQ-RECOVERY-001
-  status: IN_VALIDATION
+  status: PASS
   prerequisite: CORE-V1-STAGE4-CANDIDATE-KEYS-WRITE-FENCE-001_PASS
   severity: P1
   authority:
@@ -4036,6 +4048,39 @@ CORE_V1_STAGE4_INTERNAL_EXAM_PURCHASE_ORDINAL_PREREQ_RECOVERY_001_gate:
     compatibility_backfill: forbidden
     destructive_down: forbidden
     already_applied_database_requires_reviewed_forward_remediation: true
+  provenance:
+    validation_PR: 88
+    validation_PR_merged: false
+    validation_helper_commit: 53db5dc881241fdf1dbcddcd7c92f86c4340a2a2
+    validation_helper_tree: 8a49f79d5af706d3a0b7671b70d3f39880346871
+    helper_Implementation_CI_run: 34781652225
+    accepted_implementation_commit: 89f5ead0787b014ad5afc680d1a4e10d6d9e550e
+    accepted_implementation_tree: 8a49f79d5af706d3a0b7671b70d3f39880346871
+    accepted_Implementation_CI_run: 34781878716
+    helper_and_accepted_tree_match: true
+  executable_evidence:
+    helper_Implementation_CI_jobs_passed: 5
+    helper_Implementation_CI_jobs_total: 5
+    accepted_Implementation_CI_jobs_passed: 5
+    accepted_Implementation_CI_jobs_total: 5
+    PostgreSQL_suite_tests: 239
+    PostgreSQL_suite_assertions: 3369
+    deterministic_restore_harness: PASS
+    restore_source_table_count: 121
+    restore_restored_table_count: 121
+    canonical_internal_exam_purchase_ordinal_nullable_integer: PASS
+    MIG_IDX_COMMERCE_missing_internal_exam_purchase_ordinal_fails_closed: PASS
+    exact_two_migration_file_SHA256_registry: PASS
+    Stage_4_execution_identity: d3d460992bfe56a0c3828689bffffaf842cc9b88bd103a5e71b5c6082ba00cd4
+    Stage_4_materialized_nodes: 157
+    Stage_4_materialized_steps: 165
+    global_preflight_39_of_39_preserved: PASS
+    write_fence_8_of_52_preserved: PASS
+    backend_static_analysis: PASS_ZERO_ERRORS
+    frontend_quality: PASS
+    contracts_and_traceability: PASS
+    secret_scan: PASS
+    PKK_provider_runtime_still_frozen: PASS
   pass_requires:
     - canonical_internal_exam_purchase_ordinal_nullable_integer_PASS
     - MIG_IDX_COMMERCE_missing_internal_exam_purchase_ordinal_fails_closed_PASS

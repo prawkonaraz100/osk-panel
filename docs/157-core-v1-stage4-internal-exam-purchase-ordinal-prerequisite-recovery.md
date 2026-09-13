@@ -1,6 +1,6 @@
 # CORE-V1-STAGE4-INTERNAL-EXAM-PURCHASE-ORDINAL-PREREQ-RECOVERY-001
 
-Status: `IN_VALIDATION`
+Status: `PASS`
 
 ## Why this corrective gate exists
 
@@ -36,3 +36,40 @@ An environment that already recorded the old Internal Exam Inventory expand migr
 Full Implementation CI **5/5**, PostgreSQL suite, deterministic restore, exact registry/hash validation, nullable PostgreSQL integer proof for `internal_exam_inventory_entries.source_order_item_grant_ordinal`, fail-closed missing-column proof for `MIG-IDX-COMMERCE`, and proof that write-fence remains exactly **8 steps**.
 
 After PASS, return to **CORE-V1-STAGE4-INDEXES-WRITE-FENCE-001**.
+
+
+## Closure evidence
+
+`CORE-V1-STAGE4-INTERNAL-EXAM-PURCHASE-ORDINAL-PREREQ-RECOVERY-001` is closed **PASS**.
+
+Validation-only helper:
+
+- PR **#88** closed without merge,
+- helper commit: `53db5dc881241fdf1dbcddcd7c92f86c4340a2a2`,
+- helper tree: `8a49f79d5af706d3a0b7671b70d3f39880346871`,
+- helper Implementation CI #417 / run `34781652225`: **5/5 PASS**,
+- PostgreSQL: **239 tests / 3369 assertions**,
+- deterministic restore: **121 -> 121**, `RESTORE_DRILL_HARNESS=PASS`.
+
+Clean accepted implementation:
+
+- accepted commit: `89f5ead0787b014ad5afc680d1a4e10d6d9e550e`,
+- accepted tree: `8a49f79d5af706d3a0b7671b70d3f39880346871`,
+- helper/accepted tree match: **PASS**,
+- accepted Implementation CI #418 / run `34781878716`: **5/5 PASS**,
+- PostgreSQL: **239 tests / 3369 assertions**,
+- deterministic restore: **121 -> 121**, `RESTORE_DRILL_HARNESS=PASS`.
+
+Final corrective state:
+
+- Stage-4 DAG: **170 nodes**,
+- materialized nodes: **157**,
+- materialized steps: **165**,
+- global preflight: **39/39 PASS**,
+- write-fence steps: **8/52**,
+- `internal_exam_inventory_entries.source_order_item_grant_ordinal`: nullable PostgreSQL `integer`,
+- `MIG-IDX-COMMERCE`: missing Internal Exam purchase ordinal now fails closed,
+- execution identity: `d3d460992bfe56a0c3828689bffffaf842cc9b88bd103a5e71b5c6082ba00cd4`,
+- PKK provider runtime remains **FROZEN_UNTIL_EXPLICIT_UNFREEZE**.
+
+Next gate: **CORE-V1-STAGE4-INDEXES-WRITE-FENCE-001**.
