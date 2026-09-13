@@ -1,0 +1,21 @@
+name: H7 Pint Diagnostic
+
+on:
+  push:
+    branches:
+      - tmp-h7-pint-diagnostic-20260913
+
+jobs:
+  pint-diff:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          coverage: none
+      - run: composer install --no-interaction --prefer-dist --no-progress
+      - name: Apply Pint to H7 style-failing files
+        run: vendor/bin/pint routes/console.php tests/Unit/ReconciliationPolicyContractTest.php
+      - name: Show exact Pint patch
+        run: git diff -- routes/console.php tests/Unit/ReconciliationPolicyContractTest.php
