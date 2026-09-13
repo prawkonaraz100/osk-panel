@@ -53,12 +53,12 @@ final class FormalTrainingDocumentMigrationValidateTest extends TestCase
         parent::tearDown();
     }
 
-    public function test_validate_phase_is_fully_registered_idempotent_and_contract_remains_closed(): void
+    public function test_validate_phase_is_fully_registered_idempotent_and_contract_is_registered(): void
     {
         $extension = app(Stage5FormalDocumentsMigrationPlan::class);
         $extension->validate();
 
-        $this->assertSame(10, $extension->implementedStepCount());
+        $this->assertSame(11, $extension->implementedStepCount());
         $this->assertSame([
             'S5DOC-ALTER-COURSE-ENROLLMENTS-DOCUMENT-MODE',
             'S5DOC-TBL-FORMAL-TRAINING-DOCUMENT-TEMPLATES',
@@ -70,11 +70,9 @@ final class FormalTrainingDocumentMigrationValidateTest extends TestCase
         $this->assertSame(Command::SUCCESS, $this->runPhase('validate'));
         $this->assertSame(4, DB::table('migrations')->whereIn('migration', self::VALIDATE_MIGRATIONS)->count());
 
-        $contractExit = $this->runPhase('contract');
-        $this->assertSame(Command::FAILURE, $contractExit);
-        $this->assertStringContainsString(
-            'No materialized Stage-5 formal-documents migration steps for phase contract',
-            Artisan::output(),
+        $this->assertSame(
+            ['S5DOC-ALTER-COURSE-ENROLLMENTS-DOCUMENT-MODE'],
+            array_column($extension->phaseSteps('contract'), 'node_id'),
         );
     }
 
