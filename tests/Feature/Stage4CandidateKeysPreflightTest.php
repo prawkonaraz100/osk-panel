@@ -100,8 +100,9 @@ final class Stage4CandidateKeysPreflightTest extends TestCase
         $this->assertSame([], $plan->phaseSteps('write_fence'));
     }
 
-    /** @param list<string> $names
-     *  @return list<string>
+    /**
+     * @param  list<string>  $names
+     * @return list<string>
      */
     private function constraintNames(array $names): array
     {
