@@ -225,12 +225,12 @@ quality_gate:
     - S5-FOUND-001
 
 next_single_step:
-  id: FORMAL-DOC-007
-  action: contract_course_document_mode_columns_to_final_not_null_shape
-  prerequisite_previous_slice: FORMAL-DOC-006_PASS
+  id: FORMAL-DOC-008
+  action: materialize_formal_document_generation_and_approval_runtime
+  prerequisite_previous_slice: FORMAL-DOC-007_PASS
   implementation_order_source: AGENTS.md_step_10_hardening_and_formal_documents
   hardening_repo_actionable_P1_status: COMPLETE
-  formal_documents_status: GATE_6_PASS_GATE_7_IN_VALIDATION
+  formal_documents_status: GATE_7_PASS_GATE_8_NOT_STARTED
   PKK_provider_runtime_status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
   PKK_resume_requires:
     - explicit_user_unfreeze
@@ -2344,7 +2344,7 @@ FORMAL_DOCUMENTS_006_gate:
 
 FORMAL_DOCUMENTS_007_gate:
   id: FORMAL-DOC-007
-  status: IN_VALIDATION
+  status: PASS
   prerequisite: FORMAL-DOC-006_PASS
   scope:
     - Stage_5_formal_documents_contract_phase
@@ -2384,6 +2384,37 @@ FORMAL_DOCUMENTS_007_gate:
   PKK:
     provider_runtime_in_scope: false
     status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+  provenance:
+    validation_helper_commit: 4a5771e82822de805c35d0a621c441a6bda354ab
+    validation_helper_tree: 152abe41b6e6ed4106206e026975823a008271a8
+    validation_PR: 63
+    validation_PR_merged: false
+    helper_Implementation_CI_run: 34739748797
+    accepted_implementation_commit: 85cd8c8dffa989ccacaa2c5db3ec51fb7bfbf4a6
+    accepted_implementation_tree: 152abe41b6e6ed4106206e026975823a008271a8
+    accepted_Implementation_CI_run: 34739895639
+  executable_evidence:
+    helper_Implementation_CI_jobs_passed: 5
+    helper_Implementation_CI_jobs_total: 5
+    accepted_Implementation_CI_jobs_passed: 5
+    accepted_Implementation_CI_jobs_total: 5
+    accepted_PostgreSQL_suite_tests: 219
+    accepted_PostgreSQL_suite_assertions: 2952
+    deterministic_restore_harness: PASS
+    restore_source_table_count: 115
+    restore_restored_table_count: 115
+    backend_static_analysis: PASS_ZERO_ERRORS
+    frontend_lint_typecheck_build_audit: PASS
+    contracts_and_traceability: PASS
+    accepted_push_secret_scan: PASS
+    validate_before_contract_ordering: PASS
+    validated_constraint_evidence_required: PASS
+    final_physical_nullability_NO_NO_YES: PASS
+    paper_and_server_timestamp_defaults_preserved: PASS
+    explicit_null_mode_or_timestamp_rejected: PASS
+    controlled_contract_idempotency: PASS
+    failed_contract_not_recorded_as_applied: PASS
+    Stage_4_170_112_112_preservation: PASS
   pass_requires:
     - exact_contract_file_hash_PASS
     - extension_execution_identity_31704fca_PASS
