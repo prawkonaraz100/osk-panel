@@ -99,6 +99,12 @@ operations:
       type: preservation_capability
       requirement: preserve_theory_practice_current_osk_and_previous_osk_form_inputs_without_making_declared_current_hours_second_formal_source_of_truth
 
+  formal_documents:
+    - { id: formal_documents.preview, method: GET, path: '/course-enrollments/{courseEnrollmentId}/formal-documents/preview', source: FORMAL-DOC-008 }
+    - { id: formal_documents.list, method: GET, path: '/course-enrollments/{courseEnrollmentId}/formal-documents', source: FORMAL-DOC-008 }
+    - { id: formal_documents.approve, method: POST, path: '/course-enrollments/{courseEnrollmentId}/formal-documents', source: FORMAL-DOC-008 }
+    - { id: formal_documents.download, method: GET, path: '/formal-training-documents/{documentId}/file', source: FORMAL-DOC-008 }
+
   pkk:
     - { id: pkk.settings.get, method: GET, path: /organization/integrations/pkk }
     - { id: pkk.settings.update, method: PATCH, path: /organization/integrations/pkk }
@@ -374,10 +380,10 @@ coverage_status:
   frozen_at: 2026-09-05
   validator_command: python scripts/contract-validation/validate_openapi_contract.py
   ci_workflow: .github/workflows/api-contract-gate.yml
-  http_requirement_rows: 180
-  unique_openapi_path_method_operations_required: 166
+  http_requirement_rows: 184
+  unique_openapi_path_method_operations_required: 170
   shared_capability_rows_reusing_existing_operationId: 14
-  direct_and_shared_http_requirements_with_operationId_mapping: 180
+  direct_and_shared_http_requirements_with_operationId_mapping: 184
   direct_and_shared_http_requirements_without_operationId_mapping: 0
   openapi_complete_against_this_inventory: true
   operationIds_present_for_all_http_requirements: true
@@ -403,6 +409,7 @@ coverage_status:
   modular_path_files:
     - specs/api/paths/auth-organization.yaml
     - specs/api/paths/students-courses.yaml
+    - specs/api/paths/formal-documents.yaml
     - specs/api/paths/pkk-calendar.yaml
     - specs/api/paths/resources.yaml
     - specs/api/paths/licenses.yaml
