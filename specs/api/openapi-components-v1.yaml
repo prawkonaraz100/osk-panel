@@ -1354,13 +1354,22 @@ components:
 
     UploadPresignRequest:
       type: object
-      required: [purpose, filename, declared_mime, size_bytes]
+      additionalProperties: false
+      required: [purpose, filename, declared_mime, size_bytes, parent_type, parent_id]
       properties:
         purpose: { type: string }
-        filename: { type: string }
-        declared_mime: { type: string }
+        filename: { type: string, maxLength: 255 }
+        declared_mime: { type: string, maxLength: 128 }
         size_bytes: { type: integer, minimum: 1 }
-        sha256: { type: [string, 'null'] }
+        sha256:
+          oneOf:
+            - type: string
+              pattern: '^[a-f0-9]{64}$'
+            - { type: 'null' }
+        parent_type:
+          type: string
+          enum: [organization, staff_profile, vehicle, formal_training_document]
+        parent_id: { type: string, format: uuid }
     UploadPresignResponse:
       type: object
       required: [upload_id, upload_url, expires_at]
@@ -1370,8 +1379,13 @@ components:
         expires_at: { type: string, format: date-time }
     UploadCompleteRequest:
       type: object
+      additionalProperties: false
       properties:
-        sha256: { type: [string, 'null'] }
+        sha256:
+          oneOf:
+            - type: string
+              pattern: '^[a-f0-9]{64}$'
+            - { type: 'null' }
     FileAsset:
       type: object
       required: [id, purpose, media_type, size_bytes, status]

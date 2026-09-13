@@ -220,8 +220,8 @@ operations:
   dictionaries_and_assets:
     - { id: dictionaries.driving_categories.list, method: GET, path: /driving-categories }
     - { id: dictionaries.languages.list, method: GET, path: /languages }
-    - { id: uploads.presign, method: POST, path: /uploads/presign }
-    - { id: uploads.complete, method: POST, path: '/uploads/{uploadId}/complete' }
+    - { id: uploads.presign, method: POST, path: /uploads/presign, source: FORMAL-DOC-010 }
+    - { id: uploads.complete, method: POST, path: '/uploads/{uploadId}/complete', source: FORMAL-DOC-010 }
     - id: uploads.file_validation
       type: security_capability
       requirement: tenant_owner_purpose_mime_content_sniff_size_and_scan_status_validation

@@ -230,7 +230,7 @@ next_single_step:
   prerequisite_previous_slice: FORMAL-DOC-009_PASS
   implementation_order_source: AGENTS.md_step_10_hardening_and_formal_documents
   hardening_repo_actionable_P1_status: COMPLETE
-  formal_documents_status: GATE_9_PASS_GATE_10_NOT_STARTED
+  formal_documents_status: GATE_9_PASS_GATE_10_IN_VALIDATION
   PKK_provider_runtime_status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
   PKK_resume_requires:
     - explicit_user_unfreeze
@@ -2706,3 +2706,112 @@ FORMAL_DOCUMENTS_009_gate:
   next_after_PASS:
     id: FORMAL-DOC-010
     action: materialize_uploads_assets_runtime_for_formal_signed_scan_handoff_and_existing_asset_contract
+
+
+FORMAL_DOCUMENTS_010_gate:
+  id: FORMAL-DOC-010
+  status: IN_VALIDATION
+  prerequisite: FORMAL-DOC-009_PASS
+  scope:
+    - canonical_uploads_presign_runtime
+    - direct_private_S3_compatible_upload
+    - canonical_uploads_complete_runtime
+    - tenant_owned_file_asset_lifecycle
+    - persisted_parent_binding_and_reauthorization
+    - purpose_size_MIME_SHA256_content_validation
+    - immutable_post_completion_storage_key
+    - formal_signed_scan_handoff
+    - no_malware_engine_claim
+  migration_authority_preservation:
+    Stage_4_DAG_nodes: 170
+    Stage_4_implemented_nodes: 112
+    Stage_4_implemented_steps: 112
+    Stage_5_plan_identity: 34cada121f4fd4963b1461308fb517c50ee647005ce9421f4d1af40c80d44b99
+    Stage_5_execution_identity: 31704fcab61761aa9a952d824dc543a6f46e7a3717792d0a9349cefaaf57651f
+    Stage_5_materialized_steps: 11
+    new_migration_step_in_FORMAL_DOC_010: false
+  API:
+    canonical_requirement_rows: 187
+    canonical_unique_operations: 173
+    shared_operation_aliases: 14
+    operations:
+      - uploads.presign
+      - uploads.complete
+    new_operation_in_FORMAL_DOC_010: false
+    request_contract_extension:
+      parent_type_required: true
+      parent_id_required: true
+      client_storage_disk_or_key_allowed: false
+  purposes:
+    allowed_client_uploads:
+      - staff_photo
+      - vehicle_photo
+      - vehicle_document
+      - formal_training_signed_scan
+    server_generated_formal_training_document_upload: forbidden
+    arbitrary_client_purpose: forbidden
+  authorization:
+    presign_requires_active_membership: true
+    complete_reauthorizes_parent: true
+    staff_photo_create_permission: staff.create
+    staff_photo_existing_permission: staff.edit
+    vehicle_photo_create_permission: vehicles.create
+    vehicle_photo_existing_permission: vehicles.edit
+    vehicle_document_permission: vehicles.edit
+    formal_signed_scan_permission: formal_documents.deliver
+    formal_signed_scan_scope_profile: student_scoped
+    formal_signed_scan_parent: formal_training_document
+    electronic_document_signed_scan_reservation: forbidden
+  file_validation:
+    content_validation_policy: content_validation_v1
+    exact_declared_size_match_required: true
+    reserved_SHA256_verified_when_supplied: true
+    completion_SHA256_verified_when_supplied: true
+    detected_MIME_required: true
+    declared_and_detected_MIME_must_match: true
+    purpose_MIME_allowlist_required: true
+    purpose_size_limit_required: true
+    invalid_content_status: rejected
+    malware_engine_claimed: false
+  storage_integrity:
+    presigned_URL_targets_reservation_key: true
+    reservation_prefix: upload-reservations
+    ready_asset_prefix: assets
+    ready_asset_key_differs_from_presigned_key: true
+    final_bytes_rehashed_after_materialization: true
+    late_presigned_PUT_can_mutate_ready_asset: false
+    private_object_storage_required: true
+  formal_documents_integration:
+    signed_scan_purpose: formal_training_signed_scan
+    FORMAL_DOC_009_delivery_event: signed_scan_attached
+    same_tenant_ready_asset_required: true
+    direct_canonical_PDF_edit: forbidden
+    statutory_electronic_signature_claim: false
+  PKK:
+    provider_runtime_in_scope: false
+    status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+  pass_requires:
+    - uploads_presign_runtime_PASS
+    - uploads_complete_idempotent_runtime_PASS
+    - unsupported_server_generated_purpose_fail_closed_PASS
+    - parent_binding_persisted_and_reauthorized_PASS
+    - formal_signed_scan_assigned_student_scope_PASS
+    - paper_only_signed_scan_parent_PASS
+    - exact_size_SHA256_MIME_content_validation_PASS
+    - invalid_content_rejected_never_ready_PASS
+    - ready_asset_final_hash_verification_PASS
+    - reservation_to_immutable_final_key_PASS
+    - late_reservation_overwrite_cannot_mutate_ready_asset_PASS
+    - FORMAL_DOC_009_signed_scan_attachment_integration_PASS
+    - API_contract_187_rows_173_operations_14_aliases_PASS
+    - Stage_4_170_112_112_preservation_PASS
+    - Stage_5_11_step_identity_preservation_PASS
+    - PKK_provider_runtime_still_frozen_PASS
+    - backend_static_analysis_PASS_ZERO_ERRORS
+    - frontend_quality_PASS
+    - contracts_and_traceability_PASS
+    - secret_scan_PASS
+    - deterministic_restore_harness_PASS
+  next_after_PASS:
+    id: FORMAL-DOC-011
+    action: materialize_formal_documents_UI_for_preview_approval_delivery_history_and_signed_scan_handoff
