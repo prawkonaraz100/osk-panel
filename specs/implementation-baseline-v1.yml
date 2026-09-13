@@ -489,7 +489,7 @@ candidate_key_preflight_correction_2026_09_13:
     materialized_steps_after_candidate: 126
     write_fence_steps_registered: 0
     candidate_key_constraints_physically_applied_by_this_slice: false
-    candidate_execution_identity: db1ff3bfdbeacb32f1a0512cc30806cc93e9bcdca35e416ef81b6fadd7a3b303
+    candidate_execution_identity: ea9cbf83c22be708f22676be11aef4bf18d3c22f1520e13a22cb52743a37b882
   phase_barrier:
     write_fence_before_all_39_preflights: forbidden
     remaining_preflight_nodes_after_candidate_PASS: 31
