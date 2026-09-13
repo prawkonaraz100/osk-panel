@@ -19,9 +19,9 @@ final class Stage4CandidateKeysPreflightTest extends TestCase
         $plan->validate();
 
         $this->assertSame(157, $plan->implementedNodeCount());
-        $this->assertSame(157, $plan->implementedStepCount());
+        $this->assertSame(165, $plan->implementedStepCount());
         $this->assertSame(
-            '7cdea7410b15a1e1ef884e50d4e2a9ac519eb568569d140f82b19cc5deaa142e',
+            'd4ae7c11668cbdfd313d2026f1acea573814a490c5ba75f25dcf682c852348f2',
             $plan->executionIdentity(),
         );
 
@@ -39,7 +39,16 @@ final class Stage4CandidateKeysPreflightTest extends TestCase
             $candidateNodes,
             array_slice(array_column($plan->phaseSteps('preflight'), 'node_id'), 0, count($candidateNodes)),
         );
-        $this->assertSame([], $plan->phaseSteps('write_fence'));
+        $this->assertSame([
+            'MIG-CK-IDENTITY',
+            'MIG-CK-ASSETS_RESOURCES',
+            'MIG-CK-TRAINING',
+            'MIG-CK-FINANCE',
+            'MIG-CK-LICENSES',
+            'MIG-CK-EXAMS',
+            'MIG-CK-COMMERCE',
+            'MIG-CK-EVENTS',
+        ], array_column($plan->phaseSteps('write_fence'), 'node_id'));
 
         $candidateConstraintNames = [
             'organization_membership_candidate_key_id_user',
@@ -100,7 +109,16 @@ final class Stage4CandidateKeysPreflightTest extends TestCase
             'Read-only candidate-key preflight must preserve the required Commerce lineage column.',
         );
 
-        $this->assertSame([], $plan->phaseSteps('write_fence'));
+        $this->assertSame([
+            'MIG-CK-IDENTITY',
+            'MIG-CK-ASSETS_RESOURCES',
+            'MIG-CK-TRAINING',
+            'MIG-CK-FINANCE',
+            'MIG-CK-LICENSES',
+            'MIG-CK-EXAMS',
+            'MIG-CK-COMMERCE',
+            'MIG-CK-EVENTS',
+        ], array_column($plan->phaseSteps('write_fence'), 'node_id'));
     }
 
     /**

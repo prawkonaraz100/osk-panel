@@ -20,8 +20,8 @@ final class Stage4IndexesPreflightTest extends TestCase
 
         $this->assertSame(170, $plan->nodeCount());
         $this->assertSame(157, $plan->implementedNodeCount());
-        $this->assertSame(157, $plan->implementedStepCount());
-        $this->assertSame('7cdea7410b15a1e1ef884e50d4e2a9ac519eb568569d140f82b19cc5deaa142e', $plan->executionIdentity());
+        $this->assertSame(165, $plan->implementedStepCount());
+        $this->assertSame('d4ae7c11668cbdfd313d2026f1acea573814a490c5ba75f25dcf682c852348f2', $plan->executionIdentity());
 
         $indexNodes = [
             'MIG-IDX-IDENTITY',
@@ -38,7 +38,16 @@ final class Stage4IndexesPreflightTest extends TestCase
         $preflightNodes = array_column($plan->phaseSteps('preflight'), 'node_id');
         $this->assertSame($indexNodes, array_slice($preflightNodes, 8, count($indexNodes)));
         $this->assertCount(39, $preflightNodes);
-        $this->assertSame([], $plan->phaseSteps('write_fence'));
+        $this->assertSame([
+            'MIG-CK-IDENTITY',
+            'MIG-CK-ASSETS_RESOURCES',
+            'MIG-CK-TRAINING',
+            'MIG-CK-FINANCE',
+            'MIG-CK-LICENSES',
+            'MIG-CK-EXAMS',
+            'MIG-CK-COMMERCE',
+            'MIG-CK-EVENTS',
+        ], array_column($plan->phaseSteps('write_fence'), 'node_id'));
 
         $this->assertFalse(Schema::hasColumn('student_payments', 'idempotency_key'));
         $this->assertFalse(Schema::hasColumn('internal_exam_inventory_entries', 'source_order_item_grant_ordinal'));
@@ -66,7 +75,16 @@ final class Stage4IndexesPreflightTest extends TestCase
         $this->assertSame($before, $this->schemaBoundarySignature());
         $this->assertFalse(Schema::hasColumn('student_payments', 'idempotency_key'));
         $this->assertFalse(Schema::hasColumn('internal_exam_inventory_entries', 'source_order_item_grant_ordinal'));
-        $this->assertSame([], $plan->phaseSteps('write_fence'));
+        $this->assertSame([
+            'MIG-CK-IDENTITY',
+            'MIG-CK-ASSETS_RESOURCES',
+            'MIG-CK-TRAINING',
+            'MIG-CK-FINANCE',
+            'MIG-CK-LICENSES',
+            'MIG-CK-EXAMS',
+            'MIG-CK-COMMERCE',
+            'MIG-CK-EVENTS',
+        ], array_column($plan->phaseSteps('write_fence'), 'node_id'));
     }
 
     /**

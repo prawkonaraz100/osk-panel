@@ -19,8 +19,8 @@ final class Stage4ForeignKeysPreflightTest extends TestCase
 
         $this->assertSame(170, $plan->nodeCount());
         $this->assertSame(157, $plan->implementedNodeCount());
-        $this->assertSame(157, $plan->implementedStepCount());
-        $this->assertSame('7cdea7410b15a1e1ef884e50d4e2a9ac519eb568569d140f82b19cc5deaa142e', $plan->executionIdentity());
+        $this->assertSame(165, $plan->implementedStepCount());
+        $this->assertSame('d4ae7c11668cbdfd313d2026f1acea573814a490c5ba75f25dcf682c852348f2', $plan->executionIdentity());
 
         $foreignKeyNodes = [
             'MIG-FK-IDENTITY',
@@ -38,7 +38,16 @@ final class Stage4ForeignKeysPreflightTest extends TestCase
         $preflightNodes = array_column($plan->phaseSteps('preflight'), 'node_id');
         $this->assertSame($foreignKeyNodes, array_slice($preflightNodes, 18, count($foreignKeyNodes)));
         $this->assertCount(39, $preflightNodes);
-        $this->assertSame([], $plan->phaseSteps('write_fence'));
+        $this->assertSame([
+            'MIG-CK-IDENTITY',
+            'MIG-CK-ASSETS_RESOURCES',
+            'MIG-CK-TRAINING',
+            'MIG-CK-FINANCE',
+            'MIG-CK-LICENSES',
+            'MIG-CK-EXAMS',
+            'MIG-CK-COMMERCE',
+            'MIG-CK-EVENTS',
+        ], array_column($plan->phaseSteps('write_fence'), 'node_id'));
 
         $before = $this->schemaBoundarySignature();
 
@@ -60,7 +69,16 @@ final class Stage4ForeignKeysPreflightTest extends TestCase
         $this->assertSame($expectedApplied, array_values($applied));
 
         $this->assertSame($before, $this->schemaBoundarySignature());
-        $this->assertSame([], $plan->phaseSteps('write_fence'));
+        $this->assertSame([
+            'MIG-CK-IDENTITY',
+            'MIG-CK-ASSETS_RESOURCES',
+            'MIG-CK-TRAINING',
+            'MIG-CK-FINANCE',
+            'MIG-CK-LICENSES',
+            'MIG-CK-EXAMS',
+            'MIG-CK-COMMERCE',
+            'MIG-CK-EVENTS',
+        ], array_column($plan->phaseSteps('write_fence'), 'node_id'));
     }
 
     /**
