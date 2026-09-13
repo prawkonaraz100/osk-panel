@@ -101,8 +101,11 @@ operations:
 
   formal_documents:
     - { id: formal_documents.preview, method: GET, path: '/course-enrollments/{courseEnrollmentId}/formal-documents/preview', source: FORMAL-DOC-008 }
+    - { id: formal_documents.freshness, method: GET, path: '/course-enrollments/{courseEnrollmentId}/formal-documents/freshness', source: FORMAL-DOC-009 }
     - { id: formal_documents.list, method: GET, path: '/course-enrollments/{courseEnrollmentId}/formal-documents', source: FORMAL-DOC-008 }
     - { id: formal_documents.approve, method: POST, path: '/course-enrollments/{courseEnrollmentId}/formal-documents', source: FORMAL-DOC-008 }
+    - { id: formal_documents.events.list, method: GET, path: '/formal-training-documents/{documentId}/events', source: FORMAL-DOC-009 }
+    - { id: formal_documents.delivery.record, method: POST, path: '/formal-training-documents/{documentId}/delivery-events', source: FORMAL-DOC-009 }
     - { id: formal_documents.download, method: GET, path: '/formal-training-documents/{documentId}/file', source: FORMAL-DOC-008 }
 
   pkk:
@@ -380,10 +383,10 @@ coverage_status:
   frozen_at: 2026-09-05
   validator_command: python scripts/contract-validation/validate_openapi_contract.py
   ci_workflow: .github/workflows/api-contract-gate.yml
-  http_requirement_rows: 184
-  unique_openapi_path_method_operations_required: 170
+  http_requirement_rows: 187
+  unique_openapi_path_method_operations_required: 173
   shared_capability_rows_reusing_existing_operationId: 14
-  direct_and_shared_http_requirements_with_operationId_mapping: 184
+  direct_and_shared_http_requirements_with_operationId_mapping: 187
   direct_and_shared_http_requirements_without_operationId_mapping: 0
   openapi_complete_against_this_inventory: true
   operationIds_present_for_all_http_requirements: true
