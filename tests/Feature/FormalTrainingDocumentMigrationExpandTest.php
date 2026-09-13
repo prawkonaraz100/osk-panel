@@ -35,8 +35,8 @@ final class FormalTrainingDocumentMigrationExpandTest extends TestCase
         $extension->validate();
 
         $this->assertSame(4, $extension->implementedNodeCount());
-        $this->assertSame(5, $extension->implementedStepCount());
-        $this->assertSame('7c04995e966765a254785a9a75619cc7b1b7df0bcf514be92516e1c7eee68352', $extension->executionIdentity());
+        $this->assertSame(6, $extension->implementedStepCount());
+        $this->assertSame('fc32a8fc010561cd395af881a10191c76bc9c53266d34bdab56eaa382f061094', $extension->executionIdentity());
     }
 
     public function test_new_course_defaults_to_paper_with_server_selection_timestamp(): void
@@ -153,7 +153,7 @@ final class FormalTrainingDocumentMigrationExpandTest extends TestCase
         $this->assertDatabaseCount('formal_training_documents', 1);
     }
 
-    public function test_expand_controlled_executor_is_idempotent_and_backfill_remains_closed(): void
+    public function test_expand_controlled_executor_is_idempotent_and_validate_remains_closed(): void
     {
         $extension = app(Stage5FormalDocumentsMigrationPlan::class);
         $extension->validate();
@@ -172,16 +172,16 @@ final class FormalTrainingDocumentMigrationExpandTest extends TestCase
         $this->assertSame(4, $before);
         $this->assertSame(4, DB::table('migrations')->whereIn('migration', $migrationNames)->count());
 
-        $backfillExit = Artisan::call('migration:stage5:formal-docs:controlled', [
+        $validateExit = Artisan::call('migration:stage5:formal-docs:controlled', [
             '--plan' => $extension->identity(),
             '--execution' => $extension->executionIdentity(),
-            '--phase' => 'backfill',
+            '--phase' => 'validate',
             '--force' => true,
         ]);
 
-        $this->assertSame(Command::FAILURE, $backfillExit);
+        $this->assertSame(Command::FAILURE, $validateExit);
         $this->assertStringContainsString(
-            'No materialized Stage-5 formal-documents migration steps for phase backfill',
+            'No materialized Stage-5 formal-documents migration steps for phase validate',
             Artisan::output(),
         );
     }
