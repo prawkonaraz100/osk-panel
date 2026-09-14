@@ -68,3 +68,12 @@ changed_scope:
     ui: PUBLIC_REGISTRATION_CONTRACT
     acceptance_test: Tests\\Feature\\AuthRegistrationCoreTest
     status: IMPLEMENTED
+  - evidence: docs/194-core-v1-stage5-social-subject-unique-implementation.md
+    requirement: social provider subject identity is physically unique across active and revoked history through an isolated Stage-5 corrective
+    domain_data: auth_social_accounts(provider, provider_subject)
+    api_use_case: social_provider_subject_unique physical invariant prerequisite for auth.social_redirect + auth.social_callback
+    permission: NOT_APPLICABLE_DATABASE_INVARIANT
+    ui: NOT_APPLICABLE_DATABASE_GATE
+    acceptance_test: Tests\\Feature\\Stage5SocialSubjectUniqueCorrectiveTest
+    status: IMPLEMENTED
+

@@ -4,6 +4,7 @@ namespace Tests\Support;
 
 use App\Support\Migrations\MigrationPlan;
 use App\Support\Migrations\Stage5FormalDocumentsMigrationPlan;
+use App\Support\Migrations\Stage5SocialIdentityMigrationPlan;
 use Database\Seeders\FoundationReferenceCatalogSeeder;
 use Database\Seeders\ResourceReferenceCatalogSeeder;
 use Illuminate\Support\Facades\Artisan;
@@ -169,6 +170,37 @@ final class FoundationSchema
             if ($exit !== 0) {
                 throw new LogicException('Stage-5 formal-documents controlled migration failed: '.Artisan::output());
             }
+        }
+
+        $socialIdentityPlan = app(Stage5SocialIdentityMigrationPlan::class);
+        $socialIdentityPlan->validate();
+
+        $appliedMigrations = Schema::hasTable('migrations')
+            ? DB::table('migrations')->pluck('migration')->all()
+            : [];
+
+        foreach (['preflight', 'write_fence', 'validate'] as $phase) {
+            $steps = $socialIdentityPlan->phaseSteps($phase);
+            $missing = array_filter(
+                $steps,
+                static fn (array $step): bool => ! in_array($step['migration_name'], $appliedMigrations, true),
+            );
+
+            if ($missing === []) {
+                continue;
+            }
+
+            $exit = Artisan::call('migration:stage5:social-identity:controlled', [
+                '--plan' => $socialIdentityPlan->identity(),
+                '--execution' => $socialIdentityPlan->executionIdentity(),
+                '--phase' => $phase,
+                '--force' => true,
+            ]);
+            if ($exit !== 0) {
+                throw new LogicException('Stage-5 social-identity controlled migration failed: '.Artisan::output());
+            }
+
+            $appliedMigrations = DB::table('migrations')->pluck('migration')->all();
         }
     }
 
