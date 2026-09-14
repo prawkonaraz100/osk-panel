@@ -6259,29 +6259,22 @@ CORE_V1_AUTH_SOCIAL_AUTHORITY_001_gate:
 
 CORE_V1_CLOSURE_AUDIT_006_gate:
   id: CORE-V1-CLOSURE-AUDIT-006
-  status: AUDIT_COMPLETE_TWO_IMPLEMENTATION_READY_SOCIAL_BINDINGS
+  status: AUDIT_COMPLETE_SOCIAL_SCHEMA_CORRECTIVE_REQUIRED
   authority: docs/188-core-v1-closure-reaudit-006.md
   audited_accepted_tip: ae828457041b543263d96a0c3f60b83e28d8b850
   audited_tree: 850985e644d051af5a892dd4687b275b79eb8468
   prerequisite: CORE-V1-AUTH-SOCIAL-AUTHORITY-001_PASS
   closure_evidence:
-    Implementation_CI_run: 34852165354
-    API_Contract_Gate_run: 34852165204
-    Implementation_CI_jobs_passed: 5
-    Implementation_CI_jobs_total: 5
+    Social_Authority_Implementation_CI_run: 34852165354
+    Social_Authority_API_Contract_Gate_run: 34852165204
+    audit_006_initial_Implementation_CI_run: 34853157294
+    audit_006_initial_API_Contract_Gate_run: 34853157233
     PostgreSQL_suite_tests: 309
     PostgreSQL_suite_assertions: 5537
     restore_source_table_count: 121
     restore_restored_table_count: 121
     restore_schema_fingerprint: 09c57afe2501c79a3a684c0a695b4619114f94ddc24c9bca33728d99c1abb155
     deterministic_restore_harness: PASS
-  differential_inventory:
-    baseline_audit_tip: c168b1520e59c90feb3f2c73c409fa5eff55bc04
-    required_operations_sha_before: c36142e3af2615393347fadfec265af2eb610fb7
-    required_operations_sha_after: c36142e3af2615393347fadfec265af2eb610fb7
-    routes_web_before_sha: 7547c38176c50653cfec8b1debe061e822a57bd3
-    routes_web_after_sha: 7547c38176c50653cfec8b1debe061e822a57bd3
-    physical_route_additions: 0
   HTTP_inventory:
     canonical_required_inline_HTTP_operations: 172
     required_physical_bindings_present: 147
@@ -6289,29 +6282,45 @@ CORE_V1_CLOSURE_AUDIT_006_gate:
     frozen_PKK_missing_bindings: 14
     provider_specific_payment_webhook_missing_bindings: 1
     repo_actionable_HTTP_bindings_missing: 10
+  social_schema_discrepancy:
+    canonical_constraint: social_provider_subject_unique
+    table: auth_social_accounts
+    columns: [provider, provider_subject]
+    canonical_authority_present: true
+    physical_write_fence_present: false
+    equivalent_candidate_key_present: false
+    equivalent_constraint_present: false
+    equivalent_trigger_present: false
+    application_only_lock_substitute_allowed: false
+    frozen_Stage4_migration_edit_allowed: false
   implementation_ready:
+    count: 0
+    operations: []
+  schema_corrective_blocked:
     count: 2
     operations:
       - auth.social_redirect
       - auth.social_callback
-    authority: CORE-V1-AUTH-SOCIAL-AUTHORITY-001_PASS
-  blocked_remaining:
+  other_blocked_remaining:
     count: 8
     identity_password_recovery: 2
     student_progress: 1
     commerce_order_create: 2
     organization_settings: 3
   non_HTTP_repo_P1:
-    additional_open_count: 0
+    additional_open_count: 1
+    items:
+      - social_provider_subject_unique_physical_enforcement_missing
   result:
     repository_complete: false
     repo_P0_open: 0
     repo_P1_open: true
-    implementation_ready_missing_bindings: 2
+    implementation_ready_missing_bindings: 0
+    schema_corrective_blocked_bindings: 2
     authority_blocked_missing_bindings: 8
     PKK_provider_runtime_status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
   next_after_AUDIT:
-    id: CORE-V1-AUTH-SOCIAL-001
-    action: implement_provider_safe_social_redirect_and_callback_under_exact_accepted_authority
-    rule: no_schema_change_no_social_registration_no_provider_token_persistence_no_open_redirect_no_PKK_runtime
+    id: CORE-V1-STAGE5-SOCIAL-SUBJECT-UNIQUE-AUTHORITY-001
+    action: define_isolated_registered_Stage5_migration_extension_for_social_provider_subject_unique
+    rule: preflight_duplicates_fail_closed_no_legacy_rewrite_no_frozen_Stage4_edit_no_PKK_runtime
 
