@@ -6669,3 +6669,57 @@ CORE_V1_STAGE5_SOCIAL_SUBJECT_UNIQUE_001_gate:
     action: reclassify_social_HTTP_after_physical_uniqueness_PASS
     rule: no_social_HTTP_implementation_before_fresh_audit_no_PKK_runtime
 
+CORE_V1_CLOSURE_AUDIT_009_gate:
+  id: CORE-V1-CLOSURE-AUDIT-009
+  status: AUDIT_COMPLETE_SOCIAL_IMPLEMENTATION_READY
+  authority: docs/195-core-v1-closure-audit-009.md
+  audited_accepted_tip: cf73fbaaf7cd804d2913fc3312e9b1a8a8fa8de3
+  audited_tree: 204bf9a152fd1dd485292b8fe229acf64edbbc78
+  prerequisite: CORE-V1-STAGE5-SOCIAL-SUBJECT-UNIQUE-001_PASS
+  closure_evidence:
+    Implementation_CI_run: 34877275151
+    API_Contract_Gate_run: 34877275075
+    PostgreSQL_suite_tests: 319
+    PostgreSQL_suite_assertions: 5637
+    restore_source_table_count: 121
+    restore_restored_table_count: 121
+    restore_schema_fingerprint: 09c57afe2501c79a3a684c0a695b4619114f94ddc24c9bca33728d99c1abb155
+    deterministic_restore_harness: PASS
+  HTTP_inventory:
+    canonical_required_inline_HTTP_operations: 172
+    required_physical_bindings_present: 150
+    missing_physical_bindings_total: 22
+    frozen_PKK_missing_bindings: 14
+    provider_specific_payment_webhook_missing_bindings: 1
+    repo_actionable_HTTP_bindings_missing: 7
+  implementation_ready:
+    count: 2
+    operations:
+      - auth.social_redirect
+      - auth.social_callback
+  schema_corrective_blocked:
+    count: 0
+    operations: []
+  authority_blocked_remaining:
+    count: 5
+    identity_password_recovery: 2
+    student_progress: 1
+    commerce_order_create: 2
+  non_HTTP_repo_P1:
+    additional_open_count: 0
+  result:
+    repository_complete: false
+    repo_P0_open: 0
+    repo_P1_open: false
+    implementation_ready_missing_bindings: 2
+    authority_blocked_missing_bindings: 5
+    PKK_provider_runtime_status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+  safe_continuation:
+    next_gate: CORE-V1-AUTH-SOCIAL-001
+    exact_operations:
+      - auth.social_redirect
+      - auth.social_callback
+    social_registration: forbidden
+    provider_token_persistence: forbidden
+    PKK_runtime_activation: forbidden
+
