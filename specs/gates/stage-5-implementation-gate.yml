@@ -6785,3 +6785,53 @@ CORE_V1_AUTH_SOCIAL_001_gate:
     action: recompute_repository_HTTP_runtime_UI_closure_after_social_runtime
     rule: recompute_not_assume_no_PKK_runtime
 
+CORE_V1_CLOSURE_AUDIT_010_gate:
+  id: CORE-V1-CLOSURE-AUDIT-010
+  status: AUDIT_COMPLETE_NO_IMPLEMENTATION_READY_REQUIRES_NEXT_AUTHORITY
+  authority: docs/197-core-v1-closure-audit-010.md
+  audited_accepted_tip: a619d8f520cd8bbe20985e9f6b0f2bbff1aab84f
+  audited_tree: 0e428db19eef3f86338e870b75f2080d65192b73
+  prerequisite: CORE-V1-AUTH-SOCIAL-001_PASS
+  closure_evidence:
+    Implementation_CI_run: 34885813014
+    API_Contract_Gate_run: 34885813185
+    PostgreSQL_suite_tests: 325
+    PostgreSQL_suite_assertions: 5719
+    deterministic_restore_harness: PASS
+    restore_source_table_count: 121
+    restore_restored_table_count: 121
+    restore_schema_fingerprint: 09c57afe2501c79a3a684c0a695b4619114f94ddc24c9bca33728d99c1abb155
+  HTTP_inventory:
+    canonical_required_inline_HTTP_operations: 172
+    required_physical_bindings_present: 152
+    missing_physical_bindings_total: 20
+    frozen_PKK_missing_bindings: 14
+    provider_specific_payment_webhook_missing_bindings: 1
+    repo_actionable_HTTP_bindings_missing: 5
+  implementation_ready:
+    count: 0
+    operations: []
+  schema_corrective_blocked:
+    count: 0
+    operations: []
+  authority_blocked_remaining:
+    count: 5
+    identity_password_recovery: 2
+    student_progress: 1
+    commerce_order_create: 2
+  non_HTTP_repo_P1:
+    additional_open_count: 0
+  result:
+    repository_complete: false
+    repo_P0_open: 0
+    repo_P1_open: false
+    implementation_ready_missing_bindings: 0
+    authority_blocked_missing_bindings: 5
+    PKK_provider_runtime_status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+  safe_continuation:
+    next_gate: CORE-V1-AUTH-PASSWORD-RECOVERY-AUTHORITY-001
+    authority_gate_only: true
+    HTTP_binding_change: forbidden
+    schema_or_migration_change: forbidden
+    PKK_runtime_activation: forbidden
+
