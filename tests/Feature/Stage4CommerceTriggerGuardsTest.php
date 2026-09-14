@@ -281,9 +281,7 @@ final class Stage4CommerceTriggerGuardsTest extends TestCase
                 'cancellation_reason' => null,
                 'created_at' => now(),
             ]);
-            $originId = (string) Str::uuid7();
             DB::table('course_cost_charge_origins')->insert([
-                'id' => $originId,
                 'organization_id' => $actor['organization_id'],
                 'course_enrollment_id' => $course['course_id'],
                 'student_id' => $course['student_id'],
@@ -296,7 +294,8 @@ final class Stage4CommerceTriggerGuardsTest extends TestCase
 
             $this->expectImmediateGuardViolation(
                 fn () => DB::table('course_cost_charge_origins')
-                    ->where('id', $originId)
+                    ->where('organization_id', $actor['organization_id'])
+                    ->where('student_charge_id', $chargeId)
                     ->update(['source_amount_minor' => 1]),
             );
             $this->expectDeferredGuardViolation(
