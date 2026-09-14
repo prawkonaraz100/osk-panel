@@ -6324,3 +6324,42 @@ CORE_V1_CLOSURE_AUDIT_006_gate:
     action: define_isolated_registered_Stage5_migration_extension_for_social_provider_subject_unique
     rule: preflight_duplicates_fail_closed_no_legacy_rewrite_no_frozen_Stage4_edit_no_PKK_runtime
 
+CORE_V1_STAGE5_SOCIAL_SUBJECT_UNIQUE_AUTHORITY_001_gate:
+  id: CORE-V1-STAGE5-SOCIAL-SUBJECT-UNIQUE-AUTHORITY-001
+  status: PASS
+  authority:
+    narrative: docs/189-core-v1-stage5-social-subject-unique-authority.md
+    machine: specs/database/social-auth-identity-migration-extension.yml
+    source_audit: CORE-V1-CLOSURE-AUDIT-006_AUDIT_COMPLETE_SOCIAL_SCHEMA_CORRECTIVE_REQUIRED
+  exact_scope:
+    node: S5SOC-IDX-AUTH-SOCIAL-PROVIDER-SUBJECT-UNIQUE
+    table: auth_social_accounts
+    columns: [provider, provider_subject]
+    phases: [preflight, write_fence, validate]
+    Stage4_migration_edit: forbidden
+    runtime_social_HTTP_change: false
+    PKK_provider_runtime_activation: forbidden
+  provenance:
+    exact_authority_head: 9558e21a7b4f8c8a176ad6ca6fb481f7468dc896
+    exact_authority_tree: 647396d674fb702e00b91d0daa0d999c8bbe5190
+    exact_head_Implementation_CI_run: 34854733645
+    exact_head_API_Contract_Gate_run: 34854733938
+  executable_evidence:
+    Implementation_CI_jobs_passed: 5
+    Implementation_CI_jobs_total: 5
+    API_Contract_Gate: PASS
+    PostgreSQL_suite_tests: 310
+    PostgreSQL_suite_assertions: 5559
+    deterministic_restore_harness: PASS
+    restore_source_table_count: 121
+    restore_restored_table_count: 121
+    restore_schema_fingerprint: 09c57afe2501c79a3a684c0a695b4619114f94ddc24c9bca33728d99c1abb155
+    backend_Pint_and_PHPStan: PASS
+    frontend_quality: PASS
+    contracts_and_traceability: PASS
+    secret_scan: PASS
+  next_after_PASS:
+    id: CORE-V1-STAGE5-SOCIAL-SUBJECT-UNIQUE-001
+    action: materialize_registered_preflight_write_fence_validate_extension
+    rule: no_legacy_rewrite_no_frozen_Stage4_edit_no_PKK_runtime
+

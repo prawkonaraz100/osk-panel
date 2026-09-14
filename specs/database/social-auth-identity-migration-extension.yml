@@ -1,7 +1,7 @@
 meta:
   id: social_provider_subject_unique_stage5_migration_extension
   version: 2026-09-14-v1
-  status: CORE_V1_STAGE5_SOCIAL_SUBJECT_UNIQUE_AUTHORITY_001_CANDIDATE
+  status: CORE_V1_STAGE5_SOCIAL_SUBJECT_UNIQUE_AUTHORITY_001_PASS
   implementation_gate: CORE-V1-STAGE5-SOCIAL-SUBJECT-UNIQUE-001
   source_audit: CORE-V1-CLOSURE-AUDIT-006
 
