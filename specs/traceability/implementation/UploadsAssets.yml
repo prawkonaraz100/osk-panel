@@ -43,6 +43,6 @@ changed_scope:
     api_use_case: uploads.presign + uploads.complete + staff.update + vehicles.update
     permission: parent-scoped staff.edit or vehicles.edit after the resource exists; create flows materialize the resource before upload
     ui: resources/js/modules/ResourcesCore/ResourceWorkspace.vue + resources/js/modules/ResourcesCore/uploads.ts
-    acceptance_test: Tests\\Feature\\UploadAssetRuntimeTest::test_resource_photo_uploads_bind_to_concrete_staff_and_vehicle_before_attachment + Tests\\Unit\\ResourcesAssetsUiContractTest::test_confirmed_staff_and_vehicle_photo_fields_use_verified_upload_transport
+    acceptance_test: Tests\\Feature\\ResourcePhotoUploadParentRuntimeTest::test_resource_photo_presign_is_parent_bound_before_ready_asset_attachment + Tests\\Unit\\ResourcesAssetsUiContractTest::test_confirmed_staff_and_vehicle_photo_fields_use_verified_upload_transport
     status: IMPLEMENTED
 

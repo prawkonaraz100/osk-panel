@@ -51,7 +51,7 @@ changed_scope:
     api_use_case: uploads.presign + uploads.complete + staff.update + vehicles.update
     permission: staff.create/edit or vehicles.create/edit plus active_membership_and_parent_domain_permission during upload
     ui: resources/js/modules/ResourcesCore/ResourceWorkspace.vue with direct private PUT and retry-without-reupload attachment recovery
-    acceptance_test: Tests\Feature\UploadAssetRuntimeTest::test_resource_photo_uploads_bind_to_concrete_staff_and_vehicle_before_attachment + Tests\Unit\ResourcesAssetsUiContractTest::test_confirmed_staff_and_vehicle_photo_fields_use_verified_upload_transport
+    acceptance_test: Tests\Feature\ResourcePhotoUploadParentRuntimeTest::test_resource_photo_presign_is_parent_bound_before_ready_asset_attachment + Tests\Unit\ResourcesAssetsUiContractTest::test_confirmed_staff_and_vehicle_photo_fields_use_verified_upload_transport
     status: IMPLEMENTED
   - evidence: specs/screens/vehicle-detail.yml
     requirement: calendar controls and context links are preserved while calendar scheduling engine remains a later core module
