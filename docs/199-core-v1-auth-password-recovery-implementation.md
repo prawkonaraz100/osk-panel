@@ -2,7 +2,7 @@
 
 Data: 2026-09-14
 
-**Status:** `IN_VALIDATION`
+**Status:** `PASS`
 
 ## Scope
 
@@ -81,3 +81,46 @@ Configuration:
 - no social-account mutation,
 - no e-mail identifier mutation,
 - no PKK/PWPW runtime.
+
+## Exact-head validation evidence
+
+Accepted implementation head:
+
+`6ff71b6e4d2016868817a6d27b46fd55ea417c64`
+
+Tree:
+
+`e751479770dab3a19722b5868b502c5ae92fc572`
+
+Validation:
+
+- Implementation CI #563 / run `34889977751`: **5/5 PASS**
+- API Contract Gate #456 / run `34889977729`: **PASS**
+- PostgreSQL: **331 tests / 5808 assertions — PASS**
+- deterministic restore: **121 -> 121 PASS**
+- restore fingerprint: `09c57afe2501c79a3a684c0a695b4619114f94ddc24c9bca33728d99c1abb155`
+- `RESTORE_DRILL_HARNESS=PASS`
+- backend Pint/PHPStan, frontend, contracts/traceability and secret scan: **PASS**
+
+The acceptance suite proves enumeration-safe forgot semantics, verified-primary-email eligibility, one-live-token reissue invalidation, one-time/replay rejection, credential-version invalidation, organization-managed fail-closed behavior, synchronous secret-safe delivery, password replacement, credential-version increment and revocation of all active application auth sessions.
+
+## Closure effect
+
+Exactly two canonical HTTP bindings are closed:
+
+- `auth.password_forgot`
+- `auth.password_reset`
+
+Physical HTTP bindings move **152 -> 154**.
+
+Missing physical bindings move **20 -> 18**.
+
+Repo-actionable missing HTTP bindings move **5 -> 3**.
+
+The remaining repo-actionable HTTP gaps are:
+
+- `students.progress`
+- `license_orders.create`
+- `exam_orders.create`
+
+PKK/PWPW remains frozen and unchanged.
