@@ -7060,7 +7060,7 @@ CORE_V1_CLOSURE_AUDIT_012_gate:
 
 CORE_V1_COMMERCE_ORDER_CREATE_AUTHORITY_001_gate:
   id: CORE-V1-COMMERCE-ORDER-CREATE-AUTHORITY-001
-  status: CANDIDATE
+  status: PASS
   authority:
     narrative: docs/202-core-v1-commerce-order-create-authority.md
     machine: specs/design/commerce-order-create.yml
@@ -7083,4 +7083,19 @@ CORE_V1_COMMERCE_ORDER_CREATE_AUTHORITY_001_gate:
   safe_continuation_after_PASS:
     next_gate: CORE-V1-STAGE5-COMMERCE-ORDER-SEQUENCE-001
     fresh_audit_required_before_order_create_runtime: true
+  provenance:
+    exact_authority_head: ea8036b59a3fa1c1c385906644fbb5ae50f3ddd1
+    exact_authority_tree: d7b3453c1da76951961ba55b4b96cd629785161d
+    exact_head_Implementation_CI_run: 34894777952
+    exact_head_API_Contract_Gate_run: 34894778023
+  executable_evidence:
+    Implementation_CI_jobs_passed: 5
+    Implementation_CI_jobs_total: 5
+    API_Contract_Gate: PASS
+    PostgreSQL_suite_tests: 332
+    PostgreSQL_suite_assertions: 5847
+    deterministic_restore_harness: PASS
+    restore_source_table_count: 121
+    restore_restored_table_count: 121
+    restore_schema_fingerprint: 09c57afe2501c79a3a684c0a695b4619114f94ddc24c9bca33728d99c1abb155
 

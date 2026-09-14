@@ -1,6 +1,6 @@
 meta:
   gate_id: CORE-V1-COMMERCE-ORDER-CREATE-AUTHORITY-001
-  status: CANDIDATE
+  status: PASS
   authority_doc: docs/202-core-v1-commerce-order-create-authority.md
   operations:
     - license_orders.create

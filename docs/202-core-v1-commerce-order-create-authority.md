@@ -2,7 +2,7 @@
 
 Data: 2026-09-14
 
-**Status:** `IN_VALIDATION`
+**Status:** `PASS`
 
 ## Scope
 
@@ -276,3 +276,35 @@ The authority gate itself creates no table.
 2. exact-head CI/API and central closure;
 3. fresh closure audit;
 4. only then implement `license_orders.create` and `exam_orders.create`.
+
+## Exact-head validation evidence
+
+Accepted authority head:
+
+`ea8036b59a3fa1c1c385906644fbb5ae50f3ddd1`
+
+Tree:
+
+`d7b3453c1da76951961ba55b4b96cd629785161d`
+
+Validation:
+
+- Implementation CI #567 / run `34894777952`: **5/5 PASS**
+- API Contract Gate #460 / run `34894778023`: **PASS**
+- PostgreSQL: **332 tests / 5847 assertions — PASS**
+- deterministic restore: **121 -> 121 PASS**
+- restore fingerprint: `09c57afe2501c79a3a684c0a695b4619114f94ddc24c9bca33728d99c1abb155`
+- `RESTORE_DRILL_HARNESS=PASS`
+- backend Pint/PHPStan, frontend, contracts/traceability and secret scan: **PASS**
+
+No schema, migration, HTTP binding, provider call or PKK/PWPW behavior changed in this authority gate.
+
+## Authority closure effect
+
+The order-create product authority is now closed, but the two HTTP operations remain blocked until the isolated allocator table is physically materialized.
+
+Next gate:
+
+`CORE-V1-STAGE5-COMMERCE-ORDER-SEQUENCE-001`
+
+Only after that corrective PASS and a fresh closure audit may `license_orders.create` and `exam_orders.create` become implementation-ready.

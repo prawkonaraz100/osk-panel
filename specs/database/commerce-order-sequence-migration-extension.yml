@@ -1,7 +1,7 @@
 meta:
   extension_id: commerce_order_sequence_allocator_v1
   gate_authority: CORE-V1-COMMERCE-ORDER-CREATE-AUTHORITY-001
-  status: CANDIDATE
+  status: PASS
   authority_doc: docs/202-core-v1-commerce-order-create-authority.md
 
 frozen_baselines:
