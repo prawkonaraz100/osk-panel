@@ -84,4 +84,12 @@ changed_scope:
     ui: provider redirect and state-bound local return URL
     acceptance_test: Tests\\Feature\\AuthSocialCoreTest
     status: IMPLEMENTED
+  - evidence: docs/199-core-v1-auth-password-recovery-implementation.md
+    requirement: self-service password recovery is enumeration-safe, cache-backed, one-time, credential-epoch-bound and revokes all active application sessions after reset
+    domain_data: users + user_password_management + auth_login_identifiers + auth_sessions + shared cache
+    api_use_case: auth.password_forgot + auth.password_reset
+    permission: public self-service flow with internal eligibility checks
+    ui: provider-neutral password recovery
+    acceptance_test: Tests\\Feature\\AuthPasswordRecoveryCoreTest
+    status: IMPLEMENTED
 
