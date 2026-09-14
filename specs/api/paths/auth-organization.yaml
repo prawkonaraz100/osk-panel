@@ -108,20 +108,31 @@ paths:
       tags: [Auth]
       operationId: authSocialRedirect
       x-requirement-id: auth.social_redirect
+      x-provider-registry: server_config_allowlist
+      x-oauth-flow: authorization_code_with_PKCE_S256
+      x-state-authority: one_time_server_side_cache_bound_to_framework_session
+      x-social-registration: forbidden_in_this_gate
       security: []
       parameters:
         - { $ref: '../openapi-components-v1.yaml#/components/parameters/Provider' }
         - name: return_url
           in: query
+          description: Optional local application path validated against the existing server allowlist before state issuance.
           schema: { type: string }
       responses:
-        '302': { description: Redirect to configured social provider }
+        '302': { description: Redirect to an enabled configured social provider with one-time state and PKCE challenge }
         default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
   /auth/social/{provider}/callback:
     get:
       tags: [Auth]
       operationId: authSocialCallback
       x-requirement-id: auth.social_callback
+      x-provider-registry: server_config_allowlist
+      x-oauth-flow: authorization_code_with_PKCE_S256
+      x-state-authority: atomic_one_time_server_side_claim_bound_to_framework_session
+      x-linking-authority: current_provider_subject_or_verified_existing_local_email_only
+      x-social-registration: forbidden_in_this_gate
+      x-provider-token-persistence: forbidden
       security: []
       parameters:
         - { $ref: '../openapi-components-v1.yaml#/components/parameters/Provider' }
@@ -135,7 +146,7 @@ paths:
           in: query
           schema: { type: string }
       responses:
-        '302': { description: Authenticated and redirected to validated local ReturnUrl, or to a local safe error route }
+        '302': { description: Existing local account authenticated and redirected to the state-bound validated local ReturnUrl, or to a local safe error route }
         default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
 
   /organization:
