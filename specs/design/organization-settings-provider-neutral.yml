@@ -1,6 +1,6 @@
 authority:
   id: CORE-V1-ORGANIZATION-SETTINGS-PROVIDER-NEUTRAL-AUTHORITY-001
-  status: CANDIDATE
+  status: PASS
   date: 2026-09-14
   source_audit: CORE-V1-CLOSURE-AUDIT-006
 

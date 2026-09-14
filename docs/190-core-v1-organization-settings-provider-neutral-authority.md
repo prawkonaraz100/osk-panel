@@ -2,7 +2,7 @@
 
 Data: 2026-09-14
 
-**Status:** `IN_VALIDATION`
+**Status:** `PASS`
 
 ## Decision
 
@@ -46,3 +46,35 @@ No schema/migration change and no PKK runtime activation occur in this authority
 ## Closure classification
 
 After this authority is PASS, a fresh closure audit must reclassify `organization.update`, `organization.settings.get` and `organization.settings.update` as implementation-ready. The 14 explicit PKK bindings remain frozen.
+
+## Exact-head validation evidence
+
+Accepted authority head:
+
+`2d65277cbcd8ba1e4a8e0d70de3ec99ca21ab758`
+
+Tree:
+
+`c34a21dc3f22c36501f0b3fb256dd43141e74116`
+
+Validation:
+
+- Implementation CI #540 / run `34865407090`: **5/5 PASS**
+- API Contract Gate #429 / run `34865407059`: **PASS**
+- PostgreSQL: **311 tests / 5575 assertions — PASS**
+- deterministic restore: **121 -> 121 PASS**
+- restore fingerprint: `09c57afe2501c79a3a684c0a695b4619114f94ddc24c9bca33728d99c1abb155`
+- `RESTORE_DRILL_HARNESS=PASS`
+- backend Pint/PHPStan, frontend, contracts/traceability and secret scan: **PASS**
+
+No runtime HTTP binding and no PKK provider behavior was changed by this authority gate.
+
+## Closure effect
+
+The three provider-neutral operations are now eligible for fresh closure-audit reclassification:
+
+- `organization.update`
+- `organization.settings.get`
+- `organization.settings.update`
+
+Explicit PKK/PWPW operations remain frozen.
