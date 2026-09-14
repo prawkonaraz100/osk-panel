@@ -18,3 +18,36 @@ changed_scope:
     ui: NOT_APPLICABLE_FOUNDATION_NO_UI
     acceptance_test: Tests\\Feature\\IdentityTenantFoundationTest
     status: IMPLEMENTED
+  - evidence: specs/api/paths/auth-organization.yaml
+    requirement: local password login resolves the globally unique current login identifier, rotates framework session state and stores only a framework-session hash in auth_sessions
+    domain_data: users + auth_login_identifiers + auth_sessions + organization_memberships
+    api_use_case: auth.login
+    permission: public credential verification followed by fail-closed selected membership context
+    ui: NOT_APPLICABLE_RUNTIME_API_GATE
+    acceptance_test: Tests\\Feature\\AuthSessionLifecycleCoreTest::test_login_materializes_hashed_framework_session_and_selects_only_unambiguous_membership
+    status: IMPLEMENTED
+  - evidence: specs/api/paths/auth-organization.yaml
+    requirement: logout revokes the durable auth-session authority and invalidates the framework session even if the previously selected membership is no longer active
+    domain_data: auth_sessions
+    api_use_case: auth.logout
+    permission: authenticated_session
+    ui: NOT_APPLICABLE_RUNTIME_API_GATE
+    acceptance_test: Tests\\Feature\\AuthSessionLifecycleCoreTest::test_logout_revokes_current_auth_session_even_after_membership_is_suspended
+    status: IMPLEMENTED
+  - evidence: specs/security/permissions.yml
+    requirement: listing and revoking sessions is current-user scoped, requires sessions.manage.own with own scope, and never exposes another user's session identifier as an authorized target
+    domain_data: auth_sessions + organization_memberships + membership_permissions + membership_permission_scopes
+    api_use_case: auth.sessions_list + auth.session_revoke
+    permission: sessions.manage.own with own scope
+    ui: NOT_APPLICABLE_RUNTIME_API_GATE
+    acceptance_test: Tests\\Feature\\AuthSessionLifecycleCoreTest::test_session_list_and_revoke_are_own_scoped_and_cross_user_target_is_hidden
+    status: IMPLEMENTED
+  - evidence: docs/08-security-compliance.md
+    requirement: login return_url remains local and allowlisted and ambiguous multi-organization identity never selects an arbitrary tenant context
+    domain_data: auth_sessions.organization_membership_id
+    api_use_case: auth.login return_url_validation
+    permission: public credential verification; tenant context remains null when ambiguous
+    ui: NOT_APPLICABLE_RUNTIME_API_GATE
+    acceptance_test: Tests\\Feature\\AuthSessionLifecycleCoreTest::test_external_return_url_is_rejected_before_session_creation + Tests\\Feature\\AuthSessionLifecycleCoreTest::test_multiple_active_memberships_do_not_get_an_arbitrary_tenant_context
+    status: IMPLEMENTED
+

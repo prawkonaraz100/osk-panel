@@ -8,6 +8,7 @@ use App\Modules\CalendarTraining\TrainingSessionController;
 use App\Modules\CommerceDashboard\CommerceDashboardController;
 use App\Modules\CommerceDashboard\DashboardController;
 use App\Modules\FormalDocuments\FormalTrainingDocumentController;
+use App\Modules\IdentityTenant\AuthSessionController;
 use App\Modules\InternalExams\InternalExamController;
 use App\Modules\LearningAccess\LearningAccessController;
 use App\Modules\ResourcesCore\ResourceApiMiddleware;
@@ -18,6 +19,11 @@ use App\Modules\UploadsAssets\UploadAssetController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(ResourceApiMiddleware::class)->prefix('api/v1')->group(function (): void {
+    Route::post('/auth/login', [AuthSessionController::class, 'login']);
+    Route::post('/auth/logout', [AuthSessionController::class, 'logout']);
+    Route::get('/auth/sessions', [AuthSessionController::class, 'list']);
+    Route::delete('/auth/sessions/{sessionId}', [AuthSessionController::class, 'revoke']);
+
     Route::get('/locations', [ResourceController::class, 'locationsList']);
     Route::post('/locations', [ResourceController::class, 'locationsCreate']);
     Route::get('/locations/{locationId}', [ResourceController::class, 'locationsGet']);
