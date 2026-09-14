@@ -2,7 +2,7 @@
 
 Data: 2026-09-14
 
-**Status:** `IN_VALIDATION`
+**Status:** `PASS`
 
 ## Scope
 
@@ -114,3 +114,54 @@ Public failures do not expose whether a local account exists.
 - password recovery changes: none
 - schema/migration changes: none
 - PKK/PWPW runtime: none
+
+## Corrective history
+
+- initial runtime candidate: `0bfab69e03e06ee392d8a5f49fab41b53e08998a`
+- framework-session persistence attempt: `d3c78c9d13bc437006b7b38eecfd78f8fba0151a`
+- final framework-session nonce binding corrective: `0fc7ab6d59e0669dd1dee6449972c74a7d523e0e`
+
+The final binding deliberately does not depend on the framework's technical session ID. Redirect creates a 32-byte random binding nonce stored in the framework session; only its SHA-256 hash is stored with OAuth state. This preserves the authority requirement that state is bound to the framework session while remaining safe across framework session-ID rotation.
+
+Accepted implementation tree:
+
+`cfcbddf2254aa81f8f5cffbf043f6f34e5e7dd09`
+
+## Exact-head validation evidence
+
+- Implementation CI #557 / run `34884922619`: **5/5 PASS**
+- API Contract Gate #449 / run `34884922717`: **PASS**
+- PostgreSQL: **325 tests / 5719 assertions — PASS**
+- deterministic restore: **121 -> 121 PASS**
+- restore fingerprint: `09c57afe2501c79a3a684c0a695b4619114f94ddc24c9bca33728d99c1abb155`
+- `RESTORE_DRILL_HARNESS=PASS`
+- backend Pint/PHPStan, frontend, contracts/traceability and secret scan: **PASS**
+
+The Social acceptance suite proves:
+
+- allowlisted local return URLs,
+- unknown provider fail-closed behavior,
+- PKCE S256 redirect construction with no redirect-time provider I/O,
+- existing-subject sign-in through existing `AuthSessionService`,
+- authenticated linking without provider-email dependency,
+- first-link only after verified provider and verified local e-mail match,
+- no user auto-creation,
+- provider-error state consumption and replay rejection without provider I/O,
+- revoked-subject no-relink behavior,
+- organization-managed identity rejection,
+- no provider-token persistence.
+
+## Closure effect
+
+Exactly two canonical HTTP bindings are closed:
+
+- `auth.social_redirect`
+- `auth.social_callback`
+
+Physical HTTP bindings move **150 -> 152**.
+
+Missing physical bindings move **22 -> 20**.
+
+Repo-actionable missing HTTP bindings move **7 -> 5**.
+
+PKK/PWPW bindings remain frozen and unchanged.

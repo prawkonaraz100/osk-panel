@@ -6723,3 +6723,65 @@ CORE_V1_CLOSURE_AUDIT_009_gate:
     provider_token_persistence: forbidden
     PKK_runtime_activation: forbidden
 
+CORE_V1_AUTH_SOCIAL_001_gate:
+  id: CORE-V1-AUTH-SOCIAL-001
+  status: PASS
+  prerequisite:
+    audit: CORE-V1-CLOSURE-AUDIT-009_AUDIT_COMPLETE_SOCIAL_IMPLEMENTATION_READY
+    authority: CORE-V1-AUTH-SOCIAL-AUTHORITY-001_PASS
+    schema_corrective: CORE-V1-STAGE5-SOCIAL-SUBJECT-UNIQUE-001_PASS
+  authority: docs/196-core-v1-auth-social-implementation.md
+  exact_scope:
+    operations:
+      - auth.social_redirect
+      - auth.social_callback
+    routes:
+      - GET /api/v1/auth/social/{provider}/redirect
+      - GET /api/v1/auth/social/{provider}/callback
+    protocol: oauth2_authorization_code_pkce_userinfo_v1
+    PKCE: S256
+    state_TTL_seconds: 600
+    state_one_time_claim: true
+    framework_session_binding: random_32_byte_nonce_hash
+    social_registration: forbidden
+    automatic_user_creation: forbidden
+    automatic_organization_creation: forbidden
+    provider_token_persistence: forbidden
+    PKK_runtime_activation: false
+    schema_or_migration_change: false
+  implementation:
+    initial_candidate_head: 0bfab69e03e06ee392d8a5f49fab41b53e08998a
+    session_persistence_corrective_head: d3c78c9d13bc437006b7b38eecfd78f8fba0151a
+    exact_implementation_head: 0fc7ab6d59e0669dd1dee6449972c74a7d523e0e
+    exact_implementation_tree: cfcbddf2254aa81f8f5cffbf043f6f34e5e7dd09
+  executable_evidence:
+    exact_head_Implementation_CI_run: 34884922619
+    exact_head_API_Contract_Gate_run: 34884922717
+    Implementation_CI_jobs_passed: 5
+    Implementation_CI_jobs_total: 5
+    API_Contract_Gate: PASS
+    PostgreSQL_suite_tests: 325
+    PostgreSQL_suite_assertions: 5719
+    deterministic_restore_harness: PASS
+    restore_source_table_count: 121
+    restore_restored_table_count: 121
+    restore_schema_fingerprint: 09c57afe2501c79a3a684c0a695b4619114f94ddc24c9bca33728d99c1abb155
+    backend_Pint_and_PHPStan: PASS
+    frontend_quality: PASS
+    contracts_and_traceability: PASS
+    secret_scan: PASS
+  closure_effect:
+    physical_HTTP_bindings_closed: 2
+    required_physical_bindings_present_before: 150
+    required_physical_bindings_present_after: 152
+    missing_physical_bindings_before: 22
+    missing_physical_bindings_after: 20
+    repo_actionable_HTTP_missing_before: 7
+    repo_actionable_HTTP_missing_after: 5
+    frozen_PKK_missing_bindings_unchanged: 14
+    provider_specific_payment_webhook_unchanged: 1
+  next_after_PASS:
+    id: CORE-V1-CLOSURE-AUDIT-010
+    action: recompute_repository_HTTP_runtime_UI_closure_after_social_runtime
+    rule: recompute_not_assume_no_PKK_runtime
+
