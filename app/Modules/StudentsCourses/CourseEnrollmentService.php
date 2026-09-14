@@ -800,8 +800,8 @@ final class CourseEnrollmentService
                 $evidenceReference,
                 $reason,
                 $actor['user_id'],
-                (string) $course->driving_category_id,
-                (string) $course->training_type,
+                (string) $courseData['driving_category_id'] ?? null,
+                (string) $courseData['training_type'] ?? null,
             );
 
             DB::table('course_enrollments')->where('id', $courseId)->update([
@@ -888,7 +888,8 @@ final class CourseEnrollmentService
 
     private function assertCompletionEligible(string $organizationId, object $course): void
     {
-        $courseId = (string) $course->id;
+        $courseData = get_object_vars($course);
+        $courseId = (string) ($courseData['id'] ?? '');
         $profiles = DB::table('training_requirement_profiles')
             ->where('organization_id', $organizationId)
             ->where('course_enrollment_id', $courseId)
@@ -900,7 +901,7 @@ final class CourseEnrollmentService
         }
 
         $profile = $profiles->first();
-        if ($profile === null || (int) $profile->requirements_revision !== (int) $course->requirements_revision) {
+        if ($profile === null || (int) $profile->requirements_revision !== (int) ($courseData['requirements_revision'] ?? 0)) {
             throw ResourceDomainException::conflict('Course completion requires a fresh TrainingRequirementProfile.');
         }
         if (! DB::table('training_requirement_rule_sets')
@@ -925,8 +926,8 @@ final class CourseEnrollmentService
             ->where('course_enrollment_id', $courseId)
             ->whereNull('superseded_at')
             ->whereNull('revoked_at')
-            ->where('recognized_for_driving_category_id', $course->driving_category_id)
-            ->where('recognized_for_training_type', $course->training_type);
+            ->where('recognized_for_driving_category_id', $courseData['driving_category_id'] ?? null)
+            ->where('recognized_for_training_type', $courseData['training_type'] ?? null);
         $externalTheory = (int) (clone $external)->where('training_part', 'theory')->sum('recognized_minutes');
         $externalPractical = (int) (clone $external)->where('training_part', 'practical')->sum('recognized_minutes');
 
