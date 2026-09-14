@@ -6053,3 +6053,65 @@ CORE_V1_CLOSURE_AUDIT_004_gate:
     id: CORE-V1-BULK-CREDENTIAL-RESET-001
     action: implement_bulk_access_document_nonreset_and_reset_modes_under_exact_DB_LIC_004_authority
     rule: all_targets_authorized_and_version_checked_before_any_write_render_full_secret_PDF_before_password_mutation_no_secret_replay_no_PKK_runtime
+
+CORE_V1_BULK_CREDENTIAL_RESET_001_gate:
+  id: CORE-V1-BULK-CREDENTIAL-RESET-001
+  status: PASS
+  authority:
+    narrative: docs/183-core-v1-bulk-credential-reset-authority.md
+    machine: specs/design/bulk-credential-reset.yml
+    database: specs/database/licenses-learning-access.yml#DB-LIC-004
+    prerequisite: CORE-V1-CLOSURE-AUDIT-004_AUDIT_COMPLETE_ONE_IMPLEMENTATION_READY_SLICE
+    closure: docs/185-core-v1-bulk-credential-reset-closure.md
+  exact_scope:
+    operation: license_credentials.bulk_pdf
+    method: POST
+    path: /api/v1/learning-accesses/bulk-access-document
+    schema_or_migration_change: false
+    PKK_provider_runtime_activation: forbidden
+  runtime:
+    nonsecret_combined_pdf_bound: true
+    reset_and_secret_combined_pdf_bound: true
+    all_targets_authorized_before_any_password_write: true
+    expected_credential_versions_checked_after_locks_before_any_password_write: true
+    duplicate_global_users_grouped_by_user_id: true
+    password_hash_writes_per_unique_user: 1
+    credential_version_increments_per_unique_user: 1
+    full_secret_PDF_rendered_in_memory_before_any_password_write: true
+    durable_effects_commit_all_or_none: true
+    completed_secret_response_replay: forbidden
+    historical_plaintext_recovery: forbidden
+    secret_bearing_PDF_persisted: false
+  provenance:
+    runtime_materialization_commit: 49f297d9c16ddc242ebe30a0c29428b88cba2f04
+    Pint_corrective_commit: 227f94aebdfbcf15804e6d82e61dca398d9b8798
+    exact_implementation_head: 804e5fbfd265ca9f62bc6930072f2973844d2706
+    exact_implementation_tree: 7ebd3aecd096d9c3ed0c1e5ef38cd014d89b8e14
+    exact_head_Implementation_CI_run: 34846941879
+    exact_head_API_Contract_Gate_run: 34846941699
+  executable_evidence:
+    Implementation_CI_jobs_passed: 5
+    Implementation_CI_jobs_total: 5
+    API_Contract_Gate: PASS
+    PostgreSQL_suite_tests: 308
+    PostgreSQL_suite_assertions: 5518
+    deterministic_restore_harness: PASS
+    restore_source_table_count: 121
+    restore_restored_table_count: 121
+    restore_schema_fingerprint: 09c57afe2501c79a3a684c0a695b4619114f94ddc24c9bca33728d99c1abb155
+    backend_Pint: PASS
+    backend_PHPStan: PASS
+    frontend_quality: PASS
+    contracts_and_traceability: PASS
+    secret_scan: PASS
+  closure_effect:
+    repo_actionable_HTTP_bindings_before_this_gate: 11
+    physical_HTTP_bindings_closed_by_this_gate: 1
+    derived_repo_actionable_HTTP_bindings_remaining: 10
+    derived_implementation_ready_missing_bindings_remaining: 0
+    full_closure_reaudit_required: true
+  next_after_PASS:
+    id: CORE-V1-CLOSURE-AUDIT-005
+    action: rerun_repository_HTTP_runtime_UI_closure_audit_on_exact_closure_tree
+    rule: recompute_not_assume_preserve_missing_authority_and_PKK_freeze
+
