@@ -372,6 +372,7 @@ final class Stage4CommerceTriggerGuardsTest extends TestCase
             'zero_total_settled_at' => $zeroTotalSettledAt,
             'created_by_user_id' => $userId,
             'created_at' => now(),
+            'updated_at' => now(),
         ]);
         DB::table('order_items')->insert([
             'id' => $itemId,
