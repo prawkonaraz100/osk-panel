@@ -8,6 +8,7 @@ use App\Modules\StudentsCourses\StudentService;
 use App\Support\Migrations\ControlledMigrationContext;
 use App\Support\Migrations\MigrationPlan;
 use App\Support\Migrations\TriggerGuards\LicensesTriggerGuards;
+use Carbon\Carbon;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Artisan;
