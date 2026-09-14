@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Mail\InternalExamAccessLinkMail;
+use App\Modules\CalendarTraining\TrainingSessionService;
 use App\Modules\InternalExams\ExamStationCredentialService;
 use App\Modules\InternalExams\InternalExamAnswerSheetService;
 use App\Modules\InternalExams\InternalExamService;
@@ -2628,13 +2629,432 @@ final class InternalExamCoreTest extends TestCase
         );
     }
 
+
+    public function test_course_completion_zero_requirement_is_atomic_and_http_idempotent(): void
+    {
+        $actor = $this->examActor();
+        $course = $this->completionCourse($actor, 0, 0);
+        $idempotencyKey = (string) Str::uuid7();
+
+        $response = $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->withHeaders([
+                'Idempotency-Key' => $idempotencyKey,
+                'If-Match' => '"v1"',
+            ])
+            ->postJson("/api/v1/course-enrollments/{$course['id']}/stage-transitions", [
+                'target_stage' => 'training_completed',
+            ]);
+
+        $response->assertOk()
+            ->assertHeader('ETag', '"v2"')
+            ->assertJsonPath('training_stage', 'training_completed')
+            ->assertJsonPath('version', 2);
+
+        $stored = DB::table('course_enrollments')->where('id', $course['id'])->firstOrFail();
+        $this->assertNotNull($stored->completed_at);
+        $this->assertSame('training_completed', $stored->training_stage);
+
+        $replay = $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->withHeaders([
+                'Idempotency-Key' => $idempotencyKey,
+                'If-Match' => '"v1"',
+            ])
+            ->postJson("/api/v1/course-enrollments/{$course['id']}/stage-transitions", [
+                'target_stage' => 'training_completed',
+            ]);
+
+        $replay->assertOk()
+            ->assertHeader('ETag', '"v2"')
+            ->assertJsonPath('training_stage', 'training_completed')
+            ->assertJsonPath('version', 2);
+
+        $this->assertSame(1, DB::table('course_enrollment_lifecycle_events')
+            ->where('course_enrollment_id', $course['id'])
+            ->where('event_type', 'completed')
+            ->count());
+        $this->assertSame(1, DB::table('audit_logs')
+            ->where('entity_type', 'course_enrollment')
+            ->where('entity_id', $course['id'])
+            ->where('action', 'course.completed')
+            ->count());
+        $this->assertSame(1, DB::table('domain_events')
+            ->where('aggregate_type', 'course_enrollment')
+            ->where('aggregate_id', $course['id'])
+            ->where('event_type', 'course.completed')
+            ->count());
+        $this->assertSame(1, DB::table('outbox_messages')
+            ->where('aggregate_type', 'course_enrollment')
+            ->where('aggregate_id', $course['id'])
+            ->where('event_type', 'course.completed')
+            ->count());
+    }
+
+    public function test_course_completion_requires_current_minutes_and_exam_evidence(): void
+    {
+        $actor = $this->examActor();
+        $course = $this->completionCourse($actor, 60, 0);
+
+        app(TrainingSessionService::class)->correctHours(
+            $actor['session_id'],
+            $course['id'],
+            'theory',
+            30,
+            'partial current OSK theory',
+            null,
+            (string) Str::uuid7(),
+            '"v1"',
+        );
+
+        $insufficient = $this->captureDomainException(fn () => app(CourseEnrollmentService::class)->changeStage(
+            $actor['session_id'],
+            $course['id'],
+            'training_completed',
+            null,
+            (string) Str::uuid7(),
+            '"v2"',
+        ));
+        $this->assertSame('RESOURCE_VERSION_CONFLICT', $insufficient->machineCode);
+        $this->assertCompletionStillOpen($course['id'], 2);
+
+        app(CourseEnrollmentService::class)->recognizeExternalTraining(
+            $actor['session_id'],
+            $course['id'],
+            'theory',
+            30,
+            'OSK-OLD',
+            'completion-theory-transfer',
+            'recognized external theory',
+            (string) Str::uuid7(),
+            '"v2"',
+        );
+
+        $missingExam = $this->captureDomainException(fn () => app(CourseEnrollmentService::class)->changeStage(
+            $actor['session_id'],
+            $course['id'],
+            'training_completed',
+            null,
+            (string) Str::uuid7(),
+            '"v3"',
+        ));
+        $this->assertSame('RESOURCE_VERSION_CONFLICT', $missingExam->machineCode);
+        $this->assertCompletionStillOpen($course['id'], 3);
+    }
+
+    public function test_course_completion_uses_still_passed_attempt_not_latest_management_status_across_requirement_supersession(): void
+    {
+        $actor = $this->examActor();
+        $course = $this->completionCourse($actor, 60, 0);
+
+        app(CourseEnrollmentService::class)->recognizeExternalTraining(
+            $actor['session_id'],
+            $course['id'],
+            'theory',
+            60,
+            'OSK-OLD',
+            'completion-theory-transfer-full',
+            'recognized external theory',
+            (string) Str::uuid7(),
+            '"v1"',
+        );
+
+        $this->examFixtures($actor, $course);
+        $station = $this->station($actor);
+
+        $passed = $this->completeTheoryAttempt($actor, $course, $station, true);
+        $this->grantInventory($actor);
+        $failed = $this->completeTheoryAttempt($actor, $course, $station, false);
+
+        $this->assertTrue($passed['passed']);
+        $this->assertFalse($failed['passed']);
+        $this->assertSame(
+            'failed',
+            DB::table('internal_exam_attempts')
+                ->where('course_enrollment_id', $course['id'])
+                ->orderByDesc('course_attempt_sequence')
+                ->value('status'),
+        );
+
+        $passedRevision = (int) DB::table('internal_exam_attempts')
+            ->where('id', $passed['attempt_id'])
+            ->value('requirements_revision');
+
+        app(CourseEnrollmentService::class)->updateRequirementContext(
+            $actor['session_id'],
+            $course['id'],
+            ['evidence_reference' => 'requirements-reviewed-after-formal-pass'],
+            (string) Str::uuid7(),
+            '"v2"',
+        );
+
+        $currentProfile = DB::table('training_requirement_profiles')
+            ->where('course_enrollment_id', $course['id'])
+            ->whereNull('superseded_at')
+            ->firstOrFail();
+        $this->assertGreaterThan($passedRevision, (int) $currentProfile->requirements_revision);
+        $this->assertTrue((bool) $currentProfile->internal_theory_exam_required);
+
+        $completed = app(CourseEnrollmentService::class)->changeStage(
+            $actor['session_id'],
+            $course['id'],
+            'training_completed',
+            'formal requirements satisfied',
+            (string) Str::uuid7(),
+            '"v3"',
+        );
+
+        $this->assertSame('training_completed', $completed['training_stage']);
+        $this->assertSame(4, $completed['version']);
+        $this->assertNotNull(DB::table('course_enrollments')->where('id', $course['id'])->value('completed_at'));
+        $this->assertSame('passed', DB::table('internal_exam_attempts')->where('id', $passed['attempt_id'])->value('status'));
+        $this->assertSame('failed', DB::table('internal_exam_attempts')->where('id', $failed['attempt_id'])->value('status'));
+    }
+
+    public function test_course_completion_rejects_explicitly_invalidated_pass(): void
+    {
+        $actor = $this->examActor();
+        $course = $this->completionCourse($actor, 60, 0);
+
+        app(CourseEnrollmentService::class)->recognizeExternalTraining(
+            $actor['session_id'],
+            $course['id'],
+            'theory',
+            60,
+            'OSK-OLD',
+            'completion-invalidated-transfer',
+            'recognized external theory',
+            (string) Str::uuid7(),
+            '"v1"',
+        );
+
+        $this->examFixtures($actor, $course);
+        $station = $this->station($actor);
+        $passed = $this->completeTheoryAttempt($actor, $course, $station, true);
+        $this->invalidateCompletedAttempt($actor, $passed['attempt_id'], $passed['access_id']);
+
+        $blocked = $this->captureDomainException(fn () => app(CourseEnrollmentService::class)->changeStage(
+            $actor['session_id'],
+            $course['id'],
+            'training_completed',
+            null,
+            (string) Str::uuid7(),
+            '"v2"',
+        ));
+
+        $this->assertSame('RESOURCE_VERSION_CONFLICT', $blocked->machineCode);
+        $this->assertSame('invalidated', DB::table('internal_exam_attempts')->where('id', $passed['attempt_id'])->value('status'));
+        $this->assertCompletionStillOpen($course['id'], 2);
+    }
+
+    public function test_course_completion_checks_required_practical_exam_independently(): void
+    {
+        $actor = $this->examActor();
+        $course = $this->completionCourse($actor, 0, 60);
+
+        app(CourseEnrollmentService::class)->recognizeExternalTraining(
+            $actor['session_id'],
+            $course['id'],
+            'practical',
+            60,
+            'OSK-OLD',
+            'completion-practical-transfer',
+            'recognized external practical training',
+            (string) Str::uuid7(),
+            '"v1"',
+        );
+
+        $blocked = $this->captureDomainException(fn () => app(CourseEnrollmentService::class)->changeStage(
+            $actor['session_id'],
+            $course['id'],
+            'training_completed',
+            null,
+            (string) Str::uuid7(),
+            '"v2"',
+        ));
+
+        $this->assertSame('RESOURCE_VERSION_CONFLICT', $blocked->machineCode);
+        $this->assertCompletionStillOpen($course['id'], 2);
+    }
+
+    /**
+     * @param  array{organization_id:string,user_id:string,membership_id:string,session_id:string}  $actor
+     * @return array<string,mixed>
+     */
+    private function completionCourse(array $actor, int $theoryMinutes, int $practicalMinutes): array
+    {
+        $student = app(StudentService::class)->create($actor['session_id'], [
+            'first_name' => 'Anna',
+            'last_name' => 'Completion',
+            'contact_email' => 'anna.completion@example.test',
+            'pesel' => '02070803628',
+            'no_pesel' => false,
+        ], (string) Str::uuid7());
+
+        $instructor = app(StaffService::class)->create($actor['session_id'], [
+            'email' => 'completion.'.str_replace('-', '', (string) Str::uuid7()).'@example.test',
+            'first_name' => 'Jan',
+            'last_name' => 'Instruktor',
+            'staff_type_codes' => ['Instructor'],
+            'category_ids' => [],
+            'location_ids' => [],
+        ], (string) Str::uuid7());
+
+        return app(CourseEnrollmentService::class)->create($actor['session_id'], $student['id'], [
+            'training_type' => 'supplementary',
+            'driving_category_code' => 'B',
+            'pkk_number' => 'PKK-'.str_replace('-', '', (string) Str::uuid7()),
+            'started_at' => '2026-09-14T08:00:00+02:00',
+            'declared_theory_minutes' => $theoryMinutes,
+            'declared_practical_minutes' => $practicalMinutes,
+            'recognized_external_theory_minutes' => 0,
+            'recognized_external_practical_minutes' => 0,
+            'lead_instructor_id' => $instructor['id'],
+            'location_id' => null,
+        ], (string) Str::uuid7());
+    }
+
+    /**
+     * @param  array{organization_id:string,user_id:string,membership_id:string,session_id:string}  $actor
+     * @param  array<string,mixed>  $course
+     * @return array{attempt_id:string,access_id:string,passed:bool}
+     */
+    private function completeTheoryAttempt(array $actor, array $course, string $station, bool $shouldPass): array
+    {
+        $service = app(InternalExamService::class);
+        $attempt = $service->createAttempt(
+            $actor['session_id'],
+            $course['id'],
+            'theory',
+            'pl',
+            (string) Str::uuid7(),
+        );
+        $access = $service->createAccess(
+            $actor['session_id'],
+            $attempt['id'],
+            'assigned_exam_station',
+            $station,
+            null,
+            null,
+            (string) Str::uuid7(),
+        );
+        $service->startLocal(
+            $actor['session_id'],
+            $access['id'],
+            $this->stationCredential($station),
+            (string) Str::uuid7(),
+        );
+        $result = $service->submitAsStaff(
+            $actor['session_id'],
+            $attempt['id'],
+            $shouldPass
+                ? [
+                    ['ordinal' => 1, 'answer' => 'A'],
+                    ['ordinal' => 2, 'answer' => true],
+                ]
+                : [
+                    ['ordinal' => 1, 'answer' => 'B'],
+                    ['ordinal' => 2, 'answer' => false],
+                ],
+            (string) Str::uuid7(),
+        );
+
+        return [
+            'attempt_id' => (string) $attempt['id'],
+            'access_id' => (string) $access['id'],
+            'passed' => (bool) $result['passed'],
+        ];
+    }
+
+    /** @param array{organization_id:string,user_id:string,membership_id:string,session_id:string} $actor */
+    private function invalidateCompletedAttempt(array $actor, string $attemptId, string $accessId): void
+    {
+        DB::transaction(function () use ($actor, $attemptId, $accessId): void {
+            $attempt = DB::table('internal_exam_attempts')
+                ->where('organization_id', $actor['organization_id'])
+                ->where('id', $attemptId)
+                ->lockForUpdate()
+                ->firstOrFail();
+            $access = DB::table('internal_exam_accesses')
+                ->where('organization_id', $actor['organization_id'])
+                ->where('id', $accessId)
+                ->where('internal_exam_attempt_id', $attemptId)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $this->assertSame('passed', $attempt->status);
+            $this->assertSame('completed', $access->status);
+
+            $now = CarbonImmutable::now();
+            $attemptVersion = (int) $attempt->version + 1;
+            $accessVersion = (int) $access->version + 1;
+
+            DB::table('internal_exam_attempts')->where('id', $attemptId)->update([
+                'status' => 'invalidated',
+                'version' => $attemptVersion,
+                'invalidated_at' => $now,
+            ]);
+            DB::table('internal_exam_attempt_lifecycle_events')->insert([
+                'id' => (string) Str::uuid7(),
+                'organization_id' => $actor['organization_id'],
+                'internal_exam_attempt_id' => $attemptId,
+                'event_type' => 'invalidated',
+                'from_status' => 'passed',
+                'to_status' => 'invalidated',
+                'version_before' => (int) $attempt->version,
+                'version_after' => $attemptVersion,
+                'actor_user_id' => $actor['user_id'],
+                'reason' => 'course-completion invalidation fixture',
+                'occurred_at' => $now,
+                'created_at' => $now,
+            ]);
+
+            DB::table('internal_exam_accesses')->where('id', $accessId)->update([
+                'status' => 'invalidated',
+                'version' => $accessVersion,
+                'invalidated_at' => $now,
+            ]);
+            DB::table('internal_exam_access_lifecycle_events')->insert([
+                'id' => (string) Str::uuid7(),
+                'organization_id' => $actor['organization_id'],
+                'internal_exam_access_id' => $accessId,
+                'internal_exam_attempt_id' => $attemptId,
+                'event_type' => 'invalidated',
+                'from_status' => 'completed',
+                'to_status' => 'invalidated',
+                'version_before' => (int) $access->version,
+                'version_after' => $accessVersion,
+                'actor_user_id' => $actor['user_id'],
+                'reason' => 'course-completion invalidation fixture',
+                'occurred_at' => $now,
+                'created_at' => $now,
+            ]);
+        });
+    }
+
+    private function assertCompletionStillOpen(string $courseId, int $expectedVersion): void
+    {
+        $course = DB::table('course_enrollments')->where('id', $courseId)->firstOrFail();
+        $this->assertSame($expectedVersion, (int) $course->version);
+        $this->assertNull($course->completed_at);
+        $this->assertNotSame('training_completed', $course->training_stage);
+        $this->assertSame(0, DB::table('course_enrollment_lifecycle_events')
+            ->where('course_enrollment_id', $courseId)
+            ->where('event_type', 'completed')
+            ->count());
+        $this->assertSame(0, DB::table('audit_logs')
+            ->where('entity_type', 'course_enrollment')
+            ->where('entity_id', $courseId)
+            ->where('action', 'course.completed')
+            ->count());
+    }
+
     /** @return array{organization_id:string,user_id:string,membership_id:string,session_id:string} */
     private function examActor(): array
     {
         $actor = FoundationSchema::actor();
         foreach ([
             'students.view', 'students.create', 'students.edit',
-            'courses.view', 'courses.create', 'courses.edit', 'course_requirements.correct',
+            'courses.view', 'courses.create', 'courses.edit', 'courses.stage.change', 'course_requirements.correct',
+            'external_training.recognize', 'training_hours.correct',
             'exams.view', 'exams.generate', 'exams.access.send', 'exams.start.local', 'exams.results.view',
             'exams.documents.download', 'exams.inventory.adjust', 'exams.stations.view', 'exams.stations.manage',
         ] as $permission) {

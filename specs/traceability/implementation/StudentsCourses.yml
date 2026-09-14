@@ -102,3 +102,12 @@ changed_scope:
     ui: resources/js/modules/StudentsCourses/StudentCourseWorkspace.vue mounts resources/js/modules/FormalDocuments/FormalTrainingDocumentsPanel.vue
     acceptance_test: Tests\Unit\FormalDocumentsUiContractTest::test_student_profile_materializes_exact_formal_document_and_signed_scan_workflow
     status: IMPLEMENTED
+
+  - evidence: specs/design/course-completion.yml
+    requirement: training_completed is an atomic CourseEnrollment completion command that uses the exact current requirement profile, signed current-OSK plus current recognized-external minutes, and canonical still-passed internal-exam evidence without using the mutable latest-management projection
+    domain_data: course_enrollments + training_requirement_profiles + training_requirement_rule_sets + training_hour_ledger_entries + recognized_external_training + internal_exam_attempts + internal_exam_results + course_enrollment_lifecycle_events + audit_logs + domain_events + outbox_messages
+    api_use_case: course_enrollments.change_stage target training_completed
+    permission: courses.stage.change with existing course scope and If-Match
+    ui: resources/js/modules/StudentsCourses/StudentCourseWorkspace.vue reuses the existing stage-transition request and surfaces backend eligibility failures
+    acceptance_test: Tests\\Feature\\CourseCompletionRuntimeTest + Tests\\Unit\\CourseCompletionUiContractTest
+    status: IMPLEMENTED

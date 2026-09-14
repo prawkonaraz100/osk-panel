@@ -539,11 +539,6 @@ async function changeStage(course: Course, event: Event): Promise<void> {
   const select = event.target as HTMLSelectElement
   const target = select.value
   if (target === course.training_stage) return
-  if (target === 'training_completed') {
-    select.value = course.training_stage
-    error.value = 'Zakończenie szkolenia zostanie odblokowane po podpięciu ewidencji godzin i egzaminu wewnętrznego.'
-    return
-  }
 
   saving.value = true
   error.value = ''
@@ -554,7 +549,7 @@ async function changeStage(course: Course, event: Event): Promise<void> {
       headers: { 'If-Match': `"v${course.version}"` },
       body: JSON.stringify({ target_stage: target }),
     })
-    notice.value = 'Etap szkolenia został zmieniony.'
+    notice.value = target === 'training_completed' ? 'Szkolenie zostało zakończone.' : 'Etap szkolenia został zmieniony.'
     await loadStudentDetail()
   } catch (caught: unknown) {
     select.value = course.training_stage

@@ -489,7 +489,39 @@ final class CourseEnrollmentService
                 return $this->present($row);
             }
             if ($targetStage === 'training_completed') {
-                throw ResourceDomainException::conflict('Course completion remains closed until training-hour and internal-exam evidence slices are active.');
+                $this->assertCompletionEligible($actor['organization_id'], $row);
+
+                $now = now();
+                DB::table('course_enrollments')->where('id', $courseId)->update([
+                    'training_stage' => 'training_completed',
+                    'completed_at' => $now,
+                    'interrupted_at' => null,
+                    'cancelled_at' => null,
+                    'cancelled_by_user_id' => null,
+                    'version' => (int) $row->version + 1,
+                    'updated_at' => $now,
+                ]);
+                $updated = DB::table('course_enrollments')->where('id', $courseId)->firstOrFail();
+                $this->appendHistory(
+                    $updated,
+                    'completed',
+                    'active',
+                    'completed',
+                    (string) $row->training_stage,
+                    'training_completed',
+                    $reason,
+                    $actor['user_id'],
+                    (int) $row->version,
+                );
+                $this->auditOutbox->recordOrganizationEvent(
+                    $actor['organization_id'], $actor['id'], $actor['user_id'],
+                    'course.completed', 'course_enrollment', $courseId, $requestId,
+                    ['fields' => ['training_stage', 'completed_at'], 'state' => 'active'],
+                    ['fields' => ['training_stage', 'completed_at'], 'state' => 'completed'],
+                    $reason,
+                );
+
+                return $this->present($updated);
             }
             if (! in_array($targetStage, self::NONTERMINAL_STAGES, true)) {
                 throw ResourceDomainException::rule('Unsupported training stage.');
@@ -854,6 +886,88 @@ final class CourseEnrollmentService
         return '"v'.(int) $course['version'].'"';
     }
 
+    private function assertCompletionEligible(string $organizationId, object $course): void
+    {
+        $courseId = (string) $course->id;
+        $profiles = DB::table('training_requirement_profiles')
+            ->where('organization_id', $organizationId)
+            ->where('course_enrollment_id', $courseId)
+            ->whereNull('superseded_at')
+            ->get();
+
+        if ($profiles->count() !== 1) {
+            throw ResourceDomainException::conflict('Course completion requires exactly one current TrainingRequirementProfile.');
+        }
+
+        $profile = $profiles->first();
+        if ($profile === null || (int) $profile->requirements_revision !== (int) $course->requirements_revision) {
+            throw ResourceDomainException::conflict('Course completion requires a fresh TrainingRequirementProfile.');
+        }
+        if (! DB::table('training_requirement_rule_sets')
+            ->where('version', (string) $profile->rule_set_version)
+            ->exists()) {
+            throw ResourceDomainException::conflict('Course completion requirement rule-set authority is unavailable.');
+        }
+
+        $currentOskTheory = (int) DB::table('training_hour_ledger_entries')
+            ->where('organization_id', $organizationId)
+            ->where('course_enrollment_id', $courseId)
+            ->where('training_part', 'theory')
+            ->sum('minutes');
+        $currentOskPractical = (int) DB::table('training_hour_ledger_entries')
+            ->where('organization_id', $organizationId)
+            ->where('course_enrollment_id', $courseId)
+            ->where('training_part', 'practical')
+            ->sum('minutes');
+
+        $external = DB::table('recognized_external_training')
+            ->where('organization_id', $organizationId)
+            ->where('course_enrollment_id', $courseId)
+            ->whereNull('superseded_at')
+            ->whereNull('revoked_at')
+            ->where('recognized_for_driving_category_id', $course->driving_category_id)
+            ->where('recognized_for_training_type', $course->training_type);
+        $externalTheory = (int) (clone $external)->where('training_part', 'theory')->sum('recognized_minutes');
+        $externalPractical = (int) (clone $external)->where('training_part', 'practical')->sum('recognized_minutes');
+
+        if ((bool) $profile->theory_training_required
+            && $currentOskTheory + $externalTheory < (int) $profile->minimum_theory_minutes) {
+            throw ResourceDomainException::conflict('Course completion requires the current theory-minute minimum.');
+        }
+        if ((bool) $profile->practical_training_required
+            && $currentOskPractical + $externalPractical < (int) $profile->minimum_practical_minutes) {
+            throw ResourceDomainException::conflict('Course completion requires the current practical-minute minimum.');
+        }
+
+        if ((bool) $profile->internal_theory_exam_required) {
+            $this->assertCompletionExamPartSatisfied($organizationId, $courseId, 'theory');
+        }
+        if ((bool) $profile->internal_practical_exam_required) {
+            $this->assertCompletionExamPartSatisfied($organizationId, $courseId, 'practical');
+        }
+    }
+
+    private function assertCompletionExamPartSatisfied(string $organizationId, string $courseId, string $examPart): void
+    {
+        $passed = DB::table('internal_exam_attempts as a')
+            ->join('internal_exam_results as r', function ($join): void {
+                $join->on('r.organization_id', '=', 'a.organization_id')
+                    ->on('r.internal_exam_attempt_id', '=', 'a.id');
+            })
+            ->where('a.organization_id', $organizationId)
+            ->where('a.course_enrollment_id', $courseId)
+            ->where('a.exam_part', $examPart)
+            ->where('a.status', 'passed')
+            ->where('r.passed', true)
+            ->orderByDesc('a.course_attempt_sequence')
+            ->select(['a.id'])
+            ->sharedLock()
+            ->first();
+
+        if ($passed === null) {
+            throw ResourceDomainException::conflict("Course completion requires a passed {$examPart} internal exam.");
+        }
+    }
     private function studentHasFormalIdentity(object $student): bool
     {
         $data = get_object_vars($student);

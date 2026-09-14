@@ -43,7 +43,7 @@ final class ResourceReferenceCatalogSeeder extends Seeder
         'vehicle.created', 'vehicle.updated', 'vehicle.archived', 'vehicle.restored',
         'vehicle.document.replaced',
         'student.created', 'student.updated', 'student.archived', 'student.restored',
-        'course.created', 'course.updated', 'course.stage_changed', 'course.cancelled', 'course.restored',
+        'course.created', 'course.updated', 'course.stage_changed', 'course.completed', 'course.cancelled', 'course.restored',
         'course.requirements.updated', 'course.exemption.updated',
         'course.external_training.recognized', 'course.external_training.revoked',
         'training.session.created', 'training.session.updated', 'training.session.attendance_recorded',
