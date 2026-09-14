@@ -5441,3 +5441,73 @@ CORE_V1_ORGANIZATION_ACCEPTED_TERMS_001_gate:
     branch: regenerate_credentials_when_required_true
     reason: contract_missing_expected_credential_versions_per_reset_target
     rule: do_not_reset_credentials_without_explicit_expected_versions
+
+
+CORE_V1_LEARNING_CREDENTIAL_SINGLE_PDF_001_gate:
+  id: CORE-V1-LEARNING-CREDENTIAL-SINGLE-PDF-001
+  status: PASS
+  authority_audit: docs/176-core-v1-learning-credential-single-pdf-closure.md
+  exact_operations:
+    - learning_accounts.download_handoff_pdf
+    - license_credentials.single_pdf
+  physical_HTTP_binding_count: 1
+  scope:
+    schema_or_migration_change: false
+    OpenAPI_path_change: false
+    dynamic_secret_free_reprint: true
+    historical_plaintext_password_recovery: forbidden
+    FileAsset_creation_for_normal_reprint: false
+    credential_mutation_for_normal_reprint: false
+    bulk_reset_contract_change: false
+    PKK_provider_runtime_activation: forbidden
+  provenance:
+    implementation_commit: de29b744842fdb5ce46d8d4aee2b5fbe96df77d3
+    first_corrective_commit: e9393c5afac7a17f8ed834959b5bea351d2a7f03
+    exact_head_commit: 4496da6500daa62a07346cef58beecb128240a7f
+    exact_head_Implementation_CI_run: 34826538061
+    exact_head_API_Contract_Gate_run: 34826538024
+  executable_evidence:
+    exact_head_Implementation_CI_jobs_passed: 5
+    exact_head_Implementation_CI_jobs_total: 5
+    API_Contract_Gate: PASS
+    PostgreSQL_suite_tests: 289
+    PostgreSQL_suite_assertions: 5320
+    deterministic_restore_harness: PASS
+    restore_source_table_count: 121
+    restore_restored_table_count: 121
+    restore_schema_fingerprint: 09c57afe2501c79a3a684c0a695b4619114f94ddc24c9bca33728d99c1abb155
+    backend_Pint_and_PHPStan: PASS
+    frontend_quality: PASS
+    contracts_and_traceability: PASS
+    secret_scan: PASS
+  authorization_postconditions:
+    active_membership_required: PASS
+    student_access_download_credentials_pdf_required: PASS
+    exact_student_account_handoff_tenant_scope: PASS
+    foreign_tenant_target_hidden: PASS
+    operational_account_required: PASS
+  secret_postconditions:
+    historical_plaintext_returned: false
+    plaintext_persisted_in_audit_domain_or_outbox: false
+    handoff_snapshot_ahead_of_current_credential_authority_allowed: false
+    current_login_identifier_only: PASS
+    password_state_only: PASS
+    credential_version_unchanged_on_reprint: PASS
+    new_handoff_created_on_reprint: false
+    new_FileAsset_created_on_reprint: false
+    download_audit_action: learning_account_credentials_pdf_downloaded
+  closure_effect:
+    repo_actionable_HTTP_bindings_before_this_gate: 13
+    physical_HTTP_bindings_closed_by_this_gate: 1
+    shared_alias_rows_closed_by_same_binding: 2
+    derived_repo_actionable_HTTP_bindings_remaining: 12
+    full_closure_reaudit_required_before_repository_complete: true
+  blocked_bulk_credential_submode:
+    operation: license_credentials.bulk_pdf
+    branch: regenerate_credentials_when_required_true
+    reason: contract_missing_expected_credential_versions_per_reset_target
+    rule: do_not_reset_credentials_without_explicit_expected_versions
+  next_after_PASS:
+    id: CORE-V1-CLOSURE-AUDIT-002
+    action: rerun_repository_HTTP_runtime_UI_closure_audit_on_exact_accepted_tree
+    rule: reclassify_course_completion_as_runtime_plus_UI_until_backend_completion_eligibility_is_materialized_no_PKK_runtime
