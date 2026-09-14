@@ -24,6 +24,14 @@ final class Stage4ExamsTriggerGuardsTest extends TestCase
 {
     public function test_exam_guards_preserve_inventory_lifecycle_station_chain_and_finished_evidence(): void
     {
+        config()->set('internal_exams.station_heartbeat_fresh_seconds', 120);
+        config()->set('internal_exams.execution_token_ttl_minutes', 60);
+        config()->set('internal_exams.result_token_ttl_minutes', 1440);
+        config()->set('internal_exams.remote_access_ttl_minutes', 120);
+        config()->set('internal_exams.remote_public_base_url', 'https://learn.example.test/internal-exam');
+        config()->set('internal_exams.token_verifier_key_v1', str_repeat('t', 32));
+        config()->set('internal_exams.station_verifier_key_v1', str_repeat('s', 32));
+
         FoundationSchema::ensureMigrated();
 
         $plan = app(MigrationPlan::class);
