@@ -5034,3 +5034,53 @@ CORE_V1_AUTH_SESSION_LIFECYCLE_001_gate:
     action: connect_existing_UploadsAssets_transport_and_vehicle_document_runtime_to_confirmed_Resource_UI
     rule: no_new_upload_authority_no_PKK_runtime_no_schema_change_without_proven_blocker
 
+CORE_V1_RESOURCE_ASSET_UI_001_gate:
+  id: CORE-V1-RESOURCE-ASSET-UI-001
+  status: PASS
+  authority_audit: docs/169-core-v1-resource-asset-ui-closure.md
+  exact_confirmed_ui_fields:
+    - staff.photo
+    - vehicle.photo
+  scope:
+    shared_UploadsAssets_runtime_reused: true
+    new_upload_schema_or_authority: false
+    unconfirmed_vehicle_document_file_controls_added: false
+    PKK_provider_runtime_activation: forbidden
+  provenance:
+    implementation_commit: 84e7780ee0c1a6fa32d06359e3e5beac1ed49374
+    implementation_Implementation_CI_run: 34812202782
+    corrective_exact_head: 93547bf0294ec9cee617749054ffb3ccdd843290
+    corrective_Implementation_CI_run: 34812710601
+    corrective_API_Contract_Gate_run: 34812710579
+  executable_evidence:
+    exact_head_Implementation_CI_jobs_passed: 5
+    exact_head_Implementation_CI_jobs_total: 5
+    API_Contract_Gate: PASS
+    PostgreSQL_suite_tests: 271
+    PostgreSQL_suite_assertions: 5181
+    deterministic_restore_harness: PASS
+    restore_source_table_count: 121
+    restore_restored_table_count: 121
+    restore_schema_fingerprint: 09c57afe2501c79a3a684c0a695b4619114f94ddc24c9bca33728d99c1abb155
+    frontend_lint_typecheck_build_audit: PASS
+    backend_Pint_and_PHPStan: PASS
+  upload_postconditions:
+    client_SHA256_sent_to_presign_and_complete: PASS
+    direct_private_presigned_PUT: PASS
+    server_ready_state_required_before_attachment: PASS
+    staff_parent_binding: PASS
+    vehicle_parent_binding: PASS
+    same_tenant_and_purpose_enforced_by_existing_runtime: PASS
+    ready_asset_attachment_retry_without_reupload: PASS
+    raw_object_storage_credentials_exposed_to_UI: false
+    stale_deferred_upload_notice_removed: true
+  preservation:
+    vehicle_document_validity_runtime_unchanged: true
+    unobserved_document_file_picker_not_invented: true
+    resource_history_and_archive_semantics_unchanged: true
+    PKK_provider_runtime_still_frozen: PASS
+  next_after_PASS:
+    id: CORE-V1-DICTIONARIES-LANGUAGES-001
+    action: bind_GET_languages_to_existing_active_global_language_catalog_only
+    rule: no_product_language_availability_inference_no_schema_change
+
