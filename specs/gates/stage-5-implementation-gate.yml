@@ -4478,7 +4478,7 @@ CORE_V1_STAGE4_CONSTRAINTS_WRITE_FENCE_001_gate:
       - MIG-TRG-EXAMS
       - MIG-TRG-COMMERCE
       - MIG-TRG-EVENTS
-    expected_materialized_nodes_after_PASS: 157
+    expected_materialized_nodes_after_PASS: 166
     expected_materialized_steps_after_PASS: 205
     expected_write_fence_steps_after_PASS: 48
     remaining_write_fence_steps_after_PASS: 4
@@ -4487,7 +4487,7 @@ CORE_V1_STAGE4_CONSTRAINTS_WRITE_FENCE_001_gate:
 
 CORE_V1_STAGE4_TRIGGERS_WRITE_FENCE_001_gate:
   id: CORE-V1-STAGE4-TRIGGERS-WRITE-FENCE-001
-  status: IN_AUDIT
+  status: PASS
   authority_audit: docs/161-core-v1-stage4-triggers-write-fence-authority-audit.md
   exact_nodes:
     - MIG-TRG-IDENTITY
@@ -4499,15 +4499,73 @@ CORE_V1_STAGE4_TRIGGERS_WRITE_FENCE_001_gate:
     - MIG-TRG-EXAMS
     - MIG-TRG-COMMERCE
     - MIG-TRG-EVENTS
-  expected_Stage_4_materialized_nodes_after_PASS: 157
+  expected_Stage_4_materialized_nodes_after_PASS: 166
   expected_Stage_4_materialized_steps_after_PASS: 205
   expected_write_fence_steps_after_PASS: 48
   projection_write_fence_steps_deferred: 4
+  Stage_4_plan_identity: d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10
+  Stage_4_execution_identity: 15a237c1cf88deeb2a8943d243761e2d1abc6cadc83f93356983206306e20924
+  frozen_authority_changed: false
   provider_runtime_activation: forbidden
   PKK_provider_runtime_status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+  provenance:
+    validation_PR: 92
+    validation_PR_merged: false
+    validated_commit: c39bdcc29dbfbd1668ff532a17fe528e36e52011
+    validated_tree: c519ef54b36157f331ba9e67bf4cb0444f15c267
+    validated_Implementation_CI_run: 34797440565
+  executable_evidence:
+    Implementation_CI_jobs_passed: 5
+    Implementation_CI_jobs_total: 5
+    PostgreSQL_suite_tests: 251
+    PostgreSQL_suite_assertions: 4991
+    deterministic_restore_harness: PASS
+    restore_source_table_count: 121
+    restore_restored_table_count: 121
+    exact_nine_trigger_write_fence_steps_registered_in_canonical_order: PASS
+    exact_migration_file_SHA256_registry: PASS
+    Stage_4_materialized_nodes: 166
+    Stage_4_materialized_steps: 205
+    preflight_nodes_materialized: 39
+    write_fence_steps_materialized: 48
+    remaining_write_fence_steps: 4
+    PKK_provider_runtime_still_frozen: PASS
   scope_boundary:
     trigger_guard_DDL: allowed
     row_backfill_or_reconcile: forbidden
     projection_population_or_runtime_projection_trigger: forbidden
     validate_or_contract_phase: forbidden
     external_provider_IO: forbidden
+  next_after_PASS:
+    id: CORE-V1-STAGE4-PROJECTIONS-WRITE-FENCE-001
+    action: materialize_four_projection_write_fence_steps_only
+    exact_nodes:
+      - MIG-PRJ-CALENDAR-RESOURCE-CLAIMS
+      - MIG-PRJ-PURCHASE-HISTORY
+      - MIG-PRJ-ORGANIZATION-ACTIVITY
+      - MIG-PRJ-NOTIFICATIONS
+    expected_materialized_nodes_after_PASS: 170
+    expected_materialized_steps_after_PASS: 209
+    expected_write_fence_steps_after_PASS: 52
+    remaining_write_fence_steps_after_PASS: 0
+    rule: do_not_enter_backfill_until_projection_write_fence_gate_is_PASS
+
+
+CORE_V1_STAGE4_PROJECTIONS_WRITE_FENCE_001_gate:
+  id: CORE-V1-STAGE4-PROJECTIONS-WRITE-FENCE-001
+  status: READY
+  exact_nodes:
+    - MIG-PRJ-CALENDAR-RESOURCE-CLAIMS
+    - MIG-PRJ-PURCHASE-HISTORY
+    - MIG-PRJ-ORGANIZATION-ACTIVITY
+    - MIG-PRJ-NOTIFICATIONS
+  expected_Stage_4_materialized_nodes_after_PASS: 170
+  expected_Stage_4_materialized_steps_after_PASS: 209
+  expected_write_fence_steps_after_PASS: 52
+  remaining_write_fence_steps_after_PASS: 0
+  backfill_nodes_authoritative_after_PASS: 7
+  scope_boundary:
+    projection_write_fence_only: allowed
+    row_backfill_or_reconcile: forbidden
+    validate_or_contract_phase: forbidden
+    PKK_provider_runtime_activation: forbidden

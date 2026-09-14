@@ -1,6 +1,6 @@
 # CORE-V1-STAGE4-TRIGGERS-WRITE-FENCE-001 — authority audit
 
-Status: `IN_AUDIT`
+Status: `PASS`
 
 This document narrows the frozen Stage-4 trigger tranche before any trigger DDL is registered.
 The frozen DAG is unchanged.
@@ -191,7 +191,7 @@ No function/trigger whose only purpose is to populate or maintain those runtime 
 ## Candidate target after implementation
 
 - Stage-4 DAG: **170 nodes**
-- materialized nodes: **157**
+- materialized nodes: **166**
 - materialized steps: **205**
 - global preflight: **39/39**
 - write-fence: **48/52**
@@ -200,12 +200,33 @@ No function/trigger whose only purpose is to populate or maintain those runtime 
 
 Implementation must use deterministic function/trigger signatures, exact metadata checks on resume, zero data mutation, and PostgreSQL-backed behavioral tests for every guard family.
 
-## Package validation progress
+## Integrated closure evidence
 
-The trigger definitions remain outside the canonical migration registry until all nine domain packages pass.
+All nine trigger packages are now registered in canonical write-fence order and validated together on the exact registry head.
 
-- Finance — **PASS**, commit `4db45d74de7ee8126aa0731beb56ea7f199ea85f`, CI #436 / run `34790803072`, PostgreSQL **243 tests / 4955 assertions**, restore **121 -> 121 PASS**.
-- Identity — **PASS**, commit `0a8331c6642ab0391102e515f59ab60e95787f68`, CI #438 / run `34791092407`, PostgreSQL **244 tests / 4960 assertions**, restore **121 -> 121 PASS**.
-- Training — **PASS**, commit `b29713af76beb205c33ea5a816bfc22f71993526`, CI #439 / run `34791502564`, PostgreSQL **245 tests / 4961 assertions**, restore **121 -> 121 PASS**.
-- Calendar — **IN_VALIDATION**; code candidate is present and remains unregistered in `implementations.json`.
+- validation PR: `#92`
+- validated commit: `c39bdcc29dbfbd1668ff532a17fe528e36e52011`
+- Stage-4 plan identity: `d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10`
+- Stage-4 execution identity: `15a237c1cf88deeb2a8943d243761e2d1abc6cadc83f93356983206306e20924`
+- materialized nodes: **166 / 170**
+- materialized steps: **205**
+- global preflight: **39 / 39**
+- write-fence: **48 / 52**
+- projection write-fence steps remaining: **4**
+- Implementation CI #458 / run `34797440565`: **5 / 5 PASS**
+- PostgreSQL: **251 tests / 4991 assertions — PASS**
+- deterministic restore: **121 -> 121 PASS**
+- PKK provider runtime: **FROZEN_UNTIL_EXPLICIT_UNFREEZE**
 
+The integrated run executes the registered `MIG-TRG-*` migrations through the controlled migration registry. The package-level tests remain behavioral proofs, but the closure authority is the integrated exact-head run above.
+
+## Next gate
+
+The next gate is limited to the four remaining projection write-fence nodes:
+
+1. `MIG-PRJ-CALENDAR-RESOURCE-CLAIMS`
+2. `MIG-PRJ-PURCHASE-HISTORY`
+3. `MIG-PRJ-ORGANIZATION-ACTIVITY`
+4. `MIG-PRJ-NOTIFICATIONS`
+
+That gate may complete write-fence to **52 / 52**, but it must not enter backfill, reconcile, validate, or contract. Those later phases remain behind the global phase barrier.
