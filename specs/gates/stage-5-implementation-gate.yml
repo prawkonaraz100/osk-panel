@@ -5084,3 +5084,45 @@ CORE_V1_RESOURCE_ASSET_UI_001_gate:
     action: bind_GET_languages_to_existing_active_global_language_catalog_only
     rule: no_product_language_availability_inference_no_schema_change
 
+CORE_V1_DICTIONARIES_LANGUAGES_001_gate:
+  id: CORE-V1-DICTIONARIES-LANGUAGES-001
+  status: PASS
+  authority_audit: docs/170-core-v1-dictionaries-languages-closure.md
+  exact_operations:
+    - dictionaries.languages.list
+  scope:
+    schema_or_migration_change: false
+    existing_languages_catalog_reused: true
+    product_language_capability_inference: forbidden
+    PKK_provider_runtime_activation: forbidden
+  provenance:
+    exact_head_commit: a25d4a5b4e30ca037d0d203400e38ca821b6836a
+    exact_head_Implementation_CI_run: 34813917123
+    exact_head_API_Contract_Gate_run: 34813917131
+  executable_evidence:
+    exact_head_Implementation_CI_jobs_passed: 5
+    exact_head_Implementation_CI_jobs_total: 5
+    API_Contract_Gate: PASS
+    PostgreSQL_suite_tests: 273
+    PostgreSQL_suite_assertions: 5185
+    deterministic_restore_harness: PASS
+    restore_source_table_count: 121
+    restore_restored_table_count: 121
+    restore_schema_fingerprint: 09c57afe2501c79a3a684c0a695b4619114f94ddc24c9bca33728d99c1abb155
+  dictionary_postconditions:
+    authenticated_active_membership_required: PASS
+    active_language_rows_only: PASS
+    deterministic_code_order: PASS
+    inactive_languages_hidden: PASS
+    license_product_language_capabilities_not_consulted: PASS
+    endpoint_claims_global_dictionary_only: PASS
+  closure_effect:
+    repo_actionable_HTTP_bindings_before_this_gate: 20
+    HTTP_bindings_closed_by_this_gate: 1
+    derived_repo_actionable_HTTP_bindings_remaining: 19
+    full_closure_reaudit_required_before_repository_complete: true
+  next_after_PASS:
+    id: CORE-V1-AUDIT-LOGS-LIST-001
+    action: bind_restricted_GET_audit_logs_to_existing_append_only_audit_authority
+    rule: tenant_first_permission_gated_minimized_projection_no_raw_payload_serialization
+
