@@ -35,6 +35,6 @@ final class ReconciliationPolicyContractTest extends TestCase
     {
         $source = file_get_contents(base_path('app/Modules/AuditNotification/AtomicAuditOutbox.php'));
         $this->assertIsString($source);
-        $this->assertSame(2, substr_count($source, '\'next_attempt_at\' => $now'));
+        $this->assertSame(3, substr_count($source, '\'next_attempt_at\' => $now'));
     }
 }

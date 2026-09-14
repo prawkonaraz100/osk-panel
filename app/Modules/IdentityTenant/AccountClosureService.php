@@ -123,6 +123,7 @@ final class AccountClosureService
     }
 
     /**
+     * @param  object{request_hash:mixed,status:mixed,safe_response_snapshot:mixed}  $record
      * @return array{id:string,status:string,requested_at:string}
      */
     private function replayExistingIdempotency(object $record, string $requestHash): array
@@ -170,6 +171,7 @@ final class AccountClosureService
     }
 
     /**
+     * @param  object{id:mixed,status:mixed,requested_at:mixed}  $row
      * @return array{id:string,status:string,requested_at:string}
      */
     private function present(object $row): array
