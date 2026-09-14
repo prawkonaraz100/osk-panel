@@ -9,7 +9,7 @@ final class AuthSocialAuthorityContractTest extends TestCase
 {
     public function test_social_authority_is_schema_preserving_and_fail_closed(): void
     {
-        $authority = Yaml::parseFile(base_path('specs/design/auth-social.yml'));
+        $authority = Yaml::parseFile(dirname(__DIR__, 2).'/specs/design/auth-social.yml');
 
         self::assertSame('CORE-V1-AUTH-SOCIAL-AUTHORITY-001', $authority['authority']['id']);
         self::assertFalse($authority['scope']['schema_or_migration_change']);
