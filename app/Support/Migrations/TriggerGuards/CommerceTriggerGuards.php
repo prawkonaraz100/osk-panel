@@ -1304,29 +1304,25 @@ PLPGSQL,
                 'name' => 'commerce_course_cost_origin_final_state',
                 'body' => <<<'PLPGSQL'
 DECLARE
-    v_origin_id uuid;
+    v_organization_id uuid;
+    v_student_charge_id uuid;
     v_origin course_cost_charge_origins%ROWTYPE;
     v_charge student_charges%ROWTYPE;
 BEGIN
     IF TG_TABLE_NAME = 'course_cost_charge_origins' THEN
-        v_origin_id := CASE WHEN TG_OP = 'DELETE' THEN OLD.id ELSE NEW.id END;
+        v_organization_id := CASE WHEN TG_OP = 'DELETE' THEN OLD.organization_id ELSE NEW.organization_id END;
+        v_student_charge_id := CASE WHEN TG_OP = 'DELETE' THEN OLD.student_charge_id ELSE NEW.student_charge_id END;
     ELSE
-        SELECT id
-          INTO v_origin_id
-          FROM course_cost_charge_origins
-         WHERE organization_id = CASE WHEN TG_OP = 'DELETE' THEN OLD.organization_id ELSE NEW.organization_id END
-           AND student_charge_id = CASE WHEN TG_OP = 'DELETE' THEN OLD.id ELSE NEW.id END
-         LIMIT 1;
-    END IF;
-
-    IF v_origin_id IS NULL THEN
-        RETURN NULL;
+        v_organization_id := CASE WHEN TG_OP = 'DELETE' THEN OLD.organization_id ELSE NEW.organization_id END;
+        v_student_charge_id := CASE WHEN TG_OP = 'DELETE' THEN OLD.id ELSE NEW.id END;
     END IF;
 
     SELECT *
       INTO v_origin
       FROM course_cost_charge_origins
-     WHERE id = v_origin_id;
+     WHERE organization_id = v_organization_id
+       AND student_charge_id = v_student_charge_id
+     LIMIT 1;
 
     IF NOT FOUND THEN
         RETURN NULL;
