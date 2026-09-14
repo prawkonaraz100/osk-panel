@@ -15,6 +15,8 @@ final class SocialAuthController
 
     public function redirect(Request $request, string $provider): RedirectResponse
     {
+        $request->session()->put('social_oauth_pending', true);
+
         $url = $this->social->begin(
             $provider,
             $request->session()->getId(),
@@ -37,8 +39,12 @@ final class SocialAuthController
                 $request->query('error'),
             );
         } catch (SocialAuthFlowException $exception) {
+            $request->session()->forget('social_oauth_pending');
+
             return redirect()->to($this->errorUrl($exception->returnUrl));
         }
+
+        $request->session()->forget('social_oauth_pending');
 
         if ($result['mode'] === 'authenticated_link') {
             return redirect()->to($result['return_url']);
