@@ -42,6 +42,20 @@ final class ActivityNotificationController
         ));
     }
 
+    public function auditLogsList(Request $request): JsonResponse
+    {
+        [$page, $perPage] = $this->pagination($request);
+
+        return response()->json($this->service->listAuditLogs(
+            $this->sessionId($request),
+            $page,
+            $perPage,
+            $this->nullableQueryFilter($request, 'entity_type', 128),
+            $this->nullableQueryFilter($request, 'entity_id', 128),
+            $this->nullableQueryFilter($request, 'request_id', 64),
+        ));
+    }
+
     public function notificationsMarkRead(Request $request, string $notificationId): JsonResponse
     {
         $sessionId = $this->sessionId($request);
@@ -107,6 +121,24 @@ final class ActivityNotificationController
         }
 
         return $eventTypes;
+    }
+
+    private function nullableQueryFilter(Request $request, string $key, int $maxLength): ?string
+    {
+        $raw = $request->query($key);
+        if ($raw === null) {
+            return null;
+        }
+        if (! is_string($raw)) {
+            throw ValidationException::withMessages([$key => ["{$key} must be a string query value."]]);
+        }
+
+        $value = trim($raw);
+        if ($value === '' || mb_strlen($value) > $maxLength) {
+            throw ValidationException::withMessages([$key => ["{$key} must be between 1 and {$maxLength} characters."]]);
+        }
+
+        return $value;
     }
 
     private function unreadOnly(Request $request): bool

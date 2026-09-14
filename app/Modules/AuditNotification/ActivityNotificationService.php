@@ -65,6 +65,68 @@ final class ActivityNotificationService
         ];
     }
 
+    /** @return array{data:list<array<string,mixed>>,meta:array{page:int,per_page:int,total:int,last_page:int}} */
+    public function listAuditLogs(
+        string $sessionId,
+        int $page,
+        int $perPage,
+        ?string $entityType,
+        ?string $entityId,
+        ?string $requestId,
+    ): array {
+        $membership = $this->tenantAuthorizer->activeMembershipForSession($sessionId);
+        $this->tenantAuthorizer->requireOrganizationPermission(
+            $sessionId,
+            $membership['organization_id'],
+            'organization.audit.view',
+        );
+
+        $query = DB::table('audit_logs')
+            ->where('audit_scope', 'organization')
+            ->where('organization_id', $membership['organization_id'])
+            ->whereNotNull('entity_type');
+
+        if ($entityType !== null) {
+            $query->where('entity_type', $entityType);
+        }
+        if ($entityId !== null) {
+            $query->where('entity_id', $entityId);
+        }
+        if ($requestId !== null) {
+            $query->where('request_id', $requestId);
+        }
+
+        $total = (int) (clone $query)->count();
+        $rows = $query
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->forPage($page, $perPage)
+            ->get([
+                'id',
+                'action',
+                'entity_type',
+                'entity_id',
+                'actor_user_id',
+                'request_id',
+                'reason',
+                'created_at',
+            ]);
+
+        return [
+            'data' => array_values($rows->map(static fn (object $row): array => [
+                'id' => (string) $row->id,
+                'action' => (string) $row->action,
+                'entity_type' => (string) $row->entity_type,
+                'entity_id' => $row->entity_id === null ? null : (string) $row->entity_id,
+                'actor_user_id' => $row->actor_user_id === null ? null : (string) $row->actor_user_id,
+                'request_id' => (string) $row->request_id,
+                'reason' => $row->reason === null ? null : (string) $row->reason,
+                'created_at' => (string) $row->created_at,
+            ])->all()),
+            'meta' => $this->paginationMeta($page, $perPage, $total),
+        ];
+    }
+
     /** @return array<string,mixed> */
     public function markRead(string $sessionId, string $notificationId): array
     {

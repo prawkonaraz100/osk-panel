@@ -53,4 +53,12 @@ changed_scope:
     ui: notification read affordance deferred to the dashboard UI gate
     acceptance_test: Tests\\Feature\\DashboardNotificationCoreTest::test_mark_read_sets_timestamp_once_and_is_idempotent_across_replays
     status: IMPLEMENTED
+  - evidence: specs/api/paths/commerce-dashboard.yaml
+    requirement: restricted audit listing is tenant-first permission-gated and serializes only the minimized AuditLogEntry projection rather than raw redacted payload storage
+    domain_data: audit_logs
+    api_use_case: audit_logs.list
+    permission: organization.audit.view with organization scope
+    ui: NOT_APPLICABLE_RUNTIME_API_GATE
+    acceptance_test: Tests\\Feature\\AuditLogRuntimeTest::test_audit_log_projection_is_tenant_scoped_filtered_and_does_not_serialize_raw_payloads + Tests\\Feature\\AuditLogRuntimeTest::test_audit_log_projection_requires_explicit_organization_audit_permission
+    status: IMPLEMENTED
 

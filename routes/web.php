@@ -148,6 +148,7 @@ Route::middleware(ResourceApiMiddleware::class)->prefix('api/v1')->group(functio
     Route::get('/purchase-history', [CommerceDashboardController::class, 'purchaseHistoryList']);
     Route::get('/dashboard', [DashboardController::class, 'get']);
 
+    Route::get('/audit-logs', [ActivityNotificationController::class, 'auditLogsList']);
     Route::get('/activity', [ActivityNotificationController::class, 'activityList']);
     Route::get('/notifications', [ActivityNotificationController::class, 'notificationsList']);
     Route::post('/notifications/{notificationId}/read', [ActivityNotificationController::class, 'notificationsMarkRead']);
