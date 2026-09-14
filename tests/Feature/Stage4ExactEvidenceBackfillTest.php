@@ -171,6 +171,7 @@ final class Stage4ExactEvidenceBackfillTest extends TestCase
             'actor_snapshot_rule_code' => 'required_audit_actor.v1',
             'subject_reference_rule_code' => 'none.v1',
             'related_student_rule_code' => 'none.v1',
+            'navigation_rule_code' => 'none.v1',
             'supports_expand' => false,
             'policy_hash' => hash('sha256', $activityEventType.'|1'),
             'created_at' => $occurredAt,
