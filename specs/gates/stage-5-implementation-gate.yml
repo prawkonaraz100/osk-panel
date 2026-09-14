@@ -4553,19 +4553,93 @@ CORE_V1_STAGE4_TRIGGERS_WRITE_FENCE_001_gate:
 
 CORE_V1_STAGE4_PROJECTIONS_WRITE_FENCE_001_gate:
   id: CORE-V1-STAGE4-PROJECTIONS-WRITE-FENCE-001
-  status: READY
+  status: PASS
+  authority_audit: docs/162-core-v1-stage4-projections-write-fence-authority-audit.md
   exact_nodes:
     - MIG-PRJ-CALENDAR-RESOURCE-CLAIMS
     - MIG-PRJ-PURCHASE-HISTORY
     - MIG-PRJ-ORGANIZATION-ACTIVITY
     - MIG-PRJ-NOTIFICATIONS
-  expected_Stage_4_materialized_nodes_after_PASS: 170
-  expected_Stage_4_materialized_steps_after_PASS: 209
-  expected_write_fence_steps_after_PASS: 52
-  remaining_write_fence_steps_after_PASS: 0
-  backfill_nodes_authoritative_after_PASS: 7
+  Stage_4_materialized_nodes: 170
+  Stage_4_materialized_steps: 209
+  write_fence_steps_materialized: 52
+  remaining_write_fence_steps: 0
+  Stage_4_plan_identity: d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10
+  Stage_4_execution_identity: b0ea9422e89ef355be12c21a10580c202c8c4689f7fdf05908d59c94e81b6ae4
+  frozen_authority_changed: false
+  PKK_provider_runtime_status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+  provenance:
+    validation_PR: 92
+    validation_helper_commit: a3b0d8fa0a87eb7bc8e3e55faf0fa4b4d35e530a
+    package_proof_Implementation_CI_run: 34798318766
+    canonical_materialization_commit: 469fd8ce91121bd96dd183d980d24a704141b25a
+    exact_head_commit: 165afa5d07cede9cbe7ccd8d648438fd811255be
+    exact_head_Implementation_CI_run: 34799231801
+  executable_evidence:
+    package_proof_Implementation_CI_jobs_passed: 5
+    package_proof_Implementation_CI_jobs_total: 5
+    exact_head_Implementation_CI_jobs_passed: 5
+    exact_head_Implementation_CI_jobs_total: 5
+    PostgreSQL_suite_tests: 252
+    PostgreSQL_suite_assertions: 5000
+    deterministic_restore_harness: PASS
+    restore_source_table_count: 121
+    restore_restored_table_count: 121
+    exact_four_projection_write_fence_steps_registered_in_canonical_order: PASS
+    write_fence_phase_complete_52_of_52: PASS
+    backfill_steps_registered: 0
+    reconcile_steps_registered: 0
+    validate_steps_registered: 0
+    contract_steps_registered: 0
+    PKK_provider_runtime_still_frozen: PASS
   scope_boundary:
     projection_write_fence_only: allowed
     row_backfill_or_reconcile: forbidden
     validate_or_contract_phase: forbidden
+    PKK_provider_runtime_activation: forbidden
+  next_after_PASS:
+    id: CORE-V1-STAGE4-BACKFILL-001
+    action: materialize_seven_exact_evidence_backfill_steps_only
+    exact_nodes:
+      - MIG-FK-PURCHASE_DOWNSTREAM
+      - MIG-FK-EVENTS
+      - MIG-TRG-EVENTS
+      - MIG-PRJ-CALENDAR-RESOURCE-CLAIMS
+      - MIG-PRJ-PURCHASE-HISTORY
+      - MIG-PRJ-ORGANIZATION-ACTIVITY
+      - MIG-PRJ-NOTIFICATIONS
+    expected_materialized_nodes_after_PASS: 170
+    expected_materialized_steps_after_PASS: 216
+    expected_backfill_steps_after_PASS: 7
+    rule: exact_durable_evidence_only_no_reconcile_validate_or_contract
+
+
+CORE_V1_STAGE4_BACKFILL_001_gate:
+  id: CORE-V1-STAGE4-BACKFILL-001
+  status: READY
+  exact_nodes:
+    - MIG-FK-PURCHASE_DOWNSTREAM
+    - MIG-FK-EVENTS
+    - MIG-TRG-EVENTS
+    - MIG-PRJ-CALENDAR-RESOURCE-CLAIMS
+    - MIG-PRJ-PURCHASE-HISTORY
+    - MIG-PRJ-ORGANIZATION-ACTIVITY
+    - MIG-PRJ-NOTIFICATIONS
+  expected_Stage_4_materialized_nodes_after_PASS: 170
+  expected_Stage_4_materialized_steps_after_PASS: 216
+  expected_backfill_steps_after_PASS: 7
+  reconcile_nodes_authoritative_after_PASS: 7
+  evidence_policy:
+    safe_exact_derivation: allowed
+    proven_historical_fact: allowed
+    reviewed_exact_remediation: not_part_of_automatic_backfill
+    unresolved_ambiguity: leave_unmodified_and_defer_to_reconcile
+    timestamp_name_amount_uuid_same_tenant_similarity: forbidden
+  scope_boundary:
+    exact_evidence_backfill_only: allowed
+    create_missing_business_effect_or_grant: forbidden
+    reparent_or_guess_lineage: forbidden
+    reconcile_or_review_resolution: forbidden
+    validate_or_contract_phase: forbidden
+    disable_write_fence_to_make_backfill_pass: forbidden
     PKK_provider_runtime_activation: forbidden
