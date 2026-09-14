@@ -199,3 +199,13 @@ No function/trigger whose only purpose is to populate or maintain those runtime 
 - PKK provider runtime: **FROZEN_UNTIL_EXPLICIT_UNFREEZE**
 
 Implementation must use deterministic function/trigger signatures, exact metadata checks on resume, zero data mutation, and PostgreSQL-backed behavioral tests for every guard family.
+
+## Package validation progress
+
+The trigger definitions remain outside the canonical migration registry until all nine domain packages pass.
+
+- Finance — **PASS**, commit `4db45d74de7ee8126aa0731beb56ea7f199ea85f`, CI #436 / run `34790803072`, PostgreSQL **243 tests / 4955 assertions**, restore **121 -> 121 PASS**.
+- Identity — **PASS**, commit `0a8331c6642ab0391102e515f59ab60e95787f68`, CI #438 / run `34791092407`, PostgreSQL **244 tests / 4960 assertions**, restore **121 -> 121 PASS**.
+- Training — **PASS**, commit `b29713af76beb205c33ea5a816bfc22f71993526`, CI #439 / run `34791502564`, PostgreSQL **245 tests / 4961 assertions**, restore **121 -> 121 PASS**.
+- Calendar — **IN_VALIDATION**; code candidate is present and remains unregistered in `implementations.json`.
+
