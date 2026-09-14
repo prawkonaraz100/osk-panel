@@ -6835,3 +6835,60 @@ CORE_V1_CLOSURE_AUDIT_010_gate:
     schema_or_migration_change: forbidden
     PKK_runtime_activation: forbidden
 
+CORE_V1_AUTH_PASSWORD_RECOVERY_AUTHORITY_001_gate:
+  id: CORE-V1-AUTH-PASSWORD-RECOVERY-AUTHORITY-001
+  status: PASS
+  authority:
+    narrative: docs/198-core-v1-auth-password-recovery-authority.md
+    machine: specs/design/auth-password-recovery.yml
+    API:
+      - specs/api/paths/auth-organization.yaml
+      - specs/api/openapi-components-v1.yaml
+    database: specs/database/core-schema.yml
+  exact_scope:
+    operations:
+      - auth.password_forgot
+      - auth.password_reset
+    token_storage: server_side_cache
+    token_TTL_seconds: 1800
+    token_random_bytes: 32
+    one_time: true
+    one_live_token_per_user: true
+    reissue_invalidates_previous: true
+    eligibility_management_mode: self_service
+    organization_managed: forbidden
+    verified_primary_email_required: true
+    reset_revokes_all_active_auth_sessions: true
+    schema_or_migration_change: false
+    HTTP_binding_change: false
+    PKK_runtime_activation: false
+  provenance:
+    exact_authority_head: b921a57c0b2485b9ff02afdb30b3ff615125c226
+    exact_authority_tree: 154af3ce3e28d7d41841dfe5adc1cbedeff1acc6
+    exact_head_Implementation_CI_run: 34887362504
+    exact_head_API_Contract_Gate_run: 34887362555
+  executable_evidence:
+    Implementation_CI_jobs_passed: 5
+    Implementation_CI_jobs_total: 5
+    API_Contract_Gate: PASS
+    PostgreSQL_suite_tests: 326
+    PostgreSQL_suite_assertions: 5745
+    deterministic_restore_harness: PASS
+    restore_source_table_count: 121
+    restore_restored_table_count: 121
+    restore_schema_fingerprint: 09c57afe2501c79a3a684c0a695b4619114f94ddc24c9bca33728d99c1abb155
+    backend_Pint_and_PHPStan: PASS
+    frontend_quality: PASS
+    contracts_and_traceability: PASS
+    secret_scan: PASS
+  closure_effect:
+    physical_HTTP_bindings_closed_by_authority_gate: 0
+    reclassification_requires_fresh_closure_audit: true
+    candidate_operations:
+      - auth.password_forgot
+      - auth.password_reset
+  next_after_PASS:
+    id: CORE-V1-CLOSURE-AUDIT-011
+    action: reclassify_password_recovery_HTTP_after_authority_PASS
+    rule: implementation_only_after_fresh_audit_no_PKK_runtime
+

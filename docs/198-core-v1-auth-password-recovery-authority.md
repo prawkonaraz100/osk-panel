@@ -2,7 +2,7 @@
 
 Data: 2026-09-14
 
-**Status:** `IN_VALIDATION`
+**Status:** `PASS`
 
 ## Problem
 
@@ -154,3 +154,34 @@ After exact-head authority PASS and a fresh closure audit, exactly two operation
 
 - `auth.password_forgot`
 - `auth.password_reset`
+
+## Exact-head validation evidence
+
+Accepted authority head:
+
+`b921a57c0b2485b9ff02afdb30b3ff615125c226`
+
+Tree:
+
+`154af3ce3e28d7d41841dfe5adc1cbedeff1acc6`
+
+Validation:
+
+- Implementation CI #560 / run `34887362504`: **5/5 PASS**
+- API Contract Gate #452 / run `34887362555`: **PASS**
+- PostgreSQL: **326 tests / 5745 assertions — PASS**
+- deterministic restore: **121 -> 121 PASS**
+- restore fingerprint: `09c57afe2501c79a3a684c0a695b4619114f94ddc24c9bca33728d99c1abb155`
+- `RESTORE_DRILL_HARNESS=PASS`
+- backend Pint/PHPStan, frontend, contracts/traceability and secret scan: **PASS**
+
+No HTTP binding and no schema/migration change was made by this authority gate.
+
+## Closure effect
+
+The authority removes the repository-owned lifecycle blocker for:
+
+- `auth.password_forgot`
+- `auth.password_reset`
+
+A fresh closure audit is still required before implementation.
