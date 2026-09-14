@@ -4873,22 +4873,56 @@ CORE_V1_STAGE4_VALIDATE_001_gate:
 
 CORE_V1_STAGE4_CONTRACT_001_gate:
   id: CORE-V1-STAGE4-CONTRACT-001
-  status: READY
+  status: PASS
+  authority_audit: docs/166-core-v1-stage4-contract-authority-audit.md
   exact_nodes:
     - MIG-PRJ-CALENDAR-RESOURCE-CLAIMS
     - MIG-PRJ-PURCHASE-HISTORY
     - MIG-PRJ-ORGANIZATION-ACTIVITY
     - MIG-PRJ-NOTIFICATIONS
-  expected_Stage_4_materialized_nodes_after_PASS: 170
-  expected_Stage_4_materialized_steps_after_PASS: 261
-  expected_contract_steps_after_PASS: 4
-  entry_requires:
-    - validate_exit_gate_PASS
-    - required_unresolved_P0_P1_cases_equal_zero
-    - previous_or_fallback_application_compatibility_decision_recorded
-    - superseded_writer_paths_are_stopped_or_deauthorized_before_removal
-    - successful_isolated_restore_test_evidence_exists
-    - authorized_release_operator_accepts_destructive_or_deauthorization_scope
+  Stage_4_materialized_nodes: 170
+  Stage_4_materialized_steps: 261
+  contract_steps_materialized: 4
+  Stage_4_plan_identity: d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10
+  Stage_4_execution_identity: 82da84d3efb312d78b432ad6081491c04b03569a0f250722d6befc11ca233712
+  frozen_authority_changed: false
+  PKK_provider_runtime_status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+  provenance:
+    package_proof_commit: 197ef62a57491e555be83dff5f1df16e88728419
+    package_proof_Implementation_CI_run: 34807668525
+    exact_head_commit: cc22df5130d5d7bb06c1e2ef8f4a0aa60c06ef7e
+    exact_head_Implementation_CI_run: 34808726322
+  entry_evidence:
+    validate_exit_gate: PASS
+    required_unresolved_P0_P1_cases_equal_zero: PASS
+    compatibility_decision: ZERO_SCOPE_NO_SUPERSEDED_PHYSICAL_PATH_REMOVED_OR_DEAUTHORIZED
+    superseded_writer_deauthorization_before_removal: NOT_APPLICABLE_ZERO_SCOPE
+    successful_isolated_restore_test_evidence: PASS
+    authorized_scope_recorded: ZERO_DESTRUCTIVE_OR_DEAUTHORIZATION_ACTIONS_ONLY
+    nonzero_scope_requires_new_reviewed_gate: true
+  executable_evidence:
+    package_proof_Implementation_CI_jobs_passed: 5
+    package_proof_Implementation_CI_jobs_total: 5
+    exact_head_Implementation_CI_jobs_passed: 5
+    exact_head_Implementation_CI_jobs_total: 5
+    PostgreSQL_suite_tests: 261
+    PostgreSQL_suite_assertions: 5110
+    deterministic_restore_harness: PASS
+    restore_source_table_count: 121
+    restore_restored_table_count: 121
+    restore_schema_fingerprint: 09c57afe2501c79a3a684c0a695b4619114f94ddc24c9bca33728d99c1abb155
+    exact_four_contract_steps_registered_in_canonical_order: PASS
+    contract_phase_complete_4_of_4: PASS
+    every_contract_step_asserts_no_destructive_scope: PASS
+    legacy_orders_status_blocks_contract_instead_of_being_dropped: PASS
+    reopened_unresolved_migration_case_blocks_contract_without_history_mutation: PASS
+    contract_steps_execute_under_controlled_migration_context: PASS
+    PKK_provider_runtime_still_frozen: PASS
+  contract_result:
+    removed_objects: 0
+    deauthorized_paths: 0
+    destructive_or_deauthorization_actions: 0
+    all_four_nodes_no_op: true
   contract_policy:
     only_explicitly_superseded_projection_compatibility_paths_may_be_removed_or_deauthorized: true
     formal_financial_audit_or_business_history_rewrite_or_delete: forbidden
@@ -4896,6 +4930,12 @@ CORE_V1_STAGE4_CONTRACT_001_gate:
     cleanup_that_requires_guessing_legacy_lineage_recipient_read_state_or_payment_truth: forbidden
     no_op_assertion_is_allowed_when_no_superseded_physical_path_exists_for_a_node: true
   scope_boundary:
-    four_projection_contract_nodes_only: allowed
+    four_projection_contract_nodes_only: PASS
+    destructive_cleanup_performed: false
+    deauthorization_performed: false
     reopen_backfill_or_reconcile_implicitly: forbidden
     PKK_provider_runtime_activation: forbidden
+  next_after_PASS:
+    id: CORE-V1-CLOSURE-AUDIT-001
+    action: rerun_repository_closure_audit_after_complete_stage4_migration_materialization
+    rule: do_not_reopen_PKK_frozen_boundary_without_explicit_unfreeze
