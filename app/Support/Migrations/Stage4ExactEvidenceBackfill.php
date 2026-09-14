@@ -298,6 +298,28 @@ unsafe_owners AS (
                 AND existing.ends_at = c.ends_at
             )
      )
+        OR EXISTS (
+         SELECT 1
+           FROM calendar_resource_claims owned
+          WHERE owned.organization_id = c.organization_id
+            AND owned.claim_owner_kind = c.owner_kind
+            AND owned.claim_owner_id = c.owner_id
+            AND NOT EXISTS (
+                SELECT 1
+                  FROM all_candidates expected
+                 WHERE expected.organization_id = owned.organization_id
+                   AND expected.owner_kind = owned.claim_owner_kind
+                   AND expected.owner_id = owned.claim_owner_id
+                   AND expected.starts_at = owned.starts_at
+                   AND expected.ends_at = owned.ends_at
+                   AND (
+                       (expected.resource_kind = 'student' AND owned.student_id = expected.resource_id)
+                    OR (expected.resource_kind = 'instructor' AND owned.instructor_id = expected.resource_id)
+                    OR (expected.resource_kind = 'vehicle' AND owned.vehicle_id = expected.resource_id)
+                    OR (expected.resource_kind = 'location' AND owned.location_id = expected.resource_id)
+                   )
+            )
+     )
 )
 INSERT INTO calendar_resource_claims (
     id, organization_id, claim_owner_kind, claim_owner_id, {$resourceColumn},
@@ -325,7 +347,6 @@ SELECT
           AND exact.starts_at = c.starts_at
           AND exact.ends_at = c.ends_at
  )
-ON CONFLICT DO NOTHING
 SQL;
     }
 
@@ -337,6 +358,10 @@ SQL;
 UPDATE orders o
    SET booked_at = settlement.settled_at
   FROM order_payment_settlements settlement
+  JOIN payments payment
+    ON payment.organization_id = settlement.organization_id
+   AND payment.id = settlement.payment_id
+   AND payment.order_id = settlement.order_id
   JOIN order_fulfillments fulfillment
     ON fulfillment.organization_id = settlement.organization_id
    AND fulfillment.order_id = settlement.order_id
@@ -347,6 +372,33 @@ UPDATE orders o
    AND o.id = settlement.order_id
    AND o.total_amount_minor > 0
    AND o.booked_at IS NULL
+   AND o.zero_total_settled_at IS NULL
+   AND payment.status = 'confirmed'
+   AND payment.confirmed_at IS NOT NULL
+   AND payment.amount_minor = o.total_amount_minor
+   AND payment.currency = o.currency
+   AND (
+       (
+           settlement.confirmation_source = 'reconciliation'
+           AND settlement.source_payment_event_id IS NULL
+           AND settlement.reconciled_by_user_id IS NOT NULL
+           AND NULLIF(BTRIM(settlement.reconciliation_reason), '') IS NOT NULL
+       )
+       OR (
+           settlement.confirmation_source = 'provider_event'
+           AND settlement.source_payment_event_id IS NOT NULL
+           AND settlement.reconciled_by_user_id IS NULL
+           AND settlement.reconciliation_reason IS NULL
+           AND EXISTS (
+               SELECT 1
+                 FROM payment_events event
+                WHERE event.id = settlement.source_payment_event_id
+                  AND event.organization_id = settlement.organization_id
+                  AND event.payment_id = settlement.payment_id
+                  AND event.normalized_outcome = 'confirmed'
+           )
+       )
+   )
 SQL);
 
             $zero = DB::affectingStatement(<<<'SQL'
