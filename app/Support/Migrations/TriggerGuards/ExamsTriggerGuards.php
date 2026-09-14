@@ -885,7 +885,7 @@ BEGIN
      WHERE organization_id = v_attempt.organization_id
        AND internal_exam_attempt_id = v_attempt.id;
 
-    SELECT COUNT(*), MAX(passed)
+    SELECT COUNT(*), BOOL_OR(passed)
       INTO v_result_count, v_result_passed
       FROM internal_exam_results
      WHERE organization_id = v_attempt.organization_id
