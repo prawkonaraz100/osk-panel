@@ -4688,7 +4688,8 @@ CORE_V1_STAGE4_BACKFILL_001_gate:
 
 CORE_V1_STAGE4_RECONCILE_001_gate:
   id: CORE-V1-STAGE4-RECONCILE-001
-  status: READY
+  status: PASS
+  authority_audit: docs/164-core-v1-stage4-reconcile-authority-audit.md
   exact_nodes:
     - MIG-FK-PURCHASE_DOWNSTREAM
     - MIG-FK-EVENTS
@@ -4697,16 +4698,138 @@ CORE_V1_STAGE4_RECONCILE_001_gate:
     - MIG-PRJ-PURCHASE-HISTORY
     - MIG-PRJ-ORGANIZATION-ACTIVITY
     - MIG-PRJ-NOTIFICATIONS
-  expected_Stage_4_materialized_nodes_after_PASS: 170
-  expected_Stage_4_materialized_steps_after_PASS: 223
-  expected_reconcile_steps_after_PASS: 7
-  validate_nodes_authoritative_after_PASS: 34
+  Stage_4_materialized_nodes: 170
+  Stage_4_materialized_steps: 223
+  reconcile_steps_materialized: 7
+  Stage_4_plan_identity: d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10
+  Stage_4_execution_identity: 2b8d8001da433ec87402155ef9c3e0149d36018eea9b5a03a63b7a97a54c0f76
+  frozen_authority_changed: false
+  PKK_provider_runtime_status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+  provenance:
+    package_proof_commit: a9498302da8386dea0877bf58cbce2dd44b9582d
+    package_proof_Implementation_CI_run: 34804048295
+    canonical_materialization_commit: 916c69825e14345f43dbd0f053bdfccd9a141078
+    canonical_Implementation_CI_run: 34804728243
+  executable_evidence:
+    package_proof_Implementation_CI_jobs_passed: 5
+    package_proof_Implementation_CI_jobs_total: 5
+    canonical_Implementation_CI_jobs_passed: 5
+    canonical_Implementation_CI_jobs_total: 5
+    PostgreSQL_suite_tests: 256
+    PostgreSQL_suite_assertions: 5057
+    deterministic_restore_harness: PASS
+    restore_source_table_count: 121
+    restore_restored_table_count: 121
+    exact_seven_reconcile_steps_registered_in_canonical_order: PASS
+    reconcile_phase_complete_7_of_7: PASS
+    validate_steps_registered: 0
+    contract_steps_registered: 0
+    PKK_provider_runtime_still_frozen: PASS
   reconciliation_policy:
     automatic_guessing: forbidden
     reviewed_exact_remediation_only: allowed
-    unresolved_ambiguity: remain_blocking
+    unresolved_ambiguity: blocking
     business_effect_synthesis: forbidden
+    reconcile_migrations_are_read_only_postcondition_checks: true
   scope_boundary:
     reviewed_reconciliation_only: allowed
     validate_or_contract_phase: forbidden
+    PKK_provider_runtime_activation: forbidden
+  next_after_PASS:
+    id: CORE-V1-STAGE4-VALIDATE-001
+    action: materialize_exact_thirty_four_validation_steps_only
+    exact_nodes:
+      - MIG-FK-IDENTITY
+      - MIG-FK-RESOURCES
+      - MIG-FK-TRAINING
+      - MIG-FK-CALENDAR
+      - MIG-FK-PKK
+      - MIG-FK-FINANCE
+      - MIG-FK-LICENSES
+      - MIG-FK-EXAMS
+      - MIG-FK-COMMERCE
+      - MIG-FK-PURCHASE_DOWNSTREAM
+      - MIG-FK-EVENTS
+      - MIG-CON-IDENTITY
+      - MIG-CON-RESOURCES
+      - MIG-CON-TRAINING
+      - MIG-CON-CALENDAR
+      - MIG-CON-PKK
+      - MIG-CON-FINANCE
+      - MIG-CON-LICENSES
+      - MIG-CON-EXAMS
+      - MIG-CON-COMMERCE
+      - MIG-CON-EVENTS
+      - MIG-TRG-IDENTITY
+      - MIG-TRG-TRAINING
+      - MIG-TRG-CALENDAR
+      - MIG-TRG-PKK
+      - MIG-TRG-FINANCE
+      - MIG-TRG-LICENSES
+      - MIG-TRG-EXAMS
+      - MIG-TRG-COMMERCE
+      - MIG-TRG-EVENTS
+      - MIG-PRJ-CALENDAR-RESOURCE-CLAIMS
+      - MIG-PRJ-PURCHASE-HISTORY
+      - MIG-PRJ-ORGANIZATION-ACTIVITY
+      - MIG-PRJ-NOTIFICATIONS
+    expected_materialized_nodes_after_PASS: 170
+    expected_materialized_steps_after_PASS: 257
+    expected_validate_steps_after_PASS: 34
+    contract_nodes_authoritative_after_PASS: 4
+    rule: validate_existing_constraints_guards_and_projection_postconditions_without_history_rewrite
+
+
+CORE_V1_STAGE4_VALIDATE_001_gate:
+  id: CORE-V1-STAGE4-VALIDATE-001
+  status: READY
+  exact_nodes:
+    - MIG-FK-IDENTITY
+    - MIG-FK-RESOURCES
+    - MIG-FK-TRAINING
+    - MIG-FK-CALENDAR
+    - MIG-FK-PKK
+    - MIG-FK-FINANCE
+    - MIG-FK-LICENSES
+    - MIG-FK-EXAMS
+    - MIG-FK-COMMERCE
+    - MIG-FK-PURCHASE_DOWNSTREAM
+    - MIG-FK-EVENTS
+    - MIG-CON-IDENTITY
+    - MIG-CON-RESOURCES
+    - MIG-CON-TRAINING
+    - MIG-CON-CALENDAR
+    - MIG-CON-PKK
+    - MIG-CON-FINANCE
+    - MIG-CON-LICENSES
+    - MIG-CON-EXAMS
+    - MIG-CON-COMMERCE
+    - MIG-CON-EVENTS
+    - MIG-TRG-IDENTITY
+    - MIG-TRG-TRAINING
+    - MIG-TRG-CALENDAR
+    - MIG-TRG-PKK
+    - MIG-TRG-FINANCE
+    - MIG-TRG-LICENSES
+    - MIG-TRG-EXAMS
+    - MIG-TRG-COMMERCE
+    - MIG-TRG-EVENTS
+    - MIG-PRJ-CALENDAR-RESOURCE-CLAIMS
+    - MIG-PRJ-PURCHASE-HISTORY
+    - MIG-PRJ-ORGANIZATION-ACTIVITY
+    - MIG-PRJ-NOTIFICATIONS
+  expected_Stage_4_materialized_nodes_after_PASS: 170
+  expected_Stage_4_materialized_steps_after_PASS: 257
+  expected_validate_steps_after_PASS: 34
+  contract_nodes_authoritative_after_PASS: 4
+  validation_policy:
+    validate_existing_NOT_VALID_foreign_keys_and_checks: allowed
+    assert_installed_trigger_and_projection_guards: allowed
+    verify_projection_and_reconciliation_postconditions: required
+    disable_write_fence: forbidden
+    rewrite_business_history: forbidden
+    discover_or_ignore_new_unresolved_case: forbidden
+  scope_boundary:
+    validation_only: allowed
+    contract_or_destructive_cleanup: forbidden
     PKK_provider_runtime_activation: forbidden
