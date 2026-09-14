@@ -12,6 +12,7 @@ use Illuminate\Support\Str;
 /**
  * @phpstan-type BulkTarget array{learning_account_id:string,expected_credential_version?:int}
  * @phpstan-type Visibility array{membership:array{id:string,organization_id:string,user_id:string,status:string,is_owner:bool,version:int,authorization_version:int},unrestricted:bool,student_ids:list<string>}
+ * @phpstan-type LearningAccountRow object{id:mixed,organization_id:mixed,student_id:mixed,user_id:mixed,auth_login_identifier_id:mixed,language_code:mixed,status:mixed,version:mixed,created_at:mixed}
  */
 final class BulkCredentialDocumentService
 {
@@ -57,7 +58,7 @@ final class BulkCredentialDocumentService
             throw ResourceDomainException::notFound();
         }
 
-        /** @var list<array{learning_account_id:string,expected_credential_version?:int,student_id:string,user_id:string}> $resolvedTargets */
+        /** @var list<array{learning_account_id:string,expected_credential_version:int|null,student_id:string,user_id:string}> $resolvedTargets */
         $resolvedTargets = [];
         foreach ($targets as $target) {
             $row = $resolvedRows->get($target['learning_account_id']);
@@ -72,6 +73,7 @@ final class BulkCredentialDocumentService
 
             $resolved = [
                 'learning_account_id' => $target['learning_account_id'],
+                'expected_credential_version' => null,
                 'student_id' => $studentId,
                 'user_id' => (string) $row->user_id,
             ];
@@ -114,6 +116,7 @@ final class BulkCredentialDocumentService
             sort($sortedAccountIds, SORT_STRING);
             $accounts = [];
             foreach ($sortedAccountIds as $accountId) {
+                /** @var LearningAccountRow|null $account */
                 $account = DB::table('student_learning_accounts')
                     ->where('organization_id', $organizationId)
                     ->where('id', $accountId)
@@ -370,6 +373,7 @@ final class BulkCredentialDocumentService
 
         $pages = [];
         foreach ($handoffs as $handoff) {
+            /** @var LearningAccountRow|null $account */
             $account = DB::table('student_learning_accounts')
                 ->where('organization_id', $organizationId)
                 ->where('id', $handoff->student_learning_account_id)
