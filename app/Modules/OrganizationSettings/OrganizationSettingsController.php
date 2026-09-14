@@ -11,6 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use LogicException;
 
 final class OrganizationSettingsController
 {
@@ -87,12 +88,22 @@ final class OrganizationSettingsController
             $this->idempotencyKey($request),
             ['expected_version' => $expectedVersion, 'changes' => $changes],
             function () use ($sessionId, $expectedVersion, $changes, $request, $organizationId): array {
-                $this->settings->update(
-                    $sessionId,
-                    $expectedVersion,
-                    $changes,
-                    $this->requestId($request),
-                );
+                try {
+                    $this->settings->update(
+                        $sessionId,
+                        $expectedVersion,
+                        $changes,
+                        $this->requestId($request),
+                    );
+                } catch (LogicException $exception) {
+                    if ($exception->getMessage() !== 'Stale organization settings version.') {
+                        throw $exception;
+                    }
+
+                    throw ResourceDomainException::conflict(
+                        'Organization settings changed since it was loaded.',
+                    );
+                }
 
                 return [
                     'status' => 200,

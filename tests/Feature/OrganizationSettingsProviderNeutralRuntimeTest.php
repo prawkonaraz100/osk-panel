@@ -74,6 +74,25 @@ final class OrganizationSettingsProviderNeutralRuntimeTest extends TestCase
             ->where('organization_id', $actor['organization_id'])
             ->where('action', 'organization.settings.updated')
             ->count());
+
+        $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->withHeaders(['If-Match' => '"v1"', 'Idempotency-Key' => (string) Str::uuid7()])
+            ->patchJson('/api/v1/organization/settings', [
+                'basic_data' => ['first_name' => 'Must Not Persist'],
+            ])
+            ->assertConflict()
+            ->assertJsonPath('error.code', 'RESOURCE_VERSION_CONFLICT');
+
+        $this->assertSame('Anna', DB::table('users')
+            ->where('id', $actor['user_id'])
+            ->value('first_name'));
+        $this->assertSame(2, (int) DB::table('organization_settings')
+            ->where('organization_id', $actor['organization_id'])
+            ->value('version'));
+        $this->assertSame(1, DB::table('audit_logs')
+            ->where('organization_id', $actor['organization_id'])
+            ->where('action', 'organization.settings.updated')
+            ->count());
     }
 
     public function test_partial_existing_address_update_preserves_other_address_fields(): void
