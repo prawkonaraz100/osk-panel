@@ -624,6 +624,7 @@ SELECT outbox.id::text AS id,
   FROM outbox_messages outbox
   LEFT JOIN domain_events event ON event.id = outbox.domain_event_id
  WHERE event.id IS NULL
+    OR outbox.publication_state = 'requires_reconciliation'
     OR outbox.event_scope IS DISTINCT FROM event.event_scope
     OR outbox.organization_id IS DISTINCT FROM event.organization_id
     OR outbox.event_type IS DISTINCT FROM event.event_type
