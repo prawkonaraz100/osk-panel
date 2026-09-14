@@ -6,6 +6,7 @@ use App\Support\Migrations\ControlledMigrationContext;
 use App\Support\Migrations\MigrationPlan;
 use App\Support\Migrations\Stage4ExactEvidenceBackfill;
 use Illuminate\Database\Migrations\Migration;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -67,9 +68,10 @@ final class Stage4ExactEvidenceBackfillTest extends TestCase
                     ->where('student_id', $studentId)
                     ->count(),
             );
-            $this->assertSame(
-                $purchase['settled_at'],
-                (string) DB::table('orders')->where('id', $purchase['order_id'])->value('booked_at'),
+            $this->assertTrue(
+                Carbon::parse($purchase['settled_at'])->equalTo(
+                    Carbon::parse((string) DB::table('orders')->where('id', $purchase['order_id'])->value('booked_at')),
+                ),
             );
 
             foreach ([
