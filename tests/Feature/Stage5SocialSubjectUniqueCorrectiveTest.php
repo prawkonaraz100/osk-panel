@@ -26,7 +26,7 @@ final class Stage5SocialSubjectUniqueCorrectiveTest extends TestCase
             $summary['plan_identity'],
         );
         self::assertSame(
-            '268c9c386667d28480c8ed5bf6fe83f812efd16dede03a6b606cb1ddf3bf2ef9',
+            'b4a73588390d837fbb460d374114585064445462ddcba667d3919c7052f76cd0',
             $summary['execution_identity'],
         );
         self::assertSame(

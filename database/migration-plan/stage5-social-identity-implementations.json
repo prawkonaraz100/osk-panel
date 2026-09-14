@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "plan_identity": "85319b7c91cf9046e0ac8c00772aad141462e3897363b32d0ba222a50f73fe4d",
-  "execution_identity": "268c9c386667d28480c8ed5bf6fe83f812efd16dede03a6b606cb1ddf3bf2ef9",
+  "execution_identity": "b4a73588390d837fbb460d374114585064445462ddcba667d3919c7052f76cd0",
   "stage5_root": "database/migrations/stage5/social-identity",
   "implemented_steps": [
     {
@@ -9,7 +9,7 @@
       "phase": "preflight",
       "migration_file": "database/migrations/stage5/social-identity/preflight/S5SOC-IDX-AUTH-SOCIAL-PROVIDER-SUBJECT-UNIQUE/2026_09_14_000010_preflight_social_provider_subject_unique.php",
       "migration_name": "2026_09_14_000010_preflight_social_provider_subject_unique",
-      "file_git_blob": "f1fcd806ab86360c249f019fbfeaf19e99f99371",
+      "file_git_blob": "ef1f3c9ad244c076088364a1fbd6932a340beca6",
       "restart_classification": "manual_review",
       "safe_down": false
     },
@@ -18,7 +18,7 @@
       "phase": "write_fence",
       "migration_file": "database/migrations/stage5/social-identity/write_fence/S5SOC-IDX-AUTH-SOCIAL-PROVIDER-SUBJECT-UNIQUE/2026_09_14_000020_write_fence_social_provider_subject_unique.php",
       "migration_name": "2026_09_14_000020_write_fence_social_provider_subject_unique",
-      "file_git_blob": "1953394dacccb3e9fd83a37774cd9c4040e9d398",
+      "file_git_blob": "595c831407647a03952ece209f8d6c20db008303",
       "restart_classification": "manual_review",
       "safe_down": false
     },
@@ -27,7 +27,7 @@
       "phase": "validate",
       "migration_file": "database/migrations/stage5/social-identity/validate/S5SOC-IDX-AUTH-SOCIAL-PROVIDER-SUBJECT-UNIQUE/2026_09_14_000030_validate_social_provider_subject_unique.php",
       "migration_name": "2026_09_14_000030_validate_social_provider_subject_unique",
-      "file_git_blob": "89c1307fb5ac221f7a470ac326972191cb4b3255",
+      "file_git_blob": "84a20d9b32523106e512a02d3443e91d284a27d7",
       "restart_classification": "manual_review",
       "safe_down": false
     }

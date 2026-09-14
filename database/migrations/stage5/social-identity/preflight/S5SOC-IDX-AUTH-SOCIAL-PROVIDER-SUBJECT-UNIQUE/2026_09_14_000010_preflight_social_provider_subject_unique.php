@@ -4,7 +4,6 @@ use App\Support\Migrations\ControlledMigrationContext;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
-use LogicException;
 
 return new class extends Migration
 {
