@@ -4,6 +4,7 @@ namespace App\Modules\OrganizationSettings;
 
 use App\Modules\AuditNotification\AtomicAuditOutbox;
 use App\Modules\IdentityTenant\TenantAuthorizer;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 use LogicException;
@@ -45,6 +46,40 @@ final class OrganizationSettingsService
             'timezone' => (string) $row->timezone,
             'status' => (string) $row->status,
         ];
+    }
+
+    /** @return list<array{version:string,accepted_at:string,accepted_by_user_id:string,document_url:null}> */
+    public function acceptedTerms(string $sessionId): array
+    {
+        $membership = $this->authorizer->activeMembershipForSession($sessionId);
+        $this->authorizer->requireOrganizationPermission(
+            $sessionId,
+            $membership['organization_id'],
+            'organization.view',
+        );
+
+        $rows = DB::table('terms_acceptances as acceptance')
+            ->join('legal_documents as document', 'document.id', '=', 'acceptance.legal_document_id')
+            ->where('acceptance.organization_id', $membership['organization_id'])
+            ->orderByDesc('acceptance.accepted_at')
+            ->orderByDesc('acceptance.id')
+            ->get([
+                'document.version as version',
+                'acceptance.accepted_at',
+                'acceptance.user_id as accepted_by_user_id',
+            ]);
+
+        $projection = [];
+        foreach ($rows as $row) {
+            $projection[] = [
+                'version' => (string) $row->version,
+                'accepted_at' => CarbonImmutable::parse((string) $row->accepted_at)->utc()->toIso8601String(),
+                'accepted_by_user_id' => (string) $row->accepted_by_user_id,
+                'document_url' => null,
+            ];
+        }
+
+        return $projection;
     }
 
     /**

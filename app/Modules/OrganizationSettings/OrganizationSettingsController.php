@@ -19,6 +19,13 @@ final class OrganizationSettingsController
         );
     }
 
+    public function acceptedTermsGet(Request $request): JsonResponse
+    {
+        return response()->json(
+            $this->settings->acceptedTerms($this->sessionId($request)),
+        );
+    }
+
     private function sessionId(Request $request): string
     {
         $sessionId = $request->session()->get('auth_session_id');

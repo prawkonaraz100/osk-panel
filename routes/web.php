@@ -26,6 +26,7 @@ Route::middleware(ResourceApiMiddleware::class)->prefix('api/v1')->group(functio
     Route::delete('/auth/sessions/{sessionId}', [AuthSessionController::class, 'revoke']);
     Route::post('/auth/account-closure-requests', [AuthSessionController::class, 'requestAccountClosure']);
     Route::get('/organization', [OrganizationSettingsController::class, 'organizationGet']);
+    Route::get('/organization/accepted-terms', [OrganizationSettingsController::class, 'acceptedTermsGet']);
 
     Route::get('/locations', [ResourceController::class, 'locationsList']);
     Route::post('/locations', [ResourceController::class, 'locationsCreate']);

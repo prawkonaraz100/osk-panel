@@ -19,3 +19,11 @@ changed_scope:
     acceptance_test: Tests\\Feature\\OrganizationGetRuntimeTest
     status: IMPLEMENTED
 
+  - evidence: specs/api/paths/auth-organization.yaml
+    requirement: accepted terms history is tenant-scoped, resolves the exact immutable legal document version and never exposes request metadata
+    domain_data: auth_sessions + organization_memberships + terms_acceptances + legal_documents
+    api_use_case: organization.accepted_terms.get
+    permission: organization.view with organization scope
+    ui: NOT_APPLICABLE_RUNTIME_API_GATE
+    acceptance_test: Tests\\Feature\\OrganizationAcceptedTermsRuntimeTest
+    status: IMPLEMENTED
