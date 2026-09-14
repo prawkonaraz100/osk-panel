@@ -6115,3 +6115,65 @@ CORE_V1_BULK_CREDENTIAL_RESET_001_gate:
     action: rerun_repository_HTTP_runtime_UI_closure_audit_on_exact_closure_tree
     rule: recompute_not_assume_preserve_missing_authority_and_PKK_freeze
 
+CORE_V1_CLOSURE_AUDIT_005_gate:
+  id: CORE-V1-CLOSURE-AUDIT-005
+  status: AUDIT_COMPLETE_REPO_P1_REMAINS
+  authority: docs/186-core-v1-closure-reaudit-005.md
+  audited_accepted_tip: 11769bee141207a012188d33354049874227a4c4
+  audited_tree: 6232c206d0798fc0bbd1f6595d78f680f62ff84c
+  prerequisite: CORE-V1-BULK-CREDENTIAL-RESET-001_PASS
+  closure_evidence:
+    Implementation_CI_run: 34848228118
+    API_Contract_Gate_run: 34848228109
+    Implementation_CI_jobs_passed: 5
+    Implementation_CI_jobs_total: 5
+    PostgreSQL_suite_tests: 308
+    PostgreSQL_suite_assertions: 5518
+    restore_source_table_count: 121
+    restore_restored_table_count: 121
+    restore_schema_fingerprint: 09c57afe2501c79a3a684c0a695b4619114f94ddc24c9bca33728d99c1abb155
+    deterministic_restore_harness: PASS
+  differential_inventory:
+    baseline_audit_tip: 2ff5b842dfdb3ada88befe28b1942434a09ae9bf
+    required_operations_sha_before: c36142e3af2615393347fadfec265af2eb610fb7
+    required_operations_sha_after: c36142e3af2615393347fadfec265af2eb610fb7
+    routes_web_before_sha: 93d5b6ec5f8784926e6eb0cfabda7e2adc1553f2
+    routes_web_after_sha: 7547c38176c50653cfec8b1debe061e822a57bd3
+    exact_route_additions: 1
+    exact_route_removals: 0
+    physical_binding_added: license_credentials.bulk_pdf
+  HTTP_inventory:
+    canonical_required_inline_HTTP_operations: 172
+    required_physical_bindings_present: 147
+    missing_physical_bindings_total: 25
+    frozen_PKK_missing_bindings: 14
+    provider_specific_payment_webhook_missing_bindings: 1
+    repo_actionable_HTTP_bindings_missing: 10
+  implementation_ready:
+    count: 0
+    operations: []
+  blocked_remaining:
+    count: 10
+    identity_auth: 4
+    student_progress: 1
+    commerce_order_create: 2
+    organization_settings: 3
+  non_HTTP_repo_P1:
+    additional_open_count: 0
+  result:
+    repository_complete: false
+    repo_P0_open: 0
+    repo_P1_open: true
+    implementation_ready_missing_bindings: 0
+    authority_blocked_missing_bindings: 10
+    PKK_provider_runtime_status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+  safe_continuation:
+    runtime_implementation_without_new_authority: forbidden
+    next_gate_class: AUTHORITY_OR_EXPLICIT_UNFREEZE
+    candidate_authority_families:
+      - password_forgot_reset_token_lifecycle
+      - social_OAuth_provider_configuration_state_linking
+      - online_learning_student_progress
+      - current_server_side_product_price_VAT
+    organization_settings_requires_PKK_unfreeze: true
+
