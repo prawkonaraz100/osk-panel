@@ -59,3 +59,12 @@ changed_scope:
     acceptance_test: Tests\\Feature\\AccountClosureRequestCoreTest
     status: IMPLEMENTED
 
+
+  - evidence: docs/181-core-v1-auth-register-authority.md
+    requirement: public registration atomically creates one self-service User, active Organization, fully materialized Owner RBAC snapshot and exact versioned legal acceptances without implicit login or PKK activation
+    domain_data: users + user_password_management + auth_login_identifiers + organizations + organization_settings + organization_contact_addresses + organization_memberships + membership_permissions + membership_permission_scopes + legal_documents + terms_acceptances
+    api_use_case: auth.register
+    permission: public bootstrap command with exact legal-document and global-identifier fail-closed checks
+    ui: PUBLIC_REGISTRATION_CONTRACT
+    acceptance_test: Tests\\Feature\\AuthRegistrationCoreTest
+    status: IMPLEMENTED

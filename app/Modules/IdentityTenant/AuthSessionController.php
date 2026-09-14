@@ -15,8 +15,41 @@ final class AuthSessionController
 {
     public function __construct(
         private readonly AuthSessionService $sessions,
+        private readonly RegistrationService $registration,
         private readonly AccountClosureService $closures,
     ) {}
+
+    public function register(Request $request): Response
+    {
+        $input = $this->validated($request, [
+            'first_name' => ['required', 'string', 'max:120'],
+            'last_name' => ['required', 'string', 'max:120'],
+            'email' => ['required', 'string', 'email', 'max:320'],
+            'password' => ['required', 'string', 'max:1024'],
+            'organization_name' => ['required', 'string', 'max:255'],
+            'nip' => ['sometimes', 'nullable', 'string', 'max:16'],
+            'phone' => ['sometimes', 'nullable', 'string', 'max:40'],
+            'accepted_terms_version' => ['required', 'string', 'max:64'],
+            'marketing_consent' => ['sometimes', 'boolean'],
+            'marketing_consent_version' => ['sometimes', 'nullable', 'string', 'max:64'],
+            'company_address' => ['sometimes', 'nullable', 'array:street,house_number,unit_number,postal_code,city,country_code'],
+            'company_address.street' => ['required_with:company_address', 'string', 'max:255'],
+            'company_address.house_number' => ['required_with:company_address', 'string', 'max:32'],
+            'company_address.unit_number' => ['sometimes', 'nullable', 'string', 'max:32'],
+            'company_address.postal_code' => ['required_with:company_address', 'string', 'max:20'],
+            'company_address.city' => ['required_with:company_address', 'string', 'max:160'],
+            'company_address.country_code' => ['sometimes', 'string', 'size:2', 'alpha'],
+        ]);
+
+        $this->registration->register(
+            $input,
+            (string) $request->attributes->get('request_id'),
+            $request->ip(),
+            $request->userAgent(),
+        );
+
+        return response('', 201);
+    }
 
     public function login(Request $request): JsonResponse
     {

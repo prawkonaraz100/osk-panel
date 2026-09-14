@@ -37,6 +37,7 @@ final class ResourceReferenceCatalogSeeder extends Seeder
 
     /** @var list<string> */
     private const AUDIT_ACTIONS = [
+        'auth.registration.completed',
         'location.created', 'location.updated', 'location.archived', 'location.restored',
         'staff.created', 'staff.updated', 'staff.archived', 'staff.restored',
         'staff.panel_account.created', 'staff.panel_account.revoked',

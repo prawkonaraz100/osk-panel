@@ -20,6 +20,7 @@ use App\Modules\UploadsAssets\UploadAssetController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(ResourceApiMiddleware::class)->prefix('api/v1')->group(function (): void {
+    Route::post('/auth/register', [AuthSessionController::class, 'register']);
     Route::post('/auth/login', [AuthSessionController::class, 'login']);
     Route::post('/auth/logout', [AuthSessionController::class, 'logout']);
     Route::get('/auth/sessions', [AuthSessionController::class, 'list']);
