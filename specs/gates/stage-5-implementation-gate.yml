@@ -5511,3 +5511,80 @@ CORE_V1_LEARNING_CREDENTIAL_SINGLE_PDF_001_gate:
     id: CORE-V1-CLOSURE-AUDIT-002
     action: rerun_repository_HTTP_runtime_UI_closure_audit_on_exact_accepted_tree
     rule: reclassify_course_completion_as_runtime_plus_UI_until_backend_completion_eligibility_is_materialized_no_PKK_runtime
+
+
+CORE_V1_CLOSURE_AUDIT_002_gate:
+  id: CORE-V1-CLOSURE-AUDIT-002
+  status: AUDIT_COMPLETE_REPO_P1_REMAINS
+  authority: docs/177-core-v1-closure-reaudit-002.md
+  audited_accepted_tip: 9b2b7513093680c061ed806ac03918d0146158b8
+  prerequisite: CORE-V1-LEARNING-CREDENTIAL-SINGLE-PDF-001_PASS
+  closure_evidence:
+    Implementation_CI_run: 34827280051
+    API_Contract_Gate_run: 34827280065
+    Implementation_CI_jobs_passed: 5
+    Implementation_CI_jobs_total: 5
+    PostgreSQL_suite_tests: 289
+    PostgreSQL_suite_assertions: 5320
+    restore_source_table_count: 121
+    restore_restored_table_count: 121
+    restore_schema_fingerprint: 09c57afe2501c79a3a684c0a695b4619114f94ddc24c9bca33728d99c1abb155
+  HTTP_inventory:
+    canonical_required_inline_HTTP_operations: 172
+    required_physical_bindings_present: 145
+    missing_physical_bindings_total: 27
+    frozen_PKK_missing_bindings: 14
+    provider_specific_payment_webhook_missing_bindings: 1
+    repo_actionable_HTTP_bindings_missing: 12
+  repo_actionable_HTTP_groups:
+    identity_auth:
+      count: 5
+      operations:
+        - auth.register
+        - auth.password_forgot
+        - auth.password_reset
+        - auth.social_redirect
+        - auth.social_callback
+      status: BLOCKED_MISSING_AUTHORITY
+    student_progress:
+      count: 1
+      operations:
+        - students.progress
+      status: BLOCKED_MISSING_ONLINE_LEARNING_PROGRESS_AUTHORITY
+    commerce_order_create:
+      count: 2
+      operations:
+        - license_orders.create
+        - exam_orders.create
+      status: BLOCKED_MISSING_SERVER_PRICE_VAT_AUTHORITY
+    credential_bulk_document:
+      count: 1
+      operations:
+        - license_credentials.bulk_pdf
+      status: BLOCKED_RESET_BRANCH_MISSING_EXPECTED_CREDENTIAL_VERSIONS
+    organization_settings:
+      count: 3
+      operations:
+        - organization.update
+        - organization.settings.get
+        - organization.settings.update
+      status: BLOCKED_BY_FROZEN_PKK_CONTRACT_FIELDS
+  non_HTTP_repo_P1:
+    course_completion:
+      status: OPEN_RUNTIME_AND_UI
+      existing_stage_transition_route: true
+      backend_training_completed_currently_rejected: true
+      UI_training_completed_currently_blocked: true
+      cosmetic_UI_only_unlock_allowed: false
+    resource_asset_UI:
+      status: CLOSED_BY_CORE_V1_RESOURCE_ASSET_UI_001
+  result:
+    repository_complete: false
+    repo_P0_open: 0
+    repo_P1_open: true
+    Stage_4_materialization_complete: true
+    PKK_provider_runtime_status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+  next_after_AUDIT:
+    id: CORE-V1-COURSE-COMPLETION-AUTHORITY-001
+    action: prove_exact_completion_eligibility_before_runtime_or_UI_unlock
+    rule: no_schema_invention_no_mutable_exam_management_projection_as_completion_truth_no_PKK_runtime
