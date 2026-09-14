@@ -122,6 +122,6 @@ final class FoundationReferenceCatalogTest extends TestCase
         app(FoundationReferenceCatalogSeeder::class)->run();
 
         $this->assertSame(4, DB::table('data_scopes')->count());
-        $this->assertSame(80, DB::table('audit_action_policy_currents')->count());
+        $this->assertSame(82, DB::table('audit_action_policy_currents')->count());
     }
 }
