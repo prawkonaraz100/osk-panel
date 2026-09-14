@@ -1,0 +1,96 @@
+meta:
+  id: social_provider_subject_unique_stage5_migration_extension
+  version: 2026-09-14-v1
+  status: CORE_V1_STAGE5_SOCIAL_SUBJECT_UNIQUE_AUTHORITY_001_CANDIDATE
+  implementation_gate: CORE-V1-STAGE5-SOCIAL-SUBJECT-UNIQUE-001
+  source_audit: CORE-V1-CLOSURE-AUDIT-006
+
+scope:
+  bounded_context: identity_social
+  source_table: auth_social_accounts
+  source_invariant: specs/database/core-schema.yml#critical_constraints.social_provider_subject_unique
+  mutates_Stage_4_DAG: false
+  mutates_Stage_4_execution_identity: false
+  mutates_existing_Stage_5_formal_documents_extension: false
+  social_HTTP_runtime_in_scope: false
+  PKK_provider_runtime_in_scope: false
+
+stage_4_frozen_baseline:
+  plan_identity: d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10
+  execution_identity: 82da84d3efb312d78b432ad6081491c04b03569a0f250722d6befc11ca233712
+  authority_git_blob: ad5f2aa2e14ef248b95dd3dda0d1cbcb2e69d441
+  node_count: 170
+  implemented_node_count: 170
+  implemented_step_count: 261
+
+phase_order:
+  - expand
+  - preflight
+  - write_fence
+  - backfill
+  - reconcile
+  - validate
+  - contract
+
+extension_nodes:
+  - node_id: S5SOC-IDX-AUTH-SOCIAL-PROVIDER-SUBJECT-UNIQUE
+    order: 10
+    type: unique_index
+    object_name: auth_social_accounts
+    requires: []
+    phases: [preflight, write_fence, validate]
+    restart_classification: manual_review
+    invariant:
+      index_name: auth_social_accounts_provider_subject_unique
+      columns: [provider, provider_subject]
+      unique: true
+      predicate: null
+      applies_to_revoked_history: true
+    preflight:
+      duplicate_group_key: [provider, provider_subject]
+      duplicate_group_count_must_be_lte: 1
+      duplicate_found_effect: fail_and_require_reviewed_remediation
+      automatic_delete: forbidden
+      automatic_revoke: forbidden
+      automatic_user_reassignment: forbidden
+      provider_or_subject_rewrite: forbidden
+      heuristic_winner_selection: forbidden
+    write_fence:
+      index_type: btree
+      partial_index: false
+      create_only_after_preflight_PASS: true
+      same_name_wrong_definition: fail_closed
+      frozen_Stage4_MIG_IDX_IDENTITY_edit: forbidden
+    validate:
+      PostgreSQL_catalog_proof_required: true
+      target_table_exact: auth_social_accounts
+      index_name_exact: auth_social_accounts_provider_subject_unique
+      indisunique: true
+      indisvalid: true
+      indisready: true
+      predicate_must_be_null: true
+      ordered_key_columns_exact: [provider, provider_subject]
+      duplicate_insert_rejected_test_required: true
+      distinct_pair_control_test_required: true
+
+execution_boundary:
+  root: database/migrations/stage5/social-identity
+  registry_path: database/migration-plan/stage5-social-identity-implementations.json
+  plan_path: database/migration-plan/stage5-social-identity-plan.json
+  advisory_lock_shared_with_Stage_4: [519662, 5001]
+  default_php_artisan_migrate_discovers_extension_files: false
+  unregistered_extension_php_migration_forbidden: true
+  automatic_destructive_down: false
+  authority_gate_executes_DDL: false
+
+preservation:
+  existing_Stage4_migration_files_byte_identical: required
+  existing_Stage4_plan_identity_unchanged: required
+  existing_Stage4_execution_identity_unchanged: required
+  social_OAuth_runtime_unchanged_in_authority_gate: required
+  PKK_remains_frozen: true
+
+next_gate:
+  id: CORE-V1-STAGE5-SOCIAL-SUBJECT-UNIQUE-001
+  action: materialize_registered_preflight_write_fence_validate_extension
+  after_PASS: CORE-V1-CLOSURE-AUDIT-007
