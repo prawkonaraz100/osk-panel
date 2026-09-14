@@ -29,19 +29,27 @@ final class AuthSocialAuthorityContractTest extends TestCase
         self::assertTrue($authority['callback_state_claim']['atomic_one_time_claim_required']);
         self::assertTrue($authority['provider_exchange']['outside_database_transaction']);
 
+        self::assertTrue($authority['identity_resolution']['authenticated_link']['enabled']);
+        self::assertSame(
+            'preserve_existing_application_session',
+            $authority['identity_resolution']['authenticated_link']['post_link_session_behavior'],
+        );
         self::assertSame(
             'forbidden',
             $authority['identity_resolution']['historical_revoked_subject_link']['automatic_relink'],
         );
-        self::assertTrue($authority['identity_resolution']['first_link']['verified_provider_email_required']);
-        self::assertSame(
-            'forbidden',
-            $authority['identity_resolution']['first_link']['organization_managed_target'],
+        self::assertTrue(
+            $authority['identity_resolution']['unauthenticated_first_link']['verified_provider_email_required'],
         );
         self::assertSame(
             'forbidden',
-            $authority['identity_resolution']['no_matching_verified_local_email']['user_auto_creation'],
+            $authority['identity_resolution']['unauthenticated_first_link']['organization_managed_target'],
         );
+        self::assertSame(
+            'forbidden',
+            $authority['identity_resolution']['no_safe_target']['user_auto_creation'],
+        );
+        self::assertSame('forbidden', $authority['security']['unverified_local_email_takeover']);
         self::assertSame('forbidden', $authority['security']['return_url_open_redirect']);
     }
 }
