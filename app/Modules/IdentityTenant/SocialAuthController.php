@@ -1,0 +1,94 @@
+<?php
+
+namespace App\Modules\IdentityTenant;
+
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Throwable;
+
+final class SocialAuthController
+{
+    public function __construct(
+        private readonly SocialAuthService $social,
+        private readonly AuthSessionService $sessions,
+    ) {}
+
+    public function redirect(Request $request, string $provider): RedirectResponse
+    {
+        $url = $this->social->begin(
+            $provider,
+            $request->session()->getId(),
+            $this->sessionId($request),
+            $request->query('return_url'),
+        );
+
+        return redirect()->away($url);
+    }
+
+    public function callback(Request $request, string $provider): RedirectResponse
+    {
+        try {
+            $result = $this->social->callback(
+                $provider,
+                $request->session()->getId(),
+                $this->sessionId($request),
+                $request->query('state'),
+                $request->query('code'),
+                $request->query('error'),
+            );
+        } catch (SocialAuthFlowException $exception) {
+            return redirect()->to($this->errorUrl($exception->returnUrl));
+        }
+
+        if ($result['mode'] === 'authenticated_link') {
+            return redirect()->to($result['return_url']);
+        }
+
+        $previous = $this->sessionId($request);
+        if ($previous !== null) {
+            $this->sessions->revokeCurrent($previous, 'replaced_by_social_login');
+        }
+
+        $request->session()->regenerate();
+
+        try {
+            $session = $this->sessions->startSession(
+                $result['user_id'],
+                $result['organization_membership_id'],
+                $request->session()->getId(),
+                $request->ip(),
+                $request->userAgent(),
+            );
+        } catch (Throwable $exception) {
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+
+            throw $exception;
+        }
+
+        $request->session()->put('auth_session_id', $session['id']);
+        $request->session()->put('auth_remember_me', false);
+
+        return redirect()->to($result['return_url']);
+    }
+
+    private function sessionId(Request $request): ?string
+    {
+        $sessionId = $request->session()->get('auth_session_id');
+
+        return is_string($sessionId) && $sessionId !== '' ? $sessionId : null;
+    }
+
+    private function errorUrl(string $returnUrl): string
+    {
+        $fragment = '';
+        $base = $returnUrl;
+        $position = strpos($base, '#');
+        if ($position !== false) {
+            $fragment = substr($base, $position);
+            $base = substr($base, 0, $position);
+        }
+
+        return $base.(str_contains($base, '?') ? '&' : '?').'social_auth=error'.$fragment;
+    }
+}

@@ -9,6 +9,7 @@ use App\Modules\CommerceDashboard\CommerceDashboardController;
 use App\Modules\CommerceDashboard\DashboardController;
 use App\Modules\FormalDocuments\FormalTrainingDocumentController;
 use App\Modules\IdentityTenant\AuthSessionController;
+use App\Modules\IdentityTenant\SocialAuthController;
 use App\Modules\InternalExams\InternalExamController;
 use App\Modules\LearningAccess\LearningAccessController;
 use App\Modules\OrganizationSettings\OrganizationSettingsController;
@@ -23,6 +24,8 @@ Route::middleware(ResourceApiMiddleware::class)->prefix('api/v1')->group(functio
     Route::post('/auth/register', [AuthSessionController::class, 'register']);
     Route::post('/auth/login', [AuthSessionController::class, 'login']);
     Route::post('/auth/logout', [AuthSessionController::class, 'logout']);
+    Route::get('/auth/social/{provider}/redirect', [SocialAuthController::class, 'redirect']);
+    Route::get('/auth/social/{provider}/callback', [SocialAuthController::class, 'callback']);
     Route::get('/auth/sessions', [AuthSessionController::class, 'list']);
     Route::delete('/auth/sessions/{sessionId}', [AuthSessionController::class, 'revoke']);
     Route::post('/auth/account-closure-requests', [AuthSessionController::class, 'requestAccountClosure']);

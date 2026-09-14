@@ -76,4 +76,12 @@ changed_scope:
     ui: NOT_APPLICABLE_DATABASE_GATE
     acceptance_test: Tests\\Feature\\Stage5SocialSubjectUniqueCorrectiveTest
     status: IMPLEMENTED
+  - evidence: docs/196-core-v1-auth-social-implementation.md
+    requirement: auth.social_redirect + auth.social_callback use one-time framework-session-bound state, PKCE S256 and trusted provider configuration without social registration
+    domain_data: auth_social_accounts + auth_login_identifiers + user_password_management + auth_sessions
+    api_use_case: auth.social_redirect + auth.social_callback
+    permission: existing authenticated session only for authenticated_link mode; public sign-in resolves existing identity only
+    ui: provider redirect and state-bound local return URL
+    acceptance_test: Tests\\Feature\\AuthSocialCoreTest
+    status: IMPLEMENTED
 

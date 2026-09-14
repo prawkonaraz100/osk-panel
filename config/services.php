@@ -35,4 +35,8 @@ return [
         ],
     ],
 
+    'social' => [
+        'providers' => json_decode((string) env('SOCIAL_OAUTH_PROVIDERS_JSON', '[]'), true) ?: [],
+    ],
+
 ];
