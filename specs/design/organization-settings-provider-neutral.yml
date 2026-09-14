@@ -1,0 +1,53 @@
+authority:
+  id: CORE-V1-ORGANIZATION-SETTINGS-PROVIDER-NEUTRAL-AUTHORITY-001
+  status: CANDIDATE
+  date: 2026-09-14
+  source_audit: CORE-V1-CLOSURE-AUDIT-006
+
+decision:
+  service_requires_PKK_configuration: false
+  PKK_is_optional_integration_bounded_context: true
+  settings_screen_may_compose_dedicated_PKK_projection: true
+  provider_neutral_settings_embed_PKK_projection: false
+
+operations:
+  organization.update:
+    provider_neutral: true
+    PKK_configuration_required: false
+    version_source: organization_settings.version
+    allowed_fields: [name, nip, phone, timezone]
+  organization.settings.get:
+    provider_neutral: true
+    PKK_configuration_required: false
+    PKK_table_access: forbidden
+    provider_network_call: forbidden
+    sections: [version, basic_data, company_data, accepted_terms]
+    email_projection_read_only: true
+  organization.settings.update:
+    provider_neutral: true
+    PKK_configuration_required: false
+    allowed_basic_data_fields: [first_name, last_name]
+    allowed_company_data_fields: [company_name, street, house_number, unit_number, city, postal_code, phone]
+    email_mutation: forbidden_pending_identity_email_change_authority
+    PKK_field_mutation: forbidden
+    version_source: organization_settings.version
+
+canonical_ownership:
+  osk_registry_number:
+    table: pkk_integration_settings
+    column: osk_registry_number
+    generic_Organization_schema: forbidden
+    generic_UpdateOrganizationRequest_schema: forbidden
+
+PKK_freeze:
+  status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+  dedicated_integration_routes_remain_frozen: true
+  provider_neutral_runtime_dependency: none
+
+scope:
+  schema_or_migration_change: false
+  runtime_change_in_authority_gate: false
+  PKK_runtime_activation: false
+
+next_after_PASS:
+  action: fresh_closure_audit_then_provider_neutral_runtime_implementation

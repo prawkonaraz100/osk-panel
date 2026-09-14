@@ -14,8 +14,11 @@ canonical_model:
 primary_action:
   label: Zapisz
   action: update_osk_account_settings
-  semantics: atomic_multi_table_settings_aggregate_save
-  optimistic_concurrency: organization_settings_version
+  semantics: provider_neutral_atomic_user_organization_address_settings_save
+  optimistic_concurrency: organization_settings.version
+  PKK_configuration_required: false
+  pkk_field_mutation: dedicated_PKK_integration_command_only
+  email_mutation: dedicated_identity_email_change_flow_only
 
 sections:
   - id: basic_data
@@ -23,7 +26,7 @@ sections:
     fields:
       - {name: first_name, label: Imię, domain: user, canonical: users.first_name}
       - {name: last_name, label: Nazwisko, domain: user, canonical: users.last_name}
-      - {name: email, label: Email, domain: user, canonical: auth_login_identifiers.primary_current_email}
+      - {name: email, label: Email, domain: user, canonical: auth_login_identifiers.primary_current_email, mutation: dedicated_identity_email_change_flow_not_provider_neutral_settings_PATCH}
 
   - id: company_data
     label: Dane firmy
@@ -42,6 +45,11 @@ sections:
 
   - id: pkk_api_data
     label: Dane API PKK
+    integration_optional: true
+    data_source: /organization/integrations/pkk
+    mutation_endpoint_scope: dedicated_PKK_integration_only
+    runtime_status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+    ordinary_service_operation_dependency: none
     audit_required: true
     fields:
       - {name: school_name, label: Nazwa szkoły, domain: pkk_integration_settings, canonical: pkk_integration_settings.school_name}
@@ -96,6 +104,10 @@ unknowns:
   - whether_pkk_changes_run_connection_verification
 
 implementation_requirements:
+  - ordinary_settings_must_work_without_PKK_configuration
+  - provider_neutral_settings_GET_must_not_read_PKK_tables
+  - provider_neutral_settings_save_must_not_create_or_mutate_PKK_configuration
+  - email_change_must_not_be_invented_before_identity_email_change_authority
   - tenant_isolation
   - atomic_save_across_user_organization_address_and_pkk_records
   - optimistic_concurrency_using_organization_settings_version

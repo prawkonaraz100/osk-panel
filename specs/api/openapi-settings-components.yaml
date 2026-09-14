@@ -19,11 +19,11 @@ components:
       required: [company_name, street, house_number, city, postal_code]
       properties:
         company_name: { type: string }
-        street: { type: string }
-        house_number: { type: string }
+        street: { type: [string, 'null'] }
+        house_number: { type: [string, 'null'] }
         unit_number: { type: [string, 'null'] }
-        city: { type: string }
-        postal_code: { type: string }
+        city: { type: [string, 'null'] }
+        postal_code: { type: [string, 'null'] }
         phone: { type: [string, 'null'] }
 
     PkkIntegrationSettings:
@@ -58,8 +58,9 @@ components:
 
     OskSettingsProjection:
       type: object
+      description: Provider-neutral settings projection; PKK is composed separately by its dedicated optional integration endpoint.
       additionalProperties: false
-      required: [version, basic_data, company_data, pkk_api_data, accepted_terms]
+      required: [version, basic_data, company_data, accepted_terms]
       properties:
         version:
           type: integer
@@ -68,7 +69,6 @@ components:
           description: organization_settings.version used for optimistic concurrency / ETag.
         basic_data: { $ref: '#/components/schemas/UserBasicData' }
         company_data: { $ref: '#/components/schemas/OrganizationCompanyData' }
-        pkk_api_data: { $ref: '#/components/schemas/PkkIntegrationSettings' }
         accepted_terms:
           type: array
           items: { $ref: '#/components/schemas/TermsAcceptanceProjection' }
@@ -85,7 +85,6 @@ components:
           properties:
             first_name: { type: string }
             last_name: { type: string }
-            email: { type: string, format: email }
         company_data:
           type: object
           additionalProperties: false
@@ -98,15 +97,6 @@ components:
             city: { type: string }
             postal_code: { type: string }
             phone: { type: [string, 'null'] }
-        pkk_api_data:
-          type: object
-          additionalProperties: false
-          minProperties: 1
-          properties:
-            school_name: { type: string }
-            osk_registry_number: { type: string }
-            external_osk_login: { type: string }
-
     UpdatePkkIntegrationSettingsRequest:
       type: object
       additionalProperties: false

@@ -167,6 +167,9 @@ paths:
       operationId: organizationUpdate
       x-requirement-id: organization.update
       x-permission: organization.edit
+      x-provider-neutral: true
+      x-pkk-configuration-required: false
+      x-version-source: organization_settings.version
       parameters:
         - { $ref: '../openapi-components-v1.yaml#/components/parameters/IfMatch' }
       requestBody:
@@ -188,11 +191,14 @@ paths:
       operationId: organizationSettingsGet
       x-requirement-id: organization.settings.get
       x-permission: organization.view
+      x-provider-neutral: true
+      x-pkk-configuration-required: false
+      x-pkk-table-access: forbidden
       x-screen-spec: specs/screens/settings.yml
       x-canonical-db-spec: specs/database/organization-settings.yml
       responses:
         '200':
-          description: Settings projection matching observed sections Dane podstawowe, Dane firmy and Dane API PKK; response carries aggregate version/ETag semantics from organization_settings.version
+          description: Provider-neutral settings projection for Dane podstawowe, Dane firmy and accepted terms. The PKK section is a separate optional integration projection and cannot block this response.
           content:
             application/json:
               schema: { $ref: '../openapi-settings-components.yaml#/components/schemas/OskSettingsProjection' }
@@ -202,6 +208,10 @@ paths:
       operationId: organizationSettingsUpdate
       x-requirement-id: organization.settings.update
       x-permission: organization.settings.manage
+      x-provider-neutral: true
+      x-pkk-configuration-required: false
+      x-pkk-field-mutation: forbidden_use_dedicated_integration_endpoint
+      x-email-mutation: forbidden_pending_identity_email_change_authority
       x-screen-spec: specs/screens/settings.yml
       x-canonical-db-spec: specs/database/organization-settings.yml
       parameters:
@@ -214,7 +224,7 @@ paths:
             schema: { $ref: '../openapi-settings-components.yaml#/components/schemas/UpdateOskSettingsRequest' }
       responses:
         '200':
-          description: Settings updated atomically using the same source records as PKK configuration gate; aggregate version increments on success
+          description: Provider-neutral user/company settings updated atomically without requiring, reading or mutating PKK configuration; aggregate version increments on success
           content:
             application/json:
               schema: { $ref: '../openapi-settings-components.yaml#/components/schemas/OskSettingsProjection' }

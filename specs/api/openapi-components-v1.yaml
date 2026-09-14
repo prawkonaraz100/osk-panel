@@ -214,16 +214,15 @@ components:
         phone: { type: [string, 'null'] }
         timezone: { type: string }
         status: { type: string, readOnly: true }
-        osk_registry_number: { type: [string, 'null'] }
     UpdateOrganizationRequest:
       type: object
       additionalProperties: false
+      minProperties: 1
       properties:
         name: { type: string }
         nip: { type: [string, 'null'] }
         phone: { type: [string, 'null'] }
         timezone: { type: string }
-        osk_registry_number: { type: [string, 'null'] }
     UserBasicData:
       type: object
       required: [first_name, last_name, email]

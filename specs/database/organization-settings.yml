@@ -15,9 +15,18 @@ purpose:
   statement: >-
     Preserve every field observed on the OSK settings screen and PKK
     configuration gate while assigning each field to exactly one canonical
-    domain owner. This specification augments the aggregate core-schema and is
-    authoritative for the settings bounded context until physical migrations
-    are generated.
+    domain owner. The settings screen is a UI composition and does not make
+    PKK a prerequisite of the provider-neutral organization/settings API.
+
+operational_independence:
+  service_requires_PKK_configuration: false
+  organization_lifecycle_requires_PKK_configuration: false
+  manual_student_course_training_workflows_require_PKK: false
+  provider_neutral_settings_reads_PKK_tables: false
+  provider_neutral_settings_writes_PKK_tables: false
+  rule: >-
+    PKK is an optional integration bounded context. Missing or frozen PKK
+    configuration may block only explicit PKK integration operations.
 
 observed_scope:
   basic_data:
@@ -212,14 +221,17 @@ settings_projection:
         unit_number: organization_contact_addresses.unit_number
         city: organization_contact_addresses.city_name
         postal_code: organization_contact_addresses.postal_code
-    pkk_api_data:
-      source:
-        school_name: pkk_integration_settings.school_name
-        osk_registry_number: pkk_integration_settings.osk_registry_number
-        external_osk_login: decrypted_for_authorized_settings_view_only
     accepted_terms:
       source: terms_acceptances_join_legal_documents
   version_source: organization_settings.version
+
+settings_screen_composition:
+  provider_neutral_projection: OskSettingsProjection
+  optional_PKK_section:
+    source_endpoint: /organization/integrations/pkk
+    same_screen_allowed: true
+    provider_neutral_settings_dependency: none
+    frozen_runtime_behavior: section_may_be_unavailable_or_show_not_configured_without_blocking_other_settings
 
 pkk_configuration_gate_projection:
   fields:
@@ -233,6 +245,10 @@ pkk_configuration_gate_projection:
 
 commands:
   update_osk_settings:
+    provider_neutral_operation: true
+    PKK_configuration_required: false
+    pkk_field_mutation_in_this_command: forbidden
+    email_mutation_in_this_command: forbidden_pending_identity_email_change_authority
     atomic: true
     permission: organization.settings.manage
     optimistic_concurrency:
@@ -244,11 +260,10 @@ commands:
       - validate_tenant_and_permission
       - validate_request_contains_only_observed_or_explicitly_supported_fields
       - update_user_first_name_last_name_if_present
-      - execute_primary_email_change_policy_if_email_present
+      - reject_email_change_use_dedicated_identity_email_change_authority
       - update_organization_name_phone_if_present
       - upsert_organization_contact_address_if_company_address_fields_present
-      - update_pkk_integration_settings_if_pkk_fields_present
-      - recalculate_pkk_readiness_status
+      - reject_pkk_fields_use_dedicated_PKK_integration_endpoint
       - increment_organization_settings_version
       - write_redacted_audit_diff
       - enqueue_domain_event_if_relevant
@@ -258,6 +273,7 @@ commands:
       if_Idempotency_Key_supported_it_must_follow_common_contract: true
 
   save_pkk_configuration_gate:
+    runtime_status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
     atomic: true
     permission: organization.integrations.manage
     uses_same_domain_services_as_update_osk_settings: true
@@ -311,7 +327,12 @@ reverse_engineering_preservation:
   do_not_remove_terms_version_link: true
 
 acceptance_tests_required:
-  - settings_GET_returns_all_observed_sections
+  - settings_GET_succeeds_when_PKK_not_configured
+  - settings_GET_does_not_read_PKK_tables_or_call_provider
+  - settings_PATCH_basic_or_company_data_succeeds_when_PKK_not_configured
+  - settings_PATCH_basic_or_company_data_does_not_create_or_mutate_PKK_configuration
+  - settings_PATCH_rejects_email_and_PKK_fields_as_outside_provider_neutral_command
+  - settings_GET_returns_provider_neutral_observed_sections
   - settings_PATCH_can_update_each_observed_field_without_touching_unsubmitted_sections
   - settings_PATCH_rejects_stale_version
   - company_address_is_not_created_as_training_location
