@@ -6425,3 +6425,65 @@ CORE_V1_ORGANIZATION_SETTINGS_PROVIDER_NEUTRAL_AUTHORITY_001_gate:
     action: recompute_repository_HTTP_runtime_UI_closure_with_provider_neutral_organization_settings
     rule: implementation_only_after_fresh_audit_no_PKK_runtime
 
+CORE_V1_CLOSURE_AUDIT_007_gate:
+  id: CORE-V1-CLOSURE-AUDIT-007
+  status: AUDIT_COMPLETE_PROVIDER_NEUTRAL_ORGANIZATION_SETTINGS_IMPLEMENTATION_READY
+  authority: docs/191-core-v1-closure-audit-007.md
+  audited_accepted_tip: 379e3d02710891774c8e37ed1ff9cc7b7391c34a
+  audited_tree: c66ca9ca9b5c1483b0fc7aba1a3668f8d1219297
+  prerequisite: CORE-V1-ORGANIZATION-SETTINGS-PROVIDER-NEUTRAL-AUTHORITY-001_PASS
+  closure_evidence:
+    Implementation_CI_run: 34867224998
+    API_Contract_Gate_run: 34867225007
+    PostgreSQL_suite_tests: 311
+    PostgreSQL_suite_assertions: 5575
+    restore_source_table_count: 121
+    restore_restored_table_count: 121
+    restore_schema_fingerprint: 09c57afe2501c79a3a684c0a695b4619114f94ddc24c9bca33728d99c1abb155
+    deterministic_restore_harness: PASS
+  HTTP_inventory:
+    canonical_required_inline_HTTP_operations: 172
+    required_physical_bindings_present: 147
+    missing_physical_bindings_total: 25
+    frozen_PKK_missing_bindings: 14
+    provider_specific_payment_webhook_missing_bindings: 1
+    repo_actionable_HTTP_bindings_missing: 10
+  implementation_ready:
+    count: 3
+    operations:
+      - organization.update
+      - organization.settings.get
+      - organization.settings.update
+  schema_corrective_blocked:
+    count: 2
+    operations:
+      - auth.social_redirect
+      - auth.social_callback
+  authority_blocked_remaining:
+    count: 5
+    identity_password_recovery: 2
+    student_progress: 1
+    commerce_order_create: 2
+  non_HTTP_repo_P1:
+    additional_open_count: 1
+    items:
+      - social_provider_subject_unique_physical_enforcement_missing
+  result:
+    repository_complete: false
+    repo_P0_open: 0
+    repo_P1_open: true
+    implementation_ready_missing_bindings: 3
+    schema_corrective_blocked_bindings: 2
+    authority_blocked_missing_bindings: 5
+    PKK_provider_runtime_status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+  safe_continuation:
+    next_gate: CORE-V1-ORGANIZATION-SETTINGS-001
+    exact_operations:
+      - organization.update
+      - organization.settings.get
+      - organization.settings.update
+    PKK_runtime_activation: forbidden
+    PKK_table_mutation: forbidden
+    email_change_without_identity_authority: forbidden
+    unrelated_schema_or_migration_change: forbidden
+
