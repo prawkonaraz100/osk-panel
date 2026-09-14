@@ -5588,3 +5588,46 @@ CORE_V1_CLOSURE_AUDIT_002_gate:
     id: CORE-V1-COURSE-COMPLETION-AUTHORITY-001
     action: prove_exact_completion_eligibility_before_runtime_or_UI_unlock
     rule: no_schema_invention_no_mutable_exam_management_projection_as_completion_truth_no_PKK_runtime
+
+
+CORE_V1_COURSE_COMPLETION_AUTHORITY_001_gate:
+  id: CORE-V1-COURSE-COMPLETION-AUTHORITY-001
+  status: CANDIDATE_AWAITING_CI
+  authority_doc: docs/178-core-v1-course-completion-authority.md
+  machine_authority: specs/design/course-completion.yml
+  prerequisite: CORE-V1-CLOSURE-AUDIT-002_AUDIT_COMPLETE_REPO_P1_REMAINS
+  candidate_parent: d7a8d53c4d79aed9057279ce4195f15e850e6f8d
+  exact_scope:
+    existing_operation: course_enrollments.change_stage
+    target_stage: training_completed
+    schema_or_migration_change: false
+    OpenAPI_change: false
+    runtime_or_UI_change_in_authority_gate: false
+    PKK_provider_runtime_activation: forbidden
+  completion_authority:
+    current_requirement_profile_required: true
+    profile_revision_must_equal_course_revision: true
+    rerun_rule_engine_at_completion: false
+    current_OSK_minutes_from_signed_ledger: true
+    current_external_minutes_only: true
+    required_exam_satisfied_by_exact_course_part_still_passed_attempt_with_passed_result: true
+    latest_management_attempt_status_as_authority: false
+    later_profile_supersession_silently_invalidates_pass: false
+    explicit_attempt_invalidation_withdraws_that_pass: true
+  concurrency:
+    course_enrollment_FOR_UPDATE_first: true
+    expected_course_version_required: true
+    qualifying_pass_attempt_shared_lock: true
+    completion_vs_requirement_or_hour_mutation_serialized: true
+    completion_vs_explicit_pass_invalidation_serialized: true
+  atomic_effect:
+    training_stage_training_completed: true
+    completed_at_set_once: true
+    course_version_increment_once: true
+    completed_lifecycle_event_once: true
+    proposed_audit_action: course.completed
+    audit_domain_outbox_same_transaction: true
+  next_after_PASS:
+    id: CORE-V1-COURSE-COMPLETION-001
+    action: implement_backend_completion_eligibility_then_remove_UI_guard
+    rule: exact_authority_only_no_latest_management_projection_no_PKK_runtime
