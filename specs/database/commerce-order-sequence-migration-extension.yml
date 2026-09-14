@@ -1,0 +1,92 @@
+meta:
+  extension_id: commerce_order_sequence_allocator_v1
+  gate_authority: CORE-V1-COMMERCE-ORDER-CREATE-AUTHORITY-001
+  status: CANDIDATE
+  authority_doc: docs/202-core-v1-commerce-order-create-authority.md
+
+frozen_baselines:
+  stage4:
+    plan_identity: d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10
+    execution_identity: 82da84d3efb312d78b432ad6081491c04b03569a0f250722d6befc11ca233712
+    authority_git_blob: ad5f2aa2e14ef248b95dd3dda0d1cbcb2e69d441
+    nodes: 170
+    implemented_nodes: 170
+    implemented_steps: 261
+  stage5_formal_documents:
+    plan_identity: 34cada121f4fd4963b1461308fb517c50ee647005ce9421f4d1af40c80d44b99
+    execution_identity: 31704fcab61761aa9a952d824dc543a6f46e7a3717792d0a9349cefaaf57651f
+  stage5_social_identity:
+    plan_identity: 85319b7c91cf9046e0ac8c00772aad141462e3897363b32d0ba222a50f73fe4d
+    execution_identity: b4a73588390d837fbb460d374114585064445462ddcba667d3919c7052f76cd0
+
+execution_control:
+  root: database/migrations/stage5/commerce-order-sequence
+  default_laravel_migrate_discovery: false
+  shared_postgres_advisory_lock: [519662, 5001]
+  separate_plan_registry_required: true
+  separate_implementation_registry_required: true
+  automatic_destructive_down: forbidden
+  authority_gate_executes_DDL: false
+
+node:
+  node_id: S5COM-TBL-ORGANIZATION-COMMERCE-ORDER-SEQUENCES
+  object_type: table_plus_initialization
+  object_name: organization_commerce_order_sequences
+  phases:
+    - preflight
+    - expand
+    - backfill
+    - validate
+  restart_classification: manual_review
+
+table_contract:
+  exact_columns:
+    organization_id:
+      sql_type: uuid
+      nullable: false
+      primary_key: true
+      foreign_key:
+        table: organizations
+        column: id
+        on_update: RESTRICT
+        on_delete: RESTRICT
+    next_order_sequence:
+      sql_type: bigint
+      nullable: false
+      check: next_order_sequence_gte_1
+  extra_business_columns: forbidden
+
+phase_contract:
+  preflight:
+    require_postgresql: true
+    require_tables:
+      - organizations
+      - orders
+    prove_existing_orders:
+      order_sequence_nonnull_positive: true
+      unique_per_organization: true
+      organization_relation_valid: true
+    automatic_order_sequence_rewrite: forbidden
+  expand:
+    create_exact_table_when_absent: true
+    same_name_wrong_definition: fail_closed
+  backfill:
+    every_existing_organization_gets_allocator_row: true
+    formula: COALESCE(MAX_existing_orders_order_sequence_0)_plus_1
+    source: accepted_existing_orders_order_sequence_only
+    update_existing_order_rows: forbidden
+    overwrite_existing_allocator_row: forbidden
+  validate:
+    catalog_shape_exact: true
+    primary_key_exact: [organization_id]
+    organization_fk_exact: true
+    next_order_sequence_check_exact: true
+    every_existing_organization_has_row: true
+    invariant: next_order_sequence_gt_every_existing_order_sequence_for_same_organization
+    runtime_MAX_plus_1_not_materialized: true
+
+non_scope:
+  HTTP_binding: false
+  pricing_runtime: false
+  payment_provider_call: false
+  PKK_or_PWPW_runtime: false

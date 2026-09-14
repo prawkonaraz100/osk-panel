@@ -7058,3 +7058,29 @@ CORE_V1_CLOSURE_AUDIT_012_gate:
     payment_webhook_implementation: forbidden
     PKK_runtime_activation: forbidden
 
+CORE_V1_COMMERCE_ORDER_CREATE_AUTHORITY_001_gate:
+  id: CORE-V1-COMMERCE-ORDER-CREATE-AUTHORITY-001
+  status: CANDIDATE
+  authority:
+    narrative: docs/202-core-v1-commerce-order-create-authority.md
+    machine: specs/design/commerce-order-create.yml
+    allocator_extension: specs/database/commerce-order-sequence-migration-extension.yml
+  prerequisite:
+    audit: CORE-V1-CLOSURE-AUDIT-012_AUDIT_COMPLETE_COMMERCE_SCHEMA_AND_PRICING_AUTHORITY_REQUIRED
+  exact_scope:
+    operations:
+      - license_orders.create
+      - exam_orders.create
+    trusted_current_pricing_source: server_config_by_catalog_code
+    repository_default_prices: forbidden
+    allocator_table_authority: organization_commerce_order_sequences
+    authority_gate_executes_DDL: false
+    HTTP_binding_change: false
+    provider_network_call: false
+    payment_webhook_change: false
+    Stage4_mutation: false
+    PKK_runtime_activation: false
+  safe_continuation_after_PASS:
+    next_gate: CORE-V1-STAGE5-COMMERCE-ORDER-SEQUENCE-001
+    fresh_audit_required_before_order_create_runtime: true
+
