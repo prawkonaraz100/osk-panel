@@ -300,7 +300,7 @@ final class OrganizationSettingsService
             'city_name' => $existing?->city_name,
             'city_reference' => $existing?->city_reference,
             'voivodeship_name' => $existing?->voivodeship_name,
-            'country_code' => $existing?->country_code ?? 'PL',
+            'country_code' => $existing->country_code ?? 'PL',
         ];
 
         foreach ($changes as $field => $value) {
