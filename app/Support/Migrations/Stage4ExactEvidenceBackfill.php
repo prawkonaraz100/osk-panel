@@ -103,26 +103,12 @@ SQL);
     /** @return array{mutated:int,deferred_to_reconcile:int} */
     private static function eventRuntime(): array
     {
+        self::inventoryEventProjectionCases();
+
         $row = DB::selectOne(<<<'SQL'
-SELECT (
-    (SELECT COUNT(*)
-       FROM outbox_messages outbox
-       JOIN domain_events event ON event.id = outbox.domain_event_id
-      WHERE outbox.event_scope IS DISTINCT FROM event.event_scope
-         OR outbox.organization_id IS DISTINCT FROM event.organization_id
-         OR outbox.event_type IS DISTINCT FROM event.event_type
-         OR outbox.aggregate_type IS DISTINCT FROM event.aggregate_type
-         OR outbox.aggregate_id IS DISTINCT FROM event.aggregate_id
-         OR outbox.request_id IS DISTINCT FROM event.request_id)
-  + (SELECT COUNT(*)
-       FROM organization_activity_events activity
-       JOIN domain_events event
-         ON event.id = activity.source_event_id
-        AND event.organization_id = activity.organization_id
-      WHERE event.event_scope <> 'organization'
-         OR activity.event_type IS DISTINCT FROM event.event_type
-         OR activity.occurred_at IS DISTINCT FROM event.occurred_at)
-)::int AS deferred_count
+SELECT COUNT(*)::int AS deferred_count
+  FROM event_projection_migration_cases
+ WHERE resolution_state <> 'resolved'
 SQL);
 
         return [
@@ -533,6 +519,281 @@ SQL);
             'mutated' => 0,
             'deferred_to_reconcile' => (int) ($row->deferred_count ?? 0),
         ];
+    }
+
+    private static function inventoryEventProjectionCases(): void
+    {
+        self::inventoryCaseRows(
+            'audit_logs',
+            'audit_contract_unresolved',
+            'ambiguous_or_conflicting',
+            DB::select(<<<'SQL'
+SELECT audit.id::text AS id,
+       audit.audit_scope,
+       audit.organization_id::text AS organization_id,
+       audit.actor_kind,
+       audit.actor_organization_membership_id::text AS actor_membership_id,
+       audit.actor_user_id::text AS actor_user_id,
+       audit.action,
+       audit.audit_policy_version,
+       audit.entity_reference_mode
+  FROM audit_logs audit
+  LEFT JOIN audit_action_policy_revisions revision
+    ON revision.action = audit.action
+   AND revision.policy_version = audit.audit_policy_version
+ WHERE audit.audit_policy_version < 1
+    OR revision.action IS NULL
+    OR (audit.audit_scope = 'organization' AND audit.organization_id IS NULL)
+    OR (audit.audit_scope = 'platform_global' AND audit.organization_id IS NOT NULL)
+    OR audit.audit_scope NOT IN ('organization', 'platform_global')
+    OR audit.actor_kind NOT IN ('organization_membership', 'global_user', 'system')
+    OR audit.entity_reference_mode NOT IN ('none', 'tenant_relational', 'global_relational', 'snapshot_only')
+    OR (
+        audit.actor_kind = 'organization_membership'
+        AND (
+            audit.audit_scope <> 'organization'
+            OR audit.actor_organization_membership_id IS NULL
+            OR audit.actor_user_id IS NULL
+        )
+    )
+    OR (
+        audit.actor_kind = 'global_user'
+        AND (
+            audit.audit_scope <> 'platform_global'
+            OR audit.actor_organization_membership_id IS NOT NULL
+            OR audit.actor_user_id IS NULL
+        )
+    )
+    OR (
+        audit.actor_kind = 'system'
+        AND (
+            audit.actor_organization_membership_id IS NOT NULL
+            OR audit.actor_user_id IS NOT NULL
+        )
+    )
+SQL),
+        );
+
+        self::inventoryCaseRows(
+            'domain_events',
+            'domain_event_contract_unresolved',
+            'ambiguous_or_conflicting',
+            DB::select(<<<'SQL'
+SELECT event.id::text AS id,
+       event.event_scope,
+       event.organization_id::text AS organization_id,
+       event.event_type,
+       event.aggregate_reference_mode,
+       event.required_audit_log_id::text AS required_audit_log_id
+  FROM domain_events event
+  LEFT JOIN audit_logs audit
+    ON audit.id = event.required_audit_log_id
+ WHERE event.event_scope NOT IN ('organization', 'platform_global')
+    OR event.aggregate_reference_mode NOT IN ('none', 'tenant_relational', 'global_relational', 'snapshot_only')
+    OR (event.event_scope = 'organization' AND event.organization_id IS NULL)
+    OR (event.event_scope = 'platform_global' AND event.organization_id IS NOT NULL)
+    OR (
+        event.required_audit_log_id IS NOT NULL
+        AND (
+            audit.id IS NULL
+            OR audit.audit_scope IS DISTINCT FROM event.event_scope
+            OR audit.organization_id IS DISTINCT FROM event.organization_id
+        )
+    )
+SQL),
+        );
+
+        self::inventoryCaseRows(
+            'outbox_messages',
+            'outbox_contract_unresolved',
+            'ambiguous_or_conflicting',
+            DB::select(<<<'SQL'
+SELECT outbox.id::text AS id,
+       outbox.domain_event_id::text AS domain_event_id,
+       outbox.event_scope,
+       outbox.organization_id::text AS organization_id,
+       outbox.event_type,
+       outbox.aggregate_type,
+       outbox.aggregate_id,
+       outbox.request_id::text AS request_id,
+       outbox.publication_state,
+       outbox.lease_version,
+       outbox.attempts,
+       outbox.attempts_in_cycle,
+       outbox.replay_count
+  FROM outbox_messages outbox
+  LEFT JOIN domain_events event ON event.id = outbox.domain_event_id
+ WHERE event.id IS NULL
+    OR outbox.event_scope IS DISTINCT FROM event.event_scope
+    OR outbox.organization_id IS DISTINCT FROM event.organization_id
+    OR outbox.event_type IS DISTINCT FROM event.event_type
+    OR outbox.aggregate_type IS DISTINCT FROM event.aggregate_type
+    OR outbox.aggregate_id IS DISTINCT FROM event.aggregate_id
+    OR outbox.request_id IS DISTINCT FROM event.request_id
+    OR outbox.publication_state NOT IN ('pending', 'leased', 'published', 'requires_reconciliation')
+    OR outbox.lease_version < 0
+    OR outbox.attempts < 0
+    OR outbox.attempts_in_cycle < 0
+    OR outbox.replay_count < 0
+    OR (
+        outbox.publication_state = 'leased'
+        AND (
+            outbox.lease_token IS NULL
+            OR outbox.leased_by IS NULL
+            OR outbox.lease_expires_at IS NULL
+            OR outbox.published_at IS NOT NULL
+        )
+    )
+    OR (
+        outbox.publication_state = 'published'
+        AND (
+            outbox.lease_token IS NOT NULL
+            OR outbox.leased_by IS NOT NULL
+            OR outbox.lease_expires_at IS NOT NULL
+            OR outbox.published_at IS NULL
+        )
+    )
+    OR (
+        outbox.publication_state IN ('pending', 'requires_reconciliation')
+        AND (
+            outbox.lease_token IS NOT NULL
+            OR outbox.leased_by IS NOT NULL
+            OR outbox.lease_expires_at IS NOT NULL
+            OR outbox.published_at IS NOT NULL
+        )
+    )
+SQL),
+        );
+
+        self::inventoryCaseRows(
+            'organization_activity_events',
+            'activity_projection_contract_unresolved',
+            'partial_but_nonconflicting',
+            DB::select(<<<'SQL'
+SELECT activity.id::text AS id,
+       activity.organization_id::text AS organization_id,
+       activity.source_event_id::text AS source_event_id,
+       activity.projection_policy_version,
+       activity.event_type,
+       activity.occurred_at::text AS occurred_at,
+       activity.actor_reference_mode,
+       activity.actor_organization_membership_id::text AS actor_membership_id,
+       activity.actor_user_id::text AS actor_user_id,
+       activity.subject_reference_mode,
+       activity.subject_type,
+       activity.subject_id
+  FROM organization_activity_events activity
+  LEFT JOIN domain_events event
+    ON event.id = activity.source_event_id
+   AND event.organization_id = activity.organization_id
+  LEFT JOIN activity_projection_policy_revisions revision
+    ON revision.event_type = activity.event_type
+   AND revision.policy_version = activity.projection_policy_version
+ WHERE event.id IS NULL
+    OR event.event_scope <> 'organization'
+    OR activity.event_type IS DISTINCT FROM event.event_type
+    OR activity.occurred_at IS DISTINCT FROM event.occurred_at
+    OR revision.event_type IS NULL
+    OR NULLIF(BTRIM(activity.description_snapshot), '') IS NULL
+    OR (activity.safe_payload IS NOT NULL AND jsonb_typeof(activity.safe_payload) <> 'object')
+SQL),
+        );
+
+        self::inventoryCaseRows(
+            'notifications',
+            'notification_projection_contract_unresolved',
+            'partial_but_nonconflicting',
+            DB::select(<<<'SQL'
+SELECT notification.id::text AS id,
+       notification.organization_id::text AS organization_id,
+       notification.source_event_id::text AS source_event_id,
+       notification.organization_membership_id::text AS membership_id,
+       notification.user_id::text AS user_id,
+       notification.audience_kind,
+       notification.type,
+       notification.read_at::text AS read_at
+  FROM notifications notification
+  LEFT JOIN domain_events event
+    ON event.id = notification.source_event_id
+   AND event.organization_id = notification.organization_id
+  LEFT JOIN organization_memberships membership
+    ON membership.organization_id = notification.organization_id
+   AND membership.id = notification.organization_membership_id
+   AND membership.user_id = notification.user_id
+ WHERE event.id IS NULL
+    OR event.event_scope <> 'organization'
+    OR membership.id IS NULL
+    OR notification.audience_kind NOT IN ('direct_membership', 'organization_broadcast')
+SQL),
+        );
+    }
+
+    /**
+     * @param list<object> $rows
+     */
+    private static function inventoryCaseRows(
+        string $sourceTable,
+        string $issueCode,
+        string $evidenceClass,
+        array $rows,
+    ): void {
+        foreach ($rows as $row) {
+            $safe = (array) $row;
+            $sourceRowId = (string) ($safe['id'] ?? '');
+            if ($sourceRowId === '') {
+                throw new LogicException("{$sourceTable} reconciliation inventory row has no source id.");
+            }
+
+            ksort($safe);
+            $fingerprint = hash('sha256', json_encode($safe, JSON_THROW_ON_ERROR));
+            $existing = DB::table('event_projection_migration_cases')
+                ->where('source_table', $sourceTable)
+                ->where('source_row_id', $sourceRowId)
+                ->where('issue_code', $issueCode)
+                ->first();
+
+            if ($existing !== null) {
+                if ((string) $existing->source_row_fingerprint !== $fingerprint) {
+                    throw new LogicException(
+                        "{$sourceTable}/{$sourceRowId}/{$issueCode} changed after reconciliation inventory; manual review is required.",
+                    );
+                }
+
+                continue;
+            }
+
+            DB::table('event_projection_migration_cases')->insert([
+                'id' => self::deterministicUuid("event-projection-case|{$sourceTable}|{$sourceRowId}|{$issueCode}"),
+                'source_table' => $sourceTable,
+                'source_row_id' => $sourceRowId,
+                'source_row_fingerprint' => $fingerprint,
+                'issue_code' => $issueCode,
+                'evidence_class' => $evidenceClass,
+                'resolution_state' => 'open',
+                'evidence_reference_json_safe' => json_encode([
+                    'source_table' => $sourceTable,
+                    'issue_code' => $issueCode,
+                ], JSON_THROW_ON_ERROR),
+                'resolution_kind' => null,
+                'resolution_reason' => null,
+                'reviewed_by_user_id' => null,
+                'reviewed_at' => null,
+                'created_at' => now(),
+            ]);
+        }
+    }
+
+    private static function deterministicUuid(string $material): string
+    {
+        $hex = substr(hash('sha256', $material), 0, 32);
+
+        return implode('-', [
+            substr($hex, 0, 8),
+            substr($hex, 8, 4),
+            substr($hex, 12, 4),
+            substr($hex, 16, 4),
+            substr($hex, 20, 12),
+        ]);
     }
 
     private static function assertPostgres(): void
