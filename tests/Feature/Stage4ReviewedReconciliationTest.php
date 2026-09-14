@@ -19,15 +19,23 @@ final class Stage4ReviewedReconciliationTest extends TestCase
 
         $plan = app(MigrationPlan::class);
         $plan->validate();
+        $this->assertSame(170, $plan->implementedNodeCount());
+        $this->assertSame(223, $plan->implementedStepCount());
+        $this->assertCount(7, $plan->phaseSteps('reconcile'));
+        $this->assertCount(0, $plan->phaseSteps('validate'));
 
         DB::beginTransaction();
 
         try {
             $this->runThroughBackfill($plan);
 
-            foreach ($this->reconcileNodes() as $nodeId) {
-                Stage4ReviewedReconciliation::assertResolved($nodeId);
-            }
+            $exit = Artisan::call('migration:controlled', [
+                '--plan' => $plan->identity(),
+                '--execution' => $plan->executionIdentity(),
+                '--phase' => 'reconcile',
+                '--force' => true,
+            ]);
+            $this->assertSame(0, $exit, Artisan::output());
         } finally {
             DB::rollBack();
         }

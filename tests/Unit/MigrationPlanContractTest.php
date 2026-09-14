@@ -16,9 +16,9 @@ class MigrationPlanContractTest extends TestCase
         $this->assertSame(170, $plan->nodeCount());
         $this->assertSame(17, $plan->batchCount());
         $this->assertSame(170, $plan->implementedNodeCount());
-        $this->assertSame(216, $plan->implementedStepCount());
+        $this->assertSame(223, $plan->implementedStepCount());
         $this->assertSame('ad5f2aa2e14ef248b95dd3dda0d1cbcb2e69d441', $plan->summary()['authority_blob']);
-        $this->assertSame('1526b852d3af464c8f6138ba13e0aa0fe9b9a64d77a9df7619a2709e512f1bde', $plan->executionIdentity());
+        $this->assertSame('2b8d8001da433ec87402155ef9c3e0149d36018eea9b5a03a63b7a97a54c0f76', $plan->executionIdentity());
         $this->assertSame([
             'MIG-EXT-BTREE-GIST',
             'MIG-TBL-ORGANIZATIONS',
@@ -213,13 +213,22 @@ class MigrationPlanContractTest extends TestCase
             'MIG-PRJ-ORGANIZATION-ACTIVITY',
             'MIG-PRJ-NOTIFICATIONS',
         ];
+        $reconcileNodes = [
+            'MIG-FK-PURCHASE_DOWNSTREAM',
+            'MIG-FK-EVENTS',
+            'MIG-TRG-EVENTS',
+            'MIG-PRJ-CALENDAR-RESOURCE-CLAIMS',
+            'MIG-PRJ-PURCHASE-HISTORY',
+            'MIG-PRJ-ORGANIZATION-ACTIVITY',
+            'MIG-PRJ-NOTIFICATIONS',
+        ];
         $this->assertSame(
             array_merge($candidateKeyNodes, $indexNodes, $foreignKeyNodes, $constraintNodes),
             array_column($plan->phaseSteps('preflight'), 'node_id'),
         );
         $this->assertSame(array_merge($candidateKeyNodes, $indexNodes, $foreignKeyNodes, $constraintNodes, $triggerNodes, $projectionNodes), array_column($plan->phaseSteps('write_fence'), 'node_id'));
         $this->assertSame($backfillNodes, array_column($plan->phaseSteps('backfill'), 'node_id'));
-        $this->assertSame([], $plan->phaseSteps('reconcile'));
+        $this->assertSame($reconcileNodes, array_column($plan->phaseSteps('reconcile'), 'node_id'));
         $this->assertSame([], $plan->phaseSteps('validate'));
         $this->assertSame([], $plan->phaseSteps('contract'));
     }

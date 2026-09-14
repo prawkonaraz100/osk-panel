@@ -32,8 +32,8 @@ final class Stage4CandidateKeysWriteFenceTest extends TestCase
 
         $this->assertSame(170, $plan->nodeCount());
         $this->assertSame(170, $plan->implementedNodeCount());
-        $this->assertSame(216, $plan->implementedStepCount());
-        $this->assertSame('1526b852d3af464c8f6138ba13e0aa0fe9b9a64d77a9df7619a2709e512f1bde', $plan->executionIdentity());
+        $this->assertSame(223, $plan->implementedStepCount());
+        $this->assertSame('2b8d8001da433ec87402155ef9c3e0149d36018eea9b5a03a63b7a97a54c0f76', $plan->executionIdentity());
         $this->assertSame($writeFenceNodes, array_slice(array_column($plan->phaseSteps('write_fence'), 'node_id'), 0, count($writeFenceNodes)));
         $this->assertCount(52, $plan->phaseSteps('write_fence'));
 
@@ -300,7 +300,7 @@ final class Stage4CandidateKeysWriteFenceTest extends TestCase
                 ],
                 array_column($plan->phaseSteps('backfill'), 'node_id'),
             );
-            $this->assertSame([], $plan->phaseSteps('reconcile'));
+            $this->assertCount(7, $plan->phaseSteps('reconcile'));
             $this->assertSame([], $plan->phaseSteps('validate'));
             $this->assertSame([], $plan->phaseSteps('contract'));
         } finally {

@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
   "plan_identity": "d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10",
-  "execution_identity": "1526b852d3af464c8f6138ba13e0aa0fe9b9a64d77a9df7619a2709e512f1bde",
+  "execution_identity": "2b8d8001da433ec87402155ef9c3e0149d36018eea9b5a03a63b7a97a54c0f76",
   "stage4_root": "database/migrations/stage4",
   "implemented_steps": [
     {
@@ -1945,6 +1945,69 @@
       "migration_file": "database/migrations/stage4/backfill/MIG-PRJ-NOTIFICATIONS/2026_09_10_001700_backfill_projection_notifications.php",
       "migration_name": "2026_09_10_001700_backfill_projection_notifications",
       "file_sha256": "55a903b91eb614002d3510385905737b0243c52249a2119fa844beeec0a7f859",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-FK-PURCHASE_DOWNSTREAM",
+      "phase": "reconcile",
+      "migration_file": "database/migrations/stage4/reconcile/MIG-FK-PURCHASE_DOWNSTREAM/2026_09_10_001460_reconcile_foreign_keys_purchase_downstream.php",
+      "migration_name": "2026_09_10_001460_reconcile_foreign_keys_purchase_downstream",
+      "file_sha256": "8591222fab45f00cd874fe6bde1933ec8ceede433aeaee0c3db85bde9b0f066e",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-FK-EVENTS",
+      "phase": "reconcile",
+      "migration_file": "database/migrations/stage4/reconcile/MIG-FK-EVENTS/2026_09_10_001470_reconcile_foreign_keys_events.php",
+      "migration_name": "2026_09_10_001470_reconcile_foreign_keys_events",
+      "file_sha256": "6478d4742ed2d6af6f3722ce517283bf9d02ca91cc487d04b3e81d0f425b84d3",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TRG-EVENTS",
+      "phase": "reconcile",
+      "migration_file": "database/migrations/stage4/reconcile/MIG-TRG-EVENTS/2026_09_10_001660_reconcile_triggers_events.php",
+      "migration_name": "2026_09_10_001660_reconcile_triggers_events",
+      "file_sha256": "0d8dd5f44d10ed86efe13b55396a087661666feda68d869da2925bd76139853c",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-PRJ-CALENDAR-RESOURCE-CLAIMS",
+      "phase": "reconcile",
+      "migration_file": "database/migrations/stage4/reconcile/MIG-PRJ-CALENDAR-RESOURCE-CLAIMS/2026_09_10_001670_reconcile_projection_calendar_resource_claims.php",
+      "migration_name": "2026_09_10_001670_reconcile_projection_calendar_resource_claims",
+      "file_sha256": "ec81df92ce2929d85ac3af1321ae08da98e47348e8d66bfc30095f16fbe66df7",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-PRJ-PURCHASE-HISTORY",
+      "phase": "reconcile",
+      "migration_file": "database/migrations/stage4/reconcile/MIG-PRJ-PURCHASE-HISTORY/2026_09_10_001680_reconcile_projection_purchase_history.php",
+      "migration_name": "2026_09_10_001680_reconcile_projection_purchase_history",
+      "file_sha256": "1969625e248ba836d566925733821b612d1f74874e60d9af076286a02fdc475a",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-PRJ-ORGANIZATION-ACTIVITY",
+      "phase": "reconcile",
+      "migration_file": "database/migrations/stage4/reconcile/MIG-PRJ-ORGANIZATION-ACTIVITY/2026_09_10_001690_reconcile_projection_organization_activity.php",
+      "migration_name": "2026_09_10_001690_reconcile_projection_organization_activity",
+      "file_sha256": "83e98953861c0d4a2bb66657111e7b80c6dc8433af2f3f2cf469b4a084bf5b02",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-PRJ-NOTIFICATIONS",
+      "phase": "reconcile",
+      "migration_file": "database/migrations/stage4/reconcile/MIG-PRJ-NOTIFICATIONS/2026_09_10_001700_reconcile_projection_notifications.php",
+      "migration_name": "2026_09_10_001700_reconcile_projection_notifications",
+      "file_sha256": "62b2ddff004deef46f8302844705460e317025e5345eece7ec136ec0aba34197",
       "restart_classification": "manual_review",
       "safe_down": false
     }

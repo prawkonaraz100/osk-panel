@@ -20,10 +20,10 @@ class Stage5FormalDocumentsMigrationPlanContractTest extends TestCase
 
         $this->assertSame(170, $stage4->nodeCount());
         $this->assertSame(170, $stage4->implementedNodeCount());
-        $this->assertSame(216, $stage4->implementedStepCount());
+        $this->assertSame(223, $stage4->implementedStepCount());
         $this->assertSame(Stage5FormalDocumentsMigrationPlan::STAGE4_PLAN_IDENTITY, $stage4->identity());
         $this->assertSame(
-            '1526b852d3af464c8f6138ba13e0aa0fe9b9a64d77a9df7619a2709e512f1bde',
+            '2b8d8001da433ec87402155ef9c3e0149d36018eea9b5a03a63b7a97a54c0f76',
             $stage4->executionIdentity(),
         );
         $this->assertNotSame(Stage5FormalDocumentsMigrationPlan::STAGE4_EXECUTION_IDENTITY, $stage4->executionIdentity());
