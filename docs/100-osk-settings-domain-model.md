@@ -8,7 +8,7 @@ Machine-readable source: `specs/database/organization-settings.yml`.
 
 ## Cel
 
-Ekran `/ustawienia` i bramka `Konfiguracja PKK` muszą korzystać z jednego, spójnego modelu danych. Nie kopiujemy pól między przypadkowymi tabelami tylko dlatego, że pojawiają się na dwóch ekranach. Każde pole ma jednego właściciela domenowego, a ekrany są projekcjami z tych samych rekordów.
+Ekran `/ustawienia` i bramka `Konfiguracja PKK` korzystają z jednego modelu własności danych, ale nie z jednego obowiązkowego runtime use case'u. PKK jest opcjonalnym bounded contextem integracyjnym. Zwykłe ustawienia OSK muszą działać przy braku konfiguracji PKK, a sam ekran może komponować provider-neutral settings z osobną projekcją integracji PKK.
 
 Zakres jest zachowany z reverse engineeringu. Nie usuwamy żadnego potwierdzonego pola i nie dokładamy do formularza pól niezaobserwowanych tylko dlatego, że istnieją w domenie.
 
@@ -109,30 +109,29 @@ To są dane biznesowe i muszą mieć jawne kolumny oraz walidację.
 
 ---
 
-## 4. Jeden save może dotykać kilku tabel, ale jest jedną transakcją
+## 4. Provider-neutral settings save jest niezależny od PKK
 
-`PATCH /organization/settings` jest agregatowym use case'em. Backend nie powinien zmuszać frontu do wykonywania pięciu niezależnych zapisów, ponieważ użytkownik widzi jeden formularz i jeden przycisk `Zapisz`.
+`PATCH /organization/settings` jest provider-neutral agregatowym use case'em dla danych użytkownika i firmy. Nie wymaga rekordu `pkk_integration_settings`, nie odczytuje go i nie mutuje.
 
 Transakcja:
 1. lock `organization_settings`,
 2. sprawdzenie tenant scope i permission,
-3. walidacja allowlist pól,
-4. aktualizacja imienia/nazwiska,
-5. obsługa zmiany głównego emaila według polityki auth,
-6. aktualizacja nazwy i telefonu organizacji,
-7. upsert adresu firmy,
-8. aktualizacja danych PKK,
-9. przeliczenie readiness PKK,
-10. inkrementacja `organization_settings.version`,
-11. redacted audit,
-12. outbox/event, jeśli potrzebny,
-13. commit.
+3. walidacja allowlist provider-neutral pól,
+4. aktualizacja imienia/nazwiska, jeśli przesłane,
+5. aktualizacja nazwy i telefonu organizacji, jeśli przesłane,
+6. upsert kompletnego adresu firmy, jeśli przesłany,
+7. inkrementacja `organization_settings.version`,
+8. redacted audit,
+9. outbox/event,
+10. commit.
+
+Zmiana emaila nie należy do tego commandu, dopóki nie zostanie zamknięta osobna authority dla re-verification identyfikatora. Pola PKK zapisuje wyłącznie dedykowany endpoint integracyjny.
 
 Przy konflikcie wersji zapis jest odrzucany zamiast nadpisywać zmiany innego pracownika.
 
 ---
 
-## 5. Konfiguracja PKK i Ustawienia korzystają z tych samych rekordów
+## 5. Konfiguracja PKK jest opcjonalną, osobną projekcją na tym samym ekranie
 
 Bramka `Konfiguracja PKK` potwierdzona podczas reverse engineeringu zawiera:
 - Nazwa szkoły,
@@ -141,10 +140,11 @@ Bramka `Konfiguracja PKK` potwierdzona podczas reverse engineeringu zawiera:
 - Imię,
 - Nazwisko.
 
-Semantyka jest następująca:
-- pierwsze trzy pola zapisują `pkk_integration_settings`,
-- dwa ostatnie zapisują `users`,
-- po zapisie oba ekrany od razu widzą te same wartości.
+Semantyka własności danych pozostaje następująca:
+- pierwsze trzy pola należą do `pkk_integration_settings`,
+- dwa ostatnie należą do `users`.
+
+Transport jest rozdzielony: zwykły GET/PATCH ustawień nie zależy od PKK. Sekcja PKK na ekranie może korzystać z osobnego `/organization/integrations/pkk` i podczas freeze'u być niedostępna lub pokazywać stan `not_configured` bez blokowania reszty ustawień.
 
 Zakazane jest tworzenie dodatkowych pól `operator_first_name` / `operator_last_name` w tabeli PKK tylko po to, żeby uprościć formularz.
 
@@ -208,11 +208,11 @@ Dashboardowy activity feed może dostać neutralny event typu „Zmieniono ustaw
 ## 10. Acceptance gate dla tego etapu
 
 Etap uważa się za zamknięty dopiero gdy:
-- GET ustawień zwraca wszystkie potwierdzone sekcje,
-- PATCH pozwala zmieniać każdą potwierdzoną wartość bez wymuszania pól z innych sekcji,
-- PKK gate i Ustawienia korzystają z tych samych rekordów,
+- GET provider-neutral settings działa bez rekordu i bez połączenia PKK,
+- PATCH provider-neutral settings działa bez PKK i nie tworzy ani nie mutuje `pkk_integration_settings`,
+- PKK pozostaje osobnym, opcjonalnym bounded contextem i może być zamrożone bez blokowania serwisu,
+- email jest odczytywany z canonical identity source, ale jego zmiana nie jest wymyślana przed osobną authority,
 - adres firmy nie staje się rekordem `Location`,
-- zmiana Login OSK PKK nie wpływa na login aplikacji,
 - konflikt wersji blokuje silent overwrite,
 - historia regulaminu rozwiązuje dokładną wersję dokumentu,
 - NIP nie staje się wymaganym polem obserwowanego formularza,
@@ -222,8 +222,8 @@ Etap uważa się za zamknięty dopiero gdy:
 
 ## 11. Co pozostaje otwarte
 
-Te decyzje nie blokują obecnego kształtu modelu:
-- czy zmiana emaila zawsze wymaga ponownej weryfikacji,
+Te decyzje nie blokują provider-neutral settings, ponieważ są wydzielone do osobnych authority:
+- dokładna polityka zmiany emaila i ponownej weryfikacji,
 - dokładne zachowanie testu połączenia PKK,
 - czy `external_osk_login` wymaga lookup hash oprócz ciphertext,
 - czy w przyszłości formularz adresu firmy dostanie jawny wybór kraju.
