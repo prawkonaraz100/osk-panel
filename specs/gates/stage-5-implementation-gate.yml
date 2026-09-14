@@ -6487,3 +6487,61 @@ CORE_V1_CLOSURE_AUDIT_007_gate:
     email_change_without_identity_authority: forbidden
     unrelated_schema_or_migration_change: forbidden
 
+CORE_V1_ORGANIZATION_SETTINGS_001_gate:
+  id: CORE-V1-ORGANIZATION-SETTINGS-001
+  status: PASS
+  prerequisite:
+    audit: CORE-V1-CLOSURE-AUDIT-007_AUDIT_COMPLETE_PROVIDER_NEUTRAL_ORGANIZATION_SETTINGS_IMPLEMENTATION_READY
+    authority: CORE-V1-ORGANIZATION-SETTINGS-PROVIDER-NEUTRAL-AUTHORITY-001_PASS
+  authority: docs/192-core-v1-organization-settings-closure.md
+  exact_scope:
+    operations:
+      - organization.update
+      - organization.settings.get
+      - organization.settings.update
+    routes:
+      - PATCH /api/v1/organization
+      - GET /api/v1/organization/settings
+      - PATCH /api/v1/organization/settings
+    PKK_configuration_required: false
+    PKK_table_exposure: forbidden
+    PKK_table_mutation: forbidden
+    email_mutation: forbidden_pending_identity_email_change_authority
+    unrelated_schema_or_migration_change: false
+  implementation:
+    initial_runtime_head: 803ed4d36665a4476e846f97195a2f6a71a3272f
+    PHPStan_corrective_head: beb2d4909cdcded1471d90b24e4e687556958cf9
+    foundation_contract_corrective_head: 32fac6f33e8823cc03377cad0cb4a9451b16f715
+    stale_HTTP_conflict_corrective_head: 3059d06d268f864b18c8f0bbe98e11e70a984593
+    exact_implementation_tree: 58977711a5ea45037e6568535aac9aae658b72b6
+  executable_evidence:
+    exact_head_Implementation_CI_run: 34871761320
+    exact_head_API_Contract_Gate_run: 34871761256
+    Implementation_CI_jobs_passed: 5
+    Implementation_CI_jobs_total: 5
+    API_Contract_Gate: PASS
+    PostgreSQL_suite_tests: 316
+    PostgreSQL_suite_assertions: 5619
+    deterministic_restore_harness: PASS
+    restore_source_table_count: 121
+    restore_restored_table_count: 121
+    restore_schema_fingerprint: 09c57afe2501c79a3a684c0a695b4619114f94ddc24c9bca33728d99c1abb155
+    backend_Pint_and_PHPStan: PASS
+    frontend_quality: PASS
+    contracts_and_traceability: PASS
+    secret_scan: PASS
+  closure_effect:
+    physical_HTTP_bindings_closed: 3
+    required_physical_bindings_present_before: 147
+    required_physical_bindings_present_after: 150
+    missing_physical_bindings_before: 25
+    missing_physical_bindings_after: 22
+    repo_actionable_HTTP_missing_before: 10
+    repo_actionable_HTTP_missing_after: 7
+    frozen_PKK_missing_bindings_unchanged: 14
+    provider_specific_payment_webhook_unchanged: 1
+  next_after_PASS:
+    id: CORE-V1-CLOSURE-AUDIT-008
+    action: recompute_repository_HTTP_runtime_UI_closure_after_three_provider_neutral_bindings
+    rule: recompute_not_assume_no_PKK_runtime
+
