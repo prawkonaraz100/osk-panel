@@ -6892,3 +6892,56 @@ CORE_V1_AUTH_PASSWORD_RECOVERY_AUTHORITY_001_gate:
     action: reclassify_password_recovery_HTTP_after_authority_PASS
     rule: implementation_only_after_fresh_audit_no_PKK_runtime
 
+CORE_V1_CLOSURE_AUDIT_011_gate:
+  id: CORE-V1-CLOSURE-AUDIT-011
+  status: AUDIT_COMPLETE_PASSWORD_RECOVERY_IMPLEMENTATION_READY
+  authority: docs/200-core-v1-closure-audit-011.md
+  audited_accepted_tip: 3b679788dbb382ed543e5e41118a48e760c1b6c6
+  audited_tree: 4bf711937dcf49d47a11aecbc37fda526512c850
+  prerequisite: CORE-V1-AUTH-PASSWORD-RECOVERY-AUTHORITY-001_PASS
+  closure_evidence:
+    Implementation_CI_run: 34888270586
+    API_Contract_Gate_run: 34888270600
+    PostgreSQL_suite_tests: 326
+    PostgreSQL_suite_assertions: 5745
+    restore_source_table_count: 121
+    restore_restored_table_count: 121
+    restore_schema_fingerprint: 09c57afe2501c79a3a684c0a695b4619114f94ddc24c9bca33728d99c1abb155
+    deterministic_restore_harness: PASS
+  HTTP_inventory:
+    canonical_required_inline_HTTP_operations: 172
+    required_physical_bindings_present: 152
+    missing_physical_bindings_total: 20
+    frozen_PKK_missing_bindings: 14
+    provider_specific_payment_webhook_missing_bindings: 1
+    repo_actionable_HTTP_bindings_missing: 5
+  implementation_ready:
+    count: 2
+    operations:
+      - auth.password_forgot
+      - auth.password_reset
+  schema_corrective_blocked:
+    count: 0
+    operations: []
+  authority_blocked_remaining:
+    count: 3
+    student_progress: 1
+    commerce_order_create: 2
+  non_HTTP_repo_P1:
+    additional_open_count: 0
+  result:
+    repository_complete: false
+    repo_P0_open: 0
+    repo_P1_open: false
+    implementation_ready_missing_bindings: 2
+    authority_blocked_missing_bindings: 3
+    PKK_provider_runtime_status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+  safe_continuation:
+    next_gate: CORE-V1-AUTH-PASSWORD-RECOVERY-001
+    exact_operations:
+      - auth.password_forgot
+      - auth.password_reset
+    schema_or_migration_change: forbidden
+    organization_managed_password_mutation: forbidden
+    PKK_runtime_activation: forbidden
+
