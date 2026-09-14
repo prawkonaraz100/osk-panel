@@ -5184,3 +5184,71 @@ CORE_V1_AUDIT_LOGS_LIST_001_gate:
     action: prove_existing_student_progress_authority_before_materializing_the_single_missing_progress_binding
     rule: no_fabricated_progress_no_PKK_runtime_no_new_business_truth_without_proven_dependency
 
+CORE_V1_AUTH_ACCOUNT_CLOSURE_001_gate:
+  id: CORE-V1-AUTH-ACCOUNT-CLOSURE-001
+  status: PASS
+  authority_audit: docs/172-core-v1-auth-account-closure-closure.md
+  exact_operations:
+    - auth.account_closure_request
+  scope:
+    schema_or_migration_change: false
+    authenticated_global_user_only: true
+    account_deletion_or_retention_execution: false
+    organization_scoped_closure_runtime: not_materialized
+    PKK_provider_runtime_activation: forbidden
+  provenance:
+    implementation_commit: 66713286f06deae5c1cae70ed9614f6711657aea
+    first_corrective_commit: be49f83c2e65f57a3142e0187789f4ffd07d6baf
+    exact_head_commit: 95ad8f2658ada2894c944c1a4cf1785ded1ecd5a
+    exact_head_Implementation_CI_run: 34817810942
+    exact_head_API_Contract_Gate_run: 34817810892
+  executable_evidence:
+    exact_head_Implementation_CI_jobs_passed: 5
+    exact_head_Implementation_CI_jobs_total: 5
+    API_Contract_Gate: PASS
+    PostgreSQL_suite_tests: 279
+    PostgreSQL_suite_assertions: 5245
+    deterministic_restore_harness: PASS
+    restore_source_table_count: 121
+    restore_restored_table_count: 121
+    restore_schema_fingerprint: 09c57afe2501c79a3a684c0a695b4619114f94ddc24c9bca33728d99c1abb155
+    frontend_quality: PASS
+    backend_Pint_and_PHPStan: PASS
+    contracts_and_traceability: PASS
+    secret_scan: PASS
+  authorization_postconditions:
+    live_authenticated_session_required: PASS
+    active_organization_membership_required: false
+    selected_tenant_context_required: false
+    suspended_membership_blocks_global_closure_request: false
+  idempotency_postconditions:
+    global_idempotency_scope: PASS
+    same_key_same_payload_replays: PASS
+    same_key_different_payload_conflicts: PASS
+    second_key_with_existing_pending_returns_same_pending_request: PASS
+    duplicate_business_request_created: false
+    duplicate_audit_event_created: false
+    duplicate_outbox_intent_created: false
+  audit_outbox_postconditions:
+    audit_scope: platform_global
+    actor_kind: global_user
+    organization_id: null
+    one_domain_event_per_new_request: PASS
+    one_outbox_intent_per_new_request: PASS
+    closure_reason_copied_to_audit_or_outbox: false
+  preservation:
+    formal_and_financial_history_deletion: false
+    retention_execution_started: false
+    organization_settings_primary_email_policy_unchanged: true
+    PKK_provider_runtime_still_frozen: PASS
+  closure_effect:
+    repo_actionable_HTTP_bindings_before_this_gate: 18
+    HTTP_bindings_closed_by_this_gate: 1
+    derived_repo_actionable_HTTP_bindings_remaining: 17
+    students_progress_blocked_binding_not_counted_closed: true
+    full_closure_reaudit_required_before_repository_complete: true
+  next_after_PASS:
+    id: CORE-V1-SERVICE-ENTITLEMENTS-001
+    action: materialize_service_entitlements_list_and_explicit_activation_against_existing_DB_COM_007_authority
+    rule: exactly_once_explicit_activation_no_payment_success_activation_no_schema_change_no_PKK_runtime
+
