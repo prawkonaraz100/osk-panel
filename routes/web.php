@@ -147,6 +147,8 @@ Route::middleware(ResourceApiMiddleware::class)->prefix('api/v1')->group(functio
     Route::post('/orders/{orderId}/payments', [CommerceDashboardController::class, 'orderPaymentsCreate']);
     Route::get('/payments', [CommerceDashboardController::class, 'paymentsList']);
     Route::get('/purchase-history', [CommerceDashboardController::class, 'purchaseHistoryList']);
+    Route::get('/service-entitlements', [CommerceDashboardController::class, 'serviceEntitlementsList']);
+    Route::post('/service-entitlements/{entitlementId}/activate', [CommerceDashboardController::class, 'serviceEntitlementsActivate']);
     Route::get('/dashboard', [DashboardController::class, 'get']);
 
     Route::get('/audit-logs', [ActivityNotificationController::class, 'auditLogsList']);

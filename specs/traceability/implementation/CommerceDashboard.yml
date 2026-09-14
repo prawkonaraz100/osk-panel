@@ -91,4 +91,12 @@ changed_scope:
     ui: resources/js/modules/CommerceDashboard/PurchaseHistoryWorkspace.vue
     acceptance_test: Tests\\Unit\\PurchaseHistoryUiContractTest::test_purchase_history_renders_confirmed_columns_page_sizes_and_safe_pay_action
     status: IMPLEMENTED
+  - evidence: specs/api/paths/commerce-dashboard.yaml + specs/database/student-finance-commerce.yml#DB-COM-007
+    requirement: generic service entitlements are listed from the canonical same-tenant entitlement and activation authorities and explicit activation is serialized exactly once without treating payment success as activation
+    domain_data: service_entitlements + service_activations + idempotency_records + audit_logs + domain_events + outbox_messages
+    api_use_case: service_entitlements.list + service_entitlements.activate
+    permission: purchases.view + purchases.create with organization scope
+    ui: NOT_APPLICABLE_RUNTIME_API_GATE
+    acceptance_test: Tests\\Feature\\ServiceEntitlementsCoreTest
+    status: IMPLEMENTED
 

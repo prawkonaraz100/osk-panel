@@ -81,6 +81,31 @@ final class CommerceDashboardController
         ));
     }
 
+    public function serviceEntitlementsList(Request $request): JsonResponse
+    {
+        return response()->json($this->commerce->listServiceEntitlements(
+            $this->sessionId($request),
+        ));
+    }
+
+    public function serviceEntitlementsActivate(Request $request, string $entitlementId): JsonResponse
+    {
+        $this->validated($request, []);
+
+        return $this->command(
+            $request,
+            'commerce.service_entitlement.activate',
+            ['entitlement_id' => $entitlementId],
+            200,
+            'service_entitlement',
+            fn (string $sessionId): array => $this->commerce->activateServiceEntitlement(
+                $sessionId,
+                $entitlementId,
+                $this->requestId($request),
+            ),
+        );
+    }
+
     /**
      * @param  array<string,mixed>  $payload
      * @param  callable(string):array<string,mixed>  $callback

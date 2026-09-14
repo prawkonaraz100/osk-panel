@@ -151,6 +151,156 @@ final class CommerceDashboardService
         });
     }
 
+    /** @return list<array<string,mixed>> */
+    public function listServiceEntitlements(string $sessionId): array
+    {
+        $actor = $this->authorizedOrganization($sessionId, 'purchases.view');
+
+        return array_values(DB::table('service_entitlements as entitlement')
+            ->leftJoin('service_activations as activation', function ($join): void {
+                $join->on('activation.organization_id', '=', 'entitlement.organization_id')
+                    ->on('activation.service_entitlement_id', '=', 'entitlement.id');
+            })
+            ->where('entitlement.organization_id', $actor['organization_id'])
+            ->orderByDesc('entitlement.granted_at')
+            ->orderByDesc('entitlement.id')
+            ->get([
+                'entitlement.id',
+                'entitlement.service_type',
+                'entitlement.status',
+                'entitlement.activation_mode',
+                'entitlement.granted_at',
+                'activation.activated_at',
+                'activation.effective_from',
+                'activation.effective_to',
+            ])
+            ->map(fn (object $row): array => $this->presentServiceEntitlement($row))
+            ->all());
+    }
+
+    /** @return array<string,mixed> */
+    public function activateServiceEntitlement(string $sessionId, string $entitlementId, string $requestId): array
+    {
+        $actor = $this->authorizedOrganization($sessionId, 'purchases.create');
+
+        return DB::transaction(function () use ($actor, $entitlementId, $requestId): array {
+            $entitlement = DB::table('service_entitlements')
+                ->where('organization_id', $actor['organization_id'])
+                ->where('id', $entitlementId)
+                ->lockForUpdate()
+                ->first();
+
+            if ($entitlement === null) {
+                throw ResourceDomainException::notFound();
+            }
+
+            if ((string) $entitlement->activation_mode !== 'explicit') {
+                throw ResourceDomainException::conflict('Only explicit service entitlements can be activated by this operation.');
+            }
+
+            if (in_array((string) $entitlement->status, ['expired', 'revoked'], true)) {
+                throw ResourceDomainException::conflict('Terminal service entitlement cannot be activated.');
+            }
+
+            $existingActivation = DB::table('service_activations')
+                ->where('organization_id', $actor['organization_id'])
+                ->where('service_entitlement_id', $entitlementId)
+                ->first();
+
+            if ($existingActivation !== null) {
+                if ((string) $entitlement->status !== 'activated') {
+                    throw ResourceDomainException::conflict('Service entitlement activation evidence and status disagree.');
+                }
+
+                return $this->getServiceEntitlement($actor['organization_id'], $entitlementId);
+            }
+
+            if ((string) $entitlement->status !== 'available') {
+                throw ResourceDomainException::conflict('Service entitlement is not available for explicit activation.');
+            }
+
+            $now = now();
+            DB::table('service_activations')->insert([
+                'id' => (string) Str::uuid7(),
+                'organization_id' => $actor['organization_id'],
+                'service_entitlement_id' => $entitlementId,
+                'activated_by_user_id' => $actor['user_id'],
+                'activated_at' => $now,
+                'effective_from' => $now,
+                'effective_to' => null,
+                'created_at' => $now,
+            ]);
+
+            $updated = DB::table('service_entitlements')
+                ->where('organization_id', $actor['organization_id'])
+                ->where('id', $entitlementId)
+                ->where('status', 'available')
+                ->update(['status' => 'activated']);
+
+            if ($updated !== 1) {
+                throw ResourceDomainException::conflict('Service entitlement activation lost its available-state race.');
+            }
+
+            $this->auditOutbox->recordOrganizationEvent(
+                $actor['organization_id'],
+                $actor['id'],
+                $actor['user_id'],
+                'commerce.service_entitlement.activated',
+                'service_entitlement',
+                $entitlementId,
+                $requestId,
+                ['state' => 'available'],
+                ['state' => 'activated'],
+            );
+
+            return $this->getServiceEntitlement($actor['organization_id'], $entitlementId);
+        });
+    }
+
+    /** @return array<string,mixed> */
+    private function getServiceEntitlement(string $organizationId, string $entitlementId): array
+    {
+        $row = DB::table('service_entitlements as entitlement')
+            ->leftJoin('service_activations as activation', function ($join): void {
+                $join->on('activation.organization_id', '=', 'entitlement.organization_id')
+                    ->on('activation.service_entitlement_id', '=', 'entitlement.id');
+            })
+            ->where('entitlement.organization_id', $organizationId)
+            ->where('entitlement.id', $entitlementId)
+            ->first([
+                'entitlement.id',
+                'entitlement.service_type',
+                'entitlement.status',
+                'entitlement.activation_mode',
+                'entitlement.granted_at',
+                'activation.activated_at',
+                'activation.effective_from',
+                'activation.effective_to',
+            ]);
+
+        if ($row === null) {
+            throw ResourceDomainException::notFound();
+        }
+
+        return $this->presentServiceEntitlement($row);
+    }
+
+    /** @return array<string,mixed> */
+    private function presentServiceEntitlement(object $row): array
+    {
+        /** @var object{id:mixed,service_type:mixed,status:mixed,activation_mode:mixed,granted_at:mixed,activated_at:mixed,effective_from:mixed,effective_to:mixed} $row */
+        return [
+            'id' => (string) $row->id,
+            'service_type' => (string) $row->service_type,
+            'status' => (string) $row->status,
+            'activation_mode' => (string) $row->activation_mode,
+            'granted_at' => $row->granted_at === null ? null : (string) $row->granted_at,
+            'activated_at' => $row->activated_at === null ? null : (string) $row->activated_at,
+            'effective_from' => $row->effective_from === null ? null : (string) $row->effective_from,
+            'effective_to' => $row->effective_to === null ? null : (string) $row->effective_to,
+        ];
+    }
+
     /**
      * @param  list<string>  $statuses
      * @return array{data:list<array<string,mixed>>,meta:array{page:int,per_page:int,total:int,last_page:int}}
