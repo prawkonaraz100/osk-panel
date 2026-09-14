@@ -721,7 +721,6 @@ Artisan::command(
     }
 )->purpose('Run one registered Stage-5 social-identity corrective phase under exact identities and the shared migration lock.');
 
-
 Artisan::command('migration:stage5:commerce-order-sequence:plan:validate {--json}', function (Stage5CommerceOrderSequenceMigrationPlan $plan): int {
     $plan->validate();
     if ($this->option('json')) {
