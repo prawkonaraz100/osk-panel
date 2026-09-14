@@ -968,6 +968,7 @@ final class CourseEnrollmentService
             throw ResourceDomainException::conflict("Course completion requires a passed {$examPart} internal exam.");
         }
     }
+
     private function studentHasFormalIdentity(object $student): bool
     {
         $data = get_object_vars($student);

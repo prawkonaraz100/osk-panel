@@ -2629,7 +2629,6 @@ final class InternalExamCoreTest extends TestCase
         );
     }
 
-
     public function test_course_completion_zero_requirement_is_atomic_and_http_idempotent(): void
     {
         $actor = $this->examActor();
