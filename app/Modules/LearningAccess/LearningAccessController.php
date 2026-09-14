@@ -17,6 +17,7 @@ final class LearningAccessController
 {
     public function __construct(
         private readonly LearningAccountService $accounts,
+        private readonly BulkCredentialDocumentService $bulkDocuments,
         private readonly LicenseService $licenses,
         private readonly ResourceIdempotency $idempotency,
         private readonly TenantAuthorizer $tenantAuthorizer,
@@ -140,6 +141,111 @@ final class LearningAccessController
             'Cache-Control' => 'no-store, private',
             'X-Content-Type-Options' => 'nosniff',
             'ETag' => '"sha256-'.$document['content_hash'].'"',
+        ]);
+    }
+
+    public function bulkAccessDocument(Request $request): Response
+    {
+        $input = $this->validated($request, [
+            'targets' => ['required', 'array', 'min:1'],
+            'targets.*.learning_account_id' => ['required', 'uuid'],
+            'targets.*.expected_credential_version' => ['sometimes', 'integer', 'min:0'],
+            'regenerate_credentials_when_required' => ['sometimes', 'boolean'],
+        ]);
+        $reset = (bool) ($input['regenerate_credentials_when_required'] ?? false);
+
+        $rawTargets = $request->input('targets');
+        if (! is_array($rawTargets) || ! array_is_list($rawTargets)) {
+            throw ValidationException::withMessages(['targets' => ['Targets must be a list.']]);
+        }
+
+        $targets = [];
+        foreach ($rawTargets as $index => $rawTarget) {
+            if (! is_array($rawTarget)) {
+                throw ValidationException::withMessages(["targets.{$index}" => ['Target must be an object.']]);
+            }
+            $allowed = $reset
+                ? ['learning_account_id', 'expected_credential_version']
+                : ['learning_account_id'];
+            $unknown = array_values(array_diff(array_keys($rawTarget), $allowed));
+            if ($unknown !== []) {
+                throw ValidationException::withMessages([
+                    "targets.{$index}" => ['Unknown fields: '.implode(', ', $unknown)],
+                ]);
+            }
+            if ($reset && ! array_key_exists('expected_credential_version', $rawTarget)) {
+                throw ValidationException::withMessages([
+                    "targets.{$index}.expected_credential_version" => ['Expected credential version is required in reset mode.'],
+                ]);
+            }
+
+            $target = ['learning_account_id' => (string) ($rawTarget['learning_account_id'] ?? '')];
+            if ($reset) {
+                $target['expected_credential_version'] = (int) $rawTarget['expected_credential_version'];
+            }
+            $targets[] = $target;
+        }
+
+        $sessionId = $this->sessionId($request);
+        $organizationId = $this->tenantAuthorizer->activeMembershipForSession($sessionId)['organization_id'];
+        $result = $this->idempotency->executeWithSanitizedReplay(
+            $organizationId,
+            'license_credentials.bulk_pdf',
+            $this->idempotencyKey($request),
+            [
+                'targets' => $targets,
+                'regenerate_credentials_when_required' => $reset,
+            ],
+            function () use ($sessionId, $targets, $reset, $request): array {
+                $document = $this->bulkDocuments->generate(
+                    $sessionId,
+                    $targets,
+                    $reset,
+                    $this->requestId($request),
+                );
+
+                return [
+                    'status' => 200,
+                    'resource_type' => 'student_access_export_batch',
+                    'resource_id' => $document['batch_id'],
+                    'body' => $document,
+                    'replay_body' => [
+                        'batch_id' => $document['batch_id'],
+                        'export_mode' => $document['export_mode'],
+                        'selected_account_count' => $document['selected_account_count'],
+                    ],
+                ];
+            },
+        );
+
+        $document = $result['body'];
+        if (! isset($document['bytes'])) {
+            if (($document['export_mode'] ?? null) === 'reset_and_secret_combined_pdf') {
+                throw ResourceDomainException::conflict(
+                    'Secret-bearing bulk credential response is not replayable. Start a new reset with current credential versions.',
+                );
+            }
+            $batchId = $document['batch_id'] ?? null;
+            if (! is_string($batchId) || $batchId === '') {
+                throw ResourceDomainException::conflict('Stored bulk credential replay metadata is invalid.');
+            }
+            $document = $this->bulkDocuments->renderNonsecretBatch($sessionId, $batchId);
+        }
+
+        $bytes = $document['bytes'] ?? null;
+        $filename = $document['filename'] ?? null;
+        $contentHash = $document['content_hash'] ?? null;
+        if (! is_string($bytes) || ! is_string($filename) || ! is_string($contentHash)) {
+            throw ResourceDomainException::conflict('Bulk credential document result is invalid.');
+        }
+
+        return response($bytes, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
+            'Content-Length' => (string) strlen($bytes),
+            'Cache-Control' => 'no-store, private',
+            'X-Content-Type-Options' => 'nosniff',
+            'ETag' => '"sha256-'.$contentHash.'"',
         ]);
     }
 

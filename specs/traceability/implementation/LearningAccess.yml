@@ -67,3 +67,12 @@ changed_scope:
     ui: NOT_APPLICABLE_RUNTIME_API_GATE
     acceptance_test: Tests\\Feature\\LearningAccessCredentialPdfRuntimeTest
     status: IMPLEMENTED
+
+  - evidence: specs/database/licenses-learning-access.yml#DB-LIC-004 + specs/design/bulk-credential-reset.yml
+    requirement: bulk credential PDF authorizes every selected student target, checks expected global credential epochs before mutation, renders the whole combined PDF before password writes, and never persists or replays plaintext secrets
+    domain_data: students + student_learning_accounts + users + user_password_management + student_access_export_batches + student_access_handoffs + idempotency_records
+    api_use_case: license_credentials.bulk_pdf
+    permission: licenses.access_documents.download plus student_access.reset_password for every target in reset mode
+    ui: NOT_APPLICABLE_RUNTIME_API_GATE
+    acceptance_test: Tests\\Feature\\LearningAccessBulkCredentialDocumentTest + Tests\\Unit\\LearningAccessBulkCredentialsPdfRendererTest
+    status: IMPLEMENTED
