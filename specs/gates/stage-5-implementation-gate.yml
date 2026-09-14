@@ -6041,7 +6041,9 @@ CORE_V1_CLOSURE_AUDIT_004_gate:
     commerce_order_create: 2
     organization_settings: 3
   non_HTTP_repo_P1:
-    additional_open_count: 0
+    additional_open_count: 1
+    items:
+      - organization_commerce_order_sequences_physical_allocator_missing
   result:
     repository_complete: false
     repo_P0_open: 0
@@ -6710,7 +6712,7 @@ CORE_V1_CLOSURE_AUDIT_009_gate:
   result:
     repository_complete: false
     repo_P0_open: 0
-    repo_P1_open: false
+    repo_P1_open: true
     implementation_ready_missing_bindings: 2
     authority_blocked_missing_bindings: 5
     PKK_provider_runtime_status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
@@ -6935,6 +6937,7 @@ CORE_V1_CLOSURE_AUDIT_011_gate:
     repo_P1_open: false
     implementation_ready_missing_bindings: 2
     authority_blocked_missing_bindings: 3
+    commerce_schema_corrective_required: true
     PKK_provider_runtime_status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
   safe_continuation:
     next_gate: CORE-V1-AUTH-PASSWORD-RECOVERY-001
@@ -7004,7 +7007,7 @@ CORE_V1_AUTH_PASSWORD_RECOVERY_001_gate:
 
 CORE_V1_CLOSURE_AUDIT_012_gate:
   id: CORE-V1-CLOSURE-AUDIT-012
-  status: AUDIT_COMPLETE_COMMERCE_ORDER_CREATE_AUTHORITY_NEXT
+  status: AUDIT_COMPLETE_COMMERCE_SCHEMA_AND_PRICING_AUTHORITY_REQUIRED
   authority: docs/201-core-v1-closure-audit-012.md
   audited_accepted_tip: e785e7c3ce6ceeb1fa3cb2321595c4b9a561a056
   audited_tree: dce8e006433b25cbb20732113e082a3522c7f89f
@@ -7048,6 +7051,9 @@ CORE_V1_CLOSURE_AUDIT_012_gate:
     next_gate: CORE-V1-COMMERCE-ORDER-CREATE-AUTHORITY-001
     authority_gate_only: true
     HTTP_binding_change: forbidden
+    may_define_isolated_Stage5_allocator_corrective: true
+    authority_gate_executes_DDL: false
+    frozen_Stage4_edit: forbidden
     provider_network_call: forbidden
     payment_webhook_implementation: forbidden
     PKK_runtime_activation: forbidden

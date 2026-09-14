@@ -2,7 +2,7 @@
 
 Data: 2026-09-14
 
-**Status:** `AUDIT_COMPLETE_COMMERCE_ORDER_CREATE_AUTHORITY_NEXT`
+**Status:** `AUDIT_COMPLETE_COMMERCE_SCHEMA_AND_PRICING_AUTHORITY_REQUIRED`
 
 ## Audited accepted tip
 
@@ -38,13 +38,13 @@ After password recovery:
 
 No repo P0 is open.
 
-No additional non-HTTP repo P1 is open.
+One additional non-HTTP repo P1 is open: the canonical DB-COM-005 per-organization order-sequence allocator is not physically materialized.
 
 No repo-actionable operation remains schema-corrective blocked.
 
 ## Remaining repo-actionable HTTP gaps
 
-### Authority-blocked — 3
+### Authority/schema-blocked — 3
 
 Student progress:
 
@@ -77,11 +77,35 @@ The database contract already requires server-owned immutable pricing snapshots,
 
 Therefore implementing create endpoints now would require guessing current price/VAT or trusting client values, both forbidden.
 
+## Additional physical schema discrepancy
+
+DB-COM-005 defines the order-number allocation authority as:
+
+`organization_commerce_order_sequences(organization_id, next_order_sequence)`
+
+with allocation under an exact per-organization row lock.
+
+The accepted executable repository does **not** currently materialize this table:
+
+- there is no Stage4 or Stage5 migration for `organization_commerce_order_sequences`,
+- there is no runtime allocator using it,
+- repository code search finds no `next_order_sequence` implementation,
+- `orders.order_sequence` is physically present, but application `MAX(order_sequence)+1` allocation is explicitly forbidden by DB-COM-005.
+
+The frozen Stage4 migration history must not be edited. This allocator therefore requires an isolated post-Stage4 corrective authority and executable migration before either order-create endpoint can become implementation-ready.
+
+This is a non-HTTP repo P1 because the missing physical concurrency authority is required by the canonical DB-COM-005 contract.
+
 ## Focused authority direction
 
 Next authority may define a provider-neutral current pricing registry without changing historical order snapshot semantics.
 
-The smallest safe design is a trusted server-side pricing registry keyed by stable `commerce_catalog_items.code`, with at least:
+The focused authority must settle **two independent prerequisites**:
+
+1. a trusted current pricing source;
+2. an isolated post-Stage4 materialization plan for the missing per-organization order-sequence allocator.
+
+The smallest safe current-pricing design is a trusted server-side pricing registry keyed by stable `commerce_catalog_items.code`, with at least:
 
 - currency,
 - list unit amount in minor units,
@@ -133,5 +157,7 @@ Authority gate only:
 - no HTTP binding,
 - no provider network call,
 - no payment webhook implementation,
-- no schema/migration change unless authority analysis proves one is unavoidable,
+- authority may define an isolated Stage5 allocator corrective because this audit has now proven it unavoidable,
+- authority itself must not execute DDL,
+- frozen Stage4 files and identities remain immutable,
 - no PKK/PWPW runtime.
