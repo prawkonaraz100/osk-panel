@@ -609,8 +609,8 @@ final class CommerceDashboardService
     {
         $normalized = [];
         foreach ($items as $index => $item) {
-            $productId = (string) ($item['product_id'] ?? '');
-            $quantity = (int) ($item['quantity'] ?? 0);
+            $productId = (string) $item['product_id'];
+            $quantity = (int) $item['quantity'];
             if ($productId === '' || $quantity < 1 || $quantity > 2147483647) {
                 throw ResourceDomainException::rule('License order item is invalid.');
             }
@@ -853,10 +853,6 @@ final class CommerceDashboardService
                 throw ResourceDomainException::rule('Order total exceeds the supported money range.');
             }
             $total += $lineTotal;
-        }
-
-        if ($currency === null) {
-            throw ResourceDomainException::conflict('Resolved order currency is missing.');
         }
 
         return [$currency, $total];
