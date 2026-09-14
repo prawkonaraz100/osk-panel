@@ -7213,3 +7213,72 @@ CORE_V1_CLOSURE_AUDIT_013_gate:
     frozen_Stage4_edit: forbidden
     PKK_runtime_activation: forbidden
     fresh_audit_after_PASS: required
+
+CORE_V1_COMMERCE_ORDER_CREATE_001_gate:
+  id: CORE-V1-COMMERCE-ORDER-CREATE-001
+  status: PASS
+  prerequisite:
+    authority: CORE-V1-COMMERCE-ORDER-CREATE-AUTHORITY-001_PASS
+    allocator: CORE-V1-STAGE5-COMMERCE-ORDER-SEQUENCE-001_PASS
+    audit: CORE-V1-CLOSURE-AUDIT-013_AUDIT_COMPLETE_COMMERCE_ORDER_CREATE_IMPLEMENTATION_READY
+  authority: docs/205-core-v1-commerce-order-create-implementation.md
+  exact_scope:
+    operations:
+      - license_orders.create
+      - exam_orders.create
+    routes:
+      - POST /api/v1/license-orders
+      - POST /api/v1/internal-exam/orders
+    trusted_server_pricing_only: true
+    client_price_or_VAT_authority: forbidden
+    runtime_MAX_plus_1_order_sequence: forbidden
+    exact_allocator_row_FOR_UPDATE: required
+    immutable_order_item_snapshots: required
+    deterministic_snapshot_hash: SHA256
+    idempotency_replay: required
+    changed_payload_same_key: conflict
+    nonzero_local_pending_payment: required
+    zero_total_local_settlement_and_pending_fulfillment: required
+    provider_network_call: forbidden
+    provider_webhook_implementation: forbidden
+    frozen_Stage4_edit: forbidden
+    PKK_runtime_activation: forbidden
+  implementation:
+    initial_candidate_head: 7e7b4678d6f006d81a14f6899fca664fa0fe911f
+    formatting_corrective_head: 230731cc588e567aff8d6a859b31b7321177d92a
+    static_analysis_corrective_head: 411647e0b8ede86d17aada7529475a666b69811c
+    audit_policy_corrective_head: 22f0c65508ca0d35ca348d882d1b0bceb0d44a71
+    audit_policy_catalog_corrective_head: 7ebb1faf189580920fdf8798ca4e8e46e7e4bba0
+    exact_implementation_head: a34981bb6b4cf981981a9c58eaea5c1be7752705
+    exact_implementation_tree: 99be4925bfb3dee5828666dce8c624a7408456f3
+  executable_evidence:
+    exact_head_Implementation_CI_run: 34910043748
+    exact_head_API_Contract_Gate_run: 34910043582
+    Implementation_CI_jobs_passed: 5
+    Implementation_CI_jobs_total: 5
+    API_Contract_Gate: PASS
+    PostgreSQL_suite_tests: 338
+    PostgreSQL_suite_assertions: 5926
+    deterministic_restore_harness: PASS
+    restore_source_table_count: 122
+    restore_restored_table_count: 122
+    restore_schema_fingerprint: f3cab286cc8f0aabef219971d90afe424a8dab694c47ade2f517a3d95970716d
+    backend_Pint_and_PHPStan: PASS
+    frontend_quality: PASS
+    contracts_and_traceability: PASS
+    secret_scan: PASS
+  closure_effect:
+    physical_HTTP_bindings_closed: 2
+    required_physical_bindings_present_before: 154
+    required_physical_bindings_present_after: 156
+    missing_physical_bindings_before: 18
+    missing_physical_bindings_after: 16
+    repo_actionable_HTTP_missing_before: 3
+    repo_actionable_HTTP_missing_after: 1
+    remaining_repo_actionable_HTTP_operation: students.progress
+    frozen_PKK_missing_bindings_unchanged: 14
+    provider_specific_payment_webhook_unchanged: 1
+  next_after_PASS:
+    id: CORE-V1-CLOSURE-AUDIT-014
+    action: recompute_repository_HTTP_runtime_UI_closure_after_commerce_order_create
+    rule: recompute_not_assume_student_progress_ready_no_PKK_runtime
