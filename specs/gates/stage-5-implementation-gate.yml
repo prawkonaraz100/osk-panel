@@ -5374,3 +5374,70 @@ CORE_V1_ORGANIZATION_GET_001_gate:
     action: expose_immutable_tenant_scoped_terms_acceptance_history
     rule: no_PKK_runtime_no_technical_metadata_no_fabricated_document_resolver
 
+
+CORE_V1_ORGANIZATION_ACCEPTED_TERMS_001_gate:
+  id: CORE-V1-ORGANIZATION-ACCEPTED-TERMS-001
+  status: PASS
+  authority_audit: docs/175-core-v1-organization-accepted-terms-closure.md
+  exact_operations:
+    - organization.accepted_terms.get
+  scope:
+    schema_or_migration_change: false
+    canonical_sources:
+      - terms_acceptances
+      - legal_documents
+    technical_request_metadata_exposed: false
+    fabricated_document_resolver: false
+    PKK_provider_runtime_activation: forbidden
+  provenance:
+    exact_head_commit: 6d7fd7162feec8883bfb43f4fdc236e726ac2f3c
+    exact_head_Implementation_CI_run: 34823611100
+    exact_head_API_Contract_Gate_run: 34823611083
+  executable_evidence:
+    exact_head_Implementation_CI_jobs_passed: 5
+    exact_head_Implementation_CI_jobs_total: 5
+    API_Contract_Gate: PASS
+    PostgreSQL_suite_tests: 286
+    PostgreSQL_suite_assertions: 5296
+    deterministic_restore_harness: PASS
+    restore_source_table_count: 121
+    restore_restored_table_count: 121
+    restore_schema_fingerprint: 09c57afe2501c79a3a684c0a695b4619114f94ddc24c9bca33728d99c1abb155
+    backend_Pint_and_PHPStan: PASS
+    frontend_quality: PASS
+    contracts_and_traceability: PASS
+    secret_scan: PASS
+  authorization_postconditions:
+    active_membership_required: PASS
+    organization_view_required: PASS
+    organization_scope_required: PASS
+    foreign_organization_acceptance_exposed: false
+  projection_postconditions:
+    exact_accepted_legal_document_version_resolved: PASS
+    latest_unaccepted_document_substituted: false
+    returned_fields:
+      - version
+      - accepted_at
+      - accepted_by_user_id
+      - document_url
+    document_url_without_real_resolver: null
+    ip_hash_exposed: false
+    user_agent_exposed: false
+    request_id_exposed: false
+  closure_effect:
+    repo_actionable_HTTP_bindings_before_this_gate: 14
+    HTTP_bindings_closed_by_this_gate: 1
+    derived_repo_actionable_HTTP_bindings_remaining: 13
+    full_closure_reaudit_required_before_repository_complete: true
+  next_after_PASS:
+    id: CORE-V1-LEARNING-CREDENTIAL-SINGLE-PDF-001
+    action: materialize_secret_free_single_handoff_PDF_download_on_existing_handoff_authority
+    exact_operations:
+      - learning_accounts.download_handoff_pdf
+      - license_credentials.single_pdf
+    rule: no_historical_plaintext_recovery_no_bulk_reset_contract_invention_no_PKK_runtime
+  blocked_bulk_credential_submode:
+    operation: license_credentials.bulk_pdf
+    branch: regenerate_credentials_when_required_true
+    reason: contract_missing_expected_credential_versions_per_reset_target
+    rule: do_not_reset_credentials_without_explicit_expected_versions
