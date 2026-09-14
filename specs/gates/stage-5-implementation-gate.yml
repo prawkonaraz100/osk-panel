@@ -268,88 +268,126 @@ next_single_step:
 CORE_V1_CLOSURE_AUDIT_001_gate:
   id: CORE-V1-CLOSURE-AUDIT-001
   status: AUDIT_COMPLETE_REPO_P1_REMAINS
-  audited_accepted_tip: 0811e0ce630ab6046f65b2bdbd0fb8a08af4e658
-  audited_accepted_tree: e0e796c00d4513ce2c8e98c4401ea504cd154286
-  authority: docs/149-core-v1-closure-audit.md
-  prerequisite: FORMAL-DOC-011_PASS
+  authority: docs/167-core-v1-closure-reaudit.md
+  audited_accepted_tip: 36ce96dccd58f305a20bc38d6cea43d613e1dd00
+  audited_accepted_tree: f50d1a09e13afe22f24c91116118307c55444a3c
+  audited_Implementation_CI_run: 34809229705
+  prerequisite: CORE-V1-STAGE4-CONTRACT-001_PASS
   result:
     repository_complete: false
     repo_P0_open: 0
     repo_P1_open: true
-    local_slice_PASS_records_reopened: false
+    stage4_migration_materialization_complete: true
     external_or_deployment_blockers_counted_as_repo_P1: false
   evidence:
     canonical_API_requirement_rows: 187
     canonical_API_unique_operations: 173
     canonical_API_shared_aliases: 14
+    required_inline_HTTP_operations_audited: 172
+    runtime_HTTP_bindings_current: 135
+    canonical_HTTP_bindings_missing_total: 39
+    frozen_PKK_missing_bindings: 14
+    provider_specific_payment_webhook_missing_bindings: 1
+    repo_actionable_HTTP_bindings_missing: 24
+    confirmed_UI_only_repo_P1_gaps: 2
     Stage_4_DAG_nodes_total: 170
-    Stage_4_materialized_nodes_current: 112
-    Stage_4_missing_nodes: 58
-    Stage_4_missing_tables: 6
-    Stage_4_missing_candidate_keys: 8
-    Stage_4_missing_indexes: 10
-    Stage_4_missing_foreign_keys: 11
-    Stage_4_missing_constraints: 10
-    Stage_4_missing_triggers: 9
-    Stage_4_missing_projections: 4
-    Stage_5_formal_document_steps: 11
-    FORMAL_DOC_011_status: PASS
+    Stage_4_materialized_nodes_current: 170
+    Stage_4_materialized_steps_current: 261
+    Stage_4_missing_nodes: 0
+    Stage_4_contract_steps: 4
+    Stage_4_execution_identity: 82da84d3efb312d78b432ad6081491c04b03569a0f250722d6befc11ca233712
+    Stage_4_closure_CI_jobs_passed: 5
+    Stage_4_closure_CI_jobs_total: 5
+    Stage_4_closure_PostgreSQL_tests: 261
+    Stage_4_closure_PostgreSQL_assertions: 5110
+    Stage_4_closure_restore_source_tables: 121
+    Stage_4_closure_restore_restored_tables: 121
   repo_P1_groups:
     stage4_migration_materialization:
-      status: OPEN
-      first_safe_phase: expand
-      first_exact_nodes:
-        - MIG-TBL-LEGAL_DOCUMENTS
-        - MIG-TBL-AUTH_SOCIAL_ACCOUNTS
-        - MIG-TBL-ACCOUNT_CLOSURE_REQUESTS
-        - MIG-TBL-TERMS_ACCEPTANCES
-        - MIG-TBL-EVENT_PROJECTION_MIGRATION_CASES
-        - MIG-TBL-DATA_RETENTION_EXECUTION_RUNS
+      status: CLOSED_PASS
+      missing_nodes: 0
     identity_auth_session_HTTP_runtime:
       status: OPEN
+      missing_HTTP_bindings: 10
+      exact_operations:
+        - auth.register
+        - auth.login
+        - auth.logout
+        - auth.password_forgot
+        - auth.password_reset
+        - auth.sessions_list
+        - auth.session_revoke
+        - auth.account_closure_request
+        - auth.social_redirect
+        - auth.social_callback
     organization_settings_HTTP_UI:
       status: OPEN
+      missing_HTTP_bindings: 5
+      exact_operations:
+        - organization.get
+        - organization.update
+        - organization.settings.get
+        - organization.settings.update
+        - organization.accepted_terms.get
+      current_UI_traceability: DEFERRED_UI_UNTIL_FEATURE_SLICE
     provider_neutral_license_exam_checkout_and_service_entitlements:
       status: OPEN
+      missing_HTTP_bindings: 4
+      exact_operations:
+        - license_orders.create
+        - exam_orders.create
+        - service_entitlements.list
+        - service_entitlements.activate
     learning_access_single_bulk_credential_PDF:
       status: OPEN
+      missing_HTTP_bindings: 2
+      exact_operations:
+        - learning_accounts.download_handoff_pdf
+        - license_credentials.bulk_pdf
     student_progress_projection_UI:
       status: OPEN
+      missing_HTTP_bindings: 1
+      exact_operations:
+        - students.progress
+      confirmed_UI_state: disabled
     resource_asset_upload_and_vehicle_document_UI:
       status: OPEN
+      runtime_upload_transport: IMPLEMENTED
+      vehicle_document_API: IMPLEMENTED
+      resource_UI_upload_handoff: NOT_CONNECTED
     course_training_completed_UI_wiring:
       status: OPEN
+      backend_stage_transition: IMPLEMENTED
+      training_hour_ledger_evidence: IMPLEMENTED
+      internal_exam_evidence: IMPLEMENTED
+      current_UI_state: ARTIFICIALLY_BLOCKED
     remaining_small_canonical_HTTP_bindings:
       status: OPEN
+      missing_HTTP_bindings: 2
+      exact_operations:
+        - dictionaries.languages.list
+        - audit_logs.list
   external_provider_boundaries:
     PKK_PWPW:
       status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+      missing_HTTP_bindings: 14
       repo_P1: false
-    payment_provider_remote_truth:
+    payment_provider_webhook_truth:
       status: DEFERRED_UNTIL_AUTHORITATIVE_ADAPTER_CONTRACT
+      missing_HTTP_bindings: 1
       repo_P1: false
-    production_exam_provider_data:
-      status: DEPLOYMENT_EXTERNAL_DATA_EVIDENCE
-      repo_P1: false
-  deployment_evidence:
-    target_infrastructure_restore_drill:
-      repo_P1: false
-    production_incident_contact_roster_and_paging_smoke:
-      repo_P1: false
-    production_scheduler_and_alert_delivery_smoke:
-      repo_P1: false
-  consciously_outside_core_v1:
-    - business_cards
-    - advertising
-    - lectures
-    - instructor_training
-    - invoices_historical_index
-    - optional_impersonation
   next_after_audit:
-    id: CORE-V1-STAGE4-MISSING-TABLES-001
-    phase: expand
-    expected_materialized_nodes_after_PASS: 118
-    rule: do_not_materialize_later_phase_integrity_nodes_in_the_same_gate
+    id: CORE-V1-AUTH-SESSION-LIFECYCLE-001
+    action: materialize_local_login_logout_session_list_and_own_session_revoke_on_existing_identity_authority
+    exact_operations:
+      - auth.login
+      - auth.logout
+      - auth.sessions_list
+      - auth.session_revoke
+    scope_lock:
+      registration_password_reset_account_closure_social_auth_and_organization_settings_are_later_review_gates: true
+      no_new_identity_tables: true
+      no_PKK_or_payment_provider_runtime: true
   closure_rule:
     repeat_CORE_V1_CLOSURE_AUDIT_required_before_core_repository_complete: true
     zero_repo_actionable_P0_P1_required_for_repository_complete: true
