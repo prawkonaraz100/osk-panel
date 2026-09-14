@@ -4616,6 +4616,78 @@ CORE_V1_STAGE4_PROJECTIONS_WRITE_FENCE_001_gate:
 
 CORE_V1_STAGE4_BACKFILL_001_gate:
   id: CORE-V1-STAGE4-BACKFILL-001
+  status: PASS
+  authority_audit: docs/163-core-v1-stage4-backfill-authority-audit.md
+  exact_nodes:
+    - MIG-FK-PURCHASE_DOWNSTREAM
+    - MIG-FK-EVENTS
+    - MIG-TRG-EVENTS
+    - MIG-PRJ-CALENDAR-RESOURCE-CLAIMS
+    - MIG-PRJ-PURCHASE-HISTORY
+    - MIG-PRJ-ORGANIZATION-ACTIVITY
+    - MIG-PRJ-NOTIFICATIONS
+  Stage_4_materialized_nodes: 170
+  Stage_4_materialized_steps: 216
+  backfill_steps_materialized: 7
+  Stage_4_plan_identity: d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10
+  Stage_4_execution_identity: 1526b852d3af464c8f6138ba13e0aa0fe9b9a64d77a9df7619a2709e512f1bde
+  frozen_authority_changed: false
+  PKK_provider_runtime_status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+  provenance:
+    validation_PR: 92
+    package_hardened_commit: c7e780771e30f65fe8637de4eced10f3a4680bbe
+    package_hardened_Implementation_CI_run: 34801447459
+    canonical_materialization_commit: bc66fc14d693d74022f8d89a81545066e935cced
+    canonical_Implementation_CI_run: 34801804245
+  executable_evidence:
+    package_hardened_Implementation_CI_jobs_passed: 5
+    package_hardened_Implementation_CI_jobs_total: 5
+    canonical_Implementation_CI_jobs_passed: 5
+    canonical_Implementation_CI_jobs_total: 5
+    PostgreSQL_suite_tests: 253
+    PostgreSQL_suite_assertions: 5028
+    deterministic_restore_harness: PASS
+    restore_source_table_count: 121
+    restore_restored_table_count: 121
+    exact_seven_backfill_steps_registered_in_canonical_order: PASS
+    backfill_phase_complete_7_of_7: PASS
+    reconcile_steps_registered: 0
+    validate_steps_registered: 0
+    contract_steps_registered: 0
+    PKK_provider_runtime_still_frozen: PASS
+  evidence_policy:
+    safe_exact_derivation: allowed
+    proven_historical_fact: allowed
+    reviewed_exact_remediation: deferred_to_reconcile
+    unresolved_ambiguity: leave_unmodified_and_defer_to_reconcile
+    timestamp_name_amount_uuid_same_tenant_similarity: forbidden
+  scope_boundary:
+    exact_evidence_backfill_only: allowed
+    create_missing_business_effect_or_grant: forbidden
+    reparent_or_guess_lineage: forbidden
+    reconcile_or_review_resolution: forbidden
+    validate_or_contract_phase: forbidden
+    disable_write_fence_to_make_backfill_pass: forbidden
+    PKK_provider_runtime_activation: forbidden
+  next_after_PASS:
+    id: CORE-V1-STAGE4-RECONCILE-001
+    action: materialize_seven_reviewed_reconciliation_steps_only
+    exact_nodes:
+      - MIG-FK-PURCHASE_DOWNSTREAM
+      - MIG-FK-EVENTS
+      - MIG-TRG-EVENTS
+      - MIG-PRJ-CALENDAR-RESOURCE-CLAIMS
+      - MIG-PRJ-PURCHASE-HISTORY
+      - MIG-PRJ-ORGANIZATION-ACTIVITY
+      - MIG-PRJ-NOTIFICATIONS
+    expected_materialized_nodes_after_PASS: 170
+    expected_materialized_steps_after_PASS: 223
+    expected_reconcile_steps_after_PASS: 7
+    rule: no_automatic_ambiguity_resolution_no_validate_or_contract
+
+
+CORE_V1_STAGE4_RECONCILE_001_gate:
+  id: CORE-V1-STAGE4-RECONCILE-001
   status: READY
   exact_nodes:
     - MIG-FK-PURCHASE_DOWNSTREAM
@@ -4626,20 +4698,15 @@ CORE_V1_STAGE4_BACKFILL_001_gate:
     - MIG-PRJ-ORGANIZATION-ACTIVITY
     - MIG-PRJ-NOTIFICATIONS
   expected_Stage_4_materialized_nodes_after_PASS: 170
-  expected_Stage_4_materialized_steps_after_PASS: 216
-  expected_backfill_steps_after_PASS: 7
-  reconcile_nodes_authoritative_after_PASS: 7
-  evidence_policy:
-    safe_exact_derivation: allowed
-    proven_historical_fact: allowed
-    reviewed_exact_remediation: not_part_of_automatic_backfill
-    unresolved_ambiguity: leave_unmodified_and_defer_to_reconcile
-    timestamp_name_amount_uuid_same_tenant_similarity: forbidden
+  expected_Stage_4_materialized_steps_after_PASS: 223
+  expected_reconcile_steps_after_PASS: 7
+  validate_nodes_authoritative_after_PASS: 34
+  reconciliation_policy:
+    automatic_guessing: forbidden
+    reviewed_exact_remediation_only: allowed
+    unresolved_ambiguity: remain_blocking
+    business_effect_synthesis: forbidden
   scope_boundary:
-    exact_evidence_backfill_only: allowed
-    create_missing_business_effect_or_grant: forbidden
-    reparent_or_guess_lineage: forbidden
-    reconcile_or_review_resolution: forbidden
+    reviewed_reconciliation_only: allowed
     validate_or_contract_phase: forbidden
-    disable_write_fence_to_make_backfill_pass: forbidden
     PKK_provider_runtime_activation: forbidden
