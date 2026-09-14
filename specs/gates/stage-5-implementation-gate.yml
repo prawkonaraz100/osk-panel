@@ -5649,3 +5649,69 @@ CORE_V1_COURSE_COMPLETION_AUTHORITY_001_gate:
     id: CORE-V1-COURSE-COMPLETION-001
     action: implement_backend_completion_eligibility_then_remove_UI_guard
     rule: exact_authority_only_no_latest_management_projection_no_PKK_runtime
+
+
+CORE_V1_COURSE_COMPLETION_001_gate:
+  id: CORE-V1-COURSE-COMPLETION-001
+  status: PASS
+  authority:
+    closure_doc: docs/179-core-v1-course-completion-closure.md
+    design: specs/design/course-completion.yml
+    prerequisite: CORE-V1-COURSE-COMPLETION-AUTHORITY-001_PASS
+  exact_scope:
+    existing_operation: course_enrollments.change_stage
+    target_stage: training_completed
+    new_HTTP_binding: false
+    schema_or_migration_change: false
+    OpenAPI_change: false
+    PKK_provider_runtime_activation: forbidden
+  completion_postconditions:
+    exact_current_requirement_profile_required: PASS
+    current_profile_revision_matches_course: PASS
+    current_OSK_signed_minutes_used: PASS
+    current_external_exact_context_minutes_used: PASS
+    theory_practical_no_cross_substitution: PASS
+    required_exam_uses_still_passed_exact_course_part_attempt_and_passed_result: PASS
+    latest_management_attempt_status_as_authority: false
+    newer_FAIL_revokes_older_still_valid_PASS: false
+    explicit_invalidation_withdraws_PASS: true
+    completion_atomic_course_version_increment_once: PASS
+    completed_lifecycle_event_once: PASS
+    completion_audit_action: course.completed
+    audit_domain_outbox_same_transaction: PASS
+  UI_postconditions:
+    temporary_training_completed_guard_removed: PASS
+    existing_stage_transition_transport_reused: PASS
+    If_Match_preserved: PASS
+    client_formal_eligibility_as_authority: false
+  provenance:
+    implementation_commit: 573412e6c47c7ead89a49d5f04f8fc88cf866f8b
+    Pint_corrective_commit: 02a938e37c0b7b1bfe71618bdc0334176d30c2fd
+    PHPStan_typing_corrective_commit: 3576c9b0aa555840a1536fa366239a95d345d21e
+    exact_head_commit: 72653f5f7da347572d09409fb4ab78dbaa2528ec
+    exact_head_Implementation_CI_run: 34832196978
+    exact_head_API_Contract_Gate_run: 34832196975
+  executable_evidence:
+    exact_head_Implementation_CI_jobs_passed: 5
+    exact_head_Implementation_CI_jobs_total: 5
+    API_Contract_Gate: PASS
+    PostgreSQL_suite_tests: 295
+    PostgreSQL_suite_assertions: 5380
+    deterministic_restore_harness: PASS
+    restore_source_table_count: 121
+    restore_restored_table_count: 121
+    restore_schema_fingerprint: 09c57afe2501c79a3a684c0a695b4619114f94ddc24c9bca33728d99c1abb155
+    backend_Pint_and_PHPStan: PASS
+    frontend_quality: PASS
+    contracts_and_traceability: PASS
+    secret_scan: PASS
+  closure_effect:
+    repo_actionable_HTTP_bindings_before_this_gate: 12
+    physical_HTTP_bindings_closed_by_this_gate: 0
+    derived_repo_actionable_HTTP_bindings_remaining: 12
+    non_HTTP_course_completion_P1: CLOSED
+    full_closure_reaudit_required: true
+  next_after_PASS:
+    id: CORE-V1-CLOSURE-AUDIT-003
+    action: rerun_repository_HTTP_runtime_UI_closure_audit_on_exact_accepted_tree
+    rule: preserve_frozen_or_missing_authority_boundaries_no_PKK_runtime
