@@ -33,6 +33,7 @@ Route::middleware(ResourceApiMiddleware::class)->prefix('api/v1')->group(functio
     Route::get('/location-types', [ResourceController::class, 'locationTypes']);
     Route::get('/geography/cities', [ResourceController::class, 'cities']);
     Route::get('/driving-categories', [ResourceController::class, 'drivingCategories']);
+    Route::get('/languages', [ResourceController::class, 'languages']);
 
     Route::post('/uploads/presign', [UploadAssetController::class, 'presign']);
     Route::post('/uploads/{uploadId}/complete', [UploadAssetController::class, 'complete']);

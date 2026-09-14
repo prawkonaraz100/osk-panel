@@ -62,6 +62,22 @@ final class ResourceCatalogService
             ->all());
     }
 
+    /** @return list<array{code:string,label:string}> */
+    public function languages(string $sessionId): array
+    {
+        $this->tenantAuthorizer->activeMembershipForSession($sessionId);
+
+        return array_values(DB::table('languages')
+            ->where('active', true)
+            ->orderBy('code')
+            ->get()
+            ->map(static fn ($row): array => [
+                'code' => (string) $row->code,
+                'label' => (string) $row->label_key,
+            ])
+            ->all());
+    }
+
     /**
      * Temporary own-product fallback until the canonical locality directory is selected.
      * The typed normalized locality becomes its stable request reference; no external

@@ -78,4 +78,12 @@ changed_scope:
     ui: confirmed PT evidence remains preserved but is not emitted by the active /api/v1/driving-categories catalog
     acceptance_test: Tests\\Feature\\FoundationReferenceCatalogTest::test_legal_driving_entitlement_dictionary_keeps_tram_permit_alias_out_of_rule_engine_catalog
     status: IMPLEMENTED
+  - evidence: specs/api/paths/resources.yaml
+    requirement: global languages dictionary exposes active catalog entries only and does not imply product-specific language availability
+    domain_data: languages
+    api_use_case: dictionaries.languages.list
+    permission: active_membership
+    ui: SHARED_DICTIONARY_ENDPOINT_NO_STANDALONE_UI_REQUIRED
+    acceptance_test: Tests\\Feature\\LanguageDictionaryRuntimeTest::test_languages_endpoint_returns_active_global_dictionary_without_product_availability_inference
+    status: IMPLEMENTED
 

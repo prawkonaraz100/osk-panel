@@ -146,6 +146,11 @@ final class ResourceController
         return response()->json($this->catalogs->drivingCategories($this->sessionId($request)));
     }
 
+    public function languages(Request $request): JsonResponse
+    {
+        return response()->json($this->catalogs->languages($this->sessionId($request)));
+    }
+
     public function staffTypes(Request $request): JsonResponse
     {
         return response()->json($this->catalogs->staffTypes($this->sessionId($request)));
