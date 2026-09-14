@@ -3,6 +3,7 @@
 namespace Tests\Support;
 
 use App\Support\Migrations\MigrationPlan;
+use App\Support\Migrations\Stage5CommerceOrderSequenceMigrationPlan;
 use App\Support\Migrations\Stage5FormalDocumentsMigrationPlan;
 use App\Support\Migrations\Stage5SocialIdentityMigrationPlan;
 use Database\Seeders\FoundationReferenceCatalogSeeder;
@@ -33,6 +34,7 @@ final class FoundationSchema
         'order_payment_settlements',
         'payment_events',
         'payments',
+        'organization_commerce_order_sequences',
         'order_items',
         'orders',
         'commerce_catalog_items',
@@ -199,6 +201,37 @@ final class FoundationSchema
             ]);
             if ($exit !== 0) {
                 throw new LogicException('Stage-5 social-identity controlled migration failed: '.Artisan::output());
+            }
+
+            $appliedMigrations = DB::table('migrations')->pluck('migration')->all();
+        }
+
+        $commerceOrderSequencePlan = app(Stage5CommerceOrderSequenceMigrationPlan::class);
+        $commerceOrderSequencePlan->validate();
+
+        $appliedMigrations = Schema::hasTable('migrations')
+            ? DB::table('migrations')->pluck('migration')->all()
+            : [];
+
+        foreach (['preflight', 'expand', 'backfill', 'validate'] as $phase) {
+            $steps = $commerceOrderSequencePlan->phaseSteps($phase);
+            $missing = array_filter(
+                $steps,
+                static fn (array $step): bool => ! in_array($step['migration_name'], $appliedMigrations, true),
+            );
+
+            if ($missing === []) {
+                continue;
+            }
+
+            $exit = Artisan::call('migration:stage5:commerce-order-sequence:controlled', [
+                '--plan' => $commerceOrderSequencePlan->identity(),
+                '--execution' => $commerceOrderSequencePlan->executionIdentity(),
+                '--phase' => $phase,
+                '--force' => true,
+            ]);
+            if ($exit !== 0) {
+                throw new LogicException('Stage-5 commerce order-sequence controlled migration failed: '.Artisan::output());
             }
 
             $appliedMigrations = DB::table('migrations')->pluck('migration')->all();

@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "plan_identity": "6d03c38e47ba30d07a3a090d514ac09384e1ea5e668947b95eeaaa6fce49c019",
+  "execution_identity": "4dc74dce0acaf9904a013a08c7f85d0539ccb8af6fcff0cc690aae2629100554",
+  "stage5_root": "database/migrations/stage5/commerce-order-sequence",
+  "implemented_steps": [
+    {
+      "node_id": "S5COM-TBL-ORGANIZATION-COMMERCE-ORDER-SEQUENCES",
+      "phase": "preflight",
+      "migration_file": "database/migrations/stage5/commerce-order-sequence/preflight/S5COM-TBL-ORGANIZATION-COMMERCE-ORDER-SEQUENCES/2026_09_14_000010_preflight_commerce_order_sequence.php",
+      "migration_name": "2026_09_14_000010_preflight_commerce_order_sequence",
+      "file_git_blob": "3f9accf57b842b1f5bfbd53fe9389344edd8861e",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "S5COM-TBL-ORGANIZATION-COMMERCE-ORDER-SEQUENCES",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage5/commerce-order-sequence/expand/S5COM-TBL-ORGANIZATION-COMMERCE-ORDER-SEQUENCES/2026_09_14_000020_expand_commerce_order_sequence.php",
+      "migration_name": "2026_09_14_000020_expand_commerce_order_sequence",
+      "file_git_blob": "e7d854328505cf49dd091195ef5096c711b5e4f4",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "S5COM-TBL-ORGANIZATION-COMMERCE-ORDER-SEQUENCES",
+      "phase": "backfill",
+      "migration_file": "database/migrations/stage5/commerce-order-sequence/backfill/S5COM-TBL-ORGANIZATION-COMMERCE-ORDER-SEQUENCES/2026_09_14_000030_backfill_commerce_order_sequence.php",
+      "migration_name": "2026_09_14_000030_backfill_commerce_order_sequence",
+      "file_git_blob": "2cbc5dc60c3cea7d2bce6ff14cd470bc6f62cd0c",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "S5COM-TBL-ORGANIZATION-COMMERCE-ORDER-SEQUENCES",
+      "phase": "validate",
+      "migration_file": "database/migrations/stage5/commerce-order-sequence/validate/S5COM-TBL-ORGANIZATION-COMMERCE-ORDER-SEQUENCES/2026_09_14_000040_validate_commerce_order_sequence.php",
+      "migration_name": "2026_09_14_000040_validate_commerce_order_sequence",
+      "file_git_blob": "67ab5f0451879fc8877eb5759cf6b8e96ea9ec4e",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    }
+  ],
+  "claim_any_DDL_implemented": true
+}

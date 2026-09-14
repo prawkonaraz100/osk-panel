@@ -99,4 +99,12 @@ changed_scope:
     ui: NOT_APPLICABLE_RUNTIME_API_GATE
     acceptance_test: Tests\\Feature\\ServiceEntitlementsCoreTest
     status: IMPLEMENTED
+  - evidence: docs/203-core-v1-stage5-commerce-order-sequence-implementation.md
+    requirement: DB-COM-005 per-organization order numbering uses a physically materialized allocator row and never runtime MAX(order_sequence)+1
+    domain_data: organization_commerce_order_sequences + organizations + orders
+    api_use_case: prerequisite for license_orders.create + exam_orders.create
+    permission: NOT_APPLICABLE_DATABASE_INVARIANT
+    ui: NOT_APPLICABLE_DATABASE_GATE
+    acceptance_test: Tests\\Feature\\Stage5CommerceOrderSequenceCorrectiveTest
+    status: IMPLEMENTED
 
