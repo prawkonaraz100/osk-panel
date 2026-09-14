@@ -2,7 +2,7 @@
 
 Data: 2026-09-14
 
-**Status:** `IN_VALIDATION`
+**Status:** `PASS`
 
 ## Scope
 
@@ -79,3 +79,46 @@ The existing formal-documents extension remains exactly:
 No Social OAuth HTTP runtime is implemented by this gate.
 
 PKK/PWPW remains `FROZEN_UNTIL_EXPLICIT_UNFREEZE`.
+
+## Corrective history
+
+- initial materialization: `dceadadb247724433807369fa04d18ecc77c617c`
+- console formatting corrective: `57db12f29f7c6ac7be94b192fff7819a92b2c79a`
+- FoundationSchema facade import corrective: `0064641b99769cd856e59567630b7e40297d1bf8`
+- executable migration import corrective: `6d660c30d30efb2bf47d8c2b0fb4af86867aa358`
+
+Accepted implementation tree:
+
+`46f21f07acfae18ff28bd06f595cf7f9d3fe716c`
+
+The last corrective changed executable migration content only, therefore the plan identity remained stable while the execution identity correctly changed from the failed executable identity to:
+
+`b4a73588390d837fbb460d374114585064445462ddcba667d3919c7052f76cd0`
+
+## Exact-head validation evidence
+
+- Implementation CI #552 / run `34876371311`: **5/5 PASS**
+- API Contract Gate #443 / run `34876371299`: **PASS**
+- PostgreSQL: **319 tests / 5637 assertions — PASS**
+- deterministic restore: **121 -> 121 PASS**
+- restore fingerprint: `09c57afe2501c79a3a684c0a695b4619114f94ddc24c9bca33728d99c1abb155`
+- `RESTORE_DRILL_HARNESS=PASS`
+- backend Pint/PHPStan, frontend, contracts/traceability and secret scan: **PASS**
+
+Migration validation output proves:
+
+- social plan identity: `85319b7c91cf9046e0ac8c00772aad141462e3897363b32d0ba222a50f73fe4d`
+- social execution identity: `b4a73588390d837fbb460d374114585064445462ddcba667d3919c7052f76cd0`
+- nodes: **1**
+- implemented nodes: **1**
+- implemented steps: **3**
+- frozen Stage4 plan/execution identities unchanged
+- existing formal-documents plan/execution identities unchanged
+
+The executable test suite proves the exact non-partial PostgreSQL unique B-tree exists and rejects duplicate provider-subject pairs even across revoked history.
+
+## Closure effect
+
+The non-HTTP P1 `social_provider_subject_unique_physical_enforcement_missing` is closed.
+
+This gate closes **zero HTTP bindings**. A fresh closure audit must reclassify `auth.social_redirect` and `auth.social_callback`; it must not implement them implicitly.

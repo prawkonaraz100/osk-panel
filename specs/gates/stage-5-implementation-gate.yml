@@ -6608,3 +6608,64 @@ CORE_V1_CLOSURE_AUDIT_008_gate:
     existing_formal_documents_extension_mutation: forbidden
     PKK_runtime_activation: forbidden
 
+CORE_V1_STAGE5_SOCIAL_SUBJECT_UNIQUE_001_gate:
+  id: CORE-V1-STAGE5-SOCIAL-SUBJECT-UNIQUE-001
+  status: PASS
+  prerequisite:
+    audit: CORE-V1-CLOSURE-AUDIT-008_AUDIT_COMPLETE_SOCIAL_SCHEMA_CORRECTIVE_NEXT
+    authority: CORE-V1-STAGE5-SOCIAL-SUBJECT-UNIQUE-AUTHORITY-001_PASS
+  authority: docs/194-core-v1-stage5-social-subject-unique-implementation.md
+  exact_scope:
+    node: S5SOC-IDX-AUTH-SOCIAL-PROVIDER-SUBJECT-UNIQUE
+    table: auth_social_accounts
+    index: auth_social_accounts_provider_subject_unique
+    columns: [provider, provider_subject]
+    unique: true
+    partial: false
+    applies_to_revoked_history: true
+    phases: [preflight, write_fence, validate]
+    social_HTTP_runtime_change: false
+    PKK_runtime_activation: false
+    frozen_Stage4_edit: false
+    existing_formal_documents_extension_mutation: false
+  immutable_identities:
+    plan_identity: 85319b7c91cf9046e0ac8c00772aad141462e3897363b32d0ba222a50f73fe4d
+    execution_identity: b4a73588390d837fbb460d374114585064445462ddcba667d3919c7052f76cd0
+    authority_git_blob: c024831ebc1f76ff258b35ba13ee6f60aaf656c3
+    stage4_plan_identity: d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10
+    stage4_execution_identity: 82da84d3efb312d78b432ad6081491c04b03569a0f250722d6befc11ca233712
+    formal_documents_plan_identity: 34cada121f4fd4963b1461308fb517c50ee647005ce9421f4d1af40c80d44b99
+    formal_documents_execution_identity: 31704fcab61761aa9a952d824dc543a6f46e7a3717792d0a9349cefaaf57651f
+  implementation:
+    initial_candidate_head: dceadadb247724433807369fa04d18ecc77c617c
+    formatting_corrective_head: 57db12f29f7c6ac7be94b192fff7819a92b2c79a
+    foundation_import_corrective_head: 0064641b99769cd856e59567630b7e40297d1bf8
+    exact_implementation_head: 6d660c30d30efb2bf47d8c2b0fb4af86867aa358
+    exact_implementation_tree: 46f21f07acfae18ff28bd06f595cf7f9d3fe716c
+  executable_evidence:
+    exact_head_Implementation_CI_run: 34876371311
+    exact_head_API_Contract_Gate_run: 34876371299
+    Implementation_CI_jobs_passed: 5
+    Implementation_CI_jobs_total: 5
+    API_Contract_Gate: PASS
+    PostgreSQL_suite_tests: 319
+    PostgreSQL_suite_assertions: 5637
+    deterministic_restore_harness: PASS
+    restore_source_table_count: 121
+    restore_restored_table_count: 121
+    restore_schema_fingerprint: 09c57afe2501c79a3a684c0a695b4619114f94ddc24c9bca33728d99c1abb155
+    backend_Pint_and_PHPStan: PASS
+    frontend_quality: PASS
+    contracts_and_traceability: PASS
+    secret_scan: PASS
+  closure_effect:
+    non_HTTP_social_provider_subject_unique_P1: CLOSED
+    physical_HTTP_bindings_closed: 0
+    social_HTTP_operations_to_reclassify:
+      - auth.social_redirect
+      - auth.social_callback
+  next_after_PASS:
+    id: CORE-V1-CLOSURE-AUDIT-009
+    action: reclassify_social_HTTP_after_physical_uniqueness_PASS
+    rule: no_social_HTTP_implementation_before_fresh_audit_no_PKK_runtime
+
