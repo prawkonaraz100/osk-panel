@@ -74,7 +74,7 @@ final class FoundationReferenceCatalogTest extends TestCase
             ->where('permission_code', 'students.view')
             ->where('scope_code', 'assigned_students')
             ->exists());
-        $this->assertSame(80, DB::table('audit_action_policy_currents')->count());
+        $this->assertSame(82, DB::table('audit_action_policy_currents')->count());
         $this->assertTrue(DB::table('audit_action_policy_currents')->where('action', 'auth.account_closure.requested')->exists());
         $this->assertTrue(DB::table('audit_action_policy_currents')->where('action', 'auth.registration.completed')->exists());
         $this->assertTrue(DB::table('audit_action_policy_currents')->where('action', 'student.created')->exists());
@@ -90,6 +90,8 @@ final class FoundationReferenceCatalogTest extends TestCase
         $this->assertTrue(DB::table('audit_action_policy_currents')->where('action', 'student_payment_recorded')->exists());
         $this->assertTrue(DB::table('audit_action_policy_currents')->where('action', 'student_payment_reversed')->exists());
         $this->assertTrue(DB::table('audit_action_policy_currents')->where('action', 'commerce.payment.started')->exists());
+        $this->assertTrue(DB::table('audit_action_policy_currents')->where('action', 'commerce.license_order.created')->exists());
+        $this->assertTrue(DB::table('audit_action_policy_currents')->where('action', 'commerce.internal_exam_order.created')->exists());
         $this->assertTrue(DB::table('audit_action_policy_currents')->where('action', 'commerce.service_entitlement.activated')->exists());
         $this->assertTrue(DB::table('audit_action_policy_currents')->where('action', 'learning_account_created')->exists());
         $this->assertTrue(DB::table('audit_action_policy_currents')->where('action', 'learning_account_updated')->exists());
