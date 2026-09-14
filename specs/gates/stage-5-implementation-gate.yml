@@ -5126,3 +5126,61 @@ CORE_V1_DICTIONARIES_LANGUAGES_001_gate:
     action: bind_restricted_GET_audit_logs_to_existing_append_only_audit_authority
     rule: tenant_first_permission_gated_minimized_projection_no_raw_payload_serialization
 
+CORE_V1_AUDIT_LOGS_LIST_001_gate:
+  id: CORE-V1-AUDIT-LOGS-LIST-001
+  status: PASS
+  authority_audit: docs/171-core-v1-audit-logs-list-closure.md
+  exact_operations:
+    - audit_logs.list
+  scope:
+    schema_or_migration_change: false
+    existing_append_only_audit_authority_reused: true
+    raw_audit_payload_serialization: forbidden
+    activity_projection_reused_as_audit: false
+    PKK_provider_runtime_activation: forbidden
+  provenance:
+    exact_head_commit: 23113bc0077838c102fa5b10373ffdf33d4786b0
+    exact_head_Implementation_CI_run: 34814965702
+    exact_head_API_Contract_Gate_run: 34814965703
+  executable_evidence:
+    exact_head_Implementation_CI_jobs_passed: 5
+    exact_head_Implementation_CI_jobs_total: 5
+    API_Contract_Gate: PASS
+    PostgreSQL_suite_tests: 275
+    PostgreSQL_suite_assertions: 5204
+    deterministic_restore_harness: PASS
+    restore_source_table_count: 121
+    restore_restored_table_count: 121
+    restore_schema_fingerprint: 09c57afe2501c79a3a684c0a695b4619114f94ddc24c9bca33728d99c1abb155
+  authorization_postconditions:
+    active_membership_required: PASS
+    organization_audit_view_required: PASS
+    organization_scope_required: PASS
+    tenant_filter_before_optional_filters: PASS
+    foreign_tenant_rows_hidden: PASS
+  projection_postconditions:
+    exposed_fields:
+      - id
+      - action
+      - entity_type
+      - entity_id
+      - actor_user_id
+      - request_id
+      - reason
+      - created_at
+    before_redacted_json_exposed: false
+    after_redacted_json_exposed: false
+    ip_hash_exposed: false
+    user_agent_exposed: false
+    audit_policy_version_exposed: false
+    actor_membership_internal_id_exposed: false
+  closure_effect:
+    repo_actionable_HTTP_bindings_before_this_gate: 19
+    HTTP_bindings_closed_by_this_gate: 1
+    derived_repo_actionable_HTTP_bindings_remaining: 18
+    full_closure_reaudit_required_before_repository_complete: true
+  next_after_PASS:
+    id: CORE-V1-STUDENT-PROGRESS-001
+    action: prove_existing_student_progress_authority_before_materializing_the_single_missing_progress_binding
+    rule: no_fabricated_progress_no_PKK_runtime_no_new_business_truth_without_proven_dependency
+
