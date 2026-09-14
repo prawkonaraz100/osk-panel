@@ -5920,3 +5920,81 @@ CORE_V1_AUTH_REGISTER_001_gate:
     id: CORE-V1-CLOSURE-AUDIT-004
     action: rerun_repository_HTTP_runtime_UI_closure_audit_on_exact_accepted_tree
     rule: recompute_not_assume_preserve_missing_authority_and_PKK_freeze
+
+
+CORE_V1_BULK_CREDENTIAL_RESET_AUTHORITY_001_gate:
+  id: CORE-V1-BULK-CREDENTIAL-RESET-AUTHORITY-001
+  status: PASS
+  decision_class: EXISTING_DB_AUTHORITY_HTTP_TRANSPORT_SYNC
+  authority:
+    narrative: docs/183-core-v1-bulk-credential-reset-authority.md
+    machine: specs/design/bulk-credential-reset.yml
+    database: specs/database/licenses-learning-access.yml#DB-LIC-004
+    prerequisite: CORE-V1-AUTH-REGISTER-001_PASS
+  exact_scope:
+    operation: license_credentials.bulk_pdf
+    method: POST
+    path: /api/v1/learning-accesses/bulk-access-document
+    runtime_change_in_authority_gate: false
+    route_change_in_authority_gate: false
+    schema_or_migration_change: false
+    PKK_provider_runtime_activation: forbidden
+  transport_sync:
+    request_uses_target_objects: true
+    nonsecret_target_requires_learning_account_id: true
+    reset_target_requires_learning_account_id_and_expected_credential_version: true
+    StudentLearningAccount_version_published_read_only: true
+    StudentLearningAccount_credential_version_published_read_only: true
+  reset_authority:
+    download_permission: licenses.access_documents.download
+    additional_reset_permission_every_target: student_access.reset_password
+    concurrency_root: user_password_management.credential_version
+    download_permission_alone_can_reset_password: false
+    all_targets_authorized_before_any_password_write: true
+    all_expected_versions_checked_after_locks_before_any_password_write: true
+    full_secret_PDF_rendered_in_memory_before_any_password_write: true
+    all_password_handoff_metadata_effects_commit_all_or_none: true
+  duplicate_global_user:
+    group_by_user_id: true
+    expected_versions_must_agree: true
+    password_hash_writes_per_unique_user: 1
+    credential_version_increments_per_unique_user: 1
+  secret_policy:
+    historical_plaintext_recovery: forbidden
+    plaintext_in_database: forbidden
+    secret_bearing_FileAsset_or_object_storage: forbidden
+    secret_in_audit_domain_outbox_or_idempotency_snapshot: forbidden
+    completed_same_key_secret_replay: forbidden
+  provenance:
+    exact_authority_candidate_head: 88b7d377a2e3fd5eb3e4d484cc1145f6153d3abf
+    candidate_parent: 7fd1a66ba012e831dd4ebda73046dfd00404264b
+    candidate_Implementation_CI_run: 34840278908
+    candidate_API_Contract_push_run: 34840274298
+    candidate_API_Contract_PR_run: 34840278845
+  executable_evidence:
+    Implementation_CI_jobs_passed: 5
+    Implementation_CI_jobs_total: 5
+    API_Contract_Gate_push: PASS
+    API_Contract_Gate_PR: PASS
+    PostgreSQL_suite_tests: 300
+    PostgreSQL_suite_assertions: 5447
+    deterministic_restore_harness: PASS
+    restore_source_table_count: 121
+    restore_restored_table_count: 121
+    restore_schema_fingerprint: 09c57afe2501c79a3a684c0a695b4619114f94ddc24c9bca33728d99c1abb155
+    backend_Pint_and_PHPStan: PASS
+    frontend_quality: PASS
+    contracts_and_traceability: PASS
+    secret_scan: PASS
+  closure_effect:
+    physical_HTTP_bindings_closed_by_authority_gate: 0
+    binding_reclassified:
+      operation: license_credentials.bulk_pdf
+      from: BLOCKED_RESET_BRANCH_MISSING_EXPECTED_CREDENTIAL_VERSIONS
+      to: IMPLEMENTATION_READY_DB_LIC_004_TRANSPORT_AUTHORITY_CLOSED
+    full_closure_reaudit_required: true
+  next_after_PASS:
+    id: CORE-V1-CLOSURE-AUDIT-004
+    action: recompute_repository_HTTP_runtime_UI_closure_on_exact_authority_tree
+    expected_next_if_confirmed: CORE-V1-BULK-CREDENTIAL-RESET-001
+    rule: recompute_not_assume_no_PKK_runtime
