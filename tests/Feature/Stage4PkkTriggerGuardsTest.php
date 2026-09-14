@@ -532,7 +532,7 @@ final class Stage4PkkTriggerGuardsTest extends TestCase
     }
 
     /**
-     * @param  array{actor:array{organization_id:string,user_id:string,membership_id:string,session_id:string}} $fixture
+     * @param  array{actor:array{organization_id:string,user_id:string,membership_id:string,session_id:string}}  $fixture
      */
     private function insertFileAsset(array $fixture, string $purpose, string $sha256): string
     {
