@@ -16,9 +16,9 @@ class MigrationPlanContractTest extends TestCase
         $this->assertSame(170, $plan->nodeCount());
         $this->assertSame(17, $plan->batchCount());
         $this->assertSame(170, $plan->implementedNodeCount());
-        $this->assertSame(209, $plan->implementedStepCount());
+        $this->assertSame(216, $plan->implementedStepCount());
         $this->assertSame('ad5f2aa2e14ef248b95dd3dda0d1cbcb2e69d441', $plan->summary()['authority_blob']);
-        $this->assertSame('b0ea9422e89ef355be12c21a10580c202c8c4689f7fdf05908d59c94e81b6ae4', $plan->executionIdentity());
+        $this->assertSame('1526b852d3af464c8f6138ba13e0aa0fe9b9a64d77a9df7619a2709e512f1bde', $plan->executionIdentity());
         $this->assertSame([
             'MIG-EXT-BTREE-GIST',
             'MIG-TBL-ORGANIZATIONS',
@@ -204,12 +204,21 @@ class MigrationPlanContractTest extends TestCase
             'MIG-PRJ-ORGANIZATION-ACTIVITY',
             'MIG-PRJ-NOTIFICATIONS',
         ];
+        $backfillNodes = [
+            'MIG-FK-PURCHASE_DOWNSTREAM',
+            'MIG-FK-EVENTS',
+            'MIG-TRG-EVENTS',
+            'MIG-PRJ-CALENDAR-RESOURCE-CLAIMS',
+            'MIG-PRJ-PURCHASE-HISTORY',
+            'MIG-PRJ-ORGANIZATION-ACTIVITY',
+            'MIG-PRJ-NOTIFICATIONS',
+        ];
         $this->assertSame(
             array_merge($candidateKeyNodes, $indexNodes, $foreignKeyNodes, $constraintNodes),
             array_column($plan->phaseSteps('preflight'), 'node_id'),
         );
         $this->assertSame(array_merge($candidateKeyNodes, $indexNodes, $foreignKeyNodes, $constraintNodes, $triggerNodes, $projectionNodes), array_column($plan->phaseSteps('write_fence'), 'node_id'));
-        $this->assertSame([], $plan->phaseSteps('backfill'));
+        $this->assertSame($backfillNodes, array_column($plan->phaseSteps('backfill'), 'node_id'));
         $this->assertSame([], $plan->phaseSteps('reconcile'));
         $this->assertSame([], $plan->phaseSteps('validate'));
         $this->assertSame([], $plan->phaseSteps('contract'));

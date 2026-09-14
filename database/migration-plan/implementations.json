@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
   "plan_identity": "d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10",
-  "execution_identity": "b0ea9422e89ef355be12c21a10580c202c8c4689f7fdf05908d59c94e81b6ae4",
+  "execution_identity": "1526b852d3af464c8f6138ba13e0aa0fe9b9a64d77a9df7619a2709e512f1bde",
   "stage4_root": "database/migrations/stage4",
   "implemented_steps": [
     {
@@ -1882,6 +1882,69 @@
       "migration_file": "database/migrations/stage4/write_fence/MIG-PRJ-NOTIFICATIONS/2026_09_10_001700_write_fence_projection_notifications.php",
       "migration_name": "2026_09_10_001700_write_fence_projection_notifications",
       "file_sha256": "bf222a8806328a5d3967617f471c6dc7e99723b49ba675158867c0625ce37823",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-FK-PURCHASE_DOWNSTREAM",
+      "phase": "backfill",
+      "migration_file": "database/migrations/stage4/backfill/MIG-FK-PURCHASE_DOWNSTREAM/2026_09_10_001460_backfill_foreign_keys_purchase_downstream.php",
+      "migration_name": "2026_09_10_001460_backfill_foreign_keys_purchase_downstream",
+      "file_sha256": "fe875e0b261374df60097a4fcc104005765a1c88905c9184bda8c6d7f9b953c7",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-FK-EVENTS",
+      "phase": "backfill",
+      "migration_file": "database/migrations/stage4/backfill/MIG-FK-EVENTS/2026_09_10_001470_backfill_foreign_keys_events.php",
+      "migration_name": "2026_09_10_001470_backfill_foreign_keys_events",
+      "file_sha256": "bbc8dc2b4e732f876c1ac4c9ec823aa513bf75c4d1d39ef658f5727ee4ba998c",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TRG-EVENTS",
+      "phase": "backfill",
+      "migration_file": "database/migrations/stage4/backfill/MIG-TRG-EVENTS/2026_09_10_001660_backfill_triggers_events.php",
+      "migration_name": "2026_09_10_001660_backfill_triggers_events",
+      "file_sha256": "bec8faa183021bfec6508c32ff6014a928930a88d6eb6742ba75feb5af80689c",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-PRJ-CALENDAR-RESOURCE-CLAIMS",
+      "phase": "backfill",
+      "migration_file": "database/migrations/stage4/backfill/MIG-PRJ-CALENDAR-RESOURCE-CLAIMS/2026_09_10_001670_backfill_projection_calendar_resource_claims.php",
+      "migration_name": "2026_09_10_001670_backfill_projection_calendar_resource_claims",
+      "file_sha256": "1f28088a233fb31515f1b77a135c7eacd4abd0ab6c1060cde02f3900019517af",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-PRJ-PURCHASE-HISTORY",
+      "phase": "backfill",
+      "migration_file": "database/migrations/stage4/backfill/MIG-PRJ-PURCHASE-HISTORY/2026_09_10_001680_backfill_projection_purchase_history.php",
+      "migration_name": "2026_09_10_001680_backfill_projection_purchase_history",
+      "file_sha256": "eec200220923ebf4379ee96747baea1d1357263764d930144c27b841ad32419a",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-PRJ-ORGANIZATION-ACTIVITY",
+      "phase": "backfill",
+      "migration_file": "database/migrations/stage4/backfill/MIG-PRJ-ORGANIZATION-ACTIVITY/2026_09_10_001690_backfill_projection_organization_activity.php",
+      "migration_name": "2026_09_10_001690_backfill_projection_organization_activity",
+      "file_sha256": "9a46d9c9c0f32c221630068da5d5496e1d1e5e038d97897804a9b0e9b5aa35a7",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-PRJ-NOTIFICATIONS",
+      "phase": "backfill",
+      "migration_file": "database/migrations/stage4/backfill/MIG-PRJ-NOTIFICATIONS/2026_09_10_001700_backfill_projection_notifications.php",
+      "migration_name": "2026_09_10_001700_backfill_projection_notifications",
+      "file_sha256": "55a903b91eb614002d3510385905737b0243c52249a2119fa844beeec0a7f859",
       "restart_classification": "manual_review",
       "safe_down": false
     }

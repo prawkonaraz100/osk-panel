@@ -35,8 +35,8 @@ final class Stage4ForeignKeysWriteFenceTest extends TestCase
 
         $this->assertSame(170, $plan->nodeCount());
         $this->assertSame(170, $plan->implementedNodeCount());
-        $this->assertSame(209, $plan->implementedStepCount());
-        $this->assertSame('b0ea9422e89ef355be12c21a10580c202c8c4689f7fdf05908d59c94e81b6ae4', $plan->executionIdentity());
+        $this->assertSame(216, $plan->implementedStepCount());
+        $this->assertSame('1526b852d3af464c8f6138ba13e0aa0fe9b9a64d77a9df7619a2709e512f1bde', $plan->executionIdentity());
         $this->assertCount(52, $plan->phaseSteps('write_fence'));
         $this->assertSame(
             $foreignKeyNodes,
@@ -128,7 +128,18 @@ final class Stage4ForeignKeysWriteFenceTest extends TestCase
             $this->assertSame($beforeChecks, $this->checkConstraintFingerprint());
             $this->assertSame($beforeUserTriggers, $this->userTriggerFingerprint());
             $this->assertSame($beforeRowCounts, $this->rowCounts($targetTables));
-            $this->assertSame([], $plan->phaseSteps('backfill'));
+            $this->assertSame(
+                [
+                    'MIG-FK-PURCHASE_DOWNSTREAM',
+                    'MIG-FK-EVENTS',
+                    'MIG-TRG-EVENTS',
+                    'MIG-PRJ-CALENDAR-RESOURCE-CLAIMS',
+                    'MIG-PRJ-PURCHASE-HISTORY',
+                    'MIG-PRJ-ORGANIZATION-ACTIVITY',
+                    'MIG-PRJ-NOTIFICATIONS',
+                ],
+                array_column($plan->phaseSteps('backfill'), 'node_id'),
+            );
             $this->assertSame([], $plan->phaseSteps('reconcile'));
             $this->assertSame([], $plan->phaseSteps('validate'));
             $this->assertSame([], $plan->phaseSteps('contract'));

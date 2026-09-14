@@ -2,10 +2,8 @@
 
 namespace Tests\Feature;
 
-use App\Support\Migrations\ControlledMigrationContext;
 use App\Support\Migrations\MigrationPlan;
 use App\Support\Migrations\Stage4ExactEvidenceBackfill;
-use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
@@ -21,6 +19,11 @@ final class Stage4ExactEvidenceBackfillTest extends TestCase
 
         $plan = app(MigrationPlan::class);
         $plan->validate();
+        $this->assertSame(170, $plan->implementedNodeCount());
+        $this->assertSame(216, $plan->implementedStepCount());
+        $this->assertCount(52, $plan->phaseSteps('write_fence'));
+        $this->assertCount(7, $plan->phaseSteps('backfill'));
+
         $actor = FoundationSchema::actor();
 
         DB::beginTransaction();
@@ -41,25 +44,23 @@ final class Stage4ExactEvidenceBackfillTest extends TestCase
             ]);
             $this->assertSame(0, $preflightExit, Artisan::output());
 
-            foreach ($plan->phaseSteps('write_fence') as $step) {
-                ControlledMigrationContext::enter('write_fence', $step['node_id'], $plan->executionIdentity());
+            $writeFenceExit = Artisan::call('migration:controlled', [
+                '--plan' => $plan->identity(),
+                '--execution' => $plan->executionIdentity(),
+                '--phase' => 'write_fence',
+                '--force' => true,
+            ]);
+            $this->assertSame(0, $writeFenceExit, Artisan::output());
 
-                try {
-                    /** @var Migration $migration */
-                    $migration = require base_path($step['migration_file']);
-                    $migration->up();
-                } finally {
-                    ControlledMigrationContext::leave();
-                }
-            }
-
-            $calendar = Stage4ExactEvidenceBackfill::run('MIG-PRJ-CALENDAR-RESOURCE-CLAIMS');
-            $history = Stage4ExactEvidenceBackfill::run('MIG-PRJ-PURCHASE-HISTORY');
+            $backfillExit = Artisan::call('migration:controlled', [
+                '--plan' => $plan->identity(),
+                '--execution' => $plan->executionIdentity(),
+                '--phase' => 'backfill',
+                '--force' => true,
+            ]);
+            $this->assertSame(0, $backfillExit, Artisan::output());
 
             $this->forceDeferredChecks();
-
-            $this->assertSame(['mutated' => 1, 'deferred_to_reconcile' => 0], $calendar);
-            $this->assertSame(['mutated' => 1, 'deferred_to_reconcile' => 0], $history);
             $this->assertSame(
                 1,
                 DB::table('calendar_resource_claims')
