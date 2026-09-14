@@ -16,9 +16,9 @@ class MigrationPlanContractTest extends TestCase
         $this->assertSame(170, $plan->nodeCount());
         $this->assertSame(17, $plan->batchCount());
         $this->assertSame(170, $plan->implementedNodeCount());
-        $this->assertSame(223, $plan->implementedStepCount());
+        $this->assertSame(257, $plan->implementedStepCount());
         $this->assertSame('ad5f2aa2e14ef248b95dd3dda0d1cbcb2e69d441', $plan->summary()['authority_blob']);
-        $this->assertSame('2b8d8001da433ec87402155ef9c3e0149d36018eea9b5a03a63b7a97a54c0f76', $plan->executionIdentity());
+        $this->assertSame('b036d681256900829c32fcbe91e75bb2c97ddd83831eb3d6a83698d266f93853', $plan->executionIdentity());
         $this->assertSame([
             'MIG-EXT-BTREE-GIST',
             'MIG-TBL-ORGANIZATIONS',
@@ -222,6 +222,42 @@ class MigrationPlanContractTest extends TestCase
             'MIG-PRJ-ORGANIZATION-ACTIVITY',
             'MIG-PRJ-NOTIFICATIONS',
         ];
+        $validateNodes = [
+            'MIG-FK-IDENTITY',
+            'MIG-FK-RESOURCES',
+            'MIG-FK-TRAINING',
+            'MIG-FK-CALENDAR',
+            'MIG-FK-PKK',
+            'MIG-FK-FINANCE',
+            'MIG-FK-LICENSES',
+            'MIG-FK-EXAMS',
+            'MIG-FK-COMMERCE',
+            'MIG-FK-PURCHASE_DOWNSTREAM',
+            'MIG-FK-EVENTS',
+            'MIG-CON-IDENTITY',
+            'MIG-CON-RESOURCES',
+            'MIG-CON-TRAINING',
+            'MIG-CON-CALENDAR',
+            'MIG-CON-PKK',
+            'MIG-CON-FINANCE',
+            'MIG-CON-LICENSES',
+            'MIG-CON-EXAMS',
+            'MIG-CON-COMMERCE',
+            'MIG-CON-EVENTS',
+            'MIG-TRG-IDENTITY',
+            'MIG-TRG-TRAINING',
+            'MIG-TRG-CALENDAR',
+            'MIG-TRG-PKK',
+            'MIG-TRG-FINANCE',
+            'MIG-TRG-LICENSES',
+            'MIG-TRG-EXAMS',
+            'MIG-TRG-COMMERCE',
+            'MIG-TRG-EVENTS',
+            'MIG-PRJ-CALENDAR-RESOURCE-CLAIMS',
+            'MIG-PRJ-PURCHASE-HISTORY',
+            'MIG-PRJ-ORGANIZATION-ACTIVITY',
+            'MIG-PRJ-NOTIFICATIONS',
+        ];
         $this->assertSame(
             array_merge($candidateKeyNodes, $indexNodes, $foreignKeyNodes, $constraintNodes),
             array_column($plan->phaseSteps('preflight'), 'node_id'),
@@ -229,7 +265,7 @@ class MigrationPlanContractTest extends TestCase
         $this->assertSame(array_merge($candidateKeyNodes, $indexNodes, $foreignKeyNodes, $constraintNodes, $triggerNodes, $projectionNodes), array_column($plan->phaseSteps('write_fence'), 'node_id'));
         $this->assertSame($backfillNodes, array_column($plan->phaseSteps('backfill'), 'node_id'));
         $this->assertSame($reconcileNodes, array_column($plan->phaseSteps('reconcile'), 'node_id'));
-        $this->assertSame([], $plan->phaseSteps('validate'));
+        $this->assertSame($validateNodes, array_column($plan->phaseSteps('validate'), 'node_id'));
         $this->assertSame([], $plan->phaseSteps('contract'));
     }
 

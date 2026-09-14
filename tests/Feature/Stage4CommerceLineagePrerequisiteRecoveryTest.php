@@ -58,8 +58,8 @@ final class Stage4CommerceLineagePrerequisiteRecoveryTest extends TestCase
         $plan->validate();
         $this->assertSame(170, $plan->nodeCount());
         $this->assertSame(170, $plan->implementedNodeCount());
-        $this->assertSame(223, $plan->implementedStepCount());
-        $this->assertSame('2b8d8001da433ec87402155ef9c3e0149d36018eea9b5a03a63b7a97a54c0f76', $plan->executionIdentity());
+        $this->assertSame(257, $plan->implementedStepCount());
+        $this->assertSame('b036d681256900829c32fcbe91e75bb2c97ddd83831eb3d6a83698d266f93853', $plan->executionIdentity());
         $this->assertSame([
             'MIG-CK-IDENTITY',
             'MIG-CK-ASSETS_RESOURCES',

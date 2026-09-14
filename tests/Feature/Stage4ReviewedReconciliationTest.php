@@ -20,7 +20,7 @@ final class Stage4ReviewedReconciliationTest extends TestCase
         $plan = app(MigrationPlan::class);
         $plan->validate();
         $this->assertSame(170, $plan->implementedNodeCount());
-        $this->assertSame(223, $plan->implementedStepCount());
+        $this->assertSame(257, $plan->implementedStepCount());
         $this->assertCount(7, $plan->phaseSteps('reconcile'));
         $this->assertCount(0, $plan->phaseSteps('validate'));
 

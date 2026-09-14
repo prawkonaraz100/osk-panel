@@ -35,8 +35,8 @@ final class Stage4ForeignKeysWriteFenceTest extends TestCase
 
         $this->assertSame(170, $plan->nodeCount());
         $this->assertSame(170, $plan->implementedNodeCount());
-        $this->assertSame(223, $plan->implementedStepCount());
-        $this->assertSame('2b8d8001da433ec87402155ef9c3e0149d36018eea9b5a03a63b7a97a54c0f76', $plan->executionIdentity());
+        $this->assertSame(257, $plan->implementedStepCount());
+        $this->assertSame('b036d681256900829c32fcbe91e75bb2c97ddd83831eb3d6a83698d266f93853', $plan->executionIdentity());
         $this->assertCount(52, $plan->phaseSteps('write_fence'));
         $this->assertSame(
             $foreignKeyNodes,
@@ -141,7 +141,7 @@ final class Stage4ForeignKeysWriteFenceTest extends TestCase
                 array_column($plan->phaseSteps('backfill'), 'node_id'),
             );
             $this->assertCount(7, $plan->phaseSteps('reconcile'));
-            $this->assertSame([], $plan->phaseSteps('validate'));
+            $this->assertCount(34, $plan->phaseSteps('validate'));
             $this->assertSame([], $plan->phaseSteps('contract'));
         } finally {
             DB::rollBack();
