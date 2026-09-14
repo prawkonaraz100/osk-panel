@@ -730,7 +730,7 @@ SQL),
     }
 
     /**
-     * @param  list<object>  $rows
+     * @param  array<int, object>  $rows
      */
     private static function inventoryCaseRows(
         string $sourceTable,
