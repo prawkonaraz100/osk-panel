@@ -19,6 +19,34 @@ final class OrganizationSettingsService
         private readonly AtomicAuditOutbox $auditOutbox,
     ) {}
 
+    /** @return array{id:string,name:string,nip:?string,phone:?string,timezone:string,status:string} */
+    public function organization(string $sessionId): array
+    {
+        $membership = $this->authorizer->activeMembershipForSession($sessionId);
+        $this->authorizer->requireOrganizationPermission(
+            $sessionId,
+            $membership['organization_id'],
+            'organization.view',
+        );
+
+        $row = DB::table('organizations')
+            ->where('id', $membership['organization_id'])
+            ->first();
+
+        if ($row === null) {
+            throw new LogicException('Organization not found.');
+        }
+
+        return [
+            'id' => (string) $row->id,
+            'name' => (string) $row->name,
+            'nip' => $row->nip === null ? null : (string) $row->nip,
+            'phone' => $row->phone === null ? null : (string) $row->phone,
+            'timezone' => (string) $row->timezone,
+            'status' => (string) $row->status,
+        ];
+    }
+
     /**
      * @param  array<string, mixed>  $changes
      * @return array{version:int}

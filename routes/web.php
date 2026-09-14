@@ -11,6 +11,7 @@ use App\Modules\FormalDocuments\FormalTrainingDocumentController;
 use App\Modules\IdentityTenant\AuthSessionController;
 use App\Modules\InternalExams\InternalExamController;
 use App\Modules\LearningAccess\LearningAccessController;
+use App\Modules\OrganizationSettings\OrganizationSettingsController;
 use App\Modules\ResourcesCore\ResourceApiMiddleware;
 use App\Modules\ResourcesCore\ResourceController;
 use App\Modules\StudentFinance\StudentFinanceController;
@@ -24,6 +25,7 @@ Route::middleware(ResourceApiMiddleware::class)->prefix('api/v1')->group(functio
     Route::get('/auth/sessions', [AuthSessionController::class, 'list']);
     Route::delete('/auth/sessions/{sessionId}', [AuthSessionController::class, 'revoke']);
     Route::post('/auth/account-closure-requests', [AuthSessionController::class, 'requestAccountClosure']);
+    Route::get('/organization', [OrganizationSettingsController::class, 'organizationGet']);
 
     Route::get('/locations', [ResourceController::class, 'locationsList']);
     Route::post('/locations', [ResourceController::class, 'locationsCreate']);
