@@ -36,6 +36,59 @@ final class CommerceDashboardController
         return response()->json($this->commerce->getOrder($this->sessionId($request), $orderId));
     }
 
+
+    public function licenseOrdersCreate(Request $request): JsonResponse
+    {
+        $input = $this->validated($request, [
+            'items' => ['required', 'array', 'min:1'],
+            'items.*' => ['required', 'array:product_id,quantity'],
+            'items.*.product_id' => ['required', 'uuid'],
+            'items.*.quantity' => ['required', 'integer', 'min:1'],
+            'payment_method' => ['required', 'string'],
+        ]);
+        $paymentMethod = $this->normalizedPaymentMethod((string) $input['payment_method']);
+        /** @var list<array{product_id:string,quantity:int}> $items */
+        $items = array_values($input['items']);
+
+        return $this->command(
+            $request,
+            'license_orders.create',
+            ['items' => $items, 'payment_method' => $paymentMethod],
+            201,
+            'order',
+            fn (string $sessionId): array => $this->commerce->createLicenseOrder(
+                $sessionId,
+                $items,
+                $paymentMethod,
+                $this->requestId($request),
+            ),
+        );
+    }
+
+    public function examOrdersCreate(Request $request): JsonResponse
+    {
+        $input = $this->validated($request, [
+            'quantity' => ['required', 'integer', 'min:1'],
+            'payment_method' => ['required', 'string'],
+        ]);
+        $paymentMethod = $this->normalizedPaymentMethod((string) $input['payment_method']);
+        $quantity = (int) $input['quantity'];
+
+        return $this->command(
+            $request,
+            'exam_orders.create',
+            ['quantity' => $quantity, 'payment_method' => $paymentMethod],
+            201,
+            'order',
+            fn (string $sessionId): array => $this->commerce->createInternalExamOrder(
+                $sessionId,
+                $quantity,
+                $paymentMethod,
+                $this->requestId($request),
+            ),
+        );
+    }
+
     public function orderPaymentsCreate(Request $request, string $orderId): JsonResponse
     {
         $input = $this->validated($request, [
@@ -203,6 +256,19 @@ final class CommerceDashboardController
         }
 
         return $sessionId;
+    }
+
+
+    private function normalizedPaymentMethod(string $method): string
+    {
+        $method = strtolower(trim($method));
+        if (strlen($method) < 2 || strlen($method) > 64 || preg_match('/^[a-z0-9_.-]+$/', $method) !== 1) {
+            throw ValidationException::withMessages([
+                'payment_method' => ['payment_method must normalize to 2-64 lowercase letters, digits, dot, underscore or hyphen.'],
+            ]);
+        }
+
+        return $method;
     }
 
     private function idempotencyKey(Request $request): string

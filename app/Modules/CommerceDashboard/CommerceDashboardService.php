@@ -151,6 +151,44 @@ final class CommerceDashboardService
         });
     }
 
+
+    /**
+     * @param  list<array{product_id:string,quantity:int}>  $items
+     * @return array<string,mixed>
+     */
+    public function createLicenseOrder(string $sessionId, array $items, string $paymentMethod, string $requestId): array
+    {
+        $actor = $this->authorizedOrganization($sessionId, 'licenses.purchase');
+        if ($items === []) {
+            throw ResourceDomainException::rule('At least one license product is required.');
+        }
+
+        return $this->placeOrder(
+            $actor,
+            fn (bool $lock): array => $this->resolveLicenseOrderLines($items, $lock),
+            $paymentMethod,
+            $requestId,
+            'commerce.license_order.created',
+        );
+    }
+
+    /** @return array<string,mixed> */
+    public function createInternalExamOrder(string $sessionId, int $quantity, string $paymentMethod, string $requestId): array
+    {
+        $actor = $this->authorizedOrganization($sessionId, 'exams.purchase');
+        if ($quantity < 1) {
+            throw ResourceDomainException::rule('Internal exam quantity must be at least 1.');
+        }
+
+        return $this->placeOrder(
+            $actor,
+            fn (bool $lock): array => $this->resolveInternalExamOrderLines($quantity, $lock),
+            $paymentMethod,
+            $requestId,
+            'commerce.internal_exam_order.created',
+        );
+    }
+
     /** @return list<array<string,mixed>> */
     public function listServiceEntitlements(string $sessionId): array
     {
@@ -422,6 +460,505 @@ final class CommerceDashboardService
             'total' => $total,
             'last_page' => max(1, (int) ceil($total / $perPage)),
         ];
+    }
+
+
+    /**
+     * @param  array{id:string,organization_id:string,user_id:string,status:string,is_owner:bool,version:int,authorization_version:int}  $actor
+     * @param  callable(bool):list<array<string,mixed>>  $resolver
+     * @return array<string,mixed>
+     */
+    private function placeOrder(
+        array $actor,
+        callable $resolver,
+        string $paymentMethod,
+        string $requestId,
+        string $auditAction,
+    ): array {
+        $paymentMethod = strtolower(trim($paymentMethod));
+        if (strlen($paymentMethod) < 2
+            || strlen($paymentMethod) > 64
+            || preg_match('/^[a-z0-9_.-]+$/', $paymentMethod) !== 1) {
+            throw ResourceDomainException::rule('Unsupported payment method code.');
+        }
+
+        return DB::transaction(function () use ($actor, $resolver, $paymentMethod, $requestId, $auditAction): array {
+            $initialLines = $resolver(false);
+            $this->orderTotals($initialLines);
+
+            $sequence = $this->reserveOrderSequence($actor['organization_id']);
+
+            $lines = $resolver(true);
+            if (! hash_equals(
+                $this->orderLineAuthorityFingerprint($initialLines),
+                $this->orderLineAuthorityFingerprint($lines),
+            )) {
+                throw ResourceDomainException::conflict('Commerce catalog or pricing authority changed during order placement.');
+            }
+
+            [$currency, $total] = $this->orderTotals($lines);
+            usort($lines, static function (array $left, array $right): int {
+                $catalog = strcmp((string) $left['catalog_item_id'], (string) $right['catalog_item_id']);
+
+                return $catalog !== 0
+                    ? $catalog
+                    : ((int) $left['request_index'] <=> (int) $right['request_index']);
+            });
+
+            $now = now();
+            $orderId = (string) Str::uuid7();
+            $zeroTotal = $total === 0;
+
+            DB::table('orders')->insert([
+                'id' => $orderId,
+                'organization_id' => $actor['organization_id'],
+                'order_sequence' => $sequence,
+                'ordered_at' => $now,
+                'booked_at' => $zeroTotal ? $now : null,
+                'zero_total_settled_at' => $zeroTotal ? $now : null,
+                'total_amount_minor' => $total,
+                'currency' => $currency,
+                'created_by_user_id' => $actor['user_id'],
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+
+            foreach ($lines as $line) {
+                DB::table('order_items')->insert([
+                    'id' => (string) Str::uuid7(),
+                    'organization_id' => $actor['organization_id'],
+                    'order_id' => $orderId,
+                    'commerce_catalog_item_id' => $line['catalog_item_id'],
+                    'product_kind' => $line['product_kind'],
+                    'license_product_id' => $line['license_product_id'],
+                    'quantity' => $line['quantity'],
+                    'currency' => $line['currency'],
+                    'list_unit_amount_minor' => $line['list_unit_amount_minor'],
+                    'unit_amount_minor' => $line['unit_amount_minor'],
+                    'unit_discount_amount_minor' => $line['unit_discount_amount_minor'],
+                    'vat_rate_basis_points' => $line['vat_rate_basis_points'],
+                    'total_amount_minor' => $line['total_amount_minor'],
+                    'product_snapshot' => $this->canonicalJson($line['product_snapshot']),
+                    'pricing_snapshot' => $this->canonicalJson($line['pricing_snapshot']),
+                    'snapshot_hash' => $line['snapshot_hash'],
+                    'created_at' => $now,
+                ]);
+            }
+
+            if ($zeroTotal) {
+                DB::table('order_fulfillments')->insert([
+                    'organization_id' => $actor['organization_id'],
+                    'order_id' => $orderId,
+                    'source_kind' => 'zero_total',
+                    'settlement_payment_id' => null,
+                    'state' => 'pending',
+                    'created_at' => $now,
+                    'fulfilled_at' => null,
+                    'requires_reconciliation_at' => null,
+                    'reconciliation_reason' => null,
+                ]);
+            } else {
+                DB::table('payments')->insert([
+                    'id' => (string) Str::uuid7(),
+                    'organization_id' => $actor['organization_id'],
+                    'order_id' => $orderId,
+                    'provider' => $paymentMethod,
+                    'provider_payment_id' => null,
+                    'public_payment_reference' => $this->newPublicPaymentReference(),
+                    'status' => 'pending',
+                    'amount_minor' => $total,
+                    'currency' => $currency,
+                    'confirmed_at' => null,
+                    'failed_at' => null,
+                    'created_at' => $now,
+                ]);
+            }
+
+            DB::statement('SET CONSTRAINTS ALL IMMEDIATE');
+            DB::statement('SET CONSTRAINTS ALL DEFERRED');
+
+            $this->auditOutbox->recordOrganizationEvent(
+                $actor['organization_id'],
+                $actor['id'],
+                $actor['user_id'],
+                $auditAction,
+                'commerce_order',
+                $orderId,
+                $requestId,
+                ['fields' => [], 'state' => 'absent'],
+                [
+                    'fields' => ['order_sequence', 'total_amount_minor', 'currency', 'product_kinds'],
+                    'state' => $zeroTotal ? 'zero_total_settled' : 'payment_pending',
+                ],
+            );
+
+            $row = DB::table('orders')
+                ->where('orders.organization_id', $actor['organization_id'])
+                ->where('orders.id', $orderId)
+                ->select('orders.*')
+                ->selectRaw($this->purchaseStatusSql().' AS projected_status')
+                ->firstOrFail();
+
+            return $this->presentOrder($row);
+        });
+    }
+
+    /**
+     * @param  list<array{product_id:string,quantity:int}>  $items
+     * @return list<array<string,mixed>>
+     */
+    private function resolveLicenseOrderLines(array $items, bool $lock): array
+    {
+        $normalized = [];
+        foreach ($items as $index => $item) {
+            $productId = (string) ($item['product_id'] ?? '');
+            $quantity = (int) ($item['quantity'] ?? 0);
+            if ($productId === '' || $quantity < 1 || $quantity > 2147483647) {
+                throw ResourceDomainException::rule('License order item is invalid.');
+            }
+            $normalized[] = [
+                'request_index' => $index,
+                'product_id' => $productId,
+                'quantity' => $quantity,
+            ];
+        }
+
+        $productIds = array_values(array_unique(array_column($normalized, 'product_id')));
+        sort($productIds, SORT_STRING);
+        $resolved = [];
+
+        foreach ($productIds as $productId) {
+            $productQuery = DB::table('license_products')
+                ->where('id', $productId)
+                ->where('active', true);
+            if ($lock) {
+                $productQuery->lockForUpdate();
+            }
+            $product = $productQuery->first();
+            if ($product === null) {
+                throw ResourceDomainException::rule('Requested license product is unavailable.');
+            }
+
+            $catalogQuery = DB::table('commerce_catalog_items')
+                ->where('product_kind', 'license')
+                ->where('license_product_id', $productId)
+                ->where('active', true)
+                ->orderBy('id');
+            if ($lock) {
+                $catalogQuery->lockForUpdate();
+            }
+            $catalogRows = $catalogQuery->get();
+            if ($catalogRows->count() !== 1) {
+                throw ResourceDomainException::rule('Requested license product does not have exactly one active commerce catalog mapping.');
+            }
+
+            $catalog = $catalogRows->first();
+            if ($catalog === null) {
+                throw ResourceDomainException::rule('Requested license catalog mapping is unavailable.');
+            }
+            $resolved[$productId] = [$product, $catalog, $this->pricingForCatalogCode((string) $catalog->code)];
+        }
+
+        $lines = [];
+        foreach ($normalized as $item) {
+            [$product, $catalog, $pricing] = $resolved[$item['product_id']];
+            $productSnapshot = [
+                'catalog_item_id' => (string) $catalog->id,
+                'stable_catalog_code' => (string) $catalog->code,
+                'product_kind' => 'license',
+                'display_name_at_order_time' => $pricing['display_name'],
+                'license_product_id' => (string) $product->id,
+                'license_product_code' => (string) $product->code,
+                'duration_days' => (int) $product->duration_days,
+                'activation_mode' => (string) $product->activation_mode,
+            ];
+            $lines[] = $this->buildOrderLine(
+                (int) $item['request_index'],
+                (string) $catalog->id,
+                'license',
+                (string) $product->id,
+                (int) $item['quantity'],
+                $pricing,
+                $productSnapshot,
+            );
+        }
+
+        return $lines;
+    }
+
+    /** @return list<array<string,mixed>> */
+    private function resolveInternalExamOrderLines(int $quantity, bool $lock): array
+    {
+        if ($quantity < 1 || $quantity > 2147483647) {
+            throw ResourceDomainException::rule('Internal exam quantity is invalid.');
+        }
+
+        $catalogCode = config('commerce.order_create.internal_exam_catalog_code');
+        if (! is_string($catalogCode) || trim($catalogCode) === '') {
+            throw ResourceDomainException::conflict('Internal exam commerce catalog selector is not configured.');
+        }
+        $catalogCode = trim($catalogCode);
+
+        $query = DB::table('commerce_catalog_items')
+            ->where('code', $catalogCode)
+            ->where('product_kind', 'internal_exam')
+            ->whereNull('license_product_id')
+            ->where('active', true)
+            ->orderBy('id');
+        if ($lock) {
+            $query->lockForUpdate();
+        }
+        $catalogRows = $query->get();
+        if ($catalogRows->count() !== 1) {
+            throw ResourceDomainException::rule('Configured internal exam catalog selector does not resolve exactly one active internal exam product.');
+        }
+
+        $catalog = $catalogRows->first();
+        if ($catalog === null) {
+            throw ResourceDomainException::rule('Configured internal exam catalog product is unavailable.');
+        }
+        $pricing = $this->pricingForCatalogCode((string) $catalog->code);
+
+        return [
+            $this->buildOrderLine(
+                0,
+                (string) $catalog->id,
+                'internal_exam',
+                null,
+                $quantity,
+                $pricing,
+                [
+                    'catalog_item_id' => (string) $catalog->id,
+                    'stable_catalog_code' => (string) $catalog->code,
+                    'product_kind' => 'internal_exam',
+                    'display_name_at_order_time' => $pricing['display_name'],
+                ],
+            ),
+        ];
+    }
+
+    /**
+     * @param  array{currency:string,list_unit_amount_minor:int,charged_unit_amount_minor:int,vat_rate_basis_points:int,display_name:string,pricing_revision:string}  $pricing
+     * @param  array<string,mixed>  $productSnapshot
+     * @return array<string,mixed>
+     */
+    private function buildOrderLine(
+        int $requestIndex,
+        string $catalogItemId,
+        string $productKind,
+        ?string $licenseProductId,
+        int $quantity,
+        array $pricing,
+        array $productSnapshot,
+    ): array {
+        $lineTotal = $this->checkedMultiply($quantity, $pricing['charged_unit_amount_minor']);
+        $pricingSnapshot = [
+            'list_unit_amount_minor' => $pricing['list_unit_amount_minor'],
+            'charged_unit_amount_minor' => $pricing['charged_unit_amount_minor'],
+            'unit_discount_amount_minor' => $pricing['list_unit_amount_minor'] - $pricing['charged_unit_amount_minor'],
+            'vat_rate_basis_points' => $pricing['vat_rate_basis_points'],
+            'pricing_revision' => $pricing['pricing_revision'],
+            'pricing_resolution_time' => now()->toIso8601String(),
+        ];
+        $snapshotHash = hash('sha256', $this->canonicalJson([
+            'product_snapshot' => $productSnapshot,
+            'pricing_snapshot' => $pricingSnapshot,
+        ]));
+
+        return [
+            'request_index' => $requestIndex,
+            'catalog_item_id' => $catalogItemId,
+            'product_kind' => $productKind,
+            'license_product_id' => $licenseProductId,
+            'quantity' => $quantity,
+            'currency' => $pricing['currency'],
+            'list_unit_amount_minor' => $pricing['list_unit_amount_minor'],
+            'unit_amount_minor' => $pricing['charged_unit_amount_minor'],
+            'unit_discount_amount_minor' => $pricing['list_unit_amount_minor'] - $pricing['charged_unit_amount_minor'],
+            'vat_rate_basis_points' => $pricing['vat_rate_basis_points'],
+            'total_amount_minor' => $lineTotal,
+            'product_snapshot' => $productSnapshot,
+            'pricing_snapshot' => $pricingSnapshot,
+            'snapshot_hash' => $snapshotHash,
+        ];
+    }
+
+    /**
+     * @return array{currency:string,list_unit_amount_minor:int,charged_unit_amount_minor:int,vat_rate_basis_points:int,display_name:string,pricing_revision:string}
+     */
+    private function pricingForCatalogCode(string $catalogCode): array
+    {
+        $registry = config('commerce.order_create.pricing_by_catalog_code');
+        if (! is_array($registry) || ! array_key_exists($catalogCode, $registry) || ! is_array($registry[$catalogCode])) {
+            throw ResourceDomainException::conflict('Current commerce pricing configuration is unavailable for the requested catalog item.');
+        }
+
+        $entry = $registry[$catalogCode];
+        $currency = $entry['currency'] ?? null;
+        $list = $entry['list_unit_amount_minor'] ?? null;
+        $charged = $entry['charged_unit_amount_minor'] ?? null;
+        $vat = $entry['vat_rate_basis_points'] ?? null;
+        $displayName = $entry['display_name'] ?? null;
+        $revision = $entry['pricing_revision'] ?? null;
+
+        if (! is_string($currency)
+            || preg_match('/^[A-Z]{3}$/', $currency) !== 1
+            || ! is_int($list)
+            || $list < 0
+            || ! is_int($charged)
+            || $charged < 0
+            || $charged > $list
+            || ! is_int($vat)
+            || $vat < 0
+            || $vat > 10000
+            || ! is_string($displayName)
+            || trim($displayName) === ''
+            || ! is_string($revision)
+            || trim($revision) === '') {
+            throw ResourceDomainException::conflict('Current commerce pricing configuration is malformed.');
+        }
+
+        return [
+            'currency' => $currency,
+            'list_unit_amount_minor' => $list,
+            'charged_unit_amount_minor' => $charged,
+            'vat_rate_basis_points' => $vat,
+            'display_name' => trim($displayName),
+            'pricing_revision' => trim($revision),
+        ];
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $lines
+     * @return array{0:string,1:int}
+     */
+    private function orderTotals(array $lines): array
+    {
+        if ($lines === []) {
+            throw ResourceDomainException::rule('Order must contain at least one item.');
+        }
+
+        $currency = null;
+        $total = 0;
+        foreach ($lines as $line) {
+            $lineCurrency = (string) ($line['currency'] ?? '');
+            $lineTotal = $line['total_amount_minor'] ?? null;
+            if ($lineCurrency === '' || ! is_int($lineTotal) || $lineTotal < 0) {
+                throw ResourceDomainException::conflict('Resolved order pricing is invalid.');
+            }
+            if ($currency === null) {
+                $currency = $lineCurrency;
+            } elseif ($currency !== $lineCurrency) {
+                throw ResourceDomainException::rule('One order cannot mix pricing currencies.');
+            }
+            if ($lineTotal > PHP_INT_MAX - $total) {
+                throw ResourceDomainException::rule('Order total exceeds the supported money range.');
+            }
+            $total += $lineTotal;
+        }
+
+        if ($currency === null) {
+            throw ResourceDomainException::conflict('Resolved order currency is missing.');
+        }
+
+        return [$currency, $total];
+    }
+
+    /** @param  list<array<string,mixed>>  $lines */
+    private function orderLineAuthorityFingerprint(array $lines): string
+    {
+        $material = array_map(static fn (array $line): array => [
+            'request_index' => $line['request_index'],
+            'catalog_item_id' => $line['catalog_item_id'],
+            'product_kind' => $line['product_kind'],
+            'license_product_id' => $line['license_product_id'],
+            'quantity' => $line['quantity'],
+            'currency' => $line['currency'],
+            'list_unit_amount_minor' => $line['list_unit_amount_minor'],
+            'unit_amount_minor' => $line['unit_amount_minor'],
+            'unit_discount_amount_minor' => $line['unit_discount_amount_minor'],
+            'vat_rate_basis_points' => $line['vat_rate_basis_points'],
+            'product_snapshot' => $line['product_snapshot'],
+            'pricing_revision' => $line['pricing_snapshot']['pricing_revision'] ?? null,
+        ], $lines);
+
+        return hash('sha256', $this->canonicalJson($material));
+    }
+
+    private function reserveOrderSequence(string $organizationId): int
+    {
+        $row = DB::table('organization_commerce_order_sequences')
+            ->where('organization_id', $organizationId)
+            ->lockForUpdate()
+            ->first();
+
+        if ($row === null) {
+            if (DB::table('orders')->where('organization_id', $organizationId)->exists()) {
+                throw ResourceDomainException::conflict('Commerce order sequence allocator is missing for an organization with existing orders.');
+            }
+
+            DB::table('organization_commerce_order_sequences')->insertOrIgnore([
+                'organization_id' => $organizationId,
+                'next_order_sequence' => 1,
+            ]);
+            $row = DB::table('organization_commerce_order_sequences')
+                ->where('organization_id', $organizationId)
+                ->lockForUpdate()
+                ->first();
+        }
+
+        if ($row === null) {
+            throw ResourceDomainException::conflict('Commerce order sequence allocator could not be established.');
+        }
+
+        $sequence = (int) $row->next_order_sequence;
+        if ($sequence < 1 || $sequence >= PHP_INT_MAX) {
+            throw ResourceDomainException::conflict('Commerce order sequence allocator is outside the supported range.');
+        }
+
+        $updated = DB::table('organization_commerce_order_sequences')
+            ->where('organization_id', $organizationId)
+            ->where('next_order_sequence', $sequence)
+            ->update(['next_order_sequence' => $sequence + 1]);
+        if ($updated !== 1) {
+            throw ResourceDomainException::conflict('Commerce order sequence allocation lost its serialized update.');
+        }
+
+        return $sequence;
+    }
+
+    private function checkedMultiply(int $left, int $right): int
+    {
+        if ($left < 0 || $right < 0 || ($left !== 0 && $right > intdiv(PHP_INT_MAX, $left))) {
+            throw ResourceDomainException::rule('Order line total exceeds the supported money range.');
+        }
+
+        return $left * $right;
+    }
+
+    private function canonicalJson(mixed $value): string
+    {
+        return json_encode(
+            $this->canonicalizeSnapshot($value),
+            JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
+        );
+    }
+
+    private function canonicalizeSnapshot(mixed $value): mixed
+    {
+        if (! is_array($value)) {
+            return $value;
+        }
+
+        if (! array_is_list($value)) {
+            ksort($value, SORT_STRING);
+        }
+
+        foreach ($value as $key => $item) {
+            $value[$key] = $this->canonicalizeSnapshot($item);
+        }
+
+        return $value;
     }
 
     /** @return literal-string */

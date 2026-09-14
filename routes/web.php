@@ -90,6 +90,7 @@ Route::middleware(ResourceApiMiddleware::class)->prefix('api/v1')->group(functio
     Route::get('/students/{studentId}/learning-accounts/{accountId}/access-handoffs/{handoffId}/pdf', [LearningAccessController::class, 'downloadHandoffPdf']);
     Route::post('/learning-accesses/bulk-access-document', [LearningAccessController::class, 'bulkAccessDocument']);
 
+    Route::post('/license-orders', [CommerceDashboardController::class, 'licenseOrdersCreate']);
     Route::get('/license-products', [LearningAccessController::class, 'products']);
     Route::get('/license-products/{productId}/languages', [LearningAccessController::class, 'productLanguages']);
     Route::get('/license-inventory', [LearningAccessController::class, 'inventory']);
@@ -171,6 +172,7 @@ Route::middleware(ResourceApiMiddleware::class)->prefix('api/v1')->group(functio
     Route::get('/notifications', [ActivityNotificationController::class, 'notificationsList']);
     Route::post('/notifications/{notificationId}/read', [ActivityNotificationController::class, 'notificationsMarkRead']);
 
+    Route::post('/internal-exam/orders', [CommerceDashboardController::class, 'examOrdersCreate']);
     Route::get('/internal-exam/inventory', [InternalExamController::class, 'inventory']);
     Route::post('/internal-exam/inventory-adjustments', [InternalExamController::class, 'inventoryAdjust']);
     Route::get('/internal-exam/capabilities', [InternalExamController::class, 'capabilities']);

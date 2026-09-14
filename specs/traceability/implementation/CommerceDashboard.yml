@@ -108,3 +108,28 @@ changed_scope:
     acceptance_test: Tests\\Feature\\Stage5CommerceOrderSequenceCorrectiveTest
     status: IMPLEMENTED
 
+
+  - evidence: docs/202-core-v1-commerce-order-create-authority.md + docs/204-core-v1-closure-audit-013.md
+    requirement: license and internal-exam order creation derives all price VAT discount currency and product snapshots from trusted server authority, allocates a serialized per-organization order number, and never accepts client pricing
+    domain_data: commerce_catalog_items + license_products + organization_commerce_order_sequences + orders + order_items
+    api_use_case: license_orders.create + exam_orders.create
+    permission: licenses.purchase + exams.purchase with active organization scope
+    ui: NOT_APPLICABLE_RUNTIME_API_GATE
+    acceptance_test: Tests\\Feature\\CommerceOrderCreateCoreTest::test_license_order_uses_trusted_pricing_allocator_pending_payment_and_idempotent_replay
+    status: IMPLEMENTED
+  - evidence: docs/202-core-v1-commerce-order-create-authority.md#Payment-method-and-first-attempt
+    requirement: a nonzero create operation records only one provider-neutral local pending payment attempt while zero-total orders settle locally into a pending fulfillment without provider network IO or settlement fabrication
+    domain_data: payments + order_fulfillments + order_payment_settlements + orders
+    api_use_case: license_orders.create + exam_orders.create
+    permission: licenses.purchase + exams.purchase
+    ui: NOT_APPLICABLE_RUNTIME_API_GATE
+    acceptance_test: Tests\\Feature\\CommerceOrderCreateCoreTest
+    status: IMPLEMENTED
+  - evidence: specs/design/commerce-order-create.yml#idempotency
+    requirement: create operations normalize payment method before generic idempotency hashing, replay the same completed order for the same key and payload, and conflict on key reuse with a changed payload
+    domain_data: idempotency_records + orders
+    api_use_case: license_orders.create + exam_orders.create
+    permission: active organization membership plus operation permission
+    ui: NOT_APPLICABLE_RUNTIME_API_GATE
+    acceptance_test: Tests\\Feature\\CommerceOrderCreateCoreTest::test_license_order_uses_trusted_pricing_allocator_pending_payment_and_idempotent_replay
+    status: IMPLEMENTED
