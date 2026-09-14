@@ -49,7 +49,6 @@ final class Stage4ProjectionGuardsTest extends TestCase
                 }
             }
 
-
             $triggers = $this->signedProjectionTriggers();
             $this->assertCount(10, $triggers);
             $this->assertCount(5, array_filter($triggers, static fn (array $row): bool => $row['constraint']));
