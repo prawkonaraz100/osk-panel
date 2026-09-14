@@ -7269,8 +7269,10 @@ CORE_V1_COMMERCE_ORDER_CREATE_001_gate:
     secret_scan: PASS
   closure_effect:
     physical_HTTP_bindings_closed: 2
-    required_physical_bindings_present_before: 154
-    required_physical_bindings_present_after: 156
+    canonical_HTTP_operations_corrected: 173
+    historical_inline_inventory_undercount_corrected: license_management.expand_history
+    required_physical_bindings_present_before: 155
+    required_physical_bindings_present_after: 157
     missing_physical_bindings_before: 18
     missing_physical_bindings_after: 16
     repo_actionable_HTTP_missing_before: 3

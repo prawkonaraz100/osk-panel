@@ -194,6 +194,21 @@ Exact implementation tree:
 
 The executable suite proves trusted server pricing, exact catalog resolution, allocator sequence progression, immutable snapshots, same-key replay, changed-payload conflict, nonzero pending-payment behavior, zero-total local settlement/fulfillment, fail-closed missing pricing, permission enforcement and tenant isolation.
 
+## Inventory methodology correction
+
+A fresh comparison against the full YAML required-operation authority found one historical audit undercount.
+
+Earlier closure audits reported **172** canonical HTTP operations because their quick inventory counted inline requirement rows and omitted the unique multi-line HTTP row:
+
+- `license_management.expand_history`
+- `GET /students/{studentId}/learning-accounts/{accountId}/license-assignments`
+
+That operation has an existing physical route and was never a runtime gap.
+
+The structural API gate correctly reports **173 canonical HTTP operations**.
+
+Therefore the corrected physical baseline before this gate is **155**, not 154. The missing-operation count is unchanged because the omitted operation was already bound.
+
 ## Closure effect
 
 Exactly two canonical HTTP bindings are closed:
@@ -203,7 +218,7 @@ Exactly two canonical HTTP bindings are closed:
 
 Physical HTTP bindings move:
 
-**154 -> 156**
+**155 -> 157**
 
 Missing physical bindings move:
 
