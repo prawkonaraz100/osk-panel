@@ -87,7 +87,7 @@ final class OrganizationSettingsController
             $this->idempotencyKey($request),
             ['expected_version' => $expectedVersion, 'changes' => $changes],
             function () use ($sessionId, $expectedVersion, $changes, $request, $organizationId): array {
-                $body = $this->settings->update(
+                $this->settings->update(
                     $sessionId,
                     $expectedVersion,
                     $changes,
@@ -98,7 +98,7 @@ final class OrganizationSettingsController
                     'status' => 200,
                     'resource_type' => 'organization_settings',
                     'resource_id' => $organizationId,
-                    'body' => $body,
+                    'body' => $this->settings->settingsForManagement($sessionId),
                 ];
             },
         );

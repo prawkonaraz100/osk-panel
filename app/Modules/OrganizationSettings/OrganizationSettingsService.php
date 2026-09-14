@@ -7,6 +7,7 @@ use App\Modules\IdentityTenant\TenantAuthorizer;
 use App\Modules\ResourcesCore\ResourceDomainException;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
+use LogicException;
 
 final class OrganizationSettingsService
 {
@@ -51,6 +52,33 @@ final class OrganizationSettingsService
             $sessionId,
             $membership['organization_id'],
             'organization.view',
+        );
+
+        return $this->settingsProjection(
+            $membership['organization_id'],
+            $membership['user_id'],
+        );
+    }
+
+    /**
+     * Provider-neutral settings projection for a caller that already owns the
+     * organization.settings.manage capability. This deliberately does not
+     * require organization.view and never reads PKK integration state.
+     *
+     * @return array{
+     *   version:int,
+     *   basic_data:array{first_name:string,last_name:string,email:string},
+     *   company_data:array{company_name:string,street:?string,house_number:?string,unit_number:?string,city:?string,postal_code:?string,phone:?string},
+     *   accepted_terms:list<array{version:string,accepted_at:string,accepted_by_user_id:string,document_url:null}>
+     * }
+     */
+    public function settingsForManagement(string $sessionId): array
+    {
+        $membership = $this->authorizer->activeMembershipForSession($sessionId);
+        $this->authorizer->requireOrganizationPermission(
+            $sessionId,
+            $membership['organization_id'],
+            'organization.settings.manage',
         );
 
         return $this->settingsProjection(
@@ -162,12 +190,7 @@ final class OrganizationSettingsService
 
     /**
      * @param  array<string, mixed>  $changes
-     * @return array{
-     *   version:int,
-     *   basic_data:array{first_name:string,last_name:string,email:string},
-     *   company_data:array{company_name:string,street:?string,house_number:?string,unit_number:?string,city:?string,postal_code:?string,phone:?string},
-     *   accepted_terms:list<array{version:string,accepted_at:string,accepted_by_user_id:string,document_url:null}>
-     * }
+     * @return array{version:int}
      */
     public function update(string $sessionId, int $expectedVersion, array $changes, string $requestId): array
     {
@@ -208,7 +231,9 @@ final class OrganizationSettingsService
             if ($settings === null) {
                 throw ResourceDomainException::conflict('Organization settings aggregate missing.');
             }
-            $this->assertVersion((int) $settings->version, $expectedVersion);
+            if ((int) $settings->version !== $expectedVersion) {
+                throw new LogicException('Stale organization settings version.');
+            }
 
             $changedFields = [];
 
@@ -247,7 +272,7 @@ final class OrganizationSettingsService
             }
 
             if ($changedFields === []) {
-                return $this->settingsProjection($organizationId, $actor['user_id']);
+                return ['version' => (int) $settings->version];
             }
 
             $newVersion = (int) $settings->version + 1;
@@ -269,7 +294,7 @@ final class OrganizationSettingsService
                 ['fields' => $changedFields, 'version' => $newVersion],
             );
 
-            return $this->settingsProjection($organizationId, $actor['user_id']);
+            return ['version' => $newVersion];
         });
     }
 
