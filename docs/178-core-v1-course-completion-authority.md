@@ -2,7 +2,27 @@
 
 Data: 2026-09-14
 
-**Status:** `CANDIDATE_AWAITING_CI`
+**Status:** `PASS`
+
+## Executable validation
+
+Exact authority candidate head:
+
+`f150da5a13a272ac1c57ee6350adeaea086d7279`
+
+Evidence:
+
+- Implementation CI #509 / run `34829035686`: **5/5 PASS**
+- API Contract Gate #391 / run `34829035628`: **PASS**
+- PostgreSQL: **289 tests / 5320 assertions — PASS**
+- deterministic restore: **121 -> 121 PASS**
+- restore schema fingerprint: `09c57afe2501c79a3a684c0a695b4619114f94ddc24c9bca33728d99c1abb155`
+- backend Pint + PHPStan: **PASS**
+- frontend quality: **PASS**
+- contracts/traceability: **PASS**
+- secret scan: **PASS**
+
+The validation changed no runtime semantics because this gate contains authority artifacts only.
 
 ## Purpose
 

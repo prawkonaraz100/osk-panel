@@ -5592,7 +5592,7 @@ CORE_V1_CLOSURE_AUDIT_002_gate:
 
 CORE_V1_COURSE_COMPLETION_AUTHORITY_001_gate:
   id: CORE-V1-COURSE-COMPLETION-AUTHORITY-001
-  status: CANDIDATE_AWAITING_CI
+  status: PASS
   authority_doc: docs/178-core-v1-course-completion-authority.md
   machine_authority: specs/design/course-completion.yml
   prerequisite: CORE-V1-CLOSURE-AUDIT-002_AUDIT_COMPLETE_REPO_P1_REMAINS
@@ -5627,6 +5627,24 @@ CORE_V1_COURSE_COMPLETION_AUTHORITY_001_gate:
     completed_lifecycle_event_once: true
     proposed_audit_action: course.completed
     audit_domain_outbox_same_transaction: true
+  provenance:
+    exact_authority_candidate_head: f150da5a13a272ac1c57ee6350adeaea086d7279
+    authority_candidate_Implementation_CI_run: 34829035686
+    authority_candidate_API_Contract_Gate_run: 34829035628
+  executable_evidence:
+    Implementation_CI_jobs_passed: 5
+    Implementation_CI_jobs_total: 5
+    API_Contract_Gate: PASS
+    PostgreSQL_suite_tests: 289
+    PostgreSQL_suite_assertions: 5320
+    deterministic_restore_harness: PASS
+    restore_source_table_count: 121
+    restore_restored_table_count: 121
+    restore_schema_fingerprint: 09c57afe2501c79a3a684c0a695b4619114f94ddc24c9bca33728d99c1abb155
+    backend_Pint_and_PHPStan: PASS
+    frontend_quality: PASS
+    contracts_and_traceability: PASS
+    secret_scan: PASS
   next_after_PASS:
     id: CORE-V1-COURSE-COMPLETION-001
     action: implement_backend_completion_eligibility_then_remove_UI_guard

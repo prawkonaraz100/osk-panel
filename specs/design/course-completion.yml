@@ -2,7 +2,7 @@ meta:
   id: CORE-V1-COURSE-COMPLETION-AUTHORITY-001
   scope: course_completion_authority
   project: osk-panel
-  status: CANDIDATE_AWAITING_CI
+  status: PASS
   decided_at: 2026-09-14
   prerequisite: CORE-V1-CLOSURE-AUDIT-002
   schema_change: false
@@ -182,3 +182,20 @@ preservation:
   pricing_VAT_authority_invented: false
   bulk_credential_reset_contract_changed: false
   PKK_provider_runtime_still_frozen: true
+
+validation:
+  exact_authority_candidate_head: f150da5a13a272ac1c57ee6350adeaea086d7279
+  Implementation_CI_run: 34829035686
+  API_Contract_Gate_run: 34829035628
+  Implementation_CI_jobs_passed: 5
+  Implementation_CI_jobs_total: 5
+  PostgreSQL_suite_tests: 289
+  PostgreSQL_suite_assertions: 5320
+  deterministic_restore_harness: PASS
+  restore_source_table_count: 121
+  restore_restored_table_count: 121
+  restore_schema_fingerprint: 09c57afe2501c79a3a684c0a695b4619114f94ddc24c9bca33728d99c1abb155
+  backend_Pint_and_PHPStan: PASS
+  frontend_quality: PASS
+  contracts_and_traceability: PASS
+  secret_scan: PASS
