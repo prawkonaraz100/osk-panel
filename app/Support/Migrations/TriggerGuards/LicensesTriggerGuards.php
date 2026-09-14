@@ -645,14 +645,16 @@ BEGIN
       JOIN license_product_language_capabilities capability
         ON capability.id = assignment.license_product_language_capability_id
      WHERE (
+           (
                v_assignment_id IS NOT NULL AND assignment.id = v_assignment_id
            )
-        OR (
+           OR (
                v_inventory_id IS NOT NULL AND assignment.license_inventory_entry_id = v_inventory_id
            )
-        OR (
+           OR (
                v_capability_id IS NOT NULL AND assignment.license_product_language_capability_id = v_capability_id
            )
+       )
        AND (
            capability.license_product_id IS DISTINCT FROM inventory.license_product_id
            OR assignment.assigned_at < capability.enabled_at

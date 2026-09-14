@@ -256,7 +256,7 @@ final class Stage4LicensesTriggerGuardsTest extends TestCase
                     'activated_by_user_id' => $actor['user_id'],
                     'activated_at' => $effectiveAt,
                     'effective_from' => $activation['effective_to'],
-                    'effective_to' => now()->parse($activation['effective_to'])->addSeconds(15 * 86400),
+                    'effective_to' => Carbon::parse($activation['effective_to'])->addSeconds(15 * 86400),
                     'created_at' => $effectiveAt,
                 ]);
                 DB::table('license_assignments')->where('id', $secondAssignment['id'])->update([
