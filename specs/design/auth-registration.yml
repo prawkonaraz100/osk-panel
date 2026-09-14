@@ -1,0 +1,135 @@
+meta:
+  id: CORE-V1-AUTH-REGISTER-AUTHORITY-001
+  status: PASS
+  decided_at: 2026-09-14
+  decision_class: OWN_PRODUCT_DECISION
+  narrative: docs/181-core-v1-auth-register-authority.md
+  prerequisite: CORE-V1-CLOSURE-AUDIT-003
+  next_gate: CORE-V1-AUTH-REGISTER-001
+
+operation:
+  requirement_id: auth.register
+  method: POST
+  path: /api/v1/auth/register
+  schema_change: false
+  migration_change: false
+  PKK_runtime_activation: forbidden
+  implicit_authenticated_session: false
+
+contract_normalization:
+  legacy_address:
+    field: address
+    type: free_text
+    status: SUPERSEDED
+    silent_drop: forbidden
+    free_text_parsing: forbidden
+  company_address:
+    type: object
+    optional: true
+    additional_properties: false
+    fields:
+      street: {required: true}
+      house_number: {required: true}
+      unit_number: {required: false, nullable: true}
+      postal_code: {required: true}
+      city: {required: true}
+      country_code: {required: false, default: PL}
+  marketing_consent_version:
+    type: string
+    required_when_marketing_consent_true: true
+    forbidden_or_null_when_marketing_consent_false: true
+
+identity:
+  user_status: active
+  local_password_hash: Laravel_Hash_make
+  plaintext_persistence: forbidden
+  login_identifier:
+    type: email
+    normalize: trim_then_lowercase
+    primary_for_type: true
+    verified_at: null
+    current_global_uniqueness_required: true
+  password_management:
+    management_mode: self_service
+    managing_organization_id: null
+    credential_version: 1
+    password_changed_at: command_time
+
+legal_documents:
+  terms:
+    request_version_field: accepted_terms_version
+    document_type: terms
+    exact_version_required: true
+    must_be_published: true
+    must_be_effective: true
+    acceptance_table: terms_acceptances
+    append_only: true
+  marketing:
+    consent_field: marketing_consent
+    version_field: marketing_consent_version
+    document_type: marketing_consent
+    true_requires_exact_version: true
+    false_writes_acceptance: false
+    must_be_published: true
+    must_be_effective: true
+    acceptance_table: terms_acceptances
+    future_withdrawal_or_send_eligibility_defined_here: false
+
+organization_bootstrap:
+  organization_status: active
+  organization_settings_version: 1
+  field_mapping:
+    organization_name: organizations.name
+    nip: organizations.nip
+    phone: organizations.phone
+    company_address: organization_contact_addresses
+  pkk_settings_created_or_activated: false
+
+owner_bootstrap:
+  trusted_creation_exception: true
+  template: Owner
+  catalog_source: specs/security/permissions.yml
+  catalog_version: core-v1-2026-09-05
+  membership:
+    status: active
+    is_owner: true
+    version: 1
+    authorization_version: 1
+  materialize_decision_for_every_known_permission: true
+  materialize_scopes_for_every_granted_permission: true
+  denied_permission_has_no_scope_rows: true
+  runtime_role_template_authorization: false
+  protected_owner_baseline_required_before_commit:
+    - organization.view
+    - organization.members.manage
+    - staff.permissions.manage
+    - sessions.manage.organization
+
+transaction:
+  atomic: true
+  duplicate_email_rolls_back_all: true
+  legal_document_resolution_failure_rolls_back_all: true
+  owner_materialization_failure_rolls_back_all: true
+  no_orphan_user_or_organization: true
+
+audit:
+  action: auth.registration.completed
+  same_transaction: true
+  password_or_hash_in_payload: forbidden
+  raw_ip_in_payload: forbidden
+  raw_user_agent_in_payload: forbidden
+  PKK_data_in_payload: forbidden
+
+required_tests:
+  - duplicate_normalized_email_no_partial_state
+  - unknown_or_future_terms_no_partial_state
+  - marketing_true_requires_version
+  - unknown_or_future_marketing_version_rejected
+  - marketing_false_writes_no_marketing_acceptance
+  - legacy_free_text_address_rejected
+  - incomplete_structured_address_rejected
+  - password_plaintext_not_persisted_or_audited
+  - self_service_password_management_version_one
+  - owner_template_fully_materialized_with_protected_baseline
+  - registration_does_not_create_auth_session
+  - PKK_runtime_untouched

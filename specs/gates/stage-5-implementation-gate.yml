@@ -5808,3 +5808,47 @@ CORE_V1_CLOSURE_AUDIT_003_gate:
       - online_learning_student_progress_authority
       - current_server_price_VAT_authority
       - bulk_credential_reset_expected_version_contract
+
+
+CORE_V1_AUTH_REGISTER_AUTHORITY_001_gate:
+  id: CORE-V1-AUTH-REGISTER-AUTHORITY-001
+  status: PASS
+  decision_class: OWN_PRODUCT_DECISION
+  authority:
+    narrative: docs/181-core-v1-auth-register-authority.md
+    machine: specs/design/auth-registration.yml
+    prerequisite: CORE-V1-CLOSURE-AUDIT-003_AUDIT_COMPLETE_REPO_P1_REMAINS
+  exact_scope:
+    operation: auth.register
+    method: POST
+    path: /api/v1/auth/register
+    runtime_change_in_authority_gate: false
+    schema_or_migration_change: false
+    PKK_provider_runtime_activation: forbidden
+  authority_decisions:
+    registration_uses_existing_stage4_tables_only: true
+    identity_password_management_mode: self_service
+    initial_password_credential_version: 1
+    implicit_session_after_registration: false
+    Owner_template_catalog_version: core-v1-2026-09-05
+    full_Owner_permission_decision_materialization_required: true
+    exact_terms_document_acceptance_required: true
+    marketing_consent_persisted_as_exact_legal_document_acceptance_when_true: true
+    marketing_false_means_no_marketing_acceptance: true
+    marketing_withdrawal_or_send_eligibility_defined_here: false
+    legacy_free_text_address: SUPERSEDED
+    structured_company_address_required_when_address_supplied: true
+  contract_sync_required_in_implementation_gate:
+    replace_address_string_with_company_address_object: true
+    add_marketing_consent_version_conditional_field: true
+  audit:
+    action: auth.registration.completed
+    secret_payload: forbidden
+  closure_effect:
+    repo_actionable_HTTP_bindings_before_authority_gate: 12
+    physical_HTTP_bindings_closed_by_authority_gate: 0
+    implementation_ready_binding: auth.register
+  next_after_PASS:
+    id: CORE-V1-AUTH-REGISTER-001
+    action: normalize_registration_contract_and_materialize_runtime
+    rule: exact_authority_only_no_schema_change_no_PKK_runtime
