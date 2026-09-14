@@ -151,7 +151,6 @@ final class CommerceDashboardService
         });
     }
 
-
     /**
      * @param  list<array{product_id:string,quantity:int}>  $items
      * @return array<string,mixed>
@@ -461,7 +460,6 @@ final class CommerceDashboardService
             'last_page' => max(1, (int) ceil($total / $perPage)),
         ];
     }
-
 
     /**
      * @param  array{id:string,organization_id:string,user_id:string,status:string,is_owner:bool,version:int,authorization_version:int}  $actor

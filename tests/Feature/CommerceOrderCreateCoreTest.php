@@ -186,8 +186,9 @@ final class CommerceOrderCreateCoreTest extends TestCase
         $this->assertSame(0, DB::table('orders')->where('organization_id', $denied['organization_id'])->count());
     }
 
-    /** @param list<string> $permissions
-     *  @return array{organization_id:string,user_id:string,membership_id:string,session_id:string}
+    /**
+     * @param  list<string>  $permissions
+     * @return array{organization_id:string,user_id:string,membership_id:string,session_id:string}
      */
     private function actor(array $permissions): array
     {

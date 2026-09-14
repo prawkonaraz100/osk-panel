@@ -36,7 +36,6 @@ final class CommerceDashboardController
         return response()->json($this->commerce->getOrder($this->sessionId($request), $orderId));
     }
 
-
     public function licenseOrdersCreate(Request $request): JsonResponse
     {
         $input = $this->validated($request, [
@@ -257,7 +256,6 @@ final class CommerceDashboardController
 
         return $sessionId;
     }
-
 
     private function normalizedPaymentMethod(string $method): string
     {
