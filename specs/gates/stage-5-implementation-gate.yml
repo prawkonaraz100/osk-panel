@@ -7156,3 +7156,60 @@ CORE_V1_STAGE5_COMMERCE_ORDER_SEQUENCE_001_gate:
     action: reclassify_order_create_HTTP_after_allocator_corrective_PASS
     rule: no_order_create_runtime_before_fresh_audit_no_provider_network_no_PKK_runtime
 
+
+CORE_V1_CLOSURE_AUDIT_013_gate:
+  id: CORE-V1-CLOSURE-AUDIT-013
+  status: AUDIT_COMPLETE_COMMERCE_ORDER_CREATE_IMPLEMENTATION_READY
+  authority: docs/204-core-v1-closure-audit-013.md
+  audited_accepted_tip: 05da682be06b0486f91c912e61242aa7774575e3
+  audited_tree: ac77a2d6bb81af12dbd7fc41d75233a50186e36c
+  prerequisites:
+    commerce_order_create_authority: CORE-V1-COMMERCE-ORDER-CREATE-AUTHORITY-001_PASS
+    commerce_order_sequence_corrective: CORE-V1-STAGE5-COMMERCE-ORDER-SEQUENCE-001_PASS
+  closure_evidence:
+    Implementation_CI_run: 34901486653
+    API_Contract_Gate_run: 34901486698
+    PostgreSQL_suite_tests: 335
+    PostgreSQL_suite_assertions: 5874
+    deterministic_restore_harness: PASS
+    restore_source_table_count: 122
+    restore_restored_table_count: 122
+    restore_schema_fingerprint: f3cab286cc8f0aabef219971d90afe424a8dab694c47ade2f517a3d95970716d
+  HTTP_inventory:
+    canonical_required_inline_HTTP_operations: 172
+    required_physical_bindings_present: 154
+    missing_physical_bindings_total: 18
+    frozen_PKK_missing_bindings: 14
+    provider_specific_payment_webhook_missing_bindings: 1
+    repo_actionable_HTTP_bindings_missing: 3
+  implementation_ready:
+    count: 2
+    operations:
+      - license_orders.create
+      - exam_orders.create
+  schema_corrective_blocked:
+    count: 0
+    operations: []
+  authority_blocked_remaining:
+    count: 1
+    operations:
+      - students.progress
+  non_HTTP_repo_P1:
+    additional_open_count: 0
+    DB_COM_005_allocator: CLOSED
+  result:
+    repository_complete: false
+    repo_P0_open: 0
+    implementation_ready_missing_bindings: 2
+    authority_blocked_missing_bindings: 1
+    PKK_provider_runtime_status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+  safe_continuation:
+    next_gate: CORE-V1-COMMERCE-ORDER-CREATE-001
+    exact_HTTP_operations:
+      - license_orders.create
+      - exam_orders.create
+    provider_network_call: forbidden
+    payment_webhook_implementation: forbidden
+    frozen_Stage4_edit: forbidden
+    PKK_runtime_activation: forbidden
+    fresh_audit_after_PASS: required
