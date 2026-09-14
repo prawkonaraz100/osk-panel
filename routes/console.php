@@ -480,7 +480,6 @@ Artisan::command(
     }
 )->purpose('Run one registered Stage-5 formal-documents migration phase under isolated identities and the shared migration lock.');
 
-
 Artisan::command('migration:stage5:social-identity:plan:validate {--json}', function (Stage5SocialIdentityMigrationPlan $plan): int {
     $plan->validate();
     if ($this->option('json')) {
