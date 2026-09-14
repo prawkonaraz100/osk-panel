@@ -349,13 +349,19 @@ components:
         location_id: { type: [string, 'null'], format: uuid }
     StudentLearningAccount:
       type: object
-      required: [id, student_id, login_identifier, language_code, status]
+      required: [id, student_id, login_identifier, language_code, status, version, credential_version]
       properties:
         id: { type: string, format: uuid }
         student_id: { type: string, format: uuid }
         login_identifier: { type: string }
         language_code: { type: string }
         status: { type: string, readOnly: true }
+        version: { type: integer, minimum: 1, readOnly: true }
+        credential_version:
+          type: integer
+          minimum: 0
+          readOnly: true
+          description: Global local-password credential epoch used as optimistic-concurrency authority for authorized OSK password reset.
     CreateLearningAccountRequest:
       type: object
       required: [login_identifier, language_code]
