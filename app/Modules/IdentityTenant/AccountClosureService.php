@@ -56,7 +56,12 @@ final class AccountClosureService
                 ->first();
 
             if ($existingIdempotency !== null) {
-                return $this->replayExistingIdempotency($existingIdempotency, $requestHash);
+                return $this->replayExistingIdempotency(
+                    (string) $existingIdempotency->request_hash,
+                    (string) $existingIdempotency->status,
+                    $existingIdempotency->safe_response_snapshot,
+                    $requestHash,
+                );
             }
 
             $idempotencyRecordId = (string) Str::uuid7();
@@ -79,7 +84,11 @@ final class AccountClosureService
                 ->first();
 
             if ($pending !== null) {
-                $result = $this->present($pending);
+                $result = $this->present(
+                    $pending->id,
+                    $pending->status,
+                    $pending->requested_at,
+                );
                 $this->completeIdempotency($idempotencyRecordId, $result);
 
                 return $result;
@@ -123,12 +132,15 @@ final class AccountClosureService
     }
 
     /**
-     * @param  object{request_hash:mixed,status:mixed,safe_response_snapshot:mixed}  $record
      * @return array{id:string,status:string,requested_at:string}
      */
-    private function replayExistingIdempotency(object $record, string $requestHash): array
-    {
-        if (! hash_equals((string) $record->request_hash, $requestHash)) {
+    private function replayExistingIdempotency(
+        string $storedRequestHash,
+        string $storedStatus,
+        mixed $storedResponseSnapshot,
+        string $requestHash,
+    ): array {
+        if (! hash_equals($storedRequestHash, $requestHash)) {
             throw new ResourceDomainException(
                 'IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_PAYLOAD',
                 409,
@@ -136,11 +148,11 @@ final class AccountClosureService
             );
         }
 
-        if ((string) $record->status !== 'completed' || $record->safe_response_snapshot === null) {
+        if ($storedStatus !== 'completed' || $storedResponseSnapshot === null) {
             throw ResourceDomainException::conflict('Idempotent operation is not in a replayable completed state.');
         }
 
-        $decoded = json_decode((string) $record->safe_response_snapshot, true, 512, JSON_THROW_ON_ERROR);
+        $decoded = json_decode((string) $storedResponseSnapshot, true, 512, JSON_THROW_ON_ERROR);
         if (! is_array($decoded)
             || ! is_string($decoded['id'] ?? null)
             || ! is_string($decoded['status'] ?? null)
@@ -171,15 +183,14 @@ final class AccountClosureService
     }
 
     /**
-     * @param  object{id:mixed,status:mixed,requested_at:mixed}  $row
      * @return array{id:string,status:string,requested_at:string}
      */
-    private function present(object $row): array
+    private function present(mixed $id, mixed $status, mixed $requestedAt): array
     {
         return [
-            'id' => (string) $row->id,
-            'status' => (string) $row->status,
-            'requested_at' => (string) $row->requested_at,
+            'id' => (string) $id,
+            'status' => (string) $status,
+            'requested_at' => (string) $requestedAt,
         ];
     }
 
