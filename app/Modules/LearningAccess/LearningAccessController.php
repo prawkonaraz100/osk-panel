@@ -8,6 +8,7 @@ use App\Modules\ResourcesCore\ResourceIdempotency;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -116,6 +117,30 @@ final class LearningAccessController
                 $sessionId, $studentId, $accountId, $this->requestId($request),
             ),
         );
+    }
+
+    public function downloadHandoffPdf(
+        Request $request,
+        string $studentId,
+        string $accountId,
+        string $handoffId,
+    ): Response {
+        $document = $this->accounts->downloadHandoffPdf(
+            $this->sessionId($request),
+            $studentId,
+            $accountId,
+            $handoffId,
+            $this->requestId($request),
+        );
+
+        return response($document['bytes'], 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="'.$document['filename'].'"',
+            'Content-Length' => (string) strlen($document['bytes']),
+            'Cache-Control' => 'no-store, private',
+            'X-Content-Type-Options' => 'nosniff',
+            'ETag' => '"sha256-'.$document['content_hash'].'"',
+        ]);
     }
 
     public function products(Request $request): JsonResponse

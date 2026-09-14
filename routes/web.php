@@ -77,6 +77,7 @@ Route::middleware(ResourceApiMiddleware::class)->prefix('api/v1')->group(functio
     Route::patch('/students/{studentId}/learning-accounts/{accountId}', [LearningAccessController::class, 'accountsUpdate']);
     Route::post('/students/{studentId}/learning-accounts/{accountId}/password-reset', [LearningAccessController::class, 'resetPassword']);
     Route::post('/students/{studentId}/learning-accounts/{accountId}/access-handoffs', [LearningAccessController::class, 'createHandoff']);
+    Route::get('/students/{studentId}/learning-accounts/{accountId}/access-handoffs/{handoffId}/pdf', [LearningAccessController::class, 'downloadHandoffPdf']);
 
     Route::get('/license-products', [LearningAccessController::class, 'products']);
     Route::get('/license-products/{productId}/languages', [LearningAccessController::class, 'productLanguages']);

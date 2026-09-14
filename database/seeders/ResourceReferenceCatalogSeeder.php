@@ -54,6 +54,7 @@ final class ResourceReferenceCatalogSeeder extends Seeder
         'commerce.payment.started',
         'commerce.service_entitlement.activated',
         'learning_account_created', 'learning_account_updated', 'learning_account_password_reset', 'learning_account_handoff_created',
+        'learning_account_credentials_pdf_downloaded',
         'license_assignment_created', 'license_assignment_activated', 'license_assignment_revoked',
         'internal_exam.attempt.created', 'internal_exam.access.created', 'internal_exam.access.sent', 'internal_exam.access.delivery_failed', 'internal_exam.access.revoked',
         'internal_exam.started', 'internal_exam.submitted', 'internal_exam.technical_aborted',

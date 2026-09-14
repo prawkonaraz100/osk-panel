@@ -22,6 +22,7 @@ final class LearningAccountService
     public function __construct(
         private readonly StudentCourseScopeAuthorizer $scopeAuthorizer,
         private readonly AtomicAuditOutbox $auditOutbox,
+        private readonly LearningAccessCredentialsPdfRenderer $credentialsPdfRenderer,
     ) {}
 
     /** @return list<array<string,mixed>> */
@@ -421,6 +422,83 @@ final class LearningAccountService
                 'account_id' => $accountId,
                 'created_at' => $now->toISOString(),
                 'one_time_plaintext_password' => null,
+            ];
+        });
+    }
+
+    /** @return array{bytes:string,filename:string,content_hash:string,handoff_id:string} */
+    public function downloadHandoffPdf(
+        string $sessionId,
+        string $studentId,
+        string $accountId,
+        string $handoffId,
+        string $requestId,
+    ): array {
+        $actor = $this->scopeAuthorizer->requireStudentTarget(
+            $sessionId,
+            'student_access.download_credentials_pdf',
+            $studentId,
+        );
+
+        return DB::transaction(function () use ($actor, $studentId, $accountId, $handoffId, $requestId): array {
+            $student = $this->lockStudent($actor['organization_id'], $studentId, true);
+            $account = $this->lockAccount($actor['organization_id'], $studentId, $accountId);
+            $this->assertOperationalAccount($account);
+
+            $handoff = DB::table('student_access_handoffs')
+                ->where('organization_id', $actor['organization_id'])
+                ->where('student_learning_account_id', $accountId)
+                ->where('id', $handoffId)
+                ->lockForUpdate()
+                ->first();
+            if ($handoff === null) {
+                throw ResourceDomainException::notFound();
+            }
+
+            /** @var PasswordManagementRow|null $management */
+            $management = DB::table('user_password_management')
+                ->where('user_id', $account->user_id)
+                ->lockForUpdate()
+                ->first();
+            if ($management === null) {
+                throw ResourceDomainException::conflict('Global password management authority is incomplete.');
+            }
+            if ((int) $management->credential_version < (int) $handoff->credential_version_snapshot) {
+                throw ResourceDomainException::conflict('Handoff credential snapshot is ahead of current credential authority.');
+            }
+
+            $loginIdentifier = $this->loginIdentifierForAccount($actor['organization_id'], $accountId);
+            $passwordHash = DB::table('users')->where('id', $account->user_id)->value('password_hash');
+            $loginUrl = config('app.url');
+            if (! is_string($loginUrl) || trim($loginUrl) === '') {
+                throw ResourceDomainException::conflict('Application login URL is not configured.');
+            }
+
+            $bytes = $this->credentialsPdfRenderer->render([
+                'student_name' => trim((string) $student->first_name.' '.(string) $student->last_name),
+                'login_identifier' => $loginIdentifier,
+                'language_code' => (string) $account->language_code,
+                'password_is_set' => is_string($passwordHash) && $passwordHash !== '',
+                'login_url' => rtrim($loginUrl, '/'),
+            ]);
+
+            $this->auditOutbox->recordOrganizationEvent(
+                $actor['organization_id'],
+                $actor['id'],
+                $actor['user_id'],
+                'learning_account_credentials_pdf_downloaded',
+                'student_access_handoff',
+                $handoffId,
+                $requestId,
+                ['fields' => ['account_id', 'handoff_id'], 'state' => 'ready'],
+                ['fields' => ['account_id', 'handoff_id'], 'state' => 'served'],
+            );
+
+            return [
+                'bytes' => $bytes,
+                'filename' => 'dostep-'.$handoffId.'.pdf',
+                'content_hash' => hash('sha256', $bytes),
+                'handoff_id' => $handoffId,
             ];
         });
     }

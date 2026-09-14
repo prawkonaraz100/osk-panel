@@ -59,3 +59,11 @@ changed_scope:
     ui: resources/js/modules/LearningAccess/StudentLearningAccessPanel.vue + resources/js/modules/LearningAccess/LearningAccessWorkspace.vue
     acceptance_test: Tests\\Feature\\LearningAccessCoreTest::test_initial_password_requires_explicit_manage_credentials_permission
     status: IMPLEMENTED
+  - evidence: specs/database/licenses-learning-access.yml#DB-LIC-004
+    requirement: later handoff PDF download is a tenant-scoped audited secret-free reprint and can never recover historical plaintext credentials
+    domain_data: students + student_learning_accounts + auth_login_identifiers + user_password_management + student_access_handoffs
+    api_use_case: learning_accounts.download_handoff_pdf / license_credentials.single_pdf
+    permission: student_access.download_credentials_pdf with student scope
+    ui: NOT_APPLICABLE_RUNTIME_API_GATE
+    acceptance_test: Tests\\Feature\\LearningAccessCredentialPdfRuntimeTest
+    status: IMPLEMENTED
