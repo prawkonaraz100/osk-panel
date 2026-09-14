@@ -7,6 +7,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -14,6 +15,7 @@ final class AuthSessionController
 {
     public function __construct(
         private readonly AuthSessionService $sessions,
+        private readonly AccountClosureService $closures,
     ) {}
 
     public function login(Request $request): JsonResponse
@@ -80,6 +82,23 @@ final class AuthSessionController
         return response()->json($this->sessions->listOwn($this->sessionId($request)));
     }
 
+    public function requestAccountClosure(Request $request): JsonResponse
+    {
+        $input = $this->validated($request, [
+            'reason' => ['sometimes', 'nullable', 'string', 'max:1000'],
+        ]);
+
+        return response()->json(
+            $this->closures->request(
+                $this->sessionId($request),
+                $input['reason'] ?? null,
+                $this->idempotencyKey($request),
+                (string) $request->attributes->get('request_id'),
+            ),
+            202,
+        );
+    }
+
     public function revoke(Request $request, string $sessionId): Response
     {
         $currentSessionId = $this->sessionId($request);
@@ -108,6 +127,18 @@ final class AuthSessionController
         }
 
         return Validator::make($input, $rules)->validate();
+    }
+
+    private function idempotencyKey(Request $request): string
+    {
+        $key = trim((string) $request->header('Idempotency-Key'));
+        if ($key === '' || ! Str::isUuid($key)) {
+            throw ValidationException::withMessages([
+                'Idempotency-Key' => ['A UUID Idempotency-Key header is required.'],
+            ]);
+        }
+
+        return $key;
     }
 
     private function sessionId(Request $request): string

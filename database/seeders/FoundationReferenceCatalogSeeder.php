@@ -22,6 +22,7 @@ final class FoundationReferenceCatalogSeeder extends Seeder
         'authorization.permission.changed' => 'foundation.authorization.v1',
         'authorization.owner.transferred' => 'foundation.authorization.v1',
         'organization.settings.updated' => 'foundation.settings.v1',
+        'auth.account_closure.requested' => 'resources.lifecycle.v1',
     ];
 
     public function run(): void

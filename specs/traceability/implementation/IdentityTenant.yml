@@ -50,4 +50,12 @@ changed_scope:
     ui: NOT_APPLICABLE_RUNTIME_API_GATE
     acceptance_test: Tests\\Feature\\AuthSessionLifecycleCoreTest::test_external_return_url_is_rejected_before_session_creation + Tests\\Feature\\AuthSessionLifecycleCoreTest::test_multiple_active_memberships_do_not_get_an_arbitrary_tenant_context
     status: IMPLEMENTED
+  - evidence: specs/api/paths/auth-organization.yaml + specs/database/core-schema.yml
+    requirement: authenticated global User may record one durable pending account-closure request without requiring an active organization membership; retry is idempotent and formal/financial retention remains untouched
+    domain_data: auth_sessions + users + account_closure_requests + idempotency_records + audit_logs + domain_events + outbox_messages
+    api_use_case: auth.account_closure_request
+    permission: authenticated_user
+    ui: NOT_APPLICABLE_RUNTIME_API_GATE
+    acceptance_test: Tests\\Feature\\AccountClosureRequestCoreTest
+    status: IMPLEMENTED
 

@@ -23,6 +23,7 @@ Route::middleware(ResourceApiMiddleware::class)->prefix('api/v1')->group(functio
     Route::post('/auth/logout', [AuthSessionController::class, 'logout']);
     Route::get('/auth/sessions', [AuthSessionController::class, 'list']);
     Route::delete('/auth/sessions/{sessionId}', [AuthSessionController::class, 'revoke']);
+    Route::post('/auth/account-closure-requests', [AuthSessionController::class, 'requestAccountClosure']);
 
     Route::get('/locations', [ResourceController::class, 'locationsList']);
     Route::post('/locations', [ResourceController::class, 'locationsCreate']);
