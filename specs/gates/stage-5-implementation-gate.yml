@@ -5998,3 +5998,58 @@ CORE_V1_BULK_CREDENTIAL_RESET_AUTHORITY_001_gate:
     action: recompute_repository_HTTP_runtime_UI_closure_on_exact_authority_tree
     expected_next_if_confirmed: CORE-V1-BULK-CREDENTIAL-RESET-001
     rule: recompute_not_assume_no_PKK_runtime
+
+
+CORE_V1_CLOSURE_AUDIT_004_gate:
+  id: CORE-V1-CLOSURE-AUDIT-004
+  status: AUDIT_COMPLETE_ONE_IMPLEMENTATION_READY_SLICE
+  authority: docs/184-core-v1-closure-reaudit-004.md
+  audited_accepted_tip: 2ff5b842dfdb3ada88befe28b1942434a09ae9bf
+  prerequisite: CORE-V1-BULK-CREDENTIAL-RESET-AUTHORITY-001_PASS
+  closure_evidence:
+    Implementation_CI_run: 34841002304
+    API_Contract_Gate_run: 34841002311
+    Implementation_CI_jobs_passed: 5
+    Implementation_CI_jobs_total: 5
+    PostgreSQL_suite_tests: 300
+    PostgreSQL_suite_assertions: 5447
+    restore_source_table_count: 121
+    restore_restored_table_count: 121
+    restore_schema_fingerprint: 09c57afe2501c79a3a684c0a695b4619114f94ddc24c9bca33728d99c1abb155
+  differential_inventory:
+    baseline_audit_tip: 1feeefa99b68bc751cb971714137a9911d16c177
+    required_operations_sha_unchanged: c36142e3af2615393347fadfec265af2eb610fb7
+    routes_web_before_sha: 235a96b26a70b120efb9026b011c7e8040f7bdad
+    routes_web_after_sha: 93d5b6ec5f8784926e6eb0cfabda7e2adc1553f2
+    physical_binding_added: auth.register
+  HTTP_inventory:
+    canonical_required_inline_HTTP_operations: 172
+    required_physical_bindings_present: 146
+    missing_physical_bindings_total: 26
+    frozen_PKK_missing_bindings: 14
+    provider_specific_payment_webhook_missing_bindings: 1
+    repo_actionable_HTTP_bindings_missing: 11
+  implementation_ready:
+    count: 1
+    operations:
+      - license_credentials.bulk_pdf
+    authority: CORE-V1-BULK-CREDENTIAL-RESET-AUTHORITY-001_PASS
+  blocked_remaining:
+    count: 10
+    identity_auth: 4
+    student_progress: 1
+    commerce_order_create: 2
+    organization_settings: 3
+  non_HTTP_repo_P1:
+    additional_open_count: 0
+  result:
+    repository_complete: false
+    repo_P0_open: 0
+    repo_P1_open: true
+    implementation_ready_missing_bindings: 1
+    blocked_missing_bindings: 10
+    PKK_provider_runtime_status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+  next_after_AUDIT:
+    id: CORE-V1-BULK-CREDENTIAL-RESET-001
+    action: implement_bulk_access_document_nonreset_and_reset_modes_under_exact_DB_LIC_004_authority
+    rule: all_targets_authorized_and_version_checked_before_any_write_render_full_secret_PDF_before_password_mutation_no_secret_replay_no_PKK_runtime
