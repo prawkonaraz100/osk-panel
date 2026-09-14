@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
   "plan_identity": "d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10",
-  "execution_identity": "b036d681256900829c32fcbe91e75bb2c97ddd83831eb3d6a83698d266f93853",
+  "execution_identity": "23e259f945fc619556180b7e047c36cdfbf098157b3774d1f647729169de1aa4",
   "stage4_root": "database/migrations/stage4",
   "implemented_steps": [
     {
@@ -2205,7 +2205,7 @@
       "phase": "validate",
       "migration_file": "database/migrations/stage4/validate/MIG-TRG-IDENTITY/2026_09_10_001580_validate_triggers_identity.php",
       "migration_name": "2026_09_10_001580_validate_triggers_identity",
-      "file_sha256": "c58720cef5e9964cb856ab5af0be1bbb925282c5937385d7f8b38b68e8060b29",
+      "file_sha256": "5b1b7d60ddf1055902ce8bd60e601290cd52963cf8309c699f13b681aa8b0807",
       "restart_classification": "restart_safe",
       "safe_down": false
     },
@@ -2214,7 +2214,7 @@
       "phase": "validate",
       "migration_file": "database/migrations/stage4/validate/MIG-TRG-TRAINING/2026_09_10_001590_validate_triggers_training.php",
       "migration_name": "2026_09_10_001590_validate_triggers_training",
-      "file_sha256": "14ee08d672f864fd88771227d9fc1ff2a980d1652bd2deb948528a378dce5eb6",
+      "file_sha256": "6d02667aaee593684f665a69665828ad9fee329cacb1770b52dbd1331a3f0d65",
       "restart_classification": "restart_safe",
       "safe_down": false
     },
@@ -2223,7 +2223,7 @@
       "phase": "validate",
       "migration_file": "database/migrations/stage4/validate/MIG-TRG-CALENDAR/2026_09_10_001600_validate_triggers_calendar.php",
       "migration_name": "2026_09_10_001600_validate_triggers_calendar",
-      "file_sha256": "980d5b4818c84adbc6444d542f24a3a2a31409ebbd4c6ad461d126c58615cd37",
+      "file_sha256": "08350e49e63a28c89daf2ee09856a21f41b3c64c50f28e5f7c28e43b95bcf216",
       "restart_classification": "restart_safe",
       "safe_down": false
     },
@@ -2232,7 +2232,7 @@
       "phase": "validate",
       "migration_file": "database/migrations/stage4/validate/MIG-TRG-PKK/2026_09_10_001610_validate_triggers_pkk.php",
       "migration_name": "2026_09_10_001610_validate_triggers_pkk",
-      "file_sha256": "0a7c65fcbc505478e6f5c5a62a50af02aab11461e893effa786b0e752f5d03a4",
+      "file_sha256": "37a364853b2281764abd716d3db4c9c4d785a79a5386bb1f995c0068ca7e63ab",
       "restart_classification": "restart_safe",
       "safe_down": false
     },
@@ -2241,7 +2241,7 @@
       "phase": "validate",
       "migration_file": "database/migrations/stage4/validate/MIG-TRG-FINANCE/2026_09_10_001620_validate_triggers_finance.php",
       "migration_name": "2026_09_10_001620_validate_triggers_finance",
-      "file_sha256": "0743bb09daeb4eee2664c9fb7ae8c6f9e3d2ffef8f5be3b2a971dfe8e6a1870c",
+      "file_sha256": "82cac4aca99417557692feb6fca6a34f5a58bf003c67a592fe10293302523238",
       "restart_classification": "restart_safe",
       "safe_down": false
     },
@@ -2250,7 +2250,7 @@
       "phase": "validate",
       "migration_file": "database/migrations/stage4/validate/MIG-TRG-LICENSES/2026_09_10_001630_validate_triggers_licenses.php",
       "migration_name": "2026_09_10_001630_validate_triggers_licenses",
-      "file_sha256": "a8ab915ce6ecb0632ba7093ba551649d303a74565adf2729d6eff115ec3dab2a",
+      "file_sha256": "c11909e5ab3030698c4a1424a17545eeab40d4e1bb69b2185b2759f01026c741",
       "restart_classification": "restart_safe",
       "safe_down": false
     },
@@ -2259,7 +2259,7 @@
       "phase": "validate",
       "migration_file": "database/migrations/stage4/validate/MIG-TRG-EXAMS/2026_09_10_001640_validate_triggers_exams.php",
       "migration_name": "2026_09_10_001640_validate_triggers_exams",
-      "file_sha256": "7b23cc589e15b7e50d1860e23b550d3790b7cd40118b5d23eefe898eb543ed9f",
+      "file_sha256": "4750c865440743635ff93ec85d8d9daa8691417b379e25840c86f0c79726eb9b",
       "restart_classification": "restart_safe",
       "safe_down": false
     },
@@ -2268,7 +2268,7 @@
       "phase": "validate",
       "migration_file": "database/migrations/stage4/validate/MIG-TRG-COMMERCE/2026_09_10_001650_validate_triggers_commerce.php",
       "migration_name": "2026_09_10_001650_validate_triggers_commerce",
-      "file_sha256": "00d41f6701926ab090f5799e4fb9fca024ba12e8b83e1704841fe2384dae688e",
+      "file_sha256": "81af796360b7a1ab9fd56cb21f69fb0d83cddefc6ad6cc4e34610fca358fa3de",
       "restart_classification": "restart_safe",
       "safe_down": false
     },
@@ -2277,7 +2277,7 @@
       "phase": "validate",
       "migration_file": "database/migrations/stage4/validate/MIG-TRG-EVENTS/2026_09_10_001660_validate_triggers_events.php",
       "migration_name": "2026_09_10_001660_validate_triggers_events",
-      "file_sha256": "e6a029d95360e27f26abae3472ccd5e18a76fe93a7f52c37e08955aaf96cfc71",
+      "file_sha256": "e909361798481efc6dd9a5819020f197217e8575dbbe74e85f9a792b3955e1bc",
       "restart_classification": "manual_review",
       "safe_down": false
     },
@@ -2286,7 +2286,7 @@
       "phase": "validate",
       "migration_file": "database/migrations/stage4/validate/MIG-PRJ-CALENDAR-RESOURCE-CLAIMS/2026_09_10_001670_validate_projection_calendar_resource_claims.php",
       "migration_name": "2026_09_10_001670_validate_projection_calendar_resource_claims",
-      "file_sha256": "d27b59e023192f5bce51ad3993048a0c3b89935d61f52de5aa95c46d284219a1",
+      "file_sha256": "44d8f17834a3a54935efd804da3d9f58191a5c28e8b56f9ae416b7e9d11e029d",
       "restart_classification": "manual_review",
       "safe_down": false
     },
@@ -2295,7 +2295,7 @@
       "phase": "validate",
       "migration_file": "database/migrations/stage4/validate/MIG-PRJ-PURCHASE-HISTORY/2026_09_10_001680_validate_projection_purchase_history.php",
       "migration_name": "2026_09_10_001680_validate_projection_purchase_history",
-      "file_sha256": "300de881b647f55f337d160184daae0164342e7b598708303c10801a2dcc677e",
+      "file_sha256": "9273c10376d0a041c98d533b4e2549a99d850118b27808ee72e8dea629c4c44e",
       "restart_classification": "manual_review",
       "safe_down": false
     },
@@ -2304,7 +2304,7 @@
       "phase": "validate",
       "migration_file": "database/migrations/stage4/validate/MIG-PRJ-ORGANIZATION-ACTIVITY/2026_09_10_001690_validate_projection_organization_activity.php",
       "migration_name": "2026_09_10_001690_validate_projection_organization_activity",
-      "file_sha256": "2c1e0b0bf9454d4577bc29367dd838bae6a013b8bab425405eb80ddd0dfbcac3",
+      "file_sha256": "cdba579e8e49f27c4e5b4ea48fe674ecd1f6f8d5124ee3d79c797bf560bf8f8c",
       "restart_classification": "manual_review",
       "safe_down": false
     },
@@ -2313,7 +2313,7 @@
       "phase": "validate",
       "migration_file": "database/migrations/stage4/validate/MIG-PRJ-NOTIFICATIONS/2026_09_10_001700_validate_projection_notifications.php",
       "migration_name": "2026_09_10_001700_validate_projection_notifications",
-      "file_sha256": "894cc3868c041cb60ceed91248e21a19e5f71b7cb2a06dcf5d5fccb93e599e86",
+      "file_sha256": "41e5395edb71f08a13186782e5c37073e9011d08dcb0ddcfd275f1e2b09c3d52",
       "restart_classification": "manual_review",
       "safe_down": false
     }

@@ -22,7 +22,7 @@ final class Stage4ReviewedReconciliationTest extends TestCase
         $this->assertSame(170, $plan->implementedNodeCount());
         $this->assertSame(257, $plan->implementedStepCount());
         $this->assertCount(7, $plan->phaseSteps('reconcile'));
-        $this->assertCount(0, $plan->phaseSteps('validate'));
+        $this->assertCount(34, $plan->phaseSteps('validate'));
 
         DB::beginTransaction();
 

@@ -1,8 +1,8 @@
 <?php
 
 use App\Support\Migrations\ControlledMigrationContext;
-use App\Support\Migrations\TriggerWriteFence;
 use App\Support\Migrations\TriggerGuards\PkkTriggerGuards;
+use App\Support\Migrations\TriggerWriteFence;
 use Illuminate\Database\Migrations\Migration;
 
 return new class extends Migration

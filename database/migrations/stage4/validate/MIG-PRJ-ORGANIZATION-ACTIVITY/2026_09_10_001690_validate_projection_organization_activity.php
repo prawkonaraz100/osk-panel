@@ -1,9 +1,9 @@
 <?php
 
 use App\Support\Migrations\ControlledMigrationContext;
+use App\Support\Migrations\ProjectionGuards\OrganizationActivityProjectionGuards;
 use App\Support\Migrations\Stage4ReviewedReconciliation;
 use App\Support\Migrations\TriggerWriteFence;
-use App\Support\Migrations\ProjectionGuards\OrganizationActivityProjectionGuards;
 use Illuminate\Database\Migrations\Migration;
 
 return new class extends Migration
