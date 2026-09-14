@@ -31,11 +31,11 @@ final class Stage4CandidateKeysWriteFenceTest extends TestCase
         ];
 
         $this->assertSame(170, $plan->nodeCount());
-        $this->assertSame(157, $plan->implementedNodeCount());
-        $this->assertSame(196, $plan->implementedStepCount());
-        $this->assertSame('905d440b34b7e88fca28890cdf2bb5d919eb5d98d891e07138cf716873659ef7', $plan->executionIdentity());
+        $this->assertSame(166, $plan->implementedNodeCount());
+        $this->assertSame(205, $plan->implementedStepCount());
+        $this->assertSame('15a237c1cf88deeb2a8943d243761e2d1abc6cadc83f93356983206306e20924', $plan->executionIdentity());
         $this->assertSame($writeFenceNodes, array_slice(array_column($plan->phaseSteps('write_fence'), 'node_id'), 0, count($writeFenceNodes)));
-        $this->assertCount(39, $plan->phaseSteps('write_fence'));
+        $this->assertCount(48, $plan->phaseSteps('write_fence'));
 
         $expected = [
             'organization_membership_candidate_key_id_user' => [

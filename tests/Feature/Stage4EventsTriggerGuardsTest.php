@@ -34,6 +34,8 @@ final class Stage4EventsTriggerGuardsTest extends TestCase
             ]);
             $this->assertSame(0, $preflightExit, Artisan::output());
 
+            $this->ensureSettingsAuditPolicy();
+
             foreach ($plan->phaseSteps('write_fence') as $step) {
                 ControlledMigrationContext::enter('write_fence', $step['node_id'], $plan->executionIdentity());
 
@@ -46,7 +48,6 @@ final class Stage4EventsTriggerGuardsTest extends TestCase
                 }
             }
 
-            $this->ensureSettingsAuditPolicy();
             EventsTriggerGuards::install();
 
             $triggers = $this->signedEventTriggers();

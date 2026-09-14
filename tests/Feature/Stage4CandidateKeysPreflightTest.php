@@ -18,10 +18,10 @@ final class Stage4CandidateKeysPreflightTest extends TestCase
         $plan = app(MigrationPlan::class);
         $plan->validate();
 
-        $this->assertSame(157, $plan->implementedNodeCount());
-        $this->assertSame(196, $plan->implementedStepCount());
+        $this->assertSame(166, $plan->implementedNodeCount());
+        $this->assertSame(205, $plan->implementedStepCount());
         $this->assertSame(
-            '905d440b34b7e88fca28890cdf2bb5d919eb5d98d891e07138cf716873659ef7',
+            '15a237c1cf88deeb2a8943d243761e2d1abc6cadc83f93356983206306e20924',
             $plan->executionIdentity(),
         );
 
@@ -89,7 +89,7 @@ final class Stage4CandidateKeysPreflightTest extends TestCase
             'MIG-CON-EXAMS',
             'MIG-CON-COMMERCE',
             'MIG-CON-EVENTS',
-        ], array_column($plan->phaseSteps('write_fence'), 'node_id'));
+        ], array_slice(array_column($plan->phaseSteps('write_fence'), 'node_id'), 0, 39));
 
         $candidateConstraintNames = [
             'organization_membership_candidate_key_id_user',
@@ -190,7 +190,7 @@ final class Stage4CandidateKeysPreflightTest extends TestCase
             'MIG-CON-EXAMS',
             'MIG-CON-COMMERCE',
             'MIG-CON-EVENTS',
-        ], array_column($plan->phaseSteps('write_fence'), 'node_id'));
+        ], array_slice(array_column($plan->phaseSteps('write_fence'), 'node_id'), 0, 39));
     }
 
     /**

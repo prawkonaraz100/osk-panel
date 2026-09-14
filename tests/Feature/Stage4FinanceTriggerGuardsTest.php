@@ -22,8 +22,8 @@ final class Stage4FinanceTriggerGuardsTest extends TestCase
         $plan = app(MigrationPlan::class);
         $plan->validate();
 
-        $this->assertSame(196, $plan->implementedStepCount());
-        $this->assertCount(39, $plan->phaseSteps('write_fence'));
+        $this->assertSame(205, $plan->implementedStepCount());
+        $this->assertCount(48, $plan->phaseSteps('write_fence'));
 
         DB::beginTransaction();
 
