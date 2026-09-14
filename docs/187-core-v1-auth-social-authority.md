@@ -2,7 +2,7 @@
 
 Data: 2026-09-14
 
-**Status:** `IN_VALIDATION`
+**Status:** `PASS`
 
 This gate defines the exact authority for:
 
@@ -92,3 +92,46 @@ This authority does not:
 - change payment-provider behavior.
 
 Candidate validation requires full Implementation CI, API Contract Gate, PostgreSQL runtime, deterministic restore, Pint/PHPStan, frontend, contracts/traceability, and secret scan.
+
+## Exact-head validation evidence
+
+Authority candidate ancestry:
+
+- initial provider-safe authority: `22ee9272a05d02e223a75f2c63779634a9a7ce3d`
+- authenticated-link correction: `7ff20236b620a22a07c4bd56e916c5d894cc370b`
+- standalone contract-test path corrective / exact accepted authority head: `df4b67c10611ce48f7b39276bc957a69393d3a71`
+
+Exact accepted authority tree:
+
+`c1ceb82ef27d76eaa9ef64e6b49ea4bc449d8871`
+
+Validation on the exact accepted authority head:
+
+- Implementation CI #530 / run `34851280825`: **5/5 PASS**
+- API Contract Gate #418 / run `34851280784`: **PASS**
+- PostgreSQL: **309 tests / 5537 assertions — PASS**
+- deterministic restore: **121 -> 121 PASS**
+- restore schema fingerprint: `09c57afe2501c79a3a684c0a695b4619114f94ddc24c9bca33728d99c1abb155`
+- `RESTORE_DRILL_HARNESS=PASS`
+- backend Pint + PHPStan: **PASS**
+- frontend quality: **PASS**
+- contracts/traceability: **PASS**
+- secret scan: **PASS**
+
+The failed predecessor #529 was caused only by using Laravel `base_path()` inside a standalone PHPUnit test. No authority semantics changed in that corrective commit.
+
+## Closure effect
+
+This authority gate closes **zero physical HTTP bindings**.
+
+It makes exactly two still-missing canonical operations eligible for implementation:
+
+- `auth.social_redirect`
+- `auth.social_callback`
+
+A fresh repository closure audit is required before runtime implementation. The audit must preserve the physical-binding count until routes are actually materialized and must not reclassify password reset, Student Progress, Commerce order creation, Organization/settings, PKK/PWPW, or the payment webhook without independent authority.
+
+## Next gate
+
+`CORE-V1-CLOSURE-AUDIT-006`
+

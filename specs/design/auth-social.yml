@@ -1,6 +1,6 @@
 authority:
   id: CORE-V1-AUTH-SOCIAL-AUTHORITY-001
-  status: CANDIDATE
+  status: PASS
   date: 2026-09-14
   purpose: >-
     Close the authority blocker for auth.social_redirect and auth.social_callback
