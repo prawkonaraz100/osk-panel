@@ -4782,7 +4782,8 @@ CORE_V1_STAGE4_RECONCILE_001_gate:
 
 CORE_V1_STAGE4_VALIDATE_001_gate:
   id: CORE-V1-STAGE4-VALIDATE-001
-  status: READY
+  status: PASS
+  authority_audit: docs/165-core-v1-stage4-validate-authority-audit.md
   exact_nodes:
     - MIG-FK-IDENTITY
     - MIG-FK-RESOURCES
@@ -4818,18 +4819,83 @@ CORE_V1_STAGE4_VALIDATE_001_gate:
     - MIG-PRJ-PURCHASE-HISTORY
     - MIG-PRJ-ORGANIZATION-ACTIVITY
     - MIG-PRJ-NOTIFICATIONS
-  expected_Stage_4_materialized_nodes_after_PASS: 170
-  expected_Stage_4_materialized_steps_after_PASS: 257
-  expected_validate_steps_after_PASS: 34
-  contract_nodes_authoritative_after_PASS: 4
+  Stage_4_materialized_nodes: 170
+  Stage_4_materialized_steps: 257
+  validate_steps_materialized: 34
+  Stage_4_plan_identity: d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10
+  Stage_4_execution_identity: 23e259f945fc619556180b7e047c36cdfbf098157b3774d1f647729169de1aa4
+  frozen_authority_changed: false
+  PKK_provider_runtime_status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+  provenance:
+    atomic_materialization_commit: ac5331837e30852ef927f5956065f172456d1e44
+    atomic_materialization_Implementation_CI_run: 34805687787
+    corrective_exact_head: 1d286430469b971266d91b82f2e998e99d54bc82
+    corrective_Implementation_CI_run: 34806801979
+  executable_evidence:
+    canonical_Implementation_CI_jobs_passed: 5
+    canonical_Implementation_CI_jobs_total: 5
+    PostgreSQL_suite_tests: 258
+    PostgreSQL_suite_assertions: 5079
+    deterministic_restore_harness: PASS
+    restore_source_table_count: 121
+    restore_restored_table_count: 121
+    exact_thirty_four_validate_steps_registered_in_canonical_order: PASS
+    validate_phase_complete_34_of_34: PASS
+    every_signed_foreign_key_and_check_expected_by_validate_is_validated: PASS
+    installed_trigger_and_projection_guard_contracts_exact: PASS
+    reopened_unresolved_case_blocks_validation: PASS
+    contract_steps_registered: 0
+    PKK_provider_runtime_still_frozen: PASS
   validation_policy:
-    validate_existing_NOT_VALID_foreign_keys_and_checks: allowed
-    assert_installed_trigger_and_projection_guards: allowed
-    verify_projection_and_reconciliation_postconditions: required
+    validate_existing_NOT_VALID_foreign_keys_and_checks: PASS
+    assert_installed_trigger_and_projection_guards: PASS
+    verify_projection_and_reconciliation_postconditions: PASS
     disable_write_fence: forbidden
     rewrite_business_history: forbidden
     discover_or_ignore_new_unresolved_case: forbidden
   scope_boundary:
-    validation_only: allowed
-    contract_or_destructive_cleanup: forbidden
+    validation_only: PASS
+    contract_or_destructive_cleanup: not_entered
+    PKK_provider_runtime_activation: forbidden
+  next_after_PASS:
+    id: CORE-V1-STAGE4-CONTRACT-001
+    action: materialize_four_reviewed_projection_contract_steps_only
+    exact_nodes:
+      - MIG-PRJ-CALENDAR-RESOURCE-CLAIMS
+      - MIG-PRJ-PURCHASE-HISTORY
+      - MIG-PRJ-ORGANIZATION-ACTIVITY
+      - MIG-PRJ-NOTIFICATIONS
+    expected_materialized_nodes_after_PASS: 170
+    expected_materialized_steps_after_PASS: 261
+    expected_contract_steps_after_PASS: 4
+    rule: remove_or_deauthorize_only_explicitly_superseded_projection_compatibility_paths_after_restore_and_compatibility_gate
+
+
+CORE_V1_STAGE4_CONTRACT_001_gate:
+  id: CORE-V1-STAGE4-CONTRACT-001
+  status: READY
+  exact_nodes:
+    - MIG-PRJ-CALENDAR-RESOURCE-CLAIMS
+    - MIG-PRJ-PURCHASE-HISTORY
+    - MIG-PRJ-ORGANIZATION-ACTIVITY
+    - MIG-PRJ-NOTIFICATIONS
+  expected_Stage_4_materialized_nodes_after_PASS: 170
+  expected_Stage_4_materialized_steps_after_PASS: 261
+  expected_contract_steps_after_PASS: 4
+  entry_requires:
+    - validate_exit_gate_PASS
+    - required_unresolved_P0_P1_cases_equal_zero
+    - previous_or_fallback_application_compatibility_decision_recorded
+    - superseded_writer_paths_are_stopped_or_deauthorized_before_removal
+    - successful_isolated_restore_test_evidence_exists
+    - authorized_release_operator_accepts_destructive_or_deauthorization_scope
+  contract_policy:
+    only_explicitly_superseded_projection_compatibility_paths_may_be_removed_or_deauthorized: true
+    formal_financial_audit_or_business_history_rewrite_or_delete: forbidden
+    source_domain_event_or_canonical_business_source_delete: forbidden
+    cleanup_that_requires_guessing_legacy_lineage_recipient_read_state_or_payment_truth: forbidden
+    no_op_assertion_is_allowed_when_no_superseded_physical_path_exists_for_a_node: true
+  scope_boundary:
+    four_projection_contract_nodes_only: allowed
+    reopen_backfill_or_reconcile_implicitly: forbidden
     PKK_provider_runtime_activation: forbidden
