@@ -5715,3 +5715,96 @@ CORE_V1_COURSE_COMPLETION_001_gate:
     id: CORE-V1-CLOSURE-AUDIT-003
     action: rerun_repository_HTTP_runtime_UI_closure_audit_on_exact_accepted_tree
     rule: preserve_frozen_or_missing_authority_boundaries_no_PKK_runtime
+
+
+CORE_V1_CLOSURE_AUDIT_003_gate:
+  id: CORE-V1-CLOSURE-AUDIT-003
+  status: AUDIT_COMPLETE_REPO_P1_REMAINS
+  authority: docs/180-core-v1-closure-reaudit-003.md
+  audited_accepted_tip: eb1f9d3b7fe34ce523c8b951ebf4b4b3bbce97cd
+  prerequisite: CORE-V1-COURSE-COMPLETION-001_PASS
+  closure_evidence:
+    Implementation_CI_run: 34833344805
+    API_Contract_Gate_run: 34833344818
+    Implementation_CI_jobs_passed: 5
+    Implementation_CI_jobs_total: 5
+    PostgreSQL_suite_tests: 295
+    PostgreSQL_suite_assertions: 5380
+    restore_source_table_count: 121
+    restore_restored_table_count: 121
+    restore_schema_fingerprint: 09c57afe2501c79a3a684c0a695b4619114f94ddc24c9bca33728d99c1abb155
+  differential_HTTP_authority:
+    baseline_audit_tip: 9b2b7513093680c061ed806ac03918d0146158b8
+    routes_web_sha_unchanged: 235a96b26a70b120efb9026b011c7e8040f7bdad
+    required_operations_sha_unchanged: c36142e3af2615393347fadfec265af2eb610fb7
+    api_paths_tree_sha_unchanged: e1fd8ad215a4b2c934dc12c864d3ea7d74d47e2c
+    openapi_v1_sha_unchanged: 46d42a9752e74a51ff066705e5ae69a97e676b35
+    openapi_components_sha_unchanged: 35828d89dedb0e91cb0f885ebcb063b663f419b1
+    common_contract_sha_unchanged: 553cd6cf95bf41dbcef8e503675236f889f3045e
+    openapi_settings_components_sha_unchanged: cdac825daaa90c26b911f284dc8acc84c6efcf56
+  HTTP_inventory:
+    canonical_required_inline_HTTP_operations: 172
+    required_physical_bindings_present: 145
+    missing_physical_bindings_total: 27
+    frozen_PKK_missing_bindings: 14
+    provider_specific_payment_webhook_missing_bindings: 1
+    repo_actionable_HTTP_bindings_missing: 12
+  repo_actionable_HTTP_groups:
+    identity_auth:
+      count: 5
+      operations:
+        - auth.register
+        - auth.password_forgot
+        - auth.password_reset
+        - auth.social_redirect
+        - auth.social_callback
+      status: BLOCKED_MISSING_AUTHORITY
+    student_progress:
+      count: 1
+      operations:
+        - students.progress
+      status: BLOCKED_MISSING_ONLINE_LEARNING_PROGRESS_AUTHORITY
+    commerce_order_create:
+      count: 2
+      operations:
+        - license_orders.create
+        - exam_orders.create
+      status: BLOCKED_MISSING_SERVER_PRICE_VAT_AUTHORITY
+    credential_bulk_document:
+      count: 1
+      operations:
+        - license_credentials.bulk_pdf
+      status: BLOCKED_RESET_BRANCH_MISSING_EXPECTED_CREDENTIAL_VERSIONS
+    organization_settings:
+      count: 3
+      operations:
+        - organization.update
+        - organization.settings.get
+        - organization.settings.update
+      status: BLOCKED_BY_FROZEN_PKK_CONTRACT_FIELDS
+  non_HTTP_repo_P1:
+    course_completion:
+      status: CLOSED_BY_CORE_V1_COURSE_COMPLETION_001
+    resource_asset_UI:
+      status: CLOSED_BY_CORE_V1_RESOURCE_ASSET_UI_001
+    additional_open_count: 0
+  result:
+    repository_complete: false
+    repo_P0_open: 0
+    repo_P1_open: true
+    repo_actionable_HTTP_bindings_missing: 12
+    additional_non_HTTP_repo_P1_open: 0
+    unblocked_missing_binding_slices: 0
+    Stage_4_materialization_complete: true
+    PKK_provider_runtime_status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+  continuation_boundary:
+    status: WAITING_FOR_CANONICAL_AUTHORITY_CHANGE
+    implementation_without_new_authority_allowed: false
+    acceptable_resume_triggers:
+      - explicit_PKK_PWPW_unfreeze_and_authoritative_guidance
+      - marketing_consent_persistence_history_authority
+      - password_reset_token_lifecycle_authority
+      - social_OAuth_provider_config_state_authority
+      - online_learning_student_progress_authority
+      - current_server_price_VAT_authority
+      - bulk_credential_reset_expected_version_contract
