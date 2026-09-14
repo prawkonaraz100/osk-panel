@@ -43,6 +43,102 @@ final class TriggerWriteFence
     }
 
     /**
+     * @param  list<array{
+     *   name: string,
+     *   body: string,
+     *   triggers: list<array{
+     *     table: string,
+     *     timing: 'BEFORE'|'AFTER',
+     *     events: list<'INSERT'|'UPDATE'|'DELETE'>,
+     *     constraint?: bool,
+     *     deferrable?: bool,
+     *     initially_deferred?: bool,
+     *     when?: string|null
+     *   }>
+     * }>  $guards
+     */
+    public static function assertInstalled(string $nodeId, array $guards): void
+    {
+        if (DB::connection()->getDriverName() !== 'pgsql') {
+            throw new LogicException($nodeId.' validation requires PostgreSQL.');
+        }
+
+        foreach ($guards as $guard) {
+            self::assertGuardInstalled($nodeId, $guard);
+        }
+    }
+
+    /**
+     * @param  array{
+     *   name: string,
+     *   body: string,
+     *   triggers: list<array{
+     *     table: string,
+     *     timing: 'BEFORE'|'AFTER',
+     *     events: list<'INSERT'|'UPDATE'|'DELETE'>,
+     *     constraint?: bool,
+     *     deferrable?: bool,
+     *     initially_deferred?: bool,
+     *     when?: string|null
+     *   }>
+     * }  $guard
+     */
+    private static function assertGuardInstalled(string $nodeId, array $guard): void
+    {
+        if ($guard['triggers'] === []) {
+            throw new LogicException($nodeId.' trigger guard '.$guard['name'].' has no trigger targets.');
+        }
+
+        $signature = self::signature($guard);
+        $functionName = self::functionName($guard['name']);
+        $function = self::functionMetadata($functionName);
+        if ($function === null
+            || $function['body'] !== trim($guard['body'])
+            || $function['signature'] !== $signature) {
+            throw new LogicException($nodeId.' validation missing or mismatched trigger function for '.$guard['name'].'.');
+        }
+
+        foreach ($guard['triggers'] as $trigger) {
+            if (! Schema::hasTable($trigger['table'])) {
+                throw new LogicException($nodeId.' validation missing table '.$trigger['table'].' for '.$guard['name'].'.');
+            }
+
+            $events = array_values(array_unique($trigger['events']));
+            sort($events);
+            if ($events === []) {
+                throw new LogicException($nodeId.' trigger guard '.$guard['name'].' has no events.');
+            }
+
+            $constraint = (bool) ($trigger['constraint'] ?? false);
+            $deferrable = (bool) ($trigger['deferrable'] ?? false);
+            $initiallyDeferred = (bool) ($trigger['initially_deferred'] ?? false);
+
+            if ($constraint && $trigger['timing'] !== 'AFTER') {
+                throw new LogicException($nodeId.' constraint trigger '.$guard['name'].' must be AFTER.');
+            }
+            if (($deferrable || $initiallyDeferred) && ! $constraint) {
+                throw new LogicException($nodeId.' non-constraint trigger '.$guard['name'].' cannot be deferrable.');
+            }
+            if ($initiallyDeferred && ! $deferrable) {
+                throw new LogicException($nodeId.' initially deferred trigger '.$guard['name'].' must be deferrable.');
+            }
+
+            $triggerName = self::triggerName($guard['name'], $trigger, $events);
+            $expectedType = self::triggerType($trigger['timing'], $events);
+            $existing = self::triggerMetadata($trigger['table'], $triggerName);
+            if ($existing === null
+                || $existing['function'] !== $functionName
+                || $existing['type'] !== $expectedType
+                || $existing['constraint'] !== $constraint
+                || $existing['deferrable'] !== $deferrable
+                || $existing['initially_deferred'] !== $initiallyDeferred
+                || $existing['signature'] !== $signature) {
+                throw new LogicException($nodeId.' validation missing or mismatched trigger '.$triggerName.'.');
+            }
+        }
+    }
+
+    /**
      * @param  array{
      *   name: string,
      *   body: string,

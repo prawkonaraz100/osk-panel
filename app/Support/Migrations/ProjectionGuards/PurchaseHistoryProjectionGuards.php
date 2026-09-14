@@ -8,7 +8,27 @@ final class PurchaseHistoryProjectionGuards
 {
     public static function install(): void
     {
-        TriggerWriteFence::install('MIG-PRJ-PURCHASE-HISTORY', [
+        TriggerWriteFence::install('MIG-PRJ-PURCHASE-HISTORY', self::definitions());
+    }
+
+    /**
+     * @return list<array{
+     *   name: string,
+     *   body: string,
+     *   triggers: list<array{
+     *     table: string,
+     *     timing: 'BEFORE'|'AFTER',
+     *     events: list<'INSERT'|'UPDATE'|'DELETE'>,
+     *     constraint?: bool,
+     *     deferrable?: bool,
+     *     initially_deferred?: bool,
+     *     when?: string|null
+     *   }>
+     * }>
+     */
+    public static function definitions(): array
+    {
+        return [
             [
                 'name' => 'projection_purchase_history_final_state',
                 'body' => <<<'PLPGSQL'
@@ -124,6 +144,6 @@ PLPGSQL,
                     ],
                 ],
             ],
-        ]);
+        ];
     }
 }

@@ -143,6 +143,48 @@ final class ForeignKeyWriteFence
     }
 
     /**
+     * @param list<array{
+     *   name: string,
+     *   source_table: string,
+     *   source_columns: list<string>,
+     *   target_table: string,
+     *   target_columns: list<string>
+     * }> $relations
+     */
+    public static function validate(string $nodeId, array $relations): void
+    {
+        if (DB::connection()->getDriverName() !== 'pgsql') {
+            throw new LogicException($nodeId.' validation requires PostgreSQL.');
+        }
+
+        ForeignKeyPreflight::assertRelations($nodeId, $relations);
+
+        foreach ($relations as $relation) {
+            $constraintName = 'fk_'.$relation['name'];
+            $existing = self::constraintMetadata($relation['source_table'], $constraintName);
+            if ($existing === null) {
+                throw new LogicException($nodeId.' validation missing FK '.$constraintName.'.');
+            }
+
+            self::assertExactDefinition($nodeId, $relation, $existing);
+
+            if (! $existing['validated']) {
+                $grammar = DB::connection()->getQueryGrammar();
+                $table = $grammar->wrapTable($relation['source_table']);
+                $constraint = $grammar->wrap($constraintName);
+                DB::statement("ALTER TABLE {$table} VALIDATE CONSTRAINT {$constraint}");
+            }
+
+            $validated = self::constraintMetadata($relation['source_table'], $constraintName);
+            if ($validated === null || ! $validated['validated']) {
+                throw new LogicException($nodeId.' validation failed for FK '.$constraintName.'.');
+            }
+
+            self::assertExactDefinition($nodeId, $relation, $validated);
+        }
+    }
+
+    /**
      * @param array{
      *   name: string,
      *   source_table: string,

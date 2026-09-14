@@ -30,6 +30,46 @@ final class ConstraintWriteFence
     }
 
     /**
+     * @param list<array{
+     *   name: string,
+     *   table: string,
+     *   columns: list<string>,
+     *   predicate: string
+     * }> $checks
+     */
+    public static function validate(string $nodeId, array $checks): void
+    {
+        if (DB::connection()->getDriverName() !== 'pgsql') {
+            throw new LogicException($nodeId.' validation requires PostgreSQL.');
+        }
+
+        ConstraintPreflight::assertChecks($nodeId, $checks);
+
+        foreach ($checks as $check) {
+            $existing = self::constraintMetadata($check['table'], $check['name']);
+            if ($existing === null) {
+                throw new LogicException($nodeId.' validation missing CHECK '.$check['name'].'.');
+            }
+
+            self::assertExactDefinition($nodeId, $check, $existing);
+
+            if (! $existing['validated']) {
+                $grammar = DB::connection()->getQueryGrammar();
+                $table = $grammar->wrapTable($check['table']);
+                $constraint = $grammar->wrap($check['name']);
+                DB::statement("ALTER TABLE {$table} VALIDATE CONSTRAINT {$constraint}");
+            }
+
+            $validated = self::constraintMetadata($check['table'], $check['name']);
+            if ($validated === null || ! $validated['validated']) {
+                throw new LogicException($nodeId.' validation failed for CHECK '.$check['name'].'.');
+            }
+
+            self::assertExactDefinition($nodeId, $check, $validated);
+        }
+    }
+
+    /**
      * @param array{
      *   name: string,
      *   table: string,
@@ -56,6 +96,9 @@ final class ConstraintWriteFence
         $existing = self::constraintMetadata($check['table'], $check['name']);
         if ($existing !== null) {
             self::assertExactDefinition($nodeId, $check, $existing);
+            if ($existing['validated']) {
+                throw new LogicException($nodeId.' write-fence unexpectedly found validated CHECK '.$check['name'].'.');
+            }
 
             return;
         }
@@ -79,6 +122,9 @@ final class ConstraintWriteFence
         }
 
         self::assertExactDefinition($nodeId, $check, $created);
+        if ($created['validated']) {
+            throw new LogicException($nodeId.' write-fence unexpectedly created validated CHECK '.$check['name'].'.');
+        }
     }
 
     /**
@@ -121,7 +167,6 @@ final class ConstraintWriteFence
     {
         if ($actual['table'] !== $expected['table']
             || $actual['type'] !== 'c'
-            || $actual['validated']
             || $actual['signature'] !== self::signature($expected)) {
             throw new LogicException(
                 $nodeId.' write-fence found conflicting existing CHECK definition for '.$expected['name'].'.',
