@@ -5852,3 +5852,71 @@ CORE_V1_AUTH_REGISTER_AUTHORITY_001_gate:
     id: CORE-V1-AUTH-REGISTER-001
     action: normalize_registration_contract_and_materialize_runtime
     rule: exact_authority_only_no_schema_change_no_PKK_runtime
+
+
+CORE_V1_AUTH_REGISTER_001_gate:
+  id: CORE-V1-AUTH-REGISTER-001
+  status: PASS
+  authority:
+    closure_doc: docs/182-core-v1-auth-register-closure.md
+    narrative: docs/181-core-v1-auth-register-authority.md
+    machine: specs/design/auth-registration.yml
+    prerequisite: CORE-V1-AUTH-REGISTER-AUTHORITY-001_PASS
+  exact_scope:
+    operation: auth.register
+    method: POST
+    path: /api/v1/auth/register
+    schema_or_migration_change: false
+    OpenAPI_path_change: false
+    RegistrationRequest_normalized: true
+    PKK_provider_runtime_activation: forbidden
+  registration_postconditions:
+    active_global_user_created: PASS
+    primary_current_normalized_email_created: PASS
+    local_password_hashed_only: PASS
+    self_service_password_management: PASS
+    initial_credential_version: 1
+    active_organization_created: PASS
+    organization_settings_version: 1
+    structured_company_address_only: PASS
+    Owner_template: Owner
+    Owner_catalog_version: core-v1-2026-09-05
+    full_current_Owner_permission_snapshot_materialized: PASS
+    protected_Owner_baseline_present: PASS
+    exact_terms_acceptance_append_only: PASS
+    marketing_true_requires_exact_versioned_acceptance: PASS
+    marketing_false_writes_no_marketing_acceptance: PASS
+    implicit_auth_session_created: false
+    registration_audit_action: auth.registration.completed
+  provenance:
+    authority_head: ea079994384c501b37f28683b446bebe754d8ed9
+    authority_Implementation_CI_run: 34835887772
+    authority_API_Contract_Gate_run: 34835887958
+    exact_implementation_head: 3a42a75152dde9ae32dc24d126f454080a6f554d
+    implementation_Implementation_CI_run: 34836631741
+    implementation_API_Contract_Gate_push_run: 34836627118
+    implementation_API_Contract_Gate_PR_run: 34836631751
+  executable_evidence:
+    exact_head_Implementation_CI_jobs_passed: 5
+    exact_head_Implementation_CI_jobs_total: 5
+    API_Contract_Gate: PASS
+    PostgreSQL_suite_tests: 300
+    PostgreSQL_suite_assertions: 5447
+    deterministic_restore_harness: PASS
+    restore_source_table_count: 121
+    restore_restored_table_count: 121
+    restore_schema_fingerprint: 09c57afe2501c79a3a684c0a695b4619114f94ddc24c9bca33728d99c1abb155
+    backend_Pint_and_PHPStan: PASS
+    frontend_quality: PASS
+    contracts_and_traceability: PASS
+    secret_scan: PASS
+  closure_effect:
+    repo_actionable_HTTP_bindings_before_this_gate: 12
+    physical_HTTP_bindings_closed_by_this_gate: 1
+    derived_repo_actionable_HTTP_bindings_remaining: 11
+    derived_identity_auth_missing_remaining: 4
+    full_closure_reaudit_required: true
+  next_after_PASS:
+    id: CORE-V1-CLOSURE-AUDIT-004
+    action: rerun_repository_HTTP_runtime_UI_closure_audit_on_exact_accepted_tree
+    rule: recompute_not_assume_preserve_missing_authority_and_PKK_freeze
