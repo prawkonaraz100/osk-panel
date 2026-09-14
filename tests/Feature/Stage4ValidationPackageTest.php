@@ -22,10 +22,10 @@ final class Stage4ValidationPackageTest extends TestCase
         $plan->validate();
 
         $this->assertSame(170, $plan->implementedNodeCount());
-        $this->assertSame(257, $plan->implementedStepCount());
+        $this->assertSame(261, $plan->implementedStepCount());
         $this->assertCount(7, $plan->phaseSteps('reconcile'));
         $this->assertCount(34, $plan->phaseSteps('validate'));
-        $this->assertCount(0, $plan->phaseSteps('contract'));
+        $this->assertCount(4, $plan->phaseSteps('contract'));
 
         DB::beginTransaction();
 
@@ -57,7 +57,7 @@ SQL);
 
             $this->assertGreaterThan(0, (int) ($row->signed_count ?? 0));
             $this->assertSame(0, (int) ($row->not_validated_count ?? -1));
-            $this->assertCount(0, $plan->phaseSteps('contract'));
+            $this->assertCount(4, $plan->phaseSteps('contract'));
         } finally {
             DB::rollBack();
         }

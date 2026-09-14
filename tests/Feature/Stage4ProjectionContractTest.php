@@ -21,9 +21,9 @@ final class Stage4ProjectionContractTest extends TestCase
         $plan->validate();
 
         $this->assertSame(170, $plan->implementedNodeCount());
-        $this->assertSame(257, $plan->implementedStepCount());
+        $this->assertSame(261, $plan->implementedStepCount());
         $this->assertCount(34, $plan->phaseSteps('validate'));
-        $this->assertCount(0, $plan->phaseSteps('contract'));
+        $this->assertCount(4, $plan->phaseSteps('contract'));
 
         DB::beginTransaction();
 
@@ -36,6 +36,14 @@ final class Stage4ProjectionContractTest extends TestCase
                     Stage4ProjectionContract::assertNoDestructiveScope($nodeId),
                 );
             }
+
+            $contractExit = Artisan::call('migration:controlled', [
+                '--plan' => $plan->identity(),
+                '--execution' => $plan->executionIdentity(),
+                '--phase' => 'contract',
+                '--force' => true,
+            ]);
+            $this->assertSame(0, $contractExit, Artisan::output());
         } finally {
             DB::rollBack();
         }

@@ -32,8 +32,8 @@ final class Stage4CandidateKeysWriteFenceTest extends TestCase
 
         $this->assertSame(170, $plan->nodeCount());
         $this->assertSame(170, $plan->implementedNodeCount());
-        $this->assertSame(257, $plan->implementedStepCount());
-        $this->assertSame('23e259f945fc619556180b7e047c36cdfbf098157b3774d1f647729169de1aa4', $plan->executionIdentity());
+        $this->assertSame(261, $plan->implementedStepCount());
+        $this->assertSame('82da84d3efb312d78b432ad6081491c04b03569a0f250722d6befc11ca233712', $plan->executionIdentity());
         $this->assertSame($writeFenceNodes, array_slice(array_column($plan->phaseSteps('write_fence'), 'node_id'), 0, count($writeFenceNodes)));
         $this->assertCount(52, $plan->phaseSteps('write_fence'));
 
@@ -302,7 +302,7 @@ final class Stage4CandidateKeysWriteFenceTest extends TestCase
             );
             $this->assertCount(7, $plan->phaseSteps('reconcile'));
             $this->assertCount(34, $plan->phaseSteps('validate'));
-            $this->assertSame([], $plan->phaseSteps('contract'));
+            $this->assertCount(4, $plan->phaseSteps('contract'));
         } finally {
             DB::rollBack();
             @unlink($evidencePath);

@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
   "plan_identity": "d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10",
-  "execution_identity": "23e259f945fc619556180b7e047c36cdfbf098157b3774d1f647729169de1aa4",
+  "execution_identity": "82da84d3efb312d78b432ad6081491c04b03569a0f250722d6befc11ca233712",
   "stage4_root": "database/migrations/stage4",
   "implemented_steps": [
     {
@@ -2314,6 +2314,42 @@
       "migration_file": "database/migrations/stage4/validate/MIG-PRJ-NOTIFICATIONS/2026_09_10_001700_validate_projection_notifications.php",
       "migration_name": "2026_09_10_001700_validate_projection_notifications",
       "file_sha256": "41e5395edb71f08a13186782e5c37073e9011d08dcb0ddcfd275f1e2b09c3d52",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-PRJ-CALENDAR-RESOURCE-CLAIMS",
+      "phase": "contract",
+      "migration_file": "database/migrations/stage4/contract/MIG-PRJ-CALENDAR-RESOURCE-CLAIMS/2026_09_10_001670_contract_projection_calendar_resource_claims.php",
+      "migration_name": "2026_09_10_001670_contract_projection_calendar_resource_claims",
+      "file_sha256": "43f424221c36a0e8524ea542597594b7f49b02f2a33df3e6894315ebfe6e9d66",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-PRJ-PURCHASE-HISTORY",
+      "phase": "contract",
+      "migration_file": "database/migrations/stage4/contract/MIG-PRJ-PURCHASE-HISTORY/2026_09_10_001680_contract_projection_purchase_history.php",
+      "migration_name": "2026_09_10_001680_contract_projection_purchase_history",
+      "file_sha256": "a3f879e5106da3cd0096efd9fe5e1bb736a6a83c9907e7ce605e099e1d094c7f",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-PRJ-ORGANIZATION-ACTIVITY",
+      "phase": "contract",
+      "migration_file": "database/migrations/stage4/contract/MIG-PRJ-ORGANIZATION-ACTIVITY/2026_09_10_001690_contract_projection_organization_activity.php",
+      "migration_name": "2026_09_10_001690_contract_projection_organization_activity",
+      "file_sha256": "5b30d54be7686d0849d536d85cbc52aea1409d0f3370b0eefa57fda5f32ace2d",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-PRJ-NOTIFICATIONS",
+      "phase": "contract",
+      "migration_file": "database/migrations/stage4/contract/MIG-PRJ-NOTIFICATIONS/2026_09_10_001700_contract_projection_notifications.php",
+      "migration_name": "2026_09_10_001700_contract_projection_notifications",
+      "file_sha256": "79f9c2b9591de3d017a057e1e9c2b1c52dcac91119a07cef2727e84ba6f0a826",
       "restart_classification": "manual_review",
       "safe_down": false
     }

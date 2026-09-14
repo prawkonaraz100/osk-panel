@@ -16,9 +16,9 @@ class MigrationPlanContractTest extends TestCase
         $this->assertSame(170, $plan->nodeCount());
         $this->assertSame(17, $plan->batchCount());
         $this->assertSame(170, $plan->implementedNodeCount());
-        $this->assertSame(257, $plan->implementedStepCount());
+        $this->assertSame(261, $plan->implementedStepCount());
         $this->assertSame('ad5f2aa2e14ef248b95dd3dda0d1cbcb2e69d441', $plan->summary()['authority_blob']);
-        $this->assertSame('23e259f945fc619556180b7e047c36cdfbf098157b3774d1f647729169de1aa4', $plan->executionIdentity());
+        $this->assertSame('82da84d3efb312d78b432ad6081491c04b03569a0f250722d6befc11ca233712', $plan->executionIdentity());
         $this->assertSame([
             'MIG-EXT-BTREE-GIST',
             'MIG-TBL-ORGANIZATIONS',
@@ -266,7 +266,12 @@ class MigrationPlanContractTest extends TestCase
         $this->assertSame($backfillNodes, array_column($plan->phaseSteps('backfill'), 'node_id'));
         $this->assertSame($reconcileNodes, array_column($plan->phaseSteps('reconcile'), 'node_id'));
         $this->assertSame($validateNodes, array_column($plan->phaseSteps('validate'), 'node_id'));
-        $this->assertSame([], $plan->phaseSteps('contract'));
+        $this->assertSame([
+            'MIG-PRJ-CALENDAR-RESOURCE-CLAIMS',
+            'MIG-PRJ-PURCHASE-HISTORY',
+            'MIG-PRJ-ORGANIZATION-ACTIVITY',
+            'MIG-PRJ-NOTIFICATIONS',
+        ], array_column($plan->phaseSteps('contract'), 'node_id'));
     }
 
     public function test_write_fence_requires_all_earlier_phases_to_be_fully_applied(): void

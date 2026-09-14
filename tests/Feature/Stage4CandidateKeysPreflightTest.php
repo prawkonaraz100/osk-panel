@@ -19,9 +19,9 @@ final class Stage4CandidateKeysPreflightTest extends TestCase
         $plan->validate();
 
         $this->assertSame(170, $plan->implementedNodeCount());
-        $this->assertSame(257, $plan->implementedStepCount());
+        $this->assertSame(261, $plan->implementedStepCount());
         $this->assertSame(
-            '23e259f945fc619556180b7e047c36cdfbf098157b3774d1f647729169de1aa4',
+            '82da84d3efb312d78b432ad6081491c04b03569a0f250722d6befc11ca233712',
             $plan->executionIdentity(),
         );
 
