@@ -103,7 +103,7 @@ Authority candidate ancestry:
 
 Exact accepted authority tree:
 
-`c1ceb82ef27d76eaa9ef64e6b49ea4bc449d8871`
+`d6d72a4ccab2aa0b0e37f94f3847a999a2faebfb`
 
 Validation on the exact accepted authority head:
 

@@ -6228,7 +6228,7 @@ CORE_V1_AUTH_SOCIAL_AUTHORITY_001_gate:
     initial_candidate_head: 22ee9272a05d02e223a75f2c63779634a9a7ce3d
     authenticated_link_corrective_head: 7ff20236b620a22a07c4bd56e916c5d894cc370b
     exact_authority_head: df4b67c10611ce48f7b39276bc957a69393d3a71
-    exact_authority_tree: c1ceb82ef27d76eaa9ef64e6b49ea4bc449d8871
+    exact_authority_tree: d6d72a4ccab2aa0b0e37f94f3847a999a2faebfb
     exact_head_Implementation_CI_run: 34851280825
     exact_head_API_Contract_Gate_run: 34851280784
   executable_evidence:
