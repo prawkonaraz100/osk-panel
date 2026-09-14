@@ -6545,3 +6545,66 @@ CORE_V1_ORGANIZATION_SETTINGS_001_gate:
     action: recompute_repository_HTTP_runtime_UI_closure_after_three_provider_neutral_bindings
     rule: recompute_not_assume_no_PKK_runtime
 
+CORE_V1_CLOSURE_AUDIT_008_gate:
+  id: CORE-V1-CLOSURE-AUDIT-008
+  status: AUDIT_COMPLETE_SOCIAL_SCHEMA_CORRECTIVE_NEXT
+  authority: docs/193-core-v1-closure-audit-008.md
+  audited_accepted_tip: 4a24f9fcb66f76cd92e7de7329ae8ab6cacc8629
+  audited_tree: 12245313d8db23b09afd4ad81e2c04b7aaa01ec2
+  prerequisite: CORE-V1-ORGANIZATION-SETTINGS-001_PASS
+  closure_evidence:
+    Implementation_CI_run: 34872638376
+    API_Contract_Gate_run: 34872638395
+    PostgreSQL_suite_tests: 316
+    PostgreSQL_suite_assertions: 5619
+    deterministic_restore_harness: PASS
+    restore_source_table_count: 121
+    restore_restored_table_count: 121
+    restore_schema_fingerprint: 09c57afe2501c79a3a684c0a695b4619114f94ddc24c9bca33728d99c1abb155
+  Stage4_live_authority:
+    plan_identity: d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10
+    execution_identity: 82da84d3efb312d78b432ad6081491c04b03569a0f250722d6befc11ca233712
+    authority_git_blob: ad5f2aa2e14ef248b95dd3dda0d1cbcb2e69d441
+    node_count: 170
+    implemented_node_count: 170
+    implemented_step_count: 261
+  HTTP_inventory:
+    canonical_required_inline_HTTP_operations: 172
+    required_physical_bindings_present: 150
+    missing_physical_bindings_total: 22
+    frozen_PKK_missing_bindings: 14
+    provider_specific_payment_webhook_missing_bindings: 1
+    repo_actionable_HTTP_bindings_missing: 7
+  implementation_ready:
+    count: 0
+    operations: []
+  schema_corrective_blocked:
+    count: 2
+    operations:
+      - auth.social_redirect
+      - auth.social_callback
+  authority_blocked_remaining:
+    count: 5
+    identity_password_recovery: 2
+    student_progress: 1
+    commerce_order_create: 2
+  non_HTTP_repo_P1:
+    additional_open_count: 1
+    items:
+      - social_provider_subject_unique_physical_enforcement_missing
+  result:
+    repository_complete: false
+    repo_P0_open: 0
+    repo_P1_open: true
+    implementation_ready_missing_bindings: 0
+    schema_corrective_blocked_bindings: 2
+    authority_blocked_missing_bindings: 5
+    PKK_provider_runtime_status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+  safe_continuation:
+    next_gate: CORE-V1-STAGE5-SOCIAL-SUBJECT-UNIQUE-001
+    authority_gate_status: PASS
+    social_HTTP_runtime_change: forbidden
+    frozen_Stage4_edit: forbidden
+    existing_formal_documents_extension_mutation: forbidden
+    PKK_runtime_activation: forbidden
+
