@@ -42,7 +42,7 @@ The runtime:
 - detects an active application session to choose `authenticated_link` vs `sign_in`,
 - generates at least 32 random bytes for state,
 - stores state only by SHA-256 key in server-side cache,
-- binds provider, framework-session hash, local return URL, mode, initiating user/session, PKCE verifier and expiry,
+- binds provider, a SHA-256 hash of a 32-byte nonce stored only in the framework session, local return URL, mode, initiating user/session, PKCE verifier and expiry,
 - uses a 600-second TTL,
 - uses PKCE S256.
 

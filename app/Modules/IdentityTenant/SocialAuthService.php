@@ -22,7 +22,7 @@ final class SocialAuthService
 
     public function begin(
         string $provider,
-        string $frameworkSessionId,
+        string $frameworkSessionBinding,
         ?string $authSessionId,
         mixed $returnUrl,
     ): string {
@@ -42,7 +42,7 @@ final class SocialAuthService
 
         $stored = Cache::put($this->stateKey($stateHash), [
             'provider' => $provider,
-            'framework_session_hash' => hash('sha256', $frameworkSessionId),
+            'framework_session_binding_hash' => hash('sha256', $frameworkSessionBinding),
             'return_url' => $validatedReturnUrl,
             'initiation_mode' => $mode,
             'initiating_user_id' => $activeSession['user_id'] ?? null,
@@ -77,7 +77,7 @@ final class SocialAuthService
      */
     public function callback(
         string $provider,
-        string $frameworkSessionId,
+        string $frameworkSessionBinding,
         ?string $currentAuthSessionId,
         mixed $state,
         mixed $code,
@@ -87,7 +87,7 @@ final class SocialAuthService
         $returnUrl = is_string($claimed['return_url'] ?? null) ? $claimed['return_url'] : '/';
 
         if (($claimed['provider'] ?? null) !== $provider
-            || ($claimed['framework_session_hash'] ?? null) !== hash('sha256', $frameworkSessionId)
+            || ($claimed['framework_session_binding_hash'] ?? null) !== hash('sha256', $frameworkSessionBinding)
             || ! is_int($claimed['expires_at'] ?? null)
             || $claimed['expires_at'] <= now()->getTimestamp()) {
             throw new SocialAuthFlowException($returnUrl);

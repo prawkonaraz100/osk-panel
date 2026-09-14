@@ -15,11 +15,12 @@ final class SocialAuthController
 
     public function redirect(Request $request, string $provider): RedirectResponse
     {
-        $request->session()->put('social_oauth_pending', true);
+        $binding = rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=');
+        $request->session()->put('social_oauth_binding', $binding);
 
         $url = $this->social->begin(
             $provider,
-            $request->session()->getId(),
+            $binding,
             $this->sessionId($request),
             $request->query('return_url'),
         );
@@ -29,17 +30,22 @@ final class SocialAuthController
 
     public function callback(Request $request, string $provider): RedirectResponse
     {
+        $binding = $request->session()->get('social_oauth_binding');
+        if (! is_string($binding) || $binding === '') {
+            return redirect()->to($this->errorUrl('/'));
+        }
+
         try {
             $result = $this->social->callback(
                 $provider,
-                $request->session()->getId(),
+                $binding,
                 $this->sessionId($request),
                 $request->query('state'),
                 $request->query('code'),
                 $request->query('error'),
             );
         } catch (SocialAuthFlowException $exception) {
-            $request->session()->forget('social_oauth_pending');
+            $request->session()->forget('social_oauth_binding');
 
             return redirect()->to($this->errorUrl($exception->returnUrl));
         }
