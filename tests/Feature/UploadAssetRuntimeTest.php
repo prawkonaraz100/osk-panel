@@ -3,6 +3,8 @@
 namespace Tests\Feature;
 
 use Aws\Exception\AwsException;
+use App\Modules\ResourcesCore\StaffService;
+use App\Modules\ResourcesCore\VehicleService;
 use Aws\S3\S3Client;
 use Database\Seeders\FormalTrainingDocumentTemplateSeeder;
 use Illuminate\Support\Facades\DB;
@@ -335,6 +337,112 @@ final class UploadAssetRuntimeTest extends TestCase
         ]);
 
         return $id;
+    }
+
+    public function test_resource_photo_uploads_bind_to_concrete_staff_and_vehicle_before_attachment(): void
+    {
+        $actor = FoundationSchema::actor();
+
+        $staff = app(StaffService::class)->create(
+            $actor['session_id'],
+            [
+                'email' => 'resource-photo.staff@example.test',
+                'first_name' => 'Photo',
+                'last_name' => 'Staff',
+                'staff_type_codes' => ['OfficeWorker'],
+                'category_ids' => [],
+                'location_ids' => [],
+            ],
+            (string) Str::uuid7(),
+        );
+        $vehicle = app(VehicleService::class)->create(
+            $actor['session_id'],
+            [
+                'registration_number' => 'KRPHOTO1',
+                'make' => 'Toyota',
+                'model' => 'Yaris',
+                'category_ids' => [],
+                'location_ids' => [],
+            ],
+            (string) Str::uuid7(),
+        );
+
+        $staffAssetId = $this->readyPhotoUpload(
+            $actor,
+            'staff_photo',
+            'staff_profile',
+            (string) $staff['id'],
+        );
+        $vehicleAssetId = $this->readyPhotoUpload(
+            $actor,
+            'vehicle_photo',
+            'vehicle',
+            (string) $vehicle['id'],
+        );
+
+        $staff = app(StaffService::class)->update(
+            $actor['session_id'],
+            (string) $staff['id'],
+            ['photo_asset_id' => $staffAssetId],
+            (string) Str::uuid7(),
+        );
+        $vehicle = app(VehicleService::class)->update(
+            $actor['session_id'],
+            (string) $vehicle['id'],
+            ['photo_asset_id' => $vehicleAssetId],
+            (string) Str::uuid7(),
+        );
+
+        $this->assertSame($staffAssetId, $staff['photo_asset_id']);
+        $this->assertSame($vehicleAssetId, $vehicle['photo_asset_id']);
+        $this->assertSame('ready', DB::table('file_assets')->where('id', $staffAssetId)->value('status'));
+        $this->assertSame('ready', DB::table('file_assets')->where('id', $vehicleAssetId)->value('status'));
+        $this->assertStringContainsString(
+            '/staff_profile/'.(string) $staff['id'].'/',
+            (string) DB::table('file_assets')->where('id', $staffAssetId)->value('storage_key'),
+        );
+        $this->assertStringContainsString(
+            '/vehicle/'.(string) $vehicle['id'].'/',
+            (string) DB::table('file_assets')->where('id', $vehicleAssetId)->value('storage_key'),
+        );
+    }
+
+    /**
+     * @param  array{organization_id:string,user_id:string,membership_id:string,session_id:string}  $actor
+     */
+    private function readyPhotoUpload(
+        array $actor,
+        string $purpose,
+        string $parentType,
+        string $parentId,
+    ): string {
+        $bytes = $this->pngBytes();
+        $hash = hash('sha256', $bytes);
+
+        $presign = $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->postJson('/api/v1/uploads/presign', [
+                'purpose' => $purpose,
+                'filename' => $purpose.'.png',
+                'declared_mime' => 'image/png',
+                'size_bytes' => strlen($bytes),
+                'sha256' => $hash,
+                'parent_type' => $parentType,
+                'parent_id' => $parentId,
+            ])
+            ->assertCreated();
+
+        $uploadId = (string) $presign->json('upload_id');
+        $reservationKey = (string) DB::table('file_assets')->where('id', $uploadId)->value('storage_key');
+        Storage::disk('s3')->put($reservationKey, $bytes);
+
+        $complete = $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->withHeader('Idempotency-Key', (string) Str::uuid7())
+            ->postJson("/api/v1/uploads/{$uploadId}/complete", ['sha256' => $hash])
+            ->assertOk();
+
+        $this->assertSame('ready', $complete->json('status'));
+
+        return $uploadId;
     }
 
     private function pngBytes(): string

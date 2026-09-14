@@ -45,14 +45,14 @@ changed_scope:
     ui: confirmation-driven archive actions with restore state
     acceptance_test: Tests\Feature\ResourcesCoreTest::test_vehicle_document_replacement_preserves_superseded_history
     status: IMPLEMENTED
-  - evidence: specs/screens/staff-create.yml
-    requirement: staff photo field remains visible but secure upload transport must not be invented inside this slice
-    domain_data: staff_profiles.photo_asset_id + file_assets
-    api_use_case: existing photo_asset_id is validated for same tenant purpose and ready state; upload transport deferred
-    permission: staff.create/edit plus future active_membership_plus_parent_domain_permission for upload
-    ui: photo picker visible with explicit dependency notice until uploads_assets slice
-    acceptance_test: Tests\Feature\ResourcesCoreTest::test_private_asset_reference_requires_tenant_purpose_and_ready_state
-    status: DEFERRED_OUTSIDE_CORE_WITH_EXPLICIT_DECISION
+  - evidence: specs/screens/staff-create.yml + specs/screens/vehicle-edit.yml
+    requirement: confirmed optional staff and vehicle photo fields use the shared verified UploadsAssets transport and attach only ready same-tenant purpose-bound assets
+    domain_data: staff_profiles.photo_asset_id + vehicles.photo_asset_id + file_assets
+    api_use_case: uploads.presign + uploads.complete + staff.update + vehicles.update
+    permission: staff.create/edit or vehicles.create/edit plus active_membership_and_parent_domain_permission during upload
+    ui: resources/js/modules/ResourcesCore/ResourceWorkspace.vue with direct private PUT and retry-without-reupload attachment recovery
+    acceptance_test: Tests\Feature\UploadAssetRuntimeTest::test_resource_photo_uploads_bind_to_concrete_staff_and_vehicle_before_attachment + Tests\Unit\ResourcesAssetsUiContractTest::test_confirmed_staff_and_vehicle_photo_fields_use_verified_upload_transport
+    status: IMPLEMENTED
   - evidence: specs/screens/vehicle-detail.yml
     requirement: calendar controls and context links are preserved while calendar scheduling engine remains a later core module
     domain_data: vehicle and staff resource identifiers only in this slice

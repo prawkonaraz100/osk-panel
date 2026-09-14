@@ -37,3 +37,12 @@ changed_scope:
     ui: SHARED_UPLOAD_TRANSPORT_NO_STANDALONE_UI_REQUIRED
     acceptance_test: Tests\Feature\UploadAssetRuntimeTest::test_staff_photo_upload_is_purpose_bound_hash_verified_and_immutable_after_completion
     status: IMPLEMENTED
+  - evidence: specs/screens/staff-create.yml + specs/screens/vehicle-edit.yml
+    requirement: confirmed Resource photo pickers execute presign direct private PUT complete and then attach the ready asset by canonical resource mutation without persisting raw object-storage credentials
+    domain_data: file_assets + staff_profiles.photo_asset_id + vehicles.photo_asset_id
+    api_use_case: uploads.presign + uploads.complete + staff.update + vehicles.update
+    permission: parent-scoped staff.edit or vehicles.edit after the resource exists; create flows materialize the resource before upload
+    ui: resources/js/modules/ResourcesCore/ResourceWorkspace.vue + resources/js/modules/ResourcesCore/uploads.ts
+    acceptance_test: Tests\\Feature\\UploadAssetRuntimeTest::test_resource_photo_uploads_bind_to_concrete_staff_and_vehicle_before_attachment + Tests\\Unit\\ResourcesAssetsUiContractTest::test_confirmed_staff_and_vehicle_photo_fields_use_verified_upload_transport
+    status: IMPLEMENTED
+

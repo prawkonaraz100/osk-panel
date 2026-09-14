@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import CalendarShell from './CalendarShell.vue'
 import { ApiError, api } from './api'
+import { uploadResourcePhoto } from './uploads'
 
 type LocationType = { code: string; label: string }
 type Category = { id: string; code: string; label: string; active: boolean }
@@ -133,7 +134,10 @@ const currentVehicle = ref<VehicleResource | null>(null)
 const currentEtag = ref<string | null>(null)
 
 const drawer = ref<'location' | 'staff' | 'vehicle' | null>(null)
+const pendingPhotoFile = ref<File | null>(null)
 const pendingPhotoName = ref('')
+const readyPhotoAssetId = ref<string | null>(null)
+const removeVehiclePhoto = ref(false)
 
 const locationForm = ref<LocationForm>(emptyLocationForm())
 const staffForm = ref<StaffForm>(emptyStaffForm())
@@ -318,11 +322,13 @@ async function openLocationEdit(item: LocationResource): Promise<void> {
 
 function openStaffCreate(): void {
   currentEtag.value = null
+  resetPendingPhoto()
   staffForm.value = emptyStaffForm()
   drawer.value = 'staff'
 }
 
 function openStaffEdit(item: StaffResource): void {
+  resetPendingPhoto()
   staffForm.value = {
     id: item.id,
     email: item.email,
@@ -344,11 +350,13 @@ function openStaffEdit(item: StaffResource): void {
 
 function openVehicleCreate(): void {
   currentEtag.value = null
+  resetPendingPhoto()
   vehicleForm.value = emptyVehicleForm()
   drawer.value = 'vehicle'
 }
 
 function openVehicleEdit(item: VehicleResource): void {
+  resetPendingPhoto()
   vehicleForm.value = {
     id: item.id,
     registration_number: item.registration_number,
@@ -368,8 +376,12 @@ function openVehicleEdit(item: VehicleResource): void {
 }
 
 function closeDrawer(): void {
+  if (readyPhotoAssetId.value && !window.confirm(
+    'Zdjęcie jest już bezpiecznie zapisane, ale nie zostało jeszcze podpięte do zasobu. Zamknąć formularz mimo to?',
+  )) return
+
   drawer.value = null
-  pendingPhotoName.value = ''
+  resetPendingPhoto()
   error.value = ''
 }
 
@@ -434,20 +446,48 @@ async function saveStaff(): Promise<void> {
       body.create_login_account = true
     }
 
+    let saved: { data: StaffResource; etag: string | null }
     if (staffForm.value.id) {
-      const result = await api<StaffResource>(`/api/v1/staff/${staffForm.value.id}`, {
+      saved = await api<StaffResource>(`/api/v1/staff/${staffForm.value.id}`, {
         method: 'PATCH',
         headers: currentEtag.value ? { 'If-Match': currentEtag.value } : undefined,
         body: JSON.stringify(body),
       })
-      currentStaff.value = result.data
-      currentEtag.value = result.etag
     } else {
-      await api<StaffResource>('/api/v1/staff', {
+      saved = await api<StaffResource>('/api/v1/staff', {
         method: 'POST',
         idempotent: true,
         body: JSON.stringify(body),
       })
+      staffForm.value.id = saved.data.id
+    }
+
+    currentEtag.value = saved.etag
+    currentStaff.value = detailId ? saved.data : currentStaff.value
+
+    if (pendingPhotoFile.value || readyPhotoAssetId.value) {
+      let assetId = readyPhotoAssetId.value
+      if (!assetId && pendingPhotoFile.value) {
+        const asset = await uploadResourcePhoto(
+          pendingPhotoFile.value,
+          'staff_photo',
+          'staff_profile',
+          saved.data.id,
+        )
+        assetId = asset.id
+        readyPhotoAssetId.value = asset.id
+      }
+
+      if (assetId) {
+        saved = await api<StaffResource>(`/api/v1/staff/${saved.data.id}`, {
+          method: 'PATCH',
+          headers: saved.etag ? { 'If-Match': saved.etag } : undefined,
+          body: JSON.stringify({ photo_asset_id: assetId }),
+        })
+        currentEtag.value = saved.etag
+        currentStaff.value = detailId ? saved.data : currentStaff.value
+        resetPendingPhoto()
+      }
     }
 
     notice.value = 'Dane pracownika zostały zapisane.'
@@ -455,6 +495,9 @@ async function saveStaff(): Promise<void> {
     await load()
   } catch (caught: unknown) {
     handleError(caught)
+    if (readyPhotoAssetId.value) {
+      error.value += ' Zdjęcie jest już zweryfikowane. Ponów „Zapisz”, aby podpiąć ten sam gotowy plik bez ponownego wysyłania.'
+    }
   } finally {
     saving.value = false
   }
@@ -464,7 +507,7 @@ async function saveVehicle(): Promise<void> {
   saving.value = true
   error.value = ''
   try {
-    const body = {
+    const body: Record<string, unknown> = {
       registration_number: vehicleForm.value.registration_number,
       side_number: vehicleForm.value.side_number || null,
       make: vehicleForm.value.make,
@@ -479,27 +522,63 @@ async function saveVehicle(): Promise<void> {
       ac_valid_until: vehicleForm.value.ac_valid_until || null,
     }
 
+    if (removeVehiclePhoto.value) {
+      body.photo_asset_id = null
+    }
+
+    let saved: { data: VehicleResource; etag: string | null }
     if (vehicleForm.value.id) {
-      const result = await api<VehicleResource>(`/api/v1/vehicles/${vehicleForm.value.id}`, {
+      saved = await api<VehicleResource>(`/api/v1/vehicles/${vehicleForm.value.id}`, {
         method: 'PATCH',
         headers: currentEtag.value ? { 'If-Match': currentEtag.value } : undefined,
         body: JSON.stringify(body),
       })
-      currentVehicle.value = result.data
-      currentEtag.value = result.etag
     } else {
-      await api<VehicleResource>('/api/v1/vehicles', {
+      saved = await api<VehicleResource>('/api/v1/vehicles', {
         method: 'POST',
         idempotent: true,
         body: JSON.stringify(body),
       })
+      vehicleForm.value.id = saved.data.id
     }
 
+    currentEtag.value = saved.etag
+    currentVehicle.value = detailId ? saved.data : currentVehicle.value
+
+    if (pendingPhotoFile.value || readyPhotoAssetId.value) {
+      let assetId = readyPhotoAssetId.value
+      if (!assetId && pendingPhotoFile.value) {
+        const asset = await uploadResourcePhoto(
+          pendingPhotoFile.value,
+          'vehicle_photo',
+          'vehicle',
+          saved.data.id,
+        )
+        assetId = asset.id
+        readyPhotoAssetId.value = asset.id
+      }
+
+      if (assetId) {
+        saved = await api<VehicleResource>(`/api/v1/vehicles/${saved.data.id}`, {
+          method: 'PATCH',
+          headers: saved.etag ? { 'If-Match': saved.etag } : undefined,
+          body: JSON.stringify({ photo_asset_id: assetId }),
+        })
+        currentEtag.value = saved.etag
+        currentVehicle.value = detailId ? saved.data : currentVehicle.value
+        resetPendingPhoto()
+      }
+    }
+
+    removeVehiclePhoto.value = false
     notice.value = 'Pojazd został zapisany.'
     closeDrawer()
     await load()
   } catch (caught: unknown) {
     handleError(caught)
+    if (readyPhotoAssetId.value) {
+      error.value += ' Zdjęcie jest już zweryfikowane. Ponów „Zapisz”, aby podpiąć ten sam gotowy plik bez ponownego wysyłania.'
+    }
   } finally {
     saving.value = false
   }
@@ -617,15 +696,32 @@ async function command(url: string, successMessage: string): Promise<void> {
   }
 }
 
+function resetPendingPhoto(): void {
+  pendingPhotoFile.value = null
+  pendingPhotoName.value = ''
+  readyPhotoAssetId.value = null
+  removeVehiclePhoto.value = false
+}
+
 function handlePhoto(event: Event): void {
   const input = event.target as HTMLInputElement
-  pendingPhotoName.value = input.files?.[0]?.name ?? ''
+  pendingPhotoFile.value = input.files?.[0] ?? null
+  pendingPhotoName.value = pendingPhotoFile.value?.name ?? ''
+  readyPhotoAssetId.value = null
+  if (pendingPhotoFile.value) {
+    removeVehiclePhoto.value = false
+  }
 }
 
 function handleError(caught: unknown): void {
   if (caught instanceof ApiError) {
     const fieldMessages = Object.values(caught.fields).flat()
     error.value = fieldMessages[0] ?? caught.message
+    return
+  }
+
+  if (caught instanceof Error && caught.message.trim() !== '') {
+    error.value = caught.message
     return
   }
 
@@ -1466,7 +1562,13 @@ function togglePermission(permission: string): void {
                 accept="image/*"
                 @change="handlePhoto"
               >
-              <small>{{ pendingPhotoName || 'Bezpieczny transport pliku zostanie podpięty w dedykowanym module UploadsAssets. Sam wybór pliku nie wysyła go teraz.' }}</small>
+              <small>{{
+                readyPhotoAssetId
+                  ? 'Zdjęcie jest zweryfikowane i czeka tylko na podpięcie. Ponów Zapisz.'
+                  : pendingPhotoName || (staffForm.id && currentStaff?.photo_asset_id
+                    ? 'Aktualne zdjęcie jest zapisane. Wybierz JPG, PNG lub WEBP do 10 MB, aby je zastąpić.'
+                    : 'JPG, PNG lub WEBP · maks. 10 MB · plik trafia bezpośrednio do prywatnego magazynu.')
+              }}</small>
             </label>
             <label
               v-if="!staffForm.id"
@@ -1608,7 +1710,23 @@ function togglePermission(permission: string): void {
                 accept="image/*"
                 @change="handlePhoto"
               >
-              <small>{{ pendingPhotoName || 'Pole jest zachowane. Transfer pliku zostanie uruchomiony dopiero z bezpiecznym pipeline UploadsAssets.' }}</small>
+              <small>{{
+                readyPhotoAssetId
+                  ? 'Zdjęcie jest zweryfikowane i czeka tylko na podpięcie. Ponów Zapisz.'
+                  : pendingPhotoName || (vehicleForm.id && currentVehicle?.photo_asset_id
+                    ? 'Aktualne zdjęcie jest zapisane. Wybierz JPG, PNG lub WEBP do 10 MB, aby je zastąpić.'
+                    : 'JPG, PNG lub WEBP · maks. 10 MB · plik trafia bezpośrednio do prywatnego magazynu.')
+              }}</small>
+            </label>
+            <label
+              v-if="vehicleForm.id && currentVehicle?.photo_asset_id && !pendingPhotoFile && !readyPhotoAssetId"
+              class="check full"
+            >
+              <input
+                v-model="removeVehiclePhoto"
+                type="checkbox"
+              >
+              <span>Usuń obecne zdjęcie z pojazdu</span>
             </label>
             <div class="form-actions full">
               <button
