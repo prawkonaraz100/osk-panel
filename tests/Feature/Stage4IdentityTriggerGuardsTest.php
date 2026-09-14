@@ -200,9 +200,11 @@ final class Stage4IdentityTriggerGuardsTest extends TestCase
         return DB::table('pg_trigger as trg')
             ->join('pg_class as cls', 'cls.oid', '=', 'trg.tgrelid')
             ->join('pg_namespace as ns', 'ns.oid', '=', 'cls.relnamespace')
+            ->join('pg_proc as pro', 'pro.oid', '=', 'trg.tgfoid')
             ->whereRaw('ns.nspname = current_schema()')
             ->where('trg.tgisinternal', false)
             ->whereRaw("COALESCE(obj_description(trg.oid, 'pg_trigger'), '') LIKE 'prawkonaraz:trigger-write-fence:v1:%'")
+            ->where('pro.proname', 'like', 'fn_guard_identity_%')
             ->whereIn('cls.relname', [
                 'organization_memberships',
                 'membership_permissions',
