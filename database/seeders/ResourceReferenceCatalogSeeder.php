@@ -53,6 +53,7 @@ final class ResourceReferenceCatalogSeeder extends Seeder
         'availability.slot.created', 'availability.slot.updated', 'availability.slot.booked', 'availability.slot.formalized', 'availability.slot.cancelled',
         'student_charge_created', 'student_charge_cancelled', 'student_payment_recorded', 'student_payment_reversed',
         'commerce.payment.started',
+        'commerce.license_order.created', 'commerce.internal_exam_order.created',
         'commerce.service_entitlement.activated',
         'learning_account_created', 'learning_account_updated', 'learning_account_password_reset', 'learning_account_handoff_created',
         'learning_account_credentials_pdf_downloaded',
