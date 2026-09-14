@@ -294,7 +294,7 @@ final class LearningAccessBulkCredentialDocumentTest extends TestCase
     }
 
     /**
-     * @param array{organization_id:string,user_id:string,membership_id:string,session_id:string} $actor
+     * @param  array{organization_id:string,user_id:string,membership_id:string,session_id:string}  $actor
      * @return array{0:array<string,mixed>,1:array<string,mixed>}
      */
     private function managedAccount(array $actor, string $login): array
@@ -315,7 +315,7 @@ final class LearningAccessBulkCredentialDocumentTest extends TestCase
     }
 
     /**
-     * @param array{organization_id:string,user_id:string,membership_id:string,session_id:string} $actor
+     * @param  array{organization_id:string,user_id:string,membership_id:string,session_id:string}  $actor
      * @return array<string,mixed>
      */
     private function student(array $actor): array
@@ -332,7 +332,7 @@ final class LearningAccessBulkCredentialDocumentTest extends TestCase
         );
     }
 
-    /** @param list<string> $accountIds
+    /** @param  list<string>  $accountIds
      * @return list<int>
      */
     private function versions(array $accountIds): array

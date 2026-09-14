@@ -10,7 +10,7 @@ final class LearningAccessBulkCredentialsPdfRendererTest extends TestCase
 {
     public function test_renderer_preserves_page_locale_in_one_combined_pdf(): void
     {
-        $renderer = new LearningAccessBulkCredentialsPdfRenderer();
+        $renderer = new LearningAccessBulkCredentialsPdfRenderer;
 
         $bytes = $renderer->render([
             [
@@ -40,7 +40,7 @@ final class LearningAccessBulkCredentialsPdfRendererTest extends TestCase
 
     public function test_secret_page_requires_fresh_plaintext_before_pdf_can_render(): void
     {
-        $renderer = new LearningAccessBulkCredentialsPdfRenderer();
+        $renderer = new LearningAccessBulkCredentialsPdfRenderer;
 
         $this->expectException(InvalidArgumentException::class);
         $renderer->render([[

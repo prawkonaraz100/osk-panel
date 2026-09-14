@@ -27,7 +27,7 @@ final class LearningAccessBulkCredentialsPdfRenderer
     ];
 
     /**
-     * @param list<BulkCredentialsPage> $pages
+     * @param  list<BulkCredentialsPage>  $pages
      */
     public function render(array $pages, bool $includePlaintextPassword): string
     {
@@ -44,7 +44,7 @@ final class LearningAccessBulkCredentialsPdfRenderer
     }
 
     /**
-     * @param BulkCredentialsPage $page
+     * @param  BulkCredentialsPage  $page
      */
     private function pageStream(array $page, bool $includePlaintextPassword): string
     {
@@ -158,7 +158,7 @@ final class LearningAccessBulkCredentialsPdfRenderer
         };
     }
 
-    /** @param list<string> $commands */
+    /** @param  list<string>  $commands */
     private function text(array &$commands, float $x, float $y, float $size, string $value, bool $bold = false): void
     {
         $commands[] = sprintf(
@@ -214,7 +214,7 @@ final class LearningAccessBulkCredentialsPdfRenderer
         return $bytes;
     }
 
-    /** @param list<string> $streams */
+    /** @param  list<string>  $streams */
     private function buildPdf(array $streams): string
     {
         $encoding = '<< /Type /Encoding /BaseEncoding /WinAnsiEncoding /Differences ['

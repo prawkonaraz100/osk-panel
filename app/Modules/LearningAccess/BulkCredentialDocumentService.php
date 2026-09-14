@@ -23,7 +23,7 @@ final class BulkCredentialDocumentService
     ) {}
 
     /**
-     * @param list<BulkTarget> $targets
+     * @param  list<BulkTarget>  $targets
      * @return array{bytes:string,filename:string,content_hash:string,batch_id:string,export_mode:string,selected_account_count:int}
      */
     public function generate(
@@ -415,7 +415,7 @@ final class BulkCredentialDocumentService
         ];
     }
 
-    /** @param Visibility $visibility */
+    /** @param  Visibility  $visibility */
     private function assertVisible(array $visibility, string $studentId): void
     {
         if (! $visibility['unrestricted'] && ! in_array($studentId, $visibility['student_ids'], true)) {
