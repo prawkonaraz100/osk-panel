@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
   "plan_identity": "d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10",
-  "execution_identity": "15a237c1cf88deeb2a8943d243761e2d1abc6cadc83f93356983206306e20924",
+  "execution_identity": "b0ea9422e89ef355be12c21a10580c202c8c4689f7fdf05908d59c94e81b6ae4",
   "stage4_root": "database/migrations/stage4",
   "implemented_steps": [
     {
@@ -1846,6 +1846,42 @@
       "migration_file": "database/migrations/stage4/write_fence/MIG-TRG-EVENTS/2026_09_10_001660_write_fence_triggers_events.php",
       "migration_name": "2026_09_10_001660_write_fence_triggers_events",
       "file_sha256": "1a5fd7634d63a358becfe2a535cfb5ecf96fbb49820e6b713f4919a4b18efdf5",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-PRJ-CALENDAR-RESOURCE-CLAIMS",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-PRJ-CALENDAR-RESOURCE-CLAIMS/2026_09_10_001670_write_fence_projection_calendar_resource_claims.php",
+      "migration_name": "2026_09_10_001670_write_fence_projection_calendar_resource_claims",
+      "file_sha256": "e01bcdc010e1a9dd97244a7e9db181e1962c3bcaa0cf2bc3c16c726f2a0e0807",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-PRJ-PURCHASE-HISTORY",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-PRJ-PURCHASE-HISTORY/2026_09_10_001680_write_fence_projection_purchase_history.php",
+      "migration_name": "2026_09_10_001680_write_fence_projection_purchase_history",
+      "file_sha256": "0dedd64bae7a7c52d0be6fb1172684face331dccccfd50d0cbd0475617da8b3a",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-PRJ-ORGANIZATION-ACTIVITY",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-PRJ-ORGANIZATION-ACTIVITY/2026_09_10_001690_write_fence_projection_organization_activity.php",
+      "migration_name": "2026_09_10_001690_write_fence_projection_organization_activity",
+      "file_sha256": "b4d2fd2826b26dacb06188593ec012a2e69893fc748537d7e5600960519c613b",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-PRJ-NOTIFICATIONS",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-PRJ-NOTIFICATIONS/2026_09_10_001700_write_fence_projection_notifications.php",
+      "migration_name": "2026_09_10_001700_write_fence_projection_notifications",
+      "file_sha256": "bf222a8806328a5d3967617f471c6dc7e99723b49ba675158867c0625ce37823",
       "restart_classification": "manual_review",
       "safe_down": false
     }

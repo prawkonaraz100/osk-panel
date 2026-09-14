@@ -4,10 +4,6 @@ namespace Tests\Feature;
 
 use App\Support\Migrations\ControlledMigrationContext;
 use App\Support\Migrations\MigrationPlan;
-use App\Support\Migrations\ProjectionGuards\CalendarResourceClaimsProjectionGuards;
-use App\Support\Migrations\ProjectionGuards\NotificationsProjectionGuards;
-use App\Support\Migrations\ProjectionGuards\OrganizationActivityProjectionGuards;
-use App\Support\Migrations\ProjectionGuards\PurchaseHistoryProjectionGuards;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
@@ -26,9 +22,9 @@ final class Stage4ProjectionGuardsTest extends TestCase
         $plan = app(MigrationPlan::class);
         $plan->validate();
 
-        $this->assertSame(166, $plan->implementedNodeCount());
-        $this->assertSame(205, $plan->implementedStepCount());
-        $this->assertCount(48, $plan->phaseSteps('write_fence'));
+        $this->assertSame(170, $plan->implementedNodeCount());
+        $this->assertSame(209, $plan->implementedStepCount());
+        $this->assertCount(52, $plan->phaseSteps('write_fence'));
 
         DB::beginTransaction();
 
@@ -53,10 +49,6 @@ final class Stage4ProjectionGuardsTest extends TestCase
                 }
             }
 
-            CalendarResourceClaimsProjectionGuards::install();
-            PurchaseHistoryProjectionGuards::install();
-            OrganizationActivityProjectionGuards::install();
-            NotificationsProjectionGuards::install();
 
             $triggers = $this->signedProjectionTriggers();
             $this->assertCount(10, $triggers);
