@@ -5319,3 +5319,58 @@ CORE_V1_SERVICE_ENTITLEMENTS_001_gate:
     action: prove_single_and_bulk_access_document_authority_before_materializing_missing_PDF_bindings
     rule: no_historical_plaintext_recovery_fresh_secret_only_at_authorized_handoff_or_reset_boundary
 
+CORE_V1_ORGANIZATION_GET_001_gate:
+  id: CORE-V1-ORGANIZATION-GET-001
+  status: PASS
+  authority_audit: docs/174-core-v1-organization-get-closure.md
+  exact_operations:
+    - organization.get
+  scope:
+    schema_or_migration_change: false
+    organizations_table_only: true
+    PKK_integration_settings_read: false
+    PKK_provider_runtime_activation: forbidden
+  provenance:
+    exact_head_commit: 873ed80ece9d1908c1ff39408f14f593a196c0a6
+    exact_head_Implementation_CI_run: 34822157005
+    exact_head_API_Contract_Gate_run: 34822156971
+  executable_evidence:
+    exact_head_Implementation_CI_jobs_passed: 5
+    exact_head_Implementation_CI_jobs_total: 5
+    API_Contract_Gate: PASS
+    PostgreSQL_suite_tests: 284
+    PostgreSQL_suite_assertions: 5278
+    deterministic_restore_harness: PASS
+    restore_source_table_count: 121
+    restore_restored_table_count: 121
+    restore_schema_fingerprint: 09c57afe2501c79a3a684c0a695b4619114f94ddc24c9bca33728d99c1abb155
+    backend_Pint_and_PHPStan: PASS
+    frontend_quality: PASS
+    contracts_and_traceability: PASS
+    secret_scan: PASS
+  authorization_postconditions:
+    active_membership_required: PASS
+    organization_view_required: PASS
+    organization_scope_required: PASS
+    foreign_organization_data_exposed: false
+  projection_postconditions:
+    canonical_source: organizations
+    returned_fields:
+      - id
+      - name
+      - nip
+      - phone
+      - timezone
+      - status
+    osk_registry_number_synthesized: false
+    osk_registry_number_read_from_frozen_PKK_settings: false
+  closure_effect:
+    repo_actionable_HTTP_bindings_before_this_gate: 15
+    HTTP_bindings_closed_by_this_gate: 1
+    derived_repo_actionable_HTTP_bindings_remaining: 14
+    full_closure_reaudit_required_before_repository_complete: true
+  next_after_PASS:
+    id: CORE-V1-ORGANIZATION-ACCEPTED-TERMS-001
+    action: expose_immutable_tenant_scoped_terms_acceptance_history
+    rule: no_PKK_runtime_no_technical_metadata_no_fabricated_document_resolver
+
