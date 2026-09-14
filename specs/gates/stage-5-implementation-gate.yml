@@ -4977,3 +4977,60 @@ CORE_V1_STAGE4_CONTRACT_001_gate:
     id: CORE-V1-CLOSURE-AUDIT-001
     action: rerun_repository_closure_audit_after_complete_stage4_migration_materialization
     rule: do_not_reopen_PKK_frozen_boundary_without_explicit_unfreeze
+
+CORE_V1_AUTH_SESSION_LIFECYCLE_001_gate:
+  id: CORE-V1-AUTH-SESSION-LIFECYCLE-001
+  status: PASS
+  authority_audit: docs/168-core-v1-auth-session-lifecycle-closure.md
+  exact_operations:
+    - auth.login
+    - auth.logout
+    - auth.sessions_list
+    - auth.session_revoke
+  scope:
+    schema_or_migration_change: false
+    existing_identity_authority_reused: true
+    registration_password_reset_account_closure_social_auth: deferred
+    organization_settings: deferred
+    PKK_provider_runtime_activation: forbidden
+  provenance:
+    implementation_commit: 38244f17cc64671888ab46c1c012bdcb56ec7781
+    implementation_Implementation_CI_run: 34810469456
+    corrective_exact_head: f08396fed68515df034a26951d52e3763a519812
+    corrective_Implementation_CI_run: 34810823513
+    corrective_API_Contract_Gate_run: 34810823541
+  executable_evidence:
+    exact_head_Implementation_CI_jobs_passed: 5
+    exact_head_Implementation_CI_jobs_total: 5
+    API_Contract_Gate: PASS
+    PostgreSQL_suite_tests: 269
+    PostgreSQL_suite_assertions: 5152
+    deterministic_restore_harness: PASS
+    restore_source_table_count: 121
+    restore_restored_table_count: 121
+    restore_schema_fingerprint: 09c57afe2501c79a3a684c0a695b4619114f94ddc24c9bca33728d99c1abb155
+  security_postconditions:
+    current_global_login_identifier_resolution: PASS
+    active_user_required: PASS
+    password_hash_only_verification: PASS
+    login_rate_limit_identifier_and_IP_scoped: PASS
+    framework_session_rotated_on_login: PASS
+    raw_framework_session_secret_persisted: false
+    framework_session_reference_SHA256_only: PASS
+    IP_address_persisted_raw: false
+    local_allowlisted_return_url_only: PASS
+    exactly_one_active_membership_auto_selected: true
+    ambiguous_multiple_active_memberships_select_arbitrary_tenant: false
+    logout_requires_active_membership: false
+    sessions_manage_own_permission_and_scope_rechecked: PASS
+    cross_user_session_target_hidden: PASS
+  closure_effect:
+    repo_actionable_HTTP_bindings_before_this_gate: 24
+    HTTP_bindings_closed_by_this_gate: 4
+    derived_repo_actionable_HTTP_bindings_remaining: 20
+    full_closure_reaudit_required_before_repository_complete: true
+  next_after_PASS:
+    id: CORE-V1-RESOURCE-ASSET-UI-001
+    action: connect_existing_UploadsAssets_transport_and_vehicle_document_runtime_to_confirmed_Resource_UI
+    rule: no_new_upload_authority_no_PKK_runtime_no_schema_change_without_proven_blocker
+
