@@ -89,7 +89,7 @@ final class ProductionOperationsSmoke
             );
         }
 
-        if (! (bool) config('incident_response.paging_smoke.enabled', false)) {
+        if ((bool) config('incident_response.paging_smoke.enabled', false) === false) {
             throw new LogicException('Production paging smoke delivery is disabled.');
         }
 
