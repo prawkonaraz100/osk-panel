@@ -154,7 +154,7 @@ async function submitRegistration(): Promise<void> {
     return
   }
 
-  let companyAddress
+  let companyAddress: ReturnType<typeof companyAddressPayload>
   try {
     companyAddress = companyAddressPayload()
   } catch (error) {
