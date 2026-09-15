@@ -1,7 +1,7 @@
 meta:
   id: production_operations_smoke_v1
   gate: PROD-OPS-SMOKE-001
-  status: CANDIDATE
+  status: PASS
   policy_version: 2026-09-15-v2
   follows:
     - PROD-RETENTION-EXECUTOR-001
@@ -56,3 +56,24 @@ external_evidence_still_required:
   - synthetic_alert_received_by_intended_operator
   - reconciliation_scheduler_execution_in_target_environment
   - reconciliation_alert_delivery_in_target_environment
+
+
+closure_evidence:
+  candidate_head: 0cfa7c2b631c2fa95a420d11e482b253737ed62d
+  implementation_ci_run: 34947240215
+  jobs:
+    backend_quality: PASS
+    frontend_quality: PASS
+    runtime_tests_and_migrations: PASS
+    contracts_and_traceability: PASS
+    secret_scan: PASS
+    release_artifact_on_pull_request: SKIPPED_BY_WORKFLOW_DESIGN
+  runtime:
+    postgres_backed_test_suite: PASS
+    deterministic_restore_drill_harness: PASS
+  repository_smoke_substrate:
+    status: PASS
+  external_target_evidence:
+    human_ack_proven: false
+    scheduler_runtime_proven: false
+    target_environment_smoke_executed: false

@@ -17,7 +17,7 @@ final class ProductionOperationsSmokeContractTest extends TestCase
         $web = (string) file_get_contents($root.'/routes/web.php');
         $console = (string) file_get_contents($root.'/routes/console.php');
 
-        self::assertStringContainsString('status: CANDIDATE', $spec);
+        self::assertStringContainsString('status: PASS', $spec);
         self::assertStringContainsString('operational_alerting_transport_reused: true', $spec);
         self::assertStringContainsString('duplicate_mail_transport: false', $spec);
         self::assertStringContainsString('human_ack_proven_by_repository: false', $spec);

@@ -3,7 +3,7 @@
 Data: 2026-09-15
 
 **Gate:** `PROD-OPS-SMOKE-001`  
-**Status:** `IMPLEMENTATION_CANDIDATE`
+**Status:** `PASS_REPOSITORY_SMOKE_SUBSTRATE`
 
 ## Starting authority
 
@@ -57,3 +57,35 @@ Reconciliation remains read-only. No customer/student, PKK, payment or credentia
 data is added to the synthetic alert payload.
 
 PKK/PWPW remains frozen. Provider-specific payment behavior remains outside scope.
+
+
+## Repository closure
+
+Validated candidate:
+
+`0cfa7c2b631c2fa95a420d11e482b253737ed62d`
+
+Implementation CI run:
+
+`34947240215`
+
+Result:
+
+- backend-quality — PASS,
+- frontend-quality — PASS,
+- contracts-and-traceability — PASS,
+- secret-scan — PASS,
+- runtime-tests-and-migrations — PASS,
+- PostgreSQL-backed test suite — PASS,
+- deterministic restore drill harness — PASS,
+- release-artifact — SKIPPED on pull request by workflow design.
+
+Repository status therefore means:
+
+`PRODUCTION_OPS_SMOKE_SUBSTRATE=PASS`
+
+It does **not** mean:
+
+`PRODUCTION_TARGET_SMOKE=PASS`
+
+Real operator receipt and real scheduler execution remain external go-live evidence.
