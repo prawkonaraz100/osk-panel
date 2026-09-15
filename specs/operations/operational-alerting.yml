@@ -1,7 +1,7 @@
 meta:
   id: operational_alerting_substrate_v1
   gate: PROD-OPERATIONAL-ALERTING-001
-  status: CANDIDATE
+  status: PASS
   policy_version: 2026-09-15-v1
   follows:
     - PROD-READINESS-RUNTIME-001
@@ -68,3 +68,23 @@ external_evidence_still_required:
 deferred_boundaries:
   PKK_PWPW: FROZEN_UNTIL_EXPLICIT_UNFREEZE
   payment_provider_specific_webhook: EXTERNAL_PROVIDER_BOUNDARY
+
+
+closure_evidence:
+  candidate_head: 2dae7bcc9bd3606c83d7710dffa723f434c10084
+  implementation_ci_run: 34944229712
+  jobs:
+    backend_quality: PASS
+    frontend_quality: PASS
+    runtime_tests_and_migrations: PASS
+    contracts_and_traceability: PASS
+    secret_scan: PASS
+    release_artifact_on_pull_request: SKIPPED_BY_WORKFLOW_DESIGN
+  runtime:
+    postgres_backed_test_suite: PASS
+    deterministic_restore_drill_harness: PASS
+  repository_alert_substrate:
+    status: PASS
+  production_target_alert_delivery:
+    status: NOT_PROVIDED_BY_REPOSITORY
+    human_receipt_claim: forbidden

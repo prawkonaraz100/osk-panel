@@ -3,7 +3,7 @@
 Data: 2026-09-15
 
 **Gate:** `PROD-OPERATIONAL-ALERTING-001`  
-**Status:** `IMPLEMENTATION_CANDIDATE`
+**Status:** `PASS_REPOSITORY_ALERT_SUBSTRATE`
 
 ## Starting authority
 
@@ -70,3 +70,39 @@ This gate does not:
 - activate production traffic,
 - unfreeze PKK/PWPW,
 - implement the payment-provider-specific webhook.
+
+
+## Repository closure
+
+Validated candidate:
+
+`2dae7bcc9bd3606c83d7710dffa723f434c10084`
+
+Implementation CI run:
+
+`34944229712`
+
+Exact candidate result:
+
+- backend-quality — PASS,
+- frontend-quality — PASS,
+- contracts-and-traceability — PASS,
+- secret-scan — PASS,
+- runtime-tests-and-migrations — PASS,
+- PostgreSQL-backed test suite — PASS as part of runtime job,
+- deterministic restore drill harness — PASS as part of runtime job,
+- release-artifact — SKIPPED on pull request by workflow design.
+
+Repository status therefore means:
+
+`OPERATIONAL_ALERT_SUBSTRATE=PASS`
+
+It proves the repository-owned provider-neutral transport, signed payload contract,
+fail-closed production configuration guard and synthetic smoke command.
+
+It does **not** mean:
+
+`PRODUCTION_ALERT_DELIVERY=PASS`
+
+Real endpoint configuration, route reachability, monitoring activation and receipt
+by an intended operator remain external go-live evidence.

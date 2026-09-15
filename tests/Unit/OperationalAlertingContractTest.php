@@ -27,7 +27,7 @@ final class OperationalAlertingContractTest extends TestCase
         self::assertStringContainsString('operational_alert_secret_present', $preflight);
         self::assertStringContainsString(OperationalAlertSmokeCommand::CONFIRMATION, file_get_contents($root.'/app/Console/Commands/OperationalAlertSmokeCommand.php'));
 
-        self::assertStringContainsString('status: CANDIDATE', $spec);
+        self::assertStringContainsString('status: PASS', $spec);
         self::assertStringContainsString('claims_human_received_page: false', $spec);
         self::assertStringContainsString('entity_identifiers_forbidden: true', $spec);
         self::assertStringContainsString('PKK_PWPW: FROZEN_UNTIL_EXPLICIT_UNFREEZE', $spec);
