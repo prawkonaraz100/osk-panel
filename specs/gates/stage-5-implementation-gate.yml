@@ -7342,7 +7342,7 @@ CORE_V1_CLOSURE_AUDIT_014_gate:
 
 CORE_V1_STUDENT_PROGRESS_AUTHORITY_001_gate:
   id: CORE-V1-STUDENT-PROGRESS-AUTHORITY-001
-  status: CANDIDATE
+  status: PASS
   authority:
     narrative: docs/207-core-v1-student-progress-authority.md
     machine: specs/design/student-progress.yml
@@ -7367,6 +7367,22 @@ CORE_V1_STUDENT_PROGRESS_AUTHORITY_001_gate:
     source_binding_table: learning_progress_source_bindings
     default_max_age_seconds: 300
     hardcoded_observed_totals: forbidden
+  closure_evidence:
+    validated_head: f0e275991eafa4de3594b8ca8dd94f0095a370c8
+    validated_tree: d71a791915e5564e5dd3d07a582d3d03dd51fbbf
+    Implementation_CI_run: 34915537700
+    Implementation_CI_jobs_passed: 5
+    Implementation_CI_jobs_total: 5
+    API_Contract_Gate_run: 34915537698
+    PostgreSQL_tests: 339
+    PostgreSQL_assertions: 5961
+    deterministic_restore: PASS
+    restore_source_tables: 122
+    restore_restored_tables: 122
+    restore_schema_fingerprint: f3cab286cc8f0aabef219971d90afe424a8dab694c47ade2f517a3d95970716d
+    authority_only_no_DDL: true
+    authority_only_no_HTTP_binding: true
+    authority_only_no_UI_enablement: true
   safe_continuation_after_PASS:
     next_gate: CORE-V1-STAGE5-STUDENT-PROGRESS-PROJECTION-001
     fresh_audit_required_before_HTTP_runtime: true

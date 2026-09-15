@@ -1,6 +1,6 @@
 meta:
   gate_id: CORE-V1-STUDENT-PROGRESS-AUTHORITY-001
-  status: CANDIDATE
+  status: PASS
   authority_doc: docs/207-core-v1-student-progress-authority.md
   source_audit: CORE-V1-CLOSURE-AUDIT-014
   operation: students.progress

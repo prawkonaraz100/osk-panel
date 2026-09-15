@@ -2,7 +2,7 @@
 
 Data: 2026-09-15
 
-**Status:** `CANDIDATE`
+**Status:** `PASS`
 
 ## Problem
 
@@ -305,3 +305,38 @@ After exact-head authority PASS:
 That gate may materialize only the two registered Stage5 tables and their exact invariants.
 
 A fresh closure audit is required after the schema corrective before any `students.progress` HTTP implementation.
+
+
+## Exact-head validation evidence
+
+Validated authority head:
+
+`f0e275991eafa4de3594b8ca8dd94f0095a370c8`
+
+Tree:
+
+`d71a791915e5564e5dd3d07a582d3d03dd51fbbf`
+
+Validation:
+
+- Implementation CI #582 / run `34915537700`: **5/5 PASS**
+- API Contract Gate #478 / run `34915537698`: **PASS**
+- PostgreSQL: **339 tests / 5961 assertions — PASS**
+- deterministic restore: **122 -> 122 PASS**
+- restore fingerprint: `f3cab286cc8f0aabef219971d90afe424a8dab694c47ade2f517a3d95970716d`
+- `RESTORE_DRILL_HARNESS=PASS`
+- backend Pint/PHPStan, frontend, contracts/traceability and secret scan: **PASS**
+
+No DDL, HTTP binding, UI enablement, PKK/PWPW runtime or provider webhook behavior was introduced by the authority gate.
+
+## Authority closure effect
+
+`CORE-V1-STUDENT-PROGRESS-AUTHORITY-001 = PASS`
+
+The sole repository-actionable Core V1 HTTP gap remains `students.progress`, but it is no longer authority-blocked. It is now schema-corrective blocked by the isolated projection extension.
+
+Next gate:
+
+`CORE-V1-STAGE5-STUDENT-PROGRESS-PROJECTION-001`
+
+That gate may materialize exactly the two registered Stage5 tables and their invariants. A fresh closure audit remains mandatory before the HTTP runtime/UI gate.

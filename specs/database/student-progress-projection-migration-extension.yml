@@ -1,7 +1,7 @@
 meta:
   extension_id: student_progress_projection_v1
   gate_authority: CORE-V1-STUDENT-PROGRESS-AUTHORITY-001
-  status: CANDIDATE
+  status: PASS
   authority_doc: docs/207-core-v1-student-progress-authority.md
 
 frozen_baselines:
