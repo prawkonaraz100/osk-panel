@@ -94,6 +94,35 @@ final class DevelopmentSampleDataCoreTest extends TestCase
             ->assertJsonPath('items.0.pricing_snapshot.pricing_revision', 'sample-dev-2026-09-15-v1');
     }
 
+    public function test_sample_internal_exam_offer_uses_same_server_price_used_by_order_create(): void
+    {
+        $actor = FoundationSchema::actor();
+        FoundationSchema::grant($actor['membership_id'], 'exams.purchase', ['organization']);
+
+        $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->getJson('/api/v1/internal-exam/purchase-offer')
+            ->assertOk()
+            ->assertJsonPath('display_name', 'Przykładowa pula egzaminów wewnętrznych')
+            ->assertJsonPath('unit_price.amount_minor', 200)
+            ->assertJsonPath('unit_price.currency', 'PLN')
+            ->assertJsonPath('list_unit_price.amount_minor', 200)
+            ->assertJsonPath('pricing_revision', 'sample-dev-2026-09-15-v1')
+            ->assertJsonPath('sample_data', true);
+
+        $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->withHeader('Idempotency-Key', (string) Str::uuid7())
+            ->postJson('/api/v1/internal-exam/orders', [
+                'quantity' => 2,
+                'payment_method' => 'bank_transfer',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('total.amount_minor', 400)
+            ->assertJsonPath('total.currency', 'PLN')
+            ->assertJsonPath('items.0.product_kind', 'internal_exam')
+            ->assertJsonPath('items.0.unit_amount_minor', 200)
+            ->assertJsonPath('items.0.quantity', 2);
+    }
+
     public function test_sample_accepted_terms_get_real_local_document_url_only_while_sample_mode_is_enabled(): void
     {
         $actor = FoundationSchema::actor();
