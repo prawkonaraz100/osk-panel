@@ -72,3 +72,13 @@ changed_scope:
       - PKK_PWPW_frozen_and_not_called
       - accepted_terms_document_url_not_synthesized
       - versioned_document_resolver_still_missing
+
+  - evidence: docs/175-core-v1-organization-accepted-terms-closure.md#Current-sample-only-document-resolver-note-2026-09-15
+    requirement: accepted terms keep document_url null for normal documents while the exact development sample terms version may expose its local noindex URL only when sample mode is enabled
+    domain_data: terms_acceptances + legal_documents + sample_data configuration
+    api_use_case: organization.accepted_terms.get + organization.settings.get
+    permission: organization.view
+    ui: resources/js/modules/OrganizationSettings/SettingsWorkspace.vue
+    acceptance_test: Tests\\Feature\\DevelopmentSampleDataCoreTest::test_sample_accepted_terms_get_real_local_document_url_only_while_sample_mode_is_enabled
+    status: IMPLEMENTED
+    acceptance_state: CANDIDATE_NOT_ACCEPTED
