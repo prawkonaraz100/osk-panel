@@ -87,7 +87,7 @@ Completed productization work:
 
 Current productization gaps confirmed by code audit:
 
-1. organization settings UI is an implementation candidate on `productization/organization-settings-ui-001`; `/ustawienia` is materialized with provider-neutral data/settings save, but the gate is not accepted until exact-head CI + clean promotion + accepted 6/6,
+1. organization settings UI on `productization/organization-settings-ui-001` is a **validated 5/5 candidate** on `0e3466ec…`; `/ustawienia` is materialized with provider-neutral data/settings save, but the gate remains open until final closure-head CI + clean promotion + accepted 6/6,
 2. no license purchase UI route despite backend `POST /api/v1/license-orders`,
 3. no internal-exam purchase UI route despite backend `POST /api/v1/internal-exam/orders`,
 4. no browser E2E suite for complete user golden paths,
