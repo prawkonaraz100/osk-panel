@@ -2,6 +2,10 @@
 
 Data: 2026-09-05
 
+**Status:** `HISTORICAL_PROCESS_CHECKLIST`
+
+> Checklist zachowuje użyteczną dyscyplinę implementacyjną, ale Core V1 jest już zaimplementowany. `READY_FOR_IMPLEMENTATION` poniżej oznacza dawną gotowość mapowania, nie bieżący stan kodu. Aktualny backlog: `docs/227-current-project-status-authority.md`.
+
 Przed rozpoczęciem kodowania konkretnego modułu developer/Codex sprawdza:
 
 ## Contract
