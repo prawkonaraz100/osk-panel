@@ -1,0 +1,80 @@
+meta:
+  id: production_environment_preflight_v1
+  gate: PROD-TARGET-CONFIG-PREFLIGHT-001
+  status: CANDIDATE
+  policy_version: 2026-09-15-v1
+  follows:
+    - PROD-READINESS-RUNTIME-001
+    - PROD-RETENTION-EXECUTOR-001
+
+scope:
+  repository_configuration_guard: true
+  deploys_target_infrastructure: false
+  production_ready_claim: forbidden
+  mutates_business_state: false
+  reads_secret_values_into_output: false
+
+command:
+  name: operations:production:preflight
+  HTTP_endpoint: none
+  scheduler: none
+  configuration_pass_exit_code: 0
+  configuration_fail_exit_code: nonzero
+  configuration_pass_still_means_go_live_blocked_external_evidence: true
+
+required_configuration_checks:
+  - APP_ENV_is_production
+  - APP_DEBUG_is_false
+  - APP_URL_is_https
+  - APP_KEY_is_present
+  - LOG_CHANNEL_is_json_stderr
+  - PostgreSQL_is_default_authority
+  - PostgreSQL_target_is_configured
+  - Redis_is_cache_backend
+  - Redis_is_session_backend
+  - secure_session_cookie_enabled
+  - Redis_is_queue_backend
+  - S3_is_default_storage
+  - S3_is_upload_storage
+  - S3_bucket_and_region_present
+  - explicit_S3_endpoint_is_https_when_present
+  - effective_password_recovery_mailer_is_not_log_or_array
+  - MAIL_FROM_ADDRESS_is_nonplaceholder_email
+  - password_reset_template_is_https_and_contains_token_placeholder
+  - sensitive_identifier_lookup_key_is_injected
+  - all_incident_contact_refs_are_injected
+  - privileged_retention_executor_is_disabled_for_baseline_deploy
+
+external_evidence_required:
+  - target_infrastructure_restore_drill
+  - production_backup_and_PITR_evidence
+  - production_object_versioning_and_restore_evidence
+  - production_secret_manager_or_equivalent_injection_evidence
+  - production_monitoring_dashboards_and_alert_routes
+  - incident_contact_roster_and_paging_smoke_test
+  - reconciliation_scheduler_execution_and_alert_delivery_smoke_test
+  - target_environment_release_smoke_test
+
+external_evidence_semantics:
+  repository_can_require_list: true
+  repository_can_truthfully_prove_target_execution: false
+  configuration_PASS_sets_production_ready_true: false
+  go_live_status_after_configuration_PASS: BLOCKED_EXTERNAL_EVIDENCE
+
+deferred_boundaries:
+  PKK_PWPW: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+  PKK_required_for_preflight: false
+  payment_provider_specific_webhook: EXTERNAL_PROVIDER_BOUNDARY
+  payment_provider_specific_webhook_required_for_preflight: false
+
+non_scope:
+  - choose_cloud_vendor
+  - create_production_database
+  - enable_PITR
+  - create_object_storage_bucket
+  - configure_secret_manager
+  - create_monitoring_dashboards
+  - configure_paging_provider
+  - execute_production_smoke
+  - activate_PKK
+  - implement_payment_provider_webhook
