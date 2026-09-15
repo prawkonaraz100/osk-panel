@@ -84,8 +84,9 @@ final class LicenseService
                     );
                 }
 
-                $pricing = $catalogRows->count() === 1
-                    ? $this->pricingCatalog->optional((string) $catalogRows->first()->code)
+                $catalogRow = $catalogRows->first();
+                $pricing = $catalogRows->count() === 1 && $catalogRow !== null
+                    ? $this->pricingCatalog->optional((string) $catalogRow->code)
                     : null;
 
                 return [
