@@ -165,8 +165,9 @@ final class GoLiveEvidenceCoreTest extends TestCase
         ];
     }
 
-    /** @param array<string,mixed> $details
-     *  @return array<string,mixed>
+    /**
+     * @param  array<string,mixed>  $details
+     * @return array<string,mixed>
      */
     private function entry(string $id, string $observedAt, array $details): array
     {

@@ -30,7 +30,7 @@ final class GoLiveEvidenceValidator
         $this->assertSha($expectedReleaseSha, 40, 'Expected release SHA');
         $this->assertSha($expectedArtifactSha256, 64, 'Expected artifact SHA-256');
 
-        if (! is_file($path) || ! is_readable($path)) {
+        if (is_file($path) === false || is_readable($path) === false) {
             throw new LogicException('Go-live evidence manifest is not a readable file.');
         }
 
@@ -45,7 +45,7 @@ final class GoLiveEvidenceValidator
             throw new LogicException('Go-live evidence manifest is not valid JSON.', 0, $exception);
         }
 
-        if (! is_array($manifest)) {
+        if (is_array($manifest) === false) {
             throw new LogicException('Go-live evidence manifest root must be an object.');
         }
 
@@ -57,7 +57,7 @@ final class GoLiveEvidenceValidator
 
         $policyVersion = $this->requiredString($manifest, 'policy_version', 'manifest');
         $expectedPolicy = config('go_live_evidence.policy_version');
-        if (! is_string($expectedPolicy) || ! hash_equals($expectedPolicy, $policyVersion)) {
+        if (is_string($expectedPolicy) === false || hash_equals($expectedPolicy, $policyVersion) === false) {
             throw new LogicException('Go-live evidence policy version mismatch.');
         }
 
@@ -70,26 +70,26 @@ final class GoLiveEvidenceValidator
         $this->assertSha($releaseSha, 40, 'Manifest release SHA');
         $this->assertSha($artifactSha256, 64, 'Manifest artifact SHA-256');
 
-        if (! hash_equals($expectedReleaseSha, $releaseSha)) {
+        if (hash_equals($expectedReleaseSha, $releaseSha) === false) {
             throw new LogicException('Go-live evidence release SHA does not match the requested release.');
         }
-        if (! hash_equals($expectedArtifactSha256, $artifactSha256)) {
+        if (hash_equals($expectedArtifactSha256, $artifactSha256) === false) {
             throw new LogicException('Go-live evidence artifact SHA-256 does not match the requested artifact.');
         }
 
         $evidence = $manifest['evidence'] ?? null;
-        if (! is_array($evidence) || ! array_is_list($evidence)) {
+        if (is_array($evidence) === false || array_is_list($evidence) === false) {
             throw new LogicException('Go-live evidence must be a JSON array.');
         }
 
         $required = config('go_live_evidence.required_evidence');
-        if (! is_array($required) || $required === []) {
+        if (is_array($required) === false || $required === []) {
             throw new LogicException('Required go-live evidence registry is unavailable.');
         }
 
         $requiredIds = [];
         foreach ($required as $id) {
-            if (! is_string($id) || trim($id) === '') {
+            if (is_string($id) === false || trim($id) === '') {
                 throw new LogicException('Required go-live evidence registry is invalid.');
             }
             $requiredIds[] = $id;
@@ -99,14 +99,14 @@ final class GoLiveEvidenceValidator
         $seen = [];
 
         foreach ($evidence as $entry) {
-            if (! is_array($entry)) {
+            if (is_array($entry) === false) {
                 throw new LogicException('Each go-live evidence entry must be an object.');
             }
 
             $this->assertExactKeys($entry, ['id', 'status', 'observed_at', 'evidence_ref', 'details'], 'evidence entry');
 
             $id = $this->requiredString($entry, 'id', 'evidence entry');
-            if (! in_array($id, $requiredIds, true)) {
+            if (in_array($id, $requiredIds, true) === false) {
                 throw new LogicException("Unknown go-live evidence id: {$id}.");
             }
             if (isset($seen[$id])) {
@@ -120,7 +120,7 @@ final class GoLiveEvidenceValidator
 
             $observedAt = $this->parseObservedAt($this->requiredString($entry, 'observed_at', $id), $id);
             $futureSkew = config('go_live_evidence.future_clock_skew_seconds', 300);
-            if (! is_int($futureSkew) || $futureSkew < 0) {
+            if (is_int($futureSkew) === false || $futureSkew < 0) {
                 throw new LogicException('Go-live evidence future clock skew policy is invalid.');
             }
             if ($observedAt->greaterThan($now->addSeconds($futureSkew))) {
@@ -133,7 +133,7 @@ final class GoLiveEvidenceValidator
             }
 
             $details = $entry['details'] ?? null;
-            if (! is_array($details)) {
+            if (is_array($details) === false) {
                 throw new LogicException("Go-live evidence {$id} details must be an object.");
             }
 
@@ -250,7 +250,7 @@ final class GoLiveEvidenceValidator
 
         foreach ($limits as $key => $maximum) {
             $value = $details[$key] ?? null;
-            if (! is_int($value) && ! is_float($value)) {
+            if (is_int($value) === false && is_float($value) === false) {
                 throw new LogicException("Restore drill measurement {$key} must be numeric.");
             }
             if ($value < 0 || $value > $maximum) {
@@ -259,7 +259,7 @@ final class GoLiveEvidenceValidator
         }
 
         $maxAgeDays = config('go_live_evidence.restore_drill_max_age_days', 90);
-        if (! is_int($maxAgeDays) || $maxAgeDays < 1) {
+        if (is_int($maxAgeDays) === false || $maxAgeDays < 1) {
             throw new LogicException('Restore drill maximum age policy is invalid.');
         }
         if ($observedAt->lessThan($now->subDays($maxAgeDays))) {
@@ -299,10 +299,10 @@ final class GoLiveEvidenceValidator
         $detailRelease = $this->requiredString($details, 'release_sha', 'target release smoke');
         $detailArtifact = $this->requiredString($details, 'artifact_sha256', 'target release smoke');
 
-        if (! hash_equals($releaseSha, $detailRelease)) {
+        if (hash_equals($releaseSha, $detailRelease) === false) {
             throw new LogicException('Target release smoke was not executed for the manifest release SHA.');
         }
-        if (! hash_equals($artifactSha256, $detailArtifact)) {
+        if (hash_equals($artifactSha256, $detailArtifact) === false) {
             throw new LogicException('Target release smoke was not executed for the manifest artifact SHA-256.');
         }
     }
@@ -333,7 +333,7 @@ final class GoLiveEvidenceValidator
     private function requiredString(array $object, string $key, string $context): string
     {
         $value = $object[$key] ?? null;
-        if (! is_string($value) || trim($value) === '') {
+        if (is_string($value) === false || trim($value) === '') {
             throw new LogicException("{$context} field {$key} must be a nonblank string.");
         }
 
