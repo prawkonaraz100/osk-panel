@@ -59,7 +59,7 @@ final class ProductionDeploymentPreflight
         $this->check($checks, 'storage.s3.bucket.configured', $this->nonBlank(config('filesystems.disks.s3.bucket')));
         $this->check($checks, 'storage.s3.region.configured', $this->nonBlank(config('filesystems.disks.s3.region')));
         $this->check($checks, 'storage.s3.endpoint.safe', $this->safeOptionalS3Endpoint(config('filesystems.disks.s3.endpoint')));
-        $this->check($checks, 'storage.s3.credentials.not_local_test_defaults', ! $this->hasKnownLocalStorageCredential());
+        $this->check($checks, 'storage.s3.credentials.not_local_test_defaults', !$this->hasKnownLocalStorageCredential());
 
         $mailer = config('mail.default');
         $this->check(
@@ -247,7 +247,7 @@ final class ProductionDeploymentPreflight
             'communications_lead',
             'paging_channel',
         ] as $key) {
-            if (! array_key_exists($key, $refs) || ! $this->nonBlank($refs[$key])) {
+            if (! array_key_exists($key, $refs) || !$this->nonBlank($refs[$key])) {
                 return false;
             }
         }
