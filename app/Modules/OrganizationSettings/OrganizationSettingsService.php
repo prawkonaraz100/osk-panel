@@ -69,7 +69,7 @@ final class OrganizationSettingsService
      *   version:int,
      *   basic_data:array{first_name:string,last_name:string,email:string},
      *   company_data:array{company_name:string,street:?string,house_number:?string,unit_number:?string,city:?string,postal_code:?string,phone:?string},
-     *   accepted_terms:list<array{version:string,accepted_at:string,accepted_by_user_id:string,document_url:null}>
+     *   accepted_terms:list<array{version:string,accepted_at:string,accepted_by_user_id:string,document_url:?string}>
      * }
      */
     public function settingsForManagement(string $sessionId): array
@@ -377,7 +377,7 @@ final class OrganizationSettingsService
      *   version:int,
      *   basic_data:array{first_name:string,last_name:string,email:string},
      *   company_data:array{company_name:string,street:?string,house_number:?string,unit_number:?string,city:?string,postal_code:?string,phone:?string},
-     *   accepted_terms:list<array{version:string,accepted_at:string,accepted_by_user_id:string,document_url:null}>
+     *   accepted_terms:list<array{version:string,accepted_at:string,accepted_by_user_id:string,document_url:?string}>
      * }
      */
     private function settingsProjection(string $organizationId, string $userId): array
@@ -422,7 +422,7 @@ final class OrganizationSettingsService
         ];
     }
 
-    /** @return list<array{version:string,accepted_at:string,accepted_by_user_id:string,document_url:null}> */
+    /** @return list<array{version:string,accepted_at:string,accepted_by_user_id:string,document_url:?string}> */
     private function acceptedTermsForOrganization(string $organizationId): array
     {
         $rows = DB::table('terms_acceptances as acceptance')
