@@ -6,11 +6,27 @@ screen:
   confidence: USER_CONFIRMED_AUTH_SCREEN
   verified_at: 2026-09-05
   doc: docs/59-internal-exam-purchase-screen.md
-  current_runtime_UI_status: CANDIDATE_PR
+  current_runtime_UI_status: ACCEPTED
   route_materialized: true
   gate: INTERNAL-EXAM-PURCHASE-UI-001
-  accepted_on_main: false
-  backend_purchase_offer_status: CANDIDATE_PR
+  accepted_on_main: true
+  pull_request: 127
+  accepted_head: a9d96553caff3a6b6d3955c224627451a4effd14
+  candidate_implementation_ci_run: 35021646666
+  candidate_implementation_ci: PASS_5_OF_5
+  candidate_api_contract_run: 35021646668
+  candidate_api_contract: PASS
+  accepted_implementation_ci_run: 35022787325
+  accepted_implementation_ci: PASS_6_OF_6
+  accepted_api_contract_run: 35022787327
+  accepted_api_contract: PASS
+  release_artifact_id: 10418766869
+  release_archive_sha256: 60e1686b033facdd52bfd368210f59fa6d337b355b608ada72bc4c8b8df0c546
+  github_artifact_zip_sha256: c208c25b2b313117a48bdf3c555de86aa9ef46fb61f3368d2ac63e91d2130fe0
+  postgres_tests: 389
+  postgres_assertions: 6444
+  restore_drill: PASS_122_TO_122
+  backend_purchase_offer_status: ACCEPTED
   backend_purchase_offer_operation: GET /api/v1/internal-exam/purchase-offer
   backend_order_create_status: IMPLEMENTED
   backend_order_create_operation: POST /api/v1/internal-exam/orders
@@ -134,7 +150,7 @@ remaining_gaps:
   - order_cancellation
   - success_error_messages
 
-ui_materialization_candidate:
+ui_materialization_accepted:
   gate: INTERNAL-EXAM-PURCHASE-UI-001
   route: /egzamin-wewnetrzny/wykup
   component: resources/js/modules/InternalExams/InternalExamPurchaseWorkspace.vue
