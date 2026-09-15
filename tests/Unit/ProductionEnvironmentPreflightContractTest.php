@@ -13,7 +13,7 @@ final class ProductionEnvironmentPreflightContractTest extends TestCase
         $bootstrap = (string) file_get_contents($root.'/bootstrap/app.php');
         $command = (string) file_get_contents($root.'/app/Console/Commands/ProductionPreflightCommand.php');
 
-        self::assertStringContainsString('status: CANDIDATE', $spec);
+        self::assertStringContainsString('status: PASS', $spec);
         self::assertStringContainsString('production_ready_claim: forbidden', $spec);
         self::assertStringContainsString('PKK_PWPW: FROZEN_UNTIL_EXPLICIT_UNFREEZE', $spec);
         self::assertStringContainsString('payment_provider_specific_webhook: EXTERNAL_PROVIDER_BOUNDARY', $spec);
