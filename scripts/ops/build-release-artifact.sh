@@ -23,12 +23,31 @@ manifest="dist/osk-panel-${release_sha}.manifest.json"
 
 rm -f "$artifact" "$checksum" "$manifest"
 
-tar -czf "$artifact"   app   artisan   bootstrap   composer.json   composer.lock   config   database   public   resources   routes   storage   vendor
+tar -czf "$artifact" \
+  --exclude='storage/logs/*' \
+  --exclude='storage/framework/cache/data/*' \
+  --exclude='storage/framework/sessions/*' \
+  --exclude='storage/framework/views/*' \
+  app \
+  artisan \
+  bootstrap \
+  composer.json \
+  composer.lock \
+  config \
+  database \
+  public \
+  resources \
+  routes \
+  storage \
+  vendor
 
 sha256sum "$artifact" > "$checksum"
 artifact_sha256="$(awk '{print $1}' "$checksum")"
 
-printf '{"release_sha":"%s","artifact":"%s","sha256":"%s","contains_env_file":false}\n'   "$release_sha"   "$(basename "$artifact")"   "$artifact_sha256" > "$manifest"
+printf '{"release_sha":"%s","artifact":"%s","sha256":"%s","contains_env_file":false}\n' \
+  "$release_sha" \
+  "$(basename "$artifact")" \
+  "$artifact_sha256" > "$manifest"
 
 if tar -tzf "$artifact" | grep -Eq '(^|/)\.env($|\.)'; then
   echo "Release artifact unexpectedly contains an environment file." >&2

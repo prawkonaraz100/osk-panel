@@ -143,6 +143,13 @@ jobs:
           npm run build
       - name: Build immutable release artifact
         run: scripts/ops/build-release-artifact.sh "${GITHUB_SHA}"
+      - name: Verify immutable release artifact
+        run: |
+          scripts/ops/verify-release-artifact.sh \
+            "${GITHUB_SHA}" \
+            "dist/osk-panel-${GITHUB_SHA}.tar.gz" \
+            "dist/osk-panel-${GITHUB_SHA}.tar.gz.sha256" \
+            "dist/osk-panel-${GITHUB_SHA}.manifest.json"
       - name: Upload immutable release artifact
         uses: actions/upload-artifact@v4
         with:

@@ -1,0 +1,111 @@
+meta:
+  id: production_deployment_preflight_v1
+  gate: PROD-DEPLOY-PREFLIGHT-001
+  status: CANDIDATE
+  follows:
+    - PROD-READINESS-RUNTIME-001
+    - PROD-RETENTION-EXECUTOR-001
+
+scope:
+  repository_substrate_only: true
+  configuration_preflight: true
+  release_artifact_verification: true
+  production_target_ready_claim: false
+  cloud_vendor_selection: false
+
+execution:
+  command: operations:production:preflight
+  network_calls: forbidden
+  mutations: forbidden
+  provider_calls: forbidden
+  secret_values_in_output: forbidden
+  success_requires_zero_error_checks: true
+
+required_core_configuration:
+  application:
+    environment: production
+    debug: false
+    URL: HTTPS_nonlocal
+    APP_KEY: configured
+  logging:
+    channel: json_stderr
+    debug_level: forbidden
+  database:
+    driver: pgsql
+    sslmode:
+      - require
+      - verify-ca
+      - verify-full
+  redis:
+    cache: required
+    session: required
+    queue: required
+  session:
+    secure_cookie: true
+    http_only: true
+    serialization: json
+  queue:
+    failed_job_driver: database-uuids
+  object_storage:
+    default_disk: s3
+    bucket: required
+    region: required
+    optional_custom_endpoint: HTTPS_nonlocal
+    known_local_test_credentials: forbidden
+  mail:
+    log_or_array_transport: forbidden
+    nonplaceholder_from_address: required
+  password_recovery:
+    HTTPS_reset_template: required
+    token_placeholder: required
+  sensitive_identifiers:
+    lookup_key_min_bytes: 32
+    lookup_key_independent_from_APP_KEY: true
+  internal_exams:
+    positive_TTLs: required
+    remote_public_base_url: HTTPS_nonlocal
+    verifier_keys_min_bytes: 32
+    verifier_keys_distinct: true
+    document_storage_disk: s3
+  incident_response:
+    all_contact_references_nonblank: true
+    real_paging_delivery_proven_here: false
+  retention:
+    baseline_executor_enabled: false
+
+release_artifact:
+  exact_git_SHA_name: required
+  checksum: sha256
+  manifest_exact_match: required
+  env_files: forbidden
+  runtime_logs: forbidden
+  runtime_cache: forbidden
+  runtime_sessions: forbidden
+  compiled_runtime_views: forbidden
+  accepted_branch_job_verifier: scripts/ops/verify-release-artifact.sh
+
+deferred_boundaries:
+  PKK_PWPW:
+    status: FROZEN
+    required_for_core_preflight: false
+  payment_provider_webhook:
+    status: EXTERNAL_PROVIDER_BOUNDARY
+    required_for_this_preflight: false
+
+external_evidence_still_required:
+  - target_database_PITR
+  - target_object_restore
+  - target_RPO_RTO_measurement
+  - secret_manager_or_equivalent_injection
+  - monitoring_dashboards_and_alert_routes
+  - paging_smoke_to_real_human
+  - reconciliation_scheduler_and_alert_delivery_smoke
+  - target_release_smoke
+
+non_scope:
+  - deploy_to_target_infrastructure
+  - configure_cloud_resources
+  - create_production_secrets
+  - enable_PKK
+  - implement_payment_provider_webhook
+  - claim_backup_or_restore_success_on_target
