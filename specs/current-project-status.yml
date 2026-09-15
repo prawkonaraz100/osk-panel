@@ -5,19 +5,19 @@ meta:
   status: CURRENT
 
 runtime_authority:
-  evidence_kind: CANONICAL_MAIN_BRANCH_AUTHORITY_BASELINE
-  git_sha: bb6f4639fbf1098f131e579dedbb610e0e7c7d97
+  evidence_kind: VERIFIED_MAIN_PRE_DOCUMENTATION_AUDIT_BASELINE
+  git_sha: 7ee7093b1d86498e270f2cd5710c2b5bf9ffad19
   canonical_branch: main
-  promotion_pull_request: 117
-  accepted_ci_run: 34988002041
+  promotion_pull_request: 119
+  accepted_ci_run: 34992709180
   accepted_ci: PASS_6_OF_6
-  api_contract_evidence_git_sha: d519651171ab5329d1dcc5326160339d4b94bb5b
-  accepted_api_contract_run: 34985599153
+  api_contract_evidence_git_sha: 7ee7093b1d86498e270f2cd5710c2b5bf9ffad19
+  accepted_api_contract_run: 34992709070
   accepted_api_contract: PASS
-  release_artifact_id: 10404653033
-  release_artifact_name: osk-panel-bb6f4639fbf1098f131e579dedbb610e0e7c7d97
-  release_archive_sha256: f7c75130645ff7d83a82d9e449b2b635152b68a5e1ac85201256bb3f10997280
-  github_artifact_zip_sha256: fc788732a5f759d122f9e690ddeee1167b559ca707819d822a9e0f693c4f75de
+  release_artifact_id: 10406097765
+  release_artifact_name: osk-panel-7ee7093b1d86498e270f2cd5710c2b5bf9ffad19
+  release_archive_sha256: 5d089dc4e54b182a273f19b38ec46e640598cdc58490e2cf203540c882e7facd
+  github_artifact_zip_sha256: e1162461d304253824bb173281b13467a8616f7c81a582c12ae75f1259e539c6
   postgres_tests_passed: 384
   assertions: 6348
   restore_tables_source: 122
