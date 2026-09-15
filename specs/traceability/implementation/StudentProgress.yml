@@ -1,0 +1,12 @@
+module: StudentProgress
+core_traceability_modules:
+  - students_learning_access
+changed_scope:
+  - evidence: specs/design/student-progress.yml
+    requirement: students.progress is a truthful tenant-scoped read projection selected by exact StudentLearningAccount and driving category, with unavailable data represented explicitly instead of fabricated zeroes
+    domain_data: learning_progress_source_bindings + student_learning_progress_projections + student_learning_accounts + driving_categories
+    api_use_case: students.progress
+    permission: students.progress.view with existing Student target scope resolution
+    ui: resources/js/modules/StudentProgress/StudentProgressPanel.vue mounted as the Postęp tab on /kursanci/{student_id}
+    acceptance_test: Tests\\Feature\\StudentProgressCoreTest + Tests\\Unit\\StudentProgressUiContractTest
+    status: IMPLEMENTED

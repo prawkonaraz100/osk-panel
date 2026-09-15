@@ -7482,3 +7482,42 @@ CORE_V1_CLOSURE_AUDIT_015_gate:
     PKK_runtime_activation: forbidden
     provider_webhook_implementation: forbidden
     final_closure_audit_after_PASS: required
+
+
+CORE_V1_STUDENT_PROGRESS_001_gate:
+  id: CORE-V1-STUDENT-PROGRESS-001
+  status: CANDIDATE
+  authority:
+    semantic: specs/design/student-progress.yml
+    screen: specs/screens/student-progress.yml
+    api_path: specs/api/paths/students-courses.yaml
+    projection_schema: specs/database/student-progress-projection-migration-extension.yml
+    narrative: docs/210-core-v1-student-progress-implementation.md
+  prerequisite:
+    audit: CORE-V1-CLOSURE-AUDIT-015_AUDIT_COMPLETE_STUDENT_PROGRESS_IMPLEMENTATION_READY
+  exact_scope:
+    operation: students.progress
+    route: GET /students/{studentId}/progress
+    permission: students.progress.view
+    projection_write: false
+    UI_tab_enable: true
+    source_binding_inference: forbidden
+    fake_zero_metrics: forbidden
+    hardcoded_observed_totals: forbidden
+    Stage4_mutation: false
+    PKK_runtime_activation: false
+    payment_webhook_change: false
+    lectures_module_implementation: false
+  expected_closure_effect:
+    canonical_HTTP_operations: 173
+    physical_bindings_before: 157
+    physical_bindings_after: 158
+    missing_before: 16
+    missing_after: 15
+    repo_actionable_missing_before: 1
+    repo_actionable_missing_after: 0
+    frozen_PKK_missing_after: 14
+    external_payment_webhook_missing_after: 1
+  safe_continuation_after_PASS:
+    final_closure_audit_required: true
+    accepted_branch_promotion_before_final_audit: forbidden

@@ -5,6 +5,7 @@ import CourseFormFields from './CourseFormFields.vue'
 import StudentFinancePanel from './StudentFinancePanel.vue'
 import StudentLearningAccessPanel from '../LearningAccess/StudentLearningAccessPanel.vue'
 import StudentInternalExamPanel from '../InternalExams/StudentInternalExamPanel.vue'
+import StudentProgressPanel from '../StudentProgress/StudentProgressPanel.vue'
 import FormalTrainingDocumentsPanel from '../FormalDocuments/FormalTrainingDocumentsPanel.vue'
 
 type CourseSummary = {
@@ -144,7 +145,7 @@ const meta = ref<Paginated<StudentPreview>['meta']>({ page: 1, per_page: 25, tot
 const currentStudent = ref<Student | null>(null)
 const currentStudentEtag = ref<string | null>(null)
 const currentCourses = ref<Course[]>([])
-const detailTab = ref<'profile' | 'internal_exam'>('profile')
+const detailTab = ref<'profile' | 'internal_exam' | 'progress'>('profile')
 
 const categories = ref<Category[]>([])
 const locations = ref<LocationResource[]>([])
@@ -1168,10 +1169,11 @@ function handleError(caught: unknown): void {
             Egzamin wewnętrzny
           </button>
           <button
+            :class="{ active: detailTab === 'progress' }"
             type="button"
             role="tab"
-            aria-selected="false"
-            disabled
+            :aria-selected="detailTab === 'progress'"
+            @click="detailTab = 'progress'"
           >
             Postęp
           </button>
@@ -1309,6 +1311,11 @@ function handleError(caught: unknown): void {
           :student-id="currentStudent.id"
           :courses="currentCourses"
           :archived="Boolean(currentStudent.archived_at)"
+        />
+
+        <StudentProgressPanel
+          v-if="detailTab === 'progress'"
+          :student-id="currentStudent.id"
         />
 
         <StudentInternalExamPanel

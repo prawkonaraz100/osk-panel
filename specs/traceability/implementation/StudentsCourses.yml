@@ -111,3 +111,12 @@ changed_scope:
     ui: resources/js/modules/StudentsCourses/StudentCourseWorkspace.vue reuses the existing stage-transition request and surfaces backend eligibility failures
     acceptance_test: Tests\\Feature\\CourseCompletionRuntimeTest + Tests\\Unit\\CourseCompletionUiContractTest
     status: IMPLEMENTED
+
+  - evidence: specs/screens/student-progress.yml
+    requirement: Student detail enables Postęp only through the canonical StudentProgress projection and never substitutes unavailable metrics with observed constants or placeholder zeroes
+    domain_data: Student + StudentLearningAccount + learning_progress_source_bindings + student_learning_progress_projections
+    api_use_case: students.progress
+    permission: students.progress.view
+    ui: resources/js/modules/StudentsCourses/StudentCourseWorkspace.vue mounts resources/js/modules/StudentProgress/StudentProgressPanel.vue
+    acceptance_test: Tests\\Unit\\StudentProgressUiContractTest::test_student_progress_tab_is_enabled_and_truthful_unavailable_states_are_rendered
+    status: IMPLEMENTED

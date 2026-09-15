@@ -17,6 +17,7 @@ use App\Modules\OrganizationSettings\OrganizationSettingsController;
 use App\Modules\ResourcesCore\ResourceApiMiddleware;
 use App\Modules\ResourcesCore\ResourceController;
 use App\Modules\StudentFinance\StudentFinanceController;
+use App\Modules\StudentProgress\StudentProgressController;
 use App\Modules\StudentsCourses\StudentCourseController;
 use App\Modules\UploadsAssets\UploadAssetController;
 use Illuminate\Support\Facades\Route;
@@ -81,6 +82,8 @@ Route::middleware(ResourceApiMiddleware::class)->prefix('api/v1')->group(functio
     Route::get('/students/{studentId}/preview', [StudentCourseController::class, 'studentsPreview']);
     Route::post('/students/{studentId}/archive', [StudentCourseController::class, 'studentsArchive']);
     Route::post('/students/{studentId}/restore', [StudentCourseController::class, 'studentsRestore']);
+
+    Route::get('/students/{studentId}/progress', [StudentProgressController::class, 'get']);
 
     Route::get('/students/{studentId}/learning-accounts', [LearningAccessController::class, 'accountsList']);
     Route::post('/students/{studentId}/learning-accounts', [LearningAccessController::class, 'accountsCreate']);
