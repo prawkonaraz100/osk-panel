@@ -22,31 +22,30 @@ Exact current repository HEAD authority: **Git ref `main`**. The document intent
 
 Latest fully verified runtime baseline before this closure-only documentation sync:
 
-`da8b5c35590c77f512a17e21f1e173bce46a6088`
+`394c24d73eb7514e68f4996342b769f4a35b432c`
 
-This is the accepted Registration UI runtime promoted by PR #123 through a clean
+This is the accepted License Purchase UI runtime promoted by PR #125 through a clean
 fast-forward onto `main`. Embedded evidence below is a verified baseline, not a
 substitute for reading the live `main` ref.
 
 Accepted Implementation CI:
 
-`35010888852` / run #733 — **6/6 PASS**
+`35015499860` / run #738 — **6/6 PASS**
 
-The API contract was unchanged by Registration UI; the previously accepted canonical
-API Contract evidence remains valid.
+The canonical commerce API contract was not weakened by License Purchase UI.
 
 Accepted immutable artifact for this verified baseline:
 
-- artifact ID: `10413962163`,
-- name: `osk-panel-da8b5c35590c77f512a17e21f1e173bce46a6088`,
+- artifact ID: `10414769162`,
+- name: `osk-panel-394c24d73eb7514e68f4996342b769f4a35b432c`,
 - release archive SHA-256:
-  `f1b3de0bc8cb48ab1d930b6a7b60b8906205b35a455ad715d3eab5aa1746b6c2`,
+  `879fbd07fdeb0297c833b748e9eab4f61d3141714dc028f2ca5de96211d86bc0`,
 - GitHub uploaded artifact ZIP SHA-256:
-  `19fb29322c40ff8baae9f29515d52e7440c8c0cbc7bf075519224f12a32509fa`.
+  `5aaa069688c25d4b500852bf42fc3589fe606d106c8c4835a6f1132908b2861f`.
 
 Runtime suite:
 
-- PostgreSQL: **385 tests / 6367 assertions — PASS**,
+- PostgreSQL: **386 tests / 6390 assertions — PASS**,
 - deterministic restore: **122 -> 122 PASS**,
 - restored schema fingerprint:
   `f3cab286cc8f0aabef219971d90afe424a8dab694c47ade2f517a3d95970716d`.
@@ -132,22 +131,18 @@ Completed productization work:
 
 - `AUTH-RECOVERY-UI-001`: accepted on `d6b2089903ac830581b8606914cd484f1207dee2`; PR #111; accepted CI #665 **6/6 PASS**. Public SPA routes exist for `/login`, `/forgot-password` and `/reset-password`.
 - `REGISTRATION-UI-001`: accepted on `da8b5c35590c77f512a17e21f1e173bce46a6088`; PR #123; accepted CI #733 **6/6 PASS**. Public `/register` uses the existing `POST /api/v1/auth/register`, discovers the exact Terms version through the non-production sample resolver instead of hardcoding it, fails closed without Terms authority, keeps marketing consent false without a separately versioned marketing authority, creates no implicit authenticated session and only renders the discovered Terms target after same-origin URL resolution. Production registration still requires a real published/versioned Terms authority.
+- `LICENSE-PURCHASE-UI-001`: accepted on `394c24d73eb7514e68f4996342b769f4a35b432c`; PR #125; accepted CI #738 **6/6 PASS**. `/licencje/wykup` reads the server price projection from `GET /api/v1/license-products`, creates multi-variant orders through `POST /api/v1/license-orders`, never sends browser-owned price/VAT/discount/total fields, visibly labels sample pricing, fails closed when pricing authority is absent and keeps provider-specific payment redirects/callbacks deferred.
 - `ORGANIZATION-SETTINGS-UI-001`: accepted on `4006607dd2aecdc6fabb97a34ba5edf40d07729b`; PR #113; accepted CI #675 **6/6 PASS**. `/ustawienia` uses the provider-neutral settings contract, keeps e-mail read-only, does not read or mutate PKK while frozen, and does not synthesize a terms document URL.
 
 Completed development support:
 
 - `SAMPLE-DATA-001`: **accepted** on `2f42eaaff8fc41cddee5ddba5c39f1d58033ed5a`; PR #115; candidate head `275e9dc47c5b507d49b96cf4ce79205b0ec78d49`; candidate Implementation CI #680 **5/5 PASS** plus API Contract #511 **PASS**; accepted Implementation CI #681 **6/6 PASS** plus API Contract #512 **PASS**. PostgreSQL: **384 tests / 6348 assertions**; restore drill **PASS**; release artifact `10401437249`, archive digest `sha256:197ed111da545c12c07add947a1760be82858eed9830f4ba84ce4bc327046540`. The accepted scope is a clearly labelled non-production sample Terms document and sample license pricing only; production use remains forbidden.
 
-Current productization candidate — **not yet accepted on `main`**:
-
-- `LICENSE-PURCHASE-UI-001`: branch `productization/license-purchase-ui-001` materializes `/licencje/wykup` on top of the accepted `GET /api/v1/license-products` and `POST /api/v1/license-orders` contracts. The browser sends only product IDs, integer quantities and a provider-neutral payment method; it never sends price/VAT/discount/total authority. Preview amounts come only from the server price projection, the final amount comes from the created Order response, sample prices are visibly labelled, and products without current pricing remain non-purchasable. Provider-specific online-payment redirect/callback remains deferred. Acceptance requires exact-head CI and promotion to `main`.
-
 Current productization gaps confirmed by code audit:
 
-1. accept `LICENSE-PURCHASE-UI-001` on `main`,
-2. no internal-exam purchase UI route despite backend `POST /api/v1/internal-exam/orders`,
-3. no browser E2E suite for complete user golden paths,
-4. frontend routing is currently a lightweight pathname shell rather than a full
+1. no internal-exam purchase UI route despite backend `POST /api/v1/internal-exam/orders`,
+2. no browser E2E suite for complete user golden paths,
+3. frontend routing is currently a lightweight pathname shell rather than a full
    router/state-management architecture.
 
 Registration UI is accepted on `main`. This does **not** remove the production legal prerequisite: a real published/versioned Terms authority remains required before production registration can be enabled.
