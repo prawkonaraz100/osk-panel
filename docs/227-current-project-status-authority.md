@@ -97,6 +97,19 @@ including:
 
 PKK/PWPW is intentionally deferred and does not block Core launch.
 
+### PKK/PWPW truth boundary
+
+The code audit distinguishes local PKK identity from provider integration:
+
+- formal `CourseEnrollment` currently creates/maintains an encrypted, course-scoped local `pkk_profiles` identity and the UI accepts PKK manually,
+- provider-neutral Stage 4 database substrate exists (PKK operations/attempts/snapshots/signature/reconciliation/configuration tables plus DB guards),
+- there is **no PKK application controller/service, no physical PKK HTTP route and no PKK Vue workspace**,
+- OpenAPI/required-operation PKK entries are preserved future contract/evidence and are not claims of active runtime,
+- import from PWPW, test-connection, live calls, provider statuses, signed-XML provider semantics and provider reconciliation remain `FROZEN_UNTIL_EXPLICIT_UNFREEZE`,
+- unfreeze requires authoritative PWPW requirements/contract and a fresh comparison against the preserved provider-neutral model.
+
+The Core service therefore works without PWPW import/integration; this does not remove the local formal-course PKK identity.
+
 ## Frontend/productization status
 
 Functional SPA workspaces exist for:
@@ -116,24 +129,29 @@ Functional SPA workspaces exist for:
 
 Completed productization work:
 
-- `AUTH-RECOVERY-UI-001`: accepted on `d6b2089903ac830581b8606914cd484f1207dee2`; PR #111; accepted CI #665 **6/6 PASS**. Public SPA routes exist for `/login`, `/forgot-password` and `/reset-password`. Registration UI remains separately deferred pending safe public legal-document version discovery.
+- `AUTH-RECOVERY-UI-001`: accepted on `d6b2089903ac830581b8606914cd484f1207dee2`; PR #111; accepted CI #665 **6/6 PASS**. Public SPA routes exist for `/login`, `/forgot-password` and `/reset-password`. Registration UI is still not implemented. `SAMPLE-DATA-001` now unblocks development with a non-production sample-terms resolver; production registration still requires a real published legal-document version/authority.
 - `ORGANIZATION-SETTINGS-UI-001`: accepted on `4006607dd2aecdc6fabb97a34ba5edf40d07729b`; PR #113; accepted CI #675 **6/6 PASS**. `/ustawienia` uses the provider-neutral settings contract, keeps e-mail read-only, does not read or mutate PKK while frozen, and does not synthesize a terms document URL.
 
-Current productization support in progress:
+Completed development support:
 
 - `SAMPLE-DATA-001`: **accepted** on `2f42eaaff8fc41cddee5ddba5c39f1d58033ed5a`; PR #115; candidate head `275e9dc47c5b507d49b96cf4ce79205b0ec78d49`; candidate Implementation CI #680 **5/5 PASS** plus API Contract #511 **PASS**; accepted Implementation CI #681 **6/6 PASS** plus API Contract #512 **PASS**. PostgreSQL: **384 tests / 6348 assertions**; restore drill **PASS**; release artifact `10401437249`, archive digest `sha256:197ed111da545c12c07add947a1760be82858eed9830f4ba84ce4bc327046540`. The accepted scope is a clearly labelled non-production sample Terms document and sample license pricing only; production use remains forbidden and `/licencje/wykup` is still not materialized.
 
 Current productization gaps confirmed by code audit:
 
 
-1. no license purchase UI route despite backend `POST /api/v1/license-orders`,
-2. no internal-exam purchase UI route despite backend `POST /api/v1/internal-exam/orders`,
-3. no browser E2E suite for complete user golden paths,
-4. frontend routing is currently a lightweight pathname shell rather than a full
+1. no registration UI; development is unblocked by sample Terms, while production legal publication authority/content is still required,
+2. no license purchase UI route despite backend `POST /api/v1/license-orders`,
+3. no internal-exam purchase UI route despite backend `POST /api/v1/internal-exam/orders`,
+4. no browser E2E suite for complete user golden paths,
+5. frontend routing is currently a lightweight pathname shell rather than a full
    router/state-management architecture.
 
 These are the next repository-owned product gaps. They do not reopen the already
 closed Core domain/database authority.
+
+## HTTP contract/runtime reconciliation
+
+Deep code audit on 2026-09-15 found **160 physical `/api/v1` route bindings** versus **173 HTTP operations in canonical OpenAPI**. The 15 OpenAPI-only operations are intentional deferred boundaries: 14 PKK/PWPW operations and one provider payment webhook. Runtime additionally exposes two intentional non-canonical/compatibility endpoints: the non-production sample-terms discovery endpoint and the `internal-exam-stations/heartbeat` compatibility alias. Detailed evidence is recorded in `docs/230-documentation-code-consistency-audit.md`.
 
 ## Production status
 
