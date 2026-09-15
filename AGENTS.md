@@ -41,6 +41,8 @@ High-level aggregate jest indeksem. **Nie jest skróconym zamiennikiem screen sp
 
 ## Najpierw przeczytaj
 
+Najpierw ustal **bieżący stan wykonania** w `docs/227-current-project-status-authority.md` oraz `specs/current-project-status.yml`. Historyczne plany, gapy i statusy `READY_FOR_IMPLEMENTATION` opisują zachowany scope/evidence albo stan z wcześniejszego etapu i nie mogą być używane jako aktualny backlog.
+
 Obowiązkowo przed implementacją modułu:
 
 1. `docs/96-reverse-engineering-preservation-contract.md`,
@@ -209,13 +211,13 @@ Core v1:
 
 ### Aktywne odroczenie PKK
 
-Od 2026-09-12 moduł **PKK adapter/integration** jest jawnie odroczony do czasu otrzymania i zweryfikowania autorytatywnych wytycznych lub kontraktu PWPW. Zachowaj istniejące evidence/specy oraz provider-neutral groundwork z Gate 1, ale nie implementuj provider-specific runtime, live calls, status mapping, signing/reconciliation semantics ani mutujących flow PKK z założeń. To odroczenie **nie blokuje** przejścia do `Dashboard / Notifications / Purchase History`. Szczegóły: `docs/129-pkk-deferred-pending-pwpw-guidance.md` oraz aktywny `specs/gates/stage-5-implementation-gate.yml`.
+Od 2026-09-12 moduł **PKK adapter/integration** jest jawnie odroczony do czasu otrzymania i zweryfikowania autorytatywnych wytycznych lub kontraktu PWPW. Zachowaj istniejące evidence/specy oraz provider-neutral groundwork z Gate 1, ale nie implementuj provider-specific runtime, live calls, status mapping, signing/reconciliation semantics ani mutujących flow PKK z założeń. To odroczenie **nie blokuje** działania Core ani pozostałych modułów. Lokalna identity PKK dla formalnego `CourseEnrollment` pozostaje częścią modelu i może być wprowadzana ręcznie; zamrożone są import z PWPW, live calls, provider-specific adapter/configuration, status mapping, signing/reconciliation semantics i mutujące flow PWPW. Szczegóły: `docs/129-pkk-deferred-pending-pwpw-guidance.md` oraz `specs/current-project-status.yml`.
 
 Przed implementacją konkretnego modułu sprawdź:
 - `specs/implementation-baseline-v1.yml`,
 - `specs/reverse-engineering-manifest.yml`,
 - właściwe screen specs,
-- otwarte pozycje w `docs/95-open-items-severity.md` oraz nowszych scanach.
+- bieżące luki w `docs/227-current-project-status-authority.md` i `specs/current-project-status.yml`. `docs/95-open-items-severity.md` jest historycznym snapshotem i nie jest aktualnym backlogiem.
 
 Jeżeli kontrakt API/DB nie pokrywa potwierdzonego screen flow, **najpierw uzupełnij kontrakt — nie usuwaj flow**.
 

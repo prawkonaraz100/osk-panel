@@ -2,6 +2,8 @@
 
 Data konsolidacji: 2026-09-05
 
+> **Current implementation note (2026-09-15):** ten dokument zachowuje mapping/evidence i docelowe capability. Statusy `READY_FOR_IMPLEMENTATION` oznaczają historyczną gotowość mapowania, **nie bieżący stan kodu**. Aktualny implementation/backlog/freeze authority: `docs/227-current-project-status-authority.md` i `specs/current-project-status.yml`.
+
 > Ten dokument opisuje usługi administratora OSK po pełniejszym audycie ekranowym. Szczegóły screen-level znajdują się w `specs/screens/*.yml`, a aktywny baseline w `specs/implementation-baseline-v1.yml`.
 
 ## Definicja gotowości

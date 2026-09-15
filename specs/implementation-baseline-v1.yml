@@ -7,7 +7,7 @@ meta:
   goal: build_own_functional_equivalent_without_copying_ui_or_code
   current_status_authority: docs/227-current-project-status-authority.md
   current_status_machine: specs/current-project-status.yml
-  current_runtime_authority_head: 4006607dd2aecdc6fabb97a34ba5edf40d07729b
+  current_runtime_authority_source: specs/current-project-status.yml
   current_core_repository_state: COMPLETE
   current_go_live_state: BLOCKED_EXTERNAL_EVIDENCE
 
@@ -39,7 +39,10 @@ precedence:
     - specs/database/core-schema.yml
   implementation_baseline:
     - specs/implementation-baseline-v1.yml
-  module_status:
+  implementation_status:
+    - docs/227-current-project-status-authority.md
+    - specs/current-project-status.yml
+  historical_mapping_status:
     - docs/71-admin-osk-module-mapping-status.md
   canonical_naming:
     - docs/82-canonical-domain-glossary.md
@@ -99,8 +102,13 @@ core_modules:
   pkk:
     status: DEFERRED_PENDING_PWPW_GUIDANCE
     implementation_schedule: DEFERRED
+    local_course_scoped_PKK_identity: IMPLEMENTED_MANUAL_INPUT
+    provider_neutral_database_substrate: MATERIALIZED_STAGE4
+    provider_application_runtime: NOT_IMPLEMENTED
+    provider_physical_HTTP_routes: NOT_IMPLEMENTED
+    provider_UI: NOT_IMPLEMENTED
     deferment_decision: docs/129-pkk-deferred-pending-pwpw-guidance.md
-    informational_route: /integracja-pkk
+    informational_route: REFERENCE_EVIDENCE_ONLY_/integracja-pkk
     operational_owner: course_enrollment
     specs:
       - specs/screens/pkk-entrypoints-and-student-list.yml
@@ -518,7 +526,7 @@ candidate_key_preflight_correction_2026_09_13:
     PKK_provider_runtime_status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
 
 current_closure_2026_09_15:
-  runtime_authority_head: 4006607dd2aecdc6fabb97a34ba5edf40d07729b
+  runtime_authority_source: specs/current-project-status.yml
   core_v1_repository_complete: true
   repository_actionable_P0: 0
   repository_actionable_P1_for_core_launch: 0

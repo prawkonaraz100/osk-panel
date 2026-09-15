@@ -2,6 +2,8 @@ paths:
   /course-enrollments/{courseEnrollmentId}/pkk:
     get:
       tags: [PKK]
+      x-runtime-status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+      x-runtime-note: preserved_provider_neutral_contract_no_physical_route_binding
       operationId: pkkGet
       x-requirement-id: pkk.get
       x-permission: pkk.view
@@ -17,6 +19,8 @@ paths:
   /course-enrollments/{courseEnrollmentId}/pkk/fetch:
     post:
       tags: [PKK]
+      x-runtime-status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+      x-runtime-note: preserved_provider_neutral_contract_no_physical_route_binding
       operationId: pkkFetch
       x-requirement-id: pkk.fetch
       x-permission: pkk.fetch
@@ -38,6 +42,8 @@ paths:
   /course-enrollments/{courseEnrollmentId}/pkk/update-and-return:
     post:
       tags: [PKK]
+      x-runtime-status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+      x-runtime-note: preserved_provider_neutral_contract_no_physical_route_binding
       operationId: pkkUpdateAndReturn
       x-requirement-id: pkk.update_and_return
       x-permission: pkk.training.update_and_return
@@ -62,6 +68,8 @@ paths:
   /course-enrollments/{courseEnrollmentId}/pkk/return-to-school:
     post:
       tags: [PKK]
+      x-runtime-status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+      x-runtime-note: preserved_provider_neutral_contract_no_physical_route_binding
       operationId: pkkReturnToSchool
       x-requirement-id: pkk.return_to_school
       x-permission: pkk.return.school
@@ -88,6 +96,8 @@ paths:
   /course-enrollments/{courseEnrollmentId}/pkk/return-to-authority:
     post:
       tags: [PKK]
+      x-runtime-status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+      x-runtime-note: preserved_provider_neutral_contract_no_physical_route_binding
       operationId: pkkReturnToAuthority
       x-requirement-id: pkk.return_to_authority
       x-permission: pkk.return.authority
@@ -108,6 +118,8 @@ paths:
   /course-enrollments/{courseEnrollmentId}/pkk/return-expired:
     post:
       tags: [PKK]
+      x-runtime-status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+      x-runtime-note: preserved_provider_neutral_contract_no_physical_route_binding
       operationId: pkkReturnExpired
       x-requirement-id: pkk.return_expired
       x-permission: pkk.return.expired
@@ -128,6 +140,8 @@ paths:
   /course-enrollments/{courseEnrollmentId}/pkk/operations:
     get:
       tags: [PKK]
+      x-runtime-status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+      x-runtime-note: preserved_provider_neutral_contract_no_physical_route_binding
       operationId: pkkOperationsList
       x-requirement-id: pkk.operations.list
       x-permission: pkk.view
@@ -150,6 +164,8 @@ paths:
   /course-enrollments/{courseEnrollmentId}/pkk/operations/{operationId}:
     get:
       tags: [PKK]
+      x-runtime-status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+      x-runtime-note: preserved_provider_neutral_contract_no_physical_route_binding
       operationId: pkkOperationsGet
       x-requirement-id: pkk.operations.get
       x-permission: pkk.view
@@ -166,6 +182,8 @@ paths:
   /course-enrollments/{courseEnrollmentId}/pkk/operations/{operationId}/retry:
     post:
       tags: [PKK]
+      x-runtime-status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+      x-runtime-note: preserved_provider_neutral_contract_no_physical_route_binding
       operationId: pkkOperationsRetry
       x-requirement-id: pkk.operations.retry
       x-permission: pkk.retry

@@ -137,7 +137,7 @@ Accepted Implementation CI `34964671420` / run #665: **6/6 PASS**.
 
 ## Remaining work outside this gate
 
-- registration UI remains blocked pending unauthenticated public discovery of the current published legal-document version,
+- at this gate's acceptance time, registration UI remained blocked pending unauthenticated public discovery of the current published legal-document version; this historical blocker was later removed **for development only** by `SAMPLE-DATA-001` sample Terms discovery. Registration UI is still not implemented and production still requires real published legal-document authority,
 - social provider buttons remain deferred pending provider-discovery authority,
 - PKK/PWPW remains frozen,
 - no production-ready claim is implied by this gate.

@@ -4,6 +4,12 @@ meta:
   slice: DB4_8_PKK
   step: DB4_8_FINAL_AGGREGATE_SYNC
   status: PASS
+  document_scope: HISTORICAL_STAGE4_PROVIDER_NEUTRAL_DATABASE_AUTHORITY
+  current_materialization_status: STAGE4_DATABASE_SUBSTRATE_MATERIALIZED
+  current_local_course_scoped_identity_status: IMPLEMENTED
+  current_provider_runtime_status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+  current_provider_controller_routes_UI: NOT_IMPLEMENTED
+  historical_meta_note: implementation_started/Laravel_migrations_created/Stage5_started fields below describe the DB4_8 point-in-time, not the current repository
   diagnosed_at: 2026-09-08
   branch: docs-consolidation-2026-09-05
   diagnosis_only: false

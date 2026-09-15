@@ -2,6 +2,8 @@
 
 Data konsolidacji: 2026-09-05
 
+> **Current implementation note (2026-09-15):** dokument jest authority dla opisywanej semantyki/evidence, ale nie jest bieżącym backlogiem ani listą wdrożonych modułów. Aktualny stan wykonania i freeze boundaries: `docs/227-current-project-status-authority.md` + `specs/current-project-status.yml`.
+
 ## 1. Rekomendowany stos
 
 - **Backend:** Laravel,

@@ -8,6 +8,8 @@ Data: 2026-09-08
 
 Machine-readable diagnoza: `specs/database/pkk.yml`.
 
+> **Current context (2026-09-15):** `PASS` w tym dokumencie oznacza domknięcie provider-neutralnego kontraktu/DB substrate Stage 4. Nie oznacza działającej integracji z PWPW. Stage 4 PKK schema i guardy zostały później zmaterializowane, lokalna course-scoped identity PKK działa ręcznie, natomiast provider controller/service, fizyczne PKK HTTP routes, import/live calls i provider UI pozostają `FROZEN_UNTIL_EXPLICIT_UNFREEZE` do czasu autorytatywnych wymagań PWPW.
+
 ---
 
 ## 1. Zasada pracy

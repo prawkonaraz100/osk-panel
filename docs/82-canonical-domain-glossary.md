@@ -170,7 +170,7 @@ Nie utrzymujemy ręcznie edytowalnego agregatu zaliczonych godzin bieżącego OS
 # PKK
 
 ### `PkkProfile`
-Lokalny stan/snapshot PKK **dla konkretnego `CourseEnrollment`**.
+Lokalna, zaszyfrowana i wersjonowana **identity PKK dla konkretnego `CourseEnrollment`**. Nie jest provider snapshotem.
 
 Relacja canonical:
 
@@ -178,10 +178,13 @@ Relacja canonical:
 
 Nie modelujemy `Student -> PkkProfile` jako jedynej relacji, ponieważ jedna osoba może mieć wiele szkoleń/PKK w czasie.
 
-Pełny snapshot zawierający dane osobowe jest szyfrowany/minimalizowany; UI korzysta z redacted projection.
+### `PkkProviderProfileSnapshot`
+Append-only obserwacja danych zwróconych przez przyszły adapter providera, związana z dokładną rewizją `PkkProfile`. Provider payload i redacted projection są oddzielone od lokalnej identity PKK.
+
+Provider runtime jest obecnie zamrożony do czasu autorytatywnych wytycznych PWPW; istnienie tych encji opisuje materializowany provider-neutralny substrate, a nie działające połączenie z PWPW.
 
 ### `PkkOperation`
-Audytowalna operacja biznesowa na PKK konkretnego `CourseEnrollment`.
+Audytowalna provider-neutralna operacja biznesowa exact-bound do konkretnego `CourseEnrollment` i bieżącej rewizji `PkkProfile`. Obecnie nie jest uruchamiana przez provider-specific HTTP runtime.
 
 ### `PkkOperationAttempt`
 Techniczna próba wykonania `PkkOperation` do zewnętrznego provider API. Provider response w logu jest redacted; pełny raw payload jest przechowywany wyłącznie szyfrowany, jeżeli istnieje uzasadniona potrzeba.

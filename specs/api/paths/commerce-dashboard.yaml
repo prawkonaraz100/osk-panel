@@ -85,6 +85,8 @@ paths:
     post:
       tags: [Purchases]
       operationId: paymentWebhookReceive
+      x-runtime-status: EXTERNAL_PROVIDER_BOUNDARY_NOT_IMPLEMENTED
+      x-runtime-note: preserved_contract_no_physical_route_binding
       x-requirement-id: payment_webhook.receive
       x-permission: provider_signature_verified
       security: []

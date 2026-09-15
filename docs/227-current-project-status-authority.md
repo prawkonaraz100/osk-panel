@@ -18,31 +18,30 @@ Canonical publication branch:
 
 `main`
 
-Canonical-main branch-authority evidence head:
+Verified `main` evidence baseline immediately before this documentation-only consistency audit:
 
-`bb6f4639fbf1098f131e579dedbb610e0e7c7d97`
+`7ee7093b1d86498e270f2cd5710c2b5bf9ffad19`
 
 Promotion provenance: PR #117 merged the previously accepted integration history into
 `main` without force-push or squash at `d519651171ab5329d1dcc5326160339d4b94bb5b`.
-Commit `bb6f4639fbf1098f131e579dedbb610e0e7c7d97` then established `main` as the
-sole canonical base/publication branch and received a full post-merge validation.
+Commit `bb6f4639fbf1098f131e579dedbb610e0e7c7d97` established `main` as the sole canonical base/publication branch. PR #119 then finalized branch-hygiene/status synchronization at `7ee7093b1d86498e270f2cd5710c2b5bf9ffad19`, which received a full post-merge validation before this docs-only audit started.
 
 Accepted Implementation CI:
 
-`34988002041` / run #695 — **6/6 PASS**
+`34992709180` / run #700 — **6/6 PASS**
 
 Accepted API Contract Gate for the promoted application/contract tree:
 
-`34985599153` / run #518 — **PASS**
+`34992709070` / run #524 — **PASS**
 
-Accepted immutable artifact for canonical-main evidence head:
+Accepted immutable artifact for this pre-audit verified `main` baseline:
 
-- artifact ID: `10404653033`,
-- name: `osk-panel-bb6f4639fbf1098f131e579dedbb610e0e7c7d97`,
+- artifact ID: `10406097765`,
+- name: `osk-panel-7ee7093b1d86498e270f2cd5710c2b5bf9ffad19`,
 - release archive SHA-256:
-  `f7c75130645ff7d83a82d9e449b2b635152b68a5e1ac85201256bb3f10997280`,
+  `5d089dc4e54b182a273f19b38ec46e640598cdc58490e2cf203540c882e7facd`,
 - GitHub uploaded artifact ZIP SHA-256:
-  `fc788732a5f759d122f9e690ddeee1167b559ca707819d822a9e0f693c4f75de`.
+  `e1162461d304253824bb173281b13467a8616f7c81a582c12ae75f1259e539c6`.
 
 Runtime suite:
 
@@ -97,6 +96,19 @@ including:
 
 PKK/PWPW is intentionally deferred and does not block Core launch.
 
+### PKK/PWPW truth boundary
+
+The code audit distinguishes local PKK identity from provider integration:
+
+- formal `CourseEnrollment` currently creates/maintains an encrypted, course-scoped local `pkk_profiles` identity and the UI accepts PKK manually,
+- provider-neutral Stage 4 database substrate exists (PKK operations/attempts/snapshots/signature/reconciliation/configuration tables plus DB guards),
+- there is **no PKK application controller/service, no physical PKK HTTP route and no PKK Vue workspace**,
+- OpenAPI/required-operation PKK entries are preserved future contract/evidence and are not claims of active runtime,
+- import from PWPW, test-connection, live calls, provider statuses, signed-XML provider semantics and provider reconciliation remain `FROZEN_UNTIL_EXPLICIT_UNFREEZE`,
+- unfreeze requires authoritative PWPW requirements/contract and a fresh comparison against the preserved provider-neutral model.
+
+The Core service therefore works without PWPW import/integration; this does not remove the local formal-course PKK identity.
+
 ## Frontend/productization status
 
 Functional SPA workspaces exist for:
@@ -116,24 +128,29 @@ Functional SPA workspaces exist for:
 
 Completed productization work:
 
-- `AUTH-RECOVERY-UI-001`: accepted on `d6b2089903ac830581b8606914cd484f1207dee2`; PR #111; accepted CI #665 **6/6 PASS**. Public SPA routes exist for `/login`, `/forgot-password` and `/reset-password`. Registration UI remains separately deferred pending safe public legal-document version discovery.
+- `AUTH-RECOVERY-UI-001`: accepted on `d6b2089903ac830581b8606914cd484f1207dee2`; PR #111; accepted CI #665 **6/6 PASS**. Public SPA routes exist for `/login`, `/forgot-password` and `/reset-password`. Registration UI is still not implemented. `SAMPLE-DATA-001` now unblocks development with a non-production sample-terms resolver; production registration still requires a real published legal-document version/authority.
 - `ORGANIZATION-SETTINGS-UI-001`: accepted on `4006607dd2aecdc6fabb97a34ba5edf40d07729b`; PR #113; accepted CI #675 **6/6 PASS**. `/ustawienia` uses the provider-neutral settings contract, keeps e-mail read-only, does not read or mutate PKK while frozen, and does not synthesize a terms document URL.
 
-Current productization support in progress:
+Completed development support:
 
 - `SAMPLE-DATA-001`: **accepted** on `2f42eaaff8fc41cddee5ddba5c39f1d58033ed5a`; PR #115; candidate head `275e9dc47c5b507d49b96cf4ce79205b0ec78d49`; candidate Implementation CI #680 **5/5 PASS** plus API Contract #511 **PASS**; accepted Implementation CI #681 **6/6 PASS** plus API Contract #512 **PASS**. PostgreSQL: **384 tests / 6348 assertions**; restore drill **PASS**; release artifact `10401437249`, archive digest `sha256:197ed111da545c12c07add947a1760be82858eed9830f4ba84ce4bc327046540`. The accepted scope is a clearly labelled non-production sample Terms document and sample license pricing only; production use remains forbidden and `/licencje/wykup` is still not materialized.
 
 Current productization gaps confirmed by code audit:
 
 
-1. no license purchase UI route despite backend `POST /api/v1/license-orders`,
-2. no internal-exam purchase UI route despite backend `POST /api/v1/internal-exam/orders`,
-3. no browser E2E suite for complete user golden paths,
-4. frontend routing is currently a lightweight pathname shell rather than a full
+1. no registration UI; development is unblocked by sample Terms, while production legal publication authority/content is still required,
+2. no license purchase UI route despite backend `POST /api/v1/license-orders`,
+3. no internal-exam purchase UI route despite backend `POST /api/v1/internal-exam/orders`,
+4. no browser E2E suite for complete user golden paths,
+5. frontend routing is currently a lightweight pathname shell rather than a full
    router/state-management architecture.
 
 These are the next repository-owned product gaps. They do not reopen the already
 closed Core domain/database authority.
+
+## HTTP contract/runtime reconciliation
+
+Deep code audit on 2026-09-15 found **160 physical `/api/v1` route bindings** versus **173 HTTP operations in canonical OpenAPI**. The 15 OpenAPI-only operations are intentional deferred boundaries: 14 PKK/PWPW operations and one provider payment webhook. Runtime additionally exposes two intentional non-canonical/compatibility endpoints: the non-production sample-terms discovery endpoint and the `internal-exam-stations/heartbeat` compatibility alias. Detailed evidence is recorded in `docs/230-documentation-code-consistency-audit.md`.
 
 ## Production status
 

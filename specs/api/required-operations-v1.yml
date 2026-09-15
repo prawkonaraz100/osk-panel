@@ -7,6 +7,11 @@ meta:
   common_contract: specs/api/common-contract.yml
   openapi: specs/api/openapi-v1.yaml
   traceability: specs/traceability/core-v1.yml
+  runtime_binding_authority: routes/web.php
+  current_runtime_status_authority: specs/current-project-status.yml
+  pkk_http_runtime_status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+  payment_webhook_runtime_status: EXTERNAL_PROVIDER_BOUNDARY_NOT_IMPLEMENTED
+  preserved_contract_does_not_imply_physical_route_binding: true
 
 rules:
   every_operation_must_have_backend_use_case: true

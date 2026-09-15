@@ -2,9 +2,13 @@
 
 Data: 2026-09-05
 
-**Status:** `ACTIVE_PROCESS_GATE`
+**Status:** `HISTORICAL_IMPLEMENTATION_PLAN_SUPERSEDED`
 
-## Cel
+## Current authority
+
+Ten dokument zachowuje historię staged delivery i jego lokalne statusy `DONE/IN_PROGRESS/PLANNED`. Nie jest bieżącym planem ani backlogiem po zamknięciu Core V1. Aktualny stan: `docs/227-current-project-status-authority.md` + `specs/current-project-status.yml`.
+
+## Cel historyczny
 
 Prace nad panelem OSK prowadzimy etapami. Nie przechodzimy do kolejnej warstwy tylko dlatego, że poprzednia wygląda „wystarczająco”. Każdy etap ma własny zakres, artefakty i gate jakości.
 

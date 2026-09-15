@@ -1,5 +1,7 @@
 # 75. Integracja PKK — punkty wejścia z listy kursantów
 
+
+> **Current runtime boundary (2026-09-15):** ten dokument zachowuje reverse-engineering/evidence i przyszłą capability PKK. Nie jest dowodem aktywnej integracji PWPW. Aktualny Core ma lokalną, ręcznie wprowadzaną course-scoped identity PKK; provider-specific import, live calls, konfiguracja połączenia i operacyjny UI pozostają `FROZEN_UNTIL_EXPLICIT_UNFREEZE` do czasu autorytatywnych wytycznych PWPW.
 Data weryfikacji: 2026-09-05
 
 **Kontekst:** `Kursanci` + strona informacyjna `/integracja-pkk`  

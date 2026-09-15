@@ -301,7 +301,8 @@ Przed production release:
 - rollback strategy known,
 - feature flags/defaults checked,
 - legal/config rule version checked,
-- payment/PKK credentials target environment checked,
+- payment credentials target environment checked, jeżeli payment provider jest uruchamiany,
+- PKK credentials/connection checks **wyłącznie po explicit unfreeze i wdrożeniu zweryfikowanego adaptera PWPW**; zamrożone PKK nie jest blockerem Core go-live,
 - smoke tests passed,
 - observability dashboards/alerts active.
 

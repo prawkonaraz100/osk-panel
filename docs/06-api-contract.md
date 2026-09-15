@@ -325,6 +325,8 @@ Nie udostępniać zwykłego `PATCH total_hours` jako primary source of truth.
 
 # 10. PKK — course-first
 
+**Runtime status: `FROZEN_UNTIL_EXPLICIT_UNFREEZE`.** Poniższe endpointy są zachowanym provider-neutralnym kontraktem przyszłej integracji i **nie mają obecnie fizycznych bindingów w `routes/web.php`**. Aktualny Core utrzymuje jedynie lokalną, szyfrowaną identity PKK w `CourseEnrollment`, wprowadzaną ręcznie. Provider-specific runtime może powstać dopiero po otrzymaniu i weryfikacji wymagań PWPW.
+
 **Stare endpointy `/students/{id}/pkk/...` są zdeprecjonowane jako model projektowy.**
 
 Canonical:

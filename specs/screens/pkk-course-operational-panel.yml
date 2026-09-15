@@ -3,6 +3,8 @@ screen:
   scope: admin_osk
   context: student_course
   confidence: USER_CONFIRMED_AUTH_SCREEN
+  runtime_status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+  implementation_scope: PRESERVED_REFERENCE_EVIDENCE_NOT_CURRENT_PROVIDER_UI
   verified_at: 2026-09-05
   doc: docs/76-pkk-course-operational-panel.md
 

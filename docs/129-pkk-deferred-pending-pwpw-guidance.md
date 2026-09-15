@@ -37,7 +37,7 @@ Implementation CI run 34696258224:
 - PostgreSQL: 153 tests / 2482 assertions,
 - secret scan: PASS.
 
-Ten groundwork **nie oznacza**, że system posiada działającą integrację z PWPW.
+Ten groundwork **nie oznacza**, że system posiada działającą integrację z PWPW. Aktualny runtime zachowuje lokalną, zaszyfrowaną identity PKK dla konkretnego `CourseEnrollment` i pozwala wprowadzić numer ręcznie. Nie istnieje natomiast import PWPW, provider controller/service, fizyczne PKK route'y HTTP ani operacyjny UI providera.
 
 ## Czego nie implementujemy przed wznowieniem
 
@@ -67,10 +67,8 @@ PKK można ponownie rozpocząć dopiero po spełnieniu co najmniej następujący
 
 ## Wpływ na kolejność core v1
 
-PKK pozostaje modułem core, ale jego odroczenie nie blokuje pozostałego zakresu.
+PKK pozostaje zachowanym bounded contextem formalnym, ale provider-specific integracja PWPW jest odroczona i nie blokuje pozostałego zakresu ani uruchomienia Core. Brak importu PWPW nie blokuje ręcznego utworzenia lokalnej identity PKK wymaganej przez obecny formalny `CourseEnrollment`.
 
-Następny aktywny slice po jawnej instrukcji użytkownika:
+Historyczny następny slice zapisany podczas podjęcia tej decyzji został już zrealizowany. Bieżący backlog znajduje się wyłącznie w `docs/227-current-project-status-authority.md` oraz `specs/current-project-status.yml`.
 
-CORE-V1-DASHBOARD-NOTIFICATIONS-PURCHASE-HISTORY-001
-
-Po otrzymaniu materiałów PWPW należy wrócić do tej decyzji, wykonać ponowną diagnozę PKK i dopiero potem rozpocząć provider-specific runtime.
+Po otrzymaniu materiałów PWPW należy wrócić do tej decyzji, porównać autorytatywny kontrakt z zachowanym provider-neutralnym API/DB/security modelem, wykonać ponowną diagnozę PKK i dopiero potem rozpocząć provider-specific runtime.

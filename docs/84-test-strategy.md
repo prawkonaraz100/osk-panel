@@ -193,7 +193,9 @@ Dla endpointu wymagającego `Idempotency-Key`:
 
 ## 8. PKK tests
 
-Provider fake/sandbox musi obsługiwać:
+**Current runtime boundary:** provider-specific PKK/PWPW runtime jest `FROZEN_UNTIL_EXPLICIT_UNFREEZE`. Obecne executable tests pokrywają lokalną course-scoped identity PKK, szyfrowanie/lookup rotation oraz provider-neutralne Stage 4 DB guards bez provider I/O. Poniższa macierz fake/sandbox jest **przyszłym planem adapter tests** i zaczyna obowiązywać dopiero po otrzymaniu oraz zweryfikowaniu autorytatywnego kontraktu PWPW.
+
+Provider fake/sandbox po odmrożeniu musi obsługiwać:
 - success,
 - business validation error,
 - unauthorized integration,
@@ -359,6 +361,8 @@ CI powinno walidować OpenAPI parserem i automatycznie porównywać required ope
 
 ## 18. E2E core flows
 
+To jest docelowa strategia browser E2E. **Repozytorium nie ma jeszcze materializowanego browser E2E suite**; jest to bieżąca luka productization w `docs/227-current-project-status-authority.md`.
+
 Minimum:
 
 ### E2E-01 — nowy kursant i kurs
@@ -403,8 +407,10 @@ Minimum:
 ### E2E-14 — locations/staff/vehicles
 `create with observed multi-selects/validities -> detail -> calendar context -> archive/restore`
 
-### E2E-15 — PKK fake provider
+### E2E-15 — PKK fake provider — DEFERRED
 `course -> fetch -> operation history -> retryable failure -> retry success -> safe snapshot`
+
+Ten scenariusz pozostaje wyłączony z bieżącego Core test scope do czasu explicit PKK/PWPW unfreeze po otrzymaniu zweryfikowanych wymagań PWPW.
 
 ### E2E-16 — dashboard
 `domain operations -> safe activity feed -> license/exam counters -> embedded calendar`

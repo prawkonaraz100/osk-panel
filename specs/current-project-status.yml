@@ -5,19 +5,19 @@ meta:
   status: CURRENT
 
 runtime_authority:
-  evidence_kind: CANONICAL_MAIN_BRANCH_AUTHORITY_BASELINE
-  git_sha: bb6f4639fbf1098f131e579dedbb610e0e7c7d97
+  evidence_kind: VERIFIED_MAIN_PRE_DOCUMENTATION_AUDIT_BASELINE
+  git_sha: 7ee7093b1d86498e270f2cd5710c2b5bf9ffad19
   canonical_branch: main
-  promotion_pull_request: 117
-  accepted_ci_run: 34988002041
+  promotion_pull_request: 119
+  accepted_ci_run: 34992709180
   accepted_ci: PASS_6_OF_6
-  api_contract_evidence_git_sha: d519651171ab5329d1dcc5326160339d4b94bb5b
-  accepted_api_contract_run: 34985599153
+  api_contract_evidence_git_sha: 7ee7093b1d86498e270f2cd5710c2b5bf9ffad19
+  accepted_api_contract_run: 34992709070
   accepted_api_contract: PASS
-  release_artifact_id: 10404653033
-  release_artifact_name: osk-panel-bb6f4639fbf1098f131e579dedbb610e0e7c7d97
-  release_archive_sha256: f7c75130645ff7d83a82d9e449b2b635152b68a5e1ac85201256bb3f10997280
-  github_artifact_zip_sha256: fc788732a5f759d122f9e690ddeee1167b559ca707819d822a9e0f693c4f75de
+  release_artifact_id: 10406097765
+  release_artifact_name: osk-panel-7ee7093b1d86498e270f2cd5710c2b5bf9ffad19
+  release_archive_sha256: 5d089dc4e54b182a273f19b38ec46e640598cdc58490e2cf203540c882e7facd
+  github_artifact_zip_sha256: e1162461d304253824bb173281b13467a8616f7c81a582c12ae75f1259e539c6
   postgres_tests_passed: 384
   assertions: 6348
   restore_tables_source: 122
@@ -62,7 +62,7 @@ frontend_productization_completed:
     accepted_ci: PASS_6_OF_6
     release_artifact_id: 10395187416
     release_archive_sha256: 516fa5aafe9c4a1a2a5bfb488e3fb3ae0bbfa3377d82e05a5797f3b9f70af7ce
-    registration_UI: BLOCKED_PENDING_PUBLIC_LEGAL_DOCUMENT_DISCOVERY
+    registration_UI: NOT_IMPLEMENTED_DEVELOPMENT_UNBLOCKED_BY_SAMPLE_TERMS_PRODUCTION_LEGAL_AUTHORITY_PENDING
     social_provider_buttons: DEFERRED_PENDING_PROVIDER_DISCOVERY_CONTRACT
   organization_settings_UI:
     gate: ORGANIZATION-SETTINGS-UI-001
@@ -76,7 +76,8 @@ frontend_productization_completed:
     route: /ustawienia
     component: resources/js/modules/OrganizationSettings/SettingsWorkspace.vue
     PKK_runtime: FROZEN_NOT_CALLED
-    terms_document_resolver: BLOCKED_MISSING_VERSIONED_LOCAL_RESOLVER
+    development_terms_document_resolver: SAMPLE_DATA_IMPLEMENTED_NON_PRODUCTION_ONLY
+    production_terms_document_resolver: BLOCKED_MISSING_REAL_VERSIONED_LEGAL_DOCUMENT_AUTHORITY
 
 development_sample_support:
   gate: SAMPLE-DATA-001
@@ -114,7 +115,32 @@ development_sample_support:
     - registration_UI
     - license_purchase_UI
 
+pkk_boundary:
+  local_course_scoped_identity: IMPLEMENTED
+  local_PKK_input_mode: MANUAL_SUPPORTED
+  local_PKK_encrypted_at_rest: true
+  provider_neutral_stage4_database_substrate: MATERIALIZED
+  provider_application_controller_or_service: NOT_IMPLEMENTED
+  provider_physical_HTTP_routes: NOT_IMPLEMENTED
+  provider_Vue_UI: NOT_IMPLEMENTED
+  provider_import_and_live_calls: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+  unfreeze_requires: AUTHORITATIVE_PWPW_GUIDANCE_OR_CONTRACT_AND_FRESH_REDIAGNOSIS
+  core_service_requires_PWPW_integration: false
+
+api_runtime_contract_reconciliation:
+  audited_on: 2026-09-15
+  physical_api_v1_route_bindings: 160
+  openapi_http_operations: 173
+  openapi_only_operations: 15
+  openapi_only_PKK_PWPW_operations: 14
+  openapi_only_payment_webhook_operations: 1
+  runtime_only_noncanonical_or_compatibility_operations:
+    - GET /api/v1/development/sample/legal/terms/current
+    - POST /api/v1/internal-exam-stations/heartbeat
+  classification: INTENTIONAL_DEFERRED_OR_COMPATIBILITY_BOUNDARIES
+
 frontend_productization_gaps:
+  - registration_UI
   - license_purchase_UI
   - internal_exam_purchase_UI
   - browser_end_to_end_golden_paths

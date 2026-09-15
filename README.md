@@ -48,16 +48,17 @@ PKK/PWPW pozostaje:
 
 `FROZEN_UNTIL_EXPLICIT_UNFREEZE`
 
-i **nie jest wymagane do uruchomienia Core service**.
+i **nie jest wymagane do uruchomienia Core service**. Formalny `CourseEnrollment` nadal posiada lokalną, course-scoped identity PKK wprowadzaną ręcznie. Zamrożenie dotyczy importu z PWPW, live calls i provider-specific operacji/integracji, nie lokalnego modelu numeru PKK.
 
 Aktualne luki produktowe po audycie kodu nie dotyczą już modelu domenowego ani
 podstawowego backendu.
 
 Ukończone w productization:
-- **AUTH-RECOVERY-UI-001** — login, forgot-password i reset-password są częścią accepted runtime od `d6b2089903ac830581b8606914cd484f1207dee2`; PR #111, accepted CI #665 = 6/6 PASS.
-- **ORGANIZATION-SETTINGS-UI-001** — provider-neutral `/ustawienia` jest częścią accepted runtime od `4006607dd2aecdc6fabb97a34ba5edf40d07729b`; PR #113, accepted CI #675 = 6/6 PASS. PKK pozostaje zamrożone, e-mail read-only, a odtworzenie dokładnej treści regulaminu nadal wymaga versioned local document resolvera.
+- **AUTH-RECOVERY-UI-001** — login, forgot-password i reset-password są częścią accepted runtime od `d6b2089903ac830581b8606914cd484f1207dee2`; PR #111, accepted CI #665 = 6/6 PASS. Registration UI nie jest jeszcze zaimplementowane; development jest odblokowany przez nieprodukcyjny sample Terms resolver, natomiast produkcja nadal wymaga rzeczywistego opublikowanego regulaminu/version authority.
+- **ORGANIZATION-SETTINGS-UI-001** — provider-neutral `/ustawienia` jest częścią accepted runtime od `4006607dd2aecdc6fabb97a34ba5edf40d07729b`; PR #113, accepted CI #675 = 6/6 PASS. PKK pozostaje zamrożone, e-mail read-only; development ma jawny sample Terms resolver, natomiast produkcyjne odtworzenie dokładnej treści regulaminu nadal wymaga realnego versioned document resolvera/authority.
 
 Pozostałe luki produktowe:
+- UI rejestracji (development ma już sample Terms, produkcja wymaga realnego dokumentu prawnego),
 - UI zakupu licencji,
 - UI zakupu egzaminów wewnętrznych,
 - browser E2E dla głównych golden paths,
@@ -165,9 +166,12 @@ Architektura domenowa musi pozostać niezależna od komponentów Vue.
 ## Dokumenty statusowe
 
 - `docs/02-screen-inventory.md` — skonsolidowany inwentarz ekranów,
-- `docs/10-gap-register.md` — aktualne realne luki, nie historyczna lista braków,
+- `docs/10-gap-register.md` — historyczny snapshot luk; bieżące luki są w `docs/227-current-project-status-authority.md` i `specs/current-project-status.yml`,
 - `docs/71-admin-osk-module-mapping-status.md` — gotowość modułów,
-- `docs/81-developer-consolidation-plan.md` — plan porządkowania repo.
+- `docs/81-developer-consolidation-plan.md` — historyczny, zakończony plan konsolidacji,
+- `docs/227-current-project-status-authority.md` — bieżący status implementacji/backlog/freeze,
+- `specs/current-project-status.yml` — machine-readable bieżący status,
+- `docs/230-documentation-code-consistency-audit.md` — ostatni audyt zgodności dokumentacji z kodem/runtime.
 
 ## Ważne rozdzielenia domen
 
