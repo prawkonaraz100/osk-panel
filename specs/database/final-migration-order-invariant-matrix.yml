@@ -4,10 +4,6 @@ meta:
   slice: DB4_11_FINAL_MIGRATION_ORDER_AND_INVARIANT_TEST_MATRIX
   step: DB-FINAL-001
   status: PASS_DB_FINAL_001_MACHINE_PENDING_NARRATIVE_CENTRAL
-  document_scope: HISTORICAL_STAGE4_MIGRATION_AND_INVARIANT_EXECUTION_AUTHORITY
-  current_stage4_materialization_status: COMPLETE_AND_RUNTIME_TESTED
-  current_implementation_status_source: specs/current-project-status.yml
-  historical_meta_note: implementation_started/Laravel_migrations_created/Stage5_started/UI flags and intermediate PENDING labels below describe the Stage4 execution timeline, not current repository state
   diagnosed_at: 2026-09-10
   branch: docs-consolidation-2026-09-05
   diagnosis_only: false
