@@ -1,9 +1,11 @@
 meta:
   project: osk-panel
   scope: admin_osk_core_v1_cross_layer_traceability
-  status: ACTIVE_DOCUMENTATION_GATE
+  status: ACTIVE_PRESERVATION_TRACEABILITY
   created_at: 2026-09-05
-  implementation_status: NOT_IMPLEMENTED_BY_THIS_DOCUMENTATION_BRANCH
+  implementation_status: SEE_MODULE_IMPLEMENTATION_TRACEABILITY
+  current_project_status: specs/current-project-status.yml
+  current_implementation_traceability: specs/traceability/implementation/*.yml
   purpose: >-
     Link preserved clean-room reverse-engineering evidence to required backend
     capabilities, canonical data structures, permissions and mandatory tests.
@@ -320,7 +322,10 @@ modules:
       - category_or_training_type_change_recalculates_requirements
 
   pkk:
-    documentation_status: CONTRACT_READY_PROVIDER_SCHEMA_PENDING
+    documentation_status: CONTRACT_PRESERVED_PROVIDER_RUNTIME_FROZEN_PENDING_PWPW
+    runtime_status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+    local_course_scoped_identity_status: IMPLEMENTED
+    provider_physical_HTTP_status: NOT_IMPLEMENTED
     evidence:
       - specs/screens/pkk-configuration-gate.yml
       - specs/screens/pkk-entrypoints-and-student-list.yml
