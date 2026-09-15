@@ -26,7 +26,10 @@ frontend_productization_in_progress:
     gate: AUTH-RECOVERY-UI-001
     pull_request: 111
     accepted: false
-    status: IMPLEMENTATION_CANDIDATE
+    validated_candidate_head: b7a7706bc0d504dca622e4abca2eea9f205b2f1b
+    candidate_ci_run: 34963155681
+    candidate_ci: PASS_5_OF_5
+    status: VALIDATED_CANDIDATE_PENDING_ACCEPTED_PROMOTION
 
 frontend_productization_gaps:
   - auth_and_recovery_UI
