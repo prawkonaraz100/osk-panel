@@ -763,9 +763,19 @@ final class CommerceDashboardService
             throw ResourceDomainException::rule('Configured internal exam catalog product is unavailable.');
         }
 
+        $catalogData = (array) $catalog;
+        $catalogId = $catalogData['id'] ?? null;
+        $resolvedCode = $catalogData['code'] ?? null;
+        if (! is_string($catalogId)
+            || trim($catalogId) === ''
+            || ! is_string($resolvedCode)
+            || trim($resolvedCode) === '') {
+            throw ResourceDomainException::conflict('Configured internal exam catalog product is malformed.');
+        }
+
         return [
-            'id' => (string) $catalog->id,
-            'code' => (string) $catalog->code,
+            'id' => $catalogId,
+            'code' => $resolvedCode,
         ];
     }
 
