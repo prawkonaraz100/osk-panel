@@ -1,0 +1,60 @@
+meta:
+  id: operational_alerting_substrate_v1
+  gate: PROD-OPERATIONAL-ALERTING-001
+  status: CANDIDATE
+  policy_version: 2026-09-15-v1
+  follows:
+    - PROD-READINESS-RUNTIME-001
+    - PROD-RETENTION-EXECUTOR-001
+
+boundary:
+  repository_substrate_only: true
+  claims_human_received_page: false
+  selects_vendor: false
+  transport: provider_neutral_https_webhook
+  enabled_by_default: false
+  HTTPS_required: true
+  HMAC_SHA256_signature_required: true
+  destination_from_environment: true
+  secret_from_environment: true
+  secret_or_destination_logged: false
+
+events:
+  synthetic_smoke:
+    severity: SEV3
+    runbook: deployment_or_destructive_operation
+    sensitive_context_allowed: false
+  reconciliation_findings:
+    severity: SEV2
+    runbook: payment_or_reconciliation
+    context_allowlist:
+      - policy_version
+      - findings_total
+      - findings_by_scope
+    entity_identifiers_forbidden: true
+    user_identifiers_forbidden: true
+    organization_identifiers_forbidden: true
+
+smoke:
+  command: operations:alert:smoke
+  exact_confirmation_required: SEND-SYNTHETIC-OPERATIONAL-ALERT
+  disabled_sink_result: failure
+  failed_delivery_result: failure
+  real_target_execution_proven_by_repository: false
+
+reconciliation_integration:
+  scanner_remains_read_only: true
+  findings_emit_operational_alert: true
+  alert_payload_uses_aggregates_only: true
+  PKK_in_scope: false
+
+external_evidence_still_required:
+  - production_alert_endpoint_configuration
+  - production_contact_roster
+  - synthetic_paging_smoke_received_by_real_operator
+  - monitoring_dashboard_activation
+  - scheduler_execution_and_alert_delivery_in_target_environment
+
+deferred_boundaries:
+  PKK_PWPW: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+  payment_provider_specific_webhook: EXTERNAL_PROVIDER_BOUNDARY

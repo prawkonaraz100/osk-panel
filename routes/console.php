@@ -9,6 +9,7 @@ use App\Support\Migrations\Stage5FormalDocumentsMigrationPlan;
 use App\Support\Migrations\Stage5SocialIdentityMigrationPlan;
 use App\Support\Migrations\Stage5StudentProgressMigrationPlan;
 use App\Support\Operations\CoreReconciliationScanner;
+use App\Support\Operations\OperationalAlertDispatcher;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -1207,7 +1208,7 @@ Artisan::command(
         {--json : Emit the full machine-readable report}
         {--log : Emit a safe summary to the application log}
         {--fail-on-findings : Return a failing exit code when findings exist}',
-    function (CoreReconciliationScanner $scanner): int {
+    function (CoreReconciliationScanner $scanner, OperationalAlertDispatcher $alerts): int {
         $report = $scanner->scan();
 
         if ($this->option('json')) {
@@ -1235,6 +1236,14 @@ Artisan::command(
             } else {
                 Log::info('core_v1_reconciliation_clean', $context);
             }
+        }
+
+        if ($report['findings_total'] > 0) {
+            $alerts->dispatch('reconciliation_findings', [
+                'policy_version' => $report['policy_version'],
+                'findings_total' => $report['findings_total'],
+                'findings_by_scope' => $report['findings_by_scope'],
+            ]);
         }
 
         if ($this->option('fail-on-findings') && $report['findings_total'] > 0) {
