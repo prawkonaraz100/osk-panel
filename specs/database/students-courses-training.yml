@@ -2,6 +2,10 @@ meta:
   project: osk-panel
   scope: students_courses_training_core_v1
   status: DB_TRN_001_002_003_004_005_006_007_008_PASS_0_P1_BLOCKERS_OPEN
+  document_scope: HISTORICAL_STAGE4_BOUNDED_CONTEXT_AUTHORITY
+  current_schema_materialization_status: MATERIALIZED_AND_RUNTIME_TESTED
+  current_implementation_status_source: specs/current-project-status.yml
+  historical_meta_note: implementation_started/Laravel_migrations_created/Stage5_started/UI flags in this file describe the Stage4 point-in-time and are not current repository status
   stage: DB4_4_STUDENTS_COURSES_TRAINING_LEDGER
   created_at: 2026-09-06
   narrative: docs/108-stage-4-students-courses-training-ledger-audit.md
