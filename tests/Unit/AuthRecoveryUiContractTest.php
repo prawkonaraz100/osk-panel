@@ -20,7 +20,7 @@ final class AuthRecoveryUiContractTest extends TestCase
             self::assertStringContainsString("'".$route."'", $app);
         }
 
-        self::assertStringContainsString('<AuthWorkspace v-if="isAuthRoute" />', $app);
+        self::assertStringContainsString('<AuthWorkspace v-else-if="isAuthRoute" />', $app);
         self::assertStringContainsString('/api/v1/auth/login', $workspace);
         self::assertStringContainsString('/api/v1/auth/password/forgot', $workspace);
         self::assertStringContainsString('/api/v1/auth/password/reset', $workspace);
