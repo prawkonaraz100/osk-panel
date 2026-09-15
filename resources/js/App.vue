@@ -4,6 +4,7 @@ import DashboardWorkspace from './modules/CommerceDashboard/DashboardWorkspace.v
 import PurchaseHistoryWorkspace from './modules/CommerceDashboard/PurchaseHistoryWorkspace.vue'
 import AuthWorkspace from './modules/IdentityTenant/AuthWorkspace.vue'
 import RegistrationWorkspace from './modules/IdentityTenant/RegistrationWorkspace.vue'
+import InternalExamPurchaseWorkspace from './modules/InternalExams/InternalExamPurchaseWorkspace.vue'
 import InternalExamWorkspace from './modules/InternalExams/InternalExamWorkspace.vue'
 import LearningAccessWorkspace from './modules/LearningAccess/LearningAccessWorkspace.vue'
 import LicensePurchaseWorkspace from './modules/LearningAccess/LicensePurchaseWorkspace.vue'
@@ -20,6 +21,7 @@ const isStudentCourseRoute = window.location.pathname === '/kursanci'
   || window.location.pathname.startsWith('/kursanci/')
 const isLicensePurchaseRoute = window.location.pathname === '/licencje/wykup'
 const isLearningAccessRoute = window.location.pathname === '/licencje/panel'
+const isInternalExamPurchaseRoute = window.location.pathname === '/egzamin-wewnetrzny/wykup'
 const isInternalExamRoute = window.location.pathname === '/egzamin-wewnetrzny/panel'
 const isSettingsRoute = window.location.pathname === '/ustawienia'
 </script>
@@ -30,6 +32,7 @@ const isSettingsRoute = window.location.pathname === '/ustawienia'
   <DashboardWorkspace v-else-if="isDashboardRoute" />
   <PurchaseHistoryWorkspace v-else-if="isPurchaseHistoryRoute" />
   <CalendarWorkspace v-else-if="isCalendarRoute" />
+  <InternalExamPurchaseWorkspace v-else-if="isInternalExamPurchaseRoute" />
   <InternalExamWorkspace v-else-if="isInternalExamRoute" />
   <LicensePurchaseWorkspace v-else-if="isLicensePurchaseRoute" />
   <LearningAccessWorkspace v-else-if="isLearningAccessRoute" />
