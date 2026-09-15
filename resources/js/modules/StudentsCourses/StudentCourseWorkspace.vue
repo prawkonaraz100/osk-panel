@@ -832,6 +832,11 @@ function handleError(caught: unknown): void {
         <a href="/lokalizacje">Lokalizacje</a>
         <a href="/pracownicy">Pracownicy</a>
         <a href="/pojazdy">Pojazdy</a>
+        <a
+          href="/ustawienia"
+        >
+          Ustawienia
+        </a>
       </nav>
       <div class="sidebar-foot">
         Stage 5 · Core v1
