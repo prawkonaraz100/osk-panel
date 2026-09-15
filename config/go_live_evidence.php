@@ -1,7 +1,7 @@
 <?php
 
 return [
-    'policy_version' => '2026-09-15-v1',
+    'policy_version' => '2026-09-15-v2',
     'restore_drill_max_age_days' => 90,
     'future_clock_skew_seconds' => 300,
 
