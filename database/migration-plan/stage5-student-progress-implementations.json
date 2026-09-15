@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "plan_identity": "d844b3e5c74844e6e9a357aa3271ff9b68bac93dc7fdcd6fa28d3ab44b9c978a",
-  "execution_identity": "53df27f3f7e54939067c73bea202162e0e07244321f3a6c98d2e9e24592730de",
+  "execution_identity": "ae158ce5aad8ffb6ba84b12ce56ec3fe9ff6b16b87b77dea965ad2cc8d332389",
   "stage5_root": "database/migrations/stage5/student-progress",
   "implemented_steps": [
     {
@@ -9,7 +9,7 @@
       "phase": "preflight",
       "migration_file": "database/migrations/stage5/student-progress/preflight/S5PROG-TBL-LEARNING-PROGRESS-SOURCE-BINDINGS/2026_09_15_000010_preflight_learning_progress_source_bindings.php",
       "migration_name": "2026_09_15_000010_preflight_learning_progress_source_bindings",
-      "file_git_blob": "2875ca917bd6d1fe81f9941fd77ba802684bd31c",
+      "file_git_blob": "03e29396caef7a504f420aa3df5de26777674dd5",
       "restart_classification": "manual_review",
       "safe_down": false
     },

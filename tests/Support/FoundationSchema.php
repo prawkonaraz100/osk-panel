@@ -2,6 +2,7 @@
 
 namespace Tests\Support;
 
+use App\Support\Migrations\ControlledMigrationContext;
 use App\Support\Migrations\MigrationPlan;
 use App\Support\Migrations\Stage5CommerceOrderSequenceMigrationPlan;
 use App\Support\Migrations\Stage5FormalDocumentsMigrationPlan;
@@ -35,8 +36,6 @@ final class FoundationSchema
         'order_payment_settlements',
         'payment_events',
         'payments',
-        'student_learning_progress_projections',
-        'learning_progress_source_bindings',
         'organization_commerce_order_sequences',
         'order_items',
         'orders',
@@ -240,9 +239,49 @@ final class FoundationSchema
             $appliedMigrations = DB::table('migrations')->pluck('migration')->all();
         }
 
+    }
+
+    public static function ensureStudentProgressMigrated(): void
+    {
+        self::ensureMigrated();
+
+        $stage4Plan = app(MigrationPlan::class);
+        $candidateKeyExists = DB::table('pg_constraint as con')
+            ->join('pg_class as cls', 'cls.oid', '=', 'con.conrelid')
+            ->join('pg_namespace as ns', 'ns.oid', '=', 'cls.relnamespace')
+            ->whereRaw('ns.nspname = current_schema()')
+            ->where('cls.relname', 'student_learning_accounts')
+            ->where('con.contype', 'u')
+            ->where('con.conname', 'student_learning_account_candidate_key_org_id_student')
+            ->exists();
+
+        if (! $candidateKeyExists) {
+            $trainingCandidateKeyStep = null;
+            foreach ($stage4Plan->phaseSteps('write_fence') as $step) {
+                if ($step['node_id'] === 'MIG-CK-TRAINING') {
+                    $trainingCandidateKeyStep = $step;
+                    break;
+                }
+            }
+            if ($trainingCandidateKeyStep === null) {
+                throw new LogicException('Stage-4 training candidate-key write-fence is not registered.');
+            }
+
+            ControlledMigrationContext::enter(
+                'write_fence',
+                'MIG-CK-TRAINING',
+                $stage4Plan->executionIdentity(),
+            );
+            try {
+                $migration = require base_path($trainingCandidateKeyStep['migration_file']);
+                $migration->up();
+            } finally {
+                ControlledMigrationContext::leave();
+            }
+        }
+
         $studentProgressPlan = app(Stage5StudentProgressMigrationPlan::class);
         $studentProgressPlan->validate();
-
         $appliedMigrations = Schema::hasTable('migrations')
             ? DB::table('migrations')->pluck('migration')->all()
             : [];
@@ -253,7 +292,6 @@ final class FoundationSchema
                 $steps,
                 static fn (array $step): bool => ! in_array($step['migration_name'], $appliedMigrations, true),
             );
-
             if ($missing === []) {
                 continue;
             }

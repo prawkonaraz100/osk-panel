@@ -15,7 +15,17 @@ final class Stage5StudentProgressProjectionCorrectiveTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        DB::beginTransaction();
+        FoundationSchema::ensureStudentProgressMigrated();
+        DB::table('student_learning_progress_projections')->delete();
+        DB::table('learning_progress_source_bindings')->delete();
         FoundationSchema::reset();
+    }
+
+    protected function tearDown(): void
+    {
+        DB::rollBack();
+        parent::tearDown();
     }
 
     public function test_plan_preserves_frozen_authorities_and_materializes_exact_scope(): void
@@ -23,7 +33,7 @@ final class Stage5StudentProgressProjectionCorrectiveTest extends TestCase
         $summary = app(Stage5StudentProgressMigrationPlan::class)->summary();
 
         self::assertSame('d844b3e5c74844e6e9a357aa3271ff9b68bac93dc7fdcd6fa28d3ab44b9c978a', $summary['plan_identity']);
-        self::assertSame('53df27f3f7e54939067c73bea202162e0e07244321f3a6c98d2e9e24592730de', $summary['execution_identity']);
+        self::assertSame('ae158ce5aad8ffb6ba84b12ce56ec3fe9ff6b16b87b77dea965ad2cc8d332389', $summary['execution_identity']);
         self::assertSame('d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10', $summary['stage4_plan_identity']);
         self::assertSame('82da84d3efb312d78b432ad6081491c04b03569a0f250722d6befc11ca233712', $summary['stage4_execution_identity']);
         self::assertSame('34cada121f4fd4963b1461308fb517c50ee647005ce9421f4d1af40c80d44b99', $summary['preserved_formal_documents_plan_identity']);

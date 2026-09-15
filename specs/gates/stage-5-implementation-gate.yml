@@ -7399,7 +7399,7 @@ CORE_V1_STAGE5_STUDENT_PROGRESS_PROJECTION_001_gate:
     plan: database/migration-plan/stage5-student-progress-plan.json
     plan_identity: d844b3e5c74844e6e9a357aa3271ff9b68bac93dc7fdcd6fa28d3ab44b9c978a
     registry: database/migration-plan/stage5-student-progress-implementations.json
-    execution_identity: 53df27f3f7e54939067c73bea202162e0e07244321f3a6c98d2e9e24592730de
+    execution_identity: ae158ce5aad8ffb6ba84b12ce56ec3fe9ff6b16b87b77dea965ad2cc8d332389
     narrative: docs/208-core-v1-stage5-student-progress-projection-implementation.md
   exact_scope:
     tables:

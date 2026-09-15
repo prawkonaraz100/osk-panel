@@ -67,6 +67,7 @@ jobs:
           php artisan migration:stage5:formal-docs:plan:validate --json
           php artisan migration:stage5:social-identity:plan:validate --json
           php artisan migration:stage5:commerce-order-sequence:plan:validate --json
+          php artisan migration:stage5:student-progress:plan:validate --json
       - name: Run PostgreSQL-backed test suite
         run: php artisan test --fail-on-warning
       - name: Run deterministic restore drill harness

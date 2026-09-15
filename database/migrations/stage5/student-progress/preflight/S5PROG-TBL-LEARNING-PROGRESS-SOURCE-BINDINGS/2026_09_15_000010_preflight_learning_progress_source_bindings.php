@@ -31,8 +31,8 @@ JOIN pg_class t ON t.oid = c.conrelid
 JOIN pg_namespace ns ON ns.oid = t.relnamespace
 WHERE ns.nspname = current_schema()
   AND t.relname = 'student_learning_accounts'
-  AND c.contype IN ('p', 'u')
-  AND pg_get_constraintdef(c.oid, true) = 'UNIQUE (organization_id, id, student_id)'
+  AND c.contype = 'u'
+  AND c.conname = 'student_learning_account_candidate_key_org_id_student'
 LIMIT 1
 SQL);
 
