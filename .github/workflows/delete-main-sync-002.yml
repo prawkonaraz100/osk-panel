@@ -1,0 +1,39 @@
+name: Delete merged hygiene branch
+
+on:
+  push:
+    branches:
+      - archive/branch-snapshot-2026-09-15
+    paths:
+      - '.github/workflows/delete-main-sync-002.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: delete-merged-hygiene-branch
+  cancel-in-progress: false
+
+jobs:
+  delete-merged-branch:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout archive authority
+        uses: actions/checkout@v6
+        with:
+          ref: archive/branch-snapshot-2026-09-15
+          fetch-depth: 0
+
+      - name: Delete only the verified merged branch
+        env:
+          TARGET_BRANCH: repo-hygiene/main-sync-002
+          EXPECTED_TARGET_SHA: 1a39848dc4ec2d78005eedc7b2712ff0f197f1ec
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH"
+          actual="$(git rev-parse "origin/$TARGET_BRANCH")"
+          test "$actual" = "$EXPECTED_TARGET_SHA"
+          git merge-base --is-ancestor "$EXPECTED_TARGET_SHA" origin/main
+          git push origin --delete "$TARGET_BRANCH"
+          echo "MERGED_BRANCH_DELETE=PASS"
