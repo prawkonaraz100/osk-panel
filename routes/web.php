@@ -24,7 +24,7 @@ use App\Modules\UploadsAssets\UploadAssetController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(ResourceApiMiddleware::class)->prefix('api/v1')->group(function (): void {
-    Route::get('/public/legal/terms/current', [SampleLegalDocumentController::class, 'currentTerms']);
+    Route::get('/development/sample/legal/terms/current', [SampleLegalDocumentController::class, 'currentTerms']);
     Route::post('/auth/register', [AuthSessionController::class, 'register']);
     Route::post('/auth/login', [AuthSessionController::class, 'login']);
     Route::post('/auth/logout', [AuthSessionController::class, 'logout']);
