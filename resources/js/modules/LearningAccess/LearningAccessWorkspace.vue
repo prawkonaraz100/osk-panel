@@ -355,6 +355,11 @@ function handleError(caught: unknown): void {
         >
           Licencje
         </a>
+        <a
+          href="/ustawienia"
+        >
+          Ustawienia
+        </a>
       </nav>
       <div
         class="sidebar-foot"
