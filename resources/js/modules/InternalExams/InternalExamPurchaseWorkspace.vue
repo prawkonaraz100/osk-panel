@@ -151,19 +151,28 @@ function messageFor(caught: unknown, fallback: string): string {
 <template>
   <div class="app-shell">
     <aside class="sidebar">
-      <a class="brand" href="/">
+      <a
+        class="brand"
+        href="/"
+      >
         OSK
         <strong>Panel</strong>
       </a>
 
-      <nav class="main-nav" aria-label="Główna nawigacja">
+      <nav
+        class="main-nav"
+        aria-label="Główna nawigacja"
+      >
         <a href="/kursanci">Kursanci</a>
         <a href="/lokalizacje">Lokalizacje</a>
         <a href="/pracownicy">Pracownicy</a>
         <a href="/pojazdy">Pojazdy</a>
         <a href="/kalendarz">Kalendarz</a>
         <a href="/licencje/panel">Licencje</a>
-        <a class="active" href="/egzamin-wewnetrzny/panel">Egzaminy</a>
+        <a
+          class="active"
+          href="/egzamin-wewnetrzny/panel"
+        >Egzaminy</a>
         <a href="/ustawienia">Ustawienia</a>
       </nav>
 
@@ -175,7 +184,9 @@ function messageFor(caught: unknown, fallback: string): string {
     <main class="workspace exam-purchase-workspace">
       <header class="workspace-header">
         <div>
-          <div class="eyebrow">PrawkoNaRaz · OSK</div>
+          <div class="eyebrow">
+            PrawkoNaRaz · OSK
+          </div>
           <h1>Wykup egzaminy wewnętrzne</h1>
           <p class="purchase-copy">
             Wybierz liczbę jednostek egzaminowych. Podgląd ceny pochodzi z aktualnej oferty serwera, a backend ponownie rozstrzyga cenę przy tworzeniu zamówienia.
@@ -183,16 +194,30 @@ function messageFor(caught: unknown, fallback: string): string {
         </div>
 
         <div class="header-actions">
-          <a class="button ghost" href="/egzamin-wewnetrzny/panel">Panel egzaminów</a>
-          <a class="button ghost" href="/historia-zakupow">Historia zakupów</a>
+          <a
+            class="button ghost"
+            href="/egzamin-wewnetrzny/panel"
+          >Panel egzaminów</a>
+          <a
+            class="button ghost"
+            href="/historia-zakupow"
+          >Historia zakupów</a>
         </div>
       </header>
 
-      <div v-if="notice" class="notice success" role="status">
+      <div
+        v-if="notice"
+        class="notice success"
+        role="status"
+      >
         {{ notice }}
       </div>
 
-      <div v-if="error" class="notice error" role="alert">
+      <div
+        v-if="error"
+        class="notice error"
+        role="alert"
+      >
         {{ error }}
       </div>
 
@@ -204,11 +229,17 @@ function messageFor(caught: unknown, fallback: string): string {
         To środowisko korzysta z przykładowej ceny developerskiej egzaminów. Nie jest to cena produkcyjna.
       </div>
 
-      <div v-if="loading" class="loading-card">
+      <div
+        v-if="loading"
+        class="loading-card"
+      >
         Ładowanie aktualnej oferty…
       </div>
 
-      <div v-else class="exam-purchase-layout">
+      <div
+        v-else
+        class="exam-purchase-layout"
+      >
         <section class="exam-purchase-card">
           <span class="section-kicker">Pula egzaminów</span>
           <h2>{{ offer?.display_name ?? 'Oferta niedostępna' }}</h2>
@@ -272,7 +303,10 @@ function messageFor(caught: unknown, fallback: string): string {
             </div>
           </template>
 
-          <div v-else class="empty-inline">
+          <div
+            v-else
+            class="empty-inline"
+          >
             <strong>Brak aktualnej oferty zakupu.</strong>
             <span>Frontend nie tworzy ceny zastępczej. Sprawdź konfigurację katalogu i cennika po stronie serwera.</span>
           </div>
@@ -342,7 +376,10 @@ function messageFor(caught: unknown, fallback: string): string {
             {{ pending ? 'Tworzenie zamówienia…' : 'Kup teraz' }}
           </button>
 
-          <div v-if="createdOrder" class="created-order-card">
+          <div
+            v-if="createdOrder"
+            class="created-order-card"
+          >
             <strong>Zamówienie nr {{ createdOrder.display_number }}</strong>
             <span>Status: {{ createdOrder.status }}</span>
             <span>Kwota serwera: {{ money(createdOrder.total.amount_minor, createdOrder.total.currency) }}</span>
