@@ -51,7 +51,17 @@ function describeError(error: unknown): string {
 }
 
 function localDocumentUrl(value: string): boolean {
-  return value.startsWith('/') && !value.startsWith('//')
+  if (!value.startsWith('/') || value.startsWith('//')) {
+    return false
+  }
+
+  try {
+    const url = new URL(value, window.location.origin)
+
+    return url.origin === window.location.origin
+  } catch {
+    return false
+  }
 }
 
 async function loadTerms(): Promise<void> {
