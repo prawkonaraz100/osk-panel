@@ -59,7 +59,8 @@ changed_scope:
     permission: organization.view for load; organization.settings.manage for save
     ui: resources/js/modules/OrganizationSettings/SettingsWorkspace.vue
     acceptance_test: Tests\\Unit\\OrganizationSettingsUiContractTest
-    status: IMPLEMENTATION_CANDIDATE_NOT_ACCEPTED
+    status: IMPLEMENTED
+    acceptance_state: CANDIDATE_NOT_ACCEPTED
     preserved_boundaries:
       - email_read_only_pending_identity_email_change_authority
       - PKK_PWPW_frozen_and_not_called
