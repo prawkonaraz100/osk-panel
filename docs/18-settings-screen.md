@@ -249,12 +249,12 @@ kontroluje jednak semantykę naszej implementacji:
 To jest świadome rozdzielenie pomiędzy obserwowanym ekranem źródłowym a
 nadrzędną decyzją naszego produktu; nie oznacza usunięcia obserwacji PKK z historii.
 
-## 11. Aktualny stan naszej implementacji — candidate
+## 11. Aktualny stan naszej implementacji — accepted
 
 Gate: `ORGANIZATION-SETTINGS-UI-001`  
-Status: `VALIDATED_CANDIDATE_PENDING_ACCEPTED_PROMOTION`
+Status: `PASS_ACCEPTED`
 
-Faktycznie zaimplementowany candidate:
+Faktycznie zaakceptowany zakres:
 
 - SPA route `/ustawienia`,
 - komponent `resources/js/modules/OrganizationSettings/SettingsWorkspace.vue`,
@@ -281,9 +281,21 @@ Validation evidence:
 - deterministic restore: **122 -> 122 PASS**,
 - schema fingerprint: `f3cab286cc8f0aabef219971d90afe424a8dab694c47ade2f517a3d95970716d`.
 
-Candidate nadal nie jest częścią accepted runtime authority i nie może być
-opisywany jako ukończony do czasu finalnego closure-head CI, clean promotion
-i accepted 6/6.
+Historia walidacji candidate pozostaje powyżej bez zmian.
+
+Accepted runtime evidence:
+- accepted SHA: `4006607dd2aecdc6fabb97a34ba5edf40d07729b`,
+- PR #113: clean-promoted,
+- Implementation CI `34971537563` / #675: **6/6 PASS**,
+- PostgreSQL: **381 tests / 6315 assertions — PASS**,
+- deterministic restore: **122 -> 122 PASS**,
+- schema fingerprint: `f3cab286cc8f0aabef219971d90afe424a8dab694c47ade2f517a3d95970716d`,
+- immutable artifact ID: `10396979267`,
+- artifact name: `osk-panel-4006607dd2aecdc6fabb97a34ba5edf40d07729b`,
+- release archive SHA-256: `c3ca6f4c99dd61099cfc2bb720a502e8808212384d1393a8e8accae17071b962`.
+
+Ten gate jest zakończony dla provider-neutral UI. Nie zamyka odroczonych
+funkcji PKK ani versioned document resolvera opisanych w sekcji 12.
 
 ## 12. Potwierdzone rozbieżności i pozostała praca
 
