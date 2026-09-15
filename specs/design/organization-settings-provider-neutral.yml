@@ -49,5 +49,10 @@ scope:
   runtime_change_in_authority_gate: false
   PKK_runtime_activation: false
 
-next_after_PASS:
-  action: fresh_closure_audit_then_provider_neutral_runtime_implementation
+materialization:
+  runtime_status: IMPLEMENTED
+  controller: app/Modules/OrganizationSettings/OrganizationSettingsController.php
+  service: app/Modules/OrganizationSettings/OrganizationSettingsService.php
+  UI: resources/js/modules/OrganizationSettings/SettingsWorkspace.vue
+  implementation_traceability: specs/traceability/implementation/OrganizationSettings.yml
+  historical_next_after_authority_PASS: fresh_closure_audit_then_provider_neutral_runtime_implementation
