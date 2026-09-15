@@ -64,8 +64,22 @@ frontend_productization_completed:
     accepted_ci: PASS_6_OF_6
     release_artifact_id: 10395187416
     release_archive_sha256: 516fa5aafe9c4a1a2a5bfb488e3fb3ae0bbfa3377d82e05a5797f3b9f70af7ce
-    registration_UI: NOT_IMPLEMENTED_DEVELOPMENT_UNBLOCKED_BY_SAMPLE_TERMS_PRODUCTION_LEGAL_AUTHORITY_PENDING
     social_provider_buttons: DEFERRED_PENDING_PROVIDER_DISCOVERY_CONTRACT
+  registration_UI:
+    gate: REGISTRATION-UI-001
+    pull_request: 123
+    accepted: true
+    route: /register
+    component: resources/js/modules/IdentityTenant/RegistrationWorkspace.vue
+    backend_operation: POST /api/v1/auth/register
+    terms_discovery: GET /api/v1/development/sample/legal/terms/current
+    hardcoded_terms_version: forbidden
+    terms_document_link_origin: same_origin_only
+    marketing_consent_without_versioned_marketing_authority: false
+    implicit_authenticated_session: false
+    development_sample_terms_only: true
+    production_terms_authority: REQUIRED_NOT_YET_PROVIDED
+    PKK_PWPW_runtime: FROZEN_UNTOUCHED
   organization_settings_UI:
     gate: ORGANIZATION-SETTINGS-UI-001
     pull_request: 113
@@ -142,7 +156,6 @@ api_runtime_contract_reconciliation:
   classification: INTENTIONAL_DEFERRED_OR_COMPATIBILITY_BOUNDARIES
 
 frontend_productization_gaps:
-  - registration_UI
   - license_purchase_UI
   - internal_exam_purchase_UI
   - browser_end_to_end_golden_paths
@@ -151,6 +164,7 @@ production:
   repository_substrate_complete: true
   production_ready: false
   go_live_status: BLOCKED_EXTERNAL_EVIDENCE
+  registration_real_published_versioned_terms_authority: REQUIRED_PENDING
   external_evidence_tracker: github_issue_106
 
 deferred_boundaries:
