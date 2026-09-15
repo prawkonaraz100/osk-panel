@@ -4,10 +4,6 @@ meta:
   slice: DB4_7_INTERNAL_EXAMS
   step: DB4_7_FINAL_AGGREGATE_SYNC
   status: PASS
-  document_scope: HISTORICAL_STAGE4_BOUNDED_CONTEXT_AUTHORITY
-  current_schema_materialization_status: MATERIALIZED_AND_RUNTIME_TESTED
-  current_implementation_status_source: specs/current-project-status.yml
-  historical_meta_note: implementation_started/Laravel_migrations_created/Stage5_started/UI flags in this file describe the Stage4 point-in-time and are not current repository status
   diagnosed_at: 2026-09-07
   branch: docs-consolidation-2026-09-05
   aggregate_sync_status: PASS
