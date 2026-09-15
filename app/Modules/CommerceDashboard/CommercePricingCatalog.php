@@ -85,8 +85,18 @@ final class CommercePricingCatalog
 
         if ((bool) config('sample_data.enabled', false)) {
             $sample = config('sample_data.license_pricing');
+            $registry = is_array($sample) ? $sample : [];
 
-            return [is_array($sample) ? $sample : null, true];
+            $internalExam = config('sample_data.internal_exam');
+            if (is_array($internalExam)) {
+                $catalogCode = $internalExam['catalog_code'] ?? null;
+                $pricing = $internalExam['pricing'] ?? null;
+                if (is_string($catalogCode) && trim($catalogCode) !== '' && is_array($pricing)) {
+                    $registry[trim($catalogCode)] = $pricing;
+                }
+            }
+
+            return [$registry === [] ? null : $registry, true];
         }
 
         return [null, false];
