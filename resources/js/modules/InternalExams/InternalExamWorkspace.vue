@@ -745,6 +745,11 @@ function handleError(caught: unknown): void {
           href="/egzamin-wewnetrzny/panel"
           class="active"
         >Egzaminy</a>
+        <a
+          href="/ustawienia"
+        >
+          Ustawienia
+        </a>
       </nav>
       <div
         class="sidebar-foot"
