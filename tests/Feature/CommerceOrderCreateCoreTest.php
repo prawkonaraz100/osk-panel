@@ -94,6 +94,44 @@ final class CommerceOrderCreateCoreTest extends TestCase
             ->assertConflict();
     }
 
+    public function test_internal_exam_purchase_offer_uses_same_server_pricing_authority_as_order_create(): void
+    {
+        $actor = $this->actor(['exams.purchase']);
+        [, $catalogCode] = $this->internalExamCatalog();
+        config()->set('commerce.order_create.internal_exam_catalog_code', $catalogCode);
+        config()->set("commerce.order_create.pricing_by_catalog_code.{$catalogCode}", [
+            'currency' => 'PLN',
+            'list_unit_amount_minor' => 250,
+            'charged_unit_amount_minor' => 200,
+            'vat_rate_basis_points' => 2300,
+            'display_name' => 'Pakiet egzaminów wewnętrznych',
+            'pricing_revision' => 'exam-offer-2026-09-15',
+        ]);
+
+        $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->getJson('/api/v1/internal-exam/purchase-offer')
+            ->assertOk()
+            ->assertJsonPath('display_name', 'Pakiet egzaminów wewnętrznych')
+            ->assertJsonPath('unit_price.amount_minor', 200)
+            ->assertJsonPath('unit_price.currency', 'PLN')
+            ->assertJsonPath('list_unit_price.amount_minor', 250)
+            ->assertJsonPath('pricing_revision', 'exam-offer-2026-09-15')
+            ->assertJsonPath('sample_data', false);
+
+        $this->withSession(['auth_session_id' => $actor['session_id']])
+            ->withHeader('Idempotency-Key', (string) Str::uuid7())
+            ->postJson('/api/v1/internal-exam/orders', [
+                'quantity' => 3,
+                'payment_method' => 'bank_transfer',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('total.amount_minor', 600)
+            ->assertJsonPath('total.currency', 'PLN')
+            ->assertJsonPath('items.0.list_unit_amount_minor', 250)
+            ->assertJsonPath('items.0.unit_amount_minor', 200)
+            ->assertJsonPath('items.0.quantity', 3);
+    }
+
     public function test_internal_exam_zero_total_order_is_locally_settled_without_payment_and_sequences_increment(): void
     {
         $actor = $this->actor(['exams.purchase']);
