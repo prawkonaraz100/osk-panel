@@ -105,6 +105,31 @@ frontend_productization_completed:
     production_terms_document_resolver: BLOCKED_MISSING_REAL_VERSIONED_LEGAL_DOCUMENT_AUTHORITY
 
 
+frontend_productization_candidate:
+  license_purchase_UI:
+    gate: LICENSE-PURCHASE-UI-001
+    branch: productization/license-purchase-ui-001
+    accepted_on_main: false
+    acceptance_status: PENDING_EXACT_HEAD_CI_AND_MERGE
+    route: /licencje/wykup
+    component: resources/js/modules/LearningAccess/LicensePurchaseWorkspace.vue
+    product_projection: GET /api/v1/license-products
+    order_create: POST /api/v1/license-orders
+    request_fields:
+      - product_id
+      - quantity
+      - payment_method
+    request_price_fields: forbidden
+    browser_price_authority: forbidden
+    preview_price_source: server_projected_price_only
+    final_total_source: created_order_response
+    multi_variant_order: true
+    sample_pricing_notice: required_when_sample_data_true
+    provider_specific_online_payment_runtime: deferred
+    provider_brand_hardcoding_in_frontend: forbidden
+    inventory_credit_before_confirmed_payment: forbidden
+    PKK_PWPW_runtime: FROZEN_UNTOUCHED
+
 development_sample_support:
   gate: SAMPLE-DATA-001
   branch: productization/sample-regulation-pricing-001
@@ -166,7 +191,7 @@ api_runtime_contract_reconciliation:
   classification: INTENTIONAL_DEFERRED_OR_COMPATIBILITY_BOUNDARIES
 
 frontend_productization_gaps:
-  - license_purchase_UI
+  - license_purchase_UI_acceptance
   - internal_exam_purchase_UI
   - browser_end_to_end_golden_paths
 
