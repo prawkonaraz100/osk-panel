@@ -2,6 +2,11 @@ meta:
   project: osk-panel
   scope: osk_settings_domain
   status: IMPLEMENTATION_BLUEPRINT
+  document_role: BOUNDED_CONTEXT_SEMANTIC_BLUEPRINT
+  current_provider_neutral_runtime_status: IMPLEMENTED
+  current_UI_status: IMPLEMENTED
+  current_PKK_provider_runtime_status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+  current_implementation_status_source: specs/current-project-status.yml
   decided_at: 2026-09-05
   narrative_doc: docs/100-osk-settings-domain-model.md
   screen_specs:
