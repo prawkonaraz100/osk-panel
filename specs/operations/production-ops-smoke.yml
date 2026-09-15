@@ -1,0 +1,58 @@
+meta:
+  id: production_operations_smoke_v1
+  gate: PROD-OPS-SMOKE-001
+  status: CANDIDATE
+  policy_version: 2026-09-15-v2
+  follows:
+    - PROD-RETENTION-EXECUTOR-001
+    - PROD-TARGET-CONFIG-PREFLIGHT-001
+    - PROD-GO-LIVE-EVIDENCE-001
+    - PROD-OPERATIONAL-ALERTING-001
+
+scope:
+  repository_smoke_substrate_only: true
+  target_environment_execution_proven_by_repository: false
+  human_ack_proven_by_repository: false
+  scheduler_runtime_proven_by_repository: false
+
+incident_contacts:
+  required_refs:
+    - primary_on_call
+    - technical_lead
+    - privacy_lead
+    - business_liaison
+    - communications_lead
+    - paging_channel
+  values_stored_in_git: false
+
+reconciliation:
+  scanner: CoreReconciliationScanner
+  invoked_read_only_by_smoke: true
+  findings_block_smoke_pass: true
+  automatic_repair: false
+  provider_remote_truth_lookup: false
+  PKK_in_scope: false
+
+alert_smoke:
+  operational_alerting_transport_reused: true
+  duplicate_mail_transport: false
+  event_code: synthetic_smoke
+  default_send: false
+  explicit_confirmation_required: SEND-PRODUCTION-OPS-SMOKE
+  delivery_result_required_for_pass: delivered
+  new_recipient_configuration_added: false
+  new_mailer_configuration_added: false
+  new_webhook_configuration_added: false
+  human_ack_recorded_automatically: false
+
+boundaries:
+  HTTP_endpoint: none
+  automatic_paging_schedule: none
+  production_scheduler_execution_claimed: false
+  production_paging_human_reachability_claimed: false
+  PKK_provider_runtime: frozen
+
+external_evidence_still_required:
+  - synthetic_alert_received_by_intended_operator
+  - reconciliation_scheduler_execution_in_target_environment
+  - reconciliation_alert_delivery_in_target_environment

@@ -2,6 +2,7 @@
 
 use App\Console\Commands\GoLiveEvidenceCommand;
 use App\Console\Commands\OperationalAlertSmokeCommand;
+use App\Console\Commands\ProductionOperationsSmokeCommand;
 use App\Console\Commands\ProductionPreflightCommand;
 use App\Console\Commands\RetentionRunCommand;
 use App\Modules\ResourcesCore\ResourceDomainException;
@@ -13,7 +14,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 return Application::configure(basePath: dirname(__DIR__))
-    ->withCommands([GoLiveEvidenceCommand::class, OperationalAlertSmokeCommand::class, ProductionPreflightCommand::class, RetentionRunCommand::class])
+    ->withCommands([GoLiveEvidenceCommand::class, OperationalAlertSmokeCommand::class, ProductionOperationsSmokeCommand::class, ProductionPreflightCommand::class, RetentionRunCommand::class])
     ->withRouting(
         web: __DIR__.'/../routes/web.php',
         commands: __DIR__.'/../routes/console.php',
