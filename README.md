@@ -17,11 +17,11 @@ Canonical publication branch:
 
 Canonical branch jest `main`. Dokładny bieżący HEAD należy odczytywać z refa `main`; nie utrzymujemy samoreferencyjnego „current HEAD” wewnątrz pliku, bo każda zmiana dokumentacji zmieniałaby ten SHA.
 
-Najnowszy w pełni zweryfikowany runtime baseline przed tym closure-only sync:
+Najnowszy w pełni zweryfikowany accepted `main` baseline przed bieżącym candidate Internal Exam Purchase:
 
-`394c24d73eb7514e68f4996342b769f4a35b432c`
+`5fd3dfb4cceadd634fbc9b379b69f99b958079d0`
 
-Implementation CI #738 (`35015499860`): **6/6 PASS**. License Purchase UI nie osłabił canonical commerce contractu.
+Implementation CI #741 (`35018649697`): **6/6 PASS**.
 
 - backend-quality: PASS,
 - frontend-quality: PASS,
@@ -29,9 +29,9 @@ Implementation CI #738 (`35015499860`): **6/6 PASS**. License Purchase UI nie os
 - secret-scan: PASS,
 - PostgreSQL runtime + migrations: PASS,
 - immutable release artifact: PASS,
-- runtime suite: **386 tests / 6390 assertions**,
+- runtime suite: **386 tests / 6392 assertions**,
 - deterministic restore: **122 -> 122 PASS**,
-- release archive SHA-256: `879fbd07fdeb0297c833b748e9eab4f61d3141714dc028f2ca5de96211d86bc0`.
+- release archive SHA-256: `93ce0b7bc76bec3424a4b4c336a92376b8511b3a82637e22b69aa61fd37579eb`.
 
 Repository branch cleanup z 2026-09-15 jest zamknięty **PASS**: zweryfikowany
 snapshot zachował historię, usunięto 287 historycznych refów, a aktywne branche
@@ -62,9 +62,12 @@ Ukończone w productization:
 - **LICENSE-PURCHASE-UI-001** — `/licencje/wykup` jest częścią accepted runtime od `394c24d73eb7514e68f4996342b769f4a35b432c`; PR #125, accepted CI #738 = 6/6 PASS. Checkout nie wysyła cen z przeglądarki, używa server-authoritative product projection/order create i pozostawia provider-specific payment runtime jako deferred.
 - **ORGANIZATION-SETTINGS-UI-001** — provider-neutral `/ustawienia` jest częścią accepted runtime od `4006607dd2aecdc6fabb97a34ba5edf40d07729b`; PR #113, accepted CI #675 = 6/6 PASS. PKK pozostaje zamrożone, e-mail read-only; development ma jawny sample Terms resolver, natomiast produkcyjne odtworzenie dokładnej treści regulaminu nadal wymaga realnego versioned document resolvera/authority.
 
+Kandydat w toku:
+- **INTERNAL-EXAM-PURCHASE-UI-001** — branch `productization/internal-exam-purchase-ui-001` materializuje `/egzamin-wewnetrzny/wykup` oraz read-only `GET /api/v1/internal-exam/purchase-offer`. Preview i order create używają tego samego server-side catalog/pricing authority; frontend wysyła wyłącznie `quantity` i `payment_method`. Sample `SAMPLE-INTERNAL-EXAM` = 2,00 PLN jest jawnie developerski i zabroniony w produkcji. Candidate nie jest jeszcze accepted.
+
 Pozostałe luki produktowe:
 - produkcyjny realny/versioned Terms authority dla rejestracji,
-- UI zakupu egzaminów wewnętrznych,
+- akceptacja `INTERNAL-EXAM-PURCHASE-UI-001` na `main`,
 - browser E2E dla głównych golden paths,
 - realny deployment i external production evidence.
 
