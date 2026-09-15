@@ -776,6 +776,11 @@ function togglePermission(permission: string): void {
           href="/pojazdy"
           :class="{ active: section === 'vehicles' }"
         >Pojazdy</a>
+        <a
+          href="/ustawienia"
+        >
+          Ustawienia
+        </a>
       </nav>
       <div class="sidebar-foot">
         Stage 5 · Core v1
