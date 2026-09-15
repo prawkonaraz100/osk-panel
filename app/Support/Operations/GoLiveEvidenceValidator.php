@@ -267,8 +267,9 @@ final class GoLiveEvidenceValidator
         }
     }
 
-    /** @param array<string,mixed> $details
-     *  @param list<string> $keys
+    /**
+     * @param  array<string,mixed>  $details
+     * @param  list<string>  $keys
      */
     private function validateAllTrue(array $details, array $keys, string $id): void
     {
@@ -314,8 +315,9 @@ final class GoLiveEvidenceValidator
         }
     }
 
-    /** @param array<string,mixed> $object
-     *  @param list<string> $expected
+    /**
+     * @param  array<string,mixed>  $object
+     * @param  list<string>  $expected
      */
     private function assertExactKeys(array $object, array $expected, string $context): void
     {
