@@ -11,7 +11,7 @@ final class ProductionReadinessRuntimeContractTest extends TestCase
     {
         $root = dirname(__DIR__, 2);
         $spec = (string) file_get_contents($root.'/specs/operations/production-readiness.yml');
-        $routes = (string) file_get_contents($root.'/routes/web.php');
+        $bootstrap = (string) file_get_contents($root.'/bootstrap/app.php');
         $logging = (string) file_get_contents($root.'/config/logging.php');
         $workflow = (string) file_get_contents($root.'/.github/workflows/implementation-ci.yml');
         $artifact = (string) file_get_contents($root.'/scripts/ops/build-release-artifact.sh');
@@ -21,8 +21,9 @@ final class ProductionReadinessRuntimeContractTest extends TestCase
         self::assertStringContainsString('claims_target_infrastructure_ready: false', $spec);
         self::assertStringContainsString('FROZEN_UNTIL_EXPLICIT_UNFREEZE', $spec);
 
-        self::assertStringContainsString("Route::get('/health/live'", $routes);
-        self::assertStringContainsString("Route::get('/health/ready'", $routes);
+        self::assertStringContainsString("Route::get('/health/live'", $bootstrap);
+        self::assertStringContainsString("Route::get('/health/ready'", $bootstrap);
+        self::assertStringContainsString("then: function (): void", $bootstrap);
 
         self::assertStringContainsString("'json_stderr' => [", $logging);
         self::assertStringContainsString(JsonFormatter::class, $logging);
