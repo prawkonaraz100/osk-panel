@@ -18,31 +18,30 @@ Canonical publication branch:
 
 `main`
 
-Canonical-main branch-authority evidence head:
+Verified `main` evidence baseline immediately before this documentation-only consistency audit:
 
-`bb6f4639fbf1098f131e579dedbb610e0e7c7d97`
+`7ee7093b1d86498e270f2cd5710c2b5bf9ffad19`
 
 Promotion provenance: PR #117 merged the previously accepted integration history into
 `main` without force-push or squash at `d519651171ab5329d1dcc5326160339d4b94bb5b`.
-Commit `bb6f4639fbf1098f131e579dedbb610e0e7c7d97` then established `main` as the
-sole canonical base/publication branch and received a full post-merge validation.
+Commit `bb6f4639fbf1098f131e579dedbb610e0e7c7d97` established `main` as the sole canonical base/publication branch. PR #119 then finalized branch-hygiene/status synchronization at `7ee7093b1d86498e270f2cd5710c2b5bf9ffad19`, which received a full post-merge validation before this docs-only audit started.
 
 Accepted Implementation CI:
 
-`34988002041` / run #695 — **6/6 PASS**
+`34992709180` / run #700 — **6/6 PASS**
 
 Accepted API Contract Gate for the promoted application/contract tree:
 
-`34985599153` / run #518 — **PASS**
+`34992709070` / run #524 — **PASS**
 
-Accepted immutable artifact for canonical-main evidence head:
+Accepted immutable artifact for this pre-audit verified `main` baseline:
 
-- artifact ID: `10404653033`,
-- name: `osk-panel-bb6f4639fbf1098f131e579dedbb610e0e7c7d97`,
+- artifact ID: `10406097765`,
+- name: `osk-panel-7ee7093b1d86498e270f2cd5710c2b5bf9ffad19`,
 - release archive SHA-256:
-  `f7c75130645ff7d83a82d9e449b2b635152b68a5e1ac85201256bb3f10997280`,
+  `5d089dc4e54b182a273f19b38ec46e640598cdc58490e2cf203540c882e7facd`,
 - GitHub uploaded artifact ZIP SHA-256:
-  `fc788732a5f759d122f9e690ddeee1167b559ca707819d822a9e0f693c4f75de`.
+  `e1162461d304253824bb173281b13467a8616f7c81a582c12ae75f1259e539c6`.
 
 Runtime suite:
 
