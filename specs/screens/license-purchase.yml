@@ -141,7 +141,12 @@ remaining_gaps:
 
 development_sample_support:
   approved_by_user: 2026-09-15
-  status: IMPLEMENTATION_CANDIDATE_NOT_ACCEPTED
+  status: ACCEPTED_PREREQUISITE
+  accepted_head: 2f42eaaff8fc41cddee5ddba5c39f1d58033ed5a
+  accepted_implementation_ci_run: 34980321576
+  accepted_implementation_ci: PASS_6_OF_6
+  accepted_api_contract_run: 34980321672
+  accepted_api_contract: PASS
   purpose: unblock_license_purchase_UI_before_final_price_list
   sample_data_flag: SAMPLE_DATA_ENABLED
   sample_catalog_source: DevelopmentSampleDataSeeder
