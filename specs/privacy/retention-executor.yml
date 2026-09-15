@@ -93,9 +93,23 @@ closure_evidence:
     critical_tables_checked: 10
     redis_recovered_empty: true
     production_target_evidence: false
+  accepted_branch_release:
+    accepted_head: 0b10d222407695be32a544987e6496cdc16554be
+    implementation_ci_run: 34928461181
+    jobs:
+      backend_quality: PASS
+      frontend_quality: PASS
+      runtime_tests_and_migrations: PASS
+      contracts_and_traceability: PASS
+      secret_scan: PASS
+      release_artifact: PASS
+    release_artifact:
+      name: osk-panel-0b10d222407695be32a544987e6496cdc16554be
+      sha256: 002ae2702f10527789e5c4bbda446110d54c03cf027eff7bbca3a31b0006da1d
+      artifact_id: 10380647820
   accepted_branch:
     branch: docs-consolidation-2026-09-05
-    promotion_status: PENDING_EXACT_HEAD_CLOSURE_CI
+    promotion_status: ACCEPTED
 
 external_boundaries:
   PKK_provider_runtime: untouched_frozen

@@ -3,7 +3,7 @@
 Data: 2026-09-15
 
 **Gate:** `PROD-RETENTION-EXECUTOR-001`  
-**Status:** `PASS_PENDING_ACCEPTED_PROMOTION`
+**Status:** `PASS_ACCEPTED`
 
 ## Repository result
 
@@ -78,8 +78,44 @@ It does not prove:
 
 Those require separate environment evidence or separately reviewed authority.
 
-## Promotion
+## Accepted promotion
 
-Promotion is allowed only after this closure tree itself receives exact-head
-PASS. Then `docs-consolidation-2026-09-05` may be fast-forwarded without a
-merge commit or force update.
+The gate is accepted on:
+
+`0b10d222407695be32a544987e6496cdc16554be`
+
+Accepted Implementation CI:
+
+`34928461181`
+
+Result:
+
+- backend-quality — PASS,
+- frontend-quality — PASS,
+- contracts-and-traceability — PASS,
+- secret-scan — PASS,
+- runtime-tests-and-migrations — PASS,
+- release-artifact — PASS.
+
+Accepted runtime proof remains:
+
+- **355 tests passed**,
+- **6095 assertions**,
+- restore **122 -> 122 tables**,
+- fingerprint `f3cab286cc8f0aabef219971d90afe424a8dab694c47ade2f517a3d95970716d`,
+- `RESTORE_DRILL_HARNESS=PASS`.
+
+Immutable release artifact:
+
+`osk-panel-0b10d222407695be32a544987e6496cdc16554be`
+
+Artifact SHA-256:
+
+`002ae2702f10527789e5c4bbda446110d54c03cf027eff7bbca3a31b0006da1d`
+
+GitHub artifact ID:
+
+`10380647820`
+
+This accepted evidence closes the repository-owned portion of
+`PROD-RETENTION-EXECUTOR-001`.
