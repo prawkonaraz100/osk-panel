@@ -17,7 +17,7 @@ final class ProductionReadinessRuntimeContractTest extends TestCase
         $artifact = (string) file_get_contents($root.'/scripts/ops/build-release-artifact.sh');
         $smoke = (string) file_get_contents($root.'/scripts/ops/production-smoke.sh');
 
-        self::assertStringContainsString('status: CANDIDATE', $spec);
+        self::assertStringContainsString('status: PASS', $spec);
         self::assertStringContainsString('claims_target_infrastructure_ready: false', $spec);
         self::assertStringContainsString('FROZEN_UNTIL_EXPLICIT_UNFREEZE', $spec);
 
