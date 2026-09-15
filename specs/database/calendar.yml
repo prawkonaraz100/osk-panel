@@ -3,10 +3,6 @@ meta:
   scope: calendar_core_v1
   stage: DB4_5_CALENDAR
   status: DB_CAL_001_002_003_004_005_006_007_PASS_0_P1_BLOCKERS_OPEN_AGGREGATE_SYNC_PENDING
-  document_scope: HISTORICAL_STAGE4_BOUNDED_CONTEXT_AUTHORITY
-  current_schema_materialization_status: MATERIALIZED_AND_RUNTIME_TESTED
-  current_implementation_status_source: specs/current-project-status.yml
-  historical_meta_note: implementation_started/Laravel_migrations_created/Stage5_started/UI flags in this file describe the Stage4 point-in-time and are not current repository status
   diagnosed_at: 2026-09-06
   updated_at: 2026-09-06
   narrative: docs/109-stage-4-calendar-audit.md
