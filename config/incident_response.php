@@ -5,6 +5,12 @@ return [
     'post_incident_review_required_for' => ['SEV1', 'SEV2'],
     'production_paging_smoke_test_required' => true,
 
+    'paging_smoke' => [
+        'enabled' => env('INCIDENT_PAGING_SMOKE_ENABLED', false),
+        'recipient' => env('INCIDENT_PAGING_SMOKE_RECIPIENT'),
+        'mailer' => env('INCIDENT_PAGING_SMOKE_MAILER'),
+    ],
+
     'owner_roles' => [
         'incident_commander',
         'technical_lead',

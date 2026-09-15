@@ -1,0 +1,50 @@
+meta:
+  id: production_operations_smoke_v1
+  gate: PROD-OPS-SMOKE-001
+  status: CANDIDATE
+  follows: PROD-RETENTION-EXECUTOR-001
+
+scope:
+  repository_smoke_substrate_only: true
+  target_environment_execution_proven_by_repository: false
+  human_ack_proven_by_repository: false
+  scheduler_runtime_proven_by_repository: false
+
+incident_contacts:
+  required_refs:
+    - primary_on_call
+    - technical_lead
+    - privacy_lead
+    - business_liaison
+    - communications_lead
+    - paging_channel
+  values_stored_in_git: false
+
+paging_smoke:
+  command: operations:production:smoke
+  default_send: false
+  environment_enable_required: INCIDENT_PAGING_SMOKE_ENABLED
+  deployment_recipient_required: INCIDENT_PAGING_SMOKE_RECIPIENT
+  deployment_mailer_required: INCIDENT_PAGING_SMOKE_MAILER
+  log_transport_allowed: false
+  array_transport_allowed: false
+  explicit_confirmation_required: true
+  message_contains_customer_data: false
+  message_contains_PKK_data: false
+  message_contains_payment_data: false
+  human_ack_recorded_automatically: false
+
+reconciliation:
+  scanner: operations:reconciliation:scan
+  invoked_read_only_by_smoke: true
+  findings_block_smoke_pass: true
+  automatic_repair: false
+  provider_remote_truth_lookup: false
+  PKK_in_scope: false
+
+boundaries:
+  HTTP_endpoint: none
+  automatic_paging_schedule: none
+  production_scheduler_execution_claimed: false
+  production_paging_human_reachability_claimed: false
+  PKK_provider_runtime: frozen
