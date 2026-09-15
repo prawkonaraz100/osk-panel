@@ -199,3 +199,79 @@ Dla naszego produktu moment konsumpcji powinien być jawnie zdefiniowany i audyt
 - anulowanie nieopłaconego zamówienia.
 
 Te luki nie blokują projektu własnego modułu commerce/inventory.
+
+
+## 12. Candidate INTERNAL-EXAM-PURCHASE-UI-001 — 2026-09-15
+
+Aktualny candidate materializuje własny ekran
+`/egzamin-wewnetrzny/wykup` bez przenoszenia obserwowanej ceny `1,23 zł`
+ani wartości `62,73 zł` do kodu runtime.
+
+### Aktualny stan implementacji
+
+Backend candidate dodaje read-only projection:
+
+`GET /api/v1/internal-exam/purchase-offer`
+
+Projection:
+
+- wymaga permission `exams.purchase`,
+- rozwiązuje ten sam pojedynczy aktywny `internal_exam` catalog item co
+  `POST /api/v1/internal-exam/orders`,
+- korzysta z tego samego `CommercePricingCatalog`,
+- zwraca display name, unit price, list unit price, pricing revision i flagę
+  `sample_data`,
+- nie przyjmuje ceny, product id ani catalog code od klienta.
+
+Order create nadal przy zapisie ponownie rozwiązuje catalog i pricing authority.
+Podgląd w przeglądarce nie staje się więc źródłem ceny.
+
+Frontend candidate:
+
+- pobiera aktualną ofertę wyłącznie z
+  `GET /api/v1/internal-exam/purchase-offer`,
+- pozwala ustawić całkowitą liczbę egzaminów przez numeric input i stepper,
+- wysyła do `POST /api/v1/internal-exam/orders` wyłącznie
+  `quantity` i `payment_method`,
+- nie wysyła ceny, VAT, rabatu ani totalu,
+- pokazuje finalny total z odpowiedzi utworzonego Order,
+- oznacza `sample_data=true` jako cenę developerską,
+- fail-closed przy braku server-side oferty/cennika,
+- nie hardkoduje business max quantity ani slidera, ponieważ min/max/step
+  nadal są `TO_VERIFY`,
+- nie przyznaje inventory przed spełnieniem istniejącej polityki płatności.
+
+### Development sample support
+
+Istniejący `SAMPLE_DATA_ENABLED` candidate został rozszerzony o osobny,
+jawnie developerski catalog item:
+
+- catalog code: `SAMPLE-INTERNAL-EXAM`,
+- product kind: `internal_exam`,
+- przykładowa cena: **2,00 PLN za jednostkę**,
+- pricing revision: `sample-dev-2026-09-15-v1`.
+
+Ta wartość jest przykładem developerskim zatwierdzonym wyłącznie po to, żeby
+nie blokować productization. Nie jest finalnym cennikiem i nie wynika z
+obserwowanej ceny konkurencyjnego ekranu. Sample mode pozostaje zabroniony
+w `APP_ENV=production`.
+
+### Metody płatności
+
+Obserwowane PayU pozostaje historycznym faktem z audytowanego ekranu, ale własny
+candidate nie deklaruje aktywnego providera PayU. UI wysyła neutralne kody:
+
+- `bank_transfer`,
+- `online_payment`.
+
+Order create tworzy wyłącznie istniejący lokalny pending payment intent dla
+dodatniego totalu. Provider-specific redirect/callback pozostaje deferred.
+
+### Status
+
+To nadal **candidate**, nie accepted runtime. Wymagane pozostają:
+
+1. exact-head CI,
+2. clean promotion na `main`,
+3. post-merge push CI i immutable artifact,
+4. dopiero potem przejście statusu na accepted.
