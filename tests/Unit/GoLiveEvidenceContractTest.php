@@ -14,7 +14,7 @@ final class GoLiveEvidenceContractTest extends TestCase
         $web = (string) file_get_contents($root.'/routes/web.php');
         $console = (string) file_get_contents($root.'/routes/console.php');
 
-        self::assertStringContainsString('status: CANDIDATE', $spec);
+        self::assertStringContainsString('status: PASS', $spec);
         self::assertStringContainsString('production_ready_claim_from_repository_alone: forbidden', $spec);
         self::assertStringContainsString('PKK_PWPW: FROZEN_UNTIL_EXPLICIT_UNFREEZE', $spec);
         self::assertStringContainsString('operations:go-live:evidence', $command);

@@ -3,7 +3,7 @@
 Data: 2026-09-15
 
 **Gate:** `PROD-GO-LIVE-EVIDENCE-001`  
-**Status:** `IMPLEMENTATION_CANDIDATE`
+**Status:** `PASS_REPOSITORY_EXTERNAL_EVIDENCE_VALIDATOR`
 
 ## Purpose
 
@@ -76,3 +76,36 @@ It does **not**:
 Production activation remains an explicit operator/deployment action.
 
 PKK/PWPW remains frozen and is not part of the required evidence set. Provider-specific payment evidence is not required while that provider boundary is not launched.
+
+
+## Repository closure
+
+Validated candidate:
+
+`8e252c9f091216375825ccada208f3a5c17600b1`
+
+Implementation CI run:
+
+`34940714606`
+
+Result:
+
+- backend-quality — PASS,
+- frontend-quality — PASS,
+- contracts-and-traceability — PASS,
+- secret-scan — PASS,
+- runtime-tests-and-migrations — PASS,
+- PostgreSQL — **364 tests / 6140 assertions**,
+- deterministic CI restore — **122 -> 122 PASS**,
+- restore schema fingerprint — `f3cab286cc8f0aabef219971d90afe424a8dab694c47ade2f517a3d95970716d`.
+
+The restore proof remains CI-emulated and explicitly reports
+`production_target_evidence=false`.
+
+Repository status therefore means:
+
+`GO_LIVE_EVIDENCE_VALIDATOR=PASS`
+
+It does **not** mean:
+
+`PRODUCTION_GO_LIVE_EVIDENCE=PASS`.
