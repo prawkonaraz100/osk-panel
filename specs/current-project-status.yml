@@ -1,0 +1,40 @@
+meta:
+  id: current_project_status_v1
+  authority: CURRENT-PROJECT-STATUS-001
+  as_of: 2026-09-15
+  status: CURRENT
+
+runtime_authority:
+  git_sha: 0cff2ac4661d84a99ef859e2c403051b122b7b18
+  accepted_ci_run: 34955123076
+  accepted_ci: PASS_6_OF_6
+  release_artifact_id: 10391475457
+  release_artifact_name: osk-panel-0cff2ac4661d84a99ef859e2c403051b122b7b18
+  release_archive_sha256: 5052c43ead47460f8e7021042e7ab507dd4cc902ccabd60014c1495112f32361
+  postgres_tests_passed: 379
+  assertions: 6278
+  restore_tables_source: 122
+  restore_tables_restored: 122
+
+core_v1:
+  repository_complete: true
+  repository_actionable_P0: 0
+  repository_actionable_P1_for_core_launch: 0
+
+frontend_productization_gaps:
+  - auth_and_recovery_UI
+  - organization_settings_UI
+  - license_purchase_UI
+  - internal_exam_purchase_UI
+  - browser_end_to_end_golden_paths
+
+production:
+  repository_substrate_complete: true
+  production_ready: false
+  go_live_status: BLOCKED_EXTERNAL_EVIDENCE
+  external_evidence_tracker: github_issue_106
+
+deferred_boundaries:
+  PKK_PWPW: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+  PKK_required_for_core_service_launch: false
+  payment_provider_specific_webhook: EXTERNAL_PROVIDER_BOUNDARY

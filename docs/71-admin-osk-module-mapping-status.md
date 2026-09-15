@@ -1,6 +1,13 @@
-# 71. Status mapowania modułów panelu admin OSK
+# 71. Historyczny status mapowania modułów panelu admin OSK
 
-Data konsolidacji: 2026-09-05
+Data konsolidacji mapowania: 2026-09-05
+
+> **Status dokumentu: HISTORYCZNY SNAPSHOT MAPOWANIA.** Wartości
+> `READY_FOR_IMPLEMENTATION` poniżej opisują gotowość wiedzy/screen evidence z
+> 2026-09-05, a nie aktualny stan implementacji. Core V1 repository zostało później
+> zamknięte jako complete. Bieżący status wykonania znajduje się w
+> `docs/227-current-project-status-authority.md` i
+> `specs/current-project-status.yml`.
 
 > To jest szybka macierz gotowości funkcjonalnej. Aktywny kontrakt implementacyjny znajduje się w `specs/implementation-baseline-v1.yml`. Screen evidence nie narzuca technicznej semantyki hard-delete, source-of-truth godzin ani inventory lifecycle — te decyzje wynikają z `specs/legal`, `specs/design`, `docs/82` i `docs/83`.
 

@@ -1,6 +1,13 @@
-# 10. Gap register — aktualne luki po audycie ekranowym
+# 10. Historyczny gap register po audycie ekranowym
 
 Data konsolidacji: 2026-09-05
+
+> **Status dokumentu: HISTORYCZNY SNAPSHOT.** Sekcje P0/P1 poniżej zachowują
+> stan decyzji z 2026-09-05 i nie są obecnym backlogiem implementacyjnym.
+> Późniejszy `CORE-V1-CLOSURE-AUDIT-016` zamknął repozytorium z
+> `repository-actionable P0=0` i `P1=0` dla Core V1. Aktualny status i
+> rzeczywiste pozostałe luki produktowe opisuje
+> `docs/227-current-project-status-authority.md`.
 
 > Ten dokument nie jest już listą „czego nie znamy z panelu 360” sprzed audytu. Po zmapowaniu core OSK przechowuje wyłącznie realne luki, które nadal mogą wpływać na projekt albo testy. Status gotowości modułów znajduje się w `docs/71-admin-osk-module-mapping-status.md`.
 

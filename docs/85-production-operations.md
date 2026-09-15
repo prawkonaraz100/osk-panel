@@ -2,7 +2,13 @@
 
 Data: 2026-09-05
 
-**Status:** `PRE_PRODUCTION_POLICY`
+**Status:** `ACTIVE_POLICY_REPOSITORY_SUBSTRATE_COMPLETE_TARGET_EVIDENCE_PENDING`
+
+> Stan wykonania 2026-09-15: repository-owned runtime/preflight/restore/alerting/
+> evidence tooling jest zaimplementowane i przechodzi accepted CI. To nie jest
+> równoznaczne z produkcyjnym go-live. Realny target nadal musi dostarczyć dziewięć
+> klas external evidence śledzonych w #106. `production_ready=false` pozostaje
+> obowiązującą prawdą do czasu pełnego target evidence PASS.
 
 ## 1. Environmenty
 

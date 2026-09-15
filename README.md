@@ -1,37 +1,70 @@
-# OSK Panel — clean-room functional specification
+# OSK Panel — Core V1 application and clean-room specification
 
-Repozytorium dokumentacji i specyfikacji dla własnego panelu administracyjnego OSK PrawkoNaRaz.
+Repozytorium zawiera działającą aplikację Laravel + Vue oraz jej canonical specs,
+testy, migracje i production-readiness tooling dla własnego panelu administracyjnego
+OSK PrawkoNaRaz.
 
-Celem projektu jest zbudowanie własnego produktu realizującego tę samą **klasę procesów biznesowych** co analizowane rozwiązania rynkowe, bez kopiowania ich kodu, layoutu, assetów, tekstów ani chronionej implementacji.
+Projekt pozostaje clean-room: mapujemy klasę procesów biznesowych i wymagania,
+ale nie kopiujemy kodu, layoutu, assetów ani chronionej implementacji innych produktów.
 
-## Aktualny stan
+## Aktualny stan — 2026-09-15
 
-Core administratora OSK jest wystarczająco zmapowany do implementacji:
+**Core V1 repository jest implementacyjnie zamknięty.**
 
-- Panel główny,
-- Integracja PKK,
-- Kursanci,
-- Kursy (PKK) / formalny course enrollment,
-- Kalendarz,
-- Lokalizacje,
-- Pojazdy,
-- Pracownicy,
-- Licencje,
-- Egzaminy wewnętrzne,
-- Ustawienia,
-- Historia zakupów.
+Runtime authority po ostatnim zaakceptowanym gate:
 
-Status modułów: `docs/71-admin-osk-module-mapping-status.md`.
+`0cff2ac4661d84a99ef859e2c403051b122b7b18`
 
-Moduły marketingowe (`Moje wizytówki`, `Moje reklamy`, `Wykłady`, `Szkolenie z instruktorem`) nie blokują core v1.
+Accepted Implementation CI #655: **6/6 PASS**.
 
-## Najważniejszy plik przed implementacją
+- backend-quality: PASS,
+- frontend-quality: PASS,
+- contracts-and-traceability: PASS,
+- secret-scan: PASS,
+- PostgreSQL runtime + migrations: PASS,
+- immutable release artifact: PASS,
+- runtime suite: **379 tests / 6278 assertions**,
+- deterministic restore: **122 -> 122 PASS**.
 
-**`specs/implementation-baseline-v1.yml`** jest aktywnym baseline implementacyjnym.
+Repository-owned production substrate jest kompletny, ale **produkcja nie jest jeszcze
+udowodniona jako gotowa**. Realny go-live pozostaje:
 
-Jeżeli starszy dokument lub agregat przeczy nowszemu screen/legal/design spec, obowiązuje kolejność opisana w `AGENTS.md` i baseline.
+`GO_LIVE_STATUS=BLOCKED_EXTERNAL_EVIDENCE`
 
-Trwa konsolidacja developerska dokumentacji: `docs/81-developer-consolidation-plan.md`.
+Target evidence jest śledzone w GitHub issue #106 i wymaga rzeczywistego środowiska
+produkcyjnego, backup/PITR, object restore, secrets injection, monitoringu, paging,
+scheduler proof i release smoke.
+
+PKK/PWPW pozostaje:
+
+`FROZEN_UNTIL_EXPLICIT_UNFREEZE`
+
+i **nie jest wymagane do uruchomienia Core service**.
+
+Aktualne luki produktowe po audycie kodu nie dotyczą już modelu domenowego ani
+podstawowego backendu. Koncentrują się na productization frontendu:
+
+- osobny UI login/recovery,
+- UI ustawień organizacji,
+- UI zakupu licencji,
+- UI zakupu egzaminów wewnętrznych,
+- browser E2E dla głównych golden paths,
+- realny deployment i external production evidence.
+
+Bieżący status authority: **`docs/227-current-project-status-authority.md`**.
+
+## Authority dla dalszej pracy
+
+1. `AGENTS.md`
+2. `docs/227-current-project-status-authority.md` — bieżący status wykonania
+3. `specs/current-project-status.yml` — machine-readable status
+4. `specs/implementation-baseline-v1.yml` — canonical zakres/inwarianty Core V1
+5. właściwe `specs/legal/*.yml`, `specs/design/*.yml`, `specs/screens/*.yml`
+6. nowsze closure/authority docs dla konkretnego gate
+
+Dokumenty takie jak `docs/10-gap-register.md`, `docs/71-admin-osk-module-mapping-status.md`
+oraz historyczne sekcje closure w baseline zachowują kontekst decyzji z wcześniejszych
+etapów. Nie są bieżącą listą otwartych P0/P1.
 
 ## Struktura repo
 
@@ -84,8 +117,8 @@ Mapujemy:
 - Cache/queue: Redis,
 - Storage: S3-compatible,
 - background jobs: Laravel Queue,
-- frontend server-state: Vue Query/TanStack Query,
-- frontend local state: Pinia.
+- obecny frontend runtime: Vue 3 + cienka warstwa `fetch`/API,
+- Vue Query/TanStack Query i Pinia pozostają opcjonalnym kierunkiem ewolucji, a nie aktualnie zainstalowanym wymaganiem.
 
 Architektura domenowa musi pozostać niezależna od komponentów Vue.
 

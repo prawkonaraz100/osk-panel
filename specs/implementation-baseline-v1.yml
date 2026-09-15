@@ -5,6 +5,11 @@ meta:
   consolidated_at: 2026-09-05
   status: ACTIVE_IMPLEMENTATION_BASELINE
   goal: build_own_functional_equivalent_without_copying_ui_or_code
+  current_status_authority: docs/227-current-project-status-authority.md
+  current_status_machine: specs/current-project-status.yml
+  current_runtime_authority_head: 0cff2ac4661d84a99ef859e2c403051b122b7b18
+  current_core_repository_state: COMPLETE
+  current_go_live_state: BLOCKED_EXTERNAL_EVIDENCE
 
 preservation:
   contract: docs/96-reverse-engineering-preservation-contract.md
@@ -395,6 +400,11 @@ historical_or_optional:
     own_secure_implementation_optional: true
 
 
+status_semantics_2026_09_15:
+  READY_FOR_IMPLEMENTATION_in_core_modules_means: historical_mapping_readiness_not_current_code_status
+  current_implementation_status_source: specs/current-project-status.yml
+  historical_closure_sections_preserved: true
+
 closure_audit_2026_09_13:
   gate: CORE-V1-CLOSURE-AUDIT-001
   authority: docs/149-core-v1-closure-audit.md
@@ -506,3 +516,21 @@ candidate_key_preflight_correction_2026_09_13:
     API_unique_operations: 173
     API_shared_aliases: 14
     PKK_provider_runtime_status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+
+current_closure_2026_09_15:
+  runtime_authority_head: 0cff2ac4661d84a99ef859e2c403051b122b7b18
+  core_v1_repository_complete: true
+  repository_actionable_P0: 0
+  repository_actionable_P1_for_core_launch: 0
+  production_repository_substrate_complete: true
+  production_ready: false
+  go_live_status: BLOCKED_EXTERNAL_EVIDENCE
+  PKK_PWPW: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+  PKK_required_for_core_service_launch: false
+  current_productization_focus:
+    - auth_and_recovery_UI
+    - organization_settings_UI
+    - license_purchase_UI
+    - internal_exam_purchase_UI
+    - browser_end_to_end_golden_paths
+    - target_environment_deployment_and_evidence
