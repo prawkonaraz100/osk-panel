@@ -35,7 +35,7 @@ function uuid(): string {
 }
 
 function unauthenticatedLoginUrl(): string | null {
-  if (['/login', '/forgot-password', '/reset-password'].includes(window.location.pathname)) {
+  if (['/login', '/register', '/forgot-password', '/reset-password'].includes(window.location.pathname)) {
     return null
   }
 
