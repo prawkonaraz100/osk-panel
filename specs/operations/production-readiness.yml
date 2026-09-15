@@ -3,6 +3,10 @@ meta:
   gate: PROD-READINESS-RUNTIME-001
   status: PASS
   audited_from_core_v1_closure: CORE-V1-CLOSURE-AUDIT-016
+  document_role: REPOSITORY_SUBSTRATE_GATE_RECORD
+  current_project_status: specs/current-project-status.yml
+  current_repository_closure: specs/operations/production-repository-closure.yml
+  closure_evidence_below_is_gate_specific_historical_snapshot: true
 
 scope:
   repository_substrate_only: true
@@ -108,4 +112,6 @@ closure_evidence:
     redis_recovered_empty: true
     production_target_evidence: false
   accepted_branch_release_artifact:
-    status: PENDING_PROMOTION
+    status_at_this_gate: PENDING_PROMOTION
+    later_repository_closure_status: PASS
+    later_closure_authority: specs/operations/production-repository-closure.yml
