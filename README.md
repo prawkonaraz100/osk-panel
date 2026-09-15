@@ -17,11 +17,11 @@ Canonical publication branch:
 
 Canonical branch jest `main`. Dokładny bieżący HEAD należy odczytywać z refa `main`; nie utrzymujemy samoreferencyjnego „current HEAD” wewnątrz pliku, bo każda zmiana dokumentacji zmieniałaby ten SHA.
 
-Ostatni pełny zweryfikowany baseline przed drugim audytem dokumentacji:
+Najnowszy w pełni zweryfikowany runtime baseline przed tym closure-only sync:
 
-`20e6989486bd27c9331a8f5dd55acc6f2b0a3d2b`
+`da8b5c35590c77f512a17e21f1e173bce46a6088`
 
-Implementation CI #702 (`34997297399`): **6/6 PASS**. API Contract Gate #526 (`34997297369`): **PASS**.
+Implementation CI #733 (`35010888852`): **6/6 PASS**. Registration UI nie zmienił canonical API contractu.
 
 - backend-quality: PASS,
 - frontend-quality: PASS,
@@ -29,8 +29,9 @@ Implementation CI #702 (`34997297399`): **6/6 PASS**. API Contract Gate #526 (`3
 - secret-scan: PASS,
 - PostgreSQL runtime + migrations: PASS,
 - immutable release artifact: PASS,
-- runtime suite: **384 tests / 6348 assertions**,
-- deterministic restore: **122 -> 122 PASS**.
+- runtime suite: **385 tests / 6367 assertions**,
+- deterministic restore: **122 -> 122 PASS**,
+- release archive SHA-256: `f1b3de0bc8cb48ab1d930b6a7b60b8906205b35a455ad715d3eab5aa1746b6c2`.
 
 Repository branch cleanup z 2026-09-15 jest zamknięty **PASS**: zweryfikowany
 snapshot zachował historię, usunięto 287 historycznych refów, a aktywne branche
@@ -57,13 +58,11 @@ podstawowego backendu.
 
 Ukończone w productization:
 - **AUTH-RECOVERY-UI-001** — login, forgot-password i reset-password są częścią accepted runtime od `d6b2089903ac830581b8606914cd484f1207dee2`; PR #111, accepted CI #665 = 6/6 PASS.
+- **REGISTRATION-UI-001** — `/register` jest częścią accepted runtime od `da8b5c35590c77f512a17e21f1e173bce46a6088`; PR #123, accepted CI #733 = 6/6 PASS. UI korzysta z istniejącego backendu i nieprodukcyjnego sample Terms discovery bez hardcodowania wersji regulaminu. Produkcja nadal wymaga realnego, opublikowanego i wersjonowanego regulaminu/authority.
 - **ORGANIZATION-SETTINGS-UI-001** — provider-neutral `/ustawienia` jest częścią accepted runtime od `4006607dd2aecdc6fabb97a34ba5edf40d07729b`; PR #113, accepted CI #675 = 6/6 PASS. PKK pozostaje zamrożone, e-mail read-only; development ma jawny sample Terms resolver, natomiast produkcyjne odtworzenie dokładnej treści regulaminu nadal wymaga realnego versioned document resolvera/authority.
 
-Kandydat w toku:
-- **REGISTRATION-UI-001** — PR #123 materializuje `/register` i używa istniejącego backendu rejestracji oraz nieprodukcyjnego sample Terms discovery bez hardcodowania wersji regulaminu. Kod istnieje w bieżącym drzewie PR, ale nie jest jeszcze accepted na `main`; acceptance wymaga exact-head CI i merge. Produkcja nadal wymaga realnego, opublikowanego i wersjonowanego regulaminu/authority.
-
 Pozostałe luki produktowe:
-- akceptacja `REGISTRATION-UI-001` na `main` oraz produkcyjny realny/versioned Terms authority,
+- produkcyjny realny/versioned Terms authority dla rejestracji,
 - UI zakupu licencji,
 - UI zakupu egzaminów wewnętrznych,
 - browser E2E dla głównych golden paths,
