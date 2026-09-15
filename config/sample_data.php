@@ -46,4 +46,15 @@ return [
             'pricing_revision' => 'sample-dev-2026-09-15-v1',
         ],
     ],
+    'internal_exam' => [
+        'catalog_code' => 'SAMPLE-INTERNAL-EXAM',
+        'pricing' => [
+            'currency' => 'PLN',
+            'list_unit_amount_minor' => 200,
+            'charged_unit_amount_minor' => 200,
+            'vat_rate_basis_points' => 2300,
+            'display_name' => 'Przykładowa pula egzaminów wewnętrznych',
+            'pricing_revision' => 'sample-dev-2026-09-15-v1',
+        ],
+    ],
 ];
