@@ -152,7 +152,7 @@ closed Core domain/database authority.
 
 ## HTTP contract/runtime reconciliation
 
-Deep code audit on 2026-09-15 found **160 physical `/api/v1` route bindings** versus **173 HTTP operations in canonical OpenAPI**. The 15 OpenAPI-only operations are intentional deferred boundaries: 14 PKK/PWPW operations and one provider payment webhook. Runtime additionally exposes two intentional non-canonical/compatibility endpoints: the non-production sample-terms discovery endpoint and the `internal-exam-stations/heartbeat` compatibility alias. Detailed first-pass evidence is recorded in `docs/230-documentation-code-consistency-audit.md`. The independent second pass and follow-up corrections are recorded in `docs/231-documentation-code-consistency-reaudit.md`.
+Deep code audit on 2026-09-15 found **160 physical `/api/v1` route bindings** versus **173 HTTP operations in canonical OpenAPI**. The 15 OpenAPI-only operations are intentional deferred boundaries: 14 PKK/PWPW operations and one provider payment webhook. Runtime additionally exposes two intentional non-canonical/compatibility endpoints: the non-production sample-terms discovery endpoint and the `internal-exam-stations/heartbeat` compatibility alias. Detailed first-pass evidence and the independent second-pass verification/corrections are recorded in `docs/230-documentation-code-consistency-audit.md` (sections 1–12 preserve the first pass; section 13 records the re-audit).
 
 ## Production status
 
