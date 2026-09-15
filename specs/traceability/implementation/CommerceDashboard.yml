@@ -142,4 +142,14 @@ changed_scope:
     ui: NOT_APPLICABLE_SAMPLE_DATA_PREREQUISITE
     acceptance_test: Tests\\Feature\\DevelopmentSampleDataCoreTest::test_sample_license_catalog_projects_same_server_price_used_by_order_create
     status: IMPLEMENTED
-    acceptance_state: CANDIDATE_NOT_ACCEPTED
+    acceptance_state: ACCEPTED
+    candidate_head: 275e9dc47c5b507d49b96cf4ce79205b0ec78d49
+    candidate_implementation_ci_run: 34979358411
+    candidate_implementation_ci: PASS_5_OF_5
+    candidate_api_contract_run: 34979358178
+    candidate_api_contract: PASS
+    accepted_head: 2f42eaaff8fc41cddee5ddba5c39f1d58033ed5a
+    accepted_implementation_ci_run: 34980321576
+    accepted_implementation_ci: PASS_6_OF_6
+    accepted_api_contract_run: 34980321672
+    accepted_api_contract: PASS
