@@ -202,9 +202,9 @@ development_sample_pricing:
     SAMPLE-LICENSE-3M: {list_minor: 3800, charged_minor: 1900, currency: PLN}
     SAMPLE-LICENSE-6M: {list_minor: 5900, charged_minor: 2950, currency: PLN}
   production_price_claim: false
-  internal_exam_candidate_extension:
+  internal_exam_extension:
     gate: INTERNAL-EXAM-PURCHASE-UI-001
-    status: CANDIDATE_PR
+    status: ACCEPTED
     purchase_offer_endpoint: GET /api/v1/internal-exam/purchase-offer
     purchase_offer_permission: exams.purchase
     same_catalog_selector_as_exam_orders_create: true
@@ -220,3 +220,12 @@ development_sample_pricing:
     sample_pricing_revision: sample-dev-2026-09-15-v1
     sample_value_is_observed_competitor_price: false
     production_use: forbidden
+    pull_request: 127
+    accepted_head: a9d96553caff3a6b6d3955c224627451a4effd14
+    candidate_implementation_ci_run: 35021646666
+    candidate_api_contract_run: 35021646668
+    accepted_implementation_ci_run: 35022787325
+    accepted_api_contract_run: 35022787327
+    release_artifact_id: 10418766869
+    release_archive_sha256: 60e1686b033facdd52bfd368210f59fa6d337b355b608ada72bc4c8b8df0c546
+    github_artifact_zip_sha256: c208c25b2b313117a48bdf3c555de86aa9ef46fb61f3368d2ac63e91d2130fe0
