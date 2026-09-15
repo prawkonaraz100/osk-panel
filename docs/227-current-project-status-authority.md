@@ -16,22 +16,22 @@ jako aktualnego backlogu.
 
 Ostatni zaakceptowany runtime authority:
 
-`d6b2089903ac830581b8606914cd484f1207dee2`
+`4006607dd2aecdc6fabb97a34ba5edf40d07729b`
 
 Accepted Implementation CI:
 
-`34964671420` / run #665 — **6/6 PASS**
+`34971537563` / run #675 — **6/6 PASS**
 
 Accepted immutable artifact:
 
-- artifact ID: `10395187416`,
-- name: `osk-panel-d6b2089903ac830581b8606914cd484f1207dee2`,
+- artifact ID: `10396979267`,
+- name: `osk-panel-4006607dd2aecdc6fabb97a34ba5edf40d07729b`,
 - release archive SHA-256:
-  `516fa5aafe9c4a1a2a5bfb488e3fb3ae0bbfa3377d82e05a5797f3b9f70af7ce`.
+  `c3ca6f4c99dd61099cfc2bb720a502e8808212384d1393a8e8accae17071b962`.
 
 Runtime suite:
 
-- PostgreSQL: **380 tests / 6299 assertions — PASS**,
+- PostgreSQL: **381 tests / 6315 assertions — PASS**,
 - deterministic restore: **122 -> 122 PASS**.
 
 ## Core V1
@@ -77,21 +77,20 @@ Functional SPA workspaces exist for:
 - purchase history,
 - license management,
 - internal exam management,
-- student finance/progress/learning access/formal documents.
-
-Candidate workspace also exists for `/ustawienia`, but it is not listed as completed productization until the gate is accepted.
+- student finance/progress/learning access/formal documents,
+- provider-neutral organization settings.
 
 Completed productization work:
 
-- `AUTH-RECOVERY-UI-001`: accepted on `d6b2089903ac830581b8606914cd484f1207dee2`; PR #111; accepted CI #665 **6/6 PASS**. Public SPA routes now exist for `/login`, `/forgot-password` and `/reset-password`. Registration UI remains separately deferred pending safe public legal-document version discovery.
+- `AUTH-RECOVERY-UI-001`: accepted on `d6b2089903ac830581b8606914cd484f1207dee2`; PR #111; accepted CI #665 **6/6 PASS**. Public SPA routes exist for `/login`, `/forgot-password` and `/reset-password`. Registration UI remains separately deferred pending safe public legal-document version discovery.
+- `ORGANIZATION-SETTINGS-UI-001`: accepted on `4006607dd2aecdc6fabb97a34ba5edf40d07729b`; PR #113; accepted CI #675 **6/6 PASS**. `/ustawienia` uses the provider-neutral settings contract, keeps e-mail read-only, does not read or mutate PKK while frozen, and does not synthesize a terms document URL.
 
 Current productization gaps confirmed by code audit:
 
-1. organization settings UI on `productization/organization-settings-ui-001` is a **validated 5/5 candidate** on `0e3466ec…`; `/ustawienia` is materialized with provider-neutral data/settings save, but the gate remains open until final closure-head CI + clean promotion + accepted 6/6,
-2. no license purchase UI route despite backend `POST /api/v1/license-orders`,
-3. no internal-exam purchase UI route despite backend `POST /api/v1/internal-exam/orders`,
-4. no browser E2E suite for complete user golden paths,
-5. frontend routing is currently a lightweight pathname shell rather than a full
+1. no license purchase UI route despite backend `POST /api/v1/license-orders`,
+2. no internal-exam purchase UI route despite backend `POST /api/v1/internal-exam/orders`,
+3. no browser E2E suite for complete user golden paths,
+4. frontend routing is currently a lightweight pathname shell rather than a full
    router/state-management architecture.
 
 These are the next repository-owned product gaps. They do not reopen the already
