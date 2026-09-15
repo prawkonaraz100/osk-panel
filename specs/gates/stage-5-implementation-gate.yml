@@ -7390,7 +7390,7 @@ CORE_V1_STUDENT_PROGRESS_AUTHORITY_001_gate:
 
 CORE_V1_STAGE5_STUDENT_PROGRESS_PROJECTION_001_gate:
   id: CORE-V1-STAGE5-STUDENT-PROGRESS-PROJECTION-001
-  status: CANDIDATE
+  status: PASS
   prerequisite:
     authority: CORE-V1-STUDENT-PROGRESS-AUTHORITY-001_PASS
   authority:
@@ -7414,6 +7414,71 @@ CORE_V1_STAGE5_STUDENT_PROGRESS_PROJECTION_001_gate:
     Stage4_mutation: false
     PKK_runtime_activation: false
     provider_webhook_change: false
+  closure_evidence:
+    validated_head: bfac6b3ccac1bfbf25a5cf06ae9a1fb21be69092
+    validated_tree: 1dab084fe062a6f37f2063651198525a8faf301c
+    Implementation_CI_run: 34919928181
+    Implementation_CI_jobs_passed: 5
+    Implementation_CI_jobs_total: 5
+    API_Contract_Gate_run: 34919934613
+    PostgreSQL_tests: 342
+    PostgreSQL_assertions: 5977
+    deterministic_restore: PASS
+    restore_source_tables: 122
+    restore_restored_tables: 122
+    restore_schema_fingerprint: f3cab286cc8f0aabef219971d90afe424a8dab694c47ade2f517a3d95970716d
   safe_continuation_after_PASS:
     fresh_closure_audit_required: true
     HTTP_runtime_before_fresh_audit: forbidden
+
+
+CORE_V1_CLOSURE_AUDIT_015_gate:
+  id: CORE-V1-CLOSURE-AUDIT-015
+  status: AUDIT_COMPLETE_STUDENT_PROGRESS_IMPLEMENTATION_READY
+  authority: docs/209-core-v1-closure-audit-015.md
+  audited_exact_head: bfac6b3ccac1bfbf25a5cf06ae9a1fb21be69092
+  audited_tree: 1dab084fe062a6f37f2063651198525a8faf301c
+  prerequisite:
+    student_progress_authority: CORE-V1-STUDENT-PROGRESS-AUTHORITY-001_PASS
+    student_progress_projection: CORE-V1-STAGE5-STUDENT-PROGRESS-PROJECTION-001_PASS
+  closure_evidence:
+    Implementation_CI_run: 34919928181
+    API_Contract_Gate_run: 34919934613
+    PostgreSQL_suite_tests: 342
+    PostgreSQL_suite_assertions: 5977
+    deterministic_restore_harness: PASS
+    restore_source_table_count: 122
+    restore_restored_table_count: 122
+    restore_schema_fingerprint: f3cab286cc8f0aabef219971d90afe424a8dab694c47ade2f517a3d95970716d
+  HTTP_inventory:
+    canonical_required_unique_method_path_operations: 173
+    API_gate_canonical_operations: 173
+    HTTP_requirement_rows: 187
+    required_physical_bindings_present: 157
+    missing_physical_bindings_total: 16
+    frozen_PKK_missing_bindings: 14
+    provider_specific_payment_webhook_missing_bindings: 1
+    repo_actionable_HTTP_bindings_missing: 1
+  remaining_repo_actionable:
+    implementation_ready_count: 1
+    schema_corrective_blocked_count: 0
+    authority_blocked_count: 0
+    implementation_ready_operations:
+      - students.progress
+  non_HTTP_repo_P1:
+    additional_open_count: 0
+  result:
+    repository_complete: false
+    repo_P0_open: 0
+    repo_actionable_P1_open: 1
+    PKK_provider_runtime_status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+    payment_webhook_status: EXTERNAL_PROVIDER_BOUNDARY
+  safe_continuation:
+    next_gate: CORE-V1-STUDENT-PROGRESS-001
+    add_HTTP_binding: allowed
+    enable_progress_UI: allowed_after_truthful_runtime_binding
+    fabricate_unavailable_metrics: forbidden
+    hardcode_observed_totals: forbidden
+    PKK_runtime_activation: forbidden
+    provider_webhook_implementation: forbidden
+    final_closure_audit_after_PASS: required

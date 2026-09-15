@@ -2,7 +2,7 @@
 
 Data: 2026-09-15
 
-**Status:** `CANDIDATE`
+**Status:** `PASS`
 
 ## Scope
 
@@ -98,3 +98,26 @@ Snapshot hash is lowercase SHA-256 and versions are positive.
 After exact-head PASS, run a fresh Core V1 closure audit.
 
 Only that audit may reclassify `students.progress` from schema-corrective blocked to implementation-ready.
+
+
+## Closure evidence
+
+Validated exact head:
+
+`bfac6b3ccac1bfbf25a5cf06ae9a1fb21be69092`
+
+Validated tree:
+
+`1dab084fe062a6f37f2063651198525a8faf301c`
+
+- Implementation CI run `34919928181`: **5/5 PASS**
+- API Contract Gate run `34919934613`: **PASS**
+- PostgreSQL: **342 tests / 5977 assertions — PASS**
+- deterministic restore drill: **122 -> 122 PASS**
+- restore fingerprint: `f3cab286cc8f0aabef219971d90afe424a8dab694c47ade2f517a3d95970716d`
+- backend Pint/PHPStan: **PASS**
+- frontend quality: **PASS**
+- contracts/traceability: **PASS**
+- secret scan: **PASS**
+
+The corrective is therefore closed without Stage4 mutation, heuristic binding, fake progress backfill, HTTP binding, or UI enablement.
