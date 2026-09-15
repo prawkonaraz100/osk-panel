@@ -7,7 +7,7 @@ paths:
       x-permission: licenses.view
       responses:
         '200':
-          description: Configured license products and duration variants
+          description: Configured license products with server-authoritative current pricing projection when available; price fields may be null when no current pricing authority exists
           content:
             application/json:
               schema: { type: array, items: { $ref: '../openapi-components-v1.yaml#/components/schemas/LicenseProduct' } }
