@@ -248,6 +248,8 @@ paths:
     get:
       tags: [Organization, PKK]
       operationId: organizationPkkSettingsGet
+      x-runtime-status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+      x-runtime-note: preserved_provider_neutral_contract_no_physical_route_binding
       x-requirement-id: pkk.settings.get
       x-permission: pkk.view
       x-screen-specs: [specs/screens/pkk-configuration-gate.yml, specs/screens/settings.yml]
@@ -262,6 +264,8 @@ paths:
     patch:
       tags: [Organization, PKK]
       operationId: organizationPkkSettingsUpdate
+      x-runtime-status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+      x-runtime-note: preserved_provider_neutral_contract_no_physical_route_binding
       x-requirement-id: pkk.settings.update
       x-permission: organization.integrations.manage
       x-canonical-db-spec: specs/database/organization-settings.yml
@@ -285,6 +289,8 @@ paths:
     get:
       tags: [Organization, PKK]
       operationId: organizationPkkConfigurationGateGet
+      x-runtime-status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+      x-runtime-note: preserved_provider_neutral_contract_no_physical_route_binding
       x-requirement-id: pkk.configuration_gate.get
       x-permission: organization.integrations.manage
       x-screen-spec: specs/screens/pkk-configuration-gate.yml
@@ -299,6 +305,8 @@ paths:
     put:
       tags: [Organization, PKK]
       operationId: organizationPkkConfigurationGateSave
+      x-runtime-status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+      x-runtime-note: preserved_provider_neutral_contract_no_physical_route_binding
       x-requirement-id: pkk.configuration_gate.save_and_continue
       x-permission: organization.integrations.manage
       x-screen-spec: specs/screens/pkk-configuration-gate.yml
@@ -323,6 +331,8 @@ paths:
     post:
       tags: [Organization, PKK]
       operationId: organizationPkkTestConnection
+      x-runtime-status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+      x-runtime-note: preserved_provider_neutral_contract_no_physical_route_binding
       x-requirement-id: pkk.settings.test_connection
       x-permission: organization.integrations.manage
       x-condition: provider_supports_safe_test_connection
