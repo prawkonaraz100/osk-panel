@@ -136,11 +136,15 @@ Completed productization work:
 
 Completed development support:
 
-- `SAMPLE-DATA-001`: **accepted** on `2f42eaaff8fc41cddee5ddba5c39f1d58033ed5a`; PR #115; candidate head `275e9dc47c5b507d49b96cf4ce79205b0ec78d49`; candidate Implementation CI #680 **5/5 PASS** plus API Contract #511 **PASS**; accepted Implementation CI #681 **6/6 PASS** plus API Contract #512 **PASS**. PostgreSQL: **384 tests / 6348 assertions**; restore drill **PASS**; release artifact `10401437249`, archive digest `sha256:197ed111da545c12c07add947a1760be82858eed9830f4ba84ce4bc327046540`. The accepted scope is a clearly labelled non-production sample Terms document and sample license pricing only; production use remains forbidden and `/licencje/wykup` is still not materialized.
+- `SAMPLE-DATA-001`: **accepted** on `2f42eaaff8fc41cddee5ddba5c39f1d58033ed5a`; PR #115; candidate head `275e9dc47c5b507d49b96cf4ce79205b0ec78d49`; candidate Implementation CI #680 **5/5 PASS** plus API Contract #511 **PASS**; accepted Implementation CI #681 **6/6 PASS** plus API Contract #512 **PASS**. PostgreSQL: **384 tests / 6348 assertions**; restore drill **PASS**; release artifact `10401437249`, archive digest `sha256:197ed111da545c12c07add947a1760be82858eed9830f4ba84ce4bc327046540`. The accepted scope is a clearly labelled non-production sample Terms document and sample license pricing only; production use remains forbidden.
+
+Current productization candidate — **not yet accepted on `main`**:
+
+- `LICENSE-PURCHASE-UI-001`: branch `productization/license-purchase-ui-001` materializes `/licencje/wykup` on top of the accepted `GET /api/v1/license-products` and `POST /api/v1/license-orders` contracts. The browser sends only product IDs, integer quantities and a provider-neutral payment method; it never sends price/VAT/discount/total authority. Preview amounts come only from the server price projection, the final amount comes from the created Order response, sample prices are visibly labelled, and products without current pricing remain non-purchasable. Provider-specific online-payment redirect/callback remains deferred. Acceptance requires exact-head CI and promotion to `main`.
 
 Current productization gaps confirmed by code audit:
 
-1. no license purchase UI route despite backend `POST /api/v1/license-orders`,
+1. accept `LICENSE-PURCHASE-UI-001` on `main`,
 2. no internal-exam purchase UI route despite backend `POST /api/v1/internal-exam/orders`,
 3. no browser E2E suite for complete user golden paths,
 4. frontend routing is currently a lightweight pathname shell rather than a full
