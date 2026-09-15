@@ -74,11 +74,13 @@ Activity i notification są projekcjami; ich retencja nie zmienia źródłowych 
 
 Provider-specific runtime pozostaje odroczony. Do czasu wiążących wytycznych lub umowy PWPW nie zbieramy surowych provider payloadów na zapas i nie ustalamy zmyślonej retencji provider response.
 
-## 9. Executor nie jest częścią H3
+## 9. Executor poza historycznym H3
 
-Stage-4 DB-EVT-001 przewiduje przyszły uprzywilejowany retention executor oraz data_retention_execution_runs, ale ta tabela nie jest jeszcze zmaterializowana w obecnym expand subset.
+H3 zamknął decyzję o terminach i klasach danych, ale nie upoważnił zwykłego runtime do hard-delete.
 
-H3 zamyka decyzję o terminach i klasach danych, ale nie upoważnia zwykłego runtime do hard-delete. Implementacja purge executor pozostaje osobnym produkcyjnym hardening gate.
+Po finalnej materializacji Stage 4 tabela `data_retention_execution_runs` jest już obecna i pozostaje append-only dla normalnego runtime. Późniejszy gate `PROD-RETENTION-EXECUTOR-001` może materializować wyłącznie dedykowany privileged path w granicach jawnego allowlistu.
+
+Pierwszy zakres tego executora jest ograniczony do technical TTL `idempotency_records`. Nie daje on zwykłym rolom aplikacyjnym prawa do purge, nie omija write-fence outbox/audit/domain-event i nie autoryzuje kasowania formalnej historii kursanta.
 
 ## 10. Źródła urzędowe
 

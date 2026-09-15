@@ -9,6 +9,7 @@ use App\Support\Migrations\Stage5FormalDocumentsMigrationPlan;
 use App\Support\Migrations\Stage5SocialIdentityMigrationPlan;
 use App\Support\Migrations\Stage5StudentProgressMigrationPlan;
 use App\Support\Operations\CoreReconciliationScanner;
+use App\Support\Privacy\RetentionExecutor;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -1248,3 +1249,83 @@ Artisan::command(
 Schedule::command('operations:reconciliation:scan --json --log --fail-on-findings')
     ->everyFifteenMinutes()
     ->withoutOverlapping(30);
+
+
+Artisan::command(
+    'retention:run
+        {dataClass : Exact retention data class}
+        {--policy= : Exact approved retention policy version}
+        {--organization= : Optional exact organization UUID scope}
+        {--reason= : Nonblank operator reason}
+        {--execute : Perform the privileged deletion; omitted means dry-run}
+        {--confirm= : Exact destructive confirmation token required with --execute}
+        {--json : Emit machine-readable result}',
+    function (RetentionExecutor $executor): int {
+        $dataClass = $this->argument('dataClass');
+        $policy = $this->option('policy');
+        $organization = $this->option('organization');
+        $reason = $this->option('reason');
+
+        if (! is_string($dataClass)
+            || ! is_string($policy)
+            || ! is_string($reason)
+            || ($organization !== null && ! is_string($organization))) {
+            $this->error('Retention arguments are invalid.');
+
+            return Command::FAILURE;
+        }
+
+        try {
+            if (! (bool) $this->option('execute')) {
+                $result = $executor->preview(
+                    $dataClass,
+                    $policy,
+                    $reason,
+                    $organization,
+                );
+            } else {
+                $confirmation = $this->option('confirm');
+                if (! is_string($confirmation)) {
+                    $this->error('Explicit retention confirmation token is required.');
+
+                    return Command::FAILURE;
+                }
+
+                $result = $executor->execute(
+                    $dataClass,
+                    $policy,
+                    $reason,
+                    $confirmation,
+                    $organization,
+                );
+            }
+        } catch (Throwable $exception) {
+            if ($this->option('json')) {
+                $this->line(json_encode([
+                    'status' => 'refused',
+                    'error' => $exception->getMessage(),
+                ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
+            } else {
+                $this->error($exception->getMessage());
+            }
+
+            return Command::FAILURE;
+        }
+
+        if ($this->option('json')) {
+            $this->line(json_encode($result, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
+        } else {
+            $this->info('RETENTION_EXECUTOR='.strtoupper((string) $result['result']));
+            $this->line('mode='.$result['mode']);
+            $this->line('policy_version='.$result['policy_version']);
+            $this->line('data_class='.$result['data_class']);
+            $this->line('cutoff_at='.$result['cutoff_at']);
+            $this->line('candidate_count='.$result['candidate_count']);
+            $this->line('deleted_or_redacted_count='.$result['deleted_or_redacted_count']);
+        }
+
+        return $result['result'] === 'partial_requires_review'
+            ? Command::FAILURE
+            : Command::SUCCESS;
+    }
+)->purpose('Dry-run or execute the dedicated privileged retention path for explicitly allowlisted data classes.');

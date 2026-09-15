@@ -36,11 +36,7 @@ final class RetentionPolicy
             return null;
         }
 
-        $clock = $definition['clock'] ?? null;
-        if (! is_array($clock) || ! is_string($clock['kind'] ?? null)) {
-            throw new LogicException("Retention clock is invalid for {$dataClass}.");
-        }
-
+        $clock = $this->clock($dataClass, $definition);
         $kind = $clock['kind'];
         $value = $clock['value'] ?? null;
 
@@ -49,6 +45,21 @@ final class RetentionPolicy
             'months_after_anchor' => $anchor->addMonthsNoOverflow($this->positiveInt($value, $dataClass)),
             'fiscal_year_following_start_plus_years' => $anchor->addYear()->startOfYear()->addYears($this->positiveInt($value, $dataClass)),
             'inherit', 'deferred' => null,
+            default => throw new LogicException("Unsupported retention clock {$kind} for {$dataClass}."),
+        };
+    }
+
+    public function cutoffAt(string $dataClass, CarbonImmutable $now): ?CarbonImmutable
+    {
+        $definition = $this->definition($dataClass);
+        $clock = $this->clock($dataClass, $definition);
+        $kind = $clock['kind'];
+        $value = $clock['value'] ?? null;
+
+        return match ($kind) {
+            'days_after_anchor' => $now->subDays($this->positiveInt($value, $dataClass)),
+            'months_after_anchor' => $now->subMonthsNoOverflow($this->positiveInt($value, $dataClass)),
+            'inherit', 'deferred', 'fiscal_year_following_start_plus_years' => null,
             default => throw new LogicException("Unsupported retention clock {$kind} for {$dataClass}."),
         };
     }
@@ -63,6 +74,19 @@ final class RetentionPolicy
         $value = config('retention.global_delete_after_days');
 
         return is_int($value) ? $value : null;
+    }
+
+    /** @param array<string,mixed> $definition
+     *  @return array<string,mixed>
+     */
+    private function clock(string $dataClass, array $definition): array
+    {
+        $clock = $definition['clock'] ?? null;
+        if (! is_array($clock) || ! is_string($clock['kind'] ?? null)) {
+            throw new LogicException("Retention clock is invalid for {$dataClass}.");
+        }
+
+        return $clock;
     }
 
     private function positiveInt(mixed $value, string $dataClass): int

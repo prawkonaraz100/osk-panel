@@ -1,0 +1,87 @@
+meta:
+  id: privileged_retention_executor_v1
+  gate: PROD-RETENTION-EXECUTOR-001
+  status: CANDIDATE
+  policy_version: 2026-09-12-v1
+  follows: PROD-READINESS-RUNTIME-001
+
+boundary:
+  repository_hardening_only: true
+  ordinary_application_role_access: forbidden
+  HTTP_endpoint: none
+  automatic_schedule: none
+  enabled_by_default: false
+  explicit_environment_enable_required: RETENTION_EXECUTOR_ENABLED
+  exact_policy_version_required: true
+  nonblank_reason_required: true
+  destructive_confirmation_required: true
+  cutoff_input_from_operator: forbidden
+  cutoff_server_derived_from_policy: true
+  PostgreSQL_advisory_transaction_lock: required
+  immutable_execution_evidence: required
+
+allowed_data_classes:
+  idempotency_records:
+    executable: true
+    table: idempotency_records
+    eligibility:
+      status: completed
+      anchor: completed_at
+      age_from_policy: 30_days
+    organization_scope_optional: true
+    legal_hold_aware: false
+    delete_business_authority: false
+
+explicitly_not_executable:
+  - formal_training_register
+  - lesson_card_detail
+  - finance_accounting_records
+  - student_contact_operational
+  - student_formal_identity
+  - local_pkk_sensitive_identity
+  - internal_exam_detailed_attempt
+  - internal_exam_result_summary
+  - audit_security_evidence
+  - auth_sessions
+  - activity_notifications
+  - outbox_published
+  - temporary_unattached_assets
+  - application_logs
+  - security_logs
+  - provider_pkk_raw_payload
+
+safety:
+  max_rows_per_execution_server_configured: true
+  default_max_rows: 1000
+  over_limit_behavior: no_delete_and_partial_requires_review_evidence
+  pending_or_noncompleted_idempotency_delete: forbidden
+  safe_response_snapshot_content_used_for_eligibility: false
+  outbox_trigger_bypass: forbidden
+  audit_trigger_bypass: forbidden
+  domain_event_trigger_bypass: forbidden
+  cascade_business_delete: forbidden
+  rewrite_business_fact_to_make_eligible: forbidden
+  failed_transaction_partial_delete: forbidden
+
+evidence:
+  table: data_retention_execution_runs
+  write_shape: final_append_only_row
+  update_existing_evidence: forbidden
+  raw_deleted_payload_stored: false
+  secret_or_sensitive_identifier_stored: false
+  completed_result: completed
+  bounded_refusal_result: partial_requires_review
+  runtime_failure_result: failed
+
+external_boundaries:
+  PKK_provider_runtime: untouched_frozen
+  payment_provider_webhook: untouched_external_boundary
+
+future_gates:
+  outbox_published:
+    status: BLOCKED_BY_EXISTING_DELETE_WRITE_FENCE
+    trigger_bypass: forbidden
+    requires_separate_reviewed_privileged_DB_procedure_or_equivalent: true
+  legal_hold_aware_business_classes:
+    status: NOT_AUTHORIZED
+    requires_explicit_hold_model_and_domain_specific_minimization: true

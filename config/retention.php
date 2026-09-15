@@ -7,6 +7,14 @@ return [
     'legal_hold_overrides_retention' => true,
     'normal_application_role_may_purge' => false,
 
+    'executor' => [
+        'enabled' => env('RETENTION_EXECUTOR_ENABLED', false),
+        'max_rows_per_execution' => (int) env('RETENTION_EXECUTOR_MAX_ROWS', 1000),
+        'allowed_data_classes' => [
+            'idempotency_records',
+        ],
+    ],
+
     'classes' => [
         'formal_training_register' => [
             'controller_scope' => 'tenant_osk_controller',
