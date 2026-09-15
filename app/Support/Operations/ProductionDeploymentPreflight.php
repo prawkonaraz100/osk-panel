@@ -177,7 +177,7 @@ final class ProductionDeploymentPreflight
             'status' => $errorCount === 0 ? 'pass' : 'fail',
             'error_count' => $errorCount,
             'warning_count' => $warningCount,
-            'checks' => array_values($checks),
+            'checks' => $checks,
             'external_evidence' => [
                 'target_database_PITR' => 'required_external',
                 'target_object_restore' => 'required_external',
