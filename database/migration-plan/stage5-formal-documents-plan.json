@@ -1,0 +1,79 @@
+{
+  "schema_version": 1,
+  "extension_id": "formal_training_documents_v1",
+  "plan_identity": "34cada121f4fd4963b1461308fb517c50ee647005ce9421f4d1af40c80d44b99",
+  "source": {
+    "authority_path": "specs/database/formal-training-documents-migration-extension.yml",
+    "authority_git_blob": "05465b26264086d5cc50248b9c98c58e7c44a068",
+    "extension_contract_version": 1,
+    "phase_contract_version": 1
+  },
+  "stage4_baseline": {
+    "plan_identity": "d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10",
+    "execution_identity": "1d2f1d3a47a4a09b749d0b164137857a241c07afbaad02789ec21e03cb4118ce",
+    "authority_git_blob": "ad5f2aa2e14ef248b95dd3dda0d1cbcb2e69d441",
+    "nodes": 170,
+    "implemented_nodes": 112,
+    "implemented_steps": 112
+  },
+  "phase_order": [
+    "expand",
+    "preflight",
+    "write_fence",
+    "backfill",
+    "reconcile",
+    "validate",
+    "contract"
+  ],
+  "execution_control": {
+    "single_executor": "shared_postgres_advisory_lock",
+    "advisory_lock_keys": [519662, 5001],
+    "blind_retry": false,
+    "automatic_destructive_down": false,
+    "default_laravel_migrate_discovery": false,
+    "unregistered_extension_migration": "forbidden"
+  },
+  "nodes": [
+    {
+      "node_id": "S5DOC-ALTER-COURSE-ENROLLMENTS-DOCUMENT-MODE",
+      "type": "alter_table",
+      "order": 10,
+      "object_name": "course_enrollments",
+      "requires": [],
+      "phases": ["expand", "preflight", "backfill", "validate", "contract"],
+      "restart_classification": "manual_review"
+    },
+    {
+      "node_id": "S5DOC-TBL-FORMAL-TRAINING-DOCUMENT-TEMPLATES",
+      "type": "create_table",
+      "order": 20,
+      "object_name": "formal_training_document_templates",
+      "requires": [],
+      "phases": ["expand", "validate"],
+      "restart_classification": "restart_safe"
+    },
+    {
+      "node_id": "S5DOC-TBL-FORMAL-TRAINING-DOCUMENTS",
+      "type": "create_table",
+      "order": 30,
+      "object_name": "formal_training_documents",
+      "requires": [
+        "S5DOC-ALTER-COURSE-ENROLLMENTS-DOCUMENT-MODE",
+        "S5DOC-TBL-FORMAL-TRAINING-DOCUMENT-TEMPLATES"
+      ],
+      "phases": ["expand", "validate"],
+      "restart_classification": "restart_safe"
+    },
+    {
+      "node_id": "S5DOC-TBL-FORMAL-TRAINING-DOCUMENT-EVENTS",
+      "type": "create_table",
+      "order": 40,
+      "object_name": "formal_training_document_events",
+      "requires": [
+        "S5DOC-TBL-FORMAL-TRAINING-DOCUMENTS"
+      ],
+      "phases": ["expand", "validate"],
+      "restart_classification": "restart_safe"
+    }
+  ]
+}

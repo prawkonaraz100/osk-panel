@@ -1,0 +1,185 @@
+meta:
+  project: osk-panel
+  scope: api_v1_common_contract
+  status: ACTIVE
+  decided_at: 2026-09-05
+  doc: docs/06-api-contract.md
+
+base_path: /api/v1
+
+identifiers:
+  public_resource_id: uuid_or_ulid_string
+  sequential_id_as_security_boundary: false
+  tenant_authorization_required_even_with_opaque_id: true
+
+datetime:
+  storage: UTC
+  api_format: ISO_8601_with_offset
+  organization_timezone: IANA
+  example_timezone: Europe/Warsaw
+
+money:
+  float_forbidden: true
+  representation:
+    amount_minor: integer
+    currency: ISO_4217
+  example:
+    amount_minor: 400000
+    currency: PLN
+
+pagination:
+  style: page
+  request:
+    page:
+      type: integer
+      minimum: 1
+      default: 1
+    per_page:
+      type: integer
+      minimum: 1
+      maximum: 100
+      default: 25
+  response_meta:
+    - page
+    - per_page
+    - total
+    - last_page
+
+sorting:
+  query_params:
+    - sort
+    - direction
+  direction_values:
+    - asc
+    - desc
+  server_field_whitelist_required: true
+
+search_and_filtering:
+  text_search_param: q
+  explicit_filter_params_preferred: true
+  mixed_multi_value_encodings_for_same_endpoint_forbidden: true
+
+errors:
+  envelope:
+    root: error
+    fields:
+      - code
+      - message
+      - fields_optional
+      - request_id
+  http_statuses:
+    malformed: 400
+    unauthenticated: 401
+    forbidden: 403
+    not_found_or_hidden_cross_tenant: 404
+    state_or_version_conflict: 409
+    validation_or_business_rule: 422
+    rate_limited: 429
+    external_bad_gateway: 502
+    external_unavailable: 503
+  stable_machine_codes_required: true
+  localized_message_allowed: true
+  cross_tenant_existence_leak_forbidden: true
+
+request_validation:
+  server_owned_fields_never_mass_assigned: true
+  response_identifiers_timestamps_versions_and_derived_statuses_are_not_generic_write_inputs: true
+  unknown_client_fields_must_be_rejected_by_backend_validation: true
+  direct_lifecycle_status_write_forbidden_unless_a_dedicated_requirement_explicitly_allows_it: true
+  command_side_effects_must_be_explicitly_declared_by_the_request_contract: true
+  shared_value_objects_allowed_in_requests_only_when_they_contain_no_server_owned_fields: true
+  examples_of_safe_shared_value_objects:
+    - Money
+    - PermissionSet
+  explicitly_opaque_boundaries:
+    - id: pkk_provider_normalized_payload
+      rule: validate_and_map_inside_provider_adapter_never_mass_assign_to_domain_entity
+    - id: payment_provider_webhook_payload
+      rule: verify_signature_parse_provider_contract_and_never_mass_assign_to_domain_entity
+    - id: internal_exam_question_engine_answer_payload
+      rule: validate_against_attempt_question_snapshot_contract_before_persistence
+    - id: internal_exam_candidate_snapshot_payload
+      rule: whitelist_candidate_fields_before_snapshot_update
+  implementation_rule: >-
+    Laravel FormRequest or equivalent use-case validation must whitelist accepted
+    fields. Eloquent fill() / mass assignment from raw request payloads is forbidden
+    for tenant, formal, financial, PKK, license and exam aggregates.
+
+idempotency:
+  header: Idempotency-Key
+  key_type: uuid_recommended
+  reuse_with_different_payload_error: IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_PAYLOAD
+  required_for:
+    - pkk_mutations
+    - order_creation_or_payment_initiation_when_retryable
+    - license_assignment
+    - license_activation
+    - license_revoke_unactivated
+    - internal_exam_access_creation
+    - internal_exam_start
+    - student_payment_recording
+    - financial_corrections
+
+optimistic_concurrency:
+  resource_version_field: version
+  request_header: If-Match
+  conflict_status: 409
+  conflict_code: RESOURCE_VERSION_CONFLICT
+  required_or_recommended_for:
+    - calendar_event
+    - course_enrollment
+    - training_session
+    - training_session_attendance
+    - training_hour_correction
+    - license_assignment
+    - internal_exam_access
+    - internal_exam_attempt_state
+    - financial_correction
+
+request_correlation:
+  request_id_required: true
+  propagate_to:
+    - application_logs
+    - audit_logs
+    - integration_logs
+    - outbox_messages
+
+security:
+  backend_authorization_required: true
+  organization_scope_required_for_tenant_owned_resources: true
+  relation_ids_must_be_tenant_validated: true
+  secrets_never_returned_after_persistence: true
+  rate_limit_sensitive_auth_and_external_commands: true
+
+uploads:
+  preferred_flow: presigned_object_storage
+  steps:
+    - request_presign
+    - direct_upload
+    - complete_upload
+  server_validation:
+    - tenant_owner
+    - declared_purpose
+    - mime
+    - real_content_type
+    - size
+
+core_error_codes:
+  - VALIDATION_FAILED
+  - FORBIDDEN
+  - RESOURCE_NOT_FOUND
+  - RESOURCE_VERSION_CONFLICT
+  - RESOURCE_SCHEDULE_CONFLICT
+  - COURSE_REQUIREMENT_VIOLATION
+  - PKK_OPERATION_NOT_RETRYABLE
+  - PKK_PROVIDER_UNAVAILABLE
+  - LICENSE_INVENTORY_EMPTY
+  - LICENSE_ALREADY_ACTIVATED
+  - LICENSE_ASSIGNMENT_ALREADY_REVOKED
+  - EXAM_INVENTORY_EMPTY
+  - EXAM_ACCESS_EXPIRED
+  - EXAM_ACCESS_REVOKED
+  - EXAM_ALREADY_STARTED
+  - EXAM_REQUIREMENT_NOT_APPLICABLE
+  - PAYMENT_ALREADY_PROCESSED
+  - IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_PAYLOAD

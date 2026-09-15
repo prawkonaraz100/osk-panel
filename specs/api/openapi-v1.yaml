@@ -1,0 +1,223 @@
+openapi: 3.1.0
+info:
+  title: PrawkoNaRaz OSK API
+  version: 0.2.1
+  description: |
+    Canonical implementation contract for core OSK v1. This is our own clean-room
+    API design, not a reverse-engineered competitor API. Confirmed screen/business
+    capabilities are preserved through specs/reverse-engineering-manifest.yml and
+    specs/api/required-operations-v1.yml. Path details are split into module files
+    so coverage can grow without compressing or dropping observed flows.
+servers:
+  - url: /api/v1
+security:
+  - sessionCookie: []
+
+tags:
+  - { name: Auth }
+  - { name: Organization }
+  - { name: Students }
+  - { name: StudentAccess }
+  - { name: Courses }
+  - { name: Training }
+  - { name: FormalDocuments }
+  - { name: PKK }
+  - { name: Calendar }
+  - { name: Locations }
+  - { name: Staff }
+  - { name: Vehicles }
+  - { name: Dictionaries }
+  - { name: Uploads }
+  - { name: StudentFinance }
+  - { name: Licenses }
+  - { name: InternalExams }
+  - { name: Purchases }
+  - { name: Dashboard }
+  - { name: Audit }
+
+paths:
+  /auth/register: { $ref: './paths/auth-organization.yaml#/paths/~1auth~1register' }
+  /auth/login: { $ref: './paths/auth-organization.yaml#/paths/~1auth~1login' }
+  /auth/logout: { $ref: './paths/auth-organization.yaml#/paths/~1auth~1logout' }
+  /auth/password/forgot: { $ref: './paths/auth-organization.yaml#/paths/~1auth~1password~1forgot' }
+  /auth/password/reset: { $ref: './paths/auth-organization.yaml#/paths/~1auth~1password~1reset' }
+  /auth/sessions: { $ref: './paths/auth-organization.yaml#/paths/~1auth~1sessions' }
+  /auth/sessions/{sessionId}: { $ref: './paths/auth-organization.yaml#/paths/~1auth~1sessions~1{sessionId}' }
+  /auth/account-closure-requests: { $ref: './paths/auth-organization.yaml#/paths/~1auth~1account-closure-requests' }
+  /auth/social/{provider}/redirect: { $ref: './paths/auth-organization.yaml#/paths/~1auth~1social~1{provider}~1redirect' }
+  /auth/social/{provider}/callback: { $ref: './paths/auth-organization.yaml#/paths/~1auth~1social~1{provider}~1callback' }
+
+  /organization: { $ref: './paths/auth-organization.yaml#/paths/~1organization' }
+  /organization/settings: { $ref: './paths/auth-organization.yaml#/paths/~1organization~1settings' }
+  /organization/accepted-terms: { $ref: './paths/auth-organization.yaml#/paths/~1organization~1accepted-terms' }
+  /organization/integrations/pkk: { $ref: './paths/auth-organization.yaml#/paths/~1organization~1integrations~1pkk' }
+  /organization/integrations/pkk/configuration: { $ref: './paths/auth-organization.yaml#/paths/~1organization~1integrations~1pkk~1configuration' }
+  /organization/integrations/pkk/test-connection: { $ref: './paths/auth-organization.yaml#/paths/~1organization~1integrations~1pkk~1test-connection' }
+
+  /students: { $ref: './paths/students-courses.yaml#/paths/~1students' }
+  /students/{studentId}: { $ref: './paths/students-courses.yaml#/paths/~1students~1{studentId}' }
+  /students/{studentId}/preview: { $ref: './paths/students-courses.yaml#/paths/~1students~1{studentId}~1preview' }
+  /students/{studentId}/archive: { $ref: './paths/students-courses.yaml#/paths/~1students~1{studentId}~1archive' }
+  /students/{studentId}/restore: { $ref: './paths/students-courses.yaml#/paths/~1students~1{studentId}~1restore' }
+  /students/{studentId}/learning-accounts: { $ref: './paths/students-courses.yaml#/paths/~1students~1{studentId}~1learning-accounts' }
+  /students/{studentId}/learning-accounts/{accountId}: { $ref: './paths/students-courses.yaml#/paths/~1students~1{studentId}~1learning-accounts~1{accountId}' }
+  /students/{studentId}/learning-accounts/{accountId}/password-reset: { $ref: './paths/students-courses.yaml#/paths/~1students~1{studentId}~1learning-accounts~1{accountId}~1password-reset' }
+  /students/{studentId}/learning-accounts/{accountId}/access-handoffs: { $ref: './paths/students-courses.yaml#/paths/~1students~1{studentId}~1learning-accounts~1{accountId}~1access-handoffs' }
+  /students/{studentId}/learning-accounts/{accountId}/access-handoffs/{handoffId}/pdf: { $ref: './paths/students-courses.yaml#/paths/~1students~1{studentId}~1learning-accounts~1{accountId}~1access-handoffs~1{handoffId}~1pdf' }
+  /students/{studentId}/progress: { $ref: './paths/students-courses.yaml#/paths/~1students~1{studentId}~1progress' }
+
+  /students/{studentId}/course-enrollments: { $ref: './paths/students-courses.yaml#/paths/~1students~1{studentId}~1course-enrollments' }
+  /course-enrollments/{courseEnrollmentId}: { $ref: './paths/students-courses.yaml#/paths/~1course-enrollments~1{courseEnrollmentId}' }
+  /course-enrollments/{courseEnrollmentId}/cancel: { $ref: './paths/students-courses.yaml#/paths/~1course-enrollments~1{courseEnrollmentId}~1cancel' }
+  /course-enrollments/{courseEnrollmentId}/restore: { $ref: './paths/students-courses.yaml#/paths/~1course-enrollments~1{courseEnrollmentId}~1restore' }
+  /course-enrollments/{courseEnrollmentId}/stage-transitions: { $ref: './paths/students-courses.yaml#/paths/~1course-enrollments~1{courseEnrollmentId}~1stage-transitions' }
+  /course-enrollments/{courseEnrollmentId}/requirements: { $ref: './paths/students-courses.yaml#/paths/~1course-enrollments~1{courseEnrollmentId}~1requirements' }
+  /course-enrollments/{courseEnrollmentId}/requirement-context: { $ref: './paths/students-courses.yaml#/paths/~1course-enrollments~1{courseEnrollmentId}~1requirement-context' }
+  /course-enrollments/{courseEnrollmentId}/exemption-decisions: { $ref: './paths/students-courses.yaml#/paths/~1course-enrollments~1{courseEnrollmentId}~1exemption-decisions' }
+  /course-enrollments/{courseEnrollmentId}/training-sessions: { $ref: './paths/students-courses.yaml#/paths/~1course-enrollments~1{courseEnrollmentId}~1training-sessions' }
+  /training-sessions/{sessionId}: { $ref: './paths/students-courses.yaml#/paths/~1training-sessions~1{sessionId}' }
+  /training-sessions/{sessionId}/attendance: { $ref: './paths/students-courses.yaml#/paths/~1training-sessions~1{sessionId}~1attendance' }
+  /training-sessions/{sessionId}/complete: { $ref: './paths/students-courses.yaml#/paths/~1training-sessions~1{sessionId}~1complete' }
+  /training-sessions/{sessionId}/cancel: { $ref: './paths/students-courses.yaml#/paths/~1training-sessions~1{sessionId}~1cancel' }
+  /course-enrollments/{courseEnrollmentId}/training-hours: { $ref: './paths/students-courses.yaml#/paths/~1course-enrollments~1{courseEnrollmentId}~1training-hours' }
+  /course-enrollments/{courseEnrollmentId}/training-hour-corrections: { $ref: './paths/students-courses.yaml#/paths/~1course-enrollments~1{courseEnrollmentId}~1training-hour-corrections' }
+  /course-enrollments/{courseEnrollmentId}/recognized-external-training: { $ref: './paths/students-courses.yaml#/paths/~1course-enrollments~1{courseEnrollmentId}~1recognized-external-training' }
+  /course-enrollments/{courseEnrollmentId}/recognized-external-training/{recordId}/revoke: { $ref: './paths/students-courses.yaml#/paths/~1course-enrollments~1{courseEnrollmentId}~1recognized-external-training~1{recordId}~1revoke' }
+
+  /course-enrollments/{courseEnrollmentId}/formal-documents/preview: { $ref: './paths/formal-documents.yaml#/paths/~1course-enrollments~1{courseEnrollmentId}~1formal-documents~1preview' }
+  /course-enrollments/{courseEnrollmentId}/formal-documents/freshness: { $ref: './paths/formal-documents.yaml#/paths/~1course-enrollments~1{courseEnrollmentId}~1formal-documents~1freshness' }
+  /course-enrollments/{courseEnrollmentId}/formal-documents: { $ref: './paths/formal-documents.yaml#/paths/~1course-enrollments~1{courseEnrollmentId}~1formal-documents' }
+  /formal-training-documents/{documentId}/events: { $ref: './paths/formal-documents.yaml#/paths/~1formal-training-documents~1{documentId}~1events' }
+  /formal-training-documents/{documentId}/delivery-events: { $ref: './paths/formal-documents.yaml#/paths/~1formal-training-documents~1{documentId}~1delivery-events' }
+  /formal-training-documents/{documentId}/file: { $ref: './paths/formal-documents.yaml#/paths/~1formal-training-documents~1{documentId}~1file' }
+
+  /course-enrollments/{courseEnrollmentId}/pkk: { $ref: './paths/pkk-calendar.yaml#/paths/~1course-enrollments~1{courseEnrollmentId}~1pkk' }
+  /course-enrollments/{courseEnrollmentId}/pkk/fetch: { $ref: './paths/pkk-calendar.yaml#/paths/~1course-enrollments~1{courseEnrollmentId}~1pkk~1fetch' }
+  /course-enrollments/{courseEnrollmentId}/pkk/update-and-return: { $ref: './paths/pkk-calendar.yaml#/paths/~1course-enrollments~1{courseEnrollmentId}~1pkk~1update-and-return' }
+  /course-enrollments/{courseEnrollmentId}/pkk/return-to-school: { $ref: './paths/pkk-calendar.yaml#/paths/~1course-enrollments~1{courseEnrollmentId}~1pkk~1return-to-school' }
+  /course-enrollments/{courseEnrollmentId}/pkk/return-to-authority: { $ref: './paths/pkk-calendar.yaml#/paths/~1course-enrollments~1{courseEnrollmentId}~1pkk~1return-to-authority' }
+  /course-enrollments/{courseEnrollmentId}/pkk/return-expired: { $ref: './paths/pkk-calendar.yaml#/paths/~1course-enrollments~1{courseEnrollmentId}~1pkk~1return-expired' }
+  /course-enrollments/{courseEnrollmentId}/pkk/operations: { $ref: './paths/pkk-calendar.yaml#/paths/~1course-enrollments~1{courseEnrollmentId}~1pkk~1operations' }
+  /course-enrollments/{courseEnrollmentId}/pkk/operations/{operationId}: { $ref: './paths/pkk-calendar.yaml#/paths/~1course-enrollments~1{courseEnrollmentId}~1pkk~1operations~1{operationId}' }
+  /course-enrollments/{courseEnrollmentId}/pkk/operations/{operationId}/retry: { $ref: './paths/pkk-calendar.yaml#/paths/~1course-enrollments~1{courseEnrollmentId}~1pkk~1operations~1{operationId}~1retry' }
+
+  /calendar/driving-lessons: { $ref: './paths/pkk-calendar.yaml#/paths/~1calendar~1driving-lessons' }
+  /calendar/driving-lessons/{sessionId}: { $ref: './paths/pkk-calendar.yaml#/paths/~1calendar~1driving-lessons~1{sessionId}' }
+  /calendar/events: { $ref: './paths/pkk-calendar.yaml#/paths/~1calendar~1events' }
+  /calendar/events/{eventId}: { $ref: './paths/pkk-calendar.yaml#/paths/~1calendar~1events~1{eventId}' }
+  /calendar/events/{eventId}/cancel: { $ref: './paths/pkk-calendar.yaml#/paths/~1calendar~1events~1{eventId}~1cancel' }
+  /calendar/events/{eventId}/complete: { $ref: './paths/pkk-calendar.yaml#/paths/~1calendar~1events~1{eventId}~1complete' }
+  /availability-slots: { $ref: './paths/pkk-calendar.yaml#/paths/~1availability-slots' }
+  /availability-slots/{slotId}: { $ref: './paths/pkk-calendar.yaml#/paths/~1availability-slots~1{slotId}' }
+  /availability-slots/{slotId}/book: { $ref: './paths/pkk-calendar.yaml#/paths/~1availability-slots~1{slotId}~1book' }
+  /availability-slots/{slotId}/formalize: { $ref: './paths/pkk-calendar.yaml#/paths/~1availability-slots~1{slotId}~1formalize' }
+  /availability-slots/{slotId}/cancel: { $ref: './paths/pkk-calendar.yaml#/paths/~1availability-slots~1{slotId}~1cancel' }
+
+  /locations: { $ref: './paths/resources.yaml#/paths/~1locations' }
+  /locations/{locationId}: { $ref: './paths/resources.yaml#/paths/~1locations~1{locationId}' }
+  /locations/{locationId}/archive: { $ref: './paths/resources.yaml#/paths/~1locations~1{locationId}~1archive' }
+  /locations/{locationId}/restore: { $ref: './paths/resources.yaml#/paths/~1locations~1{locationId}~1restore' }
+  /location-types: { $ref: './paths/resources.yaml#/paths/~1location-types' }
+  /geography/cities: { $ref: './paths/resources.yaml#/paths/~1geography~1cities' }
+  /driving-categories: { $ref: './paths/resources.yaml#/paths/~1driving-categories' }
+  /languages: { $ref: './paths/resources.yaml#/paths/~1languages' }
+
+  /staff: { $ref: './paths/resources.yaml#/paths/~1staff' }
+  /staff/{staffId}: { $ref: './paths/resources.yaml#/paths/~1staff~1{staffId}' }
+  /staff/{staffId}/archive: { $ref: './paths/resources.yaml#/paths/~1staff~1{staffId}~1archive' }
+  /staff/{staffId}/restore: { $ref: './paths/resources.yaml#/paths/~1staff~1{staffId}~1restore' }
+  /staff/{staffId}/user-account: { $ref: './paths/resources.yaml#/paths/~1staff~1{staffId}~1user-account' }
+  /staff/{staffId}/permissions: { $ref: './paths/resources.yaml#/paths/~1staff~1{staffId}~1permissions' }
+  /staff-types: { $ref: './paths/resources.yaml#/paths/~1staff-types' }
+
+  /vehicles: { $ref: './paths/resources.yaml#/paths/~1vehicles' }
+  /vehicles/{vehicleId}: { $ref: './paths/resources.yaml#/paths/~1vehicles~1{vehicleId}' }
+  /vehicles/{vehicleId}/archive: { $ref: './paths/resources.yaml#/paths/~1vehicles~1{vehicleId}~1archive' }
+  /vehicles/{vehicleId}/restore: { $ref: './paths/resources.yaml#/paths/~1vehicles~1{vehicleId}~1restore' }
+  /vehicles/{vehicleId}/documents: { $ref: './paths/resources.yaml#/paths/~1vehicles~1{vehicleId}~1documents' }
+  /vehicles/{vehicleId}/documents/{documentId}: { $ref: './paths/resources.yaml#/paths/~1vehicles~1{vehicleId}~1documents~1{documentId}' }
+
+  /uploads/presign: { $ref: './paths/resources.yaml#/paths/~1uploads~1presign' }
+  /uploads/{uploadId}/complete: { $ref: './paths/resources.yaml#/paths/~1uploads~1{uploadId}~1complete' }
+
+  /students/{studentId}/charges: { $ref: './paths/students-courses.yaml#/paths/~1students~1{studentId}~1charges' }
+  /students/{studentId}/charges/{chargeId}/cancel: { $ref: './paths/students-courses.yaml#/paths/~1students~1{studentId}~1charges~1{chargeId}~1cancel' }
+  /students/{studentId}/payments: { $ref: './paths/students-courses.yaml#/paths/~1students~1{studentId}~1payments' }
+  /students/{studentId}/payments/{paymentId}/reverse: { $ref: './paths/students-courses.yaml#/paths/~1students~1{studentId}~1payments~1{paymentId}~1reverse' }
+  /students/{studentId}/finance-summary: { $ref: './paths/students-courses.yaml#/paths/~1students~1{studentId}~1finance-summary' }
+
+  /license-products: { $ref: './paths/licenses.yaml#/paths/~1license-products' }
+  /license-products/{productId}/languages: { $ref: './paths/licenses.yaml#/paths/~1license-products~1{productId}~1languages' }
+  /license-inventory: { $ref: './paths/licenses.yaml#/paths/~1license-inventory' }
+  /license-orders: { $ref: './paths/licenses.yaml#/paths/~1license-orders' }
+  /license-assignments: { $ref: './paths/licenses.yaml#/paths/~1license-assignments' }
+  /license-assignments/{assignmentId}: { $ref: './paths/licenses.yaml#/paths/~1license-assignments~1{assignmentId}' }
+  /license-assignments/{assignmentId}/activate: { $ref: './paths/licenses.yaml#/paths/~1license-assignments~1{assignmentId}~1activate' }
+  /license-assignments/{assignmentId}/revoke-unactivated: { $ref: './paths/licenses.yaml#/paths/~1license-assignments~1{assignmentId}~1revoke-unactivated' }
+  /students/{studentId}/learning-accounts/{accountId}/license-assignments: { $ref: './paths/licenses.yaml#/paths/~1students~1{studentId}~1learning-accounts~1{accountId}~1license-assignments' }
+  /learning-accesses/bulk-access-document: { $ref: './paths/licenses.yaml#/paths/~1learning-accesses~1bulk-access-document' }
+
+  /internal-exam/inventory: { $ref: './paths/internal-exams.yaml#/paths/~1internal-exam~1inventory' }
+  /internal-exam/orders: { $ref: './paths/internal-exams.yaml#/paths/~1internal-exam~1orders' }
+  /internal-exam/subjects: { $ref: './paths/internal-exams.yaml#/paths/~1internal-exam~1subjects' }
+  /internal-exam/capabilities: { $ref: './paths/internal-exams.yaml#/paths/~1internal-exam~1capabilities' }
+  /internal-exam/inventory-adjustments: { $ref: './paths/internal-exams.yaml#/paths/~1internal-exam~1inventory-adjustments' }
+  /course-enrollments/{courseEnrollmentId}/internal-exam-attempts: { $ref: './paths/internal-exams.yaml#/paths/~1course-enrollments~1{courseEnrollmentId}~1internal-exam-attempts' }
+  /internal-exam-attempts/{attemptId}: { $ref: './paths/internal-exams.yaml#/paths/~1internal-exam-attempts~1{attemptId}' }
+  /internal-exam-attempts/{attemptId}/accesses: { $ref: './paths/internal-exams.yaml#/paths/~1internal-exam-attempts~1{attemptId}~1accesses' }
+  /internal-exam-accesses/{accessId}/send: { $ref: './paths/internal-exams.yaml#/paths/~1internal-exam-accesses~1{accessId}~1send' }
+  /internal-exam-accesses/{accessId}/revoke: { $ref: './paths/internal-exams.yaml#/paths/~1internal-exam-accesses~1{accessId}~1revoke' }
+  /internal-exam-accesses/{accessId}/start: { $ref: './paths/internal-exams.yaml#/paths/~1internal-exam-accesses~1{accessId}~1start' }
+  /internal-exam-attempts/{attemptId}/submit: { $ref: './paths/internal-exams.yaml#/paths/~1internal-exam-attempts~1{attemptId}~1submit' }
+  /internal-exam-attempts/{attemptId}/technical-abort: { $ref: './paths/internal-exams.yaml#/paths/~1internal-exam-attempts~1{attemptId}~1technical-abort' }
+  /internal-exam-attempts/{attemptId}/result: { $ref: './paths/internal-exams.yaml#/paths/~1internal-exam-attempts~1{attemptId}~1result' }
+  /internal-exam-attempts/{attemptId}/questions: { $ref: './paths/internal-exams.yaml#/paths/~1internal-exam-attempts~1{attemptId}~1questions' }
+  /internal-exam-attempts/{attemptId}/documents/answer-sheet.pdf: { $ref: './paths/internal-exams.yaml#/paths/~1internal-exam-attempts~1{attemptId}~1documents~1answer-sheet.pdf' }
+  /exam-stations: { $ref: './paths/internal-exams.yaml#/paths/~1exam-stations' }
+  /exam-stations/{stationId}/credential: { $ref: './paths/internal-exams.yaml#/paths/~1exam-stations~1{stationId}~1credential' }
+  /exam-stations/{stationId}/credential/rotate: { $ref: './paths/internal-exams.yaml#/paths/~1exam-stations~1{stationId}~1credential~1rotate' }
+  /exam-stations/heartbeat: { $ref: './paths/internal-exams.yaml#/paths/~1exam-stations~1heartbeat' }
+  /internal-exam-attempts/{attemptId}/station-transfer: { $ref: './paths/internal-exams.yaml#/paths/~1internal-exam-attempts~1{attemptId}~1station-transfer' }
+
+  /orders: { $ref: './paths/commerce-dashboard.yaml#/paths/~1orders' }
+  /orders/{orderId}: { $ref: './paths/commerce-dashboard.yaml#/paths/~1orders~1{orderId}' }
+  /orders/{orderId}/payments: { $ref: './paths/commerce-dashboard.yaml#/paths/~1orders~1{orderId}~1payments' }
+  /payments: { $ref: './paths/commerce-dashboard.yaml#/paths/~1payments' }
+  /payment-webhooks/{provider}: { $ref: './paths/commerce-dashboard.yaml#/paths/~1payment-webhooks~1{provider}' }
+  /purchase-history: { $ref: './paths/commerce-dashboard.yaml#/paths/~1purchase-history' }
+  /service-entitlements: { $ref: './paths/commerce-dashboard.yaml#/paths/~1service-entitlements' }
+  /service-entitlements/{entitlementId}/activate: { $ref: './paths/commerce-dashboard.yaml#/paths/~1service-entitlements~1{entitlementId}~1activate' }
+  /dashboard: { $ref: './paths/commerce-dashboard.yaml#/paths/~1dashboard' }
+  /activity: { $ref: './paths/commerce-dashboard.yaml#/paths/~1activity' }
+  /notifications: { $ref: './paths/commerce-dashboard.yaml#/paths/~1notifications' }
+  /notifications/{notificationId}/read: { $ref: './paths/commerce-dashboard.yaml#/paths/~1notifications~1{notificationId}~1read' }
+  /audit-logs: { $ref: './paths/commerce-dashboard.yaml#/paths/~1audit-logs' }
+
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: session
+      description: Logical authenticated OSK session; concrete Laravel cookie name is environment-configured.
+    examAccessToken:
+      type: http
+      scheme: bearer
+      bearerFormat: opaque-exam-access-token
+      description: One-time/short-lived exam access token. Raw token is not stored recoverably.
+
+x-contract-files:
+  common: ./common-contract.yml
+  components: ./openapi-components-v1.yaml
+  settings_components: ./openapi-settings-components.yaml
+  required_operations: ./required-operations-v1.yml
+  reverse_engineering_manifest: ../reverse-engineering-manifest.yml
+  path_modules:
+    - ./paths/auth-organization.yaml
+    - ./paths/students-courses.yaml
+    - ./paths/formal-documents.yaml
+    - ./paths/pkk-calendar.yaml
+    - ./paths/resources.yaml
+    - ./paths/licenses.yaml
+    - ./paths/internal-exams.yaml
+    - ./paths/commerce-dashboard.yaml

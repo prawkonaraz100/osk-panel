@@ -1,166 +1,234 @@
-# 09. Roadmap wdrożenia
+# 09. Roadmap wdrożenia — core OSK v1
 
-> Roadmap po drugim audycie. Najpierw budujemy rdzeń operacyjny i integralność stanów, później moduły komercyjne. `TO_VERIFY_AUTH` nie blokuje stworzenia własnego odpowiednika, ale blokuje twierdzenie, że implementujemy dokładnie bieżące UI 360.
+Data konsolidacji: 2026-09-05
 
-## Etap 0 — fundament
-- tenant + auth,
-- login social,
-- reset hasła przez e-mail/login,
-- bezpieczny ReturnUrl,
+> Roadmap jest oparta o `specs/implementation-baseline-v1.yml`, canonical domain model i aktualny screen mapping. Marketingowe moduły nie blokują core.
+
+## Faza 0 — konsolidacja kontraktów
+
+Przed szerokim kodowaniem:
+- canonical domain glossary,
+- course-first PKK,
+- jednoznaczny source of truth godzin,
+- egzamin consume-on-start,
+- core lifecycle archive/cancel/correction,
+- permission matrix,
+- wspólny API contract,
+- acceptance criteria,
+- test strategy.
+
+Status: w trakcie w `docs/81-developer-consolidation-plan.md`.
+
+## Faza 1 — fundament platformy
+
+- Laravel/Vue bootstrap,
+- PostgreSQL,
+- Redis,
+- object storage,
+- auth,
+- organization/tenant,
+- membership,
 - permission-based RBAC,
-- organization profile,
 - audit log,
-- notifications/event bus,
-- wspólny design system,
-- feature flags/config/capabilities,
-- polityka sesji konfigurowalna per typ konta.
+- outbox,
+- request correlation,
+- common API errors/pagination/money/datetime,
+- CI/test environment.
 
-## Etap 1 — operacyjne OSK
-- kursanci,
-- pracownicy,
-- role/permissions,
-- pojazdy,
-- kalendarz,
-- planowanie jazdy sobie/innemu pracownikowi,
-- self-booking kursanta,
-- ewidencja czasu pracy,
-- przypomnienia.
+Definition of Done:
+- cross-tenant tests,
+- permission tests,
+- audit/outbox smoke test,
+- baseline observability.
 
-Przed zamknięciem etapu zweryfikować `GAP-02..05` przy legalnym dostępie do panelu referencyjnego, jeśli dostęp jest dostępny.
+## Faza 2 — zasoby OSK
 
-## Etap 2 — szkolenie i postępy
-- kursy,
-- wykłady,
-- postępy,
-- preferencja domyślnej kategorii,
-- `Szkolenie z instruktorem`,
-- lekcje wideo,
-- postęp programu,
-- pytania kontrolne,
-- retry i skip,
-- capability matrix języków/kategorii,
-- własny widok kursanta.
+- Lokalizacje,
+- Pracownicy,
+- konta pracowników,
+- Pojazdy,
+- dokumenty/ważności,
+- archiwizacja/restore.
 
-Liczby działów/lekcji/slajdów są CMS/config.
+Na tym etapie przygotować resource selectors dla kalendarza i kursów.
 
-## Etap 3 — licencje, inventory i sprzedaż
-- katalog produktów/licencji,
-- inventory niewykorzystanych sztuk,
-- przydzielenia,
-- provisioning e-mail,
-- provisioning login+hasło,
-- jawny wybór języka,
-- aktywacja,
-- atomowe cofnięcie nieaktywowanego przydziału + restore inventory,
-- płatności,
-- transfer confirmation,
-- entitlement lifecycle `ordered -> paid -> activation_available -> activated -> expired`,
-- historia zakupów/płatności.
+## Faza 3 — kursanci i formalny kurs
 
-### Faktury
-Nie traktować jako wymagania parytetu v1. Status badanego modułu: `HISTORICAL_INDEX / TO_VERIFY_AUTH`. Możemy wdrożyć własne faktury, jeśli wynikają z naszych potrzeb księgowych.
+- Student,
+- student detail/list/search/filter/sort,
+- learning account skeleton,
+- CourseEnrollment,
+- training stage,
+- requirement engine,
+- exemption decisions,
+- recognized external training,
+- create/edit/cancel course.
 
-## Etap 4 — egzamin wewnętrzny
-- inventory egzaminów,
-- generowanie,
-- flow linkiem,
-- flow stacjonarne,
-- sesja egzaminu,
-- wynik,
-- cyfrowa karta przebiegu,
-- PDF/druk,
-- historia,
-- języki jako capability/config.
+Nie wdrażać ręcznego agregatu godzin bieżącego OSK jako source of truth.
 
-TTL/unieważnianie linku projektować bezpiecznie jako własną politykę do czasu potwierdzenia detali panelu.
+## Faza 4 — kalendarz i ewidencja szkolenia
 
-## Etap 5 — PKK
-- sandbox/fake provider,
-- adapter/provider interface,
-- wszystkie potwierdzone commandy PKK,
-- log operacji,
+- CalendarEvent,
+- DrivingLesson,
+- zasoby staff/vehicle/location/student,
+- conflict detection,
+- TrainingSession,
+- attendance,
+- TrainingHourLedgerEntry,
+- formal totals,
+- ważne daty jako projections,
+- cancel/reschedule lifecycle.
+
+Później:
+- self-booking,
+- work time,
+- notifications.
+
+## Faza 5 — student finance
+
+- StudentCharge,
+- StudentPayment,
+- saldo,
+- częściowe wpłaty,
+- reversal/correction,
+- powiązanie kosztu kursu z należnością,
+- audit.
+
+Student finance pozostaje oddzielone od zakupów OSK na platformie.
+
+## Faza 6 — learning access i licencje
+
+- StudentLearningAccount,
+- password set/reset/handoff,
+- PDF dostępów,
+- license products,
+- inventory,
+- assignments,
+- language capability,
+- activation,
+- revoke before activation,
+- atomowe restore dokładnie jednej sztuki,
+- progress projection.
+
+Krytyczne testy:
+- activation vs revoke race,
+- duplicate assignment,
+- tenant isolation.
+
+## Faza 7 — egzamin wewnętrzny
+
+- exam products/grants,
+- inventory ledger,
+- reservation,
+- formal attempt tied to student + course enrollment,
+- remote access,
+- local station access,
+- consume-on-start,
+- submit/result,
+- immutable question snapshot,
+- PDF,
+- history/filter/sort,
+- technical_abort,
+- audited inventory adjustment.
+
+Nie używać starszego modelu `finished -> consumed`.
+
+## Faza 8 — PKK
+
+Najpierw:
+- fake/sandbox provider,
+- PkkProviderInterface,
+- course-first local model,
+- operation/attempt logs,
 - idempotency,
-- retry policy,
-- reconciliation/diagnostics,
-- dopiero potem rzeczywista integracja po formalnym dostępie/uprawnieniach.
+- retry classification,
+- diagnostics/reconciliation.
 
-## Etap 6 — publiczny profil, opinie i ranking
-- publiczna wizytówka,
-- oceny/opinie,
-- moderacja,
-- zgłaszanie opinii przez OSK,
-- ranking snapshots,
-- własny transparentny algorytm rankingu.
+Dopiero potem:
+- rzeczywisty provider po formalnym dostępie,
+- podpis XML/upload flow zgodnie z wymaganiami integracji.
 
-Nie kopiować algorytmu konkurenta; publiczny opis uśredniania bayesowskiego jest inspiracją funkcjonalną, nie kodem/specyfikacją do skopiowania.
+## Faza 9 — zakupy OSK / historia zakupów
 
-## Etap 7 — reklamy i aukcje
-- regiony/miejscowości,
-- placementy,
-- aukcje,
-- opening bid/min increment,
-- wiążące bidy,
-- settlement z tie-breakiem po kolejności,
-- winning order,
-- płatność,
-- upload desktop/mobile creative,
-- moderacja kreacji,
-- text fallback jako konfigurowalna polityka,
-- harmonogram/emisja kampanii,
-- historia ofert,
-- request ukrycia nazwy oferenta,
-- request odrzucenia bidu przez operatora.
+- Order,
+- OrderItem price/VAT snapshot,
+- Payment,
+- webhook idempotency,
+- license/exam grants,
+- purchase history,
+- payment reconciliation.
 
-`Wizytówka premium` pozostaje feature flag `coming_soon` do czasu własnej decyzji produktowej.
+Opcjonalna jawna aktywacja entitlementów tylko dla produktów, które jej wymagają.
 
-## Etap 8 — produkty promocyjne
-- artykuły sponsorowane,
-- editorial workflow,
-- partner banner,
-- commercial services / lead generation,
-- SEO/WWW jako osobny pion handlowy, nie zależność operacyjnego OSK.
+## Faza 10 — dashboard i notifications
 
-## Etap 9 — hardening / zgodność
-- security review,
-- RODO/retencja,
-- session/device controls,
-- performance,
+Dashboard jako projection:
+- licencje,
+- egzaminy,
+- activity feed,
+- kalendarz.
+
+Notifications:
+- dokumenty pracowników/pojazdów,
+- wydarzenia,
+- PKK failures,
+- license/exam actions,
+- płatności.
+
+## Faza 11 — formalne dokumenty i hardening
+
+- dokumenty kursanta,
+- dokumenty egzaminu,
+- wersjonowane snapshoty,
+- PDF audit,
+- privacy/retention,
 - backup/restore,
 - observability,
-- reconciliation płatności,
-- disaster recovery,
-- pełne E2E krytycznych state machines.
+- incident runbooks,
+- performance/load tests,
+- security review.
 
-## Równoległy tor — autoryzowana weryfikacja panelu referencyjnego
+## Faza 12 — moduły poza core
 
-Po uzyskaniu legalnego konta/demo:
-1. Dashboard.
-2. Kursanci.
-3. Pracownicy/RBAC.
-4. Pojazdy.
-5. Kalendarz.
-6. PKK UI.
-7. Licencje i języki.
-8. Postępy.
-9. Egzaminy.
-10. Reklamy po wygranej.
-11. Impersonacja.
-12. Faktury/historie płatności.
+Dopiero po stabilnym core:
+- Moje wizytówki,
+- reklamy/aukcje,
+- Wykłady,
+- Szkolenie z instruktorem,
+- dodatkowe public profile/ranking funkcje.
 
-Każde potwierdzenie aktualizuje `10-gap-register.md` i confidence level w YAML.
+Nie wiążemy ich architektonicznie tak, aby core nie mógł działać bez nich.
 
-## Definition of Done modułu
+---
 
-Każdy moduł przed uznaniem za gotowy posiada:
-1. wymagania i acceptance criteria,
-2. oznaczony confidence/source status,
-3. policy tests,
-4. tenant isolation tests,
-5. audit coverage,
-6. testy idempotencji/race conditions dla krytycznych stanów,
-7. error/empty/loading states,
-8. mobile QA,
-9. dokumentację API,
-10. testy krytycznych flow E2E,
-11. migracje/reconciliation plan,
-12. aktualizację `functional-requirements.yml`.
+# Definition of Done modułu
+
+Każdy moduł przed merge/gotowością posiada:
+1. canonical entities,
+2. screen/spec requirements,
+3. API contract,
+4. permission rules,
+5. lifecycle/state machine,
+6. audit rules,
+7. tenant isolation,
+8. validation/error codes,
+9. idempotency/concurrency tam, gdzie dotyczy,
+10. acceptance criteria,
+11. integration tests,
+12. cross-tenant tests,
+13. critical E2E,
+14. migration plan,
+15. docs/spec update.
+
+# Go-live blockers
+
+Przed produkcją wymagane:
+- backup i sprawdzony restore,
+- alerting/observability,
+- secrets poza repo,
+- payment reconciliation,
+- PKK failure handling,
+- pełne tenant isolation tests,
+- formal rule versioning,
+- privacy/retention policy,
+- incident runbooks.

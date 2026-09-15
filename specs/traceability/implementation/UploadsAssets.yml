@@ -1,0 +1,48 @@
+module: UploadsAssets
+core_traceability_modules:
+  - uploads_assets
+  - course_enrollment_training
+  - staff
+  - vehicles
+changed_scope:
+  - evidence: docs/06-api-contract.md
+    requirement: uploads use the existing presign direct-object-storage complete flow and become tenant-owned file_assets only after server validation
+    domain_data: file_assets + idempotency_records
+    api_use_case: uploads.presign + uploads.complete
+    permission: active_membership_plus_parent_domain_permission
+    ui: SHARED_UPLOAD_TRANSPORT_NO_STANDALONE_UI_REQUIRED
+    acceptance_test: Tests\Feature\UploadAssetRuntimeTest::test_staff_photo_upload_is_purpose_bound_hash_verified_and_immutable_after_completion
+    status: IMPLEMENTED
+  - evidence: specs/database/core-schema.yml
+    requirement: uploaded assets are tenant scoped purpose bound size and MIME checked content validated and ready only after verified materialization
+    domain_data: file_assets
+    api_use_case: uploads.complete
+    permission: active_membership_plus_parent_domain_permission
+    ui: SHARED_UPLOAD_TRANSPORT_NO_STANDALONE_UI_REQUIRED
+    acceptance_test: Tests\Feature\UploadAssetRuntimeTest::test_invalid_content_is_rejected_and_never_becomes_ready
+    status: IMPLEMENTED
+  - evidence: specs/design/formal-training-documents.yml
+    requirement: signed scan upload is bound to a concrete paper formal document and reuses formal_documents.deliver student scope
+    domain_data: formal_training_documents + course_enrollments + students + file_assets
+    api_use_case: uploads.presign + uploads.complete + formal_documents.delivery.record
+    permission: formal_documents.deliver
+    ui: resources/js/modules/FormalDocuments/FormalTrainingDocumentsPanel.vue via student profile signed-scan handoff
+    acceptance_test: Tests\Feature\UploadAssetRuntimeTest::test_formal_signed_scan_upload_respects_assigned_student_scope_and_attaches_to_paper_document + Tests\Unit\FormalDocumentsUiContractTest::test_student_profile_materializes_exact_formal_document_and_signed_scan_workflow
+    status: IMPLEMENTED
+  - evidence: docs/147-uploads-assets-runtime.md
+    requirement: completion copies verified bytes away from the presigned reservation key so a still-valid old PUT URL cannot mutate the ready asset
+    domain_data: file_assets.storage_key + object_storage
+    api_use_case: uploads.complete
+    permission: active_membership_plus_parent_domain_permission
+    ui: SHARED_UPLOAD_TRANSPORT_NO_STANDALONE_UI_REQUIRED
+    acceptance_test: Tests\Feature\UploadAssetRuntimeTest::test_staff_photo_upload_is_purpose_bound_hash_verified_and_immutable_after_completion
+    status: IMPLEMENTED
+  - evidence: specs/screens/staff-create.yml + specs/screens/vehicle-edit.yml
+    requirement: confirmed Resource photo pickers execute presign direct private PUT complete and then attach the ready asset by canonical resource mutation without persisting raw object-storage credentials
+    domain_data: file_assets + staff_profiles.photo_asset_id + vehicles.photo_asset_id
+    api_use_case: uploads.presign + uploads.complete + staff.update + vehicles.update
+    permission: parent-scoped staff.edit or vehicles.edit after the resource exists; create flows materialize the resource before upload
+    ui: resources/js/modules/ResourcesCore/ResourceWorkspace.vue + resources/js/modules/ResourcesCore/uploads.ts
+    acceptance_test: Tests\\Feature\\ResourcePhotoUploadParentRuntimeTest::test_resource_photo_presign_is_parent_bound_before_ready_asset_attachment + Tests\\Unit\\ResourcesAssetsUiContractTest::test_confirmed_staff_and_vehicle_photo_fields_use_verified_upload_transport
+    status: IMPLEMENTED
+

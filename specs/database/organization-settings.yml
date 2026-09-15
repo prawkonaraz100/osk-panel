@@ -1,0 +1,351 @@
+meta:
+  project: osk-panel
+  scope: osk_settings_domain
+  status: IMPLEMENTATION_BLUEPRINT
+  decided_at: 2026-09-05
+  narrative_doc: docs/100-osk-settings-domain-model.md
+  screen_specs:
+    - specs/screens/settings.yml
+    - specs/screens/pkk-configuration-gate.yml
+  api_contract:
+    - specs/api/paths/auth-organization.yaml
+    - specs/api/openapi-components-v1.yaml
+
+purpose:
+  statement: >-
+    Preserve every field observed on the OSK settings screen and PKK
+    configuration gate while assigning each field to exactly one canonical
+    domain owner. The settings screen is a UI composition and does not make
+    PKK a prerequisite of the provider-neutral organization/settings API.
+
+operational_independence:
+  service_requires_PKK_configuration: false
+  organization_lifecycle_requires_PKK_configuration: false
+  manual_student_course_training_workflows_require_PKK: false
+  provider_neutral_settings_reads_PKK_tables: false
+  provider_neutral_settings_writes_PKK_tables: false
+  rule: >-
+    PKK is an optional integration bounded context. Missing or frozen PKK
+    configuration may block only explicit PKK integration operations.
+
+observed_scope:
+  basic_data:
+    fields:
+      - first_name
+      - last_name
+      - email
+  company_data:
+    fields:
+      - company_name
+      - street
+      - house_number
+      - unit_number
+      - city
+      - postal_code
+      - phone
+    explicitly_not_observed:
+      - nip
+      - billing_data
+  pkk_api_data:
+    fields:
+      - school_name
+      - osk_registry_number
+      - external_osk_login
+  terms:
+    capability:
+      - open_exact_accepted_terms_version
+
+canonical_ownership:
+  first_name:
+    table: users
+    column: first_name
+  last_name:
+    table: users
+    column: last_name
+  email:
+    table: auth_login_identifiers
+    semantics: primary_current_email_identifier_for_user
+    duplicated_on_users_table: false
+  company_name:
+    table: organizations
+    column: name
+  phone:
+    table: organizations
+    column: phone
+  street:
+    table: organization_contact_addresses
+    column: street
+  house_number:
+    table: organization_contact_addresses
+    column: house_number
+  unit_number:
+    table: organization_contact_addresses
+    column: unit_number
+  city:
+    table: organization_contact_addresses
+    column: city_name
+  postal_code:
+    table: organization_contact_addresses
+    column: postal_code
+  school_name:
+    table: pkk_integration_settings
+    column: school_name
+  osk_registry_number:
+    table: pkk_integration_settings
+    column: osk_registry_number
+  external_osk_login:
+    table: pkk_integration_settings
+    column: external_osk_login_ciphertext
+    note: external_PKK_identifier_not_application_login
+  accepted_terms:
+    table: terms_acceptances
+    relation: legal_documents
+
+physical_tables:
+  users:
+    additions_required:
+      first_name:
+        type: varchar_120
+        nullable: false_for_human_user_after_onboarding
+      last_name:
+        type: varchar_120
+        nullable: false_for_human_user_after_onboarding
+    rule: names_are_global_user_identity_fields_not_duplicated_per_organization
+
+  auth_login_identifiers:
+    existing_role: generic_login_resolver
+    additions_required:
+      is_primary_for_type:
+        type: boolean
+        default: false
+    constraints:
+      one_current_primary_email_per_user:
+        type: partial_unique
+        columns: [user_id, identifier_type]
+        where: revoked_at_is_null_and_is_primary_for_type_true
+      global_current_identifier_unique:
+        preserved: true
+    email_settings_projection: >-
+      Resolve the current non-revoked identifier where identifier_type=email
+      and is_primary_for_type=true.
+    email_change_policy:
+      final_verification_policy: pending_ADR
+      data_model_must_support_pending_new_identifier_before_old_primary_is_revoked: true
+      never_mutate_verified_identifier_in_place_when_verification_flow_requires_history: true
+
+  organizations:
+    additions_required:
+      phone:
+        type: varchar_40
+        nullable: true
+    existing_name_is_company_name: true
+    nip_remains_domain_field_but_not_part_of_observed_settings_form: true
+
+  organization_contact_addresses:
+    purpose: one_structured_company_contact_address_for_observed_settings_screen
+    fields:
+      organization_id: uuid_PK_FK_organizations
+      street: varchar_255_not_null
+      house_number: varchar_32_not_null
+      unit_number: varchar_32_nullable
+      postal_code: varchar_20_not_null
+      city_name: varchar_160_not_null
+      city_reference: varchar_128_nullable
+      voivodeship_name: varchar_160_nullable
+      country_code: char_2_not_null_default_PL
+      created_at: timestamptz
+      updated_at: timestamptz
+    relation_to_training_locations: separate_concept_do_not_reuse_locations_table
+    rationale: company_registered_or_contact_address_is_not_a_training_resource
+
+  organization_settings:
+    one_to_one_with_organization: true
+    purpose:
+      - aggregate_version_for_settings_ETag
+      - noncritical_UI_preferences_only
+    additions_required:
+      version:
+        type: integer
+        default: 1
+        minimum: 1
+    preferences_jsonb_allowed_for_noncritical_UI_only: true
+    business_fields_in_preferences_forbidden:
+      - company_address
+      - company_phone
+      - pkk_credentials
+      - owner_name
+      - primary_email
+
+  pkk_integration_settings:
+    one_to_one_with_organization: true
+    canonical_fields:
+      - school_name
+      - osk_registry_number
+      - external_osk_login_ciphertext
+      - external_osk_login_lookup_hash_optional
+      - readiness_status
+      - updated_at
+    readiness_status_values:
+      - not_configured
+      - configured_unverified
+      - verified
+      - requires_attention
+    operator_first_name_or_last_name_columns_forbidden: true
+    reason: PKK_gate_first_name_and_last_name_belong_to_global_user
+    application_auth_login_reuse_forbidden: true
+    external_login_storage:
+      plaintext_after_save_forbidden: true
+      audit_full_value_forbidden: true
+
+  legal_documents:
+    immutable_versions: true
+
+  terms_acceptances:
+    append_only: true
+    exact_accepted_version_resolvable: true
+
+settings_projection:
+  name: OskSettingsProjection
+  sections:
+    basic_data:
+      source:
+        first_name: users.first_name
+        last_name: users.last_name
+        email: auth_login_identifiers.primary_current_email
+    company_data:
+      source:
+        company_name: organizations.name
+        phone: organizations.phone
+        street: organization_contact_addresses.street
+        house_number: organization_contact_addresses.house_number
+        unit_number: organization_contact_addresses.unit_number
+        city: organization_contact_addresses.city_name
+        postal_code: organization_contact_addresses.postal_code
+    accepted_terms:
+      source: terms_acceptances_join_legal_documents
+  version_source: organization_settings.version
+
+settings_screen_composition:
+  provider_neutral_projection: OskSettingsProjection
+  optional_PKK_section:
+    source_endpoint: /organization/integrations/pkk
+    same_screen_allowed: true
+    provider_neutral_settings_dependency: none
+    frozen_runtime_behavior: section_may_be_unavailable_or_show_not_configured_without_blocking_other_settings
+
+pkk_configuration_gate_projection:
+  fields:
+    school_name: pkk_integration_settings.school_name
+    osk_registry_number: pkk_integration_settings.osk_registry_number
+    external_osk_login: authorized_projection
+    first_name: users.first_name
+    last_name: users.last_name
+  same_source_of_truth_as_settings: true
+  duplicate_shadow_columns_forbidden: true
+
+commands:
+  update_osk_settings:
+    provider_neutral_operation: true
+    PKK_configuration_required: false
+    pkk_field_mutation_in_this_command: forbidden
+    email_mutation_in_this_command: forbidden_pending_identity_email_change_authority
+    atomic: true
+    permission: organization.settings.manage
+    optimistic_concurrency:
+      required: true
+      source: organization_settings.version
+      HTTP_mapping: If-Match_or_equivalent_version_precondition
+    transaction:
+      - lock_organization_settings_row
+      - validate_tenant_and_permission
+      - validate_request_contains_only_observed_or_explicitly_supported_fields
+      - update_user_first_name_last_name_if_present
+      - reject_email_change_use_dedicated_identity_email_change_authority
+      - update_organization_name_phone_if_present
+      - upsert_organization_contact_address_if_company_address_fields_present
+      - reject_pkk_fields_use_dedicated_PKK_integration_endpoint
+      - increment_organization_settings_version
+      - write_redacted_audit_diff
+      - enqueue_domain_event_if_relevant
+      - commit
+    idempotency:
+      optional_if_IfMatch_and_same_payload_are_used: true
+      if_Idempotency_Key_supported_it_must_follow_common_contract: true
+
+  save_pkk_configuration_gate:
+    runtime_status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+    atomic: true
+    permission: organization.integrations.manage
+    uses_same_domain_services_as_update_osk_settings: true
+    fields:
+      - school_name
+      - osk_registry_number
+      - external_osk_login
+      - first_name
+      - last_name
+    transaction:
+      - lock_organization_settings_row
+      - update_user_names
+      - update_pkk_integration_settings
+      - recalculate_pkk_readiness_status
+      - increment_organization_settings_version
+      - audit
+      - commit
+
+validation:
+  settings_screen_requiredness:
+    exact_required_optional_matrix: keep_screen_spec_unknowns_until_verified
+    backend_rule: do_not_invent_requiredness_from_competitor_if_not_observed
+  pkk_gate:
+    visible_required_markers_apply_to_all_five_fields: true
+  postal_code:
+    country_specific_validation_can_be_added_without_changing_storage_shape: true
+  email:
+    normalized_case_insensitive_lookup: true
+    uniqueness_policy: current_global_identifier_unique
+
+security:
+  external_osk_login:
+    treat_as_protected_integration_identifier: true
+    encrypt_at_rest: true
+    redact_in_audit_and_logs: true
+  email:
+    audit_old_new_full_value_forbidden_by_default: true
+  settings_activity_feed:
+    do_not_emit_sensitive_field_values: true
+  tenant_isolation:
+    all_organization_and_address_access_scoped_by_membership: true
+  mass_assignment:
+    allowlist_per_section_required: true
+    unknown_fields_rejected: true
+
+reverse_engineering_preservation:
+  preserve_visible_sections_and_fields_exactly: true
+  do_not_add_nip_to_observed_settings_UI_without_product_decision: true
+  do_not_merge_company_address_with_training_locations: true
+  do_not_replace_external_osk_login_with_application_login: true
+  do_not_remove_terms_version_link: true
+
+acceptance_tests_required:
+  - settings_GET_succeeds_when_PKK_not_configured
+  - settings_GET_does_not_read_PKK_tables_or_call_provider
+  - settings_PATCH_basic_or_company_data_succeeds_when_PKK_not_configured
+  - settings_PATCH_basic_or_company_data_does_not_create_or_mutate_PKK_configuration
+  - settings_PATCH_rejects_email_and_PKK_fields_as_outside_provider_neutral_command
+  - settings_GET_returns_provider_neutral_observed_sections
+  - settings_PATCH_can_update_each_observed_field_without_touching_unsubmitted_sections
+  - settings_PATCH_rejects_stale_version
+  - company_address_is_not_created_as_training_location
+  - pkk_gate_and_settings_read_same_PKK_records
+  - pkk_gate_and_settings_read_same_user_name_records
+  - changing_PKK_external_login_never_changes_application_login
+  - primary_email_change_preserves_identifier_history_according_to_final_policy
+  - settings_audit_does_not_expose_full_external_PKK_login_or_email_diff
+  - exact_accepted_terms_version_is_resolvable
+  - NIP_is_not_required_by_observed_settings_form
+
+open_decisions_not_blocking_schema_shape:
+  - email_change_reverification_policy
+  - PKK_connection_test_provider_semantics
+  - whether_external_osk_login_lookup_hash_is_needed
+  - whether_company_address_requires_country_selector_in_future

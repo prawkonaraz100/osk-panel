@@ -1,0 +1,1737 @@
+meta:
+  project: osk-panel
+  stage: 4
+  slice: DB4_10_AUDIT_OUTBOX_NOTIFICATIONS
+  step: DB4_10_FINAL_AGGREGATE_SYNC
+  status: PASS
+  diagnosed_at: 2026-09-09
+  branch: docs-consolidation-2026-09-05
+  diagnosis_only: false
+  aggregate_sync_status: PASS
+  fixes_applied_in_diagnosis_step: 0
+  blockers_resolved: 8
+  open_P0_P1: 0
+  implementation_started: false
+  Laravel_migrations_created: false
+  Stage5_started: false
+  UI_or_feature_implementation_started: false
+
+scope_rule:
+  diagnose_before_fixing: true
+  fixes_allowed_in_this_step: true
+  current_step_scope: DB4_10_FINAL_AGGREGATE_SYNC_only
+  one_blocker_per_future_step: true
+  aggregate_files_frozen:
+    - specs/database/core-schema.yml
+    - docs/87-physical-database-schema.md
+  later_slices_forbidden_in_this_step:
+    - DB4_11_FINAL_MIGRATION_ORDER_AND_INVARIANT_TEST_MATRIX
+    - Stage5_ACCEPTANCE_TRACEABILITY
+  Stage5_or_API_contract_sync_in_this_step: forbidden
+  Laravel_migration_generation_in_this_step: forbidden
+
+canonical_sources:
+  aggregate_machine: specs/database/core-schema.yml
+  aggregate_narrative: docs/87-physical-database-schema.md
+  security: docs/08-security-compliance.md
+  test_policy: docs/84-test-strategy.md
+  production_operations: docs/85-production-operations.md
+  traceability: specs/traceability/core-v1.yml
+  dashboard_screen: specs/screens/main-dashboard.yml
+  dashboard_narrative: docs/74-main-dashboard.md
+  api_paths: specs/api/paths/commerce-dashboard.yaml
+  api_components: specs/api/openapi-components-v1.yaml
+  permissions: specs/security/permissions.yml
+  central_gate: specs/gates/stage-4-database-contract-gate.yml
+
+confirmed_capabilities:
+  audit:
+    - restricted_organization_audit_history
+    - append_only_business_and_security_history
+    - critical_mutations_write_audit
+    - actor_organization_entity_request_context
+    - redacted_or_allowlisted_before_after_or_domain_diff
+    - elevated_correction_reason_where_required
+    - no_plaintext_password_tokens_full_PESEL_full_PKK_by_default
+  activity:
+    - dashboard_safe_organization_activity_feed
+    - activity_is_projection_not_raw_audit_serialization
+    - allowlisted_safe_payload
+    - actor_subject_related_student_or_entity_context
+    - optional_expand_and_target_navigation
+    - observed_event_types_across_students_courses_finance_licenses_exams_calendar
+  outbox:
+    - critical_mutations_commit_business_state_audit_and_outbox_intent_atomically
+    - asynchronous_publication
+    - retry_and_reconciliation_required
+    - no_sensitive_secret_payloads
+  notifications:
+    - list_notifications
+    - unread_only_filter
+    - mark_notification_read
+    - active_membership_access
+    - own_notification_scope_for_mark_read
+    - user_or_organization_notification_projection
+
+provisional_physical_model:
+  audit_logs:
+    fields:
+      - id
+      - organization_id_nullable
+      - actor_user_id_nullable
+      - action
+      - entity_type
+      - entity_id_nullable_string
+      - before_redacted_json_nullable
+      - after_redacted_json_nullable
+      - reason_nullable
+      - request_id
+      - ip_hash_nullable
+      - user_agent_nullable
+      - created_at
+    declared_append_only: true
+    exact_database_append_only_guard_defined: false
+    exact_actor_membership_or_system_actor_boundary_defined: false
+    exact_polymorphic_entity_tenant_integrity_defined: false
+    redaction_policy_version_or_payload_contract_defined: false
+  organization_activity_events:
+    fields:
+      - id
+      - organization_id
+      - event_type
+      - actor_user_id_nullable
+      - subject_type_nullable
+      - subject_id_nullable
+      - related_student_id_nullable
+      - safe_payload
+      - occurred_at
+      - source_event_id_nullable_string
+      - created_at
+    source_event_exact_FK_defined: false
+    source_dedupe_defined: false
+    deterministic_projection_order_defined: false
+  outbox_messages:
+    fields:
+      - id
+      - aggregate_type
+      - aggregate_id
+      - event_type
+      - payload
+      - request_id
+      - created_at
+      - published_at_nullable
+      - attempts_default_0
+      - last_error_nullable
+    organization_id_defined: false
+    stable_domain_event_identity_defined: false
+    publisher_claim_or_lease_defined: false
+    retry_schedule_or_terminal_reconciliation_state_defined: false
+    external_exactly_once_claimed: false
+  notifications:
+    fields:
+      - id
+      - organization_id
+      - user_id_nullable
+      - type
+      - payload
+      - read_at_nullable
+      - created_at
+    exact_recipient_membership_relation_defined: false
+    organization_wide_read_state_semantics_defined: false
+    exact_source_event_relation_defined: false
+    source_recipient_dedupe_defined: false
+    read_at_write_once_contract_defined: false
+
+preservation_gate:
+  status: PASS_DB4_10_FINAL_AGGREGATE_SYNC
+  checks:
+    DB4_1_through_DB4_9_preserved: true
+    dashboard_notifications_card_remains_organization_activity_feed: true
+    separate_API_notifications_capability_preserved: true
+    raw_audit_log_as_dashboard_feed_forbidden: true
+    audit_and_activity_remain_separate_concepts: true
+    StudentFinance_and_PlatformCommerce_remain_distinct: true
+    PKK_and_credential_secret_redaction_rules_preserved: true
+    no_external_delivery_channel_invented: true
+    no_exact_retention_duration_invented: true
+    aggregate_core_schema_modified: true
+    aggregate_docs87_modified: true
+    API_files_modified_in_diagnosis: false
+    DB4_11_or_later_entered: false
+    Stage5_started: false
+    Laravel_migrations_created: false
+    UI_or_feature_implementation_started: false
+
+blockers:
+  - id: DB-AUD-001
+    severity: P1
+    status: PASS
+    title: audit_append_only_ownership_actor_and_entity_context_integrity
+    evidence:
+      - audit_logs_is_declared_append_only_but_database_immutability_boundary_is_not_defined
+      - organization_id_is_nullable_and_actor_user_id_does_not_capture_exact_organization_membership_context
+      - polymorphic_entity_type_entity_id_has_no_declared_same_tenant_target_validation_contract
+      - organization_audit_API_must_never_leak_global_or_other_tenant_rows
+    risk:
+      - historical_audit_mutation_or_deletion_by_application_role
+      - ambiguous_actor_context_for_user_with_multiple_organizations
+      - cross_tenant_or_unverifiable_entity_reference_in_audit_history
+      - tenant_leakage_from_audit_list
+    closure_scope_only:
+      - define_physical_append_only_and_normal_application_delete_update_policy
+      - define_organization_vs_global_audit_row_boundary
+      - define_actor_user_membership_system_actor_context_without_fake_tenant_scoping_global_user
+      - define_polymorphic_entity_reference_validation_or_snapshot_rule
+      - define_query_tenant_boundary_and_required_candidate_keys
+
+  - id: DB-AUD-002
+    severity: P1
+    status: PASS
+    title: audit_safe_payload_redaction_version_and_elevated_reason_integrity
+    evidence:
+      - before_redacted_json_and_after_redacted_json_are_arbitrary_jsonb_without_a_closed_payload_contract
+      - security_contract_requires_allowlisted_or_redacted_payloads_and_forbids_password_token_full_PESEL_full_PKK
+      - elevated_corrections_require_reason_but_no_action_to_reason_completeness_contract_is_defined
+      - redaction_policy_change_has_no_persisted_provenance
+    risk:
+      - sensitive_data_written_to_long_lived_audit_history
+      - impossible_to_prove_which_redaction_contract_created_historical_payload
+      - high_risk_mutation_without_required_reason
+    closure_scope_only:
+      - define_safe_audit_payload_contract_and_policy_version_provenance
+      - define_forbidden_secret_classes_and_validation_boundary
+      - define_action_or_event_class_reason_requirement_without_inventing_unobserved_business_actions
+      - preserve_domain_specific_audit_fields_required_by_existing_slices
+
+  - id: DB-OUT-001
+    severity: P1
+    status: PASS
+    title: transactional_domain_event_outbox_identity_and_same_transaction_coupling
+    evidence:
+      - multiple_closed_slices_require_business_state_audit_and_outbox_intent_in_one_transaction
+      - outbox_messages_has_no_organization_id_and_no_stable_domain_event_or_causation_identity
+      - activity_source_event_id_is_only_nullable_string_and_notifications_have_no_source_event
+      - retryable_projections_need_a_durable_source_identity_to_dedupe
+    risk:
+      - committed_business_effect_without_recoverable_event_projection
+      - duplicate_or_untraceable_activity_and_notification_projection
+      - cross_tenant_event_routing_error
+    closure_scope_only:
+      - define_durable_event_identity_and_exact_tenant_context
+      - define_business_state_audit_outbox_atomic_write_boundary
+      - define_request_correlation_vs_event_identity_vs_aggregate_reference_roles
+      - define_projection_source_linkage_without_making_outbox_the_business_source_of_truth
+
+  - id: DB-OUT-002
+    severity: P1
+    status: PASS
+    title: outbox_publisher_claim_retry_reconciliation_and_at_least_once_semantics
+    evidence:
+      - current_outbox_has_only_published_at_attempts_last_error
+      - production_policy_requires_timeout_max_attempts_backoff_failed_job_visibility_manual_replay_and_outbox_reconciliation
+      - concurrent_publishers_and_publish_success_before_database_ack_are_not_closed
+    risk:
+      - two_workers_publish_same_message_concurrently
+      - stuck_message_never_retried_or_permanently_hidden
+      - duplicate_external_delivery_after_publish_ack_race
+      - unsafe_manual_replay
+    closure_scope_only:
+      - define_claim_or_lease_and_retry_state_machine
+      - define_next_attempt_and_reconciliation_or_dead_letter_visibility
+      - define_at_least_once_publication_and_downstream_idempotency_contract
+      - explicitly_forbid_claim_of_exactly_once_external_delivery
+      - define_safe_last_error_storage_and_replay_audit_boundary
+
+  - id: DB-ACT-001
+    severity: P1
+    status: PASS
+    title: organization_activity_exact_source_dedupe_order_and_safe_historical_display
+    evidence:
+      - dashboard_requires_safe_activity_projection_with_actor_subject_optional_expand_and_target_navigation
+      - source_event_id_has_no_exact_relation_or_uniqueness
+      - duplicate_projector_retries_can_create_duplicate_feed_rows
+      - actor_display_or_role_snapshot_required_for_historical_display_is_not_physically_closed
+      - pagination_order_is_not_declared
+    risk:
+      - duplicate_activity_items
+      - activity_row_attached_to_wrong_tenant_or_source_event
+      - historical_display_changes_when_actor_profile_or_role_changes
+      - unstable_feed_pagination
+    closure_scope_only:
+      - define_exact_same_tenant_source_event_relation_and_projection_dedupe
+      - define_immutable_allowlisted_display_snapshot_boundary
+      - define_subject_related_student_entity_integrity_where_relationally_possible
+      - define_deterministic_order_for_activity_list_and_dashboard_preview
+      - preserve_observed_event_types_without_hardcoding_marketing_or_deferred_modules_as_core_requirements
+
+  - id: DB-NOT-001
+    severity: P1
+    status: PASS
+    title: notification_recipient_membership_and_organization_audience_read_state_integrity
+    evidence:
+      - notifications_user_id_is_nullable_while_API_describes_user_or_organization_notifications
+      - one_shared_read_at_on_an_organization_wide_row_cannot_represent_per_user_read_state
+      - same_global_user_can_belong_to_multiple_organizations
+      - mark_read_requires_own_notification_scope
+    risk:
+      - one_user_marks_notification_read_for_everyone
+      - same_user_notification_leaks_across_organization_contexts
+      - notification_target_cannot_be_proven_to_belong_to_the_organization
+    closure_scope_only:
+      - define_notification_recipient_as_exact_tenant_membership_or_equivalent_tenant_user_context
+      - define_user_specific_vs_organization_audience_materialization_without_shared_read_state_bug
+      - define_same_tenant_recipient_constraints_and_historical_membership_behavior
+      - do_not_invent_email_SMS_push_delivery_channels
+
+  - id: DB-NOT-002
+    severity: P1
+    status: PASS
+    title: notification_source_dedupe_mark_read_idempotency_and_lifecycle
+    evidence:
+      - notifications_have_no_exact_source_event_relation
+      - outbox_retry_can_duplicate_same_recipient_notification
+      - read_at_nullability_exists_but_write_once_or_unread_transition_policy_is_not_defined
+      - mark_read_API_is_idempotent_command_with_Idempotency_Key
+    risk:
+      - duplicate_notifications_for_one_logical_event
+      - cross_recipient_or_cross_tenant_mark_read
+      - read_timestamp_rewritten_or_cleared
+      - duplicate_mark_read_side_effects
+    closure_scope_only:
+      - define_exact_source_plus_recipient_dedupe_key
+      - define_read_at_null_to_nonnull_once_semantics_and_idempotent_replay
+      - define_authorization_root_for_mark_read_under_active_membership
+      - preserve_API_without_adding_unread_or_delete_actions_not_in_contract
+
+  - id: DB-EVT-001
+    severity: P1
+    status: PASS
+    title: legacy_event_projection_backfill_retention_and_cleanup_safety
+    evidence:
+      - provisional_rows_may_lack_new_source_event_recipient_membership_policy_version_or_publisher_state
+      - exact_privacy_retention_schedule_is_external_production_blocker
+      - audit_append_only_normal_runtime_semantics_must_coexist_with_policy_controlled_retention
+      - outbox_is_technical_delivery_history_and_must_not_become_a_shadow_business_ledger
+    risk:
+      - fabricated_event_lineage_during_migration
+      - guessed_recipient_or_read_timestamp
+      - destructive_cleanup_of_required_audit_or_business_history
+      - indefinite_secret_bearing_technical_payload_retention
+    closure_scope_only:
+      - define_fail_closed_evidence_classes_for_legacy_source_recipient_actor_and_read_state
+      - forbid_timestamp_similarity_or_same_tenant_heuristics_for_lineage
+      - define_write_fence_and_phased_constraint_activation
+      - separate_normal_append_only_runtime_policy_from_privileged_retention_execution
+      - preserve_exact_retention_durations_as_external_privacy_policy_not_invented_here
+      - define_outbox_cleanup_only_after_safe_publication_or_reconciliation_without_using_outbox_as_business_authority
+
+resolved_contracts:
+  DB-AUD-001:
+    status: PASS
+    title: audit_append_only_ownership_actor_and_entity_context_integrity
+    scope_boundary:
+      audit_scope_field:
+        name: audit_scope
+        values: [organization, platform_global]
+        immutable_after_insert: true
+      organization_scope:
+        organization_id_required: true
+        organization_id_server_derived: true
+        organization_id_client_override_forbidden: true
+        organization_candidate_key: [organization_id, id]
+      platform_global_scope:
+        organization_id_required_null: true
+        excluded_from_organization_audit_API: true
+      mixed_or_implicit_scope: forbidden
+    actor_boundary:
+      actor_kind_field:
+        name: actor_kind
+        values: [organization_membership, global_user, system]
+        immutable_after_insert: true
+      actor_user_id:
+        nullable_by_actor_kind: true
+        immutable_after_insert: true
+      actor_organization_membership_id:
+        nullable_by_actor_kind: true
+        immutable_after_insert: true
+      organization_membership_actor:
+        allowed_scope: organization
+        organization_id_required: true
+        actor_user_id_required: true
+        actor_organization_membership_id_required: true
+        exact_relation:
+          source_columns: [organization_id, actor_organization_membership_id, actor_user_id]
+          target_table: organization_memberships
+          target_columns: [organization_id, id, user_id]
+          on_update: RESTRICT
+          on_delete: RESTRICT
+          target_candidate_key_required: [organization_id, id, user_id]
+        actor_membership_status_is_historical_reference_not_read_time_authority: true
+        command_authorization_must_have_been_validated_at_write_time: true
+      global_user_actor:
+        allowed_scope: platform_global
+        actor_user_id_required: true
+        actor_organization_membership_id_required_null: true
+        user_FK: users.id_RESTRICT
+        organization_scoped_business_mutation_with_global_user_actor: forbidden
+      system_actor:
+        actor_user_id_required_null: true
+        actor_organization_membership_id_required_null: true
+        may_be_organization_or_platform_global_scope: true
+        organization_system_event_requires_exact_organization_id: true
+      actor_context_server_derived_from_authenticated_session_membership_or_trusted_system_execution: true
+      client_supplied_actor_context_as_authority: forbidden
+    entity_reference_boundary:
+      entity_reference_mode_field:
+        name: entity_reference_mode
+        values: [none, tenant_relational, global_relational, snapshot_only]
+        immutable_after_insert: true
+      entity_type_immutable: true
+      entity_id_immutable: true
+      none:
+        entity_type_required_null: true
+        entity_id_required_null: true
+      tenant_relational:
+        allowed_only_for_organization_scope: true
+        entity_type_required: true
+        entity_id_required: true
+        exact_same_tenant_validation: >-
+          DEFERRABLE INITIALLY DEFERRED constraint trigger or equivalent database guard
+          generated from a closed allowlist of tenant-owned auditable entity types; the
+          guard must prove the referenced row exists with the exact audit organization_id.
+        unknown_or_unregistered_entity_type: reject
+      global_relational:
+        entity_type_required: true
+        entity_id_required: true
+        exact_existence_validation: >-
+          database guard against a closed allowlist of global auditable entity types;
+          no tenant ownership is implied by a global relation.
+        unknown_or_unregistered_entity_type: reject
+      snapshot_only:
+        purpose: external_or_nonrelational_reference_without_false_FK_claim
+        entity_type_required: true
+        entity_id_nullable_when_action_has_no_stable_external_identifier: true
+        type_must_be_explicitly_allowlisted_as_snapshot_only: true
+        same_tenant_or_existence_claim: none
+        sensitive_identifier_in_entity_id: forbidden
+      polymorphic_target_inference_from_name_or_UUID_shape: forbidden
+    append_only_boundary:
+      all_business_fields_immutable_after_insert: true
+      normal_application_UPDATE: forbidden
+      normal_application_DELETE: forbidden
+      database_guard: BEFORE_UPDATE_OR_DELETE_trigger_or_equivalent_plus_role_privilege_boundary
+      normal_application_role_has_insert_and_authorized_select_only: true
+      privileged_policy_driven_retention_exception: deferred_to_DB_EVT_001
+      DB_AUD_001_does_not_define_retention_duration_or_cleanup_authority: true
+    organization_audit_query_boundary:
+      endpoint: GET_/audit-logs
+      requires_active_selected_organization_membership: true
+      permission_required: organization.audit.view
+      mandatory_predicate:
+        - audit_scope_equals_organization
+        - organization_id_equals_selected_membership_organization_id
+      platform_global_rows_visible_via_endpoint: false
+      other_tenant_rows_visible_via_endpoint: false
+      entity_filters_applied_after_mandatory_tenant_scope: true
+      request_id_filter_applied_after_mandatory_tenant_scope: true
+      deterministic_order: [created_at_DESC, id_DESC]
+    write_boundary:
+      audit_insert_is_part_of_same_business_transaction_where_prior_slice_requires_audit: true
+      audit_row_does_not_become_business_source_of_truth: true
+      append_only_failure_rolls_back_business_command_when_audit_is_required: true
+      actor_and_scope_fields_are_not_mutable_projection_fields: true
+    legacy_boundary:
+      existing_rows_missing_new_scope_actor_or_entity_reference_evidence_are_not_guessed_in_DB_AUD_001: true
+      backfill_and_phased_constraint_activation: deferred_to_DB_EVT_001
+      new_runtime_rows_after_write_fence_must_satisfy_DB_AUD_001_contract: true
+    explicitly_not_closed_here:
+      - safe_payload_redaction_policy_version_and_reason_matrix_DB_AUD_002
+      - durable_outbox_event_identity_DB_OUT_001
+      - publisher_retry_DB_OUT_002
+      - activity_projection_DB_ACT_001
+      - notification_recipient_and_read_state_DB_NOT_001_DB_NOT_002
+      - legacy_backfill_retention_cleanup_DB_EVT_001
+    required_tests:
+      - normal_application_update_of_audit_row_is_rejected
+      - normal_application_delete_of_audit_row_is_rejected
+      - organization_scope_requires_nonnull_organization_id
+      - platform_global_scope_requires_null_organization_id
+      - organization_membership_actor_requires_exact_same_tenant_membership_user_triple
+      - same_global_user_membership_from_other_organization_cannot_be_used_as_actor_context
+      - global_user_actor_is_forbidden_for_organization_scoped_business_audit
+      - system_actor_requires_null_user_and_membership_and_preserves_explicit_scope
+      - tenant_relational_entity_wrong_tenant_target_is_rejected
+      - unknown_tenant_relational_entity_type_is_rejected
+      - snapshot_only_reference_does_not_claim_relational_or_tenant_integrity
+      - organization_audit_API_never_returns_platform_global_or_other_tenant_rows
+      - actor_membership_later_suspension_or_revocation_does_not_destroy_historical_audit_row
+      - new_runtime_audit_row_after_write_fence_cannot_omit_required_scope_actor_entity_reference_mode
+      - DB_AUD_001_does_not_guess_legacy_actor_membership_or_entity_lineage
+
+  DB-AUD-002:
+    status: PASS
+    title: audit_safe_payload_redaction_version_and_elevated_reason_integrity
+    policy_revision_authority:
+      table: audit_action_policy_revisions
+      purpose: immutable_action_specific_safe_payload_and_reason_contract_history
+      fields:
+        - action
+        - policy_version
+        - payload_validator_code
+        - before_payload_requirement
+        - after_payload_requirement
+        - reason_requirement
+        - policy_hash
+        - created_at
+      candidate_key: [action, policy_version]
+      policy_version_type: integer_positive
+      payload_requirement_values: [forbidden, optional, required]
+      reason_requirement_values: [optional, required]
+      immutable_after_insert: true
+      normal_application_update_delete: forbidden
+      action_without_registered_policy_revision: forbidden_for_new_runtime_audit
+      business_action_catalog_expansion_by_DB_AUD_002: forbidden
+      seed_rule: only_actions_already_required_or_emitted_by_confirmed_domain_contracts_may_be_registered
+      reason_requirement_source: upstream_domain_contract_or_security_requirement_not_UI_guess
+      policy_hash_covers_revision_metadata_and_versioned_validator_contract: true
+    current_policy_authority:
+      table: audit_action_policy_currents
+      fields: [action, policy_version, updated_at]
+      primary_key: action
+      exact_revision_FK:
+        source_columns: [action, policy_version]
+        target_table: audit_action_policy_revisions
+        target_columns: [action, policy_version]
+        on_update: RESTRICT
+        on_delete: RESTRICT
+      runtime_audit_insert_must_use_exact_current_revision: true
+      client_supplied_policy_version_as_authority: forbidden
+      stale_runtime_policy_revision_after_current_pointer_change: reject
+      changing_policy_creates_new_immutable_revision_then_moves_current_pointer: true
+      old_audit_rows_continue_to_reference_original_revision: true
+    audit_log_policy_binding:
+      add_field: audit_policy_version
+      immutable_after_insert: true
+      exact_policy_revision_FK:
+        source_columns: [action, audit_policy_version]
+        target_table: audit_action_policy_revisions
+        target_columns: [action, policy_version]
+        on_update: RESTRICT
+        on_delete: RESTRICT
+      new_runtime_rows_require_registered_current_policy_revision: true
+      policy_version_is_redaction_and_reason_provenance: true
+      policy_revision_is_not_business_source_of_truth: true
+    safe_payload_contract:
+      before_field: before_redacted_json_nullable
+      after_field: after_redacted_json_nullable
+      semantic: safe_allowlisted_projection_or_domain_diff_never_raw_entity_serialization
+      top_level_type_when_nonnull: json_object_only
+      validator_selection: exact_action_policy_revision_payload_validator_code
+      database_guard: BEFORE_INSERT_constraint_trigger_or_equivalent_calls_versioned_closed_validator
+      application_writer: typed_allowlist_projection_builder_before_database_insert
+      unknown_payload_validator_code: reject
+      unknown_key_or_JSON_path: reject
+      nested_object_or_array_allowed_only_when_exact_validator_explicitly_allows_path_and_shape: true
+      raw_ORM_model_request_provider_response_or_arbitrary_JSON_serialization: forbidden
+      payload_requirement_enforcement:
+        forbidden: corresponding_payload_must_be_null
+        optional: null_or_validated_object
+        required: validated_nonnull_object
+      global_forbidden_secret_classes_even_if_source_domain_contains_them:
+        - plaintext_or_reversible_passwords_and_one_time_credentials
+        - password_hashes_and_credential_verifiers
+        - auth_session_reset_access_bearer_or_one_time_tokens
+        - provider_credentials_secrets_signatures_or_private_keys
+        - full_PESEL
+        - full_PKK
+        - external_OSK_credentials
+        - payment_card_or_provider_secret_material
+        - secret_bearing_file_or_PDF_bytes
+        - raw_provider_request_or_response_payloads
+      sensitive_identifier_rule: masked_or_minimized_display_value_only_when_exact_validator_allowlists_it
+      nonsecret_reference_or_evidence_hash_rule: allowed_only_when_exact_validator_allowlists_semantics_and_format
+      renaming_sensitive_value_under_arbitrary_key_does_not_bypass_allowlist: true
+      free_form_dump_field_or_catch_all_metadata_key: forbidden
+      before_after_may_preserve_domain_specific_safe_fields: true
+      examples_of_preservable_classes_without_making_them_globally_allowed:
+        - resource_identifiers_and_status_transitions
+        - category_language_and_nonsecret_configuration_values
+        - monetary_minor_units_and_currency
+        - formal_time_or_duration_values
+        - masked_identifiers
+        - safe_request_or_provider_correlation_identifiers
+      exact_fields_remain_action_policy_specific: true
+    reason_integrity:
+      field: reason_nullable
+      append_only_via_DB_AUD_001: true
+      required_policy:
+        rule: reason_requirement_required_implies_nonnull_trimmed_nonempty_reason
+        database_guard: same_policy_validation_trigger_or_equivalent
+      optional_policy:
+        rule: null_allowed_but_present_reason_must_be_trimmed_nonempty_safe_text
+      empty_or_whitespace_only_reason: reject
+      raw_request_provider_payload_or_secret_as_reason: forbidden
+      exact_reason_required_actions_are_not_invented_here: true
+      upstream_action_already_declared_reason_required_must_bind_only_to_reason_requirement_required_revision: true
+      policy_revision_cannot_downgrade_existing_upstream_reason_requirement: migration_or_seed_validation_guard
+      elevated_permission_alone_does_not_automatically_invent_reason_requirement_without_upstream_contract: true
+    policy_change_and_history:
+      policy_revision_rows_append_only: true
+      changing_allowed_payload_shape_or_redaction_semantics_requires_new_policy_version: true
+      changing_reason_requirement_requires_new_policy_version: true
+      historical_audit_row_policy_provenance_never_rewritten_to_new_revision: true
+      old_revision_remains_queryable_for_historical_interpretation: true
+      current_pointer_change_does_not_mutate_existing_audit_rows: true
+    write_transaction_boundary:
+      audit_payload_is_constructed_after_business_validation_from_safe_snapshot_inputs: true
+      required_audit_failure_due_to_payload_or_reason_policy_rolls_back_business_transaction: true
+      audit_insert_remains_same_transaction_where_prior_slice_requires_audit: true
+      database_validation_is_final_persistence_boundary_not_a_replacement_for_application_minimization: true
+    legacy_boundary:
+      existing_rows_missing_audit_policy_version_are_not_assigned_revision_by_timestamp_action_name_similarity_or_payload_shape_guess: true
+      legacy_policy_provenance_backfill_and_quarantine: deferred_to_DB_EVT_001
+      new_runtime_write_fence_requires_current_policy_revision_before_legacy_backfill_is_complete: true
+    explicitly_not_closed_here:
+      - durable_outbox_event_identity_DB_OUT_001
+      - outbox_retry_and_reconciliation_DB_OUT_002
+      - activity_projection_DB_ACT_001
+      - notification_recipient_and_read_state_DB_NOT_001_DB_NOT_002
+      - legacy_backfill_retention_cleanup_DB_EVT_001
+      - exact_privacy_retention_duration
+    required_tests:
+      - new_runtime_audit_row_without_registered_action_policy_revision_is_rejected
+      - new_runtime_audit_row_using_stale_noncurrent_policy_version_is_rejected
+      - action_policy_revision_update_or_delete_is_rejected_for_normal_application_role
+      - policy_change_creates_new_revision_and_old_audit_row_keeps_original_policy_version
+      - nonnull_payload_must_be_json_object_and_scalar_or_unapproved_array_shape_is_rejected
+      - payload_unknown_key_or_nested_path_is_rejected_by_exact_validator
+      - raw_model_or_arbitrary_metadata_dump_is_rejected
+      - plaintext_password_hash_token_provider_secret_full_PESEL_full_PKK_or_external_OSK_credential_payload_is_rejected
+      - masked_sensitive_identifier_is_allowed_only_by_exact_action_validator
+      - required_before_or_after_payload_cannot_be_null
+      - forbidden_before_or_after_payload_must_be_null
+      - reason_required_policy_rejects_null_empty_and_whitespace_reason
+      - optional_reason_policy_allows_null_but_rejects_blank_present_reason
+      - upstream_reason_required_action_cannot_be_registered_with_optional_reason_revision
+      - client_cannot_select_old_or_weaker_policy_revision_for_runtime_audit
+      - safe_domain_specific_amount_status_duration_and_reference_fields_survive_when_explicitly_allowlisted
+      - required_audit_policy_validation_failure_rolls_back_business_effect
+      - DB_AUD_002_does_not_guess_legacy_policy_version_or_rewrite_historical_payload
+
+  DB-OUT-001:
+    status: PASS
+    title: transactional_domain_event_outbox_identity_and_same_transaction_coupling
+    durable_domain_event_authority:
+      table: domain_events
+      purpose: durable_immutable_identity_for_committed_domain_event_facts_used_by_outbox_and_retryable_projections
+      business_source_of_truth: false
+      fields:
+        - id
+        - event_scope
+        - organization_id_nullable
+        - event_type
+        - aggregate_reference_mode
+        - aggregate_type_nullable
+        - aggregate_id_nullable_string
+        - request_id
+        - causation_event_id_nullable
+        - required_audit_log_id_nullable
+        - occurred_at
+        - created_at
+      primary_key: id
+      id_server_generated_globally_unique_immutable: true
+      organization_candidate_key: [organization_id, id]
+      immutable_after_insert: true
+      normal_application_update_delete: forbidden
+      event_scope_values: [organization, platform_global]
+      organization_scope:
+        organization_id_required: true
+        organization_id_server_derived_from_business_authority: true
+      platform_global_scope:
+        organization_id_required_null: true
+      event_type_source: confirmed_domain_contract_catalog_only
+      ad_hoc_marketing_or_unobserved_event_type_invention: forbidden
+      occurred_at_server_derived_from_committed_business_effect_time: true
+      created_at_is_persistence_time_not_business_effect_identity: true
+    identity_roles:
+      event_id:
+        authority: domain_events.id
+        role: durable_source_identity_for_outbox_activity_notifications_and_other_retryable_projections
+        request_id_or_timestamp_may_replace_event_id: false
+      request_id:
+        role: request_job_trace_correlation_only
+        unique: false
+        may_be_shared_by_multiple_domain_events: true
+        may_be_used_as_projection_dedupe_identity: false
+        may_be_used_as_business_authorization_or_tenant_authority: false
+      causation_event_id:
+        nullable: true
+        exact_FK: domain_events.id_RESTRICT
+        role: optional_exact_prior_domain_event_identity_when_a_real_causal_event_exists
+        missing_causation_must_not_be_inferred_from_request_id_or_timestamp: true
+        causation_scope_does_not_override_current_event_scope_or_organization: true
+      aggregate_reference:
+        role: subject_or_business_aggregate_reference_not_event_identity
+        aggregate_type_and_id_immutable: true
+        aggregate_reference_mode_values: [none, tenant_relational, global_relational, snapshot_only]
+        none_requires_type_and_id_null: true
+        tenant_relational:
+          event_scope_must_be_organization: true
+          exact_same_tenant_target_guard: closed_allowlist_DEFERRABLE_constraint_trigger_or_equivalent
+        global_relational:
+          exact_global_target_guard: closed_allowlist_constraint_trigger_or_equivalent
+        snapshot_only:
+          explicit_allowlist_required: true
+          no_false_relational_or_tenant_integrity_claim: true
+          sensitive_identifier_in_aggregate_id: forbidden
+        polymorphic_target_inference_by_name_UUID_shape_or_timestamp: forbidden
+    audit_coupling_reference:
+      field: required_audit_log_id_nullable
+      exact_FK: audit_logs.id_RESTRICT
+      when_upstream_slice_requires_audit_for_event_producing_business_effect: required
+      when_upstream_slice_does_not_require_audit: nullable
+      scope_and_organization_equivalence_guard: required
+      audit_row_remains_append_only_and_not_business_source_of_truth: true
+      event_does_not_copy_raw_audit_payload: true
+    outbox_domain_event_binding:
+      outbox_table: outbox_messages
+      add_fields:
+        - domain_event_id
+        - event_scope
+        - organization_id_nullable
+      domain_event_id_required_for_new_runtime_rows: true
+      exact_event_FK: domain_events.id_RESTRICT
+      unique_domain_event_outbox_intent: domain_event_id
+      scope_matrix:
+        organization_event_requires_exact_same_nonnull_organization_id: true
+        platform_global_event_requires_null_organization_id: true
+      copied_identity_fields_must_equal_domain_event:
+        - event_scope
+        - organization_id
+        - event_type
+        - aggregate_type
+        - aggregate_id
+        - request_id
+      database_equivalence_guard: DEFERRABLE_INITIALLY_DEFERRED_constraint_trigger_or_equivalent
+      outbox_id_is_technical_message_identity_not_domain_event_identity: true
+      outbox_row_is_not_business_source_of_truth: true
+      outbox_payload_must_remain_publisher_safe_and_secret_free_under_existing_security_contract: true
+      raw_audit_payload_or_raw_provider_payload_as_outbox_payload: forbidden
+    same_transaction_coupling:
+      applies_when_prior_domain_slice_requires_outbox_for_committed_mutation: true
+      one_local_database_transaction_contains:
+        - canonical_business_state_change_or_append_only_business_effect
+        - required_audit_log_insert_when_upstream_contract_requires_audit
+        - exactly_one_domain_event_for_each_required_logical_event
+        - exactly_one_outbox_message_for_each_new_domain_event
+      required_ordering:
+        - acquire_and_validate_existing_domain_lock_or_race_winner_root
+        - apply_business_effect
+        - insert_required_audit
+        - insert_domain_event
+        - insert_outbox_intent
+        - commit
+      any_required_audit_event_or_outbox_insert_failure_rolls_back_business_effect: true
+      post_commit_best_effort_outbox_insert_for_required_event: forbidden
+      reconstructing_required_event_later_by_polling_business_tables_as_normal_path: forbidden
+      external_network_publish_inside_business_transaction: forbidden
+      asynchronous_publisher_may_run_only_after_commit: true
+      loser_of_business_race_or_noop_idempotent_replay_emits_no_second_event_or_outbox: true
+      successful_idempotent_replay_returns_existing_business_result_without_second_logical_event: true
+      DB_OUT_001_does_not_define_publisher_claim_retry_or_DLQ_state: true
+    projection_source_contract:
+      canonical_source_for_activity_and_notifications: domain_events.id
+      outbox_messages.id_as_projection_source: forbidden
+      request_id_as_projection_source: forbidden
+      timestamp_similarity_as_projection_source: forbidden
+      organization_scoped_projection_must_match_domain_event_organization_id: true
+      activity_exact_FK_and_dedupe_details: deferred_to_DB_ACT_001
+      notification_exact_FK_recipient_dedupe_details: deferred_to_DB_NOT_001_and_DB_NOT_002
+      outbox_cleanup_must_not_destroy_domain_event_projection_lineage: true
+    legacy_boundary:
+      existing_outbox_or_projection_row_without_proven_exact_domain_event_is_not_backfilled_by_timestamp_request_id_aggregate_similarity_or_same_tenant_guess: true
+      legacy_lineage_backfill_quarantine_and_phased_constraint_activation: deferred_to_DB_EVT_001
+      new_runtime_write_fence_requires_domain_event_and_exact_outbox_binding: true
+      no_synthetic_domain_event_may_be_created_only_to_force_legacy_constraint_pass: true
+    explicitly_not_closed_here:
+      - publisher_claim_retry_backoff_DLQ_manual_replay_DB_OUT_002
+      - activity_projection_display_dedupe_order_DB_ACT_001
+      - notification_recipient_read_state_DB_NOT_001
+      - notification_source_dedupe_mark_read_DB_NOT_002
+      - legacy_backfill_retention_cleanup_DB_EVT_001
+      - exact_privacy_retention_duration
+    required_tests:
+      - organization_domain_event_requires_server_derived_nonnull_organization_id
+      - platform_global_domain_event_requires_null_organization_id
+      - domain_event_id_is_immutable_and_cannot_be_replaced_by_request_id
+      - request_id_can_correlate_multiple_events_without_becoming_dedupe_identity
+      - causation_event_requires_exact_existing_event_when_present_and_is_never_guessed
+      - tenant_relational_aggregate_wrong_tenant_target_is_rejected
+      - unknown_relational_aggregate_type_is_rejected
+      - event_requiring_audit_rejects_missing_required_audit_log_reference
+      - event_audit_scope_or_organization_mismatch_is_rejected
+      - new_runtime_outbox_requires_exact_domain_event_id
+      - organization_outbox_wrong_tenant_event_binding_is_rejected
+      - platform_global_outbox_with_organization_id_is_rejected
+      - outbox_event_type_aggregate_request_snapshot_mismatch_is_rejected
+      - second_outbox_intent_for_same_domain_event_is_rejected
+      - required_business_effect_audit_event_and_outbox_commit_or_rollback_together
+      - business_effect_is_not_committed_when_required_event_or_outbox_insert_fails
+      - no_external_publish_occurs_inside_business_transaction
+      - losing_concurrent_command_does_not_emit_domain_event_or_outbox
+      - successful_idempotent_replay_does_not_emit_second_domain_event
+      - activity_or_notification_projection_source_must_use_domain_event_identity_not_outbox_or_request_id
+      - DB_OUT_001_does_not_guess_legacy_event_lineage_or_create_synthetic_event_to_force_constraints
+
+
+  DB-OUT-002:
+    status: PASS
+    title: outbox_publisher_claim_retry_reconciliation_and_at_least_once_semantics
+    publication_state_authority:
+      table: outbox_messages
+      state_field: publication_state
+      values: [pending, leased, published, requires_reconciliation]
+      initial_state: pending
+      published_is_terminal_for_normal_publisher: true
+      requires_reconciliation_is_not_auto_claimable: true
+      normal_application_delete: forbidden
+      business_identity_fields_from_DB_OUT_001_remain_immutable: true
+      technical_delivery_state_fields_mutable_only_by_publisher_or_privileged_reconciliation_commands: true
+      published_at:
+        required_only_for_published_state: true
+        server_written: true
+        semantic: at_least_one_publish_call_was_acknowledged_not_exactly_one_external_delivery
+        rewrite_or_clear_after_nonnull: forbidden
+      next_attempt_at:
+        required_for_pending: true
+        server_derived: true
+      retry_policy_snapshot:
+        max_attempts_per_cycle_positive_integer: true
+        retry_policy_code_allowlisted: true
+        lease_timeout_seconds_positive_bounded_config_snapshot: true
+        immutable_after_insert: true
+        exact_numeric_values_are_operational_configuration_not_invented_by_DB_OUT_002: true
+    claim_and_lease:
+      claimable_rows: [pending_due, expired_lease]
+      claim_algorithm: transactionally_lock_or_UPDATE_RETURNING_with_SKIP_LOCKED_equivalent
+      lease_fields: [lease_token_nullable, lease_version, leased_by_nullable_opaque_worker_instance, lease_expires_at_nullable]
+      leased_state_requires_nonnull_lease_token_worker_and_expiry: true
+      nonleased_states_require_lease_token_worker_and_expiry_null: true
+      lease_version_monotonic_never_decreases: true
+      attempts_existing_field_semantic: monotonic_lifetime_publish_claim_count
+      add_field_attempts_in_cycle: true
+      attempts_and_attempts_in_cycle_increment_exactly_once_per_successful_claim: true
+      no_two_unexpired_current_leases_for_same_outbox_row: true
+      every_ack_failure_or_state_transition_from_leased_requires_exact_message_id_lease_token_and_lease_version_match: true
+      stale_or_expired_lease_owner_cannot_ack_publish_or_overwrite_newer_worker_state: true
+      lease_expiry_does_not_prove_publish_failed: true
+      expired_lease_reclaim_may_redeliver_same_domain_event: true
+    publish_result_state_machine:
+      successful_publish_ack:
+        transition: leased_to_published
+        exact_current_lease_fence_required: true
+        set_published_at_once: true
+        clear_lease_fields: true
+      retryable_or_ambiguous_failure_before_cycle_limit:
+        transition: leased_to_pending
+        clear_lease_fields: true
+        next_attempt_at_from_allowlisted_server_backoff_policy: true
+      nonretryable_failure_or_cycle_limit_reached:
+        transition: leased_to_requires_reconciliation
+        clear_lease_fields: true
+        next_attempt_at_null: true
+      publisher_crash_or_DB_ack_failure_after_external_publish:
+        later_reclaim_and_redelivery_allowed: true
+        exactly_once_delivery_inference_forbidden: true
+      forbidden_direct_transitions: [pending_to_published_without_current_lease, published_to_pending, published_to_leased, published_to_requires_reconciliation_by_normal_publisher]
+    at_least_once_contract:
+      delivery_guarantee: at_least_once_subject_to_operational_availability_and_reconciliation
+      exactly_once_external_delivery_claim: forbidden
+      duplicate_delivery_expected_after_timeout_crash_or_publish_ack_race: true
+      stable_dedupe_identity_sent_to_consumers: domain_event_id
+      request_id_outbox_id_timestamp_or_aggregate_id_as_consumer_dedupe_identity: forbidden
+      internal_side_effecting_consumer_must_persist_domain_event_id_dedupe_before_or_atomically_with_side_effect: true
+      activity_and_notification_exact_uniqueness_deferred_to_DB_ACT_001_and_DB_NOT_002: true
+      external_consumer_uses_domain_event_id_as_idempotency_key_when_supported: true
+      published_state_does_not_prove_consumer_processed_event_exactly_once: true
+    failure_metadata_safety:
+      existing_last_error_field_semantic: bounded_safe_summary_only_not_raw_exception_or_provider_payload
+      add_fields: [last_error_code_nullable, last_error_at_nullable, last_attempt_at_nullable, last_reconciliation_flagged_at_nullable, attempts_in_cycle, replay_count]
+      error_code_closed_catalog_or_generic_safe_fallback: true
+      last_error_max_length_and_control_character_guard: required
+      forbidden_content: [password_or_token, provider_secret_or_signature, full_PESEL_or_full_PKK, external_OSK_credentials, raw_provider_request_or_response, stack_trace_or_SQL_with_sensitive_values]
+      arbitrary_exception_serialization_to_last_error: forbidden
+    reconciliation:
+      periodic_reconciliation_required: true
+      must_surface: [requires_reconciliation_rows, exhausted_or_invalid_pending_rows, stale_expired_leases, invalid_state_timestamp_or_lease_matrix]
+      must_not_infer_business_success_from_timestamp_or_attempt_count: true
+      must_not_mutate_domain_event_business_fact: true
+      action_requires_row_lock_and_current_state_recheck: true
+      silent_delete_or_mark_published_to_clear_backlog: forbidden
+    manual_replay:
+      available_only_from_requires_reconciliation: true
+      privileged_internal_operation_not_new_public_UI_or_API_contract: true
+      requires_audit_with_nonblank_reason: true
+      audit_entity_reference_exact_outbox_message: true
+      transaction: [lock_message, verify_state, write_audit, increment_replay_count, reset_attempts_in_cycle, transition_pending, schedule_next_attempt, preserve_ids_and_lifetime_attempts, commit]
+      creates_second_domain_event_or_outbox_message: false
+      reset_lifetime_attempt_count: forbidden
+      erase_prior_audit_history: forbidden
+      replay_failure_rolls_back_state_change_and_audit_together: true
+    concurrency_and_locking:
+      normal_publisher_lock_root: exact_outbox_message_row
+      claim_batch_order: [next_attempt_at_ASC, created_at_ASC, id_ASC]
+      SKIP_LOCKED_or_equivalent_allowed: true
+      network_publish_while_holding_business_aggregate_lock: forbidden
+      reenter_DB4_9_business_lock_graph_while_holding_outbox_lease: forbidden
+      ack_transaction_short_and_contains_no_network_call: true
+    legacy_boundary:
+      missing_final_publication_state_lease_policy_or_safe_error_evidence_not_guessed_here: true
+      legacy_attempt_count_or_published_at_does_not_prove_exact_delivery: true
+      backfill_quarantine_and_phased_constraints: deferred_to_DB_EVT_001
+      new_runtime_write_fence_requires_DB_OUT_002_state_matrix: true
+    explicitly_not_closed_here: [DB_ACT_001, DB_NOT_001, DB_NOT_002, DB_EVT_001, exact_privacy_retention_duration, public_admin_UI_for_replay]
+    required_tests:
+      - concurrent_workers_cannot_hold_two_current_unexpired_leases
+      - stale_lease_fence_cannot_ack_or_overwrite_newer_state
+      - publish_ack_sets_published_once_and_published_is_not_reclaimable
+      - retryable_failure_schedules_server_backoff
+      - exhausted_or_nonretryable_failure_requires_reconciliation
+      - crash_after_publish_before_DB_ack_allows_redelivery_without_exactly_once_claim
+      - duplicate_delivery_uses_same_domain_event_id
+      - raw_sensitive_error_payload_is_rejected
+      - reconciliation_does_not_guess_published_state
+      - manual_replay_requires_audit_reason_and_preserves_identity_and_lifetime_attempts
+      - network_publish_not_inside_business_or_ack_DB_transaction
+      - legacy_delivery_state_not_guessed
+
+
+  DB-ACT-001:
+    status: PASS
+    title: organization_activity_exact_source_dedupe_order_and_safe_historical_display
+    projection_role:
+      table: organization_activity_events
+      semantic: immutable_safe_organization_activity_projection_not_business_authority
+      source_authority: domain_events
+      source_subset: only_organization_scoped_event_types_registered_in_activity_projection_policy
+      not_every_domain_event_is_activity_visible: true
+      raw_audit_log_or_outbox_payload_as_activity_row: forbidden
+      activity_row_may_not_authorize_or_mutate_business_state: true
+    exact_source_event_binding:
+      source_event_id_required_for_new_runtime_rows: true
+      exact_same_tenant_FK:
+        source_columns: [organization_id, source_event_id]
+        target_table: domain_events
+        target_columns: [organization_id, id]
+        on_update: RESTRICT
+        on_delete: RESTRICT
+      source_domain_event_must_have_event_scope: organization
+      source_domain_event_organization_id_must_equal_activity_organization_id: true
+      unique_projection_per_source_event: [organization_id, source_event_id]
+      source_event_id_outbox_id_request_id_or_timestamp_substitution: forbidden
+      copied_source_fields_must_equal_domain_event:
+        - organization_id
+        - event_type
+        - occurred_at
+      copied_field_equivalence_guard: DEFERRABLE_INITIALLY_DEFERRED_constraint_trigger_or_equivalent
+      created_at_is_projection_persistence_time_not_activity_chronology: true
+    activity_projection_policy_revision_authority:
+      table: activity_projection_policy_revisions
+      purpose: immutable_versioned_allowlist_for_activity_visible_event_types_and_safe_display_shape
+      fields:
+        - event_type
+        - policy_version
+        - payload_validator_code
+        - description_builder_code
+        - actor_snapshot_rule_code
+        - subject_reference_rule_code
+        - related_student_rule_code
+        - navigation_rule_code
+        - supports_expand
+        - policy_hash
+        - created_at
+      candidate_key: [event_type, policy_version]
+      policy_version_positive_integer: true
+      immutable_after_insert: true
+      normal_application_update_delete: forbidden
+      event_type_must_already_exist_in_confirmed_domain_event_catalog: true
+      registering_policy_does_not_require_unimplemented_deferred_module_to_emit_event: true
+      ad_hoc_marketing_event_type_invention: forbidden
+      safe_payload_shape_and_navigation_are_exact_policy_specific: true
+    activity_projection_policy_current:
+      table: activity_projection_policy_currents
+      fields: [event_type, policy_version, updated_at]
+      primary_key: event_type
+      exact_revision_FK:
+        source_columns: [event_type, policy_version]
+        target_table: activity_projection_policy_revisions
+        target_columns: [event_type, policy_version]
+        on_update: RESTRICT
+        on_delete: RESTRICT
+      event_without_current_activity_policy_is_not_automatically_projected: true
+      new_projection_uses_current_revision_at_first_successful_insert: true
+      current_pointer_change_never_rewrites_existing_activity_rows: true
+    projection_policy_binding:
+      add_field: projection_policy_version
+      required_for_new_runtime_rows: true
+      immutable_after_insert: true
+      exact_revision_FK:
+        source_columns: [event_type, projection_policy_version]
+        target_table: activity_projection_policy_revisions
+        target_columns: [event_type, policy_version]
+        on_update: RESTRICT
+        on_delete: RESTRICT
+      client_cannot_select_policy_version: true
+      retry_after_existing_projection_returns_existing_snapshot_without_reprojection: true
+    immutable_safe_display_snapshot:
+      add_or_finalize_fields:
+        - description_snapshot
+        - safe_payload_nullable
+        - actor_reference_mode
+        - actor_organization_membership_id_nullable
+        - actor_user_id_nullable
+        - actor_display_name_snapshot_nullable
+        - actor_role_snapshot_nullable
+        - subject_reference_mode
+        - subject_type_nullable
+        - subject_id_nullable_string
+        - related_student_id_nullable
+      all_display_and_reference_fields_immutable_after_insert: true
+      normal_projector_UPDATE_existing_activity_row: forbidden
+      normal_application_DELETE: forbidden
+      privileged_retention_or_legacy_cleanup: deferred_to_DB_EVT_001
+      description_snapshot:
+        required_trimmed_nonempty_safe_text: true
+        source: exact_projection_policy_description_builder
+        raw_request_provider_or_audit_payload_text: forbidden
+        secret_or_full_sensitive_identifier: forbidden
+      safe_payload:
+        semantic: optional_allowlisted_display_or_safe_diff_object
+        when_nonnull_top_level_JSON_object_only: true
+        validator: exact_projection_policy_payload_validator_code
+        unknown_key_or_path: reject
+        raw_audit_before_after_outbox_provider_request_response_or_model_serialization: forbidden
+        password_token_secret_full_PESEL_full_PKK_external_OSK_credentials: forbidden
+        changed_event_safe_diff_allowed_only_when_exact_policy_allows_shape: true
+        catch_all_metadata_dump: forbidden
+      historical_display_does_not_read_current_user_role_or_current_entity_label_as_authority: true
+    actor_snapshot_boundary:
+      actor_reference_mode_values: [organization_membership, system, snapshot_only, none]
+      organization_membership:
+        actor_organization_membership_id_required: true
+        actor_user_id_required: true
+        exact_same_tenant_relation:
+          source_columns: [organization_id, actor_organization_membership_id, actor_user_id]
+          target_table: organization_memberships
+          target_columns: [organization_id, id, user_id]
+          on_update: RESTRICT
+          on_delete: RESTRICT
+        actor_display_name_snapshot_required_trimmed_nonempty: true
+        actor_role_snapshot_nullable_safe_text: true
+        later_membership_role_profile_or_status_change_does_not_rewrite_snapshot: true
+      system:
+        actor_organization_membership_id_required_null: true
+        actor_user_id_required_null: true
+        display_label_nullable_only_as_allowlisted_policy_snapshot: true
+      snapshot_only:
+        actor_organization_membership_id_required_null: true
+        actor_user_id_required_null: true
+        allowed_only_when_exact_projection_policy_permits_nonrelational_historical_actor: true
+        actor_display_name_snapshot_required_trimmed_nonempty: true
+        no_live_user_or_membership_integrity_claim: true
+      none:
+        actor_organization_membership_id_required_null: true
+        actor_user_id_required_null: true
+        actor_display_name_snapshot_required_null: true
+        actor_role_snapshot_required_null: true
+      actor_snapshot_secret_or_identifier_dump: forbidden
+      source_event_with_required_audit_actor_cannot_project_contradictory_relational_actor: true
+      audit_actor_equivalence_when_relational_actor_used: DEFERRABLE_constraint_trigger_or_equivalent
+    subject_and_related_student_boundary:
+      subject_reference_mode_values: [none, tenant_relational, snapshot_only]
+      none:
+        subject_type_required_null: true
+        subject_id_required_null: true
+      tenant_relational:
+        subject_type_required: true
+        subject_id_required: true
+        exact_same_tenant_target_guard: closed_allowlist_DEFERRABLE_constraint_trigger_or_equivalent
+        unknown_or_unregistered_subject_type: reject
+        target_navigation_may_be_derived_only_from_exact_policy_and_valid_relational_subject: true
+      snapshot_only:
+        purpose: historical_or_deleted_nonrelational_subject_without_false_FK_claim
+        subject_type_required: true
+        type_must_be_explicitly_allowlisted_by_projection_policy: true
+        no_live_target_navigation_claim: true
+        sensitive_identifier_in_subject_id: forbidden
+      arbitrary_stored_URL_or_client_supplied_target_route: forbidden
+      related_student:
+        when_nonnull_exact_same_tenant_FK:
+          source_columns: [organization_id, related_student_id]
+          target_table: students
+          target_columns: [organization_id, id]
+          on_update: RESTRICT
+          on_delete: RESTRICT
+        related_student_required_or_forbidden_is_event_policy_specific: true
+        subject_student_relational_reference_requires_related_student_equivalence: true
+      polymorphic_subject_or_student_inference_by_name_UUID_shape_or_timestamp: forbidden
+    API_projection_mapping:
+      endpoint: GET_/activity
+      tenant_authorization: active_selected_organization_membership
+      mandatory_predicate: organization_id_equals_selected_membership_organization_id
+      event_type_filter_applied_after_mandatory_tenant_scope: true
+      ActivityEvent_id: organization_activity_events.id
+      ActivityEvent_event_type: event_type
+      ActivityEvent_timestamp: occurred_at
+      ActivityEvent_actor_display_name: actor_display_name_snapshot
+      ActivityEvent_related_entity_type: subject_type_when_safe_for_API
+      ActivityEvent_related_entity_id: subject_id_when_safe_for_API
+      ActivityEvent_description: description_snapshot
+      ActivityEvent_safe_details: safe_payload
+      dashboard_preview_uses_same_projection_and_same_ordering: true
+      dashboard_notifications_card_remains_activity_feed_not_notifications_inbox: true
+    deterministic_order_and_pagination:
+      canonical_order: [occurred_at_DESC, id_DESC]
+      required_index_prefix: [organization_id, occurred_at_DESC, id_DESC]
+      id_is_unique_tiebreaker_not_business_time: true
+      created_at_not_used_as_primary_activity_order: true
+      page_per_page_API_preserved: true
+      concurrent_new_rows_may_shift_offset_pages_and_snapshot_stability_is_not_claimed: true
+      dashboard_preview_limit_is_presentation_configuration_not_business_invariant: true
+    projector_retry_and_concurrency:
+      projector_input_identity: domain_event_id
+      at_least_once_source_delivery_expected: true
+      insert_key: [organization_id, source_event_id]
+      concurrent_or_repeated_projection_attempts_use_unique_conflict_as_race_winner: true
+      loser_returns_or_skips_existing_projection_without_mutation: true
+      second_activity_row_for_same_source_event: reject
+      retry_does_not_rebuild_snapshot_under_new_policy_if_row_already_exists: true
+      activity_projection_failure_does_not_rewrite_or_rollback_already_committed_business_source_event: true
+      repair_or_reprojection_of_existing_row_is_not_normal_projector_path: true
+    legacy_boundary:
+      existing_activity_row_without_exact_source_event_is_not_linked_by_timestamp_event_type_request_id_actor_or_same_tenant_similarity: true
+      existing_actor_subject_related_student_or_policy_version_is_not_guessed: true
+      synthetic_domain_event_or_activity_policy_history_created_only_to_force_legacy_constraint_pass: forbidden
+      legacy_backfill_quarantine_retention_and_phased_constraint_activation: deferred_to_DB_EVT_001
+      new_runtime_write_fence_requires_DB_ACT_001_contract: true
+    explicitly_not_closed_here:
+      - notification_recipient_membership_and_organization_audience_DB_NOT_001
+      - notification_source_dedupe_mark_read_DB_NOT_002
+      - legacy_event_projection_backfill_retention_cleanup_DB_EVT_001
+      - exact_privacy_retention_duration
+      - new_or_deferred_business_event_producers
+      - Stage3_API_field_expansion
+    required_tests:
+      - new_runtime_activity_requires_exact_source_domain_event
+      - global_domain_event_cannot_project_to_organization_activity
+      - wrong_tenant_source_event_binding_is_rejected
+      - activity_event_type_or_occurred_at_mismatch_with_source_event_is_rejected
+      - duplicate_or_concurrent_projector_retry_for_same_source_event_creates_one_activity_row
+      - request_id_outbox_id_or_timestamp_cannot_replace_source_event_id
+      - activity_event_without_registered_current_projection_policy_is_not_auto_projected
+      - new_projection_requires_exact_policy_revision_and_client_cannot_select_version
+      - current_policy_change_does_not_rewrite_existing_activity_snapshot
+      - description_and_safe_payload_reject_raw_audit_outbox_provider_model_or_secret_data
+      - safe_changed_event_diff_is_allowed_only_by_exact_policy_validator
+      - organization_membership_actor_requires_exact_same_tenant_membership_user_triple
+      - actor_membership_role_or_profile_change_does_not_change_historical_snapshot
+      - source_event_required_audit_actor_cannot_be_contradicted_by_relational_activity_actor
+      - snapshot_only_actor_makes_no_live_membership_claim
+      - tenant_relational_subject_wrong_tenant_target_is_rejected
+      - snapshot_only_subject_does_not_generate_live_target_navigation
+      - related_student_wrong_tenant_relation_is_rejected
+      - student_subject_requires_matching_related_student_when_relational
+      - activity_query_never_returns_other_tenant_rows
+      - activity_and_dashboard_preview_use_occurred_at_id_desc_order
+      - concurrent_insertions_do_not_change_declared_deterministic_order_semantics_or_create_snapshot_pagination_claim
+      - normal_projector_cannot_update_existing_activity_row
+      - normal_application_cannot_delete_activity_history
+      - DB_ACT_001_does_not_guess_legacy_source_actor_subject_student_or_policy_lineage
+
+
+  DB-NOT-001:
+    status: PASS
+    title: notification_recipient_membership_and_organization_audience_read_state_integrity
+    recipient_materialization_model:
+      table: notifications
+      semantic: one_physical_notification_row_per_exact_organization_membership_recipient
+      notification_row_is_recipient_scoped_projection_not_business_authority: true
+      existing_user_id_field_final_semantic: recipient_user_id
+      add_field: organization_membership_id
+      add_audience_kind_field:
+        name: audience_kind
+        values: [direct_membership, organization_broadcast]
+      new_runtime_rows_require_nonnull:
+        - organization_id
+        - organization_membership_id
+        - user_id
+        - audience_kind
+      nullable_recipient_runtime_row: forbidden
+      one_shared_organization_row_with_shared_read_at: forbidden
+      notification_id_is_unique_recipient_row_identity: true
+      source_event_binding_and_source_recipient_dedupe: deferred_to_DB_NOT_002
+    exact_recipient_membership_relation:
+      source_columns: [organization_id, organization_membership_id, user_id]
+      target_table: organization_memberships
+      target_columns: [organization_id, id, user_id]
+      on_update: RESTRICT
+      on_delete: RESTRICT
+      target_candidate_key_required: [organization_id, id, user_id]
+      organization_membership_hard_delete_already_forbidden_upstream: true
+      global_user_id_without_exact_membership_is_not_recipient_authority: true
+      same_user_membership_in_other_organization_cannot_match: true
+      organization_id_user_id_or_membership_id_client_override_as_recipient_authority: forbidden
+      recipient_identity_server_derived_from_trusted_notification_audience_resolution: true
+    recipient_eligibility_at_materialization:
+      required_membership_status_for_new_delivery: active
+      active_status_validation: INSERT_time_database_guard_or_equivalent_transactional_constraint
+      membership_status_is_not_part_of_FK_candidate_key_because_status_may_change_later: true
+      suspended_or_revoked_membership_cannot_receive_new_runtime_notification_row: true
+      eligibility_is_decided_at_materialization_snapshot_not_recomputed_to_rewrite_history: true
+      future_membership_status_change_does_not_invalidate_or_reassign_existing_row: true
+    audience_matrix:
+      direct_membership:
+        semantic: notification_for_one_user_in_one_exact_organization_membership_context
+        exact_recipient_membership_required: true
+        recipient_membership_must_be_active_at_materialization: true
+        one_runtime_row_for_resolved_recipient: true
+        selecting_recipient_by_global_user_id_without_organization_membership_resolution: forbidden
+        same_global_user_other_organization_membership_not_included: true
+      organization_broadcast:
+        semantic: organization_audience_materialized_as_independent_recipient_rows
+        shared_nullable_recipient_parent_row: forbidden
+        eligible_set: every_membership_with_same_organization_id_and_status_active_visible_in_one_materialization_transaction_snapshot
+        one_row_per_eligible_membership: true
+        zero_eligible_memberships_yields_zero_notification_rows_not_placeholder_shared_row: true
+        materialization_all_rows_or_none_in_one_local_database_transaction: true
+        recipient_rows_each_store_exact_membership_and_user_triple: true
+        later_joining_membership_not_retroactively_added: true
+        later_suspension_or_revocation_does_not_delete_existing_recipient_row: true
+        role_permission_location_or_staff_filter_not_invented_without_upstream_notification_contract: true
+      audience_kind_is_server_derived_and_immutable_after_insert: true
+    organization_broadcast_snapshot_and_concurrency:
+      membership_set_resolution_uses_single_database_transaction_snapshot: true
+      set_definition: same_organization_and_status_active_at_snapshot
+      membership_transition_committed_before_snapshot_affects_set_normally: true
+      membership_transition_committed_after_snapshot_does_not_retroactively_mutate_set: true
+      partial_recipient_fanout_commit: forbidden
+      retry_source_dedupe_and_concurrent_projector_exactly_once_per_recipient: deferred_to_DB_NOT_002
+      no_cross_organization_fanout: true
+    per_recipient_read_state_boundary:
+      read_at_field_remains_on_each_recipient_scoped_notifications_row: true
+      read_at_never_shared_across_memberships: true
+      one_recipient_read_cannot_change_another_recipient_row: true
+      organization_broadcast_rows_have_independent_read_at_values: true
+      exact_null_to_nonnull_once_transition_and_idempotency: deferred_to_DB_NOT_002
+      mark_unread_or_notification_delete_action_not_added: true
+    historical_membership_behavior:
+      recipient_organization_membership_id_and_user_id_immutable_after_insert: true
+      existing_notification_not_reassigned_when_membership_status_or_permissions_change: true
+      membership_suspended_or_revoked:
+        notification_row_retained_as_history: true
+        list_or_mark_read_access_while_not_active: denied
+      same_membership_reactivated:
+        historical_row_remains_bound_to_same_membership: true
+        current_access_again_follows_ordinary_active_selected_membership_boundary: true
+        no_new_or_rewritten_notification_identity_created_only_for_reactivation: true
+      recipient_user_global_profile_change_does_not_move_row_between_organizations: true
+      retention_or_legacy_cleanup_rules: deferred_to_DB_EVT_001
+    notifications_list_API_boundary:
+      endpoint: GET_/notifications
+      requires_authenticated_user_and_active_selected_organization_membership: true
+      mandatory_predicates:
+        - organization_id_equals_selected_membership_organization_id
+        - organization_membership_id_equals_selected_membership_id
+        - user_id_equals_authenticated_user_id
+      unread_only_filter_applied_only_after_mandatory_recipient_scope: true
+      user_cannot_list_another_active_membership_notifications_even_in_same_organization: true
+      same_global_user_other_organization_rows_excluded: true
+      organization_broadcast_is_not_queried_via_recipient_null_OR_clause: true
+      Stage3_Notification_shape_preserved: true
+      notification_payload_and_created_at_mapping_unchanged: true
+    mark_read_ownership_boundary_for_DB_NOT_002:
+      endpoint: POST_/notifications/{notificationId}/read
+      row_lookup_must_include_notification_id_plus_selected_active_membership_scope: true
+      own_notification_scope_root:
+        - notification.organization_id_equals_selected_membership.organization_id
+        - notification.organization_membership_id_equals_selected_membership.id
+        - notification.user_id_equals_authenticated_user.id
+      wrong_membership_or_wrong_organization_notification_id: not_found_or_forbidden_per_API_security_policy_without_leakage
+      recipient_ownership_is_closed_here: true
+      read_at_write_once_idempotency_command_and_source_event_dedupe: deferred_to_DB_NOT_002
+    immutability_and_payload_boundary:
+      organization_id_organization_membership_id_user_id_audience_kind_type_created_at_immutable_after_insert: true
+      normal_application_cannot_retarget_notification_to_other_recipient: true
+      payload_security_contract_remains_safe_allowlisted_or_minimized_under_existing_security_rules: true
+      DB_NOT_001_does_not_expand_payload_schema_or_add_delivery_channel: true
+      email_SMS_push_webhook_or_device_token_channel: not_invented
+    legacy_boundary:
+      existing_notification_with_null_user_id_or_without_exact_membership_is_not_assigned_membership_by_same_email_name_user_guess_or_organization_membership_similarity: true
+      organization_wide_legacy_row_with_single_shared_read_at_is_not_fanned_out_with_copied_read_state_without_exact_evidence: true
+      legacy_recipient_and_read_state_backfill_quarantine_and_phased_constraints: deferred_to_DB_EVT_001
+      no_synthetic_membership_or_recipient_assignment_created_only_to_force_constraint_pass: true
+      new_runtime_write_fence_requires_exact_recipient_membership_contract: true
+    explicitly_not_closed_here:
+      - exact_notification_source_domain_event_relation_DB_NOT_002
+      - source_plus_recipient_dedupe_DB_NOT_002
+      - read_at_NULL_to_nonNULL_once_and_Idempotency_Key_DB_NOT_002
+      - legacy_recipient_read_source_backfill_and_retention_DB_EVT_001
+      - exact_privacy_retention_duration
+      - external_notification_delivery_channels
+      - new_role_permission_or_segment_based_notification_audiences
+    required_tests:
+      - new_runtime_notification_requires_nonnull_organization_membership_and_user_recipient
+      - recipient_triple_wrong_tenant_is_rejected
+      - recipient_membership_user_mismatch_is_rejected
+      - global_user_id_without_exact_membership_cannot_authorize_notification_recipient
+      - suspended_or_revoked_membership_cannot_receive_new_notification
+      - direct_membership_notification_materializes_exactly_one_recipient_row
+      - direct_notification_for_user_in_org_A_does_not_target_same_user_membership_in_org_B
+      - organization_broadcast_creates_one_independent_row_per_active_membership_in_snapshot
+      - organization_broadcast_never_creates_shared_recipient_null_row
+      - organization_broadcast_with_zero_active_memberships_creates_no_placeholder_notification
+      - organization_broadcast_partial_fanout_rolls_back_entire_materialization_transaction
+      - later_membership_join_does_not_retroactively_gain_old_broadcast_row
+      - later_membership_suspension_or_revocation_does_not_delete_or_reassign_old_notification
+      - inactive_membership_cannot_list_or_mark_read_retained_notification
+      - reactivated_same_membership_does_not_change_recipient_identity
+      - one_broadcast_recipient_read_at_is_independent_from_every_other_recipient_row
+      - notifications_list_mandatory_scope_uses_exact_selected_membership_and_authenticated_user
+      - unread_only_filter_cannot_bypass_recipient_scope
+      - same_user_other_organization_notification_not_returned
+      - mark_read_lookup_wrong_recipient_membership_cannot_target_row
+      - normal_application_cannot_retarget_existing_notification
+      - DB_NOT_001_does_not_define_source_dedupe_or_read_write_once_lifecycle
+      - email_SMS_push_or_other_external_channel_not_added
+      - DB_NOT_001_does_not_guess_legacy_membership_or_copy_shared_read_state
+
+
+  DB-NOT-002:
+    status: PASS
+    title: notification_source_dedupe_mark_read_idempotency_and_lifecycle
+    source_event_boundary:
+      add_field: source_event_id
+      required_for_new_runtime_rows: true
+      immutable_after_insert: true
+      exact_same_tenant_relation:
+        source_columns: [organization_id, source_event_id]
+        target_table: domain_events
+        target_columns: [organization_id, id]
+        on_update: RESTRICT
+        on_delete: RESTRICT
+      source_domain_event_must_have_event_scope: organization
+      notification_organization_id_must_equal_source_event_organization_id: true
+      source_event_id_is_server_derived_from_projector_input: true
+      client_request_id_outbox_id_timestamp_or_aggregate_similarity_as_source_identity: forbidden
+      notification_projection_is_read_model_not_business_authority: true
+    source_recipient_dedupe:
+      unique_key: [organization_id, source_event_id, organization_membership_id]
+      semantic: at_most_one_notification_row_for_one_logical_domain_event_and_exact_recipient_membership
+      user_id_equivalence_with_recipient_membership_still_required_by_DB_NOT_001: true
+      audience_kind_not_part_of_dedupe_identity: true
+      duplicate_direct_and_broadcast_projection_for_same_event_and_membership: reject_or_conflict_noop
+      at_least_once_outbox_or_projector_retry_expected: true
+      repeated_or_concurrent_projection_uses_unique_conflict_as_race_winner: true
+      loser_returns_or_skips_existing_notification_without_mutating_payload_recipient_or_read_state: true
+      same_source_event_may_create_distinct_rows_for_distinct_memberships: true
+      same_global_user_in_two_organizations_never_collides_or_cross_targets: true
+      request_id_or_Idempotency_Key_not_projection_dedupe_identity: true
+    notification_creation_lifecycle:
+      new_runtime_notification_read_at_initial_value: null
+      source_recipient_payload_type_audience_created_at_immutable_after_insert: true
+      normal_projector_UPDATE_existing_notification: forbidden
+      normal_application_DELETE_notification: forbidden
+      projector_retry_after_existing_row_does_not_reset_read_at: true
+      projector_retry_after_existing_row_does_not_rebuild_payload: true
+      notification_projection_failure_does_not_rollback_already_committed_domain_event: true
+      privileged_retention_or_legacy_cleanup: deferred_to_DB_EVT_001
+    read_at_state_machine:
+      states:
+        unread: read_at_IS_NULL
+        read: read_at_IS_NOT_NULL
+      allowed_normal_transition: unread_to_read_once
+      read_to_unread: forbidden
+      read_to_new_read_timestamp: forbidden
+      client_supplied_read_at: forbidden
+      first_transition_timestamp: server_database_or_transaction_time
+      write_once_database_guard: BEFORE_UPDATE_constraint_trigger_or_equivalent_column_guard
+      all_other_notification_fields_immutable_during_mark_read: true
+      direct_SQL_or_generic_model_update_cannot_clear_or_rewrite_read_at: true
+    mark_read_authorization_and_atomicity:
+      endpoint: POST_/notifications/{notificationId}/read
+      authorization_root: active_selected_organization_membership_plus_authenticated_user
+      mandatory_row_scope:
+        - id_equals_notificationId
+        - organization_id_equals_selected_membership_organization_id
+        - organization_membership_id_equals_selected_membership_id
+        - user_id_equals_authenticated_user_id
+      wrong_tenant_wrong_membership_or_wrong_user_uuid: not_found_or_forbidden_without_existence_leakage
+      row_lock_or_atomic_conditional_update_required: true
+      first_writer_transition: UPDATE_exact_scoped_row_SET_read_at_server_time_WHERE_read_at_IS_NULL
+      concurrent_writers:
+        one_writer_sets_read_at: true
+        all_losers_return_same_persisted_notification_without_rewrite: true
+      membership_must_still_be_active_at_command_time: true
+      suspended_or_revoked_membership_mark_read: denied
+      no_organization_admin_override_to_mark_another_membership_row_read_in_this_API: true
+    Idempotency_Key_contract:
+      Stage3_header_required: true
+      command_scope: authenticated_user_plus_selected_membership_plus_notifications_mark_read
+      request_target_identity: notification_id
+      same_key_same_target_and_same_principal: replay_same_success_without_second_transition
+      same_key_different_notification_or_principal_scope: conflict_or_reject_per_existing_idempotency_contract
+      different_key_after_already_read: semantic_noop_return_existing_notification
+      database_write_once_read_at_is_primary_business_idempotency_guard: true
+      idempotency_record_or_response_cache_loss_after_committed_read_does_not_permit_second_timestamp: true
+      retry_after_crash_reads_persisted_read_at_and_returns_stable_result: true
+      Idempotency_Key_does_not_replace_recipient_authorization_or_source_dedupe: true
+    mark_read_side_effect_boundary:
+      no_new_domain_event_required_by_DB_NOT_002_without_upstream_requirement: true
+      no_recursive_notification_or_outbox_created_for_mark_read: true
+      no_audit_requirement_invented_for_low_risk_read_state_when_not_required_upstream: true
+      if_existing_cross_cutting_idempotency_infrastructure_records_command_it_must_not_be_business_authority: true
+      notification_read_state_remains_authoritative_on_notifications_row: true
+    notifications_list_consistency:
+      unread_only_true_predicate: read_at_IS_NULL
+      unread_filter_applied_after_DB_NOT_001_exact_recipient_scope: true
+      read_row_disappears_from_future_unread_only_results_after_commit: true
+      ordinary_list_still_returns_read_row_with_original_read_at: true
+      no_mark_unread_or_delete_lifecycle_added: true
+    legacy_boundary:
+      existing_notification_without_exact_source_event_is_not_linked_by_timestamp_request_id_outbox_id_type_payload_or_same_tenant_similarity: true
+      existing_duplicate_candidates_are_not_deleted_or_merged_to_force_unique_constraint: true
+      existing_nonnull_read_at_is_not_rewritten_to_new_timestamp_or_cleared: true
+      existing_null_read_at_is_not_marked_read_during_migration: true
+      synthetic_domain_event_created_only_to_force_notification_source_constraint_pass: forbidden
+      legacy_source_dedupe_read_state_backfill_quarantine_and_phased_constraint_activation: deferred_to_DB_EVT_001
+      new_runtime_write_fence_requires_DB_NOT_002_contract: true
+    explicitly_not_closed_here:
+      - legacy_event_projection_backfill_retention_cleanup_DB_EVT_001
+      - exact_privacy_retention_duration
+      - external_notification_delivery_channels
+      - notification_delete_or_mark_unread_API
+      - new_notification_audience_segmentation
+      - DB4_10_final_aggregate_sync
+    required_tests:
+      - new_runtime_notification_requires_nonnull_exact_same_tenant_source_domain_event
+      - global_domain_event_cannot_source_organization_notification
+      - wrong_tenant_source_event_binding_is_rejected
+      - request_id_outbox_id_timestamp_or_aggregate_similarity_cannot_replace_source_event_id
+      - duplicate_projection_same_source_event_same_membership_creates_one_notification_row
+      - concurrent_projectors_same_source_event_same_membership_choose_one_insert_winner
+      - same_source_event_can_materialize_independent_rows_for_distinct_broadcast_memberships
+      - same_user_other_organization_notification_does_not_collide_or_cross_target
+      - projector_retry_does_not_reset_read_at_or_rebuild_existing_payload
+      - new_runtime_notification_starts_unread_with_read_at_null
+      - first_authorized_mark_read_sets_server_derived_read_at_once
+      - client_cannot_choose_read_at_timestamp
+      - second_same_Idempotency_Key_replay_returns_same_read_at_without_second_transition
+      - different_Idempotency_Key_after_already_read_is_noop_with_same_read_at
+      - concurrent_mark_read_requests_result_in_one_persisted_read_at_value
+      - read_at_cannot_be_cleared_or_rewritten_by_normal_application
+      - mark_read_wrong_membership_wrong_user_or_wrong_organization_cannot_target_row
+      - suspended_or_revoked_membership_cannot_mark_retained_notification_read
+      - unread_only_filter_applies_after_exact_recipient_scope_and_excludes_committed_read_row
+      - mark_read_does_not_invent_recursive_domain_event_outbox_or_notification
+      - DB_NOT_002_does_not_guess_legacy_source_or_rewrite_legacy_read_state
+
+
+  DB-EVT-001:
+    status: PASS
+    title: legacy_event_projection_backfill_retention_and_cleanup_safety
+    scope_boundary:
+      closes_only_legacy_evidence_backfill_phased_constraint_activation_retention_execution_and_technical_cleanup: true
+      DB_AUD_001_append_only_actor_entity_contract_preserved: true
+      DB_AUD_002_redaction_policy_and_reason_contract_preserved: true
+      DB_OUT_001_domain_event_identity_and_atomic_outbox_contract_preserved: true
+      DB_OUT_002_at_least_once_publisher_lifecycle_preserved: true
+      DB_ACT_001_activity_projection_contract_preserved: true
+      DB_NOT_001_recipient_membership_contract_preserved: true
+      DB_NOT_002_notification_source_and_read_lifecycle_preserved: true
+      exact_retention_durations_invented_here: false
+      final_DB4_10_aggregate_sync_performed_here: false
+
+    durable_migration_review_authority:
+      table: event_projection_migration_cases
+      purpose: append_only_review_evidence_for_legacy_rows_that_cannot_immediately_satisfy_DB4_10_contract
+      fields:
+        - id
+        - source_table
+        - source_row_id
+        - source_row_fingerprint
+        - issue_code
+        - evidence_class
+        - resolution_state
+        - evidence_reference_json_safe
+        - resolution_kind_nullable
+        - resolution_reason_nullable
+        - reviewed_by_user_id_nullable
+        - reviewed_at_nullable
+        - created_at
+      source_table_allowlist:
+        - audit_logs
+        - domain_events
+        - outbox_messages
+        - organization_activity_events
+        - notifications
+      unique_key: [source_table, source_row_id, issue_code]
+      source_row_fingerprint_semantic: stable_hash_of_nonsecret_migration_relevant_fields_for_change_detection
+      raw_sensitive_payload_copy_into_case: forbidden
+      password_token_secret_full_PESEL_full_PKK_external_OSK_credentials: forbidden
+      normal_application_UPDATE_or_DELETE_case_history: forbidden
+      resolution_state_values: [open, proven_backfillable, reviewed_nonconforming, resolved]
+      client_or_UI_authority: none
+      migration_or_privileged_review_only: true
+
+    evidence_classes:
+      exact_durable_evidence:
+        semantic: required_relation_or_state_is_proven_by_preexisting_durable_authoritative_keys_or_explicit_historical_record
+        may_backfill_only_fields_exactly_proven_by_evidence: true
+        may_not_infer_unproven_sibling_fields: true
+      partial_but_nonconflicting:
+        semantic: some_required_fields_are_proven_but_at_least_one_required_field_lacks_exact_evidence
+        automatic_backfill_to_current_contract: forbidden
+        action: create_or_keep_open_migration_case
+      ambiguous_or_conflicting:
+        semantic: multiple_possible_targets_or_evidence_conflicts_with_current_contract
+        automatic_reparent_merge_delete_or_state_rewrite: forbidden
+        action: reviewed_nonconforming_or_open_case_until_explicit_resolution
+      unsafe_payload_detected:
+        semantic: legacy_technical_or_audit_payload_contains_forbidden_secret_or_full_sensitive_identifier
+        use_payload_to_guess_actor_recipient_event_or_entity: forbidden
+        action: security_review_plus_policy_controlled_remediation_without_silent_history_rewrite
+      absence_of_evidence_is_not_evidence_of_default: true
+
+    forbidden_legacy_inference:
+      - timestamp_proximity
+      - same_organization_only
+      - request_id_similarity_without_exact_historical_binding
+      - outbox_id_or_attempt_count_similarity
+      - event_type_similarity
+      - payload_text_similarity
+      - aggregate_type_or_id_similarity_without_exact_recorded_reference
+      - actor_name_email_or_current_role_similarity
+      - current_membership_uniqueness_without_historical_recipient_evidence
+      - current_policy_revision_as_legacy_policy_version
+      - current_entity_state_as_historical_actor_entity_or_recipient_state
+      - UUID_sort_order_or_creation_order
+      - copied_shared_organization_read_at_to_multiple_recipients
+
+    per_table_legacy_rules:
+      audit_logs:
+        policy_version_backfill_requires_exact_historical_policy_revision_evidence: true
+        actor_membership_backfill_requires_exact_historical_membership_user_organization_evidence: true
+        entity_reference_mode_backfill_requires_exact_target_or_explicit_snapshot_only_evidence: true
+        before_after_payload_is_never_revalidated_by_rewriting_history_under_current_policy: true
+        reason_is_never_fabricated_for_legacy_required_reason_action: true
+        unresolved_row_blocks_full_constraint_validation_for_that_row: true
+      domain_events:
+        synthetic_event_created_from_existing_audit_outbox_activity_or_notification_similarity: forbidden
+        event_scope_or_tenant_backfill_requires_exact_preexisting_business_or_event_evidence: true
+        required_audit_link_backfill_requires_exact_historical_binding: true
+        causation_link_is_not_reconstructed_from_request_or_time_proximity: true
+      outbox_messages:
+        domain_event_link_backfill_requires_exact_historical_event_identity_evidence: true
+        existing_row_without_exact_domain_event_identity_is_not_promoted_to_domain_event_authority: true
+        published_at_or_attempts_alone_do_not_prove_current_publication_state_matrix: true
+        pending_leased_published_reconciliation_state_backfill_requires_exact_local_publisher_evidence: true
+        ambiguous_delivery_state: reviewed_nonconforming_or_open_case
+      organization_activity_events:
+        source_event_backfill_requires_exact_durable_event_identity_evidence: true
+        activity_row_itself_cannot_be_used_to_synthesize_its_source_event: true
+        actor_subject_student_or_projection_policy_version_not_guessed_from_current_state: true
+        duplicate_candidate_rows_not_deleted_or_merged_by_similarity: true
+      notifications:
+        source_event_backfill_requires_exact_durable_event_identity_evidence: true
+        recipient_membership_backfill_requires_exact_historical_recipient_membership_evidence: true
+        current_unique_user_membership_match_alone_is_insufficient_if_historical_recipient_context_is_unproven: true
+        existing_direct_recipient_read_at_is_preserved_only_when_exact_recipient_row_identity_is_proven: true
+        organization_shared_legacy_read_at_is_not_fanned_out_or_copied: true
+        null_read_at_is_not_changed_during_migration: true
+        nonnull_read_at_is_not_cleared_or_retimestamped: true
+
+    write_fence_and_expand_contract:
+      migration_pattern: expand_backfill_validate_contract
+      phase_1_expand:
+        add_new_tables_columns_indexes_and_candidate_keys_compatibly: true
+        destructive_drop_or_rename_of_legacy_columns: forbidden
+        backup_and_restore_path_required_before_destructive_contract_phase: true
+      phase_2_new_runtime_write_fence:
+        deploy_current_DB4_10_writers_before_legacy_backfill: true
+        new_inserts_must_satisfy_DB_AUD_001_through_DB_NOT_002_contracts_immediately: true
+        PostgreSQL_NOT_VALID_FK_CHECK_or_equivalent_allowed_to_avoid_false_validation_of_old_rows: true
+        NOT_VALID_constraints_still_enforce_new_or_updated_rows_where_PostgreSQL_semantics_apply: true
+        normal_runtime_may_not_create_new_legacy_exception_rows: true
+      phase_3_inventory_and_cases:
+        inventory_every_legacy_row_missing_required_contract_evidence: true
+        persist_nonsecret_fingerprint_and_issue_code: true
+        repeated_inventory_is_idempotent_by_case_unique_key: true
+      phase_4_exact_backfill_only:
+        apply_only_exact_durable_evidence_class: true
+        backfill_transaction_records_review_case_resolution_or_migration_evidence: true
+        one_field_proof_does_not_authorize_unrelated_field_inference: true
+      phase_5_reconciliation_gate:
+        unresolved_partial_ambiguous_conflicting_or_unsafe_rows_are_not_silently_deleted_or_hidden_as_resolved: true
+        unresolved_rows_block_constraint_validation_or_go_live_for_affected_contract: true
+        human_review_may_choose_only_resolution_kind_supported_by_existing_contract_and_evidence: true
+      phase_6_constraint_validation:
+        validate_each_FK_CHECK_unique_guard_only_after_zero_unresolved_rows_for_its_required_population: true
+        validation_failure_reopens_or_preserves_case_and_blocks_contract_phase: true
+      phase_7_contract_cleanup:
+        legacy_columns_or_compatibility_paths_removed_only_in_separate_reviewed_release: true
+        no_drop_before_backup_restore_and_zero_unresolved_gate: true
+
+    retention_policy_boundary:
+      exact_duration_source: external_approved_privacy_and_legal_retention_policy
+      exact_days_months_years_defined_in_DB_EVT_001: false
+      global_delete_everything_after_X_days: forbidden
+      policy_must_be_data_class_specific: true
+      legal_hold_or_incident_hold_when_applicable_overrides_ordinary_cleanup: true
+      normal_application_role_may_execute_retention_delete_or_rewrite: false
+      retention_execution_requires:
+        - privileged_dedicated_execution_path
+        - approved_policy_version_reference
+        - exact_data_class
+        - server_derived_cutoff_from_that_policy
+        - nonblank_reason
+        - pre_execution_scope_count_or_dry_run_evidence
+        - immutable_execution_audit_record_outside_rows_being_deleted
+      retention_execution_must_not_rewrite_business_facts_to_make_them_eligible: true
+      retention_policy_change_does_not_retroactively_mutate_surviving_history: true
+      backup_retention_and_restore_policy_remain_production_operations_concern: true
+
+    retention_execution_evidence:
+      table: data_retention_execution_runs
+      append_only: true
+      fields:
+        - id
+        - policy_version_reference
+        - data_class
+        - cutoff_at
+        - organization_id_nullable_when_policy_scope_is_tenant_specific
+        - initiated_by_user_id_nullable_for_system_execution
+        - reason
+        - candidate_count
+        - deleted_or_redacted_count
+        - skipped_hold_count
+        - started_at
+        - completed_at_nullable
+        - result
+      result_values: [running, completed, failed, partial_requires_review]
+      stores_raw_deleted_payload: false
+      stores_secret_or_full_sensitive_identifier: false
+      normal_application_UPDATE_or_DELETE: forbidden
+      executor_progress_fields_may_transition_only_by_privileged_retention_procedure: true
+
+    append_only_vs_retention:
+      normal_runtime_audit_domain_event_activity_history_mutation_or_delete_remains_forbidden: true
+      privileged_retention_is_not_normal_business_UPDATE_or_DELETE_permission: true
+      audit_cleanup_if_approved_requires_policy_specific_execution_evidence_before_delete: true
+      retention_does_not_allow_reason_actor_entity_or_payload_rewrite_in_place_to_avoid_delete_policy: true
+      domain_event_or_audit_required_by_still_retained_business_or_projection_lineage_cannot_be_deleted_by_cascade: true
+      foreign_keys_for_business_audit_event_projection_lineage_use_RESTRICT_or_explicit_reviewed_cleanup_order_not_CASCADE: true
+
+    outbox_cleanup_boundary:
+      outbox_is_technical_delivery_history_not_business_ledger: true
+      cleanup_eligibility_requires_external_retention_policy_plus_safe_terminal_state: true
+      safe_terminal_state_for_automatic_cleanup: published
+      pending_or_leased_or_requires_reconciliation_automatic_cleanup: forbidden
+      ambiguous_legacy_publication_state_cleanup: forbidden
+      cleanup_outbox_row_does_not_delete_domain_event_audit_business_row_activity_or_notification: true
+      source_domain_event_identity_remains_after_outbox_cleanup_while_retention_policy_requires_it: true
+      cleanup_must_not_use_attempt_count_age_or_queue_pressure_as_substitute_for_terminal_state: true
+      requires_reconciliation_must_be_resolved_or_explicitly_reviewed_not_deleted_to_silence_backlog: true
+
+    projection_cleanup_boundary:
+      activity_or_notification_retention_may_remove_projection_only_when_external_policy_for_that_data_class_allows: true
+      projection_cleanup_must_not_cascade_delete_business_audit_or_domain_event_authority: true
+      notification_read_at_or_activity_snapshot_not_rewritten_to_make_row_retention_eligible: true
+      deletion_of_projection_does_not_recreate_source_event_or_outbox: true
+
+    go_live_and_reconciliation_gate:
+      unresolved_migration_cases_for_required_current_constraints_at_go_live: forbidden
+      migration_report_must_count_exact_backfilled_reviewed_nonconforming_and_open_by_table_and_issue_code: true
+      unsafe_payload_cases_require_security_review_before_go_live_or explicit_approved_containment: true
+      final_constraint_validation_and_runtime_smoke_tests_required_before_DB4_10_aggregate_sync_can_claim_implementation_ready_blueprint: true
+      DB4_10_aggregate_sync_is_separate_documentation_gate_not_executed_here: true
+
+    required_tests:
+      - exact_legacy_relation_backfills_only_exactly_proven_fields
+      - timestamp_same_tenant_request_event_type_payload_or_UUID_similarity_never_selects_lineage
+      - partial_evidence_creates_open_case_and_blocks_full_constraint_validation
+      - conflicting_candidates_are_not_auto_reparented_merged_or_deleted
+      - unsafe_payload_is_not_copied_into_migration_case_or_used_as_lineage_authority
+      - legacy_audit_policy_version_actor_entity_or_reason_is_not_guessed
+      - synthetic_domain_event_is_not_created_from_old_outbox_activity_or_notification_similarity
+      - legacy_outbox_published_at_or_attempts_alone_do_not_infer_current_publication_state
+      - legacy_activity_without_exact_event_is_not_auto_linked_or_deduplicated_by_similarity
+      - legacy_notification_current_membership_match_alone_does_not_prove_historical_recipient
+      - legacy_shared_organization_read_at_is_not_fanned_out_to_new_recipient_rows
+      - legacy_notification_read_at_is_never_cleared_retimestamped_or_auto_filled
+      - new_runtime_writes_satisfy_current_contract_before_legacy_backfill_finishes
+      - NOT_VALID_or_equivalent_expand_phase_does_not_allow_new_runtime_legacy_exceptions
+      - unresolved_cases_block_constraint_validation_and_go_live_for_affected_contract
+      - exact_retention_duration_is_not_invented_in_database_contract
+      - normal_application_role_cannot_execute_privileged_retention
+      - retention_execution_requires_policy_reference_reason_scope_evidence_and_hold_check
+      - audit_append_only_runtime_guard_remains_effective_outside_retention_procedure
+      - outbox_pending_leased_or_reconciliation_rows_are_not_deleted_by_cleanup
+      - outbox_published_cleanup_does_not_delete_domain_event_or_business_authority
+      - projection_cleanup_does_not_cascade_delete_source_event_audit_or_business_history
+      - DB_EVT_001_does_not_modify_frozen_aggregates_or_enter_DB4_11_Stage5_Laravel_or_UI
+
+diagnosis_summary:
+  diagnosed_P0: 0
+  diagnosed_P1: 8
+  fixes_applied_in_diagnosis_step: 0
+  resolved_after_diagnosis: 8
+  open_P0_P1: 0
+  result: PASS
+  resolved_blockers:
+    - DB-AUD-001
+    - DB-AUD-002
+    - DB-OUT-001
+    - DB-OUT-002
+    - DB-ACT-001
+    - DB-NOT-001
+    - DB-NOT-002
+    - DB-EVT-001
+  blockers_in_required_fix_order: []
+
+final_aggregate_sync:
+  status: PASS
+  blocker_contracts_closed:
+    - DB-AUD-001
+    - DB-AUD-002
+    - DB-OUT-001
+    - DB-OUT-002
+    - DB-ACT-001
+    - DB-NOT-001
+    - DB-NOT-002
+    - DB-EVT-001
+  aggregate_base_after_DB_EVT_001_central_gate: b70eb701624a05d53f0d859b5538edecf3c23ab3
+  machine_aggregate_commit: 8a95e5a4cc1535c0cda413051583da1b5f17be20
+  machine_aggregate_blob: 39958721c99550cfc27c3774e8dfa1af0d0637e6
+  narrative_aggregate_commit: 6de2143d8a23de93943c2f13da1c46cf273b8c81
+  narrative_aggregate_blob: 6c090b082604b6b42c283667fcf08e9033a5b523
+  machine_and_narrative_semantic_loss_gate: PASS
+  migration_order_and_invariant_test_gate: PASS
+  stale_provisional_shortcut_gate: PASS
+  audit_activity_outbox_notifications_remain_distinct: PASS
+  domain_event_is_projection_identity_not_business_authority: PASS
+  outbox_at_least_once_not_exactly_once: PASS
+  exact_retention_duration_not_invented: PASS
+  DB4_11_entered: false
+  Stage5_started: false
+  Laravel_migrations_created: false
+  UI_or_feature_implementation_started: false
+
+next_single_step_after_central_gate:
+  id: DB4_11_FINAL_MIGRATION_ORDER_AND_INVARIANT_TEST_MATRIX_DIAGNOSIS
+  action: diagnose_DB4_11_only_after_DB4_10_central_final_sync_close_and_next_explicit_user_instruction
+  DB4_11_fixes_allowed_in_same_step: false
+  scope_lock: >-
+    DB4_10 bounded source and aggregates are synchronized. Do not enter DB4_11
+    diagnosis until the DB4_10 audit and central final-sync close are complete.
+    Do not start Stage 5, Laravel migrations or UI in this step.
+  stop_before: DB4_11_DIAGNOSIS

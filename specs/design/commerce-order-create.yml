@@ -1,0 +1,204 @@
+meta:
+  gate_id: CORE-V1-COMMERCE-ORDER-CREATE-AUTHORITY-001
+  status: PASS
+  authority_doc: docs/202-core-v1-commerce-order-create-authority.md
+  operations:
+    - license_orders.create
+    - exam_orders.create
+
+pricing_authority:
+  source: trusted_server_config
+  config_key: commerce.order_create.pricing_by_catalog_code
+  repository_default_prices: forbidden
+  historical_order_items_as_current_price_source: forbidden
+  client_price_discount_vat_total_authority: forbidden
+  entry:
+    key: commerce_catalog_items.code
+    fields:
+      currency:
+        type: uppercase_char_3
+      list_unit_amount_minor:
+        type: integer
+        minimum: 0
+      charged_unit_amount_minor:
+        type: integer
+        minimum: 0
+        maximum_authority: list_unit_amount_minor
+      vat_rate_basis_points:
+        type: integer
+        minimum: 0
+        maximum: 10000
+      display_name:
+        type: nonblank_string
+      pricing_revision:
+        type: nonblank_string
+  formulas:
+    unit_discount_amount_minor: list_unit_amount_minor_minus_charged_unit_amount_minor
+    line_total_minor: quantity_times_charged_unit_amount_minor
+    checked_integer_arithmetic: required
+  one_order_one_currency: required
+  missing_or_malformed_configuration: fail_closed
+
+sku_resolution:
+  license:
+    request_selector: LicenseOrderRequest.items[].product_id
+    exact_license_product:
+      table: license_products
+      id: request_product_id
+      active_required: true
+    exact_catalog_mapping:
+      table: commerce_catalog_items
+      product_kind: license
+      license_product_id: request_product_id
+      active_required: true
+      active_row_cardinality: exactly_one
+    pricing_key: resolved_commerce_catalog_items.code
+    request_catalog_code: forbidden
+  internal_exam:
+    request_product_id: absent_by_contract
+    catalog_selector_source: trusted_server_config
+    config_key: commerce.order_create.internal_exam_catalog_code
+    exact_catalog_mapping:
+      table: commerce_catalog_items
+      code: configured_internal_exam_catalog_code
+      product_kind: internal_exam
+      license_product_id: null
+      active_required: true
+      row_cardinality: exactly_one
+    pricing_key: configured_internal_exam_catalog_code
+
+immutable_order_item_snapshots:
+  product_snapshot:
+    server_owned: true
+    minimum_fields:
+      - catalog_item_id
+      - stable_catalog_code
+      - product_kind
+      - display_name_at_order_time
+      - source_reference_snapshot_when_applicable
+  pricing_snapshot:
+    server_owned: true
+    minimum_fields:
+      - list_unit_amount_minor
+      - charged_unit_amount_minor
+      - unit_discount_amount_minor
+      - vat_rate_basis_points
+      - pricing_revision
+      - pricing_resolution_time
+  snapshot_hash:
+    algorithm: sha256
+    material: deterministic_canonical_json_of_product_snapshot_plus_pricing_snapshot
+  configuration_change_rewrites_history: false
+
+idempotency:
+  authority: ResourceIdempotency
+  claim_before_business_row_locks: true
+  operation_keys:
+    license: license_orders.create
+    internal_exam: exam_orders.create
+  same_key_same_request: replay_created_order
+  same_key_different_request: conflict
+  client_pricing_in_request_hash: false
+
+payment_method:
+  normalization: lowercase_trim
+  pattern: '^[a-z0-9_.-]{2,64}$'
+  provider_network_call_during_create: forbidden
+  nonzero_order:
+    create_pending_payment_attempt_atomically: true
+    provider: normalized_payment_method
+    provider_payment_id: null
+    public_payment_reference: high_entropy_unpredictable
+    status: pending
+    amount_and_currency: exact_order_snapshot
+    create_order_payment_settlement: false
+  zero_total_order:
+    create_payment_attempt: false
+    zero_total_settled_at: server_now
+    booked_at_equals_zero_total_settled_at: true
+    create_order_payment_settlement: false
+    create_pending_fulfillment:
+      required: true
+      source_kind: zero_total
+      settlement_payment_id: null
+
+sequence_allocator:
+  canonical_table: organization_commerce_order_sequences
+  runtime_MAX_order_sequence_plus_one: forbidden
+  client_supplied_sequence: forbidden
+  table_contract:
+    organization_id:
+      type: uuid
+      primary_key: true
+      foreign_key: organizations.id
+      on_update: RESTRICT
+      on_delete: RESTRICT
+    next_order_sequence:
+      type: bigint
+      nullable: false
+      minimum: 1
+  migration_initialization:
+    every_existing_organization_gets_row: true
+    next_order_sequence: COALESCE(MAX_existing_orders_order_sequence_0)_plus_1
+    modifies_existing_order_sequence: false
+    runtime_allocation_semantics: not_MAX_plus_1
+  post_migration_new_organization_bootstrap:
+    missing_row_allowed_only_when_no_orders_exist: true
+    initial_next_order_sequence: 1
+    insert_on_conflict_do_nothing_then_lock: allowed
+    missing_row_with_existing_orders: fail_closed
+  allocation:
+    lock: exact_allocator_row_FOR_UPDATE
+    reserve: current_next_order_sequence
+    increment_before_order_insert_same_transaction: true
+    insert_order_with_reserved_sequence_same_transaction: true
+    committed_sequence_reuse: forbidden
+    gapless_requirement: false
+
+order_create_transaction:
+  provider_network_IO: forbidden
+  steps:
+    - claim_generic_idempotency
+    - resolve_and_validate_trusted_pricing_configuration
+    - begin_database_transaction
+    - validate_exact_active_catalog_and_product_mapping
+    - ensure_allocator_row_under_bootstrap_rule
+    - lock_exact_allocator_row_FOR_UPDATE
+    - recheck_exact_catalog_and_product_eligibility
+    - reserve_and_increment_sequence
+    - insert_order
+    - insert_immutable_order_items_in_catalog_item_id_ASC
+    - insert_pending_payment_for_nonzero_or_zero_total_resolution_for_zero
+    - verify_existing_deferred_order_total_and_snapshot_guards
+    - commit
+  nonzero_order_fulfillment_before_trusted_settlement: forbidden
+
+allocator_corrective:
+  extension_authority: specs/database/commerce-order-sequence-migration-extension.yml
+  authority_gate_executes_DDL: false
+  next_gate: CORE-V1-STAGE5-COMMERCE-ORDER-SEQUENCE-001
+
+preservation:
+  Stage4_mutation: forbidden
+  provider_webhook_implementation: forbidden
+  PKK_or_PWPW_runtime: forbidden
+
+development_sample_pricing:
+  approved_by_user: 2026-09-15
+  purpose: unblock_frontend_productization_before_final_commercial_pricing
+  flag: SAMPLE_DATA_ENABLED
+  implementation: config/sample_data.php
+  allowed_environments:
+    - local
+    - testing_when_explicitly_enabled
+  production: forbidden
+  production_fail_closed: true
+  fallback_only_when_deployment_pricing_registry_is_absent: true
+  explicit_deployment_pricing_registry_wins: true
+  same_server_side_resolver_for_catalog_and_order_create: true
+  client_price_authority: forbidden
+  sample_values:
+    SAMPLE-LICENSE-1M: {list_minor: 2900, charged_minor: 1450, currency: PLN}
+    SAMPLE-LICENSE-3M: {list_minor: 3800, charged_minor: 1900, currency: PLN}
+    SAMPLE-LICENSE-6M: {list_minor: 5900, charged_minor: 2950, currency: PLN}
+  production_price_claim: false

@@ -1,0 +1,822 @@
+meta:
+  project: osk-panel
+  scope: staff_locations_vehicles_core_v1
+  status: ALL_BLOCKERS_RESOLVED_PENDING_AGGREGATE_SYNC
+  stage: DB4_3_STAFF_LOCATIONS_VEHICLES
+  created_at: 2026-09-06
+  narrative: docs/107-stage-4-staff-locations-vehicles-audit.md
+  aggregate_blueprint: specs/database/core-schema.yml
+  identity_dependency: specs/database/identity-rbac.yml
+  authority_rule: >-
+    This bounded-context specification is authoritative for Staff/Locations/Vehicles
+    physical semantics while DB4_3 is being closed. It augments the aggregate core
+    schema. Aggregate core-schema.yml and docs/87 are synchronized before final
+    DB4_3 PASS and before migrations are generated.
+
+principles:
+  tenant_owned_resource_relation_must_be_physically_or_transactionally_same_tenant: true
+  staff_profile_is_separate_from_organization_membership: true
+  staff_membership_link_history_is_preserved: true
+  cross_tenant_staff_membership_link_is_forbidden: true
+  cross_tenant_location_assignment_is_forbidden: true
+  private_staff_vehicle_asset_attachment_requires_same_tenant: true
+  private_staff_vehicle_asset_attachment_requires_ready_state_at_attach: true
+  private_staff_vehicle_asset_attachment_is_purpose_bound: true
+  document_validity_history_is_versioned_not_overwritten: true
+  at_most_one_current_document_row_per_parent_and_type: true
+  staff_pesel_identity_is_unique_per_organization_including_archived_rows_when_present: true
+  vehicle_vin_identity_is_unique_per_organization_including_archived_rows_when_present: true
+  vehicle_registration_is_unique_per_organization_among_nonarchived_rows: true
+  archive_does_not_hard_delete_identity_history: true
+  archived_staff_must_not_have_active_staff_membership_link: true
+  staff_archive_does_not_silently_revoke_owner_governance: true
+  staff_restore_does_not_implicitly_restore_panel_access: true
+  aggregate_sync_deferred_until_final_DB4_3_gate: true
+
+# DB-RES-001
+staff_membership_link_same_organization_integrity:
+  blocker: DB-RES-001
+  status: PASS
+  goal: >-
+    A StaffMembershipLink must be incapable of linking a StaffProfile from one
+    organization to an OrganizationMembership from another organization.
+
+  link_table:
+    name: staff_membership_links
+    fields:
+      - id
+      - organization_id
+      - staff_profile_id
+      - organization_membership_id
+      - linked_at
+      - linked_by_user_id_nullable
+      - unlinked_at_nullable
+      - unlinked_by_user_id_nullable
+    organization_id:
+      nullable: false
+      foreign_key: organizations.id
+      semantics: canonical_tenant_key_for_the_link
+      mutation_after_create: forbidden
+    historical_row_deletion_for_normal_unlink: forbidden
+    unlink_semantics: set_unlinked_at_and_actor_preserve_row
+
+  parent_candidate_keys_required:
+    staff_profiles:
+      columns: [organization_id, id]
+      unique_constraint_required: true
+      purpose: composite_same_organization_FK_target
+    organization_memberships:
+      columns: [organization_id, id]
+      unique_constraint_required: true
+      purpose: composite_same_organization_FK_target
+
+  composite_foreign_keys:
+    staff_profile_same_organization:
+      source_table: staff_membership_links
+      source_columns: [organization_id, staff_profile_id]
+      target_table: staff_profiles
+      target_columns: [organization_id, id]
+      match: MATCH_SIMPLE
+      on_update: RESTRICT
+      on_delete: RESTRICT
+    organization_membership_same_organization:
+      source_table: staff_membership_links
+      source_columns: [organization_id, organization_membership_id]
+      target_table: organization_memberships
+      target_columns: [organization_id, id]
+      match: MATCH_SIMPLE
+      on_update: RESTRICT
+      on_delete: RESTRICT
+
+  tenant_ownership_mutation:
+    staff_profile_organization_id_after_creation: immutable_for_linked_or_historical_resource
+    organization_membership_organization_id_after_creation: immutable
+    moving_staff_between_organizations_by_updating_organization_id: forbidden
+
+  active_link_uniqueness_preserved:
+    per_staff_profile:
+      type: partial_unique
+      columns: [staff_profile_id]
+      where: unlinked_at_is_null
+    per_organization_membership:
+      type: partial_unique
+      columns: [organization_membership_id]
+      where: unlinked_at_is_null
+
+  creation_and_resolution:
+    backend_precheck_required: true
+    database_is_final_same_tenant_boundary: true
+    rbac_resolver_dependency: >-
+      own, assigned_locations and assigned_students may only traverse an active
+      StaffMembershipLink that satisfies these composite tenant constraints.
+    membership_status_eligibility: governed_by_DB4_2_and_DB_RES_006
+    staff_archive_effect_on_link_or_membership: governed_by_DB_RES_006
+
+  migration_precheck:
+    required_before_constraints: true
+    checks:
+      - every_existing_link_organization_matches_staff_profile_organization
+      - every_existing_link_organization_matches_organization_membership_organization
+      - existing_active_link_uniqueness_is_valid
+    invalid_row_policy: fail_migration_or_explicit_security_remediation_never_silent_cross_tenant_reassignment
+
+  tests_required:
+    - same_organization_staff_profile_and_membership_link_is_accepted
+    - staff_profile_from_org_A_with_membership_from_org_B_is_rejected_by_database
+    - link_organization_A_with_staff_profile_from_org_B_is_rejected_by_database
+    - link_organization_A_with_membership_from_org_B_is_rejected_by_database
+    - second_active_link_for_same_staff_profile_is_rejected
+    - second_active_link_for_same_organization_membership_is_rejected
+    - historical_unlinked_row_is_preserved
+    - organization_membership_suspend_or_revoke_does_not_rewrite_historical_link_tenant_identity
+    - RBAC_staff_link_resolution_cannot_cross_organization_boundary
+
+# DB-RES-002
+location_assignment_same_organization_integrity:
+  blocker: DB-RES-002
+  status: PASS
+  goal: >-
+    StaffProfile-to-Location and Vehicle-to-Location assignments must be unable to
+    connect tenant-owned resources from different organizations, including when a
+    backend bug or malformed import bypasses application-level validation.
+
+  parent_candidate_keys_required:
+    staff_profiles:
+      columns: [organization_id, id]
+      unique_constraint_required: true
+      source: DB-RES-001
+    vehicles:
+      columns: [organization_id, id]
+      unique_constraint_required: true
+      purpose: composite_same_organization_FK_target
+    locations:
+      columns: [organization_id, id]
+      unique_constraint_required: true
+      purpose: composite_same_organization_FK_target
+
+  staff_location_assignments:
+    tenant_key:
+      column: organization_id
+      nullable: false
+      foreign_key: organizations.id
+      mutation_after_create: forbidden
+    fields:
+      - organization_id
+      - staff_profile_id
+      - location_id
+    primary_key: [organization_id, staff_profile_id, location_id]
+    composite_foreign_keys:
+      staff_profile_same_organization:
+        source_columns: [organization_id, staff_profile_id]
+        target_table: staff_profiles
+        target_columns: [organization_id, id]
+        on_update: RESTRICT
+        on_delete: RESTRICT
+      location_same_organization:
+        source_columns: [organization_id, location_id]
+        target_table: locations
+        target_columns: [organization_id, id]
+        on_update: RESTRICT
+        on_delete: RESTRICT
+    duplicate_assignment_same_tenant: rejected_by_primary_key
+    cross_tenant_assignment: impossible_after_constraints
+
+  vehicle_location_assignments:
+    tenant_key:
+      column: organization_id
+      nullable: false
+      foreign_key: organizations.id
+      mutation_after_create: forbidden
+    fields:
+      - organization_id
+      - vehicle_id
+      - location_id
+    primary_key: [organization_id, vehicle_id, location_id]
+    composite_foreign_keys:
+      vehicle_same_organization:
+        source_columns: [organization_id, vehicle_id]
+        target_table: vehicles
+        target_columns: [organization_id, id]
+        on_update: RESTRICT
+        on_delete: RESTRICT
+      location_same_organization:
+        source_columns: [organization_id, location_id]
+        target_table: locations
+        target_columns: [organization_id, id]
+        on_update: RESTRICT
+        on_delete: RESTRICT
+    duplicate_assignment_same_tenant: rejected_by_primary_key
+    cross_tenant_assignment: impossible_after_constraints
+
+  parent_tenant_ownership:
+    staff_profile_organization_id: immutable_for_historical_tenant_resource
+    vehicle_organization_id: immutable_for_historical_tenant_resource
+    location_organization_id: immutable_for_historical_tenant_resource
+    moving_existing_resource_by_rewriting_organization_id: forbidden
+
+  authorization_and_query_effect:
+    assigned_locations_resolver:
+      path: OrganizationMembership_to_active_StaffMembershipLink_to_StaffProfile_to_StaffLocationAssignment_to_Location
+      every_tenant_boundary_physically_constrained_after_DB_RES_001_and_DB_RES_002: true
+      query_must_include_active_membership_organization_context: true
+      cross_tenant_location_can_never_expand_scope: true
+    vehicle_calendar_location_filter:
+      cross_tenant_assignment_can_never_create_false_resource_relationship: true
+    frontend_filtering_as_security_boundary: forbidden
+
+  category_assignments_not_changed_here:
+    staff_category_assignments: global_driving_category_dictionary_no_tenant_key_required_on_category
+    vehicle_category_assignments: global_driving_category_dictionary_no_tenant_key_required_on_category
+
+  migration_precheck:
+    required_before_constraints: true
+    checks:
+      - every_existing_staff_location_pair_has_equal_parent_and_location_organization
+      - every_existing_vehicle_location_pair_has_equal_parent_and_location_organization
+      - duplicate_existing_pairs_are_resolved_explicitly_before_primary_key_creation
+    invalid_row_policy: fail_migration_or_explicit_security_remediation_never_silent_location_reassignment
+
+  tests_required:
+    - same_tenant_staff_location_assignment_is_accepted
+    - staff_org_A_to_location_org_B_is_rejected_by_database
+    - staff_assignment_tenant_key_mismatch_is_rejected_by_database
+    - duplicate_staff_location_assignment_is_rejected
+    - same_tenant_vehicle_location_assignment_is_accepted
+    - vehicle_org_A_to_location_org_B_is_rejected_by_database
+    - vehicle_assignment_tenant_key_mismatch_is_rejected_by_database
+    - duplicate_vehicle_location_assignment_is_rejected
+    - assigned_locations_RBAC_query_cannot_return_location_from_other_organization
+    - vehicle_location_calendar_filter_cannot_cross_organization
+    - migration_precheck_detects_existing_cross_tenant_staff_location_pair
+    - migration_precheck_detects_existing_cross_tenant_vehicle_location_pair
+
+# DB-RES-003
+file_asset_attachment_integrity:
+  blocker: DB-RES-003
+  status: PASS
+  goal: >-
+    Staff and Vehicle photos/documents may only attach an asset owned by the same
+    organization, uploaded for the exact attachment purpose, and in ready state at
+    the moment the business attachment is committed.
+
+  file_asset_candidate_key_required:
+    table: file_assets
+    columns: [organization_id, id]
+    unique_constraint_required: true
+
+  attachment_paths:
+    staff_profile_photo:
+      source_table: staff_profiles
+      source_columns: [organization_id, photo_asset_id]
+      target_table: file_assets
+      target_columns: [organization_id, id]
+      nullable_asset_reference: true
+      required_asset_purpose: staff_photo
+      required_asset_status_at_attach: ready
+    staff_document_asset:
+      source_table: staff_documents
+      source_columns: [organization_id, asset_id]
+      target_table: file_assets
+      target_columns: [organization_id, id]
+      nullable_asset_reference: true
+      required_asset_purpose: staff_document
+      required_asset_status_at_attach: ready
+    vehicle_photo:
+      source_table: vehicles
+      source_columns: [organization_id, photo_asset_id]
+      target_table: file_assets
+      target_columns: [organization_id, id]
+      nullable_asset_reference: true
+      required_asset_purpose: vehicle_photo
+      required_asset_status_at_attach: ready
+    vehicle_document_asset:
+      source_table: vehicle_documents
+      source_columns: [organization_id, asset_id]
+      target_table: file_assets
+      target_columns: [organization_id, id]
+      nullable_asset_reference: true
+      required_asset_purpose: vehicle_document
+      required_asset_status_at_attach: ready
+
+  composite_foreign_key_policy:
+    match: MATCH_SIMPLE
+    on_update: RESTRICT
+    on_delete: RESTRICT
+
+  purpose_and_ready_database_boundary:
+    enforcement: reusable_BEFORE_INSERT_OR_UPDATE_constraint_trigger_or_equivalent_database_trigger
+    trigger_scope:
+      - insert_when_asset_reference_non_null
+      - update_when_asset_reference_or_organization_id_changes
+    trigger_contract:
+      - load_same_tenant_file_asset_row
+      - lock_file_asset_row_FOR_SHARE_until_attachment_transaction_commits
+      - require_exact_expected_purpose_for_attachment_path
+      - require_status_ready
+      - reject_missing_foreign_platform_wrong_purpose_or_nonready_asset
+    application_precheck_also_required: true
+    database_trigger_is_final_attachment_boundary: true
+
+  file_asset_lifecycle_after_attachment:
+    purpose_mutation_after_upload_commit: forbidden
+    ready_to_nonready_security_transition:
+      may_exist_for_quarantine_rejection_or_controlled_deletion: true
+      business_reference_history_preserved: true
+      download_or_delivery_requires_current_asset_state_allowed_by_file_policy: true
+      nonready_asset_must_not_be_served_merely_because_business_reference_exists: true
+    replacing_attachment:
+      old_asset_auto_delete: forbidden
+
+  document_type_vs_asset_purpose:
+    staff_document_business_type_stays_on_staff_documents: true
+    vehicle_document_business_type_stays_on_vehicle_documents: true
+    file_asset_purpose_is_attachment_class_not_document_type: true
+
+  migration_precheck:
+    required_before_constraints_and_triggers: true
+    checks:
+      - every_existing_nonnull_staff_photo_asset_matches_staff_organization
+      - every_existing_nonnull_staff_document_asset_matches_staff_document_organization
+      - every_existing_nonnull_vehicle_photo_asset_matches_vehicle_organization
+      - every_existing_nonnull_vehicle_document_asset_matches_vehicle_document_organization
+      - every_existing_attached_asset_has_expected_attachment_purpose
+      - every_existing_attachment_was_or_is_in_policy_acceptable_ready_state_for_migration
+    invalid_row_policy: fail_migration_or_explicit_security_remediation_never_silent_asset_reassignment_or_purpose_rewrite
+
+  tests_required:
+    - same_tenant_ready_staff_photo_with_staff_photo_purpose_is_accepted
+    - staff_photo_from_other_organization_is_rejected_by_database
+    - platform_asset_cannot_be_attached_as_private_staff_photo
+    - staff_photo_with_wrong_purpose_is_rejected
+    - staff_photo_in_nonready_state_is_rejected
+    - same_tenant_ready_staff_document_with_staff_document_purpose_is_accepted
+    - staff_document_foreign_wrong_purpose_and_nonready_assets_are_rejected
+    - same_tenant_ready_vehicle_photo_with_vehicle_photo_purpose_is_accepted
+    - vehicle_photo_foreign_platform_wrong_purpose_and_nonready_assets_are_rejected
+    - same_tenant_ready_vehicle_document_with_vehicle_document_purpose_is_accepted
+    - vehicle_document_foreign_wrong_purpose_and_nonready_assets_are_rejected
+    - concurrent_asset_status_change_and_attachment_cannot_commit_an_unvalidated_race
+    - attachment_replacement_does_not_auto_delete_old_asset
+    - nonready_asset_after_later_security_transition_is_not_downloadable_via_business_reference
+
+# DB-RES-004
+document_current_projection:
+  blocker: DB-RES-004
+  status: PASS
+  goal: >-
+    Staff and Vehicle document validity history must be preserved while every
+    parent/document_type has an unambiguous current projection for detail screens,
+    expiry warnings and later Calendar important-date projection.
+
+  model_choice:
+    strategy: versioned_rows_with_superseded_at
+    in_place_business_overwrite: forbidden
+    hard_delete_for_normal_edit_or_clear: forbidden
+    current_predicate: superseded_at_is_null
+    current_cardinality: zero_or_one_per_parent_and_document_type
+    reason: >-
+      The verified UI exposes one current value per document type, while audit and
+      lifecycle rules require history. Versioned rows give both without relying on
+      latest-created-at heuristics.
+
+  staff_documents:
+    canonical_fields:
+      - id
+      - organization_id
+      - staff_profile_id
+      - document_type
+      - valid_until_nullable
+      - document_number_nullable
+      - asset_id_nullable
+      - created_at
+      - created_by_user_id_nullable
+      - superseded_at_nullable
+      - superseded_by_user_id_nullable
+      - supersession_reason_nullable
+    current_unique_index:
+      type: partial_unique
+      columns: [organization_id, staff_profile_id, document_type]
+      where: superseded_at_is_null
+    current_query_requires_predicate: superseded_at_is_null
+    document_type_immutable_per_row: true
+
+  vehicle_documents:
+    canonical_fields:
+      - id
+      - organization_id
+      - vehicle_id
+      - document_type
+      - valid_until_nullable
+      - asset_id_nullable
+      - created_at
+      - created_by_user_id_nullable
+      - superseded_at_nullable
+      - superseded_by_user_id_nullable
+      - supersession_reason_nullable
+    current_unique_index:
+      type: partial_unique
+      columns: [organization_id, vehicle_id, document_type]
+      where: superseded_at_is_null
+    current_query_requires_predicate: superseded_at_is_null
+    document_type_immutable_per_row: true
+
+  mutation_semantics:
+    replace_current_document:
+      lock_parent_resource: FOR_UPDATE_or_equivalent_serialization
+      load_current_document_row_for_type: FOR_UPDATE_if_present
+      if_no_business_change: no_new_version_required
+      transaction:
+        - validate_parent_and_tenant
+        - validate_new_asset_via_DB_RES_003_when_nonnull
+        - set_existing_current_row_superseded_at_and_actor_if_present
+        - insert_new_current_version
+        - write_audit_and_outbox_same_transaction
+      partial_unique_index_is_final_double_current_guard: true
+    clear_document:
+      semantics: supersede_current_without_replacement
+      hard_delete: forbidden
+      resulting_current_row_count: zero
+      audit_required: true
+    clear_validity_only_but_keep_document:
+      semantics: replace_with_new_current_version_having_valid_until_null
+      preserves_asset_and_other_current_business_fields_as_requested: true
+
+  historical_row_immutability:
+    superseded_business_fields_mutable: false
+    current_business_fields_updated_in_place: false
+    allowed_transition_on_existing_current_row:
+      - set_superseded_at_once
+      - set_superseded_by_user_id_once
+      - set_supersession_reason_once
+    database_enforcement: trigger_or_equivalent_constraint_policy_required
+
+  projection_rules:
+    staff_detail_validity:
+      source: current_staff_documents_only
+      missing_current_row: no_document_value
+      current_valid_until_null: no_expiry_date
+    vehicle_detail_validity:
+      source: current_vehicle_documents_only
+      missing_current_row: no_document_value
+      current_valid_until_null: no_expiry_date
+    expiry_state:
+      source_date: current_valid_until_only
+      expired_rule: valid_until_before_organization_local_today
+      expiring_soon_threshold: deferred_projection_configuration_not_DB_RES_004
+    calendar_important_date_input:
+      source: current_rows_with_valid_until_not_null_only
+      exact_calendar_projection_behavior: deferred_to_DB4_5
+      superseded_rows_must_not_emit_current_important_dates: true
+
+  interaction_with_DB_RES_003:
+    every_new_document_version_with_asset_reference_must_pass_same_tenant_purpose_ready_attachment_gate: true
+    superseding_old_document_does_not_delete_old_asset: true
+    historical_asset_reference_preserved_subject_to_asset_security_delivery_policy: true
+
+  migration_precheck:
+    required_before_partial_unique_indexes: true
+    checks:
+      - group_existing_staff_documents_by_organization_staff_document_type
+      - group_existing_vehicle_documents_by_organization_vehicle_document_type
+      - detect_groups_with_multiple_candidate_current_rows
+      - verify_parent_tenant_integrity_before_versioning
+    ambiguous_existing_current_policy: >-
+      Do not silently choose max(created_at) or max(id) as current. Require explicit
+      migration mapping/remediation supported by source evidence or an auditable
+      one-time migration decision before the unique current index is enabled.
+    creation_order:
+      - add_supersession_columns
+      - classify_or_map_existing_rows_to_current_and_historical_explicitly
+      - verify_at_most_one_current_staff_document_per_type
+      - verify_at_most_one_current_vehicle_document_per_type
+      - add_staff_partial_unique_current_index
+      - add_vehicle_partial_unique_current_index
+      - install_history_immutability_guard
+
+  tests_required:
+    - staff_document_has_at_most_one_current_row_per_type
+    - vehicle_document_has_at_most_one_current_row_per_type
+    - replacement_supersedes_previous_row_and_preserves_history
+    - concurrent_replacements_cannot_commit_two_current_rows
+    - current_projection_ignores_superseded_rows
+    - current_valid_until_null_projects_no_expiry_date
+    - clear_document_leaves_history_and_zero_current_rows
+    - historical_row_business_fields_cannot_be_mutated
+    - new_document_version_asset_still_must_pass_DB_RES_003
+    - superseded_document_does_not_emit_current_calendar_important_date_input
+    - migration_precheck_refuses_ambiguous_current_selection_without_explicit_remediation
+
+# DB-RES-005
+identity_uniqueness_lifecycle:
+  blocker: DB-RES-005
+  status: PASS
+  goal: >-
+    Staff PESEL, Vehicle VIN and Vehicle registration number must have explicit,
+    history-safe uniqueness semantics so archive/restore and identity correction
+    cannot create silent duplicate resources or impossible restore behavior.
+
+  scope:
+    uniqueness_tenant_boundary: organization_id
+    cross_organization_same_identity_value_allowed: true
+    reason: >-
+      StaffProfile and Vehicle are tenant-owned resources. The same person may work
+      for multiple OSK, and the same physical vehicle may be represented in more
+      than one OSK context when business/legal relationships permit it. This slice
+      does not impose platform-global uniqueness.
+
+  staff_pesel:
+    nullable: true
+    storage:
+      plaintext_persistence: forbidden
+      equality_column: pesel_lookup_hash
+      equality_hash: keyed_HMAC_as_defined_by_sensitive_identifier_pattern
+    unique_index:
+      type: partial_unique
+      columns: [organization_id, pesel_lookup_hash]
+      where: pesel_lookup_hash_is_not_null
+      archived_rows_included: true
+    semantics:
+      archive_releases_identity_value: false
+      create_duplicate_when_existing_profile_archived: reject_and_require_explicit_restore_or_identity_correction
+      restore_same_profile: allowed_without_reclaiming_identity
+      correction_to_value_used_by_any_other_profile_in_same_organization: rejected
+      explicit_identity_correction_may_change_hash_on_same_profile: true
+      correction_requires_audit: true
+      old_incorrect_hash_is_not_reserved_forever_after_explicit_correction: true
+
+  vehicle_vin:
+    nullable: true
+    storage_column: vin_normalized
+    unique_index:
+      type: partial_unique
+      columns: [organization_id, vin_normalized]
+      where: vin_normalized_is_not_null
+      archived_rows_included: true
+    semantics:
+      archive_releases_identity_value: false
+      create_duplicate_when_existing_vehicle_archived: reject_and_require_restore_or_identity_correction
+      restore_same_vehicle: allowed_without_reclaiming_identity
+      correction_to_value_used_by_any_other_vehicle_in_same_organization: rejected
+      explicit_identity_correction_may_change_vin_on_same_vehicle: true
+      correction_requires_audit: true
+      old_incorrect_vin_is_not_reserved_forever_after_explicit_correction: true
+
+  vehicle_registration_number:
+    nullable: false
+    storage_column: registration_number_normalized
+    unique_index:
+      type: partial_unique
+      columns: [organization_id, registration_number_normalized]
+      where: archived_at_is_null
+      archived_rows_included: false
+    semantics:
+      active_duplicate: rejected
+      archive_releases_registration_for_future_active_vehicle: true
+      archived_history_retains_original_registration_value: true
+      multiple_archived_historical_rows_may_share_same_registration: true
+      restore_requires_registration_currently_free_among_nonarchived_vehicles: true
+      restore_when_another_active_vehicle_uses_registration: conflict_no_auto_swap_or_auto_archive
+      restore_after_conflicting_active_vehicle_is_archived_or_renumbered: allowed
+      active_registration_correction_to_value_used_by_another_active_vehicle: rejected
+      registration_change_requires_audit: true
+
+  normalization_boundary:
+    uniqueness_is_evaluated_on_canonical_stored_values: true
+    pesel: pesel_lookup_hash_after_canonical_PESEL_input_processing
+    vin: vin_normalized
+    registration: registration_number_normalized
+    exact_format_validation_rules: deferred_application_validation_not_part_of_DB_RES_005
+    normalization_change_that_would_merge_existing_distinct_values_requires_migration_precheck: true
+
+  archive_restore_interaction:
+    staff_archive:
+      pesel_hash_remains_on_row: true
+      uniqueness_constraint_remains_effective: true
+      panel_access_effect: governed_by_DB_RES_006
+    vehicle_archive:
+      vin_remains_reserved_by_archived_row: true
+      registration_becomes_available_to_other_nonarchived_vehicle: true
+    hard_delete_to_release_identity: forbidden_as_normal_lifecycle
+
+  migration_precheck:
+    required_before_unique_indexes: true
+    checks:
+      - duplicate_nonnull_staff_pesel_hash_within_organization_including_archived_rows
+      - duplicate_nonnull_vehicle_vin_within_organization_including_archived_rows
+      - duplicate_registration_number_among_nonarchived_vehicles_within_organization
+      - normalization_collisions_for_VIN_and_registration
+    allowed_existing_state:
+      - same_staff_pesel_in_different_organizations
+      - same_vehicle_vin_in_different_organizations
+      - same_registration_in_different_organizations
+      - duplicate_registration_across_archived_history_when_at_most_one_nonarchived_holder_exists
+    invalid_row_policy: >-
+      Fail migration or require explicit auditable identity remediation. Never
+      silently delete, merge, archive, renumber, change PESEL/VIN, or choose a
+      surviving row merely to satisfy the constraint.
+
+  concurrency_and_commands:
+    database_unique_indexes_are_final_race_boundary: true
+    create_restore_and_identity_edit_must_translate_unique_violation_to_domain_conflict: true
+    restore_vehicle_must_not_precheck_only_without_relying_on_unique_index: true
+    no_hard_delete_retry_workaround: true
+
+  tests_required:
+    - second_staff_profile_same_nonnull_PESEL_in_same_organization_is_rejected
+    - archived_staff_profile_still_blocks_second_profile_with_same_PESEL
+    - same_PESEL_in_different_organizations_is_allowed
+    - restoring_same_archived_staff_profile_does_not_conflict_with_its_own_PESEL
+    - staff_PESEL_correction_to_another_profiles_value_is_rejected
+    - audited_staff_PESEL_correction_can_release_confirmed_erroneous_old_value
+    - second_vehicle_same_nonnull_VIN_in_same_organization_is_rejected_even_if_first_is_archived
+    - same_VIN_in_different_organizations_is_allowed
+    - vehicle_VIN_correction_to_another_vehicles_value_is_rejected
+    - two_nonarchived_vehicles_same_registration_in_same_organization_are_rejected
+    - same_registration_in_different_organizations_is_allowed
+    - archiving_vehicle_releases_registration_for_new_active_vehicle
+    - archived_vehicle_history_keeps_registration_after_reuse
+    - restore_archived_vehicle_fails_while_another_nonarchived_vehicle_holds_registration
+    - restore_succeeds_after_registration_conflict_is_resolved
+    - concurrent_vehicle_restore_and_create_for_same_registration_have_one_winner
+    - migration_precheck_detects_staff_PESEL_vehicle_VIN_and_active_registration_conflicts
+    - migration_does_not_silently_modify_identity_values_to_pass_constraints
+
+# DB-RES-006
+staff_archive_panel_access_lifecycle:
+  blocker: DB-RES-006
+  status: RESOLVED_DESIGN
+  goal: >-
+    Archiving a StaffProfile must remove every staff-derived authorization path
+    without destroying membership history, silently revoking Owner governance, or
+    making a later restore re-enable access without an explicit decision.
+
+  separation_of_concerns:
+    staff_profile_represents_workforce_resource: true
+    organization_membership_represents_tenant_authorization_principal: true
+    staff_membership_link_represents_staff_to_membership_association: true
+    owner_governance_may_exist_without_active_staff_link: true
+    implication: >-
+      Staff archive always ends the active StaffMembershipLink. A non-owner staff
+      panel account is suspended by default. An Owner membership is not silently
+      suspended or revoked merely because its StaffProfile is archived; after the
+      link ends it keeps only authorization granted by the membership itself and no
+      staff-derived own/assigned scope path.
+
+  committed_state_invariants:
+    archived_staff_has_active_staff_membership_link: forbidden
+    active_staff_membership_link_target_staff_must_be_nonarchived: true
+    historical_unlinked_staff_membership_rows_preserved: true
+    staff_archive_hard_deletes_membership_or_link_history: false
+    restore_reopens_old_link_row: false
+
+  database_guard:
+    active_link_insert_or_relink_requires_nonarchived_staff:
+      enforcement: constraint_trigger_or_equivalent_database_trigger
+      lock_staff_profile_row: FOR_SHARE_or_stronger
+      reject_if_archived_at_nonnull: true
+    archive_commit_requires_zero_active_links:
+      enforcement: deferred_constraint_trigger_or_equivalent_transactional_database_guard
+      predicate: no_staff_membership_links_for_profile_where_unlinked_at_is_null
+    race_archive_vs_new_link:
+      serialized_on_staff_profile_row: true
+      both_operations_cannot_commit_conflicting_state: true
+
+  archive_command:
+    transaction_required: true
+    locks_in_order:
+      - staff_profile_FOR_UPDATE
+      - active_staff_membership_link_FOR_UPDATE_if_present
+      - linked_organization_membership_FOR_UPDATE_if_present
+      - organization_governance_boundary_when_owner_state_is_evaluated
+    common_steps:
+      - validate_staff_belongs_to_active_request_organization
+      - reject_or_noop_according_to_command_policy_if_already_archived
+      - set_staff_archived_at_and_actor
+      - end_active_staff_membership_link_if_present_by_setting_unlinked_at_and_actor
+      - write_audit_and_outbox_same_transaction
+
+    no_active_staff_link:
+      membership_change: none
+      result: staff_archived_without_panel_link
+
+    linked_membership_nonowner:
+      predicate: organization_membership_is_owner_false
+      if_membership_status_active:
+        transition: active_to_suspended
+        semantics_source: DB_IAM_005
+        keep_permission_scope_configuration: true
+        clear_bound_auth_session_membership_contexts_same_transaction: true
+        increment_membership_version_once: true
+        increment_authorization_version_once: true
+      if_membership_status_suspended:
+        keep_status_suspended: true
+        do_not_increment_authorization_version_only_for_redundant_status_transition: true
+      if_membership_status_revoked:
+        keep_status_revoked: true
+        do_not_restore_permission_snapshot: true
+      result: >-
+        The archived employee has no active staff link and no active non-owner
+        tenant membership created by the staff account lifecycle.
+
+    linked_membership_owner:
+      predicate: organization_membership_is_owner_true
+      standard_staff_archive_changes_owner_membership_status: false
+      standard_staff_archive_changes_is_owner: false
+      active_staff_link_still_ends: true
+      reason: >-
+        Owner governance is a separate high-risk lifecycle. Staff archive must not
+        implicitly demote, suspend or revoke an Owner and must not accidentally
+        violate the DB-IAM-004 last-owner invariant. Once unlinked, staff-derived
+        own/assigned resolvers no longer use the archived StaffProfile.
+      owner_membership_may_remain_active: true
+      owner_access_retention_is_intentional_not_staff_derived: true
+      request_to_remove_owner_panel_access_as_part_of_staff_archive:
+        allowed_as_hidden_side_effect: false
+        required_flow: explicit_owner_transfer_or_owner_membership_governance_command
+        last_owner_guard: DB_IAM_004
+        membership_transition_semantics: DB_IAM_005
+
+  authorization_effect_after_archive:
+    own_scope_via_archived_staff_profile: deny_empty_set
+    assigned_locations_via_archived_staff_profile: deny_empty_set
+    assigned_students_via_archived_staff_profile: deny_empty_set
+    resolver_reason: no_active_staff_membership_link
+    nonowner_staff_membership_active_after_archive: forbidden_by_command_policy
+    owner_membership_permissions_after_archive: evaluated_normally_from_membership_permissions_and_scopes
+    frontend_filtering_as_security_boundary: forbidden
+
+  restore_command:
+    restore_staff_profile_only:
+      default: true
+      action: clear_archived_at_and_restore_actor_metadata
+      recreates_staff_membership_link: false
+      activates_or_changes_membership: false
+      rebinds_old_sessions: false
+      reason: restore_of_workforce_record_does_not_imply_restore_of_credentials_or_authorization
+
+    explicit_restore_panel_access:
+      separate_explicit_decision_required: true
+      transaction_required: true
+      preconditions:
+        - staff_profile_is_not_archived
+        - membership_belongs_to_same_organization
+        - no_conflicting_active_staff_link_for_profile
+        - no_conflicting_active_staff_link_for_membership
+      historical_link_policy: create_new_staff_membership_link_row_never_reopen_old_row
+      if_membership_status_active:
+        action: create_new_active_staff_membership_link_only
+      if_membership_status_suspended:
+        action:
+          - transition_suspended_to_active_using_DB_IAM_005
+          - create_new_active_staff_membership_link
+        old_sessions_auto_rebind: false
+      if_membership_status_revoked:
+        automatic_reactivation: forbidden
+        required_before_link_can_authorize: fresh_permission_or_template_provisioning_using_DB_IAM_005
+        old_owner_or_permission_snapshot_auto_restore: false
+      owner_membership:
+        if_still_active: create_new_link_only_after_explicit_panel_access_restore
+        owner_governance_unchanged_by_restore_staff_profile_only: true
+
+  failure_atomicity:
+    archive_fails_before_commit:
+      staff_profile_link_membership_session_changes_all_roll_back: true
+    owner_governance_command_failure:
+      staff_archive_must_not_partially_demote_or_suspend_owner: true
+    audit_and_outbox_committed_only_with_business_state: true
+
+  migration_precheck:
+    required_before_archive_link_guards: true
+    checks:
+      - archived_staff_profiles_with_active_staff_membership_links
+      - active_staff_membership_links_pointing_to_archived_staff_profiles
+      - nonowner_active_memberships_that_are_only_staff_linked_while_profile_is_archived
+      - cross_tenant_link_mismatch_already_covered_by_DB_RES_001
+    invalid_row_policy: >-
+      Require explicit auditable remediation. Do not silently reactivate Staff,
+      transfer Owner, revoke membership, or discard historical StaffMembershipLink
+      rows merely to make the new invariant pass.
+
+  tests_required:
+    - archiving_staff_without_panel_link_archives_profile_without_membership_side_effect
+    - archiving_staff_with_active_nonowner_membership_unlinks_staff_and_suspends_membership_atomically
+    - nonowner_archive_clears_bound_session_tenant_contexts_via_DB_IAM_005
+    - archiving_staff_with_already_suspended_membership_keeps_it_suspended_and_unlinks_staff
+    - archiving_staff_with_revoked_membership_does_not_restore_or_mutate_revoked_authorization_snapshot
+    - archiving_staff_linked_to_active_owner_ends_staff_link_but_keeps_owner_membership_and_is_owner_unchanged
+    - sole_owner_staff_archive_does_not_violate_last_owner_because_owner_membership_is_not_silently_suspended
+    - removing_owner_panel_access_requires_explicit_owner_governance_flow
+    - archived_staff_cannot_receive_new_active_staff_membership_link
+    - concurrent_staff_archive_and_panel_link_creation_have_only_one_valid_committed_outcome
+    - archived_staff_cannot_grant_own_assigned_locations_or_assigned_students_scope
+    - restoring_staff_profile_does_not_auto_restore_panel_access_or_rebind_sessions
+    - explicit_panel_access_restore_creates_new_link_row_and_preserves_old_link_history
+    - suspended_membership_may_be_explicitly_reactivated_using_DB_IAM_005_without_rebinding_old_sessions
+    - revoked_membership_is_not_implicitly_reactivated_on_staff_restore
+    - archive_transaction_failure_leaves_no_partial_staff_link_membership_or_session_state
+
+post_blocker_state:
+  open_P0_P1_in_DB4_3: 0
+  final_DB4_3_PASS_allowed_before_aggregate_sync: false
+  next_required_step: final_DB4_3_aggregate_core_schema_and_docs87_synchronization_gate
+  DB4_4_may_start_before_final_sync_gate: false

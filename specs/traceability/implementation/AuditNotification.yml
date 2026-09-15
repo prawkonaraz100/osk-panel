@@ -1,0 +1,64 @@
+module: AuditNotification
+core_traceability_modules:
+  - dashboard_activity
+  - locations
+  - staff
+  - vehicles
+changed_scope:
+  - evidence: specs/database/audit-outbox-notifications.yml
+    requirement: critical mutation commits business state audit domain event and outbox intent atomically
+    domain_data: audit_logs + domain_events + outbox_messages
+    api_use_case: atomic audit outbox foundation
+    permission: inherited_from_calling_authorized_command
+    ui: NOT_APPLICABLE_FOUNDATION_NO_UI
+    acceptance_test: Tests\Feature\AuditOutboxFoundationTest
+    status: IMPLEMENTED
+  - evidence: specs/database/staff-locations-vehicles.yml
+    requirement: resource lifecycle audit snapshots are allowlisted and never contain plaintext PESEL or secret payloads
+    domain_data: audit_action_policy_revisions + audit_action_policy_currents + audit_logs + domain_events + outbox_messages
+    api_use_case: resource create update archive restore account-link and document-replacement commands
+    permission: inherited_from_authorized_resources_command
+    ui: resource mutations surface only business success or safe error envelopes
+    acceptance_test: Tests\Feature\ResourcesCoreTest::test_staff_pesel_never_enters_audit_payload
+    status: IMPLEMENTED
+  - evidence: specs/database/audit-outbox-notifications.yml#DB-AUD-001
+    requirement: trusted organization-scoped token execution records audit with actor_kind system and null user/membership instead of fabricating an OSK membership while preserving exact organization scope and atomic outbox coupling
+    domain_data: audit_logs + domain_events + outbox_messages
+    api_use_case: remote internal exam start and submit through trusted bearer-token execution
+    permission: inherited_from_valid_exam_access_token
+    ui: NOT_APPLICABLE_RUNTIME_GATE
+    acceptance_test: Tests\\Feature\\InternalExamCoreTest::test_remote_submit_retires_execution_token_mints_result_token_and_scopes_review_to_frozen_evidence
+    status: IMPLEMENTED
+  - evidence: specs/database/audit-outbox-notifications.yml#DB-ACT-001
+    requirement: dashboard activity is an organization-scoped safe projection ordered deterministically and never raw audit or outbox payload
+    domain_data: organization_activity_events + domain_events
+    api_use_case: GET /api/v1/activity with pagination and optional event_type filter
+    permission: active_membership
+    ui: dashboard activity feed consumer deferred to the dashboard UI gate
+    acceptance_test: Tests\\Feature\\DashboardNotificationCoreTest::test_activity_is_tenant_scoped_filtered_and_exposes_only_safe_projection
+    status: IMPLEMENTED
+  - evidence: specs/database/audit-outbox-notifications.yml#DB-NOT-001
+    requirement: notification reads are scoped to the exact active organization membership and user recipient tuple with independent read state
+    domain_data: notifications + organization_memberships
+    api_use_case: GET /api/v1/notifications with unread_only after exact recipient scope
+    permission: active_membership
+    ui: notification consumer deferred to the dashboard UI gate
+    acceptance_test: Tests\\Feature\\DashboardNotificationCoreTest::test_notification_list_is_exact_recipient_scoped_and_unread_filter_runs_after_scope
+    status: IMPLEMENTED
+  - evidence: specs/database/audit-outbox-notifications.yml#DB-NOT-002
+    requirement: mark-read is an idempotent own-recipient NULL-to-non-NULL transition that never clears or rewrites read_at and emits no recursive domain event
+    domain_data: notifications + idempotency_records
+    api_use_case: POST /api/v1/notifications/{notificationId}/read
+    permission: active_membership_own_notification
+    ui: notification read affordance deferred to the dashboard UI gate
+    acceptance_test: Tests\\Feature\\DashboardNotificationCoreTest::test_mark_read_sets_timestamp_once_and_is_idempotent_across_replays
+    status: IMPLEMENTED
+  - evidence: specs/api/paths/commerce-dashboard.yaml
+    requirement: restricted audit listing is tenant-first permission-gated and serializes only the minimized AuditLogEntry projection rather than raw redacted payload storage
+    domain_data: audit_logs
+    api_use_case: audit_logs.list
+    permission: organization.audit.view with organization scope
+    ui: NOT_APPLICABLE_RUNTIME_API_GATE
+    acceptance_test: Tests\\Feature\\AuditLogRuntimeTest::test_audit_log_projection_is_tenant_scoped_filtered_and_does_not_serialize_raw_payloads + Tests\\Feature\\AuditLogRuntimeTest::test_audit_log_projection_requires_explicit_organization_audit_permission
+    status: IMPLEMENTED
+

@@ -1,0 +1,267 @@
+<?php
+
+namespace App\Modules\LearningAccess;
+
+use InvalidArgumentException;
+
+/**
+ * @phpstan-type BulkCredentialsPage array{
+ *   student_name:string,
+ *   login_identifier:string,
+ *   language_code:string,
+ *   password_is_set:bool,
+ *   login_url:string,
+ *   plaintext_password:?string
+ * }
+ */
+final class LearningAccessBulkCredentialsPdfRenderer
+{
+    public const RENDERER_VERSION = 'bulk-credentials-v1';
+
+    /** @var array<string,int> */
+    private const POLISH_BYTES = [
+        'Ą' => 128, 'Ć' => 129, 'Ę' => 130, 'Ł' => 131, 'Ń' => 132,
+        'Ó' => 133, 'Ś' => 134, 'Ź' => 135, 'Ż' => 136,
+        'ą' => 137, 'ć' => 138, 'ę' => 139, 'ł' => 140, 'ń' => 141,
+        'ó' => 142, 'ś' => 143, 'ź' => 144, 'ż' => 145,
+    ];
+
+    /**
+     * @param  list<BulkCredentialsPage>  $pages
+     */
+    public function render(array $pages, bool $includePlaintextPassword): string
+    {
+        if ($pages === []) {
+            throw new InvalidArgumentException('Bulk credentials PDF requires at least one page.');
+        }
+
+        $streams = [];
+        foreach ($pages as $page) {
+            $streams[] = $this->pageStream($page, $includePlaintextPassword);
+        }
+
+        return $this->buildPdf($streams);
+    }
+
+    /**
+     * @param  BulkCredentialsPage  $page
+     */
+    private function pageStream(array $page, bool $includePlaintextPassword): string
+    {
+        if (trim($page['login_identifier']) === '' || trim($page['login_url']) === '') {
+            throw new InvalidArgumentException('Bulk credentials PDF requires login identifier and application URL.');
+        }
+
+        $labels = $this->labels($page['language_code']);
+        $commands = [];
+
+        $this->text($commands, 42, 798, 18, $labels['title'], true);
+        $this->text($commands, 42, 774, 9, $labels[$includePlaintextPassword ? 'secret_notice' : 'nonsecret_notice']);
+
+        $this->text($commands, 42, 724, 10, $labels['student'], true);
+        $this->text($commands, 42, 705, 10, $this->truncate($page['student_name'], 75));
+
+        $this->text($commands, 42, 660, 10, $labels['login'], true);
+        $this->text($commands, 42, 641, 10, $this->truncate($page['login_identifier'], 88));
+
+        $this->text($commands, 42, 596, 10, $labels['password'], true);
+        if ($includePlaintextPassword) {
+            $plaintext = $page['plaintext_password'];
+            if (! is_string($plaintext) || trim($plaintext) === '') {
+                throw new InvalidArgumentException('Secret bulk credentials page requires a fresh plaintext password.');
+            }
+            $this->text($commands, 42, 577, 12, $this->truncate($plaintext, 88), true);
+            $this->text($commands, 42, 555, 8, $labels['one_time']);
+        } else {
+            $state = $page['password_is_set'] ? $labels['password_set'] : $labels['password_not_set'];
+            $this->text($commands, 42, 577, 9, $this->truncate($state, 104));
+        }
+
+        $this->text($commands, 42, 512, 10, $labels['site'], true);
+        $this->text($commands, 42, 493, 10, $this->truncate($page['login_url'], 88));
+
+        $this->text($commands, 42, 438, 8, $labels['footer']);
+
+        return implode("\n", $commands)."\n";
+    }
+
+    /** @return array<string,string> */
+    private function labels(string $languageCode): array
+    {
+        return match (mb_strtolower(trim($languageCode))) {
+            'pl' => [
+                'title' => 'DANE DO LOGOWANIA',
+                'secret_notice' => 'Nowe hasło jest widoczne tylko w tym jednorazowym dokumencie.',
+                'nonsecret_notice' => 'Bezpieczny dokument bez hasła — pobranie nie zmienia poświadczeń.',
+                'student' => 'Kursant',
+                'login' => 'Login',
+                'password' => 'Hasło',
+                'one_time' => 'Zapisz hasło teraz. System nie umożliwia późniejszego odczytania tej wartości.',
+                'password_set' => 'Hasło jest ustawione. Starego hasła nie można odzyskać.',
+                'password_not_set' => 'Hasło nie jest obecnie ustawione.',
+                'site' => 'Strona',
+                'footer' => 'Dokument wygenerowany przez PrawkoNaRaz dla bieżącego konta nauki.',
+            ],
+            'en' => [
+                'title' => 'LOGIN DETAILS',
+                'secret_notice' => 'The new password is visible only in this one-time document.',
+                'nonsecret_notice' => 'Safe password-free document — downloading does not change credentials.',
+                'student' => 'Student',
+                'login' => 'Login',
+                'password' => 'Password',
+                'one_time' => 'Save the password now. The system cannot reveal this value later.',
+                'password_set' => 'A password is set. The previous password cannot be recovered.',
+                'password_not_set' => 'No password is currently set.',
+                'site' => 'Website',
+                'footer' => 'Document generated by PrawkoNaRaz for the current learning account.',
+            ],
+            'de' => [
+                'title' => 'ANMELDEDATEN',
+                'secret_notice' => 'Das neue Passwort ist nur in diesem einmaligen Dokument sichtbar.',
+                'nonsecret_notice' => 'Sicheres Dokument ohne Passwort — der Download ändert keine Zugangsdaten.',
+                'student' => 'Fahrschueler',
+                'login' => 'Login',
+                'password' => 'Passwort',
+                'one_time' => 'Passwort jetzt speichern. Es kann spaeter nicht erneut angezeigt werden.',
+                'password_set' => 'Ein Passwort ist gesetzt. Das alte Passwort kann nicht wiederhergestellt werden.',
+                'password_not_set' => 'Derzeit ist kein Passwort gesetzt.',
+                'site' => 'Webseite',
+                'footer' => 'Dokument von PrawkoNaRaz fuer das aktuelle Lernkonto.',
+            ],
+            'uk' => [
+                'title' => 'DANI DLYA VHODU',
+                'secret_notice' => 'Novyi parol dostupnyi lyshe v tsomu odnorazovomu dokumenti.',
+                'nonsecret_notice' => 'Bezpechnyi dokument bez parolia — zavantazhennia ne zminiuie oblikovi dani.',
+                'student' => 'Kursant',
+                'login' => 'Lohin',
+                'password' => 'Parol',
+                'one_time' => 'Zberezhit parol zaraz. Systema ne mozhe pokazaty yoho piznishe.',
+                'password_set' => 'Parol vstanovleno. Poperednii parol vidnovyty nemozhlyvo.',
+                'password_not_set' => 'Parol zaraz ne vstanovleno.',
+                'site' => 'Sait',
+                'footer' => 'Dokument PrawkoNaRaz dlia potochnoho navchalnoho oblikovoho zapysu.',
+            ],
+            'ru' => [
+                'title' => 'DANNYE DLYA VHODA',
+                'secret_notice' => 'Novyi parol dostupen tolko v etom odnorazovom dokumente.',
+                'nonsecret_notice' => 'Bezopasnyi dokument bez parolya — zagruzka ne menyaet uchetnye dannye.',
+                'student' => 'Kursant',
+                'login' => 'Login',
+                'password' => 'Parol',
+                'one_time' => 'Sohranite parol seichas. Sistema ne mozhet pokazat ego pozdnee.',
+                'password_set' => 'Parol ustanovlen. Predydushchii parol vosstanovit nelzya.',
+                'password_not_set' => 'Parol seichas ne ustanovlen.',
+                'site' => 'Sait',
+                'footer' => 'Dokument PrawkoNaRaz dlya tekushchego uchebnogo akkaunta.',
+            ],
+            default => throw new InvalidArgumentException('No materialized bulk credentials PDF renderer exists for this learning-access language.'),
+        };
+    }
+
+    /** @param  list<string>  $commands */
+    private function text(array &$commands, float $x, float $y, float $size, string $value, bool $bold = false): void
+    {
+        $commands[] = sprintf(
+            'BT /%s %.2F Tf 1 0 0 1 %.2F %.2F Tm <%s> Tj ET',
+            $bold ? 'F2' : 'F1',
+            $size,
+            $x,
+            $y,
+            bin2hex($this->encodeText($value)),
+        );
+    }
+
+    private function truncate(string $value, int $limit): string
+    {
+        $chars = preg_split('//u', $value, -1, PREG_SPLIT_NO_EMPTY);
+        if ($chars === false || count($chars) <= $limit) {
+            return $value;
+        }
+
+        return implode('', array_slice($chars, 0, max(1, $limit - 3))).'...';
+    }
+
+    private function encodeText(string $value): string
+    {
+        $chars = preg_split('//u', $value, -1, PREG_SPLIT_NO_EMPTY);
+        if ($chars === false) {
+            return '?';
+        }
+
+        $bytes = '';
+        foreach ($chars as $char) {
+            if (isset(self::POLISH_BYTES[$char])) {
+                $bytes .= chr(self::POLISH_BYTES[$char]);
+
+                continue;
+            }
+            if (strlen($char) === 1) {
+                $ord = ord($char);
+                if ($ord >= 32 && $ord <= 126) {
+                    $bytes .= $char;
+
+                    continue;
+                }
+            }
+            $bytes .= match ($char) {
+                '–', '—' => '-',
+                '„', '”', '“' => '"',
+                '’', '‘' => "'",
+                default => '?',
+            };
+        }
+
+        return $bytes;
+    }
+
+    /** @param  list<string>  $streams */
+    private function buildPdf(array $streams): string
+    {
+        $encoding = '<< /Type /Encoding /BaseEncoding /WinAnsiEncoding /Differences ['
+            .'128 /Aogonek /Cacute /Eogonek /Lslash /Nacute /Oacute /Sacute /Zacute /Zdotaccent '
+            .'/aogonek /cacute /eogonek /lslash /nacute /oacute /sacute /zacute /zdotaccent] >>';
+
+        $objects = [
+            1 => '<< /Type /Catalog /Pages 2 0 R >>',
+            3 => $encoding,
+            4 => '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding 3 0 R >>',
+            5 => '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding 3 0 R >>',
+        ];
+
+        $kids = [];
+        foreach ($streams as $index => $stream) {
+            $pageId = 6 + ($index * 2);
+            $contentId = $pageId + 1;
+            $kids[] = $pageId.' 0 R';
+            $objects[$pageId] = '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] '
+                .'/Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents '.$contentId.' 0 R >>';
+            $objects[$contentId] = '<< /Length '.strlen($stream)." >>\nstream\n".$stream.'endstream';
+        }
+        $objects[2] = '<< /Type /Pages /Count '.count($streams).' /Kids ['.implode(' ', $kids).'] >>';
+        ksort($objects);
+
+        $pdf = "%PDF-1.4\n%\xE2\xE3\xCF\xD3\n"
+            .'% PNR-STUDENT-ACCESS-BULK '.self::RENDERER_VERSION."\n";
+        $offsets = [0 => 0];
+        foreach ($objects as $id => $object) {
+            $offsets[$id] = strlen($pdf);
+            $pdf .= $id." 0 obj\n".$object."\nendobj\n";
+        }
+
+        $maxId = max(array_keys($objects));
+        $xref = strlen($pdf);
+        $pdf .= "xref\n0 ".($maxId + 1)."\n";
+        $pdf .= "0000000000 65535 f \n";
+        for ($id = 1; $id <= $maxId; $id++) {
+            if (isset($offsets[$id])) {
+                $pdf .= sprintf("%010d 00000 n \n", $offsets[$id]);
+            } else {
+                $pdf .= "0000000000 00000 f \n";
+            }
+        }
+        $pdf .= "trailer\n<< /Size ".($maxId + 1)." /Root 1 0 R >>\n";
+        $pdf .= "startxref\n{$xref}\n%%EOF\n";
+
+        return $pdf;
+    }
+}

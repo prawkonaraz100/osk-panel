@@ -1,0 +1,2359 @@
+{
+  "schema_version": 2,
+  "plan_identity": "d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10",
+  "execution_identity": "82da84d3efb312d78b432ad6081491c04b03569a0f250722d6befc11ca233712",
+  "stage4_root": "database/migrations/stage4",
+  "implemented_steps": [
+    {
+      "node_id": "MIG-EXT-BTREE-GIST",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-EXT-BTREE-GIST/2026_09_10_000010_enable_btree_gist_extension.php",
+      "migration_name": "2026_09_10_000010_enable_btree_gist_extension",
+      "file_sha256": "2f6d4840939d22e37546cac3db5bfd25c7c2f128db983f0acfdc083c5b1a6a3d",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-ORGANIZATIONS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-ORGANIZATIONS/2026_09_10_000020_create_organizations_table.php",
+      "migration_name": "2026_09_10_000020_create_organizations_table",
+      "file_sha256": "cde2a65c790f2cfcdd4d5d560599010d8fba73d38f760b8e2ac0c4100f58f703",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-USERS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-USERS/2026_09_10_000030_create_users_table.php",
+      "migration_name": "2026_09_10_000030_create_users_table",
+      "file_sha256": "19246afce373adf10a2d8d07bea57e87e38cfcf0d1b724f3c4b6f2438c21b549",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-PERMISSIONS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-PERMISSIONS/2026_09_10_000040_create_permissions_table.php",
+      "migration_name": "2026_09_10_000040_create_permissions_table",
+      "file_sha256": "f88c657d6b09deb9e474a1bdec85d5d783b7f130107d685e4e1c61ce006c49e4",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-DATA_SCOPES",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-DATA_SCOPES/2026_09_10_000050_create_data_scopes_table.php",
+      "migration_name": "2026_09_10_000050_create_data_scopes_table",
+      "file_sha256": "38e19d4832d1fba28b9388d6734838237823818431dffbc399b300419ec218d7",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-LANGUAGES",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-LANGUAGES/2026_09_10_000060_create_languages_table.php",
+      "migration_name": "2026_09_10_000060_create_languages_table",
+      "file_sha256": "51716504f6292dd607dfebbae04c962d332c9bce528c2097abc3ce6dc13052a5",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-DRIVING_CATEGORIES",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-DRIVING_CATEGORIES/2026_09_10_000070_create_driving_categories_table.php",
+      "migration_name": "2026_09_10_000070_create_driving_categories_table",
+      "file_sha256": "bf9621efa81636cb228eeea231272d9e6f3c9b034fc1656e9790901695d9ee57",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-LOCATION_TYPES",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-LOCATION_TYPES/2026_09_10_000080_create_location_types_table.php",
+      "migration_name": "2026_09_10_000080_create_location_types_table",
+      "file_sha256": "2701537a23098bd2fc21d7281a7a17a4a4e8a188777873a49f13e020ee42caf5",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-STAFF_TYPES",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-STAFF_TYPES/2026_09_10_000090_create_staff_types_table.php",
+      "migration_name": "2026_09_10_000090_create_staff_types_table",
+      "file_sha256": "5a83b3243ed50fecb1391e04444ab44ca1473069a2c3786d21a9bfe462568f39",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-INTERNAL_EXAM_CAPABILITIES",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-INTERNAL_EXAM_CAPABILITIES/2026_09_10_000100_create_internal_exam_capabilities_table.php",
+      "migration_name": "2026_09_10_000100_create_internal_exam_capabilities_table",
+      "file_sha256": "52febd4fb066b45ebed843fa940ad5b67110ba2af63cba8d24db9079820e9dcc",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-LEGAL_DOCUMENTS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-LEGAL_DOCUMENTS/2026_09_10_000110_create_legal_documents_table.php",
+      "migration_name": "2026_09_10_000110_create_legal_documents_table",
+      "file_sha256": "0d010d018c3596c2a909bccf894a78d4e679e3311c843d7be9709a63c01ea9ce",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-ORGANIZATION_SETTINGS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-ORGANIZATION_SETTINGS/2026_09_10_000120_create_organization_settings_table.php",
+      "migration_name": "2026_09_10_000120_create_organization_settings_table",
+      "file_sha256": "ef13e02732bdd9663546401447a108849a3b15987827ddc13128bd1f70c6126e",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-ORGANIZATION_CONTACT_ADDRESSES",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-ORGANIZATION_CONTACT_ADDRESSES/2026_09_10_000130_create_organization_contact_addresses_table.php",
+      "migration_name": "2026_09_10_000130_create_organization_contact_addresses_table",
+      "file_sha256": "0ce443cecce89b9b2d2b21b0e4420b161cfd9d77b36ee2e89861ebe462c15ad3",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-USER_PASSWORD_MANAGEMENT",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-USER_PASSWORD_MANAGEMENT/2026_09_10_000140_create_user_password_management_table.php",
+      "migration_name": "2026_09_10_000140_create_user_password_management_table",
+      "file_sha256": "7f1275d0950fc90817da377a12d8f51d1a59f8c5aaeda14b0961e7f6e4ec2a80",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-AUTH_LOGIN_IDENTIFIERS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-AUTH_LOGIN_IDENTIFIERS/2026_09_10_000150_create_auth_login_identifiers_table.php",
+      "migration_name": "2026_09_10_000150_create_auth_login_identifiers_table",
+      "file_sha256": "376f79a92bb5bd05ae6daf0d4ed60e5472d9307edd4fb251954e8ff68e0485aa",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-AUTH_SOCIAL_ACCOUNTS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-AUTH_SOCIAL_ACCOUNTS/2026_09_10_000160_create_auth_social_accounts_table.php",
+      "migration_name": "2026_09_10_000160_create_auth_social_accounts_table",
+      "file_sha256": "bc72bc66d360550ae5e772aee4e6920701f01c874eb4d35f420057764c100b7c",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-ORGANIZATION_MEMBERSHIPS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-ORGANIZATION_MEMBERSHIPS/2026_09_10_000170_create_organization_memberships_table.php",
+      "migration_name": "2026_09_10_000170_create_organization_memberships_table",
+      "file_sha256": "ce5038905f5823331c943fb5b0907a751d5ce2d349fc7a9af5d152c577477853",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-MEMBERSHIP_PERMISSIONS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-MEMBERSHIP_PERMISSIONS/2026_09_10_000180_create_membership_permissions_table.php",
+      "migration_name": "2026_09_10_000180_create_membership_permissions_table",
+      "file_sha256": "5a0d782626dd481a1786bc4d16431835650a590f107035ede052adb142afec79",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-PERMISSION_SCOPE_OPTIONS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-PERMISSION_SCOPE_OPTIONS/2026_09_10_000190_create_permission_scope_options_table.php",
+      "migration_name": "2026_09_10_000190_create_permission_scope_options_table",
+      "file_sha256": "c443d2a96269170d305ed7e2b27fc812008fcd4ccb7ab3cc6589c1493646f4b2",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-MEMBERSHIP_PERMISSION_SCOPES",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-MEMBERSHIP_PERMISSION_SCOPES/2026_09_10_000200_create_membership_permission_scopes_table.php",
+      "migration_name": "2026_09_10_000200_create_membership_permission_scopes_table",
+      "file_sha256": "656f8f369f9eb125d0c174e63337eba58018b6c4b7a3e5a5339958d7a7b841dd",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-AUTH_SESSIONS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-AUTH_SESSIONS/2026_09_10_000210_create_auth_sessions_table.php",
+      "migration_name": "2026_09_10_000210_create_auth_sessions_table",
+      "file_sha256": "f1b7ef9178ac7d17e06d342be078e38f594fcf13de05f5092669a947967b2007",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-ACCOUNT_CLOSURE_REQUESTS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-ACCOUNT_CLOSURE_REQUESTS/2026_09_10_000220_create_account_closure_requests_table.php",
+      "migration_name": "2026_09_10_000220_create_account_closure_requests_table",
+      "file_sha256": "a6ca40491c6364bbb2ffab5434c11136b334294d52b550e6a12da6c54a980d76",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-TERMS_ACCEPTANCES",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-TERMS_ACCEPTANCES/2026_09_10_000230_create_terms_acceptances_table.php",
+      "migration_name": "2026_09_10_000230_create_terms_acceptances_table",
+      "file_sha256": "7e07e33634fa85742da40b0f5e4d8b79888be6d9fdfc8f36c5b898264e6113de",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-FILE_ASSETS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-FILE_ASSETS/2026_09_10_000240_create_file_assets_table.php",
+      "migration_name": "2026_09_10_000240_create_file_assets_table",
+      "file_sha256": "066e2aa4c414db4df3b087bb85aa25ef39d4258702bb285e5160d9dce20adf57",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-IDEMPOTENCY_RECORDS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-IDEMPOTENCY_RECORDS/2026_09_10_000250_create_idempotency_records_table.php",
+      "migration_name": "2026_09_10_000250_create_idempotency_records_table",
+      "file_sha256": "fb4ca120a70636af340a1a33605d437d2f3dc29a60a0592a4aab0877e3cb57d7",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-LOCATIONS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-LOCATIONS/2026_09_10_000260_create_locations_table.php",
+      "migration_name": "2026_09_10_000260_create_locations_table",
+      "file_sha256": "5307aa8864983c517b19564f4df487f73e10ad27499549df1fbc77277080aa4c",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-VEHICLES",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-VEHICLES/2026_09_10_000270_create_vehicles_table.php",
+      "migration_name": "2026_09_10_000270_create_vehicles_table",
+      "file_sha256": "f91aab10a84d763e7f1be8b22486617d6a59854d9bbb5906738f6369a46f09a3",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-STAFF_PROFILES",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-STAFF_PROFILES/2026_09_10_000280_create_staff_profiles_table.php",
+      "migration_name": "2026_09_10_000280_create_staff_profiles_table",
+      "file_sha256": "418a83d83ded9d611d4e351ab0e9f9936bfe8e481bdb18e829d7b19a8cfde710",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-STAFF_TYPE_ASSIGNMENTS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-STAFF_TYPE_ASSIGNMENTS/2026_09_10_000290_create_staff_type_assignments_table.php",
+      "migration_name": "2026_09_10_000290_create_staff_type_assignments_table",
+      "file_sha256": "b330bf30d122201d9948e34f209c391ab4aebfce2e6c01c63a30033829604506",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-STAFF_CATEGORY_ASSIGNMENTS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-STAFF_CATEGORY_ASSIGNMENTS/2026_09_10_000300_create_staff_category_assignments_table.php",
+      "migration_name": "2026_09_10_000300_create_staff_category_assignments_table",
+      "file_sha256": "b9e0d316f76f477be46a6b84abc187b9902f7051597c9ec14b3f5e718a43ee99",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-STAFF_LOCATION_ASSIGNMENTS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-STAFF_LOCATION_ASSIGNMENTS/2026_09_10_000310_create_staff_location_assignments_table.php",
+      "migration_name": "2026_09_10_000310_create_staff_location_assignments_table",
+      "file_sha256": "69115f67e7ad3a356e8c6da966b52b159c6dfb741eb0533494876099517f5721",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-STAFF_MEMBERSHIP_LINKS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-STAFF_MEMBERSHIP_LINKS/2026_09_10_000320_create_staff_membership_links_table.php",
+      "migration_name": "2026_09_10_000320_create_staff_membership_links_table",
+      "file_sha256": "961844f433d20bff0dd1e33592ed36baa6eaa14a4b9f5c736064d966596d291f",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-STAFF_DOCUMENTS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-STAFF_DOCUMENTS/2026_09_10_000330_create_staff_documents_table.php",
+      "migration_name": "2026_09_10_000330_create_staff_documents_table",
+      "file_sha256": "411965edc13b2fb1edab38fd5f59fdd6369b083430d2d9b923d002dc5e270a82",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-VEHICLE_DOCUMENTS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-VEHICLE_DOCUMENTS/2026_09_10_000340_create_vehicle_documents_table.php",
+      "migration_name": "2026_09_10_000340_create_vehicle_documents_table",
+      "file_sha256": "12cc88c29763acd4ba5705296fac277c6beabe2232afb45686fc9a5167f4496b",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-VEHICLE_CATEGORY_ASSIGNMENTS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-VEHICLE_CATEGORY_ASSIGNMENTS/2026_09_10_000350_create_vehicle_category_assignments_table.php",
+      "migration_name": "2026_09_10_000350_create_vehicle_category_assignments_table",
+      "file_sha256": "ad95f2a08af7401489f5893d34f4ecc19101506358344392f6c8ed36bcf3c3aa",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-VEHICLE_LOCATION_ASSIGNMENTS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-VEHICLE_LOCATION_ASSIGNMENTS/2026_09_10_000360_create_vehicle_location_assignments_table.php",
+      "migration_name": "2026_09_10_000360_create_vehicle_location_assignments_table",
+      "file_sha256": "6b35e754848f0ae085cf2252de9387517569f9940a75919c2b2efe8bf6139a72",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-STUDENTS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-STUDENTS/2026_09_10_000370_create_students_table.php",
+      "migration_name": "2026_09_10_000370_create_students_table",
+      "file_sha256": "c4397f696297c594ecde1d1c2a82816e8c9cf96e5416002315358aa4cf4f6d94",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-STUDENT_LEARNING_ACCOUNTS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-STUDENT_LEARNING_ACCOUNTS/2026_09_10_000380_create_student_learning_accounts_table.php",
+      "migration_name": "2026_09_10_000380_create_student_learning_accounts_table",
+      "file_sha256": "24c50c3840e2018cd08d9211cb898806688e58a065d4aa776b7a66454a2ba6ff",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-STUDENT_ACCESS_HANDOFFS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-STUDENT_ACCESS_HANDOFFS/2026_09_10_000390_create_student_access_handoffs_table.php",
+      "migration_name": "2026_09_10_000390_create_student_access_handoffs_table",
+      "file_sha256": "d157fbc1df2c60ec4f1129b5eadaf749d5d156fbbddee843711881a1fd13a065",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-STUDENT_ACCESS_EXPORT_BATCHES",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-STUDENT_ACCESS_EXPORT_BATCHES/2026_09_10_000400_create_student_access_export_batches_table.php",
+      "migration_name": "2026_09_10_000400_create_student_access_export_batches_table",
+      "file_sha256": "4732df15c01375a1d48ff918d541b02323d7b45217950184db6953945d43cd00",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-COURSE_ENROLLMENTS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-COURSE_ENROLLMENTS/2026_09_10_000410_create_course_enrollments_table.php",
+      "migration_name": "2026_09_10_000410_create_course_enrollments_table",
+      "file_sha256": "d71bd621f5de3964e21d67b206b6decf40e2dc4aa918a50e37f2f0731863b001",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-COURSE_ENROLLMENT_LIFECYCLE_EVENTS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-COURSE_ENROLLMENT_LIFECYCLE_EVENTS/2026_09_10_000420_create_course_enrollment_lifecycle_events_table.php",
+      "migration_name": "2026_09_10_000420_create_course_enrollment_lifecycle_events_table",
+      "file_sha256": "c9eb44c0a61699d9cc4077fa0b549e54542b415c20dc8d3be481faba790c2a8b",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-TRAINING_REQUIREMENT_RULE_SETS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-TRAINING_REQUIREMENT_RULE_SETS/2026_09_10_000430_create_training_requirement_rule_sets_table.php",
+      "migration_name": "2026_09_10_000430_create_training_requirement_rule_sets_table",
+      "file_sha256": "22a97f30bbef6dc9d15511ef5ccc81bd024e706bcb9f50c1c3099f522abae638",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-COURSE_REQUIREMENT_CONTEXTS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-COURSE_REQUIREMENT_CONTEXTS/2026_09_10_000440_create_course_requirement_contexts_table.php",
+      "migration_name": "2026_09_10_000440_create_course_requirement_contexts_table",
+      "file_sha256": "f4b46dad041bb015d501bbb24683b7ce9db912c98bcb47fddf4eca5c736e261e",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-COURSE_REQUIREMENT_CONTEXT_HELD_CATEGORIES",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-COURSE_REQUIREMENT_CONTEXT_HELD_CATEGORIES/2026_09_10_000450_create_course_requirement_context_held_categories_table.php",
+      "migration_name": "2026_09_10_000450_create_course_requirement_context_held_categories_table",
+      "file_sha256": "7e6833360f98bc66e5ed44605d7b4fed50a51fd71d39b807a28bef028892a6b7",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-COURSE_REQUIREMENT_OVERRIDE_DECISIONS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-COURSE_REQUIREMENT_OVERRIDE_DECISIONS/2026_09_10_000460_create_course_requirement_override_decisions_table.php",
+      "migration_name": "2026_09_10_000460_create_course_requirement_override_decisions_table",
+      "file_sha256": "b7d0ca2af5733c45f8066eb8ea61d547e073ce38fd53f53b15b83cc096826e06",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-TRAINING_REQUIREMENT_PROFILES",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-TRAINING_REQUIREMENT_PROFILES/2026_09_10_000470_create_training_requirement_profiles_table.php",
+      "migration_name": "2026_09_10_000470_create_training_requirement_profiles_table",
+      "file_sha256": "5b9227f31f3a399b9cd92da4332676cd929ff9d4839e10144018b8118a7f5931",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-COURSE_EXEMPTION_DECISIONS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-COURSE_EXEMPTION_DECISIONS/2026_09_10_000480_create_course_exemption_decisions_table.php",
+      "migration_name": "2026_09_10_000480_create_course_exemption_decisions_table",
+      "file_sha256": "2a7af5ebdd300b03298ad7dbcaca1fdede7b2dce1a19aa1d75bfc14fe9ca9101",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-RECOGNIZED_EXTERNAL_TRAINING",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-RECOGNIZED_EXTERNAL_TRAINING/2026_09_10_000490_create_recognized_external_training_table.php",
+      "migration_name": "2026_09_10_000490_create_recognized_external_training_table",
+      "file_sha256": "7ec6841798f81e5fbb8de5a777d9e8c0bf7ee0140404ff80d0a65ef1bebf148a",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-TRAINING_SESSIONS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-TRAINING_SESSIONS/2026_09_10_000500_create_training_sessions_table.php",
+      "migration_name": "2026_09_10_000500_create_training_sessions_table",
+      "file_sha256": "3fbc48c138ad1c8956bb213a20d32d990aeb4fa4ffdeea73a65fc49cf044502b",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-TRAINING_SESSION_ATTENDANCE",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-TRAINING_SESSION_ATTENDANCE/2026_09_10_000510_create_training_session_attendance_table.php",
+      "migration_name": "2026_09_10_000510_create_training_session_attendance_table",
+      "file_sha256": "b7fa79896b83259361faa79c7e9d34b12e8be37b26af841e87a86f758d786624",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-TRAINING_HOUR_LEDGER_ENTRIES",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-TRAINING_HOUR_LEDGER_ENTRIES/2026_09_10_000520_create_training_hour_ledger_entries_table.php",
+      "migration_name": "2026_09_10_000520_create_training_hour_ledger_entries_table",
+      "file_sha256": "49d0fd746561c14261df3ed979985517d1459b0ace9c5e56acc3ffc7ff71ffe3",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-CALENDAR_EVENTS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-CALENDAR_EVENTS/2026_09_10_000530_create_calendar_events_table.php",
+      "migration_name": "2026_09_10_000530_create_calendar_events_table",
+      "file_sha256": "e6e55feb84690523111aa4bca217b1470a5a7bb6c61a124f0fde5235beeba3f0",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-CALENDAR_EVENT_LIFECYCLE_EVENTS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-CALENDAR_EVENT_LIFECYCLE_EVENTS/2026_09_10_000540_create_calendar_event_lifecycle_events_table.php",
+      "migration_name": "2026_09_10_000540_create_calendar_event_lifecycle_events_table",
+      "file_sha256": "c5d2210be046807faed1fa13b522a03cc57a12dde5198b00ce05c806f611df34",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-AVAILABILITY_SLOTS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-AVAILABILITY_SLOTS/2026_09_10_000550_create_availability_slots_table.php",
+      "migration_name": "2026_09_10_000550_create_availability_slots_table",
+      "file_sha256": "0288cf9493da98abc286d5f9df3ec4db44811ff4dc46e7bb5294615e43586983",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-AVAILABILITY_SLOT_LIFECYCLE_EVENTS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-AVAILABILITY_SLOT_LIFECYCLE_EVENTS/2026_09_10_000560_create_availability_slot_lifecycle_events_table.php",
+      "migration_name": "2026_09_10_000560_create_availability_slot_lifecycle_events_table",
+      "file_sha256": "17e8b9cf8565d0d934c62fedba285936bebf419205d6752fd5c16ad6fba7222a",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-CALENDAR_RESOURCE_CLAIMS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-CALENDAR_RESOURCE_CLAIMS/2026_09_10_000570_create_calendar_resource_claims_table.php",
+      "migration_name": "2026_09_10_000570_create_calendar_resource_claims_table",
+      "file_sha256": "7c1d5a9b39c5cc58a4859ffeba7ac0311fd2c0354cc6abb3cc97e0eed76888e9",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-TRAINING_SESSION_CALENDAR_DETAILS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-TRAINING_SESSION_CALENDAR_DETAILS/2026_09_10_000580_create_training_session_calendar_details_table.php",
+      "migration_name": "2026_09_10_000580_create_training_session_calendar_details_table",
+      "file_sha256": "c43caaf4060b802692df660f058a6b3031027f24f81a72e2b7ed65f51bcad181",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-PKK_INTEGRATION_SETTINGS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-PKK_INTEGRATION_SETTINGS/2026_09_10_000590_create_pkk_integration_settings_table.php",
+      "migration_name": "2026_09_10_000590_create_pkk_integration_settings_table",
+      "file_sha256": "e8723a22a420de72413b3f2e592be0159fda14c47fc0e93722132169ac96a1f2",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-PKK_INTEGRATION_CONFIGURATION_REVISIONS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-PKK_INTEGRATION_CONFIGURATION_REVISIONS/2026_09_10_000600_create_pkk_integration_configuration_revisions_table.php",
+      "migration_name": "2026_09_10_000600_create_pkk_integration_configuration_revisions_table",
+      "file_sha256": "d8d0fac4c9b3bf93e57caa485c94481dc9e60f1c47bc2b4129513f1b3cf9e1ac",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-PKK_PROFILES",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-PKK_PROFILES/2026_09_10_000610_create_pkk_profiles_table.php",
+      "migration_name": "2026_09_10_000610_create_pkk_profiles_table",
+      "file_sha256": "d8939a762a2bd9a90f7aa324547d39ad54fe8bfd4a2775bcc30f62ea5a5aeebd",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-PKK_PROVIDER_PROFILE_SNAPSHOTS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-PKK_PROVIDER_PROFILE_SNAPSHOTS/2026_09_10_000620_create_pkk_provider_profile_snapshots_table.php",
+      "migration_name": "2026_09_10_000620_create_pkk_provider_profile_snapshots_table",
+      "file_sha256": "98bf350acaab7486cdf9d95508ad7275250b8cc7abb08bfbf9c6da03d6b7b6f5",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-PKK_OPERATIONS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-PKK_OPERATIONS/2026_09_10_000630_create_pkk_operations_table.php",
+      "migration_name": "2026_09_10_000630_create_pkk_operations_table",
+      "file_sha256": "ee79b5af1d961de0a2616f5b23df0b67ea174877e834940101cf8439e1dab456",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-PKK_OPERATION_LIFECYCLE_EVENTS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-PKK_OPERATION_LIFECYCLE_EVENTS/2026_09_10_000640_create_pkk_operation_lifecycle_events_table.php",
+      "migration_name": "2026_09_10_000640_create_pkk_operation_lifecycle_events_table",
+      "file_sha256": "701519448fbeeb1940366238b0186e739c792da051fb9778d4b686a34f5c8cf5",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-PKK_OPERATION_ATTEMPTS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-PKK_OPERATION_ATTEMPTS/2026_09_10_000650_create_pkk_operation_attempts_table.php",
+      "migration_name": "2026_09_10_000650_create_pkk_operation_attempts_table",
+      "file_sha256": "0c31a48daa6c28579334a493ee3b5fd7c6b11098e1688ddab5f4429958f10310",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-PKK_OPERATION_ATTEMPT_RECONCILIATIONS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-PKK_OPERATION_ATTEMPT_RECONCILIATIONS/2026_09_10_000660_create_pkk_operation_attempt_reconciliations_table.php",
+      "migration_name": "2026_09_10_000660_create_pkk_operation_attempt_reconciliations_table",
+      "file_sha256": "955e79be40eef0bfacb6974626b980c467752697b467067d06a8b028f531492c",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-PKK_SIGNATURE_HANDOFFS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-PKK_SIGNATURE_HANDOFFS/2026_09_10_000670_create_pkk_signature_handoffs_table.php",
+      "migration_name": "2026_09_10_000670_create_pkk_signature_handoffs_table",
+      "file_sha256": "94501f840efcffa4b7e81c923f112b891bfa5e328662da57932ebbd81dec1f65",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-PKK_SIGNATURE_HANDOFF_UPLOAD_RESERVATIONS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-PKK_SIGNATURE_HANDOFF_UPLOAD_RESERVATIONS/2026_09_10_000680_create_pkk_signature_handoff_upload_reservations_table.php",
+      "migration_name": "2026_09_10_000680_create_pkk_signature_handoff_upload_reservations_table",
+      "file_sha256": "0dd2ec3ea09670f5e57f1aef60910fab29af27c9eb74519c76cf020e1a6d9e8e",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-PKK_PROTECTED_PAYLOADS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-PKK_PROTECTED_PAYLOADS/2026_09_10_000690_create_pkk_protected_payloads_table.php",
+      "migration_name": "2026_09_10_000690_create_pkk_protected_payloads_table",
+      "file_sha256": "6d5a68c505a80ac56a2e5ceba40f0db2eaa3b733338b97ff929335975445b16e",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-PKK_PROTECTED_PAYLOAD_KEY_WRAPPINGS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-PKK_PROTECTED_PAYLOAD_KEY_WRAPPINGS/2026_09_10_000700_create_pkk_protected_payload_key_wrappings_table.php",
+      "migration_name": "2026_09_10_000700_create_pkk_protected_payload_key_wrappings_table",
+      "file_sha256": "f67f3a4838a40028c9c64ec8d13f543256fb83f1c823d4826137088c173fb8b7",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-PKK_PAYLOAD_REDACTED_PROJECTIONS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-PKK_PAYLOAD_REDACTED_PROJECTIONS/2026_09_10_000710_create_pkk_payload_redacted_projections_table.php",
+      "migration_name": "2026_09_10_000710_create_pkk_payload_redacted_projections_table",
+      "file_sha256": "9c5cb40af4d97445daef402c4280369b38dd3dd27e8fe1fc97c5a276e33f6d12",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-PKK_SIGNATURE_FILE_ASSET_PROTECTIONS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-PKK_SIGNATURE_FILE_ASSET_PROTECTIONS/2026_09_10_000720_create_pkk_signature_file_asset_protections_table.php",
+      "migration_name": "2026_09_10_000720_create_pkk_signature_file_asset_protections_table",
+      "file_sha256": "8ebb686e1e461ea869a89a58e431718ef874234575818967d71757c546eb8d49",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-PKK_SIGNATURE_FILE_ASSET_KEY_WRAPPINGS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-PKK_SIGNATURE_FILE_ASSET_KEY_WRAPPINGS/2026_09_10_000730_create_pkk_signature_file_asset_key_wrappings_table.php",
+      "migration_name": "2026_09_10_000730_create_pkk_signature_file_asset_key_wrappings_table",
+      "file_sha256": "b3dc3e7ce5c0b3240f90866ad9bc4531ddcdf71fd54169786b59e347047d2799",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-STUDENT_CHARGES",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-STUDENT_CHARGES/2026_09_10_000740_create_student_charges_table.php",
+      "migration_name": "2026_09_10_000740_create_student_charges_table",
+      "file_sha256": "59b48fd154aa51387d32e83eef7d2d11f573c2e012e9fc5d8667cf59bebb9807",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-STUDENT_PAYMENTS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-STUDENT_PAYMENTS/2026_09_10_000750_create_student_payments_table.php",
+      "migration_name": "2026_09_10_000750_create_student_payments_table",
+      "file_sha256": "e6b5b4ef689fe2188d9d6811e6e3867d2b84ba2302630225fb2d705fda3f719b",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-COURSE_COST_CHARGE_ORIGINS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-COURSE_COST_CHARGE_ORIGINS/2026_09_10_000760_create_course_cost_charge_origins_table.php",
+      "migration_name": "2026_09_10_000760_create_course_cost_charge_origins_table",
+      "file_sha256": "fa9aff14a981ead495464aed542317f8804c0d42d8222db33c06970f420480a3",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-LICENSE_PRODUCTS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-LICENSE_PRODUCTS/2026_09_10_000770_create_license_products_table.php",
+      "migration_name": "2026_09_10_000770_create_license_products_table",
+      "file_sha256": "a99e1a36b108393facc651ad254803e5f79922a6a687ba06dba11a0969c85c12",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-LICENSE_PRODUCT_LANGUAGE_CAPABILITIES",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-LICENSE_PRODUCT_LANGUAGE_CAPABILITIES/2026_09_10_000780_create_license_product_language_capabilities_table.php",
+      "migration_name": "2026_09_10_000780_create_license_product_language_capabilities_table",
+      "file_sha256": "a91a9520289be568a07c879a11b20f4960adb4ad47e7f2f1596b6fb8cada43d4",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-LICENSE_INVENTORY_ENTRIES",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-LICENSE_INVENTORY_ENTRIES/2026_09_10_000790_create_license_inventory_entries_table.php",
+      "migration_name": "2026_09_10_000790_create_license_inventory_entries_table",
+      "file_sha256": "229303588a6d021296757556115808cebb8a25905b2b083e89ab7073a90997ed",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-LICENSE_ASSIGNMENTS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-LICENSE_ASSIGNMENTS/2026_09_10_000800_create_license_assignments_table.php",
+      "migration_name": "2026_09_10_000800_create_license_assignments_table",
+      "file_sha256": "60fb9942f9426e28c62ca225253e387b24bcd00226f912e8508333391d17646b",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-LICENSE_ACTIVATIONS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-LICENSE_ACTIVATIONS/2026_09_10_000810_create_license_activations_table.php",
+      "migration_name": "2026_09_10_000810_create_license_activations_table",
+      "file_sha256": "3620394cbc60127d05b834f8ba17490044067b9733cd3e03735b9bb9d0695800",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-EXAM_STATIONS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-EXAM_STATIONS/2026_09_10_000820_create_exam_stations_table.php",
+      "migration_name": "2026_09_10_000820_create_exam_stations_table",
+      "file_sha256": "78c24d4a6db676d4c71ca209c30b1f15b6abb17f71043d20b9216f72d6e3f0f0",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-EXAM_STATION_CREDENTIALS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-EXAM_STATION_CREDENTIALS/2026_09_10_000830_create_exam_station_credentials_table.php",
+      "migration_name": "2026_09_10_000830_create_exam_station_credentials_table",
+      "file_sha256": "fcd02b29271d5d1835db2314fae78c819f48acd4b13738cabc83d9ba22349178",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-INTERNAL_EXAM_DEFINITIONS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-INTERNAL_EXAM_DEFINITIONS/2026_09_10_000840_create_internal_exam_definitions_table.php",
+      "migration_name": "2026_09_10_000840_create_internal_exam_definitions_table",
+      "file_sha256": "c5b515c427040466976e7a5b9f15bad00fbe3b0b7d5513536e43e0ebbf2cb26e",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-INTERNAL_EXAM_DOCUMENT_TEMPLATES",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-INTERNAL_EXAM_DOCUMENT_TEMPLATES/2026_09_10_000850_create_internal_exam_document_templates_table.php",
+      "migration_name": "2026_09_10_000850_create_internal_exam_document_templates_table",
+      "file_sha256": "f7528c354a2cdb4539173d70c1d1b9e12a02c7fdabcb3e3882c2fb786dd40be9",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-INTERNAL_EXAM_INVENTORY_ENTRIES",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-INTERNAL_EXAM_INVENTORY_ENTRIES/2026_09_10_000860_create_internal_exam_inventory_entries_table.php",
+      "migration_name": "2026_09_10_000860_create_internal_exam_inventory_entries_table",
+      "file_sha256": "aa014f17de518c3ac0e3dfc67300c99bb1cdcf74d9ef4953d80cecbf35098998",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-INTERNAL_EXAM_INVENTORY_ADJUSTMENTS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-INTERNAL_EXAM_INVENTORY_ADJUSTMENTS/2026_09_10_000870_create_internal_exam_inventory_adjustments_table.php",
+      "migration_name": "2026_09_10_000870_create_internal_exam_inventory_adjustments_table",
+      "file_sha256": "66c86507a610911c893925e5b08aa45c03ba77f4984e2f370ad7b7e3e2a7b965",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-INTERNAL_EXAM_INVENTORY_LEDGER_ENTRIES",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-INTERNAL_EXAM_INVENTORY_LEDGER_ENTRIES/2026_09_10_000880_create_internal_exam_inventory_ledger_entries_table.php",
+      "migration_name": "2026_09_10_000880_create_internal_exam_inventory_ledger_entries_table",
+      "file_sha256": "49454764f264a719e181c9e0f85a8b92e735ea4e8f81332b49bd1e5b9c6b3207",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-INTERNAL_EXAM_ATTEMPTS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-INTERNAL_EXAM_ATTEMPTS/2026_09_10_000890_create_internal_exam_attempts_table.php",
+      "migration_name": "2026_09_10_000890_create_internal_exam_attempts_table",
+      "file_sha256": "9a09b852c25d63833fc00eba09e5f7d0423f17a1b503758f43fbd63624bd63f9",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-INTERNAL_EXAM_ATTEMPT_LIFECYCLE_EVENTS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-INTERNAL_EXAM_ATTEMPT_LIFECYCLE_EVENTS/2026_09_10_000900_create_internal_exam_attempt_lifecycle_events_table.php",
+      "migration_name": "2026_09_10_000900_create_internal_exam_attempt_lifecycle_events_table",
+      "file_sha256": "d7f4479803cc213d51e12ff5afdc2b162465cb49b4fe0c223e2b91c66b882c90",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-INTERNAL_EXAM_RESERVATIONS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-INTERNAL_EXAM_RESERVATIONS/2026_09_10_000910_create_internal_exam_reservations_table.php",
+      "migration_name": "2026_09_10_000910_create_internal_exam_reservations_table",
+      "file_sha256": "9993dcfb1a7e4c76d675b3badb4074cd3bc21030b0881427f6198e40d800e5ee",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-INTERNAL_EXAM_ACCESSES",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-INTERNAL_EXAM_ACCESSES/2026_09_10_000920_create_internal_exam_accesses_table.php",
+      "migration_name": "2026_09_10_000920_create_internal_exam_accesses_table",
+      "file_sha256": "4fcc50f20beffdd747e7b0c2c11e3bcb360478dde11ccf96cf5a3cb04c8a831e",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-INTERNAL_EXAM_ACCESS_LIFECYCLE_EVENTS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-INTERNAL_EXAM_ACCESS_LIFECYCLE_EVENTS/2026_09_10_000930_create_internal_exam_access_lifecycle_events_table.php",
+      "migration_name": "2026_09_10_000930_create_internal_exam_access_lifecycle_events_table",
+      "file_sha256": "c918308d006dcd73030a88420feb32cf110f50196ed4e111c2a0bbc1152a8fac",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-INTERNAL_EXAM_ACCESS_TOKENS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-INTERNAL_EXAM_ACCESS_TOKENS/2026_09_10_000940_create_internal_exam_access_tokens_table.php",
+      "migration_name": "2026_09_10_000940_create_internal_exam_access_tokens_table",
+      "file_sha256": "4546805a9d20c17f46b823942575562d37e93c88d286d33e94db4abbcf095a7c",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-INTERNAL_EXAM_STATION_SESSIONS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-INTERNAL_EXAM_STATION_SESSIONS/2026_09_10_000950_create_internal_exam_station_sessions_table.php",
+      "migration_name": "2026_09_10_000950_create_internal_exam_station_sessions_table",
+      "file_sha256": "645611e4cffcfc3df22b8ba75a63cd3ed8107ee3d4a5ff5503aa1c332b1437f5",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-INTERNAL_EXAM_ATTEMPT_QUESTIONS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-INTERNAL_EXAM_ATTEMPT_QUESTIONS/2026_09_10_000960_create_internal_exam_attempt_questions_table.php",
+      "migration_name": "2026_09_10_000960_create_internal_exam_attempt_questions_table",
+      "file_sha256": "519e40fed42c4826325c13ae3c2a46a2d8746a2ca4189e8717807ebbd94882ab",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-INTERNAL_EXAM_RESULTS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-INTERNAL_EXAM_RESULTS/2026_09_10_000970_create_internal_exam_results_table.php",
+      "migration_name": "2026_09_10_000970_create_internal_exam_results_table",
+      "file_sha256": "535c5c74a563bda34f7b050191089eb8cfeebd4aeddd05495f642907dbde33ae",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-INTERNAL_EXAM_DOCUMENTS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-INTERNAL_EXAM_DOCUMENTS/2026_09_10_000980_create_internal_exam_documents_table.php",
+      "migration_name": "2026_09_10_000980_create_internal_exam_documents_table",
+      "file_sha256": "85a1c1bbbeb98892563ce6d3ec06c181c979473ed4e3bd1d8301adcc3264d347",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-COMMERCE_CATALOG_ITEMS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-COMMERCE_CATALOG_ITEMS/2026_09_10_000990_create_commerce_catalog_items_table.php",
+      "migration_name": "2026_09_10_000990_create_commerce_catalog_items_table",
+      "file_sha256": "93d53cd2593e32d78d7e91ffb301a75922470ad6967c1694c1e95efb5dab088e",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-ORDERS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-ORDERS/2026_09_10_001000_create_orders_table.php",
+      "migration_name": "2026_09_10_001000_create_orders_table",
+      "file_sha256": "1135062ca4f1e1d2390a748322da95583c75c84463e38d175943939a640c5ac2",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-ORDER_ITEMS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-ORDER_ITEMS/2026_09_10_001010_create_order_items_table.php",
+      "migration_name": "2026_09_10_001010_create_order_items_table",
+      "file_sha256": "ed2b9b15cf5e6421b0f1ea215a5bca7538d2b97d237fea33b08d40c3c2f2385e",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-PAYMENTS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-PAYMENTS/2026_09_10_001020_create_payments_table.php",
+      "migration_name": "2026_09_10_001020_create_payments_table",
+      "file_sha256": "efb9a8781337979b674b9690fec6f94644151c2b4603b38dd3cdcc2c5069937a",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-PAYMENT_EVENTS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-PAYMENT_EVENTS/2026_09_10_001030_create_payment_events_table.php",
+      "migration_name": "2026_09_10_001030_create_payment_events_table",
+      "file_sha256": "b6828dc8def03022a2c0b2f72959e0c2a9fd66f9d3676ef9eda43445c7d9590d",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-ORDER_PAYMENT_SETTLEMENTS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-ORDER_PAYMENT_SETTLEMENTS/2026_09_10_001040_create_order_payment_settlements_table.php",
+      "migration_name": "2026_09_10_001040_create_order_payment_settlements_table",
+      "file_sha256": "e9144d9da9b3f9dd563cee102f7143aebb4341352a144b12d84f8e83a426ed8d",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-ORDER_FULFILLMENTS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-ORDER_FULFILLMENTS/2026_09_10_001050_create_order_fulfillments_table.php",
+      "migration_name": "2026_09_10_001050_create_order_fulfillments_table",
+      "file_sha256": "07abd3cb671d55ab0aecbbee0e9a276297a4bffb383f0f8b414318778834c735",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-SERVICE_ENTITLEMENTS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-SERVICE_ENTITLEMENTS/2026_09_10_001060_create_service_entitlements_table.php",
+      "migration_name": "2026_09_10_001060_create_service_entitlements_table",
+      "file_sha256": "943a43ae27e456c4904ce073b21c4595e0a6bed04f0eefe7afd4c4ef49b884a2",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-SERVICE_ACTIVATIONS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-SERVICE_ACTIVATIONS/2026_09_10_001070_create_service_activations_table.php",
+      "migration_name": "2026_09_10_001070_create_service_activations_table",
+      "file_sha256": "72b9e7ac928218329a26903fd396a9c6a9208eb8b35f487f088bea3b59f40e8b",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-AUDIT_ACTION_POLICY_REVISIONS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-AUDIT_ACTION_POLICY_REVISIONS/2026_09_10_001080_create_audit_action_policy_revisions_table.php",
+      "migration_name": "2026_09_10_001080_create_audit_action_policy_revisions_table",
+      "file_sha256": "3399c8552fba94a4d46a840fdbae6d1570808785d4a10178dd68bf3fccca99ba",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-AUDIT_ACTION_POLICY_CURRENTS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-AUDIT_ACTION_POLICY_CURRENTS/2026_09_10_001090_create_audit_action_policy_currents_table.php",
+      "migration_name": "2026_09_10_001090_create_audit_action_policy_currents_table",
+      "file_sha256": "d026e4b2f5ac4ac9979b9c78e790b2cf312ec9fbe64ff2304a4d83713e4283ce",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-AUDIT_LOGS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-AUDIT_LOGS/2026_09_10_001100_create_audit_logs_table.php",
+      "migration_name": "2026_09_10_001100_create_audit_logs_table",
+      "file_sha256": "a3b7cb181b2601b1f357c89a16bff13c82571d787624ca514d06bae966d5dd55",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-DOMAIN_EVENTS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-DOMAIN_EVENTS/2026_09_10_001110_create_domain_events_table.php",
+      "migration_name": "2026_09_10_001110_create_domain_events_table",
+      "file_sha256": "ee3c6f1a67615844b7026a447886e9d12c9d4cdddb7156e8381a4e200ff57035",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-OUTBOX_MESSAGES",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-OUTBOX_MESSAGES/2026_09_10_001120_create_outbox_messages_table.php",
+      "migration_name": "2026_09_10_001120_create_outbox_messages_table",
+      "file_sha256": "5fcb820b241254f2bd069305c61910d9b7c0dd00a603bf5dbbabd4e5d198b4b8",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-ACTIVITY_PROJECTION_POLICY_REVISIONS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-ACTIVITY_PROJECTION_POLICY_REVISIONS/2026_09_10_001130_create_activity_projection_policy_revisions_table.php",
+      "migration_name": "2026_09_10_001130_create_activity_projection_policy_revisions_table",
+      "file_sha256": "7ea63ff11e89e6a80ede5982d6a2ef8b7d689aa426d4ba1bc02b22ea72affaee",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-ACTIVITY_PROJECTION_POLICY_CURRENTS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-ACTIVITY_PROJECTION_POLICY_CURRENTS/2026_09_10_001140_create_activity_projection_policy_currents_table.php",
+      "migration_name": "2026_09_10_001140_create_activity_projection_policy_currents_table",
+      "file_sha256": "8cea052d90e12543b36d998977920d80f50acaf0c9957296e10fafdb0a69c758",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-ORGANIZATION_ACTIVITY_EVENTS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-ORGANIZATION_ACTIVITY_EVENTS/2026_09_10_001150_create_organization_activity_events_table.php",
+      "migration_name": "2026_09_10_001150_create_organization_activity_events_table",
+      "file_sha256": "a28c855316820cfaa33bb456e8f7bb37be7ef8e91a06cb1188a099ccb46fd2a0",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-NOTIFICATIONS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-NOTIFICATIONS/2026_09_10_001160_create_notifications_table.php",
+      "migration_name": "2026_09_10_001160_create_notifications_table",
+      "file_sha256": "19a6bbb07d752354eb01b6418032700961611c1040a68f84897edd190705073b",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-EVENT_PROJECTION_MIGRATION_CASES",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-EVENT_PROJECTION_MIGRATION_CASES/2026_09_10_001170_create_event_projection_migration_cases_table.php",
+      "migration_name": "2026_09_10_001170_create_event_projection_migration_cases_table",
+      "file_sha256": "0c96fd1bad98a61974029ae7c6637457d48e3c907e18c3ba9ab9c0d3cf717578",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TBL-DATA_RETENTION_EXECUTION_RUNS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage4/expand/MIG-TBL-DATA_RETENTION_EXECUTION_RUNS/2026_09_10_001180_create_data_retention_execution_runs_table.php",
+      "migration_name": "2026_09_10_001180_create_data_retention_execution_runs_table",
+      "file_sha256": "965d4c98c2689afe84a5672f60f537f59242bc37f4968079a5cbfd271678ff69",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-CK-IDENTITY",
+      "phase": "preflight",
+      "migration_file": "database/migrations/stage4/preflight/MIG-CK-IDENTITY/2026_09_10_001190_preflight_candidate_keys_identity.php",
+      "migration_name": "2026_09_10_001190_preflight_candidate_keys_identity",
+      "file_sha256": "ba98d5bcaee4fc5a6e6cae224674cee03f9a47dd9717688e8267da6025eb5e63",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-CK-ASSETS_RESOURCES",
+      "phase": "preflight",
+      "migration_file": "database/migrations/stage4/preflight/MIG-CK-ASSETS_RESOURCES/2026_09_10_001200_preflight_candidate_keys_assets_resources.php",
+      "migration_name": "2026_09_10_001200_preflight_candidate_keys_assets_resources",
+      "file_sha256": "d30be8e987b076217feacc3c51ae00eb1110dd82b97c4276ea6515384095ece5",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-CK-TRAINING",
+      "phase": "preflight",
+      "migration_file": "database/migrations/stage4/preflight/MIG-CK-TRAINING/2026_09_10_001210_preflight_candidate_keys_training.php",
+      "migration_name": "2026_09_10_001210_preflight_candidate_keys_training",
+      "file_sha256": "896b0e62f3d983688f847de81aeaa0c16145c65e9b048a8918c2dda196f3f724",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-CK-FINANCE",
+      "phase": "preflight",
+      "migration_file": "database/migrations/stage4/preflight/MIG-CK-FINANCE/2026_09_10_001220_preflight_candidate_keys_finance.php",
+      "migration_name": "2026_09_10_001220_preflight_candidate_keys_finance",
+      "file_sha256": "c5e21df994652865229eb708f9da0e15dbbf266f50443d2c262b023405bce116",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-CK-LICENSES",
+      "phase": "preflight",
+      "migration_file": "database/migrations/stage4/preflight/MIG-CK-LICENSES/2026_09_10_001230_preflight_candidate_keys_licenses.php",
+      "migration_name": "2026_09_10_001230_preflight_candidate_keys_licenses",
+      "file_sha256": "e61c2a5871091824fe7b5108ac026bb25052364f557e6406bb1f561dfa22eaf8",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-CK-EXAMS",
+      "phase": "preflight",
+      "migration_file": "database/migrations/stage4/preflight/MIG-CK-EXAMS/2026_09_10_001240_preflight_candidate_keys_exams.php",
+      "migration_name": "2026_09_10_001240_preflight_candidate_keys_exams",
+      "file_sha256": "1aa3e59d7a19435ff5b7e7fe5157b6b98fb6f20f2edae6386135d54435b982b2",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-CK-COMMERCE",
+      "phase": "preflight",
+      "migration_file": "database/migrations/stage4/preflight/MIG-CK-COMMERCE/2026_09_10_001250_preflight_candidate_keys_commerce.php",
+      "migration_name": "2026_09_10_001250_preflight_candidate_keys_commerce",
+      "file_sha256": "5a079d585b26297b9950c540b05139e7fe4f159be70f8420aa3a8d887cdcc647",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-CK-EVENTS",
+      "phase": "preflight",
+      "migration_file": "database/migrations/stage4/preflight/MIG-CK-EVENTS/2026_09_10_001260_preflight_candidate_keys_events.php",
+      "migration_name": "2026_09_10_001260_preflight_candidate_keys_events",
+      "file_sha256": "d23cb429563349bd6b30c53d49fdc7c77818f13a97ee953640b45bc1d0471226",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-IDX-IDENTITY",
+      "phase": "preflight",
+      "migration_file": "database/migrations/stage4/preflight/MIG-IDX-IDENTITY/2026_09_10_001270_preflight_indexes_identity.php",
+      "migration_name": "2026_09_10_001270_preflight_indexes_identity",
+      "file_sha256": "ea5e6bddbe93e084843084b9db01f10ab8def8347abcba4582d2b9cce14f71b8",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-IDX-RESOURCES",
+      "phase": "preflight",
+      "migration_file": "database/migrations/stage4/preflight/MIG-IDX-RESOURCES/2026_09_10_001280_preflight_indexes_resources.php",
+      "migration_name": "2026_09_10_001280_preflight_indexes_resources",
+      "file_sha256": "91a5aec45cd25b5f518d1f831345872ab8b25fcbf82d5e63266fe97c80b2d385",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-IDX-TRAINING",
+      "phase": "preflight",
+      "migration_file": "database/migrations/stage4/preflight/MIG-IDX-TRAINING/2026_09_10_001290_preflight_indexes_training.php",
+      "migration_name": "2026_09_10_001290_preflight_indexes_training",
+      "file_sha256": "f1f1e6ff067b41e49071f4962a3279c0ccbf4b1c81576ad9431ab3aabcb9bcf8",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-IDX-CALENDAR_GIST",
+      "phase": "preflight",
+      "migration_file": "database/migrations/stage4/preflight/MIG-IDX-CALENDAR_GIST/2026_09_10_001300_preflight_indexes_calendar_gist.php",
+      "migration_name": "2026_09_10_001300_preflight_indexes_calendar_gist",
+      "file_sha256": "cee9a11c175dd0017bb8adbfcad1b10804fcb31bee4714a54828a648e1d0324c",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-IDX-PKK",
+      "phase": "preflight",
+      "migration_file": "database/migrations/stage4/preflight/MIG-IDX-PKK/2026_09_10_001310_preflight_indexes_pkk.php",
+      "migration_name": "2026_09_10_001310_preflight_indexes_pkk",
+      "file_sha256": "77401b610d284ea4c0bcb6487d83c1c7490a447154c4295f08e6ae89e93c0ada",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-IDX-FINANCE",
+      "phase": "preflight",
+      "migration_file": "database/migrations/stage4/preflight/MIG-IDX-FINANCE/2026_09_10_001320_preflight_indexes_finance.php",
+      "migration_name": "2026_09_10_001320_preflight_indexes_finance",
+      "file_sha256": "03170c4fa1b00b127f711ddb64eda23d05613d110e6ffb9e45a7a986730214a5",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-IDX-LICENSES",
+      "phase": "preflight",
+      "migration_file": "database/migrations/stage4/preflight/MIG-IDX-LICENSES/2026_09_10_001330_preflight_indexes_licenses.php",
+      "migration_name": "2026_09_10_001330_preflight_indexes_licenses",
+      "file_sha256": "2d98a7c24b614c7623fe6bb64ee2b98ddc7de160ef3a846b88467c8fe0124c12",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-IDX-EXAMS",
+      "phase": "preflight",
+      "migration_file": "database/migrations/stage4/preflight/MIG-IDX-EXAMS/2026_09_10_001340_preflight_indexes_exams.php",
+      "migration_name": "2026_09_10_001340_preflight_indexes_exams",
+      "file_sha256": "dafb7e6f86dcdbbaa0996d7354ee2f6782a65bacbe73a8660d607d462cb30ee1",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-IDX-COMMERCE",
+      "phase": "preflight",
+      "migration_file": "database/migrations/stage4/preflight/MIG-IDX-COMMERCE/2026_09_10_001350_preflight_indexes_commerce.php",
+      "migration_name": "2026_09_10_001350_preflight_indexes_commerce",
+      "file_sha256": "1a564d41d476927e626be4d1f4e3306548b0990ae21b8a050661b839cd158fb3",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-IDX-EVENTS",
+      "phase": "preflight",
+      "migration_file": "database/migrations/stage4/preflight/MIG-IDX-EVENTS/2026_09_10_001360_preflight_indexes_events.php",
+      "migration_name": "2026_09_10_001360_preflight_indexes_events",
+      "file_sha256": "50241e7e4620e95c4ebb1365bf3e5d35ef147fcaa3494bb3283550e84496c674",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-FK-IDENTITY",
+      "phase": "preflight",
+      "migration_file": "database/migrations/stage4/preflight/MIG-FK-IDENTITY/2026_09_10_001370_preflight_foreign_keys_identity.php",
+      "migration_name": "2026_09_10_001370_preflight_foreign_keys_identity",
+      "file_sha256": "053ecffa7c8579f22a1342985ef63fbac1da7834657b200654c9b533566988a6",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-FK-RESOURCES",
+      "phase": "preflight",
+      "migration_file": "database/migrations/stage4/preflight/MIG-FK-RESOURCES/2026_09_10_001380_preflight_foreign_keys_resources.php",
+      "migration_name": "2026_09_10_001380_preflight_foreign_keys_resources",
+      "file_sha256": "f99a8d1759a0f04b67f4eb77afc8bafd10ce5fde7476ad30b84e51765ca9b641",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-FK-TRAINING",
+      "phase": "preflight",
+      "migration_file": "database/migrations/stage4/preflight/MIG-FK-TRAINING/2026_09_10_001390_preflight_foreign_keys_training.php",
+      "migration_name": "2026_09_10_001390_preflight_foreign_keys_training",
+      "file_sha256": "6b110e739275d6bb6a60b0956c1f1822563a22218e009caf152beedd961165a5",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-FK-CALENDAR",
+      "phase": "preflight",
+      "migration_file": "database/migrations/stage4/preflight/MIG-FK-CALENDAR/2026_09_10_001400_preflight_foreign_keys_calendar.php",
+      "migration_name": "2026_09_10_001400_preflight_foreign_keys_calendar",
+      "file_sha256": "a4c875c2b7f7d221890531841e3dc4325c5dc431fcf0f8eaa931f9e4ec68e4ff",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-FK-PKK",
+      "phase": "preflight",
+      "migration_file": "database/migrations/stage4/preflight/MIG-FK-PKK/2026_09_10_001410_preflight_foreign_keys_pkk.php",
+      "migration_name": "2026_09_10_001410_preflight_foreign_keys_pkk",
+      "file_sha256": "1edb0b488693bf0e38cd4d1ed665a3f2fce4d1d3a741790aa5917f6c5f4cf45c",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-FK-FINANCE",
+      "phase": "preflight",
+      "migration_file": "database/migrations/stage4/preflight/MIG-FK-FINANCE/2026_09_10_001420_preflight_foreign_keys_finance.php",
+      "migration_name": "2026_09_10_001420_preflight_foreign_keys_finance",
+      "file_sha256": "df27c3fdf1226ede383e6219209dfa51ef8497fe9d25697c08b045741cf81ee1",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-FK-LICENSES",
+      "phase": "preflight",
+      "migration_file": "database/migrations/stage4/preflight/MIG-FK-LICENSES/2026_09_10_001430_preflight_foreign_keys_licenses.php",
+      "migration_name": "2026_09_10_001430_preflight_foreign_keys_licenses",
+      "file_sha256": "c6ef8371d020d499e389b909538100e659accfab7a2dc46ebee17da5b05f8a8a",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-FK-EXAMS",
+      "phase": "preflight",
+      "migration_file": "database/migrations/stage4/preflight/MIG-FK-EXAMS/2026_09_10_001440_preflight_foreign_keys_exams.php",
+      "migration_name": "2026_09_10_001440_preflight_foreign_keys_exams",
+      "file_sha256": "d1441fc54add3c1eec2ec36d0a3ca61cc7937f781801275acaa34649a1f4ba84",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-FK-COMMERCE",
+      "phase": "preflight",
+      "migration_file": "database/migrations/stage4/preflight/MIG-FK-COMMERCE/2026_09_10_001450_preflight_foreign_keys_commerce.php",
+      "migration_name": "2026_09_10_001450_preflight_foreign_keys_commerce",
+      "file_sha256": "132e86cf66df0266a9fcc5924d208de8a055dfb378994f1d504e07043b70465a",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-FK-PURCHASE_DOWNSTREAM",
+      "phase": "preflight",
+      "migration_file": "database/migrations/stage4/preflight/MIG-FK-PURCHASE_DOWNSTREAM/2026_09_10_001460_preflight_foreign_keys_purchase_downstream.php",
+      "migration_name": "2026_09_10_001460_preflight_foreign_keys_purchase_downstream",
+      "file_sha256": "95a5d80e0461b50abe2698e0eeaf1f09075a5b5e4bb34a34ef39b134e6d8a61f",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-FK-EVENTS",
+      "phase": "preflight",
+      "migration_file": "database/migrations/stage4/preflight/MIG-FK-EVENTS/2026_09_10_001470_preflight_foreign_keys_events.php",
+      "migration_name": "2026_09_10_001470_preflight_foreign_keys_events",
+      "file_sha256": "02e28bd026b44cd22f9d19ec9a772a8644b99c24619a4dcd2ad452b6cc2738b2",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-CON-IDENTITY",
+      "phase": "preflight",
+      "migration_file": "database/migrations/stage4/preflight/MIG-CON-IDENTITY/2026_09_10_001480_preflight_constraints_identity.php",
+      "migration_name": "2026_09_10_001480_preflight_constraints_identity",
+      "file_sha256": "9a8473690110d6fdcc3a0fa76b9161ef35b42333db7901172f74b4b2c7a8c84b",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-CON-RESOURCES",
+      "phase": "preflight",
+      "migration_file": "database/migrations/stage4/preflight/MIG-CON-RESOURCES/2026_09_10_001490_preflight_constraints_resources.php",
+      "migration_name": "2026_09_10_001490_preflight_constraints_resources",
+      "file_sha256": "757a0924525f9eabd3bf23219e5ad46b51acc65c5682310276c046aa8808904c",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-CON-TRAINING",
+      "phase": "preflight",
+      "migration_file": "database/migrations/stage4/preflight/MIG-CON-TRAINING/2026_09_10_001500_preflight_constraints_training.php",
+      "migration_name": "2026_09_10_001500_preflight_constraints_training",
+      "file_sha256": "bcae8ea25e458cd2f8fd3887b9d3b95db7c16e1321c7fc6b749e5455d55b7077",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-CON-CALENDAR",
+      "phase": "preflight",
+      "migration_file": "database/migrations/stage4/preflight/MIG-CON-CALENDAR/2026_09_10_001510_preflight_constraints_calendar.php",
+      "migration_name": "2026_09_10_001510_preflight_constraints_calendar",
+      "file_sha256": "b0f66f71c63dd8dcb051a022ae5bc605c73010dc70b158f80051a91a5ed4d393",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-CON-PKK",
+      "phase": "preflight",
+      "migration_file": "database/migrations/stage4/preflight/MIG-CON-PKK/2026_09_10_001520_preflight_constraints_pkk.php",
+      "migration_name": "2026_09_10_001520_preflight_constraints_pkk",
+      "file_sha256": "c6e65cfc65217c84fa337f6c76cebe4ca15e4c47ee5eef6881d8e051f71717a4",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-CON-FINANCE",
+      "phase": "preflight",
+      "migration_file": "database/migrations/stage4/preflight/MIG-CON-FINANCE/2026_09_10_001530_preflight_constraints_finance.php",
+      "migration_name": "2026_09_10_001530_preflight_constraints_finance",
+      "file_sha256": "b81c206cf60bd9ce4372cccf4927934d46ff1696be6a6986bc8ad2ab254bacd0",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-CON-LICENSES",
+      "phase": "preflight",
+      "migration_file": "database/migrations/stage4/preflight/MIG-CON-LICENSES/2026_09_10_001540_preflight_constraints_licenses.php",
+      "migration_name": "2026_09_10_001540_preflight_constraints_licenses",
+      "file_sha256": "43f154cbe5080cc4f22918881434ac8af2864cb457576247395158cfa415b5ea",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-CON-EXAMS",
+      "phase": "preflight",
+      "migration_file": "database/migrations/stage4/preflight/MIG-CON-EXAMS/2026_09_10_001550_preflight_constraints_exams.php",
+      "migration_name": "2026_09_10_001550_preflight_constraints_exams",
+      "file_sha256": "3771fc512a5cb0ffa9904f4e499ee20038f24901fbbae21e54decbc039ce0890",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-CON-COMMERCE",
+      "phase": "preflight",
+      "migration_file": "database/migrations/stage4/preflight/MIG-CON-COMMERCE/2026_09_10_001560_preflight_constraints_commerce.php",
+      "migration_name": "2026_09_10_001560_preflight_constraints_commerce",
+      "file_sha256": "7ba0ed3d673e3f30be78183a2a946d4815d3af4b1bff64e66a36ad4e0d96fdb9",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-CON-EVENTS",
+      "phase": "preflight",
+      "migration_file": "database/migrations/stage4/preflight/MIG-CON-EVENTS/2026_09_10_001570_preflight_constraints_events.php",
+      "migration_name": "2026_09_10_001570_preflight_constraints_events",
+      "file_sha256": "27ebb9e1cd3442a5f9d314c6ce7cbcf9eae2359e94386053b391886a30d482ea",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-CK-IDENTITY",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-CK-IDENTITY/2026_09_10_001190_write_fence_candidate_keys_identity.php",
+      "migration_name": "2026_09_10_001190_write_fence_candidate_keys_identity",
+      "file_sha256": "ac18af7dce66ef5b31edbc622c04df4f50a0b6f8cb8f8052d9f5df8c898ec439",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-CK-ASSETS_RESOURCES",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-CK-ASSETS_RESOURCES/2026_09_10_001200_write_fence_candidate_keys_assets_resources.php",
+      "migration_name": "2026_09_10_001200_write_fence_candidate_keys_assets_resources",
+      "file_sha256": "530a744bac96c357f5dd3dd3383985b4b334593d1601543e327f56fc029ce43c",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-CK-TRAINING",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-CK-TRAINING/2026_09_10_001210_write_fence_candidate_keys_training.php",
+      "migration_name": "2026_09_10_001210_write_fence_candidate_keys_training",
+      "file_sha256": "324ca7099ebeb8bceeb459b2aa3793414a53881202afa222dc6a1bd649e40661",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-CK-FINANCE",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-CK-FINANCE/2026_09_10_001220_write_fence_candidate_keys_finance.php",
+      "migration_name": "2026_09_10_001220_write_fence_candidate_keys_finance",
+      "file_sha256": "68c09180696a41fc2b6f0713024f5bc27c1d303a5919cb41e2ab8746cb9e3562",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-CK-LICENSES",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-CK-LICENSES/2026_09_10_001230_write_fence_candidate_keys_licenses.php",
+      "migration_name": "2026_09_10_001230_write_fence_candidate_keys_licenses",
+      "file_sha256": "0270ff12359bbc0cf1ad2bdd2ee97674b92c0021ea6eb1205042519978311973",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-CK-EXAMS",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-CK-EXAMS/2026_09_10_001240_write_fence_candidate_keys_exams.php",
+      "migration_name": "2026_09_10_001240_write_fence_candidate_keys_exams",
+      "file_sha256": "80deba882626a254b8f9f21eae212d5db26852c3850b707f7536aa9a17ed62e8",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-CK-COMMERCE",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-CK-COMMERCE/2026_09_10_001250_write_fence_candidate_keys_commerce.php",
+      "migration_name": "2026_09_10_001250_write_fence_candidate_keys_commerce",
+      "file_sha256": "9fbef87b025e03be118ccf6b3a48b2f0ed05abee7f143ddeba1cf7d35f251cd0",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-CK-EVENTS",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-CK-EVENTS/2026_09_10_001260_write_fence_candidate_keys_events.php",
+      "migration_name": "2026_09_10_001260_write_fence_candidate_keys_events",
+      "file_sha256": "f655914506e1f9af6f825bbc53091069d31439c54ff1845f88cbe4117bcd23b9",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-IDX-IDENTITY",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-IDX-IDENTITY/2026_09_10_001270_write_fence_indexes_identity.php",
+      "migration_name": "2026_09_10_001270_write_fence_indexes_identity",
+      "file_sha256": "4350ac6c0337cf2e3459299dccbe8c227be08a3e30c56dde68d63faa4178036a",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-IDX-RESOURCES",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-IDX-RESOURCES/2026_09_10_001280_write_fence_indexes_resources.php",
+      "migration_name": "2026_09_10_001280_write_fence_indexes_resources",
+      "file_sha256": "39bbde851976265e67c3f447531d38ae83728475dd060fd313cabc92f294d633",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-IDX-TRAINING",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-IDX-TRAINING/2026_09_10_001290_write_fence_indexes_training.php",
+      "migration_name": "2026_09_10_001290_write_fence_indexes_training",
+      "file_sha256": "a91b00d53edc74e444ebf14032823cceb405a9d32363d47942cd7d9449522b67",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-IDX-CALENDAR_GIST",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-IDX-CALENDAR_GIST/2026_09_10_001300_write_fence_indexes_calendar_gist.php",
+      "migration_name": "2026_09_10_001300_write_fence_indexes_calendar_gist",
+      "file_sha256": "f1fdfeb03c17e83ffaae38d91adfc716ade26ce8bf4e6328eb6d299bbc919603",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-IDX-PKK",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-IDX-PKK/2026_09_10_001310_write_fence_indexes_pkk.php",
+      "migration_name": "2026_09_10_001310_write_fence_indexes_pkk",
+      "file_sha256": "ffcc025a75d32ac225ce2d27fa674a06343d513de6ec663b7225caf01189b201",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-IDX-FINANCE",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-IDX-FINANCE/2026_09_10_001320_write_fence_indexes_finance.php",
+      "migration_name": "2026_09_10_001320_write_fence_indexes_finance",
+      "file_sha256": "6252961c82c19239157262877cfcf333fdade4a1dcf53bca321424d7085ad2cc",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-IDX-LICENSES",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-IDX-LICENSES/2026_09_10_001330_write_fence_indexes_licenses.php",
+      "migration_name": "2026_09_10_001330_write_fence_indexes_licenses",
+      "file_sha256": "69c7e61d1a0b0bab306a6c7b7cfe62470ff70012685179d94882a75f0b734589",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-IDX-EXAMS",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-IDX-EXAMS/2026_09_10_001340_write_fence_indexes_exams.php",
+      "migration_name": "2026_09_10_001340_write_fence_indexes_exams",
+      "file_sha256": "1594a5df4850968b8e26c1b7c6682dc3a75cbb9b311d4657013431f23fb62fb9",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-IDX-COMMERCE",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-IDX-COMMERCE/2026_09_10_001350_write_fence_indexes_commerce.php",
+      "migration_name": "2026_09_10_001350_write_fence_indexes_commerce",
+      "file_sha256": "fa74eabe5af7a74e097a70fe97ddf525f33d6540cdc4b5f5c72f75ea79287d95",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-IDX-EVENTS",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-IDX-EVENTS/2026_09_10_001360_write_fence_indexes_events.php",
+      "migration_name": "2026_09_10_001360_write_fence_indexes_events",
+      "file_sha256": "59c31cea2703b3da13ce0c312669216996c5db687f175a58a9129c2e7e6bd523",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-FK-IDENTITY",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-FK-IDENTITY/2026_09_10_001370_write_fence_foreign_keys_identity.php",
+      "migration_name": "2026_09_10_001370_write_fence_foreign_keys_identity",
+      "file_sha256": "c552301be2f95f102cfc119d64e85ec72122a4466950489ac5222b997cf0f48c",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-FK-RESOURCES",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-FK-RESOURCES/2026_09_10_001380_write_fence_foreign_keys_resources.php",
+      "migration_name": "2026_09_10_001380_write_fence_foreign_keys_resources",
+      "file_sha256": "119fc78ecba26e26608c94f40286803832aecef6bc6cddddfee50d7f3f930afd",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-FK-TRAINING",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-FK-TRAINING/2026_09_10_001390_write_fence_foreign_keys_training.php",
+      "migration_name": "2026_09_10_001390_write_fence_foreign_keys_training",
+      "file_sha256": "9944129bb1018263cacd237c2ccd158347f0a60e597c3a7e61d570b4d3851a25",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-FK-CALENDAR",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-FK-CALENDAR/2026_09_10_001400_write_fence_foreign_keys_calendar.php",
+      "migration_name": "2026_09_10_001400_write_fence_foreign_keys_calendar",
+      "file_sha256": "0780e457e2e3f16a6aeb57ad3865641d4e44ddacfb0fb7ea37ff8e6385bd87b6",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-FK-PKK",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-FK-PKK/2026_09_10_001410_write_fence_foreign_keys_pkk.php",
+      "migration_name": "2026_09_10_001410_write_fence_foreign_keys_pkk",
+      "file_sha256": "3037f87d2bca2ae69d725fd03fc9446c15a2d720ad7b8a2494969fdf04bef130",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-FK-FINANCE",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-FK-FINANCE/2026_09_10_001420_write_fence_foreign_keys_finance.php",
+      "migration_name": "2026_09_10_001420_write_fence_foreign_keys_finance",
+      "file_sha256": "4e76c8541c3b43af8aad0570a556a15fc45bdabdfc3d29284ed06be998f88acc",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-FK-LICENSES",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-FK-LICENSES/2026_09_10_001430_write_fence_foreign_keys_licenses.php",
+      "migration_name": "2026_09_10_001430_write_fence_foreign_keys_licenses",
+      "file_sha256": "f23841757704e0c73cea2d7e54f3aaaee40a9fdaef18859afd471577f2e817de",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-FK-EXAMS",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-FK-EXAMS/2026_09_10_001440_write_fence_foreign_keys_exams.php",
+      "migration_name": "2026_09_10_001440_write_fence_foreign_keys_exams",
+      "file_sha256": "06833a6c2c2d48d5a65f30951bee585b6cda68fff613b7e5d3c024f3ecc1d5e9",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-FK-COMMERCE",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-FK-COMMERCE/2026_09_10_001450_write_fence_foreign_keys_commerce.php",
+      "migration_name": "2026_09_10_001450_write_fence_foreign_keys_commerce",
+      "file_sha256": "fae07967cb21d4b002e05aff9553c19c9a007e01f0055946febfef655cff3d5b",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-FK-PURCHASE_DOWNSTREAM",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-FK-PURCHASE_DOWNSTREAM/2026_09_10_001460_write_fence_foreign_keys_purchase_downstream.php",
+      "migration_name": "2026_09_10_001460_write_fence_foreign_keys_purchase_downstream",
+      "file_sha256": "c379535751f976cded4344c52e1e9ffe1c99cef66dcd0260310c9034f2332617",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-FK-EVENTS",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-FK-EVENTS/2026_09_10_001470_write_fence_foreign_keys_events.php",
+      "migration_name": "2026_09_10_001470_write_fence_foreign_keys_events",
+      "file_sha256": "0eb496f97dc0b9d1007c4becbed510b1693f5f525c4ddc75d82ad697381ade92",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-CON-IDENTITY",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-CON-IDENTITY/2026_09_10_001480_write_fence_constraints_identity.php",
+      "migration_name": "2026_09_10_001480_write_fence_constraints_identity",
+      "file_sha256": "efbc0b3ec354a09312a3bde43553728437f0d1a28f1abf43f9812043f69cd352",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-CON-RESOURCES",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-CON-RESOURCES/2026_09_10_001490_write_fence_constraints_resources.php",
+      "migration_name": "2026_09_10_001490_write_fence_constraints_resources",
+      "file_sha256": "5419e8684ba2b4196f8b9aa76bc8f3146618d811a74201ba67c9627fc7a05794",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-CON-TRAINING",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-CON-TRAINING/2026_09_10_001500_write_fence_constraints_training.php",
+      "migration_name": "2026_09_10_001500_write_fence_constraints_training",
+      "file_sha256": "2951f705215f652f57529cf4b2a4cdae22a21d332ac12a2c53e141de8d7039cd",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-CON-CALENDAR",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-CON-CALENDAR/2026_09_10_001510_write_fence_constraints_calendar.php",
+      "migration_name": "2026_09_10_001510_write_fence_constraints_calendar",
+      "file_sha256": "1f079b8d39610dc80fe236b493331a5547ec3b0d3468743755482886146d2111",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-CON-PKK",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-CON-PKK/2026_09_10_001520_write_fence_constraints_pkk.php",
+      "migration_name": "2026_09_10_001520_write_fence_constraints_pkk",
+      "file_sha256": "5f9c9ab19ecd0648b70d6d91fbfbcc90090289d7ec405c148a1d8f22ea0c976e",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-CON-FINANCE",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-CON-FINANCE/2026_09_10_001530_write_fence_constraints_finance.php",
+      "migration_name": "2026_09_10_001530_write_fence_constraints_finance",
+      "file_sha256": "0b7184d2e8097548fdc48dddcb4472409883f0d13c573c3ca3eb6a3c6d5ffa35",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-CON-LICENSES",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-CON-LICENSES/2026_09_10_001540_write_fence_constraints_licenses.php",
+      "migration_name": "2026_09_10_001540_write_fence_constraints_licenses",
+      "file_sha256": "e525ae48ca4f7b09ae2c77d675a445de63ef633dfee5414f714e555bfe43890d",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-CON-EXAMS",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-CON-EXAMS/2026_09_10_001550_write_fence_constraints_exams.php",
+      "migration_name": "2026_09_10_001550_write_fence_constraints_exams",
+      "file_sha256": "d17e782626fd84afd63afda5e9727f482e3a0c36b52faca049e35ea16303fc46",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-CON-COMMERCE",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-CON-COMMERCE/2026_09_10_001560_write_fence_constraints_commerce.php",
+      "migration_name": "2026_09_10_001560_write_fence_constraints_commerce",
+      "file_sha256": "2fd9db13877216526e2d0909cc97c697d26f8c547d7c472e8ff2fc031db09924",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-CON-EVENTS",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-CON-EVENTS/2026_09_10_001570_write_fence_constraints_events.php",
+      "migration_name": "2026_09_10_001570_write_fence_constraints_events",
+      "file_sha256": "d4fc1f17f471e9fbe50550cf80b50218022cf2096dc1d0e1d2770f18f8792b37",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TRG-IDENTITY",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-TRG-IDENTITY/2026_09_10_001580_write_fence_triggers_identity.php",
+      "migration_name": "2026_09_10_001580_write_fence_triggers_identity",
+      "file_sha256": "c2ac05a2f4a945a30bdd58a90efdc491b7b82e1251b6c1f8b787ddb094388326",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TRG-TRAINING",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-TRG-TRAINING/2026_09_10_001590_write_fence_triggers_training.php",
+      "migration_name": "2026_09_10_001590_write_fence_triggers_training",
+      "file_sha256": "d306f54be57dbe7de371d018ce0085efc3e3c34da252a0afd6d3d3787c959b99",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TRG-CALENDAR",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-TRG-CALENDAR/2026_09_10_001600_write_fence_triggers_calendar.php",
+      "migration_name": "2026_09_10_001600_write_fence_triggers_calendar",
+      "file_sha256": "cb251d24d444ac5cbd96ba2b1f1a22b2da6ec7942226bf652e518ddc27e90d80",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TRG-PKK",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-TRG-PKK/2026_09_10_001610_write_fence_triggers_pkk.php",
+      "migration_name": "2026_09_10_001610_write_fence_triggers_pkk",
+      "file_sha256": "0930ab9fa44c5eba00c7e9caeecdc102ea907596a56780cc2edb618c65ac34da",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TRG-FINANCE",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-TRG-FINANCE/2026_09_10_001620_write_fence_triggers_finance.php",
+      "migration_name": "2026_09_10_001620_write_fence_triggers_finance",
+      "file_sha256": "f3f2679615a9c7540d987c0590cf813ff5a4d5a702ea0cf62fec482106309028",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TRG-LICENSES",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-TRG-LICENSES/2026_09_10_001630_write_fence_triggers_licenses.php",
+      "migration_name": "2026_09_10_001630_write_fence_triggers_licenses",
+      "file_sha256": "b3396ed81c57b3c2834c22d90c0c7a73a98309e500c0e19abe2eb24a86a95280",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TRG-EXAMS",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-TRG-EXAMS/2026_09_10_001640_write_fence_triggers_exams.php",
+      "migration_name": "2026_09_10_001640_write_fence_triggers_exams",
+      "file_sha256": "3199061dc8f84ae7a64548fb9a4f09b06bbcbc2b53f2d5c41bd875850fffaca9",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TRG-COMMERCE",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-TRG-COMMERCE/2026_09_10_001650_write_fence_triggers_commerce.php",
+      "migration_name": "2026_09_10_001650_write_fence_triggers_commerce",
+      "file_sha256": "74f3ec5fe176430b923802f5d048df7225581249f62982e43c148c8ad0336195",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TRG-EVENTS",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-TRG-EVENTS/2026_09_10_001660_write_fence_triggers_events.php",
+      "migration_name": "2026_09_10_001660_write_fence_triggers_events",
+      "file_sha256": "1a5fd7634d63a358becfe2a535cfb5ecf96fbb49820e6b713f4919a4b18efdf5",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-PRJ-CALENDAR-RESOURCE-CLAIMS",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-PRJ-CALENDAR-RESOURCE-CLAIMS/2026_09_10_001670_write_fence_projection_calendar_resource_claims.php",
+      "migration_name": "2026_09_10_001670_write_fence_projection_calendar_resource_claims",
+      "file_sha256": "e01bcdc010e1a9dd97244a7e9db181e1962c3bcaa0cf2bc3c16c726f2a0e0807",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-PRJ-PURCHASE-HISTORY",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-PRJ-PURCHASE-HISTORY/2026_09_10_001680_write_fence_projection_purchase_history.php",
+      "migration_name": "2026_09_10_001680_write_fence_projection_purchase_history",
+      "file_sha256": "0dedd64bae7a7c52d0be6fb1172684face331dccccfd50d0cbd0475617da8b3a",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-PRJ-ORGANIZATION-ACTIVITY",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-PRJ-ORGANIZATION-ACTIVITY/2026_09_10_001690_write_fence_projection_organization_activity.php",
+      "migration_name": "2026_09_10_001690_write_fence_projection_organization_activity",
+      "file_sha256": "b4d2fd2826b26dacb06188593ec012a2e69893fc748537d7e5600960519c613b",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-PRJ-NOTIFICATIONS",
+      "phase": "write_fence",
+      "migration_file": "database/migrations/stage4/write_fence/MIG-PRJ-NOTIFICATIONS/2026_09_10_001700_write_fence_projection_notifications.php",
+      "migration_name": "2026_09_10_001700_write_fence_projection_notifications",
+      "file_sha256": "bf222a8806328a5d3967617f471c6dc7e99723b49ba675158867c0625ce37823",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-FK-PURCHASE_DOWNSTREAM",
+      "phase": "backfill",
+      "migration_file": "database/migrations/stage4/backfill/MIG-FK-PURCHASE_DOWNSTREAM/2026_09_10_001460_backfill_foreign_keys_purchase_downstream.php",
+      "migration_name": "2026_09_10_001460_backfill_foreign_keys_purchase_downstream",
+      "file_sha256": "fe875e0b261374df60097a4fcc104005765a1c88905c9184bda8c6d7f9b953c7",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-FK-EVENTS",
+      "phase": "backfill",
+      "migration_file": "database/migrations/stage4/backfill/MIG-FK-EVENTS/2026_09_10_001470_backfill_foreign_keys_events.php",
+      "migration_name": "2026_09_10_001470_backfill_foreign_keys_events",
+      "file_sha256": "bbc8dc2b4e732f876c1ac4c9ec823aa513bf75c4d1d39ef658f5727ee4ba998c",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TRG-EVENTS",
+      "phase": "backfill",
+      "migration_file": "database/migrations/stage4/backfill/MIG-TRG-EVENTS/2026_09_10_001660_backfill_triggers_events.php",
+      "migration_name": "2026_09_10_001660_backfill_triggers_events",
+      "file_sha256": "bec8faa183021bfec6508c32ff6014a928930a88d6eb6742ba75feb5af80689c",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-PRJ-CALENDAR-RESOURCE-CLAIMS",
+      "phase": "backfill",
+      "migration_file": "database/migrations/stage4/backfill/MIG-PRJ-CALENDAR-RESOURCE-CLAIMS/2026_09_10_001670_backfill_projection_calendar_resource_claims.php",
+      "migration_name": "2026_09_10_001670_backfill_projection_calendar_resource_claims",
+      "file_sha256": "1f28088a233fb31515f1b77a135c7eacd4abd0ab6c1060cde02f3900019517af",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-PRJ-PURCHASE-HISTORY",
+      "phase": "backfill",
+      "migration_file": "database/migrations/stage4/backfill/MIG-PRJ-PURCHASE-HISTORY/2026_09_10_001680_backfill_projection_purchase_history.php",
+      "migration_name": "2026_09_10_001680_backfill_projection_purchase_history",
+      "file_sha256": "eec200220923ebf4379ee96747baea1d1357263764d930144c27b841ad32419a",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-PRJ-ORGANIZATION-ACTIVITY",
+      "phase": "backfill",
+      "migration_file": "database/migrations/stage4/backfill/MIG-PRJ-ORGANIZATION-ACTIVITY/2026_09_10_001690_backfill_projection_organization_activity.php",
+      "migration_name": "2026_09_10_001690_backfill_projection_organization_activity",
+      "file_sha256": "9a46d9c9c0f32c221630068da5d5496e1d1e5e038d97897804a9b0e9b5aa35a7",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-PRJ-NOTIFICATIONS",
+      "phase": "backfill",
+      "migration_file": "database/migrations/stage4/backfill/MIG-PRJ-NOTIFICATIONS/2026_09_10_001700_backfill_projection_notifications.php",
+      "migration_name": "2026_09_10_001700_backfill_projection_notifications",
+      "file_sha256": "55a903b91eb614002d3510385905737b0243c52249a2119fa844beeec0a7f859",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-FK-PURCHASE_DOWNSTREAM",
+      "phase": "reconcile",
+      "migration_file": "database/migrations/stage4/reconcile/MIG-FK-PURCHASE_DOWNSTREAM/2026_09_10_001460_reconcile_foreign_keys_purchase_downstream.php",
+      "migration_name": "2026_09_10_001460_reconcile_foreign_keys_purchase_downstream",
+      "file_sha256": "8591222fab45f00cd874fe6bde1933ec8ceede433aeaee0c3db85bde9b0f066e",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-FK-EVENTS",
+      "phase": "reconcile",
+      "migration_file": "database/migrations/stage4/reconcile/MIG-FK-EVENTS/2026_09_10_001470_reconcile_foreign_keys_events.php",
+      "migration_name": "2026_09_10_001470_reconcile_foreign_keys_events",
+      "file_sha256": "6478d4742ed2d6af6f3722ce517283bf9d02ca91cc487d04b3e81d0f425b84d3",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TRG-EVENTS",
+      "phase": "reconcile",
+      "migration_file": "database/migrations/stage4/reconcile/MIG-TRG-EVENTS/2026_09_10_001660_reconcile_triggers_events.php",
+      "migration_name": "2026_09_10_001660_reconcile_triggers_events",
+      "file_sha256": "0d8dd5f44d10ed86efe13b55396a087661666feda68d869da2925bd76139853c",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-PRJ-CALENDAR-RESOURCE-CLAIMS",
+      "phase": "reconcile",
+      "migration_file": "database/migrations/stage4/reconcile/MIG-PRJ-CALENDAR-RESOURCE-CLAIMS/2026_09_10_001670_reconcile_projection_calendar_resource_claims.php",
+      "migration_name": "2026_09_10_001670_reconcile_projection_calendar_resource_claims",
+      "file_sha256": "ec81df92ce2929d85ac3af1321ae08da98e47348e8d66bfc30095f16fbe66df7",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-PRJ-PURCHASE-HISTORY",
+      "phase": "reconcile",
+      "migration_file": "database/migrations/stage4/reconcile/MIG-PRJ-PURCHASE-HISTORY/2026_09_10_001680_reconcile_projection_purchase_history.php",
+      "migration_name": "2026_09_10_001680_reconcile_projection_purchase_history",
+      "file_sha256": "1969625e248ba836d566925733821b612d1f74874e60d9af076286a02fdc475a",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-PRJ-ORGANIZATION-ACTIVITY",
+      "phase": "reconcile",
+      "migration_file": "database/migrations/stage4/reconcile/MIG-PRJ-ORGANIZATION-ACTIVITY/2026_09_10_001690_reconcile_projection_organization_activity.php",
+      "migration_name": "2026_09_10_001690_reconcile_projection_organization_activity",
+      "file_sha256": "83e98953861c0d4a2bb66657111e7b80c6dc8433af2f3f2cf469b4a084bf5b02",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-PRJ-NOTIFICATIONS",
+      "phase": "reconcile",
+      "migration_file": "database/migrations/stage4/reconcile/MIG-PRJ-NOTIFICATIONS/2026_09_10_001700_reconcile_projection_notifications.php",
+      "migration_name": "2026_09_10_001700_reconcile_projection_notifications",
+      "file_sha256": "62b2ddff004deef46f8302844705460e317025e5345eece7ec136ec0aba34197",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-FK-IDENTITY",
+      "phase": "validate",
+      "migration_file": "database/migrations/stage4/validate/MIG-FK-IDENTITY/2026_09_10_001370_validate_foreign_keys_identity.php",
+      "migration_name": "2026_09_10_001370_validate_foreign_keys_identity",
+      "file_sha256": "7b90f897d050b09a690135e4418c904fe3150299c58876524b23c2344aff904a",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-FK-RESOURCES",
+      "phase": "validate",
+      "migration_file": "database/migrations/stage4/validate/MIG-FK-RESOURCES/2026_09_10_001380_validate_foreign_keys_resources.php",
+      "migration_name": "2026_09_10_001380_validate_foreign_keys_resources",
+      "file_sha256": "ba93cf8d7f22b4a174257b0132fa7547157115ae7e1ad8e6a0654af5640f5019",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-FK-TRAINING",
+      "phase": "validate",
+      "migration_file": "database/migrations/stage4/validate/MIG-FK-TRAINING/2026_09_10_001390_validate_foreign_keys_training.php",
+      "migration_name": "2026_09_10_001390_validate_foreign_keys_training",
+      "file_sha256": "35ca94dff84fc4bd18fb33a7b97b8f4030d1303f000f1bc3a42dadbd3adec156",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-FK-CALENDAR",
+      "phase": "validate",
+      "migration_file": "database/migrations/stage4/validate/MIG-FK-CALENDAR/2026_09_10_001400_validate_foreign_keys_calendar.php",
+      "migration_name": "2026_09_10_001400_validate_foreign_keys_calendar",
+      "file_sha256": "06f3d7defcc228a67fc9eea989ab423aff6242aa52826b1e928bfc8947f83761",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-FK-PKK",
+      "phase": "validate",
+      "migration_file": "database/migrations/stage4/validate/MIG-FK-PKK/2026_09_10_001410_validate_foreign_keys_pkk.php",
+      "migration_name": "2026_09_10_001410_validate_foreign_keys_pkk",
+      "file_sha256": "d845e7953611a8ca1238eabca1b4442d05050adff077452f4ca9bd0ddba71596",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-FK-FINANCE",
+      "phase": "validate",
+      "migration_file": "database/migrations/stage4/validate/MIG-FK-FINANCE/2026_09_10_001420_validate_foreign_keys_finance.php",
+      "migration_name": "2026_09_10_001420_validate_foreign_keys_finance",
+      "file_sha256": "1b8e581264c15182c75a5de86c1d6cfaafad21a1ea311010d6a9f6ea668a42ee",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-FK-LICENSES",
+      "phase": "validate",
+      "migration_file": "database/migrations/stage4/validate/MIG-FK-LICENSES/2026_09_10_001430_validate_foreign_keys_licenses.php",
+      "migration_name": "2026_09_10_001430_validate_foreign_keys_licenses",
+      "file_sha256": "b633664f29504e4fc9e9e0813fb6b0c5d247d6563b59c11c4148336b614a8721",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-FK-EXAMS",
+      "phase": "validate",
+      "migration_file": "database/migrations/stage4/validate/MIG-FK-EXAMS/2026_09_10_001440_validate_foreign_keys_exams.php",
+      "migration_name": "2026_09_10_001440_validate_foreign_keys_exams",
+      "file_sha256": "689602a96747baa289f139fd8184465b6b609d5e519f5d9db033834cf9a01c73",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-FK-COMMERCE",
+      "phase": "validate",
+      "migration_file": "database/migrations/stage4/validate/MIG-FK-COMMERCE/2026_09_10_001450_validate_foreign_keys_commerce.php",
+      "migration_name": "2026_09_10_001450_validate_foreign_keys_commerce",
+      "file_sha256": "9f12004ebe4cef4d824c0f951513a67452a8888b5934721c9aaa4d3c95ea0a79",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-FK-PURCHASE_DOWNSTREAM",
+      "phase": "validate",
+      "migration_file": "database/migrations/stage4/validate/MIG-FK-PURCHASE_DOWNSTREAM/2026_09_10_001460_validate_foreign_keys_purchase_downstream.php",
+      "migration_name": "2026_09_10_001460_validate_foreign_keys_purchase_downstream",
+      "file_sha256": "b6353b5d615069c59ab926732d51d0de745a811a551cc05789f4a8265b2c6bdd",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-FK-EVENTS",
+      "phase": "validate",
+      "migration_file": "database/migrations/stage4/validate/MIG-FK-EVENTS/2026_09_10_001470_validate_foreign_keys_events.php",
+      "migration_name": "2026_09_10_001470_validate_foreign_keys_events",
+      "file_sha256": "71e6e2ffeda6dd362cded657a4b46f8e2bf2b05a6ca6ee981be16df46df35230",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-CON-IDENTITY",
+      "phase": "validate",
+      "migration_file": "database/migrations/stage4/validate/MIG-CON-IDENTITY/2026_09_10_001480_validate_constraints_identity.php",
+      "migration_name": "2026_09_10_001480_validate_constraints_identity",
+      "file_sha256": "800608c0585e9ba3e0f26de85b363ea7be00958489fd5e68077d19cab2f0e685",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-CON-RESOURCES",
+      "phase": "validate",
+      "migration_file": "database/migrations/stage4/validate/MIG-CON-RESOURCES/2026_09_10_001490_validate_constraints_resources.php",
+      "migration_name": "2026_09_10_001490_validate_constraints_resources",
+      "file_sha256": "2b6feaa8c4f1dc3dc0702c422b898155270a123348f6e519bb1fbc9e51d114bb",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-CON-TRAINING",
+      "phase": "validate",
+      "migration_file": "database/migrations/stage4/validate/MIG-CON-TRAINING/2026_09_10_001500_validate_constraints_training.php",
+      "migration_name": "2026_09_10_001500_validate_constraints_training",
+      "file_sha256": "d7f5c67aa240f4802e2213f4d035def4fa8025a6ea114fc3e7361673beaa3460",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-CON-CALENDAR",
+      "phase": "validate",
+      "migration_file": "database/migrations/stage4/validate/MIG-CON-CALENDAR/2026_09_10_001510_validate_constraints_calendar.php",
+      "migration_name": "2026_09_10_001510_validate_constraints_calendar",
+      "file_sha256": "0af256d629946f7b9ebe38af26bd5e35e2d6f5792e8f28584222681412eb85d5",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-CON-PKK",
+      "phase": "validate",
+      "migration_file": "database/migrations/stage4/validate/MIG-CON-PKK/2026_09_10_001520_validate_constraints_pkk.php",
+      "migration_name": "2026_09_10_001520_validate_constraints_pkk",
+      "file_sha256": "03371b35979b679de1164c7cd6aeaeaae55e83b43f17cfdadf8e157355855c15",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-CON-FINANCE",
+      "phase": "validate",
+      "migration_file": "database/migrations/stage4/validate/MIG-CON-FINANCE/2026_09_10_001530_validate_constraints_finance.php",
+      "migration_name": "2026_09_10_001530_validate_constraints_finance",
+      "file_sha256": "5f84b67cdb93b74e6a2fcae2c3b5e9a607b2cdb805b146a288a5ea36cc40601c",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-CON-LICENSES",
+      "phase": "validate",
+      "migration_file": "database/migrations/stage4/validate/MIG-CON-LICENSES/2026_09_10_001540_validate_constraints_licenses.php",
+      "migration_name": "2026_09_10_001540_validate_constraints_licenses",
+      "file_sha256": "7921c63d841a42ae734868fd2fb6ca23b8f51acf1be154f635029daf7a9359a5",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-CON-EXAMS",
+      "phase": "validate",
+      "migration_file": "database/migrations/stage4/validate/MIG-CON-EXAMS/2026_09_10_001550_validate_constraints_exams.php",
+      "migration_name": "2026_09_10_001550_validate_constraints_exams",
+      "file_sha256": "83ad6c5ca7d708d0f28ec70c5bbdbb3fc9461b16efde7034dfe2886497ba8d67",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-CON-COMMERCE",
+      "phase": "validate",
+      "migration_file": "database/migrations/stage4/validate/MIG-CON-COMMERCE/2026_09_10_001560_validate_constraints_commerce.php",
+      "migration_name": "2026_09_10_001560_validate_constraints_commerce",
+      "file_sha256": "68df6d2d455616d256ff988e22b29c0d8ba31e2e6cad02c524e8a1f63092a676",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-CON-EVENTS",
+      "phase": "validate",
+      "migration_file": "database/migrations/stage4/validate/MIG-CON-EVENTS/2026_09_10_001570_validate_constraints_events.php",
+      "migration_name": "2026_09_10_001570_validate_constraints_events",
+      "file_sha256": "fdbad22f58f5201af22562d2f858e5a2c0fc979d0fa5630c189519097f869d94",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TRG-IDENTITY",
+      "phase": "validate",
+      "migration_file": "database/migrations/stage4/validate/MIG-TRG-IDENTITY/2026_09_10_001580_validate_triggers_identity.php",
+      "migration_name": "2026_09_10_001580_validate_triggers_identity",
+      "file_sha256": "5b1b7d60ddf1055902ce8bd60e601290cd52963cf8309c699f13b681aa8b0807",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TRG-TRAINING",
+      "phase": "validate",
+      "migration_file": "database/migrations/stage4/validate/MIG-TRG-TRAINING/2026_09_10_001590_validate_triggers_training.php",
+      "migration_name": "2026_09_10_001590_validate_triggers_training",
+      "file_sha256": "6d02667aaee593684f665a69665828ad9fee329cacb1770b52dbd1331a3f0d65",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TRG-CALENDAR",
+      "phase": "validate",
+      "migration_file": "database/migrations/stage4/validate/MIG-TRG-CALENDAR/2026_09_10_001600_validate_triggers_calendar.php",
+      "migration_name": "2026_09_10_001600_validate_triggers_calendar",
+      "file_sha256": "08350e49e63a28c89daf2ee09856a21f41b3c64c50f28e5f7c28e43b95bcf216",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TRG-PKK",
+      "phase": "validate",
+      "migration_file": "database/migrations/stage4/validate/MIG-TRG-PKK/2026_09_10_001610_validate_triggers_pkk.php",
+      "migration_name": "2026_09_10_001610_validate_triggers_pkk",
+      "file_sha256": "37a364853b2281764abd716d3db4c9c4d785a79a5386bb1f995c0068ca7e63ab",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TRG-FINANCE",
+      "phase": "validate",
+      "migration_file": "database/migrations/stage4/validate/MIG-TRG-FINANCE/2026_09_10_001620_validate_triggers_finance.php",
+      "migration_name": "2026_09_10_001620_validate_triggers_finance",
+      "file_sha256": "82cac4aca99417557692feb6fca6a34f5a58bf003c67a592fe10293302523238",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TRG-LICENSES",
+      "phase": "validate",
+      "migration_file": "database/migrations/stage4/validate/MIG-TRG-LICENSES/2026_09_10_001630_validate_triggers_licenses.php",
+      "migration_name": "2026_09_10_001630_validate_triggers_licenses",
+      "file_sha256": "c11909e5ab3030698c4a1424a17545eeab40d4e1bb69b2185b2759f01026c741",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TRG-EXAMS",
+      "phase": "validate",
+      "migration_file": "database/migrations/stage4/validate/MIG-TRG-EXAMS/2026_09_10_001640_validate_triggers_exams.php",
+      "migration_name": "2026_09_10_001640_validate_triggers_exams",
+      "file_sha256": "4750c865440743635ff93ec85d8d9daa8691417b379e25840c86f0c79726eb9b",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TRG-COMMERCE",
+      "phase": "validate",
+      "migration_file": "database/migrations/stage4/validate/MIG-TRG-COMMERCE/2026_09_10_001650_validate_triggers_commerce.php",
+      "migration_name": "2026_09_10_001650_validate_triggers_commerce",
+      "file_sha256": "81af796360b7a1ab9fd56cb21f69fb0d83cddefc6ad6cc4e34610fca358fa3de",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-TRG-EVENTS",
+      "phase": "validate",
+      "migration_file": "database/migrations/stage4/validate/MIG-TRG-EVENTS/2026_09_10_001660_validate_triggers_events.php",
+      "migration_name": "2026_09_10_001660_validate_triggers_events",
+      "file_sha256": "e909361798481efc6dd9a5819020f197217e8575dbbe74e85f9a792b3955e1bc",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-PRJ-CALENDAR-RESOURCE-CLAIMS",
+      "phase": "validate",
+      "migration_file": "database/migrations/stage4/validate/MIG-PRJ-CALENDAR-RESOURCE-CLAIMS/2026_09_10_001670_validate_projection_calendar_resource_claims.php",
+      "migration_name": "2026_09_10_001670_validate_projection_calendar_resource_claims",
+      "file_sha256": "44d8f17834a3a54935efd804da3d9f58191a5c28e8b56f9ae416b7e9d11e029d",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-PRJ-PURCHASE-HISTORY",
+      "phase": "validate",
+      "migration_file": "database/migrations/stage4/validate/MIG-PRJ-PURCHASE-HISTORY/2026_09_10_001680_validate_projection_purchase_history.php",
+      "migration_name": "2026_09_10_001680_validate_projection_purchase_history",
+      "file_sha256": "9273c10376d0a041c98d533b4e2549a99d850118b27808ee72e8dea629c4c44e",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-PRJ-ORGANIZATION-ACTIVITY",
+      "phase": "validate",
+      "migration_file": "database/migrations/stage4/validate/MIG-PRJ-ORGANIZATION-ACTIVITY/2026_09_10_001690_validate_projection_organization_activity.php",
+      "migration_name": "2026_09_10_001690_validate_projection_organization_activity",
+      "file_sha256": "cdba579e8e49f27c4e5b4ea48fe674ecd1f6f8d5124ee3d79c797bf560bf8f8c",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-PRJ-NOTIFICATIONS",
+      "phase": "validate",
+      "migration_file": "database/migrations/stage4/validate/MIG-PRJ-NOTIFICATIONS/2026_09_10_001700_validate_projection_notifications.php",
+      "migration_name": "2026_09_10_001700_validate_projection_notifications",
+      "file_sha256": "41e5395edb71f08a13186782e5c37073e9011d08dcb0ddcfd275f1e2b09c3d52",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-PRJ-CALENDAR-RESOURCE-CLAIMS",
+      "phase": "contract",
+      "migration_file": "database/migrations/stage4/contract/MIG-PRJ-CALENDAR-RESOURCE-CLAIMS/2026_09_10_001670_contract_projection_calendar_resource_claims.php",
+      "migration_name": "2026_09_10_001670_contract_projection_calendar_resource_claims",
+      "file_sha256": "43f424221c36a0e8524ea542597594b7f49b02f2a33df3e6894315ebfe6e9d66",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-PRJ-PURCHASE-HISTORY",
+      "phase": "contract",
+      "migration_file": "database/migrations/stage4/contract/MIG-PRJ-PURCHASE-HISTORY/2026_09_10_001680_contract_projection_purchase_history.php",
+      "migration_name": "2026_09_10_001680_contract_projection_purchase_history",
+      "file_sha256": "a3f879e5106da3cd0096efd9fe5e1bb736a6a83c9907e7ce605e099e1d094c7f",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-PRJ-ORGANIZATION-ACTIVITY",
+      "phase": "contract",
+      "migration_file": "database/migrations/stage4/contract/MIG-PRJ-ORGANIZATION-ACTIVITY/2026_09_10_001690_contract_projection_organization_activity.php",
+      "migration_name": "2026_09_10_001690_contract_projection_organization_activity",
+      "file_sha256": "5b30d54be7686d0849d536d85cbc52aea1409d0f3370b0eefa57fda5f32ace2d",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "MIG-PRJ-NOTIFICATIONS",
+      "phase": "contract",
+      "migration_file": "database/migrations/stage4/contract/MIG-PRJ-NOTIFICATIONS/2026_09_10_001700_contract_projection_notifications.php",
+      "migration_name": "2026_09_10_001700_contract_projection_notifications",
+      "file_sha256": "79f9c2b9591de3d017a057e1e9c2b1c52dcac91119a07cef2727e84ba6f0a826",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    }
+  ],
+  "remaining_nodes_materialize_in_review_batches": true,
+  "claim_all_170_DDL_nodes_implemented": false
+}

@@ -1,0 +1,89 @@
+module: ResourcesCore
+core_traceability_modules:
+  - locations
+  - staff
+  - vehicles
+  - dictionaries
+changed_scope:
+  - evidence: specs/screens/locations.yml
+    requirement: tenant-scoped location list create edit archive restore and confirmed location-type choices
+    domain_data: locations + location_types
+    api_use_case: locations.list/create/get/update/archive/restore + location_types.list + geography.cities
+    permission: locations.view/create/edit/archive/restore with organization or assigned_locations read scope
+    ui: /lokalizacje list plus create/edit drawer archive/restore controls and calendar entry point
+    acceptance_test: Tests\Feature\ResourcesCoreTest::test_locations_are_tenant_scoped_idempotent_and_soft_archived
+    status: IMPLEMENTED
+  - evidence: specs/screens/staff.yml
+    requirement: staff profile remains separate from panel identity with explicit account and permission governance
+    domain_data: staff_profiles + staff assignments + staff_documents + staff_membership_links + organization_memberships
+    api_use_case: staff list/detail/create/update/archive/restore account-link and permission commands
+    permission: staff.view/create/edit/archive/restore/accounts.manage/permissions.manage
+    ui: /pracownicy list/detail/edit account-access and confirmed calendar entry-point controls
+    acceptance_test: Tests\Feature\ResourcesCoreTest::test_staff_archive_respects_nonowner_and_owner_membership_lifecycle
+    status: IMPLEMENTED
+  - evidence: specs/screens/vehicles.yml
+    requirement: tenant-scoped fleet CRUD-equivalent lifecycle with independent inspection OC and AC validity history
+    domain_data: vehicles + vehicle assignments + vehicle_documents
+    api_use_case: vehicles list/detail/create/update/archive/restore + vehicle_documents list/create/update
+    permission: vehicles.view/create/edit/archive/restore
+    ui: /pojazdy list/detail/create/edit archive/restore/delete-as-safe-archive and calendar entry points
+    acceptance_test: Tests\Feature\ResourcesCoreTest::test_vehicle_identity_history_and_restore_conflict_are_preserved
+    status: IMPLEMENTED
+  - evidence: specs/database/staff-locations-vehicles.yml
+    requirement: cross-tenant assignments and staff-derived assigned_locations scope fail closed
+    domain_data: staff_location_assignments + vehicle_location_assignments + staff_membership_links
+    api_use_case: ResourceScopeAuthorizer target and collection visibility
+    permission: explicit membership permission plus organization or assigned_locations scope
+    ui: filtered resource lists and hidden cross-tenant targets
+    acceptance_test: Tests\Feature\ResourcesCoreTest::test_assigned_location_scope_is_empty_without_active_staff_link
+    status: IMPLEMENTED
+  - evidence: specs/design/core-lifecycle.yml
+    requirement: destructive-looking resource actions preserve history through archive and explicit restore
+    domain_data: archived_at + archived_by_user_id + superseded document history
+    api_use_case: location staff vehicle archive/restore and vehicle document replacement
+    permission: resource-specific archive/restore/edit permissions
+    ui: confirmation-driven archive actions with restore state
+    acceptance_test: Tests\Feature\ResourcesCoreTest::test_vehicle_document_replacement_preserves_superseded_history
+    status: IMPLEMENTED
+  - evidence: specs/screens/staff-create.yml + specs/screens/vehicle-edit.yml
+    requirement: confirmed optional staff and vehicle photo fields use the shared verified UploadsAssets transport and attach only ready same-tenant purpose-bound assets
+    domain_data: staff_profiles.photo_asset_id + vehicles.photo_asset_id + file_assets
+    api_use_case: uploads.presign + uploads.complete + staff.update + vehicles.update
+    permission: staff.create/edit or vehicles.create/edit plus active_membership_and_parent_domain_permission during upload
+    ui: resources/js/modules/ResourcesCore/ResourceWorkspace.vue with direct private PUT and retry-without-reupload attachment recovery
+    acceptance_test: Tests\Feature\ResourcePhotoUploadParentRuntimeTest::test_resource_photo_presign_is_parent_bound_before_ready_asset_attachment + Tests\Unit\ResourcesAssetsUiContractTest::test_confirmed_staff_and_vehicle_photo_fields_use_verified_upload_transport
+    status: IMPLEMENTED
+  - evidence: specs/screens/vehicle-detail.yml
+    requirement: calendar controls and context links are preserved while calendar scheduling engine remains a later core module
+    domain_data: vehicle and staff resource identifiers only in this slice
+    api_use_case: calendar query entry points only; calendar event CRUD remains deferred
+    permission: current resource view permission for entry point; calendar permission enforced by later module
+    ui: confirmed month/week/day and full-calendar entry points rendered without fabricated event data
+    acceptance_test: Tests\Feature\ResourcesCoreTest::test_resource_calendar_links_preserve_tenant_resource_identifiers
+    status: DEFERRED_OUTSIDE_CORE_WITH_EXPLICIT_DECISION
+
+  - evidence: docs/48-calendar-main-screen.md
+    requirement: resource detail calendar entry points remain live adapters into the canonical CalendarTraining read model after that downstream module materializes
+    domain_data: staff_profiles + vehicles + locations through calendar source projections
+    api_use_case: calendar.events.list
+    permission: calendar.view
+    ui: resources/js/modules/ResourcesCore/CalendarShell.vue
+    acceptance_test: frontend-quality npm_lint_typecheck_build
+    status: IMPLEMENTED
+  - evidence: specs/legal/driving-entitlement-dictionary.yml
+    requirement: production driving-category catalogs and rule-engine inputs expose exactly the legally verified driving-licence categories while preserving observed PT only as an inactive tram-permit UI alias
+    domain_data: driving_categories.code + active + metadata
+    api_use_case: driving_categories.list and all active-category validation in course staff vehicle and rule-engine boundaries
+    permission: active membership plus existing resource permission boundary
+    ui: confirmed PT evidence remains preserved but is not emitted by the active /api/v1/driving-categories catalog
+    acceptance_test: Tests\\Feature\\FoundationReferenceCatalogTest::test_legal_driving_entitlement_dictionary_keeps_tram_permit_alias_out_of_rule_engine_catalog
+    status: IMPLEMENTED
+  - evidence: specs/api/paths/resources.yaml
+    requirement: global languages dictionary exposes active catalog entries only and does not imply product-specific language availability
+    domain_data: languages
+    api_use_case: dictionaries.languages.list
+    permission: active_membership
+    ui: SHARED_DICTIONARY_ENDPOINT_NO_STANDALONE_UI_REQUIRED
+    acceptance_test: Tests\\Feature\\LanguageDictionaryRuntimeTest::test_languages_endpoint_returns_active_global_dictionary_without_product_availability_inference
+    status: IMPLEMENTED
+

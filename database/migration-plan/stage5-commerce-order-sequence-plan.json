@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "extension_id": "commerce_order_sequence_allocator_v1",
+  "plan_identity": "6d03c38e47ba30d07a3a090d514ac09384e1ea5e668947b95eeaaa6fce49c019",
+  "source": {
+    "authority_path": "specs/database/commerce-order-sequence-migration-extension.yml",
+    "authority_git_blob": "aa1ae73353481549a4ada229170ad2a492086b1a",
+    "extension_contract_version": 1,
+    "phase_contract_version": 1
+  },
+  "stage4_baseline": {
+    "plan_identity": "d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10",
+    "execution_identity": "82da84d3efb312d78b432ad6081491c04b03569a0f250722d6befc11ca233712",
+    "authority_git_blob": "ad5f2aa2e14ef248b95dd3dda0d1cbcb2e69d441",
+    "nodes": 170,
+    "implemented_nodes": 170,
+    "implemented_steps": 261
+  },
+  "preserved_stage5_formal_documents": {
+    "plan_identity": "34cada121f4fd4963b1461308fb517c50ee647005ce9421f4d1af40c80d44b99",
+    "execution_identity": "31704fcab61761aa9a952d824dc543a6f46e7a3717792d0a9349cefaaf57651f"
+  },
+  "preserved_stage5_social_identity": {
+    "plan_identity": "85319b7c91cf9046e0ac8c00772aad141462e3897363b32d0ba222a50f73fe4d",
+    "execution_identity": "b4a73588390d837fbb460d374114585064445462ddcba667d3919c7052f76cd0"
+  },
+  "phase_order": [
+    "expand",
+    "preflight",
+    "write_fence",
+    "backfill",
+    "reconcile",
+    "validate",
+    "contract"
+  ],
+  "execution_control": {
+    "single_executor": "shared_postgres_advisory_lock",
+    "advisory_lock_keys": [519662, 5001],
+    "blind_retry": false,
+    "automatic_destructive_down": false,
+    "default_laravel_migrate_discovery": false
+  },
+  "nodes": [
+    {
+      "node_id": "S5COM-TBL-ORGANIZATION-COMMERCE-ORDER-SEQUENCES",
+      "type": "table_plus_initialization",
+      "order": 10,
+      "object_name": "organization_commerce_order_sequences",
+      "requires": [],
+      "phases": ["preflight", "expand", "backfill", "validate"],
+      "restart_classification": "manual_review"
+    }
+  ]
+}

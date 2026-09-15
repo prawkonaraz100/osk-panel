@@ -1,0 +1,201 @@
+meta:
+  id: CORE-V1-COURSE-COMPLETION-AUTHORITY-001
+  scope: course_completion_authority
+  project: osk-panel
+  status: PASS
+  decided_at: 2026-09-14
+  prerequisite: CORE-V1-CLOSURE-AUDIT-002
+  schema_change: false
+  migration_change: false
+  openapi_change: false
+  PKK_provider_runtime_activation: forbidden
+
+command_surface:
+  operation: course_enrollments.change_stage
+  route: POST_/course-enrollments/{courseEnrollmentId}/stage-transitions
+  completion_target: training_completed
+  permission: courses.stage.change
+  idempotency_key_required: true
+  If_Match_current_course_version_required: true
+  separate_completion_endpoint_added: false
+
+concurrency:
+  root: course_enrollments
+  lock_first: course_enrollment_FOR_UPDATE
+  recheck_after_lock:
+    - exact_tenant_course_exists
+    - lifecycle_state_is_active
+    - expected_course_version_matches
+  current_requirement_hour_and_external_sources_stabilized_by_course_lock: true
+  reason: >-
+    Requirement mutation, Training Hour Ledger correction/session completion and
+    recognized-external-training mutation already serialize through the exact
+    CourseEnrollment row before changing completion-relevant state.
+  qualifying_exam_attempt_lock:
+    mode: FOR_SHARE_or_equivalent_shared_row_lock
+    scope: exact_organization_course_and_required_exam_part_pass_candidate
+    purpose: serialize_completion_decision_against_explicit_attempt_invalidation
+  submit_race:
+    completion_reads_only_committed_pass: true
+    uncommitted_or_later_pass_is_not_assumed: true
+    failed_completion_can_be_retried_after_exam_commit: true
+  post_completion_invalidation:
+    automatically_reopens_completed_course: false
+    automatic_completed_at_clear: false
+    route_to: explicit_closed_course_correction_policy_if_business_correction_is_required
+
+current_requirement_authority:
+  table: training_requirement_profiles
+  current_predicate: superseded_at_is_null
+  require_exactly_one_current_row: true
+  require_profile_course_match: true
+  require_profile_requirements_revision_equals_course_requirements_revision: true
+  require_rule_set_version_resolves_to_immutable_training_requirement_rule_set: true
+  historical_profile_as_current_completion_authority: false
+  rerun_rule_engine_during_completion: false
+  effective_columns_are_authority:
+    - theory_training_required
+    - minimum_theory_minutes
+    - internal_theory_exam_required
+    - practical_training_required
+    - minimum_practical_minutes
+    - internal_practical_exam_required
+  manual_override_effective_output_respected_exactly: true
+  extra_cross_field_consistency_invented_at_completion: false
+
+minute_authority:
+  current_OSK:
+    source: training_hour_ledger_entries
+    theory_formula: SUM_signed_minutes_where_exact_course_and_training_part_theory
+    practical_formula: SUM_signed_minutes_where_exact_course_and_training_part_practical
+    correction_and_reversal_signed_effects_included: true
+    declared_course_minutes_as_credited_time: false
+  recognized_external:
+    source: recognized_external_training
+    current_predicate:
+      - superseded_at_is_null
+      - revoked_at_is_null
+      - recognized_for_driving_category_id_equals_current_course_category
+      - recognized_for_training_type_equals_current_course_training_type
+    theory_formula: SUM_recognized_minutes_where_training_part_theory
+    practical_formula: SUM_recognized_minutes_where_training_part_practical
+  totals:
+    theory: current_OSK_theory_plus_current_recognized_external_theory
+    practical: current_OSK_practical_plus_current_recognized_external_practical
+  eligibility:
+    theory_when_current_profile_theory_training_required_true: total_theory_gte_minimum_theory_minutes
+    practical_when_current_profile_practical_training_required_true: total_practical_gte_minimum_practical_minutes
+    training_part_cross_substitution: forbidden
+    requirement_flag_false_skips_that_part_minute_gate: true
+
+internal_exam_authority:
+  current_profile_determines_which_parts_are_required: true
+  canonical_attempt_source: internal_exam_attempts
+  canonical_result_source: internal_exam_results
+  management_latest_projection_as_completion_truth: forbidden
+  required_part_satisfied_when:
+    all:
+      - attempt.organization_id_equals_course.organization_id
+      - attempt.course_enrollment_id_equals_course.id
+      - attempt.exam_part_equals_required_part
+      - attempt.status_equals_passed
+      - exact_internal_exam_result_exists_for_attempt
+      - internal_exam_result.passed_equals_true
+  passed_attempt_must_match_current_training_requirement_profile_id: false
+  passed_attempt_must_match_current_requirements_revision: false
+  reason: >-
+    DB-EXAM-002 and DB-EXAM-004 preserve an already-created Attempt's exact
+    historical requirement basis when a later requirement profile supersedes it.
+    Supersession alone does not block, rewrite or silently invalidate that Attempt.
+    Explicit invalidation is the authority for withdrawing its current pass state.
+  invalidated_attempt_satisfies_completion: false
+  failed_attempt_satisfies_completion: false
+  technical_abort_satisfies_completion: false
+  created_or_in_progress_attempt_satisfies_completion: false
+  newer_failed_or_nonterminal_attempt_revokes_older_still_passed_attempt: false
+  explicit_postfinish_invalidation_of_pass_removes_that_attempt_from_satisfying_set: true
+  at_least_one_still_passed_attempt_per_required_part_is_sufficient: true
+
+completion_transaction:
+  preconditions:
+    - course_active
+    - If_Match_current
+    - current_requirement_profile_fresh
+    - all_required_minute_gates_satisfied
+    - all_currently_required_internal_exam_parts_satisfied
+  atomic_effects:
+    - set_training_stage_to_training_completed
+    - set_completed_at_to_single_authoritative_command_time
+    - keep_interrupted_at_null
+    - keep_cancelled_at_null
+    - keep_cancelled_by_user_id_null
+    - increment_course_version_exactly_once
+    - append_course_enrollment_lifecycle_event_completed
+    - write_course_completed_audit_and_domain_outbox_same_transaction
+  lifecycle_event:
+    event_type: completed
+    from_lifecycle_state: active
+    to_lifecycle_state: completed
+    from_training_stage: prior_noncompleted_stage
+    to_training_stage: training_completed
+  proposed_audit_action: course.completed
+  generic_stage_changed_audit_substitution_for_completion: false
+  generic_PATCH_may_set_completed_at: false
+  normal_restore_may_reopen_completed_course: false
+
+UI_boundary:
+  existing_component: resources/js/modules/StudentsCourses/StudentCourseWorkspace.vue
+  current_training_completed_client_guard_removed_only_after_backend_completion_runtime_is_implemented: true
+  existing_stage_transition_transport_reused: true
+  client_precomputes_formal_eligibility_as_authority: false
+  backend_conflict_or_rule_error_shown_fail_closed: true
+  cosmetic_UI_only_unlock: forbidden
+
+required_tests:
+  - completion_requires_current_requirement_profile_and_matching_requirements_revision
+  - completion_rejects_missing_or_stale_current_requirement_profile_without_partial_write
+  - theory_required_rejects_total_theory_below_current_profile_minimum
+  - practical_required_rejects_total_practical_below_current_profile_minimum
+  - current_OSK_and_current_recognized_external_minutes_combine_by_part
+  - revoked_or_superseded_or_wrong_context_external_minutes_do_not_count
+  - signed_ledger_corrections_and_reversals_affect_completion_total_exactly_once
+  - nonrequired_training_part_does_not_create_an_invented_minute_gate
+  - required_theory_exam_rejects_when_no_still_passed_theory_attempt_exists
+  - required_practical_exam_rejects_when_no_still_passed_practical_attempt_exists
+  - passed_attempt_requires_matching_result_passed_true
+  - invalidated_prior_pass_does_not_satisfy_completion
+  - newer_failed_attempt_does_not_revoke_older_still_passed_attempt
+  - later_requirement_profile_supersession_does_not_silently_invalidate_still_passed_attempt
+  - management_latest_status_is_not_used_as_completion_authority
+  - successful_completion_sets_stage_timestamp_version_history_audit_and_outbox_atomically_once
+  - stale_If_Match_rejects_without_partial_completion
+  - idempotent_retry_does_not_increment_course_version_or_duplicate_completed_event
+  - concurrent_hour_or_requirement_mutation_and_completion_have_one_course_lock_winner
+  - concurrent_pass_invalidation_and_completion_serialize_on_pass_attempt_row
+  - UI_training_completed_uses_existing_stage_transition_and_surfaces_backend_failure
+
+preservation:
+  Stage_4_schema_and_migrations_unchanged: true
+  historical_requirement_profiles_preserved: true
+  historical_exam_attempts_results_and_evidence_preserved: true
+  historical_ledger_and_external_training_preserved: true
+  pricing_VAT_authority_invented: false
+  bulk_credential_reset_contract_changed: false
+  PKK_provider_runtime_still_frozen: true
+
+validation:
+  exact_authority_candidate_head: f150da5a13a272ac1c57ee6350adeaea086d7279
+  Implementation_CI_run: 34829035686
+  API_Contract_Gate_run: 34829035628
+  Implementation_CI_jobs_passed: 5
+  Implementation_CI_jobs_total: 5
+  PostgreSQL_suite_tests: 289
+  PostgreSQL_suite_assertions: 5320
+  deterministic_restore_harness: PASS
+  restore_source_table_count: 121
+  restore_restored_table_count: 121
+  restore_schema_fingerprint: 09c57afe2501c79a3a684c0a695b4619114f94ddc24c9bca33728d99c1abb155
+  backend_Pint_and_PHPStan: PASS
+  frontend_quality: PASS
+  contracts_and_traceability: PASS
+  secret_scan: PASS

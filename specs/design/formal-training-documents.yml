@@ -1,0 +1,151 @@
+meta:
+  id: core_v1_formal_training_documents
+  version: 2026-09-13-v1
+  status: AUTHORITY_GATE_1
+  confidence:
+    formal_course_and_training_sources: LEGAL_VERIFIED
+    paper_electronic_product_mode: OWN_PRODUCT_DECISION
+    electronic_signature_mechanism: REQUIRES_SEPARATE_LEGAL_TECHNICAL_VERIFICATION
+
+scope:
+  primary_document:
+    code: training_record_card
+    meaning: formal_course_training_record_derived_from_canonical_course_and_training_evidence
+  supplementary_document:
+    code: theory_delivery_journal
+    meaning: OSK_operational_theory_delivery_record
+    statutory_form_claimed: false
+    module_level_runtime_requires_source_granularity_not_currently_fabricated: true
+
+document_mode:
+  values:
+    - paper
+    - electronic
+  default: paper
+  selection_owner: course_enrollment
+  selection_time: enrollment_creation_or_before_formal_start
+  formal_start_boundary:
+    scheduled_start: course_enrollments.started_at
+    mode_change_allowed_only_when_server_now_before_started_at: true
+    backdated_or_already_started_enrollment_uses_selected_or_default_mode_at_creation: true
+  after_formal_start:
+    normal_mode_change: forbidden
+    silent_rewrite: forbidden
+  PKK_dependency: none
+
+paper_flow:
+  order:
+    - preview_from_current_evidence
+    - reviewer_checks_source_data
+    - source_corrections_use_existing_audited_domain_commands
+    - approve_exact_evidence_snapshot
+    - render_canonical_PDF
+    - print
+    - handwritten_signature_outside_system
+    - optional_signed_scan_attachment
+  PDF_direct_editing: forbidden
+  reprint_same_canonical_revision: allowed
+  reprint_does_not_create_new_business_revision: true
+
+electronic_flow:
+  order:
+    - preview_from_current_evidence
+    - reviewer_checks_source_data
+    - source_corrections_use_existing_audited_domain_commands
+    - authenticated_approval_of_exact_evidence_snapshot
+    - render_or_materialize_canonical_electronic_record
+  invented_qualified_signature_or_XAdES: forbidden
+  claim_that_authenticated_approval_equals_any_specific_statutory_e_signature: false
+
+canonical_sources:
+  student_identity:
+    - students
+  course:
+    - course_enrollments
+    - current_training_requirement_profile
+  current_OSK_training:
+    - training_sessions
+    - training_session_attendance
+    - training_hour_ledger_entries
+  external_training:
+    - recognized_external_training
+  instructor:
+    - staff_profiles
+    - course_enrollments.lead_instructor_id
+  internal_exam_evidence_when_document_requires_it:
+    - internal_exam_attempts
+    - internal_exam_results
+  PKK:
+    used_by_gate_1_runtime: false
+    optional_future_document_field: true
+    reason: PKK_provider_module_frozen_until_explicit_unfreeze
+
+time_authority:
+  durable_unit: minutes
+  theory_lesson_minutes: 45
+  practical_lesson_minutes: 60
+  main_document_shows:
+    - session_or_credit_date
+    - training_part
+    - accepted_credited_minutes
+    - instructor_when_source_session_has_one
+  details_may_show:
+    - original_session_starts_at
+    - original_session_ends_at
+    - source_ledger_entry
+    - correction_or_reversal_lineage
+  hardcoded_total_26_hours_for_all_courses: forbidden
+  required_and_actual_totals_are_derived_from_current_requirement_profile_and_ledger: true
+  curriculum_module_names_when_no_canonical_module_source_exists: must_not_be_invented
+
+review_and_approval:
+  prepare_roles:
+    - authorized_OSK_staff
+  approval_requires:
+    - exact_current_course_version
+    - exact_current_requirements_revision
+    - exact_evidence_bundle_hash
+    - reviewer_identity
+    - server_timestamp
+  preferred_reviewer: lead_instructor_or_authorized_formal_training_reviewer
+  correction_model:
+    direct_document_content_edit: forbidden
+    edit_source_then_regenerate: required
+    terminal_course_source_correction_requires_existing_explicit_correction_mode: true
+
+evidence_and_revision:
+  evidence_bundle_hash_required: true
+  template_version_snapshot_required: true
+  renderer_version_snapshot_required: true
+  course_version_snapshot_required: true
+  requirements_revision_snapshot_required: true
+  content_hash_required_for_canonical_asset: true
+  deterministic_same_evidence_template_renderer_should_produce_same_hash: true
+  prior_document_revision_rewritten_after_source_change: false
+  stale_projection:
+    rule: current_source_evidence_hash_differs_from_latest_document_evidence_hash
+    effect: regeneration_required
+  regeneration_triggers:
+    - student_identity_field_used_by_document_changes
+    - course_category_or_training_type_changes
+    - lead_instructor_or_documented_location_changes_when_rendered
+    - requirement_profile_revision_changes
+    - training_hour_ledger_correction_or_reversal_changes_documented_totals
+    - recognized_external_training_current_projection_changes
+    - relevant_internal_exam_evidence_changes
+  regeneration_never_deletes_prior_document: true
+
+security_and_privacy:
+  tenant_isolation_required: true
+  document_assets_same_tenant_required: true
+  audit_payload_may_contain_plaintext_PESEL_or_PKK: false
+  outbox_payload_may_contain_plaintext_PESEL_or_PKK: false
+  logs_may_contain_plaintext_PESEL_or_PKK: false
+  document_content_may_contain_required_personal_data_only_for_formal_purpose: true
+  PKK_provider_call_from_document_generation: forbidden
+
+implementation_boundary_after_gate_1:
+  Stage_4_170_node_DAG_mutated_by_gate_1: false
+  existing_Stage_4_migration_identity_mutated_by_gate_1: false
+  next_gate: stage_5_document_schema_and_migration_extension_authority
+  do_not_add_unregistered_Laravel_migration: true

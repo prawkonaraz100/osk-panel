@@ -1,0 +1,174 @@
+meta:
+  gate_id: CORE-V1-STUDENT-PROGRESS-AUTHORITY-001
+  status: PASS
+  authority_doc: docs/207-core-v1-student-progress-authority.md
+  source_audit: CORE-V1-CLOSURE-AUDIT-014
+  operation: students.progress
+
+scope:
+  route: GET /students/{studentId}/progress
+  HTTP_binding_in_authority_gate: false
+  UI_enable_in_authority_gate: false
+  bounded_context: learning_progress_projection
+  source_of_truth_role: read_projection_only
+
+context:
+  exact_dimensions:
+    - organization_id
+    - student_id
+    - student_learning_account_id
+    - driving_category
+  permission: students.progress.view
+  tenant_scope: student_scoped
+  learning_account_must_belong_to_exact_student: true
+  category_must_be_current_dictionary_entry: true
+  account_language_is_taxonomy_label_preference_not_identity_key: true
+
+source_binding:
+  canonical_table: learning_progress_source_bindings
+  binding_scope: one_current_binding_per_student_learning_account
+  source_system: stable_nonblank_identifier
+  source_subject_ref: opaque_nonblank_identifier
+  source_access_ref: opaque_nonblank_access_context_identifier
+  source_access_ref_global_active_uniqueness: required
+  same_source_subject_may_have_multiple_access_contexts: true
+  infer_binding_from_email: forbidden
+  infer_binding_from_login_identifier: forbidden
+  infer_binding_from_name: forbidden
+  infer_binding_from_PESEL: forbidden
+  trusted_creation_sources:
+    - learning_account_provisioning_adapter
+    - reviewed_authoritative_mapping_import
+  missing_binding_response_state: unbound
+  missing_binding_numeric_zeroes: forbidden
+
+source_contract:
+  version: learning-progress.v1
+  service_authentication: deployment_owned_service_credentials_over_TLS
+  request_subject_and_access_context_both_required: true
+  requested_category_required: true
+  response_must_echo_exact_subject_access_and_category: true
+  source_revision_or_snapshot_ref_required: true
+  source_observed_at_required: true
+  source_call_inside_open_PostgreSQL_transaction: forbidden
+  timeout_or_transport_failure:
+    with_last_good_projection: return_stale_last_good
+    without_last_good_projection: source_unavailable
+  source_response_mismatch: fail_closed
+
+projection:
+  canonical_table: student_learning_progress_projections
+  key: [organization_id, student_learning_account_id, driving_category_id]
+  authoritative_business_ledger: false
+  projector_only_write: true
+  browser_write: forbidden
+  administrator_manual_metric_edit: forbidden
+  stores_last_good_normalized_snapshot: true
+  snapshot_hash_algorithm: sha256
+  snapshot_hash_material: canonical_normalized_metric_payload
+  account_version_snapshot_required: true
+  stale_when_learning_account_version_changes: true
+  max_age_seconds:
+    config_key: learning_progress.max_age_seconds
+    repository_default: 300
+  refresh_on_read_when_missing_or_stale: allowed_outside_DB_transaction
+  refresh_failure_may_zero_existing_values: false
+
+metric_state:
+  values: [available, no_activity, unavailable, outside_core_v1]
+  rules:
+    available: authoritative_source_capability_present_and_denominator_or_counts_valid
+    no_activity: authoritative_source_capability_present_but_no_activity
+    unavailable: source_capability_or_trustworthy_facts_not_available
+    outside_core_v1: capability_explicitly_deferred_by_core_v1_baseline
+  unavailable_numeric_fields: null
+  outside_core_v1_numeric_fields: null
+  no_activity_counts: zero
+  no_activity_percentages_with_zero_denominator: null
+  unavailable_may_be_rendered_as_zero_percent: forbidden
+
+tests_metric:
+  population: terminal_verifiable_mock_exam_attempts_for_exact_subject_access_and_category
+  conducted_count: passed_count_plus_failed_count
+  pass_decision:
+    authority: immutable_source_terminal_result
+    infer_from_correct_answer_percentage: forbidden
+    recompute_from_mutable_current_question_weights: forbidden
+  passed_percent: passed_count_div_conducted_count_times_100
+  failed_percent: failed_count_div_conducted_count_times_100
+  rounding_decimal_places: 2
+  zero_conducted_percentages: null
+  unverifiable_legacy_attempt_may_be_silently_classified: false
+
+questions_metric:
+  available_population: current_active_deliverable_questions_for_exact_category
+  answered_count: distinct_current_available_questions_with_at_least_one_recorded_attempt
+  total_attempts: sum_attempts_for_current_available_questions
+  correct_attempts: sum_correct_attempts_for_current_available_questions
+  incorrect_attempts: sum_incorrect_attempts_for_current_available_questions
+  attempt_invariant: total_attempts_equals_correct_attempts_plus_incorrect_attempts
+  correct_percent: correct_attempts_div_total_attempts_times_100
+  incorrect_percent: incorrect_attempts_div_total_attempts_times_100
+  zero_attempt_percentages: null
+  rounding_decimal_places: 2
+  removed_or_non_deliverable_questions_in_current_available_count: false
+
+topic_metric:
+  stable_domain_key_required: true
+  display_label_as_key: forbidden
+  groups: [basic, specialized]
+  available_count_source: current_category_question_catalog
+  answered_count: distinct_current_available_questions_with_attempt_in_topic
+  dynamic_totals_required: true
+  observed_competitor_totals_as_constants: forbidden
+  taxonomy_label:
+    preferred_language: student_learning_account.language_code
+    source_translation_when_available: true
+    fallback_must_report_actual_label_language: true
+
+content_metric:
+  types: [handbook, lectures]
+  completed_unit_requires_explicit_source_completion_fact: true
+  viewed_cursor_or_resume_position_counts_as_completion: false
+  STEP_VIEWED_counts_as_completion: false
+  progress_percent: completed_units_div_total_units_times_100
+  zero_total_progress_percent: null
+  control_question_percent: completed_control_questions_div_available_control_questions_times_100
+  zero_control_question_denominator: null
+  rounding_decimal_places: 2
+  handbook_without_authoritative_completion_source:
+    state: unavailable
+  lectures_core_v1_policy:
+    state: outside_core_v1
+    baseline_authority: specs/implementation-baseline-v1.yml
+    future_capability_slot_preserved: true
+
+multi_account:
+  progress_never_aggregates_across_learning_accounts: true
+  same_source_subject_across_accounts_requires_distinct_source_access_ref: true
+  source_without_access_context_is_safe_only_when_exactly_one_active_local_binding_for_subject: true
+  ambiguous_source_context: unavailable_fail_closed
+
+HTTP_semantics:
+  authorized_existing_context:
+    status: 200
+    unbound_is_representation_state_not_fake_zero: true
+    source_unavailable_is_representation_state_when_no_snapshot: true
+    stale_last_good_may_be_returned: true
+  foreign_tenant_or_wrong_student_account_pair: not_visible
+  unknown_category: validation_error
+  projection_payload_is_read_only: true
+
+preservation:
+  Stage4_mutation: forbidden
+  existing_learning_account_identity_model: preserved
+  PKK_or_PWPW_runtime: forbidden
+  payment_provider_webhook: forbidden
+  lecture_module_implementation: outside_core_v1
+  hardcoded_2185: forbidden
+  hardcoded_774: forbidden
+
+schema_corrective:
+  extension: specs/database/student-progress-projection-migration-extension.yml
+  authority_gate_executes_DDL: false
+  next_gate_after_authority_PASS: CORE-V1-STAGE5-STUDENT-PROGRESS-PROJECTION-001

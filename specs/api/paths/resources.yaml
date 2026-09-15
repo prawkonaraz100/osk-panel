@@ -1,0 +1,525 @@
+paths:
+  /locations:
+    get:
+      tags: [Locations]
+      operationId: locationsList
+      x-requirement-id: locations.list
+      x-permission: locations.view
+      responses:
+        '200':
+          description: Locations
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '../openapi-components-v1.yaml#/components/schemas/Location' } }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+    post:
+      tags: [Locations]
+      operationId: locationsCreate
+      x-requirement-id: locations.create
+      x-permission: locations.create
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/CreateLocationRequest' }
+      responses:
+        '201':
+          description: Location created
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/Location' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /locations/{locationId}:
+    parameters:
+      - { $ref: '../openapi-components-v1.yaml#/components/parameters/LocationId' }
+    get:
+      tags: [Locations]
+      operationId: locationsGet
+      x-requirement-id: locations.get
+      x-permission: locations.view
+      responses:
+        '200':
+          description: Location
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/Location' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+    patch:
+      tags: [Locations]
+      operationId: locationsUpdate
+      x-requirement-id: locations.update
+      x-permission: locations.edit
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IfMatch' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/UpdateLocationRequest' }
+      responses:
+        '200':
+          description: Location updated
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/Location' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /locations/{locationId}/archive:
+    post:
+      tags: [Locations]
+      operationId: locationsArchive
+      x-requirement-id: locations.archive
+      x-permission: locations.archive
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/LocationId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/ReasonRequest' }
+      responses:
+        '200': { description: Location archived while historical relations remain valid }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /locations/{locationId}/restore:
+    post:
+      tags: [Locations]
+      operationId: locationsRestore
+      x-requirement-id: locations.restore
+      x-permission: locations.restore
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/LocationId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+      responses:
+        '200': { description: Location restored }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /location-types:
+    get:
+      tags: [Dictionaries, Locations]
+      operationId: locationTypesList
+      x-requirement-id: location_types.list
+      x-permission: locations.view
+      responses:
+        '200':
+          description: Configured location types
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '../openapi-components-v1.yaml#/components/schemas/LocationType' } }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /geography/cities:
+    get:
+      tags: [Dictionaries, Locations]
+      operationId: geographyCitiesSearch
+      x-requirement-id: geography.cities.search
+      x-permission: locations.view
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/Search' }
+      responses:
+        '200':
+          description: City search results
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '../openapi-components-v1.yaml#/components/schemas/City' } }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /driving-categories:
+    get:
+      tags: [Dictionaries]
+      operationId: drivingCategoriesList
+      x-requirement-id: dictionaries.driving_categories.list
+      x-permission: active_membership
+      responses:
+        '200':
+          description: Driving categories valid for the selected product/legal rule set
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '../openapi-components-v1.yaml#/components/schemas/DrivingCategory' } }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /languages:
+    get:
+      tags: [Dictionaries]
+      operationId: languagesList
+      x-requirement-id: dictionaries.languages.list
+      x-permission: active_membership
+      responses:
+        '200':
+          description: Global language dictionary; product capability endpoints remain authoritative for availability
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '../openapi-components-v1.yaml#/components/schemas/LanguageCapability' } }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+
+  /staff:
+    get:
+      tags: [Staff]
+      operationId: staffList
+      x-requirement-id: staff.list
+      x-permission: staff.view
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/Page' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/PerPage' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/Search' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/Sort' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/Direction' }
+      responses:
+        '200':
+          description: Staff list including independent document-expiry and login-account projections
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: '../openapi-components-v1.yaml#/components/schemas/StaffProfile' } }
+                  meta: { $ref: '../openapi-components-v1.yaml#/components/schemas/PaginationMeta' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+    post:
+      tags: [Staff]
+      operationId: staffCreate
+      x-requirement-id: staff.create
+      x-permission: staff.create
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/UpsertStaffRequest' }
+      responses:
+        '201':
+          description: Staff profile created; login account remains optional
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/StaffProfile' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /staff/{staffId}:
+    parameters:
+      - { $ref: '../openapi-components-v1.yaml#/components/parameters/StaffId' }
+    get:
+      tags: [Staff]
+      operationId: staffGet
+      x-requirement-id: staff.get
+      x-permission: staff.view
+      responses:
+        '200':
+          description: Staff detail
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/StaffProfile' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+    patch:
+      tags: [Staff]
+      operationId: staffUpdate
+      x-requirement-id: staff.update
+      x-permission: staff.edit
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IfMatch' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/UpdateStaffRequest' }
+      responses:
+        '200':
+          description: Staff profile updated
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/StaffProfile' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /staff/{staffId}/archive:
+    post:
+      tags: [Staff]
+      operationId: staffArchive
+      x-requirement-id: staff.archive
+      x-permission: staff.archive
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/StaffId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/ReasonRequest' }
+      responses:
+        '200': { description: Staff archived without deleting historical lessons or audit data }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /staff/{staffId}/restore:
+    post:
+      tags: [Staff]
+      operationId: staffRestore
+      x-requirement-id: staff.restore
+      x-permission: staff.restore
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/StaffId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+      responses:
+        '200': { description: Staff restored }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /staff/{staffId}/user-account:
+    post:
+      tags: [Staff]
+      operationId: staffAccountCreate
+      x-requirement-id: staff.account.create
+      x-permission: staff.accounts.manage
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/StaffId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+      responses:
+        '201': { description: Organization membership/login access created and linked to staff profile }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+    delete:
+      tags: [Staff]
+      operationId: staffAccountRevoke
+      x-requirement-id: staff.account.revoke
+      x-permission: staff.accounts.manage
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/StaffId' }
+      responses:
+        '204': { description: Panel membership link revoked while staff profile/history remain }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /staff/{staffId}/permissions:
+    get:
+      tags: [Staff]
+      operationId: staffPermissionsGet
+      x-requirement-id: staff.permissions.get
+      x-permission: staff.permissions.manage
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/StaffId' }
+      responses:
+        '200':
+          description: Effective explicit permission set
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/PermissionSet' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+    put:
+      tags: [Staff]
+      operationId: staffPermissionsReplace
+      x-requirement-id: staff.permissions.replace
+      x-permission: staff.permissions.manage
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/StaffId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/PermissionSet' }
+      responses:
+        '200':
+          description: Permission set replaced and audited
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/PermissionSet' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /staff-types:
+    get:
+      tags: [Dictionaries, Staff]
+      operationId: staffTypesList
+      x-requirement-id: staff_types.list
+      x-permission: staff.view
+      responses:
+        '200':
+          description: Staff type dictionary; type labels are separate from permissions
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '../openapi-components-v1.yaml#/components/schemas/StaffType' } }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+
+  /vehicles:
+    get:
+      tags: [Vehicles]
+      operationId: vehiclesList
+      x-requirement-id: vehicles.list
+      x-permission: vehicles.view
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/Page' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/PerPage' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/Search' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/Sort' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/Direction' }
+      responses:
+        '200':
+          description: Vehicle list including technical-inspection, OC and AC validity projections
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: '../openapi-components-v1.yaml#/components/schemas/Vehicle' } }
+                  meta: { $ref: '../openapi-components-v1.yaml#/components/schemas/PaginationMeta' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+    post:
+      tags: [Vehicles]
+      operationId: vehiclesCreate
+      x-requirement-id: vehicles.create
+      x-permission: vehicles.create
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/UpsertVehicleRequest' }
+      responses:
+        '201':
+          description: Vehicle created
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/Vehicle' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /vehicles/{vehicleId}:
+    parameters:
+      - { $ref: '../openapi-components-v1.yaml#/components/parameters/VehicleId' }
+    get:
+      tags: [Vehicles]
+      operationId: vehiclesGet
+      x-requirement-id: vehicles.get
+      x-permission: vehicles.view
+      responses:
+        '200':
+          description: Vehicle detail
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/Vehicle' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+    patch:
+      tags: [Vehicles]
+      operationId: vehiclesUpdate
+      x-requirement-id: vehicles.update
+      x-permission: vehicles.edit
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IfMatch' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/UpdateVehicleRequest' }
+      responses:
+        '200':
+          description: Vehicle updated
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/Vehicle' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /vehicles/{vehicleId}/archive:
+    post:
+      tags: [Vehicles]
+      operationId: vehiclesArchive
+      x-requirement-id: vehicles.archive
+      x-permission: vehicles.archive
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/VehicleId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/ReasonRequest' }
+      responses:
+        '200': { description: Vehicle archived with history preserved }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /vehicles/{vehicleId}/restore:
+    post:
+      tags: [Vehicles]
+      operationId: vehiclesRestore
+      x-requirement-id: vehicles.restore
+      x-permission: vehicles.restore
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/VehicleId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+      responses:
+        '200': { description: Vehicle restored }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /vehicles/{vehicleId}/documents:
+    get:
+      tags: [Vehicles]
+      operationId: vehicleDocumentsList
+      x-requirement-id: vehicle_documents.list
+      x-permission: vehicles.view
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/VehicleId' }
+      responses:
+        '200':
+          description: Vehicle documents/independent validities
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '../openapi-components-v1.yaml#/components/schemas/VehicleDocument' } }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+    post:
+      tags: [Vehicles]
+      operationId: vehicleDocumentsCreate
+      x-requirement-id: vehicle_documents.create
+      x-permission: vehicles.edit
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/VehicleId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/UpsertVehicleDocumentRequest' }
+      responses:
+        '201':
+          description: Vehicle document created
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/VehicleDocument' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /vehicles/{vehicleId}/documents/{documentId}:
+    patch:
+      tags: [Vehicles]
+      operationId: vehicleDocumentsUpdate
+      x-requirement-id: vehicle_documents.update
+      x-permission: vehicles.edit
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/VehicleId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/DocumentId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IfMatch' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/UpdateVehicleDocumentRequest' }
+      responses:
+        '200':
+          description: Vehicle document updated
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/VehicleDocument' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+
+  /uploads/presign:
+    post:
+      tags: [Uploads]
+      operationId: uploadsPresign
+      x-requirement-id: uploads.presign
+      x-permission: active_membership_plus_parent_domain_permission
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/UploadPresignRequest' }
+      responses:
+        '201':
+          description: Purpose-bound presigned upload
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/UploadPresignResponse' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /uploads/{uploadId}/complete:
+    post:
+      tags: [Uploads]
+      operationId: uploadsComplete
+      x-requirement-id: uploads.complete
+      x-permission: active_membership_plus_parent_domain_permission
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/UploadId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/UploadCompleteRequest' }
+      responses:
+        '200':
+          description: Upload validated/sniffed and converted into tenant-owned FileAsset
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/FileAsset' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }

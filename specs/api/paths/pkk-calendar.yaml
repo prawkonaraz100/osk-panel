@@ -1,0 +1,461 @@
+paths:
+  /course-enrollments/{courseEnrollmentId}/pkk:
+    get:
+      tags: [PKK]
+      operationId: pkkGet
+      x-requirement-id: pkk.get
+      x-permission: pkk.view
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/CourseEnrollmentId' }
+      responses:
+        '200':
+          description: Redacted PKK profile projection for one course enrollment
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/PkkProfile' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /course-enrollments/{courseEnrollmentId}/pkk/fetch:
+    post:
+      tags: [PKK]
+      operationId: pkkFetch
+      x-requirement-id: pkk.fetch
+      x-permission: pkk.fetch
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/CourseEnrollmentId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+      responses:
+        '200':
+          description: PKK fetch operation
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/PkkOperation' }
+        '202':
+          description: PKK fetch accepted asynchronously
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/PkkOperation' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /course-enrollments/{courseEnrollmentId}/pkk/update-and-return:
+    post:
+      tags: [PKK]
+      operationId: pkkUpdateAndReturn
+      x-requirement-id: pkk.update_and_return
+      x-permission: pkk.training.update_and_return
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/CourseEnrollmentId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+              description: Provider-normalized training update payload; exact provider fields belong to adapter contract.
+      responses:
+        '202':
+          description: Update-and-return operation accepted
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/PkkOperation' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /course-enrollments/{courseEnrollmentId}/pkk/return-to-school:
+    post:
+      tags: [PKK]
+      operationId: pkkReturnToSchool
+      x-requirement-id: pkk.return_to_school
+      x-permission: pkk.return.school
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/CourseEnrollmentId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [target_school_reference]
+              properties:
+                target_school_reference: { type: string }
+                reason: { type: [string, 'null'] }
+      responses:
+        '202':
+          description: Return to another school accepted
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/PkkOperation' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /course-enrollments/{courseEnrollmentId}/pkk/return-to-authority:
+    post:
+      tags: [PKK]
+      operationId: pkkReturnToAuthority
+      x-requirement-id: pkk.return_to_authority
+      x-permission: pkk.return.authority
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/CourseEnrollmentId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/ReasonRequest' }
+      responses:
+        '202':
+          description: Return to authority accepted
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/PkkOperation' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /course-enrollments/{courseEnrollmentId}/pkk/return-expired:
+    post:
+      tags: [PKK]
+      operationId: pkkReturnExpired
+      x-requirement-id: pkk.return_expired
+      x-permission: pkk.return.expired
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/CourseEnrollmentId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/ReasonRequest' }
+      responses:
+        '202':
+          description: Expired-profile return accepted
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/PkkOperation' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /course-enrollments/{courseEnrollmentId}/pkk/operations:
+    get:
+      tags: [PKK]
+      operationId: pkkOperationsList
+      x-requirement-id: pkk.operations.list
+      x-permission: pkk.view
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/CourseEnrollmentId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/Page' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/PerPage' }
+      responses:
+        '200':
+          description: Audited PKK operation history
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data: { type: array, items: { $ref: '../openapi-components-v1.yaml#/components/schemas/PkkOperation' } }
+                  meta: { $ref: '../openapi-components-v1.yaml#/components/schemas/PaginationMeta' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /course-enrollments/{courseEnrollmentId}/pkk/operations/{operationId}:
+    get:
+      tags: [PKK]
+      operationId: pkkOperationsGet
+      x-requirement-id: pkk.operations.get
+      x-permission: pkk.view
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/CourseEnrollmentId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/OperationIdParam' }
+      responses:
+        '200':
+          description: One PKK operation including safe attempt status projection
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/PkkOperation' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /course-enrollments/{courseEnrollmentId}/pkk/operations/{operationId}/retry:
+    post:
+      tags: [PKK]
+      operationId: pkkOperationsRetry
+      x-requirement-id: pkk.operations.retry
+      x-permission: pkk.retry
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/CourseEnrollmentId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/OperationIdParam' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+      responses:
+        '202':
+          description: Retry accepted only for retryable error class
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/PkkOperation' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+
+  /calendar/driving-lessons:
+    post:
+      tags: [Calendar, Training]
+      operationId: calendarDrivingLessonsCreate
+      x-requirement-id: calendar.driving_lessons.create
+      x-permission: training_sessions.create
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/CreateCalendarDrivingLessonRequest' }
+      responses:
+        '201':
+          description: Formal practical TrainingSession created and returned as a driving-lesson calendar projection
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/CalendarEvent' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /calendar/driving-lessons/{sessionId}:
+    get:
+      tags: [Calendar, Training]
+      operationId: calendarDrivingLessonsGet
+      x-requirement-id: calendar.driving_lessons.get
+      x-permission: calendar.view
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/SessionId' }
+      responses:
+        '200':
+          description: Practical TrainingSession read as a source-specific driving-lesson calendar projection
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/CalendarEvent' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+
+  /calendar/events:
+    get:
+      tags: [Calendar]
+      operationId: calendarEventsList
+      x-requirement-id: calendar.events.list
+      x-permission: calendar.view
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/From' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/To' }
+        - name: student_id
+          in: query
+          schema: { type: string, format: uuid }
+        - name: staff_id
+          in: query
+          schema: { type: string, format: uuid }
+        - name: vehicle_id
+          in: query
+          schema: { type: string, format: uuid }
+        - name: location_id
+          in: query
+          schema: { type: string, format: uuid }
+        - name: event_type
+          in: query
+          schema: { type: array, items: { type: string } }
+          style: form
+          explode: true
+      responses:
+        '200':
+          description: Calendar events including event, driving-lesson and important-date projections
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '../openapi-components-v1.yaml#/components/schemas/CalendarEvent' } }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+    post:
+      tags: [Calendar]
+      operationId: calendarEventsCreate
+      x-requirement-id: calendar.events.create
+      x-permission: [calendar.manage.own, calendar.manage.organization]
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/CreateCalendarEventRequest' }
+      responses:
+        '201':
+          description: Calendar event created after tenant and resource-conflict validation
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/CalendarEvent' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /calendar/events/{eventId}:
+    parameters:
+      - { $ref: '../openapi-components-v1.yaml#/components/parameters/EventId' }
+    get:
+      tags: [Calendar]
+      operationId: calendarEventsGet
+      x-requirement-id: calendar.events.get
+      x-permission: calendar.view
+      responses:
+        '200':
+          description: Calendar event
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/CalendarEvent' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+    patch:
+      tags: [Calendar]
+      operationId: calendarEventsUpdate
+      x-requirement-id: calendar.events.update
+      x-permission: [calendar.manage.own, calendar.manage.organization]
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IfMatch' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/UpdateCalendarEventRequest' }
+      responses:
+        '200':
+          description: Calendar event updated after conflict validation
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/CalendarEvent' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /calendar/events/{eventId}/cancel:
+    post:
+      tags: [Calendar]
+      operationId: calendarEventsCancel
+      x-requirement-id: calendar.events.cancel
+      x-permission: [calendar.manage.own, calendar.manage.organization]
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/EventId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IfMatch' }
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/ReasonRequest' }
+      responses:
+        '200': { description: Calendar event cancelled and history preserved }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /calendar/events/{eventId}/complete:
+    post:
+      tags: [Calendar]
+      operationId: calendarEventsComplete
+      x-requirement-id: calendar.events.complete
+      x-permission: [calendar.manage.own, calendar.manage.organization]
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/EventId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IfMatch' }
+      responses:
+        '200': { description: Calendar event completed; domain-specific training effects remain in training use case }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+
+  /availability-slots:
+    get:
+      tags: [Calendar]
+      operationId: availabilitySlotsList
+      x-requirement-id: availability.list
+      x-permission: calendar.view
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/From' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/To' }
+        - name: staff_id
+          in: query
+          schema: { type: string, format: uuid }
+        - name: vehicle_id
+          in: query
+          schema: { type: string, format: uuid }
+        - name: location_id
+          in: query
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Availability/self-booking slots
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '../openapi-components-v1.yaml#/components/schemas/AvailabilitySlot' } }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+    post:
+      tags: [Calendar]
+      operationId: availabilitySlotsCreate
+      x-requirement-id: availability.create
+      x-permission: calendar.publish_student_slots
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/CreateAvailabilitySlotRequest' }
+      responses:
+        '201':
+          description: Availability slot created
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/AvailabilitySlot' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /availability-slots/{slotId}:
+    patch:
+      tags: [Calendar]
+      operationId: availabilitySlotsUpdate
+      x-requirement-id: availability.update
+      x-permission: calendar.publish_student_slots
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/SlotId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IfMatch' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/UpdateAvailabilitySlotRequest' }
+      responses:
+        '200':
+          description: Availability slot updated
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/AvailabilitySlot' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /availability-slots/{slotId}/book:
+    post:
+      tags: [Calendar]
+      operationId: availabilitySlotsBook
+      x-requirement-id: availability.book
+      x-permission: calendar.book_for_student
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/SlotId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IfMatch' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/BookAvailabilitySlotRequest' }
+      responses:
+        '200':
+          description: Slot atomically booked for one student
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/AvailabilitySlot' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /availability-slots/{slotId}/formalize:
+    post:
+      tags: [Calendar, Training]
+      operationId: availabilitySlotsFormalize
+      x-requirement-id: availability.formalize
+      x-permission: training_sessions.create
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/SlotId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IfMatch' }
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/FormalizeAvailabilitySlotRequest' }
+      responses:
+        '201':
+          description: Booked slot atomically handed off to one practical TrainingSession
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/FormalizedAvailabilityBooking' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /availability-slots/{slotId}/cancel:
+    post:
+      tags: [Calendar]
+      operationId: availabilitySlotsCancel
+      x-requirement-id: availability.cancel
+      x-permission: calendar.publish_student_slots
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/SlotId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IfMatch' }
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/ReasonRequest' }
+      responses:
+        '200': { description: Slot cancelled terminally with history preserved; no automatic re-publication }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }

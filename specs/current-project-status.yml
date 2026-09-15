@@ -1,0 +1,100 @@
+meta:
+  id: current_project_status_v1
+  authority: CURRENT-PROJECT-STATUS-001
+  as_of: 2026-09-15
+  status: CURRENT
+
+runtime_authority:
+  git_sha: 4006607dd2aecdc6fabb97a34ba5edf40d07729b
+  accepted_ci_run: 34971537563
+  accepted_ci: PASS_6_OF_6
+  release_artifact_id: 10396979267
+  release_artifact_name: osk-panel-4006607dd2aecdc6fabb97a34ba5edf40d07729b
+  release_archive_sha256: c3ca6f4c99dd61099cfc2bb720a502e8808212384d1393a8e8accae17071b962
+  postgres_tests_passed: 381
+  assertions: 6315
+  restore_tables_source: 122
+  restore_tables_restored: 122
+
+core_v1:
+  repository_complete: true
+  repository_actionable_P0: 0
+  repository_actionable_P1_for_core_launch: 0
+
+frontend_productization_completed:
+  auth_and_recovery_UI:
+    gate: AUTH-RECOVERY-UI-001
+    pull_request: 111
+    accepted: true
+    accepted_head: d6b2089903ac830581b8606914cd484f1207dee2
+    accepted_ci_run: 34964671420
+    accepted_ci: PASS_6_OF_6
+    release_artifact_id: 10395187416
+    release_archive_sha256: 516fa5aafe9c4a1a2a5bfb488e3fb3ae0bbfa3377d82e05a5797f3b9f70af7ce
+    registration_UI: BLOCKED_PENDING_PUBLIC_LEGAL_DOCUMENT_DISCOVERY
+    social_provider_buttons: DEFERRED_PENDING_PROVIDER_DISCOVERY_CONTRACT
+  organization_settings_UI:
+    gate: ORGANIZATION-SETTINGS-UI-001
+    pull_request: 113
+    accepted: true
+    accepted_head: 4006607dd2aecdc6fabb97a34ba5edf40d07729b
+    accepted_ci_run: 34971537563
+    accepted_ci: PASS_6_OF_6
+    release_artifact_id: 10396979267
+    release_archive_sha256: c3ca6f4c99dd61099cfc2bb720a502e8808212384d1393a8e8accae17071b962
+    route: /ustawienia
+    component: resources/js/modules/OrganizationSettings/SettingsWorkspace.vue
+    PKK_runtime: FROZEN_NOT_CALLED
+    terms_document_resolver: BLOCKED_MISSING_VERSIONED_LOCAL_RESOLVER
+
+development_sample_support:
+  gate: SAMPLE-DATA-001
+  branch: productization/sample-regulation-pricing-001
+  accepted: true
+  status: ACCEPTED
+  pr: 115
+  candidate_head: 275e9dc47c5b507d49b96cf4ce79205b0ec78d49
+  candidate_implementation_ci_run: 34979358411
+  candidate_implementation_ci: PASS_5_OF_5
+  candidate_api_contract_run: 34979358178
+  candidate_api_contract: PASS
+  accepted_head: 2f42eaaff8fc41cddee5ddba5c39f1d58033ed5a
+  accepted_implementation_ci_run: 34980321576
+  accepted_implementation_ci: PASS_6_OF_6
+  accepted_api_contract_run: 34980321672
+  accepted_api_contract: PASS
+  postgres_tests: 384
+  postgres_assertions: 6348
+  restore_drill: PASS
+  release_artifact_id: 10401437249
+  release_archive_sha256: 197ed111da545c12c07add947a1760be82858eed9830f4ba84ce4bc327046540
+  production_use: forbidden
+  sample_terms:
+    version: sample-terms-v1
+    metadata_endpoint: GET /api/v1/development/sample/legal/terms/current
+    document_url: /regulamin/sample-terms-v1
+    registration_validation_bypass: false
+  sample_license_pricing:
+    projection_endpoint: GET /api/v1/license-products
+    order_create_endpoint: POST /api/v1/license-orders
+    same_server_price_authority: true
+    browser_price_authority: forbidden
+  unblocks_development:
+    - registration_UI
+    - license_purchase_UI
+
+frontend_productization_gaps:
+  - license_purchase_UI
+  - internal_exam_purchase_UI
+  - browser_end_to_end_golden_paths
+
+production:
+  repository_substrate_complete: true
+  production_ready: false
+  go_live_status: BLOCKED_EXTERNAL_EVIDENCE
+  external_evidence_tracker: github_issue_106
+
+deferred_boundaries:
+  PKK_PWPW: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+  PKK_required_for_core_service_launch: false
+  payment_provider_specific_webhook: EXTERNAL_PROVIDER_BOUNDARY

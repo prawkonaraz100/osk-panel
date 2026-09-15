@@ -1,0 +1,108 @@
+{
+  "schema_version": 1,
+  "plan_identity": "34cada121f4fd4963b1461308fb517c50ee647005ce9421f4d1af40c80d44b99",
+  "execution_identity": "31704fcab61761aa9a952d824dc543a6f46e7a3717792d0a9349cefaaf57651f",
+  "stage5_root": "database/migrations/stage5/formal-documents",
+  "implemented_steps": [
+    {
+      "node_id": "S5DOC-ALTER-COURSE-ENROLLMENTS-DOCUMENT-MODE",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage5/formal-documents/expand/S5DOC-ALTER-COURSE-ENROLLMENTS-DOCUMENT-MODE/2026_09_13_000010_add_formal_document_mode_to_course_enrollments.php",
+      "migration_name": "2026_09_13_000010_add_formal_document_mode_to_course_enrollments",
+      "file_sha256": "65edff8d477ec7b1b2fcbecdd1108be994742fc18d3020611ded80f220937a41",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "S5DOC-TBL-FORMAL-TRAINING-DOCUMENT-TEMPLATES",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage5/formal-documents/expand/S5DOC-TBL-FORMAL-TRAINING-DOCUMENT-TEMPLATES/2026_09_13_000020_create_formal_training_document_templates_table.php",
+      "migration_name": "2026_09_13_000020_create_formal_training_document_templates_table",
+      "file_sha256": "83654c7b5d9a514ec67c5c845e5aa0a03d6c4e194cda4662d31ed11d3e3fb1f2",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "S5DOC-TBL-FORMAL-TRAINING-DOCUMENTS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage5/formal-documents/expand/S5DOC-TBL-FORMAL-TRAINING-DOCUMENTS/2026_09_13_000030_create_formal_training_documents_table.php",
+      "migration_name": "2026_09_13_000030_create_formal_training_documents_table",
+      "file_sha256": "8186c2cd5e1d9ff07c16300ed47fa8d971f735694cbe95f376aab72da32acd1e",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "S5DOC-TBL-FORMAL-TRAINING-DOCUMENT-EVENTS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage5/formal-documents/expand/S5DOC-TBL-FORMAL-TRAINING-DOCUMENT-EVENTS/2026_09_13_000040_create_formal_training_document_events_table.php",
+      "migration_name": "2026_09_13_000040_create_formal_training_document_events_table",
+      "file_sha256": "1964456b4b198f78cca78747861564a0999a0c095e20480c455d88f67c53d8af",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "S5DOC-ALTER-COURSE-ENROLLMENTS-DOCUMENT-MODE",
+      "phase": "preflight",
+      "migration_file": "database/migrations/stage5/formal-documents/preflight/S5DOC-ALTER-COURSE-ENROLLMENTS-DOCUMENT-MODE/2026_09_13_000050_preflight_formal_document_mode_legacy_rows.php",
+      "migration_name": "2026_09_13_000050_preflight_formal_document_mode_legacy_rows",
+      "file_sha256": "27d4afecefa1ab5b6a3c4cb9459695bb982799d607c59791baa0901d46ed9704",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "S5DOC-ALTER-COURSE-ENROLLMENTS-DOCUMENT-MODE",
+      "phase": "backfill",
+      "migration_file": "database/migrations/stage5/formal-documents/backfill/S5DOC-ALTER-COURSE-ENROLLMENTS-DOCUMENT-MODE/2026_09_13_000060_backfill_formal_document_mode_legacy_rows.php",
+      "migration_name": "2026_09_13_000060_backfill_formal_document_mode_legacy_rows",
+      "file_sha256": "8ac8fdd6b306480e5ed7f4ec501cb941e911e90c004735ac6ee036d5aee0410c",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "S5DOC-ALTER-COURSE-ENROLLMENTS-DOCUMENT-MODE",
+      "phase": "validate",
+      "migration_file": "database/migrations/stage5/formal-documents/validate/S5DOC-ALTER-COURSE-ENROLLMENTS-DOCUMENT-MODE/2026_09_13_000070_validate_formal_document_mode.php",
+      "migration_name": "2026_09_13_000070_validate_formal_document_mode",
+      "file_sha256": "730018eede38bf2d5232622fb5b2dfb275018fac6f7f1778cf74469847aecf5e",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "S5DOC-TBL-FORMAL-TRAINING-DOCUMENT-TEMPLATES",
+      "phase": "validate",
+      "migration_file": "database/migrations/stage5/formal-documents/validate/S5DOC-TBL-FORMAL-TRAINING-DOCUMENT-TEMPLATES/2026_09_13_000080_validate_formal_training_document_templates.php",
+      "migration_name": "2026_09_13_000080_validate_formal_training_document_templates",
+      "file_sha256": "df52677b316893f0bc5c8c26310263ba4c70a786ece191cbaf06aa1b754881ac",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "S5DOC-TBL-FORMAL-TRAINING-DOCUMENTS",
+      "phase": "validate",
+      "migration_file": "database/migrations/stage5/formal-documents/validate/S5DOC-TBL-FORMAL-TRAINING-DOCUMENTS/2026_09_13_000090_validate_formal_training_documents.php",
+      "migration_name": "2026_09_13_000090_validate_formal_training_documents",
+      "file_sha256": "f61ee56ac06bca191a6f277f87e3c7dea2bb40f7fbd0758fb0a9b2cf4be177be",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "S5DOC-TBL-FORMAL-TRAINING-DOCUMENT-EVENTS",
+      "phase": "validate",
+      "migration_file": "database/migrations/stage5/formal-documents/validate/S5DOC-TBL-FORMAL-TRAINING-DOCUMENT-EVENTS/2026_09_13_000095_validate_formal_training_document_events.php",
+      "migration_name": "2026_09_13_000095_validate_formal_training_document_events",
+      "file_sha256": "498238b1faf7b76f4406a9c8d5fdc9518a6e54a8ead114f811e859a1fc1f4dbb",
+      "restart_classification": "restart_safe",
+      "safe_down": false
+    },
+    {
+      "node_id": "S5DOC-ALTER-COURSE-ENROLLMENTS-DOCUMENT-MODE",
+      "phase": "contract",
+      "migration_file": "database/migrations/stage5/formal-documents/contract/S5DOC-ALTER-COURSE-ENROLLMENTS-DOCUMENT-MODE/2026_09_13_000110_contract_formal_document_mode_not_null.php",
+      "migration_name": "2026_09_13_000110_contract_formal_document_mode_not_null",
+      "file_sha256": "2be16061c5f7b6736071a72712f5f24dd371b1b048ec9dfc64ca1eb1f4c817f9",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    }
+  ],
+  "claim_any_DDL_implemented": true
+}

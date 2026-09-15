@@ -1,11 +1,34 @@
 screen:
-  id: staff_list
+  id: staff
   route: /pracownicy
   scope: admin_osk
+  title: Pracownicy
   confidence: USER_CONFIRMED_AUTH_SCREEN
+  status: READY_FOR_IMPLEMENTATION
   verified_at: 2026-09-05
+
+source_specs:
+  create: specs/screens/staff-create.yml
+  detail: specs/screens/staff-detail.yml
+  edit: specs/screens/staff-edit.yml
+  rbac: specs/security/permissions.yml
+
+source_docs:
+  list: docs/21-staff-screen.md
+  create: docs/22-staff-create-form.md
+  detail: docs/23-staff-detail-screen.md
+  edit: docs/24-staff-edit-form.md
+
+canonical_model:
+  staff_entity: StaffProfile
+  user_account_separate: true
+  staff_type_separate_from_permissions: true
+  optional_staff_to_user_link: true
+
+list:
   primary_action:
-    - add_staff
+    label: Dodaj pracownika
+    action: add_staff
   columns:
     - photo
     - full_name
@@ -15,60 +38,160 @@ screen:
   row_actions:
     - calendar_for_staff
     - view_staff_details
-  uncertain_row_labels:
-    - preview
+  details_route_pattern: /pracownicy/<staff_uuid>
   calendar_filter:
     query_param: w
     identifier: staff_uuid
-  details_route_pattern: /pracownicy/<staff_uuid>
-  confirmed_document_types:
-    - ui_label: Legitymacja
-      domain_type: card_or_license
-      semantics: TO_VERIFY_DETAILS
-    - ui_label: Badania lekarskie
-      domain_type: medical_exam
-    - ui_label: Badania psychologiczne
-      domain_type: psychological_exam
-  confirmed_document_states:
+
+confirmed_profile_fields:
+  - email
+  - first_name
+  - last_name
+  - staff_type_ids
+  - pesel
+  - phone
+  - authorization_number
+  - category_ids
+  - location_ids
+  - card_valid_until
+  - medical_exam_valid_until
+  - psychological_exam_valid_until
+  - photo
+  - create_login_account
+
+required_by_visible_marker:
+  - email
+  - first_name
+  - last_name
+  - staff_type_ids
+
+multi_selects:
+  - staff_type_ids
+  - category_ids
+  - location_ids
+
+staff_types:
+  observed:
+    - code_or_technical_value: OfficeWorker
+      label: Pracownik biurowy
+  modeling_rule: code_separate_from_localized_label
+  full_dictionary: TO_DEFINE_OR_VERIFY
+
+staff_documents:
+  confirmed_types:
+    - card_or_license
+    - medical_exam
+    - psychological_exam
+  confirmed_states:
     - valid
     - expired
-  confirmed_document_messages:
-    - '<document> wygasła/wygasły <date>'
-    - 'Legitymacja ważna do <date>'
-  login_account:
-    confirmed_value_observed: false
-    field_type: boolean_or_derived_state
-    architectural_requirement: staff_record_must_exist_without_user_account
-  model_requirements:
-    - separate_staff_profile_from_user_account
-    - optional_staff_to_user_link
-    - multiple_staff_documents
-    - independent_document_expiry_state
-    - photo_asset_reference
-    - tenant_isolation
-    - staff_as_calendar_resource
-  recommended_entities:
-    - staff_profiles
-    - staff_documents
-    - users
-    - organization_memberships
-  explicitly_not_confirmed:
+  independent_validity_dates: true
+
+login_account:
+  staff_can_exist_without_login_account: true
+  create_login_account_control_confirmed: true
+  login_account_can_be_requested_from_edit_form: true
+  separate_panel_access_section_confirmed: true
+  separate_panel_access_editor_state:
+    observed_control: visible_but_not_actionable
+    exact_reason: UNKNOWN_NONBLOCKING
+  own_product_rbac:
+    source: specs/security/permissions.yml
+    account_creation_requires_explicit_permissions_or_template: true
+
+create_flow:
+  confirmed: true
+  actions:
+    - open_staff_create
+    - set_profile_fields
+    - select_staff_types
+    - select_categories
+    - select_locations
+    - set_document_validity_dates
+    - select_photo
+    - request_create_login_account
+    - save_staff
+    - cancel_staff_create
+    - close_staff_create
+
+edit_flow:
+  confirmed: true
+  actions:
+    - open_staff_edit
+    - edit_profile_fields
+    - select_staff_types
+    - select_categories
+    - select_locations
+    - update_document_validity_dates
+    - select_or_replace_photo
+    - remove_photo_from_form
+    - request_create_login_account
+    - save_staff_changes
+    - cancel_staff_edit
+    - close_staff_edit
+
+staff_detail:
+  sections:
+    - staff_details
+    - panel_access
+    - embedded_calendar
+  global_actions:
+    - archive_staff
     - delete_staff
-    - deactivate_staff
-    - role_editing_from_list
-    - password_reset_from_list
-    - filters
-    - search
-    - sorting
-    - bulk_actions
-    - location_assignment
-    - category_assignment
-    - account_permission_details
-    - expiring_soon_threshold
-  acceptance_criteria:
-    - staff_can_exist_without_login_account
-    - each_document_has_independent_status
-    - expired_document_shows_expiry_alert
-    - valid_document_can_show_valid_until_date
-    - calendar_opens_in_staff_context
-    - details_open_in_separate_screen
+  edit_action: true
+  embedded_calendar:
+    views:
+      - month
+      - week
+      - day
+    actions:
+      - open_full_calendar
+      - add_event
+      - previous_period
+      - next_period
+      - today
+
+archive_delete:
+  competitor_visible_actions_confirmed: true
+  exact_competitor_effects: UNOBSERVABLE_NONBLOCKING
+  own_product_policy:
+    source: specs/design/core-lifecycle.yml
+    default: archive_or_deactivate
+    hard_delete_after_historical_use: false
+    preserve_calendar_and_formal_history: true
+
+relationships:
+  confirmed:
+    - staff_many_to_many_staff_types
+    - staff_many_to_many_categories
+    - staff_many_to_many_locations
+    - staff_has_many_documents
+    - staff_optional_user_account
+    - staff_calendar_context
+
+security_requirements:
+  - tenant_isolation
+  - authorize_staff_by_organization
+  - protect_pesel
+  - validate_location_ids_by_organization
+  - validate_category_ids_against_dictionary
+  - permissions_separate_from_staff_type
+  - audit_staff_identity_changes
+  - audit_account_provisioning
+  - audit_permission_changes
+  - archived_staff_not_assignable_to_new_work
+
+remaining_real_gaps:
+  competitor_nonblocking:
+    - exact_panel_access_editor_behavior_when_staff_has_account
+    - exact_archive_confirmation_and_message
+    - exact_delete_confirmation_and_competitor_semantics
+    - exact_list_search_filter_sort_controls_if_any
+  own_product_decisions_or_validations:
+    - final_staff_type_dictionary
+    - account_invitation_vs_generated_password_default
+    - default_role_template_for_new_account
+    - password_reset_UI
+    - field_validation_rules
+    - archived_staff_future_calendar_event_resolution
+    - success_error_messages

@@ -1,0 +1,3605 @@
+meta:
+  project: osk-panel
+  scope: postgresql_core_v1
+  status: IMPLEMENTATION_BLUEPRINT
+  decided_at: 2026-09-05
+  doc: docs/87-physical-database-schema.md
+  preservation_contract: docs/96-reverse-engineering-preservation-contract.md
+  traceability: specs/traceability/core-v1.yml
+  DB4_4_students_courses_training_aggregate_sync: PASS
+  DB4_5_calendar_aggregate_sync: PASS
+  DB4_6_licenses_learning_access_aggregate_sync: PASS
+  DB4_7_internal_exams_machine_aggregate_sync: PASS
+  DB4_8_PKK_machine_aggregate_sync: PASS
+  DB4_9_student_finance_commerce_machine_aggregate_sync: PASS
+  DB4_10_audit_outbox_notifications_machine_aggregate_sync: PASS
+  DB4_11_final_migration_and_test_machine_aggregate_sync: PASS
+  final_migration_and_test_authority: specs/database/final-migration-order-invariant-matrix.yml
+
+conventions:
+  primary_key:
+    physical_type: postgresql_uuid
+    generated_domain_id_version: UUIDv7
+    generation_owner: application_before_insert
+    database_default_required: false
+    foreign_key_physical_type: postgresql_uuid
+    external_provider_identifiers_must_not_be_reused_as_primary_keys: true
+    rationale:
+      - native_16_byte_PostgreSQL_uuid_storage_and_indexes
+      - time_ordered_UUIDv7_improves_index_locality_vs_random_UUIDv4
+      - globally_unique_without_central_sequence
+      - avoids_ULID_string_collation_and_char_26_storage_semantics
+      - does_not_depend_on_database_version_specific_UUIDv7_generator
+    implementation_rule: >-
+      Laravel/domain code supplies a UUIDv7 before insert for rows using a
+      synthetic domain identifier. Do not silently fall back to UUIDv4. Pure
+      join/dictionary tables may continue to use their explicitly designed
+      composite/natural keys where the table contract does not require a
+      synthetic row identity.
+    api_compatibility: >-
+      Public API identifiers remain UUID strings. Existing Stage-3 API contracts
+      are compatible because UUID is already an allowed public resource identifier.
+  timestamp: timestamptz
+  canonical_timezone: UTC
+  organization_timezone: IANA
+  money:
+    amount: bigint_minor_units
+    currency: char_3_ISO_4217
+  business_state: varchar_plus_application_enum_or_check
+  postgres_enum_for_evolving_business_state: false
+  jsonb_for:
+    - immutable_snapshots
+    - redacted_safe_projection_payloads
+    - noncritical_metadata
+  jsonb_as_replacement_for_core_relational_model: false
+  tenant_owned_tables_have_organization_id_when_practical: true
+  history_preservation_over_destructive_uniqueness: true
+  nullable_scope_uniqueness:
+    strategy: separate_partial_unique_indexes_for_null_and_non_null_scope
+    postgres_NULLS_NOT_DISTINCT_required: false
+
+sensitive_identifier_pattern:
+  pesel:
+    ciphertext_column: pesel_ciphertext
+    exact_lookup_column: pesel_lookup_hash
+    lookup_hash: HMAC_SHA_256_or_equivalent_secret_keyed_hash
+    plain_global_sha256_for_lookup_forbidden: true
+  pkk:
+    ciphertext_column: pkk_number_ciphertext
+    exact_lookup_column: pkk_lookup_hash
+    lookup_hash: HMAC_SHA_256_or_equivalent_secret_keyed_hash
+  external_credentials:
+    ciphertext_or_secret_reference_required: true
+    plaintext_after_save_forbidden: true
+
+core_tables:
+  identity:
+    - organizations
+    - organization_settings
+    - organization_contact_addresses
+    - users
+    - user_password_management
+    - auth_login_identifiers
+    - auth_social_accounts
+    - auth_sessions
+    - account_closure_requests
+    - organization_memberships
+    - permissions
+    - membership_permissions
+    - data_scopes
+    - permission_scope_options
+    - membership_permission_scopes
+    - legal_documents
+    - terms_acceptances
+
+  infrastructure_assets:
+    - file_assets
+    - idempotency_records
+
+  dictionaries:
+    - languages
+    - driving_categories
+    - location_types
+    - staff_types
+    - internal_exam_capabilities
+
+  staff:
+    - staff_profiles
+    - staff_type_assignments
+    - staff_category_assignments
+    - staff_location_assignments
+    - staff_membership_links
+    - staff_documents
+
+  resources:
+    - locations
+    - vehicles
+    - vehicle_documents
+    - vehicle_category_assignments
+    - vehicle_location_assignments
+
+  students:
+    - students
+    - student_learning_accounts
+    - student_access_handoffs
+    - student_access_export_batches
+
+  training:
+    - course_enrollments
+    - course_enrollment_lifecycle_events
+    - training_requirement_rule_sets
+    - course_requirement_contexts
+    - course_requirement_context_held_categories
+    - course_requirement_override_decisions
+    - training_requirement_profiles
+    - course_exemption_decisions
+    - recognized_external_training
+    - training_sessions
+    - training_session_attendance
+    - training_hour_ledger_entries
+
+  pkk:
+    - pkk_integration_settings
+    - pkk_integration_configuration_revisions
+    - pkk_profiles
+    - pkk_provider_profile_snapshots
+    - pkk_operations
+    - pkk_operation_lifecycle_events
+    - pkk_operation_attempts
+    - pkk_operation_attempt_reconciliations
+    - pkk_signature_handoffs
+    - pkk_signature_handoff_upload_reservations
+    - pkk_protected_payloads
+    - pkk_protected_payload_key_wrappings
+    - pkk_payload_redacted_projections
+    - pkk_signature_file_asset_protections
+    - pkk_signature_file_asset_key_wrappings
+
+  calendar:
+    - calendar_events
+    - calendar_event_lifecycle_events
+    - availability_slots
+    - availability_slot_lifecycle_events
+    - calendar_resource_claims
+    - training_session_calendar_details
+
+  student_finance:
+    - student_charges
+    - student_payments
+    - course_cost_charge_origins
+
+  licenses:
+    - license_products
+    - license_product_language_capabilities
+    - license_inventory_entries
+    - license_assignments
+    - license_activations
+
+  internal_exams:
+    - internal_exam_inventory_entries
+    - internal_exam_inventory_adjustments
+    - internal_exam_inventory_ledger_entries
+    - internal_exam_attempts
+    - internal_exam_attempt_lifecycle_events
+    - internal_exam_reservations
+    - internal_exam_accesses
+    - internal_exam_access_lifecycle_events
+    - internal_exam_access_tokens
+    - exam_stations
+    - exam_station_credentials
+    - internal_exam_station_sessions
+    - internal_exam_definitions
+    - internal_exam_attempt_questions
+    - internal_exam_results
+    - internal_exam_document_templates
+    - internal_exam_documents
+
+  commerce:
+    - commerce_catalog_items
+    - orders
+    - order_items
+    - payments
+    - payment_events
+    - order_payment_settlements
+    - order_fulfillments
+    - service_entitlements
+    - service_activations
+
+  infrastructure_events:
+    - audit_action_policy_revisions
+    - audit_action_policy_currents
+    - audit_logs
+    - domain_events
+    - outbox_messages
+    - activity_projection_policy_revisions
+    - activity_projection_policy_currents
+    - organization_activity_events
+    - notifications
+    - event_projection_migration_cases
+    - data_retention_execution_runs
+
+identity_model:
+  users:
+    global_person_or_auth_principal: true
+    local_password_hash_on_user: true
+    fields:
+      - id
+      - first_name
+      - last_name
+      - password_hash_nullable
+      - status
+      - last_login_at_nullable
+      - created_at
+      - updated_at
+    first_name_type: varchar_120
+    last_name_type: varchar_120
+    human_user_after_onboarding_requires_names: true
+    pre_onboarding_or_system_principal_nullability_may_be_supported: true
+    names_are_global_identity_fields_not_duplicated_per_organization: true
+
+  user_password_management:
+    purpose: fail_closed_global_local_password_management_authority_and_credential_epoch
+    one_row_per_user: true
+    fields:
+      - user_id
+      - management_mode
+      - managing_organization_id_nullable
+      - credential_version
+      - password_changed_at_nullable
+      - created_at
+      - updated_at
+    management_mode_values: [unclassified, self_service, organization_managed]
+    credential_version_type: bigint_not_null_default_0_check_gte_0
+    organization_managed_requires_managing_organization: true
+    self_service_or_unclassified_require_null_managing_organization: true
+    OSK_password_mutation_requires_matching_organization_managed_authority: true
+    organization_managed_exclusive_principal_guard: true
+    organization_managed_forbids_organization_membership: true
+    organization_managed_forbids_learning_account_in_other_organization: true
+    organization_managed_forbids_current_social_auth_account: true
+    authority_transition_is_separate_identity_security_command: true
+
+  auth_login_identifiers:
+    purpose: resolve_generic_login_without_tenant_selector
+    fields:
+      - id
+      - user_id
+      - identifier_type_email_or_username
+      - identifier_normalized
+      - is_primary_for_type
+      - verified_at
+      - created_at
+      - revoked_at
+    is_primary_for_type_default: false
+    global_unique_current_identifier: true
+    partial_unique:
+      columns: [identifier_normalized]
+      where: revoked_at_is_null
+    primary_current_identifier_uniqueness:
+      type: partial_unique
+      columns: [user_id, identifier_type]
+      where: revoked_at_is_null_and_is_primary_for_type_true
+    candidate_key_id_user: [id, user_id]
+    settings_email_projection: current_nonrevoked_identifier_type_email_and_primary_true
+    rule: same_visible_login_string_must_not_resolve_to_two_users
+
+  auth_social_accounts:
+    fields:
+      - id
+      - user_id
+      - provider
+      - provider_subject
+      - created_at
+      - revoked_at
+    unique_current_provider_subject: true
+
+  organization_memberships:
+    purpose: durable_tenant_authorization_aggregate_root
+    same_user_multiple_organizations_supported: true
+    unique_membership_per_organization_user: true
+    hard_delete: forbidden
+    user_id_mutation: forbidden
+    fields:
+      - id
+      - organization_id
+      - user_id
+      - status
+      - is_owner
+      - role_template_code_nullable
+      - role_template_catalog_version_nullable
+      - version
+      - authorization_version
+      - created_at
+      - updated_at
+    status_values:
+      - active
+      - suspended
+      - revoked
+    status_semantics:
+      active: authorization_eligible
+      suspended: authorization_ineligible_permissions_scopes_retained
+      revoked: authorization_ineligible_owner_false_permissions_denied_scopes_removed
+    version:
+      type: bigint
+      default: 1
+      minimum: 1
+      purpose: optimistic_concurrency_for_membership_permission_scope_owner_status_aggregate
+    authorization_version:
+      type: bigint
+      default: 1
+      minimum: 1
+      purpose: security_epoch_for_authorization_affecting_changes_and_cache_invalidation
+    is_owner:
+      type: boolean
+      default: false
+      authorization_shortcut: false
+    role_template_runtime_dependency: false
+    role_template_fields_are_provenance_only: true
+    reactivation:
+      suspended_to_active_retains_permission_scope_config: true
+      revoked_to_active_requires_fresh_permission_or_template_provisioning: true
+      revoked_to_active_restores_owner_implicitly: false
+    owner_protected_permission_baseline:
+      organization.view: organization
+      organization.members.manage: organization
+      staff.permissions.manage: organization
+      sessions.manage.organization: organization
+
+  permissions:
+    fields:
+      - code
+      - description
+    primary_key: code
+    catalog_source: specs/security/permissions.yml
+
+  membership_permissions:
+    purpose: authoritative_current_permission_decision
+    fields:
+      - membership_id
+      - permission_code
+      - granted
+      - created_at
+    unique: [membership_id, permission_code]
+    missing_row: deny
+    role_template_code_consulted_at_runtime: false
+    independent_mutation_version: false
+    concurrency_root: organization_memberships.version
+
+  data_scopes:
+    purpose: canonical_scope_catalog
+    fields:
+      - code
+      - description
+    primary_key: code
+    codes:
+      - organization
+      - own
+      - assigned_students
+      - assigned_locations
+
+  permission_scope_options:
+    purpose: whitelist_legal_permission_scope_pairs_and_resolvers
+    fields:
+      - permission_code
+      - scope_code
+      - resolver_code
+    primary_key: [permission_code, scope_code]
+    foreign_keys:
+      permission_code: permissions.code
+      scope_code: data_scopes.code
+
+  membership_permission_scopes:
+    purpose: authoritative_current_scope_predicates_for_granted_permission
+    fields:
+      - membership_id
+      - permission_code
+      - scope_code
+      - created_at
+    primary_key: [membership_id, permission_code, scope_code]
+    foreign_keys:
+      membership_permission_pair: membership_permissions[membership_id,permission_code]
+      allowed_permission_scope_pair: permission_scope_options[permission_code,scope_code]
+    multiple_rows_same_permission_semantics: logical_OR_after_tenant_validation
+    granted_permission_without_scope: deny_fail_closed
+    denied_permission_requires_zero_scope_rows: transactional_invariant
+    independent_mutation_version: false
+    concurrency_root: organization_memberships.version
+
+  auth_sessions:
+    purpose: session_listing_revocation_and_selected_tenant_context
+    fields:
+      - id
+      - user_id
+      - organization_membership_id_nullable
+      - token_or_framework_session_hash
+      - created_at
+      - last_seen_at
+      - revoked_at
+      - revoke_reason_nullable
+      - ip_hash_nullable
+      - user_agent_nullable
+    raw_session_secret_storage_forbidden: true
+    revoke_is_state_change_not_history_delete: true
+    framework_session_store_may_implement_physical_storage_if_contract_is_preserved: true
+    same_user_tenant_context_integrity:
+      source_columns: [organization_membership_id, user_id]
+      target_table: organization_memberships
+      target_columns: [id, user_id]
+      match: MATCH_SIMPLE
+      on_update: RESTRICT
+      on_delete: RESTRICT
+      target_candidate_key_required: [id, user_id]
+    null_membership_context_allowed_for_global_or_pre_tenant_flow: true
+    tenant_owned_operation_without_membership_context: deny
+    selected_organization_is_derived_from_membership: true
+
+  account_closure_requests:
+    purpose: auditable_user_or_organization_account_closure_workflow
+    fields:
+      - id
+      - user_id
+      - organization_id_nullable
+      - requested_at
+      - reason_nullable
+      - status_pending_approved_rejected_completed_cancelled
+      - resolved_at_nullable
+      - resolved_by_user_id_nullable
+      - resolution_note_nullable
+      - request_id
+    history_preserved: true
+    one_pending_request_per_scope: true
+    pending_uniqueness:
+      organization_scope:
+        type: partial_unique
+        columns: [user_id, organization_id]
+        where: status_equals_pending_and_organization_id_is_not_null
+      global_user_scope:
+        type: partial_unique
+        columns: [user_id]
+        where: status_equals_pending_and_organization_id_is_null
+
+organization_model:
+  organizations:
+    company_name_column: name
+    phone_column:
+      type: varchar_40
+      nullable: true
+    nip_remains_domain_field_but_not_part_of_observed_settings_form: true
+  organization_settings:
+    one_to_one_with_organization: true
+    fields:
+      - organization_id
+      - default_language_code_nullable
+      - preferences_jsonb_nullable
+      - version
+      - created_at
+      - updated_at
+    version:
+      type: integer
+      default: 1
+      minimum: 1
+      purpose: aggregate_version_for_settings_ETag_and_optimistic_concurrency
+    noncritical_preferences_jsonb_allowed: true
+    business_fields_in_preferences_forbidden:
+      - company_address
+      - company_phone
+      - pkk_credentials
+      - owner_name
+      - primary_email
+  organization_contact_addresses:
+    purpose: one_structured_company_contact_address_for_observed_settings_screen
+    one_to_one_with_organization: true
+    primary_key_and_foreign_key: organization_id
+    fields:
+      - organization_id
+      - street
+      - house_number
+      - unit_number_nullable
+      - postal_code
+      - city_name
+      - city_reference_nullable
+      - voivodeship_name_nullable
+      - country_code_default_PL
+      - created_at
+      - updated_at
+    relation_to_training_locations: separate_concept_do_not_reuse_locations_table
+    canonical_source: specs/database/organization-settings.yml
+  pkk_integration_settings:
+    one_to_one_with_organization: true
+    canonical_fields:
+      - organization_id
+      - school_name_nullable
+      - osk_registry_number_nullable
+      - external_osk_login_ciphertext_nullable
+      - external_osk_login_lookup_hash_optional
+      - readiness_status
+      - updated_at
+    readiness_status_values:
+      - not_configured
+      - configured_unverified
+      - verified
+      - requires_attention
+    readiness_status_default: not_configured
+    operator_name_columns_forbidden: true
+    application_auth_login_reuse_forbidden: true
+    plaintext_external_osk_login_after_save_forbidden: true
+    canonical_source: specs/database/organization-settings.yml
+  legal_documents:
+    immutable_versions: true
+    fields:
+      - document_type
+      - version
+      - content_hash
+      - published_at
+      - effective_from
+  terms_acceptances:
+    append_only: true
+    fields:
+      - organization_id
+      - user_id
+      - legal_document_id
+      - accepted_at
+      - ip_hash
+      - user_agent
+      - request_id
+    unique_acceptance_per_org_user_document: true
+
+asset_model:
+  file_assets:
+    tenant_scoped_when_owned_by_organization: true
+    fields:
+      - id
+      - organization_id_nullable_for_platform_asset
+      - storage_disk
+      - storage_key
+      - original_filename_sanitized
+      - mime_type_declared
+      - mime_type_detected
+      - size_bytes
+      - sha256
+      - purpose
+      - status_pending_uploaded_scanning_ready_rejected_deleted
+      - created_by_user_id
+      - created_at
+      - ready_at
+      - deleted_at
+    storage_key_unique: true
+    tenant_candidate_key: [organization_id, id]
+    purpose_immutable_after_upload_commit: true
+    ready_required_before_business_attachment: true
+    malware_or_content_scan_status_required_for_risky_uploads: true
+
+staff_locations_vehicles_model:
+  bounded_context_source: specs/database/staff-locations-vehicles.yml
+  aggregate_sync_status: PASS
+  tenant_candidate_keys:
+    staff_profiles: [organization_id, id]
+    organization_memberships: [organization_id, id]
+    locations: [organization_id, id]
+    vehicles: [organization_id, id]
+    file_assets: [organization_id, id]
+
+  staff_membership_links:
+    tenant_key: organization_id
+    composite_foreign_keys:
+      staff_profile: [organization_id, staff_profile_id]
+      organization_membership: [organization_id, organization_membership_id]
+    active_link_unique_per_staff_profile: true
+    active_link_unique_per_membership: true
+    normal_unlink_preserves_history: true
+    archived_staff_active_link_forbidden: true
+
+  location_assignments:
+    staff_location_assignments:
+      fields: [organization_id, staff_profile_id, location_id]
+      primary_key: [organization_id, staff_profile_id, location_id]
+      same_tenant_composite_FKs: true
+    vehicle_location_assignments:
+      fields: [organization_id, vehicle_id, location_id]
+      primary_key: [organization_id, vehicle_id, location_id]
+      same_tenant_composite_FKs: true
+
+  private_asset_attachments:
+    same_tenant_composite_FK_required: true
+    platform_global_asset_allowed: false
+    application_precheck_required: true
+    database_attachment_trigger_is_final_boundary: true
+    asset_lock_during_validation: FOR_SHARE
+    required_status_at_attach: ready
+    paths:
+      staff_profile_photo: staff_photo
+      staff_document_asset: staff_document
+      vehicle_photo: vehicle_photo
+      vehicle_document_asset: vehicle_document
+    later_nonready_asset_delivery_requires_current_state_recheck: true
+    attachment_replacement_auto_deletes_old_asset: false
+
+  document_history:
+    strategy: versioned_rows_with_superseded_at
+    current_predicate: superseded_at_is_null
+    current_cardinality: zero_or_one_per_parent_and_document_type
+    staff_current_unique:
+      type: partial_unique
+      columns: [organization_id, staff_profile_id, document_type]
+      where: superseded_at_is_null
+    vehicle_current_unique:
+      type: partial_unique
+      columns: [organization_id, vehicle_id, document_type]
+      where: superseded_at_is_null
+    in_place_business_overwrite: forbidden
+    normal_clear_hard_delete: forbidden
+    replacement_serializes_on_parent: true
+    superseded_business_fields_immutable: true
+    latest_created_at_heuristic_for_current: forbidden
+    calendar_important_date_input: current_rows_with_nonnull_valid_until_only
+
+  identity_uniqueness:
+    scope: per_organization
+    staff_PESEL:
+      type: partial_unique
+      columns: [organization_id, pesel_lookup_hash]
+      where: pesel_lookup_hash_is_not_null
+      includes_archived_rows: true
+      archive_releases_value: false
+    vehicle_VIN:
+      type: partial_unique
+      columns: [organization_id, vin_normalized]
+      where: vin_normalized_is_not_null
+      includes_archived_rows: true
+      archive_releases_value: false
+    vehicle_registration:
+      type: partial_unique
+      columns: [organization_id, registration_number_normalized]
+      where: archived_at_is_null
+      archive_releases_value_for_current_fleet: true
+      restore_requires_value_free_among_nonarchived_rows: true
+    hard_delete_to_release_identity_as_normal_lifecycle: forbidden
+    explicit_identity_correction_requires_audit: true
+
+  staff_archive_panel_access:
+    archive_always_ends_active_staff_membership_link: true
+    nonowner_active_membership_transition_on_archive: active_to_suspended
+    suspended_nonowner_membership_stays_suspended: true
+    revoked_nonowner_membership_stays_revoked: true
+    owner_membership_status_or_is_owner_changed_by_staff_archive: false
+    owner_access_removal_requires_explicit_DB_IAM_004_005_governance_flow: true
+    sole_owner_staff_profile_archive_allowed_without_zero_owner_state: true
+    staff_derived_scope_after_archive: deny_empty_set
+    restore_staff_profile_auto_restores_panel_access: false
+    restore_staff_profile_auto_rebinds_sessions: false
+    explicit_panel_access_restore_creates_new_link_row: true
+    revoked_membership_auto_reactivation: forbidden
+    archive_transaction_atomic_across_staff_link_membership_sessions_audit_outbox: true
+
+students_courses_training_model:
+  bounded_context_source: specs/database/students-courses-training.yml
+  audit_source: docs/108-stage-4-students-courses-training-ledger-audit.md
+  aggregate_sync_status: PASS
+  resolved_blockers: [DB-TRN-001, DB-TRN-002, DB-TRN-003, DB-TRN-004, DB-TRN-005, DB-TRN-006, DB-TRN-007, DB-TRN-008]
+
+  tenant_integrity:
+    tenant_candidate_keys:
+      students: [organization_id, id]
+      course_enrollments: [organization_id, id]
+      training_sessions: [organization_id, id]
+    all_tenant_owned_student_course_training_relations_use_composite_same_tenant_FK_or_equivalent_guard: true
+    organization_id_client_authority: false
+    formal_relation_on_update: RESTRICT
+    formal_relation_on_delete: RESTRICT
+
+  student_identity_and_lifecycle:
+    pre_course_incomplete_profile_allowed: true
+    fields_added_or_strengthened:
+      no_pesel_declared: boolean_not_null_default_false
+      version: bigint_not_null_default_1_check_gte_1
+    formal_course_requires_identity: PESEL_pair_or_explicit_no_PESEL_with_birth_date
+    PESEL_pair_atomic: true
+    PESEL_unique_per_organization_including_archived: true
+    archive_releases_PESEL: false
+    archive_with_active_course: reject_conflict
+    course_create_vs_archive_serialized_on_student: true
+    restore_reuses_same_student_row: true
+    hard_delete_formal_history: forbidden
+
+  course_lifecycle:
+    concurrency_root: course_enrollments.version
+    version_type: bigint_not_null_default_1_check_gte_1
+    requirements_revision: bigint_not_null_default_1_check_gte_1
+    lifecycle_state_derived_from_terminal_timestamps: true
+    terminal_states: [active, completed, interrupted, cancelled]
+    terminal_timestamp_cardinality_maximum: 1
+    training_completed_equivalent_to_completed_at_nonnull: true
+    lifecycle_history_table: course_enrollment_lifecycle_events
+    lifecycle_history_append_only: true
+    one_history_event_per_material_course_version: true
+    normal_restore_source_state: cancelled
+    completed_or_interrupted_normal_restore: forbidden
+    terminal_course_generic_PATCH: forbidden_requires_explicit_correction_mode
+
+  requirement_reproducibility:
+    target_category_owner: course_enrollments.driving_category_id
+    concurrency_root: course_enrollments.version
+    rule_sets_table: training_requirement_rule_sets
+    rule_set_version_content_immutable_after_reference: true
+    current_context_table: course_requirement_contexts
+    held_categories_table: course_requirement_context_held_categories
+    override_decisions_table: course_requirement_override_decisions
+    profiles_are_immutable_decision_history: true
+    current_profile_predicate: superseded_at_is_null
+    at_most_one_current_profile_per_course: true
+    exactly_one_current_profile_required_for_committed_formal_course: true
+    current_profile_requirements_revision_must_equal_course: true
+    one_profile_per_requirements_revision: true
+    snapshots_required: [input_snapshot, base_output_snapshot, effective_output_snapshot]
+    PII_not_required_for_rules_excluded_from_snapshot: [PESEL, PKK]
+
+  training_attendance_ledger:
+    session_status_values: [planned, completed, cancelled]
+    session_version: bigint_not_null_default_1_check_gte_1
+    session_duration_source: exact_positive_whole_minute_difference_of_ends_at_and_starts_at
+    attendance_fields_include: [organization_id, course_enrollment_id]
+    attendance_exact_session_course_composite_FK: true
+    attendance_exact_course_student_composite_FK: true
+    one_attendance_row_per_session: true
+    verified_present_only_base_credit_eligible: true
+    completed_present_exactly_one_base_credit: true
+    completed_absent_zero_base_credit: true
+    planned_or_cancelled_zero_base_credit: true
+    ledger_append_only: true
+    base_credit_partial_unique_per_session: true
+    source_entry_same_tenant_course_part_self_FK: true
+    one_reversal_per_source: true
+    reversal_of_reversal: forbidden
+    current_OSK_projection: signed_sum_ledger_per_course_and_training_part
+    declared_course_hours_are_not_credited_time: true
+
+  recognized_external_training:
+    record_roles: [course_form_projection, documented_transfer]
+    current_predicate: superseded_at_is_null_and_revoked_at_is_null
+    one_current_course_form_projection_per_course_part: true
+    documented_transfer_rows_are_additive: true
+    correction_semantics: full_replacement_not_signed_delta
+    lineage_same_tenant_course_part_role: true
+    one_successor_per_source: true
+    current_context_snapshot_fields: [recognized_for_driving_category_id, recognized_for_training_type]
+    current_context_must_match_course: true
+    unverified_legal_compatibility_matrix_hardcoded: false
+    combined_formal_minutes: current_OSK_ledger_plus_current_recognized_external_same_part
+
+  pkk_identity_boundary:
+    canonical_owner: pkk_profiles
+    course_scoped: true
+    versioned_history: true
+    current_predicate: superseded_at_is_null
+    exactly_one_current_profile_per_course: true
+    plaintext_PKK_persistence: forbidden
+    pkk_number_pair_required_on_current_identity: [pkk_number_ciphertext, pkk_lookup_hash]
+    course_and_initial_PKK_identity_commit_atomically: true
+    PKK_identity_edit_uses_course_version_and_history: true
+    category_or_training_type_change_requires_PKK_identity_revalidation_same_transaction: true
+    hard_unique_PKK_number_not_invented: true
+    provider_fetch_update_return_retry_reconciliation: defined_in_pkk_model
+
+pkk_model:
+  bounded_context_source: specs/database/pkk.yml
+  audit_source: docs/113-stage-4-pkk-audit.md
+  aggregate_sync_status: PASS
+  resolved_blockers: [DB-PKK-001, DB-PKK-002, DB-PKK-003, DB-PKK-004, DB-PKK-005, DB-PKK-006, DB-PKK-007, DB-PKK-008]
+
+  authority_boundary:
+    course_PKK_identity_authority: pkk_profiles
+    current_integration_settings_authority: pkk_integration_settings
+    integration_configuration_history_authority: pkk_integration_configuration_revisions
+    provider_snapshot_history_authority: pkk_provider_profile_snapshots
+    business_operation_authority: pkk_operations
+    business_lifecycle_history_authority: pkk_operation_lifecycle_events
+    transport_attempt_authority: pkk_operation_attempts
+    reconciliation_history_authority: pkk_operation_attempt_reconciliations
+    signature_handoff_authority: pkk_signature_handoffs
+    generic_binary_asset_authority: file_assets
+    retained_raw_payload_authority: pkk_protected_payloads
+    safe_projection_history_authority: pkk_payload_redacted_projections
+    mutable_course_or_profile_summary_as_second_authority: forbidden
+
+  tenant_and_exact_target_integrity:
+    organization_id_client_authority: false
+    pkk_operation_exact_context: [organization_id, course_enrollment_id, pkk_profile_id]
+    pkk_attempt_exact_parent_context: [organization_id, pkk_operation_id, course_enrollment_id, pkk_profile_id]
+    operation_to_course_same_tenant_composite_FK: true
+    operation_to_exact_profile_course_composite_FK: true
+    attempt_to_exact_operation_course_profile_composite_FK: true
+    signature_handoff_to_exact_operation_course_profile_composite_FK: true
+    reconciliation_to_exact_attempt_operation_course_profile_context: true
+    historical_context_reparenting: forbidden
+    formal_relation_on_update: RESTRICT
+    formal_relation_on_delete: RESTRICT
+    actor_user_is_global_identity_without_fake_tenant_FK: true
+
+  provider_profile_snapshots:
+    identity_and_provider_snapshot_authorities_separate: true
+    snapshot_table: pkk_provider_profile_snapshots
+    snapshot_revision_scope: [organization_id, course_enrollment_id, pkk_profile_id, snapshot_revision]
+    snapshot_revision_contiguous_for_runtime_rows: true
+    snapshot_revision_allocated_under_exact_profile_lock: true
+    snapshot_content_hash_required: true
+    snapshot_business_fields_immutable: true
+    current_snapshot_projection: max_snapshot_revision_for_exact_current_PkkProfile
+    superseded_identity_snapshot_fallback: forbidden
+    provider_snapshot_auto_overwrites_student_or_course: false
+    legacy_mutable_provider_fields_on_pkk_profiles_runtime_authority_after_cutover: false
+
+  business_operations:
+    operation_type_values: [fetch_profile, update_and_return, return_to_school, return_to_authority, return_expired]
+    business_status_values: [draft, pending, requires_signature, submitted, success, failed, cancelled]
+    active_statuses: [draft, pending, requires_signature, submitted]
+    retry_creates_new_business_operation: false
+    generic_direct_status_PATCH: forbidden
+    success_or_cancelled_terminal: true
+    failed_to_pending_only_through_explicit_retry_contract: true
+    one_active_operation_per_exact_profile: true
+    lifecycle_history_table: pkk_operation_lifecycle_events
+    one_lifecycle_event_per_operation_version: true
+    operation_current_version_status_matches_latest_history: DEFERRABLE_INITIALLY_DEFERRED_or_equivalent
+    confirmation_required_for_mutating_return_operations: true
+    provider_network_IO_inside_business_transition_transaction: forbidden
+    operation_creation_lock_order: [course_enrollment_FOR_UPDATE, exact_current_pkk_profile_FOR_UPDATE, organization_settings_FOR_SHARE]
+    PKK_identity_edit_vs_active_operation_serialized: true
+    duplicate_current_PKK_lookup_hash_for_external_operation: fail_closed_ambiguity_without_invented_global_uniqueness
+
+  idempotency_retry_reconciliation:
+    HTTP_command_idempotency_authority: idempotency_records
+    initial_operation_idempotency_binding_required_for_runtime: true
+    provider_attempt_command_idempotency_binding_required_for_runtime: true
+    same_key_same_hash_replay_creates_second_operation_or_attempt: false
+    same_key_different_hash: conflict
+    attempt_number_scope: [organization_id, pkk_operation_id, attempt_no]
+    attempt_number_allocated_under_operation_lock: true
+    one_replay_blocking_attempt_per_operation: true
+    worker_dispatch_claim_required_before_provider_send: true
+    timeout_or_connection_loss_effect_unknown_is_plain_failed: false
+    effect_unknown_blocks_new_dispatch_and_retry: true
+    reconciliation_table: pkk_operation_attempt_reconciliations
+    reconciliation_append_only_and_sequenced: true
+    retry_requires_definitive_no_effect_or_safe_retryable_failure: true
+    inconclusive_or_unavailable_reconciliation: fail_closed_no_automatic_retry
+    provider_native_exactly_once_assumed: false
+    safety_over_liveness_when_external_effect_unknown: true
+
+  signed_XML_handoff:
+    applies_only_when_verified_adapter_flow_requires_signature: true
+    signature_handoff_table: pkk_signature_handoffs
+    upload_reservation_table: pkk_signature_handoff_upload_reservations
+    unsigned_asset_purpose: pkk_unsigned_xml_to_sign
+    signed_asset_purpose: pkk_signed_xml_return
+    requires_signature_requires_ready_exact_same_tenant_unsigned_asset: true
+    unsigned_and_signed_hash_must_match_FileAsset_sha256: true
+    accepted_signed_asset_write_once: true
+    cross_handoff_or_cross_operation_asset_reuse: forbidden
+    referenced_XML_FileAsset_normal_delete_or_object_replacement: forbidden
+    requires_signature_to_submitted_creates_exact_submission_attempt_atomically: true
+    provider_dispatch_after_submission_commit: true
+    XAdES_or_provider_signature_rules_invented: false
+
+  protected_payloads_and_redaction:
+    retention_modes: [redacted_only, encrypted_raw_plus_redacted]
+    minimize_before_encrypt: true
+    plaintext_raw_provider_payload_persistence: forbidden
+    protected_payload_table: pkk_protected_payloads
+    protected_payload_key_wrapping_table: pkk_protected_payload_key_wrappings
+    redacted_projection_table: pkk_payload_redacted_projections
+    runtime_AEAD_profile: AES_256_GCM_256_bit_DEK_96_bit_nonce_128_bit_tag
+    exact_context_AAD_includes: [organization_id, payload_role, exact_parent_kind, exact_parent_id, crypto_profile_version]
+    random_DEK_per_payload: true
+    raw_DEK_or_KEK_persisted: false
+    key_rotation_rewraps_DEK_without_rewriting_business_ciphertext: true
+    current_wrapping_is_max_revision: true
+    redaction_is_allowlist_not_blacklist: true
+    unknown_provider_fields_safe_projection_default: deny
+    redaction_policy_change_appends_projection_revision: true
+    raw_payload_forbidden_in: [audit_logs, organization_activity_events, outbox_messages, notifications, idempotency_records_safe_response_snapshot, application_logs, generic_error_messages]
+    provisional_payload_fields_on_profile_operation_attempt_deauthorized_after_cutover: true
+
+  signature_XML_storage_security:
+    FileAsset_plaintext_sha256_semantics_preserved: true
+    final_ready_PKK_XML_storage_object_application_encrypted: true
+    signature_file_protection_table: pkk_signature_file_asset_protections
+    signature_file_key_wrapping_table: pkk_signature_file_asset_key_wrappings
+    FileAsset_sha256_is_verified_plaintext_XML_hash: true
+    encrypted_storage_object_sha256_is_ciphertext_object_hash: true
+    final_download_requires_exact_PKK_authorization_and_decryption: true
+    temporary_plaintext_quarantine_destroyed_after_successful_finalization: true
+
+  integration_configuration_revisions:
+    current_settings_table: pkk_integration_settings
+    current_execution_revision_field: execution_configuration_revision
+    revision_table: pkk_integration_configuration_revisions
+    revision_increment_only_on_material_PKK_execution_configuration_change: true
+    unrelated_OSK_setting_change_increments_execution_revision: false
+    organization_settings_version_remains_aggregate_settings_concurrency_root: true
+    provider_attempt_binds_exact_integration_configuration_revision: true
+    attempt_binding_immutable: true
+    retry_may_bind_new_current_revision_without_rewriting_old_attempt: true
+    organization_wide_PKK_execution_serialization_lock_per_organization: true
+    material_configuration_change_while_dispatching_or_effect_unknown_attempt_exists: reject_conflict
+    stale_prepared_attempt_after_configuration_change: safe_fail_before_provider_IO
+    reconciliation_uses_attempt_bound_revision: true
+    plaintext_external_osk_login_or_future_secret_copied_to_history: false
+
+  deterministic_operation_history_and_course_projection:
+    business_sequence_field: course_operation_sequence
+    sequence_scope: [organization_id, course_enrollment_id]
+    unique_scope: [organization_id, course_enrollment_id, course_operation_sequence]
+    sequence_allocated_under_existing_course_enrollment_FOR_UPDATE: true
+    committed_runtime_sequence_contiguous_from_one: true
+    sequence_immutable: true
+    history_spans_all_PkkProfile_revisions_for_same_course: true
+    latest_operation_selector: MAX_course_operation_sequence_for_exact_course
+    latest_by_created_at_completed_at_or_UUID: forbidden
+    history_order_default: course_operation_sequence_DESC
+    operation_history_count: COUNT_pkk_operations_for_exact_course
+    retry_attempt_count_is_business_operation_count: false
+    course_card_last_operation_and_history_count_are_derived: true
+    zero_operation_course_latest: null
+    zero_operation_course_count: 0
+    summary_row_or_cache_as_business_authority: forbidden
+
+  migration_safety:
+    fail_closed_on_ambiguous_legacy_state: true
+    no_cross_tenant_reparenting: true
+    no_null_legacy_operation_profile_auto_bind_to_current_or_latest: true
+    no_provider_snapshot_revision_guess_from_timestamp_or_UUID_when_ambiguous: true
+    no_lifecycle_transition_or_completed_at_history_fabrication: true
+    no_active_operation_auto_cancel_or_winner_selection: true
+    no_retry_idempotency_key_or_effect_safe_state_fabrication: true
+    no_attempt_renumbering_to_fake_history: true
+    no_signature_XML_role_or_handoff_guess_from_filename_timestamp_or_same_tenant_upload: true
+    no_legacy_ciphertext_promotion_to_authenticated_envelope_without_crypto_metadata: true
+    no_configuration_revision_guess_from_updated_at_or_timestamp: true
+    no_business_operation_sequence_tie_break_by_completed_at_UUID_or_provider_response_time: true
+    equal_legacy_created_at_without_stronger_order_evidence: fail_and_require_reviewed_remediation
+    migration_calls_provider_or_external_signing_service: forbidden
+    DB4_9_payment_or_commerce_boundary_not_entered: true
+
+calendar_model:
+  bounded_context_source: specs/database/calendar.yml
+  audit_source: docs/109-stage-4-calendar-audit.md
+  aggregate_sync_status: PASS
+  resolved_blockers: [DB-CAL-001, DB-CAL-002, DB-CAL-003, DB-CAL-004, DB-CAL-005, DB-CAL-006, DB-CAL-007]
+
+  storage_and_projection_boundary:
+    calendar_events_runtime_role: manual_general_event_only_after_legacy_driving_lesson_remediation
+    formal_driving_lesson_source: practical_training_session_projection
+    important_date_source: current_staff_or_vehicle_document_valid_until_projection
+    important_date_persisted_in_calendar_events: false
+    booked_availability_projection_source: booked_slot_without_training_session_link
+    formalized_slot_projection_suppressed: true
+    duplicate_formal_calendar_item_forbidden: true
+
+  tenant_integrity:
+    calendar_event_optional_relations: [student_id, instructor_id, vehicle_id, location_id]
+    availability_slot_optional_relations: [instructor_id, vehicle_id, location_id, booked_student_id]
+    same_tenant_composite_FKs_required: true
+    nullable_relations_use_MATCH_SIMPLE: true
+    historical_relations_use_RESTRICT: true
+    organization_id_client_authority: false
+
+  meeting_place:
+    manual_event_sources: [location_id, custom_meeting_place]
+    formal_lesson_sources: [training_sessions.location_id, training_session_calendar_details.custom_meeting_place]
+    zero_or_one_source: true
+    both_null_allowed: true
+    custom_text_trimmed_nonblank: true
+    custom_text_creates_location: false
+
+  calendar_events:
+    event_type_values_runtime: [general_event]
+    status_values: [scheduled, completed, cancelled]
+    version: bigint_not_null_default_1_check_gte_1
+    concurrency_root: calendar_events.version
+    terminal_metadata: [completed_at, completed_by_user_id, cancelled_at, cancelled_by_user_id, cancellation_reason]
+    lifecycle_history_table: calendar_event_lifecycle_events
+    lifecycle_history_append_only: true
+    one_history_event_per_material_version: true
+    current_version_history_guard: DEFERRABLE_INITIALLY_DEFERRED
+    scheduled_exact_claim_set_required: true
+    terminal_claim_count: 0
+    generic_terminal_PATCH: forbidden
+    normal_hard_delete: forbidden
+    own_owner: instructor_id_staff_profile
+    created_by_user_is_owner: false
+
+  availability_slots:
+    status_values: [available, booked, cancelled]
+    version: bigint_not_null_default_1_check_gte_1
+    concurrency_root: availability_slots.version
+    booking_fields: [booked_student_id, booked_at]
+    training_session_id_nullable_same_tenant_unique: true
+    lifecycle_history_table: availability_slot_lifecycle_events
+    lifecycle_event_values_runtime: [created, updated, booked, formalized, cancelled]
+    lifecycle_history_append_only: true
+    one_history_event_per_material_version: true
+    current_version_history_guard: DEFERRABLE_INITIALLY_DEFERRED
+    available_claim_count: 0
+    booked_unformalized_claim_owner: availability_slot_booking
+    booked_formalized_claim_count: 0
+    booked_formalized_current_reservation_owner: training_session
+    cancelled_claim_count: 0
+    cancelled_terminal: true
+    automatic_reavailability_after_cancel: false
+    successful_booking_creates_calendar_event: false
+    own_owner: instructor_id_staff_profile
+
+  conflict_engine:
+    interval: half_open_[starts_at,ends_at)
+    range_expression: tstzrange(starts_at,ends_at,'[)')
+    adjacent_end_equals_next_start_conflict: false
+    projection_table: calendar_resource_claims
+    technical_projection_not_business_history: true
+    exactly_one_resource_column_nonnull: true
+    resource_kinds: [student, instructor, vehicle, location]
+    custom_meeting_place_claims_resource: false
+    important_date_claims_resource: false
+    owner_kind_values: [calendar_event, availability_slot_booking, training_session]
+    owner_resolution_guard: DEFERRABLE_INITIALLY_DEFERRED
+    exact_claim_set_guard: DEFERRABLE_INITIALLY_DEFERRED
+    PostgreSQL_extension: btree_gist
+    final_concurrency_boundary: four_partial_GiST_exclusion_constraints
+    exclusion_dimensions: [organization_id_equals, same_resource_id_equals, occupied_during_overlaps]
+    application_precheck_is_final_boundary: false
+    claim_insert_credits_training_time: false
+
+  formal_training_calendar_authority:
+    canonical_schedule_owner: training_sessions
+    projected_calendar_type: driving_lesson_for_practical_sessions
+    canonical_student_source: course_enrollments.student_id
+    canonical_schedule_fields: [starts_at, ends_at, instructor_id, vehicle_id, location_id]
+    calendar_only_companion_table: training_session_calendar_details
+    companion_fields: [display_name, custom_meeting_place]
+    companion_is_second_concurrency_root: false
+    companion_material_change_increments_training_session_version: true
+    planned_session_types_claim_resources: [theory, practical]
+    planned_exact_claim_set: course_student_plus_instructor_plus_optional_vehicle_location
+    completed_or_cancelled_claim_count: 0
+    formal_mutations_require_training_permissions: true
+    calendar_manage_permission_alone_mutates_formal_training: false
+    calendar_complete_creates_attendance_or_ledger_credit: false
+    base_credit_path: DB_TRN_006_only
+
+  availability_to_training_handoff:
+    auto_create_training_session_during_booking_without_course_context: false
+    dedicated_atomic_command: true
+    idempotency_required: true
+    expected_slot_version_required: true
+    course_context: explicit_or_exactly_one_eligible_active_never_latest_or_first_heuristic
+    lock_order: [course_enrollment, availability_slot]
+    creates_planned_practical_training_session_from_slot_snapshot: true
+    transfers_claim_owner_from_slot_to_training_session_same_transaction: true
+    sets_availability_slot_training_session_id: true
+    increments_slot_version_once: true
+    appends_formalized_lifecycle_event: true
+    handoff_failure_restores_original_booking_claims_by_transaction_rollback: true
+    formalized_slot_cancel_independently: false
+    linked_session_terminal_state_auto_republishes_slot: false
+    later_session_reschedule_rewrites_slot_snapshot: false
+
+  own_scope:
+    manual_event_owner: calendar_events.instructor_id
+    availability_slot_owner: availability_slots.instructor_id
+    formal_lesson_view_owner: training_sessions.instructor_id
+    owner_identity: StaffProfile
+    active_staff_membership_link_required: true
+    null_owner_result: deny
+    creator_or_terminal_actor_grants_ownership: false
+    own_mutation_can_transfer_or_clear_owner: false
+    formal_lesson_mutation_uses_training_permission_not_calendar_permission: true
+
+  legacy_migration_policy:
+    driving_lesson_calendar_event_auto_match_by_time_name_or_resources: forbidden
+    ambiguous_legacy_row_requires_explicit_review: true
+    existing_overlap_auto_winner_shift_cancel_or_reassign: forbidden
+    unknown_status_actor_or_terminal_time_guess: forbidden
+    missing_booking_student_or_time_guess: forbidden
+    backfill_claims_only_from_reliably_classified_rows: true
+
+licenses_learning_access_model:
+  bounded_context_source: specs/database/licenses-learning-access.yml
+  audit_source: docs/110-stage-4-licenses-learning-access-audit.md
+  aggregate_sync_status: PASS
+  resolved_blockers: [DB-LIC-001, DB-LIC-002, DB-LIC-003, DB-LIC-004, DB-LIC-005, DB-LIC-006, DB-LIC-007]
+
+  tenant_and_exact_target_integrity:
+    tenant_candidate_keys:
+      students: [organization_id, id]
+      file_assets: [organization_id, id]
+      student_learning_accounts: [organization_id, id]
+      student_learning_accounts_exact_student: [organization_id, id, student_id]
+      license_inventory_entries: [organization_id, id]
+      license_assignments: [organization_id, id]
+      license_assignments_exact_learning_account: [organization_id, id, student_learning_account_id]
+    all_tenant_owned_relations_use_composite_same_tenant_FK_or_equivalent_guard: true
+    assignment_exact_target: [organization_id, student_learning_account_id, student_id]
+    organization_id_client_authority: false
+    formal_relation_on_update: RESTRICT
+    formal_relation_on_delete: RESTRICT
+    source_order_item_commerce_tenant_boundary: deferred_to_DB4_9
+
+  learning_accounts:
+    fields_added_or_finalized:
+      auth_login_identifier_id: uuid_not_null
+      language_code: varchar_not_null
+      status: varchar_active_or_suspended
+      version: bigint_not_null_default_1_check_gte_1
+    removed_persisted_independent_projection: login_identifier_projection
+    canonical_login_projection: auth_login_identifiers.identifier_normalized_via_join
+    same_user_identifier_composite_FK: student_learning_accounts[auth_login_identifier_id,user_id]_to_auth_login_identifiers[id,user_id]
+    referenced_identifier_must_be_current: true
+    current_identifier_final_state_guard: DEFERRABLE_INITIALLY_DEFERRED
+    user_id_reparenting_normal_flow: forbidden
+    tenant_login_namespace_added: false
+    status_values: [active, suspended]
+    concurrency_root: student_learning_accounts.version
+    generic_PATCH_may_change_status: false
+    normal_hard_delete: forbidden
+    operational_eligibility_requires: [status_active, student_nonarchived, current_auth_identifier, global_user_auth_eligible]
+    state_dependent_lock_prefix: [student, student_learning_account]
+    student_archive_rewrites_account_or_license_history: false
+    student_archive_pauses_or_extends_entitlement: false
+    student_restore_auto_resumes_suspended_or_revoked_or_expired_right: false
+
+  password_management_and_handoffs:
+    canonical_password_hash_owner: users.password_hash
+    password_management_table: user_password_management
+    credential_concurrency_root: user_password_management.credential_version
+    OSK_reset_requires_matching_organization_managed_authority_and_permission_scope: true
+    organization_managed_exclusive_principal_guard: true
+    plaintext_password_persisted: false
+    reversible_login_password_storage: false
+    secret_bearing_PDF_persisted_as_FileAsset_or_object_storage: false
+    secret_bearing_PDF_rendered_in_memory_and_streamed_once: true
+    later_handoff_can_recover_old_plaintext: false
+    visible_password_reprint_requires_new_reset: true
+    QR_contains_password_or_reset_secret: false
+    handoff_rows_are_nonsecret_metadata: true
+    handoff_fields_added: [credential_version_snapshot, contains_fresh_secret, fresh_secret_issued_at, batch_id, batch_ordinal]
+    handoff_with_fresh_secret_requires_document_asset_null: true
+    export_batch_table: student_access_export_batches
+    bulk_export_modes: [nonsecret_combined_pdf, reset_and_secret_combined_pdf]
+    bulk_reset_all_or_none: true
+    duplicate_learning_accounts_same_global_user_reset_once_per_batch: true
+    secret_in_audit_outbox_logs_or_idempotency_snapshot: forbidden
+
+  inventory_and_assignment:
+    inventory_row_represents_one_unit: true
+    inventory_status_values: [available, assigned, consumed, expired, adjusted]
+    normal_inventory_path: available_to_assigned_to_consumed_or_assigned_to_available_on_explicit_revoke
+    assignment_status_values: [assigned, activated, revoked_before_activation]
+    assignment_version: bigint_not_null_default_1_check_gte_1
+    assignment_concurrency_root: license_assignments.version
+    assigned_at_and_actor_required_immutable: true
+    normal_assignment_hard_delete: forbidden
+    current_assignment_predicate: status_in_assigned_activated_and_revoked_at_is_null
+    current_assignment_unique_scope: [organization_id, license_inventory_entry_id]
+    final_state_equivalence_guard: DEFERRABLE_INITIALLY_DEFERRED
+    available_inventory_current_assignment_count: 0
+    assigned_inventory_requires_one_assigned_unactivated_current_assignment: true
+    consumed_inventory_requires_one_activated_assignment_and_one_activation: true
+    expired_adjusted_inventory_current_assignment_count: 0
+    activated_assignment_is_consumption_history_not_current_time_flag: true
+    revoked_assignment_history_survives_reassignment: true
+    allocation_serialization_root: license_inventory_entries_row_FOR_UPDATE
+    create_assignment_is_atomic_and_idempotent: true
+    create_new_learning_account_and_assignment_one_outer_transaction: true
+    revoke_unactivated_restores_same_inventory_unit_exactly_once: true
+    revoke_after_student_archive_or_account_suspension_explicitly_allowed: true
+    activate_vs_revoke_share_lock_order_and_have_exactly_one_winner: true
+
+  activation_and_entitlement:
+    activation_table_role: immutable_append_only_entitlement_effect_ledger
+    normal_update_or_delete: forbidden
+    one_activation_per_assignment: true
+    exact_learning_account_composite_FK: license_activations[organization_id,license_assignment_id,student_learning_account_id]_to_license_assignments[organization_id,id,student_learning_account_id]
+    entitlement_sequence: bigint_not_null_gte_1_contiguous_per_learning_account
+    entitlement_sequence_unique_scope: [organization_id, student_learning_account_id, entitlement_sequence]
+    serialization_root: student_learning_accounts_row_FOR_UPDATE
+    activation_origin_values: [learner_self, organization_user, legacy_unknown]
+    runtime_activation_origin_values: [learner_self, organization_user]
+    duration_snapshot_source_values: [product_at_activation, legacy_effect_reconstructed]
+    runtime_duration_snapshot_source: product_at_activation
+    duration_days_snapshot_required_positive: true
+    product_duration_days_positive: true
+    product_duration_change_after_inventory_reference: forbidden
+    inventory_product_binding_change_after_creation: forbidden
+    expiry_before_chain_required: true
+    entitlement_chain_guard: DEFERRABLE_INITIALLY_DEFERRED
+    first_effect_starts_at_activation_time: true
+    extension_before_expiry_starts_at_previous_effective_to: true
+    activation_after_expiry_starts_at_command_effective_at_without_gap_backfill: true
+    effective_to_rule: effective_from_plus_duration_days_snapshot_times_86400_seconds
+    current_entitlement_end: MAX_license_activations_effective_to_per_learning_account
+    independent_mutable_current_expiry: forbidden
+    concurrent_extensions_do_not_lose_time: true
+    archive_or_suspension_pauses_or_extends_entitlement: false
+    migration_only_origin_or_duration_source_runtime_insert: forbidden_after_cutover
+
+  product_language_capability_and_projection:
+    current_learning_access_language_owner: student_learning_accounts.language_code
+    assignment_language_role: immutable_assignment_time_snapshot
+    product_language_capability_table: license_product_language_capabilities
+    current_capability_predicate: disabled_at_is_null
+    current_capability_unique_scope: [license_product_id, language_code]
+    capability_history_hard_delete_or_reenable_in_place: forbidden
+    assignment_capability_pointer_required: true
+    exact_assignment_capability_product_language_time_guard: DEFERRABLE_INITIALLY_DEFERRED
+    existing_account_assignment_inherits_locked_account_language: true
+    new_account_language_and_assignment_snapshot_match: true
+    capability_retirement_retroactively_revokes_assigned_right: false
+    capability_retirement_blocks_activation_of_already_assigned_unit: false
+    language_change_requires_zero_pending_assignments_and_zero_live_future_entitlements: true
+    historical_assignment_or_activation_rewritten_on_language_change: false
+    assignment_sequence: bigint_not_null_gte_1_contiguous_per_learning_account
+    assignment_sequence_unique_scope: [organization_id, student_learning_account_id, assignment_sequence]
+    latest_assignment_source: max_assignment_sequence
+    timestamp_or_UUID_latest_heuristic: forbidden
+    management_projection_mutable_authority: forbidden
+    read_effective_at_captured_once_per_query: true
+    status_expiry_remaining_hide_finished_are_derived: true
+    available_count_source: inventory_status_available
+    active_count_source: activated_assignment_activation_effective_to_gt_read_effective_at
+    bulk_credentials_locale_source: current_learning_account_language
+    global_language_dictionary_or_single_screen_list_grants_product_support: false
+    Russian_language_support_hardcoded_from_SOURCE_CONFLICT: false
+
+  migration_policy:
+    auto_reassign_cross_tenant_or_wrong_student_account_pair: forbidden
+    missing_or_mismatched_auth_identifier_auto_merge_or_rebind: forbidden
+    unknown_learning_account_status_auto_map: forbidden
+    managing_organization_inferred_from_learning_account_or_creator: forbidden
+    legacy_secret_bearing_PDF_silently_preserved_or_reclassified_nonsecret: forbidden
+    inventory_assignment_activation_state_fabrication: forbidden
+    activation_order_duration_origin_or_effective_time_guess: forbidden
+    assignment_order_from_timestamp_tie_or_UUID: forbidden
+    product_language_capability_inferred_from_global_dictionary_or_one_screen: forbidden
+    ambiguous_legacy_state: fail_and_require_reviewed_remediation
+
+idempotency_model:
+  idempotency_records:
+    fields:
+      - id
+      - organization_id_nullable_for_non_tenant_auth_flow
+      - operation_key
+      - idempotency_key
+      - request_hash
+      - status_processing_completed_failed
+      - result_resource_type_nullable
+      - result_resource_id_nullable
+      - response_status_nullable
+      - safe_response_snapshot_nullable
+      - created_at
+      - completed_at
+      - expires_at
+    uniqueness:
+      organization_scope:
+        type: partial_unique
+        columns: [organization_id, operation_key, idempotency_key]
+        where: organization_id_is_not_null
+      global_scope:
+        type: partial_unique
+        columns: [operation_key, idempotency_key]
+        where: organization_id_is_null
+    same_key_different_request_hash: reject_conflict_within_same_scope
+    same_key_may_exist_in_different_organizations: true
+    global_scope_is_distinct_from_each_tenant_scope: true
+    plaintext_secret_in_response_snapshot_forbidden: true
+    transaction_or_atomic_claim_required: true
+
+commerce_entitlement_model:
+  service_entitlements:
+    purpose: generic_paid_or_granted_service_right_when_product_is_not_modeled_as_license_or_exam_inventory
+    fields:
+      - id
+      - organization_id
+      - service_type
+      - source_order_item_id_nullable
+      - source_grant_reference_nullable
+      - activation_mode_immediate_or_explicit
+      - status_granted_available_activated_expired_revoked
+      - granted_at
+      - expires_at_nullable
+      - created_at
+    note: license_and_internal_exam_inventory_keep_their_specialized_models
+  service_activations:
+    fields:
+      - id
+      - organization_id
+      - service_entitlement_id
+      - activated_by_user_id_nullable
+      - activated_at
+      - effective_from
+      - effective_to_nullable
+      - created_at
+    unique_activation_per_entitlement: true
+    explicit_activation_is_exactly_once: true
+
+critical_relations:
+  - organization_has_one_contact_address
+  - organization_has_many_students
+  - user_has_many_auth_login_identifiers
+  - user_has_one_password_management_authority_and_credential_epoch
+  - user_has_many_auth_sessions
+  - user_has_many_account_closure_requests
+  - user_has_many_organization_memberships
+  - auth_session_selected_membership_must_belong_to_same_user
+  - organization_membership_is_durable_authorization_aggregate_root
+  - membership_permission_has_many_scope_rows
+  - permission_scope_pair_must_be_whitelisted
+  - staff_profile_belongs_to_exactly_one_organization
+  - staff_profile_can_exist_without_login_membership
+  - staff_membership_link_profile_and_membership_must_share_link_organization
+  - staff_profile_can_have_at_most_one_active_membership_link_in_its_organization
+  - archived_staff_profile_cannot_have_active_membership_link
+  - same_global_user_can_have_memberships_in_multiple_organizations
+  - staff_has_many_types_via_assignment
+  - staff_has_many_categories_via_assignment
+  - staff_has_many_locations_via_tenant_aware_assignment
+  - vehicle_has_many_categories_via_assignment
+  - vehicle_has_many_locations_via_tenant_aware_assignment
+  - staff_and_vehicle_private_assets_must_match_tenant_purpose_and_ready_state_at_attach
+  - staff_and_vehicle_documents_have_versioned_history_and_at_most_one_current_row_per_type
+  - student_has_many_course_enrollments
+  - student_has_many_learning_accounts
+  - student_learning_account_resolves_to_global_user_and_current_same_user_auth_login_identifier
+  - student_learning_account_has_many_license_assignments
+  - license_assignment_targets_exact_same_tenant_student_learning_account_and_inventory
+  - license_product_has_versioned_language_capabilities
+  - license_inventory_entry_has_many_historical_assignments_but_at_most_one_current_assignment
+  - license_assignment_has_at_most_one_activation
+  - license_activation_targets_exact_assignment_learning_account_and_immutable_entitlement_sequence
+  - course_enrollment_has_many_versioned_pkk_profiles_and_exactly_one_current_identity
+  - course_enrollment_has_many_versioned_requirement_profiles_and_exactly_one_current_revision_match
+  - course_enrollment_has_append_only_lifecycle_events_version_paired
+  - course_enrollment_has_many_training_sessions
+  - training_session_has_exactly_one_attendance_row_when_completed_and_it_is_exact_course_student
+  - completed_present_training_session_has_exactly_one_base_credit
+  - course_enrollment_has_many_recognized_external_training_records_with_deterministic_current_projection
+  - manual_general_calendar_event_has_same_tenant_optional_student_instructor_vehicle_location_relations
+  - scheduled_manual_calendar_event_has_exact_resource_claim_set
+  - availability_slot_booking_has_same_tenant_student_and_exact_resource_claim_set_until_formalized
+  - practical_training_session_projects_as_formal_driving_lesson_without_calendar_event_copy
+  - planned_training_session_has_exact_course_student_and_resource_claim_set
+  - training_session_calendar_details_is_zero_or_one_companion_to_same_tenant_practical_session
+  - availability_slot_may_link_to_at_most_one_same_tenant_training_session_after_atomic_formalization
+  - course_enrollment_has_many_internal_exam_attempts_with_immutable_course_attempt_sequence
+  - internal_exam_attempt_binds_exact_course_student_category_requirement_revision_and_capability
+  - internal_exam_inventory_entry_has_append_only_ledger_and_many_historical_reservations_but_at_most_one_active
+  - internal_exam_attempt_has_at_most_one_active_and_at_most_one_consumed_reservation
+  - internal_exam_attempt_has_append_only_lifecycle_history_and_at_most_one_ever_started_access
+  - internal_exam_access_has_append_only_lifecycle_history_and_purpose_scoped_remote_tokens
+  - exam_station_has_rotating_nonrecoverable_credentials_and_at_most_one_active_station_session
+  - internal_exam_attempt_has_many_historical_station_sessions_but_at_most_one_active_linear_transfer_chain
+  - internal_exam_attempt_binds_one_immutable_definition_at_start_and_ordered_question_evidence_when_question_test
+  - internal_exam_attempt_has_exactly_one_immutable_result_when_passed_or_failed
+  - internal_exam_document_binds_exact_result_evidence_template_and_ready_hash_matching_file_asset
+  - internal_exam_management_subject_is_derived_per_course_enrollment_and_exam_part_not_mutable_summary_authority
+  - order_item_can_grant_service_entitlement
+  - service_entitlement_has_at_most_one_activation
+
+internal_exams_model:
+  bounded_context_source: specs/database/internal-exams.yml
+  blocker_contracts_synchronized: [DB-EXAM-001, DB-EXAM-002, DB-EXAM-003, DB-EXAM-004, DB-EXAM-005, DB-EXAM-006, DB-EXAM-007, DB-EXAM-008]
+  aggregate_machine_sync_status: PASS
+  tenant_integrity:
+    organization_id_is_server_derived: true
+    formal_history_delete_policy: RESTRICT
+    same_tenant_exact_target_relations_required: true
+    attempt_exact_course_student_category: [organization_id, course_enrollment_id, student_id, driving_category_id]
+    attempt_exact_requirement_profile_revision: [organization_id, training_requirement_profile_id, course_enrollment_id, requirements_revision]
+    reservation_exact_attempt_inventory: [organization_id, internal_exam_attempt_id, internal_exam_inventory_entry_id]
+    access_exact_attempt_and_optional_station: true
+    station_session_exact_access_attempt_station: true
+    question_result_document_exact_attempt: true
+    document_exact_same_tenant_file_asset: true
+    migration_cross_tenant_or_wrong_target_auto_reassignment: forbidden
+
+  formal_requirement_and_capability:
+    current_requirement_authority: training_requirement_profiles
+    current_requirement_revision_authority: course_enrollments.requirements_revision
+    attempt_fields:
+      - training_requirement_profile_id
+      - requirements_revision
+      - internal_exam_capability_id
+      - requirement_basis_snapshot
+    attempt_basis_immutable_after_creation: true
+    category_source: locked_course_enrollment_driving_category_id
+    exam_part_values: [theory, practical]
+    theory_create_requires_internal_theory_exam_required_true: true
+    practical_create_requires_internal_practical_exam_required_true: true
+    current_capability_table: internal_exam_capabilities
+    capability_is_global_versioned_category_part_language_history: true
+    capability_fields: [id, driving_category_id, exam_part, language_code, enabled_at, disabled_at, source_reference, created_at]
+    capability_current_predicate: disabled_at_is_null
+    capability_current_unique_scope: [driving_category_id, exam_part, language_code]
+    global_language_dictionary_alone_grants_exam_support: false
+    attempt_creation_first_lock: course_enrollment_FOR_UPDATE
+    later_requirement_or_capability_change_rewrites_existing_attempt: false
+    theory_exempt_course_new_theory_attempt: forbidden
+
+  inventory:
+    accounting_history_authority: internal_exam_inventory_ledger_entries
+    concrete_unit_table: internal_exam_inventory_entries
+    adjustment_command_table: internal_exam_inventory_adjustments
+    mutable_available_counter_as_authority: forbidden
+    source_type_values: [free, paid, adjustment]
+    inventory_current_state_values: [available, reserved, consumed, adjusted_out]
+    released_as_current_inventory_state: forbidden
+    inventory_source_provenance_immutable: true
+    reservation_status_values: [reserved, released, consumed]
+    reservation_version_minimum: 1
+    one_active_reservation_per_unit: true
+    one_active_reservation_per_attempt: true
+    at_most_one_consumed_reservation_per_attempt: true
+    released_reservation_may_be_followed_by_new_reservation_row: true
+    ledger_event_types: [unit_granted, unit_adjustment_granted, unit_reserved, unit_released, unit_consumed, unit_adjusted_out, migration_baseline]
+    migration_baseline_runtime_insert_after_cutover: forbidden
+    ledger_event_sequence_unique_scope: [organization_id, internal_exam_inventory_entry_id, event_sequence]
+    ledger_event_sequence_contiguous_from_one: true
+    ledger_business_rows_immutable: true
+    reserve_on_formal_attempt_create: true
+    consume_exactly_once_on_start: true
+    prestart_release_exactly_once: true
+    technical_abort_auto_restores_consumed_unit: false
+    consumed_refund_requires_positive_adjustment: true
+    free_paid_selection_priority_hardcoded_in_database: false
+    payment_order_grant_trigger: deferred_to_DB4_9
+
+  attempt_lifecycle:
+    concurrency_root: internal_exam_attempts_row_FOR_UPDATE
+    status_values: [created, in_progress, passed, failed, technical_abort, invalidated]
+    version_type: bigint_not_null_default_1_check_gte_1
+    normal_hard_delete: forbidden
+    transitions:
+      created: [in_progress]
+      in_progress: [passed, failed, technical_abort, invalidated]
+      passed: [invalidated]
+      failed: [invalidated]
+      technical_abort: [invalidated]
+      invalidated: []
+    timestamp_fields: [started_at, finished_at, technical_aborted_at, invalidated_at]
+    state_timestamp_matrix_database_guarded: true
+    lifecycle_history_table: internal_exam_attempt_lifecycle_events
+    lifecycle_history_append_only: true
+    one_lifecycle_event_per_material_version: true
+    candidate_snapshot_PATCH_before_start_only: true
+    candidate_snapshot_PATCH_requires_If_Match_expected_version: true
+    repeat_exam_requires_new_attempt: true
+    postfinish_invalidation_preserves_original_finished_evidence: true
+
+  access_lifecycle:
+    status_values: [draft, ready, delivered_or_assigned, opened, started, completed, cancelled, expired, revoked, technical_abort, invalidated]
+    version_type: bigint_not_null_default_1_check_gte_1
+    launch_modes: [remote_link, local_current_workstation, assigned_exam_station]
+    remote_link_station_id: MUST_BE_NULL
+    remote_link_expires_at: REQUIRED
+    local_current_workstation_station_id: REQUIRED_SERVER_RESOLVED
+    assigned_exam_station_station_id: REQUIRED
+    local_or_assigned_expires_at: MUST_BE_NULL
+    mode_and_station_binding_immutable_per_access: true
+    lifecycle_history_table: internal_exam_access_lifecycle_events
+    lifecycle_history_append_only: true
+    one_nonterminal_access_per_attempt: true
+    at_most_one_ever_started_access_per_attempt: true
+    terminal_prestart_access_history_many: true
+    resend_creates_new_access_or_reservation: false
+    shared_lock_prefix: [internal_exam_attempt_FOR_UPDATE, internal_exam_access_FOR_UPDATE]
+    inventory_lock_suffix: [internal_exam_reservation_FOR_UPDATE, internal_exam_inventory_entry_FOR_UPDATE]
+    start_submit_abort_invalidate_races_recheck_state_under_attempt_lock: true
+
+  remote_token_security:
+    canonical_table: internal_exam_access_tokens
+    legacy_access_token_hash_is_canonical: false
+    allowed_access_mode: remote_link
+    purpose_values: [exam_execution, finished_result_read]
+    raw_secret_entropy_minimum_bits: 256
+    raw_secret_recoverable_storage: forbidden
+    persisted_verifier: keyed_one_way_HMAC_SHA256_or_equivalent
+    verifier_key_or_pepper_outside_database: true
+    exact_binding: [organization_id, internal_exam_access_id, internal_exam_attempt_id, purpose]
+    one_current_nonrevoked_per_access_purpose: true
+    resend_rotates_execution_secret_and_revokes_old: true
+    same_idempotency_retry_replays_raw_secret: false
+    execution_token_can_read_finished_result: false
+    finished_result_token_can_start_or_submit: false
+    finished_result_token_can_download_staff_only_document: false
+    submit_revokes_execution_and_mints_finished_result_read: true
+    technical_abort_mints_finished_result_token: false
+    invalidation_revokes_current_bearer_tokens: true
+    local_or_assigned_station_bearer_auth: forbidden
+    raw_secret_in_logs_audit_outbox_or_idempotency_snapshot: forbidden
+
+  stations:
+    station_table: exam_stations
+    credential_table: exam_station_credentials
+    persisted_administrative_status_values: [enabled, disabled]
+    connectivity_online_offline_is_derived_from_authenticated_heartbeat: true
+    occupancy_free_occupied_is_derived_from_active_station_session: true
+    effective_available_requires_enabled_online_current_credential_and_free: true
+    station_raw_credential_recoverable_storage: forbidden
+    credential_verifier: keyed_one_way_HMAC_SHA256_or_equivalent
+    credential_rotation_revokes_old_and_does_not_end_active_session: true
+    disable_revokes_current_credential_but_does_not_auto_end_transfer_or_refund: true
+    access_station_id_role: immutable_prestart_launch_or_assignment_binding
+    runtime_station_source_after_start: active_internal_exam_station_sessions.exam_station_id
+    station_session_fields: [organization_id, internal_exam_attempt_id, internal_exam_access_id, exam_station_id, session_sequence, transferred_from_session_id, started_at, ended_at, end_reason]
+    session_end_reason_values: [exam_completed, technical_abort, invalidated, transferred]
+    one_active_session_per_station: true
+    one_active_session_per_attempt: true
+    session_sequence_unique_scope: [organization_id, internal_exam_attempt_id, session_sequence]
+    session_sequence_contiguous_from_one: true
+    transfer_chain_linear_no_branch_or_cycle: true
+    failover_rewrites_access_station_id: false
+    failover_creates_access_reservation_or_inventory_effect: false
+    failover_consumes_again: false
+    reconnect_same_station_reuses_active_session: true
+    terminal_attempt_closes_active_session_atomically: true
+
+  immutable_exam_evidence:
+    definition_table: internal_exam_definitions
+    definition_tenant_owned: false
+    definition_engine_kind_values: [question_test, non_question_assessment]
+    definition_fields: [id, driving_category_id, exam_part, language_code, engine_kind, definition_version, definition_schema_version, composition_snapshot, scoring_policy_snapshot, definition_content_hash, published_at, retired_at, created_at]
+    current_definition_partial_unique_scope: [driving_category_id, exam_part, language_code, engine_kind]
+    definition_published_business_fields_immutable: true
+    definition_selected_and_frozen_at_actual_start_before_answering: true
+    attempt_definition_fields: [internal_exam_definition_id, exam_definition_version_snapshot, exam_definition_hash_snapshot, evidence_schema_version, question_set_hash]
+    observed_32_questions_global_constant: false
+    observed_74_max_points_global_constant: false
+    unverified_numeric_pass_threshold_global_constant: false
+    question_test_materializes_exact_ordered_rows_at_start: true
+    attempt_question_fields: [organization_id, internal_exam_attempt_id, ordinal, group, source_question_identifier, source_question_revision_identifier, question_snapshot_schema_version, question_snapshot, question_snapshot_hash, media_evidence_snapshot, max_points_snapshot, candidate_answer, is_correct, points_awarded, answered_at]
+    question_content_media_and_max_points_immutable_from_start: true
+    final_answer_and_scoring_fields_write_once_at_submit: true
+    question_set_hash_over_ordered_frozen_evidence: true
+    current_question_bank_or_mutable_media_is_finished_history_authority: false
+    result_table: internal_exam_results
+    result_one_per_passed_or_failed_attempt: true
+    result_immutable_after_insert: true
+    result_fields: [organization_id, internal_exam_attempt_id, evidence_schema_version, score, max_score, pass_threshold_snapshot, passed, scoring_policy_snapshot, question_set_hash, evidence_bundle_hash, answer_sheet_template_binding_snapshot, result_snapshot, result_snapshot_hash, created_at]
+    question_test_score_equals_sum_points_awarded: true
+    question_test_max_score_equals_sum_max_points_snapshot: true
+    passed_matches_frozen_scoring_policy: true
+    evidence_bundle_hash_required: true
+    document_template_table: internal_exam_document_templates
+    document_template_tenant_owned: false
+    template_fields: [id, document_type, exam_part, template_version, renderer_version, template_content_hash, effective_from, effective_to, created_at]
+    template_effective_interval: half_open
+    template_effective_intervals_nonoverlapping_per_scope: true
+    published_template_business_fields_immutable: true
+    internal_exam_document_fields: [organization_id, internal_exam_attempt_id, document_type, internal_exam_document_template_id, template_version_snapshot, renderer_version_snapshot, template_hash_snapshot, evidence_bundle_hash, asset_id, content_hash, generated_at, generated_by_user_id, created_at]
+    one_canonical_document_per_attempt_and_type: true
+    file_asset_requires_ready_correct_purpose_same_tenant_and_matching_sha256: true
+    deterministic_PDF_from_frozen_evidence_and_template: true
+    repeated_download_recomputes_from_current_profile_question_bank_or_template: false
+    in_place_finished_evidence_edit: forbidden
+    correction_requires_invalidation_new_attempt_or_append_only_future_annotation: true
+
+  management_projection:
+    mutable_summary_table_as_authority: forbidden
+    grain: [organization_id, course_enrollment_id, exam_part]
+    include_if_current_part_required_or_historical_attempt_exists: true
+    no_attempt_nonrequired_no_history_projects_not_assigned: false
+    attempt_order_field: course_attempt_sequence
+    course_attempt_sequence_unique_scope: [organization_id, course_enrollment_id, course_attempt_sequence]
+    sequence_spans_all_exam_parts_for_course: true
+    sequence_allocated_under_course_enrollment_FOR_UPDATE: true
+    sequence_contiguous_for_committed_runtime_attempts: true
+    sequence_immutable: true
+    latest_for_context: MAX_course_attempt_sequence_filtered_by_exact_course_and_exam_part
+    timestamp_UUID_or_display_minute_is_latest_authority: false
+    public_status_values: [not_assigned, not_conducted, failed, passed]
+    public_status_mapping:
+      no_attempt_required_context: not_assigned
+      created: not_conducted
+      in_progress: not_conducted
+      technical_abort: not_conducted
+      invalidated: not_conducted
+      failed: failed
+      passed: passed
+    exam_count_includes: [created, in_progress, passed, failed, technical_abort, invalidated]
+    pass_rate_denominator: passed_plus_failed_only
+    pass_rate_zero_denominator: null
+    aggregate_pass_rate: ratio_of_sums_not_average_of_row_rates
+    hide_finished_excludes: [passed, failed]
+    hide_finished_keeps: [not_assigned, not_conducted]
+    hide_finished_changes_expanded_history: false
+    search_fields: [student_first_name, student_last_name, student_contact_email, learning_account_login]
+    main_search_includes_PESEL: false
+    multiple_categories_combine_OR: true
+    multiple_statuses_combine_OR: true
+    different_filter_dimensions_combine_AND: true
+    stable_sort_final_tie_breaker: [course_enrollment_id_ASC, exam_part_ASC]
+    nullable_latest_sort_fields: NULLS_LAST_both_directions
+    expanded_history_order: course_attempt_sequence_DESC
+
+  command_lock_orders:
+    create_attempt_prefix: [course_enrollment_FOR_UPDATE]
+    remote_start: [internal_exam_attempt_FOR_UPDATE, internal_exam_access_FOR_UPDATE, internal_exam_definition_FOR_SHARE, internal_exam_reservation_FOR_UPDATE, internal_exam_inventory_entry_FOR_UPDATE]
+    local_or_assigned_start: [internal_exam_attempt_FOR_UPDATE, internal_exam_access_FOR_UPDATE, internal_exam_definition_FOR_SHARE, target_exam_station_FOR_UPDATE, current_station_credential_FOR_SHARE, internal_exam_reservation_FOR_UPDATE, internal_exam_inventory_entry_FOR_UPDATE]
+    failover: [internal_exam_attempt_FOR_UPDATE, exact_started_access_FOR_UPDATE, active_station_session_FOR_UPDATE, old_and_target_exam_stations_FOR_UPDATE_sorted_by_UUID, target_current_station_credential_FOR_SHARE]
+    submit_or_abort_prefix: [internal_exam_attempt_FOR_UPDATE, exact_started_access_FOR_UPDATE]
+    lock_order_rechecked_after_each_lock: true
+    start_definition_question_materialization_attempt_access_station_session_and_inventory_effect_one_outer_transaction: true
+    submit_question_scoring_result_attempt_access_and_station_close_one_outer_transaction: true
+
+  migration_safety:
+    fail_closed_on_ambiguous_legacy_state: true
+    no_cross_tenant_auto_reassignment: true
+    no_current_requirement_or_capability_heuristic_for_historical_basis: true
+    no_inventory_ledger_or_reservation_order_guess_from_timestamp_or_UUID: true
+    no_access_winner_or_lifecycle_order_guess: true
+    no_legacy_token_purpose_or_raw_secret_guess: true
+    no_station_credential_session_or_transfer_winner_guess: true
+    no_question_media_scoring_threshold_or_template_history_guess: true
+    no_finished_score_answer_normalization_to_force_consistency: true
+    no_attempt_sequence_tie_break_using_UUID_display_minute_status_or_result: true
+    reviewed_exact_legacy_mapping_or_order_allowed_when_proven: true
+    DB4_8_provider_lifecycle_not_entered: true
+    DB4_9_payment_grant_boundary_not_entered: true
+    DB4_10_final_audit_outbox_shape_not_entered: true
+
+student_finance_commerce_model:
+  bounded_context_source: specs/database/student-finance-commerce.yml
+  audit_source: docs/114-stage-4-student-finance-commerce-audit.md
+  aggregate_sync_status: PASS
+  resolved_blockers: [DB-FIN-001, DB-FIN-002, DB-COM-001, DB-COM-002, DB-COM-003, DB-COM-004, DB-COM-007, DB-COM-005, DB-COM-008, DB-COM-006]
+
+  bounded_context_boundary:
+    student_finance_role: OSK_internal_student_receivables_and_received_payment_ledger
+    platform_commerce_role: OSK_purchase_of_platform_products_and_services
+    student_payments_are_platform_payments: false
+    platform_payments_are_student_payments: false
+    cross_domain_money_lock_root_shared: false
+    license_inventory_lifecycle_owner: specs/database/licenses-learning-access.yml
+    internal_exam_inventory_lifecycle_owner: specs/database/internal-exams.yml
+    DB4_9_role_for_specialized_inventory: exact_purchase_provenance_and_exactly_once_grant_only
+
+  student_finance:
+    exact_target_integrity:
+      charge_student_same_tenant_FK: student_charges[organization_id,student_id]_to_students[organization_id,id]
+      optional_charge_course_exact_student_FK: student_charges[organization_id,course_enrollment_id,student_id]_to_course_enrollments[organization_id,id,student_id]
+      payment_exact_charge_student_currency_FK: student_payments[organization_id,charge_id,student_id,currency]_to_student_charges[organization_id,id,student_id,currency]
+      formal_relation_on_update: RESTRICT
+      formal_relation_on_delete: RESTRICT
+      repeated_tenant_student_currency_fields_are_integrity_keys_not_client_authority: true
+      cross_tenant_or_wrong_student_auto_reparent: forbidden
+    charge_authority:
+      durable_state_source: cancelled_at_tuple_plus_payment_ledger
+      mutable_status_column_as_second_authority_after_cutover: forbidden
+      cancellation_tuple: [cancelled_at, cancelled_by_user_id, cancellation_reason]
+      cancellation_tuple_all_null_or_all_nonnull: true
+      cancellation_write_once: true
+      uncancel: forbidden
+      cancellation_requires_zero_valid_payment_total: true
+      immutable_after_insert: [organization_id, student_id, course_enrollment_id, amount_minor, currency]
+    payment_authority:
+      amount_minor_positive: true
+      valid_payment_predicate: reversed_at_is_null
+      reversal_tuple: [reversed_at, reversed_by_user_id, reversal_reason]
+      reversal_tuple_all_null_or_all_nonnull: true
+      reversal_write_once: true
+      second_reversal: forbidden
+      unreverse: forbidden
+      hard_delete_after_insert: forbidden
+      immutable_except_reversal_tuple: [organization_id, student_id, charge_id, amount_minor, currency, paid_at, payment_method, note, received_by_user_id, created_at]
+    derived_projection:
+      paid_amount_minor: SUM_student_payments_amount_minor_where_reversed_at_is_null
+      remaining_amount_minor: charge_amount_minor_minus_paid_amount_minor
+      remaining_amount_minor_gte_zero: true
+      collection_states: [open, partially_paid, paid, cancelled]
+      overdue_is_modifier_not_second_persisted_business_state: true
+      frontend_mutable_finance_summary: forbidden
+    idempotency:
+      authority: idempotency_records
+      commands:
+        create_charge: student_finance.charge.create
+        record_payment: student_finance.payment.record
+        reverse_payment: student_finance.payment.reverse
+        cancel_charge: student_finance.charge.cancel
+        create_from_course_cost: student_finance.charge.create_from_course_cost
+      same_key_same_request_replay_second_effect: false
+      same_key_different_request: conflict
+    concurrency:
+      money_command_root: exact_student_charge_row_FOR_UPDATE
+      money_affecting_commands: [record_payment, reverse_payment, cancel_charge]
+      remaining_balance_recomputed_under_charge_lock: true
+      MVP_overpayment_allowed: false
+      cancel_vs_payment_vs_reversal_serialized: true
+      audit_outbox_intent_same_transaction: true
+      audit_outbox_physical_shape: DB4_10
+    course_cost_source_effect:
+      durable_origin_table: course_cost_charge_origins
+      unique_source: [organization_id, course_enrollment_id]
+      exact_course_student_relation_required: true
+      exact_created_charge_relation_required: true
+      source_amount_currency_snapshot_server_owned_immutable: true
+      concurrency_root: exact_course_enrollment_row_FOR_UPDATE
+      second_idempotency_key_for_same_course_may_create_second_auto_charge: false
+      manual_charge_with_optional_course_context_is_course_cost_origin: false
+      later_repricing_semantics_invented: false
+
+  platform_commerce:
+    catalog:
+      table: commerce_catalog_items
+      tenant_owned: false
+      product_kind_values: [license, internal_exam, generic_service]
+      stable_code_unique: true
+      license_kind_requires_exact_license_product_id: true
+      nonlicense_kind_does_not_invent_specialized_product_table: true
+      immutable_identity_after_first_order_reference: [code, product_kind, license_product_id]
+    order:
+      tenant_candidate_key: [organization_id, id]
+      currency_candidate_key: [organization_id, id, currency]
+      order_sequence_scope: [organization_id, order_sequence]
+      order_sequence_minimum: 1
+      order_sequence_server_allocated_and_immutable: true
+      display_number_is_not_payment_or_authorization_secret: true
+      ordered_at_server_owned_write_once: true
+      booked_at_server_owned_null_to_nonnull_once: true
+      booked_at_cannot_be_cleared_or_rewritten: true
+      zero_total_settled_at_server_owned_write_once_at_order_creation_when_total_zero: true
+      mutable_legacy_status_as_second_authority_after_cutover: forbidden
+    order_item:
+      organization_id_required: true
+      exact_order_currency_relation: order_items[organization_id,order_id,currency]_to_orders[organization_id,id,currency]
+      exact_catalog_kind_relation: order_items[commerce_catalog_item_id,product_kind]_to_commerce_catalog_items[id,product_kind]
+      quantity_positive: true
+      money_minor_units_not_float: true
+      immutable_product_display_price_VAT_discount_snapshot_required: true
+      line_total_formula_server_authoritative: true
+      order_total_equals_sum_line_totals: true
+      client_price_discount_VAT_or_total_authority: false
+      legacy_product_type_plus_generic_reference_runtime_authority_after_cutover: false
+    payment_attempt:
+      table: payments
+      statuses: [pending, confirmed, failed]
+      exact_order_amount_currency_snapshot_relation_required: true
+      provider_payment_id_partial_unique_preserved: true
+      terminal_status_never_silently_rewritten: true
+      late_failed_event_cannot_revert_confirmed: true
+      conflicting_terminal_outcome: conflict_requires_reconciliation
+      browser_redirect_confirmation_authority: false
+      direct_bank_transfer_starts_as_pending_until_trusted_reconciliation: true
+    payment_event:
+      table: payment_events
+      organization_id_required: true
+      exact_payment_provider_binding_required: true
+      provider_event_dedupe: [provider, provider_event_id]
+      duplicate_or_out_of_order_event_rechecks_current_payment_state: true
+      raw_or_unverified_webhook_is_payment_confirmation_authority: false
+    trusted_confirmation:
+      accepted_sources: [signature_verified_provider_event_normalized_confirmed, privileged_reviewed_reconciliation_with_independent_provider_or_bank_evidence]
+      browser_return_or_frontend_success_accepted: false
+      amount_provider_timestamp_or_UUID_heuristic_accepted: false
+    settlement:
+      durable_table: order_payment_settlements
+      role: sole_one_per_order_nonzero_payment_business_settlement_authority
+      unique_per_order: true
+      payment_applied_to_at_most_one_settlement: true
+      first_trusted_confirmed_attempt_under_order_serialization_creates_settlement: true
+      second_confirmed_payment_preserves_external_truth_but_creates_second_business_effect: false
+      confirmed_nonsettling_payment_requires_reconciliation: true
+      nonzero_paid_projection_requires_settlement: true
+      zero_total_paid_resolution_uses_order_zero_total_settled_at: true
+    payment_projection:
+      canonical_values: [unpaid, pending, paid]
+      derived_not_independent_mutable_label: true
+    fulfillment:
+      durable_table: order_fulfillments
+      one_row_per_order: true
+      statuses: [pending, fulfilled, requires_reconciliation]
+      nonzero_trigger_authority: exact_order_payment_settlement
+      zero_total_trigger_authority: orders.zero_total_settled_at
+      payment_resolution_and_pending_fulfillment_created_atomically: true
+      fulfillment_transaction_creates_all_local_grant_effects_or_none: true
+      fulfilled_only_after_complete_exact_grant_set: true
+      retry_after_fulfilled_creates_second_grant_set: false
+      requires_reconciliation_blocks_automatic_grant_worker: true
+      browser_return_raw_webhook_or_loose_payment_status_can_trigger_fulfillment: false
+    purchase_grant_provenance:
+      purchase_source_fields: [source_order_item_id, source_order_item_grant_ordinal]
+      ordinal_minimum: 1
+      ordinal_maximum: exact_parent_order_item_quantity
+      unique_purchase_unit_per_order_item_ordinal: true
+      quantity_N_requires_exactly_N_proven_downstream_units: true
+      paid_license_requires_exact_license_product_match: true
+      paid_internal_exam_requires_source_type_paid: true
+      generic_service_purchase_requires_exact_generic_service_order_item: true
+      free_adjustment_operator_grant_may_be_relabelled_paid: false
+      downstream_lifecycle_redefined_by_commerce: false
+    generic_service_entitlement:
+      table: service_entitlements
+      source_XOR: exact_purchase_or_operator_grant_never_both_or_neither
+      purchase_source_same_tenant_exact_order_item_required: true
+      activation_modes: [immediate, explicit]
+      explicit_payment_success_is_activation: false
+      explicit_fulfillment_finishes_as_available_without_activation: true
+      immediate_fulfillment_creates_entitlement_and_exact_activation_atomically: true
+      activation_table: service_activations
+      activation_unique_per_entitlement: true
+      activation_same_tenant_exact_entitlement_binding_required: true
+      activation_mode_status_activation_final_state_equivalence_required: true
+    purchase_history:
+      number_source: orders.order_sequence
+      order_date_source: orders.ordered_at
+      booking_date_source: orders.booked_at
+      amount_source: immutable_order_total_snapshot
+      status_source: payment_projection_plus_fulfillment_projection
+      default_order: [ordered_at_DESC, order_sequence_DESC, id_DESC]
+      mutable_history_status_or_number_second_authority: forbidden
+      Stage3_per_page_1_to_100_preserved: true
+      offset_pagination_snapshot_stability_under_new_concurrent_orders_claimed: false
+    concurrency:
+      platform_commerce_root: exact_orders_row_FOR_UPDATE
+      command_local_idempotency_or_provider_event_dedupe_before_business_row_locks: true
+      canonical_lock_order: [exact_order, relevant_payments_by_id_ASC, existing_order_payment_settlement, existing_order_fulfillment, immutable_order_items_by_id_ASC, purchase_grants_by_order_item_id_ASC_then_grant_ordinal_ASC]
+      reverse_downstream_to_order_lock_path: forbidden
+      provider_network_or_browser_wait_while_business_DB_lock_held: false
+      payment_creation_vs_settlement_serialized_on_order: true
+      webhook_vs_manual_reconciliation_serialized_on_order_then_payment: true
+      duplicate_fulfillment_workers_commit_at_most_one_grant_set: true
+      explicit_service_activation_reenters_order_lock: false
+      later_license_assignment_or_exam_reservation_reenters_commerce_transaction: false
+      deadlock_or_serialization_retry: whole_command_from_idempotency_boundary
+      audit_outbox_intent_same_transaction: true
+      audit_outbox_physical_shape: DB4_10
+
+  migration_safety:
+    evidence_classes: [safe_exact_derivation, proven_historical_fact, reviewed_exact_remediation, unresolved_ambiguity]
+    unresolved_ambiguity: fail_and_block_constraint_activation
+    timestamp_UUID_amount_same_tenant_name_duration_current_price_nearest_row_as_lineage_evidence: forbidden
+    browser_return_created_at_updated_at_or_migration_current_time_as_payment_or_business_date_authority: forbidden
+    order_item_tenant_may_be_exactly_derived_from_proven_parent_order: true
+    product_linkage_requires_exact_reference_or_reviewed_mapping: true
+    historical_price_recomputed_from_current_catalog: forbidden
+    settlement_reconstructed_from_legacy_paid_string_alone: forbidden
+    payment_winner_or_provider_event_selected_heuristically: forbidden
+    inventory_to_order_item_pairing_heuristic: forbidden
+    migration_runs_fulfillment_worker_or_grant_command: forbidden
+    settled_order_without_proven_complete_grants: requires_reconciliation_not_pending_or_fulfilled
+    migration_regrants_missing_units: forbidden
+    migration_deletes_extra_units_to_force_quantity: forbidden
+    consumed_activated_assigned_or_reserved_downstream_history_rewritten: forbidden
+    course_cost_origin_inferred_from_same_course_student_amount_currency_title_or_timestamp: forbidden
+    deterministic_order_sequence_technical_allocation_allowed_only_as_reviewable_nonhistorical_physical_backfill: true
+    write_fence_or_new_contract_only_writes_required_before_final_preflight: true
+    constraint_activation_after_exact_cleanup_and_review_only: true
+    reconciliation_manifest_is_migration_artifact_not_runtime_business_authority: true
+    migration_restart_may_duplicate_settlement_fulfillment_or_grants: false
+    financial_or_downstream_history_hard_delete_to_make_constraints_pass: forbidden
+    DB4_10_audit_outbox_physical_shape_not_entered: true
+
+
+audit_outbox_notifications_model:
+  bounded_context_source: specs/database/audit-outbox-notifications.yml
+  audit_source: docs/115-stage-4-audit-outbox-notifications-audit.md
+  aggregate_machine_sync_status: PASS
+  resolved_blockers: [DB-AUD-001, DB-AUD-002, DB-OUT-001, DB-OUT-002, DB-ACT-001, DB-NOT-001, DB-NOT-002, DB-EVT-001]
+
+  audit_history:
+    table: audit_logs
+    role: append_only_security_and_business_history_not_business_source_of_truth
+    fields:
+      - id
+      - audit_scope
+      - organization_id_nullable
+      - actor_kind
+      - actor_organization_membership_id_nullable
+      - actor_user_id_nullable
+      - action
+      - audit_policy_version
+      - entity_reference_mode
+      - entity_type_nullable
+      - entity_id_nullable_string
+      - before_redacted_json_nullable
+      - after_redacted_json_nullable
+      - reason_nullable
+      - request_id
+      - ip_hash_nullable
+      - user_agent_nullable
+      - created_at
+    audit_scope_values: [organization, platform_global]
+    organization_scope_requires_server_derived_organization_id: true
+    platform_global_scope_requires_null_organization_id: true
+    organization_candidate_key: [organization_id, id]
+    actor_kind_values: [organization_membership, global_user, system]
+    organization_membership_actor_exact_relation:
+      source_columns: [organization_id, actor_organization_membership_id, actor_user_id]
+      target_table: organization_memberships
+      target_columns: [organization_id, id, user_id]
+      on_update: RESTRICT
+      on_delete: RESTRICT
+    platform_global_global_user_actor_only: true
+    system_actor_has_null_membership_and_user: true
+    entity_reference_mode_values: [none, tenant_relational, global_relational, snapshot_only]
+    tenant_relational_entity_guard: closed_allowlist_same_tenant_DEFERRABLE_constraint_trigger_or_equivalent
+    global_relational_entity_guard: closed_allowlist_exact_global_target_guard
+    snapshot_only_does_not_claim_relational_FK: true
+    normal_application_update_or_delete: forbidden
+    organization_audit_query_requires_exact_organization_predicate: true
+    organization_audit_order: [created_at_DESC, id_DESC]
+
+  audit_policy_history:
+    revision_table: audit_action_policy_revisions
+    current_table: audit_action_policy_currents
+    revision_primary_key: [action, policy_version]
+    revision_fields: [action, policy_version, payload_validator_code, before_payload_requirement, after_payload_requirement, reason_requirement, policy_hash, created_at]
+    revisions_immutable: true
+    current_primary_key: action
+    current_exact_revision_FK: [action, policy_version]
+    new_runtime_audit_requires_exact_current_revision: true
+    audit_row_binds_revision: [action, audit_policy_version]
+    safe_payload_top_level_when_nonnull: json_object
+    payload_validator_is_closed_versioned_allowlist: true
+    unknown_key_or_JSON_path: reject
+    raw_model_request_provider_or_arbitrary_JSON_serialization: forbidden
+    forbidden_payload_classes: [plaintext_password, password_hash, auth_token, provider_secret, full_PESEL, full_PKK, external_OSK_credentials]
+    reason_requirement_values: [optional, required]
+    required_reason_null_empty_or_whitespace: reject
+    domain_specific_upstream_required_reason_may_not_be_downgraded: true
+    policy_change_does_not_rewrite_historical_audit_payload: true
+
+  domain_events:
+    table: domain_events
+    role: durable_immutable_event_identity_for_outbox_activity_and_notification_projections
+    business_source_of_truth: false
+    fields:
+      - id
+      - event_scope
+      - organization_id_nullable
+      - event_type
+      - aggregate_reference_mode
+      - aggregate_type_nullable
+      - aggregate_id_nullable_string
+      - request_id
+      - causation_event_id_nullable
+      - required_audit_log_id_nullable
+      - occurred_at
+      - created_at
+    event_scope_values: [organization, platform_global]
+    organization_candidate_key: [organization_id, id]
+    organization_event_requires_server_derived_organization_id: true
+    platform_global_event_requires_null_organization_id: true
+    id_is_canonical_projection_dedupe_identity: true
+    request_id_is_correlation_only_not_unique_or_authority: true
+    causation_event_id_exact_self_FK_RESTRICT_when_present: true
+    aggregate_reference_mode_values: [none, tenant_relational, global_relational, snapshot_only]
+    tenant_relational_aggregate_reference_same_tenant_allowlist_guard: true
+    required_audit_link_exact_scope_and_tenant_guard_when_upstream_contract_requires_audit: true
+    raw_audit_payload_copy: forbidden
+    immutable_after_insert: true
+    normal_application_update_or_delete: forbidden
+
+  transactional_event_outbox_boundary:
+    outbox_table: outbox_messages
+    one_outbox_intent_per_domain_event_unique: domain_event_id
+    new_runtime_outbox_requires_exact_domain_event_id: true
+    copied_identity_fields_match_event: [event_scope, organization_id, event_type, aggregate_type, aggregate_id, request_id]
+    one_local_transaction_when_prior_domain_contract_requires_event_and_outbox:
+      - canonical_business_effect
+      - required_audit
+      - exactly_one_domain_event
+      - exactly_one_outbox_intent
+    missing_required_audit_event_or_outbox_rolls_back_business_effect: true
+    external_network_publish_inside_business_transaction: forbidden
+    losing_race_or_idempotent_noop_emits_second_event: false
+
+  outbox_publisher:
+    table: outbox_messages
+    publication_state_values: [pending, leased, published, requires_reconciliation]
+    initial_state: pending
+    fields_finalized:
+      - domain_event_id
+      - event_scope
+      - organization_id_nullable
+      - publication_state
+      - next_attempt_at_nullable
+      - lease_token_nullable
+      - lease_version
+      - leased_by_nullable_opaque_worker_instance
+      - lease_expires_at_nullable
+      - attempts
+      - attempts_in_cycle
+      - replay_count
+      - published_at_nullable
+      - last_error_code_nullable
+      - last_error_nullable_safe_summary
+    claimable_rows: [pending_due, expired_lease]
+    claim_algorithm: exact_row_lock_or_UPDATE_RETURNING_with_SKIP_LOCKED_equivalent
+    leased_requires_token_worker_and_expiry: true
+    lease_version_monotonic: true
+    stale_lease_cannot_ack_or_overwrite_newer_worker: true
+    attempts_are_monotonic_lifetime_claim_count: true
+    successful_ack_sets_published_at_once: true
+    retryable_or_ambiguous_failure_returns_to_pending_with_server_backoff: true
+    nonretryable_or_cycle_exhausted_goes_requires_reconciliation: true
+    requires_reconciliation_auto_claim: forbidden
+    publication_semantic: at_least_once
+    exactly_once_external_delivery_claim: forbidden
+    downstream_dedupe_identity: domain_event_id
+    manual_replay_only_from_requires_reconciliation_with_privileged_audited_nonblank_reason: true
+    manual_replay_reuses_same_outbox_row_and_domain_event: true
+    safe_last_error_forbids_raw_provider_payload_secret_full_PESEL_full_PKK: true
+    normal_application_delete: forbidden
+
+  activity_projection:
+    table: organization_activity_events
+    source_authority: domain_events
+    source_subset: organization_events_with_registered_current_activity_policy
+    raw_audit_or_outbox_as_source: forbidden
+    exact_source_relation: [organization_id, source_event_id]
+    unique_source_projection: [organization_id, source_event_id]
+    copied_source_fields: [organization_id, event_type, occurred_at]
+    canonical_order: [occurred_at_DESC, id_DESC]
+    policy_revision_table: activity_projection_policy_revisions
+    policy_current_table: activity_projection_policy_currents
+    policy_revision_primary_key: [event_type, policy_version]
+    policy_fields: [payload_validator_code, description_builder_code, actor_snapshot_rule_code, subject_reference_rule_code, related_student_rule_code, navigation_rule_code]
+    row_projection_policy_version_required_and_immutable: true
+    immutable_display_fields:
+      - description_snapshot
+      - safe_payload_nullable
+      - actor_reference_mode
+      - actor_organization_membership_id_nullable
+      - actor_user_id_nullable
+      - actor_display_name_snapshot_nullable
+      - subject_type_nullable
+      - subject_id_nullable
+      - related_student_id_nullable
+    safe_payload_closed_allowlist: true
+    raw_audit_outbox_provider_model_or_secret_payload: forbidden
+    retry_or_concurrent_projector_uses_source_unique_race_winner: true
+    retry_never_rebuilds_existing_snapshot_under_new_policy: true
+    dashboard_notifications_card_is_activity_feed: true
+    normal_projector_update_existing_row: forbidden
+    normal_application_delete: forbidden
+
+  notification_projection:
+    table: notifications
+    semantic: one_physical_row_per_exact_organization_membership_recipient
+    fields_finalized:
+      - id
+      - organization_id
+      - source_event_id
+      - organization_membership_id
+      - user_id
+      - audience_kind
+      - type
+      - payload
+      - read_at_nullable
+      - created_at
+    exact_recipient_relation:
+      source_columns: [organization_id, organization_membership_id, user_id]
+      target_table: organization_memberships
+      target_columns: [organization_id, id, user_id]
+      on_update: RESTRICT
+      on_delete: RESTRICT
+    exact_source_event_relation: [organization_id, source_event_id]
+    source_event_must_be_organization_scoped: true
+    unique_source_recipient: [organization_id, source_event_id, organization_membership_id]
+    audience_kind_values: [direct_membership, organization_broadcast]
+    nullable_recipient_runtime_row: forbidden
+    direct_requires_one_active_exact_membership_at_materialization: true
+    organization_broadcast_materializes_one_row_per_active_membership_snapshot: true
+    broadcast_all_or_none_transaction: true
+    later_membership_join_not_retroactive: true
+    read_state_is_per_recipient_row_not_shared: true
+    new_runtime_read_at: null
+    only_normal_transition: read_at_NULL_to_server_timestamp_once
+    read_to_unread_or_retimestamp: forbidden
+    mark_read_scope: [notification_id, organization_id, organization_membership_id, authenticated_user_id]
+    mark_read_requires_active_selected_membership: true
+    concurrent_mark_read_one_persisted_timestamp: true
+    Idempotency_Key_is_command_replay_layer_not_business_state_authority: true
+    unread_only_applies_after_exact_recipient_scope: true
+    normal_projector_update_existing_row_except_mark_read: forbidden
+    normal_application_delete: forbidden
+
+  legacy_migration_and_retention:
+    migration_case_table: event_projection_migration_cases
+    migration_case_unique: [source_table, source_row_id, issue_code]
+    migration_case_resolution_states: [open, proven_backfillable, reviewed_nonconforming, resolved]
+    evidence_classes: [safe_exact_derivation, proven_historical_fact, reviewed_exact_remediation, unresolved_ambiguity]
+    exact_evidence_only_backfill: true
+    forbidden_legacy_matching_evidence:
+      - timestamp_proximity
+      - request_id_similarity
+      - same_tenant_alone
+      - event_or_payload_text_similarity
+      - current_membership_uniqueness
+      - current_policy_revision
+      - UUID_or_creation_order
+    synthetic_domain_event_to_force_constraint_pass: forbidden
+    shared_legacy_read_at_fanout_without_exact_recipient_evidence: forbidden
+    existing_nonnull_read_at_rewrite_or_clear: forbidden
+    phased_cutover: [expand, new_runtime_write_fence, inventory, exact_backfill, reconciliation, constraint_validation, contract]
+    unresolved_required_case_blocks_constraint_validation_and_go_live: true
+    retention_duration_source: external_approved_privacy_legal_policy_not_invented_in_DB4_10
+    normal_application_retention_delete_or_rewrite: forbidden
+    retention_execution_table: data_retention_execution_runs
+    retention_execution_append_only: true
+    retention_requires: [approved_policy_version_reference, exact_data_class, server_derived_cutoff, nonblank_reason, dry_run_or_scope_count, immutable_execution_audit]
+    legal_or_incident_hold_overrides_ordinary_cleanup: true
+    audit_append_only_runtime_rule_coexists_with_privileged_policy_retention_path: true
+    outbox_automatic_cleanup_requires_external_policy_and_published_terminal_state: true
+    pending_leased_or_requires_reconciliation_outbox_cleanup: forbidden
+    cleanup_outbox_does_not_delete_domain_event_audit_business_activity_or_notification: true
+    activity_or_notification_retention_does_not_cascade_to_domain_event_or_business_authority: true
+
+  migration_tests_required:
+    - organization_audit_scope_and_actor_membership_wrong_tenant_is_rejected
+    - normal_application_cannot_update_or_delete_audit_history
+    - new_runtime_audit_requires_registered_current_action_policy_revision
+    - audit_payload_unknown_or_sensitive_field_is_rejected_and_required_reason_is_enforced
+    - business_effect_required_audit_domain_event_and_outbox_commit_or_rollback_together
+    - one_domain_event_has_at_most_one_outbox_intent_and_request_id_is_not_event_identity
+    - concurrent_outbox_workers_use_fenced_lease_and_stale_worker_cannot_ack
+    - external_publish_ack_race_is_at_least_once_and_consumer_dedupe_uses_domain_event_id
+    - activity_projection_is_unique_per_source_event_same_tenant_and_ordered_occurred_at_then_id
+    - activity_retry_preserves_immutable_historical_display_snapshot_and_policy_version
+    - notification_recipient_is_exact_membership_and_broadcast_materializes_independent_rows
+    - notification_projection_unique_per_source_event_recipient_and_read_at_is_write_once
+    - mark_read_wrong_membership_user_or_tenant_is_rejected_and_concurrent_retry_preserves_one_timestamp
+    - legacy_event_projection_backfill_never_uses_similarity_or_synthetic_event
+    - unresolved_legacy_case_blocks_constraint_validation_and_go_live
+    - retention_execution_requires_external_policy_evidence_and_does_not_mutate_business_truth
+    - outbox_cleanup_never_removes_pending_leased_or_reconciliation_rows_or source_authorities
+
+structural_decisions:
+  identity_tenant_rbac:
+    bounded_context_source: specs/database/identity-rbac.yml
+    role_template_runtime_authorization_dependency: false
+    role_template_is_assignment_preset_and_provenance: true
+    runtime_permission_source: membership_permissions
+    per_permission_scope_tables:
+      - permission_scope_options
+      - membership_permission_scopes
+    membership_wide_data_scope_string: forbidden
+    owner_marker: organization_memberships.is_owner
+    owner_marker_grants_permission_implicitly: false
+    owner_protected_baseline_required: true
+    last_owner_serialization_lock: organization_row_or_equivalent
+    normal_self_escalation: forbidden
+    grant_ceiling_required: true
+    membership_version_is_concurrency_root: true
+    authorization_version_is_security_epoch: true
+    membership_hard_delete: forbidden
+    suspended_membership_keeps_permission_snapshot: true
+    revoked_membership_clears_runtime_permission_snapshot: true
+    revoked_reactivation_requires_fresh_provisioning: true
+    suspend_or_revoke_clears_bound_session_tenant_contexts: true
+    authorization_changes_write_audit_and_outbox_same_transaction: true
+  student_learning_login:
+    bounded_context_source: specs/database/licenses-learning-access.yml
+    canonical_auth_identifier_reference: auth_login_identifier_id
+    canonical_login_resolution: auth_login_identifiers
+    auth_identifier_must_belong_to_same_global_user: true
+    referenced_identifier_must_be_current_nonrevoked_at_commit: true
+    persisted_login_identifier_projection_as_independent_authority: false
+    API_list_search_projection: auth_login_identifiers.identifier_normalized_via_join
+    reason: generic_login_page_has_no_organization_selector
+    allow_same_global_user_identifier_to_back_learning_accounts_across_organizations: true
+    per_tenant_login_namespace_or_unique: forbidden
+    heuristic_merge_or_rebind_from_student_fields_or_typed_login: forbidden
+  staff_login_link:
+    table: staff_membership_links
+    target: organization_membership_id
+    bounded_context_source: specs/database/staff-locations-vehicles.yml
+    reason: >-
+      A global User may work in more than one OSK. Linking StaffProfile to an
+      OrganizationMembership preserves tenant context and does not incorrectly
+      make user_id globally unique across staff records.
+    history_preserved: true
+    active_link_uniqueness: partial_unique
+    same_organization_composite_FKs_required: true
+    archived_staff_active_link_forbidden: true
+    archive_nonowner_active_membership: suspend_via_DB_IAM_005
+    archive_owner_membership_hidden_status_change: forbidden
+    restore_staff_auto_restores_panel_access: false
+  course_declared_hours:
+    reason: >-
+      Reverse-engineered course create/edit screens contain current-OSK theory
+      and practice hour fields. We preserve those fields without allowing them
+      to become a second credited-time source of truth.
+    columns_on_course_enrollments:
+      - declared_theory_minutes_nullable
+      - declared_practical_minutes_nullable
+    semantics: planning_or_declared_course_configuration
+    credited_formal_time_source: training_hour_ledger_entries
+    existing_course_import_mode:
+      may_create_opening_balance_ledger_entries: true
+      audit_reason_required: true
+  requirement_profile:
+    bounded_context_source: specs/database/students-courses-training.yml
+    course_enrollment_current_pointer_required: false
+    current_predicate: superseded_at_is_null
+    current_cardinality: exactly_one_per_committed_formal_course
+    current_revision_must_equal_course_requirements_revision: true
+    one_profile_per_requirements_revision: true
+    rule_set_is_immutable_hashed_artifact: true
+  recognized_external_training:
+    bounded_context_source: specs/database/students-courses-training.yml
+    role_separates_projection_from_provenance: true
+    course_form_projection_at_most_one_current_per_part: true
+    documented_transfers_are_additive: true
+    current_predicate: superseded_at_is_null_and_revoked_at_is_null_and_context_matches_course
+    correction_is_full_replacement: true
+    latest_created_at_heuristic: forbidden
+  course_lifecycle:
+    bounded_context_source: specs/database/students-courses-training.yml
+    lifecycle_state_derived_from_terminal_timestamps: true
+    append_only_history_table: course_enrollment_lifecycle_events
+    one_event_per_material_course_version: true
+    normal_restore_only_cancelled: true
+    closed_course_change_requires_correction_mode: true
+  training_hour_ledger:
+    bounded_context_source: specs/database/students-courses-training.yml
+    formal_credit_source: immutable_ledger
+    one_base_credit_per_completed_present_session: true
+    absent_or_cancelled_session_credit: forbidden
+    corrections_and_reversals_are_append_only: true
+    external_recognition_is_separate_component: true
+  course_pkk_identity:
+    bounded_context_source: specs/database/students-courses-training.yml
+    owner: pkk_profiles
+    exactly_one_current_profile_per_course: true
+    history_is_versioned: true
+    create_course_and_required_PKK_identity_atomic: true
+    provider_lifecycle_deferred_to_DB4_8: true
+  calendar_schedule_and_conflicts:
+    bounded_context_source: specs/database/calendar.yml
+    manual_calendar_event_storage: general_event_only_after_legacy_remediation
+    formal_driving_lesson_schedule_owner: training_sessions
+    important_date_storage: source_projection_not_calendar_row
+    conflict_projection: calendar_resource_claims
+    final_overlap_boundary: PostgreSQL_btree_gist_partial_exclusion_constraints
+    interval: half_open
+    owner_kinds: [calendar_event, availability_slot_booking, training_session]
+    slot_booking_creates_calendar_event: false
+    formalization_transfers_reservation_owner_atomically: true
+    calendar_complete_credits_training: false
+  license_assignment_history:
+    bounded_context_source: specs/database/licenses-learning-access.yml
+    inventory_entry_global_unique_across_all_history: false
+    current_assignment_unique: true
+    current_definition: status_in_assigned_activated_and_revoked_at_is_null
+    current_unique_scope: [organization_id, license_inventory_entry_id]
+    revoked_history_survives_reassignment: true
+    cross_row_inventory_assignment_activation_equivalence: DEFERRABLE_INITIALLY_DEFERRED
+  license_activation_periods:
+    bounded_context_source: specs/database/licenses-learning-access.yml
+    fields: [student_learning_account_id, entitlement_sequence, activation_origin, duration_snapshot_source, duration_days_snapshot, expiry_before, activated_at, effective_from, effective_to]
+    immutable_append_only: true
+    activation_serialization_lock: student_learning_account
+    sequence_contiguous_from_one: true
+    effective_from_rule: greatest_activated_at_and_previous_expiry_when_present
+    effective_to_rule: effective_from_plus_duration_days_snapshot_times_86400_seconds
+    current_access_expiry_projection: MAX_effective_to
+    multiple_activated_historical_rows_supported: true
+    concurrent_extension_must_not_lose_time: true
+  license_language_and_management_projection:
+    bounded_context_source: specs/database/licenses-learning-access.yml
+    current_language_owner: student_learning_accounts.language_code
+    assignment_language_snapshot_immutable: true
+    product_support_owner: license_product_language_capabilities
+    latest_assignment_order: max_assignment_sequence
+    mutable_latest_status_count_remaining_or_finished_authority: forbidden
+    source_conflicting_screen_language_lists_are_authority: false
+  internal_exam_inventory_and_lifecycle:
+    bounded_context_source: specs/database/internal-exams.yml
+    inventory_accounting_authority: internal_exam_inventory_ledger_entries
+    consume_on_start_exactly_once: true
+    attempt_concurrency_root: internal_exam_attempts
+    access_shared_lock_prefix_attempt_then_access: true
+    lifecycle_history_append_only: true
+    remote_tokens_purpose_scoped_nonrecoverable: true
+  internal_exam_station_security_and_failover:
+    bounded_context_source: specs/database/internal-exams.yml
+    station_credential_authority: exam_station_credentials
+    station_online_and_occupancy_are_derived: true
+    current_runtime_station_after_start_is_active_session: true
+    failover_reuses_same_attempt_access_and_consumed_reservation: true
+    failover_second_inventory_effect: false
+  internal_exam_evidence_and_management:
+    bounded_context_source: specs/database/internal-exams.yml
+    definition_and_question_evidence_frozen_at_start: true
+    result_and_document_evidence_immutable: true
+    deterministic_attempt_order: course_attempt_sequence
+    management_status_counts_pass_rate_and_latest_are_derived: true
+    mutable_management_summary_authority: forbidden
+  payment_webhook_dedup:
+    unique_scope: [provider, provider_event_id]
+  service_entitlement_activation:
+    explicit_mode_payment_success_is_not_activation: true
+    activation_exactly_once: true
+    payment_or_grant_creates_entitlement_before_explicit_activation: true
+  pkk_sensitive_snapshots:
+    profile_full_snapshot_storage: encrypted_ciphertext_or_minimized_normalized_columns
+    redacted_ui_snapshot_jsonb_allowed: true
+    provider_full_response_storage: encrypted_only_if_business_need
+    integration_log_payloads_redacted: true
+  activity_feed:
+    bounded_context_source: specs/database/audit-outbox-notifications.yml
+    source: domain_events
+    table: organization_activity_events
+    source_requires_registered_current_activity_projection_policy: true
+    unique_projection_per_source_event: [organization_id, source_event_id]
+    canonical_order: [occurred_at_DESC, id_DESC]
+    immutable_historical_display_snapshot: true
+    raw_audit_log_or_outbox_as_ui_feed_forbidden: true
+    payload_allowlist_required: true
+    pesel_pkk_tokens_secrets_forbidden_in_safe_payload: true
+    dashboard_notifications_card_is_not_notifications_inbox: true
+
+critical_constraints:
+  audit_action_policy_revision_primary_key:
+    columns: [action, policy_version]
+  audit_action_policy_current_exact_revision_FK:
+    source_columns: [action, policy_version]
+    target_table: audit_action_policy_revisions
+    target_columns: [action, policy_version]
+    on_update: RESTRICT
+    on_delete: RESTRICT
+  audit_log_candidate_key_org_id:
+    columns: [organization_id, id]
+  audit_log_actor_membership_same_tenant_user_composite_FK:
+    source_columns: [organization_id, actor_organization_membership_id, actor_user_id]
+    target_table: organization_memberships
+    target_columns: [organization_id, id, user_id]
+    on_update: RESTRICT
+    on_delete: RESTRICT
+  audit_log_append_only_guard:
+    type: BEFORE_UPDATE_DELETE_trigger_or_equivalent_privilege_boundary
+    normal_application_update_delete: forbidden
+  audit_log_payload_policy_guard:
+    type: BEFORE_INSERT_constraint_trigger_or_equivalent
+    exact_action_policy_revision_and_closed_validator_required: true
+  domain_event_candidate_key_org_id:
+    columns: [organization_id, id]
+  domain_event_immutable_guard:
+    type: BEFORE_UPDATE_DELETE_trigger_or_equivalent_privilege_boundary
+  outbox_domain_event_unique:
+    columns: [domain_event_id]
+  outbox_domain_event_scope_tenant_equivalence_guard:
+    type: DEFERRABLE_INITIALLY_DEFERRED_constraint_trigger_or_equivalent
+  outbox_lease_fencing_guard:
+    type: state_matrix_plus_lease_token_version_guard
+  activity_projection_policy_revision_primary_key:
+    columns: [event_type, policy_version]
+  activity_projection_source_event_unique:
+    columns: [organization_id, source_event_id]
+  activity_source_event_same_tenant_composite_FK:
+    source_columns: [organization_id, source_event_id]
+    target_table: domain_events
+    target_columns: [organization_id, id]
+    on_update: RESTRICT
+    on_delete: RESTRICT
+  notification_recipient_same_tenant_membership_user_composite_FK:
+    source_columns: [organization_id, organization_membership_id, user_id]
+    target_table: organization_memberships
+    target_columns: [organization_id, id, user_id]
+    on_update: RESTRICT
+    on_delete: RESTRICT
+  notification_source_event_same_tenant_composite_FK:
+    source_columns: [organization_id, source_event_id]
+    target_table: domain_events
+    target_columns: [organization_id, id]
+    on_update: RESTRICT
+    on_delete: RESTRICT
+  notification_source_recipient_unique:
+    columns: [organization_id, source_event_id, organization_membership_id]
+  notification_read_at_write_once_guard:
+    type: BEFORE_UPDATE_constraint_trigger_or_equivalent
+    allowed_normal_change: null_to_server_timestamp_once
+  event_projection_migration_case_unique:
+    columns: [source_table, source_row_id, issue_code]
+  data_retention_execution_run_append_only_guard:
+    type: privilege_boundary_or_trigger
+    normal_application_update_delete: forbidden
+  auth_login_identifier_global_current_unique:
+    type: partial_unique
+    columns: [identifier_normalized]
+    where: revoked_at_is_null
+  auth_login_identifier_primary_current_unique_per_user_type:
+    type: partial_unique
+    columns: [user_id, identifier_type]
+    where: revoked_at_is_null_and_is_primary_for_type_true
+  auth_login_identifier_candidate_key_id_user:
+    columns: [id, user_id]
+    purpose: learning_account_same_global_user_identifier_FK_target
+  organization_settings_version_minimum:
+    check: version_gte_1
+  social_provider_subject_unique:
+    columns: [provider, provider_subject]
+  auth_session_token_hash_unique:
+    columns: [token_or_framework_session_hash]
+  organization_membership_unique_org_user:
+    columns: [organization_id, user_id]
+  organization_membership_candidate_key_id_user:
+    columns: [id, user_id]
+    purpose: composite_auth_session_same_user_FK_target
+  organization_membership_candidate_key_org_id:
+    columns: [organization_id, id]
+    purpose: composite_staff_membership_same_organization_FK_target
+  organization_membership_version_minimum:
+    check: version_gte_1
+  organization_membership_authorization_version_minimum:
+    check: authorization_version_gte_1
+  auth_session_membership_same_user_composite_FK:
+    source_columns: [organization_membership_id, user_id]
+    target_table: organization_memberships
+    target_columns: [id, user_id]
+    match: MATCH_SIMPLE
+    on_update: RESTRICT
+    on_delete: RESTRICT
+  membership_permission_unique:
+    columns: [membership_id, permission_code]
+  permission_scope_option_unique:
+    columns: [permission_code, scope_code]
+  membership_permission_scope_unique:
+    columns: [membership_id, permission_code, scope_code]
+  account_closure_pending_unique_organization_scope:
+    type: partial_unique
+    columns: [user_id, organization_id]
+    where: status_equals_pending_and_organization_id_is_not_null
+  account_closure_pending_unique_global_scope:
+    type: partial_unique
+    columns: [user_id]
+    where: status_equals_pending_and_organization_id_is_null
+  terms_acceptance_unique:
+    columns: [organization_id, user_id, legal_document_id]
+  file_asset_storage_key_unique:
+    columns: [storage_key]
+  file_asset_candidate_key_org_id:
+    columns: [organization_id, id]
+  idempotency_unique_organization_scope:
+    type: partial_unique
+    columns: [organization_id, operation_key, idempotency_key]
+    where: organization_id_is_not_null
+  idempotency_unique_global_scope:
+    type: partial_unique
+    columns: [operation_key, idempotency_key]
+    where: organization_id_is_null
+  staff_profile_candidate_key_org_id:
+    columns: [organization_id, id]
+  location_candidate_key_org_id:
+    columns: [organization_id, id]
+  vehicle_candidate_key_org_id:
+    columns: [organization_id, id]
+  staff_type_assignment_unique:
+    columns: [staff_profile_id, staff_type_code]
+  staff_category_assignment_unique:
+    columns: [staff_profile_id, driving_category_id]
+  staff_location_assignment_primary_key:
+    columns: [organization_id, staff_profile_id, location_id]
+  staff_location_assignment_staff_composite_FK:
+    source_columns: [organization_id, staff_profile_id]
+    target_table: staff_profiles
+    target_columns: [organization_id, id]
+    on_update: RESTRICT
+    on_delete: RESTRICT
+  staff_location_assignment_location_composite_FK:
+    source_columns: [organization_id, location_id]
+    target_table: locations
+    target_columns: [organization_id, id]
+    on_update: RESTRICT
+    on_delete: RESTRICT
+  staff_membership_link_staff_composite_FK:
+    source_columns: [organization_id, staff_profile_id]
+    target_table: staff_profiles
+    target_columns: [organization_id, id]
+    on_update: RESTRICT
+    on_delete: RESTRICT
+  staff_membership_link_membership_composite_FK:
+    source_columns: [organization_id, organization_membership_id]
+    target_table: organization_memberships
+    target_columns: [organization_id, id]
+    on_update: RESTRICT
+    on_delete: RESTRICT
+  staff_active_membership_link_unique_per_profile:
+    type: partial_unique
+    columns: [staff_profile_id]
+    where: unlinked_at_is_null
+  staff_active_membership_link_unique_per_membership:
+    type: partial_unique
+    columns: [organization_membership_id]
+    where: unlinked_at_is_null
+  staff_pesel_unique_per_organization_including_archived:
+    type: partial_unique
+    columns: [organization_id, pesel_lookup_hash]
+    where: pesel_lookup_hash_is_not_null
+  staff_document_current_unique:
+    type: partial_unique
+    columns: [organization_id, staff_profile_id, document_type]
+    where: superseded_at_is_null
+  vehicle_category_assignment_unique:
+    columns: [vehicle_id, driving_category_id]
+  vehicle_location_assignment_primary_key:
+    columns: [organization_id, vehicle_id, location_id]
+  vehicle_location_assignment_vehicle_composite_FK:
+    source_columns: [organization_id, vehicle_id]
+    target_table: vehicles
+    target_columns: [organization_id, id]
+    on_update: RESTRICT
+    on_delete: RESTRICT
+  vehicle_location_assignment_location_composite_FK:
+    source_columns: [organization_id, location_id]
+    target_table: locations
+    target_columns: [organization_id, id]
+    on_update: RESTRICT
+    on_delete: RESTRICT
+  vehicle_vin_unique_per_organization_including_archived:
+    type: partial_unique
+    columns: [organization_id, vin_normalized]
+    where: vin_normalized_is_not_null
+  vehicle_registration_unique_per_organization_current_fleet:
+    type: partial_unique
+    columns: [organization_id, registration_number_normalized]
+    where: archived_at_is_null
+  vehicle_document_current_unique:
+    type: partial_unique
+    columns: [organization_id, vehicle_id, document_type]
+    where: superseded_at_is_null
+  staff_profile_photo_same_tenant_composite_FK:
+    source_columns: [organization_id, photo_asset_id]
+    target_table: file_assets
+    target_columns: [organization_id, id]
+    match: MATCH_SIMPLE
+  staff_document_asset_same_tenant_composite_FK:
+    source_columns: [organization_id, asset_id]
+    target_table: file_assets
+    target_columns: [organization_id, id]
+    match: MATCH_SIMPLE
+  vehicle_photo_same_tenant_composite_FK:
+    source_columns: [organization_id, photo_asset_id]
+    target_table: file_assets
+    target_columns: [organization_id, id]
+    match: MATCH_SIMPLE
+  vehicle_document_asset_same_tenant_composite_FK:
+    source_columns: [organization_id, asset_id]
+    target_table: file_assets
+    target_columns: [organization_id, id]
+    match: MATCH_SIMPLE
+  student_candidate_key_org_id:
+    columns: [organization_id, id]
+  student_learning_account_candidate_key_org_id:
+    columns: [organization_id, id]
+  student_learning_account_candidate_key_org_id_student:
+    columns: [organization_id, id, student_id]
+  student_learning_account_version_minimum:
+    check: version_gte_1
+  student_learning_account_status_check:
+    check: status_in_active_suspended
+  student_learning_account_student_same_tenant_composite_FK:
+    source_columns: [organization_id, student_id]
+    target_table: students
+    target_columns: [organization_id, id]
+    on_update: RESTRICT
+    on_delete: RESTRICT
+  student_learning_account_identifier_same_user_composite_FK:
+    source_columns: [auth_login_identifier_id, user_id]
+    target_table: auth_login_identifiers
+    target_columns: [id, user_id]
+    on_update: RESTRICT
+    on_delete: RESTRICT
+  student_learning_account_current_identifier_final_state_guard:
+    type: DEFERRABLE_INITIALLY_DEFERRED_constraint_trigger_or_equivalent
+  student_access_handoff_account_same_tenant_composite_FK:
+    source_columns: [organization_id, student_learning_account_id]
+    target_table: student_learning_accounts
+    target_columns: [organization_id, id]
+    on_update: RESTRICT
+    on_delete: RESTRICT
+  student_access_handoff_document_asset_same_tenant_composite_FK:
+    source_columns: [organization_id, document_asset_id]
+    target_table: file_assets
+    target_columns: [organization_id, id]
+    match: MATCH_SIMPLE
+    on_update: RESTRICT
+    on_delete: RESTRICT
+  student_access_handoff_batch_ordinal_unique:
+    columns: [batch_id, batch_ordinal]
+  student_access_handoff_batch_account_unique:
+    columns: [batch_id, student_learning_account_id]
+  student_access_handoff_secret_metadata_matrix:
+    type: check_or_equivalent_guard
+    rule: contains_fresh_secret_requires_initial_or_reset_type_positive_credential_version_fresh_secret_issued_at_and_null_document_asset
+  student_access_export_batch_item_count_guard:
+    type: DEFERRABLE_INITIALLY_DEFERRED_constraint_trigger_or_equivalent
+  user_password_management_credential_version_minimum:
+    check: credential_version_gte_0
+  user_password_hash_requires_positive_credential_epoch_guard:
+    type: DEFERRABLE_INITIALLY_DEFERRED_constraint_trigger_or_equivalent
+    rule: users_password_hash_nonnull_requires_user_password_management_credential_version_gte_1
+  user_password_management_state_and_exclusive_principal_guard:
+    type: DEFERRABLE_INITIALLY_DEFERRED_cross_table_constraint_triggers_or_equivalent
+  course_enrollment_candidate_key_org_id:
+    columns: [organization_id, id]
+  course_enrollment_candidate_key_org_id_student:
+    columns: [organization_id, id, student_id]
+  training_session_candidate_key_org_id:
+    columns: [organization_id, id]
+  training_session_candidate_key_org_id_course:
+    columns: [organization_id, id, course_enrollment_id]
+  student_pesel_unique_per_organization_including_archived:
+    type: partial_unique
+    columns: [organization_id, pesel_lookup_hash]
+    where: pesel_lookup_hash_is_not_null
+  course_lifecycle_event_unique_per_version:
+    columns: [organization_id, course_enrollment_id, course_version_after]
+  training_requirement_only_one_current_per_course:
+    type: partial_unique
+    columns: [organization_id, course_enrollment_id]
+    where: superseded_at_is_null
+  training_requirement_one_decision_per_revision:
+    columns: [organization_id, course_enrollment_id, requirements_revision]
+  course_exemption_only_one_current_per_course:
+    type: partial_unique
+    columns: [organization_id, course_enrollment_id]
+    where: revoked_at_is_null
+  course_requirement_override_only_one_current_per_course:
+    type: partial_unique
+    columns: [organization_id, course_enrollment_id]
+    where: revoked_at_is_null
+  external_course_form_projection_only_one_current_per_course_part:
+    type: partial_unique
+    columns: [organization_id, course_enrollment_id, training_part]
+    where: record_role_course_form_projection_and_superseded_at_is_null_and_revoked_at_is_null
+  external_one_successor_per_source:
+    type: partial_unique
+    columns: [organization_id, supersedes_record_id]
+    where: supersedes_record_id_is_not_null
+  attendance_one_row_per_session:
+    columns: [organization_id, training_session_id]
+  ledger_base_credit_only_one_per_session:
+    type: partial_unique
+    columns: [organization_id, training_session_id]
+    where: entry_type_equals_credit
+  ledger_opening_balance_only_one_per_course_part:
+    type: partial_unique
+    columns: [organization_id, course_enrollment_id, training_part]
+    where: entry_type_equals_opening_balance
+  ledger_reversal_only_one_per_source:
+    type: partial_unique
+    columns: [organization_id, source_entry_id]
+    where: entry_type_equals_reversal
+  pkk_profile_only_one_current_per_course:
+    type: partial_unique
+    columns: [organization_id, course_enrollment_id]
+    where: superseded_at_is_null
+  calendar_event_candidate_key_org_id:
+    columns: [organization_id, id]
+  calendar_event_version_minimum:
+    check: version_gte_1
+  calendar_event_status_check:
+    check: status_in_scheduled_completed_cancelled
+  calendar_event_type_check_after_DB4_5:
+    check: event_type_equals_general_event
+  calendar_event_student_same_tenant_composite_FK:
+    source_columns: [organization_id, student_id]
+    target_table: students
+    target_columns: [organization_id, id]
+    match: MATCH_SIMPLE
+    on_update: RESTRICT
+    on_delete: RESTRICT
+  calendar_event_instructor_same_tenant_composite_FK:
+    source_columns: [organization_id, instructor_id]
+    target_table: staff_profiles
+    target_columns: [organization_id, id]
+    match: MATCH_SIMPLE
+    on_update: RESTRICT
+    on_delete: RESTRICT
+  calendar_event_vehicle_same_tenant_composite_FK:
+    source_columns: [organization_id, vehicle_id]
+    target_table: vehicles
+    target_columns: [organization_id, id]
+    match: MATCH_SIMPLE
+    on_update: RESTRICT
+    on_delete: RESTRICT
+  calendar_event_location_same_tenant_composite_FK:
+    source_columns: [organization_id, location_id]
+    target_table: locations
+    target_columns: [organization_id, id]
+    match: MATCH_SIMPLE
+    on_update: RESTRICT
+    on_delete: RESTRICT
+  calendar_event_history_unique_per_version:
+    columns: [organization_id, calendar_event_id, event_version_after]
+  availability_slot_candidate_key_org_id:
+    columns: [organization_id, id]
+  availability_slot_version_minimum:
+    check: version_gte_1
+  availability_slot_status_check:
+    check: status_in_available_booked_cancelled
+  availability_slot_training_session_unique_when_present:
+    type: partial_unique
+    columns: [organization_id, training_session_id]
+    where: training_session_id_is_not_null
+  availability_slot_history_unique_per_version:
+    columns: [organization_id, availability_slot_id, slot_version_after]
+  training_session_calendar_details_unique_session:
+    columns: [organization_id, training_session_id]
+  calendar_resource_claim_exactly_one_resource:
+    check: num_nonnulls_student_instructor_vehicle_location_equals_1
+  calendar_resource_claim_owner_kind_check:
+    check: claim_owner_kind_in_calendar_event_availability_slot_booking_training_session
+  calendar_resource_claim_time_positive:
+    check: ends_at_gt_starts_at
+  calendar_resource_claim_student_GiST_exclusion:
+    type: partial_exclusion_GiST
+    dimensions: [organization_id_equals, student_id_equals, occupied_during_overlaps]
+    where: student_id_is_not_null
+  calendar_resource_claim_instructor_GiST_exclusion:
+    type: partial_exclusion_GiST
+    dimensions: [organization_id_equals, instructor_id_equals, occupied_during_overlaps]
+    where: instructor_id_is_not_null
+  calendar_resource_claim_vehicle_GiST_exclusion:
+    type: partial_exclusion_GiST
+    dimensions: [organization_id_equals, vehicle_id_equals, occupied_during_overlaps]
+    where: vehicle_id_is_not_null
+  calendar_resource_claim_location_GiST_exclusion:
+    type: partial_exclusion_GiST
+    dimensions: [organization_id_equals, location_id_equals, occupied_during_overlaps]
+    where: location_id_is_not_null
+  license_product_duration_positive:
+    check: duration_days_gt_0
+  license_product_duration_immutable_after_inventory_reference_guard:
+    type: BEFORE_UPDATE_trigger_or_equivalent
+  license_inventory_candidate_key_org_id:
+    columns: [organization_id, id]
+  license_inventory_product_binding_immutable_guard:
+    type: BEFORE_UPDATE_trigger_or_equivalent
+    field: license_product_id
+  license_assignment_candidate_key_org_id:
+    columns: [organization_id, id]
+  license_assignment_candidate_key_org_id_learning_account:
+    columns: [organization_id, id, student_learning_account_id]
+  license_assignment_inventory_same_tenant_composite_FK:
+    source_columns: [organization_id, license_inventory_entry_id]
+    target_table: license_inventory_entries
+    target_columns: [organization_id, id]
+    on_update: RESTRICT
+    on_delete: RESTRICT
+  license_assignment_student_same_tenant_composite_FK:
+    source_columns: [organization_id, student_id]
+    target_table: students
+    target_columns: [organization_id, id]
+    on_update: RESTRICT
+    on_delete: RESTRICT
+  license_assignment_exact_learning_account_student_composite_FK:
+    source_columns: [organization_id, student_learning_account_id, student_id]
+    target_table: student_learning_accounts
+    target_columns: [organization_id, id, student_id]
+    on_update: RESTRICT
+    on_delete: RESTRICT
+  license_assignment_version_minimum:
+    check: version_gte_1
+  license_assignment_status_check:
+    check: status_in_assigned_activated_revoked_before_activation
+  license_inventory_status_check:
+    check: status_in_available_assigned_consumed_expired_adjusted
+  license_current_assignment_unique_per_inventory_entry:
+    type: partial_unique
+    columns: [organization_id, license_inventory_entry_id]
+    where: status_in_assigned_activated_and_revoked_at_is_null
+    note: do_not_make_inventory_entry_unique_across_historical_revoked_assignments
+  license_inventory_assignment_activation_final_state_guard:
+    type: DEFERRABLE_INITIALLY_DEFERRED_constraint_trigger_or_equivalent
+  license_assignment_sequence_unique:
+    columns: [organization_id, student_learning_account_id, assignment_sequence]
+  license_assignment_sequence_contiguous_guard:
+    type: DEFERRABLE_INITIALLY_DEFERRED_constraint_trigger_or_equivalent
+  license_product_language_capability_current_unique:
+    type: partial_unique
+    columns: [license_product_id, language_code]
+    where: disabled_at_is_null
+  license_product_language_capability_candidate_key_id_language:
+    columns: [id, language_code]
+  license_product_language_capability_history_immutability_guard:
+    type: trigger_or_equivalent
+    rule: enabled_at_immutable_disabled_at_null_to_nonnull_once_no_hard_delete_or_reenable_in_place
+  license_assignment_capability_same_language_composite_FK:
+    source_columns: [license_product_language_capability_id, language_code]
+    target_table: license_product_language_capabilities
+    target_columns: [id, language_code]
+    on_update: RESTRICT
+    on_delete: RESTRICT
+  license_assignment_exact_product_capability_time_guard:
+    type: DEFERRABLE_INITIALLY_DEFERRED_constraint_trigger_or_equivalent
+  license_activation_unique:
+    columns: [license_assignment_id]
+  license_activation_entitlement_sequence_unique:
+    columns: [organization_id, student_learning_account_id, entitlement_sequence]
+  license_activation_exact_learning_account_composite_FK:
+    source_columns: [organization_id, license_assignment_id, student_learning_account_id]
+    target_table: license_assignments
+    target_columns: [organization_id, id, student_learning_account_id]
+    on_update: RESTRICT
+    on_delete: RESTRICT
+  license_activation_origin_check:
+    check: activation_origin_in_learner_self_organization_user_legacy_unknown
+  license_activation_duration_snapshot_source_check:
+    check: duration_snapshot_source_in_product_at_activation_legacy_effect_reconstructed
+  license_activation_migration_only_source_runtime_insert_guard:
+    type: BEFORE_INSERT_trigger_or_equivalent
+    rule: runtime_rejects_legacy_unknown_and_legacy_effect_reconstructed_after_cutover
+  license_activation_entitlement_chain_guard:
+    type: DEFERRABLE_INITIALLY_DEFERRED_constraint_trigger_or_equivalent
+  license_activation_language_equals_current_account_write_guard:
+    type: BEFORE_INSERT_trigger_or_equivalent
+  license_effective_period_valid:
+    check: effective_to_gt_effective_from
+  service_activation_unique:
+    columns: [service_entitlement_id]
+  payment_provider_event_deduplicated:
+    columns: [provider, provider_event_id]
+  exam_active_reservation_unique_per_inventory_entry:
+    type: partial_unique
+    columns: [organization_id, internal_exam_inventory_entry_id]
+    where: status_equals_reserved
+  exam_active_reservation_unique_per_attempt:
+    type: partial_unique
+    columns: [organization_id, internal_exam_attempt_id]
+    where: status_equals_reserved
+  exam_consumed_reservation_unique_per_attempt:
+    type: partial_unique
+    columns: [organization_id, internal_exam_attempt_id]
+    where: status_equals_consumed
+  exam_inventory_ledger_sequence_unique:
+    columns: [organization_id, internal_exam_inventory_entry_id, event_sequence]
+  exam_inventory_ledger_sequence_and_state_guard:
+    type: DEFERRABLE_INITIALLY_DEFERRED_constraint_trigger_or_equivalent
+  exam_attempt_course_sequence_unique:
+    columns: [organization_id, course_enrollment_id, course_attempt_sequence]
+  exam_attempt_course_sequence_contiguous_guard:
+    type: DEFERRABLE_INITIALLY_DEFERRED_constraint_trigger_or_equivalent
+  exam_attempt_status_timestamp_and_final_state_guard:
+    type: DEFERRABLE_INITIALLY_DEFERRED_constraint_trigger_or_equivalent
+  exam_access_nonterminal_unique_per_attempt:
+    type: partial_unique
+    columns: [organization_id, internal_exam_attempt_id]
+    where: status_in_draft_ready_delivered_or_assigned_opened_started
+  exam_access_ever_started_unique_per_attempt:
+    type: partial_unique
+    columns: [organization_id, internal_exam_attempt_id]
+    where: started_at_is_not_null
+  exam_access_token_current_unique_per_access_purpose:
+    type: partial_unique
+    columns: [organization_id, internal_exam_access_id, purpose]
+    where: revoked_at_is_null
+  exam_station_current_credential_unique:
+    type: partial_unique
+    columns: [organization_id, exam_station_id]
+    where: revoked_at_is_null
+  exam_active_station_session_unique_per_station:
+    type: partial_unique
+    columns: [organization_id, exam_station_id]
+    where: ended_at_is_null
+  exam_active_station_session_unique_per_attempt:
+    type: partial_unique
+    columns: [organization_id, internal_exam_attempt_id]
+    where: ended_at_is_null
+  exam_station_session_sequence_unique:
+    columns: [organization_id, internal_exam_attempt_id, session_sequence]
+  exam_station_session_transfer_chain_guard:
+    type: DEFERRABLE_INITIALLY_DEFERRED_constraint_trigger_or_equivalent
+  exam_definition_current_unique:
+    type: partial_unique
+    columns: [driving_category_id, exam_part, language_code, engine_kind]
+    where: retired_at_is_null
+  exam_attempt_question_ordinal_unique:
+    columns: [organization_id, internal_exam_attempt_id, ordinal]
+  exam_attempt_result_unique:
+    columns: [organization_id, internal_exam_attempt_id]
+  exam_result_question_evidence_equivalence_guard:
+    type: DEFERRABLE_INITIALLY_DEFERRED_constraint_trigger_or_equivalent
+  exam_document_template_effective_interval_nonoverlap_guard:
+    type: PostgreSQL_exclusion_or_equivalent
+  exam_document_canonical_unique_per_attempt_type:
+    columns: [organization_id, internal_exam_attempt_id, document_type]
+  exam_document_evidence_asset_hash_guard:
+    type: DEFERRABLE_INITIALLY_DEFERRED_constraint_trigger_or_equivalent
+  exam_inventory_consume_exactly_once: true
+  session_end_after_start: true
+  calendar_event_end_after_start: true
+  availability_slot_end_after_start: true
+  non_negative_money_and_minutes: true
+
+transactional_invariants:
+  create_or_reset_login_credentials:
+    lock_or_unique_claim_auth_identifier: true
+    plaintext_password_persistence_forbidden: true
+  revoke_auth_session:
+    revoke_is_idempotent: true
+    raw_session_secret_never_returned: true
+  select_session_tenant_context:
+    require_membership_same_user_as_session: true
+    require_membership_status_active: true
+    selected_organization_derived_from_membership: true
+    database_composite_FK_is_final_same_user_boundary: true
+  mutate_membership_permissions_or_scopes:
+    concurrency_root: organization_memberships
+    expected_membership_version_required: true
+    lock_target_membership: true
+    stale_version: conflict_without_partial_write
+    grant_ceiling_and_self_escalation_rules_required: true
+    permission_and_scope_rows_changed_atomically: true
+    granted_permission_requires_legal_scope: true
+    denied_permission_has_no_scope_rows: true
+    increment_membership_version_once: true
+    increment_authorization_version_once_if_effective_authorization_changed: true
+    write_audit_and_outbox_same_transaction: true
+  change_owner_governance:
+    lock_organization_governance_boundary: true
+    post_transaction_active_owner_count_minimum: 1
+    owner_protected_permission_baseline_required: true
+    normal_self_promotion: forbidden
+    owner_transfer_atomic: true
+    increment_target_membership_and_authorization_versions: true
+    write_audit_and_outbox_same_transaction: true
+  transition_membership_status:
+    hard_delete: forbidden
+    expected_membership_version_required: true
+    lock_target_membership: true
+    active_to_suspended:
+      keep_permission_scope_config: true
+      clear_all_bound_auth_session_membership_contexts_same_transaction: true
+    suspended_to_active:
+      keep_permission_scope_config: true
+      old_sessions_auto_rebind: false
+    active_or_suspended_to_revoked:
+      set_is_owner_false_subject_to_last_owner_guard: true
+      set_all_membership_permissions_granted_false: true
+      remove_all_membership_permission_scopes: true
+      clear_all_bound_auth_session_membership_contexts_same_transaction: true
+    revoked_to_active:
+      fresh_template_or_permission_scope_provisioning_required: true
+      old_owner_or_permission_snapshot_auto_restore: false
+      old_sessions_auto_rebind: false
+    increment_membership_version_once: true
+    increment_authorization_version_once: true
+    invalidate_membership_scoped_elevation_or_reauth_proofs: true
+    write_audit_and_outbox_same_transaction: true
+  create_staff_membership_link:
+    require_staff_nonarchived: true
+    require_same_organization_staff_and_membership: true
+    lock_staff_profile_to_serialize_against_archive: true
+    database_composite_FKs_are_final_same_tenant_boundary: true
+    active_link_partial_uniques_are_final_concurrency_boundary: true
+  attach_staff_or_vehicle_private_asset:
+    require_same_tenant_composite_FK: true
+    lock_file_asset_FOR_SHARE: true
+    require_exact_path_purpose: true
+    require_asset_status_ready: true
+    database_trigger_is_final_boundary: true
+  replace_staff_or_vehicle_document:
+    lock_parent_resource: true
+    load_current_row_FOR_UPDATE_if_present: true
+    supersede_previous_row_before_insert_new_current: true
+    preserve_historical_row: true
+    audit_and_outbox_same_transaction: true
+  archive_staff_profile:
+    lock_staff_profile: true
+    end_active_staff_membership_link_same_transaction: true
+    nonowner_active_membership_transition: active_to_suspended_via_DB_IAM_005
+    clear_nonowner_bound_session_contexts_same_transaction: true
+    owner_membership_hidden_suspend_revoke_or_demotion: forbidden
+    last_owner_guard_bypass: forbidden
+    archived_staff_staff_derived_scope: deny_empty_set
+    audit_and_outbox_same_transaction: true
+  restore_staff_profile:
+    auto_restore_panel_access: false
+    auto_rebind_old_sessions: false
+    explicit_panel_access_restore_creates_new_link: true
+    suspended_membership_reactivation_uses_DB_IAM_005: true
+    revoked_membership_auto_reactivation: forbidden
+  create_account_closure_request:
+    one_pending_per_scope: true
+    audit_required: true
+  update_osk_settings:
+    lock_organization_settings_row: true
+    optimistic_version_check_required: true
+    update_owned_tables_atomically: true
+    increment_settings_version_once: true
+    redacted_audit_required: true
+  create_course_enrollment:
+    lock_student_first: true
+    require_student_nonarchived_and_formal_identity: true
+    create_requirement_revision_1_and_current_profile_same_transaction: true
+    create_required_current_PKK_identity_same_transaction: true
+    course_version_starts_at_1_and_created_lifecycle_event_required: true
+    current_external_form_projection_rows_created_only_for_positive_declared_external_values: true
+    no_partial_course_without_required_PKK_or_requirement_profile: true
+  mutate_student_profile_archive_restore:
+    concurrency_root: students.version
+    lock_student: true
+    expected_version_required_for_material_profile_change: true
+    archive_with_active_course: reject_conflict
+    archive_restore_do_not_rewrite_formal_history: true
+    learning_access_operational_eligibility_reads_student_archive_state: true
+    archive_does_not_revoke_license_or_pause_entitlement: true
+  mutate_course_lifecycle_or_requirement_or_external_or_PKK_identity:
+    concurrency_root: course_enrollments.version
+    lock_course_before_material_child_projection_mutation: true
+    stale_expected_version: conflict_without_partial_write
+    exactly_one_course_version_increment_per_logical_material_command: true
+    exactly_one_course_lifecycle_event_per_material_course_version: true
+    terminal_course_normal_business_change_requires_correction_mode: true
+  complete_training_session:
+    lock_order: [course_enrollment, training_session, training_session_attendance]
+    require_course_active_and_session_planned: true
+    require_exactly_one_verified_attendance: true
+    present_creates_exactly_one_matching_base_credit: true
+    absent_creates_zero_credit: true
+    remove_training_session_resource_claims_same_transaction: true
+    final_training_session_claim_count: 0
+    complete_credit_and_claim_release_atomic: true
+  cancel_training_session:
+    lock_order: [course_enrollment, training_session]
+    require_session_planned: true
+    require_zero_base_credit: true
+    remove_training_session_resource_claims_same_transaction: true
+    final_training_session_claim_count: 0
+    cancellation_creates_no_credit: true
+  correct_training_hour_ledger:
+    lock_order: [course_enrollment, source_entry_when_present]
+    append_only: true
+    source_same_tenant_course_part_required: true
+    one_reversal_per_source: true
+    final_course_part_and_source_session_subtotals_nonnegative: true
+  mutate_recognized_external_training:
+    lock_course_first: true
+    replacement_preserves_source_history: true
+    current_context_must_match_final_course_category_and_training_type: true
+    no_latest_row_heuristic: true
+  mutate_course_PKK_identity:
+    lock_course_first: true
+    plaintext_PKK_discarded_after_command_boundary: true
+    replace_current_profile_by_supersede_plus_successor: true
+    exactly_one_current_profile_required_after_commit: true
+    provider_network_call_required_for_local_identity_write: false
+    provider_lifecycle: deferred_to_DB4_8
+  create_or_update_manual_calendar_event:
+    source: calendar_events_general_event_only
+    validate_same_tenant_resources: true
+    create_initial_status: scheduled
+    concurrency_root_for_update: calendar_events.version
+    material_update_expected_version_required: true
+    exact_claim_set_same_transaction: true
+    claims_order: [student, instructor, vehicle, location]
+    GiST_exclusion_is_final_conflict_boundary: true
+    lifecycle_history_same_material_version: true
+    conflict_rolls_back_event_claims_and_history: true
+  complete_or_cancel_manual_calendar_event:
+    concurrency_root: calendar_events.version
+    expected_version_required: true
+    remove_all_calendar_event_claims_same_transaction: true
+    increment_version_once: true
+    append_matching_lifecycle_history: true
+    terminal_claim_count: 0
+    calendar_complete_credits_training: false
+  book_availability_slot:
+    concurrency_root: availability_slots.version
+    expected_version_required: true
+    source_status: available
+    target_status: booked
+    create_exact_booking_claim_set_same_transaction: true
+    claims_order: [student, instructor, vehicle, location]
+    GiST_exclusion_is_final_conflict_boundary: true
+    append_booked_history: true
+    successful_booking_creates_calendar_event: false
+    conflict_rolls_back_booking_fields_claims_version_and_history: true
+  cancel_availability_slot:
+    concurrency_root: availability_slots.version
+    expected_version_required: true
+    source_statuses: [available, booked]
+    remove_booking_claims_if_present: true
+    clear_current_booking_fields: true
+    target_status: cancelled
+    preserve_pre_cancel_student_in_history: true
+    automatic_reavailability: false
+  create_or_reschedule_training_session_schedule_claims:
+    lock_order: [course_enrollment, training_session_when_existing, resource_claims]
+    require_course_active: true
+    planned_session_exact_claim_set_same_transaction: true
+    claims: course_student_plus_instructor_plus_optional_vehicle_location
+    claims_order: [student, instructor, vehicle, location]
+    GiST_exclusion_is_final_conflict_boundary: true
+    material_companion_metadata_change_uses_same_training_session_version: true
+    conflict_rolls_back_session_schedule_metadata_and_claims: true
+  formalize_booked_availability_slot_to_training_session:
+    permission: training_sessions.create
+    idempotency_required: true
+    expected_slot_version_required: true
+    course_context_never_guessed_by_latest_or_first: true
+    lock_order: [course_enrollment, availability_slot]
+    require_booked_slot_without_training_session_link: true
+    create_planned_practical_training_session_from_slot_snapshot: true
+    remove_availability_booking_claims: true
+    insert_training_session_claims_same_transaction: true
+    set_training_session_link: true
+    increment_slot_version_once: true
+    append_formalized_slot_history: true
+    failed_handoff_rolls_back_to_original_booked_claim_owner: true
+    linked_slot_cancel_independently_after_handoff: false
+  mutate_learning_account_configuration:
+    concurrency_root: student_learning_accounts.version
+    lock_order: [student, student_learning_account]
+    expected_version_required: true
+    normal_update_requires_student_nonarchived: true
+    identifier_change_requires_same_global_user_and_current_identifier: true
+    status_change_generic_PATCH: forbidden
+    language_change_requires_zero_pending_assignments_and_zero_live_future_entitlements: true
+    successful_material_change_increments_version_once: true
+  reset_OSK_managed_learning_credentials:
+    idempotency_required: true
+    lock_order: [student, student_learning_account, user, user_password_management]
+    expected_credential_version_required: true
+    require_operational_eligibility: true
+    require_matching_organization_managed_authority_and_exclusive_principal_guard: true
+    plaintext_exists_only_in_process_memory: true
+    secret_bearing_PDF_if_requested_rendered_before_durable_hash_write: true
+    durable_secret_storage: forbidden
+    same_key_retry_repeats_reset_or_replays_secret: false
+    precommit_render_failure_changes_credentials: false
+  bulk_learning_credentials_export:
+    validate_all_targets_before_any_secret_mutation: true
+    reset_mode_requires_reset_permission_for_every_target: true
+    deterministic_lock_order_by_UUID: true
+    duplicate_targets_same_global_user_grouped_to_one_password_reset: true
+    reset_and_secret_mode_all_or_none: true
+    secret_bearing_combined_PDF_persisted: false
+    same_key_retry_repeats_resets_or_replays_secret: false
+  create_license_assignment:
+    idempotency_required: true
+    lock_order_existing_account: [student, student_learning_account, license_inventory_entry]
+    new_account_identity_credentials_assignment_are_one_outer_transaction: true
+    require_operational_eligibility_for_existing_account: true
+    require_inventory_available_and_zero_current_assignment: true
+    require_current_exact_product_language_capability: true
+    assignment_language_for_existing_account: locked_learning_account_language
+    assignment_sequence_allocated_under_learning_account_lock: true
+    create_assignment_and_set_inventory_assigned_same_transaction: true
+    failure_rolls_back_new_account_identity_and_optional_credentials: true
+  revoke_unactivated_license:
+    idempotency_required: true
+    expected_assignment_version_required: true
+    lock_order: [student, student_learning_account, license_inventory_entry, license_assignment]
+    operational_eligibility_required: false
+    require_assignment_assigned_inventory_assigned_and_zero_activation: true
+    revoke_assignment_and_restore_same_inventory_entry_to_available: true
+    restore_exactly_once: true
+    retry_does_not_restore_or_increment_version_twice: true
+    write_audit_and_outbox_same_transaction: true
+  activate_or_extend_license:
+    idempotency_required: true
+    expected_assignment_version_required: true
+    lock_order: [student, student_learning_account, license_inventory_entry, license_assignment, license_product]
+    require_operational_eligibility: true
+    require_assignment_assigned_inventory_assigned_and_zero_activation: true
+    require_assignment_language_equals_current_learning_account_language: true
+    capability_must_have_been_valid_at_assignment_time_not_necessarily_current_now: true
+    compute_next_entitlement_sequence_under_learning_account_lock: true
+    snapshot_product_duration_days: true
+    compute_expiry_before_effective_from_effective_to: true
+    create_immutable_activation_and_set_assignment_activated_and_inventory_consumed_same_transaction: true
+    retry_does_not_apply_entitlement_twice: true
+    write_audit_and_outbox_same_transaction: true
+  create_internal_exam_attempt_and_reserve:
+    idempotency_required: true
+    first_lock: course_enrollment_FOR_UPDATE
+    validate_current_requirement_profile_and_exact_capability: true
+    allocate_course_attempt_sequence_under_course_lock: true
+    reserve_exactly_one_inventory_unit_and_append_ledger_event: true
+    attempt_sequence_reservation_and_attempt_insert_one_outer_transaction: true
+  exam_start_remote:
+    idempotency_required: true
+    lock_order: [internal_exam_attempt, internal_exam_access, internal_exam_definition_FOR_SHARE, internal_exam_reservation, internal_exam_inventory_entry]
+    freeze_definition_and_question_evidence_before_answering: true
+    consume_inventory_exactly_once: true
+    attempt_access_reservation_inventory_and_evidence_one_outer_transaction: true
+  exam_start_local_or_assigned:
+    idempotency_required: true
+    lock_order: [internal_exam_attempt, internal_exam_access, internal_exam_definition_FOR_SHARE, target_exam_station, current_station_credential_FOR_SHARE, internal_exam_reservation, internal_exam_inventory_entry]
+    exact_station_identity_required: true
+    create_first_station_session_sequence_one: true
+    consume_inventory_exactly_once: true
+    station_session_failure_rolls_back_start_and_consume: true
+  exam_prestart_revoke_expire_or_cancel:
+    lock_prefix: [internal_exam_attempt, internal_exam_access]
+    inventory_suffix: [internal_exam_reservation, internal_exam_inventory_entry]
+    release_reserved_unit_exactly_once: true
+    attempt_remains_created: true
+  exam_submit:
+    lock_prefix: [internal_exam_attempt, exact_started_access]
+    score_server_side_against_frozen_evidence: true
+    persist_final_question_fields_result_evidence_hash_and_terminal_attempt_access_atomically: true
+    close_active_station_session_if_local: true
+    second_inventory_consume: forbidden
+  exam_technical_abort:
+    lock_prefix: [internal_exam_attempt, exact_started_access]
+    close_active_station_session_if_local: true
+    consumed_inventory_auto_restore: false
+  exam_invalidate:
+    lock_prefix: [internal_exam_attempt, exact_ever_started_access]
+    expected_attempt_version_and_reason_required: true
+    preserve_question_result_document_evidence: true
+    consumed_inventory_auto_restore: false
+  exam_station_failover_after_start:
+    elevated_or_technical_recovery_flow: true
+    lock_order: [internal_exam_attempt, exact_started_access, active_station_session, old_and_target_exam_stations_sorted_by_UUID, target_current_station_credential_FOR_SHARE]
+    transaction:
+      - close_old_session_as_transferred
+      - verify_target_enabled_online_current_credential_and_free
+      - create_linear_successor_session_same_attempt_and_access
+      - do_not_rewrite_access_station_id
+      - do_not_create_or_change_reservation
+      - do_not_consume_or_restore_inventory
+  activate_service_entitlement:
+    lock:
+      - service_entitlement
+    transaction:
+      - verify_activation_mode_explicit
+      - verify_not_already_activated
+      - create_service_activation_exactly_once
+      - update_entitlement_projection
+      - write_audit
+    retry_safe: true
+  payment_webhook:
+    dedupe_before_business_effect: true
+  calendar_conflict:
+    enforcement_strategy: calendar_resource_claims_plus_four_partial_PostgreSQL_GiST_exclusion_constraints
+    interval: half_open_[starts_at,ends_at)
+    owner_kinds: [calendar_event, availability_slot_booking, training_session]
+    server_side_required: true
+    application_precheck_is_final_boundary: false
+    claim_exact_set_final_state_guard: DEFERRABLE_INITIALLY_DEFERRED
+    claim_insert_credits_training_time: false
+  idempotent_command:
+    claim_key_before_effect: true
+    same_key_different_payload_rejected: true
+    completed_retry_returns_same_business_result_without_reapplying_effect: true
+
+foreign_key_policy:
+  formal_and_financial_default: RESTRICT
+  optional_noncritical_relation: SET_NULL_only_if_history_preserved
+  cascade: technical_children_only
+  never_cascade_student_to:
+    - course_enrollments
+    - internal_exam_attempts
+    - student_payments
+    - pkk_operations
+    - student_learning_accounts
+    - license_assignments
+  never_cascade_course_enrollment_to:
+    - pkk_profiles
+    - pkk_operations
+    - training_hour_ledger_entries
+    - internal_exam_attempts
+    - student_charges
+
+security_storage_rules:
+  auth_sessions:
+    raw_cookie_or_bearer_secret_forbidden: true
+    token_hash_or_framework_opaque_id_only: true
+    permission_snapshot_as_authority_forbidden: true
+  credentials:
+    canonical_local_password_hash_owner: users.password_hash
+    plaintext_password_persistence_forbidden: true
+    reversible_login_password_storage_forbidden: true
+    secret_bearing_PDF_FileAsset_or_object_storage_forbidden: true
+    secret_in_QR_forbidden: true
+    secret_in_audit_outbox_logs_traces_forbidden: true
+    password_hash_in_handoff_audit_or_outbox_forbidden: true
+  audit_log:
+    before_after_payloads_must_be_redacted_or_allowlisted: true
+    plaintext_passwords_forbidden: true
+    auth_tokens_forbidden: true
+    full_pesel_forbidden_by_default: true
+    full_pkk_forbidden_by_default: true
+  organization_activity_events:
+    ui_safe_payload_only: true
+    derived_from_committed_domain_event: true
+  pkk:
+    full_provider_payload_in_plain_jsonb_forbidden: true
+    external_osk_login_plaintext_after_save_forbidden: true
+    plaintext_course_PKK_after_save_forbidden: true
+  idempotency:
+    one_time_plaintext_password_response_snapshot_forbidden: true
+    secret_bearing_PDF_bytes_response_snapshot_forbidden: true
+
+migration_order:
+  status: FINAL_DB4_11_SYNC
+  executable_authority: specs/database/final-migration-order-invariant-matrix.yml#migration_dependency_dag
+  dependency_node_count: 170
+  exact_topological_order_owned_by_executable_authority: true
+  legacy_high_level_17_step_order_retired: true
+  phase_authority: specs/database/final-migration-order-invariant-matrix.yml#migration_phase_composition
+  phase_order: [expand, preflight, write_fence, backfill, reconcile, validate, contract]
+  cutover_authority: specs/database/final-migration-order-invariant-matrix.yml#migration_cutover_execution_contract
+  constraints_are_not_a_blanket_final_step: true
+  new_write_fence_precedes_legacy_backfill_where_required: true
+  exact_evidence_only_backfill_and_reconciliation: true
+  zero_required_unresolved_before_validate: true
+  destructive_contract_requires_backup_health_and_restore_test_evidence: true
+  automatic_destructive_down_for_required_history: forbidden
+  Laravel_migration_files_generated: false
+
+invariant_test_plan:
+  status: FINAL_DB4_11_SYNC
+  source_invariant_key: migration_tests_required
+  top_level_source_invariant_count: 244
+  recursive_migration_tests_required_occurrences: 261
+  source_invariants_are_not_the_final_test_catalog: true
+  stable_base_test_authority: specs/database/final-migration-order-invariant-matrix.yml#invariant_test_matrix
+  coverage_authority: specs/database/final-migration-order-invariant-matrix.yml#test_coverage_traceability_contract
+  stable_base_test_ids: 261
+  coverage_anchor_test_ids: 230
+  final_test_catalog_total: 491
+  resolved_stage4_blockers_covered_after_DB_FINAL_001: 77
+  critical_constraints_covered: 183
+  transactional_invariants_covered: 45
+  bounded_local_required_test_occurrences_preserved: 1581
+  bounded_local_unique_test_names_preserved: 1576
+  unknown_final_test_refs: 0
+  unknown_or_orphan_source_refs: 0
+  coverage_gaps: 0
+  framework_test_files_generated: false
+
+migration_tests_required:
+  - student_finance_charge_course_payment_exact_same_tenant_student_currency_relations_reject_mismatch
+  - student_finance_valid_payment_sum_never_exceeds_charge_amount_under_concurrent_record_payment
+  - student_finance_cancel_payment_reversal_races_serialize_on_exact_charge_and_preserve_ledger_history
+  - student_finance_reversal_and_cancellation_tuples_are_write_once_and_hard_delete_is_forbidden
+  - student_finance_same_idempotency_key_same_request_does_not_duplicate_charge_payment_reversal_or_cancel_effect
+  - course_cost_charge_origin_is_unique_per_exact_course_and_manual_course_context_charge_is_not_auto_origin
+  - commerce_order_item_requires_same_tenant_order_currency_and_exact_catalog_product_kind_binding
+  - commerce_server_snapshot_price_VAT_discount_line_and_order_totals_are_immutable_and_equivalent
+  - commerce_browser_return_or_untrusted_webhook_cannot_confirm_payment_or_trigger_fulfillment
+  - commerce_first_trusted_confirmed_payment_creates_at_most_one_order_settlement_and_second_confirmed_payment_has_no_second_business_effect
+  - commerce_zero_total_order_uses_write_once_zero_total_settlement_without_external_zero_payment
+  - commerce_payment_resolution_creates_recoverable_pending_fulfillment_and duplicate_workers_commit_at_most_one_complete_grant_set
+  - commerce_quantity_N_requires_exactly_N_purchase_grants_with_unique_ordinals_and_exact_product_lineage
+  - commerce_generic_service_source_is_purchase_XOR_operator_grant_and_explicit_payment_success_is_not_activation
+  - commerce_order_sequence_is_unique_per_tenant_immutable_and_purchase_history_sort_is_deterministic
+  - commerce_booked_at_is_write_once_from_trusted_payment_resolution_or_zero_total_source
+  - commerce_lock_order_is_order_then_payment_settlement_fulfillment_items_grants_and_reverse_lock_path_is_forbidden
+  - commerce_provider_network_IO_does_not_run_while_business_row_locks_are_held
+  - DB4_9_legacy_migration_never_guesses_payment_winner_provider_event_product_or_inventory_lineage
+  - DB4_9_settled_legacy_order_without_proven_complete_grants_becomes_requires_reconciliation_and_is_never_regranted_automatically
+  - DB4_9_migration_preserves_consumed_activated_assigned_reserved_and_financial_history_and_blocks_cutover_on_unresolved_ambiguity
+  - DB4_10_audit_scope_actor_membership_entity_policy_and_append_only_guards_reject_cross_tenant_or_unsafe_history
+  - DB4_10_audit_payload_is_closed_allowlist_with_versioned_policy_and_required_reason_where_upstream_contract_requires_it
+  - DB4_10_business_effect_required_audit_domain_event_and_outbox_intent_commit_or_rollback_atomically
+  - DB4_10_domain_event_is_canonical_projection_identity_and_one_event_has_at_most_one_outbox_intent
+  - DB4_10_outbox_lease_fencing_retry_reconciliation_and_at_least_once_delivery_do_not_claim_exactly_once
+  - DB4_10_activity_projection_is_unique_per_same_tenant_source_event_with_immutable_policy_versioned_display_snapshot
+  - DB4_10_notification_recipient_is_exact_membership_and_broadcast_has_independent_per_recipient_rows
+  - DB4_10_notification_source_recipient_is_unique_and_read_at_changes_null_to_server_timestamp_once
+  - DB4_10_legacy_backfill_never_guesses_event_actor_recipient_policy_or_read_state_and_unresolved_cases_block_cutover
+  - DB4_10_retention_requires_external_approved_policy_evidence_and_outbox_cleanup_only_removes_safe_published_technical_rows
+  - generated_synthetic_domain_ids_are_UUIDv7_and_stored_as_native_uuid
+  - organization_contact_address_has_exactly_one_row_per_organization_when_present
+  - company_contact_address_is_not_a_training_location_record
+  - settings_projection_reads_user_names_from_users
+  - settings_projection_reads_primary_email_from_current_primary_auth_identifier
+  - two_current_primary_identifiers_of_same_type_for_one_user_are_rejected
+  - organization_settings_version_is_at_least_one_and_increments_once_per_successful_atomic_settings_write
+  - pkk_settings_external_login_is_not_application_login_and_plaintext_is_not_persisted
+  - generic_login_identifier_resolves_to_at_most_one_current_user
+  - revoked_login_identifier_can_be_reissued_only_by_explicit_policy
+  - auth_session_can_be_listed_and_revoked_without_exposing_raw_secret
+  - session_with_membership_of_different_user_is_rejected_by_composite_FK
+  - session_with_null_membership_is_valid_only_for_global_or_pre_tenant_context
+  - tenant_request_without_membership_context_is_denied
+  - same_user_can_switch_between_own_memberships_in_two_organizations
+  - organization_membership_user_id_is_immutable
+  - role_template_code_is_not_runtime_authorization_source
+  - future_permission_defaults_to_denied_for_existing_membership
+  - granted_permission_without_scope_is_denied
+  - unsupported_permission_scope_pair_is_rejected
+  - organization_scope_never_bypasses_cross_tenant_validation
+  - own_scope_without_canonical_owner_relation_is_denied
+  - assigned_student_or_location_scope_without_active_staff_link_is_empty
+  - owner_marker_alone_does_not_grant_permissions
+  - owner_requires_materialized_protected_permission_baseline
+  - normal_admin_self_promotion_self_grant_and_scope_broadening_are_rejected
+  - actor_cannot_grant_permission_or_scope_above_own_ceiling
+  - transaction_leaving_zero_active_owners_is_rejected
+  - concurrent_owner_demotions_cannot_both_commit_if_result_would_be_zero_owners
+  - owner_transfer_is_atomic
+  - elevated_permission_revoke_changes_authorization_version_and_stale_cache_cannot_authorize
+  - membership_hard_delete_is_not_used_for_suspend_or_revoke
+  - suspended_membership_cannot_authorize_even_with_retained_permission_rows
+  - revoked_membership_has_no_granted_permission_or_scope_rows_after_commit
+  - revoked_reactivation_requires_fresh_permission_or_template_provisioning
+  - revoked_reactivation_does_not_restore_owner_or_old_session_binding
+  - two_admins_same_expected_membership_version_cannot_both_overwrite_authorization_config
+  - stale_membership_version_conflict_has_no_partial_permission_or_scope_write
+  - logical_authorization_mutation_increments_membership_version_once
+  - authorization_affecting_mutation_increments_authorization_version_once
+  - suspend_or_revoke_clears_all_bound_session_tenant_contexts_same_transaction
+  - suspend_or_revoke_does_not_remove_other_organization_memberships_for_same_global_user
+  - audit_and_outbox_commit_atomically_with_membership_authorization_mutation
+  - duplicate_pending_account_closure_request_same_organization_scope_is_rejected_or_idempotent
+  - duplicate_pending_global_account_closure_request_for_same_user_is_rejected_or_idempotent
+  - pending_account_closure_for_two_different_organizations_does_not_collide
+  - same_user_can_have_memberships_in_two_organizations
+  - staff_can_exist_without_membership_link
+  - staff_membership_link_cross_tenant_pair_is_rejected
+  - archived_staff_cannot_have_or_receive_active_staff_membership_link
+  - staff_can_have_multiple_categories_and_locations
+  - staff_location_assignment_cross_tenant_pair_is_rejected
+  - vehicle_can_have_multiple_categories_and_locations
+  - vehicle_location_assignment_cross_tenant_pair_is_rejected
+  - staff_and_vehicle_private_assets_require_same_tenant_correct_purpose_and_ready_state
+  - concurrent_asset_state_change_and_private_attachment_cannot_bypass_ready_validation
+  - staff_document_has_at_most_one_current_row_per_type
+  - vehicle_document_has_at_most_one_current_row_per_type
+  - document_replacement_preserves_history_and_concurrency_cannot_leave_two_current_rows
+  - superseded_document_business_fields_are_immutable
+  - archived_staff_still_blocks_duplicate_PESEL_in_same_organization
+  - archived_vehicle_still_blocks_duplicate_VIN_in_same_organization
+  - two_nonarchived_vehicles_same_registration_in_same_organization_are_rejected
+  - vehicle_archive_releases_registration_for_current_fleet_but_preserves_history
+  - vehicle_restore_conflicts_if_registration_is_held_by_another_nonarchived_vehicle
+  - staff_archive_nonowner_unlinks_and_suspends_membership_atomically
+  - staff_archive_owner_unlinks_staff_but_does_not_silently_change_owner_governance
+  - staff_restore_does_not_auto_restore_panel_access_or_old_sessions
+  - pre_course_student_can_exist_without_formal_identity_but_course_create_is_rejected_until_identity_complete
+  - explicit_no_PESEL_requires_birth_date_and_forbids_PESEL_pair
+  - student_PESEL_pair_is_atomic_and_duplicate_same_organization_is_rejected_including_archived
+  - two_student_profile_mutations_same_expected_version_cannot_both_commit
+  - course_create_and_student_archive_race_cannot_commit_archived_student_with_open_course
+  - course_lifecycle_terminal_timestamps_are_mutually_exclusive_and_training_completed_matches_completed_at
+  - exactly_one_lifecycle_event_exists_per_material_course_version
+  - restore_only_reopens_cancelled_course_and_cannot_reopen_under_archived_student
+  - current_requirement_profile_revision_equals_course_requirements_revision
+  - rule_set_version_references_immutable_hashed_rule_artifact
+  - requirement_source_fact_change_cannot_commit_without_new_current_profile
+  - attendance_is_exact_session_course_and_exact_course_student
+  - completed_verified_present_session_has_exactly_one_base_credit
+  - completed_absent_planned_or_cancelled_session_has_zero_base_credit
+  - duplicate_base_credit_per_session_is_rejected
+  - correction_and_reversal_source_is_same_tenant_course_and_training_part
+  - same_source_cannot_be_reversed_twice_and_reversal_of_reversal_is_rejected
+  - declared_course_hours_do_not_change_credited_training_hours_without_ledger_entry
+  - course_form_external_projection_has_at_most_one_current_row_per_course_part
+  - documented_external_transfers_are_additive_and_correction_replacement_does_not_double_count
+  - current_external_row_cannot_survive_category_or_training_type_change_without_revalidation
+  - combined_current_OSK_plus_external_minutes_are_deterministic_per_training_part
+  - course_create_cannot_commit_without_exactly_one_current_PKK_identity
+  - current_PKK_identity_has_ciphertext_and_lookup_hash_and_plaintext_is_not_persisted
+  - PKK_identity_replacement_preserves_prior_profile_and_leaves_exactly_one_current
+  - category_or_training_type_change_cannot_commit_with_stale_current_PKK_identity
+  - DB4_4_migration_does_not_guess_no_PESEL_requirement_context_external_lineage_or_PKK_history_when_legacy_evidence_is_ambiguous
+  - PKK_operation_course_profile_and_attempt_exact_context_cross_tenant_or_cross_course_mismatch_is_rejected
+  - PKK_provider_snapshot_history_is_append_only_and_current_projection_uses_max_snapshot_revision_for_exact_current_profile
+  - PKK_business_operation_status_matches_append_only_lifecycle_history_and_one_active_operation_per_exact_profile
+  - PKK_same_idempotency_key_same_hash_does_not_duplicate_operation_or_provider_attempt
+  - PKK_effect_unknown_blocks_retry_until_conclusive_no_effect_reconciliation
+  - PKK_signature_handoff_requires_exact_ready_same_tenant_unsigned_and_signed_FileAsset_hash_binding
+  - PKK_signed_XML_submit_creates_exact_attempt_and_submitted_transition_atomically_before_provider_dispatch
+  - PKK_raw_provider_payload_is_never_persisted_plaintext_and_safe_projection_is_allowlisted_versioned_history
+  - PKK_key_rotation_rewraps_DEK_without_rewriting_business_ciphertext_or_snapshot_hash_history
+  - PKK_XML_final_storage_is_application_encrypted_while_FileAsset_sha256_remains_plaintext_content_hash
+  - PKK_provider_attempt_binds_exact_integration_configuration_revision_and_stale_prepared_attempt_cannot_silently_use_new_configuration
+  - PKK_material_configuration_change_is_blocked_while_dispatching_or_effect_unknown_attempt_requires_old_context
+  - PKK_course_operation_sequence_is_unique_immutable_contiguous_for_runtime_and_allocated_under_course_lock
+  - PKK_latest_operation_uses_max_course_operation_sequence_not_created_at_completed_at_or_UUID
+  - PKK_history_count_counts_business_operations_not_transport_attempts_or_retries
+  - PKK_legacy_equal_created_at_without_stronger_order_evidence_fails_sequence_backfill_instead_of_guessing
+  - calendar_manual_event_cross_tenant_student_instructor_vehicle_location_is_rejected
+  - calendar_manual_event_location_and_custom_meeting_place_cannot_both_be_persisted
+  - important_date_is_source_projection_and_never_manual_calendar_event_row
+  - calendar_half_open_intervals_allow_adjacent_same_resource_reservations
+  - calendar_same_student_overlap_same_organization_is_rejected_by_GiST
+  - calendar_same_instructor_overlap_same_organization_is_rejected_by_GiST
+  - calendar_same_vehicle_overlap_same_organization_is_rejected_by_GiST
+  - calendar_same_location_overlap_same_organization_is_rejected_by_GiST
+  - calendar_same_resource_in_different_organizations_does_not_conflict
+  - unknown_calendar_claim_owner_kind_is_rejected
+  - scheduled_general_event_has_exact_claim_set_and_terminal_general_event_has_zero_claims
+  - calendar_event_current_version_has_exactly_one_matching_lifecycle_history_row
+  - two_calendar_event_mutations_same_expected_version_cannot_both_commit
+  - calendar_own_scope_requires_active_staff_link_to_target_instructor_and_creator_is_not_owner_shortcut
+  - availability_slot_state_booking_fields_and_version_history_are_consistent
+  - two_concurrent_bookings_same_availability_slot_allow_at_most_one_commit
+  - availability_booking_conflicting_with_existing_general_event_rolls_back_entire_booking
+  - booked_slot_has_exact_booking_claim_set_until_formalized
+  - cancelled_availability_slot_has_zero_claims_and_is_not_auto_republished
+  - planned_training_session_has_exact_course_student_instructor_and_optional_vehicle_location_claims
+  - training_session_conflicts_with_general_event_booking_or_other_session_on_same_resource_and_overlap
+  - training_session_claim_insert_never_creates_attendance_or_training_credit
+  - completed_or_cancelled_training_session_has_zero_resource_claims
+  - practical_training_session_projects_as_driving_lesson_without_calendar_event_copy
+  - training_session_calendar_details_preserves_optional_name_or_custom_place_without_schedule_duplication
+  - training_session_location_and_calendar_custom_place_cannot_both_be_active
+  - formal_lesson_calendar_mutation_requires_training_permission_not_calendar_manage_permission
+  - calendar_complete_never_bypasses_DB_TRN_006_credit_pipeline
+  - availability_formalization_requires_explicit_or_unambiguous_active_course_and_never_latest_first_guess
+  - availability_formalization_transfers_claim_owner_atomically_without_duplicate_reservation
+  - formalized_slot_has_training_session_link_zero_booking_claims_and_no_second_calendar_item
+  - formalized_slot_cannot_cancel_independently_and_linked_session_terminal_state_does_not_auto_republish_slot
+  - legacy_driving_lesson_calendar_row_is_not_heuristically_mapped_to_training_session
+  - DB4_5_migration_does_not_auto_shift_cancel_reassign_or_choose_overlap_winner
+  - learning_account_identifier_must_belong_to_same_global_user_and_be_current_at_commit
+  - learning_account_login_projection_is_joined_from_auth_identifier_not_independent_persisted_authority
+  - same_global_user_identifier_may_back_learning_accounts_in_multiple_organizations
+  - learning_account_version_and_active_suspended_status_are_database_constrained
+  - archived_student_blocks_new_learning_operational_effects_without_rewriting_license_history
+  - OSK_password_reset_requires_matching_management_authority_and_exclusive_learner_principal
+  - every_local_password_mutation_increments_one_global_credential_version
+  - plaintext_password_and_secret_bearing_PDF_are_absent_from_durable_storage_audit_outbox_logs_and_idempotency_snapshot
+  - secret_bearing_PDF_is_immediate_memory_only_and_later_reprint_requires_new_reset
+  - bulk_secret_reset_is_all_or_none_and_duplicate_learning_accounts_same_user_reset_once
+  - assignment_cross_tenant_inventory_student_or_account_and_wrong_student_account_pair_are_rejected
+  - inventory_and_assignment_status_catalogs_and_final_state_equivalence_are_enforced
+  - two_concurrent_assignments_same_inventory_allow_at_most_one_commit
+  - create_new_learning_account_and_assignment_commit_all_or_none
+  - revoke_unactivated_restores_same_inventory_entry_exactly_once_and_preserves_assignment_history
+  - activate_and_revoke_same_assignment_have_exactly_one_winner
+  - activation_targets_exact_assignment_learning_account_and_is_immutable
+  - entitlement_sequence_is_unique_contiguous_and_serialized_on_learning_account
+  - product_duration_and_inventory_product_binding_are_immutable_after_inventory_reference
+  - runtime_activation_snapshots_positive_duration_and_uses_real_learner_or_organization_actor
+  - extension_before_expiry_preserves_remaining_time_and_activation_after_expiry_does_not_backfill_gap
+  - two_concurrent_extensions_same_learning_account_do_not_lose_entitlement_time
+  - current_entitlement_end_is_MAX_activation_effective_to_not_mutable_projection
+  - product_language_support_requires_capability_row_not_global_language_or_screen_list
+  - assignment_language_is_immutable_snapshot_bound_to_exact_inventory_product_capability_and_assignment_time
+  - existing_account_assignment_inherits_locked_account_language_and_cannot_silently_change_it
+  - language_change_with_pending_assignment_or_live_future_entitlement_is_rejected
+  - capability_retirement_does_not_retroactively_revoke_already_assigned_right
+  - assignment_sequence_determines_latest_without_timestamp_or_UUID_heuristic
+  - management_latest_status_count_expiry_remaining_and_hide_finished_are_derived_from_canonical_history
+  - bulk_credentials_PDF_localizes_each_access_from_current_learning_account_language
+  - DB4_6_migration_does_not_guess_tenant_target_identity_password_authority_inventory_state_activation_chain_assignment_order_or_language_capability
+  - revoked_license_assignment_allows_same_inventory_entry_to_be_reassigned_later
+  - two_current_license_assignments_for_same_inventory_entry_are_rejected
+  - second_activation_for_same_license_assignment_is_rejected
+  - concurrent_license_extensions_do_not_lose_entitlement_days
+  - license_effective_periods_follow_serialized_contiguous_activation_sequence
+  - internal_exam_attempt_rejects_cross_tenant_or_wrong_course_student_category_requirement_or_capability_target
+  - theory_exempt_course_rejects_new_formal_theory_attempt
+  - internal_exam_available_count_matches_append_only_ledger_and_guarded_unit_projection
+  - attempt_create_reserves_exactly_one_inventory_unit_and_failed_create_rolls_back_sequence_and_reservation
+  - two_active_exam_reservations_for_same_inventory_entry_or_attempt_are_rejected
+  - start_consumes_reserved_exam_unit_exactly_once_and_prestart_release_is_exactly_once
+  - technical_abort_after_start_does_not_auto_restore_exam_inventory
+  - attempt_and_access_status_timestamp_version_and_lifecycle_history_are_consistent
+  - start_vs_revoke_expire_and_submit_vs_abort_invalidate_have_one_serialized_winner
+  - raw_exam_bearer_tokens_and_station_secrets_are_never_recoverably_persisted_or_logged
+  - execution_and_finished_result_token_purposes_cannot_escalate_into_each_other_or_document_download
+  - two_active_local_exam_sessions_on_same_station_are_rejected
+  - same_attempt_cannot_have_two_active_station_sessions
+  - station_failover_keeps_same_attempt_access_and_consumed_reservation_and_does_not_consume_second_credit
+  - offline_disabled_or_reconnect_station_flow_does_not_silently_end_transfer_or_refund_active_attempt
+  - exam_definition_and_exact_question_media_points_evidence_are_frozen_at_start_without_global_32_or_74_hardcode
+  - result_score_max_pass_and_question_evidence_match_frozen_scoring_policy_and_are_immutable
+  - answer_sheet_template_evidence_asset_and_content_hash_lineage_is_deterministic_and_immutable
+  - postfinish_invalidation_preserves_original_result_question_document_evidence
+  - course_attempt_sequence_is_unique_contiguous_and_selects_latest_without_timestamp_or_UUID_heuristic
+  - internal_exam_management_status_counts_pass_rate_hide_finished_search_filter_sort_and_pagination_are_derived_deterministically
+  - DB4_7_migration_does_not_guess_tenant_target_requirement_capability_inventory_state_lifecycle_token_station_transfer_question_scoring_template_or_attempt_order
+  - explicit_service_entitlement_activation_is_exactly_once
+  - payment_success_does_not_activate_explicit_mode_entitlement_early
+  - duplicate_provider_event_with_same_provider_is_rejected
+  - same_provider_event_id_from_different_provider_does_not_collide
+  - duplicate_tenant_idempotency_key_same_scope_same_request_does_not_repeat_business_effect
+  - duplicate_global_idempotency_key_same_scope_same_request_does_not_repeat_business_effect
+  - same_idempotency_key_in_different_organizations_does_not_collide
+  - duplicate_idempotency_key_same_scope_different_request_is_rejected
+  - activity_safe_payload_rejects_or_redacts_sensitive_fields
+
+pending_ADRs:
+  - sensitive_identifier_application_encryption_and_key_rotation
+  - immutable_snapshot_hash_canonicalization
+  - auth_identifier_email_verification_and_account_merge_policy

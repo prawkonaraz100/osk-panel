@@ -1,0 +1,138 @@
+meta:
+  extension_id: student_progress_projection_v1
+  gate_authority: CORE-V1-STUDENT-PROGRESS-AUTHORITY-001
+  status: PASS
+  authority_doc: docs/207-core-v1-student-progress-authority.md
+
+frozen_baselines:
+  stage4:
+    plan_identity: d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10
+    execution_identity: 82da84d3efb312d78b432ad6081491c04b03569a0f250722d6befc11ca233712
+    nodes: 170
+    implemented_nodes: 170
+    implemented_steps: 261
+
+execution_control:
+  root: database/migrations/stage5/student-progress
+  default_laravel_migrate_discovery: false
+  shared_postgres_advisory_lock: [519662, 5001]
+  separate_plan_registry_required: true
+  separate_implementation_registry_required: true
+  automatic_destructive_down: forbidden
+  authority_gate_executes_DDL: false
+
+nodes:
+  - node_id: S5PROG-TBL-LEARNING-PROGRESS-SOURCE-BINDINGS
+    object_type: table
+    object_name: learning_progress_source_bindings
+    phases: [preflight, expand, validate]
+    restart_classification: manual_review
+  - node_id: S5PROG-TBL-STUDENT-LEARNING-PROGRESS-PROJECTIONS
+    object_type: table
+    object_name: student_learning_progress_projections
+    requires: [S5PROG-TBL-LEARNING-PROGRESS-SOURCE-BINDINGS]
+    phases: [preflight, expand, validate]
+    restart_classification: manual_review
+
+binding_table_contract:
+  primary_key: id_uuid
+  exact_business_columns:
+    - organization_id_uuid_not_null
+    - student_id_uuid_not_null
+    - student_learning_account_id_uuid_not_null
+    - source_system_varchar_64_not_blank
+    - source_subject_ref_varchar_191_not_blank
+    - source_access_ref_varchar_191_not_blank
+    - status_varchar_32_active_or_revoked
+    - version_bigint_not_null_default_1_gte_1
+    - bound_at_timestamptz_not_null
+    - revoked_at_timestamptz_nullable
+    - created_at_timestamptz_not_null
+    - updated_at_timestamptz_not_null
+  exact_target_fk:
+    child: [organization_id, student_learning_account_id, student_id]
+    parent: student_learning_accounts[organization_id,id,student_id]
+    on_update: RESTRICT
+    on_delete: RESTRICT
+  one_binding_per_learning_account:
+    unique: [organization_id, student_learning_account_id]
+  source_access_context_global_uniqueness:
+    unique: [source_system, source_access_ref]
+  source_subject_ref_global_uniqueness: false
+  rebind_requires_explicit_versioned_command: true
+  automatic_identifier_based_binding: forbidden
+
+projection_table_contract:
+  primary_key: id_uuid
+  exact_business_columns:
+    - organization_id_uuid_not_null
+    - student_id_uuid_not_null
+    - student_learning_account_id_uuid_not_null
+    - learning_progress_source_binding_id_uuid_not_null
+    - driving_category_id_uuid_not_null
+    - learning_account_version_bigint_not_null_gte_1
+    - source_snapshot_ref_varchar_191_not_blank
+    - source_observed_at_timestamptz_not_null
+    - projected_at_timestamptz_not_null
+    - projection_version_bigint_not_null_default_1_gte_1
+    - tests_json_jsonb_not_null
+    - questions_json_jsonb_not_null
+    - handbook_json_jsonb_not_null
+    - lectures_json_jsonb_not_null
+    - topics_json_jsonb_not_null
+    - snapshot_hash_char_64_not_null
+    - created_at_timestamptz_not_null
+    - updated_at_timestamptz_not_null
+  current_projection_unique:
+    columns: [organization_id, student_learning_account_id, driving_category_id]
+  exact_account_fk:
+    child: [organization_id, student_learning_account_id, student_id]
+    parent: student_learning_accounts[organization_id,id,student_id]
+    on_update: RESTRICT
+    on_delete: RESTRICT
+  binding_fk:
+    exact_same_account_binding_required: true
+    on_update: RESTRICT
+    on_delete: RESTRICT
+  driving_category_fk:
+    parent: driving_categories[id]
+    on_update: RESTRICT
+    on_delete: RESTRICT
+  snapshot_hash_format: lowercase_hex_sha256
+  projection_is_source_of_truth: false
+
+phase_contract:
+  preflight:
+    require_postgresql: true
+    require_tables:
+      - students
+      - student_learning_accounts
+      - driving_categories
+    infer_existing_bindings_from_login_or_email: forbidden
+    infer_existing_bindings_from_PESEL_or_name: forbidden
+    backfill_fake_zero_progress: forbidden
+  expand:
+    create_exact_tables_when_absent: true
+    same_name_wrong_definition: fail_closed
+  validate:
+    catalog_shape_exact: true
+    exact_target_relations_proven: true
+    source_access_ref_unique_proven: true
+    current_projection_unique_proven: true
+    invalid_binding_status_rejected: true
+    invalid_snapshot_hash_rejected: true
+    cross_student_or_cross_tenant_binding_rejected: true
+    cross_account_projection_binding_rejected: true
+    automatic_legacy_binding_count: zero
+
+non_scope:
+  HTTP_binding: false
+  progress_UI_enable: false
+  learning_source_provider_implementation: false
+  PKK_or_PWPW_runtime: false
+  payment_provider_webhook: false
+
+next_gate:
+  id: CORE-V1-STAGE5-STUDENT-PROGRESS-PROJECTION-001
+  action: materialize_registered_preflight_expand_validate_extension
+  fresh_audit_after_PASS: required

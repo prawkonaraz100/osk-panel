@@ -1,0 +1,147 @@
+meta:
+  screen: student_formal_documents
+  route_pattern: /kursanci/{student_id}
+  parent_screen: specs/screens/student-detail.yml
+  gate: FORMAL-DOC-011
+  status: IMPLEMENTATION_CANDIDATE
+  audited_at: 2026-09-13
+
+placement:
+  tab: student_profile
+  section_order:
+    after: courses
+    before: student_finance
+  standalone_route: false
+  reason: formal_documents_are_course_scoped_and_belong_in_existing_student_course_context
+
+course_context:
+  selector_required_when_multiple_courses: true
+  cancelled_course:
+    history_and_download_visible: true
+    new_approval_and_delivery_disabled_in_UI: true
+  archived_student:
+    history_and_download_visible: true
+    new_approval_and_delivery_disabled_in_UI: true
+
+document_types:
+  - code: training_record_card
+    label: Karta szkolenia
+  - code: theory_delivery_journal
+    label: Dziennik realizacji teorii
+
+read_flow:
+  load_operations:
+    - formal_documents.list
+    - formal_documents.freshness
+    - formal_documents.preview
+  preview_is_server_authority: true
+  UI_must_not_build_evidence_bundle: true
+  show:
+    - document_mode
+    - combined_theory_minutes
+    - combined_practical_minutes
+    - freshness
+    - latest_revision
+    - approved_at
+    - abbreviated_evidence_hash
+    - immutable_prior_revisions
+
+freshness:
+  fresh:
+    delivery_actions_enabled_when_course_and_student_active: true
+  regeneration_required:
+    prior_revision_remains_downloadable: true
+    delivery_actions_disabled: true
+    approval_new_revision_action_visible: true
+    GET_side_effect: forbidden
+
+approval:
+  operation: formal_documents.approve
+  exact_inputs_from_preview:
+    - course_version_via_If-Match
+    - requirements_revision
+    - evidence_bundle_hash
+    - template_id
+    - template_version
+    - renderer_version
+    - template_content_hash
+  idempotency_required: true
+  client_may_edit_generated_PDF: false
+  client_may_submit_own_evidence: false
+
+download:
+  operation: formal_documents.download
+  visible_for_historical_revisions: true
+  direct_PDF_edit: forbidden
+
+history:
+  operation: formal_documents.events.list
+  current_and_prior_revision_history_accessible: true
+  event_labels:
+    generated: Wygenerowano
+    approved: Zatwierdzono
+    printed: Wydrukowano
+    signed_scan_attached: Dołączono podpisany skan
+    electronic_presented: Przedstawiono elektronicznie
+    regeneration_detected: Wykryto potrzebę regeneracji
+
+paper_delivery:
+  visible_when: document_mode_snapshot_paper
+  actions:
+    - formal_documents.delivery.record printed
+    - signed_scan_handoff
+  print_confirmation_required: true
+  handwritten_signature_occurs_outside_system: true
+  signed_scan_replaces_canonical_PDF: false
+
+signed_scan_handoff:
+  accepted_file:
+    MIME: application/pdf
+    UI_max_size_bytes: 26214400
+  hash:
+    algorithm: SHA-256
+    calculated_in_browser_before_presign: true
+  flow:
+    - uploads.presign
+    - direct_PUT_to_presigned_private_object_URL
+    - uploads.complete
+    - formal_documents.delivery.record signed_scan_attached
+  presign_binding:
+    purpose: formal_training_signed_scan
+    parent_type: formal_training_document
+    parent_id: exact_document_revision_id
+  partial_failure:
+    completed_ready_asset_must_not_be_reuploaded: true
+    UI_exposes_retry_attach_only: true
+
+electronic_delivery:
+  visible_when: document_mode_snapshot_electronic
+  operation: formal_documents.delivery.record electronic_presented
+  qualified_signature_claim: false
+  XAdES_claim: false
+  authenticated_approval_equals_statutory_e_signature_claim: false
+
+security:
+  tenant_and_student_scope_enforced_by_server: true
+  UI_does_not_receive_plaintext_PESEL: true
+  UI_does_not_receive_plaintext_PKK: true
+  client_storage_key_control: forbidden
+  client_storage_disk_control: forbidden
+  server_generated_formal_document_upload_through_client_upload_API: forbidden
+
+PKK:
+  provider_runtime_used_by_screen: false
+  status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+
+acceptance:
+  - profile_mounts_formal_documents_panel
+  - preview_list_freshness_wiring
+  - exact_preview_bound_approval
+  - stale_revision_blocks_delivery
+  - immutable_revision_download_and_history
+  - paper_print_event
+  - paper_signed_scan_presign_put_complete_attach
+  - signed_scan_partial_failure_retry_without_reupload
+  - electronic_presented_without_e_signature_claim
+  - no_new_API_operation
+  - no_new_migration

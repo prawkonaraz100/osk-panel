@@ -5,43 +5,62 @@ screen:
   title: Ustawienia konta
   confidence: USER_CONFIRMED_AUTH_SCREEN
 
+canonical_model:
+  machine_db: specs/database/organization-settings.yml
+  narrative: docs/100-osk-settings-domain-model.md
+  api_paths: specs/api/paths/auth-organization.yaml
+  rule: each_visible_field_has_exactly_one_canonical_domain_owner
+
 primary_action:
   label: Zapisz
   action: update_osk_account_settings
+  semantics: provider_neutral_atomic_user_organization_address_settings_save
+  optimistic_concurrency: organization_settings.version
+  PKK_configuration_required: false
+  pkk_field_mutation: dedicated_PKK_integration_command_only
+  email_mutation: dedicated_identity_email_change_flow_only
 
 sections:
   - id: basic_data
     label: Dane podstawowe
     fields:
-      - {name: first_name, label: Imię, domain: user}
-      - {name: last_name, label: Nazwisko, domain: user}
-      - {name: email, label: Email, domain: user}
+      - {name: first_name, label: Imię, domain: user, canonical: users.first_name}
+      - {name: last_name, label: Nazwisko, domain: user, canonical: users.last_name}
+      - {name: email, label: Email, domain: user, canonical: auth_login_identifiers.primary_current_email, mutation: dedicated_identity_email_change_flow_not_provider_neutral_settings_PATCH}
 
   - id: company_data
     label: Dane firmy
     fields:
-      - {name: company_name, label: Nazwa firmy, domain: organization}
-      - {name: street, label: Ulica, domain: organization_address}
-      - {name: house_number, label: Nr domu, domain: organization_address}
-      - {name: unit_number, label: Nr lokalu, domain: organization_address}
-      - {name: city, label: Miejscowość, domain: organization_address}
-      - {name: postal_code, label: Kod pocztowy, domain: organization_address}
-      - {name: phone, label: Telefon, domain: organization}
+      - {name: company_name, label: Nazwa firmy, domain: organization, canonical: organizations.name}
+      - {name: street, label: Ulica, domain: organization_address, canonical: organization_contact_addresses.street}
+      - {name: house_number, label: Nr domu, domain: organization_address, canonical: organization_contact_addresses.house_number}
+      - {name: unit_number, label: Nr lokalu, domain: organization_address, canonical: organization_contact_addresses.unit_number}
+      - {name: city, label: Miejscowość, domain: organization_address, canonical: organization_contact_addresses.city_name}
+      - {name: postal_code, label: Kod pocztowy, domain: organization_address, canonical: organization_contact_addresses.postal_code}
+      - {name: phone, label: Telefon, domain: organization, canonical: organizations.phone}
     explicitly_not_observed:
       - nip
       - billing_data
+    important_model_rule: company_address_is_not_a_training_location
 
   - id: pkk_api_data
     label: Dane API PKK
+    integration_optional: true
+    data_source: /organization/integrations/pkk
+    mutation_endpoint_scope: dedicated_PKK_integration_only
+    runtime_status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+    ordinary_service_operation_dependency: none
     audit_required: true
     fields:
-      - {name: school_name, label: Nazwa szkoły, domain: pkk_integration_settings}
-      - {name: osk_registry_number, label: Numer ewidencyjny OSK, domain: pkk_integration_settings}
+      - {name: school_name, label: Nazwa szkoły, domain: pkk_integration_settings, canonical: pkk_integration_settings.school_name}
+      - {name: osk_registry_number, label: Numer ewidencyjny OSK, domain: pkk_integration_settings, canonical: pkk_integration_settings.osk_registry_number}
       - name: external_osk_login
         label: Login OSK
         domain: pkk_integration_settings
+        canonical: pkk_integration_settings.external_osk_login_ciphertext
         semantics: external_pkk_integration_identifier_not_application_login
         help_text_semantics: login przekazany przez starostę/wydział komunikacji i znajdujący się na zaświadczeniu rejestracyjnym OSK
+        security: encrypted_at_rest_redacted_in_audit
 
   - id: terms
     label: Regulamin
@@ -49,6 +68,7 @@ sections:
       - label: Zobacz mój regulamin
         route_pattern: /regulamin?v=<regulation_version>
         semantics: open_versioned_terms_associated_with_account
+        canonical: terms_acceptances_join_legal_documents
 
 pkk_configuration_gate_relation:
   confirmed: true
@@ -77,7 +97,6 @@ not_observed_on_screen:
 unknowns:
   - required_vs_optional_fields_on_general_settings_screen
   - exact_validation_messages
-  - save_request_shape
   - success_message
   - failure_message
   - whether_email_change_requires_reverification
@@ -85,9 +104,78 @@ unknowns:
   - whether_pkk_changes_run_connection_verification
 
 implementation_requirements:
+  - ordinary_settings_must_work_without_PKK_configuration
+  - provider_neutral_settings_GET_must_not_read_PKK_tables
+  - provider_neutral_settings_save_must_not_create_or_mutate_PKK_configuration
+  - email_change_must_not_be_invented_before_identity_email_change_authority
   - tenant_isolation
-  - audit_pkk_settings_changes
+  - atomic_save_across_user_organization_address_and_pkk_records
+  - optimistic_concurrency_using_organization_settings_version
+  - audit_pkk_settings_changes_without_full_external_login
   - keep_external_osk_login_separate_from_application_identity
   - persist_terms_acceptance_version_and_history
   - do_not_assume_nip_is_editable_here
   - reuse_same_user_and_pkk_configuration_records_in_settings_and_pkk_onboarding_gate
+  - reject_unknown_mass_assignment_fields
+  - do_not_store_company_address_in_locations_table
+
+
+current_implementation:
+  gate: ORGANIZATION-SETTINGS-UI-001
+  status: PASS_ACCEPTED
+  component: resources/js/modules/OrganizationSettings/SettingsWorkspace.vue
+  route_materialized: true
+  provider_neutral:
+    get: GET /api/v1/organization/settings
+    patch: PATCH /api/v1/organization/settings
+    optimistic_concurrency: If-Match_v_version
+    idempotency_key: required_via_shared_api_client
+    email: read_only
+  navigation:
+    settings_link_added_to_existing_sidebars: true
+    router_architecture_changed: false
+  pkk_section:
+    observed_screen_evidence_preserved: true
+    runtime_mode: frozen_informational_only
+    dedicated_PKK_API_called: false
+    PKK_fields_sent_in_provider_neutral_patch: false
+    authority: specs/design/organization-settings-provider-neutral.yml
+  accepted_terms:
+    history_rendered_from_settings_projection: true
+    document_url_null_supported: true
+    synthesized_regulamin_url: forbidden
+    exact_document_open:
+      status: BLOCKED_PENDING_VERSIONED_LOCAL_DOCUMENT_RESOLVER
+      evidence: docs/175-core-v1-organization-accepted-terms-closure.md
+  validation:
+    candidate_head: 0e3466eccea19f7bb798a548a07e925dac6b6157
+    implementation_ci_run: 34969328994
+    implementation_ci: PASS_5_OF_5
+    postgres_tests_passed: 381
+    assertions: 6315
+    restore_tables_source: 122
+    restore_tables_restored: 122
+    schema_fingerprint: f3cab286cc8f0aabef219971d90afe424a8dab694c47ade2f517a3d95970716d
+  acceptance:
+    accepted_head: 4006607dd2aecdc6fabb97a34ba5edf40d07729b
+    accepted_ci_run: 34971537563
+    accepted_ci: PASS_6_OF_6
+    release_artifact_id: 10396979267
+    release_artifact_name: osk-panel-4006607dd2aecdc6fabb97a34ba5edf40d07729b
+    release_archive_sha256: c3ca6f4c99dd61099cfc2bb720a502e8808212384d1393a8e8accae17071b962
+    postgres_tests_passed: 381
+    assertions: 6315
+    restore_tables_source: 122
+    restore_tables_restored: 122
+    schema_fingerprint: f3cab286cc8f0aabef219971d90afe424a8dab694c47ade2f517a3d95970716d
+  acceptance_boundary:
+    current_implementation_is_accepted_runtime: true
+    browser_E2E_proven: false
+
+implementation_divergences:
+  - observed: editable_PKK_fields_visible_on_source_screen
+    current_product_state: intentionally_not_read_or_mutated_while_PKK_frozen
+    classification: PRESERVED_SCREEN_EVIDENCE_DEFERRED_BY_OWN_PRODUCT_DECISION
+  - observed: Zobacz_moj_regulamin_opens_exact_version
+    current_product_state: acceptance_history_visible_but_document_url_currently_null
+    classification: CONFIRMED_RUNTIME_GAP_VERSIONED_DOCUMENT_RESOLVER

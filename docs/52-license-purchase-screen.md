@@ -227,3 +227,32 @@ Reguła:
 - dokument sprzedaży/faktura dla tego flow.
 
 Nie są to luki blokujące własny projekt; można je zaprojektować zgodnie z naszym payment/order lifecycle.
+
+
+## 12. Przykładowy cennik developerski — 2026-09-15
+
+Użytkownik projektu jawnie dopuścił tymczasowe przykładowe ceny, żeby nie blokować
+implementacji `/licencje/wykup` przed ustaleniem finalnego cennika.
+
+To nie zmienia zasad z sekcji 2, 4 i 10:
+
+- frontend nadal nie jest źródłem ceny,
+- ceny nadal są rozstrzygane server-side,
+- wartości obserwowane na ekranie nie stają się automatycznie produkcyjnym cennikiem.
+
+Candidate sample-data używa jawnej flagi `SAMPLE_DATA_ENABLED` i trzech
+przykładowych produktów:
+
+- 1 miesiąc — 29.00 PLN lista / 14.50 PLN do zapłaty,
+- 3 miesiące — 38.00 PLN lista / 19.00 PLN do zapłaty,
+- 6 miesięcy — 59.00 PLN lista / 29.50 PLN do zapłaty.
+
+Ceny pochodzą z backendowego `CommercePricingCatalog`.
+`GET /api/v1/license-products` pokazuje tę samą cenę, którą
+`POST /api/v1/license-orders` wykorzystuje do snapshotu zamówienia.
+
+Sample mode jest zabroniony w produkcji. Finalny deployment musi dostarczyć
+właściwy cennik albo świadomie zastąpić sample values inną konfiguracją.
+
+Sam ekran `/licencje/wykup` **nie jest jeszcze zaimplementowany w tym gate**.
+Ten krok usuwa jedynie brak danych katalogowych/cenowych, który wcześniej go blokował.

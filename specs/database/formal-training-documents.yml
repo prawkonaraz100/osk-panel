@@ -1,0 +1,118 @@
+meta:
+  id: core_v1_formal_training_documents_schema
+  version: 2026-09-13-v1
+  status: DESIGN_AUTHORITY_ONLY
+  implementation_gate: CORE-V1-FORMAL-TRAINING-DOCUMENTS-001_GATE_1
+
+principles:
+  Stage_4_170_node_migration_DAG_is_frozen: true
+  Stage_4_execution_identity_must_not_be_rewritten: true
+  formal_documents_require_new_Stage_5_extension_migration_authority: true
+  unregistered_normal_Laravel_migration_is_forbidden: true
+  internal_exam_document_tables_are_not_reused_for_course_training_documents: true
+  legal_documents_terms_acceptance_table_is_not_reused: true
+
+proposed_stage_5_extension:
+  course_enrollments:
+    add_fields:
+      document_mode:
+        type: varchar_16_not_null
+        values: [paper, electronic]
+        default_for_legacy_and_new_when_unspecified: paper
+      document_mode_selected_at:
+        type: timestamptz_not_null
+      document_mode_selected_by_user_id:
+        type: uuid_nullable_global_user
+    mutation_rule:
+      before_server_now_reaches_started_at: explicit_change_allowed_with_expected_course_version
+      at_or_after_started_at: normal_change_forbidden
+      PKK_state_does_not_control_document_mode: true
+
+  formal_training_document_templates:
+    ownership: platform_global
+    fields:
+      - id
+      - document_type
+      - template_version
+      - renderer_version
+      - template_content_hash
+      - effective_from
+      - effective_to
+      - created_at
+    document_type_values:
+      - training_record_card
+      - theory_delivery_journal
+    used_template_rows_immutable: true
+    effective_intervals_nonoverlap_per_document_type: required
+
+  formal_training_documents:
+    ownership: tenant
+    immutable_business_revision: true
+    fields:
+      - id
+      - organization_id
+      - course_enrollment_id
+      - document_type
+      - revision
+      - document_mode_snapshot
+      - formal_training_document_template_id
+      - template_version_snapshot
+      - renderer_version_snapshot
+      - template_hash_snapshot
+      - course_version_snapshot
+      - requirements_revision_snapshot
+      - evidence_bundle_hash
+      - asset_id
+      - content_hash
+      - approved_by_user_id
+      - approved_at
+      - generated_by_user_id
+      - generated_at
+      - created_at
+    keys:
+      exact_tenant_course: [organization_id, course_enrollment_id]
+      exact_tenant_asset: [organization_id, asset_id]
+      revision_unique: [organization_id, course_enrollment_id, document_type, revision]
+      deterministic_evidence_unique: [organization_id, course_enrollment_id, document_type, evidence_bundle_hash, template_version_snapshot, renderer_version_snapshot]
+    hard_delete_normal_runtime: forbidden
+    prior_revision_rewrite: forbidden
+
+  formal_training_document_events:
+    ownership: tenant
+    append_only: true
+    event_types:
+      - generated
+      - approved
+      - printed
+      - signed_scan_attached
+      - electronic_presented
+      - regeneration_detected
+    fields:
+      - id
+      - organization_id
+      - formal_training_document_id
+      - event_type
+      - actor_user_id
+      - reason
+      - optional_asset_id
+      - occurred_at
+      - created_at
+    raw_personal_data_payload: forbidden
+    signed_scan_optional_asset_requires_same_tenant_ready_asset: true
+
+current_document_projection:
+  latest_revision_is_not_automatically_current_when_source_changed: true
+  freshness_check:
+    latest_document_evidence_hash_equals_current_source_evidence_hash: fresh
+    otherwise: stale_regeneration_required
+  old_document_remains_historical_evidence: true
+
+next_gate_required_before_runtime:
+  id: FORMAL-DOC-002
+  tasks:
+    - define_separate_Stage_5_extension_registry_without_rewriting_Stage_4_DAG
+    - define_exact_expand_migrations_and_dependencies
+    - define_preflight_for_legacy_course_default_paper_mode
+    - define_same_tenant_FKs_uniques_checks_and_template_interval_guard
+    - define_migration_executor_entry_for_Stage_5_extensions
+    - prove_existing_Stage_4_identity_and_170_nodes_unchanged

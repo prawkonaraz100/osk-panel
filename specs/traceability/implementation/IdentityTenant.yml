@@ -1,0 +1,115 @@
+module: IdentityTenant
+core_traceability_modules:
+  - auth_identity
+changed_scope:
+  - evidence: specs/database/identity-rbac.yml
+    requirement: tenant operations derive organization from an active same-user membership context
+    domain_data: auth_sessions + organization_memberships
+    api_use_case: tenant authorization foundation
+    permission: explicit membership permission plus per-permission scope
+    ui: NOT_APPLICABLE_FOUNDATION_NO_UI
+    acceptance_test: Tests\\Feature\\IdentityTenantFoundationTest
+    status: IMPLEMENTED
+  - evidence: docs/87-physical-database-schema.md
+    requirement: owner marker is governance state and cannot bypass runtime permission authority
+    domain_data: organization_memberships + membership_permissions + membership_permission_scopes
+    api_use_case: owner governance foundation
+    permission: organization.members.manage
+    ui: NOT_APPLICABLE_FOUNDATION_NO_UI
+    acceptance_test: Tests\\Feature\\IdentityTenantFoundationTest
+    status: IMPLEMENTED
+  - evidence: specs/api/paths/auth-organization.yaml
+    requirement: local password login resolves the globally unique current login identifier, rotates framework session state and stores only a framework-session hash in auth_sessions
+    domain_data: users + auth_login_identifiers + auth_sessions + organization_memberships
+    api_use_case: auth.login
+    permission: public credential verification followed by fail-closed selected membership context
+    ui: NOT_APPLICABLE_RUNTIME_API_GATE
+    acceptance_test: Tests\\Feature\\AuthSessionLifecycleCoreTest::test_login_materializes_hashed_framework_session_and_selects_only_unambiguous_membership
+    status: IMPLEMENTED
+  - evidence: specs/api/paths/auth-organization.yaml
+    requirement: logout revokes the durable auth-session authority and invalidates the framework session even if the previously selected membership is no longer active
+    domain_data: auth_sessions
+    api_use_case: auth.logout
+    permission: authenticated_session
+    ui: NOT_APPLICABLE_RUNTIME_API_GATE
+    acceptance_test: Tests\\Feature\\AuthSessionLifecycleCoreTest::test_logout_revokes_current_auth_session_even_after_membership_is_suspended
+    status: IMPLEMENTED
+  - evidence: specs/security/permissions.yml
+    requirement: listing and revoking sessions is current-user scoped, requires sessions.manage.own with own scope, and never exposes another user's session identifier as an authorized target
+    domain_data: auth_sessions + organization_memberships + membership_permissions + membership_permission_scopes
+    api_use_case: auth.sessions_list + auth.session_revoke
+    permission: sessions.manage.own with own scope
+    ui: NOT_APPLICABLE_RUNTIME_API_GATE
+    acceptance_test: Tests\\Feature\\AuthSessionLifecycleCoreTest::test_session_list_and_revoke_are_own_scoped_and_cross_user_target_is_hidden
+    status: IMPLEMENTED
+  - evidence: docs/08-security-compliance.md
+    requirement: login return_url remains local and allowlisted and ambiguous multi-organization identity never selects an arbitrary tenant context
+    domain_data: auth_sessions.organization_membership_id
+    api_use_case: auth.login return_url_validation
+    permission: public credential verification; tenant context remains null when ambiguous
+    ui: NOT_APPLICABLE_RUNTIME_API_GATE
+    acceptance_test: Tests\\Feature\\AuthSessionLifecycleCoreTest::test_external_return_url_is_rejected_before_session_creation + Tests\\Feature\\AuthSessionLifecycleCoreTest::test_multiple_active_memberships_do_not_get_an_arbitrary_tenant_context
+    status: IMPLEMENTED
+  - evidence: specs/api/paths/auth-organization.yaml + specs/database/core-schema.yml
+    requirement: authenticated global User may record one durable pending account-closure request without requiring an active organization membership; retry is idempotent and formal/financial retention remains untouched
+    domain_data: auth_sessions + users + account_closure_requests + idempotency_records + audit_logs + domain_events + outbox_messages
+    api_use_case: auth.account_closure_request
+    permission: authenticated_user
+    ui: NOT_APPLICABLE_RUNTIME_API_GATE
+    acceptance_test: Tests\\Feature\\AccountClosureRequestCoreTest
+    status: IMPLEMENTED
+
+
+  - evidence: docs/181-core-v1-auth-register-authority.md
+    requirement: public registration atomically creates one self-service User, active Organization, fully materialized Owner RBAC snapshot and exact versioned legal acceptances without implicit login or PKK activation
+    domain_data: users + user_password_management + auth_login_identifiers + organizations + organization_settings + organization_contact_addresses + organization_memberships + membership_permissions + membership_permission_scopes + legal_documents + terms_acceptances
+    api_use_case: auth.register
+    permission: public bootstrap command with exact legal-document and global-identifier fail-closed checks
+    ui: PUBLIC_REGISTRATION_CONTRACT
+    acceptance_test: Tests\\Feature\\AuthRegistrationCoreTest
+    status: IMPLEMENTED
+  - evidence: docs/194-core-v1-stage5-social-subject-unique-implementation.md
+    requirement: social provider subject identity is physically unique across active and revoked history through an isolated Stage-5 corrective
+    domain_data: auth_social_accounts(provider, provider_subject)
+    api_use_case: social_provider_subject_unique physical invariant prerequisite for auth.social_redirect + auth.social_callback
+    permission: NOT_APPLICABLE_DATABASE_INVARIANT
+    ui: NOT_APPLICABLE_DATABASE_GATE
+    acceptance_test: Tests\\Feature\\Stage5SocialSubjectUniqueCorrectiveTest
+    status: IMPLEMENTED
+  - evidence: docs/196-core-v1-auth-social-implementation.md
+    requirement: auth.social_redirect + auth.social_callback use one-time framework-session-bound state, PKCE S256 and trusted provider configuration without social registration
+    domain_data: auth_social_accounts + auth_login_identifiers + user_password_management + auth_sessions
+    api_use_case: auth.social_redirect + auth.social_callback
+    permission: existing authenticated session only for authenticated_link mode; public sign-in resolves existing identity only
+    ui: provider redirect and state-bound local return URL
+    acceptance_test: Tests\\Feature\\AuthSocialCoreTest
+    status: IMPLEMENTED
+  - evidence: docs/199-core-v1-auth-password-recovery-implementation.md
+    requirement: self-service password recovery is enumeration-safe, cache-backed, one-time, credential-epoch-bound and revokes all active application sessions after reset
+    domain_data: users + user_password_management + auth_login_identifiers + auth_sessions + shared cache
+    api_use_case: auth.password_forgot + auth.password_reset
+    permission: public self-service flow with internal eligibility checks
+    ui: provider-neutral password recovery
+    acceptance_test: Tests\\Feature\\AuthPasswordRecoveryCoreTest
+    status: IMPLEMENTED
+
+
+  - evidence: docs/181-core-v1-auth-register-authority.md#Development-sample-terms-exception-2026-09-15
+    requirement: explicitly enabled non-production sample terms are seeded as a normal immutable legal_documents version and registration still requires exact published/effective version resolution without any validation bypass
+    domain_data: legal_documents + terms_acceptances
+    api_use_case: development.sample_legal_terms.current + auth.register
+    permission: public development-only metadata/document read; normal auth.register legal validation
+    ui: resources/views/legal/sample-terms-v1.blade.php
+    acceptance_test: Tests\\Feature\\DevelopmentSampleDataCoreTest::test_sample_terms_are_discoverable_renderable_and_accepted_by_registration
+    status: IMPLEMENTED
+    acceptance_state: ACCEPTED
+    candidate_head: 275e9dc47c5b507d49b96cf4ce79205b0ec78d49
+    candidate_implementation_ci_run: 34979358411
+    candidate_implementation_ci: PASS_5_OF_5
+    candidate_api_contract_run: 34979358178
+    candidate_api_contract: PASS
+    accepted_head: 2f42eaaff8fc41cddee5ddba5c39f1d58033ed5a
+    accepted_implementation_ci_run: 34980321576
+    accepted_implementation_ci: PASS_6_OF_6
+    accepted_api_contract_run: 34980321672
+    accepted_api_contract: PASS

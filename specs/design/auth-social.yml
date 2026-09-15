@@ -1,0 +1,197 @@
+authority:
+  id: CORE-V1-AUTH-SOCIAL-AUTHORITY-001
+  status: PASS
+  date: 2026-09-14
+  purpose: >-
+    Close the authority blocker for auth.social_redirect and auth.social_callback
+    without social registration, schema changes, provider-token persistence,
+    or weakening existing identity/session rules.
+
+scope:
+  schema_or_migration_change: false
+  social_registration: forbidden
+  user_auto_creation_from_provider_profile: forbidden
+  organization_auto_creation_from_provider_profile: forbidden
+  provider_token_persistence: forbidden
+  PKK_runtime_change: false
+  password_reset_change: false
+
+sources:
+  api:
+    - specs/api/paths/auth-organization.yaml#auth.social_redirect
+    - specs/api/paths/auth-organization.yaml#auth.social_callback
+  database:
+    - specs/database/core-schema.yml#auth_social_accounts
+    - specs/database/core-schema.yml#auth_login_identifiers
+    - specs/database/core-schema.yml#user_password_management
+    - specs/database/core-schema.yml#auth_sessions
+  runtime_reuse:
+    - app/Modules/IdentityTenant/AuthSessionService.php#safeReturnUrl
+    - app/Modules/IdentityTenant/AuthSessionService.php#startSession
+  observed_runtime_constraint:
+    registration_local_email_verified_at: null
+    consequence: unauthenticated_first_link_must_not_rely_on_unverified_local_email
+
+provider_registry:
+  source: trusted_server_configuration
+  path_provider_value_is_only_selector: true
+  enabled_allowlist_required: true
+  provider_code_pattern: "^[a-z0-9_-]{2,32}$"
+  protocol_profile: oauth2_authorization_code_pkce_userinfo_v1
+  required_configuration:
+    - authorization_url
+    - token_url
+    - userinfo_url
+    - redirect_uri
+    - deployment_injected_provider_credentials
+    - scopes
+  production_https_required: true
+  incomplete_or_disabled_provider_effect: fail_closed_before_state_or_network_effect
+
+redirect_flow:
+  return_url:
+    authority: AuthSessionService.safeReturnUrl
+    default: "/"
+    external_absolute_url: forbidden
+  initiation_mode:
+    active_application_session_present: authenticated_link
+    no_active_application_session: sign_in
+  state:
+    random_bytes_minimum: 32
+    ttl_seconds: 600
+    server_key: sha256_of_raw_state
+    one_time: true
+    store: server_side_cache
+    bound_fields:
+      - provider
+      - framework_session_hash
+      - validated_return_url
+      - initiation_mode
+      - initiating_user_id_nullable
+      - pkce_verifier
+      - expires_at
+  pkce:
+    method: S256
+    verifier_random_bytes_minimum: 32
+
+callback_state_claim:
+  provider_must_match_state: true
+  framework_session_must_match_state: true
+  missing_expired_or_replayed_state: reject
+  atomic_one_time_claim_required: true
+  implementation_boundary: cache_lock_plus_get_delete_or_equivalent_atomic_primitive
+  provider_error:
+    state_consumed: true
+    provider_exchange: forbidden
+    result: safe_local_error_redirect
+  return_url_source: claimed_state_only
+
+provider_exchange:
+  starts_only_after_valid_state_claim: true
+  outside_database_transaction: true
+  authorization_code_required_without_provider_error: true
+  pkce_verifier_required: true
+  normalized_userinfo:
+    provider_subject_nonblank: true
+    provider_subject_max_length: 255
+    verified_email_required_for_unauthenticated_first_link_only: true
+  transient_provider_material_not_persisted: true
+  network_failure_identity_mutation: 0
+  network_failure_session_mutation: 0
+
+identity_resolution:
+  current_subject_link:
+    key: [provider, provider_subject]
+    source: auth_social_accounts_where_revoked_at_null
+    active_user_required: true
+    provider_email_does_not_remap_existing_subject: true
+    authenticated_link_to_different_user: reject
+  historical_revoked_subject_link:
+    automatic_relink: forbidden
+    effect: fail_closed_security_review_required
+  authenticated_link:
+    enabled: true
+    initiating_user_id_source: state_bound_active_application_session
+    same_framework_session_required: true
+    initiating_user_active_required: true
+    organization_managed_target: forbidden
+    provider_email_match_required: false
+    provider_subject_must_have_no_current_or_historical_link: true
+    transaction_rechecks:
+      - initiating_auth_session_still_active
+      - initiating_user_still_active
+      - password_management_not_organization_managed
+      - provider_subject_still_never_linked
+    insert: one_auth_social_account
+    post_link_session_behavior: preserve_existing_application_session
+  unauthenticated_first_link:
+    enabled_only_for_verified_local_email_target: true
+    verified_provider_email_required: true
+    target_identifier:
+      source: current_nonrevoked_auth_login_identifier
+      type: email
+      verified_at_required: true
+      globally_unique_current_identifier_required: true
+    target_user_active_required: true
+    organization_managed_target: forbidden
+    transaction_rechecks:
+      - target_user_active
+      - local_email_current_verified_and_matching
+      - password_management_not_organization_managed
+      - provider_subject_still_never_linked
+    insert: one_auth_social_account
+    note: normal_registration_currently_creates_unverified_local_email_so_this_is_not_social_signup
+  no_safe_target:
+    user_auto_creation: forbidden
+    organization_auto_creation: forbidden
+    result: safe_local_error_redirect
+
+session_handoff:
+  authenticated_link:
+    new_auth_session_created: false
+    existing_auth_session_preserved: true
+    redirect_source: state_bound_validated_return_url
+  sign_in:
+    identity_resolved_before_framework_session_rotation: true
+    replace_existing_application_session: revoke_before_replacement
+    regenerate_framework_session_before_startSession: true
+    auth_session_authority: AuthSessionService.startSession
+    tenant_context:
+      exactly_one_active_membership: bind
+      zero_or_multiple_active_memberships: null
+    redirect_source: state_bound_validated_return_url
+
+security:
+  account_enumeration_in_public_error: forbidden
+  provider_tokens_in_database: forbidden
+  provider_tokens_in_session_after_callback: forbidden
+  authorization_code_in_logs_or_database: forbidden
+  raw_state_in_logs: forbidden
+  pkce_verifier_in_logs: forbidden
+  raw_provider_profile_in_audit_or_outbox: forbidden
+  unauthenticated_first_link_requires_verified_local_email: true
+  unverified_local_email_takeover: forbidden
+  organization_managed_social_link: forbidden
+  return_url_open_redirect: forbidden
+
+implementation_gate_requirements:
+  - provider_registry_fail_closed
+  - one_time_session_bound_state
+  - PKCE_S256
+  - provider_error_consumes_state
+  - external_IO_outside_database_transaction
+  - existing_subject_login
+  - authenticated_existing_user_linking
+  - unauthenticated_first_link_only_to_verified_local_email
+  - historical_revoked_subject_not_auto_relinked
+  - organization_managed_target_rejected
+  - no_social_auto_registration
+  - no_provider_token_persistence
+  - existing_auth_session_authority_reused
+  - API_contract_PASS
+  - PostgreSQL_runtime_PASS
+  - deterministic_restore_PASS
+
+next_after_PASS:
+  id: CORE-V1-CLOSURE-AUDIT-006
+  action: recompute_repository_closure_and_reclassify_social_redirect_callback_only

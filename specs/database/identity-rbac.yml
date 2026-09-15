@@ -1,0 +1,492 @@
+meta:
+  project: osk-panel
+  scope: identity_tenant_rbac_core_v1
+  status: FINAL_SYNCED_DB4_2_PASS
+  decided_at: 2026-09-05
+  narrative:
+    - docs/04-roles-permissions.md
+    - docs/105-stage-4-identity-tenant-rbac-audit.md
+    - docs/87-physical-database-schema.md
+  security_catalog: specs/security/permissions.yml
+  aggregate_blueprint: specs/database/core-schema.yml
+  authority_rule: >-
+    This bounded-context specification is authoritative for detailed
+    Identity/Tenant/RBAC semantics. The DB4_2 final gate synchronized the same
+    decisions into core-schema.yml and docs/87 without weakening this contract.
+
+principles:
+  permission_based_rbac: true
+  staff_type_is_not_authorization_role: true
+  organization_membership_is_tenant_authorization_context: true
+  backend_runtime_must_not_authorize_from_role_template_code: true
+  default_deny: true
+  future_permission_default_for_existing_membership: denied
+  scope_is_per_permission_not_global_membership_flag: true
+  scope_can_only_restrict_an_already_granted_permission: true
+  tenant_validation_always_precedes_scope_resolution: true
+  missing_or_unresolvable_scope_fails_closed: true
+  tenant_session_membership_must_belong_to_same_user_as_session: true
+  owner_marker_is_governance_state_not_runtime_permission_shortcut: true
+  self_privilege_escalation_via_normal_admin_flow_forbidden: true
+  membership_rows_are_durable_not_hard_deleted: true
+  authorization_mutations_are_versioned_serialized_and_audited: true
+
+physical_tables_in_scope:
+  - users
+  - organization_memberships
+  - permissions
+  - membership_permissions
+  - data_scopes
+  - permission_scope_options
+  - membership_permission_scopes
+  - auth_sessions
+  - audit_logs
+  - outbox_messages
+
+role_template_contract:
+  blocker: DB-IAM-001
+  status: PASS
+  catalog_source: specs/security/permissions.yml
+  runtime_dependency: false
+  semantics: assignment_time_preset_plus_provenance
+  provenance_fields:
+    - organization_memberships.role_template_code
+    - organization_memberships.role_template_catalog_version
+  template_application:
+    initial:
+      - resolve_exact_catalog_version
+      - materialize_one_membership_permission_decision_for_every_known_permission
+      - included_permissions_granted_true
+      - nonincluded_permissions_granted_false
+      - materialize_scope_rows_for_each_granted_permission
+      - denied_permissions_have_no_scope_rows
+      - persist_template_code_and_catalog_version_as_provenance
+      - write_audit_snapshot
+    reapply_or_change:
+      explicit_command_only: true
+      atomic_replace_permissions_and_scopes: true
+      update_provenance: true
+      audit_before_after: true
+  template_definition_change_affects_existing_memberships_automatically: false
+  new_permission_for_existing_membership: deny_until_explicit_grant_or_template_reapply
+
+membership_permissions:
+  status: PASS
+  purpose: authoritative_current_permission_decisions_for_one_membership
+  fields:
+    membership_id: uuid_FK_organization_memberships
+    permission_code: varchar_128_FK_permissions
+    granted: boolean_not_null
+    created_at: timestamptz
+  unique: [membership_id, permission_code]
+  runtime:
+    granted_true: proceed_to_scope_resolution
+    granted_false: deny
+    missing_row: deny
+    role_template_consulted: false
+  mutation:
+    expected_membership_version_required: true
+    target_membership_row_lock_required: true
+    atomic_with_scope_rows: true
+    audit_required: true
+    versioning: membership_lifecycle_and_authorization_mutation.mutation_versioning
+
+permissions_catalog:
+  table: permissions
+  primary_key: code
+  source: specs/security/permissions.yml
+  seed_or_sync_required: true
+  unknown_permission_code_in_membership_permissions: rejected_by_FK
+
+# DB-IAM-002
+data_scope_contract:
+  blocker: DB-IAM-002
+  status: PASS
+  superseded_shape:
+    organization_memberships.data_scope:
+      status: REMOVED_FROM_CANONICAL_AGGREGATE
+      runtime_use_forbidden: true
+
+  scope_catalog:
+    table: data_scopes
+    codes:
+      - organization
+      - own
+      - assigned_students
+      - assigned_locations
+
+  permission_scope_options:
+    table: permission_scope_options
+    primary_key: [permission_code, scope_code]
+    fields:
+      permission_code: FK_permissions
+      scope_code: FK_data_scopes
+      resolver_code: varchar_96_not_null
+    invariant: unsupported_permission_scope_pair_rejected
+
+  membership_permission_scopes:
+    table: membership_permission_scopes
+    primary_key: [membership_id, permission_code, scope_code]
+    foreign_keys:
+      permission_decision:
+        columns: [membership_id, permission_code]
+        references: membership_permissions
+      allowed_scope_pair:
+        columns: [permission_code, scope_code]
+        references: permission_scope_options
+    granted_permission_requires_at_least_one_scope_row: transactional_invariant
+    denied_permission_requires_zero_scope_rows: transactional_invariant
+    multiple_scope_rows_for_same_permission: logical_OR_after_tenant_validation
+    no_scope_rows_for_granted_permission: deny_fail_closed
+
+  runtime_order:
+    - authenticate_user
+    - resolve_active_membership
+    - validate_same_tenant_target_or_relation
+    - require_membership_permission_granted_true
+    - load_scope_rows
+    - require_at_least_one_scope_row
+    - evaluate_registered_permission_scope_resolvers
+    - allow_scope_layer_if_any_resolver_matches
+    - domain_state_rule
+    - elevated_reauth_or_MFA_when_required
+
+  resolver_registry:
+    organization:
+      resolver_code: tenant_resource
+      rule: target_or_proposed_resource_organization_id_equals_active_membership_organization_id
+    own:
+      resolver_code: permission_target_owner
+      rule: current_user_or_staff_profile_linked_to_membership_must_own_target
+      missing_owner_relation: deny
+    assigned_locations:
+      resolver_code: permission_target_assigned_location
+      dependency: active_staff_membership_link_to_staff_profile_to_staff_location_assignments
+      no_active_staff_link: deny_empty_set
+      physical_completion_stage: DB4_3
+    assigned_students:
+      resolver_code: permission_target_assigned_student
+      dependencies:
+        - active_staff_membership_link_to_staff_profile
+        - scope_eligible_course_enrollment_lead_instructor_relation
+        - scope_eligible_training_session_instructor_relation
+      no_active_staff_link: deny_empty_set
+      cancelled_or_archived_relation_grants_scope: false
+      physical_completion_stages: [DB4_3, DB4_4]
+
+  query_policy:
+    enforce_in_database_query_for:
+      - list
+      - get_by_id
+      - search
+      - counts
+      - exports
+      - PDFs
+      - bulk_actions
+    frontend_post_fetch_filter_as_security_boundary: forbidden
+    authorization_cache_key_or_validation_includes: organization_memberships.authorization_version
+
+# DB-IAM-003
+auth_session_membership_integrity:
+  blocker: DB-IAM-003
+  status: PASS
+  auth_sessions:
+    user_id: uuid_not_null_FK_users
+    organization_membership_id: uuid_nullable_selected_tenant_context
+  organization_membership_reference_key:
+    required_unique: [id, user_id]
+    membership_user_id_reassignment: forbidden
+  same_user_composite_foreign_key:
+    source_table: auth_sessions
+    source_columns: [organization_membership_id, user_id]
+    target_table: organization_memberships
+    target_columns: [id, user_id]
+    match: MATCH_SIMPLE
+    on_update: RESTRICT
+    on_delete: RESTRICT
+  null_membership_context:
+    allowed_for_global_or_pre_tenant_session: true
+    tenant_owned_operation_without_membership: deny
+  selected_organization_source: organization_membership
+  client_supplied_organization_id_as_authority: forbidden
+  active_membership_rechecked_at_request_time: true
+  migration_precheck_cross_user_rows_required: true
+
+# DB-IAM-004
+owner_privilege_management:
+  blocker: DB-IAM-004
+  status: PASS
+
+  owner_marker:
+    table: organization_memberships
+    field: is_owner
+    type: boolean_not_null_default_false
+    runtime_permission_shortcut: false
+
+  authorization_epoch:
+    field: organization_memberships.authorization_version
+    type: bigint_not_null_default_1_check_gte_1
+    incremented_on_authorization_affecting_change: true
+    session_permission_snapshot_as_authority: forbidden
+    stale_cache_or_elevation_proof: invalid
+
+  owner_protected_permission_baseline:
+    organization.view: [organization]
+    organization.members.manage: [organization]
+    staff.permissions.manage: [organization]
+    sessions.manage.organization: [organization]
+    is_owner_true_requires_baseline_materialized: true
+
+  active_owner_predicate:
+    - organization_memberships.is_owner_is_true
+    - organization_memberships.status_is_active
+    - protected_owner_permission_baseline_materialized
+
+  owner_mutation_transaction:
+    serialization_lock: organization_row_FOR_UPDATE_or_equivalent
+    post_transaction_active_owner_count_minimum: 1
+    normal_self_promotion: forbidden
+    owner_transfer: promote_successor_and_demote_predecessor_atomically
+    initial_bootstrap_exception: trusted_organization_creation_transaction_only
+    recent_reauthentication_required: true
+    MFA_when_policy_requires: true
+
+  self_escalation_policy:
+    self_grant_new_permission: forbidden
+    self_scope_broadening: forbidden
+    self_owner_promotion: forbidden
+    self_template_reapply_that_expands_privilege: forbidden
+    self_restriction_allowed_if_owner_invariants_preserved: true
+
+  grant_ceiling:
+    actor_must_hold_permission_being_granted: true
+    actor_scope_must_dominate_or_equal_delegated_scope_for_same_permission: true
+    organization_scope_may_delegate_narrower_allowed_scope: true
+    non_organization_scope_may_delegate_only_same_held_scope_codes: true
+    unknown_or_incomparable_scope: deny
+    elevated_grant_or_scope_broadening_requires_active_owner_actor: true
+
+  active_session_effect:
+    authoritative_permission_and_scope_checked_current: true
+    cache_requires_current_authorization_version: true
+    elevated_revoke_effective_no_later_than_next_authorized_request: true
+    session_authentication_need_not_be_terminated_only_for_permission_revoke: true
+
+# DB-IAM-005
+membership_lifecycle_and_authorization_mutation:
+  blocker: DB-IAM-005
+  status: PASS
+
+  durable_membership_projection:
+    table: organization_memberships
+    unique: [organization_id, user_id]
+    hard_delete: forbidden
+    user_id_mutation: forbidden
+    fields_added_or_finalized:
+      status:
+        type: varchar_32_not_null
+        allowed_values: [active, suspended, revoked]
+      version:
+        type: bigint_not_null_default_1_check_gte_1
+        semantics: optimistic_concurrency_version_for_all_membership_configuration_mutations
+      authorization_version:
+        type: bigint_not_null_default_1_check_gte_1
+        semantics: security_epoch_for_authorization_affecting_changes
+      is_owner:
+        type: boolean_not_null_default_false
+      role_template_code:
+        type: varchar_64_nullable_provenance_only
+      role_template_catalog_version:
+        type: varchar_64_nullable_provenance_only
+      created_at: timestamptz
+      updated_at: timestamptz
+    initial_status_for_direct_staff_access_provisioning: active
+
+  status_semantics:
+    active:
+      authorization_eligible: true
+      may_select_as_auth_session_tenant_context: true
+    suspended:
+      authorization_eligible: false
+      permissions_and_scopes_retained_for_possible_resume: true
+      may_select_as_session_context: false
+    revoked:
+      authorization_eligible: false
+      may_select_as_session_context: false
+      owner_marker_after_transition: false
+      all_permission_decisions_after_transition: granted_false
+      all_scope_rows_after_transition: removed
+      historical_old_permissions_preserved_in_audit_not_as_reactivatable_runtime_snapshot: true
+
+  allowed_status_transitions:
+    active: [suspended, revoked]
+    suspended: [active, revoked]
+    revoked: [active_via_explicit_reactivation_with_fresh_permission_or_template_provisioning]
+    same_state_command: idempotent_no_business_effect_or_explicit_noop
+
+  reactivation_rules:
+    suspended_to_active:
+      keeps_existing_permission_and_scope_configuration: true
+      reselect_session_context_required: true
+    revoked_to_active:
+      automatic_restore_of_pre_revoke_permissions: false
+      explicit_fresh_template_or_permission_scope_snapshot_required_same_transaction: true
+      owner_status_not_restored_implicitly: true
+      reselect_session_context_required: true
+
+  membership_state_history:
+    source: immutable_audit_log_plus_outbox_domain_event
+    destructive_history_overwrite: forbidden
+    dedicated_membership_period_table_required: false
+
+  mutation_versioning:
+    expected_version_required_for_admin_mutation: true
+    target_membership_SELECT_FOR_UPDATE: true
+    compare_expected_version_after_lock: true
+    stale_expected_version: conflict_no_partial_change
+    membership_version_increment:
+      exactly_once_per_successful_logical_mutation: true
+      applies_to:
+        - status_transition
+        - owner_change
+        - permission_change
+        - scope_change
+        - explicit_template_reapply_or_change
+    authorization_version_increment:
+      exactly_once_per_successful_authorization_affecting_logical_mutation: true
+      applies_to:
+        - active_suspended_revoked_reactivated_transition
+        - owner_change
+        - permission_grant_or_revoke
+        - scope_change
+        - template_reapply_that_changes_permissions_or_scopes
+      provenance_only_change_without_effective_authorization_change_may_leave_authorization_version_unchanged: true
+    permission_rows_have_independent_mutation_version: false
+    scope_rows_have_independent_mutation_version: false
+    reason: membership_row_is_single_concurrency_aggregate_root
+
+  permission_scope_mutation_transaction:
+    aggregate_root: organization_memberships
+    lock_order:
+      - organization_row_if_owner_or_governance_invariant_may_be_affected
+      - actor_membership_if_distinct_and_required_for_grant_ceiling
+      - target_membership
+    deterministic_multi_membership_lock_order: ascending_membership_uuid_when_same_lock_class
+    steps:
+      - verify_actor_active_membership_same_organization
+      - verify_required_management_permission_and_scope
+      - verify_expected_target_membership_version
+      - apply_self_escalation_and_grant_ceiling_rules
+      - apply_owner_protected_baseline_and_last_owner_rules_if_relevant
+      - mutate_membership_permissions_and_membership_permission_scopes_atomically
+      - validate_granted_permissions_have_legal_scope_rows_and_denied_permissions_have_none
+      - increment_membership_version_once
+      - increment_authorization_version_once_if_effective_authorization_changed
+      - write_redacted_audit_before_after_with_actor_reason_request_id_and_versions
+      - write_outbox_event_same_transaction
+    partial_permission_update_commit: forbidden
+
+  status_transition_transaction:
+    steps:
+      - lock_organization_if_owner_count_may_change
+      - lock_target_membership
+      - verify_expected_version
+      - verify_allowed_transition
+      - apply_last_owner_guard_if_target_is_owner_or_transition_changes_authorization_eligibility
+      - apply_state_specific_permission_scope_behavior
+      - increment_membership_version_once
+      - increment_authorization_version_once
+      - clear_or_invalidate_session_tenant_contexts_if_transition_disables_authorization
+      - invalidate_membership_scoped_reauth_or_elevation_proofs
+      - write_audit_and_outbox_same_transaction
+
+  session_effects:
+    permission_or_scope_or_owner_change_while_membership_remains_active:
+      clear_session_tenant_context: false
+      revoke_global_auth_session: false
+      authorization_version_change_forces_reload_or_deny_before_next_business_action: true
+    active_to_suspended:
+      auth_sessions_bound_to_membership:
+        set_organization_membership_id_null_same_transaction: true
+        revoke_entire_global_session_by_default: false
+      membership_scoped_reauth_or_elevation_proof: invalidate
+    active_or_suspended_to_revoked:
+      auth_sessions_bound_to_membership:
+        set_organization_membership_id_null_same_transaction: true
+        revoke_entire_global_session_by_default: false
+      membership_scoped_reauth_or_elevation_proof: invalidate
+    reactivation:
+      existing_sessions_automatically_rebind_to_membership: false
+      explicit_context_selection_required: true
+    global_user_account_disable_or_compromise:
+      scope: outside_DB4_2_membership_lifecycle
+
+  audit_contract:
+    audit_required_for_every_successful_membership_permission_scope_owner_or_status_mutation: true
+    fields_required:
+      - actor_user_id
+      - organization_id
+      - target_membership_id
+      - action
+      - request_id
+      - membership_version_before
+      - membership_version_after
+      - authorization_version_before
+      - authorization_version_after
+      - safe_before_after_or_domain_specific_diff
+      - timestamp
+    reason_required_for:
+      - revoke_membership
+      - owner_promotion_or_demotion
+      - elevated_permission_grant_or_revoke
+      - explicit_security_remediation
+    secrets_or_raw_session_tokens_forbidden: true
+
+  outbox_contract:
+    same_transaction_as_mutation: true
+    event_examples:
+      - membership.status.changed
+      - membership.authorization.changed
+      - membership.owner.changed
+
+  tests_required:
+    - membership_hard_delete_is_not_used_for_suspend_or_revoke
+    - active_membership_authorizes_only_when_permission_and_scope_match
+    - suspended_membership_cannot_authorize_even_with_granted_permission_rows
+    - revoked_membership_has_no_granted_permission_or_scope_rows_after_commit
+    - suspended_to_active_restores_same_permission_configuration_but_not_session_binding
+    - revoked_to_active_requires_fresh_permission_or_template_provisioning
+    - revoked_to_active_does_not_restore_owner_implicitly
+    - two_admins_using_same_expected_version_cannot_both_overwrite_permission_configuration
+    - stale_expected_version_causes_conflict_without_partial_permission_or_scope_write
+    - successful_logical_permission_mutation_increments_membership_version_once
+    - authorization_affecting_mutation_increments_authorization_version_once
+    - suspend_clears_all_session_tenant_contexts_bound_to_that_membership
+    - revoke_clears_all_session_tenant_contexts_bound_to_that_membership
+    - suspend_or_revoke_does_not_remove_other_organization_access_for_same_global_user
+    - reactivation_never_rebinds_old_sessions_automatically
+    - permission_revoke_while_active_does_not_require_logout_but_is_effective_next_request
+    - audit_contains_actor_reason_when_required_and_before_after_versions
+    - audit_and_outbox_commit_atomically_with_permission_or_status_change
+    - owner_last_owner_and_grant_ceiling_tests_remain_valid_under_status_transitions
+    - concurrent_owner_or_permission_mutations_follow_deterministic_lock_order_without_lost_update
+
+final_DB4_2_sync_required:
+  status: PASS
+  synchronized_files:
+    - specs/database/core-schema.yml
+    - docs/87-physical-database-schema.md
+  aggregate_sync_checks:
+    core_schema_contains_all_DB_IAM_tables_fields_constraints_and_transactions: true
+    docs_87_contains_same_canonical_identity_tenant_rbac_shape: true
+    membership_wide_data_scope_removed_from_canonical_runtime_model: true
+    no_DB4_3_domain_design_or_Laravel_migrations_started: true
+  traceability_direct_edit:
+    required_for_DB4_2_gate: false
+    reason: >-
+      Existing core traceability already points to core-schema.yml and
+      specs/security/permissions.yml. DB4_2 adds physical authorization support
+      and security invariants without adding a new reverse-engineered screen/API
+      capability. Stage 5 will expand per-module acceptance traceability.
+
+open_blockers_not_resolved_here: {}

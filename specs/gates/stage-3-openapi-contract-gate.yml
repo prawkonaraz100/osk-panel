@@ -1,0 +1,226 @@
+meta:
+  project: osk-panel
+  stage: 3
+  name: openapi_coverage_and_contract_gate
+  branch: docs-consolidation-2026-09-05
+  status: PASS
+  started_at: 2026-09-05
+  completed_at: 2026-09-05
+  rule: stage_4_must_not_start_until_this_gate_is_PASS
+
+scope:
+  only:
+    - specs/api/openapi-v1.yaml
+    - specs/api/openapi-components-v1.yaml
+    - specs/api/openapi-settings-components.yaml
+    - specs/api/paths/*.yaml
+    - specs/api/required-operations-v1.yml
+    - specs/api/common-contract.yml
+    - specs/traceability/core-v1.yml
+    - scripts/contract-validation/*
+    - .github/workflows/api-contract-gate.yml
+  explicitly_out_of_scope_for_this_stage:
+    - new_database_migration_design
+    - calendar_overlap_ADR
+    - encryption_key_rotation_ADR
+    - legal_category_PT_resolution
+    - UI_implementation
+    - Laravel_code
+
+quality_checks:
+  stage_1_patch_semantics_preserved:
+    status: PASS
+    evidence:
+      - Location PATCH uses UpdateLocationRequest
+      - Staff PATCH uses UpdateStaffRequest
+      - Vehicle PATCH uses UpdateVehicleRequest
+      - VehicleDocument PATCH uses UpdateVehicleDocumentRequest
+      - AvailabilitySlot PATCH uses UpdateAvailabilitySlotRequest
+
+  pkk_configuration_gate_in_required_inventory:
+    status: PASS
+    required_operations:
+      - pkk.configuration_gate.get
+      - pkk.configuration_gate.save_and_continue
+
+  pkk_configuration_gate_in_openapi_root:
+    status: PASS
+    path: /organization/integrations/pkk/configuration
+
+  pkk_configuration_gate_path_contract:
+    status: PASS
+    operations:
+      - GET organizationPkkConfigurationGateGet
+      - PUT organizationPkkConfigurationGateSave
+    properties:
+      - same_source_of_truth_as_organization_settings
+      - atomic_save_of_user_names_and_PKK_configuration
+      - If-Match_concurrency
+      - Idempotency-Key_on_save
+
+  traceability_matches_required_inventory:
+    status: PASS
+    resolved_blocker_id: TRACE-001
+    evidence:
+      - PKK api_requirements includes pkk.configuration_gate.get
+      - PKK api_requirements includes pkk.configuration_gate.save_and_continue
+      - PKK preserved capabilities include configuration-gate onboarding
+      - organization_settings includes docs/100-osk-settings-domain-model.md
+      - organization_settings references specs/database/organization-settings.yml
+      - canonical ownership includes users, auth_login_identifiers, organizations, organization_settings, organization_contact_addresses and pkk_integration_settings
+      - test obligations prove settings and PKK configuration gate use the same source records
+      - aggregate version protects concurrent settings/configuration-gate writes
+
+  every_required_http_operation_has_openapi_operationId:
+    status: PASS
+    stage_step: STAGE3_STEP_2
+    counts:
+      http_requirement_rows: 175
+      unique_openapi_path_method_operations_required: 162
+      shared_capability_rows_reusing_existing_operationId: 13
+      unmapped_http_requirements: 0
+    reverse_engineering_preservation_note: >-
+      Shared mappings do not remove observed capabilities. They only state that
+      one canonical HTTP operation exposes multiple confirmed filters, sorting,
+      projection or entry capabilities from the reverse-engineered UI.
+
+  every_openapi_path_ref_resolves:
+    status: PASS
+    stage_step: STAGE3_STEP_3
+    counts:
+      root_path_refs: 129
+      referenced_module_path_keys: 129
+      dangling_root_path_refs: 0
+      unreferenced_module_path_keys: 0
+
+  operationIds_are_unique:
+    status: PASS
+    stage_step: STAGE3_STEP_4
+    counts:
+      canonical_http_operations: 158
+      unique_operationIds: 158
+      duplicate_operationIds: 0
+
+  every_nonpublic_operation_has_explicit_or_inherited_security:
+    status: PASS
+    stage_step: STAGE3_STEP_5
+    root_default_security: sessionCookie
+    counts:
+      canonical_http_operations: 158
+      explicit_public_auth_operations: 6
+      provider_signed_webhook_operations_without_session: 1
+      explicit_session_or_exam_token_operations: 4
+      operations_inheriting_sessionCookie: 147
+      operations_without_security_contract: 0
+
+  public_security_exceptions_are_explicit:
+    status: PASS
+    stage_step: STAGE3_STEP_5
+    exam_result_review_rule: >-
+      Result and question-review endpoints may use examAccessToken only for the
+      matching finished attempt and result-review scope. A raw/predictable attempt
+      identifier alone never authorizes access and question review is not exposed
+      to an active unfinished exam token.
+
+  every_mutating_critical_command_has_idempotency_where_required:
+    status: PASS
+    stage_step: STAGE3_STEP_6
+    contract_source: specs/api/common-contract.yml
+    provider_webhook_exception:
+      operationId: paymentWebhookReceive
+      idempotency_header_required: false
+      reason: provider_plus_provider_event_id_is_the_authoritative_deduplication_key
+    command_state_transition_rule: >-
+      Command transitions combine Idempotency-Key where required with server-side
+      state validation and transaction/row-lock invariants.
+
+  request_schemas_do_not_accept_read_only_response_fields:
+    status: PASS
+    stage_step: STAGE3_STEP_7
+    resolved_blocker_id: REQ-001
+    backend_validation_rule: >-
+      Raw request payloads may not be mass-assigned to domain models. Laravel
+      FormRequest/use-case validation whitelists accepted fields and rejects
+      server-owned identifiers, timestamps, versions and derived statuses.
+
+  every_component_and_schema_ref_resolves:
+    status: PASS
+    stage_step: STAGE3_STEP_8
+    result:
+      dangling_parameter_refs: 0
+      dangling_response_refs: 0
+      dangling_schema_refs: 0
+      dangling_local_component_refs: 0
+
+  executable_contract_lint:
+    status: PASS
+    stage_step: STAGE3_STEP_10
+    resolved_blocker_id: CI-001
+    validator:
+      file: scripts/contract-validation/validate_openapi_contract.py
+      dependency_lock: scripts/contract-validation/requirements.txt
+      command: python scripts/contract-validation/validate_openapi_contract.py
+      checks:
+        - YAML_parse
+        - recursive_ref_resolution
+        - root_vs_module_path_parity
+        - unique_operationId
+        - required_operations_bidirectional_coverage
+        - stage5_attendance_sync_170_requirement_and_159_operation_counts
+        - security_scheme_resolution
+        - nonpublic_permission_annotations
+        - request_schema_readOnly_rejection
+    ci:
+      workflow: .github/workflows/api-contract-gate.yml
+      permissions: contents_read_only
+      python: '3.12'
+      dependency: PyYAML_6_0_2
+    static_audit: PASS
+    first_observed_CI_run_required_before_merge: true
+
+  final_stage_3_contract_convergence:
+    status: PASS
+    stage_step: STAGE3_STEP_11
+    evidence:
+      - specs/api/required-operations-v1.yml coverage_status is frozen to PASS
+      - docs/99-staged-design-and-implementation-plan.md marks Stage 3 DONE and Stage 4 NEXT_NOT_STARTED
+      - docs/103-stage-3-final-contract-audit.md records the final self-audit
+      - no Stage-3 P0/P1 blocker remains open
+      - reverse-engineering capability preservation remains mandatory
+
+resolved_blockers:
+  - id: TRACE-001
+    severity: P1
+    resolution: PKK configuration-gate traceability synchronized with Stage-2 canonical settings ownership.
+  - id: SEC-001
+    severity: P1
+    resolution: External exam result/review supports scoped opaque exam access token without exposing unfinished answer review.
+  - id: REQ-001
+    severity: P1
+    resolution: Direct client writes to StudentLearningAccount.status removed and request mass-assignment policy hardened.
+  - id: CI-001
+    severity: P1
+    resolution: Executable repository contract validator added and wired to read-only GitHub Actions workflow.
+
+open_blockers: []
+
+gate_definition:
+  PASS_requires:
+    - no_open_P0_or_P1_blockers
+    - every_quality_check_is_PASS_or_EXPLICIT_CONDITIONAL_PROVIDER_BLOCKER
+    - required_operations_and_OpenAPI_are_bidirectionally_accounted_for
+    - no_dangling_refs
+    - no_duplicate_operationIds
+    - traceability_is_synchronized
+    - executable_contract_lint_exists_and_is_wired_to_CI_or_explicit_repo_command
+    - final_statuses_and_stage_self_audit_are_synchronized
+  current_result: PASS
+  may_start_stage_4: true
+
+next_stage:
+  id: STAGE_4
+  name: database_invariants_and_migration_design
+  status: NOT_STARTED
+  first_rule: >-
+    Start with diagnosis/inventory only. Do not edit all database areas at once.
+    Establish a Stage-4 gate and close one database-invariant slice at a time.

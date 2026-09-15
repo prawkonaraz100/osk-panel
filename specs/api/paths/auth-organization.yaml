@@ -1,0 +1,331 @@
+paths:
+  /auth/register:
+    post:
+      tags: [Auth]
+      operationId: authRegister
+      x-requirement-id: auth.register
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/RegistrationRequest' }
+      responses:
+        '201': { description: Account and organization created }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /auth/login:
+    post:
+      tags: [Auth]
+      operationId: authLogin
+      x-requirement-id: auth.login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/LoginRequest' }
+      responses:
+        '200': { description: Authenticated session established }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /auth/logout:
+    post:
+      tags: [Auth]
+      operationId: authLogout
+      x-requirement-id: auth.logout
+      x-permission: authenticated_session
+      responses:
+        '204': { description: Session closed even if organization membership was later deactivated }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /auth/password/forgot:
+    post:
+      tags: [Auth]
+      operationId: authPasswordForgot
+      x-requirement-id: auth.password_forgot
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/PasswordForgotRequest' }
+      responses:
+        '202': { description: Reset flow accepted without account enumeration }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /auth/password/reset:
+    post:
+      tags: [Auth]
+      operationId: authPasswordReset
+      x-requirement-id: auth.password_reset
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/PasswordResetRequest' }
+      responses:
+        '200': { description: Password reset }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /auth/sessions:
+    get:
+      tags: [Auth]
+      operationId: authListSessions
+      x-requirement-id: auth.sessions_list
+      x-permission: sessions.manage.own
+      responses:
+        '200':
+          description: Sessions
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '../openapi-components-v1.yaml#/components/schemas/AuthSession' } }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /auth/sessions/{sessionId}:
+    delete:
+      tags: [Auth]
+      operationId: authRevokeSession
+      x-requirement-id: auth.session_revoke
+      x-permission: sessions.manage.own
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/SessionId' }
+      responses:
+        '204': { description: Session revoked }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /auth/account-closure-requests:
+    post:
+      tags: [Auth]
+      operationId: authRequestAccountClosure
+      x-requirement-id: auth.account_closure_request
+      x-permission: authenticated_user
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/AccountClosureRequest' }
+      responses:
+        '202': { description: Closure request recorded; formal and financial retention rules still apply }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /auth/social/{provider}/redirect:
+    get:
+      tags: [Auth]
+      operationId: authSocialRedirect
+      x-requirement-id: auth.social_redirect
+      x-provider-registry: server_config_allowlist
+      x-oauth-flow: authorization_code_with_PKCE_S256
+      x-state-authority: one_time_server_side_cache_bound_to_framework_session
+      x-social-registration: forbidden_in_this_gate
+      security: []
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/Provider' }
+        - name: return_url
+          in: query
+          description: Optional local application path validated against the existing server allowlist before state issuance.
+          schema: { type: string }
+      responses:
+        '302': { description: Redirect to an enabled configured social provider with one-time state and PKCE challenge }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /auth/social/{provider}/callback:
+    get:
+      tags: [Auth]
+      operationId: authSocialCallback
+      x-requirement-id: auth.social_callback
+      x-provider-registry: server_config_allowlist
+      x-oauth-flow: authorization_code_with_PKCE_S256
+      x-state-authority: atomic_one_time_server_side_claim_bound_to_framework_session
+      x-linking-authority: current_provider_subject_or_verified_existing_local_email_only
+      x-social-registration: forbidden_in_this_gate
+      x-provider-token-persistence: forbidden
+      security: []
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/Provider' }
+        - name: code
+          in: query
+          schema: { type: string }
+        - name: state
+          in: query
+          schema: { type: string }
+        - name: error
+          in: query
+          schema: { type: string }
+      responses:
+        '302': { description: Existing local account authenticated and redirected to the state-bound validated local ReturnUrl, or to a local safe error route }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+
+  /organization:
+    get:
+      tags: [Organization]
+      operationId: organizationGet
+      x-requirement-id: organization.get
+      x-permission: organization.view
+      responses:
+        '200':
+          description: Organization
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/Organization' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+    patch:
+      tags: [Organization]
+      operationId: organizationUpdate
+      x-requirement-id: organization.update
+      x-permission: organization.edit
+      x-provider-neutral: true
+      x-pkk-configuration-required: false
+      x-version-source: organization_settings.version
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IfMatch' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/UpdateOrganizationRequest' }
+      responses:
+        '200':
+          description: Organization updated
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/Organization' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+
+  /organization/settings:
+    get:
+      tags: [Organization]
+      operationId: organizationSettingsGet
+      x-requirement-id: organization.settings.get
+      x-permission: organization.view
+      x-provider-neutral: true
+      x-pkk-configuration-required: false
+      x-pkk-table-access: forbidden
+      x-screen-spec: specs/screens/settings.yml
+      x-canonical-db-spec: specs/database/organization-settings.yml
+      responses:
+        '200':
+          description: Provider-neutral settings projection for Dane podstawowe, Dane firmy and accepted terms. The PKK section is a separate optional integration projection and cannot block this response.
+          content:
+            application/json:
+              schema: { $ref: '../openapi-settings-components.yaml#/components/schemas/OskSettingsProjection' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+    patch:
+      tags: [Organization]
+      operationId: organizationSettingsUpdate
+      x-requirement-id: organization.settings.update
+      x-permission: organization.settings.manage
+      x-provider-neutral: true
+      x-pkk-configuration-required: false
+      x-pkk-field-mutation: forbidden_use_dedicated_integration_endpoint
+      x-email-mutation: forbidden_pending_identity_email_change_authority
+      x-screen-spec: specs/screens/settings.yml
+      x-canonical-db-spec: specs/database/organization-settings.yml
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IfMatch' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../openapi-settings-components.yaml#/components/schemas/UpdateOskSettingsRequest' }
+      responses:
+        '200':
+          description: Provider-neutral user/company settings updated atomically without requiring, reading or mutating PKK configuration; aggregate version increments on success
+          content:
+            application/json:
+              schema: { $ref: '../openapi-settings-components.yaml#/components/schemas/OskSettingsProjection' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+
+  /organization/accepted-terms:
+    get:
+      tags: [Organization]
+      operationId: organizationAcceptedTermsGet
+      x-requirement-id: organization.accepted_terms.get
+      x-permission: organization.view
+      responses:
+        '200':
+          description: Immutable terms acceptance history
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '../openapi-settings-components.yaml#/components/schemas/TermsAcceptanceProjection' } }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+
+  /organization/integrations/pkk:
+    get:
+      tags: [Organization, PKK]
+      operationId: organizationPkkSettingsGet
+      x-requirement-id: pkk.settings.get
+      x-permission: pkk.view
+      x-screen-specs: [specs/screens/pkk-configuration-gate.yml, specs/screens/settings.yml]
+      x-canonical-db-spec: specs/database/organization-settings.yml
+      responses:
+        '200':
+          description: Canonical PKK integration settings only; user first/last name are deliberately not stored in this object
+          content:
+            application/json:
+              schema: { $ref: '../openapi-settings-components.yaml#/components/schemas/PkkIntegrationSettings' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+    patch:
+      tags: [Organization, PKK]
+      operationId: organizationPkkSettingsUpdate
+      x-requirement-id: pkk.settings.update
+      x-permission: organization.integrations.manage
+      x-canonical-db-spec: specs/database/organization-settings.yml
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IfMatch' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../openapi-settings-components.yaml#/components/schemas/UpdatePkkIntegrationSettingsRequest' }
+      responses:
+        '200':
+          description: PKK integration fields updated, readiness recalculated, settings aggregate version incremented and audit redacted
+          content:
+            application/json:
+              schema: { $ref: '../openapi-settings-components.yaml#/components/schemas/PkkIntegrationSettings' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+
+  /organization/integrations/pkk/configuration:
+    get:
+      tags: [Organization, PKK]
+      operationId: organizationPkkConfigurationGateGet
+      x-requirement-id: pkk.configuration_gate.get
+      x-permission: organization.integrations.manage
+      x-screen-spec: specs/screens/pkk-configuration-gate.yml
+      x-canonical-db-spec: specs/database/organization-settings.yml
+      responses:
+        '200':
+          description: PKK onboarding configuration projection combining user names and PKK integration fields without duplicating storage
+          content:
+            application/json:
+              schema: { $ref: '../openapi-settings-components.yaml#/components/schemas/PkkConfigurationGateProjection' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+    put:
+      tags: [Organization, PKK]
+      operationId: organizationPkkConfigurationGateSave
+      x-requirement-id: pkk.configuration_gate.save_and_continue
+      x-permission: organization.integrations.manage
+      x-screen-spec: specs/screens/pkk-configuration-gate.yml
+      x-canonical-db-spec: specs/database/organization-settings.yml
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IfMatch' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../openapi-settings-components.yaml#/components/schemas/SavePkkConfigurationGateRequest' }
+      responses:
+        '200':
+          description: User names and PKK configuration saved atomically using the same source records as /organization/settings; readiness and settings version updated
+          content:
+            application/json:
+              schema: { $ref: '../openapi-settings-components.yaml#/components/schemas/PkkConfigurationGateProjection' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+
+  /organization/integrations/pkk/test-connection:
+    post:
+      tags: [Organization, PKK]
+      operationId: organizationPkkTestConnection
+      x-requirement-id: pkk.settings.test_connection
+      x-permission: organization.integrations.manage
+      x-condition: provider_supports_safe_test_connection
+      responses:
+        '200': { description: Connection test result; this capability remains conditional until provider contract confirms it }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }

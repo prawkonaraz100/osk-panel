@@ -1,0 +1,41 @@
+name: API Contract Gate
+
+on:
+  pull_request:
+    paths:
+      - 'specs/api/**'
+      - 'specs/traceability/**'
+      - 'specs/gates/stage-3-openapi-contract-gate.yml'
+      - 'scripts/contract-validation/**'
+      - '.github/workflows/api-contract-gate.yml'
+  push:
+    paths:
+      - 'specs/api/**'
+      - 'specs/traceability/**'
+      - 'specs/gates/stage-3-openapi-contract-gate.yml'
+      - 'scripts/contract-validation/**'
+      - '.github/workflows/api-contract-gate.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  validate-api-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+          cache-dependency-path: scripts/contract-validation/requirements.txt
+
+      - name: Install validator dependency
+        run: python -m pip install --disable-pip-version-check -r scripts/contract-validation/requirements.txt
+
+      - name: Validate OpenAPI contract and reverse-engineering coverage
+        run: python scripts/contract-validation/validate_openapi_contract.py

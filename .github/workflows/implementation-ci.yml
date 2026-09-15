@@ -1,0 +1,156 @@
+name: Implementation CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - docs-consolidation-2026-09-05
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: implementation-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend-quality:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          extensions: mbstring, intl, pdo_pgsql, redis
+          coverage: none
+      - run: composer install --no-interaction --prefer-dist --no-progress
+      - run: composer validate --strict
+      - run: vendor/bin/pint --test
+      - run: vendor/bin/phpstan analyse --no-progress --memory-limit=1G
+
+  frontend-quality:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run build
+      - run: npm audit --audit-level=high
+
+  runtime-tests-and-migrations:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          extensions: mbstring, intl, pdo_pgsql, redis
+          coverage: none
+      - run: composer install --no-interaction --prefer-dist --no-progress
+      - name: Boot deterministic test runtime
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+          docker compose config >/tmp/compose.rendered.yml
+          docker compose up -d --wait
+      - name: Validate migration authority and registry
+        run: |
+          php artisan migration:plan:validate --json
+          php artisan migration:stage5:formal-docs:plan:validate --json
+          php artisan migration:stage5:social-identity:plan:validate --json
+          php artisan migration:stage5:commerce-order-sequence:plan:validate --json
+          php artisan migration:stage5:student-progress:plan:validate --json
+      - name: Run PostgreSQL-backed test suite
+        run: php artisan test --fail-on-warning
+      - name: Run deterministic restore drill harness
+        run: scripts/ops/restore-drill.sh
+      - name: Cleanup runtime
+        if: always()
+        run: docker compose down -v
+
+  contracts-and-traceability:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: scripts/contract-validation/requirements.txt
+      - run: python -m pip install --disable-pip-version-check -r scripts/contract-validation/requirements.txt
+      - name: Preserve OpenAPI contract gate
+        run: python scripts/contract-validation/validate_openapi_contract.py
+      - name: Self-test changed-module traceability validator
+        run: python scripts/ci/validate_changed_module_traceability.py --self-test
+      - name: Validate changed-module traceability
+        env:
+          CI_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          CI_HEAD_SHA: ${{ github.sha }}
+        run: python scripts/ci/validate_changed_module_traceability.py
+
+  secret-scan:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Scan committed changes for secrets
+        uses: gitleaks/gitleaks-action@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_ENABLE_COMMENTS: 'false'
+          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: 'false'
+
+
+  release-artifact:
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/docs-consolidation-2026-09-05' || github.ref == 'refs/heads/main')
+    needs:
+      - backend-quality
+      - frontend-quality
+      - runtime-tests-and-migrations
+      - contracts-and-traceability
+      - secret-scan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          extensions: mbstring, intl, pdo_pgsql, redis
+          coverage: none
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+          cache: npm
+      - name: Install production PHP dependencies
+        run: composer install --no-dev --no-interaction --prefer-dist --no-progress --optimize-autoloader
+      - name: Build production frontend
+        run: |
+          npm ci
+          npm run build
+      - name: Build immutable release artifact
+        run: scripts/ops/build-release-artifact.sh "${GITHUB_SHA}"
+      - name: Upload immutable release artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: osk-panel-${{ github.sha }}
+          path: |
+            dist/osk-panel-${{ github.sha }}.tar.gz
+            dist/osk-panel-${{ github.sha }}.tar.gz.sha256
+            dist/osk-panel-${{ github.sha }}.manifest.json
+          if-no-files-found: error
+          retention-days: 30

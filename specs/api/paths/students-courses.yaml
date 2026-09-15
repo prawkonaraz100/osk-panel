@@ -1,0 +1,773 @@
+paths:
+  /students:
+    get:
+      tags: [Students]
+      operationId: studentsList
+      x-requirement-id: students.list
+      x-permission: students.view
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/Page' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/PerPage' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/Search' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/Sort' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/Direction' }
+        - name: category
+          in: query
+          schema: { type: array, items: { type: string } }
+          style: form
+          explode: true
+        - name: training_stage
+          in: query
+          schema: { type: array, items: { type: string } }
+          style: form
+          explode: true
+        - name: internal_exam_not_passed
+          in: query
+          schema: { type: boolean }
+        - name: include_archived
+          in: query
+          schema: { type: boolean, default: false }
+      responses:
+        '200':
+          description: Student list with observed admin projections
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data: { type: array, items: { $ref: '../openapi-components-v1.yaml#/components/schemas/StudentPreview' } }
+                  meta: { $ref: '../openapi-components-v1.yaml#/components/schemas/PaginationMeta' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+    post:
+      tags: [Students]
+      operationId: studentsCreate
+      x-requirement-id: students.create
+      x-permission: students.create
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/CreateStudentRequest' }
+      responses:
+        '201':
+          description: Student created
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/Student' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /students/{studentId}:
+    parameters:
+      - { $ref: '../openapi-components-v1.yaml#/components/parameters/StudentId' }
+    get:
+      tags: [Students]
+      operationId: studentsGet
+      x-requirement-id: students.get
+      x-permission: students.view
+      responses:
+        '200':
+          description: Student detail
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/Student' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+    patch:
+      tags: [Students]
+      operationId: studentsUpdate
+      x-requirement-id: students.update
+      x-permission: students.edit
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IfMatch' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/UpdateStudentRequest' }
+      responses:
+        '200':
+          description: Student updated
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/Student' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /students/{studentId}/preview:
+    get:
+      tags: [Students]
+      operationId: studentsPreview
+      x-requirement-id: students.preview
+      x-permission: students.view
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/StudentId' }
+      responses:
+        '200':
+          description: Read-only side-drawer projection
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/StudentPreview' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /students/{studentId}/archive:
+    post:
+      tags: [Students]
+      operationId: studentsArchive
+      x-requirement-id: students.archive
+      x-permission: students.archive
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/StudentId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/ReasonRequest' }
+      responses:
+        '200': { description: Student archived without deleting formal history }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /students/{studentId}/restore:
+    post:
+      tags: [Students]
+      operationId: studentsRestore
+      x-requirement-id: students.restore
+      x-permission: students.restore
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/StudentId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+      responses:
+        '200': { description: Student restored }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+
+  /students/{studentId}/learning-accounts:
+    get:
+      tags: [StudentAccess]
+      operationId: learningAccountsList
+      x-requirement-id: learning_accounts.list
+      x-permission: student_access.view
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/StudentId' }
+      responses:
+        '200':
+          description: Learning accounts
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '../openapi-components-v1.yaml#/components/schemas/StudentLearningAccount' } }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+    post:
+      tags: [StudentAccess]
+      operationId: learningAccountsCreate
+      x-requirement-id: learning_accounts.create
+      x-permission: student_access.create
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/StudentId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/CreateLearningAccountRequest' }
+      responses:
+        '201':
+          description: Learning account created; one-time plaintext may be returned only in secure handoff flow
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/StudentLearningAccount' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /students/{studentId}/learning-accounts/{accountId}:
+    patch:
+      tags: [StudentAccess]
+      operationId: learningAccountsUpdate
+      x-requirement-id: learning_accounts.update
+      x-permission: student_access.manage_credentials
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/StudentId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/AccountId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IfMatch' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/UpdateLearningAccountRequest' }
+      responses:
+        '200':
+          description: Learning account updated
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/StudentLearningAccount' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /students/{studentId}/learning-accounts/{accountId}/password-reset:
+    post:
+      tags: [StudentAccess]
+      operationId: learningAccountsResetPassword
+      x-requirement-id: learning_accounts.reset_password
+      x-permission: student_access.reset_password
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/StudentId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/AccountId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+      responses:
+        '200':
+          description: Password reset with one-time secure handoff response
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/LearningAccountHandoff' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /students/{studentId}/learning-accounts/{accountId}/access-handoffs:
+    post:
+      tags: [StudentAccess]
+      operationId: learningAccountsCreateHandoff
+      x-requirement-id: learning_accounts.create_handoff
+      x-permission: student_access.manage_credentials
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/StudentId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/AccountId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+      responses:
+        '201':
+          description: Access handoff recorded
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/LearningAccountHandoff' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /students/{studentId}/learning-accounts/{accountId}/access-handoffs/{handoffId}/pdf:
+    get:
+      tags: [StudentAccess]
+      operationId: learningAccountsDownloadHandoffPdf
+      x-requirement-id: learning_accounts.download_handoff_pdf
+      x-permission: student_access.download_credentials_pdf
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/StudentId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/AccountId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/HandoffId' }
+      responses:
+        '200':
+          description: PDF access document
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /students/{studentId}/progress:
+    get:
+      tags: [Students]
+      operationId: studentsProgress
+      x-requirement-id: students.progress
+      x-permission: students.progress.view
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/StudentId' }
+        - name: learning_account_id
+          in: query
+          required: true
+          schema: { type: string, format: uuid }
+        - name: category
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Student progress in selected account/category context
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/StudentProgress' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+
+  /students/{studentId}/course-enrollments:
+    get:
+      tags: [Courses]
+      operationId: courseEnrollmentsListForStudent
+      x-requirement-id: course_enrollments.list_for_student
+      x-permission: courses.view
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/StudentId' }
+      responses:
+        '200':
+          description: Course enrollments
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '../openapi-components-v1.yaml#/components/schemas/CourseEnrollment' } }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+    post:
+      tags: [Courses]
+      operationId: courseEnrollmentsCreate
+      x-requirement-id: course_enrollments.create
+      x-permission: courses.create
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/StudentId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/CreateCourseEnrollmentRequest' }
+      responses:
+        '201':
+          description: Course enrollment created and legal requirements calculated
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/CourseEnrollment' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /course-enrollments/{courseEnrollmentId}:
+    parameters:
+      - { $ref: '../openapi-components-v1.yaml#/components/parameters/CourseEnrollmentId' }
+    get:
+      tags: [Courses]
+      operationId: courseEnrollmentsGet
+      x-requirement-id: course_enrollments.get
+      x-permission: courses.view
+      responses:
+        '200':
+          description: Course enrollment
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/CourseEnrollment' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+    patch:
+      tags: [Courses]
+      operationId: courseEnrollmentsUpdate
+      x-requirement-id: course_enrollments.update
+      x-permission: courses.edit
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IfMatch' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/UpdateCourseEnrollmentRequest' }
+      responses:
+        '200':
+          description: Course enrollment updated with requirement recalculation where needed
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/CourseEnrollment' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /course-enrollments/{courseEnrollmentId}/cancel:
+    post:
+      tags: [Courses]
+      operationId: courseEnrollmentsCancel
+      x-requirement-id: course_enrollments.cancel
+      x-permission: courses.cancel
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/CourseEnrollmentId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IfMatch' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/ReasonRequest' }
+      responses:
+        '200': { description: Course cancelled while preserving formal history }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /course-enrollments/{courseEnrollmentId}/restore:
+    post:
+      tags: [Courses]
+      operationId: courseEnrollmentsRestore
+      x-requirement-id: course_enrollments.restore
+      x-permission: courses.restore
+      x-condition: policy_allows_restore
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/CourseEnrollmentId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IfMatch' }
+      responses:
+        '200': { description: Course restored when lifecycle policy allows it }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /course-enrollments/{courseEnrollmentId}/stage-transitions:
+    post:
+      tags: [Courses]
+      operationId: courseEnrollmentsChangeStage
+      x-requirement-id: course_enrollments.change_stage
+      x-permission: courses.stage.change
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/CourseEnrollmentId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IfMatch' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/StageTransitionRequest' }
+      responses:
+        '200': { description: Training stage changed }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /course-enrollments/{courseEnrollmentId}/requirements:
+    get:
+      tags: [Courses]
+      operationId: courseRequirementsGet
+      x-requirement-id: course_requirements.get
+      x-permission: courses.view
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/CourseEnrollmentId' }
+      responses:
+        '200':
+          description: Versioned requirement profile
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/TrainingRequirementProfile' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /course-enrollments/{courseEnrollmentId}/requirement-context:
+    post:
+      tags: [Courses]
+      operationId: courseRequirementsUpdateContext
+      x-requirement-id: course_requirements.update_context
+      x-permission: course_requirements.correct
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/CourseEnrollmentId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IfMatch' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/RequirementContextRequest' }
+      responses:
+        '200':
+          description: Requirement context corrected and new requirement profile calculated
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/TrainingRequirementProfile' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /course-enrollments/{courseEnrollmentId}/exemption-decisions:
+    post:
+      tags: [Courses]
+      operationId: courseRequirementsAddExemptionDecision
+      x-requirement-id: course_requirements.add_exemption_decision
+      x-permission: course_requirements.correct
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/CourseEnrollmentId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IfMatch' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/ExemptionDecisionRequest' }
+      responses:
+        '201': { description: Audited exemption decision recorded }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+
+  /course-enrollments/{courseEnrollmentId}/training-sessions:
+    get:
+      tags: [Training]
+      operationId: trainingSessionsList
+      x-requirement-id: training_sessions.list
+      x-permission: training_sessions.view
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/CourseEnrollmentId' }
+      responses:
+        '200':
+          description: Training sessions
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '../openapi-components-v1.yaml#/components/schemas/TrainingSession' } }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+    post:
+      tags: [Training]
+      operationId: trainingSessionsCreate
+      x-requirement-id: training_sessions.create
+      x-permission: training_sessions.create
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/CourseEnrollmentId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/CreateTrainingSessionRequest' }
+      responses:
+        '201':
+          description: Training session created
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/TrainingSession' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /training-sessions/{sessionId}:
+    parameters:
+      - { $ref: '../openapi-components-v1.yaml#/components/parameters/SessionId' }
+    get:
+      tags: [Training]
+      operationId: trainingSessionsGet
+      x-requirement-id: training_sessions.get
+      x-permission: training_sessions.view
+      responses:
+        '200':
+          description: Training session
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/TrainingSession' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+    patch:
+      tags: [Training]
+      operationId: trainingSessionsUpdate
+      x-requirement-id: training_sessions.update
+      x-permission: training_sessions.edit
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IfMatch' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/UpdateTrainingSessionRequest' }
+      responses:
+        '200':
+          description: Training session updated
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/TrainingSession' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /training-sessions/{sessionId}/attendance:
+    put:
+      tags: [Training]
+      operationId: trainingSessionAttendanceUpdate
+      x-requirement-id: training_sessions.attendance.update
+      x-permission: training_sessions.edit
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/SessionId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IfMatch' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/RecordTrainingSessionAttendanceRequest' }
+      responses:
+        '200':
+          description: Verified attendance recorded while the TrainingSession is still planned
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/TrainingSessionAttendance' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /training-sessions/{sessionId}/complete:
+    post:
+      tags: [Training]
+      operationId: trainingSessionsComplete
+      x-requirement-id: training_sessions.complete
+      x-permission: training_sessions.edit
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/SessionId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+      responses:
+        '200': { description: Session completed and eligible ledger entries created atomically }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /training-sessions/{sessionId}/cancel:
+    post:
+      tags: [Training]
+      operationId: trainingSessionsCancel
+      x-requirement-id: training_sessions.cancel
+      x-permission: training_sessions.cancel
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/SessionId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/ReasonRequest' }
+      responses:
+        '200': { description: Session cancelled without crediting formal time }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /course-enrollments/{courseEnrollmentId}/training-hours:
+    get:
+      tags: [Training]
+      operationId: trainingHoursGet
+      x-requirement-id: training_hours.get
+      x-permission: training_sessions.view
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/CourseEnrollmentId' }
+      responses:
+        '200':
+          description: Formal time projection from current OSK ledger plus recognized external records
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/TrainingHoursProjection' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /course-enrollments/{courseEnrollmentId}/training-hour-corrections:
+    post:
+      tags: [Training]
+      operationId: trainingHoursCorrect
+      x-requirement-id: training_hours.correct
+      x-permission: training_hours.correct
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/CourseEnrollmentId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IfMatch' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/TrainingHourCorrectionRequest' }
+      responses:
+        '201': { description: Immutable correction/reversal ledger entry created }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /course-enrollments/{courseEnrollmentId}/recognized-external-training:
+    get:
+      tags: [Training]
+      operationId: externalTrainingList
+      x-requirement-id: external_training.list
+      x-permission: courses.view
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/CourseEnrollmentId' }
+      responses:
+        '200':
+          description: Recognized training from other OSK
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '../openapi-components-v1.yaml#/components/schemas/RecognizedExternalTraining' } }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+    post:
+      tags: [Training]
+      operationId: externalTrainingCreate
+      x-requirement-id: external_training.create
+      x-permission: external_training.recognize
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/CourseEnrollmentId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IfMatch' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/RecognizeExternalTrainingRequest' }
+      responses:
+        '201':
+          description: External training recognized
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/RecognizedExternalTraining' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /course-enrollments/{courseEnrollmentId}/recognized-external-training/{recordId}/revoke:
+    post:
+      tags: [Training]
+      operationId: externalTrainingRevoke
+      x-requirement-id: external_training.revoke
+      x-permission: external_training.recognize
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/CourseEnrollmentId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/RecordId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IfMatch' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/ReasonRequest' }
+      responses:
+        '200': { description: External training record revoked without deleting history }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+
+  /students/{studentId}/charges:
+    get:
+      tags: [StudentFinance]
+      operationId: studentChargesList
+      x-requirement-id: charges.list
+      x-permission: student_finance.view
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/StudentId' }
+      responses:
+        '200':
+          description: Student charges
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '../openapi-components-v1.yaml#/components/schemas/StudentCharge' } }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+    post:
+      tags: [StudentFinance]
+      operationId: studentChargesCreate
+      x-requirement-id: charges.create
+      x-permission: student_finance.create_charge
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/StudentId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/CreateChargeRequest' }
+      responses:
+        '201':
+          description: Charge created
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/StudentCharge' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /students/{studentId}/charges/{chargeId}/cancel:
+    post:
+      tags: [StudentFinance]
+      operationId: studentChargesCancel
+      x-requirement-id: charges.cancel
+      x-permission: student_finance.cancel_charge
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/StudentId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/ChargeId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/ReasonRequest' }
+      responses:
+        '200': { description: Charge cancelled without destructive deletion }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /students/{studentId}/payments:
+    get:
+      tags: [StudentFinance]
+      operationId: studentPaymentsList
+      x-requirement-id: student_payments.list
+      x-permission: student_finance.view
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/StudentId' }
+      responses:
+        '200':
+          description: Student payments
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '../openapi-components-v1.yaml#/components/schemas/StudentPayment' } }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+    post:
+      tags: [StudentFinance]
+      operationId: studentPaymentsRecord
+      x-requirement-id: student_payments.record
+      x-permission: student_finance.record_payment
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/StudentId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/RecordStudentPaymentRequest' }
+      responses:
+        '201':
+          description: Payment recorded
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/StudentPayment' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /students/{studentId}/payments/{paymentId}/reverse:
+    post:
+      tags: [StudentFinance]
+      operationId: studentPaymentsReverse
+      x-requirement-id: student_payments.reverse
+      x-permission: student_finance.reverse_payment
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/StudentId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/PaymentId' }
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/ReasonRequest' }
+      responses:
+        '200': { description: Payment reversed with immutable audit trail }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /students/{studentId}/finance-summary:
+    get:
+      tags: [StudentFinance]
+      operationId: studentFinanceSummary
+      x-requirement-id: student_finance.summary
+      x-permission: student_finance.view
+      parameters:
+        - { $ref: '../openapi-components-v1.yaml#/components/parameters/StudentId' }
+      responses:
+        '200':
+          description: Student finance projection
+          content:
+            application/json:
+              schema: { $ref: '../openapi-components-v1.yaml#/components/schemas/StudentFinanceSummary' }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }

@@ -1,0 +1,91 @@
+meta:
+  scope: own_product_design
+  project: osk-panel
+  status: ACTIVE_CORE_POLICY
+  decided_at: 2026-09-05
+  doc: docs/83-core-lifecycle-policy.md
+
+operations:
+  archive:
+    semantics: deactivate_for_new_use_preserve_history
+  cancel:
+    semantics: terminate_process_preserve_history
+  revoke:
+    semantics: withdraw_before_irreversible_use_when_domain_allows
+  reverse:
+    semantics: compensating_financial_or_ledger_entry
+  correct:
+    semantics: audited_formal_correction
+  invalidate:
+    semantics: mark_historical_record_invalid_preserve_evidence
+  hard_delete:
+    semantics: physical_removal
+    default_allowed: false
+
+entity_policies:
+  student:
+    default: archive
+    hard_delete_only_if_no_formal_financial_or_service_history: true
+  staff_profile:
+    default: archive
+  location:
+    default: archive
+    restore_supported: true
+  vehicle:
+    default: archive
+    restore_supported: true
+  course_enrollment:
+    default: cancel_or_archive
+    hard_delete_after_formal_effects: false
+  training_session:
+    default: cancel_or_correct
+    hard_delete_after_time_credit: false
+  training_hour_ledger_entry:
+    default: correction_entry
+    immutable_history: true
+  recognized_external_training:
+    default: revoke_or_correct
+  pkk_operation:
+    default: immutable
+  student_charge:
+    default: cancel
+  student_payment:
+    default: reverse
+  license_assignment:
+    before_activation: revoke_unactivated
+    after_activation: ordinary_revoke_forbidden
+  license_activation:
+    default: immutable
+  internal_exam_reservation:
+    before_start: release
+  internal_exam_attempt:
+    after_start: invalidate_or_technical_abort
+    hard_delete: false
+  order:
+    default: cancel_by_state
+  payment:
+    default: reverse_refund_or_adjust
+  audit_log:
+    immutable: true
+
+archive_common_fields:
+  - archived_at
+  - archived_by_user_id
+
+mutation_audit_required:
+  - archive
+  - restore
+  - cancel
+  - revoke
+  - reverse
+  - correct
+  - invalidate
+
+future_event_dependency_policy:
+  archived_resource:
+    automatic_silent_reassignment: false
+    explicit_resolution_required: true
+    allowed_resolutions:
+      - move_to_other_resource
+      - cancel_event
+      - keep_as_audited_exception_if_domain_allows

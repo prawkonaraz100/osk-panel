@@ -1,0 +1,98 @@
+module: LearningAccess
+core_traceability_modules:
+  - licenses
+changed_scope:
+  - evidence: specs/database/licenses-learning-access.yml#DB-LIC-002
+    requirement: learning account binds one global User to a current global auth identifier without inventing a tenant login namespace or hidden identity merge
+    domain_data: student_learning_accounts + users + auth_login_identifiers
+    api_use_case: learning_accounts.list/create/update
+    permission: student_access.view/create/manage_credentials
+    ui: resources/js/modules/LearningAccess/StudentLearningAccessPanel.vue + resources/js/modules/LearningAccess/LearningAccessWorkspace.vue
+    acceptance_test: Tests\\Feature\\LearningAccessCoreTest::test_login_patch_is_versioned_and_old_global_identifier_is_not_hiddenly_revoked
+    status: IMPLEMENTED
+  - evidence: specs/database/licenses-learning-access.yml#DB-LIC-003
+    requirement: Student archive blocks new operational learning-access effects while preserving learning account assignment inventory and entitlement history
+    domain_data: students + student_learning_accounts + license_assignments + license_inventory_entries + license_activations
+    api_use_case: learning account and license effect commands
+    permission: command-specific student_access.* and licenses.*
+    ui: resources/js/modules/LearningAccess/StudentLearningAccessPanel.vue + resources/js/modules/LearningAccess/LearningAccessWorkspace.vue
+    acceptance_test: Tests\\Feature\\LearningAccessCoreTest::test_dbt_lic_001_archive_blocks_new_effects_without_rewriting_access_history
+    status: IMPLEMENTED
+  - evidence: specs/database/licenses-learning-access.yml#DB-LIC-004
+    requirement: OSK-managed password reset uses one global credential epoch and never persists or replays plaintext secret material
+    domain_data: users + user_password_management + student_access_handoffs + idempotency_records
+    api_use_case: learning_accounts.password_reset
+    permission: student_access.reset_password
+    ui: resources/js/modules/LearningAccess/StudentLearningAccessPanel.vue + resources/js/modules/LearningAccess/LearningAccessWorkspace.vue
+    acceptance_test: Tests\\Feature\\LearningAccessCoreTest::test_dbt_lic_051_password_reset_persists_only_hash_and_sanitized_idempotent_replay
+    status: IMPLEMENTED
+  - evidence: specs/database/licenses-learning-access.yml#DB-LIC-005
+    requirement: unactivated revoke preserves historical assignment and restores the same concrete inventory unit exactly once while a current inventory unit cannot have two assignments
+    domain_data: license_inventory_entries + license_assignments
+    api_use_case: license_assignments.create/revoke_unactivated
+    permission: licenses.assign/revoke_unactivated
+    ui: resources/js/modules/LearningAccess/StudentLearningAccessPanel.vue + resources/js/modules/LearningAccess/LearningAccessWorkspace.vue
+    acceptance_test: Tests\\Feature\\LearningAccessCoreTest::test_dbt_lic_002_003_revoke_restores_same_unit_and_rejects_second_current_assignment
+    status: IMPLEMENTED
+  - evidence: specs/database/licenses-learning-access.yml#DB-LIC-006
+    requirement: activation is an immutable entitlement effect with snapshotted duration exact 86400-second days and contiguous stacked periods
+    domain_data: license_assignments + license_inventory_entries + license_activations
+    api_use_case: license_assignments.activate
+    permission: licenses.activate
+    ui: resources/js/modules/LearningAccess/StudentLearningAccessPanel.vue + resources/js/modules/LearningAccess/LearningAccessWorkspace.vue
+    acceptance_test: Tests\\Feature\\LearningAccessCoreTest::test_dbt_lic_004_second_activation_is_rejected_and_entitlement_history_stacks
+    status: IMPLEMENTED
+  - evidence: specs/database/licenses-learning-access.yml#DB-LIC-007
+    requirement: product language support is capability-driven and assignment language is an immutable snapshot while current account language remains separate
+    domain_data: languages + license_product_language_capabilities + student_learning_accounts + license_assignments
+    api_use_case: license_products.languages + license_assignments.create
+    permission: licenses.view/assign
+    ui: resources/js/modules/LearningAccess/StudentLearningAccessPanel.vue + resources/js/modules/LearningAccess/LearningAccessWorkspace.vue
+    acceptance_test: Tests\\Feature\\LearningAccessCoreTest::test_dbt_lic_002_003_revoke_restores_same_unit_and_rejects_second_current_assignment
+    status: IMPLEMENTED
+
+  - evidence: specs/database/licenses-learning-access.yml#DB-LIC-004
+    requirement: creating an OSK-managed initial password requires explicit credential-management authority in addition to license assignment authority
+    domain_data: users + user_password_management + student_learning_accounts
+    api_use_case: students.create initial_license + license_assignments.create new_learning_account
+    permission: licenses.assign plus student_access.manage_credentials when initial_password is supplied
+    ui: resources/js/modules/LearningAccess/StudentLearningAccessPanel.vue + resources/js/modules/LearningAccess/LearningAccessWorkspace.vue
+    acceptance_test: Tests\\Feature\\LearningAccessCoreTest::test_initial_password_requires_explicit_manage_credentials_permission
+    status: IMPLEMENTED
+  - evidence: specs/database/licenses-learning-access.yml#DB-LIC-004
+    requirement: later handoff PDF download is a tenant-scoped audited secret-free reprint and can never recover historical plaintext credentials
+    domain_data: students + student_learning_accounts + auth_login_identifiers + user_password_management + student_access_handoffs
+    api_use_case: learning_accounts.download_handoff_pdf / license_credentials.single_pdf
+    permission: student_access.download_credentials_pdf with student scope
+    ui: NOT_APPLICABLE_RUNTIME_API_GATE
+    acceptance_test: Tests\\Feature\\LearningAccessCredentialPdfRuntimeTest
+    status: IMPLEMENTED
+
+  - evidence: specs/database/licenses-learning-access.yml#DB-LIC-004 + specs/design/bulk-credential-reset.yml
+    requirement: bulk credential PDF authorizes every selected student target, checks expected global credential epochs before mutation, renders the whole combined PDF before password writes, and never persists or replays plaintext secrets
+    domain_data: students + student_learning_accounts + users + user_password_management + student_access_export_batches + student_access_handoffs + idempotency_records
+    api_use_case: license_credentials.bulk_pdf
+    permission: licenses.access_documents.download plus student_access.reset_password for every target in reset mode
+    ui: NOT_APPLICABLE_RUNTIME_API_GATE
+    acceptance_test: Tests\\Feature\\LearningAccessBulkCredentialDocumentTest + Tests\\Unit\\LearningAccessBulkCredentialsPdfRendererTest
+    status: IMPLEMENTED
+
+  - evidence: docs/52-license-purchase-screen.md#12-Przykładowy-cennik-developerski-2026-09-15
+    requirement: license-products projects current server-authoritative charged/list pricing and sample marker from the same catalog pricing resolver used by order creation rather than client or Vue constants
+    domain_data: license_products + commerce_catalog_items + server pricing configuration
+    api_use_case: license_products.list
+    permission: licenses.view
+    ui: purchase UI not yet materialized; projection is an unblocker only
+    acceptance_test: Tests\\Feature\\DevelopmentSampleDataCoreTest::test_sample_license_catalog_projects_same_server_price_used_by_order_create
+    status: IMPLEMENTED
+    acceptance_state: ACCEPTED
+    candidate_head: 275e9dc47c5b507d49b96cf4ce79205b0ec78d49
+    candidate_implementation_ci_run: 34979358411
+    candidate_implementation_ci: PASS_5_OF_5
+    candidate_api_contract_run: 34979358178
+    candidate_api_contract: PASS
+    accepted_head: 2f42eaaff8fc41cddee5ddba5c39f1d58033ed5a
+    accepted_implementation_ci_run: 34980321576
+    accepted_implementation_ci: PASS_6_OF_6
+    accepted_api_contract_run: 34980321672
+    accepted_api_contract: PASS

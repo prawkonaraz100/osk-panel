@@ -1,0 +1,94 @@
+module: OrganizationSettings
+core_traceability_modules:
+  - auth_identity
+changed_scope:
+  - evidence: specs/database/organization-settings.yml
+    requirement: settings write is tenant-authorized optimistic-concurrency transaction
+    domain_data: organization_settings + organizations + users + organization_contact_addresses
+    api_use_case: update organization settings foundation service
+    permission: organization.settings.manage
+    ui: IMPLEMENTATION_CANDIDATE_ORGANIZATION_SETTINGS_UI_001
+    acceptance_test: Tests\\Feature\\OrganizationSettingsFoundationTest
+    status: IMPLEMENTED
+  - evidence: specs/api/paths/auth-organization.yaml
+    requirement: current organization summary is read from the active membership organization under organization.view without crossing into PKK integration settings
+    domain_data: auth_sessions + organization_memberships + organizations
+    api_use_case: organization.get
+    permission: organization.view with organization scope
+    ui: NOT_APPLICABLE_RUNTIME_API_GATE
+    acceptance_test: Tests\\Feature\\OrganizationGetRuntimeTest
+    status: IMPLEMENTED
+
+  - evidence: specs/api/paths/auth-organization.yaml
+    requirement: accepted terms history is tenant-scoped, resolves the exact immutable legal document version and never exposes request metadata
+    domain_data: auth_sessions + organization_memberships + terms_acceptances + legal_documents
+    api_use_case: organization.accepted_terms.get
+    permission: organization.view with organization scope
+    ui: NOT_APPLICABLE_RUNTIME_API_GATE
+    acceptance_test: Tests\\Feature\\OrganizationAcceptedTermsRuntimeTest
+    status: IMPLEMENTED
+  - evidence: docs/190-core-v1-organization-settings-provider-neutral-authority.md
+    requirement: organization.update is provider-neutral and uses organization_settings.version without PKK prerequisite
+    domain_data: organizations + organization_settings + organization_memberships
+    api_use_case: organization.update
+    permission: organization.edit with organization scope
+    ui: PROVIDER_NEUTRAL_CORE
+    acceptance_test: Tests\\Feature\\OrganizationSettingsProviderNeutralRuntimeTest
+    status: IMPLEMENTED
+  - evidence: docs/190-core-v1-organization-settings-provider-neutral-authority.md
+    requirement: settings projection reads user organization address terms only and never depends on PKK configuration
+    domain_data: users + auth_login_identifiers + organizations + organization_contact_addresses + organization_settings + terms_acceptances
+    api_use_case: organization.settings.get
+    permission: organization.view with organization scope
+    ui: PROVIDER_NEUTRAL_CORE
+    acceptance_test: Tests\\Feature\\OrganizationSettingsProviderNeutralRuntimeTest
+    status: IMPLEMENTED
+  - evidence: docs/190-core-v1-organization-settings-provider-neutral-authority.md
+    requirement: settings update is idempotent optimistic-concurrency provider-neutral mutation and cannot mutate PKK or email
+    domain_data: users + organizations + organization_contact_addresses + organization_settings + idempotency_records + audit_logs + outbox_messages
+    api_use_case: organization.settings.update
+    permission: organization.settings.manage with organization scope
+    ui: PROVIDER_NEUTRAL_CORE
+    acceptance_test: Tests\\Feature\\OrganizationSettingsProviderNeutralRuntimeTest
+    status: IMPLEMENTED
+
+  - evidence: specs/screens/settings.yml
+    requirement: provider-neutral /ustawienia UI composes current user/company/accepted-terms projection without reading or mutating PKK
+    domain_data: users + auth_login_identifiers + organizations + organization_contact_addresses + organization_settings + terms_acceptances + legal_documents
+    api_use_case: organization.settings.get + organization.settings.update
+    permission: organization.view for load; organization.settings.manage for save
+    ui: resources/js/modules/OrganizationSettings/SettingsWorkspace.vue
+    acceptance_test: Tests\\Unit\\OrganizationSettingsUiContractTest
+    status: IMPLEMENTED
+    acceptance_state: ACCEPTED
+    candidate_head: 0e3466eccea19f7bb798a548a07e925dac6b6157
+    candidate_ci_run: 34969328994
+    candidate_ci: PASS_5_OF_5
+    accepted_head: 4006607dd2aecdc6fabb97a34ba5edf40d07729b
+    accepted_ci_run: 34971537563
+    accepted_ci: PASS_6_OF_6
+    preserved_boundaries:
+      - email_read_only_pending_identity_email_change_authority
+      - PKK_PWPW_frozen_and_not_called
+      - accepted_terms_document_url_not_synthesized
+      - versioned_document_resolver_still_missing
+
+  - evidence: docs/175-core-v1-organization-accepted-terms-closure.md#Current-sample-only-document-resolver-note-2026-09-15
+    requirement: accepted terms keep document_url null for normal documents while the exact development sample terms version may expose its local noindex URL only when sample mode is enabled
+    domain_data: terms_acceptances + legal_documents + sample_data configuration
+    api_use_case: organization.accepted_terms.get + organization.settings.get
+    permission: organization.view
+    ui: resources/js/modules/OrganizationSettings/SettingsWorkspace.vue
+    acceptance_test: Tests\\Feature\\DevelopmentSampleDataCoreTest::test_sample_accepted_terms_get_real_local_document_url_only_while_sample_mode_is_enabled
+    status: IMPLEMENTED
+    acceptance_state: ACCEPTED
+    candidate_head: 275e9dc47c5b507d49b96cf4ce79205b0ec78d49
+    candidate_implementation_ci_run: 34979358411
+    candidate_implementation_ci: PASS_5_OF_5
+    candidate_api_contract_run: 34979358178
+    candidate_api_contract: PASS
+    accepted_head: 2f42eaaff8fc41cddee5ddba5c39f1d58033ed5a
+    accepted_implementation_ci_run: 34980321576
+    accepted_implementation_ci: PASS_6_OF_6
+    accepted_api_contract_run: 34980321672
+    accepted_api_contract: PASS

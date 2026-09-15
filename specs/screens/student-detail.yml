@@ -9,6 +9,7 @@ meta:
   add_course_screen_spec: specs/screens/student-add-course.yml
   assign_license_screen_spec: specs/screens/student-assign-license.yml
   payment_charge_screen_spec: specs/screens/student-payment-charge.yml
+  formal_documents_screen_spec: specs/screens/student-formal-documents.yml
 
 header:
   confirmed_elements:
@@ -161,6 +162,22 @@ courses_pkk:
     - separate_theory_and_practice_hours
     - separate_external_school_theory_and_practice_hours
 
+formal_documents:
+  screen_spec: specs/screens/student-formal-documents.yml
+  placement: student_profile_after_courses_before_student_finance
+  course_scoped: true
+  confirmed_own_product_capabilities:
+    - current_source_preview
+    - exact_preview_bound_approval
+    - freshness_projection
+    - immutable_revision_history
+    - canonical_PDF_download
+    - paper_print_history
+    - signed_scan_upload_and_attachment
+    - electronic_presented_history
+  direct_document_editing: forbidden
+  PKK_provider_dependency: none
+
 payments:
   confirmed_action: add_student_payment
   add_form_verified: true
@@ -240,6 +257,13 @@ confirmed_actions:
   - set_new_learning_identifier_email_or_login
   - select_new_learning_access_language
   - delete_unactivated_student_license
+  - open_formal_documents_panel
+  - approve_formal_document_revision
+  - download_formal_document_revision
+  - view_formal_document_history
+  - record_formal_document_print
+  - attach_formal_document_signed_scan
+  - record_formal_document_electronic_presented
   - add_student_payment
   - set_student_payment_or_charge_title
   - set_student_payment_or_charge_amount
@@ -258,6 +282,10 @@ entity_model:
     - student_charges
     - student_payments
     - locations
+    - formal_training_documents
+    - formal_training_document_events
+    - formal_training_document_templates
+    - file_assets
   do_not_use_single_student_status: true
   do_not_use_single_exam_boolean: true
   learning_access_separate_from_license_assignment: true
@@ -286,6 +314,10 @@ security_requirements:
   - audit_training_stage_changes
   - audit_credential_downloads
   - audit_internal_exam_start_and_result
+  - authorize_formal_document_actions_by_student_scope
+  - preserve_immutable_formal_document_revisions
+  - verify_formal_document_asset_integrity_before_download
+  - bind_signed_scan_upload_to_exact_formal_document_revision
 
 remaining_gaps:
   - student_edit_form

@@ -72,6 +72,17 @@ empty_candidate_state:
     must_create_persistent_student: true
     must_create_or_attach_formal_course_enrollment: true
     must_not_create_ephemeral_exam_only_candidate: true
+    implementation:
+      entry_action: /kursanci?exam_handoff=1
+      student_create_form_reused: true
+      first_course_required_for_exam_handoff: true
+      return_route: /egzamin-wewnetrzny/panel
+      return_exact_student_query: resume_student_id
+      resume_uses_exact_student_id_projection_filter: true
+      one_eligible_context_opens_configuration_directly: true
+      multiple_eligible_contexts_require_operator_choice: true
+      zero_eligible_contexts_fail_closed_with_course_requirement_message: true
+      arbitrary_client_return_url_allowed: false
 
 candidate_selected_state:
   fields:
@@ -123,7 +134,52 @@ launch_modes:
       - generate_exam_link
       - candidate_can_take_exam_anywhere_with_internet
       - send_link_to_candidate_email
-    email_required_at_action_time: OWN_PRODUCT_RECOMMENDATION
+    own_product_delivery:
+      manual_copy:
+        creates_remote_access_and_returns_one_time_link_without_email_side_effect: true
+      email_send:
+        operation: POST_/internal-exam-accesses/{accessId}/send
+        recipient_source: current_prestart_attempt_candidate_snapshot.contact_email
+        recipient_resolved_under_attempt_access_lock: true
+        valid_email_required_before_token_rotation: true
+        rotates_execution_token_before_delivery: true
+        idempotency_prepare_state: delivery_prepared
+        mail_transport_runs_after_database_prepare_commit: true
+        access_delivered_state_before_mail_success: false
+        sent_audit_before_mail_success: false
+        transport_failure:
+          revoke_exact_prepared_execution_token: true
+          idempotency_state: delivery_failed
+          access_status_regression: false
+          failure_audit_action: internal_exam.access.delivery_failed
+          raw_link_persisted: false
+        retry_same_idempotency_key_after_delivery_failed:
+          allowed: true
+          rotates_fresh_execution_token: true
+          sends_new_one_time_link: true
+        process_crash_after_prepare:
+          idempotency_state: delivery_prepared
+          persisted_recovery_metadata:
+            - nonsecret_delivery_token_id
+            - prepared_at
+            - sanitized_replay_body
+          raw_link_or_raw_token_persisted: false
+          recovery_lease_seconds_config: INTERNAL_EXAM_REMOTE_DELIVERY_PREPARE_LEASE_SECONDS
+          before_lease_expiry_same_key_retry: conflict
+          after_lease_expiry_when_exact_token_still_current:
+            revoke_exact_prepared_token: true
+            audit_action: internal_exam.access.delivery_failed
+            audit_reason: delivery_prepare_lease_expired
+            same_key_rotates_fresh_token_and_retries_mail: true
+          after_lease_expiry_when_exact_token_was_superseded:
+            idempotency_state: delivery_superseded
+            revoke_newer_token: false
+            send_duplicate_mail: false
+            response: conflict
+        completed_same_idempotency_replay_sends_second_email: false
+        raw_link_persisted_in_idempotency_audit_or_outbox: false
+        resend_with_new_command_rotates_and_delivers_new_link: true
+    email_required_at_action_time: true
     tokenized_link_required_for_own_product: true
     ttl: TO_DECIDE
     revocation: OWN_PRODUCT_REQUIRED
@@ -201,7 +257,6 @@ remaining_gaps:
   - validation_messages
   - no_pesel_birth_date_handling_in_competitor_exam_drawer
   - remote_link_success_state
-  - email_template
   - local_station_transition_screen
   - remote_link_ttl
   - remote_link_revoke_behavior

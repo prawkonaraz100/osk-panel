@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "plan_identity": "d844b3e5c74844e6e9a357aa3271ff9b68bac93dc7fdcd6fa28d3ab44b9c978a",
+  "execution_identity": "ae158ce5aad8ffb6ba84b12ce56ec3fe9ff6b16b87b77dea965ad2cc8d332389",
+  "stage5_root": "database/migrations/stage5/student-progress",
+  "implemented_steps": [
+    {
+      "node_id": "S5PROG-TBL-LEARNING-PROGRESS-SOURCE-BINDINGS",
+      "phase": "preflight",
+      "migration_file": "database/migrations/stage5/student-progress/preflight/S5PROG-TBL-LEARNING-PROGRESS-SOURCE-BINDINGS/2026_09_15_000010_preflight_learning_progress_source_bindings.php",
+      "migration_name": "2026_09_15_000010_preflight_learning_progress_source_bindings",
+      "file_git_blob": "03e29396caef7a504f420aa3df5de26777674dd5",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "S5PROG-TBL-STUDENT-LEARNING-PROGRESS-PROJECTIONS",
+      "phase": "preflight",
+      "migration_file": "database/migrations/stage5/student-progress/preflight/S5PROG-TBL-STUDENT-LEARNING-PROGRESS-PROJECTIONS/2026_09_15_000020_preflight_student_learning_progress_projections.php",
+      "migration_name": "2026_09_15_000020_preflight_student_learning_progress_projections",
+      "file_git_blob": "b23cff63671e2d54ce704976b48da82e38a4821b",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "S5PROG-TBL-LEARNING-PROGRESS-SOURCE-BINDINGS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage5/student-progress/expand/S5PROG-TBL-LEARNING-PROGRESS-SOURCE-BINDINGS/2026_09_15_000030_expand_learning_progress_source_bindings.php",
+      "migration_name": "2026_09_15_000030_expand_learning_progress_source_bindings",
+      "file_git_blob": "313bb5e4555a97c758e07ef17ce366f81fdd7e4d",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "S5PROG-TBL-STUDENT-LEARNING-PROGRESS-PROJECTIONS",
+      "phase": "expand",
+      "migration_file": "database/migrations/stage5/student-progress/expand/S5PROG-TBL-STUDENT-LEARNING-PROGRESS-PROJECTIONS/2026_09_15_000040_expand_student_learning_progress_projections.php",
+      "migration_name": "2026_09_15_000040_expand_student_learning_progress_projections",
+      "file_git_blob": "01290b776b6af9871d000799f746d1c39c4ce7f4",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "S5PROG-TBL-LEARNING-PROGRESS-SOURCE-BINDINGS",
+      "phase": "validate",
+      "migration_file": "database/migrations/stage5/student-progress/validate/S5PROG-TBL-LEARNING-PROGRESS-SOURCE-BINDINGS/2026_09_15_000050_validate_learning_progress_source_bindings.php",
+      "migration_name": "2026_09_15_000050_validate_learning_progress_source_bindings",
+      "file_git_blob": "77657deb749567dff7da27650923202ed1e80fe4",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    },
+    {
+      "node_id": "S5PROG-TBL-STUDENT-LEARNING-PROGRESS-PROJECTIONS",
+      "phase": "validate",
+      "migration_file": "database/migrations/stage5/student-progress/validate/S5PROG-TBL-STUDENT-LEARNING-PROGRESS-PROJECTIONS/2026_09_15_000060_validate_student_learning_progress_projections.php",
+      "migration_name": "2026_09_15_000060_validate_student_learning_progress_projections",
+      "file_git_blob": "ea9c6e8699dcce1d5c70ec9270decc556c843690",
+      "restart_classification": "manual_review",
+      "safe_down": false
+    }
+  ],
+  "claim_any_DDL_implemented": true
+}

@@ -8,6 +8,11 @@ screen:
   verified_at: 2026-09-05
   doc: docs/37-pkk-configuration-gate.md
 
+canonical_model:
+  machine_db: specs/database/organization-settings.yml
+  narrative: docs/100-osk-settings-domain-model.md
+  rule: gate_is_a_projection_and_command_over_existing_user_and_pkk_settings_records_not_a_separate_storage_model
+
 trigger:
   condition: pkk_configuration_incomplete
   behavior: block_pkk_operation_and_open_configuration
@@ -22,28 +27,35 @@ fields:
     label: Nazwa szkoły
     required_by_visible_marker: true
     domain: pkk_integration_settings
+    canonical: pkk_integration_settings.school_name
   - name: osk_registry_number
     label: Numer ewidencyjny OSK
     required_by_visible_marker: true
     domain: pkk_integration_settings
+    canonical: pkk_integration_settings.osk_registry_number
   - name: external_osk_login
     label: Login OSK
     required_by_visible_marker: true
     domain: pkk_integration_settings
+    canonical: pkk_integration_settings.external_osk_login_ciphertext
     semantics: login_received_from_starosty_or_communication_department_not_application_login
+    security: encrypted_at_rest_redacted_in_audit
   - name: first_name
     label: Imię
     required_by_visible_marker: true
     domain: user
+    canonical: users.first_name
   - name: last_name
     label: Nazwisko
     required_by_visible_marker: true
     domain: user
+    canonical: users.last_name
 
 actions:
   primary:
     id: save_pkk_configuration_and_continue
     label: Zapisz i kontynuuj
+    semantics: atomic_update_of_user_names_and_pkk_integration_settings
   secondary:
     - close_pkk_configuration_gate
 
@@ -57,13 +69,17 @@ settings_reuse:
     - first_name
     - last_name
   requirement: single_source_of_truth_no_duplicate_unsynchronized_values
+  duplicate_shadow_columns_forbidden:
+    - pkk_integration_settings.operator_first_name
+    - pkk_integration_settings.operator_last_name
 
 model_requirements:
   - pkk_integration_settings_separate_from_application_login
-  - pkk_configuration_can_aggregate_fields_from_user_and_integration_domains
+  - pkk_configuration_aggregates_fields_from_user_and_integration_domains
   - explicit_pkk_configuration_readiness_status
   - audit_pkk_configuration_changes
   - tenant_isolation
+  - same_organization_settings_version_is_incremented_on_successful_save
 
 recommended_own_product_states:
   - not_configured

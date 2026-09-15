@@ -1,118 +1,348 @@
-# 02. Inwentarz ekranów
+# 02. Inwentarz ekranów — stan skonsolidowany
 
-> Stan po drugiej weryfikacji publicznych źródeł: 2026-09-05. `HISTORICAL_INDEX` oznacza ekran/menu widoczny w starszym indeksie, ale niepotwierdzony jako aktualny ekran zalogowanego panelu.
+Data konsolidacji: 2026-09-05
+
+> Ten dokument jest agregatem. Dla szczegółów konkretnego ekranu pierwszeństwo mają `specs/screens/*.yml` oraz odpowiadające im nowsze dokumenty `docs/17-...` i późniejsze. Status gotowości modułów jest utrzymywany w `docs/71-admin-osk-module-mapping-status.md`.
+
+## Statusy
+
+- `READY_FOR_IMPLEMENTATION` — znamy ekran/flow w zakresie wystarczającym do budowy własnego odpowiednika; niewidoczne detale demo projektujemy po swojemu.
+- `PARTIAL` — znamy istotną część modułu, ale brak jeszcze ważnego flow lub podwidoku.
+- `NOT_SCREEN_MAPPED` — znamy funkcję/domenę, ale nie wykonaliśmy bieżącego audytu zalogowanego UI.
+- `PUBLIC_CONFIRMED` — funkcja potwierdzona publicznie, niekoniecznie na poziomie zalogowanego ekranu.
+- `HISTORICAL_INDEX` — ślad historyczny; nie jest bieżącym wymaganiem bez nowego potwierdzenia.
+- `OWN_PRODUCT_DECISION` — jawna decyzja naszego produktu, a nie odtworzenie zachowania 360.
+
+---
 
 ## Publiczne / dostępne bez zalogowania
 
 | ID | Ekran | Status | Główne akcje |
 |---|---|---|---|
-| PUB-01 | Strona główna B2B | CURRENT_CONFIRMED | rejestracja, logowanie, przejście do oferty/cennika, prezentacja modułów |
-| PUB-02 | Logowanie / rejestracja | CURRENT_CONFIRMED | login, social login, rejestracja OSK, reset hasła, remember me |
-| PUB-03 | Przypomnienie hasła | CURRENT_CONFIRMED | podanie **e-maila lub loginu**, wysłanie instrukcji, powrót do logowania |
-| PUB-04 | Cennik | CURRENT_CONFIRMED | wybór okresu licencji, zakup licencji/egzaminów/reklam, prezentacja zakresu pakietu |
-| PUB-05 | Oferta reklamowa / aukcje | CURRENT_CONFIRMED | wybór miejscowości, placementu, przejście do licytacji |
-| PUB-06 | Regulamin | CURRENT_CONFIRMED | przegląd zasad konta, licencji, egzaminów, płatności, reklam, rankingu |
-| PUB-07 | Polityka prywatności | CURRENT_CONFIRMED | przeglądanie |
-| PUB-08 | Pozycjonowanie OSK | CURRENT_CONFIRMED | kontakt/lead, oferta SEO/WWW/Google Ads |
-| PUB-09 | Aktualności produktu | CURRENT_CONFIRMED | dokumentowanie zmian funkcjonalnych i zakresu modułów |
+| PUB-01 | Strona główna B2B | `PUBLIC_CONFIRMED` | rejestracja, logowanie, prezentacja modułów |
+| PUB-02 | Logowanie / rejestracja | `PUBLIC_CONFIRMED` | login, social login, reset hasła, remember me |
+| PUB-03 | Przypomnienie hasła | `PUBLIC_CONFIRMED` | e-mail lub login |
+| PUB-04 | Cennik | `PUBLIC_CONFIRMED` | licencje, egzaminy, reklamy |
+| PUB-05 | Oferta reklamowa / aukcje | `PUBLIC_CONFIRMED` | miejscowość, placement, licytacja |
+| PUB-06 | Regulamin | `PUBLIC_CONFIRMED` | zasady konta, licencji, egzaminów, płatności, reklam |
+| PUB-07 | Polityka prywatności | `PUBLIC_CONFIRMED` | przeglądanie |
 
-## Ekrany uwierzytelniania / stany wejściowe
+---
 
-| ID | Ekran / stan | Status | Elementy |
-|---|---|---|---|
-| AUTH-01 | Logowanie z ReturnUrl | CURRENT_CONFIRMED | chroniona trasa -> logowanie -> powrót do żądanej trasy |
-| AUTH-02 | Reset hasła | CURRENT_CONFIRMED | e-mail lub login |
-| AUTH-03 | Dostęp opłacony, oczekujący na aktywację | RULES_CONFIRMED | CTA `Aktywuj dostęp`; dokładny wygląd `TO_VERIFY_AUTH` |
-| AUTH-04 | Blokada / zakończenie poprzedniej sesji | RULES_CONFIRMED | zasada pojedynczej sesji dla opłaconego konta użytkownika; dokładny komunikat `TO_VERIFY_AUTH` |
+# Core panelu administratora OSK
 
-## Panel OSK
+## APP-01 — Panel główny `/`
 
-| ID | Ekran | Status | Elementy / akcje |
-|---|---|---|---|
-| APP-01 | Dashboard | TO_VERIFY_AUTH | dokładne KPI, alerty, skróty i widgety niepotwierdzone |
-| APP-02 | Kursanci | TO_VERIFY_AUTH | lista i dokładne kolumny do sprawdzenia |
-| APP-03 | Kursant — szczegóły | TO_VERIFY_AUTH | dane, PKK, kurs, jazdy, licencja, postęp, egzaminy — kontekst biznesowy potwierdzony, UI nie |
-| APP-04 | Pracownicy / role | TO_VERIFY_AUTH | właściciel, instruktor, wykładowca, pracownik; biuro/HR potwierdzone w kontekście kalendarza |
-| APP-05 | Pojazdy | TO_VERIFY_AUTH | centralny podgląd i przypomnienia potwierdzone, dokładny formularz nie |
-| APP-06 | Kalendarz | CURRENT_CONFIRMED / TO_VERIFY_AUTH | biznesowo: jazdy, inni pracownicy, self-booking kursanta, aktywność instruktorów, czas pracy; layout do weryfikacji |
-| APP-07 | PKK | CURRENT_CONFIRMED / TO_VERIFY_AUTH | pobierz, szczegóły, aktualizuj szkolenie, zwroty, historia; dokładne formularze/komunikaty do weryfikacji |
-| APP-08 | Licencje — wykup | CURRENT_CONFIRMED / HISTORICAL_INDEX | zakup puli, okresy; dokładny zalogowany ekran historycznie indeksowany |
-| APP-09 | Licencje — zarządzaj | RULES_CONFIRMED / HISTORICAL_INDEX | pula, przypisanie, dostęp e-mail lub login/hasło, język, cofnięcie nieaktywowanej |
-| APP-10 | Postępy w nauce | CURRENT_CONFIRMED / HISTORICAL_INDEX | statystyki postępu; dokładne filtry/kolumny do sprawdzenia |
-| APP-11 | Licencje — historia płatności | HISTORICAL_INDEX / TO_VERIFY_AUTH | dokładna bieżąca trasa niepotwierdzona |
-| APP-12 | Egzaminy — wykup | CURRENT_CONFIRMED / HISTORICAL_INDEX | zakup puli egzaminów |
-| APP-13 | Egzaminy — zarządzaj | RULES_CONFIRMED / HISTORICAL_INDEX | generuj link, stacjonarne `Rozpocznij egzamin wewnętrzny` |
-| APP-14 | Przeprowadzone egzaminy | RULES_CONFIRMED / HISTORICAL_INDEX | wynik, cyfrowa karta przebiegu, druk |
-| APP-15 | Egzaminy — historia płatności | HISTORICAL_INDEX / TO_VERIFY_AUTH | dokładna bieżąca trasa niepotwierdzona |
-| APP-16 | Wykłady | CURRENT_CONFIRMED | chroniona aktualna trasa; wybór/prezentacja materiałów, szczegóły UI do weryfikacji |
-| APP-17 | Profil OSK — edycja | HISTORICAL_INDEX / TO_VERIFY_AUTH | dane wizytówki |
-| APP-18 | Profil OSK — podgląd | CURRENT_CONFIRMED / HISTORICAL_INDEX | publiczna wizytówka + historyczny panelowy link |
-| APP-19 | Reklamy — wybór/aukcja | CURRENT_CONFIRMED / RULES_CONFIRMED | miejscowość, placement, parametry aukcji, `Licytuj` |
-| APP-20 | Reklamy — po wygranej | RULES_CONFIRMED / TO_VERIFY_AUTH | płatność, przesłanie desktop/mobile kreacji, moderacja, tekst fallback, emisja |
-| APP-21 | Historia licytacji | RULES_CONFIRMED / TO_VERIFY_AUTH | nazwa oferenta, możliwość wniosku o ukrycie nazwy, prośba o usunięcie oferty |
-| APP-22 | Historia płatności reklam | HISTORICAL_INDEX / TO_VERIFY_AUTH | transakcje/emisje — bieżący ekran niepotwierdzony |
-| APP-23 | Faktury | HISTORICAL_INDEX / TO_VERIFY_AUTH | stary indeks zawierał pozycję; stara trasa `/faktury` obecnie 404 |
-| APP-24 | Przeglądaj jako kursant | HISTORICAL_INDEX / TO_VERIFY_AUTH | zakres impersonacji do sprawdzenia |
-| APP-25 | Ustawienia konta | TO_VERIFY_AUTH | dane, hasło, zgody, bezpieczeństwo |
-| APP-26 | Powiadomienia | TO_VERIFY_AUTH | dokładny inbox/ustawienia niepotwierdzone |
-| APP-27 | Audyt / historia | INFERRED | wymagany dla własnego systemu; nie twierdzimy, że istnieje taki ekran 360 |
+**Status:** `READY_FOR_IMPLEMENTATION`  
+**Spec:** `specs/screens/main-dashboard.yml`  
+**Dokument:** `docs/74-main-dashboard.md`
 
-## Powiązany obszar użytkownika/kursanta
+Potwierdzone:
+- widget `Licencje`,
+- aktywne i dostępne licencje,
+- `Przydziel licencje`, `Kup licencje`, `Więcej`,
+- widget `Egzaminy wewnętrzne`,
+- dostępna pula egzaminów,
+- `Przeprowadź egzamin`, `Kup egzamin`, `Więcej`,
+- `Powiadomienia` / activity feed,
+- zapis operacji wraz z czasem, aktorem i kontekstem,
+- osadzony kalendarz,
+- widok miesiąc/tydzień/dzień,
+- `Pełny kalendarz`, `Dodaj wydarzenie`.
 
-Nie jest to koniecznie część panelu BIZ OSK, ale jest częścią produktu, który panel przydziela kursantowi.
+Nie hardkodować przykładowych liczników z konta demo.
 
-| ID | Ekran | Status | Elementy |
-|---|---|---|---|
-| STUD-01 | Test | CURRENT_CONFIRMED | filtrowanie wg domyślnej kategorii |
-| STUD-02 | Kurs / materiały | CURRENT_CONFIRMED | kategoria domyślna, treści edukacyjne |
-| STUD-03 | Statystyki | CURRENT_CONFIRMED | kategoria domyślna |
-| STUD-04 | Szkolenie z instruktorem | CURRENT_CONFIRMED | lekcje/działy, wideo, postęp całości |
-| STUD-05 | Pytania kontrolne | CURRENT_CONFIRMED | start, wielokrotne ponowienie, możliwość pominięcia |
-| STUD-06 | Zmiana kategorii | CURRENT_CONFIRMED | ustawia kategorię domyślną dla test/kurs/statystyki; wpływa na szkolenie |
+## APP-02 — Integracja PKK `/integracja-pkk`
 
-## Promocja i usługi dodatkowe
+**Status:** `READY_FOR_IMPLEMENTATION`  
+**Specy:** `specs/screens/pkk-entrypoints-and-student-list.yml`, `specs/screens/pkk-course-operational-panel.yml`  
+**Dokumenty:** `docs/75-pkk-entrypoints-and-student-list.md`, `docs/76-pkk-course-operational-panel.md`, `docs/77-pkk-management-flow-fallback-design.md`
 
-| ID | Ekran / produkt | Status | Elementy |
-|---|---|---|---|
-| MKT-01 | Artykuł sponsorowany | RULES_CONFIRMED | treść klienta lub copywriting, zdjęcia, moderacja, publikacja, archiwum |
-| MKT-02 | Baner na stronę OSK | RULES_CONFIRMED / HISTORICAL_INDEX | gotowa grafika, wymóg DoFollow, pomoc wdrożeniowa |
-| MKT-03 | Pozycjonowanie / WWW | CURRENT_CONFIRMED | audyt, SEO, Google Ads, strona i CMS, formularz kontaktowy |
-| MKT-04 | Wizytówka premium | COMING_SOON | nie implementować jako potwierdzonego działającego placementu 360 |
+Potwierdzone:
+- strona `/integracja-pkk` jest ekranem informacyjno-nawigacyjnym,
+- operacyjna obsługa PKK odbywa się w kontekście kursanta i konkretnego kursu,
+- `Pobierz PKK`, `Podgląd PKK`, `Aktualizuj i zwróć PKK`,
+- karta kursu: PKK, kategoria, rodzaj szkolenia, data rozpoczęcia, ostatnia operacja,
+- historia operacji PKK,
+- stan danych pobranych z PKK.
 
-## Minimalny układ nawigacji dla naszego odpowiednika
+Drawer `Zarządzaj PKK` jest nieobserwowalny z powodu błędu strony referencyjnej; nie jest blockerem implementacji własnego bezpiecznego flow.
 
-To rekomendacja architektoniczna, nie twierdzenie o aktualnym menu 360:
+## APP-03 — Kursanci `/kursanci`
 
-1. Start
-2. Kursanci
-3. Kalendarz
-4. PKK
-5. Kursy / Wykłady
-6. Licencje
-   - Kup
-   - Zarządzaj
-   - Postępy
-   - Historia zakupów
-7. Egzaminy wewnętrzne
-   - Kup
-   - Zarządzaj
-   - Przeprowadzone
-8. Pracownicy
-9. Pojazdy
-10. Profil OSK / Opinie
-11. Reklama
-12. Rozliczenia
-13. Ustawienia
+**Status:** `READY_FOR_IMPLEMENTATION`  
+**Spec główny:** `specs/screens/students.yml`
 
-## Wspólne stany ekranów — wymaganie naszego systemu
+Potwierdzone ekrany/flow:
+- lista kursantów,
+- wyszukiwanie,
+- filtry,
+- sortowanie,
+- podgląd,
+- szczegóły kursanta,
+- dodawanie ręczne,
+- wejście `Dodaj kursanta z PKK`,
+- edycja kursanta,
+- archiwizacja/usuwanie,
+- dane dostępowe,
+- licencje,
+- kursy (PKK),
+- płatności kursanta,
+- postępy,
+- egzamin wewnętrzny,
+- pobranie dokumentu dostępowego.
 
-Każdy widok danych powinien obsługiwać:
+Powiązane specy: `student-*.yml`, `course-*.yml`, `pkk-*.yml`.
+
+## APP-04 — Kurs formalny kursanta / Kursy (PKK)
+
+**Status:** `READY_FOR_IMPLEMENTATION`  
+**Specy:** `specs/screens/course-create.yml`, `course-edit.yml`, `course-delete.yml`  
+**Dokumenty:** `docs/78-course-edit-form.md`, `docs/79-course-delete-confirmation.md`, `docs/80-course-create-form.md`
+
+Potwierdzone:
+- rodzaj szkolenia: podstawowe / uzupełniające,
+- kategoria,
+- PKK,
+- data i godzina rozpoczęcia,
+- koszt,
+- teoria w bieżącym OSK,
+- teoria odbyta w innej szkole,
+- praktyka w bieżącym OSK,
+- praktyka odbyta w innej szkole,
+- instruktor prowadzący,
+- lokalizacja,
+- edycja,
+- potwierdzenie usunięcia z informacją o powiązanej płatności i wpłatach.
+
+Uwaga architektoniczna: w naszym produkcie bieżące godziny OSK mają wynikać z ewidencji zajęć/ledgera; wartości z innej szkoły są osobnym audytowalnym uznaniem.
+
+## APP-05 — Kalendarz `/kalendarz`
+
+**Status:** `READY_FOR_IMPLEMENTATION`  
+**Specy:** `specs/screens/calendar.yml`, `calendar-add-event.yml`  
+**Dokumenty:** `docs/48-calendar-main-screen.md`, `docs/49-calendar-add-event-form.md`, `docs/50-own-calendar-event-lifecycle.md`, `docs/51-calendar-important-dates.md`
+
+Potwierdzone:
+- miesiąc / tydzień / dzień,
+- dziś / poprzedni / następny okres,
+- typy filtrowania: wydarzenie, jazda, ważne daty,
+- filtrowanie zasobów: pracownicy, pojazdy, lokalizacje,
+- tworzenie wydarzenia/jazdy,
+- kursant, instruktor, pojazd,
+- zapisane lub własne miejsce spotkania,
+- data, czas, długość wydarzenia.
+
+Nieobserwowalne w demo: exact edit/cancel/drag&drop. Własny lifecycle jest zdefiniowany osobno.
+
+## APP-06 — Lokalizacje `/lokalizacje`
+
+**Status:** `READY_FOR_IMPLEMENTATION`  
+**Specy:** `specs/screens/locations.yml`, `school-locations-create.yml`, `school-locations-edit.yml`  
+**Dokumenty:** `docs/19-locations-screen.md`, `docs/72-school-locations-create-form.md`, `docs/73-school-locations-edit-form.md`
+
+Potwierdzone typy:
+- `Filia`,
+- `Sala wykładowa`,
+- `Plac manewrowy`.
+
+Potwierdzone pola formularza:
+- rodzaj,
+- nazwa,
+- ulica i nr,
+- kod pocztowy,
+- miejscowość z wyszukiwanym katalogiem.
+
+Potwierdzone akcje:
+- dodanie,
+- edycja,
+- przejście do kalendarza lokalizacji,
+- widoczna akcja archiwizacji.
+
+Archiwizacja była zablokowana w demo; u nas stosujemy własny soft-archive z audytem.
+
+## APP-07 — Pojazdy `/pojazdy`
+
+**Status:** `READY_FOR_IMPLEMENTATION`
+
+Potwierdzone:
+- lista,
+- szczegóły,
+- dodawanie,
+- edycja,
+- usuwanie,
+- archiwizacja widoczna, lecz demo-blocked,
+- zdjęcie,
+- numer rejestracyjny i boczny,
+- marka/model/rok/pojemność/VIN,
+- kategorie,
+- lokalizacje,
+- przegląd,
+- OC,
+- AC,
+- kontekst kalendarza.
+
+Specy: `vehicle-*.yml`, `vehicles.yml`.
+
+## APP-08 — Pracownicy `/pracownicy`
+
+**Status:** `READY_FOR_IMPLEMENTATION`
+
+Potwierdzone:
+- lista,
+- tworzenie,
+- szczegóły,
+- edycja,
+- rodzaj pracownika,
+- PESEL,
+- telefon,
+- numer uprawnień,
+- kategorie,
+- lokalizacje,
+- legitymacja/badania medyczne/psychologiczne,
+- zdjęcie,
+- opcjonalne konto do logowania,
+- kontekst dostępu do panelu,
+- kalendarz.
+
+RBAC badanego produktu nie jest kopiowany; u nas obowiązuje permission-based RBAC.
+
+## APP-09 — Licencje — zakup `/licencje/wykup`
+
+**Status:** `READY_FOR_IMPLEMENTATION`
+
+Potwierdzone:
+- warianty 31/90/180 dni odpowiadające ofercie 1/3/6 miesięcy,
+- ilość,
+- mieszany koszyk,
+- rabaty/ceny jako dane konfiguracyjne,
+- PayU/przelew,
+- podsumowanie zamówienia.
+
+## APP-10 — Licencje — zarządzanie `/licencje/panel`
+
+**Status:** `READY_FOR_IMPLEMENTATION`
+
+Potwierdzone:
+- pule licencji,
+- aktywne/dostępne,
+- generowanie/przydział,
+- istniejący lub nowy dostęp kursanta,
+- język,
+- dostęp przez e-mail/login,
+- nieaktywna vs aktywna licencja,
+- usunięcie przed aktywacją,
+- przedłużanie/stacking,
+- rozwijana historia,
+- sortowanie,
+- zbiorczy PDF dostępów.
+
+Własna reguła integralności: cofnięcie nieaktywowanego assignmentu atomowo przywraca dokładnie jedną sztukę inventory.
+
+## APP-11 — Egzamin wewnętrzny — zakup `/egzamin-wewnetrzny/wykup`
+
+**Status:** `READY_FOR_IMPLEMENTATION`
+
+Potwierdzone:
+- zakup sztuk egzaminów,
+- pule darmowe/opłacone,
+- cena dynamiczna,
+- PayU/przelew,
+- podsumowanie.
+
+## APP-12 — Egzamin wewnętrzny — panel `/egzamin-wewnetrzny/panel`
+
+**Status:** `READY_FOR_IMPLEMENTATION`
+
+Potwierdzone:
+- lista kursantów i agregat prób,
+- generowanie egzaminu,
+- dokładnie jeden kursant na operację generowania,
+- remote link,
+- start na bieżącym stanowisku,
+- edycja danych kandydata,
+- wyszukiwanie,
+- filtry,
+- sortowanie,
+- historia wielu prób,
+- wynik,
+- szczegóły pytań,
+- PDF arkusza odpowiedzi,
+- formalne powiązanie z kursantem i kursem.
+
+Własny lifecycle inventory jest opisany w `specs/design/internal-exam-lifecycle.yml` i ma pierwszeństwo nad starszymi uproszczonymi opisami.
+
+## APP-13 — Ustawienia `/ustawienia`
+
+**Status:** `READY_FOR_IMPLEMENTATION`  
+**Spec:** `specs/screens/settings.yml`  
+**Dokument:** `docs/18-settings-screen.md`
+
+Potwierdzone:
+- dane podstawowe,
+- dane firmy,
+- konfiguracja API PKK,
+- nazwa szkoły,
+- numer ewidencyjny OSK,
+- login OSK,
+- dostęp do zaakceptowanego regulaminu.
+
+## APP-14 — Historia zakupów `/historia-zakupow`
+
+**Status:** `READY_FOR_IMPLEMENTATION`  
+**Spec:** `specs/screens/purchase-history.yml`  
+**Dokument:** `docs/17-history-purchases-screen.md`
+
+Potwierdzone:
+- lista zamówień,
+- pozycje zamówienia,
+- data,
+- data księgowania,
+- kwota,
+- status,
+- `Opłać` dla nieopłaconych,
+- paginacja/liczba pozycji.
+
+Historia zakupów platformy jest osobna od płatności kursanta za szkolenie.
+
+---
+
+# Moduły poza core — nie blokują implementacji v1
+
+| Moduł | Route | Status |
+|---|---|---|
+| Moje wizytówki | `/wizytowki` | `NOT_SCREEN_MAPPED` |
+| Moje reklamy | podmenu do weryfikacji | `NOT_SCREEN_MAPPED` |
+| Wykłady | `/wyklady` | `NOT_SCREEN_MAPPED` |
+| Szkolenie z instruktorem | `/szkolenie-z-instruktorem` | `NOT_SCREEN_MAPPED` |
+
+Ich domena jest znana z publicznych materiałów, ale nie powinny blokować budowy operacyjnego core OSK.
+
+---
+
+# Elementy historyczne / opcjonalne
+
+| Ekran/funkcja | Status | Decyzja |
+|---|---|---|
+| Faktury `/faktury` | `HISTORICAL_INDEX` | nie traktować jako wymogu parytetu v1 |
+| Przeglądaj jako kursant | `HISTORICAL_INDEX` | ewentualny własny bezpieczny tryb impersonacji |
+| Eksport postępów | `OWN_PRODUCT_DECISION` | brak potwierdzenia u konkurenta |
+| Refund z panelu | `OWN_PRODUCT_DECISION` | proces finansowy, nie potwierdzony panelowy przycisk |
+
+---
+
+## Wspólne wymagania dla wszystkich ekranów naszego produktu
+
+Każdy ekran danych musi uwzględniać:
 - loading,
 - empty,
 - error,
-- partial failure,
 - success feedback,
-- confirmation modal dla nieodwracalnych operacji,
-- optimistic UI tylko dla bezpiecznie odwracalnych zmian,
-- filtr/paginację dla dużych list,
-- historię ostatniej modyfikacji dla danych formalnych.
+- walidację backendową,
+- tenant isolation,
+- autoryzację permission-based,
+- confirmation dla operacji destrukcyjnych,
+- audit dla danych formalnych/finansowych,
+- paginację/filtry dla rosnących kolekcji,
+- responsywność,
+- brak hard-code danych zmiennych prawnie lub produktowo.
