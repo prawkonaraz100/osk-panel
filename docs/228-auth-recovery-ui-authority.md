@@ -3,7 +3,7 @@
 Data: 2026-09-15
 
 **Gate:** `AUTH-RECOVERY-UI-001`  
-**Status:** `IMPLEMENTATION_CANDIDATE`
+**Status:** `VALIDATED_CANDIDATE_PENDING_ACCEPTED_PROMOTION`
 
 ## Starting authority
 
@@ -92,3 +92,23 @@ defined.
 - no legal-document version hardcoding,
 - no PKK/PWPW activation,
 - no production-ready claim.
+
+
+## Candidate validation evidence
+
+Exact validated candidate head before closure:
+
+`b7a7706bc0d504dca622e4abca2eea9f205b2f1b`
+
+Implementation CI `34963155681` / run #661: **5/5 PASS**.
+
+- backend-quality: PASS,
+- frontend-quality: PASS,
+- contracts-and-traceability: PASS,
+- secret-scan: PASS,
+- runtime-tests-and-migrations: PASS,
+- PostgreSQL: **380 tests / 6299 assertions — PASS**,
+- deterministic restore: **122 -> 122 PASS**,
+- schema fingerprint: `f3cab286cc8f0aabef219971d90afe424a8dab694c47ade2f517a3d95970716d`.
+
+This evidence validates the candidate only. The gate is not part of accepted runtime until clean promotion and accepted-branch 6/6 PASS complete.
