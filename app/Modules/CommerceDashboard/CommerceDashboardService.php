@@ -736,6 +736,7 @@ final class CommerceDashboardService
         ];
     }
 
+    /** @return object{id:mixed,code:mixed} */
     private function resolveInternalExamCatalog(bool $lock): object
     {
         $catalogCode = $this->internalExamCatalogCode();
