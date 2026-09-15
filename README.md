@@ -44,7 +44,7 @@ i **nie jest wymagane do uruchomienia Core service**.
 Aktualne luki produktowe po audycie kodu nie dotyczą już modelu domenowego ani
 podstawowego backendu. Koncentrują się na productization frontendu:
 
-- osobny UI login/recovery — **w realizacji w PR #111; nie jest jeszcze częścią accepted authority**,
+- osobny UI login/recovery — **PR #111 ma candidate CI 5/5 PASS, ale nadal czeka na closure + accepted promotion; nie jest jeszcze częścią accepted authority**,
 - UI ustawień organizacji,
 - UI zakupu licencji,
 - UI zakupu egzaminów wewnętrznych,
