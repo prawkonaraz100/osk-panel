@@ -44,13 +44,13 @@ final class OperationalAlertDispatcher
         $secret = config('operational_alerting.webhook_secret');
         $timeout = config('operational_alerting.timeout_seconds', 5);
 
-        if (! is_string($url) || ! str_starts_with($url, 'https://')) {
+        if (is_string($url) === false || str_starts_with($url, 'https://') === false) {
             throw new LogicException('Operational alert endpoint must be an HTTPS URL.');
         }
-        if (! is_string($secret) || trim($secret) === '') {
+        if (is_string($secret) === false || trim($secret) === '') {
             throw new LogicException('Operational alert webhook secret is unavailable.');
         }
-        if (! is_int($timeout) || $timeout < 1 || $timeout > 15) {
+        if (is_int($timeout) === false || $timeout < 1 || $timeout > 15) {
             throw new LogicException('Operational alert timeout must be between 1 and 15 seconds.');
         }
 
@@ -80,7 +80,7 @@ final class OperationalAlertDispatcher
                 ->withBody($body, 'application/json')
                 ->post($url);
 
-            if (! $response->successful()) {
+            if ($response->successful() === false) {
                 Log::error('operational_alert_delivery_failed', [
                     'event_id' => $eventId,
                     'event_code' => $eventCode,
@@ -129,7 +129,7 @@ final class OperationalAlertDispatcher
     private function definition(string $eventCode): array
     {
         $definition = config('operational_alerting.events.'.$eventCode);
-        if (! is_array($definition)) {
+        if (is_array($definition) === false) {
             throw new LogicException("Unknown operational alert event: {$eventCode}");
         }
 
@@ -138,16 +138,16 @@ final class OperationalAlertDispatcher
         $summary = $definition['summary'] ?? null;
         $contextKeys = $definition['context_keys'] ?? null;
 
-        if (! is_string($severity)
-            || ! is_string($runbook)
-            || ! is_string($summary)
-            || ! is_array($contextKeys)) {
+        if (is_string($severity) === false
+            || is_string($runbook) === false
+            || is_string($summary) === false
+            || is_array($contextKeys) === false) {
             throw new LogicException("Operational alert definition is invalid for {$eventCode}.");
         }
 
         $keys = [];
         foreach ($contextKeys as $key) {
-            if (! is_string($key) || $key === '') {
+            if (is_string($key) === false || $key === '') {
                 throw new LogicException("Operational alert context key is invalid for {$eventCode}.");
             }
             $keys[] = $key;
@@ -171,7 +171,7 @@ final class OperationalAlertDispatcher
         $safe = [];
 
         foreach ($allowedKeys as $key) {
-            if (! array_key_exists($key, $context)) {
+            if (array_key_exists($key, $context) === false) {
                 continue;
             }
 
