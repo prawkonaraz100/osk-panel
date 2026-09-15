@@ -189,6 +189,29 @@ final class CommerceDashboardService
         );
     }
 
+    /** @return array<string,mixed> */
+    public function internalExamPurchaseOffer(string $sessionId): array
+    {
+        $this->authorizedOrganization($sessionId, 'exams.purchase');
+
+        $catalog = $this->resolveInternalExamCatalog(false);
+        $pricing = $this->pricingCatalog->require((string) $catalog->code);
+
+        return [
+            'display_name' => $pricing['display_name'],
+            'unit_price' => [
+                'amount_minor' => $pricing['charged_unit_amount_minor'],
+                'currency' => $pricing['currency'],
+            ],
+            'list_unit_price' => [
+                'amount_minor' => $pricing['list_unit_amount_minor'],
+                'currency' => $pricing['currency'],
+            ],
+            'pricing_revision' => $pricing['pricing_revision'],
+            'sample_data' => (bool) $pricing['sample_data'],
+        ];
+    }
+
     /** @return list<array<string,mixed>> */
     public function listServiceEntitlements(string $sessionId): array
     {
@@ -692,30 +715,7 @@ final class CommerceDashboardService
             throw ResourceDomainException::rule('Internal exam quantity is invalid.');
         }
 
-        $catalogCode = config('commerce.order_create.internal_exam_catalog_code');
-        if (! is_string($catalogCode) || trim($catalogCode) === '') {
-            throw ResourceDomainException::conflict('Internal exam commerce catalog selector is not configured.');
-        }
-        $catalogCode = trim($catalogCode);
-
-        $query = DB::table('commerce_catalog_items')
-            ->where('code', $catalogCode)
-            ->where('product_kind', 'internal_exam')
-            ->whereNull('license_product_id')
-            ->where('active', true)
-            ->orderBy('id');
-        if ($lock) {
-            $query->lockForUpdate();
-        }
-        $catalogRows = $query->get();
-        if ($catalogRows->count() !== 1) {
-            throw ResourceDomainException::rule('Configured internal exam catalog selector does not resolve exactly one active internal exam product.');
-        }
-
-        $catalog = $catalogRows->first();
-        if ($catalog === null) {
-            throw ResourceDomainException::rule('Configured internal exam catalog product is unavailable.');
-        }
+        $catalog = $this->resolveInternalExamCatalog($lock);
         $pricing = $this->pricingForCatalogCode((string) $catalog->code);
 
         return [
@@ -734,6 +734,52 @@ final class CommerceDashboardService
                 ],
             ),
         ];
+    }
+
+    private function resolveInternalExamCatalog(bool $lock): object
+    {
+        $catalogCode = $this->internalExamCatalogCode();
+
+        $query = DB::table('commerce_catalog_items')
+            ->where('code', $catalogCode)
+            ->where('product_kind', 'internal_exam')
+            ->whereNull('license_product_id')
+            ->where('active', true)
+            ->orderBy('id');
+        if ($lock) {
+            $query->lockForUpdate();
+        }
+
+        $catalogRows = $query->get();
+        if ($catalogRows->count() !== 1) {
+            throw ResourceDomainException::rule(
+                'Configured internal exam catalog selector does not resolve exactly one active internal exam product.',
+            );
+        }
+
+        $catalog = $catalogRows->first();
+        if ($catalog === null) {
+            throw ResourceDomainException::rule('Configured internal exam catalog product is unavailable.');
+        }
+
+        return $catalog;
+    }
+
+    private function internalExamCatalogCode(): string
+    {
+        $catalogCode = config('commerce.order_create.internal_exam_catalog_code');
+        if (is_string($catalogCode) && trim($catalogCode) !== '') {
+            return trim($catalogCode);
+        }
+
+        if ((bool) config('sample_data.enabled', false)) {
+            $sampleCatalogCode = config('sample_data.internal_exam.catalog_code');
+            if (is_string($sampleCatalogCode) && trim($sampleCatalogCode) !== '') {
+                return trim($sampleCatalogCode);
+            }
+        }
+
+        throw ResourceDomainException::conflict('Internal exam commerce catalog selector is not configured.');
     }
 
     /**
