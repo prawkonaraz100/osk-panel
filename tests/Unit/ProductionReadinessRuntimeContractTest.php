@@ -21,9 +21,9 @@ final class ProductionReadinessRuntimeContractTest extends TestCase
         self::assertStringContainsString('claims_target_infrastructure_ready: false', $spec);
         self::assertStringContainsString('FROZEN_UNTIL_EXPLICIT_UNFREEZE', $spec);
 
-        self::assertStringContainsString("Route::get('/health/live'", $bootstrap);
-        self::assertStringContainsString("Route::get('/health/ready'", $bootstrap);
-        self::assertStringContainsString("then: function (): void", $bootstrap);
+        self::assertStringContainsString('Route::get(\'/health/live\'', $bootstrap);
+        self::assertStringContainsString('Route::get(\'/health/ready\'', $bootstrap);
+        self::assertStringContainsString('then: function (): void', $bootstrap);
 
         self::assertStringContainsString("'json_stderr' => [", $logging);
         self::assertStringContainsString(JsonFormatter::class, $logging);
