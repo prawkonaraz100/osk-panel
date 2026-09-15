@@ -6,10 +6,13 @@ screen:
   confidence: USER_CONFIRMED_AUTH_SCREEN
   verified_at: 2026-09-05
   doc: docs/52-license-purchase-screen.md
-  current_runtime_UI_status: CANDIDATE_PR
+  current_runtime_UI_status: ACCEPTED
   route_materialized: true
   gate: LICENSE-PURCHASE-UI-001
-  accepted_on_main: false
+  accepted_on_main: true
+  accepted_head: 394c24d73eb7514e68f4996342b769f4a35b432c
+  accepted_ci_run: 35015499860
+  accepted_ci: PASS_6_OF_6
   backend_order_create_status: IMPLEMENTED
   backend_order_create_operation: POST /api/v1/license-orders
   current_status_source: specs/current-project-status.yml
@@ -55,7 +58,7 @@ payment_methods:
   observed_labels:
     online_payu: Płatności online PayU
     direct_bank_transfer: Przelew bezpośredni
-  own_product_candidate_mapping:
+  own_product_mapping:
     direct_bank_transfer: bank_transfer
     online_payu: online_payment
     provider_specific_online_payment_runtime: deferred
@@ -175,7 +178,7 @@ development_sample_support:
   production_use: forbidden
   license_purchase_UI_materialized_by_this_gate: false
 
-ui_materialization_candidate:
+ui_materialization_accepted:
   gate: LICENSE-PURCHASE-UI-001
   route: /licencje/wykup
   component: resources/js/modules/LearningAccess/LicensePurchaseWorkspace.vue
