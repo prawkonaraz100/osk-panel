@@ -26,8 +26,8 @@ final class ProductionTargetPreflightContractTest extends TestCase
         self::assertStringContainsString('PKK_provider_required: false', $spec);
         self::assertStringContainsString('payment_provider_webhook_required: false', $spec);
 
-        self::assertStringContainsString("DB::selectOne('select 1 as ready')", $service);
-        self::assertStringContainsString("production-preflight/", $service);
+        self::assertStringContainsString('DB::selectOne(\'select 1 as ready\')', $service);
+        self::assertStringContainsString('production-preflight/', $service);
         self::assertStringNotContainsString('PWPW', $service);
     }
 }
