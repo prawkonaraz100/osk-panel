@@ -62,7 +62,7 @@ frontend_productization_completed:
     accepted_ci: PASS_6_OF_6
     release_artifact_id: 10395187416
     release_archive_sha256: 516fa5aafe9c4a1a2a5bfb488e3fb3ae0bbfa3377d82e05a5797f3b9f70af7ce
-    registration_UI: BLOCKED_PENDING_PUBLIC_LEGAL_DOCUMENT_DISCOVERY
+    registration_UI: NOT_IMPLEMENTED_DEVELOPMENT_UNBLOCKED_BY_SAMPLE_TERMS_PRODUCTION_LEGAL_AUTHORITY_PENDING
     social_provider_buttons: DEFERRED_PENDING_PROVIDER_DISCOVERY_CONTRACT
   organization_settings_UI:
     gate: ORGANIZATION-SETTINGS-UI-001
@@ -114,7 +114,32 @@ development_sample_support:
     - registration_UI
     - license_purchase_UI
 
+pkk_boundary:
+  local_course_scoped_identity: IMPLEMENTED
+  local_PKK_input_mode: MANUAL_SUPPORTED
+  local_PKK_encrypted_at_rest: true
+  provider_neutral_stage4_database_substrate: MATERIALIZED
+  provider_application_controller_or_service: NOT_IMPLEMENTED
+  provider_physical_HTTP_routes: NOT_IMPLEMENTED
+  provider_Vue_UI: NOT_IMPLEMENTED
+  provider_import_and_live_calls: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+  unfreeze_requires: AUTHORITATIVE_PWPW_GUIDANCE_OR_CONTRACT_AND_FRESH_REDIAGNOSIS
+  core_service_requires_PWPW_integration: false
+
+api_runtime_contract_reconciliation:
+  audited_on: 2026-09-15
+  physical_api_v1_route_bindings: 160
+  openapi_http_operations: 173
+  openapi_only_operations: 15
+  openapi_only_PKK_PWPW_operations: 14
+  openapi_only_payment_webhook_operations: 1
+  runtime_only_noncanonical_or_compatibility_operations:
+    - GET /api/v1/development/sample/legal/terms/current
+    - POST /api/v1/internal-exam-stations/heartbeat
+  classification: INTENTIONAL_DEFERRED_OR_COMPATIBILITY_BOUNDARIES
+
 frontend_productization_gaps:
+  - registration_UI
   - license_purchase_UI
   - internal_exam_purchase_UI
   - browser_end_to_end_golden_paths
