@@ -9,6 +9,8 @@ on:
       - 'scripts/contract-validation/**'
       - '.github/workflows/api-contract-gate.yml'
   push:
+    branches:
+      - main
     paths:
       - 'specs/api/**'
       - 'specs/traceability/**'
