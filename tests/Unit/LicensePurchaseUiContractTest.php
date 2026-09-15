@@ -28,8 +28,8 @@ final class LicensePurchaseUiContractTest extends TestCase
         self::assertStringContainsString('payment_method: paymentMethod.value', $workspace);
         self::assertStringContainsString('result.data.total.amount_minor', $workspace);
         self::assertStringContainsString('product.sample_data', $workspace);
-        self::assertStringContainsString("value=\"bank_transfer\"", $workspace);
-        self::assertStringContainsString("value=\"online_payment\"", $workspace);
+        self::assertStringContainsString('value="bank_transfer"', $workspace);
+        self::assertStringContainsString('value="online_payment"', $workspace);
 
         self::assertStringNotContainsString('list_unit_amount_minor', $workspace);
         self::assertStringNotContainsString('charged_unit_amount_minor', $workspace);
