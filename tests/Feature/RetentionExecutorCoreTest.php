@@ -42,7 +42,10 @@ final class RetentionExecutorCoreTest extends TestCase
             $payload = json_decode(trim(Artisan::output()), true, 512, JSON_THROW_ON_ERROR);
             $this->assertSame('dry_run', $payload['mode']);
             $this->assertSame('completed', $payload['result']);
-            $this->assertSame('2026-08-16T12:00:00+02:00', $payload['cutoff_at']);
+            $this->assertTrue(
+                CarbonImmutable::parse((string) $payload['cutoff_at'])
+                    ->equalTo(CarbonImmutable::parse('2026-08-16T12:00:00+02:00')),
+            );
             $this->assertSame(1, $payload['candidate_count']);
             $this->assertSame(0, $payload['deleted_or_redacted_count']);
 
