@@ -56,11 +56,14 @@ Aktualne luki produktowe po audycie kodu nie dotyczą już modelu domenowego ani
 podstawowego backendu.
 
 Ukończone w productization:
-- **AUTH-RECOVERY-UI-001** — login, forgot-password i reset-password są częścią accepted runtime od `d6b2089903ac830581b8606914cd484f1207dee2`; PR #111, accepted CI #665 = 6/6 PASS. Registration UI nie jest jeszcze zaimplementowane; development jest odblokowany przez nieprodukcyjny sample Terms resolver, natomiast produkcja nadal wymaga rzeczywistego opublikowanego regulaminu/version authority.
+- **AUTH-RECOVERY-UI-001** — login, forgot-password i reset-password są częścią accepted runtime od `d6b2089903ac830581b8606914cd484f1207dee2`; PR #111, accepted CI #665 = 6/6 PASS.
 - **ORGANIZATION-SETTINGS-UI-001** — provider-neutral `/ustawienia` jest częścią accepted runtime od `4006607dd2aecdc6fabb97a34ba5edf40d07729b`; PR #113, accepted CI #675 = 6/6 PASS. PKK pozostaje zamrożone, e-mail read-only; development ma jawny sample Terms resolver, natomiast produkcyjne odtworzenie dokładnej treści regulaminu nadal wymaga realnego versioned document resolvera/authority.
 
+Kandydat w toku:
+- **REGISTRATION-UI-001** — PR #123 materializuje `/register` i używa istniejącego backendu rejestracji oraz nieprodukcyjnego sample Terms discovery bez hardcodowania wersji regulaminu. Kod istnieje w bieżącym drzewie PR, ale nie jest jeszcze accepted na `main`; acceptance wymaga exact-head CI i merge. Produkcja nadal wymaga realnego, opublikowanego i wersjonowanego regulaminu/authority.
+
 Pozostałe luki produktowe:
-- UI rejestracji (development ma już sample Terms, produkcja wymaga realnego dokumentu prawnego),
+- akceptacja `REGISTRATION-UI-001` na `main` oraz produkcyjny realny/versioned Terms authority,
 - UI zakupu licencji,
 - UI zakupu egzaminów wewnętrznych,
 - browser E2E dla głównych golden paths,
