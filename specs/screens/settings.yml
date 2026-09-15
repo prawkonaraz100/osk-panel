@@ -122,7 +122,7 @@ implementation_requirements:
 
 current_implementation:
   gate: ORGANIZATION-SETTINGS-UI-001
-  status: VALIDATED_CANDIDATE_PENDING_ACCEPTED_PROMOTION
+  status: PASS_ACCEPTED
   component: resources/js/modules/OrganizationSettings/SettingsWorkspace.vue
   route_materialized: true
   provider_neutral:
@@ -156,8 +156,20 @@ current_implementation:
     restore_tables_source: 122
     restore_tables_restored: 122
     schema_fingerprint: f3cab286cc8f0aabef219971d90afe424a8dab694c47ade2f517a3d95970716d
+  acceptance:
+    accepted_head: 4006607dd2aecdc6fabb97a34ba5edf40d07729b
+    accepted_ci_run: 34971537563
+    accepted_ci: PASS_6_OF_6
+    release_artifact_id: 10396979267
+    release_artifact_name: osk-panel-4006607dd2aecdc6fabb97a34ba5edf40d07729b
+    release_archive_sha256: c3ca6f4c99dd61099cfc2bb720a502e8808212384d1393a8e8accae17071b962
+    postgres_tests_passed: 381
+    assertions: 6315
+    restore_tables_source: 122
+    restore_tables_restored: 122
+    schema_fingerprint: f3cab286cc8f0aabef219971d90afe424a8dab694c47ade2f517a3d95970716d
   acceptance_boundary:
-    candidate_is_accepted_runtime: false
+    candidate_is_accepted_runtime: true
     browser_E2E_proven: false
 
 implementation_divergences:
