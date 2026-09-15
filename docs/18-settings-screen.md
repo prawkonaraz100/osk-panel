@@ -252,7 +252,7 @@ nadrzędną decyzją naszego produktu; nie oznacza usunięcia obserwacji PKK z h
 ## 11. Aktualny stan naszej implementacji — candidate
 
 Gate: `ORGANIZATION-SETTINGS-UI-001`  
-Status: `IMPLEMENTATION_CANDIDATE_NOT_ACCEPTED`
+Status: `VALIDATED_CANDIDATE_PENDING_ACCEPTED_PROMOTION`
 
 Faktycznie zaimplementowany candidate:
 
@@ -273,8 +273,17 @@ Faktycznie zaimplementowany candidate:
 - link `Ustawienia` został dodany do istniejących sidebarów bez przebudowy
   architektury routingu.
 
-Candidate nie jest jeszcze częścią accepted runtime authority i nie może być
-opisywany jako ukończony do czasu exact-head CI, clean promotion i accepted 6/6.
+Candidate został zwalidowany na exact head `0e3466eccea19f7bb798a548a07e925dac6b6157`.
+
+Validation evidence:
+- Implementation CI `34969328994` / #669: **5/5 PASS**,
+- PostgreSQL: **381 tests / 6315 assertions — PASS**,
+- deterministic restore: **122 -> 122 PASS**,
+- schema fingerprint: `f3cab286cc8f0aabef219971d90afe424a8dab694c47ade2f517a3d95970716d`.
+
+Candidate nadal nie jest częścią accepted runtime authority i nie może być
+opisywany jako ukończony do czasu finalnego closure-head CI, clean promotion
+i accepted 6/6.
 
 ## 12. Potwierdzone rozbieżności i pozostała praca
 
