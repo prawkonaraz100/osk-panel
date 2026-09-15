@@ -1266,17 +1266,17 @@ Artisan::command(
         $organization = $this->option('organization');
         $reason = $this->option('reason');
 
-        if (is_string($dataClass) === false
-            || is_string($policy) === false
-            || is_string($reason) === false
-            || ($organization !== null && is_string($organization) === false)) {
+        if (! is_string($dataClass)
+            || ! is_string($policy)
+            || ! is_string($reason)
+            || ($organization !== null && ! is_string($organization))) {
             $this->error('Retention arguments are invalid.');
 
             return Command::FAILURE;
         }
 
         try {
-            if ((bool) $this->option('execute') === false) {
+            if (! $this->option('execute')) {
                 $result = $executor->preview(
                     $dataClass,
                     $policy,
@@ -1285,7 +1285,7 @@ Artisan::command(
                 );
             } else {
                 $confirmation = $this->option('confirm');
-                if (is_string($confirmation) === false) {
+                if (! is_string($confirmation)) {
                     $this->error('Explicit retention confirmation token is required.');
 
                     return Command::FAILURE;
