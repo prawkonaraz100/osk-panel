@@ -3,6 +3,10 @@ meta:
   stage: 4
   slice: DB4_6_LICENSES_LEARNING_ACCESS
   status: IN_PROGRESS_FINAL_AGGREGATE_SYNC_PENDING
+  document_scope: HISTORICAL_STAGE4_BOUNDED_CONTEXT_AUTHORITY
+  current_schema_materialization_status: MATERIALIZED_AND_RUNTIME_TESTED
+  current_implementation_status_source: specs/current-project-status.yml
+  historical_meta_note: implementation_started/Laravel_migrations_created/Stage5_started/UI flags in this file describe the Stage4 point-in-time and are not current repository status
   diagnosed_at: 2026-09-06
   branch: docs-consolidation-2026-09-05
   narrative_audit: docs/110-stage-4-licenses-learning-access-audit.md
