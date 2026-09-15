@@ -437,7 +437,7 @@ onMounted(loadSettings)
               <span>Integracje</span>
               <h2>Dane API PKK</h2>
             </div>
-            <span class="status-pill neutral">Zamrożone</span>
+            <span class="status-pill muted">Zamrożone</span>
           </header>
 
           <p class="settings-explanation">
