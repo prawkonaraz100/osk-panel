@@ -27,6 +27,8 @@ final class RegistrationUiContractTest extends TestCase
         self::assertStringContainsString('marketing_consent: false', $workspace);
         self::assertStringContainsString('termsAccepted', $workspace);
         self::assertStringContainsString('error.status === 404', $workspace);
+        self::assertStringContainsString('new URL(value, window.location.origin)', $workspace);
+        self::assertStringContainsString('url.origin === window.location.origin', $workspace);
 
         self::assertStringNotContainsString('sample-terms-v1', $workspace);
         self::assertStringNotContainsString('localStorage', $workspace);
