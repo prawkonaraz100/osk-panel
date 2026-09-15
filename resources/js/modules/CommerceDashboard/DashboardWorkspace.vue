@@ -259,6 +259,11 @@ function messageFor(caught: unknown, fallback: string): string {
         >
           Pojazdy
         </a>
+        <a
+          href="/ustawienia"
+        >
+          Ustawienia
+        </a>
       </nav>
 
       <div
