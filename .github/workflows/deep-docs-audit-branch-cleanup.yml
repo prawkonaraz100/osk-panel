@@ -1,0 +1,77 @@
+name: Deep Docs Audit Branch Cleanup
+
+on:
+  push:
+    branches:
+      - archive/branch-snapshot-2026-09-15
+    paths:
+      - '.github/workflows/deep-docs-audit-branch-cleanup.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  delete-merged-audit-branches:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Verify merged content and delete exact refs
+        shell: bash
+        env:
+          EXPECTED_MAIN: c047204f91ad3044e9bc726d8ce9fd95ad46415f
+          BASE_BEFORE_REAUDIT: 20e6989486bd27c9331a8f5dd55acc6f2b0a3d2b
+          MERGED_REAUDIT_HEAD: f95dfb00137b0a35fbffec5e035c1ec894ec44f7
+          REAUDIT_BRANCH: docs/deep-consistency-reaudit-002
+          EXPECTED_REAUDIT_TIP: 73d21fb94894479ee4be784324292783ab86bddd
+          CLOSURE_BRANCH: docs/deep-consistency-closure-002
+          EXPECTED_CLOSURE_TIP: af9cef7d784f56e2c7d1f220671423e7816d1ca1
+        run: |
+          set -euo pipefail
+
+          git fetch origin             main             "$REAUDIT_BRANCH"             "$CLOSURE_BRANCH"
+
+          main_sha="$(git rev-parse refs/remotes/origin/main)"
+          reaudit_sha="$(git rev-parse "refs/remotes/origin/$REAUDIT_BRANCH")"
+          closure_sha="$(git rev-parse "refs/remotes/origin/$CLOSURE_BRANCH")"
+
+          test "$main_sha" = "$EXPECTED_MAIN"
+          test "$reaudit_sha" = "$EXPECTED_REAUDIT_TIP"
+          test "$closure_sha" = "$EXPECTED_CLOSURE_TIP"
+
+          # All files from the exact PR #121 merged head must match current main,
+          # except docs/230 which was intentionally changed by the later closure PR.
+          while IFS= read -r path; do
+            test -n "$path" || continue
+            if [ "$path" = "docs/230-documentation-code-consistency-audit.md" ]; then
+              continue
+            fi
+            cmp               <(git show "$MERGED_REAUDIT_HEAD:$path")               <(git show "$EXPECTED_MAIN:$path")
+          done < <(git diff --name-only "$BASE_BEFORE_REAUDIT..$MERGED_REAUDIT_HEAD")
+
+          # The one post-merge reaudit-branch correction touched docs/230 only.
+          test "$(git diff --name-only "$MERGED_REAUDIT_HEAD..$EXPECTED_REAUDIT_TIP")" = "docs/230-documentation-code-consistency-audit.md"
+          git show "$EXPECTED_MAIN:docs/230-documentation-code-consistency-audit.md"             | grep -F "frozen or hash-pinned Stage 4/5 authority files themselves remain unchanged" >/dev/null
+
+          # Closure branch content must be exactly represented on current main.
+          cmp             <(git show "$EXPECTED_CLOSURE_TIP:docs/230-documentation-code-consistency-audit.md")             <(git show "$EXPECTED_MAIN:docs/230-documentation-code-consistency-audit.md")
+
+          git show "$EXPECTED_MAIN:docs/230-documentation-code-consistency-audit.md"             | grep -F "The second-pass re-audit is **accepted**." >/dev/null
+
+          git push origin             --force-with-lease="refs/heads/$REAUDIT_BRANCH:$EXPECTED_REAUDIT_TIP"             :"refs/heads/$REAUDIT_BRANCH"
+
+          git push origin             --force-with-lease="refs/heads/$CLOSURE_BRANCH:$EXPECTED_CLOSURE_TIP"             :"refs/heads/$CLOSURE_BRANCH"
+
+          if git ls-remote --exit-code --heads origin "$REAUDIT_BRANCH" >/dev/null 2>&1; then
+            echo "Reaudit branch still exists."
+            exit 1
+          fi
+
+          if git ls-remote --exit-code --heads origin "$CLOSURE_BRANCH" >/dev/null 2>&1; then
+            echo "Closure branch still exists."
+            exit 1
+          fi
+
+          echo "DEEP_DOCS_AUDIT_BRANCH_CLEANUP=PASS"
