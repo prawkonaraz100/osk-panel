@@ -79,13 +79,15 @@ Functional SPA workspaces exist for:
 - internal exam management,
 - student finance/progress/learning access/formal documents.
 
+Candidate workspace also exists for `/ustawienia`, but it is not listed as completed productization until the gate is accepted.
+
 Completed productization work:
 
 - `AUTH-RECOVERY-UI-001`: accepted on `d6b2089903ac830581b8606914cd484f1207dee2`; PR #111; accepted CI #665 **6/6 PASS**. Public SPA routes now exist for `/login`, `/forgot-password` and `/reset-password`. Registration UI remains separately deferred pending safe public legal-document version discovery.
 
 Current productization gaps confirmed by code audit:
 
-1. no organization settings UI route,
+1. organization settings UI is an implementation candidate on `productization/organization-settings-ui-001`; `/ustawienia` is materialized with provider-neutral data/settings save, but the gate is not accepted until exact-head CI + clean promotion + accepted 6/6,
 2. no license purchase UI route despite backend `POST /api/v1/license-orders`,
 3. no internal-exam purchase UI route despite backend `POST /api/v1/internal-exam/orders`,
 4. no browser E2E suite for complete user golden paths,
