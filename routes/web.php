@@ -202,6 +202,9 @@ Route::middleware(ResourceApiMiddleware::class)->prefix('api/v1')->group(functio
     Route::get('/internal-exam-attempts/{attemptId}/documents/answer-sheet.pdf', [InternalExamController::class, 'answerSheetPdf']);
 });
 
+Route::view('/login', 'app');
+Route::view('/forgot-password', 'app');
+Route::view('/reset-password', 'app');
 Route::view('/', 'app');
 Route::view('/kursanci', 'app');
 Route::view('/kursanci/{studentId}', 'app');

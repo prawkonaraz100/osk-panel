@@ -34,6 +34,16 @@ function uuid(): string {
   })
 }
 
+function unauthenticatedLoginUrl(): string | null {
+  if (['/login', '/forgot-password', '/reset-password'].includes(window.location.pathname)) {
+    return null
+  }
+
+  const returnUrl = window.location.pathname + window.location.search
+
+  return '/login?return_url=' + encodeURIComponent(returnUrl)
+}
+
 export async function api<T>(
   path: string,
   init: RequestInit & { idempotent?: boolean } = {},
@@ -60,13 +70,23 @@ export async function api<T>(
     credentials: 'same-origin',
     headers,
   })
+  const rawBody = await response.text()
 
   if (!response.ok) {
+    if (response.status === 401) {
+      const loginUrl = unauthenticatedLoginUrl()
+      if (loginUrl !== null) {
+        window.location.assign(loginUrl)
+      }
+    }
+
     let payload: ApiErrorPayload = {}
-    try {
-      payload = (await response.json()) as ApiErrorPayload
-    } catch {
-      // Keep the safe generic fallback.
+    if (rawBody.trim() !== '') {
+      try {
+        payload = JSON.parse(rawBody) as ApiErrorPayload
+      } catch {
+        // Keep the safe generic fallback.
+      }
     }
 
     throw new ApiError(
@@ -77,12 +97,12 @@ export async function api<T>(
     )
   }
 
-  if (response.status === 204) {
+  if (rawBody.trim() === '') {
     return { data: undefined as T, etag: response.headers.get('ETag') }
   }
 
   return {
-    data: (await response.json()) as T,
+    data: JSON.parse(rawBody) as T,
     etag: response.headers.get('ETag'),
   }
 }
