@@ -300,3 +300,40 @@ Acceptance evidence:
 - release artifact ID `10410813587`, name `osk-panel-8128a98ee3a69bd66e5547bbbe0dff77b7a7be4b`, GitHub artifact ZIP digest `sha256:7b2cafe230a02155d4e8822ca43d2e3e41f5fc3b986f2bcdaaf9419007a31c02`.
 
 This accepted evidence is a fixed historical baseline for the re-audit. Exact live repository HEAD remains the Git ref `main`; this document intentionally does not attempt to make an embedded SHA self-referentially equal to every future `main` commit.
+
+## 14. Post-audit productization delta — 2026-09-15
+
+Sections 1–13 remain fixed historical audit evidence for the repository state they
+examined. They are not rewritten to pretend that later productization already existed.
+
+Later accepted gates materially changed only the productization/runtime counts and
+the frontend-gap list:
+
+- `REGISTRATION-UI-001` is accepted,
+- `LICENSE-PURCHASE-UI-001` is accepted,
+- `INTERNAL-EXAM-PURCHASE-UI-001` is accepted on
+  `a9d96553caff3a6b6d3955c224627451a4effd14` through PR #127,
+- accepted `main` now contains **161** physical `/api/v1` route bindings and
+  **174** canonical OpenAPI HTTP operations,
+- the OpenAPI-only gap remains exactly **15**: 14 frozen PKK/PWPW operations plus
+  one provider payment webhook,
+- browser E2E golden paths remain the next confirmed repository-owned
+  productization gap,
+- the SPA still uses the lightweight pathname shell; this remains an architecture
+  polish item rather than a claim that a full router/store has already been
+  implemented.
+
+Internal Exam Purchase acceptance evidence:
+
+- candidate Implementation CI #746 / `35021646666`: **5/5 PASS**,
+- candidate API Contract Gate #547 / `35021646668`: **PASS**,
+- accepted push Implementation CI #747 / `35022787325`: **6/6 PASS**,
+- accepted push API Contract Gate #548 / `35022787327`: **PASS**,
+- PostgreSQL **389 tests / 6444 assertions**,
+- restore **122 -> 122 PASS**,
+- release artifact ID `10418766869`.
+
+For current status after these later gates,
+`docs/227-current-project-status-authority.md` and
+`specs/current-project-status.yml` remain authoritative over the historical gap
+lists in sections 2, 13.2 and 13.5.
