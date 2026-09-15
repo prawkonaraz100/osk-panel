@@ -2,6 +2,10 @@
 
 Data konsolidacji: 2026-09-05
 
+**Status:** `HISTORICAL_IMPLEMENTATION_ROADMAP_SUPERSEDED`
+
+> Ten roadmap zapisuje pierwotną kolejność implementacji. Core V1 został później zaimplementowany i zamknięty; bieżący stan/backlog znajduje się w `docs/227-current-project-status-authority.md` oraz `specs/current-project-status.yml`. Statusy faz poniżej nie są aktualnym planem wykonania.
+
 > Roadmap jest oparta o `specs/implementation-baseline-v1.yml`, canonical domain model i aktualny screen mapping. Marketingowe moduły nie blokują core.
 
 ## Faza 0 — konsolidacja kontraktów
@@ -17,7 +21,7 @@ Przed szerokim kodowaniem:
 - acceptance criteria,
 - test strategy.
 
-Status: w trakcie w `docs/81-developer-consolidation-plan.md`.
+Status historyczny z 2026-09-05: w trakcie w `docs/81-developer-consolidation-plan.md`; obecnie superseded.
 
 ## Faza 1 — fundament platformy
 
