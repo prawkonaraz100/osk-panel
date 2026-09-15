@@ -141,21 +141,36 @@ async function submitReset(): Promise<void> {
 <template>
   <main class="auth-page">
     <section class="auth-shell">
-      <a class="auth-brand" href="/" aria-label="PrawkoNaRaz">
+      <a
+        class="auth-brand"
+        href="/"
+        aria-label="PrawkoNaRaz"
+      >
         <strong>prawkonaraz</strong><span>.pl</span>
       </a>
 
       <div class="auth-card">
         <div v-if="mode === 'login'">
-          <p class="auth-kicker">Panel OSK</p>
+          <p class="auth-kicker">
+            Panel OSK
+          </p>
           <h1>Zaloguj się</h1>
-          <p class="auth-copy">Użyj swojego identyfikatora i hasła do panelu.</p>
+          <p class="auth-copy">
+            Użyj swojego identyfikatora i hasła do panelu.
+          </p>
 
-          <p v-if="errorMessage" class="auth-alert error" role="alert">
+          <p
+            v-if="errorMessage"
+            class="auth-alert error"
+            role="alert"
+          >
             {{ errorMessage }}
           </p>
 
-          <form class="auth-form" @submit.prevent="submitLogin">
+          <form
+            class="auth-form"
+            @submit.prevent="submitLogin"
+          >
             <label>
               Login lub e-mail
               <input
@@ -179,11 +194,18 @@ async function submitReset(): Promise<void> {
             </label>
 
             <label class="auth-check">
-              <input v-model="rememberMe" type="checkbox">
+              <input
+                v-model="rememberMe"
+                type="checkbox"
+              >
               <span>Zapamiętaj mnie</span>
             </label>
 
-            <button class="button primary auth-submit" :disabled="pending" type="submit">
+            <button
+              class="button primary auth-submit"
+              :disabled="pending"
+              type="submit"
+            >
               {{ pending ? 'Logowanie…' : 'Zaloguj się' }}
             </button>
           </form>
@@ -194,23 +216,37 @@ async function submitReset(): Promise<void> {
         </div>
 
         <div v-else-if="mode === 'forgot'">
-          <p class="auth-kicker">Odzyskiwanie dostępu</p>
+          <p class="auth-kicker">
+            Odzyskiwanie dostępu
+          </p>
           <h1>Ustaw nowe hasło</h1>
           <p class="auth-copy">
             Podaj login lub e-mail. Ze względów bezpieczeństwa odpowiedź nie potwierdza,
             czy konto istnieje.
           </p>
 
-          <p v-if="errorMessage" class="auth-alert error" role="alert">
+          <p
+            v-if="errorMessage"
+            class="auth-alert error"
+            role="alert"
+          >
             {{ errorMessage }}
           </p>
 
-          <div v-if="forgotAccepted" class="auth-alert success" role="status">
+          <div
+            v-if="forgotAccepted"
+            class="auth-alert success"
+            role="status"
+          >
             Jeśli konto kwalifikuje się do samodzielnego resetu, wiadomość z dalszymi
             instrukcjami została wysłana na zweryfikowany adres.
           </div>
 
-          <form v-else class="auth-form" @submit.prevent="submitForgot">
+          <form
+            v-else
+            class="auth-form"
+            @submit.prevent="submitForgot"
+          >
             <label>
               Login lub e-mail
               <input
@@ -222,7 +258,11 @@ async function submitReset(): Promise<void> {
               >
             </label>
 
-            <button class="button primary auth-submit" :disabled="pending" type="submit">
+            <button
+              class="button primary auth-submit"
+              :disabled="pending"
+              type="submit"
+            >
               {{ pending ? 'Wysyłanie…' : 'Wyślij instrukcję' }}
             </button>
           </form>
@@ -233,22 +273,36 @@ async function submitReset(): Promise<void> {
         </div>
 
         <div v-else>
-          <p class="auth-kicker">Odzyskiwanie dostępu</p>
+          <p class="auth-kicker">
+            Odzyskiwanie dostępu
+          </p>
           <h1>Nowe hasło</h1>
           <p class="auth-copy">
             Po udanym ustawieniu nowego hasła wszystkie dotychczasowe sesje zostaną
             unieważnione przez backend.
           </p>
 
-          <p v-if="errorMessage" class="auth-alert error" role="alert">
+          <p
+            v-if="errorMessage"
+            class="auth-alert error"
+            role="alert"
+          >
             {{ errorMessage }}
           </p>
 
-          <div v-if="resetCompleted" class="auth-alert success" role="status">
+          <div
+            v-if="resetCompleted"
+            class="auth-alert success"
+            role="status"
+          >
             Hasło zostało zmienione. Możesz zalogować się ponownie.
           </div>
 
-          <form v-else class="auth-form" @submit.prevent="submitReset">
+          <form
+            v-else
+            class="auth-form"
+            @submit.prevent="submitReset"
+          >
             <label>
               Nowe hasło
               <input
