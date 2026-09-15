@@ -195,7 +195,7 @@ final class CommerceDashboardService
         $this->authorizedOrganization($sessionId, 'exams.purchase');
 
         $catalog = $this->resolveInternalExamCatalog(false);
-        $pricing = $this->pricingCatalog->require((string) $catalog->code);
+        $pricing = $this->pricingCatalog->require($catalog['code']);
 
         return [
             'display_name' => $pricing['display_name'],
@@ -716,19 +716,19 @@ final class CommerceDashboardService
         }
 
         $catalog = $this->resolveInternalExamCatalog($lock);
-        $pricing = $this->pricingForCatalogCode((string) $catalog->code);
+        $pricing = $this->pricingForCatalogCode($catalog['code']);
 
         return [
             $this->buildOrderLine(
                 0,
-                (string) $catalog->id,
+                $catalog['id'],
                 'internal_exam',
                 null,
                 $quantity,
                 $pricing,
                 [
-                    'catalog_item_id' => (string) $catalog->id,
-                    'stable_catalog_code' => (string) $catalog->code,
+                    'catalog_item_id' => $catalog['id'],
+                    'stable_catalog_code' => $catalog['code'],
                     'product_kind' => 'internal_exam',
                     'display_name_at_order_time' => $pricing['display_name'],
                 ],
@@ -736,8 +736,8 @@ final class CommerceDashboardService
         ];
     }
 
-    /** @return object{id:mixed,code:mixed} */
-    private function resolveInternalExamCatalog(bool $lock): object
+    /** @return array{id:string,code:string} */
+    private function resolveInternalExamCatalog(bool $lock): array
     {
         $catalogCode = $this->internalExamCatalogCode();
 
@@ -763,7 +763,10 @@ final class CommerceDashboardService
             throw ResourceDomainException::rule('Configured internal exam catalog product is unavailable.');
         }
 
-        return $catalog;
+        return [
+            'id' => (string) $catalog->id,
+            'code' => (string) $catalog->code,
+        ];
     }
 
     private function internalExamCatalogCode(): string
