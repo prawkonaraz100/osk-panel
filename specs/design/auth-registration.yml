@@ -147,20 +147,3 @@ development_sample_terms:
   local_document_url: /regulamin/sample-terms-v1
   metadata_endpoint: GET /api/v1/development/sample/legal/terms/current
   production_legal_document_still_required_before_go_live: true
-
-frontend_registration_ui:
-  gate: REGISTRATION-UI-001
-  route: /register
-  component: resources/js/modules/IdentityTenant/RegistrationWorkspace.vue
-  backend_operation: POST /api/v1/auth/register
-  legal_version_source: GET /api/v1/development/sample/legal/terms/current
-  hardcoded_terms_version: forbidden
-  legal_document_link:
-    local_path_required: true
-    same_origin_after_URL_resolution_required: true
-  terms_acceptance_required_before_submit: true
-  marketing_consent_without_versioned_marketing_document_authority: false
-  implicit_authenticated_session_after_registration: false
-  production_real_published_versioned_terms_authority_required: true
-  PKK_PWPW_runtime_activation: forbidden
-
