@@ -15,11 +15,13 @@ Canonical publication branch:
 
 `main`
 
-Zweryfikowany branch-authority evidence head dla canonical `main`:
+Canonical branch jest `main`. Dokładny bieżący HEAD należy odczytywać z refa `main`; nie utrzymujemy samoreferencyjnego „current HEAD” wewnątrz pliku, bo każda zmiana dokumentacji zmieniałaby ten SHA.
 
-`bb6f4639fbf1098f131e579dedbb610e0e7c7d97`
+Ostatni pełny zweryfikowany baseline przed drugim audytem dokumentacji:
 
-Implementation CI #695: **6/6 PASS**.
+`20e6989486bd27c9331a8f5dd55acc6f2b0a3d2b`
+
+Implementation CI #702 (`34997297399`): **6/6 PASS**. API Contract Gate #526 (`34997297369`): **PASS**.
 
 - backend-quality: PASS,
 - frontend-quality: PASS,
@@ -167,7 +169,7 @@ Architektura domenowa musi pozostać niezależna od komponentów Vue.
 
 - `docs/02-screen-inventory.md` — skonsolidowany inwentarz ekranów,
 - `docs/10-gap-register.md` — historyczny snapshot luk; bieżące luki są w `docs/227-current-project-status-authority.md` i `specs/current-project-status.yml`,
-- `docs/71-admin-osk-module-mapping-status.md` — gotowość modułów,
+- `docs/71-admin-osk-module-mapping-status.md` — historyczna gotowość mapowania/evidence, nie bieżący status implementacji,
 - `docs/81-developer-consolidation-plan.md` — historyczny, zakończony plan konsolidacji,
 - `docs/227-current-project-status-authority.md` — bieżący status implementacji/backlog/freeze,
 - `specs/current-project-status.yml` — machine-readable bieżący status,
