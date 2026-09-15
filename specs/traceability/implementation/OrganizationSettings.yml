@@ -81,4 +81,14 @@ changed_scope:
     ui: resources/js/modules/OrganizationSettings/SettingsWorkspace.vue
     acceptance_test: Tests\\Feature\\DevelopmentSampleDataCoreTest::test_sample_accepted_terms_get_real_local_document_url_only_while_sample_mode_is_enabled
     status: IMPLEMENTED
-    acceptance_state: CANDIDATE_NOT_ACCEPTED
+    acceptance_state: ACCEPTED
+    candidate_head: 275e9dc47c5b507d49b96cf4ce79205b0ec78d49
+    candidate_implementation_ci_run: 34979358411
+    candidate_implementation_ci: PASS_5_OF_5
+    candidate_api_contract_run: 34979358178
+    candidate_api_contract: PASS
+    accepted_head: 2f42eaaff8fc41cddee5ddba5c39f1d58033ed5a
+    accepted_implementation_ci_run: 34980321576
+    accepted_implementation_ci: PASS_6_OF_6
+    accepted_api_contract_run: 34980321672
+    accepted_api_contract: PASS
