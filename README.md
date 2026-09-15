@@ -11,11 +11,15 @@ ale nie kopiujemy kodu, layoutu, assetów ani chronionej implementacji innych pr
 
 **Core V1 repository jest implementacyjnie zamknięty.**
 
-Runtime authority po ostatnim zaakceptowanym gate:
+Canonical publication branch:
 
-`4006607dd2aecdc6fabb97a34ba5edf40d07729b`
+`main`
 
-Accepted Implementation CI #675: **6/6 PASS**.
+Zweryfikowany branch-authority evidence head dla canonical `main`:
+
+`bb6f4639fbf1098f131e579dedbb610e0e7c7d97`
+
+Implementation CI #695: **6/6 PASS**.
 
 - backend-quality: PASS,
 - frontend-quality: PASS,
@@ -23,8 +27,13 @@ Accepted Implementation CI #675: **6/6 PASS**.
 - secret-scan: PASS,
 - PostgreSQL runtime + migrations: PASS,
 - immutable release artifact: PASS,
-- runtime suite: **381 tests / 6315 assertions**,
+- runtime suite: **384 tests / 6348 assertions**,
 - deterministic restore: **122 -> 122 PASS**.
+
+Repository branch cleanup z 2026-09-15 jest zamknięty **PASS**: zweryfikowany
+snapshot zachował historię, usunięto 287 historycznych refów, a aktywne branche
+zredukowano z 289 do dwóch: `main` i
+`archive/branch-snapshot-2026-09-15`.
 
 Repository-owned production substrate jest kompletny, ale **produkcja nie jest jeszcze
 udowodniona jako gotowa**. Realny go-live pozostaje:

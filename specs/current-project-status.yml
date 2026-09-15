@@ -5,17 +5,19 @@ meta:
   status: CURRENT
 
 runtime_authority:
-  git_sha: d519651171ab5329d1dcc5326160339d4b94bb5b
+  evidence_kind: CANONICAL_MAIN_BRANCH_AUTHORITY_BASELINE
+  git_sha: bb6f4639fbf1098f131e579dedbb610e0e7c7d97
   canonical_branch: main
   promotion_pull_request: 117
-  accepted_ci_run: 34985599149
+  accepted_ci_run: 34988002041
   accepted_ci: PASS_6_OF_6
+  api_contract_evidence_git_sha: d519651171ab5329d1dcc5326160339d4b94bb5b
   accepted_api_contract_run: 34985599153
   accepted_api_contract: PASS
-  release_artifact_id: 10403891440
-  release_artifact_name: osk-panel-d519651171ab5329d1dcc5326160339d4b94bb5b
-  release_archive_sha256: 9a3dd441316917e33405f6e071dd72ccd598a2cf20d5bac9f302bec7fec37428
-  github_artifact_zip_sha256: da42e6bd1b38ffe7fd8f8303baeebfece799748eccc600c44eff79a817a4dfb5
+  release_artifact_id: 10404653033
+  release_artifact_name: osk-panel-bb6f4639fbf1098f131e579dedbb610e0e7c7d97
+  release_archive_sha256: f7c75130645ff7d83a82d9e449b2b635152b68a5e1ac85201256bb3f10997280
+  github_artifact_zip_sha256: fc788732a5f759d122f9e690ddeee1167b559ca707819d822a9e0f693c4f75de
   postgres_tests_passed: 384
   assertions: 6348
   restore_tables_source: 122
@@ -30,7 +32,17 @@ repository_branch_authority:
   pull_request_base: main
   force_push_main: forbidden
   implementation_ci_push_release_branch: main
-  historical_branch_cleanup: IN_PROGRESS_VERIFICATION_REQUIRED
+  historical_branch_cleanup: PASS
+  cleanup_workflow_run: 34990474440
+  cleanup_snapshot_branch: archive/branch-snapshot-2026-09-15
+  cleanup_snapshot_root: b35f0cf38a588bb27faa4c1f682c8a87864f828b
+  cleanup_live_branch_count_before: 289
+  cleanup_verified_historical_refs_deleted: 287
+  cleanup_live_branch_count_after: 2
+  cleanup_retained_branches:
+    - main
+    - archive/branch-snapshot-2026-09-15
+  archive_branch_merge_to_main: forbidden
   divergent_branch_delete_without_supersession_proof: forbidden
   delete_branch_on_merge_observed: false
   delete_branch_on_merge_observed_on: 2026-09-15

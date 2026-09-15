@@ -18,30 +18,31 @@ Canonical publication branch:
 
 `main`
 
-Accepted main-promotion runtime evidence head:
+Canonical-main branch-authority evidence head:
 
-`d519651171ab5329d1dcc5326160339d4b94bb5b`
+`bb6f4639fbf1098f131e579dedbb610e0e7c7d97`
 
-Promotion authority: PR #117 merged the previously accepted integration history into
-`main` without force-push or squash. The promoted `main` tree is identical to the
-verified accepted integration tree.
+Promotion provenance: PR #117 merged the previously accepted integration history into
+`main` without force-push or squash at `d519651171ab5329d1dcc5326160339d4b94bb5b`.
+Commit `bb6f4639fbf1098f131e579dedbb610e0e7c7d97` then established `main` as the
+sole canonical base/publication branch and received a full post-merge validation.
 
 Accepted Implementation CI:
 
-`34985599149` / run #692 — **6/6 PASS**
+`34988002041` / run #695 — **6/6 PASS**
 
-Accepted API Contract Gate:
+Accepted API Contract Gate for the promoted application/contract tree:
 
 `34985599153` / run #518 — **PASS**
 
-Accepted immutable artifact:
+Accepted immutable artifact for canonical-main evidence head:
 
-- artifact ID: `10403891440`,
-- name: `osk-panel-d519651171ab5329d1dcc5326160339d4b94bb5b`,
+- artifact ID: `10404653033`,
+- name: `osk-panel-bb6f4639fbf1098f131e579dedbb610e0e7c7d97`,
 - release archive SHA-256:
-  `9a3dd441316917e33405f6e071dd72ccd598a2cf20d5bac9f302bec7fec37428`,
+  `f7c75130645ff7d83a82d9e449b2b635152b68a5e1ac85201256bb3f10997280`,
 - GitHub uploaded artifact ZIP SHA-256:
-  `da42e6bd1b38ffe7fd8f8303baeebfece799748eccc600c44eff79a817a4dfb5`.
+  `fc788732a5f759d122f9e690ddeee1167b559ca707819d822a9e0f693c4f75de`.
 
 Runtime suite:
 
@@ -58,11 +59,14 @@ Runtime suite:
 - New task branches start from verified `main` and merge back to `main` through PR
   validation; no force-push/history rewrite of `main`.
 - Full push/release Implementation CI is authoritative only on `main`.
-- Historical branch cleanup remains a separate repository-hygiene activity. Branches
-  may be deleted only after ancestry or explicit supersession is verified; divergent
-  historical tips are not assumed safe merely from their name.
+- Historical branch cleanup is **PASS**. A guarded snapshot preserved the historical
+  tips, verified all live refs against their exact SHA values, and cleanup run
+  `34990474440` removed 287 verified historical refs.
+- Live branch count was reduced from **289 -> 2**. The retained refs are `main` and
+  `archive/branch-snapshot-2026-09-15`; the archive branch is evidence-only and must
+  never be merged into `main`.
 - Repository setting `delete_branch_on_merge` was observed as `false` during the
-  2026-09-15 audit, so merged task branches are not currently removed automatically.
+  2026-09-15 audit, so future merged task branches still require explicit cleanup.
 
 ## Core V1
 
