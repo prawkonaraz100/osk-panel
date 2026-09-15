@@ -7,21 +7,21 @@ meta:
 runtime_authority:
   exact_current_head_source: GIT_REF_main
   embedded_sha_is_verified_evidence_baseline_not_live_head_contract: true
-  evidence_kind: LATEST_FULLY_VERIFIED_RUNTIME_BASELINE_BEFORE_REGISTRATION_CLOSURE_SYNC
-  git_sha: da8b5c35590c77f512a17e21f1e173bce46a6088
+  evidence_kind: LATEST_FULLY_VERIFIED_RUNTIME_BASELINE_BEFORE_LICENSE_PURCHASE_CLOSURE_SYNC
+  git_sha: 394c24d73eb7514e68f4996342b769f4a35b432c
   canonical_branch: main
-  promotion_pull_request: 123
-  accepted_ci_run: 35010888852
+  promotion_pull_request: 125
+  accepted_ci_run: 35015499860
   accepted_ci: PASS_6_OF_6
   api_contract_evidence_git_sha: 20e6989486bd27c9331a8f5dd55acc6f2b0a3d2b
   accepted_api_contract_run: 34997297369
   accepted_api_contract: PASS
-  release_artifact_id: 10413962163
-  release_artifact_name: osk-panel-da8b5c35590c77f512a17e21f1e173bce46a6088
-  release_archive_sha256: f1b3de0bc8cb48ab1d930b6a7b60b8906205b35a455ad715d3eab5aa1746b6c2
-  github_artifact_zip_sha256: 19fb29322c40ff8baae9f29515d52e7440c8c0cbc7bf075519224f12a32509fa
-  postgres_tests_passed: 385
-  assertions: 6367
+  release_artifact_id: 10414769162
+  release_artifact_name: osk-panel-394c24d73eb7514e68f4996342b769f4a35b432c
+  release_archive_sha256: 879fbd07fdeb0297c833b748e9eab4f61d3141714dc028f2ca5de96211d86bc0
+  github_artifact_zip_sha256: 5aaa069688c25d4b500852bf42fc3589fe606d106c8c4835a6f1132908b2861f
+  postgres_tests_passed: 386
+  assertions: 6390
   restore_tables_source: 122
   restore_tables_restored: 122
   restore_schema_fingerprint: f3cab286cc8f0aabef219971d90afe424a8dab694c47ade2f517a3d95970716d
@@ -89,6 +89,30 @@ frontend_productization_completed:
     development_sample_terms_only: true
     production_terms_authority: REQUIRED_NOT_YET_PROVIDED
     PKK_PWPW_runtime: FROZEN_UNTOUCHED
+  license_purchase_UI:
+    gate: LICENSE-PURCHASE-UI-001
+    pull_request: 125
+    accepted: true
+    accepted_head: 394c24d73eb7514e68f4996342b769f4a35b432c
+    accepted_ci_run: 35015499860
+    accepted_ci: PASS_6_OF_6
+    release_artifact_id: 10414769162
+    release_archive_sha256: 879fbd07fdeb0297c833b748e9eab4f61d3141714dc028f2ca5de96211d86bc0
+    github_artifact_zip_sha256: 5aaa069688c25d4b500852bf42fc3589fe606d106c8c4835a6f1132908b2861f
+    postgres_tests: 386
+    postgres_assertions: 6390
+    restore_drill: PASS_122_TO_122
+    route: /licencje/wykup
+    component: resources/js/modules/LearningAccess/LicensePurchaseWorkspace.vue
+    product_projection: GET /api/v1/license-products
+    order_create: POST /api/v1/license-orders
+    request_price_fields: forbidden
+    browser_price_authority: forbidden
+    final_total_source: created_order_response
+    multi_variant_order: true
+    sample_pricing_notice: required_when_sample_data_true
+    provider_specific_online_payment_runtime: deferred
+    PKK_PWPW_runtime: FROZEN_UNTOUCHED
   organization_settings_UI:
     gate: ORGANIZATION-SETTINGS-UI-001
     pull_request: 113
@@ -104,31 +128,6 @@ frontend_productization_completed:
     development_terms_document_resolver: SAMPLE_DATA_IMPLEMENTED_NON_PRODUCTION_ONLY
     production_terms_document_resolver: BLOCKED_MISSING_REAL_VERSIONED_LEGAL_DOCUMENT_AUTHORITY
 
-
-frontend_productization_candidate:
-  license_purchase_UI:
-    gate: LICENSE-PURCHASE-UI-001
-    branch: productization/license-purchase-ui-001
-    accepted_on_main: false
-    acceptance_status: PENDING_EXACT_HEAD_CI_AND_MERGE
-    route: /licencje/wykup
-    component: resources/js/modules/LearningAccess/LicensePurchaseWorkspace.vue
-    product_projection: GET /api/v1/license-products
-    order_create: POST /api/v1/license-orders
-    request_fields:
-      - product_id
-      - quantity
-      - payment_method
-    request_price_fields: forbidden
-    browser_price_authority: forbidden
-    preview_price_source: server_projected_price_only
-    final_total_source: created_order_response
-    multi_variant_order: true
-    sample_pricing_notice: required_when_sample_data_true
-    provider_specific_online_payment_runtime: deferred
-    provider_brand_hardcoding_in_frontend: forbidden
-    inventory_credit_before_confirmed_payment: forbidden
-    PKK_PWPW_runtime: FROZEN_UNTOUCHED
 
 development_sample_support:
   gate: SAMPLE-DATA-001
@@ -191,7 +190,6 @@ api_runtime_contract_reconciliation:
   classification: INTENTIONAL_DEFERRED_OR_COMPATIBILITY_BOUNDARIES
 
 frontend_productization_gaps:
-  - license_purchase_UI_acceptance
   - internal_exam_purchase_UI
   - browser_end_to_end_golden_paths
 
