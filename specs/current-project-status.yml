@@ -5,14 +5,14 @@ meta:
   status: CURRENT
 
 runtime_authority:
-  git_sha: d6b2089903ac830581b8606914cd484f1207dee2
-  accepted_ci_run: 34964671420
+  git_sha: 4006607dd2aecdc6fabb97a34ba5edf40d07729b
+  accepted_ci_run: 34971537563
   accepted_ci: PASS_6_OF_6
-  release_artifact_id: 10395187416
-  release_artifact_name: osk-panel-d6b2089903ac830581b8606914cd484f1207dee2
-  release_archive_sha256: 516fa5aafe9c4a1a2a5bfb488e3fb3ae0bbfa3377d82e05a5797f3b9f70af7ce
-  postgres_tests_passed: 380
-  assertions: 6299
+  release_artifact_id: 10396979267
+  release_artifact_name: osk-panel-4006607dd2aecdc6fabb97a34ba5edf40d07729b
+  release_archive_sha256: c3ca6f4c99dd61099cfc2bb720a502e8808212384d1393a8e8accae17071b962
+  postgres_tests_passed: 381
+  assertions: 6315
   restore_tables_source: 122
   restore_tables_restored: 122
 
@@ -34,27 +34,33 @@ frontend_productization_completed:
     registration_UI: BLOCKED_PENDING_PUBLIC_LEGAL_DOCUMENT_DISCOVERY
     social_provider_buttons: DEFERRED_PENDING_PROVIDER_DISCOVERY_CONTRACT
 
-frontend_productization_in_progress:
+frontend_productization_completed:
+  auth_and_recovery_UI:
+    gate: AUTH-RECOVERY-UI-001
+    pull_request: 111
+    accepted: true
+    accepted_head: d6b2089903ac830581b8606914cd484f1207dee2
+    accepted_ci_run: 34964671420
+    accepted_ci: PASS_6_OF_6
+    release_artifact_id: 10395187416
+    release_archive_sha256: 516fa5aafe9c4a1a2a5bfb488e3fb3ae0bbfa3377d82e05a5797f3b9f70af7ce
+    registration_UI: BLOCKED_PENDING_PUBLIC_LEGAL_DOCUMENT_DISCOVERY
+    social_provider_buttons: DEFERRED_PENDING_PROVIDER_DISCOVERY_CONTRACT
   organization_settings_UI:
     gate: ORGANIZATION-SETTINGS-UI-001
-    branch: productization/organization-settings-ui-001
-    accepted: false
-    status: VALIDATED_CANDIDATE_PENDING_ACCEPTED_PROMOTION
+    pull_request: 113
+    accepted: true
+    accepted_head: 4006607dd2aecdc6fabb97a34ba5edf40d07729b
+    accepted_ci_run: 34971537563
+    accepted_ci: PASS_6_OF_6
+    release_artifact_id: 10396979267
+    release_archive_sha256: c3ca6f4c99dd61099cfc2bb720a502e8808212384d1393a8e8accae17071b962
     route: /ustawienia
     component: resources/js/modules/OrganizationSettings/SettingsWorkspace.vue
-    validated_candidate_head: 0e3466eccea19f7bb798a548a07e925dac6b6157
-    candidate_ci_run: 34969328994
-    candidate_ci: PASS_5_OF_5
-    postgres_tests_passed: 381
-    assertions: 6315
-    restore_tables_source: 122
-    restore_tables_restored: 122
-    schema_fingerprint: f3cab286cc8f0aabef219971d90afe424a8dab694c47ade2f517a3d95970716d
     PKK_runtime: FROZEN_NOT_CALLED
     terms_document_resolver: BLOCKED_MISSING_VERSIONED_LOCAL_RESOLVER
 
 frontend_productization_gaps:
-  - organization_settings_UI
   - license_purchase_UI
   - internal_exam_purchase_UI
   - browser_end_to_end_golden_paths
