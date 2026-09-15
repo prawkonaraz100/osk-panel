@@ -250,7 +250,7 @@ final class ProductionEnvironmentPreflight
             }, 'REDIS_CACHE_ROUND_TRIP_FAILED'),
 
             'redis_queue_visibility' => $this->safeLiveCheck(function (): bool {
-                return is_int(Queue::connection('redis')->size());
+                return Queue::connection('redis')->size() >= 0;
             }, 'REDIS_QUEUE_ACCESS_FAILED'),
 
             'object_storage_round_trip' => $this->safeLiveCheck(function (): bool {
