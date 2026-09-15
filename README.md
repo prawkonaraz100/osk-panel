@@ -13,9 +13,9 @@ ale nie kopiujemy kodu, layoutu, assetów ani chronionej implementacji innych pr
 
 Runtime authority po ostatnim zaakceptowanym gate:
 
-`d6b2089903ac830581b8606914cd484f1207dee2`
+`4006607dd2aecdc6fabb97a34ba5edf40d07729b`
 
-Accepted Implementation CI #665: **6/6 PASS**.
+Accepted Implementation CI #675: **6/6 PASS**.
 
 - backend-quality: PASS,
 - frontend-quality: PASS,
@@ -23,7 +23,7 @@ Accepted Implementation CI #665: **6/6 PASS**.
 - secret-scan: PASS,
 - PostgreSQL runtime + migrations: PASS,
 - immutable release artifact: PASS,
-- runtime suite: **380 tests / 6299 assertions**,
+- runtime suite: **381 tests / 6315 assertions**,
 - deterministic restore: **122 -> 122 PASS**.
 
 Repository-owned production substrate jest kompletny, ale **produkcja nie jest jeszcze
@@ -46,9 +46,9 @@ podstawowego backendu.
 
 Ukończone w productization:
 - **AUTH-RECOVERY-UI-001** — login, forgot-password i reset-password są częścią accepted runtime od `d6b2089903ac830581b8606914cd484f1207dee2`; PR #111, accepted CI #665 = 6/6 PASS.
+- **ORGANIZATION-SETTINGS-UI-001** — provider-neutral `/ustawienia` jest częścią accepted runtime od `4006607dd2aecdc6fabb97a34ba5edf40d07729b`; PR #113, accepted CI #675 = 6/6 PASS. PKK pozostaje zamrożone, e-mail read-only, a odtworzenie dokładnej treści regulaminu nadal wymaga versioned local document resolvera.
 
 Pozostałe luki produktowe:
-- UI ustawień organizacji,
 - UI zakupu licencji,
 - UI zakupu egzaminów wewnętrznych,
 - browser E2E dla głównych golden paths,
