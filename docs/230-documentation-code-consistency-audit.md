@@ -6,7 +6,7 @@ Data: 2026-09-15
 **Scope:** `main@7ee7093b1d86498e270f2cd5710c2b5bf9ffad19` + documentation-sync branch  
 **Code changes in this audit:** **none**
 
-**Integration result:** first audit merged as PR #120 to `main@20e6989486bd27c9331a8f5dd55acc6f2b0a3d2b`; post-merge Implementation CI #702 (`34997297399`) passed 6/6 and API Contract Gate #526 (`34997297369`) passed. This file remains the historical record of that first-pass audit scope; the independent follow-up is `docs/231-documentation-code-consistency-reaudit.md`.
+**Integration result:** first audit merged as PR #120 to `main@20e6989486bd27c9331a8f5dd55acc6f2b0a3d2b`; post-merge Implementation CI #702 (`34997297399`) passed 6/6 and API Contract Gate #526 (`34997297369`) passed. Sections 1–12 below remain the historical record of that first-pass audit scope. The independent second-pass verification is recorded in section 13 of this same audit document so the repository does not create a redundant status document.
 
 ## 1. Purpose and authority
 
@@ -205,3 +205,86 @@ For future work:
 4. treat `x-runtime-status` deferred operations as contract/evidence, not physical runtime,
 5. keep PKK provider integration frozen until authoritative PWPW requirements are received,
 6. after PWPW guidance arrives, re-diagnose preserved PKK API/DB/security assumptions before implementing any provider-specific behavior.
+
+
+## 13. Independent second-pass re-audit — 2026-09-15
+
+**Purpose:** verify the documentation corrections against the unchanged materialized runtime and remove remaining cases where historical design/gate metadata could be read as current implementation status.
+
+**Code changes in the second pass:** **none**. The re-audit branch changes documentation/specification files only; application runtime, routes, migrations and tests are used as evidence, not rewritten to fit documentation.
+
+### 13.1 Authority used
+
+For current implementation/backlog/freeze:
+
+- `docs/227-current-project-status-authority.md`,
+- `specs/current-project-status.yml`.
+
+For physical truth:
+
+- HTTP/web route binding: `routes/web.php` + referenced controller/service,
+- application modules/UI: `app/Modules/**` and `resources/js/**`,
+- database materialization: `database/migrations/**`, `app/Support/Migrations/**` and executable DB tests,
+- executable behavior: `tests/**`.
+
+Legal/design/preservation decisions retain their existing precedence and were not rewritten to match implementation.
+
+### 13.2 Verified current implementation state
+
+The independent pass reconfirmed:
+
+- exactly **160** physical `/api/v1` bindings in `routes/web.php`,
+- exactly **173** canonical OpenAPI HTTP operations and no duplicate `operationId`,
+- exactly **15** OpenAPI-only operations: **14 PKK/PWPW** preserved/deferred operations plus **1 provider payment webhook**,
+- exactly **2** intentional runtime-only compatibility/development endpoints:
+  - `GET /api/v1/development/sample/legal/terms/current`,
+  - `POST /api/v1/internal-exam-stations/heartbeat`,
+- provider-specific PKK/PWPW controller/service/routes/UI remain absent and frozen; local encrypted course-scoped PKK identity and manual entry remain implemented,
+- registration UI is not materialized,
+- `/licencje/wykup` is not materialized although `POST /api/v1/license-orders` exists,
+- `/egzamin-wewnetrzny/wykup` is not materialized although `POST /api/v1/internal-exam/orders` exists,
+- no Playwright/Cypress/browser-E2E suite is present,
+- current SPA dispatch remains a lightweight pathname shell in `resources/js/App.vue`.
+
+### 13.3 Retention executor verification
+
+The re-audit also checked the implementation rather than inferring it from the earlier production-readiness plan:
+
+- `app/Support/Privacy/RetentionExecutor.php` exists,
+- `app/Console/Commands/RetentionRunCommand.php` exposes the privileged CLI entry point,
+- destructive execution is disabled by default through `RETENTION_EXECUTOR_ENABLED=false`,
+- the currently executable data class is restricted to `idempotency_records`,
+- execution requires exact policy version, nonblank reason, explicit `--execute`, exact confirmation token, PostgreSQL advisory transaction lock and server-side candidate-count fence,
+- there is no HTTP retention endpoint and no automatic hard-delete schedule,
+- expansion to additional data classes remains a separate reviewed-authority decision.
+
+This is why `specs/privacy/retention-schedule.yml` now describes the executor as `IMPLEMENTED_BOUNDED_TECHNICAL_TTL_IDEMPOTENCY_ONLY` instead of implying that all retention classes have an executable purge path.
+
+### 13.4 Documentation corrections completed in this pass
+
+The pass corrected only documents related to confirmed drift:
+
+- current-status/head evidence wording is non-self-referential: live HEAD authority is the `main` ref, while embedded SHAs are verified evidence baselines,
+- Stage 4 point-in-time fields such as `implementation_started`, `Laravel_migrations_created`, `OPEN/PENDING` are explicitly historical where later materialization is proven,
+- screen/menu preservation evidence is separated from physical route materialization,
+- current module documentation lists the modules actually present in `app/Modules/**`,
+- registration/sample-Terms, settings, Student Progress and formal-document status wording is aligned with materialized runtime,
+- license/exam purchase screen specs explicitly distinguish preserved screen requirements from currently absent purchase UI,
+- retention and production-readiness records distinguish repository substrate evidence from target-production evidence.
+
+No architecture assumption, legal rule or preserved confirmed capability was removed or rewritten merely to fit current code.
+
+### 13.5 Remaining work and acceptance boundary
+
+This re-audit does **not** claim that the remaining productization work is complete. The current repository-owned gaps remain:
+
+1. registration UI,
+2. license purchase UI,
+3. internal-exam purchase UI,
+4. browser E2E golden paths,
+5. lightweight frontend routing/state architecture,
+6. target production external evidence.
+
+PKK/PWPW remains `FROZEN_UNTIL_EXPLICIT_UNFREEZE` and is not reactivated by this audit.
+
+The documentation corrections are complete as a candidate. Acceptance still requires the normal PR validation and, after promotion, authoritative `main` validation; until those checks exist, this section must not be read as post-merge CI evidence.
