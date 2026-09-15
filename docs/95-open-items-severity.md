@@ -3,6 +3,10 @@
 Data konsolidacji: 2026-09-05
 Aktualizacja closure audit: 2026-09-13
 
+**Status dokumentu:** `HISTORICAL_SNAPSHOT_SUPERSEDED`
+
+> Sekcja `Current repository P1` poniżej jest snapshotem z wcześniejszego closure audit i **nie jest aktualnym backlogiem**. Core V1 ma obecnie `repository_actionable_P0=0` i `repository_actionable_P1_for_core_launch=0`; bieżące luki productization są wyłącznie w `docs/227-current-project-status-authority.md` / `specs/current-project-status.yml`. PKK/PWPW pozostaje zamrożone do czasu autorytatywnych wytycznych PWPW.
+
 ## P0 before high-risk modules
 
 - none.
@@ -29,7 +33,7 @@ Closure audit authority: `docs/149-core-v1-closure-audit.md`.
 
 Formal training documents runtime is **resolved** through FORMAL-DOC-011 and is no longer open P1.
 
-Current repository P1:
+Historical repository P1 at closure-audit snapshot time:
 
 - Stage-4 executable migration materialization: **58/170 DAG nodes still missing**, including 6 core tables and all remaining candidate-key/index/FK/constraint/trigger/projection groups,
 - Identity/Auth HTTP runtime required by canonical API and usable panel session lifecycle,
@@ -41,7 +45,7 @@ Current repository P1:
 - CourseEnrollment `training_completed` UI wiring to the already materialized server-side evidence gate,
 - remaining small canonical HTTP bindings such as `/languages` and audit-log read API unless explicitly reclassified by a later gate.
 
-Core v1 repository status remains `REPO_P1_REMAINS`; local slice PASS records are preserved and are not rewritten.
+Historical snapshot status was `REPO_P1_REMAINS`; został później superseded przez zamknięcie Core V1. Historyczne PASS records pozostają zachowane, ale aktualny status pochodzi z docs/227.
 
 ## Deployment evidence before production
 
