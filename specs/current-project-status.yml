@@ -5,6 +5,7 @@ meta:
   status: CURRENT
 
 runtime_authority:
+  evidence_kind: CANONICAL_MAIN_BRANCH_AUTHORITY_BASELINE
   git_sha: bb6f4639fbf1098f131e579dedbb610e0e7c7d97
   canonical_branch: main
   promotion_pull_request: 117
