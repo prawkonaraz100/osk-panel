@@ -22,6 +22,7 @@ final class CommerceDashboardService
     public function __construct(
         private readonly TenantAuthorizer $tenantAuthorizer,
         private readonly AtomicAuditOutbox $auditOutbox,
+        private readonly CommercePricingCatalog $pricingCatalog,
     ) {}
 
     /**
@@ -786,44 +787,10 @@ final class CommerceDashboardService
      */
     private function pricingForCatalogCode(string $catalogCode): array
     {
-        $registry = config('commerce.order_create.pricing_by_catalog_code');
-        if (! is_array($registry) || ! array_key_exists($catalogCode, $registry) || ! is_array($registry[$catalogCode])) {
-            throw ResourceDomainException::conflict('Current commerce pricing configuration is unavailable for the requested catalog item.');
-        }
+        $pricing = $this->pricingCatalog->require($catalogCode);
+        unset($pricing['sample_data']);
 
-        $entry = $registry[$catalogCode];
-        $currency = $entry['currency'] ?? null;
-        $list = $entry['list_unit_amount_minor'] ?? null;
-        $charged = $entry['charged_unit_amount_minor'] ?? null;
-        $vat = $entry['vat_rate_basis_points'] ?? null;
-        $displayName = $entry['display_name'] ?? null;
-        $revision = $entry['pricing_revision'] ?? null;
-
-        if (! is_string($currency)
-            || preg_match('/^[A-Z]{3}$/', $currency) !== 1
-            || ! is_int($list)
-            || $list < 0
-            || ! is_int($charged)
-            || $charged < 0
-            || $charged > $list
-            || ! is_int($vat)
-            || $vat < 0
-            || $vat > 10000
-            || ! is_string($displayName)
-            || trim($displayName) === ''
-            || ! is_string($revision)
-            || trim($revision) === '') {
-            throw ResourceDomainException::conflict('Current commerce pricing configuration is malformed.');
-        }
-
-        return [
-            'currency' => $currency,
-            'list_unit_amount_minor' => $list,
-            'charged_unit_amount_minor' => $charged,
-            'vat_rate_basis_points' => $vat,
-            'display_name' => trim($displayName),
-            'pricing_revision' => trim($revision),
-        ];
+        return $pricing;
     }
 
     /**
