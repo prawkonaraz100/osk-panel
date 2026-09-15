@@ -132,8 +132,11 @@ Functional SPA workspaces exist for:
 Completed productization work:
 
 - `AUTH-RECOVERY-UI-001`: accepted on `d6b2089903ac830581b8606914cd484f1207dee2`; PR #111; accepted CI #665 **6/6 PASS**. Public SPA routes exist for `/login`, `/forgot-password` and `/reset-password`.
-- `REGISTRATION-UI-001`: PR #123 materializes public `/register` on top of the accepted `POST /api/v1/auth/register` backend. The browser discovers the exact Terms version from `GET /api/v1/development/sample/legal/terms/current`, never hardcodes a legal version, keeps marketing consent false until a separately versioned marketing authority exists, does not create an implicit authenticated session, and renders the discovered Terms target only when it remains same-origin. The development sample resolver is non-production only; production registration still requires a real published/versioned Terms authority.
 - `ORGANIZATION-SETTINGS-UI-001`: accepted on `4006607dd2aecdc6fabb97a34ba5edf40d07729b`; PR #113; accepted CI #675 **6/6 PASS**. `/ustawienia` uses the provider-neutral settings contract, keeps e-mail read-only, does not read or mutate PKK while frozen, and does not synthesize a terms document URL.
+
+Current productization candidate — **not yet accepted on `main`**:
+
+- `REGISTRATION-UI-001`: PR #123 physically materializes public `/register` in the current candidate tree on top of the accepted `POST /api/v1/auth/register` backend. The browser discovers the exact Terms version from `GET /api/v1/development/sample/legal/terms/current`, never hardcodes a legal version, keeps marketing consent false until a separately versioned marketing authority exists, does not create an implicit authenticated session, and currently permits the discovered Terms link only after same-origin URL resolution. That same-origin behavior is an implementation hardening choice, not a new architecture authority. Acceptance remains pending exact-head CI and merge. Production registration still requires a real published/versioned Terms authority.
 
 Completed development support:
 
@@ -147,7 +150,7 @@ Current productization gaps confirmed by code audit:
 4. frontend routing is currently a lightweight pathname shell rather than a full
    router/state-management architecture.
 
-Registration UI is repository-materialized by `REGISTRATION-UI-001`; this does **not** remove the production legal prerequisite. A real published/versioned Terms authority remains required before production registration can be enabled.
+Registration UI is repository-materialized in the current PR #123 candidate tree, but is **not yet accepted on `main`**. This does **not** remove the production legal prerequisite. A real published/versioned Terms authority remains required before production registration can be enabled.
 
 These are the next repository-owned product gaps. They do not reopen the already
 closed Core domain/database authority.
