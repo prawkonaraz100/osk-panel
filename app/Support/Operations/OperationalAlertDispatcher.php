@@ -29,7 +29,7 @@ final class OperationalAlertDispatcher
             'runbook' => $definition['runbook'],
         ];
 
-        if (! (bool) config('operational_alerting.enabled', false)) {
+        if ((bool) config('operational_alerting.enabled', false) === false) {
             Log::warning('operational_alert_disabled', [
                 'event_id' => $eventId,
                 'event_code' => $eventCode,
