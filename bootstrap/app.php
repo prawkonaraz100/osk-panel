@@ -1,5 +1,6 @@
 <?php
 
+use App\Console\Commands\GoLiveEvidenceCommand;
 use App\Console\Commands\ProductionPreflightCommand;
 use App\Console\Commands\RetentionRunCommand;
 use App\Modules\ResourcesCore\ResourceDomainException;
@@ -11,7 +12,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 return Application::configure(basePath: dirname(__DIR__))
-    ->withCommands([ProductionPreflightCommand::class, RetentionRunCommand::class])
+    ->withCommands([GoLiveEvidenceCommand::class, ProductionPreflightCommand::class, RetentionRunCommand::class])
     ->withRouting(
         web: __DIR__.'/../routes/web.php',
         commands: __DIR__.'/../routes/console.php',
