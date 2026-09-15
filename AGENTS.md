@@ -41,7 +41,7 @@ High-level aggregate jest indeksem. **Nie jest skróconym zamiennikiem screen sp
 
 ## Najpierw przeczytaj
 
-Najpierw ustal **bieżący stan wykonania** w `docs/227-current-project-status-authority.md` oraz `specs/current-project-status.yml`. Historyczne plany, gapy i statusy `READY_FOR_IMPLEMENTATION` opisują zachowany scope/evidence albo stan z wcześniejszego etapu i nie mogą być używane jako aktualny backlog.
+Najpierw ustal **bieżący stan wykonania** w `docs/227-current-project-status-authority.md` oraz `specs/current-project-status.yml`. Historyczne plany, gapy i statusy `READY_FOR_IMPLEMENTATION` opisują zachowany scope/evidence albo stan z wcześniejszego etapu i nie mogą być używane jako aktualny backlog. Tak samo point-in-time pola Stage 4 typu `implementation_started: false`, `Laravel_migrations_created: false`, `OPEN/PENDING` nie są obecnym stanem, gdy spec ma current-materialization note; physical truth sprawdzaj w migracjach, registry i testach.
 
 Obowiązkowo przed implementacją modułu:
 
@@ -56,6 +56,7 @@ Obowiązkowo przed implementacją modułu:
 9. `docs/71-admin-osk-module-mapping-status.md`,
 10. `docs/82-canonical-domain-glossary.md`,
 11. `docs/83-core-lifecycle-policy.md`,
+12. dla pytania „czy route naprawdę istnieje w naszym runtime?” — `routes/web.php`; route obecny wyłącznie w preservation/menu/screen evidence nie jest wystarczającym dowodem materializacji.
 12. `docs/05-domain-model.md`,
 13. `docs/06-api-contract.md`,
 14. `specs/api/common-contract.yml`,
