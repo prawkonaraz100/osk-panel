@@ -278,3 +278,32 @@ Scope:
 - no schema/migration change,
 - no password-reset/social OAuth work,
 - no PKK runtime.
+
+
+## Development sample-terms exception — 2026-09-15
+
+User explicitly approved a temporary example Terms document so registration UI work can
+continue before the production legal text is finalized.
+
+The existing registration authority remains unchanged:
+
+- `accepted_terms_version` is still required,
+- the version must still resolve to exactly one published/effective
+  `legal_documents` row,
+- registration still writes the exact append-only acceptance,
+- no legal-document validation bypass exists.
+
+The non-production sample bootstrap adds:
+
+- version: `sample-terms-v1`,
+- content: `resources/views/legal/sample-terms-v1.blade.php`,
+- local document URL: `/regulamin/sample-terms-v1`,
+- development metadata endpoint:
+  `GET /api/v1/development/sample/legal/terms/current`,
+- seeder: `DevelopmentSampleDataSeeder`.
+
+The sample document is clearly labelled as development-only and is enabled only through
+`SAMPLE_DATA_ENABLED`. Enabling sample data in `APP_ENV=production` is forbidden.
+
+This unblocks development of registration UI. Production registration still requires
+a real approved Terms document/discovery policy before go-live.
