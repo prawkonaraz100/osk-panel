@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Console\Commands\OperationalAlertSmokeCommand;
+use App\Console\Commands\ReconciliationAlertSmokeCommand;
 use App\Support\Operations\OperationalAlertDispatcher;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Artisan;
@@ -105,4 +106,47 @@ final class OperationalAlertingCoreTest extends TestCase
         $this->assertSame('delivered', $payload['status']);
         $this->assertSame('synthetic_smoke', $payload['event_code']);
     }
+    public function test_reconciliation_alert_smoke_uses_exact_findings_event_without_business_mutation_claim(): void
+    {
+        Http::fake([
+            'https://alerts.example.test/*' => Http::response(['accepted' => true], 202),
+        ]);
+        config()->set('operational_alerting.enabled', true);
+        config()->set('operational_alerting.webhook_url', 'https://alerts.example.test/ingest');
+        config()->set('operational_alerting.webhook_secret', 'test-only-alert-secret');
+        config()->set('operational_alerting.timeout_seconds', 5);
+        config()->set('reconciliation.policy_version', '2026-09-13-v1');
+
+        $refused = Artisan::call('operations:reconciliation:alert:smoke', [
+            '--confirm' => 'wrong',
+            '--json' => true,
+        ]);
+        $this->assertSame(Command::FAILURE, $refused);
+        Http::assertNothingSent();
+
+        $sent = Artisan::call('operations:reconciliation:alert:smoke', [
+            '--confirm' => ReconciliationAlertSmokeCommand::CONFIRMATION,
+            '--json' => true,
+        ]);
+        $this->assertSame(Command::SUCCESS, $sent);
+
+        $result = json_decode(trim(Artisan::output()), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame('delivered', $result['status']);
+        $this->assertSame('reconciliation_findings', $result['event_code']);
+
+        Http::assertSent(function (Request $request): bool {
+            $payload = json_decode($request->body(), true, 512, JSON_THROW_ON_ERROR);
+
+            return ($payload['event_code'] ?? null) === 'reconciliation_findings'
+                && ($payload['severity'] ?? null) === 'SEV2'
+                && ($payload['runbook'] ?? null) === 'payment_or_reconciliation'
+                && ($payload['context']['policy_version'] ?? null) === '2026-09-13-v1'
+                && ($payload['context']['findings_total'] ?? null) === 1
+                && ($payload['context']['findings_by_scope']['synthetic_smoke'] ?? null) === 1
+                && ($payload['context']['synthetic_smoke'] ?? null) === true
+                && ! array_key_exists('organization_id', $payload['context'])
+                && ! array_key_exists('entity_id', $payload['context']);
+        });
+    }
+
 }
