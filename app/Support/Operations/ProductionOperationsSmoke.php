@@ -160,7 +160,7 @@ final class ProductionOperationsSmoke
     }
 
     /**
-     * @param list<string> $missing
+     * @param  list<string>  $missing
      * @return array{
      *   result:string,
      *   incident_policy_version:string,
