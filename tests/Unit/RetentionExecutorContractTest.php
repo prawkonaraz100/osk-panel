@@ -29,7 +29,7 @@ final class RetentionExecutorContractTest extends TestCase
         self::assertStringNotContainsString('retention:run', $web);
         self::assertStringNotContainsString("Schedule::command('retention:run", $console);
 
-        self::assertStringContainsString('status: CANDIDATE', $spec);
+        self::assertStringContainsString('status: PASS', $spec);
         self::assertStringContainsString('ordinary_application_role_access: forbidden', $spec);
         self::assertStringContainsString('outbox_trigger_bypass: forbidden', $spec);
         self::assertStringContainsString('PKK_provider_runtime: untouched_frozen', $spec);
