@@ -13,6 +13,8 @@ final class RetentionExecutorContractTest extends TestCase
     {
         $root = dirname(__DIR__, 2);
         $config = (string) file_get_contents($root.'/config/retention.php');
+        $command = (string) file_get_contents($root.'/app/Console/Commands/RetentionRunCommand.php');
+        $bootstrap = (string) file_get_contents($root.'/bootstrap/app.php');
         $console = (string) file_get_contents($root.'/routes/console.php');
         $web = (string) file_get_contents($root.'/routes/web.php');
         $spec = (string) file_get_contents($root.'/specs/privacy/retention-executor.yml');
@@ -21,7 +23,8 @@ final class RetentionExecutorContractTest extends TestCase
         self::assertStringContainsString("'idempotency_records'", $config);
         self::assertStringNotContainsString("'outbox_published',", $config);
 
-        self::assertStringContainsString('retention:run', $console);
+        self::assertStringContainsString('retention:run', $command);
+        self::assertStringContainsString('RetentionRunCommand::class', $bootstrap);
         self::assertStringContainsString(RetentionExecutor::EXECUTION_CONFIRMATION, file_get_contents($root.'/app/Support/Privacy/RetentionExecutor.php'));
         self::assertStringNotContainsString('retention:run', $web);
         self::assertStringNotContainsString("Schedule::command('retention:run", $console);

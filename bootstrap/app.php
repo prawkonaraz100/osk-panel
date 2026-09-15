@@ -1,5 +1,6 @@
 <?php
 
+use App\Console\Commands\RetentionRunCommand;
 use App\Modules\ResourcesCore\ResourceDomainException;
 use App\Support\Operations\ProductionHealthController;
 use Illuminate\Foundation\Application;
@@ -9,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 return Application::configure(basePath: dirname(__DIR__))
+    ->withCommands([RetentionRunCommand::class])
     ->withRouting(
         web: __DIR__.'/../routes/web.php',
         commands: __DIR__.'/../routes/console.php',
