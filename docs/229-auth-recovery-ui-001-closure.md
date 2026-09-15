@@ -39,7 +39,7 @@ Runtime proof:
 
 ## Preserved authority and deferred work
 
-Registration remains **not implemented in this gate**. The accepted registration
+Registration remains **not implemented in this gate**. At closure time no public Terms discovery existed. `SAMPLE-DATA-001` later added a non-production sample Terms resolver that unblocks registration development, but does not implement the registration UI and does not replace production legal publication authority. The accepted registration
 contract requires an exact published legal-document version and the repository
 still has no unauthenticated public current-legal-document discovery endpoint.
 No legal version is hardcoded.
