@@ -26,10 +26,7 @@ final class RetentionRunCommand extends Command
         $organization = $this->option('organization');
         $reason = $this->option('reason');
 
-        if (! is_string($dataClass)
-            || ! is_string($policy)
-            || ! is_string($reason)
-            || ($organization !== null && ! is_string($organization))) {
+        if (! is_string($policy) || ! is_string($reason)) {
             $this->error('Retention arguments are invalid.');
 
             return self::FAILURE;
