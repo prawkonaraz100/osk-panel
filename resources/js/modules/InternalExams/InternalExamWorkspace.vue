@@ -619,10 +619,6 @@ function downloadAnswerSheet(attemptId: string): void {
   )
 }
 
-function openPurchaseDeferred(): void {
-  notice.value = 'Zakup dodatkowej puli egzaminów jest jawnie odroczony do modułu Platform Commerce. Dostępne jednostki i korekty działają już na ledgerze egzaminów.'
-}
-
 async function refreshAfterMutation(): Promise<void> {
   const [inventoryResult, stationResult] = await Promise.all([
     api<InventoryProjection>('/api/v1/internal-exam/inventory'),
@@ -771,13 +767,12 @@ function handleError(caught: unknown): void {
           </h1>
         </div>
         <div class="header-actions">
-          <button
+          <a
             class="button ghost"
-            type="button"
-            @click="openPurchaseDeferred"
+            href="/egzamin-wewnetrzny/wykup"
           >
             Wykup egzaminy
-          </button>
+          </a>
           <button
             class="button primary"
             type="button"
