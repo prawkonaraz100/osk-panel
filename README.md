@@ -15,7 +15,7 @@ Canonical publication branch:
 
 `main`
 
-Najnowszy w pełni zweryfikowany evidence head dla canonical `main`:
+Zweryfikowany branch-authority evidence head dla canonical `main`:
 
 `bb6f4639fbf1098f131e579dedbb610e0e7c7d97`
 
