@@ -168,6 +168,7 @@ paths:
   /learning-accesses/bulk-access-document: { $ref: './paths/licenses.yaml#/paths/~1learning-accesses~1bulk-access-document' }
 
   /internal-exam/inventory: { $ref: './paths/internal-exams.yaml#/paths/~1internal-exam~1inventory' }
+  /internal-exam/purchase-offer: { $ref: './paths/internal-exams.yaml#/paths/~1internal-exam~1purchase-offer' }
   /internal-exam/orders: { $ref: './paths/internal-exams.yaml#/paths/~1internal-exam~1orders' }
   /internal-exam/subjects: { $ref: './paths/internal-exams.yaml#/paths/~1internal-exam~1subjects' }
   /internal-exam/capabilities: { $ref: './paths/internal-exams.yaml#/paths/~1internal-exam~1capabilities' }
