@@ -86,13 +86,14 @@ PKK_provider_boundary:
 
 executor_boundary:
   retention_execution_table_materialized: true
-  privileged_executor_status: PARTIAL_TECHNICAL_TTL_IDEMPOTENCY_ONLY
+  privileged_executor_status: IMPLEMENTED_BOUNDED_TECHNICAL_TTL_IDEMPOTENCY_ONLY
+  privileged_executor_closure: docs/215-prod-retention-executor-001-closure.md
   privileged_executor_authority: PROD-RETENTION-EXECUTOR-001
   privileged_executor_allowed_data_classes:
     - idempotency_records
   ordinary_application_role_hard_delete: false
   current_gate_authorizes_automatic_hard_delete: false
-  required_future_executor_contract: DB_EVT_001
+  future_executor_expansion_requires: SEPARATE_REVIEWED_AUTHORITY_FOR_EACH_ADDITIONAL_DATA_CLASS
   outbox_unresolved_auto_delete: false
   cascade_delete_business_authority: false
   rewrite_business_facts_to_make_row_eligible: false
