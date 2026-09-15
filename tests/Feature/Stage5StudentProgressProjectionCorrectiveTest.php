@@ -49,7 +49,29 @@ final class Stage5StudentProgressProjectionCorrectiveTest extends TestCase
         self::assertSame(0, DB::table('student_learning_progress_projections')->count());
     }
 
-    public function test_binding_and_projection_constraints_fail_closed_across_tenant_and_account_boundaries(): void
+    public function test_source_binding_rejects_cross_tenant_or_wrong_account_identity(): void
+    {
+        $first = $this->learningAccountFixture();
+        $second = $this->learningAccountFixture();
+
+        $this->expectException(QueryException::class);
+        DB::table('learning_progress_source_bindings')->insert([
+            'id' => (string) Str::uuid7(),
+            'organization_id' => $first['organization_id'],
+            'student_id' => $second['student_id'],
+            'student_learning_account_id' => $second['account_id'],
+            'source_system' => 'learning-core',
+            'source_subject_ref' => 'subject-cross',
+            'source_access_ref' => 'access-cross',
+            'status' => 'active',
+            'version' => 1,
+            'bound_at' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+    }
+
+    public function test_projection_rejects_binding_from_another_tenant_or_account(): void
     {
         $first = $this->learningAccountFixture();
         $second = $this->learningAccountFixture();
@@ -71,49 +93,7 @@ final class Stage5StudentProgressProjectionCorrectiveTest extends TestCase
             'updated_at' => now(),
         ]);
 
-        try {
-            DB::table('learning_progress_source_bindings')->insert([
-                'id' => (string) Str::uuid7(),
-                'organization_id' => $first['organization_id'],
-                'student_id' => $second['student_id'],
-                'student_learning_account_id' => $second['account_id'],
-                'source_system' => 'learning-core',
-                'source_subject_ref' => 'subject-cross',
-                'source_access_ref' => 'access-cross',
-                'status' => 'active',
-                'version' => 1,
-                'bound_at' => now(),
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
-            self::fail('Cross-tenant/account source binding must fail closed.');
-        } catch (QueryException) {
-            self::assertTrue(true);
-        }
-
         $categoryId = (string) DB::table('driving_categories')->where('active', true)->value('id');
-        DB::table('student_learning_progress_projections')->insert([
-            'id' => (string) Str::uuid7(),
-            'organization_id' => $first['organization_id'],
-            'student_id' => $first['student_id'],
-            'student_learning_account_id' => $first['account_id'],
-            'learning_progress_source_binding_id' => $bindingId,
-            'driving_category_id' => $categoryId,
-            'learning_account_version' => 1,
-            'source_snapshot_ref' => 'snapshot-1',
-            'source_observed_at' => now(),
-            'projected_at' => now(),
-            'projection_version' => 1,
-            'tests_json' => '{}',
-            'questions_json' => '{}',
-            'handbook_json' => '{}',
-            'lectures_json' => '{}',
-            'topics_json' => '[]',
-            'snapshot_hash' => str_repeat('a', 64),
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-
         $this->expectException(QueryException::class);
         DB::table('student_learning_progress_projections')->insert([
             'id' => (string) Str::uuid7(),
