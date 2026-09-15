@@ -7,21 +7,21 @@ meta:
 runtime_authority:
   exact_current_head_source: GIT_REF_main
   embedded_sha_is_verified_evidence_baseline_not_live_head_contract: true
-  evidence_kind: LATEST_FULLY_VERIFIED_ACCEPTED_MAIN_BASELINE_BEFORE_INTERNAL_EXAM_PURCHASE_CANDIDATE
-  git_sha: 5fd3dfb4cceadd634fbc9b379b69f99b958079d0
+  evidence_kind: LATEST_FULLY_VERIFIED_ACCEPTED_MAIN_RUNTIME_BEFORE_INTERNAL_EXAM_PURCHASE_CLOSURE_SYNC
+  git_sha: a9d96553caff3a6b6d3955c224627451a4effd14
   canonical_branch: main
-  promotion_pull_request: 126
-  accepted_ci_run: 35018649697
+  promotion_pull_request: 127
+  accepted_ci_run: 35022787325
   accepted_ci: PASS_6_OF_6
-  api_contract_evidence_git_sha: 20e6989486bd27c9331a8f5dd55acc6f2b0a3d2b
-  accepted_api_contract_run: 34997297369
+  api_contract_evidence_git_sha: a9d96553caff3a6b6d3955c224627451a4effd14
+  accepted_api_contract_run: 35022787327
   accepted_api_contract: PASS
-  release_artifact_id: 10416163884
-  release_artifact_name: osk-panel-5fd3dfb4cceadd634fbc9b379b69f99b958079d0
-  release_archive_sha256: 93ce0b7bc76bec3424a4b4c336a92376b8511b3a82637e22b69aa61fd37579eb
-  github_artifact_zip_sha256: 69bd158267a7c274bddfdb818202ad43e6645859f4afc7f52d4c0f6248fe0ce2
-  postgres_tests_passed: 386
-  assertions: 6392
+  release_artifact_id: 10418766869
+  release_artifact_name: osk-panel-a9d96553caff3a6b6d3955c224627451a4effd14
+  release_archive_sha256: 60e1686b033facdd52bfd368210f59fa6d337b355b608ada72bc4c8b8df0c546
+  github_artifact_zip_sha256: c208c25b2b313117a48bdf3c555de86aa9ef46fb61f3368d2ac63e91d2130fe0
+  postgres_tests_passed: 389
+  assertions: 6444
   restore_tables_source: 122
   restore_tables_restored: 122
   restore_schema_fingerprint: f3cab286cc8f0aabef219971d90afe424a8dab694c47ade2f517a3d95970716d
@@ -113,28 +113,25 @@ frontend_productization_completed:
     sample_pricing_notice: required_when_sample_data_true
     provider_specific_online_payment_runtime: deferred
     PKK_PWPW_runtime: FROZEN_UNTOUCHED
-  organization_settings_UI:
-    gate: ORGANIZATION-SETTINGS-UI-001
-    pull_request: 113
-    accepted: true
-    accepted_head: 4006607dd2aecdc6fabb97a34ba5edf40d07729b
-    accepted_ci_run: 34971537563
-    accepted_ci: PASS_6_OF_6
-    release_artifact_id: 10396979267
-    release_archive_sha256: c3ca6f4c99dd61099cfc2bb720a502e8808212384d1393a8e8accae17071b962
-    route: /ustawienia
-    component: resources/js/modules/OrganizationSettings/SettingsWorkspace.vue
-    PKK_runtime: FROZEN_NOT_CALLED
-    development_terms_document_resolver: SAMPLE_DATA_IMPLEMENTED_NON_PRODUCTION_ONLY
-    production_terms_document_resolver: BLOCKED_MISSING_REAL_VERSIONED_LEGAL_DOCUMENT_AUTHORITY
-
-
-frontend_productization_candidate:
   internal_exam_purchase_UI:
     gate: INTERNAL-EXAM-PURCHASE-UI-001
-    branch: productization/internal-exam-purchase-ui-001
-    accepted_on_main: false
-    acceptance_status: PENDING_EXACT_HEAD_CI_AND_MERGE
+    pull_request: 127
+    accepted: true
+    accepted_head: a9d96553caff3a6b6d3955c224627451a4effd14
+    candidate_implementation_ci_run: 35021646666
+    candidate_implementation_ci: PASS_5_OF_5
+    candidate_api_contract_run: 35021646668
+    candidate_api_contract: PASS
+    accepted_ci_run: 35022787325
+    accepted_ci: PASS_6_OF_6
+    accepted_api_contract_run: 35022787327
+    accepted_api_contract: PASS
+    release_artifact_id: 10418766869
+    release_archive_sha256: 60e1686b033facdd52bfd368210f59fa6d337b355b608ada72bc4c8b8df0c546
+    github_artifact_zip_sha256: c208c25b2b313117a48bdf3c555de86aa9ef46fb61f3368d2ac63e91d2130fe0
+    postgres_tests: 389
+    postgres_assertions: 6444
+    restore_drill: PASS_122_TO_122
     route: /egzamin-wewnetrzny/wykup
     component: resources/js/modules/InternalExams/InternalExamPurchaseWorkspace.vue
     purchase_offer: GET /api/v1/internal-exam/purchase-offer
@@ -155,6 +152,21 @@ frontend_productization_candidate:
     provider_specific_online_payment_runtime: deferred
     inventory_grant_before_payment_policy_satisfied: forbidden
     PKK_PWPW_runtime: FROZEN_UNTOUCHED
+  organization_settings_UI:
+    gate: ORGANIZATION-SETTINGS-UI-001
+    pull_request: 113
+    accepted: true
+    accepted_head: 4006607dd2aecdc6fabb97a34ba5edf40d07729b
+    accepted_ci_run: 34971537563
+    accepted_ci: PASS_6_OF_6
+    release_artifact_id: 10396979267
+    release_archive_sha256: c3ca6f4c99dd61099cfc2bb720a502e8808212384d1393a8e8accae17071b962
+    route: /ustawienia
+    component: resources/js/modules/OrganizationSettings/SettingsWorkspace.vue
+    PKK_runtime: FROZEN_NOT_CALLED
+    development_terms_document_resolver: SAMPLE_DATA_IMPLEMENTED_NON_PRODUCTION_ONLY
+    production_terms_document_resolver: BLOCKED_MISSING_REAL_VERSIONED_LEGAL_DOCUMENT_AUTHORITY
+
 
 development_sample_support:
   gate: SAMPLE-DATA-001
@@ -188,9 +200,13 @@ development_sample_support:
     order_create_endpoint: POST /api/v1/license-orders
     same_server_price_authority: true
     browser_price_authority: forbidden
-  internal_exam_candidate_extension:
+  internal_exam_extension:
     gate: INTERNAL-EXAM-PURCHASE-UI-001
-    accepted: false
+    accepted: true
+    accepted_head: a9d96553caff3a6b6d3955c224627451a4effd14
+    accepted_implementation_ci_run: 35022787325
+    accepted_api_contract_run: 35022787327
+    release_artifact_id: 10418766869
     purchase_offer_endpoint: GET /api/v1/internal-exam/purchase-offer
     order_create_endpoint: POST /api/v1/internal-exam/orders
     sample_catalog_code: SAMPLE-INTERNAL-EXAM
@@ -202,6 +218,7 @@ development_sample_support:
   unblocks_development:
     - registration_UI
     - license_purchase_UI
+    - internal_exam_purchase_UI
 
 pkk_boundary:
   local_course_scoped_identity: IMPLEMENTED
@@ -217,10 +234,8 @@ pkk_boundary:
 
 api_runtime_contract_reconciliation:
   audited_on: 2026-09-15
-  accepted_main_physical_api_v1_route_bindings: 160
-  accepted_main_openapi_http_operations: 173
-  candidate_physical_api_v1_route_bindings: 161
-  candidate_openapi_http_operations: 174
+  accepted_main_physical_api_v1_route_bindings: 161
+  accepted_main_openapi_http_operations: 174
   openapi_only_operations: 15
   openapi_only_PKK_PWPW_operations: 14
   openapi_only_payment_webhook_operations: 1
@@ -230,7 +245,6 @@ api_runtime_contract_reconciliation:
   classification: INTENTIONAL_DEFERRED_OR_COMPATIBILITY_BOUNDARIES
 
 frontend_productization_gaps:
-  - internal_exam_purchase_UI_acceptance
   - browser_end_to_end_golden_paths
 
 production:
