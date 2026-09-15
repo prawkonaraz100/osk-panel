@@ -3,6 +3,7 @@
 namespace Tests\Unit;
 
 use App\Console\Commands\OperationalAlertSmokeCommand;
+use App\Console\Commands\ReconciliationAlertSmokeCommand;
 use PHPUnit\Framework\TestCase;
 
 final class OperationalAlertingContractTest extends TestCase
@@ -20,12 +21,15 @@ final class OperationalAlertingContractTest extends TestCase
         self::assertStringContainsString("env('OPS_ALERT_WEBHOOK_URL')", $config);
         self::assertStringContainsString("env('OPS_ALERT_WEBHOOK_SECRET')", $config);
         self::assertStringContainsString('OperationalAlertSmokeCommand::class', $bootstrap);
+        self::assertStringContainsString('ReconciliationAlertSmokeCommand::class', $bootstrap);
         self::assertStringContainsString('OperationalAlertDispatcher $alerts', $console);
         self::assertStringContainsString("'reconciliation_findings'", $console);
         self::assertStringContainsString('operational_alerting_enabled', $preflight);
         self::assertStringContainsString('operational_alert_endpoint_https', $preflight);
         self::assertStringContainsString('operational_alert_secret_present', $preflight);
         self::assertStringContainsString(OperationalAlertSmokeCommand::CONFIRMATION, file_get_contents($root.'/app/Console/Commands/OperationalAlertSmokeCommand.php'));
+        self::assertStringContainsString(ReconciliationAlertSmokeCommand::CONFIRMATION, file_get_contents($root.'/app/Console/Commands/ReconciliationAlertSmokeCommand.php'));
+        self::assertStringContainsString("'synthetic_smoke'", $config);
 
         self::assertStringContainsString('status: PASS', $spec);
         self::assertStringContainsString('claims_human_received_page: false', $spec);
