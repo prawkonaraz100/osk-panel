@@ -11,6 +11,10 @@ meta:
     reduce screen-level requirements. Every confirmed field, option, action,
     filter, sorting choice, PDF, state and entry flow listed in screen specs or
     the preservation manifest remains required for core v1.
+  READY_FOR_IMPLEMENTATION_semantics: historical_mapping_readiness_not_current_code_status
+  current_implementation_status_source: specs/current-project-status.yml
+  physical_runtime_route_authority: routes/web.php
+  PKK_provider_runtime_status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
 
 service_groups:
   core_osk:
@@ -357,12 +361,13 @@ cross_cutting:
   testing: docs/84-test-strategy.md
   production_operations: docs/85-production-operations.md
 
-remaining_preimplementation_work:
-  blocking_before_module_done:
+historical_preimplementation_work_snapshot:
+  status: SUPERSEDED_BY_CORE_V1_CLOSURE
+  captured_items:
     - complete_openapi_coverage_against_required_operations_inventory
     - sync_docs_87_narrative_with_machine_db_constraint_fixes
     - generate_module_traceability_acceptance_checklist_during_implementation
-  high_risk_before_related_production_data:
     - legal_category_dictionary_reverification_including_PT
     - sensitive_identifier_encryption_key_rotation_ADR
     - calendar_overlap_enforcement_ADR
+  current_backlog_source: specs/current-project-status.yml

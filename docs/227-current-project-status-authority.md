@@ -18,30 +18,32 @@ Canonical publication branch:
 
 `main`
 
-Verified `main` evidence baseline immediately before this documentation-only consistency audit:
+Exact current repository HEAD authority: **Git ref `main`**. The document intentionally does not claim that an embedded SHA is the forever-current HEAD, because editing this file changes the HEAD.
 
-`7ee7093b1d86498e270f2cd5710c2b5bf9ffad19`
+Last fully verified `main` baseline before the second documentation consistency re-audit:
+
+`20e6989486bd27c9331a8f5dd55acc6f2b0a3d2b`
 
 Promotion provenance: PR #117 merged the previously accepted integration history into
 `main` without force-push or squash at `d519651171ab5329d1dcc5326160339d4b94bb5b`.
-Commit `bb6f4639fbf1098f131e579dedbb610e0e7c7d97` established `main` as the sole canonical base/publication branch. PR #119 then finalized branch-hygiene/status synchronization at `7ee7093b1d86498e270f2cd5710c2b5bf9ffad19`, which received a full post-merge validation before this docs-only audit started.
+Commit `bb6f4639fbf1098f131e579dedbb610e0e7c7d97` established `main` as the sole canonical base/publication branch. PR #119 finalized branch-hygiene/status synchronization. PR #120 then merged the first deep docs↔code consistency audit as `20e6989486bd27c9331a8f5dd55acc6f2b0a3d2b`, followed by a full post-merge validation. Embedded evidence below is a verified baseline, not a substitute for reading the live `main` ref.
 
 Accepted Implementation CI:
 
-`34992709180` / run #700 — **6/6 PASS**
+`34997297399` / run #702 — **6/6 PASS**
 
 Accepted API Contract Gate for the promoted application/contract tree:
 
-`34992709070` / run #524 — **PASS**
+`34997297369` / run #526 — **PASS**
 
-Accepted immutable artifact for this pre-audit verified `main` baseline:
+Accepted immutable artifact for this verified baseline:
 
-- artifact ID: `10406097765`,
-- name: `osk-panel-7ee7093b1d86498e270f2cd5710c2b5bf9ffad19`,
+- artifact ID: `10409070006`,
+- name: `osk-panel-20e6989486bd27c9331a8f5dd55acc6f2b0a3d2b`,
 - release archive SHA-256:
-  `5d089dc4e54b182a273f19b38ec46e640598cdc58490e2cf203540c882e7facd`,
+  `0c9434895683f28bad1f96df127fe31813588e25269509ac1c2f95cc17ac47f3`,
 - GitHub uploaded artifact ZIP SHA-256:
-  `e1162461d304253824bb173281b13467a8616f7c81a582c12ae75f1259e539c6`.
+  `163bf641abe1759bffb0967b0fe22bfe765c31c3ec62c8bcbd8b7315e4736607`.
 
 Runtime suite:
 
@@ -150,7 +152,7 @@ closed Core domain/database authority.
 
 ## HTTP contract/runtime reconciliation
 
-Deep code audit on 2026-09-15 found **160 physical `/api/v1` route bindings** versus **173 HTTP operations in canonical OpenAPI**. The 15 OpenAPI-only operations are intentional deferred boundaries: 14 PKK/PWPW operations and one provider payment webhook. Runtime additionally exposes two intentional non-canonical/compatibility endpoints: the non-production sample-terms discovery endpoint and the `internal-exam-stations/heartbeat` compatibility alias. Detailed evidence is recorded in `docs/230-documentation-code-consistency-audit.md`.
+Deep code audit on 2026-09-15 found **160 physical `/api/v1` route bindings** versus **173 HTTP operations in canonical OpenAPI**. The 15 OpenAPI-only operations are intentional deferred boundaries: 14 PKK/PWPW operations and one provider payment webhook. Runtime additionally exposes two intentional non-canonical/compatibility endpoints: the non-production sample-terms discovery endpoint and the `internal-exam-stations/heartbeat` compatibility alias. Detailed first-pass evidence and the independent second-pass verification/corrections are recorded in `docs/230-documentation-code-consistency-audit.md` (sections 1–12 preserve the first pass; section 13 records the re-audit).
 
 ## Production status
 

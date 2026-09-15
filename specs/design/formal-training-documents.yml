@@ -2,6 +2,10 @@ meta:
   id: core_v1_formal_training_documents
   version: 2026-09-13-v1
   status: AUTHORITY_GATE_1
+  document_role: DESIGN_AUTHORITY
+  current_runtime_status: IMPLEMENTED
+  current_runtime_traceability: specs/traceability/implementation/FormalDocuments.yml
+  current_closure: docs/145-formal-training-documents-generation-approval-runtime.md
   confidence:
     formal_course_and_training_sources: LEGAL_VERIFIED
     paper_electronic_product_mode: OWN_PRODUCT_DECISION
@@ -144,8 +148,9 @@ security_and_privacy:
   document_content_may_contain_required_personal_data_only_for_formal_purpose: true
   PKK_provider_call_from_document_generation: forbidden
 
-implementation_boundary_after_gate_1:
+historical_implementation_boundary_after_gate_1:
   Stage_4_170_node_DAG_mutated_by_gate_1: false
   existing_Stage_4_migration_identity_mutated_by_gate_1: false
-  next_gate: stage_5_document_schema_and_migration_extension_authority
+  next_gate_at_that_time: stage_5_document_schema_and_migration_extension_authority
   do_not_add_unregistered_Laravel_migration: true
+  current_note: subsequent Stage5 extension and FormalDocuments runtime were implemented and accepted; this block preserves the Gate-1 handoff history

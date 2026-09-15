@@ -4,6 +4,11 @@ meta:
   authority_doc: docs/207-core-v1-student-progress-authority.md
   source_audit: CORE-V1-CLOSURE-AUDIT-014
   operation: students.progress
+  document_role: AUTHORITY_GATE_RECORD
+  current_runtime_status: IMPLEMENTED
+  current_HTTP_binding: GET /api/v1/students/{studentId}/progress
+  current_UI: resources/js/modules/StudentProgress/StudentProgressPanel.vue
+  current_traceability: specs/traceability/implementation/StudentProgress.yml
 
 scope:
   route: GET /students/{studentId}/progress

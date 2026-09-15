@@ -3,8 +3,11 @@ meta:
   route_pattern: /kursanci/{student_id}
   parent_screen: specs/screens/student-detail.yml
   gate: FORMAL-DOC-011
-  status: IMPLEMENTATION_CANDIDATE
+  status: IMPLEMENTED
   audited_at: 2026-09-13
+  current_UI: resources/js/modules/FormalDocuments/FormalTrainingDocumentsPanel.vue
+  mounted_in: resources/js/modules/StudentsCourses/StudentCourseWorkspace.vue
+  current_traceability: specs/traceability/implementation/FormalDocuments.yml
 
 placement:
   tab: student_profile

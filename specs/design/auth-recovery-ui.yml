@@ -35,7 +35,10 @@ api_client:
 
 deferred:
   registration_UI:
-    status: BLOCKED_PENDING_PUBLIC_LEGAL_DOCUMENT_DISCOVERY
+    status: NOT_IMPLEMENTED_DEVELOPMENT_UNBLOCKED_BY_SAMPLE_TERMS
+    development_terms_discovery: GET /api/v1/development/sample/legal/terms/current
+    development_sample_only: true
+    production_real_published_terms_authority: REQUIRED_NOT_YET_PROVIDED
     hardcoded_terms_version: forbidden
   social_provider_buttons:
     status: DEFERRED_PENDING_PROVIDER_DISCOVERY_CONTRACT

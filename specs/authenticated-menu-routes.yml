@@ -1,8 +1,12 @@
 meta:
   project: osk-panel
-  source: current_authenticated_menu_observation
+  source: authenticated_reference_product_menu_observation
   audited_at: 2026-09-05
-  note: Exact internal controls remain TO_VERIFY_AUTH unless independently confirmed.
+  observation_scope: HISTORICAL_REFERENCE_EVIDENCE_NOT_CURRENT_OSK_PANEL_ROUTER
+  physical_runtime_route_authority: routes/web.php
+  current_implementation_status_source: specs/current-project-status.yml
+  PKK_provider_runtime_status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+  note: Exact internal controls remain TO_VERIFY_AUTH unless independently confirmed. Presence here preserves observed capability and does not assert that the route is materialized in the current application.
 
 routes:
   - key: dashboard

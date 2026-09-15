@@ -10,6 +10,10 @@ meta:
     This file is a compatibility aggregate only. It may summarize but MUST NOT
     reduce confirmed reverse-engineered scope. Detailed implementation requirements
     live in screen specs and the preservation manifest.
+  READY_FOR_IMPLEMENTATION_semantics: historical_mapping_readiness_not_current_code_status
+  current_implementation_status_source: specs/current-project-status.yml
+  physical_runtime_route_authority: routes/web.php
+  PKK_provider_runtime_status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
 
 authority_order:
   - specs/legal/*.yml
@@ -199,18 +203,25 @@ critical_invariants:
   - staff_panel_access_is_scoped_by_organization_membership
   - passwords_are_not_recoverably_stored
 
-remaining_implementation_gaps:
-  blocking_before_module_done:
+historical_preimplementation_gaps_snapshot:
+  status: SUPERSEDED_BY_CORE_V1_CLOSURE
+  items:
     - complete_openapi_coverage_against_specs_api_required_operations_v1
     - complete_reverse_engineering_traceability_for_module_PR
-  before_related_production_data:
     - legal_category_dictionary_reverification_including_PT_tram_mapping
     - sensitive_identifier_encryption_and_key_rotation_ADR
     - calendar_overlap_enforcement_ADR
-  before_production_go_live:
     - privacy_retention_schedule
     - RPO_RTO_business_approval
     - restore_drill
+  current_repository_gaps_source: specs/current-project-status.yml
+  current_repository_owned_productization_gaps:
+    - registration_UI
+    - license_purchase_UI
+    - internal_exam_purchase_UI
+    - browser_end_to_end_golden_paths
+  production_go_live: BLOCKED_EXTERNAL_EVIDENCE
+  PKK_PWPW: FROZEN_UNTIL_EXPLICIT_UNFREEZE
 
 deferred_non_core:
   business_cards:

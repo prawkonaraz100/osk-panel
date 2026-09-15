@@ -6,6 +6,11 @@ screen:
   confidence: USER_CONFIRMED_AUTH_SCREEN
   verified_at: 2026-09-05
   doc: docs/59-internal-exam-purchase-screen.md
+  current_runtime_UI_status: NOT_IMPLEMENTED
+  route_materialized: false
+  backend_order_create_status: IMPLEMENTED
+  backend_order_create_operation: POST /api/v1/internal-exam/orders
+  current_status_source: specs/current-project-status.yml
 
 quantity:
   label: Ile egzaminów potrzebujesz?

@@ -1,10 +1,10 @@
-# 15. Aktualne menu zalogowanego panelu OSK — mapa tras i statusów
+# 15. Obserwowane menu zalogowanego panelu OSK — mapa evidence tras
 
 Data konsolidacji: 2026-09-05
 
 > **Current implementation note (2026-09-15):** ten dokument zachowuje mapping/evidence i docelowe capability. Statusy `READY_FOR_IMPLEMENTATION` oznaczają historyczną gotowość mapowania, **nie bieżący stan kodu**. Aktualny implementation/backlog/freeze authority: `docs/227-current-project-status-authority.md` i `specs/current-project-status.yml`.
 
-> Ten dokument mapuje **bieżące pozycje menu**, a nie pełny kontrakt implementacyjny. Dla szczegółów ekranów używamy `specs/screens/*.yml`, `docs/71-admin-osk-module-mapping-status.md` i `specs/implementation-baseline-v1.yml`.
+> Ten dokument zachowuje obserwację menu produktu referencyjnego z audytu 2026-09-05. **Nie jest listą fizycznych tras bieżącego `osk-panel`.** Physical web routes wynikają z `routes/web.php`; bieżący status implementacji z `docs/227-current-project-status-authority.md` i `specs/current-project-status.yml`. W szczególności `/integracja-pkk`, `/licencje/wykup` i `/egzamin-wewnetrzny/wykup` są zachowanym scope/evidence, ale nie są dziś materializowanymi trasami naszego SPA.
 
 ## Statusy
 
@@ -293,12 +293,12 @@ To jest ledger zakupów OSK na platformie, nie płatności kursanta.
 
 # Wniosek
 
-Aktualne menu zawiera 17 pozycji/grup opisanych wyżej.
+Historyczna obserwacja menu zawiera 17 pozycji/grup opisanych wyżej i pozostaje preservation evidence.
 
-Core gotowy do implementacji:
+Bieżący `osk-panel` ma Core V1 backend/domain/database zamknięty, a materializację UI oceniamy z kodu i `specs/current-project-status.yml`, nie z dawnych statusów `READY_FOR_IMPLEMENTATION`.
 
-`Panel główny + PKK + Kalendarz + Kursanci + Licencje + Egzaminy + Lokalizacje + Pojazdy + Pracownicy + Ustawienia + Historia zakupów`.
+Provider-specific PKK/PWPW pozostaje `FROZEN_UNTIL_EXPLICIT_UNFREEZE`; lokalna course-scoped identity PKK działa bez importu PWPW. Zakupowe UI `/licencje/wykup` i `/egzamin-wewnetrzny/wykup` pozostają niezaimplementowane, mimo że ich backendowe create-order operations istnieją.
 
-Poza core pozostają:
+Poza Core V1 nadal pozostają zachowane reference capabilities:
 
 `Moje wizytówki + Moje reklamy + Wykłady + Szkolenie z instruktorem`.

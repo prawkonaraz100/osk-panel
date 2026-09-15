@@ -145,8 +145,11 @@ current_implementation:
     document_url_null_supported: true
     synthesized_regulamin_url: forbidden
     exact_document_open:
-      status: BLOCKED_PENDING_VERSIONED_LOCAL_DOCUMENT_RESOLVER
-      evidence: docs/175-core-v1-organization-accepted-terms-closure.md
+      development_status: SAMPLE_VERSION_RESOLVER_IMPLEMENTED_NON_PRODUCTION_ONLY
+      development_metadata_endpoint: GET /api/v1/development/sample/legal/terms/current
+      production_status: BLOCKED_PENDING_REAL_VERSIONED_LEGAL_DOCUMENT_AUTHORITY
+      historical_blocker_evidence: docs/175-core-v1-organization-accepted-terms-closure.md
+      later_development_unblock: SAMPLE-DATA-001
   validation:
     candidate_head: 0e3466eccea19f7bb798a548a07e925dac6b6157
     implementation_ci_run: 34969328994
@@ -177,5 +180,5 @@ implementation_divergences:
     current_product_state: intentionally_not_read_or_mutated_while_PKK_frozen
     classification: PRESERVED_SCREEN_EVIDENCE_DEFERRED_BY_OWN_PRODUCT_DECISION
   - observed: Zobacz_moj_regulamin_opens_exact_version
-    current_product_state: acceptance_history_visible_but_document_url_currently_null
-    classification: CONFIRMED_RUNTIME_GAP_VERSIONED_DOCUMENT_RESOLVER
+    current_product_state: development_has_sample_version_document_resolution_but_production_real_versioned_legal_document_authority_is_not_configured
+    classification: PRODUCTION_CONTENT_AUTHORITY_GAP_DEVELOPMENT_SAMPLE_AVAILABLE

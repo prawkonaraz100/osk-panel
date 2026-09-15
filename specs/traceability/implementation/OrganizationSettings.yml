@@ -7,7 +7,7 @@ changed_scope:
     domain_data: organization_settings + organizations + users + organization_contact_addresses
     api_use_case: update organization settings foundation service
     permission: organization.settings.manage
-    ui: IMPLEMENTATION_CANDIDATE_ORGANIZATION_SETTINGS_UI_001
+    ui: resources/js/modules/OrganizationSettings/SettingsWorkspace.vue
     acceptance_test: Tests\\Feature\\OrganizationSettingsFoundationTest
     status: IMPLEMENTED
   - evidence: specs/api/paths/auth-organization.yaml

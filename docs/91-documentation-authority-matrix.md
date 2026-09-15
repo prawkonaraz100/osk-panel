@@ -15,6 +15,8 @@ Cel: jednoznacznie wskazać developerowi, który dokument wygrywa przy konflikci
 | API conventions | `specs/api/common-contract.yml` | errors, money, idempotency |
 | Wymagana kompletność API | `specs/api/required-operations-v1.yml` | każde potwierdzone flow ma capability |
 | API paths/schemas / preserved capability contract | `specs/api/openapi-v1.yaml` + `docs/06` | kontrakt może zachowywać jawnie deferred/frozen operacje; physical runtime potwierdzają `routes/web.php` i implementation traceability |
+| Fizyczna trasa web/API | `routes/web.php` + controller/service | route z preservation/menu/screen evidence nie oznacza automatycznie materializacji w naszym runtime |
+| Stage 4 DB point-in-time metadata | właściwy `specs/database/*.yml` + current-materialization note | stare `implementation_started`, `Laravel_migrations_created`, `OPEN/PENDING` zachowują historię gate'u; bieżącą materializację potwierdzają migracje/registry/testy i current status |
 | Physical DB blueprint | `specs/database/core-schema.yml` | relacje, partial unique, constraints |
 | Settings bounded-context DB detail | `specs/database/organization-settings.yml` | ownership pól `/ustawienia`, adres firmy, primary email, PKK settings |
 | Narrative DB | `docs/87` | opis tabel; machine spec wygrywa przy rozjeździe |
