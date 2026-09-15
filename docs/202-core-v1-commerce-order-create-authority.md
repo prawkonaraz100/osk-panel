@@ -338,3 +338,38 @@ Current non-production sample values are intentionally replaceable examples:
 - 6 months: list 59.00 PLN, charged 29.50 PLN.
 
 They are sample/demo values, not approved production prices.
+
+
+### INTERNAL-EXAM-PURCHASE-UI-001 candidate extension — 2026-09-15
+
+The current productization candidate extends the already approved non-production
+sample-pricing exception to the internal-exam checkout without changing production
+pricing authority.
+
+Candidate runtime adds:
+
+- read-only `GET /api/v1/internal-exam/purchase-offer`,
+- permission `exams.purchase`,
+- the same internal-exam catalog selector used by
+  `POST /api/v1/internal-exam/orders`,
+- the same `CommercePricingCatalog` resolver for preview and placement,
+- no client-supplied price, VAT, discount, total, product id or catalog code.
+
+Order placement still re-resolves the catalog and pricing authority and remains the
+final authority for the persisted Order total and immutable pricing snapshot.
+
+When `SAMPLE_DATA_ENABLED=true` outside production and no deployment pricing
+registry is present, the candidate adds:
+
+- catalog code `SAMPLE-INTERNAL-EXAM`,
+- product kind `internal_exam`,
+- list/charged unit amount **200 minor PLN**,
+- VAT basis points `2300`,
+- pricing revision `sample-dev-2026-09-15-v1`.
+
+The 2.00 PLN value is an intentionally replaceable development example. It is not
+derived from the observed 1.23 PLN competitor snapshot and is not an approved
+production price.
+
+This extension remains candidate until exact-head CI, promotion to `main` and
+post-merge release evidence pass.
