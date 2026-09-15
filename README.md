@@ -168,7 +168,10 @@ Architektura domenowa musi pozostać niezależna od komponentów Vue.
 - `docs/02-screen-inventory.md` — skonsolidowany inwentarz ekranów,
 - `docs/10-gap-register.md` — historyczny snapshot luk; bieżące luki są w `docs/227-current-project-status-authority.md` i `specs/current-project-status.yml`,
 - `docs/71-admin-osk-module-mapping-status.md` — gotowość modułów,
-- `docs/81-developer-consolidation-plan.md` — plan porządkowania repo.
+- `docs/81-developer-consolidation-plan.md` — historyczny, zakończony plan konsolidacji,
+- `docs/227-current-project-status-authority.md` — bieżący status implementacji/backlog/freeze,
+- `specs/current-project-status.yml` — machine-readable bieżący status,
+- `docs/230-documentation-code-consistency-audit.md` — ostatni audyt zgodności dokumentacji z kodem/runtime.
 
 ## Ważne rozdzielenia domen
 
