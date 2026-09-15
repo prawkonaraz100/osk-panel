@@ -7486,7 +7486,7 @@ CORE_V1_CLOSURE_AUDIT_015_gate:
 
 CORE_V1_STUDENT_PROGRESS_001_gate:
   id: CORE-V1-STUDENT-PROGRESS-001
-  status: CANDIDATE
+  status: PASS
   authority:
     semantic: specs/design/student-progress.yml
     screen: specs/screens/student-progress.yml
@@ -7518,6 +7518,70 @@ CORE_V1_STUDENT_PROGRESS_001_gate:
     repo_actionable_missing_after: 0
     frozen_PKK_missing_after: 14
     external_payment_webhook_missing_after: 1
+  closure_evidence:
+    validated_head: 68cf0cdf551a0e05f37660aab94165c475ac5c58
+    validated_tree: 2fa11cf97cbbc610b0585d35bcbfdca0b87d0135
+    Implementation_CI_run: 34920570247
+    Implementation_CI_jobs_passed: 5
+    Implementation_CI_jobs_total: 5
+    API_Contract_Gate_PR_run: 34920570232
+    API_Contract_Gate_push_run: 34920566447
+    PostgreSQL_tests: 346
+    PostgreSQL_assertions: 6011
+    deterministic_restore: PASS
+    restore_source_tables: 122
+    restore_restored_tables: 122
+    restore_schema_fingerprint: f3cab286cc8f0aabef219971d90afe424a8dab694c47ade2f517a3d95970716d
+    canonical_HTTP_operations: 173
+    physical_HTTP_bindings: 158
+    repository_actionable_HTTP_missing: 0
   safe_continuation_after_PASS:
     final_closure_audit_required: true
     accepted_branch_promotion_before_final_audit: forbidden
+
+
+CORE_V1_CLOSURE_AUDIT_016_gate:
+  id: CORE-V1-CLOSURE-AUDIT-016
+  status: PASS_ZERO_REPOSITORY_ACTIONABLE_P0_P1
+  authority: docs/211-core-v1-closure-audit-016.md
+  audited_exact_head: 68cf0cdf551a0e05f37660aab94165c475ac5c58
+  audited_tree: 2fa11cf97cbbc610b0585d35bcbfdca0b87d0135
+  prerequisite:
+    student_progress_runtime: CORE-V1-STUDENT-PROGRESS-001_PASS
+  closure_evidence:
+    Implementation_CI_run: 34920570247
+    API_Contract_Gate_PR_run: 34920570232
+    API_Contract_Gate_push_run: 34920566447
+    PostgreSQL_suite_tests: 346
+    PostgreSQL_suite_assertions: 6011
+    deterministic_restore_harness: PASS
+    restore_source_table_count: 122
+    restore_restored_table_count: 122
+    restore_schema_fingerprint: f3cab286cc8f0aabef219971d90afe424a8dab694c47ade2f517a3d95970716d
+  HTTP_inventory:
+    canonical_required_unique_method_path_operations: 173
+    API_gate_canonical_operations: 173
+    HTTP_requirement_rows: 187
+    required_physical_bindings_present: 158
+    missing_physical_bindings_total: 15
+    frozen_PKK_missing_bindings: 14
+    provider_specific_payment_webhook_missing_bindings: 1
+    repo_actionable_HTTP_bindings_missing: 0
+  non_HTTP_repo_P1:
+    additional_open_count: 0
+  result:
+    repository_complete: true
+    repo_P0_open: 0
+    repo_actionable_P1_open: 0
+    implementation_ready_HTTP_gaps: 0
+    schema_corrective_blocked_HTTP_gaps: 0
+    authority_blocked_HTTP_gaps: 0
+    PKK_provider_runtime_status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+    payment_webhook_status: EXTERNAL_PROVIDER_BOUNDARY
+  clean_promotion:
+    accepted_branch: docs-consolidation-2026-09-05
+    fast_forward_only: true
+    accepted_branch_CI_required: true
+    close_stale_draft_PRs_after_promotion: [1, 2, 3, 4, 5, 6]
+    close_validation_PR_after_promotion: 92
+    delete_divergent_historical_branches_without_review: false
