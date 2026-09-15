@@ -212,6 +212,7 @@ async function submitReset(): Promise<void> {
 
           <div class="auth-links">
             <a href="/forgot-password">Nie pamiętasz hasła?</a>
+            <a href="/register">Załóż konto</a>
           </div>
         </div>
 
