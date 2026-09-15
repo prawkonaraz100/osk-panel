@@ -13,9 +13,9 @@ ale nie kopiujemy kodu, layoutu, assetów ani chronionej implementacji innych pr
 
 Runtime authority po ostatnim zaakceptowanym gate:
 
-`0cff2ac4661d84a99ef859e2c403051b122b7b18`
+`7a84f5e32752efdd7955ceecc02daec0f91f6a7a`
 
-Accepted Implementation CI #655: **6/6 PASS**.
+Accepted Implementation CI #657: **6/6 PASS**.
 
 - backend-quality: PASS,
 - frontend-quality: PASS,
@@ -44,7 +44,7 @@ i **nie jest wymagane do uruchomienia Core service**.
 Aktualne luki produktowe po audycie kodu nie dotyczą już modelu domenowego ani
 podstawowego backendu. Koncentrują się na productization frontendu:
 
-- osobny UI login/recovery,
+- osobny UI login/recovery — **w realizacji w PR #111; nie jest jeszcze częścią accepted authority**,
 - UI ustawień organizacji,
 - UI zakupu licencji,
 - UI zakupu egzaminów wewnętrznych,
