@@ -47,6 +47,26 @@ frontend_productization_completed:
     PKK_runtime: FROZEN_NOT_CALLED
     terms_document_resolver: BLOCKED_MISSING_VERSIONED_LOCAL_RESOLVER
 
+development_sample_support:
+  gate: SAMPLE-DATA-001
+  branch: productization/sample-regulation-pricing-001
+  accepted: false
+  status: IMPLEMENTATION_CANDIDATE_NOT_ACCEPTED
+  production_use: forbidden
+  sample_terms:
+    version: sample-terms-v1
+    metadata_endpoint: GET /api/v1/development/sample/legal/terms/current
+    document_url: /regulamin/sample-terms-v1
+    registration_validation_bypass: false
+  sample_license_pricing:
+    projection_endpoint: GET /api/v1/license-products
+    order_create_endpoint: POST /api/v1/license-orders
+    same_server_price_authority: true
+    browser_price_authority: forbidden
+  unblocks_development:
+    - registration_UI
+    - license_purchase_UI
+
 frontend_productization_gaps:
   - license_purchase_UI
   - internal_exam_purchase_UI

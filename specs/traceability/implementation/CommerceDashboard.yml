@@ -133,3 +133,13 @@ changed_scope:
     ui: NOT_APPLICABLE_RUNTIME_API_GATE
     acceptance_test: Tests\\Feature\\CommerceOrderCreateCoreTest::test_license_order_uses_trusted_pricing_allocator_pending_payment_and_idempotent_replay
     status: IMPLEMENTED
+
+  - evidence: docs/202-core-v1-commerce-order-create-authority.md#Development-sample-pricing-exception-2026-09-15
+    requirement: order creation and license-product projection use one validated server-side pricing resolver; sample fallback is permitted only outside production when explicitly enabled and never gives price authority to the browser
+    domain_data: commerce_catalog_items + license_products + config/commerce.php + config/sample_data.php
+    api_use_case: license_orders.create + license_products.list
+    permission: licenses.purchase for create; licenses.view for projection
+    ui: NOT_APPLICABLE_SAMPLE_DATA_PREREQUISITE
+    acceptance_test: Tests\\Feature\\DevelopmentSampleDataCoreTest::test_sample_license_catalog_projects_same_server_price_used_by_order_create
+    status: IMPLEMENTED
+    acceptance_state: CANDIDATE_NOT_ACCEPTED

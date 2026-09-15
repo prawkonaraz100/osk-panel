@@ -1070,13 +1070,19 @@ components:
 
     LicenseProduct:
       type: object
-      required: [id, code, duration_days, active]
+      required: [id, code, duration_days, active, display_name, price, list_price, pricing_revision, sample_data]
       properties:
         id: { type: string, format: uuid }
         code: { type: string }
         duration_days: { type: integer }
         active: { type: boolean }
+        display_name: { type: string }
         price: { anyOf: [{ $ref: '#/components/schemas/Money' }, { type: 'null' }] }
+        list_price: { anyOf: [{ $ref: '#/components/schemas/Money' }, { type: 'null' }] }
+        pricing_revision: { type: [string, 'null'] }
+        sample_data:
+          type: boolean
+          description: True only when the server explicitly serves non-production sample pricing.
         languages: { type: array, items: { type: string } }
         available_count: { type: integer, minimum: 0, readOnly: true }
         active_count: { type: integer, minimum: 0, readOnly: true }

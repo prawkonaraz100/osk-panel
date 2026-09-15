@@ -85,7 +85,12 @@ Completed productization work:
 - `AUTH-RECOVERY-UI-001`: accepted on `d6b2089903ac830581b8606914cd484f1207dee2`; PR #111; accepted CI #665 **6/6 PASS**. Public SPA routes exist for `/login`, `/forgot-password` and `/reset-password`. Registration UI remains separately deferred pending safe public legal-document version discovery.
 - `ORGANIZATION-SETTINGS-UI-001`: accepted on `4006607dd2aecdc6fabb97a34ba5edf40d07729b`; PR #113; accepted CI #675 **6/6 PASS**. `/ustawienia` uses the provider-neutral settings contract, keeps e-mail read-only, does not read or mutate PKK while frozen, and does not synthesize a terms document URL.
 
+Current productization support in progress:
+
+- `SAMPLE-DATA-001`: candidate branch `productization/sample-regulation-pricing-001` adds a clearly labelled non-production sample Terms document and sample license pricing. It is intended only to remove development blockers; it is not accepted until exact-head CI + clean promotion. Production use of sample data is forbidden.
+
 Current productization gaps confirmed by code audit:
+
 
 1. no license purchase UI route despite backend `POST /api/v1/license-orders`,
 2. no internal-exam purchase UI route despite backend `POST /api/v1/internal-exam/orders`,

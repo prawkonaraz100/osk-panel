@@ -76,3 +76,13 @@ changed_scope:
     ui: NOT_APPLICABLE_RUNTIME_API_GATE
     acceptance_test: Tests\\Feature\\LearningAccessBulkCredentialDocumentTest + Tests\\Unit\\LearningAccessBulkCredentialsPdfRendererTest
     status: IMPLEMENTED
+
+  - evidence: docs/52-license-purchase-screen.md#12-Przykładowy-cennik-developerski-2026-09-15
+    requirement: license-products projects current server-authoritative charged/list pricing and sample marker from the same catalog pricing resolver used by order creation rather than client or Vue constants
+    domain_data: license_products + commerce_catalog_items + server pricing configuration
+    api_use_case: license_products.list
+    permission: licenses.view
+    ui: purchase UI not yet materialized; projection is an unblocker only
+    acceptance_test: Tests\\Feature\\DevelopmentSampleDataCoreTest::test_sample_license_catalog_projects_same_server_price_used_by_order_create
+    status: IMPLEMENTED
+    acceptance_state: CANDIDATE_NOT_ACCEPTED

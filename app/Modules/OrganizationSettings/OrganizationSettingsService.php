@@ -42,7 +42,7 @@ final class OrganizationSettingsService
      *   version:int,
      *   basic_data:array{first_name:string,last_name:string,email:string},
      *   company_data:array{company_name:string,street:?string,house_number:?string,unit_number:?string,city:?string,postal_code:?string,phone:?string},
-     *   accepted_terms:list<array{version:string,accepted_at:string,accepted_by_user_id:string,document_url:null}>
+     *   accepted_terms:list<array{version:string,accepted_at:string,accepted_by_user_id:string,document_url:?string}>
      * }
      */
     public function settings(string $sessionId): array
@@ -69,7 +69,7 @@ final class OrganizationSettingsService
      *   version:int,
      *   basic_data:array{first_name:string,last_name:string,email:string},
      *   company_data:array{company_name:string,street:?string,house_number:?string,unit_number:?string,city:?string,postal_code:?string,phone:?string},
-     *   accepted_terms:list<array{version:string,accepted_at:string,accepted_by_user_id:string,document_url:null}>
+     *   accepted_terms:list<array{version:string,accepted_at:string,accepted_by_user_id:string,document_url:?string}>
      * }
      */
     public function settingsForManagement(string $sessionId): array
@@ -87,7 +87,7 @@ final class OrganizationSettingsService
         );
     }
 
-    /** @return list<array{version:string,accepted_at:string,accepted_by_user_id:string,document_url:null}> */
+    /** @return list<array{version:string,accepted_at:string,accepted_by_user_id:string,document_url:?string}> */
     public function acceptedTerms(string $sessionId): array
     {
         $membership = $this->authorizer->activeMembershipForSession($sessionId);
@@ -377,7 +377,7 @@ final class OrganizationSettingsService
      *   version:int,
      *   basic_data:array{first_name:string,last_name:string,email:string},
      *   company_data:array{company_name:string,street:?string,house_number:?string,unit_number:?string,city:?string,postal_code:?string,phone:?string},
-     *   accepted_terms:list<array{version:string,accepted_at:string,accepted_by_user_id:string,document_url:null}>
+     *   accepted_terms:list<array{version:string,accepted_at:string,accepted_by_user_id:string,document_url:?string}>
      * }
      */
     private function settingsProjection(string $organizationId, string $userId): array
@@ -422,7 +422,7 @@ final class OrganizationSettingsService
         ];
     }
 
-    /** @return list<array{version:string,accepted_at:string,accepted_by_user_id:string,document_url:null}> */
+    /** @return list<array{version:string,accepted_at:string,accepted_by_user_id:string,document_url:?string}> */
     private function acceptedTermsForOrganization(string $organizationId): array
     {
         $rows = DB::table('terms_acceptances as acceptance')
@@ -442,11 +442,29 @@ final class OrganizationSettingsService
                 'version' => (string) $row->version,
                 'accepted_at' => CarbonImmutable::parse((string) $row->accepted_at)->utc()->toIso8601String(),
                 'accepted_by_user_id' => (string) $row->accepted_by_user_id,
-                'document_url' => null,
+                'document_url' => $this->legalDocumentUrl((string) $row->version),
             ];
         }
 
         return $projection;
+    }
+
+    private function legalDocumentUrl(string $version): ?string
+    {
+        if (! (bool) config('sample_data.enabled', false)) {
+            return null;
+        }
+
+        $terms = config('sample_data.terms');
+        if (! is_array($terms)
+            || (string) ($terms['version'] ?? '') !== $version
+            || ! is_string($terms['document_url'] ?? null)
+            || ! str_starts_with((string) $terms['document_url'], '/')
+            || str_starts_with((string) $terms['document_url'], '//')) {
+            return null;
+        }
+
+        return (string) $terms['document_url'];
     }
 
     private function assertVersion(int $currentVersion, int $expectedVersion): void

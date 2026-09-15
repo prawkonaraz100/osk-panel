@@ -138,3 +138,21 @@ remaining_gaps:
   - order_cancel_behavior
   - bank_transfer_inventory_credit_timing
   - invoice_or_sales_document_flow
+
+development_sample_support:
+  approved_by_user: 2026-09-15
+  status: IMPLEMENTATION_CANDIDATE_NOT_ACCEPTED
+  purpose: unblock_license_purchase_UI_before_final_price_list
+  sample_data_flag: SAMPLE_DATA_ENABLED
+  sample_catalog_source: DevelopmentSampleDataSeeder
+  pricing_source: CommercePricingCatalog
+  browser_price_authority: forbidden
+  product_projection_endpoint: GET /api/v1/license-products
+  order_create_endpoint: POST /api/v1/license-orders
+  same_server_price_required_for_projection_and_order: true
+  sample_variants:
+    - {code: SAMPLE-LICENSE-1M, duration_days: 30, list_minor: 2900, charged_minor: 1450, currency: PLN}
+    - {code: SAMPLE-LICENSE-3M, duration_days: 90, list_minor: 3800, charged_minor: 1900, currency: PLN}
+    - {code: SAMPLE-LICENSE-6M, duration_days: 180, list_minor: 5900, charged_minor: 2950, currency: PLN}
+  production_use: forbidden
+  license_purchase_UI_materialized_by_this_gate: false
