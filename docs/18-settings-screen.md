@@ -181,7 +181,7 @@ Dla naszego produktu rekomendujemy co najmniej:
 - `accepted_at`
 - `document_hash` lub snapshot reference
 
-## 8. Rekomendowane API naszego odpowiednika
+## 8. Historyczna rekomendacja API z audytu
 
 - `GET /api/v1/account/settings`
 - `PATCH /api/v1/account/profile`
@@ -191,7 +191,20 @@ Dla naszego produktu rekomendujemy co najmniej:
 - `GET /api/v1/terms/accepted`
 - `GET /api/v1/terms/{version}`
 
-Frontend może nadal prezentować jeden ekran i jeden CTA `Zapisz`, nawet jeśli backend rozdziela odpowiedzialności.
+Powyższa lista była rekomendacją z etapu audytu, a nie bieżącym kontraktem runtime.
+
+Aktualny provider-neutral kontrakt naszego produktu jest później rozstrzygnięty przez
+`specs/design/organization-settings-provider-neutral.yml` i
+`specs/api/paths/auth-organization.yaml`:
+
+- `GET /api/v1/organization/settings`,
+- `PATCH /api/v1/organization/settings`,
+- `GET /api/v1/organization/accepted-terms`.
+
+Dedykowane operacje PKK pozostają osobnym bounded contextem i są obecnie
+`FROZEN_UNTIL_EXPLICIT_UNFREEZE`.
+
+Frontend może nadal prezentować jeden ekran i jeden CTA `Zapisz`, ale provider-neutral zapis nie może odczytywać ani mutować PKK.
 
 ## 9. Acceptance criteria
 
@@ -216,3 +229,65 @@ Link `Zobacz mój regulamin` otwiera wersję przypisaną do użytkownika/organiz
 
 ### AC-SET-06 — tenant isolation
 Administrator OSK A nie może odczytać ani zmienić ustawień firmy lub PKK należących do OSK B.
+
+## 10. Nadrzędność decyzji implementacyjnych
+
+Obserwacje w sekcjach 1–9 pozostają dowodem tego, co było widoczne na badanym
+ekranie. Nie są przepisywane pod aktualny kod.
+
+Późniejsza własna decyzja architektoniczna
+`CORE-V1-ORGANIZATION-SETTINGS-PROVIDER-NEUTRAL-AUTHORITY-001`
+(`specs/design/organization-settings-provider-neutral.yml`,
+`docs/190-core-v1-organization-settings-provider-neutral-authority.md`)
+kontroluje jednak semantykę naszej implementacji:
+
+- zwykłe ustawienia muszą działać bez PKK,
+- provider-neutral GET/PATCH nie może czytać ani mutować PKK,
+- e-mail jest projekcją read-only do czasu osobnego identity email-change authority,
+- PKK pozostaje opcjonalnym bounded contextem.
+
+To jest świadome rozdzielenie pomiędzy obserwowanym ekranem źródłowym a
+nadrzędną decyzją naszego produktu; nie oznacza usunięcia obserwacji PKK z historii.
+
+## 11. Aktualny stan naszej implementacji — candidate
+
+Gate: `ORGANIZATION-SETTINGS-UI-001`  
+Status: `IMPLEMENTATION_CANDIDATE_NOT_ACCEPTED`
+
+Faktycznie zaimplementowany candidate:
+
+- SPA route `/ustawienia`,
+- komponent `resources/js/modules/OrganizationSettings/SettingsWorkspace.vue`,
+- odczyt przez `GET /api/v1/organization/settings`,
+- zapis przez `PATCH /api/v1/organization/settings`,
+- optimistic concurrency przez `If-Match: "v<version>"`,
+- idempotency key przez istniejący wspólny klient API,
+- edycja imienia, nazwiska, nazwy firmy, adresu i telefonu,
+- e-mail wyświetlany read-only,
+- historia zaakceptowanych wersji regulaminu z projekcji settings,
+- link do dokumentu tylko wtedy, gdy backend zwróci bezpieczny lokalny
+  `document_url`,
+- brak syntetyzowania trasy `/regulamin?v=...`,
+- sekcja PKK wyświetla wyłącznie informację o zamrożonej opcjonalnej integracji;
+  candidate nie wywołuje dedykowanego API PKK i nie wysyła pól PKK,
+- link `Ustawienia` został dodany do istniejących sidebarów bez przebudowy
+  architektury routingu.
+
+Candidate nie jest jeszcze częścią accepted runtime authority i nie może być
+opisywany jako ukończony do czasu exact-head CI, clean promotion i accepted 6/6.
+
+## 12. Potwierdzone rozbieżności i pozostała praca
+
+1. Obserwowany ekran zawiera edytowalne dane API PKK. Nasz candidate ich nie
+   odczytuje ani nie edytuje, ponieważ późniejsza decyzja provider-neutral i
+   aktualny freeze PKK mają pierwszeństwo dla implementacji. Ta część pozostaje
+   odroczona do jawnego unfreeze.
+2. Obserwowany ekran ma akcję `Zobacz mój regulamin`. Obecny backend celowo
+   zwraca `document_url: null` do czasu realnego versioned document resolvera
+   (patrz `docs/175-core-v1-organization-accepted-terms-closure.md`).
+   Candidate pokazuje więc wersję i czas akceptacji oraz uczciwy stan
+   niedostępności treści; nie tworzy fałszywego URL.
+3. Niepotwierdzona requiredness pól ogólnego ekranu pozostaje niepotwierdzona.
+   Candidate nie oznacza tych obserwacyjnych unknowns jako rozstrzygnięte.
+4. Browser E2E dla pełnego flow ustawień pozostaje osobnym zadaniem
+   productization.
