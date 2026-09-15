@@ -195,31 +195,31 @@ Szczegóły:
 
 # 5. PKK
 
-Canonical encje:
-- `pkk_profiles`
-- `pkk_operations`
-- `pkk_operation_attempts`
-- `pkk_integration_settings`
+Canonical encje lokalnej identity i provider-neutralnego substrate:
+- `pkk_profiles` — zaszyfrowana, wersjonowana identity PKK dla konkretnego `CourseEnrollment`,
+- `pkk_provider_profile_snapshots` — osobna append-only historia snapshotów providera,
+- `pkk_operations`,
+- `pkk_operation_attempts`,
+- `pkk_integration_settings`.
 
 ## Kluczowa relacja
 
 `CourseEnrollment ||--o| PkkProfile`
 
-Jeden `Student` może mieć wiele `CourseEnrollment` w czasie, więc API i baza nie mogą zakładać jednego globalnego PKK na osobę.
+Jeden `Student` może mieć wiele `CourseEnrollment` w czasie, więc API i baza nie mogą zakładać jednego globalnego PKK na osobę. Bieżąca identity to dokładnie jeden profil z `superseded_at IS NULL`; zmiana PKK lub formalnego kontekstu tworzy kolejną rewizję zamiast nadpisywania historii.
 
-`PkkOperation` przechowuje:
+W materializowanym Stage 4 substrate `PkkOperation` ma obowiązkowy `pkk_profile_id` i jest exact-bound do:
 - `organization_id`,
 - `course_enrollment_id`,
-- `pkk_profile_id nullable`,
-- typ commandu,
-- actor,
+- konkretnej rewizji `pkk_profile_id`,
+- typu commandu,
+- actora,
 - request/correlation id,
-- status biznesowy,
-- timestampy.
+- statusu biznesowego i timestampów.
 
-`PkkOperationAttempt` przechowuje techniczną próbę integracji i jej znormalizowany rezultat.
+`PkkOperationAttempt` opisuje provider-neutralny transport/evidence dla konkretnej operacji. Te tabele i guardy są obecnie fail-closed substrate — **nie oznaczają aktywnej integracji z PWPW**.
 
-Sekrety integracji nie są przechowywane w repo ani logowane w audit payloadach.
+Aktualny Core używa lokalnej identity PKK wprowadzanej ręcznie przy formalnym kursie. Provider-specific import, live calls, status mapping, podpis i reconciliation są `FROZEN_UNTIL_EXPLICIT_UNFREEZE` do czasu autorytatywnych wytycznych PWPW. Sekrety integracji nie są przechowywane w repo ani logowane w audit payloadach.
 
 ---
 
