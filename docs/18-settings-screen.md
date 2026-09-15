@@ -269,7 +269,7 @@ Faktycznie zaakceptowany zakres:
   `document_url`,
 - brak syntetyzowania trasy `/regulamin?v=...`,
 - sekcja PKK wyświetla wyłącznie informację o zamrożonej opcjonalnej integracji;
-  candidate nie wywołuje dedykowanego API PKK i nie wysyła pól PKK,
+  accepted implementation nie wywołuje dedykowanego API PKK i nie wysyła pól PKK,
 - link `Ustawienia` został dodany do istniejących sidebarów bez przebudowy
   architektury routingu.
 
@@ -299,16 +299,16 @@ funkcji PKK ani versioned document resolvera opisanych w sekcji 12.
 
 ## 12. Potwierdzone rozbieżności i pozostała praca
 
-1. Obserwowany ekran zawiera edytowalne dane API PKK. Nasz candidate ich nie
+1. Obserwowany ekran zawiera edytowalne dane API PKK. Nasza accepted implementation ich nie
    odczytuje ani nie edytuje, ponieważ późniejsza decyzja provider-neutral i
    aktualny freeze PKK mają pierwszeństwo dla implementacji. Ta część pozostaje
    odroczona do jawnego unfreeze.
 2. Obserwowany ekran ma akcję `Zobacz mój regulamin`. Obecny backend celowo
    zwraca `document_url: null` do czasu realnego versioned document resolvera
    (patrz `docs/175-core-v1-organization-accepted-terms-closure.md`).
-   Candidate pokazuje więc wersję i czas akceptacji oraz uczciwy stan
+   Accepted implementation pokazuje więc wersję i czas akceptacji oraz uczciwy stan
    niedostępności treści; nie tworzy fałszywego URL.
 3. Niepotwierdzona requiredness pól ogólnego ekranu pozostaje niepotwierdzona.
-   Candidate nie oznacza tych obserwacyjnych unknowns jako rozstrzygnięte.
+   Accepted implementation nie oznacza tych obserwacyjnych unknowns jako rozstrzygnięte.
 4. Browser E2E dla pełnego flow ustawień pozostaje osobnym zadaniem
    productization.
