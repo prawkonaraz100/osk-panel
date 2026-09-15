@@ -10,6 +10,8 @@ final class DevelopmentSampleDataSeeder extends Seeder
 {
     private const TERMS_ID = '019a0000-0000-7000-8000-000000000001';
 
+    private const INTERNAL_EXAM_CATALOG_ID = '019a0000-0000-7000-8000-000000000204';
+
     /** @var array<string,array{id:string,catalog_id:string,capability_id:string,duration_days:int}> */
     private const LICENSES = [
         'SAMPLE-LICENSE-1M' => [
@@ -129,6 +131,39 @@ final class DevelopmentSampleDataSeeder extends Seeder
                     'disabled_at' => null,
                     'created_at' => now(),
                 ]);
+            }
+
+            $internalExam = config('sample_data.internal_exam');
+            if (! is_array($internalExam)) {
+                throw new LogicException('Sample internal exam configuration is missing.');
+            }
+            $internalExamCatalogCode = $internalExam['catalog_code'] ?? null;
+            $internalExamPricing = $internalExam['pricing'] ?? null;
+            if (! is_string($internalExamCatalogCode)
+                || trim($internalExamCatalogCode) === ''
+                || ! is_array($internalExamPricing)) {
+                throw new LogicException('Sample internal exam configuration is malformed.');
+            }
+            $internalExamCatalogCode = trim($internalExamCatalogCode);
+
+            $internalExamCatalog = DB::table('commerce_catalog_items')
+                ->where('code', $internalExamCatalogCode)
+                ->first();
+            if ($internalExamCatalog === null) {
+                DB::table('commerce_catalog_items')->insert([
+                    'id' => self::INTERNAL_EXAM_CATALOG_ID,
+                    'code' => $internalExamCatalogCode,
+                    'product_kind' => 'internal_exam',
+                    'license_product_id' => null,
+                    'active' => true,
+                    'created_at' => now(),
+                ]);
+            } elseif ((string) $internalExamCatalog->product_kind !== 'internal_exam'
+                || $internalExamCatalog->license_product_id !== null
+                || ! (bool) $internalExamCatalog->active) {
+                throw new LogicException(
+                    "Sample commerce catalog code {$internalExamCatalogCode} conflicts with existing authority.",
+                );
             }
         });
     }
