@@ -38,7 +38,9 @@ final class LicensePurchaseUiContractTest extends TestCase
         self::assertStringNotContainsString('29.50', $workspace);
         self::assertStringNotContainsString('PayU', $workspace);
 
-        self::assertStringContainsString('current_runtime_UI_status: CANDIDATE_PR', $spec);
+        self::assertStringContainsString('current_runtime_UI_status: ACCEPTED', $spec);
+        self::assertStringContainsString('accepted_on_main: true', $spec);
+        self::assertStringContainsString('accepted_head: 394c24d73eb7514e68f4996342b769f4a35b432c', $spec);
         self::assertStringContainsString('browser_price_authority: forbidden', $spec);
         self::assertStringContainsString('provider_specific_online_payment_runtime: deferred', $spec);
     }
