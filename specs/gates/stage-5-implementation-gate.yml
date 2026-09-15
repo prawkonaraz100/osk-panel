@@ -7284,3 +7284,58 @@ CORE_V1_COMMERCE_ORDER_CREATE_001_gate:
     id: CORE-V1-CLOSURE-AUDIT-014
     action: recompute_repository_HTTP_runtime_UI_closure_after_commerce_order_create
     rule: recompute_not_assume_student_progress_ready_no_PKK_runtime
+
+CORE_V1_CLOSURE_AUDIT_014_gate:
+  id: CORE-V1-CLOSURE-AUDIT-014
+  status: AUDIT_COMPLETE_STUDENT_PROGRESS_AUTHORITY_REQUIRED
+  authority: docs/206-core-v1-closure-audit-014.md
+  audited_accepted_tip: ce5521ac4afa19ecee21ef2269b51f610fe16137
+  audited_tree: 896fec77ee55e46f63ba48eac73001c888f1da9c
+  prerequisite:
+    commerce_order_create: CORE-V1-COMMERCE-ORDER-CREATE-001_PASS
+  closure_evidence:
+    Implementation_CI_run: 34910768003
+    API_Contract_Gate_run: 34910767890
+    PostgreSQL_suite_tests: 338
+    PostgreSQL_suite_assertions: 5926
+    deterministic_restore_harness: PASS
+    restore_source_table_count: 122
+    restore_restored_table_count: 122
+    restore_schema_fingerprint: f3cab286cc8f0aabef219971d90afe424a8dab694c47ade2f517a3d95970716d
+  HTTP_inventory:
+    canonical_required_unique_method_path_operations: 173
+    API_gate_canonical_operations: 173
+    HTTP_requirement_rows: 187
+    required_physical_bindings_present: 157
+    missing_physical_bindings_total: 16
+    frozen_PKK_missing_bindings: 14
+    provider_specific_payment_webhook_missing_bindings: 1
+    repo_actionable_HTTP_bindings_missing: 1
+    historical_inline_inventory_undercount_corrected:
+      operation: license_management.expand_history
+      already_physically_bound: true
+      changes_missing_count: false
+  remaining_repo_actionable:
+    implementation_ready_count: 0
+    schema_corrective_blocked_count: 0
+    authority_blocked_count: 1
+    authority_blocked_operations:
+      - students.progress
+  non_HTTP_repo_P1:
+    additional_open_count: 0
+  result:
+    repository_complete: false
+    repo_P0_open: 0
+    repo_actionable_P1_open: 1
+    PKK_provider_runtime_status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+    payment_webhook_status: EXTERNAL_PROVIDER_BOUNDARY
+  safe_continuation:
+    next_gate: CORE-V1-STUDENT-PROGRESS-AUTHORITY-001
+    authority_only: true
+    add_HTTP_binding: forbidden
+    enable_progress_UI: forbidden
+    fabricate_unavailable_metrics: forbidden
+    hardcode_observed_totals: forbidden
+    PKK_runtime_activation: forbidden
+    provider_webhook_implementation: forbidden
+    fresh_audit_after_authority_PASS: required
