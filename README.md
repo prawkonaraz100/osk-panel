@@ -19,9 +19,9 @@ Canonical branch jest `main`. Dokładny bieżący HEAD należy odczytywać z ref
 
 Najnowszy w pełni zweryfikowany runtime baseline przed tym closure-only sync:
 
-`da8b5c35590c77f512a17e21f1e173bce46a6088`
+`394c24d73eb7514e68f4996342b769f4a35b432c`
 
-Implementation CI #733 (`35010888852`): **6/6 PASS**. Registration UI nie zmienił canonical API contractu.
+Implementation CI #738 (`35015499860`): **6/6 PASS**. License Purchase UI nie osłabił canonical commerce contractu.
 
 - backend-quality: PASS,
 - frontend-quality: PASS,
@@ -29,9 +29,9 @@ Implementation CI #733 (`35010888852`): **6/6 PASS**. Registration UI nie zmieni
 - secret-scan: PASS,
 - PostgreSQL runtime + migrations: PASS,
 - immutable release artifact: PASS,
-- runtime suite: **385 tests / 6367 assertions**,
+- runtime suite: **386 tests / 6390 assertions**,
 - deterministic restore: **122 -> 122 PASS**,
-- release archive SHA-256: `f1b3de0bc8cb48ab1d930b6a7b60b8906205b35a455ad715d3eab5aa1746b6c2`.
+- release archive SHA-256: `879fbd07fdeb0297c833b748e9eab4f61d3141714dc028f2ca5de96211d86bc0`.
 
 Repository branch cleanup z 2026-09-15 jest zamknięty **PASS**: zweryfikowany
 snapshot zachował historię, usunięto 287 historycznych refów, a aktywne branche
@@ -59,14 +59,11 @@ podstawowego backendu.
 Ukończone w productization:
 - **AUTH-RECOVERY-UI-001** — login, forgot-password i reset-password są częścią accepted runtime od `d6b2089903ac830581b8606914cd484f1207dee2`; PR #111, accepted CI #665 = 6/6 PASS.
 - **REGISTRATION-UI-001** — `/register` jest częścią accepted runtime od `da8b5c35590c77f512a17e21f1e173bce46a6088`; PR #123, accepted CI #733 = 6/6 PASS. UI korzysta z istniejącego backendu i nieprodukcyjnego sample Terms discovery bez hardcodowania wersji regulaminu. Produkcja nadal wymaga realnego, opublikowanego i wersjonowanego regulaminu/authority.
+- **LICENSE-PURCHASE-UI-001** — `/licencje/wykup` jest częścią accepted runtime od `394c24d73eb7514e68f4996342b769f4a35b432c`; PR #125, accepted CI #738 = 6/6 PASS. Checkout nie wysyła cen z przeglądarki, używa server-authoritative product projection/order create i pozostawia provider-specific payment runtime jako deferred.
 - **ORGANIZATION-SETTINGS-UI-001** — provider-neutral `/ustawienia` jest częścią accepted runtime od `4006607dd2aecdc6fabb97a34ba5edf40d07729b`; PR #113, accepted CI #675 = 6/6 PASS. PKK pozostaje zamrożone, e-mail read-only; development ma jawny sample Terms resolver, natomiast produkcyjne odtworzenie dokładnej treści regulaminu nadal wymaga realnego versioned document resolvera/authority.
-
-Kandydat w toku:
-- **LICENSE-PURCHASE-UI-001** — branch `productization/license-purchase-ui-001` materializuje `/licencje/wykup`. UI korzysta wyłącznie z server-authoritative `GET /api/v1/license-products` i `POST /api/v1/license-orders`; nie wysyła ceny/VAT/rabatu/totalu, oznacza sample pricing i nie udaje aktywnej integracji konkretnego operatora płatności. Acceptance wymaga exact-head CI i merge na `main`.
 
 Pozostałe luki produktowe:
 - produkcyjny realny/versioned Terms authority dla rejestracji,
-- akceptacja `LICENSE-PURCHASE-UI-001` na `main`,
 - UI zakupu egzaminów wewnętrznych,
 - browser E2E dla głównych golden paths,
 - realny deployment i external production evidence.
