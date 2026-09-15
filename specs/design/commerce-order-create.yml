@@ -182,3 +182,23 @@ preservation:
   Stage4_mutation: forbidden
   provider_webhook_implementation: forbidden
   PKK_or_PWPW_runtime: forbidden
+
+development_sample_pricing:
+  approved_by_user: 2026-09-15
+  purpose: unblock_frontend_productization_before_final_commercial_pricing
+  flag: SAMPLE_DATA_ENABLED
+  implementation: config/sample_data.php
+  allowed_environments:
+    - local
+    - testing_when_explicitly_enabled
+  production: forbidden
+  production_fail_closed: true
+  fallback_only_when_deployment_pricing_registry_is_absent: true
+  explicit_deployment_pricing_registry_wins: true
+  same_server_side_resolver_for_catalog_and_order_create: true
+  client_price_authority: forbidden
+  sample_values:
+    SAMPLE-LICENSE-1M: {list_minor: 2900, charged_minor: 1450, currency: PLN}
+    SAMPLE-LICENSE-3M: {list_minor: 3800, charged_minor: 1900, currency: PLN}
+    SAMPLE-LICENSE-6M: {list_minor: 5900, charged_minor: 2950, currency: PLN}
+  production_price_claim: false
