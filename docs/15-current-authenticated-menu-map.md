@@ -2,6 +2,8 @@
 
 Data konsolidacji: 2026-09-05
 
+> **Current implementation note (2026-09-15):** ten dokument zachowuje mapping/evidence i docelowe capability. Statusy `READY_FOR_IMPLEMENTATION` oznaczają historyczną gotowość mapowania, **nie bieżący stan kodu**. Aktualny implementation/backlog/freeze authority: `docs/227-current-project-status-authority.md` i `specs/current-project-status.yml`.
+
 > Ten dokument mapuje **bieżące pozycje menu**, a nie pełny kontrakt implementacyjny. Dla szczegółów ekranów używamy `specs/screens/*.yml`, `docs/71-admin-osk-module-mapping-status.md` i `specs/implementation-baseline-v1.yml`.
 
 ## Statusy
