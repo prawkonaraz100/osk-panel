@@ -33,7 +33,7 @@ final class ProductionDeploymentPreflightContractTest extends TestCase
         self::assertStringContainsString('Release manifest mismatch.', $verify);
         self::assertStringContainsString('Verify immutable release artifact', $workflow);
 
-        self::assertStringContainsString('status: CANDIDATE', $spec);
+        self::assertStringContainsString('status: PASS', $spec);
         self::assertStringContainsString('network_calls: forbidden', $spec);
         self::assertStringContainsString('mutations: forbidden', $spec);
         self::assertStringContainsString('production_target_ready_claim: false', $spec);
