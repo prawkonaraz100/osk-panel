@@ -254,5 +254,36 @@ Ceny pochodzą z backendowego `CommercePricingCatalog`.
 Sample mode jest zabroniony w produkcji. Finalny deployment musi dostarczyć
 właściwy cennik albo świadomie zastąpić sample values inną konfiguracją.
 
-Sam ekran `/licencje/wykup` **nie jest jeszcze zaimplementowany w tym gate**.
-Ten krok usuwa jedynie brak danych katalogowych/cenowych, który wcześniej go blokował.
+Sam prerequisite `SAMPLE-DATA-001` nie materializował ekranu `/licencje/wykup`.
+Ekran jest obecnie materializowany osobno przez candidate `LICENSE-PURCHASE-UI-001`.
+
+## 13. Candidate LICENSE-PURCHASE-UI-001 — 2026-09-15
+
+Candidate materializuje własny ekran `/licencje/wykup` bez przenoszenia
+zaobserwowanych cen do kodu frontendu.
+
+Implementacja:
+
+- pobiera aktywne produkty i aktualną projekcję cen przez
+  `GET /api/v1/license-products`,
+- pozwala ustawić niezależną całkowitą ilość dla wielu wariantów,
+- buduje jedno wielopozycyjne zamówienie przez
+  `POST /api/v1/license-orders`,
+- wysyła wyłącznie `product_id`, `quantity` i `payment_method`,
+- nie wysyła ceny, VAT, rabatu ani sumy z przeglądarki,
+- pokazuje podgląd koszyka tylko na podstawie projekcji ceny otrzymanej z serwera,
+- po utworzeniu pokazuje ostateczną kwotę zwróconą przez backend,
+- wyświetla ostrzeżenie, gdy backend jawnie oznacza ceny jako `sample_data=true`,
+- nie wymyśla ceny dla produktu bez aktualnego pricing authority,
+- nie hardkoduje maksymalnej ilości self-service, ponieważ nie istnieje jeszcze taka
+  decyzja biznesowa,
+- zachowuje oddzielenie zakupu od późniejszego inventory/assignment/activation.
+
+Zaobserwowane `PayU` nie jest hardkodowane jako aktywny provider własnego produktu.
+Candidate zachowuje capability płatności online przez neutralny kod
+`online_payment` oraz przelew przez `bank_transfer`. Utworzenie zamówienia
+materializuje wyłącznie istniejący lokalny pending payment intent; nie twierdzi, że
+provider-specific redirect/callback jest aktywny.
+
+Status pozostaje candidate do czasu exact-head CI, merge na `main` i post-merge
+release evidence.
