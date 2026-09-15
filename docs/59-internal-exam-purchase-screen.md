@@ -201,15 +201,17 @@ Dla naszego produktu moment konsumpcji powinien być jawnie zdefiniowany i audyt
 Te luki nie blokują projektu własnego modułu commerce/inventory.
 
 
-## 12. Candidate INTERNAL-EXAM-PURCHASE-UI-001 — 2026-09-15
+## 12. Accepted INTERNAL-EXAM-PURCHASE-UI-001 — 2026-09-15
 
-Aktualny candidate materializuje własny ekran
-`/egzamin-wewnetrzny/wykup` bez przenoszenia obserwowanej ceny `1,23 zł`
+Własny ekran `/egzamin-wewnetrzny/wykup` jest częścią accepted runtime od
+`a9d96553caff3a6b6d3955c224627451a4effd14` (PR #127).
+
+Implementacja została przyjęta bez przenoszenia obserwowanej ceny `1,23 zł`
 ani wartości `62,73 zł` do kodu runtime.
 
 ### Aktualny stan implementacji
 
-Backend candidate dodaje read-only projection:
+Backend udostępnia read-only projection:
 
 `GET /api/v1/internal-exam/purchase-offer`
 
@@ -223,10 +225,10 @@ Projection:
   `sample_data`,
 - nie przyjmuje ceny, product id ani catalog code od klienta.
 
-Order create nadal przy zapisie ponownie rozwiązuje catalog i pricing authority.
-Podgląd w przeglądarce nie staje się więc źródłem ceny.
+Order create przy zapisie ponownie rozwiązuje catalog i pricing authority.
+Podgląd w przeglądarce nie jest więc źródłem ceny.
 
-Frontend candidate:
+Frontend:
 
 - pobiera aktualną ofertę wyłącznie z
   `GET /api/v1/internal-exam/purchase-offer`,
@@ -243,23 +245,23 @@ Frontend candidate:
 
 ### Development sample support
 
-Istniejący `SAMPLE_DATA_ENABLED` candidate został rozszerzony o osobny,
-jawnie developerski catalog item:
+Istniejący `SAMPLE_DATA_ENABLED` został rozszerzony o osobny, jawnie
+developerski catalog item:
 
 - catalog code: `SAMPLE-INTERNAL-EXAM`,
 - product kind: `internal_exam`,
 - przykładowa cena: **2,00 PLN za jednostkę**,
 - pricing revision: `sample-dev-2026-09-15-v1`.
 
-Ta wartość jest przykładem developerskim zatwierdzonym wyłącznie po to, żeby
-nie blokować productization. Nie jest finalnym cennikiem i nie wynika z
+Ta wartość jest przykładem developerskim używanym wyłącznie po to, żeby nie
+blokować productization. Nie jest finalnym cennikiem i nie wynika z
 obserwowanej ceny konkurencyjnego ekranu. Sample mode pozostaje zabroniony
 w `APP_ENV=production`.
 
 ### Metody płatności
 
 Obserwowane PayU pozostaje historycznym faktem z audytowanego ekranu, ale własny
-candidate nie deklaruje aktywnego providera PayU. UI wysyła neutralne kody:
+accepted runtime nie deklaruje aktywnego providera PayU. UI wysyła neutralne kody:
 
 - `bank_transfer`,
 - `online_payment`.
@@ -267,11 +269,32 @@ candidate nie deklaruje aktywnego providera PayU. UI wysyła neutralne kody:
 Order create tworzy wyłącznie istniejący lokalny pending payment intent dla
 dodatniego totalu. Provider-specific redirect/callback pozostaje deferred.
 
-### Status
+### Acceptance evidence
 
-To nadal **candidate**, nie accepted runtime. Wymagane pozostają:
+Candidate exact-head:
 
-1. exact-head CI,
-2. clean promotion na `main`,
-3. post-merge push CI i immutable artifact,
-4. dopiero potem przejście statusu na accepted.
+`a9d96553caff3a6b6d3955c224627451a4effd14`
+
+- Implementation CI #746 / `35021646666`: **5/5 PASS**,
+- API Contract Gate #547 / `35021646668`: **PASS**,
+- PostgreSQL: **389 tests / 6444 assertions — PASS**,
+- deterministic restore: **122 -> 122 PASS**.
+
+Accepted `main`:
+
+- PR #127,
+- Implementation CI #747 / `35022787325`: **6/6 PASS**,
+- API Contract Gate #548 / `35022787327`: **PASS**,
+- release artifact ID: `10418766869`,
+- release archive SHA-256:
+  `60e1686b033facdd52bfd368210f59fa6d337b355b608ada72bc4c8b8df0c546`,
+- GitHub artifact ZIP SHA-256:
+  `c208c25b2b313117a48bdf3c555de86aa9ef46fb61f3368d2ac63e91d2130fe0`,
+- PostgreSQL: **389 tests / 6444 assertions — PASS**,
+- deterministic restore: **122 -> 122 PASS**,
+- schema fingerprint:
+  `f3cab286cc8f0aabef219971d90afe424a8dab694c47ade2f517a3d95970716d`.
+
+Pozostałe niewiadome z sekcji 11 pozostają niewiadomymi biznesowymi/providerowymi;
+akceptacja tego runtime ich nie rozstrzyga.
+
