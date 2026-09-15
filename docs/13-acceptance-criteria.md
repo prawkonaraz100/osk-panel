@@ -3,6 +3,8 @@
 Data konsolidacji: 2026-09-05
 
 > Kryteria opisują nasz własny produkt. Nowsze `specs/legal`, `specs/design` i `specs/screens` mają pierwszeństwo. Każde AC powinno być możliwe do pokrycia testem integracyjnym lub E2E.
+>
+> **Current runtime note:** PKK provider AC zachowują przyszły fail-closed contract, ale provider-specific PWPW runtime jest `FROZEN_UNTIL_EXPLICIT_UNFREEZE`. Bieżące testy PKK dotyczą lokalnej identity i provider-neutralnego DB substrate bez provider I/O.
 
 ---
 
