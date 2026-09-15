@@ -7,7 +7,7 @@ changed_scope:
     domain_data: organization_settings + organizations + users + organization_contact_addresses
     api_use_case: update organization settings foundation service
     permission: organization.settings.manage
-    ui: DEFERRED_UI_UNTIL_FEATURE_SLICE
+    ui: IMPLEMENTATION_CANDIDATE_ORGANIZATION_SETTINGS_UI_001
     acceptance_test: Tests\\Feature\\OrganizationSettingsFoundationTest
     status: IMPLEMENTED
   - evidence: specs/api/paths/auth-organization.yaml
@@ -52,3 +52,16 @@ changed_scope:
     acceptance_test: Tests\\Feature\\OrganizationSettingsProviderNeutralRuntimeTest
     status: IMPLEMENTED
 
+  - evidence: specs/screens/settings.yml
+    requirement: provider-neutral /ustawienia UI composes current user/company/accepted-terms projection without reading or mutating PKK
+    domain_data: users + auth_login_identifiers + organizations + organization_contact_addresses + organization_settings + terms_acceptances + legal_documents
+    api_use_case: organization.settings.get + organization.settings.update
+    permission: organization.view for load; organization.settings.manage for save
+    ui: resources/js/modules/OrganizationSettings/SettingsWorkspace.vue
+    acceptance_test: Tests\\Unit\\OrganizationSettingsUiContractTest
+    status: IMPLEMENTATION_CANDIDATE_NOT_ACCEPTED
+    preserved_boundaries:
+      - email_read_only_pending_identity_email_change_authority
+      - PKK_PWPW_frozen_and_not_called
+      - accepted_terms_document_url_not_synthesized
+      - versioned_document_resolver_still_missing
