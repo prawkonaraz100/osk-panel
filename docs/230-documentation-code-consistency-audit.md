@@ -287,4 +287,16 @@ This re-audit does **not** claim that the remaining productization work is compl
 
 PKK/PWPW remains `FROZEN_UNTIL_EXPLICIT_UNFREEZE` and is not reactivated by this audit.
 
-The documentation corrections are complete as a candidate. Merge acceptance is governed by normal PR validation for the exact candidate head and, after promotion, authoritative `main` validation. This document intentionally does not turn a transient candidate SHA into the live-head authority; exact workflow evidence must be read against the relevant Git ref/commit.
+The second-pass re-audit is **accepted**.
+
+Acceptance evidence:
+
+- PR #121 exact candidate head `f95dfb00137b0a35fbffec5e035c1ec894ec44f7`: API Contract PASS and Implementation CI PASS,
+- squash-merged to `main` as `8128a98ee3a69bd66e5547bbbe0dff77b7a7be4b`,
+- post-merge API Contract Gate #542 / run `35003842503`: **PASS**,
+- post-merge Implementation CI #718 / run `35003842548`: **6/6 PASS**,
+- PostgreSQL runtime: **384 tests / 6348 assertions**,
+- restore drill: **122 → 122 PASS**, schema fingerprint `f3cab286cc8f0aabef219971d90afe424a8dab694c47ade2f517a3d95970716d`,
+- release artifact ID `10410813587`, name `osk-panel-8128a98ee3a69bd66e5547bbbe0dff77b7a7be4b`, GitHub artifact ZIP digest `sha256:7b2cafe230a02155d4e8822ca43d2e3e41f5fc3b986f2bcdaaf9419007a31c02`.
+
+This accepted evidence is a fixed historical baseline for the re-audit. Exact live repository HEAD remains the Git ref `main`; this document intentionally does not attempt to make an embedded SHA self-referentially equal to every future `main` commit.
