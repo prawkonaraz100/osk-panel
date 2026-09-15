@@ -20,30 +20,34 @@ Canonical publication branch:
 
 Exact current repository HEAD authority: **Git ref `main`**. The document intentionally does not claim that an embedded SHA is the forever-current HEAD, because editing this file changes the HEAD.
 
-Latest fully verified accepted `main` baseline before the current Internal Exam Purchase candidate:
+Latest fully verified accepted `main` runtime baseline before this closure-only status sync:
 
-`5fd3dfb4cceadd634fbc9b379b69f99b958079d0`
+`a9d96553caff3a6b6d3955c224627451a4effd14`
 
-This is the License Purchase closure/status sync promoted by PR #126 after correcting
-the lifecycle-state contract test. Embedded evidence below is a verified accepted
+This is the accepted Internal Exam Purchase runtime promoted by PR #127 through a
+clean fast-forward onto `main`. Embedded evidence below is a verified accepted
 baseline, not a substitute for reading the live `main` ref.
 
 Accepted Implementation CI:
 
-`35018649697` / run #741 — **6/6 PASS**
+`35022787325` / run #747 — **6/6 PASS**
+
+Accepted API Contract Gate:
+
+`35022787327` / run #548 — **PASS**
 
 Accepted immutable artifact for this verified baseline:
 
-- artifact ID: `10416163884`,
-- name: `osk-panel-5fd3dfb4cceadd634fbc9b379b69f99b958079d0`,
+- artifact ID: `10418766869`,
+- name: `osk-panel-a9d96553caff3a6b6d3955c224627451a4effd14`,
 - release archive SHA-256:
-  `93ce0b7bc76bec3424a4b4c336a92376b8511b3a82637e22b69aa61fd37579eb`,
+  `60e1686b033facdd52bfd368210f59fa6d337b355b608ada72bc4c8b8df0c546`,
 - GitHub uploaded artifact ZIP SHA-256:
-  `69bd158267a7c274bddfdb818202ad43e6645859f4afc7f52d4c0f6248fe0ce2`.
+  `c208c25b2b313117a48bdf3c555de86aa9ef46fb61f3368d2ac63e91d2130fe0`.
 
 Runtime suite:
 
-- PostgreSQL: **386 tests / 6392 assertions — PASS**,
+- PostgreSQL: **389 tests / 6444 assertions — PASS**,
 - deterministic restore: **122 -> 122 PASS**,
 - restored schema fingerprint:
   `f3cab286cc8f0aabef219971d90afe424a8dab694c47ade2f517a3d95970716d`.
@@ -130,21 +134,17 @@ Completed productization work:
 - `AUTH-RECOVERY-UI-001`: accepted on `d6b2089903ac830581b8606914cd484f1207dee2`; PR #111; accepted CI #665 **6/6 PASS**. Public SPA routes exist for `/login`, `/forgot-password` and `/reset-password`.
 - `REGISTRATION-UI-001`: accepted on `da8b5c35590c77f512a17e21f1e173bce46a6088`; PR #123; accepted CI #733 **6/6 PASS**. Public `/register` uses the existing `POST /api/v1/auth/register`, discovers the exact Terms version through the non-production sample resolver instead of hardcoding it, fails closed without Terms authority, keeps marketing consent false without a separately versioned marketing authority, creates no implicit authenticated session and only renders the discovered Terms target after same-origin URL resolution. Production registration still requires a real published/versioned Terms authority.
 - `LICENSE-PURCHASE-UI-001`: accepted on `394c24d73eb7514e68f4996342b769f4a35b432c`; PR #125; accepted CI #738 **6/6 PASS**. `/licencje/wykup` reads the server price projection from `GET /api/v1/license-products`, creates multi-variant orders through `POST /api/v1/license-orders`, never sends browser-owned price/VAT/discount/total fields, visibly labels sample pricing, fails closed when pricing authority is absent and keeps provider-specific payment redirects/callbacks deferred.
+- `INTERNAL-EXAM-PURCHASE-UI-001`: accepted on `a9d96553caff3a6b6d3955c224627451a4effd14`; PR #127; accepted CI #747 **6/6 PASS** plus API Contract #548 **PASS**. `/egzamin-wewnetrzny/wykup` reads server-authoritative pricing from `GET /api/v1/internal-exam/purchase-offer`, submits only integer `quantity` and provider-neutral `payment_method` to `POST /api/v1/internal-exam/orders`, never sends browser-owned price/VAT/discount/total fields, visibly labels sample pricing and leaves provider-specific payment redirects/callbacks deferred.
 - `ORGANIZATION-SETTINGS-UI-001`: accepted on `4006607dd2aecdc6fabb97a34ba5edf40d07729b`; PR #113; accepted CI #675 **6/6 PASS**. `/ustawienia` uses the provider-neutral settings contract, keeps e-mail read-only, does not read or mutate PKK while frozen, and does not synthesize a terms document URL.
 
 Completed development support:
 
-- `SAMPLE-DATA-001`: **accepted** on `2f42eaaff8fc41cddee5ddba5c39f1d58033ed5a`; PR #115; candidate head `275e9dc47c5b507d49b96cf4ce79205b0ec78d49`; candidate Implementation CI #680 **5/5 PASS** plus API Contract #511 **PASS**; accepted Implementation CI #681 **6/6 PASS** plus API Contract #512 **PASS**. PostgreSQL: **384 tests / 6348 assertions**; restore drill **PASS**; release artifact `10401437249`, archive digest `sha256:197ed111da545c12c07add947a1760be82858eed9830f4ba84ce4bc327046540`. The accepted scope is a clearly labelled non-production sample Terms document and sample license pricing only; production use remains forbidden.
-
-Current productization candidate — **not yet accepted on `main`**:
-
-- `INTERNAL-EXAM-PURCHASE-UI-001`: branch `productization/internal-exam-purchase-ui-001` materializes `/egzamin-wewnetrzny/wykup`, adds read-only `GET /api/v1/internal-exam/purchase-offer` and extends non-production sample pricing with a separate `SAMPLE-INTERNAL-EXAM` catalog item. Offer preview and order placement use the same server catalog selector and `CommercePricingCatalog`; the browser sends only integer `quantity` and provider-neutral `payment_method`. The observed 1.23 PLN demo value is not runtime price authority. Acceptance still requires exact-head CI and promotion to `main`.
+- `SAMPLE-DATA-001`: **accepted** on `2f42eaaff8fc41cddee5ddba5c39f1d58033ed5a`; PR #115; candidate head `275e9dc47c5b507d49b96cf4ce79205b0ec78d49`; candidate Implementation CI #680 **5/5 PASS** plus API Contract #511 **PASS**; accepted Implementation CI #681 **6/6 PASS** plus API Contract #512 **PASS**. PostgreSQL: **384 tests / 6348 assertions**; restore drill **PASS**; release artifact `10401437249`, archive digest `sha256:197ed111da545c12c07add947a1760be82858eed9830f4ba84ce4bc327046540`. The original accepted scope is a clearly labelled non-production sample Terms document and sample license pricing. PR #127 accepted a narrow internal-exam sample-pricing extension (`SAMPLE-INTERNAL-EXAM`, 2.00 PLN) using the same production-forbidden sample mode; it is development data, not approved production pricing.
 
 Current productization gaps confirmed by code audit:
 
-1. accept `INTERNAL-EXAM-PURCHASE-UI-001` on `main`,
-2. no browser E2E suite for complete user golden paths,
-3. frontend routing is currently a lightweight pathname shell rather than a full
+1. no browser E2E suite for complete user golden paths,
+2. frontend routing is currently a lightweight pathname shell rather than a full
    router/state-management architecture.
 
 Registration UI is accepted on `main`. This does **not** remove the production legal prerequisite: a real published/versioned Terms authority remains required before production registration can be enabled.
@@ -154,7 +154,7 @@ closed Core domain/database authority.
 
 ## HTTP contract/runtime reconciliation
 
-The accepted-main deep audit on 2026-09-15 found **160 physical `/api/v1` route bindings** versus **173 HTTP operations in canonical OpenAPI**. The current Internal Exam Purchase candidate adds exactly one matched physical/OpenAPI operation, so the candidate branch contains **161 physical bindings** versus **174 OpenAPI operations**; the gap remains **15**. Those 15 OpenAPI-only operations are intentional deferred boundaries: 14 PKK/PWPW operations and one provider payment webhook. Runtime additionally exposes two intentional non-canonical/compatibility endpoints: the non-production sample-terms discovery endpoint and the `internal-exam-stations/heartbeat` compatibility alias. Detailed first-pass evidence and the independent second-pass verification/corrections are recorded in `docs/230-documentation-code-consistency-audit.md` (sections 1–12 preserve the first pass; section 13 records the re-audit).
+After accepted Internal Exam Purchase, `main` contains **161 physical `/api/v1` route bindings** versus **174 HTTP operations in canonical OpenAPI**. The gap remains **15**. Those 15 OpenAPI-only operations are intentional deferred boundaries: 14 PKK/PWPW operations and one provider payment webhook. Runtime additionally exposes two intentional non-canonical/compatibility endpoints: the non-production sample-terms discovery endpoint and the `internal-exam-stations/heartbeat` compatibility alias. Detailed first-pass evidence and the independent second-pass verification/corrections are recorded in `docs/230-documentation-code-consistency-audit.md` (sections 1–12 preserve the first pass; section 13 records the re-audit).
 
 ## Production status
 
@@ -180,10 +180,11 @@ release smoke.
 
 ## Next execution order
 
-1. close the remaining confirmed frontend productization gaps,
-2. add browser E2E golden paths,
-3. choose/provision target infrastructure,
-4. collect all nine external evidence classes against one immutable release,
-5. run final fail-closed go-live evidence validation.
+1. add browser E2E golden paths for the accepted productized flows,
+2. fix repository defects exposed by those browser paths,
+3. cut and verify the final immutable release candidate,
+4. choose/provision target infrastructure,
+5. collect all nine external evidence classes against that final immutable release,
+6. run final fail-closed go-live evidence validation.
 
 Do not reactivate PKK as part of this sequence.
