@@ -87,7 +87,7 @@ Completed productization work:
 
 Current productization support in progress:
 
-- `SAMPLE-DATA-001`: candidate branch `productization/sample-regulation-pricing-001` adds a clearly labelled non-production sample Terms document and sample license pricing. It is intended only to remove development blockers; it is not accepted until exact-head CI + clean promotion. Production use of sample data is forbidden.
+- `SAMPLE-DATA-001`: **accepted** on `2f42eaaff8fc41cddee5ddba5c39f1d58033ed5a`; PR #115; candidate head `275e9dc47c5b507d49b96cf4ce79205b0ec78d49`; candidate Implementation CI #680 **5/5 PASS** plus API Contract #511 **PASS**; accepted Implementation CI #681 **6/6 PASS** plus API Contract #512 **PASS**. PostgreSQL: **384 tests / 6348 assertions**; restore drill **PASS**; release artifact `10401437249`, archive digest `sha256:197ed111da545c12c07add947a1760be82858eed9830f4ba84ce4bc327046540`. The accepted scope is a clearly labelled non-production sample Terms document and sample license pricing only; production use remains forbidden and `/licencje/wykup` is still not materialized.
 
 Current productization gaps confirmed by code audit:
 
