@@ -20,11 +20,7 @@ use App\Modules\StudentFinance\StudentFinanceController;
 use App\Modules\StudentProgress\StudentProgressController;
 use App\Modules\StudentsCourses\StudentCourseController;
 use App\Modules\UploadsAssets\UploadAssetController;
-use App\Support\Operations\ProductionHealthController;
 use Illuminate\Support\Facades\Route;
-
-Route::get('/health/live', [ProductionHealthController::class, 'live']);
-Route::get('/health/ready', [ProductionHealthController::class, 'ready']);
 
 Route::middleware(ResourceApiMiddleware::class)->prefix('api/v1')->group(function (): void {
     Route::post('/auth/register', [AuthSessionController::class, 'register']);
