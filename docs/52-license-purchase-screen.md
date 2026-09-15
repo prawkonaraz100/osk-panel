@@ -257,9 +257,9 @@ właściwy cennik albo świadomie zastąpić sample values inną konfiguracją.
 Sam prerequisite `SAMPLE-DATA-001` nie materializował ekranu `/licencje/wykup`.
 Ekran jest obecnie materializowany osobno przez candidate `LICENSE-PURCHASE-UI-001`.
 
-## 13. Candidate LICENSE-PURCHASE-UI-001 — 2026-09-15
+## 13. Accepted LICENSE-PURCHASE-UI-001 — 2026-09-15
 
-Candidate materializuje własny ekran `/licencje/wykup` bez przenoszenia
+Accepted runtime materializuje własny ekran `/licencje/wykup` bez przenoszenia
 zaobserwowanych cen do kodu frontendu.
 
 Implementacja:
@@ -280,10 +280,22 @@ Implementacja:
 - zachowuje oddzielenie zakupu od późniejszego inventory/assignment/activation.
 
 Zaobserwowane `PayU` nie jest hardkodowane jako aktywny provider własnego produktu.
-Candidate zachowuje capability płatności online przez neutralny kod
+Accepted implementation zachowuje capability płatności online przez neutralny kod
 `online_payment` oraz przelew przez `bank_transfer`. Utworzenie zamówienia
 materializuje wyłącznie istniejący lokalny pending payment intent; nie twierdzi, że
 provider-specific redirect/callback jest aktywny.
 
-Status pozostaje candidate do czasu exact-head CI, merge na `main` i post-merge
-release evidence.
+Acceptance evidence:
+
+- PR #125,
+- accepted head `394c24d73eb7514e68f4996342b769f4a35b432c`,
+- candidate CI #737: **5/5 PASS**,
+- accepted push CI #738: **6/6 PASS**,
+- PostgreSQL: **386 tests / 6390 assertions**,
+- restore: **122 -> 122 PASS**,
+- immutable artifact ID `10414769162`,
+- release archive SHA-256
+  `879fbd07fdeb0297c833b748e9eab4f61d3141714dc028f2ca5de96211d86bc0`.
+
+Provider-specific payment flow remains deferred; this accepted UI does not claim a
+live PayU/other-provider checkout.
