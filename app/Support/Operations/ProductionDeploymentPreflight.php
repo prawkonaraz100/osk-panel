@@ -34,17 +34,23 @@ final class ProductionDeploymentPreflight
         $checks[] = $this->check('app.key.configured', $this->nonBlank(config('app.key')));
 
         $checks[] = $this->check('logging.channel.json_stderr', config('logging.default') === 'json_stderr');
-        $this->check(
-            $checks,
+        $checks[] = $this->check(
             'logging.level.not_debug',
-            in_array(config('logging.channels.json_stderr.level'), ['info', 'notice', 'warning', 'error', 'critical', 'alert', 'emergency'], true),
+            in_array(
+                config('logging.channels.json_stderr.level'),
+                ['info', 'notice', 'warning', 'error', 'critical', 'alert', 'emergency'],
+                true,
+            ),
         );
 
         $checks[] = $this->check('database.driver.pgsql', config('database.default') === 'pgsql');
-        $this->check(
-            $checks,
+        $checks[] = $this->check(
             'database.pgsql.ssl_required',
-            in_array(config('database.connections.pgsql.sslmode'), ['require', 'verify-ca', 'verify-full'], true),
+            in_array(
+                config('database.connections.pgsql.sslmode'),
+                ['require', 'verify-ca', 'verify-full'],
+                true,
+            ),
         );
 
         $checks[] = $this->check('cache.driver.redis', config('cache.default') === 'redis');
@@ -56,22 +62,32 @@ final class ProductionDeploymentPreflight
         $checks[] = $this->check('queue.failed_jobs.durable', config('queue.failed.driver') === 'database-uuids');
 
         $checks[] = $this->check('storage.default.s3', config('filesystems.default') === 's3');
-        $checks[] = $this->check('storage.s3.bucket.configured', $this->nonBlank(config('filesystems.disks.s3.bucket')));
-        $checks[] = $this->check('storage.s3.region.configured', $this->nonBlank(config('filesystems.disks.s3.region')));
-        $checks[] = $this->check('storage.s3.endpoint.safe', $this->safeOptionalS3Endpoint(config('filesystems.disks.s3.endpoint')));
-        $checks[] = $this->check('storage.s3.credentials.not_local_test_defaults', !$this->hasKnownLocalStorageCredential() === false);
+        $checks[] = $this->check(
+            'storage.s3.bucket.configured',
+            $this->nonBlank(config('filesystems.disks.s3.bucket')),
+        );
+        $checks[] = $this->check(
+            'storage.s3.region.configured',
+            $this->nonBlank(config('filesystems.disks.s3.region')),
+        );
+        $checks[] = $this->check(
+            'storage.s3.endpoint.safe',
+            $this->safeOptionalS3Endpoint(config('filesystems.disks.s3.endpoint')),
+        );
+        $checks[] = $this->check(
+            'storage.s3.credentials.not_local_test_defaults',
+            $this->hasKnownLocalStorageCredential() === false,
+        );
 
         $mailer = config('mail.default');
-        $this->check(
-            $checks,
+        $checks[] = $this->check(
             'mail.transport.delivers',
             is_string($mailer) && in_array($mailer, ['log', 'array'], true) === false,
         );
         $checks[] = $this->check('mail.from.nonplaceholder', $this->safeMailFrom(config('mail.from.address')));
 
         $resetTemplate = config('password_recovery.reset_url_template');
-        $this->check(
-            $checks,
+        $checks[] = $this->check(
             'password_recovery.url.secure_template',
             $this->httpsUrl($resetTemplate, true)
                 && is_string($resetTemplate)
@@ -80,9 +96,11 @@ final class ProductionDeploymentPreflight
 
         $appKey = config('app.key');
         $lookupKey = config('security.sensitive_identifiers.lookup_key');
-        $checks[] = $this->check('sensitive_identifier.lookup_key.high_entropy', is_string($lookupKey) && strlen(trim($lookupKey)) >= 32);
-        $this->check(
-            $checks,
+        $checks[] = $this->check(
+            'sensitive_identifier.lookup_key.high_entropy',
+            is_string($lookupKey) && strlen(trim($lookupKey)) >= 32,
+        );
+        $checks[] = $this->check(
             'sensitive_identifier.lookup_key.independent',
             is_string($lookupKey)
                 && is_string($appKey)
@@ -91,18 +109,38 @@ final class ProductionDeploymentPreflight
                 && hash_equals(trim($appKey), trim($lookupKey)) === false,
         );
 
-        $checks[] = $this->check('internal_exam.heartbeat.configured', $this->positiveIntegerLike(config('internal_exams.station_heartbeat_fresh_seconds')));
-        $checks[] = $this->check('internal_exam.execution_ttl.configured', $this->positiveIntegerLike(config('internal_exams.execution_token_ttl_minutes')));
-        $checks[] = $this->check('internal_exam.result_ttl.configured', $this->positiveIntegerLike(config('internal_exams.result_token_ttl_minutes')));
-        $checks[] = $this->check('internal_exam.remote_ttl.configured', $this->positiveIntegerLike(config('internal_exams.remote_access_ttl_minutes')));
-        $checks[] = $this->check('internal_exam.remote_url.https_nonlocal', $this->httpsUrl(config('internal_exams.remote_public_base_url'), true));
+        $checks[] = $this->check(
+            'internal_exam.heartbeat.configured',
+            $this->positiveIntegerLike(config('internal_exams.station_heartbeat_fresh_seconds')),
+        );
+        $checks[] = $this->check(
+            'internal_exam.execution_ttl.configured',
+            $this->positiveIntegerLike(config('internal_exams.execution_token_ttl_minutes')),
+        );
+        $checks[] = $this->check(
+            'internal_exam.result_ttl.configured',
+            $this->positiveIntegerLike(config('internal_exams.result_token_ttl_minutes')),
+        );
+        $checks[] = $this->check(
+            'internal_exam.remote_ttl.configured',
+            $this->positiveIntegerLike(config('internal_exams.remote_access_ttl_minutes')),
+        );
+        $checks[] = $this->check(
+            'internal_exam.remote_url.https_nonlocal',
+            $this->httpsUrl(config('internal_exams.remote_public_base_url'), true),
+        );
 
         $examTokenKey = config('internal_exams.token_verifier_key_v1');
         $examStationKey = config('internal_exams.station_verifier_key_v1');
-        $checks[] = $this->check('internal_exam.token_key.high_entropy', is_string($examTokenKey) && strlen(trim($examTokenKey)) >= 32);
-        $checks[] = $this->check('internal_exam.station_key.high_entropy', is_string($examStationKey) && strlen(trim($examStationKey)) >= 32);
-        $this->check(
-            $checks,
+        $checks[] = $this->check(
+            'internal_exam.token_key.high_entropy',
+            is_string($examTokenKey) && strlen(trim($examTokenKey)) >= 32,
+        );
+        $checks[] = $this->check(
+            'internal_exam.station_key.high_entropy',
+            is_string($examStationKey) && strlen(trim($examStationKey)) >= 32,
+        );
+        $checks[] = $this->check(
             'internal_exam.verifier_keys.distinct',
             is_string($examTokenKey)
                 && is_string($examStationKey)
@@ -110,12 +148,21 @@ final class ProductionDeploymentPreflight
                 && trim($examStationKey) !== ''
                 && hash_equals(trim($examTokenKey), trim($examStationKey)) === false,
         );
-        $checks[] = $this->check('internal_exam.documents.s3', config('internal_exams.document_storage_disk') === 's3');
+        $checks[] = $this->check(
+            'internal_exam.documents.s3',
+            config('internal_exams.document_storage_disk') === 's3',
+        );
 
         $contactRefs = config('incident_response.contact_refs');
-        $checks[] = $this->check('incident.contact_refs.configured', $this->allIncidentContactRefsConfigured($contactRefs));
+        $checks[] = $this->check(
+            'incident.contact_refs.configured',
+            $this->allIncidentContactRefsConfigured($contactRefs),
+        );
 
-        $checks[] = $this->check('retention.executor.disabled_at_baseline', config('retention.executor.enabled') === false);
+        $checks[] = $this->check(
+            'retention.executor.disabled_at_baseline',
+            config('retention.executor.enabled') === false,
+        );
 
         $errorCount = count(array_filter(
             $checks,
