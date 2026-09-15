@@ -5,6 +5,10 @@ meta:
   status: AUTHORITATIVE_TRACEABILITY_MANIFEST
   clean_room: true
   preservation_contract: docs/96-reverse-engineering-preservation-contract.md
+  READY_FOR_IMPLEMENTATION_semantics: HISTORICAL_MAPPING_READINESS_NOT_CURRENT_RUNTIME_STATUS
+  current_implementation_status_source: specs/current-project-status.yml
+  physical_runtime_route_authority: routes/web.php
+  PKK_provider_runtime_status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
 
 rules:
   confirmed_screen_element_is_requirement_for_core: true
