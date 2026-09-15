@@ -16,7 +16,7 @@ final class DashboardUiContractTest extends TestCase
         $this->assertIsString($dashboard);
 
         $this->assertStringContainsString("const isDashboardRoute = window.location.pathname === '/'", $app);
-        $this->assertStringContainsString('<DashboardWorkspace v-if="isDashboardRoute" />', $app);
+        $this->assertStringContainsString('<DashboardWorkspace v-else-if="isDashboardRoute" />', $app);
 
         $this->assertStringContainsString("api<DashboardPayload>('/api/v1/dashboard')", $dashboard);
         $this->assertStringContainsString('Aktywne licencje', $dashboard);
