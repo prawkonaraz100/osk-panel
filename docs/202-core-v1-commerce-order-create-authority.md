@@ -308,3 +308,33 @@ Next gate:
 `CORE-V1-STAGE5-COMMERCE-ORDER-SEQUENCE-001`
 
 Only after that corrective PASS and a fresh closure audit may `license_orders.create` and `exam_orders.create` become implementation-ready.
+
+
+## Development sample-pricing exception — 2026-09-15
+
+User explicitly approved temporary example prices so frontend/productization work is not
+blocked by the absence of final commercial pricing.
+
+This does **not** revoke the production pricing authority above.
+
+The allowed exception is:
+
+- flag: `SAMPLE_DATA_ENABLED`,
+- implementation: `config/sample_data.php`,
+- allowed only outside `APP_ENV=production`,
+- production with `SAMPLE_DATA_ENABLED=true` fails closed during configuration,
+- sample pricing is used only when
+  `commerce.order_create.pricing_by_catalog_code` has no deployment registry,
+- an explicit deployment registry always wins over sample pricing,
+- `GET /api/v1/license-products` and order creation resolve the same server-side
+  pricing authority through `CommercePricingCatalog`,
+- the browser still never supplies price, VAT, discount or total authority,
+- order items still persist the immutable server-side pricing snapshot.
+
+Current non-production sample values are intentionally replaceable examples:
+
+- 1 month: list 29.00 PLN, charged 14.50 PLN,
+- 3 months: list 38.00 PLN, charged 19.00 PLN,
+- 6 months: list 59.00 PLN, charged 29.50 PLN.
+
+They are sample/demo values, not approved production prices.
