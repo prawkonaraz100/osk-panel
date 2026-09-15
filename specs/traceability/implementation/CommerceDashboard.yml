@@ -153,3 +153,11 @@ changed_scope:
     accepted_implementation_ci: PASS_6_OF_6
     accepted_api_contract_run: 34980321672
     accepted_api_contract: PASS
+  - evidence: docs/202-core-v1-commerce-order-create-authority.md#INTERNAL-EXAM-PURCHASE-UI-001-candidate-extension-2026-09-15 + specs/screens/internal-exam-purchase.yml
+    requirement: the implemented candidate purchase-offer read and internal-exam order create resolve the same server-owned catalog selector and CommercePricingCatalog so checkout preview never becomes price authority
+    domain_data: commerce_catalog_items + config/commerce.php + config/sample_data.php + orders + order_items
+    api_use_case: exam_purchase_offer.get + exam_orders.create
+    permission: exams.purchase with active organization scope
+    ui: resources/js/modules/InternalExams/InternalExamPurchaseWorkspace.vue at /egzamin-wewnetrzny/wykup
+    acceptance_test: Tests\\Feature\\CommerceOrderCreateCoreTest::test_internal_exam_purchase_offer_uses_same_server_pricing_authority_as_order_create + Tests\\Feature\\DevelopmentSampleDataCoreTest::test_sample_internal_exam_offer_uses_same_server_price_used_by_order_create
+    status: IMPLEMENTED
