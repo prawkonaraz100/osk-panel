@@ -88,3 +88,20 @@ Historical plaintext passwords must never be recovered. A normal reprint is ther
 The bulk `license_credentials.bulk_pdf` operation remains separately blocked for its `regenerate_credentials_when_required=true` branch until the contract carries expected credential versions for every reset target.
 
 PKK/PWPW runtime remains frozen.
+
+
+## Current sample-only document resolver note — 2026-09-15
+
+The historical closure above remains accurate for real production legal documents:
+there is still no general versioned local legal-document resolver.
+
+For development only, `SAMPLE_DATA_ENABLED` now permits the exact seeded
+`sample-terms-v1` acceptance to project:
+
+`/regulamin/sample-terms-v1`
+
+as `document_url`.
+
+All other accepted legal-document versions continue to return `document_url=null`
+until a real production resolver is implemented. Sample mode is forbidden in
+`APP_ENV=production`.
