@@ -1,0 +1,33 @@
+name: Historical Branch Cleanup
+
+on:
+  push:
+    branches:
+      - archive/branch-snapshot-2026-09-15
+    paths:
+      - '.github/workflows/branch-cleanup.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: historical-branch-cleanup
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    if: github.repository == 'prawkonaraz100/osk-panel'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout archive authority
+        uses: actions/checkout@v6
+        with:
+          ref: archive/branch-snapshot-2026-09-15
+          fetch-depth: 0
+
+      - name: Execute verified branch cleanup
+        env:
+          EXECUTE: '1'
+          CONFIRM_BRANCH_CLEANUP: delete-verified-branches-b35f0cf38a588bb27faa4c1f682c8a87864f828b
+        run: bash .branch-cleanup-2026-09-15.sh
