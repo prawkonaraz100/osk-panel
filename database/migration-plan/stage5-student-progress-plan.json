@@ -1,0 +1,80 @@
+{
+  "schema_version": 1,
+  "extension_id": "student_progress_projection_v1",
+  "plan_identity": "d844b3e5c74844e6e9a357aa3271ff9b68bac93dc7fdcd6fa28d3ab44b9c978a",
+  "source": {
+    "authority_path": "specs/database/student-progress-projection-migration-extension.yml",
+    "authority_git_blob": "9f9b000fcbee2086c18da3ab0ac21e966c3a4c90",
+    "extension_contract_version": 1,
+    "phase_contract_version": 1
+  },
+  "stage4_baseline": {
+    "plan_identity": "d2fd6bc999dc2a5ee024e9b91bf00f5a5dad29575554a0ba42eba67107c23f10",
+    "execution_identity": "82da84d3efb312d78b432ad6081491c04b03569a0f250722d6befc11ca233712",
+    "authority_git_blob": "ad5f2aa2e14ef248b95dd3dda0d1cbcb2e69d441",
+    "nodes": 170,
+    "implemented_nodes": 170,
+    "implemented_steps": 261
+  },
+  "preserved_stage5_formal_documents": {
+    "plan_identity": "34cada121f4fd4963b1461308fb517c50ee647005ce9421f4d1af40c80d44b99",
+    "execution_identity": "31704fcab61761aa9a952d824dc543a6f46e7a3717792d0a9349cefaaf57651f"
+  },
+  "preserved_stage5_social_identity": {
+    "plan_identity": "85319b7c91cf9046e0ac8c00772aad141462e3897363b32d0ba222a50f73fe4d",
+    "execution_identity": "b4a73588390d837fbb460d374114585064445462ddcba667d3919c7052f76cd0"
+  },
+  "preserved_stage5_commerce_order_sequence": {
+    "plan_identity": "6d03c38e47ba30d07a3a090d514ac09384e1ea5e668947b95eeaaa6fce49c019",
+    "execution_identity": "4dc74dce0acaf9904a013a08c7f85d0539ccb8af6fcff0cc690aae2629100554"
+  },
+  "phase_order": [
+    "expand",
+    "preflight",
+    "write_fence",
+    "backfill",
+    "reconcile",
+    "validate",
+    "contract"
+  ],
+  "execution_control": {
+    "single_executor": "shared_postgres_advisory_lock",
+    "advisory_lock_keys": [
+      519662,
+      5001
+    ],
+    "blind_retry": false,
+    "automatic_destructive_down": false,
+    "default_laravel_migrate_discovery": false
+  },
+  "nodes": [
+    {
+      "node_id": "S5PROG-TBL-LEARNING-PROGRESS-SOURCE-BINDINGS",
+      "type": "table",
+      "order": 10,
+      "object_name": "learning_progress_source_bindings",
+      "requires": [],
+      "phases": [
+        "preflight",
+        "expand",
+        "validate"
+      ],
+      "restart_classification": "manual_review"
+    },
+    {
+      "node_id": "S5PROG-TBL-STUDENT-LEARNING-PROGRESS-PROJECTIONS",
+      "type": "table",
+      "order": 20,
+      "object_name": "student_learning_progress_projections",
+      "requires": [
+        "S5PROG-TBL-LEARNING-PROGRESS-SOURCE-BINDINGS"
+      ],
+      "phases": [
+        "preflight",
+        "expand",
+        "validate"
+      ],
+      "restart_classification": "manual_review"
+    }
+  ]
+}

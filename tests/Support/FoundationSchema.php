@@ -6,6 +6,7 @@ use App\Support\Migrations\MigrationPlan;
 use App\Support\Migrations\Stage5CommerceOrderSequenceMigrationPlan;
 use App\Support\Migrations\Stage5FormalDocumentsMigrationPlan;
 use App\Support\Migrations\Stage5SocialIdentityMigrationPlan;
+use App\Support\Migrations\Stage5StudentProgressMigrationPlan;
 use Database\Seeders\FoundationReferenceCatalogSeeder;
 use Database\Seeders\ResourceReferenceCatalogSeeder;
 use Illuminate\Support\Facades\Artisan;
@@ -34,6 +35,8 @@ final class FoundationSchema
         'order_payment_settlements',
         'payment_events',
         'payments',
+        'student_learning_progress_projections',
+        'learning_progress_source_bindings',
         'organization_commerce_order_sequences',
         'order_items',
         'orders',
@@ -232,6 +235,37 @@ final class FoundationSchema
             ]);
             if ($exit !== 0) {
                 throw new LogicException('Stage-5 commerce order-sequence controlled migration failed: '.Artisan::output());
+            }
+
+            $appliedMigrations = DB::table('migrations')->pluck('migration')->all();
+        }
+
+        $studentProgressPlan = app(Stage5StudentProgressMigrationPlan::class);
+        $studentProgressPlan->validate();
+
+        $appliedMigrations = Schema::hasTable('migrations')
+            ? DB::table('migrations')->pluck('migration')->all()
+            : [];
+
+        foreach (['preflight', 'expand', 'validate'] as $phase) {
+            $steps = $studentProgressPlan->phaseSteps($phase);
+            $missing = array_filter(
+                $steps,
+                static fn (array $step): bool => ! in_array($step['migration_name'], $appliedMigrations, true),
+            );
+
+            if ($missing === []) {
+                continue;
+            }
+
+            $exit = Artisan::call('migration:stage5:student-progress:controlled', [
+                '--plan' => $studentProgressPlan->identity(),
+                '--execution' => $studentProgressPlan->executionIdentity(),
+                '--phase' => $phase,
+                '--force' => true,
+            ]);
+            if ($exit !== 0) {
+                throw new LogicException('Stage-5 student progress controlled migration failed: '.Artisan::output());
             }
 
             $appliedMigrations = DB::table('migrations')->pluck('migration')->all();

@@ -7386,3 +7386,34 @@ CORE_V1_STUDENT_PROGRESS_AUTHORITY_001_gate:
   safe_continuation_after_PASS:
     next_gate: CORE-V1-STAGE5-STUDENT-PROGRESS-PROJECTION-001
     fresh_audit_required_before_HTTP_runtime: true
+
+
+CORE_V1_STAGE5_STUDENT_PROGRESS_PROJECTION_001_gate:
+  id: CORE-V1-STAGE5-STUDENT-PROGRESS-PROJECTION-001
+  status: CANDIDATE
+  prerequisite:
+    authority: CORE-V1-STUDENT-PROGRESS-AUTHORITY-001_PASS
+  authority:
+    spec: specs/database/student-progress-projection-migration-extension.yml
+    authority_git_blob: 9f9b000fcbee2086c18da3ab0ac21e966c3a4c90
+    plan: database/migration-plan/stage5-student-progress-plan.json
+    plan_identity: d844b3e5c74844e6e9a357aa3271ff9b68bac93dc7fdcd6fa28d3ab44b9c978a
+    registry: database/migration-plan/stage5-student-progress-implementations.json
+    execution_identity: 53df27f3f7e54939067c73bea202162e0e07244321f3a6c98d2e9e24592730de
+    narrative: docs/208-core-v1-stage5-student-progress-projection-implementation.md
+  exact_scope:
+    tables:
+      - learning_progress_source_bindings
+      - student_learning_progress_projections
+    nodes: 2
+    implemented_steps: 6
+    phases: [preflight, expand, validate]
+    heuristic_backfill: forbidden
+    HTTP_binding_change: false
+    progress_UI_enable: false
+    Stage4_mutation: false
+    PKK_runtime_activation: false
+    provider_webhook_change: false
+  safe_continuation_after_PASS:
+    fresh_closure_audit_required: true
+    HTTP_runtime_before_fresh_audit: forbidden
