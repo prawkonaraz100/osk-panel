@@ -388,6 +388,12 @@ function handleError(caught: unknown): void {
         >
           <a
             class="button ghost"
+            href="/licencje/wykup"
+          >
+            Wykup licencje
+          </a>
+          <a
+            class="button ghost"
             href="/kursanci"
           >
             Dodaj kursanta
