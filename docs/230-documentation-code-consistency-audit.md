@@ -265,7 +265,7 @@ This is why `specs/privacy/retention-schedule.yml` now describes the executor as
 The pass corrected only documents related to confirmed drift:
 
 - current-status/head evidence wording is non-self-referential: live HEAD authority is the `main` ref, while embedded SHAs are verified evidence baselines,
-- Stage 4 point-in-time fields such as `implementation_started`, `Laravel_migrations_created`, `OPEN/PENDING` are explicitly historical where later materialization is proven,
+- Stage 4 point-in-time fields such as `implementation_started`, `Laravel_migrations_created`, `OPEN/PENDING` are classified as historical by the current-status/authority layer where later materialization is proven; frozen or hash-pinned Stage 4/5 authority files themselves remain unchanged rather than being rewritten for classification,
 - screen/menu preservation evidence is separated from physical route materialization,
 - current module documentation lists the modules actually present in `app/Modules/**`,
 - registration/sample-Terms, settings, Student Progress and formal-document status wording is aligned with materialized runtime,
@@ -287,4 +287,4 @@ This re-audit does **not** claim that the remaining productization work is compl
 
 PKK/PWPW remains `FROZEN_UNTIL_EXPLICIT_UNFREEZE` and is not reactivated by this audit.
 
-The documentation corrections are complete as a candidate. Acceptance still requires the normal PR validation and, after promotion, authoritative `main` validation; until those checks exist, this section must not be read as post-merge CI evidence.
+The documentation corrections are complete as a candidate. Merge acceptance is governed by normal PR validation for the exact candidate head and, after promotion, authoritative `main` validation. This document intentionally does not turn a transient candidate SHA into the live-head authority; exact workflow evidence must be read against the relevant Git ref/commit.
