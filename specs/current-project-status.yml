@@ -76,7 +76,8 @@ frontend_productization_completed:
     route: /ustawienia
     component: resources/js/modules/OrganizationSettings/SettingsWorkspace.vue
     PKK_runtime: FROZEN_NOT_CALLED
-    terms_document_resolver: BLOCKED_MISSING_VERSIONED_LOCAL_RESOLVER
+    development_terms_document_resolver: SAMPLE_DATA_IMPLEMENTED_NON_PRODUCTION_ONLY
+    production_terms_document_resolver: BLOCKED_MISSING_REAL_VERSIONED_LEGAL_DOCUMENT_AUTHORITY
 
 development_sample_support:
   gate: SAMPLE-DATA-001
