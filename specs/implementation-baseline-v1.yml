@@ -536,9 +536,10 @@ current_closure_2026_09_15:
   PKK_PWPW: FROZEN_UNTIL_EXPLICIT_UNFREEZE
   PKK_required_for_core_service_launch: false
   completed_productization:
-    - auth_and_recovery_UI
+    - auth_login_and_password_recovery_UI
     - organization_settings_UI
   current_productization_focus:
+    - registration_UI
     - license_purchase_UI
     - internal_exam_purchase_UI
     - browser_end_to_end_golden_paths
