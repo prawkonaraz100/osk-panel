@@ -4,6 +4,9 @@ meta:
   name: database_invariants_and_migration_design_gate
   branch: docs-consolidation-2026-09-05
   status: PASS
+  document_scope: HISTORICAL_COMPLETED_GATE_RECORD
+  current_repository_status_source: specs/current-project-status.yml
+  current_stage4_materialization_status: COMPLETE_AND_RUNTIME_TESTED
   started_at: 2026-09-05
   rule: stage_5_and_UI_or_Laravel_feature_implementation_must_not_start_until_stage_4_is_PASS
 
