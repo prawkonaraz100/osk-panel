@@ -4,7 +4,10 @@ screen:
   route: /kursanci
   title: Kursanci
   confidence: USER_CONFIRMED_AUTH_SCREEN
-  status: READY_FOR_IMPLEMENTATION
+  status: IMPLEMENTED
+  route_materialized: true
+  current_UI: resources/js/modules/StudentsCourses/StudentCourseWorkspace.vue
+  current_runtime_status_source: specs/current-project-status.yml
   verified_at: 2026-09-05
   list_doc: docs/29-students-list-screen.md
 
