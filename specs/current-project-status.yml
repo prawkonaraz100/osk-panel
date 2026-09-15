@@ -7,21 +7,21 @@ meta:
 runtime_authority:
   exact_current_head_source: GIT_REF_main
   embedded_sha_is_verified_evidence_baseline_not_live_head_contract: true
-  evidence_kind: LAST_FULLY_VERIFIED_MAIN_BASELINE_BEFORE_SECOND_DOCUMENTATION_REAUDIT
-  git_sha: 20e6989486bd27c9331a8f5dd55acc6f2b0a3d2b
+  evidence_kind: LATEST_FULLY_VERIFIED_RUNTIME_BASELINE_BEFORE_REGISTRATION_CLOSURE_SYNC
+  git_sha: da8b5c35590c77f512a17e21f1e173bce46a6088
   canonical_branch: main
-  promotion_pull_request: 120
-  accepted_ci_run: 34997297399
+  promotion_pull_request: 123
+  accepted_ci_run: 35010888852
   accepted_ci: PASS_6_OF_6
   api_contract_evidence_git_sha: 20e6989486bd27c9331a8f5dd55acc6f2b0a3d2b
   accepted_api_contract_run: 34997297369
   accepted_api_contract: PASS
-  release_artifact_id: 10409070006
-  release_artifact_name: osk-panel-20e6989486bd27c9331a8f5dd55acc6f2b0a3d2b
-  release_archive_sha256: 0c9434895683f28bad1f96df127fe31813588e25269509ac1c2f95cc17ac47f3
-  github_artifact_zip_sha256: 163bf641abe1759bffb0967b0fe22bfe765c31c3ec62c8bcbd8b7315e4736607
-  postgres_tests_passed: 384
-  assertions: 6348
+  release_artifact_id: 10413962163
+  release_artifact_name: osk-panel-da8b5c35590c77f512a17e21f1e173bce46a6088
+  release_archive_sha256: f1b3de0bc8cb48ab1d930b6a7b60b8906205b35a455ad715d3eab5aa1746b6c2
+  github_artifact_zip_sha256: 19fb29322c40ff8baae9f29515d52e7440c8c0cbc7bf075519224f12a32509fa
+  postgres_tests_passed: 385
+  assertions: 6367
   restore_tables_source: 122
   restore_tables_restored: 122
   restore_schema_fingerprint: f3cab286cc8f0aabef219971d90afe424a8dab694c47ade2f517a3d95970716d
@@ -65,6 +65,30 @@ frontend_productization_completed:
     release_artifact_id: 10395187416
     release_archive_sha256: 516fa5aafe9c4a1a2a5bfb488e3fb3ae0bbfa3377d82e05a5797f3b9f70af7ce
     social_provider_buttons: DEFERRED_PENDING_PROVIDER_DISCOVERY_CONTRACT
+  registration_UI:
+    gate: REGISTRATION-UI-001
+    pull_request: 123
+    accepted: true
+    accepted_head: da8b5c35590c77f512a17e21f1e173bce46a6088
+    accepted_ci_run: 35010888852
+    accepted_ci: PASS_6_OF_6
+    release_artifact_id: 10413962163
+    release_archive_sha256: f1b3de0bc8cb48ab1d930b6a7b60b8906205b35a455ad715d3eab5aa1746b6c2
+    github_artifact_zip_sha256: 19fb29322c40ff8baae9f29515d52e7440c8c0cbc7bf075519224f12a32509fa
+    postgres_tests: 385
+    postgres_assertions: 6367
+    restore_drill: PASS_122_TO_122
+    route: /register
+    component: resources/js/modules/IdentityTenant/RegistrationWorkspace.vue
+    backend_operation: POST /api/v1/auth/register
+    terms_discovery: GET /api/v1/development/sample/legal/terms/current
+    hardcoded_terms_version: forbidden
+    current_terms_link_behavior: SAME_ORIGIN_ONLY_IMPLEMENTATION_NOT_ARCHITECTURE_AUTHORITY
+    marketing_consent_without_versioned_marketing_authority: false
+    implicit_authenticated_session: false
+    development_sample_terms_only: true
+    production_terms_authority: REQUIRED_NOT_YET_PROVIDED
+    PKK_PWPW_runtime: FROZEN_UNTOUCHED
   organization_settings_UI:
     gate: ORGANIZATION-SETTINGS-UI-001
     pull_request: 113
@@ -80,25 +104,6 @@ frontend_productization_completed:
     development_terms_document_resolver: SAMPLE_DATA_IMPLEMENTED_NON_PRODUCTION_ONLY
     production_terms_document_resolver: BLOCKED_MISSING_REAL_VERSIONED_LEGAL_DOCUMENT_AUTHORITY
 
-
-frontend_productization_candidate:
-  registration_UI:
-    gate: REGISTRATION-UI-001
-    pull_request: 123
-    physical_runtime_in_current_tree: true
-    accepted_on_main: false
-    acceptance_status: PENDING_EXACT_HEAD_CI_AND_MERGE
-    route: /register
-    component: resources/js/modules/IdentityTenant/RegistrationWorkspace.vue
-    backend_operation: POST /api/v1/auth/register
-    terms_discovery: GET /api/v1/development/sample/legal/terms/current
-    hardcoded_terms_version: forbidden
-    current_terms_link_behavior: SAME_ORIGIN_ONLY_IMPLEMENTATION_NOT_ARCHITECTURE_AUTHORITY
-    marketing_consent_without_versioned_marketing_authority: false
-    implicit_authenticated_session: false
-    development_sample_terms_only: true
-    production_terms_authority: REQUIRED_NOT_YET_PROVIDED
-    PKK_PWPW_runtime: FROZEN_UNTOUCHED
 
 development_sample_support:
   gate: SAMPLE-DATA-001
