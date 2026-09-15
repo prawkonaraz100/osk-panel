@@ -16,18 +16,18 @@ jako aktualnego backlogu.
 
 Ostatni zaakceptowany runtime authority:
 
-`0cff2ac4661d84a99ef859e2c403051b122b7b18`
+`7a84f5e32752efdd7955ceecc02daec0f91f6a7a`
 
 Accepted Implementation CI:
 
-`34955123076` / run #655 — **6/6 PASS**
+`34960412395` / run #657 — **6/6 PASS**
 
 Accepted immutable artifact:
 
-- artifact ID: `10391475457`,
-- name: `osk-panel-0cff2ac4661d84a99ef859e2c403051b122b7b18`,
+- artifact ID: `10392958940`,
+- name: `osk-panel-7a84f5e32752efdd7955ceecc02daec0f91f6a7a`,
 - release archive SHA-256:
-  `5052c43ead47460f8e7021042e7ab507dd4cc902ccabd60014c1495112f32361`.
+  `50b3ff2edf563a4a8d17dff62849289c5279df74660c492602a69eab9dde5236`.
 
 Runtime suite:
 
@@ -80,7 +80,7 @@ Functional SPA workspaces exist for:
 
 Current productization gaps confirmed by code audit:
 
-1. no dedicated login/recovery UI route,
+1. dedicated login/recovery UI is currently an implementation candidate in PR #111 (`AUTH-RECOVERY-UI-001`); it remains an open productization gap until exact-head CI, closure and accepted promotion are complete,
 2. no organization settings UI route,
 3. no license purchase UI route despite backend `POST /api/v1/license-orders`,
 4. no internal-exam purchase UI route despite backend `POST /api/v1/internal-exam/orders`,
@@ -115,8 +115,8 @@ release smoke.
 
 ## Next execution order
 
-1. close documentation-status drift,
-2. close the four confirmed frontend productization gaps,
+1. close `AUTH-RECOVERY-UI-001` without weakening the existing auth/password-recovery authority,
+2. close the remaining confirmed frontend productization gaps,
 3. add browser E2E golden paths,
 4. choose/provision target infrastructure,
 5. collect all nine external evidence classes against one immutable release,
