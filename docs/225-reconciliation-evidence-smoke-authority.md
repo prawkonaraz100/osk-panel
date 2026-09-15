@@ -3,7 +3,7 @@
 Data: 2026-09-15
 
 **Gate:** `PROD-RECONCILIATION-EVIDENCE-SMOKE-001`  
-**Status:** `IMPLEMENTATION_CANDIDATE`
+**Status:** `PASS_REPOSITORY_SAFE_EVIDENCE_SMOKE`
 
 ## Starting authority
 
@@ -81,3 +81,23 @@ business finding occurred before go-live.
 - activate PKK/PWPW.
 
 PKK/PWPW remains frozen and optional for Core launch.
+
+
+## Closure evidence
+
+Validated exact head before closure:
+
+`15c38f8b80ac2a9453223f7c2157052261b23a01`
+
+Implementation CI run `34952486723` / #653: **5/5 PASS**.
+
+- backend-quality: PASS,
+- frontend-quality: PASS,
+- contracts-and-traceability: PASS,
+- secret-scan: PASS,
+- runtime-tests-and-migrations: PASS,
+- PostgreSQL: **379 tests / 6278 assertions — PASS**,
+- deterministic restore: **122 -> 122 PASS**,
+- restore schema fingerprint: `f3cab286cc8f0aabef219971d90afe424a8dab694c47ade2f517a3d95970716d`.
+
+PR release-artifact remains skipped by workflow design; accepted-branch promotion must still produce the 6th job and immutable release artifact.
