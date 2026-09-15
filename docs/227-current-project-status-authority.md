@@ -80,7 +80,7 @@ Functional SPA workspaces exist for:
 
 Current productization gaps confirmed by code audit:
 
-1. dedicated login/recovery UI is currently an implementation candidate in PR #111 (`AUTH-RECOVERY-UI-001`); it remains an open productization gap until exact-head CI, closure and accepted promotion are complete,
+1. dedicated login/recovery UI in PR #111 (`AUTH-RECOVERY-UI-001`) is a **validated 5/5 candidate** on `b7a7706b…`; it remains an open productization gap until closure is validated, clean accepted promotion completes and accepted-branch 6/6 PASS is recorded,
 2. no organization settings UI route,
 3. no license purchase UI route despite backend `POST /api/v1/license-orders`,
 4. no internal-exam purchase UI route despite backend `POST /api/v1/internal-exam/orders`,
