@@ -3,7 +3,7 @@
 Data: 2026-09-15
 
 **Gate:** `PROD-RETENTION-EXECUTOR-001`  
-**Status:** `IMPLEMENTATION_CANDIDATE`
+**Status:** `PASS_REPOSITORY_TECHNICAL_TTL_EXECUTOR`
 
 ## Starting authority
 
@@ -58,6 +58,9 @@ default. Destructive execution additionally requires:
 
 Ordinary application permissions do not grant this capability.
 
+The command is registered as a dedicated Console Command class rather than as
+an application HTTP route or scheduled task.
+
 ## Evidence model
 
 A successful execution writes one final row to
@@ -96,9 +99,30 @@ privilege/procedure design.
 PKK/PWPW remains frozen and optional. No provider payload collection or purge
 logic is introduced.
 
-## Validation target
+## Exact validation evidence
 
-The implementation must prove:
+Validated implementation head:
+
+`be492fa0f73ae461b3bb5f9074ccea55e61fcda5`
+
+Implementation CI:
+
+`34926812714`
+
+Result:
+
+- backend-quality — PASS,
+- frontend-quality — PASS,
+- contracts-and-traceability — PASS,
+- secret-scan — PASS,
+- runtime-tests-and-migrations — PASS.
+
+PostgreSQL-backed suite:
+
+- **355 passed**,
+- **6095 assertions**.
+
+The dedicated `RetentionExecutorCoreTest` proves:
 
 - dry-run is non-destructive,
 - cutoff is server-derived,
@@ -108,5 +132,27 @@ The implementation must prove:
 - wrong policy refuses deletion,
 - non-allowlisted class refuses deletion,
 - row-count fence performs zero deletion,
-- final evidence contains counts/reason/policy/cutoff but no deleted payload,
-- no HTTP route and no automatic schedule exists.
+- final evidence records counts/reason/policy/cutoff.
+
+Restore drill:
+
+- source tables: 122,
+- restored tables: 122,
+- critical tables checked: 10,
+- schema fingerprint: `f3cab286cc8f0aabef219971d90afe424a8dab694c47ade2f517a3d95970716d`,
+- Redis recovered empty: true,
+- Moto S3 previous-version restore: PASS,
+- `RESTORE_DRILL_HARNESS=PASS`,
+- `production_target_evidence=false`.
+
+The restore result remains CI-emulated evidence only and does not claim target
+production PITR or production object-storage recovery.
+
+## Promotion rule
+
+This closure commit must itself receive exact-head PASS before promotion to
+`docs-consolidation-2026-09-05`.
+
+After promotion, accepted-branch CI must remain green. The gate does not become
+authority for any additional retention data class merely because the executor
+exists.
