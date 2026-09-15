@@ -26,7 +26,11 @@ jobs:
           coverage: none
       - run: composer install --no-interaction --prefer-dist --no-progress
       - run: composer validate --strict
-      - run: vendor/bin/pint --test
+      - name: Diagnose Pint diff
+        run: |
+          vendor/bin/pint app/Support/Operations/ProductionOperationsSmoke.php
+          git --no-pager diff -- app/Support/Operations/ProductionOperationsSmoke.php
+          exit 1
       - run: vendor/bin/phpstan analyse --no-progress --memory-limit=1G
 
   frontend-quality:
