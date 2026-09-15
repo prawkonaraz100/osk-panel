@@ -8,6 +8,16 @@ info:
     capabilities are preserved through specs/reverse-engineering-manifest.yml and
     specs/api/required-operations-v1.yml. Path details are split into module files
     so coverage can grow without compressing or dropping observed flows.
+
+    OpenAPI is also a preservation/future contract and is intentionally broader than
+    current physical Laravel bindings. Operations marked with `x-runtime-status`
+    are not claims of an active route. In particular PKK/PWPW provider operations are
+    frozen pending authoritative PWPW guidance and the provider payment webhook is an
+    unimplemented external-provider boundary. Current physical bindings live in
+    `routes/web.php`; current status authority lives in `specs/current-project-status.yml`.
+x-runtime-binding-authority: routes/web.php
+x-current-runtime-status-authority: specs/current-project-status.yml
+x-preserved-contract-may-include-deferred-operations: true
 servers:
   - url: /api/v1
 security:
