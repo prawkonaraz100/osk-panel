@@ -1,0 +1,83 @@
+meta:
+  id: production_target_preflight_v1
+  gate: PROD-TARGET-PREFLIGHT-001
+  status: CANDIDATE
+  policy_version: 2026-09-15-v1
+  follows:
+    - PROD-READINESS-RUNTIME-001
+    - PROD-RETENTION-EXECUTOR-001
+
+boundary:
+  repository_hardening_only: true
+  HTTP_endpoint: none
+  automatic_schedule: none
+  secret_values_in_report: forbidden
+  operator_supplied_cutoff_or_destructive_action: none
+  PKK_provider_required: false
+  payment_provider_webhook_required: false
+
+static_required_checks:
+  - app_environment_production
+  - app_debug_disabled
+  - app_url_https_nonlocal
+  - app_key_strong
+  - sensitive_identifier_key_independent
+  - database_postgresql
+  - database_credentials_not_development
+  - redis_authenticated_or_managed_url
+  - cache_redis
+  - session_redis
+  - session_secure_cookie
+  - session_http_only
+  - session_json_serialization
+  - queue_redis
+  - failed_jobs_durable
+  - filesystem_s3
+  - s3_bucket_not_development
+  - s3_credentials_not_development_pair
+  - s3_endpoint_secure_if_custom
+  - structured_json_stderr_logging
+  - production_log_level
+  - password_reset_https
+  - password_reset_mailer_secret_safe
+  - mail_from_valid
+  - incident_contact_refs_present
+  - retention_executor_disabled_at_boot
+
+live_checks:
+  gated_by_static_pass: true
+  mutations:
+    business_database: forbidden
+    cache: ephemeral_key_only
+    object_storage: ephemeral_preflight_object_only
+    queue: read_size_only
+  checks:
+    - postgresql_connectivity
+    - redis_connectivity
+    - redis_cache_round_trip
+    - redis_queue_visibility
+    - object_storage_round_trip
+
+fail_closed:
+  any_static_failure: command_failure
+  live_requested_with_static_failure: live_skipped_and_command_failure
+  any_live_failure: command_failure
+  unknown_secret_source: external_evidence_not_repo_claim
+
+external_evidence_still_required:
+  - secret_manager_or_equivalent_injection_attestation
+  - target_postgresql_PITR_and_off_primary_restore_drill
+  - target_object_version_restore_drill
+  - measured_target_RPO_RTO
+  - production_monitoring_dashboards_and_alert_routes
+  - incident_contact_roster_and_paging_smoke_test
+  - production_scheduler_and_alert_delivery_smoke_test
+  - external_https_release_smoke_test
+
+deferred_boundaries:
+  PKK_PWPW:
+    status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+    required_for_preflight: false
+  payment_provider_specific_webhook:
+    status: EXTERNAL_PROVIDER_BOUNDARY
+    required_for_preflight: false
