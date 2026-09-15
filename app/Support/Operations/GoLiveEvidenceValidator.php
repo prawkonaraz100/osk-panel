@@ -206,7 +206,7 @@ final class GoLiveEvidenceValidator
             ),
             'reconciliation_scheduler_execution_and_alert_delivery_smoke_test' => $this->validateAllTrue(
                 $details,
-                ['scheduler_executed', 'finding_failure_alert_reached_operator'],
+                ['scheduler_executed', 'reconciliation_alert_smoke_reached_operator'],
                 $id,
             ),
             'target_environment_release_smoke_test' => $this->validateReleaseSmoke(
