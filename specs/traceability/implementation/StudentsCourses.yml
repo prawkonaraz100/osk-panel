@@ -77,13 +77,13 @@ changed_scope:
     acceptance_test: Tests\Feature\StudentFinanceCoreTest::test_course_initial_cost_creates_one_exact_origin_and_retry_does_not_duplicate_charge
     status: IMPLEMENTED
   - evidence: specs/screens/student-create.yml
-    requirement: optional learning account and license assignment remain separate domain entities and are not flattened into Student persistence
-    domain_data: future student_learning_accounts + license_assignments; students remains profile-only
-    api_use_case: initial_license remains contract-visible but runtime rejects it until Learning Access and Licenses slices
-    permission: future student_access and license permissions remain outside this module slice
-    ui: student create and detail show explicit Learning Access dependency without fabricated login license or password state
-    acceptance_test: Tests\Feature\StudentsCoursesCoreTest::test_http_student_create_and_course_create_require_idempotency_and_emit_version_etag
-    status: DEFERRED_OUTSIDE_CORE_WITH_EXPLICIT_DECISION
+    requirement: optional initial learning account and license assignment remain separate domain entities and are created atomically through the LearningAccess authority rather than flattened into Student persistence
+    domain_data: students + student_learning_accounts + license_inventory_entries + license_assignments; students remains profile-only
+    api_use_case: students.create accepts initial_license and delegates the exact new-student assignment effect to LicenseService
+    permission: students.create plus licenses.assign, with the server binding the newly created Student id rather than trusting a client student target
+    ui: student create flow may request initial learning access without making Student the credential or license authority
+    acceptance_test: Tests\Feature\LearningAccessCoreTest::test_student_create_initial_license_is_atomic_and_server_binds_new_student_id
+    status: IMPLEMENTED
   - evidence: docs/08-security-compliance.md#3-RODO-prywatnosc
     requirement: PESEL and local course-scoped PKK identity use application encryption plus a lookup HMAC key independent from APP_KEY, and lookup equality remains safe across an explicit current-plus-previous key rollover window without fabricating business-history revisions
     domain_data: students.pesel_ciphertext + students.pesel_lookup_hash + pkk_profiles.pkk_number_ciphertext + pkk_profiles.pkk_lookup_hash
@@ -109,7 +109,7 @@ changed_scope:
     api_use_case: course_enrollments.change_stage target training_completed
     permission: courses.stage.change with existing course scope and If-Match
     ui: resources/js/modules/StudentsCourses/StudentCourseWorkspace.vue reuses the existing stage-transition request and surfaces backend eligibility failures
-    acceptance_test: Tests\\Feature\\CourseCompletionRuntimeTest + Tests\\Unit\\CourseCompletionUiContractTest
+    acceptance_test: Tests\\Feature\\InternalExamCoreTest::test_course_completion_zero_requirement_is_atomic_and_http_idempotent + Tests\\Feature\\InternalExamCoreTest::test_course_completion_requires_current_minutes_and_exam_evidence + Tests\\Feature\\InternalExamCoreTest::test_course_completion_uses_still_passed_attempt_not_latest_management_status_across_requirement_supersession + Tests\\Unit\\CourseCompletionUiContractTest
     status: IMPLEMENTED
 
   - evidence: specs/screens/student-progress.yml
