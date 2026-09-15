@@ -2,9 +2,11 @@
 
 Data: 2026-09-05
 
-This score is internal guidance, not a compliance certification.
+**Status:** `HISTORICAL_SNAPSHOT_SUPERSEDED`
 
-## Current assessment
+This score is internal guidance, not a compliance certification. Oceny i lista blockerów poniżej opisują stan z 2026-09-05 przed implementacją. Nie są bieżącym readiness score ani backlogiem; aktualny stan jest w `docs/227-current-project-status-authority.md` i `specs/current-project-status.yml`.
+
+## Historical assessment (2026-09-05)
 
 - Functional screen mapping: 9/10
 - Canonical domain model: 9/10
