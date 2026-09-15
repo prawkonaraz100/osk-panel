@@ -50,8 +50,24 @@ frontend_productization_completed:
 development_sample_support:
   gate: SAMPLE-DATA-001
   branch: productization/sample-regulation-pricing-001
-  accepted: false
-  status: IMPLEMENTATION_CANDIDATE_NOT_ACCEPTED
+  accepted: true
+  status: ACCEPTED
+  pr: 115
+  candidate_head: 275e9dc47c5b507d49b96cf4ce79205b0ec78d49
+  candidate_implementation_ci_run: 34979358411
+  candidate_implementation_ci: PASS_5_OF_5
+  candidate_api_contract_run: 34979358178
+  candidate_api_contract: PASS
+  accepted_head: 2f42eaaff8fc41cddee5ddba5c39f1d58033ed5a
+  accepted_implementation_ci_run: 34980321576
+  accepted_implementation_ci: PASS_6_OF_6
+  accepted_api_contract_run: 34980321672
+  accepted_api_contract: PASS
+  postgres_tests: 384
+  postgres_assertions: 6348
+  restore_drill: PASS
+  release_artifact_id: 10401437249
+  release_archive_sha256: 197ed111da545c12c07add947a1760be82858eed9830f4ba84ce4bc327046540
   production_use: forbidden
   sample_terms:
     version: sample-terms-v1
