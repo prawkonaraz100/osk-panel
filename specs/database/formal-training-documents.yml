@@ -2,6 +2,11 @@ meta:
   id: core_v1_formal_training_documents_schema
   version: 2026-09-13-v1
   status: DESIGN_AUTHORITY_ONLY
+  document_role: STAGE5_SCHEMA_DESIGN_AUTHORITY
+  current_schema_materialization_status: MATERIALIZED
+  current_runtime_status: IMPLEMENTED
+  current_traceability: specs/traceability/implementation/FormalDocuments.yml
+  historical_status_note: DESIGN_AUTHORITY_ONLY describes this file's original Gate-1 role and does not mean the later runtime is absent
   implementation_gate: CORE-V1-FORMAL-TRAINING-DOCUMENTS-001_GATE_1
 
 principles:
