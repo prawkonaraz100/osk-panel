@@ -61,9 +61,12 @@ Ukończone w productization:
 - **REGISTRATION-UI-001** — `/register` jest częścią accepted runtime od `da8b5c35590c77f512a17e21f1e173bce46a6088`; PR #123, accepted CI #733 = 6/6 PASS. UI korzysta z istniejącego backendu i nieprodukcyjnego sample Terms discovery bez hardcodowania wersji regulaminu. Produkcja nadal wymaga realnego, opublikowanego i wersjonowanego regulaminu/authority.
 - **ORGANIZATION-SETTINGS-UI-001** — provider-neutral `/ustawienia` jest częścią accepted runtime od `4006607dd2aecdc6fabb97a34ba5edf40d07729b`; PR #113, accepted CI #675 = 6/6 PASS. PKK pozostaje zamrożone, e-mail read-only; development ma jawny sample Terms resolver, natomiast produkcyjne odtworzenie dokładnej treści regulaminu nadal wymaga realnego versioned document resolvera/authority.
 
+Kandydat w toku:
+- **LICENSE-PURCHASE-UI-001** — branch `productization/license-purchase-ui-001` materializuje `/licencje/wykup`. UI korzysta wyłącznie z server-authoritative `GET /api/v1/license-products` i `POST /api/v1/license-orders`; nie wysyła ceny/VAT/rabatu/totalu, oznacza sample pricing i nie udaje aktywnej integracji konkretnego operatora płatności. Acceptance wymaga exact-head CI i merge na `main`.
+
 Pozostałe luki produktowe:
 - produkcyjny realny/versioned Terms authority dla rejestracji,
-- UI zakupu licencji,
+- akceptacja `LICENSE-PURCHASE-UI-001` na `main`,
 - UI zakupu egzaminów wewnętrznych,
 - browser E2E dla głównych golden paths,
 - realny deployment i external production evidence.
