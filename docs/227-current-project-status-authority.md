@@ -14,25 +14,55 @@ jako aktualnego backlogu.
 
 ## Runtime authority
 
-Ostatni zaakceptowany runtime authority:
+Canonical publication branch:
 
-`4006607dd2aecdc6fabb97a34ba5edf40d07729b`
+`main`
+
+Accepted main-promotion runtime evidence head:
+
+`d519651171ab5329d1dcc5326160339d4b94bb5b`
+
+Promotion authority: PR #117 merged the previously accepted integration history into
+`main` without force-push or squash. The promoted `main` tree is identical to the
+verified accepted integration tree.
 
 Accepted Implementation CI:
 
-`34971537563` / run #675 — **6/6 PASS**
+`34985599149` / run #692 — **6/6 PASS**
+
+Accepted API Contract Gate:
+
+`34985599153` / run #518 — **PASS**
 
 Accepted immutable artifact:
 
-- artifact ID: `10396979267`,
-- name: `osk-panel-4006607dd2aecdc6fabb97a34ba5edf40d07729b`,
+- artifact ID: `10403891440`,
+- name: `osk-panel-d519651171ab5329d1dcc5326160339d4b94bb5b`,
 - release archive SHA-256:
-  `c3ca6f4c99dd61099cfc2bb720a502e8808212384d1393a8e8accae17071b962`.
+  `9a3dd441316917e33405f6e071dd72ccd598a2cf20d5bac9f302bec7fec37428`,
+- GitHub uploaded artifact ZIP SHA-256:
+  `da42e6bd1b38ffe7fd8f8303baeebfece799748eccc600c44eff79a817a4dfb5`.
 
 Runtime suite:
 
-- PostgreSQL: **381 tests / 6315 assertions — PASS**,
-- deterministic restore: **122 -> 122 PASS**.
+- PostgreSQL: **384 tests / 6348 assertions — PASS**,
+- deterministic restore: **122 -> 122 PASS**,
+- restored schema fingerprint:
+  `f3cab286cc8f0aabef219971d90afe424a8dab694c47ade2f517a3d95970716d`.
+
+## Repository branch authority
+
+- `main` is the only canonical base/publication branch for new repository work.
+- `docs-consolidation-2026-09-05` is historical/non-canonical after PR #117 and must
+  not receive new accepted work.
+- New task branches start from verified `main` and merge back to `main` through PR
+  validation; no force-push/history rewrite of `main`.
+- Full push/release Implementation CI is authoritative only on `main`.
+- Historical branch cleanup remains a separate repository-hygiene activity. Branches
+  may be deleted only after ancestry or explicit supersession is verified; divergent
+  historical tips are not assumed safe merely from their name.
+- Repository setting `delete_branch_on_merge` was observed as `false` during the
+  2026-09-15 audit, so merged task branches are not currently removed automatically.
 
 ## Core V1
 

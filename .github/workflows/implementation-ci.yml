@@ -4,7 +4,6 @@ on:
   pull_request:
   push:
     branches:
-      - docs-consolidation-2026-09-05
       - main
 
 permissions:
@@ -116,7 +115,7 @@ jobs:
 
 
   release-artifact:
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/docs-consolidation-2026-09-05' || github.ref == 'refs/heads/main')
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs:
       - backend-quality
       - frontend-quality
