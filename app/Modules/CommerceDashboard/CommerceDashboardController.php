@@ -64,6 +64,13 @@ final class CommerceDashboardController
         );
     }
 
+    public function examPurchaseOffer(Request $request): JsonResponse
+    {
+        return response()->json($this->commerce->internalExamPurchaseOffer(
+            $this->sessionId($request),
+        ));
+    }
+
     public function examOrdersCreate(Request $request): JsonResponse
     {
         $input = $this->validated($request, [
