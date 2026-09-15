@@ -65,21 +65,6 @@ frontend_productization_completed:
     release_artifact_id: 10395187416
     release_archive_sha256: 516fa5aafe9c4a1a2a5bfb488e3fb3ae0bbfa3377d82e05a5797f3b9f70af7ce
     social_provider_buttons: DEFERRED_PENDING_PROVIDER_DISCOVERY_CONTRACT
-  registration_UI:
-    gate: REGISTRATION-UI-001
-    pull_request: 123
-    accepted: true
-    route: /register
-    component: resources/js/modules/IdentityTenant/RegistrationWorkspace.vue
-    backend_operation: POST /api/v1/auth/register
-    terms_discovery: GET /api/v1/development/sample/legal/terms/current
-    hardcoded_terms_version: forbidden
-    terms_document_link_origin: same_origin_only
-    marketing_consent_without_versioned_marketing_authority: false
-    implicit_authenticated_session: false
-    development_sample_terms_only: true
-    production_terms_authority: REQUIRED_NOT_YET_PROVIDED
-    PKK_PWPW_runtime: FROZEN_UNTOUCHED
   organization_settings_UI:
     gate: ORGANIZATION-SETTINGS-UI-001
     pull_request: 113
@@ -94,6 +79,26 @@ frontend_productization_completed:
     PKK_runtime: FROZEN_NOT_CALLED
     development_terms_document_resolver: SAMPLE_DATA_IMPLEMENTED_NON_PRODUCTION_ONLY
     production_terms_document_resolver: BLOCKED_MISSING_REAL_VERSIONED_LEGAL_DOCUMENT_AUTHORITY
+
+
+frontend_productization_candidate:
+  registration_UI:
+    gate: REGISTRATION-UI-001
+    pull_request: 123
+    physical_runtime_in_current_tree: true
+    accepted_on_main: false
+    acceptance_status: PENDING_EXACT_HEAD_CI_AND_MERGE
+    route: /register
+    component: resources/js/modules/IdentityTenant/RegistrationWorkspace.vue
+    backend_operation: POST /api/v1/auth/register
+    terms_discovery: GET /api/v1/development/sample/legal/terms/current
+    hardcoded_terms_version: forbidden
+    current_terms_link_behavior: SAME_ORIGIN_ONLY_IMPLEMENTATION_NOT_ARCHITECTURE_AUTHORITY
+    marketing_consent_without_versioned_marketing_authority: false
+    implicit_authenticated_session: false
+    development_sample_terms_only: true
+    production_terms_authority: REQUIRED_NOT_YET_PROVIDED
+    PKK_PWPW_runtime: FROZEN_UNTOUCHED
 
 development_sample_support:
   gate: SAMPLE-DATA-001
