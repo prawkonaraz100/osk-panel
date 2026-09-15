@@ -20,34 +20,33 @@ Canonical publication branch:
 
 Exact current repository HEAD authority: **Git ref `main`**. The document intentionally does not claim that an embedded SHA is the forever-current HEAD, because editing this file changes the HEAD.
 
-Last fully verified `main` baseline before the second documentation consistency re-audit:
+Latest fully verified runtime baseline before this closure-only documentation sync:
 
-`20e6989486bd27c9331a8f5dd55acc6f2b0a3d2b`
+`da8b5c35590c77f512a17e21f1e173bce46a6088`
 
-Promotion provenance: PR #117 merged the previously accepted integration history into
-`main` without force-push or squash at `d519651171ab5329d1dcc5326160339d4b94bb5b`.
-Commit `bb6f4639fbf1098f131e579dedbb610e0e7c7d97` established `main` as the sole canonical base/publication branch. PR #119 finalized branch-hygiene/status synchronization. PR #120 then merged the first deep docs↔code consistency audit as `20e6989486bd27c9331a8f5dd55acc6f2b0a3d2b`, followed by a full post-merge validation. Embedded evidence below is a verified baseline, not a substitute for reading the live `main` ref.
+This is the accepted Registration UI runtime promoted by PR #123 through a clean
+fast-forward onto `main`. Embedded evidence below is a verified baseline, not a
+substitute for reading the live `main` ref.
 
 Accepted Implementation CI:
 
-`34997297399` / run #702 — **6/6 PASS**
+`35010888852` / run #733 — **6/6 PASS**
 
-Accepted API Contract Gate for the promoted application/contract tree:
-
-`34997297369` / run #526 — **PASS**
+The API contract was unchanged by Registration UI; the previously accepted canonical
+API Contract evidence remains valid.
 
 Accepted immutable artifact for this verified baseline:
 
-- artifact ID: `10409070006`,
-- name: `osk-panel-20e6989486bd27c9331a8f5dd55acc6f2b0a3d2b`,
+- artifact ID: `10413962163`,
+- name: `osk-panel-da8b5c35590c77f512a17e21f1e173bce46a6088`,
 - release archive SHA-256:
-  `0c9434895683f28bad1f96df127fe31813588e25269509ac1c2f95cc17ac47f3`,
+  `f1b3de0bc8cb48ab1d930b6a7b60b8906205b35a455ad715d3eab5aa1746b6c2`,
 - GitHub uploaded artifact ZIP SHA-256:
-  `163bf641abe1759bffb0967b0fe22bfe765c31c3ec62c8bcbd8b7315e4736607`.
+  `19fb29322c40ff8baae9f29515d52e7440c8c0cbc7bf075519224f12a32509fa`.
 
 Runtime suite:
 
-- PostgreSQL: **384 tests / 6348 assertions — PASS**,
+- PostgreSQL: **385 tests / 6367 assertions — PASS**,
 - deterministic restore: **122 -> 122 PASS**,
 - restored schema fingerprint:
   `f3cab286cc8f0aabef219971d90afe424a8dab694c47ade2f517a3d95970716d`.
@@ -132,11 +131,8 @@ Functional SPA workspaces exist for:
 Completed productization work:
 
 - `AUTH-RECOVERY-UI-001`: accepted on `d6b2089903ac830581b8606914cd484f1207dee2`; PR #111; accepted CI #665 **6/6 PASS**. Public SPA routes exist for `/login`, `/forgot-password` and `/reset-password`.
+- `REGISTRATION-UI-001`: accepted on `da8b5c35590c77f512a17e21f1e173bce46a6088`; PR #123; accepted CI #733 **6/6 PASS**. Public `/register` uses the existing `POST /api/v1/auth/register`, discovers the exact Terms version through the non-production sample resolver instead of hardcoding it, fails closed without Terms authority, keeps marketing consent false without a separately versioned marketing authority, creates no implicit authenticated session and only renders the discovered Terms target after same-origin URL resolution. Production registration still requires a real published/versioned Terms authority.
 - `ORGANIZATION-SETTINGS-UI-001`: accepted on `4006607dd2aecdc6fabb97a34ba5edf40d07729b`; PR #113; accepted CI #675 **6/6 PASS**. `/ustawienia` uses the provider-neutral settings contract, keeps e-mail read-only, does not read or mutate PKK while frozen, and does not synthesize a terms document URL.
-
-Current productization candidate — **not yet accepted on `main`**:
-
-- `REGISTRATION-UI-001`: PR #123 physically materializes public `/register` in the current candidate tree on top of the accepted `POST /api/v1/auth/register` backend. The browser discovers the exact Terms version from `GET /api/v1/development/sample/legal/terms/current`, never hardcodes a legal version, keeps marketing consent false until a separately versioned marketing authority exists, does not create an implicit authenticated session, and currently permits the discovered Terms link only after same-origin URL resolution. That same-origin behavior is an implementation hardening choice, not a new architecture authority. Acceptance remains pending exact-head CI and merge. Production registration still requires a real published/versioned Terms authority.
 
 Completed development support:
 
@@ -150,7 +146,7 @@ Current productization gaps confirmed by code audit:
 4. frontend routing is currently a lightweight pathname shell rather than a full
    router/state-management architecture.
 
-Registration UI is repository-materialized in the current PR #123 candidate tree, but is **not yet accepted on `main`**. This does **not** remove the production legal prerequisite. A real published/versioned Terms authority remains required before production registration can be enabled.
+Registration UI is accepted on `main`. This does **not** remove the production legal prerequisite: a real published/versioned Terms authority remains required before production registration can be enabled.
 
 These are the next repository-owned product gaps. They do not reopen the already
 closed Core domain/database authority.
