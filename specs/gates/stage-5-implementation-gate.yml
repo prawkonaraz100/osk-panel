@@ -4,11 +4,6 @@ meta:
   name: implementation_entry_and_foundation_gate
   branch: docs-consolidation-2026-09-05
   status: PASS
-  document_scope: HISTORICAL_DELIVERY_LEDGER_AND_GATE_RECORD
-  current_repository_status_source: specs/current-project-status.yml
-  current_core_v1_repository_status: COMPLETE
-  current_PKK_provider_runtime_status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
-  historical_status_note: OPEN/current/intermediate counters below preserve the point-in-time Stage5 execution ledger and are not the current backlog
   entered_at: 2026-09-10
   diagnosis_only: false
   implementation_started: true
