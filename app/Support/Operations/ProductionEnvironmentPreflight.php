@@ -176,13 +176,57 @@ final class ProductionEnvironmentPreflight
 
         $valid = is_string($effective)
             && trim($effective) !== ''
-            && ! in_array($effective, ['log', 'array'], true);
+            && $this->mailerIsProductionSafe($effective);
 
         return $this->check(
             'production_mail_transport',
             $valid,
             'Effective password-recovery mail transport must not be log or array.',
         );
+    }
+
+    /**
+     * @param  array<string,bool>  $visited
+     */
+    private function mailerIsProductionSafe(string $mailer, array $visited = []): bool
+    {
+        if (isset($visited[$mailer])) {
+            return false;
+        }
+
+        $visited[$mailer] = true;
+        $definition = config('mail.mailers.'.$mailer);
+        if (! is_array($definition)) {
+            return false;
+        }
+
+        $transport = $definition['transport'] ?? null;
+        if (! is_string($transport)) {
+            return false;
+        }
+
+        if (in_array($transport, [
+            'smtp', 'ses', 'ses-v2', 'postmark', 'resend', 'sendmail', 'mailgun',
+        ], true)) {
+            return true;
+        }
+
+        if (! in_array($transport, ['failover', 'roundrobin'], true)) {
+            return false;
+        }
+
+        $children = $definition['mailers'] ?? null;
+        if (! is_array($children) || $children === []) {
+            return false;
+        }
+
+        foreach ($children as $child) {
+            if (! is_string($child) || ! $this->mailerIsProductionSafe($child, $visited)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /** @return array{id:string,status:string,message:string} */
