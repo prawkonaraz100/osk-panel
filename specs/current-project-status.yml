@@ -5,12 +5,12 @@ meta:
   status: CURRENT
 
 runtime_authority:
-  git_sha: 0cff2ac4661d84a99ef859e2c403051b122b7b18
-  accepted_ci_run: 34955123076
+  git_sha: 7a84f5e32752efdd7955ceecc02daec0f91f6a7a
+  accepted_ci_run: 34960412395
   accepted_ci: PASS_6_OF_6
-  release_artifact_id: 10391475457
-  release_artifact_name: osk-panel-0cff2ac4661d84a99ef859e2c403051b122b7b18
-  release_archive_sha256: 5052c43ead47460f8e7021042e7ab507dd4cc902ccabd60014c1495112f32361
+  release_artifact_id: 10392958940
+  release_artifact_name: osk-panel-7a84f5e32752efdd7955ceecc02daec0f91f6a7a
+  release_archive_sha256: 50b3ff2edf563a4a8d17dff62849289c5279df74660c492602a69eab9dde5236
   postgres_tests_passed: 379
   assertions: 6278
   restore_tables_source: 122
@@ -20,6 +20,13 @@ core_v1:
   repository_complete: true
   repository_actionable_P0: 0
   repository_actionable_P1_for_core_launch: 0
+
+frontend_productization_in_progress:
+  auth_and_recovery_UI:
+    gate: AUTH-RECOVERY-UI-001
+    pull_request: 111
+    accepted: false
+    status: IMPLEMENTATION_CANDIDATE
 
 frontend_productization_gaps:
   - auth_and_recovery_UI
