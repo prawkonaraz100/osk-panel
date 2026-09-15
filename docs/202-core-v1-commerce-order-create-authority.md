@@ -340,13 +340,13 @@ Current non-production sample values are intentionally replaceable examples:
 They are sample/demo values, not approved production prices.
 
 
-### INTERNAL-EXAM-PURCHASE-UI-001 candidate extension — 2026-09-15
+### INTERNAL-EXAM-PURCHASE-UI-001 accepted extension — 2026-09-15
 
-The current productization candidate extends the already approved non-production
+The accepted productization runtime extends the already approved non-production
 sample-pricing exception to the internal-exam checkout without changing production
 pricing authority.
 
-Candidate runtime adds:
+Accepted runtime adds:
 
 - read-only `GET /api/v1/internal-exam/purchase-offer`,
 - permission `exams.purchase`,
@@ -359,7 +359,7 @@ Order placement still re-resolves the catalog and pricing authority and remains 
 final authority for the persisted Order total and immutable pricing snapshot.
 
 When `SAMPLE_DATA_ENABLED=true` outside production and no deployment pricing
-registry is present, the candidate adds:
+registry is present, the accepted runtime adds:
 
 - catalog code `SAMPLE-INTERNAL-EXAM`,
 - product kind `internal_exam`,
@@ -371,5 +371,18 @@ The 2.00 PLN value is an intentionally replaceable development example. It is no
 derived from the observed 1.23 PLN competitor snapshot and is not an approved
 production price.
 
-This extension remains candidate until exact-head CI, promotion to `main` and
-post-merge release evidence pass.
+Acceptance evidence:
+
+- candidate exact-head `a9d96553caff3a6b6d3955c224627451a4effd14`,
+- candidate Implementation CI #746 / `35021646666`: **5/5 PASS**,
+- candidate API Contract Gate #547 / `35021646668`: **PASS**,
+- accepted `main` Implementation CI #747 / `35022787325`: **6/6 PASS**,
+- accepted API Contract Gate #548 / `35022787327`: **PASS**,
+- release artifact ID `10418766869`,
+- release archive SHA-256 `60e1686b033facdd52bfd368210f59fa6d337b355b608ada72bc4c8b8df0c546`,
+- GitHub artifact ZIP SHA-256 `c208c25b2b313117a48bdf3c555de86aa9ef46fb61f3368d2ac63e91d2130fe0`,
+- PostgreSQL **389 tests / 6444 assertions — PASS**,
+- deterministic restore **122 -> 122 PASS**.
+
+The extension is accepted on `main`. This acceptance does not convert the sample
+2.00 PLN value into production pricing authority.
