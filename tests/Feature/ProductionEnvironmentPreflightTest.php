@@ -35,7 +35,7 @@ final class ProductionEnvironmentPreflightTest extends TestCase
 
         config()->set('app.debug', true);
         config()->set('app.url', 'http://example.test');
-        config()->set('mail.default', 'log');
+        config()->set('mail.default', 'failover');
         config()->set('password_recovery.mailer', null);
         config()->set('incident_response.contact_refs.privacy_lead', null);
 
