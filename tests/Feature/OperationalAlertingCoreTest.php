@@ -106,6 +106,7 @@ final class OperationalAlertingCoreTest extends TestCase
         $this->assertSame('delivered', $payload['status']);
         $this->assertSame('synthetic_smoke', $payload['event_code']);
     }
+
     public function test_reconciliation_alert_smoke_uses_exact_findings_event_without_business_mutation_claim(): void
     {
         Http::fake([
@@ -148,5 +149,4 @@ final class OperationalAlertingCoreTest extends TestCase
                 && ! array_key_exists('entity_id', $payload['context']);
         });
     }
-
 }
