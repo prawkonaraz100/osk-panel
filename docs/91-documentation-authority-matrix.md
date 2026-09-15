@@ -2,10 +2,11 @@
 
 Data: 2026-09-05
 
-Cel: jednoznacznie wskazać developerowi, który dokument wygrywa przy konflikcie **bez utraty potwierdzonego reverse-engineered scope'u**.
+Cel: jednoznacznie wskazać developerowi, który dokument wygrywa przy konflikcie **bez utraty potwierdzonego reverse-engineered scope'u**. Bieżącego stanu kodu nie wyprowadzamy ze starych planów konsolidacji ani ze statusu `READY_FOR_IMPLEMENTATION`.
 
 | Typ decyzji | Źródło nadrzędne | Przykład |
 |---|---|---|
+| Bieżący stan implementacji / backlog / freeze | `docs/227-current-project-status-authority.md` + `specs/current-project-status.yml` | co faktycznie istnieje w runtime, co jest otwarte, co jest zamrożone |
 | Prawo/formal requirements | `specs/legal/*.yml` | czy teoria jest wymagana |
 | Własny lifecycle | `specs/design/*.yml` | exam consume-on-start |
 | Zachowanie zakresu RE | `docs/96` + `specs/reverse-engineering-manifest.yml` | nie zgubić pól/filtrów/flow |
@@ -13,12 +14,13 @@ Cel: jednoznacznie wskazać developerowi, który dokument wygrywa przy konflikci
 | RBAC | `specs/security/*.yml` | permission names |
 | API conventions | `specs/api/common-contract.yml` | errors, money, idempotency |
 | Wymagana kompletność API | `specs/api/required-operations-v1.yml` | każde potwierdzone flow ma capability |
-| API paths/schemas | `specs/api/openapi-v1.yaml` + `docs/06` | course-first PKK |
+| API paths/schemas / preserved capability contract | `specs/api/openapi-v1.yaml` + `docs/06` | kontrakt może zachowywać jawnie deferred/frozen operacje; physical runtime potwierdzają `routes/web.php` i implementation traceability |
 | Physical DB blueprint | `specs/database/core-schema.yml` | relacje, partial unique, constraints |
 | Settings bounded-context DB detail | `specs/database/organization-settings.yml` | ownership pól `/ustawienia`, adres firmy, primary email, PKK settings |
 | Narrative DB | `docs/87` | opis tabel; machine spec wygrywa przy rozjeździe |
 | Settings narrative model | `docs/100-osk-settings-domain-model.md` | transakcja ustawień, ownership i concurrency |
-| Gotowość modułu | `docs/71` + implementation baseline | READY_FOR_IMPLEMENTATION |
+| Gotowość mapowania/evidence | `docs/71` + implementation baseline | historyczne `READY_FOR_IMPLEMENTATION`, nie status kodu |
+| Bieżący status modułu | `docs/227` + `specs/current-project-status.yml` + `specs/traceability/implementation/*.yml` | IMPLEMENTED / gap / deferred |
 | Canonical naming | `docs/82` | CourseEnrollment |
 | Cross-module summary | `specs/implementation-baseline-v1.yml` | core invariants |
 | Historyczny audyt/public evidence | starsze docs/source evidence | evidence/context; confidence zachowany |
