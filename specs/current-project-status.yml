@@ -34,6 +34,17 @@ frontend_productization_completed:
     registration_UI: BLOCKED_PENDING_PUBLIC_LEGAL_DOCUMENT_DISCOVERY
     social_provider_buttons: DEFERRED_PENDING_PROVIDER_DISCOVERY_CONTRACT
 
+frontend_productization_in_progress:
+  organization_settings_UI:
+    gate: ORGANIZATION-SETTINGS-UI-001
+    branch: productization/organization-settings-ui-001
+    accepted: false
+    status: IMPLEMENTATION_CANDIDATE_NOT_ACCEPTED
+    route: /ustawienia
+    component: resources/js/modules/OrganizationSettings/SettingsWorkspace.vue
+    PKK_runtime: FROZEN_NOT_CALLED
+    terms_document_resolver: BLOCKED_MISSING_VERSIONED_LOCAL_RESOLVER
+
 frontend_productization_gaps:
   - organization_settings_UI
   - license_purchase_UI
