@@ -36,7 +36,11 @@ final class RetentionPolicy
             return null;
         }
 
-        $clock = $this->clock($dataClass, $definition);
+        $clock = $definition['clock'] ?? null;
+        if (! is_array($clock) || ! is_string($clock['kind'] ?? null)) {
+            throw new LogicException("Retention clock is invalid for {$dataClass}.");
+        }
+
         $kind = $clock['kind'];
         $value = $clock['value'] ?? null;
 
@@ -52,7 +56,11 @@ final class RetentionPolicy
     public function cutoffAt(string $dataClass, CarbonImmutable $now): ?CarbonImmutable
     {
         $definition = $this->definition($dataClass);
-        $clock = $this->clock($dataClass, $definition);
+        $clock = $definition['clock'] ?? null;
+        if (! is_array($clock) || ! is_string($clock['kind'] ?? null)) {
+            throw new LogicException("Retention clock is invalid for {$dataClass}.");
+        }
+
         $kind = $clock['kind'];
         $value = $clock['value'] ?? null;
 
@@ -74,19 +82,6 @@ final class RetentionPolicy
         $value = config('retention.global_delete_after_days');
 
         return is_int($value) ? $value : null;
-    }
-
-    /** @param array<string,mixed> $definition
-     *  @return array<string,mixed>
-     */
-    private function clock(string $dataClass, array $definition): array
-    {
-        $clock = $definition['clock'] ?? null;
-        if (! is_array($clock) || ! is_string($clock['kind'] ?? null)) {
-            throw new LogicException("Retention clock is invalid for {$dataClass}.");
-        }
-
-        return $clock;
     }
 
     private function positiveInt(mixed $value, string $dataClass): int

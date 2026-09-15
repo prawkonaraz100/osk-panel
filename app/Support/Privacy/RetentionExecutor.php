@@ -80,7 +80,7 @@ final class RetentionExecutor
         ?string $organizationId = null,
         ?CarbonImmutable $now = null,
     ): array {
-        if (! (bool) config('retention.executor.enabled', false)) {
+        if ((bool) config('retention.executor.enabled', false) === false) {
             throw new LogicException('Privileged retention executor is disabled.');
         }
         if (! hash_equals(self::EXECUTION_CONFIRMATION, $confirmation)) {
@@ -100,7 +100,6 @@ final class RetentionExecutor
                 $organizationId,
                 $cutoff,
                 $startedAt,
-                $candidateCount,
             ): array {
                 $this->acquireTransactionLock();
 

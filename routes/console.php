@@ -1276,7 +1276,7 @@ Artisan::command(
         }
 
         try {
-            if (! (bool) $this->option('execute')) {
+            if ((bool) $this->option('execute') === false) {
                 $result = $executor->preview(
                     $dataClass,
                     $policy,

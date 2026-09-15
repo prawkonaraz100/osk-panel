@@ -34,7 +34,7 @@ final class RetentionExecutorContractTest extends TestCase
 
     public function test_policy_can_derive_direct_clock_cutoff_but_not_inherited_or_fiscal_authority(): void
     {
-        $policy = new RetentionPolicy();
+        $policy = new RetentionPolicy;
         $now = CarbonImmutable::parse('2026-09-15T12:00:00+02:00');
 
         self::assertSame(
