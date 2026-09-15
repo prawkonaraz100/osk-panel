@@ -235,3 +235,15 @@ Każdy PR powinien zawierać:
 - wpływ na audyt,
 - screenshoty własnego UI,
 - aktualizację docs/specs/baseline, jeśli zmienia się kontrakt.
+
+## Branch hygiene
+
+- `main` jest jedynym canonical base i publication branch dla bieżącej pracy.
+- Każdy nowy branch roboczy twórz z aktualnego, zweryfikowanego `main`; nie wznawiaj długowiecznego integration branchu jako równoległego źródła prawdy.
+- Zmiany produktu, kontraktów, migracji, CI i dokumentacji wprowadzaj przez krótko żyjący branch zadaniowy i PR do `main`.
+- Nie wykonuj force-pusha ani history rewrite na `main`.
+- Pełny push/release `Implementation CI` jest autorytatywny na `main`; PR-y zachowują validation-only gate bez publikacji release artifact.
+- Branch po zaakceptowanym merge może zostać usunięty dopiero po zielonym post-merge CI na `main` i zapisaniu wymaganych dowodów w PR/commitach/status authority. Nazwa branchu nie jest trwałym dowodem audytowym.
+- Helpery `tmp-*` są krótkotrwałe. Nie twórz kolejnego helpera, jeśli istniejący aktywny branch zadania wystarcza.
+- Historycznych branchy nie usuwaj hurtowo po prefiksie. Najpierw potwierdź ancestry względem `main` albo jawne supersession/promocję ich efektu; branche rozbieżne wymagają osobnej weryfikacji.
+- Po zamknięciu zadania nie utrzymuj równoległego `accepted`/integration branchu. Następna praca startuje z `main`.
