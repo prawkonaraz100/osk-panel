@@ -13,7 +13,7 @@ use Throwable;
 final class OperationalAlertDispatcher
 {
     /**
-     * @param array<string,mixed> $context
+     * @param  array<string, mixed>  $context
      * @return array{status:string,event_id:string,event_code:string,severity:string,runbook:string}
      */
     public function dispatch(string $eventCode, array $context = []): array
@@ -162,8 +162,8 @@ final class OperationalAlertDispatcher
     }
 
     /**
-     * @param list<string> $allowedKeys
-     * @param array<string,mixed> $context
+     * @param  list<string>  $allowedKeys
+     * @param  array<string, mixed>  $context
      * @return array<string,mixed>
      */
     private function safeContext(array $allowedKeys, array $context): array
