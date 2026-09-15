@@ -8,6 +8,7 @@ use Illuminate\Auth\AuthenticationException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Response;
@@ -17,6 +18,7 @@ final class ResourceApiMiddleware
 {
     public function handle(Request $request, Closure $next): Response
     {
+        $startedAt = hrtime(true);
         $requestId = trim((string) $request->header('X-Request-Id'));
         if ($requestId === '' || strlen($requestId) > 64) {
             $requestId = (string) Str::uuid7();
@@ -48,6 +50,16 @@ final class ResourceApiMiddleware
         }
 
         $response->headers->set('X-Request-Id', $requestId);
+
+        Log::info('http_request', [
+            'service' => 'osk-panel',
+            'module' => 'api',
+            'request_id' => $requestId,
+            'method' => $request->method(),
+            'route' => '/'.$request->path(),
+            'status' => $response->getStatusCode(),
+            'duration_ms' => round((hrtime(true) - $startedAt) / 1_000_000, 2),
+        ]);
 
         return $response;
     }

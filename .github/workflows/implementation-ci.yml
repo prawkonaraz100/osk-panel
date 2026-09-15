@@ -112,3 +112,44 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITLEAKS_ENABLE_COMMENTS: 'false'
           GITLEAKS_ENABLE_UPLOAD_ARTIFACT: 'false'
+
+
+  release-artifact:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/docs-consolidation-2026-09-05'
+    needs:
+      - backend-quality
+      - frontend-quality
+      - runtime-tests-and-migrations
+      - contracts-and-traceability
+      - secret-scan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          extensions: mbstring, intl, pdo_pgsql, redis
+          coverage: none
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+          cache: npm
+      - name: Install production PHP dependencies
+        run: composer install --no-dev --no-interaction --prefer-dist --no-progress --optimize-autoloader
+      - name: Build production frontend
+        run: |
+          npm ci
+          npm run build
+      - name: Build immutable release artifact
+        run: scripts/ops/build-release-artifact.sh "${GITHUB_SHA}"
+      - name: Upload immutable release artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: osk-panel-${{ github.sha }}
+          path: |
+            dist/osk-panel-${{ github.sha }}.tar.gz
+            dist/osk-panel-${{ github.sha }}.tar.gz.sha256
+            dist/osk-panel-${{ github.sha }}.manifest.json
+          if-no-files-found: error
+          retention-days: 30
