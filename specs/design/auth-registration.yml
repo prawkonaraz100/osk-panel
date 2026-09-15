@@ -133,3 +133,17 @@ required_tests:
   - owner_template_fully_materialized_with_protected_baseline
   - registration_does_not_create_auth_session
   - PKK_runtime_untouched
+
+development_sample_terms:
+  approved_by_user: 2026-09-15
+  purpose: unblock_registration_UI_before_final_production_legal_text
+  flag: SAMPLE_DATA_ENABLED
+  production: forbidden
+  exact_version: sample-terms-v1
+  document_type: terms
+  seeded_into_legal_documents: true
+  registration_bypass: false
+  exact_version_resolution_still_required: true
+  local_document_url: /regulamin/sample-terms-v1
+  metadata_endpoint: GET /api/v1/development/sample/legal/terms/current
+  production_legal_document_still_required_before_go_live: true
