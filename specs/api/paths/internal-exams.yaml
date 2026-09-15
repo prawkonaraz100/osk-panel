@@ -37,7 +37,18 @@ paths:
                     required: [amount_minor, currency]
                     properties:
                       amount_minor: { type: integer, minimum: 0 }
-                      currency: { type: string, pattern: '^[A-Z]{3}    post:
+                      currency: { type: string, minLength: 3, maxLength: 3 }
+                  list_unit_price:
+                    type: object
+                    required: [amount_minor, currency]
+                    properties:
+                      amount_minor: { type: integer, minimum: 0 }
+                      currency: { type: string, minLength: 3, maxLength: 3 }
+                  pricing_revision: { type: string }
+                  sample_data: { type: boolean }
+        default: { $ref: '../openapi-components-v1.yaml#/components/responses/Error' }
+  /internal-exam/orders:
+    post:
       tags: [InternalExams]
       operationId: internalExamOrdersCreate
       x-requirement-id: exam_orders.create
