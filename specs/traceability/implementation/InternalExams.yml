@@ -164,7 +164,7 @@ changed_scope:
     acceptance_test: Tests\\Feature\\InternalExamCoreTest::test_inventory_adjustment_is_idempotent_unit_backed_audited_and_refunds_by_compensation
     status: IMPLEMENTED
   - evidence: specs/screens/internal-exam-management-panel.yml
-    requirement: authenticated OSK internal-exam management UI preserves inventory visibility standalone and row generation entry points partial search category/status filters hide-finished sorting expanded attempt history candidate snapshot editing remote/local launch modes result review and theory answer-sheet download while purchase checkout is explicitly deferred to Platform Commerce instead of being simulated
+    requirement: authenticated OSK internal-exam management UI preserves inventory visibility standalone and row generation entry points partial search category/status filters hide-finished sorting expanded attempt history candidate snapshot editing remote/local launch modes result review and theory answer-sheet download while purchase checkout remains a separate commerce surface linked from the management header
     domain_data: internal_exam_inventory_entries + internal_exam_inventory_ledger_entries + internal_exam_capabilities + internal_exam_attempts + internal_exam_accesses + exam_stations + internal_exam_results + internal_exam_attempt_questions + internal_exam_documents
     api_use_case: UI_GATE_5F_internal_exam_management_workspace
     permission: exams.view + exams.generate + exams.access.send + exams.start.local + exams.results.view + exams.documents.download
@@ -211,3 +211,11 @@ changed_scope:
     ui: resources/js/modules/InternalExams/InternalExamWorkspace.vue + resources/js/modules/StudentsCourses/StudentCourseWorkspace.vue
     acceptance_test: Tests\\Unit\\InternalExamUiContractTest::test_new_exam_candidate_handoff_uses_persistent_student_and_course_then_resumes_exact_student
     status: SUPERSEDED_BY_OWN_PRODUCT_DECISION_WITH_EQUIVALENT_CAPABILITY
+  - evidence: specs/screens/internal-exam-purchase.yml + docs/59-internal-exam-purchase-screen.md#12-Candidate-INTERNAL-EXAM-PURCHASE-UI-001--2026-09-15
+    requirement: the implemented candidate checkout at /egzamin-wewnetrzny/wykup reads a server-authoritative purchase offer, accepts only integer quantity and provider-neutral payment method from the browser, shows final total from the created Order, and does not hardcode observed competitor pricing or unverified slider limits
+    domain_data: GET /api/v1/internal-exam/purchase-offer + POST /api/v1/internal-exam/orders + commerce_catalog_items + CommercePricingCatalog
+    api_use_case: exam_purchase_offer.get + exam_orders.create + internal_exam_purchase.render
+    permission: exams.purchase
+    ui: resources/js/modules/InternalExams/InternalExamPurchaseWorkspace.vue + resources/js/App.vue
+    acceptance_test: Tests\\Unit\\InternalExamPurchaseUiContractTest::test_internal_exam_purchase_ui_uses_server_offer_and_existing_order_authority
+    status: IMPLEMENTED
