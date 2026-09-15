@@ -177,6 +177,7 @@ Route::middleware(ResourceApiMiddleware::class)->prefix('api/v1')->group(functio
     Route::get('/notifications', [ActivityNotificationController::class, 'notificationsList']);
     Route::post('/notifications/{notificationId}/read', [ActivityNotificationController::class, 'notificationsMarkRead']);
 
+    Route::get('/internal-exam/purchase-offer', [CommerceDashboardController::class, 'examPurchaseOffer']);
     Route::post('/internal-exam/orders', [CommerceDashboardController::class, 'examOrdersCreate']);
     Route::get('/internal-exam/inventory', [InternalExamController::class, 'inventory']);
     Route::post('/internal-exam/inventory-adjustments', [InternalExamController::class, 'inventoryAdjust']);
@@ -222,4 +223,5 @@ Route::view('/historia-zakupow', 'app');
 Route::view('/ustawienia', 'app');
 Route::view('/licencje/wykup', 'app');
 Route::view('/licencje/panel', 'app');
+Route::view('/egzamin-wewnetrzny/wykup', 'app');
 Route::view('/egzamin-wewnetrzny/panel', 'app');
