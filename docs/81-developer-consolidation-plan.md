@@ -2,9 +2,13 @@
 
 Data: 2026-09-05
 
-**Status:** ACTIVE_CONSOLIDATION
+**Status:** `HISTORICAL_SUPERSEDED`
 
-## Cel
+## Current authority
+
+Plan konsolidacji został wykonany i nie jest bieżącym backlogiem. Aktualny stan implementacji, luki i freeze boundaries są w `docs/227-current-project-status-authority.md` oraz `specs/current-project-status.yml`.
+
+## Cel historyczny
 
 Przed rozpoczęciem szerokiej implementacji porządkujemy dokumentację tak, aby agent implementacyjny nie musiał sam rozstrzygać sprzeczności między starszym audytem publicznym a nowszym audytem ekranowym.
 
