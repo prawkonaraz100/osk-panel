@@ -136,7 +136,7 @@ current_implementation:
     router_architecture_changed: false
   pkk_section:
     observed_screen_evidence_preserved: true
-    candidate_runtime_mode: frozen_informational_only
+    runtime_mode: frozen_informational_only
     dedicated_PKK_API_called: false
     PKK_fields_sent_in_provider_neutral_patch: false
     authority: specs/design/organization-settings-provider-neutral.yml
@@ -169,7 +169,7 @@ current_implementation:
     restore_tables_restored: 122
     schema_fingerprint: f3cab286cc8f0aabef219971d90afe424a8dab694c47ade2f517a3d95970716d
   acceptance_boundary:
-    candidate_is_accepted_runtime: true
+    current_implementation_is_accepted_runtime: true
     browser_E2E_proven: false
 
 implementation_divergences:
