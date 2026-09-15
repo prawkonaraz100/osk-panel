@@ -93,3 +93,13 @@ changed_scope:
     acceptance_test: Tests\\Feature\\AuthPasswordRecoveryCoreTest
     status: IMPLEMENTED
 
+
+  - evidence: docs/181-core-v1-auth-register-authority.md#Development-sample-terms-exception-2026-09-15
+    requirement: explicitly enabled non-production sample terms are seeded as a normal immutable legal_documents version and registration still requires exact published/effective version resolution without any validation bypass
+    domain_data: legal_documents + terms_acceptances
+    api_use_case: development.sample_legal_terms.current + auth.register
+    permission: public development-only metadata/document read; normal auth.register legal validation
+    ui: resources/views/legal/sample-terms-v1.blade.php
+    acceptance_test: Tests\\Feature\\DevelopmentSampleDataCoreTest::test_sample_terms_are_discoverable_renderable_and_accepted_by_registration
+    status: IMPLEMENTED
+    acceptance_state: CANDIDATE_NOT_ACCEPTED
