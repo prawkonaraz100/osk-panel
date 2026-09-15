@@ -13,5 +13,9 @@ class DatabaseSeeder extends Seeder
             ResourceReferenceCatalogSeeder::class,
             FormalTrainingDocumentTemplateSeeder::class,
         ]);
+
+        if ((bool) config('sample_data.enabled', false)) {
+            $this->call(DevelopmentSampleDataSeeder::class);
+        }
     }
 }
