@@ -5,14 +5,14 @@ meta:
   status: CURRENT
 
 runtime_authority:
-  git_sha: 7a84f5e32752efdd7955ceecc02daec0f91f6a7a
-  accepted_ci_run: 34960412395
+  git_sha: d6b2089903ac830581b8606914cd484f1207dee2
+  accepted_ci_run: 34964671420
   accepted_ci: PASS_6_OF_6
-  release_artifact_id: 10392958940
-  release_artifact_name: osk-panel-7a84f5e32752efdd7955ceecc02daec0f91f6a7a
-  release_archive_sha256: 50b3ff2edf563a4a8d17dff62849289c5279df74660c492602a69eab9dde5236
-  postgres_tests_passed: 379
-  assertions: 6278
+  release_artifact_id: 10395187416
+  release_artifact_name: osk-panel-d6b2089903ac830581b8606914cd484f1207dee2
+  release_archive_sha256: 516fa5aafe9c4a1a2a5bfb488e3fb3ae0bbfa3377d82e05a5797f3b9f70af7ce
+  postgres_tests_passed: 380
+  assertions: 6299
   restore_tables_source: 122
   restore_tables_restored: 122
 
@@ -21,18 +21,20 @@ core_v1:
   repository_actionable_P0: 0
   repository_actionable_P1_for_core_launch: 0
 
-frontend_productization_in_progress:
+frontend_productization_completed:
   auth_and_recovery_UI:
     gate: AUTH-RECOVERY-UI-001
     pull_request: 111
-    accepted: false
-    validated_candidate_head: b7a7706bc0d504dca622e4abca2eea9f205b2f1b
-    candidate_ci_run: 34963155681
-    candidate_ci: PASS_5_OF_5
-    status: VALIDATED_CANDIDATE_PENDING_ACCEPTED_PROMOTION
+    accepted: true
+    accepted_head: d6b2089903ac830581b8606914cd484f1207dee2
+    accepted_ci_run: 34964671420
+    accepted_ci: PASS_6_OF_6
+    release_artifact_id: 10395187416
+    release_archive_sha256: 516fa5aafe9c4a1a2a5bfb488e3fb3ae0bbfa3377d82e05a5797f3b9f70af7ce
+    registration_UI: BLOCKED_PENDING_PUBLIC_LEGAL_DOCUMENT_DISCOVERY
+    social_provider_buttons: DEFERRED_PENDING_PROVIDER_DISCOVERY_CONTRACT
 
 frontend_productization_gaps:
-  - auth_and_recovery_UI
   - organization_settings_UI
   - license_purchase_UI
   - internal_exam_purchase_UI

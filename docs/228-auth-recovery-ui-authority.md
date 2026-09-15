@@ -3,7 +3,7 @@
 Data: 2026-09-15
 
 **Gate:** `AUTH-RECOVERY-UI-001`  
-**Status:** `VALIDATED_CANDIDATE_PENDING_ACCEPTED_PROMOTION`
+**Status:** `PASS_ACCEPTED`
 
 ## Starting authority
 
@@ -111,4 +111,33 @@ Implementation CI `34963155681` / run #661: **5/5 PASS**.
 - deterministic restore: **122 -> 122 PASS**,
 - schema fingerprint: `f3cab286cc8f0aabef219971d90afe424a8dab694c47ade2f517a3d95970716d`.
 
-This evidence validates the candidate only. The gate is not part of accepted runtime until clean promotion and accepted-branch 6/6 PASS complete.
+This section records candidate validation history. The gate was subsequently accepted; current acceptance evidence is recorded below.
+
+
+## Accepted implementation state
+
+The gate is part of accepted runtime on:
+
+`d6b2089903ac830581b8606914cd484f1207dee2`
+
+Accepted Implementation CI `34964671420` / run #665: **6/6 PASS**.
+
+- backend-quality: PASS,
+- frontend-quality: PASS,
+- contracts-and-traceability: PASS,
+- secret-scan: PASS,
+- runtime-tests-and-migrations: PASS,
+- release-artifact: PASS,
+- PostgreSQL: **380 tests / 6299 assertions — PASS**,
+- deterministic restore: **122 -> 122 PASS**,
+- schema fingerprint: `f3cab286cc8f0aabef219971d90afe424a8dab694c47ade2f517a3d95970716d`,
+- immutable artifact ID: `10395187416`,
+- immutable artifact name: `osk-panel-d6b2089903ac830581b8606914cd484f1207dee2`,
+- release archive SHA-256: `516fa5aafe9c4a1a2a5bfb488e3fb3ae0bbfa3377d82e05a5797f3b9f70af7ce`.
+
+## Remaining work outside this gate
+
+- registration UI remains blocked pending unauthenticated public discovery of the current published legal-document version,
+- social provider buttons remain deferred pending provider-discovery authority,
+- PKK/PWPW remains frozen,
+- no production-ready claim is implied by this gate.

@@ -3,7 +3,7 @@
 Data: 2026-09-15
 
 **Gate:** `AUTH-RECOVERY-UI-001`  
-**Status:** `VALIDATED_CANDIDATE_PENDING_ACCEPTED_PROMOTION`
+**Status:** `PASS_ACCEPTED`
 
 ## Starting accepted authority
 
@@ -48,11 +48,19 @@ Social provider buttons remain deferred pending provider discovery authority.
 
 PKK/PWPW remains frozen.
 
-## Closure boundary
+## Closure criteria — satisfied
 
-This closure records a validated candidate. It must not be reported as accepted
-until:
+1. closure head `d6b2089903ac830581b8606914cd484f1207dee2` passed exact-head CI #664: **5/5 PASS**,
+2. accepted branch was clean fast-forwarded to that exact head,
+3. accepted push CI #665 completed **6/6 PASS**, including immutable release artifact.
 
-1. this closure head passes exact-head CI,
-2. accepted branch is clean fast-forwarded to that exact head,
-3. accepted push CI is 6/6 PASS including immutable release artifact.
+Accepted release evidence:
+
+- accepted SHA: `d6b2089903ac830581b8606914cd484f1207dee2`,
+- PostgreSQL: **380 tests / 6299 assertions — PASS**,
+- deterministic restore: **122 -> 122 PASS**,
+- artifact ID: `10395187416`,
+- artifact name: `osk-panel-d6b2089903ac830581b8606914cd484f1207dee2`,
+- release archive SHA-256: `516fa5aafe9c4a1a2a5bfb488e3fb3ae0bbfa3377d82e05a5797f3b9f70af7ce`.
+
+The historical candidate validation above is preserved as validation history.

@@ -16,22 +16,22 @@ jako aktualnego backlogu.
 
 Ostatni zaakceptowany runtime authority:
 
-`7a84f5e32752efdd7955ceecc02daec0f91f6a7a`
+`d6b2089903ac830581b8606914cd484f1207dee2`
 
 Accepted Implementation CI:
 
-`34960412395` / run #657 — **6/6 PASS**
+`34964671420` / run #665 — **6/6 PASS**
 
 Accepted immutable artifact:
 
-- artifact ID: `10392958940`,
-- name: `osk-panel-7a84f5e32752efdd7955ceecc02daec0f91f6a7a`,
+- artifact ID: `10395187416`,
+- name: `osk-panel-d6b2089903ac830581b8606914cd484f1207dee2`,
 - release archive SHA-256:
-  `50b3ff2edf563a4a8d17dff62849289c5279df74660c492602a69eab9dde5236`.
+  `516fa5aafe9c4a1a2a5bfb488e3fb3ae0bbfa3377d82e05a5797f3b9f70af7ce`.
 
 Runtime suite:
 
-- PostgreSQL: **379 tests / 6278 assertions — PASS**,
+- PostgreSQL: **380 tests / 6299 assertions — PASS**,
 - deterministic restore: **122 -> 122 PASS**.
 
 ## Core V1
@@ -67,6 +67,7 @@ PKK/PWPW is intentionally deferred and does not block Core launch.
 
 Functional SPA workspaces exist for:
 
+- login/password recovery,
 - dashboard,
 - students/courses,
 - locations,
@@ -78,14 +79,17 @@ Functional SPA workspaces exist for:
 - internal exam management,
 - student finance/progress/learning access/formal documents.
 
+Completed productization work:
+
+- `AUTH-RECOVERY-UI-001`: accepted on `d6b2089903ac830581b8606914cd484f1207dee2`; PR #111; accepted CI #665 **6/6 PASS**. Public SPA routes now exist for `/login`, `/forgot-password` and `/reset-password`. Registration UI remains separately deferred pending safe public legal-document version discovery.
+
 Current productization gaps confirmed by code audit:
 
-1. dedicated login/recovery UI in PR #111 (`AUTH-RECOVERY-UI-001`) is a **validated 5/5 candidate** on `b7a7706b…`; it remains an open productization gap until closure is validated, clean accepted promotion completes and accepted-branch 6/6 PASS is recorded,
-2. no organization settings UI route,
-3. no license purchase UI route despite backend `POST /api/v1/license-orders`,
-4. no internal-exam purchase UI route despite backend `POST /api/v1/internal-exam/orders`,
-5. no browser E2E suite for complete user golden paths,
-6. frontend routing is currently a lightweight pathname shell rather than a full
+1. no organization settings UI route,
+2. no license purchase UI route despite backend `POST /api/v1/license-orders`,
+3. no internal-exam purchase UI route despite backend `POST /api/v1/internal-exam/orders`,
+4. no browser E2E suite for complete user golden paths,
+5. frontend routing is currently a lightweight pathname shell rather than a full
    router/state-management architecture.
 
 These are the next repository-owned product gaps. They do not reopen the already
@@ -115,11 +119,10 @@ release smoke.
 
 ## Next execution order
 
-1. close `AUTH-RECOVERY-UI-001` without weakening the existing auth/password-recovery authority,
-2. close the remaining confirmed frontend productization gaps,
-3. add browser E2E golden paths,
-4. choose/provision target infrastructure,
-5. collect all nine external evidence classes against one immutable release,
-6. run final fail-closed go-live evidence validation.
+1. close the remaining confirmed frontend productization gaps,
+2. add browser E2E golden paths,
+3. choose/provision target infrastructure,
+4. collect all nine external evidence classes against one immutable release,
+5. run final fail-closed go-live evidence validation.
 
 Do not reactivate PKK as part of this sequence.

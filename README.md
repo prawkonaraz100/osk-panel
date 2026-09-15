@@ -13,9 +13,9 @@ ale nie kopiujemy kodu, layoutu, assetów ani chronionej implementacji innych pr
 
 Runtime authority po ostatnim zaakceptowanym gate:
 
-`7a84f5e32752efdd7955ceecc02daec0f91f6a7a`
+`d6b2089903ac830581b8606914cd484f1207dee2`
 
-Accepted Implementation CI #657: **6/6 PASS**.
+Accepted Implementation CI #665: **6/6 PASS**.
 
 - backend-quality: PASS,
 - frontend-quality: PASS,
@@ -23,7 +23,7 @@ Accepted Implementation CI #657: **6/6 PASS**.
 - secret-scan: PASS,
 - PostgreSQL runtime + migrations: PASS,
 - immutable release artifact: PASS,
-- runtime suite: **379 tests / 6278 assertions**,
+- runtime suite: **380 tests / 6299 assertions**,
 - deterministic restore: **122 -> 122 PASS**.
 
 Repository-owned production substrate jest kompletny, ale **produkcja nie jest jeszcze
@@ -42,9 +42,12 @@ PKK/PWPW pozostaje:
 i **nie jest wymagane do uruchomienia Core service**.
 
 Aktualne luki produktowe po audycie kodu nie dotyczą już modelu domenowego ani
-podstawowego backendu. Koncentrują się na productization frontendu:
+podstawowego backendu.
 
-- osobny UI login/recovery — **PR #111 ma candidate CI 5/5 PASS, ale nadal czeka na closure + accepted promotion; nie jest jeszcze częścią accepted authority**,
+Ukończone w productization:
+- **AUTH-RECOVERY-UI-001** — login, forgot-password i reset-password są częścią accepted runtime od `d6b2089903ac830581b8606914cd484f1207dee2`; PR #111, accepted CI #665 = 6/6 PASS.
+
+Pozostałe luki produktowe:
 - UI ustawień organizacji,
 - UI zakupu licencji,
 - UI zakupu egzaminów wewnętrznych,
