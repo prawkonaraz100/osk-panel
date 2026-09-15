@@ -5,6 +5,8 @@ screen:
     info_page: /integracja-pkk
     students: /kursanci
   confidence: USER_CONFIRMED_AUTH_SCREEN
+  runtime_status: FROZEN_UNTIL_EXPLICIT_UNFREEZE
+  implementation_scope: PRESERVED_REFERENCE_EVIDENCE_NOT_CURRENT_PROVIDER_UI
   verified_at: 2026-09-05
   doc: docs/75-pkk-entrypoints-and-student-list.md
 
