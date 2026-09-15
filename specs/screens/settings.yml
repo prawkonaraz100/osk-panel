@@ -118,3 +118,43 @@ implementation_requirements:
   - reuse_same_user_and_pkk_configuration_records_in_settings_and_pkk_onboarding_gate
   - reject_unknown_mass_assignment_fields
   - do_not_store_company_address_in_locations_table
+
+
+current_implementation:
+  gate: ORGANIZATION-SETTINGS-UI-001
+  status: IMPLEMENTATION_CANDIDATE_NOT_ACCEPTED
+  component: resources/js/modules/OrganizationSettings/SettingsWorkspace.vue
+  route_materialized: true
+  provider_neutral:
+    get: GET /api/v1/organization/settings
+    patch: PATCH /api/v1/organization/settings
+    optimistic_concurrency: If-Match_v_version
+    idempotency_key: required_via_shared_api_client
+    email: read_only
+  navigation:
+    settings_link_added_to_existing_sidebars: true
+    router_architecture_changed: false
+  pkk_section:
+    observed_screen_evidence_preserved: true
+    candidate_runtime_mode: frozen_informational_only
+    dedicated_PKK_API_called: false
+    PKK_fields_sent_in_provider_neutral_patch: false
+    authority: specs/design/organization-settings-provider-neutral.yml
+  accepted_terms:
+    history_rendered_from_settings_projection: true
+    document_url_null_supported: true
+    synthesized_regulamin_url: forbidden
+    exact_document_open:
+      status: BLOCKED_PENDING_VERSIONED_LOCAL_DOCUMENT_RESOLVER
+      evidence: docs/175-core-v1-organization-accepted-terms-closure.md
+  acceptance_boundary:
+    candidate_is_accepted_runtime: false
+    browser_E2E_proven: false
+
+implementation_divergences:
+  - observed: editable_PKK_fields_visible_on_source_screen
+    current_product_state: intentionally_not_read_or_mutated_while_PKK_frozen
+    classification: PRESERVED_SCREEN_EVIDENCE_DEFERRED_BY_OWN_PRODUCT_DECISION
+  - observed: Zobacz_moj_regulamin_opens_exact_version
+    current_product_state: acceptance_history_visible_but_document_url_currently_null
+    classification: CONFIRMED_RUNTIME_GAP_VERSIONED_DOCUMENT_RESOLVER
