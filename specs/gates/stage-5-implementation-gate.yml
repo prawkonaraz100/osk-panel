@@ -7339,3 +7339,34 @@ CORE_V1_CLOSURE_AUDIT_014_gate:
     PKK_runtime_activation: forbidden
     provider_webhook_implementation: forbidden
     fresh_audit_after_authority_PASS: required
+
+CORE_V1_STUDENT_PROGRESS_AUTHORITY_001_gate:
+  id: CORE-V1-STUDENT-PROGRESS-AUTHORITY-001
+  status: CANDIDATE
+  authority:
+    narrative: docs/207-core-v1-student-progress-authority.md
+    machine: specs/design/student-progress.yml
+    projection_extension: specs/database/student-progress-projection-migration-extension.yml
+  prerequisite:
+    audit: CORE-V1-CLOSURE-AUDIT-014_AUDIT_COMPLETE_STUDENT_PROGRESS_AUTHORITY_REQUIRED
+  exact_scope:
+    operation: students.progress
+    HTTP_binding_change: false
+    progress_UI_enable: false
+    Stage4_mutation: false
+    source_identifier_guessing: forbidden
+    fake_zero_metrics: forbidden
+    lectures_module_implementation: false
+    PKK_runtime_activation: false
+    provider_webhook_change: false
+  authority_decisions:
+    context: organization_student_learning_account_category
+    source_binding: explicit_subject_plus_access_context
+    metric_states: [available, no_activity, unavailable, outside_core_v1]
+    projection_cache: student_learning_progress_projections
+    source_binding_table: learning_progress_source_bindings
+    default_max_age_seconds: 300
+    hardcoded_observed_totals: forbidden
+  safe_continuation_after_PASS:
+    next_gate: CORE-V1-STAGE5-STUDENT-PROGRESS-PROJECTION-001
+    fresh_audit_required_before_HTTP_runtime: true

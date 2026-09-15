@@ -387,16 +387,105 @@ components:
           readOnly: true
           x-one-time-secret: true
           description: May be returned once in a secure create/reset response and is never recoverable later.
+    StudentProgressMetricState:
+      type: string
+      enum: [available, no_activity, unavailable, outside_core_v1]
     StudentProgress:
       type: object
+      required:
+        - learning_account_id
+        - category_code
+        - projection_state
+        - freshness
+        - source_observed_at
+        - projected_at
+        - tests
+        - questions
+        - handbook
+        - lectures
+        - topics
       properties:
         learning_account_id: { type: string, format: uuid }
         category_code: { type: string }
-        tests: { $ref: '#/components/schemas/GenericObject' }
-        questions: { $ref: '#/components/schemas/GenericObject' }
-        handbook: { $ref: '#/components/schemas/GenericObject' }
-        lectures: { $ref: '#/components/schemas/GenericObject' }
-        topics: { type: array, items: { $ref: '#/components/schemas/GenericObject' } }
+        projection_state:
+          type: string
+          enum: [ready, stale, unbound, source_unavailable]
+        freshness:
+          type: string
+          enum: [fresh, stale, unavailable]
+        source_observed_at: { type: [string, 'null'], format: date-time }
+        projected_at: { type: [string, 'null'], format: date-time }
+        tests: { $ref: '#/components/schemas/StudentProgressTests' }
+        questions: { $ref: '#/components/schemas/StudentProgressQuestions' }
+        handbook: { $ref: '#/components/schemas/StudentProgressContent' }
+        lectures: { $ref: '#/components/schemas/StudentProgressContent' }
+        topics:
+          type: array
+          items: { $ref: '#/components/schemas/StudentProgressTopic' }
+    StudentProgressTests:
+      type: object
+      required: [state, passed_count, failed_count, conducted_count, passed_percent, failed_percent]
+      properties:
+        state: { $ref: '#/components/schemas/StudentProgressMetricState' }
+        passed_count: { type: [integer, 'null'], minimum: 0 }
+        failed_count: { type: [integer, 'null'], minimum: 0 }
+        conducted_count: { type: [integer, 'null'], minimum: 0 }
+        passed_percent: { type: [number, 'null'], minimum: 0, maximum: 100 }
+        failed_percent: { type: [number, 'null'], minimum: 0, maximum: 100 }
+    StudentProgressQuestions:
+      type: object
+      required:
+        - state
+        - answered_count
+        - available_count
+        - total_attempts
+        - correct_attempts
+        - incorrect_attempts
+        - correct_percent
+        - incorrect_percent
+      properties:
+        state: { $ref: '#/components/schemas/StudentProgressMetricState' }
+        answered_count: { type: [integer, 'null'], minimum: 0 }
+        available_count: { type: [integer, 'null'], minimum: 0 }
+        total_attempts: { type: [integer, 'null'], minimum: 0 }
+        correct_attempts: { type: [integer, 'null'], minimum: 0 }
+        incorrect_attempts: { type: [integer, 'null'], minimum: 0 }
+        correct_percent: { type: [number, 'null'], minimum: 0, maximum: 100 }
+        incorrect_percent: { type: [number, 'null'], minimum: 0, maximum: 100 }
+    StudentProgressContent:
+      type: object
+      required:
+        - state
+        - completed_units
+        - total_units
+        - progress_percent
+        - completed_control_questions
+        - available_control_questions
+        - control_questions_percent
+      properties:
+        state: { $ref: '#/components/schemas/StudentProgressMetricState' }
+        completed_units: { type: [integer, 'null'], minimum: 0 }
+        total_units: { type: [integer, 'null'], minimum: 0 }
+        progress_percent: { type: [number, 'null'], minimum: 0, maximum: 100 }
+        completed_control_questions: { type: [integer, 'null'], minimum: 0 }
+        available_control_questions: { type: [integer, 'null'], minimum: 0 }
+        control_questions_percent: { type: [number, 'null'], minimum: 0, maximum: 100 }
+    StudentProgressTopic:
+      type: object
+      required:
+        - topic_key
+        - group
+        - label
+        - label_language_code
+        - answered_count
+        - available_count
+      properties:
+        topic_key: { type: string }
+        group: { type: string, enum: [basic, specialized] }
+        label: { type: string }
+        label_language_code: { type: string }
+        answered_count: { type: integer, minimum: 0 }
+        available_count: { type: integer, minimum: 0 }
 
     CourseEnrollment:
       type: object
