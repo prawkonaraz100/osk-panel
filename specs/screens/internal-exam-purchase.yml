@@ -6,8 +6,12 @@ screen:
   confidence: USER_CONFIRMED_AUTH_SCREEN
   verified_at: 2026-09-05
   doc: docs/59-internal-exam-purchase-screen.md
-  current_runtime_UI_status: NOT_IMPLEMENTED
-  route_materialized: false
+  current_runtime_UI_status: CANDIDATE_PR
+  route_materialized: true
+  gate: INTERNAL-EXAM-PURCHASE-UI-001
+  accepted_on_main: false
+  backend_purchase_offer_status: CANDIDATE_PR
+  backend_purchase_offer_operation: GET /api/v1/internal-exam/purchase-offer
   backend_order_create_status: IMPLEMENTED
   backend_order_create_operation: POST /api/v1/internal-exam/orders
   current_status_source: specs/current-project-status.yml
@@ -31,6 +35,12 @@ pricing:
   discount_ui_visible: false
   vat_breakdown_visible: false
   exact_pricing_rules: TO_VERIFY
+  own_product_candidate:
+    browser_price_authority: forbidden
+    preview_source: GET /api/v1/internal-exam/purchase-offer
+    order_create_re_resolves_same_server_catalog_and_pricing_authority: true
+    final_total_source: created_order_response
+    observed_1_23_pln_is_not_runtime_price_authority: true
 
 summary:
   fields:
@@ -41,10 +51,17 @@ summary:
     amount_due_pln: 62.73
 
 payment_methods:
-  - id: payu_online
-    label: Płatności online PayU
-  - id: direct_bank_transfer
-    label: Przelew bezpośredni
+  confirmed_observed:
+    - id: payu_online
+      label: Płatności online PayU
+    - id: direct_bank_transfer
+      label: Przelew bezpośredni
+  own_product_candidate_mapping:
+    direct_bank_transfer: bank_transfer
+    payu_online: online_payment
+    provider_specific_online_payment_runtime: deferred
+    provider_brand_hardcoding_in_frontend: forbidden
+    order_creation_only_creates_provider_neutral_pending_payment_intent: true
 
 primary_action:
   label: Kup teraz
@@ -116,3 +133,28 @@ remaining_gaps:
   - invoice_or_sales_document_flow
   - order_cancellation
   - success_error_messages
+
+ui_materialization_candidate:
+  gate: INTERNAL-EXAM-PURCHASE-UI-001
+  route: /egzamin-wewnetrzny/wykup
+  component: resources/js/modules/InternalExams/InternalExamPurchaseWorkspace.vue
+  purchase_offer: GET /api/v1/internal-exam/purchase-offer
+  order_create: POST /api/v1/internal-exam/orders
+  request_fields:
+    - quantity
+    - payment_method
+  request_price_fields: forbidden
+  browser_price_authority: forbidden
+  preview_uses_server_projected_price_only: true
+  final_total_source: created_order_response
+  quantity_control: integer_stepper_and_numeric_input
+  slider_runtime: deferred_until_min_max_step_authority
+  hardcoded_quantity_maximum: forbidden_without_business_authority
+  sample_pricing_notice_required_when_sample_data_true: true
+  sample_catalog_code: SAMPLE-INTERNAL-EXAM
+  sample_unit_price_minor: 200
+  sample_currency: PLN
+  sample_production_use: forbidden
+  provider_specific_online_payment_runtime: deferred
+  inventory_grant_before_payment_policy_satisfied: forbidden
+  PKK_PWPW_runtime_activation: forbidden
