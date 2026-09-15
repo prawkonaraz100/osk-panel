@@ -3,6 +3,7 @@
 namespace App\Modules\LearningAccess;
 
 use App\Modules\AuditNotification\AtomicAuditOutbox;
+use App\Modules\CommerceDashboard\CommercePricingCatalog;
 use App\Modules\ResourcesCore\ResourceDomainException;
 use App\Modules\StudentsCourses\StudentCourseScopeAuthorizer;
 use Illuminate\Support\Carbon;
@@ -25,6 +26,7 @@ final class LicenseService
         private readonly StudentCourseScopeAuthorizer $scopeAuthorizer,
         private readonly LearningAccountService $accounts,
         private readonly AtomicAuditOutbox $auditOutbox,
+        private readonly CommercePricingCatalog $pricingCatalog,
     ) {}
 
     /** @return list<array<string,mixed>> */
@@ -69,11 +71,39 @@ final class LicenseService
                     ->where('ac.effective_to', '>', $effectiveAt)
                     ->count();
 
+                $catalogRows = DB::table('commerce_catalog_items')
+                    ->where('product_kind', 'license')
+                    ->where('license_product_id', $row->id)
+                    ->where('active', true)
+                    ->orderBy('id')
+                    ->get(['code']);
+
+                if ($catalogRows->count() > 1) {
+                    throw ResourceDomainException::conflict(
+                        'License product has ambiguous active commerce catalog mappings.',
+                    );
+                }
+
+                $pricing = $catalogRows->count() === 1
+                    ? $this->pricingCatalog->optional((string) $catalogRows->first()->code)
+                    : null;
+
                 return [
                     'id' => (string) $row->id,
                     'code' => (string) $row->code,
                     'duration_days' => (int) $row->duration_days,
                     'active' => (bool) $row->active,
+                    'display_name' => $pricing['display_name'] ?? (string) $row->code,
+                    'price' => $pricing === null ? null : [
+                        'amount_minor' => $pricing['charged_unit_amount_minor'],
+                        'currency' => $pricing['currency'],
+                    ],
+                    'list_price' => $pricing === null ? null : [
+                        'amount_minor' => $pricing['list_unit_amount_minor'],
+                        'currency' => $pricing['currency'],
+                    ],
+                    'pricing_revision' => $pricing['pricing_revision'] ?? null,
+                    'sample_data' => (bool) ($pricing['sample_data'] ?? false),
                     'languages' => array_values($languages),
                     'available_count' => $availableCount,
                     'active_count' => $activeCount,
