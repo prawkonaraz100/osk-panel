@@ -16,7 +16,7 @@ final class ProductionOperationsSmokeContractTest extends TestCase
         $web = (string) file_get_contents($root.'/routes/web.php');
         $console = (string) file_get_contents($root.'/routes/console.php');
 
-        self::assertStringContainsString('status: CANDIDATE', $spec);
+        self::assertStringContainsString('status: PASS', $spec);
         self::assertStringContainsString('human_ack_proven_by_repository: false', $spec);
         self::assertStringContainsString('scheduler_runtime_proven_by_repository: false', $spec);
         self::assertStringContainsString('PKK_provider_runtime: frozen', $spec);
