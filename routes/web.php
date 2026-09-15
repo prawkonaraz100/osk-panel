@@ -10,6 +10,7 @@ use App\Modules\CommerceDashboard\DashboardController;
 use App\Modules\FormalDocuments\FormalTrainingDocumentController;
 use App\Modules\IdentityTenant\AuthSessionController;
 use App\Modules\IdentityTenant\PasswordRecoveryController;
+use App\Modules\IdentityTenant\SampleLegalDocumentController;
 use App\Modules\IdentityTenant\SocialAuthController;
 use App\Modules\InternalExams\InternalExamController;
 use App\Modules\LearningAccess\LearningAccessController;
@@ -23,6 +24,7 @@ use App\Modules\UploadsAssets\UploadAssetController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(ResourceApiMiddleware::class)->prefix('api/v1')->group(function (): void {
+    Route::get('/public/legal/terms/current', [SampleLegalDocumentController::class, 'currentTerms']);
     Route::post('/auth/register', [AuthSessionController::class, 'register']);
     Route::post('/auth/login', [AuthSessionController::class, 'login']);
     Route::post('/auth/logout', [AuthSessionController::class, 'logout']);
@@ -202,6 +204,7 @@ Route::middleware(ResourceApiMiddleware::class)->prefix('api/v1')->group(functio
     Route::get('/internal-exam-attempts/{attemptId}/documents/answer-sheet.pdf', [InternalExamController::class, 'answerSheetPdf']);
 });
 
+Route::get('/regulamin/sample-terms-v1', [SampleLegalDocumentController::class, 'termsDocument']);
 Route::view('/login', 'app');
 Route::view('/forgot-password', 'app');
 Route::view('/reset-password', 'app');
