@@ -10,21 +10,24 @@ final class DevelopmentSampleDataSeeder extends Seeder
 {
     private const TERMS_ID = '019a0000-0000-7000-8000-000000000001';
 
-    /** @var array<string,array{id:string,catalog_id:string,duration_days:int}> */
+    /** @var array<string,array{id:string,catalog_id:string,capability_id:string,duration_days:int}> */
     private const LICENSES = [
         'SAMPLE-LICENSE-1M' => [
             'id' => '019a0000-0000-7000-8000-000000000101',
             'catalog_id' => '019a0000-0000-7000-8000-000000000201',
+            'capability_id' => '019a0000-0000-7000-8000-000000000301',
             'duration_days' => 30,
         ],
         'SAMPLE-LICENSE-3M' => [
             'id' => '019a0000-0000-7000-8000-000000000102',
             'catalog_id' => '019a0000-0000-7000-8000-000000000202',
+            'capability_id' => '019a0000-0000-7000-8000-000000000302',
             'duration_days' => 90,
         ],
         'SAMPLE-LICENSE-6M' => [
             'id' => '019a0000-0000-7000-8000-000000000103',
             'catalog_id' => '019a0000-0000-7000-8000-000000000203',
+            'capability_id' => '019a0000-0000-7000-8000-000000000303',
             'duration_days' => 180,
         ],
     ];
@@ -119,7 +122,7 @@ final class DevelopmentSampleDataSeeder extends Seeder
                 }
 
                 DB::table('license_product_language_capabilities')->insertOrIgnore([
-                    'id' => str_replace('0000000001', '0000000003', $definition['id']),
+                    'id' => $definition['capability_id'],
                     'license_product_id' => $definition['id'],
                     'language_code' => 'pl',
                     'enabled_at' => (string) $terms['effective_from'],
