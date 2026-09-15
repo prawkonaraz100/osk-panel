@@ -3,6 +3,8 @@
 Data konsolidacji: 2026-09-05
 
 > Ten dokument opisuje skutki biznesowe naszego produktu. Nowsze `specs/legal`, `specs/design` i `specs/screens` mają pierwszeństwo. Dla egzaminów źródłem prawdy jest `specs/design/internal-exam-lifecycle.yml`.
+>
+> **Current runtime note:** macierz opisuje również zachowane przyszłe capabilities. Provider-specific akcje PKK nie mają obecnie runtime bindingów i są `FROZEN_UNTIL_EXPLICIT_UNFREEZE`; lokalna course-scoped identity PKK pozostaje zaimplementowana ręcznie.
 
 ## Oznaczenia
 
