@@ -51,7 +51,7 @@ pricing:
   discount_ui_visible: false
   vat_breakdown_visible: false
   exact_pricing_rules: TO_VERIFY
-  own_product_candidate:
+  own_product_runtime:
     browser_price_authority: forbidden
     preview_source: GET /api/v1/internal-exam/purchase-offer
     order_create_re_resolves_same_server_catalog_and_pricing_authority: true
@@ -72,7 +72,7 @@ payment_methods:
       label: Płatności online PayU
     - id: direct_bank_transfer
       label: Przelew bezpośredni
-  own_product_candidate_mapping:
+  own_product_mapping:
     direct_bank_transfer: bank_transfer
     payu_online: online_payment
     provider_specific_online_payment_runtime: deferred
