@@ -18,7 +18,7 @@ Canonical publication branch:
 
 `main`
 
-Latest fully verified canonical-main evidence head:
+Canonical-main branch-authority evidence head:
 
 `bb6f4639fbf1098f131e579dedbb610e0e7c7d97`
 
