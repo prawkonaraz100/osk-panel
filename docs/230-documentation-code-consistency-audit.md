@@ -6,6 +6,8 @@ Data: 2026-09-15
 **Scope:** `main@7ee7093b1d86498e270f2cd5710c2b5bf9ffad19` + documentation-sync branch  
 **Code changes in this audit:** **none**
 
+**Integration result:** first audit merged as PR #120 to `main@20e6989486bd27c9331a8f5dd55acc6f2b0a3d2b`; post-merge Implementation CI #702 (`34997297399`) passed 6/6 and API Contract Gate #526 (`34997297369`) passed. This file remains the historical record of that first-pass audit scope; the independent follow-up is `docs/231-documentation-code-consistency-reaudit.md`.
+
 ## 1. Purpose and authority
 
 This audit compares current documentation/specification claims against the materialized repository:
