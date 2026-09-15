@@ -6,8 +6,10 @@ screen:
   confidence: USER_CONFIRMED_AUTH_SCREEN
   verified_at: 2026-09-05
   doc: docs/52-license-purchase-screen.md
-  current_runtime_UI_status: NOT_IMPLEMENTED
-  route_materialized: false
+  current_runtime_UI_status: CANDIDATE_PR
+  route_materialized: true
+  gate: LICENSE-PURCHASE-UI-001
+  accepted_on_main: false
   backend_order_create_status: IMPLEMENTED
   backend_order_create_operation: POST /api/v1/license-orders
   current_status_source: specs/current-project-status.yml
@@ -47,12 +49,18 @@ summary:
 
 payment_methods:
   control: radio
-  confirmed:
+  confirmed_observed:
     - online_payu
     - direct_bank_transfer
-  labels:
+  observed_labels:
     online_payu: Płatności online PayU
     direct_bank_transfer: Przelew bezpośredni
+  own_product_candidate_mapping:
+    direct_bank_transfer: bank_transfer
+    online_payu: online_payment
+    provider_specific_online_payment_runtime: deferred
+    provider_brand_hardcoding_in_frontend: forbidden
+    order_creation_only_creates_provider_neutral_pending_payment_intent: true
 
 primary_action:
   label: Kup teraz
@@ -166,3 +174,21 @@ development_sample_support:
     - {code: SAMPLE-LICENSE-6M, duration_days: 180, list_minor: 5900, charged_minor: 2950, currency: PLN}
   production_use: forbidden
   license_purchase_UI_materialized_by_this_gate: false
+
+ui_materialization_candidate:
+  gate: LICENSE-PURCHASE-UI-001
+  route: /licencje/wykup
+  component: resources/js/modules/LearningAccess/LicensePurchaseWorkspace.vue
+  product_source: GET /api/v1/license-products
+  order_create: POST /api/v1/license-orders
+  browser_price_authority: forbidden
+  request_price_fields: forbidden
+  preview_uses_server_projected_price_only: true
+  final_total_source: order_create_response
+  multiple_product_variants_one_order: true
+  quantity_control: integer_stepper_and_numeric_input
+  hardcoded_quantity_maximum: forbidden_without_business_authority
+  sample_pricing_notice_required_when_sample_data_true: true
+  provider_specific_online_payment_runtime: deferred
+  inventory_credit_before_confirmed_payment: forbidden
+  PKK_PWPW_runtime_activation: forbidden
