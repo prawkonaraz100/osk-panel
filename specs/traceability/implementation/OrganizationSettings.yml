@@ -60,7 +60,10 @@ changed_scope:
     ui: resources/js/modules/OrganizationSettings/SettingsWorkspace.vue
     acceptance_test: Tests\\Unit\\OrganizationSettingsUiContractTest
     status: IMPLEMENTED
-    acceptance_state: CANDIDATE_NOT_ACCEPTED
+    acceptance_state: VALIDATED_CANDIDATE_PENDING_ACCEPTED_PROMOTION
+    candidate_head: 0e3466eccea19f7bb798a548a07e925dac6b6157
+    candidate_ci_run: 34969328994
+    candidate_ci: PASS_5_OF_5
     preserved_boundaries:
       - email_read_only_pending_identity_email_change_authority
       - PKK_PWPW_frozen_and_not_called
