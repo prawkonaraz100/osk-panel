@@ -55,7 +55,7 @@ podstawowego backendu.
 
 Ukończone w productization:
 - **AUTH-RECOVERY-UI-001** — login, forgot-password i reset-password są częścią accepted runtime od `d6b2089903ac830581b8606914cd484f1207dee2`; PR #111, accepted CI #665 = 6/6 PASS. Registration UI nie jest jeszcze zaimplementowane; development jest odblokowany przez nieprodukcyjny sample Terms resolver, natomiast produkcja nadal wymaga rzeczywistego opublikowanego regulaminu/version authority.
-- **ORGANIZATION-SETTINGS-UI-001** — provider-neutral `/ustawienia` jest częścią accepted runtime od `4006607dd2aecdc6fabb97a34ba5edf40d07729b`; PR #113, accepted CI #675 = 6/6 PASS. PKK pozostaje zamrożone, e-mail read-only, a odtworzenie dokładnej treści regulaminu nadal wymaga versioned local document resolvera.
+- **ORGANIZATION-SETTINGS-UI-001** — provider-neutral `/ustawienia` jest częścią accepted runtime od `4006607dd2aecdc6fabb97a34ba5edf40d07729b`; PR #113, accepted CI #675 = 6/6 PASS. PKK pozostaje zamrożone, e-mail read-only; development ma jawny sample Terms resolver, natomiast produkcyjne odtworzenie dokładnej treści regulaminu nadal wymaga realnego versioned document resolvera/authority.
 
 Pozostałe luki produktowe:
 - UI rejestracji (development ma już sample Terms, produkcja wymaga realnego dokumentu prawnego),
