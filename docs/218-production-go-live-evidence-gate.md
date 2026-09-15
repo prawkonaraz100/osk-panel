@@ -42,8 +42,25 @@ The gate requires:
 5. secret-manager/equivalent runtime injection evidence,
 6. monitoring dashboards + critical alert routes,
 7. contact roster resolution + paging smoke reaching a human,
-8. reconciliation scheduler execution + alert delivery reaching an operator,
+8. real reconciliation scheduler execution + a synthetic, explicitly marked reconciliation alert-path smoke reaching an operator,
 9. target release smoke bound to the exact release SHA and artifact SHA-256.
+
+## Safe reconciliation evidence
+
+Pre-go-live evidence must not be manufactured by corrupting production business
+state merely to create a reconciliation finding.
+
+The target evidence combines two independent observations:
+
+1. the real production scheduler actually executes the registered reconciliation
+   command;
+2. `operations:reconciliation:alert:smoke` emits the exact
+   `reconciliation_findings` event through the configured target alert sink,
+   with `synthetic_smoke=true`, and that alert reaches the intended operator.
+
+The manifest detail is
+`reconciliation_alert_smoke_reached_operator=true`. It does not claim a real
+business discrepancy occurred.
 
 ## Disaster recovery enforcement
 
