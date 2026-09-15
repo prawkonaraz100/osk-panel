@@ -111,7 +111,7 @@ final class GoLiveEvidenceCoreTest extends TestCase
         $observedAt = '2026-09-15T10:00:00+02:00';
 
         return [
-            'policy_version' => '2026-09-15-v1',
+            'policy_version' => '2026-09-15-v2',
             'environment' => 'production',
             'release_sha' => $release,
             'artifact_sha256' => $artifact,
@@ -152,7 +152,7 @@ final class GoLiveEvidenceCoreTest extends TestCase
                 ]),
                 $this->entry('reconciliation_scheduler_execution_and_alert_delivery_smoke_test', $observedAt, [
                     'scheduler_executed' => true,
-                    'finding_failure_alert_reached_operator' => true,
+                    'reconciliation_alert_smoke_reached_operator' => true,
                 ]),
                 $this->entry('target_environment_release_smoke_test', $observedAt, [
                     'https' => true,
