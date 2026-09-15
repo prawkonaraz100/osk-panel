@@ -2,10 +2,6 @@ meta:
   project: osk-panel
   scope: postgresql_core_v1
   status: IMPLEMENTATION_BLUEPRINT
-  document_role: CANONICAL_SEMANTIC_DB_BLUEPRINT
-  current_schema_materialization_status: MATERIALIZED_AND_RUNTIME_TESTED
-  current_physical_authority: database/migrations + app/Support/Migrations + executable_tests
-  current_implementation_status_source: specs/current-project-status.yml
   decided_at: 2026-09-05
   doc: docs/87-physical-database-schema.md
   preservation_contract: docs/96-reverse-engineering-preservation-contract.md
