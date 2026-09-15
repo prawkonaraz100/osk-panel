@@ -2,7 +2,7 @@ meta:
   id: operational_alerting_substrate_v1
   gate: PROD-OPERATIONAL-ALERTING-001
   status: PASS
-  policy_version: 2026-09-15-v1
+  policy_version: 2026-09-15-v2
   follows:
     - PROD-READINESS-RUNTIME-001
     - PROD-RETENTION-EXECUTOR-001
@@ -34,9 +34,11 @@ events:
       - policy_version
       - findings_total
       - findings_by_scope
+      - synthetic_smoke
     entity_identifiers_forbidden: true
     user_identifiers_forbidden: true
     organization_identifiers_forbidden: true
+    synthetic_smoke_explicitly_marked: true
 
 smoke:
   command: operations:alert:smoke
@@ -44,6 +46,10 @@ smoke:
   disabled_sink_result: failure
   failed_delivery_result: failure
   real_target_execution_proven_by_repository: false
+  reconciliation_alert_command: operations:reconciliation:alert:smoke
+  reconciliation_alert_exact_confirmation_required: SEND-SYNTHETIC-RECONCILIATION-ALERT
+  reconciliation_alert_exact_event_code: reconciliation_findings
+  reconciliation_alert_synthetic_marker: true
 
 reconciliation_integration:
   scanner_remains_read_only: true
