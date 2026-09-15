@@ -4,6 +4,10 @@ meta:
   slice: DB4_10_AUDIT_OUTBOX_NOTIFICATIONS
   step: DB4_10_FINAL_AGGREGATE_SYNC
   status: PASS
+  document_scope: HISTORICAL_STAGE4_BOUNDED_CONTEXT_AUTHORITY
+  current_schema_materialization_status: MATERIALIZED_AND_RUNTIME_TESTED
+  current_implementation_status_source: specs/current-project-status.yml
+  historical_meta_note: implementation_started/Laravel_migrations_created/Stage5_started/UI flags in this file describe the Stage4 point-in-time and are not current repository status
   diagnosed_at: 2026-09-09
   branch: docs-consolidation-2026-09-05
   diagnosis_only: false
