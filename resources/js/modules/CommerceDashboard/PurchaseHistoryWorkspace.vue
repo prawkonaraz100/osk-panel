@@ -225,6 +225,11 @@ function messageFor(caught: unknown, fallback: string): string {
         >
           Historia zakupów
         </a>
+        <a
+          href="/ustawienia"
+        >
+          Ustawienia
+        </a>
       </nav>
 
       <div
