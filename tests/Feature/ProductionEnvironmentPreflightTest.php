@@ -78,6 +78,29 @@ final class ProductionEnvironmentPreflightTest extends TestCase
         $this->assertContains('retention_executor_disabled_at_baseline', $failed);
     }
 
+    public function test_disabled_or_unsafe_operational_alert_sink_fails_closed(): void
+    {
+        $this->configureValidProduction();
+
+        config()->set('operational_alerting.enabled', false);
+        config()->set('operational_alerting.webhook_url', 'http://alerts.example.test/ingest');
+        config()->set('operational_alerting.webhook_secret', '');
+
+        $exit = Artisan::call('operations:production:preflight', ['--json' => true]);
+
+        $this->assertSame(Command::FAILURE, $exit);
+
+        $report = json_decode(trim(Artisan::output()), true, 512, JSON_THROW_ON_ERROR);
+        $failed = array_column(array_values(array_filter(
+            $report['checks'],
+            static fn (array $check): bool => $check['status'] === 'FAIL',
+        )), 'id');
+
+        $this->assertContains('operational_alerting_enabled', $failed);
+        $this->assertContains('operational_alert_endpoint_https', $failed);
+        $this->assertContains('operational_alert_secret_present', $failed);
+    }
+
     private function configureValidProduction(): void
     {
         config()->set([
@@ -112,6 +135,9 @@ final class ProductionEnvironmentPreflightTest extends TestCase
                 'communications_lead' => 'directory://communications-lead',
                 'paging_channel' => 'pager://critical',
             ],
+            'operational_alerting.enabled' => true,
+            'operational_alerting.webhook_url' => 'https://alerts.example.test/ingest',
+            'operational_alerting.webhook_secret' => 'production-injected-alert-secret',
             'retention.executor.enabled' => false,
         ]);
     }

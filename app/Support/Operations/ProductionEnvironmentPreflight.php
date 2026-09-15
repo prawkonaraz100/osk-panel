@@ -38,6 +38,22 @@ final class ProductionEnvironmentPreflight
             $this->sensitiveLookupKeyConfigured(),
             $this->incidentContactRefsConfigured(),
             $this->boolean(
+                'operational_alerting_enabled',
+                config('operational_alerting.enabled'),
+                true,
+                'OPS_ALERTING_ENABLED must be true in the production target.',
+            ),
+            $this->httpsUrl(
+                'operational_alert_endpoint_https',
+                config('operational_alerting.webhook_url'),
+                'OPS_ALERT_WEBHOOK_URL must be an HTTPS URL.',
+            ),
+            $this->nonblank(
+                'operational_alert_secret_present',
+                config('operational_alerting.webhook_secret'),
+                'OPS_ALERT_WEBHOOK_SECRET must be injected.',
+            ),
+            $this->boolean(
                 'retention_executor_disabled_at_baseline',
                 config('retention.executor.enabled'),
                 false,

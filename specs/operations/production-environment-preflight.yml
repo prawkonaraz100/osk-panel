@@ -43,6 +43,9 @@ required_configuration_checks:
   - password_reset_template_is_https_and_contains_token_placeholder
   - sensitive_identifier_lookup_key_is_injected
   - all_incident_contact_refs_are_injected
+  - operational_alerting_enabled
+  - operational_alert_endpoint_https
+  - operational_alert_secret_present
   - privileged_retention_executor_is_disabled_for_baseline_deploy
 
 external_evidence_required:

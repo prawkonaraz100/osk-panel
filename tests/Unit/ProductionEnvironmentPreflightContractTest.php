@@ -19,6 +19,9 @@ final class ProductionEnvironmentPreflightContractTest extends TestCase
         self::assertStringContainsString('payment_provider_specific_webhook: EXTERNAL_PROVIDER_BOUNDARY', $spec);
         self::assertStringContainsString('target_infrastructure_restore_drill', $spec);
         self::assertStringContainsString('ProductionPreflightCommand::class', $bootstrap);
+        self::assertStringContainsString('operational_alerting_enabled', $spec);
+        self::assertStringContainsString('operational_alert_endpoint_https', $spec);
+        self::assertStringContainsString('operational_alert_secret_present', $spec);
         self::assertStringContainsString('operations:production:preflight', $command);
         self::assertStringNotContainsString('secret_value', $command);
     }

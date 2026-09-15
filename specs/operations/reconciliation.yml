@@ -65,6 +65,9 @@ repair_boundary:
 production_boundary:
   repository_proves_scanner_and_schedule_contract: true
   repository_proves_real_scheduler_is_running: false
+  repository_proves_alert_route_substrate: true
+  reconciliation_findings_emit_provider_neutral_operational_alert: true
+  alert_payload_contains_aggregate_findings_only: true
   repository_proves_alert_reaches_operator: false
   provider_specific_remote_truth_adapter_is_claimed: false
   production_scheduler_and_alert_smoke_test_required: true
