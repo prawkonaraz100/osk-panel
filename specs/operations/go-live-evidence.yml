@@ -2,7 +2,7 @@ meta:
   id: production_go_live_evidence_v1
   gate: PROD-GO-LIVE-EVIDENCE-001
   status: PASS
-  policy_version: 2026-09-15-v1
+  policy_version: 2026-09-15-v2
   follows:
     - PROD-READINESS-RUNTIME-001
     - PROD-RETENTION-EXECUTOR-001
@@ -43,6 +43,15 @@ restore_acceptance:
   isolated_restore_required: true
   critical_integrity_assertions_required: true
   redis_empty_recovery_required: true
+
+reconciliation_scheduler_and_alert_smoke:
+  real_scheduler_execution_required: true
+  reconciliation_alert_smoke_reached_operator_required: true
+  real_business_finding_required_for_pre_go_live_smoke: false
+  production_business_state_mutation_for_smoke: forbidden
+  exact_event_code_exercised: reconciliation_findings
+  synthetic_marker_required: true
+  synthetic_marker_key: synthetic_smoke
 
 release_smoke:
   exact_release_binding_required: true
