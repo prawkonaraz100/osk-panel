@@ -2554,6 +2554,8 @@ fieldset legend {
   margin-top: 18px;
   display: flex;
   justify-content: center;
+  gap: 16px;
+  flex-wrap: wrap;
   font-size: 12px;
   font-weight: 620;
 }
