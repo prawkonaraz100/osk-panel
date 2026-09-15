@@ -71,6 +71,8 @@ Accepted Implementation CI #738 / run `35015499860`: **6/6 PASS**.
 - GitHub artifact ZIP SHA-256:
   `5aaa069688c25d4b500852bf42fc3589fe606d106c8c4835a6f1132908b2861f`.
 
+This closure-only synchronization changes documentation/status evidence only and does not change runtime behavior, API bindings or database schema.
+
 ## Remaining sequence
 
 1. Internal Exam Purchase UI,
