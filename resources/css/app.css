@@ -2383,6 +2383,10 @@ fieldset legend {
   gap: 18px;
 }
 
+.auth-shell-wide {
+  width: min(620px, 100%);
+}
+
 .auth-brand {
   justify-self: center;
   display: inline-flex;
@@ -2446,6 +2450,8 @@ fieldset legend {
 }
 
 .auth-form input[type="text"],
+.auth-form input[type="email"],
+.auth-form input[type="tel"],
 .auth-form input[type="password"] {
   width: 100%;
   min-height: 44px;
@@ -2458,6 +2464,8 @@ fieldset legend {
 }
 
 .auth-form input[type="text"]:focus,
+.auth-form input[type="email"]:focus,
+.auth-form input[type="tel"]:focus,
 .auth-form input[type="password"]:focus {
   border-color: #bc9731;
   box-shadow: 0 0 0 3px rgba(239, 197, 79, 0.18);
@@ -2470,6 +2478,65 @@ fieldset legend {
   color: var(--muted);
   cursor: pointer;
   font-size: 12px;
+}
+
+.auth-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.auth-form-grid > label,
+.auth-details-fields > label {
+  display: grid;
+  gap: 7px;
+  color: #484642;
+  font-size: 13px;
+  font-weight: 620;
+}
+
+.auth-optional {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.auth-details {
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.auth-details summary {
+  color: #484642;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.auth-details-fields {
+  padding-top: 14px;
+  display: grid;
+  gap: 12px;
+}
+
+.auth-legal-state {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.auth-terms-check {
+  align-items: flex-start;
+}
+
+.auth-terms-check a {
+  text-decoration: underline;
+}
+
+.auth-alert.notice {
+  color: #68571f;
+  border-color: #e5cf8c;
+  background: #fffaf0;
 }
 
 .auth-check input {
@@ -2530,6 +2597,10 @@ fieldset legend {
 
   .auth-card {
     padding: 24px 20px;
+  }
+
+  .auth-form-grid {
+    grid-template-columns: 1fr;
   }
 }
 
