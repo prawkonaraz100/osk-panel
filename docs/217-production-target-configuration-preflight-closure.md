@@ -3,7 +3,7 @@
 Data: 2026-09-15
 
 **Gate:** `PROD-TARGET-CONFIG-PREFLIGHT-001`  
-**Status:** `PASS_REPOSITORY_CONFIG_GUARD`
+**Status:** `PASS_ACCEPTED`
 
 ## Exact validated candidate
 
@@ -93,3 +93,51 @@ Only then may the verified tree be fast-forwarded to
 
 Accepted-branch push must then pass the five base jobs plus
 `release-artifact`.
+
+
+## Accepted promotion
+
+The verified tree was fast-forwarded without force to:
+
+`docs-consolidation-2026-09-05`
+
+Accepted implementation head:
+
+`3663fe17e26f75507311fb4b174ac445ad900ad3`
+
+Accepted Implementation CI:
+
+`34938161469`
+
+Result:
+
+- backend-quality — PASS,
+- frontend-quality — PASS,
+- contracts-and-traceability — PASS,
+- secret-scan — PASS,
+- runtime-tests-and-migrations — PASS,
+- release-artifact — PASS.
+
+Accepted runtime proof:
+
+- **359 tests passed**,
+- **6121 assertions**,
+- restore **122 -> 122 tables**,
+- fingerprint `f3cab286cc8f0aabef219971d90afe424a8dab694c47ade2f517a3d95970716d`,
+- `RESTORE_DRILL_HARNESS=PASS`,
+- `production_target_evidence=false`.
+
+Immutable release artifact:
+
+`osk-panel-3663fe17e26f75507311fb4b174ac445ad900ad3`
+
+Artifact SHA-256:
+
+`02173a6499650c0334ae936bf6052a5b68757d38dc3e33f42fff2ad0eb954c7d`
+
+GitHub artifact ID:
+
+`10384418409`
+
+The repository-owned portion of `PROD-TARGET-CONFIG-PREFLIGHT-001` is accepted.
+Go-live remains blocked by the explicitly external evidence set.
